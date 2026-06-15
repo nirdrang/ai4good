@@ -30,3 +30,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ai4good local tooling (not app code)
+.claude/
+.codex_rate.html
+_task_dump.txt
+.taskmaster/state.json
