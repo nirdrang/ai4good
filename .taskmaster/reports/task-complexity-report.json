@@ -1,0 +1,565 @@
+{
+	"meta": {
+		"generatedAt": "2026-06-14T15:21:17.633Z",
+		"tasksAnalyzed": 69,
+		"totalTasks": 69,
+		"analysisCount": 69,
+		"thresholdScore": 5,
+		"projectName": "Task Master",
+		"usedResearch": false
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Initialize Next.js 14 Project with App Router",
+			"complexityScore": 3,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break down into: 1) Create Next.js 14 project with TypeScript/Tailwind/ESLint, 2) Install and configure shadcn/ui with WCAG 2.1 AA color palette, 3) Set up folder structure (app/components/lib/hooks/types), 4) Install dependencies (@tanstack/react-query, zod, drizzle-orm, supabase clients) and configure Edge runtime",
+			"reasoning": "Greenfield project setup with well-documented steps. Uses standard npx commands and established tooling. Low complexity as it's mostly configuration. Four logical sub-steps: project creation, UI library setup, folder structure, and dependencies."
+		},
+		{
+			"taskId": 43,
+			"taskTitle": "Project Blockers — table, raise/resolve, aging indicators",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break down into: 1) Create project_blockers schema with RLS + unique partial index, 2) Build 'Raise a flag' modal UI with blocker type selection, 3) Implement Resolve form with required note, 4) Create fuel-poller + Lovable auto-raise hooks integration, 5) Build project-page badge/panel + marketplace/dashboard indicators + NGO Action needed rail",
+			"reasoning": "Medium-high complexity due to multiple UI components, database schema with RLS, and integration with notify() system (#35). Depends on Task 35 (notification system) and Task 75 (design system). The aging detection is handled by #41 so this task focuses on CRUD operations and indicators."
+		},
+		{
+			"taskId": 34,
+			"taskTitle": "Project Comment Thread (task_comments project-level) + re-homed Actionable-Message Primitive",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break down into: 1) Extend task_comments schema with project_id and nullable task_id + indexes, 2) Build project-page comment-stream UI with load-on-open + composer, 3) Implement RLS for implicit membership (NGO admins + assigned volunteer + platform_admin), 4) Implement notify('project_comment') integration + read-only post-handoff mode",
+			"reasoning": "Medium complexity - simpler than originally scoped (decision-15 dropped Realtime/channels/markdown). Schema extension is straightforward. UI is a plain comment list with no real-time requirements. Dependencies on Task 27 (outbox) and Task 75 (design system) are reasonable."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Create Project Schema and Draft/Intake Form",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break down into: 1) Create comprehensive projects table with all 30+ columns and indexes, 2) Define status enum with all 10 states per decision-17, 3) Build intake form UI at /ngo/projects/new with required fields, 4) Implement debounced autosave (5-second) via server action, 5) Add cause-tags multi-select component, 6) Write tests for draft creation and autosave",
+			"reasoning": "High complexity due to large schema (30+ columns, multiple enums, indexes), status state machine (10 states), and autosave functionality. Forms require react-hook-form + zod validation. Depends on Task 5 (NGO profile) and Task 75 (design system)."
+		},
+		{
+			"taskId": 73,
+			"taskTitle": "Build Project Need Attachments (R2 + Discovery multimodal + Skill download)",
+			"complexityScore": 8,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break down into: 1) Create project_files table with RLS gated on visibility, 2) Configure Cloudflare R2 bucket with key structure and edge function for signed URLs, 3) Build upload UI with drag-drop + data-responsibility disclosure + Tier-2 hard gate, 4) Implement file type/size validation (25MB/file, 200MB/project), 5) Integrate with Discovery Agent for multimodal ingestion + credit accounting, 6) Build reference-files section on project page with visibility-gated download, 7) Implement Skill /ai4good:files command for .ai4good/reference/ download",
+			"reasoning": "High complexity with multiple integration points: Cloudflare R2, signed URLs, Discovery Agent multimodal, Skill download. Security considerations (membership checks, Tier-2 gates). Depends on Tasks 9, 10, 75. Multi-system coordination is challenging."
+		},
+		{
+			"taskId": 23,
+			"taskTitle": "Build Project Page — PM Tree, Activity Feed, Cadence (read-only)",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break down into: 1) Build 'Now working on' strip showing in_progress tasks, 2) Create collapsible hierarchical task tree component with status badges, 3) Implement activity feed from audit_events with commit translation, 4) Build cadence-stats panel with commits/week and health badge, 5) Configure Supabase Realtime subscription on project_tasks, 6) Implement RLS visibility (public_mit public / private restricted)",
+			"reasoning": "High complexity due to multiple interconnected UI components, Supabase Realtime integration, hierarchical data display, and RLS requirements. Pure read-only view but requires real-time updates. Depends on Tasks 19, 21, 75."
+		},
+		{
+			"taskId": 19,
+			"taskTitle": "PM-tree Projection Worker (git → Postgres)",
+			"complexityScore": 9,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down into: 1) Create project_tasks projection schema + RLS policies, 2) Build GitHub push webhook handler at /api/webhooks/github with HMAC verification, 3) Implement ingestPush() core logic for tasks.json diff and upsert, 4) Add commit message parsing for task-N references and Closes semantics, 5) Compute cadence stats (commits/week, sparkline, last-activity), 6) Write audit_events row per ingest with git_commit_sha, 7) Build HEAD-SHA reconciliation cron for missed webhooks, 8) Integrate task_status_changed notifications via #35 notify()",
+			"reasoning": "Very high complexity - this is a core system component. Single writer invariant requires careful design. HMAC verification, webhook handling, commit parsing, cadence computation, cron reconciliation. Critical dependency for multiple downstream tasks (23, 26). Folds in former task #46."
+		},
+		{
+			"taskId": 15,
+			"taskTitle": "Build Marketplace Listing with Skill/Cause Badges",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break down into: 1) Create /marketplace public route with projects query (status='open'), 2) Build project cards with title, summary, complexity, stack, cause tags, NGO badge, 3) Implement skill/cause overlap computation for logged-in volunteers, 4) Build filter UI (skill match, cause, complexity, Lovable, public/private), 5) Implement infinite scroll pagination",
+			"reasoning": "Medium-high complexity. Public-facing page with filtering, badge computation, and infinite scroll. Depends on Tasks 6 (volunteer profile), 12 (triage), and 75 (design system). Straightforward query + UI work but multiple filter states add complexity."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Create NGO Organization Profile and Verification Document Upload",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break down into: 1) Build NGO profile form at /ngo/profile with react-hook-form + zod, 2) Create verification_documents table with review fields, 3) Configure Supabase Storage private bucket with signed URL access, 4) Implement file upload with size/type validation (10MB PDF), 5) Build document submission flow that updates verification_state to 'pending'",
+			"reasoning": "Medium-high complexity. Form with validation, file upload to private storage, signed URLs, state machine integration. Depends on Tasks 4 (RLS) and 75 (design system). Supabase Storage integration adds some complexity."
+		},
+		{
+			"taskId": 56,
+			"taskTitle": "Create Public Beta Launch Checklist",
+			"complexityScore": 4,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break down into: 1) Create status page integration (Upptime or similar), 2) Configure support email with auto-response, 3) Build monitoring readiness dashboard, 4) Document rank-6 reinstatement gate checklist (#40/47/51/52/53/57/58)",
+			"reasoning": "Lower complexity - mostly documentation and configuration. Status page is likely a third-party integration. The rank-6 gate is documentation, not code. Depends on Task 38 (observability) and Task 71 (USER-TEST-11)."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Set Up Supabase Project and Base Schema",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on set up supabase project and base schema.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Implement Supabase Auth Integration",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement supabase auth integration.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Implement Row-Level Security Policies",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement row-level security policies.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Build Volunteer Profile with GitHub OAuth Import",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build volunteer profile with github oauth import.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Build Platform Admin Verification Queue",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build platform admin verification queue.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Configure Observability Stack (Sentry + Logging)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on configure observability stack (sentry + logging).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Build Discovery Agent Conversation Engine",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build discovery agent conversation engine.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 11,
+			"taskTitle": "Build Scope Document Editor UI",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build scope document editor ui.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 12,
+			"taskTitle": "Implement Platform Triage Gate",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement platform triage gate.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 13,
+			"taskTitle": "Integrate Stripe Checkout for Fuel Top-Up",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on integrate stripe checkout for fuel top-up.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 14,
+			"taskTitle": "Build Fuel Ledger Schema and Webhook Handler",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build fuel ledger schema and webhook handler.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 16,
+			"taskTitle": "Implement Volunteer Apply and NGO Accept/Decline Flow",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement volunteer apply and ngo accept/decline flow.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 17,
+			"taskTitle": "Register GitHub App and Implement Repo Creation",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on register github app and implement repo creation.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 18,
+			"taskTitle": "Bootstrap PM Tree as a Server-Side Git Commit",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on bootstrap pm tree as a server-side git commit.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 20,
+			"taskTitle": "Provision Anthropic Workspaces + UsageMeteringProvider (write side)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on provision anthropic workspaces + usagemeteringprovider (write side).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 21,
+			"taskTitle": "Anthropic Usage Poller + Ledger + Fuel-Threshold Policy (read side)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on anthropic usage poller + ledger + fuel-threshold policy (read side).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 24,
+			"taskTitle": "Implement Lovable Track-A Setup Flow",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement lovable track-a setup flow.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 25,
+			"taskTitle": "Build Handoff Checklist and Sign-Off Flow",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build handoff checklist and sign-off flow.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 26,
+			"taskTitle": "Build ai4good Claude Code Skill Package",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build ai4good claude code skill package.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 27,
+			"taskTitle": "Transactional Outbox — worker + idempotent step-handler registry",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on transactional outbox — worker + idempotent step-handler registry.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 28,
+			"taskTitle": "Build Ledger Control-Total Verification Job",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build ledger control-total verification job.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 29,
+			"taskTitle": "Continuous Base-Permission Invariant (detect + enqueue remediate)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on continuous base-permission invariant (detect + enqueue remediate).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 30,
+			"taskTitle": "Add Deploy-to-Running Step to Handoff",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on add deploy-to-running step to handoff.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 31,
+			"taskTitle": "Implement Tier-2 Data Sensitivity Enforcement",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement tier-2 data sensitivity enforcement.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 32,
+			"taskTitle": "Build NGO Dashboard v1 Minimal",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build ngo dashboard v1 minimal.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 33,
+			"taskTitle": "Build Volunteer Dashboard v1 Minimal",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build volunteer dashboard v1 minimal.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 35,
+			"taskTitle": "notify() Emitter + Event→Comms Map (single comms writer)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on notify() emitter + event→comms map (single comms writer).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 36,
+			"taskTitle": "Implement Volunteer Shipped First Tool Badge",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement volunteer shipped first tool badge.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 37,
+			"taskTitle": "Create Audit Log Viewer for Admin",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on create audit log viewer for admin.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 38,
+			"taskTitle": "Build Observability Dashboard and Alerting",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build observability dashboard and alerting.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 39,
+			"taskTitle": "Build Ops Console and Money Correction Tooling",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build ops console and money correction tooling.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 40,
+			"taskTitle": "Content Safety — secret-scanning + push-protection (v1)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on content safety — secret-scanning + push-protection (v1).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 41,
+			"taskTitle": "Abandonment/Rematch Saga + Merged Hourly Aging Scan",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on abandonment/rematch saga + merged hourly aging scan.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 42,
+			"taskTitle": "Implement Discovery Credits (context-weighted, DAILY drip) + Unified Fuel",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement discovery credits (context-weighted, daily drip) + unified fuel.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 44,
+			"taskTitle": "Change Requests v1 — request/accept/decline (git-routed)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on change requests v1 — request/accept/decline (git-routed).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 48,
+			"taskTitle": "Implement Test Coverage and CI Pipeline",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on implement test coverage and ci pipeline.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 49,
+			"taskTitle": "Build E2E Test Suite with Playwright",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build e2e test suite with playwright.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 50,
+			"taskTitle": "Perform Security Audit and RLS Review",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on perform security audit and rls review.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 51,
+			"taskTitle": "Stripe Tax — automatic_tax + hosted invoices (v1)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on stripe tax — automatic_tax + hosted invoices (v1).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 52,
+			"taskTitle": "GDPR — consent + manual erasure runbook (v1)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on gdpr — consent + manual erasure runbook (v1).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 53,
+			"taskTitle": "Performance — next/image + ISR + Supabase pooler (v1)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on performance — next/image + isr + supabase pooler (v1).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 54,
+			"taskTitle": "Create Onboarding Emails and Help Center",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on create onboarding emails and help center.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 55,
+			"taskTitle": "Build Public Landing Page",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build public landing page.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 59,
+			"taskTitle": "Write v1.5 AI Proxy Specification Document",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on write v1.5 ai proxy specification document.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 60,
+			"taskTitle": "Document v1.5 Deferred Features and Prioritization",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on document v1.5 deferred features and prioritization.",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 61,
+			"taskTitle": "USER-TEST-1: User Validation Checkpoint 1 (Tasks 1-5)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-1: user validation checkpoint 1 (tasks 1-5).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 62,
+			"taskTitle": "USER-TEST-2: User Validation Checkpoint 2 (Tasks 6-10)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-2: user validation checkpoint 2 (tasks 6-10).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 63,
+			"taskTitle": "USER-TEST-3: User Validation Checkpoint 3 (Tasks 11-15)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-3: user validation checkpoint 3 (tasks 11-15).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 64,
+			"taskTitle": "USER-TEST-4: User Validation Checkpoint 4 (Tasks 16-20)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-4: user validation checkpoint 4 (tasks 16-20).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 65,
+			"taskTitle": "USER-TEST-5: User Validation Checkpoint 5 (Tasks 21-25)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-5: user validation checkpoint 5 (tasks 21-25).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 66,
+			"taskTitle": "USER-TEST-6: User Validation Checkpoint 6 (Tasks 26-30)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-6: user validation checkpoint 6 (tasks 26-30).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 67,
+			"taskTitle": "USER-TEST-7: User Validation Checkpoint 7 (Tasks 31-35)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-7: user validation checkpoint 7 (tasks 31-35).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 68,
+			"taskTitle": "USER-TEST-8: User Validation Checkpoint 8 (Tasks 36-40)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-8: user validation checkpoint 8 (tasks 36-40).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 69,
+			"taskTitle": "USER-TEST-9: User Validation Checkpoint 9 (Tasks 41-45)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-9: user validation checkpoint 9 (tasks 41-45).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 70,
+			"taskTitle": "USER-TEST-10: User Validation Checkpoint 10 (Tasks 46-50)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-10: user validation checkpoint 10 (tasks 46-50).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 71,
+			"taskTitle": "USER-TEST-11: User Validation Checkpoint 11 (Tasks 51-55)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-11: user validation checkpoint 11 (tasks 51-55).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 72,
+			"taskTitle": "USER-TEST-12: User Validation Checkpoint 12 (Tasks 56-60)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on user-test-12: user validation checkpoint 12 (tasks 56-60).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 74,
+			"taskTitle": "Build Post-Discovery NGO Project Assistant (funded, fuel-metered)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on build post-discovery ngo project assistant (funded, fuel-metered).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		},
+		{
+			"taskId": 75,
+			"taskTitle": "Design System + Global App Shell (design/ Batch 0)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down this task with a focus on design system + global app shell (design/ batch 0).",
+			"reasoning": "Automatically added due to missing analysis in AI response."
+		}
+	]
+}

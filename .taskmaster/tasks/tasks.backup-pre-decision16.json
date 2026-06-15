@@ -1,0 +1,912 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Initialize Next.js 14 Project with App Router",
+        "description": "Set up the foundational Next.js 14 project with App Router, TypeScript, Tailwind CSS, and shadcn/ui component library. Configure the project structure for a marketplace application with proper folder organization.",
+        "details": "Create Next.js 14 project using `npx create-next-app@latest ai4good --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\"`. Install shadcn/ui with `npx shadcn@latest init`. Configure Tailwind with custom color palette for accessibility (WCAG 2.1 AA compliant). Set up folder structure: `src/app` for routes, `src/components` for UI, `src/lib` for utilities, `src/hooks` for custom hooks, `src/types` for TypeScript interfaces. Install dependencies: `@tanstack/react-query`, `zod`, `drizzle-orm`, `@supabase/supabase-js`, `@supabase/auth-helpers-nextjs`. Configure Next.js for Edge runtime on marketplace routes.",
+        "testStrategy": "Verify project builds without errors. Run `npm run dev` and confirm hot reload works. Verify Tailwind styles apply correctly. Test shadcn/ui Button component renders properly.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Set Up Supabase Project and Base Schema",
+        "description": "Create Supabase project and implement the foundational database schema including profiles, ngos, ngo_memberships tables with proper constraints and indexes as specified in REQ-001/REQ-002.",
+        "details": "Create Supabase project via dashboard. Set up local development with `npx supabase init` and `npx supabase start`. Create migration for base schema: `profiles` table (id UUID PK, full_name, github_handle, user_type enum, account_status with CHECK constraint, email_verified_at, created_at), `ngos` table (verification_state enum matching v1 state machine: unverified/pending/verified/rejected, discovery_credits_remaining INTEGER NOT NULL DEFAULT 10 CHECK (discovery_credits_remaining >= 0), discovery_credits_last_reset_at TIMESTAMPTZ NOT NULL DEFAULT NOW() [daily-drip free Discovery credits — decision-11; replaces the old _cents pool]), `ngo_memberships` junction table with role enum (admin/member). Add trigger to sync `email_verified_at` from `auth.users.email_confirmed_at`. Create indexes on foreign keys. Use BIGINT for all monetary amounts (micro-cents precision per REQ-006).",
+        "testStrategy": "Run migrations locally. Verify tables exist with correct constraints via Supabase Studio. Test foreign key relationships. Verify CHECK constraints reject invalid values.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement Supabase Auth Integration",
+        "description": "Set up Supabase Auth with email/password, GitHub OAuth, and Google OAuth providers. Implement authentication flows and session management using @supabase/auth-helpers-nextjs.",
+        "details": "Configure Supabase Auth providers in dashboard: Email (with email verification enabled), GitHub OAuth (create GitHub OAuth App), Google OAuth (configure in Google Cloud Console). Create `src/lib/supabase/client.ts` for browser client and `src/lib/supabase/server.ts` for server components using `createServerClient`. Implement middleware.ts for session refresh. Create auth routes: `app/auth/callback/route.ts` for OAuth callbacks, `app/auth/confirm/route.ts` for email confirmation. Create auth hooks: `useUser()`, `useSession()`. Implement sign-up flow that creates profile record on `auth.users` insert. Set up email templates for verification.",
+        "testStrategy": "Test email/password signup and login. Verify email verification flow works. Test GitHub OAuth flow end-to-end. Verify session persists across page refreshes. Test logout functionality.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Implement Row-Level Security Policies",
+        "description": "Create comprehensive RLS policies for multi-tenant data isolation ensuring NGO data is only visible to its members and assigned volunteers as per REQ-001.",
+        "details": "Enable RLS on all tables (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY`). Create policies for `profiles`: users can read own profile, platform_admin can read all. For `ngos`: members can read their NGO, platform_admin full access. For `ngo_memberships`: members see their memberships. Create helper function `auth.uid()` wrapper. Create function `is_ngo_member(ngo_id)` and `is_platform_admin()` for policy reuse. Test that suspended accounts (`account_status = 'suspended'`) are blocked from writes. Create policy for future tables pattern: projects readable by NGO members + assigned volunteer. Document RLS policy patterns in comments.",
+        "testStrategy": "Red-team test: create two NGOs, verify user A cannot see NGO B data. Test platform_admin bypass works. Verify suspended users are blocked from mutations.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Create NGO Organization Profile and Verification Document Upload",
+        "description": "Build NGO organization profile management including creation, editing, and verification document upload to Supabase Storage private bucket per REQ-002.",
+        "details": "Create `app/(dashboard)/ngo/profile/page.tsx` with form fields: name (required), mission, website, logo (image upload), country. Use react-hook-form with zod validation. Create `verification_documents` table (id, ngo_id FK, kind enum registration_doc/reference_link, storage_path, reference_url, submitted_at, reviewed_by, reviewed_at, review_decision enum). Set up Supabase Storage private bucket `ngo-verification-docs` with signed URL access. Implement file upload with size limits (10MB max, PDF only). Create server action for document submission that updates `ngos.verification_state` to 'pending'. Add NGO invitation flow for teammates via ngo_memberships.",
+        "testStrategy": "Test profile creation and update. Verify file upload stores to private bucket. Confirm only signed URLs grant access. Test document submission triggers state change to 'pending'.",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Build Volunteer Profile with GitHub OAuth Import",
+        "description": "Create volunteer profile management including GitHub OAuth integration that auto-populates languages, repo count, and contribution data per REQ-007.",
+        "details": "Create `volunteer_profiles` table (profile_id PK/FK, skills TEXT[], cause_interests TEXT[], hours_per_week INT, bio, github_languages JSONB, ai4good_projects_org_added_at, first_apply_disclaimer_accepted_at, lovable_invite_email). Build `app/(dashboard)/volunteer/profile/page.tsx` with skill tag input (multi-select from predefined list), cause interests selector, hours/week slider 1-40, bio textarea. On GitHub OAuth link: call GitHub API `/users/:username` and `/users/:username/repos` to extract top languages and public repo count. Store in github_languages JSONB. Create 'Link GitHub' CTA if github_handle is null. Profile fields work without GitHub; GitHub link can be added later.",
+        "testStrategy": "Test profile creation without GitHub. Link GitHub account and verify stats populate. Test skill/cause selection persists. Verify profile updates work.",
+        "priority": "high",
+        "dependencies": [
+          4,
+          61
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Build Platform Admin Verification Queue",
+        "description": "Create admin interface for reviewing NGO verification submissions with document viewer, approve/reject/request-changes actions per REQ-002.",
+        "details": "Create `app/(admin)/verification-queue/page.tsx` restricted to platform_admin role. Query `ngos WHERE verification_state = 'pending'` joined with verification_documents. Build table view with columns: NGO name, submitted date, document links. Create document viewer modal using PDF.js or native browser PDF rendering with signed URL. Implement actions: Approve (sets verification_state='verified', verification_decided_at, verification_reviewer_id, auto-raises today's discovery_credits_remaining to GREATEST(current, 30) (verified daily grant per decision-11; idempotent, daily reset thereafter uses 30)), Reject (with reason text, sets state='rejected'), Request Changes (sets state back to 'scoped' with comments). Add audit_events logging for all decisions. Create SLA indicator showing time since submission (target <48h).",
+        "testStrategy": "Submit verification as NGO, verify appears in queue. Test approve/reject/request-changes flows. Verify audit trail recorded. Test PDF viewer renders documents.",
+        "priority": "medium",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Configure Observability Stack (Sentry + Logging)",
+        "description": "Set up Sentry error tracking, structured logging to Axiom/Logflare, and Vercel Analytics for performance monitoring per NFR Observability.",
+        "details": "Install `@sentry/nextjs` and run `npx @sentry/wizard@latest -i nextjs`. Configure Sentry DSN in environment variables. Set up source maps upload in sentry.config.js. Create `src/lib/logger.ts` with structured logging using pino that outputs JSON. Configure Axiom or Logflare integration via Next.js logging. Add Vercel Analytics script. Create custom error boundary components. Implement request ID propagation for tracing. Set up Sentry performance monitoring for key transactions. Configure alerts for error rate spikes >1%.",
+        "testStrategy": "Throw test error, verify appears in Sentry with source maps. Check logs appear in Axiom/Logflare. Verify Vercel Analytics collecting data. Test error boundary catches and reports errors.",
+        "priority": "medium",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Create Project Schema and Draft/Intake Form",
+        "description": "Build the projects table schema and project need creation form with autosave functionality per REQ-003.",
+        "details": "Create `projects` table with all columns per Technical Specification: id UUID PK, ngo_id FK, title, slug UNIQUE, status enum (all 11 states), matched_at, fuel_deadline_at, anthropic_* columns, triage_* columns, visibility enum, data_sensitivity enum, maintenance_track enum, lovable_* columns, intake_raw TEXT, scope_doc JSONB, suggested_stack JSONB, cause_tags TEXT[], assigned_volunteer_id FK, github_repo_url, deployment_url, created_at, updated_at, handed_off_at. Create indexes on status, ngo_id. Build `app/(dashboard)/ngo/projects/new/page.tsx` with form: title, problem description (markdown textarea), cause tags (multi-select), urgency (low/med/high radio). Implement autosave every 5 seconds using debounced server action. Set initial status='draft'.",
+        "testStrategy": "Create draft project, verify autosave triggers. Navigate away and back, confirm data persisted. Test cause tag selection. Verify status is 'draft' on creation.",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Build Discovery Agent Conversation Engine",
+        "description": "Implement the AI Discovery Agent using Anthropic Claude Opus API for structured scope extraction conversations per REQ-004.",
+        "details": "Create `src/lib/discovery/agent.ts` with Anthropic SDK client. Build system prompt for 'non-technical NGO → technical scope' extraction including: user story extraction, acceptance criteria generation, stack recommendation, complexity assessment (small/medium/large), data sensitivity classification (tier0/1/2), maintenance track classification (A/B). Create `discovery_conversations` table (id, project_id FK, messages JSONB[], agent_state JSONB, token_count_total INT, created_at, updated_at). Implement streaming responses via Server-Sent Events. Build chat UI at `app/(dashboard)/ngo/projects/[id]/discovery/page.tsx`. Enforce the daily-drip free Discovery credit allowance (decision-11): 10 credits/day unverified, 30/day verified, HARD-RESET at 00:00 UTC with NO rollover; per-turn context-weighted credit cost = ceil((uncached_input + 0.1*cached_input + output)/10000) decremented on ngos.discovery_credits_remaining; a FUNDED project routes turns to project fuel (discovery_consumption + 15% skim) instead of free credits (decision-11 \"Funded -> all-$\"). The daily allowance IS the rate limit — no separate 30-msg/day cap and no $5/session cap (both retired, decision-11). On conversation end, generate DiscoveryOutput JSON structure. [decision-13 2026-06-06: model = Claude Opus (not Sonnet) — Discovery is the highest-leverage reasoning step; cost bounded by short one-time Discoveries + the 10/30 daily credit cap; credit unit is token-based/model-agnostic so daily allowance unchanged.]",
+        "testStrategy": "Start discovery conversation, verify streaming works. Test rate limits fire correctly. Complete 5-10 turn conversation and verify structured output generated. Test token tracking accuracy.",
+        "priority": "high",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Build Scope Document Editor UI",
+        "description": "Create the scope document viewer and editor with markdown editing for summary, user stories, acceptance criteria per REQ-005.",
+        "details": "Create `app/(dashboard)/ngo/projects/[id]/scope/page.tsx`. Parse DiscoveryOutput from scope_doc JSONB. Build sections: Summary (markdown editor), User Stories (expandable cards with nested acceptance criteria), Suggested Stack (readonly chips), Complexity Tier (readonly badge), Data Sensitivity with handling guideline (readonly with explanation), Maintenance Track (readonly with explanation). Add visibility toggle (public_mit default, private with required justification textarea). Use @uiw/react-md-editor for markdown. Implement save functionality via server action. Show 'Publish' button that transitions to triage (requires verified NGO). Block publish for unverified with 'Upload verification doc to publish' CTA.",
+        "testStrategy": "Edit scope summary, verify saves correctly. Test visibility toggle requires justification for private. Verify unverified NGO cannot publish. Test publish transitions status to 'triage'.",
+        "priority": "high",
+        "dependencies": [
+          10,
+          62
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Implement Platform Triage Gate",
+        "description": "Build the compliance review system for projects between scope completion and marketplace publication per REQ-023.",
+        "details": "Add triage columns to projects: triage_submitted_at, triage_decided_at, triage_decision enum (approved/rejected/changes_requested), triage_reviewer_id FK, triage_comments TEXT. Create `app/(admin)/triage/page.tsx` with queue sorted by triage_submitted_at ASC. Display: project title, NGO name/verification badge, scope summary, complexity tier, Discovery risk_flags, data_sensitivity tier. Implement review actions: Approve (status → 'open', triage_decision='approved'), Reject (status → 'cancelled' with reason), Request Changes (status → 'scoped' with comments). Check private-repo justification legitimacy. Verify Tier-2 projects have fixtures-only build plan. Add aging indicator (highlight if >48h since submission). Add notifications for triage decisions.",
+        "testStrategy": "Submit project for triage, verify appears in queue. Test approve/reject/changes_requested flows. Verify status transitions correctly. Test aging indicator displays correctly.",
+        "priority": "high",
+        "dependencies": [
+          11
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Integrate Stripe Checkout for Fuel Top-Up",
+        "description": "Implement Stripe Checkout integration for one-time fuel purchases with proper idempotency and session creation per REQ-006.",
+        "details": "Install `stripe` package. Create `src/lib/stripe/client.ts` and configure with secret key from environment. Create Stripe products/prices for fuel presets: $50, $100, $200, $500, custom. Build `app/api/stripe/checkout/route.ts` POST handler that creates Checkout Session with: line_items, mode='payment', success_url, cancel_url, metadata (ngo_id, project_id). Add idempotency_key per checkout attempt. Create `app/(dashboard)/ngo/projects/[id]/fund/page.tsx` with funding form showing complexity context, fuel presets, first-fund cap enforcement ($200 for new funders), acknowledgment checkbox (Platform Promise clauses 3+4+7). Integrate Stripe Tax for EU/UK VAT. Add passive footer link to Platform Promise on all top-up pages.",
+        "testStrategy": "Complete test checkout with Stripe test mode. Verify idempotency key prevents duplicate charges. Test first-fund cap blocks amounts >$200 for new funders. Verify VAT applies for EU addresses.",
+        "priority": "high",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Build Fuel Ledger Schema and Webhook Handler",
+        "description": "Stripe Checkout webhook + micro-cent fuel ledger (single-row topup, Option γ). Rank-2 add: on a top-up that crosses above zero, enqueue key reactivation via the outbox.",
+        "details": "Stripe checkout.session.completed webhook → single topup fuel_transactions row (gross, no skim at topup). Idempotent reconciliation. Ledger 'kind' CHECK incl. discovery_consumption (decision-8). RANK-2: on a successful top-up that crosses the project balance above zero, ENQUEUE reactivate_anthropic_key via the outbox (#27) — idempotent with the poller's dual reactivation path (#21).",
+        "testStrategy": "Use Stripe CLI to send test webhook events. Verify topup creates correct ledger row. Test dispute webhook freezes NGO and creates paired rows. Verify signature validation rejects invalid webhooks.",
+        "priority": "high",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Build Marketplace Listing with Skill/Cause Badges",
+        "description": "Create the public marketplace page showing open projects with filtering and skill/cause overlap badges for logged-in volunteers per REQ-007/REQ-011.",
+        "details": "Create `app/marketplace/page.tsx` as a public route. Query `projects WHERE status = 'open'` with NGO info. Display cards with: title, summary, complexity tier badge, suggested stack chips, cause tags, NGO name + 'Verified' badge, posted date, 'Private' badge if visibility='private'. For logged-in volunteers: compute skill overlap (count of project.suggestedStack keys matching volunteer.skills) and cause overlap (any matching cause_interests). Display as 'Skills match: 3 of 5' badge. Build filters: skill match, cause, complexity tier, with/without Lovable, public/private. Sort by created_at DESC (newest first). Implement infinite scroll pagination.",
+        "testStrategy": "Verify only 'open' projects appear. Test filters narrow results correctly. Login as volunteer, verify skill/cause badges compute correctly. Test pagination loads more results.",
+        "priority": "high",
+        "dependencies": [
+          6,
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Implement Volunteer Apply and NGO Accept/Decline Flow",
+        "description": "Build the volunteer application system and NGO applicant review interface per REQ-007 Story 3.",
+        "details": "Create `project_applications` table per schema: id, project_id FK, volunteer_id FK, cover_note TEXT, status enum (pending/accepted/declined/withdrawn/expired/released), release_reason enum, created_at. Add partial unique index for one active application per (project, volunteer). Build 'Apply' button on marketplace cards that: checks github_handle exists (modal to link if not), checks first_apply_disclaimer_accepted_at (show disclaimer modal if not), creates application with cover note. On GitHub link, add volunteer to ai4good-projects org as Member. Create `app/(dashboard)/ngo/projects/[id]/applicants/page.tsx` showing pending applications with volunteer profile preview. Implement Accept (status='accepted', project status→'matched_pending_fuel', auto-decline other pending apps) and Decline (status='declined'). Add notifications.",
+        "testStrategy": "Apply to project without GitHub, verify modal appears. Accept disclaimer, verify application created. Test NGO accept flow transitions project status. Verify declined applicants notified.",
+        "priority": "high",
+        "dependencies": [
+          15,
+          63
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Register GitHub App and Implement Repo Creation",
+        "description": "GitHub App install + per-project repo creation under ai4good-projects. Decision-9 housekeeping in CLAUDE.md seeding + KEEP the org-wide webhook subscription that feeds the #19 projection worker.",
+        "details": "Install the ai4good GitHub App org-wide on ai4good-projects (one-time). On funding, create ai4good-projects/<slug> via the App; volunteer as maintain-role, NGO admin as triage-role; visibility per projects.visibility. DECISION-9 housekeeping: in CLAUDE.md seeding REMOVE the mcp.ai4good.dev/projects/<id> URL and the AI4GOOD_PROJECT_TOKEN-as-task-write-token language (config becomes non-secret .ai4good/config.json {project_id, ai4good_api_base}, no mcp_server_url). KEEP: commit-prefix convention text, README/LICENSE seeding, and the org-wide push + pull_request webhook subscription — that subscription is the delivery channel for the #19 projection worker.",
+        "testStrategy": "Create test repo via API, verify permissions correct. Add collaborators, verify roles assigned. Test CLAUDE.md template includes correct MCP URL. Verify README template renders project info.",
+        "priority": "high",
+        "dependencies": [
+          16
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Bootstrap PM Tree as a Server-Side Git Commit",
+        "description": "Decision-9 — on project in_progress, generate the initial tasks.json from the scope doc and COMMIT it to the project repo via the GitHub App. Projection rows arrive through #19's webhook (the bootstrap commit IS a push). No direct project_tasks INSERT.",
+        "details": "On the in_progress transition, read scope_doc.userStories[] + acceptanceCriteria[]; generate a TaskMaster-shaped .taskmaster/tasks/tasks.json (one story task + acceptance-criterion sub-tasks; source='discovery'; priority p0; status not_started); commit it as the first commit on main of ai4good-projects/<slug> via the GitHub App authoring as ai4good-bot[bot]. Idempotent: no-op if any source='discovery' rows already exist in the projection. project_tasks schema ownership lives in #19 (the writer), NOT here — this task writes git only.",
+        "testStrategy": "Trigger in_progress; assert tasks.json appears as the first main commit, bot-authored, one task per user story. Re-trigger; assert no duplicate commit.",
+        "priority": "high",
+        "dependencies": [
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "PM-tree Projection Worker (git → Postgres)",
+        "description": "Decision-9 reconciliation — replaces the dropped platform task-MCP server. The SINGLE writer of the project_tasks read-model projection. A GitHub push webhook AND a HEAD-SHA reconciliation cron both call one exported ingestPush(payload), so project_tasks has exactly one writer (no optimistic locking, no two-writer conflicts). Folds in former task #46.",
+        "details": "Build app/api/webhooks/github/route.ts for push events on ai4good-projects/*. Verify HMAC once; de-dup on delivery_id. In ONE ingestPush(payload) pass: (a) if .taskmaster/tasks/tasks.json changed, fetch post-push file via GitHub App, diff vs projection, upsert project_tasks; (b) parse every commit message for task-N / 'Closes task-X.Y', append SHA to external_commit_refs[], apply first-commit→in_progress and Closes→done; (c) compute cadence stats (commits this/last week + delta, last-activity, 12-week sparkline) for REQ-010:1099-1106; (d) write one audit_events row per ingest (actor_source='git_push', git_commit_sha, delivery_id); (e) emit task_status_changed/task_completed/task_comment notifications post-upsert via #35 notify(). Owns the project_tasks projection schema + RLS (public_mit open / private restricted), task_comments, project_blockers.task_id. Add a low-frequency HEAD-SHA reconciliation cron (pg_cron/Vercel Cron) that ALSO calls ingestPush to catch missed webhooks. project_tasks is a DERIVED read model — no other code path writes it.",
+        "testStrategy": "Push a tasks.json change to a test repo; assert project_tasks upserts within ~30s, external_commit_refs gets the SHA, and the first commit flips status→in_progress. Replay the same delivery_id; assert no-op. Kill the webhook, push, run the cron; assert reconciliation catches up. Git remains canonical at all times.",
+        "priority": "high",
+        "dependencies": [
+          17,
+          18
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Provision Anthropic Workspaces + UsageMeteringProvider (write side)",
+        "description": "Rank-2 split — the WRITE side of the meter trio. Owns the UsageMeteringProvider port + write methods (key create/deactivate/reactivate) + per-project workspace creation + the manual key-bootstrap ops queue, against ONE hard-coded org. The multi-org router is deferred to v1.5 behind this same port.",
+        "details": "Implement the UsageMeteringProvider port (anti-corruption seam) with write methods: createWorkspace, createKey, deactivateKey, reactivateKey — all against a single hard-coded Anthropic org. Per-project workspace provisioning + the twice-daily manual key-creation ops_task queue (Anthropic restricts key creation to Console). Consumers of this port: #21 (read/policy, deactivate-at-zero) and #14 (reactivation on top-up). DEFER to v1.5 behind the unchanged port: multi-org router, least-full org selection, per-org merge (PRD gates these to ~80 active workspaces, ~7× the pilot).",
+        "testStrategy": "Fund project, verify workspace created via Anthropic dashboard. Verify ops_task appears in queue. Complete task, verify key status updates. Test SLA indicator shows correctly.",
+        "priority": "high",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 21,
+        "title": "Anthropic Usage Poller + Ledger + Fuel-Threshold Policy (read side)",
+        "description": "Rank-2 split — the READ/policy side. Owns the idempotent cursored usage poller, micro-cent ledger writes, the balance VIEW, and the fuel-threshold blockers. Calls the #20 port to deactivate the key at zero. Folds in former task #22.",
+        "details": "Cursored idempotent usage poller (usage_poll_state cursor + per-consumption-bucket unique index + job_runs heartbeat) behind the UsageMeteringProvider read seam. Convert via local rate-card to micro-cent ledger consumption rows. Expose balance as a derived SQL VIEW read by #23 via RLS. Fuel-low thresholds 20%/5%/0% (blockers from REQ-024). At 0%, ENQUEUE deactivate_anthropic_key via the outbox (#27) calling the #20 port; reactivation enqueues the inverse. Folds in former task #22 (fuel-low alerts + key deactivation).",
+        "testStrategy": "Make test API calls, wait for poll. Verify consumption rows created with correct micro-cent amounts. Verify duplicate polls don't create duplicate rows. Test rate card conversion accuracy.",
+        "priority": "high",
+        "dependencies": [
+          20,
+          64
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 23,
+        "title": "Build Project Page — PM Tree, Activity Feed, Cadence (read-only)",
+        "description": "Decision-9 — a PURE reader of the project_tasks projection. No UI-side task-write path (local TaskMaster + git is the only writer). Renders 'Now working on', the task tree, the activity feed, and the cadence panel.",
+        "details": "'Now working on' strip (in_progress tasks + parent + last-commit time); collapsible hierarchical task tree with status badges + child progress; activity feed from audit_events (commit-translated, plain language, REQ-010:1094); cadence-stats panel (REQ-010:1099-1106). All SELECT from project_tasks / task_comments / project_blockers via Supabase RLS (public_mit public / private restricted). Subscribe to Supabase Realtime on project_tasks row changes for live updates. NGO can append task_comments + raise blockers (REST); cannot edit task content/status.",
+        "testStrategy": "Push a task status change; assert the page updates live via Realtime within seconds. Assert a logged-out viewer sees a private project's count-only placeholder. Assert no task-edit control exists in the UI.",
+        "priority": "high",
+        "dependencies": [
+          19,
+          21
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 24,
+        "title": "Implement Lovable Track-A Setup Flow",
+        "description": "Build the volunteer-driven Lovable workspace setup with 11-step checklist and blocker resolution per REQ-021.",
+        "details": "Add lovable_* columns to projects per schema. On kickoff when lovable_recommended=true: show volunteer banner 'Discovery recommended Lovable. Use it?' with Yes/No. No: set lovable_skipped_at, create Claude-Code repo. Yes: create 'lovable_setup_pending' blocker (severity='blocking'). Build checklist UI showing 11 steps with actor labels (NGO 1-4, Volunteer 5-9, ai4good 10-11). Create Lovable Setup page at `/projects/[id]/lovable-setup` with: scope summary copy button, MCP server URL copy, workspace token reveal (show-once, hash-only storage). Volunteer paste-back form for lovable_workspace_url, lovable_project_id, github_repo_url. Validation step 10: verify repo owner is ai4good-projects, visibility matches, check project_api_tokens.last_seen_at updated. On success: resolve blocker, set lovable_enabled=true. 14-day nightly job auto-skips undecided.",
+        "testStrategy": "Choose 'Yes' for Lovable, verify blocker created. Complete NGO steps, volunteer steps. Verify validation catches incorrect repo owner. Complete successfully, verify blocker resolved.",
+        "priority": "high",
+        "dependencies": [
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 25,
+        "title": "Build Handoff Checklist and Sign-Off Flow",
+        "description": "Create the automated handoff checklist and NGO sign-off interface per REQ-012.",
+        "details": "Create 'Ready for Handoff' button for volunteer, visible when all P0 tasks are done. Preconditions: github_repo_url IS NOT NULL, deployment_url IS NOT NULL. Run automated checks: README present, RUNBOOK.md present, deploy instructions present, at least one passing CI run, LICENSE file present (for public). Show checklist results to volunteer. On submit: status → 'handoff_pending', notify NGO. Build NGO review page showing: repo URL, deployment URL, checklist results. Implement Accept (status → 'handed_off', credit_release leftover fuel to general balance, award completion credit, schedule 30-day-alive check) and Reject with comments (back to in_progress, cap at 3 rejections before platform review). Update volunteer_profiles completion count. No tips modal in v1.",
+        "testStrategy": "Complete all P0 tasks, verify 'Ready for Handoff' enabled. Run handoff with missing README, verify fails. Complete successfully, verify NGO sees review. Accept, verify fuel released and badge awarded.",
+        "priority": "high",
+        "dependencies": [
+          23
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 26,
+        "title": "Build ai4good Claude Code Skill Package",
+        "description": "Decision-9 — the Skill drives LOCAL task-master (no platform task-MCP) and auto-commits + pushes .taskmaster/tasks/tasks.json after every mutation (the load-bearing hook). Talks to ai4good REST for NGO-side context (blockers/fuel/comments).",
+        "details": "PRIMARY v1 deliverable: the tasks.json auto-commit+push hook (REQ-028) — after every local task-master mutation, git add/commit ('task-<X>: <op>')/push, with offline queue + retry + a stale-push warning. Session bootstrap calls REST GET /api/projects/:id/context (no MCP server to register). Slash commands: /ai4good:next-task (local task-master), /ai4good:fuel + /ai4good:blockers + /ai4good:raise-blocker (REST), /ai4good:handoff-check (local + 'all pushed' check), /ai4good:disable|enable. Code-commit-prefix hook (task-X.Y:) is SEPARATE from the tasks.json auto-commit. .ai4good/config.json is non-secret {project_id, ai4good_api_base} with NO mcp_server_url field. Track-A LovableDriver orchestration via Lovable's own MCP per REQ-021/028.",
+        "testStrategy": "Install skill, open repo, verify session bootstrap runs. Test slash commands return correct data. Test Track-A Lovable orchestration calls through. Verify commit prefix applied.",
+        "priority": "high",
+        "dependencies": [
+          18,
+          19,
+          24,
+          65
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 27,
+        "title": "Transactional Outbox — worker + idempotent step-handler registry",
+        "description": "Rank-4 consolidation — ONE outbox worker + ONE idempotent step-handler registry shared by every reliability path (#21 deactivation, #29 remediation, #41 teardown). Retry/backoff/DLQ implemented once, not four times.",
+        "details": "Keep outbox_events table + SELECT FOR UPDATE SKIP LOCKED drain on pg_cron. Replace the tuned 1m/5m/15m/1h backoff with a flat fixed retry (next_attempt_at = NOW()+5m, cap ~12); on cap, set status='failed_dlq' and STOP (no bespoke DLQ→incident state machine — #38 pages on failed_dlq count). Build the handler registry ONCE: revoke_repo_collab, deactivate_anthropic_key, reactivate_anthropic_key, remove_org_member, post_ngo_notice, reset_pm_tasks, provision_workspace — each short-circuits if already in the desired state. Match-expiry stays a DB-only nightly transition (not an outbox handler). Comms are best-effort, NOT outbox-backed (email-class MAY optionally enqueue).",
+        "testStrategy": "Enqueue test event, verify worker processes. Test idempotent replay doesn't duplicate. Test failure backoff increases delay. Verify DLQ creates ops_task after 5 failures.",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 28,
+        "title": "Build Ledger Control-Total Verification Job",
+        "description": "Create the nightly job that verifies ledger pair-sum integrity and Stripe reconciliation per REQ-006.",
+        "details": "Create `job_runs` table per schema for heartbeat tracking. Build nightly cron that: (1) Balance control total: verify Σ(topup) - Σ(consumption) - Σ(discovery_consumption) - Σ(chargeback) - Σ(donation_out) == Σ(live project + general balances). (2) Revenue control total: verify Σ(skim) - Σ(chargeback_writeoff) - Σ(goodwill_refund) == net margin. (3) For each pair_id, verify rows sum to zero. (4) Compare daily Cost Report with our consumption rows; flag if drift >1%. On any failure: create 'reconciliation_discrepancy' ops_task with high priority. Page on critical drift. Record job_runs entry with success/failure status.",
+        "testStrategy": "Insert intentionally imbalanced ledger row, verify job catches it. Test with balanced ledger, verify passes. Verify ops_task created on drift. Test job_runs heartbeat recorded.",
+        "priority": "high",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 29,
+        "title": "Continuous Base-Permission Invariant (detect + enqueue remediate)",
+        "description": "Rank-4 — keep the base-permission/collaborator/orphan DETECTION cron; route auto-remediation through an outbox ENQUEUE (or one idempotent inline PATCH /orgs) instead of a bespoke multi-step retry.",
+        "details": "Detection cron verifies every active volunteer holds exactly their project's repo role on the single ai4good-projects org; flags drift (over-broad base permission, orphan collaborators). Remediation: ENQUEUE the fix via #27's outbox handler registry (or a single idempotent PATCH /orgs call inline) — no bespoke retry/idempotency code here.",
+        "testStrategy": "Manually change org permission, verify job catches and remediates. Add unexpected collaborator, verify flagged. Create orphan repo, verify alert fires.",
+        "priority": "high",
+        "dependencies": [
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 30,
+        "title": "Add Deploy-to-Running Step to Handoff",
+        "description": "Implement the deployment verification and handoff ritual including RLS enablement and spend cap setup per REQ-012.",
+        "details": "Add deployment_url, deployment_alive_last_checked_at, deployment_alive BOOLEAN to projects. For Track A: deployment is Lovable app URL; handoff ritual includes: (1) verify Supabase RLS enabled (Lovable disables by default — security footgun), (2) demo chat/plan mode + revert rollback to NGO, (3) set Lovable spend cap/budget alert, (4) confirm two-way GitHub sync. For Track B: volunteer deploys to free-tier host on NGO's account, hands over credentials. Gate 'Ready for Handoff' on deployment_url IS NOT NULL. Create 30-day-alive check cron job that pings deployment_url and records result. Track alive signal for Goal 1 north-star metric.",
+        "testStrategy": "Complete handoff without deployment_url, verify blocked. Add URL, complete handoff. Verify 30-day check scheduled. Manually trigger check, verify result recorded.",
+        "priority": "high",
+        "dependencies": [
+          25
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 31,
+        "title": "Implement Tier-2 Data Sensitivity Enforcement",
+        "description": "Build the data sensitivity classification gate and fixtures-only enforcement for special-category data per REQ-004/REQ-023.",
+        "details": "Enhance Discovery Agent system prompt to ask about data handling and classify data_sensitivity tier (tier0_no_pii, tier1_ordinary_pii, tier2_special_category). For Tier-2: require fixtures-only build plan in scope. At triage: reviewer sees data_sensitivity + rationale, confirms Tier-2 projects have synthetic/anonymized fixtures mentioned. Reject if scope implies real special-category data through Anthropic/Lovable/volunteer. Display data handling guideline inline in scope doc: Tier-0 'no restriction', Tier-1 'minimization reminder', Tier-2 'build against synthetic fixtures only, connect real data post-handoff'. Add data-responsibility acknowledgment to first-funding modal. Default Tier-2 projects to visibility='private'.",
+        "testStrategy": "Create project mentioning health data, verify classified as Tier-2. Verify triage sees sensitivity info. Attempt to publish Tier-2 without fixtures plan, verify blocked. Verify acknowledgment required at funding.",
+        "priority": "high",
+        "dependencies": [
+          12,
+          66
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 32,
+        "title": "Build NGO Dashboard v1 Minimal",
+        "description": "Create the NGO dashboard with project list, fuel summary, task progress, and Action Needed rail per REQ-013.",
+        "details": "Create `app/(dashboard)/ngo/page.tsx`. Query all projects for the NGO with joins for volunteer, task counts, fuel balance. Display project cards with: status badge, % complete (done_p0/total_p0), dual fuel meters (Claude Code + Lovable if applicable), assigned volunteer, cadence stats (last commit, health badge). Calculate fuel summary across all projects. Show general balance as '$X redeployable credit'. Build 'Action Needed' rail: query project_blockers WHERE resolved_at IS NULL for all NGO projects (fuel_topup_needed, lovable_credits, clarifying_question), pending change_requests awaiting response, triage decisions. Sort by severity then age. Show applicants queue for 'open' status projects.",
+        "testStrategy": "Create multiple projects in various states, verify all appear. Verify fuel summary accurate. Create blocker, verify appears in Action Needed. Verify applicants show for open projects.",
+        "priority": "medium",
+        "dependencies": [
+          23
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 33,
+        "title": "Build Volunteer Dashboard v1 Minimal",
+        "description": "Create the volunteer dashboard with current projects, fuel gauge, and completion credit display per REQ-014.",
+        "details": "Create `app/(dashboard)/volunteer/page.tsx`. Query assigned projects (projects WHERE assigned_volunteer_id = auth.uid() AND status NOT IN ('handed_off', 'cancelled')). Display project cards with: title, NGO name, status, dual fuel gauges, in-progress tasks from PM tree, unresolved blockers. Add completion credit counter: count of handed_off projects. Show 'Shipped first tool' badge if completion_count >= 1. Display Anthropic key reveal with copy-to-clipboard (one-click, from Supabase Vault via signed URL). Show usage self-audit: tokens consumed today/week, last session timestamp. Link to each project's detail page.",
+        "testStrategy": "Assign volunteer to projects, verify appear on dashboard. Complete handoff, verify completion credit increments. Verify badge appears after first handoff. Test key reveal works.",
+        "priority": "medium",
+        "dependencies": [
+          23
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 34,
+        "title": "Project Comment Thread (task_comments project-level) + re-homed Actionable-Message Primitive",
+        "description": "DECISION-15 (2026-06-08): REQ-015 ships a lightweight PROJECT COMMENT THREAD, not a Slack channel. The channels/channel_members/messages tables + Supabase Realtime + markdown renderer + @-mentions + archival mode are DROPPED to v1.5. v1 = a project-level comment stream backed by task_comments (task_id IS NULL) on the project page. The actionable-message primitive survives, re-homed onto the CR row + notifications (#44/#35), NOT a chat UI.",
+        "details": "Extend task_comments: add project_id UUID NOT NULL REFERENCES projects(id); make task_id NULLABLE (NULL = project-level comment, non-NULL = task-anchored); indexes idx_task_comments_project(project_id,created_at) + idx_task_comments_task WHERE task_id IS NOT NULL. Project-page comment-stream UI: load on page open + post (NO Realtime); posting emits notify(...,'project_comment') to the other party. Implicit membership via RLS on project_id (NGO admins of project + assigned volunteer + platform_admin). Post-handoff read-only via RLS check on project status. Plain text + linkified URLs only (no markdown renderer, no @-mentions, no attachments in v1). System events are NOT posted here -> they go to the notifications feed via #35 notify(). The actionable-message primitive (JSONB actions = body + inline buttons + callback event_type) is re-homed onto the CR row + notification rendering (#44/#35), not a chat-action route. DROPPED to v1.5: channels/channel_members/messages tables, Supabase Realtime transport, markdown renderer, @-mention parser + channel_mention, archival mode.",
+        "testStrategy": "Verify a project-level comment (task_id NULL) renders on the project page and emits a project_comment notification. Verify task-anchored comments still work (task_id set). Verify RLS limits the thread to project NGO admins + assigned volunteer + platform_admin. Verify post-handoff the thread is read-only. Verify NO channels/messages tables are created in v1 and no Realtime subscription exists. Verify the actionable Accept/Decline primitive renders on the CR row (#44), not a chat message.",
+        "priority": "medium",
+        "dependencies": [
+          27
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 35,
+        "title": "notify() Emitter + Event→Comms Map (single comms writer)",
+        "description": "Rank-3 consolidation — the single owned comms substrate. A static EVENT_MAP encodes the REQ-016 taxonomy; a notify() TS server module is the SOLE writer of `notifications` (decision-15: the `messages WHERE is_system`/channel arm is DROPPED — no channel in v1; system events go to the notifications feed + actionable rows only). Keeps 60s batching + 5min dedup as SQL guards (no worker/queue).",
+        "details": "EVENT_MAP: event_type → {channels:[email|in_app|system_message], escalate_admin, render(payload)→{message_body, optional action, notif_payload}}. notify(recipientIds, event_type, payload) is the sole writer of `notifications` (decision-15: dropped the system-`messages`/channel_id arm — no channel in v1; render() returns {notif_payload, optional inline action} for the notifications feed + actionable CR/blocker rows). Add the `project_comment` event to EVENT_MAP. KEEP REQ-016 v1 ACs: batching (60s coalescing query) + dedup (partial-unique / NOT-EXISTS on (recipient_id,event_type,entity_id) within 5min). System-message inserts best-effort (try/catch→Sentry) so a failed chat line never rolls back the triggering txn. Email via one Resend call; in-app via Supabase Realtime on `notifications`. No routing/preference engine (v1.5).",
+        "testStrategy": "Trigger each event type, verify notification created. Verify email sends for critical events. Test batching combines multiple events. Test dedup prevents duplicates.",
+        "priority": "medium",
+        "dependencies": [
+          8,
+          34
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 36,
+        "title": "Implement Volunteer Shipped First Tool Badge",
+        "description": "Create the badge logic that awards 'Shipped first tool' on first successful handoff per REQ-014.",
+        "details": "Add `badges` JSONB column to volunteer_profiles or create separate `volunteer_badges` table (volunteer_id, badge_type, awarded_at, project_id). On handoff acceptance: check if volunteer has existing 'shipped_first_tool' badge. If not: award badge with current timestamp and project_id. Display badge on volunteer public profile at `/volunteers/[handle]`. Show on dashboard. Badge is visible regardless of project visibility (private projects contribute to count but don't disclose project details). Build badge component with icon and tooltip showing award date.",
+        "testStrategy": "Complete first handoff, verify badge awarded. View volunteer profile, verify badge displays. Complete second handoff, verify badge not duplicated. Verify private project contributes to count.",
+        "priority": "low",
+        "dependencies": [
+          25,
+          67
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 37,
+        "title": "Create Audit Log Viewer for Admin",
+        "description": "Build the admin interface for viewing audit events with filtering and search capabilities.",
+        "details": "Ensure `audit_events` table per schema is created: id, actor_id FK, actor_ip INET, actor_user_agent, event_type, entity_type, entity_id, payload JSONB, disclaimer_text_version, disclaimer_text_sha256, created_at. Create indexes on (actor_id, created_at), (entity_type, entity_id). Build `app/(admin)/audit/page.tsx` restricted to platform_admin. Display table with: timestamp, actor name, event type, entity, payload preview. Add filters: event_type dropdown, entity_type dropdown, date range picker, actor search. Implement pagination. Add detail modal showing full payload JSON. Add export to CSV functionality.",
+        "testStrategy": "Create various audit events, verify all appear in viewer. Test filters narrow results correctly. Verify pagination works. Test export includes all filtered results.",
+        "priority": "low",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 38,
+        "title": "Build Observability Dashboard and Alerting",
+        "description": "Create the job heartbeat monitoring, business invariant alerts, and SLO dashboard per REQ-029.",
+        "details": "Create `job_runs` table heartbeat monitor: for each scheduled job (usage_poll, daily_reconciliation, hourly_aging, outbox_drain, base_permission_assert, deployment_alive_check, control_total), verify completed within expected_interval_seconds. Alert if overdue. Create business invariant monitors that PAGE (not just log): ledger control-total mismatch, any balance < 0, Anthropic key active while fuel <= 0, reconciliation drift > 1%, outbox DLQ depth > 0, reserve below floor. Build admin dashboard at `/admin/observability` showing: job status grid (green/red), recent alerts, money-path golden signals (funding, consumption, skim, chargeback). Integrate with PagerDuty or similar for critical alerts. [decision-14 2026-06-07: nightly_anomaly heartbeat dropped — REQ-009 spend-anomaly engine deferred to v1.5.]",
+        "testStrategy": "Stop a cron job, verify alert fires. Create negative balance, verify alert. Verify dashboard shows correct status. Test alert routing to PagerDuty.",
+        "priority": "high",
+        "dependencies": [
+          28
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 39,
+        "title": "Build Ops Console and Money Correction Tooling",
+        "description": "Create admin interfaces for incident response, runbooks, and ledger corrections per REQ-030.",
+        "details": "Build `app/(admin)/ops/incidents/page.tsx` for incident commander entry. Add 'incident' to ops_tasks type enum. Create runbook documents in `/docs/runbooks/`: PITR restore (4h RTO), GitHub App compromise, Anthropic key mass-rotation, chargeback spike, Lovable-MCP-down fallback. Build money correction UI: post reconciliation_adjustment, manual credit, goodwill_refund with required audit reason text. All corrections must be paired rows (no direct ledger writes). Add manual override for false-positive AUP suspension + key revocation (the anomaly auto-deactivation override is v1.5 — decision-14, REQ-009 anomaly engine deferred). Record all corrections in audit_events. Implement account suspension recovery workflow per REQ-007.",
+        "testStrategy": "Create test incident, verify flows to ops queue. Make ledger correction, verify paired rows created. Override false-positive deactivation, verify key restored. Test audit trail complete.",
+        "priority": "high",
+        "dependencies": [
+          38
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 40,
+        "title": "Content Safety — secret-scanning + push-protection (v1)",
+        "description": "Rank-6 right-size — v1 keeps only GitHub secret-scanning + push-protection org-wide (free). Report buttons + content_abuse_review queue + takedown saga + DMCA/CSAM doc deferred to v1.5 (logged in #60, gated before organic/EU signup).",
+        "details": "Enable GitHub secret-scanning + push-protection org-wide on ai4good-projects (free, REQ-031). Founder repo-privatize break-glass path. DEFER to v1.5: the three Report buttons, the content_abuse_review ops queue, the takedown saga, the DMCA/CSAM policy doc. (USER-TEST-8/#68 re-scoped to validate secret-scanning + the privatize path.)",
+        "testStrategy": "Report content, verify ops_task created. Test admin takedown makes repo private. Attempt to push secret to repo, verify push-protection blocks. Verify suspension can flip repo private.",
+        "priority": "high",
+        "dependencies": [
+          17
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 41,
+        "title": "Abandonment/Rematch Saga + Merged Hourly Aging Scan",
+        "description": "Rank-3 + rank-4 — ONE hourly aging scan with isolated pure-function branches (blocker 48h/7d, inactivity 14d/21d, unmatched-open 7d), each calling notify(). Keeps the 21d auto-release SAGA via the #27 outbox (only DETECTION merges, not the saga).",
+        "details": "Single hourly handler, three isolated branches: (1) blocker aging 48h/7d (the spend_anomaly_review 48h override is v1.5 — decision-14, REQ-009 anomaly engine deferred); (2) inactivity 14d reminder / 21d auto-release (only while in_progress; paused excluded); (3) unmatched-open 7d project_aging_unmatched nudge. Each branch calls notify(). At 21d, ENQUEUE a release_project saga whose steps REUSE #27's idempotent handler registry ('AUP teardown minus suspension': revoke_repo_collab, deactivate_anthropic_key, remove_org_member, post_ngo_notice, reset_pm_tasks) — zero new teardown code. Remaining fuel stays on the project; ghosted vs released_for_cause flag.",
+        "testStrategy": "Create in_progress project, fast-forward 14 days (mock), verify reminder sent. Fast-forward to 21 days, verify auto-release runs. Verify fuel balance unchanged. Test manual release works.",
+        "priority": "high",
+        "dependencies": [
+          27,
+          68
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 42,
+        "title": "Implement Discovery Credits (context-weighted, DAILY drip) + Unified Fuel",
+        "description": "Decision-8 unified fuel (NGOs + volunteers both consume; funding from draft onward) + decision-11 Discovery CREDIT system: the free pre-fuel Discovery phase runs on abstract Discovery Credits whose per-turn cost scales with context weight; funded fuel stays real-dollar-pegged with unchanged 15% skim.",
+        "details": "ngos.discovery_credits_remaining (INTEGER credits, replaces the old _cents pool): DAILY free allowance — grant 10/day unverified, 30/day verified; a daily scan HARD-RESETS to the tier grant at 00:00 UTC with NO rollover (guarded by discovery_credits_last_reset_at::date < CURRENT_DATE); verification raises the daily allowance 10->30 (3x reward, set today immediately if below). platform_settings: discovery_tokens_per_credit=10000, discovery_credit_grant_unverified=10, discovery_credit_grant_verified=30, discovery_cached_input_weight_bps=1000 (no discovery_credit_reset_interval_days). Per-turn credit cost = ceil((uncached_input + 0.1*cached_input + output)/tokens_per_credit) — context weight (long convo + big files) drives burn; prompt-caching lowers it. Per-turn ROUTING by PROJECT fuel balance: a funded project's Discovery debits project fuel (discovery_consumption + 15% skim) and leaves the free daily allowance untouched ('Funded -> all-$'); only an unfunded project draws free credits. Regeneration (<=3x) + system-error retries are FREE. Transparency UI: credit gauge ('N of 10/30 today'), per-turn cost, pre-ingest '~N credits to include this file' confirm. Credits are a FREE grant (no stored-value/escheatment/money-transmitter exposure), tracked OUTSIDE the fuel ledger. The daily allowance IS the rate limit — no separate 30-msg/day cap, no $5/session cap (both retired). At 0 credits for the day: verify-CTA (unverified -> 30/day) / fund-fuel-CTA (real-$ fuel, decision-8) / wait for tomorrow. email_verified_at bot floor. discovery_consumption ledger kind once on funded fuel (15% skim). First-funding hard-ack modal. Model = Claude Opus (decision-13).",
+        "testStrategy": "Create unverified NGO, verify discovery_credits_remaining defaults to 10. Exhaust today's credits, verify composer disables with verify/fund/wait CTAs. Verify the daily scan hard-resets to 10 at 00:00 UTC with no rollover. Top up fuel, verify Discovery routes to project fuel (discovery_consumption + paired skim) and free credits stay untouched. Verify an NGO -> daily allowance raised to 30. Verify per-turn cost = ceil((uncached + 0.1*cached + output)/10000) and that regeneration + system-error retries cost 0 credits.",
+        "priority": "high",
+        "dependencies": [
+          10,
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 43,
+        "title": "Project Blockers — table, raise/resolve, aging indicators",
+        "description": "Rank-3 shrink — project_blockers schema + raise/resolve UI + indicators. On raise/resolve it ONLY calls notify(); it does not post system messages itself or run its own cron (aging detection merges into the single hourly scan in #41).",
+        "details": "project_blockers schema + RLS + unique partial index; '🚩 Raise a flag' modal + Resolve form (required note); fuel-poller + Lovable auto-raise hooks; project-page badge + panel; marketplace/dashboard indicator; NGO 'Action needed' rail (REQ-024 v1 ACs). On raise/resolve call notify('blocker_raised'|'blocker_resolved'). REMOVE own system-message posting + own 48h/7d cron (moves to #41's merged aging scan).",
+        "testStrategy": "Raise clarifying_question blocker, verify channel message and notification. Resolve blocker, verify resolution recorded. Test auto-raise for fuel-low. Test aging fires at 48h and 7d.",
+        "priority": "medium",
+        "dependencies": [
+          35
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 44,
+        "title": "Change Requests v1 — request/accept/decline (git-routed)",
+        "description": "Rank-3 shrink + decision-9 fix — change_requests schema + a 3-field form + accept/decline via the actionable-message primitive ON THE CR ROW + notification (decision-15 — re-homed off the dropped chat channel). On Accept it does NOT insert project_tasks directly — it calls #26's bootstrap-commit path so the new p0 task lands in tasks.json and the webhook mirrors it back.",
+        "details": "change_requests schema + RLS; 'Request a Change' 3-field form (in_progress only); emit cr_raised (renders Accept/Decline via the actionable primitive ON THE CR ROW + notification — decision-15, no chat channel) + cr_decided via notify(); 'mark completed' link. DECISION-9 FIX: on Accept, call #26's server-side bootstrap-commit path to add a 'Change Request: [title]' p0 task to the repo's tasks.json — do NOT INSERT into project_tasks (violates the one-writer invariant; the webhook projection mirrors it back).",
+        "testStrategy": "Raise CR, verify appears in channel with action buttons. Accept CR, verify PM task created with p0 priority. Decline CR, verify NGO notified. Mark completed, verify status updated.",
+        "priority": "medium",
+        "dependencies": [
+          34,
+          35,
+          26
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 48,
+        "title": "Implement Test Coverage and CI Pipeline",
+        "description": "Set up Vitest testing framework with 80% coverage target and GitHub Actions CI per Testing Strategy.",
+        "details": "Install `vitest`, `@testing-library/react`, `@testing-library/user-event`, `msw` for mocking. Configure vitest.config.ts with coverage thresholds (80% overall, 90% for lib/). Create test setup with Supabase local mocking. Write unit tests for: fuel math (micro-cents, skim calculation, markup), match scoring (skill/cause overlap), scope parsing (DiscoveryOutput validation), rate limiting logic. Create integration tests using Supabase local: signup → publish → fund → apply → accept → handoff. Set up GitHub Actions workflow: run lint, type-check, test on PR. Add Codecov integration for coverage reporting.",
+        "testStrategy": "Run test suite, verify 80% coverage achieved. PR with failing test should block merge. Verify coverage reports upload to Codecov.",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          69
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 49,
+        "title": "Build E2E Test Suite with Playwright",
+        "description": "Create Playwright end-to-end tests covering NGO and volunteer happy-path journeys per Testing Strategy.",
+        "details": "Install `@playwright/test`. Configure playwright.config.ts with staging environment. Create page objects for: login, NGO dashboard, volunteer dashboard, marketplace, project page, Discovery chat. Write NGO journey test: signup with email → verify email → create org → upload verification doc → create project → complete Discovery → publish → wait for approval → accept volunteer → fund → verify handoff. Write volunteer journey test: signup with GitHub → browse marketplace → apply to project → wait for acceptance → work on tasks → request handoff. Run on staging environment with test data isolation. Integrate with GitHub Actions to run on deploy to staging.",
+        "testStrategy": "Run E2E suite against staging. Verify both journeys complete without errors. Test on multiple browsers (Chrome, Firefox, Safari).",
+        "priority": "medium",
+        "dependencies": [
+          48
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 50,
+        "title": "Perform Security Audit and RLS Review",
+        "description": "Conduct comprehensive security audit including RLS policy review, ZAP scan, and dependency scanning per NFR Security.",
+        "details": "Review all RLS policies for correctness: verify no policy allows cross-tenant access, verify suspended users blocked from writes, verify platform_admin has appropriate access. Run OWASP ZAP baseline scan against staging environment. Integrate Snyk or GitHub Advanced Security for dependency vulnerability scanning. Review all webhook handlers for signature verification. Audit API key storage (Vault usage, never logged). Check for SQL injection in any raw queries. Verify CSRF protection on mutations. Review auth flow for session fixation vulnerabilities. Document all findings and remediate critical/high issues before launch.",
+        "testStrategy": "ZAP scan returns no high/critical findings. Snyk shows no unpatched critical CVEs. Manual RLS testing confirms no cross-tenant access. Red-team audit passes.",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 51,
+        "title": "Stripe Tax — automatic_tax + hosted invoices (v1)",
+        "description": "Rank-6 right-size — v1 keeps Stripe automatic_tax + hosted invoices + a tax-ID field. Multi-jurisdiction registration + branded PDF + tax reporting deferred to v1.5.",
+        "details": "Set automatic_tax {enabled:true} on Checkout sessions; enable Stripe-hosted invoices; add a tax-ID input on the NGO billing form. DEFER to v1.5: multi-jurisdiction tax registration, branded invoice PDFs, tax reporting/exports.",
+        "testStrategy": "Complete checkout with US address, verify no tax added. Complete with UK address, verify 20% VAT. Download invoice PDF, verify tax breakdown correct.",
+        "priority": "medium",
+        "dependencies": [
+          13,
+          70
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 52,
+        "title": "GDPR — consent + manual erasure runbook (v1)",
+        "description": "Rank-6 right-size — v1 keeps the consent checkbox + published sub-processor list + a MANUAL erasure runbook. Self-serve erasure/export UI + DPA-as-code deferred to v1.5. Done-criterion: no EU/public signup until full GDPR lands.",
+        "details": "Consent checkbox at signup; published sub-processor list (rides the real ToS). Erasure = a MANUAL ops runbook: Supabase admin deleteUser + ON DELETE CASCADE + one anonymization UPDATE + Stripe customer redaction. DEFER to v1.5: self-serve erasure/export UI, DPA-as-code. HARD GATE: no EU/public signup until full #52 is reinstated.",
+        "testStrategy": "Request erasure, verify profile anonymized. Verify ledger entries anonymized but totals preserved. Verify messages anonymized. Test data export returns complete data.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 53,
+        "title": "Performance — next/image + ISR + Supabase pooler (v1)",
+        "description": "Rank-6 right-size — v1 keeps next/image + Next ISR revalidate + Supabase connection pooler. Upstash multi-TTL cache + invalidation and k6/Lighthouse CI gates deferred to v1.5.",
+        "details": "next/image optimization; Next ISR with revalidate on marketplace/project pages; Supabase transaction pooler. DEFER to v1.5: Upstash cache + cache-invalidation layer (avoids a premature invalidation layer while ledger/marketplace correctness is fragile), k6 load tests, Lighthouse CI gates.",
+        "testStrategy": "Run k6 load test, verify p95 < 500ms at 100 RPS. Verify cache hits for repeated requests. Run Lighthouse, achieve score > 90 for Performance.",
+        "priority": "medium",
+        "dependencies": [
+          15
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 54,
+        "title": "Create Onboarding Emails and Help Center",
+        "description": "Build transactional email templates and initial help center content for launch per Phase 4.",
+        "details": "Design email templates in Resend with ai4good branding: Welcome (signup confirmation), Email Verification, Project Published, Volunteer Matched, Fuel Low Alert, Handoff Ready, Handoff Accepted. Use responsive HTML templates with dark mode support. Create `/help` route with markdown-based content: Getting Started (NGO), Getting Started (Volunteer), How Fuel Works (non-cash credit explanation), Platform Promise & Disclaimers, FAQ. Create contextual help tooltips throughout the app. Add 'Need Help?' floating button linking to help center. Create feedback form that creates GitHub issues in a feedback repo.",
+        "testStrategy": "Trigger each email type, verify renders correctly in multiple email clients. Navigate help center, verify all content accessible. Submit feedback, verify issue created.",
+        "priority": "low",
+        "dependencies": [
+          35
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 55,
+        "title": "Build Public Landing Page",
+        "description": "Create the public-facing landing page with signup gating for controlled launch per Phase 4.",
+        "details": "Create `app/page.tsx` as the public landing page. Design hero section explaining ai4good value proposition (NGO gets deployed tool, volunteer portfolio piece, fuel covers AI). Add sections: How it Works (3-step flow), For NGOs (problem/solution), For Volunteers (benefits), Platform Promise (transparency commitments). Include featured projects carousel (public handed-off projects). Add testimonial placeholders (to be filled from pilot). Create signup CTAs with role selection (NGO vs Volunteer). Implement waitlist mode toggle for controlled launch (email capture, no immediate account creation). Add Open Source badge linking to GitHub org. Mobile-responsive design.",
+        "testStrategy": "View on mobile and desktop, verify responsive. Test signup CTA flows to correct registration. Toggle waitlist mode, verify email capture works.",
+        "priority": "low",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 56,
+        "title": "Create Public Beta Launch Checklist",
+        "description": "Public-beta launch checklist (status page, support email, monitoring) + the rank-6 reinstatement gate.",
+        "details": "Status page, support email, monitoring readiness. RANK-6 GATE (add to the checklist): 'Reinstate full #40 / #47 / #51 / #52 / #53 / #57 / #58 before opening organic or EU signup.' No EU/public signup until the deferred hardening slice lands.",
+        "testStrategy": "Simulate outage, verify status page updates. Send test support email, verify auto-response. Walk through pre-launch checklist, verify all items complete.",
+        "priority": "medium",
+        "dependencies": [
+          38,
+          71
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 59,
+        "title": "Write v1.5 AI Proxy Specification Document",
+        "description": "Create detailed technical specification for the v1.5 AI Proxy with 9-layer enforcement model per Out of Scope #1.",
+        "details": "Write specification document at `/docs/specs/ai-proxy-v1.5.md`. Document architecture: Cloudflare Workers / Vercel Edge deployment, request flow from Claude Code → proxy → Anthropic. Define 9-layer enforcement: (1) token validation, (2) velocity caps (req/sec, $/hour, $/day), (3) endpoint allowlist (POST /v1/messages default-allowed, batches blocked), (4) method allowlist (POST/GET only), (5) payload size bounds, (6) real-time fuel balance check, (7) IP/geo/UA anomaly flags, (8) per-request audit log, (9) instant token rotation. Document migration path from v1 direct-key model. Estimate effort at ~80h. Define success criteria and rollout plan.",
+        "testStrategy": "Review spec with technical stakeholders. Verify all current v1 limitations addressed. Validate effort estimate against similar proxy implementations.",
+        "priority": "low",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 60,
+        "title": "Document v1.5 Deferred Features and Prioritization",
+        "description": "Create prioritized backlog of v1.5 deferred features with trigger conditions per Phase 5.",
+        "details": "Create `/docs/roadmap/v1.5-backlog.md` documenting all deferred features with: description, trigger condition, effort estimate, dependencies. Features to include: Move-funds-between-projects (~8h), Replit builder platform (~30h), Volunteer referral loop (~15h), Auto-top-up (~25h), Tips via Stripe Connect (~30h), Full CR workflow UI (~15h), Match score algorithm (~12h), NGO satisfaction signals (~8h), KYC tier + Stripe Identity (~15h), Lovable email parser (~12h), AI Proxy (~80h), Channel enhancements (~25h), Per-user notification preferences (~8h), Dashboard richer surfaces (~20h). Prioritize based on pilot feedback patterns. Create tracking mechanism for trigger conditions.",
+        "testStrategy": "Review with stakeholders. Verify all §11 deferred items captured. Validate trigger conditions measurable. Confirm effort estimates reasonable.",
+        "priority": "low",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 61,
+        "title": "USER-TEST-1: User Validation Checkpoint 1 (Tasks 1-5)",
+        "description": "Manually test functionality implemented in Tasks 1-5. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 1-5. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          5
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 62,
+        "title": "USER-TEST-2: User Validation Checkpoint 2 (Tasks 6-10)",
+        "description": "Manually test functionality implemented in Tasks 6-10. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 6-10. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          10
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 63,
+        "title": "USER-TEST-3: User Validation Checkpoint 3 (Tasks 11-15)",
+        "description": "Manually test functionality implemented in Tasks 11-15. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 11-15. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          15
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 64,
+        "title": "USER-TEST-4: User Validation Checkpoint 4 (Tasks 16-20)",
+        "description": "Manually test functionality implemented in Tasks 16-20. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 16-20. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          20
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 65,
+        "title": "USER-TEST-5: User Validation Checkpoint 5 (Tasks 21-25)",
+        "description": "Manually test functionality implemented in Tasks 21-25. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 21-25. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          25
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 66,
+        "title": "USER-TEST-6: User Validation Checkpoint 6 (Tasks 26-30)",
+        "description": "Manually test functionality implemented in Tasks 26-30. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 26-30. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          30
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 67,
+        "title": "USER-TEST-7: User Validation Checkpoint 7 (Tasks 31-35)",
+        "description": "Manually test functionality implemented in Tasks 31-35. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 31-35. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          35
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 68,
+        "title": "USER-TEST-8: User Validation Checkpoint 8 (Tasks 36-40)",
+        "description": "Manually test functionality implemented in Tasks 36-40. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 36-40. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          40
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 69,
+        "title": "USER-TEST-9: User Validation Checkpoint 9 (Tasks 41-45)",
+        "description": "Manually test functionality implemented in Tasks 41-45. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 41-45. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          44
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 70,
+        "title": "USER-TEST-10: User Validation Checkpoint 10 (Tasks 46-50)",
+        "description": "Manually test functionality implemented in Tasks 46-50. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 46-50. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          50
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 71,
+        "title": "USER-TEST-11: User Validation Checkpoint 11 (Tasks 51-55)",
+        "description": "Manually test functionality implemented in Tasks 51-55. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 51-55. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          55
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 72,
+        "title": "USER-TEST-12: User Validation Checkpoint 12 (Tasks 56-60)",
+        "description": "Manually test functionality implemented in Tasks 56-60. Verify all subtasks completed and merged to main; no critical bugs or regressions. Document any issues in .taskmaster/docs/progress.md and create fix tasks before continuing. Type 'passed' to advance to the next batch.",
+        "details": "Checkpoint covers Tasks 56-60. Prerequisites: all subtasks merged to main. Tests: functionality of each REQ in scope, integration with prior batches, no regressions. Acceptance: all tests pass, no critical bugs, performance meets targets. If failed: document in progress.md, create fix tasks, do NOT continue.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          60
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 73,
+        "title": "Build Project Need Attachments (R2 + Discovery multimodal + Skill download)",
+        "description": "REQ-032 (added 2026-06-06): NGO uploads reference files describing the need (screenshots, spreadsheets, blank forms, mockups, requirements PDFs, sample data structures), stored in a dedicated S3-compatible object store (Cloudflare R2 recommended, NOT Supabase Storage), read multimodally by the Discovery Agent and downloaded by the volunteer at build time. Governance-by-disclosure for PII with a hard Tier-2 warn.",
+        "details": "project_files table + RLS (NGO members + assigned volunteer + platform_admin, gated on projects.visibility). Cloudflare R2 bucket (key projects/<project_id>/<file_id>/<filename>); ALL access via short-TTL signed URLs minted by an ai4good edge function POST /api/projects/:id/files/:fileId/signed-url that re-checks membership + visibility (object stores have no RLS; UI/Skill never hold R2 creds). Upload UI at intake (REQ-003), during Discovery (REQ-004), and on the project page (REQ-010); data-responsibility disclosure, with a HARD checkbox gate for Tier-2 projects restating fixtures-only. Allowed types PDF/PNG/JPG/CSV/TSV/TXT/DOCX/XLSX; caps ~25MB/file, ~200MB/project; NO virus/secret scan in v1 (governance-by-disclosure; pre-scan is v1.5). Discovery Agent ingests discovery_visible files multimodally (within Anthropic supported types/sizes), references them in clarifying questions + scope doc; reading files consumes Discovery fuel/free-pool (decision-8). Project page Reference-files section (name/type/uploader/description) with per-visibility download. Skill (REQ-028) /ai4good:files downloads into a gitignored /.ai4good/reference/ dir at bootstrap/on-demand; NEVER committed to the repo. Soft-delete + audit_events on upload/delete.",
+        "testStrategy": "Upload a PDF + a CSV at intake; assert metadata in project_files, bytes in R2, no bytes in Postgres. Assert a non-member cannot mint a signed URL (403) and a member can (short-TTL). Assert the Discovery Agent references an uploaded screenshot in a clarifying question. Assert a Tier-2 project shows the hard checkbox gate before accepting an upload. Assert the Skill downloads files into /.ai4good/reference/ and they are gitignored (never committed).",
+        "priority": "medium",
+        "dependencies": [
+          9,
+          10
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 74,
+        "title": "Build Post-Discovery NGO Project Assistant (funded, fuel-metered)",
+        "description": "REQ-033 / decision-12 (added 2026-06-06): once a project is funded, the NGO can keep chatting with a read-only, fuel-metered AI assistant (Claude Opus) beyond the Discovery/scoping phase to understand project status — it answers \"how is my project going?\", explains open blockers, summarizes recent progress, and estimates fuel runway. Reuses the Discovery chat surface; never mutates the project.",
+        "details": "Reuse the Discovery conversation store (REQ-004) with a mode marker ('discovery'|'assistant'); same Opus model, distinct system prompt tuned as a status explainer for a non-technical NGO. Availability gate: reachable on the project page only when the project is funded (positive fuel balance) and status in_progress onward (no assistant on unfunded or pre-scoped projects). Read-only project-state context assembler per turn: project_tasks projection (counts by status, current P0s, recent done transitions; REQ-026/task 19), open project_blockers (REQ-024/task 43), fuel balance+runway (REQ-009/task 21), recent external_commit_refs + NGO comments (REQ-026). NO write tools (cannot set task status, resolve blockers, accept CRs, approve handoff, move money). Fuel-metered, NO free credits: each turn debits project fuel as kind=discovery_consumption (reglossed \"NGO-side AI Agent: Discovery + project assistant\") + paired 15% skim, same context-weighted token accounting as REQ-004 per-turn cost. Cost transparency: per-turn fuel cost shown + project fuel gauge. Fuel-zero: composer disables with the Top up fuel CTA (REQ-006). Scope discipline: if asked to change scope/priorities, explain the Change Request flow (REQ-025/task 44) and do not act — may pre-fill a draft CR the NGO submits. v1 = on-demand text Q&A only; proactive/push digests + scheduled summaries are v1.5. UI via Lovable MCP; chat calls an edge function, never the DB directly. No new ledger kind, no new table. [decision-13 2026-06-06: model = Claude Opus (not Sonnet) — Discovery is the highest-leverage reasoning step; cost bounded by short one-time Discoveries + the 10/30 daily credit cap; credit unit is token-based/model-agnostic so daily allowance unchanged.]",
+        "testStrategy": "Assert the assistant is hidden on unfunded/pre-scoped projects and visible once funded + in_progress. Verify each turn writes a discovery_consumption + paired skim row against project fuel and never decrements ngos.discovery_credits_remaining. Verify the context assembler returns only read-only fields and the agent exposes no write tool. Verify fuel-zero disables the composer with the top-up CTA. Verify a scope-change request yields a CR-flow explanation (+ optional draft CR) and no task/blocker/handoff mutation. Snapshot a status answer against seeded project_tasks/blockers/fuel fixtures.",
+        "priority": "medium",
+        "dependencies": [
+          42,
+          23,
+          19
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2026-06-04T20:09:03.944Z",
+      "updated": "2026-06-04T20:11:46.651Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
