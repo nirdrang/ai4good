@@ -46,8 +46,9 @@ makes no delivery guarantee.
   focus states, labels, keyboard paths) from the sketch.
 
 ## 5. Tech mapping (so sketches are reusable for build)
-- Build stack: **Next.js 14 App Router + Tailwind CSS + shadcn/ui**; Track-A apps deploy
-  on **Lovable**; data on **Supabase**; payments via **Stripe Checkout**.
+- Build stack: **TanStack Start (SSR) + Tailwind CSS + shadcn/ui (on Lovable); Supabase Edge
+  Functions for backend**; Track-A apps deploy on **Lovable**; data on **Supabase**; payments
+  via **Stripe Checkout**.
 - **Sketch with shadcn/ui primitives in mind:** Card, Table, Tabs, Dialog/Sheet, Badge,
   Progress, Avatar, Button, Input/Textarea, Select, Toast, Alert, Tooltip, Accordion,
   Breadcrumb, DropdownMenu, Command (for the marketplace filter/search).

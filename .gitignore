@@ -36,3 +36,5 @@ dist-ssr
 .codex_rate.html
 _task_dump.txt
 .taskmaster/state.json
+
+.taskmaster/_premigration_backup/
