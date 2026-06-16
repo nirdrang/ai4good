@@ -136,9 +136,9 @@ All acknowledgments are recorded in `audit_events` with timestamp + IP + ToS/dis
 
 ### 10. The deliverable: a tool the NGO can run and keep evolving (decided 2026-06-03)
 
-ai4good's deliverable is not "a repo" — it is a **deployed, running tool the (non-technical) NGO can continue to evolve itself.** Projects split into two tracks at Discovery (REQ-004) by *who maintains the tool after the volunteer leaves*:
-- **Track A — "NGO-maintains-it":** the durable home is an AI app-builder (**Lovable** in v1) where the NGO evolves the live app via chat after handoff — fixing bugs, adding features, with no developer. The volunteer builds the first version through Claude Code, which orchestrates Lovable.
-- **Track B — "developer-grade / one-off":** custom logic / integrations / no expectation of non-dev chat maintenance — Claude Code is primary, deploy to a plain host.
+ai4good's deliverable is not "a repo" — it is a **deployed, running tool the (non-technical) NGO can continue to evolve itself.** A project's *track* is set at Discovery (REQ-004) by *who maintains the tool after the volunteer leaves*:
+- **Track A — "NGO-maintains-it":** the durable home is an AI app-builder (**Lovable** in v1) where the NGO evolves the live app via chat after handoff — fixing bugs, adding features, with no developer. The volunteer builds the first version through Claude Code, which orchestrates Lovable. **Track A is the only track ai4good builds in v1.**
+- **Track B — "developer-grade / one-off"** *(deferred to post-v1 — decision-19):* custom logic / integrations / no expectation of non-dev chat maintenance. Track B can clear "deployed + running" but by construction cannot satisfy "the NGO evolves it itself," so v1 does not take it on. Needs that would require Track B are detected at Discovery and parked on a developer-grade waitlist (see REQ-004).
 
 **The honest promise for Track A:** *the NGO owns the code outright (portable, open-source, no lock-in) AND can self-maintain via chat for roughly the AI-builder's subscription (~$25/mo) as long as they choose to pay; if they stop paying, they keep a deployable app but lose hands-free chat maintenance.* This is set as an expectation at kickoff, with a spend cap so metered edit costs never blindside a non-technical owner.
 
@@ -184,7 +184,7 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 ### Goal 1: Ship Working, Deployed NGO Tools (decided 2026-06-03)
 
 - **Description:** Produce real, **deployed and running** tools for real NGOs that the NGO actually uses — not just handed-off repos. End-to-end: post → discovery → match → build → **deploy** → handoff.
-- **Primary Metric:** Number of projects reaching `handed_off` **with a verified live deployment URL** (REQ-012 deploy step — Track A: live Lovable app + workspace ownership transferred to the NGO; Track B: working instance deployed to a free-tier host on the NGO's own account + credentials handed over).
+- **Primary Metric:** Number of projects reaching `handed_off` **with a verified live deployment URL** (REQ-012 deploy step — Track A: live Lovable app + workspace ownership transferred to the NGO). *(Track B's plain-host deploy path is deferred to post-v1 — decision-19.)*
 - **North-star Metric:** **"Still alive at 30 days"** — projects whose deployed app responds to an automated health check 30 days post-handoff (tracked, not guaranteed — no SLA per Platform Promise §4).
 - **Baseline:** 0 (greenfield).
 - **Target:** **25 NGOs receive a working, deployed tool** in the first 12 months; ≥60% still-alive at 30 days.
@@ -238,7 +238,7 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - [ ] **At signup, NGO must explicitly accept the Terms of Service + Platform Promise** (limited coordination relationship, work open-source by default, fuel funds AI usage and is non-cash credit not a deliverable, no SLA). Acceptance recorded with timestamp + IP + ToS version + SHA in `audit_events`. Without acceptance, the account cannot proceed to project creation.
 - [ ] NGO can start a new "Project Need" with a free-text problem description (no technical jargon required).
 - [ ] The AI Discovery Agent conducts a structured conversation (5-10 turns) to refine the need into a scoped spec.
-- [ ] At the end of discovery, the NGO is shown: a scope document, a **qualitative complexity tier** (small / medium / large — no dollar estimate in v1, per REQ-004), the project's **`data_sensitivity` tier + the data-handling guideline** for it (REQ-004 — Tier-2 = fixtures-only during build), the **maintenance track** (Track A "you maintain it via chat in Lovable" vs Track B "developer-grade"), a suggested tech stack, and a list of acceptance criteria.
+- [ ] At the end of discovery, the NGO is shown: a scope document, a **qualitative complexity tier** (small / medium / large — no dollar estimate in v1, per REQ-004), the project's **`data_sensitivity` tier + the data-handling guideline** for it (REQ-004 — Tier-2 = fixtures-only during build), the **maintenance track** (Track A "you maintain it via chat in Lovable"; Track B "developer-grade" is deferred to post-v1 — non-Track-A needs are waitlisted per REQ-004), a suggested tech stack, and a list of acceptance criteria.
 - [ ] NGO can edit the scope before publishing; once published, the project goes to the public marketplace.
 - [ ] NGO receives an email when the project is published and when a volunteer is matched.
 
@@ -295,8 +295,8 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - [ ] Marketplace shows open projects with scope, suggested stack, cause tags, and **skill/cause overlap badges** for the logged-in volunteer (e.g. "Skills match: 3 of 5", "Causes match"). No numeric match score in v1 (REQ-011 minimal — full scoring algorithm deferred to v1.5 per §11).
 - [ ] Volunteer can apply to a project; NGO approves/declines via dashboard or auto-approves (configurable).
 - [ ] **Acceptance does NOT trigger kickoff** — repo, workspace, AI key, PM tasks, channel are all created at funding (REQ-006 match-to-fund → `in_progress`), not at acceptance. After NGO accepts, project sits at `matched_pending_fuel` until NGO funds.
-- [ ] **On successful funding** (REQ-006 → `in_progress`), kickoff sequence fires (branches on `lovable_recommended` per REQ-005.5 / REQ-008): for Claude-Code projects, GitHub repo auto-created under `ai4good-projects` (visibility per `projects.visibility`) with volunteer as `maintain`-role + NGO admin as `triage`-role. For Lovable-recommended projects, **ai4good defers repo creation**; volunteer sees a post-kickoff Yes/No banner (REQ-021); on Yes, `lovable_setup_pending` blocker fires and NGO+volunteer collaborate via the 11-step checklist to land the repo in `ai4good-projects/<slug>`; on No (or 14-day no-decision auto-skip), ai4good immediately auto-creates the Claude-Code-style repo. **No platform-admin involvement in either path.** PM task tree bootstrapped from Discovery output (REQ-026) immediately at kickoff in BOTH cases — NOT GitHub Issues, which are dev-internal only (REQ-008); Anthropic workspace created (REQ-009); project channel opened (REQ-015).
-- [ ] Volunteer receives an in-platform "starter kit" with a Track A/B decision guide (Claude Code setup + the Track-A Lovable-orchestration guide pointer when `lovable_recommended`), plus PM-task interaction guide (UI + MCP server).
+- [ ] **On successful funding** (REQ-006 → `in_progress`), the kickoff sequence fires. **v1 is Track A only (decision-19), so `lovable_recommended` is always true and Lovable setup is mandatory** — no volunteer skip/opt-out. ai4good defers programmatic repo creation and auto-raises the `lovable_setup_pending` blocker (REQ-021); NGO + volunteer collaborate via the 11-step checklist to land the repo in `ai4good-projects/<slug>`. **No platform-admin involvement.** PM task tree bootstrapped from Discovery output (REQ-026) immediately at kickoff — NOT GitHub Issues, which are dev-internal only (REQ-008); Anthropic workspace created (REQ-009); project channel opened (REQ-015).
+- [ ] Volunteer receives an in-platform "starter kit" with the Track-A build guide (Claude Code setup + the Lovable-orchestration guide pointer), plus PM-task interaction guide (UI + MCP server).
 
 **Task Breakdown Hint:**
 - Task 3.1: GitHub OAuth + profile import (~6h)
@@ -304,14 +304,14 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - Task 3.3: Project marketplace listing UI + filters (~8h)
 - Task 3.4: Skill/cause overlap badges (count-based; **no numeric score in v1** — REQ-011 minimal) (~3h)
 - Task 3.5: Apply / approve flow (~5h)
-- Task 3.6: GitHub repo + PM task tree bootstrap **on funding** (not on acceptance) — branches on `lovable_recommended` per REQ-008 (~10h)
-- Task 3.7: Starter kit page with split-workflow decision guide (~4h)
+- Task 3.6: GitHub repo + PM task tree bootstrap **on funding** (not on acceptance) — Lovable→GitHub repo path per REQ-008/021 (v1: `lovable_recommended` always true) (~10h)
+- Task 3.7: Starter kit page with Track-A build guide (~4h)
 
 **Dependencies:** REQ-007 (Volunteer model), REQ-008 (GitHub integration)
 
 ---
 
-### Story 4: Volunteer Builds — Claude Code as the entry point (Track A: orchestrating Lovable via MCP; Track B: Claude Code direct)
+### Story 4: Volunteer Builds — Claude Code as the entry point (Track A: orchestrating Lovable via MCP)
 
 **As an** assigned volunteer developer,
 **I want to** use Claude Code as my single entry point — doing backend/logic/tests directly (metered against project fuel) and, on Track A, orchestrating Lovable via its MCP for the app/UI layer —
@@ -324,10 +324,9 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - [ ] When fuel drops below 20%, NGO is auto-notified to top up; below 5%, dev sessions are warned in-app + the key deactivates at the 5% blocking threshold (REQ-009 — absorbs polling lag).
 - [ ] When fuel hits 0, the project's API key is revoked; both volunteer and NGO are notified.
 - [ ] Volunteer has a "fuel gauge" widget in the platform dashboard.
-- [ ] **Track A — Claude Code orchestrates Lovable (REQ-021 + REQ-028):** when `maintenanceTrack = A_ngo_maintains`, the Skill drives Lovable via the `LovableDriver` port (`send_message`/`get_diff`/…), enforcing the per-task Lovable-credit budget cap + audit, with manual dual-rail fallback if Lovable MCP is down. The NGO owns the Lovable workspace (durable post-handoff home).
-- [ ] **Track B — Claude Code direct:** when `maintenanceTrack = B_developer_grade`, Claude Code builds directly; deploy to a plain host at handoff (REQ-012). No Lovable.
-- [ ] **Lovable status widget** (Track A only): volunteer can mark `credits_low`/`blocked` to escalate to the NGO; Lovable cost is paid by the NGO directly (not from fuel).
-- [ ] **Dual fuel-meter display:** project page shows the Claude Code fuel meter + Lovable status meter for Track A (REQ-010).
+- [ ] **Track A — Claude Code orchestrates Lovable (REQ-021 + REQ-028):** when `maintenanceTrack = A_ngo_maintains`, the Skill drives Lovable via the `LovableDriver` port (`send_message`/`get_diff`/…), enforcing the per-task Lovable-credit budget cap + audit, with manual dual-rail fallback if Lovable MCP is down. The NGO owns the Lovable workspace (durable post-handoff home). *(Track A is the only build track in v1 — Track B's Claude-Code-direct / plain-host path is deferred to post-v1, decision-19.)*
+- [ ] **Lovable status widget:** volunteer can mark `credits_low`/`blocked` to escalate to the NGO; Lovable cost is paid by the NGO directly (not from fuel).
+- [ ] **Dual fuel-meter display:** project page shows the Claude Code fuel meter + Lovable status meter (REQ-010).
 - [ ] **Out of scope for v1.5 (AI Proxy):** a server-side proxy that structurally enforces project-scoped key use. v1 relies on per-project key + revocation-on-zero-fuel + Skill-mediated enforcement.
 
 **Task Breakdown Hint:**
@@ -542,7 +541,7 @@ CREATE TABLE ngo_memberships (
 - [ ] Discovery output is a structured JSON conforming to the `DiscoveryOutput` interface below (no `fuel_budget_usd` field — v1 does not produce dollar estimates).
 - [ ] Complexity is a **qualitative tier only** (`'small' | 'medium' | 'large'`) — no derived dollar formula.
 - [ ] **Data-sensitivity classification (decided 2026-06-03):** Discovery asks what data the tool will handle and sets `dataSensitivity.tier`. It then **surfaces the matching data-handling guideline inline** to the NGO before they publish: Tier 0 → no restriction; Tier 1 (ordinary PII) → minimization reminder + NGO data-responsibility acknowledgment; **Tier 2 (special-category / high-volume PII) → "build against synthetic/anonymized fixtures only; connect real data yourself after handoff"** + a stronger data-responsibility acknowledgment. The NGO owns the data-exposure risk (governance-by-disclosure); ai4good's rule keeps real Tier-2 data out of Anthropic/Lovable/volunteer hands. Triage (REQ-023) confirms compliance.
-- [ ] **Maintenance-track classification (decided 2026-06-03):** Discovery asks *"after the volunteer is done, who keeps this running and evolving?"* and sets `maintenanceTrack.track`. **Track A (non-technical NGO maintains via chat)** → AI builder (Lovable) is the primary deliverable vehicle (REQ-021); **Track B (developer-grade / one-off)** → Claude Code primary, plain host. The track drives REQ-008/021 provisioning and the REQ-012 deploy/handoff path.
+- [ ] **Maintenance-track classification (decided 2026-06-03; v1 scope narrowed by decision-19):** Discovery asks *"after the volunteer is done, who keeps this running and evolving?"* and sets `maintenanceTrack.track`. **Track A (non-technical NGO maintains via chat)** → AI builder (Lovable) is the primary deliverable vehicle (REQ-021); this is the only track v1 builds. **Track B (developer-grade / one-off) is deferred to post-v1** — a need that is not Track-A-able (pure-backend, heavy custom logic/integrations, or Tier-2 data that cannot live in Lovable) does **not** get a publishable scope; Discovery explains that v1 builds only NGO-self-maintainable tools and records the need on a developer-grade waitlist (NGO notified if/when Track B opens). No build kickoff. The track drives REQ-008/021 provisioning and the REQ-012 deploy/handoff path.
 - [ ] Discovery output can be regenerated (with reason logged) up to 3 times per project before requiring escalation. **Regeneration and system-error retries are FREE (cost 0 Discovery credits)** — the dev/NGO is never charged for the platform's failed output (decision-11; avoids the "retries silently burn credits" complaint the credit-vs-money research flagged at Lovable/Cursor).
 - [ ] **Per-turn credit cost is context-weighted (decision-11, 2026-06-06):** each Discovery turn deducts `credits = ceil( (uncached_input_tokens + (discovery_cached_input_weight_bps/10000) × cached_input_tokens + output_tokens) / discovery_tokens_per_credit )` (defaults: cached input at 10%, 10,000 tokens/credit — `platform_settings`). So a **long conversation** (whole context re-sent each turn) and a **big uploaded reference file** (REQ-032 — rides in context every turn) cost more credits; **prompt caching the system prompt + uploaded files + conversation prefix makes turns cheaper** (cached tokens count at 10%). Credits are decremented on `ngos.discovery_credits_remaining` from the metered token counts, logged to `audit_events`.
 - [ ] **Per-turn routing — free credits only while unfunded (decision-11 routing amendment, 2026-06-06):** before each Discovery turn the cost source is resolved by the *project's* fuel balance, not the NGO's. **If the project has a positive fuel balance → the turn debits that project's fuel** (`discovery_consumption` + paired skim, real-$, 15% skim — REQ-006) and the NGO's free `discovery_credits_remaining` is left untouched; **otherwise → the turn debits the NGO's free `discovery_credits_remaining`** (context-weighted, above). So funding a project routes *that* project's Discovery to its fuel (the "Funded → all-$" rule: a funded project is dollar-metered end-to-end, Discovery + build), while the NGO's free pool stays reserved for its other unfunded projects. The credit gauge shows only while the project is on the free pool; once the project is funded, the turn shows its fuel cost instead.
@@ -589,12 +588,13 @@ interface DiscoveryOutput {
   // Maintenance track (decided 2026-06-03 — Item 2). The SELECTOR is "who evolves this after the
   // volunteer leaves," NOT the technology.
   maintenanceTrack: {
-    track: 'A_ngo_maintains' | 'B_developer_grade';
+    track: 'A_ngo_maintains' | 'B_developer_grade';   // v1 Discovery only ever emits 'A_ngo_maintains'; 'B_developer_grade' reserved for post-v1 (decision-19)
     rationale: string;
     // Track A: a non-technical NGO staffer will evolve the live app via chat → AI builder (Lovable)
     //   is the PRIMARY deliverable vehicle + durable home; Claude Code is the dev's build/debug rail.
-    // Track B: custom logic/integrations, special-category data, or no non-dev chat-maintenance
-    //   expectation → Claude Code primary, deploy to a plain host.
+    // Track B (DEFERRED to post-v1 — decision-19): custom logic/integrations, special-category data, or
+    //   no non-dev chat-maintenance expectation. v1 detects these needs and waitlists them instead of
+    //   publishing a scope (see REQ-004 maintenance-track classification).
   };
 
   suggestedLovable: {
@@ -603,7 +603,7 @@ interface DiscoveryOutput {
     // No dollar estimate in v1 — see roadmap. Scope doc shows Lovable pricing reference link only.
   };
   recommendedWorkflow: {
-    mode: 'split' | 'claude_code_only';        // 'lovable_only' deferred to v1.5 — all v1 matched projects require Anthropic fuel per REQ-006 / REQ-009
+    mode: 'split' | 'claude_code_only';        // v1 Discovery only ever emits 'split' (Lovable UI + Claude Code backend); 'claude_code_only' reserved for post-v1 Track B (decision-19); 'lovable_only' deferred to v1.5 — all v1 matched projects require Anthropic fuel per REQ-006 / REQ-009
     rationale: string;
     claudeCodeScope?: string[];   // e.g. ["API design", "Postgres schema", "Stripe integration", "tests"]
     lovableScope?: string[];      // e.g. ["NGO dashboard UI", "public landing page"]
@@ -612,8 +612,8 @@ interface DiscoveryOutput {
 ```
 
 **Discovery Agent system prompt additions:**
-- **Workflow split:** When the project has BOTH UI work AND non-UI work, recommend `mode: 'split'` and list which parts go to which tool. For pure-backend, `mode: 'claude_code_only'`. **`lovable_only` is NOT a valid v1 mode** — all matched projects require an Anthropic fuel kickoff and use Claude Code at minimum.
-- **Maintenance track:** ask explicitly who will maintain the tool after the volunteer leaves. If a **non-technical NGO staffer** will own ongoing changes → **Track A** (Lovable as the durable chat-maintenance home). If a developer will keep maintaining it, or it's a one-off, or it handles special-category data → **Track B**. Default bread-and-butter NGO internal tools (intake forms, CRUD trackers, directories, lightweight dashboards) to Track A; custom-integration / complex-logic / Tier-2-data tools to Track B.
+- **Workflow split:** When the project has BOTH UI work AND non-UI work, recommend `mode: 'split'` and list which parts go to which tool. For pure-backend, `mode: 'claude_code_only'` (note: a standalone pure-backend tool has no Lovable app for the NGO to chat-maintain → it is Track B → waitlisted in v1 per decision-19; a *publishable* v1 project is `split`, with Claude Code on the backend rail). **`lovable_only` is NOT a valid v1 mode** — all matched projects require an Anthropic fuel kickoff and use Claude Code at minimum.
+- **Maintenance track (v1 = Track A only, decision-19):** ask explicitly who will maintain the tool after the volunteer leaves. If a **non-technical NGO staffer** will own ongoing changes → **Track A** (Lovable as the durable chat-maintenance home) — the only track v1 builds. If a developer will keep maintaining it, or it's a one-off, or it handles special-category data that cannot live in Lovable → it would be **Track B**, which is **deferred to post-v1**: do not emit a publishable scope; explain that v1 builds only NGO-self-maintainable tools and offer to waitlist the need. Default bread-and-butter NGO internal tools (intake forms, CRUD trackers, directories, lightweight dashboards) to Track A; custom-integration / complex-logic / Tier-2-data tools are Track B → waitlist.
 - **Data sensitivity:** ask what real data the tool will handle and classify the tier. Be conservative — if unsure between Tier 1 and Tier 2, choose Tier 2 (fixtures-only is the conservative default). Never classify health/immigration/abuse-victim/financial data below Tier 2.
 
 **v1: No precise dollar estimation.** Discovery does **not** produce a fuel-budget dollar figure or a Lovable cost estimate. Instead:
@@ -627,7 +627,7 @@ interface DiscoveryOutput {
 > **Project Complexity: Medium**
 > Based on the scope, Discovery rates this **medium-complexity**. Start with a smaller fuel deposit and top up as work progresses (you'll be notified when fuel is low).
 >
-> **How you'll maintain it: Track A — you keep it yourself.** This tool will live in Lovable, where your team can keep evolving it by chat after the volunteer is done — fixing bugs, adding features, no developer needed. (Lovable subscription, ~$25/mo, is paid directly to Lovable; you own the code regardless. See lovable.dev/pricing.) *(Or, for Track B: "A developer-grade tool — you'll get the code + a deployed instance; ongoing changes need a developer.")*
+> **How you'll maintain it: Track A — you keep it yourself.** This tool will live in Lovable, where your team can keep evolving it by chat after the volunteer is done — fixing bugs, adding features, no developer needed. (Lovable subscription, ~$25/mo, is paid directly to Lovable; you own the code regardless. See lovable.dev/pricing.)
 >
 > **Data handling: Tier 2 — sensitive data.** This tool handles special-category data, so **the volunteer will build it against realistic *synthetic* sample data — you connect your real records yourself after handoff, in your own environment.** Your real beneficiary data never passes through the build tools or the volunteer. *(Tier 0/1 render their lighter guideline + the data-responsibility acknowledgment.)*
 
@@ -678,8 +678,8 @@ interface DiscoveryOutput {
 1. **Anthropic workspace** auto-created via Admin API (REQ-009). On failure: retry up to 3×; if still fails, raise `ops_task` of type `anthropic_provisioning_failure` and surface "Setup error — admin notified" to NGO + volunteer. Project stays in `in_progress` with `external_dependency` blocker.
 2. **Ops task** queued for manual Anthropic key creation + spend-limit setting (REQ-009).
 3. **GitHub repo**:
-   - **Claude-Code-only (`lovable_recommended = false`)**: ai4good auto-creates `ai4good-projects/<slug>` (REQ-008) with visibility per `projects.visibility`. README + CLAUDE.md commit-prefix template seeded; LICENSE seeded as MIT if `public_mit`.
-   - **Lovable-recommended (`lovable_recommended = true`)** (open-item-4 2026-05-26 redesign): ai4good does **not** create the repo at kickoff. Instead, volunteer sees a post-kickoff decision banner: *"Discovery recommended Lovable. Use it?"* If volunteer picks **No** → `lovable_skipped_at = NOW()`, ai4good immediately creates `ai4good-projects/<slug>` as in the Claude-Code path. If volunteer picks **Yes** → raises `lovable_setup_pending` blocker (REQ-024); NGO + volunteer collaborate via the 11-step checklist in REQ-021 (NGO steps 1-4, volunteer steps 5-9, ai4good auto-validates 10-11); blocker resolves when the GitHub repo URL + MCP last_seen_at validate. If volunteer doesn't decide in 14 days, the pg_cron → `lovable-setup-autoskip` Supabase Edge Function auto-skips (creates Claude-Code repo). **No platform-admin involvement.** Kickoff *branching* is on `lovable_recommended` (Discovery-set) + `lovable_skipped_at`; `lovable_enabled` flips on blocker resolution. Repo URL is required before handoff per REQ-012 hard precondition.
+   - **v1 (Track A only — `lovable_recommended` always true, decision-19):** ai4good does **not** create the repo at kickoff. It auto-raises the `lovable_setup_pending` blocker (REQ-024); NGO + volunteer collaborate via the 11-step checklist in REQ-021 (NGO steps 1-4, volunteer steps 5-9, ai4good auto-validates 10-11); the blocker resolves when the GitHub repo URL + MCP last_seen_at validate, landing the repo in `ai4good-projects/<slug>`. **No platform-admin involvement.** `lovable_enabled` flips on blocker resolution. Repo URL is required before handoff per REQ-012 hard precondition.
+   - *(Reserved, post-v1: the Claude-Code-only programmatic-repo path — `lovable_recommended = false` / `lovable_skipped_at` set, ai4good auto-creates `ai4good-projects/<slug>` with README + CLAUDE.md + MIT LICENSE seeded — is the Track-B path deferred by decision-19; plumbing kept, never taken in v1.)*
 4. **PM task tree** bootstrapped from Discovery output (REQ-026). Independent of GitHub — happens immediately.
 5. **Project comment thread** initialized (REQ-015); "Project funded and live" activity-feed event fires via `notify()` (REQ-016) — decision-15, no chat channel.
 6. **Volunteer notified** via email + in-app: "Project live. AI key ready within 12h. PM tasks ready now. Channel opened. (Lovable projects: invitation to Lovable workspace comes from NGO separately.)"
@@ -969,11 +969,11 @@ CREATE INDEX idx_ops_tasks_project ON ops_tasks(related_project_id);
 
 #### REQ-008: GitHub Integration (Code substrate + dev-internal issue tracker)
 
-**Description:** When a project is funded (NGO completes Stripe top-up at `matched_pending_fuel` → `in_progress`), a GitHub repo is provisioned for the code. **Provisioning path differs sharply between Claude-Code-only (`lovable_recommended = false`) and Lovable-recommended (`lovable_recommended = true`) projects** (verified 2026-05-23 against [Lovable docs](https://docs.lovable.dev/integrations/github) — Lovable's GitHub App creates the repo itself wherever the NGO points it, and Lovable's project-collaborator permissions do NOT propagate to GitHub):
+**Description:** When a project is funded (NGO completes Stripe top-up at `matched_pending_fuel` → `in_progress`), a GitHub repo is provisioned for the code. **v1 is Track A only (decision-19), so every project takes the Lovable-recommended (`lovable_recommended = true`) path below; the Claude-Code-only (`lovable_recommended = false`) row is reserved for post-v1 Track B.** (Verified 2026-05-23 against [Lovable docs](https://docs.lovable.dev/integrations/github) — Lovable's GitHub App creates the repo itself wherever the NGO points it, and Lovable's project-collaborator permissions do NOT propagate to GitHub):
 
 | Case | Who creates the repo | Where it lives | When |
 |---|---|---|---|
-| **`lovable_recommended = false`** (Claude-Code project; Discovery did NOT recommend Lovable) | ai4good (programmatic via our GitHub App) | **Always `ai4good-projects/<slug>`** GitHub org. Visibility = public/private per `projects.visibility` (option α — locked) | Immediately on funding |
+| **`lovable_recommended = false`** *(reserved — post-v1 Track B, decision-19; never taken in v1)* | ai4good (programmatic via our GitHub App) | **Always `ai4good-projects/<slug>`** GitHub org. Visibility = public/private per `projects.visibility` (option α — locked) | Immediately on funding |
 | **`lovable_recommended = true`** (Track A — Lovable-orchestrated) | **Volunteer drives Lovable→GitHub install** (open-item-4 redesign 2026-05-26) — NGO does workspace + admin-invite (steps 1-4 of REQ-021 11-step checklist); volunteer does install + MCP connector + paste-back (steps 5-9); ai4good auto-validates (10-11). No platform-admin involvement. | **Always `ai4good-projects/<slug>`** (uniform with Claude-Code path). Visibility = public/private per `projects.visibility` | Whenever `lovable_setup_pending` blocker resolves — typically same-day if NGO + volunteer move promptly; 7d aging escalation per REQ-024 if either party silent |
 
 **Claude-Code-only path (always ai4good-projects org):**
@@ -1123,10 +1123,8 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
   - **Cadence health badge:** `Active` (commits in last 7d) / `Quiet` (7-14d) / `Stalled` (>14d).
 - [ ] Cadence stats are also surfaced as a compact summary on each project card in the marketplace (REQ-007) and in dashboards (REQ-013, REQ-014).
 - [ ] Cadence data cached for 1 hour to avoid GitHub API rate-limit pressure.
-- [ ] **Dual fuel-meter display (split workflow, REQ-021)** — codex round 8 fix: keys on both `lovable_recommended` AND `lovable_skipped_at` to handle the skip case correctly:
-  - **`lovable_recommended = true` AND `lovable_skipped_at IS NULL`** (decision pending or Yes-path active): renders two parallel fuel meters side-by-side. Claude Code meter shows current fuel balance (gross — Option γ), % remaining, low/depleted indicators. Lovable status meter — if `lovable_enabled = true` (setup done): shows current `lovable_status` + Lovable workspace link + "Top up Lovable credits →" CTA when `credits_low`/`blocked`. If `lovable_enabled = false` (setup not yet done): shows "Set up Lovable" CTA pointing to `/docs/lovable-setup-guide` + the `lovable_setup_pending` blocker status.
-  - **`lovable_recommended = true` AND `lovable_skipped_at IS NOT NULL`** (volunteer skipped or 14-day auto-skip fired): shows only the Claude Code meter; small footer note "Lovable was skipped for this project; raise the `lovable_setup_pending` blocker to re-enable" (reversibility hint).
-  - **`lovable_recommended = false`** (Discovery didn't recommend Lovable): only the Claude Code fuel meter is shown.
+- [ ] **Dual fuel-meter display (REQ-021)** — v1 (Track A only, decision-19) always renders two parallel fuel meters side-by-side (every project is Lovable). Claude Code meter shows current fuel balance (gross — Option γ), % remaining, low/depleted indicators. Lovable status meter — if `lovable_enabled = true` (setup done): shows current `lovable_status` + Lovable workspace link + "Top up Lovable credits →" CTA when `credits_low`/`blocked`. If `lovable_enabled = false` (setup not yet done): shows "Set up Lovable" CTA pointing to `/docs/lovable-setup-guide` + the `lovable_setup_pending` blocker status.
+  - *(Reserved, post-v1: the single-meter display for skipped / `lovable_recommended = false` projects is the Track-B path deferred by decision-19 — `lovable_skipped_at` is never set in v1.)*
   - Layout: two equal-width cards under the project header, labeled "Claude Code (via fuel)" and "Lovable (direct to Lovable)" with brief tooltips explaining the difference.
 
 **Dependencies:** REQ-008, REQ-009.
@@ -1162,7 +1160,7 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
 - [ ] Automated checks: README present, RUNBOOK.md present, deploy instructions section present, ≥1 passing CI run on `main`, **LICENSE file present if `visibility = 'public_mit'`** (private repos don't require a LICENSE file since they're not open-licensed for redistribution).
 - [ ] **Deploy-to-running step (decided 2026-06-03 — Goal 1; the deliverable is a *running* tool, not a repo):** the volunteer's final task is to **deploy a working instance and hand over ownership**, and `projects.deployment_url IS NOT NULL` is a handoff precondition:
   - **Track A (Lovable):** the app is already deployed and hosted by Lovable; "deploy" = the volunteer **pastes the live Lovable app URL into the handoff form, which WRITES `projects.deployment_url`** (this is the Track-A source of `deployment_url` — the precondition above; the step-9 *setup* paste-back captures workspace/repo URLs only, never the deployed-app URL, so without this step a Track-A handoff is structurally un-completable) + transfer Lovable workspace ownership to the NGO (NGO owns it from kickoff per REQ-021, so this is a confirmation) + run the **guided-maintenance handoff ritual**: (i) **enable Supabase RLS** (off by default on Lovable-provisioned Supabase — a PII footgun), (ii) **demo chat/plan mode + revert/checkpoint rollback** to the NGO staffer so they can self-maintain without breaking production, (iii) **set a Lovable spend cap / budget alert** so metered edits never blindside a non-technical owner, (iv) confirm two-way GitHub sync is live.
-  - **Track B (plain host):** volunteer deploys to a free-tier host (Vercel/Netlify/Railway + Supabase, per the chosen stack) **on the NGO's own account** and hands over the credentials + a secrets-handoff note. ai4good never operates the infra.
+  - *(Track B plain-host deploy is deferred to post-v1 — decision-19. v1 deploy/handoff is Track-A / Lovable only.)*
 - [ ] **30-day-alive signal (Goal 1 north-star):** a health-check job pings `deployment_url` at 30 days post-handoff and records the alive signal. Not guaranteed (no SLA, Platform Promise §4) — measured.
 - [ ] NGO sees a "Review Handoff" CTA with the repo URL + live deployment URL + checklist results.
 - [ ] NGO signs off (or rejects with comments → back to volunteer). **Rejection-loop cap (decided 2026-06-03 — dispute resolution):** after 2 reject→resubmit cycles, the third rejection routes to neutral **platform review** (a lightweight `incident`/review ops task) so an NGO can't extract unbounded unpaid rework; the volunteer has a "contest this rejection" path.
@@ -1176,7 +1174,7 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
 
 #### REQ-021: Lovable Integration — Track-A Durable Home + Claude-Code-Orchestrated Build
 
-**Description (rearchitected 2026-06-03 — Item 2):** For **Track A "NGO-maintains-it" projects** (REQ-004 `maintenanceTrack = A_ngo_maintains`), **Lovable is the PRIMARY deliverable vehicle and the NGO's durable maintenance home** — after handoff the non-technical NGO evolves the live app via Lovable's chat interface, no developer needed. During the build, however, **Claude Code is the single entry point**: the volunteer works in Claude Code (where the ai4good Skill, fuel metering, and enforcement live), and **Claude Code orchestrates Lovable via Lovable's MCP server** (`send_message`, `get_diff`, `get_workspace`, etc.) for the UI/app layer while doing backend/logic/tests directly. This keeps ai4good's metering + scope + audit authoritative even for Lovable work, and gives the volunteer a single pane of glass. For **Track B**, Claude Code is primary and Lovable is unused.
+**Description (rearchitected 2026-06-03 — Item 2):** For **Track A "NGO-maintains-it" projects** (REQ-004 `maintenanceTrack = A_ngo_maintains`), **Lovable is the PRIMARY deliverable vehicle and the NGO's durable maintenance home** — after handoff the non-technical NGO evolves the live app via Lovable's chat interface, no developer needed. During the build, however, **Claude Code is the single entry point**: the volunteer works in Claude Code (where the ai4good Skill, fuel metering, and enforcement live), and **Claude Code orchestrates Lovable via Lovable's MCP server** (`send_message`, `get_diff`, `get_workspace`, etc.) for the UI/app layer while doing backend/logic/tests directly. This keeps ai4good's metering + scope + audit authoritative even for Lovable work, and gives the volunteer a single pane of glass. **Track B is deferred to post-v1 (decision-19), so in v1 every built project is Track A and uses Lovable.**
 
 **Build-phase orchestration model (Track A — the v1 architecture):**
 
@@ -1186,9 +1184,9 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
 - **OAuth note:** Lovable MCP is OAuth-user-scoped — the volunteer (invited as Lovable workspace admin per the setup flow below) OAuth-connects their Lovable account into Claude Code; calls bill the NGO's workspace, audit-attributed to the volunteer.
 - **Post-handoff:** the NGO owns the Lovable workspace (from kickoff) and self-maintains via chat — **zero dependency on the MCP layer or Claude Code.** The durable-owner promise holds even if orchestration wobbles.
 
-**The legacy "split workflow" framing below remains valid for Track B and for the manual fallback** (both tools commit to the shared GitHub repo). For Track A the default is orchestration-through-Claude-Code, not manual side-by-side.
+**The legacy "split workflow" framing below remains valid for the manual fallback** (both tools commit to the shared GitHub repo) — Track B, its other original use, is deferred to post-v1 (decision-19). For Track A the default is orchestration-through-Claude-Code, not manual side-by-side.
 
-**Manual split workflow (Track B, and the Track-A fallback when Lovable MCP is unavailable — NOT the Track-A primary path):**
+**Manual split workflow (the Track-A fallback when Lovable MCP is unavailable — NOT the Track-A primary path):**
 
 | Work type | Recommended tool | Funded by | Why |
 |---|---|---|---|
@@ -1197,9 +1195,9 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
 | Documentation, runbooks, README | **Claude Code** | ai4good fuel | Better at producing structured docs and code-aware explanations |
 | **GitHub repo** | **Both tools commit here** | — | Single source of truth; commits flow either way |
 
-A volunteer can opt out of either side: pure backend projects use Claude Code only (no Lovable subscription needed); UI-heavy demo projects can lean almost entirely on Lovable.
+A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lovable to a thin UI layer; UI-heavy projects lean almost entirely on Lovable. (A *pure*-backend tool with no Lovable app is Track B → waitlisted in v1 per decision-19.)
 
-**Why the NGO-self-provisioned Lovable boundary holds (applies to both the orchestrated primary path and this manual fallback):** Lovable has no public per-project metering API, no BYOK, and per-workspace billing. Owning Lovable infrastructure on behalf of NGOs would expose ai4good to linear ops cost and inscrutable attribution. NGO-self-provisioned Lovable gives: (1) zero ai4good infrastructure dependency on Lovable, (2) pricing transparency for the NGO (no platform markup on Lovable spend), (3) **the NGO owns the Lovable workspace from day one** — the durable post-handoff chat-maintenance home, no migration needed, and (4) it matches how AI-augmented developers already work. (In the Track-A *primary* path the Skill orchestrates this same workspace via Lovable MCP and enforces the per-task credit cap — REQ-021 build-phase orchestration model above; the manual workflow here is the Track-B path + the fallback.)
+**Why the NGO-self-provisioned Lovable boundary holds (applies to both the orchestrated primary path and this manual fallback):** Lovable has no public per-project metering API, no BYOK, and per-workspace billing. Owning Lovable infrastructure on behalf of NGOs would expose ai4good to linear ops cost and inscrutable attribution. NGO-self-provisioned Lovable gives: (1) zero ai4good infrastructure dependency on Lovable, (2) pricing transparency for the NGO (no platform markup on Lovable spend), (3) **the NGO owns the Lovable workspace from day one** — the durable post-handoff chat-maintenance home, no migration needed, and (4) it matches how AI-augmented developers already work. (In the Track-A *primary* path the Skill orchestrates this same workspace via Lovable MCP and enforces the per-task credit cap — REQ-021 build-phase orchestration model above; the manual workflow here is the Track-A fallback when Lovable MCP is unavailable. Track B, its other original use, is deferred to post-v1 — decision-19.)
 
 **Lifecycle:**
 
@@ -1213,12 +1211,7 @@ A volunteer can opt out of either side: pure backend projects use Claude Code on
 
    **The ai4good MCP server is the primary task-integration mechanism for Lovable.** Lovable supports custom MCP servers as "chat connectors" ([Lovable docs](https://docs.lovable.dev/integrations/mcp-servers)). Volunteer (not NGO, not admin) configures it once during their setup steps.
 
-   **Volunteer's post-kickoff decision (NEW):** at kickoff (`matched_pending_fuel → in_progress`), if `lovable_recommended = true`, ai4good shows a banner on the volunteer's project dashboard:
-   > *"Discovery recommended Lovable for this project's UI work. Will you use it?"* [Yes, set up Lovable] [No, skip Lovable — Claude Code only]
-
-   - **Volunteer picks NO →** `projects.lovable_skipped_at = NOW()`; ai4good immediately auto-creates `ai4good-projects/<slug>` (Claude-Code path); volunteer added as `maintain` collaborator; CLAUDE.md + README seeded; project proceeds Claude-Code-only. End of Lovable flow. (Decision is reversible — volunteer can manually raise `lovable_setup_pending` mid-project if they change their mind.)
-   - **Volunteer picks YES →** raises a `lovable_setup_pending` blocker (REQ-024, severity `blocking`) addressed to the NGO. Activity-feed event (via notify(), decision-15): *"🚩 Volunteer raised: 'Set up Lovable workspace and invite me as workspace admin so I can connect GitHub + ai4good MCP.'"* NGO sees Action-Needed banner.
-   - **Volunteer doesn't decide within 14 days post-kickoff (codex round 7 gap fix):** the pg_cron → `lovable-setup-autoskip` Supabase Edge Function at day 14 auto-defaults to "skip" — sets `lovable_skipped_at = NOW()`, creates the Claude-Code repo as in the No branch, notifies volunteer + NGO via `lovable_decision_auto_skipped` event with copy *"You didn't decide on Lovable within 14 days; we've set up a Claude Code repo so you can start work. If you want to add Lovable later, raise the `lovable_setup_pending` blocker manually from the project page."* Reversible at any time per the No-branch reversibility rule.
+   **Lovable setup is mandatory at kickoff (v1 — decision-19):** every v1 project is Track A, so `lovable_recommended` is always true and Lovable is the deliverable, not an option. At kickoff (`matched_pending_fuel → in_progress`) ai4good **auto-raises** the `lovable_setup_pending` blocker (REQ-024, severity `blocking`) addressed to the NGO. Activity-feed event (via notify(), decision-15): *"🚩 Set up the Lovable workspace and invite the volunteer as workspace admin so they can connect GitHub + the ai4good MCP."* NGO sees an Action-Needed banner; the blocker ages on the normal REQ-024 schedule (48h/7d). **The volunteer "skip Lovable / Claude-Code-only" opt-out and the 14-day auto-skip are removed in v1** — `projects.lovable_skipped_at` is reserved (never set; no migration) and `mode: 'claude_code_only'` is reserved for post-v1 Track B.
 
    **Setup checklist (visible on the `lovable_setup_pending` blocker to both NGO and volunteer; 11 steps total; blocker auto-resolved when ai4good's step-11 validation succeeds):**
 
@@ -1268,17 +1261,17 @@ A volunteer can opt out of either side: pure backend projects use Claude Code on
 **Acceptance Criteria:**
 - [ ] Discovery Agent output schema includes `suggestedLovable: { needed: bool, rationale: string }` block — no dollar estimate fields (REQ-004 consistent).
 - [ ] Scope doc renders the Lovable recommendation as a separate note with a clear "paid directly to Lovable" disclaimer; no dollar figure shown.
-- [ ] Project table adds: **two distinct flags** — `lovable_recommended BOOLEAN DEFAULT false` (Discovery's recommendation accepted by NGO; drives kickoff branching) AND `lovable_enabled BOOLEAN DEFAULT false` (NGO completed setup; drives status-widget visibility and MCP connector reminders) — plus `lovable_workspace_url TEXT`, `lovable_status TEXT DEFAULT 'not_enabled' CHECK (lovable_status IN ('not_enabled','active','credits_low','blocked'))`.
+- [ ] Project table adds: **two distinct flags** — `lovable_recommended BOOLEAN DEFAULT false` (Discovery's recommendation; **v1: always true — every project is Track A, decision-19**; retained as a flag for post-v1) AND `lovable_enabled BOOLEAN DEFAULT false` (NGO completed setup; drives status-widget visibility and MCP connector reminders) — plus `lovable_workspace_url TEXT`, `lovable_status TEXT DEFAULT 'not_enabled' CHECK (lovable_status IN ('not_enabled','active','credits_low','blocked'))`.
 - [ ] Project page renders the Lovable Status widget when `lovable_enabled = true`; widget is hidden otherwise.
 - [ ] Volunteer can change `lovable_status` from their project page; transitions to `credits_low` or `blocked` trigger notifications (REQ-016).
 - [ ] NGO can transition `lovable_status` back to `active` via the "I've topped up — unblock" CTA.
 - [ ] **No inbound mail parser in v1.** Credit-status detection is manual via the Lovable Status widget only (deferred to v1.5 per §11).
 - [ ] "Top up Lovable credits →" CTA opens Lovable's billing page in a new tab (deep link to workspace URL when set; fallback to `https://lovable.dev/settings/billing`).
-- [ ] **Volunteer's post-kickoff decision banner** on project dashboard when `lovable_recommended = true` AND `lovable_skipped_at IS NULL` AND no `lovable_setup_pending` blocker is yet resolved: *"Discovery recommended Lovable for this project. Use it?"* [Yes → raise blocker] [No → skip; auto-create Claude-Code repo].
-- [ ] **`projects.lovable_skipped_at TIMESTAMPTZ`** column — set when volunteer picks "Skip Lovable"; reversible (volunteer can manually raise `lovable_setup_pending` later if they change their mind).
-- [ ] **`lovable_setup_pending` blocker** auto-raised by volunteer's "Yes, set up Lovable" action; severity `blocking`; resolved by ai4good auto-validation after step 9 of the checklist (URL + MCP `last_seen_at` validation). Added to REQ-024 blocker types + CHECK constraint + unique partial index.
+- [ ] **Lovable setup auto-initiated at kickoff (v1, decision-19):** when a project reaches `in_progress` (always `lovable_recommended = true` in v1), ai4good auto-raises the `lovable_setup_pending` blocker — no volunteer "use Lovable?" choice. The skip-to-Claude-Code-only opt-out is removed in v1 (reserved post-v1).
+- [ ] **`projects.lovable_skipped_at TIMESTAMPTZ`** column retained but **reserved** — never set in v1 (the skip opt-out is removed, decision-19); kept for no-migration reinstatement of post-v1 Track B.
+- [ ] **`lovable_setup_pending` blocker** auto-raised at kickoff (v1 — no volunteer opt-in needed, decision-19); severity `blocking`; resolved by ai4good auto-validation after step 9 of the checklist (URL + MCP `last_seen_at` validation). Added to REQ-024 blocker types + CHECK constraint + unique partial index.
 - [ ] NGO setup guide at `/docs/lovable-setup-guide` covers the **11-step checklist** (steps 1-4 NGO; 5-9 volunteer; 10-11 ai4good auto-validation). **NGO does ZERO GitHub work** — once NGO completes steps 1-4, volunteer drives the rest. **Platform admin is NOT involved** in per-project Lovable setup.
-- [ ] **ai4good Lovable Setup page** in the platform UI provides (reachable when `lovable_recommended = true` and not skipped):
+- [ ] **ai4good Lovable Setup page** in the platform UI provides (reachable for every project — v1: `lovable_recommended` always true, decision-19):
   - (a) Scope-summary text (one-click copy; NGO pastes into Lovable project intake at step 2)
   - (b) Volunteer's Lovable email (one-click copy; NGO pastes into Lovable's invite-as-workspace-admin field at step 3)
   - (c) ai4good MCP server URL `mcp.ai4good.dev/projects/<project_id>` (one-click copy; volunteer pastes into Lovable connector config at step 7)
@@ -1586,7 +1579,7 @@ The dev marks task status via their **local TaskMaster** — full UX, all 33 too
 
 | Project shape | How task status reaches the NGO UI |
 |---|---|
-| **Claude-Code-only** (`lovable_recommended = false`) | Volunteer's local Claude Code calls local TaskMaster (CLI or MCP) → writes to `.taskmaster/tasks/tasks.json` → Skill auto-commits + pushes → GitHub webhook fires on push → ai4good worker fetches the file → projection upsert → NGO UI re-renders. End-to-end latency target: <30s from local mutation to NGO-visible state. |
+| **Claude-Code-only** (`lovable_recommended = false`) *(reserved — post-v1 Track B, decision-19; not taken in v1)* | Volunteer's local Claude Code calls local TaskMaster (CLI or MCP) → writes to `.taskmaster/tasks/tasks.json` → Skill auto-commits + pushes → GitHub webhook fires on push → ai4good worker fetches the file → projection upsert → NGO UI re-renders. End-to-end latency target: <30s from local mutation to NGO-visible state. |
 | **Lovable-recommended** (`lovable_recommended = true`, Track A) | Volunteer's Claude Code (the orchestrator per REQ-028) makes Lovable calls via Lovable's MCP. Task status mutations still flow through the **same local TaskMaster path** — the Skill mirrors meaningful Lovable outcomes back into TaskMaster (e.g., "Lovable shipped a working feature" → Skill calls `task-master set-status --id=X --status=done` locally → auto-commit). Lovable itself never writes to ai4good's task store. |
 | **Dual-rail** (Lovable + Claude Code on same repo) | Same as above — there is only one source of task mutations: the volunteer's Claude Code + local TaskMaster + git. Lovable is a build tool driven by Claude Code; it doesn't compete for the task tree. Avoids the prior "two writers, lock conflict" complexity entirely. |
 
@@ -2280,19 +2273,19 @@ CREATE TABLE projects (
   visibility_justification TEXT,  -- required when visibility='private' (e.g. "handles beneficiary PII"); reviewed at triage REQ-023
   -- Data sensitivity + maintenance track (decided 2026-06-03 — Items 1 + 2; set from Discovery output)
   data_sensitivity TEXT NOT NULL DEFAULT 'tier0_no_pii' CHECK (data_sensitivity IN ('tier0_no_pii','tier1_ordinary_pii','tier2_special_category')),
-  maintenance_track TEXT CHECK (maintenance_track IN ('A_ngo_maintains','B_developer_grade')),
+  maintenance_track TEXT CHECK (maintenance_track IN ('A_ngo_maintains','B_developer_grade')),  -- v1 only ever sets 'A_ngo_maintains'; 'B_developer_grade' reserved for post-v1 (decision-19 — no migration needed to re-enable)
   github_org TEXT NOT NULL DEFAULT 'ai4good-projects',  -- always 'ai4good-projects' in v1; the two-org split ('ai4good-private') is a v1.5 hardening (REQ-008)
   deployment_url TEXT,                          -- live running app URL; handoff precondition (REQ-012 Goal 1); 30-day-alive health check pings this
   deployment_alive_last_checked_at TIMESTAMPTZ,
   deployment_alive BOOLEAN,
   -- Lovable Track-A orchestration (REQ-021): NGO-owned workspace; ai4good's backend doesn't bill it against fuel, but the volunteer's Skill meters + caps per-task usage
   -- Two distinct fields, codex round 4 critical fix — were overloaded as one:
-  lovable_recommended BOOLEAN DEFAULT false,   -- Discovery flipped this when suggestedLovable.needed = true; drives kickoff branching (REQ-005.5) and NGO-setup CTAs
+  lovable_recommended BOOLEAN DEFAULT false,   -- Discovery flipped this when suggestedLovable.needed = true; v1: always true (every project is Track A, decision-19); drives NGO-setup CTAs
   lovable_enabled BOOLEAN DEFAULT false,       -- NGO flipped this when they completed Lovable setup (pasted lovable_workspace_url, optionally github_repo_url); drives UI features that need a live workspace (status widget, MCP connector reminder)
   lovable_workspace_url TEXT,
   lovable_workspace_id TEXT,                    -- Lovable's internal workspace ID; captured by volunteer at step 9 of lovable_setup_pending blocker checklist (REQ-021)
   lovable_project_id TEXT,                      -- Lovable's internal project ID; REQUIRED in v1 for Track-A Claude-Code-orchestrates-Lovable (REQ-021 + REQ-028 LovableDriver port) so the volunteer's Claude Code passes it to Lovable MCP `send_message(project_id=...)`. Captured by volunteer at step 9 of lovable_setup_pending blocker checklist.
-  lovable_skipped_at TIMESTAMPTZ,               -- volunteer chose "Skip Lovable" post-kickoff (open-item-4 2026-05-26); when set, project proceeds Claude-Code-only despite lovable_recommended=true; reversible — volunteer can manually raise lovable_setup_pending blocker if they change their mind
+  lovable_skipped_at TIMESTAMPTZ,               -- RESERVED (decision-19): the volunteer skip opt-out is removed in v1, so this is never set; kept for no-migration reinstatement of post-v1 Track B (was: volunteer chose Skip Lovable, project proceeds Claude-Code-only)
   lovable_status TEXT DEFAULT 'not_enabled' CHECK (
     lovable_status IN ('not_enabled','active','credits_low','blocked')
   ),
@@ -2855,7 +2848,7 @@ This is the authoritative scope/roadmap reference. Use the **Out of Scope** sect
 ### v1 MVP (public beta launch)
 
 **⚠️ 2026-06-03 PIVOT + 2026-06-04 DECISION-8 + 2026-06-06 DECISION-9 — read this first.** After a 10-persona PM-architect strategic review (2026-06-03) the founder made 7 decisions that materially reshape v1 (see Platform Promise + REQ-004/006/008/012/021/026/028 + new REQ-027/029/030/031). A follow-up **decision-8 (2026-06-04)** unified the money model: NGOs and volunteers BOTH consume project fuel, funding is allowed from `draft` onward, and Discovery is gated by a per-NGO free credit pool. A further **decision-9 (2026-06-06)** simplifies the PM-tree architecture: **TaskMaster runs locally on the volunteer's laptop only; `tasks.json` lives in the project's git repo; ai4good observes through GitHub webhooks and projects into Postgres for the NGO UI.** No platform-hosted task MCP server. Net deltas to v1 scope:
-- **Deliverable is a *deployed, NGO-self-maintainable* tool** (not a repo). **Track A** (NGO maintains via chat) → Lovable is the primary vehicle + durable home; Claude Code orchestrates Lovable via its MCP (Skill is the orchestration shell). **Track B** → Claude Code primary + plain-host deploy. Discovery classifies the track.
+- **Deliverable is a *deployed, NGO-self-maintainable* tool** (not a repo). **Track A** (NGO maintains via chat) → Lovable is the primary vehicle + durable home; Claude Code orchestrates Lovable via its MCP (Skill is the orchestration shell). **Track A is the only track v1 builds; Track B (developer-grade + plain-host deploy) is deferred to post-v1 (decision-19) — non-Track-A needs are waitlisted at Discovery.** Discovery classifies the track.
 - **Data governance-by-disclosure**: Discovery `data_sensitivity` tiers; Tier-2 = fixtures-only-during-build; triage enforces.
 - **No cash-out**: fuel is non-cash project-scoped credit; stays-on-project; donate/keep (move-between-projects v1.5). Removes Treasury/ACH/refund/KYC/AML.
 - **Nonprofit** entity + **blended** economics (Goal 3 re-pointed); **real ToS** (no "no contract").
@@ -2936,7 +2929,7 @@ This is the authoritative scope/roadmap reference. Use the **Out of Scope** sect
 - REQ-008 (GitHub repo + dev-internal Issues only; Claude Code repos locked to `ai4good-projects/` org per option α)
 - REQ-009 (Anthropic per-project workspaces + manual key bootstrap + Usage Report polling + daily Cost Report reconciliation + micro-cents ledger + preemptive cap-raise + hybrid reactivation; **automated spend-anomaly detection deferred to v1.5 — decision-14**)
 - REQ-010 (Single-view project page + cadence stats + dual fuel meters)
-- REQ-021 (Lovable = Track-A primary deliverable vehicle; Claude Code orchestrates it via the `LovableDriver` port over Lovable MCP with per-task credit cap + audit + manual dual-rail fallback; volunteer-driven setup; manual status widget retained; **inbound email parser deferred to v1.5**)
+- REQ-021 (Lovable = Track-A primary deliverable vehicle; Claude Code orchestrates it via the `LovableDriver` port over Lovable MCP with per-task credit cap + audit + manual dual-rail fallback; volunteer-driven setup; manual status widget retained; **inbound email parser deferred to v1.5**; **Track B / developer-grade deferred to post-v1 — decision-19, v1 is Track-A only**)
 - REQ-024 (Orthogonal blockers + task-anchored clarifications, including `github_collaborator_needed` for dual-rail)
 - **REQ-025 minimal** (Change Requests captured in DB + posted to channel as a system message; volunteer Accept/Decline with note; on Accept, PM tasks created. **Full CR UI workflow with cards, NGO-side prompts, completion notifications, post-handoff re-list path deferred to v1.5** — v1 uses the channel + notifications as the surface, not a dedicated CR section.)
 - **REQ-026** (Platform-native PM tasks via **git-as-truth — decision-9**: local TaskMaster writes `.taskmaster/tasks/tasks.json` in the project repo → GitHub webhook → one-way Postgres projection; server-side bootstrap-commit at funding; REST API for NGO context/comments/blockers + the project-page UI. **NO platform task-MCP server** — `mcp.ai4good.dev/projects/:id` was DROPPED by decision-9. Commit-message `task_key` is a secondary signal; CLAUDE.md seeding for Claude Code repos)
@@ -3063,7 +3056,7 @@ These are **Tier 2 issues from the codex review (2026-05-23)** that were not add
 | 4 | ~~**Sensitive-data / open-source repo conflict**~~ | **Resolved 2026-05-24** | Resolved by introducing private-opt-in to Platform Promise §2 (public MIT default; private allowed for justified PII/classified cases, confirmed at triage REQ-023). `projects.visibility` field + `visibility_justification` text + triage review flow now spec'd. Prohibited project types (medical-records, PII-processor-without-consent) still need a separate acceptable-use doc per REQ-023 task 23.6 — out-of-PRD ops work, not a blocker. Secret-scanning, anonymization/fixture policy: standard GitHub-side hygiene; not v1 platform features. |
 | 5 | **Admin staffing model at scale** | Open | "<10 min/project/week admin time" is achievable at pilot volume (≤10 projects) but Codex correctly flags it's not credible at year-1 target (200 active projects = 33 admin hours/week of manual work). Need: explicit staffing model OR cut manual gates (auto-triage for KYC NGOs, etc.) before scale. |
 | 6 | **Anthropic commercial readiness for year-1 spend** | Open | Year-1 target = ~$210k of Anthropic spend. Need: org-tier negotiation, prepaid credit arrangement vs invoice billing, multi-org provisioning agreement, custom rate limits. Should be a launch gate, not a quarterly watch item. |
-| 7 | ~~**Deployment ownership post-handoff**~~ | **Decided 2026-06-03** | Item 2 / Goal 1: the deliverable is a *deployed running tool*. Track A → Lovable hosts it + NGO self-maintains via chat (NGO owns the workspace + ~$25/mo to Lovable, disclosed). Track B → volunteer deploys to a free-tier host on the NGO's own account + hands over credentials; ai4good never operates infra. `deployment_url` is a handoff precondition (REQ-012); 30-day-alive tracked. |
+| 7 | ~~**Deployment ownership post-handoff**~~ | **Decided 2026-06-03** | Item 2 / Goal 1: the deliverable is a *deployed running tool*. Track A → Lovable hosts it + NGO self-maintains via chat (NGO owns the workspace + ~$25/mo to Lovable, disclosed); Track A is the only track v1 builds. (Track B → free-tier host on the NGO's account + credentials handoff is deferred to post-v1 — decision-19.) ai4good never operates infra. `deployment_url` is a handoff precondition (REQ-012); 30-day-alive tracked. |
 | 8 | ~~**Entity type**~~ | **Decided 2026-06-03** | **Nonprofit path** — fiscal sponsorship now → own 501(c)(3) later. Makes "donate unused fuel" tax-deductible, legitimizes volunteers-donating-time, opens grant funding. Forecloses traditional VC. |
 | 9 | **Counsel deliverables (the residual legal work)** | Open | Item 7: a plain-language, counsel-reviewed **Terms of Service** holding the no-warranty/no-SLA/limitation-of-liability terms (the UI keeps the warm "coordination layer" voice); a light **volunteer-classification opinion** (low-risk given nonprofit); fiscal-sponsor agreement; EU **data-residency posture + sub-processor/DPA** stance before EU onboarding (Anthropic/Lovable/Stripe). |
 | 10 | **Blended P&L + grant runway** (Item 5) | Open | Build a bottom-up year-1 P&L (skim + grants + donations vs Anthropic float + infra + concierge/admin labor); lock in grant/donor runway covering the projected net gap. Goal 3 re-pointed to blended sustainability. |

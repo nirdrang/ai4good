@@ -9,8 +9,12 @@
         "testStrategy": "Verify the cloned TanStack Start project builds without errors. Run the dev server and confirm hot reload works. Verify Tailwind styles apply correctly. Test shadcn/ui Button component renders properly. Confirm Lovable two-way GitHub sync round-trips a change.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "in-progress",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Break down into: 1) Create Next.js 14 project with TypeScript/Tailwind/ESLint, 2) Install and configure shadcn/ui with WCAG 2.1 AA color palette, 3) Set up folder structure (app/components/lib/hooks/types), 4) Install dependencies (@tanstack/react-query, zod, drizzle-orm, supabase clients) and configure Edge runtime",
+        "updatedAt": "2026-06-16T14:49:17.743Z"
       },
       {
         "id": 2,
@@ -20,10 +24,13 @@
         "testStrategy": "Run migrations locally. Verify tables exist with correct constraints via Supabase Studio. Test foreign key relationships. Verify CHECK constraints reject invalid values.",
         "priority": "high",
         "dependencies": [
-          1
+          "1"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on set up supabase project and base schema."
       },
       {
         "id": 3,
@@ -33,10 +40,13 @@
         "testStrategy": "Test email/password signup and login. Verify email verification flow works. Test GitHub OAuth flow end-to-end. Verify session persists across page refreshes. Test logout functionality.",
         "priority": "high",
         "dependencies": [
-          2
+          "2"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement supabase auth integration."
       },
       {
         "id": 4,
@@ -46,10 +56,13 @@
         "testStrategy": "Red-team test: create two NGOs, verify user A cannot see NGO B data. Test platform_admin bypass works. Verify suspended users are blocked from mutations.",
         "priority": "high",
         "dependencies": [
-          3
+          "3"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement row-level security policies."
       },
       {
         "id": 5,
@@ -59,11 +72,14 @@
         "testStrategy": "Test profile creation and update. Verify file upload stores to private bucket. Confirm only signed URLs grant access. Test document submission triggers state change to 'pending'.",
         "priority": "high",
         "dependencies": [
-          4,
+          "4",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 6,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Break down into: 1) Build NGO profile form at /ngo/profile with react-hook-form + zod, 2) Create verification_documents table with review fields, 3) Configure Supabase Storage private bucket with signed URL access, 4) Implement file upload with size/type validation (10MB PDF), 5) Build document submission flow that updates verification_state to 'pending'"
       },
       {
         "id": 6,
@@ -73,12 +89,15 @@
         "testStrategy": "Test profile creation without GitHub. Link GitHub account and verify stats populate. Test skill/cause selection persists. Verify profile updates work.",
         "priority": "high",
         "dependencies": [
-          4,
-          61,
+          "4",
+          "61",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build volunteer profile with github oauth import."
       },
       {
         "id": 7,
@@ -88,11 +107,14 @@
         "testStrategy": "Submit verification as NGO, verify appears in queue. Test approve/reject/request-changes flows. Verify audit trail recorded. Test PDF viewer renders documents.",
         "priority": "medium",
         "dependencies": [
-          5,
+          "5",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build platform admin verification queue."
       },
       {
         "id": 8,
@@ -102,10 +124,13 @@
         "testStrategy": "Throw test error, verify appears in Sentry with source maps. Check logs appear in Axiom/Logflare and Supabase Edge Function / DB logs. Verify Lovable analytics (get_project_analytics) reports frontend traffic. Test error boundary catches and reports errors.",
         "priority": "medium",
         "dependencies": [
-          1
+          "1"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on configure observability stack (sentry + logging)."
       },
       {
         "id": 9,
@@ -115,25 +140,31 @@
         "testStrategy": "Create draft project, verify autosave triggers. Navigate away and back, confirm data persisted. Test cause tag selection. Verify status is 'draft' on creation.",
         "priority": "high",
         "dependencies": [
-          5,
+          "5",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 7,
+        "recommendedSubtasks": 6,
+        "expansionPrompt": "Break down into: 1) Create comprehensive projects table with all 30+ columns and indexes, 2) Define status enum with all 10 states per decision-17, 3) Build intake form UI at /ngo/projects/new with required fields, 4) Implement debounced autosave (5-second) via server action, 5) Add cause-tags multi-select component, 6) Write tests for draft creation and autosave"
       },
       {
         "id": 10,
         "title": "Build Discovery Agent Conversation Engine",
         "description": "Implement the AI Discovery Agent using Anthropic Claude Opus API for structured scope extraction conversations per REQ-004.",
-        "details": "Create `src/lib/discovery/agent.ts` with Anthropic SDK client. Build system prompt for 'non-technical NGO → technical scope' extraction including: user story extraction, acceptance criteria generation, stack recommendation, complexity assessment (small/medium/large), data sensitivity classification (tier0/1/2), maintenance track classification (A/B). Create `discovery_conversations` table (id, project_id FK, messages JSONB[], agent_state JSONB, token_count_total INT, created_at, updated_at). Implement streaming responses via Server-Sent Events. Build chat UI at `app/(dashboard)/ngo/projects/[id]/discovery/page.tsx`. Enforce the daily-drip free Discovery credit allowance (decision-11): 10 credits/day unverified, 30/day verified, HARD-RESET at 00:00 UTC with NO rollover; per-turn context-weighted credit cost = ceil((uncached_input + 0.1*cached_input + output)/10000) decremented on ngos.discovery_credits_remaining; a FUNDED project routes turns to project fuel (discovery_consumption + 15% skim) instead of free credits (decision-11 \"Funded -> all-$\"). The daily allowance IS the rate limit — no separate 30-msg/day cap and no $5/session cap (both retired, decision-11). On conversation end, generate DiscoveryOutput JSON structure. [decision-13 2026-06-06: model = Claude Opus (not Sonnet) — Discovery is the highest-leverage reasoning step; cost bounded by short one-time Discoveries + the 10/30 daily credit cap; credit unit is token-based/model-agnostic so daily allowance unchanged.]",
+        "details": "Create `src/lib/discovery/agent.ts` with Anthropic SDK client. Build system prompt for 'non-technical NGO → technical scope' extraction including: user story extraction, acceptance criteria generation, stack recommendation, complexity assessment (small/medium/large), data sensitivity classification (tier0/1/2), maintenance track classification (A/B). Create `discovery_conversations` table (id, project_id FK, messages JSONB[], agent_state JSONB, token_count_total INT, created_at, updated_at). Implement streaming responses via Server-Sent Events. Build chat UI at `app/(dashboard)/ngo/projects/[id]/discovery/page.tsx`. Enforce the daily-drip free Discovery credit allowance (decision-11): 10 credits/day unverified, 30/day verified, HARD-RESET at 00:00 UTC with NO rollover; per-turn context-weighted credit cost = ceil((uncached_input + 0.1*cached_input + output)/10000) decremented on ngos.discovery_credits_remaining; a FUNDED project routes turns to project fuel (discovery_consumption + 15% skim) instead of free credits (decision-11 \"Funded -> all-$\"). The daily allowance IS the rate limit — no separate 30-msg/day cap and no $5/session cap (both retired, decision-11). On conversation end, generate DiscoveryOutput JSON structure. [decision-13 2026-06-06: model = Claude Opus (not Sonnet) — Discovery is the highest-leverage reasoning step; cost bounded by short one-time Discoveries + the 10/30 daily credit cap; credit unit is token-based/model-agnostic so daily allowance unchanged.]\n<info added on 2026-06-16T06:17:07.767Z>\nBased on my analysis of the codebase, I can now generate the update text. The PRD already documents decision-19 and the Track B waitlist mechanism. The update needs to specify how Discovery enforces Track-A-only output and what happens when a need is detected as non-Track-A.\n\n[decision-19 2026-06-16: v1 Track-A-only enforcement] v1 Discovery Agent MUST emit maintenanceTrack.track = 'A_ngo_maintains' for all publishable scopes. When the Agent detects a need that is NOT Track-A-able (pure-backend with no UI layer, heavy custom logic/integrations requiring developer maintenance, or Tier-2 special-category data that cannot live in Lovable), it does NOT produce a publishable DiscoveryOutput scope. Instead: (1) The Agent explicitly explains to the NGO that v1 builds only NGO-self-maintainable tools (Lovable-based, chat-evolvable by non-technical staff) and their need does not fit this model. (2) The Agent records the need on the developer-grade waitlist table (developer_grade_waitlist: project_id FK, need_summary TEXT, non_track_a_reasons TEXT[], created_at TIMESTAMPTZ). (3) The NGO is notified that they will be contacted if/when Track B opens (post-v1). (4) No project kickoff occurs — the conversation ends without a publishable scope; project stays at draft status with a waitlisted_track_b marker. Discovery system prompt must include explicit classification logic: if any of [pure-backend (no NGO-facing UI), custom integrations requiring ongoing developer maintenance, Tier-2 data that legally/technically cannot reside in Lovable] apply, the Agent MUST NOT emit a scope and MUST route to the waitlist path. The 'B_developer_grade' enum value remains reserved in the maintenanceTrack type (no schema migration needed) but v1 code paths never set it on an active project.\n</info added on 2026-06-16T06:17:07.767Z>",
         "testStrategy": "Start discovery conversation, verify streaming works. Test rate limits fire correctly. Complete 5-10 turn conversation and verify structured output generated. Test token tracking accuracy.",
         "priority": "high",
         "dependencies": [
-          9,
+          "9",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build discovery agent conversation engine."
       },
       {
         "id": 11,
@@ -143,12 +174,15 @@
         "testStrategy": "Edit scope summary, verify saves correctly. Test visibility toggle requires justification for private. Verify unverified NGO cannot publish. Test publish transitions status to 'triage'.",
         "priority": "high",
         "dependencies": [
-          10,
-          62,
+          "10",
+          "62",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build scope document editor ui."
       },
       {
         "id": 12,
@@ -158,11 +192,14 @@
         "testStrategy": "Submit project for triage, verify appears in queue. Test approve/reject/changes_requested flows. Verify status transitions correctly. Test aging indicator displays correctly.",
         "priority": "high",
         "dependencies": [
-          11,
+          "11",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement platform triage gate."
       },
       {
         "id": 13,
@@ -172,11 +209,14 @@
         "testStrategy": "Complete test checkout with Stripe test mode. Verify idempotency key prevents duplicate charges. Test first-fund cap blocks amounts >$200 for new funders. Verify VAT applies for EU addresses.",
         "priority": "high",
         "dependencies": [
-          9,
+          "9",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on integrate stripe checkout for fuel top-up."
       },
       {
         "id": 14,
@@ -186,10 +226,13 @@
         "testStrategy": "Use Stripe CLI to send test webhook events. Verify topup creates correct ledger row. Test dispute webhook freezes NGO and creates paired rows. Verify signature validation rejects invalid webhooks.",
         "priority": "high",
         "dependencies": [
-          13
+          "13"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build fuel ledger schema and webhook handler."
       },
       {
         "id": 15,
@@ -199,12 +242,15 @@
         "testStrategy": "Verify only 'open' projects appear. Test filters narrow results correctly. Login as volunteer, verify skill/cause badges compute correctly. Test pagination loads more results.",
         "priority": "high",
         "dependencies": [
-          6,
-          12,
+          "6",
+          "12",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 6,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Break down into: 1) Create /marketplace public route with projects query (status='open'), 2) Build project cards with title, summary, complexity, stack, cause tags, NGO badge, 3) Implement skill/cause overlap computation for logged-in volunteers, 4) Build filter UI (skill match, cause, complexity, Lovable, public/private), 5) Implement infinite scroll pagination"
       },
       {
         "id": 16,
@@ -214,25 +260,31 @@
         "testStrategy": "Apply to project without GitHub, verify modal appears. Accept disclaimer, verify application created. Test NGO accept flow transitions project status. Verify declined applicants notified.",
         "priority": "high",
         "dependencies": [
-          15,
-          63,
+          "15",
+          "63",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement volunteer apply and ngo accept/decline flow."
       },
       {
         "id": 17,
         "title": "Register GitHub App and Implement Repo Creation",
         "description": "GitHub App install + per-project repo creation under ai4good-projects. Decision-9 housekeeping in CLAUDE.md seeding + KEEP the org-wide webhook subscription that feeds the #19 projection worker.",
-        "details": "Install the ai4good GitHub App org-wide on ai4good-projects (one-time). On funding, create ai4good-projects/<slug> via the App; volunteer as maintain-role, NGO admin as triage-role; visibility per projects.visibility. DECISION-9 housekeeping: in CLAUDE.md seeding REMOVE the mcp.ai4good.dev/projects/<id> URL and the AI4GOOD_PROJECT_TOKEN-as-task-write-token language (config becomes non-secret .ai4good/config.json {project_id, ai4good_api_base}, no mcp_server_url). KEEP: commit-prefix convention text, README/LICENSE seeding, and the org-wide push + pull_request webhook subscription — that subscription is the delivery channel for the #19 projection worker.\n<info added on 2026-06-09T20:26:49.714Z>\nThe per-project repo CLAUDE.md seeding must use the paste-ready augmentation block defined in design/claude-md-augmentation.md. Specifically: (1) The block starts at the '# ai4good project workflow' H1 anchor and contains the complete workflow guidance (local TaskMaster to git to webhook path, LOUD/QUIET visibility table, the three deliberate moves, and all hard do-nots including the decision-15/16 CR-row note about CR surface being the project-page CR row with low-tone CR inbox plus penalty-free Decline). (2) Seeding uses seed-only-if-missing semantics: on repo creation the Skill copies the block into CLAUDE.md at the anchor position, but on any subsequent sync the Skill must NOT stomp existing content if the anchor already has content below it (devs may have edited). (3) design/claude-md-augmentation.md is the grep-verified, decision-9-current canonical source for this block; do not duplicate or inline the content elsewhere. The repo-creation code should read from that file at runtime (or at build time into a constant) so future updates to the augmentation doc propagate without code changes.\n</info added on 2026-06-09T20:26:49.714Z>",
+        "details": "Install the ai4good GitHub App org-wide on ai4good-projects (one-time). On funding, create ai4good-projects/<slug> via the App; volunteer as maintain-role, NGO admin as triage-role; visibility per projects.visibility. DECISION-9 housekeeping: in CLAUDE.md seeding REMOVE the mcp.ai4good.dev/projects/<id> URL and the AI4GOOD_PROJECT_TOKEN-as-task-write-token language (config becomes non-secret .ai4good/config.json {project_id, ai4good_api_base}, no mcp_server_url). KEEP: commit-prefix convention text, README/LICENSE seeding, and the org-wide push + pull_request webhook subscription — that subscription is the delivery channel for the #19 projection worker.\n<info added on 2026-06-09T20:26:49.714Z>\nThe per-project repo CLAUDE.md seeding must use the paste-ready augmentation block defined in design/claude-md-augmentation.md. Specifically: (1) The block starts at the '# ai4good project workflow' H1 anchor and contains the complete workflow guidance (local TaskMaster to git to webhook path, LOUD/QUIET visibility table, the three deliberate moves, and all hard do-nots including the decision-15/16 CR-row note about CR surface being the project-page CR row with low-tone CR inbox plus penalty-free Decline). (2) Seeding uses seed-only-if-missing semantics: on repo creation the Skill copies the block into CLAUDE.md at the anchor position, but on any subsequent sync the Skill must NOT stomp existing content if the anchor already has content below it (devs may have edited). (3) design/claude-md-augmentation.md is the grep-verified, decision-9-current canonical source for this block; do not duplicate or inline the content elsewhere. The repo-creation code should read from that file at runtime (or at build time into a constant) so future updates to the augmentation doc propagate without code changes.\n</info added on 2026-06-09T20:26:49.714Z>\n<info added on 2026-06-16T14:50:10.892Z>\nBased on my analysis of the codebase and the user's request about decision-19, I can now generate the update text. The PRD and design documents show that v1 is Track A only (Lovable-based), and the programmatic repo creation at funding (lovable_recommended=false path) is reserved for post-v1 Track B.\n\nDecision-19 (2026-06-16): v1 is Track A only — repo creation is via the Lovable->GitHub flow (task #24's 11-step setup), NOT programmatically at funding. The 'create ai4good-projects/<slug> programmatically via the App at funding' path in the original details is the lovable_recommended=false branch; it is reserved for post-v1 Track B and never executed in v1. KEEP for v1: (1) org-wide GitHub App install on ai4good-projects, (2) the push + pull_request webhook subscription (feeds #19 PM-tree projection worker), (3) CLAUDE.md seeding (decision-9 augmentation block from design/claude-md-augmentation.md) and README/LICENSE seeding into the Lovable-created repo (seeded after the volunteer completes the 11-step flow and ai4good validates at step 10-11). The repo's existence is a precondition for this task's seeding logic, but the repo itself is created by Lovable via the volunteer setup flow (task #24), not by this task at funding. Programmatic repo creation code should be implemented but gated behind a lovable_recommended=false condition that is never true in v1 — reserved for future Track B reinstatement with no schema migration.\n</info added on 2026-06-16T14:50:10.892Z>",
         "testStrategy": "Create test repo via API, verify permissions correct. Add collaborators, verify roles assigned. Test CLAUDE.md template includes correct MCP URL. Verify README template renders project info.",
         "priority": "high",
         "dependencies": [
-          16
+          "16"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on register github app and implement repo creation."
       },
       {
         "id": 18,
@@ -242,10 +294,13 @@
         "testStrategy": "Trigger in_progress; assert tasks.json appears as the first main commit, bot-authored, one task per user story. Re-trigger; assert no duplicate commit.",
         "priority": "high",
         "dependencies": [
-          17
+          "17"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on bootstrap pm tree as a server-side git commit."
       },
       {
         "id": 19,
@@ -255,11 +310,14 @@
         "testStrategy": "Push a tasks.json change to a test repo; assert project_tasks upserts within ~30s, external_commit_refs gets the SHA, and the first commit flips status→in_progress. Replay the same delivery_id; assert no-op. Kill the webhook, push, run the cron; assert reconciliation catches up. Git remains canonical at all times.",
         "priority": "high",
         "dependencies": [
-          17,
-          18
+          "17",
+          "18"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 9,
+        "recommendedSubtasks": 8,
+        "expansionPrompt": "Break down into: 1) Create project_tasks projection schema + RLS policies, 2) Build GitHub push webhook handler at /api/webhooks/github with HMAC verification, 3) Implement ingestPush() core logic for tasks.json diff and upsert, 4) Add commit message parsing for task-N references and Closes semantics, 5) Compute cadence stats (commits/week, sparkline, last-activity), 6) Write audit_events row per ingest with git_commit_sha, 7) Build HEAD-SHA reconciliation cron for missed webhooks, 8) Integrate task_status_changed notifications via #35 notify()"
       },
       {
         "id": 20,
@@ -269,10 +327,13 @@
         "testStrategy": "Fund project, verify workspace created via Anthropic dashboard. Verify ops_task appears in queue. Complete task, verify key status updates. Test SLA indicator shows correctly.",
         "priority": "high",
         "dependencies": [
-          14
+          "14"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on provision anthropic workspaces + usagemeteringprovider (write side)."
       },
       {
         "id": 21,
@@ -282,11 +343,14 @@
         "testStrategy": "Make test API calls, wait for poll. Verify consumption rows created with correct micro-cent amounts. Verify duplicate polls don't create duplicate rows. Test rate card conversion accuracy.",
         "priority": "high",
         "dependencies": [
-          20,
-          64
+          "20",
+          "64"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on anthropic usage poller + ledger + fuel-threshold policy (read side)."
       },
       {
         "id": 23,
@@ -296,26 +360,32 @@
         "testStrategy": "Push a task status change; assert the page updates live via Realtime within seconds. Assert a logged-out viewer sees a private project's count-only placeholder. Assert no task-edit control exists in the UI.",
         "priority": "high",
         "dependencies": [
-          19,
-          21,
+          "19",
+          "21",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 7,
+        "recommendedSubtasks": 6,
+        "expansionPrompt": "Break down into: 1) Build 'Now working on' strip showing in_progress tasks, 2) Create collapsible hierarchical task tree component with status badges, 3) Implement activity feed from audit_events with commit translation, 4) Build cadence-stats panel with commits/week and health badge, 5) Configure Supabase Realtime subscription on project_tasks, 6) Implement RLS visibility (public_mit public / private restricted)"
       },
       {
         "id": 24,
         "title": "Implement Lovable Track-A Setup Flow",
         "description": "Build the volunteer-driven Lovable workspace setup with 11-step checklist and blocker resolution per REQ-021.",
-        "details": "Add lovable_* columns to projects per schema. On kickoff when lovable_recommended=true: show volunteer banner 'Discovery recommended Lovable. Use it?' with Yes/No. No: set lovable_skipped_at, create Claude-Code repo. Yes: create 'lovable_setup_pending' blocker (severity='blocking'). Build checklist UI showing 11 steps with actor labels (NGO 1-4, Volunteer 5-9, ai4good 10-11). Create Lovable Setup page at `/projects/[id]/lovable-setup` with: scope summary copy button, MCP server URL copy, workspace token reveal (show-once, hash-only storage). Volunteer paste-back form for lovable_workspace_url, lovable_project_id, github_repo_url. Validation step 10: verify repo owner is ai4good-projects, visibility matches, check project_api_tokens.last_seen_at updated. On success: resolve blocker, set lovable_enabled=true. 14-day nightly job auto-skips undecided.",
+        "details": "Add lovable_* columns to projects per schema. On kickoff when lovable_recommended=true: show volunteer banner 'Discovery recommended Lovable. Use it?' with Yes/No. No: set lovable_skipped_at, create Claude-Code repo. Yes: create 'lovable_setup_pending' blocker (severity='blocking'). Build checklist UI showing 11 steps with actor labels (NGO 1-4, Volunteer 5-9, ai4good 10-11). Create Lovable Setup page at `/projects/[id]/lovable-setup` with: scope summary copy button, MCP server URL copy, workspace token reveal (show-once, hash-only storage). Volunteer paste-back form for lovable_workspace_url, lovable_project_id, github_repo_url. Validation step 10: verify repo owner is ai4good-projects, visibility matches, check project_api_tokens.last_seen_at updated. On success: resolve blocker, set lovable_enabled=true. 14-day nightly job auto-skips undecided.\n<info added on 2026-06-16T14:49:01.567Z>\nBased on my analysis of the PRD, I now have a clear understanding of the change. Let me search for the current blocker aging schedule to ensure I reference it correctly.I now have all the information needed. Let me compose the update text that should be appended to the task details.\n\ndecision-19 (2026-06-16): Lovable is mandatory in v1 — every project is Track A. Remove the volunteer 'Discovery recommended Lovable. Use it?' opt-in banner entirely. Remove the 'No' branch that sets lovable_skipped_at and creates a Claude-Code-only repo. Remove the 14-day nightly job that auto-skips undecided projects. At kickoff (project reaches in_progress), automatically raise the lovable_setup_pending blocker with severity='blocking' — no volunteer opt-in choice. The blocker ages on the standard REQ-024 schedule: 48h reminder to NGO + volunteer, 7d escalation (admin sees it only at 7d if both parties silent). The lovable_skipped_at column is reserved (never set in v1; no migration, kept for post-v1 Track B reinstatement). The 11-step Lovable->GitHub setup is the only repository creation path in v1.\n</info added on 2026-06-16T14:49:01.567Z>",
         "testStrategy": "Choose 'Yes' for Lovable, verify blocker created. Complete NGO steps, volunteer steps. Verify validation catches incorrect repo owner. Complete successfully, verify blocker resolved.",
         "priority": "high",
         "dependencies": [
-          17,
+          "17",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement lovable track-a setup flow."
       },
       {
         "id": 25,
@@ -325,11 +395,14 @@
         "testStrategy": "Complete all P0 tasks, verify 'Ready for Handoff' enabled. Run handoff with missing README, verify fails. Complete successfully, verify NGO sees review. Accept, verify fuel released and badge awarded.",
         "priority": "high",
         "dependencies": [
-          23,
+          "23",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build handoff checklist and sign-off flow."
       },
       {
         "id": 26,
@@ -339,13 +412,16 @@
         "testStrategy": "Install skill, open repo, verify session bootstrap runs. Test slash commands return correct data. Test Track-A Lovable orchestration calls through. Verify commit prefix applied.",
         "priority": "high",
         "dependencies": [
-          18,
-          19,
-          24,
-          65
+          "18",
+          "19",
+          "24",
+          "65"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build ai4good claude code skill package."
       },
       {
         "id": 27,
@@ -355,10 +431,13 @@
         "testStrategy": "Enqueue test event, verify worker processes. Test idempotent replay doesn't duplicate. Test failure backoff increases delay. Verify DLQ creates ops_task after 5 failures.",
         "priority": "high",
         "dependencies": [
-          4
+          "4"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on transactional outbox — worker + idempotent step-handler registry."
       },
       {
         "id": 28,
@@ -368,10 +447,13 @@
         "testStrategy": "Insert intentionally imbalanced ledger row, verify job catches it. Test with balanced ledger, verify passes. Verify ops_task created on drift. Test job_runs heartbeat recorded.",
         "priority": "high",
         "dependencies": [
-          14
+          "14"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build ledger control-total verification job."
       },
       {
         "id": 29,
@@ -381,23 +463,29 @@
         "testStrategy": "Manually change org permission, verify job catches and remediates. Add unexpected collaborator, verify flagged. Create orphan repo, verify alert fires.",
         "priority": "high",
         "dependencies": [
-          17
+          "17"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on continuous base-permission invariant (detect + enqueue remediate)."
       },
       {
         "id": 30,
         "title": "Add Deploy-to-Running Step to Handoff",
         "description": "Implement the deployment verification and handoff ritual including RLS enablement and spend cap setup per REQ-012.",
-        "details": "Add deployment_url, deployment_alive_last_checked_at, deployment_alive BOOLEAN to projects. For Track A: deployment is Lovable app URL; handoff ritual includes: (1) verify Supabase RLS enabled (Lovable disables by default — security footgun), (2) demo chat/plan mode + revert rollback to NGO, (3) set Lovable spend cap/budget alert, (4) confirm two-way GitHub sync. For Track B: volunteer deploys to free-tier host on NGO's account, hands over credentials. Gate 'Ready for Handoff' on deployment_url IS NOT NULL. Create 30-day-alive check cron job that pings deployment_url and records result. Track alive signal for Goal 1 north-star metric.",
+        "details": "Add deployment_url, deployment_alive_last_checked_at, deployment_alive BOOLEAN to projects. For Track A: deployment is Lovable app URL; handoff ritual includes: (1) verify Supabase RLS enabled (Lovable disables by default — security footgun), (2) demo chat/plan mode + revert rollback to NGO, (3) set Lovable spend cap/budget alert, (4) confirm two-way GitHub sync. For Track B: volunteer deploys to free-tier host on NGO's account, hands over credentials. Gate 'Ready for Handoff' on deployment_url IS NOT NULL. Create 30-day-alive check cron job that pings deployment_url and records result. Track alive signal for Goal 1 north-star metric.\n<info added on 2026-06-16T06:15:46.024Z>\nDecision-19 is well documented in the PRD. The key point is that Track B (free-tier host + credentials handoff) is deferred to post-v1, and v1 deploy/handoff is Track-A / Lovable only where deployment_url comes from the volunteer pasting the live Lovable app URL.\n\nDecision-19 (2026-06-16): Track B is deferred to post-v1. For v1, deployment/handoff is Track-A (Lovable) only. The deployment_url field is populated by the volunteer pasting the published Lovable app URL. The Track B branch described in the original details (volunteer deploys to free-tier host on NGO account and hands over credentials) is reserved for post-v1 and requires no schema change for v1 implementation. V1 handoff ritual consists solely of the Track A steps: (1) verify Supabase RLS enabled, (2) demo chat/plan mode + revert rollback to NGO, (3) set Lovable spend cap/budget alert, (4) confirm two-way GitHub sync. The free-tier-host credential handoff path should be ignored when implementing the v1 handoff workflow.\n</info added on 2026-06-16T06:15:46.024Z>",
         "testStrategy": "Complete handoff without deployment_url, verify blocked. Add URL, complete handoff. Verify 30-day check scheduled. Manually trigger check, verify result recorded.",
         "priority": "high",
         "dependencies": [
-          25
+          "25"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on add deploy-to-running step to handoff."
       },
       {
         "id": 31,
@@ -407,11 +495,14 @@
         "testStrategy": "Create project mentioning health data, verify classified as Tier-2. Verify triage sees sensitivity info. Attempt to publish Tier-2 without fixtures plan, verify blocked. Verify acknowledgment required at funding.",
         "priority": "high",
         "dependencies": [
-          12,
-          66
+          "12",
+          "66"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement tier-2 data sensitivity enforcement."
       },
       {
         "id": 32,
@@ -421,11 +512,14 @@
         "testStrategy": "Create multiple projects in various states, verify all appear. Verify fuel summary accurate. Create blocker, verify appears in Action Needed. Verify applicants show for open projects.",
         "priority": "medium",
         "dependencies": [
-          23,
+          "23",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build ngo dashboard v1 minimal."
       },
       {
         "id": 33,
@@ -435,11 +529,14 @@
         "testStrategy": "Assign volunteer to projects, verify appear on dashboard. Complete handoff, verify completion credit increments. Verify badge appears after first handoff. Test key reveal works.",
         "priority": "medium",
         "dependencies": [
-          23,
+          "23",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build volunteer dashboard v1 minimal."
       },
       {
         "id": 34,
@@ -449,11 +546,14 @@
         "testStrategy": "Verify a project-level comment (task_id NULL) renders on the project page and emits a project_comment notification. Verify task-anchored comments still work (task_id set). Verify RLS limits the thread to project NGO admins + assigned volunteer + platform_admin. Verify post-handoff the thread is read-only. Verify NO channels/messages tables are created in v1 and no Realtime subscription exists. Verify the actionable Accept/Decline primitive renders on the CR row (#44), not a chat message.",
         "priority": "medium",
         "dependencies": [
-          27,
+          "27",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Break down into: 1) Extend task_comments schema with project_id and nullable task_id + indexes, 2) Build project-page comment-stream UI with load-on-open + composer, 3) Implement RLS for implicit membership (NGO admins + assigned volunteer + platform_admin), 4) Implement notify('project_comment') integration + read-only post-handoff mode"
       },
       {
         "id": 35,
@@ -463,11 +563,14 @@
         "testStrategy": "Trigger each event type, verify notification created. Verify email sends for critical events. Test batching combines multiple events. Test dedup prevents duplicates.",
         "priority": "medium",
         "dependencies": [
-          8,
-          34
+          "8",
+          "34"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on notify() emitter + event→comms map (single comms writer)."
       },
       {
         "id": 36,
@@ -477,11 +580,14 @@
         "testStrategy": "Complete first handoff, verify badge awarded. View volunteer profile, verify badge displays. Complete second handoff, verify badge not duplicated. Verify private project contributes to count.",
         "priority": "low",
         "dependencies": [
-          25,
-          67
+          "25",
+          "67"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement volunteer shipped first tool badge."
       },
       {
         "id": 37,
@@ -491,11 +597,14 @@
         "testStrategy": "Create various audit events, verify all appear in viewer. Test filters narrow results correctly. Verify pagination works. Test export includes all filtered results.",
         "priority": "low",
         "dependencies": [
-          4,
+          "4",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on create audit log viewer for admin."
       },
       {
         "id": 38,
@@ -505,11 +614,14 @@
         "testStrategy": "Stop a cron job, verify alert fires. Create negative balance, verify alert. Verify dashboard shows correct status. Test alert routing to PagerDuty.",
         "priority": "high",
         "dependencies": [
-          28,
+          "28",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build observability dashboard and alerting."
       },
       {
         "id": 39,
@@ -519,11 +631,14 @@
         "testStrategy": "Create test incident, verify flows to ops queue. Make ledger correction, verify paired rows created. Override false-positive deactivation, verify key restored. Test audit trail complete.",
         "priority": "high",
         "dependencies": [
-          38,
+          "38",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build ops console and money correction tooling."
       },
       {
         "id": 40,
@@ -533,10 +648,13 @@
         "testStrategy": "Report content, verify ops_task created. Test admin takedown makes repo private. Attempt to push secret to repo, verify push-protection blocks. Verify suspension can flip repo private.",
         "priority": "high",
         "dependencies": [
-          17
+          "17"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on content safety — secret-scanning + push-protection (v1)."
       },
       {
         "id": 41,
@@ -546,11 +664,14 @@
         "testStrategy": "Create in_progress project, fast-forward 14 days (mock), verify reminder sent. Fast-forward to 21 days, verify auto-release runs. Verify fuel balance unchanged. Test manual release works.",
         "priority": "high",
         "dependencies": [
-          27,
-          68
+          "27",
+          "68"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on abandonment/rematch saga + merged hourly aging scan."
       },
       {
         "id": 42,
@@ -560,12 +681,15 @@
         "testStrategy": "Create unverified NGO, verify discovery_credits_remaining defaults to 10. Exhaust today's credits, verify composer disables with verify/fund/wait CTAs. Verify the daily scan hard-resets to 10 at 00:00 UTC with no rollover. Top up fuel, verify Discovery routes to project fuel (discovery_consumption + paired skim) and free credits stay untouched. Verify an NGO -> daily allowance raised to 30. Verify per-turn cost = ceil((uncached + 0.1*cached + output)/10000) and that regeneration + system-error retries cost 0 credits.",
         "priority": "high",
         "dependencies": [
-          10,
-          14,
+          "10",
+          "14",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement discovery credits (context-weighted, daily drip) + unified fuel."
       },
       {
         "id": 43,
@@ -575,11 +699,14 @@
         "testStrategy": "Raise clarifying_question blocker, verify channel message and notification. Resolve blocker, verify resolution recorded. Test auto-raise for fuel-low. Test aging fires at 48h and 7d.",
         "priority": "medium",
         "dependencies": [
-          35,
+          "35",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 6,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Break down into: 1) Create project_blockers schema with RLS + unique partial index, 2) Build 'Raise a flag' modal UI with blocker type selection, 3) Implement Resolve form with required note, 4) Create fuel-poller + Lovable auto-raise hooks integration, 5) Build project-page badge/panel + marketplace/dashboard indicators + NGO Action needed rail"
       },
       {
         "id": 44,
@@ -589,13 +716,16 @@
         "testStrategy": "Raise CR, verify appears in channel with action buttons. Accept CR, verify PM task created with p0 priority. Decline CR, verify NGO notified. Mark completed, verify status updated.",
         "priority": "medium",
         "dependencies": [
-          26,
-          34,
-          35,
+          "26",
+          "34",
+          "35",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on change requests v1 — request/accept/decline (git-routed)."
       },
       {
         "id": 48,
@@ -605,11 +735,14 @@
         "testStrategy": "Run test suite, verify 80% coverage achieved. PR with failing test should block merge. Verify coverage reports upload to Codecov.",
         "priority": "medium",
         "dependencies": [
-          1,
-          69
+          "1",
+          "69"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on implement test coverage and ci pipeline."
       },
       {
         "id": 49,
@@ -619,10 +752,13 @@
         "testStrategy": "Run E2E suite against staging. Verify both journeys complete without errors. Test on multiple browsers (Chrome, Firefox, Safari).",
         "priority": "medium",
         "dependencies": [
-          48
+          "48"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build e2e test suite with playwright."
       },
       {
         "id": 50,
@@ -632,10 +768,13 @@
         "testStrategy": "ZAP scan returns no high/critical findings. Snyk shows no unpatched critical CVEs. Manual RLS testing confirms no cross-tenant access. Red-team audit passes.",
         "priority": "high",
         "dependencies": [
-          4
+          "4"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on perform security audit and rls review."
       },
       {
         "id": 51,
@@ -645,11 +784,14 @@
         "testStrategy": "Complete checkout with US address, verify no tax added. Complete with UK address, verify 20% VAT. Download invoice PDF, verify tax breakdown correct.",
         "priority": "medium",
         "dependencies": [
-          13,
-          70
+          "13",
+          "70"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on stripe tax — automatic_tax + hosted invoices (v1)."
       },
       {
         "id": 52,
@@ -659,10 +801,13 @@
         "testStrategy": "Request erasure, verify profile anonymized. Verify ledger entries anonymized but totals preserved. Verify messages anonymized. Test data export returns complete data.",
         "priority": "medium",
         "dependencies": [
-          4
+          "4"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on gdpr — consent + manual erasure runbook (v1)."
       },
       {
         "id": 53,
@@ -672,10 +817,13 @@
         "testStrategy": "Run k6 load test, verify p95 < 500ms at 100 RPS under TanStack Start SSR (re-validate the target holds on the new stack; add Cloudflare in front of Lovable if needed). Verify stale-while-revalidate cache hits for repeated requests. Run Lighthouse, achieve score > 90 for Performance.",
         "priority": "medium",
         "dependencies": [
-          15
+          "15"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on performance — next/image + isr + supabase pooler (v1)."
       },
       {
         "id": 54,
@@ -685,10 +833,13 @@
         "testStrategy": "Trigger each email type, verify renders correctly in multiple email clients. Navigate help center, verify all content accessible. Submit feedback, verify issue created.",
         "priority": "low",
         "dependencies": [
-          35
+          "35"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on create onboarding emails and help center."
       },
       {
         "id": 55,
@@ -698,11 +849,14 @@
         "testStrategy": "View on mobile and desktop, verify responsive. Test signup CTA flows to correct registration. Toggle waitlist mode, verify email capture works.",
         "priority": "low",
         "dependencies": [
-          1,
+          "1",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build public landing page."
       },
       {
         "id": 56,
@@ -712,11 +866,14 @@
         "testStrategy": "Simulate outage, verify status page updates. Send test support email, verify auto-response. Walk through pre-launch checklist, verify all items complete.",
         "priority": "medium",
         "dependencies": [
-          38,
-          71
+          "38",
+          "71"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Break down into: 1) Create status page integration (Upptime or similar), 2) Configure support email with auto-response, 3) Build monitoring readiness dashboard, 4) Document rank-6 reinstatement gate checklist (#40/47/51/52/53/57/58)"
       },
       {
         "id": 59,
@@ -727,7 +884,10 @@
         "priority": "low",
         "dependencies": [],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on write v1.5 ai proxy specification document."
       },
       {
         "id": 60,
@@ -738,7 +898,10 @@
         "priority": "low",
         "dependencies": [],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on document v1.5 deferred features and prioritization."
       },
       {
         "id": 61,
@@ -748,10 +911,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          5
+          "5"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-1: user validation checkpoint 1 (tasks 1-5)."
       },
       {
         "id": 62,
@@ -761,10 +927,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          10
+          "10"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-2: user validation checkpoint 2 (tasks 6-10)."
       },
       {
         "id": 63,
@@ -774,10 +943,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          15
+          "15"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-3: user validation checkpoint 3 (tasks 11-15)."
       },
       {
         "id": 64,
@@ -787,10 +959,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          20
+          "20"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-4: user validation checkpoint 4 (tasks 16-20)."
       },
       {
         "id": 65,
@@ -800,10 +975,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          25
+          "25"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-5: user validation checkpoint 5 (tasks 21-25)."
       },
       {
         "id": 66,
@@ -813,10 +991,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          30
+          "30"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-6: user validation checkpoint 6 (tasks 26-30)."
       },
       {
         "id": 67,
@@ -826,10 +1007,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          35
+          "35"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-7: user validation checkpoint 7 (tasks 31-35)."
       },
       {
         "id": 68,
@@ -839,10 +1023,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          40
+          "40"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-8: user validation checkpoint 8 (tasks 36-40)."
       },
       {
         "id": 69,
@@ -852,10 +1039,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          44
+          "44"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-9: user validation checkpoint 9 (tasks 41-45)."
       },
       {
         "id": 70,
@@ -865,10 +1055,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          50
+          "50"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-10: user validation checkpoint 10 (tasks 46-50)."
       },
       {
         "id": 71,
@@ -878,10 +1071,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          55
+          "55"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-11: user validation checkpoint 11 (tasks 51-55)."
       },
       {
         "id": 72,
@@ -891,10 +1087,13 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          60
+          "60"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on user-test-12: user validation checkpoint 12 (tasks 56-60)."
       },
       {
         "id": 73,
@@ -904,12 +1103,15 @@
         "testStrategy": "Upload a PDF + a CSV at intake; assert metadata in project_files, bytes in R2, no bytes in Postgres. Assert a non-member cannot mint a signed URL (403) and a member can (short-TTL). Assert the Discovery Agent references an uploaded screenshot in a clarifying question. Assert a Tier-2 project shows the hard checkbox gate before accepting an upload. Assert the Skill downloads files into /.ai4good/reference/ and they are gitignored (never committed).",
         "priority": "medium",
         "dependencies": [
-          9,
-          10,
+          "9",
+          "10",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 8,
+        "recommendedSubtasks": 7,
+        "expansionPrompt": "Break down into: 1) Create project_files table with RLS gated on visibility, 2) Configure Cloudflare R2 bucket with key structure and edge function for signed URLs, 3) Build upload UI with drag-drop + data-responsibility disclosure + Tier-2 hard gate, 4) Implement file type/size validation (25MB/file, 200MB/project), 5) Integrate with Discovery Agent for multimodal ingestion + credit accounting, 6) Build reference-files section on project page with visibility-gated download, 7) Implement Skill /ai4good:files command for .ai4good/reference/ download"
       },
       {
         "id": 74,
@@ -919,13 +1121,16 @@
         "testStrategy": "Assert the assistant is hidden on unfunded/pre-scoped projects and visible once funded + in_progress. Verify each turn writes a discovery_consumption + paired skim row against project fuel and never decrements ngos.discovery_credits_remaining. Verify the context assembler returns only read-only fields and the agent exposes no write tool. Verify fuel-zero disables the composer with the top-up CTA. Verify a scope-change request yields a CR-flow explanation (+ optional draft CR) and no task/blocker/handoff mutation. Snapshot a status answer against seeded project_tasks/blockers/fuel fixtures.",
         "priority": "medium",
         "dependencies": [
-          19,
-          23,
-          42,
+          "19",
+          "23",
+          "42",
           "75"
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on build post-discovery ngo project assistant (funded, fuel-metered)."
       },
       {
         "id": 75,
@@ -935,15 +1140,24 @@
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down this task with a focus on design system + global app shell (design/ batch 0)."
       }
     ],
     "metadata": {
-      "created": "2026-06-04T20:09:03.944Z",
-      "updated": "2026-06-09T20:24:14.853Z",
+      "version": "1.0.0",
+      "lastModified": "2026-06-16T14:49:17.744Z",
+      "taskCount": 69,
+      "completedCount": 0,
+      "tags": [
+        "master"
+      ],
+      "created": "2026-06-16T14:49:19.513Z",
       "description": "Tasks for master context"
     }
   }

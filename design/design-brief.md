@@ -92,8 +92,9 @@ makes no delivery guarantee.
 - **Acknowledgment modal** — hard, checkbox-gated disclaimer at signup and at every match
   acceptance (NGO) / first apply (volunteer). Warm wording, but unmissable. Passive
   Promise-link footer at top-ups (no hard interrupt).
-- **Track A / Track B tag** — A = "NGO maintains it via chat" (Lovable home); B =
-  "developer-grade / one-off". Set in Discovery; affects deploy + handoff screens.
+- **Track tag** — A = "NGO maintains it via chat" (Lovable home). Set in Discovery;
+  affects deploy + handoff screens. (Track B "developer-grade / one-off" is deferred to
+  post-v1 — decision-19; v1 builds Track A only.)
 
 ## 8. Money rules that shape UI (get these right)
 - Fuel is **non-cash, project-scoped credit. No cash-out in v1.** Never show a "withdraw to

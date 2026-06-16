@@ -38,3 +38,5 @@ _task_dump.txt
 .taskmaster/state.json
 
 .taskmaster/_premigration_backup/
+.taskmaster/tasks/*.backup-*.json
+.taskmaster/tasks/*.bak-*

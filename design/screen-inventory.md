@@ -21,7 +21,7 @@
 - **Reusable components rendered once:** fuel gauge/balance chip · lifecycle status badge (all
   **10** states — no `paused`, decision-17) · Discovery credit gauge (decision-11) · blocker
   badge · PM-task-tree node · acknowledgment modal · CR row + CR inbox chip (decision-16) ·
-  Track A/B tag.
+  Track A tag (Track B deferred post-v1 — decision-19).
 
 ---
 
