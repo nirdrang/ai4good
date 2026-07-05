@@ -40,3 +40,4 @@ _task_dump.txt
 .taskmaster/_premigration_backup/
 .taskmaster/tasks/*.backup-*.json
 .taskmaster/tasks/*.bak-*
+loop/out/

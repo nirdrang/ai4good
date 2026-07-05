@@ -1,0 +1,8 @@
+[
+  "[DECISION: OD-1 \u2014 reviewer identity + merge authority per project (coordinator? peer volunteer? agent-assisted with a human click?)]",
+  "[DECISION: OD-2 \u2014 NGO Status-Panel scope + onboarding mechanics]",
+  "[DECISION: OD-3 \u2014 cap values]",
+  "[DECISION: OD-4 \u2014 fingerprint token threshold]",
+  "[DECISION: OD-5 \u2014 reconciliation cadence + anomaly thresholds, if/when built]",
+  "[DECISION: OD-6 \u2014 gateway hosting: thin Deno proxy on Supabase Edge Functions vs a self-hosted LiteLLM-style service]"
+]
