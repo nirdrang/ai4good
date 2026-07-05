@@ -33,6 +33,18 @@ python loop/orchestrate.py iterate    # DISABLED until baseline evaluator qualit
 - `decision-queue.md` — human-facing open decisions, regenerated per run (committed)
 - `out/` — per-run artifacts: baseline-report.md, candidates, raw model output (gitignored)
 
+## Per-leaf principle (founder call, 2026-07-05)
+
+The loop works **item by item — one leaf per judgment, always**. The whole PRD is never
+evaluated in a single call, because the end goal is per-leaf dissection into Linear issues:
+each leaf must become independently decomposition-ready and carries its own terminal state
+(`ready` / `needs-work` / `blocked`). Cross-section defects are caught per-leaf: the
+evaluator reads the target plus the sections its Dependencies line names (contradiction
+hunting inside the dependency neighborhood replaces whole-doc adversarial passes).
+**No routing, no model fallbacks:** every rewrite is Sonnet at xhigh; unmade decisions go
+to the human queue, never to a generator. `loop/out/leaf-status.json` is the readiness
+ledger the dissection pass consumes.
+
 ## Workflow runner (`workflow.js`)
 
 The iteration engine runs as a Claude Code **Workflow** (deterministic JS orchestration,
