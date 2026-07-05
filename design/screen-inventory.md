@@ -17,7 +17,8 @@
 > credit-framed dimensions — REQ-035); the project page gains a **burn-per-deliverable**
 > section (REQ-034); the volunteer dashboard gains the **virtual-key reveal card** + env-var
 > setup (REQ-009 — replaces the old "AI key ready within 12h" wait state); the admin ops queue
-> gains the `linear_workspace_setup` kickoff checklist; the old Anthropic key-paste ops screen
+> gains the `linear_pool_replenish` batch checklist (workspace pool top-up — pool amendment;
+> kickoff assignment itself is API-only, no screen); the old Anthropic key-paste ops screen
 > is DELETED.
 
 ---
