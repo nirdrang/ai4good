@@ -14,6 +14,7 @@ The loop never writes the canonical PRD; candidates land in loop/out/ only.
 """
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -131,6 +132,12 @@ def gate(text):
 def call_codex(prompt_text, label):
     """One evaluator call. Returns raw stdout text (JSON extraction is caller's job)."""
     cmd = CFG["evaluator"]["cmd_prefix"] + [prompt_text]
+    # Windows: npm shims (codex.cmd / codex.ps1) aren't launchable by bare name from
+    # CreateProcess — resolve to the .cmd via PATH, else fall back to `where`.
+    exe = shutil.which(cmd[0]) or shutil.which(cmd[0] + ".cmd")
+    if exe is None:
+        raise FileNotFoundError(f"evaluator CLI '{cmd[0]}' not found on PATH")
+    cmd[0] = exe
     log(f"codex[{label}] starting (timeout {CFG['evaluator']['timeout_seconds']}s)")
     t0 = time.time()
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
