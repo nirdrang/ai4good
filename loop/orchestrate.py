@@ -130,21 +130,35 @@ def gate(text):
 # ---------------------------------------------------------------- codex calls
 
 def call_codex(prompt_text, label):
-    """One evaluator call. Returns raw stdout text (JSON extraction is caller's job)."""
-    cmd = CFG["evaluator"]["cmd_prefix"] + [prompt_text]
-    # Windows: npm shims (codex.cmd / codex.ps1) aren't launchable by bare name from
-    # CreateProcess — resolve to the .cmd via PATH, else fall back to `where`.
+    """One evaluator call. Final message is read from a file (-o) — piping codex
+    stdout wedges on Windows when the .CMD shim's node grandchild inherits the pipe."""
+    cmd = list(CFG["evaluator"]["cmd_prefix"])
+    # Windows: npm shims (codex.cmd) aren't launchable by bare name from CreateProcess.
     exe = shutil.which(cmd[0]) or shutil.which(cmd[0] + ".cmd")
     if exe is None:
         raise FileNotFoundError(f"evaluator CLI '{cmd[0]}' not found on PATH")
     cmd[0] = exe
-    log(f"codex[{label}] starting (timeout {CFG['evaluator']['timeout_seconds']}s)")
+    OUT.mkdir(exist_ok=True)
+    out_file = OUT / f"lastmsg-{label}.txt"
+    out_file.unlink(missing_ok=True)
+    cmd += ["-o", str(out_file), prompt_text]
+    timeout = CFG["evaluator"]["timeout_seconds"]
+    log(f"codex[{label}] starting (timeout {timeout}s)")
     t0 = time.time()
-    r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
-                       encoding="utf-8", errors="replace",
-                       timeout=CFG["evaluator"]["timeout_seconds"])
-    log(f"codex[{label}] done in {time.time() - t0:.0f}s (rc={r.returncode})")
-    return r.stdout
+    proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+    try:
+        rc = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # kill the whole tree — TerminateProcess on the shim alone orphans node
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                       capture_output=True)
+        log(f"codex[{label}] TIMED OUT after {timeout}s — process tree killed")
+        return ""
+    log(f"codex[{label}] done in {time.time() - t0:.0f}s (rc={rc})")
+    if out_file.exists():
+        return out_file.read_text(encoding="utf-8", errors="replace")
+    return ""
 
 
 def extract_json(raw, opener, closer):

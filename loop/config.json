@@ -4,7 +4,7 @@
   "evaluator": {
     "vendor": "codex",
     "cmd_prefix": ["codex", "exec", "--sandbox", "read-only", "--skip-git-repo-check", "-c", "model_reasoning_effort=xhigh"],
-    "timeout_seconds": 1800,
+    "timeout_seconds": 3600,
     "json_retry": 1
   },
   "generator": {
@@ -18,7 +18,7 @@
     "max_iterations": 6,
     "max_sections_per_iteration": 3,
     "max_model_calls_per_run": 40,
-    "baseline_batch_size": 8
+    "baseline_batch_size": 5
   },
   "plateau": {
     "rule": "blocking-critique count unchanged AND net pairwise verdicts <= +1 across 2 consecutive iterations",
