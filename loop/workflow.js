@@ -16,14 +16,25 @@ const CANON = '.taskmaster/docs/prd.md'          // human-gated; the loop NEVER 
 const WORK = 'loop/out/prd.working.md'           // frozen during a pass; promoted at boundaries
 const VALIDATE = 'python .claude/skills/prd-taskmaster/script.py validate-prd --input'
 const CODEX = 'codex exec --sandbox read-only --skip-git-repo-check -c model_reasoning_effort=xhigh'
-const MODE = (args && args.mode) || 'baseline'
-const RUN_ID = (args && args.runId) || 'run-unstamped'   // Date.now() unavailable by design
-const ONLY = (args && args.only) || null
-const TARGETS = (args && args.targets) || 5
-const MAX_PASSES = (args && args.maxPasses) || 1         // P0: one complete iteration per run by default
-const MAX_CYCLES = (args && args.maxCycles) || 3         // S6: mini-iteration cap per leaf per pass
-const RESET = !!(args && args.reset)
-const MAX_CALLS = (args && args.callCap) || 120
+// Defensive arg handling: the Workflow tool can deliver `args` as an object, a
+// JSON string, or undefined. Parse all three so a stringified payload never
+// silently collapses to defaults (which once ran a full baseline by accident).
+let A = {}
+try { A = (typeof args === 'string') ? JSON.parse(args || '{}') : (args || {}) } catch (e) { A = {} }
+const MODE = A.mode || 'baseline'
+const RUN_ID = A.runId || 'run-unstamped'   // Date.now() unavailable by design
+const ONLY = A.only || null
+const TARGETS = A.targets || 5
+const MAX_PASSES = A.maxPasses || 1         // P0: one complete iteration per run by default
+const MAX_CYCLES = A.maxCycles || 3         // S6: mini-iteration cap per leaf per pass
+const RESET = !!A.reset
+const MAX_CALLS = A.callCap || 120
+// SAFETY: a full baseline over every leaf is expensive enough to exhaust a session.
+// It must be requested explicitly (mode:baseline AND no `only`) — otherwise refuse.
+if (MODE === 'baseline' && !ONLY && !A.allowFullBaseline) {
+  return { stopped: 'refused-implicit-full-baseline', hint: 'Pass only:[ids] for a scoped run, or allowFullBaseline:true to sweep every leaf.', resolvedArgs: { MODE, RUN_ID, ONLY, MAX_PASSES } }
+}
+log(`resolved args → mode=${MODE} runId=${RUN_ID} only=${ONLY ? ONLY.join(',') : '(none)'} passes=${MAX_PASSES} cycles=${MAX_CYCLES} reset=${RESET}`)
 let calls = 0
 function guard(n) { if (calls + n > MAX_CALLS) throw new Error(`call cap ${MAX_CALLS} exceeded`); calls += n }
 
