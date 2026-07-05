@@ -357,10 +357,14 @@ def cmd_render(results_file):
     write_report(d.get("run_id", "?"), d.get("gate_ok", False), d.get("gate_findings", []),
                  d.get("sections", []), d.get("adv", {}), d.get("fresh", []),
                  d.get("queue", []))
-    # per-leaf readiness ledger — the handshake artifact the Linear dissection pass consumes
-    status = [{"section": s.get("section", "?"), "verdict": s.get("verdict", "?"),
-               "score": s.get("score"), "blocking": len(s.get("blocking_questions", []))}
-              for s in d.get("sections", [])]
+    # per-leaf readiness ledger — the handshake artifact the Linear dissection pass consumes.
+    # Prefer final leaf_records (post-rewrite closure statuses); fall back to raw eval verdicts.
+    if d.get("leaf_records"):
+        status = d["leaf_records"]
+    else:
+        status = [{"section": s.get("section", "?"), "verdict": s.get("verdict", "?"),
+                   "score": s.get("score"), "blocking": len(s.get("blocking_questions", []))}
+                  for s in d.get("sections", [])]
     (OUT / "leaf-status.json").write_text(
         json.dumps({"run_id": d.get("run_id", "?"), "leaves": status}, indent=2,
                    ensure_ascii=False), encoding="utf-8")

@@ -1,11 +1,11 @@
 export const meta = {
   name: 'prd-improvement-loop',
-  description: 'Per-leaf PRD improvement loop: each leaf flows independently through codex evaluate -> Sonnet-xhigh rewrite -> splice verify -> codex pairwise -> readiness status. Never evaluates the whole PRD at once.',
+  description: 'Per-leaf PRD improvement loop: each leaf flows independently through codex evaluate -> Sonnet-xhigh rewrite -> splice verify -> Haiku clean-room closer -> readiness status. Never evaluates the whole PRD at once.',
   whenToUse: 'args {mode:"baseline"|"iterate", runId:"<stamp>", only:[leafIds]?, targets:<n>?}. baseline = judge every leaf (per-leaf, parallel). iterate = rewrite worst-first (or `only`) leaves into loop/out/prd.candidate.md. Smoke = iterate with only:["REQ-035"].',
   phases: [
     { title: 'Gate', detail: 'deterministic gate via orchestrate.py (courier)' },
     { title: 'Leaves', detail: 'leaf map + target selection' },
-    { title: 'PerLeaf', detail: 'pipeline: codex evaluate -> Sonnet xhigh generate -> splice -> codex pairwise', model: 'sonnet' },
+    { title: 'PerLeaf', detail: 'pipeline: codex evaluate -> Sonnet xhigh generate -> splice -> Haiku clean-room closer', model: 'sonnet' },
     { title: 'Report', detail: 'render report + decision queue + leaf-status ledger' },
   ],
 }
@@ -28,7 +28,7 @@ const LEAVES_SCHEMA = { type: 'object', properties: { leaves: { type: 'array', i
 const EVAL_SCHEMA = { type: 'object', properties: { section: { type: 'string' }, verdict: { type: 'string', enum: ['ready', 'needs-work', 'blocked'] }, score: { type: 'number' }, critique: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, issue: { type: 'string' }, evidence: { type: 'string' } }, required: ['label', 'issue'] } }, blocking_questions: { type: 'array', items: { type: 'string' } } }, required: ['section', 'verdict', 'score'] }
 const GEN_SCHEMA = { type: 'object', properties: { section: { type: 'string' }, new_text: { type: 'string' } }, required: ['section', 'new_text'] }
 const SPLICE_SCHEMA = { type: 'object', properties: { ok: { type: 'boolean' }, validator_pct: { type: 'number' }, markers_lost: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
-const PAIR_SCHEMA = { type: 'object', properties: { results: { type: 'array', items: { type: 'object', properties: { section: { type: 'string' }, pairwise: { type: 'string' }, resolved: { type: 'array', items: { type: 'string' } }, remaining: { type: 'array', items: { type: 'object' } } }, required: ['section', 'pairwise'] } } }, required: ['results'] }
+const CLOSE_SCHEMA = { type: 'object', properties: { section: { type: 'string' }, verdict: { type: 'string', enum: ['resolved-all', 'partially-resolved', 'unresolved'] }, resolved: { type: 'array', items: { type: 'string' } }, unresolved: { type: 'array', items: { type: 'object', properties: { issue: { type: 'string' }, why: { type: 'string' } }, required: ['issue', 'why'] } }, new_defects: { type: 'array', items: { type: 'string' } } }, required: ['section', 'verdict', 'resolved', 'unresolved'] }
 const OK_SCHEMA = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] }
 
 // Courier recipe for codex-backed judgment. Foreground Bash with a 10-minute timeout;
@@ -110,19 +110,31 @@ const records = await pipeline(targets,
       { label: `splice:${leaf.id}`, phase: 'PerLeaf', model: 'haiku', effort: 'low', schema: SPLICE_SCHEMA })
     if (!splice || !splice.ok) return { ...record, status: 'rewrite-rejected', splice }
 
-    const pair = await agent(
-      codexCourier(
-        `Read ${ROOT}/loop/prompts/pairwise.md and replace {SECTION_LIST} with this single line:\n- ${leaf.heading}`,
-        `pair-${leaf.id}-${RUN_ID}`, 'a JSON array; wrap as {results: [...]}'),
-      { label: `pair:${leaf.id}`, phase: 'PerLeaf', effort: 'low', schema: PAIR_SCHEMA })
-    const verdict = pair && pair.results && pair.results[0] ? pair.results[0] : null
+    // CLOSER — Haiku subagent in a CLEAN ROOM (founder call, 2026-07-05): fresh context,
+    // no generator reasoning, no conversation carryover. It sees ONLY three artifacts:
+    // the canonical section, the candidate section, and the critique list. Its job is
+    // mechanical: per critique item, resolved or not — never taste. Cross-vendor judgment
+    // stays with codex, which re-evaluates the merged text from scratch on the next run.
+    const close = await agent(
+      `You are the CLOSER in a PRD-improvement loop. You have NO other context — judge ONLY from the artifacts named here.
+1. Read lines ${leaf.start}-${leaf.end} of ${ROOT}/.taskmaster/docs/prd.md (the ORIGINAL section).
+2. Read the section titled "${leaf.heading}" in ${ROOT}/loop/out/prd.candidate.md (the REWRITE).
+3. For EACH critique item below, decide from the two texts alone: resolved or unresolved. Quote the rewrite where it resolves an item; say exactly why where it does not.
+4. List any NEW defect the rewrite introduced that the original did not have (information lost, ambiguity added, an invariant weakened).
+CRITIQUE:\n${JSON.stringify(actionable, null, 2)}
+Verdict: "resolved-all" | "partially-resolved" | "unresolved".
+Return {section: "${leaf.id}", verdict, resolved: [...], unresolved: [{issue, why}], new_defects: [...]} via structured output.`,
+      { label: `close:${leaf.id}`, phase: 'PerLeaf', model: 'haiku', effort: 'medium', schema: CLOSE_SCHEMA })
     return {
       ...record,
-      status: verdict && verdict.pairwise === 'better' ? 'improved'
-            : verdict && verdict.pairwise === 'worse' ? 'regressed-review-needed'
-            : 'rewritten-same',
-      pairwise: verdict ? verdict.pairwise : 'unavailable',
-      remaining: verdict ? (verdict.remaining || []).length : null,
+      status: !close ? 'closer-failed'
+            : (close.new_defects || []).length > 0 ? 'regressed-review-needed'
+            : close.verdict === 'resolved-all' ? 'improved'
+            : close.verdict === 'partially-resolved' ? 'partially-improved'
+            : 'rewrite-ineffective',
+      closure: close ? { verdict: close.verdict, resolved: close.resolved.length,
+                         unresolved: close.unresolved.length,
+                         new_defects: (close.new_defects || []) } : null,
     }
   })
 
@@ -142,12 +154,12 @@ phase('Report')
 guard(1)
 const sections = done.filter(r => r.eval).map(r => r.eval)
 await agent(
-  `Working dir: ${ROOT}. Write this JSON to ${ROOT}/loop/out/results-${RUN_ID}.json (Write tool), then Bash: cd "${ROOT}" && ${PY} render "loop/out/results-${RUN_ID}.json" — return {ok:true} when it prints ok.\nJSON:\n${JSON.stringify({ run_id: RUN_ID, iteration: MODE === 'baseline' ? 0 : 1, gate_ok: true, gate_findings: [], sections, adv: {}, fresh: [], queue })}`,
+  `Working dir: ${ROOT}. Write this JSON to ${ROOT}/loop/out/results-${RUN_ID}.json (Write tool), then Bash: cd "${ROOT}" && ${PY} render "loop/out/results-${RUN_ID}.json" — return {ok:true} when it prints ok.\nJSON:\n${JSON.stringify({ run_id: RUN_ID, iteration: MODE === 'baseline' ? 0 : 1, gate_ok: true, gate_findings: [], sections, adv: {}, fresh: [], queue, leaf_records: done.map(r => ({ section: r.heading, leaf: r.leaf, status: r.status, score: r.eval ? r.eval.score : null, closure: r.closure || null })) })}`,
   { label: 'render', phase: 'Report', model: 'haiku', effort: 'low', schema: OK_SCHEMA })
 
 return {
   mode: MODE, runId: RUN_ID, callsUsed: calls,
-  leaves: done.map(r => ({ leaf: r.leaf, status: r.status, score: r.eval ? r.eval.score : null, pairwise: r.pairwise || null })),
+  leaves: done.map(r => ({ leaf: r.leaf, status: r.status, score: r.eval ? r.eval.score : null, closure: r.closure || null })),
   ready: done.filter(r => r.status === 'ready').length,
   blocked: done.filter(r => r.status === 'blocked').length,
   improved: done.filter(r => r.status === 'improved').length,
