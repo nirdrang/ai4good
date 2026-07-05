@@ -369,13 +369,8 @@ def cmd_render(results_file):
                       "leaf_status": "loop/out/leaf-status.json"}))
 
 
-def cmd_lessons_set(lessons_file):
-    """Overwrite lessons.jsonl with the distiller's full updated array (deterministic set)."""
-    lessons = json.loads(Path(lessons_file).read_text(encoding="utf-8"))
-    with open(STATE / "lessons.jsonl", "w", encoding="utf-8") as f:
-        for l in lessons:
-            f.write(json.dumps(l, ensure_ascii=False) + "\n")
-    print(json.dumps({"ok": True, "count": len(lessons)}))
+# (lessons-set removed 2026-07-05 — no distill step; lessons.jsonl is static,
+#  human-curated guidance the generator reads.)
 
 
 # ---------------------------------------------------------------- entrypoint
@@ -403,8 +398,6 @@ def main():
         cmd_splice(sys.argv[2], sys.argv[3]); sys.exit(0)
     if cmd == "render":
         cmd_render(sys.argv[2]); sys.exit(0)
-    if cmd == "lessons-set":
-        cmd_lessons_set(sys.argv[2]); sys.exit(0)
     print(__doc__)
     sys.exit(1)
 

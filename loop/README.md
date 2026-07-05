@@ -27,7 +27,8 @@ python loop/orchestrate.py iterate    # DISABLED until baseline evaluator qualit
 - `config.json` — models, caps, gate terms, rubric weights
 - `prompts/` — static role prompts (evaluator / adversarial / fresh-reader / generator prefix)
 - `state/decisions.jsonl` — ADR ledger, seeded from the PRD §11 decision log (d1..d22 + d20a)
-- `state/lessons.jsonl` — reflexion memory, seeded with 4 proven project lessons
+- `state/lessons.jsonl` — static, human-curated guidance the generator reads (no distill
+  step — the loop never rewrites its own rules)
 - `state/scores.jsonl` — per-run section verdicts (trajectory/plateau detection)
 - `state/term_snapshot.json` / `decision_markers.json` — gate drift baselines (auto-seeded)
 - `decision-queue.md` — human-facing open decisions, regenerated per run (committed)
@@ -52,13 +53,15 @@ parallel agent fan-out) invoked with `scriptPath: loop/workflow.js` and
 `args: {mode: "baseline"|"iterate", runId: "<stamp>", maxIterations, sectionsPerIteration}`.
 Division of labor:
 
-- **workflow.js owns orchestration:** parallel evaluation batches, routing, worst-first
-  targeting, plateau detection + Opus escalation, per-role model/effort
-  (Sonnet-medium generator · Opus-high structural · Haiku couriers/distiller).
+- **workflow.js owns orchestration:** the per-leaf pipeline, worst-first targeting (or an
+  explicit `only` list), call caps. One generator only: **Sonnet at xhigh** — no routing,
+  no fallbacks, no Opus escalation, no distill step (founder calls, 2026-07-05). Haiku
+  agents are couriers.
 - **orchestrate.py stays the deterministic substrate**, called by courier agents:
   `gate` · `leaves` · `codex-call <prompt-file> <label>` (hardened codex invocation:
-  `-o` file capture, tree-kill on timeout) · `splice <leaf-id> <file>` (candidate write +
-  validator + marker check) · `render <results.json>` · `lessons-set <file>`.
+  stdin prompt, `-o` file capture, tree-kill on timeout) · `splice <leaf-id> <file>`
+  (candidate write + validator + marker check) · `render <results.json>` (report + queue +
+  `leaf-status.json`).
 - codex calls run in **background Bash inside courier agents** (they can exceed the
   10-minute foreground cap); the evaluator stays cross-vendor.
 - `python loop/orchestrate.py baseline` remains as a headless fallback runner
@@ -74,6 +77,5 @@ Division of labor:
    answerable ACs + declared dependencies · no outstanding structural critique · queue empty
    or all-deferred-with-trigger. On stop, the separate coordinator-side dissection pass
    (PRD §8 of the loop spec) drafts the Linear tree — automation drafts, coordinator owns.
-4. Phase 2 (generator routing: local/cross-section/structural/plateau escalation) is built
-   only after the founder reviews baseline evaluator quality — `iterate` exits early until
-   `generator.enabled` is flipped.
+4. First scaled run happens only after the founder reviews the single-leaf smoke
+   (`mode: iterate, only: ["REQ-035"]`) — the calibration sample for evaluator quality.

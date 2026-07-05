@@ -6,7 +6,6 @@ export const meta = {
     { title: 'Gate', detail: 'deterministic gate via orchestrate.py (courier)' },
     { title: 'Leaves', detail: 'leaf map + target selection' },
     { title: 'PerLeaf', detail: 'pipeline: codex evaluate -> Sonnet xhigh generate -> splice -> codex pairwise', model: 'sonnet' },
-    { title: 'Distill', detail: 'Haiku lessons update (defect classes only)' },
     { title: 'Report', detail: 'render report + decision queue + leaf-status ledger' },
   ],
 }
@@ -136,13 +135,8 @@ for (const r of done) {
   for (const c of (r.unmade || [])) queue.push({ question: c.issue || '', section: r.heading, source: 'evaluator', evidence: c.evidence || '' })
 }
 
-if (MODE === 'iterate' && done.some(r => r.eval)) {
-  phase('Distill')
-  guard(1)
-  await agent(
-    `Working dir: ${ROOT}. You are the DISTILLER. Read ${ROOT}/loop/state/lessons.jsonl. Based on these per-leaf outcomes, increment hit_count of lessons that recurred and add at most ONE new lesson per NEW defect CLASS (never content-specific). Outcomes: ${JSON.stringify(done.map(r => ({ leaf: r.leaf, status: r.status, critique: r.eval ? r.eval.critique : [] })))}. Write the FULL updated array to ${ROOT}/loop/out/lessons-${RUN_ID}.json (JSON array), then Bash: cd "${ROOT}" && ${PY} lessons-set "loop/out/lessons-${RUN_ID}.json" — return {ok:true} on success.`,
-    { label: 'distill', phase: 'Distill', model: 'haiku', effort: 'low', schema: OK_SCHEMA })
-}
+// No distill step (founder call, 2026-07-05): lessons.jsonl is static, human-curated
+// guidance the generator reads — the loop never rewrites its own rules.
 
 phase('Report')
 guard(1)
