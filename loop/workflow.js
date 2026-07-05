@@ -1,10 +1,10 @@
 export const meta = {
   name: 'prd-improvement-loop',
-  description: 'Two-level per-leaf PRD improvement loop, agents-only: complete iterations (whole-PRD passes over a FROZEN working version) containing per-leaf mini-iterations (codex evaluate -> Sonnet-xhigh rewrite -> splice+validate -> Haiku clean-room close). Assembly + promotion only at pass boundaries.',
-  whenToUse: 'args {mode:"baseline"|"iterate", runId:"<stamp>", only:[leafIds]?, targets:<n>?, maxPasses:<n>?, maxCycles:<n>?, reset:bool?}. Smoke = iterate + only:["REQ-035"]. Default: ONE complete pass per run (founder reviews between passes).',
+  description: 'Two-level per-leaf PRD improvement loop, agents-only: complete iterations (whole-PRD passes over a FROZEN working version) containing per-leaf mini-iterations (codex evaluate -> Sonnet-xhigh rewrite -> splice+validate -> codex INNER RE-EVALUATION). A leaf reaches ready in-pass when the re-eval says so. Assembly + promotion only at pass boundaries.',
+  whenToUse: 'args {mode:"baseline"|"iterate", runId:"<stamp>", only:[leafIds]?, targets:<n>?, maxPasses:<n>?, maxCycles:<n>?, reset:bool?}. Smoke = iterate + only:["REQ-001"]. Default: up to 3 complete passes per run.',
   phases: [
     { title: 'Gate', detail: 'working-version setup + validator 100% + marker census' },
-    { title: 'Pass', detail: 'complete iteration: per-leaf mini-iterations against the frozen working version', model: 'sonnet' },
+    { title: 'Pass', detail: 'complete iteration: per-leaf mini-iterations vs the frozen working version', model: 'sonnet' },
     { title: 'Assemble', detail: 'merge accepted sections -> validate merged candidate -> promote to next working version' },
     { title: 'Report', detail: 'leaf-status ledger + decision queue + scores append' },
   ],
@@ -16,27 +16,25 @@ const CANON = '.taskmaster/docs/prd.md'          // human-gated; the loop NEVER 
 const WORK = 'loop/out/prd.working.md'           // frozen during a pass; promoted at boundaries
 const VALIDATE = 'python .claude/skills/prd-taskmaster/script.py validate-prd --input'
 const CODEX = 'codex exec --sandbox read-only --skip-git-repo-check -c model_reasoning_effort=xhigh'
-// Defensive arg handling: the Workflow tool can deliver `args` as an object, a
-// JSON string, or undefined. Parse all three so a stringified payload never
-// silently collapses to defaults (which once ran a full baseline by accident).
+
+// Defensive arg handling: the Workflow tool can deliver `args` as an object, a JSON string,
+// or undefined. Parse all three so a stringified payload never silently collapses to defaults.
 let A = {}
 try { A = (typeof args === 'string') ? JSON.parse(args || '{}') : (args || {}) } catch (e) { A = {} }
 const MODE = A.mode || 'baseline'
 const RUN_ID = A.runId || 'run-unstamped'   // Date.now() unavailable by design
 const ONLY = A.only || null
 const TARGETS = A.targets || 5
-const MAX_PASSES = A.maxPasses || 1         // P0: one complete iteration per run by default
+const MAX_PASSES = A.maxPasses || 3         // P0: up to 3 complete iterations per run (founder call)
 const MAX_CYCLES = A.maxCycles || 3         // S6: mini-iteration cap per leaf per pass
 const RESET = !!A.reset
-const MAX_CALLS = A.callCap || 120
-// SAFETY: a full baseline over every leaf is expensive enough to exhaust a session.
-// It must be requested explicitly (mode:baseline AND no `only`) — otherwise refuse.
+const MAX_CALLS = A.callCap || 200
+let calls = 0
+function guard(n) { if (calls + n > MAX_CALLS) throw new Error(`call cap ${MAX_CALLS} exceeded`); calls += n }
 if (MODE === 'baseline' && !ONLY && !A.allowFullBaseline) {
   return { stopped: 'refused-implicit-full-baseline', hint: 'Pass only:[ids] for a scoped run, or allowFullBaseline:true to sweep every leaf.', resolvedArgs: { MODE, RUN_ID, ONLY, MAX_PASSES } }
 }
 log(`resolved args → mode=${MODE} runId=${RUN_ID} only=${ONLY ? ONLY.join(',') : '(none)'} passes=${MAX_PASSES} cycles=${MAX_CYCLES} reset=${RESET}`)
-let calls = 0
-function guard(n) { if (calls + n > MAX_CALLS) throw new Error(`call cap ${MAX_CALLS} exceeded`); calls += n }
 
 const EXEMPT = ['REQ-005.5', 'REQ-017', 'REQ-018', 'REQ-019', 'REQ-020', 'REQ-022']
 
@@ -45,7 +43,6 @@ const LEAVES_SCHEMA = { type: 'object', properties: { leaves: { type: 'array', i
 const EVAL_SCHEMA = { type: 'object', properties: { section: { type: 'string' }, verdict: { type: 'string', enum: ['ready', 'needs-work', 'blocked'] }, score: { type: 'number' }, critique: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, issue: { type: 'string' }, evidence: { type: 'string' } }, required: ['label', 'issue'] } }, blocking_questions: { type: 'array', items: { type: 'string' } } }, required: ['section', 'verdict', 'score'] }
 const GEN_SCHEMA = { type: 'object', properties: { section: { type: 'string' }, new_text: { type: 'string' } }, required: ['section', 'new_text'] }
 const SPLICE_SCHEMA = { type: 'object', properties: { ok: { type: 'boolean' }, validator_pct: { type: 'number' }, marker_count_working: { type: 'number' }, marker_count_candidate: { type: 'number' }, error: { type: 'string' } }, required: ['ok'] }
-const CLOSE_SCHEMA = { type: 'object', properties: { section: { type: 'string' }, verdict: { type: 'string', enum: ['resolved-all', 'partially-resolved', 'unresolved'] }, resolved: { type: 'array', items: { type: 'string' } }, unresolved: { type: 'array', items: { type: 'object', properties: { issue: { type: 'string' }, why: { type: 'string' } }, required: ['issue', 'why'] } }, new_defects: { type: 'array', items: { type: 'string' } } }, required: ['section', 'verdict', 'resolved', 'unresolved'] }
 const OK_SCHEMA = { type: 'object', properties: { ok: { type: 'boolean' }, detail: { type: 'string' } }, required: ['ok'] }
 
 function codexRecipe(promptSpec, label) {
@@ -56,6 +53,14 @@ function codexRecipe(promptSpec, label) {
    cd "${ROOT}" && ${CODEX} -o "loop/out/lastmsg-${label}.txt" - < "loop/out/prompt-${label}.txt" > "loop/out/log-${label}.txt" 2>&1
 4. Read loop/out/lastmsg-${label}.txt and parse the JSON payload from it. If the file is missing or unparseable, retry the codex command ONCE with "-r" appended to every ${label} filename.
 5. Return the parsed payload via structured output. If both attempts fail, return an empty payload.`
+}
+
+// evaluate/re-evaluate ONE leaf against a given document (WORK for the initial eval, the leaf
+// candidate for an inner re-eval). Same rubric either way — a re-eval is just an eval of the rewrite.
+function evalAgent(docPath, leaf, label) {
+  return agent(
+    codexRecipe(`Read ${ROOT}/loop/prompts/evaluator_leaf.md and replace {DOC} with "${docPath}" and {TARGET} with this line:\n- ${leaf.heading} (lines ${leaf.start}-${leaf.end})`, label),
+    { label, phase: 'Pass', effort: 'low', schema: EVAL_SCHEMA })
 }
 
 // ================================================================ Gate + working version
@@ -73,7 +78,7 @@ if (!gate || gate.gate !== 'PASS') return { mode: MODE, runId: RUN_ID, stopped: 
 
 // ================================================================ Complete iterations
 const passSummaries = []
-let passTargets = null   // null = derive on pass 1
+let passTargets = null
 let finalRecords = []
 let stopped = null
 
@@ -81,7 +86,6 @@ for (let pass = 1; pass <= MAX_PASSES; pass++) {
   phase('Pass')
   log(`=== complete iteration ${pass}/${MAX_PASSES} (frozen input: ${WORK}) ===`)
 
-  // -- leaf map is recomputed each pass (line numbers shift after promotion)
   guard(1)
   const leafMap = await agent(
     `Working dir: ${ROOT}. Build the leaf map of the WORKING version:
@@ -113,29 +117,23 @@ Return {leaves: [{id, heading, start, end}]} for ALL hits, in file order, via st
   guard(targets.length)
   const records = await pipeline(targets,
 
-    // evaluate ONE leaf — codex reads the WHOLE working doc for reference, judges only the target
-    (leaf) => agent(
-      codexRecipe(
-        `Read ${ROOT}/loop/prompts/evaluator_leaf.md and replace {DOC} with "${WORK}" and {TARGET} with this line:\n- ${leaf.heading} (lines ${leaf.start}-${leaf.end})`,
-        `eval-${leaf.id}-p${pass}-${RUN_ID}`),
-      { label: `eval:${leaf.id}`, phase: 'Pass', effort: 'low', schema: EVAL_SCHEMA }),
+    // Stage 1 — initial evaluation of ONE leaf against the frozen working doc
+    (leaf) => evalAgent(WORK, leaf, `eval-${leaf.id}-p${pass}-${RUN_ID}`),
 
-    // mini-iteration loop: generate -> splice+validate -> clean-room close, cycle until a stop condition
+    // Stage 2 — mini-iteration loop: generate -> splice+validate -> codex INNER RE-EVAL
     async (ev, leaf) => {
       if (!ev) return { leaf: leaf.id, heading: leaf.heading, status: 'eval-failed', cycles: 0 }
-      const actionable = (ev.critique || []).filter(c => c.label !== 'unmade-decision')
-      const unmade = (ev.critique || []).filter(c => c.label === 'unmade-decision')
-      const record = { leaf: leaf.id, heading: leaf.heading, eval: ev, unmade, cycles: 0 }
-      if (unmade.length > 0) return { ...record, status: 'blocked' }                    // S1
-      if (ev.verdict === 'ready' || actionable.length === 0) return { ...record, status: 'ready' }  // S2
+      let actionable = (ev.critique || []).filter(c => c.label !== 'unmade-decision')
+      let unmade = (ev.critique || []).filter(c => c.label === 'unmade-decision')
+      const record = { leaf: leaf.id, heading: leaf.heading, finalEval: ev, unmade, cycles: 0 }
+      if (ev.verdict === 'blocked' || unmade.length > 0) return { ...record, status: 'blocked' }   // S1
+      if (ev.verdict === 'ready' || actionable.length === 0) return { ...record, status: 'ready' } // S2
       if (MODE === 'baseline') return { ...record, status: ev.verdict }
 
       const leafCand = `loop/out/cand-${leaf.id}.md`
-      let critique = actionable
-      let blocking = ev.blocking_questions || []
       let lastGoodFile = null
-      let prevUnresolved = actionable.length
-      let entryUnresolved = actionable.length
+      let prevCount = actionable.length
+      let entryCount = actionable.length
       let spliceFails = 0
       let status = 'stalled'
 
@@ -144,9 +142,14 @@ Return {leaves: [{id, heading, start, end}]} for ALL hits, in file order, via st
         guard(3)
         const genFile = `loop/out/gen-${leaf.id}-p${pass}-c${cycle}.md`
 
-        // GENERATOR — Sonnet xhigh; whole working doc as reference, surgical on the target
+        // GENERATOR — Sonnet xhigh. TOKEN REDUCTION: cycle 1 reads the whole working doc
+        // (full context for the first rewrite); cycles 2+ read only the previous rewrite +
+        // the dependency sections it names — never the whole doc again.
+        const readScope = cycle === 1
+          ? `Read the ENTIRE working document ${ROOT}/${WORK} for reference. Rewrite ONLY the section "${leaf.heading}" (lines ${leaf.start}-${leaf.end}). Pay particular attention to the sections its Dependencies line names.`
+          : `TOKEN-EFFICIENT REFINEMENT — do NOT read the whole document. Read ONLY: (a) your previous accepted rewrite of this section in ${ROOT}/${lastGoodFile}; (b) grep the "Dependencies:" line inside that file and Read just the sections it names from ${ROOT}/${WORK} for cross-section context. Refine the previous rewrite to resolve the remaining critique below.`
         const gen = await agent(
-          `Working dir: ${ROOT}. You are the GENERATOR. First Read ${ROOT}/loop/prompts/generator_prefix.md and obey every hard rule in it. Then Read ${ROOT}/loop/state/lessons.jsonl and ${ROOT}/loop/state/decisions.jsonl (normative claims must trace to entries). Read the ENTIRE working document ${ROOT}/${WORK} for reference — you rewrite ONLY the section "${leaf.heading}"${lastGoodFile ? `, whose CURRENT text (from your previous accepted cycle) is in ${ROOT}/${lastGoodFile} — refine THAT text` : ` (lines ${leaf.start}-${leaf.end} of the working doc)`}. Pay particular attention to the sections its Dependencies line names.\nResolve THIS critique, surgically — change nothing the critique does not require:\n${JSON.stringify(critique, null, 2)}\nBlocking questions to answer in the text where the decision ledger supports an answer (otherwise leave a [DECISION: <question>] marker):\n${JSON.stringify(blocking)}\nReturn {section: "${leaf.id}", new_text: "<full replacement section including the #### heading line>"} via structured output.`,
+          `Working dir: ${ROOT}. You are the GENERATOR. First Read ${ROOT}/loop/prompts/generator_prefix.md and obey every hard rule in it. Then Read ${ROOT}/loop/state/lessons.jsonl and ${ROOT}/loop/state/decisions.jsonl (normative claims must trace to entries). ${readScope}\nResolve THIS critique, surgically — change nothing the critique does not require:\n${JSON.stringify(actionable, null, 2)}\nWhere a normative answer is not in the decision ledger, leave a [DECISION: <question>] marker rather than inventing policy.\nReturn {section: "${leaf.id}", new_text: "<full replacement section including the #### heading line>"} via structured output.`,
           { label: `gen:${leaf.id}-c${cycle}`, phase: 'Pass', model: 'sonnet', effort: 'xhigh', schema: GEN_SCHEMA })
         if (!gen || !gen.new_text) { status = 'gen-failed'; break }
 
@@ -166,40 +169,30 @@ SECTION TEXT:\n${gen.new_text}`,
         if (!splice || !splice.ok) {                                                     // S7
           spliceFails++
           if (spliceFails >= 2) { status = 'rewrite-rejected'; break }
-          critique = critique.concat([{ label: 'local', issue: `Previous rewrite failed verification: ${splice && splice.error ? splice.error : 'validator below 100% or a [DECISION] marker was lost'} — fix without reintroducing it`, evidence: 'splice verdict' }])
+          actionable = actionable.concat([{ label: 'local', issue: `Previous rewrite failed verification: ${splice && splice.error ? splice.error : 'validator below 100% or a [DECISION] marker was lost'} — fix without reintroducing it`, evidence: 'splice verdict' }])
           continue
         }
         spliceFails = 0
-
-        // CLOSER — Haiku clean room: original vs this cycle's text + the critique, nothing else
-        const close = await agent(
-          `You are the CLOSER in a PRD-improvement loop. You have NO other context — judge ONLY from the artifacts named here.
-1. Read lines ${leaf.start}-${leaf.end} of ${ROOT}/${WORK} (the ORIGINAL section, this pass's frozen input).
-2. Read ${ROOT}/${genFile} (the REWRITE).
-3. For EACH critique item below, decide from the two texts alone: resolved or unresolved. Quote the rewrite where it resolves an item; say exactly why where it does not.
-4. List any NEW defect the rewrite introduced that the original did not have (information lost, ambiguity added, an invariant weakened).
-CRITIQUE:\n${JSON.stringify(critique, null, 2)}
-Verdict: "resolved-all" | "partially-resolved" | "unresolved".
-Return {section: "${leaf.id}", verdict, resolved: [...], unresolved: [{issue, why}], new_defects: [...]} via structured output.`,
-          { label: `close:${leaf.id}-c${cycle}`, phase: 'Pass', model: 'haiku', effort: 'medium', schema: CLOSE_SCHEMA })
-        if (!close) { status = 'closer-failed'; break }
-
-        if ((close.new_defects || []).length > 0) {                                      // S4: discard cycle
-          status = lastGoodFile ? 'partially-improved' : 'regressed-reverted'
-          record.regression = close.new_defects
-          break
-        }
         lastGoodFile = genFile
-        record.closure = { verdict: close.verdict, resolved: close.resolved.length, unresolved: close.unresolved.length }
-        if (close.verdict === 'resolved-all') { status = 'improved'; break }             // S3
-        if (close.unresolved.length >= prevUnresolved) {                                 // S5: no strict progress
-          status = close.unresolved.length < entryUnresolved ? 'partially-improved' : 'stalled'
+
+        // INNER RE-EVALUATION — codex re-evaluates the REWRITTEN section fresh (founder call).
+        // A full-rubric cross-vendor verdict on the candidate; drives readiness and the next cycle.
+        const re = await evalAgent(leafCand, leaf, `reeval-${leaf.id}-p${pass}-c${cycle}-${RUN_ID}`)
+        if (!re) { status = 'reeval-failed'; break }
+        record.finalEval = re
+        record.reeval = { verdict: re.verdict, score: re.score, critiques: (re.critique || []).length }
+        const reActionable = (re.critique || []).filter(c => c.label !== 'unmade-decision')
+        const reUnmade = (re.critique || []).filter(c => c.label === 'unmade-decision')
+
+        if (re.verdict === 'ready') { status = 'ready'; break }                          // re-eval confirms ready IN-PASS
+        if (re.verdict === 'blocked' || reUnmade.length > 0) { record.unmade = reUnmade; status = 'blocked'; break } // new unmade-decision surfaced by the rewrite
+        if (reActionable.length >= prevCount) {                                          // S5 no strict progress (also catches regressions)
+          status = reActionable.length < entryCount ? 'partially-improved' : 'stalled'
           break
         }
-        prevUnresolved = close.unresolved.length
-        status = 'partially-improved'                                                    // S6 fallthrough at cap
-        critique = close.unresolved.map(u => ({ label: 'local', issue: u.issue, evidence: u.why }))
-        blocking = []
+        prevCount = reActionable.length
+        actionable = reActionable                                                        // the fresh critique drives the next cycle
+        status = 'partially-improved'                                                    // S6 fallthrough at the cap
       }
 
       return { ...record, status, accepted: lastGoodFile }
@@ -232,8 +225,8 @@ Return {ok: <promoted?>, detail: "<validator pct + marker counts>"} via structur
   // ---------------------------------------------------------- pass-level stop conditions
   const readyN = done.filter(r => r.status === 'ready').length
   const blockedN = done.filter(r => r.status === 'blocked').length
-  const unresolvedTotal = done.reduce((n, r) => n + (r.closure ? r.closure.unresolved : (r.eval ? (r.eval.critique || []).length : 0)), 0)
-  passSummaries.push({ pass, targets: done.length, ready: readyN, blocked: blockedN, improved: done.filter(r => r.status === 'improved').length, unresolvedTotal })
+  const unresolvedTotal = done.reduce((n, r) => n + (r.finalEval ? (r.finalEval.critique || []).filter(c => c.label !== 'unmade-decision').length : 0), 0)
+  passSummaries.push({ pass, targets: done.length, ready: readyN, blocked: blockedN, unresolvedTotal })
 
   if (readyN + blockedN === done.length) { stopped = 'decomposition-ready-pending-queue'; break }   // P1
   if (done.every(r => r.status === 'blocked')) { stopped = 'queue-gated'; break }                   // P2
@@ -242,19 +235,19 @@ Return {ok: <promoted?>, detail: "<validator pct + marker counts>"} via structur
   passTargets = done.filter(r => r.status !== 'blocked' && r.status !== 'ready').map(r => r.leaf)
   if (passTargets.length === 0) { stopped = 'decomposition-ready-pending-queue'; break }
 }
-if (!stopped) stopped = MAX_PASSES > 1 ? 'max-passes-reached' : 'single-pass-complete'              // P0/P4
+if (!stopped) stopped = MAX_PASSES > 1 ? 'max-passes-reached' : 'single-pass-complete'              // P4
 
 // ================================================================ Report
 phase('Report')
 const queue = []
 for (const r of finalRecords) {
-  for (const c of (r.unmade || [])) queue.push({ question: c.issue || '', section: r.heading, source: 'evaluator', evidence: c.evidence || '' })
-  for (const q of ((r.eval && r.eval.blocking_questions) || [])) queue.push({ question: q, section: r.heading, source: 'blocking-question', evidence: '' })
+  for (const c of (r.unmade || [])) queue.push({ question: c.issue || '', section: r.heading, source: 'unmade-decision', evidence: c.evidence || '' })
+  for (const q of ((r.finalEval && r.finalEval.blocking_questions) || [])) queue.push({ question: q, section: r.heading, source: 'blocking-question', evidence: '' })
 }
 const leafRecords = finalRecords.map(r => ({ leaf: r.leaf, section: r.heading, status: r.status,
-  cycles: r.cycles, score: r.eval ? r.eval.score : null, closure: r.closure || null }))
-const scoreLines = finalRecords.filter(r => r.eval)
-  .map(r => JSON.stringify({ run: RUN_ID, mode: MODE, ...r.eval, final_status: r.status, cycles: r.cycles }))
+  cycles: r.cycles, score: r.finalEval ? r.finalEval.score : null, reeval: r.reeval || null }))
+const scoreLines = finalRecords.filter(r => r.finalEval)
+  .map(r => JSON.stringify({ run: RUN_ID, mode: MODE, ...r.finalEval, final_status: r.status, cycles: r.cycles }))
 
 guard(1)
 await agent(
@@ -271,5 +264,5 @@ return {
   leaves: leafRecords,
   queueItems: queue.length,
   workingVersion: WORK,
-  note: 'Canonical PRD untouched — accept the working-vs-canonical diff to land a new PRD. Working version promotes only at pass boundaries; frozen during passes.',
+  note: 'Inner codex re-evaluation drives readiness; a leaf can reach ready in-pass. Working version promotes only at pass boundaries; canonical untouched — accept the working-vs-canonical diff to land a new PRD.',
 }

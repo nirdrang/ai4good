@@ -45,7 +45,14 @@ args: {
 ## Two-level iterations (founder call, 2026-07-05)
 
 - **Mini-iteration** = one improvement cycle on ONE item: generate → splice+validate →
-  clean-room close. A leaf may take several mini-iterations within a pass.
+  **codex inner re-evaluation**. A leaf may take several mini-iterations within a pass; the
+  re-eval is a fresh full-rubric codex verdict on the rewritten section — a leaf reaches
+  `ready` in-pass when the re-eval says so (founder call, 2026-07-05). (The earlier Haiku
+  clean-room closer is replaced by this codex re-eval.)
+- **Token discipline:** cycle 1's generator reads the whole working doc; cycles 2+ read only
+  the previous rewrite + the sections its Dependencies line names — never the whole doc again.
+  Cross-vendor eval (codex) and generation (Sonnet) cannot share one agent, so the only
+  reuse available is codex-session-resume (an OpenAI-side saving, not the binding Claude one).
 - **Complete iteration (pass)** = a full pass over all in-scope items, run against a
   **frozen** working version (`loop/out/prd.working.md`). During a pass nothing changes the
   working doc; each leaf rewrites in its own scratch copy (parallel-safe). At the pass
@@ -65,7 +72,7 @@ S7 two consecutive splice rejections → `rewrite-rejected` (first rejection fee
 back into the next generation).
 
 **Complete-iteration stop conditions (whole PRD):**
-P0 default ONE pass per run (`maxPasses` raises it) — founder reviews between passes ·
+P0 default up to 3 passes per run (`maxPasses`) ·
 P1 all leaves ready-or-queued → **decomposition-ready** · P2 only blocked remain →
 queue-gated · P3 plateau (ready didn't rise AND unresolved didn't fall vs previous pass) ·
 P4 maxPasses reached · P5 assembly gate failed → previous working version kept, loud stop.
