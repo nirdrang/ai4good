@@ -33,6 +33,25 @@ python loop/orchestrate.py iterate    # DISABLED until baseline evaluator qualit
 - `decision-queue.md` — human-facing open decisions, regenerated per run (committed)
 - `out/` — per-run artifacts: baseline-report.md, candidates, raw model output (gitignored)
 
+## Workflow runner (`workflow.js`)
+
+The iteration engine runs as a Claude Code **Workflow** (deterministic JS orchestration,
+parallel agent fan-out) invoked with `scriptPath: loop/workflow.js` and
+`args: {mode: "baseline"|"iterate", runId: "<stamp>", maxIterations, sectionsPerIteration}`.
+Division of labor:
+
+- **workflow.js owns orchestration:** parallel evaluation batches, routing, worst-first
+  targeting, plateau detection + Opus escalation, per-role model/effort
+  (Sonnet-medium generator · Opus-high structural · Haiku couriers/distiller).
+- **orchestrate.py stays the deterministic substrate**, called by courier agents:
+  `gate` · `leaves` · `codex-call <prompt-file> <label>` (hardened codex invocation:
+  `-o` file capture, tree-kill on timeout) · `splice <leaf-id> <file>` (candidate write +
+  validator + marker check) · `render <results.json>` · `lessons-set <file>`.
+- codex calls run in **background Bash inside courier agents** (they can exceed the
+  10-minute foreground cap); the evaluator stays cross-vendor.
+- `python loop/orchestrate.py baseline` remains as a headless fallback runner
+  (serial, cron-able, no session required).
+
 ## Rules of the loop
 
 1. The loop NEVER writes the canonical PRD — candidates land in `out/`; canonical changes

@@ -284,6 +284,87 @@ def write_report(run_id, gate_ok, gate_findings, sections, adv, fresh, queue):
     (OUT / "baseline-report.md").write_text("\n".join(L) + "\n", encoding="utf-8")
 
 
+# ---------------------------------------------------------------- courier commands
+# Small deterministic subcommands used by loop/workflow.js agents (the workflow
+# script has no filesystem access by design; agents call these as couriers).
+
+def cmd_leaves():
+    leaves = parse_leaves(read_prd())
+    slim = [{"id": l["id"], "heading": l["heading"], "start": l["start"] + 1,
+             "end": l["end"]} for l in leaves]
+    print(json.dumps(slim, ensure_ascii=False))
+
+
+def cmd_codex_call(prompt_file, label):
+    prompt = Path(prompt_file).read_text(encoding="utf-8")
+    raw = call_codex(prompt, label)
+    # raw is the -o final message; print verbatim for the courier agent to parse
+    sys.stdout.write(raw)
+
+
+def candidate_path():
+    return OUT / "prd.candidate.md"
+
+
+def cmd_splice(leaf_id, replacement_file):
+    """Apply a section rewrite to the CANDIDATE (never the canonical), then verify:
+    validator must hold 100% and no [DECISION] marker may vanish."""
+    OUT.mkdir(exist_ok=True)
+    cand = candidate_path()
+    base_text = cand.read_text(encoding="utf-8") if cand.exists() else read_prd()
+    replacement = Path(replacement_file).read_text(encoding="utf-8").rstrip() + "\n"
+    lines = base_text.split("\n")
+    leaves = parse_leaves(base_text)
+    target = next((l for l in leaves if l["id"] == leaf_id), None)
+    if target is None:
+        print(json.dumps({"ok": False, "error": f"leaf '{leaf_id}' not found"}))
+        return
+    lines[target["start"]:target["end"]] = replacement.split("\n")[:-1] + [""]
+    new_text = "\n".join(lines)
+    cand.write_text(new_text, encoding="utf-8")
+
+    # verify: validator on the candidate
+    vcmd = CFG["validator_cmd"][:-1] + [str(cand)]
+    r = subprocess.run(vcmd, cwd=ROOT, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=300)
+    m = re.search(r'"percentage":\s*([\d.]+)', r.stdout)
+    pct = float(m.group(1)) if m else -1.0
+
+    # verify: no marker lost vs canonical
+    marker_re = CFG["gate"]["decision_marker"] + r"[^\]]*\]"
+    canon_markers = set(re.findall(marker_re, read_prd()))
+    cand_markers = set(re.findall(marker_re, new_text))
+    lost = sorted(canon_markers - cand_markers)
+
+    ok = (pct == 100.0) and not lost
+    print(json.dumps({"ok": ok, "validator_pct": pct, "markers_lost": lost,
+                      "candidate": str(cand.relative_to(ROOT))}, ensure_ascii=False))
+
+
+def cmd_render(results_file):
+    """Render report + queue + scores from a results JSON written by the workflow."""
+    d = json.loads(Path(results_file).read_text(encoding="utf-8"))
+    for s in d.get("sections", []):
+        append_jsonl(STATE / "scores.jsonl",
+                     {"run": d.get("run_id", "?"), "iteration": d.get("iteration", 0),
+                      **s, "critique_n": len(s.get("critique", []))})
+    write_queue(d.get("queue", []), d.get("run_id", "?"))
+    write_report(d.get("run_id", "?"), d.get("gate_ok", False), d.get("gate_findings", []),
+                 d.get("sections", []), d.get("adv", {}), d.get("fresh", []),
+                 d.get("queue", []))
+    print(json.dumps({"ok": True, "report": "loop/out/baseline-report.md",
+                      "queue": "loop/decision-queue.md"}))
+
+
+def cmd_lessons_set(lessons_file):
+    """Overwrite lessons.jsonl with the distiller's full updated array (deterministic set)."""
+    lessons = json.loads(Path(lessons_file).read_text(encoding="utf-8"))
+    with open(STATE / "lessons.jsonl", "w", encoding="utf-8") as f:
+        for l in lessons:
+            f.write(json.dumps(l, ensure_ascii=False) + "\n")
+    print(json.dumps({"ok": True, "count": len(lessons)}))
+
+
 # ---------------------------------------------------------------- entrypoint
 
 def main():
@@ -299,8 +380,18 @@ def main():
         if not CFG["generator"]["enabled"]:
             print(CFG["generator"]["note"])
             sys.exit(2)
-        print("iterate: generator routing not yet implemented (phase 2)")
+        print("iterate: run via the workflow (loop/workflow.js) — see loop/README.md")
         sys.exit(2)
+    if cmd == "leaves":
+        cmd_leaves(); sys.exit(0)
+    if cmd == "codex-call":
+        cmd_codex_call(sys.argv[2], sys.argv[3]); sys.exit(0)
+    if cmd == "splice":
+        cmd_splice(sys.argv[2], sys.argv[3]); sys.exit(0)
+    if cmd == "render":
+        cmd_render(sys.argv[2]); sys.exit(0)
+    if cmd == "lessons-set":
+        cmd_lessons_set(sys.argv[2]); sys.exit(0)
     print(__doc__)
     sys.exit(1)
 
