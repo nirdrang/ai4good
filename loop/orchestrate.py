@@ -141,20 +141,25 @@ def call_codex(prompt_text, label):
     OUT.mkdir(exist_ok=True)
     out_file = OUT / f"lastmsg-{label}.txt"
     out_file.unlink(missing_ok=True)
-    cmd += ["-o", str(out_file), prompt_text]
+    # Prompt goes via STDIN ('-'): cmd.exe shims truncate multi-line arguments at the
+    # first newline, which silently delivered only line 1 of every prompt as an arg.
+    prompt_file = OUT / f"prompt-{label}.txt"
+    prompt_file.write_text(prompt_text, encoding="utf-8")
+    cmd += ["-o", str(out_file), "-"]
     timeout = CFG["evaluator"]["timeout_seconds"]
     log(f"codex[{label}] starting (timeout {timeout}s)")
     t0 = time.time()
-    proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
-    try:
-        rc = proc.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        # kill the whole tree — TerminateProcess on the shim alone orphans node
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
-                       capture_output=True)
-        log(f"codex[{label}] TIMED OUT after {timeout}s — process tree killed")
-        return ""
+    with open(prompt_file, "rb") as stdin_f:
+        proc = subprocess.Popen(cmd, cwd=ROOT, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, stdin=stdin_f)
+        try:
+            rc = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            # kill the whole tree — TerminateProcess on the shim alone orphans node
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                           capture_output=True)
+            log(f"codex[{label}] TIMED OUT after {timeout}s — process tree killed")
+            return ""
     log(f"codex[{label}] done in {time.time() - t0:.0f}s (rc={rc})")
     if out_file.exists():
         return out_file.read_text(encoding="utf-8", errors="replace")
