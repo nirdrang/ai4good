@@ -42,12 +42,33 @@ args: {
 }
 ```
 
-Per-leaf flow: **gate** (validator 100% + marker census) → **evaluate** (codex, one leaf +
-its dependency neighborhood → `ready` / `needs-work` / `blocked`) → **generate** (Sonnet
-xhigh, hard rules from `prompts/generator_prefix.md`) → **splice** (agent file surgery into
-the candidate + validator re-run + marker check) → **close** (Haiku clean room) →
-**report**. Terminal statuses: `ready` · `blocked` · `improved` · `partially-improved` ·
-`rewrite-ineffective` · `regressed-review-needed` · `rewrite-rejected`.
+## Two-level iterations (founder call, 2026-07-05)
+
+- **Mini-iteration** = one improvement cycle on ONE item: generate → splice+validate →
+  clean-room close. A leaf may take several mini-iterations within a pass.
+- **Complete iteration (pass)** = a full pass over all in-scope items, run against a
+  **frozen** working version (`loop/out/prd.working.md`). During a pass nothing changes the
+  working doc; each leaf rewrites in its own scratch copy (parallel-safe). At the pass
+  boundary an **assembly** step merges accepted sections, re-validates the merged document,
+  snapshots it (`prd.pass-<run>-<n>.md`), and promotes it as the next pass's input.
+- **Whole-doc reference:** evaluator and generator read the entire working document for
+  reference and act only on the target leaf. The closer stays artifacts-only (clean room).
+- The canonical `.taskmaster/docs/prd.md` remains human-gated: the loop never writes it;
+  you accept the working-vs-canonical diff to land a new PRD.
+
+**Mini-iteration stop conditions (per item):**
+S1 unmade-decision at evaluation → `blocked` (zero cycles, queued) · S2 nothing actionable →
+`ready` · S3 closer: all resolved, no new defects → `improved` · S4 new defect → cycle
+discarded, keep last good → `regressed-reverted` / `partially-improved` · S5 unresolved
+count didn't strictly fall → `stalled` / `partially-improved` · S6 cycle cap (default 3) ·
+S7 two consecutive splice rejections → `rewrite-rejected` (first rejection feeds the reason
+back into the next generation).
+
+**Complete-iteration stop conditions (whole PRD):**
+P0 default ONE pass per run (`maxPasses` raises it) — founder reviews between passes ·
+P1 all leaves ready-or-queued → **decomposition-ready** · P2 only blocked remain →
+queue-gated · P3 plateau (ready didn't rise AND unresolved didn't fall vs previous pass) ·
+P4 maxPasses reached · P5 assembly gate failed → previous working version kept, loud stop.
 
 ## Files
 
