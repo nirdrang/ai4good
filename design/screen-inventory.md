@@ -10,6 +10,15 @@
 > comment thread, CR flow carries anti-distraction guardrails, screens added for REQ-032
 > reference files + the REQ-033 post-Discovery assistant, and the moderation + concierge-CRM
 > screens moved to v1.5.
+>
+> **2026-07-05 addendum (decisions 20/21/22 — fold into the sketch pass):** the PM-task-tree
+> node now renders Linear-backed state (status arrives via PR merge; no NGO edit affordances
+> anywhere); screen 12 (Handoff review) gains the **attribution step** (testimonial + 3
+> credit-framed dimensions — REQ-035); the project page gains a **burn-per-deliverable**
+> section (REQ-034); the volunteer dashboard gains the **virtual-key reveal card** + env-var
+> setup (REQ-009 — replaces the old "AI key ready within 12h" wait state); the admin ops queue
+> gains the `linear_workspace_setup` kickoff checklist; the old Anthropic key-paste ops screen
+> is DELETED.
 
 ---
 

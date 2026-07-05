@@ -7,6 +7,10 @@
 > old $3/$15 pool), no `paused` state, project comment thread (not a chat channel), CR
 > anti-distraction guardrails, reference-file attachments (REQ-032), and the post-Discovery
 > NGO assistant (REQ-033).
+> **Updated 2026-07-05** for decisions 20/21/22: tasks live in **Linear** (status via PR merge;
+> the NGO sees only the panel), volunteers hold **gateway virtual keys** (show-once reveal
+> card), and two new capture surfaces — **burn-per-deliverable** on the project page and the
+> **handoff attribution step** (credit-framed, never stars) — see §7.
 
 ## 1. What the product is (one paragraph)
 ai4good is a **nonprofit-operated, open-source marketplace** that connects NGOs needing
@@ -71,9 +75,22 @@ makes no delivery guarantee.
   runway estimate, low-fuel warning at 20% / blocking at 0%. Money shown in cents, honest.
 - **Lifecycle status badge** — one chip per project state (see §9).
 - **PM task tree** — hierarchical tasks (story → acceptance-criterion sub-tasks), status +
-  priority (p0/p1/p2). Decision-9: written by the volunteer's *local* TaskMaster → git push →
-  webhook → Postgres projection; the NGO view is read-only with append-only comments.
-  NOT GitHub issues.
+  priority (p0/p1/p2 labels). Decision-20 (2026-07-05, supersedes decision-9): tasks live in
+  **Linear** (one workspace per project); status moves ONLY via the GitHub integration on PR
+  merge; a webhook feeds the Postgres projection the NGO view renders from. NGO view is
+  read-only with append-only comments; NGOs never get Linear seats. NOT GitHub issues.
+- **Burn-per-deliverable** (REQ-034, decision-22) — the project page shows fuel consumed per
+  task, from the ledger's task attribution. Same money-honesty rules as the fuel gauge:
+  cents, sober, no celebration; `exploration`/`onboarding` buckets render as first-class
+  rows, never as errors.
+- **Handoff attribution step** (REQ-035, decision-22) — at sign-off the NGO gives a short
+  testimonial + 3 structured dimensions (communication / delivered scope / self-service
+  onboarding). Design it as **giving credit**, not grading — warm copy, no stars, ~30
+  seconds, never blocks acceptance.
+- **Virtual-key reveal card** (REQ-009, decision-21) — volunteer dashboard shows the `a4g_*`
+  gateway key ONCE (copy button + "I've stored it" confirm) plus the two env vars; live
+  key-state chip. Gateway 401 / fuel-suspension copy instructs, never accuses — first-week
+  401s are onboarding UX, not abuse.
 - **Discovery credit gauge** (decision-11) — "Discovery credits: 7 of 10 today" chip in the
   Discovery chat, per-turn credit cost, and a pre-ingest "≈ N credits to include this file —
   proceed?" confirm. Free-grant framing: never shown as a balance the NGO owns.

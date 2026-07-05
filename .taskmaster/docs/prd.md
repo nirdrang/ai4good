@@ -110,7 +110,7 @@ There is **no cash-out / withdrawal in v1** (this deliberately removes the only 
 The platform is designed to keep admin work to a minimum so that growth is not bottlenecked on human reviewers. Operating principle: **target < 10 minutes of admin time per active project per week** at steady state.
 
 Concretely, this means:
-- **Automation first** — anything that can be automated, is (workspace creation, key deactivation, reconciliation, blockers, ledger updates). *(Automated spend-anomaly detection is a v1.5 add — decision-14; v1 bounds loss with deterministic caps + daily human review.)*
+- **Automation first** — anything that can be automated, is (virtual-key issuance + revocation, Linear invites + decomposition push, inline metering, blockers, ledger updates). The one honest exception: Linear workspace creation has no public API and stays a ~5-min concierge step (REQ-026). *(Automated spend-anomaly detection is a v1.5 add — decision-14; v1 bounds loss with deterministic caps + daily human review.)*
 - **Batched, not real-time** — admin work that must remain manual (e.g. Anthropic key creation, which Anthropic restricts to Console) is **batched twice daily** (9am + 5pm) rather than processed on-demand. Volunteers and NGOs are told upfront ("AI key ready within 12h of fuel deposit") so expectations match the SLA. **Lovable setup is NOT an admin task** as of open-item-4 redesign (2026-05-26) — it's volunteer-driven via the `lovable_setup_pending` blocker (REQ-021).
 - **Tiered confidence-based escalation** — anomaly response auto-acts on high-confidence cases (≥0.9 score), only routing ambiguous middle-confidence (0.6–0.9) cases to admin queue.
 - **Self-service for NGO actions** — verification doc upload, fuel top-up, key rotation request — all self-serve UI; admin only sees the resulting queue items. (KYC submission + auto-top-up enable/disable are v1.5 per §11 — not v1 self-serve surfaces.)
@@ -294,9 +294,9 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - [ ] **At first project application** (same first-commitment-moment principle as the GitHub link gate per REQ-007), volunteer must explicitly accept the relevant ToS + Platform Promise clauses: *"ai4good is a limited, bona-fide coordination layer — no one is obligated to deliver a specific outcome, and my participation is governed by ai4good's Terms of Service. I am volunteering my time (not an employee or contractor). All my work on any project I'm matched to will be public-by-default open-source under MIT (private allowed by NGO justification per Platform Promise §2). I will use each project's Anthropic API key only for that project's work — not for personal projects, other ai4good projects, or any non-project purpose. When a project handles real data, I will only work with the synthetic/anonymized fixtures the NGO provides (Tier-2 special-category data, REQ-004), and I will keep what I see confidential. Violations may result in account suspension and forfeiture of completion credit."* Bumping the ToS/disclaimer text version re-triggers acceptance. Acceptance is a property of the volunteer account (`volunteer_profiles.first_apply_disclaimer_accepted_at`), not the application — recorded with timestamp + IP in `audit_events` with `disclaimer_text_version` + `disclaimer_text_sha256` per the existing audit schema. Subsequent applies do not re-prompt unless the disclaimer text materially changes (a new version forces a one-time re-accept on next apply).
 - [ ] Marketplace shows open projects with scope, suggested stack, cause tags, and **skill/cause overlap badges** for the logged-in volunteer (e.g. "Skills match: 3 of 5", "Causes match"). No numeric match score in v1 (REQ-011 minimal — full scoring algorithm deferred to v1.5 per §11).
 - [ ] Volunteer can apply to a project; NGO approves/declines via dashboard or auto-approves (configurable).
-- [ ] **Acceptance does NOT trigger kickoff** — repo, workspace, AI key, PM tasks, channel are all created at funding (REQ-006 match-to-fund → `in_progress`), not at acceptance. After NGO accepts, project sits at `matched_pending_fuel` until NGO funds.
-- [ ] **On successful funding** (REQ-006 → `in_progress`), the kickoff sequence fires. **v1 is Track A only (decision-19), so `lovable_recommended` is always true and Lovable setup is mandatory** — no volunteer skip/opt-out. ai4good defers programmatic repo creation and auto-raises the `lovable_setup_pending` blocker (REQ-021); NGO + volunteer collaborate via the 11-step checklist to land the repo in `ai4good-projects/<slug>`. **No platform-admin involvement.** PM task tree bootstrapped from Discovery output (REQ-026) immediately at kickoff — NOT GitHub Issues, which are dev-internal only (REQ-008); Anthropic workspace created (REQ-009); project channel opened (REQ-015).
-- [ ] Volunteer receives an in-platform "starter kit" with the Track-A build guide (Claude Code setup + the Lovable-orchestration guide pointer), plus PM-task interaction guide (UI + MCP server).
+- [ ] **Acceptance does NOT trigger kickoff** — repo, Linear workspace, virtual keys, task backlog, comment thread are all created at funding (REQ-006 match-to-fund → `in_progress`), not at acceptance. After NGO accepts, project sits at `matched_pending_fuel` until NGO funds.
+- [ ] **On successful funding** (REQ-006 → `in_progress`), the kickoff sequence fires. **v1 is Track A only (decision-19), so `lovable_recommended` is always true and Lovable setup is mandatory** — no volunteer skip/opt-out. ai4good defers programmatic repo creation and auto-raises the `lovable_setup_pending` blocker (REQ-021); NGO + volunteer collaborate via the 11-step checklist to land the repo in `ai4good-projects/<slug>`. **No platform-admin involvement.** Task backlog decomposed from Discovery output into the project's Linear workspace (REQ-026, decision-20) — NOT GitHub Issues, which are dev-internal only (REQ-008); virtual keys minted (REQ-009, decision-21); project comment thread opened (REQ-015).
+- [ ] Volunteer receives an in-platform "starter kit" with the Track-A build guide (Claude Code setup + the Lovable-orchestration guide pointer), plus the pull-based Linear workflow guide (browse briefs → assign → work → PR merge moves status).
 
 **Task Breakdown Hint:**
 - Task 3.1: GitHub OAuth + profile import (~6h)
@@ -327,13 +327,13 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - [ ] **Track A — Claude Code orchestrates Lovable (REQ-021 + REQ-028):** when `maintenanceTrack = A_ngo_maintains`, the Skill drives Lovable via the `LovableDriver` port (`send_message`/`get_diff`/…), enforcing the per-task Lovable-credit budget cap + audit, with manual dual-rail fallback if Lovable MCP is down. The NGO owns the Lovable workspace (durable post-handoff home). *(Track A is the only build track in v1 — Track B's Claude-Code-direct / plain-host path is deferred to post-v1, decision-19.)*
 - [ ] **Lovable status widget:** volunteer can mark `credits_low`/`blocked` to escalate to the NGO; Lovable cost is paid by the NGO directly (not from fuel).
 - [ ] **Dual fuel-meter display:** project page shows the Claude Code fuel meter + Lovable status meter (REQ-010).
-- [ ] **Out of scope for v1.5 (AI Proxy):** a server-side proxy that structurally enforces project-scoped key use. v1 relies on per-project key + revocation-on-zero-fuel + Skill-mediated enforcement.
+- [ ] **Decision-21 (2026-07-05) supersedes the old "AI Proxy is v1.5" line:** the LLM gateway (REQ-009) ships **in v1** — the volunteer holds a project-scoped virtual key, the real provider key never leaves the gateway, and fuel enforcement is structural at request time.
 
 **Task Breakdown Hint:**
-- Task 4.1: API-key provisioning service per project (~8h)
-- Task 4.2: Idempotent cursored usage-ingestion worker (poll Anthropic Usage API + usage_poll_state cursor) (~12h)
-- Task 4.3: Fuel-deduction service + alerting + 5%-threshold deactivation (~6h)
-- Task 4.4: Key revocation when fuel = 0 (~4h)
+- Task 4.1: Virtual-key mint at kickoff + show-once dashboard reveal (REQ-009, decision-21) (~3h)
+- Task 4.2: Gateway inline metering — per-request paired ledger writes via the rate card (REQ-009) (~6h)
+- Task 4.3: Fuel-threshold alerting (20%/5%) + blocker wiring (~4h)
+- Task 4.4: Gateway fuel gate — inline fuel-suspension response at 0; next request passes after top-up (~2h)
 - Task 4.5: Fuel-gauge UI (~4h)
 - Task 4.6: Starter Kit page + Skill install guide (Track-aware) (~6h)
 - Task 4.7: Lovable Status widget + status transitions (~5h)
@@ -343,48 +343,48 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 
 ---
 
-### Story 5: Project Management via Platform-Native PM Task Tree (REQ-026)
+### Story 5: Project Management via the Linear-Backed PM Task Tree (REQ-026)
 
 **As an** NGO admin or assigned volunteer,
-**I want to** track tasks, subtasks, and progress in a plain-language hierarchical view that's the canonical source of truth — not GitHub Issues —
-**So that** NGOs see clear progress without needing to read code, and the volunteer (or their AI agents) can drive task status directly.
+**I want to** track tasks, sub-tasks, and progress in a plain-language hierarchical view whose status comes from deterministic events (PR merges, assignment webhooks) — not from an agent's self-reported narrative —
+**So that** NGOs see progress they can trust without reading code, and the volunteer works pull-based from a session-sized, dependency-ordered backlog.
 
 **Acceptance Criteria:**
-- [ ] At project kickoff (transition to `in_progress`, REQ-005.5/REQ-006), the platform bootstraps the PM task tree (REQ-026) from Discovery's `userStories[]` + `acceptanceCriteria[]` (one top-level task per user story; one sub-task per acceptance criterion; default priority `p0`; initial status `not_started`).
-- [ ] The ai4good project page shows the PM task tree as primary content: "Now working on" strip + hierarchical task list + activity feed translated to plain language (REQ-010 single view).
-- [ ] Task status transitions (`not_started` → `in_progress` → `done`) update the project's % complete (`done_p0_tasks / total_p0_tasks`).
-- [ ] **No GitHub Issues are auto-created from scope** (per REQ-008/REQ-026 architecture). GitHub Issues exist for dev-internal code bugs only; they do not appear in the NGO PM view.
-- [ ] Sub-tasks visualized as a tree (parent → children → grandchildren); volunteer can add `manual` sub-tasks during work.
-- [ ] Change-Request-derived tasks (REQ-025) appear as a sub-tree under a "Change Request: [title]" parent task.
-- [ ] After handoff, the PM task tree becomes read-only. Follow-up requests are out of v1 scope (REQ-017 is v2 per §11) — NGOs who want follow-up work re-engage by posting a new project.
+- [ ] At project kickoff (transition to `in_progress`, REQ-005.5/REQ-006), the platform decomposes Discovery's `userStories[]` + `acceptanceCriteria[]` into a Linear issue tree (one parent issue per story; one sub-issue per acceptance criterion; `p0` label; coordinator reviews the draft before the API push — REQ-026).
+- [ ] The ai4good project page shows the PM task tree as primary content: "Now working on" strip + hierarchical task list + activity feed, rendered from the Postgres projection fed by Linear webhooks (REQ-010 single view). NGOs never need Linear seats.
+- [ ] Issue status is deterministic: self-assignment marks "in progress" (the commitment signal); PR merge via Linear's GitHub integration marks "done"; agents comment and self-assign but never move status (detect-and-revert enforces, REQ-026). The project's % complete = `done_p0 / total_p0` from the projection.
+- [ ] **No GitHub Issues are auto-created from scope** (REQ-008/REQ-026) — GitHub Issues stay dev-internal for code bugs and never appear in the NGO view.
+- [ ] Sub-issues render as a tree (parent → children); the volunteer can add sub-issues during work (they appear in the projection like any other issue).
+- [ ] Change-Request-derived issues (REQ-025) appear under a "Change Request: [title]" parent.
+- [ ] After handoff, the tree becomes read-only in the panel; a markdown snapshot of the final tree lives in the repo (REQ-026 CI job). Follow-up requests re-engage via a new project (REQ-017 is v2 per §11).
 
 **Task Breakdown Hint:**
-- Task 5.1: PM task tree bootstrap on kickoff (Discovery → tasks) (~6h)
-- Task 5.2: Plain-language activity feed (commit message translation) (~5h)
-- Task 5.3: Progress calculation service (PM tasks, not GH issues) (~4h)
+- Task 5.1: Decomposition draft + coordinator approval + Linear API push (~6h)
+- Task 5.2: Plain-language activity feed (webhook events → feed rows) (~4h)
+- Task 5.3: Progress calculation from the projection (p0 done ratio) (~3h)
 
-**Dependencies:** REQ-008 (GitHub repo + commit webhooks for activity feed), REQ-026 (PM task tree — primary spec)
+**Dependencies:** REQ-008 (GitHub repo — the substrate Linear's GitHub integration watches), REQ-026 (Linear task system — primary spec)
 
 ---
 
-### Story 6: Handoff and Post-Handoff (tips + satisfaction collection deferred to v1.5)
+### Story 6: Handoff and Post-Handoff (tips deferred to v1.5; attribution capture in v1 — decision-22)
 
 **As an** NGO,
-**I want to** receive the completed open-source repo with deployment instructions and a runbook, and have a path to request follow-up work (tips + private satisfaction signal deferred to v1.5 per §11),
+**I want to** receive the completed open-source repo with deployment instructions and a runbook, and have a path to request follow-up work (tips deferred to v1.5 per §11; sign-off captures the REQ-035 attribution),
 **So that I can** continue to operate and extend the tool without depending on any specific volunteer.
 
 **Acceptance Criteria:**
 - [ ] Volunteer can mark a project as "Ready for Handoff" once **all P0 PM tasks (REQ-026) are marked `done`**. Open GitHub Issues do not block handoff (they are dev-internal).
 - [ ] Platform runs an automated handoff checklist: README present, runbook present, deploy instructions present, at least one passing CI run, license file (MIT default).
 - [ ] NGO reviews the deployed tool (against a hosted staging or live URL) and signs off via a "Handoff Accepted" button.
-- [ ] On the sign-off screen, NGO sees the project's completion summary. **Tip flow + private NGO Satisfaction signal collection are deferred to v1.5 per §11** — v1 sign-off has neither modal. (Volunteer reputation in v1 is completion-credit-only; v1.5 introduces tips + NGO satisfaction collection together.)
+- [ ] On the sign-off screen, NGO sees the project's completion summary. **Tip flow is deferred to v1.5 per §11.** The sign-off **DOES include the REQ-035 attribution step** (optional testimonial + 3 required credit-framed dimensions, ~30 seconds — decision-22). Volunteer reputation in v1 = completion credit + privately-held attribution; the matching surface for it is v1.5.
 - [ ] On acceptance: repo transfer (optional) to NGO's GitHub org, archival of project in ai4good (status `handed_off`), volunteer's profile gets a **completion credit** (counter +1 + "Shipped first tool" badge on first handoff — no star rating shown publicly).
 - [ ] Remaining fuel is released to the NGO's general balance as **non-cash `credit_release`** (REQ-006 §7) — **no decay/retention clock, no cash refund, no auto-renew.** The NGO can **keep** it (persists as redeployable credit, never removed) or **donate** it (tax-deductible, nonprofit); **move-to-another-project is v1.5**. Nothing is ever silently removed (Platform Promise §7).
 - [ ] Post-handoff, NGO can naturally use GitHub Issues on the repo for any follow-up; ai4good does NOT surface or fund these in v1 (REQ-017 deferred to v2 per §11). NGOs who want a fresh paid project re-engage by posting a new project.
 
 **Task Breakdown Hint (v1):**
 - Task 6.1: Handoff checklist automation (~6h)
-- Task 6.2: Handoff UI + sign-off flow (no tips, no satisfaction modal — both v1.5) (~4h)
+- Task 6.2: Handoff UI + sign-off flow (no tips — v1.5; includes the REQ-035 attribution step) (~5h)
 - Task 6.3: Repo transfer integration (GitHub API; same flow for both project shapes since both live in `ai4good-projects` after open-item-4 redesign) (~4h)
 - Task 6.4: Volunteer completion credit + "Shipped first tool" badge logic (~3h)
 - Task 6.5: Fuel reconciliation on handoff (~4h)
@@ -392,7 +392,7 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 **Deferred to v1.5 (per §11):**
 - Stripe Connect Express onboarding for volunteers
 - Tip Checkout flow + payout
-- Private NGO satisfaction form + storage
+- ~~Private NGO satisfaction form + storage~~ — superseded by decision-22: the REQ-035 attribution step ships in v1 (credit-framed capture; the reputation/matching surface stays v1.5)
 
 **Dependencies:** REQ-008 (GitHub integration), REQ-009 (Fuel ledger), REQ-012 (handoff workflow).
 
@@ -657,9 +657,9 @@ interface DiscoveryOutput {
 | `in_progress` → `handoff_pending` | Volunteer (Ready for Handoff click) | All P0 PM tasks marked `done` (REQ-012) AND `projects.github_repo_url IS NOT NULL` (Platform Promise §2 + codex round 6 fix — every project ships into an `ai4good-projects` repo at handoff) | Handoff checklist evaluated; NGO notified | If checklist fails: blocked with checklist results; stays in `in_progress`. If repo URL missing (Lovable path, NGO hasn't completed setup): button disabled with prompt to complete Lovable Setup checklist (REQ-021). |
 | `handoff_pending` → `handed_off` | NGO admin (Accept Handoff) | `deployment_url IS NOT NULL` (REQ-012 deploy step) | Leftover fuel → general balance as **non-cash `credit_release`** (REQ-006 §7 — no cash refund, no decay clock); Anthropic workspace archived (REQ-009); volunteer completion credit + "Shipped first tool" badge (if first); PM tree → read-only; 30-day-alive check scheduled. **No tip or satisfaction modal in v1.** | Terminal |
 | `handoff_pending` → `in_progress` | NGO admin (Reject Handoff with comments) | — | Volunteer notified to address feedback; **any blockers auto-archived by the `handoff_pending` cascade are NOT restored**. Rejection-loop cap: 3rd rejection routes to neutral platform review (REQ-012). | — |
-| `in_progress` → `open` (abandonment / rematch — REQ-027, added 2026-06-03) | Inactivity job (auto, 21d no commits + no PM-task transitions) OR NGO/volunteer manual release | — | **Outbox saga (idempotent):** revoke ex-volunteer repo collab + deactivate Anthropic key + (Track A) NGO notice to remove from Lovable workspace (reuses REQ-007 step-2 teardown, minus account-suspend); **remaining fuel STAYS on the project** (Item 3 — non-cash, project-scoped, used by next volunteer); `in_progress` PM tasks reset to `not_started`; ex-volunteer application → `released`; flagged `ghosted` vs `released_for_cause`; project re-opens with rematch priority | Idempotent; retried via outbox until clean |
+| `in_progress` → `open` (abandonment / rematch — REQ-027, added 2026-06-03) | Inactivity job (auto, 21d no branch activity + no Linear issue movement) OR NGO/volunteer manual release | — | **Outbox saga (idempotent):** revoke ex-volunteer repo collab + revoke the project's virtual keys (REQ-009) + remove Linear workspace membership + (Track A) NGO notice to remove from Lovable workspace (reuses REQ-007 step-2 teardown, minus account-suspend); **remaining fuel STAYS on the project** (Item 3 — non-cash, project-scoped, used by next volunteer); assigned in-progress Linear issues unassigned + returned to the backlog (REQ-026); ex-volunteer application → `released`; flagged `ghosted` vs `released_for_cause`; project re-opens with rematch priority | Idempotent; retried via outbox until clean |
 | `open` → `scoped` | NGO admin (Unpublish to revise) | No volunteer has been accepted yet (project still in `open`, no `assigned_volunteer_id` set) | Project removed from marketplace; pending applications notified ("NGO unpublished — feel free to apply when re-listed"); applications kept for re-publish | If volunteer already accepted: action disabled in UI (NGO must cancel the match first) |
-| any pre-handoff → `cancelled` | NGO admin (cancel) | — | Anthropic workspace archived; **remaining fuel → NGO general balance as non-cash `credit_release`** (REQ-006 §7 — no cash refund, no decay clock); volunteer notified; channel → read-only | Terminal |
+| any pre-handoff → `cancelled` | NGO admin (cancel) | — | Project virtual keys revoked (REQ-009); Linear workspace dormant; **remaining fuel → NGO general balance as non-cash `credit_release`** (REQ-006 §7 — no cash refund, no decay clock); volunteer notified; comment thread → read-only | Terminal |
 | `in_progress` ↔ orthogonal blockers (REQ-024) | (various) | (various) | Status stays `in_progress`; blocker badge surfaces operational state | — |
 
 **Application status side effects (REQ-007 / REQ-011):**
@@ -675,16 +675,16 @@ interface DiscoveryOutput {
 
 **Kickoff sequence on `matched_pending_fuel` → `in_progress`** (one transition fires multiple parallel side effects):
 
-1. **Anthropic workspace** auto-created via Admin API (REQ-009). On failure: retry up to 3×; if still fails, raise `ops_task` of type `anthropic_provisioning_failure` and surface "Setup error — admin notified" to NGO + volunteer. Project stays in `in_progress` with `external_dependency` blocker.
-2. **Ops task** queued for manual Anthropic key creation + spend-limit setting (REQ-009).
+1. **Virtual keys minted** (REQ-009, decision-21): a `virtual_keys` row per (volunteer, project) is written in the kickoff transaction — no external call, no failure mode, no wait. The volunteer dashboard shows the key (once) + the two env vars (`ANTHROPIC_BASE_URL` + key) immediately.
+2. **Ops task** queued: `linear_workspace_setup` (REQ-026, decision-20) — manual Linear workspace creation + GitHub-integration connect + webhook registration (~5-min concierge step; workspace creation has no public API), followed by API-automated volunteer invite + decomposition push.
 3. **GitHub repo**:
    - **v1 (Track A only — `lovable_recommended` always true, decision-19):** ai4good does **not** create the repo at kickoff. It auto-raises the `lovable_setup_pending` blocker (REQ-024); NGO + volunteer collaborate via the 11-step checklist in REQ-021 (NGO steps 1-4, volunteer steps 5-9, ai4good auto-validates 10-11); the blocker resolves when the GitHub repo URL + MCP last_seen_at validate, landing the repo in `ai4good-projects/<slug>`. **No platform-admin involvement.** `lovable_enabled` flips on blocker resolution. Repo URL is required before handoff per REQ-012 hard precondition.
    - *(Reserved, post-v1: the Claude-Code-only programmatic-repo path — `lovable_recommended = false` / `lovable_skipped_at` set, ai4good auto-creates `ai4good-projects/<slug>` with README + CLAUDE.md + MIT LICENSE seeded — is the Track-B path deferred by decision-19; plumbing kept, never taken in v1.)*
-4. **PM task tree** bootstrapped from Discovery output (REQ-026). Independent of GitHub — happens immediately.
+4. **Task backlog decomposed** from Discovery output → coordinator review → pushed to the project's Linear workspace via API (REQ-026); the Postgres projection fills via webhooks. Follows the `linear_workspace_setup` ops step.
 5. **Project comment thread** initialized (REQ-015); "Project funded and live" activity-feed event fires via `notify()` (REQ-016) — decision-15, no chat channel.
-6. **Volunteer notified** via email + in-app: "Project live. AI key ready within 12h. PM tasks ready now. Channel opened. (Lovable projects: invitation to Lovable workspace comes from NGO separately.)"
+6. **Volunteer notified** via email + in-app: "Project live. Your gateway key is ready now (env-var setup on your dashboard). The Linear backlog arrives once the coordinator pushes the decomposition. (Lovable workspace invitation comes from the NGO separately.)"
 
-**Provisioning failure handling:** if any of the above fails mid-sequence, project stays in `in_progress` (we don't have a sub-state `provisioning` per the simplified design; failures surface as blockers). The volunteer is gated from work on whichever resource failed (e.g., can't make Anthropic calls if workspace failed; for Lovable they need to wait for NGO's Lovable invite, which is outside ai4good). This avoids state-machine bloat while keeping the operational status visible via REQ-024 blockers — codex round 2 #6 resolved this way rather than adding a new state.
+**Provisioning failure handling:** if any of the above fails mid-sequence, project stays in `in_progress` (no `provisioning` sub-state; failures surface as blockers or the pending ops task). The volunteer is gated from work on whichever resource is pending (e.g., no backlog to pull until the `linear_workspace_setup` ops step + decomposition push complete; the Lovable invite comes from the NGO, outside ai4good). This avoids state-machine bloat while keeping the operational status visible via REQ-024 blockers — codex round 2 #6 resolved this way rather than adding a new state.
 
 **Notes on race conditions handled in the table:**
 - **NGO double-acceptance** (accepting multiple applications): use `UPDATE projects SET assigned_volunteer_id = X WHERE id = Y AND assigned_volunteer_id IS NULL`; only first succeeds; others get 409.
@@ -810,7 +810,7 @@ CREATE TABLE fuel_transactions (
     'chargeback',               -- Stripe dispute clawed back a topup; reverses the topup
     'chargeback_writeoff',      -- consumed-compute loss on a chargeback, booked against platform revenue
     'goodwill_refund',          -- rare admin original-charge Stripe refund within 180d (audited exception)
-    'reconciliation_adjustment' -- daily Cost Report drift correction, per workspace_id
+    'reconciliation_adjustment' -- admin money-correction rows (REQ-030); the daily Cost-Report drift job is deleted (decision-21 — the gateway meters inline from response usage)
   )),
   -- 'refund_cashout' removed 2026-06-03 — no cash-out path in v1 (Item 3 decision)
   -- All amounts stored as INTEGER micro-cents (1/1000 of a cent) for sub-cent precision on
@@ -820,11 +820,13 @@ CREATE TABLE fuel_transactions (
   anthropic_micro_cents BIGINT,              -- actual Anthropic cost (what ai4good owes Anthropic)
   skim_rate_bps INTEGER,                     -- skim rate applied at consumption (basis points; 1500 = 15%)
   pair_id UUID,                              -- links a consumption row to its matching skim row
-  -- Usage Report dimensions (for audit + rate-card recompute if rate card changes retroactively):
+  -- Gateway response usage dimensions (for audit + rate-card recompute if the rate card changes retroactively):
   anthropic_model TEXT,                      -- e.g. 'claude-sonnet-4-6'
   anthropic_context_window TEXT,             -- e.g. '200k', '1m'
   anthropic_service_tier TEXT,               -- 'standard' / 'batch' / 'priority'
-  usage_bucket_start TIMESTAMPTZ,            -- 1-minute Usage Report bucket start
+  usage_bucket_start TIMESTAMPTZ,            -- request timestamp (column name retained; per-request granularity since decision-21)
+  gateway_request_id TEXT,                   -- decision-21: one ledger write per gateway request (idempotency key)
+  task_ref TEXT,                             -- decision-22 / REQ-034: Linear identifier | 'exploration' | 'onboarding' | NULL = unattributed
   stripe_event_id TEXT UNIQUE,               -- idempotency for topup/chargeback/goodwill_refund; NULL for consumption/skim/release/donation
   -- decay_eligible_at removed 2026-06-03 — non-cash credit has no retention/decay clock (Item 3); credit persists, never silently removed
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -834,21 +836,30 @@ CREATE TABLE fuel_transactions (
 CREATE INDEX idx_fuel_tx_ngo ON fuel_transactions(ngo_id);
 CREATE INDEX idx_fuel_tx_project ON fuel_transactions(project_id);
 
--- Idempotent paired-row guard (decided 2026-06-03 — ledger invariant). A consumption bucket writes at most
--- once per (project, model, context, tier, bucket_start); re-scans dedupe via UPSERT (REQ-009 poller fix).
-CREATE UNIQUE INDEX idx_fuel_consumption_bucket_once
-  ON fuel_transactions(project_id, anthropic_model, anthropic_context_window, anthropic_service_tier, usage_bucket_start)
-  WHERE kind = 'consumption';
+-- Idempotent paired-row guard (decision-21 — ledger invariant). One ledger write per gateway request;
+-- a retried/replayed request cannot double-charge.
+CREATE UNIQUE INDEX idx_fuel_consumption_request_once
+  ON fuel_transactions(gateway_request_id)
+  WHERE kind = 'consumption' AND gateway_request_id IS NOT NULL;
 
--- Usage poller cursor (decided 2026-06-03 — REQ-009 idempotent cursored ingest). One row per Anthropic org.
-CREATE TABLE usage_poll_state (
-  anthropic_org_id TEXT PRIMARY KEY,
-  last_ingested_bucket_end TIMESTAMPTZ NOT NULL,   -- high-water mark; each poll re-scans a trailing 60-90min window from here and UPSERTs (absorbs Anthropic's late buckets without double-charging)
-  last_poll_started_at TIMESTAMPTZ,
-  last_poll_succeeded_at TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-  -- Poll runs under a cron-overrun advisory lock; cursor advances only on a successful transaction.
+-- (usage_poll_state table DELETED by decision-21 — no poller; the gateway meters inline per request.)
+
+-- Gateway virtual keys (REQ-009, decision-21): one per (volunteer, project). Plaintext `a4g_*` key is
+-- shown ONCE at issuance; hash-only at rest. Revocation = one row update. All project keys terminate
+-- at handoff (REQ-012), abandonment release (REQ-027), and AUP suspension (REQ-007).
+CREATE TABLE virtual_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  volunteer_id UUID NOT NULL REFERENCES profiles(id),
+  key_hash TEXT NOT NULL UNIQUE,                   -- bcrypt of the a4g_* key; raw key never stored, never logged
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked')),
+  caps JSONB NOT NULL DEFAULT '{}',                -- per-request max tokens + rolling-24h window (values = open decision; sized 3-4x a heavy human day)
+  last_used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ,
+  revoke_reason TEXT
 );
+CREATE INDEX idx_virtual_keys_active ON virtual_keys(project_id) WHERE revoked_at IS NULL;
 
 -- Transactional outbox (decided 2026-06-03 — REQ-007 AUP saga, kickoff, expiry, abandonment all depend on it).
 -- State-changing transactions enqueue side-effect rows in the SAME transaction; a worker drains with retry/backoff.
@@ -856,7 +867,7 @@ CREATE TABLE outbox_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   aggregate_type TEXT NOT NULL,                    -- 'project' | 'profile' | 'fuel' | ...
   aggregate_id UUID,
-  event_type TEXT NOT NULL,                        -- 'revoke_repo_collab' | 'deactivate_anthropic_key' | 'remove_org_member' | 'provision_workspace' | 'expire_match' | 'release_project' ...
+  event_type TEXT NOT NULL,                        -- 'revoke_repo_collab' | 'revoke_virtual_keys' | 'remove_org_member' | 'remove_linear_membership' | 'release_assigned_issues' | 'expire_match' | 'release_project' ... (handler names updated by decisions 20/21)
   payload JSONB NOT NULL,
   idempotency_key TEXT NOT NULL UNIQUE,            -- (aggregate_id + event_type + target) — re-enqueue is a no-op; already-done targets short-circuit
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_progress','done','failed_dlq')),
@@ -873,7 +884,7 @@ CREATE INDEX idx_outbox_due ON outbox_events(next_attempt_at) WHERE status IN ('
 -- an overdue-run pager fires if a job hasn't completed within expected_interval_seconds.
 CREATE TABLE job_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_name TEXT NOT NULL,                          -- 'usage_poll' | 'daily_reconciliation' | 'nightly_anomaly' | 'match_expiry' | 'inactivity' | 'aging_cadence' | 'aging_open_nudge' | 'outbox_drain' | 'base_permission_assert' | 'deployment_alive_check' | 'control_total' ...
+  job_name TEXT NOT NULL,                          -- 'match_expiry' | 'inactivity' | 'aging_cadence' | 'aging_open_nudge' | 'outbox_drain' | 'base_permission_assert' | 'jumpstart_health_check' | 'tree_snapshot' | 'control_total' ... ('usage_poll' / 'daily_reconciliation' / 'nightly_anomaly' deleted — decisions 14/21)
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   finished_at TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','succeeded','failed')),
@@ -884,21 +895,20 @@ CREATE TABLE job_runs (
 CREATE INDEX idx_job_runs_name_time ON job_runs(job_name, started_at DESC);
 
 -- Unified ops tasks queue (admin work items; minimizes context-switching by batching)
--- Used by: anthropic_key_creation, anthropic_key_rotation_recreation, ngo_verification_review,
---          anomaly_investigation, reconciliation_discrepancy, cash_buffer_alert
+-- Used by: linear_workspace_setup, ngo_verification_review, anomaly_investigation (reserved),
+--          cash_buffer_alert, chargeback_review, collusion_review, content_abuse_review, incident
 -- (kyc_review_manual removed from v1 enum — KYC tier deferred to v1.5 per §11; type added back when REQ-002 KYC tier ships)
+-- (anthropic_key_creation / anthropic_key_rotation_recreation / raise_spend_limit /
+--  anthropic_provisioning_failure / reconciliation_discrepancy DELETED by decision-21 — no manual key
+--  ops, no Console caps, no Cost-Report reconciliation; virtual keys mint/revoke as row writes)
 -- Triage (REQ-023) stays in projects table fields — deeply integrated state, not a free-floating task.
 CREATE TABLE ops_tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type TEXT NOT NULL CHECK (type IN (
-    'anthropic_key_creation',
-    'anthropic_key_rotation_recreation',
-    'raise_spend_limit',
+    'linear_workspace_setup',  -- kickoff concierge step (REQ-026, decision-20): create workspace + GitHub integration + webhook (~5 min; workspace creation has no public API)
     'ngo_verification_review',
     'anomaly_investigation',   -- v1.5 (decision-14): anomaly engine deferred; enum reserved, not raised in v1
-    'reconciliation_discrepancy',
     'cash_buffer_alert',
-    'anthropic_provisioning_failure',  -- kickoff workspace/key provisioning failed after retries (REQ-005.5 / REQ-009)
     'chargeback_review',           -- Stripe charge.dispute.created → freeze NGO + deactivate key + review (REQ-006 Item 3)
     'collusion_review',            -- shared payment/device/IP/GitHub-domain between NGO + volunteer (REQ-009 fraud, detective)
     'content_abuse_review',        -- a Report on a repo/Discovery/channel (REQ-031 moderation)
@@ -913,7 +923,7 @@ CREATE TABLE ops_tasks (
   priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN (
     'low','medium','high','urgent'
   )),
-  sla_target_at TIMESTAMPTZ,                       -- when SLA expires (e.g. 12h for key_creation)
+  sla_target_at TIMESTAMPTZ,                       -- when SLA expires (e.g. 12h for linear_workspace_setup)
   assigned_to UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   started_at TIMESTAMPTZ,
@@ -951,7 +961,7 @@ CREATE INDEX idx_ops_tasks_project ON ops_tasks(related_project_id);
   - **(a) Voluntary account deactivation**: removal calls GitHub Org API `DELETE /orgs/ai4good-projects/memberships/{username}`; records `volunteer_profiles.ai4good_projects_org_removed_at` with reason `deactivation`. Repo collaborator grants on active projects are LEFT intact (volunteer may complete in-flight work) — per-project handoff handles cleanup per REQ-008.
   - **(b) Platform-admin AUP suspension**: implemented as an **idempotent saga** rather than an atomic operation, since external services (GitHub / Anthropic / Lovable) make true atomicity impossible (codex round 8 fix). Sequence:
     - **Step 1 (in one DB transaction, immediate):** flip `profiles.account_status = 'suspended'`, `profiles.suspended_at = NOW()`, `profiles.suspended_by = <admin_id>` (codex round 9 fix — was missing the admin attribution), `profiles.suspend_reason = '<text>'`; **enqueue outbox rows for steps 2-4 in the same transaction** (codex round 9 sprint-hardening — prevents the "suspended but no revocation jobs queued" race) — outbox rows have idempotency keys on `(user_id, target_kind, target_id, action)` so re-suspension is a no-op for already-revoked targets. Mutation middleware in REQ-026/REQ-001 checks `account_status` on every API/MCP/UI write and rejects with 403 if suspended — denies subsequent writes; for safety against in-flight writes that already passed middleware, the same `account_status='suspended'` check is enforced via Supabase RLS on all write-capable tables (defense in depth).
-    - **Step 2 (queued, retryable):** for each `assigned_volunteer_id = this_user AND projects.status IN ('in_progress','matched_pending_fuel','handoff_pending')` (decision-17: no `paused` state in v1): (i) revoke volunteer's repo collaborator grant via GitHub repo API, (ii) deactivate Anthropic key for that project's workspace via `POST /v1/organizations/api_keys/{id} status:'inactive'`, (iii) post NGO-facing notice on the project channel + raise `awaiting_ngo_review` blocker asking NGO to remove the volunteer from their Lovable workspace (Lovable workspace admin = NGO; ai4good cannot revoke Lovable seats directly).
+    - **Step 2 (queued, retryable):** for each `assigned_volunteer_id = this_user AND projects.status IN ('in_progress','matched_pending_fuel','handoff_pending')` (decision-17: no `paused` state in v1): (i) revoke volunteer's repo collaborator grant via GitHub repo API, (ii) revoke the project's virtual keys (REQ-009, decision-21 — a row update, instant), (ii-b) remove Linear workspace membership (REQ-026), (iii) post NGO-facing notice on the project channel + raise `awaiting_ngo_review` blocker asking NGO to remove the volunteer from their Lovable workspace (Lovable workspace admin = NGO; ai4good cannot revoke Lovable seats directly).
     - **Step 3 (queued, retryable):** revoke **all** active `project_api_tokens` rows touching this user — query: `actor_id = this_user OR (actor_role = 'workspace' AND project_id IN (this_user's active projects))` (codex round 8 fix — workspace tokens have `actor_id = NULL` so the prior `actor_id = this_user` filter alone missed them; now we also revoke workspace tokens of active projects since the suspended volunteer might still have the token cached). Mark `revoked_at = NOW()`, `revoke_reason = 'aup_suspension'`.
     - **Step 4 (queued, retryable):** remove org membership from `ai4good-projects` via GitHub Org API; record `volunteer_profiles.ai4good_projects_org_removed_at` + reason `aup_violation`.
     - All steps are idempotent and retried by an outbox-pattern worker until success; failures surface in admin queue. Each call is logged in `audit_events` for forensic review.
@@ -981,7 +991,7 @@ CREATE INDEX idx_ops_tasks_project ON ops_tasks(related_project_id);
 - *(Reserved post-v1 — decision-19; v1 creates the repo via the Lovable→GitHub flow, REQ-021)* On funding, ai4good auto-creates `ai4good-projects/<slug>` via the App's repo-creation API; visibility set per `projects.visibility` (`public_mit` → public repo + LICENSE seeded as MIT; `private` → private repo)
 - Volunteer added as `maintain`-role collaborator
 - NGO admin added as `triage`-role collaborator (read + can comment, cannot push) for visibility
-- App is already installed so webhooks (`push`, `pull_request`) start firing immediately — drives PM-task commit linking (REQ-026) and cadence stats (REQ-010)
+- App is already installed so webhooks (`push`, `pull_request`) start firing immediately — drives cadence stats (REQ-010) + `external_commit_refs` capture (Linear identifiers parsed from commit messages / branch names, REQ-026). Issue *status* moves via Linear's own per-workspace GitHub integration, not our webhook.
 - At handoff (REQ-012), NGO admin offered a one-click GitHub transfer to their own org if they have one; declining keeps the repo in `ai4good-projects/` permanently
 
 **Lovable path (volunteer-driven via `lovable_setup_pending` blocker per open-item-4 redesign 2026-05-26; uniform with Claude-Code path):**
@@ -989,7 +999,7 @@ CREATE INDEX idx_ops_tasks_project ON ops_tasks(related_project_id);
 - Volunteer targets `ai4good-projects` org (same as Claude-Code path) — Lovable creates the repo there with visibility per `projects.visibility`. Volunteer's permission to do this is granted at onboarding via REQ-007 org-membership.
 - Volunteer auto-added as `maintain`-role collaborator on the created repo (via blocker validation step 11); NGO admin as `triage`-role.
 - ai4good's GitHub App is **already installed org-wide** so webhooks fire immediately.
-- Volunteer adds ai4good MCP server as Lovable workspace Chat Connector (single workspace-scoped token; per-actor audit via ai4good's `audit_events`).
+- *(Removed by decision-20: the ai4good-MCP-in-Lovable Chat Connector step — a decision-9 orphan. Task interaction now happens in Linear via the volunteer's OAuth; Lovable needs no connector to ai4good.)*
 - **Dual-rail (volunteer also wants Claude Code locally on same Lovable repo):** Since volunteer is already a `maintain` collaborator in `ai4good-projects/<slug>` (REQ-007 + blocker validation) and the ai4good App is already installed, there's nothing extra to do — volunteer can `git clone` and use Claude Code immediately. **The `github_collaborator_needed` blocker is now mostly obsolete** for v1 default Lovable flows; kept in REQ-024 only for legacy/edge cases.
 
 The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliverables — **GitHub Issues are dev-internal only** (code bugs, refactors, technical debt, dev tooling) and are not surfaced in the NGO PM view.
@@ -1003,9 +1013,10 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
 | **GitHub Issues** | **No — dev-internal only**; for code bugs, refactors, tech debt |
 | Releases / tags | Optional surfacing at handoff |
 
-**CLAUDE.md seeding (commit-message convention + MCP server URL for AI agents):**
-- For every project's repo (v1: Track A per decision-19 — the repo is the Claude-Code backend rail), ai4good seeds a starter `CLAUDE.md` that (a) tells the agent which ai4good MCP server URL to connect to (`mcp.ai4good.dev/projects/<project_id>`) and instructs it to read the bearer token from the local env var `AI4GOOD_PROJECT_TOKEN` or `~/.ai4good/config.json`, and (b) instructs Claude Code agents to prefix commit messages with `task-X.Y:` matching the PM task `task_key` (REQ-026). **The bearer token itself is NEVER written into CLAUDE.md or any committed file** — repos are public MIT (or private, but same risk if visibility changes later), so any committed secret is treated as leaked. **Token model is show-once + hash-only** (industry-standard, matches GitHub PATs / Stripe keys): on project kickoff, ai4good generates the raw token, displays it ONCE on the project page with copy button + "I've stored it safely" confirmation, stores only the bcrypt hash in `project_api_tokens`, and never reveals the raw token again. Lost token = volunteer clicks "Rotate token" (one click; previous token invalidated; new raw token shown once).
-- For Lovable projects, the equivalent commit-prefix convention is surfaced as a snippet for Lovable's per-project Knowledge / Custom Instructions field (REQ-021); volunteer pastes when joining. Less reliable than CLAUDE.md (Lovable's bot may summarize / strip), so commit-prefix carry-through is treated as **best-effort, manual UI fallback always present** (see REQ-026). The MCP server connection on the Lovable side is configured separately via Lovable's Chat Connectors UI (REQ-021), not via Knowledge field.
+**Repo template seeding (decision-20/21/22 — the volunteer session boots from committed, ai4good-owned files):**
+- For every project's repo, ai4good seeds: **`CLAUDE.md`** — imports `.a4g/fingerprint.md` (committed marker, REQ-009) + `.a4g/task.md` (gitignored task binding, REQ-034), carries the attribution steering block and the Linear norms (one issue in progress; assign before starting; comment when blocked; **never move status by hand**), and instructs branch-name / magic-word conventions carrying the Linear identifier (e.g. branch `a4g-12-add-scheduler`, commit/PR text `Fixes A4G-12`) so Linear's GitHub integration links work and moves status; **`.mcp.json`** — the Linear MCP (volunteer OAuths once at first session); **`.claude/settings.json`** — the ai4good-owned hooks (the REQ-034 PostToolUse assignment hook); the **skeptical reviewer-agent skill** (REQ-026); a gitignored-by-default **`.env`** stub. Longer onboarding material lives in repo skills, not CLAUDE.md (placement doctrine, REQ-009).
+- The ai4good REST bearer token (`AI4GOOD_PROJECT_TOKEN` / `~/.ai4good/config.json`) is unchanged for platform REST calls (context/blockers/comments): **never written into CLAUDE.md or any committed file**; show-once + hash-only in `project_api_tokens`; one-click rotate. The LLM-side credential is the separate gateway virtual key (REQ-009) — two credentials, two revocation semantics, deliberately not merged.
+- Lovable-side commits arrive via Lovable's GitHub sync without Linear identifiers — acceptable: issue status moves on the volunteer's PR merges, and a Knowledge-field snippet asks Lovable to include the identifier where practical (best-effort). *(The former ai4good-MCP-in-Lovable Chat Connector is deleted — decision-20; the Linear MCP replaced that surface.)*
 
 **Acceptance Criteria:**
 - [ ] Platform stores the GitHub App's **installation ID + private key** (NOT long-lived installation tokens — codex round 6 nit fix). the Supabase Edge Functions (Deno) mint short-lived installation tokens on demand via the GitHub App JWT flow (~1h TTL; auto-refreshed). Private key in Supabase Vault / Edge Function secrets. All GitHub API calls use these per-request tokens, not user PATs.
@@ -1024,8 +1035,8 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
 - [ ] **Handoff prerequisite (Platform Promise §2 + REQ-012):** for both project shapes, `projects.github_repo_url IS NOT NULL` is a precondition for `in_progress → handoff_pending` transition. For Lovable projects where NGO hasn't yet completed setup, the volunteer's "Ready for Handoff" button is disabled with copy: "Lovable→GitHub setup not yet complete. Ask NGO to complete the Lovable Setup checklist before handoff." This preserves the all-work-ends-up-in-an-OSS-style-repo guarantee even when the visibility is private.
 - [ ] **`github_collaborator_needed` blocker (REQ-024)** is rare in v1 — only fires for the legacy edge case where an NGO explicitly insists on Lovable creating the repo in their own GitHub org instead of `ai4good-projects` (NGO-driven exception path, not default). Default Lovable flow (open-item-4 redesign) lands the repo in `ai4good-projects` via the volunteer-driven `lovable_setup_pending` blocker, with the volunteer auto-added as `maintain` collaborator on the new repo at validation step 11.
 - [ ] README template (added by ai4good for Claude-Code path; committed automatically at REQ-021 step 11 for Lovable path after volunteer pastes the URLs and ai4good validates) includes: project title, NGO name, plain-language summary, license, "View on ai4good →" link to the platform project page.
-- [ ] **No auto-creation of GitHub Issues from the scope doc.** The PM task tree (REQ-026) is the canonical task list.
-- [ ] Webhooks subscribed (immediate for both project shapes — ai4good's GitHub App is installed org-wide on `ai4good-projects` per the one-time platform setup, so any repo created in the org has webhook coverage from creation): `push`, `pull_request` (for cadence + commit-task linking via commit-message parsing per REQ-026). GitHub Issues webhook is **not** used in v1 (post-handoff issue surfacing is v2 per §11). Codex round 9 fix — earlier wording incorrectly framed the Lovable-path webhook as "optional"; with org-wide App install + uniform `ai4good-projects` invariant, it's always on.
+- [ ] **No auto-creation of GitHub Issues from the scope doc.** The Linear backlog (REQ-026) is the canonical task list.
+- [ ] Webhooks subscribed (immediate for both project shapes — ai4good's GitHub App is installed org-wide on `ai4good-projects` per the one-time platform setup, so any repo created in the org has webhook coverage from creation): `push`, `pull_request` (cadence + `external_commit_refs` via Linear-identifier parsing per REQ-026; issue status itself moves via Linear's GitHub integration). GitHub Issues webhook is **not** used in v1 (post-handoff issue surfacing is v2 per §11). Codex round 9 fix — earlier wording incorrectly framed the Lovable-path webhook as "optional"; with org-wide App install + uniform `ai4good-projects` invariant, it's always on.
 - [ ] Standard GitHub issue labels established at repo bootstrap: `bug`, `refactor`, `tech-debt`, `dev-task`, `priority-p0`, `priority-p1`, `priority-p2` (for dev-internal use only).
 - [ ] **On Handoff (REQ-012):**
   - Claude-Code path: NGO offered one-click transfer of `ai4good-projects/<slug>` to NGO's own GitHub org if they have one; can decline (repo stays in `ai4good-projects` indefinitely). Volunteer downgraded to `triage`-role; NGO admin promoted to `admin`.
@@ -1035,68 +1046,62 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
 
 ---
 
-#### REQ-009: Per-Project Anthropic Workspace + Key + Usage Metering
+#### REQ-009: LLM Gateway — Virtual Keys, Caps & Inline Fuel Metering (decision-21)
 
-> **› Decision-10 (2026-06-06) override:** split the meter work along the write-vs-read seam behind the single `UsageMeteringProvider` port. **Write side** (task #20): the port + key create/deactivate/reactivate + workspace creation + the manual key-bootstrap ops queue, against **one hard-coded org**. **Read/policy side** (task #21): the cursored idempotent poller + micro-cent ledger + balance VIEW + fuel-low thresholds (20%/5%/0%), calling the port to deactivate at zero; the standalone **fuel-low alert + key-deactivation work is folded in here** (former task #22 is gone). On a top-up that crosses above zero, the Stripe webhook (REQ-006) enqueues reactivation via the outbox. The **multi-org router / least-full selection is deferred to v1.5 behind the unchanged port** (gated to ~80 active workspaces). The ACs below are unchanged in substance; only their split across tasks changed.
+> **› Decision-21 (2026-07-05) re-architecture:** the per-project Anthropic workspace + manual Console key + Usage-Report poller model is **replaced** by an ai4good-controlled **LLM gateway** sitting in the request path between the volunteer's coding agent (Claude Code / Codex / Cursor — the direct-agent rail) and the model provider. This pulls the former "AI Proxy" (v1.5, Out of Scope #1) forward into v1 **and makes it the metering path itself**, not just an enforcement layer. **Deleted outright:** per-project Anthropic workspace provisioning, the `anthropic_key_creation` manual ops queue (Console key paste), the 5-min Usage-Report poller + `usage_poll_state` cursor, the daily Cost-Report drift reconciliation, the workspace spend-cap Console step, and the fuel-zero key-deactivation / top-up-reactivation outbox saga. The `UsageMeteringProvider` port is retired with them — the gateway writes the ledger inline from each response's usage block. **Gateway hosting is an OPEN decision** (thin Deno proxy on Supabase Edge Functions vs a self-hosted LiteLLM-style service) — see the Open Decisions register.
 
-**Description:** Every funded project gets its own **Anthropic Workspace** with one dedicated API key. The workspace provides native per-project isolation, audit, and spend-limit scoping. Workspace creation is programmatic (Admin API); key creation requires a manual Console step (Anthropic restriction). Usage is metered against the project's fuel balance via Anthropic's Usage API polled every 5 minutes; key is programmatically deactivated when fuel hits zero. (See Open Q1 resolution for the architectural rationale.)
+**Description:** Every (volunteer, project) pair gets a **virtual key** (`a4g_*` prefix) minted as a Supabase row at kickoff — automatically, with no ops task and no 12-hour wait. The volunteer's setup is two env vars (`ANTHROPIC_BASE_URL=<gateway>`, `ANTHROPIC_API_KEY=<a4g_ key>`); vanilla Claude Code works unchanged. The gateway terminates the virtual key, checks `{status, caps, project fuel balance, project fingerprint}`, injects the governance prompt, forwards to Anthropic using the **real org key that lives only in gateway env** (volunteers never see it — mechanical enforcement of no-billing-exposure), streams the response back, prices the response's token usage via the local rate card, and writes the paired ledger rows inline. All identity/scope checks are **pairwise** (presented key ↔ project marker; any future token claims ↔ presenting key) — explicit requirements, not implied.
 
-**Provisioning flow (triggered on `matched_pending_fuel` → `in_progress`):**
+**Placement doctrine (where rules live — applies platform-wide):**
 
-1. **Automated:** a Supabase Edge Function (Deno) — the UsageMeteringProvider write side (createWorkspace) — calls the Anthropic Admin API `POST /v1/organizations/workspaces` on the in_progress transition to create a workspace named `ai4good-<project-slug>`. Anthropic org admin key in Supabase Vault / Edge Function secrets. Workspace ID stored on the `projects` row.
-2. **Batched ops task:** An entry is added to the unified `ops_tasks` queue with `type='anthropic_key_creation'`, `priority='medium'`, `sla_target_at = NOW() + 12h`: *"Project `<slug>` is funded ($X kickoff). Create API key in workspace `wrkspc_XYZ` named `project-<slug>-v1`; set workspace monthly spend cap to **`max(funded_amount × 3, $200)`** (default formula — bounds Anthropic-side overrun if our polling fails). Paste the key into [secret-store URL]."* The cap is scaled to actual NGO exposure: a $50 kickoff caps Anthropic at $200/month (4× the deposit — safety margin without being absurdly high); a $500 deposit caps at $1500. This addresses the prior "$1000 default" being too loose vs small deposits — bounded financial risk per Platform Promise §5 is preserved. The cap is a safety backstop only — primary enforcement is our Usage API polling + key deactivation at fuel-zero. **Admin processes the queue in batches twice daily (9am + 5pm local)** — not real-time — to minimize context-switching. Volunteer is told upfront: *"Your AI key will be ready within 12 hours of fuel deposit."* **Project state transitions to `in_progress` immediately on Stripe payment success** (per REQ-005.5 lifecycle) — provisioning of the Anthropic key is a parallel side-effect, not a precondition; until the key is ready the volunteer is gated on Anthropic-using work only (Lovable / docs / planning can proceed). On admin completion, the key is stored encrypted in Supabase Vault and `anthropic_key_status` flips from `not_provisioned` to `active`.
-3. **Automated:** Volunteer is notified via channel + email that the project is live and the API key is available in their project dashboard.
+| Layer | Carries | Property |
+|---|---|---|
+| Volunteer-editable files (CLAUDE.md, repo docs, skills) | Norms, nudges, workflow education | Soft; the agent reinforces conversationally; can be edited away |
+| Gateway-injected system prompt | Durable norms (project scope line, never-change-Linear-status rule) | Invisible, ai4good-controlled, re-applied per request |
+| Deterministic code (gateway checks, webhook consumers, CI) | Hard invariants | Cannot be talked out of its verdict |
+
+Third-party permission models are trusted for **access, never for policy** (Lovable has no role between Admin/Editor; Linear OAuth scopes cannot express "assign+comment but no status change") — policy enforcement always lives in ai4good-controlled layers. Longer onboarding material goes in repo **skills** (loaded on demand), not CLAUDE.md (which rides every request and is billed to NGO fuel).
+
+**Threat model (stated plainly):**
+- The **fingerprint is a tripwire, not a lock.** It is copyable by design. Its function is to convert *accidental* misuse into unambiguous intent — it kills the dominant real case (a key left in env vars, used absentmindedly on another repo).
+- The **virtual key is the actual credential.** Key + repo-context is a two-factor barrier against **outsiders only**; insiders hold both legitimately.
+- **Containment chain:** caps bound the exposure, the ledger attributes it, revocation (one Supabase row) ends it. Detection can afford latency because exposure is capped.
+- **Revocation instruments:** key revocation = individual enforcement; fingerprint rotation = hygiene against people who *lost* repo access (off-boarding, leaks). Rotation is never used against active insiders (they just re-pull).
+- Rate limits are reliability engineering; project-lifetime fuel is economics; **neither is a security control** — do not size caps adversarially.
+- **Proportionality:** governance capacity is provisioned against observed behavior, not imagined adversaries. Deterrence comes from disclosure at onboarding (usage is attributed and reviewed), not from machinery. Any governance mechanism that taxes legitimate volunteers has inverted its purpose — every check below must cost the legitimate path nothing.
 
 **Acceptance Criteria:**
-- [ ] Workspace creation: programmatic via Anthropic Admin API on project funding. Workspace ID + creation timestamp persisted on `projects` row.
-- [ ] Ops queue UI (TanStack Start route `src/routes/admin/anthropic-ops.tsx`, platform_admin-gated, built via Lovable MCP) lists pending key-creation tasks with workspace ID, project name, fuel budget; admin marks task done after pasting key. The 'mark task done / paste key' write goes through a Supabase Edge Function (complete-anthropic-key-ops) — never a direct UI DB/Vault write.
-- [ ] API key encrypted at rest in Supabase Vault; never logged.
-- [ ] Volunteer dashboard shows the project's API key once (with copy-to-clipboard), plus install instructions for **vanilla Claude Code** (single env var: `ANTHROPIC_API_KEY=<key>`). **No wrapper script required** — per-project keys make vanilla Claude Code work cleanly.
-- [ ] **Usage ingestion (corrected; verified against Anthropic API 2026-05-23):** Anthropic's **Cost Report API is daily-granularity only** (`bucket_width: "1d"`). For near-real-time per-workspace cost attribution we must poll the **Usage Report API** (`/v1/organizations/usage_report/messages`) which supports `bucket_width: "1m" | "1h" | "1d"` — but it returns **tokens, not dollars**. The platform maintains a **local Anthropic rate card** (`platform_settings.anthropic_rate_card`, versioned, JSON) and converts tokens → cents at write time. **Daily reconciliation** against Cost Report catches drift from rate-card staleness, Priority Tier (excluded from Cost Report), batch discounts, or negotiated adjustments.
-- [ ] **Polling pattern — idempotent, cursored ingest (hardened 2026-06-03 — PM-architect Rec #2; this is the money path):** a **pg_cron schedule (every 5 min) → `usage-poller` Supabase Edge Function (Deno)** makes ONE Usage Report call per Anthropic org with `bucket_width=1m, group_by[]=workspace_id/model/context_window/service_tier`. **Re-scan a trailing 60–90 min window** from `usage_poll_state.last_ingested_bucket_end` each poll (Anthropic buckets can arrive late; a naive `since=last-run` cursor would skip them forever → silent undercharge). Bucket writes are **idempotent UPSERTs** deduped on the `idx_fuel_consumption_bucket_once` unique index, so a cron overrun / worker restart cannot double-charge. The whole ingest runs in **one transaction under a cron-overrun advisory lock**; the cursor advances only on success. The daily Cost Report reconciliation (below) is the back-stop, not the primary correctness mechanism.
-- [ ] **`UsageMeteringProvider` anti-corruption port (decided 2026-06-03 — PM-architect Rec #5):** the ledger, reconciliation, and provisioning depend on ONE internal port (`getUsageSince`, `getAuthoritativeCost`, `provisionKey`, `deactivateKey`, `setSpendCap`), not directly on Anthropic API shapes (the v1.5 anomaly scorer — decision-14 — reuses the same port when it lands). Rate-card→dollar conversion lives behind it. This localizes Anthropic-shape churn to one adapter and makes the v1.5 proxy a drop-in. **The capacity-aware org-router / least-full selection / multi-org fan-out is DEFERRED to v1.5 behind this unchanged port (decision-10) — v1 runs ONE hard-coded org** (gated to ~80 active workspaces, ~7× the pilot; per-org poll + merge slots in behind the port when the year-1 target approaches one org's 100-workspace cap).
-- [ ] **Freshness expectation:** ~5-minute lag from API call to Usage Report availability (per Anthropic docs; design for occasional larger delays — don't hard-fail on a missing bucket).
-- [ ] **Per usage-report bucket, write TWO `fuel_transactions` rows** (skim-at-consumption model, Option γ):
-  - Convert tokens → `anthropic_cents` via local rate card (per model + context_window + service_tier + cache breakdown).
-  - Markup factor: `1 / (1 - skim_rate_bps / 10000)` — for 15% skim, this is `1 / 0.85 = 1.1764706…`
-  - Compute `fuel_debit_micro_cents = round(anthropic_micro_cents × markup)` — see micro-cents storage note below
-  - Compute `skim_micro_cents = fuel_debit_micro_cents − anthropic_micro_cents`
-  - Row A: `kind='consumption', amount_micro_cents = -fuel_debit, anthropic_micro_cents = X, skim_rate_bps = Y, project_id = X, pair_id = uuid_v` (debit from project)
-  - Row B: `kind='skim', amount_micro_cents = +skim, project_id = NULL, pair_id = uuid_v` (platform revenue earned)
-  - Both rows share `pair_id` for auditability and join-back.
-- [ ] **Micro-cents precision (addresses rounding-bias risk):** Many 1-minute Anthropic usage buckets cost fractional cents (e.g. 0.3¢ for a small Sonnet call). Storing as INTEGER cents and rounding per row would accumulate noticeable error over thousands of buckets per project. **Storage is INTEGER micro-cents (1/1000 of a cent)** — gives sub-cent precision, error per row bounded to ±0.0005¢, accumulated error over a project's lifetime negligible. Display rounds to cents.
-- [ ] Worked example (corrected — codex round 2 caught a 10× error in the prior version): Anthropic Usage Report says 1000 input tokens of Sonnet in a 1-min bucket. Rate card: $3/1M input tokens. Cost: `1000 × $3 / 1,000,000 = $0.003 = 0.3 cents = **300 micro-cents**` (1 cent = 1000 micro-cents). Apply 15% markup: `fuel_debit = round(300 × 1.1764706) = 353 micro-cents (0.353¢)`. `skim = 353 − 300 = 53 micro-cents (0.053¢)`. Two ledger rows written.
-- [ ] **Daily reconciliation: pg_cron schedule (daily 02:00 UTC) → `daily-reconciliation` Supabase Edge Function (Deno)** fetches yesterday's Cost Report (`bucket_width=1d, group_by[]=workspace_id`); job_runs heartbeat ('daily_reconciliation'); compare to sum of our consumption rows for the same period; if drift > 1%, file `ops_task` of `type='reconciliation_discrepancy'`. This catches rate-card staleness and Priority Tier usage (which Cost Report excludes — track Priority via Usage Report with `service_tier` filter and price accordingly).
-- [ ] **No rounding at write time** — micro-cents stored as-is. Rounding happens only at display time (cents = `round(amount_micro_cents / 1000)`). This avoids the per-row rounding bias codex flagged in round 2.
-- [ ] **Project balance shown to NGO** = `round(SUM(amount_micro_cents WHERE project_id = X) / 1000)` cents — reflects gross-funded minus gross-fuel-debited (matches the dollar amounts NGO actually paid). Rounding is display-only and never persisted.
-- [ ] **Platform revenue total** = `round(SUM(amount_micro_cents WHERE project_id IS NULL AND kind = 'skim') / 1000)` cents — clean per-row sum at micro-cent precision, rounded for display.
-- [ ] **Skim is not shown in NGO UX.** Project page displays only the gross fuel balance ($100 of fuel for $100 paid). The 15% platform-fee model is documented once in a help article (discoverable, not surfaced per transaction).
-- [ ] **Credit release (unused fuel at handoff / cancellation)** moves the **gross remaining balance** to the NGO's general balance as non-cash `credit_release` (REQ-006 §7) — **this is not a cash refund** (no cash-out in v1). No need to compute "skim already taken" because skim was never taken on unconsumed fuel.
-- [ ] Fuel-low alerts: at 20% balance → NGO email + `fuel_topup_needed` blocker (warning, REQ-024); at 5% → in-app warning to volunteer; at 0% → the `usage-poller` Supabase Edge Function (Deno) (or an enqueued `deactivate_anthropic_key` outbox event drained by `outbox-drain`) deactivates the key via the Anthropic Admin API (`POST /v1/organizations/api_keys/{id}` status:'inactive') + `fuel_topup_needed` blocker (blocking).
-- [ ] On NGO top-up after a fuel-zero, key is re-activated programmatically; blocker auto-resolves.
-- [ ] **NGO-triggerable project-key rotation (immediate deactivate / queued recreation):** Project page exposes a "Suspect misuse — rotate key now" action for NGO admins. On click: **immediate programmatic deactivation** of the current key via Admin API (no wait for admin); simultaneously an `ops_task` of type `anthropic_key_rotation_recreation` is queued with `priority='high'`, `sla_target_at = NOW() + 12h`. Volunteer sees "Key rotating — new key available within 12 hours" on their dashboard. Old key is dead instantly; new key arrives in the next admin batch.
-- [ ] **Volunteer self-audit:** Volunteer dashboard shows their own per-project usage (tokens consumed today/week, last session timestamp). Helps catch accidental cross-project use (e.g. wrong env var still set) on the same day.
-- [ ] **Audit reality (documented for honesty):** Anthropic does not expose a per-request log table. Audit is via 1-minute Usage API buckets (aggregated) + cross-reference with PM-task progress (REQ-026) + GitHub commit cadence (REQ-010). Prompt-content audit is impossible (and correct for privacy). The Anthropic Console per-workspace Logs UI is available as an ad-hoc admin escalation tool but is not API-queryable.
-- [ ] **Automated spend-anomaly detection — DEFERRED to v1.5 (decision-14, 2026-06-07; Out of Scope #26).** The nightly confidence-scorer (spend-rate >2σ baseline + zero-commit / zero-task-done / off-hours signals → tiered 0.6/0.9 bands), the ≥0.9 auto-deactivate auto-action, the `spend_anomaly_review` blocker (REQ-024) with its 48h escalation + 3-branch NGO resolution UI, and the `anomaly_investigation` ops_task are **not built in v1.** **Why the loss ceiling holds without it:** the money-loss CEILING is already bounded WITHOUT the scorer by four retained deterministic mechanisms — no cash-out (Platform Promise §7), the $200 first-fund cap (REQ-006), the workspace spend cap `max(funded×3, $200)` (below), and fuel-zero programmatic key-deactivation (above) — so a leaked/stolen key only ever buys a bounded amount of compute. The scorer reduces detection *latency*, which matters at scale, not at the concierge pilot's ~10–15 hand-vetted, allow-listed projects. **v1 fallback:** the platform admin watches the REQ-029 money-path golden-signal dashboard daily and uses the existing NGO/admin **"rotate key now"** action (above) on suspicion; the independent `collusion_review` signal (REQ-006) still fires. Reinstate before organic/EU signup (same gate as the decision-10 fraud-adjacent deferrals). *(Deferral also retires the scorer's mis-calibrated `spend > $50` floor, which would false-positive on legitimate $50-kickoff projects.)*
-- [ ] **Spend-limit setting:** Workspace monthly spend cap is set during the manual ops task above, scaled to NGO exposure: `max(funded_amount × 3, $200)`. So $50 kickoff → $200 cap; $500 kickoff → $1500 cap. This keeps the cap tight enough to bound real exposure if our polling fails, without triggering at normal use levels. Treated as soft (Anthropic docs ambiguous on hard-block for non-batch calls); our own Usage API polling + programmatic key deactivation at fuel-zero is the authoritative kill switch. **Spend cap is Console-only — Anthropic does not expose a programmatic update endpoint.**
-- [ ] **Preemptive cap-raise monitoring:** Polling worker tracks each project's monthly-accumulated spend. When monthly spend reaches **80% of the configured workspace cap**, automatically create an `ops_task` of `type='raise_spend_limit'`, `priority='high'`, `sla_target_at = NOW() + 12h`: *"Project `<slug>` monthly spend at $X of $Y cap (80%). Raise workspace `wrkspc_XYZ` cap to $`<current × 2>` to avoid Anthropic-side block."* This fires preemptively so admin batches catch it before Anthropic enforces (if it ever does). Most projects never trigger this.
-- [ ] **Hybrid key reactivation on top-up:** When NGO completes a Stripe top-up after fuel-zero, key reactivation is attempted via two paths: (a) the `stripe-webhook` Supabase Edge Function enqueues immediate reactivation (reactivate_anthropic_key outbox event, drained by outbox-drain) (`Admin API POST /v1/organizations/api_keys/{id}` with `status: 'active'`) on `checkout.session.completed` if the project's `anthropic_key_status = 'inactive'` — latency seconds; (b) next 5-min polling cycle also checks and reactivates idempotently — latency up to 5 min as safety net. Both are idempotent (check current `anthropic_key_status` before flipping).
-- [ ] **Note (v1 interim):** This v1 implementation exposes the real per-project Anthropic key to the volunteer (they install it via `ANTHROPIC_API_KEY`). Per-project key isolation + per-workspace spend limit + Usage API polling + programmatic key deactivation give bounded-damage protection. **v1.5 evolution (see Out of Scope #1):** introduce the ai4good AI Proxy so volunteers receive project-scoped `ai4g_*` tokens instead of the real Anthropic key — eliminates key-exposure risk, adds real-time per-request audit, and makes scope-enforcement structural rather than policy-based. The proxy layer is built ON TOP of the per-project workspace architecture, not as a replacement.
+- [ ] **`virtual_keys` table** — one row per (volunteer, project): `key_hash` (bcrypt; plaintext shown ONCE at issuance with copy button), `status`, `caps` JSONB, `last_used_at`, `revoked_at`. Minted automatically on the `matched_pending_fuel → in_progress` transition. Keys are never logged; the raw key never reaches any store but the volunteer's env.
+- [ ] **Volunteer onboarding = two env vars** (`ANTHROPIC_BASE_URL` + the `a4g_*` key), surfaced on the volunteer dashboard at kickoff with install instructions. All setup-failure UX lands on the gateway's 401 copy — that copy is treated as part of the mechanism and is written to instruct, not accuse.
+- [ ] **Streaming pass-through:** the gateway forwards `POST /v1/messages` (+ token counting) with SSE streaming intact; per-request overhead budget < 150ms p95 (excluding model latency).
+- [ ] **Budget caps per key:** a per-request max-token cap + a **rolling 24h window** (not calendar-day), sized 3–4× an expected heavy human day so legitimate agentic-loop usage fits. At 80% of the window: soft warning (response header + platform notification). At 100%: hard stop with **coordinator override** (one admin action raises the window for that key). Cap values are an open decision (register) — tuned from pilot data, not adversarial guesswork.
+- [ ] **Project fingerprint check:** the repo template commits `.a4g/fingerprint.md` (a static marker + a one-line human-readable explanation: *"ties NGO-funded fuel to this project; please don't move it"*), imported by the repo's CLAUDE.md so it rides the system prompt. The gateway checks the marker **pairwise against the presented key's project**, enforced only on requests above ~1.5k input tokens (skips background calls; threshold value = open decision). Mismatch → rejection with volunteer-facing, instructive copy (*"this key belongs to <project>; you appear to be in a different repo"*).
+- [ ] **Governance prompt injection:** the gateway appends the ai4good governance block to the system prompt on every request — the project scope line (decline requests unrelated to the project; redirect to project work) and the never-change-Linear-status rule (REQ-026).
+- [ ] **Inline ledger writes (the money path, Option γ unchanged):** per gateway response, convert the usage block's tokens → `anthropic_micro_cents` via the local rate card (`anthropic_rate_cards`, per model/context/tier/cache breakdown), apply the 15% markup (`1 / 0.85`), and write the paired `consumption` + `skim` rows exactly as before (micro-cents precision, `pair_id`, display-time rounding — all REQ-006 math and invariants unchanged). Idempotency: one ledger write per `gateway_request_id` (unique index) — a retried request cannot double-charge. The ledger stores **token counts and metadata only** (see privacy invariant below). Rows carry `task_ref` when the request's task binding resolves (REQ-034).
+- [ ] **Fuel thresholds:** 20% → NGO email + `fuel_topup_needed` blocker (warning, REQ-024); 5% → in-app warning to volunteer; **0% → the gateway declines the next request inline** with a fuel-suspension response that **states the cause** (*"project fuel is exhausted — ask your NGO to top up"*) + flips the blocker to blocking. On top-up, the next request passes — **no reactivation machinery exists or is needed.** The fuel-balance check is structural and real-time (reads the balance VIEW), replacing the old polling+deactivation loss ceiling with a stronger one.
+- [ ] **401 semantics:** flat externally — no revoked-vs-nonexistent distinction — **except** fuel suspension, which states its cause inline (the one case where the caller is a legitimate volunteer who needs to act). Rich diagnostics (which check failed, key status, cap position) are available only on the authenticated volunteer dashboard. **First-week 401s are tagged as an onboarding-UX metric, not a security signal.**
+- [ ] **Revocation is one Supabase row:** the NGO's *"Suspect misuse — revoke access now"* action and the platform admin's enforcement both set `revoked_at` — instant, self-serve, no ops queue. A replacement key mints instantly (show-once). **All project keys terminate at handoff** (REQ-012 lifecycle rule), on abandonment release (REQ-027), and in the AUP suspension saga (REQ-007).
+- [ ] **Privacy invariants (verbatim, load-bearing):** the gateway inspects request bodies **transiently and never persists them**. The ledger stores token counts and metadata only. Any derived origin/mismatch signal is stored as a **score or boolean, never paths or content**.
+- [ ] **Volunteer self-audit:** volunteer dashboard shows their own per-project usage (tokens today/week, cap position, last session) — helps catch a wrong-env-var accident same-day.
+- [ ] **Key-leak hygiene:** the repo template gitignores `.env` by default; a **GitHub secret-scanning custom pattern** for `a4g_*` keys is registered on the org; the gateway runs a **canary check** that flags any key seen in requests after appearing in a public commit.
+- [ ] **Escalation ladder — documented, NOT built in v1** (each rung with its trigger; listed so the decision *not* to surveil is visible):
+  - **Layer 2 — reconciliation:** a weekly job joining ledger burn vs GitHub/Linear activity. Phase-aware (early development is legitimately read-heavy/commit-light; "activity" includes branch pushes, issue movement, clone/fetch events). Shape signals only (cadence, session length, capped-every-day pattern) — usable without reading content. *Trigger: the ledger shows real anomalies.*
+  - **Fingerprint rotation via CI** (the separate `.a4g/fingerprint.md` file avoids merge conflicts; a grace window is mandatory — rotation must never interrupt a session that pulled within the window). *Trigger: adverse offboarding or a leak.*
+  - **Per-volunteer short-TTL signed token** fetched at SessionStart (JWT; claims pairwise-checked against the presenting key; fail-open to a grace window if the endpoint is down). *Trigger: Layer 2 fires repeatedly and conversations don't resolve it.*
+  - **Layer 3 — content classification:** sampled, triggered by Layer 2 only, never inline. *Trigger: probably never.*
 
-**Task Breakdown Hint:**
-- Task 9.1: Anthropic Admin API client wrapper (workspace + key endpoints) (~5h)
-- Task 9.2: Workspace auto-creation inside the provisioning Supabase Edge Function (Deno) on the in_progress transition, behind the UsageMeteringProvider write seam (createWorkspace) (~4h)
-- Task 9.3: `/admin/anthropic-ops` ops queue UI for key-creation tasks (~5h)
-- Task 9.4: Supabase Vault secret storage for project keys (~3h)
-- Task 9.5: Volunteer dashboard install instructions + key reveal (~3h)
-- Task 9.6: Usage API polling worker = pg_cron (every 5 min) → `usage-poller` Supabase Edge Function (Deno), one global Usage Report call grouped by workspace_id; job_runs heartbeat (~6h)
-- Task 9.7: Fuel-low alerting + blocker integration (REQ-024) (~4h)
-- Task 9.8: Programmatic key deactivation at fuel-zero — runs inside the `usage-poller` Supabase Edge Function or via a deactivate_anthropic_key outbox event drained by `outbox-drain` (Deno) (~3h)
-- Task 9.9: NGO-triggerable rotation flow + ops queue entry (~4h)
-- Task 9.10: Volunteer self-audit usage view (~3h)
-- ~~Task 9.11: Anomaly-detection nightly job + admin queue surfacing~~ — **DEFERRED to v1.5 (decision-14); not built in v1 (−6h).**
+**Task Breakdown Hint (decision-21):**
+- Task 9.1: Gateway core — virtual-key auth + streaming pass-through + real-key env isolation (~10h)
+- Task 9.2: `virtual_keys` schema + mint-at-kickoff + revoke + show-once dashboard UI (~5h)
+- Task 9.3: Caps — per-request max + rolling 24h window + 80%/100% behavior + coordinator override (~5h)
+- Task 9.4: Fingerprint pairwise check + governance prompt injection + rejection copy (~4h)
+- Task 9.5: Inline ledger writes — rate-card pricing, paired rows, `gateway_request_id` idempotency, `task_ref` capture (~6h)
+- Task 9.6: Fuel thresholds + inline fuel-suspension response + blocker wiring (REQ-024) (~3h)
+- Task 9.7: 401 UX + authenticated dashboard diagnostics + onboarding-401 metric tag (~3h)
+- Task 9.8: Secret-scanning pattern + leak canary + `.env` template hygiene (~2h)
+- Task 9.9: Volunteer self-audit usage view (~3h)
 
-**Dependencies:** REQ-006 (fuel funding triggers provisioning), REQ-008 (GitHub commits for cross-reference audit), REQ-024 (blockers for fuel-low / depleted), REQ-026 (PM tasks for cross-reference audit), REQ-010 (commit cadence for cross-reference audit).
+**Dependencies:** REQ-006 (fuel ledger + balance VIEW), REQ-024 (fuel blockers), REQ-034 (task-ref capture rides the same request pass), REQ-012/REQ-027/REQ-007 (key-termination lifecycle hooks). Replaces all prior Anthropic Admin-API dependencies — the only Anthropic surface used is the Messages API through the gateway.
 
 ---
 
@@ -1156,19 +1161,19 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
 **Acceptance Criteria:**
 - [ ] Volunteer clicks "Ready for Handoff" once all P0 PM tasks (REQ-026) are marked `done`. Open GitHub Issues do not block handoff.
 - [ ] **Hard precondition (Platform Promise §2 + REQ-008):** `projects.github_repo_url IS NOT NULL` — every project ends in an `ai4good-projects/<slug>` repo at handoff regardless of project shape (Claude-Code projects always have it from kickoff; Lovable projects must have completed the `lovable_setup_pending` blocker per REQ-021). For Lovable projects where the URL is missing, the "Ready for Handoff" button is disabled with copy: "Lovable→GitHub setup not yet complete. Resolve the `lovable_setup_pending` blocker (REQ-021 11-step checklist) before requesting handoff." **No platform-admin escalation** — NGO + volunteer self-resolve via the blocker's checklist + clarifying_question pattern.
-- [ ] Optional verification: each P0 PM task marked `done` has at least one associated commit reference in `external_commit_refs` from the last 30 days (catches "marked done but never coded" cases).
+- [ ] ~~Optional verification: each P0 PM task marked `done` has at least one associated commit reference~~ — **structural under decision-20:** `done` only arrives via Linear's GitHub integration on PR merge, so every done p0 carries a merged PR by construction; the commit-ref spot check is retired.
 - [ ] Automated checks: README present, RUNBOOK.md present, deploy instructions section present, ≥1 passing CI run on `main`, **LICENSE file present if `visibility = 'public_mit'`** (private repos don't require a LICENSE file since they're not open-licensed for redistribution).
 - [ ] **Deploy-to-running step (decided 2026-06-03 — Goal 1; the deliverable is a *running* tool, not a repo):** the volunteer's final task is to **deploy a working instance and hand over ownership**, and `projects.deployment_url IS NOT NULL` is a handoff precondition:
   - **Track A (Lovable):** the app is already deployed and hosted by Lovable; "deploy" = the volunteer **pastes the live Lovable app URL into the handoff form, which WRITES `projects.deployment_url`** (this is the Track-A source of `deployment_url` — the precondition above; the step-9 *setup* paste-back captures workspace/repo URLs only, never the deployed-app URL, so without this step a Track-A handoff is structurally un-completable) + transfer Lovable workspace ownership to the NGO (NGO owns it from kickoff per REQ-021, so this is a confirmation) + run the **guided-maintenance handoff ritual**: (i) **enable Supabase RLS** (off by default on Lovable-provisioned Supabase — a PII footgun), (ii) **demo chat/plan mode + revert/checkpoint rollback** to the NGO staffer so they can self-maintain without breaking production, (iii) **set a Lovable spend cap / budget alert** so metered edits never blindside a non-technical owner, (iv) confirm two-way GitHub sync is live.
   - *(Track B plain-host deploy is deferred to post-v1 — decision-19. v1 deploy/handoff is Track-A / Lovable only.)*
-- [ ] **30-day-alive signal (Goal 1 north-star):** a health-check job pings `deployment_url` at 30 days post-handoff and records the alive signal. Not guaranteed (no SLA, Platform Promise §4) — measured.
+- [ ] **30-day-alive signal (Goal 1 north-star):** a health-check job pings `deployment_url` at 30 days post-handoff and records the alive signal. Not guaranteed (no SLA, Platform Promise §4) — measured. **Extended by decision-22 to 30/60/90-day jumpstart health checks with real self-service signals — REQ-035.**
 - [ ] NGO sees a "Review Handoff" CTA with the repo URL + live deployment URL + checklist results.
 - [ ] NGO signs off (or rejects with comments → back to volunteer). **Rejection-loop cap (decided 2026-06-03 — dispute resolution):** after 2 reject→resubmit cycles, the third rejection routes to neutral **platform review** (a lightweight `incident`/review ops task) so an NGO can't extract unbounded unpaid rework; the volunteer has a "contest this rejection" path.
-- [ ] On accept: project status → `handed_off`, **leftover fuel released to NGO general balance as non-cash credit** (REQ-006 §7 — `credit_release`, not a cash refund), completion credit + "Shipped first tool" badge awarded to volunteer.
+- [ ] On accept: project status → `handed_off`, **leftover fuel released to NGO general balance as non-cash credit** (REQ-006 §7 — `credit_release`, not a cash refund), completion credit + "Shipped first tool" badge awarded to volunteer, **all project virtual keys terminated (REQ-009 lifecycle rule)**, Linear workspace membership removed + tree snapshot committed (REQ-026), and the **REQ-035 attribution step** captured as part of sign-off.
 - [ ] **Repo handoff (uniform for both tracks):** the project repo remains under `ai4good-projects/` with the NGO admin promoted to `admin` and the volunteer downgraded to `triage`. Optional one-click transfer to the NGO's own GitHub org if connected (same flow both tracks). Private/Tier-2 projects use private *visibility* within `ai4good-projects` in v1 (the separate private org is a v1.5 hardening per REQ-008).
-- [ ] Sign-off screen in v1 has no tip flow and no satisfaction form (both deferred to v1.5 per §11).
+- [ ] Sign-off screen in v1 has no tip flow (v1.5 per §11). It **DOES include the REQ-035 attribution step** (testimonial + 3 credit-framed dimensions) — decision-22 consciously supersedes the earlier "no satisfaction form in v1" deferral; this is attribution capture, not a satisfaction score, and it never blocks acceptance.
 
-**Dependencies:** REQ-008, REQ-006, REQ-021 (Track-A deploy + ritual).
+**Dependencies:** REQ-008, REQ-006, REQ-021 (Track-A deploy + ritual), REQ-009 (key termination), REQ-026 (p0-done gate + snapshot), REQ-035 (attribution step).
 
 ---
 
@@ -1209,7 +1214,7 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 
    The NGO does NOT need a GitHub account or GitHub knowledge. The **platform admin is completely OUT of the per-project Lovable setup loop** (Platform Promise §8 "minimize admin" — zero admin time per Lovable project). Setup is orchestrated entirely by NGO + volunteer through ai4good's existing blocker (REQ-024) + channel (REQ-015) surfaces.
 
-   **The ai4good MCP server is the primary task-integration mechanism for Lovable.** Lovable supports custom MCP servers as "chat connectors" ([Lovable docs](https://docs.lovable.dev/integrations/mcp-servers)). Volunteer (not NGO, not admin) configures it once during their setup steps.
+   **No ai4good connector exists in Lovable (decision-20).** Task state lives in Linear; the volunteer's agents interact with it via the Linear MCP in the project repo's committed `.mcp.json` — Lovable itself never talks to ai4good. *(The former "ai4good MCP server as Lovable chat connector" design — a decision-9 orphan with an un-passable validation step — is deleted.)*
 
    **Lovable setup is mandatory at kickoff (v1 — decision-19):** every v1 project is Track A, so `lovable_recommended` is always true and Lovable is the deliverable, not an option. At kickoff (`matched_pending_fuel → in_progress`) ai4good **auto-raises** the `lovable_setup_pending` blocker (REQ-024, severity `blocking`) addressed to the NGO. Activity-feed event (via notify(), decision-15): *"🚩 Set up the Lovable workspace and invite the volunteer as workspace admin so they can connect GitHub + the ai4good MCP."* NGO sees an Action-Needed banner; the blocker ages on the normal REQ-024 schedule (48h/7d). **The volunteer "skip Lovable / Claude-Code-only" opt-out and the 14-day auto-skip are removed in v1** — `projects.lovable_skipped_at` is reserved (never set; no migration) and `mode: 'claude_code_only'` is reserved for post-v1 Track B.
 
@@ -1217,17 +1222,17 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 
    | Step | Actor | What they do |
    |---|---|---|
-   | 1 | NGO | Signs up at lovable.dev (or signs in to existing account). Requires Pro+ plan ($25/mo) — Lovable's workspace-admin role + chat connectors are paid-tier features. NGO's existing Lovable cost; no new ai4good cost. |
+   | 1 | NGO | Signs up at lovable.dev (or signs in to existing account). Requires Pro+ plan ($25/mo) — Lovable's workspace-admin role is a paid-tier feature. NGO's existing Lovable cost; no new ai4good cost. |
    | 2 | NGO | Creates a Lovable **workspace** (or uses existing) and a new Lovable **project** seeded by pasting the scope summary from ai4good's setup page (one-click copy). |
    | 3 | NGO | In Lovable Project Settings → People → Invite: invites the volunteer as **Lovable workspace admin** (NOT just Editor — workspace admin is required so volunteer can manage Git settings + chat connectors per Lovable docs). |
    | 4 | NGO | Returns to ai4good project page; checks off "I've completed steps 1-3 → over to volunteer." Activity-feed event (via notify(), decision-15): *"✅ NGO completed Lovable workspace + invited volunteer as workspace admin."* |
    | 5 | Volunteer | Accepts Lovable workspace invitation; signs in to Lovable. |
    | 6 | Volunteer | In Lovable Workspace/Project Settings → Git → GitHub: connects, targets `ai4good-projects` org (Lovable's GitHub App is pre-installed on it via REQ-008 one-time platform setup; volunteer already has org Member + `Repository creator` rights via REQ-007 onboarding — added when volunteer linked GitHub). Lovable creates `ai4good-projects/<slug>` with visibility per `projects.visibility`. |
-   | 7 | Volunteer | In Lovable Workspace Settings → Connectors / Chat Connectors → Add MCP server. URL = `mcp.ai4good.dev/projects/<project_id>` (copy from ai4good Lovable Setup page); Bearer = `tok_workspace_<project_id>` (one-click show-once reveal from ai4good's Setup page; copy to Lovable's connector config). |
-   | 8 | Volunteer | (Optional, recommended) Pastes the ai4good-provided commit-prefix Knowledge snippet into Lovable's Knowledge / Custom Instructions field — secondary signal for git-blame readability, NOT load-bearing (MCP `update_task` is the primary status mechanism). |
+   | 7 | — | *(Removed by decision-20 — no ai4good connector in Lovable. Row kept so step numbering stays stable across references.)* |
+   | 8 | Volunteer | (Optional, recommended) Pastes the ai4good-provided Knowledge snippet into Lovable's Knowledge / Custom Instructions field asking Lovable to include the Linear identifier in commits where practical — best-effort git-blame readability, NOT load-bearing (Linear's GitHub integration on PR merge is the status mechanism — decision-20). |
    | 9 | Volunteer | Returns to ai4good project page; pastes back URLs/IDs: `lovable_workspace_url`, `lovable_workspace_id`, `lovable_project_id`, `github_repo_url`. Clicks "I've completed steps 5-9 → resolve blocker." |
-   | 10 | ai4good (auto) | **Validation suite (codex round 7 fix — strengthened from prior single-GET check):** (a) Repo URL parses; **owner is `ai4good-projects`** (reject if elsewhere); **repo name matches `<slug>` convention** (warn if mismatch but accept); **GitHub repo API returns 200 with the requested `visibility`** (public_mit projects must be public; private projects must be private); **ai4good GitHub App is installed on the repo** (org-wide install means YES — verify via App installation listing); **slug-collision check** (if `ai4good-projects/<slug>` already exists for a different project, surface error to volunteer + suggest `<slug>-2`); (b) `project_api_tokens.last_seen_at` for the workspace token has been updated within ~30s of validation (volunteer may need to trigger one test Lovable build to log first MCP call); (c) volunteer's repo permission normalized to `maintain` collaborator (downgrade from `admin` to `maintain` to prevent volunteer from inviting collaborators without ai4good's knowledge). Any validation failure: clear error to volunteer in blocker UI with the specific failed check + suggested fix; blocker stays open until all checks pass. |
-   | 11 | ai4good (auto) | On full-validation success: blocker auto-resolves; `lovable_enabled = true`; `lovable_status = 'active'`; volunteer permission normalized to `maintain` (per step 10c); NGO admin added as `triage` collaborator; `.ai4good/config.json` committed to the new repo (project_id + MCP server URL + ai4good_api_base for REQ-028 Skill bootstrap); `lovable_setup_complete` notification fires to NGO + volunteer. Activity-feed event (via notify(), decision-15): *"✅ Lovable setup complete. Volunteer can build."* |
+   | 10 | ai4good (auto) | **Validation suite (codex round 7 fix — strengthened from prior single-GET check):** (a) Repo URL parses; **owner is `ai4good-projects`** (reject if elsewhere); **repo name matches `<slug>` convention** (warn if mismatch but accept); **GitHub repo API returns 200 with the requested `visibility`** (public_mit projects must be public; private projects must be private); **ai4good GitHub App is installed on the repo** (org-wide install means YES — verify via App installation listing); **slug-collision check** (if `ai4good-projects/<slug>` already exists for a different project, surface error to volunteer + suggest `<slug>-2`); (b) ~~workspace-token `last_seen_at` freshness check~~ — **DELETED by decision-20** (no connector exists; this check was un-passable as specced); (c) volunteer's repo permission normalized to `maintain` collaborator (downgrade from `admin` to `maintain` to prevent volunteer from inviting collaborators without ai4good's knowledge). Any validation failure: clear error to volunteer in blocker UI with the specific failed check + suggested fix; blocker stays open until all checks pass. |
+   | 11 | ai4good (auto) | On full-validation success: blocker auto-resolves; `lovable_enabled = true`; `lovable_status = 'active'`; volunteer permission normalized to `maintain` (per step 10c); NGO admin added as `triage` collaborator; the repo template seeded (REQ-008: `.ai4good/config.json` with project_id + ai4good_api_base — no MCP server URL; CLAUDE.md imports; `.mcp.json` Linear MCP; `.claude/settings.json` hooks; `.a4g/fingerprint.md`); `lovable_setup_complete` notification fires to NGO + volunteer. Activity-feed event (via notify(), decision-15): *"✅ Lovable setup complete. Volunteer can build."* |
 
    **If actors get stuck mid-checklist:** either party raises a `clarifying_question` blocker via REQ-024 → resolved in the blocker's Clarifications Q&A + the project comment thread → NGO / volunteer resolves. Examples:
    - Volunteer: *"NGO, can you elevate me to Lovable workspace admin? You only invited me as Editor."*
@@ -1274,13 +1279,12 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 - [ ] **ai4good Lovable Setup page** in the platform UI provides (reachable for every project — v1: `lovable_recommended` always true, decision-19):
   - (a) Scope-summary text (one-click copy; NGO pastes into Lovable project intake at step 2)
   - (b) Volunteer's Lovable email (one-click copy; NGO pastes into Lovable's invite-as-workspace-admin field at step 3)
-  - (c) ai4good MCP server URL `mcp.ai4good.dev/projects/<project_id>` (one-click copy; volunteer pastes into Lovable connector config at step 7)
-  - (d) Workspace bearer token (one-click show-once reveal; volunteer pastes into Lovable connector config at step 7; rotatable via "Rotate token" button which invalidates old + shows new once)
-  - (e) Commit-prefix Knowledge snippet text (one-click copy; optional step 8)
+  - (c) ~~ai4good MCP server URL~~ + (d) ~~workspace bearer token~~ — **REMOVED by decision-20** (no ai4good connector in Lovable; step 7 is a retired row)
+  - (e) Knowledge snippet text (one-click copy; optional step 8 — asks Lovable to include the Linear identifier where practical)
   - (f) Paste-back form (URLs + IDs from step 9) with inline validation
   - (g) Checklist UI showing which steps are complete + which actor needs to do what next
-- [ ] Commit-prefix Knowledge snippet is provided as a **secondary signal** (not load-bearing): "When working on an ai4good task, include `task-X.Y:` as a prefix in the commit-message subject for readable git history." Status updates are driven by the MCP `update_task` tool, not by parsing.
-- [ ] **MCP connector token is workspace-scoped** (one `tok_workspace_<project_id>` per project, issued show-once + hash-only per REQ-026 token model). Audit attribution flows through `audit_events` per call.
+- [ ] Knowledge snippet is provided as a **best-effort signal** (not load-bearing): "When committing ai4good work, include the Linear issue identifier (e.g. `A4G-12`) in the commit subject for readable git history." Status is driven by Linear's GitHub integration on PR merge (decision-20), never by parsing.
+- [ ] ~~MCP connector token~~ — **RETIRED (decision-20):** `tok_workspace_*` is reserved-never-issued; the only volunteer credentials are the REST bearer token (REQ-008) + the gateway virtual key (REQ-009).
 - [ ] Volunteer's permission to drive step 6 (Lovable → GitHub → create `ai4good-projects/<slug>`) is granted **at volunteer onboarding via REQ-007** — volunteer is added as Member of `ai4good-projects` org with `Repository creator` base permission on first GitHub link. **No per-project JIT grant needed** for the Lovable flow.
 - [ ] Handoff runbook (REQ-012) includes the "NGO removes volunteer from Lovable workspace; ai4good's GitHub App remains on the repo until NGO opts to remove it on full ownership transfer" step.
 - [ ] Pre-kickoff reminder banner shown to NGO when `matched_pending_fuel` AND `lovable_recommended = true` — same as before, but now the followup blocker is `lovable_setup_pending` (volunteer-initiated post-kickoff) rather than an admin-driven ops task.
@@ -1293,7 +1297,7 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 - ai4good does **not** resell Lovable credits in v1 (no reseller agreement with Lovable). NGOs purchase credits directly from Lovable via the deep-linked CTA. v2 may revisit if a partnership agreement is in place.
 - **ai4good's *backend* does not poll `mcp.lovable.dev`** (no server-side OAuth; Lovable MCP is user-scoped, so a backend integration would require each NGO to grant ai4good account-wide access — over-broad). **However, the *volunteer's* Claude Code Skill DOES call `mcp.lovable.dev` `get_workspace` during Track-A orchestration** (under the volunteer's own OAuth, behind the consent gate + `LovableDriver` port) to surface the NGO's credit balance and enforce the per-task budget cap (REQ-021/028). So credit visibility exists in v1 — it's client-side (Skill), not server-side (backend). A future **backend** billing integration is deferred until Lovable ships scoped OAuth (e.g. `billing:read`) or a billing webhook (Lovable MCP is Research Preview; the April 2026 BOLA incident reinforces caution about backend account-wide access).
 
-**Dependencies:** REQ-004 (Discovery sets `lovable_recommended`), REQ-008 (GitHub repo — Lovable path is NGO-driven), REQ-010 (project page dual-fuel-meter), REQ-016 (notifications), REQ-024 (`github_collaborator_needed` blocker for dual-rail), REQ-026 (MCP server is the primary task-integration mechanism for Lovable; per-project Bearer token; `mcp.ai4good.dev/projects/:id`).
+**Dependencies:** REQ-004 (Discovery sets `lovable_recommended`), REQ-008 (GitHub repo — Lovable path is NGO-driven), REQ-010 (project page dual-fuel-meter), REQ-016 (notifications), REQ-024 (`github_collaborator_needed` blocker for dual-rail), REQ-026 (Linear task rail — Lovable needs no ai4good connector, decision-20).
 
 ---
 
@@ -1457,7 +1461,7 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 
 #### REQ-025: Change Requests (in-flight scope additions)
 
-> **› Decision-10 (2026-06-06) override + decision-9 fix:** REQ-025 (task #44) shrinks to *table + 3-field form + emit*: Accept/Decline rendered via #34's actionable-message primitive; `cr_raised`/`cr_decided` via `notify()` (REQ-016). **On Accept, the new p0 task is added by calling #26's Supabase Edge Function git bootstrap-commit** (write the "Change Request: [title]" task into the repo's `tasks.json` and let the webhook projection mirror it back) — it does **NOT** `INSERT` into `project_tasks` directly, which would violate decision-9's single-writer invariant. Any AC below that says "create the PM task" means via the git-commit path, not a direct projection write.
+> **› Decision-10 (2026-06-06) override + decision-9 fix:** REQ-025 (task #44) shrinks to *table + 3-field form + emit*: Accept/Decline rendered via #34's actionable-message primitive; `cr_raised`/`cr_decided` via `notify()` (REQ-016). **On Accept, the new p0 issue is created in the project's Linear workspace via the API (platform actor — decision-20)** under a "Change Request: [title]" parent; the `linear-webhook` projection mirrors it back — it does **NOT** `INSERT` into `project_tasks` directly (one-writer invariant unchanged). Any AC below that says "create the PM task" means via the Linear API path, not a direct projection write.
 
 **Description:** Allows NGOs to raise structured Change Requests (CRs) for additional scope while a project is `in_progress`. The assigned volunteer (project lead) accepts or declines — a binary decision, not an estimation exercise. Fuel consumption is **progressive**, not decisive: there is no upfront per-CR fuel quote or per-CR Stripe top-up. Accepted CRs simply add to the project's working scope; fuel is consumed from the existing project pool as work happens, and the existing `fuel_topup_needed` blocker (REQ-024) + Stripe top-up flow (REQ-006) handle replenishment when needed.
 
@@ -1477,7 +1481,7 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 2. CR is stored in `change_requests` table with `status='pending_review'` and **surfaces as an actionable CR row on the project page** (decision-15 — the CR row is the surface, not a chat message): *"📝 [NGO admin] raised a change request: '[title]'. — [Review]"*.
 3. Volunteer receives a `cr_raised` notification (REQ-016) carrying inline **Accept / Decline** actions (the actionable-message primitive) + sees the CR row on the project page. **No chat channel in v1 (decision-15)** — the CR row (project page + notification) is the surface.
 4. Volunteer reviews and clicks **Accept** or **Decline** on the CR row / notification, with an optional note.
-   - **Accept** → CR `status` → `accepted_active`. Platform creates **a single PM task** (REQ-026) under a "Change Request: [title]" parent task, with the CR's `description` as the task body and `priority = 'p0'` (codex round 6 — CR-accepted work blocks handoff just like original scope; the whole point of accepting a CR is committing to ship it). Volunteer can break it down into sub-tasks manually (REQ-026 `source = 'manual'`); sub-tasks default to p0 but the volunteer CAN downgrade specific sub-tasks to p1/p2 if scope exceeds what they signed up for — that downgrade is an explicit volunteer action visible in the audit log, not silent. **No GitHub Issues are created** — GitHub Issues remain dev-internal only. NGO receives `cr_decided` notification. (v1.5 adds an AC field to the CR form + AI Change-Request Agent that auto-derives multiple sub-tasks, per §11.)
+   - **Accept** → CR `status` → `accepted_active`. Platform creates **a single Linear issue** (REQ-026, platform actor via API) under a "Change Request: [title]" parent, with the CR's `description` as the issue body and the `p0` label (codex round 6 — CR-accepted work blocks handoff just like original scope; the whole point of accepting a CR is committing to ship it). Volunteer can break it down into sub-issues in Linear; sub-issues default to p0 but the volunteer CAN downgrade specific ones to p1/p2 if scope exceeds what they signed up for — that downgrade is an explicit action visible in Linear's history, not silent. **No GitHub Issues are created** — GitHub Issues remain dev-internal only. NGO receives `cr_decided` notification. (v1.5 adds an AC field to the CR form + AI Change-Request Agent that auto-derives multiple sub-tasks, per §11.)
    - **Decline** → CR `status` → `declined` with note. NGO receives `cr_decided` notification. Can revise + re-raise as a new CR.
 5. **Work proceeds** under the existing fuel/Lovable systems — no special CR-level instrumentation. The CR-derived PM task (and any sub-tasks the volunteer added) appears in the regular PM task tree under "Change Request: [title]" — that's where progress shows.
 6. **If fuel runs low** during CR work: the existing `fuel_topup_needed` blocker (REQ-024) fires; NGO tops up via REQ-006.
@@ -1497,7 +1501,7 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 - [ ] CR form fields: title (required), description (required, markdown), rationale (required).
 - [ ] CR surfaces as an actionable CR row on the project page + an actionable `cr_raised` notification (Accept / Decline rendered inline for the assigned volunteer — decision-15; no chat channel).
 - [ ] Accept / Decline records `decided_at` and `dev_response_note`.
-- [ ] On Accept, platform creates **one PM task** (REQ-026) under a "Change Request: [title]" parent task, with the CR's `description` as the task body, **`priority = 'p0'` (so CR-accepted work blocks handoff per REQ-012; codex round 6 fix)**. Volunteer can manually add sub-tasks (REQ-026 `source = 'manual'`) which also default to `p0`; volunteer can explicitly downgrade specific sub-tasks if needed (downgrade is audit-logged). Task IDs stored on the CR record (`change_requests.created_task_ids`). **No GitHub issues are created.** (v1.5 enhancement: AC field + AI agent for multi-task auto-derivation.)
+- [ ] On Accept, platform creates **one Linear issue** (REQ-026, API, platform actor) under a "Change Request: [title]" parent, with the CR's `description` as the issue body and the **`p0` label (so CR-accepted work blocks handoff per REQ-012; codex round 6 fix)**. Volunteer can add sub-issues in Linear, which also default to `p0`; explicit downgrades are visible in Linear history. Projection row IDs stored on the CR record (`change_requests.created_task_ids`). **No GitHub issues are created.** (v1.5 enhancement: AC field + AI agent for multi-issue auto-derivation.)
 - [ ] Notifications: `cr_raised` (→ volunteer), `cr_decided` (→ NGO). **No `cr_completed` notification in v1** (deferred).
 - [ ] Volunteer's public completion credit (REQ-014) is **not** affected by declining CRs.
 - [ ] NGO can manually mark CR `completed` via a small action link on the CR row (for record-keeping).
@@ -1512,7 +1516,7 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 - Task 25.1: `change_requests` schema + RLS (~3h)
 - Task 25.2: "Request a Change" form (NGO side; minimal modal) (~3h)
 - Task 25.3: CR-row actionable surface (project page + notification) with inline Accept/Decline buttons (volunteer side) — decision-15 (~4h)
-- Task 25.4: PM task creation on Accept (sub-tree under "Change Request: [title]" parent, REQ-026) (~5h)
+- Task 25.4: Linear issue creation on Accept via API (under a "Change Request: [title]" parent, REQ-026) (~4h)
 - Task 25.5: Notifications wiring for `cr_raised` / `cr_decided` (~2h)
 - Task 25.6: NGO "mark completed" action link (~1h)
 
@@ -1524,174 +1528,103 @@ A volunteer can lean the mix either way: backend-heavy Track-A projects keep Lov
 
 ---
 
-#### REQ-026: Platform Task Management (git-as-truth PM tree, mirrored to Postgres)
+#### REQ-026: Platform Task Management (Linear as system of record, mirrored to Postgres — decision-20)
 
-> **⚠️ Decision-9 re-scope (2026-06-06):** The PM tree is **stored in git on the project repo** (`ai4good-projects/<slug>/.taskmaster/tasks/tasks.json`), written by the volunteer's local TaskMaster, and mirrored into Postgres via a GitHub webhook for NGO visibility. **ai4good does NOT host a task MCP server** and does NOT host TaskMaster. The sections below that describe a `mcp.ai4good.dev/projects/:id/mcp` endpoint with `list_tasks` / `update_task` / `add_task` / `comment_task` / `get_project_context` tools — those are **DROPPED**. Volunteer's Claude Code talks to its local TaskMaster MCP; ai4good's NGO surface reads the projection. The remainder of REQ-026 (data model, NGO UI behavior, commit-prefix linkage, lifecycle auto-archive, comments + blockers, RLS, audit) stays — re-interpreted with Postgres as a derived read-side projection rather than the write target.
+> **⚠️ Decision-20 re-architecture (2026-07-05) — REPLACES decision-9's git-as-truth `tasks.json` tree.** Ground: **"real signals, not AI-authored narratives"** — under decision-9 the volunteer's *agent* was the designed writer of task state, so every NGO-visible status was ultimately agent prose with a git wrapper. Linear provides what the platform actually needs: native **webhooks** (event-granular, real-time, actor-attributed) feeding progress projection; an enforceable read/write split; no shared-file merge conflicts under parallel worktrees; a hosted backlog that exists **pre-clone** (an onboarding surface); and OAuth-per-volunteer attribution for free. **Deleted from v1:** TaskMaster + `tasks.json` in the project repo, the Skill auto-commit hook (REQ-028), the `github-webhook` `tasks.json` ingest + diff, the `head-sha-reconcile` worker, the bootstrap-from-Discovery git commit, and the export-proxy endpoint. The dead ai4good-MCP-in-Lovable Chat-Connector machinery (a decision-9 orphan) is deleted with them — the Linear MCP replaces that surface entirely.
 
-**Description:** A hierarchical task tree per project — the **source of truth for NGO-visible deliverables** and the canonical surface for "what the dev (and their AI agents) are currently working on." Modeled after TaskMaster's tree-of-tasks pattern. **Storage: `.taskmaster/tasks/tasks.json` in the project repo (git), mirrored into Postgres `project_tasks` via GitHub webhook for NGO UI and cross-project queries.** GitHub Issues are not used as the PM layer; they remain dev-internal for code bugs only (REQ-008).
+**Description:** Task state lives in **Linear** — one **free Linear workspace per NGO project** (mirrors the Lovable workspace-per-project pattern). Volunteers (and their agents, via the volunteer's OAuth) read the backlog, self-assign, and comment; **status transitions are deterministic** — Linear's GitHub integration moves issues on PR merge. ai4good observes via Linear webhooks and mirrors into the Postgres `project_tasks` **projection** for the NGO-facing Status Panel (REQ-010) and the REQ-033 assistant. **One-way mirror: Linear → Postgres.** GitHub Issues stay dev-internal for code bugs only (REQ-008).
 
-**Architectural shape (decision-9):**
-- **Volunteer's laptop:** runs `task-master-ai` locally; mutations write to `.taskmaster/tasks/tasks.json` in the repo working copy; the ai4good Skill (REQ-028) auto-commits + pushes after each TaskMaster mutation.
-- **GitHub:** holds the canonical `tasks.json`. Every push is an immutable, audited mutation event.
-- **ai4good webhook receiver:** on every push event affecting `.taskmaster/tasks/tasks.json`, fetches the file via the GitHub App, diffs against the projection, upserts into `project_tasks` + `task_comments` (volunteer-side comments) in Postgres. **One-way mirror: git → Postgres.**
-- **ai4good Postgres:** holds (1) the read-side projection `project_tasks` (NEVER written to directly by user code — only by the webhook worker), (2) the NGO-side `task_comments` (NGO appends here via REST/UI; joined to tasks at render), (3) the orthogonal stores `project_blockers` (REQ-024), `fuel_transactions` (REQ-006), `audit_events` (REQ-029 — captures NGO actions and webhook ingest events, not task mutations, which are git log).
-- **ai4good NGO UI:** reads `project_tasks` join `task_comments` join `project_blockers` from Postgres. Writes only to `task_comments`, `project_blockers`, change requests — NEVER to `project_tasks`.
-- **Audit trail:** git log for task mutations (author, timestamp, diff per commit); `audit_events` for NGO-side actions and webhook ingest provenance.
+**Platform-owned coordination infrastructure (write this asymmetry down):** delivery infrastructure is NGO-owned (the Lovable workspace, the repo); **coordination infrastructure is platform-owned (Linear, the gateway) — it does not transfer at handoff.** Post-handoff the workspace sits dormant at $0; a CI job snapshots the task tree into the repo as markdown for handoff residency (hedges exportability + dependency risk). If a paid Linear tier is ever required, the platform pays — never the NGO.
 
-**Core concepts:**
+**Workspace provisioning (honest automation boundary):** Linear's free plan includes API + webhook access, unlimited members, 2 teams, and a 250-active-issue cap — verified at docs level 2026-07-05; the first project workspace doubles as the empirical test. **Workspace creation has no public API** — creating the workspace, connecting the GitHub integration, and registering the webhook is a **~5-minute manual concierge step** inside the kickoff `ops_task` (`linear_workspace_setup`), consistent with the concierge posture. Member invites and everything after creation are API-automated.
 
-| Concept | What it is |
-|---|---|
-| **Task** | Atomic unit of work. Has title, description, status, priority, position (order), parent. |
-| **Status** | `not_started` → `in_progress` → `done`; or `blocked` (orthogonal — blocker IDs link via REQ-024) |
-| **Hierarchy** | Parent → children → grandchildren. v1 supports unlimited depth, expected depth 2-3. |
-| **Source** | `discovery` (auto-generated from Discovery output), `change_request` (created from accepted CR), `manual` (dev added a sub-task during work) |
-| **Currently chewing** | Any task with `status = 'in_progress'`. NGO sees this as "Now working on" highlight on the project page. |
+**Decomposition (coordinator-owned; automation drafts, a human owns):** at funding, the platform drafts the issue tree from Discovery's `userStories[]` + `acceptanceCriteria[]` (one parent issue per story, one sub-issue per acceptance criterion, `p0` label); the platform admin (concierge coordinator) reviews/edits the draft; the approved tree is pushed via the Linear API. **Task briefs must be session-sized and dependency-ordered** — a platform/coordinator responsibility, and the precondition for both pull-model correctness and per-task burn data meaning anything (REQ-034). Backlog sequencing is encoded with Linear blocking relations at decomposition time.
 
-**Task tree bootstrap (at project kickoff, when status → `in_progress`):**
+**Pull-based workflow (volunteer-facing):**
+- **Self-assignment is the commitment signal** — the assignment webhook flips the panel to "in progress." Volunteers pull the next unblocked issue; the coordinator does not push assignments.
+- Norms (carried in CLAUDE.md + the injected governance prompt, REQ-009): one issue in progress at a time (one per worktree if parallel); assign before starting; comment when blocked; **never move status by hand**.
+- Onboarding sequence: match → workspace invite (API) → volunteer browses session-sized briefs **before cloning anything** → first Claude Code session OAuths the Linear MCP via the repo's committed `.mcp.json` (one-time; silent refresh after) → first pull activates attribution (REQ-034).
+- **Staleness:** an in-progress issue with no branch activity for N days raises a coordinator flag proposing release back to the backlog (a branch of the REQ-027 aging scan).
+- **Agentic loops:** volunteers are free to run loops — the governance stack is request-shaped and loop-agnostic. The repo template ships a skeptical reviewer-agent skill (a default, not a wall); loops must degrade gracefully on MCP auth failure (queue Linear updates locally, surface at session end); **loop PRs are never auto-merged.**
 
-1. Platform reads the scope doc's `userStories[]` and `acceptanceCriteria[]` from Discovery output.
-2. Creates a top-level task per user story (`source = 'discovery'`).
-3. Under each user story, creates sub-tasks per acceptance criterion.
-4. Default priority `p0` for all Discovery-derived tasks (volunteer / NGO can re-prioritize later).
-5. Initial status: all `not_started`.
+**Write authority (real-signals enforcement):**
 
-**Dev-side interaction (decision-9: local TaskMaster + git auto-commit):**
+| Actor | Can | Cannot |
+|---|---|---|
+| Volunteer + their agents (volunteer OAuth) | Read everything; comment freely; assign self | **Change issue status** |
+| Linear GitHub integration | Move status on branch/PR events (merge → Done) | — |
+| Platform (API actor) | Create issues (decomposition, CR-accept), invite members, revert, cancel p1/p2 at handoff | — |
+| NGO | Nothing in Linear (no seats) — visibility is the Status Panel exclusively | — |
 
-The dev marks task status via their **local TaskMaster** — full UX, all 33 tools, native CLI / MCP. The ai4good Skill (REQ-028) auto-commits + pushes `.taskmaster/tasks/tasks.json` after each mutation, so the canonical state lives in git within seconds of the dev's action.
+- Linear OAuth scopes **cannot express** "assign+comment but no status change," so the split is enforced one layer up: **detect-and-revert** — the `linear-webhook` Edge Function auto-reverts any status-change event whose actor is not the GitHub integration and which has no linked merged PR, via the API, with an explanatory comment. A wrapper-MCP (a proxy exposing only list/read/assign/comment) is held in reserve; *trigger: detect-and-revert proves noisy.*
+- Agent actions are attributed to the volunteer's Linear identity — human vs agent is indistinguishable in webhooks (accepted; the volunteer owns their agents' actions). Convention only: agents prefix their comments.
 
-- **Local TaskMaster CLI / MCP** (volunteer's laptop): `task-master next`, `task-master set-status --id=X --status=done`, or via Claude Code's MCP integration. No ai4good auth tokens involved — the volunteer's TaskMaster talks to their own filesystem.
-- **Skill auto-commit hook** (REQ-028): after every TaskMaster mutation, runs `git add .taskmaster/tasks/tasks.json && git commit -m "task-<X>: <op>" && git push`. Volunteer doesn't have to think about it. If the push fails (no network, auth issue), Skill surfaces it as a recoverable warning and retries on next mutation or session end.
-- **Bootstrap from Discovery** (a Supabase Edge Function, Deno, at project funding): the platform reads the scope doc's `userStories[]` + `acceptanceCriteria[]`, generates the initial `tasks.json`, and commits it to the new `ai4good-projects/<slug>` repo as the first commit on `main` (author: `ai4good-bot[bot]` via the GitHub App). Volunteer's local `task-master init` after `git clone` picks up the seeded tree.
-- **NGO context for the Skill** — `get_project_context` is a **Supabase Edge Function** (`GET {AI4GOOD_API_BASE}/projects/:id/context`, where ai4good_api_base resolves to the Supabase Edge Functions base URL per REQ-028), NOT an MCP tool. Returns `{project_id, slug, scope_summary, current_status, github_repo_url, lovable_status, blockers_summary[], task_comments_recent[], fuel_balance_cents, fuel_burn_rate_cents_per_day_7d_avg, fuel_runway_estimate_days, lovable_orchestration_allowed}`. The Skill calls it at session bootstrap to prime context, and on demand for `/ai4good:fuel` / `/ai4good:blockers`. Bearer auth via the volunteer's `tok_volunteer_<project_id>` (issued at match acceptance, lives in `~/.ai4good/config.json`).
-- **NGO comments + blocker raise** — also Supabase Edge Functions (`POST {AI4GOOD_API_BASE}/projects/:id/tasks/:task_key/comments`, `POST {AI4GOOD_API_BASE}/projects/:id/blockers`). ONE Edge Function per write path accepts EITHER a Supabase JWT (UI caller) OR a per-project bearer token (Skill caller), with the same underlying writer + notify() call — used by the ai4good UI and by the Skill's `/ai4good:raise-blocker` command. Writes go to Postgres (`task_comments`, `project_blockers`). Joined to the task projection at render time.
-- **Manual fallback** on the ai4good project page: NGO admin can resolve blockers, add comments, request changes via UI; volunteer can use the UI as a read-only review of git state (no UI-side task editing — the dev's TaskMaster is the only write path).
+**Projection (`linear-webhook` Supabase Edge Function, Deno):** receives issue/assignment/comment/status webhook events (signature-verified), upserts `project_tasks` rows (`linear_issue_id`, `linear_identifier` e.g. `A4G-12`, title, status, labels → `priority`, parent linkage, assignee), records one `audit_events` row per delivery (`delivery_id` de-dup), and runs the detect-and-revert branch. The projection is written by this consumer **only**. NGO comments stay in Postgres `task_comments` (decision-15 — the project comment thread); **Linear comments are dev-internal** and are not mirrored into the NGO view.
 
-**What's NOT in v1 (dropped by decision-9):** `mcp.ai4good.dev/projects/:id/mcp` HTTP MCP server; the `list_tasks` / `update_task` / `add_task` / `comment_task` MCP tools as ai4good-hosted tools; per-role MCP bearer tokens for tasks (`tok_workspace_*` token for tasks specifically — the workspace token still exists for the **Lovable consent gate** described under REQ-021/028, but it does NOT authorize ai4good task-MCP calls because there are no such calls). **Lovable does NOT call ai4good's MCP for tasks** (it doesn't exist); on Track A, the volunteer's Claude Code orchestrates Lovable via Lovable's own MCP (REQ-028 LovableDriver) and mirrors any resulting task status changes through the same local-TaskMaster → git → webhook → Postgres path.
+**Lifecycle hooks:**
+- **CR Accept (REQ-025):** the platform creates one `p0` Linear issue under a "Change Request: [title]" parent via the API (platform actor). No direct `project_tasks` write.
+- **`handoff_pending`:** platform cancels remaining `p1`/`p2` not-started issues via API (audit comment: `lifecycle_handoff`); **p0 issues are never auto-cancelled** (handoff requires all p0 done, REQ-012). The CI snapshot job commits the final tree as markdown to the repo.
+- **`handed_off`:** volunteer's workspace membership removed; projection marked read-only; workspace dormant at $0.
+- **Abandonment (REQ-027):** the ex-volunteer's assigned in-progress issues are unassigned + returned to the backlog via API; membership removed.
 
-**Commit ↔ task linkage:**
-- Convention: commit messages reference task `task_key` (e.g. `task-3.2: add scheduler core` or `Closes task-12`)
-- A small commit-message parser in the GitHub webhook handler (REQ-008) extracts `task-N` / `task-N.M` references and appends the commit SHA to the task's `external_commit_refs[]`. Auto-status transitions: first commit referencing a `not_started` task → status `in_progress`; commit with `Closes task-X.Y` or PR merge with that ref → status `done`.
-- Tasks with at least one referenced commit show a "commits" indicator on the project page
-- Tasks marked `done` without any commit reference get flagged at handoff (REQ-012 verification step)
+**Acceptance Criteria (decision-20):**
+- [ ] `project_tasks` survives as the **read-side projection** — written only by the `linear-webhook` consumer and lifecycle API jobs; adds `linear_issue_id` (unique) + `linear_identifier`; keeps join compatibility with `task_comments`, `project_blockers`, `audit_events`.
+- [ ] Kickoff `ops_task` (`linear_workspace_setup`): manual workspace creation + GitHub-integration connect + webhook registration (~5 min, checklist in the ops UI); then API-automated: volunteer invite, decomposition push, label set (`p0/p1/p2`, `change-request`).
+- [ ] Decomposition draft generated from Discovery output; coordinator edit/approve step; push via Linear API; issues carry session-sized briefs + blocking relations.
+- [ ] `linear-webhook` Edge Function: signature verification, projection upsert, `delivery_id` de-dup in `audit_events`, detect-and-revert on non-integration status changes (revert + explanatory comment + `linear_status_reverted` low-tone notification to the volunteer).
+- [ ] Status flows only from the GitHub integration (PR merge → Done; branch link → In Progress). The volunteer-facing norm + the injected prompt say never to move status; detect-and-revert enforces it.
+- [ ] NGO Status Panel (REQ-010) renders "Now working on" strip + hierarchical tree + activity feed from the projection (Supabase Realtime on row changes) — UI unchanged from the prior design; only the feed source changed.
+- [ ] Volunteer can raise task-anchored `clarifying_question` blockers (REQ-024) from the panel or the Skill; NGO appends `task_comments`; scope changes go through CR (REQ-025) — all unchanged.
+- [ ] Repo template commits `.mcp.json` (Linear MCP) + `.claude/settings.json` (ai4good-owned hooks, REQ-034) + the reviewer-agent skill; `.a4g/` carries the fingerprint (committed) and task binding (gitignored) per REQ-009/034.
+- [ ] CI snapshot job: on `handoff_pending` (and weekly while `in_progress`), commit `docs/task-tree.md` snapshot to the repo (`job_runs` heartbeat `tree_snapshot`).
+- [ ] Staleness branch in the hourly aging scan: in-progress issue, no linked branch activity for N days → coordinator flag (ops surface), proposing release to backlog.
+- [ ] RLS on the projection mirrors `projects.visibility` (public → open SELECT; private → members only) — unchanged.
+- [ ] **[VERIFY — architecture-deciding, run on the first workspace]:** free-tier webhook registration + API mutations + programmatic invites behave as documented. Fallback if the free tier regresses: Basic tier (platform pays) or git-based task state with a deterministic truth layer.
 
-**Task status update sources (decision-9: local TaskMaster → git → webhook):**
+**Task Breakdown Hint (decision-20):**
+- Task 26.1: `project_tasks` projection schema deltas (`linear_issue_id`, `linear_identifier`) + RLS (~2h)
+- Task 26.2: Decomposition draft from Discovery output + coordinator review surface + Linear API push (~6h)
+- Task 26.3: Project page NGO view — strip + tree + activity feed from projection (~10h, unchanged)
+- Task 26.4: `linear-webhook` consumer — verification, upsert, de-dup, detect-and-revert (~8h)
+- Task 26.5: Kickoff ops checklist (`linear_workspace_setup`) + API invite + label bootstrap (~3h)
+- Task 26.6: NGO REST Edge Functions (context / comments / blockers) — unchanged surface (~5h)
+- Task 26.7: CI tree-snapshot job + handoff cancel-p1/p2 + read-only-at-handed_off (~3h)
+- Task 26.8: Staleness flag branch in the aging scan (~1h)
 
-| Project shape | How task status reaches the NGO UI |
-|---|---|
-| **Claude-Code-only** (`lovable_recommended = false`) *(reserved — post-v1 Track B, decision-19; not taken in v1)* | Volunteer's local Claude Code calls local TaskMaster (CLI or MCP) → writes to `.taskmaster/tasks/tasks.json` → Skill auto-commits + pushes → GitHub webhook fires on push → ai4good worker fetches the file → projection upsert → NGO UI re-renders. End-to-end latency target: <30s from local mutation to NGO-visible state. |
-| **Lovable-recommended** (`lovable_recommended = true`, Track A) | Volunteer's Claude Code (the orchestrator per REQ-028) makes Lovable calls via Lovable's MCP. Task status mutations still flow through the **same local TaskMaster path** — the Skill mirrors meaningful Lovable outcomes back into TaskMaster (e.g., "Lovable shipped a working feature" → Skill calls `task-master set-status --id=X --status=done` locally → auto-commit). Lovable itself never writes to ai4good's task store. |
-| **Dual-rail** (Lovable + Claude Code on same repo) | Same as above — there is only one source of task mutations: the volunteer's Claude Code + local TaskMaster + git. Lovable is a build tool driven by Claude Code; it doesn't compete for the task tree. Avoids the prior "two writers, lock conflict" complexity entirely. |
-
-**Reliability:** task-status writes go through git (an immutable, audit-rich, well-tested system) and arrive at the NGO UI via a standard webhook pattern. No optimistic locking, no MCP framing, no race conditions between writers — there is only **one writer** per project (the volunteer's local TaskMaster on their laptop). If the push fails (network), the Skill retries; the canonical state lives in the volunteer's working copy until it does. If the webhook fails (ai4good outage), the next push retries via GitHub's redelivery; the canonical state is already in git regardless.
-
-**Idempotency rule:** the webhook receiver compares the incoming `tasks.json` against the current projection and applies the diff. If the same push event is delivered twice (GitHub's at-least-once semantics), the second application is a no-op. Webhook events include a `delivery_id` for de-dup in `audit_events`.
-
-**NGO-side UI (on Project Page NGO view, REQ-010):**
-- **"Now working on" prominent strip at the top**: lists all `in_progress` tasks with their parent task names, started-at time, and last-commit-time
-- **Task tree** below: collapsible, plain-language, hierarchical. Each node shows status badge (color + icon) and (for parents) child progress (`4/7 done`).
-- **Activity feed** to the right: chronological status transitions ("Volunteer started Task 3.2 — 2h ago", "Volunteer completed Task 3.1 — 1d ago")
-- **Cannot edit task content** directly — changes go through Change Request flow (REQ-025). NGO can comment on tasks, however.
-
-**Task-anchored clarification (volunteer-initiated; reuses REQ-024 blocker mechanism):**
-- When a volunteer has a question or concern about a specific task they're working on, the task UI has a **"❓ Raise concern on this task"** CTA. Clicking it creates a `clarifying_question` blocker (REQ-024) **anchored to the task** via a new `project_blockers.task_id` field.
-- The full REQ-024 blocker flow fires: NGO notified, "Awaiting NGO clarification" banner appears on project page, `blocker_raised` notify() event (decision-15 — no channel post), 48h/7d aging escalation, persistent Q&A log on resolution.
-- Banner anchoring: *"1 clarification pending on Task 3.2 — Implement scheduler"* (more useful than a floating "1 clarification pending").
-- On resolution, the Q&A persists in the Clarifications log AND inline on the task — the task knows which questions came up during its build.
-- **NGO can leave short comments via `task_comments`** (append-only feedback like "looks great on staging" or "small typo in the heading") — see REQ-026 comment rule below. NGO comments are append-only and do NOT change task content/status. **Scope changes go through CR (REQ-025); task-anchored concerns are dev-initiated blockers.**
-- No "casual updates" concept from the dev side — anything dev wants to share with themselves goes in commit messages; anything needing NGO action is a structured blocker.
-
-**Task mutation permission rules (decision-9):**
-
-| Surface | Who | What they can do | What they cannot do |
-|---|---|---|---|
-| **Local TaskMaster** (volunteer's laptop) | Volunteer | All task mutations — status, title, description, priority, add/remove tasks/subtasks/dependencies. Skill auto-commits + pushes after each mutation. | Cannot mutate any other project's task tree (TaskMaster is per-repo; volunteer only has push rights to their own assigned `ai4good-projects/<slug>`). |
-| **ai4good UI** (project page) | Volunteer | Read tasks (rendered from the projection); raise blockers on a task ("❓ Raise concern"); no direct task edits — for edits, the volunteer goes to their local TaskMaster. The UI is read-only for the task tree itself. | Cannot mutate task content/status from the UI (one-write-path rule — git is canonical). |
-| **ai4good UI** | NGO admin | Read tasks; append to `task_comments` (NGO-side comments, stored in Postgres, joined to tasks at render); raise change requests (REQ-025). | Cannot mutate task content/status. Scope changes go through CR. |
-| **GitHub direct edit** (theoretical) | Anyone with repo push access | Would mutate the task tree by editing `tasks.json` directly. **The Skill discourages this** (volunteers use TaskMaster, not raw JSON edits) but it is technically possible. The webhook receiver applies the diff regardless of authorship. | — |
-
-**Single writer per project** is the load-bearing invariant. There are NO concurrent writers competing for `tasks.json`: only the assigned volunteer (via local TaskMaster on their one laptop). The previous architecture's "optimistic locking" requirement disappears entirely.
-
-**Audit attribution:** task mutations are git commits — `git log` records author + timestamp + diff with no additional bookkeeping. The webhook receiver writes an `audit_events` row per ingest event with `actor_source = 'git_push'` and `git_commit_sha` populated so NGO-side events and git-side events can be correlated in queries. NGO comments + blocker raises continue to land in `audit_events` with `actor_source = 'ui_ngo'` / `'rest_api_volunteer'` / `'skill_command'`.
-
-**No MCP tokens for tasks in v1.** Decision-9 eliminates the platform task-MCP server entirely. The `tok_volunteer_<project_id>` token issued at match acceptance authorizes the Skill's REST calls (context fetch, blocker raise, comment write) and is NOT a TaskMaster authorization (TaskMaster runs locally with no auth). `tok_workspace_<project_id>` still exists for the **Lovable NGO consent gate** described in REQ-021/028, but does not authorize task mutations — there is nothing to authorize because there is no platform task MCP.
-
-**Auto-archive on lifecycle:**
-- At `handoff_pending`: **`not_started` tasks with `priority IN ('p1','p2')` only** are archived (`status = 'done'` with `auto_archived_reason = 'lifecycle_handoff'` in metadata). **P0 tasks are NEVER auto-archived** — handoff requires all P0 tasks to be explicitly `done` (REQ-012 precondition), so an unfinished P0 task is a real blocker, not aspirational scope (codex round 3 lifecycle fix).
-- At `handed_off`: task tree becomes read-only.
-
-**Export endpoint (transparency):**
-- `GET {AI4GOOD_API_BASE}/projects/:id/tasks/export.json` (Supabase Edge Function) → returns full task tree in a TaskMaster-compatible JSON shape — OR drop per decision-9 (the repo IS the export)
-- Devs can commit this to the repo (`/.taskmaster/tasks.json`) for offline / fork transparency
-- Not actively synced — snapshot on demand
-
-**Acceptance Criteria (decision-9):**
-- [ ] `project_tasks` table created as the **read-side projection** of git state — never written by user-facing code paths, only by the webhook ingest worker. Schema preserved from prior version (id, project_id, parent_task_id, task_key, title, description, status, priority, source, change_request_id, external_commit_refs, started_at, completed_at, metadata) for join compatibility with `task_comments`, `project_blockers`, `audit_events`.
-- [ ] On project `in_progress` transition, the **bootstrap-from-Discovery Supabase Edge Function (Deno)** generates the initial `tasks.json` from Discovery's `userStories[]` + `acceptanceCriteria[]` and **commits it to the project's GitHub repo** as the first commit on `main` (ai4good GitHub App authorship). Idempotent — re-run is a no-op if any `source='discovery'` rows are already present in the projection.
-- [ ] the **`github-webhook` Supabase Edge Function (Deno)** receiving `push` events on `ai4good-projects/*` (the single ingestPush() projection writer) parses the commit's file list; if `.taskmaster/tasks/tasks.json` is modified, fetches the post-push file via the GitHub App API, diffs against the current projection, upserts changed rows into `project_tasks`. Records each ingest as one `audit_events` row with `git_commit_sha`, `actor_source = 'git_push'`, `delivery_id` for de-dup.
-- [ ] **Push retry / catch-up:** if the webhook receiver was down when a push happened, GitHub's redelivery picks it up; additionally, a low-frequency **pg_cron schedule → `head-sha-reconcile` Supabase Edge Function (Deno)** polls each active project's `main` HEAD SHA and reconciles any missed pushes against the projection; job_runs heartbeat.
-- [ ] Dev mutates task state via **local TaskMaster** only. The Skill (REQ-028) auto-commits + pushes `.taskmaster/tasks/tasks.json` after each mutation. No ai4good-side write API for tasks.
-- [ ] Project Page NGO view renders "Now working on" strip, task tree, activity feed from the Postgres projection (see REQ-010). Real-time push to the UI via Supabase Realtime on `project_tasks` row changes.
-- [ ] Volunteer can raise task-anchored clarification blockers via "❓ Raise concern on this task" — both from the ai4good UI and from the Skill's `/ai4good:raise-blocker --task=X` command. Creates a `clarifying_question` blocker (REQ-024) with `task_id` set, via the **`raise-blocker` Supabase Edge Function** (`POST {AI4GOOD_API_BASE}/projects/:id/blockers`, accepting EITHER a Supabase JWT or a per-project bearer token). Banner anchors to the task; Q&A persists on the task and in the Clarifications log on resolution.
-- [ ] **NGO can append to `task_comments` via the ai4good UI / REST API** (small feedback like typo / staging-feedback notes); cannot mutate task content/status (the volunteer's git is the only write path for task content). Scope changes go through CR (REQ-025); task-anchored concerns are dev-initiated blockers.
-- [ ] On `handoff_pending`, the platform writes a final commit to the repo that auto-archives `not_started` tasks with `priority IN ('p1','p2')` (sets their status to `done` with `auto_archived_reason = 'lifecycle_handoff'` in JSON metadata) and pushes. **P0 tasks are NEVER auto-archived** (handoff requires all P0 done per REQ-012). Webhook picks up the commit and reflects in the projection.
-- [ ] On `handed_off`, the projection is marked read-only at the application layer; the git repo also becomes read-only-by-policy (volunteer push rights revoked per REQ-007 teardown).
-- [ ] **TaskMaster-compatible export endpoint** dropped — the project repo IS the export. `git clone <repo>; cat .taskmaster/tasks/tasks.json` is the canonical export. Optional convenience: `GET {AI4GOOD_API_BASE}/projects/:id/tasks/tasks.json` (Supabase Edge Function) proxies to the repo's current `main` HEAD via the GitHub App, returning the raw `tasks.json` (read-only, no auth other than project membership for private projects).
-- [ ] Notifications: `task_status_changed`, `task_completed`, `task_comment` fire from the webhook ingest worker (post-projection-upsert), added to REQ-016. Comment notifications fire from the REST API handler on `task_comments` insert.
-- [ ] RLS — read access depends on `projects.visibility`:
-  - **Public projects (`visibility = 'public_mit'`):** task tree is publicly readable. Git repo is public; the projection is RLS-open for SELECT.
-  - **Private projects (`visibility = 'private'`):** task tree is read-restricted to assigned volunteer + NGO admins + platform admins. Git repo is private (GitHub permissions). Projection RLS denies SELECT to logged-out / non-member viewers; the public project page shows only completed-vs-total count and a "Volunteer is working on a private task" placeholder.
-  - **All projects:** no UI-side write path for `project_tasks`. NGO comments + blockers honor their own RLS rules per REQ-024.
-
-**Task Breakdown Hint (decision-9 — reduced from 10 sub-tasks / ~54h to 7 sub-tasks / ~28h):**
-- Task 26.1: `project_tasks` projection schema + RLS + `task_comments` table + `project_blockers.task_id` column (~4h)
-- Task 26.2: **Bootstrap-from-Discovery Supabase Edge Function (Deno)** — read scope doc → generate `tasks.json` → commit to repo via GitHub App (~5h)
-- Task 26.3: Project page NGO view — "Now working on" strip + hierarchical task tree + activity feed reading from projection (~10h)
-- Task 26.4: **GitHub webhook receiver** — push event filter → fetch updated `tasks.json` → diff against projection → upsert (~6h)
-- Task 26.5: **HEAD-SHA reconciliation worker = pg_cron → `head-sha-reconcile` Supabase Edge Function (Deno)** — periodic poll of each active repo's `main` HEAD SHA for missed webhooks; reconciles diffs + job_runs heartbeat (~2h)
-- Task 26.6: NGO REST API as **Supabase Edge Functions under /functions/v1/** — `POST /projects/:id/tasks/:task_key/comments`, `POST /projects/:id/blockers`, `GET /projects/:id/context`, `GET /projects/:id/tasks/tasks.json` (proxy); per-project bearer-token auth (~5h)
-- Task 26.7: Task-anchored "Raise concern" CTA + auto-archive-on-handoff_pending commit + read-only on handed_off (~3h)
-
-**Dropped from Task Breakdown Hint by decision-9:** old Task 26.5 (REST API for task CRUD/status updates ~8h — task writes don't exist anymore), old Task 26.6 (MCP server ~10h — no platform task MCP), old Task 26.7 (commit-message parser ~5h — repo IS the source so prefix parsing is no longer the path; replaced by webhook ingest above), old Task 26.10 (export endpoint ~3h — folded into Task 26.6 as a proxy).
-
-**Dependencies:** REQ-004 (Discovery output schema, for bootstrap), REQ-005.5 (project status transitions, especially the `in_progress` trigger for bootstrap and the `handoff_pending` auto-archive trigger), REQ-008 (GitHub App + webhook infrastructure — decision-9 leverages the webhook plumbing for the task ingest), REQ-010 (project page views), REQ-016 (notifications).
+**Dependencies:** REQ-004 (Discovery output for decomposition), REQ-005.5 (lifecycle triggers), REQ-008 (GitHub App + the repo the GitHub integration links to), REQ-010 (panel), REQ-016 (notifications), REQ-024/025 (blockers/CRs), REQ-034 (attribution binding rides assignment). **New external dependency: Linear** (free workspace per project; coordination infra, platform-owned).
 
 ---
 
 #### REQ-028: ai4good Claude Code Skill (volunteer-facing single pane of glass)
 
-**Description:** A [Claude Code Skill](https://docs.claude.com/en/docs/claude-code/skills) shipped by ai4good that turns the volunteer's local Claude Code into the canonical operating environment for ai4good projects. The Skill packages ai4good's behavioral conventions, helper slash commands, and the **auto-commit-on-TaskMaster-mutation hook** (decision-9) as installable, updatable agent code — rather than as docs the volunteer has to read and remember. **One-command install** (`claude skill install ai4good`); auto-runs on every Claude Code session opened in an ai4good repo.
+**Description:** A [Claude Code Skill](https://docs.claude.com/en/docs/claude-code/skills) shipped by ai4good that turns the volunteer's local Claude Code into the canonical operating environment for ai4good projects. The Skill packages ai4good's behavioral conventions, helper slash commands, and the **session-governance behaviors** (task binding, Linear pull-model norms — decisions 20/22) as installable, updatable agent code — rather than as docs the volunteer has to read and remember. **One-command install** (`claude skill install ai4good`); auto-runs on every Claude Code session opened in an ai4good repo.
 
-> **Decision-9 impact (2026-06-06):** the Skill no longer talks to a platform task-MCP server (there isn't one). It (a) drives the volunteer's **local** `task-master-ai` MCP for task mutations, (b) auto-commits + pushes `.taskmaster/tasks/tasks.json` after each mutation so git becomes the canonical state, and (c) calls ai4good's **REST API** for NGO-side context (blockers, comments, fuel, project context).
+> **Decision-20 impact (2026-07-05; supersedes the decision-9 note):** tasks live in **Linear**. The Skill (a) reads / self-assigns / comments issues via the volunteer's **Linear MCP** OAuth (never status — that's the GitHub integration's job, REQ-026), (b) maintains the per-worktree task binding `.a4g/task.md` via the PostToolUse assignment hook (REQ-034), and (c) calls ai4good's **REST API** for NGO-side context (blockers, comments, fuel, project context). The decision-9 tasks.json auto-commit hook is deleted — there is no tasks.json.
 
 **Why a Skill (vs docs):** ai4good's operating model (commit-prefix convention, MCP server setup, when to use Lovable vs local, fuel-budget awareness, handoff checklist) is non-trivial. Putting it in docs means every volunteer reads it once at onboarding and then drifts. Putting it in a Skill means the behavior runs every session — and updates ship via Claude Code's standard Skill update mechanism, so the platform's opinion is always live and current. **Same packaging model used by Claude Code's official Skills** like `format-pdf` or `excel-create`.
 
 **v1 minimal scope:**
 
 - **One-command install:** `claude skill install ai4good` (Skill published open-source MIT to ai4good's GitHub; can also be registered with the Claude Code skill registry).
-- **`.ai4good/config.json` in the repo** (committed; non-secret): `{ project_id, ai4good_api_base: "https://ai4good.dev/api" }`. Seeded by REQ-008 at repo creation. **Note (decision-9):** no `mcp_server_url` field — there is no platform task MCP. The Skill drives local TaskMaster directly.
-- **`~/.ai4good/config.json` in the volunteer's home dir** (gitignored; secret): `{ "<project_id>": { "token": "tok_volunteer_..." } }`. Populated via `claude skill exec ai4good login` (one-time per project). The token authorizes ai4good REST calls (context, blockers, comments) — NOT task mutations (those go through local TaskMaster).
+- **`.ai4good/config.json` in the repo** (committed; non-secret): `{ project_id, ai4good_api_base: "https://ai4good.dev/api" }`. Seeded by REQ-008 at repo creation. **Note (decisions 9/20):** no `mcp_server_url` field — there is no platform task MCP; tasks live in Linear via the repo's committed `.mcp.json`.
+- **`~/.ai4good/config.json` in the volunteer's home dir** (gitignored; secret): `{ "<project_id>": { "token": "tok_volunteer_..." } }`. Populated via `claude skill exec ai4good login` (one-time per project). The token authorizes ai4good REST calls (context, blockers, comments) — task interaction goes through the Linear MCP, and LLM traffic through the gateway virtual key (three credentials, three revocation semantics).
 - **Session bootstrap** (auto-runs at start of any Claude Code session in a repo containing `.ai4good/config.json`):
   - Reads `project_id` and `ai4good_api_base` from `.ai4good/config.json`
   - Reads bearer token from `~/.ai4good/config.json` (or env `AI4GOOD_PROJECT_TOKEN`)
   - Calls `GET ${ai4good_api_base}/projects/${project_id}/context` (REST) → primes session with scope summary, current status, in-progress tasks, unresolved blockers, recent NGO comments, fuel runway
-  - Verifies the volunteer's local `task-master-ai` is installed; if missing, prints install instructions
-  - Surfaces a one-line status banner: *"ai4good project foo-tool — task-3.2 in progress (2d) — $42 fuel remaining — 2 unread NGO comments."*
-- **Auto-commit + push hook (decision-9 — the load-bearing change):** the Skill installs a `task-master`-mutation listener (via TaskMaster's MCP `notification` channel, or a post-write filesystem watch on `.taskmaster/tasks/tasks.json`). After every mutation:
-  1. `git add .taskmaster/tasks/tasks.json`
-  2. `git commit -m "task-<X>: <op summary>"` (e.g. `task-3.2: status → done`)
-  3. `git push origin <current-branch>` (or queue if offline, retry on next mutation / session end)
-  Without this hook, decision-9's "git is the source of truth" property is violated — the volunteer's local mutations would be invisible to ai4good until manual push. The hook is non-optional for v1.
+  - Verifies the Linear MCP OAuth is live (prompts the one-time OAuth flow if not); reads the task binding (`.a4g/task.md`) and the volunteer's assigned-issue state; surfaces the CR inbox (decision-16)
+  - Surfaces a one-line status banner: *"ai4good project foo-tool — A4G-12 in progress (2d) — $42 fuel remaining — 2 unread NGO comments."*
+- **Task binding + degradation (decisions 20/22 — the load-bearing change):** the repo's committed `.claude/settings.json` carries the **PostToolUse hook on the Linear assignment MCP call** — it writes the issue identifier to the gitignored, worktree-relative `.a4g/task.md` (REQ-034), which CLAUDE.md imports so the binding rides every gateway request. The Skill's steering keeps the session bound: unbound before substantial work → offer the issue list or the `exploration` bucket; exploration turning into implementation → suggest the matching issue. **On Linear MCP auth failure the session degrades without stopping:** intended Linear updates queue locally and surface at session end; the binding floors to `unattributed` — attribution never blocks work (REQ-034 ceiling).
 - **Slash commands:**
-  - `/ai4good:next-task` → calls **local** `task-master next` (TaskMaster CLI), picks highest-priority unblocked task, shows full context (description, related blockers from `GET {AI4GOOD_API_BASE}/projects/:id/blockers` (Supabase Edge Function), recent commits from local git)
+  - `/ai4good:next-task` → reads the Linear backlog via MCP, picks the highest-priority **unblocked** issue (the decomposition's blocking relations encode order), shows full context (brief, related blockers from `GET {AI4GOOD_API_BASE}/projects/:id/blockers`, recent commits from local git), and **self-assigns on confirm** — the commitment signal that fires the REQ-034 binding hook
   - `/ai4good:fuel` → calls `GET {AI4GOOD_API_BASE}/projects/:id/context` (Supabase Edge Function), shows current fuel balance + recent burn rate + projected runway
   - `/ai4good:blockers` → calls `GET {AI4GOOD_API_BASE}/projects/:id/blockers` (Supabase Edge Function), shows unresolved blockers + suggested actions per type
   - `/ai4good:raise-blocker --task=X` → calls `POST {AI4GOOD_API_BASE}/projects/:id/blockers` (the `raise-blocker` Supabase Edge Function, accepting a per-project bearer token) with `task_id` populated; creates a `clarifying_question` blocker per REQ-024
-  - `/ai4good:handoff-check` → runs REQ-012 handoff precondition check locally (all P0 tasks `done` per local TaskMaster? README + RUNBOOK present? `github_repo_url` set? `git rev-list origin/main..HEAD --count == 0` — i.e. everything pushed?)
+  - `/ai4good:handoff-check` → runs REQ-012 handoff precondition check (all p0 issues Done in Linear? README + RUNBOOK present? `github_repo_url` + `deployment_url` set? `git rev-list origin/main..HEAD --count == 0` — i.e. everything pushed?)
   - `/ai4good:files` → fetches signed URLs (REQ-032) and downloads the NGO's reference files into a gitignored `/.ai4good/reference/` dir so the volunteer + Claude Code can read them; re-syncs on demand. Also runs at session bootstrap if reference files exist and aren't yet local. Files are NEVER committed to the repo.
   - `/ai4good:disable` / `/ai4good:enable` → opt out / back in (preferences stored in `~/.ai4good/config.json`)
-- **Commit-message convention enforcement:** when the Claude Code agent makes code commits (separate from the auto-commit hook above, which handles ONLY `tasks.json` mutations), prefixes commit messages with `task-X.Y:` matching the current `in_progress` task. Falls back to `task-multi:` when the work spans multiple tasks. Volunteer can override by writing their own commit message — Skill is helpful, not mandatory. (The webhook receiver in REQ-026 ingests these prefixes into `external_commit_refs[]` on each task for the activity feed.)
-- **Manual fallback always present** — Skill behaviors have manual equivalents: local TaskMaster CLI for task mutations + manual `git push`; ai4good project page for blockers/comments/fuel. Volunteer can disable the Skill entirely via `/ai4good:disable` and still operate (with push-discipline becoming volunteer's manual responsibility).
+- **Branch / commit convention enforcement:** the Skill names branches with the Linear identifier (`a4g-12-add-scheduler`) and includes magic words in PR text (`Fixes A4G-12`) so Linear's GitHub integration links the work and moves status on merge — the only status path (REQ-026). REQ-008's webhook ingests identifier references into `external_commit_refs[]` for the activity feed. Volunteer can override any generated message — the Skill assists, never mandates.
+- **Manual fallback always present** — Skill behaviors have manual equivalents: the Linear app for browsing/assigning/commenting issues; the ai4good project page for blockers/comments/fuel. Volunteer can disable the Skill entirely via `/ai4good:disable` and still operate (binding degrades to `unattributed`; norms still arrive via the injected governance prompt, REQ-009).
 
 **The Skill is the Track-A orchestration shell (promoted to v1 CORE 2026-06-03 — Item 2).** It is no longer "an onboarding helper with a deferred orchestration layer" — for Track-A projects the Skill *is* how Claude Code drives Lovable. The following moved from v1.5 into **v1** (behind the `LovableDriver` port + graceful fallback per REQ-021):
 
@@ -1709,44 +1642,44 @@ The dev marks task status via their **local TaskMaster** — full UX, all 33 too
 - [ ] One-command install: `claude skill install ai4good` works end-to-end
 - [ ] `.ai4good/config.json` schema documented (no `mcp_server_url` field) + auto-seeded by REQ-008 at repo creation; `~/.ai4good/config.json` schema documented; `claude skill exec ai4good login` flow walks volunteer through token setup
 - [ ] Session bootstrap auto-runs on Claude Code session start in any repo containing `.ai4good/config.json`; reads config + token; calls REST `GET /context`; surfaces status banner
-- [ ] **Auto-commit + push hook fires on every `task-master-ai` mutation** to `.taskmaster/tasks/tasks.json`. Verified by: opening a Claude Code session, running `task-master set-status --id=1 --status=in_progress` from the terminal, then observing within ~5s a new git commit `task-1: status → in_progress` on `origin/main`. Failure-mode test: `git push` fails (network down) → Skill surfaces warning, queues, retries on next mutation; no commit lost.
-- [ ] Five v1 slash commands (`/ai4good:next-task`, `/ai4good:fuel`, `/ai4good:blockers`, `/ai4good:raise-blocker`, `/ai4good:handoff-check`) work end-to-end against local TaskMaster + ai4good REST
-- [ ] Commit-message convention auto-applied when Claude Code agent generates **code** commits (separate from `tasks.json` auto-commit); respects volunteer override
+- [ ] **Task-binding hook fires on Linear assignment.** Verified by: opening a Claude Code session, self-assigning an issue via the Linear MCP, then observing `.a4g/task.md` contains the issue identifier within the same turn (worktree-relative — repeat under a second worktree). Failure-mode test: Linear MCP auth down → Skill queues the intended updates + surfaces at session end; binding floors to `unattributed`; work is never blocked.
+- [ ] Five v1 slash commands (`/ai4good:next-task`, `/ai4good:fuel`, `/ai4good:blockers`, `/ai4good:raise-blocker`, `/ai4good:handoff-check`) work end-to-end against the Linear MCP + ai4good REST
+- [ ] Branch/commit convention auto-applied when the agent generates branches and PR text (Linear identifiers + magic words); respects volunteer override
 - [ ] Manual disable via `/ai4good:disable` + re-enable via `/ai4good:enable`; preference persisted
-- [ ] Documentation at `/docs/skill` covers install, configuration, troubleshooting, opt-out, and the **push-discipline implication of disabling** (Skill off → volunteer manually responsible for pushing tasks.json)
+- [ ] Documentation at `/docs/skill` covers install, configuration, troubleshooting, opt-out, and the **implication of disabling** (Skill off → binding degrades to `unattributed`; Linear norms still arrive via the injected governance prompt)
 
 **Task Breakdown Hint (v1, decision-9 adjusted):**
 - Task 28.1: Skill scaffold + manifest + publish to ai4good GitHub repo with install docs (~3h)
 - Task 28.2: Session-bootstrap logic (config-reader + token-reader + REST `GET /context` + status banner) (~3h)
-- Task 28.3: **Auto-commit + push hook on tasks.json mutation** (TaskMaster MCP notification listener or fs.watch fallback; offline-queue + retry) (~4h)
-- Task 28.4: Five v1 slash commands (~5h — slightly more than prior 4h because `/ai4good:raise-blocker` and `/ai4good:next-task` now talk to two backends each, local TM + REST)
-- Task 28.5: Code-commit-message convention hook (separate from tasks.json auto-commit) (~2h)
+- Task 28.3: **Task-binding PostToolUse hook + offline-queue degradation** (writes `.a4g/task.md` on assignment; queues Linear updates on auth failure) (~3h)
+- Task 28.4: Five v1 slash commands (~5h — `/ai4good:raise-blocker` and `/ai4good:next-task` talk to two backends each, Linear MCP + REST)
+- Task 28.5: Branch/commit convention hook (Linear identifiers + magic words) (~2h)
 - Task 28.6: `/ai4good:disable` / `/ai4good:enable` + token-setup login flow (~2h)
 - Task 28.7: Docs site `/docs/skill` (~2h)
 
-Estimated v1: **~21h** (was 16h; decision-9 adds ~4h for the auto-commit+push hook, slightly more for slash-command backend split, offset elsewhere by no MCP wiring).
+Estimated v1: **~20h** (decision-20 removes the auto-commit hook ~−4h; decisions 20/22 add task-binding + Linear-norm wiring ~+3h).
 
-**Dependencies:** REQ-026 (REST API for context/blockers/comments — Skill is a client of these), REQ-024 (blocker queries + raise), REQ-008 (CLAUDE.md template + `.ai4good/config.json` seeding at repo creation; webhook receiver), REQ-012 (handoff-check command), REQ-009 (fuel context for `/ai4good:fuel`), **local `task-master-ai` install on the volunteer's machine** (Skill detects + prompts install on first run; not a platform dependency).
+**Dependencies:** REQ-026 (Linear workspace + REST API for context/blockers/comments), REQ-024 (blocker queries + raise), REQ-008 (repo template seeding — CLAUDE.md imports, `.mcp.json`, `.claude/settings.json` hooks), REQ-012 (handoff-check command), REQ-009 (fuel context for `/ai4good:fuel` + the gateway env vars), REQ-034 (the binding the hook maintains), **the Linear MCP** (committed `.mcp.json`; volunteer OAuths once at first session).
 
 ---
 
 #### REQ-027: Abandonment / Rematch (volunteer ghosts mid-project)
 
-> **› Decision-10 (2026-06-06) override:** REQ-027 (task #41) hosts the **single merged hourly aging scan** (its inactivity 14d/21d branch + REQ-024's blocker 48h/7d branch + Goal-5's unmatched-open 7d branch, each an isolated pure function calling `notify()`). The 21d auto-release **saga reuses #27's idempotent step-handler registry** (`revoke_repo_collab`, `deactivate_anthropic_key`, `remove_org_member`, `post_ngo_notice`, `reset_pm_tasks` — "AUP teardown minus suspension") — zero new teardown code. Only DETECTION merged; the saga semantics below are unchanged.
+> **› Decision-10 (2026-06-06) override:** REQ-027 (task #41) hosts the **single merged hourly aging scan** (its inactivity 14d/21d branch + REQ-024's blocker 48h/7d branch + Goal-5's unmatched-open 7d branch, each an isolated pure function calling `notify()`). The 21d auto-release **saga reuses #27's idempotent step-handler registry** (`revoke_repo_collab`, `revoke_virtual_keys`, `remove_org_member`, `remove_linear_membership`, `post_ngo_notice`, `release_assigned_issues` — "AUP teardown minus suspension"; handler names updated by decisions 20/21) — zero new teardown code. Only DETECTION merged; the saga semantics below are unchanged.
 
 **Description (added 2026-06-03 — PM-architect P0; the most probable non-happy-path event).** Ghosting is High-likelihood and named as irreducible, yet the lifecycle previously had no `in_progress → open` edge. REQ-027 defines the release + rematch path and the partial-fuel treatment that Item 3 depends on.
 
-**Lifecycle edge:** `in_progress → open` (status `released`-then-`open`), triggered by **inactivity** (no commits AND no PM-task transitions for **14 days** → reminder; **21 days** → auto-release) or by the NGO/volunteer manually releasing. **The inactivity clock runs only while the project is `in_progress`** — a plain status filter; no other state needs clock-exclusion semantics (decision-17 removed the `paused` state from v1).
+**Lifecycle edge:** `in_progress → open` (status `released`-then-`open`), triggered by **inactivity** (no branch activity AND no Linear issue movement for **14 days** → reminder; **21 days** → auto-release) or by the NGO/volunteer manually releasing. **The inactivity clock runs only while the project is `in_progress`** — a plain status filter; no other state needs clock-exclusion semantics (decision-17 removed the `paused` state from v1).
 
 **Side effects on release (run via the outbox saga, idempotent):**
-- Revoke the ex-volunteer's repo collaborator grant + deactivate the project's Anthropic key + (Track A) post an NGO notice to remove them from the Lovable workspace — **reuse the AUP per-project teardown (REQ-007 step 2) minus the account suspension.**
+- Revoke the ex-volunteer's repo collaborator grant + revoke the project's virtual keys (REQ-009) + remove their Linear workspace membership (REQ-026) + (Track A) post an NGO notice to remove them from the Lovable workspace — **reuse the AUP per-project teardown (REQ-007 step 2) minus the account suspension.**
 - **Remaining fuel STAYS on the project** (Item 3 — non-cash, project-scoped); the next matched volunteer uses it. No `credit_release`, no refund.
-- Reset all `in_progress` PM tasks to `not_started`; preserve `done` tasks + commit history.
+- Unassign the ex-volunteer's in-progress Linear issues and return them to the backlog (REQ-026, API); preserve done issues + commit history.
 - Distinguish **`ghosted`** (inactivity timeout) from **`released_for_cause`** (NGO/volunteer initiated) on the application record — `ghosted` affects volunteer outreach/reputation signal; `released_for_cause` does not auto-penalize.
 - Project re-opens to the marketplace with **rematch priority** + NGO notified; `project_applications` from the prior round are cleared to allow fresh applications (the ex-volunteer's becomes `released`).
 
 **Acceptance Criteria:**
-- [ ] The hourly aging scan — a **pg_cron → `aging-scan` Supabase Edge Function (Deno)** — computes inactivity **only for projects currently in `in_progress`** (skips `handoff_pending` and every other status — a plain status filter, decision-17) from commits + PM-task transitions; fires `inactivity_reminder` at 14d, auto-releases at 21d.
+- [ ] The hourly aging scan — a **pg_cron → `aging-scan` Supabase Edge Function (Deno)** — computes inactivity **only for projects currently in `in_progress`** (skips `handoff_pending` and every other status — a plain status filter, decision-17) from branch activity + Linear issue movement (projection timestamps); fires `inactivity_reminder` at 14d, auto-releases at 21d. Also hosts the REQ-026 staleness branch (in-progress issue, no branch activity N days → coordinator flag).
 - [ ] `in_progress → open` transition added to REQ-005.5; teardown via outbox; fuel preserved on the project.
 - [ ] `inactivity_reminder` / `project_released` / `rematch_available` notifications (REQ-016).
 - [ ] Manual release available to NGO (and to the volunteer who wants to step down) with a reason.
@@ -1762,8 +1695,8 @@ Estimated v1: **~21h** (was 16h; decision-9 adds ~4h for the auto-commit+push ho
 **Description (added 2026-06-03 — PM-architect P0).** Correctness depends on ~8 silent money-touching cron loops; Sentry + "error-rate spike" catches crashes, not silent failures (a cron that didn't fire, undetected ledger drift, a key left active after fuel-zero). This REQ adds the heartbeats + business-invariant monitors that **page**.
 
 **Acceptance Criteria:**
-- [ ] **`job_runs` heartbeat table** — every scheduled job is a **pg_cron → Supabase Edge Function (Deno)** pair recording a job_runs heartbeat (usage-poller, daily-reconciliation, match-expiry, aging-scan, cadence-pull, outbox-drain, base-permission-assert, deployment-alive-check, control-total); an **overdue-run pager** fires from a pg_cron job_runs watchdog Edge Function if a job hasn't completed within its expected interval.
-- [ ] **Business-invariant monitors that PAGE (not just log):** ledger control-total mismatch (REQ-006); any project or general balance < 0; Anthropic key active while project fuel ≤ 0; reconciliation drift > threshold; outbox DLQ depth > 0; reserve/coverage below floor (`cash_buffer_alert`); private-org base-permission drift (REQ-008).
+- [ ] **`job_runs` heartbeat table** — every scheduled job is a **pg_cron → Supabase Edge Function (Deno)** pair recording a job_runs heartbeat (match-expiry, aging-scan, cadence-pull, outbox-drain, base-permission-assert, jumpstart-health-check, tree-snapshot, control-total); an **overdue-run pager** fires from a pg_cron job_runs watchdog Edge Function if a job hasn't completed within its expected interval. *(The usage-poller + daily-reconciliation heartbeats are deleted with the poller — decision-21; the gateway is request-path, monitored by the golden signals below.)*
+- [ ] **Business-invariant monitors that PAGE (not just log):** ledger control-total mismatch (REQ-006); any project or general balance < 0; a ledger `consumption` row on a project whose balance was ≤ 0 at write time (sampled assertion — the gateway's fuel gate must make this impossible); gateway golden signals (error rate, added latency, 5xx from provider) outside budget; outbox DLQ depth > 0; reserve/coverage below floor (`cash_buffer_alert`); private-org base-permission drift (REQ-008).
 - [ ] **Money-path golden-signal dashboards** (funding, consumption, skim, reconciliation, chargeback) for admin.
 - [ ] Errors → Sentry; structured logs → Axiom/Logflare (existing NFR) — this REQ adds the *business* layer on top.
 
@@ -1777,7 +1710,7 @@ Estimated v1: **~21h** (was 16h; decision-9 adds ~4h for the auto-commit+push ho
 
 **Acceptance Criteria:**
 - [ ] **On-call + escalation model** named (even if "the founder, with a documented escalation tree" at pilot scale); an `incident` ops_task type is the incident-commander entry (also the outbox DLQ sink).
-- [ ] **Per-incident runbooks** authored: PITR restore for the 4h RTO; GitHub-App-key break-glass / org-compromise (REQ-008); Anthropic key mass-rotation; chargeback spike; Lovable-MCP-down fallback.
+- [ ] **Per-incident runbooks** authored: PITR restore for the 4h RTO; GitHub-App-key break-glass / org-compromise (REQ-008); gateway real-key rotation + virtual-key mass-revocation (decision-21); Linear outage degraded mode (panel serves the last projection; status catches up on webhook replay); chargeback spike; Lovable-MCP-down fallback.
 - [ ] **Manual override for every auto-action** — a false-positive anomaly auto-deactivation, AUP suspension, or key revocation can be reversed by an admin (audited).
 - [ ] **Admin money-correction tooling** — post a `reconciliation_adjustment` / manual credit with an audit reason via UI (never raw SQL); no direct ledger writes.
 - [ ] **Account suspension is a represented lifecycle state** (`profiles.account_status`) with a documented recovery playbook (REQ-007 saga + per-project re-enable).
@@ -1840,7 +1773,7 @@ Estimated v1: **~21h** (was 16h; decision-9 adds ~4h for the auto-commit+push ho
 
 #### REQ-033: Post-Discovery NGO Project Assistant (funded, fuel-metered)
 
-**Description (added 2026-06-06, decision-12):** Once a project is **funded**, the NGO can keep chatting with an AI assistant **beyond the Discovery/scoping phase** to understand project status. It is the same chat surface as the Discovery Agent (REQ-004, Claude Sonnet), continued past `scoped` and reframed as a **read-only project assistant**: it answers "how's my project going?", explains open blockers, summarizes recent progress, and estimates fuel runway. **It is fuel-metered (no free credits)** — it exists only on funded projects, so every turn is dollar-metered against the project's fuel exactly like funded Discovery. It never mutates the project: scope additions still route through Change Requests (REQ-025), task state is owned by the volunteer's TaskMaster (REQ-026), and handoff is gated by REQ-012 — the assistant only *reads* and *explains*.
+**Description (added 2026-06-06, decision-12):** Once a project is **funded**, the NGO can keep chatting with an AI assistant **beyond the Discovery/scoping phase** to understand project status. It is the same chat surface as the Discovery Agent (REQ-004, Claude Sonnet), continued past `scoped` and reframed as a **read-only project assistant**: it answers "how's my project going?", explains open blockers, summarizes recent progress, and estimates fuel runway. **It is fuel-metered (no free credits)** — it exists only on funded projects, so every turn is dollar-metered against the project's fuel exactly like funded Discovery. It never mutates the project: scope additions still route through Change Requests (REQ-025), task state is owned by Linear (REQ-026 — the assistant reads the projection), and handoff is gated by REQ-012 — the assistant only *reads* and *explains*.
 
 **Acceptance Criteria:**
 - [ ] **Availability:** the assistant is reachable on the project page once the project is funded (positive fuel balance) and past pre-fuel Discovery — i.e. status `in_progress` onward. On an unfunded or pre-`scoped` project there is no assistant (Discovery REQ-004 is the only NGO↔AI chat).
@@ -1857,6 +1790,65 @@ Estimated v1: **~21h** (was 16h; decision-9 adds ~4h for the auto-commit+push ho
 **Dependencies:** REQ-004 (Discovery chat surface + per-turn metering), REQ-006 (fuel ledger + `discovery_consumption`), REQ-009 (fuel runway), REQ-010 (project page), REQ-024 (blockers), REQ-025 (Change Requests), REQ-026 (`project_tasks` projection + commit refs).
 
 **Task Breakdown Hint:** `mode` marker on the conversation store + funded-project availability gate (~2h); read-only project-state context assembler (tasks/blockers/fuel/activity) (~4h); assistant system prompt + scope-discipline guardrail (~2h); cost display + fuel-zero disable reuse (~1h); tests (~1h). **≈ 10h.**
+
+---
+
+#### REQ-034: Task-Level Attribution (telemetry, never gating — decision-22)
+
+**Classification (load-bearing):** transparency / product telemetry — **NOT a security control.** Spoofable by design; soft-degrading by design; **never gates a request.** Purpose: burn-per-deliverable on the NGO panel, per-task cost baselines for fuel estimation, and reconciliation precision (the REQ-009 Layer-2 ladder rung, if ever built).
+
+**Description:** every gateway request (REQ-009) carries an optional task binding so ledger rows attribute burn to the Linear issue being worked. Ledger rows written without a binding are unattributable forever — capture ships in v1; the analysis surfaces trail in v1.5.
+
+**Binding mechanism:**
+- **Primary:** a PostToolUse hook (in the repo template's committed, ai4good-owned `.claude/settings.json`) fires on the Linear **assignment** MCP call — the commitment moment — and writes the issue identifier to **`.a4g/task.md`** (gitignored, worktree-relative), which the repo's CLAUDE.md imports → the binding rides the system prompt → the gateway extracts it in the same pass as the fingerprint (REQ-009) and stamps `task_ref` on the ledger rows.
+- **Fallback:** gateway-side derivation from the branch name / transcript present in the request body.
+- **Floor:** `unattributed` — a request with no resolvable binding is **never rejected**.
+- **Rejected alternatives (for the record):** a launcher script (nonstandard invocation), SessionStart-only binding (fires before the task exists), header-only binding (session-granular — breaks under parallel worktrees). The binding must be per-request/directory-derived to stay correct under parallelism; the repo template is worktree-ready (relative paths in `.a4g/` and hooks).
+
+**Legitimate taskless buckets:** `exploration` and `onboarding` are first-class `task_ref` values the steering offers proactively — **falsely-attributed burn is worse than unattributed** (it corrupts the cost baselines).
+
+**Steering (CLAUDE.md, static, cache-friendly):** the agent checks its local binding (branch + session assignment) and, if unattributed before substantial work, offers the task list or the exploration bucket; when exploration turns into implementation, it suggests picking the matching issue. This is the "agent always knows its task context" discipline the founder set — conversational, never enforced by the gateway.
+
+**Measurement (platform-side, v1.5 surfaces):** the reconciliation join — unattributed burn while an assigned issue is in progress = binding-broken signal; burn against a Done issue = stale binding. The coordinator sees per-project unattributed %. **Ceiling, verbatim: detection and suggestion only, never gating.**
+
+**Aggregation boundary:** the NGO panel shows **burn per deliverable**; per-volunteer-per-task granularity stays coordinator-side only (volunteer-efficiency metering would erode trust). Expect bimodal per-task cost distributions (hand-driven vs loop-driven tasks) — a data property, not an anomaly.
+
+**Acceptance Criteria:**
+- [ ] `fuel_transactions.task_ref TEXT` — the Linear identifier (e.g. `A4G-12`), `exploration`, `onboarding`, or NULL (= unattributed). Written by the gateway at ledger-write time (REQ-009).
+- [ ] Repo template ships the PostToolUse assignment hook + `.a4g/task.md` (gitignored) + the CLAUDE.md import + the steering block; all paths worktree-relative.
+- [ ] Gateway extracts the binding in the fingerprint pass; falls back to branch/transcript derivation; floors to unattributed. No rejection path exists.
+- [ ] NGO project page shows **burn per deliverable** (v1): fuel consumed per task, from `task_ref` aggregation — rendered in the money-honesty style (REQ-010; cents, no celebration).
+- [ ] **v1.5 (deferred):** coordinator reconciliation panel (unattributed %, binding-broken/stale signals); per-task cost baselines feeding Discovery estimates.
+- [ ] **[VERIFY — before build]:** branch/env-block presence + stability in Claude Code main-request bodies (fallback path); CLAUDE.md import re-resolution mid-session; PostToolUse payload shape for MCP tools.
+
+**Task Breakdown Hint:** `task_ref` column + gateway stamp (~2h); template hook + `.a4g/task.md` + CLAUDE.md import + steering block (~4h); fallback derivation in the gateway (~3h); NGO burn-per-deliverable panel section (~3h). **≈ 12h (capture + NGO surface).**
+
+**Dependencies:** REQ-009 (gateway pass), REQ-026 (Linear assignment is the binding moment), REQ-010 (panel), REQ-006 (ledger).
+
+---
+
+#### REQ-035: Post-Handoff Attribution & Jumpstart Health (decision-22)
+
+**Description:** closes the freedom-without-guarantee model economically: **no gates anywhere — quality becomes visible ex post, and reputation is the incentive.** Two capture mechanisms ship in v1 (uncaptured data is lost forever); the synthesis/matching surfaces land in v1.5.
+
+**1. NGO attribution at handoff (v1 capture).** At sign-off (REQ-012), the NGO completes an attribution step: a free-text **testimonial** + three structured dimensions — *communication*, *delivered scope*, *onboarding into self-service*. **Framed as credit, not grading** — it feeds the volunteer's portfolio, and deliberately is NOT a single star score (single-rater scores inflate and measure the relationship, not the artifact). *(This consciously supersedes the earlier "no satisfaction form in v1" deferral — decision-22 reframes the capture as attribution. Out of Scope #11 still holds: no public star ratings, ever.)*
+
+**2. Jumpstart health at 30/60/90 days (v1 capture).** Extends the existing 30-day-alive ping (REQ-012) to three marks, synthesized from **real signals only**: successful NGO self-service changes in Lovable, feature requests opened/completed, rescue requests. Project state renders as *actively self-served* / *stalled*. **Confound control:** at 60-day inactivity the platform asks the NGO exactly one question — *"did you try to make changes?"* — and **only tried-and-failed counts against health** (an NGO that didn't need changes is not a failure).
+
+**3. Reputation feeds matching (v1.5).** Attribution + health track record become visible during matching. No gates: a volunteer with weak signals still applies; the NGO sees the record.
+
+**4. AI-maintainability check (v1.5, signal only — never a gate).** An optional, visible test at handoff: a fresh agent runs realistic change requests against the repo; the result is shown, nothing is blocked.
+
+**Acceptance Criteria:**
+- [ ] Handoff sign-off (REQ-012) includes the attribution step: testimonial (optional free text) + 3 structured dimensions (required, 4-point descriptive scale, credit-framed copy). Stored in `handoff_attributions`; volunteer sees it on their profile (private in v1; matching surface is v1.5).
+- [ ] `project_health_checks` rows at 30/60/90 days post-handoff (pg_cron → Edge Function; `job_runs` heartbeat `jumpstart_health_check`): alive ping + self-service-change count (Lovable activity, where readable) + feature-request/rescue counts; state derived as actively-self-served / stalled.
+- [ ] 60-day one-question NGO email (*"did you try to make changes?"*) with a one-click answer; only tried-and-failed marks the health record negatively.
+- [ ] No capture blocks handoff: skipping the testimonial is allowed (dimensions required, ~30 seconds); health checks never notify the volunteer punitively.
+- [ ] **v1.5 (deferred):** reputation surfaces in matching; health synthesis dashboard; the AI-maintainability visible check.
+
+**Task Breakdown Hint:** `handoff_attributions` + `project_health_checks` tables + RLS (~2h); sign-off attribution step UI (~3h); 30/60/90 cron + signal assembly (~4h); 60-day one-question email + one-click answer (~2h). **≈ 11h (capture).**
+
+**Dependencies:** REQ-012 (sign-off flow + alive ping), REQ-021 (Lovable self-service signals), REQ-016 (the one-question email), REQ-014 (volunteer profile hosts the attribution).
 
 ---
 
@@ -1984,8 +1976,10 @@ Estimated v1: **~21h** (was 16h; decision-9 adds ~4h for the auto-commit+push ho
 | `funding_deadline_expired` (project reverted to `open`) | NGO admins + matched volunteer | email + in-app | NEW (codex gap) |
 | `payment_succeeded` (Stripe checkout completed → in_progress) | NGO admins + volunteer | email + in-app | NEW (codex gap) |
 | `payment_failed` | NGO admins | email + in-app | NEW (codex gap) |
-| `anthropic_key_ready` (after manual ops bootstrap) | Volunteer | email + in-app | NEW (codex gap) |
-| `anthropic_key_rotation_complete` | Volunteer | email + in-app | NEW (codex gap) |
+| `virtual_key_issued` (kickoff — instant; decision-21) | Volunteer | email + in-app | replaces `anthropic_key_ready` (the manual key-ops bootstrap is deleted) |
+| `virtual_key_revoked` (NGO/admin revocation; replacement key on dashboard) | Volunteer | email + in-app | replaces `anthropic_key_rotation_complete` |
+| `linear_status_reverted` (detect-and-revert fired; REQ-026) | Volunteer | in-app only (low-tone) | NEW (decision-20) — instructive, not punitive |
+| `jumpstart_health_question` (60-day one-question email; REQ-035) | NGO admins | email | NEW (decision-22) — one click to answer |
 | `fuel_low_20pct` | NGO admins | email + in-app | |
 | `fuel_low_5pct` | NGO admins + **volunteer** | email (NGO) + in-app (both) | Volunteer added per Story 4 AC + codex round 3 fix — they need to know dev sessions will be warned/cut soon |
 | `fuel_depleted` | NGO admins + **volunteer** + platform admin (escalation) | email + in-app | Volunteer added per Story 4 AC + codex round 3 fix |
@@ -1993,7 +1987,7 @@ Estimated v1: **~21h** (was 16h; decision-9 adds ~4h for the auto-commit+push ho
 | `blocker_resolved` | **Volunteer + NGO admins** | in-app + project-page Action-needed rail (decision-15) | Volunteer added per REQ-024 notification matrix (codex round 3 fix — prior version only listed NGO escalation paths) |
 | `handoff_requested` / `handoff_accepted` / `handoff_rejected` | NGO + volunteer (rejected adds platform admin) | email + in-app | `handoff_rejected` NEW |
 | `verification_outcome` | NGO admins | email + in-app | (`kyc_outcome` deferred to v1.5 along with KYC tier per §11) |
-| `provisioning_failure` (workspace/repo/key creation failed) | **NGO admins + volunteer + platform admin** | email + in-app + ops_task | Volunteer added per REQ-005.5 (codex round 3 fix — prior version omitted the volunteer who's actually blocked from working) |
+| `provisioning_failure` (repo / Linear workspace setup failed) | **NGO admins + volunteer + platform admin** | email + in-app + ops_task | Volunteer added per REQ-005.5 (codex round 3 fix); virtual-key minting has no failure mode (a local row write, decision-21) |
 | Lovable: `lovable_workspace_setup_reminder` (`matched_pending_fuel` + `lovable_recommended`), `lovable_credits_low`, `lovable_credits_blocked` (escalation tier), `lovable_setup_pending_raised` (auto-raised at kickoff → NGO; decision-19 — no longer volunteer-initiated), `lovable_setup_complete` (blocker auto-resolved → NGO + volunteer). *(`lovable_skipped_manual` + `lovable_decision_auto_skipped` removed in v1 — the skip opt-out + 14-day auto-skip are gone per decision-19; reserved for post-v1 Track B)* | per event (escalation tier on `lovable_credits_blocked`) | email + in-app | decision-19 — skip events (`lovable_skipped_manual`, `lovable_decision_auto_skipped`) removed; `lovable_setup_pending_raised` auto-raised at kickoff |
 | `github_collaborator_needed_raised` / `github_collaborator_needed_resolved` (REQ-024 / REQ-008 dual-rail blocker) | NGO admins (raised); volunteer (resolved) | email + in-app | NEW (round 3) |
 | ~~Channel: `channel_mention` / `channel_message_new`~~ | — | — | **v1.5 (decision-15)** — the real-time channel is deferred; no @-mentions or channel posts in v1. |
@@ -2002,7 +1996,7 @@ Estimated v1: **~21h** (was 16h; decision-9 adds ~4h for the auto-commit+push ho
 | ~~`spend_anomaly_review_*` events~~ | **DEFERRED to v1.5 (decision-14)** — the REQ-009 anomaly engine that fires these is not built in v1; reserved for v1.5. | — | — |
 | CRs: `cr_raised` | volunteer | **in-app + CR inbox at session bootstrap; NO email (decision-16 anti-distraction)** | only Accept creates work; one open CR per project (decision-16) |
 | CRs: `cr_decided` | NGO admins | email + in-app | `cr_completed` deferred to v1.5 per REQ-025 (v1 doesn't auto-detect CR completion) |
-| **PM Tasks (REQ-026):** `task_status_changed` (volunteer transitions in_progress/done) | NGO admins | **in-app only by default** (email at digest cadence) | **Clarifies prior contradiction:** task status events are notified-but-low-tone — they surface in NGO's notification feed but don't fire email per-event. v1.5 adds per-user toggle. |
+| **PM Tasks (REQ-026):** `task_status_changed` (assignment → in progress; PR merge → done — fired from the `linear-webhook` consumer, decision-20) | NGO admins | **in-app only by default** (email at digest cadence) | **Clarifies prior contradiction:** task status events are notified-but-low-tone — they surface in NGO's notification feed but don't fire email per-event. v1.5 adds per-user toggle. |
 | `task_completed` (specific to `done` transition; higher signal) | NGO admins | email + in-app | |
 | ~~Auto-top-up: `auto_topup_charged` / `auto_topup_cap_reached` / `auto_topup_payment_failed`~~ | — | — | **DEFERRED to v1.5 per §11** — auto-top-up itself isn't in v1; events fire only when v1.5 lands |
 | Fuel credit: `fuel_credit_released` (project ended, leftover → general balance) / `fuel_donation_confirmed` | NGO admins | in-app (+ email on donation receipt) | replaces the removed retention/decay notifications (Item 3 — no cash-out, no decay clock) |
@@ -2072,37 +2066,25 @@ Public-facing page per NGO showing all the tools ai4good has built for them, wit
 
 - **Authentication:** Supabase Auth (JWT, httpOnly cookies, automatic refresh).
 - **Authorization:** Row-Level Security on all multi-tenant tables (`ngos`, `projects`, `fuel_transactions`, `messages`).
-- **Secrets:** All API keys (Stripe, Anthropic, GitHub) stored in Supabase Vault + Supabase Edge Function secrets; never logged.
+- **Secrets:** All API keys (Stripe, Anthropic, GitHub, Linear) stored in Supabase Vault + Supabase Edge Function secrets; never logged. The real Anthropic key additionally lives **only in gateway env** (decision-21) — volunteers hold `a4g_*` virtual keys, hash-only at rest, show-once at issuance.
 - **PII Handling:** Minimum necessary — NGO verification docs encrypted at rest (Supabase Storage with private bucket + signed URLs).
 - **Webhook Verification:** Stripe signature verification + GitHub HMAC signature verification on every webhook.
 - **Rate Limiting:** Upstash Redis-based rate limiting on Auth, Discovery Agent, and Apply endpoints.
 - **Compliance:**
   - **GDPR:** Right-to-erasure endpoint (deletes profile, anonymizes ledger entries); standard DPA available to EU NGOs.
   - **PCI:** Out of scope — all card data handled by Stripe; we never touch card numbers.
-- **Audit Logging:** Append-only `audit_events` table for: fuel transactions, project status transitions, role changes, key provisioning.
+- **Audit Logging:** Append-only `audit_events` table for: fuel transactions, project status transitions, role changes, virtual-key issuance/revocation, Linear webhook ingest provenance.
 
 ### Scalability
 
 - **Initial pilot:** 100 NGOs, 200 volunteers, 50 active projects.
 - **Year 1 target:** 500 NGOs, 1000 volunteers, 200 active projects (well within Supabase Pro tier).
 - **Horizontal scaling:** Lovable hosting auto-scales the TanStack Start SSR frontend; Supabase Edge Functions auto-scale the backend; Supabase provides managed Postgres scaling.
-- **Heavy work** (usage polling, webhook fanout, outbox drain) runs on **Supabase Edge Functions** (Deno), scheduled via **pg_cron** where periodic. Fly.io retained only as an escape hatch for any job exceeding Edge Function limits. (TBD resolved.)
+- **Heavy work** (webhook fanout, outbox drain, scheduled scans; gateway streaming if hosted on Supabase — OD-6) runs on **Supabase Edge Functions** (Deno), scheduled via **pg_cron** where periodic. Fly.io retained only as an escape hatch for any job exceeding Edge Function limits. (TBD resolved.)
 
-#### Anthropic 100-workspace-per-org scale path (resolves Codex review #4)
+#### Anthropic workspace-cap scale path — RETIRED by decision-21
 
-Anthropic enforces a hard **100 active workspaces per organization** cap (archived workspaces don't count). Our v1 design (per-project workspace, REQ-009) hits this cap at 100 concurrent active projects — which the NFR year-1 target (200 active) would exceed. Documented plan:
-
-| Project count | Approach |
-|---|---|
-| ≤ 80 active | Single ai4good Anthropic org; default state |
-| Approaching 80 (early warning) | Aggressive archival on project transition to `handed_off` or `cancelled`: Anthropic workspace archived immediately (programmatic; REQ-009 already does this). Frees up slots. |
-| Approaching 100 (hard ceiling) | Operate **multiple Anthropic orgs** (ai4good-prod-1, ai4good-prod-2, …); platform admin manually provisions a second org once first crosses 80 active. New projects round-robin or hash-route to least-full org. Adds an `anthropic_org_id` field to `projects` table to track which org each workspace belongs to. |
-| Year 2+ at scale | v1.5 AI Proxy (Out of Scope #1) makes per-project workspaces less critical — proxy enforces scope server-side; could pool keys across fewer workspaces with proxy-side attribution. Defer until proxy ships. |
-
-**Triggers documented as monitoring:**
-- Daily admin dashboard metric: `count(*) FROM projects WHERE anthropic_workspace_archived_at IS NULL` per org
-- Alert at 80 active workspaces per org → opens an `ops_task` for org provisioning
-- Hard block on new project funding if any single org hits 100 → routes new projects to a different org or queues until capacity frees
+The former plan managed Anthropic's 100-active-workspaces-per-org cap (per-project workspaces, archival pressure, multi-org fan-out, `anthropic_org_id` routing). **Decision-21 deletes per-project workspaces entirely** — the gateway attributes usage per virtual key at request time, so workspace count no longer grows with project count and the cap never binds. Gateway capacity scales per-request (Edge Functions auto-scale; a self-hosted gateway scales horizontally); the only Anthropic-side scale concern left is org-level rate/quota limits, monitored via the gateway golden signals (REQ-029).
 
 ### Reliability
 
@@ -2152,21 +2134,24 @@ Anthropic enforces a hard **100 active workspaces per organization** cap (archiv
 └──────┬─────┘
        │
        v
-┌────────────────────────────────┐
-│  Background Workers            │
-│  Supabase Edge Fns + pg_cron   │
-│   - Anthropic usage poll       │
-│   - Webhook fanout             │
-│   - Fuel-low alerts            │
-└──────────┬─────────────────────┘
-           │
-           v
-   ┌───────────────┐
-   │  Anthropic    │
-   │  - Discovery  │
-   │  - Per-project│
-   │    API keys   │
-   └───────────────┘
+┌────────────────────────────────┐          ┌──────────────────────────┐
+│  Background Workers            │◄─webhooks─│  Linear (decision-20)    │
+│  Supabase Edge Fns + pg_cron   │          │  workspace per project   │
+│   - outbox drain / aging scan  │          │  status via GitHub       │
+│   - linear/github/stripe hooks │          │  integration (PR merge)  │
+│   - jumpstart health checks    │          └──────────────────────────┘
+└────────────────────────────────┘
+
+Two disjoint volunteer data paths (they touch ONLY at the task-ID binding, REQ-034):
+
+  LLM path:   Claude Code (virtual key) ──► ai4good LLM GATEWAY ──► Anthropic
+                                              │  caps · fingerprint · governance prompt
+                                              └─► fuel ledger (inline, per request)
+
+  Task path:  Claude Code ──► Linear MCP ──► Linear ──► webhook ──► Postgres projection ──► NGO panel
+
+  (Platform-side Anthropic use — Discovery + the REQ-033 assistant — calls Anthropic directly
+   from Edge Functions with the platform key; the gateway governs the volunteer rail only.)
 ```
 
 ### Key Components
@@ -2174,9 +2159,11 @@ Anthropic enforces a hard **100 active workspaces per organization** cap (archiv
 1. **Lovable App — TanStack Start (SSR):** SSR loaders + TanStack Query for reads; webhooks/mutations/REST/SSE handled by Supabase Edge Functions (Deno); SSR-with-HTTP-cache (stale-while-revalidate) for the marketplace.
 2. **Supabase:** Postgres + RLS for all data; Auth; Storage for NGO docs / logos; Realtime for live fuel updates; Vault for API keys.
 3. **Stripe:** Checkout + webhooks for fuel; Stripe Tax for EU VAT invoices.
-4. **GitHub App:** Repo creation (Claude Code path only — `ai4good-projects/<slug>`), webhook ingest (push + pull_request) for cadence stats and commit-message parsing as a secondary task-link signal (REQ-026; primary is MCP). **GitHub Issues are not written or managed by ai4good in v1** — they remain dev-internal per REQ-008. We register one GitHub App owned by ai4good; NGOs grant repo-transfer scope only at handoff time.
-5. **Anthropic API:** Discovery Agent + post-Discovery assistant (**Opus** — decision-13) + per-project API keys for volunteer builds (Opus; Sonnet available for cheaper build turns).
+4. **GitHub App:** webhook ingest (push + pull_request) for cadence stats + `external_commit_refs` (Linear-identifier parsing, REQ-026). Issue *status* moves via Linear's own per-workspace GitHub integration, not our App. **GitHub Issues are not written or managed by ai4good in v1** — they remain dev-internal per REQ-008. One GitHub App owned by ai4good; NGOs grant repo-transfer scope only at handoff time.
+5. **Anthropic API:** Discovery Agent + post-Discovery assistant (**Opus** — decision-13) called platform-side from Edge Functions; volunteer builds reach Anthropic only **through the LLM gateway** (decision-21).
 6. **Worker layer:** Supabase Edge Functions (Deno), pg_cron-scheduled for periodic jobs; Fly.io worker only as an escape hatch if a specific job exceeds Edge Function time limits.
+7. **LLM Gateway (REQ-009, decision-21):** terminates `a4g_*` virtual keys; caps + fingerprint + governance-prompt injection; streams to Anthropic with the real key held only in gateway env; writes the fuel ledger inline per request. Hosting = open decision (thin Deno proxy on Supabase vs self-hosted LiteLLM-style).
+8. **Linear (REQ-026, decision-20):** coordination system of record — one free workspace per project; webhooks feed the Postgres projection; detect-and-revert enforces the status read/write split; platform-owned, never transfers at handoff.
 
 ### API Specifications
 
@@ -2223,11 +2210,33 @@ POST {SUPABASE_FUNCTIONS_URL}/github-webhook   (Supabase Edge Function, Deno; X-
 Headers: X-Hub-Signature-256, X-GitHub-Event
 
 Events handled (v1):
-- push                              → cadence stats (REQ-010); commit-message parse for task SHA refs (REQ-026)
-- pull_request (opened/merged)      → cadence stats (data only; no NGO-visible PR list per REQ-010)
+- push                              → cadence stats (REQ-010); Linear-identifier parse for external_commit_refs (REQ-026)
+- pull_request (opened/merged)      → cadence stats (data only; no NGO-visible PR list per REQ-010). Issue STATUS moves via Linear's GitHub integration, not here.
 
 Not subscribed in v1:
 - issues                            → REQ-017 (post-handoff surfacing) is deferred to v2 per §11; during in_progress, GitHub Issues are dev-internal and ignored by the platform
+```
+
+**Linear Webhook (decision-20)**
+```
+POST {SUPABASE_FUNCTIONS_URL}/linear-webhook   (Supabase Edge Function, Deno; Linear signature verification)
+
+Events handled (v1):
+- Issue create/update/assign        → project_tasks projection upsert (one-way mirror); delivery_id de-dup in audit_events
+- Issue status change               → projection upsert + DETECT-AND-REVERT: actor is not the GitHub integration AND no linked merged PR → revert via API + explanatory comment + linear_status_reverted notification
+- Comment created                   → dev-internal; NOT mirrored to the NGO view (NGO comments live in task_comments, decision-15)
+```
+
+**LLM Gateway (decision-21; hosting = open decision)**
+```
+POST {ANTHROPIC_BASE_URL}/v1/messages          (volunteer's env points here; vanilla Claude Code unchanged)
+Auth: x-api-key / Authorization = a4g_* virtual key
+
+Per request: key lookup (hash) → caps check (per-request + rolling 24h) → project fuel balance > 0 →
+fingerprint pairwise check (requests > ~1.5k input tokens) → governance prompt injection → stream to
+Anthropic (real key in gateway env only) → price usage via rate card → paired ledger rows inline
+(gateway_request_id idempotency; task_ref from the REQ-034 binding).
+Request bodies are inspected transiently and never persisted.
 ```
 
 ### Database Schema (core tables)
@@ -2252,16 +2261,13 @@ CREATE TABLE projects (
   -- admin key-deactivation or cancel mid-build.
   matched_at TIMESTAMPTZ,
   fuel_deadline_at TIMESTAMPTZ,  -- 7 days after match; reverts to 'open' if not funded
-  -- Anthropic workspace + key (REQ-009): per-project isolation; key secret stored in Supabase Vault, only IDs/metadata here
-  anthropic_workspace_id TEXT,                       -- e.g. 'wrkspc_XYZ' — created programmatically via Admin API at funding
-  anthropic_key_id TEXT,                             -- Anthropic API key ID — used to call deactivate/rotate via Admin API
-  anthropic_key_status TEXT DEFAULT 'not_provisioned' CHECK (
-    anthropic_key_status IN ('not_provisioned','active','inactive','rotating','revoked')
-  ),
-  anthropic_key_provisioned_at TIMESTAMPTZ,          -- when admin completed Console key creation
-  anthropic_workspace_spend_cap_cents INTEGER,       -- monthly cap set in Console; default formula = max(funded × 3, $200)
-  anthropic_workspace_archived_at TIMESTAMPTZ,      -- set on handoff; workspace archive auto-revokes all keys
-  anthropic_org_id TEXT,                             -- which ai4good Anthropic org this workspace lives in (for multi-org scale path; see NFR scalability)
+  -- LLM gateway (REQ-009, decision-21): per-project Anthropic workspaces/keys are DELETED — volunteer
+  -- credentials are `virtual_keys` rows (below); the real provider key lives only in gateway env.
+  -- Linear coordination workspace (REQ-026, decision-20): created manually at kickoff (no public API),
+  -- then API-driven (invites, decomposition push, webhook consumer).
+  linear_workspace_id TEXT,
+  linear_workspace_url TEXT,
+  linear_team_id TEXT,
   -- Triage gate (REQ-023): platform-admin compliance review before marketplace
   triage_submitted_at TIMESTAMPTZ,
   triage_decided_at TIMESTAMPTZ,
@@ -2371,16 +2377,17 @@ CREATE UNIQUE INDEX idx_change_requests_one_open ON change_requests(project_id) 
 CREATE INDEX idx_change_requests_project ON change_requests(project_id);
 CREATE INDEX idx_change_requests_open ON change_requests(project_id) WHERE status IN ('pending_review','accepted_active');
 
--- Platform PM tasks (REQ-026): TaskMaster-style, NGO-visible.
--- Decision-9 (2026-06-06): this is a READ-SIDE PROJECTION of the canonical state which lives in git
--- at `.taskmaster/tasks/tasks.json` in the project's ai4good-projects/<slug> repo. Rows are written
--- ONLY by the GitHub webhook ingest worker (REQ-026 Task 26.4) and the bootstrap-from-Discovery server
--- action (REQ-026 Task 26.2). No user-facing code path writes to this table. The volunteer's local
--- TaskMaster is the only mutator; git is the canonical store; this table is the queryable mirror.
+-- Platform PM tasks (REQ-026): NGO-visible task tree.
+-- Decision-20 (2026-07-05): this is a READ-SIDE PROJECTION of the canonical state which lives in LINEAR
+-- (one free workspace per project). Rows are written ONLY by the `linear-webhook` ingest consumer and
+-- the lifecycle API jobs (decomposition push, CR-accept, handoff cancel). No user-facing code path
+-- writes to this table. Linear is the canonical store; this table is the queryable mirror.
 CREATE TABLE project_tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  task_key TEXT NOT NULL,            -- stable, immutable, human-readable key (e.g. 'task-3.2') — used in commit messages; NEVER changes once assigned, even on reorder (codex round 2 fix)
+  task_key TEXT NOT NULL,            -- mirrors linear_identifier (e.g. 'A4G-12'); stable join key for task_comments / project_blockers
+  linear_issue_id TEXT UNIQUE,       -- Linear's issue UUID (decision-20)
+  linear_identifier TEXT,            -- human-readable Linear key (e.g. 'A4G-12'); appears in branch names / magic words
   parent_task_id UUID REFERENCES project_tasks(id) ON DELETE CASCADE,  -- hierarchy
   position INTEGER NOT NULL,                                            -- ordering among siblings (display order; may change freely)
   title TEXT NOT NULL,
@@ -2409,7 +2416,7 @@ CREATE UNIQUE INDEX idx_tasks_unique_key_per_project ON project_tasks(project_id
 -- Per-project MCP / REST API tokens — per-actor or per-workspace for audit attribution (codex rounds 5+6)
 -- v1 token types:
 --   'volunteer' — issued to the assigned volunteer for their local Claude Code (token_hash stored; raw token shown once on project page, env var AI4GOOD_PROJECT_TOKEN)
---   'workspace' — issued for the Lovable chat connector (token_hash stored; raw token shown once on Lovable Setup page; volunteer pastes into Lovable Workspace Settings → Chat Connectors at step 7 of the lovable_setup_pending blocker checklist per REQ-021 open-item-4 redesign)
+--   'workspace' — RESERVED, never issued in v1 (decision-20 deleted the ai4good-MCP-in-Lovable chat connector; Linear MCP replaced that surface)
 --   'platform_admin' — issued to platform-admin tooling for ops (audit-traceable; rarely used; minted as needed)
 -- v1 does NOT issue NGO tokens. NGOs use the ai4good UI only; the UI mutates via server-side auth (Supabase JWT + RLS), not via project API tokens.
 CREATE TABLE project_api_tokens (
@@ -2442,13 +2449,13 @@ CREATE TABLE task_comments (
 CREATE INDEX idx_task_comments_task ON task_comments(task_id, created_at) WHERE task_id IS NOT NULL;
 CREATE INDEX idx_task_comments_project ON task_comments(project_id, created_at);  -- decision-15: project comment-thread read path
 
--- RLS rule (codex round 6 resolution, option iii):
+-- RLS rule (codex round 6 resolution, option iii; updated by decision-20):
 -- - NGO admins CAN add comments via task_comments (append-only feedback for typos / staging-review notes — they need *somewhere* to leave short reactions without the full CR overhead).
--- - NGO admins CANNOT update task status, title, description, or priority in the ai4good UI.
--- - Volunteers CAN do all task mutations (status, title, description, sub-tasks, comments).
--- - MCP/REST mutations are bounded by token actor_role: 'volunteer' tokens get full mutation; 'workspace' tokens (Lovable chat connector) also get full mutation since they record build outcomes not scope decisions (see REQ-026 narrative).
--- - No NGO MCP token in v1 — NGOs use the UI only.
--- - Scope/intent changes always go through CR (REQ-025) regardless of who's mutating.
+-- - NGO admins CANNOT update task status, title, description, or priority anywhere.
+-- - Volunteers do task work in LINEAR (read / self-assign / comment; status moves on PR merge — decision-20); ai4good-side they may append task_comments like the NGO.
+-- - No task mutations exist through ai4good at all — the projection has ONE writer (the linear-webhook consumer + lifecycle API jobs).
+-- - No NGO tokens in v1 — NGOs use the UI only.
+-- - Scope/intent changes always go through CR (REQ-025) regardless of who's asking.
 
 -- Project blockers (REQ-024): orthogonal operational health
 CREATE TABLE project_blockers (
@@ -2530,6 +2537,32 @@ CREATE TABLE notifications (
 
 CREATE INDEX idx_notifications_unread ON notifications(recipient_id) WHERE read_at IS NULL;
 
+-- Post-handoff attribution + jumpstart health (REQ-035, decision-22). Capture ships in v1;
+-- synthesis / matching surfaces are v1.5. Credit-framed — never a public star score (Out of Scope #11).
+CREATE TABLE handoff_attributions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+  volunteer_id UUID NOT NULL REFERENCES profiles(id),
+  submitted_by UUID NOT NULL REFERENCES profiles(id),   -- NGO admin at sign-off
+  dimensions JSONB NOT NULL,                            -- {communication, delivered_scope, self_service_onboarding} — 4-point descriptive scale
+  testimonial TEXT,                                     -- optional free text; feeds the volunteer's portfolio
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE project_health_checks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  day_mark INTEGER NOT NULL CHECK (day_mark IN (30, 60, 90)),
+  deployment_alive BOOLEAN,
+  self_service_change_count INTEGER,                    -- NGO self-service changes in Lovable (where readable)
+  feature_requests_opened INTEGER,
+  rescue_requests INTEGER,
+  ngo_tried_and_failed BOOLEAN,                         -- 60-day one-question answer; ONLY tried-and-failed counts against health
+  derived_state TEXT CHECK (derived_state IN ('actively_self_served','stalled','unknown')),
+  checked_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (project_id, day_mark)
+);
+
 -- (tips table removed from v1 schema — REQ-022 deferred to v1.5 per §11; table will be added when v1.5 tips ship)
 
 -- (ngo_satisfaction_signals table removed from v1 schema — collection mechanism deferred to v1.5 along with handoff tips UX; table will be added when v1.5 work begins)
@@ -2602,8 +2635,9 @@ CREATE INDEX idx_audit_entity ON audit_events(entity_type, entity_id);
 - **Backend:** Supabase Edge Functions (Deno) for webhooks / mutations / REST / SSE; pg_cron for periodic jobs; Supabase Postgres, Supabase Auth, Supabase Storage (verification docs), Supabase Realtime. **Cloudflare R2** (S3-compatible object store, zero egress) for **project need attachments** (REQ-032), accessed only via signed URLs from an ai4good edge function.
 - **DB / ORM:** Postgres via Supabase; direct SQL + RLS for security-sensitive paths; Drizzle ORM for application queries.
 - **Payments:** Stripe (Checkout, Webhooks, Tax).
-- **AI:** Anthropic SDK (`@anthropic-ai/sdk`) — **Opus for Discovery + the post-Discovery assistant** (decision-13); Opus for complex volunteer builds (Sonnet available for cheaper build turns); per-project workspace keys (or platform key + per-project tracking) for volunteer use.
-- **VCS:** GitHub App (Octokit) for repo creation (Claude Code path) + webhook ingest (push / pull_request). GitHub Issues are not managed by ai4good in v1 (dev-internal only per REQ-008).
+- **AI:** Anthropic SDK (`@anthropic-ai/sdk`) — **Opus for Discovery + the post-Discovery assistant** (decision-13, platform-side); volunteer builds route through the **ai4good LLM gateway** (decision-21) on `a4g_*` virtual keys — the real key never leaves gateway env.
+- **Task coordination:** **Linear** (decision-20) — free workspace per project; GraphQL API + webhooks; GitHub integration drives issue status; Linear MCP for agents via the repo's committed `.mcp.json`. Platform-owned; workspace creation is a manual concierge step (no public API).
+- **VCS:** GitHub App (Octokit) for org setup + webhook ingest (push / pull_request → cadence + `external_commit_refs`). GitHub Issues are not managed by ai4good in v1 (dev-internal only per REQ-008).
 - **Infra:** Lovable hosting (frontend, TanStack Start SSR), Supabase (data + auth + Edge Functions + pg_cron). (Upstash already deferred per §11 decision-10.)
 - **Observability:** Sentry (errors), Axiom or Logflare (logs), Lovable analytics (get_project_analytics) + Supabase Edge Function / DB logs.
 - **CI/CD:** GitHub Actions for test/lint; deploy = Lovable `deploy_project` (frontend) + Supabase CLI `functions deploy` / `db push` (backend Edge Functions + migrations).
@@ -2614,8 +2648,10 @@ CREATE INDEX idx_audit_entity ON audit_events(entity_type, entity_id);
 |---|---|---|---|
 | Supabase | DB, Auth, Storage | Hard dependency | None (status page surfaced to users) |
 | Stripe | Payments | Hard dependency for top-ups | Queue intent + retry; show "try again in a few minutes" |
-| Anthropic API | Discovery + volunteer dev | Hard dependency for discovery | Queue + retry with backoff; manual scope option as escape hatch |
-| GitHub | Repo + issues | Hard dependency for project execution | Retry queue; degraded mode (read-only project page) |
+| Anthropic API | Discovery + volunteer dev (via the gateway) | Hard dependency for discovery + builds | Queue + retry with backoff; manual scope option as escape hatch |
+| ai4good LLM gateway | Volunteer build metering + governance (decision-21) | Hard dependency for volunteer builds | Golden-signal paging (REQ-029); real-key rotation runbook (REQ-030); hosting choice open |
+| Linear | Task coordination system of record (decision-20) | Panel goes stale; volunteers keep working (git unaffected) | Projection serves last state; webhook replay catches up; workspace-creation fallback = Basic tier or git-based deterministic truth layer |
+| GitHub | Repo + webhooks + Linear status integration | Hard dependency for project execution | Retry queue; degraded mode (read-only project page) |
 | Resend | Transactional email | Soft | Fall back to Supabase SMTP |
 | Upstash Redis | Rate limit + cache | Soft | Open the limit (log warning) |
 
@@ -2640,7 +2676,7 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
 
 ## Implementation Roadmap
 
-**Total timeline (post-scope-cut; re-baselined 2026-06-03 pivot; +10h decision-8; -6h decision-9; -80h decision-10; +17h REQ-032 attachments; +5h decision-11 Discovery credits incl. daily-drip; +10h decision-12 post-Discovery NGO assistant REQ-033; −9h decision-14 defer REQ-009 spend-anomaly engine; −12h decision-15 REQ-015 → project comment thread; +2h decision-16 CR anti-distraction guardrails; −6h decision-17 remove `paused` state):** **≈ ~392h core / ~494h buffered → ~13-16 weeks for 2 engineers, ~6.5-7.5 months for 1 engineer.** Cut scope per §11 (auto-top-up, tips, full CR UI, match scoring, satisfaction signals, KYC automation, Lovable email parser, two-org GitHub split, paid Discovery wallet, **platform task-MCP server (decision-9)**, **plus the decision-10 v1.5 deferrals: rate-limiting/Upstash, gradual-rollout, analytics dashboard, concierge CRM, content-takedown UI, multi-jurisdiction tax, self-serve GDPR, Upstash cache, multi-org Anthropic router**) keeps v1 shippable in this range. The decision-10 pass also consolidated the meter trio, the comms substrate, and the outbox reliability layer (ranks 2-4) without losing v1 capability. **PM tree storage is git (decision-9): `.taskmaster/tasks/tasks.json` in the project repo, mirrored to Postgres via GitHub webhook for NGO UI; volunteer's Claude Code drives local TaskMaster. No platform-hosted task-MCP server.** Phase 1 + 2 = MVP launch; Phase 3 = dashboards, comms & platform-operations; Phase 4 = pre-launch hardening; Phase 5 = public beta + concierge launch.
+**Total timeline (post-scope-cut; re-baselined 2026-06-03 pivot; +10h decision-8; -6h decision-9; -80h decision-10; +17h REQ-032 attachments; +5h decision-11 Discovery credits incl. daily-drip; +10h decision-12 post-Discovery NGO assistant REQ-033; −9h decision-14 defer REQ-009 spend-anomaly engine; −12h decision-15 REQ-015 → project comment thread; +2h decision-16 CR anti-distraction guardrails; −6h decision-17 remove `paused` state):** **≈ ~392h core / ~494h buffered; then −3h decision-19 and ≈ +31h the 2026-07-05 governance fold-in (decisions 20/21/22 — Linear, gateway, attribution) → ≈ ~420h core / ~530h buffered → ~14-17 weeks for 2 engineers.** **NOTE (2026-07-05): the per-phase task hints below predate decisions 20/21/22 and are NOT re-decomposed here — the authoritative build decomposition is produced by the PRD-dissection loop into Linear (the TaskMaster tree was dropped with decision-20).** Cut scope per §11 (auto-top-up, tips, full CR UI, match scoring, satisfaction signals, KYC automation, Lovable email parser, two-org GitHub split, paid Discovery wallet, **platform task-MCP server (decision-9)**, **plus the decision-10 v1.5 deferrals: rate-limiting/Upstash, gradual-rollout, analytics dashboard, concierge CRM, content-takedown UI, multi-jurisdiction tax, self-serve GDPR, Upstash cache, multi-org Anthropic router**) keeps v1 shippable in this range. The decision-10 pass also consolidated the meter trio, the comms substrate, and the outbox reliability layer (ranks 2-4) without losing v1 capability. **PM tree storage is git (decision-9): `.taskmaster/tasks/tasks.json` in the project repo, mirrored to Postgres via GitHub webhook for NGO UI; volunteer's Claude Code drives local TaskMaster. No platform-hosted task-MCP server.** Phase 1 + 2 = MVP launch; Phase 3 = dashboards, comms & platform-operations; Phase 4 = pre-launch hardening; Phase 5 = public beta + concierge launch.
 
 ### Phase 1: Foundation (Weeks 1-3)
 
@@ -2672,15 +2708,15 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
 - Task 2.7: Marketplace listing + filters (skill/cause/complexity badges; **no numeric match score in v1**) — Medium (8h)
 - Task 2.8: Apply / accept flow (Accept/Decline buttons; **no match score algorithm in v1**) — Small (5h)
 - Task 2.9: GitHub App registration + repo creation on funding (Claude Code path only; Lovable repo URL captured separately per REQ-008) — Medium (10h)
-- Task 2.10: **Bootstrap-from-Discovery + NGO REST API** (REQ-026 decision-9 — a Supabase Edge Function (Deno) commits initial `tasks.json` on project `in_progress` via GitHub App; REST endpoints (comments/blockers/context/tasks.json proxy) implemented as Supabase Edge Functions with per-project bearer-token auth) — Medium (9h)
-- Task 2.11: **`github-webhook` Supabase Edge Function (Deno) + Postgres projection worker** (REQ-026 decision-9 — single ingestPush — push event filter, fetch updated `tasks.json`, diff against `project_tasks`, upsert; pg_cron → `head-sha-reconcile` Edge Function for missed webhooks; idempotent via `delivery_id`) — Medium (8h)
-- Task 2.12: Anthropic workspace provisioning + manual key-bootstrap ops queue (REQ-009) — Large (12h)
-- Task 2.13: **Idempotent cursored** Anthropic Usage poller behind the `UsageMeteringProvider` port (`usage_poll_state` cursor + per-consumption-bucket unique index for exactly-once metering + `job_runs` heartbeat) + local rate-card conversion + daily Cost Report reconciliation (REQ-009) — Medium (14h)
+- Task 2.10: **Decomposition-to-Linear + NGO REST API** (REQ-026 decision-20 — draft issue tree from Discovery output, coordinator review, API push; REST endpoints (comments/blockers/context) as Supabase Edge Functions with per-project bearer-token auth) — Medium (11h)
+- Task 2.11: **`linear-webhook` Supabase Edge Function (Deno) + Postgres projection** (REQ-026 decision-20 — signature verify, projection upsert, `delivery_id` de-dup, **detect-and-revert** on non-integration status changes) + `github-webhook` (cadence + `external_commit_refs`) — Medium (12h)
+- Task 2.12: LLM gateway core — virtual keys (mint/revoke/show-once) + streaming pass-through + caps + fingerprint + governance injection (REQ-009 decision-21) — Large (24h)
+- Task 2.13: Gateway **inline metering** — rate-card pricing + paired ledger rows + `gateway_request_id` idempotency + `task_ref` capture (REQ-009/034) — Medium (8h)
 - Task 2.14: Fuel-low blockers + notifications integration (REQ-024) — Small (5h)
 - Task 2.15: Project page (public, single view) + PM task tree + activity feed (REQ-010) — Medium (10h)
-- Task 2.16: Lovable Track-A surfaces (REQ-021: manual status widget + per-actor MCP token setup page + Knowledge-field snippet docs; the active orchestration logic lives in the Skill, Task 2.18; **no inbound email parser in v1**) — Small (5h)
-- Task 2.17: Handoff checklist + sign-off flow (no tips in v1; no satisfaction modal in v1) — Medium (6h)
-- Task 2.18: ai4good Claude Code Skill — **v1 CORE orchestration shell** (REQ-028 + REQ-021): `LovableDriver` anti-corruption port over Lovable MCP (`send_message`/`get_diff`/`get_workspace`), structural per-task credit cap + `get_workspace` balance polling + scope/audit enforcement, **manual dual-rail fallback** when Lovable MCP is unavailable, plus install/session-bootstrap/slash-commands/code-commit-prefix-hook/**tasks.json auto-commit+push hook (decision-9)** — Large (28h, was 35h: decision-9 removes ~11h of platform-MCP wiring, adds ~4h for the auto-commit hook)
+- Task 2.16: Lovable Track-A surfaces (REQ-021: manual status widget + Lovable Setup page — post-decision-20, no connector/token panels — + Knowledge-field snippet docs; the active orchestration logic lives in the Skill, Task 2.18; **no inbound email parser in v1**) — Small (5h)
+- Task 2.17: Handoff checklist + sign-off flow (no tips in v1; includes the REQ-035 attribution step — decision-22) — Medium (7h)
+- Task 2.18: ai4good Claude Code Skill — **v1 CORE orchestration shell** (REQ-028 + REQ-021): `LovableDriver` anti-corruption port over Lovable MCP (`send_message`/`get_diff`/`get_workspace`), structural per-task credit cap + `get_workspace` balance polling + scope/audit enforcement, **manual dual-rail fallback** when Lovable MCP is unavailable, plus install/session-bootstrap/slash-commands/branch-convention-hook/**task-binding PostToolUse hook (decisions 20/22)** — Large (27h: decision-20 removes the auto-commit hook, decision-22 adds the binding hook)
 - Task 2.19: Transactional **outbox** — `outbox_events` table + relay worker + at-least-once delivery driving all side-effect sagas (kickoff, teardown, abandonment, handoff) — Medium (10h)
 - Task 2.20: Ledger integrity — pair-sum **control-total** pg_cron → Supabase Edge Function (Deno) nightly job (every entry balances) + the `stripe-webhook` Supabase Edge Function handling dispute/`chargeback` + `chargeback_writeoff` + `reserve_floor_cents` + `first_fund_cap_cents` enforcement (REQ-006) — Medium (10h)
 - Task 2.21: Continuous **base-permission invariant** job (REQ-008 — every active volunteer holds exactly their project's repo role; reconcile drift; single-org v1) — Small (4h)
@@ -2754,8 +2790,8 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
 ```
 1.1 schema → 1.3 auth → 1.5 NGO org → 2.1 intake → 2.2 discovery → 2.3 scope
   → 2.4 publish (triage) → 2.5 Stripe → 2.7 marketplace → 2.8 apply
-  → 2.9 GitHub repo → 2.10 PM tasks → 2.11 MCP server → 2.12 Anthropic workspace
-  → 2.13 idempotent usage poller → 2.18 Skill orchestration shell → 2.19 outbox
+  → 2.9 GitHub repo → 2.10 Linear decomposition → 2.11 linear-webhook projection
+  → 2.12 LLM gateway → 2.13 inline metering → 2.18 Skill orchestration shell → 2.19 outbox
   → 2.20 ledger control-total → 2.22 deploy-to-running → 2.15 project page
   → 2.17 handoff → 3.7 observability → 3.8 ops/incident → 4.* hardening → 5.* launch
 ```
@@ -2769,7 +2805,9 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
 - Phase 5: ~49h (prior ~33h + concierge supply-funnel 8h [5.7] + aging-open nudge 3h [5.8] + hand-match tool 5h [5.9] = +16h)
 - **Subtotal before decision-10: ~466h** (Phase 1 ~48 + Phase 2 ~219 + Phase 3 ~71 + Phase 4 ~79 + Phase 5 ~49). The ~350h pre-pivot figure + the pivot/decision-8 hardening ≈ +122h, then decision-9 nets ~-6h.
 - **2026-06-06 decision-10 simplification pass: ≈ −80h** (ranks 2-4 consolidations ≈ −45h across Phase 2/3 — meter split, one comms substrate, one outbox+handler-registry; plus the #45 + rank-6 v1.5 deferrals ≈ −35h across Phase 3/4/5). Rank 1 already counted under decision-9.
-- **Total v1 (post-decision-10): ≈ ~385h core** engineering. Per-phase split is now approximate (cuts span phases); treat ~385h as authoritative.
+- **Total v1 (post-decision-10): ≈ ~385h core** engineering. Per-phase split is now approximate (cuts span phases).
+- **Decisions 11–19 net:** +17h (REQ-032) +5h (d11 credits) +10h (d12 assistant) −9h (d14) −12h (d15) −6h (d17) +2h (d16) −3h (d19) → ≈ ~389h core.
+- **2026-07-05 governance fold-in (decisions 20/21/22): ≈ +31h net** — Linear replaces the git-projection plumbing (≈ +7h), the gateway replaces the poller / manual-key-ops / deactivation stack (≈ +1h — near cost-neutral for strictly stronger properties and zero manual key ops), attribution capture + NGO burn-per-deliverable (REQ-034, ≈ +12h), post-handoff attribution + jumpstart health capture (REQ-035, ≈ +11h). **Landing v1 at ≈ ~420h core / ~530h buffered — treat this as authoritative** (supersedes ~392h/~494h).
 - **Risk buffer:** +25% → **≈ ~480h total budget** (**realistically 12-15 calendar weeks for 2 engineers at 60-70% capacity**, accounting for the unaccounted-for engineering work codex round 3 flagged: deployment/CI/CD, environment management, monitoring stack, support tooling, runbooks, on-call).
 - **Beyond engineering:** Add 4-6 weeks of pilot operations before public beta — running 3 internal full-cycle projects to validate the system end-to-end (Checkpoint 3).
 - **Honest total from kickoff to public beta:** ~5 months for a 2-engineer team, ~7-8 months for a 1-engineer team.
@@ -2778,7 +2816,7 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
 
 ## Out of Scope
 
-1. **ai4good AI Proxy (dev-facing token + per-request audit + instant rotation + 9-layer enforcement)** — Moved from v2 to **v1.5 priority** (was originally framed as v2 enforcement; reframed after architectural insight). The proxy sits between Claude Code and `api.anthropic.com`, issuing project-scoped tokens (`ai4g_*`) to volunteers instead of exposing the real Anthropic key. Volunteers configure `ANTHROPIC_BASE_URL=https://proxy.ai4good.dev/projects/<id>/v1` + `ANTHROPIC_API_KEY=<ai4g token>`; vanilla Claude Code works unchanged.
+1. **ai4good AI Proxy — SHIPPED IN v1 as the LLM gateway (decision-21, 2026-07-05; REQ-009).** The v1 gateway carries layers 1 (token validation), 2 (velocity/budget caps), 6 (real-time fuel check), 8 (per-request audit *metadata* — request bodies are never persisted), and 9 (instant rotation) of the model below, plus the fingerprint tripwire + governance-prompt injection the original design lacked. **Residual v1.5 hardening from the 9-layer list:** endpoint/method allowlists beyond the defaults (layers 3/4), payload size bounds (5), and IP-velocity/geo/User-Agent checks (7). The original design record is kept below for the trail:
 
    **9-layer enforcement model** (every request passes through these checks before reaching Anthropic):
    1. **Token validation** — token valid + bound to the project_id in the URL path; else 401
@@ -2793,16 +2831,16 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
    8. **Per-request audit log** — every request logged with timestamp, IP, User-Agent, endpoint, payload size, Anthropic cost, fuel delta — feeds anomaly detection
    9. **Instant token rotation** — programmatic invalidation in seconds (no Anthropic Admin API call needed, just toggle our token validity)
 
-   **Benefits** (vs v1 direct-key model): real Anthropic key never exposed to volunteers; per-request audit with no lag; hard scope enforcement (token only works for the project in the URL); instant rotation; real-time fuel enforcement (replaces 5-min polling); endpoint allowlist blocks abuse via Managed Agents / batches / memory stores. **Per-project Anthropic workspaces (REQ-009) remain the substrate** — proxy holds the real per-workspace keys in our Vault, forwards requests, and logs everything.
+   **Benefits** (vs the old direct-key model — all live in v1 now): real Anthropic key never exposed to volunteers; per-request audit metadata with no lag; hard scope enforcement; instant rotation; real-time fuel enforcement (replaced 5-min polling). ~~Per-project Anthropic workspaces remain the substrate~~ — superseded: decision-21 deleted workspaces; the gateway holds one org key in env.
 
    **What the proxy still CAN'T enforce (honest limits):**
    - **Verify request content is project-related.** Once a volunteer has a valid token, the proxy is blind to "is this prompt actually about project X?" — working directory, git remote, etc. are not in the API payload. Determined misuse remains a volunteer-agreement + cross-reference-audit problem (same as v1, no worse).
    - **Lock to a specific machine.** Would require per-device hardware attestation; impractical for volunteers. IP-velocity check is the lightweight approximation.
    - **Defeat a determined attacker who got the token.** They can spoof headers and route through residential proxies. The velocity cap + instant rotation bound the damage; they don't prevent the leak from being briefly exploited.
 
-   **v1 acceptable interim** (until v1.5 proxy lands): direct per-project key exposure to volunteers, bounded by the volunteer agreement (Story 3) + per-project fuel cap + NGO-triggerable rotation + nightly anomaly detection (REQ-009).
+   ~~v1 acceptable interim (direct per-project key exposure)~~ — no longer applicable: the gateway ships in v1 (decision-21); no direct key exposure exists.
 
-   **Effort estimate:** ~80h for v1.5 proxy with the 9-layer enforcement model. Built on Cloudflare Workers / Supabase Edge Functions (Deno) for low-latency global edge presence. (v1.5, out of scope — no Vercel.)
+   **Effort:** the v1 gateway Layer 1 is ~41h (REQ-009 task hints, largely offset by the deleted poller/ops-queue/deactivation stack); the residual v1.5 layers ≈ ~20h. Hosting = open decision OD-6.
 2. **Crypto / on-chain tokens** — Fuel is Stripe-backed fiat credits only. No tradeable token, no on-chain ledger.
 3. **Native mobile apps** — Web-responsive only. iOS/Android apps are not on the roadmap.
 4. **i18n / multi-language UI** — English only at launch.
@@ -2822,9 +2860,9 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
 17. **Service-level agreements / completion guarantees** — ai4good does not offer SLAs or guarantee that any project will reach handoff. This is a core operating principle (see Platform Promise & Disclaimers). Volunteers may ghost; AI tools may consume fuel without producing a working deliverable; scopes may prove infeasible. The platform bounds the financial risk (per-project fuel caps) and surfaces stalls, but does not underwrite outcomes.
 18. **Closed-source / proprietary builds** — All projects are open-source under MIT (or a compatible permissive license) by default. NGOs requesting closed-source or proprietary work are not served by this platform.
 19. **Fuel-spend insurance / refund-on-no-deliverable** — Fuel that has been consumed by AI tools is not refundable, even if the project does not ship. This is structurally required (we cannot un-spend Anthropic tokens). NGOs are warned of this risk at every top-up (Story 2).
-20. **Fully-automated Anthropic key provisioning** — Anthropic restricts API key creation to the Console UI (no admin-API endpoint for key creation as of 2026-05-16). v1 ships with a one-step manual ops task per project (~30 sec by platform admin to create the workspace key + set spend limit). v2 trigger: Anthropic ships `POST /v1/organizations/workspaces/{id}/api_keys` (see Open Q8).
-21. **Per-request prompt/response audit logs via API** — Anthropic does not expose this via API. The Anthropic Console **does** have a per-workspace Logs page (`/workspaces/{id}/logs`) usable for ad-hoc admin investigation, but it's not programmatically queryable. The Usage and Cost API at 1-minute bucket granularity is the programmatic audit surface in v1. **v1.5 ai4good AI Proxy (see #1)** will provide programmatic per-request capture by being in the request path. Per-prompt-content capture from Anthropic remains out of scope (correctly so, for privacy).
-22. **Anthropic-side "agent budget" enforcement** — Anthropic's workspace spend limit is **not reliably a hard cap** (docs use "Spend notifications" / alert language, behavior on excess undocumented for non-batch calls) and **cannot be set/updated via Admin API** — Console-only. ai4good's authoritative kill switch is our own Usage Report polling + programmatic key deactivation at fuel-zero. The workspace cap is set once at workspace creation as a backstop, using formula `max(funded_amount × 3, $200)` — scales tightly to NGO exposure rather than the prior loose $1000/$3000 default (codex round 2 #5 fix). A preemptive `raise_spend_limit` ops_task fires at 80% of accumulated monthly spend so admin can raise the cap in Console before Anthropic enforces (if it ever does). v1.5 AI Proxy makes this whole story obsolete by enforcing on our side.
+20. ~~Fully-automated Anthropic key provisioning~~ — **MOOT (decision-21):** there are no per-project Anthropic keys; virtual keys mint as Supabase row writes at kickoff, fully automated. (Q8 closed.)
+21. **Per-request prompt/response CONTENT capture — permanently out (privacy posture, reaffirmed by decision-21).** The v1 gateway IS in the request path and captures per-request **metadata** (tokens, model, timestamps, task_ref, cost) — but request bodies are inspected transiently and never persisted (REQ-009 invariant). Content classification exists only as the never-built Layer-3 ladder rung, sampled and Layer-2-triggered, listed so the decision *not* to surveil is visible.
+22. ~~Anthropic-side "agent budget" enforcement~~ — **MOOT (decision-21):** the whole workspace-spend-cap story (Console-only caps, ambiguous hard-block semantics, the `raise_spend_limit` ops_task, the `max(funded×3,$200)` formula) is deleted with per-project workspaces. Enforcement is ours, structural, at the gateway: per-key caps + the real-time fuel gate.
 23. **Optional OpenTelemetry export from Claude Code (`OTEL_LOG_*` env vars)** — Claude Code natively supports detailed OTel export including full prompt content. ai4good does **not** request or process prompt-content telemetry from volunteers — privacy posture. The v1.5 AI Proxy supersedes the need for OTel-based audit (we capture per-request metadata server-side without touching prompts). Volunteers may use OTel independently for their own observability needs; ai4good does not aggregate it.
 24. **Decision-10 v1.5 deferrals (2026-06-06; founder-approved; gate = "before organic/EU signup").** The task-tree simplification pass deferred the following out of the concierge v1 surface; each is logged with its reinstatement trigger and the public-beta launch checklist (REQ-029 / task #56) carries the hard gate:
     - **Rate-limiting / Upstash** (task #47, removed) — v1 ceiling is a Supabase per-IP throttle + Edge Function per-surface caps (Cloudflare WAF if fronting Lovable hosting) (Discovery caps owned by REQ-004/decision-8; Apply 5/min via the apply unique index; auth via Supabase per-IP throttle). Removes Upstash from the v1 surface entirely. Reinstate full rate-limiting before organic signup.
@@ -2835,9 +2873,9 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
     - **Multi-jurisdiction tax registration** (Stripe Tax right-size) — v1 keeps `automatic_tax` + hosted invoices + tax-ID field.
     - **Self-serve GDPR erasure/export UI** — v1 keeps consent + sub-processor list + a manual erasure runbook; no EU/public signup until the self-serve flow lands.
     - **Upstash cache + k6/Lighthouse CI gates** (performance right-size) — v1 keeps TanStack Start image handling + SSR-with-HTTP-cache (stale-while-revalidate, in lieu of ISR) + the Supabase pooler.
-    - **Multi-org Anthropic router** (REQ-009 right-size) — deferred behind the unchanged `UsageMeteringProvider` port; v1 runs one hard-coded org (gated to ~80 active workspaces).
+    - ~~Multi-org Anthropic router~~ — **RETIRED by decision-21** (no per-project workspaces → the 100-workspace cap never binds; the `UsageMeteringProvider` port is retired with the poller).
 25. **Automated PII / secret pre-scan on uploaded reference files (REQ-032)** — v1 uses governance-by-disclosure (the NGO acknowledges the data-responsibility rule; ai4good does not scan). A lightweight scan that quarantines likely-sensitive uploads before they reach the Discovery AI or the volunteer is a v1.5 option. v1.5 trigger: an observed incident of real Tier-2 data uploaded against the disclosure, or EU/public signup.
-26. **Automated spend-anomaly detection engine (REQ-009)** — the nightly confidence-scorer (2σ spend baseline + zero-commit / zero-task-done / off-hours signals), the tiered auto-deactivate (≥0.9) auto-action, the `spend_anomaly_review` blocker (REQ-024) + its 48h escalation + 3-branch NGO resolution UI, and the `anomaly_investigation` ops_task are **deferred to v1.5 (decision-14, 2026-06-07).** v1 keeps the deterministic loss caps (no cash-out §7, the $200 first-fund cap, the workspace spend cap `max(funded×3,$200)`, fuel-zero key-deactivation) + the manual NGO/admin "rotate key now" action + the REQ-029 money dashboard for daily human review; the scorer only reduced detection *latency*, which does not bind at the concierge pilot's ~10–15 hand-vetted projects (and its mis-calibrated `spend > $50` floor would have false-positived on legitimate $50-kickoff projects). The schema enums (`ops_tasks.anomaly_investigation`, `project_blockers.spend_anomaly_review`) stay reserved for the v1.5 reinstatement. v1.5 trigger: organic/EU signup (same gate as the decision-10 fraud-adjacent deferrals).
+26. **Automated spend-anomaly detection engine (REQ-009)** — the nightly confidence-scorer (2σ spend baseline + zero-commit / zero-task-done / off-hours signals), the tiered auto-deactivate (≥0.9) auto-action, the `spend_anomaly_review` blocker (REQ-024) + its 48h escalation + 3-branch NGO resolution UI, and the `anomaly_investigation` ops_task are **deferred to v1.5 (decision-14, 2026-06-07).** v1 keeps the deterministic loss caps (no cash-out §7, the $200 first-fund cap, and — post-decision-21 — per-key caps + the gateway's real-time fuel gate) + the NGO's instant "revoke access now" action + the REQ-029 money dashboard for daily human review; the scorer only reduced detection *latency*, which does not bind at the concierge pilot's ~10–15 hand-vetted projects (and its mis-calibrated `spend > $50` floor would have false-positived on legitimate $50-kickoff projects). The schema enums (`ops_tasks.anomaly_investigation`, `project_blockers.spend_anomaly_review`) stay reserved for the v1.5 reinstatement; **if built, it lands as the gateway's Layer-2 reconciliation rung (REQ-009 escalation ladder)**. v1.5 trigger: organic/EU signup (same gate as the decision-10 fraud-adjacent deferrals).
 
 ---
 
@@ -2847,7 +2885,7 @@ This is the authoritative scope/roadmap reference. Use the **Out of Scope** sect
 
 ### v1 MVP (public beta launch)
 
-**⚠️ 2026-06-03 PIVOT + 2026-06-04 DECISION-8 + 2026-06-06 DECISION-9 — read this first.** After a 10-persona PM-architect strategic review (2026-06-03) the founder made 7 decisions that materially reshape v1 (see Platform Promise + REQ-004/006/008/012/021/026/028 + new REQ-027/029/030/031). A follow-up **decision-8 (2026-06-04)** unified the money model: NGOs and volunteers BOTH consume project fuel, funding is allowed from `draft` onward, and Discovery is gated by a per-NGO free credit pool. A further **decision-9 (2026-06-06)** simplifies the PM-tree architecture: **TaskMaster runs locally on the volunteer's laptop only; `tasks.json` lives in the project's git repo; ai4good observes through GitHub webhooks and projects into Postgres for the NGO UI.** No platform-hosted task MCP server. Net deltas to v1 scope:
+**⚠️ 2026-06-03 PIVOT + 2026-06-04 DECISION-8 + 2026-06-06 DECISION-9 — read this first.** After a 10-persona PM-architect strategic review (2026-06-03) the founder made 7 decisions that materially reshape v1 (see Platform Promise + REQ-004/006/008/012/021/026/028 + new REQ-027/029/030/031). A follow-up **decision-8 (2026-06-04)** unified the money model: NGOs and volunteers BOTH consume project fuel, funding is allowed from `draft` onward, and Discovery is gated by a per-NGO free credit pool. A further **decision-9 (2026-06-06)** simplified the PM-tree architecture to git-as-truth. **Decisions 20/21/22 (2026-07-05) then re-architected coordination + token governance: Linear replaces the git-as-truth tree (decision-20 — REVERSES decision-9), an LLM gateway with virtual keys replaces per-project Anthropic keys + the usage poller (decision-21), and attribution capture ships in v1 (decision-22).** Where decision-9 text below conflicts, decisions 20–22 win (kept for the decision trail). Net deltas to v1 scope:
 - **Deliverable is a *deployed, NGO-self-maintainable* tool** (not a repo). **Track A** (NGO maintains via chat) → Lovable is the primary vehicle + durable home; Claude Code orchestrates Lovable via its MCP (Skill is the orchestration shell). **Track A is the only track v1 builds; Track B (developer-grade + plain-host deploy) is deferred to post-v1 (decision-19) — non-Track-A needs are waitlisted at Discovery.** Discovery classifies the track.
 - **Data governance-by-disclosure**: Discovery `data_sensitivity` tiers; Tier-2 = fixtures-only-during-build; triage enforces.
 - **No cash-out**: fuel is non-cash project-scoped credit; stays-on-project; donate/keep (move-between-projects v1.5). Removes Treasury/ACH/refund/KYC/AML.
@@ -2903,11 +2941,15 @@ This is the authoritative scope/roadmap reference. Use the **Out of Scope** sect
 
 - **Decision-17 (2026-06-09) — Remove the `paused` state from v1; pause/resume deferred to v1.5 (PRD-review simplification).** Surfaced by a simplification review (goal: 3 capability-light cuts beyond decisions 10/14/15). `paused` was the most expensive state in the lifecycle relative to expected pilot use: it carried the `paused_from_status` restore column with resume-validity edge cases, the `fuel_deadline_remaining_seconds` funding-clock freeze/recompute stash, paused-special-casing inside **three separate cron jobs** (REQ-027 inactivity 14d/21d scan, REQ-006 match-expiry job, Goal-5 aging-open nudge — all branches of the merged hourly aging scan, task #41), key deactivate/reactivate side effects, and marketplace hiding. At the concierge pilot's ~10–15 hand-matched projects, "pause" is a support conversation, not a state machine: **pre-match** the NGO unpublishes (`open → scoped`) or cancels the match; **mid-build** the platform admin deactivates the Anthropic key + leaves a note (REQ-009 tooling already exists) or the project is cancelled. **Cut from v1:** the `paused` state + 2 transitions (REQ-005.5), both stash columns (schema), and every cron's paused-clock exclusion (each scan becomes a plain status filter). **Kept:** `open → scoped` unpublish-to-revise (now the only "take it off the marketplace" path). Touches Goal-5 job def, REQ-005/005.5/006/007/027, schema, tasks #41/#59 + the lifecycle/schema tasks. Reinstate in v1.5 on first real NGO pause request (v1.5 table row added). Effort ≈ **−6h**.
 
+- **Decision-20 (2026-07-05) — Linear replaces the git-as-truth PM tree (REVERSES decision-9), for the product AND the ai4good buildout itself.** Ground: "real signals, not AI-authored narratives" — under decision-9 the volunteer's agent was the designed writer of task state. New shape (REQ-026 rewritten): free Linear **workspace per project** (creation = ~5-min manual concierge step, no public API; everything after is API-driven); coordinator-owned decomposition (automation drafts, human approves, API push; briefs session-sized + dependency-ordered); **pull-based** volunteer workflow (self-assignment = commitment signal); **status moves only via Linear's GitHub integration on PR merge**; agents read/comment/self-assign but never move status — enforced by **detect-and-revert** in the `linear-webhook` consumer (wrapper-MCP held in reserve); `project_tasks` survives as the projection with a new feed source; NGO visibility stays panel-only (no Linear seats); CI snapshots the tree to repo markdown at handoff; **coordination infra is platform-owned and never transfers at handoff** (delivery infra — Lovable, repo — is NGO-owned). Deleted: tasks.json + TaskMaster, the Skill auto-commit hook, github-webhook tasks.json ingest, HEAD-SHA reconcile, the bootstrap git-commit, and the dead ai4good-MCP-in-Lovable connector. Effort ≈ +7h net.
+- **Decision-21 (2026-07-05) — LLM gateway with virtual keys in v1 (pulls the "AI Proxy v1.5" forward; rewrites REQ-009).** Per-(volunteer, project) `a4g_*` **virtual keys** (hash-only, show-once, minted as row writes at kickoff); volunteer setup = two env vars; the **real Anthropic key lives only in gateway env**; per-request: caps (per-request max + rolling 24h) → fuel gate (structural, real-time) → fingerprint tripwire (`.a4g/fingerprint.md`, pairwise, >~1.5k tokens) → governance-prompt injection → stream → **inline paired ledger rows** (gateway_request_id idempotency, task_ref). Deleted: per-project Anthropic workspaces + manual Console key ops queue + the 5-min usage poller + `usage_poll_state` + daily Cost-Report reconciliation + workspace spend caps + the fuel-zero deactivation/reactivation saga + the multi-org scale path + the `UsageMeteringProvider` port. Privacy invariants: bodies never persisted; ledger = token counts + metadata; signals as scores/booleans only. Escalation ladder documented-not-built (Layer-2 reconciliation, CI fingerprint rotation, short-TTL JWT, Layer-3 sampled classification — each with triggers). **Hosting = open decision OD-6.** Effort ≈ +1h net (near cost-neutral; kills all manual key ops).
+- **Decision-22 (2026-07-05) — attribution + transparency capture in v1 (new REQ-034 + REQ-035).** REQ-034: task-ID binding on every ledger row (PostToolUse hook on Linear assignment → `.a4g/task.md` → CLAUDE.md import → gateway extracts; fallback branch/transcript derivation; floor `unattributed`, never gates; first-class `exploration`/`onboarding` buckets; NGO panel shows **burn per deliverable**; per-volunteer granularity stays coordinator-side; reconciliation surfaces v1.5). REQ-035: handoff **attribution** step (testimonial + 3 credit-framed dimensions — consciously supersedes the "no satisfaction form in v1" deferral; never a public star score) + **jumpstart health at 30/60/90 days** from real signals with the 60-day "did you try?" confound question (extends the 30-day-alive ping); reputation-feeds-matching + health synthesis + the AI-maintainability visible check are v1.5. Rationale: uncaptured data is lost forever. Effort ≈ +23h.
+
 **Launch strategy — concierge-first (decided 2026-06-03 — Item 6 / Goal 5):** supply liquidity is the #1 launch gate. **Do not open organic browse first.** Pre-recruit a ~20–30-volunteer bench (seed Claude Code / AI-builder / civic-tech communities), hand-match the first ~10–15 *curated* NGO projects end-to-end to prove the loop produces deployed tools, *then* open organic browse. v1 product hooks supporting this: the supply-funnel metric (Goal 5), the `project_aging_unmatched` nudge (REQ-016), and admin concierge-match tooling. The referral loop is v1.5.
 
 **Honest framing:** the product thesis is intact and stronger; this pivot adds the "real money + real NGO data + real adversaries + real deployment" hardening the prior parse-ready PRD lacked.
 
-**v1 estimate (RE-BASELINED — pivot + decision-8 + decision-9 folded in):** the prior single-source figure was **~350h core / ~438h buffered**. The 2026-06-03 pivot adds **+112h** (REQ-027/029/030/031 + outbox + poller hardening + base-permission invariant + deploy-to-running + Skill-orchestration promotion +19h + concierge tooling). The 2026-06-04 decision-8 adds **~+10h** to Phase 2 (per-NGO Discovery pool + email_verified_at sync + Stripe Checkout reachable from draft + discovery_consumption ledger kind). The 2026-06-06 decision-9 NETS OUT **~-6h** from Phase 2 at the roadmap level (Task 2.10 +3h for NGO REST API + bootstrap action, Task 2.11 -2h for webhook/projection vs. MCP server, Task 2.18 -7h for Skill drops platform-MCP wiring and adds tasks.json auto-commit hook). Per-phase before decision-10: **Phase 1 ~48h + Phase 2 ~219h + Phase 3 ~71h + Phase 4 ~79h + Phase 5 ~49h = ~466h core / ~583h buffered**. The **2026-06-06 decision-10 simplification pass** then nets out approximately **−80h** (ranks 2-4 consolidations −45h spread across Phase 2/3, plus the #45 + rank-6 v1.5 deferrals −35h across Phase 3/4/5; rank 1 was already counted under decision-9). De-duplicated landing point after decision-10: **≈ ~385h core / ~480h buffered**. Then **REQ-032 (project need attachments) adds ~17h** and **decision-11 (Discovery credits — context-weighted credit cost + caching discount + credit-gauge/per-turn/per-file cost UI + per-turn fuel-vs-credit routing + daily-drip credit reset) adds ~5h** and **decision-12 (REQ-033 post-Discovery fuel-metered NGO project assistant) adds ~10h**, then **decision-14 (defer the REQ-009 spend-anomaly engine to v1.5) nets out ~−9h**, and **decision-15 (REQ-015 → lightweight project comment thread; full channel to v1.5) nets out ~−12h**, then **decision-16 (CR anti-distraction guardrails) adds ~+2h**, and **decision-17 (remove the `paused` state; pause/resume → v1.5) nets out ~−6h**, landing the current v1 at **≈ ~392h core / ~494h buffered** — call it **~5 months for 2 engineers**. The per-phase split is now approximate; treat ~392h/~494h as authoritative. Old 350h is superseded.
+**v1 estimate (RE-BASELINED — pivot + decision-8 + decision-9 folded in):** the prior single-source figure was **~350h core / ~438h buffered**. The 2026-06-03 pivot adds **+112h** (REQ-027/029/030/031 + outbox + poller hardening + base-permission invariant + deploy-to-running + Skill-orchestration promotion +19h + concierge tooling). The 2026-06-04 decision-8 adds **~+10h** to Phase 2 (per-NGO Discovery pool + email_verified_at sync + Stripe Checkout reachable from draft + discovery_consumption ledger kind). The 2026-06-06 decision-9 NETS OUT **~-6h** from Phase 2 at the roadmap level (Task 2.10 +3h for NGO REST API + bootstrap action, Task 2.11 -2h for webhook/projection vs. MCP server, Task 2.18 -7h for Skill drops platform-MCP wiring and adds tasks.json auto-commit hook). Per-phase before decision-10: **Phase 1 ~48h + Phase 2 ~219h + Phase 3 ~71h + Phase 4 ~79h + Phase 5 ~49h = ~466h core / ~583h buffered**. The **2026-06-06 decision-10 simplification pass** then nets out approximately **−80h** (ranks 2-4 consolidations −45h spread across Phase 2/3, plus the #45 + rank-6 v1.5 deferrals −35h across Phase 3/4/5; rank 1 was already counted under decision-9). De-duplicated landing point after decision-10: **≈ ~385h core / ~480h buffered**. Then **REQ-032 (project need attachments) adds ~17h** and **decision-11 (Discovery credits — context-weighted credit cost + caching discount + credit-gauge/per-turn/per-file cost UI + per-turn fuel-vs-credit routing + daily-drip credit reset) adds ~5h** and **decision-12 (REQ-033 post-Discovery fuel-metered NGO project assistant) adds ~10h**, then **decision-14 (defer the REQ-009 spend-anomaly engine to v1.5) nets out ~−9h**, and **decision-15 (REQ-015 → lightweight project comment thread; full channel to v1.5) nets out ~−12h**, then **decision-16 (CR anti-distraction guardrails) adds ~+2h**, and **decision-17 (remove the `paused` state; pause/resume → v1.5) nets out ~−6h**, landing at ~392h/~494h. Then **decision-19 (defer Track B) nets ~−3h**, and the **2026-07-05 governance fold-in (decisions 20/21/22 — Linear ≈ +7h, gateway ≈ +1h, attribution capture ≈ +23h) adds ≈ +31h net**, landing the current v1 at **≈ ~420h core / ~530h buffered** — call it **~5 months for 2 engineers**. The per-phase split is now approximate; treat ~420h/~530h as authoritative. Old figures are superseded.
 
 **Foundation:**
 - REQ-001 (Auth: email + GitHub + Google)
@@ -2927,13 +2969,15 @@ This is the authoritative scope/roadmap reference. Use the **Out of Scope** sect
 
 **Project Execution:**
 - REQ-008 (GitHub repo + dev-internal Issues only; Claude Code repos locked to `ai4good-projects/` org per option α)
-- REQ-009 (Anthropic per-project workspaces + manual key bootstrap + Usage Report polling + daily Cost Report reconciliation + micro-cents ledger + preemptive cap-raise + hybrid reactivation; **automated spend-anomaly detection deferred to v1.5 — decision-14**)
+- **REQ-009** (LLM gateway — decision-21: `a4g_*` virtual keys per volunteer×project, caps + rolling 24h window, fingerprint tripwire, governance-prompt injection, **inline micro-cents ledger writes per request**, structural fuel gate, instant revocation, escalation ladder documented-not-built; **automated spend-anomaly detection deferred to v1.5 — decision-14**; gateway hosting = OD-6)
 - REQ-010 (Single-view project page + cadence stats + dual fuel meters)
 - REQ-021 (Lovable = Track-A primary deliverable vehicle; Claude Code orchestrates it via the `LovableDriver` port over Lovable MCP with per-task credit cap + audit + manual dual-rail fallback; volunteer-driven setup; manual status widget retained; **inbound email parser deferred to v1.5**; **Track B / developer-grade deferred to post-v1 — decision-19, v1 is Track-A only**)
 - REQ-024 (Orthogonal blockers + task-anchored clarifications, including `github_collaborator_needed` for dual-rail)
-- **REQ-025 minimal** (Change Requests captured in DB + posted to channel as a system message; volunteer Accept/Decline with note; on Accept, PM tasks created. **Full CR UI workflow with cards, NGO-side prompts, completion notifications, post-handoff re-list path deferred to v1.5** — v1 uses the channel + notifications as the surface, not a dedicated CR section.)
-- **REQ-026** (Platform-native PM tasks via **git-as-truth — decision-9**: local TaskMaster writes `.taskmaster/tasks/tasks.json` in the project repo → GitHub webhook → one-way Postgres projection; server-side bootstrap-commit at funding; REST API for NGO context/comments/blockers + the project-page UI. **NO platform task-MCP server** — `mcp.ai4good.dev/projects/:id` was DROPPED by decision-9. Commit-message `task_key` is a secondary signal; CLAUDE.md seeding for Claude Code repos)
-- **REQ-028** (ai4good Claude Code Skill — **v1 CORE orchestration shell**: install + MCP auto-config + session bootstrap + slash commands + commit convention + status sync, **AND the Track-A Lovable orchestration layer** (LovableDriver port, triage logic, per-task budget guardrails, quality loop, consent gate, audit reporting). The §11 "v1 design rationale" section details the orchestration. ~35h with orchestration.)
+- **REQ-025 minimal** (Change Requests captured in DB + surfaced as the actionable CR row on the project page + notification — decision-15/16; volunteer Accept/Decline with note; on Accept, one p0 Linear issue created via API — decision-20. **Full CR UI workflow with cards, NGO-side prompts, completion notifications, post-handoff re-list path deferred to v1.5**.)
+- **REQ-026** (Platform task management via **Linear — decision-20**: free workspace per project (manual creation, concierge); coordinator-owned decomposition pushed via API; pull-based self-assignment; **status only via the GitHub integration on PR merge**; detect-and-revert; `linear-webhook` → one-way Postgres projection; REST API for NGO context/comments/blockers + the project-page panel; CI tree snapshot at handoff. NO platform task-MCP server; no tasks.json.)
+- **REQ-028** (ai4good Claude Code Skill — **v1 CORE orchestration shell**: install + session bootstrap + task-binding hook (REQ-034) + slash commands + Linear branch/magic-word convention, **AND the Track-A Lovable orchestration layer** (LovableDriver port, triage logic, per-task budget guardrails, quality loop, consent gate, audit reporting). The §11 "v1 design rationale" section details the orchestration.)
+- **REQ-034** (Task-level attribution — decision-22: binding hook + gateway task_ref capture + NGO **burn-per-deliverable**; telemetry, never gates; reconciliation surfaces v1.5)
+- **REQ-035** (Post-handoff attribution + jumpstart health — decision-22: sign-off testimonial + 3 credit-framed dimensions; 30/60/90-day health from real signals + the 60-day one-question confound control; matching/synthesis surfaces v1.5)
 
 **Comms & Dashboards (minimal v1 versions of promoted-P0 REQs):**
 - **REQ-013 minimal** (NGO dashboard: project list + fuel + task progress + "Action needed" rail only. Recent activity feed, KYC upsell CTA, Lovable rail, opt-in testimonials all deferred to v1.5.)
@@ -2944,7 +2988,7 @@ This is the authoritative scope/roadmap reference. Use the **Out of Scope** sect
 **Triage gate:** All NGOs go through human triage (REQ-023). No KYC auto-approval in v1.
 
 **Handoff:**
-- **REQ-012 minimal** (Automated checklist + sign-off; repo permission adjustment with optional transfer. **Tip flow + private NGO satisfaction modal deferred to v1.5** — v1 handoff sign-off is just "accept this project, repo transfer offered.")
+- **REQ-012 minimal** (Automated checklist + sign-off; repo permission adjustment with optional transfer; virtual-key termination + Linear membership removal + tree snapshot; **includes the REQ-035 attribution step — decision-22**. **Tip flow deferred to v1.5.**)
 
 ---
 
@@ -2963,19 +3007,22 @@ Triggered by either pilot operational pain or a specific external event. Each it
 | ~~**REQ-026 MCP server**~~ | — | — | **DROPPED entirely by decision-9 (2026-06-06)** — neither v1 nor v1.5. The platform task-MCP server (`mcp.ai4good.dev/projects/:id`) is replaced by git-as-truth (local TaskMaster + `tasks.json` in the repo + GitHub-webhook → Postgres projection). It was briefly promoted to v1 on 2026-05-24; decision-9 superseded that and removed the ~15h. |
 | **REQ-025 full CR workflow UI** (v1 has minimal channel-based CR) | Pilot NGOs raising CRs find the channel surface too thin; want a dedicated section with cards, statuses, completion notifications | ~15h |
 | **REQ-011 match score algorithm + breakdown UI** (v1 has skill-tag overlap only) | NGO/volunteer feedback that "I don't know why this project showed up for me"; >20 active marketplace projects making manual browsing painful | ~12h |
-| **REQ-014 NGO satisfaction signal collection** (v1 has no satisfaction modal) | When we want to surface volunteer reputation richer than completion counts; depends on tips/handoff flow having a natural place to ask | ~8h |
+| ~~REQ-014 NGO satisfaction signal collection~~ | — | **Superseded by decision-22:** the REQ-035 attribution step ships in v1 (credit-framed capture at sign-off). What stays v1.5 is the richer reputation SURFACE: attribution + jumpstart health visible in matching (~8h). |
+| **REQ-034 reconciliation surfaces** (decision-22) | Coordinator wants the unattributed-% panel + binding-broken/stale signals; per-task cost baselines feeding Discovery estimates | ~8h |
+| **Gateway Layer-2 reconciliation + residual hardening** (decision-21 ladder) | Ledger shows real anomalies (Layer 2); endpoint/method allowlists, payload bounds, IP-velocity checks before organic signup | ~20h |
+| **Linear wrapper-MCP** (decision-20) | Detect-and-revert proves noisy (agents keep tripping status changes) | ~10h |
 | **REQ-002 KYC tier + Stripe Identity automation** (v1 is manual review only) | Verification queue grows beyond 1 admin's twice-daily batch capacity | ~15h |
 | **REQ-021 Lovable inbound email parser** (v1 is manual widget only) | Pilot NGOs report manual widget toggling is annoying; Lovable email format proves stable across 2+ projects | ~12h |
-| **AI Proxy with 9-layer enforcement** (Out of Scope #1) | First leak of an Anthropic key OR first material misuse incident OR proactive — strongest single security/audit upgrade | ~80h |
+| ~~AI Proxy with 9-layer enforcement~~ | — | **SHIPPED IN v1 as the LLM gateway (decision-21)**; only the residual layers (allowlists, payload bounds, IP-velocity) remain v1.5 — see the Layer-2 row above |
 | **Channel enhancements** — threaded replies (Slack-side-panel pattern), presence indicators, full-text search, image attachments | NGO/volunteer feedback that minimal channels feel lacking | ~25h |
 | **Per-user notification preferences UI** | First user complaint about email frequency | ~8h |
 | **Dashboard richer surfaces** — recent activity feed, badge engine, opt-in testimonials, KYC upsell CTA, Lovable rail | Engagement metrics indicate volunteers/NGOs want more reputation surface | ~20h |
 | **`lovable_only` mode + no-Anthropic-fuel kickoff path** | Discovery sees Lovable-only-suitable projects at meaningful volume; willingness to design a separate funding path | ~15h |
 | **AI Change-Request Agent** (REQ-025 v2 note) | NGOs find raw CR flow too thin; need help articulating | ~25h |
 | **Anthropic spend-alert email parsing as 2nd anomaly signal** (Out of Scope #23 follow-up) | First high-spend anomaly that our polling missed | ~6h |
-| **Wrapper script for Claude Code** (if not superseded by proxy) | Used if v1.5 AI Proxy is delayed and we need stronger client-side scoping on short notice | ~12h |
-| **Real-time anthropic_key_status display in volunteer dashboard** | Polish item; bundle with proxy work | ~4h |
-| **Multi-Anthropic-org provisioning** (NFR Scalability) | When any single org approaches 80 active workspaces | ~20h (mostly ops automation + `anthropic_org_id` plumbing) |
+| ~~Wrapper script for Claude Code~~ | — | **Superseded by decision-21** — the gateway ships in v1; vanilla Claude Code + two env vars |
+| ~~Real-time anthropic_key_status display~~ | — | **MOOT (decision-21)** — virtual-key status is a live Supabase row; the volunteer dashboard reads it directly |
+| ~~Multi-Anthropic-org provisioning~~ | — | **RETIRED (decision-21)** — no per-project workspaces; the 100-workspace cap never binds |
 | **REQ-023 Triage attestation + spot-check** (devolution of admin queue per open-item-5 2026-05-27) | Triage queue median age exceeds 24h OR weekly admin triage time > 5h | NGO self-attests at publish (open-source / nonprofit / no-PII checkboxes); project goes live immediately; admin spot-checks 10-20% random sample + investigates blockers from volunteers/NGOs reporting violations; revoke-on-violation flow added. Aligns with §11 Open Issue #5 (admin staffing at scale). ~15h (attestation UI + spot-check sampling job + revocation flow). |
 
 ---
@@ -2993,7 +3040,7 @@ Bigger architectural changes or features that need significant ecosystem changes
 | **Automated NGO verification via Charity Navigator / GuideStar API** | Manual review queue grows beyond 1 admin's capacity | |
 | **KYC auto-approval for `kyc_verified` NGOs** | Triage volume informs that KYC NGOs reliably pass; staffing model needs relief | |
 | **Lovable MCP polling for real-time credit status** (Open Q7) | Lovable graduates MCP from Research Preview AND ships scoped OAuth (e.g. `billing:read`) OR ships billing webhook | Verify before building; Lovable may also ship a partner program that supersedes this |
-| **Fully-automated Anthropic key provisioning** (Open Q8) | Anthropic ships `POST /v1/organizations/workspaces/{id}/api_keys` | Removes the only manual ops step in REQ-009 |
+| ~~Fully-automated Anthropic key provisioning~~ (Open Q8) | — | **MOOT (decision-21)** — no per-project Anthropic keys exist; Q8 closed |
 | **Lovable credit reselling** (Out of Scope #16) | Signed reseller agreement with Lovable | Requires tax/VAT pass-through + refund flow |
 | **External Slack integration** (REQ-015 v2 note) | NGOs already on Slack want to mirror project channels into their workspace | |
 | **Anonymous post-handoff contributors** | Post-handoff issues attract drive-by fixes from non-registered devs | Architectural simplification post-launch |
@@ -3002,7 +3049,7 @@ Bigger architectural changes or features that need significant ecosystem changes
 
 ### v1 design rationale: Claude Code orchestrates Lovable (now the Track-A v1 architecture — promoted 2026-06-03)
 
-**This is now v1 (REQ-021 + REQ-028), not a future direction.** For Track-A projects the volunteer's local Claude Code runs the ai4good Skill and is configured with two MCP servers — `mcp.ai4good.dev/projects/:id` (ai4good PM tasks + context) and `mcp.lovable.dev` (Lovable, OAuth-user-scoped, Research Preview) — and orchestrates Lovable behind the `LovableDriver` port: reads ai4good tasks, decides Lovable vs local, prompts Lovable via `send_message`, reads `get_diff`, runs tests, iterates, reports status via `update_task`. If Lovable MCP breaks, the port falls back to manual dual-rail. This section captures the rationale + the concrete Lovable tool surface; the *requirements* live in REQ-021/REQ-028.
+**This is now v1 (REQ-021 + REQ-028), not a future direction.** For Track-A projects the volunteer's local Claude Code runs the ai4good Skill and is configured with two MCP servers — the **Linear MCP** (tasks — decision-20; committed `.mcp.json`, volunteer OAuth) and `mcp.lovable.dev` (Lovable, OAuth-user-scoped, Research Preview) — plus ai4good REST for context/blockers/comments, and orchestrates Lovable behind the `LovableDriver` port: pulls the next Linear issue, decides Lovable vs local, prompts Lovable via `send_message`, reads `get_diff`, runs tests, iterates; **status lands via the PR merge** (Linear GitHub integration), never by agent say-so. If Lovable MCP breaks, the port falls back to manual dual-rail. This section captures the rationale + the concrete Lovable tool surface; the *requirements* live in REQ-021/REQ-028.
 
 **Concrete Lovable MCP tool surface (verified 2026-05-25 against [Lovable docs](https://docs.lovable.dev/integrations/lovable-mcp-server)):**
 
@@ -3069,7 +3116,9 @@ These open issues are tracked separately from technical Open Questions (Q1-Q8 be
 
 ### Open Questions
 
-#### Q1: Per-project Anthropic API keys — re-resolved 2026-05-16
+#### Q1: Per-project Anthropic API keys — re-resolved 2026-05-16; SUPERSEDED by decision-21 (2026-07-05)
+
+> **Decision-21 supersedes everything below:** there are no per-project Anthropic workspaces or keys. Volunteers hold `a4g_*` virtual keys terminated at the ai4good LLM gateway (REQ-009); attribution is per-request at the gateway; revocation is one Supabase row; the manual Console step, the 100-workspace cap, and the spend-limit ambiguity are all moot. Kept for the decision trail:
 
 - **Original resolution (2026-05-15):** Option B (platform key + `metadata.user_id` tagging).
 - **Re-resolved (2026-05-16) → Option A: per-project Anthropic Workspaces.** Triggered by audit-architecture research: Anthropic's Usage API does **not** expose `metadata.user_id` as a filter or group_by dimension (only `api_key_id`, `workspace_id`, `model`, `service_tier`, etc.). Option B's per-project attribution was therefore essentially unworkable.
@@ -3086,11 +3135,22 @@ These open issues are tracked separately from technical Open Questions (Q1-Q8 be
   - Spend-limit hard-block semantics are not unambiguously documented by Anthropic for non-batch calls. Treat as soft; back up with our own Usage API polling + programmatic key deactivation when project fuel hits zero (REQ-009).
   - No per-request log table (Anthropic does not offer an OpenAI-style per-request log). Audit is via 1-min Usage API buckets + cross-reference with PM-task / commit cadence — see REQ-009 audit acceptance criteria.
 
-#### Q8: When does Anthropic expose programmatic key creation?
+#### Q8: When does Anthropic expose programmatic key creation? — MOOT (decision-21)
 
-- **Status: open, monitoring.** Anthropic's Admin API currently exposes workspace creation but not key creation (Console-only). When/if Anthropic ships a `POST /v1/organizations/workspaces/{id}/api_keys` endpoint, the manual ops step in REQ-009 becomes fully automatable.
-- **Owner:** Tech lead — watch Anthropic changelog quarterly.
-- **Impact:** Removes the one manual step in our otherwise-fully-automated provisioning. Worth tracking.
+- **Status: closed 2026-07-05.** Decision-21 removed per-project Anthropic keys entirely — virtual keys mint as Supabase rows; no Anthropic Admin-API dependency remains. Nothing to monitor.
+
+#### Open decisions register — governance fold-in (decisions 20/21/22, 2026-07-05)
+
+Open calls the founder still owes; none block the PRD-dissection pass, all block the specific build task named:
+
+| # | Decision | Blocks |
+|---|---|---|
+| OD-1 | **Reviewer identity + merge authority** per project (coordinator? peer volunteer? agent-assisted with a human click?) — a governance decision, not plumbing | REQ-026 merge-flow copy + the reviewer-agent skill's role |
+| OD-2 | **NGO Status-Panel scope + workspace onboarding mechanics** (what the panel shows beyond the tree; how the NGO is introduced to it) | REQ-010/013 panel build |
+| OD-3 | **Cap values** — rolling-window size, per-request max, fuel-warning thresholds | REQ-009 Task 9.3 config |
+| OD-4 | **Fingerprint enforcement token threshold** (the ~1.5k figure) | REQ-009 Task 9.4 config |
+| OD-5 | **Layer-2 reconciliation cadence + anomaly thresholds** (only if/when the ladder rung is built) | v1.5 |
+| OD-6 | **Gateway hosting** — thin Deno proxy on Supabase Edge Functions vs self-hosted LiteLLM-style service (founder: "leave the gateway for now") | REQ-009 Task 9.1 |
 
 #### Q2: Worker layer — Supabase Edge Functions vs Fly.io?
 
@@ -3146,9 +3206,9 @@ These open issues are tracked separately from technical Open Questions (Q1-Q8 be
 | Privacy regulator views NGO docs as sensitive PII | Low | Medium | **Medium** | Private bucket, signed URLs, encryption at rest; DPA available | Add explicit consent + minimization review |
 | AI-generated code has license or quality issues | Medium | Medium | **Medium** | MIT default (Platform Promise §2); first-apply disclaimer covers volunteer's IP attestation (REQ-007 + Story 3 open-item-5 redesign — no separate CLA needed in v1); CI lints and tests required for handoff (REQ-012) | NGO can reject handoff; we publish remediation playbook |
 | Fuel-cost inflation (Anthropic raises prices) | Medium | Medium | **Medium** | Skim is %-based, scales naturally; communicate clearly to NGOs | Adjust fuel rate card monthly |
-| Lovable security incident affects our integration (e.g. April 2026 BOLA) | Low | Medium | **Medium** | Per-project workspace bearer token (rotatable, hash-only); no shared service token; ai4good MCP server runs on our side (Lovable agent is a client of ours, not vice versa for v1); monitor [docs.lovable.dev/changelog](https://docs.lovable.dev/changelog) and security advisories. (Earlier risk-mitigation language about "email-forwarding only, no OAuth/MCP" is now stale — v1 actually does use MCP per open items 4+5 redesigns.) | If incident affects NGOs, pause Track-A Lovable recommendations until Lovable confirms remediation; in-flight Track-A projects fall back to the manual dual-rail (Claude Code direct, REQ-021 fallback path); rotate workspace bearer token defensively across all active Lovable-recommended projects |
+| Lovable security incident affects our integration (e.g. April 2026 BOLA) | Low | Medium | **Medium** | **No ai4good credential lives in Lovable at all (decision-20 deleted the connector)** — the only Lovable coupling is the volunteer's own OAuth for the Skill's `LovableDriver` calls; monitor [docs.lovable.dev/changelog](https://docs.lovable.dev/changelog) and security advisories. | If incident affects NGOs, pause Track-A Lovable recommendations until Lovable confirms remediation; in-flight Track-A projects fall back to the manual dual-rail (Claude Code direct, REQ-021 fallback path) |
 | ~~Lovable email format changes, breaking the auto-detection parser~~ | — | — | **N/A in v1** | Lovable inbound-email parser is deferred to v1.5 per §11; v1 uses manual Lovable Status widget only (REQ-021). Row retained as historical context; will move to active mitigation when v1.5 parser ships. | — |
-| **AI tools consume fuel without producing a viable deliverable** | **High** | **Medium** | **High** | **This is the irreducible risk of AI-assisted dev. Mitigations: (a) explicit Platform Promise disclaimer at first-apply (Story 3 / REQ-007 open-item-5 redesign), (b) per-project fuel cap = bounded financial exposure, (c) USER-TEST checkpoints inserted by TaskMaster every 5 tasks catch dead-end work early, (d) Discovery Agent quality target (Goal 4) reduces foundational scope errors.** | Be transparent with the NGO; offer post-mortem; do not refund consumed fuel (cannot un-spend tokens). v1 has no private NGO-satisfaction signal (REQ-014 deferred that collection mechanism to v1.5); NGO indicates concern by simply not funding that volunteer's next project. |
+| **AI tools consume fuel without producing a viable deliverable** | **High** | **Medium** | **High** | **This is the irreducible risk of AI-assisted dev. Mitigations: (a) explicit Platform Promise disclaimer at first-apply (Story 3 / REQ-007 open-item-5 redesign), (b) per-project fuel cap = bounded financial exposure, (c) USER-TEST checkpoints in the build plan every ~5 tasks catch dead-end work early, (d) Discovery Agent quality target (Goal 4) reduces foundational scope errors, (e) burn-per-deliverable on the NGO panel (REQ-034) makes unproductive burn visible per task, not just in aggregate.** | Be transparent with the NGO; offer post-mortem; do not refund consumed fuel (cannot un-spend tokens). The REQ-035 handoff attribution + jumpstart health record (decision-22) captures the outcome; reputation surfaces in matching at v1.5. |
 | NGO expects an SLA / completion guarantee and is angered when project stalls | Medium | Medium | **Medium** | Hard disclaimer acknowledgment is mandatory at signup and at every match acceptance (Option D — the no-SLA/no-completion clause is acknowledged exactly where the real commitment happens); a passive Promise-link footer appears at every top-up; NGO dashboard reminds of the operating model; support copy is consistent | Direct outreach by platform admin; offer next-volunteer match priority; document case for FAQ |
 
 ---
@@ -3173,9 +3233,9 @@ These map 1:1 with the Phase checkpoints above. Each is a **user-test task** in 
 
 **Criteria:**
 - [ ] One full NGO journey: signup → verify → intake → discovery → publish → triage approval → match → fund $50 (kickoff fuel)
-- [ ] One full volunteer journey: signup (GitHub/Google/email) → browse → apply (link GitHub at this step if not yet linked, per REQ-007) → NGO accepts → wait for NGO fund → in_progress (repo + PM tasks + workspace + key all live)
-- [ ] Fuel is correctly debited from Anthropic Usage Report (test with 10k tokens; verify micro-cent precision + skim-row pairing)
-- [ ] Daily Cost Report reconciliation runs without drift > 1%
+- [ ] One full volunteer journey: signup (GitHub/Google/email) → browse → apply (link GitHub at this step if not yet linked, per REQ-007) → NGO accepts → wait for NGO fund → in_progress (repo + Linear backlog + virtual key all live)
+- [ ] Fuel is correctly debited by the gateway inline (test with 10k tokens through the gateway; verify micro-cent precision + skim-row pairing + `gateway_request_id` idempotency + `task_ref` stamped)
+- [ ] Detect-and-revert fires on a hand-moved Linear status; PR merge moves status to done
 - [ ] Handoff flow completes; NGO can sign off
 - [ ] No critical bugs in audit log
 
@@ -3190,7 +3250,7 @@ These map 1:1 with the Phase checkpoints above. Each is a **user-test task** in 
 - [ ] In-platform messaging (basic chat, no threading/search/attachments in v1) replaces out-of-band coordination
 - [ ] Notifications fire with sensible v1 defaults (no per-user preference UI yet — v1.5)
 - [ ] 3 internal full-cycle runs successful
-- [ ] **USER-TEST: ai4good MCP server from Lovable agent.** Set up a throwaway Lovable project (Pro plan). Connect `mcp.ai4good.dev/projects/<test_project>` as a chat connector per the setup guide; both NGO and volunteer-equivalent users connect. Prompt Lovable to make changes that should trigger `update_task` calls. Verify: (a) Lovable's agent successfully invokes `list_tasks` / `update_task` / etc., (b) status updates appear in ai4good UI without commit-message parsing, (c) per-actor `last_seen_at` updates correctly. **Pass:** MCP calls work reliably from Lovable + connection-verification UI lights up green. **Fail (any of the three):** investigate Lovable MCP behavior, fall back to manual UI + commit-prefix secondary signal, document workaround. Note: commit-prefix carry-through is a *secondary signal* in v1, not the primary mechanism — it doesn't gate this checkpoint.
+- [ ] **USER-TEST: the Linear rail end-to-end (decision-20; replaces the retired ai4good-MCP-in-Lovable test).** On a throwaway project workspace: (a) self-assign an issue via the Linear MCP from a Claude Code session → panel shows "in progress" within seconds and `.a4g/task.md` carries the identifier (REQ-034 binding); (b) merge a PR with `Fixes <identifier>` → issue lands Done via the GitHub integration → projection + NGO panel update; (c) hand-move a status in the Linear UI as the volunteer → **detect-and-revert** fires (revert + explanatory comment + low-tone notification); (d) burn a gateway request while bound → the ledger row carries `task_ref`. **Pass:** all four. **Fail:** investigate webhook delivery/ordering; wrapper-MCP is the documented fallback if reverts prove noisy.
 
 **If Failed:** Push pilot back; identify highest-friction step from screen recordings.
 
