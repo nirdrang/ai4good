@@ -40,8 +40,8 @@ function codexCourier(promptSpec, label, jsonShapeNote) {
   return `Working dir: ${ROOT}. You are a deterministic courier — do not add your own judgment to the payload.
 1. ${promptSpec}
 2. Save the final prompt text to ${ROOT}/loop/out/prompt-${label}.txt (Write tool; create loop/out if needed).
-3. Run in BACKGROUND Bash (this call can exceed 10 minutes): cd "${ROOT}" && ${PY} codex-call "loop/out/prompt-${label}.txt" "${label}" > "loop/out/courier-${label}.txt" 2>&1
-4. Wait for the background task to complete (you will be notified). Then Read loop/out/courier-${label}.txt.
+3. Run in FOREGROUND Bash with the timeout parameter set to 600000 (ten minutes; do NOT use run_in_background): cd "${ROOT}" && ${PY} codex-call "loop/out/prompt-${label}.txt" "${label}" > "loop/out/courier-${label}.txt" 2>&1
+4. When the command returns, Read loop/out/courier-${label}.txt. If the command timed out, retry it ONCE the same way with label "${label}-t".
 5. Parse the JSON payload out of it (${jsonShapeNote}). If parsing fails, retry the codex call ONCE with the same prompt file and label "${label}-r".
 6. Return the parsed payload via structured output. If both attempts fail, return an empty payload.`
 }
