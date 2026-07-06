@@ -46,9 +46,9 @@ const SPLICE_SCHEMA = { type: 'object', properties: { ok: { type: 'boolean' }, v
 const OK_SCHEMA = { type: 'object', properties: { ok: { type: 'boolean' }, detail: { type: 'string' } }, required: ['ok'] }
 
 function codexRecipe(promptSpec, label) {
-  return `Working dir: ${ROOT}. You are a deterministic courier — do not add your own judgment to the payload.
+  return `Working dir: ${ROOT}. You are a deterministic courier — do not add your own judgment to the payload. NEVER modify any file under loop/prompts/ (those are read-only templates); you only ever WRITE to loop/out/.
 1. ${promptSpec}
-2. Write the final prompt text to ${ROOT}/loop/out/prompt-${label}.txt (Write tool; create loop/out if needed).
+2. Write the final (substituted) prompt text to ${ROOT}/loop/out/prompt-${label}.txt (Write tool; create loop/out if needed). This is a NEW file in loop/out/ — do not write into the template.
 3. Run in FOREGROUND Bash with the timeout parameter set to 600000 (ten minutes; do NOT use run_in_background):
    cd "${ROOT}" && ${CODEX} -o "loop/out/lastmsg-${label}.txt" - < "loop/out/prompt-${label}.txt" > "loop/out/log-${label}.txt" 2>&1
 4. Read loop/out/lastmsg-${label}.txt and parse the JSON payload from it. If the file is missing or unparseable, retry the codex command ONCE with "-r" appended to every ${label} filename.
@@ -61,7 +61,7 @@ function evalAgent(docPath, leaf, label) {
   // The courier only writes a prompt file, shells out to codex, and parses the JSON result —
   // mechanical work, so pin it to Haiku to keep the Claude budget off the codex path.
   return agent(
-    codexRecipe(`Read ${ROOT}/loop/prompts/evaluator_leaf.md and replace {DOC} with "${docPath}" and {TARGET} with this line:\n- ${leaf.heading} (lines ${leaf.start}-${leaf.end})`, label),
+    codexRecipe(`Read the TEMPLATE ${ROOT}/loop/prompts/evaluator_leaf.md into memory — it is READ-ONLY, you must NOT edit or overwrite it. Take its text and produce a filled copy in which the literal token {DOC} is replaced by "${docPath}" and the literal token {TARGET} is replaced by "- ${leaf.heading} (lines ${leaf.start}-${leaf.end})". That filled copy is the prompt text for the next step.`, label),
     { label, phase: 'Pass', model: 'haiku', effort: 'low', schema: EVAL_SCHEMA })
 }
 
