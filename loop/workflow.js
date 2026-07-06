@@ -58,9 +58,11 @@ function codexRecipe(promptSpec, label) {
 // evaluate/re-evaluate ONE leaf against a given document (WORK for the initial eval, the leaf
 // candidate for an inner re-eval). Same rubric either way — a re-eval is just an eval of the rewrite.
 function evalAgent(docPath, leaf, label) {
+  // The courier only writes a prompt file, shells out to codex, and parses the JSON result —
+  // mechanical work, so pin it to Haiku to keep the Claude budget off the codex path.
   return agent(
     codexRecipe(`Read ${ROOT}/loop/prompts/evaluator_leaf.md and replace {DOC} with "${docPath}" and {TARGET} with this line:\n- ${leaf.heading} (lines ${leaf.start}-${leaf.end})`, label),
-    { label, phase: 'Pass', effort: 'low', schema: EVAL_SCHEMA })
+    { label, phase: 'Pass', model: 'haiku', effort: 'low', schema: EVAL_SCHEMA })
 }
 
 // ================================================================ Gate + working version
