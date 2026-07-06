@@ -115,7 +115,7 @@ Concretely, this means:
 - **Tiered confidence-based escalation** — anomaly response auto-acts on high-confidence cases (≥0.9 score), only routing ambiguous middle-confidence (0.6–0.9) cases to admin queue.
 - **Self-service for NGO actions** — verification doc upload, fuel top-up, key rotation request — all self-serve UI; admin only sees the resulting queue items. (KYC submission + auto-top-up enable/disable are v1.5 per §11 — not v1 self-serve surfaces.)
 - **Unified ops queue** (`ops_tasks` table) — one admin inbox, one notification pattern, one UI to triage.
-- **Monthly reconciliation is automated** — admin only sees a task if discrepancy > 1% of monthly Anthropic invoice.
+- **The ledger is written inline by the gateway** from each response's usage (decision-21) and control-totaled continuously (REQ-006/029); admin only sees a task if the ledger drifts from the org-level Anthropic bill beyond a set threshold.
 - **Admin time KPI surfaced on admin dashboard** — weekly rolling average of admin minutes per active project; alerts if trend goes above 10-min/project/week target.
 
 This is intentionally restrictive: features that would require routine admin involvement should be evaluated against this principle before being added.
@@ -197,7 +197,7 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - **Baseline:** 0 volunteers.
 - **Target:** **100 active monthly volunteers; 30% repeat-project rate** (volunteers who complete a 2nd project within 90 days of their 1st).
 - **Timeframe:** Month 12.
-- **Measurement Method:** Monthly cohort analysis on `volunteers` joined to `project_assignments`; cohort retention dashboard.
+- **Measurement Method:** Monthly cohort analysis over `profiles` (`user_type = 'volunteer'`) + `volunteer_profiles`, joined to `project_applications` (`status = 'accepted'`) and `projects.assigned_volunteer_id`; cohort retention dashboard.
 
 ### Goal 3: Blended Sustainability (decided 2026-06-03 — re-pointed from skim-margin)
 
@@ -214,7 +214,7 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - **Baseline:** N/A.
 - **Target:** **>70% of projects ship against original scope** with at most one minor scope revision.
 - **Timeframe:** Months 3-12.
-- **Measurement Method:** Project audit field `scope_renegotiations`; correlation with handoff success.
+- **Measurement Method:** Change-request count per project (`change_requests` rows, REQ-025) as the scope-churn proxy; correlation with handoff success.
 
 ### Goal 5: Volunteer Supply Liquidity (decided 2026-06-03 — the #1 launch gate)
 
@@ -318,16 +318,16 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 **So that I can** ship the NGO a deployed tool they can keep evolving themselves, with one pane of glass and ai4good's metering/enforcement in the loop.
 
 **Acceptance Criteria:**
-- [ ] Each project provisions an Anthropic API key (REQ-009) tied to the project's fuel balance.
-- [ ] Volunteer receives a Project Starter Kit page + installs the **ai4good Claude Code Skill (REQ-028)**, which auto-configures the ai4good MCP server, primes project context, and (Track A) sets up the Lovable orchestration.
-- [ ] Token usage from Claude Code is pulled from the Anthropic Usage API (idempotent cursored poller, REQ-009) and deducted from the project's fuel balance.
-- [ ] When fuel drops below 20%, NGO is auto-notified to top up; below 5%, dev sessions are warned in-app + the key deactivates at the 5% blocking threshold (REQ-009 — absorbs polling lag).
-- [ ] When fuel hits 0, the project's API key is revoked; both volunteer and NGO are notified.
+- [ ] Each (volunteer, project) pair holds a **virtual key** (`a4g_*`) minted at kickoff and terminating at the ai4good **LLM gateway** (REQ-009, decision-21); the real provider key never leaves the gateway. Vanilla Claude Code works with two env vars.
+- [ ] Volunteer receives a Project Starter Kit page + installs the **ai4good Claude Code Skill (REQ-028)**, which primes project context, wires the **Linear MCP** (REQ-026) + the gateway env vars, and (Track A) sets up the Lovable orchestration.
+- [ ] Token usage is metered **inline by the gateway per request** (REQ-009, decision-21) — paired ledger rows written at response time — and deducted from the project's fuel balance.
+- [ ] When fuel drops below 20%, NGO is auto-notified to top up (REQ-024); below 5%, dev sessions are warned in-app (REQ-009). Enforcement is structural at the gateway, not polling-based.
+- [ ] When fuel hits 0, the gateway declines the next request inline with a fuel-suspension response (REQ-009); both volunteer and NGO are notified. The next request passes once the NGO tops up — no reactivation step.
 - [ ] Volunteer has a "fuel gauge" widget in the platform dashboard.
 - [ ] **Track A — Claude Code orchestrates Lovable (REQ-021 + REQ-028):** when `maintenanceTrack = A_ngo_maintains`, the Skill drives Lovable via the `LovableDriver` port (`send_message`/`get_diff`/…), enforcing the per-task Lovable-credit budget cap + audit, with manual dual-rail fallback if Lovable MCP is down. The NGO owns the Lovable workspace (durable post-handoff home). *(Track A is the only build track in v1 — Track B's Claude-Code-direct / plain-host path is deferred to post-v1, decision-19.)*
 - [ ] **Lovable status widget:** volunteer can mark `credits_low`/`blocked` to escalate to the NGO; Lovable cost is paid by the NGO directly (not from fuel).
 - [ ] **Dual fuel-meter display:** project page shows the Claude Code fuel meter + Lovable status meter (REQ-010).
-- [ ] **Decision-21 (2026-07-05) supersedes the old "AI Proxy is v1.5" line:** the LLM gateway (REQ-009) ships **in v1** — the volunteer holds a project-scoped virtual key, the real provider key never leaves the gateway, and fuel enforcement is structural at request time.
+- [ ] The gateway's escalation ladder (fingerprint tripwire, caps, reconciliation) is documented-not-built beyond Layer 1 in v1 (REQ-009); v1 ships virtual keys + caps + inline metering + the structural fuel gate.
 
 **Task Breakdown Hint:**
 - Task 4.1: Virtual-key mint at kickoff + show-once dashboard reveal (REQ-009, decision-21) (~3h)
@@ -339,7 +339,7 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 - Task 4.7: Lovable Status widget + status transitions (~5h)
 - Task 4.8: Dual fuel-meter component for project page (~4h)
 
-**Dependencies:** REQ-009 (Fuel ledger + Anthropic key provisioning), REQ-021 (Track-A Lovable orchestration), REQ-028 (Skill orchestration shell).
+**Dependencies:** REQ-009 (LLM gateway + virtual keys + fuel ledger), REQ-010 (dual fuel-meter display), REQ-021 (Track-A Lovable orchestration), REQ-026 (Linear task rail via the Skill), REQ-028 (Skill orchestration shell).
 
 ---
 
@@ -404,7 +404,7 @@ On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cu
 
 #### REQ-001: User Authentication & Org Membership
 
-**Description:** All users authenticate via Supabase Auth. Users belong to one of three roles per organization: `ngo_admin`, `volunteer`, `platform_admin`. NGO users belong to an NGO organization; volunteers are individual accounts.
+**Description:** All users authenticate via Supabase Auth. Authorization is two-layer, and the narrative role names used across this PRD are shorthand for it, not literal `user_type` values: every account has one global `profiles.user_type IN ('ngo','volunteer','platform_admin')`; an `ngo`-type account additionally holds `ngo_memberships` rows carrying a per-NGO `role IN ('admin','member')`. So **`ngo_admin`** = an `ngo` account with `ngo_memberships.role = 'admin'`; **`volunteer`** = `user_type = 'volunteer'` (individual, no memberships); **`platform_admin`** = the global `user_type` value (not NGO-scoped). NGO users belong to one or more NGOs; volunteers are individual accounts.
 
 **Acceptance Criteria:**
 - [ ] **Email/password, GitHub OAuth, and Google OAuth** sign-in supported (Supabase Auth handles all three natively). NGO admins typically use email/password; volunteer devs can pick any provider — GitHub is convenient but not required at signup. **GitHub link is required at first project application** (open-item-4 redesign 2026-05-26 — moved earlier than the prior NGO-acceptance gate; on link, the REQ-007 onboarding flow runs and adds the volunteer to `ai4good-projects` GitHub org); see Story 3 / REQ-007.
@@ -639,12 +639,12 @@ interface DiscoveryOutput {
 
 **The 10-state lifecycle machine spelled out explicitly (states: `draft`, `discovery_in_progress`, `scoped`, `triage`, `open`, `matched_pending_fuel`, `in_progress`, `handoff_pending`, `handed_off`, `cancelled`). Every transition has an actor, preconditions, side effects, and failure handling. The REQ-027 abandonment/rematch edge (`in_progress → open`, added 2026-06-03) is a new transition between existing states — it does not add an 11th state.**
 
-> **› Decision-17 (2026-06-09): the `paused` state is REMOVED from v1** (was the 11th state). Pause/resume carried disproportionate cross-cutting cost for a concierge pilot: a `paused_from_status` restore column with resume-validity edge cases, the `fuel_deadline_remaining_seconds` funding-clock freeze/recompute stash, paused-special-casing inside three separate cron jobs (REQ-027 inactivity scan, REQ-006 match-expiry job, Goal-5 aging-open nudge), and key deactivate/reactivate side effects. At ~10–15 hand-matched pilot projects, "NGO needs to pause" is a support conversation: pre-match the NGO unpublishes (`open → scoped`) or cancels the match; mid-build the platform admin deactivates the Anthropic key + leaves a note (REQ-009 rotation/deactivation tooling already exists), or the project is cancelled. **Pause/resume is reinstated in v1.5 on first real NGO demand** (see §11 v1.5 table).
+> **› Decision-17 (2026-06-09): the `paused` state is REMOVED from v1** (was the 11th state). Pause/resume carried disproportionate cross-cutting cost for a concierge pilot: a `paused_from_status` restore column with resume-validity edge cases, the `fuel_deadline_remaining_seconds` funding-clock freeze/recompute stash, paused-special-casing inside three separate cron jobs (REQ-027 inactivity scan, REQ-006 match-expiry job, Goal-5 aging-open nudge), and key deactivate/reactivate side effects. At ~10–15 hand-matched pilot projects, "NGO needs to pause" is a support conversation: pre-match the NGO unpublishes (`open → scoped`) or cancels the match; mid-build the platform admin revokes the project's virtual keys + leaves a note (REQ-009 virtual-key revocation is one row, decision-21), or the project is cancelled. **Pause/resume is reinstated in v1.5 on first real NGO demand** (see §11 v1.5 table).
 
 | From → To | Actor | Preconditions | Side effects | Failure / rollback |
 |---|---|---|---|---|
 | (none) → `draft` | NGO admin | Any NGO (including `unverified`) can create a draft — drafting itself is not gated. **Decision-8 update (2026-06-04):** the post-pivot rule is "verification gates `scoped → triage` (the volunteer-facing wall) — NOT Discovery." `unverified` NGOs CAN run Discovery (within the per-NGO free pool) and CAN fund fuel to finish Discovery on their own dime. | Project row created with intake form contents | — |
-| `draft` → `discovery_in_progress` | NGO admin | Intake submitted (REQ-003); **`ngos.email_verified_at IS NOT NULL`** (bot floor — decision-8); NGO has Discovery capacity = `discovery_credits_remaining > 0 OR project_balance > 0` (today's daily free allowance or NGO-funded fuel; REQ-004/decision-11) | Discovery conversation started; `audit_events` logs intake | If today's credits=0 AND balance=$0: composer disabled with "Verify your org for 30 free credits/day" (unverified) and/or "Fund this project to keep going now (or come back tomorrow)" CTAs; stays in `draft` |
+| `draft` → `discovery_in_progress` | NGO admin | Intake submitted (REQ-003); **at least one `admin`-role member of the NGO has `profiles.email_verified_at IS NOT NULL`** (bot floor — decision-8; the email field is profile-level per REQ-001/002, joined through `ngo_memberships` — there is no `ngos`-level column); NGO has Discovery capacity = `discovery_credits_remaining > 0 OR project_balance > 0` (today's daily free allowance or NGO-funded fuel; REQ-004/decision-11) | Discovery conversation started; `audit_events` logs intake | If today's credits=0 AND balance=$0: composer disabled with "Verify your org for 30 free credits/day" (unverified) and/or "Fund this project to keep going now (or come back tomorrow)" CTAs; stays in `draft` |
 | `discovery_in_progress` → `scoped` | Discovery Agent (auto) on conversation end | Discovery output produced (valid `DiscoveryOutput` JSON). **No verification requirement** — unverified NGOs may reach `scoped` (decision-8) | Scope doc rendered editable | If output invalid: re-prompt up to 3× then escalate to admin |
 | `scoped` → `triage` | NGO admin (Publish click) | **NGO is `verified`** — this is the post-decision-8 *volunteer-facing wall*; the publish CTA is disabled with an "Upload verification doc to publish" prompt if unverified (v1 has no `kyc_verified` tier — that's v1.5 per §11) | `triage_submitted_at = NOW()`; admin queue entry | — |
 | `triage` → `open` | Platform admin | Triage decision = `approved` | Project visible in marketplace; `triage_decided_at` set | — |
@@ -655,7 +655,7 @@ interface DiscoveryOutput {
 | `matched_pending_fuel` → `open` | pg_cron match-expiry job (auto, on 7-day expiry) | `NOW() > fuel_deadline_at` AND not funded | **Atomic transaction:** `projects.status = 'open'` AND `project_applications.status = 'expired'` for the accepted application AND `assigned_volunteer_id = NULL` AND `matched_at = NULL` AND `fuel_deadline_at = NULL` — all in one transaction (codex round 5 fix). Volunteer notified + freed; NGO re-fund prompt. | If transaction fails, retry on next nightly run (idempotent — only acts when status is still `matched_pending_fuel`). |
 | `matched_pending_fuel` → `open` | NGO admin (cancel match) | Anytime before payment | Volunteer notified; back to applicants pool | — |
 | `in_progress` → `handoff_pending` | Volunteer (Ready for Handoff click) | All P0 PM tasks marked `done` (REQ-012) AND `projects.github_repo_url IS NOT NULL` (Platform Promise §2 + codex round 6 fix — every project ships into an `ai4good-projects` repo at handoff) | Handoff checklist evaluated; NGO notified | If checklist fails: blocked with checklist results; stays in `in_progress`. If repo URL missing (Lovable path, NGO hasn't completed setup): button disabled with prompt to complete Lovable Setup checklist (REQ-021). |
-| `handoff_pending` → `handed_off` | NGO admin (Accept Handoff) | `deployment_url IS NOT NULL` (REQ-012 deploy step) | Leftover fuel → general balance as **non-cash `credit_release`** (REQ-006 §7 — no cash refund, no decay clock); Anthropic workspace archived (REQ-009); volunteer completion credit + "Shipped first tool" badge (if first); PM tree → read-only; 30-day-alive check scheduled. **No tip or satisfaction modal in v1.** | Terminal |
+| `handoff_pending` → `handed_off` | NGO admin (Accept Handoff) | `deployment_url IS NOT NULL` (REQ-012 deploy step) | Leftover fuel → general balance as **non-cash `credit_release`** (REQ-006 §7 — no cash refund, no decay clock); project virtual keys revoked (REQ-009, decision-21); Linear workspace membership removed + tree snapshot committed (REQ-026); attribution step captured (REQ-035); volunteer completion credit + "Shipped first tool" badge (if first); PM tree → read-only; 30-day-alive check scheduled. **No tip modal in v1.** | Terminal |
 | `handoff_pending` → `in_progress` | NGO admin (Reject Handoff with comments) | — | Volunteer notified to address feedback; **any blockers auto-archived by the `handoff_pending` cascade are NOT restored**. Rejection-loop cap: 3rd rejection routes to neutral platform review (REQ-012). | — |
 | `in_progress` → `open` (abandonment / rematch — REQ-027, added 2026-06-03) | Inactivity job (auto, 21d no branch activity + no Linear issue movement) OR NGO/volunteer manual release | — | **Outbox saga (idempotent):** revoke ex-volunteer repo collab + revoke the project's virtual keys (REQ-009) + remove Linear workspace membership + (Track A) NGO notice to remove from Lovable workspace (reuses REQ-007 step-2 teardown, minus account-suspend); **remaining fuel STAYS on the project** (Item 3 — non-cash, project-scoped, used by next volunteer); assigned in-progress Linear issues unassigned + returned to the backlog (REQ-026); ex-volunteer application → `released`; flagged `ghosted` vs `released_for_cause`; project re-opens with rematch priority | Idempotent; retried via outbox until clean |
 | `open` → `scoped` | NGO admin (Unpublish to revise) | No volunteer has been accepted yet (project still in `open`, no `assigned_volunteer_id` set) | Project removed from marketplace; pending applications notified ("NGO unpublished — feel free to apply when re-listed"); applications kept for re-publish | If volunteer already accepted: action disabled in UI (NGO must cancel the match first) |
@@ -961,7 +961,7 @@ CREATE INDEX idx_ops_tasks_project ON ops_tasks(related_project_id);
 -- (auto_topup_policies table removed from v1 schema — auto-top-up is deferred to v1.5 per §11; table will be added when v1.5 work begins)
 ```
 
-**Dependencies:** REQ-001, REQ-002.
+**Dependencies:** REQ-001, REQ-002, REQ-004 (Discovery-side `discovery_consumption` draws on the same ledger), REQ-008 (funding triggers repo provisioning), REQ-009 (the gateway writes consumption/skim rows inline).
 
 ---
 
@@ -1060,7 +1060,7 @@ The platform PM task tree (REQ-026) is the source of truth for NGO-visible deliv
   - Claude-Code path: NGO offered one-click transfer of `ai4good-projects/<slug>` to NGO's own GitHub org if they have one; can decline (repo stays in `ai4good-projects` indefinitely). Volunteer downgraded to `triage`-role; NGO admin promoted to `admin`.
   - Lovable path: repo lives in `ai4good-projects/<slug>` (same as Claude-Code path after the open-item-4 redesign — uniform invariant). At handoff, NGO admin offered the same one-click transfer to their own GitHub org if they have one; declining keeps the repo in `ai4good-projects`. ai4good removes the volunteer's collaborator role at handoff; NGO removes the volunteer from the Lovable workspace separately (Lovable workspace admin = NGO).
 
-**Dependencies:** REQ-006 (funding triggers repo creation), REQ-007 (volunteer identity for GitHub collaborator add), REQ-026 (PM tasks are the NGO-facing task model).
+**Dependencies:** REQ-006 (funding triggers repo creation), REQ-007 (volunteer identity for GitHub collaborator add), REQ-021 (v1's repo is provisioned via the Lovable→GitHub flow), REQ-026 (Linear task rail — the GitHub integration links the repo it creates).
 
 ---
 
@@ -2084,7 +2084,7 @@ Public-facing page per NGO showing all the tools ai4good has built for them, wit
 ### Security
 
 - **Authentication:** Supabase Auth (JWT, httpOnly cookies, automatic refresh).
-- **Authorization:** Row-Level Security on all multi-tenant tables (`ngos`, `projects`, `fuel_transactions`, `messages`).
+- **Authorization:** Row-Level Security on all multi-tenant tables (`ngos`, `projects`, `fuel_transactions`, `task_comments`, `project_tasks`, `project_files`). (The `messages` table was dropped from v1 by decision-15 — the project thread uses `task_comments`.)
 - **Secrets:** All API keys (Stripe, Anthropic, GitHub, Linear) stored in Supabase Vault + Supabase Edge Function secrets; never logged. The real Anthropic key additionally lives **only in gateway env** (decision-21) — volunteers hold `a4g_*` virtual keys, hash-only at rest, show-once at issuance.
 - **PII Handling:** Minimum necessary — NGO verification docs encrypted at rest (Supabase Storage with private bucket + signed URLs).
 - **Webhook Verification:** Stripe signature verification + GitHub HMAC signature verification on every webhook.
@@ -2542,6 +2542,31 @@ CREATE INDEX idx_project_files_project ON project_files(project_id) WHERE delete
 -- for the full real-time channel. The v1 project comment thread uses task_comments (project-level rows,
 -- task_id IS NULL). System messages are gone in v1 — events go to the notifications feed via notify().
 
+-- Discovery / assistant conversation store (REQ-004 Discovery Agent + REQ-033 post-Discovery assistant).
+-- Persisted so a conversation is resumable (Story 1 AC); the API returns/consumes conversation_id.
+-- Decision-12: REQ-033 reuses this store with the `mode` marker below — NO separate table.
+CREATE TABLE discovery_conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  mode TEXT NOT NULL DEFAULT 'discovery' CHECK (mode IN ('discovery','assistant')),  -- decision-12: 'assistant' = the funded post-Discovery project assistant (REQ-033)
+  model TEXT NOT NULL DEFAULT 'opus',                                                 -- decision-13: Opus for Discovery + assistant
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_discovery_conv_project ON discovery_conversations(project_id);
+
+-- Turn-by-turn messages of a Discovery/assistant conversation (agent state + content), so the
+-- conversation can be resumed and each turn's context-weighted credit/fuel cost is auditable (REQ-004/011).
+CREATE TABLE discovery_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES discovery_conversations(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('user','assistant','system')),
+  content TEXT NOT NULL,
+  token_usage JSONB,                        -- {uncached_input, cached_input, output} for the per-turn credit/fuel cost (decision-11)
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_discovery_msg_conv ON discovery_messages(conversation_id, created_at);
+
 -- Notifications (REQ-016)
 CREATE TABLE notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2608,8 +2633,9 @@ CREATE TABLE platform_settings (
   -- retention_decay_months removed 2026-06-03 — non-cash credit has no decay clock (Item 3)
   first_fund_cap_cents INTEGER NOT NULL DEFAULT 20000,         -- $200 per-project cap for new funders (rises with history; Item 3)
   reserve_floor_cents INTEGER NOT NULL DEFAULT 500000,         -- $5k chargeback reserve floor (Item 3); cash_buffer_alert fires below
-  workspace_cap_multiplier_bps INTEGER NOT NULL DEFAULT 30000,  -- 3.0× (300%) of funded
-  workspace_cap_floor_cents INTEGER NOT NULL DEFAULT 20000,     -- $200
+  -- workspace_cap_multiplier_bps / workspace_cap_floor_cents REMOVED (decision-21): per-project Anthropic
+  -- workspace spend caps are deleted with per-project workspaces; the gateway's per-key caps + real-time
+  -- fuel gate replace them (REQ-009 / Out of Scope #22).
   max_open_crs_per_project INTEGER NOT NULL DEFAULT 1,          -- decision-16: anti-distraction cap on open CRs (v1 enforces 1 via unique partial index; >1 is a v1.5 count-check)
   -- Decision-11 (2026-06-06): context-weighted Discovery CREDITS (free pre-fuel phase). DAILY drip, no rollover. Tunable.
   discovery_tokens_per_credit INTEGER NOT NULL DEFAULT 10000,   -- 1 credit = 10k context-token-equivalents (~$0.15 Opus; the credit COUNT is token-based/model-agnostic, only platform $/credit changes — decision-13)
@@ -2695,7 +2721,7 @@ Greenfield — no data migration. Strategy concerns are forward-compatibility:
 
 ## Implementation Roadmap
 
-**Total timeline (post-scope-cut; re-baselined 2026-06-03 pivot; +10h decision-8; -6h decision-9; -80h decision-10; +17h REQ-032 attachments; +5h decision-11 Discovery credits incl. daily-drip; +10h decision-12 post-Discovery NGO assistant REQ-033; −9h decision-14 defer REQ-009 spend-anomaly engine; −12h decision-15 REQ-015 → project comment thread; +2h decision-16 CR anti-distraction guardrails; −6h decision-17 remove `paused` state):** **≈ ~392h core / ~494h buffered; then −3h decision-19 and ≈ +31h the 2026-07-05 governance fold-in (decisions 20/21/22 — Linear, gateway, attribution) → ≈ ~420h core / ~530h buffered → ~14-17 weeks for 2 engineers.** **NOTE (2026-07-05): the per-phase task hints below predate decisions 20/21/22 and are NOT re-decomposed here — the authoritative build decomposition is produced by the PRD-dissection loop into Linear (the TaskMaster tree was dropped with decision-20).** Cut scope per §11 (auto-top-up, tips, full CR UI, match scoring, satisfaction signals, KYC automation, Lovable email parser, two-org GitHub split, paid Discovery wallet, **platform task-MCP server (decision-9)**, **plus the decision-10 v1.5 deferrals: rate-limiting/Upstash, gradual-rollout, analytics dashboard, concierge CRM, content-takedown UI, multi-jurisdiction tax, self-serve GDPR, Upstash cache, multi-org Anthropic router**) keeps v1 shippable in this range. The decision-10 pass also consolidated the meter trio, the comms substrate, and the outbox reliability layer (ranks 2-4) without losing v1 capability. **PM tree storage is git (decision-9): `.taskmaster/tasks/tasks.json` in the project repo, mirrored to Postgres via GitHub webhook for NGO UI; volunteer's Claude Code drives local TaskMaster. No platform-hosted task-MCP server.** Phase 1 + 2 = MVP launch; Phase 3 = dashboards, comms & platform-operations; Phase 4 = pre-launch hardening; Phase 5 = public beta + concierge launch.
+**Total timeline (post-scope-cut; re-baselined 2026-06-03 pivot; +10h decision-8; -6h decision-9; -80h decision-10; +17h REQ-032 attachments; +5h decision-11 Discovery credits incl. daily-drip; +10h decision-12 post-Discovery NGO assistant REQ-033; −9h decision-14 defer REQ-009 spend-anomaly engine; −12h decision-15 REQ-015 → project comment thread; +2h decision-16 CR anti-distraction guardrails; −6h decision-17 remove `paused` state):** **≈ ~392h core / ~494h buffered; then −3h decision-19 and ≈ +31h the 2026-07-05 governance fold-in (decisions 20/21/22 — Linear, gateway, attribution) → ≈ ~420h core / ~530h buffered → ~14-17 weeks for 2 engineers.** **NOTE (2026-07-05): the per-phase task hints below predate decisions 20/21/22 and are NOT re-decomposed here — the authoritative build decomposition is produced by the PRD-dissection loop into Linear (the TaskMaster tree was dropped with decision-20).** Cut scope per §11 (auto-top-up, tips, full CR UI, match scoring, satisfaction signals, KYC automation, Lovable email parser, two-org GitHub split, paid Discovery wallet, **platform task-MCP server (decision-9)**, **plus the decision-10 v1.5 deferrals: rate-limiting/Upstash, gradual-rollout, analytics dashboard, concierge CRM, content-takedown UI, multi-jurisdiction tax, self-serve GDPR, Upstash cache, multi-org Anthropic router**) keeps v1 shippable in this range. The decision-10 pass also consolidated the meter trio, the comms substrate, and the outbox reliability layer (ranks 2-4) without losing v1 capability. **PM task storage is Linear (decision-20, reverses decision-9): one free workspace per project, mirrored to Postgres via the `linear-webhook` projection for the NGO panel; no git-as-truth `tasks.json`, no platform task-MCP server.** Phase 1 + 2 = MVP launch; Phase 3 = dashboards, comms & platform-operations; Phase 4 = pre-launch hardening; Phase 5 = public beta + concierge launch.
 
 ### Phase 1: Foundation (Weeks 1-3)
 
@@ -3303,7 +3329,9 @@ These map 1:1 with the Phase checkpoints above. Each is a **user-test task** in 
 
 ## Appendix: Task Breakdown Hints
 
-### Suggested Taskmaster Task Structure
+### Suggested Task Structure (HISTORICAL — do not dissect from this)
+
+> **⚠️ SUPERSEDED (decisions 20/21/22, 2026-07-05).** The task list below predates the Linear + LLM-gateway + attribution re-architecture and still describes DELETED mechanisms — git-as-truth `tasks.json` + GitHub-webhook task projection (replaced by Linear, decision-20), per-project Anthropic workspaces/keys + the Usage-API poller + manual key ops (replaced by the LLM gateway + virtual keys + inline metering, decision-21). **The authoritative v1 decomposition is produced by the PRD-dissection loop into Linear** (`loop/`), not from this Appendix. It is retained only as a historical effort/phase sketch; the hour totals in the Effort Estimation section are current, the per-task mechanism descriptions here are not.
 
 **Phase 1 — Foundation (8 tasks, ~48h)**
 1. Supabase project + base schema (8h)
