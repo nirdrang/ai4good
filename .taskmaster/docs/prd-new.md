@@ -4,95 +4,61 @@
 
 ## Executive Summary
 
-NGOs routinely need custom internal tools (volunteer scheduling, beneficiary CRMs, grant trackers, impact dashboards) but cannot afford bespoke software; an emerging wave of AI-augmented developers can ship those tools at a fraction of the historical cost. **ai4good is a nonprofit-operated, open-source marketplace that turns NGO software needs into volunteer-built, AI-powered tools the NGO can run *and keep evolving itself*.** A volunteer builds the first version using Claude Code (which orchestrates the AI app-builder Lovable for the UI/app layer); the NGO ends up with a **deployed, running app it can keep evolving via chat — fixing bugs and adding features without a developer.** Build-phase AI compute is funded by metered Stripe credits ("fuel"); **the platform recognizes a configurable skim (default ~15%) at consumption time** — as the project actually uses compute, not when the NGO pays in. **Fuel is prepaid, fully-consumable, non-cash service credit** (it powers AI work, is not cash-refundable; unused fuel stays as redeployable platform credit — see §7 and REQ-009). As a nonprofit, ai4good runs on **blended revenue** — skim + grants + donations. Expected impact: 25 NGOs receive a working, deployed, self-maintainable tool and 100 active volunteer developers engage in the first 12 months.
+NGOs need custom internal tools (volunteer scheduling, beneficiary CRMs, grant trackers, impact dashboards) but cannot afford bespoke development; AI-augmented developers can now ship such tools at a fraction of historical cost. **ai4good is a nonprofit-operated, open-source marketplace that turns NGO software needs into volunteer-built, AI-powered tools the NGO can run and keep evolving itself.** A volunteer builds the first version with Claude Code orchestrating Lovable (the UI/app layer); the NGO ends up with a deployed, running app it evolves via chat — fixing bugs and adding features without a developer. Build-phase AI compute is funded by metered Stripe credits ("fuel"); the platform recognizes a configurable skim (default ~15%) at consumption time, not at pay-in. Fuel is prepaid, fully-consumable, non-cash service credit. As a nonprofit, ai4good runs on blended revenue — skim + grants + donations, not skim alone. Target: 25 NGOs with a working deployed tool and 100 active volunteer developers in the first 12 months.
 
-**Critical framing — read the next section before the rest of this PRD.** ai4good is a coordination layer, not a software vendor: it connects NGO needs with volunteers, funds AI compute, and helps the NGO end up owning a tool it can self-maintain. The relationship is governed by a plain-language Terms of Service (no warranties, no SLA, no guaranteed deliverable) — warm in tone, real in force. All work is open-source by default; fuel funds AI usage, not guaranteed outcomes. This shapes every requirement that follows.
+ai4good is a coordination layer, not a software vendor. The relationship is governed by a plain-language Terms of Service — no warranties, no SLA, no guaranteed deliverable — warm in tone, real in force. All work is open-source by default; fuel funds AI usage, not outcomes. This framing shapes every requirement that follows.
 
 ---
 
 ## Platform Promise & Disclaimers
 
-ai4good is a **nonprofit coordination layer**, not a software vendor. Its promise: connect NGO needs with willing volunteer developers, fund build-phase AI compute ("fuel"), help the NGO end up with a deployed tool it can self-maintain, and bring open-source-grade transparency. **It is explicitly not a service provider with delivery commitments** — this framing justifies the whole design (free Discovery, fuel-on-match, open-source-by-default, no public ratings, tip-not-pay).
+ai4good is a nonprofit coordination layer: it connects NGO needs with volunteer developers, funds build-phase AI compute, helps the NGO end up with a self-maintainable deployed tool, and brings open-source-grade transparency. It is explicitly not a service provider with delivery commitments — the operating principle behind the whole design (free Discovery, fuel-on-match, open-source-by-default, no public ratings, tip-not-pay).
 
-**Legal posture (decided 2026-06-03):** the relationship is governed by a **plain-language, counsel-reviewed Terms of Service** — the protective terms below (no warranty, no SLA, limitation of liability) are enforceable only inside a real contract, so a ToS holds them while the UI keeps the warm "coordination layer, not vendor" voice. ai4good does not assert "no contract exists"; it asserts a *limited, bona-fide coordination relationship* with no delivery obligation. Volunteers donate their time to charitable work and are not employees, contractors, or sub-contractors of ai4good or the NGO.
-
-NGOs and volunteers must understand and accept the following before participating:
+**Legal posture (decided 2026-06-03):** a plain-language, counsel-reviewed ToS carries the protective terms (no warranty, no SLA, limitation of liability), since such terms are only enforceable inside a contract. ai4good asserts a limited, bona-fide coordination relationship — not "no contract exists." Volunteers donate time to charitable work; they are not employees, contractors, or subcontractors of ai4good or the NGO.
 
 ### 1. A limited coordination relationship — no delivery obligation
-ai4good connects the parties and funds AI compute; **no party is obligated to deliver any specific outcome.** Volunteers donate their time; they are not employees or contractors of ai4good or the NGO. This is a coordinated effort under clear terms, not a commercial engagement with deliverables.
+ai4good connects the parties and funds AI compute; no party is obligated to deliver any specific outcome. Volunteers donate their time.
 
 ### 2. Work is open-source by default; private opt-in for justified cases
-Every project repository is **public MIT by default** — volunteer code is publicly viewable, forkable, and re-usable from the first commit. This is the platform's IP model and a core volunteer value proposition: your work becomes a public, re-usable portfolio piece.
-
-**Private repos are allowed by exception** for legitimate confidentiality needs (beneficiary PII, health data, internal HR/finance tools, classified workflows, donor identities). The NGO requests private at scope time with a brief justification; platform triage (REQ-023) confirms it is consistent with NGO mission and acceptable-use policy. Private projects:
-- Keep code hidden from public view (description still visible)
-- Show on the marketplace with a 🔒 **Private** badge so volunteers can self-select
-- Count toward volunteer reputation ("5 tools shipped, 2 private") but project name/details are hidden on the volunteer's public profile by default
-- Follow all other Platform Promise clauses
-
-**Still not allowed**, public or private:
-- Commercial / closed-source-for-resale work (ai4good is for nonprofit mission delivery, not commercial software)
-- Surveillance tooling, spam infrastructure, illegal use, or content violating ai4good's acceptable-use policy
+Every project repo is public MIT from the first commit — viewable, forkable, re-usable; the volunteer's work becomes a public portfolio piece. Private repos are allowed by exception for legitimate confidentiality needs (beneficiary PII, health data, internal HR/finance, donor identities): the NGO justifies at scope time and platform triage (REQ-023) confirms it against mission and acceptable-use policy. Private projects show a Private badge on the marketplace (description visible, code hidden), still count toward volunteer reputation (project details hidden by default on the public profile), and follow all other Promise clauses. Never allowed, public or private: commercial / closed-source-for-resale work, surveillance tooling, spam infrastructure, illegal use, acceptable-use violations.
 
 ### 3. Fuel funds AI usage on this project — not deliverables
-Funding a project's fuel pays for AI compute on that project — **both the Discovery scoping the NGO does with the AI Discovery Agent** (after the free Discovery credit pool is exhausted; decision-8, 2026-06-04) and **the build work the volunteer does** with Claude Code. On Track A it also pays Lovable credits directly from the NGO's own Lovable workspace. **It is NOT payment for a working tool, a fixed scope, or a specific outcome.** Fuel may be spent in full — by NGO scoping or volunteer build — without producing a viable deliverable. This is an irreducible risk of AI-assisted development: the tools can produce convincing-looking work that doesn't compile, doesn't meet scope, or doesn't survive contact with real NGO data. **NGOs assume this risk knowingly.**
+Fuel pays for AI compute: the NGO's Discovery scoping past the free credit pool (decision-8) and the volunteer's build work; on Track A it also pays Lovable credits from the NGO's own Lovable workspace. It does NOT buy a working tool, a fixed scope, or an outcome. Fuel may be spent in full — by NGO or volunteer — without a viable deliverable; this is an irreducible risk of AI-assisted development that NGOs assume knowingly.
 
 ### 4. No SLA, no completion guarantee
-ai4good does not guarantee that any project reaches handoff:
-- Volunteers may ghost mid-project (REQ-027 inactivity → auto-release + rematch; REQ-016 notifications).
-- AI tools may produce non-working output that consumes fuel without progress.
-- Scopes may prove infeasible once implementation begins.
-- NGOs may decline handoffs that don't meet expectations.
-
-The platform's job is to make these risks **transparent and bounded** — per-project fuel budgets cap the financial downside (you spend only what you commit), and inactivity / handoff flows surface stalls early.
+No project is guaranteed to reach handoff: volunteers may ghost (inactivity → auto-release + rematch, REQ-027), AI output may consume fuel without progress, scopes may prove infeasible, NGOs may decline handoffs. The platform's job is to make these risks transparent and bounded — per-project fuel budgets cap the financial downside; inactivity and handoff flows surface stalls early.
 
 ### 5. What ai4good does promise
-- **Bounded financial risk** — per-project fuel budgets are NGO-chosen at fund-time; no auto-charge beyond commitment.
-- **Transparent volunteer track record** — completion credit, badges, project history (not stars).
-- **Open-source IP norms** — your project is forkable forever; no lock-in.
-- **Verification gating on the NGO side** — REQ-002 tiers reduce fraudulent and abusive demand.
-- **Escalation paths when work stalls** — in-platform messaging (REQ-015), notifications (REQ-016). (Post-handoff issue surfacing — REQ-017 — is v2; v1 NGOs re-engage by posting a new project.)
-- **A genuine attempt to ship** — motivated volunteers, AI leverage, real NGO problems.
+- Bounded financial risk — NGO-chosen per-project fuel budgets; no auto-charge beyond commitment.
+- Transparent volunteer track record — completion credit, badges, project history (not stars).
+- Open-source IP norms — forkable forever, no lock-in.
+- NGO-side verification gating (REQ-002) against fraudulent and abusive demand.
+- Escalation paths when work stalls — messaging (REQ-015), notifications (REQ-016); post-handoff issue surfacing (REQ-017) is v2 — in v1 NGOs re-engage by posting a new project.
+- A genuine attempt to ship, by motivated volunteers with AI leverage, on real NGO problems.
 
 ### 6. Progress over promises (stepwise funding by design)
-The platform encourages NGOs to fund in **small, frequent steps** rather than large upfront commitments. Each fuel run-out creates a natural progress-review moment where the NGO sees concrete work — commits, completed tasks, the volunteer's account of what's next — before continuing to fund. **Trust is built through demonstrated progress, not large prepayments.** Volunteers benefit too — smaller per-stage stakes, clearer feedback loops, less over-commitment anxiety. The cost-control machinery (per-project fuel cap and low-fuel cutoff — REQ-024) makes this the path of least resistance; the two progress signals that drive these review moments are defined in REQ-026 and REQ-010.
+The platform steers NGOs toward small, frequent funding steps rather than large upfront commitments. Each fuel run-out is a progress-review moment: the NGO looks at visible work — commits, completed PM tasks, the volunteer's account of what's next — and decides whether to top up. Trust is built through demonstrated progress, not large prepayments; volunteers get smaller per-stage stakes and clearer feedback loops. Low-fuel blockers (REQ-024) make stepwise funding the path of least resistance. The two progress signals: the PM task view (REQ-026) and git commit cadence (REQ-010).
 
 ### 7. Fuel is non-cash, project-scoped credit — it stays yours and working (decided 2026-06-03)
-Fuel is **prepaid, fully-consumable, non-cash service credit**. **Decision-8 (2026-06-04):** fuel can be funded on a project **at any point once it exists** — typically at match acceptance, but earlier if the NGO wants to continue Discovery past the free credit pool (REQ-002/004/006). It is **project-scoped**: unused fuel **stays on the project** and **survives a volunteer change** (if a volunteer leaves mid-project, the project re-opens and the next volunteer picks up the remaining balance — REQ-027). Your money keeps working on exactly the project you funded.
-
-**Fuel is not cash-refundable.** Once a project is genuinely finished or abandoned, leftover credit can be:
-- **Kept** on your account as redeployable platform credit, OR
-- **Donated** to ai4good (tax-deductible given nonprofit status — see §11), OR
-- **(v1.5) Moved** to another of your projects.
-
-There is **no cash-out / withdrawal in v1** (this removes the only money-out path, eliminating laundering risk and the Treasury/ACH/AML/KYC machinery). **Nothing is ever silently removed.** Disclosed plainly at funding time: *"Fuel powers AI work and is not cash-refundable; unused fuel stays as credit for your projects or can be donated."*
+Fuel can be funded from draft onward (decision-8) — typically at match acceptance, or earlier to continue Discovery past the free pool. It is project-scoped: unused fuel stays on the project and survives a volunteer change (the next volunteer picks up the remaining balance — REQ-027). Fuel is not cash-refundable; once a project is genuinely finished or abandoned, leftover credit can be kept as redeployable platform credit, donated to ai4good (tax-deductible), or (v1.5) moved to another of the NGO's projects. No cash-out or withdrawal in v1 — deliberately removing the only money-out path eliminates laundering risk and the ACH/AML/KYC machinery. Nothing is ever silently removed, and all of this is stated plainly on the funding screen.
 
 ### 8. Minimize admin intervention
-The platform keeps admin work to a minimum so growth is not bottlenecked on human reviewers. Operating principle: **target < 10 minutes of admin time per active project per week** at steady state. Concretely:
-- **Automation first** — anything automatable is automated; clear cases are auto-handled and only ambiguous ones reach an admin. *(Automated spend-anomaly detection is a v1.5 add — decision-14; v1 bounds loss with deterministic caps + daily human review.)*
-- **Batched, not real-time** — admin work that must stay manual is batched rather than handled on-demand; users are told upfront there is a wait. **Lovable setup is NOT an admin task** — it is volunteer-driven (REQ-021).
-- **Self-service for NGO actions** — verification doc upload, fuel top-up, key rotation request are all self-serve; admin sees only the resulting queue. (KYC submission + auto-top-up enable/disable are v1.5.)
-- **Automated reconciliation** (REQ-006/029) — admin sees a task only when the money doesn't reconcile.
+Target: under 10 minutes of admin time per active project per week at steady state, so growth is not bottlenecked on human reviewers. Automation first — clear cases are auto-handled; only ambiguous ones reach an admin. What must stay manual is batched, never on a kickoff's critical path, with the expectation set upfront (e.g. "AI key ready within 12h of fuel deposit"). Automated spend-anomaly detection is v1.5 (decision-14); v1 bounds loss with deterministic caps plus daily human review. Lovable setup is volunteer-driven, not an admin task (REQ-021). NGO actions — verification upload, fuel top-up, key rotation — are self-serve (KYC submission and auto-top-up controls are v1.5). Money reconciliation surfaces an admin task only on exception. Features requiring routine admin involvement are weighed against this principle before being added.
 
-This is intentionally restrictive: features that would require routine admin involvement are evaluated against this principle before being added.
+### 9. Acknowledgment cadence (Option D)
+Explicit, audit-logged acknowledgment at two NGO moments plus one volunteer moment:
+- **NGO at signup** — full ToS + Promise (all clauses); required before project creation.
+- **NGO at first funding on a project and at every match acceptance** — fuel ≠ deliverable, no SLA, fuel-is-non-cash-credit, and data-responsibility for the project's sensitivity tier. First per-project funding (whether a Discovery top-up or a match-acceptance top-up) names the project and its cap — "money commits to this project." Match acceptance names the volunteer — "volunteer + money + scope converge." Both are real-commitment moments; each gets its own acknowledgment, never reused for the other.
+- **Volunteer at first project application** — one combined disclaimer, a property of the volunteer account: limited coordination relationship, open-source-by-default, per-project key use, and a standing data-confidentiality undertaking ("when a project handles real data I will work only with the NGO's synthetic/anonymized fixtures and keep what I see confidential"). Sworn once, binding before the volunteer ever touches a private or sensitive project; not re-prompted unless the text materially changes.
 
-### 9. Acknowledgment cadence
-The platform asks for explicit, audit-logged acknowledgment at **two NGO moments + one volunteer moment**:
-
-| Actor | Moment | What's acknowledged | Why this moment |
-|---|---|---|---|
-| NGO | **At signup** (Story 1) | Full Terms of Service + Promise (all clauses) | Gate to project creation; sets baseline understanding |
-| NGO | **First funding on a project + every match acceptance** (REQ-006 / decision-8) | Clauses 3+4 (fuel ≠ deliverable; no SLA) + fuel-is-non-cash-credit (§7) + data-responsibility for the project's sensitivity tier (REQ-004/023). First funding fires a hard ack naming the project + per-project cap; match acceptance fires its own naming the volunteer. Neither is reused for the other. | First funding = money commits to this project; match acceptance = volunteer + money + scope converge. Both warrant their own ack. |
-| Volunteer | **First project application** (Story 3) | One combined first-apply disclaimer (REQ-007): Clauses 1+2 (limited coordination relationship; open-source by default) + per-project-key-use + a **standing data-confidentiality undertaking** ("on real-data projects I work only with the NGO's synthetic/anonymized fixtures and keep what I see confidential"). Sworn once, so it binds before the volunteer touches any private/Tier-1+ project. | One-time; re-prompted only if ToS/disclaimer text materially changes |
-
-At fuel top-ups after the first per-project funding and after the first match, the platform shows a passive footer link to the full Promise (no hard checkbox), since these are refills during an active project. All acknowledgments are recorded with timestamp + IP + text version; a material change to the text re-triggers acknowledgment.
+Later top-ups on the same project show a passive footer link to the full Promise, not a hard checkbox. Every acknowledgment is recorded with timestamp, IP, and text version; a material text change re-triggers acknowledgment.
 
 ### 10. The deliverable: a tool the NGO can run and keep evolving (decided 2026-06-03)
-ai4good's deliverable is not "a repo" — it is a **deployed, running tool the (non-technical) NGO can keep evolving itself.** A project's *track* is set at Discovery (REQ-004) by *who maintains the tool after the volunteer leaves*:
-- **Track A — "NGO-maintains-it":** the durable home is an AI app-builder (**Lovable** in v1) where the NGO evolves the live app via chat after handoff — fixing bugs, adding features, no developer. The volunteer builds the first version through Claude Code, which orchestrates Lovable. **Track A is the only track ai4good builds in v1.**
-- **Track B — "developer-grade / one-off"** *(deferred to post-v1 — decision-19):* custom logic / integrations / no expectation of non-dev chat maintenance. Track B can clear "deployed + running" but by construction cannot satisfy "the NGO evolves it itself," so v1 does not take it on. Needs requiring Track B are detected at Discovery and parked on a developer-grade waitlist (REQ-004).
+The deliverable is not "a repo" — it is a deployed, running tool the non-technical NGO keeps evolving itself. A project's track is set at Discovery (REQ-004) by who maintains the tool after the volunteer leaves:
+- **Track A — "NGO-maintains-it":** the durable home is an AI app-builder (Lovable in v1); the NGO evolves the live app via chat after handoff. The volunteer builds the first version through Claude Code, which orchestrates Lovable. **The only track ai4good builds in v1.**
+- **Track B — "developer-grade / one-off"** *(deferred post-v1 — decision-19):* custom logic / integrations with no expectation of non-dev chat maintenance; by construction it cannot satisfy "the NGO evolves it itself," so v1 detects such needs at Discovery and parks them on a developer-grade waitlist (REQ-004).
 
-**The honest promise for Track A:** *the NGO owns the code outright (portable, open-source, no lock-in) AND can self-maintain via chat for roughly the AI-builder's subscription (~$25/mo) as long as they choose to pay; if they stop paying, they keep a deployable app but lose hands-free chat maintenance.* Set as an expectation at kickoff, with a spend cap so metered edit costs never blindside a non-technical owner.
+The honest Track A promise: the NGO owns the code outright (portable, open-source, no lock-in) and can self-maintain via chat for roughly the AI-builder's subscription (~$25/mo) as long as they choose to pay; if they stop, they keep a deployable app but lose hands-free chat maintenance. Set as an expectation at kickoff, with a spend cap so metered edit costs never blindside a non-technical owner.
 
 This section is not legalese. It is the actual operating model.
 
@@ -100,837 +66,568 @@ This section is not legalese. It is the actual operating model.
 
 ## Problem Statement
 
-### Current Situation
-NGOs run on a chronic software deficit — spreadsheets, generic SaaS (Airtable, Google Forms, mailing lists), and donated point-solutions that rarely fit their workflow. Commercial vendors price for corporate budgets, pro-bono dev shops are oversubscribed, and one-off volunteer projects stall before shipping because there is no shared backbone — no scope definition, funding model, project management, or handoff process.
+NGOs run on a chronic software deficit — spreadsheets, generic SaaS, and donated point-solutions that rarely fit their workflows. Commercial vendors price for corporate budgets, pro-bono dev shops are oversubscribed, and one-off volunteer projects stall for lack of a shared backbone: scope definition, funding model, project management, handoff. On the supply side, AI-augmented developers now produce working software 5-10x faster than the pre-AI baseline but have no aggregated channel into social-impact work. The mismatch is a coordination failure, not a willingness failure.
 
-On the supply side, a growing cohort of AI-augmented developers (Claude Code, Cursor, Lovable, Copilot) can now produce working software at 5-10x the pre-AI baseline, but has no aggregated channel to apply that productivity to social-impact work. The mismatch is a coordination failure, not a willingness failure.
+**Impact:** NGOs and other mission-driven organizations lose staff hours to manual workarounds, miss reporting deadlines, and cannot scale operations (cf. Code for America: 30-60% productivity loss to manual processes in under-resourced civic orgs). Volunteers cannot find projects with clear scope, funded AI tokens, and a path to delivering something useful. NGOs spend $1B+/year on partially-fitting SaaS and lose multiples of that in staff time; without an aggregator, AI productivity gains keep missing the social-impact sector.
 
-### User Impact
-- **Who:** NGOs and mission-driven orgs (charities, public-sector projects, researchers) needing custom internal tooling; AI-augmented volunteer developers wanting scoped projects, credit, and reimbursement for AI costs.
-- **How:** NGOs lose staff hours to manual workarounds, miss reporting deadlines, cannot scale; volunteers can't find projects with clear scope, AI-token funding, and a path to delivering something useful.
-- **Severity:** High — the opportunity-cost of un-built NGO tooling is well-documented (e.g. Code for America: 30-60% productivity loss to manual processes in under-resourced civic orgs).
-
-### Business Impact
-- **Cost of problem:** NGOs globally spend $1B+/year on commercial SaaS that only partially fits, and lose multiples of that in unbilled staff time on workarounds.
-- **Opportunity cost:** AI-coding productivity gains aren't reaching the social-impact sector; without an aggregator, individual efforts fragment and stall.
-- **Strategic importance:** Establishes ai4good as the default coordination layer between NGO needs and AI-augmented volunteer supply, with a revenue model decoupled from grant funding.
-
-### Why Solve This Now?
-1. **AI coding inflection point:** Claude Code, Lovable, and Cursor have crossed the threshold where one developer can ship production software in days, not months.
-2. **Token-metered economics:** Pay-per-use AI APIs make per-project budgeting tractable — an NGO can fund a specific tool with a specific dollar amount.
-3. **Open-source norms maturing:** GitHub-native workflows provide a free, transparent project-management spine.
-4. **Stripe billing primitives** make a per-project credit-ledger feasible for a small team.
+**Why now:** (1) AI coding inflection — a single developer can ship production software in days, not months; (2) token-metered APIs make per-project dollar budgeting tractable for the first time; (3) mature GitHub-native norms provide a free, transparent project-management spine; (4) Stripe billing primitives make a credit-ledger product feasible for a small team.
 
 ---
 
 ## Goals & Success Metrics
 
 ### Goal 1: Ship Working, Deployed NGO Tools (decided 2026-06-03)
-- **Description:** Produce real, **deployed and running** tools NGOs actually use — not just handed-off repos. End-to-end: post → discovery → match → build → **deploy** → handoff.
-- **Primary Metric:** Projects reaching handoff **with a verified live deployment URL** (REQ-012 — Track A: live Lovable app + workspace ownership transferred to the NGO). *(Track B's plain-host deploy path is deferred — decision-19.)*
-- **North-star:** **"Still alive at 30 days"** — deployed apps that respond to an automated health check 30 days post-handoff (tracked, not guaranteed — no SLA, §4).
-- **Baseline:** 0 (greenfield).
-- **Target:** **25 NGOs receive a working, deployed tool** in the first 12 months; ≥60% still-alive at 30 days.
+Deployed, running tools NGOs actually use — not handed-off repos; end-to-end post → discovery → match → build → deploy → handoff. Primary metric: projects reaching handoff with a verified live deployment (Track A: live Lovable app + workspace ownership transferred to the NGO; Track B's deploy path deferred post-v1 — decision-19). North-star: "still alive at 30 days" — the deployed app responds to a health check 30 days post-handoff (tracked, not guaranteed — no SLA per §4). Baseline 0. Target: 25 NGOs with a working deployed tool in the first 12 months; ≥60% still-alive at 30 days.
 
 ### Goal 2: Volunteer Engagement & Retention
-- **Description:** A stable supply of volunteer developers who return for multiple projects.
-- **Metric:** Active volunteers (1+ committed task/month) and repeat-project rate.
-- **Baseline:** 0.
-- **Target:** **100 active monthly volunteers; 30% repeat-project rate** (2nd project within 90 days of the 1st). **Timeframe:** Month 12.
+A stable supply of volunteers who return for multiple projects. Metrics: active volunteers (1+ committed task per month) and repeat-project rate. Baseline 0. Target (month 12): 100 active monthly volunteers; 30% complete a second project within 90 days of their first.
 
 ### Goal 3: Blended Sustainability (decided 2026-06-03 — re-pointed from skim-margin)
-- **Description:** As a nonprofit, validate the **blended** funding model — earned skim + grants + donations covering the cost base (Anthropic float + infra + deliberately-manual concierge/admin labor). v1 is expected net-negative on skim alone; the goal is a credible path to blended sustainability, not skim profitability.
-- **Metric:** Net contribution = (skim + grants + donations) − (Anthropic + infra + ops); plus fuel throughput, skim, and grant/donation intake.
-- **Baseline:** $0.
-- **Target:** **$250k fuel throughput; secured grant/donor runway covering the projected year-1 net gap; donation conversion on unused fuel ≥ 20%.**
+Validate the blended funding model — earned skim + grants + donations covering the cost base (Anthropic float + infra + the deliberately-manual concierge/admin labor). v1 is expected net-negative on skim alone; the goal is a credible path to blended sustainability, not skim profitability. Metrics: net contribution plus its inputs (fuel throughput, skim, grant/donation intake). Target: $250k fuel throughput; grant/donor runway covering the projected year-1 net gap; donation conversion on unused fuel ≥ 20%.
 
 ### Goal 4: Discovery Quality
-- **Description:** Validate that the AI Discovery Agent produces scopes volunteers can execute against.
-- **Metric:** Percent of scoped projects reaching Handoff without major scope renegotiation (>1 reopen of the scope doc).
-- **Baseline:** N/A.
-- **Target:** **>70% of projects ship against original scope** with at most one minor revision. **Timeframe:** Months 3-12.
+Validate that AI Discovery scopes are executable by volunteers. Metric: percent of scoped projects reaching handoff without major scope renegotiation (more than one reopen of the scope doc). Target (months 3-12): >70% of projects ship against original scope with at most one minor revision.
 
 ### Goal 5: Volunteer Supply Liquidity (decided 2026-06-03 — the #1 launch gate)
-- **Description:** A two-sided marketplace dies on the side with no liquidity — for ai4good that's supply. This goal makes the supply funnel visible and healthy, mirroring the demand side. Launch is **concierge-first**: pre-recruit a volunteer bench and hand-match the first ~10–15 curated projects before opening organic browse (REQ-007 / §11).
-- **Metric:** Volunteer activation funnel — signup → first apply → first match → first handoff — and time-to-first-match per open project.
-- **Target:** **≥ 20-volunteer pre-launch bench; ≥ 80% of the first cohort's open projects matched within 7 days; volunteer signup→handoff activation ≥ 25%.**
-- **Behavior:** Aging unmatched open projects are nudged to the concierge queue (hand-match candidate) and to matching volunteers (REQ-016) — SLA 7 days during the concierge phase, 14 days at organic-browse scale.
-
----
-
+A two-sided marketplace dies on the side with no liquidity — for ai4good, supply. Launch is concierge-first: pre-recruit a volunteer bench and hand-match the first ~10-15 curated projects before opening organic browse (REQ-007). Metrics: volunteer activation funnel (signup → first apply → first match → first handoff) and time-to-first-match per open project. Target: ≥20-volunteer pre-launch bench; ≥80% of the first cohort's open projects matched within 7 days; signup→handoff activation ≥25%. Projects unmatched past the cohort SLA (7 days during the concierge phase, 14 days at organic-browse scale) are nudged — surfaced to the concierge queue for hand-matching and featured to matching volunteers (REQ-016), at most once per project per 72h.
 
 ## User Stories
 
 ### Story 1: NGO Posts a Need
-
-**As an** NGO program manager, I want to describe a software need in plain language and have it turned into a buildable scope, so that a real tool gets funded and built without me writing a technical spec.
-
-**Acceptance Criteria:**
-- [ ] NGO signs up and creates an org profile (name, mission, contact, verification docs).
-- [ ] At signup the NGO must explicitly accept the ToS + Platform Promise (limited coordination relationship; work open-source by default; fuel funds AI usage and is non-cash credit, not a deliverable; no SLA). Without acceptance the account cannot create a project. Acceptance is recorded as an auditable event (time, source, and the exact version accepted).
-- [ ] NGO starts a "Project Need" from a free-text problem description (no technical jargon required).
-- [ ] The AI Discovery Agent runs a structured 5–10-turn conversation that refines the need into a scoped spec.
-- [ ] At the end of discovery the NGO sees: a scope document; a qualitative complexity tier (small/medium/large — no dollar estimate in v1, REQ-004); the data-sensitivity tier + handling guideline (Tier-2 = fixtures-only during build); the maintenance track (Track A "you maintain it via chat in Lovable"; Track B deferred post-v1 — non-Track-A needs waitlisted, REQ-004); a suggested stack; and acceptance criteria.
-- [ ] NGO can edit the scope before publishing; on publish the project enters the public marketplace and the NGO is emailed (and again on volunteer match).
+An NGO program manager describes a software need in plain language and has it turned into a buildable scope — a real tool funded and built without writing a technical spec. (Depends: REQ-001, REQ-002, REQ-004, REQ-005.)
+- NGO signs up with an org profile (name, mission, contact, verification docs) and must explicitly accept the ToS + Platform Promise (limited coordination relationship, work open-source by default, fuel = non-cash credit funding AI usage, no SLA); acceptance is recorded for audit and gates project creation.
+- NGO starts a Project Need from a free-text description; the AI Discovery Agent refines it over a 5-10-turn structured conversation into: a scope document, a qualitative complexity tier (small/medium/large — no dollar estimate in v1, REQ-004), the data-sensitivity tier + its handling guideline (Tier-2 = fixtures-only during build), the maintenance track (v1 = Track A "you maintain it via chat in Lovable"; non-Track-A needs are waitlisted, decision-19), a suggested stack, and acceptance criteria.
+- NGO can edit the scope before publishing; publishing lists the project on the public marketplace. NGO is emailed on publish and on volunteer match.
 
 ### Story 2: NGO Funds a Project with Fuel
-
-**As an** NGO program manager, I want to buy fuel by card and assign it to a specific project, so that I budget per-tool rather than committing to platform-wide spend.
-
-**Acceptance Criteria:**
-- [ ] NGO buys fuel by card as one-time top-ups (no subscription). The payment screen passively links to the Platform Promise & Disclaimers (no checkbox, no interrupt); the hard acknowledgment lives at match acceptance (Story 3), not per top-up.
-- [ ] Fuel is denominated in USD; the project shows gross USD funded ($100 of fuel for $100 paid). A top-up may optionally land in a general NGO balance before being allocated to a project.
-- [ ] No skim at top-up: the project is funded at full gross and the platform skim (default 15%) is recognized only as AI usage is consumed (REQ-009) — so NGOs always see full gross funded and pay the skim forward as they spend.
-- [ ] NGO sees a real-time per-project fuel ledger (purchases, consumption, balance); failed payments give clear feedback and the ledger reconciles against the payment processor.
-- [ ] EU/UK NGOs receive a valid VAT invoice.
+An NGO purchases fuel credits by card and assigns them to a specific project — per-tool budgeting, no platform-wide commitment. (Depends: REQ-001, REQ-006, REQ-009.)
+- One-time top-ups via Stripe Checkout; no subscription. Checkout carries a passive reminder link to the Platform Promise & Disclaimers — the hard acknowledgment happens once at match acceptance, not per top-up.
+- Fuel is USD-denominated and displayed gross: $100 paid shows as $100 of fuel. No skim is taken at top-up; the platform share (default 15%) is recognized as AI spend is consumed (REQ-006/REQ-009).
+- NGO sees a real-time per-project fuel ledger (purchases, consumption, balance); failed payments surface clear feedback; EU/UK NGOs receive a valid VAT invoice.
 
 ### Story 3: Volunteer Joins and Gets Matched
+An AI-augmented developer browses open projects, filters by skills/scope, and claims one with clear scope and funded fuel. (Depends: REQ-007, REQ-008.)
+- Sign-up via GitHub OAuth imports GitHub stats; volunteer self-declares skills, time availability, and preferred causes.
+- At first project application (the first-commitment moment, REQ-007), the volunteer must accept the ToS + Platform Promise clauses: coordination layer only — no obligated outcomes; volunteering, not employment; all work public open-source by default (MIT; private only with NGO justification); each project's API key used only for that project's work; fixtures-only plus confidentiality on Tier-2 data; violations risk suspension and forfeiture of completion credit. Acceptance is per account; a material text change forces a one-time re-accept.
+- Marketplace shows scope, suggested stack, cause tags, and skill/cause overlap badges (e.g. "Skills match: 3 of 5") — no numeric match score in v1 (REQ-011). Volunteer applies; NGO approves/declines or auto-approves (configurable). Acceptance does NOT trigger kickoff — the project waits until the NGO funds it (match-to-fund, REQ-006).
+- On funding, kickoff fires with no platform-admin involvement: NGO + volunteer land the repo via the Lovable setup checklist (v1 is Track A only and Lovable is mandatory — decision-19, REQ-021); the task backlog is decomposed from Discovery output into the project's Linear workspace (REQ-026 — GitHub Issues stay dev-internal, REQ-008); per-project AI keys are issued (REQ-009); the project comment thread opens (REQ-015). Volunteer receives a starter kit: Track-A build guide + pull-based task workflow.
 
-**As an** AI-augmented developer, I want to browse open projects, filter by skills/scope, and claim one, so that I apply my time to scoped work with funded fuel.
-
-**Acceptance Criteria:**
-- [ ] Volunteer signs up and links a code-host profile (public stats: repos, languages, contribution history), then self-declares skills, weekly availability, and preferred causes.
-- [ ] At first project application (same first-commitment-moment principle as the profile-link gate, REQ-007) the volunteer must explicitly accept the relevant ToS + Platform Promise clauses: ai4good is a limited coordination layer (no one is obligated to deliver a specific outcome); the volunteer volunteers time (not employee/contractor); work is public-by-default open-source under MIT (private allowed by NGO justification, Platform Promise §2); the project's virtual key is used only for that project; on real-data projects the volunteer works only with the NGO's synthetic/anonymized fixtures (Tier-2, REQ-004) and keeps what they see confidential; violations may cause suspension and forfeiture of completion credit. Acceptance is a property of the volunteer account (not the application), is recorded auditably (time, source, version), and a materially changed disclaimer version forces a one-time re-accept on next apply.
-- [ ] Marketplace lists open projects with scope, suggested stack, cause tags, and skill/cause overlap badges ("Skills match: 3 of 5", "Causes match"). No numeric match score in v1 (REQ-011; scoring deferred to v1.5).
-- [ ] Volunteer applies; NGO approves/declines via dashboard or auto-approves (configurable).
-- [ ] Acceptance does NOT trigger kickoff. After the NGO accepts, the project sits at matched-pending-fuel; repo, Linear workspace, virtual keys, backlog, and comment thread are all created at funding (REQ-006 match-to-fund), not at acceptance.
-- [ ] On funding (REQ-006) the kickoff sequence fires. v1 is Track A only (decision-19), so Lovable setup is mandatory (no volunteer skip). Programmatic repo creation is deferred; the platform auto-raises the Lovable-setup blocker (REQ-021) and NGO + volunteer land the repo via the checklist (no platform-admin involvement), under the shared ai4good-projects org. The backlog is decomposed from Discovery into the project's Linear workspace (REQ-026) — not GitHub Issues, which stay dev-internal (REQ-008); virtual keys are minted (REQ-009); the comment thread opens (REQ-015).
-- [ ] Volunteer gets an in-platform starter kit: the Track-A build guide + the pull-based Linear workflow guide (browse briefs → self-assign → work → merged delivery moves status).
-
-### Story 4: Volunteer Builds — Claude Code as the entry point (Track A: orchestrating Lovable)
-
-**As an** assigned volunteer, I want to use Claude Code as my single entry point — backend/logic/tests directly (metered against project fuel) and, on Track A, orchestrating Lovable for the app/UI layer — so that I ship the NGO a deployed tool they can keep evolving, with ai4good's metering/enforcement in the loop.
-
-**Acceptance Criteria:**
-- [ ] Each (volunteer, project) pair holds a virtual key minted at kickoff and terminating at the ai4good LLM gateway (REQ-009); the real key is held only at the gateway and never reaches the volunteer. Standard, unmodified Claude Code connects through it.
-- [ ] Volunteer gets a Project Starter Kit page and installs the ai4good Claude Code Skill (REQ-028), which primes project context, wires Linear (REQ-026) and the gateway, and (Track A) sets up Lovable orchestration.
-- [ ] The gateway meters each request inline at response time (REQ-009) and deducts from project fuel.
-- [ ] Enforcement is structural at the gateway, not polling-based: below 20% fuel the NGO is auto-notified to top up (REQ-024); below 5% dev sessions are warned in-app; at 0 the gateway declines the next request with a fuel-suspension response and both parties are notified — the next request passes once the NGO tops up (no reactivation step). Volunteer has a fuel-gauge widget in the dashboard.
-- [ ] Track A — Claude Code orchestrates Lovable via its MCP (REQ-021 + REQ-028), enforcing the per-task Lovable-credit budget cap + audit, with a manual dual-rail fallback if the Lovable MCP is down. The NGO owns the Lovable workspace (durable post-handoff home). Track A is the only build track in v1 (Track B deferred, decision-19).
-- [ ] Lovable status widget: volunteer can mark credits-low/blocked to escalate to the NGO; Lovable cost is paid by the NGO directly (not from fuel). The project page shows both meters — Claude Code fuel + Lovable status (REQ-010).
-- [ ] The gateway's escalation ladder is documented-not-built beyond Layer 1 in v1 (REQ-009); v1 ships virtual keys, caps, inline metering, and the structural fuel gate.
+### Story 4: Volunteer Builds — Claude Code as the entry point (Track A: orchestrating Lovable via MCP)
+The assigned volunteer uses Claude Code as the single entry point — backend/logic/tests directly, metered against project fuel; on Track A, also orchestrating Lovable for the app/UI layer — one pane of glass with ai4good metering and enforcement in the loop. (Depends: REQ-009, REQ-010, REQ-021, REQ-026, REQ-028.)
+- Each volunteer-project pair holds a platform-issued virtual key; the real provider key never leaves the platform (decision-21). Standard Claude Code works unmodified. The Starter Kit + ai4good Claude Code Skill (REQ-028) prime project context, wire the Linear task rail (REQ-026), and set up the Lovable orchestration.
+- AI usage is metered per request and deducted from project fuel. Below 20% fuel the NGO is prompted to top up (REQ-024); below 5% dev sessions get an in-app warning; at 0 the next request is declined with a fuel-suspension notice and both parties are notified. A top-up restores service with no reactivation step — enforcement is structural, not polling-based (REQ-009).
+- Track A (the only v1 build track, decision-19): the Skill drives Lovable under a per-task Lovable-credit budget cap with an audit trail, with a manual fallback if Lovable's MCP is down. The NGO owns the Lovable workspace (its durable post-handoff home) and pays Lovable directly — never from fuel. Volunteer can flag Lovable status (credits low / blocked) to escalate to the NGO.
+- Project page shows dual meters: Claude Code fuel gauge + Lovable status (REQ-010). Abuse protections beyond virtual keys, caps, inline metering, and the fuel gate are documented-not-built in v1 (REQ-009).
 
 ### Story 5: Project Management via the Linear-Backed PM Task Tree (REQ-026)
-
-**As an** NGO admin or assigned volunteer, I want to track tasks and progress in a plain-language hierarchical view whose status comes from deterministic events, not an agent's self-report, so that NGOs trust progress without reading code and the volunteer works pull-based from a session-sized, dependency-ordered backlog.
-
-**Acceptance Criteria:**
-- [ ] At kickoff (REQ-005.5/REQ-006) the platform decomposes Discovery's stories + acceptance criteria into a Linear issue tree (one parent issue per story; one sub-issue per acceptance criterion; P0 tasks labeled; a coordinator reviews the draft before it is created — REQ-026).
-- [ ] The ai4good project page shows the task tree as primary content ("Now working on" strip + hierarchical list + activity feed, REQ-010), reflecting Linear status in near-real-time — NGOs never need Linear seats.
-- [ ] Status is deterministic: self-assignment marks "in progress"; merged delivery marks "done"; agents comment and self-assign but never move status, and unauthorized status moves are detected and reverted (REQ-026). Project % complete = done P0 tasks ÷ total P0 tasks.
-- [ ] No GitHub Issues are auto-created from scope (REQ-008/REQ-026); GitHub Issues stay dev-internal for code bugs and never appear in the NGO view.
-- [ ] Sub-issues render as a tree (parent → children) and the volunteer can add sub-issues during work; Change-Request-derived issues (REQ-025) appear under a "Change Request: [title]" parent.
-- [ ] After handoff the tree becomes read-only and a markdown snapshot of the final tree lives in the repo (REQ-026). Follow-up requests re-engage via a new project (REQ-017 is v2).
+NGO admins and volunteers track tasks and progress in a plain-language hierarchical view whose status comes from deterministic events (PR merges, self-assignment) — never an agent's self-reported narrative. NGOs get progress they can trust without reading code; volunteers work pull-based from a session-sized, dependency-ordered backlog. (Depends: REQ-008, REQ-026.)
+- At kickoff, Discovery's user stories + acceptance criteria are decomposed into an issue tree (one parent per story, one sub-issue per criterion); a coordinator reviews the draft before it is created.
+- The ai4good project page is the primary view — "Now working on" strip, hierarchical task list, activity feed (REQ-010). NGOs never need Linear seats.
+- Status is deterministic: self-assignment marks in-progress (the commitment signal); PR merge marks done; agents may comment and self-assign but never move status (violations are detected and reverted). Percent complete = done / total of the must-have tasks.
+- No GitHub Issues are auto-created from scope; they remain dev-internal and never appear in the NGO view (REQ-008/REQ-026). Volunteer-added sub-issues join the tree; Change-Request work (REQ-025) groups under a "Change Request: [title]" parent.
+- After handoff the tree becomes read-only, with a snapshot preserved in the repo; follow-up work re-engages via a new project (REQ-017 is v2).
 
 ### Story 6: Handoff and Post-Handoff (tips deferred to v1.5; attribution capture in v1 — decision-22)
-
-**As an** NGO, I want to receive the completed open-source repo with deploy instructions and a runbook, and a path to request follow-up work, so that I can operate and extend the tool without depending on any specific volunteer.
-
-**Acceptance Criteria:**
-- [ ] Volunteer marks a project "Ready for Handoff" once all P0 PM tasks (REQ-026) are done. Open GitHub Issues do not block handoff (dev-internal).
-- [ ] The platform runs an automated handoff checklist: README, runbook, deploy instructions, passing automated checks, and a license file (MIT default).
-- [ ] NGO reviews the deployed tool (hosted staging or live URL) and signs off via "Handoff Accepted."
-- [ ] On sign-off the NGO sees the completion summary. Tips are deferred to v1.5 (§11). Sign-off DOES include the REQ-035 attribution step (optional testimonial + 3 required credit-framed dimensions, ~30s — decision-22). Volunteer reputation in v1 = completion credit + privately-held attribution; the matching surface is v1.5.
-- [ ] On acceptance: optional repo transfer to the NGO, the project is marked handed-off (there is no separate "archived" status), and the volunteer profile gains a completion credit (+1 + "Shipped first tool" badge on first handoff — no public star rating).
-- [ ] Remaining fuel is released to the NGO's general balance as a non-cash credit release (REQ-006 §7) — no decay clock, no cash refund, no auto-renew. The NGO keeps it (persists as redeployable credit, never removed) or donates it (tax-deductible, nonprofit); move-to-another-project is v1.5. Nothing is ever silently removed (Platform Promise §7).
-- [ ] Post-handoff, the NGO can use GitHub Issues on the repo for follow-up; ai4good does NOT surface or fund these in v1 (REQ-017 deferred to v2). NGOs wanting a fresh paid project post a new one.
-
-**Deferred to v1.5 (§11):**
-- Volunteer payout onboarding + tip flow (checkout + payout).
-- Private NGO satisfaction form — superseded by decision-22 (REQ-035 attribution ships in v1; the reputation/matching surface stays v1.5).
-
+The NGO receives the completed open-source repo with deployment instructions and a runbook, and can operate and extend the tool without depending on any specific volunteer. (Depends: REQ-008, REQ-009, REQ-012.)
+- Volunteer marks "Ready for Handoff" once all must-have PM tasks are done (open GitHub Issues never block — dev-internal); an automated checklist then gates handoff: README, runbook, deploy instructions, at least one passing CI run, license file (MIT default).
+- NGO reviews the deployed tool (staging or live URL) and signs off via "Handoff Accepted". Sign-off shows a completion summary and includes the REQ-035 attribution step (optional testimonial + 3 required credit-framed dimensions, ~30 seconds — decision-22). Tips are deferred to v1.5; v1 volunteer reputation = completion credit + privately-held attribution.
+- On acceptance: optional repo transfer to the NGO's GitHub org; the project is archived as handed off; the volunteer earns a completion credit (counter +1, "Shipped first tool" badge on first handoff; no public star rating).
+- Remaining fuel is released to the NGO's general balance as non-cash credit — no decay clock, no cash refund, no auto-renew. The NGO can keep it (persists indefinitely) or donate it (tax-deductible); moving it to another project is v1.5. Nothing is ever silently removed (Platform Promise §7).
+- Post-handoff the NGO may use GitHub Issues on its repo, but ai4good does not surface or fund follow-ups in v1 (REQ-017 → v2); new paid work = post a new project.
 
 #### REQ-001: User Authentication & Org Membership
 
-**Description:** Two-layer authorization: every account has one global role (NGO, volunteer, or platform admin); an NGO account also holds one or more per-NGO memberships (admin or member). Shorthand: **ngo_admin** = NGO account with an admin membership; **volunteer** = individual account, no memberships; **platform_admin** = the global role.
+Two-layer authorization: every account has one global type — NGO, volunteer, or platform admin — and NGO accounts additionally carry a per-NGO role (admin or member). "NGO admin" = an NGO account with the admin role in that NGO. NGO users may belong to multiple NGOs; volunteers are always individual accounts.
 
-**Acceptance Criteria:**
-- [ ] Multiple sign-in options. A volunteer must link a GitHub account before their first application (linking runs REQ-007 onboarding and grants the repo access needed to receive a project).
-- [ ] NGO admins invite teammates (email invite + role). Volunteer accounts are always individual.
-- [ ] NGO data is visible only to its own members and assigned volunteers.
-- [ ] Password reset, email verification, and session management are provided.
+- Email/password, GitHub OAuth, and Google OAuth sign-in. GitHub link is required at first project application (moved earlier than the prior NGO-acceptance gate); linking runs the volunteer GitHub onboarding (REQ-007).
+- NGO admins can invite teammates by email with role assignment.
+- NGO data is visible only to its own members and assigned volunteers.
+- Password reset, email verification, and session management provided.
+- Accounts carry a lifecycle state (active / suspended / deactivated) that gates every write (see REQ-007 AUP suspension).
 
-**Dependencies:** None.
+Dependencies: none.
 
 ---
 
 #### REQ-002: NGO Organization Profile + Verification (v1 minimal)
 
-**Description (v1):** NGOs sign up (email-verified), complete an org profile, and submit a registration document for manual platform-admin review. Two tiers: **unverified** — can draft and run Discovery within a 10-credit/day allowance (resets daily, no rollover) and self-fund to continue, but cannot publish to volunteers; **verified** (registration doc + public reference link approved by an admin) — daily allowance rises to 30 (the 3× reward) and unlocks publish/match/fund. KYC is deferred to v1.5 (v1 is manual admin review only).
+NGOs sign up (email-verified), complete an org profile, and submit a registration document for manual platform-admin review. Two trust tiers in v1; the KYC tier is deferred to v1.5.
 
-**Acceptance Criteria:**
-- [ ] NGO admin creates/edits org profile (name, mission, country, website, logo) and uploads a registration document to private storage.
-- [ ] Email verification is required before any Discovery message — the composer is disabled with a "verify your email to start" prompt until an admin is verified.
-- [ ] Verification progresses unverified → pending → verified | rejected, independent of email verification. On verification the daily allowance rises 10 → 30 (re-verifying does not re-raise).
-- [ ] Platform admin has a pending-verification queue with a document viewer and approve/reject + reason; may also grant extra daily credits on request (audited with reviewer id + reason).
-- [ ] Only verified NGOs can publish; an unverified NGO may reach scoped but Publish is disabled with an "upload your verification doc" prompt.
-- [ ] The free allowance is a daily grant reset to the current-tier amount (30 verified, else 10), no rollover — the fund-now-or-return-tomorrow moment; it replaces any separate per-day message cap.
-- [ ] Marketplace and cards show a "Verified" badge. No KYC tier and no paid "Discovery wallet" in v1 — an unverified NGO funds Discovery via the project's regular fuel.
+1. **Unverified** — email-verified account (the bot floor for any Discovery message). Can draft projects and run Discovery within a 10-credit/day free allowance; when the day's credits run out, can fund the project's fuel to continue now or wait for tomorrow's refill. Cannot publish to volunteers.
+2. **Verified** — registration document + public reference link, approved by a platform admin. Daily free allowance rises to 30/day (the 3× verification reward). Can publish, accept volunteers, fund fuel. Default tier for active NGOs.
 
-**v1.5 (deferred):** KYC tier (tax-exempt doc + identity check) with its own badge/state, a "Featured NGOs" rail, a match-score boost, and a "complete your KYC" prompt.
+- NGO admin can create/edit the org profile (name, mission, country, website, logo).
+- Email verification is required before any Discovery message; the composer is disabled with a verify CTA until at least one NGO admin has confirmed. Document verification remains the publish wall, not the Discovery wall (decision-8).
+- Registration document uploads to private storage; a platform admin works a pending-verification queue with a document viewer and manual approve/reject + reason.
+- Verification states: unverified → pending → verified | rejected — independent of email verification.
+- On verification the daily allowance rises 10 → 30 immediately and for every later day; re-verifying never re-raises (idempotent).
+- Only verified NGOs can publish; unverified NGOs may reach `scoped`, with Publish disabled and an upload-your-doc CTA.
+- A platform admin can grant extra free credits on request (audited, with reviewer + reason).
+- Daily drip (decision-11): the free allowance hard-resets to the tier grant once per UTC day, no rollover — the daily wall is the deliberate fund-now-or-return-tomorrow moment, and this one mechanism replaces a separate daily message cap.
+- Verified badge shown in the marketplace and on project cards.
+- Out of v1: KYC tier and identity automation (v1.5). A paid "Discovery wallet" is excluded in v1 AND v1.5 — funding Discovery always goes through the project's regular fuel (decision-8).
 
-**Dependencies:** REQ-001.
+Dependencies: REQ-001.
 
 ---
 
 #### REQ-003: Project Need Creation (free-text intake)
 
-**Description:** Authenticated NGO admins start a "Project Need" with a free-text problem description that begins Discovery.
+NGO admins start a "Project Need" with a free-text problem description that kicks off the Discovery conversation.
 
-**Acceptance Criteria:**
-- [ ] Fields: title, problem description (markdown), cause tags, urgency (low/med/high).
-- [ ] Optional reference-file upload (REQ-032) — screenshot, spreadsheet, blank form, mockup, or requirements doc that feeds Discovery and the volunteer; the upload shows the data-responsibility disclosure.
-- [ ] Draft autosaves; submitting starts Discovery; the raw intake is retained for auditing.
+- Form: project title, problem description, cause tags, urgency.
+- Optional reference-file upload (screenshot, spreadsheet, blank form, mockup, requirements doc) feeding Discovery and the volunteer; upload shows the data-responsibility disclosure, hardened for Tier-2 once sensitivity is known (REQ-032).
+- Drafts autosave; submitting the intake moves the project into Discovery; the raw intake is retained for audit.
 
-**Dependencies:** REQ-001, REQ-002, REQ-032.
+Dependencies: REQ-001, REQ-002, REQ-032.
 
 ---
 
 #### REQ-004: AI Discovery Agent (free, rate-limited)
 
-**Description:** A conversational agent turns the free-text intake into a scoped spec over a structured multi-turn conversation, using a top-tier reasoning model deliberately — Discovery is the highest-leverage step and its output drives the whole build, yet is short and one-time so absolute cost stays low. Discovery is free up to the per-NGO daily allowance (10 unverified / 30 verified). **"Funded → all-$" routing:** a funded project's Discovery draws that project's fuel, reserving the free pool for the NGO's unfunded projects. When the day's credits run dry the NGO can verify (allowance → 30), fund to continue now (the "expedite" path), or wait for tomorrow. Unverified NGOs can fund and finish Discovery but still cannot expose the project to volunteers until verified.
+A conversational agent (Claude Opus — deliberate: Discovery is the highest-leverage reasoning step in the funnel, its scope output drives the entire build, and a Discovery is short and one-time, ~$1–2 per scoped run; decision-13) turns the intake into a scoped spec over a structured 5–10 turn conversation.
 
-**Acceptance Criteria:**
-- [ ] Tuned for "non-technical NGO → technical scope" extraction; runs in-platform (no third-party redirect) and is persisted/resumable.
-- [ ] **Reference-file ingestion (REQ-032):** reads the NGO's uploaded files (PDF, images, CSV/TSV, text), may request more or cite them, and never receives files the NGO marked non-visible-to-Discovery.
-- [ ] Output is a structured scope doc: summary; user stories with acceptance criteria; suggested stack; a **qualitative complexity tier** (small/medium/large, no dollar figure); risk flags; a data-sensitivity tier; a maintenance track; a Lovable recommendation; and a workflow mode.
-- [ ] **Data-sensitivity tiers:** Tier 0 no restriction; Tier 1 (ordinary PII) minimization reminder + acknowledgment; **Tier 2 (special-category or high-volume PII) builds against synthetic/anonymized fixtures only — the NGO connects real data after handoff**, keeping real Tier-2 data out of provider/Lovable/volunteer hands (triage confirms). Discovery is conservative — when unsure it picks Tier 2, and never classifies health/immigration/abuse-victim/financial data below Tier 2.
-- [ ] **Maintenance track (v1 = Track A only):** **Track A** (non-technical NGO maintains via chat) → Lovable is the deliverable vehicle, the only track v1 builds; **Track B** (developer-grade / one-off / Tier-2 data that cannot live in Lovable) is post-v1 — it gets no publishable scope; Discovery explains this and records the need on a developer-grade waitlist. Default internal tools (intake forms, trackers, directories, lightweight dashboards) to Track A.
-- [ ] v1 workflow always pairs the Lovable builder with a coding-agent backend; single-tool modes are reserved/deferred. Output can be regenerated (reason logged) up to 3× before escalation; regeneration and system-error retries are free.
-- [ ] **Transparency:** the chat shows a credit gauge ("Discovery credits: 7 of 10 today") and per-turn cost, and confirms before ingesting a large file; a funded project shows fuel cost per turn instead.
-- [ ] **Abuse guardrails:** email verification is a hard precondition at any tier; the daily allowance bounds the free subsidy; funding is the expedite path (continue now, no latency change, no allowance raise); a platform admin can revoke Discovery access (kill switch) or grant credits. Discovery credits are a free grant, never purchased → no stored-value/money-transmitter exposure; funded fuel enters the ledger.
+**Two-layer money model (decision-11):** the free pre-fuel Discovery phase runs on abstract, context-weighted Discovery credits — a per-NGO daily allowance (10/day unverified, 30/day verified; daily reset, no rollover) that serves as the acquisition funnel without bankrupting the platform. Funded fuel stays real-dollar-pegged with the standard margin. **Routing ("Funded → all-$"):** a funded project's Discovery draws that project's fuel, not the free pool; the free pool is reserved for the NGO's unfunded projects. When the day's credits run out the NGO can (a) verify (allowance rises to 30), (b) fund the project's fuel and continue now — the expedite path, or (c) wait for tomorrow's refill.
 
-**v1: no precise dollar estimation.** No fuel-budget figure or builder cost estimate — the scope doc shows the complexity tier with a short rationale; a recommended Lovable subscription is noted as paid directly to Lovable (pricing link). The NGO picks the initial fuel at funding ($50 minimum) and tops up reactively (REQ-024). A precise estimator is deferred — AI-coding spend is hard to predict and overconfident estimates harm more than help.
+- System prompt tuned for non-technical-NGO → technical-scope extraction; conversation happens in the platform UI, is persisted, and resumes.
+- Reads the NGO's Discovery-visible reference files multimodally, can request more mid-conversation, and may cite them in the scope; never receives files the NGO did not mark Discovery-visible (REQ-032).
+- Output is a structured scope: summary; user stories with nested acceptance criteria; suggested stack; qualitative complexity tier (small/medium/large — never a dollar figure); risk flags; data-sensitivity tier; maintenance track; Lovable recommendation with rationale; workflow split (which parts go to Lovable vs Claude Code). v1 always emits Track A and the split workflow; Lovable-only and Claude-Code-only modes are reserved post-v1 (all matched v1 projects require an Anthropic fuel kickoff).
+- **Data-sensitivity classification:** Discovery asks what data the tool will handle and assigns Tier 0 (no restriction), Tier 1 (ordinary PII — minimization reminder + NGO data-responsibility acknowledgment), or Tier 2 (special-category or high-volume PII — **build against synthetic/anonymized fixtures only; the NGO connects real data itself after handoff**, so real Tier-2 data never reaches Anthropic, Lovable, or the volunteer). The NGO owns the data-exposure risk (governance-by-disclosure); triage confirms compliance. Conservative default: when unsure, Tier 2; health/immigration/abuse-victim/financial data never below Tier 2.
+- **Maintenance-track classification (v1 = Track A only, decision-19):** Discovery asks who evolves the tool after the volunteer leaves — the selector is the maintainer, not the technology. Track A = a non-technical NGO staffer maintains the live app by chat, with Lovable as the durable home; the only track v1 builds; bread-and-butter internal tools (intake forms, CRUD trackers, directories, dashboards) default here. Track B (developer-grade, one-off, pure-backend, or Tier-2 data that cannot live in Lovable) gets no publishable scope in v1 — Discovery explains the limitation and records the need on a waitlist, notifying the NGO if Track B opens.
+- Scope output can be regenerated up to 3 times (reason logged) before escalation. Regenerations and system-error retries cost zero credits — the NGO is never charged for the platform's failed output (avoids the silent retry-burn complaint flagged at Lovable/Cursor).
+- Per-turn credit cost is context-weighted: long conversations and large uploaded files cost more; cached content is heavily discounted. Funded projects bill each turn to fuel instead.
+- **Transparency UI (the anti-Lovable move):** a credit gauge ("Discovery credits: 7 of 10 today"), each turn's cost shown, and a pre-ingestion "≈ N credits to include this file — proceed?" confirm before a large file enters the conversation. The per-action cost display is copied from Lovable; its opacity, forfeiture-on-cancel, and silent burn are rejected — credits are a free grant, never silently removed.
+- **Abuse guardrails:** email verification is a hard precondition for any Discovery message at any tier; the daily allowance caps the free subsidy per NGO per day; funding is an expedite (continue now — same model, no latency change, no allowance raise); per-NGO admin kill switch; admin-grantable extra credits (audited); no platform-wide circuit breaker in v1 (per-NGO daily caps already bound exposure). Free credits are never purchased → zero stored-value / money-transmitter / escheatment exposure — and they live outside the money ledger so its control totals stay clean.
 
-**Dependencies:** REQ-003.
+**No dollar estimation in v1:** the scope doc shows the qualitative complexity tier with rationale, and links to Lovable's public pricing where Lovable is recommended; the NGO picks its own fuel amount at funding time ($50 minimum) and tops up reactively. A precise AI fuel estimator is v2 — AI-coding spend is hard to predict and overconfident estimates harm more than they help. The rendered scope doc explains in plain language: the complexity tier with start-small advice; "how you'll maintain it" (Track A — the NGO keeps evolving the tool by chat; Lovable subscription ~$25/mo paid directly to Lovable; the NGO owns the code regardless); and the data-handling tier (Tier 2 renders the fixtures-only rule).
+
+Dependencies: REQ-003.
 
 ---
 
 #### REQ-005.5: Project Lifecycle State-Transition Table
 
-**Stages:** draft → discovery → scoped → in triage → open → matched (awaiting fuel) → in progress → handoff pending → handed off; plus cancelled (terminal). The REQ-027 abandonment/rematch edge (in progress → open) reuses existing stages. Each transition below names its actor and observable rule.
+Ten lifecycle states: `draft`, `discovery_in_progress`, `scoped`, `triage`, `open`, `matched_pending_fuel`, `in_progress`, `handoff_pending`, `handed_off`, `cancelled`. Every transition has an actor, preconditions, side effects, and failure handling. Abandonment/rematch (`in_progress → open`, REQ-027) is a transition between existing states, not an 11th state.
 
-> **Decision-17: pause/resume is removed from v1** — disproportionate cross-cutting cost for a ~10–15-project concierge pilot, where a pause is a support conversation (pre-match: unpublish or cancel the match; mid-build: leave a note or cancel). Returns in v1.5 on real demand.
+> **Decision-17: no `paused` state in v1.** Pause/resume carried disproportionate cross-cutting cost for a concierge pilot (restore-state edge cases, funding-clock freezes, special-casing in three scheduled jobs, key deactivate/reactivate side effects). At ~10–15 hand-matched projects, "NGO needs to pause" is a support conversation: pre-match the NGO unpublishes or cancels the match; mid-build an admin revokes the project's keys and leaves a note, or the project is cancelled. Reinstated in v1.5 on first real demand.
 
-| From → To | Actor | Rule / observable effect |
-|---|---|---|
-| (none) → draft | NGO admin | Any NGO (incl. unverified) can draft — not gated. Verification gates scoped → in triage, not Discovery. |
-| draft → discovery | NGO admin | Intake submitted; an admin is email-verified; NGO has Discovery capacity. Otherwise the composer is disabled with verify/fund prompts. |
-| discovery → scoped | Discovery agent | Valid output produced (no verification needed); invalid output re-prompts up to 3× then escalates. |
-| scoped → in triage | NGO admin (Publish) | NGO is verified — the volunteer-facing wall; Publish is disabled with an "upload verification doc" prompt if unverified. |
-| in triage → open | Platform admin | Approved → visible in marketplace. |
-| in triage → scoped | Platform admin | Changes requested → reviewer comments visible; NGO edits and resubmits. |
-| in triage → cancelled | Platform admin | Rejected → NGO notified with reason. Terminal. |
-| open → matched | NGO admin (accept) | Volunteer already has GitHub linked + disclaimer accepted; 7-day funding deadline set; other applicants stay pending. |
-| matched → in progress | Payment | Payment ≥ the $50 minimum → kickoff fires (below). |
-| matched → open | 7-day deadline or NGO cancel | Unfunded after 7 days, or NGO cancels before payment → volunteer freed and notified; re-fund prompt. |
-| in progress → handoff pending | Volunteer (Ready) | All P0 tasks done AND a repo URL exists; otherwise disabled with a finish-Lovable-setup prompt. |
-| handoff pending → handed off | NGO admin (Accept) | Deployment URL present. Leftover fuel → general credit; volunteer access ended; attribution captured; completion credit + first-tool badge; PM tree read-only; 30-day-alive check scheduled. No tip in v1. Terminal. |
-| handoff pending → in progress | NGO admin (Reject) | Volunteer addresses feedback; 3rd rejection routes to neutral platform review. |
-| in progress → open | 21-day inactivity or manual release | Ex-volunteer access revoked; remaining fuel stays for the next volunteer; work returned to backlog; re-opens with rematch priority (REQ-027). |
-| open → scoped | NGO admin (Unpublish) | Only before acceptance; removed from marketplace, pending applications kept. |
-| any pre-handoff → cancelled | NGO admin | Remaining fuel → general credit; volunteer notified; comment thread read-only. Terminal. |
+Product-level transition rules:
 
-**Kickoff (matched → in progress):** metering credentials issued (REQ-009); a Linear PM workspace assigned and the volunteer invited (REQ-026); the backlog decomposed from Discovery output; the repo created in the code org via the Lovable setup checklist (REQ-021), its URL required before handoff; the comment thread started (REQ-015) with a "funded and live" event; the volunteer notified. On any failure the project stays in progress and the failure surfaces as a blocker (REQ-024), gating the volunteer only from the pending resource.
+- Any NGO — including unverified — can create a draft. Verification gates publish (`scoped → triage`), never Discovery (decision-8).
+- draft → Discovery requires a submitted intake, an email-verified NGO admin, and Discovery capacity (today's free credits or funded fuel). With neither, the composer is disabled with verify / fund-now / come-back-tomorrow CTAs.
+- Discovery completion → `scoped` automatically on valid output (no verification needed); invalid output retries up to 3 times, then escalates to an admin.
+- `scoped` → `triage` on Publish (verified NGOs only). Triage: approve → `open` (marketplace-visible); request changes → back to `scoped` with reviewer comments; reject → `cancelled` with reason (terminal).
+- `open` → `matched_pending_fuel` when the NGO accepts an application. Both volunteer gates (GitHub link, first-apply disclaimer) were already satisfied at apply time, so no post-acceptance readiness races exist. Only one acceptance can win; other pending applications auto-decline with a "matched a different volunteer" notice.
+- `matched_pending_fuel` → `in_progress` on funding (≥ $50): the kickoff sequence fires. 7 days without funding → back to `open`, the volunteer is freed and notified, the NGO gets a re-fund prompt; the NGO can also cancel the match anytime pre-payment.
+- `in_progress` → `handoff_pending` on the volunteer's "Ready for Handoff": requires all P0 tasks done and the project repo to exist. A failed checklist keeps the project `in_progress` with results shown.
+- `handoff_pending` → `handed_off` on NGO acceptance (live deployment URL required): leftover fuel becomes non-cash NGO general-balance credit; project AI keys are revoked; Linear membership removed and the task tree snapshotted read-only; attribution captured (REQ-035); volunteer earns completion credit + a first-tool badge; a 30-day-alive check is scheduled. No tip in v1. Rejection returns the project to `in_progress` with comments; the 3rd rejection routes to neutral platform review (REQ-012).
+- Abandonment/rematch (REQ-027): after 21 days with no code or task activity, or on manual release, the ex-volunteer's access is revoked everywhere (repo, keys, Linear; the NGO removes them from Lovable); **remaining fuel stays on the project** for the next volunteer; assigned tasks return to the backlog; the departure is flagged ghosted vs released-for-cause; the project re-opens with rematch priority.
+- `open` → `scoped` ("unpublish to revise") anytime before a volunteer is accepted; pending applicants are notified and kept for re-publish.
+- Any pre-handoff state → `cancelled` by the NGO: keys revoked; remaining fuel → general balance as non-cash credit; volunteer notified; comment thread read-only (terminal).
+- Operational blockers (REQ-024) are orthogonal badges on `in_progress`, never lifecycle states.
 
-**Applications:** accepting auto-declines other pending applications; decline/self-withdraw leave the project unchanged; an accepted application expires if the 7-day deadline passes, freeing the volunteer to re-apply.
+Volunteer applications track their own states (pending / accepted / declined / withdrawn / expired / released); a match that expires unfunded frees the volunteer, who may re-apply later.
+
+**Kickoff sequence** (funding fires parallel side effects): (1) the project's gateway virtual key is issued instantly — no ops task, no wait (decision-21); (2) a Linear workspace is assigned from a pre-created pool — workspace creation has no public API, so the concierge pre-creates in batch; an empty pool raises an urgent ops task + blocker (decision-20); (3) the GitHub repo is established via the NGO+volunteer Lovable setup checklist (REQ-021) — no platform-admin involvement, and required before handoff; (4) the task backlog is decomposed from the Discovery output, coordinator-reviewed, and pushed to Linear; (5) the project comment thread starts and a "funded and live" event is announced; (6) the volunteer is notified with setup instructions. Provisioning failures never invent a sub-state: the project stays `in_progress` and gaps surface as blockers/ops tasks, gating the volunteer only from the pending resource.
 
 ---
 
 #### REQ-005: Scope Document & Project Publishing
 
-**Description:** Discovery output renders as an editable scope document. Publishing needs no pre-funded fuel (fuel comes later, REQ-006) — this match-first / fund-on-kickoff model lowers NGO friction — but does require passing triage (REQ-023): scoped → in triage on submit, in triage → open only on admin approval.
+Discovery output renders as an editable scope document; the NGO edits and publishes. Publishing requires no pre-funded fuel — fuel is required only at volunteer acceptance (match-first / fund-on-kickoff minimizes NGO friction) — but does require platform triage approval (REQ-023).
 
-**Acceptance Criteria:**
-- [ ] Editable markdown sections: summary, user stories, acceptance criteria, suggested stack. No fuel-budget section (no dollar estimate); the complexity tier is shown, and the NGO picks fuel at match-acceptance (REQ-006).
-- [ ] **Repo visibility (Platform Promise §2):** public by default, or opt-in private with a required justification of the confidentiality need (e.g. "handles beneficiary PII"), reviewed at triage; private → public is allowed before kickoff, after kickoff needs admin support since commits exist.
-- [ ] On Discovery completion the project is scoped (may stay so indefinitely). Publishing requires verified NGO status; "Publish" moves it to triage, not directly open; approved projects appear on the marketplace as open.
-- [ ] The NGO can unpublish (→ scoped) before acceptance. If triage requests changes, the project returns to scoped with reviewer comments to edit and resubmit.
+- Editable sections: summary, user stories, acceptance criteria, suggested stack. No fuel-budget section (v1 makes no dollar estimates).
+- **Repo visibility choice (Platform Promise §2):** default public-MIT; opt-in private requires a written justification (≥ 30 characters — e.g. beneficiary PII, internal HR data) confirmed at triage. Switching private → public is allowed pre-kickoff; after kickoff it needs admin support (commits already exist).
+- A project may stay `scoped` indefinitely; the scope doc shows only the qualitative complexity tier — the NGO picks its fuel amount at match acceptance.
+- Publish requires verified NGO status and no fuel deposit; it moves the project to `triage`, never directly to `open`. Approved projects appear in the marketplace.
+- The NGO can unpublish back to `scoped` anytime before a volunteer is accepted; changes-requested triage returns the project to `scoped` with reviewer comments for edit + resubmit.
 
-**Dependencies:** REQ-004, REQ-023.
+Dependencies: REQ-004, REQ-023.
 
 ---
 
-#### REQ-006: Stripe Fuel Top-Up & Ledger (NGO + volunteer both consume; funding allowed anytime from `draft` onward)
+#### REQ-006: Stripe Fuel Top-Up & Ledger (NGO + volunteer both consume; funding allowed anytime from draft onward)
 
-**Description:** NGOs buy fuel via checkout; the full gross is credited to the project (skim recognized at consumption, default 15%, not at top-up). Fuel is funded anytime from draft onward and consumed by two parties — the **NGO** during Discovery (after the daily free allowance, or immediately on a funded project) and the **volunteer** during build (REQ-009) — both paying skim at consumption.
+NGOs buy fuel via Stripe Checkout (one-time sessions, no subscription). The full gross amount credits the specified project — or, at the NGO's choice, its general balance — platform margin (15%, platform-configurable, locked per consumption so rate changes are never retroactive) is recognized at consumption time, not at top-up. Consequence: a $100 top-up shows as $100 of fuel, and if a project never consumes fuel the NGO keeps the full balance as redeployable credit while the platform has earned nothing — aligned with "fuel funds AI usage, not deliverables" (Platform Promise §3/§7). Fuel can be funded at any point from `draft` onward (decision-8) and is consumed by two parties: the NGO during Discovery (once free daily credits are exhausted, or immediately on a funded project) and the volunteer during build. Both pay the same margin; the ledger labels the two consumption kinds separately so spend is attributable by phase.
 
-**Two funding moments (either first):** (1) **Discovery "expedite"** — when the daily allowance is spent, the composer offers "fund this project's fuel to keep going now"; this is the credits→dollars boundary (funding continues Discovery immediately, not faster per message). (2) **Match funding** — accepting a volunteer opens the kickoff funding modal with the volunteer's name pre-filled. Both use the same one-off checkout, $50 minimum, and first-fund cap.
+**Two funding moments** (either may be first; decision-8): (1) Discovery funding — the expedite path when the day's free credits run out ("fund to keep going now" alongside "or come back tomorrow"); this is the credits→dollars boundary and buys continuation, not per-message speed; (2) match funding — the historical default, at volunteer acceptance.
 
-**Match-to-fund:** on accept, an **acknowledgment gate** restates the key clauses with the volunteer's name — ai4good is a coordination layer (no delivery obligation); fuel funds AI compute and may be consumed without a viable deliverable; fuel is non-cash credit (not cash-refundable; unused stays as credit or can be donated); the NGO owns its data (Tier-2 → synthetic fixtures); the chosen amount is the NGO's hard maximum exposure. The NGO then picks the kickoff fuel (no pre-filled estimate; complexity tier shown; start-small guidance). A new funder (no prior handed-off project) is capped at a conservative per-project deposit (default $200) and per-day total, rising with completed-project history — bounding any single fraud/chargeback to ~one cap of compute (a leaked card only buys compute). 7 days to complete checkout; on payment → in progress (kickoff, REQ-005.5); unfunded after 7 days → reverts to open, volunteer freed.
+**Match-to-fund flow:**
 
-**Acknowledgment cadence:** full acceptance at signup (blocks project creation); a per-project hard acknowledgment at the NGO's first funding on that project; the first match acceptance also fires a per-match acknowledgment with the volunteer name; later top-ups show a passive footer link only.
+1. Accepting an application puts the project in `matched_pending_fuel`.
+2. **Acknowledgment gate** before the funding CTA — a plain-language modal restating the key clauses with the volunteer's name pre-filled: coordination layer only, no obligation to deliver a finished tool; fuel funds AI compute and may be consumed without a viable deliverable; **fuel is non-cash credit** (not cash-refundable; unused stays as credit or can be donated); the project's data tier and the NGO's data responsibility (Tier-2 = fixtures-only build); the chosen amount is the hard maximum exposure. Recorded per match with timestamp + IP. The same modal hosts the Lovable workspace-setup reminder when Lovable is recommended.
+3. **The NGO chooses its own kickoff amount** — no prefilled estimate; the complexity tier is context only. Copy recommends starting small with stepwise top-ups after reviewing concrete progress. Minimum $50; presets $50 / $100 / $200 / $500 / custom; default $50. **First-fund cap:** a funder with no handed-off project history is capped per project (default $200) and per day; caps rise with completed-project history — bounding any single fraud/chargeback incident to roughly one cap of compute, since with no cash-out a stolen card only ever buys compute.
+4. 7 calendar days to fund at least the minimum; payment → `in_progress` + kickoff + volunteer notified; no payment → back to `open`, volunteer freed, NGO re-fund prompt.
 
-**Acceptance Criteria:**
-- [ ] One-time checkout for $50 / $100 / $200 / $500 / custom; the full gross is credited to the project (a $100 top-up = $100 fuel), or to the NGO's general balance for a non-project top-up.
-- [ ] **Skim is recognized at consumption, not top-up** — a project that never consumes leaves the full balance as redeployable credit and $0 earned. The skim percent (default 15%) is stamped on each consumption record so rate changes don't alter history.
-- [ ] The ledger records every movement (top-up, build/Discovery consumption, credit release, donation, chargeback, goodwill refund, admin adjustments), reconciled on a schedule with drift paging an admin (full double-entry is v1.5). A replayed payment cannot double-credit. An unfunded matched project older than 7 days reverts to open and notifies both parties.
+**Acknowledgment cadence:** full disclaimer at signup (blocks project creation until accepted); a hard per-project acknowledgment at the project's FIRST funding — whether a Discovery top-up or match funding; a per-match acknowledgment naming the volunteer at first acceptance (acks are never reused across the two moments); subsequent top-ups show only a passive footer link — a refill should not feel like re-signing.
 
-**Unused fuel (non-cash, project-scoped):**
-- [ ] **No cash-out / withdrawal in v1** — removing the only money-out path eliminates laundering risk and Treasury/AML machinery (only the chargeback half survives). Leftover fuel stays on the project and survives a volunteer change (REQ-027 re-opens it for the next volunteer).
-- [ ] Only at handed-off or cancelled is leftover credit released to the NGO's general balance (non-cash, no decay clock), where the NGO can keep it, donate it to ai4good (tax-deductible), or (v1.5) move it to another project. No cash refund, no decay clock, no silent auto-renew — disclosed upfront. Dashboard shows "$X redeployable credit."
-- [ ] **(Admin-only) goodwill refund:** out of band, an admin may issue an original-charge refund within the processor's dispute window — rare, audited, not a user feature.
+**Ledger (product level):** every money movement lands in one auditable ledger from which all balances derive; automated nightly verification of global money invariants pages on drift; full double-entry accounting is a v1.5 upgrade once an accountant defines the chart of accounts. Match expiry (7 days) is enforced automatically.
 
-**Auto-top-up (deferred to v1.5):** v1 is manual top-up only; when the fuel-low blocker fires (warning 20%, blocking 0%) the NGO is notified and tops up. Off-session charging lands in v1.5.
+**Unused fuel — non-cash credit (Platform Promise §7):**
 
-**Chargeback + reserve:**
-- [ ] On a dispute: freeze the NGO (no new funding/matching), revoke the project's access, reverse the unconsumed balance, and book the consumed-compute loss against revenue (never negative); open a review task; submit the audit-logged acknowledgment (timestamp + IP) as evidence. Loss is bounded to compute, capped by the first-fund cap + rapid revocation.
-- [ ] A small chargeback reserve (year-1 ~$5–10k) with a low-coverage alert. **Detective fraud signals (not preventive in v1):** deny a previously-flagged payment fingerprint; raise a collusion-review task on shared payment/device/IP/GitHub-email-domain between an NGO and its matched volunteer. Anti-Sybil work is v1.5.
+- **No cash-out or withdrawal exists in v1.** Removing the only money-out path eliminates laundering exposure and payout-compliance machinery; only the chargeback half of that risk survives.
+- Leftover fuel **stays on the project** and survives a volunteer change — the next volunteer uses it; no money movement needed.
+- Only at handoff or cancellation is leftover credit released to the NGO's **general balance**: non-cash, no decay clock, never silently removed. Options: keep (default), donate to ai4good (one-click, tax-deductible under nonprofit status), or (v1.5) move to another project.
+- No cash refunds, no retention clock, no silent auto-renew; the funding screen discloses this upfront. An admin MAY issue a rare, audited goodwill refund to a genuinely-wronged NGO out of band — not a user-facing path.
+- The NGO dashboard shows the general balance as redeployable credit with no expiry.
 
-**Dependencies:** REQ-001, REQ-002, REQ-004, REQ-008, REQ-009.
+**Auto-top-up deferred to v1.5:** v1 is manual — the fuel-low warning (20%) and blocker (0%) drive the NGO to top up from the project page. Off-session charging adds consent, cap, dispute, and failure-recovery machinery; build it only after pilot fuel-low patterns confirm demand.
+
+**Chargebacks + reserve:** on a payment dispute the platform immediately freezes the NGO (no new funding/matching), cuts the project's AI access, claws back the unconsumed balance, books the consumed portion as a platform loss, and opens an admin review; the audit-logged acknowledgment (timestamp + IP) is submitted as dispute evidence — what wins friendly-fraud disputes. Loss stays bounded by no-cash-out + the first-fund cap + rapid access cutoff. A small chargeback reserve (~$5–10k year-1, resized on observed loss rates) is maintained with an alert when coverage dips below floor. v1 fraud signals are detective, not preventive: payment fingerprints are persisted and flagged ones denied re-funding; shared payment/device/IP/email-domain between an NGO and its matched volunteer raises a collusion review. Full anti-Sybil is v1.5.
+
+Concierge/admin work items (verification reviews, Linear-pool replenishment, chargeback / collusion / content-abuse reviews, incidents) land in one prioritized admin queue with SLA targets.
+
+Dependencies: REQ-001, REQ-002, REQ-004, REQ-008, REQ-009.
 
 ---
 
 #### REQ-007: Volunteer Profile & Marketplace
 
-**Description:** Volunteers sign up (preferably via GitHub), build a profile, and browse + apply to open projects.
+Volunteers sign up (GitHub preferred), build a profile, and browse + apply to open projects.
 
-**Acceptance Criteria:**
-- [ ] Sign up via GitHub, another provider, or email/password; profile works without GitHub, which can be linked later. If linked, the profile auto-populates top languages, public repo count, and a contribution-graph summary; otherwise those fields are hidden.
-- [ ] The volunteer adds skills, causes, hours/week availability, and an optional bio.
-- [ ] **GitHub link required to apply:** clicking "Apply" without a linked GitHub blocks with a "Link GitHub to apply" modal + one-click sign-in; on link the volunteer gains the repo-creation access needed to receive/target a project (from Lovable, REQ-021, or a coding agent) and the application continues. Browsing and profile-building remain available without GitHub. Recorded for reconciliation.
-- [ ] **Access removal depends on cause:** voluntary deactivation removes org access but leaves active-project collaborator grants intact (handoff cleans up); **AUP suspension** is an aggressive teardown protecting NGO data — the account is suspended (writes blocked), then per active project the volunteer's repo access, metering credentials, and Linear membership are revoked and the NGO is asked to remove them from Lovable (ai4good cannot revoke Lovable seats), retried until done and logged; re-enable rebuilds access lazily; 24-month inactivity is a soft removal like voluntary.
-- [ ] Dashboard shows GitHub status. The marketplace lists open projects with title, summary, complexity tier, suggested stack, cause tags, NGO name + verification badge, a 🔒 Private badge if private (title + summary shown, code only to the assigned volunteer), and posted date.
-- [ ] Filters: skill, cause, complexity tier, stack, with/without Lovable, public vs private. Each listing shows skill/cause overlap badges ("Skills match: N of M", "Causes match"); numeric score deferred to v1.5. Volunteers apply with a short cover note; NGOs see applicants in their dashboard.
+- Sign-up via GitHub OAuth, Google OAuth, or email/password; GitHub can be linked later. A linked GitHub auto-populates top languages, repo count, and a contribution summary; unlinked profiles hide those fields.
+- Volunteer adds skills, causes of interest, hours/week availability, optional bio.
+- **GitHub link required at application time:** clicking Apply without a linked GitHub opens a one-click OAuth modal; on link the application proceeds in the same flow. Browsing, profile-building, and project details need no GitHub. Any application in the system therefore represents a fully kickoff-ready volunteer — no post-acceptance readiness substates.
+- **On GitHub link the volunteer is automatically added to the platform's GitHub org** with repo-creation rights — one-time onboarding replacing per-project permission labor; needed so the volunteer (or Lovable acting for them) can create the project repo later (REQ-008/021). Recorded and audited.
+- **Org removal by cause:** (a) voluntary deactivation — membership removed, but per-project access on active projects stays so in-flight work can finish; (b) **AUP suspension** — aggressive, to protect NGO data: the account is suspended immediately (all platform writes rejected, enforced in depth), then all project access is revoked in staged, retried steps — repo access, the project's gateway keys, Linear membership, platform API tokens, org membership — and the NGO is asked to remove the volunteer from their Lovable workspace (only the workspace owner can). Every action is audit-logged. Reversal is admin-controlled; access is rebuilt per-project with admin approval, never automatically; (c) 24-month inactivity — soft removal like (a).
+- Dashboard shows GitHub status ("Linked as @handle" / "Not linked — link now to apply").
+- Marketplace listing: title, summary, complexity tier, suggested stack, cause tags, NGO name + verification badge, a Private badge where applicable (title + summary public; code restricted to the assigned volunteer), posted date.
+- Filters: skill, cause, complexity, stack, with/without Lovable, public vs private (volunteers wanting public-portfolio work can exclude private projects).
+- Listings show skill/cause overlap badges (REQ-011); numeric scoring is v1.5.
+- Apply with a short cover note; the NGO reviews applicants in its dashboard.
 
-**Dependencies:** REQ-001, REQ-005, REQ-008.
+Dependencies: REQ-001, REQ-005, REQ-008.
 
 ---
 
 #### REQ-008: GitHub Integration (Code substrate + dev-internal issue tracker)
 
-**Description:** When a project is funded (matched → in progress), a GitHub repo is provisioned for the code. **v1 is Track A only — every project takes the Lovable path; the coding-agent-only path is reserved for post-v1 Track B.** (Per Lovable docs, its GitHub app creates the repo wherever the NGO points it, and Lovable collaborator permissions do not propagate to GitHub.)
+Every funded project gets a GitHub repo in the platform's GitHub org, visibility per the project's public/private choice. v1 is Track A only (decision-19): the repo is always created through the volunteer-driven Lovable→GitHub setup; a platform-created repo path is reserved for post-v1 Track B. (Verified against Lovable's docs: Lovable's GitHub App creates the repo wherever pointed, and Lovable collaborator permissions do NOT propagate to GitHub.)
 
-**Provisioning (always the ai4good code org):** ai4good does not pre-create the repo — the Lovable setup checklist (REQ-021) lands it in the code org with the NGO's chosen visibility, no platform-admin involvement; the volunteer gets maintain-level access, the NGO admin triage-level. The volunteer can then clone and run a coding agent locally. Push/pull-request activity drives cadence stats (REQ-010) and carries Linear identifiers from commits/branches (REQ-026); status moves via Linear's own GitHub integration. The Linear tree (REQ-026) is the source of truth for NGO deliverables; **GitHub Issues are dev-internal only** and not surfaced to the NGO.
+- **Uniform repo home:** all repos land in the platform org regardless of path; at handoff the NGO is offered a one-click transfer to its own org, and declining keeps the repo in the platform org permanently.
+- The volunteer gets maintain-level access; the NGO admin gets read + comment access for visibility (cannot push).
+- Code events (pushes, PRs) feed cadence stats and task linkage from the moment a repo exists; task status itself moves via Linear's own GitHub integration.
+- **GitHub Issues are dev-internal only** (code bugs, refactors, tech debt) and never surfaced to NGOs; the Linear task tree is the source of truth for NGO-visible deliverables. No auto-created issues from the scope doc. Standard dev-internal labels seeded at bootstrap.
+- **Repo seeding:** every repo carries committed, platform-owned session guidance — the project-binding marker (REQ-009), task-binding conventions (REQ-034), Linear norms (one issue in progress; assign before starting; comment when blocked; never move status by hand), branch/commit conventions carrying the Linear identifier so merges move task status, a skeptical reviewer-agent skill, and env-file hygiene defaults. Platform API credentials are never committed — shown once, revocable, and distinct from the LLM-side virtual key (two credentials, two revocation semantics, deliberately not merged). Longer onboarding lives in on-demand repo skills, not files that ride every request and bill NGO fuel.
+- Lovable-side commits arrive without Linear identifiers — acceptable: status moves on the volunteer's PR merges, and a knowledge snippet asks Lovable to include identifiers best-effort.
+- The platform holds only short-lived GitHub credentials minted on demand; no user PATs.
+- **One-time org setup at launch:** the platform's GitHub App and Lovable's GitHub App installed org-wide, with least-privilege scopes, credential rotation, and a break-glass org-compromise runbook. Org membership alone grants NO read access to any repo — a volunteer sees only repos they are explicitly added to; members can create repos (required for the Lovable flow), with an abuse monitor for org repos that map to no active project. NGO admins are per-project outside collaborators (read + comment), never org members.
+- **Continuously-asserted base-permission invariant (P0):** the no-default-read org setting is verified continuously with alerting + auto-remediation — a single accidental flip would expose every private NGO repo. This is the v1 mitigation that lets the separate private org defer to v1.5 (single org in v1).
+- **Lovable path (v1 default):** the platform does not pre-create the repo at funding; kickoff auto-raises a Lovable-setup blocker, and the NGO (workspace + admin invite) and volunteer (GitHub install + connector + paste-back) work an 11-step checklist that the platform auto-validates, recording the repo URL — typically same-day, with aging escalation if either party stalls. No platform-admin involvement. The repo URL is a hard handoff precondition.
+- README seeded with project title, NGO name, plain-language summary, license, and a link back to the platform project page; MIT license auto-seeded for public projects.
+- **At handoff:** volunteer downgraded to read/triage, NGO admin promoted to admin, optional transfer to the NGO's own org; the NGO removes the volunteer from the Lovable workspace separately (only the workspace owner can).
 
-**One-time setup (never repeated):** ai4good's and Lovable's GitHub apps are installed org-wide once. **A single org holds both public and private/Tier-2 projects in v1** (a separate private org is a v1.5 hardening), protected by a continuous invariant: **org membership alone grants no read access — a volunteer sees a repo only as a per-project collaborator, and a monitor auto-remediates any drift as a P0** (one accidental flip would expose every private repo). Members can create their own repos (so Lovable can, on their behalf) but not read others' private code. The app credential is least-privilege and rotated; outside collaborators are allowed only for NGO admins (per-project, triage). Every repo boots from committed ai4good files carrying the attribution block, Linear working norms (one issue in progress; assign before starting; comment when blocked; never move status by hand), branch/magic-word conventions, the Linear config, hooks, a reviewer-agent skill (REQ-026), and a gitignored env stub; any ai4good token is show-once and never committed.
-
-**Acceptance Criteria:**
-- [ ] The platform mints short-lived access tokens on demand rather than storing long-lived ones.
-- [ ] **v1 (Lovable path):** the project goes in progress without a pre-created repo; the Lovable checklist drives repo creation, and once the URL validates the project is uniform with the reserved coding-agent path.
-- [ ] **Handoff prerequisite (Platform Promise §2):** a repo URL is required before in progress → handoff pending; without one "Ready for Handoff" is disabled with a finish-checklist prompt — preserving the all-work-in-a-repo guarantee even when private.
-- [ ] No auto-created Issues from the scope (the Linear backlog is canonical); standard dev-internal issue labels at bootstrap. Push and pull-request activity is tracked from creation; the Issues webhook is unused in v1.
-- [ ] The README template (committed after the volunteer provides URLs) includes title, NGO name, plain-language summary, license, and a "View on ai4good →" link.
-- [ ] **On handoff:** the repo stays in the code org with an optional one-click transfer to the NGO's org; ai4good removes the volunteer's collaborator role; the NGO removes them from Lovable separately.
-
-**Dependencies:** REQ-006, REQ-007, REQ-021, REQ-026.
+Dependencies: REQ-006, REQ-007, REQ-021, REQ-026.
 
 ---
 
 #### REQ-009: LLM Gateway — Virtual Keys, Caps & Inline Fuel Metering (decision-21)
 
-> **Decision-21:** the per-project provider-workspace + manual key + usage-poller model is replaced by an ai4good-controlled metering layer in the request path between the volunteer's coding agent and the model provider (the former "AI Proxy," pulled into v1 as the metering path). Deleted: per-project workspace provisioning, the manual key ops queue, the usage poller, daily reconciliation, and the fuel-zero deactivation/reactivation saga. **Hosting is open (OD-6).**
+> **Decision-21 re-architecture:** the per-project provider workspace + manual console keys + usage-report polling model is replaced by a platform-controlled **LLM gateway** in the request path between the volunteer's coding agent and the model provider — pulled forward from v1.5 and made the metering path itself. Deleted outright: per-project workspace provisioning, the manual key ops queue, the usage poller, daily cost-drift reconciliation, console spend caps, and the fuel-zero key-deactivation/reactivation saga. Gateway hosting is an open decision (**OD-6**).
 
-**Description:** Every (volunteer, project) pair gets metering credentials issued automatically at kickoff — no ops task. Volunteer setup is minimal (a base URL + a key); their coding agent works unchanged. The layer checks status/caps/fuel/fingerprint, injects the governance prompt, forwards using the **real provider key that lives only in the layer** (volunteers never see it — mechanical no-billing-exposure), streams back, prices usage, and writes the ledger inline. Doctrine: nudges live in editable files, durable norms in the injected prompt, hard invariants in code; third-party permissions are trusted for access, never policy. The fingerprint is a copyable tripwire (turning accidental misuse into clear intent), not the control — the credential is; caps bound exposure, the ledger attributes it, revocation ends it, so detection tolerates latency, and caps aren't sized adversarially since a leaked credential only buys compute.
+Every (volunteer, project) pair gets a **virtual key** issued automatically at kickoff — no ops task, no waiting. Volunteer setup is two environment variables; vanilla Claude Code works unchanged. The gateway authenticates the virtual key; checks status, caps, project fuel, and project binding; injects the platform governance prompt; forwards to the provider using the real org credential that exists only inside the gateway (volunteers never see it — mechanical enforcement of no-billing-exposure); streams the response back; prices usage; and records consumption inline.
 
-**Acceptance Criteria:**
-- [ ] One credential per (volunteer, project): shown once with a copy button, stored hashed, minted at kickoff, never logged; the raw value reaches only the volunteer's environment. Onboarding is a base URL + a key on the dashboard with instructions; setup-failure copy instructs rather than accuses.
-- [ ] **Streaming pass-through** with streaming intact and negligible added latency on the legitimate path.
-- [ ] **Budget caps:** a per-request cap + a rolling-24h window sized a few times a heavy human day; 80% → soft warning; 100% → hard stop with a one-action coordinator override (values OD-3).
-- [ ] **Fingerprint check:** the repo carries a static marker riding the system prompt; the layer checks it against the credential's project on substantive requests, rejecting a mismatch with instructive copy ("this key belongs to <project>…").
-- [ ] **Governance injection:** every request appends the governance block (decline off-project requests; never move PM status).
-- [ ] **Inline ledger writes:** per response, convert usage to cost, apply skim, and write paired consumption + skim records (REQ-006 invariants), once per request and non-double-charging; the ledger stores token counts + metadata only, plus the task reference when it resolves (REQ-034).
-- [ ] **Fuel thresholds:** 20% → NGO alert + fuel-low blocker; 5% → volunteer warning; **0% → the next request is declined inline with the cause** ("project fuel is exhausted — ask your NGO to top up"); a top-up passes the next request with no reactivation step. The balance check is real-time.
-- [ ] **Failure copy is flat externally** except fuel suspension (which states its cause); rich diagnostics only on the authenticated dashboard; first-week failures are an onboarding-UX metric, not a security signal.
-- [ ] **Revocation is instant and self-serve** (NGO or admin), replacement instant; all project credentials terminate at handoff (REQ-012), abandonment (REQ-027), and AUP suspension (REQ-007).
-- [ ] **Privacy:** request bodies inspected transiently, never persisted; the ledger stores counts + metadata only; any mismatch signal is a score/boolean, never paths or content.
-- [ ] **Self-audit + leak hygiene:** the dashboard shows the volunteer's own per-project usage (today/week, cap, last session); the template gitignores the env file; a secret-scan pattern for ai4good keys is registered; a canary flags any key seen after appearing in a public commit.
-- [ ] **Escalation ladder — documented, not built in v1** (so the decision not to surveil is visible): weekly ledger-vs-activity reconciliation, fingerprint rotation with a grace window, a per-volunteer short-TTL token, and sampled content classification triggered only by reconciliation.
+**Placement doctrine (platform-wide):** volunteer-editable files carry norms and nudges (soft — reinforced conversationally, can be edited away); the gateway-injected prompt carries durable norms (invisible, platform-controlled, re-applied per request); deterministic code carries hard invariants (cannot be talked out of its verdict). Third-party permission models are trusted for access, never for policy (Lovable has no role between Admin/Editor; Linear scopes cannot express "assign + comment but no status change").
 
-**Dependencies:** REQ-006, REQ-024, REQ-034, REQ-012/REQ-027/REQ-007.
+**Threat model (stated plainly):** the project-binding marker is a **tripwire, not a lock** — copyable by design; its job is converting accidental misuse (a key left in env vars, used on another repo — the dominant real case) into unambiguous intent. The virtual key is the actual credential; key + repo context is a two-factor barrier against outsiders only. Containment chain: caps bound exposure, the ledger attributes it, revocation ends it — detection can afford latency because exposure is capped. Key revocation = individual enforcement; marker rotation = hygiene for people who lost repo access, never used against active insiders. Rate limits are reliability engineering and project-lifetime fuel is economics — do not size caps adversarially. Proportionality: governance capacity follows observed behavior, not imagined adversaries; deterrence comes from disclosure at onboarding (usage is attributed and reviewed); any mechanism that taxes legitimate volunteers has inverted its purpose.
+
+- One key per (volunteer, project), shown once at issuance, minted automatically at kickoff, never logged.
+- Onboarding = two env vars on the volunteer dashboard with instructions; all setup-failure UX lands on rejection copy written to instruct, not accuse.
+- Streaming preserved end-to-end; gateway overhead budgeted under 150ms p95 (excluding model latency).
+- **Caps per key:** per-request max + a rolling 24-hour window sized 3–4× a heavy human day so legitimate agentic-loop use fits; 80% → soft warning; 100% → hard stop with a one-action coordinator override. Cap values tuned from pilot data (**OD-3**), not adversarial guesswork.
+- **Project-binding check:** a committed marker (with a one-line human explanation: "ties NGO-funded fuel to this project; please don't move it") rides the session prompt; the gateway verifies it pairwise against the presented key's project on substantive requests only (small background calls skipped; threshold **OD-4**). Mismatch → instructive rejection naming the project the key belongs to.
+- **Governance prompt injected on every request:** the project-scope line (decline unrelated requests; redirect to project work) and the never-change-Linear-status rule (REQ-026).
+- **Inline metering (the money path):** each response's token usage is priced by a local rate card, the 15% margin applied, and paired consumption recorded immediately — a retried request cannot double-charge — with task attribution when known (REQ-034). All REQ-006 money invariants unchanged.
+- **Fuel thresholds:** 20% → NGO notification + warning blocker; 5% → volunteer in-app warning; **0% → the gateway declines the next request inline, stating the cause** ("project fuel is exhausted — ask your NGO to top up") and flipping the blocker to blocking. After top-up the next request passes — no reactivation machinery exists or is needed.
+- **401 semantics:** flat externally (no revoked-vs-nonexistent distinction) EXCEPT fuel exhaustion, which states its cause — the one case where the caller is a legitimate volunteer who must act. Rich diagnostics only on the authenticated dashboard. First-week 401s are an onboarding-UX metric, not a threat signal.
+- **Revocation is instant and self-serve:** the NGO's "suspect misuse — revoke access now" action and platform-admin enforcement both cut access immediately; a replacement key issues instantly. All project keys terminate at handoff (REQ-012), abandonment release (REQ-027), and AUP suspension (REQ-007).
+- **Privacy invariants (load-bearing):** request bodies are inspected transiently and never persisted; the ledger stores token counts and metadata only; any derived origin/mismatch signal is stored as a score or boolean — never paths or content.
+- **Volunteer self-audit:** the dashboard shows the volunteer's own per-project usage (tokens today/week, cap position, last session) so a wrong-env-var accident is caught same-day.
+- **Key-leak hygiene:** env files ignored by default; the platform key pattern registered with GitHub secret scanning; a canary flags any key used after appearing in a public commit.
+- **Escalation ladder documented, NOT built in v1** (listed so the decision not to surveil is visible): activity-vs-burn reconciliation on shape signals only, phase-aware (trigger: real ledger anomalies; **OD-5**); marker rotation with a mandatory grace window (trigger: adverse offboarding or a leak); a short-lived per-volunteer signed token checked pairwise against the key (trigger: repeated anomalies conversations don't resolve); sampled content classification (trigger: probably never).
+
+Dependencies: REQ-006, REQ-024, REQ-034, REQ-012/027/007 (key-termination hooks). The only provider surface used is the model API through the gateway.
 
 ---
 
 #### REQ-010: Project Page (single view) & Cadence Stats
 
-**Description:** Each project has **one public page** — the same view for everyone (NGO, volunteer, admin, logged-out). The platform is PM/coordination only; the volunteer runs their dev workflow on GitHub. No "Developer view" duplicating GitHub.
+Each project has **one public page** — the same view for NGO admins, the assigned volunteer, platform admins, and logged-out visitors. The platform's role is PM and coordination; the volunteer's real dev workflow lives on GitHub outside the platform, so there is no "developer view" duplicating GitHub UI.
 
-**Acceptance Criteria:**
-- [ ] One public view, no per-role variants. **Private projects read-restrict task details + comments (REQ-026):** logged-out viewers see metadata + progress count + 🔒 Private badge only; public projects show the full task tree (Platform Promise §2 OSS-by-default).
-- [ ] Metadata header: title, NGO name + badge, status, assigned volunteer, repo URL (mid-setup it shows "Repo URL not provided — volunteer is completing Lovable→GitHub setup" instead of a broken link), complexity tier, cause tags.
-- [ ] **PM task tree (REQ-026)** as primary content with hierarchical progress bars, status badges, a "Now working on" highlight, and plain-language titles. Progress % = done P0 / total P0.
-- [ ] **Plain-language activity feed:** each commit rendered readably (e.g. "Volunteer completed work on Task 3.2 — Scheduler core (2h ago)") rather than "PR #14 merged."
-- [ ] **Reference files (REQ-032):** the NGO's uploaded need-files, downloadable by the assigned volunteer + NGO admins + admin honoring visibility (private restricts to members; logged-out sees a count); the NGO can add/remove before handoff.
-- [ ] **Clarifications tab + banner (REQ-024):** a persistent Q&A log of resolved clarifying-question blockers, plus an "Awaiting NGO clarification" banner with a call to action when ≥1 is unresolved.
-- [ ] The fuel gauge updates near-real-time. **No Issues, PR list, or raw commit log** — the header repo link is the only GitHub touchpoint.
-- [ ] **Cadence stats** (from commit ingestion, no GitHub UI): commits this/last week + delta; last-activity (red if >14 days in progress); PM close rate; a 12-week contributor sparkline; a health badge (Active <7d / Quiet 7–14d / Stalled >14d) — also shown compactly on cards and dashboards.
-- [ ] **Dual fuel-meter (REQ-021):** every project is Lovable, so two meters render side by side — an AI-coding fuel meter (balance, % remaining, low/depleted) and a Lovable status meter (status + workspace link + "Top up Lovable credits" when low, or a "Set up Lovable" call to action + blocker status if setup isn't done), labeled for their two funding paths (fuel vs. direct-to-Lovable).
+- Public page, one view, no per-role variants. Private projects show metadata + progress count + a Private badge to everyone, with task titles/descriptions/code restricted to members; public projects show the full task tree publicly (OSS-by-default, Platform Promise §2).
+- Header: title, NGO + verification badge, status, assigned volunteer, repo URL (with a plain-language empty state while Lovable→GitHub setup is pending), complexity tier, cause tags.
+- **The task tree is the primary content:** hierarchical progress bars, status badges, a "Now working on" highlight, plain-language task titles. Progress % = done P0 tasks / total P0 tasks — computed from the task tree, never GitHub issues.
+- **Plain-language activity feed:** commits are translated into readable statements tied to task titles ("Volunteer completed work on Task 3.2 — Scheduler core (2h ago)"), never raw PR jargon.
+- Reference-files section (REQ-032): the NGO's uploaded need-files listed with descriptions; downloads limited to the assigned volunteer, NGO admins, and platform admin, honoring project visibility; the NGO can add/remove files pre-handoff.
+- Clarifications tab (REQ-024): resolved clarifying questions persist as a Q&A log (question, answer, who, when) for the project's lifetime; an "Awaiting NGO clarification" banner tops the page while any question is unresolved.
+- Fuel gauge updates near-real-time.
+- **No GitHub Issues, PR lists, or raw commit logs on the page** — the repo link in the header is the only GitHub touchpoint.
+- **Cadence stats** (from code events; data ingestion only): commits this week vs last with delta; last-activity timestamp (red past 14 days during build); task close rate (from the task tree — issue-based rates would expose dev-internal activity); a 12-week commit sparkline; a health badge — Active (≤ 7d), Quiet (7–14d), Stalled (> 14d). A compact cadence summary also appears on marketplace cards and dashboards.
+- **Dual fuel-meter display (REQ-021):** every v1 project renders two meters side-by-side — "Claude Code (via fuel)" (balance, % remaining, low/depleted indicators) and "Lovable (direct to Lovable)" (setup CTA before setup completes; status + workspace link + top-up CTA after) — with tooltips explaining that fuel and the Lovable subscription are separate purses.
 
-**Dependencies:** REQ-008, REQ-009.
+Dependencies: REQ-008, REQ-009.
 
 ---
 
 #### REQ-011: Marketplace Sort + Skill/Cause Overlap Badges (v1 minimal)
 
-**Description (v1):** Listings show **skill- and cause-overlap badges** as a visual hint — no numeric score, no scoring algorithm, no breakdown UI. Volunteers self-select; NGOs accept or decline without an algorithmic recommendation. The full deterministic score is deferred to v1.5.
+Listings show **skill-overlap and cause-overlap badges** as visual hints — no numeric match score, no scoring algorithm, no breakdown UI. Volunteers self-select; NGOs accept or decline without an algorithmic recommendation.
 
-**Acceptance Criteria (v1):**
-- [ ] Each listing shows a "Skills match: 3 of 5" badge (volunteer skills vs. suggested stack) and a "Causes match" badge on any cause overlap — visual cues only, no score, ranking, or detail page.
-- [ ] Default sort is newest-first; filters: skill, cause, complexity tier, with/without Lovable; no "best match" sort. No ML or NGO-satisfaction weighting in v1.
+- Cards show "Skills match: N of M" (volunteer skills vs project stack) and "Causes match" badges — cues only.
+- Default sort is newest-first; filters cover skill, cause, complexity, and with/without Lovable. No "best match" sort in v1.
+- No ML, no algorithmic ranking, no NGO-satisfaction weighting in v1.
+- v1.5 (deferred): a deterministic match score with a visible breakdown, per-listing display, and NGO satisfaction as a private weighting component.
 
-**v1.5 (deferred):** a deterministic score with a breakdown UI (skill / cause / availability / GitHub language / completion credit / KYC), per-listing score + breakdown page, and an NGO-satisfaction signal as a private weight.
-
-**Dependencies:** REQ-007.
+Dependencies: REQ-007.
 
 ---
 
 #### REQ-012: Handoff Workflow
 
-**Description:** A structured workflow taking a project from "code done" to "NGO operating independently."
+A structured workflow from "code done" to "NGO operating independently."
 
-**Acceptance Criteria:**
-- [ ] The volunteer clicks "Ready for Handoff" once all P0 PM tasks are done (open Issues don't block). **Hard precondition (Platform Promise §2):** a repo URL must exist — every project ends in a code-org repo; without one the button is disabled with a resolve-Lovable-setup prompt (no admin escalation). Because done arrives via Linear's GitHub integration on PR merge, every done P0 carries a merged PR.
-- [ ] Automated checks: README, RUNBOOK, deploy-instructions section, ≥1 passing CI run on main, and a LICENSE if the project is public.
-- [ ] **Deploy-to-running (the deliverable is a running tool):** a deployment URL is required. **Track A (Lovable):** the app is already hosted — the volunteer pastes the live URL (without it a Track-A handoff cannot complete), confirms NGO ownership of the Lovable workspace, and runs the guided-maintenance ritual: enable row-level security on the provisioned database (off by default — a PII footgun), demo plan/revert/checkpoint rollback, set a Lovable spend cap / budget alert, and confirm two-way GitHub sync.
-- [ ] **30-day-alive signal (north-star):** a health check pings the deployment URL at 30 days post-handoff and records the alive signal — measured, not guaranteed (no SLA); extended to 30/60/90-day checks in REQ-035.
-- [ ] The NGO sees a "Review Handoff" call to action (repo URL + live URL + checklist), then signs off or rejects with comments. **Rejection cap:** the third rejection routes to neutral platform review so an NGO can't extract unbounded unpaid rework; the volunteer can contest.
-- [ ] On accept: handed off; leftover fuel → general balance as non-cash credit; completion credit + "Shipped first tool" badge; all project credentials terminated (REQ-009); Linear membership removed + tree snapshot (REQ-026); REQ-035 attribution captured. The repo stays in the code org with the NGO admin promoted and the volunteer downgraded, optional one-click transfer to the NGO's org; private/Tier-2 stay private in v1.
-- [ ] No tip flow in v1 (v1.5). The REQ-035 attribution step (testimonial + 3 credit-framed dimensions) is capture, not a satisfaction score, and never blocks acceptance.
+- The volunteer requests handoff once all P0 tasks are done; open GitHub Issues never block handoff.
+- **Hard precondition: the project repo exists** (Platform Promise §2) — every project ends in a platform-org repo at handoff regardless of shape. If the Lovable→GitHub setup is incomplete, the button is disabled with instructions to finish the setup checklist; NGO + volunteer self-resolve, no admin escalation.
+- Done-status arrives only via merged PRs (structural under decision-20), so every done P0 task carries shipped code by construction — no manual commit spot-checks.
+- Automated checks: README present, RUNBOOK present, deploy instructions present, at least one passing CI run on main, LICENSE present for public projects (private repos are not open-licensed and need none).
+- **Deploy-to-running (the deliverable is a running tool, not a repo):** a live deployment URL is a handoff precondition. Track A: the app is already hosted by Lovable; the volunteer pastes the live app URL into the handoff form (the only step that captures it — without it a Track-A handoff cannot complete), confirms Lovable workspace ownership with the NGO, and runs the **guided-maintenance ritual**: (i) enable row-level access enforcement on the Lovable-provisioned database (off by default — a PII footgun); (ii) demo chat/plan mode and checkpoint rollback so the NGO staffer can self-maintain without breaking production; (iii) set a Lovable spend cap / budget alert so metered edits never blindside a non-technical owner; (iv) confirm two-way GitHub sync is live. (Track-B plain-host deploy is post-v1, decision-19.)
+- **30-day-alive signal (north star):** an automated check pings the deployed tool 30 days post-handoff and records whether it is alive — measured, never guaranteed (no SLA, Platform Promise §4). Extended by decision-22 to 30/60/90-day health checks with real self-service signals (REQ-035).
+- The NGO reviews handoff (repo URL + live URL + checklist results) and signs off or rejects with comments. **Rejection-loop cap:** after 2 reject→resubmit cycles the third rejection routes to neutral platform review, so an NGO cannot extract unbounded unpaid rework; the volunteer has a contest path.
+- On accept: project → `handed_off`; leftover fuel → NGO general balance as non-cash credit (REQ-006 — not a cash refund); volunteer earns completion credit + a "Shipped first tool" badge; all project virtual keys terminate (REQ-009); Linear membership is removed and the task tree snapshotted (REQ-026); the **REQ-035 attribution step** is captured at sign-off.
+- **Repo handoff (uniform):** the repo stays in the platform org with the NGO admin promoted to admin and the volunteer downgraded; optional one-click transfer to the NGO's own GitHub org. Private/Tier-2 projects stay private within the shared org in v1 (a separate private org is v1.5 hardening).
+- No tip flow in v1. The sign-off includes the attribution step (testimonial + 3 credit-framed dimensions) — deliberately superseding the earlier "no satisfaction form in v1" deferral: this is attribution capture, not a satisfaction score, and it never blocks acceptance.
 
-**Dependencies:** REQ-008, REQ-006, REQ-021, REQ-009, REQ-026, REQ-035.
-
+Dependencies: REQ-008, REQ-006, REQ-021, REQ-009, REQ-026, REQ-035.
 
 #### REQ-021: Lovable Integration — Track-A Durable Home + Claude-Code-Orchestrated Build
 
-**Description:** For Track-A "NGO-maintains-it" projects, **Lovable is the primary deliverable vehicle and the NGO's durable post-handoff maintenance home** — the non-technical NGO evolves the live app via Lovable's chat, no developer needed. During the build, **Claude Code is the single entry point:** the volunteer works in Claude Code (where the ai4good Skill, fuel metering, and enforcement live), and it orchestrates Lovable for the UI/app layer while doing backend/logic/tests directly — keeping ai4good's metering + scope + audit authoritative and giving the volunteer one pane of glass. **Track B is deferred to post-v1 (decision-19); in v1 every built project is Track A and uses Lovable.**
+For Track-A projects, Lovable is the primary deliverable vehicle and the NGO's durable maintenance home: after handoff the non-technical NGO evolves the live app via Lovable's chat, no developer needed. During the build, Claude Code is the volunteer's single entry point: it orchestrates Lovable for the UI layer and handles backend/logic/tests/docs directly, keeping ai4good's metering, scope enforcement, and audit authoritative over Lovable work. Track B is deferred post-v1 (decision-19), so every v1 project is Track A and uses Lovable; the skip-Lovable opt-out is removed (reserved post-v1).
 
-**Build-phase model:**
-- **Graceful fallback:** if Lovable orchestration breaks, the volunteer drives Lovable manually and ai4good still enforces — **Track-A builds never go dead from a Lovable change.**
-- **Cost enforcement:** because the volunteer's Skill makes the Lovable calls, it enforces a per-task Lovable credit-budget cap, **logs every Lovable call to the audit trail**, and surfaces the NGO's Lovable credit balance inside ai4good. Lovable bills the NGO's own workspace, so enforcement is structural, not honor-system.
-- **Post-handoff** the NGO owns the Lovable workspace and self-maintains via chat — no dependency on Claude Code or ai4good.
+**Orchestration posture:**
+- Lovable's integration surface is a research preview; access is isolated behind one internal adapter so churn touches one place.
+- Primary path: Claude Code drives Lovable. If the integration breaks, the volunteer drives Lovable directly in the browser with both tools committing to the shared GitHub repo — Track-A builds never go dead from a Lovable API change. Either way, UI work runs on the NGO's Lovable credits and Claude Code work burns ai4good fuel; projects can lean UI-heavy or backend-heavy, and a pure-backend tool with no Lovable app is Track B → waitlisted in v1.
+- Orchestrated Lovable calls bill the NGO's Lovable workspace, so the platform enforces a per-task Lovable-credit budget cap, audit-logs every call, and surfaces the NGO's Lovable credit balance inside ai4good — structural enforcement, not honor-system. The volunteer connects their own Lovable account; calls bill the NGO's workspace, attributed to the volunteer.
+- Post-handoff the NGO owns the workspace outright — zero dependency on the orchestration layer or Claude Code.
 
-**Why the NGO self-provisions Lovable:** Lovable has no per-project metering API and bills per workspace. NGO self-provisioning gives zero ai4good infrastructure dependency on Lovable, pricing transparency for the NGO, and NGO ownership of the workspace from day one — the durable post-handoff home, no migration.
+**Why NGO-self-provisioned Lovable:** Lovable has no per-project metering API, no BYOK, and per-workspace billing; owning it on NGOs' behalf would mean linear ops cost and inscrutable attribution. Self-provisioning gives zero infrastructure dependency, pricing transparency (no markup on Lovable spend), NGO workspace ownership from day one (the durable post-handoff home, no migration), and matches how AI-augmented developers already work. No ai4good connector exists inside Lovable (decision-20): task state lives in Linear, and Lovable itself never talks to ai4good.
 
-**Lifecycle:** Discovery flags Lovable as recommended with a rationale and **no dollar estimate**; the scope doc notes "paid directly to Lovable, not deducted from fuel." Before kickoff a reminder tells the NGO to set up the workspace and invite the volunteer. **Setup is mandatory at kickoff:** ai4good raises a **blocking** "set up Lovable" item to the NGO (who needs no GitHub knowledge; the platform admin is out of the per-project loop). The NGO signs up (a paid Lovable plan — the NGO's own cost), creates a workspace/project from the scope summary, invites the volunteer, and confirms in ai4good; **ai4good validates the setup** (repo under the platform org, matching the requested visibility, no name collision) and holds the blocker open on the specific failed check until all pass. The skip-Lovable opt-out is removed in v1 (reserved for post-v1 Track B). **During work (manual in v1)** the volunteer sees a Lovable status of active / credits-low / blocked; low or blocked shows the NGO a "Top up Lovable credits" CTA to Lovable's billing, after which the NGO clicks "unblock." **ai4good does not resell Lovable credits in v1** — the NGO pays Lovable directly; automatic credit detection is deferred to v1.5. **At handoff** the NGO removes the volunteer from the workspace, retains the workspace + billing, and may transfer the repo to its own org.
+**Lifecycle:**
+1. Discovery flags whether Lovable is recommended, with rationale — no dollar estimate. The scope doc shows a labeled note: paid directly to Lovable, never deducted from fuel. Pre-kickoff, the NGO sees a reminder banner to set up the workspace and invite the volunteer.
+2. Setup is mandatory at kickoff: a blocking setup item is auto-raised to the NGO. NGO + volunteer complete it through the existing blocker + comment surfaces; the platform admin has zero per-project involvement, and the NGO needs no GitHub account. Checklist: NGO signs up (paid Lovable tier required for the workspace-admin role), creates the workspace/project seeded from a one-click-copied scope summary, and invites the volunteer as workspace admin; the volunteer accepts, connects Lovable's GitHub sync so the repo is created inside the platform's GitHub org, and pastes back the workspace/repo identifiers; the platform auto-validates (repo in the platform org, visibility matching the project's setting, platform GitHub App installed, name collisions surfaced, volunteer repo permission normalized so they cannot add collaborators unnoticed), auto-resolves the item, seeds the repo template, and notifies both parties.
+3. Stuck parties raise clarifying-question blockers with standard aging; the platform admin is pinged only at the 7-day escalation. The volunteer can clone and work locally in Claude Code immediately after setup — no further approvals. (A collaborator-request blocker exists only for the legacy edge case where an NGO insists on hosting the repo in their own org.)
+4. Credit status is manual in v1: the volunteer sets a Lovable status widget (active / credits low / blocked); low/blocked shows the NGO a "Top up Lovable credits" CTA deep-linked to Lovable billing, and the NGO clicks "I've topped up — unblock" to reset. Automatic detection by parsing Lovable's notification emails is deferred to v1.5: brittle, needs inbound-mail infrastructure, adds NGO setup friction, and the widget already yields the same product behavior.
+5. Handoff: the NGO removes the volunteer from the Lovable workspace and keeps the workspace + billing relationship; the repo is offered for one-click transfer to the NGO's own org; Lovable's GitHub sync follows without reconfiguration.
 
-**Acceptance Criteria:**
-- [ ] Discovery flags Lovable with a rationale, no dollar figure, and a "paid directly to Lovable" disclaimer.
-- [ ] Two states are tracked: "Lovable recommended" (always true in v1) and "Lovable enabled" (NGO completed setup — drives widget visibility).
-- [ ] The Lovable status widget renders only when enabled; the volunteer can set credits-low/blocked and the NGO resets to active via "topped up — unblock"; credit detection is manual only in v1.
-- [ ] Setup auto-initiates at kickoff (no "use Lovable?" choice); the setup blocker auto-resolves on ai4good's validation of the setup, and the NGO does zero GitHub work.
+**Acceptance criteria:**
+- [ ] Discovery output includes the Lovable recommendation + rationale with no dollar fields; the scope doc renders it with a "paid directly to Lovable" disclaimer and no dollar figure.
+- [ ] Setup item auto-raised at kickoff (no volunteer opt-in or opt-out); resolved only by platform validation of the pasted-back identifiers; a failed check shows the volunteer the specific failure + suggested fix and keeps the item open.
+- [ ] A setup guide documents the checklist, and a per-project setup page provides one-click copies (scope summary, volunteer email, an optional snippet asking Lovable to reference the task identifier in commits — best-effort readability only; status is driven by PR merges, never by parsing), the validated paste-back form, and per-step progress showing which actor acts next.
+- [ ] Status widget appears once setup completes; the volunteer can change it; low/blocked transitions notify; the NGO can reset to active; the top-up CTA opens Lovable billing in a new tab. No inbound mail parser in v1.
+- [ ] The volunteer's permission to create the repo in the platform org is granted at volunteer onboarding — no per-project grant.
+- [ ] The handoff runbook includes removing the volunteer from the Lovable workspace.
 
-**Explicit non-goals (v1):** ai4good does **not** subscribe to Lovable for NGOs, meter or attribute Lovable credit consumption, debit Lovable cost from fuel, provide the NGO's payment method, or resell Lovable credits. ai4good's backend does not integrate with Lovable; only the volunteer's Skill calls Lovable (under the NGO consent gate) to surface the balance and enforce the per-task cap.
-
-**Dependencies:** REQ-004, REQ-008, REQ-010, REQ-016, REQ-024, REQ-026.
+**Non-goals (v1):** no Lovable subscriptions purchased for NGOs; no metering or attribution of Lovable credit consumption (no usage API exists); Lovable cost never debited from fuel; no reselling of Lovable credits (NGOs buy direct; v2 may revisit under a reseller agreement); no backend access to Lovable accounts — credit visibility is client-side under the volunteer's own consent-gated connection, and a backend billing integration waits for scoped access or webhooks from Lovable.
 
 ---
 
 #### REQ-022: Stripe Connect for Volunteer Tips (DEFERRED to v1.5 per §11)
 
-**Description:** Optional gratitude tips from NGOs to volunteers at handoff (Story 6). Platform takes **0% on tips** — only standard processing fees apply.
-
-**Status: Deferred to v1.5.** Tip infrastructure is not load-bearing for the core thesis (NGO + volunteer + fuel + handoff). v1 handoff sign-off presents no tip CTA; v1 volunteer reputation is completion credit only (REQ-014). **v1.5 trigger:** the first pilot handoff where an NGO asks how to thank the volunteer with money. When built: onboarding gated to volunteers with ≥1 handoff, tips routed entirely to the volunteer with zero platform fee, a claim/refund window if the volunteer hasn't onboarded, and tax reporting.
-
-**Dependencies (when built):** REQ-006, REQ-012.
+NGOs may send optional gratitude tips directly to volunteers at handoff (Story 6); the platform takes 0% on tips — only standard processing fees apply. Deferred: payout onboarding, dispute/refund handling, and tax reporting are meaningful infrastructure and not load-bearing for the core thesis, so v1 handoff presents no tip CTA. Build trigger: the first pilot handoff where an NGO asks how to thank the volunteer with money. When built: volunteer opt-in from their dashboard, gated to at least one completed handoff; preset and custom amounts; tips recorded separately from fuel; a held-intent flow (30 days to claim, else refund) when the volunteer has not onboarded; tax forms handled by the payment provider.
 
 ---
 
 #### REQ-023: Platform Triage Gate (compliance review before marketplace)
 
-**Description:** Every project passes a **platform-admin compliance review** between scope completion and marketplace publication, protecting the platform's open-source-only and nonprofit-mission norms and catching policy violations (commercial intent, surveillance tooling, abusive scope) before volunteers see it.
+Every project passes a platform-admin compliance review between scope completion and marketplace publication — protecting the open-source-only and nonprofit-mission norms and catching policy violations (commercial intent, surveillance tooling, abusive scope) before volunteers see the project.
 
-**What the reviewer checks:**
-1. **Open-source alignment** — no closed-source-for-resale outputs (private repos allowed for legitimate confidentiality, never commercial resale).
-2. **Nonprofit purpose** — the ask serves the NGO's verified mission.
-3. **Scope reasonableness** — scope matches Discovery's complexity tier; no extreme mismatch (qualitative; v1 has no dollar budget).
-4. **Policy compliance** — no surveillance, spam, illegal use, or AUP violation.
-5. **Private-repo justification** — if private was requested, the justification is legitimate (real PII, internal-only), not "don't want anyone to see."
-6. **Data-sensitivity gate** — confirms Discovery's tier; **Tier 2 requires a fixtures-only build plan** (synthetic/anonymized data; real data connected only post-handoff), else changes-requested or reject. Tier-2 projects default to private.
-7. **Discovery risk flags** — surfaced as reviewer focus areas.
+**Reviewer checks:** open-source alignment (private repos allowed for legitimate confidentiality, never for commercial resale); nonprofit purpose against the verified NGO profile; scope reasonableness against Discovery's complexity tier (qualitative — v1 produces no dollar budgets); acceptable-use compliance (no surveillance, spam infrastructure, illegal use); legitimacy of any private-repo justification (reject "just don't want anyone to see" — a commercial-leaning signal); data-sensitivity tier correctness, with Tier-2 projects required to carry a fixtures-only build plan (synthetic/anonymized data during the build; real data connected only post-handoff) or be bounced back or rejected, and defaulting to private visibility; Discovery risk flags pre-surfaced as focus areas.
 
-**Acceptance Criteria:**
-- [ ] On NGO "Publish" (REQ-005) the project enters the admin triage queue, not the open marketplace; the queue lists pending triages oldest-first with title, NGO name + tier, scope summary, complexity tier, and risk flags.
-- [ ] Approve → open marketplace; Reject → cancelled with reason; Request Changes → back to scoped with reviewer comments visible to the NGO. Every decision is recorded; the NGO is notified (REQ-016).
-- [ ] **SLA target:** 48 hours to decision during the v1 pilot; an aging-queue dashboard exists.
-- [ ] **All NGOs go through triage in v1** (KYC-based skipping is post-v1.5); re-submission after changes-requested re-enters triage with prior comments visible; triage access is restricted to the platform-admin role.
-
-**Dependencies:** REQ-001, REQ-005, REQ-016.
+**Acceptance criteria:**
+- [ ] NGO "Publish" routes the project to review, not to the open marketplace.
+- [ ] Admin queue lists pending reviews oldest-first (title, NGO name + verification tier, scope summary, complexity tier, risk flags) with actions Approve → open, Reject → cancelled with reason, Request Changes → returned to the NGO with comments visible; every decision recorded with reviewer identity and time.
+- [ ] NGO sees "Awaiting platform review (typically within 48 hours)" and is notified of the decision; SLA target 48 hours during the pilot, with aging items surfaced to the admin.
+- [ ] All NGOs go through triage in v1; KYC-based auto-approval is a post-v1.5 option.
+- [ ] Re-submission after requested changes re-enters review with prior comments visible; queue access restricted to platform admins.
 
 ---
 
 #### REQ-024: Project Blockers (orthogonal operational health)
 
-**Description:** Captures **operational blockers** within a project, orthogonal to lifecycle status — a project can be in-progress and healthy, or in-progress with unresolved blockers (dev waiting on NGO clarification, fuel depleted, Lovable credits low). This separates "dev is ghosting" from "dev is waiting on someone else," which affects volunteer reputation, the NGO-satisfaction signal, and admin escalation. Per decision-10, blockers are a raise/resolve surface that emits notifications (REQ-016); aging escalation runs on the shared periodic scan.
+Operational blockers are orthogonal to lifecycle status: a project can be in progress and healthy, or in progress with unresolved blockers (waiting on NGO clarification, fuel depleted, Lovable credits low). The distinction separates "dev is ghosting" from "dev is waiting on someone else" — it drives volunteer reputation, NGO-satisfaction signal, and admin escalation. Blockers never reduce the volunteer's public completion credit; they are often outside the dev's control.
 
-**Blocker types (v1):**
+**Types (v1):** clarifying question (dev-raised; manual resolve), awaiting NGO review, external dependency, GitHub collaborator needed (legacy own-org-repo edge case; resolves once the NGO confirms access), Lovable setup pending (auto-resolves on platform validation, REQ-021), fuel top-up needed (auto-raised at 20% warning and 0% blocking; auto-resolves above 20%), Lovable credits (volunteer widget; NGO resolves via "topped up"). Spend-anomaly review is deferred to v1.5 with the anomaly engine. Auto-raised types allow one unresolved instance per project, with severity upgrading in place; manual types may have several open concurrently.
 
-| Type | Raised by | Severity | Resolution |
-|---|---|---|---|
-| Clarifying question | Dev | info / warning / blocking | Dev or NGO resolves |
-| Awaiting NGO review | Dev | info / warning | Manual |
-| External dependency | Dev, or auto at kickoff | info / warning / blocking | Manual (or auto) |
-| GitHub collaborator needed | Dev (rare legacy: NGO hosts in its own org) | blocking | NGO confirms collaborator + App installed |
-| Lovable setup pending | Volunteer at kickoff setup | blocking | ai4good validates the setup (REQ-021) |
-| Fuel top-up needed | Auto | warning at 20%, blocking at 0% | Balance back above 20% |
-| Lovable credits low | Volunteer via the status widget (REQ-021) | warning / blocking | NGO clicks "topped up — unblock" |
-| ~~Spend-anomaly review~~ | **Deferred to v1.5 (decision-14)** | — | — |
+**Notifications and aging:** raise → NGO admins (email + in-app + "Action needed" rail); a blocking fuel state also escalates to the platform admin; resolve → both parties; reminder at 48 hours; escalation at 7 days to the platform admin with the project flagged at-risk. Lovable-setup aging routes to NGO + volunteer (a between-actors item); the admin sees it only after 7 days of mutual silence. On transition to handoff, open blockers auto-archive so completed work never generates aging reminders.
 
-**User-facing rules:**
-- **Dedup:** auto/single-owner types allow one unresolved instance per project, upgrading severity in place; manual types (clarifying question, awaiting NGO review, external dependency) allow multiple concurrent.
-- **Cascade:** on transition to handoff, all open blockers auto-archive (no false-positive aging emails on completed work).
+- Dev raises via a "Raise a flag" action (type, severity, title, body); resolution requires a note; the conversation lives in the blocker's Q&A plus the project comment thread (v1 has no chat channel — decision-15).
+- Clarifying questions are first-class: raisable at project level or anchored to a specific task; the form asks topic, what you tried, what you need. While one is unresolved the project shows "Awaiting NGO clarification — volunteer can continue with other tasks; this one is paused" (call to action for the NGO, status for the volunteer). Resolved question/answer pairs persist for the project's lifetime in a Clarifications log (who asked, who answered, when) — handoff context, future contributors, search.
+- Surfacing: project-page badge with unresolved count + severity; compact indicator on marketplace/dashboard cards; NGO-dashboard "Action needed" rail across projects sorted by severity then age, with emphasis past 48 hours; cadence stats annotated "(blocked on NGO action)" or "(blocked on fuel)".
 
-**Notification + aging:** a raised blocker notifies NGO admins immediately (auto-fuel-blocking also escalates to the platform admin); resolution notifies dev + NGO; aging reminders fire at 48h (NGO) and 7d (NGO + platform admin, project flagged "at risk"). For a between-actors blocker (Lovable setup pending) the 48h/7d messages route to NGO + volunteer; the admin sees it only at 7d.
-
-**Clarification as first-class UX:** two entry points — a general project-page "Ask NGO a question" and a task-anchored "Raise concern on this task" (linking to REQ-026) — using one structured form (topic, what you tried, what you need). A project-page banner shows while any clarifying question is unresolved (volunteer can continue other tasks; this one is paused). Resolved clarifying questions persist as a project **Clarifications Q&A log** (who asked/answered, when) for handoff context, post-handoff contributors (REQ-017), and cross-project search.
-
-**Surfacing:** the project page (REQ-010) shows a badge with unresolved count + severity expanding to the list; marketplace/dashboard cards show a compact indicator; the NGO Dashboard (REQ-013) shows an "Action needed" rail sorted by severity then age; cadence stats annotate the Quiet/Stalled badge with "(blocked on NGO action)" or "(blocked on fuel)." Blockers never reduce the volunteer's public completion credit (REQ-014) — often outside the dev's control.
-
-**Acceptance Criteria:**
-- [ ] The volunteer can raise a blocker (type, severity, title, body); it notifies NGO admins and shows on the "Action needed" rail. Auto-blockers raise at the fuel warning/blocking thresholds with severity upgrade-in-place; the Lovable-credits blocker raises from the widget (REQ-021).
-- [ ] Manual resolution requires a note; auto-resolution fires for fuel and Lovable-credits on the documented conditions; cascade-archive fires on handoff; 48h/7d aging reminders fire per the flow above.
-- [ ] Project page renders the badge + list; cards render the compact indicator; the NGO Dashboard renders the "Action needed" rail; cadence stats carry the blocker annotation.
-
-**Dependencies:** REQ-009, REQ-010, REQ-013, REQ-015, REQ-016, REQ-021.
+**Acceptance criteria:** raise and resolve flows work for volunteer and NGO; fuel blockers auto-raise and auto-resolve at the stated thresholds with in-place severity upgrade; Lovable-credit blockers ride the manual widget in v1; notifications and 48h/7d aging fire per the matrix above; auto-archive on handoff; all surfaces above render.
 
 ---
 
 #### REQ-025: Change Requests (in-flight scope additions)
 
-**Description:** NGOs raise structured Change Requests (CRs) for additional scope while a project is in-progress. The assigned volunteer **accepts or declines — a binary decision, not an estimation exercise.** Fuel is **progressive, not decisive:** no upfront per-CR quote or top-up; accepted CRs add to working scope and consume from the existing pool as work happens, with the existing fuel-low blocker (REQ-024) + top-up flow (REQ-006) handling further funding. Accepted CR work is added to the project's task tree (REQ-026) and **blocks handoff like original scope.**
+NGOs raise structured Change Requests (CRs) for additional scope while a project is in progress; the assigned volunteer accepts or declines — a binary decision, not an estimation exercise. Fuel is progressive, not decisive: no upfront per-CR quote or top-up. Accepted CRs join the working scope; fuel burns from the existing pool, and the existing low-fuel blocker + top-up flow handle replenishment.
 
-**Design principles (locked):**
-- **NGO raises; volunteer decides** — the NGO drives scope intent, the volunteer is the work-acceptance authority. **Decline is a legitimate boundary** and never penalizes the volunteer's completion credit or badges.
-- **No upfront volunteer estimation** — estimation is its own skill and creates asymmetric power / conflict of interest.
-- **Fuel is progressive** — no upfront per-CR funding moment; top-ups are reactive.
-- **AI-assisted assessment is v2**, not v1 — v1 ships the minimal workflow.
+**Principles (locked):** NGO raises, volunteer decides — keeps power symmetric; the volunteer is the work-acceptance authority. No upfront estimation by the volunteer — estimation is its own skill and creates conflict of interest. Declining is a legitimate boundary and never penalizes public completion credit. AI-assisted CR assessment (estimates, acceptance-criteria drafts) is v2.
 
-**v1 minimal flow:** the NGO raises a CR via a 3-field form (title, description, rationale), shown only during in-progress. It surfaces as an actionable row on the project page and a **low-tone** notification to the volunteer with inline **Accept / Decline** (optional note). **Accept** adds the CR to working scope as handoff-blocking work and notifies the NGO; **Decline** records the note and lets the NGO revise + re-raise. Work then proceeds under the existing fuel/Lovable systems; fuel-low during CR work fires the existing blocker. **Completion is implicit in v1** — the NGO can manually mark a CR completed.
+**v1 flow:** NGO submits a 3-field form (title, description, rationale), available only while in progress. The CR surfaces as an actionable row on the project page plus a notification carrying inline Accept/Decline. Accept → the platform creates one top-priority task under a "Change Request: [title]" parent — accepted CR work blocks handoff exactly like original scope, because accepting means committing to ship; the volunteer may split it into sub-tasks (inheriting top priority), and downgrading one is an explicit, history-visible action, never silent. No GitHub issues are created. Decline → recorded with an optional note; the NGO may revise and re-raise. Work proceeds under the existing fuel systems with no CR-level instrumentation; completion is implicit in v1 (progress shows in the normal task tree; the NGO can manually mark a CR completed; no completion event).
 
-**CR guardrails — volunteer-focus protection (decision-16):** the volunteer's focus is the **default-protected state.**
-- **Opt-in, never interrupt.** A CR fires a low-tone notification (in-app + CR inbox; **no per-CR email**) surfaced between tasks, not a real-time ping. **Only Accept creates work** — the dev is never auto-assigned.
-- **One open CR at a time** (hard-enforced) — the NGO cannot submit another until the volunteer decides the current one.
-- **Decline is penalty-free** and presented as a normal action.
-- **NGO framing at submission:** a change request is optional; the volunteer decides whether and when; accepted changes add scope, may extend the timeline, and consume more fuel.
+**Guardrails (decision-16) — volunteer focus is the default-protected state:**
+- A CR never interrupts and never auto-assigns work: the notification is low-tone (in-app + a CR inbox; no per-CR email), surfaced at session start or between tasks; only Accept creates the task. One open CR per project — the NGO cannot submit another until the volunteer decides the current one, capping pile-up at the source.
+- Decline is penalty-free and presented as a normal choice. The form tells the NGO: a change request is optional — the volunteer decides whether and when; accepted changes add scope, may extend the timeline, and consume more fuel.
 
-**Acceptance Criteria (v1 minimal):**
-- [ ] One open CR per project: the "Request a Change" CTA is disabled while a pending CR exists and shows only during in-progress; fields are title, description, rationale, all required, with the submission framing on the form.
-- [ ] The CR surfaces as an actionable row + a low-tone notification (in-app + CR inbox; no email) with inline Accept / Decline for the assigned volunteer; the decision + note are recorded; **only Accept creates work.**
-- [ ] On Accept, the CR is added to the task tree as handoff-blocking scope (REQ-012/REQ-026).
-- [ ] Declining does not affect the volunteer's completion credit; the NGO can manually mark a CR completed.
-
-**v1.5 (deferred):** a grouped CR section; automatic completion detection; an AI CR Agent drafting acceptance criteria; an NGO-side cancellation flow. **v2 (out of scope):** reducing scope mid-project; splitting a project via CR — not on the roadmap.
-
-**Dependencies:** REQ-006, REQ-010, REQ-016, REQ-024, REQ-026.
+**Deferred:** v1.5 — dedicated CR section grouped by status; automatic completion detection + event; AI agent drafting acceptance criteria from CR text; NGO cancellation of a pending CR. v2 — mid-project scope reduction (informal today); project splitting (not planned).
 
 ---
 
 #### REQ-026: Platform Task Management (Linear as system of record — decision-20)
 
-**Description (decision-20, replaces decision-9's git-as-truth tree):** Task state lives in **Linear** — one workspace per NGO project (mirroring the Lovable workspace-per-project pattern). Ground: **"real signals, not AI-authored narratives"** — under the prior design the volunteer's agent was the writer of task state, so every NGO-visible status was ultimately agent prose. Linear gives real-time, actor-attributed events; an enforceable read/write split; and a hosted backlog that exists **before clone** (an onboarding surface). Volunteers read the backlog, self-assign, and comment; **status transitions are deterministic** — a merged PR moves an issue to Done. ai4good observes Linear and mirrors it into the NGO-facing Status Panel (REQ-010) and the REQ-033 assistant. GitHub Issues stay dev-internal, for code bugs only.
+Decision-20 replaces the git-as-truth task tree. Ground: real signals, not AI-authored narratives — under the prior design the volunteer's agent authored task state, so every NGO-visible status was ultimately agent prose. Linear supplies event-granular, actor-attributed progress signals in real time; an enforceable read/write split; no shared-file merge conflicts under parallel worktrees; a hosted backlog that exists before the volunteer clones anything (an onboarding surface); and per-volunteer attribution.
 
-**Coordination is platform-owned:** delivery infrastructure is NGO-owned (the Lovable workspace, the repo); **coordination infrastructure (Linear) is platform-owned and does not transfer at handoff.** Post-handoff the workspace goes dormant; a snapshot of the task tree is retained in the repo for handoff residency. If a paid tier is ever required, the platform pays — never the NGO. **Workspace creation has no public API, so workspaces are pre-created ahead of kickoff and assigned at kickoff; if none is ready, kickoff stalls (the only stall mode).**
+**Model:** task state lives in Linear — one free workspace per NGO project. Volunteers (and their agents, under the volunteer's identity) read the backlog, self-assign, and comment. Status transitions are deterministic: moved only by Linear's GitHub integration on PR merge — never by hand. The platform observes Linear events and mirrors them one-way into its own store, which powers the NGO Status Panel and the NGO assistant; the NGO never touches Linear. GitHub Issues stay dev-internal (code bugs only); Linear comments are dev-internal and never shown to the NGO, whose conversation stays on the project comment thread.
 
-**Decomposition (coordinator-owned):** at funding, automation drafts the issue tree from Discovery's user stories + acceptance criteria; the platform admin (coordinator) reviews/edits/approves. **Briefs must be session-sized and dependency-ordered** — the precondition for both the pull model and per-task burn data (REQ-034).
+**Ownership asymmetry (written down deliberately):** delivery infrastructure is NGO-owned (Lovable workspace, repo); coordination infrastructure is platform-owned (Linear, the gateway) and does not transfer at handoff. Post-handoff the workspace sits dormant at $0, and the task tree is snapshotted into the repo as markdown for handoff residency — hedging exportability and dependency risk. If a paid tier is ever required, the platform pays, never the NGO.
 
-**Pull-based workflow:** self-assignment is the commitment signal — it flips the panel to "in progress"; volunteers pull the next unblocked issue and the coordinator does not push. **Norms** (carried in the injected governance prompt, REQ-009): one issue in progress at a time, assign before starting, comment when blocked, **never move status by hand.** **Onboarding:** match → workspace invite → browse session-sized briefs **before cloning** → first session connects Linear once → first pull activates attribution (REQ-034). Volunteers may run agentic loops; loops must **degrade on connection failure** (queue updates locally, surface at session end) and **loop PRs are never auto-merged.** **[OD-1 — reviewer identity + merge authority per project.]**
+**Provisioning — pool model:** Linear workspace creation has no public API, so the concierge pre-creates a pool of ready workspaces in batch, each pre-wired for platform access, events, and GitHub integration. Kickoff then needs no manual step: assign the next ready workspace, rename it for the project, invite the volunteer, push the decomposition. A replenishment task fires when the ready pool drops below a watermark (default 3); an empty pool at kickoff raises an external-dependency blocker — the only stall mode. Honest note: bulk-provisioned empty workspaces sharpen — not soften — the fair-use question; written blessing from Linear is a stronger prerequisite under the pool model.
 
-**Write authority (real-signals enforcement):**
+**Decomposition (automation drafts, a human owns):** at funding, the platform drafts the issue tree from Discovery's user stories + acceptance criteria (one parent per story, one sub-issue per criterion, top priority); the coordinator reviews and edits; the approved tree is pushed. Briefs must be session-sized and dependency-ordered — a coordinator responsibility and the precondition for pull-model correctness and for per-task burn data meaning anything (REQ-034). Sequencing is encoded as blocking relations at decomposition time.
 
-| Actor | Can | Cannot |
-|---|---|---|
-| Volunteer + their agents | Read; comment; self-assign | **Change issue status** |
-| GitHub integration | Move status on PR merge | — |
-| Platform | Create issues, revert, cancel non-p0 at handoff | — |
-| NGO | Nothing in Linear — visibility is the Status Panel only | — |
+**Pull-based workflow:** self-assignment is the commitment signal — it flips the NGO panel to "in progress." Volunteers pull the next unblocked issue; the coordinator never pushes assignments. Norms: one issue in progress at a time (one per worktree if parallel); assign before starting; comment when blocked; never move status by hand. Onboarding: match → workspace invite → volunteer browses session-sized briefs before cloning anything → first work session connects task access once → first pull activates attribution (REQ-034). An in-progress issue with no branch activity for N days raises a coordinator flag proposing release back to the backlog. Agentic loops are permitted — governance is loop-agnostic; the repo template ships a skeptical reviewer-agent default; loops must degrade on auth failure (queue updates, surface at session end); loop PRs are never auto-merged. **[DECISION: OD-1 — reviewer identity + merge authority per project.]**
 
-The read/write split cannot be expressed in Linear's permissions, so it is enforced one layer up: **any status change not backed by a merged PR is auto-reverted with an explanatory comment.** Agent actions are attributed to the volunteer's identity — human vs agent is indistinguishable and accepted (the volunteer owns their agents' actions).
+**Write authority (real-signals enforcement):** volunteers and their agents may read, comment, and self-assign — never change status. The GitHub integration moves status on PR events. The platform creates issues (decomposition, CR accept), invites members, reverts, and cancels. The NGO holds no Linear seat — its visibility is the Status Panel exclusively. Because OAuth scopes cannot express "assign + comment but not status," enforcement is detect-and-revert: any status change not made by the GitHub integration and lacking a linked merged PR is automatically reverted with an explanatory comment and a low-tone notification to the volunteer (a restricted read/assign/comment proxy is held in reserve if reverting proves noisy). Agent actions are attributed to the volunteer — human vs agent is indistinguishable and accepted; the volunteer owns their agents' actions.
 
-**Projection + comments:** the NGO-facing status view is derived **solely from Linear events** (a single source; nothing else writes it), and a redelivered event is recorded once, never doubled. **Developer comments in Linear are internal and are not mirrored into the NGO view;** the NGO's own comment thread is separate (decision-15).
+**Lifecycle hooks:** CR acceptance creates one top-priority issue under its "Change Request" parent. At handoff-pending, remaining lower-priority not-started issues are cancelled; top-priority issues never auto-cancel — handoff requires all of them done (REQ-012) — and the final tree snapshot is committed to the repo. At handed-off, the volunteer's membership is removed and the NGO-facing mirror goes read-only. On abandonment, the ex-volunteer's in-progress issues return to the backlog.
 
-**Lifecycle hooks:** CR Accept adds one scope item under the CR (REQ-025); at handoff-pending the platform cancels remaining not-started non-p0 issues but **never p0** (handoff requires all p0 done, REQ-012) and commits the task-tree snapshot; on handoff the volunteer's membership is removed and the view goes read-only; on abandonment (REQ-027) the ex-volunteer's in-progress issues return to the backlog and membership is removed.
-
-**Acceptance Criteria:**
-- [ ] The NGO-facing status view is written from Linear events by a single source; its visibility mirrors the project's (public → open read; private → members only).
-- [ ] At kickoff a pre-created workspace is assigned, the volunteer invited, and the coordinator-approved decomposition (session-sized, dependency-ordered) pushed; if none is ready, an external-dependency blocker fires.
-- [ ] Status flows **only** from a merged PR; any manual status change is auto-reverted with an explanatory comment + a low-tone notification to the volunteer.
-- [ ] The NGO Status Panel (REQ-010) renders a "Now working on" strip + hierarchical tree + activity feed, updating live. **[OD-2 — Status-Panel scope + onboarding mechanics.]**
-- [ ] The volunteer can raise task-anchored clarifying-question blockers (REQ-024); the NGO appends comments; scope changes go through CR (REQ-025). A task-tree snapshot is committed to the repo at handoff (and periodically while in-progress); an aging scan flags issues idle for N days, proposing release to the backlog.
-- [ ] **[VERIFY — architecture-deciding]:** the plan's free tier must support the needed automation; fallback if it regresses is a paid tier (platform pays) or git-based task truth.
-
-**Dependencies:** REQ-004, REQ-005.5, REQ-008, REQ-010, REQ-016, REQ-024/025, REQ-034. **External dependency: Linear** (platform-owned coordination infra, one workspace per project).
+**Acceptance criteria:**
+- [ ] NGO-visible task state derives solely from observed Linear events and platform lifecycle actions, and its visibility follows project visibility (public → open; private → members only).
+- [ ] Pool assignment at kickoff and watermark-driven replenishment behave as described; an empty pool raises the blocker.
+- [ ] Decomposition draft → coordinator approval → push, with session-sized briefs and blocking relations.
+- [ ] Status flows only from PR merges; detect-and-revert enforces the rule and notifies the volunteer.
+- [ ] NGO Status Panel renders a "now working on" strip, hierarchical task tree, and live activity feed. Panel scope beyond the tree + NGO introduction mechanics: **[DECISION: OD-2.]**
+- [ ] **[VERIFY on the first pool batch]:** free-tier event registration, API mutations, programmatic invites, workspace rename, and the pre-connected GitHub integration seeing later-created repos. Fallback if the free tier regresses: paid tier (platform pays) or git-based task state with a deterministic truth layer.
 
 ---
 
 #### REQ-028: ai4good Claude Code Skill (volunteer-facing single pane of glass)
 
-**Description:** A Claude Code Skill shipped by ai4good that makes the volunteer's local Claude Code the operating environment for ai4good projects. It packages ai4good's conventions, helper commands, and **session-governance behaviors** (task binding, Linear pull-model norms — decisions 20/22) as installable, updatable agent code rather than docs the volunteer must read and remember. It runs on every Claude Code session in an ai4good repo. **Why a Skill (vs docs):** the operating model is non-trivial and docs drift; a Skill runs every session and its updates ship via the standard update mechanism, so the platform's opinion stays current.
+A Claude Code Skill shipped by ai4good makes the volunteer's local Claude Code the canonical operating environment for ai4good projects: behavioral conventions, helper commands, and session governance (task binding, pull-model norms) packaged as installable, auto-updating agent code — not docs. Docs get read once at onboarding and drift; a Skill runs every session and its updates ship through the standard Skill channel, so the platform's opinion stays live. One-command install; auto-runs in every session opened in an ai4good repo.
 
-**Decision-20 impact:** tasks live in **Linear.** The Skill reads / self-assigns / comments issues via the volunteer's Linear access (never status — a merged PR moves status, REQ-026), maintains the per-session task binding for attribution (REQ-034), and pulls NGO-side context (blockers, comments, fuel, project context).
+**v1 scope:**
+- One-command install; published open-source (MIT). The repo carries non-secret project config seeded at creation; the volunteer completes a one-time login per project. Three credentials, three revocation semantics: a platform token for NGO-side context (blockers, comments, fuel), task-system OAuth for the backlog, and the gateway key for metered LLM traffic.
+- Session bootstrap primes each session with scope summary, current status, in-progress tasks, unresolved blockers, recent NGO comments, and fuel runway; verifies task-system access; reads the task binding; surfaces the CR inbox; prints a one-line banner (project, active task + age, fuel remaining, unread NGO comments).
+- Task binding + degradation (load-bearing): self-assigning an issue records its identifier in a per-worktree binding that rides every metered request — the attribution mechanism (REQ-034). The Skill keeps sessions bound: unbound before substantial work → offer the issue list or the exploration bucket; exploration turning into implementation → suggest the matching issue. On task-system auth failure the session degrades without stopping: intended updates queue locally and surface at session end; the binding floors to unattributed — attribution never blocks work.
+- Helper commands: pick next task (highest-priority unblocked issue with full context; self-assigns on confirm — the commitment signal); fuel status (balance, burn rate, projected runway); list blockers with suggested actions; raise a task-anchored clarifying question; handoff readiness check (all top-priority tasks done, README + runbook present, repo + deployment URLs set, all work pushed); sync the NGO's reference files locally (never committed); disable/enable.
+- Branch/commit conventions auto-applied (task identifiers + linking keywords) so the GitHub integration links the work and moves status — branch links flip an issue to In Progress, merge to Done, the only path to done-status; the volunteer can override anything the Skill generates. Manual fallback always present: the Linear app plus the project page cover every Skill behavior, and a volunteer who disables the Skill still operates — attribution degrades to unattributed, and norms still arrive via the injected governance prompt.
 
-**v1 minimal scope:**
-- **Session bootstrap** primes the volunteer with the scope summary, current status, in-progress task, unresolved blockers, recent NGO comments, and fuel runway; verifies the Linear connection (prompting the one-time flow if needed); and surfaces the CR inbox + a one-line status banner.
-- **Task binding + degradation:** the session binds to the assigned issue so attribution rides the work. **On Linear connection failure the session continues without stopping** — intended updates queue locally and surface at session end; attribution floors to unattributed. **Attribution never blocks work.**
-- **Helper commands** (each with a manual equivalent): pick and self-assign the next unblocked issue (the commitment signal); show fuel balance + runway; view/raise blockers; run the handoff precondition check; disable / re-enable the Skill.
-- **Branch/commit convention:** the Skill names branches and PRs so the Linear identifier links the work and status moves on merge — the only status path (REQ-026); the volunteer can override, and the Skill assists, never mandates.
-- **Manual fallback always present** (the Linear app; the ai4good project page). Disabling the Skill still works — attribution degrades to unattributed; norms still arrive via the injected governance prompt (REQ-009).
+**The Skill is the Track-A orchestration shell (promoted to v1 core):**
+- Drives Lovable through the adapter with the fallback posture of REQ-021. Per-task triage decides build-locally vs delegate-to-Lovable from the task and Discovery's scope split, explaining the decision with an override (heuristic: visual UI rendering → Lovable; everything else → local); after each delegation it pulls the changes, runs tests, and decides iterate vs done vs fix locally.
+- Lovable budget guardrails: per-task prompt cap (default 5), interactive confirmation past the cap with a running NGO-credit burn estimate, and refusal to exceed an NGO-set hard cap; every Lovable call is audit-logged with a cost estimate, surfacing NGO Lovable burn on the admin and NGO dashboards.
+- NGO consent gate: an "Allow Skill to orchestrate Lovable" toggle — default ON for Track A at kickoff with cost disclosure, revocable by the NGO; checked before any Lovable call.
 
-**The Skill is the Track-A orchestration shell (v1 CORE)** — how Claude Code drives Lovable (with the graceful fallback of REQ-021):
-- **Triage logic:** decides local vs delegate-to-Lovable per task (visual UI → Lovable; everything else → Claude Code local), explaining the choice with an override.
-- **Budget guardrails:** enforces a per-task Lovable prompt cap with interactive confirmation past it and a running NGO-credit burn estimate; refuses an NGO-set hard cap.
-- **Quality loop + audit:** after Lovable work, pulls the diff and runs tests locally; **every Lovable call is logged with a cost estimate,** surfacing NGO burn rate on the admin + NGO dashboards.
-- **NGO consent gate:** an "allow the Skill to orchestrate Lovable" toggle (default ON for Track A at kickoff, with cost disclosure; revocable) is checked before any Lovable call.
+**Deferred (v1.5+):** Replit as a second builder platform; fully autonomous orchestration polish.
 
-**Deferred (v1.5+):** Replit as a second builder platform; v2 autonomous-orchestration polish.
-
-**Acceptance Criteria (v1 minimal):**
-- [ ] Install + session bootstrap work end-to-end; bootstrap auto-runs in an ai4good repo, primes the context fields above, and surfaces the status banner.
-- [ ] The task binding activates on self-assignment (verified by observing attribution carry within the same session). Failure mode: Linear down → the Skill queues updates + surfaces at session end; attribution floors to unattributed; work is never blocked.
-- [ ] The helper commands work end-to-end; the branch/commit convention is auto-applied and respects volunteer override.
-- [ ] Disable + re-enable persists; documentation covers the implication of disabling (attribution degrades; Linear norms still arrive via the injected governance prompt).
-
-**Dependencies:** REQ-026, REQ-024, REQ-008, REQ-012, REQ-009, REQ-034, the volunteer's Linear connection (one-time at first session).
+**Acceptance criteria:** install works end-to-end; bootstrap auto-runs in ai4good repos and shows the banner; the binding follows self-assignment per worktree, and auth failure degrades to unattributed without blocking work; helper commands work end-to-end; conventions applied with volunteer override; disable/enable persists; docs cover install, configuration, troubleshooting, opt-out, and the implication of disabling (attribution degrades; norms still arrive via the injected prompt).
 
 ---
-
 
 #### REQ-027: Abandonment / Rematch (volunteer ghosts mid-project)
-
-**Description (P0).** Ghosting is High-likelihood and irreducible, yet the lifecycle had no `in_progress → open` edge. REQ-027 defines release, rematch, and partial-fuel treatment.
-
-**Lifecycle edge `in_progress → open`:** triggered by inactivity (no branch activity AND no task movement: 14d → reminder, 21d → auto-release) or NGO / volunteer manual release. The clock runs only while `in_progress` (v1 has no `paused` state).
-
-**On release:** revoke the ex-volunteer's repo access, project keys, task-tracker membership, and (Track A) Lovable workspace access — the AUP per-project teardown minus account suspension; remaining fuel STAYS on the project (non-cash, project-scoped) for the next volunteer, no refund; return in-progress tasks to the backlog, preserve done tasks + commit history; distinguish ghosted (timeout — dents the reputation signal) from released-for-cause (initiated — no auto-penalty); re-open with rematch priority, NGO notified, prior applications cleared.
-
-**Acceptance Criteria:**
-- [ ] Inactivity computed only for `in_progress`; reminder 14d, auto-release 21d.
-- [ ] An in-progress task with no branch activity for N days (tunable) raises a coordinator flag.
-- [ ] `in_progress → open` added to REQ-005.5; teardown reuses the AUP path; fuel preserved on the project.
-- [ ] Inactivity / release / rematch notifications (REQ-016); manual release available to NGO and to the volunteer stepping down, with a reason.
-
-**Dependencies:** REQ-005.5, REQ-006, REQ-007, REQ-016, REQ-026.
-
----
+Ghosting is the most probable non-happy-path event; the lifecycle needs a release + rematch edge (in_progress → open) and a partial-fuel rule.
+- Triggers: inactivity (no repo activity and no task movement) — reminder at 14 days, auto-release at 21 days — or manual release by NGO or volunteer with a reason. The inactivity clock runs only while the project is in_progress (decision-17: no paused state in v1).
+- On release: the ex-volunteer's project access is revoked (repo, AI keys, workspace/PM memberships — the existing teardown minus account suspension); their in-progress tasks return to the backlog; done work + commit history preserved; remaining fuel STAYS on the project (non-cash, project-scoped) for the next volunteer — no refund.
+- Ghosted (timeout) is recorded distinctly from released-for-cause (NGO/volunteer initiated): ghosting affects the volunteer's outreach/reputation signal; released-for-cause carries no auto-penalty.
+- Project re-opens on the marketplace with rematch priority; NGO notified; prior applications cleared for a fresh round. Notifications: inactivity reminder, project released, rematch available (REQ-016).
 
 #### REQ-029: Observability & Operational Monitoring
-
-**Description (P0).** Correctness depends on several silent money-touching scheduled loops; crash / error-rate monitoring misses silent failures (a job that didn't fire, ledger drift, a key left active after fuel-zero). This REQ adds heartbeats + business-invariant monitors that page.
-
-**Acceptance Criteria:**
-- [ ] **Job heartbeats:** every scheduled job records a heartbeat; an overdue-run pager fires if a job misses its expected interval.
-- [ ] **Business-invariant monitors that PAGE (not just log):** ledger totals fail to reconcile; any project or general balance below zero; consumption against a non-positive balance; gateway error rate / added latency / provider errors outside budget; failed-work-queue depth above zero; a released or suspended project whose access-teardown is incomplete after 6 hours; reserve / coverage below floor; repository base-permission drift (REQ-008).
-- [ ] **Money-path dashboards** (funding, consumption, skim, reconciliation, chargeback) for admin.
-- [ ] Errors + structured logs flow to the existing monitoring stack (NFR); this REQ adds the business layer.
-
-**Dependencies:** REQ-006, REQ-009, REQ-024, all scheduled jobs.
-
----
+Correctness depends on ~8 unattended money-touching scheduled processes; crash/error-spike monitoring misses silent failures (a job that never fired, undetected ledger drift, a key left active after fuel-zero). Adds heartbeats + business-invariant monitors that page a human.
+- Every scheduled job records a heartbeat; a watchdog pages when a job misses its expected interval.
+- Monitors that PAGE (not just log): ledger control totals out of balance; any negative balance; consumption recorded against an already-depleted project; AI-gateway golden signals (error rate, added latency, provider errors) outside budget; teardown/side-effect work failed permanently or incomplete > 6h after a release/suspension; cash reserve/coverage below floor; org base-permission drift.
+- Admin dashboards for money-path golden signals (funding, consumption, platform share, reconciliation, chargebacks). Error tracking + structured logging stay baseline NFRs; this REQ is the business layer on top.
 
 #### REQ-030: Operations, Incident Response & Admin Correction Tooling
-
-**Description (P0).** Auto-acting kill switches, auto-suspend, and ops queues route to one admin with no on-call model, no restore runbook, no false-positive reversal, no money-correction tooling. This REQ names the operating model.
-
-**Acceptance Criteria:**
-- [ ] **On-call + escalation model** named (even "the founder, with a documented escalation tree" at pilot scale); an incident ops-task type is the incident-commander entry.
-- [ ] **Per-incident runbooks** authored: data-loss restore (meeting the NFR recovery-time objective); credential / org compromise (REQ-008); mass access-key revocation; task-tracker outage; chargeback spike; build-platform outage.
-- [ ] **Task-tracker outage degraded mode:** the project / task panel serves the last known task state and reconciles once the tracker returns.
-- [ ] **Manual override for every auto-action** — a false-positive auto-deactivation, AUP suspension, or key revocation is reversible by an admin (audited).
-- [ ] **Admin money-correction tooling** — post a reconciliation adjustment / manual credit with an audit reason via UI (never direct ledger writes).
-- [ ] **Account suspension is a represented lifecycle state** with a documented recovery playbook (REQ-007 saga + per-project re-enable).
-
-**Dependencies:** REQ-006, REQ-007, REQ-009, REQ-026, REQ-029, NFR Reliability.
-
----
+Auto-acting kill switches, auto-suspend, and ops queues previously routed to one admin with no on-call model, restore runbook, false-positive reversal, or money-correction tooling. This REQ names the operating model.
+- On-call + escalation model named (pilot scale: the founder, with a documented escalation tree); incidents are first-class ops items.
+- Per-incident runbooks authored: backup restore within the 4h recovery objective; platform-credential compromise break-glass; real-key rotation + mass virtual-key revocation; PM-tool outage degraded mode (panels serve last-known state, catch up on replay); chargeback spike; builder-tool outage fallback.
+- Every auto-action (anomaly deactivation, AUP suspension, key revocation) is reversible by an admin, audited. Admin money corrections go through audited tooling with a stated reason — never direct database edits.
+- Account suspension is a represented lifecycle state with a documented recovery playbook.
 
 #### REQ-031: Content Moderation, Takedown & Secret Scanning
-
-> **v1 scope (right-sized):** v1 keeps only GitHub secret-scanning + push-protection org-wide (free) + the founder's emergency repo-privatize path. Deferred to v1.5 (before organic / EU signup): Report buttons, content-abuse review queue, takedown saga, DMCA / CSAM policy doc. The ~15 hand-curated pilot projects don't need the automated takedown surface yet; secret-scanning (the one real exposure on public brand-named repos) ships in v1.
-
-**Description (P1).** Public brand-named MIT repos + Discovery + comment threads are an unmonitored user-content surface reviewed only once at publish; AUP suspension acts on an account but never privatizes a public repo.
-
-**Acceptance Criteria:**
-- [ ] **Universal "Report" affordance** on repos / Discovery output / comment messages.
-- [ ] **Rapid repo-takedown state** any admin can trigger: repo private + "under review" immediately (decoupled from key-rotation / suspension); reversible after review.
-- [ ] **GitHub secret-scanning + push-protection org-wide** (free) on the single v1 org (public + private repos; extends to a second org if the v1.5 split ships, REQ-008).
-- [ ] **DMCA agent registered**; documented **CSAM → NCMEC** escalation path.
-- [ ] AUP suspension (REQ-007) can optionally flip the project's repos to private as part of the saga.
-
-**Dependencies:** REQ-008, REQ-015, REQ-023, REQ-004, REQ-026.
-
----
+Public brand-named repos + Discovery output + comments are a UGC surface reviewed only once at publish. Right-sized (founder-approved): ~15 hand-curated concierge projects don't need an automated takedown surface yet; the one real exposure — secrets pushed to public repos — is covered in v1.
+- v1: secret scanning + push protection enabled org-wide (public and private repos); founder break-glass path to flip a repo private.
+- v1.5 (gate: before organic/EU signup): universal "Report" affordance (repos / Discovery output / messages) feeding an abuse-review queue; rapid reversible takedown state (repo private + "under review", decoupled from suspension); DMCA agent registration + documented CSAM→NCMEC escalation; AUP suspension optionally flips the project's repos private.
 
 #### REQ-032: Project Need Attachments (NGO reference files for Discovery + build)
-
-**Description.** The NGO uploads reference files describing their need — process spreadsheet, screenshot, blank / sample form, mockup, requirements PDF, sample data structure. Files are read by the Discovery Agent multimodally to inform scoping and are available to the volunteer at build time.
-
-**PII / Tier-2 — governance-by-disclosure + hard-warn:** the upload UI shows a standing data-responsibility disclosure (*"Upload redacted / sample data, screenshots, mockups, blank forms — NOT real beneficiary records. ai4good and your volunteer will see these files."*); Tier-2 projects (REQ-004) get a hard checkbox gate restating fixtures-only. ai4good does NOT scan uploads — the NGO owns the risk per the acknowledgment (REQ-004 / 023); enforced by disclosure, not code (pre-scan is a v1.5 option).
-
-**Acceptance Criteria:**
-- [ ] Upload at intake (REQ-003, optional), during Discovery (REQ-004), and from the project page (REQ-010 / 026) anytime pre-handoff. Types: PDF, PNG/JPG, CSV/TSV, TXT, DOCX/XLSX. Size caps (~25 MB/file, ~200 MB/project, tunable). No virus / secret scan in v1.
-- [ ] Files stored privately (not in the app database); access restricted to the project's NGO members, assigned volunteer, and platform admins, honoring project visibility.
-- [ ] Upload UI shows the disclosure; Tier-2 gets the hard checkbox gate before any upload.
-- [ ] Discovery ingests Discovery-visible files multimodally and may cite them in questions + the scope doc; reading a file consumes Discovery credits proportional to context weight (estimated cost shown before a large file), and $-fuel once funded.
-- [ ] Project page **"Reference files"** section (name / type / uploader / description); downloadable by assigned volunteer + NGO admins + platform admin per visibility.
-- [ ] Reference files reach the volunteer's working environment but are never committed to the repository (private / Tier-2 contents stay out of version history).
-- [ ] Soft-delete; audit trail on upload + delete.
-
-**Dependencies:** REQ-001, REQ-003, REQ-004, REQ-010, REQ-026, REQ-028.
-
----
+Words-only intake under-specifies; one screenshot of the spreadsheet being replaced is worth a paragraph of clarifying questions. The NGO uploads reference files (current manual process, screenshots of liked tools, blank/sample forms, mockups, requirements PDFs, sample data structures); the Discovery Agent reads them multimodally to inform scoping, and the volunteer uses them at build time.
+- Upload at intake, during Discovery (the agent can ask for more mid-conversation), or from the project page anytime pre-handoff; drag-drop + picker. Types: PDF, PNG/JPG, CSV/TSV, TXT, DOCX/XLSX; caps (tunable) ~25 MB/file, ~200 MB/project.
+- Access limited to the project's NGO members, assigned volunteer, and platform admin, honoring project visibility; files served only via short-lived authorized links; the UI never holds storage credentials.
+- PII posture = governance-by-disclosure (decision-1): standing disclosure — "upload redacted/sample data, NOT real beneficiary records; ai4good and your volunteer will see these files." Tier-2 (special-category) projects add a hard checkbox gate restating fixtures-only (the NGO connects real data itself, in its own environment, after handoff). No upload scanning in v1 — the NGO owns the risk per the data-responsibility acknowledgment; automated PII/secret pre-scan is a v1.5 option.
+- Discovery may cite files in clarifying questions and the scope doc; file names + the NGO's one-line descriptions ride the Discovery context. Reading a file costs Discovery credits proportional to its weight; before a large file the NGO sees "≈ N credits to include this file — proceed?"; on funded projects file reads consume fuel like any turn.
+- The volunteer's tooling downloads files locally as build reference (on-demand re-sync); files are never committed to the repo — keeps private/Tier-2 content out of git history.
+- Project page shows a "Reference files" section (name / type / uploader / one-line description); deletes are soft; uploads + deletes audited.
 
 #### REQ-033: Post-Discovery NGO Project Assistant (funded, fuel-metered)
+Decision-12: once funded, the NGO keeps chatting past scoping — the same Discovery chat surface reframed as a read-only project assistant: "how's my project going?", open blockers explained, recent progress summarized, fuel runway estimated.
+- Available on the project page from in_progress onward (funded, past Discovery); unfunded or pre-scoped projects have no assistant — Discovery is the only NGO↔AI chat.
+- Fuel-metered, no free credits: it exists only on funded projects, so every turn is dollar-metered against project fuel exactly like funded Discovery. Each turn shows its cost; the fuel gauge is visible; at fuel-zero the composer disables with the standard "Top up fuel" CTA.
+- Strictly read-only (answers from a snapshot of tasks, blockers, fuel/runway, recent activity): it cannot set task status, resolve blockers, accept CRs, approve handoff, or move money. Asked to change scope or priorities, it explains the Change Request flow (REQ-025) and may pre-fill a draft CR — the NGO submits it.
+- Reuses the Discovery surface and model — no new chat infrastructure. v1 is on-demand text Q&A only; proactive/push digests and scheduled summaries are v1.5.
 
-**Description.** Once funded, the NGO can keep chatting with an AI assistant beyond Discovery to understand status — the same chat surface as the Discovery Agent (REQ-004), continued past `scoped` and reframed read-only: it answers "how's my project going?", explains blockers, summarizes progress, estimates fuel runway. Fuel-metered, no free credits — it exists only on funded projects. It never mutates the project: scope changes route through CRs (REQ-025), task state is owned by the tracker (REQ-026), handoff is gated by REQ-012.
+#### REQ-034: Task-Level Attribution (telemetry, never gating — decision-22)
+Classification (load-bearing): transparency / product telemetry — NOT a security control. Spoofable by design, soft-degrading by design, never gates a request. Purpose: burn-per-deliverable on the NGO panel, per-task cost baselines for fuel estimation, reconciliation precision.
+- Every metered AI request may carry a binding to the task being worked; burn is attributed at ledger-write time. Capture ships in v1 (usage recorded unbound is unattributable forever); analysis surfaces trail in v1.5. A request with no resolvable binding floors to "unattributed" — never rejected.
+- "Exploration" and "onboarding" are first-class taskless attribution values offered proactively: falsely-attributed burn is worse than unattributed (it corrupts cost baselines).
+- Steering is conversational — the volunteer's agent is nudged to know its task context and to pick the matching task when exploration turns into implementation — never enforced by the platform. Ceiling, verbatim: detection and suggestion only, never gating.
+- Aggregation boundary: the NGO sees burn per deliverable (money-honesty style: cents, no celebration); per-volunteer-per-task granularity stays coordinator-side only (per-volunteer productivity metering would erode trust). Bimodal per-task costs (hand-driven vs loop-driven work) are a data property, not an anomaly.
+- v1: capture + NGO burn-per-deliverable view. v1.5: coordinator reconciliation surfaces (per-project unattributed %, broken/stale-binding signals) + per-task cost baselines feeding Discovery estimates.
 
-**Acceptance Criteria:**
-- [ ] **Availability:** on the project page once funded (positive fuel) and past pre-fuel Discovery — `in_progress` onward. None on an unfunded or pre-`scoped` project.
-- [ ] **Read-only context:** answers from a snapshot — task counts / P0s / recent completions (REQ-026), open blockers (REQ-024), fuel balance + runway (REQ-009), recent commits / NGO comments. No write tools (cannot set task status, resolve blockers, accept CRs, approve handoff, or move money).
-- [ ] **Same chat surface as Discovery,** reframed as a read-only status explainer for a non-technical NGO.
-- [ ] **Fuel-metered:** each turn consumes project fuel, metered like funded Discovery; the free daily Discovery allowance is never drawn. Cost shown per turn; fuel gauge visible; at fuel-zero the composer disables with the "Top up fuel" CTA (REQ-006).
-- [ ] **Scope discipline:** on a scope / priority request it explains the CR flow (REQ-025) and does not act — it may pre-fill a draft CR, but the NGO submits it.
-- [ ] **v1 is on-demand text Q&A only.** Proactive / push digests, scheduled summaries, notification-driven agents are v1.5.
-
-**Dependencies:** REQ-004, REQ-006, REQ-009, REQ-010, REQ-024, REQ-025, REQ-026.
-
----
-
-#### REQ-034: Task-Level Attribution (telemetry, never gating)
-
-**Classification (load-bearing):** transparency / product telemetry — NOT a security control. Spoofable by design; soft-degrading; never gates a request. Purpose: burn-per-deliverable on the NGO panel, per-task cost baselines for fuel estimation, reconciliation precision.
-
-**Description.** Every gateway request (REQ-009) carries an optional task binding so consumption is attributed to the task being worked; consumption without a binding is unattributable forever — capture ships in v1, the analysis surfaces in v1.5. When a volunteer is assigned a task, that assignment is recorded so subsequent consumption is attributed to it; an unresolved binding floors to unattributed (never rejected). Attribution is per-request, staying correct under parallel working copies. Exploration and onboarding are first-class non-task buckets the steering offers — falsely-attributed burn is worse than unattributed (it corrupts baselines); steering is conversational, never gateway-enforced. The NGO panel shows burn per deliverable; per-volunteer-per-task stays coordinator-side (metering individual volunteers would erode trust). Bimodal per-task cost (hand- vs loop-driven) is a data property, not an anomaly. **Ceiling: detection and suggestion only, never gating.**
-
-**Acceptance Criteria:**
-- [ ] Consumption records carry a task attribution — task identifier, `exploration`, `onboarding`, or unattributed — written by the gateway (REQ-009); no rejection path.
-- [ ] v1 capture: task assignment is captured and rides subsequent requests; unresolved → unattributed.
-- [ ] NGO project page shows **burn per deliverable** (v1): fuel per task, money-honesty style (REQ-010; cents, no celebration).
-- [ ] **v1.5 (deferred):** coordinator reconciliation panel (unattributed %, broken / stale binding signals); per-task cost baselines feeding Discovery estimates.
-
-**Dependencies:** REQ-009, REQ-026, REQ-010, REQ-006.
-
----
-
-#### REQ-035: Post-Handoff Attribution & Jumpstart Health
-
-**Description.** Closes the freedom-without-guarantee model economically: no gates anywhere — quality becomes visible ex post, reputation is the incentive. Two captures ship in v1 (uncaptured data is lost forever); synthesis / matching surfaces land in v1.5.
-
-**1. NGO attribution at handoff (v1).** At sign-off (REQ-012), the NGO completes an attribution step: free-text testimonial + three structured dimensions (communication, delivered scope, onboarding into self-service). Framed as credit, not grading — feeds the volunteer's portfolio, deliberately NOT a single star score (single-rater scores inflate and measure the relationship, not the artifact). *(Supersedes the earlier "no satisfaction form in v1" deferral — reframed as attribution, so no conflict with REQ-014's deferred internal satisfaction signal; no public star ratings, ever.)*
-
-**2. Jumpstart health at 30/60/90 days (v1).** Extends the 30-day-alive ping (REQ-012) to three marks from real signals only: NGO self-service changes in Lovable, feature requests opened / completed, rescue requests. Rendered actively self-served / stalled. Confound control: at 60-day inactivity the platform asks one question — *"did you try to make changes?"* — and only tried-and-failed counts against health.
-
-**3–4. v1.5 (signal only, never a gate).** Attribution + health become visible during matching (weak-signal volunteers still apply; the NGO sees the record); optional AI-maintainability check at handoff (a fresh agent runs realistic change requests; result shown, nothing blocked).
-
-**Acceptance Criteria:**
-- [ ] Sign-off (REQ-012) includes the attribution step: testimonial (optional) + 3 dimensions (required, 4-point descriptive scale, credit-framed). Volunteer sees it on their profile (private v1; matching surface v1.5). Skipping the testimonial allowed; no capture blocks handoff.
-- [ ] Health checks at 30/60/90 days: alive ping + self-service-change count (Lovable, where readable) + feature-request / rescue counts; state actively-self-served / stalled; never notify the volunteer punitively.
-- [ ] 60-day one-question NGO email, one-click answer; only tried-and-failed marks health negatively.
-- [ ] **v1.5 (deferred):** reputation in matching; health synthesis dashboard; AI-maintainability visible check.
-
-**Dependencies:** REQ-012, REQ-021, REQ-016, REQ-014.
-
----
+#### REQ-035: Post-Handoff Attribution & Jumpstart Health (decision-22)
+Closes the freedom-without-guarantee model economically: no gates anywhere — quality becomes visible ex post; reputation is the incentive. Capture ships in v1 (uncaptured data is lost forever); synthesis/matching surfaces land in v1.5.
+1. NGO attribution at handoff (v1): sign-off includes an optional free-text testimonial + three required structured dimensions — communication, delivered scope, onboarding into self-service — on a 4-point descriptive scale, credit-framed (~30 seconds). Deliberately NOT a single star score (single-rater scores inflate and measure the relationship, not the artifact). Feeds the volunteer's portfolio (private in v1). Supersedes the earlier "no satisfaction form in v1" deferral; "no public star ratings, ever" still holds. Nothing here blocks handoff.
+2. Jumpstart health at 30/60/90 days (v1): extends the 30-day alive ping to three marks synthesized from real signals only — successful NGO self-service changes, feature requests opened/completed, rescue requests — rendering the project as actively-self-served / stalled. Confound control: at 60-day inactivity the NGO gets exactly one question, "did you try to make changes?" (one-click answer); only tried-and-failed counts against health. Health checks never notify the volunteer punitively.
+3. Reputation feeds matching (v1.5): attribution + health record become visible during matching; no gates — a volunteer with weak signals still applies, the NGO sees the record.
+4. AI-maintainability check (v1.5, signal only — never a gate): optional visible test at handoff — a fresh agent runs realistic change requests against the repo; the result is shown, nothing is blocked.
 
 ### P0 (promoted from P1): Required dependencies of REQ-024 / REQ-025 / REQ-026
-
-> **Promotion note:** REQ-013, REQ-014, REQ-015, REQ-016 were drafted P1 but are required dependencies of P0 features (blockers, CRs, PM tasks) — reclassified **P0** for v1. REQ-015 ships a minimal version (one project comment thread; system events surface in notifications); full Slack-style enhancements (threaded replies, presence, search, attachments) move to **v1.5**. Per-user notification preferences (REQ-016) are also v1.5; v1 ships sensible defaults. Dashboards (REQ-013, REQ-014) ship with the **"Action needed" rail + core project list + fuel + task progress only**; richer surfaces (activity feed, badge engine, testimonials, KYC upsell) are v1.5. REQ-017 (post-handoff feature-request surfacing) moves to **v2**.
+REQ-013/014/015/016 were drafted P1 but are dependencies of P0 features (blockers, CRs, PM tasks) — reclassified P0, each shipping a minimal v1 cut with enhancements in v1.5. REQ-017 moves to v2; no P1 work in v1.
 
 #### REQ-013: NGO Dashboard (minimal v1 + v1.5 enhancements)
-
-**Description.** One view per NGO showing all their projects, fuel balances, applicants, recent activity, and prominent cadence + progress signals to support stepwise-funding decisions.
-
-**v1 (minimal — ships at public beta):**
-- [ ] Project cards: status, % complete (PM tasks, REQ-026), dual fuel meters (REQ-010), assigned volunteer.
-- [ ] Per active project: last commit timestamp, cadence health badge (Active / Quiet / Stalled), PM task progress (X of Y done), "Now working on: [task title]".
-- [ ] Fuel summary across projects + general balance as "$X redeployable credit" (non-cash; no expiry, never removed — REQ-006).
-- [ ] **"Action needed" rail** (REQ-024 blockers incl. fuel-topup / Lovable-credits / GitHub-collaborator / clarifying-question + pending CRs + triage decisions awaiting NGO response).
-- [ ] Applicants queue per project (when `open`).
-
-**v1.5 (deferred):** recent activity feed (30 days); KYC upsell banner for `verified` NGOs; "Lovable-enabled projects" rail (REQ-021); opt-in NGO testimonials authoring page.
-
-**Dependencies:** REQ-005, REQ-006, REQ-007.
-
----
+One view per NGO across all projects — status, fuel, applicants, and prominent cadence/progress signals supporting stepwise-funding decision moments (Platform Promise §6).
+- v1: project cards (status, % complete from tasks, dual fuel meters, assigned volunteer) with cadence signals per card — last commit, Active/Quiet/Stalled badge, tasks X of Y done, "Now working on: [task]". Fuel summary across projects + general balance shown as "$X redeployable credit" (non-cash; no expiry, never removed). "Action needed" rail: open blockers (fuel top-up, Lovable credits, collaborator needed, clarifying questions), pending CRs, and triage decisions awaiting the NGO. Applicants queue while a project is open.
+- v1.5: 30-day activity feed; KYC upsell banner for verified NGOs; Lovable-enabled-projects rail; opt-in NGO testimonial authoring.
 
 #### REQ-014: Volunteer Dashboard + Completion Credit (v1 minimal)
+Dashboard plus a completion-credit-only public reputation model: no public star or numerical ratings for volunteers.
+- v1 dashboard: current projects with status, dual fuel gauges, in-progress tasks, unresolved blockers/clarifications; key reveal + self-audit usage view (REQ-009).
+- v1 public profile: completion count including private projects (e.g. "5 tools shipped (2 private)") — private projects increment the count with no per-project disclosure; public projects list title, NGO, and cause tags. Exactly one badge: "Shipped first tool," auto-awarded on first handoff regardless of visibility.
+- NGO-satisfaction signal collection deferred to v1.5 (arrives with the tips/satisfaction handoff UX): no satisfaction modal at handoff, no admin-visible aggregate in v1; the volunteer never sees their own satisfaction scores (avoids anxiety/gaming).
+- v1.5: multi-badge engine (5/10 tools shipped, active contributor, cause specialist); handoff history view; opt-in NGO-authored testimonials; cause-specialization tags.
 
-**Description (v1).** Volunteer dashboard with current assignments, fuel gauges, and a completion-credit-only public reputation model — no public star rating. NGO satisfaction signal collection is deferred to v1.5 (with the tip flow): no satisfaction table, modal, or admin aggregate in v1.
-
-**Public on the volunteer profile (v1):** completion count including private projects (e.g. "5 tools shipped (2 private)"; private projects disclose no title / NGO / details — only the count increments); one badge, "Shipped first tool" (auto-awarded on first handoff, any visibility); for public projects, title + NGO name + cause tags in the project list. Not shown: star / numerical ratings, testimonials, cause-area badges, multi-badge engine — all v1.5.
-
-**Acceptance Criteria (v1):**
-- [ ] Dashboard shows current projects: status, dual fuel gauges (REQ-010), in-progress PM tasks (REQ-026), unresolved blockers / clarifications.
-- [ ] Public completion count + the "Shipped first tool" badge on the profile.
-- [ ] Internal NGO Satisfaction collection deferred to v1.5 (no modal, no admin aggregate); the volunteer never sees their own satisfaction scores (avoid anxiety / gaming).
-- [ ] Self-audit usage view (REQ-009).
-
-**v1.5 (deferred):** multi-badge engine ("Shipped 5/10", "Active contributor", "Cause specialist"); handed-off history view; opt-in NGO testimonials; cause-area specialization tags.
-
-**Dependencies:** REQ-007, REQ-012.
-
----
-
-#### REQ-015: Per-Project Comment Thread (lightweight; full Slack-style channel deferred to v1.5)
-
-> **Scope note:** the channel data-model + real-time transport are dropped from v1; REQ-015 ships a lightweight project comment thread. The actionable-message primitive survives, re-homed onto the CR row + notifications (not a chat UI). System events go to the notifications feed, not channel messages.
-
-**Description.** Each project has a lightweight comment thread on its project page for the NGO admin(s), the assigned volunteer, and (when invited) platform admin — replacing the v1 Slack-style real-time channel. A concierge pilot of ~10–15 hand-matched projects (founder in every loop) does not need a real-time chat subsystem; structured blockers (REQ-024) + the comment stream + the notifications feed + email carry the load. This drops the real-time transport, markdown renderer, @-mention parser, and archival mode while keeping a shared free-text back-and-forth. Reinstate the full channel before organic / EU signup (v1.5).
-
-**Acceptance Criteria (v1):**
-- [ ] **Project comment thread** on the project page (REQ-010): chronological free-text stream for the NGO admins + assigned volunteer (+ platform admin when escalated). Membership is implicit (those parties); no member roster.
-- [ ] Plain text + auto-linkified URLs (no markdown, code blocks, image attachments, or @-mentions in v1). Read on page load (no real-time); posting refreshes the stream and notifies the other party (in-app; email per REQ-016).
-- [ ] **System events are NOT posted to the thread** — funding, repo / Lovable setup, fuel-low, handoff, blocker raised / resolved, CR raised / decided surface in the notifications feed (REQ-016) + the REQ-010 activity feed.
-- [ ] **CR Accept/Decline** uses the actionable-message primitive on the CR row + the notification, not a chat message (REQ-025).
-- [ ] After `handed_off`, the thread is read-only. No cross-project DMs.
-
-**v1.5 (deferred — full Slack-style channel):** real-time channel (flat → threaded); @-mentions + notifications; presence / typing; markdown + code blocks + image attachments; full-text search. **v2+:** integration with a real Slack workspace (webhook bridge); video / audio calls.
-
-**Dependencies:** REQ-001, REQ-007, REQ-010, REQ-016, REQ-026.
-
----
+#### REQ-015: Per-Project Comment Thread (full Slack-style channel deferred to v1.5 — decision-15)
+Each project has a comment thread on its project page for NGO admins, the assigned volunteer, and (when escalated) platform admin. Decision-15 replaces the v1 real-time channel with this thread: a concierge pilot of ~10–15 hand-matched projects coordinates through structured blockers + a comment stream + notifications + email, while a shared free-text back-and-forth keeps the product a warm coordination layer, not an inbox. The full channel returns in v1.5, before organic/EU signup.
+- v1: chronological free-text stream; plain text with auto-linked URLs (no markdown, code blocks, attachments, or @-mentions). Loads on page view — no live push; posting notifies the other party. Membership implicit from project roles. System events (funding, setup, fuel-low, handoff, blockers, CRs) never post to the thread — they surface in the notifications + project activity feeds. CR Accept/Decline is an actionable prompt on the CR itself, not a chat message (REQ-025). After handoff the thread is read-only. No cross-project DMs.
+- v1.5: real-time channel with threaded replies; @-mentions, presence, typing indicators; markdown, code blocks, image attachments; full-text search. v2+: bridge to a real Slack workspace; video/audio calls.
 
 #### REQ-016: Notifications (Email + In-App)
-
-**Description.** Event-driven notifications with sensible defaults in v1 (per-user preference UI is v1.5). One shared notify path is the sole writer; blockers / CRs / lifecycle events route through it. In-app in real time; email via the transactional provider (SMTP fallback). Same-event messages to a recipient are coalesced within a 60-second window and de-duplicated within 5 minutes.
-
-**v1 events (defaults documented; no per-user preference UI yet):**
-
-| Event | Recipient(s) | Delivery |
-|---|---|---|
-| Triage decision (approval makes the project visible on the marketplace) | NGO admins | email + in-app |
-| Application received | NGO admins | in-app (daily digest if > 1) |
-| Application accepted / declined | applicant volunteer | email + in-app |
-| Project aging unmatched (`open` N days, no accepted match) | platform admin (concierge) + matching volunteers | email + in-app |
-| Inactivity reminder (14d) | volunteer + NGO admins | email + in-app |
-| Project released (auto 21d or manual) | NGO admins + ex-volunteer | email + in-app |
-| Rematch available | NGO admins | in-app |
-| Matched-pending-fuel reminder (24h before deadline) | NGO admins | email |
-| Funding-deadline expired | NGO admins + matched volunteer | email + in-app |
-| Payment succeeded / failed | NGO admins (+ volunteer on success) | email + in-app |
-| Project access key issued (kickoff) / revoked | volunteer | email + in-app |
-| Task status reverted (instructive, low-tone) | volunteer | in-app |
-| Fuel low 20% | NGO admins | email + in-app |
-| Fuel low 5% | NGO admins + volunteer | email (NGO) + in-app (both) |
-| Fuel depleted | NGO admins + volunteer + platform admin | email + in-app |
-| Task comment (NGO comments on a task) | volunteer | in-app |
-| PM task status changed | NGO admins | in-app (digest cadence) |
-| Task completed (`done`) | NGO admins | email + in-app |
-| Blocker raised / resolved / aging-48h / aging-7d | NGO admins (+ platform admin on 7d; volunteer on resolved) | email + in-app |
-| Handoff requested / accepted / rejected | NGO + volunteer (rejected adds platform admin) | email + in-app |
-| Verification outcome | NGO admins | email + in-app |
-| Provisioning failure (repo setup failed / task pool empty at kickoff) | NGO admins + volunteer + platform admin | email + in-app + ops task |
-| Lovable setup reminder / credits-low / credits-blocked / setup-pending (kickoff) / setup-complete | NGO admins (+ volunteer on complete) | email + in-app |
-| GitHub-collaborator needed raised / resolved | NGO admins (raised) / volunteer (resolved) | email + in-app |
-| Project comment (REQ-015 thread) | the other party (NGO admins ↔ volunteer) | in-app (email per default) |
-| CR raised | volunteer | in-app + CR inbox; no email (anti-distraction) |
-| CR decided | NGO admins | email + in-app |
-| Fuel-credit released / donation confirmed | NGO admins | in-app (+ email on donation receipt) |
-| Jumpstart health question (60-day one-click; REQ-035) | NGO admins | email |
-| Chargeback opened | NGO admins + platform admin | email + in-app + ops task |
-
-**Default delivery rules (v1):** email = critical events (money, deadlines, blockers, handoff, decisions); in-app-only = low-tone events (comments, task-status changes). **Escalation tier (NGO + platform admin):** Lovable credits-blocked, provisioning failure, blocker 7d escalation.
-
-**Deferred (v1.5):** channel @-mentions / posts; spend-anomaly events (no anomaly engine in v1); auto-top-up events; tip-received (REQ-022); per-user preference UI + custom batching.
-
-**Dependencies:** REQ-001.
-
----
+Event-driven email + in-app notifications with documented defaults in v1; per-user preference UI is v1.5. One shared emitter driven by a single static event taxonomy is the sole writer of notifications — blockers, CRs, and lifecycle events all notify through it rather than sending comms directly.
+v1 taxonomy (event → recipients, delivery), condensed:
+- Project decisions: triage approved / rejected / changes-requested → NGO (email + in-app); approval is the moment the project becomes marketplace-visible (a duplicate "published" event was collapsed into it).
+- Matching: application received → NGO (in-app; daily digest if >1); application accepted / declined → volunteer (email + in-app; a duplicate NGO-side "matched" event was collapsed); unmatched open project aging → platform admin + matching volunteers (concierge hand-matching + supply-liquidity nudge, Goal 5).
+- Abandonment (REQ-027): inactivity reminder (14d) → volunteer + NGO; project released → NGO + ex-volunteer; rematch available → NGO.
+- Money: pre-deadline funding reminder → NGO; funding deadline expired → NGO + matched volunteer; payment succeeded → NGO + volunteer; payment failed → NGO; fuel low 20% → NGO; fuel low 5% and fuel depleted → NGO + volunteer (sessions will be warned/cut; depleted adds admin escalation); leftover credit released to general balance / donation confirmed → NGO; chargeback opened → NGO + admin + ops item.
+- Access: virtual key issued (instant at kickoff) / revoked (replacement on dashboard) → volunteer (email + in-app).
+- Work signals: task status changed → NGO (in-app low-tone; digest-cadence email, never per-event); task completed → NGO (email + in-app, higher signal); task comment → volunteer (in-app); project-thread comment → the other party (in-app by default; anti-spam guard kept); blockers raised / resolved / aging 48h / aging 7d → NGO email + in-app, volunteer on resolution, admin joins at 7d; PM status auto-reverted → volunteer (in-app only, low-tone — instructive, not punitive).
+- CRs: raised → volunteer (in-app + CR inbox at session start; NO email — decision-16 anti-distraction; one open CR per project); decided → NGO (email + in-app); CR-completed detection is v1.5.
+- Handoff + health: requested / accepted / rejected → NGO + volunteer (rejected adds admin); verification outcome → NGO; 60-day jumpstart one-question email → NGO (REQ-035).
+- Provisioning failure (repo setup failed, workspace pool empty at kickoff) → NGO + volunteer + admin + ops item, plus an urgent replenish alert on pool-empty. Lovable: workspace-setup reminder, credits low, credits blocked (escalation tier), setup-pending auto-raised at kickoff → NGO, setup complete → NGO + volunteer (skip-path events removed per decision-19).
+- Deferred to v1.5 with their features: channel mentions, spend-anomaly reviews, auto-top-up events, tip received.
+Delivery defaults (v1): email = critical events (money, deadlines, blockers, handoff, decisions); in-app only = low-tone events. Same-type events to the same recipient within ~60s coalesce into one notification; identical duplicates within ~5 minutes are dropped. Escalation-tier events (credits blocked, provisioning failure, 7-day blocker aging) notify NGO + platform admin. v1.5: per-user preferences (per-event email toggles, quiet hours, digest mode), custom batching rules.
 
 ### Out of v1 / Deferred to v2 — referenced by ID only
 
 #### REQ-017: Post-Handoff Feature Request Surfacing (v2)
-
-**Description (v2, not built in v1).** After handoff, new GitHub issues labeled `feature-request` or `bug` would surface on the project's ai4good page so other volunteers can pick them up. Deferred to v2 — no issues-webhook subscription, no UI surfacing in v1; detailed AC deferred until v2 design begins (depends on pilot data). **Dependencies (when built):** REQ-008, REQ-012.
-
----
+After handoff, new repo issues labeled feature-request / bug would surface on the project's ai4good page for other volunteers to find and pick up. Deferred to v2; detailed criteria wait on pilot data (how many handed-off projects attract follow-up requests, and how NGOs want to drive them).
 
 ### Nice to Have (P2) — Future Enhancement
 
@@ -938,370 +635,290 @@ The read/write split cannot be expressed in Linear's permissions, so it is enfor
 NGOs describe the need via a voice recording the agent transcribes + processes.
 
 #### REQ-019: Multi-Volunteer Per Project
-Teams of 2-3 volunteers per project with role splits (frontend / backend / QA).
+Teams of 2–3 volunteers per project with role splits (frontend/backend/QA).
 
 #### REQ-020: Public Impact Page
-Public-facing page per NGO showing all tools ai4good has built for them, with usage / impact stats (where instrumented).
-
----
-
+Public page per NGO showing all tools ai4good built for them, with usage/impact stats where instrumented.
 
 ## Non-Functional Requirements
 
 ### Performance
-- **Response time (p95):** marketplace page < 500ms (re-validate before launch); Discovery Agent first-token < 1.5s.
-- **Webhook handling (end-to-end):** Stripe < 2s; GitHub (contribution cadence + commit-task linking) < 5s.
-- **Year-1 capacity/budget:** up to 1000 concurrent marketplace viewers and 50 concurrent discovery conversations within ~$50/mo hosting; re-baseline this cost for the two-target deploy before the year-1 budget is finalized.
+
+- Latency (p95): marketplace page < 500ms — re-validate this target before launch following the platform migration; Discovery Agent first token < 1.5s; payment webhook handling < 2s end-to-end; code-hosting webhook processing < 5s end-to-end.
+- Year-1 load: up to 1000 concurrent marketplace viewers (within the budgeted hosting tiers) and 50 concurrent discovery conversations (bounded by LLM-provider quota).
+- Infrastructure budget ~$50/mo for year 1; re-baseline for the two-target deploy.
 
 ### Security
-- **Authentication:** authenticated sessions with automatic refresh — users stay signed in without manual re-login; expired or invalid sessions require re-authentication.
-- **Authorization:** per-tenant isolation on all multi-tenant data.
-- **Secrets:** API keys never logged or exposed; the platform's real AI-provider key is never shared with volunteers, who instead receive individual credentials shown once at issuance and not retrievable afterward.
-- **PII:** minimum necessary; NGO verification documents encrypted at rest with private access.
-- **Webhook verification:** signatures verified on every Stripe and GitHub webhook.
-- **Rate limiting:** on authentication, Discovery Agent, and Apply flows.
-- **Compliance:** GDPR right-to-erasure (deletes profile, anonymizes ledger) plus DPA for EU NGOs; PCI out of scope (all card data handled by Stripe — card numbers never touched).
-- **Audit logging:** immutable trail for fuel transactions, project status transitions, role changes, volunteer-credential issuance/revocation, and Linear ingest provenance.
+
+- Managed authentication with automatic session refresh. Tenant isolation on all multi-tenant data: NGO records, projects, fuel transactions, task comments, and project files. Rate limiting on the auth, discovery, and apply flows. Signature verification on every inbound webhook, payment and code-hosting alike.
+- All provider API keys — payment, LLM, code-hosting, and work-tracking — live in managed secret storage and are never logged. The real LLM key is never issued to volunteers (decision-21); each volunteer holds an individual, revocable credential instead.
+- PII minimum-necessary: NGO verification documents encrypted at rest and never publicly accessible. GDPR: right-to-erasure (profile deleted, ledger entries anonymized) plus standard DPA for EU NGOs. PCI: out of scope — all card data handled by the payment processor.
+- Append-only audit trail: fuel transactions, project status transitions, role changes, volunteer AI-credential issuance/revocation, and work-tracking webhook-ingest provenance.
 
 ### Scalability
-- **Targets:** pilot 100 NGOs / 200 volunteers / 50 active projects → year-1 500 NGOs / 1000 volunteers / 200 active projects; frontend, backend, and managed database scale to meet them.
+
+- Pilot: 100 NGOs, 200 volunteers, 50 active projects; year 1: 500 NGOs, 1000 volunteers, 200 active projects — within the budgeted managed-service tiers.
+- Frontend, backend, and database auto-scale as managed services. Heavy work (webhook fan-out, outbox drain, scheduled scans, AI-request streaming) runs on managed backend functions, scheduled where periodic; standalone compute is retained only as an escape hatch for jobs that exceed managed-function limits.
+
+#### Anthropic workspace-cap scale path — RETIRED by decision-21
+
+- Decision-21 eliminated per-project provider workspaces, so workspace count no longer grows with project count and the provider's workspace cap never binds. Remaining provider-side concern: org-level rate/quota limits, which are monitored.
 
 ### Reliability
-- **Uptime SLA:** 99.5% (~3.6 hours/month); **RTO** 4 hours; **RPO** 24 hours.
-- **Error handling:** error tracking and structured logs; alerts on error-rate spike.
-- **Background work & failure modes:** webhook fan-out, queued outbound-event delivery, scheduled scans, and streamed Agent responses each fall back to an alternate execution path when they exceed platform execution limits.
+
+- Uptime 99.5% (~3.6 hours/month — a realistic small-team target). RTO 4 hours; RPO 24 hours — both grounded in restore from the managed database's point-in-time recovery.
+- Application errors and structured logs captured centrally; alerts on error-rate spikes.
 
 ### Accessibility
-- WCAG 2.1 AA; keyboard navigation across all flows; color contrast ≥ 4.5:1; automated checks in CI; manual screen-reader pass before launch.
+
+- WCAG 2.1 AA; keyboard navigation across all flows; automated accessibility checks on every change plus a manual screen-reader pass before launch; color contrast >= 4.5:1.
 
 ### Compatibility
-- **Browsers:** last 2 versions of Chrome, Firefox, Safari, Edge. **Devices:** responsive web (mobile, tablet, desktop); no native mobile apps in v1. **Locale:** English only at launch (i18n out of scope for v1).
+
+- Browsers: last 2 versions of Chrome, Firefox, Safari, Edge. Responsive web (mobile, tablet, desktop); no native mobile apps in v1. English only at launch — i18n is Phase 3, out of scope for v1.
 
 ---
-
 
 ## Technical Considerations
 
 ### System Architecture
 
-The platform surfaces a public project marketplace, NGO and volunteer dashboards, and the Discovery chat, over a backend that stores all data under per-row access rules, authenticates users, holds verification documents, pushes live fuel updates, and runs background jobs that ingest third-party webhooks and run periodic jumpstart-health and aging scans.
-
-A volunteer's two data paths are disjoint and meet only at the task-ID binding (REQ-034):
-- **AI usage** — volunteer AI builds reach the model provider only through the ai4good LLM gateway (REQ-009, decision-21), which meters fuel per request and enforces governance; volunteers never hold the provider key.
-- **Task coordination** — volunteers coordinate work in Linear (decision-20), which is mirrored into a read-only projection that feeds the NGO panel.
-
-Platform-side AI — the Discovery Agent and the post-Discovery assistant (REQ-033) — runs on Opus (decision-13) and calls the provider directly with the platform key; the gateway governs only the volunteer path.
-
-**Gateway request rules (REQ-009, decision-21):** each request is subject to per-request and rolling-24h spend caps; a request is refused when the project's fuel balance is not positive; large requests get a fingerprint check; each request is idempotent and bound to a task ID (REQ-034); request bodies are inspected transiently and never stored.
-
-**Handoff:** the running deployment transfers with the repo to the NGO; the Linear coordination workspace is platform-owned and never transfers.
-
-### Product Data Model & Lifecycle States
-
-Product-level states and rules (observable behavior, not storage mechanics):
-
-- **Project lifecycle:** draft → discovery_in_progress → scoped → triage → open → matched_pending_fuel → in_progress → handoff_pending → handed_off, plus cancelled. `paused` was removed from v1 (decision-17); the v1 workaround is unpublish-before-match or admin key-deactivation / cancel mid-build; pause/resume returns in v1.5.
-- **Triage gate (REQ-023):** a platform-admin compliance review must approve a project before it reaches the marketplace.
-- **Funding deadline:** a matched project not funded within 7 days reverts from matched_pending_fuel to open.
-- **Applications:** pending, accepted, declined, withdrawn, expired, released. `expired` = NGO did not fund within 7 days of acceptance; `released` = volunteer left mid-project, where `ghosted` affects the volunteer's outreach signal and `released_for_cause` does not auto-penalize. A volunteer may hold at most one active (pending/accepted) application per project; terminal applications do not block re-applying if the project re-opens. The volunteer's GitHub link is required at apply time.
-- **Change requests (REQ-025):** pending_review → accepted_active, declined, completed, or cancelled. Exactly one CR may be open per project until the volunteer decides the current one (decision-16). Accepting a CR creates PM tasks (not GitHub issues). All scope or intent changes go through a CR.
-- **Tasks (REQ-026):** statuses not_started, in_progress, done, blocked; priorities p0/p1/p2 (default p0); sources discovery, change_request, manual; tasks form a parent/child hierarchy. Handoff (REQ-012) is gated on every P0 task being done.
-- **NGO task permissions:** NGO admins may append comments only; they cannot change a task's status, title, description, or priority.
-- **Linear status integrity (decision-20):** a status change not made by Linear's GitHub integration or by a linked merged PR is reverted, with an explanatory comment and a linear_status_reverted notification. Volunteers move task status only by merging a PR.
-- **GitHub contract:** commit pushes feed build-cadence stats and record which commits referenced which task; PRs (opened/merged) are cadence data only — there is no NGO-visible PR list in v1. GitHub Issues stay dev-internal in v1 (REQ-008); post-handoff issue surfacing (REQ-017) is deferred to v2.
-- **Blockers (REQ-024):** types clarifying_question, awaiting_ngo_review, external_dependency, fuel_topup_needed, lovable_credits, github_collaborator_needed, lovable_setup_pending; severities info/warning/blocking. At most one unresolved blocker of a given singleton type per project; lovable_setup_pending auto-resolves once the pasted setup is validated; spend_anomaly_review is reserved and deferred to v1.5 (decision-14).
-- **Data sensitivity tiers:** tier0_no_pii, tier1_ordinary_pii, tier2_special_category (set from Discovery output). **Maintenance tracks:** A_ngo_maintains (the only value v1 sets) and B_developer_grade (reserved for post-v1, decision-19).
-- **Repo visibility:** public MIT by default; private is opt-in and requires a justification reviewed at triage (REQ-023).
-- **Verification documents (REQ-002):** v1 accepts registration_doc and reference_link only; tax_exempt_doc and kyc_doc are deferred to v1.5.
-- **Deployment URL:** a live running-app URL is a precondition for handoff (REQ-012) and the target of post-handoff alive checks.
-- **Handoff attribution & jumpstart health (REQ-035, decision-22):** captured in v1, never shown as a public star score; health is checked at 30/60/90 days; a 60-day one-question "tried and failed" answer is the only self-service signal counted against health; each project resolves to a derived health state (actively self-served, stalled, or unknown).
-
-### Cross-Cutting Rules
-
-- **Discovery credits (decision-11):** a context-weighted, free pre-fuel allowance dripped daily with no rollover; verified NGOs receive a larger daily grant than unverified ones; cached input is weighted below fresh input.
-- **Discovery / assistant conversations (REQ-004, REQ-033, decision-12):** one resumable conversation store serves both, distinguished by conversation mode (Discovery vs assistant); each turn's token/fuel cost is auditable. Both run on Opus (decision-13).
-- **Communications scope (decision-15):** the full realtime channel is dropped from v1; v1 ships a project comment thread and routes system events to the notifications feed; the channel returns in v1.5.
-- **Attachment governance (REQ-032):** NGO project-need files are accessible only to NGO members, the assigned volunteer, and platform admins; private-project files are restricted to members; a Discovery-visibility flag controls whether a file is included in Discovery context; deletion is soft; there is no upload scan in v1.
-- **Chargeback handling (REQ-006):** on a funder chargeback the platform freezes the NGO, deactivates its project build key, reverses the top-up, books the already-consumed compute as a write-off, and opens a chargeback-review ops task.
-- **Volunteer profile (REQ-007):** GitHub-org membership is added when the volunteer links GitHub and removed on deactivation, suspension, or 24-month inactivity; a first-apply disclaimer is accepted once and re-prompted only when its text version changes; a Lovable invitation email is required so the NGO can invite the volunteer to the workspace.
-- **Consent audit (REQ-006):** each disclaimer acceptance records the actor's IP, user agent, the disclaimer text version, and the exact hash of the accepted text.
+Lovable-owned web frontend on a Supabase backend; Stripe for fuel payments; a GitHub App for repository provisioning and commit/PR event ingest; Linear as the task-coordination system of record; Anthropic as the LLM provider. Volunteer builds reach Anthropic only through the ai4good LLM gateway on per-project virtual keys (REQ-009, decision-21): the gateway enforces spend caps and a real-time project-fuel gate, injects the governance prompt, meters fuel per request, and alone holds the real provider key; request bodies are inspected transiently, never persisted; gateway hosting is an open decision (OD-6). Platform-side AI — the Discovery Agent and the post-Discovery assistant (REQ-033), both Opus (decision-13) — calls Anthropic directly. A volunteer's two data paths, LLM usage and task coordination, are disjoint and touch only at the task-ID binding (REQ-034). Each project gets one platform-owned Linear workspace (decision-20) that never transfers at handoff; the NGO-visible task panel is a read-only mirror of Linear, task status moves on PR merge via Linear's GitHub integration, and out-of-band status edits are auto-reverted with an explanatory comment (REQ-026). GitHub Issues are not written or managed by ai4good in v1 — they stay dev-internal (REQ-008). Supabase, Stripe, Anthropic, the gateway, and GitHub are hard dependencies with defined user-visible degraded states; a Linear outage only stales the NGO panel — volunteers keep working and the mirror catches up. Greenfield build; no data migration.
 
 ### Technology Stack
 
-Decision-pinned choices per role (implementation libraries omitted):
-- **Frontend:** owned and two-way-synced by Lovable (decision-18/19).
-- **Backend:** a managed backend providing data with per-row access rules, authentication, file storage, live updates, and scheduled background jobs.
-- **AI:** Opus platform-side for Discovery and the assistant (decision-13); volunteer builds routed through the ai4good LLM gateway (decision-21).
-- **Task coordination:** Linear — one platform-owned workspace per project, status driven by its GitHub integration, mirrored to a read-only NGO projection (decision-20).
-- **Version control:** a platform-owned GitHub App provisions each project repo and ingests commit/PR activity; GitHub Issues are dev-internal in v1 (REQ-008); repo-transfer scope is granted only at handoff.
-- **Payments:** card-based fuel top-ups, with funder chargebacks handled per REQ-006.
-- **Lovable Track-A (REQ-021, decision-19):** v1 is always Track A — the NGO owns the Lovable workspace and completes Lovable setup (including the required Lovable project ID); the volunteer skip opt-out is removed in v1.
-
-### External Dependencies
-
-Hard dependencies are the backend, the payments provider, the model provider (via the gateway), Linear, and GitHub: an outage of any one degrades or blocks the corresponding surface — a Linear outage leaves the NGO panel stale while volunteers keep working, a payments outage blocks top-ups, and a provider or gateway outage blocks Discovery and builds. Transactional email is a soft dependency.
-
-### Migration Strategy
-
-Greenfield — no data migration. Financial reporting is preserved across pricing- and skim-policy changes so historical records stay accurate.
-
-### Testing Strategy
-
-Before launch, the NGO and volunteer end-to-end journeys are verified, and access-control rules and dependencies are reviewed.
+- Frontend: TanStack Start (SSR) — React, TanStack Router + Query, Tailwind CSS, shadcn/ui. Lovable owns and syncs the frontend repo.
+- Backend: Supabase — Postgres with RLS, Auth, Storage, Realtime; Edge Functions (Deno) for webhooks, mutations, and streaming; pg_cron for scheduled jobs; Drizzle ORM for application queries.
+- Attachments: S3-compatible object store (Cloudflare R2) for NGO project files (REQ-032); access only through short-TTL signed URLs minted after a membership check.
+- Payments: Stripe — Checkout, webhooks, Stripe Tax (EU VAT invoices).
+- AI: Anthropic — Opus for Discovery and the assistant (decision-13); volunteer traffic exclusively via the LLM gateway on virtual keys (decision-21).
+- Task coordination: Linear — one free workspace per project from a pre-created pool (workspace creation is manual; Linear exposes no creation API); webhooks feed the platform's read-side mirror; agents connect via Linear MCP.
+- VCS: GitHub App for org/repo setup and push/PR webhook ingest (cadence stats and commit-to-task linkage).
+- Observability: Sentry (errors), Axiom or Logflare (logs), Lovable analytics; golden-signal paging on the gateway (REQ-029).
+- CI/CD: GitHub Actions for test/lint; frontend deploys via Lovable, backend via Supabase CLI.
 
 ---
-
 
 ## Implementation Roadmap
 
-**Headline estimate:** ≈ 420h core / 530h buffered engineering for v1 — roughly **14-17 weeks for two engineers**, and realistically **~5 months to public beta** for a two-engineer team (~7-8 months for one engineer). Add 4-6 weeks of pilot operations (three internal full-cycle projects) before opening public beta. v1 stays shippable in this range because the §11 scope cuts hold (auto-top-up, tips, full CR UI, match scoring, KYC automation, self-serve GDPR, multi-jurisdiction tax, and the other v1.5 deferrals are out of v1).
+**Headline estimate (post decisions 20/21/22 — authoritative): ≈ ~420h core / ~530h buffered → ~14-17 weeks for 2 engineers.** Add 4-6 weeks of pilot operations (3 internal full-cycle projects) before public beta. Honest kickoff-to-public-beta total: ~5 months for a 2-engineer team, ~7-8 months for one engineer.
 
-The per-task decomposition and hour estimates are not maintained here — the authoritative build breakdown lives in Linear (decision-20). The phases below are a planning overview: Phase 1 + 2 = MVP launch; Phase 3 = dashboards, comms & platform operations; Phase 4 = pre-launch hardening; Phase 5 = public beta + concierge launch.
+v1 stays shippable in this range only with the §11 scope cuts. The authoritative build decomposition lives in Linear (decision-20); the phases below are an overview, not a task list. Phases 1+2 = MVP launch; 3 = dashboards, comms & platform operations; 4 = pre-launch hardening; 5 = public beta + concierge launch.
 
-### Phase 1: Foundation (Weeks 1-3)
+- **Phase 1 — Foundation (weeks 1-3):** Auth, NGO org profile + verification review, volunteer profiles, admin review queue, logging baseline; nothing user-facing public. Exit: a test NGO and volunteer sign up, complete profiles, and an admin marks the NGO verified.
+- **Phase 2 — Core MVP (weeks 4-7):** One project end-to-end in lifecycle order: intake → credit-metered Discovery → editable scope → publish/triage → marketplace listing → apply/accept → **fund-on-match** (not fund-on-publish) → repo + workspace provisioning → fuel-metered build with fuel-low blockers → deploy to a live URL → handoff with attribution step. Exit: a real NGO + volunteer complete a project through to a deployed, reachable live URL, with the handoff ritual executed.
+- **Phase 3 — Dashboards, Comms & Platform Operations (weeks 8-10):** v1-minimal NGO and volunteer dashboards, per-project messaging, notifications, admin audit viewer, first volunteer badge, observability + alerting, incident response + admin money-correction console, content moderation, abandonment/rematch. v1.5 enhancements (§11) explicitly out. Exit: 3 pilot NGOs + 5 pilot volunteers run entire engagements in-platform with no out-of-band Slack/email, and ops corrects a money error with the books staying balanced.
+- **Phase 4 — Hardening & Beta Launch (weeks 11-13):** Test coverage to 80%, end-to-end journey tests, accessibility fixes, vulnerability and penetration review, tax/VAT invoicing, GDPR erasure, rate limiting, performance pass, onboarding emails, public landing page. Exit: no critical pen-test findings; p95 marketplace < 500ms at 100 RPS; accessibility checks pass in CI.
+- **Phase 5 — Public Beta & Concierge Launch (weeks 14-16):** Launch checklist, invite-only → open rollout, internal goals analytics, concierge supply-funnel tooling, aging-open-project nudges, hand-match tool for the first ~10-15 projects, v1.5 spec + backlog prioritization + retrospective. Exit: 10+ projects in flight, ≥1 public-beta handoff, and ≥1 handed-off project still reachable at its live URL 30 days post-handoff.
 
-Auth, NGO org, volunteer profiles, and app scaffolding — nothing public yet.
-
-**Checkpoint 1:** A test NGO and a test volunteer can sign up, complete their profiles, and a platform admin can mark the NGO verified.
-
-### Phase 2: Core MVP (Weeks 4-7)
-
-The end-to-end first project across the full lifecycle (draft → discovery → scoped → triage → open → matched → in progress → handoff → handed off), with fund-on-match, the LLM gateway plus inline fuel metering, the Claude Code orchestration Skill, decomposition to Linear, deploy-to-running, and the handoff ritual.
-
-**Checkpoint 2:** One real NGO and one volunteer complete a project through to a deployed, reachable live URL (deploy is a handoff precondition, not optional), with the handoff ritual executed (RLS on, revert demo, two-way GitHub, spend cap set).
-
-### Phase 3: Dashboards, Comms & Platform Operations (Weeks 8-10) — v1 minimal only
-
-The v1-minimal dashboards and comms surfaces that REQ-024 / REQ-025 / REQ-026 depend on, plus the operability layer the pivot requires: observability (REQ-029), ops & incident response (REQ-030), content moderation (REQ-031), and the abandonment/rematch saga (REQ-027). v1.5 enhancements are out of Phase 3.
-
-**Checkpoint 3:** Three pilot NGOs and five pilot volunteers can run an entire engagement inside the platform with no out-of-band Slack/email, and the ops console can correct a money error via paired ledger rows.
-
-### Phase 4: Hardening & Beta Launch (Weeks 11-13)
-
-Reliability, hardening, and accessibility work to reach public-beta readiness — test coverage, end-to-end journeys, accessibility audit, RLS/pen-test review, tax + GDPR, rate limiting, and the public landing page.
-
-**Checkpoint 4:** Pen-test shows no critical findings; accessibility checks pass; latency targets are met under load.
-
-### Phase 5: Public Beta & Concierge Launch (Weeks 14-16)
-
-Open the door concierge-first (Goal 5): concierge supply-funnel tooling, aging-project nudges, and a hand-match tool to curate the first projects, plus v1.5 backlog prioritization and the v1.5 PRD revision. Multi-volunteer and Claude Code proxy remain v1.5/v2 (spec docs only).
-
-**Checkpoint 5:** 10+ projects in flight, at least one successful handoff in public beta, and at least one handed-off project still reachable at its live URL 30 days post-handoff (REQ-012 30-day-alive check / Goal 1).
-
+---
 
 ## Out of Scope
 
-1. **ai4good gateway — now SHIPPED IN v1 (decision-21; REQ-009), no longer out of scope.** In v1 the gateway meters and caps each volunteer's Anthropic usage against the project's funded fuel in real time, records per-request audit metadata (request bodies are never persisted), and revokes/rotates a compromised token instantly. Tighter request validation and anomaly checks are v1.5 hardening. Honest limits (unchanged): it cannot verify a request truly concerns the assigned project, cannot lock usage to one machine, and cannot stop a determined attacker who steals a token — caps + instant rotation only bound the damage. The real Anthropic org key is never exposed to volunteers. Gateway hosting is an open decision (OD-6).
+1. **ai4good AI Proxy** — no longer out: ships in v1 as the LLM gateway (decision-21, REQ-009) with token validation, per-token velocity and budget caps, a real-time fuel check, per-request audit metadata, instant token rotation, plus a fingerprint tripwire and governance-prompt injection the original design lacked; the real Anthropic key is never exposed to volunteers. Audit metadata per request (timestamp, IP, User-Agent, endpoint, payload size, Anthropic cost, fuel delta) feeds anomaly detection; request bodies are never persisted. Default request policy: message calls, token counting, file upload, and model listing are allowed; endpoints that create persistent Anthropic-side resources and all DELETE operations are blocked by default; batch submission is per-project opt-in. Allowlists beyond these defaults, payload size bounds, and IP/geo/User-Agent anomaly flags defer to v1.5. Known limits: the gateway cannot verify a prompt is project-related, lock a token to one machine, or stop a determined attacker holding a token — caps plus rotation bound the damage. Hosting is an open decision (OD-6).
 2. **Crypto / on-chain tokens** — Fuel is Stripe-backed fiat credits only; no tradeable token, no on-chain ledger.
-3. **Native mobile apps** — Web-responsive only; iOS/Android apps are not on the roadmap.
+3. **Native mobile apps** — web-responsive only; iOS/Android not on the roadmap.
 4. **i18n / multi-language UI** — English only at launch.
-5. **Multi-volunteer teams per project** — One volunteer per project in v1; team support is v2.
-6. **Embedded IDE / web-based code editor** — Volunteers use their own Claude Code / Lovable; we don't host an editor.
-7. **NGO-to-NGO tool sharing marketplace** — Repos are public, but we don't curate a "fork this for your NGO" experience.
-8. **Anonymous / unverified NGOs publishing** — All publishing NGOs must be verified.
-9. **Automated NGO verification** — Manual review by platform admin in v1.
-10. **Hosted production environment for built tools** — The volunteer/NGO decide where to deploy; we don't run their infra.
-11. **Public star ratings for volunteers** — Excluded; volunteer reputation is completion-credit + badges only. NGO satisfaction is captured privately (v2 matching weight), never displayed, to protect volunteers from retaliation.
-12. **Platform skim on tips** — Tips at handoff (REQ-022) flow directly NGO→volunteer via Stripe Connect at 0% platform skim.
-13. **Pay-gated Discovery in v1** — Discovery is free up to a per-NGO daily allowance (10/day unverified, 30/day verified — decision-8/11), resetting daily with no rollover. When an unfunded project exhausts the day's credits, the NGO can verify, fund the project's fuel to continue, or wait for the next refill; a funded project draws Discovery from its fuel from the outset.
-13a. **Paid "Discovery wallet" — out for v1 and v1.5 (decision-8).** No separate Discovery-credit product or wallet; past the free pool, NGOs fund the regular fuel ledger, keeping the money model single-pot.
-14. **ai4good-funded Lovable infrastructure** — ai4good does not subscribe to or bill Lovable; the NGO owns and pays for its Lovable workspace. The ai4good Skill does meter + cap Lovable usage per task and surface the NGO's credit balance during Track-A orchestration (REQ-021/028); Lovable is the Track-A primary deliverable vehicle.
-15. **Multi-tool fuel metering** — Fuel covers Anthropic (Claude Code) only; other tools are out-of-band, NGO-direct, or volunteer-personal unless they ship metering-compatible APIs.
-16. **Lovable credit reselling through ai4good** — In v1, NGOs buy Lovable credits directly; ai4good provides a deep-linked "Top up" CTA only. Reselling would need a reseller agreement plus tax pass-through and refund handling. v2 trigger: signed Lovable partnership.
-17. **Service-level agreements / completion guarantees** — ai4good offers no SLA and does not guarantee handoff; volunteers may ghost, tools may consume fuel without a working deliverable, scopes may be infeasible. The platform bounds financial risk (per-project fuel caps) and surfaces stalls but does not underwrite outcomes.
-18. **Closed-source / proprietary builds** — All projects are open-source under MIT (or a compatible permissive license) by default; NGOs requiring closed-source are not served.
-19. **Fuel-spend insurance / refund-on-no-deliverable** — Consumed fuel is not refundable even if the project does not ship (we cannot un-spend tokens); NGOs are warned at every top-up.
-20. **Fully-automated Anthropic key provisioning** — MOOT (decision-21): no per-project Anthropic keys; virtual keys mint automatically at kickoff.
-21. **Per-request prompt/response CONTENT capture — permanently out (privacy).** The gateway captures per-request metadata only; request bodies are inspected transiently and never persisted.
-22. **Anthropic-side "agent budget" enforcement** — MOOT (decision-21): the workspace-spend-cap story dies with per-project workspaces; enforcement is ours at the gateway.
-23. **OpenTelemetry prompt-content export from Claude Code** — ai4good does not request or process prompt-content telemetry from volunteers (privacy); volunteers may use OTel independently, and ai4good does not aggregate it.
-24. **Decision-10 v1.5 deferrals** — deferred out of the concierge v1 surface, all gated behind one public-beta line: before organic/EU signup (the REQ-029 launch checklist enforces it). Deferred: full rate-limiting (v1 ships a throttle); gradual-rollout tooling (v1 launches invite-only with a waitlist page); the full internal analytics dashboard (v1 uses minimal read-only reporting); the concierge supply CRM + hand-match tool (first cohort matched by hand); the content-takedown UI incl. DMCA/CSAM handling (REQ-031); multi-jurisdiction tax registration (v1 keeps automatic tax + a tax-ID field); the self-serve GDPR erasure/export UI (v1 handles erasure manually — no EU/public signup until it lands); and performance caching + CI performance gates. The multi-org Anthropic router is not deferred but retired outright (decision-21 — no per-project workspaces).
-25. **Automated PII / secret pre-scan on uploaded reference files (REQ-032)** — v1 uses governance-by-disclosure (the NGO acknowledges the data-responsibility rule; no scanning). A scan that quarantines likely-sensitive uploads before Discovery or the volunteer see them is a v1.5 option. v1.5 trigger: an observed real Tier-2 data incident, or EU/public signup.
-26. **Automated spend-anomaly detection engine (REQ-009)** — the nightly scorer, tiered auto-deactivation, and the anomaly-review/escalation/resolution flow are deferred to v1.5 (decision-14). v1 bounds loss deterministically instead — no cash-out, a first-fund cap, and the real-time fuel gate — plus the NGO's instant revoke action and daily human review. Rationale: at the pilot's ~10–15 hand-vetted projects the scorer mainly cuts detection latency (not binding) and would risk false-positives against legitimate $50 kickoff projects. v1.5 trigger: organic/EU signup.
+5. **Multi-volunteer teams per project** — one volunteer per project in v1; team support is v2.
+6. **Embedded IDE / web-based code editor** — volunteers use their own Claude Code / Lovable; no hosted editor.
+7. **NGO-to-NGO tool sharing marketplace** — repos are public, but no curated "fork this for your NGO" experience.
+8. **Anonymous / unverified NGOs publishing** — all publishing NGOs must be verified.
+9. **Automated NGO verification** — manual review by platform admin in v1.
+10. **Hosted production environment for built tools** — volunteer/NGO decide where to deploy; ai4good does not run their infrastructure.
+11. **Public star ratings for volunteers** — excluded; volunteer reputation is completion credit + badges only; NGO satisfaction is captured privately (v2 matching weight) and never displayed — protects volunteer motivation and prevents rating-anxiety/retaliation cycles.
+12. **Platform skim on tips** — handoff tips (REQ-022) flow NGO-to-volunteer with 0% platform cut; skimming gratitude is off-brand.
+13. **Pay-gated Discovery in v1** — Discovery is free up to a per-NGO daily credit allowance (10/day unverified, 30/day verified; resets daily at 00:00 UTC, no rollover — decisions 8/11); when an unfunded project exhausts the day's credits the NGO can verify (raising the allowance), fund the project's fuel to continue immediately (REQ-006), or wait for the next refill; a funded project's Discovery draws on its fuel from the outset ("Funded → all-$"); daily amounts may be revisited if abuse exceeds the grant.
+13a. **Paid "Discovery wallet"** — out for v1 and v1.5 (decision-8): no separate Discovery credit product or wallet; the post-allowance path is the regular project-fuel purchase flow, deliberately keeping the money model single-pot.
+14. **ai4good-funded Lovable infrastructure** — the NGO owns and pays for its Lovable workspace directly and Lovable consumption is never billed against fuel; the platform does meter and cap Lovable usage per task and surfaces the NGO's Lovable credit balance during Track-A orchestration (REQ-021/028).
+15. **Multi-tool fuel metering** — fuel covers Anthropic (Claude Code) only; other tools are NGO-direct or volunteer-personal expenses unless they ship metering-compatible APIs.
+16. **Lovable credit reselling through ai4good** — NGOs buy Lovable credits from Lovable directly; ai4good provides only a deep-linked "Top up" CTA; reselling would require a reseller agreement, tax pass-through, and refund integration (v2 trigger: signed Lovable partnership).
+17. **Service-level agreements / completion guarantees** — none; volunteers may ghost, AI may consume fuel without a working deliverable, scopes may prove infeasible; the platform bounds financial risk (per-project fuel caps) and surfaces stalls but does not underwrite outcomes.
+18. **Closed-source / proprietary builds** — all projects are open-source under MIT (or a compatible permissive license) by default; closed-source requests are not served.
+19. **Fuel-spend insurance / refund-on-no-deliverable** — consumed fuel is not refundable even if the project never ships (spent tokens cannot be un-spent); NGOs are warned of this at every top-up.
+20. **Fully-automated Anthropic key provisioning** — moot (decision-21): no per-project Anthropic keys exist; virtual keys are issued automatically at kickoff.
+21. **Per-request prompt/response content capture** — permanently out (privacy posture): the v1 gateway records per-request metadata only (tokens, model, timestamps, cost); request bodies are inspected transiently and never persisted; the decision not to surveil is deliberate and on the record.
+22. **Anthropic-side "agent budget" enforcement** — moot (decision-21): per-project workspaces are deleted; enforcement is structural at the gateway (per-key caps + the real-time fuel gate).
+23. **OpenTelemetry prompt-content export from Claude Code** — ai4good does not request, process, or aggregate prompt-content telemetry from volunteers (privacy posture); volunteers may use OTel independently for their own observability.
+24. **Decision-10 v1.5 deferrals (gate: before organic/EU signup)** — full rate-limiting (v1 keeps per-IP and per-surface throttles); gradual-rollout mechanism (v1 launches allow-list + don't-advertise, with a waitlist landing page); internal analytics dashboard (v1 uses a handful of internal reports); supply-funnel CRM + hand-match tool (first cohort hand-matched manually); content-takedown UI (REQ-031 — v1 keeps secret-scanning + push-protection); multi-jurisdiction tax registration (v1 keeps automated tax calculation, hosted invoices, tax-ID field); self-serve GDPR erasure/export UI (v1 keeps consent, sub-processor list, and a manual erasure runbook; no EU/public signup until self-serve lands); performance caching and load/quality CI gates; the multi-org Anthropic router is retired outright (decision-21).
+25. **Automated PII / secret pre-scan on uploaded reference files (REQ-032)** — v1 is governance-by-disclosure (the NGO acknowledges the data-responsibility rule; ai4good does not scan); v1.5 trigger: an observed incident of sensitive data uploaded against the disclosure, or EU/public signup.
+26. **Automated spend-anomaly detection engine (REQ-009)** — deferred to v1.5 (decision-14): v1 keeps deterministic loss caps (no cash-out, the $200 first-fund cap, per-key caps + the gateway's real-time fuel gate), the NGO's instant "revoke access now" action, and daily human review of the money dashboard; automated scoring only reduced detection latency, which does not bind at the concierge pilot's ~10–15 hand-vetted projects; if built, it lands as a gateway escalation rung; v1.5 trigger: organic/EU signup.
 
 ---
-
 
 ## MVP Scope & Post-MVP Roadmap
 
-Authoritative scope/roadmap reference. **Out of Scope** = what won't be built; this section = **when** features ship.
+This is the authoritative scope/roadmap reference: the Out of Scope section says what will not be built; this section says when features ship.
 
 ### v1 MVP (public beta launch)
 
-A 2026-06-03 10-persona review produced 7 founder decisions, followed by decisions 8-22. Net product deltas:
+**Decision summary (2026-06-03 pivot + decisions 8–22; where entries conflict, the later decision wins):**
+- **Pivot (2026-06-03)** — The deliverable is a deployed, NGO-self-maintainable tool, not a repo; Track A (NGO maintains via chat; Lovable is the build vehicle and durable home), with Discovery classifying the track. Data governance by disclosure: Discovery records data-sensitivity tiers; the highest tier is fixtures-only-during-build; triage enforces. No cash-out: fuel is non-cash, project-scoped credit (stays on the project; donate or keep) — removes payout, cash-refund, and money-transmission rails. Nonprofit entity + blended economics; a real Terms of Service. Concierge-first launch. New v1 REQs: REQ-027 (abandonment/rematch), REQ-029 (observability), REQ-030 (ops/incident + admin money-correction), REQ-031 (content moderation/takedown/secret-scanning).
+- **8 — Unified fuel + free Discovery allowance.** NGOs and volunteers both consume project fuel; funding is allowed from draft onward; Discovery is free up to a per-NGO daily credit allowance (10/day unverified, 30/day verified). Email verification is the floor for any Discovery message; org-document verification is the wall for publishing to volunteers. First funding and first match acceptance each trigger their own hard acknowledgment. No paid Discovery wallet in v1 or v1.5.
+- **9 — Git-as-truth PM tree.** Reversed by decision-20; retained only as decision trail.
+- **10 — Capability-preserving build trim.** Six reshapes of implementation shape with every v1 requirement intact; deferred to v1.5: concierge supply-funnel CRM + hand-match tool (first cohort matched manually), rate-limiting infrastructure, gradual-rollout tooling, analytics dashboard, report/takedown UI, multi-jurisdiction tax registration, self-serve data-erasure UI (manual runbook kept).
+- **11 — Two-layer money.** Funded fuel stays dollar-pegged (15% skim unchanged; no subscription). The free pre-fuel Discovery phase uses an abstract, context-weighted credit: long conversations and uploaded reference files (REQ-032) cost more, cached content costs less, and output regenerations and system-error retries are free. The allowance is a daily drip with no rollover; verification triples it (10 → 30/day). Transparency: a credit gauge, per-turn cost display, and a cost estimate shown before a file is ingested — credits are a free grant, never silently removed (a free grant also carries no stored-value/escheatment exposure). Funding a project flips its Discovery to dollar-metered fuel automatically; the free pool serves only unfunded projects (credits are NGO-bound, fuel is project-bound). At daily exhaustion the NGO can verify, fund to continue now, or return tomorrow — the UI says "keep going now," never "go faster."
+- **12 — Post-Discovery NGO project assistant (REQ-033, new in v1).** A funded project unlocks an ongoing, fuel-metered, read-only NGO↔AI assistant that answers "how is my project going?" from tasks, blockers, fuel runway, and recent activity. It never mutates tasks, approves handoff, or accepts scope (changes route through Change Requests). No free credits — it disables at fuel zero with a top-up prompt. Proactive/push agents v1.5.
+- **13 — Opus for Discovery + the assistant.** Discovery is the highest-leverage reasoning step — its scope drives the whole build — so the strongest model de-risks every downstream volunteer hour. Cost is bounded: Discovery is short and one-time, the daily allowance caps worst-case spend, and the credit unit is model-agnostic so allowances stay 10/30 (the per-credit subsidy is deliberate acquisition spend). The funded assistant's cost passes through to the NGO.
+- **14 — Automated spend-anomaly engine deferred to v1.5.** The loss ceiling holds without it: no cash-out, first-fund cap, spend caps, fuel-zero cutoff, and a manual rotate-key action mean a leaked key only ever buys bounded compute. The engine only reduced detection latency, which does not bind at pilot scale with daily founder review. Reinstate before organic/EU signup.
+- **15 — Project comms trimmed to a comment thread.** v1 keeps one project-level comment thread; the full channel (real-time, threads, @-mentions, search) is v1.5. System events go to the notifications and activity feeds, not chat; CR Accept/Decline surfaces on the CR row on the project page.
+- **16 — Change-Request anti-distraction guardrails.** Volunteer churn is the #1 supply risk, so CRs are opt-in and never interrupt: a low-tone notification with no per-CR email, and only Accept creates work. One open CR per project at a time; Decline is penalty-free and the protected default; the NGO sees expectation-setting framing at submission ("optional; the volunteer decides; adds scope, time, and fuel").
+- **17 — `paused` state removed from v1.** At pilot scale a pause is a support conversation: pre-match the NGO unpublishes or cancels; mid-build an admin turns off access and leaves a note, or the project is cancelled. Pause/resume returns in v1.5 on the first real request.
+- **19 — Track B deferred to post-v1.** v1 builds Track A only; non-Track-A needs are waitlisted at Discovery; 100% Lovable dependency accepted.
+- **20 — Linear replaces the git-as-truth PM tree (reverses decision-9)**, for the product and the ai4good buildout itself. Ground: real signals, not AI-authored narratives. One free Linear workspace per project, assigned from a pre-created, concierge-replenished pool (workspace creation is manual-only). Coordinator-owned decomposition: automation drafts, a human approves; briefs are session-sized and dependency-ordered. Pull-based volunteer self-assignment is the commitment signal. Task status moves only via the GitHub integration on PR merge; agents may read, comment, and self-assign but never move status — violations are detected and reverted. NGO visibility stays panel-only (no Linear seats); the tree is snapshotted into the repo at handoff; coordination infrastructure is platform-owned and never transfers at handoff (delivery infrastructure — Lovable, repo — is NGO-owned).
+- **21 — LLM gateway with virtual keys in v1 (rewrites REQ-009).** Each volunteer gets a show-once virtual key per project; the real provider key never leaves the platform. Per request the gateway enforces spend caps (per-request + rolling 24h), a real-time fuel gate, a check that traffic originates from the sanctioned setup, governance-prompt injection, and per-request metering, with instant revocation. Eliminates per-project provider workspaces, manual key operations, and usage polling. Privacy: prompt bodies are never persisted — only token counts, metadata, and score/boolean signals. An escalation ladder is documented, not built. Gateway hosting is open decision OD-6.
+- **22 — Attribution + transparency capture in v1 (new REQ-034/035).** Every spend record binds to a task where derivable — telemetry that never gates work, with exploration/onboarding recognized as first-class buckets. The NGO sees burn per deliverable; per-volunteer granularity stays coordinator-side. Handoff gains an attribution step: a testimonial plus three credit-framed dimensions (consciously supersedes the "no satisfaction form in v1" deferral; never a public star score), plus 30/60/90-day jumpstart health from real signals with a 60-day "did you try?" confound question. Rationale: uncaptured data is lost forever. Matching/synthesis surfaces v1.5.
 
-- **Deliverable is a deployed, NGO-self-maintainable tool** (not a repo). **Track A** (NGO maintains via chat on the sanctioned builder platform — Lovable in v1) is the only track v1 builds; **Track B** (developer-grade + plain-host deploy) is deferred to post-v1. Discovery classifies the track; non-Track-A needs are waitlisted.
-- **Governance-by-disclosure:** Discovery assigns data-sensitivity tiers; Tier-2 = fixtures-only-during-build, enforced at triage.
-- **No cash-out:** fuel is non-cash, project-scoped credit; stays-on-project; donate or keep (move-between-projects → v1.5). Removes Treasury/ACH/refund/KYC/AML.
-- **Nonprofit** entity + blended economics; **real ToS** (no "no contract").
-- **Concierge-first launch** — supply liquidity is the #1 gate.
-- **New v1 REQs:** REQ-027 (abandonment/rematch), REQ-029 (observability), REQ-030 (ops/incident + admin money-correction), REQ-031 (content moderation/takedown/secret-scanning).
+**Launch strategy — concierge-first:** supply liquidity is the #1 launch gate; do not open organic browse first. Pre-recruit a ~20–30-volunteer bench, hand-match the first ~10–15 curated NGO projects end-to-end to prove the loop produces deployed tools, then open organic browse. Supporting v1 hooks: the supply-funnel metric, the unmatched-project aging nudge, admin concierge-match tooling. Referral loop v1.5.
 
-**Decisions 8-22.** Decisions 20-22 (2026-07-05) re-architect coordination (20) and token governance (21-22). Where a later decision conflicts with an earlier one — notably **20 reversing 9** — the later decision governs; the earlier text is kept only as decision trail.
+**Foundation:**
+- REQ-001 — Auth: email + GitHub + Google.
+- REQ-002 minimal — NGO verification by manual admin review of an uploaded document; KYC tier + automated identity verification v1.5.
+- REQ-003 — Project Need intake.
+- REQ-007 — Volunteer profile + marketplace.
+- REQ-011 minimal — Volunteer applies; NGO accepts or declines. v1 shows skill- and cause-tag overlap badges only; numeric match score + breakdown UI v1.5.
 
-- **8 — Unified fuel + free-pool Discovery:** NGOs and volunteers both consume project fuel; funding is allowed from `draft` onward. Discovery is free up to a per-NGO daily credit allowance; email verification is the floor to chat, NGO-doc verification is the wall to publish. No paid "Discovery wallet" in v1 or v1.5.
-- **9 — Git-as-truth PM tree:** conflicts with 20 and is **reversed by 20**; retained only for the trail.
-- **10 — Task-tree reduction pass:** deferred genuinely-v1.5 work without cutting any preserved REQ capability.
-- **11 — Two-layer money:** funded fuel is real-dollar-pegged; the free pre-fuel Discovery phase is an abstract per-NGO credit system. Daily drip (10/day unverified, 30/day verified), no rollover. A funded project routes its Discovery to project fuel, not the free pool. Discovery chat shows a credit gauge, per-turn cost, and per-file cost before ingesting.
-- **12 — Post-Discovery NGO assistant (REQ-033):** a funded project unlocks an ongoing, fuel-metered, read-only NGO↔AI assistant ("how's my project going?"). Funded projects only; no free credits.
-- **13 — Opus** for Discovery + the post-Discovery assistant (highest-leverage reasoning step).
-- **14 — Defer the REQ-009 spend-anomaly engine to v1.5;** the loss ceiling (no cash-out, spend caps, deactivation at fuel-zero, manual rotate) is preserved without it.
-- **15 — REQ-015 → lightweight project comment thread;** full channel deferred to v1.5.
-- **16 — CR anti-distraction guardrails:** a Change Request is opt-in and never interrupts; one open CR at a time; Decline is penalty-free and the default-protected choice; NGO framing at submission.
-- **17 — Remove the `paused` state from v1;** pause/resume → v1.5 (workaround: unpublish pre-match; admin deactivate + note, or cancel, mid-build).
-- **19 — Defer Track B** to post-v1; v1 is Track-A only (non-Track-A needs waitlisted at Discovery).
-- **20 — A platform coordination workspace replaces the git-as-truth tree (REVERSES 9),** for the product and the ai4good buildout: one coordination workspace per project; coordinator-owned decomposition (automation drafts, a human approves); pull-based self-assignment is the commitment signal; task status reflects real completed work, never an agent's say-so; agents may read and comment but cannot mark work done. NGO visibility is panel-only. Coordination infra is platform-owned and never transfers at handoff; delivery infra (builder, repo) is NGO-owned.
-- **21 — Platform LLM gateway in v1 (rewrites REQ-009):** volunteers reach the model only through a platform-mediated path, scoped per (volunteer, project), that enforces spend caps and the fuel gate, injects governance, and meters usage so NGOs are charged only for real consumption. Volunteer prompt/request content is never persisted (privacy). Hosting is open (OD-6).
-- **22 — Attribution + transparency in v1 (REQ-034 + REQ-035):** burn is attributed per deliverable, so the NGO sees cost per deliverable (telemetry, never gates); handoff testimonial + 3 credit-framed dimensions + 30/60/90-day jumpstart health from real signals.
+**Discovery & Publishing:**
+- REQ-004 — Discovery Agent: free within the daily credit allowance; outputs a complexity tier only, no dollar estimate.
+- REQ-005 — Scope doc + publishing into triage.
+- REQ-023 — Human triage gate, 48h SLA; every NGO passes through it in v1 (no KYC auto-approval).
 
-**Launch strategy — concierge-first:** supply liquidity is the #1 launch gate. Do not open organic browse first. Pre-recruit a ~20-30-volunteer bench, hand-match the first ~10-15 curated NGO projects end-to-end to prove the loop produces deployed tools, then open organic browse. v1 hooks: the supply-funnel metric (Goal 5), the unmatched-project nudge (REQ-016), admin concierge-match tooling. Referral loop → v1.5.
+**Funding & Money:**
+- REQ-006 — Stripe top-up + fuel ledger + match-to-fund under the non-cash, no-cash-out model. Leftover stays on the project (donate or keep); chargeback handling, reserve, and first-fund caps included. No payout, cash-refund, payee-KYC, or AML rails in v1. Auto-top-up v1.5.
+- REQ-022 — Deferred: tips v1.5; v1 has no tips UI at handoff.
 
-**v1 REQ scope:**
+**Project Execution:**
+- REQ-008 — GitHub repo per project inside the platform-owned org; dev-internal issues only.
+- REQ-009 — LLM gateway per decision-21; automated spend-anomaly detection v1.5 (decision-14); gateway hosting = OD-6.
+- REQ-010 — Single-view project page + cadence stats + dual fuel meters.
+- REQ-021 — Lovable is the Track-A deliverable vehicle; Claude Code orchestrates it behind a driver abstraction with a per-task credit cap, audit logging, and a manual dual-rail fallback; manual status widget retained; inbound email parser v1.5; Track B post-v1 (decision-19).
+- REQ-024 — Orthogonal blockers + task-anchored clarifications, including collaborator-access requests for the fallback rail.
+- REQ-025 minimal — Change Requests captured and surfaced as an actionable row on the project page plus a notification; volunteer Accept/Decline with note; Accept creates one top-priority task. Full CR workflow UI v1.5.
+- REQ-026 — Platform task management via Linear per decision-20; no platform-hosted task server; no in-repo task file.
+- REQ-028 — ai4good Claude Code Skill, the core orchestration shell: install, session bootstrap, task binding, slash commands, branch/magic-word convention, plus the Track-A Lovable orchestration layer (build-vs-local triage, per-task budget guardrails, quality loop, consent gate, audit reporting).
+- REQ-034 — Task-level attribution per decision-22: telemetry that never gates work; NGO burn-per-deliverable view; reconciliation surfaces v1.5.
+- REQ-035 — Post-handoff attribution + 30/60/90-day jumpstart health per decision-22; matching/synthesis surfaces v1.5.
 
-*Foundation:* REQ-001 (Auth: email + GitHub + Google); **REQ-002 minimal** (NGO verification: manual admin review of doc upload; KYC + identity automation → v1.5); REQ-003 (Project Need intake); REQ-007 (Volunteer profile + marketplace); **REQ-011 minimal** (Volunteer applies, NGO accepts/declines; match-score algorithm + breakdown UI → v1.5; v1 shows skill/cause-tag overlap as a count hint).
+**Comms & Dashboards (minimal v1 versions):**
+- REQ-013 minimal — NGO dashboard: project list + fuel + task progress + "Action needed" rail. Activity feed, KYC upsell, Lovable rail, testimonials v1.5.
+- REQ-014 minimal — Volunteer dashboard: current projects + fuel gauge + completion credit; no badge engine in v1.
+- REQ-015 — Project-level comment thread on the project page; system events go to the notifications feed; full channel v1.5 (decision-15).
+- REQ-016 minimal — Event notifications with fixed defaults; per-user preference UI v1.5.
 
-*Discovery & Publishing:* REQ-004 (Discovery Agent — free, rate-limited; complexity tier, no dollar estimate); REQ-005 (Scope doc + publishing → triage); REQ-023 (Triage gate — all NGOs go through human triage in v1, 48h SLA; no KYC auto-approval).
-
-*Funding & Money:* **REQ-006** (Stripe top-up + match-to-fund + non-cash credit model, no cash-out; leftover stays-on-project; chargeback handling + first-fund caps. No Treasury/ACH/refund-cashout/KYC/AML; auto-top-up → v1.5); **REQ-022 deferred** (tips → v1.5; no tips UI at handoff).
-
-*Project Execution:* REQ-008 (deliverable code repositories; v1 keeps volunteer repo access at a continuously-enforced baseline that limits exposure from a misused credential; infra/delivery-repo isolation → v1.5); **REQ-009** (platform LLM gateway — decision-21; automated spend-anomaly detection → v1.5; hosting = OD-6); REQ-010 (Single-view project page + cadence stats + dual fuel meters); REQ-021 (Lovable = Track-A deliverable vehicle, orchestrated on the NGO's behalf with a per-task builder-credit cap + audit + manual fallback; email-to-builder input → v1.5; Track B → post-v1); REQ-024 (blockers + task-anchored clarifications); **REQ-025 minimal** (Change Requests as an actionable CR row + notification; Accept/Decline with note; on Accept, one p0 coordination item; full CR workflow UI → v1.5); **REQ-026** (Platform coordination workspace — decision-20); **REQ-028** (ai4good orchestration workflow — v1 core shell + the Track-A build-orchestration layer); **REQ-034** (Task-level attribution — burn-per-deliverable; telemetry, never gates); **REQ-035** (Post-handoff attribution + 30/60/90 jumpstart health).
-
-*Comms & Dashboards:* **REQ-013 minimal** (NGO dashboard: project list + fuel + task progress + "Action needed" rail; richer surfaces → v1.5); **REQ-014 minimal** (Volunteer dashboard: current projects + fuel gauge + completion credit; no badge engine; NGO satisfaction signals → v1.5); **REQ-015** (project comment thread; system events to the notifications feed; full channel → v1.5); **REQ-016 minimal** (Event notifications with sensible defaults; per-user preference UI → v1.5).
-
-*Handoff:* **REQ-012 minimal** (Automated checklist + sign-off; repo permission adjustment with optional transfer; revoke volunteer access + archive the coordination record; includes the REQ-035 attribution step. Tip flow → v1.5).
-
----
+**Handoff:**
+- REQ-012 minimal — Automated checklist + sign-off; repo permission adjustment with optional transfer; volunteer access termination (virtual key + task-workspace membership) + task-tree snapshot; includes the REQ-035 attribution step. Tip flow v1.5.
 
 ### v1.5 (3-6 months post-launch)
 
-Triggered by pilot operational pain or a specific external event. Each item lists its trigger.
-
-| Item | Trigger |
-|---|---|
-| Move-funds-between-projects | NGOs accumulate idle credit on finished projects and ask to redeploy it |
-| Project pause/resume (the `paused` state) | First real NGO request to pause an active project |
-| Replit as a 2nd sanctioned builder platform | A Track-A project needs a clean transfer Lovable can't do, or Lovable reliability falters |
-| Volunteer referral loop | Concierge cohort proves the loop; organic supply needs compounding |
-| Auto-top-up (off-session Stripe) | Pilot NGOs report fuel-low interrupts are friction; manual-pitch adoption > 30% |
-| Tips via Stripe Connect | First handoff where the NGO asks to thank the volunteer with money |
-| REQ-025 full CR workflow UI | Pilot NGOs find the minimal CR surface too thin |
-| REQ-011 match-score algorithm + breakdown UI | "I don't know why this project showed up for me"; >20 active projects |
-| Reputation surface in matching (supersedes the old satisfaction-signal row via decision-22) | Attribution + jumpstart health visible in matching |
-| REQ-034 reconciliation surfaces | Coordinator wants the unattributed-% panel + per-task cost baselines |
-| Gateway anomaly/abuse hardening | Real spend anomalies appear before organic signup opens |
-| REQ-002 KYC + identity automation | Verification queue outgrows one admin's twice-daily batch |
-| Channel enhancements (threads, presence, search, images) | Minimal channels feel lacking |
-| Per-user notification preferences UI | First complaint about email frequency |
-| Dashboard richer surfaces (activity feed, badges, testimonials, KYC upsell, builder rail) | Engagement metrics show demand for reputation surface |
-| Builder-only project mode (no Anthropic-fuel kickoff) | Builder-only-suitable projects at meaningful volume |
-| AI Change-Request Agent | NGOs find the raw CR flow too thin |
-| REQ-023 triage attestation + spot-check | Triage queue median age > 24h OR weekly admin triage > 5h |
-
-**Dropped/superseded (kept to prevent re-litigation):** the REQ-026 platform task-tooling server (dropped by decision-9, then the coordination workspace by decision-20 — neither v1 nor v1.5); the standalone AI-proxy + wrapper-script approach (shipped instead as the v1 gateway, decision-21); real-time key-status display and multi-Anthropic-org provisioning (moot under decision-21).
-
----
+Each item ships on pilot operational pain or its named trigger:
+- Move funds between projects — NGOs accumulate idle credit on finished projects and ask to redeploy it.
+- Project pause/resume — first real NGO pause request (v1 workaround: unpublish pre-match; admin access-off with a note, or cancel, mid-build).
+- Replit as a second sanctioned builder platform — an ownership-transfer need Lovable cannot meet, or Lovable reliability falters.
+- Volunteer referral loop — the concierge cohort proves the loop and organic supply needs compounding.
+- Auto-top-up — pilot NGOs report fuel-low interrupts as friction; adoption when pitched manually exceeds 30%.
+- Tips via payment-provider onboarding — first handoff where an NGO asks how to thank the volunteer with money.
+- Full Change-Request workflow UI — pilot NGOs find the minimal CR surface too thin.
+- Match-score algorithm + breakdown UI — "why did this show up for me" feedback; more than 20 active marketplace projects.
+- Reputation surface in matching (attribution + jumpstart health visible) — the v1.5 remainder of decision-22.
+- Attribution reconciliation surfaces — coordinator wants unattributed-share visibility and per-task cost baselines feeding Discovery estimates.
+- Gateway residual hardening (ledger reconciliation, allowlists, payload bounds, velocity checks) — real ledger anomalies; required before organic signup.
+- Linear wrapper layer — detect-and-revert proves noisy (agents keep tripping status changes).
+- NGO KYC tier + automated identity verification — the verification queue outgrows one admin's batch capacity.
+- Lovable inbound email parser — manual widget toggling proves annoying; the email format is stable across 2+ projects.
+- Channel enhancements (threaded replies, presence, search, image attachments) — the minimal thread feels lacking.
+- Per-user notification preferences UI — first complaint about email frequency.
+- Richer dashboards (activity feed, badge engine, opt-in testimonials, KYC upsell) — engagement metrics show demand for more reputation surface.
+- Lovable-only mode + a kickoff path without Anthropic fuel — Lovable-only-suitable projects appear at meaningful volume.
+- AI Change-Request Agent — NGOs find the raw CR flow too thin and need help articulating.
+- Second spend-anomaly signal (provider alert emails) — the first high-spend anomaly detection misses.
+- Triage attestation + spot-check — triage median age exceeds 24h or weekly admin triage time exceeds 5h: NGOs self-attest at publish and go live immediately, with a 10–20% random spot-check and a revoke-on-violation flow.
 
 ### v2 (6-12 months post-launch)
 
-Bigger architectural or ecosystem-dependent changes.
+Bigger architectural changes or items dependent on ecosystem shifts outside ai4good's control:
+- REQ-017 — Post-handoff feature-request surfacing — enough handed-off projects to surface.
+- REQ-018 — Discovery voice input — typing-friction feedback.
+- REQ-019 — Multi-volunteer per project — project complexity outgrows the single-volunteer model.
+- REQ-020 — Public impact page per NGO — enough shipped tools to populate it.
+- Automated NGO verification via charity-registry APIs — the manual review queue outgrows one admin.
+- KYC auto-approval at triage — volume shows KYC-verified NGOs reliably pass.
+- Lovable real-time credit status — requires Lovable shipping scoped OAuth or billing webhooks; verify before building.
+- Lovable credit reselling — requires a signed reseller agreement (tax and refund pass-through).
+- External Slack integration — NGOs already on Slack want project comms mirrored into their workspace.
+- Anonymous post-handoff contributors — drive-by fixes from non-registered developers appear.
 
-| Item | Trigger / Dependency |
-|---|---|
-| REQ-017 Post-handoff feature-request surfacing (P1) | Pilot NGOs want to drive follow-up work; enough handed-off projects exist |
-| REQ-018 Discovery voice input | NGO feedback that typing is friction |
-| REQ-019 Multi-volunteer per project | Project complexity outgrows the single-volunteer model |
-| REQ-020 Public Impact page per NGO | NGOs want a marketing surface; enough shipped tools to populate it |
-| Automated NGO verification via Charity Navigator / GuideStar | Manual review queue outgrows one admin |
-| KYC auto-approval for verified NGOs | Triage volume shows KYC NGOs reliably pass |
-| Real-time builder-credit status | Lovable ships scoped OAuth or a billing webhook |
-| Lovable credit reselling | Signed reseller agreement with Lovable |
-| External Slack integration | NGOs want to mirror project channels into their Slack |
-| Anonymous post-handoff contributors | Post-handoff issues attract drive-by fixes |
+### v1 design rationale: Claude Code orchestrates Lovable (Track-A v1 architecture)
 
----
+The Track-A volunteer's local Claude Code runs the ai4good Skill, connected to Linear (tasks) and Lovable (build) plus the platform API (context, blockers, comments). It pulls the next task, decides Lovable-vs-local, prompts Lovable, reviews the output, tests, and iterates; task status lands only on PR merge, never by agent say-so.
 
-### Track-A delivery architecture (v1): the platform orchestrates the builder
-
-This is v1 (REQ-021 + REQ-028), not a future direction. Track-A delivery is produced by orchestrating the sanctioned builder (Lovable) on the NGO's behalf through the ai4good orchestration workflow; task status lands only when work actually completes, never by an agent's claim.
-
-Why:
-- **Single source of intent** — one canonical record of the build keeps metering, scope, and audit authoritative because everything routes through one entry point.
-- **Structural cost enforcement** — because the orchestration makes the build calls, it enforces the per-task builder-credit cap, logs each call, and surfaces the NGO's builder balance.
-- **Billing reality** — each build call bills the NGO's builder workspace regardless of identity; this is why the budget cap is mandatory and enforceable.
-- **Research-Preview risk** — a builder breaking change degrades to a manual fallback; a pilot USER-TEST validates orchestration on 1-2 real projects.
-
-Deferred: second builder platform (v1.5); zero-touch orchestration polish (v2).
-
----
+Why: single source of intent (the volunteer's session is the canonical record, so platform metering, scope enforcement, and audit stay authoritative); structural cost enforcement (Lovable build messages bill the NGO's workspace, so the mandatory per-task credit cap, call logging, and NGO balance surfacing sit at the point of spend); per-volunteer Lovable identity (individual audit; cross-workspace scope bounded by invitations); contained research-preview risk (the driver abstraction + manual dual-rail fallback mean a Lovable breaking change degrades to manual work, never a dead build; orchestration validated on 1–2 real pilot projects). Deferred: Replit as a second builder platform (v1.5); zero-touch fully-autonomous orchestration (v2).
 
 ### Permanently out of scope (will not build)
 
 Firm "no" — listed to prevent re-litigation:
-- Crypto / on-chain / tradeable fuel — Stripe-backed fiat only
-- Native mobile apps — web-responsive only
-- Closed-source / proprietary builds — all projects MIT-licensed open source by default
-- Service-level agreements / completion guarantees — contradicts Platform Promise §4
-- Fuel-spend insurance / refund-on-no-deliverable — can't un-spend tokens; contradicts Promise §3
-- Platform skim on volunteer tips — explicitly 0%
-- Hosted production environment for NGO-built tools — handoff is to NGO ownership
-- NGO-to-NGO tool-sharing marketplace — out of mission scope
-- Multi-tool fuel metering at platform level — only Anthropic via fuel
-- Telemetry collection of prompt content from volunteers — privacy posture
+- Crypto, on-chain tokens, tradeable fuel — Stripe-backed fiat only.
+- Native mobile apps — web-responsive only.
+- Closed-source / proprietary builds — all projects MIT-licensed open source by default.
+- Service-level agreements / completion guarantees — contradicts the Platform Promise.
+- Fuel-spend insurance / refund-on-no-deliverable — spent tokens cannot be un-spent; contradicts the Promise.
+- Platform skim on volunteer tips — explicitly 0% on tips.
+- Hosted production environment for NGO-built tools — handoff is to NGO ownership.
+- NGO-to-NGO tool-sharing marketplace — out of mission scope; OSS forking happens on GitHub naturally.
+- Multi-tool fuel metering — only Anthropic spend routes through fuel; other tools are NGO-direct or volunteer-personal.
+- Collection of volunteer prompt content — privacy posture.
 
----
+### Open issues that should be resolved before public launch
 
-### Open issues to resolve before public launch
-
-Tier-2 decisions/policies (not features) to settle before exposing the platform to real NGOs.
-
-**Resolved:** fuel = prepaid, fully-consumable, non-cash-refundable service credit (removes stored-value/money-transmission/escheatment concerns); refund/chargeback mechanics dissolved by no-cash-out + a chargeback-after-consumption handler; abandonment/rematch is REQ-027; sensitive-data/open-source conflict resolved via private-opt-in at triage; deployment ownership (Track A → Lovable hosts, NGO self-maintains, ai4good never operates infra; deployment URL is a handoff precondition, 30-day-alive tracked); entity = nonprofit (donations tax-deductible).
-
-**Still open:**
-- **Admin staffing model at scale** — "<10 min/project/week" holds at pilot volume but not at the year-1 target (~200 projects); need an explicit staffing model or cut manual gates before scale.
-- **Anthropic commercial readiness** — year-1 target ~$210k spend; need org-tier terms / prepaid-vs-invoice / custom rate limits as a launch gate.
-- **Counsel deliverables** — plain-language ToS (no-warranty / no-SLA / limitation-of-liability), volunteer-classification opinion, fiscal-sponsor agreement, EU data-residency + sub-processor/DPA stance before EU onboarding.
-- **Blended P&L + grant runway** — bottom-up year-1 P&L; lock grant/donor runway covering the net gap.
-
+Decisions to make and policies to write, needing external (legal, accounting, business) input — not features:
+1. Fuel legal/tax characterization — DECIDED: prepaid, fully-consumable, non-cash-refundable service credit (no cash-out removes stored-value/money-transmission concerns; no decay clock); one-line counsel confirmation still wanted.
+2. Refund/donation/chargeback mechanics — mostly dissolved by no-cash-out; chargeback-after-consumption is handled (freeze, access-off, write-off, reserve); donations are tax-deductible under the nonprofit.
+3. Abandonment/rematch state machine — RESOLVED as REQ-027.
+4. Sensitive-data vs open-source conflict — RESOLVED: public MIT default with private opt-in for justified cases, confirmed at triage; an acceptable-use document is still owed (ops work, not a launch blocker).
+5. Admin staffing model at scale — OPEN: manual gates hold at pilot volume but not at the year-1 target; need an explicit staffing model or fewer manual gates before scale.
+6. Anthropic commercial readiness — OPEN: year-1 spend (~$210k) needs tier negotiation, a billing arrangement, and rate limits; treat as a launch gate, not a watch item.
+7. Deployment ownership post-handoff — DECIDED: the deliverable is a deployed running tool; Lovable hosts it and the NGO owns the workspace (~$25/mo, disclosed); ai4good never operates infrastructure; a live deployment is a handoff precondition; 30-day-alive is tracked.
+8. Entity type — DECIDED: nonprofit path (fiscal sponsorship now, own 501(c)(3) later); enables tax-deductible donations and grant funding; forecloses traditional VC.
+9. Counsel deliverables — OPEN: counsel-reviewed Terms of Service (no-warranty, no-SLA, limitation of liability; the UI keeps the warm voice); volunteer-classification opinion; fiscal-sponsor agreement; EU data-residency + sub-processor/DPA stance before EU onboarding.
+10. Blended P&L + grant runway — OPEN: bottom-up year-1 P&L (skim + grants + donations vs compute float + infrastructure + labor); lock a grant/donor runway covering the projected net gap.
 
 ## Open Questions & Risks
 
 ### Open Questions
 
-**Closed / superseded (decision trail):**
-- **Q1/Q8 — Metering and revoking AI access per project:** resolved and moot (decision-21); no longer blocked by external-provider key-management limits. Cost attribution and access revocation are handled per project.
-- **Q2 — Backend execution environment:** resolved. Long-running usage polls and event fan-out were checked against the platform's job time-limits and fit; a heavier host is reserved only as an escape hatch for any job that would exceed them. Low product impact.
-- **Q5 — Volunteer compensation beyond AI-cost coverage:** resolved. v1 is reputation-only (completion credit + one "Shipped first tool" badge, REQ-014). Optional NGO→volunteer tips at handoff (REQ-022, via Stripe Connect) and a platform honorarium pool are deferred to v1.5 — direct volunteer payouts need recipient onboarding and tax reporting, not load-bearing for the core thesis.
-- **Q6 — Pre-funded fuel for Discovery:** resolved. Discovery is free up to a per-NGO daily limit (higher once the NGO is verified — REQ-002/004); once a project is funded, its Discovery draws on the project's fuel (decision-11). The earlier fixed message-count and per-session spend caps are retired.
-- **Q7 — Automated monitoring of NGO build-credit balances:** deferred. v1 reads a project's remaining build credits per session, with the NGO's consent, to enforce that project's budget cap; a standing monitor across all NGO accounts waits until the build vendor exposes a billing-only access path or low-credit notifications.
+**Resolved / superseded (trail only):** Q1+Q8 — moot per decision-21: volunteer AI access is platform-managed, attributed per volunteer, and revocable immediately (REQ-009); no external provisioning dependency remains. Q2 — resolved; no product impact. Q5 — v1 volunteer reward is reputation-only: completion credit plus the single "Shipped first tool" badge (REQ-014); NGO tips at handoff deferred to v1.5; honoraria revisited only if volunteer retention (Goal 2) underperforms. Q6 — Discovery is free within the per-NGO daily credit allowance (10/day unverified, 30/day verified); funding may start from draft; a funded project's Discovery is dollar-metered (REQ-002/004/006); lifted allowances for `kyc_verified` are deferred to v1.5 — v1 grants that tier no higher limit.
 
-**Partially resolved:**
-- **Q3 — NGO verification bar:** a trusted NGO must supply a registration document, a public reference link, and pass manual admin review; a higher trust level adds proof of tax-exempt status and an identity check. Open: which countries' tax-exempt proofs to accept at launch.
+**Still open:**
 
-**Open (none block the PRD-dissection pass):**
-- **Q4 — Skim rate:** default 15% (REQ-006). Options: flat 15%, tiered by NGO revenue, or flat with waivers for sub-$200 budgets. Due pre-public-launch.
-- **OD-1 — Reviewer identity + merge authority** per project (coordinator / peer volunteer / agent-assisted with a human click) — a governance call; blocks the REQ-026 merge flow and the reviewer-agent role.
-- **OD-2 — NGO Status-Panel scope + workspace onboarding** (what the panel shows and how the NGO is introduced to it) — blocks the REQ-010/013 panel.
-- Remaining founder calls are numeric-config and infrastructure tuning for the fuel-governance and coordination surfaces; each blocks only its own build task.
+- **Q3 — NGO verification:** bar set — `verified` requires a registration document, a public reference link, and manual admin review; `kyc_verified` adds tax-exempt documentation plus an identity check on the NGO admin (verification provider selected). Open: which jurisdictions' tax-exempt documents v1 accepts (US 501(c)(3), UK Charity Commission, EU equivalents).
+- **Q4 — skim rate:** flat 15% vs NGO-size-tiered vs waivers for sub-$200 budgets. Owner: business; due pre-public-launch; affects revenue model.
+- **Q7 — platform-level Lovable usage visibility:** in v1, the NGO's Lovable credit balance is read only with the volunteer's consent during the volunteer's own session, to enforce the per-task budget cap (REQ-021/028). Standing platform-side visibility across NGO workspaces stays deferred: Lovable today offers only broad per-user authorization (the platform would need over-wide access to each NGO account) and its integration surface may change without notice. Revisit when Lovable offers narrowly scoped, usage-only access; that would replace manual and per-session capture with platform-side usage data and could add build-cadence analytics.
+
+#### Open decisions register — founder calls still owed (decisions 20/21/22 fold-in; none block the PRD-dissection pass, each blocks only the build item named)
+
+| # | Decision | Blocks |
+|---|---|---|
+| OD-1 | Reviewer identity + merge authority per project (coordinator, peer volunteer, or agent-assisted human click) — governance, not plumbing | REQ-026 merge flow + reviewer role |
+| OD-2 | NGO Status-Panel scope + workspace onboarding | REQ-010/013 panel |
+| OD-3 | Volunteer spend-cap and low-fuel warning levels | REQ-009 |
+| OD-4 | Sensitivity at which misuse detection enforces | REQ-009 |
+| OD-5 | Scope of the deferred second spend-verification layer | v1.5 |
+| OD-6 | Operational home of usage metering (founder: deferred) | REQ-009 |
 
 ### Risks & Mitigation
 
-| Risk | Severity | Mitigation / contingency |
+| Risk | Severity | Mitigation → Contingency |
 |---|---|---|
-| Volunteers exceed project fuel | High | Low-balance alerting + hard cut-off at fuel = 0 + transparent ledger; NGO may top up; platform absorbs pilot overruns |
-| NGOs sign up but never fund | Medium | Free Discovery funnel; $50 minimum at match-acceptance (REQ-006), not at publish; abandonment detection (REQ-027) |
-| Malicious NGO posts a commercial need | High | Verification gate + admin project review during pilot; reject + ban under documented policy |
-| Volunteers ghost mid-project | High | 14-day inactivity reminder → 21-day auto-release → project re-opened; NGO may request re-match |
-| Stripe webhook failure leaves a paid top-up uncredited | High | Stripe retries plus a scheduled nightly reconciliation check catch any missed credit; admin reconciliation tool as backstop |
-| Anthropic outage kills Discovery | High | "Service degraded" banner, queued intakes, manual-scope option; OpenAI as a Discovery fallback (post-v1) |
-| GitHub API rate limit throttles activity/cadence reads | Medium | Reads cached and batched to stay under the limit |
-| Regulator treats NGO verification docs as sensitive PII | Medium | Docs held in a private, access-controlled store, encrypted at rest; DPA available; consent + minimization review as contingency |
-| AI-generated code has license/quality issues | Medium | MIT default; first-apply IP attestation (REQ-007, no separate CLA); CI lint + tests required for handoff (REQ-012); NGO can reject handoff |
-| Fuel-cost inflation — Anthropic raises prices | Medium | Skim is percentage-based and scales with cost; fuel rate card revisited periodically |
-| Security incident at Lovable (the build vendor) affects the integration | Medium | No ai4good credential is stored with Lovable — only the volunteer's own login couples to it; if an incident affects NGOs, pause Lovable build recommendations and fall back to the manual path |
-| Lovable status-email parser breaks on format changes | N/A in v1 | Deferred to v1.5; v1 uses a manual status widget, so no parser exists to break |
-| AI tools burn fuel without a viable deliverable | High | Irreducible AI-dev risk. First-apply Platform Promise disclaimer; per-project fuel cap bounds exposure; USER-TEST checkpoints catch dead ends; burn-per-deliverable on NGO panel (REQ-034). Consumed tokens are non-refundable; outcome recorded for matching reputation (REQ-035, v1.5) |
-| NGO expects an SLA / completion guarantee | Medium | No-SLA/no-completion clause acknowledged at signup and at every match acceptance; Promise-link footer at every top-up; admin outreach + next-match priority on stalls |
+| Volunteers exceed project fuel without enforcement | High | Low-balance alerting, hard cut-off at zero fuel, transparent ledger → NGO may top up; platform absorbs week-1 pilot overruns |
+| AI consumes fuel without a viable deliverable | High | Irreducible risk of AI-assisted dev: first-apply disclaimer, per-project fuel cap bounds financial exposure, user-test checkpoints during builds, Discovery quality target (Goal 4), burn-per-deliverable visible on the NGO panel (REQ-034) → transparency + post-mortem; consumed fuel is not refunded; handoff attribution records the outcome (REQ-035) |
+| Malicious NGO posts a commercial need | High | Verification gate + admin review of projects during pilot → reject and ban; policy documented |
+| Volunteers ghost mid-project | High | 14-day inactivity reminder → 21-day auto-release → project re-opened; NGO can request re-match; volunteer responsiveness surfaced on the project page |
+| Payment succeeds but fuel is not credited | High | Missed credits are detected and corrected within a day → manual admin correction |
+| Anthropic outage stops Discovery | High | "Service degraded" banner, queued intakes, manual scope option → alternate-provider fallback post-v1 |
+| NGOs sign up but never fund | Medium | Free Discovery as funnel; $50 minimum at match-acceptance, not at publish; abandonment detection → loosen if it kills the funnel; unfunded projects tagged clearly |
+| NGO expects an SLA / completion guarantee | Medium | Mandatory no-SLA acknowledgment at signup and at every match acceptance; Promise link at every top-up → admin outreach; next-match priority |
+| AI-generated code has license or quality issues | Medium | MIT license by default (Platform Promise); first-apply disclaimer carries the volunteer's IP attestation (REQ-007 — no separate CLA in v1); handoff requires passing lint and tests (REQ-012) → NGO may reject the handoff; remediation playbook published |
+| Regulators treat NGO verification documents as sensitive PII | Medium | Documents held under restricted access; data-processing agreement available → add explicit consent + data-minimization review |
+| Fuel-cost inflation (Anthropic price rises) | Medium | Skim is percentage-based and scales with prices; changes communicated to NGOs in advance → adjust the fuel rate card monthly |
+| Lovable security incident affects the integration | Medium | The platform holds no standing access to Lovable — only volunteers connect their own accounts (decision-20) → pause Lovable-track recommendations until remediation confirmed; in-flight projects continue on the fallback build path (REQ-021) |
 
 ---
-
 
