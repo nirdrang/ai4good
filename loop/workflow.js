@@ -15,7 +15,9 @@ const ROOT = 'C:/Users/nirdr/Downloads/ai4good'
 const CANON = '.taskmaster/docs/prd.md'          // human-gated; the loop NEVER writes it
 const WORK = 'loop/out/prd.working.md'           // frozen during a pass; promoted at boundaries
 const VALIDATE = 'python .claude/skills/prd-taskmaster/script.py validate-prd --input'
-const CODEX = 'codex exec --sandbox read-only --skip-git-repo-check -c model_reasoning_effort=xhigh'
+// Explicit model + max reasoning effort so the evaluator never silently drifts to a codex-exec
+// default. gpt-5.5 is the best available (config default); xhigh is the max effort tier.
+const CODEX = 'codex exec --sandbox read-only --skip-git-repo-check -c model=gpt-5.5 -c model_reasoning_effort=xhigh'
 
 // Defensive arg handling: the Workflow tool can deliver `args` as an object, a JSON string,
 // or undefined. Parse all three so a stringified payload never silently collapses to defaults.
@@ -134,9 +136,9 @@ Return {leaves: [{id, heading, start, end}]} for ALL hits, in file order, via st
 
       const leafCand = `loop/out/cand-${leaf.id}.md`
       let lastGoodFile = null
-      let prevCount = actionable.length
-      let entryCount = actionable.length
-      let spliceFails = 0
+      let prevScore = ev.score          // S5 is score-based, not critique-count-based: a fresh re-eval
+      const entryScore = ev.score       // surfaces a different critique SET each cycle, so count is noisy;
+      let spliceFails = 0                // score tracks whether the section is actually getting better.
       let status = 'stalled'
 
       for (let cycle = 1; cycle <= MAX_CYCLES; cycle++) {
@@ -188,11 +190,11 @@ SECTION TEXT:\n${gen.new_text}`,
 
         if (re.verdict === 'ready') { status = 'ready'; break }                          // re-eval confirms ready IN-PASS
         if (re.verdict === 'blocked' || reUnmade.length > 0) { record.unmade = reUnmade; status = 'blocked'; break } // new unmade-decision surfaced by the rewrite
-        if (reActionable.length >= prevCount) {                                          // S5 no strict progress (also catches regressions)
-          status = reActionable.length < entryCount ? 'partially-improved' : 'stalled'
+        if (re.score <= prevScore) {                                                     // S5 score-based: the rewrite did not improve the section
+          status = re.score > entryScore ? 'partially-improved' : 'stalled'
           break
         }
-        prevCount = reActionable.length
+        prevScore = re.score
         actionable = reActionable                                                        // the fresh critique drives the next cycle
         status = 'partially-improved'                                                    // S6 fallthrough at the cap
       }
