@@ -1,6 +1,6 @@
-# PRD: ai4good � AI-Fueled Marketplace for NGO Tools (lean)
+# PRD: ai4good — AI-Fueled Marketplace for NGO Tools (lean)
 
-> Distilled product-requirements doc � implementation/architecture detail lives in the design docs + the Linear task tree.
+> Distilled product-requirements doc — implementation/architecture detail lives in the design docs + the Linear task tree.
 
 ## Executive Summary
 
