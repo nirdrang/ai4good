@@ -24,7 +24,7 @@ Every repo is public MIT from first commit (a public volunteer portfolio). **v1 
 Fuel pays for AI compute: NGO Discovery scoping past the free credit pool (decision-8) and volunteer build work. Lovable credits are separate: the NGO pays Lovable directly from its own workspace, never through fuel (REQ-021). Fuel does NOT buy a working tool, fixed scope, or outcome; NGO or volunteer may spend it in full without a viable deliverable — a risk NGOs knowingly assume.
 
 ### 4. No SLA, no completion guarantee
-No project is guaranteed to reach handoff: volunteers may ghost (inactivity → auto-release + rematch, REQ-027), AI may consume fuel without progress, scopes may prove infeasible, NGOs may decline handoffs. Inactivity + handoff flows surface stalls early; the platform always strives to attribute every token consumed to a specific work item (REQ-034).
+No project is guaranteed to reach handoff: volunteers may ghost (inactivity → auto-release + rematch, REQ-027), AI may consume fuel without progress, scopes may prove infeasible, NGOs may decline handoffs. Inactivity + handoff flows surface stalls early; the platform always strives to attribute every token consumed to a specific work item (REQ-034) — even when the outcome disappoints, the NGO sees exactly what its fuel was spent attempting.
 
 ### 5. What ai4good does promise
 - Bounded financial risk: NGO-chosen per-project fuel budgets; nothing charged beyond commitment.
@@ -54,6 +54,6 @@ Later same-project top-ups: passive footer Promise link, no hard checkbox. Ackno
 ### 10. The deliverable: a tool the NGO can run and keep evolving (decided 2026-06-03; single model per decision-23)
 Not "a repo": a deployed, running tool the non-technical NGO keeps evolving itself. **Exactly one delivery model (decision-23, 2026-07-07; supersedes decision-19's deferred second track):** the durable home is an AI app-builder (Lovable in v1), evolved via chat post-handoff. Discovery (REQ-004) checks fit: needs requiring ongoing developer maintenance (custom logic or integrations a non-developer cannot evolve via chat) are **declined at Discovery** with plain messaging; each decline recorded for founder review. No second track, no waitlist.
 
-The NGO owns the code outright (portable, no lock-in) and self-maintains via chat for roughly the AI-builder's subscription (~$25/mo); stopping payment keeps a deployable app but ends chat maintenance. Stated at kickoff, with a spend cap so metered edit costs never blindside a non-technical owner.
+The NGO owns the code outright (portable, no lock-in) and self-maintains via chat for roughly the AI-builder's subscription (~$25/mo); stopping payment keeps a deployable app but ends hands-free chat maintenance. Stated at kickoff, with a spend cap so metered edit costs never blindside a non-technical owner.
 
 ---

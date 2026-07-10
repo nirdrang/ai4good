@@ -2,10 +2,10 @@
 
 Volunteers sign up (GitHub preferred) and build a profile. **v1 matching is concierge-only**; first cohort hand-matched (Goal 5 → RM-8). Project pages public (Platform Promise §2); interest reaches the concierge out-of-band.
 
-- Sign-up: GitHub OAuth, Google OAuth, or email/password; GitHub linkable later. Linked = auto-populated languages, repo count, contribution summary; unlinked hides them.
+- Sign-up: GitHub OAuth, Google OAuth, or email/password; GitHub linkable later. Linked = auto-populated top languages, repo count, contribution summary; unlinked hides them.
 - Profile: skills, causes, hours/week, optional bio.
 - **Admin enforce-match (decision-28):** binding; no NGO approve/decline. Gates: (a) volunteer one-click confirm — first-project disclaimer if unsigned (GitHub link required; inline OAuth modal); no repo/key/Linear access or Tier-2 intro pre-disclaimer; (b) NGO per-match acknowledgment (fuel ≠ deliverable, no SLA, names the volunteer) on the funding screen; kickoff fires only on funding (match-to-fund). Consented = kickoff-ready.
-- **Concierge match log (admin-only):** every attempt — invited, consented, declined/expired/released, timestamps, reason. Goal-5 evidence for opening organic browse; not a public queue.
+- **Concierge match log (admin-only):** every attempt — invited, consented, declined/expired/released, timestamps, short reason. Goal-5 evidence for opening organic browse; not a public queue.
 - **On GitHub link, volunteer auto-added to the platform GitHub org** with repo-creation rights (REQ-008/021). Recorded + audited.
 - **Org removal by cause:** (a) voluntary deactivation — membership removed, per-project access on active projects persists; (b) **AUP enforcement (v1 minimal — founder verdict 2026-07-08):** admin deactivates the account (lifecycle state gates every platform write), instantly revokes project virtual keys, audited note; residual repo/Linear/org access removed by a short manual checklist; Lovable-workspace removal via the build-phase member seat (decision-35); reversal = manual re-enable + key re-issue (→ RM-14); (c) 24-month inactivity — soft removal, like (a).
 - Dashboard shows GitHub status ("Linked as @handle" / "Not linked — link now to accept a match").
@@ -43,7 +43,7 @@ Dependencies: REQ-006, REQ-007, REQ-021, REQ-026.
 
 Each (volunteer, project) pair gets a **virtual key**; vanilla Claude Code works unchanged. Per request the gateway authenticates the key; checks status, caps, fuel, binding; injects the governance prompt; forwards on the real org credential (gateway-internal — volunteers never see it); streams back; prices; records consumption inline.
 
-**Placement doctrine (platform-wide):** volunteer-editable files = soft norms; the gateway-injected prompt = durable norms (re-applied every request); deterministic code = hard invariants. Third-party permission models: trusted for access, never policy (Lovable has no role between Admin and Editor; Linear scopes can't express "assign + comment but no status change").
+**Placement doctrine (platform-wide):** volunteer-editable files = soft norms, reinforced conversationally; the gateway-injected prompt = durable norms (re-applied every request, invisible to the volunteer); deterministic code = hard invariants. Third-party permission models: trusted for access, never policy (Lovable has no role between Admin and Editor; Linear scopes can't express "assign + comment but no status change").
 
 **Threat model:** the binding marker = **tripwire, not lock** — copyable; converts accidental misuse (key reused on another repo, the dominant case) into unambiguous intent. The virtual key = the credential; key + repo context = a two-factor barrier against outsiders only. Caps bound exposure; the ledger attributes; revocation ends it — detection can afford latency. Revocation = individual enforcement; marker rotation = hygiene for lost repo access, never anti-insider. Rate limits = reliability; project-lifetime fuel = economics — never size caps adversarially. Governance capacity follows observed behavior; deterrence = onboarding disclosure (usage attributed, reviewed). Anything taxing legitimate volunteers inverts its purpose.
 

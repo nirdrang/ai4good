@@ -10,13 +10,13 @@ Adds a release + rematch edge (in_progress → open) + a partial-fuel rule.
 - Every scheduled job heartbeats; a watchdog pages on a missed interval.
 - PAGE monitors: undecidable ledger drift (decision-31); any negative balance; **any metered AI request accepted or recorded against a depleted project — every billable surface, gateway or direct, funded Discovery included (decision-26/c5 guard)**; gateway error rate or provider errors outside budget; a release revocation checklist incomplete >6h; org base-permission drift.
 - **Every metered AI request — gateway or direct — emits the same privacy-preserving audit event** (surface/actor, project, request id, provider status + cost, fuel delta, rate-card version, ledger linkage; metadata only, never bodies) (decision-26/c5 guard).
-- v1 dashboards = the ONE money dashboard (funding, consumption, share, reconciliation, chargebacks), founder-read daily (→ RM-34); error tracking + structured logging = baseline NFRs.
+- v1 dashboards = the ONE money dashboard (funding, consumption, platform share, reconciliation, chargebacks), founder-read daily (→ RM-34); error tracking + structured logging = baseline NFRs.
 
 #### REQ-030: Operations, Incident Response & Admin Correction Tooling
 Names the operating model. (Audited-reversal requirement removed — flow #7; undoing enforcement = ordinary admin ability.)
 - On-call + escalation named (pilot: the founder, documented tree); incidents = first-class ops items.
 - **Runbooks (v1 = three — decision-26):** backup restore within the 4-hour objective; gateway real-key rotation + mass virtual-key revocation; Lovable outage fallback. One-page cards: credential-compromise break-glass, PM-tool outage degraded mode, chargeback spike. The compromise card must: freeze reference-file access (disable signed-URL minting); start the breach clock (discovery time; counsel/statutory assessment if PII possibly exposed); reconcile Stripe vs the fuel ledger for the window before unfreezing money (decision-26/c6 guard). (→ RM-35)
-- **Money corrections fully automatic (decision-31, supersedes the d26/c12 admin-invoked form): no correction UI, no human step.** Tight-cadence reconciliation (decision-30) auto-conforms the ledger to provider truth — Stripe wins money-in; Anthropic wins AI spend; pairing arithmetic resolves internal gaps — posting via the one privileged function (idempotency key, pair-sum zero, source reference, audit row); direct ledger writes revoked from every role. Founder gets visibility, never approval: corrections show on the money dashboard; large drift pages. **Refusal-to-guess backstop:** undecidable drift (provider data missing or self-contradictory) never auto-resolves — books untouched; it pages.
+- **Money corrections fully automatic (decision-31, supersedes the d26/c12 admin-invoked form): no correction UI, no human step.** Tight-cadence reconciliation (decision-30) auto-conforms the ledger to provider truth — Stripe wins money-in (top-ups, chargebacks); Anthropic wins AI spend; pairing arithmetic (every consumption carries its skim pair) resolves internal gaps — posting via the one privileged function (idempotency key, pair-sum zero, source reference, audit row); direct ledger writes revoked from every role. Founder gets visibility, never approval: corrections show on the money dashboard; large drift pages. **Refusal-to-guess backstop:** undecidable drift (provider data missing or self-contradictory) never auto-resolves — books untouched; it pages.
 - Account deactivation (v1 AUP): documented recovery — re-enable + re-issue keys manually (→ RM-14).
 
 #### REQ-031: Content Moderation, Takedown & Secret Scanning
@@ -29,15 +29,15 @@ The NGO uploads reference files (manual process, screenshots, sample forms/data,
 - Upload at intake, during Discovery (the agent may ask), or from the project page pre-handoff; drag-drop + picker. Types: PDF, PNG/JPG, CSV/TSV, TXT, DOCX/XLSX. Caps (tunable): ~25 MB/file, ~200 MB/project.
 - Access: the project's NGO account + assigned volunteer + platform admin only (repo public, files restricted); short-lived authorized links; the UI never holds storage credentials.
 - PII = governance-by-disclosure (decision-1): "redacted/sample data only, NOT real beneficiary records; ai4good + your volunteer will see these files." Tier-2 adds a hard checkbox restating fixtures-only: the NGO connects real data itself, in its own environment, post-handoff. No upload scanning in v1 — the NGO owns the risk per the data-responsibility acknowledgment (→ RM-37).
-- Discovery may cite files in questions + the scope doc; names + one-line descriptions ride its context. File reads never consume credits, never interrupt (founder review 2026-07-07); on funded projects they consume fuel like any turn.
+- Discovery may cite files in questions + the scope doc; file names + the NGO's one-line descriptions ride its context. File reads never consume credits, never interrupt (founder review 2026-07-07); on funded projects they consume fuel like any turn.
 - Volunteer downloads from the project page (→ RM-31). The repo template gitignores the download path; files never committed (accidental-commit residual accepted at pilot; mitigated by secret scanning + fixtures-only).
-- "Reference files" section (name/type/uploader/description); soft deletes; uploads + deletes audited.
+- Project-page "Reference files" section (name/type/uploader/description); soft deletes; uploads + deletes audited.
 
 #### REQ-033: Post-Discovery NGO Project Assistant (funded, fuel-metered)
-Decision-12: post-funding, the Discovery chat reframes as a read-only project assistant (status, blockers, progress, fuel runway).
-- Project page, in_progress onward; unfunded/pre-scoped projects have no assistant.
+Decision-12: post-funding, the Discovery chat reframes as a read-only project assistant (status, open blockers explained, recent progress summarized, fuel runway).
+- Project page, in_progress onward; unfunded/pre-scoped projects have no assistant — Discovery is the only NGO↔AI chat there.
 - Fuel-metered, no free credits; per-turn cost shown; fuel gauge visible; fuel-zero disables the composer with the top-up CTA.
-- Strictly read-only (snapshot of tasks, blockers, fuel, activity): cannot set status, resolve blockers, accept scope additions, approve handoff, or move money. Scope asks → explains the REQ-025 protocol, may pre-fill a draft the NGO submits.
+- Strictly read-only (snapshot of tasks, blockers, fuel, activity): cannot set status, resolve blockers, accept scope additions, approve handoff, or move money. Scope/priority asks → explains the REQ-025 protocol, may pre-fill a draft the NGO submits.
 - Reuses the Discovery surface + model — no new chat infrastructure; v1 = on-demand text Q&A (→ RM-38). No scope guardrail: paid usage is the NGO's call (decision-34); the cost display is the control.
 
 #### REQ-034: Task-Level Attribution (telemetry, never gating — decision-22)
@@ -75,7 +75,7 @@ Dashboard + completion-credit-only public reputation: no public star or numerica
 **Description:** Discovery output = scope contract, not task source. Kickoff seeds exactly one bootstrap task ("Author the project PRD"): the volunteer authors the project PRD in the repo from the Discovery scope (metered, fuel-billed, attributed to that task). Several clarifying blockers (REQ-024) expected → the project Q&A log (REQ-010). When the volunteer marks the PRD ready, an automated scorer compares it to the Discovery scope → completion score + named gaps. Score ≥ threshold → the build backlog decomposes from the PRD (REQ-026); below → gap list, iterate, re-score — bounded by project fuel, not an attempt cap.
 
 **Acceptance criteria:**
-- [ ] Kickoff creates the single bootstrap task; no build backlog before the gate passes.
+- [ ] Kickoff creates the single bootstrap task in the project's Linear workspace; no build backlog before the gate passes.
 - [ ] The PRD lives in the repo; authoring metered + attributed to the bootstrap task (REQ-009/REQ-034).
 - [ ] Clarifying questions ride the blocker flow (REQ-024) → the Q&A log (REQ-010).
 - [ ] The scorer evaluates Discovery-scope coverage (stories, acceptance criteria, data-sensitivity handling, constraints) → score + gaps; runs fuel-metered.
@@ -86,22 +86,22 @@ Dashboard + completion-credit-only public reputation: no public star or numerica
 **Dependencies:** REQ-004, REQ-024, REQ-026, REQ-034, REQ-009.
 
 #### REQ-015: Per-Project Comment Thread (full Slack-style channel deferred to v1.5 — decision-15)
-A project-page comment thread replaces the v1 real-time channel (NGO admins, assigned volunteer, escalated admin); the ~10–15-project concierge pilot coordinates via blockers + comments + notifications + email (→ RM-43).
+A project-page comment thread replaces the v1 real-time channel (NGO admins, assigned volunteer, platform admin only when escalated); the ~10–15-project concierge pilot coordinates via blockers + comments + notifications + email (→ RM-43).
 - v1: chronological plain-text stream, auto-linked URLs (no markdown, code blocks, attachments, @-mentions); loads on page view, no live push; posting notifies the other party; membership implicit from roles. System events never post to the thread — they surface in notifications + activity feeds. (Scope-addition discussions live here per REQ-025.) (→ RM-10) Post-handoff: read-only. No cross-project DMs.
 - (→ RM-43, RM-44)
 
 #### REQ-016: Notifications (Email + In-App)
-Event-driven email + in-app, fixed defaults in v1 (→ RM-45). One shared emitter on a single static event taxonomy is the sole writer — nothing sends comms directly.
+Event-driven email + in-app, documented defaults in v1 (→ RM-45). One shared emitter on a single static event taxonomy is the sole writer — blockers, scope additions, lifecycle events never send comms directly.
 v1 taxonomy (event → recipients, delivery), condensed:
-- Project decisions: triage auto-approved / returned-to-scoped (with reason) / terminally declined → NGO (email + in-app; decision-29/r4); approval = marketplace visibility. Vetting outcome → NGO (decision-29/r3).
-- Matching (decision-28): match created → volunteer (email + in-app, consent CTA); consented → NGO (email + in-app, fund-to-kick-off); declined/expired → admin (match log); unmatched aging → platform admin only (Goal 5).
+- Project decisions: triage auto-approved / returned-to-scoped (with reason) / terminally declined → NGO (email + in-app; decision-29/r4); approval = marketplace visibility. Vetting outcome (vetted/unvetted) → NGO (decision-29/r3).
+- Matching (decision-28): match created → volunteer (email + in-app, consent CTA); consented → NGO (email + in-app, fund-to-kick-off); declined/expired → admin (match log); unmatched open project aging → platform admin only (Goal 5).
 - Abandonment (REQ-027): 14d reminder → volunteer + NGO; released → NGO + ex-volunteer; rematch available → NGO.
-- Money: pre-deadline reminder → NGO; deadline expired → NGO + volunteer; payment succeeded → both; payment failed → NGO; fuel 20% → NGO; 5% and depleted → both (sessions warned/cut; depleted adds admin escalation); leftover released to general balance → NGO (no donation event — decision-28); chargeback opened → NGO + admin + ops item.
-- Access: key issued (instant at kickoff) / revoked (replacement on dashboard) → volunteer (email + in-app).
-- Work signals: task status changed → NGO (in-app low-tone); task completed → NGO (email + in-app); task comment → volunteer (in-app); thread comment → the other party (in-app default; anti-spam guard); blockers raised/resolved/48h/7d → NGO email + in-app, volunteer on resolution, admin at 7d; PM status auto-reverted → volunteer (in-app, low-tone).
+- Money: pre-deadline reminder → NGO; deadline expired → NGO + matched volunteer; payment succeeded → both; payment failed → NGO; fuel 20% → NGO; 5% and depleted → both (sessions warned/cut; depleted adds admin escalation); leftover released to general balance → NGO (no donation event — decision-28); chargeback opened → NGO + admin + ops item.
+- Access: virtual key issued (instant at kickoff) / revoked (replacement on dashboard) → volunteer (email + in-app).
+- Work signals: task status changed → NGO (in-app low-tone); task completed → NGO (email + in-app); task comment → volunteer (in-app); thread comment → the other party (in-app default; anti-spam guard); blockers raised/resolved/48h/7d → NGO email + in-app, volunteer on resolution, admin at 7d; PM status auto-reverted → volunteer (in-app, low-tone, instructive not punitive).
 - Scope additions (informal — decision-29/r1): ride thread-comment notifications; no CR events in v1 (→ RM-10).
 - Handoff + health: requested / accepted / rejected → both; verification outcome → NGO. (→ RM-25)
-- Provisioning failure (repo setup failed, pool empty) → NGO + volunteer + admin + ops item, + urgent replenish alert on pool-empty. Lovable: setup reminder, credits low, credits blocked (escalation tier), setup-pending at kickoff → NGO, setup complete → both (skip-path events removed per decision-19).
+- Provisioning failure (repo setup failed, workspace pool empty at kickoff) → NGO + volunteer + admin + ops item, + urgent replenish alert on pool-empty. Lovable: setup reminder, credits low, credits blocked (escalation tier), setup-pending auto-raised at kickoff → NGO, setup complete → both (skip-path events removed per decision-19).
 - (→ RM-43, RM-5, RM-7, RM-11)
 Delivery defaults: email = critical (money, deadlines, blockers, handoff, decisions); in-app only = low-tone. One notification per committed event (→ RM-45). Critical-event reliability guard (money, access, handoff — decision-26/c2): the notification event writes atomically with its ledger/state transition via the outbox; recipients resolve at event creation; marked sent only on provider acceptance — unconfirmed sends retry, never silently drop. Escalation-tier events notify NGO + platform admin.
 
