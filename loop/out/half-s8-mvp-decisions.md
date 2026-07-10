@@ -4,22 +4,22 @@ Authoritative reference: Out of Scope=never built; this section=when features sh
 
 ### v1 MVP (public beta launch)
 
-**Decision summary (2026-06-03 pivot + decisions 8–35; later decision wins on conflict; full detail lives in the REQs each entry cites):**
+**Decision summary (2026-06-03 pivot + decisions 8–35; later decision wins on conflict; this is a trail — operative detail lives in the cited REQs where an entry names one):**
 - **Pivot (2026-06-03)** — Deliverable=deployed NGO-self-maintainable tool, not a repo; Lovable=build vehicle + durable home; Discovery classifies data-sensitivity tiers (highest=fixtures-only during build). No cash-out: fuel=non-cash project-scoped credit. Nonprofit + blended economics; real ToS; concierge-first launch. Added REQ-027/029/030/031.
-- **8** — Unified fuel + free Discovery allowance (10/day unverified, 30/day vetted). Email verification=Discovery floor; vetting=publish wall. Hard acknowledgments at first funding + first match. No paid Discovery wallet, v1 or v1.5.
+- **8** — Unified fuel + free Discovery allowance (10/day unverified, 30/day vetted). Email verification=Discovery floor; vetting=publish wall. Hard acknowledgments at first funding + first match acceptance. No paid Discovery wallet, v1 or v1.5.
 - **9** — Git-as-truth PM tree. Reversed by 20; trail only.
 - **10** — Capability-preserving build trim; six reshapes, requirements intact; deferred slice=v1.5 (CRM, rate limiting, rollout tooling, analytics, takedown UI, tax registration, self-serve erasure).
-- **11** — Two-layer money: funded fuel dollar-pegged (15% skim); free Discovery on context-weighted daily credits, no rollover; funding auto-flips Discovery to fuel; credits NGO-bound, fuel project-bound. Full mechanics: REQ-004/006.
+- **11** — Two-layer money: funded fuel dollar-pegged (15% skim); free Discovery on context-weighted daily credits, no rollover; funding auto-flips Discovery to fuel; credits NGO-bound, fuel project-bound. Mechanics: REQ-004/006.
 - **12** — Post-Discovery NGO assistant (REQ-033), fuel-metered, read-only.
 - **13** — Opus for Discovery + the assistant; daily allowance caps worst-case spend.
-- **14** — Spend-anomaly engine deferred to v1.5; deterministic caps hold the loss ceiling.
+- **14** — Spend-anomaly engine deferred to v1.5; caps hold the loss ceiling.
 - **15** — Comms trimmed to one project comment thread; full channel v1.5.
 - **16** — CR anti-distraction guardrails *(surface→v1.5 by 29/r1; principle governs the v1 informal protocol, REQ-025)*.
-- **17** — `paused` state removed; pause=support conversation; returns v1.5 on first real request.
+- **17** — `paused` state removed; pause=support conversation (substitutes: pre-match unpublish/cancel; mid-build admin access-off + note, or cancellation); returns v1.5 on first real request.
 - **19** — Track B deferred *(superseded by 23)*.
-- **20** — Linear replaces the git-as-truth PM tree (reverses 9): workspace-per-project from a concierge pool; status moves only via GitHub integration on PR merge; detect-and-revert; NGO visibility panel-only. Full model: REQ-026.
+- **20** — Linear replaces the git-as-truth PM tree (reverses 9): workspace-per-project from a concierge pool; status moves only via GitHub integration on PR merge; detect-and-revert; NGO visibility panel-only. Model: REQ-026.
 - **21** — LLM gateway with virtual keys in v1 (rewrites REQ-009): show-once keys, caps, real-time fuel gate, inline metering; prompt bodies never persisted. Hosting=OD-6.
-- **22** — Attribution capture in v1 (REQ-034/035): burn binds to tasks (telemetry, never gating); handoff attribution step; health checks from real signals.
+- **22** — Attribution capture in v1 (REQ-034/035): burn binds to tasks where derivable (telemetry, never gating); handoff attribution step; health checks from real signals.
 - **23 (2026-07-07)** — Single delivery model; Track B removed altogether: taxonomy deleted, waitlist deleted; non-fits declined at Discovery, declines recorded.
 - **24 (2026-07-07)** — (a) decomposition gated *(superseded by 25)*; (b) Skill ENFORCES pull-then-complete (REQ-028); (c) handoff repo-transfer removed; (d) Discovery file reads cost zero credits.
 - **25 (2026-07-08)** — Dev-authored project PRD + automated completion gate (REQ-036); build tree decomposes from the gated PRD; coordinator review→pilot spot-check. Threshold=OD-7.
@@ -29,7 +29,7 @@ Authoritative reference: Out of Scope=never built; this section=when features sh
 - **29 (2026-07-08)** — Flows #7/#8 removed. CRs→v1.5 informal protocol (amends 16); public profile/badge→v1.5 (append-only credit events); verification→ONE audited founder-vetted action; triage→**automated screener + founder exception queue** (Tier-2 never auto; threshold=OD-8). REJECTED: in-app notification center stays v1.
 - **30 (2026-07-08)** — Provider truth drives the gauges: Anthropic's reported usage per response; aggregate reconciliation on a tight pull (minutes); Lovable standing trigger for pulled data. Flow #9: zero refunds of any kind; only money-out=Stripe's dispute rail.
 - **31 (2026-07-08)** — Ledger corrections fully automatic: reconciliation auto-conforms to provider truth (Stripe wins money-in, Anthropic wins AI spend); undecidable drift pages, never guessed.
-- **32 (2026-07-08)** — Manual-flows verdicts through #20 (#21–#25 pending). APPROVED backstops: #3, #12, #13, #14, #15. REMOVED: #2, #4, #5, #7, #8, #9, #10. MOOT: #6. POSTPONED: #11, #16, #17, #18, #19, #20 (CSAM statutory duty exists regardless).
+- **32 (2026-07-08)** — Manual-flows verdicts through #20 (#21–#25 pending). APPROVED backstops: #3 chargeback adjudication, #12 incident command, #13 blocker 7-day rung, #14 credit grants, #15 collusion review. REMOVED: #2 Discovery-failure escalation, #4 outbox DLQ, #5 AUP saga, #7 audited reversal, #8 handoff dispute, #9 goodwill refund, #10 ledger correction. MOOT: #6. POSTPONED: #11 chargeback reserve, #16 DMCA documentation (CSAM statutory duty exists regardless), #17 counsel timing, #18–#19, #20 Linear-blessing scale gate.
 - **34 (2026-07-09)** — Free-phase Discovery scope guardrails: prompt scope line, turn ceiling, off-topic visibility flag — FREE credits only. Funded Discovery + assistant unguarded; per-turn cost display=the control.
 - **35 (2026-07-09)** — Platform Lovable member seat (build-phase only) automates volunteer offboarding at handoff/abandonment/AUP; platform exits at handoff ("last one out"). [VERIFY on first pilot]: member add/remove/self-remove via API/MCP; fallback=manual NGO removal.
 
@@ -98,7 +98,7 @@ Decisions/policies needing external (legal, accounting, business) input — not 
 1. Fuel legal/tax characterization — DECIDED: prepaid, fully-consumable, non-cash-refundable service credit; one-line counsel confirmation still wanted.
 2. Refund/donation/chargeback mechanics — dissolved: no refunds (flow #9), no donation flow (decision-28), chargeback-after-consumption handled (→RM-19).
 3. Abandonment/rematch state machine — RESOLVED as REQ-027.
-4. Sensitive-data vs open-source conflict — RESOLVED: public MIT only (decision-27) (→RM-2); Tier-2 fixtures-only; acceptable-use document still owed.
+4. Sensitive-data vs open-source conflict — RESOLVED: public MIT only (decision-27) (→RM-2); Tier-2 fixtures-only; acceptable-use document still owed (ops work, not a launch blocker).
 5. Admin staffing model at scale — OPEN: manual gates hold at pilot volume, not the year-1 target.
 6. Anthropic commercial readiness — pilot on self-serve billing + default limits (→RM-60).
 7. Deployment ownership post-handoff — DECIDED: Lovable hosts, NGO owns the workspace (~$25/mo, disclosed); live deployment=handoff precondition; 30-day-alive tracked.
