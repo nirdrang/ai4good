@@ -1,6 +1,6 @@
 #### REQ-007: Volunteer Profile & Concierge Matching (organic marketplace apply-flow deferred to v1.5 — decision-28)
 
-Volunteers sign up (GitHub link mandatory — decision-36) and build a profile. **v1 matching is concierge-only**; first cohort hand-matched (Goal 5 → RM-8). Project pages public (Platform Promise §2); **volunteers mark interest in-product — a "candidate for this project" action (decision-36); each open project gets an assimilation window (platform-configurable, pilot-tuned) to gather candidates before the concierge matches from the accumulated pool.**
+Volunteers sign up (GitHub link mandatory — decision-36) and build a profile. **v1 matching is concierge-only**; first cohort hand-matched (Goal 5 → RM-8). Project pages public (Platform Promise §2); **volunteers mark interest in-product — a "candidate for this project" action (decision-36). The assimilation window is time-based and starts at the FIRST candidacy (duration platform-configurable, pilot-tuned): a candidate-less project just stays open (Goal-5 aging applies); the first candidate starts the countdown; later candidates join the pool without resetting it; at lapse the concierge matches from the accumulated pool.**
 
 - Sign-up: GitHub OAuth, Google OAuth, or email/password; **a GitHub link is mandatory at signup (decision-36 — no unlinked volunteer accounts)**; stats auto-populate (top languages, repo count, contribution summary).
 - Profile: skills, causes, hours/week, optional bio.
