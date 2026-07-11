@@ -93,7 +93,7 @@ Transition rules:
 
 Match records track their own states — invited / consented / declined / expired / released — in the match log (REQ-007); an unfunded expiry frees the volunteer for re-match. (→ RM-8)
 
-**Kickoff sequence** (parallel side effects on funding): a project virtual key is issued with no ops task; a Linear workspace is assigned from the pre-created pool (an empty pool raises an urgent ops task + blocker); the repo is established by the NGO and volunteer with no platform-admin involvement (REQ-021, required before handoff); the workspace is seeded with the one bootstrap task — author the project PRD from the Discovery scope (REQ-036) — and the build backlog decomposes only after the automated completion gate; the funded/kickoff status is announced, the comment thread opens, and the volunteer is notified with setup instructions. Provisioning failures never invent a sub-state — the project stays `in_progress` and gaps surface as blockers/ops tasks, gating the volunteer only from the pending resource.
+**Kickoff sequence** (parallel side effects on funding): a project provider workspace and its virtual key are provisioned with no ops task; a Linear workspace is assigned from the pre-created pool (an empty pool raises an urgent ops task + blocker); the repo is established by the NGO and volunteer with no platform-admin involvement (REQ-021, required before handoff); the workspace is seeded with the one bootstrap task — author the project PRD from the Discovery scope (REQ-036) — and the build backlog decomposes only after the automated completion gate; the funded/kickoff status is announced, the comment thread opens, and the volunteer is notified with setup instructions. Provisioning failures never invent a sub-state — the project stays `in_progress` and gaps surface as blockers/ops tasks, gating the volunteer only from the pending resource.
 
 ---
 
@@ -126,15 +126,15 @@ NGOs buy fuel via Stripe Checkout (one-time, no subscription). The full gross am
 
 **Acknowledgment cadence:** the full disclaimer at signup (gates project creation); a hard per-project acknowledgment at first funding; a per-match acknowledgment naming the volunteer at first acceptance (never reused across the two); later top-ups carry a passive Promise link only.
 
-**Ledger:** every money movement lands in one auditable ledger and all balances derive from it. **The dollar meter runs at two levels, both on Anthropic's numbers:**
-- **Out-of-band anchor:** an out-of-band reconciliation against Anthropic's usage/cost reporting is the truth, and disagreeing books auto-conform to it (Stripe is the same truth for money-in). Corrections are audited and visible; only undecidable drift pages, never touching the books.
-- **Inline preview** covers what the anchor cannot: the per-project split (Anthropic sees one org credential; only the gateway knows each request's project) and the real-time fuel-zero decline. Between anchors the gauge moves per request on Anthropic's own token counts at Anthropic's published rates — never trusted over the anchor.
+**Ledger:** every money movement lands in one auditable ledger and all balances derive from it. **Each project is isolated in its own provider workspace, so the dollar meter runs on the provider's billed cost per project (REQ-009):**
+- **Provider-truth anchor (per-project):** the provider's usage/cost reporting **per workspace** is each project's spend-of-record, and disagreeing books auto-conform to it (Stripe is the same truth for money-in). Corrections are audited and visible; only undecidable drift pages, never touching the books.
+- **Inline preview** is a live gauge and the real-time zero-fuel gate trigger only — the gateway's per-request estimate moves the gauge between anchor reads and is never trusted over the provider's billed cost.
 
 Control totals are reconciled and auto-repaired by the same provider-truth rules (→ RM-18). Match expiry (7 days) is automatic.
 
 **Unused fuel — non-cash credit (Promise §7):**
 
-- **Nothing is ever pre-committed to Anthropic:** the platform pays Anthropic only for actual usage, request by request, on one org account (pay-as-you-go), and per-project accounting exists only in the platform ledger (gateway metering). Cancellation or volunteer release therefore strands no money at Anthropic — the unconsumed balance never left the platform.
+- **Nothing is ever pre-committed to Anthropic:** the platform pays Anthropic only for actual usage (pay-as-you-go), and each project's usage is isolated in and reported per its own provider workspace. Cancellation or volunteer release therefore strands no money at Anthropic — the unconsumed balance never left the platform, and the workspace is archived (freeing its slot).
 - **There is no cash-out or withdrawal in v1** — no money-out path; only chargeback risk survives.
 - Leftover fuel **stays on the project** across a volunteer change.
 - Only at handoff or cancellation does leftover credit release to the **general balance**: non-cash, with no decay clock, no silent auto-renew, and never silently removed; it auto-applies at any of the NGO's funding checkouts, satisfying the $50 minimum with any remainder on card. The release is a ledger operation under control totals, never a manual balance tweak, and it respects chargeback clawback. No donation flow, manual conversions, or tax receipts.
