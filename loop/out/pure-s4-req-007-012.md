@@ -73,7 +73,8 @@ One **public page** per project, whose read-only content is the same for NGO adm
 - Resolved clarifications (REQ-024) persist as a lifetime Q&A log recording who asked, who answered, and when; an unresolved clarification is conspicuously indicated.
 - The fuel balance shown reflects real-time provider truth and stays reconciled with Anthropic's authoritative usage reporting.
 - **No GitHub Issues, PR lists, or raw commit logs appear on the page** — the repo link is the only GitHub touchpoint.
-- **Cadence stats (v1 minimal):** recent commit activity versus the prior period and time since last activity, from code events only, with a stale-activity indication during build (→ RM-23). Promise §6's two progress signals stay intact.
+- **Cadence stats (v1 minimal):** liveness is measured from **both PM task progression and commit activity** (not commits alone) — recent movement versus the prior period, and time since the last of either — with a stale-activity indication during build (→ RM-23). Promise §6's two progress signals (the task view and commit cadence) stay intact.
+- **Repo-derived activity signals (in-progress onward):** where a project has a live repo, the page conveys informational build signals — the language/stack in use, time since last activity, the assigned contributor, the license, and handoff-readiness — modeled on a code-host's project view. **Popularity metrics (stars, forks, watchers) are never shown** — reputation is completion credit, not popularity (Promise §5).
 - **Both funding states are shown distinctly (REQ-021):** the Claude Code fuel balance and the separate Lovable-credit status — Lovable setup before connection, then Lovable status, workspace access, and top-up after — so the two purses are never conflated. **Standing trigger:** (→ RM-58)
 
 Dependencies: REQ-008, REQ-009.
@@ -83,6 +84,8 @@ Dependencies: REQ-008, REQ-009.
 #### REQ-011: Public Project Listings (v1 read-only; browse/sort/filter machinery v1.5)
 
 v1 is a public, read-only listing of open projects (newest-first) with exactly one volunteer action: marking interest ("candidate for this project"), which feeds the admin match log only. Matching is concierge (REQ-007); there is no NGO-facing apply queue, no filters/sort/scoring, and no NGO accept/decline (enforce-match). No algorithmic ranking or NGO-satisfaction weighting in v1.
+- **Open-project card** (pre-build, no repo yet): title, summary, complexity tier, needed skills, cause tags, NGO name, and posted date — static attributes only, with no live stats, no dollar figure, and no candidate/interest count (candidacies are admin-only).
+- **In-progress showcase** (public): a project under build surfaces a live card modeled on a code-host's project view — task-tree progress, cadence (task progression + commit activity), the language/stack, time since last activity, and the assigned contributor — so the public sees what ai4good is building. Browse/sort/filter machinery stays v1.5; **popularity metrics (stars/forks/watchers) are never shown**.
 - (→ RM-8, RM-21, RM-24)
 
 Dependencies: REQ-007.

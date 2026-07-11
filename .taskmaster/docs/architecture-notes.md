@@ -60,6 +60,30 @@ Policy that must hold **cannot** depend on volunteer-editable files (editable aw
 
 ---
 
+## Cross-cutting C — GitHub-style project activity UI (mimic) (serves REQ-010, REQ-011)
+
+Design intent: model the project page and the in-progress card on a code-host's repo view (GitHub's "About" sidebar + activity graphs) so contributors and the public read a project's health at a glance. `[intent]`
+
+**Mimic — informational/activity signals (align with "progress over promises"):**
+- **Languages/stack bar** — a horizontal colored percentage bar of the repo's languages (GitHub `/languages`); colored language dots on cards.
+- **"Updated N ago"** — relative time since the last activity, drawn from the latest of a commit OR a PM task movement (see cadence below).
+- **Activity sparkline** — a mini weekly bar graph, GitHub Pulse/Commits-style.
+- **Contribution heatmap** (optional) — a calendar of project activity (green-squares style).
+- **Contributor** — the single assigned volunteer's avatar (GitHub shows a contributor grid; ai4good is single-dev).
+- **License** — MIT badge (uniform across projects).
+- **Readiness %** — modeled on GitHub's Community Standards checklist → ai4good handoff-readiness (README, RUNBOOK, deploy instructions, ≥1 passing CI run, LICENSE, live URL).
+- **Topics** → cause tags.
+
+**Cadence = task progression + commits (d38):** ai4good's cadence/liveness metric is NOT commits alone — it combines **PM task progression (Linear task-completion events)** with **commit activity**. "Time since last activity" and the sparkline draw from both event streams, so a project moving tasks forward reads as live between commits, and vice versa.
+
+**Skip — popularity/vanity (clashes with no-public-ratings, Out-of-Scope #11, and the private-candidacy rule d36):** stars, forks, watchers, "used by"/dependents, trending counts. Reputation is completion credit, not popularity; interest/candidacy is admin-only, never public.
+
+**Open vs in-progress (load-bearing):** GitHub activity stats need a repo with history, and ai4good repos exist only from kickoff. So the **open-project listing card** = static attributes only (no repo yet); the **project page + in-progress showcase card** = the activity panel above.
+
+**API sources (public, no auth for public repos):** `/repos/{o}/{r}` (pushed_at, license, primary language), `/languages`, `/stats/commit_activity` + `/stats/contributors` (202-cache-then-fetch), `/community/profile` (readiness). **PM task progression comes from the Linear mirror, not GitHub.**
+
+---
+
 ## By requirement — stripped design (the HOW)
 
 ### REQ-001 — Auth & org membership
