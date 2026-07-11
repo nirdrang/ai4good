@@ -100,8 +100,9 @@ Card-purchased fuel assigned per project; no platform-wide commitment. (Depends:
 - Real-time per-project ledger (purchases, consumption, balance); failed payments get clear feedback; EU/UK NGOs get valid VAT invoices.
 
 ### Story 3: Volunteer Joins and Gets Matched
-An AI-augmented developer joins the bench, gets concierge-matched, consents in one click. (Depends: REQ-007, REQ-008.)
-- GitHub OAuth imports stats; self-declared skills, availability, preferred causes.
+An AI-augmented developer joins the bench, marks interest on projects, gets concierge-matched from that pool, consents in one click. (Depends: REQ-007, REQ-008.)
+- GitHub link mandatory at signup (decision-36); OAuth imports stats; self-declared skills, availability, preferred causes.
+- The volunteer browses public listings and marks candidacies; each project gathers interest through its assimilation window before the concierge matches from the pool (decision-36).
 - First match consent (first-commitment moment, REQ-007) requires ToS+Platform-Promise: coordination layer only, no obligated outcomes; volunteering, not employment; all work public open-source (MIT); the per-project API key used only for that project; fixtures-only+confidentiality on Tier-2 data; violations risk deactivation + completion-credit forfeiture. Per-account; material text change → one-time re-accept; the disclaimer always precedes any project intro or access.
 - v1 matching = concierge (decision-28): admin-created, binding, no NGO approve/decline; one-click volunteer consent; NGO per-match acknowledgment rides the funding screen (→RM-8); consent does NOT trigger kickoff — the project waits for funding (match-to-fund, REQ-006).
 - On funding, kickoff fires, no admin ops tasks: repo established by NGO + volunteer via the Lovable setup checklist (Lovable mandatory, decision-23, REQ-021); per-project AI keys (REQ-009); comment thread (REQ-015). No build backlog at kickoff; one seeded bootstrap task — the volunteer authors the project PRD from the Discovery scope (REQ-036, decision-25), raising NGO clarifying questions; an automated scorer measures PRD completion vs Discovery; only a passing score unlocks backlog decomposition (REQ-026; GitHub Issues stay dev-internal, REQ-008). Repo setup + key issuance never wait on it. Starter kit: build guide + pull-based workflow.
@@ -133,7 +134,7 @@ The NGO already owns everything by handoff (single delivery model — decision-2
 
 Two-layer authorization: global account type (NGO / volunteer / platform admin) + per-NGO role (admin / member, NGO accounts only); "NGO admin" = admin role in that NGO. NGO users may join multiple NGOs; volunteers are individual accounts.
 
-- Email/password, GitHub OAuth, Google OAuth. GitHub link required at first match consent (decision-28); linking runs volunteer GitHub onboarding (REQ-007).
+- Email/password, GitHub OAuth, Google OAuth. GitHub link mandatory at volunteer signup (decision-36, supersedes decision-28's at-first-consent timing); linking runs volunteer GitHub onboarding (REQ-007).
 - **Single-seat NGO in v1 (decision-28):** one NGO = one account performing every NGO-side action — funding, acknowledgments, scope edits, handoff sign-off (→ RM-12; the two-layer model stays in schema). Guards: acks capture name + title + authority attestation (bind NGO, fund non-refundable fuel, accept no-SLA, approve handoff); org email preferred, shared credentials prohibited in ToS/UI copy (acks per named human); audited platform-admin contact-transfer/recovery (out-of-band verification; ownership moves to the new account, the old one deactivates, history preserved); one non-login escalation contact captured at concierge onboarding.
 - **Single-dev projects in v1 (decision-28):** one volunteer per project; no collaborator seats or co-volunteers (→ RM-13). (OD-1 "peer volunteer" = bench reviewer, not a second member.)
 - NGO data visible only to its account and assigned volunteer.
@@ -213,7 +214,7 @@ Transition rules:
 - draft → Discovery: submitted intake + email-verified NGO admin + Discovery capacity (free credits or funded fuel); otherwise the composer is disabled, showing verify / fund-now / come-back-tomorrow CTAs.
 - Discovery completion → `scoped` automatically on valid output; invalid output retries up to 3×, then admin escalation.
 - `scoped` → `triage` on Publish (vetted only). Screener (decision-29/r4): confident-clean auto-approves → `open`; non-decided → founder exception queue — return to `scoped` with a reason note (edit; republish re-enters the screener) or `cancelled` (terminal, non-remediable only). Tier-2 never auto-approves.
-- `open` → `matched_pending_fuel` on volunteer consent to a concierge match (decision-28 — admin-created, binding, no NGO approve/decline). Both volunteer gates (GitHub link, first-match disclaimer) are satisfied at the consent click. One match at a time per project (the match log tracks the rest).
+- `open` → `matched_pending_fuel` on volunteer consent to a concierge match (decision-28 — admin-created, binding, no NGO approve/decline; drawn from the decision-36 candidate pool after the assimilation window). The first-match disclaimer gate is satisfied at the consent click (GitHub already linked at signup, decision-36). One match at a time per project (the match log tracks the rest).
 - `matched_pending_fuel` → `in_progress` on funding (≥ $50): kickoff fires. 7 days unfunded → back to `open`, volunteer freed and notified, NGO gets the funding-expired notice with a restart CTA (REQ-016). NGO may cancel pre-payment.
 - `in_progress` → `handoff_pending` on "Ready for Handoff": all P0 tasks done + repo exists. A failed checklist keeps `in_progress`, results shown.
 - `handoff_pending` → `handed_off` on NGO acceptance (live deployment URL required): leftover fuel → general-balance credit; keys revoked; Linear membership removed, tree snapshotted read-only; attribution captured (REQ-035); completion credit + first-tool badge; 30-day-alive check scheduled. No tip in v1. Rejection → `in_progress` with comments (dispute machinery removed, flow #8).
@@ -284,15 +285,15 @@ Dependencies: REQ-001, REQ-002, REQ-004, REQ-008, REQ-009.
 
 #### REQ-007: Volunteer Profile & Concierge Matching (organic marketplace apply-flow deferred to v1.5 — decision-28)
 
-Volunteers sign up (GitHub preferred) and build a profile. **v1 matching is concierge-only**; first cohort hand-matched (Goal 5 → RM-8). Project pages public (Platform Promise §2); interest reaches the concierge out-of-band.
+Volunteers sign up (GitHub link mandatory — decision-36) and build a profile. **v1 matching is concierge-only**; first cohort hand-matched (Goal 5 → RM-8). Project pages public (Platform Promise §2); **volunteers mark interest in-product — a "candidate for this project" action (decision-36); each open project gets an assimilation window (platform-configurable, pilot-tuned) to gather candidates before the concierge matches from the accumulated pool.**
 
-- Sign-up: GitHub OAuth, Google OAuth, or email/password; GitHub linkable later. Linked = auto-populated top languages, repo count, contribution summary; unlinked hides them.
+- Sign-up: GitHub OAuth, Google OAuth, or email/password; **a GitHub link is mandatory at signup (decision-36 — no unlinked volunteer accounts)**; stats auto-populate (top languages, repo count, contribution summary).
 - Profile: skills, causes, hours/week, optional bio.
-- **Admin enforce-match (decision-28):** binding; no NGO approve/decline. Gates: (a) volunteer one-click confirm — first-project disclaimer if unsigned (GitHub link required; inline OAuth modal); no repo/key/Linear access or Tier-2 intro pre-disclaimer; (b) NGO per-match acknowledgment (fuel ≠ deliverable, no SLA, names the volunteer) on the funding screen; kickoff fires only on funding (match-to-fund). Consented = kickoff-ready.
-- **Concierge match log (admin-only):** every attempt — invited, consented, declined/expired/released, timestamps, short reason. Goal-5 evidence for opening organic browse; not a public queue.
-- **On GitHub link, volunteer auto-added to the platform GitHub org** with repo-creation rights (REQ-008/021). Recorded + audited.
+- **Admin enforce-match (decision-28, drawing from the decision-36 candidate pool):** binding; no NGO approve/decline. Gates: (a) volunteer one-click confirm — first-project disclaimer if unsigned; no repo/key/Linear access or Tier-2 intro pre-disclaimer; (b) NGO per-match acknowledgment (fuel ≠ deliverable, no SLA, names the volunteer) on the funding screen; kickoff fires only on funding (match-to-fund). Consented = kickoff-ready.
+- **Concierge match log (admin-only):** every event — candidacy marked, invited, consented, declined/expired/released, timestamps, short reason. Goal-5 evidence for opening organic browse; not a public queue; candidacies never surface to the NGO.
+- **At first match consent, volunteer auto-added to the platform GitHub org** with repo-creation rights (REQ-008/021) — org membership waits for a real match, never granted at signup. Recorded + audited.
 - **Org removal by cause:** (a) voluntary deactivation — membership removed, per-project access on active projects persists; (b) **AUP enforcement (v1 minimal — founder verdict 2026-07-08):** admin deactivates the account (lifecycle state gates every platform write), instantly revokes project virtual keys, audited note; residual repo/Linear/org access removed by a short manual checklist; Lovable-workspace removal via the build-phase member seat (decision-35); reversal = manual re-enable + key re-issue (→ RM-14); (c) 24-month inactivity — soft removal, like (a).
-- Dashboard shows GitHub status ("Linked as @handle" / "Not linked — link now to accept a match").
+- Dashboard shows the linked GitHub handle and the volunteer's open candidacies.
 - Public listing (read-only v1): title, summary, complexity tier, suggested stack, cause tags, NGO name, posted date — newest-first, no filter/sort (→ RM-8; no public verification badge, decision-29/r3 → RM-6).
 - (→ RM-8, RM-21)
 
@@ -370,7 +371,7 @@ Dependencies: REQ-008, REQ-009.
 
 #### REQ-011: Public Project Listings (v1 read-only; browse/sort/filter machinery v1.5 — decision-28)
 
-v1: public, read-only, newest-first list — anyone sees what ai4good is building. Matching is concierge (REQ-007); no apply flow, filters, badges, or scoring. Volunteers self-select via the concierge; NGOs make no accept/decline decision (enforce-match).
+v1: public, newest-first list — anyone sees what ai4good is building. Read-only **plus exactly one volunteer action: mark interest ("candidate for this project" — decision-36)**, feeding the admin match log only. Matching is concierge (REQ-007); no NGO-facing apply queue, filters, badges, or scoring; NGOs make no accept/decline decision (enforce-match).
 
 - Cards show needed skills + cause tags plainly; newest-first, read-only.
 - No ML, no algorithmic ranking, no NGO-satisfaction weighting.
@@ -627,7 +628,7 @@ A project-page comment thread replaces the v1 real-time channel (NGO admins, ass
 Event-driven email + in-app, documented defaults in v1 (→ RM-45). One shared emitter on a single static event taxonomy is the sole writer — blockers, scope additions, lifecycle events never send comms directly.
 v1 taxonomy (event → recipients, delivery), condensed:
 - Project decisions: triage auto-approved / returned-to-scoped (with reason) / terminally declined → NGO (email + in-app; decision-29/r4); approval = marketplace visibility. Vetting outcome (vetted/unvetted) → NGO (decision-29/r3).
-- Matching (decision-28): match created → volunteer (email + in-app, consent CTA); consented → NGO (email + in-app, fund-to-kick-off); declined/expired → admin (match log); unmatched open project aging → platform admin only (Goal 5).
+- Matching (decision-28): candidacy marked → admin only (match log, decision-36 — never the NGO); match created → volunteer (email + in-app, consent CTA); consented → NGO (email + in-app, fund-to-kick-off); declined/expired → admin (match log); unmatched open project aging → platform admin only (Goal 5).
 - Abandonment (REQ-027): 14d reminder → volunteer + NGO; released → NGO + ex-volunteer; rematch available → NGO.
 - Money: pre-deadline reminder → NGO; deadline expired → NGO + matched volunteer; payment succeeded → both; payment failed → NGO; fuel 20% → NGO; 5% and depleted → both (sessions warned/cut; depleted adds admin escalation); leftover released to general balance → NGO (no donation event — decision-28); chargeback opened → NGO + admin + ops item.
 - Access: virtual key issued (instant at kickoff) / revoked (replacement on dashboard) → volunteer (email + in-app).
@@ -793,6 +794,7 @@ Authoritative reference: Out of Scope=never built; this section=when features sh
 - **32 (2026-07-08)** — Manual-flows verdicts through #20 (#21–#25 pending). APPROVED backstops: #3 chargeback adjudication, #12 Discovery-failure escalation, #13 outbox DLQ, #14 incident command (steps to be scripted one-click), #15 blocker 7-day rung. REMOVED: #2 credit grants, #4 collusion, #5 AUP saga, #7 audited-reversal requirement, #8 handoff-dispute review, #9 goodwill refund, #10 human ledger correction. MOOT: #6 (public-only, d27). POSTPONED post-MVP: #17 counsel deliverables, #18 Anthropic commercial negotiation, #19 formal P&L/runway cadence, #20 Linear written blessing (paid tier fallback); to later stages: #11 chargeback reserve, #16 DMCA registration/escalation docs (the CSAM statutory duty exists by law regardless).
 - **34 (2026-07-09)** — Free-phase Discovery scope guardrails: prompt scope line, turn ceiling, off-topic visibility flag — FREE credits only. Funded Discovery + assistant unguarded; per-turn cost display + fuel gauge=the controls.
 - **35 (2026-07-09)** — Platform Lovable member seat (build-phase only) automates volunteer offboarding at handoff/abandonment/AUP; platform exits at handoff ("last one out"). [VERIFY on first pilot]: member add/remove/self-remove via API/MCP; fallback=manual NGO removal.
+- **36 (2026-07-11)** — Volunteer candidacy precedes matching (amends 28): volunteers mark interest in-product on public projects; each open project gets an assimilation window (pilot-tuned) to gather candidates before the concierge enforce-match draws from the pool. Candidacies feed the admin match log only — no NGO-facing queue. GitHub link mandatory at volunteer signup (was at-first-consent); platform-org membership still waits for first match consent.
 
 **Launch strategy — concierge-first:** supply liquidity=#1 launch gate; no organic browse first. Pre-recruit a ~20–30-volunteer bench, hand-match the first ~10–15 curated projects end-to-end, then open organic browse. v1 hooks: supply-funnel metric, aging nudge, concierge-match tooling (→RM-49).
 

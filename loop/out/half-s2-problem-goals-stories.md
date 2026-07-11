@@ -40,8 +40,9 @@ Card-purchased fuel assigned per project; no platform-wide commitment. (Depends:
 - Real-time per-project ledger (purchases, consumption, balance); failed payments get clear feedback; EU/UK NGOs get valid VAT invoices.
 
 ### Story 3: Volunteer Joins and Gets Matched
-An AI-augmented developer joins the bench, gets concierge-matched, consents in one click. (Depends: REQ-007, REQ-008.)
-- GitHub OAuth imports stats; self-declared skills, availability, preferred causes.
+An AI-augmented developer joins the bench, marks interest on projects, gets concierge-matched from that pool, consents in one click. (Depends: REQ-007, REQ-008.)
+- GitHub link mandatory at signup (decision-36); OAuth imports stats; self-declared skills, availability, preferred causes.
+- The volunteer browses public listings and marks candidacies; each project gathers interest through its assimilation window before the concierge matches from the pool (decision-36).
 - First match consent (first-commitment moment, REQ-007) requires ToS+Platform-Promise: coordination layer only, no obligated outcomes; volunteering, not employment; all work public open-source (MIT); the per-project API key used only for that project; fixtures-only+confidentiality on Tier-2 data; violations risk deactivation + completion-credit forfeiture. Per-account; material text change → one-time re-accept; the disclaimer always precedes any project intro or access.
 - v1 matching = concierge (decision-28): admin-created, binding, no NGO approve/decline; one-click volunteer consent; NGO per-match acknowledgment rides the funding screen (→RM-8); consent does NOT trigger kickoff — the project waits for funding (match-to-fund, REQ-006).
 - On funding, kickoff fires, no admin ops tasks: repo established by NGO + volunteer via the Lovable setup checklist (Lovable mandatory, decision-23, REQ-021); per-project AI keys (REQ-009); comment thread (REQ-015). No build backlog at kickoff; one seeded bootstrap task — the volunteer authors the project PRD from the Discovery scope (REQ-036, decision-25), raising NGO clarifying questions; an automated scorer measures PRD completion vs Discovery; only a passing score unlocks backlog decomposition (REQ-026; GitHub Issues stay dev-internal, REQ-008). Repo setup + key issuance never wait on it. Starter kit: build guide + pull-based workflow.

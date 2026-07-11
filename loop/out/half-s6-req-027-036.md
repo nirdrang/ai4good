@@ -94,7 +94,7 @@ A project-page comment thread replaces the v1 real-time channel (NGO admins, ass
 Event-driven email + in-app, documented defaults in v1 (→ RM-45). One shared emitter on a single static event taxonomy is the sole writer — blockers, scope additions, lifecycle events never send comms directly.
 v1 taxonomy (event → recipients, delivery), condensed:
 - Project decisions: triage auto-approved / returned-to-scoped (with reason) / terminally declined → NGO (email + in-app; decision-29/r4); approval = marketplace visibility. Vetting outcome (vetted/unvetted) → NGO (decision-29/r3).
-- Matching (decision-28): match created → volunteer (email + in-app, consent CTA); consented → NGO (email + in-app, fund-to-kick-off); declined/expired → admin (match log); unmatched open project aging → platform admin only (Goal 5).
+- Matching (decision-28): candidacy marked → admin only (match log, decision-36 — never the NGO); match created → volunteer (email + in-app, consent CTA); consented → NGO (email + in-app, fund-to-kick-off); declined/expired → admin (match log); unmatched open project aging → platform admin only (Goal 5).
 - Abandonment (REQ-027): 14d reminder → volunteer + NGO; released → NGO + ex-volunteer; rematch available → NGO.
 - Money: pre-deadline reminder → NGO; deadline expired → NGO + matched volunteer; payment succeeded → both; payment failed → NGO; fuel 20% → NGO; 5% and depleted → both (sessions warned/cut; depleted adds admin escalation); leftover released to general balance → NGO (no donation event — decision-28); chargeback opened → NGO + admin + ops item.
 - Access: virtual key issued (instant at kickoff) / revoked (replacement on dashboard) → volunteer (email + in-app).

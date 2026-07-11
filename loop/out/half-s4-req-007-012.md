@@ -1,14 +1,14 @@
 #### REQ-007: Volunteer Profile & Concierge Matching (organic marketplace apply-flow deferred to v1.5 — decision-28)
 
-Volunteers sign up (GitHub preferred) and build a profile. **v1 matching is concierge-only**; first cohort hand-matched (Goal 5 → RM-8). Project pages public (Platform Promise §2); interest reaches the concierge out-of-band.
+Volunteers sign up (GitHub link mandatory — decision-36) and build a profile. **v1 matching is concierge-only**; first cohort hand-matched (Goal 5 → RM-8). Project pages public (Platform Promise §2); **volunteers mark interest in-product — a "candidate for this project" action (decision-36); each open project gets an assimilation window (platform-configurable, pilot-tuned) to gather candidates before the concierge matches from the accumulated pool.**
 
-- Sign-up: GitHub OAuth, Google OAuth, or email/password; GitHub linkable later. Linked = auto-populated top languages, repo count, contribution summary; unlinked hides them.
+- Sign-up: GitHub OAuth, Google OAuth, or email/password; **a GitHub link is mandatory at signup (decision-36 — no unlinked volunteer accounts)**; stats auto-populate (top languages, repo count, contribution summary).
 - Profile: skills, causes, hours/week, optional bio.
-- **Admin enforce-match (decision-28):** binding; no NGO approve/decline. Gates: (a) volunteer one-click confirm — first-project disclaimer if unsigned (GitHub link required; inline OAuth modal); no repo/key/Linear access or Tier-2 intro pre-disclaimer; (b) NGO per-match acknowledgment (fuel ≠ deliverable, no SLA, names the volunteer) on the funding screen; kickoff fires only on funding (match-to-fund). Consented = kickoff-ready.
-- **Concierge match log (admin-only):** every attempt — invited, consented, declined/expired/released, timestamps, short reason. Goal-5 evidence for opening organic browse; not a public queue.
-- **On GitHub link, volunteer auto-added to the platform GitHub org** with repo-creation rights (REQ-008/021). Recorded + audited.
+- **Admin enforce-match (decision-28, drawing from the decision-36 candidate pool):** binding; no NGO approve/decline. Gates: (a) volunteer one-click confirm — first-project disclaimer if unsigned; no repo/key/Linear access or Tier-2 intro pre-disclaimer; (b) NGO per-match acknowledgment (fuel ≠ deliverable, no SLA, names the volunteer) on the funding screen; kickoff fires only on funding (match-to-fund). Consented = kickoff-ready.
+- **Concierge match log (admin-only):** every event — candidacy marked, invited, consented, declined/expired/released, timestamps, short reason. Goal-5 evidence for opening organic browse; not a public queue; candidacies never surface to the NGO.
+- **At first match consent, volunteer auto-added to the platform GitHub org** with repo-creation rights (REQ-008/021) — org membership waits for a real match, never granted at signup. Recorded + audited.
 - **Org removal by cause:** (a) voluntary deactivation — membership removed, per-project access on active projects persists; (b) **AUP enforcement (v1 minimal — founder verdict 2026-07-08):** admin deactivates the account (lifecycle state gates every platform write), instantly revokes project virtual keys, audited note; residual repo/Linear/org access removed by a short manual checklist; Lovable-workspace removal via the build-phase member seat (decision-35); reversal = manual re-enable + key re-issue (→ RM-14); (c) 24-month inactivity — soft removal, like (a).
-- Dashboard shows GitHub status ("Linked as @handle" / "Not linked — link now to accept a match").
+- Dashboard shows the linked GitHub handle and the volunteer's open candidacies.
 - Public listing (read-only v1): title, summary, complexity tier, suggested stack, cause tags, NGO name, posted date — newest-first, no filter/sort (→ RM-8; no public verification badge, decision-29/r3 → RM-6).
 - (→ RM-8, RM-21)
 
@@ -86,7 +86,7 @@ Dependencies: REQ-008, REQ-009.
 
 #### REQ-011: Public Project Listings (v1 read-only; browse/sort/filter machinery v1.5 — decision-28)
 
-v1: public, read-only, newest-first list — anyone sees what ai4good is building. Matching is concierge (REQ-007); no apply flow, filters, badges, or scoring. Volunteers self-select via the concierge; NGOs make no accept/decline decision (enforce-match).
+v1: public, newest-first list — anyone sees what ai4good is building. Read-only **plus exactly one volunteer action: mark interest ("candidate for this project" — decision-36)**, feeding the admin match log only. Matching is concierge (REQ-007); no NGO-facing apply queue, filters, badges, or scoring; NGOs make no accept/decline decision (enforce-match).
 
 - Cards show needed skills + cause tags plainly; newest-first, read-only.
 - No ML, no algorithmic ranking, no NGO-satisfaction weighting.
