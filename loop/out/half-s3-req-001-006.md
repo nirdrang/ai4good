@@ -113,7 +113,7 @@ Dependencies: REQ-004, REQ-023.
 
 #### REQ-006: Stripe Fuel Top-Up & Ledger (NGO + volunteer both consume; funding allowed anytime from draft onward)
 
-NGOs buy fuel via Stripe Checkout (one-time, no subscription). The full gross amount credits the specified project or, at the NGO's choice, its general balance. Margin (15%, platform-configurable, locked per consumption — never retroactive) is recognized at consumption, not top-up: a $100 top-up shows $100 of fuel; a never-consuming project leaves the NGO its full balance and the platform nothing (Promise §3/§7). Fundable from `draft` onward (decision-8); two consumers — NGO in Discovery, volunteer in build — pay the same margin; the ledger labels the two consumption kinds separately.
+NGOs buy fuel via Stripe Checkout (one-time, no subscription). The full gross amount credits the specified project or, at the NGO's choice, its general balance. Margin (15%, platform-configurable, locked per consumption — never retroactive) is recognized at consumption, not top-up: a $100 top-up shows $100 of fuel; a never-consuming project leaves the NGO its full balance and the platform nothing (Promise §3/§7). Fundable from `draft` onward (decision-8); the consumers — the NGO (Discovery, and post-funding the project assistant, REQ-033) and the volunteer (build) — pay the same margin; the ledger labels each consumption kind separately.
 
 **Two funding moments** (either first; decision-8): (1) Discovery funding — the expedite when free credits run out (the credits→dollars boundary; buys continuation, not speed); (2) match funding — the default, at acceptance.
 
@@ -134,6 +134,7 @@ Control totals verify nightly and auto-repair by the same provider-truth rules (
 
 **Unused fuel — non-cash credit (Promise §7):**
 
+- **Nothing is ever pre-committed to Anthropic:** the platform pays Anthropic only for actual usage, request by request, on one org account (pay-as-you-go); per-project accounting exists only in the platform ledger (gateway metering, decision-21/30). Cancellation or volunteer release therefore strands no money at Anthropic — the unconsumed balance never left the platform.
 - **No cash-out or withdrawal exists in v1** — no money-out path; only chargeback risk survives.
 - Leftover fuel **stays on the project** across a volunteer change.
 - Only at handoff or cancellation does leftover credit release to the **general balance**: non-cash, no decay clock, no silent auto-renew, never silently removed; it **auto-applies at any of the NGO's funding checkouts** (decision-28), satisfying the $50 minimum, remainder to card. The release is a ledger operation under nightly control totals — never a manual balance tweak — respecting chargeback clawback. No donation flow, manual conversions, or tax receipts.
