@@ -2,16 +2,16 @@
 
 ### Performance
 
-- p95: marketplace page < 500ms (re-validate pre-launch); Discovery first token < 1.5s; payment webhook < 2s end-to-end; code-hosting webhook < 5s end-to-end.
+- p95: marketplace page < 500ms at 100 RPS (re-validate pre-launch); Discovery first token < 1.5s; payment webhook < 2s end-to-end; code-hosting webhook < 5s end-to-end.
 - Year 1: 1000 concurrent marketplace viewers (within the budgeted hosting tiers); 50 concurrent Discovery conversations (provider quota).
 - Infrastructure budget ~$50/mo in year 1; re-baseline for the two-target deploy.
 
 ### Security
 
-- Authentication and sessions are managed, with automatic refresh, and access ends on expiry or revocation. Tenant isolation covers NGO records, projects, fuel transactions, task comments, and project files. Rate limits apply to the auth, Discovery, and match-consent flows. Every inbound webhook is signature-verified.
+- Authentication and sessions are managed, with automatic refresh, and access ends on expiry or revocation. Tenant isolation covers NGO records, projects, fuel transactions, task comments, and project files; project-file access is time-bounded and granted only after a current-membership check. Rate limits apply to the auth, Discovery, and match-consent flows. Every inbound webhook is signature-verified.
 - All provider keys (payment, LLM, code-hosting, work-tracking) are held as managed secrets and never logged. The real LLM key is never issued to volunteers; each volunteer holds an individual revocable credential.
 - PII is minimum-necessary: verification documents are encrypted at rest and never public. GDPR: right-to-erasure (profile deleted, ledger anonymized) plus a standard DPA for EU NGOs. PCI is out of scope — all card data is handled by the processor.
-- A tamper-evident audit history covers fuel transactions, project status transitions, role changes, volunteer AI-credential issuance/revocation, and work-tracking webhook-ingest provenance.
+- An append-only audit history (records cannot be altered or deleted) covers fuel transactions, project status transitions, role changes, volunteer AI-credential issuance/revocation, and work-tracking webhook-ingest provenance.
 
 ### Scalability
 
@@ -21,7 +21,7 @@
 ### Reliability
 
 - Uptime 99.5% (~3.6 hours/month). RTO 4 hours; RPO 24 hours.
-- Application errors and logs are captured centrally with enough fidelity to investigate failures; alerts fire on error-rate spikes.
+- Application errors and logs are captured centrally with enough fidelity to investigate failures; alerts fire on error-rate spikes; and the gateway has actionable operator paging for availability, latency, and enforcement failures (REQ-029).
 
 ### Accessibility
 
@@ -35,7 +35,7 @@
 
 ## Technical Considerations
 
-**Fixed platform partners (product decisions):** Stripe (fuel payments), GitHub (repos and commit/PR ingest), Lovable (the build vehicle and durable home), Linear (the task system of record), and Anthropic/Claude Opus (the LLM). Volunteer builds reach Anthropic only through the LLM gateway on per-project virtual keys, and the gateway alone holds the real key (REQ-009); platform AI (Discovery and the assistant, both Opus) calls Anthropic directly. A volunteer's LLM path and task path are disjoint, touching only at the task-ID binding (REQ-034). Each project has one platform-owned Linear workspace that never transfers; the NGO sees a read-only mirror, status moves on PR merge via the GitHub integration, and out-of-band edits are auto-reverted with an explanatory comment (REQ-026). GitHub Issues are never written or managed by ai4good in v1 (REQ-008). The platform backend, Stripe, Anthropic, the gateway, and GitHub are hard dependencies with defined, user-visible degraded states; a Linear outage only stales the panel while volunteers keep working. Greenfield; no data migration.
+**Fixed platform partners (product decisions):** Stripe (fuel payments), GitHub (repos and commit/PR ingest), Lovable (the build vehicle and durable home), Linear (the task system of record), and Anthropic/Claude Opus (the LLM). Volunteer builds reach Anthropic only through the LLM gateway on per-project virtual keys, and the gateway alone holds the real key (REQ-009); every volunteer request is metered against project fuel and cannot exceed available fuel or caps. Platform AI (Discovery and the assistant (REQ-033), both Opus) calls Anthropic directly. A volunteer's LLM path and task path are disjoint, touching only at the task-ID binding (REQ-034). Each project has one platform-owned Linear workspace that never transfers; the NGO sees a read-only mirror, status moves on PR merge via the GitHub integration, and out-of-band edits are auto-reverted with an explanatory comment (REQ-026). GitHub Issues are never written or managed by ai4good in v1 (REQ-008). The platform backend, Stripe, Anthropic, the gateway, and GitHub are hard dependencies with defined, user-visible degraded states; a Linear outage only stales the panel while volunteers keep working, and the mirror converges once Linear recovers. Greenfield; no data migration.
 
 **Implementation stack — architecture-session decision:** the frontend framework, backend runtime, ORM, the object store for reference files (REQ-032), observability, CI/CD, and the gateway's hosting home (OD-6) are chosen in the architecture session; only the platform partners above are fixed.
 
