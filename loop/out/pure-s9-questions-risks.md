@@ -14,7 +14,6 @@
 
 - OD-1: reviewer identity + merge authority per project (coordinator / peer / agent-assisted human click; governance, not plumbing) → REQ-026 merge flow + reviewer role
 - OD-2: NGO Status-Panel scope + workspace onboarding → REQ-010/013 panel
-- OD-3: volunteer spend-cap + low-fuel warning levels → REQ-009
 - OD-4: misuse-detection enforcement sensitivity → REQ-009
 - OD-5: deferred second spend-verification layer scope → v1.5
 - OD-6: usage-metering operational home (deferred) → REQ-009
