@@ -346,9 +346,9 @@ Dependencies: REQ-006, REQ-024, REQ-034, REQ-012/027/007 (key-termination hooks)
 
 #### REQ-010: Project Page (single view) & Cadence Stats
 
-One **public page** per project, identical for NGO admins, the assigned volunteer, platform admins, and logged-out visitors. The platform surface is PM/coordination; the dev workflow lives on GitHub — there is no separate "developer view."
+One **public page** per project, whose read-only content is the same for NGO admins, the assigned volunteer, platform admins, and logged-out visitors. The platform surface is PM/coordination; the dev workflow lives on GitHub — there is no separate "developer view."
 
-- One page, no per-role variants; the full task tree is public on every project (Platform Promise §2).
+- The page content is public and role-uniform; the full task tree is public on every project (Platform Promise §2). The one viewer-specific element is the NGO project assistant (REQ-033) — an interactive bot interface surfaced **only to the project's NGO account**, never to the volunteer, platform visitors, or the public.
 - The page identifies the project (title, NGO, status, assigned volunteer, repo URL with a plain-language empty state while setup pends, complexity tier, cause tags).
 - **The task tree is the primary content:** the page must convey task hierarchy, each task's status, the work currently underway, and overall progress, where progress reflects completed P0 tasks against all P0 tasks (from the tree, never GitHub issues).
 - **Activity is shown in plain language** tied to task titles, never raw PR/commit jargon.
@@ -558,7 +558,7 @@ The NGO uploads reference files (screenshots, sample forms/data, mockups, requir
 
 #### REQ-033: Post-Discovery NGO Project Assistant (funded, fuel-metered)
 After funding, the Discovery chat reframes as a read-only project assistant (status, open blockers explained, recent progress summarized, fuel runway).
-- It is available on the project page from in_progress onward; unfunded or pre-scoped projects have no assistant, and there Discovery is the only NGO↔AI chat.
+- It is available on the project page from in_progress onward and is surfaced **only to the project's NGO account** — the bot interface never appears for the volunteer, platform visitors, or the public; unfunded or pre-scoped projects have no assistant, and there Discovery is the only NGO↔AI chat.
 - It is fuel-metered with no free credits: the per-turn cost is shown, remaining fuel is visible, and at zero fuel it stops accepting billable requests and offers top-up.
 - It is strictly read-only over a snapshot of tasks, blockers, fuel, and activity: it cannot set status, resolve blockers, accept scope additions, approve handoff, or move money. A scope or priority ask is answered by explaining the REQ-025 protocol, optionally pre-filling a draft the NGO submits.
 - It reuses the Discovery surface and model — no new chat infrastructure; v1 is on-demand text Q&A (→ RM-38). It carries no scope guardrail: paid usage is the NGO's call and the cost display is the control.

@@ -63,9 +63,9 @@ Dependencies: REQ-006, REQ-024, REQ-034, REQ-012/027/007 (key-termination hooks)
 
 #### REQ-010: Project Page (single view) & Cadence Stats
 
-One **public page** per project, identical for NGO admins, the assigned volunteer, platform admins, and logged-out visitors. The platform surface is PM/coordination; the dev workflow lives on GitHub — there is no separate "developer view."
+One **public page** per project, whose read-only content is the same for NGO admins, the assigned volunteer, platform admins, and logged-out visitors. The platform surface is PM/coordination; the dev workflow lives on GitHub — there is no separate "developer view."
 
-- One page, no per-role variants; the full task tree is public on every project (Platform Promise §2).
+- The page content is public and role-uniform; the full task tree is public on every project (Platform Promise §2). The one viewer-specific element is the NGO project assistant (REQ-033) — an interactive bot interface surfaced **only to the project's NGO account**, never to the volunteer, platform visitors, or the public.
 - The page identifies the project (title, NGO, status, assigned volunteer, repo URL with a plain-language empty state while setup pends, complexity tier, cause tags).
 - **The task tree is the primary content:** the page must convey task hierarchy, each task's status, the work currently underway, and overall progress, where progress reflects completed P0 tasks against all P0 tasks (from the tree, never GitHub issues).
 - **Activity is shown in plain language** tied to task titles, never raw PR/commit jargon.

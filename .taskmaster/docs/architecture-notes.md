@@ -182,6 +182,7 @@ Policy that must hold **cannot** depend on volunteer-editable files (editable aw
 
 ### REQ-033 — Post-Discovery assistant
 - Reuses the Discovery surface + model (no new chat infra); per-turn cost display + fuel gauge; composer disabled at fuel-zero.
+- **NGO-only bot interface:** the assistant is surfaced solely to the project's NGO account. The project page's read content stays public/role-uniform, but the interactive bot is the one viewer-specific element — never shown to the volunteer, platform visitors, or the public (it spends the NGO's fuel and answers the NGO's "how is my project going?").
 
 ### REQ-034 — Attribution → see **Cross-cutting A**. Additional: aggregation boundary — NGO sees burn per deliverable **in cents, no celebration**; per-volunteer-per-task granularity stays coordinator-side; bimodal per-task costs treated as a data property, not an anomaly.
 
