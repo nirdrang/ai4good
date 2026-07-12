@@ -127,8 +127,8 @@ NGOs buy fuel via Stripe Checkout (one-time, no subscription). The full gross am
 **Acknowledgment cadence:** the full disclaimer at signup (gates project creation); a hard per-project acknowledgment at first funding; a per-match acknowledgment naming the volunteer at first acceptance (never reused across the two); later top-ups carry a passive Promise link only.
 
 **Ledger:** every money movement lands in one auditable ledger and all balances derive from it. **Each project is isolated in its own provider workspace, so the dollar meter runs on the provider's billed cost per project (REQ-009):**
-- **Provider-truth anchor (per-project):** the provider's usage/cost reporting **per workspace** is each project's spend-of-record, and disagreeing books auto-conform to it (Stripe is the same truth for money-in). Corrections are audited and visible; only undecidable drift pages, never touching the books.
-- **Inline preview** is a live gauge and the real-time zero-fuel gate trigger only — the gateway's per-request estimate moves the gauge between anchor reads and is never trusted over the provider's billed cost.
+- **Provider-truth (per-project):** the provider's usage/cost reporting **per workspace** (its Admin/usage API) is the single source of truth for each project's AI spend and fuel state; a platform monitor reads it on a tight cadence to drive the gauge and the 20/5/0% thresholds, and disagreeing books auto-conform to it (Stripe is the same truth for money-in). Corrections are audited and visible; only undecidable drift pages, never touching the books.
+- **The zero-fuel ceiling is provider-enforced** (the workspace spend limit); the gateway does not gate — it proxies the provider's rejection. Any per-request usage the gateway captures is attribution telemetry (REQ-034), never the money ledger.
 
 Control totals are reconciled and auto-repaired by the same provider-truth rules (→ RM-18). Match expiry (7 days) is automatic.
 
