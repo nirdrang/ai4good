@@ -26,7 +26,7 @@
 
 ### Placement doctrine (why enforcement lives where it does)
 
-Policy that must hold **cannot** depend on volunteer-editable files (editable away) or on third-party permission models — **Lovable has no role between Admin and Editor; Linear's OAuth scopes cannot express "assign + comment but not change status."** So durable enforcement lives only in **platform-controlled surfaces (the gateway) and deterministic code**. Third-party RBAC is trusted for *access*, never for *policy*.
+Policy that must hold **cannot** depend on volunteer-editable files (editable away) or on third-party permission models — **Lovable has no role between Admin and Editor; Linear's OAuth scopes cannot express "assign + comment but not change status."** So it lives only in platform-controlled surfaces the volunteer cannot override: the **gateway** (key confinement, the binding tripwire, governance-prompt injection) and the **provider-workspace limits the platform sets via the Admin API** (spend + rate — enforced provider-side but platform-configured, d41). Third-party RBAC is trusted for *access*, never for *policy*.
 
 ### Detection & audit (metadata only)
 
