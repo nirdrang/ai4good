@@ -87,6 +87,29 @@ Design intent: model the project page and the in-progress card on a code-host's 
 
 ---
 
+## Cross-cutting D — Lovable MCP automation map (d43) (serves REQ-021, REQ-012, REQ-028, REQ-035)
+
+The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). Its tool surface lets ai4good automate much of the Lovable side that the doc previously described as manual. Everything below runs in the **volunteer's connected Lovable session** (their OAuth) unless marked `[needs platform Lovable access]`.
+
+**Automates (fold-worthy wins):**
+- **Kickoff provisioning** — `create_project(workspace_id, initial_message, tech_stack, design_systems, template_project_id)` creates the Lovable project; `enable_database` provisions its Supabase Postgres (one-time). So the volunteer's session stands up the project + DB instead of a manual checklist.
+- **Governance into Lovable's own agent** — `set_project_knowledge` / `set_workspace_knowledge` (≤10k chars) push ai4good's conventions + project-scope rules; `create_workspace_skill` + `enable_project_skill` install the skeptical-reviewer skill. This closes the gap where Lovable's agent (when the Skill delegates or the volunteer drives in-browser) was ungoverned — a soft-norm surface alongside the gateway prompt.
+- **Handoff live-URL auto-capture** — `deploy_project` returns the live production URL; `get_project` returns editor_url, preview_url, status, and a **screenshot**. So the handoff URL is captured automatically (no manual paste), and the screenshot can enrich the in-progress showcase (d38) + the NGO's handoff review.
+- **Build review** — `get_diff`, `list_files`, `read_file`, `list_edits` let the Skill inspect what Lovable built (feeds the reviewer + handoff checks).
+- **DB-state verification** — `get_database_status` / `query_database` / `get_database_connection_info` can verify the RLS/DB posture at handoff (part (i) of the maintenance ritual).
+- **Credit status** — `get_workspace` (plan + credits), already folded (d42).
+
+**Cannot do (stay manual / UI):**
+- **Add connectors** — `add_connector` only returns a dashboard **deep link**; GitHub + Stripe connector setup stays a Lovable UI step.
+- **Member management** — **no** add/remove/invite tools. So automated volunteer offboarding is NOT possible (resolves the old `[VERIFY]`) → the NGO removes the volunteer **and the platform ops seat** manually at handoff. The platform seat also cannot self-remove.
+- **Workspace creation** (a billing action) and **programmatic credit top-up** (none) stay NGO-side.
+
+**Two open decisions this surfaces:**
+1. `[open]` **Post-handoff 30-day health via analytics.** `get_project_analytics` (visitors, pageviews, sessions, breakdowns) + `get_project_analytics_trend` (real-time visitors) could turn REQ-012's 30-day "reachability ping" into a real **adoption** signal (is the NGO actually using it?). But post-handoff there is no volunteer session, so this needs a **persistent platform Lovable connection** → widens Q7 / the platform-seat scope.
+2. `[open]` **Platform ops seat's fate (revisits d35).** Its original purpose — automated offboarding — is unachievable via MCP, and it can't self-remove. Either drop the seat (offboarding is manual anyway) or keep it *only* to hold the platform Lovable OAuth for decision #1 (post-handoff analytics + between-session credit alerts).
+
+---
+
 ## By requirement — stripped design (the HOW)
 
 ### REQ-001 — Auth & org membership
