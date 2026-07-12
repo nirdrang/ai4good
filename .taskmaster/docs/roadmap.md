@@ -152,16 +152,6 @@ v1 is on-demand text Q&A only; proactive/push digests and scheduled summaries fo
 **Trigger/Gate:** v1.5 — coordinator wants unattributed-share visibility and per-task cost baselines feeding Discovery estimates
 Analysis surfaces trail in v1.5: coordinator reconciliation surfaces (per-project unattributed %, broken/stale-binding signals) plus per-task cost baselines feeding Discovery estimates. v1 ships capture only, plus the NGO burn-per-deliverable view.
 
-### RM-40: Reputation feeds matching
-**Source:** REQ-035 (point 3); v1.5 trigger list
-**Trigger/Gate:** v1.5 — the v1.5 remainder of decision-22
-Reputation feeds matching (v1.5): the attribution + health record becomes visible during matching. No gates — a volunteer with weak signals still applies; the NGO sees the record. Synthesis and matching surfaces land in v1.5 (capture ships in v1; uncaptured data is lost forever).
-
-### RM-41: AI-maintainability check (signal only)
-**Source:** REQ-035 (point 4)
-**Trigger/Gate:** v1.5, signal only — never a gate
-An optional visible test at handoff: a fresh agent runs realistic change requests against the repo; the result is shown, and nothing is blocked.
-
 ### RM-42: NGO dashboard v1.5 enhancements
 **Source:** REQ-013
 **Trigger/Gate:** v1.5 — engagement metrics show demand for more reputation surface
@@ -320,3 +310,8 @@ The pilot runs on standard self-serve billing and default rate limits; tier nego
 **Source:** Open issue #10
 **Trigger/Gate:** postponed post-MVP (founder verdict, flow #19 2026-07-08); no release assigned
 The pilot's real spend is visible on the daily money dashboard; the formal bottom-up P&L and grant/donor-runway lock become a scale-up gate. Original scope: bottom-up year-1 P&L (skim + grants + donations vs compute float + infrastructure + labor); a grant/donor runway covering the projected net gap.
+
+### RM-62: Formal completion ceremony + post-completion attribution & health
+**Source:** REQ-012; REQ-035; Story 6; Open issue #7
+**Trigger/Gate:** v1.5 — build trigger: pilot completions reveal whether NGOs want a structured acceptance step and whether volunteers want captured attribution beyond raw GitHub history
+v1 has no formal handoff ceremony: the volunteer marks the project `completed` once all P0 tasks are done, and because Lovable is enforced and git-bound the NGO already owns the live app and repo throughout (no delivery, no transfer). This item restores, as a v1.5 layer, the pieces deferred out of v1: the completion checklist gate (README/runbook/deploy-instructions/passing-CI/license confirmation), the NGO sign-off / acceptance flow with a rejection loop back to `in_progress`, the guided-maintenance ("first change request") ritual, the live-URL-reachable gate, and post-completion capture — an NGO attribution step (optional testimonial plus credit-framed dimensions, never a public star score) feeding the volunteer's private portfolio, plus post-completion health (reachability ping and the structured founder check-in). Subsumes the attribution/health scope formerly split across REQ-035, including reputation-feeds-matching (the captured attribution + health record becomes visible during v1.5 matching; no gate — a volunteer with weak signals still applies) and an optional signal-only AI-maintainability check (a fresh agent runs realistic change requests against the repo; the result is shown, nothing is blocked). The 60/90-day automated health layer remains RM-25. "No public star ratings, ever" continues to hold.

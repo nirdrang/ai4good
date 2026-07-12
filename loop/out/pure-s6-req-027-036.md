@@ -26,9 +26,9 @@ v1 needs no automated takedown surface; the one real exposure — secrets in pub
 
 #### REQ-032: Project Need Attachments (NGO reference files for Discovery + build)
 The NGO uploads reference files (screenshots, sample forms/data, mockups, requirements PDFs); Discovery reads them multimodally and the volunteer uses them at build.
-- Files can be uploaded at intake, during Discovery (the agent may ask), or from the project page pre-handoff. Supported types include PDF, images, CSV/TSV, TXT, and DOCX/XLSX, under per-file and per-project size caps.
+- Files can be uploaded at intake, during Discovery (the agent may ask), or from the project page pre-completion. Supported types include PDF, images, CSV/TSV, TXT, and DOCX/XLSX, under per-file and per-project size caps.
 - Access is limited to the project's NGO account, the assigned volunteer, and the platform admin (the repo is public but the files are restricted); access is via short-lived authorized links and the UI never holds storage credentials.
-- PII is governed by disclosure: the NGO is told to provide redacted/sample data only, not real beneficiary records, and that ai4good and the volunteer will see the files. Tier-2 adds a hard acknowledgment restating fixtures-only — the NGO connects real data itself, in its own environment, after handoff. There is no upload scanning in v1; the NGO owns the risk per the data-responsibility acknowledgment (→ RM-37).
+- PII is governed by disclosure: the NGO is told to provide redacted/sample data only, not real beneficiary records, and that ai4good and the volunteer will see the files. Tier-2 adds a hard acknowledgment restating fixtures-only — the NGO connects real data itself, in its own environment, after completion. There is no upload scanning in v1; the NGO owns the risk per the data-responsibility acknowledgment (→ RM-37).
 - Discovery may cite files in its questions and the scope doc; file names and the NGO's one-line descriptions ride its context. File reads never consume credits and never interrupt; on funded projects they consume fuel like any turn.
 - The volunteer downloads files from the project page (→ RM-31); downloaded files are kept out of the repo's normal contents (an accidental-commit residual is accepted at pilot scale, mitigated by secret scanning and the fixtures-only rule).
 - The project page lists reference files with their metadata (name, type, uploader, description); deleted files remain recoverable and deletion history remains auditable; uploads and deletes are audited.
@@ -37,7 +37,7 @@ The NGO uploads reference files (screenshots, sample forms/data, mockups, requir
 After funding, the Discovery chat reframes as a read-only project assistant (status, open blockers explained, recent progress summarized, fuel runway).
 - It is available on the project page from in_progress onward and is surfaced **only to the project's NGO account** — the bot interface never appears for the volunteer, platform visitors, or the public; unfunded or pre-scoped projects have no assistant, and there Discovery is the only NGO↔AI chat.
 - It is fuel-metered with no free credits: the per-turn cost is shown, remaining fuel is visible, and at zero fuel it stops accepting billable requests and offers top-up.
-- It is strictly read-only over a snapshot of tasks, blockers, fuel, and activity: it cannot set status, resolve blockers, accept scope additions, approve handoff, or move money. A scope or priority ask is answered by explaining the REQ-025 protocol, optionally pre-filling a draft the NGO submits.
+- It is strictly read-only over a snapshot of tasks, blockers, fuel, and activity: it cannot set status, resolve blockers, accept scope additions, or move money. A scope or priority ask is answered by explaining the REQ-025 protocol, optionally pre-filling a draft the NGO submits.
 - It reuses the Discovery surface and model — no new chat infrastructure; v1 is on-demand text Q&A (→ RM-38). It carries no scope guardrail: paid usage is the NGO's call and the cost display is the control.
 
 #### REQ-034: Task-Level Attribution (telemetry, never gating)
@@ -48,12 +48,8 @@ Classification (load-bearing): this is telemetry, NOT a security control — it 
 - Aggregation boundary: the NGO sees burn per deliverable (in cents, no celebration); per-volunteer-per-task granularity stays coordinator-side. Bimodal per-task costs are a data property, not an anomaly.
 - v1: capture plus the NGO burn-per-deliverable view (→ RM-39).
 
-#### REQ-035: Post-Handoff Attribution & Jumpstart Health (60/90-day layer trimmed to v1.5)
-No gates anywhere — quality becomes visible after the fact and reputation is the incentive. Capture ships in v1 (→ RM-25, RM-40).
-1. NGO attribution at handoff (v1): an optional free-text testimonial plus three required dimensions — communication, delivered scope, and onboarding into self-service — on a 4-point descriptive scale, credit-framed (~30 seconds), deliberately NOT a star score. It feeds the volunteer's portfolio (private in v1), supersedes the "no satisfaction form" deferral, and "no public star ratings, ever" holds. Nothing here blocks handoff.
-2. Post-handoff health (v1 = reachability + a structured human check-in) (→ RM-25): the automated 30-day ping stays, reachability-only (deployed and responding). The longitudinal layer is a founder check-in at day 45–60, created as a REQUIRED ops item at handoff acceptance (handoff cannot complete without it — with an owner and due date). Outreach is closed-form and PII-minimizing — six fields (self-service attempted, worked/failed, URL reachable, failure category, follow-up owner, follow-up due) — and the message instructs recipients never to send screenshots, beneficiary data, secrets, or raw incident detail, routing privacy/security concerns to the incident path first. Any failure gets an owner and a 2-business-day clock. Health signals never notify the volunteer punitively.
-3. (→ RM-40)
-4. (→ RM-41)
+#### REQ-035: Post-Completion Attribution & Health (deferred → v1.5)
+Attribution capture (an NGO testimonial plus credit-framed dimensions), post-completion reachability pings, and the founder health check-in are all deferred out of v1 (→ RM-62). v1 reputation is completion credit only (REQ-014); "no public star ratings, ever" holds. Nothing is captured at completion beyond the completion-credit event, and nothing here gates completion.
 
 ### P0 (promoted from P1): Required dependencies of REQ-024 / REQ-025 / REQ-026
 REQ-013/014/015/016 (drafted P1) are P0-feature dependencies, reclassified P0 with minimal v1 cuts (→ RM-42, RM-3, RM-43, RM-45). REQ-017 is out of v1 (→ RM-4); no P1 work in v1.
@@ -66,8 +62,8 @@ One NGO-wide view supporting the stepwise-funding moments (Promise §6).
 #### REQ-014: Volunteer Dashboard + Completion Credit (v1 minimal)
 A dashboard plus completion-credit-only public reputation: no public star or numerical ratings.
 - v1 dashboard: current projects (status, both fuel balances, in-progress tasks, unresolved blockers/clarifications) and the key reveal (REQ-009) (→ RM-22).
-- **No public profile page or badge display in v1** (→ RM-3). Completion credit is captured from day one as durable, append-only per-project events (non-overwritable, non-deletable, tamper-evident: volunteer, project, handoff-accepted timestamp, first-tool eligibility), with a private "credit earned" confirmation at handoff. The framing is "credit recorded from day one" — every repo is public MIT, so the portfolio already exists on GitHub.
-- No satisfaction modal at handoff and no admin aggregate; the volunteer never sees their own satisfaction scores (→ RM-24).
+- **No public profile page or badge display in v1** (→ RM-3). Completion credit is captured from day one as durable, append-only per-project events (non-overwritable, non-deletable, tamper-evident: volunteer, project, completion timestamp, first-tool eligibility), with a private "credit earned" confirmation at completion. The framing is "credit recorded from day one" — every repo is public MIT, so the portfolio already exists on GitHub.
+- No satisfaction modal at completion and no admin aggregate; the volunteer never sees their own satisfaction scores (→ RM-24).
 - (→ RM-3)
 
 #### REQ-036: Dev-Authored Project PRD & Completion Gate
@@ -87,7 +83,7 @@ A dashboard plus completion-credit-only public reputation: no public star or num
 
 #### REQ-015: Per-Project Comment Thread (full Slack-style channel deferred to v1.5)
 A project-page comment thread replaces the v1 real-time channel (NGO admins, the assigned volunteer, and the platform admin only when escalated); the concierge pilot coordinates via blockers, comments, notifications, and email (→ RM-43).
-- v1: a chronological plain-text stream with auto-linked URLs (no markdown, code blocks, attachments, or @-mentions); it need not update in real time but shows current comments on view; posting notifies the other party; membership is implicit from project roles. System events never post to the thread — they surface in notifications and activity feeds. (Scope-addition discussions live here per REQ-025.) (→ RM-10) Post-handoff it is read-only. No cross-project DMs.
+- v1: a chronological plain-text stream with auto-linked URLs (no markdown, code blocks, attachments, or @-mentions); it need not update in real time but shows current comments on view; posting notifies the other party; membership is implicit from project roles. System events never post to the thread — they surface in notifications and activity feeds. (Scope-addition discussions live here per REQ-025.) (→ RM-10) Post-completion it is read-only. No cross-project DMs.
 - (→ RM-43, RM-44)
 
 #### REQ-016: Notifications (Email + In-App)
@@ -100,14 +96,14 @@ v1 taxonomy (event → recipients, delivery), condensed:
 - Access: virtual key issued (instant at kickoff) / revoked (replacement on dashboard) → volunteer (email + in-app).
 - Work signals: task status changed → NGO (in-app, low-tone); task completed → NGO (email + in-app); task comment → volunteer (in-app); thread comment → the other party (in-app default, with an anti-spam guard); blockers raised/resolved/48h/7d → NGO email + in-app, volunteer on resolution, admin at 7d; PM status auto-reverted → volunteer (in-app, low-tone, instructive not punitive).
 - Scope additions (informal): ride thread-comment notifications; no dedicated CR events in v1 (→ RM-10).
-- Handoff + health: requested / accepted / rejected → both; verification outcome → NGO. (→ RM-25)
+- Completion: project marked complete → both. (→ RM-25)
 - Provisioning failure (repo setup failed, workspace pool empty at kickoff) → NGO + volunteer + admin + ops item, plus an urgent replenish alert on pool-empty. Lovable: setup reminder, credits low, credits blocked (escalation tier), setup-pending auto-raised at kickoff → NGO, setup complete → both.
 - (→ RM-43, RM-5, RM-7, RM-11)
-Delivery defaults: email for critical events (money, deadlines, blockers, handoff, decisions); in-app only for low-tone. One notification per committed event (→ RM-45). **Critical-event reliability guard (money, access, handoff):** the notification event is written atomically with its ledger/state transition via the outbox; recipients resolve at event creation; and it is marked sent only on provider acceptance — an unconfirmed send retries and is never silently dropped. Escalation-tier events notify the NGO and platform admin.
+Delivery defaults: email for critical events (money, deadlines, blockers, completion, decisions); in-app only for low-tone. One notification per committed event (→ RM-45). **Critical-event reliability guard (money, access, completion):** the notification event is written atomically with its ledger/state transition via the outbox; recipients resolve at event creation; and it is marked sent only on provider acceptance — an unconfirmed send retries and is never silently dropped. Escalation-tier events notify the NGO and platform admin.
 
 ### Out of v1 / Deferred to v2 — referenced by ID only
 
-#### REQ-017: Post-Handoff Feature Request Surfacing (v2)
+#### REQ-017: Post-Completion Feature Request Surfacing (v2)
 (→ RM-4)
 
 ### Nice to Have (P2) — Future Enhancement

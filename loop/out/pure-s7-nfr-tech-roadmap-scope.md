@@ -16,7 +16,7 @@
 ### Scalability
 
 - Pilot: 100 NGOs, 200 volunteers, 50 active projects; year 1: 500 NGOs, 1000 volunteers, 200 active projects — within the budgeted tiers.
-- The frontend, backend, and database scale to sustain these targets within budget; heavy and periodic work (webhook fan-out, outbox drain, scheduled scans, AI streaming) runs without blocking interactive traffic. Each project is isolated in its own Anthropic Workspace (REQ-009), so the provider's **100-workspaces-per-org cap** applies: workspaces are archived at handoff/cancellation (archived ones don't count), so it binds only on concurrent in-flight projects; beyond that, projects spread across additional Anthropic orgs, with a cap lift negotiated once the platform has traction. Org-level provider rate/quota limits are also monitored.
+- The frontend, backend, and database scale to sustain these targets within budget; heavy and periodic work (webhook fan-out, outbox drain, scheduled scans, AI streaming) runs without blocking interactive traffic. Each project is isolated in its own Anthropic Workspace (REQ-009), so the provider's **100-workspaces-per-org cap** applies: workspaces are archived at completion/cancellation (archived ones don't count), so it binds only on concurrent in-flight projects; beyond that, projects spread across additional Anthropic orgs, with a cap lift negotiated once the platform has traction. Org-level provider rate/quota limits are also monitored.
 
 ### Reliability
 
@@ -65,7 +65,7 @@
 17. **Service-level agreements / completion guarantees** — none: ghosting, fuel burn without a deliverable, and infeasible scopes are all possible; the platform bounds financial risk (per-project fuel caps) and surfaces stalls but never underwrites.
 18. **Closed-source / proprietary builds** — MIT (or a compatible permissive license) by default; closed-source is not served.
 19. **Fuel-spend insurance / refund-on-no-deliverable** — consumed fuel is non-refundable even if nothing ships; NGOs are warned at every top-up.
-20. **Fully-automated Anthropic workspace + key provisioning** — now IN v1 (REQ-009): each project's Anthropic Workspace and its workspace-scoped key are created via the provider Admin API at kickoff and archived at handoff/cancellation (no manual console ops).
+20. **Fully-automated Anthropic workspace + key provisioning** — now IN v1 (REQ-009): each project's Anthropic Workspace and its workspace-scoped key are created via the provider Admin API at kickoff and archived at completion/cancellation (no manual console ops).
 21. **Per-request prompt/response content capture** — permanently out (privacy posture): metadata only (tokens, model, timestamps, cost); bodies are never persisted; deliberate and on record.
 22. **Anthropic-side budget enforcement** — now USED (REQ-009): the per-workspace provider spend limit is the hard fuel ceiling; the gateway adds the real-time gate + governance on top.
 23. **OpenTelemetry prompt-content export from Claude Code** — ai4good never requests, processes, or aggregates volunteer prompt-content telemetry; independent OTel is allowed.

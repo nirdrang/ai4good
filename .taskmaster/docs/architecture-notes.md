@@ -18,7 +18,7 @@
 2. **Project-binding marker — a tripwire, not a lock.** A marker is committed into the project repo (session prompt carries it, e.g. *"this ties NGO-funded fuel to this project; please don't move it"*). On **substantive** requests the gateway verifies the marker against the key's project; a mismatch yields an **instructive rejection naming the key's project** (not a flat error). Threshold for "substantive" is `[open: OD-4]` — small background calls are skipped so the check doesn't tax normal work.
    - **Why a tripwire, not a lock:** the marker is copyable, so it cannot stop a determined insider. Its job is to convert the **dominant real case — a key accidentally reused on another repo — into unambiguous intent**, cheaply. Locking is not the goal; detection + attribution + revocation is.
 3. **Budget + velocity are provider-native (d40).** The workspace **spend limit** (= prepaid fuel) is the budget ceiling and the workspace **rate limits** (RPM/TPM) bound burn velocity / runaway loops — both provider-enforced. v1 adds **no custom gateway usage caps**; a light gateway anomaly-brake can return later if needed. (The earlier per-key rolling-window caps + OD-3 are retired — the workspace spend limit + rate limits cover budget and velocity.)
-4. **Per-project provider workspace (d39) — the isolation + metering + hard-cap layer.** Each project is an **Anthropic Workspace** (created via the Admin API at kickoff, archived at handoff/cancellation). This gives, provider-native: a workspace-scoped key, **per-project billed cost** (Usage/Cost API `group_by=workspace_id` — the money-of-record, replacing local token reconstruction), a **per-workspace spend limit** set to the prepaid fuel (the provider-enforced hard fuel ceiling), per-workspace rate limits, and isolated prompt caches. Cap: 100 workspaces/org — archive-on-handoff makes it a concurrent-in-flight limit; new orgs + a negotiated lift are the escape hatches.
+4. **Per-project provider workspace (d39) — the isolation + metering + hard-cap layer.** Each project is an **Anthropic Workspace** (created via the Admin API at kickoff, archived at completion/cancellation). This gives, provider-native: a workspace-scoped key, **per-project billed cost** (Usage/Cost API `group_by=workspace_id` — the money-of-record, replacing local token reconstruction), a **per-workspace spend limit** set to the prepaid fuel (the provider-enforced hard fuel ceiling), per-workspace rate limits, and isolated prompt caches. Cap: 100 workspaces/org — archive-on-completion makes it a concurrent-in-flight limit; new orgs + a negotiated lift are the escape hatches.
 5. **Fuel state + thresholds = provider truth; enforcement = the spend limit (d41).** The platform's fuel monitor reads the provider's **Admin/usage API — the single source of truth** — on a tight cadence to compute remaining fuel and fire the **20/5/0%** notifications. The **zero-fuel ceiling is the workspace spend limit** (provider-enforced): at 0% the provider declines further requests and the **gateway just proxies that rejection** to the user — the gateway does **not** gate. The gateway still captures per-request usage tagged by task, but only as **attribution telemetry (REQ-034)** — never the money ledger and never the gate. So no gateway-side token math determines any dollar figure or any stop.
 6. **Governance-prompt injection every request.** The gateway injects the project-scope rule (decline/redirect unrelated requests) and the never-change-Linear-status rule. This is a **durable** norm (re-applied every request), distinct from volunteer-editable files.
 7. **Instant, self-serve revocation.** NGO "revoke access now" and admin enforcement cut access immediately with an instant replacement key. This is the real enforcement action; detection can afford latency because revocation ends exposure at any time. Marker **rotation** is hygiene for a lost-repo-access situation, **not** an anti-insider control.
@@ -74,7 +74,7 @@ Design intent: model the project page and the in-progress card on a code-host's 
 - **Contribution heatmap** (optional) — a calendar of project activity (green-squares style).
 - **Contributor** — the single assigned volunteer's avatar (GitHub shows a contributor grid; ai4good is single-dev).
 - **License** — MIT badge (uniform across projects).
-- **Readiness %** — modeled on GitHub's Community Standards checklist → ai4good handoff-readiness (README, RUNBOOK, deploy instructions, ≥1 passing CI run, LICENSE, live URL).
+- **Readiness %** `[deferred → RM-62]` — modeled on GitHub's Community Standards checklist → ai4good completion-readiness (README, RUNBOOK, deploy instructions, ≥1 passing CI run, LICENSE, live URL). Not a v1 gate; the checklist ships with the formal completion ceremony.
 - **Topics** → cause tags.
 
 **Cadence = task progression + commits (d38):** ai4good's cadence/liveness metric is NOT commits alone — it combines **PM task progression (Linear task-completion events)** with **commit activity**. "Time since last activity" and the sparkline draw from both event streams, so a project moving tasks forward reads as live between commits, and vice versa.
@@ -94,23 +94,23 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 **Automates (fold-worthy wins):**
 - **Kickoff provisioning** — `create_project(workspace_id, initial_message, tech_stack, design_systems, template_project_id)` creates the Lovable project; `enable_database` provisions its Supabase Postgres (one-time). So the volunteer's session stands up the project + DB instead of a manual checklist.
 - **Governance into Lovable's own agent** — `set_project_knowledge` / `set_workspace_knowledge` (≤10k chars) push ai4good's conventions + project-scope rules; `create_workspace_skill` + `enable_project_skill` install the skeptical-reviewer skill. This closes the gap where Lovable's agent (when the Skill delegates or the volunteer drives in-browser) was ungoverned — a soft-norm surface alongside the gateway prompt.
-- **Handoff live-URL auto-capture** — `deploy_project` returns the live production URL; `get_project` returns editor_url, preview_url, status, and a **screenshot**. So the handoff URL is captured automatically (no manual paste), and the screenshot can enrich the in-progress showcase (d38) + the NGO's handoff review.
-- **Build review** — `get_diff`, `list_files`, `read_file`, `list_edits` let the Skill inspect what Lovable built (feeds the reviewer + handoff checks).
-- **DB-state verification** — `get_database_status` / `query_database` / `get_database_connection_info` can verify the RLS/DB posture at handoff (part (i) of the maintenance ritual).
+- **Completion live-URL auto-capture** — `deploy_project` returns the live production URL; `get_project` returns editor_url, preview_url, status, and a **screenshot**. So the live URL is captured automatically as project metadata (no manual paste, not a gate), and the screenshot can enrich the in-progress showcase (d38). (The formal NGO completion review is deferred → RM-62.)
+- **Build review** — `get_diff`, `list_files`, `read_file`, `list_edits` let the Skill inspect what Lovable built (feeds the reviewer + completion checks).
+- **DB-state verification** — `get_database_status` / `query_database` / `get_database_connection_info` can verify the RLS/DB posture at completion (part (i) of the maintenance ritual, deferred → RM-62).
 - **Credit status** — `get_workspace` (plan + credits), already folded (d42).
 
 **Cannot do (stay manual / UI):**
 - **Add connectors** — `add_connector` only returns a dashboard **deep link**; GitHub + Stripe connector setup stays a Lovable UI step.
-- **Member management** — **no** add/remove/invite tools. So automated volunteer offboarding is NOT possible (resolves the old `[VERIFY]`) → the NGO removes the volunteer **and the platform ops seat** manually at handoff. The platform seat also cannot self-remove.
+- **Member management** — **no** add/remove/invite tools. So automated volunteer offboarding is NOT possible (resolves the old `[VERIFY]`) → the NGO removes the volunteer manually at completion. ai4good is never a member of the NGO's Lovable workspace (seat dropped, #2 below).
 - **Workspace creation** (a billing action) and **programmatic credit top-up** (none) stay NGO-side.
 
 **Two decisions this surfaced:**
 1. `[resolved — no, d44]` **Post-handoff analytics: not required at this stage.** The 30-day-alive check stays **reachability-only** — a plain request to the public live URL (`…lovable.app`), which needs **no** Lovable API access. Lovable's analytics (`get_project_analytics`) are not used in v1.
-2. `[recommend DROP — pending founder]` **Platform ops Lovable seat.** With offboarding not MCP-automatable *and* analytics not required (#1), the build-phase member seat has **no remaining purpose** and is a liability (it can't self-remove, so the NGO would have to revoke it). Recommendation: **drop the seat** — ai4good is then never a member of the NGO's Lovable workspace, offboarding is simply the NGO removing the volunteer, and "last one out, zero platform access" is automatic (revises d35).
+2. `[resolved — DROPPED, founder-confirmed 2026-07-12]` **Platform ops Lovable seat.** With offboarding not MCP-automatable *and* analytics not required (#1), the build-phase member seat had **no remaining purpose** and was a liability (it can't self-remove). Dropped: ai4good is never a member of the NGO's Lovable workspace, offboarding is simply the NGO removing the volunteer, and "zero platform access" is automatic (revises d35).
 
 **Verified live (Lovable API interrogated directly, 2026-07-12 — not doc inference):**
 - **Credit shape refinement (d42).** `get_workspace` returns **billing-period usage + limits**, not a single "balance": `backend_total_used_in_billing_period`, `billing_period_credits_limit`, `billing_period_credits_used`, billing-period dates, plan/subscription status — and a per-member **`monthly_credit_limit`**. So ai4good **computes** remaining/low from usage-vs-limit (on unified-billing/metered plans the limit may be null → track usage + Lovable's own low/out signals). Bonus: the per-member `monthly_credit_limit` is a **native Lovable cap** — it maps to ai4good's "cap the volunteer's Lovable spend" (REQ-021/028), though setting it is UI-only (no MCP setter).
-- **Handoff URL + screenshot confirmed.** `list_projects`/`get_project` return `url` (published live URL, e.g. a real published project returned `https://…lovable.app`), `preview_url`, `editor_url`, `status`, and `latest_screenshot_url` — so the handoff live-URL auto-capture (REQ-012) and the showcase/handoff **screenshot** are real fields, not assumptions.
+- **Completion URL + screenshot confirmed.** `list_projects`/`get_project` return `url` (published live URL, e.g. a real published project returned `https://…lovable.app`), `preview_url`, `editor_url`, `status`, and `latest_screenshot_url` — so the completion live-URL auto-capture (REQ-012) and the showcase **screenshot** are real fields, not assumptions.
 - **Stack confirmed.** `create_project` `tech_stack` includes the ai4good target (`tanstack_start_ts_*` was live on the account's existing "AI4GOOD" project) + `design_systems`/`template_project_id`.
 - **Templates/design-systems empty today → an action.** `list_template_projects` returned none. ai4good should maintain an **"ai4good starter" template project + design system** so `create_project` clones a consistent, convention-baked baseline per project.
 - **Governance surface writable.** `get_workspace_knowledge` = empty and `list_workspace_skills` = none today → `set_workspace_knowledge`/`set_project_knowledge`/`create_workspace_skill` are free to populate (confirms d43 governance-into-Lovable).
@@ -175,15 +175,13 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 ### REQ-011 — Public listings
 - Card field set + newest-first ordering; the one volunteer action (mark interest) feeds the match log.
 
-### REQ-012 — Handoff
-- Disabled-button-with-instructions when the repo doesn't exist.
-- Live-URL capture via the handoff form (sole capture point).
-- **Guided-maintenance ritual:** (i) enable row-level access enforcement on the Lovable DB (off by default — PII footgun); (ii) demo chat/plan-mode + checkpoint rollback; (iii) set a Lovable spend cap; (iv) confirm two-way GitHub sync.
-- 30-day-alive automated ping mechanism.
+### REQ-012 — Project Completion
+- v1: the volunteer marks `completed` when all P0 tasks are done and the repo exists; leftover fuel → general balance; virtual keys revoked + provider workspace archived; Linear membership removed + tree preserved; completion-credit event. Live URL captured as project metadata (auto from Lovable `deploy_project`/`get_project`), not gated. NGO offboards the volunteer self-serve; ai4good is never a member of the Lovable workspace.
+- `[deferred → RM-62]` formal ceremony: disabled-button-with-instructions when the repo doesn't exist; live-URL capture via a completion form as the sole gate; sign-off / acceptance flow + rejection loop; the guided-maintenance ritual — (i) enable row-level access enforcement on the Lovable DB (off by default — PII footgun); (ii) demo chat/plan-mode + checkpoint rollback; (iii) set a Lovable spend cap; (iv) confirm two-way GitHub sync; the 30-day-alive automated ping.
 
 ### REQ-013 / REQ-014 — Dashboards
 - NGO: project cards, dual fuel meters, "Action needed" rail; % complete from tasks.
-- Volunteer: dual fuel gauges; **completion credit as append-only per-project events** (volunteer, project, handoff-accepted timestamp, first-tool eligibility); private "credit earned" confirmation; no satisfaction shown to the volunteer.
+- Volunteer: dual fuel gauges; **completion credit as append-only per-project events** (volunteer, project, completion timestamp, first-tool eligibility); private "credit earned" confirmation; no satisfaction shown to the volunteer.
 
 ### REQ-015 — Comment thread
 - Rendering: chronological plain-text stream, auto-linked URLs, **no** markdown/code-blocks/attachments/@-mentions; loads on page view, no live push; membership implicit from roles; system events never post to the thread.
@@ -244,9 +242,10 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 
 ### REQ-034 — Attribution → see **Cross-cutting A**. Additional: aggregation boundary — NGO sees burn per deliverable **in cents, no celebration**; per-volunteer-per-task granularity stays coordinator-side; bimodal per-task costs treated as a data property, not an anomaly.
 
-### REQ-035 — Post-handoff attribution & health
-- Attribution: **4-point descriptive scale** across 3 dimensions (~30s), not a star score.
-- Health: automated **30-day** reachability ping; the **day-45–60** founder check-in as a required ops item created at handoff acceptance; closed-form **six-field** check-in record (self-service attempted, worked/failed, URL reachable, failure category, follow-up owner, follow-up due).
+### REQ-035 — Post-completion attribution & health `[deferred → RM-62]`
+- `[deferred → RM-62]` Attribution: **4-point descriptive scale** across 3 dimensions (~30s), not a star score.
+- `[deferred → RM-62]` Health: automated **30-day** reachability ping; the **day-45–60** founder check-in as a required ops item; closed-form **six-field** check-in record (self-service attempted, worked/failed, URL reachable, failure category, follow-up owner, follow-up due).
+- v1 captures nothing at completion beyond the completion-credit event (REQ-014); "no public star ratings, ever" holds.
 
 ### REQ-036 — Dev-authored PRD & completion gate
 - Automated scorer compares the dev PRD to the Discovery scope → completion score + named gaps; **score ≥ threshold** decomposes/pushes the build tree; below → iterate, bounded by fuel not attempts.

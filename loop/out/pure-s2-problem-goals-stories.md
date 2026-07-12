@@ -1,6 +1,6 @@
 ## Problem Statement
 
-NGOs run a chronic software deficit (spreadsheets, generic SaaS, ill-fitting donated point-solutions); vendors price for corporate budgets, pro-bono shops are oversubscribed, and volunteer one-offs stall without a shared backbone (scope, funding, PM, handoff). AI-augmented developers now ship 5-10x faster than the pre-AI baseline but lack an aggregated channel into social-impact work — a coordination failure, not unwillingness.
+NGOs run a chronic software deficit (spreadsheets, generic SaaS, ill-fitting donated point-solutions); vendors price for corporate budgets, pro-bono shops are oversubscribed, and volunteer one-offs stall without a shared backbone (scope, funding, PM, delivery). AI-augmented developers now ship 5-10x faster than the pre-AI baseline but lack an aggregated channel into social-impact work — a coordination failure, not unwillingness.
 
 **Impact:** NGOs and other mission-driven organizations lose staff hours, miss reporting deadlines, and cannot scale (cf. Code for America: 30-60% productivity loss to manual processes); volunteers lack scoped, token-funded, deliverable projects; NGOs spend $1B+/year on partially-fitting SaaS plus multiples in staff time.
 
@@ -11,7 +11,7 @@ NGOs run a chronic software deficit (spreadsheets, generic SaaS, ill-fitting don
 ## Goals & Success Metrics
 
 ### Goal 1: Ship Working, Deployed NGO Tools
-Deployed tools NGOs use, end-to-end (post → discovery → match → build → deploy → handoff), not handed-off repos. Metric: handoffs with a verified live deployment (a live Lovable app on an NGO-owned workspace). North-star: a health check answered 30 days post-handoff (tracked, never guaranteed — no SLA per §4). Baseline 0. Target: 25 NGOs with working deployed tools in the first 12 months; ≥60% still alive at 30 days.
+Deployed tools NGOs use, end-to-end (post → discovery → match → build → deploy → completion), not just published repos. Metric: projects reaching completion — all P0 tasks done (REQ-012). Baseline 0. Target: 25 NGOs with working deployed tools in the first 12 months.
 
 ### Goal 2: Volunteer Engagement & Retention
 Metrics: active volunteers (1+ committed task/month) and the repeat-project rate. Baseline 0. Target (month 12): 100 active monthly volunteers; 30% complete a second project within 90 days of their first.
@@ -20,10 +20,10 @@ Metrics: active volunteers (1+ committed task/month) and the repeat-project rate
 Validate blended funding (skim + grants + charitable donations) covering costs: Anthropic float, infrastructure, and deliberately-manual concierge/admin labor. v1 is expected to run net-negative on skim alone; the target is a credible blended path, not skim profitability. Metrics: net contribution and its inputs — fuel throughput, skim, and grant/donation intake (org-level; the leftover-fuel donation flow is removed). Target: $250k fuel throughput; grant/donor runway covering the projected year-1 net gap.
 
 ### Goal 4: Discovery Quality
-Validate volunteer-executable Discovery scopes. Metric: % of scoped projects reaching handoff without major scope renegotiation (more than one scope-doc reopen). Target (months 3-12): >70% ship against the original scope, with at most one minor revision.
+Validate volunteer-executable Discovery scopes. Metric: % of scoped projects reaching completion without major scope renegotiation (more than one scope-doc reopen). Target (months 3-12): >70% ship against the original scope, with at most one minor revision.
 
 ### Goal 5: Volunteer Supply Liquidity (the #1 launch gate)
-Launch concierge-first: pre-recruit a volunteer bench and hand-match the first ~10-15 curated projects before organic browse (REQ-007). Metrics: the activation funnel (signup → first-match-consent → first-handoff (→RM-8)) and time-to-first-match per open project, both fed by the concierge match log (REQ-007). Target: a pre-launch bench of ≥20 volunteers; ≥80% of first-cohort open projects matched within 7 days; signup→handoff activation ≥25%. A project unmatched past 7 days goes to the concierge queue (REQ-016) (→RM-8).
+Launch concierge-first: pre-recruit a volunteer bench and hand-match the first ~10-15 curated projects before organic browse (REQ-007). Metrics: the activation funnel (signup → first-match-consent → first-completion (→RM-8)) and time-to-first-match per open project, both fed by the concierge match log (REQ-007). Target: a pre-launch bench of ≥20 volunteers; ≥80% of first-cohort open projects matched within 7 days; signup→completion activation ≥25%. A project unmatched past 7 days goes to the concierge queue (REQ-016) (→RM-8).
 
 ## User Stories
 
@@ -60,12 +60,12 @@ A plain-language hierarchical view; status comes only from deterministic events 
 - The ai4good project page is the primary view (current work, task list, activity); NGOs never need Linear seats.
 - Self-assignment marks in-progress; dev-marked completion drives the PR merge, the only path to done; agents may comment and self-assign but never move status (violations are detected and reverted); percent complete is done over total must-have tasks.
 - No GitHub Issues are auto-created from scope — they stay dev-internal, never in the NGO view (REQ-008/REQ-026); volunteer-added sub-issues join the tree; an accepted scope addition is a volunteer-created linked task (REQ-025 →RM-10).
-- Post-handoff the tree is read-only with a snapshot preserved in the repo; follow-ups go through a new project (→RM-4).
+- Post-completion the tree is read-only with a snapshot preserved in the repo; follow-ups go through a new project (→RM-4).
 
-### Story 6: Handoff and Post-Handoff (attribution capture in v1)
-By handoff the NGO already owns everything (single delivery model): the live Lovable app it has chat-edited throughout, plus the bound git repo (two-way synced, in the platform org, NGO admin from creation); handoff is **offboarding the volunteer** plus bookkeeping. (Depends: REQ-008, REQ-009, REQ-012.)
-- The volunteer marks "Ready for Handoff" once all must-have PM tasks are done (open GitHub Issues never block); an automated checklist confirms README, runbook, deploy instructions, ≥1 passing CI run, and a license file (MIT default) — a completion confirmation, not a delivery gate.
-- The NGO reviews the deployed tool (staging or live URL) and signs off "Handoff Accepted": a completion summary plus the REQ-035 attribution step (an optional testimonial and three required credit-framed dimensions, ~30 seconds) (→RM-11); v1 reputation is completion credit plus privately-held attribution.
-- On acceptance the access change is automated: write access ends; virtual keys terminate (REQ-009); Linear membership is removed; the volunteer is removed from the Lovable workspace via the platform's build-phase seat; and the platform then removes itself ("last one out"). The NGO decides whether the dev keeps read-only repo access. The project is archived handed-off, and the volunteer earns completion credit (counter +1; a "Shipped first tool" badge on the first handoff; no public star rating). There is no GitHub-transfer step — the repo is already the NGO's, to fork or export anytime.
+### Story 6: Project Completion
+The NGO already owns everything throughout (single delivery model): the live Lovable app it has chat-edited, plus the bound git repo (two-way synced, in the platform org, NGO admin from creation). Because there is no delivery or transfer, completion is **offboarding the volunteer** plus bookkeeping — no formal ceremony in v1 (REQ-012). (Depends: REQ-008, REQ-009, REQ-012.)
+- The volunteer marks the project done once all must-have (P0) PM tasks are done; open GitHub Issues never block.
+- On completion the access change is automated: write access ends; virtual keys terminate and the provider workspace is archived (REQ-009); Linear membership is removed and the final task tree preserved. The NGO offboards the volunteer from the Lovable workspace itself (ai4good is never a member). The NGO decides whether the dev keeps read-only repo access. The project is archived `completed`, and the volunteer earns completion credit (counter +1; a "Shipped first tool" badge on the first completion; no public star rating). There is no GitHub-transfer step — the repo is already the NGO's, to fork or export anytime.
 - Remaining fuel goes to the NGO general balance as non-cash credit: no decay clock, no cash refund, no auto-renew; it persists indefinitely and auto-applies at the next funding checkout on any of its projects (no donation flow in v1); nothing is ever silently removed (Promise §7).
-- Post-handoff the NGO may use GitHub Issues on its repo; ai4good does not surface or fund follow-ups in v1 (→RM-4); new paid work is a new project.
+- Post-completion the NGO may use GitHub Issues on its repo; ai4good does not surface or fund follow-ups in v1 (→RM-4); new paid work is a new project.
+- The completion checklist gate, sign-off/acceptance flow, rejection loop, attribution capture, and post-completion health are deferred (→ RM-62).

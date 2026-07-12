@@ -20,7 +20,7 @@ Dependencies: REQ-001, REQ-005, REQ-008.
 
 Every funded project has a public-MIT repository in the platform GitHub org (all public), created through the volunteer-driven Lovable→GitHub setup.
 
-- **Uniform repo home:** repositories remain in the platform org permanently — no handoff transfer; MIT licensing + Lovable's two-way sync keep the code forkable and exportable; the NGO admin holds admin access from handoff onward.
+- **Uniform repo home:** repositories remain in the platform org permanently — no transfer; MIT licensing + Lovable's two-way sync keep the code forkable and exportable; the NGO admin holds admin access from completion onward.
 - Access: the volunteer maintains the repo; the NGO admin has read + comment, never push.
 - Code events feed cadence stats and task linkage from repo creation; done status comes only from verified code merge, other status transitions only from authorized integration events, never manual edits (REQ-026).
 - **GitHub Issues are dev-internal only** (bugs, refactors, tech debt), never NGO-visible; the Linear task tree is the source of truth for NGO-visible deliverables. No issues are auto-created from the scope doc.
@@ -28,9 +28,9 @@ Every funded project has a public-MIT repository in the platform GitHub org (all
 - The platform holds only short-lived, on-demand GitHub credentials; no user PATs.
 - **One-time org setup at launch:** the platform and Lovable GitHub Apps are installed org-wide under least-privilege scopes, with credential rotation and a break-glass org-compromise runbook. Org membership grants no repo access by default (explicit adds only); orphan repos matching no active project are monitored; NGO admins are per-project outside collaborators, never members.
 - **Continuously-asserted base-permission invariant (P0):** members have no default repo access; member-created repos stay private and become public only after setup validation of the repo URL; repository visibility changes are limited to owners and platform automation — continuously verified and auto-remediated (REQ-009 org-namespace guard).
-- **Lovable path (v1 default):** no repo is pre-created at funding; the Lovable→GitHub setup is volunteer-driven with no admin involvement, the platform validates and records the resulting repo URL, and unresolved setup is surfaced for follow-up. A recorded repo URL is a hard handoff precondition.
+- **Lovable path (v1 default):** no repo is pre-created at funding; the Lovable→GitHub setup is volunteer-driven with no admin involvement, the platform validates and records the resulting repo URL, and unresolved setup is surfaced for follow-up. A recorded repo URL is a hard precondition for completion.
 - The seeded README carries the title, NGO name, plain-language summary, license, and project-page link.
-- **At handoff:** the volunteer drops to read/triage and the NGO admin holds admin — no org transfer; the platform removes the volunteer from the Lovable workspace and then removes itself.
+- **At completion:** the volunteer drops to read/triage and the NGO admin holds admin — no org transfer; the NGO removes the volunteer from the Lovable workspace (ai4good is never a member).
 
 Dependencies: REQ-006, REQ-007, REQ-021, REQ-026.
 
@@ -52,7 +52,7 @@ A platform-controlled LLM gateway sits in the request path; hosting is open (**O
 - **Money path — provider-native metering (no reconstructed token accounting):** each project's spend-of-record is the **provider's billed cost for its workspace**, read from the provider's per-project usage/cost reporting — not a local token estimate. The prepaid fuel is enforced as the **workspace's provider spend limit** (raised as the NGO tops up), so the hard fuel ceiling is provider-enforced. The platform's 15% margin is recognized on the provider's billed cost at consumption; all REQ-006 money invariants hold. The per-request usage the gateway captures is **attribution telemetry only (REQ-034) — never the money ledger and never the gate.**
 - **Fuel thresholds (a platform monitor over the provider's truth):** a platform monitor reads the provider's Admin/usage API — the single source of truth for each workspace's spend against its limit — and fires the notifications: at 20% the NGO gets a warning blocker, at 5% the volunteer is warned, and the blocker turns blocking as it nears zero. **The gateway does not enforce the ceiling:** at 0% the provider's workspace spend limit declines further requests and the gateway simply proxies that rejection to the user, stating the cause. Top-up raises the workspace spend limit and the next request passes — no reactivation step.
 - **401 semantics:** the gateway's own rejections are externally flat (no revoked-vs-nonexistent distinction); the one exception is a proxied fuel-exhaustion rejection, which states its cause because that caller must act; rich diagnostics appear only on the authenticated dashboard.
-- **Revocation is instant and self-serve:** an NGO "revoke access now" action and admin enforcement cut access immediately, with an instant replacement key; all project keys terminate at handoff (REQ-012), abandonment release (REQ-027), and AUP deactivation (REQ-007). The project's provider workspace is archived at handoff or cancellation (revoking its keys and freeing a workspace slot); on abandonment the workspace persists so the successor volunteer inherits it.
+- **Revocation is instant and self-serve:** an NGO "revoke access now" action and admin enforcement cut access immediately, with an instant replacement key; all project keys terminate at completion (REQ-012), abandonment release (REQ-027), and AUP deactivation (REQ-007). The project's provider workspace is archived at completion or cancellation (revoking its keys and freeing a workspace slot); on abandonment the workspace persists so the successor volunteer inherits it.
 - **Privacy invariants (load-bearing):** request bodies are inspected transiently and never persisted; the ledger holds token counts and metadata only; any derived origin/mismatch signal is stored as a score or boolean, never paths or content.
 - **Key-leak hygiene (v1 = prevention, not detection):** env files are ignored by default and the platform key pattern is registered with GitHub secret scanning + push protection (→ RM-22); the org-namespace guard keeps member repos private until setup validation (asserted by the REQ-008 invariant); the founder's daily review compares org repos against active projects.
 - **An escalation ladder is documented, not built, in v1** (→ RM-9).
@@ -69,12 +69,12 @@ One **public page** per project, whose read-only content is the same for NGO adm
 - The page identifies the project (title, NGO, status, assigned volunteer, repo URL with a plain-language empty state while setup pends, complexity tier, cause tags).
 - **The task tree is the primary content:** the page must convey task hierarchy, each task's status, the work currently underway, and overall progress, where progress reflects completed P0 tasks against all P0 tasks (from the tree, never GitHub issues).
 - **Activity is shown in plain language** tied to task titles, never raw PR/commit jargon.
-- Reference files (REQ-032) are listed with descriptions; downloads are restricted to the assigned volunteer, NGO admins, and platform admin despite the public repo; the NGO can add/remove them pre-handoff.
+- Reference files (REQ-032) are listed with descriptions; downloads are restricted to the assigned volunteer, NGO admins, and platform admin despite the public repo; the NGO can add/remove them before completion.
 - Resolved clarifications (REQ-024) persist as a lifetime Q&A log recording who asked, who answered, and when; an unresolved clarification is conspicuously indicated.
 - The fuel balance shown reflects real-time provider truth and stays reconciled with Anthropic's authoritative usage reporting.
 - **No GitHub Issues, PR lists, or raw commit logs appear on the page** — the repo link is the only GitHub touchpoint.
 - **Cadence stats (v1 minimal):** liveness is measured from **both PM task progression and commit activity** (not commits alone) — recent movement versus the prior period, and time since the last of either — with a stale-activity indication during build (→ RM-23). Promise §6's two progress signals (the task view and commit cadence) stay intact.
-- **Repo-derived activity signals (in-progress onward):** where a project has a live repo, the page conveys informational build signals — the language/stack in use, time since last activity, the assigned contributor, the license, and handoff-readiness — modeled on a code-host's project view. **Popularity metrics (stars, forks, watchers) are never shown** — reputation is completion credit, not popularity (Promise §5).
+- **Repo-derived activity signals (in-progress onward):** where a project has a live repo, the page conveys informational build signals — the language/stack in use, time since last activity, the assigned contributor, the license, and completion-readiness — modeled on a code-host's project view. **Popularity metrics (stars, forks, watchers) are never shown** — reputation is completion credit, not popularity (Promise §5).
 - **Both funding states are shown distinctly (REQ-021):** the Claude Code fuel balance and the separate Lovable-credit status — Lovable setup before connection, then Lovable status, workspace access, and top-up after — so the two purses are never conflated; the Lovable-credit status is read from Lovable, not hand-entered (REQ-021 — the RM-58 standing trigger, now met) (→ RM-58).
 
 Dependencies: REQ-008, REQ-009.
@@ -92,19 +92,14 @@ Dependencies: REQ-007.
 
 ---
 
-#### REQ-012: Handoff Workflow
+#### REQ-012: Project Completion
 
-From "code done" to "NGO operating solo." Because Lovable is enforced and git-bound, the app and repo are already the NGO's and handoff transfers nothing; its substance is the **access transition (offboarding the volunteer) plus bookkeeping** (attribution, credit, fuel release, `handed_off`).
+A project completes when all P0 tasks are done. Because Lovable is enforced and git-bound, the NGO already owns the live app and repo throughout — there is no delivery or transfer, and **no formal handoff ceremony in v1**: the completion checklist gate, sign-off/acceptance flow, guided-maintenance ritual, rejection loop, live-URL gate, and post-completion attribution + health are all deferred (→ RM-62).
 
-- The volunteer requests handoff once all P0 tasks are done; open GitHub Issues never block it.
-- **Hard precondition: the project repo exists** (Promise §2). Until it does, handoff cannot be requested and the parties are told how to resolve it, with no admin escalation.
-- A P0 task reaches done only through verified code merge, so every done task carries shipped code; no manual spot-checks.
-- Before handoff, the platform confirms the presence of required documentation, licensing, deployment guidance, and a passing CI run (README, RUNBOOK, deploy instructions, ≥1 passing CI run on main, MIT LICENSE).
-- **Deploy-to-running (the deliverable is a running tool, not a repo):** a validated live deployment URL is a handoff precondition (no URL, no completed handoff), **captured automatically from Lovable at deploy (with manual paste as fallback)**; the volunteer confirms Lovable workspace ownership with the NGO and completes a guided maintenance handover that leaves the NGO able to self-maintain — row-level access enforcement enabled on the Lovable database (its status verifiable via Lovable), chat/plan-mode and rollback demonstrated, a Lovable spend cap set, and live two-way GitHub sync confirmed.
-- **30-day-alive signal (north star):** 30 days post-handoff the platform records whether the tool is still reachable — measured, never guaranteed (no SLA, Promise §4). The v1 longitudinal signal is the structured day-45–60 founder check-in (REQ-035) (→ RM-25).
-- The NGO reviews (repo URL, live URL, checklist results) and signs off or rejects with comments; there is no rejection-loop cap, neutral-review, or contest path — a stuck reject cycle is a support conversation.
-- On acceptance: the project becomes `handed_off`; leftover fuel is released to the NGO's general balance as non-cash credit (REQ-006); the volunteer's completion-credit event is recorded with a private confirmation (→ RM-3); all project virtual keys terminate and the project's provider workspace is archived (REQ-009); Linear membership is removed and the final task history is preserved (REQ-026); the **REQ-035 attribution step** is captured at sign-off.
-- **Repo handoff:** the repo stays in the platform org, the NGO admin holds admin, and the volunteer is removed or dropped to read-only **at the NGO's choice** — no transfer step.
-- No tip flow in v1 (→ RM-11). Sign-off includes the attribution step (a testimonial plus three credit-framed dimensions), which supersedes the "no satisfaction form" deferral — attribution capture, not a satisfaction score, and never blocking acceptance.
+- The volunteer marks the project done once all P0 tasks are complete; open GitHub Issues never block it. A P0 task reaches done only through verified code merge, so every done task carries shipped code.
+- On completion the project enters `completed`: leftover fuel is released to the NGO's general balance as non-cash credit (REQ-006); the volunteer's completion-credit event is recorded with a private confirmation (→ RM-3); all project virtual keys terminate and the project's provider workspace is archived (REQ-009); Linear membership is removed and the final task history is preserved (REQ-026).
+- **Offboarding is self-serve:** the NGO removes or downgrades the volunteer's repo and Lovable access whenever it chooses — the repo stays in the platform org with NGO admin, and MIT + two-way sync already make the code the NGO's to fork or export. ai4good is never a member of the NGO's Lovable workspace, so there is nothing for the platform to remove.
+- The deliverable is a deployed, running tool the NGO owns and evolves via chat (Promise §10); the live URL is captured as project metadata (auto from Lovable), not gated.
+- No tip flow in v1 (→ RM-11).
 
-Dependencies: REQ-008, REQ-006, REQ-021, REQ-009, REQ-035, REQ-026.
+Dependencies: REQ-006, REQ-009, REQ-021, REQ-026.

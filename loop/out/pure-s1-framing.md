@@ -18,20 +18,20 @@ A nonprofit coordination layer, explicitly not a service provider with delivery 
 ai4good connects the parties and funds AI compute; no party owes any specific outcome; volunteers donate their time.
 
 ### 2. Work is fully open-source (public MIT)
-Every repo is public MIT from first commit (a public volunteer portfolio). **v1 is public-only:** needs genuinely requiring a closed/confidential codebase are declined at Discovery (→ RM-2). This is separate from data sensitivity — a tool handling sensitive *data* is still served with public code and synthetic fixtures, and the NGO connects real Tier-2 data itself post-handoff, never into the repo (REQ-004). Never allowed: commercial or closed-source-for-resale work, surveillance tooling, spam infrastructure, illegal use, acceptable-use violations.
+Every repo is public MIT from first commit (a public volunteer portfolio). **v1 is public-only:** needs genuinely requiring a closed/confidential codebase are declined at Discovery (→ RM-2). This is separate from data sensitivity — a tool handling sensitive *data* is still served with public code and synthetic fixtures, and the NGO connects real Tier-2 data itself post-completion, never into the repo (REQ-004). Never allowed: commercial or closed-source-for-resale work, surveillance tooling, spam infrastructure, illegal use, acceptable-use violations.
 
 ### 3. Fuel funds AI usage on this project — not deliverables
 Fuel pays for AI compute: NGO Discovery scoping past the free credit pool and volunteer build work. Lovable credits are separate — the NGO pays Lovable directly from its own workspace, never through fuel (REQ-021). Fuel does NOT buy a working tool, a fixed scope, or an outcome; the NGO or volunteer may spend it in full without a viable deliverable, a risk NGOs knowingly assume.
 
 ### 4. No SLA, no completion guarantee
-No project is guaranteed to reach handoff: volunteers may ghost (inactivity → auto-release + rematch, REQ-027), AI may consume fuel without progress, scopes may prove infeasible, NGOs may decline handoffs. Inactivity and handoff flows surface stalls early, and the platform always strives to attribute every token consumed to a specific work item (REQ-034) — even when the outcome disappoints, the NGO sees exactly what its fuel was spent attempting.
+No project is guaranteed to reach completion: volunteers may ghost (inactivity → auto-release + rematch, REQ-027), AI may consume fuel without progress, scopes may prove infeasible, NGOs may cancel. Inactivity flows surface stalls early, and the platform always strives to attribute every token consumed to a specific work item (REQ-034) — even when the outcome disappoints, the NGO sees exactly what its fuel was spent attempting.
 
 ### 5. What ai4good does promise
 - Bounded financial risk: NGO-chosen per-project fuel budgets; nothing charged beyond commitment.
 - A transparent volunteer track record: completion credit from day one (→ RM-3), never stars; every repo is public MIT, so the portfolio exists on GitHub from the first commit.
 - Open-source IP norms: forkable forever, no lock-in.
 - NGO-side vetting (REQ-002, founder-vetted in v1) that gates against fraudulent and abusive demand.
-- Escalation paths on stalls: messaging (REQ-015) and notifications (REQ-016); post-handoff issue surfacing (→ RM-4; in v1, re-engage via a new project).
+- Escalation paths on stalls: messaging (REQ-015) and notifications (REQ-016); post-completion issue surfacing (→ RM-4; in v1, re-engage via a new project).
 - A genuine attempt to ship: motivated volunteers, AI leverage, real NGO problems.
 
 ### 6. Progress over promises (stepwise funding by design)
@@ -52,7 +52,7 @@ Explicit, audit-logged acknowledgments:
 Later same-project top-ups do not require renewed acknowledgment, while the Promise stays readily accessible. Every acknowledgment records timestamp, IP, and text version; a material text change re-triggers it.
 
 ### 10. The deliverable: a tool the NGO can run and keep evolving
-The deliverable is not "a repo" but a deployed, running tool the non-technical NGO keeps evolving itself. **There is exactly one delivery model:** the durable home is an AI app-builder (Lovable in v1), evolved via chat after handoff; the volunteer builds the first version through Claude Code orchestrating Lovable. Discovery (REQ-004) checks fit — a need requiring ongoing developer maintenance (custom logic or integrations a non-developer cannot evolve via chat) is **declined at Discovery** with plain messaging, each decline recorded for founder review. No second track, no waitlist.
+The deliverable is not "a repo" but a deployed, running tool the non-technical NGO keeps evolving itself. **There is exactly one delivery model:** the durable home is an AI app-builder (Lovable in v1), evolved via chat after completion; the volunteer builds the first version through Claude Code orchestrating Lovable. Discovery (REQ-004) checks fit — a need requiring ongoing developer maintenance (custom logic or integrations a non-developer cannot evolve via chat) is **declined at Discovery** with plain messaging, each decline recorded for founder review. No second track, no waitlist.
 
 The NGO owns the code outright (portable, no lock-in) and self-maintains via chat for roughly the AI-builder's subscription (~$25/mo); stopping payment keeps a deployable app but ends hands-free chat maintenance. This is set as an expectation at kickoff, with a spend cap so metered edit costs never blindside a non-technical owner.
 
