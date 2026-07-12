@@ -165,7 +165,7 @@ Design intent: model the project page and the in-progress card on a code-host's 
 ### REQ-021 — Lovable integration
 - Access behind **one replaceable internal adapter** (so a Lovable break degrades to manual, not a dead build).
 - Setup checklist (workspace + Lovable project creation, invites, GitHub-sync, paste-back, auto-validation).
-- Volunteer-set **3-state credit widget** (active/low/blocked); top-up CTA opens Lovable billing in a new tab.
+- **Lovable-credit status is pulled, not typed (d42).** The volunteer's connected Lovable session calls the **Lovable MCP `get_workspace`** (returns plan + available credits) to read the real balance; ai4good computes low/exhausted and surfaces it, with a manual report as fallback. Top-up CTA deep-links to Lovable billing (no programmatic purchase; the NGO may also enable Lovable **auto-top-up**). The Lovable MCP is now a standard offering (no longer "Research Preview"), OAuth-only, **no documented SLA/rate-limit** → keep the manual fallback. Auth: the read rides the **volunteer's** OAuth in-session (client-side, consent-gated, Q7) — no new access. A **background/standing poll** (alerts between sessions) would need the platform ops seat to hold its own Lovable OAuth and read billing, widening decision-35's "member-management only, no usage/billing reads" — deferred.
 - `[verify]` member add/remove/self-remove via Lovable API/MCP; fallback = manual NGO removal.
 
 ### REQ-023 — Triage screener

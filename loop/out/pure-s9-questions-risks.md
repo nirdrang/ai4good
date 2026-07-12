@@ -8,7 +8,7 @@
 
 - **Q3, NGO verification:** v1 is a founder-vetted flag. The v1.5 bar: `verified` needs a registration document, a public reference link, and manual admin review; `kyc_verified` adds tax-exempt documentation and an NGO-admin identity check (provider selected). Open: which jurisdictions' tax-exempt documents v1 accepts (US 501(c)(3), UK Charity Commission, EU equivalents).
 - **Q4, skim rate:** flat 15% vs NGO-size-tiered vs sub-$200 waivers. Owner: business; due pre-public-launch; affects the revenue model.
-- **Q7, platform-level Lovable usage visibility:** in v1 the NGO's Lovable balance is read only with the volunteer's consent, during the volunteer's own session, to enforce the per-task cap (REQ-021/028); standing cross-workspace visibility is deferred (only broad per-user authorization exists today); revisit when usage-only scoped access ships — it would replace manual and per-session capture and could add build-cadence analytics.
+- **Q7, platform-level Lovable usage visibility:** in v1 the NGO's Lovable balance is read via the Lovable MCP (`get_workspace`) only with the volunteer's consent, during the volunteer's own session (REQ-021/028); standing cross-workspace/background visibility is deferred (OAuth grants only broad per-user access — list/read/edit every project the account can reach — and a standing platform poll would widen the platform's build-phase Lovable seat beyond member-management); revisit for narrowly-scoped usage-only access + build-cadence analytics.
 
 #### Open decisions register — founder calls still owed (none block the PRD-dissection pass; each blocks only the build item named)
 

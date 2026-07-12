@@ -358,7 +358,7 @@ One **public page** per project, whose read-only content is the same for NGO adm
 - **No GitHub Issues, PR lists, or raw commit logs appear on the page** — the repo link is the only GitHub touchpoint.
 - **Cadence stats (v1 minimal):** liveness is measured from **both PM task progression and commit activity** (not commits alone) — recent movement versus the prior period, and time since the last of either — with a stale-activity indication during build (→ RM-23). Promise §6's two progress signals (the task view and commit cadence) stay intact.
 - **Repo-derived activity signals (in-progress onward):** where a project has a live repo, the page conveys informational build signals — the language/stack in use, time since last activity, the assigned contributor, the license, and handoff-readiness — modeled on a code-host's project view. **Popularity metrics (stars, forks, watchers) are never shown** — reputation is completion credit, not popularity (Promise §5).
-- **Both funding states are shown distinctly (REQ-021):** the Claude Code fuel balance and the separate Lovable-credit status — Lovable setup before connection, then Lovable status, workspace access, and top-up after — so the two purses are never conflated. **Standing trigger:** (→ RM-58)
+- **Both funding states are shown distinctly (REQ-021):** the Claude Code fuel balance and the separate Lovable-credit status — Lovable setup before connection, then Lovable status, workspace access, and top-up after — so the two purses are never conflated; the Lovable-credit status is read from Lovable, not hand-entered (REQ-021 — the RM-58 standing trigger, now met) (→ RM-58).
 
 Dependencies: REQ-008, REQ-009.
 
@@ -408,14 +408,14 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 - Discovery recommends Lovable with rationale and no dollar estimate; the scope doc states that Lovable is paid directly, never from fuel. The NGO is reminded before kickoff to set up the workspace and invite the volunteer.
 - Setup is mandatory at kickoff and self-served by the NGO and volunteer with no admin involvement and no NGO GitHub account: the NGO creates the workspace and Lovable project and invites the volunteer as workspace admin plus the platform ops account as a build-phase member (which powers automated offboarding and exits at handoff); the volunteer connects GitHub sync (the repo is created in the platform org); and the platform validates the result — repo in the org, flipped public after validation, GitHub App installed, name collisions surfaced, and the volunteer's permission normalized so collaborators cannot be added unnoticed — then seeds the template and notifies both.
 - Stuck parties raise clarifying blockers with standard aging; an admin is involved only after prolonged mutual silence. The volunteer works locally immediately after setup, with no further approval.
-- Credit status is volunteer-reported in v1 (active / low / blocked); low or blocked prompts the NGO with a direct route to Lovable top-up, and the NGO clears it once topped up (→ RM-27).
+- Lovable credit status is **read from Lovable programmatically** (via the volunteer's connected Lovable session — the RM-58 standing trigger, now met), with a manual report as fallback; low or exhausted is surfaced in-platform and prompts the NGO with a direct route to Lovable top-up. Top-up itself stays a Lovable billing action — no programmatic purchase (→ RM-27).
 - At handoff the platform removes the volunteer and then itself; the NGO keeps the workspace and billing alone. The repo stays in the platform org with NGO admin access (no transfer) and GitHub sync continues. **[VERIFY on the first pilot]:** member removal and self-removal via API/MCP; fallback is manual NGO removal with a notice.
 
 **Acceptance criteria:**
 - [ ] Discovery output recommends Lovable with rationale and no dollar fields; the rendered scope doc carries the paid-directly disclaimer and no dollar figure.
 - [ ] Setup is required at kickoff (no opt-in/out) and resolves only on platform validation; a failed check surfaces the specific failure and fix and the item stays open.
 - [ ] The setup guide documents the steps; the guide and project page let the parties transfer the required setup information accurately (scope summary, volunteer email, an optional commit-reference snippet — best-effort only, since status moves on PR merges, never parsing), with a validated paste-back and who-acts-next progress.
-- [ ] Credit status is available after setup, volunteer-changeable, notifies on low/blocked, is cleared by the NGO, and offers a direct route to Lovable top-up. No mail parser in v1.
+- [ ] Lovable credit status is pulled from Lovable (with a manual fallback), surfaces low/exhausted, notifies, and offers a direct route to Lovable top-up. No mail parser in v1.
 - [ ] Repo-creation permission is granted at volunteer onboarding, not per project.
 - [ ] At handoff the platform removes the volunteer and then itself; manual NGO removal is only the API/MCP fallback.
 
@@ -451,7 +451,7 @@ Every project passes a compliance gate between scope completion and publication,
 
 Blockers are orthogonal to lifecycle status, separating "ghosting" from "waiting on someone else"; they feed reputation and escalation and never reduce public completion credit.
 
-**Types (v1):** clarifying question (dev-raised, manually resolved); awaiting NGO review; external dependency; GitHub collaborator needed (a legacy edge case, resolved when the NGO confirms access); Lovable setup pending (auto-resolves on validation, REQ-021); fuel top-up needed (auto-raised at the 20% warning and 0% blocking, auto-resolving above 20%); and Lovable credits (volunteer-reported status, NGO-resolved) (→ RM-5). An auto-raised type keeps one unresolved instance per project, upgrading its severity in place when the condition worsens rather than creating a duplicate; manual types may have several open.
+**Types (v1):** clarifying question (dev-raised, manually resolved); awaiting NGO review; external dependency; GitHub collaborator needed (a legacy edge case, resolved when the NGO confirms access); Lovable setup pending (auto-resolves on validation, REQ-021); fuel top-up needed (auto-raised at the 20% warning and 0% blocking, auto-resolving above 20%); and Lovable credits (status read from Lovable, NGO-resolved) (→ RM-5). An auto-raised type keeps one unresolved instance per project, upgrading its severity in place when the condition worsens rather than creating a duplicate; manual types may have several open.
 
 **Notifications and aging:** raising a blocker notifies the NGO admins (a blocking fuel blocker also notifies an admin); resolution notifies both. An unresolved blocker gets a reminder at 48h and escalates to an admin at 7d, with the project flagged at-risk; Lovable-setup aging notifies the NGO and volunteer, reaching an admin only after 7d of mutual silence. Open blockers auto-archive at handoff.
 
@@ -809,7 +809,7 @@ Decisions/policies needing external (legal, accounting, business) input — not 
 
 - **Q3, NGO verification:** v1 is a founder-vetted flag. The v1.5 bar: `verified` needs a registration document, a public reference link, and manual admin review; `kyc_verified` adds tax-exempt documentation and an NGO-admin identity check (provider selected). Open: which jurisdictions' tax-exempt documents v1 accepts (US 501(c)(3), UK Charity Commission, EU equivalents).
 - **Q4, skim rate:** flat 15% vs NGO-size-tiered vs sub-$200 waivers. Owner: business; due pre-public-launch; affects the revenue model.
-- **Q7, platform-level Lovable usage visibility:** in v1 the NGO's Lovable balance is read only with the volunteer's consent, during the volunteer's own session, to enforce the per-task cap (REQ-021/028); standing cross-workspace visibility is deferred (only broad per-user authorization exists today); revisit when usage-only scoped access ships — it would replace manual and per-session capture and could add build-cadence analytics.
+- **Q7, platform-level Lovable usage visibility:** in v1 the NGO's Lovable balance is read via the Lovable MCP (`get_workspace`) only with the volunteer's consent, during the volunteer's own session (REQ-021/028); standing cross-workspace/background visibility is deferred (OAuth grants only broad per-user access — list/read/edit every project the account can reach — and a standing platform poll would widen the platform's build-phase Lovable seat beyond member-management); revisit for narrowly-scoped usage-only access + build-cadence analytics.
 
 #### Open decisions register — founder calls still owed (none block the PRD-dissection pass; each blocks only the build item named)
 
