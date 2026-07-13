@@ -30,7 +30,7 @@ Every funded project has a public-MIT repository in the platform GitHub org (all
 - **Continuously-asserted base-permission invariant (P0):** members have no default repo access; member-created repos stay private and become public only after setup validation of the repo URL; repository visibility changes are limited to owners and platform automation — continuously verified and auto-remediated (REQ-009 org-namespace guard).
 - **Lovable path (v1 default):** no repo is pre-created at funding; the Lovable→GitHub setup is volunteer-driven with no admin involvement, the platform validates and records the resulting repo URL, and unresolved setup is surfaced for follow-up. A recorded repo URL is a hard precondition for completion.
 - The seeded README carries the title, NGO name, plain-language summary, license, and project-page link.
-- **At completion:** the volunteer drops to read/triage and the NGO admin holds admin — no org transfer; the NGO removes the volunteer from the Lovable workspace (ai4good is never a member).
+- **At completion:** the volunteer drops to read/triage and the NGO admin holds admin — no org transfer; the NGO removes both the volunteer and ai4good's read-only monitoring account from the Lovable workspace.
 
 Dependencies: REQ-006, REQ-007, REQ-021, REQ-026.
 
@@ -75,7 +75,7 @@ One **public page** per project, whose read-only content is the same for NGO adm
 - **No GitHub Issues, PR lists, or raw commit logs appear on the page** — the repo link is the only GitHub touchpoint.
 - **Cadence stats (v1 minimal):** liveness is measured from **both PM task progression and commit activity** (not commits alone) — recent movement versus the prior period, and time since the last of either — with a stale-activity indication during build (→ RM-23). Promise §6's two progress signals (the task view and commit cadence) stay intact.
 - **Repo-derived activity signals (in-progress onward):** where a project has a live repo, the page conveys informational build signals — the language/stack in use, time since last activity, the assigned contributor, the license, and completion-readiness — modeled on a code-host's project view. **Popularity metrics (stars, forks, watchers) are never shown** — reputation is completion credit, not popularity (Promise §5).
-- **Both funding states are shown distinctly (REQ-021):** the Claude Code fuel balance and the separate Lovable-credit status — Lovable setup before connection, then Lovable status, workspace access, and top-up after — so the two purses are never conflated; the Lovable-credit status is read from Lovable, not hand-entered (REQ-021 — the RM-58 standing trigger, now met) (→ RM-58).
+- **Both funding states are shown distinctly (REQ-021):** the Claude Code fuel balance and the separate Lovable-credit status — Lovable setup before connection, then Lovable status, workspace access, and top-up after — so the two purses are never conflated; the Lovable-credit status is read from Lovable via ai4good's monitoring account, not hand-entered (REQ-021) (→ RM-58).
 
 Dependencies: REQ-008, REQ-009.
 
@@ -98,7 +98,7 @@ A project completes when all P0 tasks are done. Because Lovable is enforced and 
 
 - The volunteer marks the project done once all P0 tasks are complete; open GitHub Issues never block it. A P0 task reaches done only through verified code merge, so every done task carries shipped code.
 - On completion the project enters `completed`: leftover fuel is released to the NGO's general balance as non-cash credit (REQ-006); the volunteer's completion-credit event is recorded with a private confirmation (→ RM-3); all project virtual keys terminate and the project's provider workspace is archived (REQ-009); Linear membership is removed and the final task history is preserved (REQ-026).
-- **Offboarding is self-serve:** the NGO removes or downgrades the volunteer's repo and Lovable access whenever it chooses — the repo stays in the platform org with NGO admin, and MIT + two-way sync already make the code the NGO's to fork or export. ai4good is never a member of the NGO's Lovable workspace, so there is nothing for the platform to remove.
+- **Offboarding is self-serve:** the NGO removes or downgrades the volunteer's repo and Lovable access whenever it chooses — the repo stays in the platform org with NGO admin, and MIT + two-way sync already make the code the NGO's to fork or export. In the Lovable workspace the NGO removes both the volunteer and ai4good's read-only monitoring account (REQ-021).
 - The deliverable is a deployed, running tool the NGO owns and evolves via chat (Promise §10); the live URL is captured as project metadata (auto from Lovable), not gated.
 - No tip flow in v1 (→ RM-11).
 

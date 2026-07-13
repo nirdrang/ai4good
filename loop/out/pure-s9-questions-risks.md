@@ -35,6 +35,6 @@ Rows: risk (severity): mitigation → contingency.
 - AI-code license/quality issues (Medium): MIT by default (Platform Promise); the first-match disclaimer carries the volunteer IP attestation (REQ-007, no v1 CLA); the NGO may open GitHub Issues on its repo post-completion (REQ-012); a remediation playbook is published.
 - Regulators deem verification documents sensitive PII (Medium): restricted access; a DPA available → explicit consent + a data-minimization review.
 - Fuel-cost inflation, Anthropic price rises (Medium): the percentage skim scales; changes communicated to NGOs in advance → a monthly rate-card adjustment.
-- Lovable security incident hits the integration (Medium): exposure bounded — ai4good holds no member seat in NGO Lovable workspaces (build Tier-2 is fixtures-only) and volunteers use their own accounts → rotate volunteer credentials; pause Lovable recommendations until remediation is confirmed; in-flight projects continue on the fallback build path (REQ-021).
+- Lovable security incident hits the integration (Medium): exposure bounded — ai4good's only seat is a read-only monitoring account (editor role, no billing or admin; build Tier-2 is fixtures-only) and volunteers use their own accounts → rotate volunteer and monitoring-account credentials; pause Lovable recommendations until remediation is confirmed; in-flight projects continue on the fallback build path (REQ-021).
 
 ---
