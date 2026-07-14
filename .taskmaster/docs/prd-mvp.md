@@ -432,12 +432,6 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 
 ---
 
-#### REQ-022: Stripe Connect for Volunteer Tips (DEFERRED to v1.5 per §11)
-
-(→ RM-11)
-
----
-
 #### REQ-023: Platform Triage Gate (compliance review before marketplace)
 
 Every project passes a compliance gate between scope completion and publication, catching policy violations before volunteers see it. **v1: an automated triage screener plus a founder exception queue** — automation decides clear cases and the founder attends only non-decided ones (the REQ-036 scorer shape applied to triage).
@@ -538,13 +532,11 @@ Adds a release + rematch edge (in_progress → open) plus a partial-fuel rule.
 - A ghosting (timeout) is recorded distinctly from a release-for-cause; ghosting affects the outreach/reputation signal, and a for-cause release carries no automatic penalty.
 - The project re-opens with concierge rematch priority, the NGO is notified, and prior matches are closed in the match log. Notifications: reminder, released, rematch available (REQ-016).
 
-#### REQ-029: Observability & Operational Monitoring (deferred out of v1)
-The monitoring framework is out of the MVP (→ RM-63): no job heartbeats or watchdog, no business-invariant pagers (negative balance, billable request accepted on a depleted project, revocation completeness, org permission drift), and no operator paging. v1 detection is the founder's daily money-dashboard read (REQ-030), baseline error tracking and error-spike alerts (NFR), and automatic reconciliation to provider truth (REQ-006/REQ-030); undecidable drift surfaces on the money dashboard and notifies the platform admin (REQ-016). Risk accepted at pilot scale: a silently-failed job or money-path bug is caught by the daily read or a user report, not by machinery.
-
 #### REQ-030: Operations, Incident Response & Admin Correction Tooling
 Names the operating model. (The audited-reversal requirement is removed — undoing enforcement is an ordinary admin ability.)
 - An on-call and escalation model is named (the founder in the pilot, with a documented tree); incidents are first-class ops items.
 - The one v1 dashboard is the money dashboard (funding, consumption, platform share, reconciliation, chargebacks), founder-read daily (→ RM-34).
+- No monitoring framework in v1 — no job heartbeats, invariant pagers, or operator paging (→ RM-63); detection is the daily dashboard read, error-spike alerts (NFR), and automatic reconciliation. Risk accepted at pilot scale: a silently-failed job or money-path bug is caught by the daily read or a user report.
 - **Runbooks (v1 = three):** backup restore within the 4-hour objective; gateway real-key rotation plus mass virtual-key revocation; and Lovable outage fallback. One-page cards cover credential-compromise break-glass, PM-tool outage degraded mode, and chargeback spike. The credential-compromise card must freeze reference-file access, start the breach clock (discovery time, with counsel/statutory assessment if PII may be exposed), and reconcile Stripe against the fuel ledger for the window before unfreezing money movement. (→ RM-35)
 - **Money corrections are fully automatic — no correction UI, no human step.** Reconciliation auto-conforms the ledger to provider truth (Stripe wins money-in including top-ups and chargebacks; Anthropic wins AI spend; pairing arithmetic resolves internal gaps), and every correction is balanced and traceable to its authoritative source, posting only through the one guarded, idempotent, audited function, with direct ledger writes revoked from every role. The founder gets visibility, never approval: corrections show on the money dashboard, and large drift additionally notifies the platform admin (REQ-016). **Refusal-to-guess backstop:** undecidable drift (provider data missing or self-contradictory) is never auto-resolved — the books are untouched, it surfaces on the money dashboard, and the platform admin is notified (REQ-016).
 - Account deactivation (v1 AUP): a documented recovery — manually re-enable and re-issue keys (→ RM-14).
@@ -580,11 +572,8 @@ Classification (load-bearing): this is telemetry, NOT a security control — it 
 - Aggregation boundary: the NGO sees burn per deliverable and per NGO-facing category (Discovery, assistant), in cents, no celebration. Exploration, onboarding, and unattributed appear as their own honest buckets, so total fuel always reconciles to visible lines — spend is never hidden or folded into a task. Per-volunteer-per-task detail and the per-project unattributed-% / binding-failure signals stay coordinator-side. Wide per-task cost variation is expected data, not an anomaly.
 - v1: capture plus the NGO burn-per-deliverable view (→ RM-39).
 
-#### REQ-035: Post-Completion Attribution & Health (deferred → v1.5)
-Attribution capture (an NGO testimonial plus credit-framed dimensions), post-completion reachability pings, and the founder health check-in are all deferred out of v1 (→ RM-62). v1 reputation is completion credit only (REQ-014); "no public star ratings, ever" holds. Nothing is captured at completion beyond the completion-credit event, and nothing here gates completion.
-
 ### P0 (promoted from P1): Required dependencies of REQ-024 / REQ-025 / REQ-026
-REQ-013/014/015/016 (drafted P1) are P0-feature dependencies, reclassified P0 with minimal v1 cuts (→ RM-42, RM-3, RM-43, RM-45). REQ-017 is out of v1 (→ RM-4); no P1 work in v1.
+REQ-013/014/015/016 (drafted P1) are P0-feature dependencies, reclassified P0 with minimal v1 cuts (→ RM-42, RM-3, RM-43, RM-45). Post-completion feature-request surfacing is out of v1 (→ RM-4); no P1 work in v1.
 
 #### REQ-013: NGO Dashboard (minimal v1 + v1.5 enhancements)
 One NGO-wide view supporting the stepwise-funding moments (Promise §6).
@@ -634,22 +623,6 @@ v1 taxonomy (event → recipients, delivery), condensed:
 - (→ RM-43, RM-5, RM-7, RM-11)
 Delivery defaults: email for critical events (money, deadlines, blockers, completion, decisions); in-app only for low-tone. One notification per committed event (→ RM-45). **Critical-event reliability guard (money, access, completion):** the notification event is written atomically with its ledger/state transition; recipients resolve at event creation; and it is marked sent only on provider acceptance — an unconfirmed send retries and is never silently dropped. Escalation-tier events notify the NGO and platform admin.
 
-### Out of v1 / Deferred to v2 — referenced by ID only
-
-#### REQ-017: Post-Completion Feature Request Surfacing (v2)
-(→ RM-4)
-
-### Nice to Have (P2) — Future Enhancement
-
-#### REQ-018: Discovery Agent — Voice Input
-(→ RM-54)
-
-#### REQ-019: Multi-Volunteer Per Project
-(→ RM-13)
-
-#### REQ-020: Public Impact Page
-(→ RM-55)
-
 ## Non-Functional Requirements
 
 ### Performance
@@ -673,7 +646,7 @@ Delivery defaults: email for critical events (money, deadlines, blockers, comple
 ### Reliability
 
 - Uptime 99.5% (~3.6 hours/month). RTO 4 hours; RPO 24 hours.
-- Application errors and logs are captured centrally with enough fidelity to investigate failures, and alerts fire on error-rate spikes. The monitoring framework — heartbeats, invariant pagers, operator paging — is out of v1 (REQ-029 → RM-63).
+- Application errors and logs are captured centrally with enough fidelity to investigate failures, and alerts fire on error-rate spikes. The monitoring framework — heartbeats, invariant pagers, operator paging — is out of v1 (→ RM-63).
 
 ### Accessibility
 
@@ -708,7 +681,7 @@ Delivery defaults: email for critical events (money, deadlines, blockers, comple
 9. **Automated NGO verification** — manual admin review in v1.
 10. **Hosted production environment for built tools** — the volunteer/NGO choose deployment.
 11. **Public star ratings for volunteers** — reputation is completion credit plus badges; NGO satisfaction stays private, never displayed (→ RM-24).
-12. **Platform skim on tips** — tips (REQ-022) flow NGO→volunteer with a 0% cut.
+12. **Platform skim on tips** — tips (post-MVP → RM-11) flow NGO→volunteer with a 0% cut.
 13. **Pay-gated Discovery in v1** — a free daily per-NGO allowance (10/day unverified, 30/day verified; resets 00:00 UTC, no rollover); when exhausted the NGO verifies, funds fuel to continue immediately (REQ-006), or waits; funded projects draw on fuel from the outset ("Funded → all-$"); amounts are revisited if abuse exceeds the grant.
 13a. **Paid "Discovery wallet"** — out for v1 and v1.5; the post-allowance path is a regular project-fuel purchase (single-pot).
 14. **ai4good-funded Lovable infrastructure** — the NGO owns and pays for its Lovable workspace, never billed against fuel; the platform reads the workspace-level credit status through its monitoring account (REQ-021) and never meters or caps Lovable usage — the only spend bound is the NGO-set credit cap, native to Lovable.
@@ -729,7 +702,7 @@ Delivery defaults: email for critical events (money, deadlines, blockers, comple
 
 ## MVP Scope & Post-MVP Roadmap
 
-Authoritative reference: Out of Scope = never built; this section = when features ship. (The decision history behind v1 lives in the project decision log, not here.)
+Authoritative reference: Out of Scope = never built; this section = when features ship. (The decision history behind v1 lives in the project decision log, not here.) **REQ IDs are stable identifiers: an ID absent from this document is a deferred requirement tracked in roadmap.md (RM-N).**
 
 ### v1 MVP (public beta launch)
 
@@ -749,7 +722,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 
 **Funding & Money:**
 - REQ-006 — Stripe top-up + fuel ledger + match-to-fund, non-cash and no-cash-out; leftover auto-applies at checkouts; no donation flow; chargeback handling + first-fund caps (→RM-19); no refunds (→RM-7).
-- REQ-022 — No tips UI at completion (→RM-11).
+- No tips UI at completion (→RM-11).
 
 **Project Execution:**
 - REQ-008 — GitHub repo per project in the platform org; dev-internal issues only.
@@ -761,7 +734,6 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 - REQ-026 — Task management via Linear.
 - REQ-028 — ai4good Claude Code Skill: install, bootstrap, task binding, commands, conventions; the volunteer drives Lovable via its MCP (REQ-021).
 - REQ-034 — Task-level attribution (→RM-39).
-- REQ-035 — Deferred: attribution + post-completion health capture out of v1 (→RM-62).
 
 **Comms & Dashboards (minimal v1):**
 - REQ-013 minimal — NGO dashboard: projects + fuel + task progress + items needing action (→RM-42).
@@ -772,7 +744,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 **Completion:**
 - REQ-012 — Volunteer marks done when all P0 tasks complete; access termination + provider-workspace archive + tree snapshot; no formal ceremony (checklist/sign-off/attribution/health deferred →RM-62).
 
-Additional post-MVP items with no other v1-doc mention: →RM-50, RM-51, RM-52, RM-53, RM-56, RM-57, RM-59 (roadmap.md).
+Additional post-MVP items with no other v1-doc mention: →RM-50, RM-51, RM-52, RM-53, RM-54, RM-55, RM-56, RM-57, RM-59 (roadmap.md).
 
 ### Permanently out of scope (will not build)
 

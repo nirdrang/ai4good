@@ -37,12 +37,6 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 
 ---
 
-#### REQ-022: Stripe Connect for Volunteer Tips (DEFERRED to v1.5 per §11)
-
-(→ RM-11)
-
----
-
 #### REQ-023: Platform Triage Gate (compliance review before marketplace)
 
 Every project passes a compliance gate between scope completion and publication, catching policy violations before volunteers see it. **v1: an automated triage screener plus a founder exception queue** — automation decides clear cases and the founder attends only non-decided ones (the REQ-036 scorer shape applied to triage).

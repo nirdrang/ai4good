@@ -1,6 +1,6 @@
 ## MVP Scope & Post-MVP Roadmap
 
-Authoritative reference: Out of Scope = never built; this section = when features ship. (The decision history behind v1 lives in the project decision log, not here.)
+Authoritative reference: Out of Scope = never built; this section = when features ship. (The decision history behind v1 lives in the project decision log, not here.) **REQ IDs are stable identifiers: an ID absent from this document is a deferred requirement tracked in roadmap.md (RM-N).**
 
 ### v1 MVP (public beta launch)
 
@@ -20,7 +20,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 
 **Funding & Money:**
 - REQ-006 — Stripe top-up + fuel ledger + match-to-fund, non-cash and no-cash-out; leftover auto-applies at checkouts; no donation flow; chargeback handling + first-fund caps (→RM-19); no refunds (→RM-7).
-- REQ-022 — No tips UI at completion (→RM-11).
+- No tips UI at completion (→RM-11).
 
 **Project Execution:**
 - REQ-008 — GitHub repo per project in the platform org; dev-internal issues only.
@@ -32,7 +32,6 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 - REQ-026 — Task management via Linear.
 - REQ-028 — ai4good Claude Code Skill: install, bootstrap, task binding, commands, conventions; the volunteer drives Lovable via its MCP (REQ-021).
 - REQ-034 — Task-level attribution (→RM-39).
-- REQ-035 — Deferred: attribution + post-completion health capture out of v1 (→RM-62).
 
 **Comms & Dashboards (minimal v1):**
 - REQ-013 minimal — NGO dashboard: projects + fuel + task progress + items needing action (→RM-42).
@@ -43,7 +42,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 **Completion:**
 - REQ-012 — Volunteer marks done when all P0 tasks complete; access termination + provider-workspace archive + tree snapshot; no formal ceremony (checklist/sign-off/attribution/health deferred →RM-62).
 
-Additional post-MVP items with no other v1-doc mention: →RM-50, RM-51, RM-52, RM-53, RM-56, RM-57, RM-59 (roadmap.md).
+Additional post-MVP items with no other v1-doc mention: →RM-50, RM-51, RM-52, RM-53, RM-54, RM-55, RM-56, RM-57, RM-59 (roadmap.md).
 
 ### Permanently out of scope (will not build)
 

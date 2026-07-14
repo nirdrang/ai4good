@@ -21,7 +21,7 @@
 ### Reliability
 
 - Uptime 99.5% (~3.6 hours/month). RTO 4 hours; RPO 24 hours.
-- Application errors and logs are captured centrally with enough fidelity to investigate failures, and alerts fire on error-rate spikes. The monitoring framework — heartbeats, invariant pagers, operator paging — is out of v1 (REQ-029 → RM-63).
+- Application errors and logs are captured centrally with enough fidelity to investigate failures, and alerts fire on error-rate spikes. The monitoring framework — heartbeats, invariant pagers, operator paging — is out of v1 (→ RM-63).
 
 ### Accessibility
 
@@ -56,7 +56,7 @@
 9. **Automated NGO verification** — manual admin review in v1.
 10. **Hosted production environment for built tools** — the volunteer/NGO choose deployment.
 11. **Public star ratings for volunteers** — reputation is completion credit plus badges; NGO satisfaction stays private, never displayed (→ RM-24).
-12. **Platform skim on tips** — tips (REQ-022) flow NGO→volunteer with a 0% cut.
+12. **Platform skim on tips** — tips (post-MVP → RM-11) flow NGO→volunteer with a 0% cut.
 13. **Pay-gated Discovery in v1** — a free daily per-NGO allowance (10/day unverified, 30/day verified; resets 00:00 UTC, no rollover); when exhausted the NGO verifies, funds fuel to continue immediately (REQ-006), or waits; funded projects draw on fuel from the outset ("Funded → all-$"); amounts are revisited if abuse exceeds the grant.
 13a. **Paid "Discovery wallet"** — out for v1 and v1.5; the post-allowance path is a regular project-fuel purchase (single-pot).
 14. **ai4good-funded Lovable infrastructure** — the NGO owns and pays for its Lovable workspace, never billed against fuel; the platform reads the workspace-level credit status through its monitoring account (REQ-021) and never meters or caps Lovable usage — the only spend bound is the NGO-set credit cap, native to Lovable.
