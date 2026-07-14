@@ -21,7 +21,7 @@
 ### Reliability
 
 - Uptime 99.5% (~3.6 hours/month). RTO 4 hours; RPO 24 hours.
-- Application errors and logs are captured centrally with enough fidelity to investigate failures; alerts fire on error-rate spikes; and the gateway has actionable operator paging for availability, latency, and enforcement failures (REQ-029).
+- Application errors and logs are captured centrally with enough fidelity to investigate failures, and alerts fire on error-rate spikes. The monitoring framework — heartbeats, invariant pagers, operator paging — is out of v1 (REQ-029 → RM-63).
 
 ### Accessibility
 

@@ -28,7 +28,7 @@ Rows: risk (severity): mitigation → contingency.
 - AI consumes fuel with no viable deliverable (High): the first-match disclaimer, a per-project fuel cap bounding exposure, user-test checkpoints during builds, the Goal 4 target, and burn-per-deliverable on the NGO panel (REQ-034) → transparency + post-mortem; no refund; the completion record notes the outcome (REQ-012).
 - Malicious NGO posts a commercial need (High): the founder vetting gate + the triage screener (Tier-2/non-decided → founder) → decline, deactivate; policy documented.
 - Volunteers ghost mid-project (High): a 14-day inactivity reminder → 21-day auto-release → re-opened; the NGO can request re-match; responsiveness shown on the project page.
-- Payment succeeds but fuel is not credited (High): tight-cadence reconciliation detects and auto-corrects to Stripe truth → the undecidable-cases page.
+- Payment succeeds but fuel is not credited (High): tight-cadence reconciliation detects and auto-corrects to Stripe truth → undecidable cases surface to the founder (money dashboard + notification).
 - Anthropic outage stops Discovery (High): a "service degraded" banner, queued intakes, a manual scope option → alternate provider post-v1.
 - NGOs sign up but never fund (Medium): the free Discovery funnel; the $50 minimum at match-acceptance, not publish; abandonment detection → loosen if funnel-killing; unfunded projects tagged clearly.
 - NGO expects an SLA / completion guarantee (Medium): the mandatory no-SLA acknowledgment at signup and every match acceptance; the Promise link per top-up → admin outreach; next-match priority.
