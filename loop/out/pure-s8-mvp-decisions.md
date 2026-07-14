@@ -4,7 +4,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 
 ### v1 MVP (public beta launch)
 
-**Launch strategy — concierge-first:** supply liquidity is the #1 launch gate; there is no organic browse first. Pre-recruit a ~20–30-volunteer bench, hand-match the first ~10–15 curated projects end-to-end, then open organic browse. v1 hooks: the supply-funnel metric, the aging nudge, and concierge-match tooling (→RM-49).
+**Launch strategy — concierge-first:** volunteer supply is the #1 launch gate; there is no organic browse first. Pre-recruit a ~20–30-volunteer bench, hand-match the first ~10–15 curated projects end-to-end, then open organic browse. v1 hooks: the supply-funnel metric, the aging nudge, and concierge-match tooling (→RM-49).
 
 **Foundation:**
 - REQ-001 — Auth: email + GitHub + Google.
@@ -25,9 +25,9 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 **Project Execution:**
 - REQ-008 — GitHub repo per project in the platform org; dev-internal issues only.
 - REQ-009 — LLM gateway; hosting = OD-6 (→RM-5).
-- REQ-010 — Project page + cadence stats + both fuel meters.
+- REQ-010 — Project page + cadence stats + the fuel and Lovable meters.
 - REQ-021 — Lovable as the deliverable vehicle; Claude Code orchestrates behind a replaceable integration layer; manual status (→RM-27).
-- REQ-024 — Orthogonal blockers + task-anchored clarifications.
+- REQ-024 — Lifecycle-independent blockers + task-anchored clarifications.
 - REQ-025 minimal — Informal scope-addition protocol (→RM-10).
 - REQ-026 — Task management via Linear.
 - REQ-028 — ai4good Claude Code Skill: install, bootstrap, task binding, commands, conventions + the Lovable orchestration layer.

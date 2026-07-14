@@ -4,7 +4,7 @@
 
 ## Executive Summary
 
-NGOs need custom internal tools (scheduling, CRMs, grant trackers, dashboards) but cannot afford bespoke development. **ai4good: a nonprofit-operated, open-source marketplace turning NGO software needs into volunteer-built, AI-powered tools the NGO runs and keeps evolving itself.** A volunteer builds the first version via Claude Code orchestrating Lovable (the UI/app layer); the NGO then evolves the deployed app via chat. "Fuel" (prepaid, fully-consumable, non-cash metered Stripe credits) funds build-phase AI compute; the platform share is configurable (default ~15%), taken at consumption, not pay-in. Revenue is blended — skim, grants, and donations, never skim alone. Target: 25 NGOs with a working deployed tool and 100 active volunteer developers in the first 12 months.
+NGOs need custom internal tools (scheduling, CRMs, grant trackers, dashboards) but cannot afford bespoke development. **ai4good: a nonprofit-operated, open-source marketplace turning NGO software needs into volunteer-built, AI-powered tools the NGO runs and keeps evolving itself.** A volunteer builds the first version via Claude Code orchestrating Lovable (the UI/app layer); the NGO then evolves the deployed app via chat. "Fuel" (prepaid, fully-consumable, non-cash metered Stripe credits) funds build-phase AI compute; the platform share (the "skim") is configurable (default ~15%), taken at consumption, not pay-in. Revenue is blended — skim, grants, and donations, never skim alone. Target: 25 NGOs with a working deployed tool and 100 active volunteer developers in the first 12 months.
 
 ---
 
@@ -12,7 +12,7 @@ NGOs need custom internal tools (scheduling, CRMs, grant trackers, dashboards) b
 
 A nonprofit coordination layer, explicitly not a service provider with delivery commitments — hence free Discovery, fuel-on-match, open-source-by-default, no public ratings, tip-not-pay.
 
-**Legal posture:** a plain-language ToS — warm in tone, real in force — carries the no-warranty/no-SLA/limitation-of-liability terms (enforceable only inside a contract); the MVP pilot runs on the un-reviewed draft, risk accepted (→ RM-1). ai4good asserts a limited, bona-fide coordination relationship, not "no contract exists." Volunteers donate time; they are never employees, contractors, or subcontractors of ai4good or the NGO.
+**Legal posture:** a plain-language ToS — warm in tone, real in force — carries the no-warranty/no-SLA/limitation-of-liability terms (enforceable only inside a contract); the MVP pilot runs on the un-reviewed draft, risk accepted (→ RM-1). ai4good asserts a limited, genuine coordination relationship, not "no contract exists." Volunteers donate time; they are never employees, contractors, or subcontractors of ai4good or the NGO.
 
 ### 1. A limited coordination relationship — no delivery obligation
 ai4good connects the parties and funds AI compute; no party owes any specific outcome; volunteers donate their time.

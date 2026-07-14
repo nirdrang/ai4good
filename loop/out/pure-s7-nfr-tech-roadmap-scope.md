@@ -4,7 +4,7 @@
 
 - p95: marketplace page < 500ms at 100 RPS (re-validate pre-launch); Discovery first token < 1.5s; payment webhook < 2s end-to-end; code-hosting webhook < 5s end-to-end.
 - Year 1: 1000 concurrent marketplace viewers (within the budgeted hosting tiers); 50 concurrent Discovery conversations (provider quota).
-- Infrastructure budget ~$50/mo in year 1; re-baseline for the two-target deploy.
+- Infrastructure budget ~$50/mo in year 1; re-baseline once the deployment architecture is chosen.
 
 ### Security
 
@@ -45,7 +45,7 @@
 
 ## Out of Scope
 
-1. **ai4good AI Proxy** — ships in v1 as the LLM gateway (REQ-009): token validation, velocity + budget caps, a real-time fuel check, instant rotation, a fingerprint tripwire, governance-prompt injection, and per-request audit metadata (→ RM-5); the real key is never exposed and bodies are never persisted. Default policy: allow message calls, token counting, file upload, and model listing; block persistent-resource endpoints and all DELETEs; batch submission is per-project opt-in (→ RM-47). It cannot verify prompt relevance, machine-lock a token, or stop a determined token holder — caps and rotation bound the damage. Hosting open (OD-6).
+1. **ai4good AI Proxy** — ships in v1 as the LLM gateway (REQ-009): token validation, the project-binding tripwire, governance-prompt injection, instant rotation, and per-request audit metadata (→ RM-5); budget and velocity limits are provider-enforced (workspace spend + rate limits, REQ-009); the real key is never exposed and bodies are never persisted. Default policy: allow message calls, token counting, file upload, and model listing; block persistent-resource endpoints and all DELETEs; batch submission is per-project opt-in (→ RM-47). It cannot verify prompt relevance, machine-lock a token, or stop a determined token holder — the provider limits and rotation bound the damage. Hosting open (OD-6).
 2. **Crypto / on-chain tokens** — fuel is Stripe-backed fiat credits only; no tradeable token, no on-chain ledger.
 3. **Native mobile apps** — web-responsive only; iOS/Android not on the roadmap.
 4. **i18n / multi-language UI** — English only at launch.
@@ -59,7 +59,7 @@
 12. **Platform skim on tips** — tips (REQ-022) flow NGO→volunteer with a 0% cut.
 13. **Pay-gated Discovery in v1** — a free daily per-NGO allowance (10/day unverified, 30/day verified; resets 00:00 UTC, no rollover); when exhausted the NGO verifies, funds fuel to continue immediately (REQ-006), or waits; funded projects draw on fuel from the outset ("Funded → all-$"); amounts are revisited if abuse exceeds the grant.
 13a. **Paid "Discovery wallet"** — out for v1 and v1.5; the post-allowance path is a regular project-fuel purchase (single-pot).
-14. **ai4good-funded Lovable infrastructure** — the NGO owns and pays for its Lovable workspace, never billed against fuel; the platform does meter/cap per-task usage and surface the NGO's Lovable credit balance during orchestration (REQ-021/028).
+14. **ai4good-funded Lovable infrastructure** — the NGO owns and pays for its Lovable workspace, never billed against fuel; the platform caps orchestrated Lovable calls per task (estimate-based, REQ-028) and reads the workspace-level credit status through its monitoring account (REQ-021); it never meters Lovable's actual billing.
 15. **Multi-tool fuel metering** — fuel covers Anthropic (Claude Code) only; other tools are NGO-direct or volunteer-personal unless they ship metering-compatible APIs.
 16. **Lovable credit reselling through ai4good** — NGOs buy from Lovable directly; a deep-linked "top up" route only (→ RM-28).
 17. **Service-level agreements / completion guarantees** — none: ghosting, fuel burn without a deliverable, and infeasible scopes are all possible; the platform bounds financial risk (per-project fuel caps) and surfaces stalls but never underwrites.
@@ -67,10 +67,10 @@
 19. **Fuel-spend insurance / refund-on-no-deliverable** — consumed fuel is non-refundable even if nothing ships; NGOs are warned at every top-up.
 20. **Fully-automated Anthropic workspace + key provisioning** — now IN v1 (REQ-009): each project's Anthropic Workspace and its workspace-scoped key are created via the provider Admin API at kickoff and archived at completion/cancellation (no manual console ops).
 21. **Per-request prompt/response content capture** — permanently out (privacy posture): metadata only (tokens, model, timestamps, cost); bodies are never persisted; deliberate and on record.
-22. **Anthropic-side budget enforcement** — now USED (REQ-009): the per-workspace provider spend limit is the hard fuel ceiling; the gateway adds the real-time gate + governance on top.
+22. **Anthropic-side budget enforcement** — now USED (REQ-009): the per-workspace provider spend limit is the hard fuel ceiling; the gateway adds governance and audit on top — it does not gate.
 23. **OpenTelemetry prompt-content export from Claude Code** — ai4good never requests, processes, or aggregates volunteer prompt-content telemetry; independent OTel is allowed.
 24. **v1 keeps, in place of the earlier deferrals:** per-IP/per-surface throttles (not full rate-limiting); an allow-list + don't-advertise + waitlist page (not gradual rollout); a handful of internal reports (not an analytics dashboard); secret-scanning + push-protection (REQ-031, not a takedown UI); automated tax calculation + hosted invoices + a tax-ID field (not multi-jurisdiction registration); and consent + a sub-processor list + a manual erasure runbook (not a self-serve GDPR erasure/export UI; no EU/public signup until self-serve) (→ RM-36, RM-48). The multi-org Anthropic router is retired.
 25. **Automated PII / secret pre-scan on uploaded reference files (REQ-032)** — v1 is governance-by-disclosure: the NGO acknowledges the data-responsibility rule; no scan (→ RM-37).
-26. **Automated spend-anomaly detection engine (REQ-009)** — v1 uses deterministic loss caps (no cash-out, the $200 first-fund cap, per-key caps + the fuel gate), the NGO's instant "revoke access now," and daily human money-dashboard review (→ RM-5).
+26. **Automated spend-anomaly detection engine (REQ-009)** — v1 uses deterministic loss caps (no cash-out, the $200 first-fund cap, the provider-enforced workspace spend + rate limits), the NGO's instant "revoke access now," and daily human money-dashboard review (→ RM-5).
 
 ---

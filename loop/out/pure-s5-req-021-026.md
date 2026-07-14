@@ -3,7 +3,7 @@
 Lovable is the deliverable vehicle and the NGO's durable maintenance home: after completion the non-technical NGO evolves the live app via Lovable chat, no developer needed. During build, Claude Code is the volunteer's single entry point — it orchestrates Lovable for the UI and handles backend/logic/tests/docs — while ai4good metering, scope enforcement, and audit stay authoritative. Every project uses Lovable (→ RM-26).
 
 **Orchestration posture:**
-- Lovable is a research-preview surface, accessed through a replaceable integration layer so that a Lovable break degrades to manual work, never a dead build.
+- Lovable is an external vendor surface outside platform control, accessed through a replaceable integration layer so that a Lovable break degrades to manual work, never a dead build.
 - Primary path: Claude Code drives Lovable; on breakage the volunteer drives Lovable in-browser; both commit to the shared repo. UI work spends the NGO's Lovable credits; Claude Code work burns fuel. UI-heavy and backend-heavy mixes are both fine; only a pure-backend tool with no Lovable app fails the fit check and is declined at Discovery.
 - Orchestrated calls bill the NGO's workspace under a per-task Lovable-credit cap, are audit-logged, and surface the NGO's credit balance in ai4good; the volunteer connects their own account and calls attribute to them.
 - After completion the NGO owns the workspace outright, with no dependency on orchestration or Claude Code.
@@ -12,7 +12,12 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 
 **Lifecycle:**
 - Discovery recommends Lovable with rationale and no dollar estimate; the scope doc states that Lovable is paid directly, never from fuel. The NGO is reminded before kickoff to set up the workspace and invite the volunteer.
-- Setup is mandatory at kickoff and self-served with no platform-admin involvement and no NGO GitHub account. The NGO, as workspace owner, performs only the account/billing steps: it creates the workspace, funds it, sets the volunteer's credit cap, and invites two members — the volunteer as a **build-only member with no billing access**, and **ai4good's read-only monitoring account** (editor role; no billing or admin; it surfaces Lovable credit consumption and workspace state to the platform). Both memberships are validated before the volunteer starts. **The volunteer's session then does the entire technical setup — provisioning the project, enabling its database, connecting GitHub sync (repo in the platform org), and injecting ai4good's conventions and the reviewer skill so Lovable's own agent follows them.** The platform validates the result — repo in the org, flipped public after validation, GitHub App installed, name collisions surfaced, and the volunteer's permission normalized so collaborators cannot be added unnoticed — then notifies both. A workspace-level connector a specific project needs (for example, payments) is added by the NGO owner.
+- Setup is mandatory at kickoff and self-served with no platform-admin involvement and no NGO GitHub account:
+  1. **NGO (account + billing only):** creates the workspace, funds it, sets the volunteer's credit cap, and invites two members — the volunteer as a **build-only member with no billing access**, and **ai4good's read-only monitoring account** (no billing or admin access; it can only observe, surfacing Lovable credit consumption and workspace state to the platform).
+  2. **Gate:** both memberships are validated before the volunteer starts.
+  3. **Volunteer (all technical setup):** their session provisions the project, enables its database, connects GitHub sync (repo in the platform org), and injects ai4good's conventions and the reviewer skill so Lovable's own agent follows them.
+  4. **Platform (validation):** repo in the org, flipped public after validation, GitHub App installed, name collisions surfaced, and the volunteer's repo permission reduced to the standard role so collaborators cannot be added unnoticed — then both parties are notified.
+  - A workspace-level connector a specific project needs (for example, payments) is added by the NGO owner.
 - The volunteer's Lovable access is **build-only**: they build, connect GitHub, and publish, but the workspace subscription, top-up, and payment method are owner-gated and never visible or accessible to the volunteer. The NGO can cap the volunteer's Lovable credit consumption natively.
 - Stuck parties raise clarifying blockers with standard aging; an admin is involved only after prolonged mutual silence. The volunteer works locally immediately after setup, with no further approval.
 - Lovable credit status is **read from Lovable programmatically** via ai4good's read-only monitoring account (→ RM-58), with a manual report as fallback; low or exhausted is surfaced in-platform and prompts the NGO with a direct route to Lovable top-up. Top-up itself stays a Lovable billing action — no programmatic purchase (→ RM-27).
@@ -42,13 +47,13 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 
 Every project passes a compliance gate between scope completion and publication, catching policy violations before volunteers see it. **v1: an automated triage screener plus a founder exception queue** — automation decides clear cases and the founder attends only non-decided ones (the REQ-036 scorer shape applied to triage).
 
-**Screener checks:** open-source alignment (all projects public MIT; commercial or closed-source-for-resale work is prohibited; confidential-codebase needs are a categorical decline); nonprofit purpose against the vetted profile; scope reasonableness against the complexity tier (abusive scope caught here); acceptable use (no surveillance, spam, illegal use); data-tier correctness (Tier-2 requires a fixtures-only plan); and Discovery risk flags. It produces a disposition with reasons and an uncertainty signal for routing.
+**Screener checks:** open-source alignment (all projects public MIT; commercial or closed-source-for-resale work is prohibited; confidential-codebase needs are a categorical decline); nonprofit purpose against the vetted profile; scope reasonableness against the complexity tier (abusive scope caught here); acceptable use (no surveillance, spam, illegal use); data-tier correctness (Tier-2 requires a fixtures-only plan); and Discovery risk flags. It produces a decision with reasons and an uncertainty signal for routing.
 
 **Acceptance criteria:**
 - [ ] Publishing routes to the screener, never directly to the marketplace.
 - [ ] **Confident-clean → auto-approved → `open`**, with a screener-written audit record (checks, rationale, version).
 - [ ] **Tier-2 never auto-approves** — it always routes to the founder.
-- [ ] **Non-decided → the founder exception queue** (findings pre-surfaced), reviewed promptly. Two outcomes: **return to `scoped`** (a reason note to the NGO; editing and republishing re-enters the screener and stays invisible; prior notes visible) or **terminal decline** (non-remediable; cannot churn back).
+- [ ] **Non-decided → the founder exception queue** (findings pre-surfaced), reviewed promptly. Two outcomes: **return to `scoped`** (a reason note to the NGO; editing and republishing re-enters the screener and stays invisible; prior notes visible) or **terminal decline** (non-remediable — cannot be edited and resubmitted).
 - [ ] Every human decision is recorded: reviewer, timestamp, decision, reason, data tier, scope snapshot.
 - [ ] Auto-approved items are surfaced for post-hoc spot-check; exception items expose their age; a break-glass unpublish recovers (REQ-031).
 - [ ] Screener threshold + model configuration (same model family as OD-7): **[DECISION: OD-8 — pilot-tuned.]**
@@ -56,11 +61,11 @@ Every project passes a compliance gate between scope completion and publication,
 
 ---
 
-#### REQ-024: Project Blockers (orthogonal operational health)
+#### REQ-024: Project Blockers (operational health, independent of lifecycle)
 
-Blockers are orthogonal to lifecycle status, separating "ghosting" from "waiting on someone else"; they feed reputation and escalation and never reduce public completion credit.
+Blockers are independent of lifecycle status, separating "ghosting" from "waiting on someone else"; they feed reputation and escalation and never reduce public completion credit.
 
-**Types (v1):** clarifying question (dev-raised, manually resolved); awaiting NGO review; external dependency; GitHub collaborator needed (a legacy edge case, resolved when the NGO confirms access); Lovable setup pending (auto-resolves on validation, REQ-021); fuel top-up needed (auto-raised at the 20% warning and 0% blocking, auto-resolving above 20%); and Lovable credits (status read from Lovable, NGO-resolved) (→ RM-5). An auto-raised type keeps one unresolved instance per project, upgrading its severity in place when the condition worsens rather than creating a duplicate; manual types may have several open.
+**Types (v1):** clarifying question (dev-raised, manually resolved); awaiting NGO review; external dependency; GitHub collaborator needed (a rare edge case, resolved when the NGO confirms access); Lovable setup pending (auto-resolves on validation, REQ-021); fuel top-up needed (auto-raised at the 20% warning and 0% blocking, auto-resolving above 20%); and Lovable credits (status read from Lovable, NGO-resolved) (→ RM-5). An auto-raised type keeps one unresolved instance per project, upgrading its severity in place when the condition worsens rather than creating a duplicate; manual types may have several open.
 
 **Notifications and aging:** raising a blocker notifies the NGO admins (a blocking fuel blocker also notifies an admin); resolution notifies both. An unresolved blocker gets a reminder at 48h and escalates to an admin at 7d, with the project flagged at-risk; Lovable-setup aging notifies the NGO and volunteer, reaching an admin only after 7d of mutual silence. Open blockers auto-archive at completion.
 
@@ -87,7 +92,7 @@ Blockers are orthogonal to lifecycle status, separating "ghosting" from "waiting
 
 #### REQ-026: Platform Task Management (Linear as system of record)
 
-Linear is the task system of record: event-granular, actor-attributed real-time signals; an enforceable read/write split; no merge conflicts under parallel worktrees; a hosted backlog predating the clone; and per-volunteer attribution.
+Linear is the task system of record: real-time signals per event and per actor; an enforceable read/write split; no merge conflicts under parallel worktrees; a hosted backlog that exists before any code is cloned; and per-volunteer attribution.
 
 **Model:** task state lives in Linear — one free workspace per project. Volunteers and their agents (under the volunteer's identity) read, self-assign, and comment; status moves only via Linear's GitHub integration on PR merge. The platform maintains a read-only mirror of Linear (which powers the status panel and the assistant); the NGO never touches Linear and the panel is its only Linear-visibility surface. GitHub Issues (code bugs only) and Linear comments stay dev-internal; NGO conversation stays on the comment thread, except a task-anchored NGO comment is relayed onto its task for the volunteer (REQ-015).
 
@@ -99,7 +104,7 @@ Linear is the task system of record: event-granular, actor-attributed real-time 
 
 **Pull-based workflow:** self-assignment is the commitment signal (marking the task in progress); volunteers pull the next unblocked issue and the coordinator never pushes. Norms: one issue in progress (one per worktree if parallel), assign before starting, comment when blocked, never move status by hand. Onboarding: match → invite → browse briefs (before cloning anything) → the first work session connects task access → the first pull activates attribution. An in-progress issue with no branch activity for N days raises a coordinator flag proposing return to the backlog. Agentic loops are permitted (handling is loop-agnostic); the template ships a reviewer agent; a loop degrades on auth failure and its PRs never auto-merge. **[DECISION: OD-1 — reviewer identity + merge authority, per project.]**
 
-**Write authority (real-signals enforcement):** volunteers and agents read, comment, and self-assign — never change status. The GitHub integration moves status; the platform creates issues (decomposition; v1 scope-addition tasks are volunteer-created, REQ-025), invites, reverts, and cancels. The NGO holds no Linear seat. Because OAuth scopes cannot express "assign + comment but not status," enforcement is detect-and-revert: any status change not backed by a linked merged PR is reverted with an explanatory comment and a low-tone notification to the volunteer. Agent actions attribute to the volunteer, who owns them.
+**Write authority (real-signals enforcement):** volunteers and agents read, comment, and self-assign — never change status. The GitHub integration moves status; the platform creates issues (decomposition; v1 scope-addition tasks are volunteer-created, REQ-025), invites, reverts, and cancels. The NGO holds no Linear seat. Vendor permissions cannot allow assign-and-comment while blocking status changes, so enforcement is detect-and-revert: any status change not backed by a linked merged PR is reverted with an explanatory comment and a low-tone notification to the volunteer. Agent actions attribute to the volunteer, who owns them.
 
 **Lifecycle hooks:** accepted scope additions are volunteer-created linked tasks (REQ-025) (→ RM-10). At completion, lower-priority not-started issues cancel while top-priority never auto-cancels (completion requires all done, REQ-012); volunteer membership is removed, the final tree is preserved with the repo, and the mirror goes read-only. On abandonment, the ex-volunteer's in-progress issues return to the backlog.
 
@@ -112,13 +117,13 @@ Linear is the task system of record: event-granular, actor-attributed real-time 
 
 ---
 
-#### REQ-028: ai4good Claude Code Skill (volunteer-facing single pane of glass)
+#### REQ-028: ai4good Claude Code Skill (the volunteer's single operating surface)
 
-An ai4good-shipped Skill makes the volunteer's local Claude Code the canonical operating environment — conventions, helper commands, and session governance as installable, auto-updating agent code shipped through the standard Skill channel (docs drift; a Skill runs every session). One-command install; it auto-runs in every session opened in an ai4good repo.
+An ai4good-shipped Skill makes the volunteer's local Claude Code the default operating environment — conventions, helper commands, and session governance as installable, auto-updating agent code shipped through the standard Skill channel (written docs drift out of date; a Skill re-applies itself every session). One-command install; it auto-runs in every session opened in an ai4good repo.
 
 **v1 scope:**
 - One-command install, open-source (MIT). Non-secret project config is seeded at repo creation; one login per project. Three separately-revocable credentials: the platform token (blockers, comments, fuel), the task-system OAuth (backlog), and the gateway key (metered LLM traffic).
-- Session bootstrap primes the scope summary, status, in-progress tasks, unresolved blockers, recent NGO comments, and fuel runway; verifies task access; reads the binding; and prints a concise session banner (project, active task and its age, fuel, unread comments). (→ RM-10)
+- Session bootstrap loads the scope summary, status, in-progress tasks, unresolved blockers, recent NGO comments, and fuel runway; verifies task access; reads the binding; and prints a concise session banner (project, active task and its age, fuel, unread comments). (→ RM-10)
 - Task binding + degradation (load-bearing): self-assigning binds the issue per worktree, and that binding rides every metered request as the attribution mechanism (REQ-034). **The Skill enforces pull-then-complete:** before substantial work, an explicit choice — pull an issue or enter the exploration bucket — so every session carries attribution context, and exploration turning into implementation forces binding the matching issue. Completion is an explicit dev act: the dev marks done and the Skill verifies and drives the merge that flips status (REQ-026). On task-system auth failure the session degrades without stopping — updates queue locally and surface at session end, and binding floors to unattributed (a floor, not a bypass).
 - Helper commands: pick the next task (highest-priority unblocked, full context shown, self-assigns on confirm); fuel status (balance, burn rate, projected runway); list blockers (with suggested actions); raise a task-anchored clarifying question; a completion-readiness check (top-priority done, README + runbook, repo and deployment URLs set, work pushed); and disable/enable. Reference files download from the project page. (→ RM-31)
 - Branch/commit conventions (task identifiers + linking keywords) are auto-applied so the GitHub integration links work and moves status: a branch link marks In Progress, a merge marks Done (the only done-path). The volunteer can override anything the Skill generates. A manual fallback always exists — the Linear app and project page cover every behavior, and a disabled Skill still operates, with attribution degrading to unattributed and norms arriving via the injected prompt.

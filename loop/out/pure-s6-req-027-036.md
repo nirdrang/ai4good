@@ -1,14 +1,14 @@
 #### REQ-027: Abandonment / Rematch (volunteer ghosts mid-project)
 Adds a release + rematch edge (in_progress → open) plus a partial-fuel rule.
 - Triggers: inactivity (no repo activity AND no task movement) — a reminder at 14 days and auto-release at 21 days — or a manual release by either party, with a reason. The clock runs only while in_progress.
-- A release revokes all ex-volunteer access (repo, AI keys, workspace/PM) as its own action, with no dependency on suspension; in-progress tasks return to the backlog; done work and history are preserved; and remaining fuel STAYS on the project — no refund.
+- A release revokes all platform-controlled ex-volunteer access (repo, AI keys, Linear) as its own action, with no dependency on suspension; the NGO removes Lovable workspace access on the platform's prompt (Lovable has no removal API); in-progress tasks return to the backlog; done work and history are preserved; and remaining fuel STAYS on the project — no refund.
 - A ghosting (timeout) is recorded distinctly from a release-for-cause; ghosting affects the outreach/reputation signal, and a for-cause release carries no automatic penalty.
 - The project re-opens with concierge rematch priority, the NGO is notified, and prior matches are closed in the match log. Notifications: reminder, released, rematch available (REQ-016).
 
 #### REQ-029: Observability & Operational Monitoring
 The unattended, money-touching scheduled processes must be monitored by heartbeats and business-invariant monitors that page a human on failure.
 - Every scheduled job heartbeats and a watchdog pages when an interval is missed.
-- Monitors that PAGE: undecidable ledger drift; any negative balance; **any metered AI request accepted or recorded against a depleted project — on every billable surface, gateway or direct, funded Discovery included**; a gateway error rate or provider errors outside budget; a release revocation incomplete beyond 6 hours; and org base-permission drift.
+- Monitors that PAGE: undecidable ledger drift; any negative balance; **any metered AI request accepted or recorded against a depleted project — on every billable surface, gateway or direct, funded Discovery included**; a gateway error rate or provider errors outside budget; a release revocation of platform-controlled access incomplete beyond 6 hours; and org base-permission drift.
 - **Every metered AI request — gateway or direct — emits the same privacy-preserving audit event** (surface/actor, project, request id, provider status and cost, fuel delta, rate-card version, ledger linkage; metadata only, never bodies).
 - v1 dashboards are the one money dashboard (funding, consumption, platform share, reconciliation, chargebacks), founder-read daily (→ RM-34); error tracking and structured logging are baseline NFRs.
 
@@ -46,7 +46,7 @@ Classification (load-bearing): this is telemetry, NOT a security control — it 
 - "Exploration" and "onboarding" are first-class taskless values, offered proactively, because falsely-attributed burn corrupts baselines.
 - **Attribution spans both billable surfaces (REQ-029):** gateway traffic (volunteer build) attributes to a task or a taskless bucket; the **direct surface** — NGO-facing platform AI (funded Discovery and the assistant, REQ-004/033) — attributes to first-class **project categories** (Discovery, NGO assistant), so NGO-facing token consumption is counted and attributed to the project, never uncounted or folded into build burn. Every metered request on either surface carries project + category, and all categories reconcile to the project's total fuel.
 - Steering is conversational (the agent is nudged to know its task context and select the matching task when exploration becomes implementation), never platform-enforced. The ceiling, verbatim: detection and suggestion only, never gating.
-- Aggregation boundary: the NGO sees burn per deliverable and per NGO-facing category (Discovery, assistant) in cents (no celebration), with exploration, onboarding, and unattributed shown as their own honest buckets so total fuel always reconciles to visible lines — spend is never hidden or folded into a task; per-volunteer-per-task detail and the per-project unattributed-% / binding-failure signals stay coordinator-side. Bimodal per-task costs are a data property, not an anomaly.
+- Aggregation boundary: the NGO sees burn per deliverable and per NGO-facing category (Discovery, assistant), in cents, no celebration. Exploration, onboarding, and unattributed appear as their own honest buckets, so total fuel always reconciles to visible lines — spend is never hidden or folded into a task. Per-volunteer-per-task detail and the per-project unattributed-% / binding-failure signals stay coordinator-side. Wide per-task cost variation is expected data, not an anomaly.
 - v1: capture plus the NGO burn-per-deliverable view (→ RM-39).
 
 #### REQ-035: Post-Completion Attribution & Health (deferred → v1.5)
@@ -57,12 +57,12 @@ REQ-013/014/015/016 (drafted P1) are P0-feature dependencies, reclassified P0 wi
 
 #### REQ-013: NGO Dashboard (minimal v1 + v1.5 enhancements)
 One NGO-wide view supporting the stepwise-funding moments (Promise §6).
-- v1: for each project, status, task-based percent complete, both fuel balances, and the assigned volunteer, plus cadence signals (last commit, tasks done of total, current task) (→ RM-23); a cross-project fuel summary; the general balance shown as redeployable credit (non-cash, no expiry, never removed); and a prominent surface of items needing NGO action (open blockers, open scope-addition discussions, triage decisions awaiting the NGO). No applicant queue (concierge).
+- v1: for each project, status, task-based percent complete, the fuel balance and the Lovable credit status, and the assigned volunteer, plus cadence signals (last commit, tasks done of total, current task) (→ RM-23); a cross-project fuel summary; the general balance shown as redeployable credit (non-cash, no expiry, never removed); and a prominent surface of items needing NGO action (open blockers, open scope-addition discussions, triage decisions awaiting the NGO). No applicant queue (concierge).
 - (→ RM-42)
 
 #### REQ-014: Volunteer Dashboard + Completion Credit (v1 minimal)
 A dashboard plus completion-credit-only public reputation: no public star or numerical ratings.
-- v1 dashboard: current projects (status, both fuel balances, in-progress tasks, unresolved blockers/clarifications) and the key reveal (REQ-009) (→ RM-22).
+- v1 dashboard: current projects (status, the fuel balance and the Lovable credit status, in-progress tasks, unresolved blockers/clarifications) and the key reveal (REQ-009) (→ RM-22).
 - **No public profile page or badge display in v1** (→ RM-3). Completion credit is captured from day one as durable, append-only per-project events (non-overwritable, non-deletable, tamper-evident: volunteer, project, completion timestamp, first-tool eligibility), with a private "credit earned" confirmation at completion. The framing is "credit recorded from day one" — every repo is public MIT, so the portfolio already exists on GitHub.
 - No satisfaction modal at completion and no admin aggregate; the volunteer never sees their own satisfaction scores (→ RM-24).
 - (→ RM-3)
@@ -101,7 +101,7 @@ v1 taxonomy (event → recipients, delivery), condensed:
 - Completion: project marked complete → both. (→ RM-25)
 - Provisioning failure (repo setup failed, task-system workspace unavailable at kickoff) → NGO + volunteer + admin + ops item. Lovable: setup reminder, credits low, credits blocked (escalation tier), setup-pending auto-raised at kickoff → NGO, setup complete → both.
 - (→ RM-43, RM-5, RM-7, RM-11)
-Delivery defaults: email for critical events (money, deadlines, blockers, completion, decisions); in-app only for low-tone. One notification per committed event (→ RM-45). **Critical-event reliability guard (money, access, completion):** the notification event is written atomically with its ledger/state transition via the outbox; recipients resolve at event creation; and it is marked sent only on provider acceptance — an unconfirmed send retries and is never silently dropped. Escalation-tier events notify the NGO and platform admin.
+Delivery defaults: email for critical events (money, deadlines, blockers, completion, decisions); in-app only for low-tone. One notification per committed event (→ RM-45). **Critical-event reliability guard (money, access, completion):** the notification event is written atomically with its ledger/state transition; recipients resolve at event creation; and it is marked sent only on provider acceptance — an unconfirmed send retries and is never silently dropped. Escalation-tier events notify the NGO and platform admin.
 
 ### Out of v1 / Deferred to v2 — referenced by ID only
 
