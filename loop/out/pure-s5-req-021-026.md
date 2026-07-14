@@ -3,7 +3,7 @@
 Lovable is the deliverable vehicle and the NGO's durable maintenance home: after completion the non-technical NGO evolves the live app via Lovable chat, no developer needed. During build, Claude Code is the volunteer's single entry point — it orchestrates Lovable for the UI and handles backend/logic/tests/docs — while ai4good metering, scope enforcement, and audit stay authoritative. Every project uses Lovable (→ RM-26).
 
 **Orchestration posture:**
-- Lovable is an external vendor surface outside platform control, accessed through a replaceable integration layer so that a Lovable break degrades to manual work, never a dead build.
+- Lovable is an external vendor surface outside platform control, driven from the volunteer's Claude Code session via Lovable's own MCP; a break degrades to in-browser manual work, never a dead build.
 - Primary path: Claude Code drives Lovable; on breakage the volunteer drives Lovable in-browser; both commit to the shared repo. UI work spends the NGO's Lovable credits; Claude Code work burns fuel. UI-heavy and backend-heavy mixes are both fine; only a pure-backend tool with no Lovable app fails the fit check and is declined at Discovery.
 - Orchestrated calls bill the NGO's workspace, are audit-logged, and attribute to the volunteer, who connects their own account; the volunteer's spend is bounded only by the NGO-set credit cap, native to Lovable — no platform-side caps.
 - After completion the NGO owns the workspace outright, with no dependency on orchestration or Claude Code.
@@ -128,8 +128,8 @@ An ai4good-shipped Skill makes the volunteer's local Claude Code the default ope
 - Helper commands: pick the next task (highest-priority unblocked, full context shown, self-assigns on confirm); fuel status (balance, burn rate, projected runway); list blockers (with suggested actions); raise a task-anchored clarifying question; a completion-readiness check (top-priority done, README + runbook, repo and deployment URLs set, work pushed); and disable/enable. Reference files download from the project page. (→ RM-31)
 - Branch/commit conventions (task identifiers + linking keywords) are auto-applied so the GitHub integration links work and moves status: a branch link marks In Progress, a merge marks Done (the only done-path). The volunteer can override anything the Skill generates. A manual fallback always exists — the Linear app and project page cover every behavior, and a disabled Skill still operates, with attribution degrading to unattributed and norms arriving via the injected prompt.
 
-**The Skill is the orchestration shell (v1 core):**
-- It drives Lovable through the replaceable integration layer (REQ-021). Per task it recommends build-locally vs delegate-to-Lovable from the task and Discovery's split, explained and overridable; after each delegation it pulls, tests, and iterates, or fixes locally.
+**Lovable orchestration (v1 core):**
+- Orchestration is run by the volunteer, not the Skill: from their Claude Code session the volunteer drives Lovable over Lovable's own MCP (REQ-021), choosing per task between building locally and delegating to Lovable — Discovery's build split is guidance, never binding. After a delegation they pull, test, and iterate, or fix locally.
 - No Skill-side budget guardrails (no per-task caps, no burn estimates, no refusal thresholds): the volunteer's Lovable spend is bounded by the NGO-set credit cap, native to Lovable (REQ-021), and surfaced by the workspace-level credit status the platform reads. Orchestrated calls are audit-logged.
 
 (→ RM-32, RM-33)
