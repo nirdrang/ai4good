@@ -92,7 +92,7 @@ Transition rules:
 
 Match records track their own states — invited / consented / declined / expired / released — in the match log (REQ-007); an unfunded expiry frees the volunteer for re-match. (→ RM-8)
 
-**Kickoff sequence** (parallel side effects on funding): a project provider workspace and its virtual key are provisioned with no ops task; a Linear workspace is assigned from the pre-created pool (an empty pool raises an urgent ops task + blocker); the repo is established by the NGO and volunteer with no platform-admin involvement (REQ-021, required before completion); the workspace is seeded with the one bootstrap task — author the project PRD from the Discovery scope (REQ-036) — and the build backlog decomposes only after the automated completion gate; the funded/kickoff status is announced, the comment thread opens, and the volunteer is notified with setup instructions. Provisioning failures never invent a sub-state — the project stays `in_progress` and gaps surface as blockers/ops tasks, gating the volunteer only from the pending resource.
+**Kickoff sequence** (parallel side effects on funding): a project provider workspace and its virtual key are provisioned with no ops task; a Linear workspace is assigned (unavailability raises an urgent ops task + blocker); the repo is established by the NGO and volunteer with no platform-admin involvement (REQ-021, required before completion); the workspace is seeded with the one bootstrap task — author the project PRD from the Discovery scope (REQ-036) — and the build backlog decomposes only after the automated completion gate; the funded/kickoff status is announced, the comment thread opens, and the volunteer is notified with setup instructions. Provisioning failures never invent a sub-state — the project stays `in_progress` and gaps surface as blockers/ops tasks, gating the volunteer only from the pending resource.
 
 ---
 
@@ -144,6 +144,6 @@ Control totals are reconciled and auto-repaired by the same provider-truth rules
 
 **Chargebacks:** on a dispute the platform immediately freezes the NGO (no new funding or matching), cuts the project's AI access, claws back the unconsumed balance, books the consumed portion as loss, and opens an admin review; the audit-logged acknowledgment (timestamp + IP) is submitted as the Stripe dispute evidence. Loss is bounded by no-cash-out, the first-fund cap, and rapid cutoff (→ RM-19); pilot losses are absorbed from operating funds. Collusion/shared-fingerprint detection is out of v1 — concierge hand-vetting of every pairing, no-cash-out, and caps are the control (→ RM-20).
 
-Concierge/admin work items (vetting, pool replenishment, chargeback reviews, incidents) are tracked and prioritized against their service targets.
+Concierge/admin work items (vetting, task-system provisioning, chargeback reviews, incidents) are tracked and prioritized against their service targets.
 
 Dependencies: REQ-001, REQ-002, REQ-004, REQ-008, REQ-009.

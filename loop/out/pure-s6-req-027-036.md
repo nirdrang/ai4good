@@ -84,6 +84,7 @@ A dashboard plus completion-credit-only public reputation: no public star or num
 #### REQ-015: Per-Project Comment Thread (full Slack-style channel deferred to v1.5)
 A project-page comment thread replaces the v1 real-time channel (NGO admins, the assigned volunteer, and the platform admin only when escalated); the concierge pilot coordinates via blockers, comments, notifications, and email (→ RM-43).
 - v1: a chronological plain-text stream with auto-linked URLs (no markdown, code blocks, attachments, or @-mentions); it need not update in real time but shows current comments on view; posting notifies the other party; membership is implicit from project roles. System events never post to the thread — they surface in notifications and activity feeds. (Scope-addition discussions live here per REQ-025.) (→ RM-10) Post-completion it is read-only. No cross-project DMs.
+- **Task-anchored NGO comments:** from the read-only status panel the NGO can attach a comment to a specific task (queued or in progress); the platform surfaces it to the volunteer in context on that task (REQ-026) and notifies them, and the volunteer's reply returns to the thread. Routine dev-internal task chatter never surfaces to the NGO, and the NGO never accesses the task system directly.
 - (→ RM-43, RM-44)
 
 #### REQ-016: Notifications (Email + In-App)
@@ -97,7 +98,7 @@ v1 taxonomy (event → recipients, delivery), condensed:
 - Work signals: task status changed → NGO (in-app, low-tone); task completed → NGO (email + in-app); task comment → volunteer (in-app); thread comment → the other party (in-app default, with an anti-spam guard); blockers raised/resolved/48h/7d → NGO email + in-app, volunteer on resolution, admin at 7d; PM status auto-reverted → volunteer (in-app, low-tone, instructive not punitive).
 - Scope additions (informal): ride thread-comment notifications; no dedicated CR events in v1 (→ RM-10).
 - Completion: project marked complete → both. (→ RM-25)
-- Provisioning failure (repo setup failed, workspace pool empty at kickoff) → NGO + volunteer + admin + ops item, plus an urgent replenish alert on pool-empty. Lovable: setup reminder, credits low, credits blocked (escalation tier), setup-pending auto-raised at kickoff → NGO, setup complete → both.
+- Provisioning failure (repo setup failed, task-system workspace unavailable at kickoff) → NGO + volunteer + admin + ops item. Lovable: setup reminder, credits low, credits blocked (escalation tier), setup-pending auto-raised at kickoff → NGO, setup complete → both.
 - (→ RM-43, RM-5, RM-7, RM-11)
 Delivery defaults: email for critical events (money, deadlines, blockers, completion, decisions); in-app only for low-tone. One notification per committed event (→ RM-45). **Critical-event reliability guard (money, access, completion):** the notification event is written atomically with its ledger/state transition via the outbox; recipients resolve at event creation; and it is marked sent only on provider acceptance — an unconfirmed send retries and is never silently dropped. Escalation-tier events notify the NGO and platform admin.
 

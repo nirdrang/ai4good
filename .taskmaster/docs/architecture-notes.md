@@ -176,7 +176,7 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 - Card field set + newest-first ordering; the one volunteer action (mark interest) feeds the match log.
 
 ### REQ-012 — Project Completion
-- v1: the volunteer marks `completed` when all P0 tasks are done and the repo exists; leftover fuel → general balance; virtual keys revoked + provider workspace archived; Linear membership removed + tree preserved; completion-credit event. Live URL captured as project metadata (auto from Lovable `deploy_project`/`get_project`), not gated. NGO offboards the volunteer self-serve; ai4good is never a member of the Lovable workspace.
+- v1: the volunteer marks `completed` when all P0 tasks are done and the repo exists; leftover fuel → general balance; virtual keys revoked + provider workspace archived; Linear membership removed + tree preserved; completion-credit event. Live URL captured as project metadata (auto from Lovable `deploy_project`/`get_project`), not gated. NGO offboards the volunteer and ai4good's read-only monitoring account self-serve (d51/d52).
 - `[deferred → RM-62]` formal ceremony: disabled-button-with-instructions when the repo doesn't exist; live-URL capture via a completion form as the sole gate; sign-off / acceptance flow + rejection loop; the guided-maintenance ritual — (i) enable row-level access enforcement on the Lovable DB (off by default — PII footgun); (ii) demo chat/plan-mode + checkpoint rollback; (iii) set a Lovable spend cap; (iv) confirm two-way GitHub sync; the 30-day-alive automated ping.
 
 ### REQ-013 / REQ-014 — Dashboards
@@ -223,6 +223,7 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 
 ### REQ-026 — Linear task management
 - **One-way mirror** of Linear events into the platform store (powers the panel + assistant).
+- **Task-anchored NGO comment relay (Option B, d54).** The NGO comments on a task from the read-only panel → the platform **posts it into that Linear issue as a comment** attributed "NGO (via ai4good)" — a scoped platform write extending the existing issue-create authority; it is not a status change, so detect-and-revert does not apply. The volunteer sees it inline on the task (queued or in-progress) and is notified; the volunteer's deliberate reply routes back to the REQ-015 thread, while routine dev-internal Linear comments never surface to the NGO. NGO never touches Linear. Pulls the task-anchored piece forward from RM-43 (the full channel stays deferred).
 - **Pool model:** concierge pre-creates ready workspaces (no creation API); **replenish below a watermark (default 3)**; empty-pool → external-dependency blocker.
 - **Decomposition shape:** one parent per story, one sub-issue per acceptance criterion; briefs session-sized + dependency-ordered.
 - **Detect-and-revert enforcement:** because OAuth can't express "assign+comment but not status," any status change not backed by a linked merged PR is auto-reverted with an explanatory comment + low-tone notification; a restricted read/assign/comment proxy held in reserve if reverting proves noisy.

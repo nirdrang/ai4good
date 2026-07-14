@@ -224,7 +224,7 @@ Transition rules:
 
 Match records track their own states — invited / consented / declined / expired / released — in the match log (REQ-007); an unfunded expiry frees the volunteer for re-match. (→ RM-8)
 
-**Kickoff sequence** (parallel side effects on funding): a project provider workspace and its virtual key are provisioned with no ops task; a Linear workspace is assigned from the pre-created pool (an empty pool raises an urgent ops task + blocker); the repo is established by the NGO and volunteer with no platform-admin involvement (REQ-021, required before completion); the workspace is seeded with the one bootstrap task — author the project PRD from the Discovery scope (REQ-036) — and the build backlog decomposes only after the automated completion gate; the funded/kickoff status is announced, the comment thread opens, and the volunteer is notified with setup instructions. Provisioning failures never invent a sub-state — the project stays `in_progress` and gaps surface as blockers/ops tasks, gating the volunteer only from the pending resource.
+**Kickoff sequence** (parallel side effects on funding): a project provider workspace and its virtual key are provisioned with no ops task; a Linear workspace is assigned (unavailability raises an urgent ops task + blocker); the repo is established by the NGO and volunteer with no platform-admin involvement (REQ-021, required before completion); the workspace is seeded with the one bootstrap task — author the project PRD from the Discovery scope (REQ-036) — and the build backlog decomposes only after the automated completion gate; the funded/kickoff status is announced, the comment thread opens, and the volunteer is notified with setup instructions. Provisioning failures never invent a sub-state — the project stays `in_progress` and gaps surface as blockers/ops tasks, gating the volunteer only from the pending resource.
 
 ---
 
@@ -276,7 +276,7 @@ Control totals are reconciled and auto-repaired by the same provider-truth rules
 
 **Chargebacks:** on a dispute the platform immediately freezes the NGO (no new funding or matching), cuts the project's AI access, claws back the unconsumed balance, books the consumed portion as loss, and opens an admin review; the audit-logged acknowledgment (timestamp + IP) is submitted as the Stripe dispute evidence. Loss is bounded by no-cash-out, the first-fund cap, and rapid cutoff (→ RM-19); pilot losses are absorbed from operating funds. Collusion/shared-fingerprint detection is out of v1 — concierge hand-vetting of every pairing, no-cash-out, and caps are the control (→ RM-20).
 
-Concierge/admin work items (vetting, pool replenishment, chargeback reviews, incidents) are tracked and prioritized against their service targets.
+Concierge/admin work items (vetting, task-system provisioning, chargeback reviews, incidents) are tracked and prioritized against their service targets.
 
 Dependencies: REQ-001, REQ-002, REQ-004, REQ-008, REQ-009.
 
@@ -477,11 +477,11 @@ Blockers are orthogonal to lifecycle status, separating "ghosting" from "waiting
 
 Linear is the task system of record: event-granular, actor-attributed real-time signals; an enforceable read/write split; no merge conflicts under parallel worktrees; a hosted backlog predating the clone; and per-volunteer attribution.
 
-**Model:** task state lives in Linear — one free workspace per project. Volunteers and their agents (under the volunteer's identity) read, self-assign, and comment; status moves only via Linear's GitHub integration on PR merge. The platform maintains a read-only mirror of Linear (which powers the status panel and the assistant); the NGO never touches Linear and the panel is its only Linear-visibility surface. GitHub Issues (code bugs only) and Linear comments stay dev-internal; NGO conversation stays on the comment thread.
+**Model:** task state lives in Linear — one free workspace per project. Volunteers and their agents (under the volunteer's identity) read, self-assign, and comment; status moves only via Linear's GitHub integration on PR merge. The platform maintains a read-only mirror of Linear (which powers the status panel and the assistant); the NGO never touches Linear and the panel is its only Linear-visibility surface. GitHub Issues (code bugs only) and Linear comments stay dev-internal; NGO conversation stays on the comment thread, except a task-anchored NGO comment is relayed onto its task for the volunteer (REQ-015).
 
 **Ownership asymmetry (deliberate):** delivery infrastructure is NGO-owned (the Lovable workspace, the repo); coordination infrastructure is platform-owned (Linear, the gateway) and never transfers. After completion the workspace sits dormant at $0 and the final tree is preserved with the repo. Any paid tier is paid by the platform.
 
-**Provisioning — pool model:** Linear has no workspace-creation API, so the concierge pre-creates ready workspaces (platform access, events, and GitHub integration pre-wired). At kickoff the next ready workspace is assigned, renamed, the volunteer invited, and the PRD bootstrap task seeded (REQ-036), with no manual step. The pool is replenished before it empties; an empty pool at kickoff raises an external-dependency blocker — the only stall mode. The pilot proceeds on free-tier terms, risk accepted (→ RM-30).
+**Provisioning:** each project is assigned its Linear workspace at kickoff with no manual step on the kickoff critical path — the volunteer is invited and the PRD bootstrap task is seeded (REQ-036). Provisioning that cannot complete surfaces as an external-dependency blocker rather than stalling silently or inventing a sub-state. The pilot runs on Linear's free tier, risk accepted (→ RM-30).
 
 **Decomposition (from the gated PRD):** kickoff seeds only the bootstrap task; once the dev PRD clears the gate, the platform drafts and pushes the tree — one parent per story, one sub-issue per acceptance criterion, top priority. Briefs must be session-sized and dependency-ordered (blocking relations encoded), the precondition for pull-model correctness and per-task burn data (REQ-034). Coordinator review is a pilot spot-check.
 
@@ -493,11 +493,10 @@ Linear is the task system of record: event-granular, actor-attributed real-time 
 
 **Acceptance criteria:**
 - [ ] NGO-visible task state derives solely from observed Linear events and platform lifecycle actions, and is public.
-- [ ] Pool assignment and pre-empty replenishment work as described; an empty pool raises the blocker.
+- [ ] A Linear workspace is assigned at kickoff with no manual step on the critical path; if none can be assigned, an external-dependency blocker is raised.
 - [ ] Kickoff seeds the bootstrap task; post-gate decomposition pushes session-sized briefs with blocking relations (pilot spot-check).
 - [ ] Status flows only from PR merges; detect-and-revert enforces it and notifies.
 - [ ] The status panel conveys current work, the task hierarchy, and recent activity. Panel scope beyond that and NGO-introduction mechanics: **[DECISION: OD-2.]**
-- [ ] **[VERIFY on the first pool batch]:** free-tier events, API mutations, programmatic invites, rename, and a pre-connected GitHub integration seeing later repos. Fallback: paid tier (platform pays) or git-based state with a deterministic truth layer.
 
 ---
 
@@ -607,6 +606,7 @@ A dashboard plus completion-credit-only public reputation: no public star or num
 #### REQ-015: Per-Project Comment Thread (full Slack-style channel deferred to v1.5)
 A project-page comment thread replaces the v1 real-time channel (NGO admins, the assigned volunteer, and the platform admin only when escalated); the concierge pilot coordinates via blockers, comments, notifications, and email (→ RM-43).
 - v1: a chronological plain-text stream with auto-linked URLs (no markdown, code blocks, attachments, or @-mentions); it need not update in real time but shows current comments on view; posting notifies the other party; membership is implicit from project roles. System events never post to the thread — they surface in notifications and activity feeds. (Scope-addition discussions live here per REQ-025.) (→ RM-10) Post-completion it is read-only. No cross-project DMs.
+- **Task-anchored NGO comments:** from the read-only status panel the NGO can attach a comment to a specific task (queued or in progress); the platform surfaces it to the volunteer in context on that task (REQ-026) and notifies them, and the volunteer's reply returns to the thread. Routine dev-internal task chatter never surfaces to the NGO, and the NGO never accesses the task system directly.
 - (→ RM-43, RM-44)
 
 #### REQ-016: Notifications (Email + In-App)
@@ -620,7 +620,7 @@ v1 taxonomy (event → recipients, delivery), condensed:
 - Work signals: task status changed → NGO (in-app, low-tone); task completed → NGO (email + in-app); task comment → volunteer (in-app); thread comment → the other party (in-app default, with an anti-spam guard); blockers raised/resolved/48h/7d → NGO email + in-app, volunteer on resolution, admin at 7d; PM status auto-reverted → volunteer (in-app, low-tone, instructive not punitive).
 - Scope additions (informal): ride thread-comment notifications; no dedicated CR events in v1 (→ RM-10).
 - Completion: project marked complete → both. (→ RM-25)
-- Provisioning failure (repo setup failed, workspace pool empty at kickoff) → NGO + volunteer + admin + ops item, plus an urgent replenish alert on pool-empty. Lovable: setup reminder, credits low, credits blocked (escalation tier), setup-pending auto-raised at kickoff → NGO, setup complete → both.
+- Provisioning failure (repo setup failed, task-system workspace unavailable at kickoff) → NGO + volunteer + admin + ops item. Lovable: setup reminder, credits low, credits blocked (escalation tier), setup-pending auto-raised at kickoff → NGO, setup complete → both.
 - (→ RM-43, RM-5, RM-7, RM-11)
 Delivery defaults: email for critical events (money, deadlines, blockers, completion, decisions); in-app only for low-tone. One notification per committed event (→ RM-45). **Critical-event reliability guard (money, access, completion):** the notification event is written atomically with its ledger/state transition via the outbox; recipients resolve at event creation; and it is marked sent only on provider acceptance — an unconfirmed send retries and is never silently dropped. Escalation-tier events notify the NGO and platform admin.
 

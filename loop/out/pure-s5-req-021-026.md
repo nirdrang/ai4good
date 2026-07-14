@@ -89,11 +89,11 @@ Blockers are orthogonal to lifecycle status, separating "ghosting" from "waiting
 
 Linear is the task system of record: event-granular, actor-attributed real-time signals; an enforceable read/write split; no merge conflicts under parallel worktrees; a hosted backlog predating the clone; and per-volunteer attribution.
 
-**Model:** task state lives in Linear — one free workspace per project. Volunteers and their agents (under the volunteer's identity) read, self-assign, and comment; status moves only via Linear's GitHub integration on PR merge. The platform maintains a read-only mirror of Linear (which powers the status panel and the assistant); the NGO never touches Linear and the panel is its only Linear-visibility surface. GitHub Issues (code bugs only) and Linear comments stay dev-internal; NGO conversation stays on the comment thread.
+**Model:** task state lives in Linear — one free workspace per project. Volunteers and their agents (under the volunteer's identity) read, self-assign, and comment; status moves only via Linear's GitHub integration on PR merge. The platform maintains a read-only mirror of Linear (which powers the status panel and the assistant); the NGO never touches Linear and the panel is its only Linear-visibility surface. GitHub Issues (code bugs only) and Linear comments stay dev-internal; NGO conversation stays on the comment thread, except a task-anchored NGO comment is relayed onto its task for the volunteer (REQ-015).
 
 **Ownership asymmetry (deliberate):** delivery infrastructure is NGO-owned (the Lovable workspace, the repo); coordination infrastructure is platform-owned (Linear, the gateway) and never transfers. After completion the workspace sits dormant at $0 and the final tree is preserved with the repo. Any paid tier is paid by the platform.
 
-**Provisioning — pool model:** Linear has no workspace-creation API, so the concierge pre-creates ready workspaces (platform access, events, and GitHub integration pre-wired). At kickoff the next ready workspace is assigned, renamed, the volunteer invited, and the PRD bootstrap task seeded (REQ-036), with no manual step. The pool is replenished before it empties; an empty pool at kickoff raises an external-dependency blocker — the only stall mode. The pilot proceeds on free-tier terms, risk accepted (→ RM-30).
+**Provisioning:** each project is assigned its Linear workspace at kickoff with no manual step on the kickoff critical path — the volunteer is invited and the PRD bootstrap task is seeded (REQ-036). Provisioning that cannot complete surfaces as an external-dependency blocker rather than stalling silently or inventing a sub-state. The pilot runs on Linear's free tier, risk accepted (→ RM-30).
 
 **Decomposition (from the gated PRD):** kickoff seeds only the bootstrap task; once the dev PRD clears the gate, the platform drafts and pushes the tree — one parent per story, one sub-issue per acceptance criterion, top priority. Briefs must be session-sized and dependency-ordered (blocking relations encoded), the precondition for pull-model correctness and per-task burn data (REQ-034). Coordinator review is a pilot spot-check.
 
@@ -105,11 +105,10 @@ Linear is the task system of record: event-granular, actor-attributed real-time 
 
 **Acceptance criteria:**
 - [ ] NGO-visible task state derives solely from observed Linear events and platform lifecycle actions, and is public.
-- [ ] Pool assignment and pre-empty replenishment work as described; an empty pool raises the blocker.
+- [ ] A Linear workspace is assigned at kickoff with no manual step on the critical path; if none can be assigned, an external-dependency blocker is raised.
 - [ ] Kickoff seeds the bootstrap task; post-gate decomposition pushes session-sized briefs with blocking relations (pilot spot-check).
 - [ ] Status flows only from PR merges; detect-and-revert enforces it and notifies.
 - [ ] The status panel conveys current work, the task hierarchy, and recent activity. Panel scope beyond that and NGO-introduction mechanics: **[DECISION: OD-2.]**
-- [ ] **[VERIFY on the first pool batch]:** free-tier events, API mutations, programmatic invites, rename, and a pre-connected GitHub integration seeing later repos. Fallback: paid tier (platform pays) or git-based state with a deterministic truth layer.
 
 ---
 
