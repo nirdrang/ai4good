@@ -111,7 +111,7 @@ An AI-augmented developer joins the bench, marks interest on projects, gets conc
 Claude Code is the single entry point: backend/logic/tests are metered against fuel, and Lovable is orchestrated for the app/UI layer. (Depends: REQ-009, REQ-010, REQ-021, REQ-026, REQ-028.)
 - A platform-issued virtual key per volunteer-project pair keeps the real provider key on the platform; standard Claude Code is unmodified. The Starter Kit and Skill (REQ-028) load project context and connect the Linear task flow (REQ-026) and Lovable orchestration.
 - Fuel is enforced by the provider (each project's workspace spend limit, set to its prepaid fuel); a platform monitor reads the provider's usage — the single source of truth — and fires the thresholds: below 20% the NGO gets a top-up prompt (REQ-024), below 5% the volunteer is warned, and at 0 the provider declines further requests while the gateway proxies the rejection (both parties notified). Top-up raises the limit and restores service with no reactivation step (REQ-009).
-- The Skill drives Lovable under per-task Lovable-credit budget caps, audit-trailed, with manual driving if the Lovable orchestration integration is unavailable. The NGO owns the Lovable workspace and pays Lovable directly, never from fuel; the platform reads Lovable credit status through its monitoring account (REQ-021), with a volunteer flag as fallback.
+- The Skill drives Lovable, audit-trailed, with manual driving if the Lovable orchestration integration is unavailable; the volunteer's Lovable spend is bounded only by the NGO-set native credit cap (REQ-021). The NGO owns the Lovable workspace and pays Lovable directly, never from fuel; the platform reads Lovable credit status through its monitoring account (REQ-021), with a volunteer flag as fallback.
 - The project page shows both funding states distinctly — the Claude Code fuel balance and the Lovable status (REQ-010); further abuse protections are documented, not built (→RM-9).
 
 ### Story 5: Project Management via the Linear-Backed PM Task Tree (REQ-026)
@@ -400,7 +400,7 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 **Orchestration posture:**
 - Lovable is an external vendor surface outside platform control, accessed through a replaceable integration layer so that a Lovable break degrades to manual work, never a dead build.
 - Primary path: Claude Code drives Lovable; on breakage the volunteer drives Lovable in-browser; both commit to the shared repo. UI work spends the NGO's Lovable credits; Claude Code work burns fuel. UI-heavy and backend-heavy mixes are both fine; only a pure-backend tool with no Lovable app fails the fit check and is declined at Discovery.
-- Orchestrated calls bill the NGO's workspace under a per-task Lovable-credit cap, are audit-logged, and surface the NGO's credit balance in ai4good; the volunteer connects their own account and calls attribute to them.
+- Orchestrated calls bill the NGO's workspace, are audit-logged, and attribute to the volunteer, who connects their own account; the volunteer's spend is bounded only by the NGO-set credit cap, native to Lovable — no platform-side caps.
 - After completion the NGO owns the workspace outright, with no dependency on orchestration or Claude Code.
 
 **Why NGO-self-provisioned:** Lovable exposes no per-project metering API and no BYOK, and bills per workspace; NGO self-provisioning gives zero infrastructure dependency, no markup, and day-one NGO ownership. There is no ai4good connector inside Lovable — Lovable never talks to ai4good.
@@ -525,8 +525,7 @@ An ai4good-shipped Skill makes the volunteer's local Claude Code the default ope
 
 **The Skill is the orchestration shell (v1 core):**
 - It drives Lovable through the replaceable integration layer (REQ-021). Per task it recommends build-locally vs delegate-to-Lovable from the task and Discovery's split, explained and overridable; after each delegation it pulls, tests, and iterates, or fixes locally.
-- Budget guardrails: a per-task prompt cap, interactive confirmation past it with a running burn estimate, and refusal beyond an NGO-set hard cap. Every call is audit-logged with a cost estimate, and the NGO's Lovable burn shows on the admin and NGO dashboards.
-- NGO consent gate: "Allow Skill to orchestrate Lovable" — on by default at kickoff with cost disclosure, revocable, and checked before every call.
+- No Skill-side budget guardrails (no per-task caps, no burn estimates, no refusal thresholds): the volunteer's Lovable spend is bounded by the NGO-set credit cap, native to Lovable (REQ-021), and surfaced by the workspace-level credit status the platform reads. Orchestrated calls are audit-logged.
 
 (→ RM-32, RM-33)
 
@@ -714,7 +713,7 @@ Delivery defaults: email for critical events (money, deadlines, blockers, comple
 12. **Platform skim on tips** — tips (REQ-022) flow NGO→volunteer with a 0% cut.
 13. **Pay-gated Discovery in v1** — a free daily per-NGO allowance (10/day unverified, 30/day verified; resets 00:00 UTC, no rollover); when exhausted the NGO verifies, funds fuel to continue immediately (REQ-006), or waits; funded projects draw on fuel from the outset ("Funded → all-$"); amounts are revisited if abuse exceeds the grant.
 13a. **Paid "Discovery wallet"** — out for v1 and v1.5; the post-allowance path is a regular project-fuel purchase (single-pot).
-14. **ai4good-funded Lovable infrastructure** — the NGO owns and pays for its Lovable workspace, never billed against fuel; the platform caps orchestrated Lovable calls per task (estimate-based, REQ-028) and reads the workspace-level credit status through its monitoring account (REQ-021); it never meters Lovable's actual billing.
+14. **ai4good-funded Lovable infrastructure** — the NGO owns and pays for its Lovable workspace, never billed against fuel; the platform reads the workspace-level credit status through its monitoring account (REQ-021) and never meters or caps Lovable usage — the only spend bound is the NGO-set credit cap, native to Lovable.
 15. **Multi-tool fuel metering** — fuel covers Anthropic (Claude Code) only; other tools are NGO-direct or volunteer-personal unless they ship metering-compatible APIs.
 16. **Lovable credit reselling through ai4good** — NGOs buy from Lovable directly; a deep-linked "top up" route only (→ RM-28).
 17. **Service-level agreements / completion guarantees** — none: ghosting, fuel burn without a deliverable, and infeasible scopes are all possible; the platform bounds financial risk (per-project fuel caps) and surfaces stalls but never underwrites.

@@ -236,7 +236,7 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 - Session bootstrap sequence + one-line banner (project, active task+age, fuel, unread comments).
 - **Per-worktree task binding** rides every metered request (the attribution mechanism).
 - Helper-command algorithms: pick-next-task = highest-priority-unblocked with full context; branch/commit conventions (task identifiers + linking keywords); build-locally-vs-Lovable **heuristic (visual UI → Lovable, else local)**.
-- Budget guardrails: **per-task prompt cap default 5**, interactive confirm past it, hard refusal past the NGO cap; consent gate checked before every Lovable call.
+- ~~Budget guardrails: per-task prompt cap default 5, interactive confirm past it, hard refusal past the NGO cap~~ `[removed — d57, founder "no guardrails"]`: Skill-side Lovable budget machinery dropped; the sole spend bound is the NGO-set per-member `monthly_credit_limit` (native Lovable cap, d46/d47) — same provider-native-over-platform-reconstructed pattern as d40 on the Anthropic side. The NGO consent gate ("Allow Skill to orchestrate Lovable", per-call check) is ALSO removed (d57, founder "not needed") — orchestration is inherent to the mandatory Lovable build path, disclosed at kickoff; orchestrated calls stay audit-logged.
 
 ### REQ-029 / REQ-030 — Observability & ops → see **Cross-cutting B** for the money-correction function; plus: heartbeat + watchdog design; the single money dashboard; runbooks (v1 = 3) + incident cards; the credential-compromise breach-card steps.
 

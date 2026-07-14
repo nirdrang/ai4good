@@ -5,7 +5,7 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 **Orchestration posture:**
 - Lovable is an external vendor surface outside platform control, accessed through a replaceable integration layer so that a Lovable break degrades to manual work, never a dead build.
 - Primary path: Claude Code drives Lovable; on breakage the volunteer drives Lovable in-browser; both commit to the shared repo. UI work spends the NGO's Lovable credits; Claude Code work burns fuel. UI-heavy and backend-heavy mixes are both fine; only a pure-backend tool with no Lovable app fails the fit check and is declined at Discovery.
-- Orchestrated calls bill the NGO's workspace under a per-task Lovable-credit cap, are audit-logged, and surface the NGO's credit balance in ai4good; the volunteer connects their own account and calls attribute to them.
+- Orchestrated calls bill the NGO's workspace, are audit-logged, and attribute to the volunteer, who connects their own account; the volunteer's spend is bounded only by the NGO-set credit cap, native to Lovable — no platform-side caps.
 - After completion the NGO owns the workspace outright, with no dependency on orchestration or Claude Code.
 
 **Why NGO-self-provisioned:** Lovable exposes no per-project metering API and no BYOK, and bills per workspace; NGO self-provisioning gives zero infrastructure dependency, no markup, and day-one NGO ownership. There is no ai4good connector inside Lovable — Lovable never talks to ai4good.
@@ -130,8 +130,7 @@ An ai4good-shipped Skill makes the volunteer's local Claude Code the default ope
 
 **The Skill is the orchestration shell (v1 core):**
 - It drives Lovable through the replaceable integration layer (REQ-021). Per task it recommends build-locally vs delegate-to-Lovable from the task and Discovery's split, explained and overridable; after each delegation it pulls, tests, and iterates, or fixes locally.
-- Budget guardrails: a per-task prompt cap, interactive confirmation past it with a running burn estimate, and refusal beyond an NGO-set hard cap. Every call is audit-logged with a cost estimate, and the NGO's Lovable burn shows on the admin and NGO dashboards.
-- NGO consent gate: "Allow Skill to orchestrate Lovable" — on by default at kickoff with cost disclosure, revocable, and checked before every call.
+- No Skill-side budget guardrails (no per-task caps, no burn estimates, no refusal thresholds): the volunteer's Lovable spend is bounded by the NGO-set credit cap, native to Lovable (REQ-021), and surfaced by the workspace-level credit status the platform reads. Orchestrated calls are audit-logged.
 
 (→ RM-32, RM-33)
 
