@@ -10,4 +10,11 @@ One file per requirement (`at-req-0NN.md`), derived from `.taskmaster/docs/prd-m
 - Each file ends with a **Coverage map** (requirement clause → test IDs) — the completeness contract for the verification loop.
 - Critique: each file gets exactly one adversarial codex review round (gpt-5.6-sol, xhigh); folds are annotated `[cx]` on amended tests.
 
-**Source of truth:** prd-mvp.md as of commit `01e877e` (d64-r). If the PRD changes, re-derive the affected file before the loop runs.
+**Source of truth:** prd-mvp.md. Each requirement is also **isolated** into `.taskmaster/docs/requirements/req-0NN.md` (verbatim extract) — the self-contained unit of work for AT-authoring, critique, and the coding loop. The PRD stays authoritative; re-extract an isolated file if its REQ section changes.
+
+**Per-requirement pipeline (parallel across requirements):**
+1. Isolate the REQ → `requirements/req-0NN.md`.
+2. Author `acceptance/at-req-0NN.md` from the isolated requirement.
+3. Codex adversarial critique (gpt-5.6-sol, xhigh) against the isolated req + PRD-for-conflicts-only — one round.
+4. Fold; annotate amended tests `[cx]`.
+Steps run concurrently across different requirements; each requirement stays a separate file end-to-end.
