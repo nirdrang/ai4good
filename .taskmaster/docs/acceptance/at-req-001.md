@@ -42,11 +42,12 @@ Source: prd-mvp.md REQ-001 (+ Promise §9 acknowledgment cadence; NFR Security/a
 
 ## E. Tenant isolation & visibility
 
-> **PRD tension [cx r2, flag to founder]:** REQ-001 says NGO data is visible "only to its own account and the assigned volunteer," but REQ-032 also grants **platform admin** access to project reference files. Tests below treat platform-admin file access as a defined exception; the REQ-001 "only" wording should gain that exception (or REQ-032 should drop it).
+> **Resolved [founder, d65]:** the platform admin's role spans all accounts (operations/support), so NGO data is visible to its own account, the assigned volunteer, AND the platform admin. REQ-001 wording updated.
 
 - **AT-001.21 (P0)** — Given NGO A and NGO B, When NGO B's account requests NGO A's non-public data (drafts, ledger, files, thread, dashboard) by UI or direct API/ID probing, Then access is denied and nothing leaks (no existence oracle beyond public surfaces).
 - **AT-001.22 (P0)** — Given a volunteer not assigned to a project, When they request that project's non-public data (reference files, thread), Then access is denied; the public project page remains visible [cross: REQ-010].
-- **AT-001.23 (P0)** — Given the assigned volunteer of a project, When they request that project's working data (reference files, thread, tasks), Then access succeeds, scoped to that project only. (Platform admin also has file access per REQ-032 — the defined exception to "only".)
+- **AT-001.23 (P0)** — Given the assigned volunteer of a project, When they request that project's working data (reference files, thread, tasks), Then access succeeds, scoped to that project only.
+- **AT-001.40 (P0)** — Given a platform admin, When they request any NGO's or project's data (drafts, ledger, files, thread, dashboard), Then access succeeds — the admin role spans all accounts. [d65]
 - **AT-001.24 (P0)** — Given a logged-out visitor, When they browse, Then only public surfaces render (listings, project pages); every authenticated surface redirects to sign-in.
 
 ## F. Contact transfer / recovery (audited admin path)
@@ -79,7 +80,7 @@ Source: prd-mvp.md REQ-001 (+ Promise §9 acknowledgment cadence; NFR Security/a
 | GitHub link mandatory at volunteer signup → REQ-007 onboarding | 04, 05 |
 | Single-seat NGO + guards (attestation, shared-credential ban, transfer/recovery, escalation contact) | 17–20, 25–28, 35 |
 | Single-dev projects | 32 |
-| NGO data visible only to own account + assigned volunteer | 21–24 |
+| NGO data visible to own account + assigned volunteer + platform admin (spans all) | 21–24, 40 |
 | Password reset, email verification (all account types), session management, wrong-password reject | 09, 10, 12–14, 38 |
 | Lifecycle state gates every write (enumerated, all types) | 29–31 |
 | Audit owned here (role changes, contact transfer) | 26, 33 |
