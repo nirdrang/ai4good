@@ -15,6 +15,6 @@ One file per requirement (`at-req-0NN.md`), derived from `.taskmaster/docs/prd-m
 **Per-requirement pipeline (parallel across requirements):**
 1. Isolate the REQ → `requirements/req-0NN.md`.
 2. Author `acceptance/at-req-0NN.md` from the isolated requirement.
-3. Codex adversarial critique (gpt-5.6-sol, xhigh) against the isolated req + PRD-for-conflicts-only — one round.
-4. Fold; annotate amended tests `[cx]`.
+3. Codex adversarial critique (gpt-5.6-sol, xhigh) against the isolated req + PRD-for-conflicts-only — **two rounds**. Round 1 on the authored doc; round 2 on the folded doc (catches round-1 misses + edit-introduced issues; does not re-flag resolved items).
+4. Fold after each round; annotate amended tests `[cx]`, dropped tests `[retired]`.
 Steps run concurrently across different requirements; each requirement stays a separate file end-to-end.

@@ -8,7 +8,7 @@ Source: prd-mvp.md REQ-003 (isolated: requirements/req-003.md). Dependencies: RE
 
 - **AT-003.01 (P0)** — Given an NGO admin (any tier, including unvetted), When they start a Project Need with a title and free-text problem description, Then a draft is created and both fields persist.
 - **AT-003.02 (P0)** — Given the intake form, When cause tags and urgency are set, Then both persist and render on the draft.
-- **AT-003.03 (P0)** — Given an intake attempt missing the free-text problem description, When submitted to Discovery, Then submission is blocked. [cx: dropped the invented "missing input named" assertion]
+- **AT-003.03 (P0)** — Given an otherwise-complete draft by an email-verified NGO admin WITH Discovery capacity, missing ONLY the free-text problem description, When submitted, Then submission is blocked — isolating the missing-description gate from the verification/capacity gate. [cx r2: isolated so an unrelated gate can't produce the block]
 - **AT-003.04 (P0)** — Given an NGO member WITHOUT the admin role (or a volunteer/visitor), When it attempts to start a Project Need for its own NGO, Then the attempt is rejected — an NGO admin starts the Need. [cx: reworded — "any NGO incl. unvetted can create a draft" (REQ-005.5) means the gate is the admin *role*, not the NGO; cross-org isolation is AT-REQ-001] [cross: REQ-001]
 
 ## B. Draft autosave
@@ -21,8 +21,8 @@ Source: prd-mvp.md REQ-003 (isolated: requirements/req-003.md). Dependencies: RE
 - **AT-003.07 (P0)** — Given the intake surface, When the NGO uploads a reference file, Then the upload is available at intake and the file is attached to the draft. [cx: scoped to REQ-003 ownership — format matrix + metadata listing are AT-REQ-032]
 - **AT-003.08 [retired — cx: size caps / unsupported-type rejection are REQ-032 obligations → AT-REQ-032]**
 - **AT-003.09 (P0)** — Given any intake upload, When the upload surface renders, Then the data-responsibility disclosure is shown (redacted/sample data only; ai4good and the volunteer will see the files).
-- **AT-003.10 (P0)** — Given a project later classified Tier-2 [cross: REQ-004], When the NGO uploads further files, Then the disclosure is hardened to the Tier-2 form (hard acknowledgment restating fixtures-only).
-- **AT-003.11 (P0)** — Given intake without any upload, When submitted, Then Discovery proceeds — the upload is optional. [cx: promoted P1→P0]
+- **AT-003.10 (P0)** — Given a project just classified Tier-2 [cross: REQ-004], When the upload surface is next rendered, Then the Tier-2 hardened disclosure (hard acknowledgment restating fixtures-only) is already present — before any further upload. [cx r2: hardening triggers on classification, not on the next upload]
+- **AT-003.11 (P0)** — Given an otherwise-complete draft by an email-verified NGO admin with Discovery capacity and NO reference file, When submitted, Then Discovery begins — the upload is optional. [cx r2: added preconditions so it does not conflict with REQ-005.5 gates] [cx: promoted P1→P0]
 
 ## D. Submission → Discovery
 
