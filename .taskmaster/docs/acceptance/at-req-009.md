@@ -27,7 +27,7 @@ Source: requirements/req-009.md (prd-mvp.md REQ-009). Dependencies: REQ-006, REQ
 
 - **AT-009.12 (P0)** — Given a project funded, When the provider workspace is read, Then its spend limit equals the value the ruling's formula assigns to the prepaid fuel, and after a top-up the limit rises by the formula-consistent amount — the workspace spend limit tracks prepaid fuel. [cx r2: exact dollar figures suspended pending the spend-limit-formula ruling]
 - **AT-009.13 (P0)** — Given a workspace at its spend limit, When the next request is made, Then the provider's rejection is proxied to the user stating the cause; after a top-up raises the limit, Then the next request passes with no reactivation step by anyone.
-> **PRD tension flag [needs founder ruling — cx round 1]:** REQ-009 says the blocker "turns blocking as it nears zero", while REQ-024 pins the fuel blocker at "20% warning and 0% blocking". The blocking boundary must be one exact number. AT-009.14 tests 0% (REQ-024's explicit figure) pending the ruling; if "nears zero" means an earlier threshold, both REQs and this test need the exact value.
+> **Resolved [founder, d67]:** the blocking boundary is exactly 0%, and "blocking" is a STATUS on the project surface — the blocker mirrors the provider's stop, it never enforces anything. Enforcement = provider spend limit only; gateway = proxy only. REQ-009's "nears zero" reworded to "at 0% the blocker's state flips to blocking". AT-009.13/14 stand as written.
 
 - **AT-009.14 (P0)** — Given sentinel spend fixtures crossing the thresholds, When the platform monitor reads the provider's Admin/usage API, Then at 20% remaining the NGO receives a warning blocker, at 5% the volunteer is warned, and at 0% the blocker is blocking — all driven from the provider read, not gateway math. [cx: blocking boundary pinned to 0% per REQ-024, pending ruling] [cross: REQ-016/024]
 - **AT-009.15 (P0)** — Given the project's money records, When the spend-of-record is compared to the provider's billed cost for its workspace, Then they are equal, and no locally-reconstructed token total participates in any money value. [cross: REQ-006]
@@ -85,7 +85,7 @@ Source: requirements/req-009.md (prd-mvp.md REQ-009). Dependencies: REQ-006, REQ
 | Binding check on substantive requests (OD-4 threshold); instructive mismatch rejection | 08, 09 |
 | Injected governance on every request (project scope + Linear-status) | 10 |
 | Money path: spend-of-record = provider billed cost; limit tracks fuel (FORMULA PENDING FOUNDER RULING vs the 15% share); share on billed cost [cross REQ-006.07]; gateway usage attribution-only ("cost" leftover in Out-of-Scope 21 flagged for scrub) | 12, 15, 16 |
-| Thresholds 20/5/0 from Admin API (0% blocking pending founder ruling on "nears zero"); gateway proxies 0% rejection; top-up → passes, no reactivation | 13, 14 |
+| Thresholds 20/5/0 from Admin API (0% blocking, resolved d67 — blocker is a mirroring status, never enforcement); gateway proxies 0% rejection; top-up → passes, no reactivation | 13, 14 |
 | 401 semantics: flat externally; fuel-exhaustion exception; dashboard diagnostics | 04–06 |
 | Revocation instant + replacement; termination at completion/abandonment/AUP; workspace archived (post-provisioning; pre-kickoff no-op) vs persists on release (REQ-006 wording flagged); successor inherits at later kickoff | 21–25 |
 | Privacy: bodies transient; metadata-only log; signals as score/boolean | 26, 27 |
