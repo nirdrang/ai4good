@@ -9,8 +9,8 @@ Source: requirements/req-012.md (prd-mvp.md REQ-012 + Promise §10). Dependencie
 - **AT-012.01 (P0)** — Given all P0 tasks complete, When the assigned volunteer marks the project done, Then the project completes. [cross: AT-005.5.25 owns the transition]
 - **AT-012.02 (P0)** — Given all P0 tasks complete AND five open GitHub Issues on the repo (fixture), When the volunteer marks done, Then completion proceeds — open GitHub Issues never block it.
 - **AT-012.03 (P0)** — Given at least one P0 task not done, When the volunteer attempts to mark done, Then it is rejected. [cross: AT-005.5.27]
-- **AT-012.04 (P0)** — Given all P0 tasks complete, When the NGO, another volunteer, or an unauthenticated caller attempts the mark-done action, Then each is rejected — marking done is the assigned volunteer's action.
-- **AT-012.05 (P0)** — Given each done P0 task, When its history is audited, Then its `done` status arrived through a verified code merge — every done task carries shipped code; a task moved done any other way does not exist. [cross: REQ-026/AT-008.13 own the enforcement]
+- **AT-012.04 (P0)** — Given all P0 tasks complete, When the NGO, another volunteer, a PLATFORM ADMIN, or an unauthenticated caller attempts the mark-done action, Then each is rejected — marking done is the assigned volunteer's action, exclusively. [cx: platform admin added to the rejected set]
+- **AT-012.05 (P0)** — Given each done P0 task, When its history is audited, Then its final authoritative `done` state arrived only through a verified code merge — every done task carries shipped code; an unauthorized status edit may exist transiently but is detected, reverted, and never authoritative. [cx: aligned with REQ-026's detect-and-revert — prevention was overclaimed] [cross: REQ-026/AT-008.13]
 
 ## B. Completion effects owned here
 
@@ -19,15 +19,15 @@ Source: requirements/req-012.md (prd-mvp.md REQ-012 + Promise §10). Dependencie
 
 ## C. No ceremony (deferred set stays absent)
 
-- **AT-012.08 (P0)** — Given the completion path end to end, When probed, Then no completion checklist gate, no sign-off/acceptance flow, no guided-maintenance walkthrough, no rejection loop, and no live-URL gate exists anywhere in it. [cross: AT-005.5.58]
-- **AT-012.09 (P0)** — Given a completed project, When post-completion surfaces are probed, Then no post-completion attribution or health-check surface exists in v1 (deferred → RM-62).
+- **AT-012.08 (P0)** — Given the completion flow's enumerated surfaces — the volunteer's mark-done UI, the completion API request, the resulting state/events, and the post-completion follow-up actions offered to each party — When each is inspected, Then five separate absence assertions hold: no checklist gate blocks the request; no NGO sign-off/acceptance step exists in the state/events; no guided-maintenance walkthrough is offered; no rejection loop (NGO send-back) exists; and no live-URL check gates the transition. [cx: surfaces enumerated + per-mechanism oracles — "when probed" was unjudgeable] [cross: AT-005.5.58]
+- **AT-012.09 (P0)** — Given a completed project, When post-completion surfaces are probed, Then no NEW completion/outcome-attribution capture flow and no post-completion health-tracking surface exists in v1 (deferred → RM-62) — while REQ-034's build-time attribution views and history remain fully present and readable. [cx: narrowed — the blanket absence would have banned REQ-034's required v1 attribution views]
 - **AT-012.10 (P0)** — Given a completing project, When probed, Then no tip flow exists (UI absent; API rejects). [cross: AT-005.5.29]
 
 ## D. Self-serve offboarding & ownership
 
-- **AT-012.11 (P0)** — Given a completed project, When the NGO removes or downgrades the volunteer's repo access at a time of its choosing, Then it succeeds with no platform-admin involvement; the repo stays in the platform org with the NGO holding admin. [cross: AT-008.11/AT-005.5.52]
+- **AT-012.11 (P0)** — Given two completed-project fixtures, When the NGO REMOVES the volunteer's repo access on one and DOWNGRADES it on the other, Then the removal leaves the volunteer with no repo permission and the downgrade leaves exactly the reduced role — both self-serve with no platform-admin involvement; the repo stays in the platform org with the NGO holding admin in both cases. [cx: removal and downgrade parameterized with the resulting permission asserted] [cross: AT-008.11/AT-005.5.52]
 - **AT-012.12 (P0)** — Given the completed project's Lovable workspace, When the NGO removes both the volunteer and ai4good's read-only monitoring account, Then both memberships end — self-serve, platform prompting only. [cross: AT-008.26/REQ-021]
-- **AT-012.13 (P0)** — Given the completed project, When the NGO forks or exports the repo and continues evolving the app via Lovable chat, Then both work — the deliverable is a deployed, running tool the NGO owns and evolves. [cross: AT-008.25; Promise §10]
+- **AT-012.13 (P0)** — Given a completed project whose live URL is available (fixture — availability is never a gate), When the NGO forks/exports the repo and requests a known sentinel change via Lovable chat, Then the fork/export contains a known fixture commit, and the sentinel change appears in the running deployed app — deterministic oracles for owns, evolves, and running. [cx: "both work" concretized] [cross: AT-008.25, AT-021.26; Promise §10]
 
 ## Coverage map
 
@@ -39,7 +39,7 @@ Source: requirements/req-012.md (prd-mvp.md REQ-012 + Promise §10). Dependencie
 | completed state + fuel release + keys/workspace + Linear membership/history | [cross → AT-005.5.28, AT-006.33, AT-009.23, REQ-026] |
 | Completion-credit event with private confirmation | 06 |
 | Live URL auto-captured from Lovable as metadata, not gated | 07 |
-| No handoff ceremony; deferred checklist/sign-off/walkthrough/rejection-loop/URL-gate/attribution+health | 08, 09 |
+| No handoff ceremony: five enumerated absences; deferred outcome-attribution capture + health (REQ-034 build views preserved) | 08, 09 [cx] |
 | No tip flow | 10 |
-| Self-serve offboarding (repo + Lovable both accounts); repo stays in org, NGO admin | 11, 12 |
+| Self-serve offboarding (repo remove AND downgrade, resulting permissions asserted; Lovable both accounts); repo stays in org, NGO admin | 11, 12 |
 | NGO owns and evolves via chat; forkable/exportable | 13 |

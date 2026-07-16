@@ -7,8 +7,10 @@ Source: requirements/req-021.md (prd-mvp.md REQ-021). Dependencies: REQ-004, REQ
 ## A. Discovery & fit
 
 - **AT-021.01 (P0)** — Given a Discovery run recommending Lovable, When its output renders, Then it carries a rationale and ZERO dollar fields or estimates. [cross: REQ-004 owns Discovery output]
-- **AT-021.02 (P0)** — Given the rendered scope doc of such a project, When inspected, Then it states Lovable is paid directly (never from fuel) and carries no dollar figure. [cross: REQ-005 owns the scope doc]
-- **AT-021.03 (P0)** — Given a pure-backend need with no Lovable app surface, When the Discovery fit check evaluates it, Then it is declined at Discovery — the only fit-check failure; UI-heavy and backend-heavy mixes both pass (two passing fixtures). [cross: REQ-004]
+> **PRD tension flag [needs founder ruling — cx round 1]:** REQ-021 says the scope doc "carries the paid-directly disclaimer and no dollar figure", but REQ-004 and Promise §10 require disclosing "roughly the ~$25/mo Lovable subscription". AT-021.02 tests the reconciled reading pending the ruling: no PROJECT-SPECIFIC dollar estimate, while the standard subscription-price disclosure is permitted.
+
+- **AT-021.02 (P0)** — Given the rendered scope doc of such a project, When inspected, Then it states Lovable is paid directly (never from fuel), carries no project-specific dollar estimate or fuel-budget figure, and MAY carry the standard ~$25/mo subscription disclosure (REQ-004/Promise §10). [cx: reconciled with the $25/mo clauses pending founder ruling] [cross: REQ-005 owns the scope doc]
+- **AT-021.03 (P0)** — Given a pure-backend need with no Lovable app surface, When the Discovery fit check evaluates it, Then it is declined at Discovery on the fit dimension; UI-heavy and backend-heavy mixes both pass (two passing fixtures). REQ-004's OTHER decline reasons (developer-grade one-off, unfit Tier-2 data, confidential codebase) remain in force and are owned by AT-REQ-004. [cx: "only fit-check failure" narrowed to the UI/backend-mix dimension] [cross: REQ-004]
 
 ## B. Setup: mandatory, gated, validated
 
@@ -17,10 +19,11 @@ Source: requirements/req-021.md (prd-mvp.md REQ-021). Dependencies: REQ-004, REQ
 - **AT-021.06 (P0)** — Given a validation check fails (sentinel: repo not in org), When the setup item renders, Then it surfaces the SPECIFIC failing check and its fix, and the item stays open — no silent pass, no generic error.
 - **AT-021.07 (P0)** — Given the volunteer or NGO self-reports setup complete without the platform's checks passing, When the setup state is read, Then it is still unresolved — setup resolves only on platform validation.
 - **AT-021.08 (P0)** — Given the setup guide and project page, When the parties work through setup, Then the guide documents the steps, the page transfers the required information (scope summary, volunteer email, optional best-effort commit-reference snippet), pasted-back values are validated, and a who-acts-next indicator updates as steps complete.
+- **AT-021.30 (P0)** — Given a missing, malformed, and well-formed commit-reference snippet (three fixtures), When each is pasted, Then NO task status changes in any case — the snippet is best-effort context only; status moves on PR merges, owned by REQ-026, never on parsing. [cx: added — the never-parsing negative]
 
 ## C. Volunteer technical setup + platform validation
 
-- **AT-021.09 (P0)** — Given the volunteer's session runs the technical setup, When it completes, Then all four effects are observable: the Lovable project is provisioned, its database enabled, GitHub sync connected to a repo in the platform org, and ai4good's conventions + reviewer skill injected so Lovable's own agent follows them. [cross: REQ-008 owns repo mechanics]
+- **AT-021.09 (P0)** — Given the volunteer's session runs the technical setup, When it completes, Then all four effects are observable: the Lovable project is provisioned, its database enabled, GitHub sync connected to a repo in the platform org, and ai4good's conventions + reviewer skill injected; and When the Lovable agent is then given a prompt that a named sentinel convention forbids (fixture rule), Then its output observably complies with the rule — injection proven by behavior, not file presence. [cx: sentinel-convention behavioral oracle added] [cross: REQ-008 owns repo mechanics]
 - **AT-021.10 (P0)** — Given platform validation runs, When it completes, Then the repo is confirmed in the org and flipped public [cross: AT-008.21], the GitHub App is installed, a name collision (sentinel duplicate) is surfaced, the volunteer's repo permission is reduced to the standard role, and BOTH parties are notified.
 - **AT-021.11 (P0)** — Given the volunteer's reduced standard role, When they attempt to add a collaborator to the repo, Then it is rejected — collaborators cannot be added unnoticed.
 - **AT-021.12 (P0)** — Given a project needing a workspace-level connector (e.g., payments), When it is added, Then the adding actor is the NGO owner — the volunteer cannot add it.
@@ -33,8 +36,8 @@ Source: requirements/req-021.md (prd-mvp.md REQ-021). Dependencies: REQ-004, REQ
 
 ## E. Two purses
 
-- **AT-021.16 (P0)** — Given an orchestrated Lovable UI edit and a Claude Code backend task on the same project, When both complete, Then the UI edit decrements Lovable credits with ZERO fuel movement, and the backend work burns fuel with ZERO Lovable-credit movement — the purses never cross. [cross: REQ-009/006]
-- **AT-021.17 (P0)** — Given the money ledger, When scanned, Then no Lovable cost row exists anywhere — Lovable cost is never debited from fuel. [cross: REQ-006.25]
+- **AT-021.16 (P0)** — Given an orchestrated Lovable UI edit driven from Claude Code, When it completes, Then the Lovable ACTION decrements Lovable credits while the Claude Code requests that orchestrated it are fuel-metered as normal volunteer requests — separate accounting on both meters; and Given an in-browser (non-orchestrated) Lovable edit, Then it moves Lovable credits with zero fuel. A direct Claude Code backend task moves fuel with zero Lovable credits. The purses never cross — but orchestration itself is never fuel-free. [cx: corrected — the original demanded ZERO fuel on an orchestrated edit, contradicting every-volunteer-request-is-metered] [cross: REQ-009/034]
+- **AT-021.17 (P0)** — Given the money ledger after Lovable activity, When scanned, Then no Lovable cost appears in any fuel/ledger row — Lovable cost is never debited from fuel; asserted fully locally. [cx: wrong REQ-006.25 delegation dropped — that test proves row completeness, not Lovable exclusion]
 
 ## F. Orchestration posture
 
@@ -46,7 +49,7 @@ Source: requirements/req-021.md (prd-mvp.md REQ-021). Dependencies: REQ-004, REQ
 
 - **AT-021.21 (P0)** — Given the Lovable workspace's credit state changes (fixture), When the platform's stored status refreshes, Then the new value was read programmatically via the monitoring account with no hand-entered input. [cross: AT-010.22 owns the page display]
 - **AT-021.22 (P0)** — Given credit status low and then exhausted (two fixtures), When each is detected, Then each is surfaced in-platform, the NGO is notified, and a direct route to Lovable top-up is offered — while no programmatic purchase path exists (top-up stays a Lovable billing action). [cross: REQ-016]
-- **AT-021.23 (P0)** — Given the programmatic read fails (sentinel), When status is needed, Then a manual-report fallback path exists and its value is marked as manually reported; and no mail parser exists anywhere (absence probe).
+- **AT-021.23 (P0)** — Given the programmatic read fails (sentinel), When status is needed, Then a manual-report fallback path exists and accepts a value; and no mail parser exists anywhere (absence probe). [cx: unstated "marked as manually reported" provenance label dropped]
 
 ## H. Blockers & flow
 
@@ -55,9 +58,13 @@ Source: requirements/req-021.md (prd-mvp.md REQ-021). Dependencies: REQ-004, REQ
 
 ## I. Completion & ownership
 
-- **AT-021.26 (P0)** — Given a completed project, When the NGO evolves the live app via Lovable chat with no Claude Code and no orchestration in the loop, Then it works — the NGO owns the workspace outright with zero orchestration dependency.
+- **AT-021.26 (P0)** — Given a completed project, When the NGO requests a sentinel visible change via Lovable chat (no Claude Code, no orchestration, no developer anywhere in the loop), Then that change appears in the live app — the NGO owns the workspace outright with zero orchestration dependency. [cx: "it works" concretized to a sentinel chat-to-live-app change]
 - **AT-021.27 (P0)** — Given completion, When offboarding runs, Then the platform PROMPTS the NGO to remove both the volunteer and the monitoring account, and CONFIRMS after the NGO acts (no MCP member-management path exists — the removal itself is the NGO's manual action); the repo stays in the platform org with NGO admin and GitHub sync continues. [cross: AT-008.26/AT-012.12]
 - **AT-021.28 (P0)** — Given repo-creation permission, When its grant time is audited, Then it was granted at volunteer onboarding (first consent), not per project. [cross: AT-007.19]
+- **AT-021.31 (P0)** — Given a project approaching kickoff, When the pre-kickoff reminder fires, Then it reaches the NGO BEFORE kickoff and names both workspace setup and the required invitations. [cx: added — the reminder clause had no test] [cross: REQ-016]
+- **AT-021.32 (P0)** — Given the NGO runs the account/billing setup, When it creates the workspace, funds it, sets the credit cap, and sends both invites, Then all succeed with ZERO platform-admin actions and NO NGO GitHub account or credential anywhere in the flow — self-served, actor-proven. [cx: added — existing tests assumed a provisioned workspace]
+- **AT-021.33 (P0)** — Given Claude Code task fixtures for backend, logic, tests, and docs work (four), When each completes, Then each burns fuel and lands as commits in the shared repo — Claude Code handles all four categories; the enforced project-scope rule on those requests is owned by AT-009.10/11. [cx: added — logic/tests/docs were uncovered; scope enforcement cross-delegated]
+- **AT-021.34 (P0)** — Given workspace creation at kickoff, When ownership is probed then and at every later lifecycle point (build, completion), Then the NGO is the workspace owner throughout and no transfer event ever occurs — day-one ownership, not completion-day ownership. [cx: added — ownership was only tested post-completion]
 
 ## J. Non-goals (absences)
 
@@ -67,23 +74,26 @@ Source: requirements/req-021.md (prd-mvp.md REQ-021). Dependencies: REQ-004, REQ
 
 | REQ-021 clause / AC | Tests |
 |---|---|
-| AC1: Discovery recommends w/ rationale, no dollar; scope doc paid-directly + no dollar | 01, 02 |
-| Fit check: pure-backend declined; mixes pass | 03 |
+| AC1: Discovery recommends w/ rationale, no dollar; scope doc paid-directly, no project-specific dollar ($25/mo disclosure PENDING FOUNDER RULING) | 01, 02 |
+| Fit check: pure-backend declined (mix dimension only; other declines → REQ-004); mixes pass | 03 |
+| NGO reminded before kickoff (workspace setup + invites) | 31 [cx] |
+| NGO creates/funds workspace self-served: zero admin actions, no NGO GitHub account | 32 [cx] |
 | AC2: setup mandatory (no opt-in/out), resolves only on validation, failures specific + open | 04, 06, 07 |
-| AC3: guide + page info transfer, validated paste-back, who-acts-next | 08 |
-| AC7: NGO invites both; gate validates both before start | 05 |
-| Volunteer technical setup (provision, DB, GitHub sync, conventions+skill) | 09 |
+| AC3: guide + page info transfer, validated paste-back, who-acts-next; snippet NEVER moves status | 08, 30 [cx] |
+| AC7: NGO invites both (actor + kickoff timing); gate validates both before start | 05, 32 |
+| Volunteer technical setup (provision, DB, GitHub sync, conventions+skill — agent compliance behaviorally proven) | 09 |
 | Platform validation (org, public flip, App, collisions, role reduction, notify) + collaborator guard | 10, 11 |
 | Connector added by NGO owner | 12 |
 | AC6: build-only role; billing never accessible; native credit cap (only bound) | 13, 14 |
 | Monitoring account read-only (observe-only, no billing/admin) | 15 |
-| Two purses: UI→Lovable credits, code→fuel; never from fuel | 16, 17 |
+| Two purses: Lovable action→credits, orchestrating Claude Code requests→fuel (never fuel-free), in-browser→credits only; Lovable never debited from fuel | 16, 17 |
+| Claude Code handles backend/logic/tests/docs (fuel + commits); scope enforcement → AT-009.10/11 | 33 [cx] |
 | Orchestrated calls bill NGO workspace, audit-logged, attributed; own account | 18 |
 | Degradation path (in-browser, same repo, never dead) | 19 |
 | No ai4good connector; Lovable never calls ai4good | 20 |
 | AC4: credit status pulled (manual fallback), low/exhausted surfaced + notify + top-up route, no mail parser, no programmatic purchase | 21–23 |
 | Blockers standard aging, admin after mutual silence; local work immediately | 24, 25 |
-| Completion: NGO owns workspace outright, no orchestration dependency | 26 |
+| Ownership: day-one at creation, throughout, and outright at completion (sentinel chat-to-live-app change, no orchestration) | 26, 34 [cx] |
 | AC8: offboarding prompt + confirm; repo stays, sync continues | 27 |
 | AC5: repo-creation permission at onboarding, not per project | 28 |
 | Non-goals: no bought subscriptions, no per-task Lovable metering, no reselling, no billing control | 29 |
