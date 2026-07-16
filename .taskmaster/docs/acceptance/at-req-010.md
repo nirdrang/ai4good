@@ -14,13 +14,13 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 
 ## B. Task tree as primary content
 
-- **AT-010.06 (P0)** — Given a fixture task tree with nested tasks in mixed statuses and one task in progress, When the page renders, Then the hierarchy, each task's status, and the work currently underway are all conveyed, AND the task tree occupies the page's main content region ahead of every secondary panel — primary, not merely present. [cx: primacy made observable]
+- **AT-010.06 (P0)** — Given a fixture task tree with nested tasks in mixed statuses and one task in progress, When the page renders, Then the hierarchy, each task's status, and the work currently underway are all conveyed, AND the task tree occupies the page's primary/main content region — primary, not merely present (no DOM/layout ordering constraint beyond the main region). [cx: primacy made observable] [cx r2: ahead-of-every-panel ordering dropped — an invented layout rule]
 - **AT-010.07 (P0)** — Given 3 of 5 P0 tasks done plus several done P1 tasks, and a GitHub Issues fixture asserting a different count, When overall progress renders, Then it represents exactly the 60% ratio (3/5, "3 of 5", or an accessible progress value of 60% all pass — the RATIO is asserted, not a display format) — P1 tasks and GitHub Issues never move it. [cx: display format un-invented]
 - **AT-010.08 (P0)** — Given a logged-out visitor on any project, When the page renders, Then the full task tree is visible — public on every project. [Promise §2]
 
 ## C. Plain-language activity
 
-- **AT-010.09 (P0)** — Given a fixture commit titled with raw jargon (SHA, `fix(api):` prefix, PR number) linked to a task, When the activity feed renders, Then the entry is phrased in plain language tied to the task title, and no raw commit hash, PR number, or commit-message jargon appears anywhere in the feed.
+- **AT-010.09 (P0)** — Given three activity fixtures — a commit titled with raw jargon (SHA, `fix(api):` prefix, PR number), a PM task progression, and a PR-merge event — each linked to a task, When the activity feed renders, Then every entry is phrased in plain language tied to its task title, and no raw commit hash, PR number, status jargon, or commit-message jargon appears anywhere in the feed. [cx r2: task-progression + PR/merge fixtures added — commit-only left two activity sources unexercised]
 
 ## D. Reference files
 
@@ -34,7 +34,7 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 
 ## F. Fuel gauge
 
-- **AT-010.14 (P0)** — Given a conflicting local value seeded against a sentinel provider-truth spend value, and the provider value then changed (two-step fixture), When the page's fuel balance is read after each step, Then it converges to the provider value within the bounded freshness interval (provisional ≤5 minutes — the AT-006.48 propagation bound; founder to pin) in both steps — real-time provider truth that STAYS reconciled, never a locally-derived number. [cx: bounded interval + conflict + change fixtures — "after the propagation interval" was unjudgeable] [cross: REQ-009 owns the monitor, REQ-006 owns reconciliation]
+- **AT-010.14 (P0)** — Given an authoritative provider fixture of workspace spend limit AND billed spend (remaining balance = limit − spend), a conflicting local value seeded against it, and the provider spend then changed (two-step fixture), When the page's fuel balance is read after each step, Then the displayed REMAINING BALANCE matches the provider-derived oracle within the bounded freshness interval (provisional ≤5 minutes — the AT-006.48 bound; founder to pin) in both steps, ignoring the conflicting local value. [cx: bounded interval + conflict fixtures] [cx r2: unit corrected — spend and remaining balance are different quantities; the oracle is limit − spend] [cross: REQ-009/006]
 
 ## G. GitHub absence
 
@@ -43,8 +43,8 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 ## H. Cadence stats (v1 minimal)
 
 - **AT-010.16 (P0)** — Given one project with ONLY task progression (no commits) and another with ONLY commit activity (no task movement) inside the current period, When liveness renders, Then both read as live — liveness draws on both signals, not commits alone.
-- **AT-010.17 (P0)** — Given a controlled-clock fixture with exactly 4 task movements + 2 commits in the current period, 1 task movement + 3 commits in the prior period, and the newest signal being a task movement 6 hours ago (newer than the last commit at 20 hours), When cadence renders, Then the current-vs-prior comparison reflects exactly those counts (6 vs 4 events) and the time-since-last reads 6 hours — from the NEWER of the two signals. [cx: exact event counts, competing timestamps, and expected values pinned]
-- **AT-010.18 (P0)** — Given an `in_progress` project with neither task movement nor commits past the staleness threshold, When the page renders, Then a stale-activity indication is shown during build.
+- **AT-010.17 (P0)** — Given a controlled-clock fixture with exactly 4 task movements + 2 commits in the current period and 1 task movement + 3 commits in the prior period, When cadence renders, Then each SIGNAL's current-vs-prior values are reflected (tasks 4 vs 1; commits 2 vs 3 — no aggregate sum is prescribed, the PRD defines none); and Given competing timestamps in BOTH orders — a task movement at 6h with the last commit at 20h, and a commit at 3h with the last task movement at 15h (two fixtures) — Then time-since-last reads 6h and 3h respectively, always from the newer signal whichever kind it is. [cx: exact fixtures] [cx r2: invented 6-vs-4 aggregation dropped; mirrored newer-commit case added — always-prefer-task code would have passed]
+- **AT-010.18 (P0)** — Given the authoritative staleness-threshold configuration and two controlled-clock `in_progress` fixtures — one with its last activity just INSIDE the threshold, one just PAST it — When each page renders, Then the fresh one shows NO stale indication and the stale one shows it — both sides of the configured boundary, so an always-on warning fails. [cx r2: threshold pinned to the authoritative config + fresh-side control added]
 
 ## I. Repo-derived signals
 
@@ -54,7 +54,7 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 ## J. Two funding states
 
 - **AT-010.21 (P0)** — Given a funded project with a connected Lovable workspace, When the page renders, Then the Claude Code fuel balance and the Lovable credit status appear as two distinct displays — never merged, summed, or interchangeable. [cx: split — lifecycle states moved to .23]
-- **AT-010.23 (P0)** — Given a funded project BEFORE its Lovable connection, When the page renders, Then the Lovable slot shows the setup state; When the connection then completes (explicit transition in the fixture), Then the same slot shows Lovable status, workspace access, and top-up — the slot's two states are observed across a real transition. [cx: added — the pre/post states were asserted from a single already-connected fixture]
+- **AT-010.23 (P0)** — Given a funded project BEFORE its Lovable connection, When the page renders, Then the Lovable slot shows the setup state AND the Claude Code fuel balance is simultaneously present and distinct from it; When the connection then completes (explicit transition in the fixture), Then the same slot shows Lovable status, workspace access, and top-up — the slot's two states observed across a real transition, with the fuel purse visible throughout. [cx: added] [cx r2: pre-connection fuel-balance presence asserted — the split had dropped it]
 - **AT-010.22 (P0)** — Given the Lovable-side credit value changes (fixture via the workspace), When the platform's display refreshes, Then the new value appears without any hand-entered input — the status is read via ai4good's monitoring account. [cross: REQ-021 owns the read mechanism]
 
 ## Coverage map
