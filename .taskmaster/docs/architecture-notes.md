@@ -154,7 +154,7 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 - Concierge/admin work items land in one prioritized queue with SLA targets.
 
 ### REQ-007 — Profile & concierge matching
-- **Candidacy window (decision-36; formerly "assimilation window" — renamed d56):** time-based, clock starts at the **first candidacy**; each additional candidacy **shrinks the remaining window by a backoff factor** (pilot-tuned) — interest expedites, never delays; candidate-less projects stay open under Goal-5 aging; concierge matches from the accumulated pool at lapse. `[intent]`
+- **Candidacy window — REMOVED (d68, 2026-07-16; supersedes the d36/d56 mechanism):** launch liquidity is low on both sides, so the assimilation-window machinery (first-candidacy clock, per-candidate backoff, lapse-then-match) is out of v1 entirely. The concierge matches from the interested pool at its own judgment; candidate-less projects stay open under Goal-5 aging. Re-introduce a window only if organic volume ever makes instant-matching unfair. `[superseded]`
 - Match-log event/field shape; one-action ("one-click") consent UI.
 - AUP residual-access removal via a short manual checklist.
 

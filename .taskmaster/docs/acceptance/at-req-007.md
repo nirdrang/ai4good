@@ -14,11 +14,11 @@ Source: requirements/req-007.md (prd-mvp.md REQ-007 + Promise §9 disclaimer re-
 
 - **AT-007.04 (P0)** — Given a public project page and a signed-in volunteer, When they mark interest ("candidate for this project"), Then a candidacy event is recorded in the match log with a timestamp and the volunteer appears in that project's interested pool.
 - **AT-007.05 (P0)** — Given a project with candidacies, When its NGO views any of its surfaces (UI and API), Then no candidacy information is present anywhere — candidacies never surface to the NGO.
-> **PRD tension flag [needs founder ruling — cx round 2]:** REQ-007 says a candidate-bearing project "must be concierge-matched from its interested pool **within** a bounded candidacy window", while REQ-005.5 says the match is "drawn from the candidate pool **after** the candidacy window". Within vs after cannot both hold. The ruling also settles what is assertable: the match itself is a human concierge action, so the system's testable duty is deadline-driven queueing + overdue flagging (as AT-007.06 currently asserts) unless the founder defines a harder outcome.
+> **Resolved [founder, d68]:** the candidacy WINDOW is removed from the PRD entirely — launch liquidity is too low on both sides for an assimilation window to matter. What remains: volunteers mark interest, candidacies feed the admin-only match log, and the concierge matches from the interested pool at its own judgment (no window, no deadline). REQ-007 and REQ-005.5 reworded; the within-vs-after contradiction is moot.
 
-- **AT-007.06 (P0)** — Given a project's first candidacy arrives, When the candidacy window is evaluated, Then a bounded deadline exists from that moment, the project appears on the admin matching queue ordered by that deadline, and an unmatched candidate-bearing project past its deadline is flagged overdue on that queue. [cx] [cx r2: within-vs-after escalated to founder — test asserts the queueing mechanism pending ruling]
-- **AT-007.07 (P0)** — Given an existing candidacy window, When additional candidacies accumulate, Then the recomputed deadline is never later than before — interest may only shorten the window.
-- **AT-007.08 (P0)** — Given an open project with zero candidates, When time passes (controlled clock), Then no candidacy window exists for it and it stays `open` under Goal-5 aging, still publicly listed.
+- **AT-007.06 [retired — d68: the candidacy window and its deadline queueing no longer exist]**
+- **AT-007.07 [retired — d68: no window to shorten]**
+- **AT-007.08 (P0)** — Given an open project with zero candidates, When time passes (controlled clock), Then it stays `open` under Goal-5 aging, still publicly listed — no matching deadline of any kind exists for it. [cx r2] [d68: window reference dropped]
 
 ## C. Enforce-match & consent gates
 
@@ -69,7 +69,7 @@ Source: requirements/req-007.md (prd-mvp.md REQ-007 + Promise §9 disclaimer re-
 | Project pages public | 29 [cx] [cross → AT-001.24/REQ-010] |
 | In-product mark-interest; candidacy recorded | 04, 27, 28 |
 | Candidacies never surface to the NGO | 05 |
-| Bounded candidacy window (deadline-queued + overdue-flagged; within-vs-after PENDING FOUNDER RULING); interest only shortens; no-candidate projects age under Goal-5 | 06–08 |
+| Candidacy window REMOVED (d68) — concierge matches from the pool at its own judgment; no-candidate projects age under Goal-5 | 08 [06/07 retired] |
 | Enforce-match from the pool; binding; no NGO approve/decline | 09, 10 |
 | Consent gate (a): volunteer confirms; first-project disclaimer (re-fires only on material change); nothing before disclaimer | 11–13 |
 | Consent gate (b): NGO acknowledges at funding | [cross → AT-REQ-006.11–13, 23–24] |
