@@ -8,7 +8,7 @@ One file per requirement (`at-req-0NN.md`), derived from `.taskmaster/docs/prd-m
 - Form: Given / When / Then, one observable assertion per test. No design assumptions — tests assert externally observable behavior (UI state, API response, notification, audit record, ledger/log row), never internals.
 - `[cross: REQ-0XX]` marks a test that exercises this requirement's boundary with another; it gates THIS requirement only for the behavior owned here.
 - Each file ends with a **Coverage map** (requirement clause → test IDs) — the completeness contract for the verification loop.
-- Critique: each file gets exactly one adversarial codex review round (gpt-5.6-sol, xhigh); folds are annotated `[cx]` on amended tests.
+- Critique: each file gets two adversarial codex review rounds (gpt-5.6-sol, xhigh); folds are annotated `[cx]` (round 1) / `[cx r2]` (round 2) on amended tests.
 
 **Source of truth:** prd-mvp.md. Each requirement is also **isolated** into `.taskmaster/docs/requirements/req-0NN.md` (verbatim extract) — the self-contained unit of work for AT-authoring, critique, and the coding loop. The PRD stays authoritative; re-extract an isolated file if its REQ section changes.
 
