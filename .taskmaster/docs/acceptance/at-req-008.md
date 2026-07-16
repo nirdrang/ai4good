@@ -45,7 +45,7 @@ Source: requirements/req-008.md (prd-mvp.md REQ-008). Dependencies: REQ-006, REQ
 
 ## G. Org setup & base-permission invariant
 
-> **PRD tension flag [needs founder ruling — cx round 1]:** Platform Promise §2 says every repo is public MIT "from first commit", while REQ-008's base-permission invariant keeps member-created repos **private until setup validation** of the repo URL. AT-008.20/21 follow the isolated REQ-008 wording (private-until-validation); if Promise-§2 wording governs, these tests and REQ-008 must be amended.
+> **Resolved [founder, d66]:** mimic Lovable's behavior — Lovable creates every repo PRIVATE by default (vendor behavior, all plans), so "public from first commit" was physically impossible. The ruled sequence: repo born private → platform validates → platform flips public. Promise §2 reworded ("public MIT ... flipped public at setup validation"). AT-008.20/21 stand exactly as written.
 
 - **AT-008.20 (P0)** — Given org member A (a volunteer) and another project's repo B, When A attempts a write to B, Then it is rejected; and while B is still private (pre-validation), A cannot read it — org membership grants no repo access by default.
 - **AT-008.21 (P0)** — Given a member-created repo before setup validation, When its visibility is read, Then it is private; after the platform validates the repo URL, Then it is public — visibility flips only on validation.
@@ -74,7 +74,7 @@ Source: requirements/req-008.md (prd-mvp.md REQ-008). Dependencies: REQ-006, REQ
 | Short-lived on-demand GitHub credentials; no user PATs | 19 |
 | One-time org setup: least-privilege apps, rotation exercised, break-glass runbook | 24 [cx: P0] |
 | Membership grants no default repo access; NGO admins outside collaborators only | 10, 20 |
-| Base-permission invariant: private until URL validation (see PRD tension flag); non-owner change rejected (all roles); continuously verified via scheduled trigger + auto-remediated (break-glass preserved) | 21, 22, 27 |
+| Base-permission invariant: private until URL validation (resolved d66 — mimics Lovable's private-by-default creation); non-owner change rejected (all roles); continuously verified via scheduled trigger + auto-remediated (break-glass preserved) | 21, 22, 27 |
 | Orphan repos monitored | 23 |
 | Lovable path: nothing pre-created; volunteer-driven; validate + record URL (invalid rejected); unresolved surfaced to parties (admin aging → REQ-024); URL gates completion (existing-but-unrecorded still blocks) | 02, 04, 05, 06, 28 [cx r2] |
 | Seeded README fields | 17 |

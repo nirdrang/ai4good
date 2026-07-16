@@ -18,7 +18,7 @@ A nonprofit coordination layer, explicitly not a service provider with delivery 
 ai4good connects the parties and funds AI compute; no party owes any specific outcome; volunteers donate their time.
 
 ### 2. Work is fully open-source (public MIT)
-Every repo is public MIT from first commit (a public volunteer portfolio). **v1 is public-only:** needs genuinely requiring a closed/confidential codebase are declined at Discovery (→ RM-2). This is separate from data sensitivity — a tool handling sensitive *data* is still served with public code and synthetic fixtures, and the NGO connects real Tier-2 data itself post-completion, never into the repo (REQ-004). Never allowed: commercial or closed-source-for-resale work, surveillance tooling, spam infrastructure, illegal use, acceptable-use violations.
+Every repo is public MIT (a public volunteer portfolio): a repo is born private — Lovable's creation default — and the platform flips it public at setup validation, within the first days of the build. **v1 is public-only:** needs genuinely requiring a closed/confidential codebase are declined at Discovery (→ RM-2). This is separate from data sensitivity — a tool handling sensitive *data* is still served with public code and synthetic fixtures, and the NGO connects real Tier-2 data itself post-completion, never into the repo (REQ-004). Never allowed: commercial or closed-source-for-resale work, surveillance tooling, spam infrastructure, illegal use, acceptable-use violations.
 
 ### 3. Fuel funds AI usage on this project — not deliverables
 Fuel pays for AI compute: NGO Discovery scoping past the free credit pool and volunteer build work. Lovable credits are separate — the NGO pays Lovable directly from its own workspace, never through fuel (REQ-021). Fuel does NOT buy a working tool, a fixed scope, or an outcome; the NGO or volunteer may spend it in full without a viable deliverable, a risk NGOs knowingly assume.
@@ -28,7 +28,7 @@ No project is guaranteed to reach completion: volunteers may ghost (inactivity �
 
 ### 5. What ai4good does promise
 - Bounded financial risk: NGO-chosen per-project fuel budgets; nothing charged beyond commitment.
-- A transparent volunteer track record: completion credit from day one (→ RM-3), never stars; every repo is public MIT, so the portfolio exists on GitHub from the first commit.
+- A transparent volunteer track record: completion credit from day one (→ RM-3), never stars; every repo is public MIT from setup validation onward, so the portfolio exists on GitHub for the whole build.
 - Open-source IP norms: forkable forever, no lock-in.
 - NGO-side vetting (REQ-002, founder-vetted in v1) that gates against fraudulent and abusive demand.
 - Escalation paths on stalls: messaging (REQ-015) and notifications (REQ-016); post-completion issue surfacing (→ RM-4; in v1, re-engage via a new project).
