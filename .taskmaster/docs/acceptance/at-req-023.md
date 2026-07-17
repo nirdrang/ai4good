@@ -12,9 +12,9 @@ Source: requirements/req-023.md (prd-mvp.md REQ-023). Dependencies: REQ-002, REQ
 
 - **AT-023.02 (P0)** — Given four INDEPENDENT fixtures — a commercial need, a closed-source-for-resale need, a private-but-MIT publication request, and a public-but-non-MIT one — When each is screened, Then each shows an observable failed open-source-alignment check, is not auto-approved, and never appears in the marketplace. [cx: split into independent variants] [cx r2: private-vs-non-MIT split — visibility-only or licensing-only checkers could pass the combined fixture]
 
-> **PRD tension flag [needs founder ruling — cx round 2]:** REQ-023 makes confidential-codebase needs a "categorical decline" decided by the SCREENER, but REQ-005.5's transition table gives triage only three exits — auto-approve → `open`, founder return → `scoped`, founder cancel → `cancelled`. A screener-driven decline has no lifecycle transition. Either add a screener-driven triage→cancelled transition (actor: system; failure rules) to REQ-005.5, or route categorical cases through the founder queue and amend REQ-023.
+> **Resolved [founder, d73]:** the screener never produces a terminal outcome — "categorical decline" is a decline RECOMMENDATION. A categorical finding routes to the founder exception queue pre-flagged for one-click terminal decline; the founder stays the only terminal actor and REQ-005.5's transition table is untouched. (Volume is near-zero anyway: confidential-codebase needs are already declined at Discovery — a categorical case at triage is a leak-through.)
 
-- **AT-023.03 (P0)** — Given a confidential-codebase need (fixture), When screened, Then it is never auto-approved and its findings mark the violation as categorical; the terminal outcome (screener-driven decline vs founder-routed) is asserted once the lifecycle ruling lands. [cx r2: outcome suspended pending the transition-table ruling]
+- **AT-023.03 (P0)** — Given a confidential-codebase need (fixture), When screened, Then it is never auto-approved, its findings mark the violation as categorical, and it lands in the founder exception queue pre-flagged for one-click terminal decline — no state change occurs until the founder acts. [cx r2] [d73: outcome finalized — founder-routed, never screener-terminal]
 - **AT-023.04 (P0)** — Given a need whose purpose mismatches the NGO's vetted profile (fixture), When screened, Then it is not auto-approved and the reasons name the nonprofit-purpose check. [cross: REQ-002 owns the profile]
 - **AT-023.05 (P0)** — Given an abusive scope relative to the declared complexity tier (fixture), When screened, Then the scope-reasonableness check shows an observable failed status, the project is not auto-approved, and it never appears in the marketplace. [cx: "is caught" concretized to failed-check + no-approval + no-exposure]
 - **AT-023.06 (P0)** — Given an acceptable-use violation (surveillance fixture; spam and illegal-use variants), When each is screened, Then the acceptable-use check shows an observable failed status, none is auto-approved, and none appears in the marketplace. [cx: same concretization]
@@ -51,7 +51,7 @@ Source: requirements/req-023.md (prd-mvp.md REQ-023). Dependencies: REQ-002, REQ
 | REQ-023 clause / AC | Tests |
 |---|---|
 | Publishing always routes to the screener, never directly to marketplace (incl. republish) | 01 |
-| Open-source alignment (private-but-MIT AND public-but-non-MIT independently; commercial AND closed-for-resale independently; confidential = categorical, OUTCOME PENDING lifecycle ruling) | 02, 03 |
+| Open-source alignment (private-but-MIT AND public-but-non-MIT independently; commercial AND closed-for-resale independently; confidential = categorical recommendation → founder queue, resolved d73) | 02, 03 |
 | Nonprofit purpose vs vetted profile | 04 |
 | Scope reasonableness vs tier (abusive scope) | 05 |
 | Acceptable use (surveillance/spam/illegal) | 06 |
