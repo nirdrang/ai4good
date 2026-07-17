@@ -50,7 +50,7 @@ Source: requirements/req-009.md (prd-mvp.md REQ-009). Dependencies: REQ-006, REQ
 - **AT-009.23 (P0)** — Given a project completing, When completion lands, Then every key for the project is terminated and the provider workspace is archived, freeing a workspace slot (active-workspace count decrements). [cross: REQ-012/005.5]
 - **AT-009.24 (P0)** — Given a project cancelled AFTER workspace provisioning, When cancellation lands, Then the same termination + archival occurs; Given a project cancelled BEFORE kickoff (no workspace or key ever existed), Then nothing is terminated and archival is a no-op — no error, no phantom records. [cx r2: scoped — REQ-005.5 permits cancellation from pre-provisioning states] [cross: REQ-005.5]
 
-> **PRD tension flag [needs founder ruling — cx round 2]:** REQ-009 says on abandonment "the workspace persists so the successor volunteer inherits it", while REQ-006 says "Cancellation or volunteer release ... the workspace is archived (freeing its slot)". Release cannot both persist and archive the workspace. AT-009.25 follows REQ-009 (persist + successor inherits — consistent with fuel-stays-on-project); if that ruling holds, REQ-006's "or volunteer release" wording needs the scrub.
+> **Resolved [founder, d70]:** the workspace PERSISTS on volunteer release (REQ-009 wins) — archival is irreversible and belongs only to the terminal states (completion/cancellation); fuel-stays-on-project requires the workspace's continuous spend history; d69's reserve pool makes a second pair per project wasteful. REQ-006's "or volunteer release" archival wording scrubbed. AT-009.25 and AT-006.32 stand as written.
 
 - **AT-009.25 (P0)** — Given an abandonment release, When it lands, Then the ex-volunteer's key is terminated and the workspace persists (not archived); and Given a LATER successor kickoff (rematch → consent → funding), Then the successor's newly minted key binds to that same preserved workspace — the successor inherits it. [cx r2: split into release-time and successor-time assertions — no successor key exists at release] [cross: REQ-027/005.5]
 
@@ -92,7 +92,7 @@ Source: requirements/req-009.md (prd-mvp.md REQ-009). Dependencies: REQ-006, REQ
 | Reserve inventory: rate limits + fuse pre-set, untouched by funding; checkout gate | 12 [checkout gate: cross → AT-006.52] |
 | Thresholds 20/5/stop from the monitor (d67: blocker is a mirroring status, never enforcement); gateway proxies the stop rejection; top-up → re-arm, no human step | 13, 14 |
 | 401 semantics: flat externally; fuel-exhaustion exception; dashboard diagnostics | 04–06 |
-| Revocation instant + replacement; termination at completion/abandonment/AUP; workspace archived (post-provisioning; pre-kickoff no-op) vs persists on release (REQ-006 wording flagged); successor inherits at later kickoff | 21–25 |
+| Revocation instant + replacement; termination at completion/abandonment/AUP; workspace archived at terminal states (post-provisioning; pre-kickoff no-op), persists on release (resolved d70); successor inherits at later kickoff | 21–25 |
 | Privacy: bodies transient; metadata-only log; signals as score/boolean | 26, 27 |
 | Key-leak hygiene: env files ignored by default (behavioral); secret scanning + push protection (registration asserted + exercised); daily review (cadence + content + founder attribution); org-namespace guard | 29, 30, 35 [guard: cross → AT-REQ-008.21/22/27] |
 | Escalation ladder documented, not built | 31 [cx: P0] |
