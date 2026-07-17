@@ -7,9 +7,9 @@ Source: requirements/req-021.md (prd-mvp.md REQ-021). Dependencies: REQ-004, REQ
 ## A. Discovery & fit
 
 - **AT-021.01 (P0)** — Given an otherwise-fit Discovery need (not pure-backend), When Discovery completes, Then its output DOES recommend Lovable, carries a rationale, and contains ZERO dollar fields or estimates — the recommendation is asserted, not presupposed. [cx r2: fixture rebased to an unrecommended starting state] [cross: REQ-004 owns Discovery output]
-> **PRD tension flag [needs founder ruling — cx round 1]:** REQ-021 says the scope doc "carries the paid-directly disclaimer and no dollar figure", but REQ-004 and Promise §10 require disclosing "roughly the ~$25/mo Lovable subscription". AT-021.02 tests the reconciled reading pending the ruling: no PROJECT-SPECIFIC dollar estimate, while the standard subscription-price disclosure is permitted.
+> **Resolved [founder, d72]:** the two rules protect different things and both stand — "no dollar figure" was over-broad wording. The scope doc bans PROJECT-SPECIFIC dollar estimates and fuel-budget figures (no cost anchoring, per the pick-your-own-amount rulings) while the standard ~$25/month Lovable subscription disclosure is REQUIRED (REQ-004/Promise §10 transparency). REQ-021 reworded; AT-021.02's provisional reading is now final.
 
-- **AT-021.02 (P0)** — Given the rendered scope doc of such a project, When inspected, Then it states Lovable is paid directly (never from fuel), carries no project-specific dollar estimate or fuel-budget figure, and MAY carry the standard ~$25/mo subscription disclosure (REQ-004/Promise §10). [cx: reconciled with the $25/mo clauses pending founder ruling] [cross: REQ-005 owns the scope doc]
+- **AT-021.02 (P0)** — Given the rendered scope doc of such a project, When inspected, Then it states Lovable is paid directly (never from fuel), carries the standard ~$25/mo subscription disclosure, and contains no project-specific dollar estimate or fuel-budget figure. [cx: reconciled] [d72: the disclosure is now REQUIRED, not merely permitted] [cross: REQ-005 owns the scope doc]
 - **AT-021.03 (P0)** — Given a pure-backend need with no Lovable app surface, When the Discovery fit check evaluates it, Then it is declined at Discovery on the fit dimension; UI-heavy and backend-heavy mixes both pass (two passing fixtures). REQ-004's OTHER decline reasons (developer-grade one-off, unfit Tier-2 data, confidential codebase) remain in force and are owned by AT-REQ-004. [cx: "only fit-check failure" narrowed to the UI/backend-mix dimension] [cross: REQ-004]
 
 ## B. Setup: mandatory, gated, validated
@@ -74,7 +74,7 @@ Source: requirements/req-021.md (prd-mvp.md REQ-021). Dependencies: REQ-004, REQ
 
 | REQ-021 clause / AC | Tests |
 |---|---|
-| AC1: Discovery recommends w/ rationale, no dollar; scope doc paid-directly, no project-specific dollar ($25/mo disclosure PENDING FOUNDER RULING) | 01, 02 |
+| AC1: Discovery recommends w/ rationale, no project-specific dollar; scope doc paid-directly + REQUIRED ~$25/mo disclosure, no project-specific estimate (resolved d72) | 01, 02 |
 | Fit check: pure-backend declined (mix dimension only; other declines → REQ-004); mixes pass | 03 |
 | NGO reminded before kickoff (workspace setup + invites) | 31 [cx] |
 | NGO creates/funds workspace self-served: zero admin actions, no NGO GitHub account | 32 [cx] |
