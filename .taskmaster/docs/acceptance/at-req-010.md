@@ -34,7 +34,7 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 
 ## F. Fuel gauge
 
-- **AT-010.14 (P0)** — Given an authoritative provider fixture of workspace spend limit AND billed spend (remaining balance = limit − spend), a conflicting local value seeded against it, and the provider spend then changed (two-step fixture), When the page's fuel balance is read after each step, Then the displayed REMAINING BALANCE matches the provider-derived oracle within the bounded freshness interval (provisional ≤5 minutes — the AT-006.48 bound; founder to pin) in both steps, ignoring the conflicting local value. [cx: bounded interval + conflict fixtures] [cx r2: unit corrected — spend and remaining balance are different quantities; the oracle is limit − spend] [cross: REQ-009/006]
+- **AT-010.14 (P0)** — Given an authoritative provider usage fixture priced at the official rate card against the project's provider budget (remaining = budget − priced usage), a conflicting local value seeded against it, and the provider usage then changed (two-step fixture), When the page's fuel balance is read after each step, Then the displayed REMAINING BALANCE matches that provider-derived oracle within the bounded freshness interval (provisional ≤5 minutes — the AT-006.48 bound; founder to pin) in both steps, ignoring the conflicting local value. [cx: bounded interval + conflict fixtures] [cx r2: unit corrected] [d69: oracle = budget − priced usage (the spend-limit quantity no longer exists)] [cross: REQ-009/006]
 
 ## G. GitHub absence
 
