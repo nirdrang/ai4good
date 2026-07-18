@@ -13,11 +13,12 @@ Source: requirements/req-013.md (prd-mvp.md REQ-013). Dependencies: REQ-005.5, R
 ## B. Money views
 
 - **AT-013.04 (P0)** — Given two funded projects with distinct fuel balances, When the dashboard renders, Then a cross-project fuel summary presents both projects' fuel consistently with the per-project figures. [cross: AT-006/010.14 own the gauge truth]
-- **AT-013.05 (P0)** — Given a general balance from a released project (fixture), When the dashboard renders it, Then it is presented as redeployable CREDIT — non-cash, with NO expiry shown and no cash-out control — and it persists across a controlled clock advance (never removed). [cross: AT-006 owns the ledger semantics; AT-001 the no-cash-out invariant]
+- **AT-013.05 (P0)** — Given a general balance from a COMPLETED project after provider final-cost settlement (fixture — leftover releases to general balance only at completion/cancellation, never at volunteer release), When the dashboard renders it, Then it is presented as redeployable CREDIT — non-cash, with NO expiry shown and no cash-out control — and it persists across a controlled clock advance (never removed). [cx: the released-project fixture contradicted REQ-027's fuel-stays-on-project; wrong AT-001 delegation corrected] [cross: AT-006 owns the ledger semantics and the no-cash-out invariant]
 
 ## C. Needs-action surface
 
-- **AT-013.06 (P0)** — Given one item of each needs-action kind — an open blocker, an open scope-addition discussion, and a triage decision awaiting the NGO (three fixtures), When the dashboard renders, Then each appears on the prominent needs-action surface; and When each is resolved/closed, Then it leaves the surface. [cross: AT-024/025/023 own the underlying flows]
+- **AT-013.06 (P0)** — Given one item of each needs-action kind — an open blocker, an open scope-addition discussion, and a triage decision awaiting the NGO (three fixtures), When the dashboard renders, Then each appears on the needs-action surface, whose prominence is observable: a top-level region with a needs-action heading, visible on dashboard load WITHOUT opening any project detail or secondary panel; and When each item is resolved/closed, Then it leaves the surface. [cx: "prominent" given an observable criterion] [cross: AT-024/025/023 own the underlying flows]
+- **AT-013.08 (P0)** — Given projects with structurally EMPTY data — one pre-match (no assigned volunteer), one pre-task (zero total tasks, no current task, no commit yet) — When the dashboard renders, Then every such project is still LISTED and each unavailable field shows a defined empty state (never a fabricated value), with the zero-total-tasks percent complete rendering the defined zero-state result rather than an error or an invented number. [cx: added — populated-only fixtures let omission or fabrication pass]
 
 ## D. Scope & authorization
 
@@ -31,6 +32,7 @@ Source: requirements/req-013.md (prd-mvp.md REQ-013). Dependencies: REQ-005.5, R
 | Cadence signals (last commit, done-of-total, current task) | 02 |
 | Current state, not stale | 03 |
 | Cross-project fuel summary | 04 |
-| General balance = redeployable credit (non-cash, no expiry, never removed) | 05 |
-| Needs-action surface (blockers, scope discussions, awaiting-NGO triage), prominent, live | 06 |
+| General balance = redeployable credit (non-cash, no expiry, never removed; completion-settlement fixture) | 05 [cx] |
+| Needs-action surface (blockers, scope discussions, awaiting-NGO triage), observably prominent, live | 06 [cx] |
 | One NGO-wide view; own projects only; no applicant queue | 07 |
+| Empty states listed, defined, never fabricated (pre-match / zero-task fixtures) | 08 [cx] |
