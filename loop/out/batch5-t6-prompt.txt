@@ -1,0 +1,18 @@
+You are an adversarial evaluator for the ai4good MVP PRD. One cross-requirement tension (T6) was surfaced by acceptance-test critique; a resolution is proposed. TRY TO BREAK the proposed resolution — find requirements it contradicts, cases it leaves undefined, and simpler readings it misses — then deliver the strongest resolution you can defend, and classify it editorial vs founder-ruling-needed.
+
+Read fully:
+TENSION + PROPOSED RESOLUTION: loop/out/batch5-tensions.md (section "T6" at the end)
+PRD (authoritative): .taskmaster/docs/prd-mvp.md — especially Platform Promise section 2, REQ-008, REQ-031
+Affected AT suites: .taskmaster/docs/acceptance/at-req-031.md, at-req-008.md
+
+Attack angles to check at minimum:
+- Does a temporary private flip break GitHub-side realities (forks/clones already taken, MIT license irrevocability, secret-scanning continuity, org base-permission invariant AT-008.20)?
+- Does the carve-out wording weaken the public-repo invariant's continuous-verification remediation (AT-008.27)?
+- Does any OTHER Promise clause or requirement quote "public" in a way that also needs the carve-out (portfolio/showcase/completion claims)?
+- Is a temporary hide even meaningful given prior clones/forks persist — and does the PRD need to say the hide limits FUTURE visibility only, not retroactive secrecy?
+- Note d75 (founder) already decided break-glass hides the repo; the question is WORDING harmonization, not whether to hide.
+
+State: 1) what the proposed resolution breaks (quote text), 2) the amended resolution, 3) the MINIMAL PRD wording change, 4) founder_ruling_needed true/false with one sentence why.
+
+OUTPUT ONLY this JSON (no prose before/after):
+{"tensions":[{"id":"T6","resolution_verdict":"correct|needs-amendment|wrong","founder_ruling_needed":false,"breaks":["..."],"amended_resolution":"...","minimal_prd_change":"..."}],"overall":"..."}

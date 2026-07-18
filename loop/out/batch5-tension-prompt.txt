@@ -1,0 +1,17 @@
+You are an adversarial evaluator for the ai4good MVP PRD. Two cross-requirement tensions were surfaced by acceptance-test critique, and a resolution is proposed for each. Your job: TRY TO BREAK the proposed resolutions — find requirements they contradict, cases they leave undefined, and simpler readings they miss — then deliver the strongest resolution you can defend, and classify each tension as editorial (a harmonization any careful editor would make; no product choice involved) or founder-ruling-needed (a genuine product decision).
+
+Read fully:
+TENSIONS + PROPOSED RESOLUTIONS: loop/out/batch5-tensions.md
+PRD (authoritative): .taskmaster/docs/prd-mvp.md
+Relevant isolates: .taskmaster/docs/requirements/req-030.md, req-033.md, req-009.md, req-006.md, req-012.md
+Affected AT suites: .taskmaster/docs/acceptance/at-req-030.md, at-req-033.md
+
+For each tension:
+1. Attack the proposed resolution: what does it break elsewhere in the PRD? Quote the conflicting text.
+2. If it survives with amendment, state the amended resolution precisely.
+3. State the MINIMAL PRD wording change.
+4. Classify: founder_ruling_needed true/false, with one sentence why.
+For T5, rank candidates (a) and (b) and defend the ranking against the losing side's best argument.
+
+OUTPUT ONLY this JSON (no prose before/after):
+{"tensions":[{"id":"T4","resolution_verdict":"correct|needs-amendment|wrong","founder_ruling_needed":false,"breaks":["..."],"amended_resolution":"...","minimal_prd_change":"..."},{"id":"T5","resolution_verdict":"...","founder_ruling_needed":false,"ranking":"a|b","breaks":["..."],"amended_resolution":"...","minimal_prd_change":"..."}],"overall":"..."}
