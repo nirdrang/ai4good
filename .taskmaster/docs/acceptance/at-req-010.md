@@ -6,7 +6,7 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 
 ## A. One public page, identical for every viewer
 
-- **AT-010.01 (P0)** — Given one project, When its page is rendered as the NGO admin, the assigned volunteer, an UNASSIGNED volunteer, ANOTHER NGO's account, a platform admin, and a logged-out visitor, Then the read-only content is identical across all six — the ONLY differing element is the NGO project assistant block. [cx: unassigned volunteer + foreign NGO added to the equality set]
+- **AT-010.01 (P0)** — Given one project, When its page is rendered as the NGO admin, the assigned volunteer, an UNASSIGNED volunteer, ANOTHER NGO's account, a platform admin, and a logged-out visitor, Then the PUBLIC STATUS PROJECTION is identical across all six — project identity, the full task tree, activity, the blocker signal, the Q&A log, reference-file metadata, fuel/Lovable status, cadence, and repo-derived signals — while the role-gated elements (the participants-only comment thread REQ-015, file downloads REQ-032, the NGO assistant REQ-033) differ per their owning requirements and are NOT part of the equality comparison. [cx: unassigned volunteer + foreign NGO added] [d80: equality scoped to the projection — exception-counting replaced by the two-layer contract]
 - **AT-010.02 (P0)** — Given the same project in `in_progress` or later (the assistant's availability window, REQ-033), When each viewer class is probed for the project-assistant interface, Then it is present for the project's NGO account only and absent for the volunteer, other NGOs, platform visitors, and logged-out viewers (UI and API); pre-`in_progress` absence is owned by REQ-033. [cx: lifecycle precondition pinned] [cross: REQ-033]
 - **AT-010.03 (P0)** — Given the routing surface, When probed for a separate developer view/route/variant of the project page, Then none exists — the platform surface is PM/coordination; the dev workflow lives on GitHub.
 - **AT-010.04 (P0)** — Given a project with all attributes set, When the page renders, Then it identifies the project: title, NGO, status, assigned volunteer, repo URL, complexity tier, and cause tags.
@@ -61,7 +61,7 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 
 | REQ-010 clause | Tests |
 |---|---|
-| One public page; identical content for all viewers; no developer view | 01, 03 |
+| One public page; identical public STATUS PROJECTION for all viewers (role-gated thread/downloads/assistant outside the rule, d80); no developer view | 01 [d80], 03 |
 | Assistant surfaced only to the project's NGO account | 02 |
 | Identity fields incl. repo empty state | 04, 05 |
 | Task tree PRIMARY (main content region): hierarchy, statuses, current work, P0-only progress ratio from the tree (never GitHub issues) | 06, 07 |

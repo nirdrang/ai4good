@@ -1,0 +1,17 @@
+You are an adversarial evaluator for the ai4good MVP PRD. One cross-requirement tension (T7) was surfaced by acceptance-test critique; a resolution is proposed. TRY TO BREAK the proposed resolution - find requirements it contradicts, cases it leaves undefined, and simpler readings it misses - then deliver the strongest resolution you can defend, and classify it editorial vs founder-ruling-needed.
+
+Read fully:
+TENSION + PROPOSED RESOLUTION: loop/out/batch6-tensions.md
+PRD (authoritative): .taskmaster/docs/prd-mvp.md - especially REQ-010, REQ-015, REQ-033
+Affected AT suites: .taskmaster/docs/acceptance/at-req-015.md (AT-015.01), and AT-REQ-010's identical-page tests
+
+Attack angles to check at minimum:
+- Does the thread READ visibility have a defensible public reading (e.g., thread readable publicly but postable by participants only)? Check REQ-015's exact words before accepting the restricted-read framing.
+- Does any other REQ-010 clause (public task tree, activity feed, Q&A log) already leak thread-adjacent content publicly, changing what the carve-out must say?
+- Does the fix need to touch REQ-033's "one viewer-specific element" phrasing source, or Promise/other pages quoting it?
+- Is there a third viewer-specific element hiding anywhere (needs-action, download links, fuel gauge variants) that makes the counting sentence wrong again?
+
+State: 1) what the proposed resolution breaks (quote text), 2) the amended resolution, 3) the MINIMAL PRD wording change, 4) founder_ruling_needed true/false with one sentence why.
+
+OUTPUT ONLY this JSON (no prose before/after):
+{"tensions":[{"id":"T7","resolution_verdict":"correct|needs-amendment|wrong","founder_ruling_needed":false,"breaks":["..."],"amended_resolution":"...","minimal_prd_change":"..."}],"overall":"..."}

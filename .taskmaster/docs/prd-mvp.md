@@ -356,9 +356,9 @@ Dependencies: REQ-006, REQ-024, REQ-034, REQ-012/027/007 (key-termination hooks)
 
 #### REQ-010: Project Page (single view) & Cadence Stats
 
-One **public page** per project, whose read-only content is the same for NGO admins, the assigned volunteer, platform admins, and logged-out visitors. The platform surface is PM/coordination; the dev workflow lives on GitHub — there is no separate "developer view."
+One **public page** per project, whose public project-status PROJECTION is identical for every viewer — NGO admins, the assigned volunteer, platform admins, and logged-out visitors. The platform surface is PM/coordination; the dev workflow lives on GitHub — there is no separate "developer view."
 
-- The page content is public and identical for every viewer; the full task tree is public on every project (Platform Promise §2). The one viewer-specific element is the NGO project assistant (REQ-033) — an interactive bot interface surfaced **only to the project's NGO account**, never to the volunteer, platform visitors, or the public.
+- The public projection comprises the expressly public surfaces of this page: project identity, the full task tree (Platform Promise §2), activity, the blocker signal, the Q&A log, reference-file metadata, fuel/Lovable status, cadence, and repo-derived signals — identical for every viewer. Role-gated communication content and action controls sit OUTSIDE this equality rule and follow their owning requirements: the comment thread (REQ-015, participants only), reference-file downloads (REQ-032), and the NGO project assistant (REQ-033) — an interactive bot interface surfaced **only to the project's NGO account**, never to the volunteer, platform visitors, or the public.
 - The page identifies the project (title, NGO, status, assigned volunteer, repo URL with a plain-language empty state while setup pends, complexity tier, cause tags).
 - **The task tree is the primary content:** the page must convey task hierarchy, each task's status, the work currently underway, and overall progress, where progress reflects completed P0 tasks against all P0 tasks (from the tree, never GitHub issues).
 - **Activity is shown in plain language** tied to task titles, never raw PR/commit jargon.
@@ -608,7 +608,7 @@ A dashboard plus completion-credit-only public reputation: no public star or num
 **Dependencies:** REQ-004, REQ-024, REQ-026, REQ-034, REQ-009.
 
 #### REQ-015: Per-Project Comment Thread (full Slack-style channel deferred to v1.5)
-A project-page comment thread replaces the v1 real-time channel (NGO admins, the assigned volunteer, and the platform admin only when escalated); the concierge pilot coordinates via blockers, comments, notifications, and email (→ RM-43).
+A project-page comment thread replaces the v1 real-time channel (NGO admins, the assigned volunteer, and the platform admin only when escalated); the concierge pilot coordinates via blockers, comments, notifications, and email (→ RM-43). Only current thread participants may READ its history or post — the project's NGO account, the currently assigned volunteer, and the platform admin only while escalated; role changes update access automatically, and after completion or cancellation authorized readers retain history access while posting is disabled.
 - v1: a chronological plain-text stream with auto-linked URLs (no markdown, code blocks, attachments, or @-mentions); it need not update in real time but shows current comments on view; posting notifies the other party; membership is implicit from project roles. System events never post to the thread — they surface in notifications and activity feeds. (Scope-addition discussions live here per REQ-025.) (→ RM-10) Post-completion it is read-only. No cross-project DMs.
 - **Task-anchored NGO comments:** from the read-only status panel the NGO can attach a comment to a specific task (queued or in progress); the platform surfaces it to the volunteer in context on that task (REQ-026) and notifies them, and the volunteer's reply returns to the thread. Routine dev-internal task chatter never surfaces to the NGO, and the NGO never accesses the task system directly.
 - (→ RM-43, RM-44)
@@ -622,6 +622,8 @@ v1 taxonomy (event → recipients, delivery), condensed:
 - Money: pre-deadline reminder → NGO; deadline expired → NGO + matched volunteer; payment succeeded → both; payment failed → NGO; fuel 20% → NGO; 5% and depleted → both (sessions warned/cut; depleted adds admin escalation); leftover released to general balance → NGO (no donation event); chargeback opened → NGO + admin + ops item.
 - Access: virtual key issued (instant at kickoff) / revoked (replacement on dashboard) → volunteer (email + in-app).
 - Fail-closed interlock: gateway watchdog failed closed (REQ-009) → platform admin (email + in-app).
+- PRD gate (REQ-036): below-threshold gap report → volunteer (email + in-app); gate passed → NGO (email + in-app); backlog live → NGO (email + in-app).
+- Money corrections (REQ-030): large reconciliation drift → platform admin (email + in-app); undecidable drift surfaced → platform admin (email + in-app).
 - Work signals: task status changed → NGO (in-app, low-tone); task completed → NGO (email + in-app); task comment → volunteer (in-app); thread comment → the other party (in-app default, with an anti-spam guard); blockers raised/resolved/48h/7d → NGO email + in-app, volunteer on resolution, admin at 7d; PM status auto-reverted → volunteer (in-app, low-tone, instructive not punitive).
 - Scope additions (informal): ride thread-comment notifications; no dedicated CR events in v1 (→ RM-10).
 - Completion: project marked complete → both. (→ RM-25)
