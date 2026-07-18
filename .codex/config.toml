@@ -1,0 +1,5 @@
+[mcp_servers.linear]
+url = "https://mcp.linear.app/mcp"
+
+[mcp_servers.lovable]
+url = "https://mcp.lovable.dev"
