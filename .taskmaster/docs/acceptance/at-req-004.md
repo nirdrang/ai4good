@@ -55,7 +55,7 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 - **AT-004.30 (P0)** — Given genuine uncertainty about the data, When tiered, Then Tier 2 is assigned (unsure → Tier 2).
 - **AT-004.31 (P0)** — Given a no-restriction tool (no personal data), When tiered, Then Tier 0 is assigned. [cx: promoted P1→P0]
 - **AT-004.50 (P0)** — Given a tier assignment, When it lands, Then the data-exposure responsibility is attributed to the NGO, and a data-responsibility acknowledgment is required in the tier flows that mandate one (Tier 1 and Tier 2) — not universally for Tier 0. [cx r2: acknowledgment only where the tier rules require it]
-- **AT-004.51 (P0)** — Given a Discovery-assigned data tier, When the project reaches triage [cross: REQ-023], Then the tier is submitted to and confirmed by triage — not treated as final without confirmation. [cx: added — "triage confirms the tier"]
+- **AT-004.51 (P0)** — Given a Discovery-assigned data tier — including one where post-Discovery scope EDITS changed the data surface (second fixture), When the project reaches triage [cross: REQ-023], Then the tier and the final edited scope are presented to the HUMAN reviewer with the advisory pass's data-tier evidence, and the tier is confirmed by the reviewer's decision — never treated as final without human confirmation. [cx: added] [d74: confirmation is the reviewer's, informed by advisory evidence; post-edit drift covered]
 
 ## F. Maintainability-fit check & declines
 

@@ -31,7 +31,7 @@ Launch concierge-first: pre-recruit a volunteer bench and hand-match the first ~
 An NGO program manager turns a plain-language need into a buildable scope that gets funded and built into a real tool; no technical spec. (Depends: REQ-001, REQ-002, REQ-004, REQ-005.)
 - Org-profile signup (name, mission, contact); vetting happens in concierge onboarding (REQ-002). Explicit ToS + Platform-Promise acceptance (limited coordination relationship, open-source by default, fuel = non-cash AI-usage credit, no SLA), recorded for audit, gates project creation.
 - The AI Discovery Agent refines a free-text need over 5-10 turns into a scope document; a complexity tier (small/medium/large — no dollar estimate in v1, REQ-004); a data-sensitivity tier and handling guideline (Tier-2: fixtures-only during build); a maintainability-fit check (maintain via Lovable chat; needs requiring ongoing developer maintenance are declined at Discovery and recorded for founder review); a suggested stack; and acceptance criteria.
-- The scope is editable pre-publish; publishing lists it publicly; the NGO is emailed on publish and match.
+- The scope is editable pre-publish; publishing submits it to the triage review, and public listing begins at the reviewer's approval (REQ-023); the NGO is emailed on publish and match.
 
 ### Story 2: NGO Funds a Project with Fuel
 Card-purchased fuel is assigned per project, with no platform-wide commitment. (Depends: REQ-001, REQ-006, REQ-009.)

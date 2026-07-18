@@ -41,7 +41,7 @@ NGOs are steered toward small, frequent funding steps; each fuel run-out is a re
 Fuel is fundable from draft onward — typically at match acceptance, or earlier to continue Discovery past the free pool. It is project-scoped: unused fuel survives a volunteer change (the successor inherits it, REQ-027). On genuine finish or abandonment, leftover credit becomes redeployable NGO general-balance credit that auto-applies at any NGO funding checkout, can satisfy the $50 minimum, with any remainder on card. There is no donation flow and no cash-out or withdrawal — no money-out path means no laundering risk and no ACH/AML/KYC machinery. Nothing is ever silently removed. The funding flow discloses plainly, before commitment, that fuel funds AI work, is not cash-refundable, and that unused fuel stays as credit for the NGO's projects.
 
 ### 8. Minimize admin intervention
-The target is under 10 minutes of admin time per active project per week at steady state. Automation comes first — only ambiguous cases reach an admin; manual work is batched, never on a kickoff's critical path, with the wait stated upfront (NGO vetting is batched). Virtual keys mint automatically at kickoff. Loss is bounded by caps plus regular human review (→ RM-5). Lovable setup is volunteer-driven (REQ-021); fuel top-up and key rotation are NGO self-serve; vetting is one audited admin action in concierge onboarding (→ RM-6, RM-7); reconciliation is fully automatic, with corrections conforming to provider-authoritative records and only undecidable drift surfacing. Any feature needing routine admin involvement is weighed against this principle before it is added, and a standing review inventories every manual procedure against the target, automates the automatable, and re-audits whenever a manual step is added.
+The target is under 10 minutes of admin time per active project per week at steady state. Automation comes first — only ambiguous cases reach an admin, with one deliberate v1 exception: every marketplace publication is human-reviewed at the triage gate (REQ-023), a compliance stance chosen over automation at pilot volume; manual work is batched, never on a kickoff's critical path, with the wait stated upfront (NGO vetting is batched). Virtual keys mint automatically at kickoff. Loss is bounded by caps plus regular human review (→ RM-5). Lovable setup is volunteer-driven (REQ-021); fuel top-up and key rotation are NGO self-serve; vetting is one audited admin action in concierge onboarding (→ RM-6, RM-7); reconciliation is fully automatic, with corrections conforming to provider-authoritative records and only undecidable drift surfacing. Any feature needing routine admin involvement is weighed against this principle before it is added, and a standing review inventories every manual procedure against the target, automates the automatable, and re-audits whenever a manual step is added.
 
 ### 9. Acknowledgment cadence
 Explicit, audit-logged acknowledgments:
@@ -91,7 +91,7 @@ Launch concierge-first: pre-recruit a volunteer bench and hand-match the first ~
 An NGO program manager turns a plain-language need into a buildable scope that gets funded and built into a real tool; no technical spec. (Depends: REQ-001, REQ-002, REQ-004, REQ-005.)
 - Org-profile signup (name, mission, contact); vetting happens in concierge onboarding (REQ-002). Explicit ToS + Platform-Promise acceptance (limited coordination relationship, open-source by default, fuel = non-cash AI-usage credit, no SLA), recorded for audit, gates project creation.
 - The AI Discovery Agent refines a free-text need over 5-10 turns into a scope document; a complexity tier (small/medium/large — no dollar estimate in v1, REQ-004); a data-sensitivity tier and handling guideline (Tier-2: fixtures-only during build); a maintainability-fit check (maintain via Lovable chat; needs requiring ongoing developer maintenance are declined at Discovery and recorded for founder review); a suggested stack; and acceptance criteria.
-- The scope is editable pre-publish; publishing lists it publicly; the NGO is emailed on publish and match.
+- The scope is editable pre-publish; publishing submits it to the triage review, and public listing begins at the reviewer's approval (REQ-023); the NGO is emailed on publish and match.
 
 ### Story 2: NGO Funds a Project with Fuel
 Card-purchased fuel is assigned per project, with no platform-wide commitment. (Depends: REQ-001, REQ-006, REQ-009.)
@@ -213,7 +213,7 @@ Transition rules:
 - Any NGO — including unvetted — can create a draft. Vetting gates publishing, never Discovery.
 - draft → Discovery requires submitted intake, an email-verified NGO admin, and Discovery capacity (free credits or funded fuel); otherwise the transition is blocked and the NGO is shown its remedies (verify, fund now, or return later).
 - Discovery completion → `scoped` automatically on valid output; invalid output is retried a bounded number of times, then escalated to an admin.
-- `scoped` → `triage` on Publish (vetted only). The triage screener auto-approves confident-clean cases → `open`; non-decided cases go to the founder exception queue and either return to `scoped` with a reason note (edit and republish re-enters the screener) or become `cancelled` (terminal; only for needs that editing cannot fix). Tier-2 never auto-approves.
+- `scoped` → `triage` on Publish (vetted only). Every publish enters the founder review queue (an AI advisory pass attaches per-check evidence, never a decision — REQ-023); the reviewer either approves → `open`, returns to `scoped` with a reason note (edit and republish re-enters review), or declines → `cancelled` (terminal; only for needs that editing cannot fix). No automated path to `open` exists.
 - `open` → `matched_pending_fuel` on volunteer consent to a concierge match (admin-created, binding, no NGO approve/decline; drawn from the candidate pool). The first-match disclaimer is satisfied at the consent click (GitHub is already linked at signup). One match at a time per project; the match log tracks the rest.
 - `matched_pending_fuel` → `in_progress` on funding (≥ $50): kickoff fires. If unfunded after 7 days the project returns to `open`, the volunteer is freed and notified, and the NGO gets the funding-expired notice with a restart CTA (REQ-016). The NGO may cancel pre-payment.
 - `in_progress` → `completed` when all P0 tasks are done and the repo exists (no formal handoff ceremony — REQ-012): leftover fuel → general-balance credit; keys revoked and the provider workspace archived; Linear membership removed and the final task history preserved; completion credit and first-tool badge recorded. The NGO owns the live app and repo throughout and offboards the volunteer and ai4good's monitoring account self-serve. No tip in v1.
@@ -242,7 +242,7 @@ Discovery output renders as an editable scope document the NGO edits and publish
 - Editable: summary, user stories, acceptance criteria, suggested stack. No fuel-budget section (no v1 dollar estimates).
 - **All projects are public MIT (Platform Promise §2):** no visibility choice. Confidential-codebase needs are declined at Discovery (→ RM-2); sensitive *data* is served as Tier-2 fixtures-only (REQ-004).
 - A project may stay `scoped` indefinitely; the NGO picks its fuel amount at match acceptance.
-- Publishing requires vetted status and no fuel deposit; it moves the project to `triage`, never directly to `open`. Clean projects go live immediately; exceptions await the founder (REQ-023).
+- Publishing requires vetted status and no fuel deposit; it moves the project to `triage`, never directly to `open`. Every publish awaits the founder's review decision; marketplace visibility begins only at approval (REQ-023).
 - Unpublish to `scoped` any time before consent; a return-to-scoped outcome carries the founder's reason note for editing and republishing.
 
 Dependencies: REQ-004, REQ-023.
@@ -438,19 +438,17 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 
 #### REQ-023: Platform Triage Gate (compliance review before marketplace)
 
-Every project passes a compliance gate between scope completion and publication, catching policy violations before volunteers see it. **v1: an automated triage screener plus a founder exception queue** — automation decides clear cases and the founder attends only non-decided ones (the REQ-036 scorer shape applied to triage).
+Every project passes a compliance gate between scope completion and publication, catching policy violations before volunteers see it. **v1: every publish is decided by the founder-reviewer; an AI advisory pass assists but holds no authority.** Nothing reaches the marketplace without a recorded human decision. The autonomous screener is deferred (→ RM-64), where the v1 review records become its calibration dataset.
 
-**Screener checks:** open-source alignment (all projects public MIT; commercial or closed-source-for-resale work is prohibited; a confidential-codebase need is a categorical decline RECOMMENDATION); nonprofit purpose against the vetted profile; scope reasonableness against the complexity tier (abusive scope caught here); acceptable use (no surveillance, spam, illegal use); data-tier correctness (Tier-2 requires a fixtures-only plan); and Discovery risk flags. It produces a decision with reasons and an uncertainty signal for routing. **The screener never produces a terminal outcome:** a categorical finding is never auto-approved and routes to the founder exception queue pre-flagged for one-click terminal decline — the founder remains the only terminal actor (the existing triage exits in REQ-005.5 are the complete set).
+**Advisory pass (evidence, never authority):** at publish, a structured AI review evaluates the final scope snapshot on six dimensions — open-source alignment (all projects public MIT; commercial or closed-source-for-resale work is prohibited; a confidential-codebase need is flagged categorical); nonprofit purpose against the vetted profile; scope reasonableness against the complexity tier (abusive scope caught here); acceptable use (no surveillance, spam, illegal use); data-tier correctness (Tier-2 requires a fixtures-only plan); and Discovery risk flags. It attaches versioned per-check evidence to the queue item. It never transitions project state, never emits an approve/decline recommendation (evidence only), and its unavailability never blocks review — the reviewer proceeds unaided.
 
 **Acceptance criteria:**
-- [ ] Publishing routes to the screener, never directly to the marketplace.
-- [ ] **Confident-clean → auto-approved → `open`**, with a screener-written audit record (checks, rationale, version).
-- [ ] **Tier-2 never auto-approves** — it always routes to the founder.
-- [ ] **Non-decided → the founder exception queue** (findings pre-surfaced), reviewed promptly. Two outcomes: **return to `scoped`** (a reason note to the NGO; editing and republishing re-enters the screener and stays invisible; prior notes visible) or **terminal decline** (non-remediable — cannot be edited and resubmitted).
-- [ ] Every human decision is recorded: reviewer, timestamp, decision, reason, data tier, scope snapshot.
-- [ ] Auto-approved items are surfaced for post-hoc spot-check; exception items expose their age; a break-glass unpublish recovers (REQ-031).
-- [ ] Screener threshold + model configuration (same model family as OD-7): **[DECISION: OD-8 — pilot-tuned.]**
-- [ ] NGO copy: clean publishes go live immediately; exceptions show an "under review" state with no formal SLA.
+- [ ] Publishing routes every project into the review queue, never directly to the marketplace; the project stays publicly invisible until a human decision.
+- [ ] The reviewer has exactly three actions: **approve → `open`**, **return to `scoped`** (a reason note to the NGO; editing and republishing re-enters review and stays invisible; prior notes visible), or **terminal decline** (non-remediable — cannot be edited and resubmitted).
+- [ ] Every decision is recorded: reviewer, timestamp, decision, reason, per-check dispositions, policy version, advisory output + version (or its recorded absence), data tier, scope snapshot — the record doubles as RM-64's evaluation dataset.
+- [ ] Queue items expose their age; the internal review target is end of the next business day (an ops target, never an NGO-facing SLA). v1 names no backup reviewer — the queue pauses during founder absence, a knowingly accepted limit.
+- [ ] A break-glass unpublish recovers an erroneous approval (REQ-031).
+- [ ] NGO copy: every publish shows an "under review" state with no formal SLA; marketplace visibility begins only at approval.
 
 ---
 
@@ -617,7 +615,7 @@ A project-page comment thread replaces the v1 real-time channel (NGO admins, the
 #### REQ-016: Notifications (Email + In-App)
 Event-driven email and in-app notifications with documented defaults in v1 (→ RM-45). One shared emitter on a single static event taxonomy is the sole writer — blockers, scope additions, and lifecycle events never send comms directly.
 v1 taxonomy (event → recipients, delivery), condensed:
-- Project decisions: triage auto-approved / returned-to-scoped (with reason) / terminally declined → NGO (email + in-app); approval means marketplace visibility. Vetting outcome (vetted/unvetted) → NGO.
+- Project decisions: triage approved / returned-to-scoped (with reason) / terminally declined → NGO (email + in-app); approval means marketplace visibility. Vetting outcome (vetted/unvetted) → NGO.
 - Matching: candidacy marked → admin only (match log, never the NGO); match created → volunteer (email + in-app, consent CTA); consented → NGO (email + in-app, fund-to-kick-off); declined/expired → admin (match log); unmatched open-project aging → platform admin only (Goal 5).
 - Abandonment (REQ-027): 14d reminder → volunteer + NGO; released → NGO + ex-volunteer; rematch available → NGO.
 - Money: pre-deadline reminder → NGO; deadline expired → NGO + matched volunteer; payment succeeded → both; payment failed → NGO; fuel 20% → NGO; 5% and depleted → both (sessions warned/cut; depleted adds admin escalation); leftover released to general balance → NGO (no donation event); chargeback opened → NGO + admin + ops item.
@@ -724,7 +722,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 **Discovery & Publishing:**
 - REQ-004 — Discovery Agent: free within the daily allowance; complexity tier only, no dollar estimate.
 - REQ-005 — Scope doc + publishing into triage.
-- REQ-023 — Automated triage screener + founder exception queue; threshold = OD-8.
+- REQ-023 — Founder-decided triage with a no-authority AI advisory pass; the autonomous screener is deferred (→ RM-64).
 
 **Funding & Money:**
 - REQ-006 — Stripe top-up + fuel ledger + match-to-fund, non-cash and no-cash-out; leftover auto-applies at checkouts; no donation flow; chargeback handling + first-fund caps (→RM-19); no refunds (→RM-7).
@@ -800,7 +798,7 @@ Decisions/policies needing external (legal, accounting, business) input — not 
 - OD-5: deferred second spend-verification layer scope → v1.5
 - OD-6: usage-metering operational home (deferred) → REQ-009
 - OD-7: PRD completion-gate threshold + scorer configuration (pilot-tuned) → REQ-036
-- OD-8: triage-screener confidence threshold + model configuration (pilot-tuned) → REQ-023
+- OD-8: retired — v1 triage has no autonomous screener (every publish is founder-decided, REQ-023); the threshold/model questions move to RM-64's activation gate
 
 ### Risks & Mitigation
 
@@ -808,7 +806,7 @@ Rows: risk (severity): mitigation → contingency.
 
 - Volunteers exceed fuel without enforcement (High): low-balance alerts, a hard zero cut-off, a transparent ledger → NGO top-up; the platform absorbs week-1 pilot overruns.
 - AI consumes fuel with no viable deliverable (High): the first-match disclaimer, a per-project fuel cap bounding exposure, user-test checkpoints during builds, the Goal 4 target, and burn-per-deliverable on the NGO panel (REQ-034) → transparency + post-mortem; no refund; the completion record notes the outcome (REQ-012).
-- Malicious NGO posts a commercial need (High): the founder vetting gate + the triage screener (Tier-2/non-decided → founder) → decline, deactivate; policy documented.
+- Malicious NGO posts a commercial need (High): the founder vetting gate + mandatory founder triage review of every publish (assisted by advisory findings) → decline, deactivate; policy documented.
 - Volunteers ghost mid-project (High): a 14-day inactivity reminder → 21-day auto-release → re-opened; the NGO can request re-match; responsiveness shown on the project page.
 - Payment succeeds but fuel is not credited (High): tight-cadence reconciliation detects and auto-corrects to Stripe truth → undecidable cases surface to the founder (money dashboard + notification).
 - Anthropic outage stops Discovery (High): a "service degraded" banner, queued intakes, a manual scope option → alternate provider post-v1.

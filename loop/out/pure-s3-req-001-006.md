@@ -81,7 +81,7 @@ Transition rules:
 - Any NGO — including unvetted — can create a draft. Vetting gates publishing, never Discovery.
 - draft → Discovery requires submitted intake, an email-verified NGO admin, and Discovery capacity (free credits or funded fuel); otherwise the transition is blocked and the NGO is shown its remedies (verify, fund now, or return later).
 - Discovery completion → `scoped` automatically on valid output; invalid output is retried a bounded number of times, then escalated to an admin.
-- `scoped` → `triage` on Publish (vetted only). The triage screener auto-approves confident-clean cases → `open`; non-decided cases go to the founder exception queue and either return to `scoped` with a reason note (edit and republish re-enters the screener) or become `cancelled` (terminal; only for needs that editing cannot fix). Tier-2 never auto-approves.
+- `scoped` → `triage` on Publish (vetted only). Every publish enters the founder review queue (an AI advisory pass attaches per-check evidence, never a decision — REQ-023); the reviewer either approves → `open`, returns to `scoped` with a reason note (edit and republish re-enters review), or declines → `cancelled` (terminal; only for needs that editing cannot fix). No automated path to `open` exists.
 - `open` → `matched_pending_fuel` on volunteer consent to a concierge match (admin-created, binding, no NGO approve/decline; drawn from the candidate pool). The first-match disclaimer is satisfied at the consent click (GitHub is already linked at signup). One match at a time per project; the match log tracks the rest.
 - `matched_pending_fuel` → `in_progress` on funding (≥ $50): kickoff fires. If unfunded after 7 days the project returns to `open`, the volunteer is freed and notified, and the NGO gets the funding-expired notice with a restart CTA (REQ-016). The NGO may cancel pre-payment.
 - `in_progress` → `completed` when all P0 tasks are done and the repo exists (no formal handoff ceremony — REQ-012): leftover fuel → general-balance credit; keys revoked and the provider workspace archived; Linear membership removed and the final task history preserved; completion credit and first-tool badge recorded. The NGO owns the live app and repo throughout and offboards the volunteer and ai4good's monitoring account self-serve. No tip in v1.
@@ -110,7 +110,7 @@ Discovery output renders as an editable scope document the NGO edits and publish
 - Editable: summary, user stories, acceptance criteria, suggested stack. No fuel-budget section (no v1 dollar estimates).
 - **All projects are public MIT (Platform Promise §2):** no visibility choice. Confidential-codebase needs are declined at Discovery (→ RM-2); sensitive *data* is served as Tier-2 fixtures-only (REQ-004).
 - A project may stay `scoped` indefinitely; the NGO picks its fuel amount at match acceptance.
-- Publishing requires vetted status and no fuel deposit; it moves the project to `triage`, never directly to `open`. Clean projects go live immediately; exceptions await the founder (REQ-023).
+- Publishing requires vetted status and no fuel deposit; it moves the project to `triage`, never directly to `open`. Every publish awaits the founder's review decision; marketplace visibility begins only at approval (REQ-023).
 - Unpublish to `scoped` any time before consent; a return-to-scoped outcome carries the founder's reason note for editing and republishing.
 
 Dependencies: REQ-004, REQ-023.

@@ -24,14 +24,14 @@ Source: prd-mvp.md REQ-005 (isolated: requirements/req-005.md). Dependencies: RE
 - **AT-005.20 (P0)** — Given an otherwise-publishable project owned by NGO A, When a different NGO, a volunteer, or a visitor attempts to publish it, Then the request is rejected and the project state is unchanged — only the owning NGO publishes. [cx r2: publish authorization, distinct from the vetting gate]
 - **AT-005.08 (P0)** — Given a vetted NGO with zero fuel on the project, When it publishes, Then publishing succeeds — no fuel deposit is required (fuel is required only at volunteer acceptance, match-first) [cross: REQ-006].
 - **AT-005.09 (P0)** — Given any publish, When the transition fires, Then the project moves `scoped → triage` — never directly to `open` [cross: REQ-005.5/023].
-- **AT-005.10 (P0)** — Given a screener-clean publish, When triage auto-approves, Then the project is live on the marketplace immediately. [cx: notification moved to AT-REQ-016]
-- **AT-005.11 (P0)** — Given a publish whose screener outcome is non-decided, When it routes, Then the project remains in `triage` and off the marketplace while awaiting the founder's decision, and the NGO sees an "under review" state with no formal SLA promised. [cx r2: "until approval" → "while awaiting the founder's decision" — the two exits are return-to-scoped or terminal cancel, not approval]
+- **AT-005.10 (P0)** — Given a published project, When the founder-reviewer approves it in triage, Then the project is live on the marketplace — and never before that decision. [d74: reviewer approval replaces auto-approve] [cx: notification moved to AT-REQ-016]
+- **AT-005.11 (P0)** — Given ANY publish, When it routes, Then the project remains in `triage` and off the marketplace while awaiting the founder's decision, and the NGO sees an "under review" state with no formal SLA promised. [cx r2] [d74: applies to every publish — no clean-goes-live path exists; approve is now the founder's third outcome]
 - **AT-005.12 (P0)** — Given a project at `scoped`, When a controlled clock advances beyond every configured lifecycle deadline and the NGO takes no action, Then the project remains `scoped` — no expiry-driven or nag transition is configured for `scoped`. [cx: deterministic clock]
 
 ## D. Return-to-scoped & republish
 
-- **AT-005.13 (P0)** — Given a project in `triage` as a founder exception, When the founder applies the return-to-scoped outcome with a unique non-empty reason note, Then the project moves to `scoped` and that exact reason value is visible to the NGO for editing and republishing [cross: REQ-023]. [cx r2: unique reason value so visibility can't pass on an empty/placeholder field]
-- **AT-005.14 (P0)** — Given an edited project after return-to-scoped, When republished, Then it re-enters the screener (fresh triage pass) and remains publicly invisible until approved [cross: REQ-023].
+- **AT-005.13 (P0)** — Given a project in `triage` awaiting review, When the founder applies the return-to-scoped outcome with a unique non-empty reason note, Then the project moves to `scoped` and that exact reason value is visible to the NGO for editing and republishing [cross: REQ-023]. [cx r2: unique reason value so visibility can't pass on an empty/placeholder field]
+- **AT-005.14 (P0)** — Given an edited project after return-to-scoped, When republished, Then it re-enters the founder review queue (fresh advisory pass, fresh queue entry) and remains publicly invisible until approved [cross: REQ-023]. [d74: wording]
 
 ## E. Unpublish
 
@@ -53,4 +53,4 @@ Source: prd-mvp.md REQ-005 (isolated: requirements/req-005.md). Dependencies: RE
 | Publish requires vetted + owned by NGO + no mandatory funding step | 07, 08, 20 — "picks fuel amount at match acceptance" → AT-REQ-006 [cx] |
 | Publish → `triage`, never directly `open`; clean live immediately; exceptions stay off-marketplace until approval | 09–11 |
 | Unpublish → `scoped` any time before consent (incl. pending match released); unavailable after consent | 15–17 |
-| Return-to-scoped moves to `scoped` + reason note visible; republish re-enters screener | 13, 14 |
+| Return-to-scoped moves to `scoped` + reason note visible; republish re-enters review | 13, 14 [d74] |

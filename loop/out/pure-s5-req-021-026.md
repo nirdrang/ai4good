@@ -39,19 +39,17 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 
 #### REQ-023: Platform Triage Gate (compliance review before marketplace)
 
-Every project passes a compliance gate between scope completion and publication, catching policy violations before volunteers see it. **v1: an automated triage screener plus a founder exception queue** — automation decides clear cases and the founder attends only non-decided ones (the REQ-036 scorer shape applied to triage).
+Every project passes a compliance gate between scope completion and publication, catching policy violations before volunteers see it. **v1: every publish is decided by the founder-reviewer; an AI advisory pass assists but holds no authority.** Nothing reaches the marketplace without a recorded human decision. The autonomous screener is deferred (→ RM-64), where the v1 review records become its calibration dataset.
 
-**Screener checks:** open-source alignment (all projects public MIT; commercial or closed-source-for-resale work is prohibited; a confidential-codebase need is a categorical decline RECOMMENDATION); nonprofit purpose against the vetted profile; scope reasonableness against the complexity tier (abusive scope caught here); acceptable use (no surveillance, spam, illegal use); data-tier correctness (Tier-2 requires a fixtures-only plan); and Discovery risk flags. It produces a decision with reasons and an uncertainty signal for routing. **The screener never produces a terminal outcome:** a categorical finding is never auto-approved and routes to the founder exception queue pre-flagged for one-click terminal decline — the founder remains the only terminal actor (the existing triage exits in REQ-005.5 are the complete set).
+**Advisory pass (evidence, never authority):** at publish, a structured AI review evaluates the final scope snapshot on six dimensions — open-source alignment (all projects public MIT; commercial or closed-source-for-resale work is prohibited; a confidential-codebase need is flagged categorical); nonprofit purpose against the vetted profile; scope reasonableness against the complexity tier (abusive scope caught here); acceptable use (no surveillance, spam, illegal use); data-tier correctness (Tier-2 requires a fixtures-only plan); and Discovery risk flags. It attaches versioned per-check evidence to the queue item. It never transitions project state, never emits an approve/decline recommendation (evidence only), and its unavailability never blocks review — the reviewer proceeds unaided.
 
 **Acceptance criteria:**
-- [ ] Publishing routes to the screener, never directly to the marketplace.
-- [ ] **Confident-clean → auto-approved → `open`**, with a screener-written audit record (checks, rationale, version).
-- [ ] **Tier-2 never auto-approves** — it always routes to the founder.
-- [ ] **Non-decided → the founder exception queue** (findings pre-surfaced), reviewed promptly. Two outcomes: **return to `scoped`** (a reason note to the NGO; editing and republishing re-enters the screener and stays invisible; prior notes visible) or **terminal decline** (non-remediable — cannot be edited and resubmitted).
-- [ ] Every human decision is recorded: reviewer, timestamp, decision, reason, data tier, scope snapshot.
-- [ ] Auto-approved items are surfaced for post-hoc spot-check; exception items expose their age; a break-glass unpublish recovers (REQ-031).
-- [ ] Screener threshold + model configuration (same model family as OD-7): **[DECISION: OD-8 — pilot-tuned.]**
-- [ ] NGO copy: clean publishes go live immediately; exceptions show an "under review" state with no formal SLA.
+- [ ] Publishing routes every project into the review queue, never directly to the marketplace; the project stays publicly invisible until a human decision.
+- [ ] The reviewer has exactly three actions: **approve → `open`**, **return to `scoped`** (a reason note to the NGO; editing and republishing re-enters review and stays invisible; prior notes visible), or **terminal decline** (non-remediable — cannot be edited and resubmitted).
+- [ ] Every decision is recorded: reviewer, timestamp, decision, reason, per-check dispositions, policy version, advisory output + version (or its recorded absence), data tier, scope snapshot — the record doubles as RM-64's evaluation dataset.
+- [ ] Queue items expose their age; the internal review target is end of the next business day (an ops target, never an NGO-facing SLA). v1 names no backup reviewer — the queue pauses during founder absence, a knowingly accepted limit.
+- [ ] A break-glass unpublish recovers an erroneous approval (REQ-031).
+- [ ] NGO copy: every publish shows an "under review" state with no formal SLA; marketplace visibility begins only at approval.
 
 ---
 

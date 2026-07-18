@@ -16,7 +16,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 **Discovery & Publishing:**
 - REQ-004 — Discovery Agent: free within the daily allowance; complexity tier only, no dollar estimate.
 - REQ-005 — Scope doc + publishing into triage.
-- REQ-023 — Automated triage screener + founder exception queue; threshold = OD-8.
+- REQ-023 — Founder-decided triage with a no-authority AI advisory pass; the autonomous screener is deferred (→ RM-64).
 
 **Funding & Money:**
 - REQ-006 — Stripe top-up + fuel ledger + match-to-fund, non-cash and no-cash-out; leftover auto-applies at checkouts; no donation flow; chargeback handling + first-fund caps (→RM-19); no refunds (→RM-7).

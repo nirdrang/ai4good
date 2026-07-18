@@ -1,0 +1,123 @@
+{
+  "verdict": "advisory-only",
+  "reasoning_holes": [
+    "Same human workload is false under the current text. REQ-023 says the founder attends only non-decided cases; auto-approvals receive a one-line daily surface and unspecified post-hoc spot-checking, not mandatory full review.",
+    "The d68 analogy is incomplete. The candidacy window addressed a low-volume fairness problem; triage is a defense against high-severity public policy exposure. Low volume weakens the automation ROI but does not make the control redundant.",
+    "The three AI gates have different jobs. Discovery checks product fit before scope creation, REQ-036 checks PRD completeness after matching, and triage checks the final NGO-edited publication against policy and the vetted profile.",
+    "Discovery does not cover the full triage policy surface. It explicitly handles maintainability, confidential-codebase needs, and initial data classification, but not project-purpose/profile mismatch, abusive scope relative to tier, or the complete surveillance/spam/illegal-use policy.",
+    "The scope is editable after Discovery. A publish-time review is the only control over policy problems introduced through edits, even though that review may be human.",
+    "Founder-only review creates a hard marketplace SPOF. A same/next-business-day internal target measures delay but does not provide coverage during illness, vacation, or overload.",
+    "Manual decisions become useful labels only if the review captures structured per-check dispositions, policy version, final scope snapshot, and override rationale. A generic approve/return/decline record is weak training or evaluation data.",
+    "Human decisions are not ground truth by default: founder inconsistency, anchoring, class imbalance, and policy drift can contaminate the dataset.",
+    "Removing auto-approval does not remove the need for listing-level emergency takedown. REQ-031 currently hides repositories, while AT-023 already flags that a newly open project may have no repository.",
+    "Manual review of every publish conflicts with Platform Promise §8 as written: automation first, only ambiguous cases reach an admin, and routine admin involvement is disfavored."
+  ],
+  "steelman": [
+    "The screener provides synchronous publication for clean cases and prevents review latency from dissipating NGO momentum.",
+    "It prevents founder absence from freezing the entire open-project pipeline.",
+    "It applies a versioned rubric consistently to every final edited scope and every republish.",
+    "It is an independent defense after Discovery errors, misleading intake answers, or policy-changing edits.",
+    "Its check-level findings, rationale, model version, and uncertainty records are materially better calibration artifacts than unstructured human outcomes.",
+    "Conservative routing already limits authority: any policy finding, uncertainty, or Tier-2 classification blocks auto-approval, while terminal decisions remain human.",
+    "A cheap middle exists: run one structured, non-authoritative review at publish, show evidence by policy dimension, and require the human reviewer to make every transition. No confidence threshold, auto-approval, uncertainty routing, or spot-check subsystem is needed.",
+    "The advisory output should avoid an approve/decline recommendation and expose evidence instead, reducing automation bias while preserving consistency and future shadow-evaluation data."
+  ],
+  "breakage": [
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — Platform Promise §8",
+      "what": "Automation-first and only-ambiguous-cases-reach-admin language conflicts with universal manual triage. Add an explicit pilot compliance-gate exception and account for review time in the admin target."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — Story 1",
+      "what": "Publishing currently says it lists the project publicly. It must instead submit the project to triage; marketplace visibility begins only after reviewer approval."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — REQ-004",
+      "what": "Triage still confirms the data tier, but the actor and confirmation rubric must become explicit. Discovery remains only the initial classifier and does not replace final-snapshot review."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — REQ-005.5",
+      "what": "Replace screener-driven triage→open with reviewer approve→open; route every publish into the review queue; retain reviewer return→scoped and terminal decline→cancelled; republish re-enters review. The founder gains the third outcome that AT-023.21 currently forbids."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — REQ-005",
+      "what": "Delete clean-projects-go-live-immediately and exception-only wording. Every publish remains invisible and under review until approval."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — REQ-023",
+      "what": "Rewrite the whole section around mandatory human decisions. For the winning option, retain the six check dimensions as non-authoritative advisory findings; remove confidence routing, OD-8, auto-approval, Tier-2 special routing, screener decision records, and post-hoc auto-approval spot-checking. Preserve human audit records and queue age."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — REQ-036",
+      "what": "REQ-036 itself remains intact, but the triage reuse and same-model-family coupling disappear. Remove REQ-036 as an AT-REQ-023 dependency unless shared implementation is intentionally retained."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — REQ-016",
+      "what": "Replace triage auto-approved with reviewer approved; add publish-under-review and approval events while retaining returned and terminally declined notifications."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — MVP scope, OD register, and risk register",
+      "what": "Replace the automated-screener launch item, retire OD-8 as a routing threshold, and change the malicious-NGO mitigation to mandatory reviewer approval assisted by structured findings."
+    },
+    {
+      "where": ".taskmaster/docs/acceptance/at-req-023.md",
+      "what": "The file contains 22 active P0 IDs, not 19. Rewrite 01 for review/advisory routing; preserve 02–08 and 22 as observable advisory-check tests; delete threshold/route-class test 09; replace auto-approval tests 10 and 20 with human approval and audit tests; make 11 apply to every publish; reverse 21 to allow exactly approve/return/decline; retain 12–14 and 16; delete 15; separate 17 into a general listing-takedown requirement; remove OD-8 from 18; rewrite 19 so both clean and flagged publishes show under review until a decision. Rewrite the coverage map."
+    },
+    {
+      "where": ".taskmaster/docs/acceptance/at-req-005.5.md",
+      "what": "Rewrite 15 as reviewer approval→open, 16 as every publish entering the reviewer queue, 17 as republish re-entering review/advisory, and 19 as the universal human-review invariant rather than Tier-2-only routing. Remove screener-worker wording from 02, add approve to founder authorization test 47, and update the coverage map."
+    },
+    {
+      "where": ".taskmaster/docs/acceptance/at-req-005.md",
+      "what": "Rewrite 10 from immediate screener approval to reviewer approval, make 11 apply to every publish, replace re-enters-the-screener in 14 with re-enters review/advisory, and update the coverage map."
+    },
+    {
+      "where": ".taskmaster/docs/acceptance/at-req-004.md",
+      "what": "AT-004.51 survives, but must assert human confirmation of the Discovery tier at triage. It should cover post-Discovery edits and under-declaration rather than imply another automated classifier."
+    },
+    {
+      "where": ".taskmaster/docs/prd-mvp.md — REQ-031 and AT-023.17",
+      "what": "Do not silently delete recovery. Define a founder/reviewer break-glass action that hides the marketplace listing independently of repository visibility; human approval can also be wrong."
+    },
+    {
+      "where": ".taskmaster/docs/architecture-notes.md and .taskmaster/docs/requirements/req-004.md, req-005.md, req-005.5.md, req-023.md",
+      "what": "Architecture notes still specify confidence, OD-8, exception-only review, and one-line auto-approval review. Re-extract all isolated requirement copies after the source PRD changes."
+    },
+    {
+      "where": ".taskmaster/docs/roadmap.md",
+      "what": "Add a distinct autonomous-triage item with a volume trigger and calibration gate. Reconcile it with RM-53 self-attestation/spot-check and RM-57 KYC auto-approval so three incompatible bypass strategies do not coexist."
+    },
+    {
+      "where": ".taskmaster/docs/prd-new.md and loop/state/decisions.jsonl",
+      "what": "prd-new mirrors the old lifecycle, REQ-023, notifications, build plan, OD-8, risk, and decision-29/r4. Record a new ruling that supersedes d29/r4 and the screener-specific portion of d73 while preserving d73's human-only terminal-safety principle."
+    }
+  ],
+  "checks_with_no_remaining_home": [
+    "Nonprofit purpose against the NGO's vetted profile: vetting establishes the NGO, but no other automated control compares each final project to that profile.",
+    "Scope reasonableness against the declared complexity tier and abusive-scope detection.",
+    "Acceptable-use screening for surveillance, spam, and illegal use.",
+    "Commercial or closed-source-for-resale intent in the final edited scope. REQ-005 structurally enforces public MIT, and Discovery declines confidential-codebase needs, but neither fully checks business intent.",
+    "Independent detection of an under-declared data tier after scope edits. Discovery assigns the initial tier, but without triage automation there is no second automated verifier.",
+    "Validation that a Tier-2 scope contains an adequate fixtures-only plan, beyond the Discovery-generated rule and disclosure.",
+    "Automated action on Discovery risk flags. The flags remain visible, but only the human reviewer interprets them."
+  ],
+  "workload_math": "Let N be publishes per week, q the current exception rate, s the fraction of clean auto-approvals receiving a full spot-check, t full-review minutes, and l one-line skim minutes. Current workload is approximately N×[q×t+(1−q)×(s×t+(1−s)×l)]; universal manual review is N×t. The increase is approximately N×(1−q)×(1−s)×(t−l). Workload is equal only if s=1 and every spot-check is already a full review, which contradicts the PRD's founder-attends-only-non-decided and one-line-review wording. The absolute increase may still be small at pilot volume, but the PRD supplies no publish-rate, exception-rate, sample-rate, or review-time measurements, so the claim cannot be quantified honestly yet.",
+  "dataset_argument": "sound — manual-first can generate launch-distribution labels without exposing projects to uncalibrated auto-approval, but only if decisions use a versioned rubric and store per-check dispositions, evidence, final scope snapshots, and override reasons. Founder outcomes alone are sparse, biased labels rather than ground truth. Advisory shadow outputs plus policy fixtures are more useful than manual-only records because they permit direct false-positive/false-negative evaluation before authority is enabled.",
+  "ranking": [
+    "1. advisory-only",
+    "2. remove",
+    "3. keep-decision-maker"
+  ],
+  "minimal_change_set": [
+    "Rewrite REQ-023 so every publish enters triage and a structured AI review may produce versioned evidence by check, but cannot transition project state, recommend a terminal outcome, or block manual fallback when the model is unavailable.",
+    "Give the authorized reviewer exactly three actions: approve→open, return→scoped with reason, and non-remediable decline→cancelled. Keep founder as primary but define a preauthorized backup reviewer or explicitly accept pipeline freeze during founder absence.",
+    "Retain the human audit record and add per-check dispositions, policy version, advisory output/version, and human override rationale so the records are usable for evaluation.",
+    "Set a concrete internal review target such as end of next business day, expose queue age and escalation internally, and keep NGO copy limited to under review with no formal SLA.",
+    "Remove OD-8, uncertainty routing, auto-approval, Tier-2-never-auto special machinery, post-hoc auto-approval spot-checking, and clean-publishes-go-live-immediately copy.",
+    "Preserve structural public-MIT enforcement and add listing-level break-glass takedown for erroneous human approvals.",
+    "Update REQ-005.5, REQ-005, REQ-016, Story 1, Promise §8, the MVP/risk/OD sections, architecture notes, isolated requirement copies, and the mapped acceptance tests.",
+    "Add autonomous triage to the roadmap with explicit activation evidence: sustained review-volume breach, enough adjudicated examples, per-check false-negative targets, bias review, rollback behavior, and a decision on how it interacts with RM-53 and RM-57.",
+    "Record the new decision as superseding d29/r4 and the screener-specific mechanics of d73."
+  ],
+  "rationale": "Keeping autonomous approval in v1 is not justified without calibrated launch-distribution evidence, and the downside is immediate public policy exposure. Removing all machine assistance discards a useful final-snapshot second opinion and produces poorer future evaluation data. A non-authoritative, evidence-only advisory pass preserves most consistency, audit, and learning value while every marketplace transition remains a human decision. It does not solve founder availability, so reviewer continuity is a launch requirement rather than an optional operational detail."
+}
