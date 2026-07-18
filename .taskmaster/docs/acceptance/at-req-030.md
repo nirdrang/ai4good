@@ -7,8 +7,8 @@ Source: requirements/req-030.md (prd-mvp.md REQ-030). Dependencies: REQ-006, REQ
 ## A. Operating model
 
 - **AT-030.01 (P0)** — Given the pilot operating model, When its documentation is inspected, Then the on-call owner (the founder) and a documented escalation tree exist; and Given an incident is opened, Then it exists as a first-class ops work item (queryable, with state), not a chat message or email.
-- **AT-030.02 (P0)** — Given seeded money fixtures (a funding event, metered consumption, the platform share, a reconciliation run, and a chargeback), When the one v1 dashboard renders, Then it is the money dashboard and each of the five areas displays its fixture value; and no second operational dashboard exists (absence probe).
-- **AT-030.03 (P0)** — Given the v1 monitoring posture, When probed, Then NO job-heartbeat surface, NO invariant pager, and NO operator-paging integration exists (three absence probes); and the stated detection paths exist: the money dashboard is readable, an induced error-rate spike raises the error-spike alert, and reconciliation runs without being manually invoked (controlled trigger).
+- **AT-030.02 (P0)** — Given seeded money fixtures (a funding event, metered consumption, the platform share, a reconciliation run, and a chargeback), When the one v1 dashboard renders, Then it is the money dashboard and each of the five areas displays its fixture value; no second operational dashboard exists (absence probe); and the ops documentation names the founder's DAILY money-dashboard review — owner and daily cadence explicit. [cx: the founder-read-daily clause had no assertion — documented-procedure check added]
+- **AT-030.03 (P0)** — Given the v1 monitoring posture, When probed, Then NO job-heartbeat surface, NO invariant pager, and NO operator-paging integration exists (three absence probes); and the stated detection paths exist: the money dashboard is readable, an induced error-rate spike raises the error-spike alert, and reconciliation runs without being manually invoked (controlled trigger). **[TENSION → codex pass: REQ-009's watchdog says "the admin is paged" on stale usage data / unconfirmed key flip — collides with REQ-030's "no operator paging". Reconciling candidate: REQ-030's ban targets a routine monitoring FRAMEWORK; the watchdog page is a named money-safety exception delivered as a REQ-016 notification. Held for the batch-5 adversarial evaluation.]**
 
 ## B. Runbooks & cards
 
@@ -17,9 +17,9 @@ Source: requirements/req-030.md (prd-mvp.md REQ-030). Dependencies: REQ-006, REQ
 
 ## C. Automatic money corrections
 
-- **AT-030.06 (P0)** — Given a decidable ledger divergence (Stripe shows a top-up the ledger missed — fixture), When reconciliation runs, Then a balanced correction posts automatically with NO human step and NO correction UI in the path, traceable to its authoritative source (the Stripe record), and it appears on the money dashboard. [cross: AT-006 owns the ledger arithmetic]
-- **AT-030.07 (P0)** — Given the three provider-truth authorities, When each divergence class is seeded (money-in vs Stripe including a chargeback; AI spend vs Anthropic billed cost; an internal pairing gap), Then each auto-conforms to ITS authority — Stripe wins money-in, Anthropic wins AI spend, pairing arithmetic closes the internal gap.
-- **AT-030.08 (P0)** — Given every platform role including the platform admin, When each attempts a direct ledger write, Then each is rejected — the one guarded, idempotent, audited function is the only posting path; and When the same correction is submitted to that function twice (replay), Then exactly one posting results.
+- **AT-030.06 (P0)** — Given a decidable ledger divergence (Stripe shows a top-up the ledger missed — fixture), When reconciliation runs, Then a balanced correction posts automatically with NO human step, traceable to its authoritative source (the Stripe record), and it appears on the money dashboard; and When the whole application is probed (routes, navigation, admin surfaces, correction-action endpoints), Then NO correction UI exists ANYWHERE — not merely outside this path. [cx: app-wide absence probe — an unused correction UI could have passed the in-path-only check] [cross: AT-006 owns the ledger arithmetic]
+- **AT-030.07 (P0)** — Given the three provider-truth authorities, When each divergence class is seeded (money-in vs Stripe including a chargeback; AI spend vs Anthropic billed cost; an internal pairing gap), Then each auto-conforms to ITS authority — Stripe wins money-in, Anthropic wins AI spend, pairing arithmetic closes the internal gap — and EACH correction persists a reference to its authoritative source and produces its own money-dashboard correction entry. [cx: balanced/traceable/dashboard asserted per divergence class, not only for the .06 top-up]
+- **AT-030.08 (P0)** — Given every platform role including the platform admin, When each attempts a direct ledger write, Then each is rejected — the guarded function is the only posting path; When a correction posts through it, Then exactly one retrievable audit record exists tied to that correction and its authoritative-source reference; and When the same correction is submitted twice (replay), Then exactly one posting AND exactly one posting audit event result. [cx: "audited" made independently judgeable]
 - **AT-030.09 (P0)** — Given a posted correction, When the founder's surfaces are probed, Then NO approval queue and NO pending-approval state exists anywhere — visibility only; and Given LARGE drift (above the configured threshold — fixture) and small drift (below), Then only the large drift additionally notifies the platform admin. [cross: REQ-016 owns delivery]
 - **AT-030.10 (P0)** — Given undecidable drift (provider data MISSING, and separately SELF-CONTRADICTORY — two fixtures), When reconciliation runs, Then the books are untouched (ledger byte-identical before/after), the item surfaces on the money dashboard, and the platform admin is notified — never auto-resolved, never guessed.
 
@@ -32,13 +32,13 @@ Source: requirements/req-030.md (prd-mvp.md REQ-030). Dependencies: REQ-006, REQ
 | REQ-030 clause | Tests |
 |---|---|
 | On-call + escalation tree named; incidents first-class ops items | 01 |
-| One v1 dashboard = money dashboard (funding/consumption/share/reconciliation/chargebacks); founder-read daily is a documented human procedure (not machine-asserted) | 02 |
-| No monitoring framework (heartbeats/pagers/paging absent); detection = dashboard + error-spike alert + automatic reconciliation | 03 |
+| One v1 dashboard = money dashboard (funding/consumption/share/reconciliation/chargebacks); founder daily review documented (owner + cadence) | 02 [cx] |
+| No monitoring framework (heartbeats/pagers/paging absent); detection = dashboard + error-spike alert + automatic reconciliation — REQ-009 watchdog-page tension HELD for the codex pass | 03 [tension] |
 | Three runbooks (backup-4h, key rotation + mass revocation, Lovable outage) + three one-page cards | 04 |
 | Credential-compromise card: freeze reference files → breach clock (discovery time; counsel/statutory if PII) → reconcile window before unfreezing money | 05 |
-| Corrections fully automatic: no UI, no human step; balanced + traceable; dashboard-visible | 06 |
-| Provider-truth hierarchy: Stripe money-in (incl. chargebacks), Anthropic AI spend, pairing arithmetic | 07 |
-| One guarded idempotent audited posting function; direct writes revoked from every role | 08 |
+| Corrections fully automatic: no human step; NO correction UI anywhere (app-wide probe); balanced + traceable; dashboard-visible | 06 [cx] |
+| Provider-truth hierarchy: Stripe money-in (incl. chargebacks), Anthropic AI spend, pairing arithmetic — each class traceable + dashboard-visible | 07 [cx] |
+| One guarded idempotent AUDITED posting function (audit record asserted; replay = one posting + one audit event); direct writes revoked from every role | 08 [cx] |
 | Visibility never approval; large drift → admin notification | 09 |
 | Refusal-to-guess: undecidable drift untouched + surfaced + notified | 10 |
 | AUP deactivation recovery documented and working (re-enable + re-issue) | 11 |
