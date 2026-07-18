@@ -6,9 +6,9 @@ Source: requirements/req-027.md (prd-mvp.md REQ-027). Dependencies: REQ-005.5, R
 
 ## A. Triggers
 
-- **AT-027.01 (P0)** — Given an `in_progress` project with no repo activity AND no task movement for 14 days (controlled clock), When the check runs, Then the reminder fires; just before 14 days, it has not.
+- **AT-027.01 (P0)** — Given an `in_progress` project with no repo activity AND no task movement for 14 days (controlled clock), When the check runs, Then the reminder fires; just before 14 days, it has not; and Given a recent code push OR a recent task movement inside the window (two more fixtures), Then NO reminder fires — the reminder uses the same AND-silence predicate as the release. [cx: wrong-OR-predicate negatives added at the reminder threshold]
 - **AT-027.02 (P0)** — Given continued dual silence reaching 21 days, When the check runs, Then auto-release fires; either a code push OR a task movement inside the window prevents it — the trigger requires silence in BOTH signals. [cross: AT-005.5.30/53 own the release + activity-prevents mechanics]
-- **AT-027.03 (P0)** — Given a project that spends time in `matched_pending_fuel` or returns briefly to `open` (fixtures), When inactivity is computed, Then only time spent `in_progress` counts — the clock pauses outside `in_progress`.
+- **AT-027.03 (P0)** — Given a project outside `in_progress` (in `matched_pending_fuel`, and separately re-opened — two fixtures), When time passes there (controlled clock), Then no inactivity time accrues and no reminder or release fires while outside `in_progress`. [cx: cross-stint pause/resume semantics removed — the requirement defines no carry-over between volunteer stints; only the no-accrual-outside-in_progress fact is stated]
 - **AT-027.04 (P0)** — Given a manual release, When either the owning NGO or the assigned volunteer initiates it WITH a reason, Then it succeeds for both actors; without a reason, it is rejected. [cross: AT-005.5.47 owns the wrong-actor matrix]
 
 ## B. Release mechanics
@@ -24,20 +24,20 @@ Source: requirements/req-027.md (prd-mvp.md REQ-027). Dependencies: REQ-005.5, R
 
 ## D. Rematch & notifications
 
-- **AT-027.10 (P0)** — Given the release completes, When the project re-lists, Then it is `open` with concierge rematch priority (observable flag on the matching queue), the NGO is notified, and the prior match records are closed in the match log. [cross: AT-005.5.33/AT-007.17]
-- **AT-027.11 (P0)** — Given the full timeline, When each notification moment arrives, Then the three fire: the 14-day reminder, the released notice, and the rematch-available notice. [cross: REQ-016 owns delivery]
+- **AT-027.10 (P0)** — Given a TIMEOUT release and a MANUAL release (two fixtures), When each project re-lists, Then in BOTH cases it is `open` with concierge rematch priority (observable flag on the matching queue), the NGO is notified, and the prior match records are closed in the match log. [cx: parameterized over both release paths — a manual-release implementation could have skipped the downstream] [cross: AT-005.5.33/AT-007.17]
+- **AT-027.11 (P0)** — Given both release paths, When each notification moment arrives, Then the released notice and the rematch-available notice fire for BOTH paths, and the 14-day reminder fires for the timeout path only. [cx: per-path notification matrix] [cross: REQ-016 owns delivery]
 
 ## Coverage map
 
 | REQ-027 clause | Tests |
 |---|---|
-| 14d reminder / 21d auto-release; inactivity = no repo activity AND no task movement | 01, 02 |
-| Clock runs only while in_progress | 03 |
+| 14d reminder / 21d auto-release; AND-silence predicate proven at BOTH thresholds | 01, 02 |
+| No accrual/reminder/release outside in_progress | 03 |
 | Manual release by either party, reason required | 04 |
 | Release revokes platform-controlled access as its own action (no suspension dependency) | 05 |
 | Lovable removal = NGO on platform prompt | 06 |
 | Tasks → backlog; done work + history preserved | 07 |
 | Fuel stays on the project — no refund | 08 |
 | Ghosting vs for-cause: distinct records; reputation semantics (signal vs no automatic penalty) | 09 |
-| Re-open with rematch priority; NGO notified; prior matches closed in log | 10 |
-| Notifications: reminder / released / rematch available | 11 |
+| Re-open with rematch priority; NGO notified; prior matches closed — BOTH release paths | 10 |
+| Notifications per path (reminder timeout-only; released + rematch both) | 11 |

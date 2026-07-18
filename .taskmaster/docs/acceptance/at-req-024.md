@@ -8,7 +8,8 @@ Source: requirements/req-024.md (prd-mvp.md REQ-024, incl. d67/d69/d71 amendment
 
 - **AT-024.01 (P0)** — Given the assigned volunteer, When they raise a blocker with type, severity, title, and body, Then the blocker exists with all four fields and the project's blocker count increments.
 - **AT-024.02 (P0)** — Given an open blocker, When resolution is attempted without a note, Then it is rejected; with a note, Then it resolves and the note persists on the record.
-- **AT-024.03 (P0)** — Given each role named by the AC, When the NGO raises a blocker type available to it and resolves one assigned to it (e.g. awaiting-NGO-review), Then both work — raising and resolving work for both roles, per type rules.
+- **AT-024.03 (P0)** — Given the two roles, When the volunteer raises a blocker (persisted with actor=volunteer) and resolves one, and the NGO raises an available type (persisted with actor=NGO) and resolves an awaiting-NGO-review blocker (state flips to resolved with the NGO as resolver), Then each of the four operations shows its concrete persisted result. [cx: split into role-specific operations with observable state assertions]
+- **AT-024.27 (P0)** — Given each v1 manual type in turn, When exercised per its rules, Then: a clarifying question can be raised by the DEV only (an NGO attempt does not create one) and resolves manually; awaiting-NGO-review resolves by the NGO; external dependency carries its dependency context; and a GitHub-collaborator blocker stays open until the NGO confirms access AND the resolution note is recorded. [cx: added — the per-type catalog had no parameterized coverage]
 - **AT-024.04 (P0)** — Given the manual catch-all type, When raised, Then it requires a per-instance action-owner; and When the owner chosen is admin/ops, Then the ops work item is created immediately. [cross: REQ-030]
 - **AT-024.05 (P0)** — Given every NGO-facing free-text surface of a blocker (raise form, Q&A, resolution note), When each renders, Then it carries the Tier-1/Tier-2 warning: never paste beneficiary data, passwords, keys, or live credentials.
 - **AT-024.06 (P0)** — Given a blocker's conversation, When probed, Then it consists of the blocker's Q&A plus the project comment thread — no separate chat channel exists (absence).
@@ -25,8 +26,8 @@ Source: requirements/req-024.md (prd-mvp.md REQ-024, incl. d67/d69/d71 amendment
 
 - **AT-024.12 (P0)** — Given a blocker is raised, Then the NGO admins are notified; Given the fuel blocker turns blocking, Then an admin is also notified; Given any blocker resolves, Then both parties are notified. [cross: REQ-016 owns delivery]
 - **AT-024.13 (P0)** — Given an unresolved blocker (controlled clock), When 48h pass, Then a reminder fires; just before 48h, none has.
-- **AT-024.14 (P0)** — Given the same blocker unresolved at 7 days, Then it escalates to an admin and the project is flagged at-risk; just before 7d, neither has happened.
-- **AT-024.15 (P0)** — Given a Lovable-setup blocker aging, When it ages, Then the NGO and volunteer are notified first, and an admin is involved ONLY after 7 days of MUTUAL silence — activity by either party before 7d prevents the admin escalation (two fixtures: silence vs one-party activity). [cross: AT-008.05]
+- **AT-024.14 (P0)** — Given a NON-Lovable-setup blocker unresolved at 7 days, Then it escalates to an admin and the project is flagged at-risk; just before 7d, neither has happened. [cx: scoped — Lovable-setup follows its own mutual-silence rule in .15]
+- **AT-024.15 (P0)** — Given a Lovable-setup blocker aging, When it ages, Then the NGO and volunteer are notified first, and an admin is involved ONLY after 7 days of MUTUAL silence — activity by either party before 7d prevents the admin escalation (two fixtures: silence vs one-party activity). This test is the authoritative home of the mutual-silence rule. [cx: circular AT-008.05 delegation removed]
 - **AT-024.16 (P0)** — Given open blockers at completion, When the project completes, Then all auto-archive.
 
 ## D. Clarifying questions
@@ -37,22 +38,24 @@ Source: requirements/req-024.md (prd-mvp.md REQ-024, incl. d67/d69/d71 amendment
 
 ## E. Surfaces
 
-- **AT-024.20 (P0)** — Given a project with two blockers (highest severity `warning`), When the project page, the in-progress showcase card, and the NGO dashboard render, Then each shows presence, count 2, and highest severity — and the OPEN-project marketplace card shows no blocker signal (fixture probe). [cross: AT-011.08 owns the chip's leak-free form]
+- **AT-024.20 (P0)** — Given an `in_progress` project with two blockers (highest severity `warning`) AND an `open` project with one blocker (two fixtures), When the surfaces render, Then: the in-progress project shows presence/count/highest-severity on its page, showcase card, and NGO dashboard; the open project shows them on its public page and NGO dashboard while its marketplace card shows NO blocker signal. [cx: the open-project page/dashboard visibility half added — only the card-absence was tested] [cross: AT-011.08 owns the chip's leak-free form]
 - **AT-024.21 (P0)** — Given the NGO dashboard with blockers of mixed severities and ages (fixtures), When it renders, Then they aggregate by severity then age, and items unresolved past 48h carry the added prominence.
-- **AT-024.22 (P0)** — Given work blocked on NGO action and separately on fuel (two fixtures), When cadence stats render, Then each notes the blocked-on cause. [cross: REQ-010.16-18]
+- **AT-024.22 (P0)** — Given work blocked on NGO action and separately on fuel (two fixtures), When cadence stats render, Then each notes the blocked-on cause — this test owns the blocked-cause rendering. [cx: wrong REQ-010 delegation removed]
+- **AT-024.28 (P0)** — Given the in-progress fixture of AT-024.20, When the highest-severity blocker is resolved, Then count and highest severity recompute on ALL three surfaces; When the final blocker is resolved, Then every surface shows the zero state — surfaces reflect current state dynamically, not just at render time. [cx: added — all fixtures were static]
 - **AT-024.23 (P0)** — Given the showcase chip, When rendered, Then it is noninteractive and carries only count + a severity from `info / warning / blocking` — never type, title, body, or acting party; and its ABSENCE after successful load means zero open blockers (zero-state unambiguous). [d71] [cross: AT-011.08]
 
 ## F. Independence, credit & release cleanup
 
 - **AT-024.24 (P0)** — Given a blocker raised and resolved on an `in_progress` project, When lifecycle state is read throughout, Then it never changes on account of the blocker. [cross: AT-005.5.38 owns the state assertion]
-- **AT-024.25 (P0)** — Given two completed projects — one with a heavy blocker history, one with none, When public completion credit renders for both volunteers, Then it is identical in form and value — blockers never reduce public completion credit.
-- **AT-024.26 (P0)** — Given an abandonment release with open volunteer-tied blockers (awaiting-volunteer fixture) and one NGO-tied blocker, When the project re-lists, Then the volunteer-tied blockers are archived or retargeted (none renders on any public surface) while the NGO-tied blocker survives correctly targeted. [d71 release cleanup] [cross: AT-005.5.30]
+- **AT-024.25 (P0)** — Given two completed projects — one with a heavy blocker history, one with none, When each volunteer's durable completion-credit event/counter and private confirmation are read, Then the counter carries no blocker-derived decrement and the private confirmation is unchanged — blockers never reduce completion credit; no public credit surface exists in v1. [cx: corrected — REQ-014 forbids public credit display in v1; the original test invented one]
+- **AT-024.29 (P0)** — Given a volunteer whose inactivity window overlaps an open awaiting-NGO blocker (fixture), When the internal reputation/outreach record is read, Then the waiting-on-someone-else period is distinguishable from ghosting on that record — and no public rating exists and no completion credit changed. [cx: added — the separation-feeds-reputation clause had no test] [cross: AT-027.09 owns the ghosting flag semantics]
+- **AT-024.26 (P0)** — Given an abandonment release with three open blockers — one volunteer-tied (awaiting-volunteer), one Lovable-setup-tied, one NGO-tied — When the project re-lists, Then the volunteer-tied and setup-tied blockers are each either ARCHIVED (absent everywhere) or RETARGETED (valid new owner, correctly represented on the required surfaces) — the invariant is that no STALE or OWNERLESS blocker renders anywhere public — while the NGO-tied blocker survives correctly targeted. [cx: archive-vs-retarget branches split (a valid retarget may render); setup-tied fixture added] [d71 release cleanup] [cross: AT-005.5.33 owns the re-listing]
 
 ## Coverage map
 
 | REQ-024 clause | Tests |
 |---|---|
-| Volunteer raises (type/severity/title/body); resolution requires note; both roles | 01–03 |
+| Volunteer raises (type/severity/title/body); resolution requires note; both roles (concrete per-role ops); per-type catalog (clarifying dev-only, NGO-review, external dependency, collaborator-until-NGO-confirms) | 01–03, 27 [cx] |
 | Catch-all action-owner; admin/ops → immediate ops item | 04 |
 | Tier warning on every NGO-facing free-text surface | 05 |
 | Q&A + comment thread only (no separate channel) | 06 |
@@ -60,10 +63,10 @@ Source: requirements/req-024.md (prd-mvp.md REQ-024, incl. d67/d69/d71 amendment
 | Auto-raised singleton per type; manual multiplicity | 08, 09 |
 | Lovable credits (read-driven raise, NGO-resolved); Lovable setup (auto-resolve on validation) | 10, 11 |
 | Notifications on raise/blocking/resolve | 12 |
-| 48h reminder; 7d admin escalation + at-risk | 13, 14 |
-| Lovable-setup mutual-silence aging | 15 |
+| 48h reminder; 7d admin escalation + at-risk (non-Lovable-setup) | 13, 14 [cx] |
+| Lovable-setup mutual-silence aging (authoritative here) | 15 [cx] |
 | Auto-archive at completion | 16 |
 | Clarifying questions: fields, variants, task-marking, continue-other-tasks, lifetime log | 17–19 |
-| Surfaces: page/showcase/dashboard presence-count-severity; open card none; aggregation + 48h prominence; cadence blocked-on notes; chip leak-free + zero-state | 20–23 |
-| Independent of lifecycle; never reduces public credit | 24, 25 |
-| Release cleanup (volunteer-tied archived/retargeted) | 26 |
+| Surfaces: page/showcase/dashboard presence-count-severity (in_progress AND open fixtures); open card none; aggregation + 48h prominence; cadence blocked-on notes (owned here); chip leak-free + zero-state; DYNAMIC recomputation | 20–23, 28 [cx] |
+| Independent of lifecycle; never reduces completion credit (durable counter + private confirmation — no public surface in v1); waiting-vs-ghosting separation feeds internal reputation | 24, 25 [cx], 29 [cx] |
+| Release cleanup (archive vs valid-retarget branches; setup-tied fixture; no stale/ownerless blocker public) | 26 [cx] |
