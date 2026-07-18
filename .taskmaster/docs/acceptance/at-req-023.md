@@ -40,7 +40,7 @@ Source: requirements/req-023.md (prd-mvp.md REQ-023, as rewritten by d74). Depen
 ## E. Oversight & NGO-facing copy
 
 - **AT-023.16 (P0)** — Given queue items of different ages (controlled clock), When the queue renders, Then each item exposes its age; the end-of-next-business-day target is an internal ops target with no NGO-facing surface. [d74: target named]
-- **AT-023.17 (P0)** — Given a wrongly APPROVED project (human error), When break-glass unpublish runs, Then the marketplace listing is no longer publicly reachable; the repo-hiding half is asserted per the break-glass-scope ruling (tension #9). [cx r2: pending scope ruling] [cross: REQ-031]
+- **AT-023.17 (P0)** — Given a wrongly APPROVED project (human error) — one pre-build with no repo and one in-build with a repo (two fixtures), When break-glass runs, Then every public surface (listing, showcase, public page) is no longer reachable in both cases, the repo is additionally hidden in the with-repo case, the lifecycle state is UNCHANGED, and an audit record exists; un-hide restores visibility with nothing else altered. [cx r2] [d75: finalized — break-glass is an audited reversible visibility switch, never a transition] [cross: REQ-031]
 - **AT-023.19 (P0)** — Given a clean publish and a flagged publish (two fixtures), When each NGO views its project pre-decision, Then BOTH show the "under review" state with copy promising no formal SLA; visibility begins only at approval — no publish is ever live before a decision. [d74: clean-goes-live-immediately is dead]
 
 ## Coverage map
@@ -56,5 +56,5 @@ Source: requirements/req-023.md (prd-mvp.md REQ-023, as rewritten by d74). Depen
 | Terminal decline (non-remediable) | 13 |
 | Decision record = RM-64 dataset fields | 14 |
 | Queue age + internal review target (no NGO SLA) | 16 |
-| Break-glass recovery of erroneous approvals (scope per tension #9) | 17 |
+| Break-glass recovery of erroneous approvals (d75: visibility switch — all public surfaces + repo-when-exists, state untouched, reversible, audited) | 17 |
 | Retired by d74: uncertainty routing (09), spot-check (15), decided-never-queued (20) | — |
