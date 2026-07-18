@@ -17,6 +17,7 @@ Names the operating model. (The audited-reversal requirement is removed — undo
 #### REQ-031: Content Moderation, Takedown & Secret Scanning
 v1 needs no automated takedown surface; the one real exposure — secrets in public repos — is covered.
 - v1: secret scanning and push protection org-wide; a founder **break-glass** emergency-takedown action (not a private-project feature). Break-glass is an audited, reversible VISIBILITY switch, never a lifecycle transition: one action hides the project from every public surface — the marketplace listing, the showcase card, and the public project page — and hides the repository when one exists. The project keeps its lifecycle state while hidden; the follow-up (return to the NGO, cancel, or un-hide) flows through the normal paths, and un-hide is the same audited action in reverse. It also recovers an erroneous triage approval (REQ-023).
+- The audited hide remains active across lifecycle transitions until founder reversal and applies whenever a repo exists — including one created or validated after a repo-less project was hidden; un-hide restores each controlled surface to the visibility appropriate for the project's CURRENT lifecycle state. Reversibility refers to controlled surfaces and canonical-repo visibility only — never prior copies, forks, granted MIT rights, or retroactive confidentiality (Promise §2). Secret scanning, push protection, and participant repo access continue unchanged while a hide is active.
 - (→ RM-36)
 
 #### REQ-032: Project Need Attachments (NGO reference files for Discovery + build)
