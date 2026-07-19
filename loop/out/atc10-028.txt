@@ -1,0 +1,9 @@
+You are an adversarial reviewer of an ACCEPTANCE-TEST document for ONE isolated requirement of the ai4good MVP PRD. THIS IS A POST-AMENDMENT VERIFICATION round: the requirement was rewritten by decision d82 (TWO-TREE Linear model: PM tree = requirement items, the only NGO-facing authority, pull -> In Progress, verified completion -> Done, detect-and-revert PM-scoped; DEV tree = the gated decomposition, vendor-native incl. merge-to-Done, revert-exempt, never NGO-facing; attribution binds pulled PM requirements only) and the AT suite was amended to match (amended tests marked [d82]; the banner at top summarizes). Your job: find residual STALENESS (tests still asserting the single-tree/task-level model), retarget ERRORS the amendment introduced, coverage gaps the new model creates (e.g., untested dev-tree exemption edges, PM/dev boundary leaks), and contradictions with the updated requirement text. Do NOT re-flag correctly amended tests or historical notes marked superseded.
+
+Read fully:
+PRIMARY (the UPDATED isolated requirement): .taskmaster/docs/requirements/req-028.md
+ACCEPTANCE TESTS (amended): .taskmaster/docs/acceptance/at-req-028.md
+CONFLICT-CHECK ONLY: .taskmaster/docs/prd-mvp.md
+
+OUTPUT ONLY this JSON (no prose before/after):
+{"req":"REQ-028 (ai4good Claude Code Skill (the volunteer's single operating surface))","round":"d82-verify","verdict":"solid|needs-fixes","issues":[{"type":"STALE|WRONG|MISSING|CONFLICT|COVERAGE","at":"AT-id or -","detail":"...","fix":"..."}]}
