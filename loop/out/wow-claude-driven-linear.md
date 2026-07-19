@@ -64,9 +64,24 @@ Every authority-bearing record lives in a system of record, never only on disk:
   them when it returns. Work continues meanwhile only on the already-claimed pull; new
   work runs as `exploration`/`unattributed` (no offline claims, no retroactive authority).
 
+## 1a. Hierarchy & the verb level (founder clarification, 2026-07-19)
+
+Initiative (wave) → Project (REQ) → optional parent issue (behavior cluster) → **WORK ITEM
+(leaf)**. `/next` and `/done` are an open/close BRACKET around ONE work item — the same
+object, the same level, always; they never touch parents, projects, or waves. Everything
+above the leaf is DERIVED: a parent issue closes automatically when its last child closes
+(the session writes it with a comment referencing the children — its evidence IS the
+children); a REQ project completes via its milestones, terminating in one ordinary final
+leaf — **"REQ-NN integration gate"** (verify set = the full AT suite at integration tier;
+UI-fronted REQs also carry a wiring leaf) — so even project completion is a normal `/done`
+with a bigger verify set. One mechanism at every level.
+
 ## 2. Status authorities
 
-- **In Progress — one authority: `/next`**, serialized by a machine-wide lock (a named
+- **In Progress — one authority: `/next`**, in two forms with ONE claim protocol:
+  `/next` (automatic: highest-priority unblocked unclaimed leaf, confirm-or-skip) and
+  `/next <issue>` (steered: the named item, after eligibility validation — unblocked,
+  unclaimed, a leaf). Both are serialized by a machine-wide lock (a named
   mutex both verbs take, so two sessions cannot interleave claims): freshness-read
   (`get_issue`: unassigned + unstarted) → human confirm → `save_issue` (assign + In
   Progress) → **pull-record comment** (the op marker) → re-read. If the re-read shows
@@ -159,12 +174,25 @@ Linear MCP down → §1 (wait-and-list; no offline claims). GitHub down → no m
 anyway; `/done` names the missing evidence. Crash mid-`/done` → §2 write order + R3.
 Forgotten `/done` → R1. Lost local state → rebuild from Linear + GitHub (§1).
 
-## 7. Session lifecycle
+## 7. Session lifecycle & the suggestive posture
 
 SessionStart: banner (binding + cheap reconcile + pending-intents list). UserPromptSubmit:
-the stamp. Verbs: `/next`, `/bind` (incl. remote-validated adoption), `/done`, `/blocked`,
-`/override` (non-Done/non-InProgress states only). Agent ring: conversational nudge on
-exploration→implementation drift; never blocks (d77).
+the stamp. Verbs: `/next` (auto or steered), `/bind` (incl. remote-validated adoption),
+`/done`, `/blocked`, `/override` (non-Done/non-InProgress states only).
+
+**Suggestive engine (founder direction):** authority-bearing verbs are ALWAYS
+human-invoked; the skill's job is to notice ripeness and PROPOSE. On each natural progress
+signal — verify set green → "open the PR?"; PR merged → "this looks ready for `/done`";
+`/done` complete → "pull the next? (`/next`)"; exploration turning into implementation →
+"bind it?" — the agent suggests ONCE per signal, never executes, never repeats a declined
+suggestion for the same signal. Written into the skill AND `CLAUDE.md` (P2 amendment).
+
+**Skill packaging (founder direction): one skill, shared core + two adapters.** The core
+is portable (bind/stamp per worktree, the pull-bracket discipline, the suggestive engine,
+honest buckets); the BUILDOUT adapter speaks Linear MCP + `gh` + this WoW's evidence gate;
+the PRODUCT adapter (later) speaks the platform APIs + the gateway key and becomes
+REQ-028's volunteer Skill — months of dogfooding pre-exercise AT-028's behaviors before
+any volunteer touches it.
 
 ## 8. Non-goals (explicit)
 
