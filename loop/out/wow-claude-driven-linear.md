@@ -1,6 +1,13 @@
 # Way-of-Work: Claude-Code-Driven Linear (no GitHub→Linear automation)
 
-v4 FINAL, 2026-07-19 — all three codex breaker rounds complete (wow-breaker-r1/r2/r3.json).
+v4.3, 2026-07-19 — v4 was the 3-round codex FINAL; v4.1/4.2/4.3 are founder rulings folded
+after review: verb hierarchy + suggestive engine + dual-mode /next (4.1), two-tier
+founder-as-NGO progress with the mandatory deliverable tier (4.2), and the TIER SPLIT (4.3):
+the GitHub integration closes tier-2 leaves (merge→Done, CI-gated pre-merge,
+detect-and-reverted post-hoc) while the skill exclusively enforces tier 1 — deliverables
+(derive-close + founder attestation) and requirements (the evidence-gated integration-gate
+leaf). This is REQ-026/d76 applied to ourselves.
+v4 baseline: all three codex breaker rounds complete (wow-breaker-r1/r2/r3.json).
 Round 3's one critical + two majors are folded below (marked [r3]); per the founder's
 3-round cap, the v3→v4 delta itself is NOT codex-re-evaluated — the residual risk is that
 delta, and it is small and mechanical. v3's design shift stands: ONE control machine,
@@ -17,7 +24,12 @@ files are caches only), no offline replay engine.
   end-state divergence (§5, narrowed claim) and corrected by the founder.
 - A3. Linear structure per the decomposition plan; bindings and evidence use immutable
   UUIDs alongside human identifiers.
-- A4. Linear's GitHub integration is not installed (or all status automations disabled).
+- A4. **(REVISED, founder ruling 2026-07-19 — the two-tier split):** Linear's GitHub
+  integration IS installed, configured exactly as the product's d76 rule: merge→Done ON
+  (tier-2 leaf closure), branch/PR→started OFF (In Progress remains `/next`'s monopoly).
+  The integration can only ever touch LEAF work items (no PR maps to a deliverable or
+  project); tier 1 is skill-enforced exclusively. Unmatched integration flips are
+  detect-and-reverted by reconcile (§5), mirroring REQ-026.
 - A5. **Attribution scope (founder decision):** the per-message stamp is ADVISORY in-band
   context — the client half of REQ-034 only. Transcripts retain it beside per-message
   usage for any later reader. No usage log or token accounting until the real gateway.
@@ -96,7 +108,21 @@ detail exists in the stamps and the op-marker trail for drill-down, never as the
   one machine), the later claimer surrenders: it posts nothing further, reverts ONLY a
   state it can prove it wrote (its own op UUID in the pull comment), else leaves state
   untouched and reports. Aborted claims are visible as an aborted-claim comment.
-- **Done — one authority: `/done`'s gate.** All of:
+- **Done — split by tier (founder ruling, v4.3):**
+  - **Leaf work items:** Done flips via the GitHub integration on PR merge. Rigor lives
+    BEFORE the merge (branch protection: the manifest's named CI checks — the verify set —
+    are REQUIRED to merge) and AFTER it (reconcile detect-and-revert: a flip without a
+    matching pull record — wrong branch, no claim, unrelated PR — is reverted, § 5 R2').
+    Leaf `/done` ceases to be a gate; the suggestive engine's ripeness nudge is "merge it."
+  - **Deliverables (tier 1):** derive-close when the last child closes, PLUS the FOUNDER
+    ATTESTATION — one confirmation per deliverable ("this is delivered"), recorded in the
+    deliverable's closing comment. The attestation moves here from the leaf level: an NGO
+    accepts deliverables, not commits.
+  - **The requirement's integration-gate leaf** (and wiring leaf) remains fully
+    skill-gated via `/done`'s evidence gate below — the integration never closes a
+    requirement.
+  - **`/done`'s evidence gate** (now applying to gate/wiring leaves and any leaf closed
+    without CI, e.g. Wave 0 pre-CI). All of:
   - E1. A merged PR matching the pull record: opened from the RECORDED branch, which
     `/next` created (or verified) CLEAN — **recorded branch tip == the fetched base OID at
     pull; pre-existing commits on the branch abort the pull** [r3 — ancestry proves
@@ -165,10 +191,15 @@ Local scratch logs are convenience copies. Reconcile reads the trail, not local 
     reported merge OID is reachable from `origin/main`, and for each with a matching pull
     record → "run /done".
   - R2 **end-state divergence** (narrowed claim): for every buildout issue, current status
-    must be explainable by its op-marker trail (Done ⇒ completion comment; In Progress ⇒
+    must be explainable by its op-marker trail (leaf Done ⇒ a merged PR matching the pull
+    record [the integration's flip is legitimate exactly when this holds]; In Progress ⇒
     pull comment; else backlog/Canceled ⇒ none or override). Divergence → founder
     correction queue. Explicitly NOT claimed: detecting transient flip-flops that return
     to the ledgered state (accepted v0 gap, A2 makes it low-risk).
+  - R2' **detect-and-revert (v4.3, mirrors REQ-026):** an integration Done flip with NO
+    matching pull record (unclaimed issue, wrong branch, unrelated PR) is REVERTED to its
+    prior state with an explanatory comment — the buildout's own version of the product's
+    rule that a Done not backed by a verified matching merge never survives.
   - R3 half-bundle repair (per §2, remote-evidence based, revalidating).
   - R4 decomp↔Linear drift vs manifests.
   - R5 linked-PR reverts since cursor → the §2 reopen flow.
