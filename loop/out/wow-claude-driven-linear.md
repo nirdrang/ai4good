@@ -276,6 +276,31 @@ Token counting/usage logs (A5); webhooks/daemons/servers; offline replay; multi-
 concurrency; transient-transition forensics (R2's narrowed claim); enforcement beyond the
 skill's own gestures.
 
+## 8a. Sync & evolution (founder-blocking question, resolved 2026-07-19)
+
+**One direction: git → Linear, always.** Linear holds pointers and working state, never
+original text — so "stale" is well-defined (behind the repo) and machine-detectable.
+
+- **The same-commit bundle:** a requirement change = pure-section edit → assembly
+  (PRD + isolates regenerate; warns if the AT file wasn't touched) → AT amendment →
+  manifest update → dNN → commit → artifact. The repo is then self-consistent; Linear is
+  knowably stale.
+- **The sync step (one command, same ritual):** for each affected PM item (IDs from the
+  manifest): rewrite the cover sheet, bump its **sync-stamp** (commit + dNN), post one
+  change comment, update relations. Small by design — cover sheets are pointers.
+- **The detector:** daily reconcile compares every PM item's stamp to the manifests;
+  behind → banner flag. A forgotten sync survives ≤ 1 day.
+- **By requirement state:** UNPULLED → cover-sheet update only (no dev tree exists — the
+  lazy-materialization payoff; it will be born correct at pull). PULLED → cover sheet +
+  a RE-PIN comment (the pull record's manifest revision advances; `/done` verifies against
+  current truth — the pin guards against the completion PR weakening its own tests, never
+  against deliberate upstream change) + dev-tree reconcile vs the new manifest (add
+  missing, cancel removed, with comments). DONE → never silently edited: the drift check
+  flags it and the founder chooses reopen (→ Todo, fresh pull) or a follow-up PM item.
+- **Backward = proposal only:** findings during work get a label + comment on the item;
+  the fix runs through the repo pipeline by class (arch note / AT amendment / dNN PRD
+  change / founder-accepted scope); the forward sync then clears the label.
+
 ## 9. Exit conditions for v0's simplifications
 
 Adding a second control machine or contributor, or installing CI-driven auto-merge,
