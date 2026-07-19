@@ -64,17 +64,24 @@ Every authority-bearing record lives in a system of record, never only on disk:
   them when it returns. Work continues meanwhile only on the already-claimed pull; new
   work runs as `exploration`/`unattributed` (no offline claims, no retroactive authority).
 
-## 1a. Hierarchy & the verb level (founder clarification, 2026-07-19)
+## 1a. Hierarchy & the verb level (founder clarifications, 2026-07-19)
 
-Initiative (wave) → Project (REQ) → optional parent issue (behavior cluster) → **WORK ITEM
-(leaf)**. `/next` and `/done` are an open/close BRACKET around ONE work item — the same
-object, the same level, always; they never touch parents, projects, or waves. Everything
-above the leaf is DERIVED: a parent issue closes automatically when its last child closes
-(the session writes it with a comment referencing the children — its evidence IS the
-children); a REQ project completes via its milestones, terminating in one ordinary final
-leaf — **"REQ-NN integration gate"** (verify set = the full AT suite at integration tier;
+Initiative (wave) → Project (REQ) → **DELIVERABLE (parent issue — MANDATORY tier)** →
+**WORK ITEM (leaf)**. Every leaf belongs to exactly one deliverable (3–6 per REQ,
+plain-language named), mirroring the product's one-parent-per-story / one-sub-per-AC tree.
+`/next` and `/done` are an open/close BRACKET around ONE work item — the same object, the
+same level, always; they never touch deliverables, projects, or waves. Everything above
+the leaf is DERIVED: a deliverable closes automatically when its last child closes (the
+session writes it with a comment referencing the children — its evidence IS the children);
+a REQ project completes via its milestones, terminating in one ordinary final leaf —
+**"REQ-NN integration gate"** (verify set = the full AT suite at integration tier;
 UI-fronted REQs also carry a wiring leaf) — so even project completion is a normal `/done`
 with a bigger verify set. One mechanism at every level.
+
+**Two-tier progress & attribution (founder-as-NGO):** tier 1 — the founder tracks
+DELIVERABLES: cadence and burn speak deliverable language, exactly as the NGO view does in
+the product (REQ-034's aggregation boundary applied to ourselves). Tier 2 — leaf-level
+detail exists in the stamps and the op-marker trail for drill-down, never as the headline.
 
 ## 2. Status authorities
 
@@ -132,7 +139,9 @@ Bind cache: `%LOCALAPPDATA%/ai4good-build/<repo-id>/bindings/<worktree-id>.json`
 UUID + identifier, project UUID + REQ-NN, wave, session id, pull-comment op UUID, manifest
 revision. The UserPromptSubmit hook stamps every message with identifiers only
 (allow-listed charset, no titles, one stamp per message):
-`<ai4good-attribution wave="foundation" project="REQ-006" issue="AI4-123" bucket="task"/>`
+`<ai4good-attribution wave="foundation" project="REQ-006" deliverable="AI4-100" issue="AI4-123" bucket="task"/>`
+(four levels — the deliverable is the founder-facing attribution tier; the issue is the
+work tier; both ride every message)
 Buckets `task` / `exploration` (optionally project-scoped) / `unattributed`. The stamp is
 never absent. The agent never echoes it into commits/PRs/files. **Binding recovery/adoption
 is remote-validated**: `/bind AI4-123` on a fresh machine/worktree re-reads the issue —
@@ -186,6 +195,14 @@ signal — verify set green → "open the PR?"; PR merged → "this looks ready 
 `/done` complete → "pull the next? (`/next`)"; exploration turning into implementation →
 "bind it?" — the agent suggests ONCE per signal, never executes, never repeats a declined
 suggestion for the same signal. Written into the skill AND `CLAUDE.md` (P2 amendment).
+
+**Progress cadence (founder-as-NGO, tier 1):** the reporting surface is the Linear PROJECT
+STATUS UPDATE — the buildout's status panel. Posted by the session, never by hand:
+automatically when a deliverable closes, plus a daily digest from the full reconcile. Its
+vocabulary is the product's NGO cadence translated: last merge (↔ last commit) ·
+deliverables done of total (↔ tasks done of total) · current deliverable + current work
+item (↔ current task) · open blockers. Plain language, big items; leaf detail lives one
+click down, never in the headline.
 
 **Skill packaging (founder direction): one skill, shared core + two adapters.** The core
 is portable (bind/stamp per worktree, the pull-bracket discipline, the suggestive engine,
