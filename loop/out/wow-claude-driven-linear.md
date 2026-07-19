@@ -7,7 +7,15 @@ requirement items (buildout: REQ-NN as issues, waves as projects/labels) — the
 this is the only tree tier-1 reporting reads. The **DEV TREE** holds the detailed
 decomposition (AT-derived deliverables + leaves) — vanilla Linear MCP as ordinary work
 actions + the native GitHub integration (merge→Done), each dev item carrying a relation to
-its PM requirement. The same split is the PRODUCT's model per d82: the NGO panel reads the
+its PM requirement. **Lazy materialization (founder-confirmed):** the dev tree is populated
+PER REQUIREMENT by `/next` itself — claim step 5 reads the requirement's git manifest
+(`loop/decomp/req-0NN.md`) and creates its deliverable parents + leaves + relations in the
+DEV team (idempotent on re-pull: reconcile against the manifest, never duplicate). The full
+decomposition exists upfront only as the git manifests; Linear carries dev items only for
+in-flight requirements (freshness + the free-tier active-issue cap). At `/done`, all dev
+items of the requirement must be Done/Cancelled (an open dev leaf is a named gate failure);
+closed items auto-archive out of the active count. Mirrors the product's post-gate
+decomposition push, triggered by the pull. The same split is the PRODUCT's model per d82: the NGO panel reads the
 PM tree (requirements deduced from Discovery/scope); the volunteer's generated
 decomposition (REQ-036) and working items live on the dev tree. [To verify at setup:
 Linear free-tier team count for the product's per-project workspace.]
