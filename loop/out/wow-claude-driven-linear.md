@@ -1,6 +1,18 @@
 # Way-of-Work: Claude-Code-Driven Linear (no GitHub→Linear automation)
 
-v4.4, 2026-07-19 — **GOVERNING AMENDMENT (founder ruling): the skill and attribution live
+v4.5, 2026-07-19 — **TWO-TREE ARCHITECTURE (founder ruling, supersedes the projects-per-REQ
+layout where they conflict):** one Linear workspace, two teams. The **PM TREE** holds the
+requirement items (buildout: REQ-NN as issues, waves as projects/labels) — the skill's
+`/next`/`/done` bracket THESE items, attribution binds to them, cadence posts here, and
+this is the only tree tier-1 reporting reads. The **DEV TREE** holds the detailed
+decomposition (AT-derived deliverables + leaves) — vanilla Linear MCP as ordinary work
+actions + the native GitHub integration (merge→Done), each dev item carrying a relation to
+its PM requirement. The same split is the PRODUCT's model per d82: the NGO panel reads the
+PM tree (requirements deduced from Discovery/scope); the volunteer's generated
+decomposition (REQ-036) and working items live on the dev tree. [To verify at setup:
+Linear free-tier team count for the product's per-project workspace.]
+
+v4.4 governing amendment (subsumed): **the skill and attribution live
 at TIER 1 = THE REQUIREMENT, only.** `/next` claims a REQUIREMENT (project started +
 attribution bound); `/done` completes a REQUIREMENT (full AT suite at integration tier +
 founder attestation); the stamp carries wave/project/bucket — NO issue IDs. TIER 2 —

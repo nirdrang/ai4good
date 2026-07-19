@@ -1,5 +1,7 @@
 # AT-REQ-026 — Platform Task Management (Linear as system of record)
 
+> **[d82 AMENDMENT PENDING — two-tree model, 2026-07-19]:** the founder ruled a TWO-TREE Linear model (PM tree = requirement items from the scope doc, the only NGO-facing authority, pull/verified-completion authorities, requirement-level attribution; dev tree = the volunteer's decomposition, vendor-native incl. merge-to-Done, exempt from revert) and REQUIREMENT-LEVEL attribution granularity. The requirement text is already updated (see the isolate); this suite's tests still reflect the single-tree / task-level model and need an amendment pass (retargeting detect-and-revert to the PM tree, binding tests to requirement granularity, decomposition push to the dev tree, per-task baselines to per-requirement). Do not implement against this suite until the pass lands.
+
 Source: requirements/req-026.md (prd-mvp.md REQ-026; OD-1 and OD-2 open). Dependencies: REQ-005.5, REQ-008, REQ-012, REQ-015, REQ-025, REQ-027, REQ-028, REQ-034, REQ-036.
 
 **Boundary note:** REQ-026 owns the Linear model: workspace-per-project, the read/write split, decomposition, the pull workflow, and lifecycle hooks. Kickoff sequencing is REQ-005.5's; the GitHub event provenance AT-008.12/13's; the Skill's binding mechanics REQ-028's; the panel's page placement REQ-010's — `[cross:]` here.

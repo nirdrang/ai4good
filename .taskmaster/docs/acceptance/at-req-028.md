@@ -1,5 +1,7 @@
 # AT-REQ-028 — ai4good Claude Code Skill (the volunteer's single operating surface)
 
+> **[d82 AMENDMENT PENDING — two-tree model, 2026-07-19]:** the founder ruled a TWO-TREE Linear model (PM tree = requirement items from the scope doc, the only NGO-facing authority, pull/verified-completion authorities, requirement-level attribution; dev tree = the volunteer's decomposition, vendor-native incl. merge-to-Done, exempt from revert) and REQUIREMENT-LEVEL attribution granularity. The requirement text is already updated (see the isolate); this suite's tests still reflect the single-tree / task-level model and need an amendment pass (retargeting detect-and-revert to the PM tree, binding tests to requirement granularity, decomposition push to the dev tree, per-task baselines to per-requirement). Do not implement against this suite until the pass lands.
+
 Source: requirements/req-028.md (prd-mvp.md REQ-028). Dependencies: REQ-009, REQ-021, REQ-024, REQ-026, REQ-032, REQ-034.
 
 **Boundary note:** REQ-028 owns the Skill: install, bootstrap, binding + pull-then-complete, helpers, conventions, degradation, and the volunteer-driven Lovable posture. Linear's rules are REQ-026's; the gateway REQ-009's; attribution rows REQ-034's; Lovable roles/caps REQ-021's — `[cross:]` here.

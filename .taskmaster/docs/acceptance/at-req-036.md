@@ -1,5 +1,7 @@
 # AT-REQ-036 — Dev-Authored Project PRD & Completion Gate
 
+> **[d82 AMENDMENT PENDING — two-tree model, 2026-07-19]:** the founder ruled a TWO-TREE Linear model (PM tree = requirement items from the scope doc, the only NGO-facing authority, pull/verified-completion authorities, requirement-level attribution; dev tree = the volunteer's decomposition, vendor-native incl. merge-to-Done, exempt from revert) and REQUIREMENT-LEVEL attribution granularity. The requirement text is already updated (see the isolate); this suite's tests still reflect the single-tree / task-level model and need an amendment pass (retargeting detect-and-revert to the PM tree, binding tests to requirement granularity, decomposition push to the dev tree, per-task baselines to per-requirement). Do not implement against this suite until the pass lands.
+
 Source: requirements/req-036.md (prd-mvp.md REQ-036; OD-7 open — threshold + scorer configuration, pilot-tuned). Dependencies: REQ-004, REQ-009, REQ-010, REQ-024, REQ-026, REQ-034.
 
 **Boundary note:** REQ-036 owns the bootstrap task's purpose, the PRD-authoring phase, the scorer, and the gate. Linear seeding mechanics are REQ-026's (AT-026.06/08); blocker mechanics REQ-024's; the Q&A log display REQ-010's; metering/attribution REQ-009/034's — `[cross:]` here. OD-7 keeps the threshold value and scorer configuration open: tests use the CONFIGURED threshold, never a pinned number.

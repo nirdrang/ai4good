@@ -1,5 +1,7 @@
 # AT-REQ-034 — Task-Level Attribution (telemetry, never gating)
 
+> **[d82 AMENDMENT PENDING — two-tree model, 2026-07-19]:** the founder ruled a TWO-TREE Linear model (PM tree = requirement items from the scope doc, the only NGO-facing authority, pull/verified-completion authorities, requirement-level attribution; dev tree = the volunteer's decomposition, vendor-native incl. merge-to-Done, exempt from revert) and REQUIREMENT-LEVEL attribution granularity. The requirement text is already updated (see the isolate); this suite's tests still reflect the single-tree / task-level model and need an amendment pass (retargeting detect-and-revert to the PM tree, binding tests to requirement granularity, decomposition push to the dev tree, per-task baselines to per-requirement). Do not implement against this suite until the pass lands.
+
 Source: requirements/req-034.md (prd-mvp.md REQ-034, incl. d77 layered-Skill ceiling). Dependencies: REQ-004, REQ-006, REQ-009, REQ-013, REQ-026, REQ-028, REQ-033.
 
 **Boundary note:** REQ-034 owns the telemetry classification, the binding/attribution semantics, the one usage log, the two-meter separation, the steering ceiling, and the aggregation boundary. The Skill's binding mechanics and its local pause are REQ-028's (d77); fuel money truth REQ-006/009's; the NGO dashboard surface REQ-013's — `[cross:]` here.
