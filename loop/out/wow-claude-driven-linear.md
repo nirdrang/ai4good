@@ -1,4 +1,7 @@
-# Way-of-Work: Claude-Code-Driven Linear (no GitHub→Linear automation)
+# Way-of-Work: Claude-Code-Driven Linear (two-tree model)
+
+> **ADOPTED — d83, 2026-07-19.** This document governs the ai4good buildout. Companion
+> skill: `.claude/skills/doc-sync` (§8a as procedure). Work skill: P7, in build.
 
 v4.5, 2026-07-19 — **TWO-TREE ARCHITECTURE (founder ruling, supersedes the projects-per-REQ
 layout where they conflict):** one Linear workspace, two teams. The **PM TREE** holds the

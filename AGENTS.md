@@ -60,16 +60,26 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## 5. TaskMaster: Always Have a Task Context
+## 5. Linear Way-of-Work: PM-Tree Task Context (adopted d83)
 
-**No coding without a known TaskMaster task or subtask in hand. Mirror every lifecycle transition into TaskMaster as you work — not at end of session.**
+**Full spec: `loop/out/wow-claude-driven-linear.md` (v4.7). One task lifecycle exists — this one. TaskMaster is retired (decision-20); never use taskmaster tools for the buildout.**
 
-Before any edit, know which TaskMaster id this serves. If you don't, run `mcp__taskmaster-ai__next_task` (or `task-master next`) and pick one. **Tasks over ~6h must be expanded into subtasks before implementation starts** — `mcp__taskmaster-ai__expand_task --id=N --research=true` — so the lifecycle exposure is at subtask granularity, not at one big parent flip.
+- **Work brackets ONE PM-tree requirement item** (Linear team `AI4GOOD-PM`): `/next` pulls it (assign + In Progress + pull-record comment + attribution binding + dev-tree materialization from `loop/decomp/req-0NN.md`); `/done` closes it (evidence gate: the requirement's full AT suite green at integration tier + founder attestation). These verbs are the ONLY status authorities on the PM tree.
+- **Dev items** (team `AI4GOOD-DEV`) are working space: manage them with plain Linear MCP calls as the work demands; leaves close via the GitHub integration on merge; no ceremony, no binding.
+- **Attribution:** every message carries the stamp (`wave / project / bucket`) from the current binding. Unbound or off-task work is `exploration` or `unattributed` — honest buckets, never blocked, never faked.
+- **Blocked** is a label + comment on the PM item, never a status change. `/override` can never reach In Progress or Done.
+- **Doc changes** run through `/doc-sync fold` (one direction: git → Linear; sync-stamps; meaning never changes in Linear). PRD text is edited ONLY in `loop/out/pure-s*.md`; `prd-mvp.md` and the isolates are build products.
+- **Suggestive posture:** the agent proposes at ripeness signals (tests green → "open the PR?"; merged → "ready for `/done`"; closed → "`/next`?"; drift → "bind?") — once per signal, never auto-executing an authority verb.
+- **Commits** cite the PM item (and the dev leaf where one applies); the design session uses `design-batch-N: AI4PM-nnn …`.
 
-**Lifecycle transitions to keep in sync (in order, as they happen):**
+**Anti-patterns:**
+- Hand-editing PM-tree status in the Linear UI (reconcile detects and the founder corrects — don't create the work).
+- Closing a requirement with open dev leaves — an open leaf is a named `/done` gate failure.
+- Working bound to a finished item (stale binding) — rebind at every pull; trust the session banner.
+- Batching syncs after multiple doc changes — every change bundle ends with its own `/doc-sync`.
+- Editing `prd-mvp.md`, an isolate, or Linear item text directly to change meaning.
 
-| Moment | Action |
-|---|---|
+---|---|
 | Start of work on a task or subtask | `set_task_status id=N status=in_progress` |
 | Mid-implementation, something non-obvious learned | `update_subtask id=N prompt="<one-line note>"` |
 | Stuck on an external dependency or unclear scope | `set_task_status id=N status=blocked` + `update_subtask` note describing the blocker |
