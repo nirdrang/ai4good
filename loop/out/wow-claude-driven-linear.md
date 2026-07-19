@@ -1,12 +1,20 @@
 # Way-of-Work: Claude-Code-Driven Linear (no GitHub→Linear automation)
 
-v4.3, 2026-07-19 — v4 was the 3-round codex FINAL; v4.1/4.2/4.3 are founder rulings folded
-after review: verb hierarchy + suggestive engine + dual-mode /next (4.1), two-tier
-founder-as-NGO progress with the mandatory deliverable tier (4.2), and the TIER SPLIT (4.3):
-the GitHub integration closes tier-2 leaves (merge→Done, CI-gated pre-merge,
-detect-and-reverted post-hoc) while the skill exclusively enforces tier 1 — deliverables
-(derive-close + founder attestation) and requirements (the evidence-gated integration-gate
-leaf). This is REQ-026/d76 applied to ourselves.
+v4.4, 2026-07-19 — **GOVERNING AMENDMENT (founder ruling): the skill and attribution live
+at TIER 1 = THE REQUIREMENT, only.** `/next` claims a REQUIREMENT (project started +
+attribution bound); `/done` completes a REQUIREMENT (full AT suite at integration tier +
+founder attestation); the stamp carries wave/project/bucket — NO issue IDs. TIER 2 —
+everything inside the project (deliverable parents, leaf items) — is managed VANILLA:
+plain Linear MCP calls as ordinary work actions plus the native GitHub integration as
+Linear ships it (branch links, merge→Done); no pull records, no leaf bindings, no leaf
+evidence gates, no detect-and-revert machinery. Code hygiene = CI checks required to
+merge. The v4-era per-leaf apparatus (clean-branch-at-pull, base-OID pull records, R2'
+reverts) applies ONLY at the requirement bracket, where it was load-bearing: §2's evidence
+gate governs requirement completion; leaves are working notes, not governed objects.
+Cadence remains skill-posted at tier 1 (project status updates reading Linear's own
+progress data). Earlier v4.1–4.3 text below should be read through this amendment where
+they conflict; product-side granularity (REQ-034/028 → deliverable-level binding) is a
+pending d82 PRD fold awaiting the founder's mapping confirmation.
 v4 baseline: all three codex breaker rounds complete (wow-breaker-r1/r2/r3.json).
 Round 3's one critical + two majors are folded below (marked [r3]); per the founder's
 3-round cap, the v3→v4 delta itself is NOT codex-re-evaluated — the residual risk is that
