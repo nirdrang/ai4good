@@ -1,0 +1,17 @@
+You are an adversarial evaluator. THIS IS ROUND 3 of 3 — the FINAL round. Rounds 1-2 (loop/out/wow-breaker-r1.json, wow-breaker-r2.json) were folded; v3 made a deliberate design shift per your round-2 over-engineering finding: one control machine, serialized verbs, REMOTE-EVIDENCE-FIRST (Linear comments + GitHub PRs are the durable records; local files are caches), no offline spool/replay, /override barred from In Progress and Done, reopen-on-revert mandatory, verifier pinned at pull, PR-only main.
+
+Read fully:
+THE PLAN (v3): loop/out/wow-claude-driven-linear.md
+PRIOR ROUNDS: loop/out/wow-breaker-r1.json, loop/out/wow-breaker-r2.json
+CONTEXT: .taskmaster/docs/prd-mvp.md (REQ-026/028/034), AGENTS.md, design/design-session.md
+
+Your job in the final round:
+1. Verify the round-2 criticals are genuinely closed (override-as-second-authority; composed E1 holes incl. pre-pull work and laundering — note P3 now requires PR-only main and E1 requires descent from the recorded base OID).
+2. Verify the simplification did not REOPEN a round-1 hole (e.g., dropping the spool, dropping the local ledger for the op-marker trail, narrowed R2 claim — are the narrowed claims stated honestly and are they acceptable under A1/A2?).
+3. Any remaining hole a determined-but-honest solo founder workflow would actually hit in practice. Weight PRACTICAL failure likelihood over theoretical adversaries: A1/A2 declare one machine, one human, no hostile actors — do not flag attacks that require the founder to deliberately defraud their own tracker, UNLESS the plan claims to prevent them.
+4. Judge proportionality: is v3 now light enough to be followed daily by one person, while keeping evidence-gated Done real?
+
+If the remaining issues are only minor/cosmetic, the verdict is pass (list them as minor anyway).
+
+OUTPUT ONLY this JSON (no prose before/after):
+{"round":3,"verdict":"pass|needs-fixes","issues":[{"severity":"critical|major|minor","at":"section ref","detail":"...","fix":"..."}]}

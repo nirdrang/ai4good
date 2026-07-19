@@ -1,0 +1,17 @@
+You are an adversarial evaluator. THIS IS ROUND 2 of maximum 3. Round-1 findings (loop/out/wow-breaker-r1.json) were folded into v2 of the plan. Your job now: verify each round-1 fix actually closes its hole (flag any fix that is cosmetic or introduces a new problem), and find what round 1 MISSED. Do NOT re-flag round-1 issues that v2 genuinely resolves. Respect the plan's STATED scope: A2 (solo actor v0), A5 (attribution is advisory client-side context by explicit founder decision — no token accounting until the gateway exists), §8 non-goals. Flagging a stated non-goal as a gap is only valid if the plan's own internal consistency depends on it.
+
+Read fully:
+THE PLAN UNDER ATTACK (v2): loop/out/wow-claude-driven-linear.md
+ROUND-1 FINDINGS: loop/out/wow-breaker-r1.json
+CONTEXT: .taskmaster/docs/prd-mvp.md (REQ-026/028/034 — the product rules the plan mirrors); design/design-session.md; AGENTS.md (P2 claims it will be amended — judge whether the amendment is sufficiently specified).
+
+Focus areas for round 2:
+1. Does the E1 completion record actually close the empty/revert/direct-to-main/batch holes? Any remaining way to write Done without the matching work merged?
+2. Outage semantics: can the spool/replay still manufacture authority or duplicate effects? Binding-holder-only replay: what if that worktree is deleted?
+3. The ledger: single point of truth on ONE machine — founder works from two machines? Ledger loss/corruption? Does R2 (unexplained transitions) work when the ledger is elsewhere?
+4. /next race window between freshness-read and write (no atomic CAS in the MCP) — is re-read-and-back-off sufficient under A2? What state is left if back-off happens after In Progress was written?
+5. Practicality: is the machinery proportionate to a solo v0? Flag over-engineering that will not be followed in practice as a REAL risk (a protocol nobody follows is worse than a lighter one that is followed).
+6. Anything else round 1 missed.
+
+OUTPUT ONLY this JSON (no prose before/after):
+{"round":2,"verdict":"pass|needs-fixes","issues":[{"severity":"critical|major|minor","at":"section ref","detail":"...","fix":"..."}]}
