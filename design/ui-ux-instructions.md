@@ -5,6 +5,11 @@
 > (no auto-publish), break-glass = audited visibility switch, assistant window = first kickoff →
 > terminal, participants-only comment thread + the two-layer public-page rule, status
 > provenance (self-assign → In Progress, verified merge → Done), candidacy window removed (d68).
+> **Updated 2026-07-20** to d82 — the two-tree task model: the NGO-facing panel renders the
+> **PM requirement tree** only (In Progress from the volunteer's pull, Done from verified
+> completion); the volunteer's dev tree never surfaces; burn attribution is **per requirement**
+> — and to the d69 fuel-stop mechanics (the platform monitor stops spending via provider key
+> status; stop causes are ranked, so a top-up clears only the out-of-fuel stop).
 > Supersedes `design/design-brief.md` and `design/screen-inventory.md`
 > (both predate the v1 scope freeze and describe screens that no longer exist — handoff
 > ceremony, CR forms, marketplace filters, donation flow, Track tags, verification-doc upload).
@@ -98,10 +103,14 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
 1. **Lifecycle status badge** — one chip per project state; exactly **9 states** (§9). There is
    no `paused` and no handoff state — never design pause/resume or handoff affordances.
 2. **Fuel gauge / balance chip** — project fuel in real dollars-and-cents, burn rate, runway;
-   reflects **provider truth in real time** (Anthropic's own usage reporting, REQ-006/009).
-   Threshold states: 20% = NGO top-up warning · 5% = volunteer warned · 0% = provider declines
-   requests, composer/build blocked with cause stated + top-up CTA. Top-up restores service
-   instantly — no "reactivation" step to show.
+   the live gauge is the platform monitor's minute-cadence read of the provider's usage
+   reporting (billed cost is the final record — REQ-006/009). Threshold states: 20% = NGO
+   top-up warning · 5% = volunteer warned · at the stop the platform has the provider reject
+   further requests — composer/build blocked with the cause stated + top-up CTA; the depleted
+   blocker is a status mirror of the provider-side stop, never its own enforcement (d67/d69).
+   Top-up restores service automatically — no "reactivation" step to show. **Stop causes are
+   ranked (d69):** a top-up clears only the out-of-fuel stop — a chargeback/enforcement stop
+   renders its own distinct blocked state that a top-up never clears.
 3. **Lovable credit chip** — the second purse. Every funding surface shows **both meters
    distinctly** (fuel = Anthropic build compute vs Lovable credits = NGO-paid app layer,
    REQ-010/021); they are never conflated, never summed. States: setup-pending → connected →
@@ -109,15 +118,20 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
 4. **Discovery credit gauge** — "Discovery credits: 7 of 10 today" chip + per-turn credit cost.
    Credits are abstract units — **never render with a $ sign**, never as a balance the NGO
    owns. Vetted tier shows 30/day. Exhausted state offers the three remedies (§8).
-5. **Task tree panel** — the plain-language hierarchical task view (one parent per story, one
-   sub-task per acceptance criterion, REQ-026): status per task, current work highlighted,
-   percent complete = done P0 / total P0. Read-only for the NGO; **status is never editable by
-   anyone in the UI** (In Progress comes only from the volunteer's explicit self-assignment;
-   Done only from the verified matching PR merge — d76). Includes the task-anchored NGO comment
-   affordance (REQ-015).
-6. **Burn-per-deliverable rows** — fuel consumption per task, **token-denominated** (REQ-034:
-   attribution is tokens; money is a separate meter — never mix units in one figure).
-   `exploration`, `onboarding`, and `unattributed` render as first-class honest rows, never as
+5. **PM requirement tree panel** — the plain-language task view renders the **PM tree only**
+   (d82, REQ-026): requirement-level items deduced from the scope doc, seeded at kickoff
+   (including the "Author the project PRD" bootstrap item, REQ-036), with status per item,
+   current work highlighted, and percent complete = done top-priority requirements / all
+   top-priority requirements. The volunteer's fine-grained **dev tree is never rendered on any
+   platform surface** — not to the NGO, not to the public. Read-only for the NGO; **status is
+   never editable by anyone in the UI** (In Progress comes only from the volunteer's explicit
+   pull; Done only from verified completion — the requirement's linked dev work merged and its
+   acceptance evidenced). Includes the task-anchored NGO comment affordance (REQ-015).
+6. **Burn-per-requirement rows** — token consumption per PM requirement, the same items the
+   NGO tracks (d82, REQ-034: the recorded granularity IS the displayed granularity — nothing
+   finer exists). **Token-denominated** (attribution is tokens; money is a separate meter —
+   never mix units in one figure). `exploration`, `onboarding`, `unattributed`, and the
+   NGO-facing categories (Discovery, assistant) render as first-class honest rows, never as
    errors; totals always reconcile to visible lines.
 7. **Blocker badge + card** — orthogonal to lifecycle status (REQ-024). Types: clarifying
    question, awaiting NGO review, external dependency, GitHub collaborator needed, Lovable
@@ -186,9 +200,10 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
 → completed`, plus `cancelled` (terminal). (REQ-005.5)
 
 - **No `paused` state** — never design pause/resume. Unpublish is `open → scoped`.
-- **No handoff states** — `completed` replaces them. Completion = all P0 tasks done; the NGO
-  already owns the live app and repo throughout, so there is **no delivery ceremony, no
-  sign-off screen, no acceptance/rejection loop** (REQ-012).
+- **No handoff states** — `completed` replaces them. Completion = all top-priority PM
+  requirements done (each through verified completion); the NGO already owns the live app and
+  repo throughout, so there is **no delivery ceremony, no sign-off screen, no
+  acceptance/rejection loop** (REQ-012).
 - Abandonment/rematch is a transition (`in_progress → open`), not a state: ex-volunteer access
   revoked, fuel **stays on the project**, project re-opens with rematch priority (REQ-027).
 - Each screen reflects state: a project in `open` shows "mark interest" (volunteer view); in
@@ -211,7 +226,9 @@ Never design any of the following into any screen:
 - GitHub issue lists, PR lists, raw commit logs, or git jargon on the project page or any NGO
   surface (the repo link is the only GitHub touchpoint); Linear branding or seats for NGOs —
   the task panel is their only window.
-- Editable task status anywhere (status moves only via PR merge; violations auto-revert).
+- Editable requirement status anywhere (In Progress only from the volunteer's pull, Done only
+  from verified completion; violations auto-revert) — and **never any dev-tree content** on an
+  NGO or public surface (d82).
 - A "verified" public claim — the v1 flag may render only as **"founder-vetted"** (REQ-002).
 
 ## 11. Screen inventory (design in batch order)
@@ -242,10 +259,10 @@ lifecycle badges.
 ### Batch 3 — NGO: dashboard, fund, run, complete
 | # | Screen | Purpose & key elements | States | REQ |
 |---|--------|------------------------|--------|-----|
-| 10 | **NGO dashboard** | Per project: status badge, % complete (P0-based), fuel chip, Lovable chip, volunteer, cadence signals (last commit, tasks done/total, current task). Cross-project fuel summary; **general balance** as redeployable credit; action-needed rail (blockers by severity/age, scope-addition discussions, funding deadlines) | empty (no projects) | REQ-013 |
+| 10 | **NGO dashboard** | Per project: status badge, % complete (done top-priority PM requirements / all — d82), fuel chip, Lovable chip, volunteer, cadence signals (last commit, requirements done/total, current requirement). Cross-project fuel summary; **general balance** as redeployable credit; action-needed rail (blockers by severity/age, scope-addition discussions, funding deadlines) | empty (no projects) | REQ-013 |
 | 11 | **Funding screen** | Ack gate naming the volunteer **before** the CTA → amount input (no prefill, $50 min, first-fund cap notice, tier as context, start-small copy) → Stripe redirect. General balance auto-applies. 7-day countdown; no-refund disclosure; Lovable setup reminder when recommended | first-fund ack / repeat top-up (passive Promise link) / deadline reminder / **expired** (project → open, restart CTA) / payment failed | REQ-006 |
 | 12 | Lovable setup checklist | Who-acts-next stepper. NGO: create workspace, fund it, set volunteer credit cap, invite volunteer (build-only) + ai4good monitoring account. Gate: both memberships validated. Volunteer: provision project, DB, GitHub sync, inject conventions. Platform: validate repo → flip public → notify both. Validated paste-back for transferred info | pending per step / validation failed (specific fix shown) / stalled → blocker | REQ-021 |
-| 13 | **Project page** (the flagship screen — public; **two-layer rule, d80:** the public STATUS PROJECTION is identical for every viewer, while three role-gated elements render only for their roles — the participants-only thread, reference-file downloads, the NGO assistant) | Projection: identity (title, NGO, status, volunteer, repo link **with plain-language empty state**, tier, causes) · **task tree = primary content** + current work + progress · PRD-phase status (bootstrap task + score state, REQ-036) · plain-language activity feed (task titles, never commit jargon) · fuel gauge (provider truth) + Lovable chip side by side · burn-per-deliverable (tokens) · blockers · Q&A log · reference-file METADATA · cadence + code-host-style signals (stack, last activity, contributor, license). Role-gated: comment thread (participants) · file downloads (NGO/volunteer/admin) · **NGO-only** assistant entry point | per lifecycle state; blocked; fuel-low; PRD-phase vs build-phase; hidden (break-glass — page publicly unreachable) | REQ-010 |
+| 13 | **Project page** (the flagship screen — public; **two-layer rule, d80:** the public STATUS PROJECTION is identical for every viewer, while three role-gated elements render only for their roles — the participants-only thread, reference-file downloads, the NGO assistant) | Projection: identity (title, NGO, status, volunteer, repo link **with plain-language empty state**, tier, causes) · **PM requirement tree = primary content** (never dev-tree content — d82) + current work + progress · PRD-phase status (the bootstrap item on the PM tree + score state, REQ-036) · plain-language activity feed (task titles, never commit jargon) · fuel gauge (provider truth) + Lovable chip side by side · burn-per-requirement (tokens) · blockers · Q&A log · reference-file METADATA · cadence + code-host-style signals (stack, last activity, contributor, license). Role-gated: comment thread (participants) · file downloads (NGO/volunteer/admin) · **NGO-only** assistant entry point | per lifecycle state; blocked; fuel-low; PRD-phase vs build-phase; hidden (break-glass — page publicly unreachable) | REQ-010 |
 | 14 | NGO project assistant | Chat reframed at **first kickoff** (d78 — NOT at funding: a funded project pre-kickoff still shows Discovery): read-only project Q&A (status, blockers explained, progress, runway). Available first kickoff → terminal — stays through abandonment/rematch windows; the bot interface ends at completed/cancelled while the static page surfaces remain. Per-turn fuel cost + fuel visible. **Only the project's NGO account ever sees it** (not the volunteer, not admins, not visitors). Scope asks → explains the informal protocol + pre-fills a draft comment the NGO posts | pre-kickoff (Discovery only) / active / **fuel-zero** (composer disabled, top-up CTA) / terminal (bot gone) | REQ-033 |
 | 15 | Completion & offboarding (NGO) | `completed` notice: leftover fuel → general balance (shown). Offboarding prompts with confirm: remove volunteer + ai4good monitoring account from Lovable workspace; choose whether dev keeps read-only repo access. Everything else goes read-only | prompts pending / done | REQ-012 |
 
@@ -256,7 +273,7 @@ lifecycle badges.
 | 17 | Match consent | Invitation (from concierge match) → one-action consent. First consent fires the combined account-held disclaimer (coordination layer, open-source MIT, per-project key, Tier-2 fixtures-only + confidentiality, deactivation risk) **before any project introduction**. Consent ≠ kickoff — "waiting for NGO funding" | disclaimer unsigned / already-signed / consented-awaiting-funding / declined / expired | REQ-007 |
 | 18 | **Volunteer dashboard** | Current projects (status, fuel, Lovable status, in-progress tasks, unresolved blockers/clarifications), open candidacies, GitHub handle, **virtual-key reveal card** (show-once at kickoff; replacement flow), completion-credit events + "Shipped first tool" badge (private — no public profile in v1) | empty / first-project / key-revealed vs stored | REQ-014/009 |
 | 19 | Volunteer actions on the project page | Same public page (no separate dev view) + role-gated actions: raise blocker (type, severity, title, body + **never-paste-real-data warning**), raise task-anchored clarifying question, reply to thread, view reference files | — | REQ-010/024 |
-| 20 | Mark done / completion readiness | Readiness check (all P0 done via merged PRs, repo URL recorded, README/runbook, work pushed) → mark done → private "credit earned" confirmation. Disabled with named gaps while incomplete | blocked-incomplete / done | REQ-012/028 |
+| 20 | Mark done / completion readiness | Readiness check (all top-priority PM requirements Done through verified completion — dev work merged + acceptance evidenced, repo URL recorded, README/runbook, work pushed) → mark done → private "credit earned" confirmation. Disabled with named gaps while incomplete | blocked-incomplete / done | REQ-012/028 |
 
 ### Batch 5 — Comms & in-project flows
 | # | Screen | Purpose & key elements | States | REQ |
@@ -284,7 +301,7 @@ lifecycle badges.
 - Keep NGO screens (Batches 2–3) noticeably calmer and more guided than volunteer (Batch 4)
   and admin (Batch 6) screens.
 - **Units discipline:** fuel and ledgers in dollars-and-cents; Discovery credits unitless
-  (never $); burn-per-deliverable in tokens. Never mix units in one figure.
+  (never $); burn-per-requirement in tokens. Never mix units in one figure.
 - Acknowledgment modals are legally load-bearing: full text visible (not behind a link),
   checkbox-gated, distinct per variant, and never pre-checked.
 
@@ -298,8 +315,9 @@ lifecycle badges.
 - **Provisioning failure at kickoff:** the project stays `in_progress`; gaps surface as
   blockers/ops items ("your repo setup is pending"), never a special lifecycle state.
 - **Frozen (chargeback) / deactivated (AUP) accounts:** plain, non-accusatory lockout states.
-- **Status auto-revert:** low-tone, instructive notification to the volunteer ("status moves
-  on PR merge — we've reverted the manual change").
+- **Status auto-revert (PM tree only):** low-tone, instructive notification to the volunteer
+  ("requirement status moves only through the pull and verified completion — we've reverted
+  the manual change"). The dev tree is exempt — its vendor-native automations never revert.
 
 ## 14. The one-sentence design goal
 
