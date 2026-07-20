@@ -58,7 +58,8 @@ compose → build → diff-gate → deterministic verify → judgment verify →
    Annotations → one more fix pass → re-gallery. **Batch 0's sign-off is hard**: no screen
    batch starts before the system + shell + components are approved (every later batch
    inherits them verbatim).
-8. **Close.** Commit (`design-batch-N:` prefix), append a design-log entry
+8. **Close.** Commit (`design-batch-N: AI4PM-nnn …` — the batch's PM-tree item ID rides
+   every design commit, per the adopted way-of-work P5), append a design-log entry
    (`design/design-log.md`): findings fixed, deviations from the doc (each becomes either a
    doc patch or a founder decision — never a silent drift), credit burn, screenshot manifest.
 
