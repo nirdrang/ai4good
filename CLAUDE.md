@@ -80,6 +80,21 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Editing `prd-mvp.md`, an isolate, or Linear item text directly to change meaning.
 
 ---
+## Communication: simple English, never shorthand (founder instruction, 2026-07-20)
+
+When reporting to or planning with the founder, write in plain sentences. Do not lean on
+invented labels or compressed codes — "P3", "W1", "T4", "d82", "r2 fold" mean nothing on
+their own. Rules:
+- Never use an internal label without saying in words what the thing is, in the same
+  sentence. "Protect the main branch on GitHub" — not "P3". "The decision that split
+  Linear into a PM tree and a dev tree" — not just "d82".
+- Requirement and decision numbers are fine as references, but always next to a plain
+  description, never instead of one.
+- A status update should read like an explanation to a smart teammate who has NOT been
+  following the internal naming — because that is exactly the situation.
+- Lists of steps get described by what the step does, not by its stage code.
+
+---
 ## Project-Specific Guidelines
 
 - **Use the Lovable MCP for non-trivial UI work.** For UI changes beyond simple tweaks, drive them through the Lovable MCP — Lovable is the bot operating its own MCP and has more intimate, UI/UX-optimized capabilities. Reserve direct edits for simple UI changes.
