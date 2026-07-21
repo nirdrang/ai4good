@@ -156,6 +156,23 @@ The full path a change travels, top-down, always:
 5. The re-emitted design HTML landing in the repo is the build session's trigger: re-run the
    §3 loop in Lovable for those screens only.
 
+**The loop-back protocol — which API carries a rejection.** When the design gate (§3 step 2)
+or any later check finds a design-level issue:
+
+1. The change order is written to `design/change-orders/` and committed — the durable record
+   of what was asked and why.
+2. `put_conversation` pushes it into the design project's **chat panel**. It waits there, in
+   context: the redesign runs when the founder opens the session and says go — it does not
+   execute unattended.
+3. Founder feedback travels the same loop in the other direction: comments pinned on the
+   canvas with "Send to Claude" arrive via `list_comments`, and are `ack_comments`-ed once
+   folded into a change order or fix.
+4. **Exception path (kept rare on purpose):** a trivial mechanical correction — a typo, a
+   wrong hex value — may be fixed directly in the design file via `get_claude_design_prompt`
+   → `finalize_plan` (the founder sees exactly which paths) → `write_files` (etag-checked).
+   Anything that is actually a design decision goes through the redesign request instead, so
+   design decisions keep living in the design conversation.
+
 Every hop ends as a committed file the next session reads; the founder is the only scheduler
 (when to bring orders to the design session, when to let the build session push to Lovable).
 No session needs to remember anything — each reconstructs its task from what's committed.
