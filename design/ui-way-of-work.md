@@ -101,8 +101,10 @@ needs two small bridges, and nothing more:
   Options: (a) the Claude Desktop Filesystem extension granted access to this folder, so the
   design session writes the file directly; (b) manual — the design session emits the screen as
   an HTML artifact, the founder saves it into `design/screens/`, the build session commits it;
-  (c) emission moved into a Claude Code session on this repo. **Chosen transport: ⟨record here
-  once decided⟩.**
+  (c) emission moved into a Claude Code session on this repo. **Chosen transport: (a) — set up
+  2026-07-21; the Filesystem extension is granted the `design\` folder only, so the design
+  session reads the rules + change orders and writes screens itself, but structurally cannot
+  touch anything else; the build session reviews the diff and commits.**
 - **Notification (repo → design):** how the design session learns a rule changed — the
   **change order** in step 3, handed to it by the founder (pasted, or read via its file access
   under transport (a)).
