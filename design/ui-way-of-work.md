@@ -6,10 +6,15 @@
 > `design-session.md` (batch cadence + credit tracking, still valid; this doc supersedes its
 > per-screen loop now that `design/screens/` HTML is the input).
 >
-> **Stated assumption (flag):** screens arrive via Claude Design's "Handoff to Claude Code"
-> bundle (HTML/CSS/JS + per-state screenshots + README); `design/screens/` holds the unpacked
-> per-screen HTML with its state screenshots beside it. Verify the exact bundle layout on the
-> first real handoff; if it differs, only §2 (the Lovable handoff) and §4 step 4 change.
+> **Verified format (first real handoff, 2026-07-21):** "Send to Claude Code" hands the build
+> session a prompt naming the design project; the session pulls the project's files over the
+> design MCP/DesignSync connection and writes them locally. The payload is a **canvas
+> container** (`AI4GOOD Screens.dc.html` + `support.js` viewer runtime), stored under
+> `design/screens/canvas/`. Inside it, each screen is one card rooted at a
+> `data-screen-label="…"` div, styled with **inline style attributes** (not Tailwind classes) —
+> fully self-contained, so per-screen extraction into `design/screens/<screen>.html` is
+> mechanical. §2's rationale updates accordingly: the handoff still feeds Lovable HTML source,
+> because inline styles carry exact colors/spacing/structure — which a screenshot cannot.
 
 ## 0. The four layers (who is the source of truth for what)
 
