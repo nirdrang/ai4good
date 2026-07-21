@@ -92,12 +92,23 @@ source → compose → build → boundary-gate → verify(rules + fidelity) → 
 
 ## 4. Maintenance — how a PRD change reaches Claude design (and comes back)
 
-There is no design MCP here, and none is needed. With Figma an MCP is the bridge because the
-design lives inside Figma's servers; here the design lives as files in this git repo, and
-"Claude design" is another Claude session opened on this same repo. So the bridge in both
-directions is **shared files + git** — every design change is a versioned, reviewable commit.
-The one thing a Figma MCP adds that files don't is the *notification* ("something changed, go
-react"); our substitute is the **change order** in step 3.
+With Figma an MCP is the bridge because the design lives inside Figma's servers. Here the
+design's home is files in this git repo — but "Claude design" (the session that emits the
+screens) does not itself run on this repo and has no direct file access. So the way-of-work
+needs two small bridges, and nothing more:
+
+- **Delivery transport (design → repo):** how an emitted screen lands in `design/screens/`.
+  Options: (a) the Claude Desktop Filesystem extension granted access to this folder, so the
+  design session writes the file directly; (b) manual — the design session emits the screen as
+  an HTML artifact, the founder saves it into `design/screens/`, the build session commits it;
+  (c) emission moved into a Claude Code session on this repo. **Chosen transport: ⟨record here
+  once decided⟩.**
+- **Notification (repo → design):** how the design session learns a rule changed — the
+  **change order** in step 3, handed to it by the founder (pasted, or read via its file access
+  under transport (a)).
+
+Once a screen lands and is committed, everything downstream (handoff, verify, maintenance) is
+versioned, diffable git — which is more than a live MCP would give us.
 
 The full path a change travels, top-down, always:
 
@@ -107,15 +118,15 @@ The full path a change travels, top-down, always:
 3. The build session writes a **change order**: a short file `design/change-orders/NNN-<slug>.md`
    naming the affected screens, what rule changed (in plain words), and what to re-emit.
    Committed. This file is the message from the build side to the design side.
-4. The founder opens the Claude design session and tells it to process the open change orders.
-   It reads each order + the updated spec rows, re-emits ONLY the named
-   `design/screens/<screen>.html`, marks the order done, and commits.
+4. The founder brings the open change orders to the Claude design session (pastes them, or
+   the session reads them itself under transport (a)). It re-emits ONLY the named screens; each
+   re-emitted screen lands in `design/screens/` via the chosen transport and is committed.
 5. The re-emitted design HTML landing in the repo is the build session's trigger: re-run the
    §3 loop in Lovable for those screens only.
 
-Every hop is a file the next session reads; the founder is the only scheduler (when to open
-the design session, when to let the build session push to Lovable). No session needs to
-remember anything — each reconstructs its task from what's committed.
+Every hop ends as a committed file the next session reads; the founder is the only scheduler
+(when to bring orders to the design session, when to let the build session push to Lovable).
+No session needs to remember anything — each reconstructs its task from what's committed.
 
 So `design/screens/` **is** maintained — but always as a *re-emission* downstream of the spec,
 never hand-patched to diverge, and never the place a requirement first changes. A screen whose
