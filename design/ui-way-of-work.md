@@ -69,29 +69,35 @@ because these screens are finished and share the target's Tailwind vocabulary.)
 Unit of work = one screen (or a small batch of related screens). Per screen:
 
 ```
-source → compose → build → boundary-gate → verify(rules + fidelity) → fix(≤2) → sign-off → close
+source → design-gate → compose → build → boundary-gate → verify(rules + fidelity) → fix(≤2) → sign-off → close
 ```
 
 1. **Source.** Read `design/screens/<screen>.html` + the screen's row in `ui-ux-instructions.md`
    (its states + rules + which requirement it serves) + the fixture data it needs.
-2. **Compose.** One Lovable message per screen/batch (never conversational drip — coherence +
+2. **Design gate (before any credits are spent).** Validate the design itself against its
+   requirement: run the screen's rules from `ui-ux-instructions.md` against the design HTML —
+   required elements present, every listed state covered, the never-show scan, money-unit
+   discipline, the right-viewer projection — and confirm the screen actually serves its PRD
+   requirement. A misaligned design is NEVER forwarded to implementation: the findings become
+   a change order back to Claude Design (§4), and Lovable is not involved at all.
+3. **Compose.** One Lovable message per screen/batch (never conversational drip — coherence +
    credit economy): the design HTML + the states to build + the rules to obey + the boundary
    reminder. Batch 0 (design system + shell) goes through `plan_mode=true` first.
-3. **Build.** `send_message` → Lovable builds it in `src/`.
-4. **Boundary gate (before anything else).** `get_diff`: only `src/` touched (never `supabase/`,
+4. **Build.** `send_message` → Lovable builds it in `src/`.
+5. **Boundary gate (before anything else).** `get_diff`: only `src/` touched (never `supabase/`,
    `tests/`, `design/`, `loop/`); the shared shadcn components reused (not reinvented); the
    fixture seam used (no `fetch`, no Supabase imports in screens). Violations → fix list, stop.
-5. **Verify — two targets.**
+6. **Verify — two targets.**
    - **Rules** (`tests/design/`, automated): renders per state; the never-show scan; money-unit
      discipline; the right-viewer-sees-the-right-thing projection; accessibility basics.
    - **Visual fidelity** (screenshot compare): the built screen's default state vs the rendered
      `design/screens/<screen>.html` — a **soft flag** (surfaces a diff for you to accept or
      fix, not a hard block). Non-default states are held to the rules, not to a design HTML,
      unless Claude design emitted a per-state variant.
-6. **Fix.** One consolidated fix message per iteration; **cap two iterations**; still failing →
+7. **Fix.** One consolidated fix message per iteration; **cap two iterations**; still failing →
    stop and surface to you with the gallery and the stuck points.
-7. **Sign-off.** The screen goes into the batch gallery Artifact → you approve or annotate.
-8. **Close.** Commit (message carries the Linear work-item id, per the adopted way-of-work);
+8. **Sign-off.** The screen goes into the batch gallery Artifact → you approve or annotate.
+9. **Close.** Commit (message carries the Linear work-item id, per the adopted way-of-work);
    the approved screenshot becomes the screen's **baseline** (regression reference); the Linear
    work item closes; the design log notes any deviation (folded back to the spec or the design
    HTML — never a silent one-off in `src/`).
@@ -118,7 +124,13 @@ that is our bridge, in three channels (researched + partly verified 2026-07-21):
   programmatically. The change-order files in `design/change-orders/` remain the durable git
   record of what was asked; the MCP is the wire. (Fallback wire: Claude Design also reads this
   repo read-only via the desktop trusted-folders bridge, so the founder can just tell it to
-  process the open orders.)
+  process the open orders.) **Verified surface (23 tools, enumerated 2026-07-21):** plan-gated
+  file read/write/delete inside design projects (etag concurrency checks); server-side
+  `copy_files` (also bypasses the 256 KiB read cap); `render_preview` (browser-viewable preview
+  URL per file — usable in the design gate and fidelity checks); the pin-comment queue
+  (`list_comments`/`ack_comments` — the founder's "Send to Claude" notes on the canvas arrive
+  here); `put_conversation` (push a change order into the project's chat panel); plus project
+  create/list, design-system listing, and member/sharing management.
 - **Component round-trip (repo → design system): `/design-sync` + the DesignSync tool.** The
   founder's Claude Design "Design System" project is reachable and writable from the build
   session (verified via the session's DesignSync tool). After Batch 0 is approved in Lovable,
