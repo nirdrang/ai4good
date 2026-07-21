@@ -6,9 +6,10 @@
 > `design-session.md` (batch cadence + credit tracking, still valid; this doc supersedes its
 > per-screen loop now that `design/screens/` HTML is the input).
 >
-> **Stated assumption (flag):** `design/screens/*.html` are self-contained, Tailwind-styled
-> HTML files — one per screen (its default state). If the real format differs (React, static
-> images, per-state variants), only §2 (the Lovable handoff) changes; tell me and I adjust it.
+> **Stated assumption (flag):** screens arrive via Claude Design's "Handoff to Claude Code"
+> bundle (HTML/CSS/JS + per-state screenshots + README); `design/screens/` holds the unpacked
+> per-screen HTML with its state screenshots beside it. Verify the exact bundle layout on the
+> first real handoff; if it differs, only §2 (the Lovable handoff) and §4 step 4 change.
 
 ## 0. The four layers (who is the source of truth for what)
 
@@ -92,22 +93,33 @@ source → compose → build → boundary-gate → verify(rules + fidelity) → 
 
 ## 4. Maintenance — how a PRD change reaches Claude design (and comes back)
 
-With Figma an MCP is the bridge because the design lives inside Figma's servers. Here the
-design's home is files in this git repo — but the emitter is **Claude Design** (the Anthropic
-Labs chat-and-canvas product at claude.ai/design, hosted by the desktop app in its own
-window). Verified 2026-07-21: it is NOT a Claude Desktop chat — it shares no MCP servers or
-desktop extensions, and it cannot write to the user's disk in principle; generated screens
-leave it as downloaded/copied artifact files. It CAN, however, **read** local folders
-read-only through the desktop app's trusted-folders bridge (`C:\Users\nirdr\Downloads` is
-trusted), so it reads this repo's spec and change orders directly. Hence the two bridges are:
+The emitter is **Claude Design** (the Anthropic Labs chat-and-canvas product at
+claude.ai/design, hosted by the desktop app in its own window — NOT a desktop chat; it shares
+no desktop MCP servers/extensions and cannot write to disk itself). Since 2026-06-18 it has a
+**native round-trip integration with Claude Code** — the direct analog of the Figma MCP — and
+that is our bridge, in three channels (researched + partly verified 2026-07-21):
 
-- **Delivery transport (design → repo): manual save.** Claude Design emits each screen as an
-  HTML artifact; the founder downloads/saves it to `design/screens/<screen>.html`; the build
-  session verifies the format and commits. A few seconds per screen; no setup, no automation
-  possible with this emitter.
-- **Notification (repo → design): direct read.** The design session reads
-  `ui-ux-instructions.md` and the open `design/change-orders/*.md` itself via its read-only
-  local access — the founder just tells it to process the open orders.
+- **Delivery (design → repo): the "Handoff to Claude Code" export.** In Claude Design:
+  Share/Export → *Handoff to Claude Code* → *Send to local coding agent* (or download the
+  .zip). The handoff bundle contains the design files (HTML/CSS/JS), **per-state
+  screenshots**, a README stating target stack/conventions, and the design-conversation
+  context. The founder triggers it once per screen/batch; the build session unpacks the
+  screens into `design/screens/` (canonical home), keeps the state screenshots beside them
+  (they upgrade the §3 fidelity check from default-state-only to per-state), and commits.
+- **Notification + steering (repo → design): the Claude Design MCP server.** Registered for
+  Claude Code (user scope, 2026-07-21): `claude-design → https://api.anthropic.com/v1/design/mcp`
+  (authenticate via `/design-login` if prompted). Through it the build session can create,
+  edit, and sync design projects from here — i.e., express a change order INTO Claude Design
+  programmatically. The change-order files in `design/change-orders/` remain the durable git
+  record of what was asked; the MCP is the wire. (Fallback wire: Claude Design also reads this
+  repo read-only via the desktop trusted-folders bridge, so the founder can just tell it to
+  process the open orders.)
+- **Component round-trip (repo → design system): `/design-sync` + the DesignSync tool.** The
+  founder's Claude Design "Design System" project is reachable and writable from the build
+  session (verified via the session's DesignSync tool). After Batch 0 is approved in Lovable,
+  the real component library (fuel gauge, status badge, blocker card, shell) gets pushed into
+  that project so every re-emitted screen starts from OUR actual components — closing the
+  design↔implementation drift at the source.
 
 Once a screen lands and is committed, everything downstream (handoff, verify, maintenance) is
 versioned, diffable git — which is more than a live MCP would give us.
@@ -120,10 +132,10 @@ The full path a change travels, top-down, always:
 3. The build session writes a **change order**: a short file `design/change-orders/NNN-<slug>.md`
    naming the affected screens, what rule changed (in plain words), and what to re-emit.
    Committed. This file is the message from the build side to the design side.
-4. The founder tells Claude Design to process the open change orders; it reads them (and the
-   updated spec rows) directly via its read-only local access and re-emits ONLY the named
-   screens as artifacts; the founder saves each into `design/screens/`; the build session
-   verifies and commits.
+4. The change order reaches Claude Design (sent over the MCP wire by the build session, or
+   the founder tells it to process the open orders — it reads them directly). It re-emits
+   ONLY the named screens; the founder triggers *Handoff to Claude Code*; the build session
+   unpacks the bundle into `design/screens/`, verifies, and commits.
 5. The re-emitted design HTML landing in the repo is the build session's trigger: re-run the
    §3 loop in Lovable for those screens only.
 
