@@ -93,21 +93,21 @@ source → compose → build → boundary-gate → verify(rules + fidelity) → 
 ## 4. Maintenance — how a PRD change reaches Claude design (and comes back)
 
 With Figma an MCP is the bridge because the design lives inside Figma's servers. Here the
-design's home is files in this git repo — but "Claude design" (the session that emits the
-screens) does not itself run on this repo and has no direct file access. So the way-of-work
-needs two small bridges, and nothing more:
+design's home is files in this git repo — but the emitter is **Claude Design** (the Anthropic
+Labs chat-and-canvas product at claude.ai/design, hosted by the desktop app in its own
+window). Verified 2026-07-21: it is NOT a Claude Desktop chat — it shares no MCP servers or
+desktop extensions, and it cannot write to the user's disk in principle; generated screens
+leave it as downloaded/copied artifact files. It CAN, however, **read** local folders
+read-only through the desktop app's trusted-folders bridge (`C:\Users\nirdr\Downloads` is
+trusted), so it reads this repo's spec and change orders directly. Hence the two bridges are:
 
-- **Delivery transport (design → repo):** how an emitted screen lands in `design/screens/`.
-  Options: (a) the Claude Desktop Filesystem extension granted access to this folder, so the
-  design session writes the file directly; (b) manual — the design session emits the screen as
-  an HTML artifact, the founder saves it into `design/screens/`, the build session commits it;
-  (c) emission moved into a Claude Code session on this repo. **Chosen transport: (a) — set up
-  2026-07-21; the Filesystem extension is granted the `design\` folder only, so the design
-  session reads the rules + change orders and writes screens itself, but structurally cannot
-  touch anything else; the build session reviews the diff and commits.**
-- **Notification (repo → design):** how the design session learns a rule changed — the
-  **change order** in step 3, handed to it by the founder (pasted, or read via its file access
-  under transport (a)).
+- **Delivery transport (design → repo): manual save.** Claude Design emits each screen as an
+  HTML artifact; the founder downloads/saves it to `design/screens/<screen>.html`; the build
+  session verifies the format and commits. A few seconds per screen; no setup, no automation
+  possible with this emitter.
+- **Notification (repo → design): direct read.** The design session reads
+  `ui-ux-instructions.md` and the open `design/change-orders/*.md` itself via its read-only
+  local access — the founder just tells it to process the open orders.
 
 Once a screen lands and is committed, everything downstream (handoff, verify, maintenance) is
 versioned, diffable git — which is more than a live MCP would give us.
@@ -120,9 +120,10 @@ The full path a change travels, top-down, always:
 3. The build session writes a **change order**: a short file `design/change-orders/NNN-<slug>.md`
    naming the affected screens, what rule changed (in plain words), and what to re-emit.
    Committed. This file is the message from the build side to the design side.
-4. The founder brings the open change orders to the Claude design session (pastes them, or
-   the session reads them itself under transport (a)). It re-emits ONLY the named screens; each
-   re-emitted screen lands in `design/screens/` via the chosen transport and is committed.
+4. The founder tells Claude Design to process the open change orders; it reads them (and the
+   updated spec rows) directly via its read-only local access and re-emits ONLY the named
+   screens as artifacts; the founder saves each into `design/screens/`; the build session
+   verifies and commits.
 5. The re-emitted design HTML landing in the repo is the build session's trigger: re-run the
    §3 loop in Lovable for those screens only.
 
