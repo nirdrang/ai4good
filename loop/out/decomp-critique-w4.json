@@ -1,0 +1,217 @@
+{
+  "verdict": "issues",
+  "global": [
+    {
+      "id": "G1",
+      "severity": "high",
+      "finding": "The requirement-level depends-on graph is acyclic, but the leaf predecessor graph has four cycles: REQ-011 D3.L1 -> REQ-024 D5.L3 -> REQ-024 D5.L1 -> REQ-011 D3.L1; REQ-013 D3.L1 <-> REQ-024 D5.L2; REQ-015 D4.L2 <-> REQ-025 D1.L1; and REQ-033 D2.L1 <-> REQ-034 D4.L1. No complete leaf order exists.",
+      "fix": "Orient each relation producer-first. Split projection/contract leaves from final cross-surface integration leaves where both suites need to verify the same UI. Specifically, build the thread before the scope protocol, build assistant turns before attribution-category integration, and give blocker chip/dashboard projections producer leaves that consumers can use before the blocker suite's final surface reruns."
+    }
+  ],
+  "per_file": {
+    "req-010": [
+      {
+        "id": "R010-1",
+        "severity": "high",
+        "finding": "Line 33 maps AT-010.21/.22/.23 only to REQ-021 D6.L1. That leaf owns the credit read, low/exhausted state, and top-up path, but not the setup-to-connected transition required by AT-010.23.",
+        "fix": "Also block D4.L2 on REQ-021 D2.L3, whose setup state resolves through validated connection, while retaining D6.L1 for the status read and top-up."
+      },
+      {
+        "id": "R010-2",
+        "severity": "medium",
+        "finding": "Line 40's wiring leaf omits D4.L3, although AT-010.15 is the page-level GitHub-boundary assertion and must be established before the wired page rerun.",
+        "fix": "Add D4.L3 to LW's blocked-by set."
+      },
+      {
+        "id": "R010-3",
+        "severity": "medium",
+        "finding": "Lines 5 and 40 misassign deferred reruns against current earlier-wave manifests. REQ-002 says its unfinished public-surface sweep waits on the W4 listing screens, not this page; REQ-009 and REQ-026 name multiple W4 screens, including REQ-013/014, so REQ-010 alone cannot complete their full wired reruns.",
+        "fix": "Move the REQ-002 AT-002.23 handoff to REQ-011. Describe REQ-010 as completing only its page-owned portions of REQ-009/026, with their final reruns waiting on all named W4 screens."
+      }
+    ],
+    "req-011": [
+      {
+        "id": "R011-1",
+        "severity": "high",
+        "finding": "Line 26 participates in a cycle: D3.L1 waits on REQ-024 D5.L3, which waits locally on D5.L1, while REQ-024 D5.L1 waits back on REQ-011 D3.L1.",
+        "fix": "Split REQ-024 D5.L3 so the chip contract and AT-024.23 precede this showcase leaf, while AT-024.28's all-surface recomputation rerun follows the completed showcase."
+      },
+      {
+        "id": "R011-2",
+        "severity": "high",
+        "finding": "Line 26 verifies AT-011.08/.14 but waits only on REQ-010 D5.L1 for cadence. Stack, time since last activity, contributor, and pending-repo states are produced by REQ-010 D5.L2, so the leaf can reach its predecessors with required inputs still absent.",
+        "fix": "Add REQ-010 D5.L2 to D3.L1's cross-manifest blockers."
+      },
+      {
+        "id": "R011-3",
+        "severity": "medium",
+        "finding": "The manifest omits the current cross-wave handoff from REQ-002 D5.L3: AT-002.23's full public-surface label sweep explicitly waits for the W4 listing screens.",
+        "fix": "Record the REQ-002 D5.L3 integration rerun in cross-contracts and attach it to the listing wiring leaf."
+      }
+    ],
+    "req-013": [
+      {
+        "id": "R013-1",
+        "severity": "high",
+        "finding": "Line 25 creates a direct cycle: REQ-013 D3.L1 waits on REQ-024 D5.L2, while REQ-024 D5.L2 waits on REQ-013 D3.L1.",
+        "fix": "Create a REQ-024 blocker-aggregation projection producer that precedes D3.L1. Keep AT-024.21's rendered-dashboard integration in a later leaf after this dashboard surface exists."
+      },
+      {
+        "id": "R013-2",
+        "severity": "high",
+        "finding": "Line 25 verifies all three AT-013.06 item kinds but names only the blocker producer. No predecessor supplies an active scope-addition discussion or a triage return awaiting NGO action.",
+        "fix": "Add REQ-025 D3.L1 for active scope-discussion disposition and REQ-023 D3.L4 for the NGO-visible return/edit loop, or equivalent exact producer leaves."
+      }
+    ],
+    "req-014": [
+      {
+        "id": "R014-1",
+        "severity": "high",
+        "finding": "Line 16 has both a missing producer and a mismatched reference. Lovable credit status has no edge to REQ-021 D6.L1. REQ-024 D5.L2 is NGO-dashboard severity/age aggregation, not the volunteer dashboard's unresolved blocker and clarification dataset.",
+        "fix": "Add REQ-021 D6.L1. Replace the REQ-024 D5.L2 pointer with the blocker core and clarification producers, such as REQ-024 D1.L1 and D4.L1."
+      },
+      {
+        "id": "R014-2",
+        "severity": "medium",
+        "finding": "Line 26 assigns AT-014.03's public-surface absence sweep to a leaf blocked only by the volunteer dashboard. The acceptance test probes project pages, showcase, and marketplace, which may not yet exist; the test could pass vacuously.",
+        "fix": "Separate AT-014.03 into a final public-surface sweep that waits for the REQ-010 and REQ-011 wiring leaves. Keep the satisfaction absences independent."
+      }
+    ],
+    "req-015": [
+      {
+        "id": "R015-1",
+        "severity": "high",
+        "finding": "Line 26 says D3.L1 is blocked by REQ-026 D2.L3 as the relay. Current REQ-026 D2.L3 says the opposite: REQ-015 D3.L1 is the relay producer and REQ-026 currently uses a fixture until W4. The wave-4 edge reverses the current wave-3 contract.",
+        "fix": "Make REQ-015 D3.L1 produce the thread/task relay ingress, then rerun REQ-026 D2.L3 against it. If AT-015.06 needs a final real-Linear assertion, split that integration rerun from the producer leaf."
+      },
+      {
+        "id": "R015-2",
+        "severity": "high",
+        "finding": "Line 32 creates a direct cycle with REQ-025 line 16: the thread-placement leaf waits on the protocol, while the protocol waits on the thread home.",
+        "fix": "Remove REQ-025 D1.L1 from D4.L2's blocked-by set. AT-015.09 only requires that scope discussions live in the thread; build that home first and let REQ-025 consume it."
+      },
+      {
+        "id": "R015-3",
+        "severity": "medium",
+        "finding": "Line 33's wiring leaf omits D3.L2, despite AT-015.07's NGO-surface and direct-task-system absence checks being part of the wired thread boundary.",
+        "fix": "Add D3.L2 to LW's blocked-by set."
+      }
+    ],
+    "req-024": [
+      {
+        "id": "R024-1",
+        "severity": "high",
+        "finding": "Lines 38 and 40 form the REQ-011 cycle described globally. Line 38 also points to REQ-010 D3.L2 as the project-page blocker display, but that leaf contains only the clarification Q&A log; it does not own blocker presence/count/severity.",
+        "fix": "Point the page integration at an actual blocker-signal placement contract, likely carved from REQ-010 AT-010.01/D1.L2. Split D5.L3 into an early chip projection for AT-024.23 and a later all-surface AT-024.28 integration leaf."
+      },
+      {
+        "id": "R024-2",
+        "severity": "high",
+        "finding": "Line 39 directly cycles with REQ-013 D3.L1. It also verifies AT-024.22's cadence blocked-cause rendering without waiting on the cadence surface, REQ-010 D5.L1.",
+        "fix": "Introduce an early aggregation-data producer consumed by REQ-013; run AT-024.21 after the dashboard exists. Split AT-024.22 or add REQ-010 D5.L1 as its predecessor."
+      },
+      {
+        "id": "R024-3",
+        "severity": "medium",
+        "finding": "Line 17 verifies AT-024.04's immediate admin/ops item creation, whose acceptance source explicitly crosses to REQ-030, but neither the leaf nor cross-contracts records that later-wave dependency or a fixture/deferred rerun.",
+        "fix": "Record the REQ-030 ops-item contract explicitly. Use a pinned fixture now and name the deferred integration rerun, or point to a real existing ops-item producer."
+      },
+      {
+        "id": "R024-4",
+        "severity": "high",
+        "finding": "Line 22's D2.L2 verifies singleton behavior for fuel, Lovable credits, and Lovable setup, but it is blocked only by the fuel leaf. The Lovable implementations are in sibling D2.L3 and need not exist when AT-024.08 runs.",
+        "fix": "Reorder or split the singleton work so a generic singleton primitive precedes all auto-types and a later integration leaf verifies AT-024.08 across fuel and both Lovable types."
+      },
+      {
+        "id": "R024-5",
+        "severity": "high",
+        "finding": "Line 45 has no producers for two cross-owned assertions: AT-024.25 reads REQ-014's durable completion-credit event/private confirmation, and AT-024.29 relies on REQ-027's ghosting record semantics. The latter is a W5 dependency and is not honestly flagged.",
+        "fix": "Add REQ-014 D2.L2 as a same-wave predecessor. Record REQ-027 D3.L1 as a W5 fixture/deferred integration contract for the waiting-versus-ghosting assertion."
+      },
+      {
+        "id": "R024-6",
+        "severity": "high",
+        "finding": "Line 46 makes release cleanup depend on unrelated local D6.L1, but not on the D5 public surfaces that AT-024.26 probes. Line 41's wiring leaf also does not wait on D6.L2. There is no declared acyclic order that both implements cleanup and verifies its public-surface result.",
+        "fix": "Remove the false D6.L1 prerequisite. Split release-cleanup state mutation from its final surface integration; order blocker core plus REQ-005.5 D6.L4 -> cleanup producer -> wired surfaces -> AT-024.26 integration rerun."
+      }
+    ],
+    "req-025": [
+      {
+        "id": "R025-1",
+        "severity": "high",
+        "finding": "Line 16 directly cycles with REQ-015 D4.L2 because each leaf declares the other as a prerequisite.",
+        "fix": "Keep REQ-015 D4.L2 as the producer of the thread home and make only REQ-025 D1.L1 depend on it."
+      },
+      {
+        "id": "R025-2",
+        "severity": "high",
+        "finding": "Line 31 identifies REQ-023 D3.L1 as the founder re-triage decision surface, but the current leaf implements publish-time lifecycle outcomes open/scoped/cancelled. It has no mid-build scope-addition re-triage flow and reusing it literally could change an in-progress project's lifecycle.",
+        "fix": "Own the mid-build re-triage request, pause, and pass record in REQ-025, optionally reusing generic founder-queue infrastructure. Do not claim REQ-023 D3.L1 as a matching producer unless a separate non-lifecycle re-triage contract exists."
+      }
+    ],
+    "req-033": [
+      {
+        "id": "R033-1",
+        "severity": "high",
+        "finding": "Line 16 assigns page-based AT-033.01 to a leaf with no predecessor, while REQ-010 D1.L3 waits on this leaf to place the assistant. The visibility test cannot reach integration green before the page exists, producing a hidden co-development deadlock.",
+        "fix": "Split an early NGO-only visibility policy/API producer from a later project-page integration leaf. Let REQ-010 consume the policy, then run AT-033.01 after REQ-010 D1.L3."
+      },
+      {
+        "id": "R033-2",
+        "severity": "high",
+        "finding": "Line 17 references REQ-005.5 D5.L1/D6. D6 is a deliverable, not a leaf, and it hides distinct prerequisites for kickoff, rematch, completion, and cancellation.",
+        "fix": "Use exact current leaves: REQ-005.5 D4.L3 for kickoff, D6.L4 for the rematch window, D6.L1 for completion, and D6.L5 for cancellation."
+      },
+      {
+        "id": "R033-3",
+        "severity": "high",
+        "finding": "Line 21 creates a direct cycle with REQ-034 D4.L1. It is also contrary to AT-033.04, which explicitly says the REQ-034 category row is non-gating and not part of this test's pass condition.",
+        "fix": "Remove REQ-034 D4.L1 from D2.L1's blocked-by set. Produce the assistant turn and fuel behavior first; REQ-034 should consume the turn for attribution integration."
+      },
+      {
+        "id": "R033-4",
+        "severity": "high",
+        "finding": "Line 25 verifies AT-033.07's blocker cause/awaited action and recent-progress answer but names only REQ-026 D2.L1. That leaf supplies the PM mirror, not the recent-activity feed, and no REQ-024 blocker producer is named.",
+        "fix": "Add REQ-026 D2.L2 for recent activity and an exact REQ-024 blocker-record/action producer such as D1.L2."
+      },
+      {
+        "id": "R033-5",
+        "severity": "medium",
+        "finding": "Line 32's wiring leaf omits D3.L2, so AT-033.08's scope/priority explanation and NGO-submitted-draft boundary need not exist before the wired assistant rerun.",
+        "fix": "Add D3.L2 to LW's blocked-by set."
+      }
+    ],
+    "req-034": [
+      {
+        "id": "R034-1",
+        "severity": "high",
+        "finding": "Line 22 assigns AT-034.05's assistant request/writer fixture to D2.L1 without a REQ-033 predecessor. Line 31 later waits on REQ-033 D2.L1, but the current reverse edge in REQ-033 creates a two-node cycle.",
+        "fix": "Add REQ-033 D2.L1 to the usage-log integration ordering, and remove the reverse REQ-034 dependency from REQ-033. Assistant turns must be produced before their rows and categories are asserted."
+      },
+      {
+        "id": "R034-2",
+        "severity": "high",
+        "finding": "Line 35 cites REQ-028 D3.L2/L4 for Skill pause and disable behavior. D3.L2 owns the guided pause, but D3.L4 is auth-failure degradation. Disable/enable is D1.L2 and disabled fallback with unattributed degradation is D5.L2.",
+        "fix": "Replace D3.L4 with exact references to REQ-028 D1.L2 and D5.L2, retaining D3.L2 for the task-or-exploration pause."
+      },
+      {
+        "id": "R034-3",
+        "severity": "high",
+        "finding": "Lines 2, 5, and 39 outsource the required NGO burn view to REQ-013 D1.L1, but that current leaf contains only project status/progress/fuel/credit/cadence rows. REQ-013's sources contain no burn-by-requirement view. REQ-034 is marked backend and has no UI wiring leaf even though AT-034.13 renders an NGO view.",
+        "fix": "Make REQ-034 mixed, add an owned NGO burn-view and wiring leaf, and include the wired rerun in its done contract. Do not invent this work inside REQ-013."
+      },
+      {
+        "id": "R034-4",
+        "severity": "medium",
+        "finding": "Line 39 says dev items roll up to their pulled PM requirement. AT-034.02/.13 explicitly require no dev-item attribution and no implicit dev-to-PM roll-up; requests bind directly at PM-requirement granularity.",
+        "fix": "Reword the leaf to state that no dev-item attribution exists and metered requests bind directly to the active pulled PM requirement."
+      },
+      {
+        "id": "R034-5",
+        "severity": "low",
+        "finding": "Line 16 says any spoofed-but-real binding records there. AT-034.02 permits that only for a real, currently pulled PM requirement; real but unpulled PM items must resolve to unattributed.",
+        "fix": "Change the wording to spoofed-but-currently-pulled binding, leaving unpulled real items explicitly in the unattributed branch."
+      }
+    ]
+  }
+}
