@@ -1,0 +1,68 @@
+{
+  "verdict": "issues",
+  "global": [],
+  "per_file": {
+    "req-012": [
+      {
+        "id": "R012-1",
+        "severity": "medium",
+        "finding": "D4.L2 at line 32 maps AT-012.13 but depends only on D4.L1 and REQ-021 D6.L3. REQ-021 supplies the Lovable-chat path, while the fork/sync prerequisite is owned by REQ-008 D6.L1, as AT-012.13 explicitly cross-references AT-008.25. D4.L1's REQ-008 D2.L3 edge supplies completion roles, not fork/export capability.",
+        "fix": "Add `REQ-008 D6.L1` to D4.L2's blocked-by set and identify it in cross-contracts as the fork/sync producer."
+      }
+    ],
+    "req-027": [
+      {
+        "id": "R027-1",
+        "severity": "high",
+        "finding": "D2.L2 at line 23 maps AT-027.07 but has no edge to the task-system producer. AT-027.07 explicitly delegates to AT-026.21, and REQ-026 D6.L1 owns returning pulled PM requirements to the backlog, voiding bindings, and handling in-flight dev items. REQ-005.5 D6.L4 only supplies lifecycle-side firing/state assertions.",
+        "fix": "Add `cross-manifest: REQ-026 D6.L1` to D2.L2's blocked-by set and record REQ-026's task/history mechanics in cross-contracts."
+      }
+    ],
+    "req-030": [
+      {
+        "id": "R030-1",
+        "severity": "high",
+        "finding": "The internal order cannot make the assigned tests green. D3.L1 at line 28 maps AT-030.06/.07, which require dashboard-visible corrections, but it does not wait for the dashboard at D1.L2. D1.L3 at line 18 maps AT-030.03, which requires a readable dashboard and an automatically triggered reconciliation run, but it waits only for documentation at D1.L1. The wiring leaf at line 19 can run before D3.L3 even though AT-030.09/.10 exercise dashboard-visible large and undecidable drift.",
+        "fix": "Make D3.L1 depend on D1.L2; make D1.L3 depend on D1.L2 and D3.L1; and make LW depend on D3.L3, which transitively includes D3.L1/L2."
+      },
+      {
+        "id": "R030-2",
+        "severity": "medium",
+        "finding": "D4.L1 at line 34 maps AT-030.11 but omits the declared AUP-deactivation producer. The acceptance test says AT-007 owns deactivation, and the manifest's line-5 cross-contract says recovery is exercised against REQ-001/007/009, yet blocked-by names only REQ-001 D6.L2 and REQ-009 D2.L3.",
+        "fix": "Add `REQ-007 D5.L3` to D4.L1's cross-manifest blocked-by set."
+      },
+      {
+        "id": "R030-3",
+        "severity": "medium",
+        "finding": "REQ-023 is declared as a dependency by the acceptance source at line 3 but is absent from both depends-on and cross-contracts. D3.L3 at manifest line 30 maps AT-030.09, whose scoped absence probe must preserve the existing founder triage queue; without the REQ-023 producer or an explicit interface classification, deleting or never building that queue can evade the intended regression boundary.",
+        "fix": "Record REQ-023 as the existing approval-workflow fixture in cross-contracts and make AT-030.09 run after the relevant REQ-023 queue leaf, such as D1.L1; promote it to depends-on if PM-level ordering is intended."
+      }
+    ],
+    "req-031": [
+      {
+        "id": "R031-1",
+        "severity": "high",
+        "finding": "D1.L1 at line 16 maps AT-031.01 but its target `REQ-008 D5.L2` does not produce secret scanning or push protection; that leaf contains GitHub App grants, credential rotation, and a runbook. The actual push-protection producer named by the acceptance boundary is REQ-009 D6.L2. A fresh org repo is produced through REQ-008 D1.L1/L2.",
+        "fix": "Replace the mismatched edge with `REQ-008 D1.L2` for the fresh validated repo and `REQ-009 D6.L2` for the scanning/push-protection substrate; record REQ-009 as the cross-manifest producer."
+      },
+      {
+        "id": "R031-2",
+        "severity": "high",
+        "finding": "D2.L1 at line 21 maps AT-031.03/.04, and D3.L1 at line 26 maps AT-031.06, but no predecessor supplies the actual listing, showcase, or public project-page surfaces that must hide and restore. REQ-011 is even declared in the acceptance dependency line, while REQ-010 owns the public project page. The current REQ-008 D5.L3 edge covers only repository desired-state remediation.",
+        "fix": "Add REQ-010 and REQ-011 as true prerequisites or explicit cross-manifest producer edges. Point D2.L1 to the REQ-010 page leaf and REQ-011 listing/showcase leaves, retain REQ-008 D5.L3 for repository visibility, and document the cross-wave integration."
+      },
+      {
+        "id": "R031-3",
+        "severity": "medium",
+        "finding": "D4.L2 at line 32 lists `REQ-023 D5.L1` as blocked-by even though line 5 explicitly classifies REQ-023 as the consumer of the break-glass switch. REQ-023 D5.L1 is a stubbed consuming test, not a producer prerequisite, so this reverses the stated contract direction and violates the true-prerequisite rule.",
+        "fix": "Remove REQ-023 D5.L1 from blocked-by and leave the REQ-023 re-run in the done contract/cross-contracts. If a real approved-project producer is required instead of a fixture, target REQ-023 D3.L1 and classify that direction explicitly."
+      },
+      {
+        "id": "R031-4",
+        "severity": "medium",
+        "finding": "D4.L1 at line 31 maps AT-031.09 but waits only for the visibility switch. That test probes participant dashboard, thread, and Linear/mirror access in addition to repository permissions and scanning. The owning dashboard, thread, and task-mirror leaves are not referenced anywhere in the manifest, so this leaf can be scheduled before its observable surfaces exist.",
+        "fix": "Add cross-wave producer edges for the participant dashboards, REQ-015's thread membership/surface, and REQ-026's Linear/mirror access, and record them in cross-contracts."
+      }
+    ]
+  }
+}
