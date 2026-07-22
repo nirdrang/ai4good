@@ -161,9 +161,11 @@ or any later check finds a design-level issue:
 
 1. The change order is written to `design/change-orders/` and committed — the durable record
    of what was asked and why.
-2. `put_conversation` pushes it into the design project's **chat panel**. It waits there, in
-   context: the redesign runs when the founder opens the session and says go — it does not
-   execute unattended.
+2. `put_conversation` pushes it into the design project's **chat panel** as a synced,
+   **read-only** thread (verified 2026-07-22: the app labels it "synced from another Claude
+   session", and Claude won't answer inside it). It is the visible in-context record, not an
+   executable prompt: the founder triggers the work in their own design conversation —
+   "process change order NNN" — pointing at the synced thread or the repo file.
 3. Founder feedback travels the same loop in the other direction: comments pinned on the
    canvas with "Send to Claude" arrive via `list_comments`, and are `ack_comments`-ed once
    folded into a change order or fix.
