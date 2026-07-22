@@ -12,7 +12,10 @@ aligned; sync-stamps prove currency).
 # DECOMP REQ-0NN — <title>
 pm-item: <Linear ID once pushed> · wave: <wave> · surface: backend|ui|mixed|skill
 sync-stamp: <commit> · <dNN>
-depends-on: REQ-…, REQ-…            ← becomes PM blocking relations
+depends-on: REQ-…, REQ-…            ← machine-readable set ONLY, matching the requirement
+                                      text's dependency line; becomes PM blocking relations
+cross-contracts: <prose>            ← stubs, co-development splits, interface-only contracts,
+                                      cross-manifest leaf edges; never parsed as dependencies
 sources: requirements/req-0NN.md · acceptance/at-req-0NN.md (<N> P0) · architecture-notes#req-0NN
 
 ## Done contract

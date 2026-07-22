@@ -1,0 +1,181 @@
+{
+  "verdict": "issues",
+  "global": [
+    {
+      "id": "G1",
+      "severity": "high",
+      "finding": "The `depends-on` fields are not unambiguous dependency sets. README.md:15 says this field becomes PM blocking relations, but req-001.md:4 places non-dependency REQ-007 on the same line; req-003.md:4 and req-006.md:4 move formal dependencies into prose about later waves or stubs; req-009.md:4 explicitly downgrades dependencies from requirements/req-009.md:27 to non-blocking interfaces; and req-005.5.md:4 mixes blocking dependencies with cross-references. A parser taking only the initial list drops real dependencies, while one collecting every REQ token creates spurious edges and cycles.",
+      "fix": "Keep `depends-on:` as a comma-separated, machine-readable set only. Move stub, cross-contract, and co-development explanations to a separate field or paragraph. Add validation that compares the parsed set with the authoritative requirement dependency line and rejects extra REQ tokens on the field."
+    },
+    {
+      "id": "G2",
+      "severity": "high",
+      "finding": "The promised REQ-006/REQ-009 co-development split has no executable leaf DAG. REQ-006 D1.L2 at req-006.md:16 consumes reserve inventory and verifies AT-006.52, while REQ-009 owns that inventory in requirements/req-009.md:13 but has no leaf for stocking, reservation, low-reserve replenishment, or the empty-reserve contract. Conversely, REQ-009 D4.L1 at req-009.md:31 needs REQ-006's gross/share contract for AT-009.12. Saying the whole-tree pass will order the pair does not define the order.",
+      "fix": "Add a REQ-009 reserve-inventory leaf. Encode an acyclic order: REQ-006's ledger/share contract precedes REQ-009 budget calculation; REQ-009 reserve inventory precedes REQ-006's checkout-capacity gate. Neither edge should depend on the other leaf. Record these cross-manifest leaf edges explicitly."
+    }
+  ],
+  "per_file": {
+    "req-001": [
+      {
+        "id": "F1",
+        "severity": "high",
+        "finding": "D3.L2 at req-001.md:27 is not independently buildable for AT-001.18. That test, at at-req-001.md:38, requires working funding, acknowledgment, scope-edit, and volunteer-offboarding paths, but the leaf is blocked only by D3.L1 and no relevant action-owner contracts are named.",
+        "fix": "Keep AT-001.17 and AT-001.32 in a seat-invariant leaf. Put AT-001.18 in a cross-surface integration leaf blocked by the owning funding, scope-edit, acknowledgment, and offboarding implementations, or provide explicit executable contracts for each predecessor."
+      },
+      {
+        "id": "F2",
+        "severity": "medium",
+        "finding": "The wiring leaf at req-001.md:22 claims to wire all D1/D2 authentication screens but is blocked only by D2.L1 and D2.L2. Neither predecessor depends on D1.L2, so GitHub signup/linking and AT-001.02/04/05 can still be unfinished when wiring runs.",
+        "fix": "Add D1.L2 to the wiring leaf's `blocked-by` set."
+      },
+      {
+        "id": "F3",
+        "severity": "medium",
+        "finding": "D6.L2 at req-001.md:41 claims AT-001.29, whose oracle at at-req-001.md:63 enumerates every write endpoint across all global types. A W1 leaf cannot prove this invariant against write routes introduced in later waves unless route registration itself enforces the gate.",
+        "fix": "Make all write routes register through one mandatory lifecycle-gate boundary and add a conformance check that fails for any unregistered write route. Keep AT-001.29 wired into CI as later endpoints are added."
+      }
+    ],
+    "req-003": [
+      {
+        "id": "F4",
+        "severity": "high",
+        "finding": "D3.L1 at req-003.md:25 verifies AT-003.12, which requires the real `draft → discovery_in_progress` transition, but it is blocked only by D1.L2. The transition engine is REQ-005.5 D1.L1, while req-005.5.md:4 declares a reverse dependency on REQ-003, leaving a hidden build-order cycle.",
+        "fix": "Encode the acyclic leaf order explicitly: REQ-005.5 D1.L1 state engine, then REQ-003 D3.L1 submission integration, then REQ-005.5 D2 intake-specific guards."
+      },
+      {
+        "id": "F5",
+        "severity": "medium",
+        "finding": "D2.L2 at req-003.md:21 says its classification fixture waits for REQ-032, but AT-003.10 at at-req-003.md:24 identifies REQ-004 as the Tier-2 classification producer. REQ-032 owns file hardening, not the classification event itself.",
+        "fix": "Name the REQ-004 classification input separately from the REQ-032 file-policy contract and state which one is stubbed."
+      },
+      {
+        "id": "F6",
+        "severity": "medium",
+        "finding": "The wiring leaf at req-003.md:27 wires the upload screen but is blocked only by D3.L1 and D3.L2. D2.L1 and D2.L2, which build the upload and both disclosures, are not predecessors.",
+        "fix": "Add D2.L1 and D2.L2 to the wiring leaf's `blocked-by` set."
+      }
+    ],
+    "req-005.5": [
+      {
+        "id": "F7",
+        "severity": "high",
+        "finding": "The cross-requirement note at req-005.5.md:4 omits REQ-004, REQ-008, REQ-012, REQ-016, and REQ-024 even though the authoritative boundary list at at-req-005.5.md:3 names them and D2, D5, and D6 exercise their behavior. These dependencies are therefore neither blocked nor honestly marked as stubbed.",
+        "fix": "List every boundary contract in a structured cross-dependency section and identify the exact leaf or fixture satisfying each one."
+      },
+      {
+        "id": "F8",
+        "severity": "medium",
+        "finding": "D1.L2 at req-005.5.md:16 verifies AT-005.5.47 but describes only wrong-actor rejection. AT-005.5.47 at at-req-005.5.md:13 also requires a reason for both authorized manual-release actors.",
+        "fix": "Add the mandatory-reason precondition for NGO-initiated and assigned-volunteer-initiated manual release to D1.L2."
+      },
+      {
+        "id": "F9",
+        "severity": "medium",
+        "finding": "D4.L3 at req-005.5.md:33 assigns AT-005.5.23 but omits the NGO funding-expired notification and restart CTA required at at-req-005.5.md:52.",
+        "fix": "Add the NGO notice and restart CTA to the slice and declare its REQ-016 delivery dependency."
+      },
+      {
+        "id": "F10",
+        "severity": "high",
+        "finding": "D6.L1 at req-005.5.md:43 is a grab-bag: completion guards, fuel release, key revocation, workspace archival, Linear removal/history, credits/badges, ownership, self-serve offboarding, no ceremony, and no-tip behavior are placed in one leaf with only D5.L1 as predecessor. AT-005.5.25-29/51/52/58 span several independent systems.",
+        "fix": "Split it into completion guard/state, completion side effects, and ownership/offboarding/no-tip leaves. Block the side-effect leaf on the REQ-006, REQ-009, REQ-012, and REQ-026 contracts it exercises."
+      },
+      {
+        "id": "F11",
+        "severity": "medium",
+        "finding": "D6.L2 at req-005.5.md:44 omits the explicit requirement at requirements/req-005.5.md:18 to archive or retarget blockers tied to the departing volunteer or setup before relisting. The acceptance suite currently has no P0 that directly asserts this, so silently assigning it to AT-005.5.33 would make the verify set misleading.",
+        "fix": "Add the blocker archive/retarget work to the release slice and resolve its authoritative acceptance coverage before folding; do not invent an AT ID in the manifest."
+      }
+    ],
+    "req-006": [
+      {
+        "id": "F12",
+        "severity": "high",
+        "finding": "D1.L2 at req-006.md:16 is an unrelated grab-bag. AT-006.06/50 cover funding order, AT-006.05 at at-req-006.md:13 requires cancellation plus ledger/share-release behavior, and AT-006.52 at line 70 requires REQ-009 reserve inventory and an admin replenishment task. Checkout D1.L1 alone cannot make all four green.",
+        "fix": "Keep AT-006.06/50 in a funding-order leaf, move AT-006.05 behind ledger/release work, and give AT-006.52 a checkout-capacity leaf blocked by the REQ-009 reserve-inventory leaf."
+      },
+      {
+        "id": "F13",
+        "severity": "high",
+        "finding": "D2.L3 at req-006.md:22 verifies AT-006.47 while blocked only by D2.L1. AT-006.47 at at-req-006.md:68 executes both cancellation and volunteer release and inspects provider state, requiring lifecycle, release, and REQ-009 workspace behavior not supplied by that predecessor.",
+        "fix": "Move AT-006.47 to a later unused-fuel/workspace integration leaf, or add explicit predecessors for cancellation, release, and REQ-009 workspace persistence."
+      },
+      {
+        "id": "F14",
+        "severity": "medium",
+        "finding": "D3.L1 at req-006.md:26 assigns AT-006.45 and AT-006.51, but those tests at at-req-006.md:25 and :72 require the REQ-007 consent transition and admin-created match provenance. The leaf neither flags REQ-007 nor has a predecessor providing those mechanics.",
+        "fix": "Separate the funding acknowledgment gate, AT-006.10, from a match-entry integration leaf for AT-006.45/51 that is explicitly blocked by the REQ-007 match contract."
+      },
+      {
+        "id": "F15",
+        "severity": "high",
+        "finding": "D5.L3 at req-006.md:39 is blocked only by D2.L1, but AT-006.48 at at-req-006.md:69 requires live REQ-009 threshold monitoring and the REQ-010 project-page gauge/top-up action. The cross tag names these owners but provides no workable ordering.",
+        "fix": "Block the leaf on the REQ-009 monitor/threshold leaf and the REQ-010 gauge surface, or reassign the wired verification to the wave where those live integrations exist."
+      },
+      {
+        "id": "F16",
+        "severity": "medium",
+        "finding": "The wiring leaf at req-006.md:40 wires funding and checkout screens but depends only on D5 leaves. It can run before D1.L2 inventory gating, D3.L2 acknowledgment copy, D3.L3 amount/cap rules, and D4.L1 acknowledgment cadence are complete.",
+        "fix": "Add D1.L2, D3.L2, D3.L3, D4.L1, and the relevant D5 leaves as explicit predecessors."
+      },
+      {
+        "id": "F17",
+        "severity": "high",
+        "finding": "D6.L1 at req-006.md:44 verifies AT-006.43 but is blocked only by D2.L1. AT-006.43 at at-req-006.md:80 starts with disputed funds already released to general balance, which requires D5.L1/L2, and its AI cutoff also requires REQ-009.",
+        "fix": "Add D5.L2 and the REQ-009 stop/revocation contract as predecessors."
+      },
+      {
+        "id": "F18",
+        "severity": "medium",
+        "finding": "D6.L2 at req-006.md:45 combines the absence of shared-payment-fingerprint automation, AT-006.49, with implementing a service-targeted admin work queue, AT-006.44. These are unrelated build surfaces.",
+        "fix": "Split the negative collusion-control assertion and the ops-queue implementation into separate leaves."
+      }
+    ],
+    "req-009": [
+      {
+        "id": "F19",
+        "severity": "high",
+        "finding": "D2.L1 at req-009.md:21 has `blocked-by: L(D1.L1)`, which is not an existing leaf reference and does not match the manifest's reference syntax.",
+        "fix": "Change it to `blocked-by: D1.L1`."
+      },
+      {
+        "id": "F20",
+        "severity": "high",
+        "finding": "The manifest labels REQ-009 backend-only at req-009.md:2 and explicitly avoids wiring at line 8, but P0 tests exercise rendered or interactive surfaces: dashboard key status AT-009.06, rejection/setup messaging AT-009.07, the NGO revoke-now action AT-009.21, and onboarding copy AT-009.28. A data contract cannot satisfy the dashboard-read oracle at at-req-009.md:14.",
+        "fix": "Mark the surface mixed and add a wiring leaf with a wired rerun of the UI-tagged P0s, or move those test IDs to an explicitly blocked cross-requirement wiring leaf without claiming REQ-009 is done first."
+      },
+      {
+        "id": "F21",
+        "severity": "high",
+        "finding": "D4.L3 at req-009.md:33 is blocked only by D4.L2, yet AT-009.15 requires REQ-006's nightly ledger conformance and AT-009.37 requires REQ-016 notification delivery. Neither external predecessor is encoded.",
+        "fix": "Add cross-leaf dependencies on the REQ-006 ledger-conformance leaf and the REQ-016 emitter/outbox contract."
+      },
+      {
+        "id": "F22",
+        "severity": "medium",
+        "finding": "D4.L3 at req-009.md:33 says the watchdog pages the admin. Requirements/req-009.md:20 explicitly says it emits a notification and that no paging integration is used. The acceptance wording 'paged' at at-req-009.md:31 must not be turned into speculative paging infrastructure.",
+        "fix": "Replace 'paged' with 'notified through REQ-016' and explicitly preserve the no-paging constraint."
+      },
+      {
+        "id": "F23",
+        "severity": "high",
+        "finding": "D6.L2 at req-009.md:42 combines GitHub secret-scanning configuration, a scheduled founder repository review, and repo-template `.env` behavior. AT-009.35 at at-req-009.md:73 cannot be made green until REQ-008 seeds a repository, but REQ-008 is absent from the dependency note and the leaf has no predecessor.",
+        "fix": "Split the three hygiene mechanisms into buildable leaves and block the `.env` behavior leaf on the REQ-008 repo-seeding contract."
+      }
+    ],
+    "req-016": [
+      {
+        "id": "F24",
+        "severity": "high",
+        "finding": "D3.L1 at req-016.md:26 is not a standalone emitter slice. AT-016.09 at at-req-016.md:23 requires induced-fault atomicity across every money event, both access events, and completion. Fixture events cannot prove atomic writes in the real REQ-006, REQ-009, and completion producers, several of which arrive in later waves.",
+        "fix": "Build the emitter/outbox contract first, then block each producer integration on it, and run AT-016.09 only after all guarded producer leaves are live. If completion remains later-wave work, REQ-016 cannot satisfy its current done contract in W1."
+      },
+      {
+        "id": "F25",
+        "severity": "medium",
+        "finding": "The wiring leaf at req-016.md:22 depends on D2.L1/L2, whose chain reaches D1.L1 but not D1.L2. The in-app surface can therefore wire before the full taxonomy, recipient/channel matrix, payloads, and sensitive negatives verified by AT-016.03/04 exist.",
+        "fix": "Add D1.L2 as an explicit wiring predecessor."
+      }
+    ]
+  }
+}
