@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI4GOOD — Coordination components</title>
+<style>body{margin:0;background:#f0eee9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}a{color:#0d7a63;text-decoration:none}a:hover{color:#0a5f4d}</style>
+</head>
+<body>
+<div style="width:1080px;max-width:100%;margin:0 auto">
+<div style="padding:24px 26px;display:grid;gap:24px">
+<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:26px">
+<div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a857c;margin-bottom:10px">Task tree panel — plain language, read-only, status moves only on PR merge</div>
+<div style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;overflow:hidden">
+<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #eeece6"><span style="font-size:13px;font-weight:600;color:#1f2328">What's being built</span><div style="flex:1;height:7px;border-radius:999px;background:#eeece6;max-width:180px"><div style="width:64%;height:7px;border-radius:999px;background:#0d7a63"></div></div><span style="font-size:12px;color:#59554e">9 of 14 must-haves · 64%</span></div>
+<div style="padding:10px 14px;border-bottom:1px solid #f3f1ec"><div style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:#1f2328"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#1a7f37" stroke-width="1.6"></circle><path d="M11.2 5.8l-4.1 4.1L5 7.8" stroke="#1a7f37" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>Volunteers can see the weekly shift calendar</div>
+<div style="margin:7px 0 0 21px;display:grid;gap:5px;font-size:13px;color:#59554e">
+<div style="display:flex;align-items:center;gap:8px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#1a7f37" stroke-width="1.6"></circle><path d="M11.2 5.8l-4.1 4.1L5 7.8" stroke="#1a7f37" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg><span style="text-decoration:line-through;color:#a8a397">Calendar shows all shifts for the chosen week</span></div>
+<div style="display:flex;align-items:center;gap:8px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#1a7f37" stroke-width="1.6"></circle><path d="M11.2 5.8l-4.1 4.1L5 7.8" stroke="#1a7f37" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg><span style="text-decoration:line-through;color:#a8a397">Each shift shows who has signed up</span></div>
+</div></div>
+<div style="padding:10px 14px;border-bottom:1px solid #f3f1ec;background:#e8f5f0"><div style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:#1f2328"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#0d7a63" stroke-width="1.6"></circle><circle cx="8" cy="8" r="3" fill="#0d7a63"></circle></svg>Volunteers can sign up and swap shifts<span style="font-size:11px;font-weight:600;color:#0a5f4d;background:#fff;border:1px solid #b8e0d4;border-radius:999px;padding:1px 8px">Jordan is working on this now</span></div>
+<div style="margin:7px 0 0 21px;display:grid;gap:5px;font-size:13px;color:#59554e">
+<div style="display:flex;align-items:center;gap:8px;justify-content:space-between"><span style="display:flex;align-items:center;gap:8px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#0d7a63" stroke-width="1.6"></circle><circle cx="8" cy="8" r="3" fill="#0d7a63"></circle></svg>A volunteer can claim an open shift in one tap</span><span style="font-size:11.5px;color:#0d7a63;font-weight:600">Ask about this task</span></div>
+<div style="display:flex;align-items:center;gap:8px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#b5b0a4" stroke-width="1.6"></circle></svg>Swaps need coordinator approval</div>
+</div></div>
+<div style="padding:10px 14px"><div style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:#59554e"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#b5b0a4" stroke-width="1.6"></circle></svg>Coordinators get a weekly coverage summary</div></div>
+</div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a857c;margin:18px 0 10px">Comment thread — plain text, no markdown / attachments / threading</div>
+<div style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;overflow:hidden">
+<div style="padding:11px 14px;border-bottom:1px solid #f3f1ec"><div style="display:flex;gap:8px;align-items:baseline"><span style="font-size:13px;font-weight:700;color:#1f2328">Amara (Hopeful Horizons)</span><span style="font-size:11.5px;color:#a8a397">Tue 10:14</span></div><div style="font-size:13.5px;color:#3b382f;margin-top:3px">Coordinators are Rosa and Danny — only they should approve swaps.</div></div>
+<div style="padding:11px 14px;border-bottom:1px solid #f3f1ec;background:#faf9f6"><div style="display:flex;gap:8px;align-items:baseline"><span style="font-size:13px;font-weight:700;color:#1f2328">Jordan (volunteer)</span><span style="font-size:11.5px;color:#a8a397">Tue 11:02</span></div><div style="font-size:13.5px;color:#3b382f;margin-top:3px">Got it. Preview of the swap flow here: <span style="color:#0d7a63;text-decoration:underline">https://shift-scheduler.lovable.app/swaps</span></div></div>
+<div style="padding:10px 14px;display:flex;gap:8px;align-items:center"><span style="flex:1;border:1px solid #d5d1c7;border-radius:6px;padding:8px 12px;font-size:13px;color:#a8a397">Write a comment — plain text, links allowed</span><span style="display:inline-flex;padding:7px 14px;border-radius:6px;background:#0d7a63;color:#fff;font-size:13px;font-weight:600">Post</span></div>
+<div style="padding:0 14px 10px;font-size:11.5px;color:#8a857c">Posting notifies Jordan. Read-only after completion.</div>
+</div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a857c;margin:18px 0 10px">Blocker badge + card — orthogonal to lifecycle</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#fff8e1;color:#9a6700;border:1px solid #eed888">? Clarifying question</span>
+<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#fff8e1;color:#9a6700;border:1px solid #eed888">⏳ Awaiting NGO review</span>
+<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#ffefee;color:#a40e26;border:1px solid #f0c4c4">✕ Fuel top-up needed</span>
+<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#f3f1ec;color:#59554e;border:1px solid #d5d1c7">Lovable setup pending</span>
+</div>
+<div style="border:1px solid #eed888;border-radius:8px;background:#fff;padding:13px 15px">
+<div style="display:flex;align-items:center;gap:9px"><span style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:#fff8e1;color:#9a6700;border:1px solid #eed888">Clarifying question</span><span style="font-size:13.5px;font-weight:600;color:#1f2328">Which fields does the intake form need?</span><div style="flex:1"></div><span style="font-size:11.5px;color:#9a6700">Open 36h · reminder at 48h</span></div>
+<div style="font-size:13px;color:#59554e;margin-top:6px">Jordan asked on the task "Swaps need coordinator approval". The build continues on other tasks meanwhile.</div>
+<div style="margin-top:9px"><span style="display:inline-flex;padding:5px 13px;border-radius:6px;background:#0d7a63;color:#fff;font-size:12.5px;font-weight:600">Answer Jordan</span></div>
+</div>
+</div>
+<div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a857c;margin-bottom:10px">Acknowledgment modal — match acceptance variant, full text visible, never pre-checked</div>
+<div style="border:1px solid #d5d1c7;border-radius:10px;background:#fff;box-shadow:0 8px 24px rgba(31,35,40,.1);overflow:hidden">
+<div style="padding:14px 18px;border-bottom:1px solid #eeece6"><div style="font-size:15px;font-weight:700;color:#1f2328">Before you fund: what you're agreeing to</div><div style="font-size:12.5px;color:#59554e;margin-top:2px">Volunteer Shift Scheduler · matched with <b>Jordan Ruiz</b></div></div>
+<div style="padding:14px 18px;display:grid;gap:10px;font-size:13px;color:#3b382f">
+<label style="display:flex;gap:9px;align-items:flex-start"><span style="width:15px;height:15px;border:1.5px solid #b5b0a4;border-radius:4px;flex:none;margin-top:1px"></span>ai4good is a coordination layer, not a vendor. Jordan volunteers their time — no one owes a finished tool.</label>
+<label style="display:flex;gap:9px;align-items:flex-start"><span style="width:15px;height:15px;border:1.5px solid #0d7a63;border-radius:4px;background:#0d7a63;flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center"><svg width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M13.5 4.5l-7.2 7.2L3 8.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Fuel pays for AI work and can be fully spent without a viable result. It is not cash-refundable; unused fuel stays as credit for our projects.</label>
+<label style="display:flex;gap:9px;align-items:flex-start"><span style="width:15px;height:15px;border:1.5px solid #b5b0a4;border-radius:4px;flex:none;margin-top:1px"></span>This project handles ordinary personal data (Tier 1) — we'll share only what's needed and remain responsible for it.</label>
+<label style="display:flex;gap:9px;align-items:flex-start"><span style="width:15px;height:15px;border:1.5px solid #b5b0a4;border-radius:4px;flex:none;margin-top:1px"></span>The amount I choose is my maximum exposure. There is no SLA.</label>
+</div>
+<div style="padding:0 18px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<span style="border:1px solid #d5d1c7;border-radius:6px;padding:7px 11px;font-size:13px;color:#1f2328">Amara Bello</span>
+<span style="border:1px solid #d5d1c7;border-radius:6px;padding:7px 11px;font-size:13px;color:#a8a397">Title — e.g. Program Director</span>
+<label style="grid-column:1/3;display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:#3b382f"><span style="width:15px;height:15px;border:1.5px solid #b5b0a4;border-radius:4px;flex:none;margin-top:1px"></span>I have authority to bind Hopeful Horizons to these terms.</label>
+</div>
+<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;background:#faf9f6;border-top:1px solid #eeece6"><span style="display:inline-flex;padding:7px 14px;border-radius:6px;font-size:13px;color:#59554e">Not now</span><span style="display:inline-flex;padding:7px 16px;border-radius:6px;background:#f3f1ec;color:#a8a397;font-size:13px;font-weight:600">Agree &amp; continue to funding</span></div>
+</div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a857c;margin:18px 0 10px">Virtual-key reveal — shown once</div>
+<div style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:14px 16px">
+<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13.5px;font-weight:600;color:#1f2328">Your project key — Volunteer Shift Scheduler</span><span style="display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:#e8f5f0;color:#0a5f4d;border:1px solid #b8e0d4"><span style="width:7px;height:7px;border-radius:50%;background:#1a7f37"></span>Active</span></div>
+<div style="display:flex;gap:8px;align-items:center;margin-top:9px"><span style="flex:1;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:#faf9f6;border:1px solid #e3e0d8;border-radius:6px;padding:8px 11px;color:#1f2328">a4g_live_k3Xw…9fQt</span><span style="display:inline-flex;padding:7px 13px;border-radius:6px;border:1px solid #d5d1c7;font-size:12.5px;font-weight:600;color:#1f2328">Copy</span></div>
+<div style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:#1f2328;color:#d7f0e8;border-radius:6px;padding:9px 11px;margin-top:8px">export ANTHROPIC_BASE_URL=https://gw.ai4good.dev<br>export ANTHROPIC_API_KEY=$A4G_PROJECT_KEY</div>
+<div style="display:flex;align-items:center;gap:10px;margin-top:10px"><span style="display:inline-flex;padding:6px 14px;border-radius:6px;background:#0d7a63;color:#fff;font-size:12.5px;font-weight:600">I've stored it safely</span><span style="font-size:11.5px;color:#8a857c">Shown once. Lost it? Replace it instantly — the old one stops working.</span></div>
+</div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a857c;margin:18px 0 10px">Notifications — low-tone vs escalation</div>
+<div style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;overflow:hidden">
+<div style="display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid #f3f1ec;align-items:flex-start"><span style="width:8px;height:8px;border-radius:50%;background:#0d7a63;margin-top:5px;flex:none"></span><div><div style="font-size:13px;color:#1f2328">Jordan finished "Calendar shows all shifts for the chosen week"</div><div style="font-size:11.5px;color:#a8a397">Volunteer Shift Scheduler · 3h ago</div></div></div>
+<div style="display:flex;gap:10px;padding:10px 14px;align-items:flex-start;background:#fff8e1"><span style="width:8px;height:8px;border-radius:50%;background:#c47b12;margin-top:5px;flex:none"></span><div><div style="font-size:13px;color:#1f2328;font-weight:600">5 days left to fund your match with Jordan — also sent by email</div><div style="font-size:11.5px;color:#9a6700">Casework Intake Tracker · funding deadline Jul 21</div></div></div>
+</div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a857c;margin:18px 0 10px">Q&amp;A / clarifications log</div>
+<div style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;overflow:hidden">
+<div style="padding:10px 14px;border-bottom:1px solid #f3f1ec"><div style="font-size:13px;color:#1f2328"><b>Q</b> Should past weeks stay visible? <span style="font-size:11.5px;color:#a8a397">Jordan · Jul 8</span></div><div style="font-size:13px;color:#59554e;margin-top:3px"><b style="color:#0a5f4d">A</b> Yes, read-only for 8 weeks. <span style="font-size:11.5px;color:#a8a397">Amara · Jul 8</span></div></div>
+<div style="padding:10px 14px;background:#fff8e1"><div style="font-size:13px;color:#1f2328"><b>Q</b> Which fields does the intake form need? <span style="font-size:11.5px;color:#a8a397">Jordan · yesterday</span></div><div style="font-size:12px;color:#9a6700;margin-top:3px;font-weight:600">Unanswered — Jordan is waiting on this</div></div>
+</div>
+</div>
+</div>
+<div>
+<div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a857c;margin-bottom:10px">Project card — two variants (REQ-011). Open = static, no counts, no dollars. In-progress = live, code-host style. Never stars/forks/watchers.</div>
+<div style="display:flex;gap:16px;flex-wrap:wrap">
+<div style="width:480px;border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:15px 17px">
+<div style="display:flex;align-items:center;gap:9px"><span style="font-size:14.5px;font-weight:650;color:#0d7a63">Food-bank route planner</span><span style="display:inline-flex;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;background:#1a7f37;color:#fff">Open</span></div>
+<div style="font-size:13px;color:#59554e;margin-top:5px;line-height:1.5">Plan weekly delivery routes for 12 drivers and show each driver a simple stop list. Replaces a whiteboard photo sent by WhatsApp.</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+<span style="padding:2px 9px;border-radius:999px;font-size:11.5px;background:#f3f1ec;color:#59554e">Medium</span>
+<span style="padding:2px 9px;border-radius:999px;font-size:11.5px;background:#e8f5f0;color:#0a5f4d">Maps</span>
+<span style="padding:2px 9px;border-radius:999px;font-size:11.5px;background:#e8f5f0;color:#0a5f4d">CRUD</span>
+<span style="padding:2px 9px;border-radius:999px;font-size:11.5px;background:#f3f1ec;color:#59554e">Food security</span>
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:11px;font-size:12px;color:#8a857c"><span>Second Harvest Trust</span><span>Posted Jul 12</span></div>
+</div>
+<div style="width:480px;border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:15px 17px">
+<div style="display:flex;align-items:center;gap:9px"><span style="font-size:14.5px;font-weight:650;color:#0d7a63">Volunteer Shift Scheduler</span><span style="display:inline-flex;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;background:#0d7a63;color:#fff">In progress</span></div>
+<div style="display:flex;align-items:center;gap:10px;margin-top:9px"><div style="flex:1;height:7px;border-radius:999px;background:#eeece6"><div style="width:64%;height:7px;border-radius:999px;background:#0d7a63"></div></div><span style="font-size:12px;color:#59554e">9 / 14 tasks</span></div>
+<div style="display:flex;gap:14px;margin-top:10px;font-size:12.5px;color:#59554e;flex-wrap:wrap">
+<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:50%;background:#0d7a63"></span>React · Supabase</span>
+<span>Last activity 3h ago</span>
+<span>Jordan Ruiz building</span>
+<span>MIT</span>
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:11px;font-size:12px;color:#8a857c"><span>Hopeful Horizons</span><span>Started Jul 2</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>
