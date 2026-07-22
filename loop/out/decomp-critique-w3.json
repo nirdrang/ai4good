@@ -1,0 +1,211 @@
+{
+  "verdict": "issues",
+  "global": [
+    {
+      "id": "G1",
+      "severity": "high",
+      "finding": "The whole depends-on graph is not topologically sortable. Wave-3 line-4 edges create or enlarge the strongly connected component {REQ-005.5, REQ-006, REQ-007, REQ-008, REQ-009, REQ-021, REQ-026, REQ-036}. Minimal newly introduced cycles include REQ-006 -> REQ-008 -> REQ-006, REQ-007 -> REQ-008 -> REQ-007, REQ-008 -> REQ-021 -> REQ-008, REQ-026 -> REQ-036 -> REQ-026, and REQ-008 -> REQ-026 -> REQ-005.5 -> REQ-006 -> REQ-008.",
+      "fix": "Recalculate the wave-3 depends-on sets using whole-requirement prerequisites only. Move co-development, consumer, fixture, and partial-leaf relationships to cross-contracts. Where a wave-3 edge is genuinely prerequisite, remove or reclassify the opposite contextual edge during the whole-graph fold."
+    },
+    {
+      "id": "G2",
+      "severity": "high",
+      "finding": "The blocked-by graph also contains implementation deadlocks: REQ-008 D6.L2 (AT-008.26, line 47) <-> REQ-021 D6.L3 (AT-021.26/.27/.28/.34, line 47); REQ-026 D4.L1 (AT-026.10-.12, line 34) <-> REQ-028 D3.L1 (AT-028.06, line 26); REQ-026 D3.L1 -> REQ-036 D2.L2 -> REQ-026 D3.L2 -> REQ-026 D3.L1 (lines 28-29 and req-036 line 23); and REQ-026 D3.L1 -> REQ-036 D2.L2 -> D2.L1 -> D1.L2 -> D1.L1 -> REQ-026 D3.L1.",
+      "fix": "Orient each co-development pair around the primitive producer and the integration consumer. REQ-021 should produce offboarding; REQ-026 should produce pull authority and dev-tree push; REQ-028 should consume pull authority; REQ-036 should consume the push primitive in its end-to-end gate."
+    },
+    {
+      "id": "G3",
+      "severity": "high",
+      "finding": "Several wave-3 depends-on lines declare wave-4 requirements as true prerequisites while their own cross-contracts call them pinned fixtures: REQ-021 -> REQ-024 (lines 4-5; AT-021.24), REQ-026 -> REQ-025/034 (lines 4-5; AT-026.18/.19 and attribution tests), REQ-028 -> REQ-034 (lines 4-5; AT-028.06), and REQ-036 -> REQ-024/034 (lines 4-5; AT-036.02/.03/.05). This either makes wave 3 unbuildable before wave 4 or violates the true-prerequisite rule.",
+      "fix": "Remove fixture-backed wave-4 relations from depends-on and retain the existing explicit cross-wave fixture notes. If any is actually indispensable at integration tier, move the owning requirement earlier instead of calling it a fixture."
+    }
+  ],
+  "per_file": {
+    "req-007": [
+      {
+        "id": "F007-1",
+        "severity": "high",
+        "finding": "Line 4 makes REQ-008 a whole prerequisite and creates the direct REQ-007 <-> REQ-008 cycle. The only concrete producer edge, D5.L1 line 38 for AT-007.19/.20, points to REQ-008 D5.L2, but that target builds GitHub App grants, rotation, and a break-glass runbook for AT-008.24—not member repo-creation rights.",
+        "fix": "Remove REQ-008 from depends-on and remove or replace the mismatched D5.L1 edge. Record explicitly that the requirement-text dependency is an interface/co-development relation unless a real producer leaf for repo-creation rights is identified."
+      },
+      {
+        "id": "F007-2",
+        "severity": "medium",
+        "finding": "D5.L1 line 38 is blocked by D3.L3, although AT-007.19 requires org membership at first consent. D3.L2 line 29 builds the consent/disclaimer gate; D3.L3 line 30 is the later funding-and-kickoff path.",
+        "fix": "Change D5.L1's local predecessor from D3.L3 to D3.L2 so the implementation boundary matches the first-consent timing."
+      },
+      {
+        "id": "F007-3",
+        "severity": "medium",
+        "finding": "D3.L3 line 30 invents the affirmative rule that a rematch inherits the workspace. AT-007.15 only warns that a rematch may legitimately inherit a surviving workspace and deliberately declines to assert resource-record existence timing.",
+        "fix": "Remove the workspace-inheritance claim from the leaf; retain only the tested consented-but-unfunded negative and kickoff behavior."
+      }
+    ],
+    "req-008": [
+      {
+        "id": "F008-1",
+        "severity": "high",
+        "finding": "The line-4 depends-on set creates cycles with REQ-006, REQ-007, and REQ-021 directly and with REQ-026 through REQ-005.5/006. Line 5 itself says REQ-007 membership is merely consumed and describes REQ-021 and REQ-026 as leaf-level interfaces.",
+        "fix": "Reclassify REQ-007, REQ-021, and REQ-026 as cross-contract leaf relations. Resolve the REQ-006 orientation against req-006 line 4 so only the actual funded-project producer direction remains."
+      },
+      {
+        "id": "F008-2",
+        "severity": "high",
+        "finding": "D6.L2 line 47, verifying AT-008.26, blocks on REQ-021 D6.L3, while REQ-021 D6.L3 line 47 blocks back on this leaf. Neither offboarding test can become green.",
+        "fix": "Keep REQ-021 D6.L3 as the prompt-and-confirm flow producer and let D6.L2 consume it. Remove the reverse dependency from req-021; use REQ-008 D6.L1 or the relevant repo/access leaves for REQ-021's repo-stays-and-sync assertions."
+      },
+      {
+        "id": "F008-3",
+        "severity": "low",
+        "finding": "Cross-contracts line 5 declares the setup edge as REQ-021 D3.L1 -> D1.L2, but the actual direct blocked-by edge is on D1.L1 at line 16; D1.L2 only receives it transitively through L1.",
+        "fix": "Change the declared edge to REQ-021 D3.L1 -> D1.L1, or move the blocked-by reference if D1.L2 was genuinely intended."
+      },
+      {
+        "id": "F008-4",
+        "severity": "medium",
+        "finding": "D3.L3 line 30 assigns AT-008.14/.15/.29 but is blocked only by D3.L1. The NGO-channel exclusion and positive Linear-source-of-truth oracle require the PM mirror and visibility split produced by REQ-026 D2.L1/D2.L3; code-event ingestion alone cannot make those tests green.",
+        "fix": "Add the relevant REQ-026 D2 leaf predecessors and explicitly flag any later-wave panel/assistant channels as fixtures."
+      },
+      {
+        "id": "F008-5",
+        "severity": "medium",
+        "finding": "D4.L2 line 35 verifies all of AT-008.18 but describes only repository scanning and push blocking. AT-008.18 also requires the credential to be shown exactly once and proves separate revocation from the project virtual key.",
+        "fix": "Expand D4.L2 to include issuance visibility and separate-revocation behavior, with the appropriate key-lifecycle producer edge, or move the entire P0 id to a leaf whose slice implements all parts."
+      }
+    ],
+    "req-021": [
+      {
+        "id": "F021-1",
+        "severity": "high",
+        "finding": "Line 4 treats REQ-008 as a whole prerequisite even though lines 5 and 27-28 define an acyclic partial setup sequence in both directions; it therefore creates REQ-008 <-> REQ-021. The same line treats REQ-024 as a prerequisite while line 5 and D6.L2 line 46 call its ladder a future fixture for AT-021.24.",
+        "fix": "Remove REQ-008 and REQ-024 from depends-on. Preserve the explicit setup leaf edges and the pinned REQ-024 fixture in cross-contracts."
+      },
+      {
+        "id": "F021-2",
+        "severity": "high",
+        "finding": "D6.L3 line 47 blocks on REQ-008 D6.L2 while that leaf blocks on D6.L3, creating the direct offboarding cycle affecting AT-021.27 and AT-008.26.",
+        "fix": "Make D6.L3 the offboarding-flow producer. Replace its REQ-008 D6.L2 predecessor with only the repo permission/sync primitives needed for its repo-stays-and-sync assertions."
+      },
+      {
+        "id": "F021-3",
+        "severity": "high",
+        "finding": "D2.L3 line 22 verifies AT-021.06/.07—resolution by platform validation and seven specific validation failures—but has no dependency on D3.L2 line 28, the leaf that builds that validator and consumes REQ-008 URL validation.",
+        "fix": "Block D2.L3 on D3.L2. This keeps the local order acyclic because D3.L2 depends on D2.L2, not D2.L3."
+      },
+      {
+        "id": "F021-4",
+        "severity": "medium",
+        "finding": "D6.L3 line 47 is not a coherent session-sized slice: AT-021.26 tests post-completion chat maintenance, .27 tests offboarding and repo sync, .28 tests first-consent repo-creation permission, and .34 tests ownership throughout the lifecycle. Its unrelated predecessors are a symptom of this bundling.",
+        "fix": "Split it into separate leaves for durable NGO ownership (.26/.34), completion offboarding (.27), and onboarding permission timing (.28), keeping each P0 id in exactly one leaf."
+      },
+      {
+        "id": "F021-5",
+        "severity": "medium",
+        "finding": "D3.L2 line 28 verifies AT-021.10 but omits its required notification to both parties after platform validation. The slice description only names repo/App/collision/permission behavior.",
+        "fix": "Add the two-party notification emission to D3.L2 and reference the shared emitter producer if it is not already guaranteed by the whole-requirement dependency."
+      },
+      {
+        "id": "F021-6",
+        "severity": "low",
+        "finding": "The machine-readable depends-on line 4 appends the prose parenthetical '(derived—the requirement text carries no dependency line)' to the final dependency token.",
+        "fix": "Move that explanation into cross-contracts so depends-on contains only the parseable REQ-id set."
+      }
+    ],
+    "req-026": [
+      {
+        "id": "F026-1",
+        "severity": "high",
+        "finding": "Line 4 makes the co-developed REQ-036 a whole prerequisite, creating REQ-026 <-> REQ-036, and declares REQ-025/034 as prerequisites despite line 5 calling their AT-026.18/.19 and attribution inputs pinned wave-4 fixtures.",
+        "fix": "Keep only genuine whole prerequisites such as the kickoff/lifecycle producer. Move REQ-036 to leaf-level co-development edges and remove fixture-backed REQ-025/034 from depends-on."
+      },
+      {
+        "id": "F026-2",
+        "severity": "high",
+        "finding": "D3.L1 line 28 (AT-026.27) blocks on REQ-036 D2.L2; D3.L2 line 29 (AT-026.08/.09) blocks on D3.L1; and REQ-036 D2.L2 line 23 blocks back on D3.L2. A second cycle runs from D3.L1 through REQ-036 D2.L2/D2.L1/D1.L2/D1.L1 back to D3.L1.",
+        "fix": "Build the dev-tree push primitive in D3.L2 from a controlled gate-pass fixture, before REQ-036 D2.L2. Treat D3.L1 as the later full-lifecycle integration check. REQ-036 authoring should start from D1.L1 provisioning and D4.L1 pull authority, not D3.L1."
+      },
+      {
+        "id": "F026-3",
+        "severity": "high",
+        "finding": "D4.L1 line 34 blocks the platform pull authority for AT-026.10-.12 on REQ-028 D3.L1, while REQ-028 D3.L1 line 26 blocks the Skill client on this platform authority. This is a direct producer/client cycle.",
+        "fix": "Remove the REQ-028 predecessor from D4.L1. Build and test the platform/manual pull contract first, then let REQ-028 D3.L1 consume it."
+      },
+      {
+        "id": "F026-4",
+        "severity": "medium",
+        "finding": "D2.L4 line 24 verifies AT-026.24's per-worktree binding isolation but blocks only on D4.L1. The acceptance test explicitly crosses to REQ-028.06, implemented by REQ-028 D3.L1.",
+        "fix": "After correcting the pull cycle, add REQ-028 D3.L1 as D2.L4's integration predecessor."
+      },
+      {
+        "id": "F026-5",
+        "severity": "medium",
+        "finding": "D4.L3 line 36 verifies AT-026.15's observable task-system-auth degradation but has no edge to REQ-028 D3.L4, which builds the queued-update/session-continuation behavior for AT-028.10.",
+        "fix": "Add REQ-028 D3.L4 as the auth-failure integration predecessor, or state and fixture the narrower platform-only contract if D4.L3 is not intended to test Skill behavior."
+      },
+      {
+        "id": "F026-6",
+        "severity": "medium",
+        "finding": "D2.L3 line 23 assigns AT-026.05's task-anchored NGO-comment relay, but neither its blocked-by set nor cross-contracts line 5 mentions REQ-015, which the requirement and acceptance suite identify as the relay producer. REQ-015 is a later-wave dependency and is not honestly flagged here.",
+        "fix": "Record the REQ-015 ownership and later-wave fixture in cross-contracts, then add its concrete producer leaf when that manifest exists."
+      },
+      {
+        "id": "F026-7",
+        "severity": "low",
+        "finding": "The machine-readable depends-on line 4 appends a prose '(derived...)' annotation after REQ-036.",
+        "fix": "Move the annotation to cross-contracts and leave only REQ identifiers on depends-on."
+      }
+    ],
+    "req-028": [
+      {
+        "id": "F028-1",
+        "severity": "high",
+        "finding": "D3.L1 line 26, verifying AT-028.06, participates in the direct cycle with REQ-026 D4.L1 line 34. The dependency direction in this file is the plausible one—the Skill consumes platform pull authority—but the reverse edge makes the leaf unbuildable.",
+        "fix": "Retain REQ-026 D4.L1 as D3.L1's predecessor and remove the reverse REQ-028 dependency from req-026 D4.L1."
+      },
+      {
+        "id": "F028-2",
+        "severity": "medium",
+        "finding": "D1.L3 line 18 calls REQ-008 D4.L2 the seeding producer for AT-028.03/.04, but D4.L2 builds credential scanning/push protection. Actual repo content seeding is REQ-008 D4.L1.",
+        "fix": "Add REQ-008 D4.L1 for non-secret config seeding; retain D4.L2 only for the no-secret/history invariant."
+      },
+      {
+        "id": "F028-3",
+        "severity": "medium",
+        "finding": "D3.L1 line 26 labels REQ-009 D3.L2 as 'request riding', but that target injects governance text and does not produce task-binding attribution. AT-028.06 requires the binding on every metered request; REQ-009 D5.L1 is the usage-row producer, while REQ-034 owns the schema.",
+        "fix": "Replace the mismatched D3.L2 reference with the actual gateway/usage-row producer, normally REQ-009 D5.L1 plus any required request-path leaf, and keep REQ-034 as the declared schema fixture."
+      },
+      {
+        "id": "F028-4",
+        "severity": "high",
+        "finding": "Line 4 lists REQ-034 as a true prerequisite, while line 5 explicitly says AT-028.06 runs against a pinned wave-4 attribution-row schema fixture.",
+        "fix": "Remove REQ-034 from depends-on and retain the fixture contract until REQ-034 is implemented."
+      }
+    ],
+    "req-036": [
+      {
+        "id": "F036-1",
+        "severity": "high",
+        "finding": "Line 4 creates the direct REQ-036 <-> REQ-026 cycle and treats REQ-024/034 as prerequisites even though line 5 and D1.L2/L3 call them wave-4 fixtures for AT-036.02/.03/.05.",
+        "fix": "Remove REQ-026, REQ-024, and REQ-034 from whole-requirement depends-on; preserve REQ-026 as acyclic leaf contracts and the other two as cross-wave fixtures."
+      },
+      {
+        "id": "F036-2",
+        "severity": "high",
+        "finding": "D1.L1 line 16, verifying the kickoff seed/pre-gate-empty state in AT-036.01, blocks on REQ-026 D3.L1. That target is the bootstrap's full lifecycle through gate pass, not the seeding producer, and itself waits for REQ-036 D2.L2.",
+        "fix": "Block D1.L1 on REQ-026 D1.L1, which actually provisions and seeds the workspace. For D1.L2/AT-036.02, add the acyclic pull path REQ-026 D4.L1 -> REQ-028 D3.L1 before Skill-driven bootstrap authoring."
+      },
+      {
+        "id": "F036-3",
+        "severity": "high",
+        "finding": "D2.L2 line 23 blocks the end-to-end gate test AT-036.06 on REQ-026 D3.L2, while REQ-026 D3.L2 line 29 blocks back through D3.L1 to this gate. The declared line-5 claim that the pair is acyclic is false.",
+        "fix": "Keep D2.L2 dependent on the REQ-026 push primitive, but remove REQ-026 D3.L2's dependency on the completed gate. Test the push primitive with a controlled gate-pass event, then run AT-036.06 end to end."
+      },
+      {
+        "id": "F036-4",
+        "severity": "medium",
+        "finding": "D1.L2 line 17 labels REQ-009 D4.L1 as the metering producer for AT-036.02, but that leaf implements funding/top-up budget math. It does not forward authoring requests or write token attribution rows.",
+        "fix": "Reference the actual REQ-009 request-path and usage-row leaves, such as D1.L1 and D5.L1, and retain REQ-034 only as the pinned attribution-schema fixture."
+      }
+    ]
+  }
+}
