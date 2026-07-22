@@ -18,6 +18,12 @@
   return neither credits nor member count. The product's Lovable-chip design leans on d42 —
   founder ruling needed on whether to re-validate later or plan an alternative source. Not a
   blocker for the design track (UI glance substitutes).
+  **Doc research 2026-07-22:** docs.lovable.dev still documents the field AND states credit
+  information surfaces ONLY through `get_workspace` (no billing endpoint exists) — so today
+  there is no MCP path to Lovable credit data at all; docs stale or API regression. Auth is
+  OAuth-only (no API keys). Also discovered: a native `import-claude-design-from-url` tool
+  exists for some Claude client surfaces (not exposed to this Claude Code connection) — watch
+  item: could simplify the §2 handoff if it becomes available.
 - Gate status at baseline: design gate 001 = CONDITIONAL FAIL (change order 002 open with
   Claude Design — requirement vocabulary + status authority). **No build message goes to
   Lovable until the re-emitted screens pass the gate.**
