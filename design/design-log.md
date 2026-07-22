@@ -11,6 +11,13 @@
 - Credit balance: **not exposed** by the workspace API response at baseline time (plan-level
   only). Capture the numeric balance from the Lovable UI immediately before the first build
   message and record it here; per-batch burn is then tracked against that number.
+- **⚠ d42 drift flag (2026-07-22):** the missing credit field is a reproducible drift from a
+  validated product assumption — decision d42 recorded "pull Lovable credit status via
+  `get_workspace`" after live interrogation, and the tool's documentation still promises
+  "plan, credit balance, member count"; today's responses (both workspaces, tested twice)
+  return neither credits nor member count. The product's Lovable-chip design leans on d42 —
+  founder ruling needed on whether to re-validate later or plan an alternative source. Not a
+  blocker for the design track (UI glance substitutes).
 - Gate status at baseline: design gate 001 = CONDITIONAL FAIL (change order 002 open with
   Claude Design — requirement vocabulary + status authority). **No build message goes to
   Lovable until the re-emitted screens pass the gate.**
