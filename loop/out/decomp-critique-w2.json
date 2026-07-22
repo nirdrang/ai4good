@@ -1,0 +1,119 @@
+{
+  "verdict": "issues",
+  "global": [
+    {
+      "id": "G1",
+      "severity": "high",
+      "finding": "The machine-readable dependency graph cannot be topologically ordered. Minimal cycles involving wave-2 files are: REQ-005 ↔ REQ-023 at loop/decomp/req-005.md:4 and req-023.md:4; REQ-004 → REQ-003 → REQ-032 → REQ-004 using req-004.md:4, .taskmaster/docs/requirements/req-003.md:11, and req-032.md:4; REQ-023 ↔ REQ-031 using req-023.md:4 and acceptance/at-req-031.md:3; and REQ-032 ↔ REQ-028/REQ-030 using req-032.md:4, acceptance/at-req-028.md:5, and acceptance/at-req-030.md:3. Because README.md:15-18 turns depends-on into PM blocking relations, noting these again under cross-contracts does not neutralize the cycles.",
+      "fix": "Correct the authoritative dependency classifications before folding, then mirror them exactly. Keep only true prerequisite edges in depends-on and move reverse consumer, interface, stub, and later-wave test relationships to cross-contracts. At minimum, remove one side of every listed cycle and rerun a whole-graph topological check."
+    },
+    {
+      "id": "G2",
+      "severity": "high",
+      "finding": "There are two direct leaf cycles. REQ-002 D5.L1 at req-002.md:38 blocks on REQ-005 D3.L1/L2, while REQ-005 D3.L1 at req-005.md:25 blocks on REQ-002 D5.L1 and incorrectly calls that leaf the vetted flag. REQ-004 D3.L1 at req-004.md:27 blocks on REQ-032 D4.L1, while REQ-032 D4.L1 at req-032.md:31 blocks on REQ-004 D3.L1.",
+      "fix": "For publishing, make REQ-005 D3.L1 depend on the actual vet-state producers, REQ-002 D2.L1 and D3.L1, while leaving REQ-002 D5.L1 as the later publish integration. For files, make REQ-004 D3.L1 depend on REQ-032's upload/access primitives, D1.L1 and D2.L1, not D4.L1; then let REQ-032 D4.L1 remain the downstream Discovery integration."
+    }
+  ],
+  "per_file": {
+    "req-002": [
+      {
+        "id": "F1",
+        "severity": "medium",
+        "finding": "D5.L3 at req-002.md:40 assigns AT-002.28, which requires concierge onboarding to leave the NGO on the 30-credit tier, but it blocks only on D3.L1. D3.L1 creates the audited vet action; D2.L1 at line 21 owns the resulting 30-credit tier behavior.",
+        "fix": "Add D2.L1 to D5.L3's blocked-by set."
+      },
+      {
+        "id": "F2",
+        "severity": "medium",
+        "finding": "D2.L2 at req-002.md:22 assigns AT-002.26, whose action is funding project fuel and whose outcome is a successful next funded turn. Its cross-blocker, REQ-004 D1.L2, implements billing for an already-funded project; it does not implement the checkout action owned by REQ-006 D1.L1 at req-006.md:16.",
+        "fix": "Add REQ-006 D1.L1 as a blocker for D2.L2, alongside REQ-004 D1.L2."
+      }
+    ],
+    "req-004": [
+      {
+        "id": "F3",
+        "severity": "medium",
+        "finding": "D1.L1 at req-004.md:16 assigns AT-004.08, the hard daily reset test, but blocks only on REQ-002 D2.L1. That target owns grants and vet-raise math; REQ-002 D2.L3 at req-002.md:23 owns the UTC hard reset.",
+        "fix": "Keep REQ-002 D2.L1 for AT-004.01 and add REQ-002 D2.L3 for AT-004.08."
+      },
+      {
+        "id": "F4",
+        "severity": "high",
+        "finding": "D5.L2 at req-004.md:39 assigns AT-004.51 but blocks on REQ-023 D1.L2. AT-004.51 requires the advisory pass's data-tier evidence and confirmation by the human decision; REQ-023 D1.L2 only builds queue content and age. The needed work is REQ-023 D2.L3 and D3.L1, but D2.L3 at req-023.md:23 already blocks on this REQ-004 leaf, creating a semantic cycle if the missing blocker is added directly.",
+        "fix": "Split D5.L2 into a producer leaf for tier/risk attribution and the tier/final-scope handoff, with AT-004.50, and a later integration leaf containing AT-004.51. Let REQ-023 D2.L3 depend on the producer, then make the AT-004.51 leaf depend on REQ-023 D2.L3 and D3.L1. Keep each P0 ID in exactly one leaf."
+      }
+    ],
+    "req-005": [
+      {
+        "id": "F5",
+        "severity": "high",
+        "finding": "D1.L2 at req-005.md:17 assigns AT-005.19, which publishes sentinel edits and verifies the snapshot delivered to triage, but its only blocker is the field-edit leaf. The publish route and triage queue are not built until D3.L2 and REQ-023 D1.L1.",
+        "fix": "Leave AT-005.02 in D1.L2 and move AT-005.19 to a later integration leaf blocked by D1.L1, D3.L2, and REQ-023 D1.L1."
+      },
+      {
+        "id": "F6",
+        "severity": "medium",
+        "finding": "D3.L2 at req-005.md:26 assigns AT-005.10, which invokes founder approval and verifies marketplace visibility, but references only REQ-023 D1.L1, the queue-routing leaf. The founder approval action is owned by REQ-023 D3.L1 at req-023.md:27.",
+        "fix": "Add REQ-023 D3.L1 to D3.L2's blockers; retain REQ-023 D1.L1 for routing."
+      }
+    ],
+    "req-023": [
+      {
+        "id": "F7",
+        "severity": "medium",
+        "finding": "D1.L1 and D1.L2 at req-023.md:16-17 state unconditionally that every publish has advisory evidence attached and pre-surfaced. AT-023.18 at acceptance/at-req-023.md:38 explicitly requires the outage path to create a queue item without evidence and mark it advisory-absent.",
+        "fix": "Qualify both leaves: attach and surface evidence when available; otherwise persist and surface the advisory-absent marker. Do not encode evidence presence as a queue-entry invariant."
+      },
+      {
+        "id": "F8",
+        "severity": "medium",
+        "finding": "D2.L3 at req-023.md:23 assigns AT-023.08 for Discovery risk flags but blocks only on REQ-004 D5.L2. The actual risk flags are produced by REQ-004 D4.L1 at req-004.md:32; D5.L2 concerns tier attribution and triage handoff.",
+        "fix": "Add REQ-004 D4.L1 as the risk-flag producer dependency. Point the tier handoff to the producer leaf created by the fix for F4."
+      },
+      {
+        "id": "F9",
+        "severity": "high",
+        "finding": "D3.L2 at req-023.md:28 assigns the full AT-023.12 return/edit/republish loop, including NGO-visible reason copy. REQ-005 D4.L1 at req-005.md:31 owns that NGO surface and edited republish, but it is blocked on REQ-023 D3.L2. Thus AT-023.12 requires a downstream leaf, and adding the missing reverse blocker would create a direct cycle.",
+        "fix": "Split the provider from the integration test. Build the return/decline decision contract and prior-note persistence first; let REQ-005 D4.L1 depend on that provider; then add a later REQ-023 integration leaf containing AT-023.12 and blocked by REQ-005 D4.L1. Keep AT-023.13 with the terminal-decline provider."
+      },
+      {
+        "id": "F10",
+        "severity": "medium",
+        "finding": "D4.L1 at req-023.md:33 assigns AT-023.18 but blocks only on D2.L1. The test inspects versioned per-check evidence, which spans D2.L1-L3, and proves that the reviewer can decide unaided, which requires D3.L1.",
+        "fix": "Block D4.L1 on D2.L1, D2.L2, D2.L3, and D3.L1."
+      },
+      {
+        "id": "F11",
+        "severity": "medium",
+        "finding": "D5.L2 at req-023.md:38 assigns AT-023.19 but blocks only on D1.L1. The test renders the NGO's under-review surface for clean and flagged publishes and verifies visibility after approval. The NGO surface is REQ-005 D3.L2, and approval is REQ-023 D3.L1.",
+        "fix": "Add REQ-005 D3.L2 and D3.L1 as blockers for D5.L2."
+      }
+    ],
+    "req-032": [
+      {
+        "id": "F12",
+        "severity": "high",
+        "finding": "REQ-032 is marked surface: mixed at req-032.md:2, but its Done contract at line 9 allows founder attestation while deferring the wired upload/listing rerun to REQ-010 in W4. README.md:21-22 requires UI-fronted requirements to have every P0 green and be wired before completion.",
+        "fix": "Make the LW wired rerun part of the REQ-032 completion gate and schedule completion after the owning REQ-010 page exists, or transfer the UI acceptance ownership explicitly; do not attest REQ-032 before its wired gate."
+      },
+      {
+        "id": "F13",
+        "severity": "high",
+        "finding": "D1.L1 at req-032.md:16 assigns AT-032.01 with blocked-by: none, although that one test exercises intake upload, an agent-requested mid-Discovery upload, and project-page upload. Those consumers are REQ-003 D2.L1, REQ-004 D3.L1, and the future REQ-010 project page. The first leaf cannot plausibly make the full P0 green.",
+        "fix": "Split out an unverified upload/attach primitive leaf. Let REQ-003, REQ-004, and REQ-010 consume that primitive, then place AT-032.01 once in a later cross-surface integration leaf blocked by the three consumer leaves."
+      },
+      {
+        "id": "F14",
+        "severity": "medium",
+        "finding": "D4.L2 at req-032.md:32 assigns AT-032.09 but points to REQ-004 D1.L2, which only provides generic funded-to-fuel routing. The file-specific zero-incremental-credit, no-interruption, and funded-file-turn semantics are owned by REQ-004 D3.L2 at req-004.md:28.",
+        "fix": "Replace or supplement the REQ-004 D1.L2 edge with REQ-004 D3.L2 after resolving the D3 cycle in G2."
+      },
+      {
+        "id": "F15",
+        "severity": "high",
+        "finding": "The page-bound P0s remain ahead of their prerequisites. D4.L3 at req-032.md:33 assigns AT-032.10 but does not block on the REQ-010 project page. D5.L1 at line 38 assigns AT-032.11, including an authorized recovered-file download from the project-page listing, but blocks only on D1.L2—not D2.L2's authorized-link path or REQ-010. Only the no-ID wiring leaf at line 34 names REQ-010.",
+        "fix": "Add the actual REQ-010 project-page leaf as a blocker for the AT-032.10 and AT-032.11 leaves when drafted, and add D2.L2 to D5.L1. Align their scheduling with the completion-gate fix in F12."
+      }
+    ]
+  }
+}

@@ -12,10 +12,15 @@ aligned; sync-stamps prove currency).
 # DECOMP REQ-0NN — <title>
 pm-item: <Linear ID once pushed> · wave: <wave> · surface: backend|ui|mixed|skill
 sync-stamp: <commit> · <dNN>
-depends-on: REQ-…, REQ-…            ← machine-readable set ONLY, matching the requirement
-                                      text's dependency line; becomes PM blocking relations
-cross-contracts: <prose>            ← stubs, co-development splits, interface-only contracts,
-                                      cross-manifest leaf edges; never parsed as dependencies
+depends-on: REQ-…, REQ-…            ← machine-readable set of TRUE PREREQUISITE edges only —
+                                      the whole graph must topologically order; becomes PM
+                                      blocking relations. May be a SUBSET of the requirement
+                                      text's dependency line (those lines mix prerequisites
+                                      with consumers/interfaces); every deviation is recorded
+                                      in cross-contracts.
+cross-contracts: <prose>            ← stubs, co-development splits, consumer/interface-only
+                                      relations, cross-manifest leaf edges, deviations from
+                                      the requirement text's line; never parsed as dependencies
 sources: requirements/req-0NN.md · acceptance/at-req-0NN.md (<N> P0) · architecture-notes#req-0NN
 
 ## Done contract
