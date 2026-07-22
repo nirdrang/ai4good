@@ -27,7 +27,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 - REQ-009 — LLM gateway; hosting = OD-6 (→RM-5).
 - REQ-010 — Project page + cadence stats + the fuel and Lovable meters.
 - REQ-021 — Lovable as the deliverable vehicle; the volunteer's Claude Code drives Lovable via its MCP; credit status via the monitoring account, manual fallback (→RM-27).
-- REQ-024 — Lifecycle-independent blockers + task-anchored clarifications.
+- REQ-024 — Lifecycle-independent blockers + requirement-anchored clarifications.
 - REQ-025 minimal — Informal scope-addition protocol (→RM-10).
 - REQ-026 — Task management via Linear.
 - REQ-028 — ai4good Claude Code Skill: install, bootstrap, task binding, commands, conventions; the volunteer drives Lovable via its MCP (REQ-021).

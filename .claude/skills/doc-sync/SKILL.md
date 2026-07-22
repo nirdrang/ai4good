@@ -26,10 +26,19 @@ holds pointers and a sync-stamp per PM item; the repo is the only place meaning 
    (d) new scope → founder acceptance BEFORE anything else.
 2. **Edit the owning pure section** (`loop/out/pure-s*.md`) — never `prd-mvp.md`, never an
    isolate.
-3. **Assemble + verify**: run the assemble script. Confirm the gate is green (word count,
-   30 REQ headings, RM bijection, 0 decision-refs, 0 banned words, 0 FFFD). Isolates
-   regenerate with it. If a requirement changed and its `at-req-0NN.md` was not touched in
-   this working tree, WARN and resolve deliberately (amend or state why no test changes).
+3. **Assemble + verify** with the COMMITTED tool chain (crystallized 2026-07-22 after the
+   original scratchpad script was lost — tools live in the repo, never in a session
+   scratchpad):
+   - `powershell -File loop/assemble-pure.ps1` — assembles `prd-mvp.md` from the pure
+     sections and runs the gate (30 REQ headings, RM bijection vs roadmap.md,
+     0 decision-refs, 0 banned words, 0 FFFD). `-Check` mode verifies + diffs without
+     writing — run it BEFORE editing to prove faithfulness.
+   - `powershell -File loop/extract-isolates.ps1 -Reqs 0NN,0MM` — regenerates the touched
+     isolates (explicit UTF-8, surgical: only the named requirements).
+   - `powershell -File loop/decomp/check-tree.ps1` — re-proves the P0↔leaf bijection per
+     requirement and the whole depends-on graph's topological order.
+   If a requirement changed and its `at-req-0NN.md` was not touched in this working tree,
+   WARN and resolve deliberately (amend or state why no test changes).
 4. **Amend the AT file(s)** with `[dNN]`-tagged notes; update `loop/decomp/req-0NN.md`
    if deliverables, verify sets, or dependencies moved.
 5. **Log the decision** (`loop/state/decisions.jsonl` via Add-Content of a scratchpad

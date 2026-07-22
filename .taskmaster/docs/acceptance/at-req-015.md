@@ -2,7 +2,7 @@
 
 Source: requirements/req-015.md (prd-mvp.md REQ-015). Dependencies: REQ-005.5, REQ-010, REQ-016, REQ-025, REQ-026.
 
-**Boundary note:** REQ-015 owns the thread: membership, format, posting semantics, the task-anchored comment flow, and the post-completion freeze. Notification delivery is REQ-016's; the Linear relay mechanics AT-026.05's; scope-addition protocol rules REQ-025's — `[cross:]` here.
+**Boundary note:** REQ-015 owns the thread: membership, format, posting semantics, the requirement-anchored comment flow (anchors are PM-tree requirement items only — d86), and the post-completion freeze. Notification delivery is REQ-016's; the Linear relay mechanics AT-026.05's; scope-addition protocol rules REQ-025's — `[cross:]` here.
 
 ## A. Membership & access
 
@@ -15,9 +15,9 @@ Source: requirements/req-015.md (prd-mvp.md REQ-015). Dependencies: REQ-005.5, R
 - **AT-015.04 (P0)** — Given new comments posted since a viewer last loaded, When the viewer opens the thread, Then the current comments are shown (no real-time push is required — currency on view is); and When the NGO posts and separately the volunteer posts (both directions), Then the other party is notified in each; and Given an ESCALATED admin participating, When they post, Then both ordinary parties are notified (the admin is "the other party" to neither exclusively). [cx r2: both directions + the escalated-admin recipient case — one direction could have passed] [cross: REQ-016 owns delivery + the anti-spam guard]
 - **AT-015.05 (P0)** — Given the THREAD WRITE BOUNDARY, When probed, Then it accepts only authenticated user-authored comments from thread participants — no system/service identity can post (the invariant verified where writes land, not at the emitter, which is REQ-016's sole NOTIFICATION writer, not the sole event producer); and Given sampled events exercised against that boundary (a lifecycle transition, a blocker raise, a payment event), When each fires, Then no thread post results, each surfaces through its NOTIFICATION [cross: REQ-016], and the TASK-TIED events additionally surface in the activity feed — the payment event is asserted through notification + thread-absence only (REQ-010's feed is task-tied; REQ-015's "notifications and activity feeds" reads distributively, each event through its applicable channels — T9 note). [cx] [cx r2: invariant moved to the write boundary; the payment-vs-task-tied-feed conflict resolved per the distributive reading]
 
-## C. Task-anchored comments
+## C. Requirement-anchored comments
 
-- **AT-015.06 (P0)** — Given the NGO on the read-only status panel, When they attach a comment to a QUEUED task and to an IN-PROGRESS task (two fixtures), Then each is surfaced to the volunteer in context on that task with a notification [cross: AT-026.05 owns the relay], and the volunteer's reply becomes visible to the NGO in the project THREAD (whether it also exists in task context is unconstrained); Given a DONE task on the same active project (negative fixture), Then no task-anchored comment can be created for it — the anchor states are queued and in-progress only; and When the NGO attempts task MUTATIONS from that same panel (status change, assignment, metadata edit — three probes), Then each is rejected with no state change while task-anchored commenting remains available — the panel is read-only plus comments. [cx: ineligible-state negative; exclusivity removed] [cx r2: the read-only half of "from the read-only status panel" made an assertion, not a Given]
+- **AT-015.06 (P0)** — Given the NGO on the read-only status panel, When they attach a comment to a QUEUED requirement item and to an IN-PROGRESS requirement item (two fixtures), Then each is surfaced to the volunteer in context on that requirement's PM-tree item with a notification [cross: AT-026.05 owns the relay], and the volunteer's reply becomes visible to the NGO in the project THREAD (whether it also exists in item context is unconstrained); Given a DONE requirement item on the same active project (negative fixture), Then no requirement-anchored comment can be created for it — the anchor states are queued and in-progress only; and When the NGO attempts item MUTATIONS from that same panel (status change, assignment, metadata edit — three probes), Then each is rejected with no state change while requirement-anchored commenting remains available — the panel is read-only plus comments. [cx: ineligible-state negative; exclusivity removed] [cx r2: the read-only half of "from the read-only status panel" made an assertion, not a Given] [d86: anchors are PM-tree requirement items, never dev-tree items]
 - **AT-015.07 (P0)** — Given routine dev-internal task chatter (volunteer/agent comments on Linear issues — fixture), When NGO surfaces render, Then none of it appears; and the NGO holds no direct task-system access. [cross: AT-026.03/04 own the Linear-side assertions]
 
 ## D. Lifecycle
@@ -35,7 +35,7 @@ Source: requirements/req-015.md (prd-mvp.md REQ-015). Dependencies: REQ-005.5, R
 | Chronological plain text; auto-linked URLs; no markdown/code; literal mentions (3 observables); attachment payloads not accepted/stored/rendered | 03 [cx r2] |
 | Current on view; posting notifies BOTH directions + escalated-admin case | 04 [cx r2] |
 | System events never post (thread write boundary accepts participant comments only); each notifies; task-tied ones hit the feed (distributive reading, T9) | 05 [cx r2] |
-| Task-anchored NGO comments (queued/in-progress only; done rejected); panel mutations rejected; reply visible in thread | 06 [cx r2] |
+| Requirement-anchored NGO comments (queued/in-progress items only; done rejected); panel mutations rejected; reply visible in thread | 06 [cx r2] [d86] |
 | Dev-internal chatter never surfaces; NGO never touches the task system | 07 |
 | Post-completion read-only | 08 |
 | Scope-addition discussions live here | 09 |

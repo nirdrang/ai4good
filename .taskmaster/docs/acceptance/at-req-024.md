@@ -32,8 +32,8 @@ Source: requirements/req-024.md (prd-mvp.md REQ-024, incl. d67/d69/d71 amendment
 
 ## D. Clarifying questions
 
-- **AT-024.17 (P0)** — Given a clarifying question, When raised, Then it carries topic, what was tried, and what is needed — and both variants work: project-level and task-anchored.
-- **AT-024.18 (P0)** — Given an unresolved task-anchored clarification, When the task renders, Then it is marked awaiting NGO clarification, and the volunteer can still self-assign and progress OTHER tasks (a second task moves normally).
+- **AT-024.17 (P0)** — Given a clarifying question, When raised, Then it carries topic, what was tried, and what is needed — and both variants work: project-level and requirement-anchored (anchored to a PM-tree requirement item; dev-tree items are never NGO-facing anchors). [d86]
+- **AT-024.18 (P0)** — Given an unresolved requirement-anchored clarification, When that requirement renders on the NGO-facing panel, Then it is marked awaiting NGO clarification, and the volunteer can still progress OTHER work (a second item moves normally). [d86]
 - **AT-024.19 (P0)** — Given a clarification resolved, When the lifetime Clarifications log is read at any later point, Then the pair persists with who asked, who answered, and when. [cross: AT-010.12 owns the page display]
 
 ## E. Surfaces
