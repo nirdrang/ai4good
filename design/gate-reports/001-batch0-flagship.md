@@ -71,3 +71,27 @@ questions?). Tracked; does not block change order 002.
 | volunteer-dashboard | FAIL — F1, F3 |
 | project-page-mobile | PASS (inherits project-page fixes where shared) |
 | edge-states | FAIL — F1, F2 |
+
+## Re-check after change order 002 (2026-07-22)
+
+Re-pulled all 11 screens (byte-verified against source) and re-ran the scans:
+- **F1 (status authority):** FIXED — zero "moves on PR merge" phrasing in any screen file
+  (only the exploration canvas retains it, correctly out of scope).
+- **F2 (task vocabulary):** FIXED on the tree/counter surfaces — all now "requirement" /
+  "must-haves". Two legitimate "task" usages remain and are correct: volunteer-dashboard.html
+  lines 60/62 refer to the volunteer's OWN dev-tree (Linear tasks / "your dev tasks close on
+  merge") — allowed by the spec.
+- **F3 (pull unit):** FIXED — "Pull a requirement before you work".
+- **F4 (burn table):** FIXED — "Burn per requirement" + "Requirement" column.
+- **F5 (pause hygiene):** FIXED — no pause/paused wording in any screen file.
+
+**One residual, tied to the open upstream spec question (NOT blocking):**
+coordination-components.html:45 still reads "Jordan asked on the task 'Swaps need coordinator
+approval'", whereas project-page.html:58 was cleaned to "waiting on this for …". This depends
+on the unresolved ruling — is a clarifying question anchored to a dev-task or a requirement?
+(Same ruling governs the Batch 5 comment-thread screen.) Suggested neutral fix when ruled:
+"Jordan asked about 'Swaps need coordinator approval'." Tracked here; folds into the spec
+decision, not a silent drop.
+
+**Gate verdict: PASS for build.** Batch 0 screens are clear to enter the Lovable build once
+bring-up is complete and Batch 0 is founder-signed-off.
