@@ -30,3 +30,17 @@
 
 Bring-up remaining: B1 project-knowledge push (free), B2 fixture pack authoring, B3
 `tests/design/` harness, B4 gallery pipeline.
+
+## 2026-07-22 — Batch 0 gate PASS + bring-up B1 done
+
+- **Design gate re-check PASS** (commit a1be993): change order 002 processed; all three
+  systematic must-fix conditions met across the 11 screen files (no PR-merge status phrasing,
+  requirement/must-have wording present, no pause hygiene words). One non-blocking residual on
+  the coordination reference sheet pends the clarifying-question-anchoring spec ruling.
+- **B1 project-knowledge push DONE (free, no credits):** replaced the AI4GOOD project's Lovable
+  knowledge with the enriched rule set — preserved lane/boundary/backend rules and ADDED the
+  fixture seam (`src/lib/data.ts` + `src/fixtures/`), GitHub-close direction (d85), money-units
+  discipline, the 9 lifecycle states, the never-show list, and Batch-0 component reuse. This is
+  what keeps Lovable from producing rule-violating screens (fewer fix rounds = less credit burn).
+- Next bring-up: B2 fixture pack, B3 `tests/design/` harness, B4 gallery. Then Batch 0 build
+  (first credit spend — pause for founder go + capture the UI credit number first).
