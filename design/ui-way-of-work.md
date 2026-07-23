@@ -186,9 +186,14 @@ sideways drift.
 
 ## 5. Tracking, the fixture seam, and wiring (how UI meets the rest of the system)
 
-- **Tracking.** Each screen (or batch) is a work item in Linear's PM tree under a **Design**
-  grouping — pulled, built, verified, signed off, closed like any other tracked work. Its
-  attribution binds to that item, same as the backend way-of-work.
+- **Tracking (d87).** Each design batch gets its own specific work item on the **DEV board**
+  (AI4DEV), under a **Design** grouping — never on the PM board, which holds only the 30
+  requirement items. Screens within a batch may be sub-issues or a checklist at the session's
+  discretion (the dev board is vanilla Linear; manage it with plain calls as the work demands).
+  A batch item closes MANUALLY on its real evidence — design gate green + founder gallery
+  sign-off, both recorded in git — never by automation. Commits cite the batch's `AI4DEV-nnn`
+  id. Attribution does NOT bind to design items: bindings are requirement-level only, so
+  design-session work stamps the honest buckets (exploration), never a pseudo-requirement.
 - **The fixture seam is the boundary to the backend.** Every screen reads its data through
   `src/lib/data.ts`, backed by `src/fixtures/`. During UI work it feeds mock data — no backend,
   no auth, no money. Screens never fetch or touch Supabase directly (our standing rule).
