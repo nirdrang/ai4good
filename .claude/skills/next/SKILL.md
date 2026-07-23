@@ -10,32 +10,52 @@ managed with plain Linear calls, never these verbs (d87).
 
 ## Ritual (execute in order; stop and report on any failure)
 
-1. **Lock.** `powershell -File loop/work/work-lib.ps1`-dot-sourced: `Acquire-WorkLock`. If not
+1. **Worktree guard.** `Read-Binding` first: if THIS worktree already holds an active `task`
+   binding, REFUSE — one pulled requirement per worktree. Tell the founder their options
+   plainly: finish the bound requirement (`/done`), release it deliberately (`/override` to
+   revert the claim + `/bind clear`), or work in parallel from a second worktree (see
+   "Worktree way of work" below). Never overwrite a live task binding.
+2. **Lock.** `powershell -File loop/work/work-lib.ps1`-dot-sourced: `Acquire-WorkLock`. If not
    ok → report the holder and STOP (one verb at a time, machine-wide).
-2. **Choose.** If the founder named an item, use it. Otherwise list AI4GOOD-PM Backlog items
+3. **Choose.** If the founder named an item, use it. Otherwise list AI4GOOD-PM Backlog items
    whose blockers are all Done and propose the highest-value candidate — the founder confirms
    before any write (suggestive, never auto).
-3. **Freshness-read** the chosen issue (`get_issue`): must be Backlog, unassigned, blockers all
+4. **Freshness-read** the chosen issue (`get_issue`): must be Backlog, unassigned, blockers all
    Done. Any surprise → release the lock, report, STOP.
-4. **Claim.** `save_issue`: assignee "me", state "In Progress".
-5. **Pull record** (the durable claim — a comment on the issue) containing: the issue's
+5. **Claim.** `save_issue`: assignee "me", state "In Progress".
+6. **Pull record** (the durable claim — a comment on the issue) containing: the issue's
    gitBranchName, base commit (`git rev-parse HEAD`), the manifest identity from
    `Get-ManifestIdentity <req>` (revision + digest), a fresh op UUID (`[guid]::NewGuid()`),
    the worktree id (`Get-WorktreeId`), and the session id.
-6. **Re-read** the issue's comments: if another pull-record comment with a DIFFERENT op UUID
+7. **Re-read** the issue's comments: if another pull-record comment with a DIFFERENT op UUID
    precedes ours → we lost the race: revert state to Backlog, unassign, release the lock,
    report, STOP.
-7. **Bind.** `Write-Binding @{ wave=...; project='REQ-0NN'; pmId='AI4PM-NN'; issueId=<uuid>;
+8. **Bind.** `Write-Binding @{ wave=...; project='REQ-0NN'; pmId='AI4PM-NN'; issueId=<uuid>;
    bucket='task'; opUuid=...; manifestRevision=...; sessionId=... }`.
-8. **Materialize the dev tree** (idempotent): run
+9. **Materialize the dev tree** (idempotent): run
    `powershell -File loop/work/materialize.ps1 -Req 0NN` → for each parent not already on
    AI4GOOD-DEV (check by exact title with `list_issues`): create the parent (relatedTo the PM
    item), then each leaf as a sub-issue (parentId), description = summary + `verify:` set,
    with blocked-by relations mapped to the sibling leaf issues named in the manifest.
    Cross-manifest blocked-by references are recorded in the description, not as relations.
-9. **Release the lock.** Report the session banner: item, branch name, manifest revision,
-   dev items created vs found existing.
+10. **Release the lock.** Report the session banner: item, branch name, manifest revision,
+    dev items created vs found existing.
+
+## Worktree way of work (the discipline this verb enforces — same model the product's volunteer Skill uses)
+
+- **Binding follows the FOLDER, not the session.** Every message's attribution stamp reads
+  this worktree's binding file; two sessions in one folder share one binding and corrupt each
+  other's stamps. Therefore: **one live session per worktree, one pulled requirement per
+  worktree** — step 1 refuses a second pull into a bound folder.
+- **Parallel work = parallel worktrees.** `git worktree add ..\ai4good-req0NN <branch>` gives
+  a second folder with its own independent binding; open the second session THERE. Each
+  worktree pulls its own requirement and stamps it correctly, in isolation.
+- **The session banner is the tripwire:** if it warns the binding was written by a different
+  session, stop and decide — adopt (`/bind AI4PM-NN`) or clear — before doing work.
+- **Attribution degrades, never blocks:** a wrong or missing binding mis-buckets data
+  (unattributed), it never gates work. The discipline exists to keep the DATA honest.
 
 ## Never
-- Never mark In Progress outside this ritual. Never pull with a dirty claim (step 6 losers
-  back off). Never materialize before the pull record exists.
+- Never mark In Progress outside this ritual. Never overwrite a live task binding (step 1).
+  Never pull with a dirty claim (step 7 losers back off). Never materialize before the pull
+  record exists.
