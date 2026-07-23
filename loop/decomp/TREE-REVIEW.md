@@ -1,9 +1,15 @@
-# Tree review — the decomposition, ready for your approval
+# Tree review — APPROVED & PUSHED
 
-> **What this is:** the founder-facing review of the full PRD decomposition, written after all
-> five batches went through the pipeline (draft → one adversarial codex round → fold → commit).
-> **Nothing has been pushed to Linear.** The push happens only after you approve this review.
-> Written 2026-07-22.
+> **Status: approved by the founder 2026-07-23 and pushed the same day.** The PM board
+> (AI4GOOD-PM) now holds exactly the 30 requirement items — AI4PM-19 through AI4PM-48 —
+> in five wave projects, with blocking relations from the manifests' depends-on lines;
+> each manifest's `pm-item:` field records its Linear id. Per d87 the engineering board
+> (AI4GOOD-DEV) received the four bring-up items (AI4DEV-3..6, project "W0 Bring-up") and
+> the seven design batch items (AI4DEV-7..13, project "Design"; Batch 0 In Progress).
+> The review content below is preserved as the record of what was approved.
+>
+> Originally written 2026-07-22 as the founder gate; the pipeline was: draft → one
+> adversarial codex round → fold → commit, per batch.
 
 ## What was built
 
