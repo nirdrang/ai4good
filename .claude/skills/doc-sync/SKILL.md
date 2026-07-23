@@ -41,11 +41,22 @@ holds pointers and a sync-stamp per PM item; the repo is the only place meaning 
    WARN and resolve deliberately (amend or state why no test changes).
 4. **Amend the AT file(s)** with `[dNN]`-tagged notes; update `loop/decomp/req-0NN.md`
    if deliverables, verify sets, or dependencies moved.
-5. **Log the decision** (`loop/state/decisions.jsonl` via Add-Content of a scratchpad
+5. **Design branch — when the change touches anything an NGO, volunteer, or visitor SEES**
+   (screen content, copy, components, states, vocabulary): write a change order
+   (`design/change-orders/NNN-<slug>.md` — the ruling, the changed requirement text
+   verbatim, the affected screens/doc rows) and deliver it to the design project via the
+   claude-design MCP, where it lands as a read-only synced thread. The DESIGN side owns
+   `design/ui-ux-instructions.md` and the screens: it patches its own doc and re-emits
+   through the design gate, and the founder triggers execution in the design
+   conversation. Never edit `design/` from the build session. (Reverse direction:
+   design-gate findings reach this side as founder-relayed messages and START a fold —
+   the d86 anchoring ruling is the worked example.)
+6. **Log the decision** (`loop/state/decisions.jsonl` via Add-Content of a scratchpad
    file), **commit everything as ONE commit** (message cites the dNN and, if in-flight
    work is affected, the PM item), **republish the review artifact**.
-6. **Forward sync** (the `/doc-sync` core — see below).
-7. **Report**: one summary naming the dNN, the touched PM items, and any re-pins.
+7. **Forward sync** (the `/doc-sync` core — see below).
+8. **Report**: one summary naming the dNN, the touched PM items, any re-pins, and the
+   change-order number if the design branch fired.
 
 ## The forward sync (core procedure)
 
