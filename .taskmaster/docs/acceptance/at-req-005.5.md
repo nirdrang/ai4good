@@ -54,10 +54,10 @@ Source: requirements/req-005.5.md (prd-mvp.md REQ-005.5). Dependencies at bounda
 
 ## G. in_progress → completed
 
-- **AT-005.5.25 (P0)** — Given an `in_progress` project with all P0 tasks done and a recorded repo URL, When completion evaluates, Then the project moves to `completed`.
+- **AT-005.5.25 (P0)** — Given an `in_progress` project with all P0 requirements done and a recorded repo URL, When completion evaluates, Then the project moves to `completed`.
 - **AT-005.5.58 (P0)** — Given the same all-P0-plus-repo project, When completion evaluates, Then it completes with NO separate NGO approval, checklist, sign-off, acceptance step, or handoff artifact anywhere in the path — no formal handoff ceremony exists. [cx r2: added — the no-ceremony clause was implied, never asserted]
-- **AT-005.5.26 (P0)** — Given all P0 tasks done but NO recorded repo URL, When completion evaluates, Then the project stays `in_progress` — the repo is a hard precondition. [cross: REQ-008]
-- **AT-005.5.27 (P0)** — Given a recorded repo URL but at least one P0 task not done, When completion evaluates, Then the project stays `in_progress`.
+- **AT-005.5.26 (P0)** — Given all P0 requirements done but NO recorded repo URL, When completion evaluates, Then the project stays `in_progress` — the repo is a hard precondition. [cross: REQ-008]
+- **AT-005.5.27 (P0)** — Given a recorded repo URL but at least one P0 requirement not done, When completion evaluates, Then the project stays `in_progress`.
 - **AT-005.5.28 (P0)** — Given the volunteer's FIRST-ever completion, When the transition fires, Then the side effects are observable: leftover fuel released to general-balance credit [cross: REQ-006], keys revoked and the provider workspace archived [cross: REQ-009], Linear membership removed with the final task history preserved [cross: REQ-026], and the completion credit + first-tool badge recorded. [cx: fixture pinned to first completion — the badge is first-only]
 - **AT-005.5.51 (P0)** — Given a volunteer with an existing first-tool badge, When a LATER project of theirs completes, Then a completion credit is recorded and NO second first-tool badge is. [cx: added]
 - **AT-005.5.52 (P0)** — Given the whole project lifecycle, When ownership and offboarding are probed at completion, Then the NGO has owned the live app and repo throughout (no transfer step exists at completion); and When the NGO EXERCISES the self-serve offboarding, Then both the volunteer's and ai4good's monitoring-account memberships are actually removed with no platform-admin intervention — exposure alone is not enough. [cx: added] [cx r2: offboarding exercised to removal, not just exposed] [cross: AT-008.26/REQ-012/021]

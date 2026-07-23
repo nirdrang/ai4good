@@ -6,11 +6,11 @@ Source: requirements/req-012.md (prd-mvp.md REQ-012 + Promise §10). Dependencie
 
 ## A. Marking done
 
-- **AT-012.01 (P0)** — Given all P0 tasks complete AND a validated, recorded repo URL, When the assigned volunteer marks the project done, Then the project's state is exactly `completed`. [cx r2: repo-URL precondition added — REQ-005.5 gates completion on it] [cross: AT-005.5.25]
-- **AT-012.02 (P0)** — Given all P0 tasks complete, a validated recorded repo URL, AND five open GitHub Issues on that repo (fixture), When the volunteer marks done, Then the state is exactly `completed` — open GitHub Issues never block it. [cx r2: repo precondition added]
-- **AT-012.03 (P0)** — Given a validated recorded repo URL and every other precondition met EXCEPT one P0 task not done, When the volunteer attempts to mark done, Then it is rejected — the unfinished P0 is provably the rejection cause. [cx r2: unrelated preconditions satisfied to isolate the cause] [cross: AT-005.5.27]
+- **AT-012.01 (P0)** — Given all P0 requirements complete AND a validated, recorded repo URL, When the assigned volunteer marks the project done, Then the project's state is exactly `completed`. [cx r2: repo-URL precondition added — REQ-005.5 gates completion on it] [cross: AT-005.5.25]
+- **AT-012.02 (P0)** — Given all P0 requirements complete, a validated recorded repo URL, AND five open GitHub Issues on that repo (fixture), When the volunteer marks done, Then the state is exactly `completed` — open GitHub Issues never block it. [cx r2: repo precondition added]
+- **AT-012.03 (P0)** — Given a validated recorded repo URL and every other precondition met EXCEPT one P0 requirement not done, When the volunteer attempts to mark done, Then it is rejected — the unfinished P0 is provably the rejection cause. [cx r2: unrelated preconditions satisfied to isolate the cause] [cross: AT-005.5.27]
 - **AT-012.04 (P0)** — Given all completion preconditions met (all P0 done, recorded repo URL), When the NGO, another volunteer, a PLATFORM ADMIN, or an unauthenticated caller attempts the mark-done action, Then each is rejected — the actor is provably the rejection cause. [cx: admin added] [cx r2: preconditions satisfied to isolate the cause]
-- **AT-012.05 (P0)** — Given each done P0 task, When its history is audited, Then its final authoritative `done` state arrived only through a verified code merge — every done task carries shipped code; an unauthorized status edit may exist transiently but is detected, reverted, and never authoritative. [cx: aligned with REQ-026's detect-and-revert — prevention was overclaimed] [cross: REQ-026/AT-008.13]
+- **AT-012.05 (P0)** — Given each done P0 requirement, When its history is audited, Then its final authoritative `done` state arrived only through a verified code merge — every done requirement carries shipped code; an unauthorized status edit may exist transiently but is detected, reverted, and never authoritative. [cx: aligned with REQ-026's detect-and-revert — prevention was overclaimed] [cross: REQ-026/AT-008.13]
 
 ## B. Completion effects owned here
 
@@ -35,7 +35,7 @@ Source: requirements/req-012.md (prd-mvp.md REQ-012 + Promise §10). Dependencie
 |---|---|
 | Completes when all P0 done; volunteer marks done; wrong-actor rejected | 01, 03, 04 |
 | Open GitHub Issues never block | 02 |
-| Done only via verified merge → every done task carries shipped code | 05 |
+| Done only via verified merge → every done requirement carries shipped code | 05 |
 | completed state + fuel release + keys/workspace + Linear membership/history | [cross → AT-005.5.28, AT-006.33, AT-009.23, REQ-026] |
 | Completion-credit event with private confirmation | 06 |
 | Live URL auto-captured from Lovable as metadata, not gated | 07 |

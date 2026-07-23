@@ -40,7 +40,7 @@ Authoritative reference: Out of Scope = never built; this section = when feature
 - REQ-016 minimal — Event notifications, documented defaults (→RM-45).
 
 **Completion:**
-- REQ-012 — Volunteer marks done when all P0 tasks complete; access termination + provider-workspace archive + tree snapshot; no formal ceremony (checklist/sign-off/attribution/health deferred →RM-62).
+- REQ-012 — Volunteer marks done when all P0 requirements complete; access termination + provider-workspace archive + tree snapshot; no formal ceremony (checklist/sign-off/attribution/health deferred →RM-62).
 
 Additional post-MVP items with no other v1-doc mention: →RM-50, RM-51, RM-52, RM-53, RM-54, RM-55, RM-56, RM-57, RM-59 (roadmap.md).
 

@@ -1,4 +1,4 @@
-# AT-REQ-034 — Task-Level Attribution (telemetry, never gating)
+# AT-REQ-034 — Requirement-Level Attribution (telemetry, never gating)
 
 > **[d82 AMENDED — two-tree model + requirement-level granularity, 2026-07-19]:** this suite now tests attribution at the PM-TREE REQUIREMENT level (REQ-026): bindings target pulled requirement items, never dev-tree items; burn and baselines are per-requirement; the recorded granularity IS the NGO-displayed granularity. Task-level assertions were retargeted; the per-volunteer-per-task coordinator detail was retired with the granularity.
 

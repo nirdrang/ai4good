@@ -6,17 +6,17 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 
 ## A. One public page, identical for every viewer
 
-- **AT-010.01 (P0)** — Given one project, When its page is rendered as the NGO admin, the assigned volunteer, an UNASSIGNED volunteer, ANOTHER NGO's account, a platform admin, and a logged-out visitor, Then the PUBLIC STATUS PROJECTION is identical across all six — project identity, the full task tree, activity, the blocker signal, the Q&A log, reference-file metadata, fuel/Lovable status, cadence, and repo-derived signals — while the role-gated elements (the participants-only comment thread REQ-015, file downloads REQ-032, the NGO assistant REQ-033) differ per their owning requirements and are NOT part of the equality comparison. [cx: unassigned volunteer + foreign NGO added] [d80: equality scoped to the projection — exception-counting replaced by the two-layer contract]
+- **AT-010.01 (P0)** — Given one project, When its page is rendered as the NGO admin, the assigned volunteer, an UNASSIGNED volunteer, ANOTHER NGO's account, a platform admin, and a logged-out visitor, Then the PUBLIC STATUS PROJECTION is identical across all six — project identity, the full requirement tree, activity, the blocker signal, the Q&A log, reference-file metadata, fuel/Lovable status, cadence, and repo-derived signals — while the role-gated elements (the participants-only comment thread REQ-015, file downloads REQ-032, the NGO assistant REQ-033) differ per their owning requirements and are NOT part of the equality comparison. [cx: unassigned volunteer + foreign NGO added] [d80: equality scoped to the projection — exception-counting replaced by the two-layer contract]
 - **AT-010.02 (P0)** — Given the same project in `in_progress` or later (the assistant's availability window, REQ-033), When each viewer class is probed for the project-assistant interface, Then it is present for the project's NGO account only and absent for the volunteer, other NGOs, platform visitors, and logged-out viewers (UI and API); pre-`in_progress` absence is owned by REQ-033. [cx: lifecycle precondition pinned] [cross: REQ-033]
 - **AT-010.03 (P0)** — Given the routing surface, When probed for a separate developer view/route/variant of the project page, Then none exists — the platform surface is PM/coordination; the dev workflow lives on GitHub.
 - **AT-010.04 (P0)** — Given a project with all attributes set, When the page renders, Then it identifies the project: title, NGO, status, assigned volunteer, repo URL, complexity tier, and cause tags.
 - **AT-010.05 (P0)** — Given a project whose repo setup is still pending, When the page renders, Then the repo slot shows a plain-language empty state — no broken link, no technical jargon.
 
-## B. Task tree as primary content
+## B. Requirement tree as primary content
 
-- **AT-010.06 (P0)** — Given a fixture task tree with nested tasks in mixed statuses and one task in progress, When the page renders, Then the hierarchy, each task's status, and the work currently underway are all conveyed, AND the task tree occupies the page's primary/main content region — primary, not merely present (no DOM/layout ordering constraint beyond the main region). [cx: primacy made observable] [cx r2: ahead-of-every-panel ordering dropped — an invented layout rule]
-- **AT-010.07 (P0)** — Given 3 of 5 P0 tasks done plus several done P1 tasks, and a GitHub Issues fixture asserting a different count, When overall progress renders, Then it represents exactly the 60% ratio (3/5, "3 of 5", or an accessible progress value of 60% all pass — the RATIO is asserted, not a display format) — P1 tasks and GitHub Issues never move it. [cx: display format un-invented]
-- **AT-010.08 (P0)** — Given a logged-out visitor on any project, When the page renders, Then the full task tree is visible — public on every project. [Promise §2]
+- **AT-010.06 (P0)** — Given a fixture requirement tree with nested requirements in mixed statuses and one requirement in progress, When the page renders, Then the hierarchy, each requirement's status, and the work currently underway are all conveyed, AND the requirement tree occupies the page's primary/main content region — primary, not merely present (no DOM/layout ordering constraint beyond the main region). [cx: primacy made observable] [cx r2: ahead-of-every-panel ordering dropped — an invented layout rule]
+- **AT-010.07 (P0)** — Given 3 of 5 P0 requirements done plus several done P1 requirements, and a GitHub Issues fixture asserting a different count, When overall progress renders, Then it represents exactly the 60% ratio (3/5, "3 of 5", or an accessible progress value of 60% all pass — the RATIO is asserted, not a display format) — P1 requirements and GitHub Issues never move it. [cx: display format un-invented]
+- **AT-010.08 (P0)** — Given a logged-out visitor on any project, When the page renders, Then the full requirement tree is visible — public on every project. [Promise §2]
 
 ## C. Plain-language activity
 
@@ -42,7 +42,7 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 
 ## H. Cadence stats (v1 minimal)
 
-- **AT-010.16 (P0)** — Given one project with ONLY task progression (no commits) and another with ONLY commit activity (no task movement) inside the current period, When liveness renders, Then both read as live — liveness draws on both signals, not commits alone.
+- **AT-010.16 (P0)** — Given one project with ONLY requirement progression (no commits) and another with ONLY commit activity (no requirement movement) inside the current period, When liveness renders, Then both read as live — liveness draws on both signals, not commits alone.
 - **AT-010.17 (P0)** — Given a controlled-clock fixture with exactly 4 task movements + 2 commits in the current period and 1 task movement + 3 commits in the prior period, When cadence renders, Then each SIGNAL's current-vs-prior values are reflected (tasks 4 vs 1; commits 2 vs 3 — no aggregate sum is prescribed, the PRD defines none); and Given competing timestamps in BOTH orders — a task movement at 6h with the last commit at 20h, and a commit at 3h with the last task movement at 15h (two fixtures) — Then time-since-last reads 6h and 3h respectively, always from the newer signal whichever kind it is. [cx: exact fixtures] [cx r2: invented 6-vs-4 aggregation dropped; mirrored newer-commit case added — always-prefer-task code would have passed]
 - **AT-010.18 (P0)** — Given the authoritative staleness-threshold configuration and two controlled-clock `in_progress` fixtures — one with its last activity just INSIDE the threshold, one just PAST it — When each page renders, Then the fresh one shows NO stale indication and the stale one shows it — both sides of the configured boundary, so an always-on warning fails. [cx r2: threshold pinned to the authoritative config + fresh-side control added]
 
@@ -64,14 +64,14 @@ Source: requirements/req-010.md (prd-mvp.md REQ-010 + Promise §2/§5/§6). Depe
 | One public page; identical public STATUS PROJECTION for all viewers (role-gated thread/downloads/assistant outside the rule, d80); no developer view | 01 [d80], 03 |
 | Assistant surfaced only to the project's NGO account | 02 |
 | Identity fields incl. repo empty state | 04, 05 |
-| Task tree PRIMARY (main content region): hierarchy, statuses, current work, P0-only progress ratio from the tree (never GitHub issues) | 06, 07 |
+| Requirement tree PRIMARY (main content region): hierarchy, statuses, current work, P0-only progress ratio from the tree (never GitHub issues) | 06, 07 |
 | Full task tree public on every project | 08 |
-| Plain-language activity tied to task titles, no raw jargon | 09 |
+| Plain-language activity tied to requirement titles, no raw jargon | 09 |
 | Reference files listed w/ descriptions; restricted downloads; NGO add/remove pre-completion | 10, 11 |
 | Lifetime Q&A log (who/who/when); unresolved flagged | 12, 13 |
 | Fuel balance = real-time provider truth, stays reconciled (bounded freshness, conflict + change fixtures) | 14 |
 | No Issues/PRs/commit logs; repo link the only GitHub touchpoint | 15 |
-| Cadence from BOTH task progression and commits; recent-vs-prior + time-since-last; stale indication | 16–18 |
+| Cadence from BOTH requirement progression and commits; recent-vs-prior + time-since-last; stale indication | 16–18 |
 | Repo-derived signals, in_progress AND completed (language, last activity, contributor, license, completion-readiness) | 19 |
 | Popularity metrics never shown | 20 |
 | Two purses shown distinctly; Lovable slot state machine across a real transition (setup → status/access/top-up); read via monitoring account | 21, 22, 23 [cx] |

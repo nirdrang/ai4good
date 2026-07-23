@@ -33,10 +33,10 @@ The NGO uploads reference files (screenshots, sample forms/data, mockups, requir
 At the project's first kickoff (first entry into `in_progress`), the Discovery chat reframes as a read-only project assistant (status, open blockers explained, recent progress summarized, fuel runway).
 - It is available on the project page from the project's first entry into `in_progress` until the project enters `completed` or `cancelled` — including any intervening post-kickoff nonterminal state (abandonment/rematch, re-opened) — and is surfaced **only to the project's NGO account** — the bot interface never appears for the volunteer, platform visitors, or the public; at a terminal state the bot interface ends while the project's static task and activity surfaces remain; unfunded or pre-scoped projects have no assistant, and there Discovery is the only NGO↔AI chat.
 - It is fuel-metered with no free credits: the per-turn cost is shown, remaining fuel is visible, and at zero fuel it stops accepting billable requests and offers top-up.
-- It is strictly read-only over a snapshot of tasks, blockers, fuel, and activity: it cannot set status, resolve blockers, accept scope additions, or move money. A scope or priority ask is answered by explaining the REQ-025 protocol, optionally pre-filling a draft the NGO submits.
+- It is strictly read-only over a snapshot of requirements, blockers, fuel, and activity: it cannot set status, resolve blockers, accept scope additions, or move money. A scope or priority ask is answered by explaining the REQ-025 protocol, optionally pre-filling a draft the NGO submits.
 - It reuses the Discovery surface and model — no new chat infrastructure; v1 is on-demand text Q&A (→ RM-38). It carries no scope guardrail: paid usage is the NGO's call and the cost display is the control.
 
-#### REQ-034: Task-Level Attribution (telemetry, never gating)
+#### REQ-034: Requirement-Level Attribution (telemetry, never gating)
 Classification (load-bearing): this is telemetry, NOT a security control — it is spoofable, soft-degrading, and never gates a request. Its purpose is the NGO burn-per-requirement view, per-requirement burn baselines, and usage reconciliation. Attribution granularity is the PM-tree REQUIREMENT — the same items the NGO tracks — never finer.
 - A metered request may carry a binding to a pulled PM-TREE REQUIREMENT (REQ-026's requirement-level items — the attribution granularity; dev-tree items are never attribution targets), and burn is attributed when recorded; capture ships in v1 (→ RM-39). A request with no resolvable binding is recorded as "unattributed," never rejected.
 - "Exploration" and "onboarding" are first-class taskless values, offered proactively, because falsely-attributed burn corrupts baselines.
@@ -52,7 +52,7 @@ REQ-013/014/015/016 (drafted P1) are P0-feature dependencies, reclassified P0 wi
 
 #### REQ-013: NGO Dashboard (minimal v1 + v1.5 enhancements)
 One NGO-wide view supporting the stepwise-funding moments (Promise §6).
-- v1: for each project, status, task-based percent complete, the fuel balance and the Lovable credit status, and the assigned volunteer, plus cadence signals (last commit, tasks done of total, current task) (→ RM-23); a cross-project fuel summary; the general balance shown as redeployable credit (non-cash, no expiry, never removed); and a prominent surface of items needing NGO action (open blockers, open scope-addition discussions, triage decisions awaiting the NGO). No applicant queue (concierge).
+- v1: for each project, status, requirement-based percent complete, the fuel balance and the Lovable credit status, and the assigned volunteer, plus cadence signals (last commit, requirements done of total, current requirement) (→ RM-23); a cross-project fuel summary; the general balance shown as redeployable credit (non-cash, no expiry, never removed); and a prominent surface of items needing NGO action (open blockers, open scope-addition discussions, triage decisions awaiting the NGO). No applicant queue (concierge).
 - (→ RM-42)
 
 #### REQ-014: Volunteer Dashboard + Completion Credit (v1 minimal)
