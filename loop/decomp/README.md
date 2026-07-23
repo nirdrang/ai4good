@@ -47,13 +47,18 @@ bijection script) → the founder's TREE REVIEW artifact → only then the PM pu
 
 ## Waves (Initiatives; PM projects until initiatives are created manually)
 
-- **W0 Bring-up** — infra items (harness, staging, CI, work skill + drills, at-config).
+**The PM board holds ONLY the 30 requirement items (d87).** W0 bring-up items and the
+7 design batch items are DEV-board items: bring-up closes via the GitHub integration on
+merge; design batches are managed with plain Linear calls and closed manually on their
+real evidence (design gate green + founder gallery sign-off, recorded in git).
+
+- **W0 Bring-up** — infra items (harness, staging, CI, work skill + drills, at-config) — DEV board (d87).
 - **W1 Foundation** — REQ-001, 003, 005.5, 006, 009, 016.
 - **W2 Discovery & intake** — REQ-002, 004, 005, 032, 023.
 - **W3 Match & build rails** — REQ-007, 008, 021, 026, 036, 028.
 - **W4 Run & money surfaces** — REQ-010, 011, 013, 014, 015, 024, 025, 034, 033.
 - **W5 Lifecycle & ops** — REQ-012, 027, 030, 031.
-- **Design** — the 7 batch items (playbook: design/design-session.md).
+- **Design** — the 7 batch items (playbook: design/design-session.md) — DEV board (d87).
 - **Wiring** — inside each UI-fronted REQ as its wiring leaf, surfaced per REQ.
 - **Pilot readiness** — full-corpus run, drills, empirical probe.
 

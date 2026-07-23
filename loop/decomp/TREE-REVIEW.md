@@ -37,9 +37,12 @@ created only when that requirement is pulled, from its decomposition file.
 | W4 Run & money surfaces | 010 project page · 011 listings · 013 NGO dashboard · 014 volunteer dashboard · 015 thread · 024 blockers · 025 scope additions · 033 NGO assistant · 034 attribution | 129 |
 | W5 Lifecycle & ops | 012 completion · 027 abandonment · 030 ops & money corrections · 031 break-glass | 43 |
 
-Plus the W0 bring-up items (not per-requirement): the test harness + at-config registry, the
-work-skill build with its rehearsal drills, and staging infrastructure — these become their own
-small PM items when we start W1.
+The W0 bring-up items (test harness + at-config registry, the work-skill build with its
+rehearsal drills, staging infrastructure) and the 7 design batch items are NOT PM items —
+they are created on the engineering board (d87): process work with no acceptance suites,
+no attribution bindings, and no pull ceremony. Bring-up items close via the GitHub
+integration on merge; design batches close manually on their real evidence (design gate
+green + your gallery sign-off). The PM board holds exactly the 30 requirements below.
 
 ## Three things you should sign off on specifically
 
@@ -81,11 +84,13 @@ early-wave PM items to sit at "everything but the screen re-run green" until wav
 
 ## What happens on your approval
 
-1. ~30 PM items created on AI4GOOD-PM from these files (title, wave project, the done contract
-   in the description, blocking relations from the depends-on lines).
-2. The W0 bring-up items created alongside.
-3. Nothing on the dev board; nothing assigned; nothing In Progress. The first `/next` after
-   that starts the first requirement.
+1. Exactly 30 PM items created on AI4GOOD-PM from these files (title, wave project, the done
+   contract in the description, blocking relations from the depends-on lines) — nothing else
+   on the PM board (d87).
+2. The W0 bring-up items and the 7 design batch items created on AI4GOOD-DEV (vanilla
+   working items; merge-close for code, manual close on sign-off for design batches).
+3. Nothing assigned; nothing In Progress. The first `/next` after that starts the first
+   requirement.
 
 **To approve:** say so (optionally with the REQ-003 wave call). To change anything first: name
 it, and the change goes through a manifest edit + a check-tree run before the push.
