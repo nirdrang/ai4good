@@ -10,6 +10,10 @@
 > completion); the volunteer's dev tree never surfaces; burn attribution is **per requirement**
 > — and to the d69 fuel-stop mechanics (the platform monitor stops spending via provider key
 > status; stop causes are ranked, so a top-up clears only the out-of-fuel stop).
+> **Updated 2026-07-24** to d86 — all NGO-facing communication (status-panel comments,
+> clarifying questions, accepted scope-addition items) anchors at the **requirement** level or
+> project level, never the dev tree; dev-tree detail may ride as free text in a question body
+> but is never a structural anchor.
 > Supersedes `design/design-brief.md` and `design/screen-inventory.md`
 > (both predate the v1 scope freeze and describe screens that no longer exist — handoff
 > ceremony, CR forms, marketplace filters, donation flow, Track tags, verification-doc upload).
@@ -118,7 +122,7 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
 4. **Discovery credit gauge** — "Discovery credits: 7 of 10 today" chip + per-turn credit cost.
    Credits are abstract units — **never render with a $ sign**, never as a balance the NGO
    owns. Vetted tier shows 30/day. Exhausted state offers the three remedies (§8).
-5. **PM requirement tree panel** — the plain-language task view renders the **PM tree only**
+5. **PM requirement tree panel** — the plain-language requirement view renders the **PM tree only**
    (d82, REQ-026): requirement-level items deduced from the scope doc, seeded at kickoff
    (including the "Author the project PRD" bootstrap item, REQ-036), with status per item,
    current work highlighted, and percent complete = done top-priority requirements / all
@@ -126,7 +130,7 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
    platform surface** — not to the NGO, not to the public. Read-only for the NGO; **status is
    never editable by anyone in the UI** (In Progress comes only from the volunteer's explicit
    pull; Done only from verified completion — the requirement's linked dev work merged and its
-   acceptance evidenced). Includes the task-anchored NGO comment affordance (REQ-015).
+   acceptance evidenced). Includes the requirement-anchored NGO comment affordance (REQ-015, d86).
 6. **Burn-per-requirement rows** — token consumption per PM requirement, the same items the
    NGO tracks (d82, REQ-034: the recorded granularity IS the displayed granularity — nothing
    finer exists). **Token-denominated** (attribution is tokens; money is a separate meter —
@@ -156,7 +160,7 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
 11. **Project card, two variants** (REQ-011): **open-project card** (title, summary, complexity
     tier, needed skills, cause tags, NGO name, posted date — static, no live stats, no dollar
     figure, **no candidate/interest count**) and **in-progress showcase card** (live,
-    code-host style: task progress, cadence, stack, time since last activity, contributor).
+    code-host style: requirement progress, cadence, stack, time since last activity, contributor).
 12. **Q&A / clarifications log** — lifetime record of resolved clarifying questions (who asked,
     who answered, when); unresolved ones clearly flagged (REQ-010/024).
 13. **Notification patterns** — in-app inbox item (low-tone vs escalation tier) + email
@@ -225,7 +229,7 @@ Never design any of the following into any screen:
   Discovery credits; a fee/skim line at checkout; withdraw/cash-out/donate affordances.
 - GitHub issue lists, PR lists, raw commit logs, or git jargon on the project page or any NGO
   surface (the repo link is the only GitHub touchpoint); Linear branding or seats for NGOs —
-  the task panel is their only window.
+  the requirement panel is their only window.
 - Editable requirement status anywhere (In Progress only from the volunteer's pull, Done only
   from verified completion; violations auto-revert) — and **never any dev-tree content** on an
   NGO or public surface (d82).
@@ -272,13 +276,13 @@ lifecycle badges.
 | 16 | **Public listings** | Newest-first, read-only (no filters/sort in v1). Open-project cards (static) + in-progress showcase cards (live, code-host style). One action: **"mark interest"** (candidate for this project) — feeds the admin match log only | empty; logged-out (no action button) | REQ-011 |
 | 17 | Match consent | Invitation (from concierge match) → one-action consent. First consent fires the combined account-held disclaimer (coordination layer, open-source MIT, per-project key, Tier-2 fixtures-only + confidentiality, deactivation risk) **before any project introduction**. Consent ≠ kickoff — "waiting for NGO funding" | disclaimer unsigned / already-signed / consented-awaiting-funding / declined / expired | REQ-007 |
 | 18 | **Volunteer dashboard** | Current projects (status, fuel, Lovable status, in-progress tasks, unresolved blockers/clarifications), open candidacies, GitHub handle, **virtual-key reveal card** (show-once at kickoff; replacement flow), completion-credit events + "Shipped first tool" badge (private — no public profile in v1) | empty / first-project / key-revealed vs stored | REQ-014/009 |
-| 19 | Volunteer actions on the project page | Same public page (no separate dev view) + role-gated actions: raise blocker (type, severity, title, body + **never-paste-real-data warning**), raise task-anchored clarifying question, reply to thread, view reference files | — | REQ-010/024 |
+| 19 | Volunteer actions on the project page | Same public page (no separate dev view) + role-gated actions: raise blocker (type, severity, title, body + **never-paste-real-data warning**), raise a requirement-anchored or project-level clarifying question, reply to thread, view reference files | — | REQ-010/024 |
 | 20 | Mark done / completion readiness | Readiness check (all top-priority PM requirements Done through verified completion — dev work merged + acceptance evidenced, repo URL recorded, README/runbook, work pushed) → mark done → private "credit earned" confirmation. Disabled with named gaps while incomplete | blocked-incomplete / done | REQ-012/028 |
 
 ### Batch 5 — Comms & in-project flows
 | # | Screen | Purpose & key elements | States | REQ |
 |---|--------|------------------------|--------|-----|
-| 21 | Comment thread (full view) | Plain-text chronological stream (§7.10 — **participants-only read+post, d80**; never rendered to visitors/unrelated accounts). Task-anchored NGO comments on queued/in-progress tasks only (from the task panel → relayed to the volunteer's task; reply returns to thread). Scope-addition discussions live here: guidance copy (additions consume existing fuel, may extend timeline, volunteer-optional; **one active discussion at a time**) | empty / one-discussion-active / read-only post-terminal (participants keep history) | REQ-015/025 |
+| 21 | Comment thread (full view) | Plain-text chronological stream (§7.10 — **participants-only read+post, d80**; never rendered to visitors/unrelated accounts). Requirement-anchored NGO comments on queued/in-progress requirements only (from the requirement panel → relayed onto that requirement's PM-tree item; reply returns to thread). Scope-addition discussions live here: guidance copy (additions consume existing fuel, may extend timeline, volunteer-optional; **one active discussion at a time**) | empty / one-discussion-active / read-only post-terminal (participants keep history) | REQ-015/025 |
 | 22 | Notifications center | In-app inbox; read/unread; low-tone vs escalation tier; email mirrors critical events (money, deadlines, blockers, completion, decisions). Taxonomy in REQ-016 | empty | REQ-016 |
 | 23 | Blocker detail | Card + Q&A + project-thread link; severity; 48h reminder / 7d admin-escalation aging shown; resolution requires a note; auto-raised types upgrade in place | escalated (7d) / resolved | REQ-024 |
 
@@ -310,7 +314,7 @@ lifecycle badges.
 - **Anthropic outage:** "service degraded" banner; Discovery intakes queue; assistant offline.
 - **Lovable outage/MCP break:** build degrades to in-browser Lovable — messaging, never a
   dead build; setup blockers age instead of erroring.
-- **Linear outage:** the task panel goes stale (staleness indicator), volunteers keep working;
+- **Linear outage:** the requirement panel goes stale (staleness indicator), volunteers keep working;
   it converges on recovery — never an error wall.
 - **Provisioning failure at kickoff:** the project stays `in_progress`; gaps surface as
   blockers/ops items ("your repo setup is pending"), never a special lifecycle state.
