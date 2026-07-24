@@ -10,12 +10,23 @@ function Get-RepoRoot {
     return $r.Trim()
 }
 
-function Get-WorktreeId {
-    # stable id per worktree: short hash of the normalized worktree root path
-    $root = (Get-RepoRoot).ToLower()
+function Get-WorktreeIdFromRoot([string]$root) {
+    # hash the git-normalized toplevel string; sharing this ensures the id a session computes
+    # from INSIDE a worktree matches the id computed FOR that worktree from elsewhere.
+    $r = $root.Trim().ToLower()
     $sha = [System.Security.Cryptography.SHA256]::Create()
-    $b = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($root))
+    $b = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($r))
     return ([System.BitConverter]::ToString($b) -replace '-','').Substring(0,12).ToLower()
+}
+
+function Get-WorktreeId { Get-WorktreeIdFromRoot (Get-RepoRoot) }
+
+# Same id, computed FOR another worktree by path (uses git's own normalization via -C, so it
+# matches what Get-WorktreeId returns when run inside that worktree).
+function Get-WorktreeIdForPath([string]$path) {
+    $root = (& git -C $path rev-parse --show-toplevel 2>$null)
+    if (-not $root) { throw ('not a git worktree: ' + $path) }
+    Get-WorktreeIdFromRoot $root
 }
 
 function Get-StateDir {
@@ -46,6 +57,18 @@ function Write-Binding([hashtable]$b) {
 function Clear-Binding {
     $p = Get-BindingPath
     if (Test-Path $p) { Remove-Item $p -Force }
+}
+
+# Write a binding INTO a specific worktree (used by /next when it creates a dedicated worktree
+# and must place the binding in the new folder, not the orchestrating one).
+function Write-BindingFor([string]$path, [hashtable]$b) {
+    $wid = Get-WorktreeIdForPath $path
+    $b['worktree'] = $wid
+    $b['writtenAt'] = (Get-Date).ToUniversalTime().ToString('o')
+    $target = Join-Path (Get-StateDir) ('bindings\' + $wid + '.json')
+    $json = ($b | ConvertTo-Json -Depth 4)
+    [System.IO.File]::WriteAllText($target, $json, (New-Object System.Text.UTF8Encoding($false)))
+    return $target
 }
 
 # Machine-wide lock serializing /next and /done. Exclusive-create lock file with stale takeover.
