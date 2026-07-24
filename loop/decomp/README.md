@@ -2,7 +2,7 @@
 
 Canonical source for the buildout's Linear content. Per the adopted way-of-work (d83) and
 d82's two-tree model: **the PM tree is pushed from these manifests once, after the founder's
-tree review; the dev tree is materialized lazily per requirement by `/next` from the same
+tree review; the dev tree is materialized lazily per requirement by `/pm-next` from the same
 manifest.** Linear is the working mirror; these files are the truth (`/doc-sync` keeps them
 aligned; sync-stamps prove currency).
 

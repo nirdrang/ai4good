@@ -1,4 +1,4 @@
-# materialize.ps1 - parse a decomposition manifest into the dev-tree payload for /next.
+# materialize.ps1 - parse a decomposition manifest into the dev-tree payload for /pm-next.
 # Emits JSON: parents (deliverables) + leaves with in-manifest blocked-by references.
 # The agent executes the Linear creation calls; this script only derives WHAT to create.
 #   powershell -File loop/work/materialize.ps1 -Req 001

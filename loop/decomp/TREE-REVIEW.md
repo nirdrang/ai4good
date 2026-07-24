@@ -95,7 +95,7 @@ early-wave PM items to sit at "everything but the screen re-run green" until wav
    on the PM board (d87).
 2. The W0 bring-up items and the 7 design batch items created on AI4GOOD-DEV (vanilla
    working items; merge-close for code, manual close on sign-off for design batches).
-3. Nothing assigned; nothing In Progress. The first `/next` after that starts the first
+3. Nothing assigned; nothing In Progress. The first `/pm-next` after that starts the first
    requirement.
 
 **To approve:** say so (optionally with the REQ-003 wave call). To change anything first: name

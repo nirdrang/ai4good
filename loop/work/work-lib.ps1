@@ -59,7 +59,7 @@ function Clear-Binding {
     if (Test-Path $p) { Remove-Item $p -Force }
 }
 
-# Write a binding INTO a specific worktree (used by /next when it creates a dedicated worktree
+# Write a binding INTO a specific worktree (used by /pm-next when it creates a dedicated worktree
 # and must place the binding in the new folder, not the orchestrating one).
 function Write-BindingFor([string]$path, [hashtable]$b) {
     $wid = Get-WorktreeIdForPath $path
@@ -71,7 +71,7 @@ function Write-BindingFor([string]$path, [hashtable]$b) {
     return $target
 }
 
-# Machine-wide lock serializing /next and /done. Exclusive-create lock file with stale takeover.
+# Machine-wide lock serializing /pm-next and /pm-done. Exclusive-create lock file with stale takeover.
 function Acquire-WorkLock([int]$staleMinutes = 30) {
     $lock = Join-Path (Get-StateDir) 'locks\verb.lock'
     if (Test-Path $lock) {

@@ -1,12 +1,13 @@
 ---
-name: next
-description: Pull the next PM-tree requirement (or a named one, e.g. /next AI4PM-21) — the ONLY authority for In Progress on the PM board. Asks about a dedicated worktree up front, then atomic claim + pull record + binding + lazy dev-tree materialization, per the adopted way-of-work.
+name: pm-next
+description: Pull the next PM-tree requirement (or a named one, e.g. /pm-next AI4PM-21) — the ONLY authority for In Progress on the PM board. Asks about a dedicated worktree up front, then atomic claim + pull record + binding + lazy dev-tree materialization, per the adopted way-of-work. (Requirement tier; the leaf-tier verbs are /dev-start and /dev-end.)
 ---
 
-# /next — pull a requirement (PM board, AI4GOOD-PM)
+# /pm-next — pull a requirement (PM board, AI4GOOD-PM)
 
-**Only requirement items are pullable.** Bring-up and design-batch items (AI4GOOD-DEV) are
-managed with plain Linear calls, never these verbs (d87).
+**Verb tiers:** PM tree (requirement) = `/pm-next`, `/pm-done`. Dev tree (leaf) = `/dev-start`,
+`/dev-end`. **Only requirement items are pullable here.** Bring-up and design-batch items
+(AI4GOOD-DEV) are managed with plain Linear calls, never these verbs (d87).
 
 ## Ritual (execute in order; stop and report on any failure; NO Linear write before step 5)
 
@@ -60,7 +61,8 @@ managed with plain Linear calls, never these verbs (d87).
     0NN` → for each parent not already on AI4GOOD-DEV (check by exact title): create the parent
     (relatedTo the PM item), then each leaf as a sub-issue (parentId), description = summary +
     `verify:` set, with blocked-by relations mapped to the sibling leaf issues. Cross-manifest
-    blocked-by references go in the description, not as relations.
+    blocked-by references go in the description, not as relations. (Leaves are then worked with
+    `/dev-start` and `/dev-end`.)
 
 11. **Release the lock; report.**
     - Dedicated worktree created but NOT entered → tell the founder: open a session in
@@ -77,10 +79,10 @@ managed with plain Linear calls, never these verbs (d87).
 - **Two layers, not either/or.** The worktree isolates the FOLDER (so attribution is clean);
   the leaf branches inside it isolate the CODE (so the dev-tree state transitions fire on
   PR-open / merge). You use both.
-- **`/next` locks a folder; `/done` frees it.** `/next`'s guard refuses a second pull into a
-  bound folder and steers you to a fresh worktree; `/done` clears the binding on completion,
-  runs a clean-tree check, and offers to remove a dedicated worktree. One-live-requirement-
-  per-folder, enforced from both ends.
+- **`/pm-next` locks a folder; `/pm-done` frees it.** `/pm-next`'s guard refuses a second pull
+  into a bound folder and steers you to a fresh worktree; `/pm-done` clears the binding on
+  completion, runs a clean-tree check, and offers to remove a dedicated worktree.
+  One-live-requirement-per-folder, enforced from both ends.
 - **Attribution degrades, never blocks:** a wrong or missing binding mis-buckets data
   (unattributed); it never gates work. The discipline exists to keep the DATA honest.
 

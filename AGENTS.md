@@ -64,17 +64,17 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Full spec: `loop/out/wow-claude-driven-linear.md` (v4.7). One task lifecycle exists — this one. TaskMaster is retired (decision-20); never use taskmaster tools for the buildout.**
 
-- **Work brackets ONE PM-tree requirement item** (Linear team `AI4GOOD-PM`): `/next` pulls it (assign + In Progress + pull-record comment + attribution binding + dev-tree materialization from `loop/decomp/req-0NN.md`); `/done` closes it (evidence gate: the requirement's full AT suite green at integration tier + founder attestation). These verbs are the ONLY status authorities on the PM tree.
+- **Work brackets ONE PM-tree requirement item** (Linear team `AI4GOOD-PM`): `/pm-next` pulls it (assign + In Progress + pull-record comment + attribution binding + dev-tree materialization from `loop/decomp/req-0NN.md`); `/pm-done` closes it (evidence gate: the requirement's full AT suite green at integration tier + founder attestation). These verbs are the ONLY status authorities on the PM tree. Within a pulled requirement, individual dev-tree LEAVES are worked with the leaf-tier verbs `/dev-start` (begin a leaf) and `/dev-end` (complete it) — ergonomic packaging only, never authorities: they create no binding and never touch the PM item (d88).
 - **Dev items** (team `AI4GOOD-DEV`) are working space: manage them with plain Linear MCP calls as the work demands; leaves close via the GitHub integration on merge; no ceremony, no binding.
 - **Attribution:** every message carries the stamp (`wave / project / bucket`) from the current binding. Unbound or off-task work is `exploration` or `unattributed` — honest buckets, never blocked, never faked.
 - **Blocked** is a label + comment on the PM item, never a status change. `/override` can never reach In Progress or Done.
 - **Doc changes** run through `/doc-sync fold` (one direction: git → Linear; sync-stamps; meaning never changes in Linear). PRD text is edited ONLY in `loop/out/pure-s*.md`; `prd-mvp.md` and the isolates are build products.
-- **Suggestive posture:** the agent proposes at ripeness signals (tests green → "open the PR?"; merged → "ready for `/done`"; closed → "`/next`?"; drift → "bind?") — once per signal, never auto-executing an authority verb.
+- **Suggestive posture:** the agent proposes at ripeness signals (tests green → "open the PR?"; merged → "ready for `/pm-done`?"; closed → "`/pm-next`?"; drift → "bind?") — once per signal, never auto-executing an authority verb.
 - **Commits** cite the PM item (and the dev leaf where one applies); the design session uses `design-batch-N: AI4PM-nnn …`.
 
 **Anti-patterns:**
 - Hand-editing PM-tree status in the Linear UI (reconcile detects and the founder corrects — don't create the work).
-- Closing a requirement with open dev leaves — an open leaf is a named `/done` gate failure.
+- Closing a requirement with open dev leaves — an open leaf is a named `/pm-done` gate failure.
 - Working bound to a finished item (stale binding) — rebind at every pull; trust the session banner.
 - Batching syncs after multiple doc changes — every change bundle ends with its own `/doc-sync`.
 - Editing `prd-mvp.md`, an isolate, or Linear item text directly to change meaning.

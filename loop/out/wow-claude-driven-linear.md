@@ -6,16 +6,16 @@
 v4.5, 2026-07-19 — **TWO-TREE ARCHITECTURE (founder ruling, supersedes the projects-per-REQ
 layout where they conflict):** one Linear workspace, two teams. The **PM TREE** holds the
 requirement items (buildout: REQ-NN as issues, waves as projects/labels) — the skill's
-`/next`/`/done` bracket THESE items, attribution binds to them, cadence posts here, and
+`/pm-next`/`/pm-done` bracket THESE items, attribution binds to them, cadence posts here, and
 this is the only tree tier-1 reporting reads. The **DEV TREE** holds the detailed
 decomposition (AT-derived deliverables + leaves) — vanilla Linear MCP as ordinary work
 actions + the native GitHub integration (merge→Done), each dev item carrying a relation to
 its PM requirement. **Lazy materialization (founder-confirmed):** the dev tree is populated
-PER REQUIREMENT by `/next` itself — claim step 5 reads the requirement's git manifest
+PER REQUIREMENT by `/pm-next` itself — claim step 5 reads the requirement's git manifest
 (`loop/decomp/req-0NN.md`) and creates its deliverable parents + leaves + relations in the
 DEV team (idempotent on re-pull: reconcile against the manifest, never duplicate). The full
 decomposition exists upfront only as the git manifests; Linear carries dev items only for
-in-flight requirements (freshness + the free-tier active-issue cap). At `/done`, all dev
+in-flight requirements (freshness + the free-tier active-issue cap). At `/pm-done`, all dev
 items of the requirement must be Done/Cancelled (an open dev leaf is a named gate failure);
 closed items auto-archive out of the active count. Mirrors the product's post-gate
 decomposition push, triggered by the pull. The same split is the PRODUCT's model per d82: the NGO panel reads the
@@ -24,8 +24,8 @@ decomposition (REQ-036) and working items live on the dev tree. [To verify at se
 Linear free-tier team count for the product's per-project workspace.]
 
 v4.4 governing amendment (subsumed): **the skill and attribution live
-at TIER 1 = THE REQUIREMENT, only.** `/next` claims a REQUIREMENT (project started +
-attribution bound); `/done` completes a REQUIREMENT (full AT suite at integration tier +
+at TIER 1 = THE REQUIREMENT, only.** `/pm-next` claims a REQUIREMENT (project started +
+attribution bound); `/pm-done` completes a REQUIREMENT (full AT suite at integration tier +
 founder attestation); the stamp carries wave/project/bucket — NO issue IDs. TIER 2 —
 everything inside the project (deliverable parents, leaf items) — is managed VANILLA:
 plain Linear MCP calls as ordinary work actions plus the native GitHub integration as
@@ -57,7 +57,7 @@ files are caches only), no offline replay engine.
   UUIDs alongside human identifiers.
 - A4. **(REVISED, founder ruling 2026-07-19 — the two-tier split):** Linear's GitHub
   integration IS installed, configured exactly as the product's d76 rule: merge→Done ON
-  (tier-2 leaf closure), branch/PR→started OFF (In Progress remains `/next`'s monopoly).
+  (tier-2 leaf closure), branch/PR→started OFF (In Progress remains `/pm-next`'s monopoly).
   The integration can only ever touch LEAF work items (no PR maps to a deliverable or
   project); tier 1 is skill-enforced exclusively. Unmatched integration flips are
   detect-and-reverted by reconcile (§5), mirroring REQ-026.
@@ -74,7 +74,7 @@ files are caches only), no offline replay engine.
   milestone, labels, dependencies, sync stamp. Field ownership: repo owns verify sets, AT
   ownership, dependencies; Linear owns status, assignee, comments, estimates.
 - P2. `AGENTS.md`/`CLAUDE.md` §5 (stale TaskMaster lifecycle) replaced by this WoW — one
-  task lifecycle, `/next` the sole pull authority.
+  task lifecycle, `/pm-next` the sole pull authority.
 - P3. GitHub branch protection on `main`: **PRs required (no direct pushes), no
   force-push, no deletion, bypass disabled.** This makes "direct-to-main completion"
   structurally impossible rather than merely prohibited.
@@ -84,21 +84,21 @@ files are caches only), no offline replay engine.
   self-merge via the session, PR checks required. (Aligned with, but not resolving, the
   product's OD-1 — that stays open for the product.)
 - P7. **The toolset exists and passed a smoke test before activation**: hooks + skill +
-  reconcile script installed, with three rehearsed drills — a crash simulated mid-`/done`,
-  two concurrent sessions attempting `/next` on the same issue, and a revert of a merged
+  reconcile script installed, with three rehearsed drills — a crash simulated mid-`/pm-done`,
+  two concurrent sessions attempting `/pm-next` on the same issue, and a revert of a merged
   linked PR. No activation on paper machinery.
 
 ## 1. The remote-evidence principle (round-2 design shift)
 
 Every authority-bearing record lives in a system of record, never only on disk:
 
-- **The PULL RECORD is a Linear comment** written by `/next` at claim time: branch name,
+- **The PULL RECORD is a Linear comment** written by `/pm-next` at claim time: branch name,
   base OID of `origin/main` at pull, **the decomp manifest revision + verify-set digest**
-  [r3 — so `/done`, R3, and remote adoption can reconstruct the authoritative verifier
+  [r3 — so `/pm-done`, R3, and remote adoption can reconstruct the authoritative verifier
   with zero local state], pull timestamp, session marker, op UUID. Durable, visible to any
   future session/machine, survives all local loss.
 - **The COMPLETION RECORD is the merged PR** (author, branch, base/head/merge OIDs,
-  checks) **plus a Linear completion comment + PR-URL attachment** written by `/done`.
+  checks) **plus a Linear completion comment + PR-URL attachment** written by `/pm-done`.
 - Local files (`%LOCALAPPDATA%/ai4good-build/`) hold only: the binding CACHE (for
   stamping), the reconcile cursor, and a scratch log. Losing all of them loses nothing
   authoritative — any session can rebuild by reading Linear + GitHub.
@@ -112,13 +112,13 @@ Every authority-bearing record lives in a system of record, never only on disk:
 Initiative (wave) → Project (REQ) → **DELIVERABLE (parent issue — MANDATORY tier)** →
 **WORK ITEM (leaf)**. Every leaf belongs to exactly one deliverable (3–6 per REQ,
 plain-language named), mirroring the product's one-parent-per-story / one-sub-per-AC tree.
-`/next` and `/done` are an open/close BRACKET around ONE work item — the same object, the
+`/pm-next` and `/pm-done` are an open/close BRACKET around ONE work item — the same object, the
 same level, always; they never touch deliverables, projects, or waves. Everything above
 the leaf is DERIVED: a deliverable closes automatically when its last child closes (the
 session writes it with a comment referencing the children — its evidence IS the children);
 a REQ project completes via its milestones, terminating in one ordinary final leaf —
 **"REQ-NN integration gate"** (verify set = the full AT suite at integration tier;
-UI-fronted REQs also carry a wiring leaf) — so even project completion is a normal `/done`
+UI-fronted REQs also carry a wiring leaf) — so even project completion is a normal `/pm-done`
 with a bigger verify set. One mechanism at every level.
 
 **Two-tier progress & attribution (founder-as-NGO):** tier 1 — the founder tracks
@@ -128,9 +128,9 @@ detail exists in the stamps and the op-marker trail for drill-down, never as the
 
 ## 2. Status authorities
 
-- **In Progress — one authority: `/next`**, in two forms with ONE claim protocol:
-  `/next` (automatic: highest-priority unblocked unclaimed leaf, confirm-or-skip) and
-  `/next <issue>` (steered: the named item, after eligibility validation — unblocked,
+- **In Progress — one authority: `/pm-next`**, in two forms with ONE claim protocol:
+  `/pm-next` (automatic: highest-priority unblocked unclaimed leaf, confirm-or-skip) and
+  `/pm-next <issue>` (steered: the named item, after eligibility validation — unblocked,
   unclaimed, a leaf). Both are serialized by a machine-wide lock (a named
   mutex both verbs take, so two sessions cannot interleave claims): freshness-read
   (`get_issue`: unassigned + unstarted) → human confirm → `save_issue` (assign + In
@@ -144,23 +144,23 @@ detail exists in the stamps and the op-marker trail for drill-down, never as the
     BEFORE the merge (branch protection: the manifest's named CI checks — the verify set —
     are REQUIRED to merge) and AFTER it (reconcile detect-and-revert: a flip without a
     matching pull record — wrong branch, no claim, unrelated PR — is reverted, § 5 R2').
-    Leaf `/done` ceases to be a gate; the suggestive engine's ripeness nudge is "merge it."
+    Leaf `/pm-done` ceases to be a gate; the suggestive engine's ripeness nudge is "merge it."
   - **Deliverables (tier 1):** derive-close when the last child closes, PLUS the FOUNDER
     ATTESTATION — one confirmation per deliverable ("this is delivered"), recorded in the
     deliverable's closing comment. The attestation moves here from the leaf level: an NGO
     accepts deliverables, not commits.
   - **The requirement's integration-gate leaf** (and wiring leaf) remains fully
-    skill-gated via `/done`'s evidence gate below — the integration never closes a
+    skill-gated via `/pm-done`'s evidence gate below — the integration never closes a
     requirement.
-  - **`/done`'s evidence gate** (now applying to gate/wiring leaves and any leaf closed
+  - **`/pm-done`'s evidence gate** (now applying to gate/wiring leaves and any leaf closed
     without CI, e.g. Wave 0 pre-CI). All of:
   - E1. A merged PR matching the pull record: opened from the RECORDED branch, which
-    `/next` created (or verified) CLEAN — **recorded branch tip == the fetched base OID at
+    `/pm-next` created (or verified) CLEAN — **recorded branch tip == the fetched base OID at
     pull; pre-existing commits on the branch abort the pull** [r3 — ancestry proves
     topology, not timing; a clean-at-pull branch makes "descends from base" mean "written
     after pull"]; PR author = the pulling account; **diff non-empty and not revert-only**;
     exact merge OID present on `origin/main` (fetched, ancestry-verified). One PR ↔ one
-    issue; and at `/done` the founder CONFIRMS a one-line mapping — "this diff implements
+    issue; and at `/pm-done` the founder CONFIRMS a one-line mapping — "this diff implements
     <issue> / its owned ATs" — recorded in the completion comment [r3 — the issue-scope
     attestation; work pre-existing in the base cannot be laundered through an unrelated
     non-empty PR without a false human attestation, which A2 excludes].
@@ -183,11 +183,11 @@ detail exists in the stamps and the op-marker trail for drill-down, never as the
 - **Blocked** is a LABEL + comment, never the status field.
 - **`/override` — cannot reach In Progress or Done. Ever.** It may set: Todo (return to
   backlog), Canceled, or Waived-equivalent, with a required reason, ledgered as an
-  override comment. In Progress exists only via `/next`; Done only via the gate. There is
+  override comment. In Progress exists only via `/pm-next`; Done only via the gate. There is
   no "exception Done."
 - **Reopen-on-revert:** if a merged linked PR is later reverted, the issue MUST NOT remain
   Done: reconcile flags it and the founder chooses — return to Todo (replacement work will
-  re-enter via a fresh `/next` + new pull record) or Canceled with reason. "Accept and
+  re-enter via a fresh `/pm-next` + new pull record) or Canceled with reason. "Accept and
   stay Done" is not an option; Done always means shipped code that is still shipped.
 
 ## 3. Binding & hierarchical attribution (unchanged from v2 except storage role)
@@ -203,7 +203,7 @@ Buckets `task` / `exploration` (optionally project-scoped) / `unattributed`. The
 never absent. The agent never echoes it into commits/PRs/files. **Binding recovery/adoption
 is remote-validated**: `/bind AI4-123` on a fresh machine/worktree re-reads the issue —
 adoption succeeds only if Linear shows In Progress + our assignee + the pull comment, and
-it NEVER creates a claim (that is `/next`'s monopoly).
+it NEVER creates a claim (that is `/pm-next`'s monopoly).
 
 ## 4. The op-marker trail (replaces the local ledger)
 
@@ -220,7 +220,7 @@ Local scratch logs are convenience copies. Reconcile reads the trail, not local 
   - R1 merged-but-not-Done: enumerate PRs MERGED since the cursor via `gh` (strategy-
     independent — squash/rebase merges leave no merge commit to scan [r3]), verify each
     reported merge OID is reachable from `origin/main`, and for each with a matching pull
-    record → "run /done".
+    record → "run /pm-done".
   - R2 **end-state divergence** (narrowed claim): for every buildout issue, current status
     must be explainable by its op-marker trail (leaf Done ⇒ a merged PR matching the pull
     record [the integration's flip is legitimate exactly when this holds]; In Progress ⇒
@@ -242,19 +242,19 @@ Local scratch logs are convenience copies. Reconcile reads the trail, not local 
 ## 6. Failure & degradation
 
 Linear MCP down → §1 (wait-and-list; no offline claims). GitHub down → no merges happen
-anyway; `/done` names the missing evidence. Crash mid-`/done` → §2 write order + R3.
-Forgotten `/done` → R1. Lost local state → rebuild from Linear + GitHub (§1).
+anyway; `/pm-done` names the missing evidence. Crash mid-`/pm-done` → §2 write order + R3.
+Forgotten `/pm-done` → R1. Lost local state → rebuild from Linear + GitHub (§1).
 
 ## 7. Session lifecycle & the suggestive posture
 
 SessionStart: banner (binding + cheap reconcile + pending-intents list). UserPromptSubmit:
-the stamp. Verbs: `/next` (auto or steered), `/bind` (incl. remote-validated adoption),
-`/done`, `/blocked`, `/override` (non-Done/non-InProgress states only).
+the stamp. Verbs: `/pm-next` (auto or steered), `/bind` (incl. remote-validated adoption),
+`/pm-done`, `/blocked`, `/override` (non-Done/non-InProgress states only).
 
 **Suggestive engine (founder direction):** authority-bearing verbs are ALWAYS
 human-invoked; the skill's job is to notice ripeness and PROPOSE. On each natural progress
-signal — verify set green → "open the PR?"; PR merged → "this looks ready for `/done`";
-`/done` complete → "pull the next? (`/next`)"; exploration turning into implementation →
+signal — verify set green → "open the PR?"; PR merged → "this looks ready for `/pm-done`";
+`/pm-done` complete → "pull the next? (`/pm-next`)"; exploration turning into implementation →
 "bind it?" — the agent suggests ONCE per signal, never executes, never repeats a declined
 suggestion for the same signal. Written into the skill AND `CLAUDE.md` (P2 amendment).
 
@@ -295,7 +295,7 @@ original text — so "stale" is well-defined (behind the repo) and machine-detec
   behind → banner flag. A forgotten sync survives ≤ 1 day.
 - **By requirement state:** UNPULLED → cover-sheet update only (no dev tree exists — the
   lazy-materialization payoff; it will be born correct at pull). PULLED → cover sheet +
-  a RE-PIN comment (the pull record's manifest revision advances; `/done` verifies against
+  a RE-PIN comment (the pull record's manifest revision advances; `/pm-done` verifies against
   current truth — the pin guards against the completion PR weakening its own tests, never
   against deliberate upstream change) + dev-tree reconcile vs the new manifest (add
   missing, cancel removed, with comments). DONE → never silently edited: the drift check

@@ -6,7 +6,7 @@ description: Emergency manual correction on the PM board (revert a bad claim, fi
 # /override — audited manual correction (PM board)
 
 **Hard rule: /override can never move an item TO In Progress or TO Done.** Those states have
-exactly one authority each (/next, /done). Everything else — reverting a bad claim back to
+exactly one authority each (/pm-next, /pm-done). Everything else — reverting a bad claim back to
 Backlog, unassigning, fixing a mangled title/description against the manifest, removing a
 wrong relation — is allowed here, under two conditions:
 
@@ -16,4 +16,4 @@ wrong relation — is allowed here, under two conditions:
    BEFORE the change where feasible, immediately after otherwise.
 
 If the requested correction is "make it In Progress" or "make it Done" → refuse and point to
-/next or /done (whose gates exist precisely for that).
+/pm-next or /pm-done (whose gates exist precisely for that).

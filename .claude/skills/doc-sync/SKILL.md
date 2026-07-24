@@ -86,7 +86,7 @@ Linear ID) and git history.
 3. **Per requirement state**:
    - **Unpulled**: cover sheet + stamp only. (No dev tree exists — nothing else to do.)
    - **Pulled (In Progress)**: additionally post a **RE-PIN** comment on the PM item
-     (`[RE-PIN] manifest revision → <commit>`) — `/done` verifies against the newest pin —
+     (`[RE-PIN] manifest revision → <commit>`) — `/pm-done` verifies against the newest pin —
      and reconcile the live dev tree against the new manifest: create missing dev items,
      cancel removed ones (with a comment), never duplicate.
    - **Done**: NEVER edit. Flag to the founder: reopen (→ Todo via the audited path, fresh
@@ -105,8 +105,8 @@ manifest claims). Anything non-empty goes in the session banner until resolved.
 ## Boundaries
 
 - This skill NEVER changes requirement meaning, closes items, or moves work-item status —
-  it mirrors the repo and annotates. The work verbs live in the work skill (`/next`,
-  `/done`, `/blocked`, `/override`).
+  it mirrors the repo and annotates. The work verbs are `/pm-next`, `/pm-done`, `/dev-start`,
+  `/dev-end`, plus `/bind`, `/blocked`, `/override`.
 - Backward direction is a proposal only: findings during work get a label + comment on
   the item and enter this skill at step 1 as a classified change.
 - Buildout-scoped. (The product's one-shot scope-doc → PM-tree seeding at kickoff may
