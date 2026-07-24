@@ -15,14 +15,25 @@ description: Complete the currently bound PM-tree requirement — the ONLY autho
 3. **Clean-tree guard.** `git status --porcelain` MUST be empty. Uncommitted or untracked work
    in this worktree → STOP: "commit, stash, or discard before completing — a requirement is not
    done with work still loose in the tree." (No point attesting completion over a dirty tree.)
-4. **Evidence gate — all three, in this order:**
-   a. **Dev tree closed:** every materialized AI4GOOD-DEV item for this requirement is Done or
-      Cancelled (`list_issues` check). An open leaf is a NAMED gate failure.
-   b. **Acceptance suite green:** run the manifest's verify command at integration tier and
+4. **Evidence gate — in this order:**
+   a. **Reconcile deliverable parents (Linear MCP — this is how we overcome Linear's
+      no-auto-close-parent).** For each deliverable parent of this requirement, list its
+      sub-issues; if EVERY sub-issue is Done or Cancelled, `save_issue` the parent → Done.
+      This is a dev-board close (vendor-native tier, revert-exempt), never a PM verb. Idempotent
+      and bidirectional: if a parent is Done but a manifest re-sync added an unfinished child,
+      reopen it. After this, a still-open parent means a genuinely open leaf, not housekeeping.
+   b. **Dev tree closed:** every materialized AI4GOOD-DEV item for this requirement (parents
+      included, now reconciled) is Done or Cancelled (`list_issues` check). An open leaf is a
+      NAMED gate failure.
+   c. **Acceptance suite green:** run the manifest's verify command at integration tier and
       capture the summary. Until the AT harness (AI4DEV-3) exists this gate FAILS CLOSED —
       /done cannot pass, by design; say so plainly.
-   c. **Founder attestation:** ask the founder explicitly to attest completion of THIS
+   d. **Founder attestation:** ask the founder explicitly to attest completion of THIS
       requirement in this session; record their exact words. No attestation → STOP.
+
+   *(The same reconcile is worth running opportunistically in the coding loop — right after a
+   leaf merges, close its parent if the siblings are all done — so the dev board reads true
+   mid-build. `/done` runs it as the guaranteed final sweep regardless.)*
 5. **Completion comment** on the PM item: test-run summary, the dev-item list, the pull
    record's op UUID it closes, the attestation quote, a fresh completion op UUID.
 6. **Attachment:** link the merged work / test output (where one exists).
@@ -34,7 +45,7 @@ description: Complete the currently bound PM-tree requirement — the ONLY autho
    Propose both; do neither without the founder's word.
 
 ## Never
-- Never Done without 4a+4b+4c. Never over a dirty tree (step 3). Never reorder (Done before
-  evidence). Never close dev items from here — dev leaves close on merge (vendor-native) or
-  their own management. Never remove a worktree or pull next automatically (step 9 is a
-  suggestion).
+- Never Done (PM) without 4b+4c+4d. Never over a dirty tree (step 3). Never reorder (Done before
+  evidence). Never close a dev LEAF from here — leaves close on merge (vendor-native) or their
+  own management; step 4a closes only PARENT deliverables whose leaves are already all closed.
+  Never remove a worktree or pull next automatically (step 9 is a suggestion).
