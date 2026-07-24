@@ -44,3 +44,16 @@ Bring-up remaining: B1 project-knowledge push (free), B2 fixture pack authoring,
   what keeps Lovable from producing rule-violating screens (fewer fix rounds = less credit burn).
 - Next bring-up: B2 fixture pack, B3 `tests/design/` harness, B4 gallery. Then Batch 0 build
   (first credit spend — pause for founder go + capture the UI credit number first).
+
+## 2026-07-24 — d86 re-flow on the design side (commit e165c6a)
+
+- **d86** (NGO-facing communication anchors at the requirement level, never the dev tree) was
+  resolved by the PRD track on 2026-07-22, which explicitly left the design-side re-flow to us.
+  Done now: `ui-ux-instructions.md` re-worded (7 spots + a d86 header note) so requirement is
+  the anchor everywhere (requirement view/panel, requirement-anchored comment + clarifying
+  question, comment-thread relay onto the requirement's PM-tree item).
+- **Change order 003** delivered to the design chat: the one Batch 0 residual
+  (coordination-components "asked on the task" → "asked about"). Batch 5 anchoring is now
+  carried by the updated spec — no separate action when it's drawn.
+- Closes the last open item from gate report 001. Awaiting the founder to trigger the re-emit,
+  then re-pull + re-gate that one screen.

@@ -85,13 +85,13 @@ Re-pulled all 11 screens (byte-verified against source) and re-ran the scans:
 - **F4 (burn table):** FIXED — "Burn per requirement" + "Requirement" column.
 - **F5 (pause hygiene):** FIXED — no pause/paused wording in any screen file.
 
-**One residual, tied to the open upstream spec question (NOT blocking):**
-coordination-components.html:45 still reads "Jordan asked on the task 'Swaps need coordinator
-approval'", whereas project-page.html:58 was cleaned to "waiting on this for …". This depends
-on the unresolved ruling — is a clarifying question anchored to a dev-task or a requirement?
-(Same ruling governs the Batch 5 comment-thread screen.) Suggested neutral fix when ruled:
-"Jordan asked about 'Swaps need coordinator approval'." Tracked here; folds into the spec
-decision, not a silent drop.
+**One residual — now RULED and dispatched (2026-07-24):**
+coordination-components.html:45 read "Jordan asked on the task 'Swaps need coordinator
+approval'". The upstream question was resolved by **d86** (2026-07-22): NGO-facing
+communication anchors at the requirement level, never the dev tree. The screen-rules spec was
+re-flowed to match (commit e165c6a), and **change order 003** was delivered to the design
+project to fix this line ("asked on the task" → "asked about"). Awaiting re-emit + re-gate.
+Batch 5 anchoring is now carried by the updated spec.
 
 **Gate verdict: PASS for build.** Batch 0 screens are clear to enter the Lovable build once
 bring-up is complete and Batch 0 is founder-signed-off.
