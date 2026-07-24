@@ -10,11 +10,25 @@ managed with plain Linear calls, never these verbs (d87).
 
 ## Ritual (execute in order; stop and report on any failure)
 
-1. **Worktree guard.** `Read-Binding` first: if THIS worktree already holds an active `task`
-   binding, REFUSE — one pulled requirement per worktree. Tell the founder their options
-   plainly: finish the bound requirement (`/done`), release it deliberately (`/override` to
-   revert the claim + `/bind clear`), or work in parallel from a second worktree (see
-   "Worktree way of work" below). Never overwrite a live task binding.
+1. **Worktree guard — refuse, then hand over the parallel command.** `Read-Binding` first: if
+   THIS worktree already holds an active `task` binding, REFUSE (never overwrite a live
+   binding) — one pulled requirement per worktree. Then present the options in this order:
+   - **To work the new requirement in parallel (the recommended path): a fresh worktree.**
+     Don't just name it — give the exact, ready-to-paste command, filled with the candidate's
+     Linear branch name (fetch it with `get_issue` if the item was named). Concretely:
+     ```
+     git worktree add -b <gitBranchName> ..\ai4good-<AI4PM-NN> HEAD
+     cd ..\ai4good-<AI4PM-NN>
+     # open a NEW session in this folder, then: /next <AI4PM-NN>
+     ```
+     (Claude Code's own worktree support — `EnterWorktree`, or the Agent tool's
+     `isolation:"worktree"` — is the tool-native equivalent; offer whichever fits.) A fresh
+     folder means a fresh, independent binding: no attribution collision with the requirement
+     bound here.
+   - **To switch what THIS folder is doing instead:** finish it (`/done`) or release it
+     deliberately (`/override` to revert the claim, then `/bind clear`).
+   Recommend the worktree first — parallelism is the common reason to hit this guard, and the
+   whole point of the discipline is that a second requirement gets its own folder.
 2. **Lock.** `powershell -File loop/work/work-lib.ps1`-dot-sourced: `Acquire-WorkLock`. If not
    ok → report the holder and STOP (one verb at a time, machine-wide).
 3. **Choose.** If the founder named an item, use it. Otherwise list AI4GOOD-PM Backlog items
@@ -39,7 +53,9 @@ managed with plain Linear calls, never these verbs (d87).
    with blocked-by relations mapped to the sibling leaf issues named in the manifest.
    Cross-manifest blocked-by references are recorded in the description, not as relations.
 10. **Release the lock.** Report the session banner: item, branch name, manifest revision,
-    dev items created vs found existing.
+    dev items created vs found existing. If this pull happened in the MAIN checkout, note that
+    serial work here is fine — a dedicated worktree is only needed to run a SECOND requirement
+    at the same time (the guard will offer it then).
 
 ## Worktree way of work (the discipline this verb enforces — same model the product's volunteer Skill uses)
 
@@ -47,9 +63,15 @@ managed with plain Linear calls, never these verbs (d87).
   this worktree's binding file; two sessions in one folder share one binding and corrupt each
   other's stamps. Therefore: **one live session per worktree, one pulled requirement per
   worktree** — step 1 refuses a second pull into a bound folder.
-- **Parallel work = parallel worktrees.** `git worktree add ..\ai4good-req0NN <branch>` gives
-  a second folder with its own independent binding; open the second session THERE. Each
-  worktree pulls its own requirement and stamps it correctly, in isolation.
+- **Parallel work = parallel worktrees.** A second folder with its own independent binding;
+  open the second session THERE, and each worktree pulls its own requirement and stamps it
+  correctly, in isolation. The guard (step 1) hands over the exact command at the moment you
+  hit it. Inside a requirement's worktree, leaf branches happen as normal — the worktree
+  isolates the FOLDER (for attribution); the branches isolate the CODE (for the dev-tree
+  state transitions). Both layers, not either/or.
+- **`/done` frees the folder; the guard locks it.** `/next` refuses a second pull into a bound
+  folder; `/done` clears the binding when the requirement completes and offers to remove a
+  dedicated worktree. Together they enforce one-live-requirement-per-folder from both ends.
 - **The session banner is the tripwire:** if it warns the binding was written by a different
   session, stop and decide — adopt (`/bind AI4PM-NN`) or clear — before doing work.
 - **Attribution degrades, never blocks:** a wrong or missing binding mis-buckets data
