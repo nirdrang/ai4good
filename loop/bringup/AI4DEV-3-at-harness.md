@@ -96,7 +96,8 @@ cheap now and expensive later: every suite translated before they are settled ha
    regenerates markup on every message; a wired test pinned to whatever markup existed that day
    breaks on the next Lovable turn. Nothing in `design/ui-ux-instructions.md` mandates test
    handles today. Agree the convention and push it into Lovable's project knowledge (the channel
-   already carrying the governance rules) so it re-applies to every generation.
+   already carrying the governance rules) so it re-applies to every generation. DRAFTED:
+   `loop/bringup/testid-convention-draft.md` — awaiting founder ratification.
 3. **Where the ui tag lives.** 21 manifests scope `--wired` to "the ui-tagged subset"; no
    acceptance file carries such a tag — the subset is named in 21 places and defined in zero.
    Decide: marked per test in `acceptance/at-req-0NN.md`, or declared per leaf in the manifest.
