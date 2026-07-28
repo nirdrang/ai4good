@@ -57,3 +57,24 @@ Bring-up remaining: B1 project-knowledge push (free), B2 fixture pack authoring,
   carried by the updated spec — no separate action when it's drawn.
 - Closes the last open item from gate report 001. Awaiting the founder to trigger the re-emit,
   then re-pull + re-gate that one screen.
+
+## 2026-07-24 — stable test handles ratified (change order 005)
+
+- The founder ratified the test-handle convention (`loop/bringup/testid-convention-draft.md`):
+  `data-testid` in kebab-case requirement vocabulary on every interactive control,
+  state-bearing display, list, list item, and empty/error state, with `data-testkey="<domain
+  id>"` on repeated items. Reason: acceptance tests will later drive the real screens, and
+  Lovable regenerates markup on every message — so tests need a contract that survives
+  regeneration.
+- **Folded** into `design/ui-ux-instructions.md` as new **§5.1** (inside §5 Tech mapping, where
+  buildability contracts live). **Gate scan added** to `design/ui-way-of-work.md` §3 step 2:
+  presence, grammar, and rename-diff — scoped to screens drawn on or after ratification.
+- **Lovable project knowledge updated** with the standing preservation rule, alongside the
+  existing governance rules, so it re-applies to every generation.
+- **Forward-only:** the existing eleven screens are NOT retrofitted; handles arrive per
+  requirement at its wiring leaf. First application is Batch 1.
+- Two conflicts surfaced and resolved explicitly rather than silently (both reported to the
+  founder): the draft's illustrative `task-list`/`task-item` names contradict d82/d86 on
+  NGO/public surfaces, so the fold uses `requirement-*` there and reserves `task-*` for the
+  volunteer's dev-tree surfaces; and component catalog sheets cannot satisfy once-per-screen
+  uniqueness, so they are exempt from that rule alone.

@@ -88,6 +88,51 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
 - Streaming AI chat (Discovery first token < 1.5s target) — design typing/streaming states.
   Marketplace pages target p95 < 500ms — design skeleton loading, not spinners-forever.
 
+### 5.1 Test handles (ratified convention, 2026-07-24)
+
+Source: `loop/bringup/testid-convention-draft.md`. Acceptance tests later drive the real
+screens, and Lovable regenerates markup on every message — so tests bind to a stable attribute
+contract rather than to classes, structure, or button text.
+
+> **Test handles:** Every interactive control, state-bearing display, list, list item, and
+> empty/error state gets **`data-testid`** in kebab-case requirement vocabulary
+> (`fuel-balance`, `requirement-item`), with **`data-testkey="<domain id>"`** on repeated items.
+> Preserve existing handles verbatim on every regeneration; never rename on restyle; add handles
+> to new elements per the grammar. Layout/visual names (`left-panel`, `card-2`) are forbidden.
+
+- **Grammar:** `<surface>-<thing>[-<qualifier>]`, kebab-case, drawn from **requirement**
+  vocabulary — never visual or layout vocabulary. Good: `fuel-balance`, `requirement-list`,
+  `blocker-raise-button`, `notif-item`. Forbidden: `left-panel`, `card-3`, `blue-button`.
+- **Vocabulary follows d82/d86 like all other screen language.** On NGO and public surfaces the
+  unit is the **requirement** — `requirement-list` / `requirement-item`, never `task-*`. The
+  `task-*` family is legitimate **only** on the volunteer's own dev-tree surfaces, where dev
+  tasks genuinely exist. A handle is a long-lived contract (renaming is a breaking change), so
+  the two-tree vocabulary rule applies to handles at least as strictly as to visible copy.
+- **What carries a handle** — exactly what a test observes, not every element:
+  1. every interactive control an acceptance test exercises (buttons, inputs, state-changing
+     links);
+  2. every state-bearing display a test asserts on (fuel gauge, status chip, runway figure,
+     counters);
+  3. every list plus its repeated item (`requirement-list` / `requirement-item`);
+  4. every distinct empty / error / alert state (`fuel-depleted-banner`, `requirements-empty`).
+- **Repeated items** share one `data-testid` and carry `data-testkey="<domain id>"` for row
+  identity (e.g. `data-testid="requirement-item" data-testkey="AI4PM-20"`). The key is a
+  **domain id, never an array index**.
+- **Uniqueness:** a singleton handle appears at most once **per real screen (route)**. Two
+  screens may reuse a name only for the same requirement-level thing (fuel balance on the
+  project page and on the dashboard are both `fuel-balance`).
+- **Component reference sheets are exempt from uniqueness.** `tokens-and-badges`,
+  `money-components`, `coordination-components`, and `app-shell` are catalogs: they render one
+  component many times (nine lifecycle badges, five shell variants, several gauge states), so
+  the same handle necessarily repeats. On a catalog sheet a handle documents the contract the
+  component carries in real use; the once-per-screen rule binds routes, not catalogs.
+- **Renaming is a breaking change** to the test contract. Never rename on restyle — only when
+  the requirement's meaning changes, and then deliberately.
+- **`data-screen-label` is unrelated** to this convention and is untouched by it.
+- **Applies from ratification forward.** Screens drawn before 2026-07-24 carry no handles by
+  design; they are retrofitted **per requirement at its wiring leaf**, when a wired test first
+  needs them — never as one sweeping pass.
+
 ## 6. Global app shell (consistent everywhere)
 
 - **Top bar:** ai4good wordmark (home) · context breadcrumb · notifications bell (REQ-016) ·

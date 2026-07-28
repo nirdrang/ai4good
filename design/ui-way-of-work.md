@@ -77,9 +77,27 @@ source → design-gate → compose → build → boundary-gate → verify(rules 
 2. **Design gate (before any credits are spent).** Validate the design itself against its
    requirement: run the screen's rules from `ui-ux-instructions.md` against the design HTML —
    required elements present, every listed state covered, the never-show scan, money-unit
-   discipline, the right-viewer projection — and confirm the screen actually serves its PRD
-   requirement. A misaligned design is NEVER forwarded to implementation: the findings become
-   a change order back to Claude Design (§4), and Lovable is not involved at all.
+   discipline, the right-viewer projection, **the test-handle scan (below)** — and confirm the
+   screen actually serves its PRD requirement. A misaligned design is NEVER forwarded to
+   implementation: the findings become a change order back to Claude Design (§4), and Lovable
+   is not involved at all.
+
+   **Test-handle scan** (`ui-ux-instructions.md` §5.1, ratified 2026-07-24). Three checks,
+   applied **only to screens drawn on or after ratification** — pre-existing screens are
+   retrofitted per requirement at their wiring leaf, and their absence of handles is not a
+   gate failure:
+   - **Presence:** a screen rendering an interactive control or a state-bearing display with
+     no `data-testid` FAILS the gate.
+   - **Grammar:** handles must be kebab-case requirement vocabulary; layout/visual names
+     (`left-panel`, `card-2`) FAIL, as does `task-*` on an NGO or public surface (d82/d86 —
+     `task-*` is legitimate only on the volunteer's own dev-tree surfaces).
+   - **Rename diff:** handles are diffed against the previous batch. A handle that vanished or
+     changed name FAILS as a silent rename — renaming is a breaking change to the test
+     contract and must be deliberate and stated, never a side effect of a restyle.
+
+   Component reference sheets (catalogs such as `app-shell`, `tokens-and-badges`) are exempt
+   from the once-per-screen uniqueness rule only — presence, grammar, and rename-diff still
+   apply.
 3. **Compose.** One Lovable message per screen/batch (never conversational drip — coherence +
    credit economy): the design HTML + the states to build + the rules to obey + the boundary
    reminder. Batch 0 (design system + shell) goes through `plan_mode=true` first.
