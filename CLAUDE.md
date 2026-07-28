@@ -79,6 +79,16 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Working bound to a finished item (stale binding) — rebind at every pull; trust the session banner.
 - Batching syncs after multiple doc changes — every change bundle ends with its own `/doc-sync`.
 - Editing `prd-mvp.md`, an isolate, or Linear item text directly to change meaning.
+- **Doing dev-board work with no branch and no pull request, then hand-correcting the board afterwards** — see foundation work below.
+
+**Foundation work (W0 bring-up: the harness, staging, CI, the work skill, at-config) — added 2026-07-28 after it went wrong:**
+
+These are dev-board items and they are NOT product requirements: no `/pm-next`, no `/pm-done`, no evidence gate. They still close the way every dev item closes — **on a merged pull request**. Therefore:
+
+- **Branch, then pull request, then merge. Never commit foundation work straight to `main`.** Committing direct to `main` means the item never closes itself and someone has to hand-correct the board later; if it is genuinely unavoidable, say so out loud and move the item by hand in the same breath.
+- **Break a long-running foundation item into sub-items before starting**, each closing on its own evidence. A single item that stays open across many slices reports almost nothing about where the work actually is.
+- **`/dev-start` does not cover these yet** — it assumes a leaf underneath a currently-bound PM requirement, and foundation work sits under no requirement at all. Until that is fixed, open one by hand: branch, move to In Progress, comment what the slice is.
+- **Attribution has no honest bucket for it either.** Foundation work currently binds as `exploration`, which is a misnomer — it is planned, approved work. Live with the misnomer; never fake a requirement binding to make infrastructure look tracked. Both gaps (`/dev-start` and the bucket) are known holes, not licence to skip the discipline.
 
 ---
 ## Communication: simple English, never shorthand (founder instruction, 2026-07-20)
