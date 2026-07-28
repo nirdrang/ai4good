@@ -109,6 +109,45 @@ cheap now and expensive later: every suite translated before they are settled ha
    markdown files are NOT edited; `--wired` selects registered ui-marked ids and fails the run if
    a wiring leaf's selection is empty.
 
+## Suite-authoring rules (founder-ratified 2026-07-29, after the REQ-016 audit)
+
+Origin: the founder suspected the translated REQ-016 suite was overbuilt; an audit plus one
+codex round (gpt-5.6-sol, xhigh) confirmed the WASTE IS IN THE TRANSLATION PATTERN, NOT THE
+PLAN — the ~658 P0 ids stay; the acceptance docs are NOT reopened. These rules bind every suite
+translated from here on. The REQ-016 suite predates them and is retrofitted when H2 lands.
+Verdict trail: two of the auditor's own cuts were REFUTED and are recorded here as
+must-keeps, so nobody re-proposes them.
+
+1. **Capture once, assert many.** For each event execution, capture raw events, deliveries and
+   linked outcomes under the returned eventId, then FREEZE that snapshot (immutable — one lens
+   that normalizes or de-duplicates in place hides evidence from the next). Every P0 id whose
+   assertions only PROJECT that evidence (recipients, channels, payload, body, ops outcomes)
+   consumes the snapshot without re-firing. In REQ-016 this makes ~11 integration-tier firings
+   free: AT-016.04/.05/.12 become lenses over AT-016.03's capture.
+2. **Generic self-checks live in the harness, once — with their own conformance tests.** Sentinel
+   value quality (length/uniqueness), rejection of unknown fault points, failure on clearing a
+   never-fired fault, restart epoch change, controlled-clock product wiring: implemented and
+   independently tested in the harness, never re-asserted per suite. HARD CAVEAT (codex): a bug
+   in a centralized guard green-lights all 30 suites at once — e.g. a fault handle that counts
+   "armed" as "triggered" makes every atomicity test pass on nothing. The conformance tests are
+   therefore not optional polish; they are the load-bearing wall. Domain-SPECIFIC controls stay
+   in the suites: no-fault control runs, mid-flight-not-yet-delivered checks, meaningful-config
+   guards, role-actually-moved checks — those are scenario evidence, not boilerplate.
+3. **Fresh world only when state demands it.** A new open() only when the scenario changes
+   fault/provider/clock/process/role state, or when zero work could satisfy the assertion (then
+   include a positive control). Register each P0 id exactly once; loop its full oracle matrix
+   INSIDE the test — never sample, never mint per-row tests.
+4. **Must-keeps (cuts proposed and REFUTED — do not re-propose):** (a) the sole-writer proof
+   keeps its domain firings — the provider-side orphan check is vacuous when nothing fires, and
+   a static import scan cannot see a sender using a raw client; the firings ARE the evidence.
+   (b) Oracle logic (channel rules, payload predicates, pair counting) and harness primitives
+   get focused unit tests of their own — they are code nothing else checks, and per rule 2 a
+   silent oracle bug would invalidate every suite. The tiers do not substitute for this.
+5. **Shared contract, thin adapters.** Tier/clock/sentinel/fault/config/vendor contracts come
+   from ONE shared harness package (with the conformance tests above); a suite defines locally
+   only its requirement-specific SUT and fixture adapter. `_contract.ts` in REQ-016 was the
+   pre-harness stopgap, not the pattern.
+
 ## Dependencies
 
 - Integration tier needs a real test database → the **staging Supabase item (AI4DEV-6)** is a

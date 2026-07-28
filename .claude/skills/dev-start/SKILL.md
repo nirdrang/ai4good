@@ -31,6 +31,10 @@ hand.
    Implement those ids test-first. Tests are written against the harness driver interface only,
    never against fixture internals, so the wiring leaf can later re-run them against real screens.
    A test whose assertions observe the UI carries the surface marker at registration.
+   Translation follows the **suite-authoring rules** in `loop/bringup/AI4DEV-3-at-harness.md`
+   (capture-once/assert-many over frozen evidence; generic self-checks belong to the harness,
+   domain controls stay in the suite; fresh world only when state demands it; one registration
+   per P0 id with the full matrix looped inside).
 5. **Mark In Progress.** `save_issue` the leaf → assignee me, state In Progress (dev board,
    revert-exempt; truthful because work starts now). NO PM change. NO attestation. NO stamp
    change — messages keep stamping the requirement.
