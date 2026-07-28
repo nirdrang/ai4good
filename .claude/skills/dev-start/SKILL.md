@@ -28,7 +28,9 @@ hand.
 4. **Implement brief.** Print the goal: the leaf's summary; its verify set (the AT ids); the
    actual Given/When/Then text for those ids from `at-req-0NN.md`; the loop-tier verify command
    (`bun run at:verify req-0NN --tier loop`); and any cross-manifest fixtures the manifest flags.
-   Implement those ids test-first.
+   Implement those ids test-first. Tests are written against the harness driver interface only,
+   never against fixture internals, so the wiring leaf can later re-run them against real screens.
+   A test whose assertions observe the UI carries the surface marker at registration.
 5. **Mark In Progress.** `save_issue` the leaf → assignee me, state In Progress (dev board,
    revert-exempt; truthful because work starts now). NO PM change. NO attestation. NO stamp
    change — messages keep stamping the requirement.

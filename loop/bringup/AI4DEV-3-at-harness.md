@@ -91,7 +91,10 @@ cheap now and expensive later: every suite translated before they are settled ha
    fixture world or a rendered screen. Write the rule down where test authors will meet it
    (`/dev-start`'s brief), because the just-in-time authoring moment for a UI-relevant test is
    its OWNING leaf — early — while the wired re-run happens at the wiring leaf, late. An author
-   who does not anticipate the second run produces a test that cannot have one.
+   who does not anticipate the second run produces a test that cannot have one. RESOLVED
+   (founder, 2026-07-28): tests interact with the system ONLY through a driver interface
+   supplied by the harness; the harness provides a fixture driver now and a screen driver
+   later; a test that imports or touches fixture internals directly is invalid.
 2. **A stable-identifier convention for screen elements.** Lovable owns the interface and
    regenerates markup on every message; a wired test pinned to whatever markup existed that day
    breaks on the next Lovable turn. Nothing in `design/ui-ux-instructions.md` mandates test
@@ -101,7 +104,10 @@ cheap now and expensive later: every suite translated before they are settled ha
 3. **Where the ui tag lives.** 21 manifests scope `--wired` to "the ui-tagged subset"; no
    acceptance file carries such a tag — the subset is named in 21 places and defined in zero.
    Decide: marked per test in `acceptance/at-req-0NN.md`, or declared per leaf in the manifest.
-   Until this lands, `--wired` has no defined input.
+   Until this lands, `--wired` has no defined input. RESOLVED (founder, 2026-07-28): the ui tag
+   lives in the executable test registration — `atTest` accepts a surface marker; the acceptance
+   markdown files are NOT edited; `--wired` selects registered ui-marked ids and fails the run if
+   a wiring leaf's selection is empty.
 
 ## Dependencies
 
