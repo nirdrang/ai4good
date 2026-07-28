@@ -29,7 +29,8 @@ try {
 
     if (-not $b) {
         [void]$lines.Add('  attribution : NOT BOUND - every message here counts as unattributed')
-        [void]$lines.Add('  to fix      : /pm-next to pull a requirement, or /bind exploration')
+        [void]$lines.Add('  to fix      : /pm-next (requirement), /bind bringup AI4DEV-NN')
+        [void]$lines.Add('                (foundation work), or /bind exploration (untracked)')
         $context = 'ai4good work: no binding in this worktree; messages stamp unattributed.'
     } else {
         [void]$lines.Add('  attribution : ' + $b.project + ' (' + $b.pmId + ') - ' + $b.bucket + ', wave ' + $b.wave)

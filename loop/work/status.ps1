@@ -19,8 +19,9 @@ Write-Output ('  git     : ' + $branch + ' @ ' + $head)
 if (-not $b) {
     Write-Output '  binding : NONE - this worktree is not bound to a requirement.'
     Write-Output '            Every message here is counted as unattributed.'
-    Write-Output '            Use /pm-next to pull a requirement, or /bind exploration if the'
-    Write-Output '            work is genuinely untracked.'
+    Write-Output '            Use /pm-next to pull a requirement, /bind bringup AI4DEV-NN for'
+    Write-Output '            approved foundation work, or /bind exploration if the work is'
+    Write-Output '            genuinely untracked.'
 } else {
     Write-Output ('  binding : ' + $b.project + ' (' + $b.pmId + ') - bucket ' + $b.bucket + ', wave ' + $b.wave)
     if ($b.manifestRevision) {

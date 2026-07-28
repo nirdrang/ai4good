@@ -9,9 +9,22 @@ description: Set, adopt, or clear this worktree's attribution binding (/bind AI4
   founder with a pull-record comment (verify via `get_issue`); then `Write-Binding` with its
   identifiers and bucket `task`. Refuse if the item is not genuinely pulled — /bind never
   substitutes for /pm-next.
+- `/bind bringup AI4DEV-NN` — **foundation work** (W0 bring-up: the harness, staging, CI, the
+  work skill, at-config). Verify via `get_issue` that the id is a DEV-board item in the W0
+  Bring-up project; then `Write-Binding @{ wave='W0'; project='AI4DEV-NN'; pmId='AI4DEV-NN';
+  bucket='bringup'; sessionId=... }`. Bind to the SUB-item being worked where one exists
+  (e.g. the fixture-worlds item), not the parent — the parent stays open across many slices and
+  tells the burn report almost nothing. Foundation work is planned and approved; it is NOT
+  exploration and must never be stamped as such.
 - `/bind exploration` — honest untracked work: `Write-Binding @{ wave='none'; project='none';
-  bucket='exploration'; sessionId=... }`.
+  bucket='exploration'; sessionId=... }`. Poking around, spikes, answering questions — NOT
+  approved foundation work, which is `bringup`.
 - `/bind clear` — `Clear-Binding`; stamps fall back to unattributed.
+
+The four honest buckets: `task` (a pulled PM requirement, set by `/pm-next` only), `bringup`
+(an approved W0 foundation item), `exploration` (genuinely untracked), `unattributed` (no
+binding). Never reach for a looser bucket than the work deserves, and never fake a requirement
+binding to make foundation work look like product progress.
 
 Notes: one live session per worktree, one pulled requirement per worktree (the /pm-next skill's
 "Worktree way of work" section is the full discipline — parallel work happens in parallel git
