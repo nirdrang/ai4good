@@ -10,7 +10,8 @@
  *
  * Above the `loop` tier the suite needs a real database, and that database is the LOCAL
  * Supabase stack (AI4DEV-6) — not a shared hosted project, because every run wipes and
- * rebuilds it. The runner checks the stack is actually up before running, and refuses loudly
+ * rebuilds it. The runner checks the stack is actually up, rebuilds the database from the
+ * migrations, and only then runs the suite; it refuses loudly
  * when it is not: it never falls back to the loop tier's stubs, because a gate that grades a
  * stand-in is worse than a gate that will not run. `--wired` refuses for the same reason —
  * the screen driver does not exist yet.
@@ -113,6 +114,27 @@ function localStackEnv(): Record<string, string> {
   };
 }
 
+/**
+ * Rebuild the local database from empty before the suite runs — the same work `bun run db:reset`
+ * does, invoked straight at the CLI so a failure is catchable here.
+ *
+ * WHY EVERY RUN: without it the second run works on the first run's leftover rows, and on a
+ * schema that is missing whatever migration landed since — a suite grading a database nobody
+ * established. `supabase/migrations/README.md` promises the test database is built by replaying
+ * the migrations; this is where that promise is kept.
+ */
+function resetLocalDatabase(): void {
+  const reset = spawnSync('bunx', ['supabase', 'db', 'reset'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    // progress is worth watching (a reset replays every migration); stderr is captured so a
+    // failure can be reported in our own words rather than scrolling past.
+    stdio: ['ignore', 'inherit', 'pipe'],
+  });
+  if (reset.status !== 0) throw new Error(`\`supabase db reset\` exited ${reset.status}: ${(reset.stderr || '').trim()}`);
+}
+
 /* --------------------------------------------------------------------------- vitest json shape */
 
 interface AssertionResult {
@@ -152,8 +174,9 @@ async function main(argv: string[]): Promise<number> {
     return 3;
   }
 
-  // Above `loop`, the suite runs against the local Supabase stack. Confirm it is actually up
-  // and collect its coordinates before running a single test.
+  // Above `loop`, the suite runs against the local Supabase stack: confirm it is up, rebuild its
+  // database from the migrations, and collect its coordinates — all before a single test runs.
+  // The `loop` tier touches no database and resets nothing.
   const stackEnv: Record<string, string> = {};
   if (tier !== 'loop') {
     let url: string;
@@ -175,6 +198,21 @@ async function main(argv: string[]): Promise<number> {
           `a set of Docker containers and cannot start without it.\n` +
           `  2. Docker is fine but the stack was never started — run \`bun run db:start\` (and ` +
           `\`bun run db:reset\` to rebuild the database from supabase/migrations).`,
+      );
+      return 3;
+    }
+
+    // The database's state must be ESTABLISHED, not inherited: rebuild it from the migrations
+    // before a single test runs. A gate grading an unknown database is as bad as one grading a stub.
+    try {
+      resetLocalDatabase();
+    } catch (err) {
+      console.error(
+        `at:verify req-${requirement} --tier ${tier} — the local database could not be reset: ` +
+          `${(err as Error).message}\n` +
+          `No tests were run. The ${tier} tier rebuilds the database from supabase/migrations on ` +
+          `every run, so that a suite never grades leftover rows or a schema missing a migration; ` +
+          `if that rebuild fails, the state under test is unknown and the run stops here.`,
       );
       return 3;
     }
