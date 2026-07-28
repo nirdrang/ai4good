@@ -27,7 +27,7 @@ hand.
    eventual PR to this leaf; the dev-tree state rides it.
 4. **Implement brief.** Print the goal: the leaf's summary; its verify set (the AT ids); the
    actual Given/When/Then text for those ids from `at-req-0NN.md`; the loop-tier verify command
-   (`pnpm at:verify req-0NN --tier loop`); and any cross-manifest fixtures the manifest flags.
+   (`bun run at:verify req-0NN --tier loop`); and any cross-manifest fixtures the manifest flags.
    Implement those ids test-first.
 5. **Mark In Progress.** `save_issue` the leaf → assignee me, state In Progress (dev board,
    revert-exempt; truthful because work starts now). NO PM change. NO attestation. NO stamp
