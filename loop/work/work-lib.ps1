@@ -5,7 +5,10 @@
 $ErrorActionPreference = 'Stop'
 
 function Get-RepoRoot {
-    $r = (& git rev-parse --show-toplevel 2>$null)
+    # Hooks run with an unpredictable working directory, so never rely on cwd alone:
+    # prefer CLAUDE_PROJECT_DIR (the session's project/worktree dir) when it is set.
+    $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { '.' }
+    $r = (& git -C $base rev-parse --show-toplevel 2>$null)
     if (-not $r) { throw 'not inside a git worktree' }
     return $r.Trim()
 }
