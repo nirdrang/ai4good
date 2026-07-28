@@ -8,9 +8,12 @@
  * `AT_TIER`, and reports PER AT ID — green / red / missing — because "3 failed" tells a gate
  * nothing about which acceptance criterion is unmet.
  *
- * SLICE 1 boundary: only `--tier loop` runs. `integration` and `drill` need a real test
- * database (the staging Supabase item, AI4DEV-6) and `--wired` needs the screen driver;
- * both refuse loudly rather than degrade into a weaker run that looks like the real one.
+ * Above the `loop` tier the suite needs a real database, and that database is the LOCAL
+ * Supabase stack (AI4DEV-6) — not a shared hosted project, because every run wipes and
+ * rebuilds it. The runner checks the stack is actually up before running, and refuses loudly
+ * when it is not: it never falls back to the loop tier's stubs, because a gate that grades a
+ * stand-in is worse than a gate that will not run. `--wired` refuses for the same reason —
+ * the screen driver does not exist yet.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -53,6 +56,63 @@ function parseArgs(argv: string[]): Args {
   return { requirement: normalizeRequirement(requirement), tier: tier as Tier, wired };
 }
 
+/* ------------------------------------------------------------------------ the local db stack */
+
+/** The API port the local stack listens on, read from `supabase/config.toml` — never guessed. */
+function localApiPort(): number {
+  const file = join(REPO_ROOT, 'supabase', 'config.toml');
+  const text = readFileSync(file, 'utf8');
+  let section = '';
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    const header = /^\[([^\]]+)\]/.exec(line);
+    if (header) section = header[1];
+    else if (section === 'api') {
+      const port = /^port\s*=\s*(\d+)/.exec(line);
+      if (port) return Number(port[1]);
+    }
+  }
+  throw new Error(`no [api] port in ${file}`);
+}
+
+/** Reachable = something answers HTTP on the API port. A 401 counts: the stack is up. */
+async function stackIsUp(url: string): Promise<boolean> {
+  try {
+    await fetch(`${url}/rest/v1/`, { signal: AbortSignal.timeout(3000) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The local stack's URL and development keys, straight from the CLI. Those keys are fixed and
+ * public — but they are still read from the running stack rather than pasted in here, so that
+ * a changed local setup cannot leave the runner authenticating against a stale constant. The
+ * tracked `.env` is never consulted: it points at the hosted project, which the tests must
+ * never touch.
+ */
+function localStackEnv(): Record<string, string> {
+  const status = spawnSync('bunx', ['supabase', 'status', '-o', 'json'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+  });
+  if (status.status !== 0) throw new Error(`\`supabase status\` failed: ${(status.stderr || status.stdout || '').trim()}`);
+
+  const parsed = JSON.parse(status.stdout) as Record<string, unknown>;
+  const pick = (key: string): string => {
+    const value = parsed[key];
+    if (typeof value !== 'string' || value === '') throw new Error(`\`supabase status\` reported no ${key}`);
+    return value;
+  };
+  return {
+    AT_SUPABASE_URL: pick('API_URL'),
+    AT_SUPABASE_ANON_KEY: pick('ANON_KEY'),
+    AT_SUPABASE_SERVICE_ROLE_KEY: pick('SERVICE_ROLE_KEY'),
+  };
+}
+
 /* --------------------------------------------------------------------------- vitest json shape */
 
 interface AssertionResult {
@@ -71,7 +131,7 @@ function firstLine(text: string | undefined, fallback: string): string {
   return line ?? fallback;
 }
 
-function main(argv: string[]): number {
+async function main(argv: string[]): Promise<number> {
   let args: Args;
   try {
     args = parseArgs(argv);
@@ -92,13 +152,43 @@ function main(argv: string[]): number {
     return 3;
   }
 
+  // Above `loop`, the suite runs against the local Supabase stack. Confirm it is actually up
+  // and collect its coordinates before running a single test.
+  const stackEnv: Record<string, string> = {};
   if (tier !== 'loop') {
-    console.error(
-      `at:verify req-${requirement} --tier ${tier} — the ${tier} tier needs a real test database. ` +
-        `The staging Supabase item (AI4DEV-6) has not landed, so only --tier loop runs today; ` +
-        `running ${tier} against stubs would let the gate grade a stand-in.`,
-    );
-    return 3;
+    let url: string;
+    try {
+      url = `http://127.0.0.1:${localApiPort()}`;
+    } catch (err) {
+      console.error(`at:verify req-${requirement} --tier ${tier} — ${(err as Error).message}`);
+      return 2;
+    }
+
+    if (!(await stackIsUp(url))) {
+      console.error(
+        `at:verify req-${requirement} --tier ${tier} — the local Supabase stack is not answering at ` +
+          `${url} (the [api] port in supabase/config.toml). The ${tier} tier needs a real database, ` +
+          `and this run will NOT fall back to the loop tier's stubs — a gate that grades a stand-in ` +
+          `is worse than a gate that refuses to run.\n` +
+          `Two things cause this:\n` +
+          `  1. Docker Desktop is not installed, or is installed but not running — the local stack is ` +
+          `a set of Docker containers and cannot start without it.\n` +
+          `  2. Docker is fine but the stack was never started — run \`bun run db:start\` (and ` +
+          `\`bun run db:reset\` to rebuild the database from supabase/migrations).`,
+      );
+      return 3;
+    }
+
+    try {
+      Object.assign(stackEnv, localStackEnv());
+    } catch (err) {
+      console.error(
+        `at:verify req-${requirement} --tier ${tier} — the stack answered at ${url} but its ` +
+          `coordinates could not be read: ${(err as Error).message}. The development keys are read ` +
+          `from the running stack, never hard-coded and never taken from .env, so the run stops here.`,
+      );
+      return 3;
+    }
   }
 
   const dir = suiteDir(requirement);
@@ -132,7 +222,7 @@ function main(argv: string[]): number {
       `--outputFile=${outputFile}`,
       `suites/req-${requirement}/`,
     ],
-    { env: { ...process.env, AT_TIER: tier }, stdio: ['ignore', 'inherit', 'inherit'] },
+    { env: { ...process.env, ...stackEnv, AT_TIER: tier }, stdio: ['ignore', 'inherit', 'inherit'] },
   );
 
   if (!existsSync(outputFile)) {
@@ -183,4 +273,4 @@ function main(argv: string[]): number {
   return green === rows.length && unexpected.length === 0 ? 0 : 1;
 }
 
-if (import.meta.main) process.exit(main(process.argv.slice(2)));
+if (import.meta.main) process.exit(await main(process.argv.slice(2)));

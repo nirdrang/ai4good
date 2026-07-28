@@ -31,6 +31,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Local environment overrides — secrets live here, never in the tracked .env
+.env.local
+.env.*.local
+
 # ai4good local tooling (not app code)
 .claude/
 .codex_rate.html
