@@ -26,6 +26,20 @@ The four honest buckets: `task` (a pulled PM requirement, set by `/pm-next` only
 binding). Never reach for a looser bucket than the work deserves, and never fake a requirement
 binding to make foundation work look like product progress.
 
+**Always end with the session rename line** (founder instruction, 2026-07-29). Binding sets what
+the work is COUNTED against; the session name is how the founder tells one open window from
+another. Scheme (same table as `/pm-next`'s "Naming a session"):
+
+| this verb | rename line |
+|---|---|
+| `/bind AI4PM-NN` | `/rename REQ-0NN · <short requirement title>` |
+| `/bind bringup AI4DEV-NN` | `/rename AI4DEV-NN · <short item title>` |
+| `/bind exploration` | `/rename exploration · <topic in 2-4 words>` |
+| `/bind clear` | none — nothing to name it after |
+
+**The agent cannot run `/rename`** — it is a built-in the founder types, exposed by no tool and
+stored in no file. Print the line, never claim the rename happened.
+
 Notes: one live session per worktree, one pulled requirement per worktree (the /pm-next skill's
 "Worktree way of work" section is the full discipline — parallel work happens in parallel git
 worktrees, each with its own binding). If the session banner warned that another session wrote

@@ -31,10 +31,17 @@ hand.
    Implement those ids test-first. Tests are written against the harness driver interface only,
    never against fixture internals, so the wiring leaf can later re-run them against real screens.
    A test whose assertions observe the UI carries the surface marker at registration.
+   Translation follows the **suite-authoring rules** in `loop/bringup/AI4DEV-3-at-harness.md`
+   (capture-once/assert-many over frozen evidence; generic self-checks belong to the harness,
+   domain controls stay in the suite; fresh world only when state demands it; one registration
+   per P0 id with the full matrix looped inside).
 5. **Mark In Progress.** `save_issue` the leaf → assignee me, state In Progress (dev board,
    revert-exempt; truthful because work starts now). NO PM change. NO attestation. NO stamp
    change — messages keep stamping the requirement.
 6. **Report.** "Implementing <leaf> on <branch>; test-first: <verify set>; blockers clear."
+   End with the ready-to-paste session rename (the scheme lives in `/pm-next`'s "Naming a
+   session"): `/rename REQ-0NN <leaf> · <short leaf title>`. The agent CANNOT execute `/rename`
+   — it is a user-typed built-in with no tool and no backing file — so print it, never claim it.
 
 ## Never
 - Never without a bound requirement (step 1). Never write a binding — leaves ride the

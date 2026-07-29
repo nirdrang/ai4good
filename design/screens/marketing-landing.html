@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI4GOOD — Marketing landing</title>
+<style>
+body{margin:0;background:#f0eee9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2328}
+a{color:#0d7a63;text-decoration:none}a:hover{color:#0a5f4d}
+input,textarea,select{font-family:inherit;font-size:14px;color:#1f2328;background:#fff;border:1px solid #d5d1c7;border-radius:6px;padding:9px 11px;box-sizing:border-box;width:100%}
+input:focus,textarea,select:focus{outline:2px solid #0d7a63;outline-offset:-1px}
+textarea{resize:vertical}
+@keyframes hv0{0%,30%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}33.3%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
+@keyframes hv1{0%,33.3%{border-color:#e3e0d8;box-shadow:none;transform:none}33.6%,63.6%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}66.6%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
+@keyframes hv2{0%,66.6%{border-color:#e3e0d8;box-shadow:none;transform:none}66.9%,97%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
+@keyframes flowfill{0%{width:0}85%{width:83.2%}100%{width:83.2%}}
+@keyframes non1{0%,17%{background:#fff;border-color:#e3e0d8;color:#59554e}17.3%,100%{background:#0d7a63;border-color:#0d7a63;color:#fff}}
+@keyframes non2{0%,34%{background:#fff;border-color:#e3e0d8;color:#59554e}34.3%,100%{background:#0d7a63;border-color:#0d7a63;color:#fff}}
+@keyframes non3{0%,51%{background:#fff;border-color:#e3e0d8;color:#59554e}51.3%,100%{background:#0d7a63;border-color:#0d7a63;color:#fff}}
+@keyframes non4{0%,68%{background:#fff;border-color:#e3e0d8;color:#59554e}68.3%,100%{background:#0d7a63;border-color:#0d7a63;color:#fff}}
+@keyframes non5{0%,85%{background:#fff;border-color:#e3e0d8;color:#59554e}85.3%,100%{background:#0d7a63;border-color:#0d7a63;color:#fff}}
+@keyframes con0{0.3%,16.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}17%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
+@keyframes con1{0%,17%{border-color:#e3e0d8;box-shadow:none;transform:none}17.3%,33.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}34%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
+@keyframes con2{0%,34%{border-color:#e3e0d8;box-shadow:none;transform:none}34.3%,50.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}51%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
+@keyframes con3{0%,51%{border-color:#e3e0d8;box-shadow:none;transform:none}51.3%,67.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}68%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
+@keyframes con4{0%,68%{border-color:#e3e0d8;box-shadow:none;transform:none}68.3%,84.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}85%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
+@keyframes con5{0%,85%{border-color:#e3e0d8;box-shadow:none;transform:none}85.3%,99.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}}
+@keyframes cyr{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes cy0{3%,17%{border-color:#0d7a63;box-shadow:0 4px 14px rgba(13,122,99,.22);transform:scale(1.1)}20%,100%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}}
+@keyframes cy1{0%,20%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}23%,37%{border-color:#0d7a63;box-shadow:0 4px 14px rgba(13,122,99,.22);transform:scale(1.1)}40%,100%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}}
+@keyframes cy2{0%,40%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}43%,57%{border-color:#0d7a63;box-shadow:0 4px 14px rgba(13,122,99,.22);transform:scale(1.1)}60%,100%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}}
+@keyframes cy3{0%,60%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}63%,77%{border-color:#0d7a63;box-shadow:0 4px 14px rgba(13,122,99,.22);transform:scale(1.1)}80%,100%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}}
+@keyframes cy4{0%,80%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}83%,97%{border-color:#0d7a63;box-shadow:0 4px 14px rgba(13,122,99,.22);transform:scale(1.1)}100%,100%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.fanim{animation:none !important}}
+label{display:block;font-size:13px;font-weight:600;color:#1f2328;margin-bottom:5px}
+</style>
+</head>
+<body>
+<div style="width:1080px;max-width:100%;margin:0 auto;padding:26px 0 44px" data-screen-label="Marketing landing">
+<div style="padding:0 4px 4px"><div style="font-size:22px;font-weight:700;letter-spacing:-.01em">Marketing landing</div><div style="font-size:13px;color:#59554e;margin-top:5px;line-height:1.55;max-width:790px">Logged-out shell (C4), <b>How it works</b> active — the landing <i>is</i> that tab, not a separate route. Two states: <b>open-beta</b> (dual calls to action) and <b>waitlist</b> (allow-list beta closed). The honesty panels are the persuasion: no delivery promise, no urgency, no scarcity, no popularity numbers.</div></div>
+<div style="display:grid;gap:26px;margin-top:22px">
+<div style="display:grid;gap:10px"><div style="display:flex;align-items:baseline;gap:10px;margin:0 0 2px"><span style="font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#fff;background:#1f2328;border-radius:5px;padding:3px 7px">A</span><span style="font-size:16px;font-weight:700">Open beta</span><span style="font-size:12.5px;color:#8a857c">both calls to action live</span></div><div style="border:1px solid #e3e0d8;border-radius:8px;overflow:hidden;background:#faf9f6"><div style="display:flex;align-items:center;gap:14px;padding:12px 22px;background:#fff;border-bottom:1px solid #e3e0d8"><div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:6px;background:#0d7a63;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px">a4</div><span style="font-weight:700;font-size:15px;color:#1f2328">ai4good</span></div><div style="display:flex;align-items:center;gap:7px;font-size:14px"><span style="color:#59554e;">Projects</span></div><div style="flex:1"></div><a href="./sign-up-login.html" data-testid="sign-in-link" style="display:inline-flex;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;color:#1f2328">Sign in</a><a href="./sign-up-login.html" data-testid="sign-up-button" style="display:inline-flex;padding:6px 14px;border-radius:6px;background:#0d7a63;color:#fff;font-size:13px;font-weight:600">Sign up</a></div><div style="display:flex;gap:4px;padding:0 22px;background:#fff;border-bottom:1px solid #e3e0d8"><div style="padding:10px 12px;font-size:14px;color:#59554e">Browse projects</div><div style="padding:10px 12px;font-size:14px;font-weight:600;color:#1f2328;border-bottom:2px solid #0d7a63;margin-bottom:-1px">How it works</div></div><div style="padding:26px;background:#fff;display:flex;gap:36px;align-items:center;flex-wrap:wrap">
+<div style="flex:1;min-width:400px">
+<div style="font-size:34px;font-weight:800;line-height:1.18;letter-spacing:-.02em">Small nonprofits need small tools.<br>Volunteer developers build them with AI.</div>
+<div style="font-size:15px;color:#59554e;margin-top:12px;line-height:1.6;max-width:480px">You describe the need. A volunteer builds it with AI you prepay. The running app is yours.</div>
+<div data-testid="signup-cta-group" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:22px">
+<a href="./sign-up-login.html" data-testid="ngo-signup-cta" style="display:block;flex:1;min-width:290px;border:1px solid #0d7a63;background:#0d7a63;border-radius:8px;padding:16px 18px;color:#fff">
+<div style="font-size:15px;font-weight:700">I work at a nonprofit</div>
+<div style="font-size:12.5px;margin-top:5px;line-height:1.5;color:#e6f5ef">Start Discovery free — no card needed.</div></a>
+<a href="./sign-up-login.html" data-testid="volunteer-signup-cta" style="display:block;flex:1;min-width:290px;border:1px solid #d5d1c7;background:#fff;border-radius:8px;padding:16px 18px">
+<div style="font-size:15px;font-weight:700;color:#1f2328">I’m a developer who wants to help</div>
+<div style="font-size:12.5px;margin-top:5px;line-height:1.5;color:#59554e">Connect GitHub, take on one project.</div></a></div>
+</div>
+<div aria-hidden="true" style="width:340px;height:340px;flex-shrink:0;position:relative">
+<svg class="fanim" viewBox="0 0 340 340" style="position:absolute;inset:0;animation:cyr 60s linear infinite;transform-origin:50% 50%">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#a8c4ba"/></marker></defs>
+<g fill="none" stroke="#a8c4ba" stroke-width="2.5" stroke-linecap="round">
+<path d="M210.4 59.1 A118 118 0 0 1 263.0 97.3" marker-end="url(#ah)"/>
+<path d="M287.9 174.1 A118 118 0 0 1 267.8 236.0" marker-end="url(#ah)"/>
+<path d="M202.5 283.4 A118 118 0 0 1 137.5 283.4" marker-end="url(#ah)"/>
+<path d="M72.2 236.0 A118 118 0 0 1 52.1 174.1" marker-end="url(#ah)"/>
+<path d="M77.0 97.3 A118 118 0 0 1 129.6 59.1" marker-end="url(#ah)"/>
+</g></svg>
+<div style="position:absolute;left:153px;top:153px;width:34px;height:34px;border-radius:8px;background:#0d7a63;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">a4</div>
+<div class="fanim" style="position:absolute;left:133px;top:15px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy0 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5"/><path d="M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.9 10.6c.6.5.9 1.5.9 2.4h6c0-.9.3-1.9.9-2.4A6 6 0 0 0 12 3z"/><path d="M3.5 6l-1.2-1.2M20.5 6l1.2-1.2M12 .8v-.1" stroke="#0d7a63"/></svg></div>
+<div class="fanim" style="position:absolute;left:245px;top:97px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy1 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c-4.4 0-8 3-8 6.8 0 1.9.9 3.6 2.3 4.8L5 20l4.2-1.5c.9.2 1.8.3 2.8.3 4.4 0 8-3 8-6.9S16.4 4 12 4z"/><path d="M12 7.6l.9 2.2 2.2.9-2.2.9-.9 2.2-.9-2.2-2.2-.9 2.2-.9z" fill="#0d7a63" stroke="none"/></svg></div>
+<div class="fanim" style="position:absolute;left:202px;top:228px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy2 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.7" r="3.1"/><path d="M3.6 19.2c.6-3.1 2.8-4.9 5.4-4.9s4.8 1.8 5.4 4.9"/><path d="M17.3 3.8l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z" fill="#0d7a63" stroke="none"/><path d="M20 13.2l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z" fill="#0d7a63" stroke="none"/></svg></div>
+<div class="fanim" style="position:absolute;left:64px;top:228px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy3 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-4.5 5L8 17"/><path d="M16 7l4.5 5L16 17"/><path d="M12 8.2l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="#0d7a63" stroke="none"/></svg></div>
+<div class="fanim" style="position:absolute;left:21px;top:97px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy4 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.4"/><path d="M12 4.6v2.2M12 17.2v2.2M4.6 12h2.2M17.2 12h2.2M6.8 6.8l1.6 1.6M15.6 15.6l1.6 1.6M17.2 6.8l-1.6 1.6M8.4 15.6l-1.6 1.6"/><circle cx="12" cy="12" r="1.3" fill="#0d7a63" stroke="none"/></svg></div>
+</div>
+</div>
+<div style="padding:22px 26px;display:grid;gap:22px;border-top:1px solid #e3e0d8">
+<div><div style="font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.07em;text-transform:uppercase;color:#59554e;margin-bottom:9px">How a project runs</div><div style="position:relative;padding-top:2px">
+<div style="position:absolute;left:8.4%;right:8.4%;top:16px;height:2px;background:#e3e0d8;border-radius:2px"></div>
+<div class="fanim" style="position:absolute;left:8.4%;top:16px;height:2px;background:#0d7a63;border-radius:2px;width:0;animation:flowfill 15s linear infinite"></div>
+<div data-testid="how-it-works-list" style="display:grid;grid-template-columns:repeat(6,1fr);gap:11px;position:relative">
+<div data-testid="how-it-works-step" data-testkey="step-1">
+<div class="fanim" style="width:32px;height:32px;border-radius:50%;background:#0d7a63;border:2px solid #0d7a63;color:#fff;margin:0 auto;display:flex;align-items:center;justify-content:center;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box;">01</div>
+<div class="fanim" style="margin-top:12px;border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:13px 14px;text-align:center;animation:con0 15s linear infinite">
+<div style="font-size:13.5px;font-weight:700;line-height:1.35">Describe the need</div>
+<div style="font-size:12.5px;color:#59554e;margin-top:5px;line-height:1.5">Plain language. No spec, no budget.</div>
+</div></div>
+<div data-testid="how-it-works-step" data-testkey="step-2">
+<div class="fanim" style="width:32px;height:32px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;color:#59554e;margin:0 auto;display:flex;align-items:center;justify-content:center;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box;animation:non1 15s linear infinite">02</div>
+<div class="fanim" style="margin-top:12px;border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:13px 14px;text-align:center;animation:con1 15s linear infinite">
+<div style="font-size:13.5px;font-weight:700;line-height:1.35">Discovery writes the scope</div>
+<div style="font-size:12.5px;color:#59554e;margin-top:5px;line-height:1.5">A short guided chat ends in a scope document.</div>
+</div></div>
+<div data-testid="how-it-works-step" data-testkey="step-3">
+<div class="fanim" style="width:32px;height:32px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;color:#59554e;margin:0 auto;display:flex;align-items:center;justify-content:center;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box;animation:non2 15s linear infinite">03</div>
+<div class="fanim" style="margin-top:12px;border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:13px 14px;text-align:center;animation:con2 15s linear infinite">
+<div style="font-size:13.5px;font-weight:700;line-height:1.35">A founder reviews it</div>
+<div style="font-size:12.5px;color:#59554e;margin-top:5px;line-height:1.5">A human reads every project before it goes live.</div>
+</div></div>
+<div data-testid="how-it-works-step" data-testkey="step-4">
+<div class="fanim" style="width:32px;height:32px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;color:#59554e;margin:0 auto;display:flex;align-items:center;justify-content:center;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box;animation:non3 15s linear infinite">04</div>
+<div class="fanim" style="margin-top:12px;border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:13px 14px;text-align:center;animation:con3 15s linear infinite">
+<div style="font-size:13.5px;font-weight:700;line-height:1.35">We match one volunteer</div>
+<div style="font-size:12.5px;color:#59554e;margin-top:5px;line-height:1.5">By hand. No applicant pile.</div>
+</div></div>
+<div data-testid="how-it-works-step" data-testkey="step-5">
+<div class="fanim" style="width:32px;height:32px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;color:#59554e;margin:0 auto;display:flex;align-items:center;justify-content:center;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box;animation:non4 15s linear infinite">05</div>
+<div class="fanim" style="margin-top:12px;border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:13px 14px;text-align:center;animation:con4 15s linear infinite">
+<div style="font-size:13.5px;font-weight:700;line-height:1.35">You fund fuel; the build runs</div>
+<div style="font-size:12.5px;color:#59554e;margin-top:5px;line-height:1.5">From $50, in the open, spend visible.</div>
+</div></div>
+<div data-testid="how-it-works-step" data-testkey="step-6">
+<div class="fanim" style="width:32px;height:32px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;color:#59554e;margin:0 auto;display:flex;align-items:center;justify-content:center;font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box;animation:non5 15s linear infinite">06</div>
+<div class="fanim" style="margin-top:12px;border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:13px 14px;text-align:center;animation:con5 15s linear infinite">
+<div style="font-size:13.5px;font-weight:700;line-height:1.35">You run it yourself</div>
+<div style="font-size:12.5px;color:#59554e;margin-top:5px;line-height:1.5">Hosted, yours — keep shaping it by chat.</div>
+</div></div>
+</div></div></div>
+<div><div style="font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.07em;text-transform:uppercase;color:#59554e;margin-bottom:9px">What this is, and is not</div><div data-testid="model-explainer-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px"><div data-testid="model-explainer-item" data-testkey="coordination-layer" style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:17px 18px">
+<div style="font-size:15px;font-weight:700;line-height:1.35">We coordinate. We do not deliver.</div>
+<div style="font-size:13px;color:#59554e;margin-top:8px;line-height:1.6">One volunteer, one project. No contract, no delivery promise.</div></div><div data-testid="model-explainer-item" data-testkey="fuel-non-cash" style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:17px 18px">
+<div style="font-size:15px;font-weight:700;line-height:1.35">Fuel is prepaid credit, not cash.</div>
+<div style="font-size:13px;color:#59554e;margin-top:8px;line-height:1.6">Prepaid AI compute. No refunds; unused fuel stays as credit; your amount is your cap.</div></div><div data-testid="model-explainer-item" data-testkey="open-source" style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:17px 18px">
+<div style="font-size:15px;font-weight:700;line-height:1.35">Every project is open source.</div>
+<div style="font-size:13px;color:#59554e;margin-top:8px;line-height:1.6">Public MIT repo from the first commit. You own the app and the code.</div></div></div></div>
+<div data-testid="cost-disclosure" style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:15px 17px;font-size:12.5px;color:#59554e;line-height:1.65">
+<b style="color:#1f2328">Before you spend anything.</b> Fuel can be fully spent without a usable tool and is not refundable — unused fuel becomes credit that never expires. Lovable, the app layer, is paid by you directly (about $25 a month).</div>
+</div></div><div style="font-size:12.5px;color:#59554e;line-height:1.55">Copy cut to the minimum; the model is shown, not told. The hero image is a wordless cycle — idea → Discovery with AI → matched with a volunteer → coded → deployed and running, and back around — drawn as pictograms on a slowly turning ring, each stage lighting in turn (15s loop). No labels: the cycle is the claim that the end of the build is not the end of the tool. Freezes under reduced-motion.</div></div>
+<div style="display:grid;gap:10px"><div style="display:flex;align-items:baseline;gap:10px;margin:0 0 2px"><span style="font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#fff;background:#1f2328;border-radius:5px;padding:3px 7px">B</span><span style="font-size:16px;font-weight:700">Waitlist</span><span style="font-size:12.5px;color:#8a857c">allow-list beta closed</span></div><div style="border:1px solid #e3e0d8;border-radius:8px;overflow:hidden;background:#faf9f6"><div style="display:flex;align-items:center;gap:14px;padding:12px 22px;background:#fff;border-bottom:1px solid #e3e0d8"><div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:6px;background:#0d7a63;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px">a4</div><span style="font-weight:700;font-size:15px;color:#1f2328">ai4good</span></div><div style="display:flex;align-items:center;gap:7px;font-size:14px"><span style="color:#59554e;">Projects</span></div><div style="flex:1"></div><a href="./sign-up-login.html" data-testid="sign-in-link" style="display:inline-flex;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;color:#1f2328">Sign in</a><a href="./sign-up-login.html" data-testid="sign-up-button" style="display:inline-flex;padding:6px 14px;border-radius:6px;background:#0d7a63;color:#fff;font-size:13px;font-weight:600">Sign up</a></div><div style="display:flex;gap:4px;padding:0 22px;background:#fff;border-bottom:1px solid #e3e0d8"><div style="padding:10px 12px;font-size:14px;color:#59554e">Browse projects</div><div style="padding:10px 12px;font-size:14px;font-weight:600;color:#1f2328;border-bottom:2px solid #0d7a63;margin-bottom:-1px">How it works</div></div><div data-testid="waitlist-closed-banner" style="display:flex;gap:10px;align-items:center;padding:11px 26px;background:#fff8e1;border-bottom:1px solid #eed888;font-size:13px;color:#7a5200"><span style="width:8px;height:8px;border-radius:50%;background:#c47b12;flex-shrink:0"></span><span><b>The beta is closed right now.</b> We are onboarding a small allow-list of organisations and developers by hand, so that every project gets a real match. Join the waitlist and we will write to you — no marketing mail.</span></div>
+<div style="padding:26px 26px 28px;background:#fff;display:flex;gap:34px;flex-wrap:wrap">
+<div style="flex:1;min-width:420px"><div style="max-width:660px">
+<div style="font-size:34px;font-weight:800;line-height:1.18;letter-spacing:-.02em">Small nonprofits need small tools.<br>Volunteer developers build them with AI.</div>
+<div style="font-size:15px;color:#59554e;margin-top:14px;line-height:1.65">You describe the need. A volunteer builds it with AI you prepay. The running app is yours.</div>
+</div><div style="margin-top:18px;font-size:12.5px;color:#59554e;line-height:1.6">Browsing stays open: every project on ai4good is public, so you can read exactly what is being built and how the money went before you join.<br><a href="./public-listings.html" data-testid="browse-projects-link">Browse open and in-progress projects →</a></div></div>
+<form data-testid="waitlist-form" style="width:360px;border:1px solid #e3e0d8;border-radius:8px;background:#faf9f6;padding:18px;display:grid;gap:13px">
+<div style="font-size:15px;font-weight:700">Join the waitlist</div>
+<div><label for="wl-role">I am</label><select id="wl-role" data-testid="waitlist-role-select"><option>Staff at a nonprofit</option><option>A developer who wants to volunteer</option></select></div>
+<div><label for="wl-email">Email</label><input id="wl-email" data-testid="waitlist-email-input" type="email" placeholder="you@organisation.org"></div>
+<div><label for="wl-org">Organisation <span style="font-weight:400;color:#59554e">(if any)</span></label><input id="wl-org" data-testid="waitlist-org-input" placeholder="Hopeful Horizons"></div>
+<div><label for="wl-need">What would you build first? <span style="font-weight:400;color:#59554e">(one line)</span></label><textarea id="wl-need" data-testid="waitlist-need-input" rows="2" placeholder="A tracker for our weekly food-bank intake"></textarea></div>
+<button data-testid="waitlist-submit-button" style="background:#0d7a63;color:#fff;border:1px solid #0d7a63;padding:9px 16px;border-radius:6px;font:600 13.5px inherit;cursor:pointer">Join the waitlist</button>
+<div style="font-size:11.5px;color:#59554e;line-height:1.5">We use this to decide who to onboard next, and for nothing else.</div>
+</form></div>
+<div style="padding:22px 26px;display:grid;gap:22px;border-top:1px solid #e3e0d8"><div data-testid="cost-disclosure" style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;padding:15px 17px;font-size:12.5px;color:#59554e;line-height:1.65">
+<b style="color:#1f2328">Before you spend anything.</b> Fuel can be fully spent without a usable tool and is not refundable — unused fuel becomes credit that never expires. Lovable, the app layer, is paid by you directly (about $25 a month).</div></div></div><div style="font-size:12.5px;color:#59554e;line-height:1.55">The signup calls to action are <b>replaced</b>, not disabled — a dead button teaches nothing. Browsing stays open because public projects are the proof. Role is asked first: it decides which allow-list you land on.</div></div>
+<div style="display:grid;gap:10px"><div style="display:flex;align-items:baseline;gap:10px;margin:0 0 2px"><span style="font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#fff;background:#1f2328;border-radius:5px;padding:3px 7px">C</span><span style="font-size:16px;font-weight:700">Waitlist responses</span><span style="font-size:12.5px;color:#8a857c">after submit, and on failure</span></div><div><div style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;"><div data-testid="waitlist-success" style="padding:16px 18px;display:flex;gap:11px"><span style="color:#0d7a63;font-size:15px">✓</span><div style="font-size:13px;color:#59554e;line-height:1.6"><b style="color:#1f2328">You’re on the list.</b> We read every entry by hand and write back when we have a match to offer — typically within a few weeks. Nothing else happens until then, and there is no queue position to check.</div></div></div><div style="border:1px solid #e3e0d8;border-radius:8px;background:#fff;border-color:#f0c4c4;margin-top:10px"><div data-testid="waitlist-error" style="padding:16px 18px;display:flex;gap:11px"><span style="color:#cf222e;font-size:15px">!</span><div style="font-size:13px;color:#59554e;line-height:1.6"><b style="color:#1f2328">That didn’t send.</b> Something on our side failed, not your entry — it is still filled in below. Try again, or write to hello@ai4good.org and we will add you by hand.</div></div></div></div><div style="font-size:12.5px;color:#59554e;line-height:1.55">No queue position, no estimated date, no referral loop — a waitlist that promises nothing keeps the honesty of the rest of the page.</div></div>
+<div style="border:1px dashed #cfcabd;border-radius:8px;background:#fbfaf7;padding:11px 14px;font-size:12px;color:#59554e;line-height:1.55"><b style="color:#1f2328">Test handles.</b> Every control, state-bearing display, list, list item and empty/error state on this screen carries <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace">data-testid</span> in kebab-case requirement vocabulary; repeated items add <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace">data-testkey</span> with a domain id. This file renders more than one state of a single route, so a singleton handle appears once <i>per state block</i> — the once-per-route rule still holds in the built screen. Handles are a contract: preserve them verbatim on redraw.</div>
+</div>
+</div>
+</body>
+</html>
