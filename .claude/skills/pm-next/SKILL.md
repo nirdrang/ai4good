@@ -64,12 +64,35 @@ description: Pull the next PM-tree requirement (or a named one, e.g. /pm-next AI
     blocked-by references go in the description, not as relations. (Leaves are then worked with
     `/dev-start` and `/dev-end`.)
 
-11. **Release the lock; report.**
+11. **Release the lock; report — and offer the session rename.**
     - Dedicated worktree created but NOT entered → tell the founder: open a session in
       `<newpath>` — the binding is ALREADY placed there, so its start banner will show the
       requirement bound. Work it from that folder.
     - Pulled in the main checkout → note serial work here is fine; a dedicated worktree is only
       needed to run a SECOND requirement at the same time.
+    - **Session rename (see "Naming a session" below):** end the report with the ready-to-paste
+      line — `/rename REQ-0NN · <short requirement title>`. The agent CANNOT execute `/rename`
+      (it is a user-typed built-in; there is no tool and no file to write), so print it, never
+      claim to have done it.
+
+## Naming a session (founder instruction, 2026-07-29)
+
+Attribution answers "what is this work counted against". The session NAME answers "which of my
+open windows is this" — a different question, and the session list is where the founder reads
+it. Every verb that changes what a session is working on ends its report with the matching
+rename line, in ONE scheme so the list sorts and scans:
+
+| verb | rename line |
+|---|---|
+| `/pm-next` | `/rename REQ-0NN · <short requirement title>` |
+| `/bind AI4PM-NN` | `/rename REQ-0NN · <short requirement title>` |
+| `/bind bringup AI4DEV-NN` | `/rename AI4DEV-NN · <short item title>` |
+| `/bind exploration` | `/rename exploration · <topic in 2-4 words>` |
+| `/bind clear` | (no rename — nothing to name it after) |
+| `/dev-start` | `/rename REQ-0NN <leaf> · <short leaf title>` |
+
+**The agent cannot run `/rename`.** It is a built-in the founder types; no tool exposes it and
+no file stores the name. Print the line and stop — never report a rename as done.
 
 ## Worktree way of work (same model the product's volunteer Skill uses)
 

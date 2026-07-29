@@ -39,6 +39,9 @@ hand.
    revert-exempt; truthful because work starts now). NO PM change. NO attestation. NO stamp
    change — messages keep stamping the requirement.
 6. **Report.** "Implementing <leaf> on <branch>; test-first: <verify set>; blockers clear."
+   End with the ready-to-paste session rename (the scheme lives in `/pm-next`'s "Naming a
+   session"): `/rename REQ-0NN <leaf> · <short leaf title>`. The agent CANNOT execute `/rename`
+   — it is a user-typed built-in with no tool and no backing file — so print it, never claim it.
 
 ## Never
 - Never without a bound requirement (step 1). Never write a binding — leaves ride the
