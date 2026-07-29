@@ -16,6 +16,8 @@
  * and the per-id report all derive from it. The bijection checker reads those call sites.
  */
 
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, it } from 'vitest';
 
 /* ------------------------------------------------------------------------ the AT id grammar */
@@ -156,6 +158,85 @@ export interface AtContext<Sut = unknown, W = WorldLike> {
   atId: string;
   /** build a fresh "Given" world (and its own harness). Call it more than once for isolation. */
   open(fixture?: string): Promise<OpenWorld<Sut, W>>;
+  /** consume an immutable capture whose producer proved at least one real open() */
+  capture<T>(evidence: EvidenceCapture<T, Sut, W>): Promise<T>;
+}
+
+const USAGE = Symbol('at-context-usage');
+
+interface Usage {
+  opens: number;
+  captures: number;
+}
+
+interface InternalContext<Sut, W extends WorldLike> extends AtContext<Sut, W> {
+  [USAGE]: Usage;
+}
+
+export function freezeEvidence<T>(value: T, seen = new WeakSet<object>()): T {
+  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
+  seen.add(value);
+  for (const child of Object.values(value as Record<string, unknown>)) freezeEvidence(child, seen);
+  return Object.freeze(value);
+}
+
+export function captureProducerProblem(opensBefore: number, opensAfter: number): string | null {
+  return opensAfter === opensBefore ? 'capture producer completed without open()' : null;
+}
+
+export class EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike> {
+  private result: Promise<T> | null = null;
+  private producerAtId = '';
+
+  constructor(
+    readonly name: string,
+    private readonly producer: (ctx: AtContext<Sut, W>) => Promise<T>,
+  ) {}
+
+  consume(ctx: InternalContext<Sut, W>): Promise<T> {
+    if (!this.result) {
+      this.producerAtId = ctx.atId;
+      const opensBefore = ctx[USAGE].opens;
+      this.result = (async () => {
+        try {
+          const value = await this.producer(ctx);
+          const problem = captureProducerProblem(opensBefore, ctx[USAGE].opens);
+          if (problem) {
+            throw new Error(`evidence capture ${JSON.stringify(this.name)} produced by ${ctx.atId} — ${problem}`);
+          }
+          return freezeEvidence(value);
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          throw new Error(`evidence capture ${JSON.stringify(this.name)} produced by ${this.producerAtId} failed — ${detail}`, {
+            cause: err,
+          });
+        }
+      })();
+    }
+    return this.result;
+  }
+}
+
+export function defineEvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike>(
+  name: string,
+  producer: (ctx: AtContext<Sut, W>) => Promise<T>,
+): EvidenceCapture<T, Sut, W> {
+  return new EvidenceCapture(name, producer);
+}
+
+export function testUseProblem(opens: number, captures: number): string | null {
+  return opens === 0 && captures === 0 ? 'test body never opened a fixture world or consumed trusted captured evidence' : null;
+}
+
+export async function executeRegisteredBody<Sut, W extends WorldLike>(
+  atId: string,
+  body: AtTestBody<Sut, W>,
+  ctx: AtContext<Sut, W>,
+  usage: Usage,
+): Promise<void> {
+  await body(ctx);
+  const problem = testUseProblem(usage.opens, usage.captures);
+  if (problem) throw new Error(`${atId} INVALID — ${problem}`);
 }
 
 interface OpenOptions {
@@ -186,10 +267,7 @@ async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: 
 
     // Tier semantics: above `loop`, nothing the suite leans on may be a stand-in.
     if (TIER !== 'loop') {
-      expect(
-        await h.stubbedCapabilities(),
-        `a ${TIER}-tier run stubbed capabilities — the gate would be grading a stand-in`,
-      ).toEqual([]);
+      expect(await h.stubbedCapabilities(), `a ${TIER}-tier run stubbed capabilities — the gate would be grading a stand-in`).toEqual([]);
     }
 
     const sut = h.sut?.[o.sutKey];
@@ -206,6 +284,13 @@ async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: 
 /* ------------------------------------------------------------------------------- registration */
 
 export type AtTestBody<Sut = unknown, W = WorldLike> = (ctx: AtContext<Sut, W>) => Promise<void>;
+
+function emitRuntimeRegistration(registration: Registration): void {
+  const dir = process.env.AT_REGISTRATION_DIR;
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  appendFileSync(join(dir, `registration-${process.pid}.jsonl`), `${JSON.stringify(registration)}\n`, 'utf8');
+}
 
 /**
  * Register one acceptance test. The id is declared here and nowhere else.
@@ -231,20 +316,23 @@ export function atTest<Sut = unknown, W = WorldLike>(
   const parsed = parseAtId(atId);
   const previous = registrations.get(atId);
   if (previous) throw new Error(`${atId} is registered twice ("${previous.title}" and "${title}") — one id, one test`);
-  registrations.set(atId, { ...parsed, title, surface: opts.surface ?? 'backend' });
+  const registration = { ...parsed, title, surface: opts.surface ?? 'backend' };
+  registrations.set(atId, registration);
+  emitRuntimeRegistration(registration);
 
   const sutKey = opts.sut ?? '';
   const sutMissing =
-    opts.sutMissingDetail ??
-    `REQ-${parsed.requirement}'s implementation is not in the tree — harness.sut.${sutKey} is absent`;
+    opts.sutMissingDetail ?? `REQ-${parsed.requirement}'s implementation is not in the tree — harness.sut.${sutKey} is absent`;
 
   it(`${atId} — ${title}`, async () => {
     expect.hasAssertions();
 
     const worlds: OpenWorld[] = [];
     const harnesses: HarnessLike[] = [];
-    const ctx: AtContext<Sut, W> = {
+    const usage: Usage = { opens: 0, captures: 0 };
+    const ctx: InternalContext<Sut, W> = {
       atId,
+      [USAGE]: usage,
       open: async (fixture = `req-${parsed.requirement}/base`) => {
         const { opened, harness } = await openWorld({
           atId,
@@ -255,15 +343,29 @@ export function atTest<Sut = unknown, W = WorldLike>(
         });
         harnesses.push(harness);
         worlds.push(opened);
+        usage.opens += 1;
         return opened as OpenWorld<Sut, W>;
+      },
+      capture: async (evidence) => {
+        const value = await evidence.consume(ctx);
+        usage.captures += 1;
+        return value;
       },
     };
 
     try {
-      await body(ctx);
+      await executeRegisteredBody(atId, body, ctx, usage);
     } finally {
-      while (worlds.length) await worlds.pop()!.w.teardown().catch(() => undefined);
-      while (harnesses.length) await harnesses.pop()!.teardown().catch(() => undefined);
+      while (worlds.length)
+        await worlds
+          .pop()!
+          .w.teardown()
+          .catch(() => undefined);
+      while (harnesses.length)
+        await harnesses
+          .pop()!
+          .teardown()
+          .catch(() => undefined);
     }
   });
 }

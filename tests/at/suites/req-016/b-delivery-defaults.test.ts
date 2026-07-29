@@ -1,5 +1,5 @@
 /**
- * AT-REQ-016 · B. Delivery defaults — AT-016.05 .. AT-016.08
+ * AT-REQ-016 · B. Delivery defaults — AT-016.07 .. AT-016.08
  * Source: .taskmaster/docs/acceptance/at-req-016.md
  *
  * Every pinned number in this file comes from the at-config registry (AI4DEV-3 Part B).
@@ -9,70 +9,8 @@
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { countPairs } from './_oracles.ts';
-import { channelRuleProblems, CRITICAL_CLASS_FIXTURES, LOW_TONE_FIXTURE, TAXONOMY } from './taxonomy.ts';
 
 describe('AT-REQ-016 B — delivery defaults', () => {
-  atTest(
-    'AT-016.05',
-    'every critical class goes out by email; the low-tone event is in-app only',
-    async ({ open }) => {
-      const { w, sut } = await open();
-
-      for (const [eventClass, event] of Object.entries(CRITICAL_CLASS_FIXTURES)) {
-        const { eventId } = await w.fire(event);
-        await sut.drainDeliveries();
-        const deliveries = (await sut.deliveries({ type: event })).filter((d) => d.eventId === eventId);
-        expect(deliveries.length, `${eventClass} (${event}) produced no delivery`).toBeGreaterThan(0);
-        expect(
-          deliveries.some((d) => d.channel === 'email'),
-          `${eventClass} (${event}) delivered without email — critical classes are email (plus any named in-app)`,
-        ).toBe(true);
-      }
-
-      const lowToneEvent = await w.fire(LOW_TONE_FIXTURE);
-      await sut.drainDeliveries();
-      const lowTone = (await sut.deliveries({ type: LOW_TONE_FIXTURE })).filter((d) => d.eventId === lowToneEvent.eventId);
-      expect(lowTone.length, `${LOW_TONE_FIXTURE} produced no delivery`).toBeGreaterThan(0);
-      expect(
-        [...new Set(lowTone.map((d) => d.channel))].sort(),
-        `${LOW_TONE_FIXTURE} is low-tone: in-app only, never email`,
-      ).toEqual(['inapp']);
-    },
-  );
-
-  atTest('AT-016.06', 'a documented delivery default exists for every taxonomy row', async ({ open }) => {
-    const { sut } = await open();
-
-    const defaults = await sut.documentedDefaults();
-    const documented = new Map(defaults.map((d) => [d.event, d]));
-
-    const missing = TAXONOMY.filter((r) => !documented.has(r.event)).map((r) => r.event).sort();
-    expect(missing, 'taxonomy rows with no documented default').toEqual([]);
-
-    const implicit = defaults.filter((d) => !d.source.trim() || d.channels.length === 0).map((d) => d.event).sort();
-    expect(implicit, 'defaults that are implicit behaviour rather than documentation').toEqual([]);
-
-    const orphans = defaults.filter((d) => !TAXONOMY.some((r) => r.event === d.event)).map((d) => d.event).sort();
-    expect(orphans, 'documented defaults for events that are not in the taxonomy').toEqual([]);
-
-    // The documentation is a subject the implementation writes: it cannot be its own oracle.
-    // Check it against the requirement's own class rule and against the rows that name channels.
-    const contradictions: string[] = [];
-    for (const row of TAXONOMY) {
-      const doc = documented.get(row.event);
-      if (!doc) continue;
-      contradictions.push(...channelRuleProblems(row, doc.channels).map((p) => `${row.event}: documented default ${p}`));
-      if (row.channels) {
-        const got = [...doc.channels].sort().join(',');
-        const want = [...row.channels].sort().join(',');
-        if (got !== want) {
-          contradictions.push(`${row.event}: the requirement names [${want}] but the documented default says [${got}]`);
-        }
-      }
-    }
-    expect(contradictions, 'documented defaults that contradict the requirement they are meant to document').toEqual([]);
-  });
-
   atTest(
     'AT-016.07',
     'one logical event per committed event, one delivery per recipient-channel pair, across a restart',

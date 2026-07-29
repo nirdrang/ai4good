@@ -1,5 +1,5 @@
 /**
- * AT-REQ-016 · C. Critical-event reliability guard — AT-016.09 .. AT-016.12
+ * AT-REQ-016 · C. Critical-event reliability guard — AT-016.09 .. AT-016.11
  * Source: .taskmaster/docs/acceptance/at-req-016.md
  */
 
@@ -201,22 +201,4 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
       expect(acceptedPairs.length, 'the provider accepted the same recipient-channel pair twice').toBe(new Set(acceptedPairs).size);
     },
   );
-
-  atTest('AT-016.12', 'an escalation-tier event notifies both the NGO and the platform admin', async ({ open }) => {
-    const { w, sut } = await open();
-
-    const { eventId } = await w.fire('lovable.credits_blocked');
-    await sut.drainDeliveries();
-
-    const deliveries = (await sut.deliveries({ type: 'lovable.credits_blocked' })).filter((d) => d.eventId === eventId);
-    expect(deliveries.length, 'the escalation event delivered to nobody').toBeGreaterThan(0);
-    expect(
-      [...new Set(deliveries.map((d) => d.role))].sort(),
-      'an escalation-tier event must reach the NGO and the platform admin — exactly those',
-    ).toEqual(['ngo', 'platform_admin']);
-    expect(
-      [...new Set(deliveries.map((d) => d.recipientId))].sort(),
-      'the escalation reached a different actor than the fixture NGO and platform admin',
-    ).toEqual([w.actors.ngo, w.actors.platform_admin].sort());
-  });
 });

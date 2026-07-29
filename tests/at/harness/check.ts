@@ -59,6 +59,45 @@ export function registeredIds(requirement: string): SuiteRegistration[] {
   return found;
 }
 
+export interface BijectionReport {
+  expected: string[];
+  registered: SuiteRegistration[];
+  missing: string[];
+  extra: string[];
+  duplicate: string[];
+  problems: string[];
+}
+
+export function bijectionProblems(expected: string[], registered: SuiteRegistration[]): string[] {
+  const registeredSet = [...new Set(registered.map((entry) => entry.atId))];
+  const missing = expected.filter((id) => !registeredSet.includes(id));
+  const extra = registeredSet.filter((id) => !expected.includes(id));
+  const duplicate = registeredSet.filter((id) => registered.filter((entry) => entry.atId === id).length > 1);
+  const problems: string[] = [];
+  if (expected.length === 0) problems.push('the acceptance parser found zero P0 ids');
+  if (missing.length) problems.push(`${missing.length} missing: ${missing.join(', ')}`);
+  if (extra.length) problems.push(`${extra.length} extra: ${extra.join(', ')}`);
+  if (duplicate.length) problems.push(`${duplicate.length} duplicated: ${duplicate.join(', ')}`);
+  return problems;
+}
+
+export function inspectBijection(requirement: string): BijectionReport {
+  const expected = acceptanceP0Ids(requirement);
+  const registered = registeredIds(requirement);
+  const registeredSet = [...new Set(registered.map((entry) => entry.atId))];
+  const missing = expected.filter((id) => !registeredSet.includes(id));
+  const extra = registeredSet.filter((id) => !expected.includes(id));
+  const duplicate = registeredSet.filter((id) => registered.filter((entry) => entry.atId === id).length > 1);
+  return {
+    expected,
+    registered,
+    missing,
+    extra,
+    duplicate,
+    problems: bijectionProblems(expected, registered),
+  };
+}
+
 function main(argv: string[]): number {
   let requirement: string;
   try {
@@ -69,38 +108,43 @@ function main(argv: string[]): number {
     return 2;
   }
 
-  let expected: string[];
-  let registered: SuiteRegistration[];
+  let report: BijectionReport;
   try {
-    expected = acceptanceP0Ids(requirement);
-    registered = registeredIds(requirement);
+    report = inspectBijection(requirement);
   } catch (err) {
     console.error(`at:check req-${requirement} — ${(err as Error).message}`);
     return 2;
   }
 
-  const registeredSet = [...new Set(registered.map((r) => r.atId))];
-  const missing = expected.filter((id) => !registeredSet.includes(id));
-  const extra = registeredSet.filter((id) => !expected.includes(id));
-  const duplicate = registeredSet.filter((id) => registered.filter((r) => r.atId === id).length > 1);
-
-  console.log(`at:check req-${requirement} — ${expected.length} P0 in the acceptance file, ${registered.length} registered in the suite`);
-  for (const id of missing) console.log(`  MISSING    ${id} — no executable test registers this id`);
-  for (const id of extra) {
-    const where = registered.filter((r) => r.atId === id).map((r) => r.file).join(', ');
+  console.log(
+    `at:check req-${requirement} — ${report.expected.length} P0 in the acceptance file, ` +
+      `${report.registered.length} registered in the suite`,
+  );
+  if (report.expected.length === 0) console.log('  EMPTY      the acceptance parser found zero P0 ids');
+  for (const id of report.missing) console.log(`  MISSING    ${id} — no executable test registers this id`);
+  for (const id of report.extra) {
+    const where = report.registered
+      .filter((r) => r.atId === id)
+      .map((r) => r.file)
+      .join(', ');
     console.log(`  EXTRA      ${id} — registered in ${where} but not a P0 of this requirement`);
   }
-  for (const id of duplicate) {
-    const where = registered.filter((r) => r.atId === id).map((r) => r.file).join(', ');
-    console.log(`  DUPLICATE  ${id} — registered ${registered.filter((r) => r.atId === id).length} times (${where})`);
+  for (const id of report.duplicate) {
+    const where = report.registered
+      .filter((r) => r.atId === id)
+      .map((r) => r.file)
+      .join(', ');
+    console.log(`  DUPLICATE  ${id} — registered ${report.registered.filter((r) => r.atId === id).length} times (${where})`);
   }
 
-  const failures = missing.length + extra.length + duplicate.length;
-  if (failures === 0) {
-    console.log(`RESULT: ${expected.length} P0 ids in bijection`);
+  if (report.problems.length === 0) {
+    console.log(`RESULT: ${report.expected.length} P0 ids in bijection`);
     return 0;
   }
-  console.log(`RESULT: ${missing.length} missing, ${extra.length} extra, ${duplicate.length} duplicated`);
+  console.log(
+    `RESULT: ${report.missing.length} missing, ${report.extra.length} extra, ` +
+      `${report.duplicate.length} duplicated${report.expected.length === 0 ? ', zero expected' : ''}`,
+  );
   return 1;
 }
 
