@@ -71,8 +71,14 @@ Bring-up remaining: B1 project-knowledge push (free), B2 fixture pack authoring,
   presence, grammar, and rename-diff — scoped to screens drawn on or after ratification.
 - **Lovable project knowledge updated** with the standing preservation rule, alongside the
   existing governance rules, so it re-applies to every generation.
-- **Forward-only:** the existing eleven screens are NOT retrofitted; handles arrive per
-  requirement at its wiring leaf. First application is Batch 1.
+- **Forward-only:** the existing twelve screens are NOT retrofitted; handles arrive per
+  requirement at its wiring leaf. The exemption is by date (drawn before 2026-07-24), not by
+  count. First application is Batch 1.
+- **Delivered to the design project 2026-07-29** — five days after it was folded. The fold,
+  the Lovable push, and the gate scan all landed on the 24th, but the change order itself was
+  never pushed to the design chat: an enforcement layer was complete while the notification
+  step my own way-of-work requires was skipped. Caught before Batch 1 was drawn, which is the
+  first screen set the convention binds. Lesson: a folded rule is not a delivered rule.
 - Two conflicts surfaced and resolved explicitly rather than silently (both reported to the
   founder): the draft's illustrative `task-list`/`task-item` names contradict d82/d86 on
   NGO/public surfaces, so the fold uses `requirement-*` there and reserves `task-*` for the
