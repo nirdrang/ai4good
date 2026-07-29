@@ -10,7 +10,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['suites/**/*.test.ts'],
+    // `*.test.ts` under suites/ are the acceptance tests; `*.selftest.ts` under harness/ are the
+    // harness's own tests, which depend on none of the capability modules. `at:verify` filters to
+    // one suite directory, so the selftests never join an acceptance run.
+    include: ['suites/**/*.test.ts', 'harness/**/*.selftest.ts'],
     environment: 'node',
     testTimeout: 30_000,
     hookTimeout: 30_000,

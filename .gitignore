@@ -31,6 +31,16 @@ dist-ssr
 *.sln
 *.sw?
 
+# Local environment overrides — secrets live here, never in the tracked .env
+.env.local
+.env.*.local
+
+# Local Supabase stack runtime state. `supabase start` writes container secrets here
+# (supabase/.temp/start-secrets/**) — these must NEVER be committed. Migrations and
+# config.toml are tracked; everything the running stack generates is not.
+supabase/.temp/
+supabase/.branches/
+
 # ai4good local tooling (not app code)
 .claude/
 .codex_rate.html
