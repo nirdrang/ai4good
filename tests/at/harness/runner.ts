@@ -31,7 +31,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, writeSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -48,6 +48,8 @@ const READY_TIMEOUT_MS = Number(process.env.AT_READY_TIMEOUT_MS ?? 120_000);
 const RESET_TIMEOUT_MS = Number(process.env.AT_RESET_TIMEOUT_MS ?? 600_000);
 /** A lock older than this, or held by a process that is gone, is taken over. */
 const LOCK_STALE_MINUTES = Number(process.env.AT_LOCK_STALE_MINUTES ?? 60);
+/** The takeover gate is held for milliseconds; anything this old was abandoned by a dead process. */
+const GATE_STALE_MINUTES = Number(process.env.AT_LOCK_GATE_STALE_MINUTES ?? 2);
 
 /** `supabase status` reports these two as stopped because config.toml disables them. Benign. */
 const DISABLED_SERVICES = /^supabase_(imgproxy|pooler)_/;
@@ -238,15 +240,79 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
+/** The lock path for one stack. Machine-wide, and deliberately carries no folder component. */
+export function stackLockPath(config: LocalConfig): string {
+  return join(lockDir(), `at-verify-${config.projectId}-${config.apiPort}.lock`);
+}
+
+interface Holder {
+  pid?: number;
+  host?: string;
+  requirement?: string;
+  startedAt?: string;
+}
+
+/** Live = the recorded process still exists AND the lock is young enough to be a real run. */
+function holderIsLive(holder: Holder): boolean {
+  const startedAt = holder.startedAt ? Date.parse(holder.startedAt) : NaN;
+  const ageMinutes = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 60_000 : Infinity;
+  return typeof holder.pid === 'number' && processIsAlive(holder.pid) && ageMinutes < LOCK_STALE_MINUTES;
+}
+
+function heldByAnotherRun(holder: Holder, file: string): Error {
+  return new Error(
+    `another at:verify run holds this stack (pid ${holder.pid} on ${holder.host ?? 'this machine'}, ` +
+      `requirement ${holder.requirement ?? 'unknown'}, started ${holder.startedAt ?? 'unknown'}). ` +
+      `Two runs against one stack destroy each other: the second would reset the first's database ` +
+      `mid-run. Wait for it to finish. If that process is definitely gone, delete ${file}.`,
+  );
+}
+
+/**
+ * A gate left behind by a process that died mid-takeover. The section lasts milliseconds, so
+ * anything this old is certainly abandoned; removing one wrongly costs at most two processes in
+ * the section, which is the behaviour we had before the gate existed.
+ */
+function clearStrandedGate(gate: string): void {
+  try {
+    const held = JSON.parse(readFileSync(gate, 'utf8')) as { pid?: number; at?: string };
+    const at = held.at ? Date.parse(held.at) : NaN;
+    const ageMinutes = Number.isFinite(at) ? (Date.now() - at) / 60_000 : Infinity;
+    const alive = typeof held.pid === 'number' && processIsAlive(held.pid);
+    if (!alive || ageMinutes > GATE_STALE_MINUTES) rmSync(gate, { force: true });
+  } catch {
+    // unreadable or already gone — the next pass finds out
+  }
+}
+
 /**
  * Serialize every destructive run against one stack. The key is project id + api port because
  * that pair IS the stack's identity: a second checkout carrying the same `project_id` shares the
  * same Docker containers and the same ports, so its `at:verify` would reset this run's database
  * out from under it. Mirrors `Acquire-WorkLock` in loop/work/work-lib.ps1 — exclusive create,
  * holder recorded, stale takeover.
+ *
+ * TAKEOVER IS THE WHOLE DIFFICULTY. Two processes can both read the same leftover lock and both
+ * conclude it is stale; if each then removed it and created its own, the second removal would take
+ * out the FIRST one's brand-new live lock and both would run — the precise failure this exists to
+ * prevent. Moving the stale file aside with an atomic rename does NOT fix that: the winner
+ * repopulates the path microseconds later, so the loser's rename succeeds against a LIVE lock,
+ * which is just as destructive as unlinking it. (Proved with a two-contender race, not reasoned
+ * about; the race is in runner.selftest.ts.)
+ *
+ * So the takeover DECISION is serialized by a second exclusive-create lock — the gate. Only one
+ * process is ever inside it, and it re-reads the holder INSIDE, so:
+ *   - no other process can be taking over concurrently (the gate is exclusive);
+ *   - no ordinary claim can have slipped in, because the stale file occupies the path continuously
+ *     until the gate holder removes it, and an exclusive create only succeeds on a free path;
+ *   - if a third process wins the claim in the instant after removal, the gate holder's own create
+ *     simply fails and it restarts, having deleted nothing further.
+ * A gate stranded by a killed process is cleared on age. The section lasts milliseconds, so a live
+ * holder never reaches that threshold, and clearing one wrongly degrades to two takers in the
+ * section — today's behaviour, not worse.
  */
-function acquireStackLock(config: LocalConfig, requirement: string): StackLock {
-  const file = join(lockDir(), `at-verify-${config.projectId}-${config.apiPort}.lock`);
+export function acquireStackLock(config: LocalConfig, requirement: string): StackLock {
+  const file = stackLockPath(config);
 
   const claim = (): StackLock | null => {
     let fd: number;
@@ -274,37 +340,68 @@ function acquireStackLock(config: LocalConfig, requirement: string): StackLock {
     };
   };
 
-  const first = claim();
-  if (first) return first;
+  const gate = `${file}.takeover`;
 
-  // Held. Take it over only if the holder is provably gone, or old enough to be a leftover.
-  let holder: { pid?: number; host?: string; requirement?: string; startedAt?: string } = {};
-  try {
-    holder = JSON.parse(readFileSync(file, 'utf8')) as typeof holder;
-  } catch {
-    holder = {};
+  /** The recorded holder, or null if the lock is gone. */
+  const readHolder = (): Holder | null => {
+    try {
+      return JSON.parse(readFileSync(file, 'utf8')) as Holder;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      return {}; // unreadable or half-written: treat as an unidentifiable holder, judged below
+    }
+  };
+
+  /** Bounded synchronous pause; a gate is held for milliseconds, so this is all the wait needed. */
+  const pause = (ms: number) => {
+    const until = Date.now() + ms;
+    while (Date.now() < until) {
+      /* spin */
+    }
+  };
+
+  // Bounded: every retry follows another process winning the gate, which cannot repeat forever.
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const claimed = claim();
+    if (claimed) return claimed;
+
+    const holder = readHolder();
+    if (holder === null) continue; // released between the failed claim and the read
+    if (holderIsLive(holder)) throw heldByAnotherRun(holder, file);
+
+    // Stale. Enter the takeover gate — the only place the live lock path may be removed.
+    let gateFd: number;
+    try {
+      gateFd = openSync(gate, 'wx');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+      clearStrandedGate(gate);
+      pause(10);
+      continue;
+    }
+
+    try {
+      writeSync(gateFd, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
+      const inside = readHolder();
+      if (inside === null) continue; // released while we were entering; the next claim takes it
+      if (holderIsLive(inside)) continue; // refreshed under us; the next pass refuses it properly
+
+      rmSync(file, { force: true });
+      const takeover = claim();
+      if (!takeover) continue; // a third process claimed the free path first — delete nothing more
+
+      console.log(
+        `at:verify — took over a stale stack lock (holder pid ${inside.pid ?? 'unknown'} ` +
+          `${typeof inside.pid === 'number' && processIsAlive(inside.pid) ? `is older than ${LOCK_STALE_MINUTES} minutes` : 'is no longer running'})`,
+      );
+      return takeover;
+    } finally {
+      closeSync(gateFd);
+      rmSync(gate, { force: true });
+    }
   }
-  const startedAt = holder.startedAt ? Date.parse(holder.startedAt) : NaN;
-  const ageMinutes = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 60_000 : Infinity;
-  const alive = typeof holder.pid === 'number' && processIsAlive(holder.pid);
 
-  if (alive && ageMinutes < LOCK_STALE_MINUTES) {
-    throw new Error(
-      `another at:verify run holds this stack (pid ${holder.pid} on ${holder.host ?? 'this machine'}, ` +
-        `requirement ${holder.requirement ?? 'unknown'}, started ${holder.startedAt ?? 'unknown'}). ` +
-        `Two runs against one stack destroy each other: the second would reset the first's database ` +
-        `mid-run. Wait for it to finish. If that process is definitely gone, delete ${file}.`,
-    );
-  }
-
-  rmSync(file, { force: true });
-  const takeover = claim();
-  if (!takeover) throw new Error(`could not take over the stale lock at ${file} — another run claimed it first`);
-  console.log(
-    `at:verify — took over a stale stack lock (holder pid ${holder.pid ?? 'unknown'} ` +
-      `${alive ? `is older than ${LOCK_STALE_MINUTES} minutes` : 'is no longer running'})`,
-  );
-  return takeover;
+  throw new Error(`could not acquire the stack lock at ${file} — it kept changing hands; try again`);
 }
 
 /* -------------------------------------------------------------------- the stack's own report */
@@ -502,6 +599,77 @@ async function waitForReady(status: StackStatus, phase: string): Promise<void> {
   );
 }
 
+/* --------------------------------------------------------------------- the migration-set proof */
+
+/**
+ * The migrations the reset is supposed to replay, read from disk. The CLI names them
+ * `<timestamp>_name.sql` and records the timestamp as the applied version, so the timestamp is
+ * the identity. `.gitkeep` and `README.md` are not migrations and are ignored.
+ */
+export function expectedMigrations(): string[] {
+  const dir = join(REPO_ROOT, 'supabase', 'migrations');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .map((name) => /^(\d{14})_.*\.sql$/.exec(name)?.[1])
+    .filter((version): version is string => Boolean(version))
+    .sort();
+}
+
+/** What the database says it actually replayed. */
+async function appliedMigrations(dbUrl: string): Promise<string[]> {
+  const SQL = (globalThis as { Bun?: { SQL?: BunSqlCtor } }).Bun?.SQL;
+  if (!SQL) throw new Error('this runtime has no SQL client (expected bun)');
+  let sql: BunSqlClient | null = null;
+  try {
+    sql = new SQL(dbUrl);
+    const rows = (await sql`select version from supabase_migrations.schema_migrations order by version`) as { version: string }[];
+    return rows.map((row) => String(row.version)).sort();
+  } catch (err) {
+    // A database that has never had a migration applied has no history table at all. "No table"
+    // and "empty table" mean the same thing — nothing was applied — and saying so lets the
+    // comparison below name exactly which migrations are missing instead of reporting a SQL error.
+    const message = (err as Error).message ?? '';
+    if (/schema_migrations/.test(message) && /does not exist/i.test(message)) return [];
+    throw new Error(`could not read the migration history: ${diagnostic(message)}`);
+  } finally {
+    await sql?.close().catch(() => undefined);
+  }
+}
+
+/** Exact set equality, both directions, named plainly. */
+export function migrationSetProblems(expected: string[], applied: string[]): string[] {
+  const missing = expected.filter((version) => !applied.includes(version));
+  const extra = applied.filter((version) => !expected.includes(version));
+  const problems: string[] = [];
+  if (missing.length) problems.push(`never applied: ${missing.join(', ')}`);
+  if (extra.length) problems.push(`applied but not in supabase/migrations: ${extra.join(', ')}`);
+  return problems;
+}
+
+/**
+ * Prove the rebuild actually replayed the migration set — the promise `supabase/migrations/README.md`
+ * makes. "The reset command exited zero" is not that proof: a reset that replays NOTHING also exits
+ * zero, and a suite then grades an empty schema while believing it graded the real one.
+ *
+ * An empty expected set is legitimate today (no migrations have been written yet) and is allowed —
+ * but it is STATED on every run, so an empty rebuild can never be silently mistaken for a real one.
+ */
+async function proveMigrationsReplayed(status: StackStatus): Promise<void> {
+  const expected = expectedMigrations();
+  const applied = await appliedMigrations(status.dbUrl);
+  const problems = migrationSetProblems(expected, applied);
+
+  const summary = `${expected.length} migration${expected.length === 1 ? '' : 's'} expected, ${applied.length} applied`;
+  if (problems.length) {
+    throw new Error(`the rebuilt database does not match supabase/migrations (${summary}) — ${problems.join('; ')}`);
+  }
+  console.log(
+    expected.length === 0
+      ? `at:verify — ${summary} — the schema is empty by design at this stage`
+      : `at:verify — ${summary} — the rebuilt schema matches supabase/migrations exactly`,
+  );
+}
+
 /* ------------------------------------------------------------------------------------- reset */
 
 /**
@@ -615,6 +783,23 @@ export function runVerdict(rows: IdRow[], unexpected: string[], run: ProcessOutc
   return problems;
 }
 
+/**
+ * End-of-run housekeeping. The lock release lives in a `finally` of its OWN so that it cannot be
+ * skipped: on Windows, removing the report directory can throw EPERM while a file in it is still
+ * open, and if that throw escaped, the stack lock would be stranded and every later run would
+ * find a leftover it has to reason about. A lost temp directory is untidy; a stranded lock blocks
+ * work, so the release always wins and the cleanup failure is reported instead of hidden.
+ */
+export function cleanupRun(reportDir: string, lock: { release(): void } | null): void {
+  try {
+    rmSync(reportDir, { recursive: true, force: true });
+  } catch (err) {
+    console.error(`at:verify — could not remove the report directory ${reportDir}: ${diagnostic((err as Error).message)}`);
+  } finally {
+    lock?.release();
+  }
+}
+
 function firstLine(text: string | undefined, fallback: string): string {
   const line = redact(text ?? '').split('\n').map((l) => l.trim()).find((l) => l.length > 0);
   return line ?? fallback;
@@ -674,8 +859,7 @@ async function main(argv: string[]): Promise<number> {
   let lock: StackLock | null = null;
   const reportDir = mkdtempSync(join(tmpdir(), 'at-verify-'));
   const cleanup = () => {
-    rmSync(reportDir, { recursive: true, force: true });
-    lock?.release();
+    cleanupRun(reportDir, lock);
     lock = null;
   };
   const onSignal = () => {
@@ -738,6 +922,14 @@ async function main(argv: string[]): Promise<number> {
 
       try {
         await waitForReady(status, 'after the reset');
+      } catch (err) {
+        return infra((err as Error).message);
+      }
+
+      // (5) Prove the rebuild replayed the migration set — a reset that replays nothing also
+      // exits zero, and the suite would grade an empty schema believing it was the real one.
+      try {
+        await proveMigrationsReplayed(status);
       } catch (err) {
         return infra((err as Error).message);
       }

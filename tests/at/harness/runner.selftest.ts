@@ -12,16 +12,22 @@
  * its environment, so it is asserted against a real child rather than against the code.
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { REPO_ROOT } from './check.ts';
 import {
+  acquireStackLock,
   bunExecutable,
   childEnv,
+  cleanupRun,
+  expectedMigrations,
   localStackProblems,
+  migrationSetProblems,
   redact,
   runVerdict,
+  stackLockPath,
   type IdRow,
   type LocalConfig,
   type StackStatus,
@@ -133,5 +139,119 @@ describe('nothing key-shaped is ever printed', () => {
     expect(redact(`token=${jwtish}`)).not.toContain(jwtish);
     expect(redact('key=sb_secret_abcdefghijklmnop')).not.toContain('sb_secret_abcdefghijklmnop');
     expect(redact('postgresql://postgres:hunter2@127.0.0.1:54322/postgres')).not.toContain('hunter2');
+  });
+});
+
+describe('taking over a stale lock is atomic — one owner, never two', () => {
+  /** A key of its own, so nothing here can disturb a real stack's lock. */
+  const testConfig = (): LocalConfig => ({ projectId: `selftest-${Math.random().toString(36).slice(2, 10)}`, apiPort: 1, dbPort: 2 });
+
+  const plantLock = (config: LocalConfig, holder: Record<string, unknown>) => {
+    writeFileSync(stackLockPath(config), JSON.stringify(holder));
+  };
+  const scrub = (config: LocalConfig) => rmSync(stackLockPath(config), { force: true });
+
+  it('takes over a lock whose holder is gone', () => {
+    const config = testConfig();
+    plantLock(config, { pid: 999_999, host: 'gone', requirement: 'req-000', startedAt: new Date().toISOString() });
+    try {
+      const lock = acquireStackLock(config, 'req-016');
+      expect(JSON.parse(readFileSync(lock.file, 'utf8')).pid, 'the takeover did not record this process as the holder').toBe(process.pid);
+      lock.release();
+      expect(existsSync(lock.file), 'release left the lock behind').toBe(false);
+    } finally {
+      scrub(config);
+    }
+  });
+
+  it('refuses a live, fresh holder', () => {
+    const config = testConfig();
+    plantLock(config, { pid: process.pid, host: 'here', requirement: 'req-000', startedAt: new Date().toISOString() });
+    try {
+      expect(() => acquireStackLock(config, 'req-016')).toThrow(/another at:verify run holds this stack/);
+    } finally {
+      scrub(config);
+    }
+  });
+
+  it('two contenders racing for ONE stale lock end with exactly one owner', async () => {
+    const config = testConfig();
+    // Stale by age as well as by liveness, so neither contender can decide otherwise.
+    plantLock(config, {
+      pid: 999_999,
+      host: 'gone',
+      requirement: 'req-000',
+      startedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const runnerUrl = new URL('./runner.ts', import.meta.url).href;
+    const startAt = Date.now() + 600;
+    const contender = (): Promise<string> => {
+      const code =
+        `const { acquireStackLock } = await import(${JSON.stringify(runnerUrl)});\n` +
+        `const config = ${JSON.stringify(JSON.stringify(config))};\n` +
+        `while (Date.now() < ${startAt}) {}\n` + // a barrier, so both attempt at the same instant
+        `try {\n` +
+        `  const lock = acquireStackLock(JSON.parse(config), 'req-016');\n` +
+        `  console.log('ACQUIRED');\n` +
+        `  await Bun.sleep(500);\n` + // hold it, so the loser meets a LIVE holder
+        `  lock.release();\n` +
+        `} catch { console.log('REFUSED'); }\n`;
+      // spawn, NOT spawnSync: a synchronous spawn would run the two contenders one after the
+      // other, and the second would find the lock already released — a race that never raced.
+      return new Promise<string>((resolve) => {
+        const child = spawn(bunExecutable(), ['--no-env-file', '-e', code], { stdio: ['ignore', 'pipe', 'pipe'] });
+        let out = '';
+        child.stdout.on('data', (chunk: Buffer) => (out += chunk.toString('utf8')));
+        child.stderr.on('data', (chunk: Buffer) => (out += chunk.toString('utf8')));
+        child.once('error', (err) => resolve(`ERROR ${err.message}`));
+        child.once('close', () => resolve(out));
+      });
+    };
+
+    // Started together; the in-child barrier is what makes them collide, not the spawn timing.
+    const [a, b] = await Promise.all([contender(), contender()]);
+    const outcomes = [a, b].map((out) => (out.includes('ACQUIRED') ? 'ACQUIRED' : out.includes('REFUSED') ? 'REFUSED' : `UNKNOWN(${out.trim()})`));
+
+    try {
+      expect(outcomes.filter((o) => o === 'ACQUIRED'), `outcomes were ${JSON.stringify(outcomes)}`).toHaveLength(1);
+      expect(outcomes.filter((o) => o === 'REFUSED'), `outcomes were ${JSON.stringify(outcomes)}`).toHaveLength(1);
+      expect(existsSync(stackLockPath(config)), 'the winner did not release its lock').toBe(false);
+    } finally {
+      scrub(config);
+    }
+  }, 60_000);
+});
+
+describe('the stack lock is released even when the report directory cannot be removed', () => {
+  it('reports the cleanup failure and releases anyway', () => {
+    let released = false;
+    // A path containing a NUL byte cannot be removed and cannot be swallowed by `force`.
+    cleanupRun('C:\\at-verify\0broken', { release: () => (released = true) });
+    expect(released, 'a failing report cleanup stranded the stack lock').toBe(true);
+  });
+});
+
+describe('the rebuild is proven against the migration set, and an empty set is visible', () => {
+  it('accepts an exact match, including the empty set', () => {
+    expect(migrationSetProblems([], [])).toEqual([]);
+    expect(migrationSetProblems(['20260101000000'], ['20260101000000'])).toEqual([]);
+  });
+
+  it('refuses a migration that was never applied, and one applied from nowhere', () => {
+    expect(migrationSetProblems(['20260101000000'], []).join(' ')).toContain('never applied: 20260101000000');
+    expect(migrationSetProblems([], ['20260101000000']).join(' ')).toContain('applied but not in supabase/migrations: 20260101000000');
+  });
+
+  it('reads timestamped .sql files and ignores .gitkeep and README.md', () => {
+    const planted = `${REPO_ROOT}/supabase/migrations/20260101000000_selftest_probe.sql`;
+    expect(expectedMigrations(), 'the placeholder files are being counted as migrations').toEqual([]);
+    try {
+      writeFileSync(planted, '-- selftest probe\n');
+      expect(expectedMigrations()).toEqual(['20260101000000']);
+    } finally {
+      rmSync(planted, { force: true });
+    }
+    expect(expectedMigrations()).toEqual([]);
   });
 });
