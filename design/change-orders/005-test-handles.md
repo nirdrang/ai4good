@@ -34,8 +34,9 @@ attribute that survives regeneration.
 
 ## Scope — forward only
 
-**Do NOT retrofit the existing eleven screens.** Screens drawn before ratification carry no
-handles by design; they are retrofitted per requirement at its wiring leaf, when a wired test
+**Do NOT retrofit the existing twelve screens** (the eleven Batch-0 screens plus `app-shell`).
+The exemption is defined by date, not by count: any screen drawn **before 2026-07-24** carries
+no handles by design, and is retrofitted per requirement at its wiring leaf, when a wired test
 first needs them. Apply this convention to **every screen drawn from now on** — starting with
 Batch 1.
 
