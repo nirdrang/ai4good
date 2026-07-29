@@ -75,6 +75,30 @@ re-gated; **this is the rename-diff's first real exercise, and it passed.**
   "building here *is* orchestrating Claude Code and Lovable, and the stack rows only qualify
   it"; Go and Docker dropped, Postgres added. Privacy copy strengthened considerably.
 
+## Second re-gate (2026-07-29, landing revision 2) — PASS on rules, FAIL on markup hygiene
+
+The landing was revised again (28,795 → 32,446 bytes): the hero ring **no longer rotates** —
+the five connecting arcs now draw themselves in sequence as each stage lights, and the fifth
+pictogram became three counter-rotating gears ("the tool keeps running"). No sections, states,
+or handles changed.
+
+- **Rename-diff: CLEAN** — 20 unique handles before and after, zero lost, zero renamed.
+- **Never-show / money / verified scans: CLEAN.**
+- **Markup hygiene: THREE DEFECTS** (verified directly in the file, not taken on report):
+  1. **Orphan CSS at offset 3392** — `to{transform:rotate(360deg)}}` left behind when the
+     ring-rotation keyframe was deleted; its `@keyframes` opener is gone. Browsers recover,
+     but it is dead debris that would be copied into the built app.
+  2. **Malformed SVG on all three gears** — each gear's centre-hole path fragment
+     (`M2.50 0A2.50 …Z"`) sits **outside** the `d` attribute, after `fill-rule="evenodd"`.
+     The gears therefore render solid with no centre holes, and the fragment degrades into
+     junk attributes. This is a visible defect, not just untidiness.
+  3. **Stale annotation** — the hero caption still describes "pictograms on a slowly turning
+     ring"; the ring no longer turns.
+
+Dispatched as **change order 006**. Not a blocker for Batch 2 design work, but it must be
+fixed before the landing is handed to Lovable — the design HTML is the build target, and
+malformed markup propagates.
+
 ## OPEN QUESTION raised by the designer (founder decision needed)
 
 **Where does the cause list come from?** The ten cause labels on the volunteer profile are a

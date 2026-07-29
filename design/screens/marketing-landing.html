@@ -25,7 +25,19 @@ textarea{resize:vertical}
 @keyframes con3{0%,51%{border-color:#e3e0d8;box-shadow:none;transform:none}51.3%,67.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}68%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
 @keyframes con4{0%,68%{border-color:#e3e0d8;box-shadow:none;transform:none}68.3%,84.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}85%,100%{border-color:#e3e0d8;box-shadow:none;transform:none}}
 @keyframes con5{0%,85%{border-color:#e3e0d8;box-shadow:none;transform:none}85.3%,99.7%{border-color:#0d7a63;box-shadow:0 3px 10px rgba(13,122,99,.16);transform:translateY(-2px)}}
-@keyframes cyr{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+to{transform:rotate(360deg)}}
+@keyframes head0{0%,14%{opacity:0}16%,100%{opacity:1}}
+@keyframes head1{0%,34%{opacity:0}36%,100%{opacity:1}}
+@keyframes head2{0%,54%{opacity:0}56%,100%{opacity:1}}
+@keyframes head3{0%,74%{opacity:0}76%,100%{opacity:1}}
+@keyframes head4{0%,94%{opacity:0}96%,100%{opacity:1}}
+@keyframes arc0{0%,5%{stroke-dashoffset:100}16%,100%{stroke-dashoffset:0}}
+@keyframes arc1{0%,25%{stroke-dashoffset:100}36%,100%{stroke-dashoffset:0}}
+@keyframes arc2{0%,45%{stroke-dashoffset:100}56%,100%{stroke-dashoffset:0}}
+@keyframes arc3{0%,65%{stroke-dashoffset:100}76%,100%{stroke-dashoffset:0}}
+@keyframes arc4{0%,85%{stroke-dashoffset:100}96%,100%{stroke-dashoffset:0}}
+@keyframes gearspin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes gearspinrev{from{transform:rotate(0)}to{transform:rotate(-360deg)}}
 @keyframes cy0{3%,17%{border-color:#0d7a63;box-shadow:0 4px 14px rgba(13,122,99,.22);transform:scale(1.1)}20%,100%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}}
 @keyframes cy1{0%,20%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}23%,37%{border-color:#0d7a63;box-shadow:0 4px 14px rgba(13,122,99,.22);transform:scale(1.1)}40%,100%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}}
 @keyframes cy2{0%,40%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}43%,57%{border-color:#0d7a63;box-shadow:0 4px 14px rgba(13,122,99,.22);transform:scale(1.1)}60%,100%{border-color:#e3e0d8;box-shadow:0 1px 3px rgba(0,0,0,.05);transform:scale(1)}}
@@ -52,21 +64,30 @@ label{display:block;font-size:13px;font-weight:600;color:#1f2328;margin-bottom:5
 <div style="font-size:12.5px;margin-top:5px;line-height:1.5;color:#59554e">Connect GitHub, take on one project.</div></a></div>
 </div>
 <div aria-hidden="true" style="width:340px;height:340px;flex-shrink:0;position:relative">
-<svg class="fanim" viewBox="0 0 340 340" style="position:absolute;inset:0;animation:cyr 60s linear infinite;transform-origin:50% 50%">
-<defs><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#a8c4ba"/></marker></defs>
+<svg class="fanim" viewBox="0 0 340 340" style="position:absolute;inset:0">
+
 <g fill="none" stroke="#a8c4ba" stroke-width="2.5" stroke-linecap="round">
-<path d="M210.4 59.1 A118 118 0 0 1 263.0 97.3" marker-end="url(#ah)"/>
-<path d="M287.9 174.1 A118 118 0 0 1 267.8 236.0" marker-end="url(#ah)"/>
-<path d="M202.5 283.4 A118 118 0 0 1 137.5 283.4" marker-end="url(#ah)"/>
-<path d="M72.2 236.0 A118 118 0 0 1 52.1 174.1" marker-end="url(#ah)"/>
-<path d="M77.0 97.3 A118 118 0 0 1 129.6 59.1" marker-end="url(#ah)"/>
-</g></svg>
+<path class="fanim" d="M210.4 59.1 A118 118 0 0 1 263.0 97.3" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" style="animation:arc0 15s linear infinite"/>
+<path class="fanim" d="M287.9 174.1 A118 118 0 0 1 267.8 236.0" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" style="animation:arc1 15s linear infinite"/>
+<path class="fanim" d="M202.5 283.4 A118 118 0 0 1 137.5 283.4" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" style="animation:arc2 15s linear infinite"/>
+<path class="fanim" d="M72.2 236.0 A118 118 0 0 1 52.1 174.1" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" style="animation:arc3 15s linear infinite"/>
+<path class="fanim" d="M77.0 97.3 A118 118 0 0 1 129.6 59.1" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" style="animation:arc4 15s linear infinite"/>
+</g>
+<g><path class="fanim" d="M-7 -4.5L2.5 0L-7 4.5L-4.5 0Z" fill="#a8c4ba" transform="translate(263 97.3) rotate(52.0)" style="animation:head0 15s linear infinite;opacity:0"/>
+<path class="fanim" d="M-7 -4.5L2.5 0L-7 4.5L-4.5 0Z" fill="#a8c4ba" transform="translate(267.8 236) rotate(124.0)" style="animation:head1 15s linear infinite;opacity:0"/>
+<path class="fanim" d="M-7 -4.5L2.5 0L-7 4.5L-4.5 0Z" fill="#a8c4ba" transform="translate(137.5 283.4) rotate(-164.0)" style="animation:head2 15s linear infinite;opacity:0"/>
+<path class="fanim" d="M-7 -4.5L2.5 0L-7 4.5L-4.5 0Z" fill="#a8c4ba" transform="translate(52.1 174.1) rotate(-92.0)" style="animation:head3 15s linear infinite;opacity:0"/>
+<path class="fanim" d="M-7 -4.5L2.5 0L-7 4.5L-4.5 0Z" fill="#a8c4ba" transform="translate(129.6 59.1) rotate(-20.0)" style="animation:head4 15s linear infinite;opacity:0"/></g></svg>
 <div style="position:absolute;left:153px;top:153px;width:34px;height:34px;border-radius:8px;background:#0d7a63;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">a4</div>
 <div class="fanim" style="position:absolute;left:133px;top:15px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy0 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5"/><path d="M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.9 10.6c.6.5.9 1.5.9 2.4h6c0-.9.3-1.9.9-2.4A6 6 0 0 0 12 3z"/><path d="M3.5 6l-1.2-1.2M20.5 6l1.2-1.2M12 .8v-.1" stroke="#0d7a63"/></svg></div>
 <div class="fanim" style="position:absolute;left:245px;top:97px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy1 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c-4.4 0-8 3-8 6.8 0 1.9.9 3.6 2.3 4.8L5 20l4.2-1.5c.9.2 1.8.3 2.8.3 4.4 0 8-3 8-6.9S16.4 4 12 4z"/><path d="M12 7.6l.9 2.2 2.2.9-2.2.9-.9 2.2-.9-2.2-2.2-.9 2.2-.9z" fill="#0d7a63" stroke="none"/></svg></div>
 <div class="fanim" style="position:absolute;left:202px;top:228px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy2 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.7" r="3.1"/><path d="M3.6 19.2c.6-3.1 2.8-4.9 5.4-4.9s4.8 1.8 5.4 4.9"/><path d="M17.3 3.8l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z" fill="#0d7a63" stroke="none"/><path d="M20 13.2l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z" fill="#0d7a63" stroke="none"/></svg></div>
 <div class="fanim" style="position:absolute;left:64px;top:228px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy3 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-4.5 5L8 17"/><path d="M16 7l4.5 5L16 17"/><path d="M12 8.2l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" fill="#0d7a63" stroke="none"/></svg></div>
-<div class="fanim" style="position:absolute;left:21px;top:97px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy4 15s ease infinite"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1f2328" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.4"/><path d="M12 4.6v2.2M12 17.2v2.2M4.6 12h2.2M17.2 12h2.2M6.8 6.8l1.6 1.6M15.6 15.6l1.6 1.6M17.2 6.8l-1.6 1.6M8.4 15.6l-1.6 1.6"/><circle cx="12" cy="12" r="1.3" fill="#0d7a63" stroke="none"/></svg></div>
+<div class="fanim" style="position:absolute;left:21px;top:97px;width:74px;height:74px;border-radius:50%;background:#fff;border:2px solid #e3e0d8;display:flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.05);animation:cy4 15s ease infinite"><svg width="36" height="36" viewBox="0 0 24 24" fill="#0d7a63">
+<g class="fanim" style="animation:gearspin 6s linear infinite;transform-origin:9.2px 9.2px"><g transform="translate(9.2,9.2)"><path d="M4.88 0.46L6.27 1.27L6.07 2.04L4.46 2.04L3.99 2.84L4.80 4.23L4.23 4.80L2.84 3.99L2.04 4.46L2.04 6.07L1.27 6.27L0.46 4.88L-0.46 4.88L-1.27 6.27L-2.04 6.07L-2.04 4.46L-2.84 3.99L-4.23 4.80L-4.80 4.23L-3.99 2.84L-4.46 2.04L-6.07 2.04L-6.27 1.27L-4.88 0.46L-4.88 -0.46L-6.27 -1.27L-6.07 -2.04L-4.46 -2.04L-3.99 -2.84L-4.80 -4.23L-4.23 -4.80L-2.84 -3.99L-2.04 -4.46L-2.04 -6.07L-1.27 -6.27L-0.46 -4.88L0.46 -4.88L1.27 -6.27L2.04 -6.07L2.04 -4.46L2.84 -3.99L4.23 -4.80L4.80 -4.23L3.99 -2.84L4.46 -2.04L6.07 -2.04L6.27 -1.27L4.88 -0.46Z" fill-rule="evenodd" M2.50 0A2.50 2.50 0 1 0 -2.50 0A2.50 2.50 0 1 0 2.50 0Z"/></g></g>
+<g class="fanim" style="animation:gearspinrev 6s linear infinite;transform-origin:17.4px 16.4px"><g transform="translate(17.4,16.4)"><path d="M3.18 0.36L4.18 1.02L3.98 1.63L2.78 1.58L2.36 2.16L2.78 3.28L2.26 3.66L1.33 2.91L0.64 3.14L0.32 4.29L-0.32 4.29L-0.64 3.14L-1.33 2.91L-2.26 3.66L-2.78 3.28L-2.36 2.16L-2.78 1.58L-3.98 1.63L-4.18 1.02L-3.18 0.36L-3.18 -0.36L-4.18 -1.02L-3.98 -1.63L-2.78 -1.58L-2.36 -2.16L-2.78 -3.28L-2.26 -3.66L-1.33 -2.91L-0.64 -3.14L-0.32 -4.29L0.32 -4.29L0.64 -3.14L1.33 -2.91L2.26 -3.66L2.78 -3.28L2.36 -2.16L2.78 -1.58L3.98 -1.63L4.18 -1.02L3.18 -0.36Z" fill-rule="evenodd" M1.60 0A1.60 1.60 0 1 0 -1.60 0A1.60 1.60 0 1 0 1.60 0Z"/></g></g>
+<g class="fanim" style="animation:gearspin 6s linear infinite;transform-origin:8.4px 19.2px"><g transform="translate(8.4,19.2)"><path d="M2.48 0.31L3.28 0.89L3.09 1.43L2.10 1.35L1.70 1.83L1.94 2.79L1.45 3.08L0.74 2.39L0.12 2.50L-0.31 3.39L-0.87 3.29L-0.97 2.30L-1.51 1.99L-2.41 2.40L-2.78 1.96L-2.22 1.14L-2.44 0.55L-3.39 0.28L-3.39 -0.28L-2.44 -0.55L-2.22 -1.14L-2.78 -1.96L-2.41 -2.40L-1.51 -1.99L-0.97 -2.30L-0.87 -3.29L-0.31 -3.39L0.12 -2.50L0.74 -2.39L1.45 -3.08L1.94 -2.79L1.70 -1.83L2.10 -1.35L3.09 -1.43L3.28 -0.89L2.48 -0.31Z" fill-rule="evenodd" M1.25 0A1.25 1.25 0 1 0 -1.25 0A1.25 1.25 0 1 0 1.25 0Z"/></g></g>
+</svg></div>
 </div>
 </div>
 <div style="padding:22px 26px;display:grid;gap:22px;border-top:1px solid #e3e0d8">
