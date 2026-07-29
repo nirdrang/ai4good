@@ -79,6 +79,21 @@ Bring-up remaining: B1 project-knowledge push (free), B2 fixture pack authoring,
   never pushed to the design chat: an enforcement layer was complete while the notification
   step my own way-of-work requires was skipped. Caught before Batch 1 was drawn, which is the
   first screen set the convention binds. Lesson: a folded rule is not a delivered rule.
+
+## 2026-07-29 — the two shell questions RATIFIED by the founder (in the design chat)
+
+- Verified from the design project's own transcript: the founder answered both gate-report-002
+  questions directly in the design conversation — **"My projects is fine"** (the tab stays;
+  Dashboard = action-needed overview + cross-project money, My projects = the complete list
+  including completed and cancelled, both roles) and **"option a"** for **Balance & invoices**
+  (the tab stays; a thin organisation-level page — general balance + how it auto-applies,
+  Discovery credits remaining, Lovable purse, VAT invoices — gets designed in a later batch).
+- **Consequence, deferred not forgotten:** the screen inventory grows 27 → 29. The two new
+  rows (the Balance & invoices page; the My projects list) enter `ui-ux-instructions.md` §11
+  and the batch plan with the Batch 3 change order, where they belong — nothing about Batch 1
+  depends on them.
+- With these two ratified, **Batch 0's design is fully signed off** pending the founder's
+  visual gallery pass, and Batch 1 is unblocked.
 - Two conflicts surfaced and resolved explicitly rather than silently (both reported to the
   founder): the draft's illustrative `task-list`/`task-item` names contradict d82/d86 on
   NGO/public surfaces, so the fold uses `requirement-*` there and reserves `task-*` for the
