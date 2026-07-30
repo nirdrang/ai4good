@@ -1,0 +1,150 @@
+---
+name: item-loop
+description: Run one board item through the orchestrated build loop — brief, two adversarial gates, bounded fix loops, verified merge tail. The operational form of the ratified Item Loop playbook (revision 2, 2026-07-30, codex-max-reviewed).
+---
+
+# /item-loop — the orchestrated item loop
+
+Run ONE board item end to end: brief → plan → Gate 1 → implement → Gate 2 (panel) →
+verify → audit → merge ruling → publish → merge → report. The session that invokes this
+skill IS the orchestrator. Usage: `/item-loop AI4DEV-NN` (foundation items; a PM-tree
+requirement is pulled by `/pm-next` first and then run with `/item-loop AI4PM-NN`).
+
+**Design record:** the ratified playbook artifact "The Item Loop, revision 2"
+(2026-07-30), itself hardened by a codex max-effort adversarial round (15 findings,
+8 blockers folded). This file is its operational distillation; on any gap, the
+playbook's principles decide: nothing crosses an actor boundary except as a file;
+delegate the hands, never the verdict; one judgment context per item; every loop
+bounded, every early exit with a written reason.
+
+## Roles — four actors, three memory models
+
+| actor | does | memory model |
+|---|---|---|
+| ORCHESTRATOR (this session, Fable) | brief, advice, two checkpoints (amended plan; merge authorization), rulings, report. Writes no implementation code. | accumulates everything — one judgment context per item; advisor = this session, NEVER a spawned agent |
+| EXECUTOR (Opus subagent) | plans, implements, triages critiques first-hand, fixes. Never pushes, never touches the PR, never decides judgment calls. | one instance per item, spawned once, resumed never respawned |
+| REVIEWERS (codex; + Kimi at Gate 2) | adversarial critique + confirmation of own findings | stateless — context rebuilt from files each invocation; verdicts replayable |
+| SONNET subagents | housekeeping, courier runs, pre-merge audit + independent re-run, publish, merge execution, post-merge check | disposable |
+
+FOUNDER sits above, reached only through the escalation matrix. Pending founder
+escalation = Blocked label + comment (never a status change), merge can never proceed.
+
+## Item files (committed on the branch — the paper trail IS the protocol)
+
+`loop/items/<ITEM>/` : `brief.md` · `plan.md` (+ appended dispositions) ·
+`gate1-critique.txt` · `gate2-critique-codex.txt` · `gate2-critique-kimi.txt` ·
+`finding-manifest.json` · `disposition-log.md` · `ledger.jsonl` (append-only decisions)
+· `premerge-audit.md` · `merge-decision.md`. Every gate artifact records the head SHA
+it examined.
+
+## The loop
+
+0. **Housekeeping — sonnet subagent** (`<ITEM> · housekeeping`): dedicated worktree on
+   the item's branch, `/bind bringup <ITEM>` (or the task binding), item → In Progress
+   with a comment. Orchestrator confirms the stamp.
+1. **Read the authorities — orchestrator, main session**: the Linear item, the ratified
+   spec sections, the code. The item's done-criterion is supreme in scope disputes.
+2. **Write the brief — orchestrator**: every decision pre-made; work items numbered;
+   the verification expected state declared exactly (which AT ids green, which red with
+   which capability-pending reason). Anything undecided = executor stop, by definition.
+3. **Plan — executor** (`<ITEM> · executor · plan`, spawned once): reads the brief,
+   writes `plan.md`, STOPS. The stop is the delivery; waiting is passive (transcript
+   persists; the reply is the wake-up).
+4. **Gate 1 — codex refutes the plan** (courier: main session or sonnet; prompt =
+   role + item + spec + brief + plan): one round. Critique returns to the EXECUTOR
+   (first reader), who folds what the brief already decides, escalates judgment
+   findings to the orchestrator (a message to main — never a spawned advisor), records
+   dispositions in `plan.md`. **Checkpoint (orchestrator, hard):** read the amended
+   plan + dispositions; check nothing was silently dropped, folds stayed inside the
+   brief, advice was folded as advised, the plan still meets the done-criterion.
+   Approval wakes the executor. The approved amended plan is the implementation contract.
+5. **Implement — executor** (`↻ same instance · implement`): one commit per work item.
+6. **Gate 2 — panel: codex + Kimi in parallel** (courier builds one prompt from brief +
+   amended plan + diff @ head SHA; separate output files; courier freezes
+   `finding-manifest.json`: stable ids, raiser, risk class, critique hashes).
+   Both critiques return to the executor, who triages:
+   - raised by both → highest confidence, fix first;
+   - unique → fix if inside the contract, escalate if judgment;
+   - reviewers CONFLICT → automatic escalation; the executor never picks between reviewers.
+   Executor appends dispositions only — never merges, drops, or rewords a finding.
+   **Confirmation:** after ALL fixes, both raisers confirm their own findings against
+   the same immutable head SHA (a later mutation invalidates both). **One cap: at most
+   two fix→confirm cycles per gate.** After the cap the orchestrator rules every
+   still-open finding terminal (fix-adequate / rejected / deferred-to-filed-item, each
+   with reason) — EXCEPT false-green-class, which only the founder can close.
+   **False-green-class is operational and raiser-marked** (requirement violation,
+   security or data-integrity defect, harness invalidity, misleading expected state);
+   nobody downstream can untag it; tag disputes block the merge → founder. A NEW
+   blocking-class defect found mid-confirmation is never parked: one bounded scoped
+   extra epoch. Everything else new mid-confirmation → recorded, disposed at the merge
+   ruling (fold / file / reject).
+7. **Verify — executor** (`↻ same instance · verify`): run the full suite until it
+   matches the declared expected state exactly; report with raw output. Failure → the
+   executor fixes it (a test failure is not a reviewer finding); orchestrator advises
+   the path back: mechanical → re-verify; substantive → scoped panel review of the fix
+   diff. 
+8. **Merge tail:**
+   - **6a Pre-merge audit — sonnet** (`<ITEM> · audit`, fresh context): independently
+     re-runs the verify suite (independence from the executor is the point, not
+     intelligence) + gathers every checklist box's evidence + checks manifest↔log
+     one-to-one coverage. Reports; rules nothing.
+   - **6b Merge ruling — orchestrator, never delegated**: read the diff, the audit,
+     the ledger; mark every box; write `merge-decision.md` (verdict + PR body text +
+     report source), pinned to the head SHA.
+   - **7a Publish — sonnet** (`<ITEM> · publish`): push, open/edit the PR with the
+     orchestrator's text verbatim, attach evidence, report PR number + head SHA.
+   - **7b Confirm + authorize — orchestrator**: published PR == merge-decision (text,
+     head SHA, evidence)? Mismatch → back to 7a. Then issue the merge authorization:
+     one repo, one PR, one head SHA, one merge method; expires on use. Base drift
+     since Gate 2 → update + scoped re-review first.
+   - **7c Merge — sonnet** (`<ITEM> · merge`): execute the authorization; confirm the
+     Linear item closed via the GitHub integration; completion comment. Any surprise =
+     stop-and-report.
+   - **Post-merge — sonnet** (`<ITEM> · postmerge`): loop-tier verify + selftests
+     against main; a regression → orchestrator may authorize a revert PR through this
+     same loop (scoped, expedited); item reopens via label + comment; founder hears in
+     the report.
+9. **Report — orchestrator, never delegated**: plain sentences (CLAUDE.md rule): what
+   went green, what stayed red and why, what each gate found and how it was ruled,
+   what was escalated, what remains unverified.
+
+## The merge checklist (§4 — every box or no authorization)
+
+1. Gate 1 ran; every finding has a disposition; the orchestrator approved the amended plan before implementation.
+2. Gate 2 closed: every manifest finding terminal; every reviewer conflict ruled; no unresolved false-green-class tag.
+3. Verification matches the declared expected state per id, at the tier the item names.
+4. The sonnet auditor's fresh-context re-run reproduced the executor's results; the orchestrator ruled the runs consistent.
+5. One head SHA runs through reviews, confirmations, verify runs, audit, ruling; the published PR's head equals it; base drift forced re-review first.
+6. Finding manifest ↔ disposition log in one-to-one coverage (auditor-checked).
+7. The diff is confined to the item's allowed paths.
+8. Every deferral has a filed board item, named in the PR body.
+9. Required proofs (failing-then-passing, where the item demands proof) are attached to the PR.
+10. No pending founder escalation.
+
+## Escalation matrix
+
+- Executor → Orchestrator: anything the brief + amended plan do not decide. Message to
+  main with verbatim evidence + proposed resolution + alternatives; implements nothing
+  until answered.
+- Orchestrator → Founder, only: a finding contradicting the item's ratified text (item
+  change-request); scope growth; new standing rules; unresolved false-green-class
+  finding or tag dispute; authority-document changes. Pending = Blocked label, no merge.
+- Never escalated: mechanical fixes, formatting, choices the brief already decided.
+
+## Standing pins
+
+- Codex: `gpt-5.6-sol`, effort `high` (founder 2026-07-30). Kimi: pin CLI/model/effort
+  on first use, same statelessness + prompt-file discipline.
+- Subagent labels: every spawn `<ITEM> · <role> · <phase>`; an unlabeled spawn is a
+  process violation; resumes never rename.
+- Every advisory ruling appended to `ledger.jsonl` AT RULING TIME; after context loss,
+  rehydrate from the ledger before continuing; the merge-ruling audit reads the ledger.
+- PowerShell tool, never Bash. bun, never npm/pnpm. Loop tier database-free.
+
+## INTERIM MODE — autonomous merge is OFF until the hardening lands
+
+Until (a) `at:verify --expect` (expected-state manifest), (b) CI on the PR head running
+the verify suite, and (c) AI4DEV-24 (tests/at visible to tsc) are ALL merged: run the
+loop identically, but 7b terminates at **"ready to merge" + a founder ping**; the
+founder merges or says "merge it". A hand-interpreted checklist is not a merge licence
+(codex blocker 2, accepted 2026-07-30).
