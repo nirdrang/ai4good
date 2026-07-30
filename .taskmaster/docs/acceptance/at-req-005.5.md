@@ -78,6 +78,10 @@ Source: requirements/req-005.5.md (prd-mvp.md REQ-005.5). Dependencies at bounda
 ## J. Cancellation (any pre-completion state → cancelled)
 
 - **AT-005.5.35 (P0)** — Given a project in each pre-completion state (`draft`, `discovery_in_progress`, `scoped`, `triage`, `open`, `matched_pending_fuel`, `in_progress`), When the NGO cancels, Then the project moves to `cancelled` in every case.
+- **AT-005.5.59 (P0)** — Given a project in `discovery_in_progress`, When the Discovery fit check declines it (REQ-004), Then the project moves to `cancelled` — no tenth state appears anywhere in the state field — the transition's recorded actor is the Discovery fit check (not the NGO, not an admin), and any funded fuel is released to the NGO's general balance. [d89]
+- **AT-005.5.60 (P0)** — Given a project `cancelled` by a Discovery fit decline whose ops item is disposed **overturned** by the platform admin, When the transition runs, Then the project returns to `discovery_in_progress` and the reversal is audited (actor, timestamp, the ops item it came from). [d89]
+- **AT-005.5.61 (P0)** — Given the same reverse transition attempted by anyone or anything else — the NGO, the Discovery agent itself, or an admin acting without an overturned fit-decline ops item — Then it is refused and the project stays `cancelled`. [d89]
+- **AT-005.5.62 (P0)** — Given a project `cancelled` by a route a HUMAN chose — the NGO's own cancellation, or the REQ-023 triage decline — When any actor including the platform admin attempts to reopen it, Then it is refused: those cancellations remain irreversibly terminal, and only a machine-decided cancellation is reversible. [d89]
 - **AT-005.5.36 (P0)** — Given cancellation from EACH pre-completion state carrying applicable fixtures (a funded draft, a funded `scoped`, a `matched_pending_fuel` with a consented match, a funded `in_progress` with keys and thread), When each cancellation lands, Then every side effect applicable to that state fires: keys revoked where keys exist, unconsumed fuel to the general balance where fuel exists, the volunteer notified where one is attached, and the thread read-only where one exists. [cx: parameterized — side effects were only tested from in_progress] [cross: REQ-006/009/016]
 - **AT-005.5.37 [retired — cx r2: merged into the AT-005.5.47 authorization matrix, which now carries the wrong-tenant NGO case; two unequal versions of the same actor rule were worse than one]**
 
@@ -117,6 +121,10 @@ Source: requirements/req-005.5.md (prd-mvp.md REQ-005.5). Dependencies at bounda
 | Abandonment/rematch: auto-revocation never waiting on NGO; Lovable prompt; ghosted vs released-for-cause; fuel stays; tasks → backlog; rematch priority; no early trigger, activity prevents | 30–33, 53 [cx] |
 | open → scoped unpublish before consent (with AND without a pending match); pending match released + notified | 34 [cx r2] |
 | Any pre-completion → cancelled by NGO; per-state side-effect matrix; terminal; actor rule | 02, 35, 36, 47 [37 retired into 47] |
+| discovery_in_progress → cancelled on a Discovery fit decline; machine actor; fuel released; no tenth state | 59 [d89] |
+| cancelled → discovery_in_progress: admin-only, overturned-ops-item-only, audited | 60 [d89] |
+| The same reversal refused for every other actor and without an overturned ops item | 61 [d89] |
+| Human-chosen cancellations (NGO's own, triage decline) stay irreversibly terminal | 62 [d89] |
 | Blockers independent of lifecycle | 38 |
 | Match-record states in match log; expiry frees volunteer | 39, 40, 57 |
 | Kickoff sequence (workspace+key no-ops-task, Linear assignment + unavailability, one bootstrap task, announce/thread/notify, repo NGO+volunteer-established with zero admin actions, side effects PARALLEL) | 41–45, 54 [cx] |

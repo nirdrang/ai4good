@@ -31,6 +31,7 @@ Source: requirements/req-016.md (prd-mvp.md REQ-016, incl. d78 watchdog row). De
 |---|---|
 | One shared emitter, sole writer; domains never send directly | 01 |
 | Static closed taxonomy: exact set equality, immutable, no CR event (d81 rows registered) | 02 [cx r2, d81] |
+| Discovery fit-decline rows (d89): declined -> NGO + platform admin + exactly one ops item; overturned -> NGO. Covered by 02/03's parameterization over the taxonomy - no new ids | 02, 03 [d89] |
 | Full taxonomy: exact recipients + channels (named or documented-default-bound) + named payloads + depleted admin escalation + ops-item outcomes | 03 [cx r2] |
 | Sensitive negatives (candidacy never → NGO; no donation event; vetting → NGO only) | 04 |
 | Email for critical classes; in-app only for low-tone | 05 |

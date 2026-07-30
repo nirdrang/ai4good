@@ -56,6 +56,17 @@ export const TAXONOMY: TaxonomyRow[] = [
   { event: 'triage.declined_terminal', recipients: ['ngo'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision' },
   { event: 'vetting.outcome', recipients: ['ngo'], channels: null, tone: 'normal', class: 'decision' },
 
+  // --- Discovery fit decline, decline-then-review (req-016.md line 6, d89) ---
+  // TWO rows from one decline, split by audience — deliberately NOT one row with two
+  // recipients, because payload predicates run against every delivery of a row, and the
+  // NGO's copy (reshaping suggestion, oversight sentence) is not the admin's copy (the
+  // review item). Same shape as candidacy.marked: the admin-only row is its own event.
+  // The review row carries opsItem because the review queue IS the oversight — a decline
+  // that notifies the admin without opening an item leaves the judgment unauditable.
+  { event: 'discovery.fit_declined', recipients: ['ngo'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['declineCause', 'reshapingSuggestion', 'oversightSentence'] },
+  { event: 'discovery.fit_decline_review', recipients: ['platform_admin'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['declineCause'], opsItem: true },
+  { event: 'discovery.decline_overturned', recipients: ['ngo'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['discoveryReopened'] },
+
   // --- Matching (line 7) ---
   { event: 'candidacy.marked', recipients: ['platform_admin'], channels: null, tone: 'normal', class: 'other' },
   { event: 'match.created', recipients: ['volunteer'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['consentCta'] },
@@ -248,6 +259,36 @@ export const PAYLOAD_PREDICATES: Record<string, Record<string, (value: unknown, 
       if (!/fund/i.test(s) || !/kick|start|begin/i.test(s)) return `no fund-to-kick-off framing in ${JSON.stringify(v)}`;
       return carriedInBody(s, body) ? null : 'the fund-to-kick-off framing never appears in the NGO’s copy';
     },
+  },
+  'discovery.fit_declined': {
+    // d89: the decline must carry its cause, a reshaping suggestion, and — the point of
+    // decline-then-review — an explicit promise that a person reads it. A decline that omits
+    // the oversight sentence is the silent-AI-judgment this ruling exists to prevent.
+    declineCause: (v) =>
+      ['ongoing_developer_maintenance', 'confidential_codebase'].includes(text(v))
+        ? null
+        : `not one of the two v1 decline causes: ${JSON.stringify(v)}`,
+    reshapingSuggestion: (v, body) => {
+      const s = text(v);
+      if (PLACEHOLDERS.includes(norm(s)) || norm(s).length < 12) return `not a reshaping suggestion: ${JSON.stringify(v)}`;
+      return carriedInBody(s, body) ? null : 'the reshaping suggestion never appears in the copy the NGO receives';
+    },
+    oversightSentence: (v, body) => {
+      const s = text(v);
+      if (!/person|human|someone/i.test(s) || !/review|read|look/i.test(s)) {
+        return `no human-review promise in ${JSON.stringify(v)}`;
+      }
+      return carriedInBody(s, body) ? null : 'the NGO is never told a person reviews the decline';
+    },
+  },
+  'discovery.fit_decline_review': {
+    declineCause: (v) =>
+      ['ongoing_developer_maintenance', 'confidential_codebase'].includes(text(v))
+        ? null
+        : `not one of the two v1 decline causes: ${JSON.stringify(v)}`,
+  },
+  'discovery.decline_overturned': {
+    discoveryReopened: (v) => (v === true ? null : `expected boolean true, got ${JSON.stringify(v)}`),
   },
   'access.key_revoked': {
     // "replacement on dashboard"

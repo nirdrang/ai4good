@@ -83,6 +83,11 @@ function payloadFor(row: TaxonomyRow, params: Record<string, unknown>): Record<s
     fundToKickOff: 'Fund to kick off',
     replacementOnDashboard: 'Find the replacement on your dashboard',
     whatToDoInstead: 'Use the supported status command to continue',
+    // d89 decline-then-review rows
+    declineCause: 'ongoing_developer_maintenance',
+    reshapingSuggestion: 'Consider reshaping this as a staffer-maintainable intake tool',
+    oversightSentence: 'A person reads every decline; if we got it wrong, we will reach out',
+    discoveryReopened: true,
   };
   for (const key of row.payloadKeys ?? []) payload[key] = named[key] ?? `${row.event} ${key}`;
   return payload;

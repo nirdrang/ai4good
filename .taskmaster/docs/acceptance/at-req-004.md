@@ -64,6 +64,11 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 - **AT-004.34 (P0)** — Given a confidential-codebase need, When checked, Then it is likewise declined (public-only v1).
 - **AT-004.35 (P0)** — Given any decline, When it lands, Then a decline record exists for founder review — and there is no waitlist and no second track.
 - **AT-004.36 (P0)** — Given a tool handling sensitive *data* that otherwise fits, When checked, Then it is not declined for sensitivity — it is served, with the tier assigned by the 0/1/2 rules (ordinary PII → Tier 1, special-category → Tier 2). [cx: corrected — not everything sensitive is Tier-2]
+- **AT-004.53 (P0)** — Given a fit decline of either cause (ongoing developer maintenance; confidential codebase), When it lands, Then ALL of the following exist from that one event: the NGO's decline message; a durable decline record ON THE PROJECT carrying cause, date and reshaping suggestion; exactly ONE platform-admin ops item carrying the project, the cause and the full Discovery conversation; and the admin notification (REQ-016). A decline that produces the message but no ops item, or two ops items, fails. [d89]
+- **AT-004.54 (P0)** — Given a declined project, When the NGO views its project list, Then the declined project is still listed with its decline record visible — the decline is not chat-only. And Given the decline message itself, Then its copy states that a person reviews every decline and will reach out if it was wrong (the oversight sentence is present, not implied). [d89]
+- **AT-004.55 (P0)** — Given an open fit-decline ops item, When the founder disposes it **upheld**, Then the item closes, the disposition is recorded with actor and timestamp, the project stays `cancelled`, and the NGO receives NO further notification. [d89]
+- **AT-004.56 (P0)** — Given an open fit-decline ops item, When the founder disposes it **overturned**, Then the project returns to `discovery_in_progress` with its Discovery conversation intact and resumable, the NGO is notified that Discovery reopened, and the disposition is recorded. [d89] [cross: REQ-005.5 owns the transition legality]
+- **AT-004.57 (P0)** — Given a set of disposed fit-declines, When the calibration dataset is read, Then every disposition (upheld and overturned) is retrievable with its decline cause and Discovery conversation — the dataset the decline evaluator is tuned against, parallel to REQ-023's founder-review records. An unauditable decline — one with no ops item or no recorded disposition path — fails. [d89]
 
 ## G. Regeneration, retries & failure
 
@@ -98,6 +103,10 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 | Scope contract — Discovery is PRD source + scorer reference; initial backlog from the gated PRD, never Discovery | 24, 52 |
 | Sensitivity tiers 0/1/2, ask-first, unsure→2, category floor; NGO owns risk (ack per tier rules); triage confirms tier; per-tier doc explanation | 25, 26–31, 50, 51 |
 | Maintainability fit + declines (recorded, no waitlist); sensitivity never a decline reason | 32–36 |
+| Decline-then-review: one event → NGO message + durable project record + exactly one ops item + admin notice | 53 [d89] |
+| Declined project stays visible in the NGO's list; decline copy carries the oversight sentence | 54 [d89] |
+| Disposition upheld (stays cancelled, no further NGO notice) / overturned (Discovery reopens, NGO notified) | 55, 56 [d89] |
+| Dispositions retrievable as the decline evaluator's calibration dataset; no unauditable decline | 57 [d89] |
 | Regeneration bounded/logged/free; error retries free | 37–39 |
 | Free-phase guardrails (scope rule, turn ceiling, notice+flag, never lockout); funded = no guardrail | 12–15 |
 | Abuse guardrails (verification floor, kill switch, no grants, no platform breaker, credits outside ledger) | 41–45 |
