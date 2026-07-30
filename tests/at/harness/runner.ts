@@ -35,7 +35,7 @@ import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, r
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { acceptanceP0Ids, normalizeRequirement, REPO_ROOT, suiteDir } from './check.ts';
+import { INSTALL_ROOT, inspectBijection, normalizeRequirement, REPO_ROOT, suiteDir } from './check.ts';
 
 const TIERS = ['loop', 'integration', 'drill'] as const;
 type Tier = (typeof TIERS)[number];
@@ -54,8 +54,12 @@ const GATE_STALE_MINUTES = Number(process.env.AT_LOCK_GATE_STALE_MINUTES ?? 2);
 /** `supabase status` reports these two as stopped because config.toml disables them. Benign. */
 const DISABLED_SERVICES = /^supabase_(imgproxy|pooler)_/;
 
-/** The pinned CLI, invoked directly — no shell, no PATH lookup, no globally installed version. */
-const SUPABASE_ENTRY = join(REPO_ROOT, 'node_modules', 'supabase', 'dist', 'supabase.js');
+/**
+ * The pinned CLI, invoked directly — no shell, no PATH lookup, no globally installed version.
+ * Resolved from the INSTALL root, never the (overridable) data root: the pinned versions live in
+ * the real checkout's `node_modules` wherever the acceptance files being read happen to be.
+ */
+const SUPABASE_ENTRY = join(INSTALL_ROOT, 'node_modules', 'supabase', 'dist', 'supabase.js');
 
 interface Args {
   requirement: string;
@@ -159,7 +163,10 @@ export function bunExecutable(): string {
     encoding: 'utf8',
     env: childEnv(),
   });
-  const found = (lookup.stdout ?? '').split('\n').map((line) => line.trim()).find(Boolean);
+  const found = (lookup.stdout ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean);
   if (!found) throw new Error('bun was not found on PATH — the harness runs its children under bun');
   return found;
 }
@@ -177,7 +184,11 @@ export function redact(text: string): string {
 
 /** First non-empty line, redacted and length-capped — enough to diagnose, not enough to leak. */
 function diagnostic(text: string | undefined, limit = 400): string {
-  const line = redact(text ?? '').split('\n').map((l) => l.trim()).find((l) => l.length > 0) ?? '';
+  const line =
+    redact(text ?? '')
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.length > 0) ?? '';
   return line.length > limit ? `${line.slice(0, limit)}…` : line;
 }
 
@@ -323,7 +334,15 @@ export function acquireStackLock(config: LocalConfig, requirement: string): Stac
       throw err;
     }
     try {
-      writeSync(fd, JSON.stringify({ pid: process.pid, host: hostname(), requirement, startedAt: new Date().toISOString() }));
+      writeSync(
+        fd,
+        JSON.stringify({
+          pid: process.pid,
+          host: hostname(),
+          requirement,
+          startedAt: new Date().toISOString(),
+        }),
+      );
     } finally {
       closeSync(fd);
     }
@@ -594,9 +613,7 @@ async function waitForReady(status: StackStatus, phase: string): Promise<void> {
     delay = Math.min(delay * 2, 2000);
   }
 
-  throw new Error(
-    `the stack was still not ready ${phase} after ${Math.round(READY_TIMEOUT_MS / 1000)}s — last problem: ${lastProblem}`,
-  );
+  throw new Error(`the stack was still not ready ${phase} after ${Math.round(READY_TIMEOUT_MS / 1000)}s — last problem: ${lastProblem}`);
 }
 
 /* --------------------------------------------------------------------- the migration-set proof */
@@ -622,7 +639,9 @@ async function appliedMigrations(dbUrl: string): Promise<string[]> {
   let sql: BunSqlClient | null = null;
   try {
     sql = new SQL(dbUrl);
-    const rows = (await sql`select version from supabase_migrations.schema_migrations order by version`) as { version: string }[];
+    const rows = (await sql`select version from supabase_migrations.schema_migrations order by version`) as {
+      version: string;
+    }[];
     return rows.map((row) => String(row.version)).sort();
   } catch (err) {
     // A database that has never had a migration applied has no history table at all. "No table"
@@ -726,7 +745,7 @@ async function resetLocalDatabase(): Promise<void> {
 
 /* --------------------------------------------------------------------------- vitest json shape */
 
-interface AssertionResult {
+export interface AssertionResult {
   title?: string;
   fullName?: string;
   status?: string;
@@ -741,6 +760,97 @@ export interface IdRow {
   id: string;
   status: 'green' | 'red' | 'missing';
   detail: string;
+}
+
+export interface RuntimeRegistration {
+  atId: string;
+  title: string;
+  surface: string;
+}
+
+export interface ReportAnalysis {
+  rows: IdRow[];
+  unexpected: string[];
+}
+
+function assertionId(assertion: AssertionResult): string | null {
+  return /^(AT-[\d.]+[a-z]?)\s+—/.exec(assertion.title ?? assertion.fullName ?? '')?.[1] ?? null;
+}
+
+export function analyzeReportedTests(
+  expected: string[],
+  registrations: RuntimeRegistration[],
+  assertions: AssertionResult[],
+): ReportAnalysis {
+  const registrationGroups = new Map<string, RuntimeRegistration[]>();
+  for (const registration of registrations) {
+    const group = registrationGroups.get(registration.atId) ?? [];
+    group.push(registration);
+    registrationGroups.set(registration.atId, group);
+  }
+
+  const assertionGroups = new Map<string, AssertionResult[]>();
+  for (const assertion of assertions) {
+    const id = assertionId(assertion);
+    if (!id) continue;
+    const group = assertionGroups.get(id) ?? [];
+    group.push(assertion);
+    assertionGroups.set(id, group);
+  }
+
+  const rows: IdRow[] = expected.map((id) => {
+    const runtime = registrationGroups.get(id) ?? [];
+    const results = assertionGroups.get(id) ?? [];
+    if (runtime.length !== 1) {
+      return {
+        id,
+        status: 'red',
+        detail:
+          runtime.length === 0
+            ? 'no runtime registration emitted by atTest'
+            : `${runtime.length} runtime registrations emitted by atTest; expected exactly 1`,
+      };
+    }
+    if (results.length !== 1) {
+      return {
+        id,
+        status: 'red',
+        detail: `${results.length} Vitest results reported; expected exactly 1`,
+      };
+    }
+
+    const result = results[0];
+    const expectedTitle = `${id} — ${runtime[0].title}`;
+    if (result.title !== expectedTitle) {
+      return {
+        id,
+        status: 'red',
+        detail: `Vitest title ${JSON.stringify(result.title)} does not match runtime registration ${JSON.stringify(expectedTitle)}`,
+      };
+    }
+    if (result.status !== 'passed') {
+      return {
+        id,
+        status: 'red',
+        detail: firstLine(result.failureMessages?.join('\n'), `status "${result.status}"`),
+      };
+    }
+    return { id, status: 'green', detail: runtime[0].title };
+  });
+
+  const observed = new Set([...registrationGroups.keys(), ...assertionGroups.keys()]);
+  const unexpected = [...observed].filter((id) => !expected.includes(id)).sort();
+  return { rows, unexpected };
+}
+
+function runtimeRegistrations(dir: string): RuntimeRegistration[] {
+  const registrations: RuntimeRegistration[] = [];
+  for (const file of readdirSync(dir, { withFileTypes: true })) {
+    if (!file.isFile() || !file.name.endsWith('.jsonl')) continue;
+    const lines = readFileSync(join(dir, file.name), 'utf8').split(/\r?\n/).filter(Boolean);
+    for (const line of lines) registrations.push(JSON.parse(line) as RuntimeRegistration);
+  }
+  return registrations;
 }
 
 export interface ProcessOutcome {
@@ -801,7 +911,10 @@ export function cleanupRun(reportDir: string, lock: { release(): void } | null):
 }
 
 function firstLine(text: string | undefined, fallback: string): string {
-  const line = redact(text ?? '').split('\n').map((l) => l.trim()).find((l) => l.length > 0);
+  const line = redact(text ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
   return line ?? fallback;
 }
 
@@ -836,7 +949,12 @@ async function main(argv: string[]): Promise<number> {
 
   let expected: string[];
   try {
-    expected = acceptanceP0Ids(requirement);
+    const preflight = inspectBijection(requirement);
+    expected = preflight.expected;
+    if (preflight.problems.length) {
+      console.error(`at:verify req-${requirement} — AT↔code preflight refused the run: ${preflight.problems.join('; ')}`);
+      return 2;
+    }
   } catch (err) {
     console.error(`at:verify req-${requirement} — ${(err as Error).message}`);
     return 2;
@@ -858,6 +976,8 @@ async function main(argv: string[]): Promise<number> {
   const stackEnv: Record<string, string> = {};
   let lock: StackLock | null = null;
   const reportDir = mkdtempSync(join(tmpdir(), 'at-verify-'));
+  const registrationDir = join(reportDir, 'registrations');
+  mkdirSync(registrationDir);
   const cleanup = () => {
     cleanupRun(reportDir, lock);
     lock = null;
@@ -940,14 +1060,18 @@ async function main(argv: string[]): Promise<number> {
       stackEnv.AT_SUPABASE_SERVICE_ROLE_KEY = status.serviceRoleKey;
     }
 
+    // The suites and their vitest root come from the DATA root; vitest itself comes from the
+    // install root, so a run pointed at a disposable tree still runs the pinned test framework.
     const atRoot = join(REPO_ROOT, 'tests', 'at');
     const outputFile = join(reportDir, 'vitest-report.json');
+    const rootOverride: Record<string, string> = {};
+    if (process.env.AT_REPO_ROOT?.trim()) rootOverride.AT_REPO_ROOT = process.env.AT_REPO_ROOT.trim();
 
     const run = spawnSync(
       bunExecutable(),
       [
         '--no-env-file',
-        join(REPO_ROOT, 'node_modules', 'vitest', 'vitest.mjs'),
+        join(INSTALL_ROOT, 'node_modules', 'vitest', 'vitest.mjs'),
         'run',
         '--root',
         atRoot,
@@ -957,7 +1081,11 @@ async function main(argv: string[]): Promise<number> {
         `--outputFile=${outputFile}`,
         `suites/req-${requirement}/`,
       ],
-      { cwd: REPO_ROOT, env: childEnv({ ...stackEnv, AT_TIER: tier }), stdio: ['ignore', 'inherit', 'inherit'] },
+      {
+        cwd: INSTALL_ROOT,
+        env: childEnv({ ...stackEnv, ...rootOverride, AT_TIER: tier, AT_REGISTRATION_DIR: registrationDir }),
+        stdio: ['ignore', 'inherit', 'inherit'],
+      },
     );
 
     if (!existsSync(outputFile)) {
@@ -978,24 +1106,8 @@ async function main(argv: string[]): Promise<number> {
     }
 
     const assertions = (report.testResults ?? []).flatMap((r) => r.assertionResults ?? []);
-    const byId = new Map<string, AssertionResult>();
-    for (const a of assertions) {
-      const id = /^(AT-[\d.]+[a-z]?)\s+—/.exec(a.title ?? a.fullName ?? '')?.[1];
-      if (id) byId.set(id, a);
-    }
-
-    const rows: IdRow[] = [];
-    for (const id of expected) {
-      const a = byId.get(id);
-      if (!a) {
-        rows.push({ id, status: 'missing', detail: 'no executable test registers this id' });
-      } else if (a.status === 'passed') {
-        rows.push({ id, status: 'green', detail: a.title?.split('—').slice(1).join('—').trim() ?? '' });
-      } else {
-        rows.push({ id, status: 'red', detail: firstLine(a.failureMessages?.join('\n'), `status "${a.status}"`) });
-      }
-    }
-    const unexpected = [...byId.keys()].filter((id) => !expected.includes(id));
+    const analysis = analyzeReportedTests(expected, runtimeRegistrations(registrationDir), assertions);
+    const { rows, unexpected } = analysis;
 
     console.log('');
     console.log(`at:verify req-${requirement} --tier ${tier}`);
@@ -1005,7 +1117,9 @@ async function main(argv: string[]): Promise<number> {
     const green = rows.filter((r) => r.status === 'green').length;
     const red = rows.filter((r) => r.status === 'red').length;
     const missing = rows.filter((r) => r.status === 'missing').length;
-    console.log(`  ${rows.length} P0: ${green} green, ${red} red, ${missing} missing${unexpected.length ? `, ${unexpected.length} extra` : ''}`);
+    console.log(
+      `  ${rows.length} P0: ${green} green, ${red} red, ${missing} missing${unexpected.length ? `, ${unexpected.length} extra` : ''}`,
+    );
 
     const verdict = runVerdict(rows, unexpected, run as ProcessOutcome);
     if (verdict.length === 0) return 0;

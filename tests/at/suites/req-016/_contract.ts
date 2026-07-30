@@ -1,25 +1,44 @@
 /**
- * The harness + system-under-test surface the REQ-016 suite consumes.
+ * What REQ-016 adds to the shared harness contract.
  *
- * WHY THIS FILE EXISTS: AI4DEV-3's capability modules (H1 runner/tiers/reporting,
- * H2 fixtures/clock, H3 sentinels/faults, H5 vendor sims, H6 at-config registry) are not
- * in the tree yet, and this suite was handed no capability contract. So the proving ground
- * states, in one type-only file, EXACTLY what it needs from the harness and from REQ-016's
- * implementation. Nothing here is implemented by the suite — it is the seam.
+ * The generic seams — tier, clock, fixture worlds, sentinels, faults, static scan, config,
+ * vendor sims, the harness shape itself — now live in ONE harness-owned module,
+ * `tests/at/harness/contracts.ts`. This file was the pre-harness stopgap that declared all of
+ * them because no such module existed; keeping thirty suites each restating the seam is how
+ * "the harness contract" stops meaning anything.
  *
- * SCOPE: this is what REQ-016's twelve P0 need, not the full AI4DEV-3 capability contract.
- * Semantic oracles (H4), the non-email vendor sims (H5 Anthropic/Stripe/GitHub/Lovable/Linear)
- * and the registry's schema (H6) belong to the harness item and are deliberately absent here.
+ * What is left here is genuinely REQ-016's: the notification system under test, the row / event /
+ * delivery shapes its assertions read, and what this requirement's fixture world can do. The
+ * shared types are re-exported so the test bodies still import one file.
  *
- * Integration point: `_bind.ts` is the ONLY module that resolves the real harness. When
- * H1-H6 land with a different surface, reconcile there (and here), never in the tests.
+ * Integration point: `_bind.ts` remains the ONLY module that resolves the real harness. When a
+ * later slice changes a shared seam, reconcile it in the harness module, never in the tests.
  */
 
+import type {
+  AtHarness as SharedHarness,
+  EmailProviderSim as SharedEmailProviderSim,
+  ProviderAttempt as SharedProviderAttempt,
+  Tier,
+  Vendors as SharedVendors,
+  WorldSeam,
+} from '../../harness/contracts.ts';
 import type { Channel, Role } from './taxonomy.ts';
 
-export type Tier = 'loop' | 'integration' | 'drill';
-
-export const TIERS: readonly Tier[] = ['loop', 'integration', 'drill'] as const;
+export type {
+  Clock,
+  ConfigRegistry,
+  FaultHandle,
+  Faults,
+  Fixtures,
+  ProviderOutcome,
+  Sentinel,
+  Sentinels,
+  StaticScan,
+  Tier,
+  WorldSeam,
+} from '../../harness/contracts.ts';
+export { TIERS } from '../../harness/contracts.ts';
 
 /* ------------------------------------------------------------------ SUT (REQ-016) */
 
@@ -102,9 +121,10 @@ export interface NotificationsSut {
   drainDeliveries(opts?: { passes?: number }): Promise<void>;
 }
 
-/* ------------------------------------------------------- H2 fixtures + clock */
+/* ----------------------------------------------- REQ-016's fixture world + harness */
 
-export interface World {
+/** What REQ-016's scenarios need a world to do, on top of the shared world seam. */
+export interface World extends WorldSeam {
   /** role -> actor id in this world */
   actors: Record<Role, string>;
   /**
@@ -118,128 +138,15 @@ export interface World {
   reassignRole(role: Role, toActorId: string): Promise<string>;
   /** post N thread comments inside one anti-spam window (AT-016.08) */
   burstThreadComments(count: number): Promise<void>;
-  teardown(): Promise<void>;
 }
 
-export interface Fixtures {
-  world(name: string): Promise<World>;
-}
+/** The shared vendor seams, bound to the channel names REQ-016's taxonomy uses. */
+export type ProviderAttempt = SharedProviderAttempt<Channel>;
+export type EmailProviderSim = SharedEmailProviderSim<Channel>;
+export type Vendors = SharedVendors<Channel>;
 
-export interface Clock {
-  freezeAt(iso: string): Promise<void>;
-  advance(ms: number): Promise<void>;
-  /**
-   * The current time AS THE PRODUCT READS IT, sampled inside the product process.
-   * Without this a "controlled clock" that only moves the test's own notion of time
-   * cannot be distinguished from one that is actually wired into the code under test.
-   */
-  observedByProduct(): Promise<string>;
-}
-
-/* -------------------------------------------------- H3 sentinels + faults + static scan */
-
-export interface Sentinel {
-  id: string;
-  value: string;
-}
-
-export interface Sentinels {
-  plant(kind: string, value: string): Promise<Sentinel>;
-  /** scan a named store/scope for planted sentinels (presence AND absence) */
-  scan(scope: string): Promise<Sentinel[]>;
-}
-
-export interface FaultHandle {
-  /** the point this handle is armed at — echoed back so a silent re-point is visible */
-  point: string;
-  /** how many times execution actually REACHED the armed point (0 = the fault never fired) */
-  triggerCount(): Promise<number>;
-  clear(): Promise<void>;
-}
-
-export interface Faults {
-  /** the fault points the product actually exposes — arming an unknown point must not be a no-op */
-  points(): Promise<string[]>;
-  /**
-   * Induce a fault at a named point in the product.
-   * 'notifications.between_transition_and_event_write' is AT-016.09's point.
-   * MUST reject a point that is not in points().
-   */
-  at(point: string, kind: 'crash' | 'reject' | 'lose_ack'): Promise<FaultHandle>;
-  /** kill and restart the delivery process mid-flight (AT-016.07) */
-  processRestart(): Promise<void>;
-  /** identity of the delivery process; MUST change across processRestart() */
-  processEpoch(): Promise<string>;
-}
-
-/**
- * Out-of-band evidence: static facts about the product source, not self-report from the SUT.
- * AT-016.01's sole-writer claim is unfalsifiable if the only witnesses are `senders()` and
- * `Delivery.emittedBy` — both produced by the component under test.
- */
-export interface StaticScan {
-  /** components whose SOURCE imports a comms-provider client or reads a provider credential */
-  providerClientImporters(): Promise<string[]>;
-}
-
-/* ------------------------------------------------ H6 at-config registry */
-
-export interface ConfigRegistry {
-  get<T>(key: string): T;
-}
-
-/* --------------------------------------------------- H5 vendor sims */
-
-export type ProviderOutcome = 'accepted' | 'rejected' | 'ack_lost';
-
-export interface ProviderAttempt {
-  recipientId: string;
-  eventId: string;
-  channel: Channel;
-  outcome: ProviderOutcome;
-}
-
-export interface EmailProviderSim {
-  /** next N sends are rejected / never accepted (AT-016.11) */
-  rejectNext(count: number): void;
-  /** next N sends are ACCEPTED by the provider but the ack is lost (AT-016.11) */
-  acceptButLoseAck(count: number): void;
-  /** everything the provider actually accepted, in order */
-  accepted(): ProviderAttempt[];
-  /**
-   * EVERY send that arrived at the provider seam, accepted or not, in order.
-   * This is the out-of-band trace: it is recorded by the simulator, not by the SUT, so it
-   * can contradict the SUT's own attempt counter (AT-016.11's retry proof, AT-016.01's
-   * "no path around the emitter").
-   */
-  attempts(): ProviderAttempt[];
-}
-
-export interface Vendors {
-  email: EmailProviderSim;
-}
-
-/* ------------------------------------------------------- the harness */
-
-export interface AtHarness {
-  tier: Tier;
-  /**
-   * Capability names this harness STUBBED for the running tier (e.g. 'vendors.email',
-   * 'sut.notifications'). MUST be empty above `loop` — otherwise an integration-tier run,
-   * which is the /pm-done gate, can silently stub the thing it is gating.
-   */
-  stubbedCapabilities(): Promise<string[]>;
-  clock: Clock;
-  fixtures: Fixtures;
-  sentinels: Sentinels;
-  faults: Faults;
-  static: StaticScan;
-  config: ConfigRegistry;
-  vendors: Vendors;
-  sut: { notifications?: NotificationsSut };
-  /** REQUIRED, not optional: frozen clocks, vendor counters and fault state leak without it */
-  teardown(): Promise<void>;
-}
+/** The shared harness, bound to REQ-016's system under test, world and channel names. */
+export type AtHarness = SharedHarness<{ notifications?: NotificationsSut }, World, Channel>;
 
 export interface HarnessModule {
   createHarness(opts: { requirement: string; tier: Tier }): Promise<AtHarness>;

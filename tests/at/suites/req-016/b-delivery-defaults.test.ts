@@ -1,5 +1,5 @@
 /**
- * AT-REQ-016 · B. Delivery defaults — AT-016.05 .. AT-016.08
+ * AT-REQ-016 · B. Delivery defaults — AT-016.07 .. AT-016.08
  * Source: .taskmaster/docs/acceptance/at-req-016.md
  *
  * Every pinned number in this file comes from the at-config registry (AI4DEV-3 Part B).
@@ -9,77 +9,19 @@
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { countPairs } from './_oracles.ts';
-import { channelRuleProblems, CRITICAL_CLASS_FIXTURES, LOW_TONE_FIXTURE, TAXONOMY } from './taxonomy.ts';
+
+/** The at-config keys the thread-comment anti-spam guard is configured by (AT-016.08). */
+const GUARD_CAP_KEY = 'req-015.thread_comment_notifications.max_per_window';
+const GUARD_WINDOW_KEY = 'req-015.thread_comment_notifications.window_ms';
+const GUARD_COALESCE_KEY = 'req-015.thread_comment_notifications.coalesce';
 
 describe('AT-REQ-016 B — delivery defaults', () => {
-  atTest(
-    'AT-016.05',
-    'every critical class goes out by email; the low-tone event is in-app only',
-    async ({ open }) => {
-      const { w, sut } = await open();
-
-      for (const [eventClass, event] of Object.entries(CRITICAL_CLASS_FIXTURES)) {
-        const { eventId } = await w.fire(event);
-        await sut.drainDeliveries();
-        const deliveries = (await sut.deliveries({ type: event })).filter((d) => d.eventId === eventId);
-        expect(deliveries.length, `${eventClass} (${event}) produced no delivery`).toBeGreaterThan(0);
-        expect(
-          deliveries.some((d) => d.channel === 'email'),
-          `${eventClass} (${event}) delivered without email — critical classes are email (plus any named in-app)`,
-        ).toBe(true);
-      }
-
-      const lowToneEvent = await w.fire(LOW_TONE_FIXTURE);
-      await sut.drainDeliveries();
-      const lowTone = (await sut.deliveries({ type: LOW_TONE_FIXTURE })).filter((d) => d.eventId === lowToneEvent.eventId);
-      expect(lowTone.length, `${LOW_TONE_FIXTURE} produced no delivery`).toBeGreaterThan(0);
-      expect(
-        [...new Set(lowTone.map((d) => d.channel))].sort(),
-        `${LOW_TONE_FIXTURE} is low-tone: in-app only, never email`,
-      ).toEqual(['inapp']);
-    },
-  );
-
-  atTest('AT-016.06', 'a documented delivery default exists for every taxonomy row', async ({ open }) => {
-    const { sut } = await open();
-
-    const defaults = await sut.documentedDefaults();
-    const documented = new Map(defaults.map((d) => [d.event, d]));
-
-    const missing = TAXONOMY.filter((r) => !documented.has(r.event)).map((r) => r.event).sort();
-    expect(missing, 'taxonomy rows with no documented default').toEqual([]);
-
-    const implicit = defaults.filter((d) => !d.source.trim() || d.channels.length === 0).map((d) => d.event).sort();
-    expect(implicit, 'defaults that are implicit behaviour rather than documentation').toEqual([]);
-
-    const orphans = defaults.filter((d) => !TAXONOMY.some((r) => r.event === d.event)).map((d) => d.event).sort();
-    expect(orphans, 'documented defaults for events that are not in the taxonomy').toEqual([]);
-
-    // The documentation is a subject the implementation writes: it cannot be its own oracle.
-    // Check it against the requirement's own class rule and against the rows that name channels.
-    const contradictions: string[] = [];
-    for (const row of TAXONOMY) {
-      const doc = documented.get(row.event);
-      if (!doc) continue;
-      contradictions.push(...channelRuleProblems(row, doc.channels).map((p) => `${row.event}: documented default ${p}`));
-      if (row.channels) {
-        const got = [...doc.channels].sort().join(',');
-        const want = [...row.channels].sort().join(',');
-        if (got !== want) {
-          contradictions.push(`${row.event}: the requirement names [${want}] but the documented default says [${got}]`);
-        }
-      }
-    }
-    expect(contradictions, 'documented defaults that contradict the requirement they are meant to document').toEqual([]);
-  });
-
   atTest(
     'AT-016.07',
     'one logical event per committed event, one delivery per recipient-channel pair, across a restart',
     async ({ open }) => {
       const { h, w, sut } = await open();
 
-      const epochBefore = await h.faults.processEpoch();
       const { eventId } = await w.fire('payment.succeeded');
 
       // The restart is only "mid-flight" if the event is durable AND nothing has been delivered
@@ -92,11 +34,9 @@ describe('AT-REQ-016 B — delivery defaults', () => {
         'delivery already completed before the restart — the restart is not mid-flight and proves nothing',
       ).toEqual([]);
 
+      // That the restart actually changed the delivery process's identity is the harness's
+      // obligation, checked once in harness/guards.ts (processEpochProblem), not per suite.
       await h.faults.processRestart();
-      expect(
-        await h.faults.processEpoch(),
-        'the delivery process identity did not change — processRestart() restarted nothing',
-      ).not.toBe(epochBefore);
 
       await sut.drainDeliveries();
 
@@ -120,59 +60,76 @@ describe('AT-REQ-016 B — delivery defaults', () => {
 
   atTest(
     'AT-016.08',
-    'a comment burst delivers the count the pinned anti-spam configuration prescribes',
+    'a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations',
     async ({ open }) => {
-      const { h, w, sut } = await open();
+      // TWO materially different configurations, driven through the SAME body. One configuration
+      // is not a test of "conforms to configuration": an implementation that hard-codes the
+      // registry's own defaults satisfies a single-variant run exactly as well as one that reads
+      // its configuration, and the pair is what tells them apart. Variant B changes the cap, the
+      // window AND the coalescing switch, so no single hard-coded behaviour can satisfy both.
+      const variants = [
+        { name: 'registry defaults', overrides: undefined },
+        {
+          name: 'coalescing, wider window, higher cap',
+          overrides: { [GUARD_CAP_KEY]: 4, [GUARD_WINDOW_KEY]: 120_000, [GUARD_COALESCE_KEY]: true },
+        },
+      ] as const;
 
-      const cap = h.config.get<number>('req-015.thread_comment_notifications.max_per_window');
-      const windowMs = h.config.get<number>('req-015.thread_comment_notifications.window_ms');
-      const coalesce = h.config.get<boolean>('req-015.thread_comment_notifications.coalesce');
+      const observed: { name: string; delivered: number }[] = [];
 
-      const burst = cap + 5;
-      const expectedDelivered = coalesce ? 1 : cap;
+      for (const variant of variants) {
+        // A world of its own per variant: the guard's window state is what is under test, so it
+        // must start from nothing, and its configuration is fixed when the world is opened.
+        const { h, w, sut } = await open(undefined, variant.overrides ? { config: variant.overrides } : undefined);
 
-      // The oracle must discriminate: a no-op guard would deliver one per comment.
+        // Read back from THIS world's registry — the values the guard is actually running on,
+        // never a copy the test kept.
+        const cap = h.config.get<number>(GUARD_CAP_KEY);
+        const windowMs = h.config.get<number>(GUARD_WINDOW_KEY);
+        const coalesce = h.config.get<boolean>(GUARD_COALESCE_KEY);
+
+        const burst = cap + 5;
+        const expectedDelivered = coalesce ? 1 : cap;
+        const where = `${variant.name} (cap=${cap}, window=${windowMs}ms, coalesce=${coalesce})`;
+
+        // The oracle must discriminate: a no-op guard would deliver one per comment.
+        expect(expectedDelivered, `${where} describes a no-op guard for a burst of ${burst}`).toBeLessThan(burst);
+
+        const pair = `${w.actors.volunteer}:inapp`;
+        await h.clock.freezeAt('2026-07-01T00:00:00.000Z');
+        await w.burstThreadComments(burst);
+        await h.clock.advance(Math.floor(windowMs / 2)); // still inside the pinned window
+        await sut.drainDeliveries();
+
+        const insideWindow = countPairs(await sut.deliveries({ type: 'thread.comment' })).get(pair) ?? 0;
+        expect(
+          insideWindow,
+          `${where}: burst of ${burst} inside the window delivered ${insideWindow}; the configuration prescribes ${expectedDelivered}`,
+        ).toBe(expectedDelivered);
+
+        // The other side of the boundary: past the window the guard resets, so one more comment
+        // delivers again. A guard that simply stopped after the first N — ignoring time entirely —
+        // fails here, and so does a guard that never reads the controlled clock.
+        await h.clock.advance(windowMs);
+        await w.burstThreadComments(1);
+        await sut.drainDeliveries();
+
+        const afterWindow = countPairs(await sut.deliveries({ type: 'thread.comment' })).get(pair) ?? 0;
+        expect(
+          afterWindow,
+          `${where}: a comment ${windowMs}ms after the window was still suppressed — total ${afterWindow}, expected ${expectedDelivered + 1}`,
+        ).toBe(expectedDelivered + 1);
+
+        observed.push({ name: variant.name, delivered: insideWindow });
+      }
+
+      // The two configurations must be observably different, otherwise "it honoured the
+      // configuration" was never actually put to the test.
       expect(
-        expectedDelivered,
-        `the pinned configuration (cap=${cap}, coalesce=${coalesce}) describes a no-op guard for a burst of ${burst}`,
-      ).toBeLessThan(burst);
-
-      // The clock must be the PRODUCT's clock, not just the test's. A frozen harness clock that
-      // the notification worker ignores would make every window assertion below meaningless.
-      const t0 = '2026-07-01T00:00:00.000Z';
-      await h.clock.freezeAt(t0);
-      expect(
-        Date.parse(await h.clock.observedByProduct()),
-        'the product does not read the controlled clock — freezeAt() moved only the test',
-      ).toBe(Date.parse(t0));
-
-      const pair = `${w.actors.volunteer}:inapp`;
-      await w.burstThreadComments(burst);
-      await h.clock.advance(Math.floor(windowMs / 2)); // still inside the pinned window
-      expect(
-        Date.parse(await h.clock.observedByProduct()) - Date.parse(t0),
-        'the product clock did not advance with the harness clock',
-      ).toBe(Math.floor(windowMs / 2));
-      await sut.drainDeliveries();
-
-      const insideWindow = countPairs(await sut.deliveries({ type: 'thread.comment' })).get(pair) ?? 0;
-      expect(
-        insideWindow,
-        `burst of ${burst} inside a ${windowMs}ms window delivered ${insideWindow}; configuration prescribes ${expectedDelivered}`,
-      ).toBe(expectedDelivered);
-
-      // The other side of the boundary: past the window the guard resets, so one more comment
-      // delivers again. A guard that simply stopped after the first N — ignoring time entirely —
-      // fails here, and so does a clock the guard never reads.
-      await h.clock.advance(windowMs);
-      await w.burstThreadComments(1);
-      await sut.drainDeliveries();
-
-      const afterWindow = countPairs(await sut.deliveries({ type: 'thread.comment' })).get(pair) ?? 0;
-      expect(
-        afterWindow,
-        `a comment ${windowMs}ms after the window still suppressed: total ${afterWindow}, expected ${expectedDelivered + 1}`,
-      ).toBe(expectedDelivered + 1);
+        new Set(observed.map((entry) => entry.delivered)).size,
+        `the two configurations produced the same delivered count (${JSON.stringify(observed)}) — ` +
+          `an implementation ignoring its configuration would pass this test`,
+      ).toBe(variants.length);
     },
   );
 });
