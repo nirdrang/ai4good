@@ -196,16 +196,16 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
 
 describe('the assembled runner refuses to run at all when the preflight cannot be satisfied', () => {
   it('refuses an acceptance file whose formatting yields zero P0 ids', () => {
-    // The ids are there; the P0 marking is not. Without the zero-id refusal this run would
-    // proceed on an EMPTY expectation set and report success against nothing.
-    const run = runAgainstTree('904', `- **AT-904.01 (P1)** — marked P1, so no P0 exists in this file\n`, {
+    // The id is in the file; the P0 marking the parser looks for is not. Nothing else about this
+    // tree is wrong — the suite claims no id either — so the ONLY thing standing between this run
+    // and a perfect "0 P0: 0 green, 0 red" report over nothing at all is the zero-id refusal.
+    // That is deliberate: the case has to isolate that one guard, or it would keep passing on the
+    // strength of a different problem.
+    const run = runAgainstTree('904', `- **AT-904.01 (P1)** — marked P1, so this file carries no P0 at all\n`, {
       'd-zero-ids.test.ts':
-        suitePreamble() +
+        `import { describe, expect, it } from 'vitest';\n` +
         `describe('zero ids', () => {\n` +
-        `  atTest('AT-904.01', 'registered but not a P0', async ({ open }) => {\n` +
-        `    const { sut } = await open();\n` +
-        `    expect(await sut.ping()).toBe('pong');\n` +
-        `  });\n` +
+        `  it('a test that claims no AT id', () => { expect(true).toBe(true); });\n` +
         `});\n`,
     });
 
