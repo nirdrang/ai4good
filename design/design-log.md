@@ -99,3 +99,21 @@ Bring-up remaining: B1 project-knowledge push (free), B2 fixture pack authoring,
   NGO/public surfaces, so the fold uses `requirement-*` there and reserves `task-*` for the
   volunteer's dev-tree surfaces; and component catalog sheets cannot satisfy once-per-screen
   uniqueness, so they are exempt from that rule alone.
+
+## 2026-07-30 — Batches 0 and 1 CLOSED; Batch 2 gated and awaiting sign-off
+
+- **Founder sign-off** (verbatim: *"batch 0 and 1 are done"*). Both close conditions met per
+  d87 — design gate green **plus** founder attestation — so **AI4DEV-7 (Batch 0)** and
+  **AI4DEV-8 (Batch 1)** are **Done**, with the evidence recorded on each item.
+- **Batch 2** (`AI4DEV-9`) is In Progress: five screens drawn and **gate 004 PASS**
+  (commit 8d90365), awaiting the founder's review — highest-value targets are the Discovery
+  chat's fit-decline state and the credits-exhausted states.
+- **Board-hygiene lapse, recorded honestly:** Batches 1 and 2 sat in Backlog while their work
+  was designed, gated, revised and committed; Batch 0 went untouched through four change
+  orders. The board was hand-corrected on 2026-07-30 — the exact anti-pattern `CLAUDE.md`
+  names. Second lapse: design commits through this date do not cite `AI4DEV-nnn` ids as the
+  way-of-work requires; history was left unrewritten, and the evidence comments carry the
+  commit hashes in the other direction. Both corrected going forward.
+- **Still open (blocks nothing, binds three screens):** the **cause taxonomy** — one closed
+  list shared between project intake and the volunteer profile, fixed at launch or
+  founder-extendable.
