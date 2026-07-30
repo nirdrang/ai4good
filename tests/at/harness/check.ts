@@ -13,7 +13,29 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const REPO_ROOT = new URL('../../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+/**
+ * The real checkout this file was loaded from. Where `node_modules` lives, and the default answer
+ * for everything below.
+ */
+export const INSTALL_ROOT = new URL('../../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+
+/**
+ * The tree the checker, the runner and the harness read acceptance files, suites and fixture
+ * adapters from — the real checkout unless `AT_REPO_ROOT` says otherwise.
+ *
+ * WHY THE OVERRIDE EXISTS: the runner's own black-box tests have to feed it whole malformed
+ * situations — an acceptance file that yields zero P0 ids, a suite claiming an id nothing
+ * registers, a test that reports twice — and observe the exit code and per-id report it produces.
+ * Planting those inside the real repository would mean the runner's tests could damage the tree
+ * they are checking. With the override the runner is pointed at a disposable tree that is complete
+ * in itself, and the paths it resolves stay consistent between the preflight, the harness and
+ * vitest's root.
+ *
+ * The override moves DATA only: `node_modules` is always resolved from INSTALL_ROOT, so a child
+ * still runs the pinned vitest and the pinned Supabase CLI. Unset — every ordinary run — it
+ * changes nothing at all.
+ */
+export const REPO_ROOT = process.env.AT_REPO_ROOT?.trim() ? process.env.AT_REPO_ROOT.trim() : INSTALL_ROOT;
 
 /** `req-016` or `016` → `016`. Throws on anything else. */
 export function normalizeRequirement(arg: string): string {

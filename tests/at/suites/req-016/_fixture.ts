@@ -1,6 +1,27 @@
+/**
+ * A CONFORMING REFERENCE STAND-IN of REQ-016's notification system — not the product.
+ *
+ * REQ-016 is not implemented. This adapter is what the loop tier runs the suite against, and it
+ * is derived from the suite's OWN specification oracle (`taxonomy.ts`): it registers exactly the
+ * rows the table names, resolves recipients the way the table says, and applies the delivery
+ * defaults the requirement states. That makes it a conformant implementation by construction,
+ * which is the whole point and also the whole limitation.
+ *
+ * SO WHAT A LOOP-TIER GREEN MEANS: the test machinery and the oracles run end-to-end against an
+ * implementation that conforms — the assertions execute, the fixtures build, the evidence captures
+ * freeze, the oracles discriminate. It does NOT mean the product behaves, because there is no
+ * product here; an assertion this adapter satisfies says nothing about code nobody has written.
+ *
+ * That claim is not left to a comment to enforce. The provenance ledger marks `sut.notifications`
+ * a stand-in (`standInCapability` in `harness/index.ts`), and the registry refuses ANY stubbed
+ * capability above the loop tier — so this adapter cannot reach the integration-tier run that is
+ * the /pm-done evidence gate. The gate can only ever be satisfied by the real implementation.
+ */
+
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
 import type {
+  ConfigRegistry,
   Delivery,
   DocumentedDefault,
   EmitResult,
@@ -15,7 +36,13 @@ import { TAXONOMY, type Channel, type Role, type TaxonomyRow } from './taxonomy.
 interface AdapterOptions {
   clock: ControlledClock;
   worlds: FixtureWorldStore;
+  config: ConfigRegistry;
 }
+
+/** The at-config keys the thread-comment anti-spam guard is configured by. */
+const GUARD_CAP_KEY = 'req-015.thread_comment_notifications.max_per_window';
+const GUARD_WINDOW_KEY = 'req-015.thread_comment_notifications.window_ms';
+const GUARD_COALESCE_KEY = 'req-015.thread_comment_notifications.coalesce';
 
 interface MutableState {
   events: NotificationEvent[];
@@ -118,7 +145,7 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
+export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) {
   const state: MutableState = {
     events: [],
     deliveries: [],
@@ -130,7 +157,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   let currentWorld: NotificationFixtureWorld | null = null;
   let commentWindowStart: number | null = null;
   let commentsInWindow = 0;
-  const commentGuard = { cap: 2, windowMs: 60_000 };
+  let coalescedInWindow = false;
 
   const emitKnown = async (
     world: NotificationFixtureWorld,
@@ -215,13 +242,26 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       world: async (name: string) => {
         const base = await worlds.world(name);
         const burstComments = async (world: NotificationFixtureWorld, count: number) => {
+          // Read at guard-evaluation time, not at construction: the configuration is what this
+          // world was opened with, and a value captured once could not be re-tuned per world.
+          const cap = config.get<number>(GUARD_CAP_KEY);
+          const windowMs = config.get<number>(GUARD_WINDOW_KEY);
+          const coalesce = config.get<boolean>(GUARD_COALESCE_KEY);
+
           const now = clock.now();
-          if (commentWindowStart === null || now - commentWindowStart >= commentGuard.windowMs) {
+          if (commentWindowStart === null || now - commentWindowStart >= windowMs) {
             commentWindowStart = now;
             commentsInWindow = 0;
+            coalescedInWindow = false;
           }
           for (let index = 0; index < count; index++) {
-            if (commentsInWindow < commentGuard.cap) {
+            if (coalesce) {
+              // Coalescing: the whole burst becomes ONE notification for the window.
+              if (!coalescedInWindow) {
+                await emitKnown(world, 'thread.comment');
+                coalescedInWindow = true;
+              }
+            } else if (commentsInWindow < cap) {
               await emitKnown(world, 'thread.comment');
             }
             commentsInWindow += 1;
@@ -243,6 +283,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.transitions.clear();
       commentWindowStart = null;
       commentsInWindow = 0;
+      coalescedInWindow = false;
     },
   };
 }

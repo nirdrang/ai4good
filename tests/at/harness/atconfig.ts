@@ -19,8 +19,12 @@
 export interface AtConfigEntry {
   /** plain-words name of the thing being pinned */
   name: string;
-  /** the pinned figure, or null when no figure has been pinned anywhere */
-  value: number | null;
+  /**
+   * The pinned figure, or null when no figure has been pinned anywhere. Booleans are pinned
+   * values too: whether a guard coalesces is configuration in exactly the way a cap is, and a
+   * test that hard-coded the switch would go stale the same way a hard-coded number does.
+   */
+  value: number | boolean | null;
   unit: string;
   /** not founder-settled — flagged PROVISIONAL at its source, or an open decision */
   provisional?: true;
@@ -145,6 +149,35 @@ export const AT_CONFIG = {
     unit: 'tokens',
     provisional: true,
     source: 'OD-4 (open decision) — the substantive-request threshold for binding checks; founder to pin',
+  },
+  /*
+   * The thread-comment anti-spam guard. These three are TEST PINS, not product promises:
+   * AT-016.08 supplies its own configuration ("Given a TEST-PINNED guard configuration — an
+   * explicit cap/window/coalescing fixture") and says in the same breath that "production values
+   * remain unstandardized". REQ-015 names the guard and pins no figure, so there is nothing
+   * upstream to read. They live here anyway, because the alternative is the test body hard-coding
+   * them, and a re-tune would then have to be chased through test source.
+   */
+  threadCommentNotificationsMaxPerWindow: {
+    name: 'thread-comment notifications delivered to one recipient inside one anti-spam window',
+    value: 2,
+    unit: 'notifications/window',
+    provisional: true,
+    source: 'AT-016.08 — TEST-PINNED by the acceptance criterion itself; REQ-015 names the guard but pins no production figure',
+  },
+  threadCommentNotificationsWindowMs: {
+    name: 'length of the thread-comment anti-spam window',
+    value: 60_000,
+    unit: 'ms',
+    provisional: true,
+    source: 'AT-016.08 — TEST-PINNED by the acceptance criterion itself; REQ-015 names the guard but pins no production figure',
+  },
+  threadCommentNotificationsCoalesce: {
+    name: 'whether a thread-comment burst collapses into ONE notification per window instead of capping',
+    value: false,
+    unit: 'boolean',
+    provisional: true,
+    source: 'AT-016.08 — TEST-PINNED by the acceptance criterion itself ("an explicit cap/window/coalescing fixture")',
   },
   prdGateThresholdScore: {
     name: 'completion score at which the project PRD passes its gate',

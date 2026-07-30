@@ -35,15 +35,9 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         expect(guarded, `${event} dropped out of the guarded matrix — the parameterization narrowed`).toContain(event);
       }
 
-      // The point must be one the product actually exposes. A typo, or a point the emitter
-      // stopped honouring, would otherwise arm a fault that never fires — and "both committed"
-      // reads as atomic.
-      const probe = await open();
-      expect(
-        await probe.h.faults.points(),
-        `the product exposes no fault point named ${FAULT_POINT} — AT-016.09 would inject nothing`,
-      ).toContain(FAULT_POINT);
-
+      // That the requested point is one the product actually exposes, that a handle is armed
+      // where it was asked to be, and that the fault genuinely FIRED are the harness's
+      // obligations, checked once in harness/guards.ts (faultPointProblem, faultFiredProblem).
       const problems: string[] = [];
       for (const row of GUARDED_ROWS) {
         // (1) CONTROL, in its own world: without the fault this row must commit BOTH sides.
@@ -68,22 +62,14 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         // crashes) must not be able to satisfy this row's observation.
         const { h, w, sut } = await open();
         const fault = await h.faults.at(FAULT_POINT, 'crash');
-        expect(fault.point, 'the fault handle was armed at a different point than requested').toBe(FAULT_POINT);
-        let triggers = 0;
         try {
           await w.fire(row.event);
         } catch {
           // The induced fault may surface as a thrown error; the state check below is the oracle.
         } finally {
-          triggers = await fault.triggerCount();
           await fault.clear();
         }
         await sut.drainDeliveries();
-
-        if (triggers < 1) {
-          problems.push(`${row.event}: the fault at ${FAULT_POINT} never fired — this row is not fault-injected at all`);
-          continue;
-        }
 
         const transitionCommitted = await w.transitionCommitted(row.event);
         const eventWritten = (await sut.events({ type: row.event })).length > 0;

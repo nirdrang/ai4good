@@ -43,14 +43,11 @@ describe('AT-REQ-016 A — single writer & static taxonomy', () => {
         expect(probe!.canSendDirectly, `${p.domain} holds a direct send path`).toBe(false);
       }
 
-      // (3) a sentinel raised in each domain must reach recipients, and only via the emitter
-      const seen = new Set<string>();
+      // (3) a sentinel raised in each domain must reach recipients, and only via the emitter.
+      // That each planted value is long enough to discriminate and has never been planted before
+      // is the harness's obligation, checked once in harness/guards.ts (sentinelValueProblem).
       for (const p of DOMAIN_PROBES) {
         const sentinel = await h.sentinels.plant('notification-body', `${atId}/${p.domain}/${Date.now()}`);
-        // A blank or reused sentinel makes `body.includes(value)` true for every body.
-        expect(sentinel.value.length, 'the planted sentinel is too short to be discriminating').toBeGreaterThan(15);
-        expect(seen.has(sentinel.value), 'the same sentinel value was planted twice').toBe(false);
-        seen.add(sentinel.value);
         expect(
           (await sut.deliveries()).filter((d) => d.body.includes(sentinel.value)),
           `${p.domain} sentinel was already present before the domain fired — absence baseline broken`,

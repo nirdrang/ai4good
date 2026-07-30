@@ -35,7 +35,7 @@ import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, r
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { inspectBijection, normalizeRequirement, REPO_ROOT, suiteDir } from './check.ts';
+import { INSTALL_ROOT, inspectBijection, normalizeRequirement, REPO_ROOT, suiteDir } from './check.ts';
 
 const TIERS = ['loop', 'integration', 'drill'] as const;
 type Tier = (typeof TIERS)[number];
@@ -54,8 +54,12 @@ const GATE_STALE_MINUTES = Number(process.env.AT_LOCK_GATE_STALE_MINUTES ?? 2);
 /** `supabase status` reports these two as stopped because config.toml disables them. Benign. */
 const DISABLED_SERVICES = /^supabase_(imgproxy|pooler)_/;
 
-/** The pinned CLI, invoked directly — no shell, no PATH lookup, no globally installed version. */
-const SUPABASE_ENTRY = join(REPO_ROOT, 'node_modules', 'supabase', 'dist', 'supabase.js');
+/**
+ * The pinned CLI, invoked directly — no shell, no PATH lookup, no globally installed version.
+ * Resolved from the INSTALL root, never the (overridable) data root: the pinned versions live in
+ * the real checkout's `node_modules` wherever the acceptance files being read happen to be.
+ */
+const SUPABASE_ENTRY = join(INSTALL_ROOT, 'node_modules', 'supabase', 'dist', 'supabase.js');
 
 interface Args {
   requirement: string;
@@ -1056,14 +1060,18 @@ async function main(argv: string[]): Promise<number> {
       stackEnv.AT_SUPABASE_SERVICE_ROLE_KEY = status.serviceRoleKey;
     }
 
+    // The suites and their vitest root come from the DATA root; vitest itself comes from the
+    // install root, so a run pointed at a disposable tree still runs the pinned test framework.
     const atRoot = join(REPO_ROOT, 'tests', 'at');
     const outputFile = join(reportDir, 'vitest-report.json');
+    const rootOverride: Record<string, string> = {};
+    if (process.env.AT_REPO_ROOT?.trim()) rootOverride.AT_REPO_ROOT = process.env.AT_REPO_ROOT.trim();
 
     const run = spawnSync(
       bunExecutable(),
       [
         '--no-env-file',
-        join(REPO_ROOT, 'node_modules', 'vitest', 'vitest.mjs'),
+        join(INSTALL_ROOT, 'node_modules', 'vitest', 'vitest.mjs'),
         'run',
         '--root',
         atRoot,
@@ -1074,8 +1082,8 @@ async function main(argv: string[]): Promise<number> {
         `suites/req-${requirement}/`,
       ],
       {
-        cwd: REPO_ROOT,
-        env: childEnv({ ...stackEnv, AT_TIER: tier, AT_REGISTRATION_DIR: registrationDir }),
+        cwd: INSTALL_ROOT,
+        env: childEnv({ ...stackEnv, ...rootOverride, AT_TIER: tier, AT_REGISTRATION_DIR: registrationDir }),
         stdio: ['ignore', 'inherit', 'inherit'],
       },
     );

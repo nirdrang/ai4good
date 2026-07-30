@@ -18,7 +18,15 @@ export class ControlledClock {
     return this.currentMs;
   }
 
-  async observedByProduct(): Promise<string> {
-    return new Date(this.currentMs).toISOString();
-  }
+  /*
+   * There was an `observedByProduct()` here, and it is deliberately gone. It returned this
+   * clock's own time, which is the clock answering a question about itself: it passes whether or
+   * not a single line of product code reads the clock, so it proves exactly nothing about the
+   * wiring it claimed to prove. Product-clock wiring is proven BEHAVIOURALLY — advance the clock,
+   * then assert a product behaviour that depends on time actually changed (AT-016.08's anti-spam
+   * window, and the conformance test that drives it through createHarness()).
+   *
+   * Sampling time from inside the product process IS a real capability, and a useful one; it needs
+   * a product process to sample, so it belongs to an integration-tier slice, not to a self-report.
+   */
 }
