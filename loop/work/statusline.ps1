@@ -21,6 +21,20 @@
 
 $ErrorActionPreference = 'SilentlyContinue'
 
+# Write the line as UTF-8 BYTES straight to the standard output handle. PowerShell 5.1 would
+# otherwise re-encode Write-Output through the console code page, which shreds the bar's block
+# glyphs into replacement characters when Claude Code spawns this without a real console.
+function Write-Line([string]$text) {
+    try {
+        $out = [Console]::OpenStandardOutput()
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($text + "`n")
+        $out.Write($bytes, 0, $bytes.Length)
+        $out.Flush()
+    } catch {
+        Write-Output $text
+    }
+}
+
 function Get-Field($obj, [string[]]$path) {
     $cur = $obj
     foreach ($p in $path) {
@@ -110,9 +124,9 @@ try {
         $parts += ('[' + ($light * 20) + '] ?%')
     }
 
-    Write-Output ($parts -join ' | ')
+    Write-Line ($parts -join ' | ')
 } catch {
     # Last resort: say something true rather than nothing, and never a stack trace.
-    Write-Output 'ai4good'
+    Write-Line 'ai4good'
 }
 exit 0
