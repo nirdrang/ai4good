@@ -1,16 +1,22 @@
 ---
 name: dev-start
-description: Open one board item for work — the front door of /item-loop. Creates the dedicated worktree, binds it, moves the item to In Progress, then hands over to the loop. Ergonomic packaging, not an authority, and not an alternative path.
+description: INTERNAL — phase 0 of /item-loop, invoked BY the loop, not typed by the founder. Opens an item for work; the founder's entry points are /pm-next (to pull) and /item-loop (to build).
 ---
 
-# /dev-start [item] — open an item (the loop's front door)
+# /dev-start [item] — INTERNAL: the loop's phase 0
 
-**Rewritten 2026-07-31 (founder ruling, AI4DEV-32).** One lifecycle exists: `/item-loop`.
-This verb is its HOUSEKEEPING PHASE with a convenient name — it opens an item and hands over.
-It decides nothing the loop does not decide, and there is no work it starts that the loop
-does not then govern. The old assumption that a leaf sits under an already-pulled PM
-requirement is gone: this door works identically for a PM-requirement leaf (bind `task` via
-the pull), a foundation item (bind `bringup`), or exploration.
+**Not a founder-facing verb (founder ruling 2026-08-01).** The founder types **`/pm-next`** to
+pull work and **`/item-loop`** to build it — that is the whole surface. `/item-loop` calls this
+skill as its phase 0; nobody else should. It survives as a named skill so the loop has one
+place to change how an item is opened, not so there is a second way to start work.
+
+**Rewritten 2026-07-31 (AI4DEV-32).** One lifecycle exists: `/item-loop`. This is its
+HOUSEKEEPING PHASE. It decides nothing the loop does not decide, and starts no work the loop
+does not then govern. It works identically for a PM-requirement leaf (bound `task` by the
+pull), a foundation item (`bringup`), or exploration.
+
+**If a founder types it directly:** do the work anyway — nothing is blocked — but say plainly
+that `/pm-next` and `/item-loop` are the two entry points, so the surface stays two verbs wide.
 
 ## Ritual
 

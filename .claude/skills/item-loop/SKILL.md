@@ -37,11 +37,21 @@ escalation = Blocked label + comment (never a status change), merge can never pr
 · `premerge-audit.md` · `merge-decision.md`. Every gate artifact records the head SHA
 it examined.
 
+## The founder's surface is TWO verbs (founder ruling 2026-08-01)
+
+**`/pm-next`** pulls the next piece of work — a requirement, a bring-up item
+(`/pm-next bringup AI4DEV-NN`), or exploration — and hands over here. **`/item-loop`** builds
+it. That is the whole surface the founder types.
+
+`/dev-start` and `/dev-end` are INTERNAL to this loop — phase 0 and the merge tail — invoked
+BY the loop, never by the founder. They exist so there is one place to change how an item is
+opened and closed, not so there is a second way to do either.
+
 ## Session discipline (founder ruling 2026-07-31, AI4DEV-32)
 
-- **`/dev-start` and `/dev-end` are this loop's DOORS**, not alternative paths: `/dev-start`
-  is phase 0 with a convenient name; `/dev-end` is the merge tail. No other closing path
-  exists; "verification assumed" is dead.
+- **`/dev-start` and `/dev-end` are this loop's phases**, not alternative paths and not
+  founder-facing: `/dev-start` is phase 0; `/dev-end` is the merge tail. No other closing
+  path exists; "verification assumed" is dead.
 - **The ORCHESTRATOR session works IN the item worktree** — not the shared main folder.
   Bindings are per-worktree; orchestrating from a shared folder means another session can
   overwrite the binding mid-item and every message stamps against the wrong work (observed,

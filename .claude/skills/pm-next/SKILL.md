@@ -1,15 +1,53 @@
 ---
 name: pm-next
-description: Pull the next PM-tree requirement (or a named one, e.g. /pm-next AI4PM-21) — the ONLY authority for In Progress on the PM board. Asks about a dedicated worktree up front, then atomic claim + pull record + binding + lazy dev-tree materialization, per the adopted way-of-work. (Requirement tier; the leaf-tier verbs are /dev-start and /dev-end.)
+description: Pull the next piece of work — a PM-tree requirement (/pm-next AI4PM-21), an approved bring-up item (/pm-next bringup AI4DEV-33), or untracked work (/pm-next exploration). The ONLY authority for In Progress on the PM board. Claims it, creates and enters a dedicated worktree, binds it, hands over to /item-loop.
 ---
 
-# /pm-next — pull a requirement (PM board, AI4GOOD-PM)
+# /pm-next — pull the next piece of work
 
-**Verb tiers:** PM tree (requirement) = `/pm-next`, `/pm-done`. Dev tree (leaf) = `/dev-start`,
-`/dev-end`. **Only requirement items are pullable here.** Bring-up and design-batch items
-(AI4GOOD-DEV) are managed with plain Linear calls, never these verbs (d87).
+**One pull verb for every kind of work** (founder ruling 2026-08-01, implementing an
+instruction from 2026-07-28 that was narrowed at the time rather than carried out:
+*"there is a bring up item that can be set explicitly in next skill like exploration and used
+exactly for this phase"*). Three forms:
 
-## Ritual (execute in order; stop and report on any failure; NO Linear write before step 5)
+| form | pulls | bucket | board |
+|---|---|---|---|
+| `/pm-next` or `/pm-next AI4PM-NN` | a product requirement | `task` | AI4GOOD-PM |
+| `/pm-next bringup AI4DEV-NN` | an approved foundation item | `bringup` | AI4GOOD-DEV |
+| `/pm-next exploration` | genuinely untracked work | `exploration` | none |
+
+**What differs is ceremony, not shape.** All three end identically: a dedicated worktree, a
+binding placed in it, and a hand-off to **`/item-loop`** — the founder's go-to verb and the
+only build lifecycle. Only the requirement form carries the PM-tree ceremony (atomic claim,
+durable pull record, manifest identity, race detection, dev-tree materialization), because
+only requirements have acceptance suites and an evidence gate. **d87 still stands** — bring-up
+items have no pull *ceremony*; they now have a pull *verb*.
+
+`/pm-next` remains the ONLY authority for In Progress on the PM board. On the dev board it is
+ergonomic packaging, as ever.
+
+## Short ritual — `/pm-next bringup AI4DEV-NN` · `/pm-next exploration`
+
+1. **Verify the target** (bringup only): `get_issue` — must be an AI4GOOD-DEV item, normally in
+   the W0 Bring-up project. Refuse an AI4PM id here; that is the requirement form. For
+   `exploration` there is no item and nothing to verify.
+2. **Guard the folder.** `Read-Binding` — if THIS folder already holds a live binding, refuse
+   and steer to a dedicated worktree. One item per folder, one item per session.
+3. **Create the dedicated worktree** — `EnterWorktree` if available (it moves this session in),
+   else `git worktree add -b <branch> ..\ai4good-<slug> origin/main`.
+4. **`cd` INTO it — the session itself.** A subagent's working directory dies with the
+   subagent, so a session that merely *ordered* a worktree is still in the old folder. Not
+   theoretical: it cost AI4DEV-24 a hijacked binding and a run of mis-stamped messages.
+5. **Bind it** — `Write-Binding` if entered, else `Write-BindingFor '<path>'`. Payload:
+   `wave; project=<item or 'none'>; pmId=<AI4DEV-NN or 'none'>; bucket='bringup'|'exploration';
+   sessionId=...`.
+6. **Board** (bringup only): item → In Progress with a comment naming the slice — a plain
+   Linear call; the dev board is working space, no pull record (d87).
+7. **Print the WORKING-ON line** immediately, so the founder sees the change as it happens.
+8. **Hand over:** invoke `/item-loop AI4DEV-NN`, and print the rename line
+   (`/rename AI4DEV-NN · <short title>`, or `/rename exploration · <topic>`).
+
+## Full ritual — a requirement (execute in order; stop and report on any failure; NO Linear write before step 5)
 
 1. **Pick the candidate.** If the founder named an item, use it. Otherwise list AI4GOOD-PM
    Backlog items whose blockers are all Done and propose the highest-value one; the founder
@@ -60,7 +98,8 @@ description: Pull the next PM-tree requirement (or a named one, e.g. /pm-next AI
 10. **Materialize the dev tree** (idempotent): `powershell -File loop/work/materialize.ps1 -Req
     0NN` → for each parent not already on AI4GOOD-DEV (check by exact title): create the parent
     (relatedTo the PM item), then each leaf as a sub-issue (parentId), description = summary +
-    `verify:` set, with blocked-by relations mapped to the sibling leaf issues. Cross-manifest
+    `verify:` set, with blocked-by relations mapped to the sibling leaf issues. **Each leaf is
+    then built by `/item-loop`** — one lifecycle for every kind of work. Cross-manifest
     blocked-by references go in the description, not as relations. (Leaves are then worked with
     `/dev-start` and `/dev-end`.)
 
