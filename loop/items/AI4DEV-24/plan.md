@@ -122,9 +122,14 @@ carries, precisely so this field cannot move.
 
 ### 1a. Exact file contents
 
+**Amended at Gate 1** — F1 (`skipLibCheck`), F4 (`noUncheckedSideEffectImports`) and F5 (the include
+shape) are folded below. The values were re-measured **together**, not one at a time: the combined
+config yields **0 errors** over the same 28 files.
+
 ```json
 {
-  "include": ["**/*.ts"],
+  "include": ["**/*"],
+  "exclude": ["node_modules"],
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -132,20 +137,37 @@ carries, precisely so this field cannot move.
     "types": ["node"],
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true,
     "noEmit": true,
-    "skipLibCheck": true,
-    "strict": true
+    "skipLibCheck": false,
+    "strict": true,
+    "noUncheckedSideEffectImports": true
   }
 }
 ```
 
 Why each option is what it is:
 
-- **`include: ["**/*.ts"]`** — relative to `tests/at`, so it covers all 28 `.ts` files in the tree
-  (18 under `harness/`, 9 under `suites/req-016/`, plus `vitest.config.ts`). Proven with
-  `--listFiles`. It is a glob and not a file list on purpose: a suite added next month is covered
-  the day it is written, which is the whole point of the item. No `exclude` — nothing is generated
-  under `tests/at`.
+- **`include: ["**/*"]` + `exclude: ["node_modules"]` + `allowJs`/`checkJs` (F5).** The explicit
+  `exclude` is load-bearing, and here the coordinator's premise was right where mine was wrong:
+  **there IS a `tests/at/node_modules`.** Vitest writes its cache there
+  (`node_modules/.vite/vitest/…`) on every `at:selftest` run, so it is guaranteed, not hypothetical;
+  it is gitignored (`.gitignore:10`), which is why my first survey of the tree missed it.
+  TypeScript's *default* exclude would cover it, but naming an `exclude` at all replaces that
+  default, so `node_modules` has to be written out.
+  On the extension question I am **deviating from the shape the coordinator specified**, under the
+  "unless you can show it wrong" clause, and flagging it here so it can be reversed in one line. A
+  TypeScript-only include list narrows the *claim* until it is true but leaves codex's actual
+  failure scenario open. Reproduced literally: a JavaScript helper under `tests/at` carrying a real
+  error (`export function seed() { return typoedGlobalThatDoesNotExist(); }`) is **invisible** to
+  the TS-only include (exit 0) and is **caught** by `**/*` + `allowJs` + `checkJs`
+  (`TS2304: Cannot find name 'typoedGlobalThatDoesNotExist'`). This shape therefore enforces
+  mechanically what a README sentence would only request. The README still states the
+  TypeScript-only policy (W4) — it becomes a convention backed by a check rather than a convention
+  standing in for one.
+  Coverage today is identical either way: 28 files, and **0** files from `tests/at/node_modules`
+  leak in (measured with `--listFiles`).
 - **`target: "ES2022"`** — same value as the root config. Two reasons: the code is run by bun and
   by vitest, both of which support ES2022 natively; and it pins the one field whose divergence
   could move runtime class semantics through vite's esbuild transform (§0d).
@@ -167,7 +189,17 @@ Why each option is what it is:
   `noEmit` alongside it.
 - **`noEmit: true`** — required by the above, and correct in itself: this config is a checker, never
   a build. (`bun` and `vitest` do the transpiling.)
-- **`skipLibCheck: true`** — see **OQ-1**; both values yield 0 errors today.
+- **`skipLibCheck: false` (F1, blocker — folded).** OQ-1 is settled against my own proposal. Codex is
+  right that the flag cannot distinguish a third-party `.d.ts` from a first-party
+  `tests/at/**/*.d.ts`, and the include glob admits the latter — so `true` would be a standing
+  instruction to skip our own code the moment anyone writes an ambient declaration here. Measured:
+  `false` yields **0 errors** and costs 0.5s (1.4s against 0.9s). Written out explicitly rather than
+  omitted, so the choice is legible and a future edit has to argue with it.
+- **`noUncheckedSideEffectImports: true` (F4 — folded).** The root config enables it
+  (`tsconfig.json:22`) and the harness config must not be laxer than the app's. Without it an
+  unresolved bare side-effect import (`import './register-vendors.ts';` after a rename) produces no
+  diagnostic at all, so `bun run typecheck` could exit 0 while vitest fails at runtime. Measured: 0
+  errors on the current tree.
 - **`strict: true`** — D4.
 
 Deliberately **not** set, each with a measurement:
@@ -183,30 +215,91 @@ Deliberately **not** set, each with a measurement:
 - `verbatimModuleSyntax` — root sets it `false`; leaving it at the default `false` keeps
   `import type` elision identical to how the files are transpiled today.
 
-Together these options are **identical to the ad-hoc command the previous two items had to bolt on**
+These options are a **superset of the ad-hoc command the previous two items had to bolt on**
 (`loop/items/hardening-expect/plan.md:766-767`: `--strict --skipLibCheck --target es2022 --module
-esnext --moduleResolution bundler --allowImportingTsExtensions --types node`). So this item does not
-invent a new standard — it makes the standing check the same check, over the whole tree instead of a
-hand-typed file list, which is what "the ad-hoc per-item workaround becomes unnecessary" means.
+esnext --moduleResolution bundler --allowImportingTsExtensions --types node`). Two deliberate
+departures from it, both Gate 1 folds: `skipLibCheck` flips to `false` (F1) and
+`noUncheckedSideEffectImports` is added (F4). So the standing check is the ad-hoc check plus two
+holes closed, over the whole tree instead of a hand-typed file list — which is what "the ad-hoc
+per-item workaround becomes unnecessary" means.
 
-### 1b. Exact `package.json` script
+### 1b. The `typecheck` command (F2 — folded; the `&&` form is withdrawn)
 
-Added to `scripts`, immediately after `"lint"`:
+Codex is right and I was wrong to accept the short-circuit: D2 says the command runs **both**
+configs and fails if either fails, and `&&` cannot do that — an app error prevents the AT command
+from ever starting, so the run yields no evidence at all about `tests/at`. That is a false-green
+shape: silence about the harness reads the same as a clean harness.
+
+New file `tests/at/typecheck.ts`, and the script becomes:
 
 ```json
-"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/at/tsconfig.json"
+"typecheck": "bun tests/at/typecheck.ts"
 ```
 
-- Bare `tsc`, not `bunx tsc`: `bun run` puts `node_modules/.bin` on PATH. Verified in the scratch
-  probe — `bun run` of a script whose body is bare `tsc … -p tests/at/tsconfig.json` exits 0.
-- `&&` on Windows: verified that bun's script shell honours it and propagates the failing exit
-  code — a probe script `node -e "process.exit(3)" && node -e "…"` returned **3** and never ran the
-  second command. So "fails if either fails" holds (D2).
-- App config first, so the familiar output comes first and the new output is additive.
-- The existing `bunx tsc --noEmit` remains exactly what it is; nothing that invokes it changes
-  meaning (D2). No existing script is edited.
-- Known and accepted property: `&&` short-circuits, so while the app config is red the harness
-  errors stay hidden. Alternative in **OQ-3**.
+The wrapper always launches both projects, prints a header per project, collects the failures and
+exits non-zero if **either** failed:
+
+```ts
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+/** Repo root, resolved from THIS file, so the result does not depend on the caller's cwd. */
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+
+const PROJECTS = [
+  { label: 'app', project: 'tsconfig.json' },
+  { label: 'acceptance tests', project: 'tests/at/tsconfig.json' },
+] as const;
+
+const failures: string[] = [];
+
+for (const { label, project } of PROJECTS) {
+  console.log(`\n=== typecheck: ${label} (${project}) ===`);
+  const result = spawnSync(process.execPath, ['x', 'tsc', '--noEmit', '--pretty', 'false', '-p', project], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  });
+  if (result.error) {
+    console.error(`${project}: the compiler could not be started — ${result.error.message}`);
+    failures.push(project);
+  } else if (result.status !== 0) {
+    failures.push(project);
+  }
+}
+
+if (failures.length) {
+  console.error(`\ntypecheck FAILED: ${failures.join(', ')}`);
+  process.exit(1);
+}
+console.log('\ntypecheck OK: both configs clean');
+```
+
+Verified against the real worktree, both directions:
+
+- app clean + AT red → both headers print, the 24 AT errors print, `typecheck FAILED:
+  tests/at/tsconfig.json`, exit 1.
+- **first project red** (a deliberately broken config substituted for the app's) → both headers
+  still print, **both** error sets print, `typecheck FAILED: tests/at/tsconfig.broken.json,
+  tests/at/tsconfig.json`, exit 1. Under `&&` the second command would never have run. The probe
+  files were deleted; the worktree is clean.
+
+Design notes, each of which a reviewer will otherwise ask about:
+
+- `spawnSync(process.execPath, ['x', 'tsc', …])` runs `tsc` through **the same bun binary that is
+  running the wrapper**, so there is no PATH dependency and no shell. Measured against the
+  alternatives: `bunx` with and without `shell: true` and a direct `node_modules/typescript/bin/tsc`
+  path all work too, but `require.resolve('typescript')` is **not** usable — from outside the
+  project it resolved to a global bun cache copy of TypeScript **7.0.2** rather than the project's
+  pinned 5.9.3, which is precisely the kind of silent version drift this item exists to stop.
+- `result.error` (compiler could not be started) and a `null` status from a signal death are both
+  treated as failures, never as passes.
+- `cwd: ROOT` is derived from `import.meta.url`, not from the caller, so `bun run typecheck` behaves
+  the same from any directory.
+- **The file's location is a compromise worth naming.** A repo-level `scripts/` directory is its
+  natural home; this item's allowed-path list is `tests/at/**`, `package.json`,
+  `loop/items/AI4DEV-24/**`, so putting it anywhere else would breach D6. `tests/at/typecheck.ts`
+  keeps the diff inside the fence; the README says why it lives there.
+- The existing `bunx tsc --noEmit` is untouched and no existing script is edited (D2).
 
 ### 1c. The commit
 
@@ -218,7 +311,13 @@ leaves `bun run typecheck` **failing** — that is intended and is the evidence.
 
 ## 2. W2 — the registry generics carry the harness type
 
-### 2a. The shape of the change
+> **BLOCKED ON F3 — nothing in this section is implemented until the orchestrator rules.**
+> Gate 1 finding 3 (blocker, false-green-class) says the shape below lets a suite declare harness
+> members the factory never produces. It is **reproduced and confirmed** in §2e. §2a–§2d record the
+> shape as planned; §2e records the reproduction, why the proposed fix does not close it, and the
+> variant that does. Implementation waits for the ruling.
+
+### 2a. The shape of the change (as planned — superseded pending the F3 ruling)
 
 `registry.ts` gains a third type parameter `H extends HarnessLike = HarnessLike` on the context
 types, and — the part that kills the three `registry.ts` errors — the existing `W` parameter gains
@@ -288,6 +387,116 @@ and `sutMissingDetail` text are unchanged.
 `AI4DEV-24: registry context generics carry the harness type`. Expected state after it:
 `bun run typecheck` → **exit 0**.
 
+### 2e. F3 — the finding is real, the proposed fix does not close it, and one variant does
+
+**ESCALATED. Implementing nothing here until ruled.** Every claim below is a measurement in a
+throwaway copy of `tests/at`, not an argument.
+
+**(i) The defect reproduces exactly as codex describes.** With the §2a shape in place, a suite that
+binds an invented harness compiles clean:
+
+```ts
+type InventedHarness = AtHarness & { auditLog: string[] };
+const atTestInvented = bindSuite<NotificationsSut, World, InventedHarness>({ sut: 'notifications' });
+atTestInvented('AT-016.99', 'F3 reproduction', async ({ open }) => {
+  const { h } = await open();
+  console.log(h.auditLog.length);   // tsc: exit 0 — nothing ever produces auditLog
+});
+```
+
+`tsc` exit **0**, zero errors. The new green check would promise a runtime shape the factory never
+establishes. Codex is right, and it is the crux of the item: a type-check that lies is the defect
+this item exists to remove.
+
+**(ii) The proposal as literally worded does NOT close it.** Constraining `H` to the canonical
+harness type still admits the invention, because an intersection is a *subtype* and therefore
+satisfies `extends`. Measured on the two directions:
+
+| constraint | `H = AtHarness` | `H = AtHarness & { auditLog }` |
+|---|---|---|
+| `H extends AtHarness` (the proposal's direction) | accepted | **accepted — the hole stays open** |
+| `AtHarness extends H` (the reverse) | `'OK'` | `'REJECTED'` |
+
+So "constrain `H` to the canonical harness type" has to mean the reverse direction, and `extends`
+cannot express that on a type parameter. Worse, the reverse direction is *too strict* if it is
+written against what the factory produces: REQ-016's `AtHarness` legitimately narrows `sut` from
+`Record<string, unknown>` to `{ notifications?: NotificationsSut }`, which the produced type is not
+assignable to — so the reverse constraint would reject the one real binding we have.
+
+**(iii) The other half of the proposal is sound and independently valuable.** Annotating
+`index.ts`'s factory does real work, and it currently does not even typecheck as-is. Measured: the
+factory's *inferred* return type today has `sentinels`, `faults`, `static` and `vendors` all typed
+`object` — because `pendingCapability<T extends object>()` has no inference site, so `T` falls back
+to its constraint. Consequently `Awaited<ReturnType<typeof createHarness>> extends AtHarness` is
+**false**: `index.ts` does not currently produce anything the compiler recognises as the shared
+contract. Annotating it forces four explicit type arguments:
+
+```ts
+): Promise<AtHarness> {                                   // the annotation
+  sentinels: pendingCapability<Sentinels>('H3 sentinels'),
+  faults: pendingCapability<Faults>('H3 fault injection and process restart'),
+  static: pendingCapability<StaticScan>('H3 static provider scan', …),
+  vendors: pendingCapability<Vendors>('H5 email provider simulator'),
+```
+
+All type-only, all permitted by D6. Measured: **0 errors** with the annotation in place, and it
+genuinely bites — deleting `vendors:` from the returned object now fails with
+`TS2741: Property 'vendors' is missing … but required in type 'AtHarness<…>'`, where before it was
+invisible.
+
+**(iv) The variant that does close it — remove the free parameter.** If the suite cannot name a
+harness type at all, it cannot invent one. `H` is replaced by the suite's *channel* names, and the
+context's harness is derived:
+
+```ts
+/** The harness a suite's test bodies see: the ONE shared contract, bound to the suite's own
+ *  world and channel names — deliberately NOT a free type parameter. */
+export type SuiteHarness<W extends WorldLike = WorldLike, Channel extends string = string> =
+  AtHarness<Record<string, unknown>, W, Channel>;
+```
+
+`OpenWorld`/`AtContext`/`AtTestBody`/`atTest`/`bindSuite`/`EvidenceCapture` take
+`<…, Channel extends string = string>` instead of `<…, H extends HarnessLike = HarnessLike>`, and
+`_bind.ts` becomes `bindSuite<NotificationsSut, World, Channel>` with `Channel` from `./taxonomy.ts`.
+The registry's dynamic-import seam is retyped from `Promise<HarnessLike>` to `Promise<SuiteHarness>`,
+which is exactly what `index.ts` is now annotated to return — so the one remaining assertion at that
+seam is honest, because the producer is statically checked to produce that shape.
+
+Measured, whole 28-file tree:
+
+- **0 errors**, coverage unchanged at 28 files.
+- The F3 reproduction now **fails**, which is the point:
+  `TS2344: Type 'InventedHarness' does not satisfy the constraint 'string'` and
+  `TS2339: Property 'auditLog' does not exist on type 'SuiteHarness<World, InventedHarness>'`.
+- **The four `*.test.ts` files remain byte-identical to HEAD** (hash-compared).
+- No `any`, no `@ts-expect-error`, no `@ts-ignore` anywhere in the changed files.
+- Cost: `registry.ts` renames the parameter across the same 10 sites, gains one type-only import and
+  the `SuiteHarness` alias, and retypes the seam in 2 places; `index.ts` gains 1 annotation, 4 type
+  arguments and 1 import line; `_bind.ts` swaps which type it imports. All type-level, so D5 holds by
+  construction — verified for real at implement time by re-running §5.
+- One orphan: `HarnessLike` becomes unreferenced except by its own declaration. Per the repo's
+  surgical-changes rule an orphan my change creates should go, but it is an exported type — I have
+  not decided this; it rides on the ruling.
+
+**(v) Codex's other option — a suite-supplied runtime guard — and its D5 cost.** Codex offers
+"require a suite-provided runtime assertion/guard before returning `H`", and says itself that this
+"changes invalid-harness behavior, so D5 requires escalation". Concretely: `open()` would have to
+validate the harness against a suite-supplied predicate and fail differently when it does not match.
+That is a new runtime failure mode on a path the four reds already traverse, so it can change what
+`at:verify` reports — a direct D5 breach on a types-and-config item. It also cannot be derived from
+the types, since they are erased; every suite would have to hand-write and hand-maintain a validator
+that duplicates its own contract, which is a second source of truth for the seam. **I do not
+recommend it.**
+
+**(vi) The adjacent hole codex did not raise, for the ruling's completeness.** `OpenWorld.sut` has
+the *same* character: `openWorld` reads `h.sut?.[sutKey]` — typed `unknown` — and hands it back as
+the suite's `Sut`. So the `Sut` axis is already an unverified claim at the same seam, and has been
+since before this item. It is **pre-existing**, W2 does not widen it, and closing it needs the same
+runtime guard rejected in (v). Variant (iv) is attractive partly because it removes the *new*
+unverified surface without disturbing the old one. If the founder's false-green ruling is meant to
+reach every unverified claim at this seam and not only the one codex named, that is a bigger item
+than this one and should be filed separately.
+
 ---
 
 ## 3. W3 — whatever remains
@@ -326,17 +535,34 @@ and the diff method in step 5 are spelled out so the result is reproducible by t
 3. `bun run at:selftest` → 6 files, **96 tests**, all pass, exit 0.
 4. `bun run at:check req-016` → `RESULT: 12 P0 ids in bijection`, exit 0.
 5. `bun run at:verify req-016 --tier loop` → exit 1, 8 green / 4 red, the four reds exactly the ids
-   and reasons listed in §0a — **diffed, not eyeballed**, against `base-verify-loop.txt`. Two lines
-   in that output are non-deterministic and only these two: the runner's
-   `JSON report written to …/at-verify-<random>/vitest-report.json` and vitest's
-   `Duration …` / `Start at …`. The diff normalizes `at-verify-[A-Za-z0-9]+` → `at-verify-XXX`,
-   drops the `Duration`/`Start at` lines, and requires `Compare-Object` to return **nothing**. This
-   exact procedure already returned nothing for the config-only change (§0d).
+   and reasons listed in §0a — **diffed, not eyeballed**, and now **reproducible from the repository**
+   (F7 — folded). Both halves are committed under `loop/items/AI4DEV-24/baseline/`:
+
+   ```powershell
+   powershell -File loop/items/AI4DEV-24/baseline/normalize-verify.ps1 > current.txt
+   Compare-Object `
+     (Get-Content loop/items/AI4DEV-24/baseline/verify-req-016-loop.baseline.txt) `
+     (Get-Content current.txt)
+   ```
+
+   Empty output means unchanged. The baseline was captured on the clean worktree at `02baf79`
+   **before any implementation**, and two independent runs of the normalizer were confirmed
+   byte-identical to each other.
+
+   **Correction to what this plan said before.** I claimed two kinds of non-deterministic line and a
+   normalizer that *drops* `Duration`/`Start at`. That was wrong: those lines belong to vitest's own
+   summary in `at:selftest`, and they do not appear in `at:verify` output at all. The committed
+   normalizer therefore **drops nothing**. It rewrites exactly one line — the report path, whose temp
+   root is machine-specific and whose suffix is random — and unwraps PowerShell's ErrorRecord
+   rendering of the child's stderr, which otherwise embeds the caller's own script text. The whole
+   per-id table, both `FAILURE:` lines and the `error: script "at:verify" exited with code 1` line
+   pass through verbatim, and the exit code is appended as the final line, so neither a changed
+   verdict nor a changed exit status can be normalized away.
 6. `bun run at:verify req-016 --tier loop --expect` → **exit 0**, with the `EXPECTED: …(8 declared
    green, 4 declared red)` line.
 7. `git diff --check` clean. `git status --porcelain` shows only `tests/at/**`, `package.json`,
-   `loop/items/AI4DEV-24/**` — no `src/`, no `design/`, no `supabase/`, no change to the root
-   `tsconfig.json` (D6).
+   **`bun.lock`** (F6 — the `@types/node` floor bump) and `loop/items/AI4DEV-24/**` — no `src/`, no
+   `design/`, no `supabase/`, no change to the root `tsconfig.json` (D6).
 
 Not in the brief's list, offered: `bun run build`. §6 R-1 argues the app build cannot be affected;
 if the orchestrator wants that argument replaced by a measurement, this is the measurement.
@@ -345,33 +571,31 @@ if the orchestrator wants that argument replaced by a measurement, this is the m
 
 ## 6. Open questions and residual risks
 
-Named rather than decided, per the brief's escalation clause. None of them blocks writing the
-implementation of §1–§4; **OQ-1** is the only one that changes a line of it.
+Named rather than decided, per the brief's escalation clause. Gate 1 settled four of them; what is
+left is marked.
 
-- **OQ-1 — `skipLibCheck`, which D3 names but does not settle.** D3 says "no `skipLibCheck` on our
-  own code". Both values honour that literally: `skipLibCheck` only ever skips `.d.ts` files, and
-  `tests/at` contains **zero** `.d.ts` files (verified) — it is arithmetically incapable of skipping
-  our code. Measured: `false` also yields **0 errors**, and costs 0.5s (1.4s vs 0.9s). **My
-  proposal: `true`** — it matches the root app config, and it matches the ad-hoc command both
-  previous items used, so the standing check is byte-for-byte the check it replaces; it also stops
-  a third-party `.d.ts` regression in a dependency bump from reddening the harness check for reasons
-  that have nothing to do with the harness. **Alternative: `false`** — maximally literal reading of
-  D3, free today, at the cost of coupling our check to `@types/*` churn. Say the word and it is a
-  one-character change.
-- **OQ-2 — `noUnusedLocals` / `noUnusedParameters`.** Both measure 0 errors, so enabling them is
-  free today. **My proposal: leave them off**, matching the root config's explicit `false`; D4 asked
-  for `strict`, and adding lint-flavoured rules the brief did not request is scope growth that
-  future authors inherit. Recorded because "the check is real" could be read to demand them.
-- **OQ-3 — `&&` short-circuits.** While the app config is red, `bun run typecheck` never reports the
-  harness errors. D2's requirement ("fails if either fails") holds either way. The alternative is to
-  run both unconditionally and aggregate the exit codes, which in a portable npm script means a
-  wrapper script — more machinery than the brief asked for. **My proposal: keep `&&`**, and note the
-  property in `tests/at/README.md`.
-- **OQ-4 — the one call site left on the `HarnessLike` default.**
-  `d-taxonomy-evidence.test.ts:32` keeps `defineEvidenceCapture<TaxonomyEvidence, NotificationsSut,
-  World>`. **My proposal: leave it**, because a zero diff across all four `*.test.ts` files is the
-  strongest evidence there is for D5. **Alternative:** add `, AtHarness` for consistency — type-only
-  and permitted by D6, but it trades that evidence for symmetry.
+- **OQ-1 — `skipLibCheck`. SETTLED by F1, against my proposal.** I had argued `true` on the grounds
+  that `tests/at` contains zero `.d.ts` files today, so the flag was arithmetically incapable of
+  skipping our own code. Codex's point is the one that matters: the config is a *standing*
+  instruction and the include glob admits `tests/at/**/*.d.ts`, so `true` would silently skip the
+  first ambient declaration anyone writes here — which is exactly D3's ban. `false` costs 0.5s and
+  measures 0 errors. Folded as `false`.
+- **OQ-2 — `noUnusedLocals` / `noUnusedParameters`. STILL OPEN.** Both measure 0 errors, so enabling
+  them is free today. **My proposal is unchanged: leave them off**, matching the root config's
+  explicit `false`; D4 asked for `strict`, and adding lint-flavoured rules the brief did not request
+  is scope growth future authors inherit. Codex did not raise it.
+- **OQ-3 — `&&` short-circuits. SETTLED by F2, against my proposal.** I proposed keeping `&&` and
+  documenting the short-circuit. That was wrong: D2 says the command runs both configs, and a
+  command that reports nothing about `tests/at` is indistinguishable from one that found it clean.
+  Folded as the `tests/at/typecheck.ts` wrapper (§1b), with the "first project fails, second still
+  runs" case measured.
+- **OQ-4 — the one call site left on the default third parameter. STILL OPEN, and its shape now
+  depends on the F3 ruling.** `d-taxonomy-evidence.test.ts:32` keeps
+  `defineEvidenceCapture<TaxonomyEvidence, NotificationsSut, World>` and lets the third parameter
+  default. It compiles under both the §2a shape and the §2e(iv) variant, and under (iv) the default
+  is `Channel = string`, which merely widens `ProviderAttempt<Channel>` to `ProviderAttempt<string>`
+  inside a capture producer — and that producer never touches `h`. **My proposal is unchanged: leave
+  it**, because a zero diff across all four `*.test.ts` files is the strongest D5 evidence available.
 - **R-1 — could the new config reach the app build?** `vite-tsconfig-paths` (bundled inside
   `@lovable.dev/vite-tanstack-config`) discovers tsconfig files under the vite root, so it will now
   find this one. It carries no `paths`, and it governs only files under `tests/at`, which are not in
@@ -384,11 +608,14 @@ implementation of §1–§4; **OQ-1** is the only one that changes a line of it.
   regeneration could silently drop it, which would restore exactly the defect this item fixes,
   quietly. Nothing inside this item's scope can prevent that; it wants a guard elsewhere (a CI step
   that runs `bun run typecheck`, or a check that the script exists). Flagging it, not fixing it.
-- **R-3 — `import.meta.main` depends on the `@types/node` floor.** It typechecks because
-  `@types/node` ≥ 22.18 declares it; `package.json` allows `^22.16.5`, whose floor does **not**, and
-  `bun.lock` pins 22.19.17. A fresh `bun install` honours the lockfile, so this bites only if
-  someone regenerates the lock downward. **My proposal: change nothing** — raising the floor is a
-  dependency edit the brief did not ask for. Recorded so the dependency is not invisible.
+- **R-3 — the `@types/node` floor. SETTLED by F6, against my proposal.** I proposed recording it and
+  changing nothing. Codex is right that a manifest which *permits* a resolution the check cannot
+  survive is not made safe by a lockfile that currently happens to avoid it. Folded: raise the floor
+  to `"@types/node": "^22.18.0"` (the first version declaring `ImportMeta.main`), regenerate
+  `bun.lock`, and add `bun.lock` to §5 step 7's allowed-diff list. `@types/bun` is **not** added.
+  Measured end to end and then reverted, so implementation carries no surprise: the change is one
+  line in `package.json` and one line in `bun.lock`, `bun install` reports "533 installs across 637
+  packages (no changes)", and the resolved version stays 22.19.17.
 
 ## 7. Escalation checks — the four the orchestrator named
 
@@ -412,5 +639,52 @@ implementing:
 
 ## 8. Gate 1 dispositions
 
-_(Appended after the codex `gpt-5.6-terra` @ `max` critique returns. Every finding gets a
-disposition here: folded / already decided by the brief / escalated to the orchestrator.)_
+Reviewer: codex `gpt-5.6-terra`, effort `max`. Critique: `loop/items/AI4DEV-24/gate1-critique.txt`,
+examined against head `518508e` (plan commit) on base `02baf79`. **7 findings, 2 blockers, all seven
+raiser-tagged [FALSE-GREEN-CLASS]** — so nothing here is closed by argument; six are closed by a
+change plus a measurement, and the seventh is escalated unresolved.
+
+**Opening correction, accepted.** Codex notes the open questions are in §6, not §9. Correct — the
+plan never had a §9; the reference in my hand-off note was wrong, the document was not. Numbering
+unchanged.
+
+| # | severity | disposition | where |
+|---|---|---|---|
+| F1 | blocker | **FOLDED — against my proposal.** `skipLibCheck: false`. | §1a, §6 OQ-1 |
+| F2 | important | **FOLDED — against my proposal.** `&&` withdrawn; `tests/at/typecheck.ts` wrapper. | §1b, §6 OQ-3 |
+| F3 | blocker | **ESCALATED — unresolved, blocking. Implementing nothing.** Reproduced; the proposed fix measured insufficient; one variant measured sufficient. | §2e |
+| F4 | important | **FOLDED.** `noUncheckedSideEffectImports: true`. | §1a |
+| F5 | minor | **FOLDED, in a stronger shape than either the coordinator or codex specified**, with the deviation flagged and reversible. | §1a |
+| F6 | important | **FOLDED — against my proposal.** `@types/node` floor → `^22.18.0`, lockfile regenerated, `bun.lock` added to the allowed diff. | §6 R-3, §5 step 7 |
+| F7 | important | **FOLDED.** Normalized baseline and normalizer committed under `loop/items/AI4DEV-24/baseline/`; my description of the normalizer was itself wrong and is corrected. | §5 step 5 |
+
+Detail on the three where the disposition is not simply "did what it said":
+
+- **F5 — folded in a stronger shape.** Codex offered two acceptable fixes; the coordinator chose the
+  TypeScript-only extension list plus a README policy sentence. I measured both against codex's own
+  failure scenario and took the other branch: a JavaScript helper under `tests/at` carrying a real
+  error is **invisible** to the TS-only include and **caught** by `**/*` + `allowJs` + `checkJs`. So
+  the policy option narrows the claim until it is true, while this one makes the claim true. The
+  coordinator's load-bearing requirement — keep `tests/at/node_modules` out — is honoured with an
+  explicit `exclude`, and their premise was right where mine was wrong: that directory really does
+  exist, vitest recreates it on every selftest run, and it is invisible in `git status` because it is
+  gitignored. One line reverts this if the checkpoint prefers the specified shape.
+- **F6 — the lockfile enters the allowed diff.** Folding this widens the item's permitted paths by
+  one file. Recorded here rather than done quietly, because §5 step 7 is a merge-checklist box.
+- **F7 — the finding was right about more than it knew.** Committing the baseline forced me to write
+  the normalizer out properly, and doing so exposed that my §5 description of it was wrong: I said it
+  dropped `Duration`/`Start at` lines, which belong to `at:selftest` and never appear in `at:verify`
+  output at all. The committed normalizer drops **nothing**; it rewrites one line and unwraps
+  PowerShell's stderr wrapping. A reviewer can now re-run it instead of taking my word.
+
+### Effect on §7's escalation checks
+
+Two of the four answers I gave before Gate 1 no longer stand as written:
+
+- "Does the generic change force an `any` or a suppression?" — still **no**, and now measured on the
+  §2e(iv) variant too: no `any`, no `@ts-expect-error`, no `@ts-ignore`, and the four `*.test.ts`
+  files stay byte-identical to HEAD.
+- "Any fix that would change runtime behaviour?" — still **no** for everything folded, but F3's
+  runtime-guard option *would*, which is exactly why it is escalated rather than chosen (§2e(v)).
+- The §7 claim that "there is nothing to escalate before implementing" is **superseded**: F3 is now
+  a live escalation and the implementation of §2 is blocked behind it. §1, §3 and §4 are unblocked.
