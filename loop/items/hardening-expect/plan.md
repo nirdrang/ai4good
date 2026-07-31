@@ -997,13 +997,106 @@ Already owned elsewhere: `tests/at` invisible to `tsc` is **AI4DEV-24**; CI on t
 
 ---
 
-## 12. What the checkpoint is being asked to approve
+## 12. What the Gate 1 checkpoint was asked to approve (settled by rulings 03)
 
 1. The seven dispositions in section 10 — all folded, none disputed.
-2. **OP1 (section 9)**, the only open point: `pending` reds matched by anchored prefix rather than
-   whole-line equality, because the trailing detail is free text the declaration cannot determine.
-   Nothing is implemented on it either way.
-3. Three additions beyond the brief's letter, each strikeable: the unit selftest file (§1a),
-   conformance case 8 (§5a — the R8 accounting proof), and conformance case 9 (§5a — the F4
-   refusal). Cases 8 and 9 test behaviour this revision introduces; without them, two folds ship
-   unproven.
+2. **OP1 (section 9)**: `pending` reds matched by anchored prefix. **ACCEPTED by R12.**
+3. Three additions beyond the brief's letter. **All KEPT by R13**, none struck.
+
+---
+
+## 13. Critique dispositions — Gate 2 (panel: codex `gpt-5.6-luna` @ `xhigh` + Kimi)
+
+Both reviewers ran. Codex returned 5 findings (3 blockers), **all tagged [FALSE-GREEN-CLASS]**;
+Kimi returned a raw reasoning log whose consolidated findings are 2, plus a long list of explicit
+"no finding" conclusions that usefully narrow the attack surface. **No reviewer conflict** — they
+are complementary, and the one defect both found independently is the most serious.
+
+Every disposition names its raiser. Panel rule applied in order: raised-by-both first, then unique
+findings, then the escalation.
+
+| # | Raiser(s) | Severity | Finding | Disposition |
+|---|---|---|---|---|
+| G2-1 | **codex 1 + Kimi 1, independently** | blocker [FALSE-GREEN-CLASS] | A suite/file-level failure is invisible: `VitestJson` discarded the per-file `status`/`message`, so a second file dying at import (or a throwing hook) leaves every declared count intact, `success === false` reads as expected, and `--expect` exits 0 | **FIXED — file accounting. The formulation is NOT the one the ruling preferred; section 13a has the measurements that forced that.** Both attacks were reproduced live before a line was written. `suiteFileDeviations` requires every non-passed file to contain at least one non-passed test, and refuses any file carrying a file-level error message. Conformance case 12 (req-920) proves it end to end |
+| G2-2 | codex 2 | blocker [FALSE-GREEN-CLASS] | A `__proto__` key in `red` hits the prototype setter and vanishes from `Object.keys`, slipping past both the id grammar and the bijection | **FIXED — inside the contract.** The red map is built with `Object.create(null)`, so the key is stored and then refused as a malformed AT id. Codex's own minimal fix: one line plus a unit test |
+| G2-3 | codex 3 | blocker [FALSE-GREEN-CLASS] | Exact text cannot prove a red is a *genuine* `CapabilityPending`/`AtPending` — a test can forge `Object.assign(new Error(…), {name: 'AtPending'})` | **ESCALATED — not decided, nothing implemented.** Four options with costs in section 13b, including the `AT_REGISTRATION_DIR`-style side channel the orchestrator asked me to cost |
+| G2-4 | codex 4 | important [FALSE-GREEN-CLASS] | A 40-character capability name is redacted, so declaring `<redacted-token>` becomes a wildcard | **FIXED — inside the contract, both halves.** The parser refuses a redaction sentinel in any declared name, and the comparison fails closed whenever a reported red's detail contains one. This also turns R4's documented limitation from an inscrutable mismatch into a named failure |
+| G2-5 | codex 5 | important [FALSE-GREEN-CLASS] | A capability name containing a comma is ambiguous against the `, `-joined line | **FIXED — inside the contract.** Commas are refused in declared names; no real name contains one |
+| G2-6 | Kimi 2 (self-downgraded to minor) | minor | Two of D5's four refusals — malformed JSON, absent tier — have unit coverage but no black-box case | **FOLDED — my call, and worth it.** Both refuse before vitest is spawned, so cases 918 and 919 cost no test run, and this item exists precisely to prove assembly rather than pure functions |
+| — | Kimi, inside finding 1 | — | The README's residual-gap wording is misleading, and `--expect` is weaker than the legacy gate on this axis | **ONE FOLDED, ONE CORRECTED WITH EVIDENCE — section 13a.** The README is rewritten either way |
+
+Kimi's explicit "no finding" conclusions are recorded as agreement and required no change: the
+`pending` anchored-prefix attack surface, case 9 needing no tree, `req-016.json` fidelity (it
+independently re-derived all three capability names and their order from `harness/index.ts`),
+multi-`failureMessages` ordering, case 8's soundness, black-box tree isolation, the dead
+`missing`-row defensive branch, duplicate JSON keys being undetectable without a custom parser, and
+its conclusion that no materially simpler design survives.
+
+### 13a. Where I did not do what the panel said, and the measurements that forced it
+
+Two claims arrived as instructions and are false against the installed reporter (vitest 4.1.10). I
+implemented the *intent* of both and am flagging the divergence rather than quietly substituting.
+
+**(i) `numFailedTestSuites <= numFailedTests` cannot be used.** The ruling preferred Kimi's
+formulation because it carries an invariant proof — and the proof assumes "suite" means "file".
+This reporter counts `describe` blocks as suites too. Measured on HEALTHY runs:
+
+```
+real req-016, healthy:      numFailedTestSuites=6   numFailedTests=4   (3 files + their 3 describes)
+probe C, healthy, one file: numFailedTestSuites=2   numFailedTests=1   (1 file + 1 describe)
+```
+
+The invariant is violated by every healthy run that has a declared red, so shipping it literally
+would have made `at:verify req-016 --tier loop --expect` exit 1 and broken the item's
+done-criterion. **The same idea is sound one level down**, and that is what ships: a *file*
+reported as failed must contain at least one failed test. Verified quiet on the real declaration —
+its three failed files carry 1, 1 and 2 failed tests.
+
+**(ii) A throwing `afterAll` is not serialised; the import failure is.** Kimi held that a failed
+`afterAll` IS serialised, therefore falls outside R8's named residual gap, and is caught by the
+legacy gate. I planted four trees and read the reports:
+
+```
+probe C  healthy:                      files=1  a-two-ids: status=failed assertions=[passed,failed] messageLen=0   suites=2/2
+probe B  afterAll throws:              files=1  a-two-ids: status=failed assertions=[passed,failed] messageLen=0   suites=2/2   <- IDENTICAL to healthy
+probe A  second file fails to import:  files=2  z-broken:  status=failed assertions=[]              messageLen=33   suites=3/3   <- detectable
+probe D  afterAll throws, all green:   files=1  a-green:   status=failed assertions=[passed]        messageLen=0                 <- detectable
+```
+
+Variant B is byte-identical to the healthy baseline in every serialised field, so that case does
+fall inside R8's residual gap and the old README wording was accurate, not misleading. What is
+genuinely reachable AND detectable is codex's version of the same finding — the import/collection
+failure — plus a hook failure in an all-green file. Both now fail the run.
+
+The corollary correction: **`--expect` was never weaker than the legacy no-flag gate here.**
+`runVerdict`'s `run.status !== 0` rule only distinguishes a hook failure when no test failed at
+all; with reds present it prints the same two lines as a healthy declared run. `--expect` keeps
+exactly that rule for a declaration with no red, and now adds file accounting on top. README
+section 5 says so, so the next reader does not have to re-derive it.
+
+### 13b. ESCALATION — codex finding 3, provenance. Options and costs.
+
+**The attack, verbatim:** a test can throw
+`Object.assign(new Error("AT-900.02 PENDING [sut-missing] — anything"), { name: "AtPending" })`
+and satisfy the anchored prefix although no `AtPending` was ever constructed; the same trick forges
+a whole `CapabilityPending` line. Exact text proves what a failure *printed*, never what it *was*.
+
+**Threat model, because it decides this:** the forgery has to be written into a suite by its
+author, and an author who wants a false green already has a cheaper route — `expect(true).toBe(true)`
+and declare the id green. Every mechanism in this item defends against drift and accident: a
+capability landing, a red changing cause, a file breaking. None defends against a determined
+author, and none can.
+
+| Option | What it does | Cost | Risk |
+|---|---|---|---|
+| **1. Document and accept** | The README states that a declaration proves what a failure printed, not which class threw | zero | The [FALSE-GREEN-CLASS] tag stands unaddressed |
+| **2. Provenance through the existing side channel** | `registry.ts` already writes runtime registrations as JSONL to `AT_REGISTRATION_DIR`, and `runTrackedTest` already catches the body error before rethrowing. It could append `{atId, provenance}` derived from `err instanceof CapabilityPending / AtPending` — `instanceof` cannot be forged by setting `name`. The runner matches provenance instead of text | ~25 lines in `registry.ts`, plumbing in `runner.ts` and `expected.ts`, new selftests. **Touches the registry every suite in the repo runs through**, and D6 forbids changing existing selftests that a registry change could perturb | A hazard I would have to disprove first: the black-box fixtures import `capabilities.ts` by absolute file URL while `registry.ts` imports it relatively. If those resolve to two module instances, `instanceof` is false for a genuine error and every declared red becomes a false RED. It fails safe, but it would break the suite until fixed |
+| **3. Stack-shape check** | Require the failure's stack to pass through `harness/capabilities.ts` | small | Weaker and more fragile than 2: stacks vary with bundling, and the runner keeps only the first line today |
+| **4. Fold into the already-filed structured-codes deferral** | Deferral 2 — machine-readable capability codes emitted by `capabilities.ts` — subsumes this exactly: a code carried as data cannot be forged by a printed name | zero now | Defers a [FALSE-GREEN-CLASS] finding to a later slice |
+
+**My recommendation: 1 + 4.** Document the limit, and fold the finding into deferral 2 with an
+explicit note that it closes codex 3 as well. The attack needs deliberate forgery by someone who
+already has a cheaper false green; option 2 modifies shared harness code that D7's scope boundary
+exists to keep this item out of; and option 2's `instanceof` hazard is exactly the kind of thing
+that turns a gate into a nuisance. **Nothing is implemented on this point. I will implement
+whatever is ruled.**

@@ -777,7 +777,12 @@ export interface AssertionResult {
  * a missing field is validated at runtime (see `reportAccountingDeviations`), not asserted here.
  */
 interface VitestJson {
-  testResults?: { assertionResults?: AssertionResult[] }[];
+  /**
+   * One entry per test FILE. `status` and `message` are kept alongside the assertions because a
+   * file that fails to import, or whose hook throws, changes no test's status: that failure is
+   * visible here and nowhere else in the report.
+   */
+  testResults?: { name?: string; status?: string; message?: string; assertionResults?: AssertionResult[] }[];
   numTotalTests?: number;
   numPassedTests?: number;
   numFailedTests?: number;

@@ -86,10 +86,19 @@ function redTest(atId: string): string {
 
 const p0 = (atId: string, text: string) => `- **${atId} (P0)** — ${text}\n`;
 
+/** A second file that dies while vitest is loading it — it never contributes a test at all. */
+const IMPORT_FAILURE_FILE =
+  `import { describe, it } from 'vitest';\n` +
+  `throw new Error('this file blows up at import time');\n` +
+  `describe('never reached', () => { it('nothing', () => { expect(true).toBe(true); }); });\n`;
+
 /** The two-id suite every case shares, so the only variable between cases is the declaration. */
-function twoIdSuite(requirement: string, opts: { secondIsRed?: boolean; untaggedFailure?: boolean } = {}): Record<string, string> {
-  const { secondIsRed = true, untaggedFailure = false } = opts;
-  return {
+function twoIdSuite(
+  requirement: string,
+  opts: { secondIsRed?: boolean; untaggedFailure?: boolean; brokenImport?: boolean } = {},
+): Record<string, string> {
+  const { secondIsRed = true, untaggedFailure = false, brokenImport = false } = opts;
+  const files: Record<string, string> = {
     'a-two-ids.test.ts':
       suitePreamble() +
       `describe('two ids', () => {\n` +
@@ -98,6 +107,8 @@ function twoIdSuite(requirement: string, opts: { secondIsRed?: boolean; untagged
       (untaggedFailure ? `  it('a failure no id claims', () => { expect(1).toBe(2); });\n` : '') +
       `});\n`,
   };
+  if (brokenImport) files['z-broken.test.ts'] = IMPORT_FAILURE_FILE;
+  return files;
 }
 
 const twoIdAcceptance = (requirement: string) =>
@@ -274,6 +285,45 @@ describe('--expect refuses, and runs nothing, when the declaration cannot be hon
     expect(run.stdout).not.toContain('at:verify req-914 --tier loop');
   });
 
+  it('refuses a declaration that is not valid JSON', () => {
+    const run = runExpectTree({
+      requirement: '918',
+      acceptance: twoIdAcceptance('918'),
+      files: twoIdSuite('918'),
+      manifest: '{ "requirement": "918", "tiers": { oops',
+      expect: true,
+    });
+
+    expect(run.status, `a malformed declaration was allowed to run\n${run.output}`).toBe(2);
+    expect(run.stderr).toContain('DECLARATION REFUSED');
+    expect(run.stderr).toContain('is not valid JSON');
+    expect(run.stdout).not.toContain('at:verify req-918 --tier loop');
+  });
+
+  it('refuses a declaration that says nothing about the tier being run', () => {
+    const run = runExpectTree({
+      requirement: '919',
+      acceptance: twoIdAcceptance('919'),
+      files: twoIdSuite('919'),
+      // Complete and well formed — for a tier nobody asked for.
+      manifest: declaration(`{
+  "requirement": "919",
+  "tiers": {
+    "integration": {
+      "green": ["AT-919.01"],
+      "red": { "AT-919.02": { "kind": "capability-pending", "capabilities": ["H9 imaginary capability"] } }
+    }
+  }
+}`),
+      expect: true,
+    });
+
+    expect(run.status, `a declaration for another tier was treated as this tier's\n${run.output}`).toBe(2);
+    expect(run.stderr).toContain('DECLARATION REFUSED');
+    expect(run.stderr).toContain('no declaration for the loop tier');
+    expect(run.stdout).not.toContain('at:verify req-919 --tier loop');
+  });
+
   it('refuses a declaration that forgets an id the acceptance file lists', () => {
     const run = runExpectTree({
       requirement: '915',
@@ -350,6 +400,39 @@ describe('--expect accounts for the whole run, not only the ids it can name', ()
     // and the ids themselves are NOT reported as deviations — the point of the case
     expect(run.output).not.toContain('AT-917.01 —');
     expect(run.output).not.toContain('AT-917.02 —');
+  });
+});
+
+describe('--expect sees a failure that belongs to a FILE and to no test', () => {
+  it('fails a run where a second file died at import while every declared count stayed correct', () => {
+    // Gate 2's shared finding, raised independently by codex and Kimi. The declared ids report
+    // exactly as declared, every count matches, and `success === false` reads as expected because
+    // reds ARE declared — so before the file-level check this tree exited 0. Measured against the
+    // real reporter: the import failure adds a file entry with status "failed", zero assertions
+    // and a message, and moves no test count at all.
+    const run = runExpectTree({
+      requirement: '920',
+      acceptance: twoIdAcceptance('920'),
+      files: twoIdSuite('920', { brokenImport: true }),
+      manifest: declaration(`{
+  "requirement": "920",
+  "tiers": {
+    "loop": {
+      "green": ["AT-920.01"],
+      "red": { "AT-920.02": { "kind": "capability-pending", "capabilities": ["H9 imaginary capability"] } }
+    }
+  }
+}`),
+      expect: true,
+    });
+
+    expect(run.status, `a broken suite file was reported as the expected state\n${run.output}`).toBe(1);
+    expect(run.output).toContain('z-broken.test.ts');
+    expect(run.output).toContain('not one test in it failed');
+    expect(run.output).toContain('this file blows up at import time');
+    // and the declared ids are NOT deviations — which is exactly why nothing else caught this
+    expect(run.output).not.toContain('AT-920.01 —');
+    expect(run.output).not.toContain('AT-920.02 —');
   });
 });
 

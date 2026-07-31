@@ -1,0 +1,52 @@
+1. Suite/import failures can be hidden by expected reds.
+
+SEVERITY: blocker [FALSE-GREEN-CLASS]
+
+`VitestJson` keeps only assertion results and test totals ([runner.ts:780](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/runner.ts:780)); suite-level metadata is discarded ([runner.ts:1154](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/runner.ts:1154)). An extra test file that throws during import can leave all expected assertion counts unchanged while Vitest reports a failed suite. With declared reds, `success === false` and the nonzero process exit are treated as expected, so `--expect` can return 0.
+
+Minimal fix: preserve and reject unaccounted suite-level error/status fields from the JSON report, allowing only failures attributable to declared red assertions.
+
+2. A `__proto__` red declaration bypasses malformed-manifest validation.
+
+SEVERITY: blocker [FALSE-GREEN-CLASS]
+
+`red` is populated into a normal `{}` ([expected.ts:148](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/expected.ts:148), [expected.ts:150](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/expected.ts:150)). JSON containing `"red": {"__proto__": {...}}` invokes the prototype setter, so the key disappears from `Object.keys`; the AT-id validation and bijection check then ignore it ([expected.ts:153](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/expected.ts:153)). A malformed declaration can therefore pass with an otherwise all-green suite.
+
+Minimal fix: use `Object.create(null)` for declaration maps or define keys with `Object.defineProperty` before validating them.
+
+3. Exact text does not prove a genuine `AtPending` or `CapabilityPending`.
+
+SEVERITY: blocker [FALSE-GREEN-CLASS]
+
+`detailMatches` receives only the serialized first-line string ([expected.ts:253](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/expected.ts:253)); the runner also reduces failures to that string ([runner.ts:865](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/runner.ts:865)). A test can throw `Object.assign(new Error("AT-900.02 PENDING [sut-missing] — anything"), { name: "AtPending" })`; the serialized line satisfies the anchored prefix although no `AtPending` instance was used.
+
+Minimal fix: carry a structured error kind/provenance field through the report and match that, rather than relying on the error’s printable name and message.
+
+4. Redaction creates a wildcard capability declaration.
+
+SEVERITY: important [FALSE-GREEN-CLASS]
+
+The runner redacts 40-character tokens ([runner.ts:200](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/runner.ts:200)). A real `CapabilityPending(["A".repeat(40)])` becomes `CapabilityPending: ... <redacted-token>`, and a manifest declaring `["<redacted-token>"]` is accepted by the exact comparison ([expected.ts:248](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/expected.ts:248), [expected.ts:255](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/expected.ts:255)). The declaration no longer identifies the capability.
+
+Minimal fix: reject redaction sentinel values in declarations and fail closed whenever a capability detail contains a redaction marker.
+
+5. Capability joining is ambiguous.
+
+SEVERITY: important [FALSE-GREEN-CLASS]
+
+Names are joined without escaping ([expected.ts:248](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/expected.ts:248); the source constructor does the same at [capabilities.ts:34](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/capabilities.ts:34)). Declared `["H3 sentinels, H5 email provider simulator"]` matches actual `["H3 sentinels", "H5 email provider simulator"]`. The schema permits commas in names ([expected.ts:118](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/expected.ts:118)).
+
+Minimal fix: reject commas in capability names or compare a structured capability array.
+
+No finding: missing/tier-absent/malformed ordinary manifests, `--expect --wired`, wrong per-id pairing, empty reports, the no-flag path, and integration lock ordering are handled correctly. U+2014, ordering, case, and empty capability checks fail closed.
+
+No simpler design survives: removing accounting or the black-box cases reopens the concrete false-green scenario they cover.
+
+Runtime self-tests were not executable in this read-only sandbox (`EPERM` reading the Bun entrypoint).
+
+## VERDICT
+
+Ship-blockers: 3.  
+`[FALSE-GREEN-CLASS]` findings: 5.
+
+Most dangerous residual risk: a broken suite can report the declared red tests while an unrelated suite/import failure is silently accepted as `EXPECTED`.

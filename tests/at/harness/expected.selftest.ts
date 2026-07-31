@@ -48,6 +48,16 @@ const expectation = (green: string[], red: Record<string, RedDeclaration>): Tier
 
 const row = (id: string, status: ReportedRow['status'], detail: string): ReportedRow => ({ id, status, detail });
 
+/** One test file, one green and one red inside it — the shape a healthy declared run really has. */
+const oneHealthyFile = () => [
+  {
+    name: 'C:\\tmp\\tree\\tests\\at\\suites\\req-900\\a-two-ids.test.ts',
+    status: 'failed',
+    message: '',
+    assertionResults: [{ status: 'passed' }, { status: 'failed' }],
+  },
+];
+
 const totals = (over: Record<string, unknown> = {}) => ({
   numTotalTests: 2,
   numPassedTests: 1,
@@ -55,6 +65,7 @@ const totals = (over: Record<string, unknown> = {}) => ({
   numPendingTests: 0,
   numTodoTests: 0,
   success: false,
+  testResults: oneHealthyFile(),
   ...over,
 });
 
@@ -104,6 +115,29 @@ describe('parseExpectedManifest refuses anything it cannot act on', () => {
   it('refuses a malformed AT id', () => {
     const body = { requirement: '900', tiers: { loop: { green: ['AT-900'], red: {} } } };
     expect(() => parseExpectedManifest(manifest(body), '900')).toThrow(/not a well-formed AT id/);
+  });
+
+  it('refuses a __proto__ red key instead of letting it vanish into the prototype', () => {
+    // JSON.parse produces a real own "__proto__" key; assigning it onto an ordinary object would
+    // invoke the prototype setter and drop it silently, past both the id grammar and the bijection.
+    const text = '{"requirement":"900","tiers":{"loop":{"green":[],"red":{"__proto__":{"kind":"pending","phase":"sut-missing"}}}}}';
+    expect(() => parseExpectedManifest(text, '900')).toThrow(/not a well-formed AT id/);
+  });
+
+  it('refuses a capability name containing a comma, which the joined line cannot disambiguate', () => {
+    const body = {
+      requirement: '900',
+      tiers: { loop: { green: [], red: { 'AT-900.02': { kind: 'capability-pending', capabilities: ['H3 sentinels, H5 email'] } } } },
+    };
+    expect(() => parseExpectedManifest(manifest(body), '900')).toThrow(/containing a comma/);
+  });
+
+  it('refuses a redaction sentinel as a capability name, which would be a wildcard', () => {
+    const body = {
+      requirement: '900',
+      tiers: { loop: { green: [], red: { 'AT-900.02': { kind: 'capability-pending', capabilities: ['<redacted-token>'] } } } },
+    };
+    expect(() => parseExpectedManifest(manifest(body), '900')).toThrow(/redaction sentinel/);
   });
 
   it('accepts the typed form and returns it', () => {
@@ -218,6 +252,16 @@ describe('expectationDeviations reports exactly how a run departs from its decla
     expect(line).toContain('fixture reset failed');
   });
 
+  it('fails closed when a red detail was redacted, even against a declaration it might match', () => {
+    // A capability name long enough to look secret-shaped is rewritten to <redacted-token>, so the
+    // line identifies nothing. Matching it loosely would turn the declaration into a wildcard.
+    const rows = [row('AT-900.01', 'green', 'a green one'), row('AT-900.02', 'red', capabilityDetail('<redacted-token>'))];
+    const line = expectationDeviations(rows, [], declared).join('\n');
+    expect(line).toContain('AT-900.02');
+    expect(line).toContain('was redacted');
+    expect(line).toContain('undeclarable');
+  });
+
   it('fails an id that registered but is not a P0, and one that reported nothing', () => {
     const rows = [row('AT-900.01', 'green', 'a green one'), row('AT-900.02', 'missing', '')];
     const line = expectationDeviations(rows, ['AT-900.99'], declared).join('\n');
@@ -255,7 +299,12 @@ describe('reportAccountingDeviations makes the run add up, not just the ids', ()
 
   it('catches a non-zero exit when no red is declared at all', () => {
     const allGreen = expectation(['AT-900.01', 'AT-900.02'], {});
-    const clean = totals({ numPassedTests: 2, numFailedTests: 0, success: true });
+    const clean = totals({
+      numPassedTests: 2,
+      numFailedTests: 0,
+      success: true,
+      testResults: [{ name: 'a-two-ids.test.ts', status: 'passed', message: '', assertionResults: [{ status: 'passed' }, { status: 'passed' }] }],
+    });
     expect(reportAccountingDeviations(clean, { status: 0 }, allGreen)).toEqual([]);
     expect(reportAccountingDeviations(clean, { status: 7 }, allGreen).join('\n')).toContain('exited 7 while the declaration declares no red');
   });
@@ -269,5 +318,67 @@ describe('reportAccountingDeviations makes the run add up, not just the ids', ()
   it('fails a process that could not be launched, whatever the declaration says', () => {
     const line = reportAccountingDeviations(totals(), { error: { code: 'ENOENT' }, status: null }, declared).join('\n');
     expect(line).toContain('could not be launched (ENOENT)');
+  });
+
+  it('CATCHES a second file that failed to import while every declared count stayed correct', () => {
+    // Measured against vitest 4.1.10: an import failure adds a file entry with status "failed",
+    // zero assertions and a message, and moves NONE of the test counts. Both signals fire.
+    const withBrokenFile = totals({
+      testResults: [
+        ...oneHealthyFile(),
+        {
+          name: 'C:\\tmp\\tree\\tests\\at\\suites\\req-900\\z-broken.test.ts',
+          status: 'failed',
+          message: 'this file blows up at import time',
+          assertionResults: [],
+        },
+      ],
+    });
+    const line = reportAccountingDeviations(withBrokenFile, ranAndFailed, declared).join('\n');
+    expect(line).toContain('z-broken.test.ts');
+    expect(line).toContain('not one test in it failed');
+    expect(line).toContain('this file blows up at import time');
+  });
+
+  it('CATCHES a file whose hook threw while all of its tests passed', () => {
+    const allGreen = expectation(['AT-900.01'], {});
+    const hookFailure = totals({
+      numTotalTests: 1,
+      numPassedTests: 1,
+      numFailedTests: 0,
+      testResults: [
+        {
+          name: 'C:\\tmp\\tree\\tests\\at\\suites\\req-900\\a-green.test.ts',
+          status: 'failed',
+          message: '',
+          assertionResults: [{ status: 'passed' }],
+        },
+      ],
+    });
+    expect(reportAccountingDeviations(hookFailure, ranAndFailed, allGreen).join('\n')).toContain('not one test in it failed');
+  });
+
+  it('says nothing about a file that simply passed', () => {
+    const allGreen = expectation(['AT-900.01'], {});
+    const clean = totals({
+      numTotalTests: 1,
+      numPassedTests: 1,
+      numFailedTests: 0,
+      success: true,
+      testResults: [
+        {
+          name: 'a-green.test.ts',
+          status: 'passed',
+          message: '',
+          assertionResults: [{ status: 'passed' }],
+        },
+      ],
+    });
+    expect(reportAccountingDeviations(clean, { status: 0 }, allGreen)).toEqual([]);
+  });
+
+  it('refuses to account for a report with no testResults array at all', () => {
+    const line = reportAccountingDeviations(totals({ testResults: undefined }), ranAndFailed, declared).join('\n');
+    expect(line).toContain('no usable testResults array');
   });
 });

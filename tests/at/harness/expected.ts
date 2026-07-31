@@ -62,8 +62,9 @@ export interface ExpectedManifest {
 export type ReportedRow = Pick<IdRow, 'id' | 'status' | 'detail'>;
 
 /**
- * The vitest report's own arithmetic. Typed `unknown` on purpose: this describes someone else's
- * JSON file, so the fields are validated at runtime rather than asserted at compile time.
+ * The vitest report's own arithmetic AND its per-file entries. Typed `unknown` on purpose: this
+ * describes someone else's JSON file, so every field is validated at runtime rather than asserted
+ * at compile time.
  */
 export interface ReportTotals {
   numTotalTests?: unknown;
@@ -72,12 +73,28 @@ export interface ReportTotals {
   numPendingTests?: unknown;
   numTodoTests?: unknown;
   success?: unknown;
+  testResults?: unknown;
+}
+
+/** One test FILE in the report. A failure that no test claims is visible here and nowhere else. */
+interface ReportSuiteFile {
+  name?: unknown;
+  status?: unknown;
+  message?: unknown;
+  assertionResults?: unknown;
 }
 
 const TIERS = ['loop', 'integration', 'drill'];
 
 /** The same grammar `registry.ts` enforces at the `atTest` call site. */
 const AT_ID = /^AT-\d{3}(?:\.\d+)*\.\d+[a-z]?$/;
+
+/**
+ * What `redact()` in the runner leaves behind when it rewrites something secret-shaped. A
+ * declaration may never contain one — see `parseRedDeclaration` — and a detail that contains one
+ * fails closed at comparison time, because the sentinel identifies nothing.
+ */
+const REDACTION_SENTINEL = /<redacted(?:-[a-z]+)?>/;
 
 /** Pinned to the type, so a phase renamed in registry.ts is a compile error here, not a dud rule. */
 const PENDING_PHASES = ['harness-missing', 'sut-missing', 'tier-unset'] as const satisfies readonly PendingPhase[];
@@ -119,6 +136,24 @@ function parseRedDeclaration(label: string, atId: string, value: unknown): RedDe
       if (typeof name !== 'string' || name.trim() === '') {
         throw new Error(`${where} has a capability name that is not a non-empty string`);
       }
+      // The harness joins names with ", ", so a name containing a comma is ambiguous against the
+      // joined line: ["a, b"] and ["a", "b"] produce the same text, and the declaration would no
+      // longer say which capabilities are pending.
+      if (name.includes(',')) {
+        throw new Error(
+          `${where} has a capability name containing a comma (${JSON.stringify(name)}) — names are joined with ", ", ` +
+            `so a comma makes one name indistinguishable from two`,
+        );
+      }
+      // A redaction sentinel identifies nothing: it is what the runner prints INSTEAD of a
+      // secret-shaped value, so declaring one would match any capability whose name happened to be
+      // redacted. Refuse it rather than let a declaration become a wildcard.
+      if (REDACTION_SENTINEL.test(name)) {
+        throw new Error(
+          `${where} declares the redaction sentinel ${JSON.stringify(name)}, which identifies no capability — ` +
+            `a detail that gets redacted cannot be declared exactly, and must not be matched loosely`,
+        );
+      }
     }
     return { kind, capabilities: capabilities as string[] };
   }
@@ -145,7 +180,12 @@ function parseTierExpectation(label: string, tier: string, value: unknown): Tier
   const red = value.red;
   if (!isPlainObject(red)) throw new Error(`${where} needs a "red" object`);
 
-  const declared: TierExpectation = { green: green as string[], red: {} };
+  // A NULL-PROTOTYPE map, not `{}`. `JSON.parse` happily produces an own `__proto__` key, and
+  // assigning that key onto an ordinary object invokes the prototype setter instead of creating a
+  // property — so the declaration would vanish from `Object.keys` and slip past both the AT-id
+  // grammar check below and the bijection check. With no prototype there is no setter to hit: the
+  // key is stored, then refused as a malformed AT id, which is what a reader would expect.
+  const declared: TierExpectation = { green: green as string[], red: Object.create(null) as Record<string, RedDeclaration> };
   for (const [atId, declaration] of Object.entries(red)) {
     declared.red[atId] = parseRedDeclaration(label, atId, declaration);
   }
@@ -291,6 +331,16 @@ export function expectationDeviations(rows: ReportedRow[], unexpected: string[],
       );
       continue;
     }
+    if (red && row.status === 'red' && REDACTION_SENTINEL.test(row.detail)) {
+      // Fail closed. The detail was rewritten because part of it looked secret-shaped, so the line
+      // no longer identifies anything and no declaration can honestly match it — including one
+      // that declares the sentinel itself, which the parser already refuses.
+      deviations.push(
+        `${row.id} — this red's detail was redacted, so it cannot be matched exactly and the id is undeclarable ` +
+          `until the detail no longer contains a secret-shaped token: ${row.detail}`,
+      );
+      continue;
+    }
     if (red && row.status === 'red' && !detailMatches(row.id, red, row.detail)) {
       const expected = declaredDetail(row.id, red);
       const how = red.kind === 'capability-pending' ? 'expected' : 'expected prefix';
@@ -318,9 +368,12 @@ export function expectationDeviations(rows: ReportedRow[], unexpected: string[],
  * is invisible to it — but not to the report's own arithmetic. Every failing, passing, pending and
  * todo test must add up against the declaration; anything unaccounted for is a failure.
  *
- * KNOWN RESIDUAL GAP: while any red is declared, a failure that fails no test and is not
- * serialised into the report — an unhandled rejection, a hook error attributed to nothing — is
- * still invisible here. Closing it needs a reporter-side envelope, which is filed, not built here.
+ * KNOWN RESIDUAL GAP, stated exactly (it was measured, not reasoned about): a hook that throws in
+ * a file which ALSO contains a failing test is serialised identically to a healthy run of that
+ * file — same file status, same counts, same `success` — so while a red is declared in that same
+ * file, such a failure is invisible here. A hook that throws in a file whose tests all passed IS
+ * caught, by `suiteFileDeviations`. Closing the remainder needs a reporter-side envelope, which is
+ * filed, not built here.
  */
 export function reportAccountingDeviations(totals: ReportTotals, run: ProcessOutcome, expectation: TierExpectation): string[] {
   const green = expectation.green.length;
@@ -349,6 +402,9 @@ export function reportAccountingDeviations(totals: ReportTotals, run: ProcessOut
   }
   if (typeof totals.success !== 'boolean') {
     unusable.push('the report carries no usable success flag, so the run cannot be accounted for');
+  }
+  if (!Array.isArray(totals.testResults)) {
+    unusable.push('the report carries no usable testResults array, so suite-level failures cannot be accounted for');
   }
   // Comparing against a field that is missing would be arithmetic on nonsense: report the unusable
   // fields and stop. Under --expect that is a failure, never a skipped check.
@@ -388,6 +444,67 @@ export function reportAccountingDeviations(totals: ReportTotals, run: ProcessOut
   if (red === 0 && !run.error && run.status !== 0) {
     const how = run.status === null ? `was killed by signal ${run.signal}` : `exited ${run.status}`;
     deviations.push(`the test process ${how} while the declaration declares no red`);
+  }
+
+  deviations.push(...suiteFileDeviations(totals.testResults as ReportSuiteFile[]));
+
+  return deviations;
+}
+
+/** The file's own name, without the directory — report paths are temporary in the selftests. */
+function suiteFileLabel(name: unknown): string {
+  const text = typeof name === 'string' ? name : '';
+  const base = text.split(/[\\/]/).pop();
+  return base && base.length ? base : 'an unnamed test file';
+}
+
+function firstLineOf(text: string, limit = 200): string {
+  const line =
+    text
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.length > 0) ?? '';
+  return line.length > limit ? `${line.slice(0, limit)}…` : line;
+}
+
+/**
+ * Failures that belong to a FILE rather than to any test — and which the test counts above cannot
+ * see, because they change no test's status.
+ *
+ * Measured, not assumed (vitest 4.1.10's JSON reporter):
+ *   - a file that fails to import produces an extra `testResults` entry with `status: "failed"`,
+ *     ZERO assertion results and a non-empty `message`, while every declared count stays exactly
+ *     as declared;
+ *   - a file whose `afterAll` throws is reported `status: "failed"` with its assertions unchanged,
+ *     so it is caught here whenever that file's tests all passed.
+ *
+ * The rule is the one Kimi's invariant intends — a failed suite containing no failed test is a
+ * collection or hook failure — applied at FILE level, which is the level where it is actually
+ * true. The aggregate `numFailedTestSuites` counts `describe` blocks as well as files, so
+ * `numFailedTestSuites <= numFailedTests` does NOT hold on a healthy run: REQ-016 reports 6 failed
+ * suites for 4 failed tests (3 files plus their 3 describes). Applying it literally would fail the
+ * real declaration.
+ */
+function suiteFileDeviations(files: ReportSuiteFile[]): string[] {
+  const deviations: string[] = [];
+
+  for (const file of files) {
+    const where = suiteFileLabel(file.name);
+    const assertions = Array.isArray(file.assertionResults) ? (file.assertionResults as { status?: unknown }[]) : [];
+    const failedInFile = assertions.filter((assertion) => assertion?.status !== 'passed').length;
+
+    if (typeof file.status !== 'string') {
+      deviations.push(`${where} carries no usable status, so the file cannot be accounted for`);
+    } else if (file.status !== 'passed' && failedInFile === 0) {
+      deviations.push(
+        `${where} is reported "${file.status}" but not one test in it failed — that is a collection, import or hook ` +
+          `failure, and no AT id can ever claim it`,
+      );
+    }
+
+    if (typeof file.message === 'string' && file.message.trim() !== '') {
+      deviations.push(`${where} carries a file-level error that no test claims: ${firstLineOf(file.message)}`);
+    }
   }
 
   return deviations;

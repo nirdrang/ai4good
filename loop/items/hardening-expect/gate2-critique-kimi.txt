@@ -1,0 +1,982 @@
+﻿kimi : • The user wants me to read a file and follow its instructions. Let me read it.The file is 1664 lines, 58K chars. The Read tool preview 
+truncated. I should read the full file from the output_path. Let me page through it.The nested read is getting prefixed with line numbers and 
+truncated. The tool result file is stored with the original file content but displayed with extra line-number prefixes. Let me instead read 
+the original prompt file in pages directly. The original file has 1664 lines. Read limit is 1000 lines or 100KB — but the 50000 char preview 
+limit applies. Better to read the original file with line_offset pages, e.g. 1-600, 601-1200, 1201-1664. Each page may still exceed 50000 
+chars? 58235 chars total over 1664 lines ≈ 35 chars/line average, so 600 lines ≈ 21000 chars. Fine.I've now read the full prompt (1664 lines). 
+The diff under review includes:
+At line:1 char:882
++ ... e any file."; $out = kimi -p $instr --output-format text 2>&1 | Out-S ...
++                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (• The user want...eview includes::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+  1. `tests/at/expected/README.md` (new)
+  2. `tests/at/expected/req-016.json` (new)
+  3. `tests/at/harness/expected.selftest.ts` (new)
+  4. `tests/at/harness/expected.ts` (new)
+  5. `tests/at/harness/runner-expect.selftest.ts` (new)
+  6. `tests/at/harness/runner.ts` (modified)
+
+  Missing from the inline material: rulings-01.md (R1..R7), rulings-03.md (R12..R14), gate1-critique.txt, plan.md — only rulings 02 is inline. 
+But the prompt said the contract files are committed in the worktree. Since I'm told to review read-only, I could check the actual worktree 
+for those files and the actual harness code (capabilities.ts, registry.ts, check.ts, runner.ts context not in the diff) to verify claims. The 
+prompt says "You are given the material inline below. Do NOT modify any file; this is a read-only review." The working directory is the 
+current one — is this a worktree on branch `nirdrang/at-verify-expect`? Let me check whether the actual repo state matches, since verifying 
+against real code strengthens findings (e.g., does `runner.ts` pass `report` to `reportAccountingDeviations` correctly — what is `report`'s 
+type? Is `report` possibly null? Does the report get parsed before? What happens if the JSON report is missing/empty — does the runner already 
+handle that in `runVerdict` path but the `--expect` path?).
+
+  Key areas to attack:
+
+  **Attack 1: report accounting — `reportAccountingDeviations(report, ...)`.** In the diff, `report` is used at line ~1647: 
+`reportAccountingDeviations(report, run as ProcessOutcome, expectation)`. What is `report` in runner.ts? It's presumably the parsed 
+VitestJson. If the JSON report is missing or unparseable, what does `report` equal? Need to see runner.ts's existing code around report 
+parsing. If report is `{}` when the file is missing, then reportAccountingDeviations would report "carries no usable numTotalTests" etc. — 
+good. But wait: could the report file exist from a PREVIOUS run? If vitest fails to launch or crashes before writing, a stale report could 
+satisfy the arithmetic. Need to check how runner writes/cleans the report path. This is a real attack surface: empty/absent report slipping 
+through via a stale file.
+
+  **Attack 2: `success === (redCount === 0)`.** In `reportAccountingDeviations`: `if (totals.success !== (red === 0))`. Vitest's `success` is 
+true when no tests fail. If red > 0 and all 4 declared reds fail as expected, success would be false, red===0 false → OK. But consider: vitest 
+with `passWithNoTests`? Not relevant. However there's a subtle issue: `success` could be true when red > 0 if the declared reds fail at the 
+describe/collection level? No — collection failure means no tests run, success... Actually in vitest, a suite that fails to collect → success 
+false. Hmm.
+
+  More important: numTotalTests counts — when a test file fails to import (import-time throw), vitest reports the suite as failed but 
+numTotalTests may count 0 tests for that file while the failed SUITE shows in numFailedTestSuites, not numFailedTests. The R8 ruling 
+explicitly says there is no unhandled-errors field and accepted the residual gap (stated in README section 5). But numFailedTestSuites is 
+available in the report and NOT checked. An import-time throw in the suite file: all declared ids would be "missing"/not reported → 
+expectationDeviations catches via "no result was reported"/"declared but not reported". So per-id check covers that. But a suite-level failure 
+in an EXTRA file? The runner scopes vitest to the requirement's suite dir, so an extra file... within the suite dir could exist. If an extra 
+test file fails to import, numTotalTests might still equal green+red (tests from the good file), numFailedTests equals red count, success 
+false, red>0 → success check passes since red>0 means expected success=false. So an import-time crash of a second file in the suite dir passes 
+all checks: no test counts move (numFailedTestSuites is not checked, numPendingTests 0, success false expected). This is within the named 
+residual gap? R8's residual gap: "an unhandled rejection or a hook error that fails no test and is not serialised into the JSON report remains 
+invisible" — a failed suite IS serialized in numFailedTestSuites. The ruling listed the fields including numFailedTestSuites but only required 
+tests-level conditions 1-4 + launch failure + success. So failing to check numFailedTestSuites (and numTotalTestSuites === 1?) is arguably a 
+deviation from... hmm, R8 said "implement exactly this, and no custom reporter". The conditions listed are 1-6. numFailedTestSuites wasn't 
+required. But attack surface #1 asks: "Can a suite-level or hook failure, an import-time throw, a worker crash, or an empty/absent report slip 
+through?" So as a reviewer I can flag: suite-level failures slip through while reds are declared, because `success === false` is EXPECTED when 
+red > 0 and suite counts are never checked. Concrete scenario: suite file has 12 tests; a beforeAll hook throws → all tests fail → 
+numFailedTests=12 ≠ red=4 → caught. Import-time throw in the single suite file → no tests reported, ids missing → caught by 
+expectationDeviations? expectationDeviations checks rows — where do rows come from? If report has no testResults, all P0 ids are 'missing' → 
+deviations → caught. Second file import crash: numFailedTestSuites=2 (or 1 failed suite), tests from the good file all present → per-id 
+passes, counts pass, success false expected → EXIT 0 with a broken suite file in the tree. That IS a false green. Severity: important (or 
+blocker?). It's within the "residual gap" named in R8? R8's residual gap covers "a hook error that fails no test and is not serialised into 
+the JSON report" — a failed suite IS serialised (numFailedTestSuites), so this hole is NOT the named residual gap: it's a field the ruling 
+itself listed as available and the implementation ignored. That's a genuine finding: [FALSE-GREEN-CLASS] since it's harness 
+invalidity/misleading expected state. Actually wait — is it? The declaration covers the requirement's suite. The runner runs vitest scoped to 
+the suite dir for that requirement. A second test file under the same suite dir that fails to import → vitest reports success=false. With 
+red>0 declared, success=false is expected. Per-id rows: the runner parses testResults assertionResults — the crashed file contributes none. 
+Counts all match. Exit 0. Yes — false green. Fix: also assert numTotalTestSuites/numFailedTestSuites... but that requires declaring suite 
+counts? Minimal fix: require `numFailedTestSuites === (number of suites containing declared reds)`? Simpler: require numTotalTestSuites === 1 
+and numFailedTestSuites ≤ 1? Hmm — actually a suite containing both green and red tests: does vitest mark the suite failed? 
+numFailedTestSuites counts suites with at least one failed test, so with reds declared numFailedTestSuites=1 for the single suite. Minimal 
+fix: check `numFailedTestSuites` equals... it depends on distribution of reds across files. Simplest robust: require `numTotalTestSuites === 
+numPassedTestSuites + numFailedTestSuites` and... that always holds. Alternative minimal fix: require `numFailedTestSuites <= red count`... 
+no. Better: since the runner runs exactly one suite directory and the expectation could declare expected suite count? That's scope growth. A 
+simpler guard: fail if `numFailedTestSuites > number of distinct suite files that contain declared red tests`... too complex. Reasonable 
+minimal fix: treat `numFailedTestSuites > 0 && numFailedTests === red`... hmm. Actually simplest correct: a failed suite with zero failed 
+tests (import crash) means numFailedTestSuites > (suites that contain at least one failed test) — can't derive. Minimal pragmatic fix: under 
+--expect require `numTotalTestSuites === 1` (the runner targets exactly one suite dir; fixture trees plant one file; real req-016 suite — is 
+it one file? Probably one file per requirement). Or: require that every failed suite has at least one failed test... can't from totals alone 
+but testResults array has per-suite info. The runner already parses testResults; it could check each suite: suite failed with zero 
+assertionResults or suite-level error → deviation. I'll state the finding and a minimal fix: extend reportAccountingDeviations to also 
+validate numFailedTestSuites/numPendingTestSuites (unhandled suite failures → deviation), e.g. require numFailedTestSuites ≤ number of suites 
+containing declared reds, or simply numTotalTestSuites === 1 for the scoped run.
+
+  Hold on — also worker crash: vitest worker crash → process nonzero exit, success false, tests missing → caught by per-id. OK.
+
+  Empty/absent report: what does runner.ts do when the JSON report file doesn't exist after the run? Need to check the actual runner.ts in the 
+worktree to see how `report` is obtained and whether a stale report can be read. The report path is presumably in a temp location per run. Let 
+me look at the actual repo.
+
+  **Attack 3: The typed matcher.** `declaredDetail` for capability-pending: `CapabilityPending: CAPABILITY PENDING — ${names.join(', ')}`. 
+Does this match what vitest prints? Vitest failureMessages typically are `<ErrorName>: <message>` — for an error with name 'CapabilityPending' 
+and message 'CAPABILITY PENDING — names'. The runner extracts detail from failureMessages. Need to verify how the runner builds `detail` — 
+first line of first failureMessage? If detail includes the whole multi-line message (stack?), then `detail === expected` exact match would 
+fail unless runner takes first line. README says "The first line the harness prints is rebuilt". Need to check runner's row detail extraction. 
+Also redact(): does redaction apply before comparison? The README mentions redaction of 40+ char runs. Capability names with no spaces under 
+40 chars fine.
+
+  The `pending` anchored prefix: `AtPending: ${atId} PENDING [${phase}] — `. startsWith. Could something other than genuine AtPending match? 
+The detail must start with "AtPending: AT-016.05 PENDING [sut-missing] — ". A different error whose message begins with that literal text? 
+Only AtPending prints `AtPending:` as name (vitest prints error name). Could an error named 'AtPending'... the check is on name+message. A 
+malicious/buggy suite could throw `new Error('x')` with name set — contrived. R12 permits anchored prefix for pending only. One subtlety: the 
+id in the detail is checked against the DECLARED id — expectationDeviations calls detailMatches(row.id, red, row.detail) using row.id, so id 
+consistency fine.
+
+  But: case 8's claim — "fails a run carrying an extra failure that no AT id claims" — assertion `expect(run.output).toContain('counts 2 
+failed tests but the declaration declares 1 red')`. Wait — the untagged failing `it()` inside the same describe: does the runner's id 
+parser... fine. But would the accounting actually bite, i.e., would the case pass for an unrelated reason? The untagged failure also makes... 
+per-id comparison: rows for AT-917.01 green, AT-917.02 red with CapabilityPending detail matching declaration. No per-id deviations. 
+Accounting: numFailedTests=2 vs red=1 → deviation; numTotalTests=3 vs 2 → deviation. Exit 1 for the right reason, and the test asserts those 
+strings. Also asserts AT-917.01/02 not reported as deviations. Good. But does the untagged failure's presence change `success`? success=false, 
+red=1 → consistent. OK, case 8 sound.
+
+  **Bijection preflight and the static check:** comment in case 8 says "The untagged test is not an `atTest(` call site, so the static 
+bijection preflight still passes". Fine.
+
+  **Attack on `expectationDeviations` + rows when the same id reports twice** (duplicate test titles with same AT id in two files)? seen set; 
+rows could contain two rows for the same id; both rows checked — each row independently compared. If one file has AT-016.02 green and another 
+file has AT-016.02 red matching declared... the id appears twice, once green once red: green row → deviation "declared red, reported GREEN". 
+Caught. Counts would also be off. OK.
+
+  **`reportAccountingDeviations` signature uses `report` — but what type does the runner pass?** In runner diff: 
+`reportAccountingDeviations(report, run as ProcessOutcome, expectation)`. `report` is `VitestJson` which has the new optional numeric fields 
+typed `number` — but ReportTotals expects `unknown` — compatible. But is `report` possibly null/undefined when JSON parse fails? Need to check 
+runner code. In main, before verdict, presumably: report = JSON.parse(readFileSync(reportPath)) inside try. If parse fails, what happens? 
+There may be existing handling that returns 1 via runVerdict ("no report"). If the existing code returns early with infra/verdict failure when 
+the report is missing, then --expect path never reached → exit 1 not exit 0. Fine, but if report defaults to `{}` then accounting catches via 
+unusable fields → deviation → exit 1. Either way not exit 0. But stale report risk remains — check reportPath generation (mkdtemp? fixed 
+name?).
+
+  **Big one — the `--expect` verdict path ignores... wait, it checks `deviations.length === 0` return 0. But what about `run` failing to even 
+start vitest (launch error)? reportAccountingDeviations handles run.error. But what if vitest exits non-zero and writes NO report file, and 
+runner's existing code path... The diff context shows the verdict block is inside some `try` after the report table printing. The report table 
+printing happens before — if report missing, does runner already bail earlier? Look at the actual file.
+
+  **Regression check:** no-flag path: `if (!expectation) { runVerdict... return }` — same code, moved into a conditional. runVerdict still 
+governs. Lock/stack sequence untouched (preflight placed before infra/stack). Looks clean.
+
+  **Another attack: `loadTierExpectation(requirement, tier, expected)` — `expected` is the P0 id set from the bijection preflight.** Variable 
+name `expected` — fine.
+
+  **Missing conformance cases:** D8 required 7 cases; the diff has 9 describe-blocks/tests: case1 match, case2 red→green, case3 green→red, 
+case4 different reason, case5 missing manifest exit 2, case6 bijection exit 2, case7 control, case8 accounting, case9 --expect+--wired. D8 
+case list covered. But: NO black-box case for "manifest malformed → exit 2" (README promises malformed → exit 2 with no tests run; D5 requires 
+it). Malformed JSON is covered only at the unit level (parseExpectedManifest throws). The assembled refusal path (exit 2, DECLARATION REFUSED) 
+for malformed JSON isn't black-box tested, though it's the same code path as missing manifest (both throw from loadTierExpectation → caught → 
+return 2). Missing tier also untested black-box. Minor finding at most.
+
+  **D8 case ordering:** fine.
+
+  **Now the req-016.json declaration fidelity:** D9 says red = .07 (H3 fault injection), .09 (H3 fault injection) — the JSON declares "H3 
+fault injection and process restart" for .07 and .09. The brief says declare reasons as capability names derived from actual reported details; 
+brief's parenthetical is shorthand. Can't verify without running, but prompt says "read the actual reported details first". The README and 
+selftest claim capability names verified. The AT-016.01 declares 3 capabilities matching D9's "H3 static provider scan / H3 sentinels / H5 
+email provider simulator". OK. Whether ordering matches harness output — can't verify without running the suite. Should I run? The review is 
+read-only — running tests doesn't modify files (well, it may create temp files; the instruction says do not create/edit/delete any file — 
+running the suite would create temp dirs. Strictly, the note says "You are given the material inline below" — suggesting offline review). I'll 
+do static verification against the actual worktree files where read-only (git show, reading runner.ts, registry.ts, capabilities.ts, check.ts) 
+— that's allowed (reading). Running the suite spawns processes and writes temp files; borderline. I can read code though. Let me check the 
+actual worktree state: is the working directory on branch nirdrang/at-verify-expect with these files present? The working dir listing earlier 
+shows tests/at exists. Let me check git branch and read the relevant harness files to verify:
+
+  1. How runner.ts builds `report` and rows detail (first line extraction, redaction order).
+  2. registry.ts AtPending message shape: `<atId> PENDING [<phase>] — <detail>` and PendingPhase values.
+  3. capabilities.ts CapabilityPending: name = 'CapabilityPending', message = `CAPABILITY PENDING — ${names.join(', ')}`.
+  4. check.ts REPO_ROOT honoring AT_REPO_ROOT.
+  5. Whether the report path is per-run unique (stale report risk).
+  6. `runVerdict` unchanged; the preflight placement.
+
+  Also verify: `reportAccountingDeviations` — when red===0 and run.error: deviations pushed for launch failure; also `run.status !== 0` check 
+guarded by !run.error. Fine.
+
+  One more attack: **`success !== (red === 0)` when red===0**: if declaration declares all green and vitest reports success=false because of 
+an unhandled error that failed no test (the residual gap) — here it IS caught because success=false ≠ true. Good — the gap only exists when 
+red>0. README states exactly that. OK.
+
+  **Pending/todo:** numPendingTests — vitest counts `it.skip` and `it.todo`? todo counted separately in numTodoTests. But what about tests 
+skipped via describe.skip? counted pending. OK.
+
+  **Retried tests / flaky retry:** vitest retry: a test that fails then passes on retry counts as passed; failureMessages may still contain 
+the earlier failure? If the runner's row status derives from assertion status 'passed' then detail may be ''. Edge case, minor.
+
+  **Another:** `expectationDeviations` — rows with status 'red' declared red with matching detail → fine. But what about a row whose status is 
+neither green/red/missing? IdRow status type presumably 'green'|'red'|'missing'. OK.
+
+  **detailMatches uses row.detail — what exactly is detail?** Need to check runner: probably `failureMessages[0]` first line, after redact. If 
+the runner takes the first line only, exact match works. If it takes more (indented stack lines joined), exact match fails always → the real 
+req-016 --expect would exit 1 — but they claim verification step 5 passed (exit 0). Presumably tested.
+
+  **Redaction order:** README says detail passes through redactor; if capability name contained a 40+ run it'd be undeclarable. Fine.
+
+  **Now check AT_ID regex vs registry**: `/^AT-\d{3}(?:\.\d+)*\.\d+[a-z]?$/` — comment says same grammar as registry. If registry's differs 
+(e.g. no trailing letter), minor drift; the comment claims parity. Check registry.ts.
+
+  **Missing-then-accounting double report:** if an id is 'missing', expectationDeviations reports "no result was reported" AND later "declared 
+but not reported"? Look: rows include a 'missing' row for the id → seen.add(row.id) happens first → so the later loop won't double-report. 
+Good — seen added before checks. Yes: `seen.add(row.id)` at loop top.
+
+  **Unexpected ids:** `unexpected` param — ids registered but not P0. Also counted in numTotalTests? If an extra atTest with a valid AT id of 
+another requirement ran... but runner scopes to suite dir of the requirement. Fine.
+
+  **Case 7 control asserts `run.output).not.toContain('DECLARATION')` — good.**
+
+  **Preflight ordering — does the bijection preflight run before expectation load, and does it need Docker at integration tier?** The comment 
+says declaration preflight precedes stack/lock. In main, where's the integration-tier lock taken relative to this? The diff shows preflight 
+inserted after bijection check, before `const infra = ...`. Presumably stack sequence comes after infra definition. OK.
+
+  **Now the deeper false-green attack on accounting: WRONG PAIRING.** Prompt attack 1: "can the counts be satisfied by a WRONG PAIRING — one 
+declared red passing while an undeclared test fails?" Declared red passing → expectationDeviations: declared red reported GREEN → deviation. 
+So no. What about a declared red failing with matching shape while a DIFFERENT declared green fails, and numFailedTests=2 vs red=1 → 
+accounting catches. Pairing swap can't evade because per-id check is exact. Good.
+
+  **A declared red that fails with the right shape but the id's test also... fine.**
+
+  **What about `it.concurrent` or tests in the suite file that are P1/P2 (not P0)?** The acceptance file lists P0 ids; suite might contain P1 
+tests not declared! Bijection is against P0 ids only. If the suite contains a P1 test (non-P0 atTest with a different id, e.g., AT-016.13 P1), 
+it runs and counts in numTotalTests. Declaration only covers P0 ids. Then numTotalTests = P0 count + P1 count ≠ green+red → accounting 
+deviation → exit 1 even when everything is "as expected". Is that a false red rather than false green — annoying but safe direction. But does 
+req-016's suite contain non-P0 tests? `at:check req-016` says 12 P0 ids in bijection. If the suite has P1 tests, the shipped declaration would 
+fail — they claim exit 0 verified. So suite presumably has exactly the 12. But this means any requirement whose suite legitimately includes P1 
+tests can never use --expect — a design limitation, arguably fine (declaration is P0 contract). Actually wait — unexpected non-P0 atTest ids: 
+expectationDeviations gets `unexpected` list from runner (registered but not P0). It pushes deviations for them. So P1 tests make --expect 
+fail always. Hmm, is that intended? D4: "no id is missing and no unexpected id is registered". The runner's `unexpected` = registered ids not 
+in the acceptance P0 set. So yes intended per contract. Not a finding, maybe minor doc note. Actually README doesn't mention P1 tests are 
+incompatible with --expect. Minor.
+
+  **The real residual: stale report file.** Need to check runner.ts. Let me look at the actual worktree.
+
+  Also **the `as ProcessOutcome` cast on `run`** — pre-existing pattern presumably.
+
+  Also **`expectedManifestPath` imported in runner for message printing** — fine.
+
+  **Potential issue: `loadTierExpectation` reads from REPO_ROOT which honors AT_REPO_ROOT — good for selftest isolation. In the real run, 
+REPO_ROOT is the checkout. Fine.**
+
+  **Concurrency:** mkdtemp unique dirs; no collision. The childEnv includes AT_REPO_ROOT=tree. node_modules resolution from INSTALL_ROOT cwd. 
+OK. Windows rmSync retry loop: attempts=2, if both fail, tree leaks in tmp — harmless.
+
+  Now, let me verify things in the actual repo. The review says working directory is a worktree at branch nirdrang/at-verify-expect head 
+0772026. Our cwd is C:/Users/nirdr/Downloads/ai4good-expect — likely that worktree ("ai4good-expect" name suggests so). Let me check git 
+status/branch and read the harness files. This is read-only and allowed.
+
+  Plan of verification reads:
+  - `git -C . rev-parse --abbrev-ref HEAD` and `git log --oneline -1`
+  - Read tests/at/harness/runner.ts around report loading and row extraction.
+  - Read tests/at/harness/registry.ts (AtPending shape, PendingPhase).
+  - Read tests/at/harness/capabilities.ts (CapabilityPending shape).
+  - Read tests/at/harness/check.ts (REPO_ROOT/AT_REPO_ROOT).
+  - Possibly run `git diff origin/main..HEAD --stat -- tests/at` to confirm the diff matches.
+
+  Given the volume, I could delegate to an explore subagent, but I have very specific questions; doing it myself with a few targeted 
+greps/reads is fine. Let me be efficient: grep for key patterns in runner.ts: "reportPath", "JSON.parse", "failureMessages", "redact", 
+"detail".nirdrang/at-verify-expect
+0772026 AI4DEV-25: rulings 03 (OP1 accepted, the three additions kept, checkpoint approved)
+ tests/at/harness/expected.selftest.ts      | 273 +++++++++++++++++++
+ tests/at/harness/expected.ts               | 421 +++++++++++++++++++++++++++++
+ tests/at/harness/runner-expect.selftest.ts | 370 +++++++++++++++++++++++++
+ tests/at/harness/runner.ts                 |  81 +++++-
+ 6 files changed, 1293 insertions(+), 6 deletions(-)
+The worktree matches the described branch/head. Now examine the report loading and how `report` is derived — especially what happens when the 
+report file is missing/unparseable, and whether `outputFile` is per-run unique.Key facts confirmed:
+
+  1. `reportDir` — need to check where it comes from. Line 1112: `outputFile = join(reportDir, 'vitest-report.json')`. Need to find reportDir 
+definition — presumably mkdtemp per run. Let me grep.
+
+  2. Row detail: `firstLine(result.failureMessages?.join('\n'), ...)` — first non-empty line, redacted, trimmed. And there's a length cap 
+mentioned at line 203-206 comment "redacted and length-capped"? Line 203 comment says "First non-empty line, redacted and length-capped". Let 
+me check lines 203-210 — there seem to be two similar functions (one at ~185 and firstLine at 943). Line 185 `.split('\n')` in some other 
+function. The firstLine at 943 does NOT length-cap. Check the other one at ~203.
+
+  Important attack: vitest failureMessages format. For a failed test, vitest's JSON reporter `failureMessages` entries — what do they look 
+like? Typically they include the error message AND stack trace. The first line would be like `CapabilityPending: CAPABILITY PENDING — H3 ...`? 
+Actually vitest failureMessages usually start with the error message; for an error with name 'CapabilityPending', serialized as 
+"CapabilityPending: CAPABILITY PENDING — ..."? The implementation's selftest case 1 passes presumably (they ran it). Case 1 of 
+runner-expect.selftest exercises the real end-to-end match and asserts exit 0, so the shape genuinely matches what vitest prints. OK.
+
+  But — `firstLine` TRIMS the line (`.map(l => l.trim())`). So leading whitespace differences are normalized. Fine.
+
+  3. Redaction: `[A-Za-z0-9_-]{40,}` → `<redacted-token>`. Capability names with spaces fine. But what if a CapabilityPending message's joined 
+names... fine.
+
+  4. Stale report: reportDir — check definition. If mkdtemp, no stale risk.
+
+  5. runVerdict: pre-existing. With --expect, runVerdict is bypassed entirely; the --expect path relies on reportAccountingDeviations for 
+process-level failures. Note: runVerdict treats `run.status !== 0` as a problem ALWAYS (with red/missing, still reported as problem but the 
+message differs). In the --expect path, when red > 0, a non-zero exit is EXPECTED and not checked — but a non-zero exit for a DIFFERENT reason 
+(e.g., vitest worker crash AFTER writing report — vitest exits with code 1 anyway when tests fail; unhandled rejection → exit code 1 too) — 
+indistinguishable. That's the named residual gap. But note: run.status could be 2 or something weird (vitest config error) while the report... 
+if config error, no report → return 4 earlier. OK.
+
+  Wait — there's a subtle one: exit code 4 return when no report. With --expect, missing/unparseable report exits 4, not 2 or 1. Is that a 
+problem? D5 refusals are exit 2, deviations exit 1. A missing report is an infrastructure failure — exit 4 pre-exists (presumably; it's in the 
+unchanged region... actually is it? The diff didn't show lines 1137-1152 as changed, so pre-existing). Fine — it's not exit 0.
+
+  6. Now the earlier region: reportDir and registrationDir — check they're per-run mkdtemp.
+
+  7. Now the numFailedTestSuites attack: suite-level failure (import error in a second file, or a failed suite with no failed tests). With 
+reds declared, success=false is expected; numFailedTests counts only tests. Vitest JSON: a file that fails to import shows in testResults with 
+status 'failed' and no assertionResults? numTotalTests would not include its tests. numFailedTestSuites increments. The check ignores suite 
+counts entirely → exit 0 while the suite tree is broken. Per-id rows: if the crashed file contained NO atTest ids (e.g., a helper .test.ts 
+file accidentally added, or a new test file whose atTest calls never registered), nothing is missing. Concrete: someone adds `helper.test.ts` 
+to suites/req-016/ with an import-time throw. numFailedTestSuites=2, numFailedTests=4 (the declared reds), success=false. --expect exits 0. 
+The gate is green while the suite directory contains a crashing file. This is a real false-green hole and NOT covered by the named residual 
+gap (which is about failures "not serialised into the JSON report" — this one IS serialised, in numFailedTestSuites). Severity: blocker? It's 
+a false green in the gate that this whole item exists to eliminate, and the ruling R8 explicitly enumerated the available fields including 
+numFailedTestSuites/numFailedTestSuites but conditions 1-6 only cover test counts. Hmm — R8 said "implement exactly this" with conditions 1-6. 
+So the implementation matches the ruling. But the review prompt says attack surface includes "suite-level or hook failure ... slip through" 
+and asks me to mark harness invalidity / misleading expected state as [FALSE-GREEN-CLASS]. The ruling's residual gap is named for unserialised 
+failures; a serialised-but-unchecked field is a defect in BOTH ruling and implementation. As adversarial reviewer I should flag it as 
+important (arguably blocker). Given the gate's load-bearing purpose, I'd say blocker. Let me think about the concrete scenario likelihood: a 
+second suite file in the same req directory failing to import — plausible during development (adding a new test file with a bad import). The 
+run would exit 0 = "EXPECTED" while the tree is broken. That's exactly the class this item was built to kill. I'll mark blocker, 
+[FALSE-GREEN-CLASS].
+
+  Wait — but would vitest with an import-failed file still run the OTHER file and write the report? Yes, vitest continues other files and the 
+JSON report includes the failed suite. numTotalTests counts collected tests only. Also — does the crashed suite produce a "suite-level 
+failure" entry in failureMessages attached to a synthetic test? In vitest JSON output, a file that fails to collect appears in testResults 
+with `status: "failed"`, `assertionResults: []`, and `message` field with the error. numFailedTests unchanged. So yes, slips through.
+
+  Minimal fix: in reportAccountingDeviations also require `numFailedTestSuites === (number of suite files containing ≥1 failed test)` — not 
+derivable from totals; simpler: require `numTotalTestSuites` to equal the number of suite files actually reporting assertions... hmm. 
+Practical minimal fix: require `numFailedTestSuites <= numFailedTests` (every failed suite must contain at least one failed test — a suite 
+that failed with zero failing tests is a collection/hook-level failure and must fail the gate). That's a one-line arithmetic check on fields 
+the report already carries. Edge: can numFailedTestSuites > numFailedTests legitimately? A suite with 1 failed test = 1 failed suite. Multiple 
+failed tests in one suite: suites ≤ tests still. Two suites each with failures: suites=2 ≤ tests. A failed suite always has ≥1 failed test 
+unless collection/hook failure. So `numFailedTestSuites > numFailedTests` ⟺ a suite failed with no failed test. Valid invariant. Also 
+`numPendingTestSuites`? Skipped suites → pending suites; tests pending → already covered by numPendingTests? A fully skipped file: its tests 
+count as pending tests → numPendingTests > 0 → caught. OK.
+
+  Also hook failure (beforeAll throws): vitest fails all tests in that suite → numFailedTests includes them → counts off → caught. afterAll 
+throws? afterAll failure — in vitest, a failed afterAll marks the suite failed but tests may keep their status! Yes: afterAll hook errors fail 
+the SUITE without failing tests. So numFailedTestSuites increments, numFailedTests stays. Same hole, same fix. Good — this strengthens the 
+finding: an afterAll/cleanup failure slips through even for the declared suite itself, not just a stray file.
+
+  Hmm wait, does vitest count hook failures in numFailedTests? I believe not — hooks aren't tests. In vitest, a beforeAll failure causes tests 
+in the suite to fail (they can't run)... actually vitest marks tests as failed with the hook error when beforeAll fails? In Jest, beforeAll 
+failure → all tests in the block fail. In vitest similar: tests are reported as failed with the hook error. afterAll failure → suite failed, 
+tests keep status. Either way, numFailedTestSuites check covers both.
+
+  8. Now the "wrong pairing" attack and `success === (redCount === 0)`: covered.
+
+  9. `reportAccountingDeviations` checks `totals.success !== (red === 0)`. With red===0 and success=false — caught. With red>0 and 
+success=true — caught. Good.
+
+  10. Report staleness: need reportDir definition. Grep.
+
+  11. Registration-based rows: note rows derive from runtime registrations AND assertion groups; an id with registration but no result → 
+status red "0 Vitest results reported" — counted in rows as red. If declared red with capability-pending kind, detail mismatch → deviation. 
+Good. But accounting: that test was skipped/failed to run — vitest counts it how? If atTest registers but the test doesn't run (skipped?), 
+numPendingTests>0 → caught.
+
+  12. Another attack: `analyzeReportedTests` requires exactly 1 result per id; duplicates → red row with detail "N Vitest results reported" — 
+declared green → deviation. Good.
+
+  13. Now — numTotalTests includes ALL tests run, including non-atTest plain `it()` that PASS. An extra PASSING untagged test: numTotalTests = 
+green+red+1 → caught by total check. Good.
+
+  14. Subtle: `numPassedTests !== green`. With retries? Not configured. Fine.
+
+  15. `--expect` preflight uses `expected` — the acceptance P0 ids. But wait, is `expected` the P0 ids or all ids? From inspectBijection 
+presumably P0 ids. The conformance case 6 confirms.
+
+  16. Check the preflight placement vs lock: in main, expectation load happens at line ~993 before infra/stack — good; also before reportDir 
+creation? Doesn't matter.
+
+  17. USAGE string updated. parseArgs throws for --expect --wired → main catches parse error → prints usage, returns... check: parse errors 
+return 2? Line 957-959: catch prints error + USAGE, then presumably `return 2`. The selftest asserts exit 2 with 'cannot be combined' and 
+usage. Confirmed by test presumably.
+
+  18. The `firstLine` trim: expected line rebuilt as `CapabilityPending: CAPABILITY PENDING — ...`. If vitest's failureMessages first line is 
+exactly that. Selftest case 1 passes end-to-end, so fine.
+
+  19. AT_ID regex vs registry — check registry.ts grammar. Let me read registry.ts relevant parts and capabilities.ts. Also check REPO_ROOT in 
+check.ts honoring AT_REPO_ROOT.
+
+  20. reportDir staleness — grep for reportDir definition.
+
+  Let me do these reads.
+
+• The worktree matches the assignment. Now checking the remaining load-bearing details: `reportDir` provenance, registry/capabilities message shapes, and `REPO_ROOT`.
+
+• Confirmed:
+  - `reportDir = mkdtempSync` per run → no stale report risk. Good.
+  - CapabilityPending message matches the rebuilt line exactly: name `CapabilityPending`, message `CAPABILITY PENDING — ${capabilities.join(', 
+')}`. And vitest failureMessages serialize as `CapabilityPending: CAPABILITY PENDING — ...`? Vitest failureMessages typically are formatted as 
+stack traces: "CapabilityPending: CAPABILITY PENDING — ...\n    at ..." — first line matches. Case 1 selftest proves it end-to-end.
+  - AtPending shape matches `AtPending: <atId> PENDING [<phase>] — <detail>`.
+  - PendingPhase = 'harness-missing' | 'sut-missing' | 'tier-unset' — matches PENDING_PHASES.
+
+  Now, one attack on the `pending` anchored prefix: `startsWith`. The trim in firstLine removes leading whitespace, so position 0 holds. Could 
+a non-AtPending produce that prefix? Vitest serializes as `<name>: <message>`. An error named AtPending only comes from registry. Fine. But 
+subtle: the id in the declaration — expectationDeviations calls detailMatches(row.id, red, row.detail) with row.id from the report, and 
+declaredDetail uses that id. So a red AT-016.05 whose AtPending carries a DIFFERENT id (e.g. thrown during open of another world) → prefix 
+mismatch → deviation. Good.
+
+  Another attack on `declaredDetail` for capability-pending: does the harness ever sort or dedupe capabilities before printing? 
+CapabilityPending joins in given order. The registry/suite throws `new CapabilityPending(missingCapabilities(...))`? Check line 28-30 in 
+capabilities.ts: `.map(entry => entry.name).sort()` — something sorts capability names! Where is that used? If the capability scan sorts 
+names, then the printed order is sorted, and a declaration listing them in a different order fails loudly — acceptable (README says order must 
+match harness order). But — the req-016.json for AT-016.01 lists ["H3 static provider scan", "H3 sentinels", "H5 email provider simulator"]. 
+If the harness sorts, the printed line would be sorted: "H3 sentinels, H3 static provider scan, H5 email provider simulator" — alphabetically 
+"H3 sentinels" < "H3 static provider scan" ("se" < "st"). The declaration lists "H3 static provider scan" FIRST, which is NOT sorted order. If 
+the harness's CapabilityPending is constructed with the sorted list, the declared line wouldn't match and the shipped req-016 --expect would 
+exit 1, contradicting their claim of exit 0. Let me check where that sort is — line 28-30 context. It's some function that maps entries to 
+names and sorts. If that function feeds CapabilityPending for the actual REQ-016 suite, the declaration order must be sorted. The declared 
+order is not sorted → either the sort isn't on this path, or the shipped declaration is wrong (a loud failure they'd have caught when running 
+verification step 5). I should check capabilities.ts around line 20-36 to see what that function is.
+
+  Also check: how does the suite produce CapabilityPending — via checkCapabilities presumably scanning and throwing with missing names. Let me 
+read capabilities.ts fully (it's small) and check.ts REPO_ROOT.
+
+• One detail to verify — `capabilities.ts` sorts names at lines 28–30; if that sort feeds the thrown `CapabilityPending`, the declared order in `req-016.json` must be the sorted order.
+
+• The sort is only in `stubbedCapabilityNames` (used for the stand-in check), not in CapabilityPending construction. `pendingCapability` 
+dedupes but preserves order. So ordering in the declaration must match the suite's construction order. For REQ-016, whether the actual detail 
+line is "H3 static provider scan, H3 sentinels, H5 email provider simulator" — that's from the actual suite. The brief D9 says red = .01 (H3 
+static provider scan / H3 sentinels / H5 email provider simulator) — in that order. The manifest matches the brief's order. Whether reality 
+matches — they claim verification ran. I can verify statically: find where the REQ-016 suite throws CapabilityPending, or run? I could grep 
+the req-016 suite for the capability names. Actually CapabilityPending for AT-016.01 would come from `pendingCapability(...)` proxy in a 
+fixture or from capabilities scanning. Let me grep the suites dir for "H3 static provider scan".
+
+  Also check.ts REPO_ROOT honoring AT_REPO_ROOT. And confirm `expected` variable in main is P0 ids. And confirm the runner's rows status 
+'missing' never occurs? In analyzeReportedTests, rows are built from expected.map — statuses 'red' or 'green' only; 'missing' appears... 
+where? IdRow status includes 'missing' but the map never produces it? Lines 831-869: statuses set are 'red' and 'green' only. Hmm — 
+expectationDeviations handles 'missing' but the runner may never produce it; the "declared but not reported" branch handles uncovered ids. 
+Wait — rows = expected.map(...) so every P0 id gets a row; status red with detail like "no runtime registration". So 'missing' may be dead-ish 
+(perhaps produced elsewhere). Not a finding.
+
+  Now the KEY remaining checks:
+
+  A. **numFailedTestSuites / suite-level failure hole** — confirmed real: afterAll hook failure or a second failing-to-import file under 
+suites/req-016/ yields success=false (expected with reds), test counts unchanged, exit 0. This is [FALSE-GREEN-CLASS]. Severity: I'll call it 
+blocker — it's a hole in the gate's core promise, and NOT the named residual gap (which covers failures NOT serialized into the report; suite 
+counts ARE serialized). Actually wait — is it serialized? numFailedTestSuites is a top-level report field. Yes. And R8 explicitly listed it 
+among the real fields. The implementation chose not to check it. Hmm, R8 said "implement exactly this" — 6 conditions not including suite 
+counts. So the implementation matches the ruling; the ruling has the hole. Either way it's a finding at gate 2, and the prompt says "A 
+deviation of the code from that contract is itself a finding. So is a contract clause the code satisfies only vacuously." The contract (R8) 
+lists numFailedTestSuites as available but only demands test-level arithmetic. The finding stands against the item as a whole.
+
+  Let me double check vitest semantics: does an import-failed file increment numFailedTests? In vitest, when a test file fails to load, it's 
+reported as a failed suite ("failed suite" in testResults with no assertionResults) — numTotalTests/numFailedTests count only tests, so no. 
+And `success` = false. numFailedTestSuites increments. Yes.
+
+  And afterAll failure: vitest — a failed afterAll hook... In vitest, hook failures are reported; suite marked failed; tests already ran keep 
+status. numFailedTests unchanged. success=false. So yes, both slip through when reds are declared.
+
+  Severity: blocker? The gate's job: exit 0 only when reality matches declaration. Reality includes a broken suite file → exit 0. That is 
+precisely the "false green" class this item exists to eliminate; merging it re-opens the exact failure mode with a machine-printed "EXPECTED" 
+stamp, which is worse than before because it's now trusted. I'll mark blocker [FALSE-GREEN-CLASS].
+
+  Hmm, but wait — does the runner scope vitest to `suites/req-016/` — yes, positional filter `suites/req-${requirement}/`. A second file in 
+that dir runs. Also, could a stray failing file outside the req dir run? No, filter limits. OK.
+
+  Minimal fix: extend reportAccountingDeviations to also read numTotalTestSuites/numFailedTestSuites/numPendingTestSuites and require 
+numFailedTestSuites ≤ numFailedTests (every failed suite must contain a failed test; a suite that failed with zero failed tests is a 
+collection/hook failure) — plus require the unusable-field validation for these too. That's small.
+
+  B. **vitest retry/flaky**: not configured, skip.
+
+  C. **`success !== (red === 0)`** — with red>0, vitest success could also be false for infrastructure reasons (unhandled rejection) — can't 
+distinguish, named gap. OK.
+
+  D. **`--expect` exit 1 vs runVerdict bypass**: the --expect path doesn't call runVerdict at all. runVerdict includes `run.status !== 0` with 
+reds present as a problem ("the test process exited N") — wait, in the old no-flag path, when reds exist, run.status!==0 is reported as 
+problem too (message variant). So old behavior: REQ-016 with 4 reds → exit 1. New --expect path with reds declared: non-zero exit is NOT 
+checked at all when red>0 (only when red===0). So a vitest exit of, say, 130 (SIGINT) or a crash mid-run with a partial report that happens to 
+contain all 12 tests... A worker crash mid-run: some tests never run → numTotalTests < 12? numTotalTests counts tests that ran? In vitest 
+JSON, numTotalTests counts all collected tests... if the worker crashed mid-file, the report may be absent entirely (return 4) or partial. If 
+partial with missing tests, counts off → caught. If the crash happens after all tests done but during teardown → teardown failure is the 
+suite/unhandled case (named gap / finding A). OK.
+
+  But: signal kill — `run.status === null`, report exists and complete (written before kill? only written at end, so no). Fine.
+
+  E. **Case 8 validity** — does the untagged failing `it()` actually keep the bijection preflight passing? The preflight `inspectBijection` 
+statically scans `atTest(` call sites vs acceptance P0 ids. Plain `it()` isn't an atTest call → preflight passes. The extra test runs and 
+fails → numFailedTests=2 vs declared 1 → deviation. Case asserts exact strings. Sound. Also asserts no AT-917 deviations — the ids themselves 
+match. Sound.
+
+  But one more check on case 8's claim "would exit 0 without the accounting": per-id deviations would be empty (both ids match). Without 
+reportAccountingDeviations, deviations=[] → exit 0. Yes, the case proves the accounting bites. Sound.
+
+  F. **Missing black-box coverage**: D5 has four refusals: missing manifest (case 914 ✓), tier absent (✗ no black-box case), malformed (✗ no 
+black-box case — unit only), bijection (case 915 ✓). D8 required 7 cases; delivered 9, but the two added (accounting, --wired) don't cover 
+malformed JSON or absent tier end-to-end. The refusal path is the same code path (loadTierExpectation throw → return 2), so risk is low; still 
+a coverage gap vs the README's promise "All four of these exit 2, having run no tests at all". Minor finding.
+
+  G. **`expectationDeviations` — a declared red row with status 'red' and detail matching: fine. What about red rows generated by the harness 
+itself, e.g. "no runtime registration emitted by atTest" — that detail would mismatch declared shape → deviation. Good.
+
+  H. **Declared green reported 'missing'?** rows never produce 'missing' in current analyzeReportedTests... Actually let me double check 
+there's no other row source. `analyzeReportedTests(expected, ...)` builds rows for each expected id — red or green only. So 'missing' status 
+is dead code in practice; the "declared but not reported" branch also can't fire since rows cover all expected ids... unless `expected` 
+(acceptance ids) and rows diverge — rows are built FROM expected, so every declared id is in rows (bijection ensures declared == expected). So 
+"declared but not reported" and 'missing' are defensive. Fine — defensive code, not a finding. Actually wait: could `rows` exclude an id? No, 
+map over all expected. OK.
+
+  I. **Duplicate capability names in a declaration**: e.g. capabilities: ["H3 fault injection", "H3 fault injection"] — rebuilds "… — H3 fault 
+injection, H3 fault injection", which never matches real output (pendingCapability dedupes). Loud failure, safe. parseRedDeclaration doesn't 
+reject duplicates — could add, but a dup declaration simply never matches → fails loudly. Not a finding (safe direction). Hmm, "duplicate or 
+empty capability names" was in the attack surface; empty is rejected; duplicates fail closed. No finding.
+
+  J. **Unicode/case**: exact string equality, case-sensitive. Good.
+
+  K. **Redaction interplay**: firstLine redacts then trims. If a real detail contained a 40+ char token, redaction changes the line and no 
+declaration can match (README §6 admits). But ALSO: the redactor could CREATE a match? E.g., declared line containing `<redacted-token>`? A 
+declaration could declare a capability named literally `<redacted-token>`... contrived; the parser doesn't forbid it. Not realistic. No 
+finding.
+
+  L. **`firstLine` picks the FIRST NON-EMPTY line of joined failureMessages** — with multiple assertion failures, joins all messages and takes 
+first non-empty line. For a CapabilityPending thrown after expects pass, failureMessages[0] first line is the CapabilityPending line. OK. But 
+what if vitest prepends something? Selftest case 1 end-to-end proves it.
+
+  M. **Regression — no-flag path**: code moved into `if (!expectation)`, identical body. USAGE string changed (cosmetic). parseArgs: --expect 
+additive. The `--expect --wired` rejection is new but only affects the new combo. Pre-existing combos unaffected... wait: `if (wired && 
+expectDeclared)` — only when both. OK. Selftest case 7 asserts the default path. Also existing runner-blackbox.selftest.ts unchanged. Good. No 
+finding.
+
+  N. **The `expected` variable**: check the bijection preflight passes P0 ids — let me verify quickly in runner.ts main around line 960-995. 
+Also confirm `REPO_ROOT` from check.ts honors AT_REPO_ROOT (selftest isolation). Quick greps.
+
+  O. **req-016.json fidelity**: capability names "H3 fault injection and process restart" for .07/.09 — brief D9 says "H3 fault injection". 
+The manifest uses a longer name. Is the real detail's capability name "H3 fault injection and process restart"? Need to check the req-016 
+suite source. Grep for "fault injection" in suites. Also AT-016.01's three names and their order. Let me grep the suite.
+
+  P. **The AT_ID regex vs registry grammar** — check registry's atTest id validation.
+
+  Q. **One more: `loadTierExpectation` refusal happens BEFORE the integration-tier lock** — good — but ALSO before the "wired" early return? 
+No: wired returns earlier at line ~963. And --expect --wired rejected in parse. OK.
+
+  R. **Declaration preflight after bijection preflight**: the bijection preflight (inspectBijection) — if it finds problems, runner exits 2 
+before loading expectation. So a broken suite + --expect → exit 2 from the earlier preflight. Fine.
+
+  S. **Accounting with `run.error`**: spawn error → also report file missing → return 4 before verdict. So run.error path in 
+reportAccountingDeviations only reachable if outputFile exists despite spawn error — impossible-ish; defensive. Fine.
+
+  T. **`numPassedTests !== green` with a suite containing non-P0 atTest ids (unexpected)**: unexpected id passing → numPassedTests = green+1 → 
+caught. Good.
+
+  U. **What about tests in the suite that are P0 but the acceptance file lists MORE ids than the suite implements?** Then rows have red rows 
+"no runtime registration" → per-id deviation. Good.
+
+  V. **`tierExpectation` throws for undeclared tier — exit 2 via loadTierExpectation catch. Good.
+
+  W. **Case 7 control asserts no 'DECLARATION' in output** — good.
+
+  X. **`--expect` with a tier where the suite takes a lock — declaration refusal avoids lock. Good.
+
+  Y. Now think about **`it.skip` inside atTest?** numPendingTests>0 → caught.
+
+  Z. **The runner passes `report` (full VitestJson) to reportAccountingDeviations typed as ReportTotals** — VitestJson has the numeric fields 
+as `number` (not unknown) — compatible. If vitest omits them (older vitest), runtime validation catches → deviation → exit 1. Good — but note: 
+a report missing the fields under --expect exits 1, not 2. Fine.
+
+  AA. **Case: declaration matches, but `success` true and red>0 can't happen with real failures. OK.
+
+  BB. **The README claim "having run no tests at all" for refusals** — verified by placement before spawn. But case 914/915 assert no report 
+table printed. Good.
+
+  CC. **Grep check for AT-016.01 capability order in the actual suite** — do it.
+
+  DD. Also verify `childEnv` and `bunExecutable` are exported (selftest imports them) — they import from './runner.ts'; runner exports 
+childEnv? Check exports. Quick grep.
+
+  EE. Check.ts REPO_ROOT: grep.
+
+  Let me run these greps in parallel.The suite grep found no direct capability names in req-016 suite — the CapabilityPending for AT-016.01 
+etc. must originate elsewhere (capabilities scanning in _contract.ts or the registry scanning capability modules). The declaration's fidelity 
+(names + order) can't be fully verified statically without tracing how the pending capabilities are produced. The order question: the manifest 
+lists "H3 static provider scan", "H3 sentinels", "H5 email provider simulator" — D9's order. Whether the real printed detail matches that 
+exact order — the builder claims verification step 5 ran green. I can't re-run without writing temp files (running the suite writes temp dirs 
+— actually the runner cleans up; but "strictly read-only" says do not create/edit/delete any file — running tests would create and delete temp 
+dirs; borderline, and the prompt explicitly says "You are given the material inline below. Do NOT modify any file; this is a read-only 
+review." I'll treat running the suite as out of scope and note the verification rests on their claim.
+
+  Also the AT_ID regex in registry — my grep found nothing; let me check the actual registry id validation grammar to compare with 
+expected.ts's `/^AT-\d{3}(?:\.\d+)*\.\d+[a-z]?$/`. The comment in expected.ts says "The same grammar `registry.ts` enforces at the `atTest` 
+call site." If registry enforces a different grammar (e.g., without the trailing letter, or requiring exactly one dot), the divergence matters 
+only in failing direction (declaration stricter or looser). Let me grep registry for the id check pattern.
+
+  Also, I have enough for findings. Let me also quickly verify the registry's grammar and check `childEnv`/`bunExecutable` exports exist (the 
+selftest imports them — if not exported, tsc fails; but tsc presumably ran). Quick grep for "export function childEnv|export function 
+bunExecutable".Confirmed:
+  - registry AT_ID: `/^AT-(\d{3}(?:\.\d+)*)\.(\d+[a-z]?)$/` — equivalent grammar to expected.ts's `/^AT-\d{3}(?:\.\d+)*\.\d+[a-z]?$/`. Same. 
+Good.
+  - runner.ts never references `numFailedTestSuites` / `numTotalTestSuites` — the suite-count hole is confirmed in the runner's interface too: 
+`VitestJson` interface (diff) only added test counts, not suite counts. So a suite-level failure invisible to test counts is genuinely 
+unchecked.
+
+  One more consideration on the suite-count hole severity: is it reachable in the shipped configuration? The runner runs vitest scoped to 
+`suites/req-016/`. Currently that dir has files that import fine. The hole matters when a FUTURE change breaks a suite file's import or adds a 
+failing afterAll. Gate purpose is future merges → the hole is real and exactly in the class the gate must catch. Blocker seems right. 
+Actually, let me reconsider: is `success=false` really "expected" in the implementation? `reportAccountingDeviations`: `totals.success !== 
+(red === 0)` — with red=4, success must be false. A suite-level failure sets success=false → consistent → no deviation. Test counts unchanged 
+→ no deviation. Per-id: all 12 ids still report normally (failed file's tests, if any, never register — if the crashed file contained atTest 
+ids, they'd be "no runtime registration" red rows → caught; so the false green requires the crashed file to contain NO P0 atTest ids, OR the 
+afterAll case where all tests ran and reported). The afterAll case is the cleanest: afterAll throws after all 12 tests reported exactly as 
+declared (8 pass, 4 CapabilityPending). numFailedTests=4, numPassedTests=8, total=12, pending/todo 0, success=false (suite failed), exit code 
+1. Every check passes → exit 0, EXPECTED printed. And the suite is genuinely broken (a teardown failure is exactly what runVerdict's comment 
+calls a false green in the no-flag path!). Note the irony: the no-flag path explicitly guards "a global teardown that threw" via run.status 
+!== 0, and the --expect path DROPS that guard whenever red > 0. That's a regression of a documented protection, not just a gap. Strong blocker.
+
+  Wait — double-check: does a failed afterAll make vitest exit non-zero AND set success=false while numFailedTests stays? In vitest, unhandled 
+errors / hook failures: `success` false, exit 1. afterAll failure in vitest is reported as a suite error; tests keep status. I'm fairly 
+confident numFailedTests is unaffected. Even if I'm slightly wrong about which field moves, the invariant "failed suites ≤ failed tests" check 
+would catch whatever variant. The finding stands with the afterAll scenario; I can state it as the concrete scenario with reasonable 
+confidence. Actually to be careful: in vitest, a beforeEach failure DOES fail the test (counts). afterAll — hook errors are collected as 
+suite-level errors. I'll cite the afterAll/teardown scenario and the stray-file import-crash scenario; both hinge on suite-level failures not 
+moving test counters, which is standard vitest behavior (and R8's own residual-gap wording — "a hook error attributed to nothing" — concedes 
+hook errors may fail no test; the difference is that these ARE serialized in numFailedTestSuites, which the report carries and the code 
+ignores).
+
+  Hmm — actually is a failed suite with zero failed tests serialized ONLY in numFailedTestSuites? Also in testResults[].status='failed' with 
+message. The runner parses testResults only for assertionResults. So yes.
+
+  Now let me also double check finding about `run.status` not being consulted when red>0: in reportAccountingDeviations, the process exit 
+check is `if (red === 0 && !run.error && run.status !== 0)`. With red>0, a worker crash AFTER report write... report written at end, so crash 
+before write → return 4. Crash after write impossible (spawn returns after process exit; report written by process before exit). Signal kill 
+mid-run → no report → 4. So the process-exit channel adds nothing beyond the named gap except... exit code 1 vs exit code 2? vitest exits 1 on 
+test failure always. OK so the only carrier of suite/teardown failures is the report itself → suite counts. Confirms the fix.
+
+  Next finding candidates:
+
+  **Finding: missing black-box cases for two of the four D5 refusals.** D5/README promise four refusals exit 2 with no tests run; only two 
+(missing manifest, bijection break) have end-to-end cases; malformed JSON and absent tier are unit-tested only. The assembled path (throw → 
+"DECLARATION REFUSED" → return 2, before spawn) is shared, so risk is low → minor.
+
+  **Finding: `success === (redCount === 0)` vacuity when red===0?** With red===0 and all green, success must be true, run.status must be 0. 
+Covered. No finding.
+
+  **Finding: `expectationDeviations` unreachable branch comment** — defensive; no finding.
+
+  **Finding: `firstLine` trims and takes first NON-EMPTY line; detailMatches compares against rebuilt line** — could a REAL CapabilityPending 
+line ever have leading indentation? failureMessages in vitest JSON are typically indented? Case 1 end-to-end passes, so no. No finding.
+
+  **Pending anchored-prefix attack:** `detail.startsWith(expected)` where expected ends with "— ". Could a DIFFERENT error satisfy? Only if 
+its first line starts with `AtPending: <id> PENDING [<phase>] — `. An Error whose message is crafted — contrived. But note: `pending` kind 
+with phase 'tier-unset' — registry throws AtPending(tier-unset) when TIER is null. Under the runner, AT_TIER is always set, so a tier-unset 
+declaration could never match a real run... it could match if a suite calls openWorld outside runner? Not via at:verify. Harmless. No finding.
+
+  **Case 9 (--expect --wired) uses req-910 without planting a tree** — parse-time rejection happens before any file reads, so no tree needed; 
+env childEnv() without AT_REPO_ROOT → REPO_ROOT = INSTALL_ROOT = real checkout, but parse fails first. Safe. No finding.
+
+  **req-016.json fidelity**: names/order derived from actual details — D9's parenthetical said "H3 fault injection" but the manifest declares 
+"H3 fault injection and process restart". I couldn't statically trace where these names come from (they're not literal in the req-016 suite — 
+they come from capability-module resolution, likely in _contract.ts or the harness modules that are absent — that's WHY they're pending: the 
+capabilities don't exist, so pendingCapability proxies or a static scan declares the names). Since H3/H5 capability modules are "not in the 
+tree" (harness-missing detail says so), where do the capability NAMES come from? Probably the suite's _contract.ts declares required 
+capability names. Let me check _contract.ts quickly — it mentioned "static scan". The fidelity of the declaration is verifiable: grep 
+_contract.ts for the capability names.
+
+  Actually let me do one quick check on _contract.ts for the exact names and order for AT-016.01 — if the suite declares them in a different 
+order than the manifest, the shipped gate exits 1, contradicting the headline claim. This is worth one grep.The capability names aren't 
+literal in _contract.ts. Where does "H3 static provider scan" come from? Probably from a capabilities module the suite tries to load, or from 
+`pendingCapability('H3 static provider scan', ...)` somewhere in the suite/fixtures. Let me grep the whole tests/at tree for "static provider 
+scan".The declaration matches the harness exactly:
+  - `harness/index.ts:78`: `static: pendingCapability('H3 static provider scan', 'H3 sentinels', 'H5 email provider simulator')` — same order 
+as req-016.json AT-016.01. ✓
+  - faults: 'H3 fault injection and process restart' ✓ (D9's shorthand "H3 fault injection" was loose; the manifest derived the real name — 
+good).
+  - vendors: 'H5 email provider simulator' ✓
+
+  So req-016.json is faithful (assuming AT-016.01 touches `static`, .07/.09 `faults`, .11 `vendors` — plausible; the builder ran the 
+verification). One residual: these proxies throw on ANY property access, and the thrown CapabilityPending names list is fixed per proxy. The 
+declaration couples to `harness/index.ts` literals — any rename there breaks loudly (accepted trade-off). But note: if a capability LANDS 
+(real implementation replaces the proxy), the pending proxy disappears and the test either goes green (caught) or fails differently (caught). 
+Fine.
+
+  Also interesting: the AtPending 'harness-missing' path — if the whole harness module is missing, atTest throws AtPending not 
+CapabilityPending. But harness/index.ts EXISTS here with pendingCapability proxies, so the module resolves and proxies throw 
+CapabilityPending. OK.
+
+  Now finalize findings.
+
+  **Finding 1 (blocker, FALSE-GREEN-CLASS): suite-level failures invisible under --expect when reds are declared.** Cite: 
+tests/at/harness/expected.ts:376-404 (reportAccountingDeviations — checks only numTotal/Passed/Failed/Pending/Todo + success), 
+runner.ts:770-784 (VitestJson lacks numFailedTestSuites/numTotalTestSuites). Concrete scenario: an afterAll/teardown hook throws in the 
+req-016 suite (or a second file in suites/req-016/ fails to import). All 12 tests report exactly as declared; numFailedTests=4, 
+numPassedTests=8, numTotalTests=12, pending/todo=0; success=false which is EXPECTED while 4 reds are declared (expected.ts:393). Exit 0, 
+"EXPECTED: the run matches". Meanwhile the no-flag path explicitly guards this exact case via runVerdict's `run.status !== 0` ("a global 
+teardown that threw... This run is a FAILURE", runner.ts:913-921) — so --expect is WEAKER than the legacy gate on this axis. Minimal fix: add 
+numTotalTestSuites/numFailedTestSuites to VitestJson and require, in reportAccountingDeviations, `numFailedTestSuites <= numFailedTests` 
+(every failed suite must contain at least one failed test; a suite that failed with zero failing tests is a collection or hook failure), plus 
+the same unusable-field validation. Is `numFailedTestSuites <= numFailedTests` always valid? A suite with ≥1 failed test counts 1 failed suite 
+and ≥1 failed tests; summing over suites: failedSuites ≤ failedTests. Yes invariant holds. 
+
+  Note the interplay: is this within R8's named residual gap? R8/README §5 name "an unhandled rejection, a hook error attributed to nothing 
+... NOT serialised into the JSON report". A failed afterAll IS serialized (numFailedTestSuites, and testResults[].status='failed'). So the 
+implementation's coverage claim ("the report's own arithmetic must add up") is misleading — it checks only test arithmetic, not suite 
+arithmetic, while the fields sit unused. So this is not the accepted residual; it's an unforced hole. [FALSE-GREEN-CLASS]: misleading expected 
+state / harness invalidity.
+
+  Severity: blocker — the item's whole purpose is that exit 0 means "reality is exactly this"; here's a reachable reality that is broken and 
+exits 0. 
+
+  **Finding 2: `run.status` completely unconsulted when red>0.** Actually — is there any scenario where the process exit distinguishes 
+something the report doesn't, given the report exists? Worker crash after report write: impossible (report written at process end by the 
+reporter). Exit code mismatch (vitest exits 2?) — vitest exits 1 on failures. So the report is the only channel... mostly covered by finding 
+1. I'll fold this into finding 1 rather than padding.
+
+  **Finding 2 (important): two of the four D5 refusals have no black-box case.** D5/README §1 promise four exit-2 refusals "having run no 
+tests at all"; runner-expect.selftest.ts covers only missing manifest (914) and bijection (915). Malformed JSON and absent-tier are exercised 
+only as unit tests of parseExpectedManifest/tierExpectation — the assembled wiring (throw → DECLARATION REFUSED → return 2 before spawn) for 
+those two is unverified. Same code path, so low risk, but the item exists precisely to verify assembly; and D8 demanded "each deviation exits 
+non-zero with a precise reason" as the done criterion. Minimal fix: add two cheap cases mirroring 914 (malformed JSON manifest; manifest 
+declaring only the integration tier). Minor or important? The shared code path is already proven by two cases; the marginal risk is in 
+loadTierExpectation's throw sites differing... parse errors thrown inside loadTierExpectation → caught same way. I'd say minor.
+
+  **Finding 3: bijection uses acceptance P0 set statically, but `inspectBijection` — wait, does the declaration bijection use the same 
+`expected` ids that rows are built from? Yes, loadTierExpectation(requirement, tier, expected) with the same `expected` used by 
+analyzeReportedTests. Consistent. No finding.
+
+  **Finding 3 candidate: `parseExpectedManifest` accepts duplicate ids across... JSON objects can't have dup keys detectably (JSON.parse keeps 
+last). A manifest with "AT-016.01" twice in red → JSON.parse silently keeps the last. Can't detect without a custom parser. Acceptable; not a 
+finding (or minor?). Skip — do not pad.
+
+  **Finding: `expectationDeviations` counts 'missing' rows but runner never emits them** — dead defensive code, not a defect. No finding.
+
+  **Finding: conformance case 1 asserts `1 declared green, 1 declared red` in stdout — fine.
+
+  **Finding: `runExpectTree` cleanup retry — leaks temp dir on persistent failure; harmless. No finding.
+
+  **Finding: `--expect` exits 1 but the summary line says "EXPECT FAILURE: N deviation(s)" — fine.
+
+  **Finding: R11 asked to fold the PowerShell glob typecheck issue — verification section in brief says `bunx tsc --noEmit --pretty false`; 
+not code. Can't verify; skip.
+
+  **Attack: the accounting compares `numPassedTests === green.length`. But rows 'green' requires result.status === 'passed'. numPassedTests 
+counts passed tests. With the fixture, a test with multiple assertions counts once. OK.
+
+  **Attack: retried/flaky** — vitest retry not enabled in fixture config or real config? Real vitest.config.ts in tests/at — if it sets retry, 
+a declared-red test could pass on retry → status passed → counts shift → caught (red turned green deviation). OK either way.
+
+  **Attack: `detailMatches` for capability-pending compares to row.detail which is redacted + trimmed first NON-EMPTY line. If a red has 
+MULTIPLE failureMessages (e.g., an expect failure THEN CapabilityPending?), only the first non-empty line of the joined messages is compared. 
+Scenario: test does expect(1).toBe(2) then throws CapabilityPending — failureMessages has two entries; first line is the assertion error → 
+mismatch → deviation (safe direction). Reverse: CapabilityPending thrown first — vitest stops at first throw. Safe. No finding.
+
+  **Attack on case 8's "the accounting bites"**: verified sound — without accounting, deviations would be empty → exit 0. The test also 
+asserts the ids are NOT named as deviations. Sound. No finding.
+
+  **Attack: can `runExpectTree` collide or touch the real repo?** mkdtemp unique; childEnv({AT_REPO_ROOT: tree}) overrides REPO_ROOT; cwd 
+INSTALL_ROOT; vitest root = tree/tests/at; node_modules from INSTALL_ROOT. The fixture imports the REAL registry/capabilities by absolute URL 
+— writes? registry writes runtime registrations to AT_REGISTRATION_DIR which the runner sets inside reportDir (temp). Loop tier: no lock, no 
+Docker, no DB. Concurrent runs: separate mkdtemp dirs. One subtlety: the runner at loop tier — does it take the machine-wide lock? Comment 
+says loop takes no lock. OK. No finding.
+
+  **Attack: the real-repo isolation of case 9** — no tree planted, but parse fails before reads. Safe.
+
+  **Simpler design (attack 7):** Is there materially less machinery? The manifest+parser+matcher+accounting is ~420 lines plus ~640 lines of 
+tests. A simpler alternative: commit the expected vitest report's per-id status map only (green/red sets + accounting) without the typed 
+reason shapes — but that re-opens the codex substring hole (can't distinguish cause). The typed matcher is the substance of R9. Could cut: the 
+`pending` kind (unused by the only shipped declaration — req-016 uses only capability-pending). That's ~30 lines of parser+matcher+README, 
+speculative generality for a shape no current declaration uses. Worth naming per attack surface 7. Minor finding: the `pending` kind is unused 
+machinery shipped ahead of need (YAGNI); but R9/R12 mandated it... R12 permits anchored prefix for pending — the rulings required supporting 
+it? R9 says "kind: 'pending' declares phase ... matched the same exact way" — so it's contract-mandated, not speculative. The contract 
+includes it; fine. What could be cut: honestly the design is close to minimal for the requirements. I'll say: no material cut — the only 
+candidate (the `pending` kind) is ruling-mandated. "No finding" with a sentence.
+
+  **Also verify attack: "Does `success === (redCount === 0)` hold in every real vitest outcome?"** Vitest `success` is false if any test/suite 
+failed OR unhandled errors. With red>0 declared and the expected CapabilityPending failures, success=false. Could vitest report success=true 
+despite failed tests? With `--passWithNoTests` irrelevant. If bail config... no. Edge: if the suite file has ONLY pending... no. Holds, given 
+finding 1's caveat (success=false has many causes). No separate finding.
+
+  **Another check — the preflight order: declaration load BEFORE `inspectBijection`?** No — comment says it needs the bijection result 
+`expected`, placed after. Confirmed in diff: after the bijection block that returns 2. Good.
+
+  **One more possible finding: the `expected.selftest.ts` line 173-175 test — "rejects the same capabilities in a different order" declares 
+two: ['H3 sentinels', 'H5 email provider simulator'] and matches true against 'H3 sentinels, H5...' — fine.
+
+  **Possible finding: README §6 "None of REQ-016's reds is affected — every detail contains spaces" — true ('H3 fault injection and process 
+restart' has spaces; redaction regex needs 40+ consecutive [A-Za-z0-9_-]; longest run "injection" 9 chars). OK.
+
+  **Manifest label in refusal message prints `expectedManifestPath(requirement)` absolute path — fine.
+
+  **Exit codes: --expect deviation exits 1; D4 says exit 1. Refusal exit 2 ✓. Missing report exit 4 under --expect — is exit 4 acceptable? D5 
+lists refusals; a missing report isn't a declaration refusal, it's infra. Exit 4 ≠ 0, fails closed. Fine, no finding.
+
+  **Now, is finding 1 really a BLOCKER vs important?** The gate's correctness is stated as load-bearing for every future merge. A reachable, 
+realistic failure (teardown hook throwing — the exact scenario runVerdict's own comment calls out) produces a machine-certified false green. 
+I'll call it blocker.
+
+  **Second potential important finding: `--expect` drops the process-exit check for red>0 — beyond suite counts, is there any OTHER info in 
+run.status?** If vitest exits with an unusual code (e.g., 134 OOM) but wrote a complete matching report — report complete means all tests ran 
+and matched; OOM after write? Process exit happens after report write; an exit 134 with full report is bizarre. Skip — folded into finding 1.
+
+  **Finding candidate: `expected` P0 ids — `inspectBijection` returns `expected` — static scan of atTest call sites vs acceptance. Case 8 
+relies on plain `it()` not being scanned. Fine.
+
+  **Finding candidate: the accounting can't distinguish 2 suites where one fully crashed IF the crashed suite's tests are also missing from 
+numTotalTests — already finding 1.
+
+  **Finding: `declarationBijectionProblems` — a declared red id that's malformed wouldn't reach here (parser validates AT_ID). Dup red keys 
+impossible in JSON. Covered.
+
+  **Finding: case ordering D8 had 7 cases; the deliverable renumbered/added 2 — fine.
+
+  **Finding: minor — `expectationDeviations` prints row.detail raw in "declared green, reported red: ${row.detail}" — detail already redacted 
+by firstLine. OK.
+
+  **One more genuine check: the `success` check message for red===0 && success===true... `totals.success !== (red === 0)`: red=0, success=true 
+→ no deviation ✓; red=0, success=false → deviation "the report says the run did not succeed while the declaration declares no red" ✓.
+
+  **And the accounting when a declared red is red but reported via 'missing'-style harness red (no runtime registration)?** detail mismatch → 
+per-id deviation; counts: test didn't run → numTotal off → also caught. ✓
+
+  Now, one more attack from the prompt: "Can ... an empty/absent report slip through?" — absent report → return 4 (pre-existing, shared). 
+Empty report file (zero bytes written) → JSON.parse throws → return 4. ✓ No finding.
+
+  "Can two concurrent runs collide?" — separate mkdtemp; loop tier no lock; ✓.
+
+  "Is `--expect --wired` genuinely rejected at parse time?" — yes, parseArgs throws, main catches → prints + return 2 (check line 957-960: 
+catch prints error and USAGE then return 2 — verify return code is 2: line 957 `console.error`, 958 USAGE... then `return 2` presumably at 
+959. The selftest asserts exit 2 and passed presumably. ✓
+
+  Wait — actually let me double check main's parse-error return is 2 not 1. From the diff context at line 957-959: `} catch (err) { 
+console.error(...); console.error(USAGE);` then `return 2;` (line 959-960 area shows "return 2" in the earlier read at line 1596-1598 of the 
+prompt diff: `return 2;`). The prompt diff line 1596-1598 showed `return 2;`. ✓
+
+  **Regression**: no-flag path untouched; runVerdict governs; lock/stack sequence untouched (diff only inserted preflight before infra and 
+replaced verdict block tail). The verdict block replacement: old code `const verdict = runVerdict(...); if empty return 0; print; return 1;` — 
+new code wraps in `if (!expectation) {...return 1;}` — identical. ✓ One subtle diff: the final `return 1` at the end of the block — after the 
+EXPECT FAILURE print there's `return 1`. ✓
+
+  Now — one more possible IMPORTANT finding: **`reportAccountingDeviations` doesn't verify `numTotalTests === numPassedTests + numFailedTests 
+(+pending+todo)`** — internal consistency of the report itself. If vitest double-counts... contrived. The declared-sum check suffices given 
+finding 1's fix. Skip.
+
+  **Another: multiple suite files for one requirement** — the real req-016 suite has multiple files? `a-emitter-and-taxonomy.test.ts` and 
+possibly more. So numTotalTestSuites > 1 normally — fine, my proposed fix only constrains failedSuites ≤ failedTests, valid with many files.
+
+  **Double-check the fixture in case 1**: twoIdSuite plants ONE file 'a-two-ids.test.ts' with 2 tests; accounting: total=2, passed=1, 
+failed=1. numFailedTestSuites would be 1 (the file has a failing test) ≤ 1 ✓ — so my proposed fix keeps case 1 green. ✓ And for real REQ-016: 
+4 reds maybe across files; failedSuites ≤ failedTests holds. ✓
+
+  Alright — also should I flag that `README.md` §5's claim "the report's own arithmetic must add up" is misleading given suite counts 
+unchecked? That's part of finding 1 ([FALSE-GREEN-CLASS] = misleading expected state).
+
+  **Any finding on `expected.selftest.ts` line 660: `expect(line).toContain('AT-900.02 — no result was reported')` — the diff shows the em 
+dash literally. Fine.
+
+  Let me also sanity check one potential blocker candidate I dismissed: **does `--expect` still run the suite when the declaration is fine but 
+the bijection preflight failed?** Preflight returns 2 before declaration load. Fine.
+
+  **Potential finding: `loadTierExpectation` bijection error message joins problems but exits 2 — matches D5. ✓
+
+  **Potential finding: `manifestLabel` vs absolute path in messages — cosmetic.
+
+  **Potential finding: `expectedManifestPath` uses REPO_ROOT which is AT_REPO_ROOT-overridable — meaning anyone can point --expect at a 
+doctored tree. That's by design (selftests) and matches runner behavior overall. No finding.
+
+  **Finding on exit code 4 vs 2 for unreadable report under --expect:** Hmm, D5: "Manifest malformed / unparseable → exit 2" — that's the 
+manifest, not the vitest report. ✓ no finding.
+
+  So final findings:
+
+  1. BLOCKER [FALSE-GREEN-CLASS] — suite-level failures (hook/teardown errors, import-time crashes of an id-less file) exit 0 while reds are 
+declared; suite counters available but unchecked; --expect is weaker than the legacy runVerdict path on this exact axis. expected.ts:393 
+(success check), expected.ts:1040-1108 region — actually cite the diff line numbers from the actual files: expected.ts line ~393 
+(`totals.success !== (red === 0)`) and runner.ts:778-784 (VitestJson fields). Let me get exact line numbers in expected.ts: from the prompt 
+diff, `if (totals.success !== (red === 0))` was prompt-line 1093 → in actual file, expected.ts starts at prompt-line 716 (`@@ -0,0 +1,421 @@` 
+at 715, content starts 716). So prompt 1093 → expected.ts line 1093-715 = 378. Let me verify by grepping the actual file.
+
+  2. IMPORTANT — `run.status`/process outcome is ignored whenever red>0 (expected.ts: `if (red === 0 && !run.error && run.status !== 0)`), so 
+the only remaining carrier of teardown-level truth is the report, compounding finding 1. Actually this is really the same finding — fold into 
+1 to avoid padding? The prompt says don't pad. Fold.
+
+  3. MINOR — D5's four refusals: only two have black-box coverage; malformed-JSON and absent-tier refusals are unit-tested only, leaving the 
+assembled exit-2-before-spawn wiring unverified for half the refusal set (README §1's "All four of these exit 2, having run no tests at all" 
+is only half-proven end to end). Minor.
+
+  4. MINOR? — req-016.json fidelity: verified statically against harness/index.ts pendingCapability literals — names AND order match (lines 
+76-79). No finding. Good — say "no finding" for that area.
+
+  5. Attack 7 simpler design — no finding; briefly: the machinery is close to minimal; the one cuttable piece (`kind:"pending"`) is 
+ruling-mandated (R9/R12), not speculative.
+
+  6. Wrong-pairing attack — no finding: per-id exact comparison + counts make swaps impossible.
+
+  7. Stale/empty report — no finding: mkdtemp reportDir per run (runner.ts:1024), absent/unparseable report exits 4.
+
+  8. Regression — no finding: no-flag path byte-identical inside `if (!expectation)`, control case 7 black-box asserts it.
+
+  9. Typed matcher — no finding: shapes verified against capabilities.ts:32-37 and registry.ts:139-148; separator U+2014 matches; anchored 
+prefix for pending can only be satisfied by the real class name + id + phase from position 0 (firstLine trims, so position 0 is genuine).
+
+  Wait — one more on the pending prefix: `firstLine` TRIMS the line, so if vitest indented the serialization, trim normalizes — fine. But 
+could a CapabilityPending line ever prefix-collide with AtPending? Different class names. No.
+
+  Hmm, one more genuinely-worth-checking thing: in `detailMatches` for `pending`, expected = `AtPending: ${atId} PENDING [${phase}] — ` — with 
+trailing space after dash. Registry message: `${atId} PENDING [${phase}] — ${detail}`. Serialized: `AtPending: <message>`. If detail were 
+EMPTY string, line = `AtPending: id PENDING [phase] — ` — but firstLine trims trailing? `.map(l => l.trim())` trims BOTH ends — trailing space 
+after — would be removed, making the line `AtPending: id PENDING [phase] —` and startsWith(expected-with-trailing-space) FALSE. Edge: 
+AtPending with empty detail → declared pending red would mismatch → loud failure, safe direction. No finding (safe).
+
+  Also `trim()` on the detail: capability-pending exact match — trimmed line compared to expected (which has no leading/trailing space). Fine.
+
+  One more: vitest failureMessages might serialize with the message FIRST then "at ..." stack — first non-empty line is the error line. ✓ 
+(case 1 proves).
+
+  Now let me get exact line numbers in the actual files for citations. Grep expected.ts for `totals.success !==` and `red === 0 && 
+!run.error`, and runner.ts VitestJson lines (778-792 per the diff — actual file line numbers: the diff hunk said line 770ish; actual 
+VitestJson interface at runner.ts:777-792? From my earlier read of actual runner.ts, line 770 shows `failureMessages?: string[];` — so 
+interface AssertionResult around 768-771, VitestJson around 777-785. Let me grep quickly for precision.
+
+• I have everything I need. One last pass for precise line numbers for the citations.
+
+• All verified. Now write the review: numbered findings + VERDICT section. Strictly the specified output format. Findings:
+
+  1. BLOCKER [FALSE-GREEN-CLASS] — suite-level failures invisible under --expect when any red is declared.
+  2. MINOR — two of the four D5 refusals lack black-box coverage.
+  3. Maybe a third finding: the `pending`-kind detail — no. Let me consider whether there's an "important" finding about process-exit being 
+unconsulted — fold into 1.
+
+  Anything else genuinely worth a finding? Let me reconsider attack surface point by point once more:
+
+  - Case 8 verified sound — no finding.
+  - req-016.json faithful — no finding.
+  - Regression — no finding.
+  - Simpler design — no finding (state briefly).
+  - Typed matcher — no finding.
+  - Wrong pairing — no finding.
+
+  One more candidate: `expected.selftest.ts` "catches a non-zero exit when no red is declared at all" — the accounting for red===0 checks 
+run.status — fine.
+
+  Another candidate: the conformance suite never tests the REQ-016 declaration itself (the shipped req-016.json) end to end against the real 
+suite as a selftest — i.e., `at:verify req-016 --tier loop --expect` exit 0 is a manual verification step, not a committed test. If 
+harness/index.ts capability names change, the declaration breaks loudly (by design), but no selftest guards that the SHIPPED declaration 
+matches current reality — actually the gate itself IS that check when run. Fine, that's the design. Not a finding.
+
+  One more real candidate: **`expectationDeviations` treats harness-generated red details ("no runtime registration emitted by atTest") as 
+mismatches against any declared shape — good — but for a declared green, any red detail fails — good.**
+
+  And: **the bijection preflight (`inspectBijection`) runs before declaration load; if the acceptance file is missing, exit 2 — fine.**
+
+  What about D8's requirement "Cases, each its own test: ... 6. manifest omits an id that the acceptance file lists → exit 2" ✓ 915. "5. 
+manifest missing → exit 2" ✓ 914. Malformed wasn't in D8's seven — D5's malformed refusal is a contract clause though. My finding 2 covers 
+absent-tier and malformed. Severity minor (shared code path, unit-tested at the rule level). Fine.
+
+  Also potential finding: README §1 says refusals run "no tests at all" — verified by placement. ✓
+
+  What about the accounting check order — `run.error` check pushes deviation but continues to counts; if run.error AND report exists, counts 
+from a stale... reportDir is fresh mkdtemp; if spawn failed, no report file → return 4 before reaching accounting. So run.error branch in 
+accounting is unreachable in practice (defensive). No finding.
+
+  VERDICT: ship-blockers: 1. [FALSE-GREEN-CLASS] count: 1. Single most dangerous residual risk: exit 0 ("EXPECTED") is attainable while the 
+suite is broken at suite/teardown level whenever any red is declared, because the report's suite counters and the process exit are both 
+unchecked in that configuration — the gate certifies a state the legacy `runVerdict` would have called a failure.
+
+  Write it tight.
+
+• 1. **SEVERITY: blocker [FALSE-GREEN-CLASS]** — `tests/at/harness/expected.ts:378` (with `expected.ts:325-391` and `tests/at/harness/runner.ts:779-786`). **Suite-level failures exit 0 whenever any red is declared.** `reportAccountingDeviations` checks only the *test* counters (`numTotalTests`/`numPassed`/`numFailed`/`numPending`/`numTodo`) plus `success`, and requires `success === (red === 0)`. With 4 reds declared, `success === false` is the *expected* state — and a suite-level failure produces exactly `success: false` while moving no test counter. R8's own field probe listed `numFailedTestSuites`/`numTotalTestSuites` as real report fields; the code never reads them, and the process exit check (`expected.ts:388`) is explicitly gated on `red === 0`, so it cannot compensate. Concrete failure scenario: an `afterAll`/global-teardown hook in the REQ-016 suite throws after all 12 tests report exactly as declared (8 pass, 4 `CapabilityPending`) — or a second, id-less `.test.ts` file is added under `suites/req-016/` and crashes at import. `numFailedTests=4`, `numPassedTests=8`, `numTotalTests=12`, pending/todo 0, `success=false` — every check passes, `--expect` prints `EXPECTED: the run matches … exactly` and exits 0 while the suite is broken. This is *not* the residual gap R8/README §5 named: that gap covers failures "not serialised into the JSON report"; a failed suite **is** serialised, in `numFailedTestSuites` and `testResults[].status`, fields sitting unused. Worse, the no-flag path explicitly guards this exact case — `runVerdict` treats a non-zero exit with all-green rows as "a teardown, an unhandled rejection… This run is a FAILURE" (`runner.ts:913-921`) — so `--expect` is *weaker* than the legacy gate on the axis the legacy gate's own comment calls the classic false green. Minimal fix: add `numTotalTestSuites`/`numFailedTestSuites` to `VitestJson` and to the `counts` validation in `reportAccountingDeviations`, and require `numFailedTestSuites <= numFailedTests` — a failed suite with zero failed tests is definitionally a collection/hook/teardown failure and must be a deviation. The invariant holds for every legitimate run (each failed suite contains ≥1 failed test), so case 1 and the shipped REQ-016 declaration stay green.
+
+  2. **SEVERITY: minor** — `tests/at/harness/runner-expect.selftest.ts:262-294`. **Two of the four D5 refusals have no black-box case.** README §1 promises "All four of these exit 2, having run no tests at all," but only manifest-missing (req-914) and bijection-broken (req-915) are proven end to end. Malformed JSON and tier-absent are exercised only as unit tests of `parseExpectedManifest`/`tierExpectation` in `expected.selftest.ts`; the assembled wiring (throw inside `loadTierExpectation` → `DECLARATION REFUSED` → `return 2` before the vitest spawn) is unverified for half the refusal set — in an item whose stated purpose is that assembly-level verification is where false greens hide. The risk is low because all four share one code path already proven by two cases, hence minor. Minimal fix: add two cases cloning the req-914 shape — one planting `'{ nope'` as the manifest, one planting a manifest declaring only the `integration` tier — asserting exit 2 and no report table.
+
+  3. **No finding** — wrong-pairing attack on the accounting (`expected.ts:325-393`). A declared red passing while an undeclared test fails cannot satisfy the counts: the per-id comparison (`expectationDeviations`) flags the red-turned-green, and the extra failure moves `numFailedTests`/`numTotalTests` off the declared values. The swap has no degree of freedom.
+
+  4. **No finding** — the typed matcher. The reconstructed shapes are verbatim-true against the sources: `CapabilityPending` is `name = 'CapabilityPending'`, message `` `CAPABILITY PENDING — ${capabilities.join(', ')}` `` (`capabilities.ts:32-37`), and `AtPending` is `` `${atId} PENDING [${phase}] — ${detail}` `` with `this.name = 'AtPending'` (`registry.ts:139-148`); the separator is U+2014 in both. For `kind:"pending"` the anchored prefix can only be satisfied by a first line beginning `AtPending: <that id> PENDING [<that phase>] — ` — `firstLine` (`runner.ts:943-949`) trims, so position 0 is genuine, and a plain `Error` carries a different class token (proven by the unit case at `expected.selftest.ts:620-625`). Empty capability lists are rejected at parse; duplicates and wrong order fail closed (never match real output). The AT id grammar (`expected.ts:84`) is equivalent to the registry's (`registry.ts:30`).
+
+  5. **No finding** — the REQ-016 declaration (`tests/at/expected/req-016.json`). Verified statically against the source of truth: `harness/index.ts:76-79` constructs the proxies as `pendingCapability('H3 sentinels')`, `pendingCapability('H3 fault injection and process restart')`, `pendingCapability('H3 static provider scan', 'H3 sentinels', 'H5 email provider simulator')`, `pendingCapability('H5 email provider simulator')` — names *and order* match the declaration exactly, including the AT-016.01 ordering, which is not alphabetical (the `sort()` at `capabilities.ts:29` is only in `stubbedCapabilityNames` and does not feed `CapabilityPending`). D9's parenthetical "H3 fault injection" was shorthand; deriving the real name was correct. A harness wording change breaks the declaration loudly with a named-id diff — the accepted direction.
+
+  6. **No finding** — empty/absent/stale report. The report lives in a per-run `mkdtempSync` directory (`runner.ts:1024`), so no stale report can be read; a missing report exits 4 and an unparseable one exits 4 (`runner.ts:1137-1152`) before the verdict block, under every flag combination.
+
+  7. **No finding** — regression of the no-flag path. The `runVerdict` call, its zero-verdict early return, and the `FAILURE:` printing are byte-identical inside `if (!expectation)` (`runner.ts:1170-1175`); the declaration preflight is inserted before the lock/stack sequence and touches it only by preceding it; control case req-916 proves the default path exits 1 with no `DEVIATION:`/`EXPECTED:`/`DECLARATION` output. `--expect --wired` is genuinely rejected at parse time (`runner.ts:98-101`), before any file read, exiting 2 with usage.
+
+  8. **No finding** — case 8 (the accounting bite). Verified it would exit 0 without the accounting: both declared ids match their declarations, so `expectationDeviations` is silent; only `numFailedTests=2 vs 1` and `numTotalTests=3 vs 2` fire, and the test asserts those exact strings plus the absence of per-id deviations. The plain `it()` correctly evades the static `atTest(` bijection preflight. Disposable trees are isolated via unique `mkdtemp` roots plus `AT_REPO_ROOT`; loop tier takes no lock, no Docker, no DB; the `--expect --wired` case (req-910) touches the real checkout but dies in `parseArgs` before any read.
+
+  9. **No finding** — simpler design. The machinery is close to minimal for the contract as ruled: the parser/matcher is the substance of R9, and the one cuttable piece (`kind:"pending"`, unused by the only shipped declaration) is ruling-mandated (R9/R12), not speculative generality. Nothing named here rises to a finding.
+
+  VERDICT
+
+  - Ship-blockers: **1** (finding 1).
+  - [FALSE-GREEN-CLASS] findings: **1** (finding 1).
+  - Single most dangerous residual risk if merged as written: whenever any red is declared, a suite-level failure — a throwing teardown hook or an id-less suite file that crashes at import — moves no test counter and leaves `success: false`, which the gate treats as the *expected* state, so `at:verify --expect` will print "EXPECTED: the run matches exactly" and exit 0 over a broken suite, certifying a state the legacy `runVerdict` path would explicitly have called a FAILURE.
+
+To resume this session: kimi -r session_b5b2ebfa-4a7e-4d63-a9b7-f11dbd9acce0
+
