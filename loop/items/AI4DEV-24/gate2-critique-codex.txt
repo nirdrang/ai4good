@@ -1,0 +1,41 @@
+NO — do not ship.
+
+1. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+   [contracts.ts:142](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/contracts.ts:142) exposes `AtHarness` as an augmentable interface. A suite can module-augment it with `auditLog?: string[]`, then call `h.auditLog!.length`; an in-memory probe under the shipped tsconfig produced zero diagnostics. `createHarness()` still satisfies its annotation because the added property is optional, but runtime `h.auditLog` is `undefined`. This reopens the exact R1 type lie without `any` or suppression.  
+   Minimal fix: make `AtHarness` a type alias so declaration merging cannot extend it, and retain this as a negative compiler probe.
+
+2. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+   [registry.ts:420](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:420) receives the factory’s default `SuiteHarness`, then [registry.ts:535](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:535) asserts it to `OpenWorld<Sut, W, Channel>`. But [index.ts:68](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/index.ts:68) only proves `AtHarness<..., WorldSeam, string>`. A compiler probe rejects assigning that default harness to `SuiteHarness<World, Channel>`: `WorldLike` lacks `World` members, and `string` is not assignable to `Channel`.  
+   Failure scenario: a suite binds channel `'sms'`; `h.vendors.email.attempts()` is statically treated as producing `'sms'`, although the factory is only checked to produce `string`. The remaining assertion is therefore not honest as R1 claims.  
+   Minimal fix: make `OpenWorld.h` an unparameterized `SuiteHarness`; that one-line change type-checks the current 29-file program cleanly. Then remove the now-useless `Channel` plumbing.
+
+3. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   [normalize-verify.ps1:7](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/baseline/normalize-verify.ps1:7) claims byte-for-byte comparison, but `Compare-Object` compares line collections rather than ordered byte streams. I verified that swapped lines yield no output. [Line 40](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/baseline/normalize-verify.ps1:40) also strips trailing whitespace, and [line 38](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/baseline/normalize-verify.ps1:38) rewrites any line with that prefix.  
+   Failure scenario: changed ordering of AT results, or a changed report line matching the broad prefix, is reported as “byte-identical.”  
+   Minimal fix: compare one normalized UTF-8 string/byte sequence with an ordinal or hash comparison; preserve all bytes except a narrowly matched temp-path token.
+
+4. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   [gate1-critique.txt:3](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/gate1-critique.txt:3) contains Markdown trailing whitespace. `git diff --check origin/main..HEAD` exits 2 with 30 violations, contradicting the claimed clean verification in [plan.md:722](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:722).  
+   Failure scenario: the required verification gate fails in CI while the landed record reports it green.  
+   Minimal fix: remove the trailing spaces from the critique file.
+
+5. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   Against the required `git diff origin/main..HEAD`, `.claude/settings.json` removes the status-line configuration and `loop/work/statusline.ps1` is deleted—outside D6’s allowed paths. These are post-branch changes on `origin/main`, so a normal three-way merge preserves them, but the prescribed full-diff scope claim is false.  
+   Failure scenario: a head-tree deployment or two-dot patch application removes the attribution/status line.  
+   Minimal fix: rebase onto current `origin/main`, then re-run the specified full-diff scope check.
+
+6. **SEVERITY: minor**  
+   [typecheck.ts:43](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/typecheck.ts:43) treats a signal as failure but never prints `result.signal` or the non-zero status.  
+   Failure scenario: CI kills one `tsc` for OOM; output only names the project, not that it was killed.  
+   Minimal fix: log the child status or signal before adding it to `failures`.
+
+No finding: the current type program contains exactly all 29 TypeScript/JavaScript files under `tests/at` outside `node_modules`; zero cache files leak in. Both exact child `bun x tsc ... -p` commands exit 0. The direct free-`H` intersection exploit now fails, required factory members are checked by the return annotation, `HarnessLike` has no code references, the Node types floor is minimal and carries `ImportMeta.main`, and `src/`, `design/`, `supabase/`, root `tsconfig.json`, and `*.test.ts` files are unchanged.
+
+Simpler design: keep `h` at the factory’s unparameterized canonical type and delete the `Channel` transport through registry generics; it is not produced by the factory.
+
+## VERDICT
+
+Ship-blockers: 2  
+[FALSE-GREEN-CLASS] findings: 5  
+
+The most dangerous residual risk is that module augmentation can make the newly green typecheck promise `h.auditLog` even though no factory value supplies it.

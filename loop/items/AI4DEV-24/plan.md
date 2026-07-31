@@ -698,7 +698,12 @@ Two of the four answers I gave before Gate 1 no longer stand as written:
 
 ---
 
-## 9. Implementation record — what actually shipped
+## 9. Implementation record — as of the Gate 1 rulings
+
+> **Superseded in three places by Gate 2 (§10).** The selftest count moved 96 → 99, coverage moved
+> 29 → 30 files, and step 7's "`git diff --check` clean" claim was wrong as written. Corrected
+> figures and the corrected claim are in §10; this section is left as the record of what was true
+> before Gate 2 rather than quietly rewritten.
 
 Commits on `nirdrang/ai4dev-24-typecheck`, one per work item as planned:
 
@@ -748,3 +753,129 @@ tests/at/suites/req-016/_f3repro.ts(7,17): error TS2339: Property 'auditLog' doe
 
 The probe file was deleted; it is not part of the diff. The four `*.test.ts` files were never
 touched — the only file changed under `suites/req-016/` is `_bind.ts`.
+
+---
+
+## 10. Gate 2 dispositions
+
+Panel: codex `gpt-5.6-terra` @ `max` (`gate2-critique-codex.txt` — **2 blockers, 5 false-green-class,
+opens "NO — do not ship"**) and Kimi `k3` @ `high` (`gate2-critique-kimi.txt` — 0 blockers, 1
+false-green-class). Both examined head `d3b1bca`. Every disposition names its raiser.
+
+| # | raiser(s) | severity | disposition |
+|---|---|---|---|
+| D5 proof method is unsound | **codex 3 + kimi 1 — raised by both** | important, FGC | **FIXED.** Comparison is now ordinal (SHA256 over normalized bytes), and it lives inside the script. |
+| Base drift | **codex 5 + kimi 4 — raised by both** | important / minor | **FIXED.** `origin/main` merged forward; full verification re-run on the result. |
+| `AtHarness` is an augmentable interface | codex 1 | blocker, FGC | **FIXED.** Type alias + executable negative test. |
+| The surviving assertion is not honest | codex 2 | blocker, FGC | **FIXED.** `OpenWorld.h` is unparameterized `AtHarness`; `Channel` plumbing deleted. |
+| `git diff --check` claim is false | codex 4 | important, FGC | **CLAIM CORRECTED, evidence untouched** — see below. Codex's proposed fix was rejected by the orchestrator. |
+| Child status/signal not logged | codex 6 | minor | **FIXED.** |
+| `bun x tsc` can fetch a registry compiler | kimi 2 | minor | **FIXED.** Pinned local binary, loud failure if absent. |
+| `h.fixtures.world` widens the unverified-read surface | kimi 3 | minor | **PARTLY FIXED as a side effect; remainder goes to AI4DEV-31.** |
+
+### The two both reviewers raised — fixed first, as instructed
+
+**The D5 proof method (codex 3 + kimi 1).** This is the sharpest finding of the round: the item's own
+central evidence method could certify the exact class of change it exists to catch. `Compare-Object`
+is a set difference — case-insensitive by default *and* order-insensitive. Demonstrated rather than
+accepted on description, by tampering with the committed baseline two ways:
+
+| tampered baseline | old `Compare-Object` | new SHA256 |
+|---|---|---|
+| two AT rows swapped | **reported IDENTICAL** | reports a difference |
+| `green` → `GREEN` | **reported IDENTICAL** | reports a difference |
+
+The comparison now lives *inside* `normalize-verify.ps1` behind a `-Baseline` parameter, so it cannot
+be performed the wrong way by following a stale usage note; on a difference it prints a real
+`git diff --no-index`. Codex's two further points are folded: the trailing-whitespace strip is gone
+(nothing is dropped now), and the report-path pattern is anchored to the full known shape instead of
+a broad prefix.
+
+**Re-run against the existing baseline, as asked: the recorded verdict stands.** Both hashes are
+`36D2F653AFC3355309A1847B58D7DA6067B9E9ECAFBE2A9EEC5BE54D7DCA0041`. The earlier "byte-identical"
+claim was reached by an unsound method but was not itself wrong.
+
+**Base drift (codex 5 + kimi 4).** `origin/main` had advanced to `054793c` after the branch point.
+Merged forward (`62c42c1`, clean, no conflicts); the merge base is now `origin/main`'s tip, and
+`loop/work/statusline.ps1` plus the `.claude/settings.json` `statusLine` entry that main added are
+present. Kimi's independent check that the phantom deletions were an artifact of diffing a moved main
+— not a scope breach by this branch — was correct, and the full verification below is re-run on the
+merged tree, so the green describes the tree that will land.
+
+### The panel conflict — ruled for codex
+
+Kimi rated the codex-2 area **minor** and recommended deferring it to the seam item; codex called it
+a **blocker** with a one-line fix. The orchestrator ruled for codex and I agree with the reasoning:
+R1's honesty claim is this item's central promise, and shipping while it is false is the
+misleading-expected-state the tag exists for. Removing plumbing that does not do what it claims is
+not a seam redesign. **Kimi's related point survives the ruling** and is recorded for the follow-up:
+when AI4DEV-31 is worked it must name all three unverified reads — `OpenWorld.sut`, `OpenWorld.w`
+and `h.fixtures.world` — not only the `Sut` axis. The `h.fixtures` half is already closed here as a
+by-product of codex 2's fix, since `h` no longer carries the suite's `W`.
+
+### Codex 4 — the claim is corrected; the evidence is not doctored
+
+Codex is right that `git diff --check origin/main...HEAD` exits **2** with **30 trailing-whitespace
+violations**, so §9 step 7's flat "clean" was false. Its proposed fix — strip the trailing spaces —
+was **rejected by the orchestrator, and rightly**: those lines are a reviewer's verbatim output, they
+are a record, and in Markdown trailing spaces are meaningful line breaks. Editing evidence so a check
+passes is a worse defect than an imprecise check.
+
+The accurate statement, which replaces the old claim:
+
+- `git diff --check origin/main...HEAD -- tests/at package.json bun.lock` → **exit 0, clean.** No
+  code path this item touches carries a whitespace defect.
+- `git diff --check origin/main...HEAD` (whole diff) → **exit 2, 30 violations, all 30 in
+  `loop/items/AI4DEV-24/gate1-critique.txt`**, which is a committed reviewer artifact.
+
+**This needs a CI change that is not in this item's gift:** a repository-wide whitespace check must
+exclude `loop/items/**`, or every future item that commits its critiques will trip it. Flagged for
+the CI item rather than smuggled in here.
+
+### ESCALATION — the augmentation door is shut one level up, not all the way down
+
+Codex 1's fix closes `AtHarness`. **It does not close the interfaces `AtHarness` references, and I
+measured that the same attack still works through them.** With the shipped tree, this compiles green:
+
+```ts
+declare module '../../harness/contracts.ts' {
+  interface Vendors { auditLog?: string[] }
+  interface Faults { inventedRequired: string }
+}
+// … then, in a suite body:
+console.log(h.vendors.auditLog?.length, h.faults.inventedRequired);
+```
+
+`bun run typecheck` → **exit 0**. It is *worse* here than it was at `AtHarness`: `sentinels`,
+`faults`, `static` and `vendors` are produced by `pendingCapability<T>()`, which casts a Proxy
+`as T`, so even the **required** `inventedRequired` above does not break `index.ts` — where the same
+required member added to `AtHarness` would have failed with `TS2741`. The optional-member subtlety
+codex found is not even needed at this level.
+
+The fix is the same treatment — make the capability contracts type aliases too. **I have not done
+it:** it is not decided by the Gate 2 message or the brief, it widens `contracts.ts` well beyond the
+one type codex named, and the coordinator's standing instruction is to escalate what is undecided.
+Documented in `contracts.ts` beside the alias so the residual is not invisible, and raised in the
+report.
+
+### Verification — all seven, re-run on the merged tree
+
+1. `bunx tsc --noEmit --pretty false` → **exit 0**, no output.
+2. `bun run typecheck` → **exit 0**, both projects launched, both clean.
+3. `bun run at:selftest` → **7 files, 99 tests**, all pass, exit 0. **The count moved from 96**: the
+   three new tests are the negative type-invention tests, a direct consequence of codex 1's ruled
+   fix. This changes the item's declared expected state and is called out rather than absorbed.
+4. `bun run at:check req-016` → `RESULT: 12 P0 ids in bijection`, exit 0.
+5. `bun run at:verify req-016 --tier loop` → exit 1, 8 green / 4 red, and **IDENTICAL** under the
+   corrected ordinal comparison (hashes above).
+6. `bun run at:verify req-016 --tier loop --expect` → **exit 0**.
+7. Scope: see the corrected codex-4 statement above. The branch changes 18 files, all within
+   `tests/at/**`, `package.json`, `bun.lock`, `loop/items/AI4DEV-24/**`. No `src/`, no `design/`, no
+   `supabase/`, no root `tsconfig.json`.
+
+**Coverage, re-proven post-merge: 30 files under `tests/at`, 0 leaked from `tests/at/node_modules`,
+284 in the whole program.** On disk, excluding `node_modules` and the deliberately-excluded
+`typeprobes`, there are exactly **30** matching files — every one is in the program. The count moved
+29 → 30 with `type-invention.selftest.ts`. `tests/at/typeprobes/` (1 file) is excluded on purpose and
+checked by its own config, which **expects failure**; `type-invention.selftest.ts` asserts that it
+still fails with `TS2558` (intersection attack) and `TS2300` (declaration-merging attack).
