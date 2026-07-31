@@ -212,6 +212,16 @@ sideways drift.
   sign-off, both recorded in git — never by automation. Commits cite the batch's `AI4DEV-nnn`
   id. Attribution does NOT bind to design items: bindings are requirement-level only, so
   design-session work stamps the honest buckets (exploration), never a pseudo-requirement.
+- **Worktree discipline (2026-07-31).** The design track runs in its own git worktree —
+  `C:\Users\nirdr\Downloads\ai4good-design`, branch `design-track` — matching the pattern
+  every other work stream already follows. Reason: sharing the main worktree caused four
+  real collisions (a design commit stranded on a backend feature branch, a push bounce, a
+  branch switched underneath mid-work, and — unfixable while shared — the per-worktree
+  attribution binding stamping design messages with a backend item). Flow: commit on
+  `design-track` → `git pull --rebase origin main` → `git push origin design-track:main`
+  (design lands on main directly per d87 — no pull-request ceremony; the fast-forward push
+  simply rejects if main moved, and the rebase repeats). Design sessions open in this
+  folder; its binding is `/bind exploration`.
 - **The fixture seam is the boundary to the backend.** Every screen reads its data through
   `src/lib/data.ts`, backed by `src/fixtures/`. During UI work it feeds mock data — no backend,
   no auth, no money. Screens never fetch or touch Supabase directly (our standing rule).
