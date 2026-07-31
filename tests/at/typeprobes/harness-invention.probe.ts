@@ -57,16 +57,65 @@ declare module '../harness/contracts.ts' {
  * Dead because every capability contract is a type alias too.
  */
 declare module '../harness/contracts.ts' {
+  // EVERY contract in the file, not a sample. The conversion to aliases was uniform, so the guard
+  // is uniform: a future author reverting any single one of these to an interface must fail a test
+  // that names it. `Vendors` carries the optional member and `Faults` the required one, because it
+  // was the required case that proved this level is not merely a repeat of attack 2.
   interface Vendors {
     auditLog?: string[];
   }
   interface Faults {
     inventedRequired: string;
   }
+  interface WorldSeam {
+    invented?: string;
+  }
+  interface Fixtures {
+    invented?: string;
+  }
+  interface Clock {
+    invented?: string;
+  }
+  interface Sentinel {
+    invented?: string;
+  }
+  interface Sentinels {
+    invented?: string;
+  }
+  interface FaultHandle {
+    invented?: string;
+  }
+  interface StaticScan {
+    invented?: string;
+  }
+  interface ProviderAttempt {
+    invented?: string;
+  }
+  interface EmailProviderSim {
+    invented?: string;
+  }
 }
 
 declare module '../harness/config.ts' {
   interface ConfigRegistry {
     inventedKnob?: number;
+  }
+}
+
+/* ------------------------------------ ATTACK 4: declaration merging on the wrapper types */
+
+/**
+ * The same door again, on the objects a test body is handed rather than on the harness inside them.
+ * `open()` returns an `OpenWorld` and every body receives an `AtContext`; while those were
+ * interfaces, a suite could merge a member into either and read it green — the harness object was
+ * shut and the wrapper delivering it was not.
+ * Dead because both are type aliases.
+ */
+declare module '../harness/registry.ts' {
+  interface OpenWorld {
+    auditLog?: string[];
+  }
+  interface AtContext {
+    invented?: string;
   }
 }

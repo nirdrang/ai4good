@@ -142,7 +142,7 @@ export class AtPending extends Error {
 
 /* --------------------------------------------------------------------------- the test context */
 
-export interface OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> {
+export type OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
   /**
    * The harness, at EXACTLY the type `createHarness()` is statically checked to produce — not a
    * suite-chosen type, and not the suite's type arguments pushed back into it.
@@ -162,7 +162,7 @@ export interface OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> {
   w: W;
   /** the requirement's system under test, guaranteed non-null once open() returns */
   sut: Sut;
-}
+};
 
 export interface OpenOverrides {
   /**
@@ -175,13 +175,13 @@ export interface OpenOverrides {
 }
 
 /** Everything a test body is given. `atId` is read-only context, never re-supplied to open(). */
-export interface AtContext<Sut = unknown, W extends WorldLike = WorldLike> {
+export type AtContext<Sut = unknown, W extends WorldLike = WorldLike> = {
   atId: string;
   /** build a fresh "Given" world (and its own harness). Call it more than once for isolation. */
   open(fixture?: string, opts?: OpenOverrides): Promise<OpenWorld<Sut, W>>;
   /** consume an immutable capture whose producer proved at least one real open() */
   capture<T>(evidence: EvidenceCapture<T, Sut, W>): Promise<T>;
-}
+};
 
 const USAGE = Symbol('at-context-usage');
 

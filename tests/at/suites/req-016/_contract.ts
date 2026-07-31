@@ -16,10 +16,8 @@
  */
 
 import type {
-  AtHarness as SharedHarness,
   EmailProviderSim as SharedEmailProviderSim,
   ProviderAttempt as SharedProviderAttempt,
-  Tier,
   Vendors as SharedVendors,
   WorldSeam,
 } from '../../harness/contracts.ts';
@@ -145,9 +143,9 @@ export type ProviderAttempt = SharedProviderAttempt<Channel>;
 export type EmailProviderSim = SharedEmailProviderSim<Channel>;
 export type Vendors = SharedVendors<Channel>;
 
-/** The shared harness, bound to REQ-016's system under test, world and channel names. */
-export type AtHarness = SharedHarness<{ notifications?: NotificationsSut }, World, Channel>;
-
-export interface HarnessModule {
-  createHarness(opts: { requirement: string; tier: Tier }): Promise<AtHarness>;
-}
+// A suite-local `AtHarness` alias and a `HarnessModule` interface used to live here, binding the
+// shared harness to REQ-016's system under test, world and channel names. They went dead when the
+// harness stopped being a type a suite may name or re-label: `h` is now exactly what the factory is
+// checked to produce, so there is nothing for a suite to bind. Left in place they would be the most
+// inviting thing in this file for a future author to reach for, and reaching for them is precisely
+// the move the type-check no longer permits.

@@ -47,24 +47,61 @@ describe('harness invention is rejected by the compiler', () => {
     expect(probe.output, 'the intersection attack was not rejected by arity').toContain('TS2558');
   });
 
-  it('rejects a member added to AtHarness by declaration merging', () => {
-    // An OPTIONAL member added to an interface leaves the factory's return annotation satisfied, so
-    // nothing goes red at the producer. The defence is that `AtHarness` is a type alias, which
-    // cannot be merged into.
-    expect(probe.output, 'the declaration-merging attack on AtHarness was not rejected').toContain(
-      "Duplicate identifier 'AtHarness'",
-    );
-  });
+  /**
+   * EVERY type that must stay a type alias, and why the list is exhaustive rather than a sample.
+   *
+   * The rule is uniform — nothing reachable from the harness object, or from the wrapper handed to a
+   * test body, may be an interface — so the guard is uniform too. An earlier version of this test
+   * asserted three of these and claimed to assert all of them; both Gate 2 reviewers caught that the
+   * guard was narrower than its own comment, which is exactly the reversion such a gap invites.
+   *
+   * THIS ARRAY IS THE SPECIFICATION. The probe file has to carry an augmentation for every name in
+   * it, because a name listed here but not attacked there produces no diagnostic and fails its test.
+   * So the two files cannot drift apart silently.
+   */
+  const ALIAS_PROTECTED = [
+    // the harness contract itself
+    'AtHarness',
+    // the capability contracts it references (contracts.ts)
+    'WorldSeam',
+    'Fixtures',
+    'Clock',
+    'Sentinel',
+    'Sentinels',
+    'FaultHandle',
+    'Faults',
+    'StaticScan',
+    'ProviderAttempt',
+    'EmailProviderSim',
+    'Vendors',
+    // the config seam (config.ts)
+    'ConfigRegistry',
+    // the wrapper types every test body holds directly (registry.ts)
+    'OpenWorld',
+    'AtContext',
+  ];
 
-  // The same attack ONE LEVEL DOWN, which closing `AtHarness` alone did not stop. It is worse here:
-  // `sentinels`, `faults`, `static` and `vendors` come from `pendingCapability<T>()`, which casts a
-  // Proxy `as T`, so even a REQUIRED invented member survived the producer's annotation. Each
-  // contract is asserted by name, so re-opening any ONE of them fails a test that says which.
-  for (const contract of ['Vendors', 'Faults', 'ConfigRegistry']) {
-    it(`rejects a member added to the ${contract} capability contract`, () => {
-      expect(probe.output, `${contract} is mergeable again — the invention door is open one level down`).toContain(
-        `Duplicate identifier '${contract}'`,
-      );
+  /**
+   * TypeScript reports a blocked merge two different ways: `TS2300 Duplicate identifier 'X'` for a
+   * single clash, and one `TS6200` listing every identifier when a file has several at once. Both
+   * are the rejection this test is asserting, so it accepts either — matching only the first form
+   * would make the test pass or fail on how many attacks happen to share a file.
+   */
+  function rejects(output: string, name: string): boolean {
+    if (output.includes(`Duplicate identifier '${name}'`)) return true;
+    return output
+      .split('\n')
+      .filter((line) => line.includes('conflict with those in another file:'))
+      .some((line) => line.split(':').pop()!.split(',').some((entry) => entry.trim() === name));
+  }
+
+  for (const contract of ALIAS_PROTECTED) {
+    it(`rejects a member merged into ${contract}`, () => {
+      expect(
+        rejects(probe.output, contract),
+        `${contract} accepted a merged-in member, so it is an interface again. A suite can now declare ` +
+          `a member on it and read that member green against a value that never supplies it.\n${probe.output}`,
+      ).toBe(true);
     });
   }
 });
