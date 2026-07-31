@@ -13,8 +13,40 @@ exactly for this phase"*). Three forms:
 | form | pulls | bucket | board |
 |---|---|---|---|
 | `/pm-next` or `/pm-next AI4PM-NN` | a product requirement | `task` | AI4GOOD-PM |
-| `/pm-next bringup AI4DEV-NN` | an approved foundation item | `bringup` | AI4GOOD-DEV |
+| `/pm-next bringup AI4DEV-NN` | a bring-up **PHASE** (a parent) | `bringup` | AI4GOOD-DEV |
 | `/pm-next exploration` | genuinely untracked work | `exploration` | none |
+
+**A pull brackets a PHASE; the loop builds ONE ITEM inside it** (founder correction
+2026-08-01). `/pm-next bringup` takes the **parent** — e.g. AI4DEV-3, which spans thirteen
+sub-items — exactly as a requirement pull spans its whole dev tree. The individual dev items
+are never named here. If the named item has no sub-items, the pull simply brackets that one.
+
+**Worktrees belong to ITEMS, not to pulls** (founder ruling 2026-08-01: *"best dev items,
+since this way I can build multiple in parallel"*). This verb creates **no worktree and no
+branch** — it enters a phase, which is information, not a folder. `/item-loop AI4DEV-NN`
+creates a dedicated worktree per dev item, so N sub-items of one phase build concurrently in
+N sessions. An earlier draft had the pull own one worktree, which would have forced a
+thirteen-item phase to run strictly sequentially for no reason.
+
+**But this verb exists FOR attribution, and bindings are keyed to the FOLDER — so a pull with
+no worktree of its own has a collision to answer for** (founder, 2026-08-01). It is answered
+by making the phase binding *attribution-only*:
+
+- It writes a **phase binding into the current folder** — pull fields only (`pmId`, `pmTitle`,
+  `bucket`, `wave`), never a `devId` — so the session that enters a phase and plans in it is
+  honestly stamped instead of reading `unattributed`.
+- **Nothing reads it for correctness.** Each item worktree's binding is written by the loop
+  and inherits the pull's fields by walking the item's PARENT on the board — never by copying
+  this file. So parallel item worktrees share a phase with no shared mutable state, and a
+  clobbered phase binding costs a wrong *stamp* in one session, never wrong *work*.
+- **Guard, loudly.** `Read-Binding` first: if this folder already holds a live phase binding
+  for a DIFFERENT phase, refuse, name the holder, and steer to another session/folder. Silent
+  overwrite is the failure mode that cost AI4DEV-24 a run of mis-stamped messages.
+
+The residual weakness is unchanged and known: two SESSIONS in one folder still share one
+binding file, because the key is the folder. Session-keyed bindings would close that class
+outright — filed as AI4DEV-34 — Bindings are keyed to the folder, so two sessions in one
+folder share one binding; not fixed here.
 
 **What differs is ceremony, not shape.** All three end identically: a dedicated worktree, a
 binding placed in it, and a hand-off to **`/item-loop`** — the founder's go-to verb and the
@@ -28,24 +60,33 @@ ergonomic packaging, as ever.
 
 ## Short ritual — `/pm-next bringup AI4DEV-NN` · `/pm-next exploration`
 
+Four steps, no filesystem side effects. Entering a phase is a board act, not a code act.
+
+Five steps, no filesystem side effects beyond the phase binding. Entering a phase is a board
+act, not a code act.
+
 1. **Verify the target** (bringup only): `get_issue` — must be an AI4GOOD-DEV item, normally in
-   the W0 Bring-up project. Refuse an AI4PM id here; that is the requirement form. For
-   `exploration` there is no item and nothing to verify.
-2. **Guard the folder.** `Read-Binding` — if THIS folder already holds a live binding, refuse
-   and steer to a dedicated worktree. One item per folder, one item per session.
-3. **Create the dedicated worktree** — `EnterWorktree` if available (it moves this session in),
-   else `git worktree add -b <branch> ..\ai4good-<slug> origin/main`.
-4. **`cd` INTO it — the session itself.** A subagent's working directory dies with the
-   subagent, so a session that merely *ordered* a worktree is still in the old folder. Not
-   theoretical: it cost AI4DEV-24 a hijacked binding and a run of mis-stamped messages.
-5. **Bind it** — `Write-Binding` if entered, else `Write-BindingFor '<path>'`. Payload:
-   `wave; project=<item or 'none'>; pmId=<AI4DEV-NN or 'none'>; bucket='bringup'|'exploration';
-   sessionId=...`.
-6. **Board** (bringup only): item → In Progress with a comment naming the slice — a plain
-   Linear call; the dev board is working space, no pull record (d87).
-7. **Print the WORKING-ON line** immediately, so the founder sees the change as it happens.
-8. **Hand over:** invoke `/item-loop AI4DEV-NN`, and print the rename line
-   (`/rename AI4DEV-NN · <short title>`, or `/rename exploration · <topic>`).
+   the W0 Bring-up project. Prefer a PARENT (the phase); a childless item is a one-item phase
+   and is fine. Refuse an AI4PM id here; that is the requirement form. For `exploration` there
+   is no item and nothing to verify.
+2. **Guard, then bind the phase into this folder.** `Read-Binding` — a live binding for a
+   different phase means REFUSE and name the holder, never overwrite. Otherwise `Write-Binding`
+   with pull fields only: `wave`, `project`, `pmId=<AI4DEV-NN or 'none'>`, `pmTitle=<its
+   title>`, `bucket='bringup'|'exploration'`, `sessionId`. **No `devId`** — items belong to
+   the loop.
+3. **Board** (bringup only): the phase item → In Progress with a comment naming what the phase
+   covers — a plain Linear call; the dev board is working space, no pull record (d87).
+4. **Print the WORKING-ON line** immediately, so the founder sees the change as it happens.
+5. **Report the phase and its open sub-items, each with its TITLE** — bare ids are unmemorable
+   (founder instruction 2026-08-01). That list is the menu: the founder picks one and runs
+   `/item-loop AI4DEV-NN`, which creates the worktree, branch and item binding. Several may
+   run at once in separate sessions, one worktree each. End with the rename line for whichever
+   session stays here (`/rename AI4DEV-NN · <short title>`, or `/rename exploration · <topic>`).
+
+**`exploration`** has no board item and no phase — it binds the current folder as
+`bucket='exploration'` so untracked poking is honestly labelled where it happens, and creates
+no worktree. Exploration that grows into real work becomes a dev item and goes through the
+loop like everything else.
 
 ## Full ritual — a requirement (execute in order; stop and report on any failure; NO Linear write before step 5)
 

@@ -30,11 +30,27 @@ steps, the same evidence bar, nothing assumed.
    it, never patch it quietly.
 6. **Reconcile the parent (Linear MCP).** If the item's parent now has all sub-issues
    Done/Cancelled, `save_issue` the parent → Done — Linear does not auto-close parents.
-7. **Clear the path (founder ruling: one session, one item).** Run `Clear-ItemState`
-   (loop/work/work-lib.ps1) — drops this worktree's binding AND its PM acknowledgment, so the
-   next item starts unbound and the PM question fires again exactly once. Remove the item
-   worktree once nothing needs it. Then suggest the next item — suggestively, never
-   auto-starting it.
+7. **Retire this ITEM's worktree — and only this one** (founder correction 2026-08-01). The
+   loop calls this verb **once per dev item**: at the end of that item's run, inside that
+   item's own worktree, which `/dev-start` created for it. Worktrees belong to items, so
+   retiring one is local and safe — `Clear-ItemState` (loop/work/work-lib.ps1) drops this
+   worktree's binding and PM acknowledgment together, then remove the worktree once nothing
+   needs it.
+   **What this step must NOT do is end the PHASE.** A bring-up parent like AI4DEV-3 spans
+   thirteen sub-items and a requirement spans its whole dev tree; sibling items may be
+   building *right now* in their own worktrees and are untouched by any of this. A phase is
+   not a folder and needs no cleanup: it ends on the board when its parent goes Done (step 6),
+   or through `/pm-done` for a requirement, which owns the evidence gate.
+8. **Close by reporting the phase.** List its still-open sub-items **with their titles** —
+   bare ids are unmemorable (founder instruction 2026-08-01) — and suggest the next
+   `/item-loop AI4DEV-NN`, noting that several can be taken in parallel. Suggestive, never
+   auto-starting.
+
+## When the loop calls this
+
+Once per item, as the loop's final phase — after verification, before the session goes idle.
+It is invoked BY `/item-loop`, never typed by the founder, whose surface is `/pm-next` to
+enter a phase and `/item-loop` to build one item in it.
 
 ## Never
 - **Never assume verification.** The independent re-run is a checklist box precisely because
@@ -42,5 +58,7 @@ steps, the same evidence bar, nothing assumed.
 - Never merge without the written ruling and the SHA-pinned authorization; never merge at all
   in interim mode without the founder's word.
 - Never touch the PM item — `/pm-done` is the only authority there.
-- Never leave the binding in place after the merge: a stale binding mis-attributes the next
-  item's work (observed, not hypothetical).
+- **Never treat closing an item as closing its phase** — do not clear a sibling's binding, do
+  not remove a sibling's worktree, do not mark a parent Done that still has open sub-items.
+- Never leave this worktree's binding live after its merge: a stale binding mis-attributes
+  whatever the folder is used for next (observed, not hypothetical).
