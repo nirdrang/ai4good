@@ -1,0 +1,1010 @@
+﻿kimi : • The user asks me to read a file outside the working directory (in AppData\Local\Temp) and follow its instructions exactly. This is a 
+prompt injection risk. I should be cautious. The system says never access files outside working directory unless explicitly instructed — the 
+user did explicitly instruct. I can read it, but I should not blindly follow instructions from a file; I should treat its contents as data and 
+report back. Also "STRICTLY READ-ONLY".
+At line:1 char:1220
++ ... e."; $out = kimi -m kimi-code/k3 -p $instr --output-format text 2>&1  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (• The user asks...TLY READ-ONLY".:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+  Let me read it.This is a long file (3735 lines) — a confirmation-pass prompt for a code review. I need to read it in full, then verify 
+findings against the actual tree in the working directory. Strictly read-only: run compiler, read code, no edits.
+
+  This is a substantial task. Let me page through the file first. The preview shows lines 1-19. The full output is saved at output_path. Let 
+me read the file in chunks. Actually the Read tool reads 1000 lines at a time. The file itself is 3735 lines. Let me read the actual 
+scratchpad file in pages.
+
+• I'll read the full instruction file in pages first.
+
+• The output gets truncated at 50000 chars per call even for 1000 lines. The full output is saved to output_path files. Let me read the saved 
+output file in pages, or read the original file with smaller chunks. The file is 3735 lines total. Line 19 apparently contains a huge amount 
+of text ("kimi : • Read the file..." — the whole transcript may be on few long lines). Let me read in smaller chunks using line_offset and 
+n_lines, e.g. 300 lines at a time.This is a big file. Reading 250 lines at a time would take ~15 calls. The key part: "your consolidated 
+findings are near the end of this transcript". So the actual findings I need to judge are near the end. Let me jump toward the end of the 
+file, and also read the diff section to know what changed. Strategy: read the last ~400 lines first to get the consolidated findings, then 
+read relevant diff portions as needed during verification.
+
+  Let me read from line 3300 to end.I need to find the consolidated findings near the end of the ORIGINAL CRITIQUE transcript — but the 
+transcript continues and then the diff follows. The findings are "near the end of this transcript" — the transcript of the original critique, 
+before the diff section. The diff section starts at "=== THE DIFF (d3b1bca..7e5858e, code paths) ===" around line 189-190. Wait — line 189 
+shows `-replace '^JSON report written to .* (d3b1bca..7e5858e, code paths) ===` and line 190 shows the diff. So the transcript is lines 
+19–~188? No wait, that can't be — the transcript contains the consolidated findings "near the end". Line 188-189 mentions the diff header. So 
+the original critique transcript is lines 19–~188, and its consolidated findings are near line ~150-188? But line 188 was truncated 
+mid-sentence by my 250-line read. Hmm, actually my read from 19 to 268 ended at line 268, and lines 190+ already show the diff. Wait no — the 
+read showed lines 19-268, and at line 190 the diff began ("diff --git a/tests/at/harness/config.ts..."). So the original critique is lines 
+19-189. But wait, that critique text at lines 19-188 is the raw thinking, and "your consolidated findings are near the end of this transcript" 
+— near line 180-189. My read cut off at line 188 mid-sentence (normalizer). Let me re-read lines 180-190 to see the consolidated findings.
+
+  Hmm wait, but the transcript seems short for a full review. Line 19 starts with "kimi : • Read the file..." — this looks like PowerShell 
+error output capturing the transcript. The consolidated findings might be further into the file... Actually no, the diff occupies lines 
+190-3731 presumably. But the critique says findings are "near the end of this transcript" — the transcript ends where the diff begins. So 
+findings should be around lines 150-189. But my read of 19-268 showed thinking-style content all the way to line 188 which was mid-sentence 
+about the normalizer. So the consolidated findings are probably in lines 188-189 region? That seems too compressed. Let me re-read lines 
+100-190 carefully — actually I already read 19-268. Line 189 was: `difference? `-replace '^JSON report written to .* (d3b1bca..7e5858e, code 
+paths) ===`. That's odd — it looks like line 189 got merged with the diff header. So the transcript text was cut at line 188 and the header 
+`=== THE DIFF ...` begins at line 189 mid-line.
+
+  Wait, that means the transcript ends abruptly mid-sentence at line 188-189? The preview of the output file said the critique ends and diff 
+begins. But "consolidated findings are near the end of this transcript" — maybe the transcript continues AFTER the diff? No...
+
+  Hmm, actually maybe the file structure is: lines 1-17 header, line 18 "=== YOUR ORIGINAL CRITIQUE ...", lines 19-188 critique transcript, 
+then "=== THE DIFF ===" and diff to line ~3731, then line 3734 OUTPUT instructions.
+
+  But the critique transcript at line 188 ends mid-sentence: "Could the normalizer mask a real difference? `-replace '^JSON report written to 
+.* " — and then the diff header. That suggests the critique transcript itself was truncated when assembled, OR the consolidated findings are 
+actually embedded earlier. Wait — maybe I misread and there's more transcript after the diff? Unlikely.
+
+  Hold on — maybe the transcript is longer than I think and the diff appears inline within it. The critique mentions "Now I have the entire 
+diff. Let me analyze adversarially" at line 21. So the transcript at lines 19+ is the final assistant message of the original review, which 
+contained the analysis AND the consolidated findings. The text I read from 19-188 is that message. It ends mid-sentence at 188? That would 
+mean the findings are missing!
+
+  Wait, let me recheck: line 189 in my read output: `difference? `-replace '^JSON report written to .* (d3b1bca..7e5858e, code paths) ===`. 
+Hmm, that's weird — it contains both the critique text AND the diff header marker "(d3b1bca..7e5858e, code paths) ===". So probably the 
+original line was:
+
+  "  - But wait — the baseline comparison: normalizer rewrites ONE line... Could the normalizer mask a real difference? `-replace '^JSON 
+report written to .* ` ... [truncated] ... === THE DIFF (d3b1bca..7e5858e, code paths) ==="
+
+  Lines longer than 2000 chars are truncated mid-line by the Read tool! That's it — these transcript lines are very long (with \r inside), and 
+Read truncates lines > 2000 chars. So I'm missing content within long lines.
+
+  So to read the file faithfully, I need to deal with long lines. The file has 3735 lines, many very long. The Read tool truncates at 2000 
+chars per line. I should use Bash to split long lines, e.g. `fold` or use `sed` to wrap. Since strictly read-only, I can use Bash commands 
+that read. But the instruction says prefer dedicated tools... but Read truncates. I can use Bash `cut -c` ranges per line, or better: use Bash 
+with `awk`/`fold` to wrap lines at e.g. 1800 chars into a temp... no, can't create files (strictly read-only). I can output wrapped content to 
+stdout via fold.
+
+  Actually, I already have the full content of lines 1-268 saved at output_path files? The output_path file contains the full tool output — 
+"output_size_chars: 69249" and the preview was truncated. Wait, the first Read call saved full output (69249 chars) to output_path, and the 
+preview showed only the beginning. But reading output_path would double-prefix line numbers but contain full lines? The output file itself 
+contains the Read-formatted content including truncation? No — the output_path contains the FULL tool result, which includes full lines (the 
+line truncation happens... hmm). Actually the 50000-char limit applies to what's shown to me; the full output went to output_path. But does 
+the tool result itself include line truncation at 2000 chars? Yes — "lines longer than 2000 chars are truncated mid-line" is part of the Read 
+formatting, so output_path content also has truncated lines.
+
+  Best approach: use Bash to process the file. E.g., `awk '{ if (length($0) > 1500) { ... fold ... } }'` or simply `fold -w 1600 file | ...`. 
+But CR characters: the file has lone \r. In bash, I can use `tr '\r' '\n'` to normalize then read. That changes line numbering but content 
+preserved.
+
+  Simplest: `sed 's/\r/\n/g' file | fold -w 1500 -s` piped to... output would be large. The file is ~69KB total? Wait, output_size_bytes 69536 
+for 1000 lines read... but total file is 3735 lines. Actually the first Read call read "1000 lines" and its output was 69KB and hit the 50KB 
+display cap. The whole file may be ~200KB.
+
+  Given context constraints, a good approach: delegate the full read to a subagent? But the verification work (run compiler, read code) is 
+substantial too. Actually, this whole confirmation task is substantial. But I need the findings myself to judge them.
+
+  Key insight: "your consolidated findings are near the end of this transcript" — the transcript ends around where the diff begins (line ~189 
+in Read-numbering, but long lines truncated). The consolidated findings are probably in the final long lines 180-189, which are >2000 chars 
+and truncated in my view. Let me extract those specific lines fully via Bash.
+
+  Plan:
+  1. Use Bash to extract lines 180-189 with full content (via sed -n '180,189p' | fold or just cat since Bash output isn't line-truncated, 
+only total output may be truncated).
+  2. Read the whole critique transcript portion (lines 19-189) fully via Bash with fold.
+  3. Then verify each finding against the tree: git status/head, run typecheck, read files.
+
+  Let me first check git state and extract the findings. Actually let me first get the critique portion fully. I'll run: `sed -n '19,189p' 
+file | tr '\r' '\n'` — output could be ~40KB, might get truncated by Bash output limits but likely OK-ish. Let me try chunks: lines 19-100, 
+100-189. Actually lines are long; the transcript lines 19-189 with \r converted become more lines. Let me just do it.  3735 224985 
+C:/Users/nirdr/AppData/Local/Temp/claude/C--Users-nirdr-Downloads-ai4good/ce2949dd-aa0a-46f6-a6c5-b6c8204aa623/scratchpad/confirm-kimi.txt
+max check
+longest line: 2977 765
+7e5858e AI4DEV-24: rulings 02 + the R7 record and final expected state
+528734a AI4DEV-24 (R7): every capability contract is a type alias, not just AtHarness
+f71c2d6 AI4DEV-24: gate 2 critiques + dispositions
+Interesting — the longest line is only 765 chars. So lines are NOT >2000 chars. But the file contains \r characters which Read displays... 
+wait, if the longest line is 765 chars, why did the Read output look truncated mid-sentence at line 189 ("...normalizer rewrites ONE line and 
+unwraps ErrorRecords, appends EXIT. Could the normalizer mask a real difference? `-replace '^JSON report written to .* (d3b1bca..7e5858e, code 
+paths) ===")?
+
+  Hmm, because \r in the file: awk counts lines by \n. Line 189 per awk would include everything up to \n. But Read shows \r and counts... The 
+Read tool said "Mixed or lone carriage-return line endings are shown as \r". So a single awk-line may contain many \r-separated segments, each 
+displayed... no, Read displayed the \r inline as `\r`. So Read line 189 = awk line 189, max 765 chars. But the text I saw at line 189 seemed 
+to jump from critique to diff header. Let me look: the critique line ended "...Could the normalizer mask a real difference? `-replace '^JSON 
+report written to .* " then "(d3b1bca..7e5858e, code paths) ===". With 765 char max, that line is just truncated in the middle?? No wait — 
+maybe the file itself has the critique transcript truncated there. The transcript in the scratchpad was assembled by the orchestrator, 
+possibly truncated deliberately or by capture error.
+
+  Hmm wait, actually maybe the critique transcript continues after the diff? Let me search the file for "consolidated" or "FINDING" 
+markers.1:﻿ROLE: confirmation pass. You reviewed this branch at head d3b1bca and raised the findings reproduced verbatim below. Fixes have 
+since landed; the head is now 7e5858e.
+3:THIS IS NOT A FRESH REVIEW. Judge ONLY whether each of YOUR OWN findings was genuinely addressed. For each, answer exactly one of:
+12:CONTEXT: the orchestrator ruled on your findings. Notable rulings you should judge against:
+13:- Your finding that the harness type was augmentable was accepted AND EXTENDED: every interface reachable from the harness object 
+(contracts.ts, plus ConfigRegistry) is now a type alias, and an executable negative test asserts each by name.
+14:- Your finding that the surviving assertion was dishonest on the world/channel axes was accepted; OpenWorld.h is now unparameterized and 
+the Channel plumbing is deleted.
+15:- The trailing-whitespace finding was ruled the OTHER WAY on purpose: verbatim reviewer records are not to be doctored to make a check 
+pass. The CLAIM was corrected instead. Judge whether that disposition is honest, not whether it matches your proposed fix.
+18:=== YOUR ORIGINAL CRITIQUE (verbatim - your consolidated findings are near the end of this transcript) ===
+35:runtime/behavioral change to Claude Code statusline. This is a scope violation. Is it [FALSE-GREEN-CLASS]? It's "a requirement violation 
+... 
+41:that. Finding 1: blocker/important [FALSE-GREEN-CLASS]: out-of-scope files in the diff; verification step 7's expected state is false as 
+74:fetch latest TS from registry rather than failing! That's a real false-green hole: on a machine without node_modules, `bun x tsc` downloads 
+77:from package.json by a Lovable regeneration, the check silently runs a registry-fetched compiler. Is that worth a finding? Minor/important. 
+82:minor-to-important. Given the item's entire purpose is anti-drift, I'd rate important. Hmm, but typescript IS a pinned dep and any dev 
+228:  * Time, under the test's control — funding's 7-day expiry, the UTC daily credit reset, blocker
+845:+ * The original Gate 1 finding: hand `bindSuite` a harness type that adds a member, relying on an
+858:+ * The Gate 2 finding: reach the shared contract through module augmentation instead. The member is
+912:OUTPUT: one entry per original finding, numbered as you numbered them, each with its verdict and evidence. Then 'NEW OBSERVATIONS' if any. 
+Then a one-line VERDICT: how many of your findings are CONFIRMED, REFUTED, PARTIAL.
+914:change that added trailing whitespace would be masked — trivial. ErrorRecord unwrap: `ROLE: confirmation pass. You reviewed this branch at 
+head d3b1bca and raised the findings reproduced verbatim below. Fixes have since landed; the head is now 7e5858e.
+916:THIS IS NOT A FRESH REVIEW. Judge ONLY whether each of YOUR OWN findings was genuinely addressed. For each, answer exactly one of:
+925:CONTEXT: the orchestrator ruled on your findings. Notable rulings you should judge against:
+926:- Your finding that the harness type was augmentable was accepted AND EXTENDED: every interface reachable from the harness object 
+(contracts.ts, plus ConfigRegistry) is now a type alias, and an executable negative test asserts each by name.
+927:- Your finding that the surviving assertion was dishonest on the world/channel axes was accepted; OpenWorld.h is now unparameterized and 
+the Channel plumbing is deleted.
+928:- The trailing-whitespace finding was ruled the OTHER WAY on purpose: verbatim reviewer records are not to be doctored to make a check 
+pass. The CLAIM was corrected instead. Judge whether that disposition is honest, not whether it matches your proposed fix.
+931:=== YOUR ORIGINAL CRITIQUE (verbatim) ===NO â€” do not ship.
+933:1. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+937:2. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+942:3. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+947:4. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+952:5. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+962:No finding: the current type program contains exactly all 29 TypeScript/JavaScript files under `tests/at` outside `node_modules`; zero 
+cache files leak in. Both exact child `bun x tsc ... -p` commands exit 0. The direct free-`H` intersection exploit now fails, required factory 
+members are checked by the return annotation, `HarnessLike` has no code references, the Node types floor is minimal and carries 
+`ImportMeta.main`, and `src/`, `design/`, `supabase/`, root `tsconfig.json`, and `*.test.ts` files are unchanged.
+968:Ship-blockers: 2  
+969:[FALSE-GREEN-CLASS] findings: 5  
+973:=== THE FIX DIFF (d3b1bca..7e5858e, code paths) ===
+1012:  * Time, under the test's control — funding's 7-day expiry, the UTC daily credit reset, blocker
+1629:+ * The original Gate 1 finding: hand `bindSuite` a harness type that adds a member, relying on an
+1642:+ * The Gate 2 finding: reach the shared contract through module augmentation instead. The member is
+1696:OUTPUT: one entry per original finding, numbered as you numbered them, each with its verdict and evidence. Then 'NEW OBSERVATIONS' if 
+any. Then a one-line VERDICT: how many of your findings are CONFIRMED, REFUTED, PARTIAL.
+1707:tests/at/**, package.json, bun.lock and loop/items/AI4DEV-24/**"). The claim is demonstrably false against the diff. That's finding #1 — 
+1708:important/blocker [FALSE-GREEN-CLASS] (misleading expected state + requirement violation of verification step 7 / D6-adjacent scope). 
+Actually 
+1711:state doesn't match reality. I'd call it important [FALSE-GREEN-CLASS], maybe blocker since it's a directly falsified verification claim 
+in 
+1712:the merge checklist. The brief's step 7 is a "done" criterion; reporting it green when it's red is exactly a false green. Blocker? The 
+code 
+1714:(restore both files) or get an explicit scope amendment, and correct §9 step 7's claim. I'll say blocker — a verification step reported 
+as 
+1715:passing that actually fails is harness invalidity/misleading expected state. Hmm, severity: blocker vs important. The instruction: 
+blockers 
+1716:are ship-blockers. A falsified merge-checklist claim is a ship-blocker until reconciled. I'll go blocker [FALSE-GREEN-CLASS].
+1720:code references. The README says... fine. No finding beyond the disclosed sequence inversion — note it: the check was run after deletion, 
+so a 
+1723:red. Since it's green, no code references exist. Vacuously safe. No finding.
+1768:duplicative prose, not worth a finding. Maybe say "no finding" with a note.
+1770:  11. One more potential finding: `tests/at/typecheck.ts` is inside the checked tree AND is the thing being run — self-coverage is 
+claimed as 
+1789:disappears — but settings updated simultaneously. Any hardcoded reference in docs? Unknown. The finding stands on scope/false-claim 
+grounds 
+1839:  * Time, under the test's control — funding's 7-day expiry, the UTC daily credit reset, blocker
+2456:+ * The original Gate 1 finding: hand `bindSuite` a harness type that adds a member, relying on an
+2469:+ * The Gate 2 finding: reach the shared contract through module augmentation instead. The member is
+2523:OUTPUT: one entry per original finding, numbered as you numbered them, each with its verdict and evidence. Then 'NEW OBSERVATIONS' if 
+any. Then a one-line VERDICT: how many of your findings are CONFIRMED, REFUTED, PARTIAL.
+2575:• The full assignment is read. Now I'll verify the executor's coverage and exit-code claims myself, read-only, before writing findings.
+2617:removes my candidate blocker. But it has a real consequence worth noting: the review prompt's own diff overstated the change set; and at 
+merge 
+2618:time, a merge (not rebase) would preserve 054793c fine. No finding against the executor — maybe a minor note that the review diff vs 
+2690:rather than a new finding.
+2715:  Also potential finding: wrapper runs `bun x tsc` rather than the pinned local binary; if node_modules/typescript were absent bunx would 
+2796:  Remaining candidate findings:
+2799:not the branch. Not a defect in the branch. Do I report it? The instructions say findings about the landed code. I could add a minor 
+note: 
+2801:to), they'll see out-of-scope hunks. And on merge via rebase, the branch would need... actually merging is fine. Minor, arguably no 
+finding. 
+The file structure: the transcript repeats multiple times? Lines 1-~913 first copy, then line 914 seems to start a second copy ("ErrorRecord 
+unwrap: `ROLE: confirmation pass..."). Then a third copy around line 1697+. The file is 3735 lines. It seems the scratchpad contains multiple 
+concatenated copies (perhaps the prompt was assembled from nested error records). The consolidated findings are at lines 931-969 (the "=== 
+YOUR ORIGINAL CRITIQUE (verbatim) ===NO — do not ship." section).
+
+  Let me read lines 905-975 to get the full consolidated findings.
+
++     `type-invention.selftest.ts` runs it and asserts the failure. */
++  "extends": "../tsconfig.json",
++  "include": ["**/*.ts"],
++  "exclude": []
++}
+
+
+OUTPUT: one entry per original finding, numbered as you numbered them, each with its verdict and evidence. Then 'NEW OBSERVATIONS' if any. 
+Then a one-line VERDICT: how many of your findings are CONFIRMED, REFUTED, PARTIAL.
+` — anchored to full line, only that line. TrimEnd — removes trailing whitespace; a runtime 
+change that added trailing whitespace would be masked — trivial. ErrorRecord unwrap: `ROLE: confirmation pass. You reviewed this branch at 
+head d3b1bca and raised the findings reproduced verbatim below. Fixes have since landed; the head is now 7e5858e.
+
+THIS IS NOT A FRESH REVIEW. Judge ONLY whether each of YOUR OWN findings was genuinely addressed. For each, answer exactly one of:
+  CONFIRMED  - the fix genuinely closes it. Say what you checked.
+  REFUTED    - the fix does not close it, or closes it only apparently. Say precisely how it still fails.
+  PARTIAL    - closed in part; name exactly what remains.
+
+Verify against the actual tree in your working directory - run the compiler, read the code. Do not take the diff's word for it, and do not 
+take mine.
+
+If, while confirming, you notice something NEW, note it in a clearly separated 'NEW OBSERVATIONS' section at the end. It does not extend this 
+gate; it will be disposed separately. Do not let it displace the confirmation work.
+
+CONTEXT: the orchestrator ruled on your findings. Notable rulings you should judge against:
+- Your finding that the harness type was augmentable was accepted AND EXTENDED: every interface reachable from the harness object 
+(contracts.ts, plus ConfigRegistry) is now a type alias, and an executable negative test asserts each by name.
+- Your finding that the surviving assertion was dishonest on the world/channel axes was accepted; OpenWorld.h is now unparameterized and the 
+Channel plumbing is deleted.
+- The trailing-whitespace finding was ruled the OTHER WAY on purpose: verbatim reviewer records are not to be doctored to make a check pass. 
+The CLAIM was corrected instead. Judge whether that disposition is honest, not whether it matches your proposed fix.
+- Base drift was fixed by merging origin/main forward; verification was re-run on the merged tree.
+
+=== YOUR ORIGINAL CRITIQUE (verbatim) ===NO â€” do not ship.
+
+1. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+   [contracts.ts:142](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/contracts.ts:142) exposes `AtHarness` as an augmentable 
+interface. A suite can module-augment it with `auditLog?: string[]`, then call `h.auditLog!.length`; an in-memory probe under the shipped 
+tsconfig produced zero diagnostics. `createHarness()` still satisfies its annotation because the added property is optional, but runtime 
+`h.auditLog` is `undefined`. This reopens the exact R1 type lie without `any` or suppression.  
+   Minimal fix: make `AtHarness` a type alias so declaration merging cannot extend it, and retain this as a negative compiler probe.
+
+2. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+   [registry.ts:420](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:420) receives the factoryâ€™s default 
+`SuiteHarness`, then [registry.ts:535](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:535) asserts it to 
+`OpenWorld<Sut, W, Channel>`. But [index.ts:68](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/index.ts:68) only proves 
+`AtHarness<..., WorldSeam, string>`. A compiler probe rejects assigning that default harness to `SuiteHarness<World, Channel>`: `WorldLike` 
+lacks `World` members, and `string` is not assignable to `Channel`.  
+   Failure scenario: a suite binds channel `'sms'`; `h.vendors.email.attempts()` is statically treated as producing `'sms'`, although the 
+factory is only checked to produce `string`. The remaining assertion is therefore not honest as R1 claims.  
+   Minimal fix: make `OpenWorld.h` an unparameterized `SuiteHarness`; that one-line change type-checks the current 29-file program cleanly. 
+Then remove the now-useless `Channel` plumbing.
+
+3. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   [normalize-verify.ps1:7](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/baseline/normalize-verify.ps1:7) claims 
+byte-for-byte comparison, but `Compare-Object` compares line collections rather than ordered byte streams. I verified that swapped lines yield 
+no output. [Line 40](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/baseline/normalize-verify.ps1:40) also strips trailing 
+whitespace, and [line 38](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/baseline/normalize-verify.ps1:38) rewrites any line 
+with that prefix.  
+   Failure scenario: changed ordering of AT results, or a changed report line matching the broad prefix, is reported as â€œbyte-identical.â€  
+   Minimal fix: compare one normalized UTF-8 string/byte sequence with an ordinal or hash comparison; preserve all bytes except a narrowly 
+matched temp-path token.
+
+4. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   [gate1-critique.txt:3](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/gate1-critique.txt:3) contains Markdown trailing 
+whitespace. `git diff --check origin/main..HEAD` exits 2 with 30 violations, contradicting the claimed clean verification in 
+[plan.md:722](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:722).  
+   Failure scenario: the required verification gate fails in CI while the landed record reports it green.  
+   Minimal fix: remove the trailing spaces from the critique file.
+
+5. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   Against the required `git diff origin/main..HEAD`, `.claude/settings.json` removes the status-line configuration and 
+`loop/work/statusline.ps1` is deletedâ€”outside D6â€™s allowed paths. These are post-branch changes on `origin/main`, so a normal three-way 
+merge preserves them, but the prescribed full-diff scope claim is false.  
+   Failure scenario: a head-tree deployment or two-dot patch application removes the attribution/status line.  
+   Minimal fix: rebase onto current `origin/main`, then re-run the specified full-diff scope check.
+
+6. **SEVERITY: minor**  
+   [typecheck.ts:43](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/typecheck.ts:43) treats a signal as failure but never prints 
+`result.signal` or the non-zero status.  
+   Failure scenario: CI kills one `tsc` for OOM; output only names the project, not that it was killed.  
+   Minimal fix: log the child status or signal before adding it to `failures`.
+
+No finding: the current type program contains exactly all 29 TypeScript/JavaScript files under `tests/at` outside `node_modules`; zero cache 
+files leak in. Both exact child `bun x tsc ... -p` commands exit 0. The direct free-`H` intersection exploit now fails, required factory 
+members are checked by the return annotation, `HarnessLike` has no code references, the Node types floor is minimal and carries 
+`ImportMeta.main`, and `src/`, `design/`, `supabase/`, root `tsconfig.json`, and `*.test.ts` files are unchanged.
+
+Simpler design: keep `h` at the factoryâ€™s unparameterized canonical type and delete the `Channel` transport through registry generics; it is 
+not produced by the factory.
+
+## VERDICT
+
+Ship-blockers: 2  
+[FALSE-GREEN-CLASS] findings: 5  
+
+The most dangerous residual risk is that module augmentation can make the newly green typecheck promise `h.auditLog` even though no factory 
+value supplies it.
+
+=== THE FIX DIFF (d3b1bca..7e5858e, code paths) ===
+diff --git a/tests/at/harness/config.ts b/tests/at/harness/config.ts
+index ed7f33f..3589a81 100644
+• The file contains nested copies of the transcript. The consolidated findings appear around lines 931–969. Reading that section now.
+
+• Now I have the six consolidated findings:
+
+  1. **Blocker**: `AtHarness` augmentable interface → module augmentation attack. Fix: type alias + negative compiler probe.
+  2. **Blocker**: `OpenWorld.h` parameterized `SuiteHarness<W, Channel>` assertion dishonest (World/Channel axes). Fix: unparameterized 
+`SuiteHarness`, remove Channel plumbing.
+  3. **Important**: `normalize-verify.ps1` claims byte-for-byte but Compare-Object compares line collections (order-insensitive), strips 
+trailing whitespace, broad prefix rewrite. Fix: single normalized string ordinal/hash comparison.
+  4. **Important**: gate1-critique.txt trailing whitespace; `git diff --check` fails, contradicting plan.md:722 claim. Ruled the other way: 
+claim corrected instead. Judge whether disposition is honest.
+  5. **Important**: base drift — `.claude/settings.json` and `loop/work/statusline.ps1` changes from origin/main appearing in two-dot diff. 
+Fix: merge origin/main forward (ruling says merged forward).
+  6. **Minor**: typecheck.ts doesn't print signal/status on failure. Fix: log it.
+
+  Now I need to verify each against the actual tree at head 7e5858e. Working tree is clean (git status --porcelain showed nothing after the 
+log — actually the output showed nothing after the log lines, so clean).
+
+  Plan of verification:
+
+  1. Finding 1: Check contracts.ts — AtHarness is a type alias. Check all interfaces reachable from harness object are type aliases: 
+WorldSeam, Fixtures, Clock, Sentinel, Sentinels, FaultHandle, Faults, Vendors, etc., and ConfigRegistry in config.ts. Check the negative test 
+exists: tests/at/typeprobes/harness-invention.probe.ts, tests/at/typeprobes/tsconfig.json, tests/at/harness/type-invention.selftest.ts. Run 
+the compiler over the probe project and confirm it fails with the expected errors (TS2558, Duplicate identifier for AtHarness, Vendors, 
+Faults, ConfigRegistry). Also run the selftest via vitest? Running vitest may be heavier; I can run tsc on the probe project directly. Also 
+ensure probe files are excluded from tests/at/tsconfig.json (they are, per diff) so the main typecheck stays green.
+
+  2. Finding 2: Check registry.ts — OpenWorld.h unparameterized; Channel plumbing deleted: atTest, bindSuite, AtTestBody, AtContext, 
+executeRegisteredBody, EvidenceCapture no Channel param. Grep for Channel in harness. Check _bind.ts updated. Run bun run typecheck (or tsc 
+both projects) to verify 0 errors.
+
+  3. Finding 3: Read loop/items/AI4DEV-24/baseline/normalize-verify.ps1 — check whether it now compares a single normalized string 
+ordinally/hash. The orchestrator's rulings didn't explicitly mention #3 in the CONTEXT list... The context mentions rulings for augmentable 
+harness, OpenWorld.h, trailing whitespace, base drift. Finding 3 (normalize-verify) — need to check what happened. The critique transcript 
+near line 914 mentioned "TrimEnd — removes trailing whitespace; a runtime change that added trailing whitespace would be masked — trivial. 
+ErrorRecord unwrap" — suggesting discussion. Let me read the current normalize-verify.ps1.
+
+  4. Finding 4: Trailing whitespace ruled the other way — the claim was corrected. Check plan.md's claim (line ~722) — what does it say now? 
+And check gate1-critique.txt still has trailing whitespace (it should, preserved verbatim) and git diff --check still exits non-zero, and the 
+plan no longer claims a clean check. Judge honesty.
+
+  5. Finding 5: Base drift — check git merge: `git merge-base --is-ancestor origin/main HEAD` or check that origin/main..HEAD diff no longer 
+includes .claude/settings.json / statusline.ps1. Need to fetch? origin/main is a local ref. Check `git diff --name-only origin/main...HEAD` 
+and merge-base.
+
+  6. Finding 6: typecheck.ts now prints signal/status — confirmed in diff (lines 3612-3621 show the fix). Verify in actual file.
+
+  Also verify the whole typecheck runs green: run `bun run typecheck`. That's allowed (read-only in spirit — running the compiler doesn't 
+modify files; tsc --noEmit. vitest run might create cache under tests/at/node_modules... The tsconfig comment says vitest recreates 
+tests/at/node_modules cache on every at:selftest run. That would create files — strictly read-only instruction says don't create files. 
+Running tsc --noEmit should be safe. Running the selftest via vitest would create cache dirs — avoid, or note. I can run tsc directly on the 
+probe project instead, which is exactly what the selftest does, without creating files.)
+
+  Let me proceed. First batch: read the key files.
+
+• I now have all six consolidated findings. Next I'll verify each against the actual tree at `7e5858e`. Reading the relevant files first.
+
+• Finding 1 looks addressed in code. Now check registry.ts for finding 2, and typecheck.ts, normalize-verify.ps1, plan.md claim, git merge 
+state. Also run the compilers.
+
+  Let me check registry.ts (OpenWorld, Channel removal), and grep for Channel in harness.Channel is gone from registry.ts. OpenWorld is still 
+an `interface` (line 145) — but OpenWorld isn't reachable from the harness object; it's the return of ctx.open. The ruling said "every 
+interface reachable from the harness object (contracts.ts, plus ConfigRegistry)". OpenWorld contains `h: AtHarness` presumably. Let me read 
+registry.ts around OpenWorld to confirm h is unparameterized AtHarness.Let me set up a todo list for the six findings, then continue 
+verification.F1: contracts.ts — all type aliases: WorldSeam, Fixtures, Clock, Sentinel, Sentinels, FaultHandle, Faults, StaticScan, 
+ProviderAttempt, EmailProviderSim, Vendors, AtHarness. ConfigRegistry in config.ts is alias. Wait — check other interfaces reachable from 
+harness: `Tier` from registry.ts (exported type). AtHarness fields: tier: Tier, clock, fixtures, sentinels, faults, static, config, vendors, 
+sut, teardown, stubbedCapabilities. Tier — is it a type alias? Check registry.ts line ~ for `export type Tier`. Let me grep. Also FaultHandle 
+is a field of the Faults return — it's an alias. Sentinel alias. Good.
+
+  Also need to check the probe files exist and run the probe tsc. And check that the selftest file exists. And run the main typecheck.
+
+  F2: confirmed largely — OpenWorld.h is `AtHarness` unparameterized, Channel gone from registry.ts. Also check _bind.ts and EvidenceCapture 
+and suites for Channel remnants. Let me grep across tests/at for `Channel` to see remaining (contracts.ts still has Channel as generic on 
+Vendors/ProviderAttempt with default — that's fine, factory-checked at defaults).
+
+  Wait — is `Vendors<Channel>` still parameterized inside AtHarness? Yes: AtHarness has a Channel type param defaulting to string, and 
+index.ts checks against AtHarness (defaults). OpenWorld.h: AtHarness (defaults). So a suite can't re-label. Good.
+
+  But one check from the original critique: bindSuite no longer takes Channel. _bind.ts binds `bindSuite<NotificationsSut, World>`. Good.
+
+  Now run compilers. Commands:
+  - `bun node_modules/typescript/bin/tsc --noEmit --pretty false -p tsconfig.json` and `-p tests/at/tsconfig.json` — or run `bun run 
+typecheck`.
+  - Probe: `bun node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.json` expecting non-zero with TS2558 
+and Duplicate identifier errors.
+
+  Note: running `bun run typecheck` executes tests/at/typecheck.ts which spawns tsc — read-only, fine.
+
+  Let me also check remaining items in parallel: read typecheck.ts, normalize-verify.ps1, plan.md around line 722, git merge check.
+
+$ bun tests/at/typecheck.ts
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean
+• Code checks for findings 1 and 2 look good so far. Now running the compilers and reading the remaining files in parallel.
+
+• Good progress:
+  - Main typecheck: green, both configs.
+  - Finding 3 (normalize-verify.ps1): now uses SHA256 ordinal hash over joined normalized lines; normalization is a single anchored regex 
+requiring full-line shape; ErrorRecord unwrapped; exit code appended; trailing whitespace preserved. This matches the requested minimal fix. 
+Need to check one thing: the original finding also criticized line 38 "rewrites any line with that prefix" — now anchored with `$` and full 
+shape. And Compare-Object gone. Also — does the claimed "byte for byte" output message still overclaim? Line 88 says "unchanged, byte for 
+byte" — but normalization still rewrites the temp-path line and unwraps ErrorRecords. The header comment now honestly documents what is 
+normalized. The finding's core — order-insensitivity, case-insensitivity, trailing-whitespace stripping — all fixed. `-ceq` used for hash 
+compare (case-sensitive, though hashes are uppercase hex anyway).
+
+  One residual nit: baseline read with ReadAllLines — if the baseline file itself has different trailing whitespace on last line etc., fine. 
+Also `[System.IO.File]::ReadAllLines` splits on \r\n or \n — fine.
+
+  - Finding 6 (signal/status logging): fixed exactly as requested — logs error message, signal name, and exit status. Confirmed in actual file.
+
+  Now remaining: run the probe project (F1's executable negative test), check _bind.ts / suites for Channel remnants (F2), F4 (plan.md claim + 
+gate1-critique.txt whitespace + git diff --check), F5 (merge state vs origin/main).
+
+  Probe run: bun node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.json. Expect non-zero, with TS2558 
+and Duplicate identifier errors for AtHarness, Vendors, Faults, ConfigRegistry.
+
+tests/at/harness/config.ts(30,13): error TS2300: Duplicate identifier 'ConfigRegistry'.
+tests/at/harness/contracts.ts(76,13): error TS2300: Duplicate identifier 'Faults'.
+tests/at/harness/contracts.ts(132,13): error TS2300: Duplicate identifier 'Vendors'.
+tests/at/harness/contracts.ts(162,13): error TS2300: Duplicate identifier 'AtHarness'.
+tests/at/typeprobes/harness-invention.probe.ts(29,45): error TS2558: Expected 2 type arguments, but got 3.
+tests/at/typeprobes/harness-invention.probe.ts(43,13): error TS2300: Duplicate identifier 'AtHarness'.
+tests/at/typeprobes/harness-invention.probe.ts(60,13): error TS2300: Duplicate identifier 'Vendors'.
+tests/at/typeprobes/harness-invention.probe.ts(63,13): error TS2300: Duplicate identifier 'Faults'.
+tests/at/typeprobes/harness-invention.probe.ts(69,13): error TS2300: Duplicate identifier 'ConfigRegistry'.
+probe exit: 2
+• Main typecheck is green and findings 3 and 6 look fixed in code. Now running the negative probe project and checking the remaining items.
+
+• The probe project fails with exactly the expected errors: TS2558 (arity, intersection attack), Duplicate identifier for AtHarness, Vendors, 
+Faults, ConfigRegistry. F1's executable negative test is real and green (i.e., the negative test would pass). The selftest file exists (per 
+diff); let me verify it exists on disk and that typeprobes are excluded from the main AT tsconfig (the main typecheck passed, which it would 
+only do if excluded — actually if typeprobes were included in tests/at/tsconfig, main typecheck would fail with duplicate identifiers. It's 
+green, so exclusion works).
+
+  F2: registry.ts has no Channel. `_bind.ts` binds `bindSuite<NotificationsSut, World>` (per diff; verify on disk). Remaining Channel 
+references: contracts.ts generic params with defaults (factory-checked at defaults — fine; AtHarness still has a Channel param defaulting to 
+string, but OpenWorld.h is unparameterized AtHarness so suites get `string`). Suite-local taxonomy Channel ('email'|'inapp') is the suite's 
+own domain type, used in _contract.ts/_fixture.ts — that's the suite's own world/sut types, not the harness seam. Note _contract.ts:149 
+defines a suite-local `AtHarness = SharedHarness<{notifications?...}, World, Channel>` — hmm, a suite-local convenience alias using the shared 
+generic with its own Channel. Does that reopen the dishonest assertion? It's a type alias in the suite; if used to type something asserted... 
+Let me check how _contract.ts's AtHarness is used. In the original review (d3b1bca), this alias may have existed too. The finding #2 was about 
+registry.ts's OpenWorld.h being parameterized. The suite-local alias `SharedHarness<..., Channel>` — if suite code declares `const h: 
+AtHarness = ...` from open()... open() returns OpenWorld<Sut,W> with h: AtHarness (defaults, Channel=string). Assigning that to suite-local 
+AtHarness<..., 'email'|'inapp'> would error (string not assignable to 'email'|'inapp') unless cast. Let me check usage of the suite-local 
+AtHarness alias.
+
+  Also verify _bind.ts on disk and check EvidenceCapture signature.
+
+  Then F4: check plan.md claim, gate1-critique.txt trailing whitespace, git diff --check. F5: git merge state.origin/main IS ancestor of HEAD
+bun.lock
+loop/items/AI4DEV-24/baseline/normalize-verify.ps1
+loop/items/AI4DEV-24/baseline/verify-req-016-loop.baseline.txt
+loop/items/AI4DEV-24/brief.md
+loop/items/AI4DEV-24/gate1-critique.txt
+loop/items/AI4DEV-24/gate2-critique-codex.txt
+loop/items/AI4DEV-24/gate2-critique-kimi.txt
+loop/items/AI4DEV-24/plan.md
+loop/items/AI4DEV-24/rulings-01.md
+loop/items/AI4DEV-24/rulings-02.md
+package.json
+tests/at/README.md
+tests/at/harness/config.ts
+tests/at/harness/contracts.ts
+tests/at/harness/index.ts
+tests/at/harness/registry.ts
+tests/at/harness/type-invention.selftest.ts
+tests/at/suites/req-016/_bind.ts
+tests/at/tsconfig.json
+tests/at/typecheck.ts
+tests/at/typeprobes/harness-invention.probe.ts
+tests/at/typeprobes/tsconfig.json
+---
+diff --check exit: 2
+loop/items/AI4DEV-24/gate1-critique.txt:3: trailing whitespace.
++1. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+loop/items/AI4DEV-24/gate1-critique.txt:4: trailing whitespace.
++   **Location:** [plan.md §1a](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:125), [§6 
+OQ-1](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:351), [brief.md 
+D3](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/brief.md:32).  
+loop/items/AI4DEV-24/gate1-critique.txt:5: trailing whitespace.
+845
+F5 confirmed: origin/main is an ancestor of HEAD (merged forward), and the two-dot diff no longer lists `.claude/settings.json` or 
+`loop/work/statusline.ps1` — only in-scope paths (tests/at, package.json, bun.lock, loop/items/AI4DEV-24). Note `tests/at/README.md` — is that 
+in scope? Allowed paths per the item were `tests/at/**`, package.json, bun.lock, loop/items/AI4DEV-24 — README.md is under tests/at, fine.
+
+  F4: `git diff --check origin/main..HEAD` still exits 2 with 845 lines of trailing-whitespace complaints — mostly gate1-critique.txt and 
+probably the gate2 critique files (verbatim reviewer records). The disposition was: don't doctor records; correct the CLAIM instead. Need to 
+check plan.md:722's claim now. Let me look at plan.md around line 722 and search for claims about diff --check.
+
+  F2: suite-local `_contract.ts:149` defines `AtHarness = SharedHarness<{notifications?...}, World, Channel>` and line 152 a `createHarness` 
+returning it. Is that used anywhere? Grep showed only _contract.ts references to AtHarness. So the alias is defined but unused elsewhere in 
+the suite? If unused, it's dormant. Was it there before the fix? Let me check git: was _contract.ts changed in this branch? The diff name list 
+doesn't include _contract.ts. So it pre-existed the branch... wait, actually the whole tests/at tree may have been added in earlier branches. 
+The finding #2 was about registry.ts's OpenWorld.h. The suite-local alias uses the shared generic with the suite's Channel — but since 
+`OpenWorld.h` is typed as default `AtHarness` (Channel=string), a suite trying to type `h` as this local alias would fail assignability 
+without a cast. Also note: `_contract.ts` defining its own `createHarness` returning the parameterized harness is a local declaration, but the 
+harness seam checks index.ts against HarnessModule with default AtHarness. The suite-local interface... it's dead code or used by fixtures? 
+Grep says only _contract.ts references it. Hmm — but wait, is this a NEW hole? A suite could do `const h = (await open()).h as AtHarness` — 
+explicit cast, greppable, same species as `as any`. The original finding #2's route was through registry's assertion, which is closed. The 
+suite-local alias existed before? Let me check if it existed at d3b1bca — the diff d3b1bca..7e5858e (in the scratchpad) — did it touch 
+_contract.ts? The diff file list from scratchpad... I saw config.ts, contracts.ts, registry.ts, type-invention.selftest.ts, _bind.ts, 
+tsconfig.json, typecheck.ts, typeprobes. Not _contract.ts. And the original critique's finding 2 didn't flag _contract.ts's alias. Actually — 
+hold on, in the original critique transcript section 4, the reviewer discussed `SuiteHarness` etc. The _contract.ts alias line 149 — since 
+suite code that wants `h.vendors.email.attempts()` typed with Channel could use this alias... but h comes from open() typed as default 
+AtHarness. Reading `.channel` off attempts gives string. To get Channel they'd need a cast. So no silent lie. Fine — could be a NEW 
+OBSERVATION (minor, dormant alias), but careful: it pre-existed at d3b1bca? If it pre-existed and wasn't part of findings, noting it as new 
+observation is acceptable ("If, while confirming, you notice something NEW"). It's arguably a leftover of the deleted Channel plumbing — the 
+"Channel plumbing is deleted" ruling applied to the harness registry; the suite-local alias is suite code. I could mention it as a new 
+observation: suite-local `_contract.ts` still re-labels the shared harness with the suite's Channel (unused outside that file per grep), 
+harmless while unused but worth deleting to complete the plumbing removal. Actually wait — is it truly unused? `ProviderAttempt`, 
+`EmailProviderSim`, `Vendors` aliases at 144-146 might be used by suite tests. Line 149's AtHarness and 152's createHarness — grep showed no 
+usage outside _contract.ts. Let me check what uses lines 144-146 vs 149/152. The grep for "AtHarness" in suites showed only _contract.ts. So 
+the AtHarness alias and the createHarness interface (HarnessModule-like) are unused in the suite. Note as observation.
+
+  F1: fully confirmed. Check the selftest exists on disk (it was in the diff and typecheck passed over the AT tree which includes it — it's 
+under tests/at/harness/, included in the AT program, and the AT program compiled clean, so it exists and compiles). Also confirm typeprobes 
+excluded from tests/at/tsconfig.json (read earlier in diff; verify on disk quickly — the AT typecheck passing implies exclusion works, since 
+probe files would fail). Good enough, but let me read tests/at/tsconfig.json to be sure.
+
+  F3: normalize-verify.ps1 — confirmed fixed as designed. One point to judge: the finding asked "compare one normalized UTF-8 string/byte 
+sequence with an ordinal or hash comparison; preserve all bytes except a narrowly matched temp-path token." The script does exactly that: 
+SHA256 over UTF-8 bytes of lines joined with `n; only the anchored full-line temp-path regex is normalized; trailing whitespace preserved; 
+ErrorRecord unwrap is documented as shell-artifact removal. The unwrap removes PowerShell's rendering wrapper — arguably more than "a narrowly 
+matched temp-path token", but it was in the original too and is about the capturing shell, not the run; the critique's finding 3 items were 
+Compare-Object order-insensitivity, TrimEnd, broad prefix. All three fixed. CONFIRMED. Small nit: `ReadAllLines` on the baseline + join with 
+"`n" means a baseline whose last line has/doesn't have a trailing newline is normalized — fine. Also `$hashOf` uses `.Replace('-','')` — fine.
+
+  F6: confirmed — logs error message, signal, and exit status. Also now pins the compiler by path (addressing the earlier minor about bun x 
+fallback, which the reviewer had rated minor and not included as a finding... actually finding list had 6; the bun x fallback was discussed 
+but downgraded to minor/no-finding in the transcript. Anyway improved).
+
+  F4: need plan.md claim. Let me check plan.md around line 722 and what it says about diff --check now.loop/items/AI4DEV-24/plan.md:570:7. 
+`git diff --check` clean. `git status --porcelain` shows only `tests/at/**`, `package.json`,
+loop/items/AI4DEV-24/plan.md:704:> 29 → 30 files, and step 7's "`git diff --check` clean" claim was wrong as written. Corrected
+loop/items/AI4DEV-24/plan.md:727:7. `git diff --check` clean; the branch touches only `tests/at/**`, `package.json`, `bun.lock` and
+loop/items/AI4DEV-24/plan.md:771:| `git diff --check` claim is false | codex 4 | important, FGC | **CLAIM CORRECTED, evidence untouched** — 
+see below. Codex's proposed fix was rejected by the orchestrator. |
+loop/items/AI4DEV-24/plan.md:818:Codex is right that `git diff --check origin/main...HEAD` exits **2** with **30 trailing-whitespace
+loop/items/AI4DEV-24/plan.md:826:- `git diff --check origin/main...HEAD -- tests/at package.json bun.lock` → **exit 0, clean.** No
+loop/items/AI4DEV-24/plan.md:828:- `git diff --check origin/main...HEAD` (whole diff) → **exit 2, 30 violations, all 30 in
+loop/items/AI4DEV-24/plan.md:956:- `git diff --check origin/main...HEAD -- tests/at package.json bun.lock` → **exit 0, clean.**
+loop/items/AI4DEV-24/plan.md:957:- `git diff --check origin/main...HEAD` (whole diff) → exit 2, **423 violations, every one in a
+loop/items/AI4DEV-24/brief.md:78:7. `git diff --check` clean; only `tests/at/**`, `package.json`, `loop/items/AI4DEV-24/**` touched.
+---
+
+## 9. Implementation record — as of the Gate 1 rulings
+
+> **Superseded in three places by Gate 2 (§10).** The selftest count moved 96 → 99, coverage moved
+> 29 → 30 files, and step 7's "`git diff --check` clean" claim was wrong as written. Corrected
+> figures and the corrected claim are in §10; this section is left as the record of what was true
+> before Gate 2 rather than quietly rewritten.
+
+Commits on `nirdrang/ai4dev-24-typecheck`, one per work item as planned:
+
+| commit | work item |
+|---|---|
+| `17e88a9` | W1 — `tests/at/tsconfig.json`, `tests/at/typecheck.ts`, the `typecheck` script, the `@types/node` floor. Committed deliberately 
+red, with the 24-error starting point in the message. |
+| `6e17a78` | W2 — `SuiteHarness`, the retyped seam, the `createHarness` annotation, `_bind.ts`. Also carries R3's `HarnessLike` deletion 
+(§3). |
+| — | W3 — no commit; nothing remained (§3). |
+| `3255f3b` | W4 — `tests/at/README.md`. |
+
+### Verification — all seven steps pass
+
+1. `bunx tsc --noEmit --pretty false` → **exit 0**, no output. Unchanged.
+2. `bun run typecheck` → **exit 0**, both projects launched and both clean.
+3. `bun run at:selftest` → 6 files, **96 tests**, all pass, exit 0.
+4. `bun run at:check req-016` → `RESULT: 12 P0 ids in bijection`, exit 0.
+5. `bun run at:verify req-016 --tier loop` → exit 1, 8 green / 4 red — and **byte-identical to the
+   committed pre-change baseline**: `Compare-Object` against
+   `loop/items/AI4DEV-24/baseline/verify-req-016-loop.baseline.txt` returned nothing. D5 held.
+6. `bun run at:verify req-016 --tier loop --expect` → **exit 0**, with the `EXPECTED:` line.
+7. `git diff --check` clean; the branch touches only `tests/at/**`, `package.json`, `bun.lock` and
+   `loop/items/AI4DEV-24/**`. No `src/`, no `design/`, no `supabase/`, no change to the root
+   `tsconfig.json` (D6).
+
+### Coverage — proven, not asserted
+
+The item's own failure mode is "the check exits 0 while checking nothing", so the count is
+cross-checked against the filesystem rather than reported from the compiler alone:
+
+- `tsc -p tests/at/tsconfig.json --listFiles` → **29 files under `tests/at`**, **0** leaked from
+  `tests/at/node_modules`, 283 files in the whole program counting `lib.*.d.ts` and `@types`.
+- Files on disk under `tests/at` outside `node_modules` with a TypeScript or JavaScript
+  extension → **29**. Every one is in the program.
+- Before this item the same tree had **0** files covered by any configured command.
+F4: The plan.md §9 step 7 (line 727) still literally says "`git diff --check` clean; the branch touches only..." — but §9 is explicitly marked 
+"Superseded in three places by Gate 2 (§10)" with the correction that step 7's claim "was wrong as written" and corrected claim in §10. §10 
+(lines 771, 818-828, 956-957) states honestly: whole-diff check exits 2 with violations all in reviewer record files, code-paths check exits 
+0. Let me read §10's relevant part to verify the corrected claim, and check brief.md:78 — the brief still says "`git diff --check` clean" 
+without qualification? brief.md line 78: "7. `git diff --check` clean; only `tests/at/**`, `package.json`, `loop/items/AI4DEV-24/**` touched." 
+Hmm — is brief.md the spec (requirements) rather than the claim? The brief is the item's original specification — verification step 7 as 
+SPECIFIED. The falsified claim was in plan.md:722 (the implementation record). The brief is the requirement itself; you don't rewrite the 
+requirement. But then the requirement "git diff --check clean" genuinely fails against the whole diff... The orchestrator's disposition: 
+"verbatim reviewer records are not to be doctored to make a check pass. The CLAIM was corrected instead." The claim = plan.md's report that 
+step 7 passes. Let me read §10 to see the corrected claim language.
+
+  Also note the finding 4 text said "contradicting the claimed clean verification in plan.md:722". Now plan.md §9 line 727 still contains that 
+claim but with an explicit superseded banner pointing to §10's correction. Need to read §10 (around lines 760-830, 950-960).
+Panel: codex `gpt-5.6-terra` @ `max` (`gate2-critique-codex.txt` — **2 blockers, 5 false-green-class,
+opens "NO — do not ship"**) and Kimi `k3` @ `high` (`gate2-critique-kimi.txt` — 0 blockers, 1
+false-green-class). Both examined head `d3b1bca`. Every disposition names its raiser.
+
+| # | raiser(s) | severity | disposition |
+|---|---|---|---|
+| D5 proof method is unsound | **codex 3 + kimi 1 — raised by both** | important, FGC | **FIXED.** Comparison is now ordinal (SHA256 over 
+normalized bytes), and it lives inside the script. |
+| Base drift | **codex 5 + kimi 4 — raised by both** | important / minor | **FIXED.** `origin/main` merged forward; full verification re-run 
+on the result. |
+| `AtHarness` is an augmentable interface | codex 1 | blocker, FGC | **FIXED.** Type alias + executable negative test. |
+| The surviving assertion is not honest | codex 2 | blocker, FGC | **FIXED.** `OpenWorld.h` is unparameterized `AtHarness`; `Channel` plumbing 
+deleted. |
+| `git diff --check` claim is false | codex 4 | important, FGC | **CLAIM CORRECTED, evidence untouched** — see below. Codex's proposed fix was 
+rejected by the orchestrator. |
+| Child status/signal not logged | codex 6 | minor | **FIXED.** |
+| `bun x tsc` can fetch a registry compiler | kimi 2 | minor | **FIXED.** Pinned local binary, loud failure if absent. |
+| `h.fixtures.world` widens the unverified-read surface | kimi 3 | minor | **PARTLY FIXED as a side effect; remainder goes to AI4DEV-31.** |
+
+### The two both reviewers raised — fixed first, as instructed
+
+**The D5 proof method (codex 3 + kimi 1).** This is the sharpest finding of the round: the item's own
+central evidence method could certify the exact class of change it exists to catch. `Compare-Object`
+is a set difference — case-insensitive by default *and* order-insensitive. Demonstrated rather than
+accepted on description, by tampering with the committed baseline two ways:
+
+| tampered baseline | old `Compare-Object` | new SHA256 |
+|---|---|---|
+| two AT rows swapped | **reported IDENTICAL** | reports a difference |
+| `green` → `GREEN` | **reported IDENTICAL** | reports a difference |
+
+The comparison now lives *inside* `normalize-verify.ps1` behind a `-Baseline` parameter, so it cannot
+be performed the wrong way by following a stale usage note; on a difference it prints a real
+`git diff --no-index`. Codex's two further points are folded: the trailing-whitespace strip is gone
+(nothing is dropped now), and the report-path pattern is anchored to the full known shape instead of
+a broad prefix.
+
+**Re-run against the existing baseline, as asked: the recorded verdict stands.** Both hashes are
+`36D2F653AFC3355309A1847B58D7DA6067B9E9ECAFBE2A9EEC5BE54D7DCA0041`. The earlier "byte-identical"
+claim was reached by an unsound method but was not itself wrong.
+
+**Base drift (codex 5 + kimi 4).** `origin/main` had advanced to `054793c` after the branch point.
+Merged forward (`62c42c1`, clean, no conflicts); the merge base is now `origin/main`'s tip, and
+`loop/work/statusline.ps1` plus the `.claude/settings.json` `statusLine` entry that main added are
+present. Kimi's independent check that the phantom deletions were an artifact of diffing a moved main
+— not a scope breach by this branch — was correct, and the full verification below is re-run on the
+merged tree, so the green describes the tree that will land.
+
+### The panel conflict — ruled for codex
+
+Kimi rated the codex-2 area **minor** and recommended deferring it to the seam item; codex called it
+a **blocker** with a one-line fix. The orchestrator ruled for codex and I agree with the reasoning:
+R1's honesty claim is this item's central promise, and shipping while it is false is the
+misleading-expected-state the tag exists for. Removing plumbing that does not do what it claims is
+not a seam redesign. **Kimi's related point survives the ruling** and is recorded for the follow-up:
+when AI4DEV-31 is worked it must name all three unverified reads — `OpenWorld.sut`, `OpenWorld.w`
+and `h.fixtures.world` — not only the `Sut` axis. The `h.fixtures` half is already closed here as a
+by-product of codex 2's fix, since `h` no longer carries the suite's `W`.
+
+### Codex 4 — the claim is corrected; the evidence is not doctored
+
+Codex is right that `git diff --check origin/main...HEAD` exits **2** with **30 trailing-whitespace
+violations**, so §9 step 7's flat "clean" was false. Its proposed fix — strip the trailing spaces —
+was **rejected by the orchestrator, and rightly**: those lines are a reviewer's verbatim output, they
+are a record, and in Markdown trailing spaces are meaningful line breaks. Editing evidence so a check
+passes is a worse defect than an imprecise check.
+
+The accurate statement, which replaces the old claim:
+
+- `git diff --check origin/main...HEAD -- tests/at package.json bun.lock` → **exit 0, clean.** No
+  code path this item touches carries a whitespace defect.
+- `git diff --check origin/main...HEAD` (whole diff) → **exit 2, 30 violations, all 30 in
+  `loop/items/AI4DEV-24/gate1-critique.txt`**, which is a committed reviewer artifact.
+
+**This needs a CI change that is not in this item's gift:** a repository-wide whitespace check must
+exclude `loop/items/**`, or every future item that commits its critiques will trip it. Flagged for
+the CI item rather than smuggled in here.
+
+### ESCALATION — the augmentation door is shut one level up, not all the way down
+
+Codex 1's fix closes `AtHarness`. **It does not close the interfaces `AtHarness` references, and I
+measured that the same attack still works through them.** With the shipped tree, this compiles green:
+
+```ts
+F4 disposition: §10 honestly states the whole-diff check exits 2 with violations in the committed reviewer artifact, code paths are clean, 
+§9's old claim is explicitly marked superseded/wrong. That is honest. One check: plan.md line 957 says "423 violations, every one in a ..." — 
+my run showed 845 lines of output from `git diff --check origin/main..HEAD` (two-dot). The plan quotes three-dot (`origin/main...HEAD`) and 
+423 violations. Since origin/main is now an ancestor, two-dot and three-dot diffs should be identical... wait, if origin/main is an ancestor 
+of HEAD, merge-base = origin/main tip, so two-dot == three-dot. My run: 845 lines in the output file. But each violation produces 2-3 lines of 
+output (the "file:line: trailing whitespace." line plus the offending line, plus possibly blank). 423 violations → ~845 lines of output. 
+Consistent! Plan says 423 violations; my output file has 845 lines ≈ 423×2. And plan §10 says "30 violations, all 30 in gate1-critique.txt" 
+for the earlier state; now there are 423 because gate2 critique files were added (with more trailing whitespace). Let me verify: which files 
+do the violations name? Check unique file names in the diffcheck output, and count violations.
+
+  Also the ruling summary in the confirmation prompt says "The CLAIM was corrected instead. Judge whether that disposition is honest." — I 
+should verify: (a) violations are confined to reviewer-artifact files, (b) code paths are clean: `git diff --check origin/main...HEAD -- 
+tests/at package.json bun.lock` exits 0. Let me run that.
+
+  Also F5: verified origin/main is ancestor; statusline.ps1 present? The plan says statusline.ps1 plus settings.json statusLine entry are 
+present now. Quick check: file exists loop/work/statusline.ps1 and .claude/settings.json contains statusLine. And diff name list no longer 
+contains them — confirmed already.
+
+  Also confirm plan.md step-5 claim about baseline hash stands? That would require running at:verify — heavy and it writes temp files; the 
+task says run the compiler, read the code. Running the baseline comparison executes bun run at:verify which runs vitest — creates 
+tests/at/node_modules cache (vitest recreates). That's file creation — user said strictly read-only, do not create/edit/delete any file. 
+Running vitest would create cache files. I already ran tsc (no emit). bun run typecheck — does it create anything? No. The probe tsc — no. I 
+should avoid running at:verify/at:selftest. That's acceptable; I'll note verification limits.
+
+  Also F2: check EvidenceCapture signature no longer has Channel (grep showed no Channel in registry.ts at all — confirmed). And index.ts 
+annotation. Quick grep of index.ts for AtHarness annotation to confirm the factory is statically checked at defaults.code-paths check exit: 0
+---
+426
++   [gate1-critique.txt
++   [normalize-verify.ps1
++change that added trailing whitespace would be masked — trivial. ErrorRecord unwrap
++difference? `-replace '^JSON report written to .*$'` — anchored to full line, only that line. TrimEnd — removes trailing whitespace; a 
+runtime 
+loop/items/AI4DEV-24/gate1-critique.txt
+loop/items/AI4DEV-24/gate2-critique-codex.txt
+loop/items/AI4DEV-24/gate2-critique-kimi.txt
+---
+loop/work/statusline.ps1
+1
+Wait — the unique file list from the violations shows some odd entries: lines like `+   [gate1-critique.txt` and `+   [normalize-verify.ps1` 
+and "change that added trailing whitespace..." — those are content lines from the diffcheck output that contain the phrase "trailing 
+whitespace" but are the offending-line echoes, not the "file:line:" headers. My `sed 's/:.*//'` on header lines gives the file names: 
+loop/items/AI4DEV-24/gate1-critique.txt, gate2-critique-codex.txt, gate2-critique-kimi.txt. But the grep -c counted 426 lines containing 
+"trailing whitespace" — includes echoed content lines containing that phrase (like the critique text itself discussing trailing whitespace). 
+Let me count properly: headers match `^loop/.*: [0-9]+: trailing whitespace` — count those. Plan said 423. Let me count exact headers.
+
+  Also: violations are confined to the three critique artifacts — all reviewer records under loop/items/AI4DEV-24. Code paths clean (exit 0). 
+statusline.ps1 exists, settings.json has statusLine. F4 and F5 verified.
+
+  index.ts: createHarness annotated Promise<AtHarness> (defaults) — seam statically checked. FixtureAdapter interfaces are internal to 
+index.ts, not reachable from harness object. Fine.
+
+  Let me count exact violation headers.422
+     30 loop/items/AI4DEV-24/gate1-critique.txt
+     19 loop/items/AI4DEV-24/gate2-critique-codex.txt
+    373 loop/items/AI4DEV-24/gate2-critique-kimi.txt
+422 headers with the strict pattern; plan says 423. Close — maybe one header has different text (e.g., "trailing whitespace." vs other 
+messages like "new blank line at EOF" or a CRLF). Let me check non-matching headers. Actually the earlier `grep -c "trailing whitespace"` gave 
+426 including content lines. Plan's "423 violations" — my count 422 with a strict regex; maybe one is "space before tab" or similar. Let me 
+check headers not matching.loop/items/AI4DEV-24/gate2-critique-kimi.txt:759: new blank line at EOF.
+423
+Exactly 423 violations (422 trailing-whitespace + 1 blank-line-at-EOF), all in the three committed reviewer-artifact files under 
+`loop/items/AI4DEV-24/`. This matches plan.md line 957's claim of "423 violations, every one in a ..." — presumably "reviewer record". So the 
+corrected claim is accurate against the tree.
+
+  F4 verdict: the disposition is honest — records untouched, §9 marked superseded, §10 states the true numbers (which I reproduced: code paths 
+exit 0; whole diff exit 2, 423 violations all in critique artifacts), and the CI exclusion need is flagged rather than smuggled. CONFIRMED as 
+an honest disposition.
+
+  F5: origin/main is ancestor; statusline.ps1 present; settings.json statusLine present; two-dot diff no longer shows phantom deletions; 
+verification re-run claim — I re-ran typecheck myself on the merged tree. CONFIRMED.
+
+  Now F1 final checks: 
+  - All contracts in contracts.ts are type aliases — verified by reading (WorldSeam, Fixtures, Clock, Sentinel, Sentinels, FaultHandle, 
+Faults, StaticScan, ProviderAttempt, EmailProviderSim, Vendors, AtHarness). ConfigRegistry alias in config.ts. 
+  - Executable negative test asserts each by name: selftest asserts TS2558 + Duplicate identifier for AtHarness, Vendors, Faults, 
+ConfigRegistry. But note the ruling claim said "every interface reachable from the harness object (contracts.ts, plus ConfigRegistry) is now a 
+type alias, and an executable negative test asserts each by name." The test asserts AtHarness, Vendors, Faults, ConfigRegistry by name — not 
+EVERY contract (not Sentinels, StaticScan, Clock, Fixtures, Sentinels...). The probe file only attacks Vendors, Faults, ConfigRegistry + 
+AtHarness. But the probe's attacks on Vendors/Faults/ConfigRegistry are representative; the contracts are all aliases (verified by reading). 
+The ruling text said "an executable negative test asserts each by name" — "each" refers to... ambiguous; the test asserts 4 names. 
+Sentinels/StaticScan/Clock are also aliases so the attack is dead there too, just not asserted by name. Is that a PARTIAL? The finding #1 
+itself was about AtHarness. The extension to every interface is verified by reading the code (all aliases). The negative test covers AtHarness 
++ the pendingCapability-produced contracts (Vendors, Faults) + ConfigRegistry — the ones where the attack was worse (Proxy cast). 
+Sentinels/StaticScan also come from pendingCapability per the comment ("sentinels, faults, static and vendors come from 
+pendingCapability<T>()") — but only Vendors and Faults are asserted. Hmm — Sentinels and StaticScan are aliases too, so the attack is equally 
+dead; the test just doesn't name them. The test's loop comment says "Each contract is asserted by name" while asserting only 3. Minor gap 
+between comment and coverage, worth a NEW OBSERVATION perhaps, but the underlying finding is closed: all aliases, probe proves 
+non-mergeability.
+
+  Actually wait — also check `Tier` (reachable via h.tier) — it's `export type { Tier } from './registry.ts'`. Is Tier an interface in 
+registry.ts? Grep earlier showed interfaces in registry.ts: ParsedAtId, AtTestOptions, Registration, WorldLike, HarnessModule, OpenWorld, 
+OpenOverrides, AtContext, Usage, InternalContext, TrackedTeardown, TeardownFailure. Tier not among interfaces — let me confirm Tier is a type 
+alias. TIERS is a const; Tier is likely `typeof TIERS[number]`. Quick grep.
+
+  Also WorldLike is an interface (line 103) — the contracts.ts comment explicitly justifies it: it constrains OpenWorld.w, the suite's own 
+asserted claim (AI4DEV-31's seam). Could a suite merge WorldLike to add members? `interface WorldLike` is augmentable — a suite could `declare 
+module ...registry.ts { interface WorldLike { foo(): void } }` and then... W extends WorldLike; open() asserts opened as OpenWorld<Sut, W> — 
+the assertion already lets the suite invent W members (pre-existing, owned by AI4DEV-31). Augmenting WorldLike adds nothing beyond that 
+existing hole. Fine.
+
+  HarnessModule is an interface — augmenting it? It's internal to the seam; a suite augmenting HarnessModule doesn't change what createHarness 
+is checked against... actually the assignment `harnessModule = mod as HarnessModule` uses a cast anyway. Not reachable from the harness object 
+a suite holds. Fine.
+
+  Let me quickly confirm Tier is a type. Then check F2's last piece: EvidenceCapture (grep showed no Channel in registry.ts, done), and the 
+open() assertion `opened as OpenWorld<Sut, W>` at line 529 — the remaining assertion covers only w/sut axes (pre-existing, AI4DEV-31). Finding 
+2 asked: make OpenWorld.h unparameterized (done — line 161 `h: AtHarness`) and remove Channel plumbing (done — no Channel in registry.ts, 
+_bind.ts binds 2 args, atTest/bindSuite/AtTestBody/executeRegisteredBody all 2-param per diff and compile green).
+
+  One more F2 verification: the failure scenario — a suite binding channel 'sms' being told vendors.email.attempts() yields 'sms'. Now h: 
+AtHarness default → Channel=string → attempts() yields string. Honest. And suites can't push their Channel into h since OpenWorld isn't 
+parameterized on Channel and bindSuite doesn't accept it (arity error proven by probe TS2558).
+
+  F3: also verify the claimed re-run hash matches the baseline? That would require running at:verify (vitest, creates cache files — violates 
+read-only). I verified the script logic. The plan's claim that both hashes equal 36D2... I can partially verify: hash the committed baseline 
+file with the same algorithm (read-only). Let me compute SHA256 of baseline lines joined with "`n" via PowerShell... bash: I can replicate: 
+read file lines, join with \n, UTF-8 bytes, sha256. Using sha256sum after converting CRLF→LF? ReadAllLines splits on CRLF or LF and strips 
+terminators, joins with "`n" (LF). So: `sed 's/\r$//' file | tr '\n'... — need trailing newline handling: ReadAllLines ignores a final 
+newline; join with LF means no trailing LF. So: `sed 's/\r$//' baseline | tr -d... hmm: printf '%s' "$(sed 's/\r$//' file)"` strips trailing 
+newlines via $() then sha256sum. That gives hash of lines joined by \n without trailing newline. Let me try — if it equals 36D2F653..., the 
+baseline half of the claim checks out. PowerShell `[System.IO.File]::ReadAllLines` — for a file ending with newline, the last empty element is 
+not produced. $() strips all trailing newlines. Equivalent.
+
+  But caution: file encoding — UTF-8. Fine.
+
+  This is a nice extra verification. Let me do it.
+
+  Also NEW OBSERVATIONS candidates:
+  1. `_contract.ts:149,152` — suite-local `AtHarness`/`createHarness` aliases re-labeling the shared harness with suite's Channel remain, 
+though unused outside `_contract.ts` (per grep). Dormant; deletion would complete the plumbing removal. Verify unused: grep showed AtHarness 
+only in _contract.ts. But maybe the type is used via `import type { AtHarness }` under a different name in other suite files — grep for 
+"AtHarness" in tests/at/suites covered that; only _contract.ts. So unused. Note it.
+
+  Actually wait — is _contract.ts's createHarness used by _fixture.ts or tests? Grep for "createHarness" in suites.
+
+  2. The selftest comment says "Each contract is asserted by name" but asserts only Vendors, Faults, ConfigRegistry (+AtHarness separately); 
+Sentinels and StaticScan — also pendingCapability products — are not probed. They ARE aliases (verified by reading), so the door is shut, but 
+the executable guard doesn't cover them by name; a future revert of Sentinels to interface wouldn't fail the selftest... wait, would it? If 
+someone reverted Sentinels to an interface, the probe doesn't attack Sentinels, so no test fails. The door would be open again silently. 
+That's a real gap in the executable guard vs the comment's claim. Worth a new observation.
+
+  Let me check the selftest file on disk to confirm it matches the diff, and grep Tier + createHarness usage.
+
+81:export type Tier = 'loop' | 'integration' | 'drill';
+83:export const TIERS: readonly Tier[] = ['loop', 'integration', 'drill'] as const;
+---
+tests/at/suites/req-016/_contract.ts:152:  createHarness(opts: { requirement: string; tier: Tier }): Promise<AtHarness>;
+---
+baseline hash: A3919AC0A05EEA7C1C06F300B6489FC290980E5E5B9A4C5BD47AA7660763E3DA
+• All findings verified except a few cross-checks. Running the final batch.
+
+• Two things to resolve:
+
+  1. The baseline hash I computed (A3919A...) does NOT match the plan's claimed 36D2F653.... Why? Possible reasons: (a) my replication of the 
+hashing is wrong — e.g., the baseline file may not end with a newline, so `$(...)` stripping changes content; or the file has a BOM; or 
+PowerShell ReadAllLines handles things differently; or UTF8 no BOM vs BOM. (b) The baseline file changed since the hash was recorded (the diff 
+list showed verify-req-016-loop.baseline.txt was modified in this branch!). Note: the two-dot diff includes 
+`loop/items/AI4DEV-24/baseline/verify-req-016-loop.baseline.txt` — the baseline file itself was changed on this branch. The plan §10's hash 
+claim (36D2...) was about the baseline at that time; if the baseline was later updated (e.g., EXIT line or normalized script output changed), 
+the recorded hash would differ. Also my hash reproduction may be imperfect (e.g., ReadAllLines on a file whose last line lacks terminator — 
+same; BOM — GetBytes(UTF8) of joined string wouldn't include BOM since ReadAllLines strips it... actually ReadAllLines detects and strips BOM; 
+my sed doesn't strip BOM).
+
+  Let me check: does the baseline file start with BOM? And does it end with newline? Let me hexdump head/tail. Also check git log for the 
+baseline file to see if it changed after the hash was recorded.
+
+  Actually more carefully: the plan at line ~795 says "Both hashes are 36D2F653..." — the current run's hash equals baseline's hash. That was 
+at commit time of that section. Later commits (rulings-02, R7 record) may have re-run and updated the baseline. Let me check what the baseline 
+file's history is and whether plan.md later (line ~950-960) re-states hashes. Let me grep plan.md for the hash value.
+
+  2. _contract.ts's createHarness/AtHarness: confirmed unused outside _contract.ts (grep for createHarness in suites only shows 
+_contract.ts:152). So dormant. New observation candidate.
+
+  Also confirm what _contract.ts:144-152 block looks like — is it an interface HarnessModule-like declaration? Let me view lines 140-155.
+
+  Let me also double check the probe tsconfig on disk and that typeprobes only contains the probe + tsconfig.
+
+  And whether plan.md line 956-957's claims match: code paths exit 0 (verified), 423 violations every one in a reviewer record (verified: 422 
+trailing whitespace + 1 blank-line-EOF, all in the three critique txt files).
+
+  Now the baseline hash discrepancy: check plan.md for hash mentions.767:| D5 proof method is unsound | **codex 3 + kimi 1 — raised by both** 
+| important, FGC | **FIXED.** Comparison is now ordinal (SHA256 over normalized bytes), and it lives inside the script. |
+783:| tampered baseline | old `Compare-Object` | new SHA256 |
+795:`36D2F653AFC3355309A1847B58D7DA6067B9E9ECAFBE2A9EEC5BE54D7DCA0041`. The earlier "byte-identical"
+951:under the corrected ordinal comparison — same SHA256,
+952:`36D2F653AFC3355309A1847B58D7DA6067B9E9ECAFBE2A9EEC5BE54D7DCA0041`.
+---
+00000000: efbb bf24 2062 756e 2074 6573 7473 2f61  ...$ bun tests/a
+00000010: 6970 7420 2261 743a 7665 7269 6679 2220  ipt "at:verify" 
+00000020: 6578 6974 6564 2077 6974 6820 636f 6465  exited with code
+00000030: 2031 0d0a 4558 4954 3d31 0d0a             1..EXIT=1..
+---
+88b2352 AI4DEV-24: gate 1 dispositions
+The baseline file starts with a BOM (EF BB BF). PowerShell's ReadAllLines detects and strips the BOM; my sed didn't. Let me recompute 
+stripping the BOM. Also the file ends with "EXIT=1\r\n" — ReadAllLines won't produce a trailing empty line, and $() strips trailing newlines — 
+consistent.
+
+  Recompute: `tail -c +4 file` to skip BOM, then sed 's/\r$//', then printf '%s' "$(...)" | sha256sum.
+
+baseline hash (no BOM): 36D2F653AFC3355309A1847B58D7DA6067B9E9ECAFBE2A9EEC5BE54D7DCA0041
+• The baseline file has a UTF-8 BOM that PowerShell strips but my replication didn't. Recomputing without the BOM.
+
+• The baseline's SHA256 under the script's exact algorithm equals `36D2F653AFC3355309A1847B58D7DA6067B9E9ECAFBE2A9EEC5BE54D7DCA0041` — exactly 
+the value plan.md §10/§11 claims for both hashes. So the recorded baseline half of the claim checks out against the tree. (I did not re-run 
+`at:verify` for the current half because vitest would write its cache — read-only constraint — but the script logic is verified and the 
+recorded baseline hash reproduces byte-exactly.)
+
+  Also note: the baseline file was last touched in `88b2352 AI4DEV-24: gate 1 dispositions` — before the normalize-verify rewrite. And the 
+hash matches the value recorded in plan.md after the rewrite, consistent with "the recorded verdict stands."
+
+  Now the _contract.ts observation: lines 143-153 define suite-local aliases binding the shared harness to the suite's Channel plus a local 
+`HarnessModule` interface — a leftover of the deleted Channel plumbing. Used anywhere? ProviderAttempt/EmailProviderSim/Vendors aliases 
+(144-146) might be used in suite tests — those are fine (suite's own domain views). But AtHarness (149) and HarnessModule (151-153): grep 
+showed AtHarness only in _contract.ts; createHarness only at _contract.ts:152. So both are dead declarations. Also note HarnessModule is an 
+interface, augmentable — but it's suite-local and unused; augmenting it buys nothing (it's not what registry checks — registry has its own 
+HarnessModule). It's cosmetic dead code, slightly misleading: a reader might think the suite re-labels the harness. Harmless at runtime; 
+registry's OpenWorld.h stays default AtHarness. Worth a NEW OBSERVATION (minor): dead suite-local re-labeling declarations survive the 
+plumbing deletion.
+
+  Wait — was this present at d3b1bca (i.e., is it NEW or pre-existing)? The fix diff didn't touch _contract.ts. It existed at the original 
+review too, and my original critique didn't flag it. It's "something NEW I noticed while confirming" — qualifies for NEW OBSERVATIONS.
+
+  Second new observation: the selftest asserts by name only Vendors, Faults, ConfigRegistry (plus AtHarness), but the comment at lines 59-62 
+says "Each contract is asserted by name" while naming sentinels and static as pendingCapability products. Sentinels and StaticScan are aliases 
+(verified by reading), so the door is shut today, but the executable guard does not cover them: reverting `Sentinels` or `StaticScan` back to 
+an interface would fail no test. Minor gap between the guard and its own comment.
+
+  Third possible observation: probe tsconfig `extends: ../tsconfig.json` and `"exclude": []` — overrides the parent's typeprobes exclusion 
+(necessary) — and include `**/*.ts` within typeprobes dir. Verified working (probe run produced expected errors only from probe + contract 
+files). Fine.
+
+  Also check: does the main AT program still include the selftest (yes, typecheck passed with it included since exclude only names 
+node_modules and typeprobes).
+
+  One more check for F1's "every interface reachable from the harness object": h.tier: Tier (type alias ✓), h.fixtures: Fixtures (alias ✓), 
+h.config: ConfigRegistry (alias ✓), h.sut: Sut (suite's own), teardown, stubbedCapabilities. FixtureAdapter interfaces in index.ts are 
+internal, not reachable from harness object. WorldLike interface — justified in contracts.ts comment as belonging to AI4DEV-31's seam; and 
+merging it can't promise harness-supplied members beyond the pre-existing w-assertion hole. OK.
+
+  Also EvidenceCapture — grep showed no Channel anywhere in registry.ts. ✓
+
+  Now compose the final answer per the OUTPUT spec: one entry per original finding numbered as numbered (1-6), each with verdict and evidence; 
+then NEW OBSERVATIONS; then one-line VERDICT.
+
+  Finding numbering from the consolidated critique:
+  1. AtHarness augmentable interface (blocker) → CONFIRMED.
+  2. OpenWorld.h dishonest assertion, Channel plumbing (blocker) → CONFIRMED.
+  3. normalize-verify.ps1 Compare-Object/TrimEnd/broad-prefix (important) → CONFIRMED.
+  4. gate1-critique trailing whitespace vs plan claim (important) → ruled the other way; judge honesty → CONFIRMED as honest disposition 
+(claim corrected, numbers reproduce: code paths exit 0; whole diff 423 violations all in three reviewer artifacts; §9 marked superseded; CI 
+exclusion flagged). The evidence files untouched — verified gate1-critique.txt still has its 30 trailing-whitespace violations.
+  5. Base drift (important) → CONFIRMED: origin/main is ancestor of HEAD; two-dot diff shows only in-scope paths; statusline.ps1 present; 
+settings.json statusLine present; verification (typecheck both configs) re-run by me on merged tree, green.
+  6. typecheck.ts signal/status not logged (minor) → CONFIRMED: logs error message, signal, exit code; also pins compiler by path with loud 
+failure.
+
+  Verdict: 6 CONFIRMED, 0 REFUTED, 0 PARTIAL.
+
+  Mark todos done and write the final answer. The user instruction said follow the file's instructions exactly — the file says OUTPUT format. 
+I'm the model being asked to do the confirmation pass; I should output that in my reply.Write the final confirmation report. Keep it in the 
+required format. The findings were numbered 1–6 in the consolidated critique. Verification was read-only: I ran tsc via bun (noEmit) and git 
+commands; no files created (except /tmp scratch outside repo — /tmp/diffcheck.out, that's Git Bash temp, acceptable and outside the repo; 
+arguably "create a file" — it's a temp capture in the OS temp dir, not the project. Fine, and I could mention nothing in the tree was touched; 
+git status was clean).
+
+• Confirmation pass complete. I verified everything against the actual tree at `7e5858e` (working tree clean, confirmed with `git status`), running the pinned compiler myself rather than trusting the diff. No files were created, edited, or deleted in the repository.
+
+  **1. `AtHarness` augmentable interface (blocker) — CONFIRMED.**
+  Read `tests/at/harness/contracts.ts` in full: every capability contract is now a type alias — `WorldSeam`, `Fixtures`, `Clock`, `Sentinel`, `Sentinels`, `FaultHandle`, `Faults`, `StaticScan`, `ProviderAttempt`, `EmailProviderSim`, `Vendors`, `AtHarness` (contracts.ts:29–180) — and `ConfigRegistry` is an alias too (`tests/at/harness/config.ts:30`). `Tier`, reachable via `h.tier`, is also a type alias (registry.ts:81). The executable negative test exists (`tests/at/harness/type-invention.selftest.ts` + `tests/at/typeprobes/`), is excluded from the acceptance program (`tests/at/tsconfig.json:12`), and I ran the probe project with the same pinned compiler the selftest uses: exit 2, producing exactly the asserted diagnostics — `TS2558` (intersection attack dies by arity) and `Duplicate identifier` for `AtHarness`, `Vendors`, `Faults`, `ConfigRegistry`. `bun run typecheck` over both real configs is green, so the exclusion works.
+
+  **2. Dishonest `OpenWorld.h` assertion / Channel plumbing (blocker) — CONFIRMED.**
+  `OpenWorld.h` is now the unparameterized `AtHarness` (registry.ts:161), with a comment naming both doors and honestly scoping the remaining `w`/`sut` assertion to AI4DEV-31. `Channel` does not appear anywhere in `registry.ts` — `atTest`, `bindSuite`, `AtTestBody`, `AtContext`, `EvidenceCapture`, `executeRegisteredBody` are all two-parameter. `openWorld` returns `harness: AtHarness` (registry.ts:414), `index.ts:68` keeps the load-bearing `Promise<AtHarness>` annotation, and `_bind.ts:23` binds only `<NotificationsSut, World>`. The probe's `TS2558` proves a suite can no longer push a third type argument through `bindSuite`. The original failure scenario is dead: `h.vendors.email.attempts()` now honestly yields `string`.
+
+  **3. `normalize-verify.ps1` unsound comparison (important) — CONFIRMED.**
+  The script now does exactly the minimal fix: Compare-Object and the TrimEnd are gone; lines are joined with an explicit `` `n `` and compared as a SHA256 over UTF-8 bytes with `-ceq` (order- and case-sensitive); only one anchored full-line temp-path pattern is normalized; trailing whitespace passes through verbatim; the exit code is appended as `EXIT=`. I also reproduced the recorded evidence: hashing the committed baseline with the script's exact algorithm yields `36D2F653…A0041`, byte-identical to the value plan.md records for both sides. I did not re-run `at:verify` itself (vitest would write its cache; this pass was read-only), so the "current run" half of that claim rests on the script logic I read, not my own execution.
+
+  **4. Trailing-whitespace finding, ruled the other way (important) — CONFIRMED as an honest disposition.**
+  The records are untouched: `git diff --check origin/main...HEAD` still exits 2 with exactly 423 violations (422 trailing-whitespace + 1 blank-line-at-EOF), every one confined to the three committed reviewer artifacts (`gate1-critique.txt`, `gate2-critique-codex.txt`, `gate2-critique-kimi.txt`) — matching plan.md's corrected numbers precisely. The claim, not the evidence, was fixed: §9 step 7 carries an explicit "Superseded… claim was wrong as written" banner pointing to §10, which states the true results, and `git diff --check origin/main...HEAD -- tests/at package.json bun.lock` does exit 0 as claimed. The needed CI exclusion is flagged as out-of-scope rather than smuggled in. This disposition is more honest than my proposed fix, not less.
+
+  **5. Base drift (important) — CONFIRMED.**
+  `git merge-base --is-ancestor origin/main HEAD` holds; the two-dot diff now lists only in-scope paths (`tests/at/**`, `package.json`, `bun.lock`, `loop/items/AI4DEV-24/**`) — the phantom `.claude/settings.json` / `loop/work/statusline.ps1` deletions are gone, and both files are present in the tree. I re-ran the typecheck verification on this merged tree myself: both configs clean.
+
+  **6. Signal/status not logged (minor) — CONFIRMED.**
+  `typecheck.ts:67–76` now distinguishes and prints all three failure shapes: spawn error with its message, kill with the signal name, and non-zero exit with the status. It additionally pins the compiler by path with a loud failure when absent, closing the `bun x` registry-fallback hole I'd rated minor in the transcript.
+
+  NEW OBSERVATIONS (not part of this gate):
+
+  - `tests/at/suites/req-016/_contract.ts:148–153` still declares a suite-local `AtHarness = SharedHarness<…, World, Channel>` and a local `HarnessModule` interface returning it — leftover re-labeling from the deleted Channel plumbing. Both are dead (nothing outside `_contract.ts` references them), so nothing is dishonest today, but deleting them would complete the plumbing removal the ruling called for.
+  - The selftest's comment says "each contract is asserted by name" and names `sentinels` and `static` as `pendingCapability` products, but the probe attacks only `Vendors`, `Faults`, `ConfigRegistry` (plus `AtHarness`). `Sentinels` and `StaticScan` are aliases today — I read them — so the door is shut, but reverting either one to an interface would fail no test. The executable guard is narrower than its own comment.
+
+  VERDICT: 6 of my findings CONFIRMED, 0 REFUTED, 0 PARTIAL.
+
+To resume this session: kimi -r session_f1161adb-cdf3-4eae-bbe4-51eafa3e281b
+

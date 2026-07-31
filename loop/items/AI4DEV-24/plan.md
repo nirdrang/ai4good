@@ -960,3 +960,105 @@ under the corrected ordinal comparison — same SHA256,
   will need `loop/items/**` excluded; that is filed against the CI item.
 - 21 files changed, all within `tests/at/**`, `package.json`, `bun.lock`,
   `loop/items/AI4DEV-24/**`. No `src/`, no `design/`, no `supabase/`, no root `tsconfig.json`.
+
+---
+
+## 12. Gate 2 confirmation dispositions (R10–R12) — fix cycle 2 of 2
+
+Confirmation at head `7e5858e`: codex **5 CONFIRMED, 1 PARTIAL, 0 REFUTED**; Kimi **6 CONFIRMED,
+0 REFUTED**. Nothing was refuted. Artifacts: `gate2-confirm-codex.txt`, `gate2-confirm-kimi.txt`.
+
+| # | raiser(s) | disposition |
+|---|---|---|
+| R10 — the guard is narrower than its comment | **codex PARTIAL + kimi, independently** | **FIXED.** All 15 alias-protected types asserted by name; drift between probe and test made impossible. |
+| R11 — `AtContext`/`OpenWorld` still augmentable | codex, new observation | **FIXED** under the bounded extra epoch. |
+| R12 — dead `AtHarness`/`HarnessModule` in `_contract.ts` | kimi, new observation | **FIXED.** Zero references confirmed first. |
+
+### R10 — both reviewers were right, and my report was the thing that was wrong
+
+I wrote that the selftest "asserts each contract **by name**". It asserted **three of thirteen**.
+Codex listed the nine omissions; Kimi got to the same place from its own angle — *"the executable
+guard is narrower than its own comment"*. This is the second time in this item that a claim of mine
+was wider than its evidence, and it is worth naming as a pattern rather than an incident: the fix was
+uniform, so I described the guard as uniform without checking that I had made it so.
+
+The guard is now uniform because the conversion was. `ALIAS_PROTECTED` in
+`type-invention.selftest.ts` lists all fifteen types, and **that array is the specification**: the
+probe must carry an augmentation for every name in it, because a name listed without a matching
+attack produces no diagnostic and fails its own test. The two files therefore cannot drift apart
+silently, which is the failure mode R10 exists to prevent.
+
+**Proven, not argued.** Reverting exactly one alias — `Clock` — back to an interface fails exactly
+one test, and that test names it:
+
+```
+× rejects a member merged into Clock
+AssertionError: Clock accepted a merged-in member, so it is an interface again. A suite can now
+declare a member on it and read that member green against a value that never supplies it.
+Tests  1 failed | 112 passed (113)
+```
+
+One subtlety worth recording, because it would otherwise make the guard quietly unreliable:
+TypeScript reports a blocked merge **two** ways — `TS2300 Duplicate identifier 'X'` for a single
+clash, and a single `TS6200` listing every identifier when a file has several at once. Asserting only
+the first form would make each test pass or fail depending on how many attacks happened to share a
+file, which is unrelated to what any of them is testing. `rejects()` accepts either form.
+
+### R11 — the bounded extra epoch
+
+`AtContext` and `OpenWorld` were still interfaces, so the door shut on the harness object stood open
+on the objects every test body is handed. Both are type aliases now. Codex's exact exploit, which
+produced **zero diagnostics** before this cycle, now fails in the main tree:
+
+```
+tests/at/suites/req-016/_wrapprobe.ts(10,22): error TS2339: Property 'auditLog' does not exist on type 'OpenWorld<NotificationsSut, World>'.
+tests/at/suites/req-016/_wrapprobe.ts(10,44): error TS2339: Property 'invented' does not exist on type 'AtContext<NotificationsSut, World>'.
+```
+
+**Stop clause not triggered:** 4 insertions / 4 deletions in `registry.ts` — two declaration lines,
+two closing braces. No `any`, no suppression, no statement moved.
+
+`WorldLike` is deliberately untouched, per R11 and the R7 reasoning it upheld: it constrains
+`OpenWorld.w`, the suite's own asserted claim, which belongs to AI4DEV-31's seam.
+
+### R12 — the orphans
+
+The suite-local `AtHarness` alias and `HarnessModule` interface in `_contract.ts` are gone, together
+with the `SharedHarness` and `Tier` imports that only they used. Zero references confirmed first, as
+R12 required. A comment records why, rather than leaving a silent gap: they were the most inviting
+thing in the file for a future author to reach for, and reaching for them is exactly the move the
+type-check no longer permits.
+
+### RESIDUAL, measured and NOT fixed — for the terminal ruling
+
+Nine exported interfaces remain in `registry.ts`: `ParsedAtId`, `AtTestOptions`, `Registration`,
+`WorldLike`, `HarnessModule`, `OpenOverrides`, `TrackedTeardown`, `TeardownFailure`, `SuiteBinding`.
+I did not convert them, because R11 drew the boundary at "the harness object and the wrapper that
+delivers it" and explicitly warned against letting it become "whatever we noticed last".
+
+They divide cleanly, and the division is why the bounded claim is honest:
+
+- **Inputs a suite writes, not values it reads** — `AtTestOptions`, `OpenOverrides`, `SuiteBinding`.
+  Merging a member here lets a suite *pass* something that is silently ignored. That is a different
+  failure mode from reading `undefined`, and a weaker one.
+- **Tooling values, never handed to a test body** — `ParsedAtId`, `Registration`, `TeardownFailure`,
+  `TrackedTeardown`, `HarnessModule`. Read by the runner and the bijection checker, not by suites.
+- **`WorldLike`** — AI4DEV-31's seam, ruled twice.
+
+**So the claim this item may make, and the one I will hold it to, is bounded: no suite can invent a
+member on the harness, on any capability it exposes, or on the objects a test body is handed.** It
+is not "no interface anywhere in the harness is augmentable". If the terminal ruling wants the wider
+claim, the remaining nine are the same mechanical treatment; I am flagging them rather than either
+doing it unasked or letting the PR body overstate.
+
+### FINAL declared expected state — measured
+
+| | value |
+|---|---|
+| `at:selftest` | **113 tests across 7 files** (96 → 99 → 102 → 113) |
+| typecheck coverage | **30 files**, **0** leaked from `tests/at/node_modules`, 284 in the whole program |
+| files on disk, excl. `node_modules` and the excluded `typeprobes` | **30** — every one covered |
+| `typeprobes/` | 1 file, excluded on purpose, own config EXPECTS failure |
+| **REQ-016 acceptance state** | **unchanged: 8 green / 4 red**, same ids, same reasons, same SHA256 `36D2F653…0041` |
+| files changed vs `origin/main` | 23, all within the allowed paths; no `src/`, `design/`, `supabase/`, root `tsconfig.json`, and **no `*.test.ts`** |
+| `git diff --check` | **exit 0** over code paths; exit 2 over the whole diff, all 423 violations in committed reviewer records (R9) |
