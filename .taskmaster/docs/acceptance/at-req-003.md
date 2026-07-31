@@ -7,9 +7,10 @@ Source: prd-mvp.md REQ-003 (isolated: requirements/req-003.md). Dependencies: RE
 ## A. Intake capture
 
 - **AT-003.01 (P0)** — Given an NGO admin (any tier, including unvetted), When they start a Project Need with a title and free-text problem description, Then a draft is created and both fields persist.
-- **AT-003.02 (P0)** — Given the intake form, When cause tags and urgency are set, Then both persist and render on the draft.
+- **AT-003.02 (P0)** — Given the intake form, When urgency is set, Then it persists and renders on the draft. [d90: cause tags removed from intake capture — no cause field exists here; the taxonomy is machine-generated post-Discovery, REQ-004]
 - **AT-003.03 (P0)** — Given an otherwise-complete draft by an email-verified NGO admin WITH Discovery capacity, missing ONLY the free-text problem description, When submitted, Then submission is blocked — isolating the missing-description gate from the verification/capacity gate. [cx r2: isolated so an unrelated gate can't produce the block]
 - **AT-003.04 (P0)** — Given an NGO member WITHOUT the admin role (or a volunteer/visitor), When it attempts to start a Project Need for its own NGO, Then the attempt is rejected — an NGO admin starts the Need. [cx: reworded — "any NGO incl. unvetted can create a draft" (REQ-005.5) means the gate is the admin *role*, not the NGO; cross-org isolation is AT-REQ-001] [cross: REQ-001]
+- **AT-003.17 (P0)** — Given a freshly created draft (pre-Discovery), When its cause labels are read through any supported UI/API, Then none are shown — a draft legitimately carries zero cause labels until Discovery runs and generates them (REQ-004). [d90]
 
 ## B. Draft autosave
 
@@ -37,7 +38,8 @@ Source: prd-mvp.md REQ-003 (isolated: requirements/req-003.md). Dependencies: RE
 
 | REQ-003 clause | Tests |
 |---|---|
-| Intake captures title, problem description, cause tags, urgency | 01–03 |
+| Intake captures title, problem description, urgency — no cause field at intake | 01–03 |
+| Pre-Discovery draft shows zero cause labels | 17 [d90] |
 | An NGO admin starts the Need (admin role required) | 01, 04 |
 | Optional reference upload available at intake, shown with data-responsibility disclosure | 07, 09, 11 |
 | Disclosure hardened once Tier-2 known | 10 |

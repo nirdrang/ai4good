@@ -1,6 +1,6 @@
 # AT-REQ-002 — NGO Organization Profile & Founder Vetting
 
-Source: prd-mvp.md REQ-002 (+ REQ-004 two-layer money for allowance behavior at its boundary; REQ-016 notification path). Dependencies: REQ-001.
+Source: prd-mvp.md REQ-002 (+ REQ-004 two-layer money for allowance behavior at its boundary; REQ-016 notification path; REQ-004 cause-taxonomy generation reads the profile's mission text as one input — no new REQ-002-owned test, see AT-REQ-004 §D). Dependencies: REQ-001.
 
 ## A. Org profile
 

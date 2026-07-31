@@ -38,13 +38,16 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 
 ## D. Structured scope output
 
-- **AT-004.20 (P0)** — Given a completed Discovery, When the scope is generated, Then it contains ALL of: a summary; user stories with nested acceptance criteria; a suggested stack; a complexity tier (small/medium/large); risk flags; a data-sensitivity tier; a maintainability-fit verdict; a Lovable recommendation with rationale; and the Lovable-vs-Claude-Code build split.
+- **AT-004.20 (P0)** — Given a completed Discovery, When the scope is generated, Then it contains ALL of: a summary; user stories with nested acceptance criteria; a suggested stack; a complexity tier (small/medium/large); risk flags; a data-sensitivity tier; a maintainability-fit verdict; zero to three cause labels; a Lovable recommendation with rationale; and the Lovable-vs-Claude-Code build split. [d90: cause labels added to the enumerated contract — see AT-004.58-60 for generation behavior]
 - **AT-004.21 (P0)** — Given any Discovery output or rendered scope doc, When inspected, Then no project/build-cost estimate appears and the complexity tier is never expressed in money — the mandated ~$25/mo Lovable maintenance figure and per-turn costs are permitted. [cx: narrowed — was "no dollar anywhere", which contradicted the required maintenance figure]
 - **AT-004.22 (P0)** — Given every generated scope, When inspected, Then both parts of the build split are present (which parts are built in Lovable and which are coded through Claude Code) — v1 always emits both.
 - **AT-004.23 [retired — cx: the `discovery_in_progress → scoped` auto-transition is a REQ-005.5 lifecycle obligation → AT-REQ-005.5]**
 - **AT-004.24 (P0)** — Given a scoped project, When the INITIAL automated build backlog is decomposed [cross: REQ-026/036], Then it derives from the passing dev-authored PRD and no task decomposes Discovery output directly (later volunteer-added sub-issues / accepted scope-additions are exempt). [cx r2: scoped to initial decomposition — later sub-issues are allowed by REQ-026]
 - **AT-004.52 (P0)** — Given a completed Discovery, When PRD authoring and the completion scorer run [cross: REQ-036], Then the Discovery scope is the source supplied to PRD authoring AND the reference the scorer compares the PRD against. [cx r2: covers "scope contract = PRD source + scorer gate reference", not just downstream lineage]
 - **AT-004.25 (P0)** — Given rendered scope docs across Tier 0, Tier 1, and Tier 2 fixtures, When read by the NGO, Then each plainly explains its assigned data tier (Tier-2 additionally renders fixtures-only handling), the complexity tier with rationale + start-small advice, maintenance expectations (chat-evolve, ~$25/mo paid directly, NGO owns the code), and links Lovable pricing where recommended. [cx r2: parameterized across all tiers, not Tier-2 only]
+- **AT-004.58 (P0)** — Given a shared vocabulary already containing a cause label (fixture: "food security") and a new Discovery conversation whose problem description clearly matches that same domain, When the scope generates, Then the emitted cause label REUSES the existing "food security" label rather than inventing a synonymous new one (e.g. "hunger relief" or "food banks") — generation normalizes against the existing vocabulary, it does not invent freely per project. [d90]
+- **AT-004.59 (P0)** — Given a Discovery conversation describing a domain with no matching existing label, When the scope generates, Then a new cause label is added to the shared vocabulary — the vocabulary grows only for genuinely new domains; and Given a conversation too thin to support a confident label, When the scope generates, Then zero cause labels are emitted — generation may legitimately produce none, causes are never a required output. [d90]
+- **AT-004.60 (P0)** — Given a scoped project carrying Discovery-generated cause labels, When the NGO removes one, Then it is removed; When the NGO or any other account attempts to type, create, or curate a cause label through any supported UI/API, Then no such control or endpoint exists anywhere in the product — there is no admin taxonomy-management surface either. Correction is deletion-only; invention stays machine-owned. [d90]
 
 ## E. Data-sensitivity tiers
 
@@ -98,8 +101,10 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 | Funding removes the wait only | 09 |
 | Opus, structured conversation → valid scope in bounded turns; persists/resumes | 10, 11 |
 | Reads Discovery-visible files (sentinel-proven); may request more; never non-visible | 16–18 |
-| Structured output (all fields) | 20, 22 |
+| Structured output (all fields, incl. 0-3 cause labels) | 20, 22 |
 | Never project-cost/tier-in-dollars; tier + rationale + start-small; maintenance + pricing link; Tier-2 renders fixtures-only | 21, 25 |
+| Cause-taxonomy generation: reuses existing vocabulary before inventing; grows only for genuinely new domains; may legitimately emit zero | 58, 59 [d90] |
+| Correction is remove-only; no NGO/admin control to invent or curate a cause label anywhere | 60 [d90] |
 | Scope contract — Discovery is PRD source + scorer reference; initial backlog from the gated PRD, never Discovery | 24, 52 |
 | Sensitivity tiers 0/1/2, ask-first, unsure→2, category floor; NGO owns risk (ack per tier rules); triage confirms tier; per-tier doc explanation | 25, 26–31, 50, 51 |
 | Maintainability fit + declines (recorded, no waitlist); sensitivity never a decline reason | 32–36 |

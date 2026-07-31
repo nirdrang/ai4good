@@ -9,6 +9,7 @@ Source: requirements/req-007.md (prd-mvp.md REQ-007 + Promise §9 disclaimer re-
 - **AT-007.01 (P0)** — Given a volunteer whose linked GitHub fixture account holds BOTH public and private activity, When their profile is read, Then top languages, repository count, and contribution summary match the PUBLIC-only expected values — private data never leaks into the import. [cx: public-only boundary added] [cross: REQ-001 owns the signup gate]
 - **AT-007.02 (P0)** — Given a volunteer editing their profile, When they save skills, causes, and availability (hours/week) once without a bio and once with one, Then both saves succeed, the three fields persist, and the supplied bio is returned unchanged — bio is optional, not ignored. [cx: supplied-bio case added]
 - **AT-007.03 (P0)** — Given a volunteer with open candidacies AND closed ones (declined, expired, released, consented) in the fixture, When they open their dashboard, Then it shows their linked GitHub handle and exactly the open candidacies — closed ones are excluded. [cx: exclusion assertion added]
+- **AT-007.31 (P0)** — Given a volunteer editing their profile's causes, When the picker is inspected, Then it offers only the system's existing emergent cause labels — no free-text entry creates a new one — and saving with zero causes selected succeeds: causes are optional, chosen from what exists, never invented by the volunteer. [d90]
 
 ## B. Candidacy
 
@@ -64,6 +65,7 @@ Source: requirements/req-007.md (prd-mvp.md REQ-007 + Promise §9 disclaimer re-
 | GitHub link mandatory at signup (gate) | [cross → AT-REQ-001.04/05]; import content: 01 |
 | PUBLIC stats populate the profile (private data excluded) | 01 |
 | Profile: skills, causes, availability, optional bio (omitted AND supplied) | 02 |
+| Causes: picker-only from the existing emergent set, never typed; optional (zero allowed) | 31 [d90] |
 | Dashboard: linked handle + OPEN candidacies only | 03 |
 | v1 matching concierge-ONLY; organic apply-flow deferred (negative) | 28 [cx] |
 | Project pages public | 29 [cx] [cross → AT-001.24/REQ-010] |
