@@ -37,11 +37,37 @@ escalation = Blocked label + comment (never a status change), merge can never pr
 · `premerge-audit.md` · `merge-decision.md`. Every gate artifact records the head SHA
 it examined.
 
+## Session discipline (founder ruling 2026-07-31, AI4DEV-32)
+
+- **`/dev-start` and `/dev-end` are this loop's DOORS**, not alternative paths: `/dev-start`
+  is phase 0 with a convenient name; `/dev-end` is the merge tail. No other closing path
+  exists; "verification assumed" is dead.
+- **The ORCHESTRATOR session works IN the item worktree** — not the shared main folder.
+  Bindings are per-worktree; orchestrating from a shared folder means another session can
+  overwrite the binding mid-item and every message stamps against the wrong work (observed,
+  not hypothetical).
+- **One session, one item.** A session with a live binding finishes or explicitly abandons
+  it before opening another.
+- **The merge tail ends by CLEARING THE PATH:** `Clear-ItemState` drops the worktree's
+  binding and its PM acknowledgment together, so the next item starts unbound and the stamp
+  hook's PM question fires again exactly once. A stale binding mis-attributes the next
+  item's work.
+- **The stamp hook is the disclaimer:** every prompt shows `WORKING ON - PM: … | DEV: …`.
+  When no PM requirement is bound and the dev has not confirmed working without one, the
+  hook demands the question be put to the dev IMMEDIATELY — no counting. Record the answer
+  with `Set-PmAck`.
+
 ## The loop
 
 0. **Housekeeping — sonnet subagent** (`<ITEM> · housekeeping`): dedicated worktree on
    the item's branch, `/bind bringup <ITEM>` (or the task binding), item → In Progress
-   with a comment. Orchestrator confirms the stamp.
+   with a comment. Then the **ORCHESTRATOR, in this exact order**: `cd` into the new
+   worktree ITSELF — a subagent's working directory dies with the subagent, so a session
+   that only *ordered* a worktree is still sitting in the old one — re-read the binding,
+   **print the WORKING-ON line immediately** so the founder sees the change at the moment
+   it happens, and verify the skill checkout serving `.claude/skills/` is current (a stale
+   checkout serves superseded rules, which has already cost one real under-run). Skipping
+   the `cd` is what let another session overwrite AI4DEV-24's binding mid-item.
 1. **Read the authorities — orchestrator, main session**: the Linear item, the ratified
    spec sections, the code. The item's done-criterion is supreme in scope disputes.
 2. **Write the brief — orchestrator**: every decision pre-made; work items numbered;
@@ -104,6 +130,10 @@ it examined.
      against main; a regression → orchestrator may authorize a revert PR through this
      same loop (scoped, expedited); item reopens via label + comment; founder hears in
      the report.
+   - **Clear the path — orchestrator** (founder ruling 2026-07-31): `Clear-ItemState`
+     drops this worktree's binding and PM acknowledgment; remove the item worktree once
+     nothing needs it. One session, one item — the next one starts clean and the PM
+     question fires again exactly once.
 9. **Report — orchestrator, never delegated**: plain sentences (CLAUDE.md rule): what
    went green, what stayed red and why, what each gate found and how it was ruled,
    what was escalated, what remains unverified.
@@ -156,10 +186,27 @@ it examined.
     `gpt-5.6-sol` @ `high` pin.
 - Confirmation passes use the SAME model as the gate that raised the finding — a
   finding is confirmed by the reviewer that raised it, which means by its model too.
+- **Confirmation EFFORT is `high`, not `max`** (AI4DEV-24 retrospective). Reviews are
+  discovery — open-ended, rewarded by deep reasoning — and run at `max`. Confirmation is
+  bounded verification of a named claim against a scoped diff, and `high` proved
+  sufficient there, finding a genuine refutation. EXCEPTION: a confirmation asked to
+  judge a CLAIM rather than a fix is doing review work under a confirmation's name and
+  gets `max`. (Evidence caveat, kept honest: the parallel `max` run was killed before
+  producing output, so `high` is proven sufficient, not proven equal.)
+- **A claim names the mechanism it closed and the test that proves it — never the class
+  of defect it belongs to** (AI4DEV-24, where three claims were refuted and not one was
+  refuted on the code; every refutation was of a sentence describing the code). The
+  item's claim is an artifact to be attacked like any other; a narrow true claim beats a
+  broad defensible-sounding one.
 - Subagent labels: every spawn `<ITEM> · <role> · <phase>`; an unlabeled spawn is a
   process violation; resumes never rename.
 - Every advisory ruling appended to `ledger.jsonl` AT RULING TIME; after context loss,
   rehydrate from the ledger before continuing; the merge-ruling audit reads the ledger.
+- **Commit trailers attribute AUTHORSHIP: authored commits carry them; auto-generated
+  merge commits are exempt** (AI4DEV-24 audit ruling — the rule's old wording flagged a
+  machine-written merge commit as a violation).
+- CI note: `git diff --check` must exclude `loop/items/**` — committed reviewer records
+  are verbatim artifacts, never doctored to make a whitespace check pass.
 - PowerShell tool, never Bash. bun, never npm/pnpm. Loop tier database-free.
 
 ## INTERIM MODE — autonomous merge is OFF until the hardening lands

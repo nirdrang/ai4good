@@ -62,6 +62,40 @@ function Clear-Binding {
     if (Test-Path $p) { Remove-Item $p -Force }
 }
 
+# --- PM acknowledgment (founder ruling 2026-07-31, replaces the unattributed streak) ---
+# When a worktree runs with no PM requirement bound, the stamp hook demands the question be put
+# to the dev IMMEDIATELY. The dev's answer is recorded here, per worktree, so the question is
+# asked once per item rather than once per message. Cleared with the item (Clear-ItemState), so
+# the next item re-asks. Deliberately not a counter: the streak design proved that any
+# threshold-plus-silencer mechanism ends up silenced by its own escape hatch.
+
+function Get-PmAckPath { Join-Path (Get-StateDir) ('bindings\' + (Get-WorktreeId) + '.pmack') }
+
+function Get-PmAck {
+    $p = Get-PmAckPath
+    if (-not (Test-Path $p)) { return $null }
+    try { return (Get-Content $p -Raw | ConvertFrom-Json) } catch { return $null }
+}
+
+function Set-PmAck([string]$note) {
+    if (-not $note) { $note = 'confirmed without a PM item' }
+    $ack = @{ date = (Get-Date).ToString('yyyy-MM-dd'); note = $note }
+    [System.IO.File]::WriteAllText((Get-PmAckPath), ($ack | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Clear-PmAck {
+    $p = Get-PmAckPath
+    if (Test-Path $p) { Remove-Item $p -Force }
+}
+
+# One session holds ONE item; when it merges, the path is cleared for the next (founder ruling
+# 2026-07-31). Called by the item loop's merge tail: drops the binding AND the PM ack together,
+# so the next item in this worktree starts unbound and the PM question fires again exactly once.
+function Clear-ItemState {
+    Clear-Binding
+    Clear-PmAck
+}
+
 # Write a binding INTO a specific worktree (used by /pm-next when it creates a dedicated worktree
 # and must place the binding in the new folder, not the orchestrating one).
 function Write-BindingFor([string]$path, [hashtable]$b) {

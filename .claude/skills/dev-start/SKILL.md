@@ -1,49 +1,43 @@
 ---
 name: dev-start
-description: Begin implementing one dev-tree leaf of the currently bound requirement — the dev-level open (the equivalent of /pm-next, one tier down). Ergonomic packaging only: branch + implement-brief + In Progress. Never creates a binding (leaves ride the requirement's) and never touches the PM item.
+description: Open one board item for work — the front door of /item-loop. Creates the dedicated worktree, binds it, moves the item to In Progress, then hands over to the loop. Ergonomic packaging, not an authority, and not an alternative path.
 ---
 
-# /dev-start [leaf] — begin a leaf (DEV board, inside the bound requirement)
+# /dev-start [item] — open an item (the loop's front door)
 
-**Verb tiers:** requirement = `/pm-next`, `/pm-done`; leaf = `/dev-start`, `/dev-end`.
-**Leaf verbs are ERGONOMIC packaging for the inner coding loop — NOT authorities.** They keep
-the two-tree invariants intact: attribution stays requirement-level (a leaf rides the
-requirement's binding — this verb writes NO binding), the PM item's only movers remain
-`/pm-next` and `/pm-done`, and because the dev tree is revert-exempt these dev-board moves are
-legitimate, not status theatre. A disabled skill loses nothing — every step below is doable by
-hand.
+**Rewritten 2026-07-31 (founder ruling, AI4DEV-32).** One lifecycle exists: `/item-loop`.
+This verb is its HOUSEKEEPING PHASE with a convenient name — it opens an item and hands over.
+It decides nothing the loop does not decide, and there is no work it starts that the loop
+does not then govern. The old assumption that a leaf sits under an already-pulled PM
+requirement is gone: this door works identically for a PM-requirement leaf (bind `task` via
+the pull), a foundation item (bind `bringup`), or exploration.
 
 ## Ritual
 
-1. **Require a pulled requirement.** `Read-Binding` must name a `task` requirement in THIS
-   worktree. None → STOP: "pull the requirement first (`/pm-next`); leaves belong to a pulled
-   requirement." No new binding is written here — the leaf inherits the requirement's.
-2. **Pick the leaf.** Named, or propose the next UNBLOCKED leaf of the bound requirement — all
-   its manifest `blocked-by` leaves are Done on the dev board (use `materialize.ps1`'s dep graph
-   + `list_issues` states). Refuse a blocked leaf, naming its incomplete blockers. Refuse a leaf
-   already In Progress in another worktree (quick freshness read).
-3. **Branch.** Check out the leaf's Linear `gitBranchName` — `git switch -c <branch>` off the
-   requirement's base (or switch to it if it exists). The branch is the link that will carry the
-   eventual PR to this leaf; the dev-tree state rides it.
-4. **Implement brief.** Print the goal: the leaf's summary; its verify set (the AT ids); the
-   actual Given/When/Then text for those ids from `at-req-0NN.md`; the loop-tier verify command
-   (`bun run at:verify req-0NN --tier loop`); and any cross-manifest fixtures the manifest flags.
-   Implement those ids test-first. Tests are written against the harness driver interface only,
-   never against fixture internals, so the wiring leaf can later re-run them against real screens.
-   A test whose assertions observe the UI carries the surface marker at registration.
-   Translation follows the **suite-authoring rules** in `loop/bringup/AI4DEV-3-at-harness.md`
-   (capture-once/assert-many over frozen evidence; generic self-checks belong to the harness,
-   domain controls stay in the suite; fresh world only when state demands it; one registration
-   per P0 id with the full matrix looped inside).
-5. **Mark In Progress.** `save_issue` the leaf → assignee me, state In Progress (dev board,
-   revert-exempt; truthful because work starts now). NO PM change. NO attestation. NO stamp
-   change — messages keep stamping the requirement.
-6. **Report.** "Implementing <leaf> on <branch>; test-first: <verify set>; blockers clear."
-   End with the ready-to-paste session rename (the scheme lives in `/pm-next`'s "Naming a
-   session"): `/rename REQ-0NN <leaf> · <short leaf title>`. The agent CANNOT execute `/rename`
-   — it is a user-typed built-in with no tool and no backing file — so print it, never claim it.
+1. **Verify the skill checkout is current** — `git fetch` + confirm the worktree serving
+   `.claude/skills/` is at `origin/main`. A stale checkout serves superseded rules; it has
+   happened and it cost a real under-run.
+2. **One session, one item.** If this session already holds an item (a live binding in its
+   worktree), STOP — finish or explicitly abandon it first. The merge tail's clear-path step
+   (`Clear-ItemState`) is what frees a session for the next item.
+3. **Dedicated worktree, always** — `git worktree add ../ai4good-<slug> -b <branch> origin/main`.
+   Never the shared main folder: bindings are per-worktree and a shared folder means sessions
+   overwrite each other's (observed, not hypothetical). **Then `cd` into it — the session
+   itself, not just the executor.** If a subagent created the worktree, its working directory
+   died with it; the orchestrator is still in the old folder until it moves. **Print the
+   WORKING-ON line immediately after the move**, so the founder sees the change when it
+   happens rather than a reply later.
+4. **Bind it** — `/bind bringup AI4DEV-NN` for foundation work, or the task binding if under a
+   pulled PM requirement. The stamp hook then shows the PM/DEV disclaimer on every prompt; if no
+   PM item applies, the hook will demand the PM question be put to the dev once — answer it and
+   record with `Set-PmAck`.
+5. **Board:** item → In Progress with a comment naming the slice (plain Linear MCP call — the
+   dev board is working space, no ceremony).
+6. **Hand over:** invoke `/item-loop AI4DEV-NN`. From here the loop governs everything —
+   brief, gates, verification, merge tail. This verb is done.
 
 ## Never
-- Never without a bound requirement (step 1). Never write a binding — leaves ride the
-  requirement's (attribution stays requirement-level, d82). Never touch the PM item. Never start
-  a blocked leaf (step 2).
+- Never start work in the shared main folder, and never orchestrate from it.
+- Never open a second item in a session holding a live one.
+- Never treat this verb as an authority: it moves a dev-board item to In Progress and nothing
+  else. PM-tree status is `/pm-next`/`/pm-done` territory, untouched here.

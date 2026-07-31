@@ -1,34 +1,67 @@
-# stamp-hook.ps1 - UserPromptSubmit hook: append the attribution stamp to every message.
-# ADVISORY context only (the way-of-work's client-side attribution; no token counting).
-# Also counts the CONSECUTIVE-UNATTRIBUTED streak per worktree (a file the model cannot
-# miscount) and escalates the stamp at thresholds; CLAUDE.md tells the agent what the
-# escalation obliges it to do. Attribution stays advisory - the streak never blocks anything.
+# stamp-hook.ps1 - UserPromptSubmit hook: the WORKING-ON disclaimer + attribution stamp.
+#
+# Founder ruling 2026-07-31, replacing the unattributed-streak mechanism: before EVERY prompt
+# the agent (and the founder reading the transcript) sees which PM requirement and which dev
+# item this worktree is working on. When no PM requirement is bound, the hook demands the
+# question be put to the dev IMMEDIATELY - no counting, no thresholds. The streak design
+# failed by construction: any binding silenced it, so the founder-created `bringup` bucket
+# meant weeks of foundation work could run without the PM question ever being asked.
+#
+# The demand stops once the dev has ANSWERED - a per-worktree acknowledgment recorded by
+# Set-PmAck (work-lib.ps1) - because a question re-asked every message is noise, and noise
+# gets ignored. The ack is cleared with the binding when an item merges (Clear-ItemState),
+# so every NEW item re-asks exactly once. No counter exists anywhere.
+#
+# Two slots, two sources: PM comes from the BINDING (only /pm-next writes an AI4PM id);
+# DEV comes from the BRANCH (Linear's branch convention carries the id; dev work needs no
+# binding of its own), with the binding's AI4DEV id as fallback for a worktree on main.
+#
 # Must be FAST and never fail the prompt: any error degrades to the unattributed stamp.
 $ErrorActionPreference = 'SilentlyContinue'
-$stamp = '<ai4good-attribution wave="none" project="none" bucket="unattributed"/>'
+$out = @('WORKING ON - PM: none | DEV: none | bucket: unattributed')
+$out += '<ai4good-attribution pm="-" dev="-" bucket="unattributed" wave="none"/>'
 try {
     . (Join-Path $PSScriptRoot 'work-lib.ps1')
     $b = Read-Binding
-    $streakFile = Join-Path (Get-StateDir) ('bindings\' + (Get-WorktreeId) + '.streak')
+
+    $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { '.' }
+    $branch = (& git -C $base rev-parse --abbrev-ref HEAD 2>$null)
+    if ($branch) { $branch = $branch.Trim() } else { $branch = '?' }
+
+    $allow = '[^A-Za-z0-9.\-]'
+    $bucket = 'unattributed'
+    $wave = 'none'
     if ($b -and $b.bucket) {
-        if (Test-Path $streakFile) { Remove-Item $streakFile -Force }
-        $allow = '[^A-Za-z0-9.\-]'
-        $wave = ([string]$b.wave) -replace $allow, ''
-        $proj = ([string]$b.project) -replace $allow, ''
         $bucket = ([string]$b.bucket) -replace $allow, ''
-        if (-not $wave) { $wave = 'none' }
-        if (-not $proj) { $proj = 'none' }
+        $wave = ([string]$b.wave) -replace $allow, ''
         if (-not $bucket) { $bucket = 'unattributed' }
-        $stamp = ('<ai4good-attribution wave="{0}" project="{1}" bucket="{2}"/>' -f $wave, $proj, $bucket)
-    } else {
-        $n = 0
-        if (Test-Path $streakFile) { $n = [int](Get-Content $streakFile -Raw) }
-        $n++
-        [System.IO.File]::WriteAllText($streakFile, [string]$n)
-        $stamp = ('<ai4good-attribution wave="none" project="none" bucket="unattributed" streak="{0}"/>' -f $n)
-        if ($n -ge 5) {
-            $stamp += "`n" + ('ATTRIBUTION ALERT: {0} consecutive messages in this worktree are unattributed. Per CLAUDE.md, before answering, put the binding question to the user: /pm-next to pull a requirement, /bind AI4PM-NN to adopt an existing pull, or /bind exploration for untracked work. Work is never blocked - but the question must be asked.' -f $n)
-        }
+        if (-not $wave) { $wave = 'none' }
+    }
+
+    # PM slot: only a requirement pull writes an AI4PM id. Everything else is honestly none.
+    $pm = 'none'
+    if ($b -and ([string]$b.pmId) -match '^AI4PM-\d+$') { $pm = $Matches[0] }
+
+    # DEV slot: the branch is the authority; the binding's AI4DEV id stands in on main.
+    $dev = 'none'
+    if ($branch -match '(?i)ai4dev-(\d+)') { $dev = 'AI4DEV-' + $Matches[1] }
+    elseif ($b -and ([string]$b.pmId) -match '^AI4DEV-\d+$') { $dev = $Matches[0] }
+
+    $ack = Get-PmAck
+    $pmShown = $pm
+    if ($pm -eq 'none' -and $ack) { $pmShown = ('none - confirmed by dev {0} ({1})' -f $ack.date, $ack.note) }
+
+    $out = @()
+    $out += ('WORKING ON - PM: {0} | DEV: {1} | bucket: {2} | branch: {3}' -f $pmShown, $dev, $bucket, $branch)
+    $out += ('<ai4good-attribution pm="{0}" dev="{1}" bucket="{2}" wave="{3}"/>' -f $pm, $dev, $bucket, $wave)
+
+    if ($pm -eq 'none' -and -not $ack) {
+        $out += ('PM CHECK: no PM requirement is bound in this worktree and the dev has not confirmed ' +
+            'working without one. BEFORE answering, ask the dev: should this work run under a PM item ' +
+            '(/pm-next to pull one, /bind AI4PM-NN to adopt a pull), or do they confirm proceeding ' +
+            'without one (bring-up / exploration)? On their answer, record it with ' +
+            'Set-PmAck "<their answer in a few words>" (loop/work/work-lib.ps1). ' +
+            'Work is never blocked - but the question is asked NOW, not after a count.')
     }
 } catch { }
-Write-Output $stamp
+$out | ForEach-Object { Write-Output $_ }
