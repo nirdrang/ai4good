@@ -23,7 +23,7 @@ bounded, every early exit with a written reason.
 |---|---|---|
 | ORCHESTRATOR (this session, Fable) | brief, advice, two checkpoints (amended plan; merge authorization), rulings, report. Writes no implementation code. | accumulates everything — one judgment context per item; advisor = this session, NEVER a spawned agent |
 | EXECUTOR (Opus subagent) | plans, implements, triages critiques first-hand, fixes. Never pushes, never touches the PR, never decides judgment calls. | one instance per item, spawned once, resumed never respawned |
-| REVIEWERS (codex; + Kimi at Gate 2) | adversarial critique + confirmation of own findings | stateless — context rebuilt from files each invocation; verdicts replayable |
+| REVIEWERS (codex — terra at Gate 1, luna at Gate 2; + Kimi at Gate 2) | adversarial critique + confirmation of own findings | stateless — context rebuilt from files each invocation; verdicts replayable |
 | SONNET subagents | housekeeping, courier runs, pre-merge audit + independent re-run, publish, merge execution, post-merge check | disposable |
 
 FOUNDER sits above, reached only through the escalation matrix. Pending founder
@@ -50,8 +50,8 @@ it examined.
 3. **Plan — executor** (`<ITEM> · executor · plan`, spawned once): reads the brief,
    writes `plan.md`, STOPS. The stop is the delivery; waiting is passive (transcript
    persists; the reply is the wake-up).
-4. **Gate 1 — codex refutes the plan** (courier: main session or sonnet; prompt =
-   role + item + spec + brief + plan): one round. Critique returns to the EXECUTOR
+4. **Gate 1 — codex refutes the plan** — `gpt-5.6-terra`, effort `xhigh` (courier: main
+   session or sonnet; prompt = role + item + spec + brief + plan): one round. Critique returns to the EXECUTOR
    (first reader), who folds what the brief already decides, escalates judgment
    findings to the orchestrator (a message to main — never a spawned advisor), records
    dispositions in `plan.md`. **Checkpoint (orchestrator, hard):** read the amended
@@ -59,7 +59,7 @@ it examined.
    brief, advice was folded as advised, the plan still meets the done-criterion.
    Approval wakes the executor. The approved amended plan is the implementation contract.
 5. **Implement — executor** (`↻ same instance · implement`): one commit per work item.
-6. **Gate 2 — panel: codex + Kimi in parallel** (courier builds one prompt from brief +
+6. **Gate 2 — panel: codex `gpt-5.6-luna` @ `xhigh` + Kimi, in parallel** (courier builds one prompt from brief +
    amended plan + diff @ head SHA; separate output files; courier freezes
    `finding-manifest.json`: stable ids, raiser, risk class, critique hashes).
    Both critiques return to the executor, who triages:
@@ -133,8 +133,16 @@ it examined.
 
 ## Standing pins
 
-- Codex: `gpt-5.6-sol`, effort `high` (founder 2026-07-30). Kimi: pin CLI/model/effort
-  on first use, same statelessness + prompt-file discipline.
+- **Reviewer model pins (founder 2026-07-31): a different variant per gate, both at
+  maximum effort** — Gate 1 `-c model=gpt-5.6-terra -c model_reasoning_effort=xhigh`;
+  Gate 2 `-c model=gpt-5.6-luna -c model_reasoning_effort=xhigh`. (`xhigh` IS maximum;
+  the CLI has no `max` value. Plain `gpt-5.6` is invalid — the variant suffix is
+  required. Both IDs validated 2026-07-31. Supersedes the earlier `gpt-5.6-sol` @
+  `high` pin for these gates; different families per gate widen the blind-spot
+  coverage the panel exists for.) Kimi is Gate 2's second reviewer: pin its
+  CLI/model/effort on first use, same statelessness + prompt-file discipline.
+- Confirmation passes use the SAME model as the gate that raised the finding — a
+  finding is confirmed by the reviewer that raised it, which means by its model too.
 - Subagent labels: every spawn `<ITEM> · <role> · <phase>`; an unlabeled spawn is a
   process violation; resumes never rename.
 - Every advisory ruling appended to `ledger.jsonl` AT RULING TIME; after context loss,
