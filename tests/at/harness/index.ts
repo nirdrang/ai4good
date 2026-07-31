@@ -5,6 +5,7 @@ import { pendingCapability, realCapability, standInCapability, stubbedCapability
 import { REPO_ROOT } from './check.ts';
 import { ControlledClock } from './clock.ts';
 import { createConfigRegistry, type ConfigRegistry } from './config.ts';
+import type { AtHarness, Faults, Sentinels, StaticScan, Vendors } from './contracts.ts';
 import { createFixtureSeed, FixtureWorldStore } from './fixtures.ts';
 import type { ConfigOverrides, Tier } from './registry.ts';
 
@@ -52,7 +53,19 @@ async function loadAdapter(
   return module.createFixtureAdapter({ clock, worlds, config });
 }
 
-export async function createHarness(opts: { requirement: string; tier: Tier; configOverrides?: ConfigOverrides }) {
+/**
+ * The return type is annotated, not inferred, and that annotation is load-bearing: it is what makes
+ * the shared contract a checked promise rather than a hopeful one. Inferred, this factory produced
+ * `object` for every pending seam — `pendingCapability<T extends object>()` has no inference site,
+ * so `T` fell back to its constraint — and the result was not assignable to `AtHarness` at all.
+ * With the annotation, dropping or misnaming a contract member is a compile error here, where it is
+ * written, instead of a surprise in whichever suite reaches for it.
+ */
+export async function createHarness(opts: {
+  requirement: string;
+  tier: Tier;
+  configOverrides?: ConfigOverrides;
+}): Promise<AtHarness> {
   const clock = standInCapability('clock.controlled', new ControlledClock());
   const worlds = new FixtureWorldStore(createFixtureSeed());
   // REAL, not a stand-in: `atconfig.ts` IS the registry of pinned values, so what a test reads
@@ -73,10 +86,10 @@ export async function createHarness(opts: { requirement: string; tier: Tier; con
     clock: clock.value,
     fixtures: fixtures.value,
     sut: adapter.sut,
-    sentinels: pendingCapability('H3 sentinels'),
-    faults: pendingCapability('H3 fault injection and process restart'),
-    static: pendingCapability('H3 static provider scan', 'H3 sentinels', 'H5 email provider simulator'),
-    vendors: pendingCapability('H5 email provider simulator'),
+    sentinels: pendingCapability<Sentinels>('H3 sentinels'),
+    faults: pendingCapability<Faults>('H3 fault injection and process restart'),
+    static: pendingCapability<StaticScan>('H3 static provider scan', 'H3 sentinels', 'H5 email provider simulator'),
+    vendors: pendingCapability<Vendors>('H5 email provider simulator'),
     config: config.value,
     teardown: async () => {
       if (tornDown) return;

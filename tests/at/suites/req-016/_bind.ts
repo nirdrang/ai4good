@@ -13,11 +13,15 @@
 
 import { bindSuite } from '../../harness/registry.ts';
 import type { NotificationsSut, World } from './_contract.ts';
+import type { Channel } from './taxonomy.ts';
 
 export { AtPending, TIER, TIERS } from '../../harness/registry.ts';
 export type { AtContext, OpenWorld, PendingPhase } from '../../harness/registry.ts';
 
-export const atTest = bindSuite<NotificationsSut, World>({
+// The suite names its system under test, its fixture world and its channel names. It deliberately
+// cannot name a harness TYPE: that shape comes from the one shared contract the harness factory is
+// statically checked to produce, so a suite can never declare a seam nothing supplies.
+export const atTest = bindSuite<NotificationsSut, World, Channel>({
   sut: 'notifications',
   sutMissingDetail:
     `REQ-016's notification emitter is not implemented — harness.sut.notifications is absent ` +
