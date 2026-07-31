@@ -44,3 +44,29 @@ declare module '../harness/contracts.ts' {
     auditLog?: string[];
   }
 }
+
+/* ------------------------------------------- ATTACK 3: declaration merging, one level down */
+
+/**
+ * The same door, at the capability contracts `AtHarness` REFERENCES rather than at `AtHarness`
+ * itself. Closing only the top type left this open, and it was WORSE here: `sentinels`, `faults`,
+ * `static` and `vendors` are produced by `pendingCapability<T>()`, which casts a Proxy `as T`, so
+ * even a REQUIRED invented member did not break `index.ts` — where the same member added to
+ * `AtHarness` fails with TS2741. Both an optional and a required member are kept below, because it
+ * was the required one that proved this is not merely a repeat of attack 2.
+ * Dead because every capability contract is a type alias too.
+ */
+declare module '../harness/contracts.ts' {
+  interface Vendors {
+    auditLog?: string[];
+  }
+  interface Faults {
+    inventedRequired: string;
+  }
+}
+
+declare module '../harness/config.ts' {
+  interface ConfigRegistry {
+    inventedKnob?: number;
+  }
+}

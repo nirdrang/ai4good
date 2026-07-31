@@ -26,14 +26,14 @@ import type { Tier } from './registry.ts';
 /* ---------------------------------------------------------------- H2 fixtures + clock */
 
 /** The minimum every fixture world owes the harness: it can be given back. */
-export interface WorldSeam {
+export type WorldSeam = {
   teardown(): Promise<void>;
-}
+};
 
 /** A suite parameterizes this with its own world type; the seam is the same for all of them. */
-export interface Fixtures<W extends WorldSeam = WorldSeam> {
+export type Fixtures<W extends WorldSeam = WorldSeam> = {
   world(name: string): Promise<W>;
-}
+};
 
 /**
  * Time, under the test's control — funding's 7-day expiry, the UTC daily credit reset, blocker
@@ -47,33 +47,33 @@ export interface Fixtures<W extends WorldSeam = WorldSeam> {
  * is a real capability, but it needs a product process to sample, so it belongs to a later
  * integration-tier slice, not to a self-report.
  */
-export interface Clock {
+export type Clock = {
   freezeAt(iso: string): Promise<void>;
   advance(ms: number): Promise<void>;
-}
+};
 
 /* ------------------------------------------------- H3 sentinels + faults + static scan */
 
-export interface Sentinel {
+export type Sentinel = {
   id: string;
   value: string;
-}
+};
 
-export interface Sentinels {
+export type Sentinels = {
   plant(kind: string, value: string): Promise<Sentinel>;
   /** scan a named store/scope for planted sentinels (presence AND absence) */
   scan(scope: string): Promise<Sentinel[]>;
-}
+};
 
-export interface FaultHandle {
+export type FaultHandle = {
   /** the point this handle is armed at — echoed back so a silent re-point is visible */
   point: string;
   /** how many times execution actually REACHED the armed point (0 = the fault never fired) */
   triggerCount(): Promise<number>;
   clear(): Promise<void>;
-}
+};
 
-export interface Faults {
+export type Faults = {
   /** the fault points the product actually exposes — arming an unknown point must not be a no-op */
   points(): Promise<string[]>;
   /**
@@ -86,17 +86,17 @@ export interface Faults {
   processRestart(): Promise<void>;
   /** identity of the delivery process; MUST change across processRestart() */
   processEpoch(): Promise<string>;
-}
+};
 
 /**
  * Out-of-band evidence: static facts about the product source, not self-report from the SUT.
  * AT-016.01's sole-writer claim is unfalsifiable if the only witnesses are `senders()` and
  * `Delivery.emittedBy` — both produced by the component under test.
  */
-export interface StaticScan {
+export type StaticScan = {
   /** components whose SOURCE imports a comms-provider client or reads a provider credential */
   providerClientImporters(): Promise<string[]>;
-}
+};
 
 /* ------------------------------------------------------------------- H5 vendor sims */
 
@@ -106,14 +106,14 @@ export type ProviderOutcome = 'accepted' | 'rejected' | 'ack_lost';
  * Channels are named by the requirement that owns them (REQ-016's are 'email' and 'inapp'), so
  * the vendor types are generic over the channel name rather than hard-coding one suite's set.
  */
-export interface ProviderAttempt<Channel extends string = string> {
+export type ProviderAttempt<Channel extends string = string> = {
   recipientId: string;
   eventId: string;
   channel: Channel;
   outcome: ProviderOutcome;
-}
+};
 
-export interface EmailProviderSim<Channel extends string = string> {
+export type EmailProviderSim<Channel extends string = string> = {
   /** next N sends are rejected / never accepted (AT-016.11) */
   rejectNext(count: number): void;
   /** next N sends are ACCEPTED by the provider but the ack is lost (AT-016.11) */
@@ -127,11 +127,11 @@ export interface EmailProviderSim<Channel extends string = string> {
    * "no path around the emitter").
    */
   attempts(): ProviderAttempt<Channel>[];
-}
+};
 
-export interface Vendors<Channel extends string = string> {
+export type Vendors<Channel extends string = string> = {
   email: EmailProviderSim<Channel>;
-}
+};
 
 /* ----------------------------------------------------------------------- the harness */
 
@@ -148,12 +148,16 @@ export interface Vendors<Channel extends string = string> {
  * cannot be merged into, so this door is shut, and `tests/at/typeprobes/` keeps the attack on file
  * as an executable negative test.
  *
- * KNOWN RESIDUAL, measured and filed — the capability interfaces this alias REFERENCES are still
- * interfaces, so `declare module { interface Vendors { … } }` reaches the same lie one level down.
- * It is worse there than it was here: `sentinels`, `faults`, `static` and `vendors` are produced by
- * `pendingCapability<T>()`, which casts a Proxy `as T`, so even a REQUIRED invented member does not
- * break `index.ts` the way it would break this alias. Closing it means the same alias treatment for
- * the capability types; that is out of AI4DEV-24's scope and is escalated, not silently left.
+ * EVERY CAPABILITY CONTRACT IN THIS FILE IS AN ALIAS FOR THE SAME REASON. Closing only the type
+ * below left the identical attack open one level down, and worse there: `sentinels`, `faults`,
+ * `static` and `vendors` come from `pendingCapability<T>()`, which casts a Proxy `as T`, so a
+ * merged-in member did not break `index.ts` even when it was REQUIRED — where the same member added
+ * to this type fails with TS2741. `ConfigRegistry` in `config.ts` is an alias for the same reason.
+ *
+ * So the rule for this file is: harness contracts are type aliases, never interfaces. Everything
+ * reachable from the harness object a suite holds obeys it. (`WorldLike` in `registry.ts`
+ * deliberately does not: it constrains `OpenWorld.w`, which is the suite's own asserted claim and
+ * belongs to the seam AI4DEV-31 owns, not to the harness object.)
  */
 export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string> = {
   tier: Tier;

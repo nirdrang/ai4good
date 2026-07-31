@@ -47,10 +47,24 @@ describe('harness invention is rejected by the compiler', () => {
     expect(probe.output, 'the intersection attack was not rejected by arity').toContain('TS2558');
   });
 
-  it('rejects a harness member added by declaration merging', () => {
+  it('rejects a member added to AtHarness by declaration merging', () => {
     // An OPTIONAL member added to an interface leaves the factory's return annotation satisfied, so
     // nothing goes red at the producer. The defence is that `AtHarness` is a type alias, which
     // cannot be merged into.
-    expect(probe.output, 'the declaration-merging attack was not rejected').toContain('TS2300');
+    expect(probe.output, 'the declaration-merging attack on AtHarness was not rejected').toContain(
+      "Duplicate identifier 'AtHarness'",
+    );
   });
+
+  // The same attack ONE LEVEL DOWN, which closing `AtHarness` alone did not stop. It is worse here:
+  // `sentinels`, `faults`, `static` and `vendors` come from `pendingCapability<T>()`, which casts a
+  // Proxy `as T`, so even a REQUIRED invented member survived the producer's annotation. Each
+  // contract is asserted by name, so re-opening any ONE of them fails a test that says which.
+  for (const contract of ['Vendors', 'Faults', 'ConfigRegistry']) {
+    it(`rejects a member added to the ${contract} capability contract`, () => {
+      expect(probe.output, `${contract} is mergeable again — the invention door is open one level down`).toContain(
+        `Duplicate identifier '${contract}'`,
+      );
+    });
+  }
 });
