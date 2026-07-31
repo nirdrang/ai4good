@@ -20,6 +20,8 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 
+import type { AtHarness } from './contracts.ts';
+
 /* ------------------------------------------------------------------------ the AT id grammar */
 
 /**
@@ -98,24 +100,30 @@ const tierError = (requirement: string) =>
 /** Canonical harness barrel produced by AI4DEV-3 H2-H6, resolved relative to THIS file. */
 export const HARNESS_MODULE = './index.ts';
 
-/** The minimum shape the registry itself touches; a suite supplies its own richer contract. */
-export interface HarnessLike {
-  tier: Tier;
-  stubbedCapabilities(): Promise<string[]>;
-  fixtures: { world(name: string): Promise<WorldLike> };
-  sut: Record<string, unknown>;
+/**
+ * The minimum a fixture world owes the harness.
+ *
+ * A TYPE ALIAS, like every other contract a test body can read from. `open()` hands `w` to the body,
+ * so while this was an interface a suite could merge a member into it and read that member green off
+ * an object that never supplies it — the same defect closed fifteen times elsewhere in this seam,
+ * left open here by an exclusion that contradicted its own criterion.
+ *
+ * The exploit needed `W` at its DEFAULT, which is what made it easy to miss: a suite that pins its
+ * own world type (as REQ-016 does) resolves `w` to that type and never sees the merged member. Any
+ * suite that does not pin one — and `atTest` is exported with `W = WorldLike` defaulted — did.
+ *
+ * That the suite's chosen `W` is itself an unverified claim is a separate defect and remains
+ * AI4DEV-31's. This is only about whether the door is open at all.
+ */
+export type WorldLike = {
   teardown(): Promise<void>;
-}
-
-export interface WorldLike {
-  teardown(): Promise<void>;
-}
+};
 
 /** Re-tuned pinned values for ONE world. Keys are the at-config registry's dotted keys. */
 export type ConfigOverrides = Record<string, number | boolean>;
 
 export interface HarnessModule {
-  createHarness(opts: { requirement: string; tier: Tier; configOverrides?: ConfigOverrides }): Promise<HarnessLike>;
+  createHarness(opts: { requirement: string; tier: Tier; configOverrides?: ConfigOverrides }): Promise<AtHarness>;
 }
 
 let harnessModule: HarnessModule | null = null;
@@ -149,12 +157,27 @@ export class AtPending extends Error {
 
 /* --------------------------------------------------------------------------- the test context */
 
-export interface OpenWorld<Sut = unknown, W = WorldLike> {
-  h: HarnessLike;
+export type OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
+  /**
+   * The harness, at EXACTLY the type `createHarness()` is statically checked to produce — not a
+   * suite-chosen type, and not the suite's type arguments pushed back into it.
+   *
+   * Two doors are shut here, and both were opened by earlier drafts of this file. A free type
+   * parameter (`H extends HarnessLike`) let a suite declare seams the factory never supplies, since
+   * an intersection is a subtype and satisfies the constraint. Re-labelling the produced harness
+   * with the suite's own world and channel types was the same defect wearing a smaller hat: the
+   * factory proves `AtHarness<…, WorldSeam, string>`, so a suite binding channel `'sms'` would have
+   * been told `vendors.email.attempts()` yields `'sms'` on the strength of nothing at all.
+   *
+   * `w` and `sut` below are still the suite's own claims, asserted rather than verified. That is the
+   * pre-existing seam AI4DEV-31 owns; it is named here so nobody mistakes this field's honesty for
+   * the whole object's.
+   */
+  h: AtHarness;
   w: W;
   /** the requirement's system under test, guaranteed non-null once open() returns */
   sut: Sut;
-}
+};
 
 export interface OpenOverrides {
   /**
@@ -167,13 +190,13 @@ export interface OpenOverrides {
 }
 
 /** Everything a test body is given. `atId` is read-only context, never re-supplied to open(). */
-export interface AtContext<Sut = unknown, W = WorldLike> {
+export type AtContext<Sut = unknown, W extends WorldLike = WorldLike> = {
   atId: string;
   /** build a fresh "Given" world (and its own harness). Call it more than once for isolation. */
   open(fixture?: string, opts?: OpenOverrides): Promise<OpenWorld<Sut, W>>;
   /** consume an immutable capture whose producer proved at least one real open() */
   capture<T>(evidence: EvidenceCapture<T, Sut, W>): Promise<T>;
-}
+};
 
 const USAGE = Symbol('at-context-usage');
 
@@ -403,7 +426,7 @@ interface OpenOptions {
   configOverrides?: ConfigOverrides;
 }
 
-async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: HarnessLike }> {
+async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: AtHarness }> {
   if (TIER === null) throw new AtPending(o.atId, 'tier-unset', tierError(o.requirement));
 
   if (!harnessModule) {
@@ -443,7 +466,9 @@ async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: 
 
 /* ------------------------------------------------------------------------------- registration */
 
-export type AtTestBody<Sut = unknown, W = WorldLike> = (ctx: AtContext<Sut, W>) => Promise<void>;
+export type AtTestBody<Sut = unknown, W extends WorldLike = WorldLike> = (
+  ctx: AtContext<Sut, W>,
+) => Promise<void>;
 
 function emitRuntimeRegistration(registration: Registration): void {
   const dir = process.env.AT_REGISTRATION_DIR;
@@ -463,9 +488,18 @@ function emitRuntimeRegistration(registration: Registration): void {
  *   the test rather than being swallowed, because state that was never released is a defect that
  *   would otherwise land on a different id.
  */
-export function atTest<Sut = unknown, W = WorldLike>(atId: string, title: string, opts: AtTestOptions, body: AtTestBody<Sut, W>): void;
-export function atTest<Sut = unknown, W = WorldLike>(atId: string, title: string, body: AtTestBody<Sut, W>): void;
-export function atTest<Sut = unknown, W = WorldLike>(
+export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
+  atId: string,
+  title: string,
+  opts: AtTestOptions,
+  body: AtTestBody<Sut, W>,
+): void;
+export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
+  atId: string,
+  title: string,
+  body: AtTestBody<Sut, W>,
+): void;
+export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
   atId: string,
   title: string,
   optsOrBody: AtTestOptions | AtTestBody<Sut, W>,
@@ -537,7 +571,12 @@ export interface SuiteBinding {
 export function bindSuite<Sut, W extends WorldLike>(binding: SuiteBinding) {
   function bound(atId: string, title: string, opts: AtTestOptions, body: AtTestBody<Sut, W>): void;
   function bound(atId: string, title: string, body: AtTestBody<Sut, W>): void;
-  function bound(atId: string, title: string, optsOrBody: AtTestOptions | AtTestBody<Sut, W>, maybeBody?: AtTestBody<Sut, W>): void {
+  function bound(
+    atId: string,
+    title: string,
+    optsOrBody: AtTestOptions | AtTestBody<Sut, W>,
+    maybeBody?: AtTestBody<Sut, W>,
+  ): void {
     const opts: AtTestOptions = typeof optsOrBody === 'function' ? {} : optsOrBody;
     const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<Sut, W>;
     atTest<Sut, W>(atId, title, { ...opts, sut: binding.sut, sutMissingDetail: binding.sutMissingDetail }, body);

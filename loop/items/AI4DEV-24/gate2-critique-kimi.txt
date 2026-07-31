@@ -1,0 +1,759 @@
+﻿kimi : • Read the file.The Read tool is truncating due to output size. Let me page through the original file with smaller n_lines chunks to 
+read all 1967 lines. Actually, reading the output_path file double-prefixes line numbers. Better to Read the original file in chunks with 
+n_lines ~600.Now I have the entire diff. Let me analyze adversarially, per the attack surface.
+At line:1 char:893
++ ... e."; $out = kimi -m kimi-code/k3 -p $instr --output-format text 2>&1  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (• Read the file...attack surface.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+  Key files in diff:
+  1. `.claude/settings.json` — statusLine removed. Scope! Verification step 7 says only `tests/at/**`, `package.json`, 
+`loop/items/AI4DEV-24/**` touched (plus bun.lock per F6 fold). But the diff also touches `.claude/settings.json` and DELETES 
+`loop/work/statusline.ps1` (132 lines). That is outside the allowed diff list and outside D6-ish scope. The plan's step 7 claims only 
+tests/at, package.json, bun.lock, loop/items/AI4DEV-24 — but the actual diff includes `.claude/settings.json` and `loop/work/statusline.ps1`. 
+That's a deviation: the claim "only X touched" is false — a misleading expected state. Also it's a deletion of an unrelated file — a 
+runtime/behavioral change to Claude Code statusline. This is a scope violation. Is it [FALSE-GREEN-CLASS]? It's "a requirement violation ... 
+or a misleading expected state" — yes, the verification step 7 claim is misleading/false. Tag it.
+
+  Wait — was the statusline deletion maybe intentional from main? The diff is origin/main..HEAD. The statusline.ps1 deletion and settings.json 
+statusLine removal are unrelated to the item. Possibly this item removed it for another reason (maybe Kimi CLI doesn't use Claude settings). 
+But per the item's own verification step 7, "only `tests/at/**`, `package.json`, `loop/items/AI4DEV-24/**` touched" — the diff contradicts 
+that. Finding 1: blocker/important [FALSE-GREEN-CLASS]: out-of-scope files in the diff; verification step 7's expected state is false as 
+reported. Minimal fix: revert those two changes or split into a separate item; reconcile the claimed file list.
+
+  2. `bun.lock` — only shows the devDependencies spec change `^22.16.5` → `^22.18.0` in the diff hunk. But a lockfile must also record the 
+resolved version. The diff shows only one hunk at line 61 — the `"packages"` workspace manifest section in bun.lock (bun lockfiles mirror 
+package.json specs in a "workspaces" section). Where's the actual resolved package entry for `@types/node` (the `"@types/node": 
+"@types/node@22.19.17"` entry in the packages section)? The diff only shows one hunk. If the resolution was already 22.19.17 and the floor 
+bump doesn't change the resolution, then only the spec line changes — plan says "bun install reports no changes, resolved version stays 
+22.19.17". So the single-hunk lockfile change is consistent. But wait — does bumping the floor without re-resolving leave the lockfile 
+inconsistent? In bun.lock, the workspace dependency spec is recorded and the resolution entry maps `"@types/node"` → 
+`npm:@types/node@22.19.17`. Since 22.19.17 satisfies ^22.18.0, no resolution change needed. Consistent and minimal. However: does `^22.18.0` 
+actually carry `ImportMeta.main`? The plan says `ImportMeta.main` is declared in @types/node `@since v22.18.0`. Actually import.meta.main is a 
+Bun/Node 22.18+ feature? Node added `import.meta.main` in Node 24? Hmm — import.meta.main was added in Node.js v24.2.0? Actually no: 
+`import.meta.main` was added in Node 22.18.0 (backported). @types/node 22.18.0 declares it per the plan. I can't verify offline; the plan 
+measured it. Minor risk but acceptable. Actually — one subtlety: the floor is `^22.18.0`, but the harness also uses... fine.
+
+  But: the two `import.meta.main` sites are `check.ts:173` and `runner.ts:1209`. The `types: ["node"]` in the new config covers them. OK.
+
+  3. `tests/at/typecheck.ts` wrapper — attack:
+     - `spawnSync(process.execPath, ['x', 'tsc', ...])`: `process.execPath` under bun is the bun binary; `bun x tsc` — this works. But what if 
+the script is run with node instead of bun? package.json script is `bun tests/at/typecheck.ts`, so bun. But the wrapper itself is also 
+type-checked by the new tsconfig with `types: ["node"]` — fine.
+     - Exit code aggregation: both always launched, failures collected. `result.error` handled; `result.status !== 0` covers null (signal) 
+since `null !== 0`. Good.
+     - Can it exit 0 on spawn error? `result.error` → pushed. OK.
+     - One hole: `stdio: 'inherit'` — tsc output goes to console; fine for CI diagnosability.
+     - Another: `bun x tsc` — does `bun x tsc` resolve the locally installed typescript? `bunx tsc` uses local node_modules first. If 
+typescript isn't a direct dependency... it's presumably present (typescript is a devDep via @lovable.dev config or direct). Existing behavior 
+`bunx tsc --noEmit` is quoted as the standard command, so tsc resolves. But: `bun x tsc` with cwd ROOT — spawnSync with cwd ROOT; bun x 
+resolves from cwd's node_modules presumably. OK.
+     - Subtle: if `bun x tsc` fails to find the package and prompts to install? `bunx` auto-installs missing packages from registry in some 
+cases! `bun x tsc` when `tsc` is not in node_modules could download typescript@latest from npm — silent version drift, exactly what they claim 
+to prevent. But typescript is pinned in the project (they measured 5.9.3). Edge case: fresh clone without `bun install` — `bun x tsc` would 
+fetch latest TS from registry rather than failing! That's a real false-green hole: on a machine without node_modules, `bun x tsc` downloads 
+TypeScript latest (e.g. 7.x) and runs THAT, possibly green. Hmm, does bunx auto-install? Yes, bunx downloads and runs packages not found 
+locally. So the "same bun binary, no PATH dependency" claim trades one drift for another: if node_modules is absent or typescript is removed 
+from package.json by a Lovable regeneration, the check silently runs a registry-fetched compiler. Is that worth a finding? Minor/important. 
+Actually with `bun x tsc`, bun first looks in local node_modules/.bin. If missing it falls back to the registry. A CI that runs `bun run 
+typecheck` without installing deps would silently check with a random TypeScript version — or fail to resolve `tsconfig.json` paths. It would 
+still *run*. The correct fix: invoke `node_modules/.bin/tsc` or check existence, or pass `--bun` ... Minimal fix: spawn the local 
+`node_modules/typescript/bin/tsc` via `process.execPath node_modules/typescript/bin/tsc` or fail fast if local tsc is absent. I'd call this 
+minor-to-important. Given the item's entire purpose is anti-drift, I'd rate important. Hmm, but typescript IS a pinned dep and any dev 
+workflow runs bun install. The plan explicitly rejected require.resolve because it drifted to a global cache copy — but `bun x` has the same 
+fallback-to-nonlocal behavior. Actually `bun x` prefers local; the drift case they measured for require.resolve was "from outside the 
+project". With cwd: ROOT it's inside the project. Still, the missing-local fallback exists. I'll rate it minor (edge case requires missing 
+install, in which case tsc would also fail to load tsconfig types... actually no, it would still work since it fetches tsc and reads the 
+configs; @types/node missing would cause errors → red, not green. Wait: without node_modules, `types: ["node"]` fails → TS2688 error → red. So 
+the no-install case goes RED not green. The drift case: typescript removed from package.json but other @types present — contrived. Minor.)
+     
+     - Another: the wrapper checks `result.status !== 0` — spawnSync result.status is the exit code; on signal it's null → null !== 0 → 
+failure. Good.
+     
+     - `new URL('../../', import.meta.url)` — file is at tests/at/typecheck.ts; '../../' → repo root. Correct.
+     
+     - The wrapper is itself inside the type-checked tree (29th file) — self-referential but fine.
+
+     - Windows: `fileURLToPath` fine.
+
+  4. SuiteHarness design (R1) — attack the type honesty:
+     - `SuiteHarness<W, Channel> = AtHarness<Record<string, unknown>, W, Channel>`. Note: sut axis fixed to `Record<string, unknown>` — but 
+REQ-016's binding narrows sut to `{ notifications?: NotificationsSut }`. The `OpenWorld.sut` is separately typed `Sut` via the assertion — the 
+R4 known hole, filed separately. OK.
+     - Can a suite still declare a harness shape the factory doesn't produce? Via module augmentation of `contracts.ts`'s `AtHarness`? 
+`AtHarness` is presumably an interface (type alias?). If `AtHarness` is an interface, `declare module` augmentation could add members — but 
+that's a deliberate act modifying the shared contract, and index.ts is checked against AtHarness so augmentation adding a member would break 
+index.ts (TS2741 missing property) — actually module augmentation adding a required member to AtHarness would make createHarness fail to 
+produce it → compile error at index.ts. So augmentation is self-defeating. If it adds optional members, suite reading them gets `| undefined` 
+— honest. OK.
+     - The remaining assertion at registry.ts:532 `opened as OpenWorld<Sut, W, Channel>`: the seam produces `SuiteHarness` (default 
+W=WorldLike, Channel=string), asserted to `OpenWorld<Sut, W, Channel>` whose `h: SuiteHarness<W, Channel>`. Is `SuiteHarness<WorldLike, 
+string>` assignable to `SuiteHarness<W, Channel>` via assertion? Assertions allow any sufficiently-overlapping cast; generic W could be 
+narrower. So a suite binding `World` gets `h.fixtures.world(name): Promise<World>` — factory actually produces FixtureWorldStore whose world 
+returns... whatever. This is the same species of unverified claim for the W axis — h.fixtures typed with suite's W, factory produces generic 
+store. Pre-existing? Previously `h: HarnessLike` with `fixtures: { world(name): Promise<WorldLike> }` — and OpenWorld.w was the assertion 
+point. Now `h.fixtures.world` returns `Promise<W>` where W is the suite's world type — but the factory's FixtureWorldStore returns some 
+concrete world type. Hmm, is `SuiteHarness<WorldLike, string>` → `SuiteHarness<W, Channel>` a sound assertion? For W: `AtHarness<..., W, ...>` 
+presumably has `fixtures: Fixtures<W>` where `world(name): Promise<W>`. The factory's FixtureWorldStore.world returns `Promise<FixtureWorld>` 
+or similar. Is FixtureWorld assignable to W=World (suite's)? The suite's World extends WorldLike (now constrained). The actual runtime world 
+comes from fixtures store seeded — likely typed loosely. The assertion bypasses checking, so a suite could declare W with members the fixture 
+world doesn't have — same invention hole on the W axis! Was that pre-existing? Before, `open()` returned `OpenWorld<Sut, W>` with `w: W` 
+asserted — yes, the same assertion existed at the same line (`opened as OpenWorld<Sut, W>`). So the W-invention hole is pre-existing, not 
+widened — like the Sut hole (R4). Actually previously h was HarnessLike so h.fixtures.world returned WorldLike regardless of W; now 
+h.fixtures.world returns W — so the NEW type surface exposes W through h where before it did not. The assertion `opened as 
+OpenWorld<Sut,W,Channel>` now carries h: SuiteHarness<W, Channel>. Is the produced value's type assignable? The produced is 
+SuiteHarness<WorldLike, string> (default). Casting down to SuiteHarness<W, Channel> — since method return types are covariant-ish... 
+`world(name): Promise<WorldLike>` vs `Promise<W>`: Promise<WorldLike> not assignable to Promise<W>, but assertions only require comparability 
+(assignable in either direction). Promise<W> IS assignable to Promise<WorldLike>, so the cast is permitted. So a suite can declare `World` 
+with extra fields and `h.fixtures.world()` promises them — the same invention defect, now reachable through `h.fixtures`, newly introduced 
+surface? Hmm wait — but the W parameter already flowed into OpenWorld.w and the assertion was the seam. The h.fixtures axis is arguably newly 
+exposed (HarnessLike.fixtures.world returned Promise<WorldLike> fixed). Under the old shape, a suite body calling `h.fixtures.world('x')` got 
+WorldLike. Under the new shape it gets W — a suite-chosen type not verified against the factory. That's the same species as R4's Sut hole. But 
+is it a defect introduced by this change? The factory's actual store: `FixtureWorldStore` — its `world(name)` returns some concrete type. With 
+SuiteHarness<W=WorldLike> at the seam, the declaration says Promise<WorldLike>. The actual runtime object: whatever FixtureWorldStore.world 
+returns — typed as FixtureWorld maybe. Assignability of actual to declared was checked when? index.ts annotated `: Promise<AtHarness>` — wait, 
+AtHarness with what type args? The annotation is `Promise<AtHarness>` — defaults. AtHarness defaults: presumably `AtHarness<Sut = ..., W = 
+WorldLike, Channel = string>`. And SuiteHarness default is AtHarness<Record<string, unknown>, WorldLike, string>. HarnessModule.createHarness 
+returns Promise<SuiteHarness> (defaults). The dynamic import `await import(HARNESS_MODULE)` typed as HarnessModule — but HARNESS_MODULE is a 
+const string; does `await import('./index.ts')` get literal-module typing? `const HARNESS_MODULE = './index.ts'` — TypeScript CAN resolve 
+dynamic imports with a const string literal type! `import(HARNESS_MODULE)` where HARNESS_MODULE has type `'./index.ts'` (const) — TS resolves 
+this statically and types it as the actual module. So harnessModule is typed `HarnessModule | null` — they declared the type annotation `let 
+harnessModule: HarnessModule | null`, so the import is checked to be assignable to HarnessModule. index.ts's createHarness returns 
+Promise<AtHarness> (defaults) and HarnessModule demands Promise<SuiteHarness> (defaults = AtHarness<Record<string,unknown>, WorldLike, 
+string>). Are AtHarness defaults the same? If AtHarness's default Sut param isn't Record<string, unknown>, there could be mismatch — but it 
+compiled (0 errors claimed). OK so the seam IS statically checked now: the actual module must satisfy HarnessModule. Good — that's the R1 win.
+
+     But the remaining assertion `opened as OpenWorld<Sut, W, Channel>`: the produced h is SuiteHarness<WorldLike, string>; asserted to 
+SuiteHarness<W, Channel>. Suite's W extends WorldLike and Channel extends string — narrowing casts permitted. This means h.fixtures.world(): 
+Promise<W> — invention on W axis, and vendors typed with Channel — ProviderAttempt<Channel> where Channel is suite-chosen strings; the 
+factory's pendingCapability<Vendors> — what is Vendors? From contracts.ts — likely Vendors<Channel = string> or concrete. The index.ts 
+annotation uses plain `Vendors` (defaults). If contracts' Vendors is generic over Channel with default string, then factory produces 
+ProviderAttempt<string>, suite asserts ProviderAttempt<Channel> — narrowing a string to a union of literals in a return type — unverified 
+narrowing, but the channel NAMES come from the suite's own taxonomy; the factory just passes through attempt.channel values. Is that a lie? 
+The runtime channel values are produced by vendors (H5 pending — capability pending throws). Risk is modest and it's the intended 
+parameterization (suite supplies channel names — that IS the design R1 approved). The W axis through h.fixtures is more concerning but it 
+mirrors the pre-existing w/sut assertion pattern at the same seam — arguably pre-existing character. Hmm — before this change, 
+`h.fixtures.world(name)` returned `Promise<WorldLike>` (HarnessLike fixed it), so suite bodies reading `(await 
+h.fixtures.world('x')).someWorldProp` would error; now they get W and can read arbitrary props the suite invented on its World type. But the 
+suite's World type is also what `open().w` was already asserted to be — so a suite could already invent World members and read them off `w`. 
+The exposure through h.fixtures adds no new *capability* — the w axis was already the suite's unverified claim. So no new hole. OK.
+
+     - `Channel` on EvidenceCapture default `string` vs suite binding Channel — d-taxonomy-evidence uses default; fine per OQ-4.
+
+     - One more: `SuiteHarness` name vs binding: `_bind.ts` binds `Channel` from taxonomy. Fine.
+
+     - Is `index.ts`'s annotation genuinely load-bearing? The import seam: `harnessModule = await import(HARNESS_MODULE)` with `let 
+harnessModule: HarnessModule | null = null` — assignment checks the module against HarnessModule. createHarness annotated Promise<AtHarness> 
+must be assignable to Promise<SuiteHarness> = Promise<AtHarness<Record<string,unknown>, WorldLike, string>>. So if AtHarness's defaults differ 
+from those, compile error. It compiled. But — the dynamic import assignability check on a module namespace: TS checks property assignability 
+of createHarness function type: `(opts) => Promise<AtHarness>` vs `(opts) => Promise<SuiteHarness>`. Promise covariant, assignable if 
+AtHarness assignable to AtHarness<Record...>. If AtHarness defaults are exactly those, fine.
+
+     Actually wait — can the factory drift without diagnostic? If someone removes the `: Promise<AtHarness>` annotation, the inferred return 
+(with pendingCapability<T> falling to `object`) is NOT assignable to SuiteHarness → error at the import assignment in registry.ts. So the seam 
+still bites. Good.
+
+     - Can a suite bypass via `any`? `bindSuite<NotificationsSut, World, SomeStringType>` — Channel extends string; you can't pass a harness 
+type. Could a suite pass `Channel = string` and then... no invention possible. Could it import AtContext and hand-craft? It could call raw 
+`atTest<Sut, W, Channel>` directly — same constraints. Could it do `h as any`? Sure — but that's an explicit suppression, greppable, banned by 
+D3 policy. OK, R1 design survives.
+
+  5. D5 — vitest nearest-tsconfig: new config sets target ES2022 matching root. What else does esbuild/vite honor from tsconfig? 
+`useDefineForClassFields` (derived from target), `jsx`, `experimentalDecorators`/`emitDecoratorMetadata`, `paths`, `target`. The new config: 
+no jsx field (default none) — no JSX under tests/at. No decorators (Gate1 noted). `experimentalDecorators` default false matches root? Root 
+probably doesn't set it. `module`, `moduleResolution` don't affect esbuild transform semantics meaningfully. `verbatimModuleSyntax` not set — 
+default false, same as root per plan. One thing: `allowJs`/`checkJs` — esbuild transform unaffected. `types`, `lib` — type-level only. So D5 
+risk handled; target pinned. Actually — subtle: `useDefineForClassFields` is true when target >= ES2022; root target ES2022 → same. OK.
+
+     But wait — the baseline comparison: normalizer rewrites ONE line and unwraps ErrorRecords, appends EXIT. Could the normalizer mask a real 
+difference? `-replace '^JSON report written to .*$'` — anchored to full line, only that line. TrimEnd — removes trailing whitespace; a runtime 
+change that added trailing whitespace would be masked — trivial. ErrorRecord unwrap: `$_.Exception.Message` — if a real failure changes stderr 
+text, the message changes → diff catches. But: if PowerShell's wrapping previously emitted multi-line error records vs now plain lines... the 
+baseline was captured with the same normalizer, so consistent. One hole: `Compare-Object` on Get-Content arrays — line-based; order changes 
+caught. Looks sound. Another hole: the baseline file contains the line `error: script "at:verify" exited with code 1` — good, exit code pinned 
+twice.
+
+     However: D5 proof only covers `at:verify req-016 --tier loop` and selftest counts — reasonable per brief.
+
+     BUT the big D5/scope breach: `.claude/settings.json` change and `loop/work/statusline.ps1` deletion are runtime-behavior changes (Claude 
+Code status line disappears) outside allowed paths and unmentioned in plan §9's verification step 7 claim ("the branch touches only 
+tests/at/**, package.json, bun.lock and loop/items/AI4DEV-24/**"). The claim is demonstrably false against the diff. That's finding #1 — 
+important/blocker [FALSE-GREEN-CLASS] (misleading expected state + requirement violation of verification step 7 / D6-adjacent scope). Actually 
+verification step 7 is from the brief itself: "only `tests/at/**`, `package.json`, `loop/items/AI4DEV-24/**` touched" (line 409 in brief). The 
+diff violates the brief's verification criterion, and plan §9 falsely reports it as passing. That's a false green: the reported verification 
+state doesn't match reality. I'd call it important [FALSE-GREEN-CLASS], maybe blocker since it's a directly falsified verification claim in 
+the merge checklist. The brief's step 7 is a "done" criterion; reporting it green when it's red is exactly a false green. Blocker? The code 
+work itself may be fine; the statusline changes might even be legitimate-but-misfiled. Minimal fix: split those hunks out of the branch 
+(restore both files) or get an explicit scope amendment, and correct §9 step 7's claim. I'll say blocker — a verification step reported as 
+passing that actually fails is harness invalidity/misleading expected state. Hmm, severity: blocker vs important. The instruction: blockers 
+are ship-blockers. A falsified merge-checklist claim is a ship-blocker until reconciled. I'll go blocker [FALSE-GREEN-CLASS].
+
+  6. HarnessLike deletion — diff shows it deleted from registry.ts. Repo-wide reference check ran after deletion (sequence deviation, 
+disclosed). The plan's own files mention HarnessLike in prose. Can't verify independently from the diff alone, but the diff shows no other 
+code references. The README says... fine. No finding beyond the disclosed sequence inversion — note it: the check was run after deletion, so a 
+reference in another file would have been broken at commit time; but typecheck over the whole tree after deletion would catch any code 
+reference (tsc would error on unresolved import). Actually if some file imported HarnessLike, tsc would fail → verification step 2 would be 
+red. Since it's green, no code references exist. Vacuously safe. No finding.
+
+  7. @types/node floor — covered above. One more check: bumping the floor in package.json changes app devDeps too — could @types/node 22.18+ 
+change app type-check results? Root tsc uses @types/node too; floor bump doesn't change the resolved version (22.19.17 stays), so no. But a 
+fresh install could now resolve a NEWER 22.x than 22.19.17 in future — always true with ^. Fine.
+
+  8. tsconfig correctness attack:
+     - `include: ["**/*"]` with allowJs — does `**/*` match files like `README.md`? Include matches only supported extensions (.ts, .tsx, 
+.d.ts, + .js/.jsx with allowJs). README.md ignored. `tsconfig.json` itself? JSON not included unless resolveJsonModule. OK.
+     - `exclude: ["node_modules"]` — relative to tsconfig location → tests/at/node_modules. But also: does exclude over-reach? Only that dir. 
+What about nested node_modules deeper, e.g. tests/at/suites/foo/node_modules? Pattern "node_modules" matches any path segment? TS exclude 
+patterns: "node_modules" as a glob matches `tests/at/node_modules` only at top? Actually exclude specs are relative to the config dir; 
+"node_modules" matches any directory named node_modules at any depth? The TS default excludes are "node_modules", "bower_components", 
+"jspm_packages" and these match at any depth (spec without slash applies to any level? No — they're treated as `**/node_modules`?). TypeScript 
+docs: exclude defaults to node_modules, bower_components, jspm_packages and these apply at any depth. When you specify "node_modules" 
+explicitly, I believe it's also interpreted as a folder-name wildcard at any depth... Actually no: exclude entries support wildcards; a bare 
+"node_modules" matches only the top-level folder? Hmm. TS treats exclude/include patterns without a leading ./ as relative to the config 
+directory; "node_modules" would match `<configDir>/node_modules` only? I recall that specifying `"exclude": ["node_modules"]` does exclude 
+nested node_modules too because... not certain. Minor at most; vitest cache is at tests/at/node_modules. Skip.
+     - Vitest cache `node_modules/.vite` — excluded. Good.
+     - `.vite-temp`? Root node_modules/.vite-temp not under tests/at. Fine.
+     - Empty include → TS18003 — Gate1 covered.
+     - Does the new config's `types: ["node"]` break resolution of vitest imports? Suites import from 'vitest' — package types resolved via 
+node_modules regardless of `types` (types only governs @types auto-inclusion). OK.
+     - `noUncheckedSideEffectImports: true` — requires TS 5.6+. Pinned 5.9.3. OK. But note: it only checks bare side-effect imports when 
+moduleResolution can fail silently... fine.
+     - `allowImportingTsExtensions` requires noEmit ✓.
+     - Missing `esModuleInterop`? module ESNext + moduleResolution Bundler → esModuleInterop defaults... With "Bundler", `esModuleInterop` 
+defaults true? esModuleInterop defaults false unless module is node16/nodenext or... Actually with moduleResolution bundler, 
+`allowSyntheticDefaultImports` defaults true but esModuleInterop stays false. Imports from 'vitest' etc. are ESM-typed — fine. The code 
+compiled, reportedly. OK.
+     - `strict: true` ✓, `skipLibCheck: false` ✓ — note skipLibCheck false checks @types/node etc. — measured 0 errors.
+
+  9. The wrapper aggregating: one real hole — `spawnSync` maxBuffer? stdio inherit, no buffer. Signal death: status null → failure ✓. What if 
+`process.execPath` is node (someone runs `node tests/at/typecheck.ts`)? `node x tsc` → node tries to run file 'x' → error exit nonzero → 
+result.status !== 0 → failure. Goes red, not green. Fine.
+
+     What about `bun x tsc --noEmit ... -p project` — argument forwarding: `bun x` passes through. OK.
+
+     Hmm, one more: does `bun x tsc` exit code propagate through spawnSync? Yes.
+
+  10. Simpler design (attack surface 8): name what I'd cut. The wrapper could arguably be `bun x tsc -p tsconfig.json --noEmit; bun x tsc -p 
+tests/at/tsconfig.json --noEmit; ! git... ` no — the wrapper is justified by F2. What could be cut: the 60-line comment in tsconfig.json? Not 
+code. Maybe: the whole `typecheck.ts` wrapper replaced by a package.json script using `concurrently`? Adds dependency — worse. I'd say the 
+design is already minimal; possibly the README/tsconfig comment verbosity. I'll note the wrapper is justified; the only cut candidate is 
+duplicative prose, not worth a finding. Maybe say "no finding" with a note.
+
+  11. One more potential finding: `tests/at/typecheck.ts` is inside the checked tree AND is the thing being run — self-coverage is claimed as 
+the 29th file. Fine.
+
+  12. Another: `checkJs: true` + `allowJs: true` with `include: **/*` — if vitest writes JS files anywhere under tests/at outside node_modules 
+(e.g. cache elsewhere?), they'd be pulled in and possibly error → future red, not green. Fine.
+
+  13. `.claude/settings.json` — the statusLine removal: this is actually plausibly related to the session harness (Kimi CLI vs Claude), but 
+it's NOT part of AI4DEV-24's contract. The deletion of loop/work/statusline.ps1 removes a file referenced by... settings.json statusLine 
+referenced it, both removed consistently. But scope violation stands, and plan §9 step 7 claim false. Also D5: "No runtime behaviour changes" 
+— deleting the statusline changes Claude Code behavior (not the app). The brief's D5 is about verification suite behavior; the statusline 
+isn't that. But verification step 7 is explicit.
+
+  Also check: does anything else reference `loop/work/statusline.ps1`? E.g., other settings files (.claude in other worktrees, docs)? The 
+statusline.ps1 sources `work-lib.ps1` via PSScriptRoot — deletion doesn't affect work-lib. But other worktrees' `.claude/settings.json` point 
+to `"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\statusline.ps1"` — the MAIN repo path, not this worktree's. Deleting the worktree's 
+copy doesn't affect the main checkout's file. But on merge to main, the main repo's statusline.ps1 gets deleted, and .claude/settings.json in 
+main — the settings change removes the statusLine entry from main's settings too, so consistent within the repo. But OTHER worktrees have 
+their own .claude/settings.json? .claude/settings.json is tracked (it's in the diff). Other worktrees share the same tracked file on their 
+branches; their statusLine would still point to the main checkout path which still exists until merge. After merge, the main checkout's file 
+disappears — but settings updated simultaneously. Any hardcoded reference in docs? Unknown. The finding stands on scope/false-claim grounds 
+regardless.
+
+  14. Also verify claim "29 files covered, 0 leaked" — I cannot run anything (read-only, and the worktree IS my cwd — wait, the working 
+directory IS the worktree `C:/Users/nirdr/Downloads/ai4good-tsconfig`. The prompt says verify the claim myself. I'm read-only but I can run 
+commands that don't modify? "STRICTLY READ-ONLY review: do not create, edit, or delete any file." Running `bunx tsc --listFiles` doesn't 
+create files (noEmit)... but tsc might write .tsbuildinfo? No, noEmit and no incremental. Running commands could create vitest cache etc. 
+Should I run tsc --listFiles to verify? That's read-only-ish (no file changes). The prompt says "verify that claim yourself rather than 
+trusting it." Running `bunx tsc -p tests/at/tsconfig.json --noEmit --listFiles --pretty false` writes nothing. And count files on disk via git 
+ls-files. That seems within read-only spirit. Let me do it — it strengthens the review. But careful: bunx could download typescript if missing 
+— node_modules exists. Let me run:
+  - `git ls-files tests/at | grep -E '\.(ts|tsx|js|jsx|mts|cts)$' | wc -l` — but untracked files? The branch is committed; git ls-files on 
+this worktree shows tracked. Files on disk may include untracked. Use git status --porcelain too.
+  - `bunx tsc -p tests/at/tsconfig.json --noEmit --listFiles --pretty false | grep tests/at | wc -l` — on Windows paths with backslashes; grep 
+-i 'tests[/\\\\]at'.
+  - Also `git ls-files | grep -c HarnessLike`? Grep repo for HarnessLike references: `git grep -n HarnessLike -- ':!loop/items'`.
+  - Also check nothing references statusline.ps1: `git grep -n statusline`.
+
+  Also verify the diff matches what was given: `git diff origin/main..HEAD --stat` to confirm the full diff scope and that the prompt's diff 
+is complete (maybe files omitted?). Worth checking.
+
+  Let me run these read-only commands. tsc --listFiles: does it write anything? With noEmit, no output files. It doesn't create caches. Safe.
+
+  Let me also run the full verification quickly? `bun run typecheck` — runs tsc, read-only. That verifies exit 0 claim. And maybe not run the 
+full at:verify (writes temp + vitest cache — creates files under tests/at/node_modules — that's vitest cache recreation; technically creates 
+files but gitignored cache; the user said do not create/edit/delete any file — running vitest would write cache and JSON reports to temp. 
+Better to avoid. Stick to tsc checks and git commands.)
+
+  Run:
+  1. `git -C . log --oneline -3` and `git diff origin/main..HEAD --stat`
+  2. `bunx tsc -p tests/at/tsconfig.json --noEmit --pretty false` (exit code)
+  3. `bunx tsc -p tests/at/tsconfig.json --noEmit --pretty false --listFiles` count under tests/at, check node_modules leaks
+  4. Count files on disk under tests/at with ts/js extensions excluding node_modules
+  5. `git grep -n HarnessLike` outside loop/items
+  6. `git grep -n statusline` 
+  7. `bunx tsc --noEmit --pretty false` (app config) exit 0?
+  8. `bun run typecheck` exit code — runs both.
+
+  Timeout: tsc could take ~30-60s each. Use 120-180s timeouts.
+
+d3b1bca AI4DEV-24: rulings 01 + implementation record
+3255f3b AI4DEV-24 (W4): note why the harness has its own tsconfig
+6e17a78 AI4DEV-24 (W2): the suite harness comes from the shared contract, not from the suite
+17e88a9 AI4DEV-24 (W1): tests/at typecheck config + the typecheck command
+ .claude/settings.json                              |   4 -
+ bun.lock                                           |   2 +-
+ loop/items/AI4DEV-24/baseline/normalize-verify.ps1 |  42 ++
+ .../baseline/verify-req-016-loop.baseline.txt      |  21 +
+ loop/items/AI4DEV-24/brief.md                      |  85 +++
+ loop/items/AI4DEV-24/gate1-critique.txt            |  56 ++
+ loop/items/AI4DEV-24/plan.md                       | 750 +++++++++++++++++++++
+ loop/items/AI4DEV-24/rulings-01.md                 |  99 +++
+ loop/work/statusline.ps1                           | 132 ----
+ package.json                                       |   3 +-
+ tests/at/README.md                                 |  52 ++
+ tests/at/harness/index.ts                          |  23 +-
+ tests/at/harness/registry.ts                       | 112 +--
+ tests/at/suites/req-016/_bind.ts                   |   6 +-
+ tests/at/tsconfig.json                             |  35 +
+ tests/at/typecheck.ts                              |  53 ++
+ 16 files changed, 1290 insertions(+), 185 deletions(-)
+---
+• The full assignment is read. Now I'll verify the executor's coverage and exit-code claims myself, read-only, before writing findings.
+
+• The diff stat matches the prompt's diff. Interesting: the prompt's inline diff did NOT include a commit for the statusline removal as a 
+separate item — it's somewhere in those commits. `git grep HarnessLike` outside loop/items: zero hits ✓. `git grep statusline`: zero hits — 
+nothing references statusline.ps1 anymore (settings.json reference removed). But scope: `.claude/settings.json` and `loop/work/statusline.ps1` 
+are outside the allowed paths and §9 step 7 claims otherwise.
+
+  Wait — where did those changes land? Let me check which commit. Also run the typecheck verifications.054793c Status line: the two work ids 
+instead of the folder and the spend (#8)
+a5121ba AI4DEV-4: write the status line as UTF-8 bytes, not through PowerShell's encoder
+fd5bc6a AI4DEV-4: status line shows the two work ids, not the folder and the spend
+---
+APP-EXIT=0
+Interesting — `git log origin/main..HEAD -- .claude/settings.json loop/work/statusline.ps1` returned NOTHING. So the statusline removal and 
+settings.json change are NOT in the branch commits?! But `git diff origin/main..HEAD --stat` shows them. That means... the diff includes them 
+but no commit on the branch touches them? That's impossible unless origin/main is not the actual merge-base — i.e., origin/main has MOVED 
+since the branch was created. The branch is based on 02baf79; origin/main now contains later commits (e.g., #8 statusline changes — wait, 
+054793c ADDED statusline features). If origin/main advanced beyond the branch base with commits that modified statusline, then `git diff 
+origin/main..HEAD` would show REVERSALS of those newer main commits as deletions!
+
+  Let me check: `git merge-base origin/main HEAD` and `git log --oneline 02baf79..origin/main`. If main added "Status line: the two work 
+ids..." (#8) AFTER the branch point, then diffing origin/main..HEAD shows statusline.ps1 as deleted (because the branch doesn't have it) — a 
+false appearance. The correct review diff is merge-base..HEAD.
+
+  So the .claude/settings.json and statusline.ps1 "changes" are likely NOT changes made by this branch — they're main moving ahead. Verify: 
+does 02baf79 (the base) contain statusline.ps1? `git log --follow` shows 054793c etc. Check if 054793c is on origin/main but not on HEAD: `git 
+branch --contains` or `git merge-base --is-ancestor 054793c HEAD`.02baf79762eb62ac625d192f4e94ede45a69e8ed
+---
+054793c Status line: the two work ids instead of the folder and the spend (#8)
+---
+054793c NOT on HEAD
+statusline ABSENT at base 02baf79
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+Confirmed: merge-base is 02baf79. After the branch was cut, origin/main gained commit 054793c ("Status line: the two work ids...", PR #8) 
+which added loop/work/statusline.ps1 and the statusLine entry in .claude/settings.json. The branch doesn't have it. So `git diff 
+origin/main..HEAD` shows those as deletions, but the branch's own diff (`git diff 02baf79..HEAD`) does NOT touch them.
+
+  So the statusline hunks are an artifact of diffing against a moved main, NOT a scope violation by the branch. Good thing I checked. This 
+removes my candidate blocker. But it has a real consequence worth noting: the review prompt's own diff overstated the change set; and at merge 
+time, a merge (not rebase) would preserve 054793c fine. No finding against the executor — maybe a minor note that the review diff vs 
+merge-base diff differ, and the item's verification step 7 ("only X touched") is TRUE against the merge base. Let me verify the branch-only 
+diff scope: `git diff 02baf79..HEAD --stat`.
+
+  Then continue verification: AT tsconfig typecheck, listFiles count, on-disk count, bun run typecheck. tests/at/harness/registry.ts           
+            | 112 +--
+ tests/at/suites/req-016/_bind.ts                   |   6 +-
+ tests/at/tsconfig.json                             |  35 +
+ tests/at/typecheck.ts                              |  53 ++
+ 14 files changed, 1290 insertions(+), 49 deletions(-)
+===
+bun.lock
+loop/items/AI4DEV-24/baseline/normalize-verify.ps1
+loop/items/AI4DEV-24/baseline/verify-req-016-loop.baseline.txt
+loop/items/AI4DEV-24/brief.md
+loop/items/AI4DEV-24/gate1-critique.txt
+loop/items/AI4DEV-24/plan.md
+loop/items/AI4DEV-24/rulings-01.md
+package.json
+tests/at/README.md
+tests/at/harness/index.ts
+tests/at/harness/registry.ts
+tests/at/suites/req-016/_bind.ts
+tests/at/tsconfig.json
+tests/at/typecheck.ts
+AT-EXIT=0
+Continue verification. Branch diff scope is clean (14 files, all allowed). AT config exits 0. Now: listFiles count, on-disk count, bun run 
+typecheck aggregate, and probe a few attack cases (e.g., does an unresolved side-effect import get caught — no, can't create files; 
+read-only). I can still verify listFiles and the wrapper.EXIT=0
+255
+---under tests/at, not node_modules:
+29
+---leaks from tests/at/node_modules:
+0
+---total program:
+284
+29
+Coverage claim verified: 29 files under tests/at (excluding node_modules) in the program, 29 matching files on disk, 0 leaks from 
+tests/at/node_modules. (Total 284 vs claimed 283 — includes the listFiles header? Actually --listFiles output may include a trailing line or 
+my grep counted the at-files differently; close enough — 255 lines contain "node_modules" (root node_modules @types etc.), 29 under tests/at. 
+Total 284 lines. The plan claimed 283 — off by one; maybe tsc version output or an extra lib. Not material.)
+
+  Wait — "255 lines contain node_modules" — those are root node_modules @types and lib files? lib files are in the typescript package under 
+node_modules. That's expected — `types: ["node"]` pulls @types/node from root node_modules. Fine.
+
+  Now run the wrapper end-to-end: `bun run typecheck` exit code. Also test the wrapper's failure aggregation without modifying files? Can't 
+create files. But I can review the logic statically — done. Run bun run typecheck.$ bun tests/at/typecheck.ts
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean
+WRAPPER-EXIT=0
+The wrapper runs both and exits 0. Now the deeper static attacks. A few things I want to verify from the actual files (they're in the working 
+directory):
+
+  1. `contracts.ts` — what are `AtHarness`'s defaults? `index.ts` annotates `Promise<AtHarness>` (no args) while `HarnessModule` demands 
+`Promise<SuiteHarness>` = `AtHarness<Record<string, unknown>, WorldLike, string>`. If AtHarness defaults differ, assignability could be 
+unsound in one direction (e.g., AtHarness default Sut = something else, making the check pass structurally but the annotation not quite 
+pinning what SuiteHarness claims). Let me read contracts.ts.
+
+  2. registry.ts around the import seam — verify the `await import(HARNESS_MODULE)` is statically resolved and checked against HarnessModule, 
+and the remaining assertion at ~532.
+
+  3. The `openWorld` return type: `Promise<{ opened: OpenWorld; harness: SuiteHarness }>` — OpenWorld with defaults (Sut=unknown, W=WorldLike, 
+Channel=string). h: SuiteHarness<WorldLike, string>. Then asserted to OpenWorld<Sut, W, Channel>. As analyzed: the W/Channel narrowing through 
+h.fixtures and h.vendors is an unverified claim of the same species as the Sut hole (R4). Was the W-axis exposure through h new? Previously 
+HarnessLike.fixtures.world returned Promise<WorldLike> — fixed, not suite-chosen. Now suite-chosen W flows into h.fixtures.world's return. But 
+the suite's W was already unverified via `w`. A suite inventing World members could already read them off `w` (after an open with a fixture 
+that doesn't have them) — the type system would allow `w.inventedProp` and it would be undefined at runtime. So the capability pre-existed 
+through `w`; h.fixtures.world() now returns W too, but that adds no new invention capability. Marginal — I'll mention under the R4 residual 
+rather than a new finding.
+
+  4. Check `_bind.ts`'s re-export: `export type { AtContext, OpenWorld, PendingPhase }` — un-instantiated, fine.
+
+  5. Check that `Channel` in taxonomy.ts is a string union — yes presumably.
+
+  6. Check contracts.ts for `Fixtures`, `Vendors`, etc. and AtHarness defaults.
+
+  7. Check the `import.meta.main` sites — check.ts:173, runner.ts:1209 — covered by types:["node"], verified green.
+
+  8. `noUncheckedSideEffectImports` — the registry uses dynamic import; side-effect imports like `import './register-vendors.ts'` — can't test 
+without creating files; static reasoning + flag present. OK.
+
+  9. bun.lock consistency: check that bun.lock's packages section still pins @types/node@22.19.17 and that it's consistent. Also verify 
+package.json diff only touched the floor + script.
+
+  10. One more attack on the wrapper: `spawnSync(process.execPath, ['x', 'tsc', ...])`. Concern: `bun x tsc` resolves tsc — if `typescript` is 
+a transitive dep only (not direct), does bun x find it? It found it (just ran). package.json devDeps — check typescript is a direct dependency 
+for pinning robustness. If typescript comes transitively from @lovable.dev/vite-tanstack-config, a regeneration/version change could alter it 
+— but bun.lock pins. Check package.json for "typescript".
+
+  11. Windows path check: `fileURLToPath(new URL('../../', import.meta.url))` — fine.
+
+  12. Check `.gitignore` covers tests/at/node_modules (line 10 per plan). Verify.
+
+  Also potential finding: wrapper runs `bun x tsc` rather than the pinned local binary; if node_modules/typescript were absent bunx would 
+fetch latest from the registry — silent compiler version substitution, the exact drift class the item fights. But in that failure case `types: 
+["node"]` resolution would fail → red. Actually if node_modules is entirely absent, tsc (fetched) would error on missing @types/node → red. 
+The drift scenario requires typescript missing while @types/node present — e.g., a package.json edit removing typescript. Contrived; severity 
+minor.
+
+  Another: the wrapper prints `console.log('\n=== typecheck: ...')` — fine.
+
+  Another real one: **`bun x tsc` vs `bunx`** — when run via `bun run typecheck`, PATH already includes node_modules/.bin; fine.
+
+  Now, `AtContext.capture<T>(evidence: EvidenceCapture<T, Sut, W, Channel>)` — d-taxonomy-evidence's capture has Channel=string default; ctx 
+has Channel=suite's Channel; is `EvidenceCapture<T, Sut, W, string>` assignable to `EvidenceCapture<T, Sut, W, Channel>`? EvidenceCapture's 
+producer: `(ctx: AtContext<Sut, W, string>) => Promise<T>` vs needed `(ctx: AtContext<Sut, W, Channel>) => Promise<T>` — function parameter 
+contravariance: a producer accepting AtContext<..., string> can accept AtContext<..., Channel> only if AtContext<..., Channel> assignable to 
+AtContext<..., string> — method bivariance in TS makes this pass. It compiled (0 errors measured and I re-ran tsc: exit 0). Fine.
+
+  Let me read contracts.ts key parts and registry.ts seam to be thorough.19:export type { Tier } from './registry.ts';
+21:export type { ConfigRegistry } from './config.ts';
+29:export interface WorldSeam {
+34:export interface Fixtures<W extends WorldSeam = WorldSeam> {
+50:export interface Clock {
+57:export interface Sentinel {
+62:export interface Sentinels {
+68:export interface FaultHandle {
+76:export interface Faults {
+96:export interface StaticScan {
+103:export type ProviderOutcome = 'accepted' | 'rejected' | 'ack_lost';
+109:export interface ProviderAttempt<Channel extends string = string> {
+116:export interface EmailProviderSim<Channel extends string = string> {
+132:export interface Vendors<Channel extends string = string> {
+142:export interface AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string> {
+91:    "typescript": "^5.8.3",
+92:    "typescript-eslint": "^8.56.1",
+---
+64:        "@types/node": "^22.18.0",
+591:    "@types/node": ["@types/node@22.19.17", "", { "dependencies": { "undici-types": "~6.21.0" } }, 
+"sha512-wGdMcf+vPYM6jikpS/qhg6WiqSV/OhG+jeeHT/KlVqxYfD40iYJf9/AE1uQxVWFvU7MipKRkRv8NSHiCGgPr8Q=="],
+1231:    "vite": ["vite@7.3.2", "", { "dependencies": { "esbuild": "^0.27.0", "fdir": "^6.5.0", "picomatch": "^4.0.3", "postcss": "^8.5.6", 
+"rollup": "^4.43.0", "tinyglobby": "^0.2.15" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "peerDependencies": { "@types/node": 
+"^20.19.0 || >=22.12.0", "jiti": ">=1.21.0", "less": "^4.0.0", "lightningcss": "^1.21.0", "sass": "^1.70.0", "sass-embedded": "^1.70.0", 
+"stylus": ">=0.54.8", "sugarss": "^5.0.0", "terser": "^5.16.0", "tsx": "^4.8.1", "yaml": "^2.4.2" }, "optionalPeers": ["@types/node", "jiti", 
+"less", "lightningcss", "sass", "sass-embedded", "stylus", "sugarss", "terser", "tsx", "yaml"], "bin": { "vite": "bin/vite.js" } }, 
+"sha512-Bby3NOsna2jsjfLVOHKes8sGwgl4TT0E6vvpYgnAYDIF/tie7MRaFthmKuHx1NSXjiTueXH3do80FMQgvEktRg=="],
+1237:    "vitest": ["vitest@4.1.10", "", { "dependencies": { "@vitest/expect": "4.1.10", "@vitest/mocker": "4.1.10", "@vitest/pretty-format": 
+"4.1.10", "@vitest/runner": "4.1.10", "@vitest/snapshot": "4.1.10", "@vitest/spy": "4.1.10", "@vitest/utils": "4.1.10", "es-module-lexer": 
+"^2.0.0", "expect-type": "^1.3.0", "magic-string": "^0.30.21", "obug": "^2.1.1", "pathe": "^2.0.3", "picomatch": "^4.0.3", "std-env": 
+"^4.0.0-rc.1", "tinybench": "^2.9.0", "tinyexec": "^1.0.2", "tinyglobby": "^0.2.15", "tinyrainbow": "^3.1.0", "vite": "^6.0.0 || ^7.0.0 || 
+^8.0.0", "why-is-node-running": "^2.3.0" }, "peerDependencies": { "@edge-runtime/vm": "*", "@opentelemetry/api": "^1.9.0", "@types/node": 
+"^20.0.0 || ^22.0.0 || >=24.0.0", "@vitest/browser-playwright": "4.1.10", "@vitest/browser-preview": "4.1.10", "@vitest/browser-webdriverio": 
+"4.1.10", "@vitest/coverage-istanbul": "4.1.10", "@vitest/coverage-v8": "4.1.10", "@vitest/ui": "4.1.10", "happy-dom": "*", "jsdom": "*" }, 
+"optionalPeers": ["@edge-runtime/vm", "@opentelemetry/api", "@types/node", "@vitest/browser-playwright", "@vitest/browser-preview", 
+"@vitest/browser-webdriverio", "@vitest/coverage-istanbul", "@vitest/coverage-v8", "@vitest/ui", "happy-dom", "jsdom"], "bin": { "vitest": 
+"./vitest.mjs" } }, "sha512-R9jUTe5S4Qb0HCd4TNqpC7oGcrMssMRGXLW80ubjWsW9VH5GF8y1Y0SFLY9AbqSk6nt0PnOx4H4WNJYZ13GUPw=="],
+---
+tests/at/harness/check.ts:173:if (import.meta.main) process.exit(main(process.argv.slice(2)));
+tests/at/harness/runner.ts:1209:if (import.meta.main) process.exit(await main(process.argv.slice(2)));
+---
+
+node_modules
+dist
+Good:
+  - `AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string>` — defaults align exactly with 
+SuiteHarness's instantiation except `W extends WorldSeam` vs `WorldLike`. WorldLike is registry's interface { teardown() }; WorldSeam is 
+contracts'. Are they structurally identical? Probably both require teardown. Structural typing makes them compatible. Fine.
+  - typescript is a direct devDependency `^5.8.3`, locked 5.9.3. `bun x tsc` resolves the local pinned one. Good.
+  - bun.lock has both the spec (line 64) and resolution 22.19.17 entries — consistent. The diff only showed the spec hunk because the 
+resolution didn't change. Consistent and minimal.
+  - import.meta.main sites present; compile green with types:["node"] floor 22.18.0.
+  - .gitignore line 10 area shows "node_modules" — covers tests/at/node_modules.
+
+  One more check on the registry seam: `let harnessModule: HarnessModule | null = null; ... harnessModule = await import(HARNESS_MODULE)`. 
+Does the assignment actually check index.ts's module type against HarnessModule? `await import('./index.ts')` — with const HARNESS_MODULE 
+typed as './index.ts', TS resolves statically. Yes — I saw HARNESS_MODULE is `export const HARNESS_MODULE = './index.ts'` so its type is the 
+literal. The assignment checks structural compatibility: `typeof import('./index.ts')` assignable to HarnessModule → createHarness's annotated 
+Promise<AtHarness> must be assignable to Promise<SuiteHarness>. Since AtHarness defaults = (Record<string,unknown>, WorldSeam, string) and 
+SuiteHarness = AtHarness<Record<string,unknown>, WorldLike, string> — with W constrained differently but defaulted; AtHarness default W = 
+WorldSeam vs SuiteHarness's W = WorldLike. Structurally: does AtHarness use W in a way that WorldSeam and WorldLike differ? Fixtures<W> 
+requires W extends WorldSeam; WorldLike = { teardown(): Promise<void> } and WorldSeam probably = { teardown(): Promise<void> } too. If 
+identical structurally, assignable both ways. It compiled. OK — but note subtlety: index.ts is annotated to produce `AtHarness` with defaults 
+(W=WorldSeam), while the seam wants SuiteHarness (W=WorldLike). The assignment compiled, so structurally compatible. Fine.
+
+  Remaining candidate findings:
+
+  1. **The review diff / merge-base discrepancy** — the prompt's diff includes statusline deletion + settings change which are main advancing, 
+not the branch. Not a defect in the branch. Do I report it? The instructions say findings about the landed code. I could add a minor note: 
+verification step 7's claim is true only against the merge base; if anyone audits with `git diff origin/main..HEAD` (as this review was told 
+to), they'll see out-of-scope hunks. And on merge via rebase, the branch would need... actually merging is fine. Minor, arguably no finding. 
+I'll mention as minor: the branch is stale relative to main (main moved with 054793c); merge will be clean content-wise, but the item's 
+evidence (diff listings) is only interpretable against 02baf79, and the branch should be rebased/merged-forward before landing so CI/main-diff 
+review sees the true change set. Minor.
+
+  2. **The wrapper's `bun x tsc` fallback**: if local typescript is absent, bunx fetches latest from registry — silent compiler substitution. 
+But in that state, `types: ["node"]` fails → red. Only fails green if typescript missing while @types present. Minor. Also 
+`spawnSync(process.execPath, ['x', ...])` under `bun run` — execPath is bun. If someone runs `node tests/at/typecheck.ts`, `node x tsc` exits 
+nonzero → red. Safe direction. Minor finding at most.
+
+  3. **Channel widening through `EvidenceCapture` default** — OQ-4 disclosed; `ProviderAttempt<string>` widening inside a capture producer 
+that never touches h. Fine.
+
+  4. **The remaining `as OpenWorld<Sut, W, Channel>` assertion** — disclosed, pre-existing character; h.fixtures.world now returns 
+suite-chosen W, an unverified narrowing at the same seam as R4's Sut hole. Since R4 was explicitly filed and this is the same seam/same 
+species, and the W-axis claim existed via `w` already — I'll fold this into a minor finding or "no finding with note". The instructions: 
+"Confirm or refute that the Gate 1 exploit is actually dead." The H-axis exploit is dead (verified by the shipped types + my own reading + 
+repro reported). The W/Sut axes remain unverified at the same assertion — Sut filed as R4's follow-up; W flows through h.fixtures now where 
+before HarnessLike pinned it to WorldLike. Hmm, is that a genuine *widening*? Before: `h.fixtures.world(name): Promise<WorldLike>` — suite 
+bodies couldn't invent via h.fixtures. After: `Promise<W>` — suite-chosen. But the runtime object returned by FixtureWorldStore.world — what 
+type does the store actually produce? Let me check fixtures.ts quickly. If the store's world() returns Promise<WorldSeam-ish> and suite's 
+World extends that with extra members, a suite reading `(await h.fixtures.world('x')).extraMember` compiles green against nothing. But 
+identical exposure exists via `open()`'s `w: W` — same store? openWorld reads `harness.fixtures.world(fixture)` presumably and asserts to W. 
+So the capability to invent W members already existed through `w`. The h.fixtures path is the same underlying store. Not a new hole class; 
+R4's filed item should be extended to name the W axis. Minor finding: R4's filed follow-up describes only the Sut axis; the same 
+unverified-claim species covers W (`w` and `h.fixtures.world`), and this change extends its surface (h.fixtures.world now returns suite-W). 
+Minimal fix: when filing/amending the follow-up item, name all three reads. Minor.
+
+  5. **normalizer** — reviewed; drops nothing, rewrites one anchored line, appends exit code. `Compare-Object` is case-insensitive by default! 
+PowerShell's Compare-Object is case-insensitive for strings. A runtime change altering only casing (e.g., "green" → "GREEN") would be masked. 
+Also `Compare-Object` ignores... it compares collections of strings; by default case-insensitive. That's a real mask: "byte-for-byte" claim is 
+not quite true — casing changes pass. Minimal fix: `Compare-Object -CaseSensitive` or use `fc.exe`/git diff --no-index. Severity: 
+minor-to-important? The outputs are machine-generated fixed strings; casing drift is unlikely but the claim "byte-identical" is overstated. 
+I'd call it minor [FALSE-GREEN-CLASS]? Is it "harness invalidity or misleading expected state"? The D5 evidence method has a hole that could 
+mask a real (casing-only) difference. Casing-only behavioral difference is marginal. I'll mark minor with the tag? The tag classes: "harness 
+invalidity, or a misleading expected state" — the "byte-identical" claim is mildly overstated. Hmm. Compare-Object case-insensitivity is a 
+genuine, concrete gap in the only D5 diff mechanism. I'll tag it minor [FALSE-GREEN-CLASS]. Actually also: `Get-Content` decodes both files 
+with default encoding; the baseline file has a BOM (I saw `﻿$ bun tests...` — the first line shows a BOM char). Both go through same decode. 
+Fine.
+
+  Also `Compare-Object` treats input as arrays of strings; differences in line ORDER are caught (it reports additions/removals but not order — 
+wait, Compare-Object is set-based! If the same lines appear in different order, Compare-Object reports NOTHING). That's a bigger mask: a 
+reordering of the per-id table (e.g., AT-016.07 before AT-016.02) would pass the diff. Runner output order changing is plausible if 
+registration order changes. So the "byte-identical" claim is doubly overstated: case-insensitive AND order-insensitive. Minimal fix: use 
+`Compare-Object` with `-CaseSensitive -SyncWindow 0`? No — sync window affects alignment display, not set semantics. Real fix: `git diff 
+--no-index` or `fc.exe` or hash comparison. This elevates the finding: the D5 byte-diff mechanism can mask reordering and case changes. Still, 
+would a reordering be a "behavior change"? Output order is part of the reported evidence. I'll rate important [FALSE-GREEN-CLASS]? Let me 
+think about severity honestly: the mechanism is the item's core D5 proof. Two real masking modes exist. But the likelihood they masked 
+something here is low (I could verify by re-running... running at:verify writes temp files — creates files in TEMP and vitest cache; the 
+review is read-only in the repo; writing to %TEMP% and vitest cache... "do not create, edit, or delete any file" — strictly, running the suite 
+creates cache/report files. I'll not run it.) The mechanism flaw stands regardless. I'll call it important [FALSE-GREEN-CLASS]: the committed 
+D5 evidence procedure (`Compare-Object`) is order- and case-insensitive, so "byte-identical" is not what was proven; fix is one flag... no, 
+Compare-Object has no order-sensitive mode. Fix: compare with `git diff --no-index --exit-code baseline current` or compare SHA256 hashes. 
+
+  6. **Wrapper diagnosability** — headers print, output inherited. Fine.
+
+  7. **`exclude: ["node_modules"]`** — TS docs: specifying exclude replaces default; "node_modules" pattern — does it exclude nested 
+`tests/at/suites/x/node_modules`? TS treats exclude patterns: a pattern without wildcards matches the exact relative path only? Actually TS 
+documentation: "Specifying exclude ... any files/folders ... The exclude property defaults to node_modules, bower_components, jspm_packages, 
+<outDir>". And patterns are matched relative to config location; a bare "node_modules" I believe matches only `<root>/node_modules`... Hmm, 
+actually TypeScript treats directory names in exclude as recursive: excluding "node_modules" excludes any folder named node_modules at any 
+depth? Testing knowledge: In practice, `"exclude": ["node_modules"]` in a tsconfig excludes nested node_modules too (TS normalizes bare folder 
+names to `**/node_modules/**`? No...). I recall: "Any files specified in exclude ... 'node_modules' matches any directory named node_modules" 
+— I believe TS's glob for exclude without a leading ./ is anchored to the tsconfig dir, so "node_modules" = "tests/at/node_modules" only... 
+Actually no: TS docs say exclude patterns are relative to the tsconfig location, and "node_modules" as a pattern would match only that 
+top-level dir. But TS's DEFAULT excludes apply at any depth because they're implemented as folder-name matching. When you write it 
+explicitly... community consensus: writing "node_modules" explicitly behaves the same as the default (matches at any depth). I'm not certain 
+enough to make it a finding. And a nested node_modules under tests/at is hypothetical. Skip.
+
+  8. **Attack surface 8 — simpler design**: what would I cut? Candidates: (a) the wrapper could be three lines shorter with Promise.all spawn 
+async, but spawnSync is simpler. (b) `tests/at/README.md` table — fine. Honestly the design is lean. One cut: `console.log('\ntypecheck OK: 
+both configs clean')` fine. I'd say no simplification finding; maybe note `bun run typecheck` could have been `"tsc -p tsconfig.json & tsc -p 
+tests/at/tsconfig.json & wait"` — platform-fragile, worse. No finding.
+
+  9. **`bun.lock` floor bump** — one thing: `^22.18.0` — does the floor actually carry ImportMeta.main? Verified indirectly: AT project 
+compiles green with types:["node"] resolved to 22.19.17, and the two import.meta.main sites produce no error. The floor claim (22.18.0 first 
+declaring it) — can't verify offline; accept measured claim. No finding.
+
+  10. **`.claude/settings.json`/statusline** — resolved: not branch changes. No finding, but note in verdict? The prompt diff was against 
+moved main; my findings cite file:line from the true branch diff.
+
+  11. One more wrapper attack: **does the wrapper observe a non-zero code it fails to observe?** `result.status !== 0` covers all non-zero and 
+null. What about `spawnSync` returning status 0 when tsc crashes with an unhandled exception? Then exit code nonzero. Fine. What if `bun x` 
+prints error but exits 0? bunx doesn't. OK.
+
+  12. **`process.exit(1)` vs exit code when failures empty** — falls through, exit 0. OK.
+
+  13. **Does `bun run typecheck` appear in CI?** R-2 flagged Lovable regenerating package.json — disclosed, out of scope. Not my finding.
+
+  14. Also confirm no `*.test.ts` changed: branch diff name-only shows only _bind.ts under suites/req-016. ✓. src/, design/, supabase/ 
+untouched ✓. Root tsconfig.json untouched ✓.
+
+  15. D5 deeper: vite honors more from tsconfig than target: `jsx`, `experimentalDecorators`, `emitDecoratorMetadata`, 
+`useDefineForClassFields` (derived), `paths` (via plugin), `target`, `verbatimModuleSyntax`? esbuild reads tsconfig for: jsx factory/fragment, 
+useDefineForClassFields (via target), experimentalDecorators, baseUrl/paths (not esbuild transform but resolution via vite plugin). The new 
+config has no jsx (default: none — files have no JSX), no decorators, target ES2022 == root ES2022. `module`/`moduleResolution` don't drive 
+esbuild's per-file transform. One thing esbuild DOES honor: `verbatimModuleSyntax`? esbuild has its own `verbatimModuleSyntax` support reading 
+tsconfig in newer versions — root sets false, new config defaults false. Equal. `strict` etc. are type-only. So nearest-tsconfig switch is 
+semantics-preserving for these files. The executor measured byte-identical output (modulo the Compare-Object caveats). No finding beyond the 
+diff-mechanism one.
+
+  Severity assignment review:
+  - Finding 1: Compare-Object order/case insensitivity in committed D5 procedure. important [FALSE-GREEN-CLASS]? The classes: "harness 
+invalidity, or a misleading expected state" — the claim "byte-identical" is a misleading expected state of the evidence. I'll mark important 
+with the tag.
+  - Finding 2: bunx auto-install fallback in the wrapper — silent compiler substitution if local typescript absent. minor. Not tagged (not a 
+green-lie in realistic configs — actually it could produce a green check with a DIFFERENT compiler version, which is a harness-validity 
+issue... but requires missing dep where other @types present. I'll leave untagged minor).
+  - Finding 3: W-axis unverified claim now flows through h.fixtures.world (same species as R4's Sut hole, surface extended). minor, untagged 
+(R4 already owns the seam; no new capability). Actually is it [FALSE-GREEN-CLASS]? It's an unverified type claim — but explicitly out-of-scope 
+per R4 and pre-existing in character. The extension through h.fixtures is new surface though. I'll keep it minor untagged but note it should 
+ride the R4 follow-up item.
+  - Finding 4: branch is behind origin/main (054793c landed after branch point); the review/merge diff against origin/main shows phantom 
+deletions of statusline files. Rebase/merge-forward before landing so the landed diff matches the audited one. minor.
+
+  "No finding" areas: coverage claim (verified 29/29/0 myself), wrapper aggregation logic, SuiteHarness/F3 exploit closure, HarnessLike 
+deletion (git grep clean), @types/node floor + lockfile, D6 scope (branch diff clean), skipLibCheck/noUncheckedSideEffectImports folds, D5 
+esbuild semantics beyond the diff mechanism, simpler design.
+
+  Blocker count: 0 ship-blockers? Is the Compare-Object issue a ship-blocker? The brief's step 5 required "diffed against a capture" — done, 
+but the diff tool is weak. Does that block shipping? The evidence was produced; the weakness is residual. I could argue important-not-blocker 
+since re-running with a proper differ is a one-command verification the founder can do. I'll say ship-blockers: 0, but finding 1 must be 
+dispositioned (founder-only, since tagged).
+
+  Hmm, wait — should I double-check Compare-Object case-insensitivity claim? Yes, Compare-Object is case-insensitive by default for strings; 
+-CaseSensitive exists. And order-insensitivity: Compare-Object compares as sets (difference/complement), ignoring order and duplicates — 
+correct. If the run output the same 21 lines in different order, empty result. Duplicates: if a line duplicated and another dropped — set 
+semantics on arrays: Compare-Object does element-wise difference considering multiplicity? Compare-Object treats input as collections; it does 
+consider occurrences? Actually Compare-Object compares the collections as sets: if reference has "a","b" and difference has "b","a" → equal. 
+If reference has "a","a","b" and difference "a","b","b" → I believe it reports no difference because it does set comparison? There are known 
+quirks; Compare-Object does account for duplicates in some versions... The safe statement: order-insensitive and case-insensitive by default. 
+That's enough.
+
+  Also note baseline file has a UTF-8 BOM (shown as `﻿` before `$ bun tests`). Get-Content handles BOM fine; a regenerated capture without BOM 
+vs baseline with BOM — content equal after decode. Fine.
+
+  Line citations: I need file:line. For finding 1: `loop/items/AI4DEV-24/baseline/normalize-verify.ps1` header lines 13-15 (usage shows 
+Compare-Object without -CaseSensitive) and plan.md §5 step 5. Cite normalize-verify.ps1:15-18 (the Compare-Object usage in comment) — in the 
+diff, the Compare-Object is in the usage comment lines ~13-16 of the file. Let me cite `loop/items/AI4DEV-24/baseline/normalize-verify.ps1:15` 
+and `loop/items/AI4DEV-24/plan.md:557` (step 5). For finding 2: `tests/at/typecheck.ts:34` (spawnSync line — actual line in file: line 34 per 
+diff offset; the spawnSync call is at around line 34). Let me get real line numbers from the files.
+
+loop/items/AI4DEV-24/baseline/normalize-verify.ps1:7:      Compare-Object `
+loop/items/AI4DEV-24/baseline/normalize-verify.ps1:11:  Empty Compare-Object output means the run is unchanged. The committed baseline was 
+captured at
+loop/items/AI4DEV-24/plan.md:114:  normalizing the two non-deterministic lines (see §5, step 5). `Compare-Object` returned nothing.
+loop/items/AI4DEV-24/plan.md:550:   Compare-Object `
+loop/items/AI4DEV-24/plan.md:719:   committed pre-change baseline**: `Compare-Object` against
+---
+15:import { spawnSync } from 'node:child_process';
+30:  // `process.execPath` is the bun binary already running this file, so the compiler is reached
+34:  const result = spawnSync(process.execPath, ['x', 'tsc', '--noEmit', '--pretty', 'false', '-p', project], {
+---
+11: * These are types only. The implementations arrive per slice (H2 clock/fixtures here, H3
+26:/* ---------------------------------------------------------------- H2 fixtures + clock */
+151:  fixtures: Fixtures<W>;
+export interface Fixtures<W extends WorldSeam = WorldSeam> {
+  world(name: string): Promise<W>;
+}
+
+/**
+ * Time, under the test's control — funding's 7-day expiry, the UTC daily credit reset, blocker
+ * aging, abandonment, link expiry.
+• Two quick line-number checks for precise citations, then I'll write the review.
+
+• I have everything. Write the review: numbered findings + VERDICT. Keep "no finding" entries for areas that survived. Output ONLY the 
+numbered findings and VERDICT section, as instructed.
+
+• 1. **SEVERITY: important [FALSE-GREEN-CLASS]**
+     **Location:** `loop/items/AI4DEV-24/baseline/normalize-verify.ps1:7` (and the identical procedure quoted at `plan.md:550` and relied on at `plan.md:719`).
+     The committed D5 proof is `Compare-Object (Get-Content baseline) (Get-Content current)`. `Compare-Object` is **case-insensitive by default** and **order-insensitive** (it is a set-difference, not a sequence diff): the same 21 lines emitted in a different order, or with changed casing, produce empty output and are reported as "byte-identical".
+     **Failure:** a future change reorders the per-id table (e.g. registration-order drift moves `AT-016.07` above `AT-016.02`) or flips `green`→`GREEN`; the documented comparison returns nothing, `plan.md`'s "byte-identical to the committed pre-change baseline" claim is reproduced verbatim, and a real output change is reported as D5-held. The item's central evidence method can mask exactly the class of difference it exists to catch.
+     **Minimal fix:** replace the comparison with an order- and case-sensitive differ — `git diff --no-index --exit-code baseline.txt current.txt` (or an SHA256 hash comparison) — in both `normalize-verify.ps1`'s usage comment and `plan.md` §5 step 5, and re-run it once against the existing baseline to confirm the recorded verdict stands. (`Compare-Object -CaseSensitive` alone is not sufficient; it stays order-insensitive.)
+
+  2. **SEVERITY: minor**
+     **Location:** `tests/at/typecheck.ts:34`.
+     The wrapper launches the compiler as `bun x tsc …`. `bun x` falls back to **downloading the package from the registry** when it is not found locally. The plan rejected `require.resolve('typescript')` precisely because it could resolve a non-pinned compiler, but the chosen mechanism has the same fallback class: if `typescript` is ever absent from `node_modules` (a `package.json` regeneration dropping the devDependency, a partial install) while `@types/node` remains, `bun run typecheck` silently runs a registry-fetched TypeScript of arbitrary version and can exit 0. `typescript` is a direct devDependency today (`package.json:91`), so this needs a dependency-edit to trigger, but silent compiler-version substitution is the drift this item exists to stop.
+     **Minimal fix:** resolve the local binary explicitly and fail if it is missing — e.g. `spawnSync(process.execPath, [join(ROOT, 'node_modules/typescript/bin/tsc'), …])` with an existence check that prints "typescript not installed; run bun install" and counts as a failure.
+
+  3. **SEVERITY: minor**
+     **Location:** `tests/at/harness/registry.ts:1756` (`openWorld` return type) and `registry.ts:1816` (`opened as OpenWorld<Sut, W, Channel>`).
+     The R1 design kills the harness-axis invention, but the surviving assertion now also narrows the **world axis inside `h`**: `SuiteHarness<W, Channel>` gives `h.fixtures.world(name): Promise<W>` (`contracts.ts:34-36`), where the deleted `HarnessLike` pinned that return to `Promise<WorldLike>`. The factory is statically checked to produce `SuiteHarness<WorldLike, string>`; the assertion re-labels it with the suite's own `W`, so a suite declaring `World` members the fixture store never produces reads them off `h.fixtures.world(...)` with a green check. This is the same species as the R4 `Sut` hole at the same seam — not a new capability (the suite's `W` was already an unverified claim via `open().w`), but the surface is wider than R4's filing describes.
+     **Minimal fix:** no code change in this item (R4 owns the seam). When the R4 follow-up board item is written, name all three unverified reads — `OpenWorld.sut`, `OpenWorld.w`, and `OpenWorld.h.fixtures.world` — so the fix covers the whole seam, not only the `Sut` axis.
+
+  4. **SEVERITY: minor**
+     **Location:** review-surface only — `git diff origin/main..HEAD` vs `git diff 02baf79..HEAD`.
+     `origin/main` advanced past the branch point (merge-base is `02baf79`): commit `054793c` landed `loop/work/statusline.ps1` and the `.claude/settings.json` `statusLine` entry **after** the branch was cut. Diffing against `origin/main` therefore shows phantom deletions of both files that this branch never made (I confirmed the branch's own diff touches only the 14 allowed files: `tests/at/**`, `package.json`, `bun.lock`, `loop/items/AI4DEV-24/**`). Verification step 7's "only … touched" claim is **true against the merge base** — but anyone auditing against a moved `origin/main` sees out-of-scope hunks, and the branch now merges into a main whose tip it has never been type-checked alongside.
+     **Minimal fix:** merge `origin/main` forward (or rebase) before landing and re-run `bun run typecheck` once on the result, so the landed tree — not just the branch point — is the tree the green check describes.
+
+  **No finding — areas that survived attack (verified by me, not taken on trust):**
+  - **Does the check check?** Ran it. `tsc -p tests/at/tsconfig.json --noEmit` exits 0; `--listFiles` shows **29 files under `tests/at`, 0 leaked from `tests/at/node_modules`**, and `find` on disk counts exactly 29 matching TS/JS files outside `node_modules`. App config separately exits 0. The 29-vs-28 discrepancy is accounted for (`typecheck.ts` itself).
+  - **The wrapper's aggregation** (`tests/at/typecheck.ts`): both projects always launch; `result.error` (spawn failure), `status !== 0` (covers signal death, `null`), and first-project-fails are all failures; output is `stdio: 'inherit'` so CI sees everything; `ROOT` is cwd-independent; under plain `node` the spawn fails loudly, i.e. red, never green. Ran `bun run typecheck`: both headers print, exit 0.
+  - **F3 exploit is dead.** `SuiteHarness` is derived, not a parameter; a suite supplies only `Channel extends string`. Module augmentation of `AtHarness` self-defeats (a required added member breaks `index.ts`, which is checked through the `HarnessModule`-typed dynamic-import assignment at `registry.ts` — a literal-typed const specifier, so the import is statically resolved). Deleting the `index.ts` annotation re-breaks that same assignment. The remaining assertion is finding 3, above.
+  - **`HarnessLike` deletion:** `git grep HarnessLike` outside this item's own prose returns zero code references; the after-deletion ordering of R3's check is rendered harmless by the fact that any surviving code reference would fail the now-green whole-tree typecheck.
+  - **`@types/node` floor and lockfile:** spec `^22.18.0` in both `package.json` and `bun.lock`, resolution unchanged at `22.19.17`, consistent and minimal; the two `import.meta.main` sites compile under `types: ["node"]`.
+  - **D6 scope:** the branch diff (`02baf79..HEAD`) touches nothing in `src/`, `design/`, `supabase/`, no `*.test.ts`, and not the root `tsconfig.json`.
+  - **D5 esbuild semantics:** the only tsconfig fields vite/esbuild honours for these files are `target` (pinned ES2022 = root), `jsx`/decorators (absent, no such syntax in the tree), and `verbatimModuleSyntax` (default false, matching root). The nearest-tsconfig switch is semantics-preserving here.
+  - **Simpler design:** nothing to cut. The wrapper is the minimal honest shape for "always run both"; a shell one-liner would reintroduce either the `&&` short-circuit or platform fragility.
+
+  ## VERDICT
+
+  Ship-blockers: 0
+  [FALSE-GREEN-CLASS] findings: 1
+
+  The single most dangerous residual risk if this merges as written: the committed D5 comparison procedure is order- and case-insensitive, so the project now has a repeatable, documented ritual that can certify a changed `at:verify` output as "byte-identical" — a self-service false green installed at the exact point this hardening series was built to guard.
+
+To resume this session: kimi -r session_7bb8a261-30f6-446a-aa3d-f97b1c964791
+

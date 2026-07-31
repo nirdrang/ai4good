@@ -17,6 +17,9 @@ import type { NotificationsSut, World } from './_contract.ts';
 export { AtPending, TIER, TIERS } from '../../harness/registry.ts';
 export type { AtContext, OpenWorld, PendingPhase } from '../../harness/registry.ts';
 
+// The suite names its system under test and its fixture world. It deliberately cannot name - or
+// re-label - the harness TYPE: that shape comes from the one shared contract the harness factory is
+// statically checked to produce, so a suite can never declare a seam nothing supplies.
 export const atTest = bindSuite<NotificationsSut, World>({
   sut: 'notifications',
   sutMissingDetail:

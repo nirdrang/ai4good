@@ -1,0 +1,38 @@
+{
+  /* Every file under tests/at, whatever its extension - the point of this config is that a suite
+     written next month is covered the day it is written. `allowJs`/`checkJs` are what make the
+     coverage claim exactly true rather than nearly true: a JavaScript helper dropped in here runs
+     under vitest, so it must be type-checked too, not merely discouraged by a README.
+     The explicit `exclude` is load-bearing - naming one replaces TypeScript's default, and vitest
+     recreates tests/at/node_modules (its own cache) on every at:selftest run. */
+  "include": ["**/*"],
+  /* `typeprobes` holds code that MUST NOT compile - the negative tests for the harness-invention
+     attacks. A green run over that directory IS the defect, so it cannot live in this program; it
+     has its own config and `type-invention.selftest.ts` asserts that it still fails. */
+  "exclude": ["node_modules", "typeprobes"],
+  "compilerOptions": {
+    /* Node-side, NOT the browser. `target` matches the root config deliberately: vite resolves the
+       nearest tsconfig per file, and this field drives useDefineForClassFields, so a divergence
+       here would change class semantics in the harness at runtime. */
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
+
+    /* The harness imports with explicit .ts specifiers ('./registry.ts'), which only Bundler
+       resolution accepts; TypeScript requires noEmit alongside allowImportingTsExtensions. */
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+
+    /* Checking, not linting. skipLibCheck stays FALSE: it cannot tell a third-party .d.ts from a
+       first-party one under tests/at, and skipping our own declarations is what this item exists
+       to stop. noUncheckedSideEffectImports matches the root config - without it a renamed bare
+       side-effect import produces no diagnostic at all. */
+    "skipLibCheck": false,
+    "strict": true,
+    "noUncheckedSideEffectImports": true
+  }
+}

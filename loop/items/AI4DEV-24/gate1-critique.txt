@@ -1,0 +1,56 @@
+The supplied plan puts the seven questions in §6, not §9.
+
+1. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+   **Location:** [plan.md §1a](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:125), [§6 OQ-1](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:351), [brief.md D3](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/brief.md:32).  
+   `skipLibCheck: true` cannot distinguish third-party declarations from a future first-party `tests/at/**/*.d.ts`. The plan’s glob includes such files, then suppresses their diagnostics, contradicting D3’s ban on skipping own code.  
+   **Failure:** an invalid local ambient harness declaration makes `bun run typecheck` green while the harness contract is broken.  
+   **Minimal fix:** omit `skipLibCheck` or set it `false`. The proposed W2 shape typechecks with it false today.
+
+2. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   **Location:** [plan.md §1b](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:192), [brief.md D2](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/brief.md:27).  
+   `&&` does not “run BOTH configs”: an app error prevents the AT command from starting. The plan admits this, but cannot silently reinterpret D2.  
+   **Failure:** an app error and a new AT error coexist; the command reports only the app error, so there is no evidence that AT was checked.  
+   **Minimal fix:** use a small status-aggregating wrapper that always launches both `tsc -p` commands and exits nonzero if either fails.
+
+3. **SEVERITY: blocker [FALSE-GREEN-CLASS]**  
+   **Location:** [plan.md §2a–§2c](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:223), [registry.ts harness seam](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:101), [open/assertion](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:406).  
+   `H` is never produced by the dynamic factory. `HarnessModule.createHarness()` returns only `HarnessLike`; W2 retargets the existing assertion to `OpenWorld<Sut, W, H>`. Thus `H extends HarnessLike` permits a suite to invent required fields that no runtime value supplies.  
+   **Failure:** a future suite binds `AtHarness & { auditLog: ... }`; TypeScript accepts `h.auditLog`, while `open()` returns no such property. The new green check is a type lie.  
+   **Minimal fix:** restrict the context to the canonical shared harness type and statically type `index.ts` against it, or require a suite-provided runtime assertion/guard before returning `H`. The latter changes invalid-harness behavior, so D5 requires escalation.
+
+4. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   **Location:** [plan.md §1a](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:125), [root tsconfig](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tsconfig.json:22).  
+   The AT config omits `noUncheckedSideEffectImports`, although the root config enables it.  
+   **Failure:** `import './register-vendors.ts';` is renamed or misspelled. With TypeScript 5.9 and this flag off, an unresolved bare side-effect import produces no diagnostic; `bun run typecheck` can exit 0 and Vitest fails only at runtime.  
+   **Minimal fix:** add `"noUncheckedSideEffectImports": true`.
+
+5. **SEVERITY: minor [FALSE-GREEN-CLASS]**  
+   **Location:** [plan.md §1a include rationale](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:127), [brief.md done condition](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/brief.md:13).  
+   `include: ["**/*.ts"]` proves coverage only for current `.ts` files, not `tests/at/**` as claimed. It excludes `.tsx`, `.mts`, `.cts`, and all JavaScript; `allowJs`/`checkJs` are absent.  
+   **Failure:** a dynamically configured `setupFiles` JavaScript harness helper is added under `tests/at`; it executes in Vitest but is outside the type program, while the command remains green.  
+   **Minimal fix:** either use `include: ["**/*"]` with `allowJs` and `checkJs`, or explicitly enforce a TypeScript-only extension policy and narrow the coverage claim.
+
+6. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   **Location:** [plan.md §0b](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:88), [§6 R-3](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:387), [package.json](/C:/Users/nirdr/Downloads/ai4good-tsconfig/package.json:77), [check.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/check.ts:173).  
+   The lock currently pins a working `@types/node` version, but `^22.16.5` declares support for versions that lack `ImportMeta.main`. A normal fresh install may select the newest version, but the manifest still permits a failing resolution.  
+   **Failure:** a valid resolver/mirror selects 22.16.x; both `import.meta.main` sites fail the new standard check.  
+   **Minimal fix:** raise the floor to `^22.18.0` or later, update `bun.lock`, and amend §5’s allowed-diff list to permit that lockfile change. Do not add `@types/bun`.
+
+7. **SEVERITY: important [FALSE-GREEN-CLASS]**  
+   **Location:** [plan.md §0a](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:35), [§5 step 5](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:328), [brief.md D5](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/brief.md:47).  
+   The byte-diff baseline lives only in an untracked scratchpad; no reviewer can reproduce or inspect the asserted `Compare-Object` result from the repository.  
+   **Failure:** a behavior-affecting output change is normalized away or compared against an unavailable/stale capture, then reported as unchanged.  
+   **Minimal fix:** commit the normalized baseline and normalizer under `loop/items/AI4DEV-24/`, or specify a reproducible detached-worktree command at `02baf79` that regenerates it.
+
+No finding: the proposed glob resolves all 28 current TypeScript roots, and an actually empty include produces TS18003 rather than a green exit.
+
+No finding: W2’s defaults, overloads, and the defaulted `taxonomyEvidence` capture compile across the actual 28-file tree; that does not cure finding 3.
+
+No finding: for current files, ES2022 preserves the class-field behavior relevant to `ControlledClock`, `FixtureWorld`, `EvidenceCapture`, and `CapabilityPending`; there is no JSX or decorator use under `tests/at`. Keep the separate config required by D1; do not widen root config or add project references/build mode.
+
+## VERDICT
+
+Ship-blockers: 2  
+[FALSE-GREEN-CLASS] findings: 7  
+
+The most dangerous residual risk is the unchecked `H` assertion: it makes the newly passing typecheck promise a runtime harness shape that the factory never establishes.

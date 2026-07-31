@@ -27,9 +27,9 @@ export const CONFIG_KEYS: Record<string, AtConfigKey> = {
   'req-015.thread_comment_notifications.coalesce': 'threadCommentNotificationsCoalesce',
 };
 
-export interface ConfigRegistry {
+export type ConfigRegistry = {
   get<T>(key: string): T;
-}
+};
 
 /** Where an override names a knob that does not exist. Empty = every override is addressable. */
 export function unknownConfigKeys(overrides: ConfigOverrides): string[] {

@@ -1,0 +1,10 @@
+1. **CONFIRMED — the original `WorldLike` merge exploit is dead.**  
+Against `30c44f3`, the unpinned/default-`W` exploit compiled clean. At `6ea960d`, the same source fails with duplicate-identifier errors for `WorldLike` and `TS2339` on `w.invented`. The direct negative probe also rejects all 16 listed aliases, including `WorldLike`.
+
+2. **CONFIRMED — pinning hid that specific merge hole.**  
+Against `30c44f3`, augmenting `WorldLike` then using `bindSuite<…, World>` produced `TS2339` on `World.invented`; the default `atTest` version was clean. Thus pinning changed the visible type to `World`, rather than closing the augmentable-default-`WorldLike` route.
+
+3. **REFUTED — the bounded sentence remains too broad as written.**  
+The remaining exported registry interfaces are not the counterexample (there are now eight, not nine; `WorldLike` is the former ninth). But `bindSuite<Sut, W extends WorldLike>` still permits a suite-defined augmentable `W` with `invented?: string`; a test body can then compile cleanly while reading `opened.w.invented`. This is a severe green read, not merely an ignored passed value: `w` is typed as `W` and is returned via an unchecked cast. See [registry.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:177), [registry.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:544), and [registry.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:571).
+
+**VERDICT: The `WorldLike` declaration-merging fix is real, but the unchanged universal claim is false because suite-supplied `W` can still invent a readable member on `w`.**

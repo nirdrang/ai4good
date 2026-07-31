@@ -1,0 +1,17 @@
+1. **PARTIAL** — `AtHarness` is now a type alias, as are all current contracts in `contracts.ts` and `ConfigRegistry`. The committed probe exits 2 with `TS2558` and duplicate-identifier errors for `AtHarness`, `Vendors`, `Faults`, and `ConfigRegistry`; both configured compiler projects exit 0. However, the executable self-test does not assert every converted contract by name: it omits `WorldSeam`, `Fixtures`, `Clock`, `Sentinel`, `Sentinels`, `FaultHandle`, `StaticScan`, `ProviderAttempt`, and `EmailProviderSim`. A future reversion of one of those aliases to an interface would not be caught by this test. [contracts.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/contracts.ts:162), [type-invention.selftest.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/type-invention.selftest.ts:63)
+
+2. **CONFIRMED** — `OpenWorld.h` is exactly unparameterized `AtHarness`; the factory contract also returns `Promise<AtHarness>`, and `openWorld()` returns that value directly. `Channel` and `SuiteHarness` are gone from executable registry/binding plumbing. The old third type argument is rejected with `TS2558`, and both TypeScript projects compile cleanly. [registry.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:145)
+
+3. **CONFIRMED** — The verifier now hashes one ordered, normalized UTF-8 sequence. Its report-path replacement is anchored to the complete known shape, and it does not trim trailing whitespace. Applying its exact hash logic showed changed order, case, and trailing space all produce different hashes; an extra path suffix is not normalized. The committed baseline hash is the recorded `36D2…0041`. [normalize-verify.ps1](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/baseline/normalize-verify.ps1:53)
+
+4. **CONFIRMED** — The evidence was preserved and the claim was corrected honestly. `git diff --check origin/main..HEAD` exits 2: 422 trailing-whitespace diagnostics plus one EOF-blank-line diagnostic, all in the three committed reviewer records. The scoped code-path check exits 0, and the final plan explicitly records the whole-diff failure rather than calling it clean. [plan.md](/C:/Users/nirdr/Downloads/ai4good-tsconfig/loop/items/AI4DEV-24/plan.md:954)
+
+5. **CONFIRMED** — `origin/main` (`054793c`) is the merge base and an ancestor of `HEAD`; the merge commit is in the branch history. There is no branch delta for `.claude/settings.json` or `loop/work/statusline.ps1`; the file exists and the settings retain `statusLine`.
+
+6. **CONFIRMED** — The wrapper now logs both the actual terminating signal and a non-zero exit status before recording the failed project. [typecheck.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/typecheck.ts:57)
+
+## NEW OBSERVATIONS
+
+- `AtContext` and `OpenWorld` remain augmentable exported interfaces. An in-memory probe against the current tsconfig augmented both with optional `auditLog` members and read them with zero diagnostics. Runtime construction supplies neither property (`ctx` has `atId`, `open`, `capture`; `opened` has `h`, `w`, `sut`). This is a separate wrapper-level route, outside the stated R7 `h`-contract boundary. [registry.ts](/C:/Users/nirdr/Downloads/ai4good-tsconfig/tests/at/harness/registry.ts:145)
+
+VERDICT: 5 CONFIRMED, 0 REFUTED, 1 PARTIAL.
