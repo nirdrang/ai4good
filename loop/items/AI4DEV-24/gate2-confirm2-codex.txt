@@ -1,0 +1,18 @@
+1. CONFIRMED — direct probe output contains both TS6200 and TS2300. In an in-memory `WorldSeam` alias→interface reversion, the selftest’s exact predicate failed only `WorldSeam`. Adding unmatched `NoMatchingAttack` to the protected list failed only that name.
+
+2. CONFIRMED — the `AtContext`/`OpenWorld` augmentation-and-read exploit is dead: TypeScript reports TS2300 for both merges and TS2339 for both attempted reads.
+
+3. REFUTED — `WorldLike` remains augmentable. This compiled with no errors:
+
+```ts
+declare module '../harness/registry.ts' {
+  interface WorldLike { invented?: string }
+}
+// inside an atTest body:
+const opened = await ctx.open();
+opened.w.invented;
+```
+
+That is a severe green read from an object handed to the test body, not merely an extra ignored input.
+
+VERDICT: fixes (1) and (2) are confirmed, but the proposed bounded PR claim is false.

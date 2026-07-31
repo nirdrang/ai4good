@@ -1062,3 +1062,76 @@ doing it unasked or letting the PR body overstate.
 | **REQ-016 acceptance state** | **unchanged: 8 green / 4 red**, same ids, same reasons, same SHA256 `36D2F653…0041` |
 | files changed vs `origin/main` | 23, all within the allowed paths; no `src/`, `design/`, `supabase/`, root `tsconfig.json`, and **no `*.test.ts`** |
 | `git diff --check` | **exit 0** over code paths; exit 2 over the whole diff, all 423 violations in committed reviewer records (R9) |
+
+---
+
+## 13. R14 — the refutation, and the bounded claim made true
+
+Final confirmation: codex **CONFIRMED** the drift-proof guard (verifying both halves independently —
+reverting an alias fails exactly that name, and adding an unmatched name to the protected list fails
+only that name) and **CONFIRMED** the `AtContext`/`OpenWorld` fix. It **REFUTED** the bounded claim,
+and it was right.
+
+`open()` hands `w` to the test body exactly as it hands `h`, so `WorldLike` was always inside the
+"objects a test body is handed" boundary. My R7 reasoning for excluding it — that it belongs to
+AI4DEV-31's seam — **conflated two different defects**, and the orchestrator's R11 criterion
+included it while its exclusion list did not. The suite's `W` being an unverified claim is
+AI4DEV-31's. The interface being augmentable was this item's, and is now closed. `WorldLike` is a
+type alias, is in `ALIAS_PROTECTED`, and the probe carries an attack for it like the other fifteen.
+
+### What reproducing it taught, which is worth more than the fix
+
+**My first reproduction attempt failed, and the reason matters.** Binding
+`bindSuite<NotificationsSut, World>` pins `W` to REQ-016's concrete world type, so `w` resolves to
+`World` and the merged member is invisible:
+
+```
+tests/at/suites/req-016/_wlprobe.ts(9,24): error TS2339: Property 'invented' does not exist on type 'World'.
+```
+
+The exploit needs `W` at its **default**. `atTest` is exported with `W = WorldLike` defaulted, so any
+suite that does not pin its own world type was exposed — and with `W` defaulted the same probe
+compiled clean, exit 0. **Pinning hides the hole rather than closing it**, which is why "REQ-016 is
+not affected" would not have been an answer. That nuance is recorded in the probe comment so the next
+reader does not repeat my first attempt and conclude the attack is theoretical.
+
+Verified dead in the main tree after the change:
+
+```
+tests/at/suites/req-016/_wlprobe.ts(3,13): error TS2300: Duplicate identifier 'WorldLike'.
+tests/at/suites/req-016/_wlprobe.ts(7,24): error TS2339: Property 'invented' does not exist on type 'WorldLike'.
+```
+
+**Stop clause not triggered.** Measured before converting: every `WorldLike` usage is a generic
+constraint (`W extends WorldLike`), which a type alias satisfies; no interface extends it and no
+class implements it. No `any`, no suppression, no runtime change.
+
+### The claim this item makes
+
+> **No suite can invent a member on the harness, on any capability it exposes, or on any object a
+> test body is handed.**
+
+True as written, and swept end to end — all **16** protected types reject a merge:
+`AtHarness`, `WorldSeam`, `Fixtures`, `Clock`, `Sentinel`, `Sentinels`, `FaultHandle`, `Faults`,
+`StaticScan`, `ProviderAttempt`, `EmailProviderSim`, `Vendors`, `ConfigRegistry`, `OpenWorld`,
+`AtContext`, `WorldLike`.
+
+It is **not** "no interface anywhere in the harness is augmentable", which remains false: nine
+exported interfaces stay in `registry.ts`, and codex's own refutation supports the distinction —
+it attacked the bounded claim and found only `WorldLike` readable from a test body, consistent with
+the rest being inputs a suite writes or tooling values never handed to a body.
+
+### FINAL declared expected state
+
+| | value |
+|---|---|
+| `at:selftest` | **114 tests across 7 files** (96 → 99 → 102 → 113 → 114) |
+| typecheck coverage | **30 files**, **0** leaked from `tests/at/node_modules`, 284 in the whole program |
+| files on disk, excl. `node_modules` and the excluded `typeprobes` | **30** — every one covered |
+| alias-protected types, all rejecting a merge | **16** |
+| **REQ-016 acceptance state** | **unchanged: 8 green / 4 red**, SHA256 `36D2F653…0041` |
+| files changed vs `origin/main` | 26, all allowed; no `src/`, `design/`, `supabase/`, root `tsconfig.json`, no `*.test.ts` |
+| `git diff --check` | exit 0 over code paths; exit 2 whole-diff, all violations in committed reviewer records (R9) |
+
+Across five fix cycles the selftest count moved 96 → 114 while the acceptance state never moved once.
+Those two moving together would be the serious event; it has not happened.
