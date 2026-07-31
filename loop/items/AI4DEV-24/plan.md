@@ -1031,6 +1031,10 @@ type-check no longer permits.
 
 ### RESIDUAL, measured and NOT fixed — for the terminal ruling
 
+> **Superseded by §13 and §14.** `WorldLike` was converted under R14, so the count is **eight**, not
+> nine. More importantly, the residual that mattered was never on this list: it is not an interface
+> at all. §14 carries the corrected analysis and the final claim.
+
 Nine exported interfaces remain in `registry.ts`: `ParsedAtId`, `AtTestOptions`, `Registration`,
 `WorldLike`, `HarnessModule`, `OpenOverrides`, `TrackedTeardown`, `TeardownFailure`, `SuiteBinding`.
 I did not convert them, because R11 drew the boundary at "the harness object and the wrapper that
@@ -1135,3 +1139,84 @@ the rest being inputs a suite writes or tooling values never handed to a body.
 
 Across five fix cycles the selftest count moved 96 → 114 while the acceptance state never moved once.
 Those two moving together would be the serious event; it has not happened.
+
+---
+
+## 14. Terminal ruling — the claim, narrowed to what is true
+
+Third confirmation: codex **CONFIRMED** the `WorldLike` merge fix and **CONFIRMED** the pinning
+nuance, then **REFUTED** the bounded sentence a third time. Artifact:
+`gate2-confirm3-codex.txt`. The orchestrator's terminal ruling: **narrow the claim, do not fix the
+remaining route** — it is precisely AI4DEV-31, identified before this item, scoped out twice with
+reasoning, and filed. Closing it *is* the seam redesign.
+
+### Codex was right, and I verified it before writing a claim about it
+
+Two corrections to §12, both mine:
+
+- The remaining exported interfaces in `registry.ts` number **eight**, not nine — `WorldLike` was the
+  ninth and R14 converted it. Measured: `ParsedAtId`, `AtTestOptions`, `Registration`,
+  `HarnessModule`, `OpenOverrides`, `TrackedTeardown`, `TeardownFailure`, `SuiteBinding`.
+- **The residual that defeats the claim is not on that list, and is not an interface problem at
+  all.** I had been reasoning about which *shared* types stay augmentable. The live route needs no
+  augmentation of anything shared. A suite declares its **own** world type and the seam hands it
+  back through an unchecked cast:
+
+```ts
+interface MyWorld { teardown(): Promise<void>; invented?: string }
+const t = bindSuite<NotificationsSut, MyWorld>({ sut: 'notifications' });
+t('AT-016.95', 'suite-supplied W', async (ctx) => {
+  const opened = await ctx.open();
+  console.log(opened.w.invented);   // typecheck: exit 0
+});
+```
+
+`bun run typecheck` → **exit 0**. No `declare module` anywhere. That is what makes the mechanisms
+orthogonal rather than degrees of the same thing, and it is why sixteen conversions do not touch it.
+
+### THE CLAIM — verbatim, for the PR body
+
+> **Closed by this item: declaration merging on the harness's shared types.** All 16 reject a
+> merged-in member — the harness contract, every capability it exposes, and every object `open()`
+> hands a test body. Each is proven by its own named test, and reverting any single one to an
+> interface fails that test and no other.
+>
+> **Not closed, and a different mechanism: a suite's own type declarations.** A suite still names its
+> own world and system-under-test types, and the seam returns them through an unchecked cast. A suite
+> that declares `interface MyWorld { teardown(): Promise<void>; invented?: string }` can read
+> `opened.w.invented` green, with no declaration merging involved anywhere. Verifying the seam's
+> casts is AI4DEV-31, and is deliberately not attempted here.
+
+That is true as written, names the mechanism actually closed rather than a category, and names what
+remains open together with the item that owns it.
+
+### The pattern worth recording: three times it was the wording, not the code
+
+Every fix in this item held under confirmation. Nothing was ever refuted on the code. What was
+refuted, three times, was a sentence I wrote about the code:
+
+1. **§10 → R10.** "The selftest asserts each contract by name." It asserted three of thirteen.
+2. **§12 → R14.** "No suite can invent a member on … the objects a test body is handed." `WorldLike`
+   was such an object and was still augmentable.
+3. **§13 → this ruling.** The same sentence, still too broad, because a suite's own `W` reaches the
+   same green read without merging at all.
+
+The common failure is the same each time: I made a uniform change, then described its *effect* in
+the most general terms the change seemed to support, instead of the terms I had actually tested. Each
+correction narrowed the sentence toward the mechanism and away from the category. The lesson for the
+next item is cheap to state and evidently hard to apply — **a claim should name the mechanism it
+closed, and the test that proves it, not the class of defect it belongs to.** An honest narrow claim
+survives a reviewer's probe; a broad one is a standing invitation to be refuted, and this panel
+accepted that invitation every single time.
+
+### FINAL declared expected state — no code changed under this ruling
+
+| | value |
+|---|---|
+| `at:selftest` | **114 tests across 7 files** |
+| typecheck coverage | **30 files**, **0** leaked from `tests/at/node_modules`, 284 in the whole program |
+| files on disk, excl. `node_modules` and the excluded `typeprobes` | **30** — every one covered |
+| alias-protected types, each rejecting a merge under its own test | **16** |
+| **REQ-016 acceptance state** | **unchanged: 8 green / 4 red**, SHA256 `36D2F653…0041` |
+| files changed vs `origin/main` | all within `tests/at/**`, `package.json`, `bun.lock`, `loop/items/AI4DEV-24/**`; no `src/`, `design/`, `supabase/`, root `tsconfig.json`, no `*.test.ts` |
+| `git diff --check` | exit 0 over code paths; exit 2 whole-diff, all violations in committed reviewer records (R9) |
