@@ -1,40 +1,46 @@
 ---
 name: dev-end
-description: Complete one dev-tree leaf — the dev-level close (the equivalent of /pm-done, one tier down). The leaf's verify set is already green from the implement loop (assumed, not re-run); land the PR (the merge flips it Done), reconcile its parent, suggest the next leaf. No PM touch, no attestation — that is /pm-done's job.
+description: Close one board item — the back door of /item-loop, running its merge tail. Independent audit, merge ruling, SHA-pinned merge, post-merge check, parent reconcile, then clear the path for the next item. Verification is NEVER assumed.
 ---
 
-# /dev-end [leaf] — complete a leaf (DEV board)
+# /dev-end [item] — close an item (the loop's merge tail)
 
-**Verb tiers:** requirement = `/pm-next`, `/pm-done`; leaf = `/dev-start`, `/dev-end`.
-**Ergonomic packaging, not an authority.** The leaf's real Done comes from the PR MERGE
-(vendor-native); this verb packages verify → land → reconcile → suggest around it. It never
-moves or attests the PM item, and never fakes a state the merge should produce. A disabled skill
-loses nothing.
+**Rewritten 2026-07-31 (founder ruling, AI4DEV-32).** The previous version of this verb said
+verification was "assumed, not re-run" and that the founder self-merges. Both contradicted
+`/item-loop`, and the weaker path would have let unreviewed work land while the way of work
+appeared followed. This verb is now the loop's MERGE TAIL with a convenient name — the same
+steps, the same evidence bar, nothing assumed.
 
-## Ritual (any failure → report the named failure and STOP — a leaf is not done)
+## Ritual (any failure → report the named failure and STOP)
 
-1. **Target.** The leaf being worked (In Progress, its branch checked out), or the one named.
-2. **Verification is ASSUMED, not re-run.** By the time you invoke `/dev-end`, the leaf's verify
-   set is already green — you ran it test-first as the implement loop's own red→green cycle and
-   approved it. `/dev-end` trusts that inner loop and does NOT re-run the tests. (The
-   authoritative, machine-run verification is `/pm-done`'s FULL suite at integration tier — that
-   is where cross-leaf regressions are caught, so nothing is lost by not re-running here.)
-   Optionally note the last green result / commit for the record.
-3. **Commit clean.** The leaf's work is committed on its branch; `git status --porcelain` empty.
-4. **Land it.** Push the branch; open a PR linked to the leaf; the founder merges (self-merge).
-   The MERGE is what flips the leaf → Done (the GitHub↔Linear integration) — the verb does not
-   fake it. (If PRs are skipped for a trivial leaf, moving the dev leaf → Done directly is
-   allowed — dev tree is revert-exempt — but PR-drives-state is the norm.)
-5. **Reconcile the parent (Linear MCP).** If the leaf's deliverable now has all sub-issues
-   Done/Cancelled, `save_issue` the parent → Done — the same reconcile `/pm-done` sweeps; this
-   is how we overcome Linear's no-auto-close-parent.
-6. **Suggest next (once, suggestive — never auto).** Propose the next unblocked leaf → offer
-   `/dev-start`. If this was the LAST leaf and every parent is closed, note the requirement is
-   ready for `/pm-done` (its integration-tier suite + attestation).
+1. **Pre-merge audit — a fresh-context subagent, never the executor.** Independently re-runs
+   the full verification and gathers every checklist box's evidence. Independence from the
+   agent claiming green is the point; "the implement loop already passed" is a claim, not
+   evidence. It reports; it rules on nothing.
+2. **Merge ruling — the orchestrator, never delegated.** All ten `/item-loop` checklist boxes,
+   ruled in writing (`merge-decision.md` in the item folder), pinned to the head SHA.
+3. **Publish + authorize + merge.** PR with the ruling's text; a SHA-pinned single-use merge
+   authorization posted as a PR comment; execution by a hands-only subagent that stops on any
+   surprise. INTERIM MODE: while autonomous merge is off, stop at "ready to merge" + a founder
+   ping; the founder's word executes the same pinned mandate.
+4. **The merge flips the item → Done** (the GitHub↔Linear integration) — this verb never fakes
+   a state the merge should produce.
+5. **Post-merge verification against merged main** — the full suite in a clean checkout, raw
+   output posted to the item. A regression here is the most important possible finding; report
+   it, never patch it quietly.
+6. **Reconcile the parent (Linear MCP).** If the item's parent now has all sub-issues
+   Done/Cancelled, `save_issue` the parent → Done — Linear does not auto-close parents.
+7. **Clear the path (founder ruling: one session, one item).** Run `Clear-ItemState`
+   (loop/work/work-lib.ps1) — drops this worktree's binding AND its PM acknowledgment, so the
+   next item starts unbound and the PM question fires again exactly once. Remove the item
+   worktree once nothing needs it. Then suggest the next item — suggestively, never
+   auto-starting it.
 
 ## Never
-- Never invoke `/dev-end` before the implement loop's verify set is green — the verb ASSUMES it
-  (the authoritative re-check is `/pm-done`'s integration-tier sweep); don't call it to "find
-  out" if the leaf passes. Never over a dirty tree (step 3). Never move or attest the PM item —
-  that is `/pm-done`. Never fake the leaf's Done — it comes from the merge. Reconcile closes only
-  a PARENT whose leaves are all closed, never a leaf. Never auto-advance (step 6 is a suggestion).
+- **Never assume verification.** The independent re-run is a checklist box precisely because
+  the agent claiming green is the one being checked.
+- Never merge without the written ruling and the SHA-pinned authorization; never merge at all
+  in interim mode without the founder's word.
+- Never touch the PM item — `/pm-done` is the only authority there.
+- Never leave the binding in place after the merge: a stale binding mis-attributes the next
+  item's work (observed, not hypothetical).
