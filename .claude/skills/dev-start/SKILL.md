@@ -22,8 +22,11 @@ the pull), a foundation item (bind `bringup`), or exploration.
    (`Clear-ItemState`) is what frees a session for the next item.
 3. **Dedicated worktree, always** — `git worktree add ../ai4good-<slug> -b <branch> origin/main`.
    Never the shared main folder: bindings are per-worktree and a shared folder means sessions
-   overwrite each other's (observed, not hypothetical). **The orchestrator session itself works
-   IN this worktree** — not just the executor.
+   overwrite each other's (observed, not hypothetical). **Then `cd` into it — the session
+   itself, not just the executor.** If a subagent created the worktree, its working directory
+   died with it; the orchestrator is still in the old folder until it moves. **Print the
+   WORKING-ON line immediately after the move**, so the founder sees the change when it
+   happens rather than a reply later.
 4. **Bind it** — `/bind bringup AI4DEV-NN` for foundation work, or the task binding if under a
    pulled PM requirement. The stamp hook then shows the PM/DEV disclaimer on every prompt; if no
    PM item applies, the hook will demand the PM question be put to the dev once — answer it and

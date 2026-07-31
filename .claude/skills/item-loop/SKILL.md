@@ -61,9 +61,13 @@ it examined.
 
 0. **Housekeeping — sonnet subagent** (`<ITEM> · housekeeping`): dedicated worktree on
    the item's branch, `/bind bringup <ITEM>` (or the task binding), item → In Progress
-   with a comment. Orchestrator confirms the stamp, **moves its own session into the item
-   worktree**, and verifies the skill checkout serving `.claude/skills/` is current — a
-   stale checkout serves superseded rules, which has already cost one real under-run.
+   with a comment. Then the **ORCHESTRATOR, in this exact order**: `cd` into the new
+   worktree ITSELF — a subagent's working directory dies with the subagent, so a session
+   that only *ordered* a worktree is still sitting in the old one — re-read the binding,
+   **print the WORKING-ON line immediately** so the founder sees the change at the moment
+   it happens, and verify the skill checkout serving `.claude/skills/` is current (a stale
+   checkout serves superseded rules, which has already cost one real under-run). Skipping
+   the `cd` is what let another session overwrite AI4DEV-24's binding mid-item.
 1. **Read the authorities — orchestrator, main session**: the Linear item, the ratified
    spec sections, the code. The item's done-criterion is supreme in scope disputes.
 2. **Write the brief — orchestrator**: every decision pre-made; work items numbered;
