@@ -138,8 +138,24 @@ export interface Vendors<Channel extends string = string> {
 /**
  * What `createHarness()` hands a suite. A suite names its own system-under-test map and world
  * type; everything else is the same for all thirty of them.
+ *
+ * A TYPE ALIAS, NOT AN INTERFACE, and that is load-bearing. An interface is open to declaration
+ * merging, so a suite could write `declare module './contracts.ts' { interface AtHarness { auditLog?: string[] } }`
+ * and then read `h.auditLog` with a green type-check, against a harness that supplies no such thing.
+ * The member being OPTIONAL is what makes it slip through: `createHarness()` still satisfies its
+ * annotation, so nothing anywhere goes red. That is the same lie a free harness type parameter used
+ * to permit, arriving by a different door and needing no `any` and no suppression. A type alias
+ * cannot be merged into, so this door is shut, and `tests/at/typeprobes/` keeps the attack on file
+ * as an executable negative test.
+ *
+ * KNOWN RESIDUAL, measured and filed — the capability interfaces this alias REFERENCES are still
+ * interfaces, so `declare module { interface Vendors { … } }` reaches the same lie one level down.
+ * It is worse there than it was here: `sentinels`, `faults`, `static` and `vendors` are produced by
+ * `pendingCapability<T>()`, which casts a Proxy `as T`, so even a REQUIRED invented member does not
+ * break `index.ts` the way it would break this alias. Closing it means the same alias treatment for
+ * the capability types; that is out of AI4DEV-24's scope and is escalated, not silently left.
  */
-export interface AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string> {
+export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string> = {
   tier: Tier;
   /**
    * Capability names this harness STUBBED for the running tier (e.g. 'vendors.email',
@@ -157,4 +173,4 @@ export interface AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = 
   sut: Sut;
   /** REQUIRED, not optional: frozen clocks, vendor counters and fault state leak without it */
   teardown(): Promise<void>;
-}
+};

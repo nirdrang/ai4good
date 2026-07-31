@@ -1,0 +1,9 @@
+{
+  /* The negative-test program. Same compiler settings as the acceptance tree - it inherits them -
+     but over the probe files only. Every file here is EXPECTED TO FAIL to compile; running this
+     config and getting exit 0 means a harness-invention attack has reopened.
+     `type-invention.selftest.ts` runs it and asserts the failure. */
+  "extends": "../tsconfig.json",
+  "include": ["**/*.ts"],
+  "exclude": []
+}

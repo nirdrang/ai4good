@@ -104,32 +104,11 @@ export interface WorldLike {
   teardown(): Promise<void>;
 }
 
-/**
- * The harness a suite's test bodies see: the ONE shared contract of `contracts.ts`, bound to the
- * suite's own world type and channel names.
- *
- * IT IS DELIBERATELY NOT A FREE TYPE PARAMETER. A free parameter constrained only to "some kind of
- * harness" lets a suite DECLARE members that `createHarness()` never produces — `AtHarness & { auditLog }`
- * satisfies such a constraint, because an intersection is a subtype — and every `h.auditLog` in that
- * suite would then type-check green against a runtime value that has no such property. That is a
- * type-check which lies, which is the very defect this file's check exists to remove. Constraining
- * the parameter the other way (the produced harness must be assignable TO it) is what would actually
- * forbid the invention, and `extends` cannot express that direction.
- *
- * So the suite chooses its world and its channel names, and the harness shape itself comes from the
- * shared contract that `index.ts` is statically checked to produce.
- */
-export type SuiteHarness<W extends WorldLike = WorldLike, Channel extends string = string> = AtHarness<
-  Record<string, unknown>,
-  W,
-  Channel
->;
-
 /** Re-tuned pinned values for ONE world. Keys are the at-config registry's dotted keys. */
 export type ConfigOverrides = Record<string, number | boolean>;
 
 export interface HarnessModule {
-  createHarness(opts: { requirement: string; tier: Tier; configOverrides?: ConfigOverrides }): Promise<SuiteHarness>;
+  createHarness(opts: { requirement: string; tier: Tier; configOverrides?: ConfigOverrides }): Promise<AtHarness>;
 }
 
 let harnessModule: HarnessModule | null = null;
@@ -163,8 +142,23 @@ export class AtPending extends Error {
 
 /* --------------------------------------------------------------------------- the test context */
 
-export interface OpenWorld<Sut = unknown, W extends WorldLike = WorldLike, Channel extends string = string> {
-  h: SuiteHarness<W, Channel>;
+export interface OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> {
+  /**
+   * The harness, at EXACTLY the type `createHarness()` is statically checked to produce — not a
+   * suite-chosen type, and not the suite's type arguments pushed back into it.
+   *
+   * Two doors are shut here, and both were opened by earlier drafts of this file. A free type
+   * parameter (`H extends HarnessLike`) let a suite declare seams the factory never supplies, since
+   * an intersection is a subtype and satisfies the constraint. Re-labelling the produced harness
+   * with the suite's own world and channel types was the same defect wearing a smaller hat: the
+   * factory proves `AtHarness<…, WorldSeam, string>`, so a suite binding channel `'sms'` would have
+   * been told `vendors.email.attempts()` yields `'sms'` on the strength of nothing at all.
+   *
+   * `w` and `sut` below are still the suite's own claims, asserted rather than verified. That is the
+   * pre-existing seam AI4DEV-31 owns; it is named here so nobody mistakes this field's honesty for
+   * the whole object's.
+   */
+  h: AtHarness;
   w: W;
   /** the requirement's system under test, guaranteed non-null once open() returns */
   sut: Sut;
@@ -181,12 +175,12 @@ export interface OpenOverrides {
 }
 
 /** Everything a test body is given. `atId` is read-only context, never re-supplied to open(). */
-export interface AtContext<Sut = unknown, W extends WorldLike = WorldLike, Channel extends string = string> {
+export interface AtContext<Sut = unknown, W extends WorldLike = WorldLike> {
   atId: string;
   /** build a fresh "Given" world (and its own harness). Call it more than once for isolation. */
-  open(fixture?: string, opts?: OpenOverrides): Promise<OpenWorld<Sut, W, Channel>>;
+  open(fixture?: string, opts?: OpenOverrides): Promise<OpenWorld<Sut, W>>;
   /** consume an immutable capture whose producer proved at least one real open() */
-  capture<T>(evidence: EvidenceCapture<T, Sut, W, Channel>): Promise<T>;
+  capture<T>(evidence: EvidenceCapture<T, Sut, W>): Promise<T>;
 }
 
 const USAGE = Symbol('at-context-usage');
@@ -196,7 +190,7 @@ interface Usage {
   captures: number;
 }
 
-interface InternalContext<Sut, W extends WorldLike, Channel extends string> extends AtContext<Sut, W, Channel> {
+interface InternalContext<Sut, W extends WorldLike> extends AtContext<Sut, W> {
   [USAGE]: Usage;
 }
 
@@ -264,16 +258,16 @@ export function captureProducerProblem(opensBefore: number, opensAfter: number):
   return opensAfter === opensBefore ? 'capture producer completed without open()' : null;
 }
 
-export class EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike, Channel extends string = string> {
+export class EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike> {
   private result: Promise<T> | null = null;
   private producerAtId = '';
 
   constructor(
     readonly name: string,
-    private readonly producer: (ctx: AtContext<Sut, W, Channel>) => Promise<T>,
+    private readonly producer: (ctx: AtContext<Sut, W>) => Promise<T>,
   ) {}
 
-  consume(ctx: InternalContext<Sut, W, Channel>): Promise<T> {
+  consume(ctx: InternalContext<Sut, W>): Promise<T> {
     if (!this.result) {
       this.producerAtId = ctx.atId;
       const opensBefore = ctx[USAGE].opens;
@@ -297,10 +291,10 @@ export class EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike, 
   }
 }
 
-export function defineEvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike, Channel extends string = string>(
+export function defineEvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike>(
   name: string,
-  producer: (ctx: AtContext<Sut, W, Channel>) => Promise<T>,
-): EvidenceCapture<T, Sut, W, Channel> {
+  producer: (ctx: AtContext<Sut, W>) => Promise<T>,
+): EvidenceCapture<T, Sut, W> {
   return new EvidenceCapture(name, producer);
 }
 
@@ -308,10 +302,10 @@ export function testUseProblem(opens: number, captures: number): string | null {
   return opens === 0 && captures === 0 ? 'test body never opened a fixture world or consumed trusted captured evidence' : null;
 }
 
-export async function executeRegisteredBody<Sut, W extends WorldLike, Channel extends string>(
+export async function executeRegisteredBody<Sut, W extends WorldLike>(
   atId: string,
-  body: AtTestBody<Sut, W, Channel>,
-  ctx: AtContext<Sut, W, Channel>,
+  body: AtTestBody<Sut, W>,
+  ctx: AtContext<Sut, W>,
   usage: Usage,
 ): Promise<void> {
   await body(ctx);
@@ -417,7 +411,7 @@ interface OpenOptions {
   configOverrides?: ConfigOverrides;
 }
 
-async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: SuiteHarness }> {
+async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: AtHarness }> {
   if (TIER === null) throw new AtPending(o.atId, 'tier-unset', tierError(o.requirement));
 
   if (!harnessModule) {
@@ -457,8 +451,8 @@ async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: 
 
 /* ------------------------------------------------------------------------------- registration */
 
-export type AtTestBody<Sut = unknown, W extends WorldLike = WorldLike, Channel extends string = string> = (
-  ctx: AtContext<Sut, W, Channel>,
+export type AtTestBody<Sut = unknown, W extends WorldLike = WorldLike> = (
+  ctx: AtContext<Sut, W>,
 ) => Promise<void>;
 
 function emitRuntimeRegistration(registration: Registration): void {
@@ -479,25 +473,25 @@ function emitRuntimeRegistration(registration: Registration): void {
  *   the test rather than being swallowed, because state that was never released is a defect that
  *   would otherwise land on a different id.
  */
-export function atTest<Sut = unknown, W extends WorldLike = WorldLike, Channel extends string = string>(
+export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
   atId: string,
   title: string,
   opts: AtTestOptions,
-  body: AtTestBody<Sut, W, Channel>,
+  body: AtTestBody<Sut, W>,
 ): void;
-export function atTest<Sut = unknown, W extends WorldLike = WorldLike, Channel extends string = string>(
+export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
   atId: string,
   title: string,
-  body: AtTestBody<Sut, W, Channel>,
+  body: AtTestBody<Sut, W>,
 ): void;
-export function atTest<Sut = unknown, W extends WorldLike = WorldLike, Channel extends string = string>(
+export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
   atId: string,
   title: string,
-  optsOrBody: AtTestOptions | AtTestBody<Sut, W, Channel>,
-  maybeBody?: AtTestBody<Sut, W, Channel>,
+  optsOrBody: AtTestOptions | AtTestBody<Sut, W>,
+  maybeBody?: AtTestBody<Sut, W>,
 ): void {
   const opts: AtTestOptions = typeof optsOrBody === 'function' ? {} : optsOrBody;
-  const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<Sut, W, Channel>;
+  const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<Sut, W>;
   if (typeof body !== 'function') throw new Error(`${atId}: atTest was given no test body`);
 
   const parsed = parseAtId(atId);
@@ -517,7 +511,7 @@ export function atTest<Sut = unknown, W extends WorldLike = WorldLike, Channel e
     const worlds: TrackedTeardown[] = [];
     const harnesses: TrackedTeardown[] = [];
     const usage: Usage = { opens: 0, captures: 0 };
-    const ctx: InternalContext<Sut, W, Channel> = {
+    const ctx: InternalContext<Sut, W> = {
       atId,
       [USAGE]: usage,
       open: async (fixture = `req-${parsed.requirement}/base`, opts) => {
@@ -532,7 +526,7 @@ export function atTest<Sut = unknown, W extends WorldLike = WorldLike, Channel e
         harnesses.push({ what: `harness for fixture world ${JSON.stringify(fixture)}`, teardown: () => harness.teardown() });
         worlds.push({ what: `fixture world ${JSON.stringify(fixture)}`, teardown: () => opened.w.teardown() });
         usage.opens += 1;
-        return opened as OpenWorld<Sut, W, Channel>;
+        return opened as OpenWorld<Sut, W>;
       },
       capture: async (evidence) => {
         const value = await evidence.consume(ctx);
@@ -559,18 +553,18 @@ export interface SuiteBinding {
  * key so the test bodies say `atTest(id, title, body)` and never repeat it. It is the same
  * `atTest` above — there is one implementation, not one per suite.
  */
-export function bindSuite<Sut, W extends WorldLike, Channel extends string = string>(binding: SuiteBinding) {
-  function bound(atId: string, title: string, opts: AtTestOptions, body: AtTestBody<Sut, W, Channel>): void;
-  function bound(atId: string, title: string, body: AtTestBody<Sut, W, Channel>): void;
+export function bindSuite<Sut, W extends WorldLike>(binding: SuiteBinding) {
+  function bound(atId: string, title: string, opts: AtTestOptions, body: AtTestBody<Sut, W>): void;
+  function bound(atId: string, title: string, body: AtTestBody<Sut, W>): void;
   function bound(
     atId: string,
     title: string,
-    optsOrBody: AtTestOptions | AtTestBody<Sut, W, Channel>,
-    maybeBody?: AtTestBody<Sut, W, Channel>,
+    optsOrBody: AtTestOptions | AtTestBody<Sut, W>,
+    maybeBody?: AtTestBody<Sut, W>,
   ): void {
     const opts: AtTestOptions = typeof optsOrBody === 'function' ? {} : optsOrBody;
-    const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<Sut, W, Channel>;
-    atTest<Sut, W, Channel>(atId, title, { ...opts, sut: binding.sut, sutMissingDetail: binding.sutMissingDetail }, body);
+    const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<Sut, W>;
+    atTest<Sut, W>(atId, title, { ...opts, sut: binding.sut, sutMissingDetail: binding.sutMissingDetail }, body);
   }
   return bound;
 }
