@@ -501,10 +501,17 @@ than this one and should be filed separately.
 
 ## 3. W3 — whatever remains
 
-**Measured: nothing remains.** §0c shows exit 0 after §1 + §2, with no suppression and no `any`.
-So W3 is a slot, not a planned edit. If Gate 1 or implementation surfaces something, it lands here
-as its own commit; if it stays empty, this plan says so out loud rather than manufacturing a commit
-to fill a numbered box.
+**Nothing remained, and W3 has no commit** — as planned, the box is not filled with a manufactured
+change. Two things about it belong on the record:
+
+- The one edit W3 might have carried — deleting the orphaned `HarnessLike` per R3 — **landed inside
+  the W2 commit instead**, because the interface sat in the same declaration block W2 rewrote;
+  removing it was not a separable edit.
+- **R3's measurement was run after the deletion rather than before it**, inverting the order R3
+  specified. Stating the sequence rather than presenting it as clean: `git grep HarnessLike` across
+  the whole repository returns **zero code references** — every hit is prose inside this item's own
+  `brief.md`, `gate1-critique.txt` and `plan.md`. Had it found a real reference the type would have
+  had to come back; it did not, so the outcome is the one R3 required.
 
 ---
 
@@ -688,3 +695,56 @@ Two of the four answers I gave before Gate 1 no longer stand as written:
   runtime-guard option *would*, which is exactly why it is escalated rather than chosen (§2e(v)).
 - The §7 claim that "there is nothing to escalate before implementing" is **superseded**: F3 is now
   a live escalation and the implementation of §2 is blocked behind it. §1, §3 and §4 are unblocked.
+
+---
+
+## 9. Implementation record — what actually shipped
+
+Commits on `nirdrang/ai4dev-24-typecheck`, one per work item as planned:
+
+| commit | work item |
+|---|---|
+| `17e88a9` | W1 — `tests/at/tsconfig.json`, `tests/at/typecheck.ts`, the `typecheck` script, the `@types/node` floor. Committed deliberately red, with the 24-error starting point in the message. |
+| `6e17a78` | W2 — `SuiteHarness`, the retyped seam, the `createHarness` annotation, `_bind.ts`. Also carries R3's `HarnessLike` deletion (§3). |
+| — | W3 — no commit; nothing remained (§3). |
+| `3255f3b` | W4 — `tests/at/README.md`. |
+
+### Verification — all seven steps pass
+
+1. `bunx tsc --noEmit --pretty false` → **exit 0**, no output. Unchanged.
+2. `bun run typecheck` → **exit 0**, both projects launched and both clean.
+3. `bun run at:selftest` → 6 files, **96 tests**, all pass, exit 0.
+4. `bun run at:check req-016` → `RESULT: 12 P0 ids in bijection`, exit 0.
+5. `bun run at:verify req-016 --tier loop` → exit 1, 8 green / 4 red — and **byte-identical to the
+   committed pre-change baseline**: `Compare-Object` against
+   `loop/items/AI4DEV-24/baseline/verify-req-016-loop.baseline.txt` returned nothing. D5 held.
+6. `bun run at:verify req-016 --tier loop --expect` → **exit 0**, with the `EXPECTED:` line.
+7. `git diff --check` clean; the branch touches only `tests/at/**`, `package.json`, `bun.lock` and
+   `loop/items/AI4DEV-24/**`. No `src/`, no `design/`, no `supabase/`, no change to the root
+   `tsconfig.json` (D6).
+
+### Coverage — proven, not asserted
+
+The item's own failure mode is "the check exits 0 while checking nothing", so the count is
+cross-checked against the filesystem rather than reported from the compiler alone:
+
+- `tsc -p tests/at/tsconfig.json --listFiles` → **29 files under `tests/at`**, **0** leaked from
+  `tests/at/node_modules`, 283 files in the whole program counting `lib.*.d.ts` and `@types`.
+- Files on disk under `tests/at` outside `node_modules` with a TypeScript or JavaScript
+  extension → **29**. Every one is in the program.
+- Before this item the same tree had **0** files covered by any configured command.
+
+**The count is 29, not the 28 this plan predicted.** The extra file is `tests/at/typecheck.ts`
+itself, which did not exist when the prediction was made and is covered by the config it invokes.
+
+### The defect is closed, and re-checked after implementation
+
+The Gate 1 reproduction was re-run against the shipped tree and now **fails**, which is the point:
+
+```
+tests/at/suites/req-016/_f3repro.ts(4,59): error TS2344: Type 'InventedHarness' does not satisfy the constraint 'string'.
+tests/at/suites/req-016/_f3repro.ts(7,17): error TS2339: Property 'auditLog' does not exist on type 'SuiteHarness<World, InventedHarness>'.
+```
+
+The probe file was deleted; it is not part of the diff. The four `*.test.ts` files were never
+touched — the only file changed under `suites/req-016/` is `_bind.ts`.
