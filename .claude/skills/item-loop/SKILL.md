@@ -23,7 +23,7 @@ bounded, every early exit with a written reason.
 |---|---|---|
 | ORCHESTRATOR (this session, Fable) | brief, advice, two checkpoints (amended plan; merge authorization), rulings, report. Writes no implementation code. | accumulates everything — one judgment context per item; advisor = this session, NEVER a spawned agent |
 | EXECUTOR (Opus subagent) | plans, implements, triages critiques first-hand, fixes. Never pushes, never touches the PR, never decides judgment calls. | one instance per item, spawned once, resumed never respawned |
-| REVIEWERS (codex — terra @ max at Gate 1, luna @ max at Gate 2; + Kimi k3 @ high at Gate 2) | adversarial critique + confirmation of own findings | stateless — context rebuilt from files each invocation; verdicts replayable ONLY if the pins are exact |
+| REVIEWERS (codex `gpt-5.6-terra` @ max at BOTH gates and both Gate 2 iterations; + Kimi `k3` @ high alongside at Gate 2) | adversarial critique + confirmation of own findings | stateless — context rebuilt from files each invocation; verdicts replayable ONLY if the pins are exact |
 | SONNET subagents | housekeeping, courier runs, pre-merge audit + independent re-run, publish, merge execution, post-merge check | disposable |
 
 FOUNDER sits above, reached only through the escalation matrix. Pending founder
@@ -59,7 +59,7 @@ it examined.
    brief, advice was folded as advised, the plan still meets the done-criterion.
    Approval wakes the executor. The approved amended plan is the implementation contract.
 5. **Implement — executor** (`↻ same instance · implement`): one commit per work item.
-6. **Gate 2 — panel: codex `gpt-5.6-luna` @ `max` + Kimi `k3` @ `high`, in parallel** (courier builds one prompt from brief +
+6. **Gate 2 — panel: codex `gpt-5.6-terra` @ `max` + Kimi `k3` @ `high`, in parallel** (courier builds one prompt from brief +
    amended plan + diff @ head SHA; separate output files; courier freezes
    `finding-manifest.json`: stable ids, raiser, risk class, critique hashes).
    Both critiques return to the executor, who triages:
@@ -135,7 +135,10 @@ it examined.
 
 - **Reviewer pins (founder 2026-07-31) — state the vendor's OWN vocabulary, never "max effort" as if it were portable:**
   - **Gate 1 — codex:** `-c model=gpt-5.6-terra -c model_reasoning_effort=max`
-  - **Gate 2 — codex:** `-c model=gpt-5.6-luna -c model_reasoning_effort=max`
+  - **Gate 2 — codex:** `-c model=gpt-5.6-terra -c model_reasoning_effort=max`, on **BOTH**
+    iterations — the initial review and the confirmation pass alike (founder 2026-07-31).
+    Terra is the reviewer everywhere; luna is not used. Cross-vendor decorrelation comes from
+    Kimi running alongside, not from varying the codex variant.
   - **Gate 2 — Kimi:** `kimi -m kimi-code/k3 -p "<short instruction>" --output-format text`, at
     its config default effort **high** (founder: high, not max). Kimi's CLI has no effort flag;
     effort comes from `~/.kimi-code/config.toml`. `k3` carries the large context window, which
