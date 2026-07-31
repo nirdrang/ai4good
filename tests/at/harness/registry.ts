@@ -100,9 +100,24 @@ const tierError = (requirement: string) =>
 /** Canonical harness barrel produced by AI4DEV-3 H2-H6, resolved relative to THIS file. */
 export const HARNESS_MODULE = './index.ts';
 
-export interface WorldLike {
+/**
+ * The minimum a fixture world owes the harness.
+ *
+ * A TYPE ALIAS, like every other contract a test body can read from. `open()` hands `w` to the body,
+ * so while this was an interface a suite could merge a member into it and read that member green off
+ * an object that never supplies it — the same defect closed fifteen times elsewhere in this seam,
+ * left open here by an exclusion that contradicted its own criterion.
+ *
+ * The exploit needed `W` at its DEFAULT, which is what made it easy to miss: a suite that pins its
+ * own world type (as REQ-016 does) resolves `w` to that type and never sees the merged member. Any
+ * suite that does not pin one — and `atTest` is exported with `W = WorldLike` defaulted — did.
+ *
+ * That the suite's chosen `W` is itself an unverified claim is a separate defect and remains
+ * AI4DEV-31's. This is only about whether the door is open at all.
+ */
+export type WorldLike = {
   teardown(): Promise<void>;
-}
+};
 
 /** Re-tuned pinned values for ONE world. Keys are the at-config registry's dotted keys. */
 export type ConfigOverrides = Record<string, number | boolean>;

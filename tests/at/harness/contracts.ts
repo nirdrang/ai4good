@@ -154,10 +154,15 @@ export type Vendors<Channel extends string = string> = {
  * merged-in member did not break `index.ts` even when it was REQUIRED — where the same member added
  * to this type fails with TS2741. `ConfigRegistry` in `config.ts` is an alias for the same reason.
  *
- * So the rule for this file is: harness contracts are type aliases, never interfaces. Everything
- * reachable from the harness object a suite holds obeys it. (`WorldLike` in `registry.ts`
- * deliberately does not: it constrains `OpenWorld.w`, which is the suite's own asserted claim and
- * belongs to the seam AI4DEV-31 owns, not to the harness object.)
+ * So the rule is: contracts are type aliases, never interfaces. It covers everything reachable from
+ * the harness object AND the objects `open()` hands a test body — `OpenWorld`, `AtContext` and
+ * `WorldLike` in `registry.ts` obey it for the same reason these do. `WorldLike` was briefly
+ * excluded as belonging to AI4DEV-31's seam; that conflated two different defects. The suite's `W`
+ * being an unverified claim is AI4DEV-31's. The interface being augmentable is this one — and `w` is
+ * handed to the body exactly as `h` is.
+ *
+ * `tests/at/typeprobes/` carries an attack for every protected type, and
+ * `type-invention.selftest.ts` fails by name if any of them becomes an interface again.
  */
 export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string> = {
   tier: Tier;

@@ -76,9 +76,11 @@ describe('harness invention is rejected by the compiler', () => {
     'Vendors',
     // the config seam (config.ts)
     'ConfigRegistry',
-    // the wrapper types every test body holds directly (registry.ts)
+    // the wrapper types every test body holds directly (registry.ts) — including the world itself,
+    // because `open()` hands `w` to the body exactly as it hands `h`
     'OpenWorld',
     'AtContext',
+    'WorldLike',
   ];
 
   /**

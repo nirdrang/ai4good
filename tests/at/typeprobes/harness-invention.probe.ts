@@ -118,4 +118,11 @@ declare module '../harness/registry.ts' {
   interface AtContext {
     invented?: string;
   }
+  // `opened.w` is handed to the test body as well, so `WorldLike` is inside the same boundary. It
+  // survived the first pass because the exploit needs `W` at its DEFAULT: a suite that pins its own
+  // world type resolves `w` to that type and never sees the merged member — pinning hides the hole
+  // rather than closing it, which is why "REQ-016 is not affected" was not an answer.
+  interface WorldLike {
+    invented?: string;
+  }
 }
