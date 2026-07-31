@@ -879,3 +879,84 @@ report.
 29 → 30 with `type-invention.selftest.ts`. `tests/at/typeprobes/` (1 file) is excluded on purpose and
 checked by its own config, which **expects failure**; `type-invention.selftest.ts` asserts that it
 still fails with `TS2558` (intersection attack) and `TS2300` (declaration-merging attack).
+
+---
+
+## 11. R7 — the augmentation door, shut all the way down
+
+R7 ruled that the residual escalated in §10 is fixed here rather than filed. It is, and the reasoning
+holds: leaving it would have let the item's done-condition — and its PR body — claim the type lie is
+dead when the exploit had only moved one level down, to a place where it was *larger*.
+
+### What changed
+
+`contracts.ts` now declares **no interfaces at all**. Converted to type aliases: `WorldSeam`,
+`Fixtures`, `Clock`, `Sentinel`, `Sentinels`, `FaultHandle`, `Faults`, `StaticScan`,
+`ProviderAttempt`, `EmailProviderSim`, `Vendors` — plus `ConfigRegistry` in `config.ts`, which is
+`h.config` and therefore the same kind of seam.
+
+`WorldLike` in `registry.ts` is deliberately **not** converted, and the reason is written beside the
+rule: it constrains `OpenWorld.w`, which is the suite's own asserted claim and belongs to the seam
+AI4DEV-31 owns — not to the harness object a suite reads capabilities off. The boundary of the rule
+is "everything reachable from `h`", which is exactly `contracts.ts` plus `ConfigRegistry`.
+
+### R7's first condition — measured before converting, not after
+
+- **`extends` sites:** exactly one in code — `export interface World extends WorldSeam`
+  (`_contract.ts:127`). It still compiles: an interface may extend an object type alias. The one
+  `implements` site, `class NotificationFixtureWorld implements World` (`_fixture.ts:107`), is
+  untouched because `World` itself stays an interface.
+- **Declaration merging anyone relies on:** none. Repo-wide, the only `declare module` outside this
+  item's own negative probe is `src/routeTree.gen.ts` augmenting `@tanstack/react-router`, which is
+  unrelated and in a path this item does not touch.
+- **Suppressions, `any`, runtime change:** none. The diff over both files is **24 insertions / 24
+  deletions** — the paired `export interface X {` → `export type X = {` and `}` → `};` lines and
+  nothing else. No statement moved. D5 holds by the same argument that carried R1, so the stop-and-
+  escalate condition never triggered.
+
+### R7's second condition — locked by an executable test, not by an argument
+
+`typeprobes/harness-invention.probe.ts` gains attack 3: the capability level, with **both** an
+optional member (`Vendors.auditLog?`) and a **required** one (`Faults.inventedRequired`), plus
+`ConfigRegistry`. The required member is the one that mattered — it is what proved this was not a
+repeat of attack 2, since `pendingCapability<T>()` casts a Proxy `as T` and launders even a required
+addition past `index.ts`, where the same addition to `AtHarness` fails with `TS2741`.
+
+`type-invention.selftest.ts` asserts each contract **by name**, so re-opening any single one fails a
+test that says which. The probe program now fails with `TS2558` (intersection), and
+`Duplicate identifier` for `AtHarness`, `Vendors`, `Faults` and `ConfigRegistry`.
+
+**Regression-checked in the main tree, not only in the probe.** The exact snippet that exited 0
+before this change now fails:
+
+```
+tests/at/suites/req-016/_residual.ts(5,13): error TS2300: Duplicate identifier 'Vendors'.
+tests/at/suites/req-016/_residual.ts(6,13): error TS2300: Duplicate identifier 'Faults'.
+tests/at/suites/req-016/_residual.ts(12,25): error TS2339: Property 'auditLog' does not exist on type 'Vendors<string>'.
+tests/at/suites/req-016/_residual.ts(12,52): error TS2339: Property 'inventedRequired' does not exist on type 'Faults'.
+```
+
+### FINAL declared expected state (R8) — measured, not predicted
+
+| | value |
+|---|---|
+| `at:selftest` | **102 tests across 7 files** (96 before Gate 2; 99 after codex 1's fix; 102 after R7) |
+| typecheck coverage | **30 files** under `tests/at`, **0** leaked from `tests/at/node_modules`, 284 in the whole program |
+| files on disk, excluding `node_modules` and the excluded `typeprobes` | **30** — every one covered |
+| `typeprobes/` | **1 file**, excluded on purpose, checked by its own config which EXPECTS failure |
+| **REQ-016 acceptance state** | **unchanged: 8 green / 4 red**, same four ids, same four reasons |
+
+The last row is the one that matters most: R7 moved the harness's own selftest count, not the
+acceptance declaration. The `at:verify` output is still byte-identical to the pre-change baseline
+under the corrected ordinal comparison — same SHA256,
+`36D2F653AFC3355309A1847B58D7DA6067B9E9ECAFBE2A9EEC5BE54D7DCA0041`.
+
+### Scope, restated with the post-R7 numbers
+
+- `git diff --check origin/main...HEAD -- tests/at package.json bun.lock` → **exit 0, clean.**
+- `git diff --check origin/main...HEAD` (whole diff) → exit 2, **423 violations, every one in a
+  committed reviewer artifact**: 30 in `gate1-critique.txt`, 19 in `gate2-critique-codex.txt`, 374 in
+  `gate2-critique-kimi.txt`. Per R9 these are records and are not edited. The CI whitespace check
+  will need `loop/items/**` excluded; that is filed against the CI item.
+- 21 files changed, all within `tests/at/**`, `package.json`, `bun.lock`,
+  `loop/items/AI4DEV-24/**`. No `src/`, no `design/`, no `supabase/`, no root `tsconfig.json`.
