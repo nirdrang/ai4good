@@ -36,11 +36,18 @@ import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { INSTALL_ROOT, inspectBijection, normalizeRequirement, REPO_ROOT, suiteDir } from './check.ts';
+import {
+  expectationDeviations,
+  expectedManifestPath,
+  loadTierExpectation,
+  reportAccountingDeviations,
+  type TierExpectation,
+} from './expected.ts';
 
 const TIERS = ['loop', 'integration', 'drill'] as const;
 type Tier = (typeof TIERS)[number];
 
-const USAGE = 'usage: bun run at:verify req-0NN --tier <loop|integration|drill> [--wired]';
+const USAGE = 'usage: bun run at:verify req-0NN --tier <loop|integration|drill> [--wired] [--expect]';
 
 /** How long the stack gets to become genuinely ready before the run is called off. */
 const READY_TIMEOUT_MS = Number(process.env.AT_READY_TIMEOUT_MS ?? 120_000);
@@ -65,16 +72,20 @@ interface Args {
   requirement: string;
   tier: Tier;
   wired: boolean;
+  /** Named `expectDeclared`, not `expect`, so nobody later reads it as vitest's `expect`. */
+  expectDeclared: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
   let requirement = '';
   let tier = '';
   let wired = false;
+  let expectDeclared = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--wired') wired = true;
+    else if (arg === '--expect') expectDeclared = true;
     else if (arg === '--tier') tier = argv[++i] ?? '';
     else if (arg.startsWith('--tier=')) tier = arg.slice('--tier='.length);
     else if (arg.startsWith('--')) throw new Error(`unknown option "${arg}"`);
@@ -85,8 +96,15 @@ function parseArgs(argv: string[]): Args {
   if (!requirement) throw new Error('no requirement given');
   if (!tier) throw new Error('--tier is required — there is no default tier, by design');
   if (!TIERS.includes(tier as Tier)) throw new Error(`unknown tier "${tier}" — expected one of ${TIERS.join('|')}`);
+  // Refused here rather than later: `--wired` runs no tests at all, so there would be no report
+  // for a declaration to be checked against, and a declaration refusal must never be reported as
+  // the wired refusal. A usage error exits 2, which is what a `--expect` command that cannot be
+  // honoured is required to do.
+  if (wired && expectDeclared) {
+    throw new Error('--expect and --wired cannot be combined: --wired runs no tests, so there is no report for a declaration to be checked against');
+  }
 
-  return { requirement: normalizeRequirement(requirement), tier: tier as Tier, wired };
+  return { requirement: normalizeRequirement(requirement), tier: tier as Tier, wired, expectDeclared };
 }
 
 /* --------------------------------------------------------------- the child environment (leak) */
@@ -752,8 +770,25 @@ export interface AssertionResult {
   failureMessages?: string[];
 }
 
+/**
+ * The report's own arithmetic, alongside the per-test results. `--expect` needs both: the id
+ * parser only sees tests whose titles carry an AT id, so an untagged `it()` that fails is
+ * invisible to it and visible in these counts. Optional because this describes a file on disk —
+ * a missing field is validated at runtime (see `reportAccountingDeviations`), not asserted here.
+ */
 interface VitestJson {
-  testResults?: { assertionResults?: AssertionResult[] }[];
+  /**
+   * One entry per test FILE. `status` and `message` are kept alongside the assertions because a
+   * file that fails to import, or whose hook throws, changes no test's status: that failure is
+   * visible here and nowhere else in the report.
+   */
+  testResults?: { name?: string; status?: string; message?: string; assertionResults?: AssertionResult[] }[];
+  numTotalTests?: number;
+  numPassedTests?: number;
+  numFailedTests?: number;
+  numPendingTests?: number;
+  numTodoTests?: number;
+  success?: boolean;
 }
 
 export interface IdRow {
@@ -930,7 +965,7 @@ async function main(argv: string[]): Promise<number> {
     return 2;
   }
 
-  const { requirement, tier, wired } = args;
+  const { requirement, tier, wired, expectDeclared } = args;
 
   if (wired) {
     console.error(
@@ -958,6 +993,22 @@ async function main(argv: string[]): Promise<number> {
   } catch (err) {
     console.error(`at:verify req-${requirement} — ${(err as Error).message}`);
     return 2;
+  }
+
+  // The declaration preflight sits HERE for two reasons, both load-bearing. It needs the
+  // acceptance file's P0 id set, which only exists after the bijection preflight above; and every
+  // refusal must run NO tests, so it must precede the vitest spawn. Placing it before the stack
+  // sequence as well means a bad declaration never takes the machine-wide lock, never talks to
+  // Docker and never resets a database — the refusal costs nothing at any tier.
+  let expectation: TierExpectation | null = null;
+  if (expectDeclared) {
+    try {
+      expectation = loadTierExpectation(requirement, tier, expected);
+    } catch (err) {
+      console.error(`at:verify req-${requirement} --tier ${tier} --expect — DECLARATION REFUSED: ${(err as Error).message}`);
+      console.error(`No tests were run. The declaration is the contract; fix ${expectedManifestPath(requirement)}.`);
+      return 2;
+    }
   }
 
   const infra = (message: string): number => {
@@ -1121,9 +1172,32 @@ async function main(argv: string[]): Promise<number> {
       `  ${rows.length} P0: ${green} green, ${red} red, ${missing} missing${unexpected.length ? `, ${unexpected.length} extra` : ''}`,
     );
 
-    const verdict = runVerdict(rows, unexpected, run as ProcessOutcome);
-    if (verdict.length === 0) return 0;
-    for (const problem of verdict) console.log(`  FAILURE: ${problem}`);
+    if (!expectation) {
+      const verdict = runVerdict(rows, unexpected, run as ProcessOutcome);
+      if (verdict.length === 0) return 0;
+      for (const problem of verdict) console.log(`  FAILURE: ${problem}`);
+      return 1;
+    }
+
+    // Both deviation sets are computed and printed: an id-level and a report-level problem in the
+    // same run are two facts an author needs at once, and printing only the first costs a second
+    // run to find the second.
+    const deviations = [
+      ...expectationDeviations(rows, unexpected, expectation),
+      ...reportAccountingDeviations(report, run as ProcessOutcome, expectation),
+    ];
+    if (deviations.length === 0) {
+      console.log(
+        `  EXPECTED: the run matches ${expectedManifestPath(requirement)} exactly ` +
+          `(${expectation.green.length} declared green, ${Object.keys(expectation.red).length} declared red)`,
+      );
+      return 0;
+    }
+    for (const deviation of deviations) console.log(`  DEVIATION: ${deviation}`);
+    console.log(
+      `  EXPECT FAILURE: ${deviations.length} deviation(s) from the declaration. A red that turned green is a ` +
+        `failure too — if reality improved, update the declaration in the same change.`,
+    );
     return 1;
   } finally {
     process.off('SIGINT', onSignal);

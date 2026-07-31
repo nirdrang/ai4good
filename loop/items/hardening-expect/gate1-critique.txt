@@ -1,0 +1,40 @@
+1. **SEVERITY: blocker — R1/D4a remains an unresolved comment, not an implementation or test plan.**  
+   Concern: [plan.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/plan.md:281) §3(c), §9/OQ1; conflicts with [rulings-01.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/rulings-01.md:18) R1.  
+   Failure scenario: the two declared P0 rows match the manifest, while an untagged failing `it()` also runs. `expectationDeviations(rows, unexpected, expectation)` sees no deviation and returns 0, even though Vitest exited non-zero for an extra failure.  
+   Minimal fix: replace the placeholder with specified process/report checks: count every assertion whose JSON status is not `passed`, require that count to equal declared-red count, fail on file-level report messages, and add a reporter-side envelope for unhandled errors (the installed JSON reporter does not serialize them). Add black-box cases for an untagged failure and a hook/suite-level failure.
+
+2. **SEVERITY: blocker — D3’s substring rule does not establish that a red has the declared cause.**  
+   Concern: [brief.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/brief.md:47) D3; [plan.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/plan.md:217) §2c; [runner.ts](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/runner.ts:177) redaction and [runner.ts](/C:/Users/nirdr/Downloads/ai4good-expect/tests/at/harness/runner.ts:913) first-line extraction.  
+   Failure scenario: H3 fault injection is implemented, but its fixture setup now fails with `Error: H3 fault injection: fixture reset failed`. The declared substring `H3 fault injection` still matches; counts and IDs match; `--expect` exits 0 for a new harness defect. A declared `<redacted-token>` can also match any unrelated 40-character token after redaction.  
+   Minimal fix: escalate an amendment to D3: compare a canonical, structured pending-capability code emitted before redaction, not a human-message substring. Rejecting redaction placeholders alone is insufficient.
+
+3. **SEVERITY: important — a manifest edit can launder a regression into an expected red.**  
+   Concern: [plan.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/plan.md:411) §6; [brief.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/brief.md:53) D4.  
+   Failure scenario: an author breaks AT-016.05, moves it from `green` to `red`, and supplies a broad matching reason. The gate reports success; nothing in the plan distinguishes this from an honest pending capability.  
+   Minimal fix: name this as a governance boundary and require an independently reviewed manifest change with a capability-tracker reference. A current-state checker alone cannot prove a red is honest.
+
+4. **SEVERITY: important — `--wired` precedence violates D5 for a command that includes `--expect`.**  
+   Concern: [plan.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/plan.md:240) §3(a); [brief.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/brief.md:66) D5.  
+   Failure scenario: `at:verify req-016 --tier loop --expect --wired` with a missing or malformed manifest exits 3 before declaration validation, not D5’s required exit 2.  
+   Minimal fix: reject the flag combination as usage exit 2, or run the `--expect` declaration preflight before the existing `--wired` refusal.
+
+5. **SEVERITY: important — R2’s promised typecheck cannot run in this Windows PowerShell worktree and still treats its ruling as open.**  
+   Concern: [plan.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/plan.md:503) §9/OQ2; [rulings-01.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/rulings-01.md:41) R2.  
+   Failure scenario: the listed command passes the literal `tests/at/harness/*.ts`; PowerShell does not expand it, producing `TS6053: File 'tests/at/harness/*.ts' not found.` No new harness code is checked.  
+   Minimal fix: specify a PowerShell-safe file list, then record how baseline versus introduced diagnostics are separated—or explicitly escalate when they cannot be.
+
+6. **SEVERITY: minor — the README plan omits two documentation duties already mandated by rulings.**  
+   Concern: [plan.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/plan.md:409) §6; [rulings-01.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/rulings-01.md:63) R4 and R5.  
+   Failure scenario: a later author follows the README, chooses a reason hidden by redaction, or assumes integration declarations have exercised coverage.  
+   Minimal fix: explicitly document the first-line/redaction limitation and that integration declarations remain unexercised until integration declarations exist.
+
+7. **SEVERITY: minor — the proposed duplicate row type widens a closed status contract to `string`.**  
+   Concern: [plan.md](/C:/Users/nirdr/Downloads/ai4good-expect/loop/items/hardening-expect/plan.md:106) §2.  
+   Failure scenario: a future runner adds `skipped` or another status, while comparison code only handles green/red/missing; the two shapes drift without a compiler error.  
+   Minimal fix: use `import type { IdRow } from './runner.ts'` and `Pick<IdRow, 'id' | 'status' | 'detail'>`; a type-only import is erased and does not create a runtime cycle.
+
+No finding: aside from the `--wired` exception, the declaration preflight is correctly after read-only bijection inspection and before report-directory creation, locks, Docker, or reset. The disposable-tree design and case-7 control are genuinely black-box and isolated through `AT_REPO_ROOT`. R3’s local helper duplication is not a material maintenance risk here. No materially simpler design preserves the required per-ID, per-reason expected-state contract.
+
+## VERDICT
+
+**2 ship-blockers.** The most dangerous residual false green is an extra untagged, hook, or unhandled Vitest failure being hidden behind REQ-016’s declared reds because the plan still omits R1/D4a’s process and report accounting.
