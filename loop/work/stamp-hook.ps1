@@ -12,9 +12,17 @@
 # gets ignored. The ack is cleared with the binding when an item merges (Clear-ItemState),
 # so every NEW item re-asks exactly once. No counter exists anywhere.
 #
-# Two slots, two sources: PM comes from the BINDING (only /pm-next writes an AI4PM id);
-# DEV comes from the BRANCH (Linear's branch convention carries the id; dev work needs no
-# binding of its own), with the binding's AI4DEV id as fallback for a worktree on main.
+# Two slots, two TIERS (founder correction 2026-08-01). The PM slot shows the PULL - the phase
+# this worktree is bracketing, which is either a product requirement (AI4PM-NN) or an approved
+# bring-up parent (AI4DEV-3, thirteen sub-items). The DEV slot shows the ONE ITEM being built
+# inside it, and the branch is its authority (Linear's branch convention carries the id), with
+# the binding's devId standing in for a worktree sitting on main. The binding's pmId is NEVER a
+# fallback for the item slot: under a bring-up pull that id is the PARENT, so using it there
+# would report the whole phase as the item being built.
+#
+# Both slots print the TITLE beside the id (founder instruction 2026-08-01: bare item numbers
+# are unmemorable). Titles are cached in the binding by the verb that set the slot - the hook
+# must stay fast and must never call Linear. A missing title degrades to the bare id.
 #
 # Must be FAST and never fail the prompt: any error degrades to the unattributed stamp.
 $ErrorActionPreference = 'SilentlyContinue'
@@ -38,26 +46,43 @@ try {
         if (-not $wave) { $wave = 'none' }
     }
 
-    # PM slot: only a requirement pull writes an AI4PM id. Everything else is honestly none.
-    $pm = 'none'
-    if ($b -and ([string]$b.pmId) -match '^AI4PM-\d+$') { $pm = $Matches[0] }
+    # Titles are cosmetic and come from an untrusted-ish cache: keep them on one line, keep
+    # them out of the pipe-delimited fields' way, and keep them short.
+    function Fmt([string]$id, [string]$title) {
+        if (-not $title) { return $id }
+        $t = ($title -replace '[\r\n\|<>"]', ' ').Trim()
+        if ($t.Length -gt 60) { $t = $t.Substring(0, 57) + '...' }
+        if (-not $t) { return $id }
+        return ('{0} - {1}' -f $id, $t)
+    }
 
-    # DEV slot: the branch is the authority; the binding's AI4DEV id stands in on main.
+    # PM slot = the PULL: a product requirement, or an approved bring-up parent.
+    $pm = 'none'
+    $pmKind = ''
+    if ($b -and ([string]$b.pmId) -match '^AI4PM-\d+$') { $pm = $Matches[0] }
+    elseif ($b -and ([string]$b.pmId) -match '^AI4DEV-\d+$') { $pm = $Matches[0]; $pmKind = ' (bring-up phase, not a product requirement)' }
+
+    # DEV slot = the ONE ITEM being built. Branch first; binding's devId on main. The title
+    # applies only when the cached devId still matches what the branch says.
     $dev = 'none'
+    $devTitle = ''
     if ($branch -match '(?i)ai4dev-(\d+)') { $dev = 'AI4DEV-' + $Matches[1] }
-    elseif ($b -and ([string]$b.pmId) -match '^AI4DEV-\d+$') { $dev = $Matches[0] }
+    elseif ($b -and ([string]$b.devId) -match '^AI4DEV-\d+$') { $dev = $Matches[0] }
+    if ($b -and $dev -ne 'none' -and ([string]$b.devId) -eq $dev) { $devTitle = [string]$b.devTitle }
 
     $ack = Get-PmAck
-    $pmShown = $pm
-    if ($pm -eq 'none' -and $ack) { $pmShown = ('none - confirmed by dev {0} ({1})' -f $ack.date, $ack.note) }
+    $isReq = $pm -match '^AI4PM-\d+$'
+    $pmShown = if ($pm -eq 'none') { 'none' } else { (Fmt $pm ([string]$b.pmTitle)) + $pmKind }
+    if (-not $isReq -and $ack) { $pmShown += (' - confirmed by dev {0} ({1})' -f $ack.date, $ack.note) }
 
     $out = @()
-    $out += ('WORKING ON - PM: {0} | DEV: {1} | bucket: {2} | branch: {3}' -f $pmShown, $dev, $bucket, $branch)
+    $out += ('WORKING ON - PM: {0} | DEV: {1} | bucket: {2} | branch: {3}' -f $pmShown, (Fmt $dev $devTitle), $bucket, $branch)
     $out += ('<ai4good-attribution pm="{0}" dev="{1}" bucket="{2}" wave="{3}"/>' -f $pm, $dev, $bucket, $wave)
 
-    if ($pm -eq 'none' -and -not $ack) {
-        $out += ('PM CHECK: no PM requirement is bound in this worktree and the dev has not confirmed ' +
-            'working without one. BEFORE answering, ask the dev: should this work run under a PM item ' +
+    if (-not $isReq -and -not $ack) {
+        $out += ('PM CHECK: no PM REQUIREMENT is bound in this worktree (a bring-up phase is not one) ' +
+            'and the dev has not confirmed working without one. ' +
+            'BEFORE answering, ask the dev: should this work run under a PM item ' +
             '(/pm-next to pull one, /bind AI4PM-NN to adopt a pull), or do they confirm proceeding ' +
             'without one (bring-up / exploration)? On their answer, record it with ' +
             'Set-PmAck "<their answer in a few words>" (loop/work/work-lib.ps1). ' +

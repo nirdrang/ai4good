@@ -88,9 +88,22 @@ function Clear-PmAck {
     if (Test-Path $p) { Remove-Item $p -Force }
 }
 
-# One session holds ONE item; when it merges, the path is cleared for the next (founder ruling
-# 2026-07-31). Called by the item loop's merge tail: drops the binding AND the PM ack together,
-# so the next item in this worktree starts unbound and the PM question fires again exactly once.
+# A binding carries TWO tiers of fields, because a PULL brackets a PHASE while the loop builds
+# ONE ITEM inside it (founder correction 2026-08-01):
+#   pull fields  - pmId/pmTitle/bucket/wave/project - the phase this work counts against. A
+#                  bring-up parent like AI4DEV-3 spans thirteen sub-items. /pm-next never
+#                  writes a binding; the loop INHERITS these by walking the item's parent, so
+#                  parallel item worktrees share a phase with no shared mutable state.
+#   item fields  - devId/devTitle - the one item this worktree builds.
+# Worktrees belong to ITEMS (founder ruling 2026-08-01), so the loop's phase 0 creates the
+# folder and writes all of it in one Write-Binding, and the merge tail drops the whole thing.
+# Titles are stored so the stamp hook can name an item without a Linear call (founder: bare
+# item numbers are unmemorable) - a cache; the id is authoritative, the title cosmetic.
+
+# Ends this ITEM's worktree state, at its merge. Drops the binding AND the PM ack together.
+# The PHASE is untouched and needs no cleanup - it was never a folder; it ends when its parent
+# goes Done on the board. Sibling items building in parallel have their own worktrees and are
+# unaffected by this.
 function Clear-ItemState {
     Clear-Binding
     Clear-PmAck

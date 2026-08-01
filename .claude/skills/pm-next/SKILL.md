@@ -1,15 +1,94 @@
 ---
 name: pm-next
-description: Pull the next PM-tree requirement (or a named one, e.g. /pm-next AI4PM-21) — the ONLY authority for In Progress on the PM board. Asks about a dedicated worktree up front, then atomic claim + pull record + binding + lazy dev-tree materialization, per the adopted way-of-work. (Requirement tier; the leaf-tier verbs are /dev-start and /dev-end.)
+description: Pull the next piece of work — a PM-tree requirement (/pm-next AI4PM-21), an approved bring-up item (/pm-next bringup AI4DEV-33), or untracked work (/pm-next exploration). The ONLY authority for In Progress on the PM board. Claims it, creates and enters a dedicated worktree, binds it, hands over to /item-loop.
 ---
 
-# /pm-next — pull a requirement (PM board, AI4GOOD-PM)
+# /pm-next — pull the next piece of work
 
-**Verb tiers:** PM tree (requirement) = `/pm-next`, `/pm-done`. Dev tree (leaf) = `/dev-start`,
-`/dev-end`. **Only requirement items are pullable here.** Bring-up and design-batch items
-(AI4GOOD-DEV) are managed with plain Linear calls, never these verbs (d87).
+**One pull verb for every kind of work** (founder ruling 2026-08-01, implementing an
+instruction from 2026-07-28 that was narrowed at the time rather than carried out:
+*"there is a bring up item that can be set explicitly in next skill like exploration and used
+exactly for this phase"*). Three forms:
 
-## Ritual (execute in order; stop and report on any failure; NO Linear write before step 5)
+| form | pulls | bucket | board |
+|---|---|---|---|
+| `/pm-next` or `/pm-next AI4PM-NN` | a product requirement | `task` | AI4GOOD-PM |
+| `/pm-next bringup AI4DEV-NN` | a bring-up **PHASE** (a parent) | `bringup` | AI4GOOD-DEV |
+| `/pm-next exploration` | genuinely untracked work | `exploration` | none |
+
+**A pull brackets a PHASE; the loop builds ONE ITEM inside it** (founder correction
+2026-08-01). `/pm-next bringup` takes the **parent** — e.g. AI4DEV-3, which spans thirteen
+sub-items — exactly as a requirement pull spans its whole dev tree. The individual dev items
+are never named here. If the named item has no sub-items, the pull simply brackets that one.
+
+**Worktrees belong to ITEMS, not to pulls** (founder ruling 2026-08-01: *"best dev items,
+since this way I can build multiple in parallel"*). This verb creates **no worktree and no
+branch** — it enters a phase, which is information, not a folder. `/item-loop AI4DEV-NN`
+creates a dedicated worktree per dev item, so N sub-items of one phase build concurrently in
+N sessions. An earlier draft had the pull own one worktree, which would have forced a
+thirteen-item phase to run strictly sequentially for no reason.
+
+**But this verb exists FOR attribution, and bindings are keyed to the FOLDER — so a pull with
+no worktree of its own has a collision to answer for** (founder, 2026-08-01). It is answered
+by making the phase binding *attribution-only*:
+
+- It writes a **phase binding into the current folder** — pull fields only (`pmId`, `pmTitle`,
+  `bucket`, `wave`), never a `devId` — so the session that enters a phase and plans in it is
+  honestly stamped instead of reading `unattributed`.
+- **Nothing reads it for correctness.** Each item worktree's binding is written by the loop
+  and inherits the pull's fields by walking the item's PARENT on the board — never by copying
+  this file. So parallel item worktrees share a phase with no shared mutable state, and a
+  clobbered phase binding costs a wrong *stamp* in one session, never wrong *work*.
+- **Guard, loudly.** `Read-Binding` first: if this folder already holds a live phase binding
+  for a DIFFERENT phase, refuse, name the holder, and steer to another session/folder. Silent
+  overwrite is the failure mode that cost AI4DEV-24 a run of mis-stamped messages.
+
+The residual weakness is unchanged and known: two SESSIONS in one folder still share one
+binding file, because the key is the folder. Session-keyed bindings would close that class
+outright — filed as AI4DEV-34 — Bindings are keyed to the folder, so two sessions in one
+folder share one binding; not fixed here.
+
+**What differs is ceremony, not shape.** All three end identically: a dedicated worktree, a
+binding placed in it, and a hand-off to **`/item-loop`** — the founder's go-to verb and the
+only build lifecycle. Only the requirement form carries the PM-tree ceremony (atomic claim,
+durable pull record, manifest identity, race detection, dev-tree materialization), because
+only requirements have acceptance suites and an evidence gate. **d87 still stands** — bring-up
+items have no pull *ceremony*; they now have a pull *verb*.
+
+`/pm-next` remains the ONLY authority for In Progress on the PM board. On the dev board it is
+ergonomic packaging, as ever.
+
+## Short ritual — `/pm-next bringup AI4DEV-NN` · `/pm-next exploration`
+
+Four steps, no filesystem side effects. Entering a phase is a board act, not a code act.
+
+Five steps, no filesystem side effects beyond the phase binding. Entering a phase is a board
+act, not a code act.
+
+1. **Verify the target** (bringup only): `get_issue` — must be an AI4GOOD-DEV item, normally in
+   the W0 Bring-up project. Prefer a PARENT (the phase); a childless item is a one-item phase
+   and is fine. Refuse an AI4PM id here; that is the requirement form. For `exploration` there
+   is no item and nothing to verify.
+2. **Guard, then bind the phase into this folder.** `Read-Binding` — a live binding for a
+   different phase means REFUSE and name the holder, never overwrite. Otherwise `Write-Binding`
+   with pull fields only: `wave`, `project`, `pmId=<AI4DEV-NN or 'none'>`, `pmTitle=<its
+   title>`, `bucket='bringup'|'exploration'`, `sessionId`. **No `devId`** — items belong to
+   the loop.
+3. **Board** (bringup only): the phase item → In Progress with a comment naming what the phase
+   covers — a plain Linear call; the dev board is working space, no pull record (d87).
+4. **Print the WORKING-ON line** immediately, so the founder sees the change as it happens.
+5. **Report the phase and its open sub-items, each with its TITLE** — bare ids are unmemorable
+   (founder instruction 2026-08-01). That list is the menu: the founder picks one and runs
+   `/item-loop AI4DEV-NN`, which creates the worktree, branch and item binding. Several may
+   run at once in separate sessions, one worktree each. End with the rename line for whichever
+   session stays here (`/rename AI4DEV-NN · <short title>`, or `/rename exploration · <topic>`).
+
+**`exploration`** has no board item and no phase — it binds the current folder as
+`bucket='exploration'` so untracked poking is honestly labelled where it happens, and creates
+no worktree. Exploration that grows into real work becomes a dev item and goes through the
+loop like everything else.
+
+## Full ritual — a requirement (execute in order; stop and report on any failure; NO Linear write before step 5)
 
 1. **Pick the candidate.** If the founder named an item, use it. Otherwise list AI4GOOD-PM
    Backlog items whose blockers are all Done and propose the highest-value one; the founder
@@ -60,7 +139,8 @@ description: Pull the next PM-tree requirement (or a named one, e.g. /pm-next AI
 10. **Materialize the dev tree** (idempotent): `powershell -File loop/work/materialize.ps1 -Req
     0NN` → for each parent not already on AI4GOOD-DEV (check by exact title): create the parent
     (relatedTo the PM item), then each leaf as a sub-issue (parentId), description = summary +
-    `verify:` set, with blocked-by relations mapped to the sibling leaf issues. Cross-manifest
+    `verify:` set, with blocked-by relations mapped to the sibling leaf issues. **Each leaf is
+    then built by `/item-loop`** — one lifecycle for every kind of work. Cross-manifest
     blocked-by references go in the description, not as relations. (Leaves are then worked with
     `/dev-start` and `/dev-end`.)
 

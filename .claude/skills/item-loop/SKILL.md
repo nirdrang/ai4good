@@ -37,21 +37,50 @@ escalation = Blocked label + comment (never a status change), merge can never pr
 · `premerge-audit.md` · `merge-decision.md`. Every gate artifact records the head SHA
 it examined.
 
+## The founder's surface is TWO verbs (founder ruling 2026-08-01)
+
+**`/pm-next`** enters a PHASE — a requirement, a bring-up parent
+(`/pm-next bringup AI4DEV-NN`), or exploration — and lists that phase's open sub-items with
+their titles. **`/item-loop AI4DEV-NN`** builds ONE of them. That is the whole surface the
+founder types.
+
+**A phase is not an item, and a phase is not a folder** (founder correction 2026-08-01). A
+bring-up parent like AI4DEV-3 — Bring-up: the acceptance-test harness spans thirteen
+sub-items, so a dev item is never an argument to `/pm-next`. `/pm-next` creates no worktree;
+**this loop creates a dedicated worktree per dev item**, which is precisely what lets several
+sub-items of one phase build concurrently in separate sessions (founder: *"best dev items,
+since this way I can build multiple in parallel"*) instead of queueing behind one folder.
+
+`/dev-start` and `/dev-end` are INTERNAL to this loop — phase 0 and the merge tail — invoked
+BY the loop, never by the founder. They exist so there is one place to change how an item is
+opened and closed, not so there is a second way to do either.
+
 ## Session discipline (founder ruling 2026-07-31, AI4DEV-32)
 
-- **`/dev-start` and `/dev-end` are this loop's DOORS**, not alternative paths: `/dev-start`
-  is phase 0 with a convenient name; `/dev-end` is the merge tail. No other closing path
-  exists; "verification assumed" is dead.
+- **`/dev-start` and `/dev-end` are this loop's phases**, not alternative paths and not
+  founder-facing: `/dev-start` is phase 0; `/dev-end` is the merge tail. No other closing
+  path exists; "verification assumed" is dead.
 - **The ORCHESTRATOR session works IN the item worktree** — not the shared main folder.
   Bindings are per-worktree; orchestrating from a shared folder means another session can
   overwrite the binding mid-item and every message stamps against the wrong work (observed,
   not hypothetical).
-- **One session, one item.** A session with a live binding finishes or explicitly abandons
-  it before opening another.
-- **The merge tail ends by CLEARING THE PATH:** `Clear-ItemState` drops the worktree's
-  binding and its PM acknowledgment together, so the next item starts unbound and the stamp
-  hook's PM question fires again exactly once. A stale binding mis-attributes the next
-  item's work.
+- **One session, one item — which bounds the SESSION, not the phase.** A session with a live
+  item binding finishes or explicitly abandons it before opening another; sibling items of
+  the same phase run happily in parallel sessions, one worktree each.
+- **Phase 0 OWNS the worktree, one per item** (`git worktree add ../ai4good-<slug> -b
+  <branch> origin/main`, then the session itself `cd`s in). It writes that worktree's binding
+  with both tiers: pull fields inherited by walking the item's PARENT on the board
+  (`pmId`, `pmTitle`, `bucket`, `wave`) and item fields (`devId`, `devTitle`). Inheriting
+  from the board rather than from a pull-time file is what keeps parallel worktrees
+  consistent with no shared mutable state to race on.
+- **Titles are stored because the founder reads them:** the stamp hook prints id + title from
+  the binding's cache, and every id this loop reports carries its title (founder instruction
+  2026-08-01) — bare numbers are unmemorable.
+- **The merge tail retires THIS item's worktree, and only it:** `Clear-ItemState` drops that
+  worktree's binding and PM acknowledgment together, then the worktree goes. It never ends
+  the phase — the phase is not a folder; it ends on the board when its parent goes Done, or
+  via `/pm-done` for a requirement. Never clear a sibling's binding or remove a sibling's
+  worktree.
 - **The stamp hook is the disclaimer:** every prompt shows `WORKING ON - PM: … | DEV: …`.
   When no PM requirement is bound and the dev has not confirmed working without one, the
   hook demands the question be put to the dev IMMEDIATELY — no counting. Record the answer
@@ -130,10 +159,13 @@ it examined.
      against main; a regression → orchestrator may authorize a revert PR through this
      same loop (scoped, expedited); item reopens via label + comment; founder hears in
      the report.
-   - **Clear the path — orchestrator** (founder ruling 2026-07-31): `Clear-ItemState`
-     drops this worktree's binding and PM acknowledgment; remove the item worktree once
-     nothing needs it. One session, one item — the next one starts clean and the PM
-     question fires again exactly once.
+   - **Retire this item's worktree — orchestrator** (founder rulings 2026-07-31,
+     corrected 2026-08-01): `Clear-ItemState` drops THIS worktree's binding and PM
+     acknowledgment; remove the worktree once nothing needs it. Local and safe, because
+     worktrees belong to items — siblings may be mid-build in their own folders and are
+     untouched. **This never ends the PHASE**: report the phase's still-open sub-items
+     with their titles and suggest the next `/item-loop AI4DEV-NN`, noting several can be
+     taken in parallel.
 9. **Report — orchestrator, never delegated**: plain sentences (CLAUDE.md rule): what
    went green, what stayed red and why, what each gate found and how it was ruled,
    what was escalated, what remains unverified.
