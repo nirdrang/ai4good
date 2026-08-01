@@ -46,21 +46,25 @@ try {
         if (-not $wave) { $wave = 'none' }
     }
 
-    # Titles are cosmetic and come from an untrusted-ish cache: keep them on one line, keep
-    # them out of the pipe-delimited fields' way, and keep them short.
+    # `id (very short title)` - founder instruction 2026-08-01: an id alone gives no recall, so
+    # every id printed carries a short label in PARENTHESES. The label is a HINT (2-5 words),
+    # not Linear's full title, and it comes from a cache because this hook runs before every
+    # prompt and must never call Linear. Kept on one line and out of the pipe fields' way;
+    # nested parens are stripped so the wrapper stays unambiguous; a missing label degrades to
+    # the bare id rather than guessing.
     function Fmt([string]$id, [string]$title) {
         if (-not $title) { return $id }
-        $t = ($title -replace '[\r\n\|<>"]', ' ').Trim()
-        if ($t.Length -gt 60) { $t = $t.Substring(0, 57) + '...' }
+        $t = ($title -replace '[\r\n\|<>"()]', ' ').Trim()
+        if ($t.Length -gt 40) { $t = $t.Substring(0, 37) + '...' }
         if (-not $t) { return $id }
-        return ('{0} - {1}' -f $id, $t)
+        return ('{0} ({1})' -f $id, $t)
     }
 
     # PM slot = the PULL: a product requirement, or an approved bring-up parent.
     $pm = 'none'
     $pmKind = ''
     if ($b -and ([string]$b.pmId) -match '^AI4PM-\d+$') { $pm = $Matches[0] }
-    elseif ($b -and ([string]$b.pmId) -match '^AI4DEV-\d+$') { $pm = $Matches[0]; $pmKind = ' (bring-up phase, not a product requirement)' }
+    elseif ($b -and ([string]$b.pmId) -match '^AI4DEV-\d+$') { $pm = $Matches[0]; $pmKind = ' [bring-up phase, not a product requirement]' }
 
     # DEV slot = the ONE ITEM being built. Branch first; binding's devId on main. The title
     # applies only when the cached devId still matches what the branch says.
@@ -73,7 +77,7 @@ try {
     $ack = Get-PmAck
     $isReq = $pm -match '^AI4PM-\d+$'
     $pmShown = if ($pm -eq 'none') { 'none' } else { (Fmt $pm ([string]$b.pmTitle)) + $pmKind }
-    if (-not $isReq -and $ack) { $pmShown += (' - confirmed by dev {0} ({1})' -f $ack.date, $ack.note) }
+    if (-not $isReq -and $ack) { $pmShown += (' [confirmed by dev {0}: {1}]' -f $ack.date, $ack.note) }
 
     $out = @()
     $out += ('WORKING ON - PM: {0} | DEV: {1} | bucket: {2} | branch: {3}' -f $pmShown, (Fmt $dev $devTitle), $bucket, $branch)
