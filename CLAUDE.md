@@ -104,14 +104,21 @@ their own. Rules:
   Linear into a PM tree and a dev tree" — not just "d82".
 - Requirement and decision numbers are fine as references, but always next to a plain
   description, never instead of one.
-- **NEVER PRINT A BARE ITEM NUMBER — always id + title (MUST-FOLLOW, founder instruction
-  2026-08-01: *"when it print item numbers it should also add the title since I can't remember
-  their purpose"*).** Write `AI4DEV-19 — H3: sentinels + fault injection`, never `AI4DEV-19`
-  alone. This applies everywhere a number reaches the founder: replies, status reports, board
-  listings, suggestions of what to do next, and the WORKING-ON disclaimer (the stamp hook
-  prints titles from the binding's cached `pmTitle`/`devTitle` — it must never call Linear).
-  If a title is genuinely unknown, look it up; a bare id is only acceptable when the lookup
-  itself failed, and then say so.
+- **NEVER PRINT A BARE ITEM NUMBER — always `id (very short title)` in PARENTHESES
+  (MUST-FOLLOW, founder instruction 2026-08-01: *"always have in wrapped in () a very short
+  text title for an item so no more AIPM-12 or AIDEV-14 without a quick text recall for me"*).**
+  Write `AI4DEV-19 (H3 sentinels)` — never `AI4DEV-19` alone, and not the dash-and-full-title
+  shape this rule had earlier the same day.
+  - **Very short means a RECALL HINT, not the real title:** two to five words. Linear titles
+    are often a whole sentence; shorten them, never paste them. `AI4DEV-35 (short titles in
+    parens)`, not `AI4DEV-35 (Every item id printed to the founder carries a very short title
+    in parentheses)`.
+  - Applies everywhere an id reaches the founder: replies, status reports, board listings,
+    suggestions of what to work on next, prose in commit and PR bodies, and the WORKING-ON
+    disclaimer — where the stamp hook formats `id (label)` from a cached short label, because
+    the hook runs before every prompt and must never call Linear.
+  - If the label is genuinely unknown, look it up; a bare id is acceptable only when the lookup
+    itself failed, and then say so.
 - A status update should read like an explanation to a smart teammate who has NOT been
   following the internal naming — because that is exactly the situation.
 - Lists of steps get described by what the step does, not by its stage code.
