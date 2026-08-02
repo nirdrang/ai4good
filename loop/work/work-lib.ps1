@@ -68,6 +68,13 @@ function Get-StateDirRO { Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai
 # tag, which is the one output the founder is told to trust.
 function Test-ItemId([string]$id) { return ($id -cmatch '^AI4(DEV|PM)-[0-9]+$') }
 
+# A FLOATING root (founder ruling 2026-08-02) is a grouping label that exists only for the
+# attribution log - for cadence and monitoring - and deliberately has NO item on the board. It is
+# written `~name` so it can never be mistaken for a board id at a glance or by a parser, and it is
+# legal ONLY as the first node of a chain. A real parent found by the walk always wins over it:
+# the traversal is what catches genuine structure, and this only fills space the board leaves empty.
+function Test-FloatingRoot([string]$id) { return ($id -cmatch '^~[A-Za-z0-9][A-Za-z0-9 _.-]{0,30}$') }
+
 # Bounded read: a cache is a speed-up, so an implausibly large one is corrupt by definition and
 # is not worth the time it would take to parse.
 function Read-JsonCapped([string]$path, [int]$maxBytes = 65536) {
@@ -128,7 +135,13 @@ function Test-Chain($c, [string]$branch, [string]$item) {
     if (([string]$c.branch) -ne $branch) { return $false }
     $nodes = @($c.chain)
     if ($nodes.Count -lt 1 -or $nodes.Count -gt 8) { return $false }
-    foreach ($n in $nodes) { if (-not (Test-ItemId ([string]$n.id))) { return $false } }
+    for ($i = 0; $i -lt $nodes.Count; $i++) {
+        $id = [string]$nodes[$i].id
+        # A floating label is legal only as the ROOT. Anywhere else it would be claiming a board
+        # relationship that does not exist.
+        if ($i -eq 0 -and (Test-FloatingRoot $id)) { continue }
+        if (-not (Test-ItemId $id)) { return $false }
+    }
     if (([string]$nodes[$nodes.Count - 1].id) -ne $item) { return $false }   # must END on the item
     return $true
 }
