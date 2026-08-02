@@ -1,0 +1,14 @@
+CONFIRMATION CHALLENGE to your finding 1 (BLOCKER, fork PRs).
+
+Your finding rests on one factual premise: that GitHub Actions pull_request event payloads are "empty for forked PRs", so github.event.pull_request.head.sha evaluates empty and the ref expression falls through to github.sha.
+
+I believe that premise is false, and the page you cited does not say it. What GitHub actually documents about pull_request runs from forks: (a) secrets are not passed to the runner, (b) GITHUB_TOKEN is read-only (for public repos it retains read access sufficient for the pulls/files API), (c) certain OIDC/write features are unavailable. The event PAYLOAD — github.event.pull_request, including .number and .head.sha — is the standard populated pull_request webhook object for fork PRs exactly as for same-repo PRs. The entire common pattern of checking out a fork PR's head with ref: github.event.pull_request.head.sha depends on this and is in universal production use. The statement you may be recalling — "workflows triggered by pull_request run against the merge commit by default" — is about the default checkout ref (which this workflow deliberately overrides), not about payload emptiness.
+
+Your task, strictly:
+1. Produce the EXACT sentence from GitHub documentation that states the pull_request payload (not secrets, not token scopes) is empty for forked pull requests. Quote it verbatim with its URL.
+2. If you cannot produce such a sentence, state plainly: the premise was wrong and finding 1 is WITHDRAWN.
+3. If you produce it, state what the workflow should do instead, in one concrete change.
+
+Also weigh, separately from the factual question: this repository's operating model has exactly two writers, both pushing branches inside the same repository (the Lovable bot and the Claude side); fork pull requests are outside the operating model, and the workflow consumes no secrets. State whether, under that model, your finding would still be a BLOCKER even if the premise held.
+
+End with one line: FINDING 1: UPHELD or FINDING 1: WITHDRAWN.

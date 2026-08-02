@@ -1,0 +1,7 @@
+1. BLOCKER — `ref: ${{ github.event.pull_request.head.sha || github.sha }}` (ci.yml:46) fails the central head-commit guarantee for forked PRs. GitHub documents that `pull_request` payloads are empty for forked PRs; this makes `head.sha` empty and falls through to `github.sha`, which GitHub documents as the synthetic PR merge SHA. The same empty payload makes `PR_HEAD_SHA` empty (line 51), disables per-PR cancellation via the `github.run_id` fallback (line 30), and sends the guard’s API call an empty PR number (lines 155–162), causing valid fork PRs to fail the guard. [GitHub Actions event semantics](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows?apiVersion=2022-11-28)
+
+MAJOR: none found.
+
+MINOR: none found.
+
+FINDINGS: 1
