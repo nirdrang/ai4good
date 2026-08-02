@@ -28,15 +28,43 @@ reaches the run log — nothing is parsed into a verdict-only JSON in the workfl
 
 ## Evidence
 
-### Local verification (Windows worktree, branch head at the time of running)
+### Local verification (this worktree, branch head at the time of running)
 
-| command | result |
-|---|---|
-| `bun install --frozen-lockfile` | 533 installs across 637 packages checked, no changes |
-| `bun run typecheck` | exit 0 — both configs clean |
-| `bun run at:selftest` | exit 0 — 7 files, 114 tests passed |
-| `bun run at:check req-016` | exit 0 — 12 P0 ids in bijection |
-| `bun run at:verify req-016 --tier loop --expect` | exit 0 — matches declaration exactly (8 green, 4 declared red) |
+**Correction, 2026-08-03 (raised by the executor reading this file — the paper trail
+working):** the first row of this table originally read "533 installs across 637 packages
+checked, no changes", presented as the frozen-lockfile gate. That is bun's output for a
+tree that ALREADY had `node_modules` — the item agent's re-run AFTER the executor's install
+had populated the same worktree. The from-scratch measurements are the executor's and CI's,
+below. The row was corrected with provenance rather than silently swapped.
+
+| command | result | measured by |
+|---|---|---|
+| `bun install --frozen-lockfile` (empty tree) | 515 packages installed, 63.7s | executor, this worktree, Phase 2 |
+| `bun install --frozen-lockfile` (populated tree) | 533 installs across 637 packages checked, no changes | item agent, same worktree, after the executor's install |
+| `bun install --frozen-lockfile` (empty tree, ubuntu) | step green in CI run 30769559140 | GitHub Actions, the PR's own run |
+| `bun run typecheck` | exit 0 — both configs clean | executor and item agent, identical result |
+| `bun run at:selftest` | exit 0 — 7 files, 114 tests passed | executor and item agent, identical result |
+| `bun run at:check req-016` | exit 0 — 12 P0 ids in bijection | executor and item agent, identical result |
+| `bun run at:verify req-016 --tier loop --expect` | exit 0 — matches declaration exactly (8 green, 4 declared red) | executor and item agent, identical result |
+
+### Executor verification beyond the five commands (Phase 2 report, folded)
+
+- `js-yaml` parse of the workflow: clean.
+- `bash --noprofile --norc -eo pipefail -n` on all seven shell step bodies: clean.
+- 18 executed behavioural cases against fixture trees with `bun` and `gh` stubbed,
+  including: the 3000-file fail-closed ceiling fires; 1,500 renames inside `src/**`
+  correctly do NOT trip it; a `src/` → `tests/` rename is caught through
+  `previous_filename`; prefix look-alikes (`srcfoo/`, `supabase.config`) are correctly
+  ignored; and this PR's own file set passes its own guard.
+- The job id is `verify` with no display-name override — the exact string branch
+  protection needs.
+
+### The Linux question, asked and answered
+
+The executor's one stated open risk was that the acceptance harness had never executed on
+Linux (filename case-sensitivity in `tests/at` imports being the specific exposure). CI run
+30769559140 on ubuntu-latest retired it by evidence: the harness self-tests, the per-suite
+check and the loop-tier verify all passed on the PR head commit.
 
 ### Gate 1 (plan) — codex gpt-5.6-terra @ max, session 019fc473-0d26-7d02-9154-1648709c106b
 
@@ -56,10 +84,24 @@ PENDING — `premerge-audit.md`.
 
 ### The item's own proof
 
-This pull request's own CI run, green on its head commit. Run id and conclusion recorded
-below when the run exists.
+This pull request's own CI run, green on its head commit:
 
-PENDING — run id, conclusion.
+- Run **30769559140**, `pull_request` event, conclusion **success**, head `732af30` —
+  green on the FIRST run this repository has ever executed. All steps passed on
+  ubuntu-latest: checkout of the commit under test, commit report, bun install from the
+  frozen lockfile, typecheck, harness self-tests, per-suite check, loop-tier verify with
+  declaration match, ownership guard on the PR's own file list.
+- Later paper-trail pushes trigger newer runs; the run green on the FINAL head commit is
+  recorded next to the decision below.
+
+### Branch protection (decision 11) — attempted, denied, left for the founder
+
+The item agent attempted to add `verify` as a required status check on `main` via
+`gh api -X PUT repos/nirdrang/ai4good/branches/main/protection` (preserving the existing
+all-false protection flags, adding only `required_status_checks: {strict: false,
+contexts: ["verify"]}`). The permission layer of this environment denied the call. Per the
+item's decision 11: reported plainly, not faked, left for the founder — the exact command
+is in the item report.
 
 ## Known limits (recorded, not fixed here)
 
