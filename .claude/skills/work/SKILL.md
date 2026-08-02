@@ -155,6 +155,63 @@ TRANSITION  AI4PM-19 (user auth) > AI4DEV-41 (login form)
 
 7. Journal each step so a crash between any two is recoverable by reading, not guessing.
 
+## Running items in PARALLEL — one agent per item (tested 2026-08-02)
+
+Serial work needs none of this: one item, worked on a branch in the folder you are already in.
+This is for running two or three items at once **without the founder opening a session for
+each**.
+
+**The shape.** The coordinator session spawns ONE agent per item with worktree isolation. The
+platform creates that agent's worktree and **the agent is born inside it** — it never has to
+move itself, which is what made every earlier attempt fail. It is also *pinned*: the platform
+refuses any command that resolves outside its worktree, so it cannot damage another item's
+work even by mistake.
+
+```
+coordinator (main checkout, never moves)
+└── item agent - opus - own worktree, own branch, ORCHESTRATES its item
+    ├── executor - opus - same worktree, same branch
+    ├── auditor - sonnet - same worktree, fresh context
+    └── codex / Kimi - launched IN the worktree, read the real tree
+```
+
+Spawned as: `Agent(subagent_type: "general-purpose", isolation: "worktree",
+run_in_background: true, model: "opus", prompt: <the whole item brief>)`. The `isolation` line
+is what creates the worktree; nothing else creates one.
+
+**The item agent IS the orchestrator for its item** — it holds judgment, triages findings,
+rules on them. Its subagents **inherit its worktree and branch** (tested: a child reported the
+identical directory and branch, and read a file its parent had just written). The coordinator
+above it does not review the work in place: it reads what the agent **published** — the pushed
+branch and the PR — which is the same surface the founder reviews.
+
+Model assignment follows judgment, not convenience: opus for the item agent and its executor,
+sonnet for the fresh-context auditor (independence matters more than intelligence there),
+haiku or sonnet for mechanical steps, and **fable reserved for rulings escalated to the
+coordinator** — premium credits go to judgment only.
+
+### Three rules the testing forced
+
+- **NEVER resume an agent after it has finished.** Its worktree is deleted on completion, and a
+  resumed agent silently falls back to the main checkout. Observed: a resumed probe created a
+  branch in the live checkout and switched it. If an agent must wait for a ruling, it stays
+  **alive** — a live agent keeps its worktree.
+- **Push before finishing.** The worktree dies with the agent, so anything uncommitted is lost.
+  The remote is the only durable output.
+- **Never hand an agent a worktree you created.** It cannot use one; the isolation guard blocks
+  it and bricks the agent's shell (tested — `EnterWorktree` reported success and every
+  subsequent command was refused). Worktrees are the platform's to create.
+
+The auto-generated folder name (`agent-<hash>`) is irrelevant, because **attribution reads the
+branch, not the folder**. The agent checks out the item's Linear branch inside its own worktree
+and the stamp resolves correctly.
+
+### Footgun
+
+**PowerShell keeps no shell state between tool calls** — only the working directory persists.
+A script that dot-sources `work-lib.ps1` in one call and uses its functions in the next will
+fail with "not recognized". Source and use in the *same* command.
+
 ## Phase C — build
 
 Brief → plan → **Gate 1** (codex refutes the plan) → triage → orchestrator checkpoint →
@@ -169,14 +226,36 @@ nine phases of ceremony on a prose change is how a process stops being followed 
 foreground command ceiling and gets killed — observed twice on 2026-08-02, losing the whole
 run both times. Launch the reviewer detached, keep working, fold the findings when it returns.
 
+**Reviewers run IN THE WORKTREE, against the real tree — never against an exported diff**
+(2026-08-02, after the founder pushed back on this). A reviewer is a process with a working
+directory, so `codex -C <worktree>` reads the actual source: it can follow a call into a file
+the diff never touched. Exporting a diff to a scratchpad and reviewing that was a habit
+mistaken for a limitation, and it made every gate weaker than it needed to be — the reviewer
+could only see the lines it was handed. **Proven**: codex launched in a worktree read
+`stamp-hook.ps1` unprompted and quoted its literal strings back.
+
+**Reviewer sessions are RESUMED for confirmation, never rebuilt** (founder 2026-08-02: coming
+back to a fresh session "recreates the context it built an iteration ago — complete waste").
+It is worse than waste: a new session re-derives its findings from scratch, so the rule that
+*a finding is confirmed by the reviewer that raised it* is quietly broken — a different chain
+of reasoning is answering for the first one. Capture the session id from the gate run and
+resume it:
+- codex: `codex exec resume <SESSION_ID> "<confirmation prompt>"`
+- Kimi: `kimi -S <id>`, or `-c` to continue the previous session **for this working
+  directory** — which scopes to the item's worktree by itself
+
 Reviewer pins, in each vendor's own vocabulary — **the ladders differ, and invalid values fall
 back silently**:
 - codex: `-c model=gpt-5.6-terra -c model_reasoning_effort=max` (ladder tops at `max`; `xhigh`
   is one tier below — believing otherwise already cost a real under-run)
 - Kimi: `kimi -m kimi-code/k3 -p "<short>" --output-format text`, effort `high` from config
 
-A finding is confirmed by the reviewer that raised it. Confirmation runs at `high`; a
-confirmation asked to judge a *claim* rather than a fix is review work and gets `max`.
+Useful codex flags, all verified present: `-C <dir>` sets the working root, `-o <file>` writes
+the final answer to a file instead of leaving it to be scraped from stdout, and `--json` emits
+events as JSONL.
+
+Confirmation runs at `high`; a confirmation asked to judge a *claim* rather than a fix is
+review work and gets `max`.
 
 ## Committing — `.claude/` and `loop/out/` are GITIGNORED
 
