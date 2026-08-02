@@ -146,13 +146,38 @@ A completion signal is always something **outside the agent's own claim**.
 1. Independent re-verification by a fresh-context agent — never the one that wrote the code.
 2. Written merge ruling, pinned to the head commit.
 3. PR published with that ruling; merge authorization pinned to the same commit.
-4. Merge → the integration flips the item Done. **Never set Done by hand**; if the integration
-   did not fire, that is a discrepancy to report, not to tidy away.
+4. Merge → the integration flips the item Done. See "when git and the board disagree" below.
 5. Post-merge check against merged `main`.
 6. **Fold upward**: re-read the parent's children **fresh** (a sibling may have closed in a
    parallel session); all Done or Cancelled → parent folds; cascades upward. Cancelled counts
    as closed but every cancelled child is **listed by name**, so a quietly-cancelled item can
    never make a tree look complete. The cascade **stops below a requirement**.
+
+### When git and the board disagree (founder question, 2026-08-02)
+
+Closing depends on an asynchronous integration: the merge fires a webhook and Linear moves the
+item. That transport can be slow, can drop, and can interleave with a sibling's merge.
+
+**Git is the source of truth for merge state; Linear mirrors it.** So the rule is narrower than
+"never set Done by hand" — which, stated that way, forbade the repair without providing one and
+would strand an item In Progress forever. What is forbidden is **asserting a state that was
+never observed**. If the pull request is verifiably merged — the commit is on `main`, the API
+reports merged — then setting Done is not faking anything: the event happened and the evidence
+is in hand. Repair from primary evidence, and **record it as a repair**, never as the
+integration having worked.
+
+| failure | handling |
+| --- | --- |
+| webhook slow | **bounded re-read (~30s)** before concluding anything. An instant check turns normal latency into a false alarm. |
+| webhook dropped | merge confirmed in git → set Done, and say plainly the integration did not fire |
+| branch names no item | cannot auto-close, ever. Prevented upstream: the branch comes from Linear verbatim and is validated to tokenise to exactly this item |
+| **two siblings merging at once** | **confirm YOUR item is Done in Linear BEFORE reading the siblings.** That ordering is the whole fix: whoever finishes second necessarily observes the complete set, so the parent cannot be left unfolded by both sessions each seeing the other still open. Both folding is harmless — folding is idempotent. |
+| crash between merge and fold | nothing repairs it in the moment; the backstop is that `/work` on any parent re-reads and folds. Drift self-heals on next touch. |
+| Linear unreachable at merge | the merge still happened and the board is stale. Report it; the next `/work` reconciles. |
+
+Deliberately absent: locks and transactions. For a handful of parallel sessions, converge-on-
+re-read plus reconcile-on-next-touch is proportionate, and the cost of being wrong is a board
+briefly behind — never lost work.
 
 ### Requirement evidence gate — pinned, not asserted
 

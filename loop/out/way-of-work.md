@@ -244,6 +244,30 @@ Never automatic, never implied by leaves closing:
 
 `/work` proposes; it never closes a requirement on its own.
 
+### When git and the board disagree (founder question, 2026-08-02)
+
+Closing rides on an asynchronous integration, so it can be slow, can drop, and can interleave
+with a sibling's merge. **Git is the source of truth for merge state; Linear mirrors it.**
+
+The rule is therefore narrower than "never set Done by hand" — stated that way it forbade the
+repair without providing one, which would strand an item In Progress forever. What is forbidden
+is **asserting a state that was never observed**. A verifiably merged pull request is evidence
+in hand: repair the board from it, and record it as a repair rather than as the integration
+having worked.
+
+- Slow webhook → **bounded re-read (~30s)**; an instant check turns normal latency into a false
+  alarm.
+- **Two siblings merging at once → confirm your own item is Done BEFORE reading the siblings.**
+  That ordering is the whole fix: whoever finishes second necessarily observes the complete set,
+  so the parent is never left unfolded by both sessions each seeing the other still open.
+  Folding is idempotent, so both folding is harmless.
+- Crash between merge and fold → `/work` on any parent re-reads and folds; drift self-heals on
+  next touch.
+- Linear unreachable → the merge happened and the board is stale; report, reconcile next time.
+
+No locks and no transactions: for a handful of parallel sessions the cost of being wrong is a
+board briefly behind, never lost work.
+
 ---
 
 ## 6. Ride-along, and no nesting
