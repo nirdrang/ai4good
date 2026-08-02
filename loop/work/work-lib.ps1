@@ -35,93 +35,76 @@ function Get-WorktreeIdForPath([string]$path) {
 function Get-StateDir {
     $d = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good'
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Force $d | Out-Null }
-    foreach ($sub in 'bindings','locks') {
+    foreach ($sub in 'attr', 'locks') {
         $p = Join-Path $d $sub
         if (-not (Test-Path $p)) { New-Item -ItemType Directory -Force $p | Out-Null }
     }
     return $d
 }
 
-function Get-BindingPath { Join-Path (Get-StateDir) ('bindings\' + (Get-WorktreeId) + '.json') }
+# --- Attribution state (AI4DEV-36: derived, not declared) ---
+#
+# The binding this replaces was the project's single largest source of bugs: it DECLARED which
+# item a folder was working on, and could disagree with reality forever without anything
+# noticing (AI4DEV-24 stamped a whole run against the wrong item). Attribution is now DERIVED
+# from the branch. Only two local files remain, and neither can substitute itself for reality:
+#
+#   held.json          - what /work believes this session holds. A CROSS-CHECK ONLY: the stamp
+#                        may raise CONFLICT with it or fill a gap the branch left empty, but it
+#                        can never override the branch. Stale => louder, never wronger.
+#   chain-cache/*.json - the resolved parent chain + short labels for one branch, so the stamp
+#                        never calls Linear. Pure speed; deleting it costs nothing.
+#
+# Both are keyed through Get-WorktreeId/Get-StateDir so the hook and /work always agree on where
+# they live. Two formulas for one path is the same drift class this item exists to delete.
 
-function Read-Binding {
-    $p = Get-BindingPath
+function Get-HeldPath { Join-Path (Get-StateDir) ('attr\' + (Get-WorktreeId) + '.held.json') }
+
+function Get-HeldItem {
+    $p = Get-HeldPath
     if (-not (Test-Path $p)) { return $null }
     try { return (Get-Content $p -Raw | ConvertFrom-Json) } catch { return $null }
 }
 
-function Write-Binding([hashtable]$b) {
-    $b['worktree'] = Get-WorktreeId
-    $b['writtenAt'] = (Get-Date).ToUniversalTime().ToString('o')
-    $json = ($b | ConvertTo-Json -Depth 4)
-    [System.IO.File]::WriteAllText((Get-BindingPath), $json, (New-Object System.Text.UTF8Encoding($false)))
+function Set-HeldItem([string]$itemId, [string]$label) {
+    $h = @{ itemId = $itemId; label = $label; heldAt = (Get-Date).ToUniversalTime().ToString('o') }
+    [System.IO.File]::WriteAllText((Get-HeldPath), ($h | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
 }
 
-function Clear-Binding {
-    $p = Get-BindingPath
+function Clear-HeldItem {
+    $p = Get-HeldPath
     if (Test-Path $p) { Remove-Item $p -Force }
 }
 
-# --- PM acknowledgment (founder ruling 2026-07-31, replaces the unattributed streak) ---
-# When a worktree runs with no PM requirement bound, the stamp hook demands the question be put
-# to the dev IMMEDIATELY. The dev's answer is recorded here, per worktree, so the question is
-# asked once per item rather than once per message. Cleared with the item (Clear-ItemState), so
-# the next item re-asks. Deliberately not a counter: the streak design proved that any
-# threshold-plus-silencer mechanism ends up silenced by its own escape hatch.
+function Get-ChainPath([string]$branch) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $k = ([System.BitConverter]::ToString($sha.ComputeHash(
+                [System.Text.Encoding]::UTF8.GetBytes(((Get-WorktreeId) + '|' + $branch).ToLower()))) -replace '-', '').Substring(0, 16).ToLower()
+    return (Join-Path (Get-StateDir) ('attr\chain-' + $k + '.json'))
+}
 
-function Get-PmAckPath { Join-Path (Get-StateDir) ('bindings\' + (Get-WorktreeId) + '.pmack') }
+# $chain is an ordered array of @{id=..;label=..}, ROOT FIRST, ending on the item itself.
+function Set-Chain([string]$branch, [string]$item, $chain) {
+    $o = @{ item = $item; branch = $branch; chain = $chain; resolvedAt = (Get-Date).ToString('o') }
+    [System.IO.File]::WriteAllText((Get-ChainPath $branch), ($o | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+}
 
-function Get-PmAck {
-    $p = Get-PmAckPath
+function Get-Chain([string]$branch) {
+    $p = Get-ChainPath $branch
     if (-not (Test-Path $p)) { return $null }
     try { return (Get-Content $p -Raw | ConvertFrom-Json) } catch { return $null }
 }
 
-function Set-PmAck([string]$note) {
-    if (-not $note) { $note = 'confirmed without a PM item' }
-    $ack = @{ date = (Get-Date).ToString('yyyy-MM-dd'); note = $note }
-    [System.IO.File]::WriteAllText((Get-PmAckPath), ($ack | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
-}
+# The PM-acknowledgment file is DELETED with the buckets it protected. It existed because a
+# declared `bringup` bucket silenced the "which requirement is this?" question, so a second
+# mechanism was needed to re-ask it. Attribution is now derived: if the chain does not reach a
+# requirement, the stamp says so on every prompt and there is nothing to acknowledge away.
+#
+# Clear-ItemState and Write-BindingFor are deleted with the bindings themselves. /work clears
+# what it holds with Clear-HeldItem; nothing needs to write state INTO another folder, because a
+# session works in the folder it was launched in and never moves itself.
 
-function Clear-PmAck {
-    $p = Get-PmAckPath
-    if (Test-Path $p) { Remove-Item $p -Force }
-}
-
-# A binding carries TWO tiers of fields, because a PULL brackets a PHASE while the loop builds
-# ONE ITEM inside it (founder correction 2026-08-01):
-#   pull fields  - pmId/pmTitle/bucket/wave/project - the phase this work counts against. A
-#                  bring-up parent like AI4DEV-3 spans thirteen sub-items. /pm-next never
-#                  writes a binding; the loop INHERITS these by walking the item's parent, so
-#                  parallel item worktrees share a phase with no shared mutable state.
-#   item fields  - devId/devTitle - the one item this worktree builds.
-# Worktrees belong to ITEMS (founder ruling 2026-08-01), so the loop's phase 0 creates the
-# folder and writes all of it in one Write-Binding, and the merge tail drops the whole thing.
-# Titles are stored so the stamp hook can name an item without a Linear call (founder: bare
-# item numbers are unmemorable) - a cache; the id is authoritative, the title cosmetic.
-
-# Ends this ITEM's worktree state, at its merge. Drops the binding AND the PM ack together.
-# The PHASE is untouched and needs no cleanup - it was never a folder; it ends when its parent
-# goes Done on the board. Sibling items building in parallel have their own worktrees and are
-# unaffected by this.
-function Clear-ItemState {
-    Clear-Binding
-    Clear-PmAck
-}
-
-# Write a binding INTO a specific worktree (used by /pm-next when it creates a dedicated worktree
-# and must place the binding in the new folder, not the orchestrating one).
-function Write-BindingFor([string]$path, [hashtable]$b) {
-    $wid = Get-WorktreeIdForPath $path
-    $b['worktree'] = $wid
-    $b['writtenAt'] = (Get-Date).ToUniversalTime().ToString('o')
-    $target = Join-Path (Get-StateDir) ('bindings\' + $wid + '.json')
-    $json = ($b | ConvertTo-Json -Depth 4)
-    [System.IO.File]::WriteAllText($target, $json, (New-Object System.Text.UTF8Encoding($false)))
-    return $target
-}
-
-# Machine-wide lock serializing /pm-next and /pm-done. Exclusive-create lock file with stale takeover.
+# Machine-wide lock serializing state-changing verbs. Exclusive-create lock file with stale takeover.
 function Acquire-WorkLock([int]$staleMinutes = 30) {
     $lock = Join-Path (Get-StateDir) 'locks\verb.lock'
     if (Test-Path $lock) {
