@@ -1,0 +1,12 @@
+CONFIRMATION CHALLENGE to your Gate 2 finding 1 (MINOR, unfiltered pull_request activity types).
+
+Your finding rests on one factual premise: that with no types: filter, GitHub fires a pull_request workflow "on every activity type — labeled, unlabeled, edited, assigned, review_requested, etc."
+
+I believe that premise is inverted. GitHub's documented DEFAULT for the pull_request trigger with no types: filter is exactly three activity types: opened, synchronize, reopened. The documentation sentence: "By default, a workflow only runs when a pull_request event's activity type is opened, synchronize, or reopened." A label change, title edit, assignment or review request does NOT start a run under the default; you must OPT IN to those with an explicit types: list. If that is right, the workflow as written already has the behaviour your finding asks for, and adding types: [opened, synchronize, reopened] would merely restate the default.
+
+Your task, strictly:
+1. Produce the exact sentence from GitHub documentation stating that an unfiltered pull_request trigger fires on labeled/edited/assigned activity types. Quote it verbatim.
+2. If you cannot, state plainly that the premise was inverted and the finding is WITHDRAWN.
+3. If you can, name the concrete change the workflow needs.
+
+End with one line: FINDING 1: UPHELD or FINDING 1: WITHDRAWN.
