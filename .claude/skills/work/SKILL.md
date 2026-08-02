@@ -170,7 +170,8 @@ work even by mistake.
 ```
 coordinator (main checkout, never moves) - spawns, and merges. Nothing else.
 └── item agent - FABLE - own worktree, own branch, FULL AUTHORITY over its item
-    ├── mechanical subagents - sonnet - same worktree, same branch
+    ├── executor          - OPUS - writes the code, same worktree, same branch
+    ├── mechanical        - sonnet - housekeeping, publish, merge, courier
     ├── gate reviewers    - codex TERRA @ max + Kimi k3 @ high, in the worktree
     └── pre-merge auditor - codex LUNA @ max, workspace-write, in the worktree
 ```
@@ -199,17 +200,25 @@ which is the same surface the founder reviews.
 
 ### Models (founder ruling 2026-08-02)
 
-| role | model |
-|---|---|
-| **item agent — the orchestrator** | **fable**, falling back to **opus only when fable is out of credit** |
-| everything mechanical — edits, publish, merge, housekeeping | **sonnet** |
-| **the pre-merge auditor** | **codex `gpt-5.6-luna` @ `max`** — see below |
-| gate reviewers | codex `gpt-5.6-terra` @ `max`, Kimi `k3` @ `high` |
+| role | model | what it does |
+|---|---|---|
+| **item agent — the orchestrator** | **fable** (→ opus only when fable is out of credit) | **judgment only. Writes no code.** Brief, checkpoint, rulings, merge decision |
+| **executor** | **opus** | **writes the code.** Plans, implements, triages findings first-hand, fixes |
+| mechanical | **sonnet** | housekeeping, publish, merge execution, courier runs |
+| **pre-merge auditor** | codex `gpt-5.6-luna` @ `max` | independent re-run — see below |
+| gate reviewers | codex `gpt-5.6-terra` @ `max`, Kimi `k3` @ `high` | adversarial critique |
 
-Two tiers for our own agents, not three: judgment and mechanics. There is no separate premium
-executor — the item agent drives the work itself and hands mechanical edits to sonnet. When the
-fable fallback is used, **say so in the report**, because a fable item run and an opus item run
-are not the same evidence.
+**Three tiers, and the boundary is strict** (founder ruling 2026-08-03: *"fable as orchestrator
+is doing judgments, not creating code — that's the opus executor role"*). Premium credits buy
+decisions, not keystrokes. The orchestrator writes the brief with every decision pre-made, rules
+on findings, and signs the merge decision; **it does not implement.** An earlier draft had it
+driving the work itself and handing edits to sonnet — that spent fable tokens on typing and put
+judgment and implementation in one context, where a decision can be quietly revised by whoever
+is doing the typing.
+
+The executor escalates judgment **to its own item agent**, not to the coordinator — that is
+inside the item and costs no parallelism. When the fable fallback is used, **say so in the
+report**, because a fable item run and an opus item run are not the same evidence.
 
 ### The auditor is codex luna (founder ruling 2026-08-03)
 
