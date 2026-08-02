@@ -110,6 +110,10 @@ is documentation, or whose design has already been through adversarial review, r
 focused gate on the part that is actually code — and says in the report that it did. Running
 nine phases of ceremony on a prose change is how a process stops being followed at all.
 
+**Run gates in the BACKGROUND.** A max-effort review of a real diff exceeds the ten-minute
+foreground command ceiling and gets killed — observed twice on 2026-08-02, losing the whole
+run both times. Launch the reviewer detached, keep working, fold the findings when it returns.
+
 Reviewer pins, in each vendor's own vocabulary — **the ladders differ, and invalid values fall
 back silently**:
 - codex: `-c model=gpt-5.6-terra -c model_reasoning_effort=max` (ladder tops at `max`; `xhigh`
@@ -118,6 +122,16 @@ back silently**:
 
 A finding is confirmed by the reviewer that raised it. Confirmation runs at `high`; a
 confirmation asked to judge a *claim* rather than a fix is review work and gets `max`.
+
+## Committing — `.claude/` and `loop/out/` are GITIGNORED
+
+Both are ignored by directory rule and their contents are tracked only because they were
+force-added. **A new file under either path will not stage, and `git add -A` reports nothing
+wrong.** So: `git add -f <path>`, then **read `git status --short` and confirm the `A` line is
+there** before committing.
+
+Caught on this item as a near-miss: the commit was about to delete eight verb skills and add
+zero replacements, because the new skill silently did not stage. Verify the add; do not trust it.
 
 ## Phase D — finish
 
