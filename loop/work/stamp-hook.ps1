@@ -1,96 +1,188 @@
-# stamp-hook.ps1 - UserPromptSubmit hook: the WORKING-ON disclaimer + attribution stamp.
+# stamp-hook.ps1 - UserPromptSubmit hook: the WORKING ON stamp.
 #
-# Founder ruling 2026-07-31, replacing the unattributed-streak mechanism: before EVERY prompt
-# the agent (and the founder reading the transcript) sees which PM requirement and which dev
-# item this worktree is working on. When no PM requirement is bound, the hook demands the
-# question be put to the dev IMMEDIATELY - no counting, no thresholds. The streak design
-# failed by construction: any binding silenced it, so the founder-created `bringup` bucket
-# meant weeks of foundation work could run without the PM question ever being asked.
+# Prints EXACTLY TWO LINES before every prompt, always, in one fixed format:
 #
-# The demand stops once the dev has ANSWERED - a per-worktree acknowledgment recorded by
-# Set-PmAck (work-lib.ps1) - because a question re-asked every message is noise, and noise
-# gets ignored. The ack is cleared with the binding when an item merges (Clear-ItemState),
-# so every NEW item re-asks exactly once. No counter exists anywhere.
+#   WORKING ON  <root> > <parents...> > <item>
+#   IN          wt <folder> - branch <branch>
 #
-# Two slots, two TIERS (founder correction 2026-08-01). The PM slot shows the PULL - the phase
-# this worktree is bracketing, which is either a product requirement (AI4PM-NN) or an approved
-# bring-up parent (AI4DEV-3, thirteen sub-items). The DEV slot shows the ONE ITEM being built
-# inside it, and the branch is its authority (Linear's branch convention carries the id), with
-# the binding's devId standing in for a worktree sitting on main. The binding's pmId is NEVER a
-# fallback for the item slot: under a bring-up pull that id is the PARENT, so using it there
-# would report the whole phase as the item being built.
+# Line 1 is the conclusion. Line 2 is WHAT THE CONCLUSION WAS DERIVED FROM. That pairing is the
+# whole point: every past incident was line 1 disagreeing with line 2 while only line 1 was
+# visible. Anything else - a conflict, an unresolved chain, a git state - APPENDS below. The two
+# lines never change shape, so they are always in the same place and always mean the same thing.
 #
-# Both slots print the TITLE beside the id (founder instruction 2026-08-01: bare item numbers
-# are unmemorable). Titles are cached in the binding by the verb that set the slot - the hook
-# must stay fast and must never call Linear. A missing title degrades to the bare id.
+# ATTRIBUTION IS DERIVED, NEVER DECLARED. cwd -> git worktree -> branch -> exactly one item id.
+# The held item (written by /work) is a CROSS-CHECK ONLY: it can raise CONFLICT or fill a gap the
+# branch left empty, but it can NEVER override the branch. A stale held item therefore makes the
+# stamp louder, never wronger - the inverse of the folder-keyed binding this replaces, which
+# silently substituted itself for reality (AI4DEV-24: a whole run stamped against the wrong item).
 #
-# Must be FAST and never fail the prompt: any error degrades to the unattributed stamp.
-$ErrorActionPreference = 'SilentlyContinue'
-$out = @('WORKING ON - PM: none | DEV: none | bucket: unattributed')
-$out += '<ai4good-attribution pm="-" dev="-" bucket="unattributed" wave="none"/>'
+# NEVER CALLS LINEAR. Titles and chains come from a cache written by /work. A cache miss degrades
+# to the bare item id with a note - it never guesses, and it never blocks.
+#
+# NEVER SILENT. On any failure this prints "stamp error: <what>" rather than something plausible.
+# The dangerous failure is not a wrong stamp; it is no stamp becoming normal, after which nobody
+# reads the line at all.
+
+$ErrorActionPreference = 'Stop'
+
+function Emit([string]$l1, [string]$l2, [string[]]$extra, [string]$pm, [string]$dev) {
+    Write-Output ('WORKING ON  ' + $l1)
+    Write-Output ('IN          ' + $l2)
+    Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"/>' -f $pm, $dev)
+    foreach ($e in $extra) { if ($e) { Write-Output $e } }
+}
+
+function Fmt([string]$id, [string]$label) {
+    if (-not $label) { return $id }
+    $t = ($label -replace '[\r\n\|<>"()]', ' ').Trim()
+    if ($t.Length -gt 40) { $t = $t.Substring(0, 37) + '...' }
+    if (-not $t) { return $id }
+    return ('{0} ({1})' -f $id, $t)
+}
+
+# Strict ASCII token boundaries and zero-padding normalised, so `fix/notai4dev-19x` does not
+# match and `AI4DEV-019` does. ALL matches are collected: exactly one attributes, and two or more
+# is unresolved rather than "take the first" - `ai4dev-19-into-ai4dev-20` silently attributed to
+# 19 under the single anchored pattern this replaces.
+# CultureInvariant because `(?i)` under a Turkish locale does not fold `I` the way ASCII expects -
+# it would fail plain AI4DEV-19 and accept dotted-I lookalikes. `[0-9]` not `\d`, because .NET's
+# `\d` also matches Arabic-Indic and other Unicode digits, which are not Linear ids. A match
+# timeout because `0*[0-9]+` can backtrack badly on a long run of zeros, and a hook that hangs is
+# strictly worse than a hook that degrades.
+function Get-BranchItems([string]$branch) {
+    if ($branch.Length -gt 512) { return @() }
+    $rx = New-Object System.Text.RegularExpressions.Regex(
+        '(?<![\p{L}\p{N}])AI4(DEV|PM)-0*([0-9]{1,7})(?![\p{L}\p{N}])',
+        ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::CultureInvariant),
+        ([TimeSpan]::FromMilliseconds(250)))
+    $ids = New-Object System.Collections.ArrayList
+    foreach ($m in $rx.Matches($branch)) {
+        $id = 'AI4' + $m.Groups[1].Value.ToUpperInvariant() + '-' + [string][int]$m.Groups[2].Value
+        if ($ids -notcontains $id) { [void]$ids.Add($id) }
+    }
+    return $ids.ToArray()
+}
+
 try {
+    # State paths come from work-lib so the hook and /work can never disagree about where the
+    # held item and the chain cache live. Two formulas for one path is the same drift class this
+    # item exists to delete.
     . (Join-Path $PSScriptRoot 'work-lib.ps1')
-    $b = Read-Binding
 
-    $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { '.' }
-    $branch = (& git -C $base rev-parse --abbrev-ref HEAD 2>$null)
-    if ($branch) { $branch = $branch.Trim() } else { $branch = '?' }
+    # -LiteralPath: a legitimate directory containing [ or ] is treated as a wildcard by Test-Path
+    # and reports false, silently falling back to some other directory's attribution.
+    $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
 
-    $allow = '[^A-Za-z0-9.\-]'
-    $bucket = 'unattributed'
-    $wave = 'none'
-    if ($b -and $b.bucket) {
-        $bucket = ([string]$b.bucket) -replace $allow, ''
-        $wave = ([string]$b.wave) -replace $allow, ''
-        if (-not $bucket) { $bucket = 'unattributed' }
-        if (-not $wave) { $wave = 'none' }
+    # Identity is git's, not the path string's. Windows case-folding and junctions make paths lie
+    # in both directions, so the worktree is identified by what git resolves, never by text.
+    $top = (& git -C $base rev-parse --show-toplevel 2>$null)
+    $gitDir = (& git -C $base rev-parse --git-dir 2>$null)
+    if (-not $top -or -not $gitDir) {
+        Emit 'unknown (stamp error: not a git worktree)' ('wt ? - ' + $base) @() '-' '-'
+        exit 0
+    }
+    $top = $top.Trim(); $gitDir = $gitDir.Trim()
+    if (-not [System.IO.Path]::IsPathRooted($gitDir)) { $gitDir = Join-Path $top $gitDir }
+    $wt = Split-Path -Leaf $top
+    $extra = @()
+
+    # Named git states. The earlier design printed "nothing" during a rebase or a bisect - hours of
+    # genuinely attributed work reported as unattributed, which teaches you to ignore the line.
+    if ((Test-Path (Join-Path $gitDir 'rebase-merge')) -or (Test-Path (Join-Path $gitDir 'rebase-apply'))) {
+        $extra += 'REBASE IN PROGRESS - closure blocked until it finishes'
+    }
+    if (Test-Path (Join-Path $gitDir 'BISECT_LOG')) {
+        $extra += 'BISECT IN PROGRESS - closure blocked until it finishes'
     }
 
-    # `id (very short title)` - founder instruction 2026-08-01: an id alone gives no recall, so
-    # every id printed carries a short label in PARENTHESES. The label is a HINT (2-5 words),
-    # not Linear's full title, and it comes from a cache because this hook runs before every
-    # prompt and must never call Linear. Kept on one line and out of the pipe fields' way;
-    # nested parens are stripped so the wrapper stays unambiguous; a missing label degrades to
-    # the bare id rather than guessing.
-    function Fmt([string]$id, [string]$title) {
-        if (-not $title) { return $id }
-        $t = ($title -replace '[\r\n\|<>"()]', ' ').Trim()
-        if ($t.Length -gt 40) { $t = $t.Substring(0, 37) + '...' }
-        if (-not $t) { return $id }
-        return ('{0} ({1})' -f $id, $t)
+    $branch = (& git -C $base symbolic-ref --short -q HEAD 2>$null)
+    $detached = $false
+    if ($branch) { $branch = $branch.Trim() } else {
+        $detached = $true
+        $sha = (& git -C $base rev-parse --short HEAD 2>$null)
+        $branch = if ($sha) { 'detached@' + $sha.Trim() } else { 'detached@unknown' }
     }
 
-    # PM slot = the PULL: a product requirement, or an approved bring-up parent.
-    $pm = 'none'
-    $pmKind = ''
-    if ($b -and ([string]$b.pmId) -match '^AI4PM-\d+$') { $pm = $Matches[0] }
-    elseif ($b -and ([string]$b.pmId) -match '^AI4DEV-\d+$') { $pm = $Matches[0]; $pmKind = ' [bring-up phase, not a product requirement]' }
-
-    # DEV slot = the ONE ITEM being built. Branch first; binding's devId on main. The title
-    # applies only when the cached devId still matches what the branch says.
-    $dev = 'none'
-    $devTitle = ''
-    if ($branch -match '(?i)ai4dev-(\d+)') { $dev = 'AI4DEV-' + $Matches[1] }
-    elseif ($b -and ([string]$b.devId) -match '^AI4DEV-\d+$') { $dev = $Matches[0] }
-    if ($b -and $dev -ne 'none' -and ([string]$b.devId) -eq $dev) { $devTitle = [string]$b.devTitle }
-
-    $ack = Get-PmAck
-    $isReq = $pm -match '^AI4PM-\d+$'
-    $pmShown = if ($pm -eq 'none') { 'none' } else { (Fmt $pm ([string]$b.pmTitle)) + $pmKind }
-    if (-not $isReq -and $ack) { $pmShown += (' [confirmed by dev {0}: {1}]' -f $ack.date, $ack.note) }
-
-    $out = @()
-    $out += ('WORKING ON - PM: {0} | DEV: {1} | bucket: {2} | branch: {3}' -f $pmShown, (Fmt $dev $devTitle), $bucket, $branch)
-    $out += ('<ai4good-attribution pm="{0}" dev="{1}" bucket="{2}" wave="{3}"/>' -f $pm, $dev, $bucket, $wave)
-
-    if (-not $isReq -and -not $ack) {
-        $out += ('PM CHECK: no PM REQUIREMENT is bound in this worktree (a bring-up phase is not one) ' +
-            'and the dev has not confirmed working without one. ' +
-            'BEFORE answering, ask the dev: should this work run under a PM item ' +
-            '(/pm-next to pull one, /bind AI4PM-NN to adopt a pull), or do they confirm proceeding ' +
-            'without one (bring-up / exploration)? On their answer, record it with ' +
-            'Set-PmAck "<their answer in a few words>" (loop/work/work-lib.ps1). ' +
-            'Work is never blocked - but the question is asked NOW, not after a count.')
+    # The held item - a cross-check only. Keyed by repo root: two sessions in one folder share it,
+    # which can produce a spurious CONFLICT but can never produce a wrong attribution, because it
+    # is never the answer.
+    # Held state is only usable as attribution if it proves it was taken up ON THIS BRANCH. Without
+    # that, taking up an item and later switching to main would keep claiming the old item forever.
+    # An id that fails validation is discarded outright: one containing newlines would forge extra
+    # stamp lines and a fake attribution tag - the very output the founder is told to trust.
+    $held = $null
+    try { $held = Get-HeldItem } catch { }
+    $heldId = ''
+    $heldStale = ''
+    if ($held -and (Test-ItemId ([string]$held.itemId))) {
+        if (([string]$held.branch) -eq $branch) { $heldId = [string]$held.itemId }
+        else { $heldStale = [string]$held.itemId }
     }
-} catch { }
-$out | ForEach-Object { Write-Output $_ }
+
+    $ids = @(Get-BranchItems $branch)
+    $item = ''
+    if ($ids.Count -eq 1) { $item = $ids[0] }
+    elseif ($ids.Count -gt 1) {
+        $extra += ('BRANCH NAMES ' + $ids.Count + ' ITEMS (' + ($ids -join ', ') + ') - unresolved; rename the branch or say which')
+    }
+
+    $line2 = ('wt {0} - branch {1}' -f $wt, $branch)
+
+    # CONFLICT outranks everything. Never pick a side: exactly one of the two describes work that
+    # is not happening, and that is the condition the old design could never see.
+    if ($item -and $heldId -and $item -ne $heldId) {
+        Emit ('CONFLICT - branch says ' + $item + ', session holds ' + $heldId) $line2 `
+        ($extra + 'Attribution unresolved until you say which is right. Building is not blocked; closing is.') 'conflict' 'conflict'
+        exit 0
+    }
+
+    # Branch names nothing, but the session took an item up ON THIS BRANCH: fill the gap, and say
+    # it is a gap.
+    if (-not $item -and $heldId -and $ids.Count -eq 0) {
+        $extra += ('held, not branch - the branch names no item' + $(if ($detached) { ' (detached HEAD)' } else { '' }))
+        $item = $heldId
+    }
+    if ($heldStale) {
+        $extra += ('IGNORING held ' + $heldStale + ' - it was taken up on another branch; not attributing to it')
+    }
+
+    if (-not $item) {
+        Emit 'nothing' $line2 ($extra + 'no item in the branch and none held here - exploring? say so') 'none' 'none'
+        exit 0
+    }
+
+    # The chain, from cache. Keyed by worktree id + branch, so two clones never share an entry
+    # and a branch renamed into a previously-cached name misses instead of hitting.
+    $chain = $null
+    try { $chain = Get-Chain $branch } catch { }
+
+    # An unresolved chain claims NO root. The earlier version fell back to the item itself, which
+    # printed pm="AI4DEV-36" - asserting an item is its own root when the parent is simply unknown.
+    # Unknown is a value; inventing one is the failure this whole design exists to prevent.
+    $root = '-'
+    if (Test-Chain $chain $branch $item) {
+        $nodes = @($chain.chain)
+        $parts = @()
+        foreach ($n in $nodes) { $parts += (Fmt ([string]$n.id) ([string]$n.label)) }
+        $line1 = ($parts -join ' > ')
+        $root = [string]$nodes[0].id
+        $fresh = $false
+        try {
+            $age = (Get-Date) - [datetime]::Parse([string]$chain.resolvedAt, [Globalization.CultureInfo]::InvariantCulture)
+            $fresh = ($age.TotalHours -le 24 -and $age.TotalMinutes -ge -5)   # a future stamp is not "fresh"
+        }
+        catch { }
+        if (-not $fresh) { $extra += 'STALE - cached chain is old or its timestamp is unreadable; /work refreshes it' }
+    }
+    else {
+        $line1 = $item
+        $extra += 'CHAIN UNRESOLVED - no valid cached parents for this branch; /work resolves it'
+    }
+
+    Emit $line1 $line2 $extra $root $item
+}
+catch {
+    Write-Output ('WORKING ON  unknown (stamp error: ' + ($_.Exception.Message -replace '[\r\n]', ' ') + ')')
+    Write-Output 'IN          wt ? - branch ?'
+    Write-Output '<ai4good-attribution pm="-" dev="-"/>'
+}
