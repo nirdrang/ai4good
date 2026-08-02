@@ -168,27 +168,51 @@ refuses any command that resolves outside its worktree, so it cannot damage anot
 work even by mistake.
 
 ```
-coordinator (main checkout, never moves)
-└── item agent - opus - own worktree, own branch, ORCHESTRATES its item
-    ├── executor - opus - same worktree, same branch
-    ├── auditor - sonnet - same worktree, fresh context
+coordinator (main checkout, never moves) - spawns, and merges. Nothing else.
+└── item agent - FABLE - own worktree, own branch, FULL AUTHORITY over its item
+    ├── mechanical subagents - sonnet - same worktree, same branch
+    ├── auditor - sonnet - same worktree, FRESH CONTEXT
     └── codex / Kimi - launched IN the worktree, read the real tree
 ```
 
 Spawned as: `Agent(subagent_type: "general-purpose", isolation: "worktree",
-run_in_background: true, model: "opus", prompt: <the whole item brief>)`. The `isolation` line
+run_in_background: true, model: "fable", prompt: <the whole item brief>)`. The `isolation` line
 is what creates the worktree; nothing else creates one.
 
-**The item agent IS the orchestrator for its item** — it holds judgment, triages findings,
-rules on them. Its subagents **inherit its worktree and branch** (tested: a child reported the
-identical directory and branch, and read a file its parent had just written). The coordinator
-above it does not review the work in place: it reads what the agent **published** — the pushed
-branch and the PR — which is the same surface the founder reviews.
+**The item agent has FULL AUTHORITY over its item and never sends judgment back to the
+coordinator** (founder ruling 2026-08-02: *"why does the item agent need judgment back to you —
+these are free agents"*). It triages findings, rules on them, and decides what merges. An
+earlier draft had it escalating to the coordinator, which would have made the parallelism fake:
+three agents all queued behind one conversation, with the coordinator as the serializer.
 
-Model assignment follows judgment, not convenience: opus for the item agent and its executor,
-sonnet for the fresh-context auditor (independence matters more than intelligence there),
-haiku or sonnet for mechanical steps, and **fable reserved for rulings escalated to the
-coordinator** — premium credits go to judgment only.
+What still leaves the item goes **to the founder directly, not through the coordinator** — a
+finding that contradicts ratified text, scope growth, a disputed false-green tag. The
+coordinator spawns and merges. That is the whole of its job.
+
+Its subagents **inherit its worktree and branch** (tested: a child reported the identical
+directory and branch, and read a file its parent had just written). The coordinator does not
+review the work in place — it reads what the agent **published**, the pushed branch and the PR,
+which is the same surface the founder reviews.
+
+### Models (founder ruling 2026-08-02)
+
+| role | model |
+|---|---|
+| **item agent — the orchestrator** | **fable**, falling back to **opus only when fable is out of credit** |
+| everything mechanical — edits, publish, merge, housekeeping | **sonnet** |
+| the pre-merge auditor | **sonnet** — see below |
+| reviewers | codex terra @ max, Kimi k3 @ high |
+
+Two tiers, not three: judgment and mechanics. There is no separate premium executor — the item
+agent drives the work itself and hands mechanical edits to sonnet. When the fallback is used,
+**say so in the report**, because a fable item run and an opus item run are not the same
+evidence.
+
+**The auditor is sonnet on purpose.** It runs before merge, in a **fresh context**, and
+independently re-runs the verification and gathers each checklist box's evidence — because the
+agent claiming green is the one being checked, and its own transcript is contaminated by having
+written the code. Independence is the property being bought, not intelligence: it re-runs
+commands and compares output against a declared expected state. It reports; it rules on nothing.
 
 ### Three rules the testing forced
 
