@@ -5,16 +5,21 @@
 # context is left. The folder name and the dollar figure were dropped - the folder is already
 # obvious from the terminal, and the spend was noise.
 #
-# The PM item comes from the worktree's attribution BINDING; the dev item is read out of the
-# BRANCH NAME, because dev verbs deliberately write no binding (d88) and Linear's branch
-# convention already carries the id. Two sources, because they are genuinely two facts: a
-# session can sit on a leaf branch under a bound requirement, or on main under none.
+# Attribution is DERIVED from the branch (AI4DEV-36) - the same chain the stamp prints, read
+# through the same work-lib helpers, never re-derived here. A status bar confidently naming the
+# WRONG item is worse than one naming none.
 #
-# The binding is keyed by WORKTREE, not by session, so the answer depends on which folder the
-# session runs in - exactly what the status bar should surface, since several worktrees run in
-# parallel and each is bound to a different item. Get-WorktreeIdFromRoot is reused from
-# work-lib.ps1 rather than re-derived: two implementations of one identity drift, and a status
-# bar confidently naming the WRONG item is worse than one naming none.
+# This file was missed by the AI4DEV-36 cut-over and kept reading the deleted bindings/ directory
+# by hand-built path, so it reported `unattributed` for everything while spending four
+# subprocesses per refresh to get there. It slipped through because the cut-over searched for
+# CALLS to the binding functions and this file never called them - it rebuilt the path itself.
+# The lesson is general: grepping for an API misses code that reimplemented it.
+#
+# COST MATTERS HERE. Claude Code spawns a fresh PowerShell for every refresh, which on Windows is
+# already a few hundred milliseconds; each extra subprocess is paid on every keystroke-ish redraw
+# and shows up as a client that looks perpetually busy. So: ONE git call (rev-parse takes several
+# arguments at once), and no `git status --porcelain` - the dirty marker was the least valuable
+# of the fields and by far the most expensive.
 #
 # Never throws. A status line that errors is noise in the founder's face on every keystroke.
 # Set AI4GOOD_STATUSLINE_DUMP=1 to capture the raw stdin JSON for field discovery.
@@ -67,44 +72,52 @@ try {
     if (-not $dir) { $dir = Get-Field $j @('cwd') }
     if (-not $dir) { $dir = (Get-Location).Path }
 
-    $root = (& git -C $dir rev-parse --show-toplevel 2>$null)
-    if ($root) {
-        $root = $root.Trim()
+    # ONE git call for both facts.
+    $g = @(& git -C $dir rev-parse --show-toplevel --abbrev-ref HEAD 2>$null)
+    if ($g.Count -ge 2) {
+        $root = $g[0].Trim()
+        $branch = $g[1].Trim()
+        if (-not $branch) { $branch = '?' }
 
-        $branch = (& git -C $dir rev-parse --abbrev-ref HEAD 2>$null)
-        if ($branch) { $branch = $branch.Trim() } else { $branch = '?' }
-
-        # PM slot. A requirement pull writes an AI4PM id; bring-up and exploration do not, and
-        # saying so plainly beats implying a requirement that was never pulled.
         . (Join-Path $PSScriptRoot 'work-lib.ps1')
-        $wid = Get-WorktreeIdFromRoot $root
-        $bpath = Join-Path $env:LOCALAPPDATA ('ai4good-build\nirdrang-ai4good\bindings\' + $wid + '.json')
-        $binding = $null
-        if (Test-Path $bpath) {
-            try { $binding = Get-Content $bpath -Raw | ConvertFrom-Json } catch { }
+
+        # The chain, exactly as the stamp resolves it: branch names the item, the cache names its
+        # parents. Ids carry a short label (founder rule), truncated hard because a status bar has
+        # no room for a sentence. Cache miss shows the bare item - never an invented root.
+        $ids = @()
+        foreach ($m in [regex]::Matches($branch, '(?i)(?<![\p{L}\p{N}])AI4(DEV|PM)-0*([0-9]{1,7})(?![\p{L}\p{N}])')) {
+            $id = 'AI4' + $m.Groups[1].Value.ToUpperInvariant() + '-' + [string][int]$m.Groups[2].Value
+            if ($ids -notcontains $id) { $ids += $id }
+        }
+        $item = if ($ids.Count -eq 1) { $ids[0] } else { '' }
+
+        $held = $null
+        try { $held = Get-HeldItem } catch { }
+        if (-not $item -and $held -and ([string]$held.branch) -eq $branch -and (Test-ItemId ([string]$held.itemId))) {
+            $item = [string]$held.itemId
         }
 
-        if (-not $binding) {
-            $parts += 'unattributed'
-        } elseif ($binding.pmId -match '^AI4PM-\d+$') {
-            $parts += ('PM ' + $binding.pmId)
-        } elseif ($binding.bucket -eq 'exploration') {
-            $parts += 'exploration'
-        } else {
-            $parts += 'PM -'
+        if (-not $item) {
+            $parts += $(if ($ids.Count -gt 1) { 'AMBIGUOUS' } else { 'no item' })
+        }
+        else {
+            $chain = $null
+            try { $chain = Get-Chain $branch } catch { }
+            if (Test-Chain $chain $branch $item) {
+                $short = @()
+                foreach ($n in @($chain.chain)) {
+                    $l = ([string]$n.label -replace '[\r\n|]', ' ').Trim()
+                    if ($l.Length -gt 16) { $l = $l.Substring(0, 15) + [string][char]0x2026 }
+                    $short += $(if ($l) { '{0} ({1})' -f $n.id, $l } else { [string]$n.id })
+                }
+                $parts += ($short -join ' > ')
+            }
+            else {
+                $parts += $item
+            }
         }
 
-        # DEV slot. The branch is the authority (Linear's gitBranchName carries the id); a
-        # bring-up binding names its dev sub-item and stands in when the branch names none.
-        $dev = $null
-        if ($branch -match '(?i)(ai4dev)-(\d+)') { $dev = 'AI4DEV-' + $Matches[2] }
-        if (-not $dev -and $binding -and $binding.pmId -match '^AI4DEV-\d+$') { $dev = $binding.pmId }
-        if ($dev) { $parts += ('DEV ' + $dev) } else { $parts += 'DEV -' }
-
-        # Branch, with the uncommitted-work marker.
-        $dirty = ''
-        if ((& git -C $dir status --porcelain 2>$null | Select-Object -First 1)) { $dirty = '*' }
-        $parts += ($branch + $dirty)
+        $parts += $branch
     }
 
     # 5. context remaining, as a bar. Emitted by codepoint so the file itself stays ASCII and
