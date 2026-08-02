@@ -85,6 +85,31 @@ so a failure can never leave an item falsely In Progress.
    (depth cap 8, cycle detection) to the root; derive short labels for every id in the chain.
 2. Startability **blocks**: item missing, Done, Cancelled, or an open blocker → stop and say
    which. Attribution failures do **not** block — they print and continue.
+2a. **If the walk finds no requirement above the item, ASK — once, here at pickup**
+   (founder ruling 2026-08-02). Two failures that look alike must not be treated alike:
+
+   | what happened | what to do |
+   |---|---|
+   | the walk **completed** and the item has no parent | **stop and ask.** The board is saying nothing is above this, which is a modelling gap and the founder is the one who can close it. |
+   | the board could **not be read** (API error, unreachable, partial response) | **do not ask.** That is a technical failure, not a modelling gap — asking would bake a guess into the board permanently. Print `CHAIN UNRESOLVED`, carry on, retry at the next boundary. |
+
+   When asking, **offer suggestions rather than an open question**, ranked:
+   1. dev-board items that already have children — the real phases (e.g. `AI4DEV-3 (AT harness)`,
+      `AI4DEV-4 (the work skill)`), nearest first by project and subject;
+   2. an `AI4PM` requirement, when the item's text points at one;
+   3. **"standalone — it is its own root"**, always offered and always legitimate. Not every
+      item belongs to a phase, and a phase with exactly one child tells you less than no phase.
+
+   Then record the answer so it is asked **once, ever**:
+   - a parent was chosen → `save_issue` sets `parentId`; the chain resolves permanently, for
+     every future session, because the answer lives on the board rather than on this machine;
+   - standalone → label the item `standalone-root`, which is why the question does not return;
+   - **no answer, or the founder declines → proceed with no root and do not ask again this
+     session.** Attribution degrades and never blocks; this is a question at the one moment a
+     human is present, not a gate.
+
+   The stamp hook never asks anything — it runs before every prompt and blocking there is not
+   an option. This is `/work` at pickup, which is a deliberate interactive moment.
 3. **Branch name comes from Linear's `gitBranchName` verbatim** — never invented. That is what
    makes the pull request close the right item. Validate it tokenises to exactly this item.
 4. Put the folder on that branch. Serial work: switch this folder. A second concurrent item:
