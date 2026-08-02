@@ -20,9 +20,11 @@ function Emit([string]$visible, [string]$context) {
 }
 
 try {
-    $root = (& git rev-parse --show-toplevel 2>$null)
-    $head = (& git rev-parse --short HEAD 2>$null)
-    if ($root) { $root = $root.Trim() }
+    # ONE base, resolved exactly as the stamp resolves it. Reading HEAD from the process's own
+    # working directory while the stamp reads CLAUDE_PROJECT_DIR would print one repository's
+    # attribution beside another repository's commit.
+    $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
+    $head = (& git -C $base rev-parse --short HEAD 2>$null)
     if ($head) { $head = $head.Trim() } else { $head = '?' }
 
     # The stamp is the single source of truth for attribution. Keep only its human-facing lines:

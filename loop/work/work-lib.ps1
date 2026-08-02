@@ -58,41 +58,79 @@ function Get-StateDir {
 # Both are keyed through Get-WorktreeId/Get-StateDir so the hook and /work always agree on where
 # they live. Two formulas for one path is the same drift class this item exists to delete.
 
-function Get-HeldPath { Join-Path (Get-StateDir) ('attr\' + (Get-WorktreeId) + '.held.json') }
+# Read-only state root. The stamp hook runs before EVERY prompt and must never create anything:
+# a directory create on a dead or slow path is a hang in the one code path that must not hang.
+# Get-StateDir (which creates) is for the verbs; this is for readers.
+function Get-StateDirRO { Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good' }
 
-function Get-HeldItem {
-    $p = Get-HeldPath
-    if (-not (Test-Path $p)) { return $null }
-    try { return (Get-Content $p -Raw | ConvertFrom-Json) } catch { return $null }
+# Every id that reaches a printed line is validated against this. An id is a machine token, not
+# free text: one carrying newlines would otherwise forge extra stamp lines and a fake attribution
+# tag, which is the one output the founder is told to trust.
+function Test-ItemId([string]$id) { return ($id -cmatch '^AI4(DEV|PM)-[0-9]+$') }
+
+# Bounded read: a cache is a speed-up, so an implausibly large one is corrupt by definition and
+# is not worth the time it would take to parse.
+function Read-JsonCapped([string]$path, [int]$maxBytes = 65536) {
+    if (-not (Test-Path -LiteralPath $path)) { return $null }
+    try {
+        $f = Get-Item -LiteralPath $path
+        if ($f.Length -gt $maxBytes -or $f.Length -eq 0) { return $null }
+        return (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json)
+    }
+    catch { return $null }
 }
 
-function Set-HeldItem([string]$itemId, [string]$label) {
-    $h = @{ itemId = $itemId; label = $label; heldAt = (Get-Date).ToUniversalTime().ToString('o') }
-    [System.IO.File]::WriteAllText((Get-HeldPath), ($h | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+function Get-HeldPath { Join-Path (Get-StateDirRO) ('attr\' + (Get-WorktreeId) + '.held.json') }
+
+function Get-HeldItem { Read-JsonCapped (Get-HeldPath) }
+
+# The branch in force when the item was taken up is stored WITH it. Without that provenance a
+# held item silently outlives the work it describes: take up AI4DEV-19, switch to main, and every
+# later prompt on main still claims 19. The stamp only fills a gap from held state when the
+# branch still matches; otherwise it shows it as untrusted and attributes nothing.
+function Set-HeldItem([string]$itemId, [string]$label, [string]$branch) {
+    if (-not (Test-ItemId $itemId)) { throw ('not a valid item id: ' + $itemId) }
+    $d = Get-StateDir  # the verbs may create; readers may not
+    $h = @{ itemId = $itemId; label = $label; branch = $branch; heldAt = (Get-Date).ToUniversalTime().ToString('o') }
+    [System.IO.File]::WriteAllText((Join-Path $d ('attr\' + (Get-WorktreeId) + '.held.json')), ($h | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
 }
 
 function Clear-HeldItem {
     $p = Get-HeldPath
-    if (Test-Path $p) { Remove-Item $p -Force }
+    if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force }
 }
 
-function Get-ChainPath([string]$branch) {
+function Get-ChainKey([string]$branch) {
     $sha = [System.Security.Cryptography.SHA256]::Create()
-    $k = ([System.BitConverter]::ToString($sha.ComputeHash(
+    return ([System.BitConverter]::ToString($sha.ComputeHash(
                 [System.Text.Encoding]::UTF8.GetBytes(((Get-WorktreeId) + '|' + $branch).ToLower()))) -replace '-', '').Substring(0, 16).ToLower()
-    return (Join-Path (Get-StateDir) ('attr\chain-' + $k + '.json'))
 }
+
+function Get-ChainPath([string]$branch) { Join-Path (Get-StateDirRO) ('attr\chain-' + (Get-ChainKey $branch) + '.json') }
 
 # $chain is an ordered array of @{id=..;label=..}, ROOT FIRST, ending on the item itself.
 function Set-Chain([string]$branch, [string]$item, $chain) {
+    if (-not (Test-ItemId $item)) { throw ('not a valid item id: ' + $item) }
+    $d = Get-StateDir
     $o = @{ item = $item; branch = $branch; chain = $chain; resolvedAt = (Get-Date).ToString('o') }
-    [System.IO.File]::WriteAllText((Get-ChainPath $branch), ($o | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText((Join-Path $d ('attr\chain-' + (Get-ChainKey $branch) + '.json')), ($o | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
 }
 
-function Get-Chain([string]$branch) {
-    $p = Get-ChainPath $branch
-    if (-not (Test-Path $p)) { return $null }
-    try { return (Get-Content $p -Raw | ConvertFrom-Json) } catch { return $null }
+function Get-Chain([string]$branch) { Read-JsonCapped (Get-ChainPath $branch) }
+
+# A cache entry is only usable if it proves it describes THIS branch and THIS item. Checking the
+# item alone let a copied or foreign entry print an arbitrary root as authoritative - "confidently
+# wrong", which is the one thing this design forbids. Anything that fails here is a miss, and a
+# miss shows the bare item with no root claimed.
+function Test-Chain($c, [string]$branch, [string]$item) {
+    if (-not $c) { return $false }
+    if (([string]$c.item) -ne $item) { return $false }
+    if (([string]$c.branch) -ne $branch) { return $false }
+    $nodes = @($c.chain)
+    if ($nodes.Count -lt 1 -or $nodes.Count -gt 8) { return $false }
+    foreach ($n in $nodes) { if (-not (Test-ItemId ([string]$n.id))) { return $false } }
+    if (([string]$nodes[$nodes.Count - 1].id) -ne $item) { return $false }   # must END on the item
+    return $true
 }
 
 # The PM-acknowledgment file is DELETED with the buckets it protected. It existed because a

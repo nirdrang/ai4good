@@ -44,12 +44,23 @@ function Fmt([string]$id, [string]$label) {
 # match and `AI4DEV-019` does. ALL matches are collected: exactly one attributes, and two or more
 # is unresolved rather than "take the first" - `ai4dev-19-into-ai4dev-20` silently attributed to
 # 19 under the single anchored pattern this replaces.
+# CultureInvariant because `(?i)` under a Turkish locale does not fold `I` the way ASCII expects -
+# it would fail plain AI4DEV-19 and accept dotted-I lookalikes. `[0-9]` not `\d`, because .NET's
+# `\d` also matches Arabic-Indic and other Unicode digits, which are not Linear ids. A match
+# timeout because `0*[0-9]+` can backtrack badly on a long run of zeros, and a hook that hangs is
+# strictly worse than a hook that degrades.
 function Get-BranchItems([string]$branch) {
-    $ids = @()
-    foreach ($m in [regex]::Matches($branch, '(?i)(?<![a-z0-9])ai4(dev|pm)-0*(\d+)(?![a-z0-9])')) {
-        $ids += ('AI4' + $m.Groups[1].Value.ToUpper() + '-' + $m.Groups[2].Value)
+    if ($branch.Length -gt 512) { return @() }
+    $rx = New-Object System.Text.RegularExpressions.Regex(
+        '(?<![\p{L}\p{N}])AI4(DEV|PM)-0*([0-9]{1,7})(?![\p{L}\p{N}])',
+        ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::CultureInvariant),
+        ([TimeSpan]::FromMilliseconds(250)))
+    $ids = New-Object System.Collections.ArrayList
+    foreach ($m in $rx.Matches($branch)) {
+        $id = 'AI4' + $m.Groups[1].Value.ToUpperInvariant() + '-' + [string][int]$m.Groups[2].Value
+        if ($ids -notcontains $id) { [void]$ids.Add($id) }
     }
-    return ($ids | Select-Object -Unique)
+    return $ids.ToArray()
 }
 
 try {
@@ -58,7 +69,9 @@ try {
     # item exists to delete.
     . (Join-Path $PSScriptRoot 'work-lib.ps1')
 
-    $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
+    # -LiteralPath: a legitimate directory containing [ or ] is treated as a wildcard by Test-Path
+    # and reports false, silently falling back to some other directory's attribution.
+    $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
 
     # Identity is git's, not the path string's. Windows case-folding and junctions make paths lie
     # in both directions, so the worktree is identified by what git resolves, never by text.
@@ -93,9 +106,18 @@ try {
     # The held item - a cross-check only. Keyed by repo root: two sessions in one folder share it,
     # which can produce a spurious CONFLICT but can never produce a wrong attribution, because it
     # is never the answer.
+    # Held state is only usable as attribution if it proves it was taken up ON THIS BRANCH. Without
+    # that, taking up an item and later switching to main would keep claiming the old item forever.
+    # An id that fails validation is discarded outright: one containing newlines would forge extra
+    # stamp lines and a fake attribution tag - the very output the founder is told to trust.
     $held = $null
     try { $held = Get-HeldItem } catch { }
-    $heldId = if ($held) { [string]$held.itemId } else { '' }
+    $heldId = ''
+    $heldStale = ''
+    if ($held -and (Test-ItemId ([string]$held.itemId))) {
+        if (([string]$held.branch) -eq $branch) { $heldId = [string]$held.itemId }
+        else { $heldStale = [string]$held.itemId }
+    }
 
     $ids = @(Get-BranchItems $branch)
     $item = ''
@@ -114,14 +136,18 @@ try {
         exit 0
     }
 
-    # Branch names nothing, but the session holds an item: fill the gap, and say it is a gap.
+    # Branch names nothing, but the session took an item up ON THIS BRANCH: fill the gap, and say
+    # it is a gap.
     if (-not $item -and $heldId -and $ids.Count -eq 0) {
         $extra += ('held, not branch - the branch names no item' + $(if ($detached) { ' (detached HEAD)' } else { '' }))
         $item = $heldId
     }
+    if ($heldStale) {
+        $extra += ('IGNORING held ' + $heldStale + ' - it was taken up on another branch; not attributing to it')
+    }
 
     if (-not $item) {
-        Emit 'nothing' $line2 ($extra + 'no item in the branch and none held - exploring? say so') 'none' 'none'
+        Emit 'nothing' $line2 ($extra + 'no item in the branch and none held here - exploring? say so') 'none' 'none'
         exit 0
     }
 
@@ -130,23 +156,27 @@ try {
     $chain = $null
     try { $chain = Get-Chain $branch } catch { }
 
-    $root = $item
-    if ($chain -and ([string]$chain.item) -eq $item -and $chain.chain) {
+    # An unresolved chain claims NO root. The earlier version fell back to the item itself, which
+    # printed pm="AI4DEV-36" - asserting an item is its own root when the parent is simply unknown.
+    # Unknown is a value; inventing one is the failure this whole design exists to prevent.
+    $root = '-'
+    if (Test-Chain $chain $branch $item) {
+        $nodes = @($chain.chain)
         $parts = @()
-        foreach ($n in $chain.chain) { $parts += (Fmt ([string]$n.id) ([string]$n.label)) }
+        foreach ($n in $nodes) { $parts += (Fmt ([string]$n.id) ([string]$n.label)) }
         $line1 = ($parts -join ' > ')
-        $root = [string]$chain.chain[0].id
-        if ($chain.resolvedAt) {
-            try {
-                if (((Get-Date) - [datetime]::Parse([string]$chain.resolvedAt)).TotalHours -gt 24) {
-                    $extra += 'STALE - chain cached over 24h ago; /work refreshes it'
-                }
-            } catch { }
+        $root = [string]$nodes[0].id
+        $fresh = $false
+        try {
+            $age = (Get-Date) - [datetime]::Parse([string]$chain.resolvedAt, [Globalization.CultureInfo]::InvariantCulture)
+            $fresh = ($age.TotalHours -le 24 -and $age.TotalMinutes -ge -5)   # a future stamp is not "fresh"
         }
+        catch { }
+        if (-not $fresh) { $extra += 'STALE - cached chain is old or its timestamp is unreadable; /work refreshes it' }
     }
     else {
         $line1 = $item
-        $extra += 'CHAIN UNRESOLVED - no cached parents for this branch; /work resolves it'
+        $extra += 'CHAIN UNRESOLVED - no valid cached parents for this branch; /work resolves it'
     }
 
     Emit $line1 $line2 $extra $root $item
