@@ -97,12 +97,14 @@ so a failure can never leave an item falsely In Progress.
    1. dev-board items that already have children — the real phases (e.g. `AI4DEV-3 (AT harness)`,
       `AI4DEV-4 (the work skill)`), nearest first by project and subject;
    2. an `AI4PM` requirement, when the item's text points at one;
-   3. **"standalone — it is its own root"**, always offered and always legitimate. Not every
+   3. **a free-text grouping label** — see floating roots below;
+   4. **"standalone — it is its own root"**, always offered and always legitimate. Not every
       item belongs to a phase, and a phase with exactly one child tells you less than no phase.
 
    Then record the answer so it is asked **once, ever**:
    - a parent was chosen → `save_issue` sets `parentId`; the chain resolves permanently, for
      every future session, because the answer lives on the board rather than on this machine;
+   - free text → a FLOATING root, below;
    - standalone → label the item `standalone-root`, which is why the question does not return;
    - **no answer, or the founder declines → proceed with no root and do not ask again this
      session.** Attribution degrades and never blocks; this is a question at the one moment a
@@ -110,6 +112,34 @@ so a failure can never leave an item falsely In Progress.
 
    The stamp hook never asks anything — it runs before every prompt and blocking there is not
    an option. This is `/work` at pickup, which is a deliberate interactive moment.
+
+### Floating roots (founder ruling 2026-08-02)
+
+A free-text answer is **accepted as-is**. It becomes a floating root — a grouping that exists
+only for the attribution log and has **no item on the board**. The founder's reason, and it
+governs the design: *the point of attribution is a log we can chew on for cadence and
+monitoring*, and a grouping useful for that does not need a board item behind it.
+
+I argued for creating a real item instead; the founder overruled, and the ruling stands. What
+the implementation must therefore guarantee is that a floating root is never mistaken for a
+verified one:
+
+- **Written `~name`** — e.g. `~infrastructure`. The tilde makes it unmistakable to a reader and
+  to a parser, so an analysis of the log can always separate "grouped by a real requirement"
+  from "grouped by a label someone typed".
+- **Legal only as the ROOT of a chain.** Anywhere else it would be asserting a board
+  relationship that does not exist.
+- **A real parent always wins.** If the walk later finds an actual parent, that is the chain and
+  the floating label is dropped with a note. The traversal catches genuine structure; a floating
+  root only fills space the board leaves empty.
+- **Recorded as a Linear label** (`attr:<name>`) on the item as well as in the cache, so it
+  survives a machine and stays queryable for the monitoring it exists to serve — a label is a
+  tag on the item, not a parent, so this creates nothing on the PM board.
+
+```
+WORKING ON  ~infrastructure > AI4DEV-5 (CI pipeline)
+IN          wt ai4good - branch nirdrang/ai4dev-5-bring-up-ci-pipeline-...
+```
 3. **Branch name comes from Linear's `gitBranchName` verbatim** — never invented. That is what
    makes the pull request close the right item. Validate it tokenises to exactly this item.
 4. Put the folder on that branch. Serial work: switch this folder. A second concurrent item:

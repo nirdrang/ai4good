@@ -213,6 +213,22 @@ Two guards keep this from becoming the thing it replaced:
 
 The stamp hook itself asks nothing: it runs before every prompt, where blocking is not an option.
 
+**A free-text answer is accepted as-is, as a FLOATING root** (founder ruling 2026-08-02): a
+grouping that exists only for the attribution log, with no item on the board. The founder's
+reason governs the design — *the point of attribution is a log we can chew on for cadence and
+monitoring*, and a grouping useful for that needs no board item behind it. (I argued for creating
+a real item; overruled, and the ruling stands.)
+
+What the implementation guarantees instead is that a floating root can never be mistaken for a
+verified one: it is written `~name`, it is legal only as the root of a chain, a real parent found
+by the walk always beats it, and it is recorded as a Linear label (`attr:<name>`) on the item so
+it survives a machine and stays queryable — a tag on an item, never a parent, so nothing is
+created on the PM board.
+
+```
+WORKING ON  ~infrastructure > AI4DEV-5 (CI pipeline)
+```
+
 ### C — the loop
 
 Brief → plan → Gate 1 (codex tries to break the plan) → triage → checkpoint → implement →
