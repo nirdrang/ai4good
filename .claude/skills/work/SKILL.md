@@ -171,9 +171,12 @@ work even by mistake.
 coordinator (main checkout, never moves) - spawns, and merges. Nothing else.
 └── item agent - FABLE - own worktree, own branch, FULL AUTHORITY over its item
     ├── mechanical subagents - sonnet - same worktree, same branch
-    ├── auditor - sonnet - same worktree, FRESH CONTEXT
-    └── codex / Kimi - launched IN the worktree, read the real tree
+    ├── gate reviewers    - codex TERRA @ max + Kimi k3 @ high, in the worktree
+    └── pre-merge auditor - codex LUNA @ max, workspace-write, in the worktree
 ```
+
+Terra reviews the code; luna audits the claim about it. A different vendor from the agent that
+wrote the code, and a different variant from the one that reviewed it.
 
 Spawned as: `Agent(subagent_type: "general-purpose", isolation: "worktree",
 run_in_background: true, model: "fable", prompt: <the whole item brief>)`. The `isolation` line
@@ -200,19 +203,42 @@ which is the same surface the founder reviews.
 |---|---|
 | **item agent — the orchestrator** | **fable**, falling back to **opus only when fable is out of credit** |
 | everything mechanical — edits, publish, merge, housekeeping | **sonnet** |
-| the pre-merge auditor | **sonnet** — see below |
-| reviewers | codex terra @ max, Kimi k3 @ high |
+| **the pre-merge auditor** | **codex `gpt-5.6-luna` @ `max`** — see below |
+| gate reviewers | codex `gpt-5.6-terra` @ `max`, Kimi `k3` @ `high` |
 
-Two tiers, not three: judgment and mechanics. There is no separate premium executor — the item
-agent drives the work itself and hands mechanical edits to sonnet. When the fallback is used,
-**say so in the report**, because a fable item run and an opus item run are not the same
-evidence.
+Two tiers for our own agents, not three: judgment and mechanics. There is no separate premium
+executor — the item agent drives the work itself and hands mechanical edits to sonnet. When the
+fable fallback is used, **say so in the report**, because a fable item run and an opus item run
+are not the same evidence.
 
-**The auditor is sonnet on purpose.** It runs before merge, in a **fresh context**, and
-independently re-runs the verification and gathers each checklist box's evidence — because the
-agent claiming green is the one being checked, and its own transcript is contaminated by having
-written the code. Independence is the property being bought, not intelligence: it re-runs
-commands and compares output against a declared expected state. It reports; it rules on nothing.
+### The auditor is codex luna (founder ruling 2026-08-03)
+
+It runs before merge and independently re-runs the verification, gathering each checklist box's
+evidence — because **the agent claiming green is the one being checked**, and its own transcript
+is contaminated by having written the code.
+
+**Independence is the property being bought.** A fresh in-house context gives one kind; a
+different vendor gives a stronger one. And **luna audits while terra reviews**, so the model
+that examined the code is not the model auditing the claim about it — the two variants'
+blind spots are decorrelated rather than shared.
+
+```
+codex exec --sandbox workspace-write -C <worktree> \
+  -c model=gpt-5.6-luna -c model_reasoning_effort=max \
+  -o <worktree>/loop/items/<ITEM>/premerge-audit.md "<audit brief>"
+```
+
+**`--sandbox workspace-write` is load-bearing, not incidental.** The auditor must actually RUN
+the suite; under `read-only` the test run fails and the audit silently degrades into a
+documentation review that reports green because it never executed anything. That failure would
+look exactly like a passing audit.
+
+Run it **detached** — a max-effort pass that also executes a test suite will exceed the
+ten-minute foreground ceiling.
+
+**It reports; it rules on nothing.** The ruling belongs to the item agent, which holds authority
+over its item. If codex is unavailable, fall back to a fresh-context **sonnet** auditor and say
+which was used — an audit that is quietly skipped is worse than one that is openly weaker.
 
 ### Three rules the testing forced
 
