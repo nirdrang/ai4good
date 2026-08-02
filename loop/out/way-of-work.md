@@ -189,6 +189,30 @@ the founder and did not make one verb one verb.
 - Journal each step (claimed / branch / worktree / entered) so a crash between any two is
   recoverable by reading rather than guessing.
 
+### B2 — asking for a missing root (founder ruling 2026-08-02)
+
+Derived attribution can only report what the board contains. When the walk **completes** and
+finds no requirement above an item, that is a modelling gap the founder can close, so `/work`
+**stops at pickup and asks**, offering ranked suggestions: existing phases that already have
+children, an `AI4PM` requirement when the item's text points at one, and **"standalone — it is
+its own root"**, which is always legitimate — a phase with exactly one child tells you less than
+no phase at all.
+
+The answer is recorded **on the board**, not on this machine — a chosen parent becomes
+`parentId`, standalone becomes a `standalone-root` label — so the question is asked once, ever,
+for every future session on any machine.
+
+Two guards keep this from becoming the thing it replaced:
+
+- **A board that cannot be READ is not a board with no parent.** An API error or a partial
+  response must never trigger the question, because answering it would bake a guess into the
+  board permanently. That case prints `CHAIN UNRESOLVED` and retries at the next boundary.
+- **It is a question, not a gate.** No answer, or a declined one, proceeds with no root and does
+  not ask again that session. Attribution degrades and never blocks — the ask exists because
+  pickup is the one moment a human is already present, not because work needs permission.
+
+The stamp hook itself asks nothing: it runs before every prompt, where blocking is not an option.
+
 ### C — the loop
 
 Brief → plan → Gate 1 (codex tries to break the plan) → triage → checkpoint → implement →
