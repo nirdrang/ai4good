@@ -1,7 +1,11 @@
 # AI4DEV-5 (CI pipeline) — merge decision
 
-STATUS: DRAFT — gates 2 and the pre-merge audit not yet folded. Do not act on this file
-until the STATUS line says FINAL and a head commit is pinned.
+STATUS: FINAL — READY TO MERGE. All gates run and folded; zero findings standing.
+Pinned to the workflow blob delivered at commit `23604a6` (unchanged since; every later
+commit touches only this item's paper trail under `loop/items/AI4DEV-5/**` and the two
+way-of-work ride-along notes in `.claude/skills/work/SKILL.md`). The final head commit and
+its green CI run id are recorded in the pull request body, which is where this decision is
+published. Interim mode: the FOUNDER merges; this file authorizes, it does not execute.
 
 ## What this PR delivers
 
@@ -76,11 +80,30 @@ harness). Full trail: `gate1-critique.txt`, `rulings-01.md`, `rulings-02.md`.
 
 ### Gate 2 (diff) — codex terra @ max AND kimi k3 @ high, in parallel, in-worktree
 
-PENDING — folded in rulings-03 when both return.
+Both ran against the real tree; both single findings disposed by confirmation IN THE
+SESSION THAT RAISED THEM; zero workflow changes ordered (full fold: `rulings-03.md`):
+
+- kimi: zero blockers, zero majors; its one minor (label edits cancel in-flight runs)
+  WITHDRAWN by kimi itself after quoting the documented default trigger types. Its
+  positive evidence stands: all four Gate 1 amendments verified applied BY EXECUTION —
+  twelve adversarial guard cases, real step bodies run against the tree, exit-code legends
+  checked against harness sources.
+- terra: one claimed blocker (fork-PR payload empty per a real, verbatim-verified doc
+  NOTE that contradicts ecosystem-load-bearing behaviour). Ruled documented out-of-model
+  limitation: this repository has exactly two same-repo writers, and under EITHER reading
+  of the contradictory documentation no false green is reachable — populated payload gives
+  the designed behaviour; empty payload makes the guard fail closed on an empty PR number.
+  Terra itself conceded it is not a merge blocker under this operating model.
 
 ### Pre-merge audit — codex gpt-5.6-luna @ max, workspace-write, detached
 
-PENDING — `premerge-audit.md`.
+Ten of twelve boxes PASS, including every structural box and the cross-check that every
+adopted ruling is present in the file. The two vitest-executing boxes failed INSIDE the
+audit sandbox with `Cannot read directory "../../../../..": Access is denied` — the
+nested-worktree/sandbox boundary, cause quoted verbatim from the auditor's own transcript.
+Re-scored COULD-NOT-VERIFY-IN-SANDBOX; the execution evidence for those two commands is
+held in triplicate by the executor's run, the item agent's run, and CI's own green ubuntu
+runs (full ruling: `rulings-04.md`).
 
 ### The item's own proof
 
@@ -122,5 +145,12 @@ recorded in the item report.
 
 ## Decision
 
-PENDING — written and pinned to the head commit after the gates, the audit, and the PR's
-own green run.
+READY TO MERGE. Signed by the item agent holding authority over AI4DEV-5 (CI pipeline).
+
+The workflow delivered at `23604a6` survived: a max-effort plan refutation (six findings —
+three adopted, three ruled with reasons), a two-vendor diff review that ended with zero
+standing findings after in-session confirmations, an independent audit that verified every
+box its sandbox could reach, five-command local verification by two separate agents, and —
+the item's own designed proof — consecutive green CI runs on ubuntu against every pushed
+head, each run exercising the exact steps this item exists to create. The final head's
+green run id is recorded in the pull request body. Interim mode holds: the founder merges.
