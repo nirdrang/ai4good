@@ -51,10 +51,22 @@ create a worktree and *tell the founder to open a session there*; it never telep
 
 | you type | what happens |
 |---|---|
-| `/work AI4DEV-19` | build that item (phase B) |
+| `/work AI4DEV-19` | a LEAF — build it (phase B) |
+| `/work AI4DEV-3` | a PARENT — list its open children, recommend one, **wait** |
 | `/work AI4PM-12` | requirement — five states below |
 | `/work explore` | declare deliberately untracked work |
 | `/work` | **recommend and wait** |
+
+**A dev item with children is a container, not work** (founder question 2026-08-03: *"if I run
+work on AI4DEV-3, what does it do for its children?"*). Check for children BEFORE treating any
+id as buildable. A parent has no code of its own, so cutting a branch for it would produce a
+pull request with nothing in it and an item that can never close on its own merge — parents
+close by **folding** when their last child closes, never by being built.
+
+So a parent behaves exactly like a claimed requirement: list the open children with their short
+labels, say which are blocked and by what, recommend one with a reason, and wait. The founder
+picks. Closed children are named in the listing too, because "5 of 13 done" is the useful frame
+and a bare list of what remains hides it.
 
 **`/work` alone** — never picks silently. In order: resume what this session holds; else
 anything already In Progress; else open leaves under a claimed requirement; else a new
@@ -328,6 +340,30 @@ Useful codex flags, all verified present: `-C <dir>` sets the working root, `-o 
 the final answer to a file instead of leaving it to be scraped from stdout, and `--json` emits
 events as JSONL.
 
+### How to actually launch a reviewer — this cost three failed launches on AI4DEV-5
+
+Written down because it was folklore, and folklore is rediscovered by failing:
+
+- **Short prompt on the command line, brief in a FILE.** The reviewer runs in the worktree and
+  can read files, so pass a pointer — "read `loop/items/<ITEM>/gate2-prompt.txt` and the diff"
+  — not the material itself. A long inline prompt hits the Windows argument limit and dies, and
+  embedded quotes mangle it before that.
+- **Capture with `-o <file>`**, never by scraping stdout. Redirect **stderr into the same file**
+  too: a failure message in the file teaches you why it died; a silent 71-byte file teaches you
+  nothing (observed).
+- **`codex exec resume <SESSION_ID>` rejects `-C`.** Resume inherits the original session's
+  working root; passing the flag again fails the invocation.
+- **Kimi: `-p` is incompatible with `--auto` and `--yolo`.** The working form is
+  `kimi -m kimi-code/k3 -p "<short>" --output-format text`.
+- **Size is not the test — CONTENT is.** A 71-byte file containing
+  `"• Reading the brief's context files…"` is a progress line, not a critique. Check for
+  findings, and check the exit code. "Non-empty" was too weak a rule and let a failed gate look
+  like a clean one.
+- **Never judge a reviewer's liveness from a process list** (the coordinator did, twice, and was
+  wrong both times — once from an unflushed file, once from a scan that did not match how Kimi
+  runs). Measure the reviewer's own artifacts growing over an interval. The owner of a detached
+  process is the only party that can judge whether it is alive.
+
 Confirmation runs at `high`; a confirmation asked to judge a *claim* rather than a fix is
 review work and gets `max`.
 
@@ -355,6 +391,19 @@ A completion signal is always something **outside the agent's own claim**.
 2. Written merge ruling, pinned to the head commit.
 3. PR published with that ruling; merge authorization pinned to the same commit.
 4. Merge → the integration flips the item Done. See "when git and the board disagree" below.
+
+**INTERIM MODE IS OVER (2026-08-03).** It existed because *"a hand-interpreted checklist is not
+a merge licence"* — every green claim came from an agent transcribing its own local run. All
+three conditions that were set for ending it have landed: `at:verify --expect` (AI4DEV-25),
+the harness visible to tsc (AI4DEV-24), and CI on the PR head (AI4DEV-5) — now a **required**
+status check named `verify` on `main`, so a red run cannot be merged at all.
+
+An item agent may therefore merge its own work, on one condition that is not negotiable: **the
+required CI check must be green on the exact head commit the merge decision pins.** Not a local
+run, not an earlier head. Verify the run id against the head SHA before merging, and record
+both. `strict` is false, so a branch need not be current with `main`; `enforce_admins` is false,
+so the founder can still merge past a red check deliberately. Neither is a licence for an agent
+to do so.
 5. Post-merge check against merged `main`.
 6. **Fold upward**: re-read the parent's children **fresh** (a sibling may have closed in a
    parallel session); all Done or Cancelled → parent folds; cascades upward. Cancelled counts
