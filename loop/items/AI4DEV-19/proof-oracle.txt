@@ -1,0 +1,89 @@
+﻿AI4DEV-19 step 3b — the tightened AT-016.09 oracle, falsified on purpose.
+
+Gate 0 finding 3 ruled that the old oracle - `if (transitionCommitted !== eventWritten)` - rejected
+only UNEQUAL outcomes, so a fault firing AFTER both writes leaves both committed, compares equal,
+and passes, having proved no atomicity at all. The ruling came with a verification condition: the
+tightened oracle (both sides false) must FAIL when the fault point is deliberately misplaced. If it
+passed, the tightening bought nothing and the ruling was wrong.
+
+THE TEMPORARY EDIT, applied to tests/at/suites/req-016/_fixture.ts and then reverted: the
+`reachFaultPoint(FAULT_POINT)` call was moved out from between the transition and the event write to
+after the ops-item push - i.e. after BOTH writes - and the rollback removed with it, since with the
+point there nothing is left half-committed to roll back. That is exactly the scenario the finding
+describes: a crash that fires too late to prove anything.
+
+Both runs below drive the SAME misplaced fixture. Only the oracle differs.
+
+=================================================================================================
+RUN 1 - the TIGHTENED oracle (the one now in the tree). MUST FAIL, and does: exit 1, all 11
+guarded rows report transition=true notificationEvent=true.
+  bunx vitest run --root tests/at --config vitest.config.ts suites/req-016/c-reliability-guard.test.ts -t AT-016.09
+=================================================================================================
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a622111467e48f14d/tests/at
+
+ ❯ suites/req-016/c-reliability-guard.test.ts (3 tests | 1 failed | 2 skipped) 36ms
+     × AT-016.09 — every guarded transition writes its notification event atomically under an induced fault 35ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  suites/req-016/c-reliability-guard.test.ts > AT-REQ-016 C — critical-event reliability guard > AT-016.09 — every guarded transition writes its notification event atomically under an induced fault
+AssertionError: guarded rows where a crash between the transition and the event write left either side committed: expected [ …(11) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "funding.deadline_expired: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "payment.succeeded: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "payment.failed: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "fuel.threshold_20: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "fuel.threshold_5: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "fuel.depleted: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "leftover.released: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "chargeback.opened: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "access.key_issued: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "access.key_revoked: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++   "project.completed: transition=true notificationEvent=true — a crash at notifications.between_transition_and_event_write committed the transition and the notification event; the two must roll back as one unit, leaving neither",
++ ]
+
+ ❯ suites/req-016/c-reliability-guard.test.ts:102:124
+    100|       }
+    101|
+    102|       expect(problems, `guarded rows where a crash between the transit…
+       |                                                                                                                            ^
+    103|     },
+    104|   );
+ ❯ executeRegisteredBody harness/registry.ts:486:3
+ ❯ runTrackedTest harness/registry.ts:555:5
+ ❯ harness/registry.ts:778:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  16:05:14
+   Duration  289ms (transform 115ms, setup 0ms, import 128ms, tests 36ms, environment 0ms)
+
+
+=================================================================================================
+RUN 2 - THE CONTROL, and the part that proves the finding rather than merely satisfying it. The
+same misplaced fixture, with the OLD `transitionCommitted !== eventWritten` oracle put back:
+exit 0, the test PASSES. A fault that fired after both writes proved nothing about atomicity and
+the old oracle called it green. That is the hollow green the tightening removes.
+=================================================================================================
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a622111467e48f14d/tests/at
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 2 skipped (3)
+   Start at  16:05:30
+   Duration  283ms (transform 119ms, setup 0ms, import 131ms, tests 32ms, environment 0ms)
+
+
+Both temporary edits were reverted; `git diff` against the committed fixture is empty and the fault
+point is back between the transition and the event write. The tightened oracle passes there - the
+--expect run in the same commit is the evidence for condition (a).

@@ -74,15 +74,32 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         const transitionCommitted = await w.transitionCommitted(row.event);
         const eventWritten = (await sut.events({ type: row.event })).length > 0;
 
-        if (transitionCommitted !== eventWritten) {
+        // NEITHER SIDE COMMITTED, not merely the two agreeing with each other.
+        //
+        // This oracle used to read `transitionCommitted !== eventWritten`, and that rejected only
+        // UNEQUAL outcomes — so a fault firing after both writes left both committed, compared
+        // equal, and passed, having proved no atomicity whatsoever. The control run above does not
+        // close it either: that also ends with both committed. Turning this test green against the
+        // old oracle would have been a green bought with nothing.
+        //
+        // Asserting both false rejects a strict superset of what "unequal" rejected, so it cannot
+        // pass anything the old form failed. Its falsification is on file: with the fault point
+        // moved after both writes, the old form passes and this one fails
+        // (`loop/items/AI4DEV-19/proof-oracle.txt`).
+        if (transitionCommitted || eventWritten) {
+          const committed = [
+            ...(transitionCommitted ? ['the transition'] : []),
+            ...(eventWritten ? ['the notification event'] : []),
+          ];
           problems.push(
             `${row.event}: transition=${transitionCommitted} notificationEvent=${eventWritten} — ` +
-              `the fault committed one without the other`,
+              `a crash at ${FAULT_POINT} committed ${committed.join(' and ')}; the two must roll back ` +
+              `as one unit, leaving neither`,
           );
         }
       }
 
-      expect(problems, `guarded rows where transition-without-event (or event-without-transition) was reachable`).toEqual([]);
+      expect(problems, `guarded rows where a crash between the transition and the event write left either side committed`).toEqual([]);
     },
   );
 
