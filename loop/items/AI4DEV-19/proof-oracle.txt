@@ -1,28 +1,43 @@
-﻿AI4DEV-19 — AT-016.09's oracle, falsified on purpose. TWICE, for two different widenings.
+AI4DEV-19 — AT-016.09's oracle, falsified on purpose. TWICE, for two different widenings.
 
-CAPTURED AGAINST COMMIT 6c8fba8 ("AI4DEV-19: point the widened oracle at its own falsification, the
-way the tightening already does"), the last code commit of the Gate 2 fix round. All four temporary
-edits below were reverted afterwards and `git diff` against that commit is empty.
+CAPTURED AGAINST COMMIT 0494ab5 ("AI4DEV-19: the event-id rollback and the delivery stamp each get
+an oracle, and the unfailable assertion says so out loud"), the last code commit of the round-2 fix
+round. All four temporary edits below were reverted afterwards and `git diff` against that commit is
+empty.
 
-WHY THIS FILE WAS RE-CAPTURED. The Gate 2 round widened this oracle a second time (terra, finding
-2): it read the transition and the event write while its own message claimed "the two must roll back
-as one unit", and `emitKnown` also writes deliveries and an ops item after the fault point that
-nothing ever inspected. Widening the oracle changed its message, so the previous transcripts quote
-text no test can produce any more. Re-capturing rather than leaving them is the same discipline the
-finding itself is about. The previous version is kept underneath, verbatim.
+WHY THIS FILE WAS RE-CAPTURED, AGAIN. The previous re-capture was forced by the output: the Gate 2
+round widened this oracle to four reads, so the earlier transcripts quoted text no test could
+produce. This one is not forced by the output — round 2 changed nothing AT-016.09 prints, and the
+four runs below say what they said last round apart from timestamps. It is re-taken because
+`rulings-04.md` ordered every proof captured against the FINAL code commit with nothing changed
+afterwards, including comments; round 1 broke that by adding a cross-reference comment after
+capturing, which shifted line numbers inside committed stack traces. A file that names a commit it
+was not taken against is stale evidence in the same way a file quoting a dead message is, only
+quieter.
+
+The previous version is kept below the banner, unchanged: it quotes "the two must roll back as one
+unit, leaving neither", which nothing in this tree emits any more, so it cannot be reproduced. The
+round-1 sections are not kept, because they can be — the procedure below reproduces them exactly.
 
 COMPANION FILES: proof-red.txt and proof-green.txt are the red-then-green pair for the ROLLBACK;
 proof-restart.txt is the falsification for AT-016.07's restart. This file is the separate proof that
 the oracle judging the rollback is strong enough to notice.
 
-HOW THESE TRANSCRIPTS WERE CAPTURED. stdout and stderr were redirected to separate files rather than
-merged: PowerShell wraps a native command's stderr in ErrorRecords when the two are merged, which
-injects its own "NativeCommandError" text into the middle of a transcript. Only the stderr half is
-reproduced for the failing runs, because that is where vitest prints the failure; the passing runs
-have an empty stderr and are shown by their stdout summary. Every run used
+WHAT THIS FILE IS NOT EVIDENCE ABOUT. Round 2's two repairs — the event id that a crashed emit must
+not consume, and the delivery stamp that belongs to the process which FIRST sent a row — are guarded
+by conformance cases in tests/at/harness/conformance.selftest.ts, not by a transcript here. That is
+deliberate and it is the lesson this round was ordered for: a captured falsification proves a repair
+worked on the day it was taken, and a case left in the tree fails on the day someone undoes it.
 
-    $env:AT_TIER='loop'
-    bunx vitest run --root tests/at --config vitest.config.ts suites/req-016/c-reliability-guard.test.ts -t AT-016.09
+HOW THESE TRANSCRIPTS WERE CAPTURED. stdout and stderr are redirected to separate files, and the
+redirection is done by `cmd` rather than by PowerShell — PowerShell 5.1 wraps a native command's
+stderr in its own ErrorRecords even when redirecting to a file, so a capture taken that way carries
+NativeCommandError text the command never emitted and vitest's lines arrive hard-wrapped at the
+console width. Only the stderr half is reproduced for the failing runs, because that is where vitest
+prints the failure; the passing runs have an empty stderr and are shown by their stdout summary.
+Every run used
+
+    cmd /c "set AT_TIER=loop&& bunx vitest run --root tests/at --config vitest.config.ts suites/req-016/c-reliability-guard.test.ts -t AT-016.09 > out.txt 2> err.txt"
 
 =================================================================================================
 PART ONE — the ORIGINAL question, re-asked against the current oracle.
@@ -104,8 +119,8 @@ the oldest oracle called it green. That is the hollow green the first tightening
 
  Test Files  1 passed (1)
       Tests  1 passed | 2 skipped (3)
-   Start at  00:00:04
-   Duration  289ms (transform 111ms, setup 0ms, import 125ms, tests 33ms, environment 0ms)
+   Start at  00:20:30
+   Duration  299ms (transform 126ms, setup 0ms, import 138ms, tests 37ms, environment 0ms)
 
 --- stderr ---
 (empty)
@@ -191,15 +206,15 @@ the widening removes, and it is the finding demonstrated rather than accepted on
 
  Test Files  1 passed (1)
       Tests  1 passed | 2 skipped (3)
-   Start at  00:00:46
-   Duration  289ms (transform 115ms, setup 0ms, import 129ms, tests 33ms, environment 0ms)
+   Start at  00:21:07
+   Duration  278ms (transform 115ms, setup 0ms, import 129ms, tests 31ms, environment 0ms)
 
 --- stderr ---
 (empty)
 
 =================================================================================================
 All four temporary edits were reverted with `git checkout --` on both files; `git diff` against
-6c8fba8 is empty and the fault point is back between the transition and the event write, with the
+0494ab5 is empty and the fault point is back between the transition and the event write, with the
 full rollback. The `--expect` transcript in proof-green.txt is the evidence that the oracle passes
 there.
 =================================================================================================
