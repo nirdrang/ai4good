@@ -40,37 +40,65 @@ export { TIERS } from '../../harness/contracts.ts';
 
 /* ------------------------------------------------------------------ SUT (REQ-016) */
 
-export interface SenderProbe {
+/*
+ * TYPE ALIASES, NOT INTERFACES, FROM HERE DOWN — the same rule `contracts.ts` states for the shared
+ * seams, arriving at this file only now, and for a reason that did not exist before.
+ *
+ * Nothing reachable from the objects `open()` hands a test body may be an interface, because an
+ * interface can be reopened with `declare module` and a member merged into it read green off a
+ * value that never supplies it. An OPTIONAL member is what makes that slip past everything: the
+ * producer still satisfies its annotation, so nothing goes red anywhere, and the body reads
+ * `undefined` at run time believing it read data.
+ *
+ * These types sat OUTSIDE that boundary while `open().sut` and `open().w` were the suite's own type
+ * arguments — pinning your own types hides a merged member rather than rejecting it, which is
+ * exactly why "REQ-016 is not affected" was never an answer. AI4DEV-31 derives both from the
+ * adapter instead, so `open().sut` now resolves to `NotificationsSut` and everything its methods
+ * return is on the seam path. Being on that path is what puts them under the rule.
+ *
+ * The severity did drop on the way in: with one derived type, a merged-in REQUIRED member breaks
+ * the adapter itself (TS2741). What the alias conversion kills is the OPTIONAL member that reads
+ * `undefined` and breaks nothing — precisely the case that slipped past two adversarial gates in
+ * AI4DEV-24 and is the reason this rule exists at all.
+ *
+ * `World` is deliberately NOT converted, and `harness/type-invention.selftest.ts` records why so a
+ * later author does not "restore uniformity" without knowing: after the derivation `open().w` is
+ * the adapter's concrete fixture-world CLASS, and a class does not acquire members merely because
+ * an interface it implements was augmented, so the read is rejected either way. Converting it would
+ * buy nothing. That is measured, not assumed — re-measure before changing it.
+ */
+
+export type SenderProbe = {
   /** component identifier, e.g. 'notifications.emitter', 'blockers.service' */
   component: string;
   /** does this component hold a direct send path / provider credential? */
   canSendDirectly: boolean;
-}
+};
 
-export interface RegisteredRow {
+export type RegisteredRow = {
   event: string;
   recipients: Role[];
   channels: Channel[] | null;
   tone: 'normal' | 'low';
-}
+};
 
-export interface DocumentedDefault {
+export type DocumentedDefault = {
   event: string;
   channels: Channel[];
   /** where the default is documented — empty string = implicit behaviour, which fails AT-016.06 */
   source: string;
-}
+};
 
-export interface NotificationEvent {
+export type NotificationEvent = {
   id: string;
   type: string;
   /** resolved at event CREATION (AT-016.10), never at send time */
   recipients: { role: Role; recipientId: string; channels: Channel[] }[];
   state: 'pending' | 'retrying' | 'sent' | 'failed';
   attempts: number;
-}
+};
 
-export interface Delivery {
+export type Delivery = {
   eventId: string;
   type: string;
   role: Role;
@@ -82,21 +110,21 @@ export interface Delivery {
   payload: Record<string, unknown>;
   /** rendered copy delivered to the recipient (payload semantics checks) */
   body: string;
-}
+};
 
-export interface OpsItem {
+export type OpsItem = {
   id: string;
   kind: string;
   linkedEventId: string | null;
-}
+};
 
-export interface EmitResult {
+export type EmitResult = {
   accepted: boolean;
   reason?: string;
   eventId?: string;
-}
+};
 
-export interface NotificationsSut {
+export type NotificationsSut = {
   /** every component the architecture lets send comms (AT-016.01) */
   senders(): Promise<SenderProbe[]>;
   /** the registered event set (AT-016.02/03/06) */
@@ -117,7 +145,7 @@ export interface NotificationsSut {
    * is unobservable if every drain is run-to-quiescence.
    */
   drainDeliveries(opts?: { passes?: number }): Promise<void>;
-}
+};
 
 /* ----------------------------------------------- REQ-016's fixture world + harness */
 

@@ -16,6 +16,8 @@ interface FixtureAdapter {
 }
 
 interface FixtureAdapterModule {
+  /** the requirement this adapter declares itself to be, e.g. 'req-016' — see loadAdapter() */
+  requirement: string;
   createFixtureAdapter(opts: {
     clock: ControlledClock;
     worlds: FixtureWorldStore;
@@ -50,6 +52,33 @@ async function loadAdapter(
   if (typeof module.createFixtureAdapter !== 'function') {
     throw new Error(`fixture adapter for ${requirement} exports no createFixtureAdapter()`);
   }
+
+  /*
+   * THE ADAPTER SAYS WHO IT IS, AND IS HELD TO IT.
+   *
+   * `harness/suite-adapters.ts` reads a suite's system-under-test and world types from the module
+   * its map names, while THIS function loads a module from a path built out of a string. Those were
+   * two independent facts: a mistyped map entry, a renamed directory or an `AT_REPO_ROOT` pointing
+   * somewhere else would have made the type-check describe one suite while the run drove another,
+   * and every layer would have looked correct on its own.
+   *
+   * The map entry is constrained to match this literal at compile time; the same literal is checked
+   * here against the requirement actually requested. So the key, the module the types came from and
+   * the module really imported are one self-declared value, checked at both ends.
+   *
+   * A MISSING literal is an error too, not a skipped check — a guard that switches itself off when a
+   * field is absent is the hole again, arriving through the door marked convenience.
+   */
+  if (module.requirement !== requirement) {
+    throw new Error(
+      `fixture adapter at ${moduleUrl} declares requirement ` +
+        `${module.requirement === undefined ? '<nothing: it exports no `requirement`>' : JSON.stringify(module.requirement)} ` +
+        `but was loaded as ${JSON.stringify(requirement)} — the suite's types would be read off one ` +
+        `module while the run drove another. Add \`export const requirement = ${JSON.stringify(requirement)} as const;\` ` +
+        `to that file, or correct whichever of the two names is wrong.`,
+    );
+  }
+
   return module.createFixtureAdapter({ clock, worlds, config });
 }
 

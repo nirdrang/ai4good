@@ -49,8 +49,15 @@ const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.t
 /**
  * A minimal fixture adapter, so `open()` in a fixture suite reaches a real world through the real
  * harness. It is the same seam `harness/index.ts` loads for REQ-016.
+ *
+ * It declares its own requirement because the real `loadAdapter()` checks that literal against the
+ * requirement it was asked to load, and throws when they disagree. These trees are not in
+ * `suite-adapters.ts`'s type map and do not need to be — the check compares what the adapter says
+ * about itself against what was requested, which needs no map.
  */
-const FIXTURE_ADAPTER = `export function createFixtureAdapter({ worlds }) {
+function fixtureAdapter(requirement: string): string {
+  return `export const requirement = 'req-${requirement}';
+export function createFixtureAdapter({ worlds }) {
   return {
     sut: { probe: { ping: async () => 'pong' } },
     fixtures: { world: async (name) => await worlds.world(name) },
@@ -58,13 +65,21 @@ const FIXTURE_ADAPTER = `export function createFixtureAdapter({ worlds }) {
   };
 }
 `;
+}
 
-/** Preamble every fixture suite shares: vitest, plus the real registry bound to the probe sut. */
-function suitePreamble(): string {
+/**
+ * Preamble every fixture suite shares: vitest, plus the real registry bound to the probe sut.
+ *
+ * The requirement is a parameter because `atTest` now refuses an id whose requirement disagrees
+ * with the binding's — the guard that stops a suite driving one implementation while the type-check
+ * described another. These suites are never type-checked (they live outside every tsconfig) but
+ * they ARE executed, so the run-time half applies to them exactly as it does to a real suite.
+ */
+function suitePreamble(requirement: string): string {
   return (
     `import { describe, expect, it } from 'vitest';\n` +
     `import { bindSuite } from '${REGISTRY_URL}';\n` +
-    `const atTest = bindSuite({ sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
+    `const { atTest } = bindSuite({ requirement: 'req-${requirement}', sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
   );
 }
 
@@ -93,7 +108,7 @@ function runAgainstTree(requirement: string, acceptance: string, files: Record<s
     mkdirSync(join(tree, '.taskmaster', 'docs', 'acceptance'), { recursive: true });
     writeFileSync(join(tree, '.taskmaster', 'docs', 'acceptance', `at-req-${requirement}.md`), acceptance, 'utf8');
     writeFileSync(join(tree, 'tests', 'at', 'vitest.config.ts'), FIXTURE_VITEST_CONFIG, 'utf8');
-    writeFileSync(join(suiteDir, '_fixture.ts'), FIXTURE_ADAPTER, 'utf8');
+    writeFileSync(join(suiteDir, '_fixture.ts'), fixtureAdapter(requirement), 'utf8');
     for (const [name, content] of Object.entries(files)) writeFileSync(join(suiteDir, name), content, 'utf8');
 
     const run = spawnSync(bunExecutable(), ['--no-env-file', RUNNER, `req-${requirement}`, '--tier', 'loop'], {
@@ -135,7 +150,7 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
   it('refuses a body that passed without ever opening a world', () => {
     const run = runAgainstTree('901', p0('AT-901.01', 'a body that asserts but never opens'), {
       'a-never-opens.test.ts':
-        suitePreamble() +
+        suitePreamble('901') +
         `describe('never opens', () => {\n` +
         `  atTest('AT-901.01', 'asserts something true and opens nothing', async () => {\n` +
         `    expect(1 + 1).toBe(2);\n` +
@@ -154,7 +169,7 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
     // The call site is statically visible — so the bijection checker is satisfied — and never
     // executes, so nothing registers at runtime. A bare `it()` supplies the passing green.
     const source =
-      suitePreamble() +
+      suitePreamble('902') +
       `describe('title only', () => {\n` +
       `  if (false) atTest('AT-902.01', 'never reached', async ({ open }) => { await open(); });\n` +
       `  it('AT-902.01 — placeholder', () => { expect(true).toBe(true); });\n` +
@@ -177,7 +192,7 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
   it('refuses an id reported twice instead of keeping whichever result came last', () => {
     const run = runAgainstTree('903', p0('AT-903.01', 'a real test plus an impostor of the same name'), {
       'c-duplicate.test.ts':
-        suitePreamble() +
+        suitePreamble('903') +
         `describe('duplicate', () => {\n` +
         `  atTest('AT-903.01', 'the real test', async ({ open }) => {\n` +
         `    const { sut } = await open();\n` +
@@ -220,7 +235,7 @@ describe('the assembled runner refuses to run at all when the preflight cannot b
       p0('AT-905.01', 'this one is registered') + p0('AT-905.02', 'this one is not registered anywhere'),
       {
         'e-missing.test.ts':
-          suitePreamble() +
+          suitePreamble('905') +
           `describe('missing', () => {\n` +
           `  atTest('AT-905.01', 'the only registered id', async ({ open }) => {\n` +
           `    const { sut } = await open();\n` +
@@ -242,7 +257,7 @@ describe('the assembled runner reports a genuinely good suite as good', () => {
     // everything, which is a useless gate in the other direction.
     const run = runAgainstTree('906', p0('AT-906.01', 'a well-formed single test'), {
       'f-good.test.ts':
-        suitePreamble() +
+        suitePreamble('906') +
         `describe('good', () => {\n` +
         `  atTest('AT-906.01', 'opens a world and asserts a real observation', async ({ open }) => {\n` +
         `    const { w, sut } = await open();\n` +

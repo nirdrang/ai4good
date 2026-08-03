@@ -39,7 +39,15 @@ const CAPABILITIES_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harnes
 
 const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.test.ts'], environment: 'node', testTimeout: 30000 } };\n`;
 
-const FIXTURE_ADAPTER = `export function createFixtureAdapter({ worlds }) {
+/**
+ * The adapter declares its own requirement because the real `loadAdapter()` checks that literal
+ * against the requirement it was asked to load. These trees are not in `suite-adapters.ts`'s type
+ * map and do not need to be — the check compares what the adapter says about itself against what
+ * was requested, which needs no map.
+ */
+function fixtureAdapter(requirement: string): string {
+  return `export const requirement = 'req-${requirement}';
+export function createFixtureAdapter({ worlds }) {
   return {
     sut: { probe: { ping: async () => 'pong' } },
     fixtures: { world: async (name) => await worlds.world(name) },
@@ -47,16 +55,22 @@ const FIXTURE_ADAPTER = `export function createFixtureAdapter({ worlds }) {
   };
 }
 `;
+}
 
 /** The capability a fixture red is pending on. Never a real one — nothing here waits on H9. */
 const PENDING_CAPABILITY = 'H9 imaginary capability';
 
-function suitePreamble(): string {
+/**
+ * The requirement is a parameter because `atTest` now refuses an id whose requirement disagrees
+ * with the binding's. These suites are never type-checked but they ARE executed, so that run-time
+ * guard applies to them exactly as it does to a real suite.
+ */
+function suitePreamble(requirement: string): string {
   return (
     `import { describe, expect, it } from 'vitest';\n` +
     `import { bindSuite } from '${REGISTRY_URL}';\n` +
     `import { CapabilityPending } from '${CAPABILITIES_URL}';\n` +
-    `const atTest = bindSuite({ sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
+    `const { atTest } = bindSuite({ requirement: 'req-${requirement}', sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
   );
 }
 
@@ -100,7 +114,7 @@ function twoIdSuite(
   const { secondIsRed = true, untaggedFailure = false, brokenImport = false } = opts;
   const files: Record<string, string> = {
     'a-two-ids.test.ts':
-      suitePreamble() +
+      suitePreamble(requirement) +
       `describe('two ids', () => {\n` +
       greenTest(`AT-${requirement}.01`) +
       (secondIsRed ? redTest(`AT-${requirement}.02`) : greenTest(`AT-${requirement}.02`)) +
@@ -146,7 +160,7 @@ function runExpectTree(spec: ExpectTree): RunnerOutcome {
     mkdirSync(join(tree, '.taskmaster', 'docs', 'acceptance'), { recursive: true });
     writeFileSync(join(tree, '.taskmaster', 'docs', 'acceptance', `at-req-${spec.requirement}.md`), spec.acceptance, 'utf8');
     writeFileSync(join(tree, 'tests', 'at', 'vitest.config.ts'), FIXTURE_VITEST_CONFIG, 'utf8');
-    writeFileSync(join(suiteDir, '_fixture.ts'), FIXTURE_ADAPTER, 'utf8');
+    writeFileSync(join(suiteDir, '_fixture.ts'), fixtureAdapter(spec.requirement), 'utf8');
     for (const [name, content] of Object.entries(spec.files)) writeFileSync(join(suiteDir, name), content, 'utf8');
 
     if (spec.manifest !== undefined) {
