@@ -46,7 +46,9 @@
  * quietly disagrees with its adapter has not, and only the second kind of failure is invisible.
  */
 
+import type { AdapterFaultSeam } from './faults.ts';
 import type { WorldLike } from './registry.ts';
+import type { AdapterSentinelSeam } from './sentinels.ts';
 
 /**
  * The minimum any fixture adapter owes the harness, expressed so a malformed one fails AT ITS MAP
@@ -60,6 +62,15 @@ import type { WorldLike } from './registry.ts';
 type AdapterShape = {
   sut: Record<string, unknown>;
   fixtures: { world(name: string): Promise<WorldLike> };
+  /**
+   * H3's two seams, OPTIONAL here for the same reason they are optional in `index.ts`: the runner's
+   * black-box trees register disposable adapters that export three members and no more, and a
+   * required member would break them at run time rather than at their map entry. Optional is not
+   * silent — an adapter that supplies neither exposes no fault points and no sentinel scopes, so
+   * arming a fault or scanning a scope is a refusal in `guards.ts`'s own words.
+   */
+  faults?: AdapterFaultSeam;
+  sentinels?: AdapterSentinelSeam;
   teardown(): Promise<void>;
 };
 

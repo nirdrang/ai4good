@@ -19,7 +19,9 @@
  */
 
 import type { ControlledClock } from '../../harness/clock.ts';
+import type { AdapterFaultSeam, ArmedFault, FaultKind } from '../../harness/faults.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
+import type { AdapterSentinelSeam } from '../../harness/sentinels.ts';
 import type {
   ConfigRegistry,
   Delivery,
@@ -50,6 +52,19 @@ interface AdapterOptions {
   worlds: FixtureWorldStore;
   config: ConfigRegistry;
 }
+
+/**
+ * THE FAULT POINT, and its name is a claim about where it sits.
+ *
+ * `emitKnown` below commits the state transition, reaches this point, and only then writes the
+ * notification event — in that order, because the point's name says so. The order used to be the
+ * other way round, and renaming the point to fit the code would have been exactly the
+ * declared-versus-real drift this way of work exists to delete, so the writes moved instead.
+ */
+const FAULT_POINT = 'notifications.between_transition_and_event_write';
+
+/** The one store a sentinel scan can search here: the copy actually delivered to a recipient. */
+const SENTINEL_SCOPE = 'notifications.delivery_bodies';
 
 /** The at-config keys the thread-comment anti-spam guard is configured by. */
 const GUARD_CAP_KEY = 'req-015.thread_comment_notifications.max_per_window';
@@ -176,6 +191,63 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
   let commentsInWindow = 0;
   let coalescedInWindow = false;
 
+  /*
+   * THE DELIVERY PROCESS'S IDENTITY, and the armed faults it can be interrupted by.
+   *
+   * There was no process here to restart: `drainDeliveries` is a synchronous sweep with no
+   * lifecycle, and `state.nextId` counts events, not processes. So an identity is introduced,
+   * `processRestart()` changes it, and `processEpochProblem` in the harness refuses a restart that
+   * left it unchanged — otherwise "survives a restart" is a claim about a process that never
+   * stopped. Durable state deliberately SURVIVES the change: AT-016.07 asserts, after the restart,
+   * that exactly one logical event and one delivery per recipient-channel pair remain, and a
+   * restart that cleared them would fail that, correctly.
+   */
+  let epochSeq = 1;
+  let processEpoch = `delivery-process-${epochSeq}`;
+  const armedFaults = new Map<string, { count: number }>();
+
+  /**
+   * Execution has REACHED a fault point. THE COUNT IS INCREMENTED HERE AND NOWHERE ELSE — arming
+   * happens in `arm()` below and adds nothing to it, which is the difference between an atomicity
+   * test that proves something and one that passes on a fault that never happened.
+   */
+  const reachFaultPoint = (point: string): void => {
+    const armed = armedFaults.get(point);
+    if (!armed) return;
+    armed.count += 1;
+    throw new Error(`induced fault: crash at ${point}`);
+  };
+
+  const faults: AdapterFaultSeam = {
+    points: () => [FAULT_POINT],
+    arm: (point: string, kind: FaultKind): ArmedFault => {
+      // A point that silently accepted a kind it does not implement would arm nothing while
+      // reporting a trigger, and the atomicity oracle would read the result as proof.
+      if (kind !== 'crash') {
+        throw new Error(
+          `fault point ${JSON.stringify(point)} implements no ${JSON.stringify(kind)} fault — it implements: crash`,
+        );
+      }
+      const armed = { count: 0 };
+      armedFaults.set(point, armed);
+      return {
+        triggerCount: () => armed.count,
+        disarm: () => {
+          if (armedFaults.get(point) === armed) armedFaults.delete(point);
+        },
+      };
+    },
+    processEpoch: () => processEpoch,
+    processRestart: () => {
+      processEpoch = `delivery-process-${++epochSeq}`;
+    },
+  };
+
+  const sentinels: AdapterSentinelSeam = {
+    scopes: () => [SENTINEL_SCOPE],
+    read: () => state.deliveries.map((delivery) => delivery.body),
+  };
+
   const emitKnown = async (
     world: NotificationFixtureWorld,
     event: string,
@@ -191,6 +263,11 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
       recipientId: world.actors[role],
       channels: [...channels],
     }));
+    // (1) THE TRANSITION COMMITS FIRST, (2) the fault point, (3) the event write and everything
+    // that belongs to it. That order is what the point's name asserts.
+    state.transitions.set(event, true);
+    reachFaultPoint(FAULT_POINT);
+
     state.events.push({
       id: eventId,
       type: event,
@@ -216,7 +293,6 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
     if (row.opsItem) {
       state.opsItems.push({ id: `ops-${eventId}`, kind: row.event, linkedEventId: eventId });
     }
-    state.transitions.set(event, true);
     return { eventId };
   };
 
@@ -255,6 +331,8 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
 
   return {
     sut: { notifications: sut },
+    faults,
+    sentinels,
     fixtures: {
       world: async (name: string) => {
         const base = await worlds.world(name);
@@ -298,6 +376,7 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
       state.deliveries.length = 0;
       state.opsItems.length = 0;
       state.transitions.clear();
+      armedFaults.clear();
       commentWindowStart = null;
       commentsInWindow = 0;
       coalescedInWindow = false;

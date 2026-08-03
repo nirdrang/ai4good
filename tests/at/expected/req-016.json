@@ -15,7 +15,7 @@
       "red": {
         "AT-016.01": {
           "kind": "capability-pending",
-          "capabilities": ["H3 static provider scan", "H3 sentinels", "H5 email provider simulator"]
+          "capabilities": ["H3 static provider scan", "H5 email provider simulator"]
         },
         "AT-016.07": {
           "kind": "capability-pending",
