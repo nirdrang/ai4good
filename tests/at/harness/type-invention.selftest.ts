@@ -19,6 +19,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { isAbsolute } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { INSTALL_ROOT } from './check.ts';
@@ -54,8 +55,14 @@ function typecheckProbes(project: string): ProbeRun {
   const lines = raw.split('\n');
   // `--listFiles` interleaves the program's files with the diagnostics. The listed files are
   // ABSOLUTE, while diagnostics name their file relative to the cwd and their continuation lines are
-  // indented — so the leading drive letter separates the two without guessing at message text.
-  const isListedFile = (line: string) => /^[A-Za-z]:[\\/]/.test(line);
+  // indented — so absoluteness separates the two without guessing at message text.
+  //
+  // The absoluteness test has to be THE RUNNING PLATFORM'S. This read `/^[A-Za-z]:[\\/]/`, which is
+  // a Windows path and only a Windows path: on Linux every listed file begins with `/`, none matched,
+  // `files` came back empty and the two controls below failed on CI while passing locally — the
+  // controls doing their job, on the wrong question. `isAbsolute` is win32's on Windows and posix's
+  // on Linux, which is the same platform whose compiler printed the line.
+  const isListedFile = (line: string) => isAbsolute(line);
   return {
     status: result.status,
     output: lines.filter((line) => !isListedFile(line)).join('\n'),
