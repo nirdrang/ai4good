@@ -109,11 +109,33 @@ not the subject"). It is a real-source capability and belongs where real source 
 Implementing it would turn nothing green (`AT-016.01` is H5-blocked regardless). Leaving it
 pending costs one honest name-list edit, above.
 
-## Open questions this brief does not settle
+## Open questions
 
-1. **Does `at:verify --expect` compare the `capabilities` array of each red, or only the
-   green/red partition?** If only the partition, the name-list edit above is still correct but is
-   not enforced by the gate. Being measured, not assumed.
+### 1. RESOLVED by reading `tests/at/harness/expected.ts` — the capability list IS gate-enforced
+
+`--expect` does **not** compare only the green/red partition. For a `capability-pending` red it
+rebuilds the entire first line from the declaration and compares by **exact string equality**:
+
+```ts
+export function declaredDetail(atId: string, red: RedDeclaration): string {
+  return red.kind === 'capability-pending'
+    ? `CapabilityPending: CAPABILITY PENDING — ${red.capabilities.join(', ')}`
+    : `AtPending: ${atId} PENDING [${red.phase}] — `;
+}
+// detailMatches(): red.kind === 'capability-pending' ? detail === expected : detail.startsWith(expected)
+```
+
+So the declared `capabilities` array must match the thrown names **exactly, including order**
+(`pendingCapability` dedupes through a `Set`, which preserves insertion order). Consequence: the
+name-list correction described above is not tidiness — omitting it **fails the gate**. If
+sentinels land and the `static` seam still names `'H3 sentinels'`, `AT-016.01`'s reported detail
+and its declaration diverge and `bun run at:verify req-016 --tier loop --expect` goes red.
+
+Verified by me directly rather than accepted from a subagent, because the item's central editing
+obligation rests on it.
+
+### Still open
+
 2. Does the `req-016` fixture adapter expose a real state transition separate from its event
    write — i.e. is there somewhere for
    `notifications.between_transition_and_event_write` to be inserted — and does it have a delivery

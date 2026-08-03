@@ -1,0 +1,54 @@
+GATE 0 — adversarially review a BRIEF, before any code is planned or written.
+
+You are reviewing the intent, not an implementation. Gate 1 will review a plan and Gate 2 a
+diff; both check implementation against stated intent, so NEITHER can catch a defect in the
+intent itself. That is your job and yours only.
+
+Read, in the worktree you are running in:
+  loop/items/AI4DEV-19/brief.md        <- THE ARTIFACT UNDER REVIEW
+  tests/at/harness/contracts.ts        <- the declared types the brief calls "the contract"
+  tests/at/harness/index.ts            <- the pendingCapability seams to be replaced
+  tests/at/harness/capabilities.ts     <- what pendingCapability actually does
+  tests/at/harness/guards.ts           <- the four predicates the brief says are binding
+  tests/at/expected/req-016.json       <- the declared reds
+  tests/at/suites/req-016/*.test.ts    <- the tests that consume all of it
+  tests/at/suites/req-016/_fixture.ts  <- the fixture adapter
+  .claude/skills/work/SKILL.md         <- the way of work this brief must not contradict
+
+Report ONLY defects in the brief. For each: quote the exact sentence, say what is wrong, and
+say what it should say instead. Rank by what would cost the most to discover late. Specifically
+hunt for:
+
+1. A DECISION STATED AS SETTLED THAT IS NOT ACTUALLY DECIDED. The brief has a "Decided" section
+   and two rulings of its own (the static provider scan stays pending; two of four reds move).
+   Are any of these actually open questions wearing a decision's clothes?
+
+2. A FACT ASSERTED THAT THE AGENT COULD DERIVE ITSELF, or worse, one asserted WRONGLY. The
+   brief claims a chain, a branch, a base commit, and a table of which tests reach which
+   capabilities with line numbers. CHECK THE TABLE AGAINST THE ACTUAL TEST FILES. If any row is
+   wrong — a test reaching a capability the brief does not list, or not reaching one it does —
+   that is the highest-value finding available to you, because the whole scope rests on it.
+
+3. A CONSTRAINT THAT CONTRADICTS THE SKILL or the repository's own stated rules.
+
+4. SCOPE THAT WILL FORCE A MID-FLIGHT REDESIGN. In particular: can `Faults` actually be
+   implemented against the req-016 fixture adapter as it exists? Is there a real state
+   transition separate from its event write for
+   'notifications.between_transition_and_event_write' to sit between? Is there a delivery
+   process whose identity can change across processRestart()? If the fixture cannot support
+   this without being modified, SAY SO — the brief does not mention modifying the fixture, and
+   an executor discovering that mid-item is exactly the expensive block this gate exists to
+   prevent.
+
+5. ANYTHING THE BRIEF REQUIRES THAT NO TOOL CAN DO. The brief requires
+   `bun run at:verify req-016 --tier loop --expect` to match exactly. Determine what --expect
+   actually compares: only the green/red partition, or also each red's `kind` and
+   `capabilities` array? The brief's central editing obligation depends on the answer, and the
+   brief openly flags it as an open question. Answer it from the code.
+
+6. The brief rules that the static provider scan STAYS PENDING, on the grounds that loop tier
+   has no product source to scan. Is that reasoning sound? If `providerClientImporters()` could
+   in fact be implemented meaningfully at loop tier, the ruling is wrong and should be
+   overturned now rather than after the fact.
+
+Be specific and terse. No praise, no summary of what the brief says. Findings only.
