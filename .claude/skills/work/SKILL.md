@@ -197,9 +197,24 @@ coordinator (main checkout, never moves) - spawns, and merges. Nothing else.
 Terra reviews the code; luna audits the claim about it. A different vendor from the agent that
 wrote the code, and a different variant from the one that reviewed it.
 
-Spawned as: `Agent(subagent_type: "general-purpose", isolation: "worktree",
-run_in_background: true, model: "fable", prompt: <the whole item brief>)`. The `isolation` line
-is what creates the worktree; nothing else creates one.
+Spawned as: `Agent(subagent_type: "item-agent", isolation: "worktree",
+run_in_background: true, model: "fable", prompt: <the item brief>)`. The `isolation` line is
+what creates the worktree; nothing else creates one.
+
+**Effort comes from the agent DEFINITION, not the call.** The Agent tool sets `model` but has
+no effort parameter, so "opus at max effort" cannot be requested at the call site.
+`.claude/agents/item-agent.md` carries `effort: max` in its frontmatter, and effort is not a
+caller parameter — so it applies whichever model the caller picks. To vary effort per call,
+define another agent type; the choice lives in `subagent_type`.
+
+That file also carries the standing role — no code, derive your own chain, push at every phase
+boundary, how to ask a question — so a brief carries only what is specific to its item. A
+shorter brief is a brief with fewer places to be wrong.
+
+**`--fallback-model` does not rescue this.** It fires on model overload and non-retryable server
+errors; authentication, **billing**, rate-limit, request-size and transport errors explicitly
+never trigger it. Out of credits is a billing error, so the fable→opus handoff stays manual and
+must be **stated in the report** when it happens.
 
 **The item agent has FULL AUTHORITY over its item and never sends judgment back to the
 coordinator** (founder ruling 2026-08-02: *"why does the item agent need judgment back to you —
@@ -306,8 +321,30 @@ fail with "not recognized". Source and use in the *same* command.
 
 ## Phase C — build
 
-Brief → plan → **Gate 1** (codex refutes the plan) → triage → orchestrator checkpoint →
-implement → **Gate 2** (codex + Kimi in parallel on the diff) → bounded fix cycles → verify.
+**Gate 0** (sol refutes the BRIEF) → plan → **Gate 1** (terra refutes the plan) → triage →
+orchestrator checkpoint → implement → **Gate 2** (terra + Kimi in parallel on the diff) →
+bounded fix cycles → verify.
+
+### Gate 0 — the brief itself is reviewed (founder ruling 2026-08-03)
+
+**codex `-c model=gpt-5.6-sol -c model_reasoning_effort=max`**, in the worktree, detached.
+
+The brief is where every decision is pre-made, so it is the highest-leverage document in an
+item — and until now it was the only one nobody read adversarially. Gate 1 reviews a plan and
+Gate 2 reviews a diff; both check implementation against stated intent, so **neither can catch
+a defect in the intent**. Three real defects reached the founder on 2026-08-03 for exactly that
+reason, one of them a coordinator hardcoding a derived fact into a brief where no gate would
+ever see it.
+
+Sol reviews briefs and designs, terra reviews code, luna audits the claim. Three variants,
+three jobs, decorrelated blind spots.
+
+Ask it specifically for what a plan review cannot surface: a decision stated as settled that is
+not actually decided; a fact asserted that the agent could derive itself; a constraint that
+contradicts the skill; scope that will force a mid-flight redesign; and anything the brief
+requires that no tool can do. **A brief that cannot be executed as written is the failure this
+gate exists to catch** — an executor blocked mid-item is expensive, and the block was knowable
+before a line was written.
 
 **Proportionality (founder 2026-08-02).** The gates exist for correctness risk. An item that
 is documentation, or whose design has already been through adversarial review, runs a single
