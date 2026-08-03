@@ -7,12 +7,14 @@
  * suite showing a symptom — which is why the counter is owned by the ADAPTER, at the point itself,
  * and this module only reads it. There is nowhere here for a count to be invented.
  *
- * The four judgements — is this point real, did the fault fire, did the restart restart anything —
- * live in `guards.ts` and are routed to, never re-derived here.
+ * The four judgements this module makes — is this point real, does it already have a live arming,
+ * did the fault fire, did the restart restart anything — live in `guards.ts` and are routed to,
+ * never re-derived here. The fifth predicate there, whether a sentinel value is evidence at all, is
+ * routed by `sentinels.ts`; this sentence names four because four is what this file routes.
  */
 
 import type { FaultHandle, Faults } from './contracts.ts';
-import { faultFiredProblem, faultPointProblem, processEpochProblem } from './guards.ts';
+import { faultAlreadyArmedProblem, faultFiredProblem, faultPointProblem, processEpochProblem } from './guards.ts';
 
 /** The fault kinds the shared contract admits, named once so an adapter seam can spell them. */
 export type FaultKind = 'crash' | 'reject' | 'lose_ack';
@@ -45,6 +47,13 @@ export type AdapterFaultSeam = {
 export function createFaults(seam?: AdapterFaultSeam): Faults {
   const exposed = (): string[] => (seam ? [...seam.points()] : []);
   const epoch = (): string => (seam ? seam.processEpoch() : '');
+  /**
+   * WHICH POINTS HAVE A LIVE ARMING right now, held per harness — every `open()` builds its own
+   * `createFaults`, so a reservation cannot outlive the harness that made it and cannot reach the
+   * next id. The arming itself is the value, not merely `true`, so that clearing a handle releases
+   * only its OWN reservation and never a later one taken on the same point.
+   */
+  const liveArmings = new Map<string, ArmedFault>();
 
   return {
     points: async () => exposed(),
@@ -58,15 +67,26 @@ export function createFaults(seam?: AdapterFaultSeam): Faults {
       const problem = faultPointProblem(point, exposed());
       if (problem !== null) throw new Error(problem);
 
+      const displaced = faultAlreadyArmedProblem(point, liveArmings.keys());
+      if (displaced !== null) throw new Error(displaced);
+
       const armed = seam.arm(point, kind);
+      // Reserved only once the ADAPTER has accepted the arming. A refusal inside `arm()` — a kind
+      // the point does not implement, say — armed nothing, and reserving the point before that
+      // would leave it unarmable for the rest of the harness's life on account of a call that failed.
+      liveArmings.set(point, armed);
       const handle: FaultHandle = {
         point,
         triggerCount: async () => armed.triggerCount(),
         clear: async () => {
           const count = armed.triggerCount();
-          // Disarm FIRST, then judge: the arming must not survive a refusal into the next id, and
-          // what is being refused is the conclusion the test is about to draw, not the cleanup.
+          // Disarm and RELEASE THE POINT FIRST, then judge: the arming must not survive a refusal
+          // into the next id, and what is being refused is the conclusion the test is about to
+          // draw, not the cleanup. The release belongs in the same breath as the disarm — a
+          // refusal from `faultFiredProblem` that left the reservation standing would make the
+          // point permanently unarmable, which is a second silent hole in place of the first.
           armed.disarm();
+          if (liveArmings.get(point) === armed) liveArmings.delete(point);
           const fired = faultFiredProblem(point, count);
           if (fired !== null) throw new Error(fired);
         },

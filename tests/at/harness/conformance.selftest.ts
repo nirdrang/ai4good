@@ -17,6 +17,7 @@ import { bijectionProblems, type SuiteRegistration } from './check.ts';
 import { createHarness } from './index.ts';
 import { createSentinels } from './sentinels.ts';
 import {
+  faultAlreadyArmedProblem,
   faultFiredProblem,
   faultPointProblem,
   MIN_SENTINEL_VALUE_LENGTH,
@@ -241,13 +242,30 @@ describe('a teardown failure fails the test instead of disappearing', () => {
 });
 
 describe('the centralized generic guards refuse as well as accept', () => {
-  it('accepts a long unique sentinel and refuses a short one, a blank one and a reused one', () => {
+  it('accepts a long unique sentinel and refuses a short one, a blank one, a reused one and an overlapping one', () => {
     const good = 'AT-016.01/blockers/1767225600000';
     expect(good.length).toBeGreaterThanOrEqual(MIN_SENTINEL_VALUE_LENGTH);
     expect(sentinelValueProblem(good, [])).toBeNull();
     expect(sentinelValueProblem('short', [])).toContain('characters');
     expect(sentinelValueProblem('   ', [])).toContain('non-empty');
     expect(sentinelValueProblem(good, [good])).toContain('planted before');
+
+    // OVERLAP, both directions. The scan asks whether a body CONTAINS the value, so a value that
+    // extends an already-planted one — or that an already-planted one extends — makes every body
+    // carrying either report both present. Equality was the only case this guard used to reject,
+    // and substring matching is what makes that insufficient.
+    expect(
+      sentinelValueProblem(`${good}/extended`, [good]),
+      'a value containing an earlier one was accepted — every body carrying it would report the earlier one present too',
+    ).toContain('overlaps');
+    expect(
+      sentinelValueProblem(good, [`${good}/extended`]),
+      'a value contained in an earlier one was accepted — the harm is symmetric and so must the refusal be',
+    ).toContain('overlaps');
+    expect(
+      sentinelValueProblem(good, ['AT-016.02/scope/1767225600000']),
+      'two distinct sentinels of the same shape were refused as overlapping — the guard stopped discriminating',
+    ).toBeNull();
   });
 
   it('accepts a fault point the product exposes and refuses one it does not', () => {
@@ -256,6 +274,15 @@ describe('the centralized generic guards refuse as well as accept', () => {
     const problem = faultPointProblem('notifications.typo', exposed) ?? '';
     expect(problem).toContain('exposes no fault point');
     expect(problem, 'the refusal does not say which points DO exist, so a typo is hard to see').toContain(exposed[0]);
+  });
+
+  it('accepts arming a point nothing holds and refuses one that already has a live arming', () => {
+    const point = 'notifications.between_transition_and_event_write';
+    expect(faultAlreadyArmedProblem(point, [])).toBeNull();
+    expect(faultAlreadyArmedProblem(point, ['notifications.other'])).toBeNull();
+    const problem = faultAlreadyArmedProblem(point, ['notifications.other', point]) ?? '';
+    expect(problem, 'a second arming of a live point was accepted').toContain('already armed');
+    expect(problem, 'the refusal does not say what to do about it').toContain('Clear the existing handle');
   });
 
   it('accepts a fault that fired and refuses one that was merely armed', () => {
@@ -274,10 +301,10 @@ describe('the centralized generic guards refuse as well as accept', () => {
 /**
  * H3's wall, and the reason it is not a formality.
  *
- * The four `describe` blocks above test the guards AS PURE FUNCTIONS. That is not enough, and this
- * file says so about itself thirty lines up: a problem computed and not acted on is "this tree's own
- * recurring false-green shape". Nothing above proves that `plant`, `at`, `clear` and `processRestart`
- * ever CALL the predicate that would refuse them.
+ * The blocks above test the guards AS PURE FUNCTIONS. That is not enough, and this file says so
+ * about itself thirty lines up: a problem computed and not acted on is "this tree's own recurring
+ * false-green shape". Nothing above proves that `plant`, `at`, `clear` and `processRestart` ever
+ * CALL the predicate that would refuse them.
  *
  * And for sentinels the stakes are higher still. `req-016` is the only suite that exists; its one
  * sentinel consumer, `AT-016.01`, throws at `h.static.providerClientImporters()` on line 28 and never
@@ -292,7 +319,7 @@ describe('the centralized generic guards refuse as well as accept', () => {
  * and an adapter offering no seam at all — are built from stubs, and each says so where it sits.
  */
 describe('the H3 wall: sentinels and fault injection call the guards, and refuse', () => {
-  it('plants a usable marker and refuses a blank, a short and a reused value', async () => {
+  it('plants a usable marker and refuses a blank, a short, a reused and an overlapping value', async () => {
     const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
     try {
       const value = 'conformance/plant/1767225600000';
@@ -302,10 +329,18 @@ describe('the H3 wall: sentinels and fault injection call the guards, and refuse
 
       // The refusals are the guard's judgement, reached through the implementation rather than
       // called directly: a plant() that computed sentinelValueProblem and ignored it passes every
-      // test in the block above and fails all three of these.
+      // test in the block above and fails all four of these.
       await expect(h.sentinels.plant('notification-body', 'short')).rejects.toThrow(/characters/);
       await expect(h.sentinels.plant('notification-body', '   ')).rejects.toThrow(/non-empty/);
       await expect(h.sentinels.plant('notification-body', value)).rejects.toThrow(/planted before/);
+
+      // OVERLAP, through the implementation. `scan()` matches with `body.includes()`, so planting a
+      // value that extends a live one would make every body carrying the longer one report the
+      // shorter one present as well — a sentinel found in a scope no event carried it to.
+      await expect(
+        h.sentinels.plant('notification-body', `${value}/extended`),
+        'a value extending a planted one was accepted, so the scan can report it present off the other one alone',
+      ).rejects.toThrow(/overlaps/);
     } finally {
       await h.teardown();
     }
@@ -402,6 +437,45 @@ describe('the H3 wall: sentinels and fault injection call the guards, and refuse
         'execution reached the armed point and the handle did not count it',
       ).toBe(1);
       await reached.clear();
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('refuses to arm a point that already holds a live arming, and lets a cleared point be armed again', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('fault-displacement')) as World;
+
+      const first = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(
+        h.faults.at(FAULT_POINT, 'crash'),
+        'a second arming displaced the live one silently — the first handle would then count a point ' +
+          'nothing reaches, and clearing the replacement would disarm the point while that handle ' +
+          'still reported itself armed',
+      ).rejects.toThrow(/already armed/);
+
+      // The surviving arming is the FIRST one, and it is the one that catches the fault. A
+      // displacement that had been allowed would leave this count at zero.
+      await expect(world.fire('payment.succeeded'), 'the induced crash did not surface at all').rejects.toThrow(
+        /induced fault/,
+      );
+      expect(await first.triggerCount(), 'the arming that survived did not count the fault it caught').toBe(1);
+      await first.clear();
+
+      // CLEARING RELEASES THE POINT. A reservation that outlived its handle would make the point
+      // unarmable for the rest of this harness's life — the refusal turning into a second silent
+      // hole in place of the first.
+      const second = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(world.fire('payment.succeeded')).rejects.toThrow(/induced fault/);
+      await second.clear();
+
+      // A REFUSED arming reserves nothing either: this one is rejected inside the adapter, on the
+      // kind, after the point check — so the point must still be free afterwards.
+      await expect(h.faults.at(FAULT_POINT, 'lose_ack')).rejects.toThrow(/implements no/);
+      const third = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(world.fire('payment.succeeded')).rejects.toThrow(/induced fault/);
+      await third.clear();
     } finally {
       await h.teardown();
     }
