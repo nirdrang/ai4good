@@ -12,9 +12,18 @@
  */
 
 import { bindSuite } from '../../harness/registry.ts';
+import type { AtContext as HarnessAtContext, OpenWorld as HarnessOpenWorld } from '../../harness/registry.ts';
 
 export { AtPending, TIER, TIERS } from '../../harness/registry.ts';
-export type { AtContext, OpenWorld, PendingPhase } from '../../harness/registry.ts';
+export type { PendingPhase } from '../../harness/registry.ts';
+
+// Re-exported ALREADY BOUND, so a test body annotating one of them writes `AtContext`, not
+// `AtContext<'req-016', 'notifications'>` — the suite names its requirement once, in this file, and
+// nowhere else. The harness types take a requirement and a sut key rather than a system-under-test
+// shape precisely so that annotating a body cannot widen the seam; see `SeamOpenWorld` in
+// `harness/registry.ts` for the attack that forced it.
+export type AtContext = HarnessAtContext<'req-016', 'notifications'>;
+export type OpenWorld = HarnessOpenWorld<'req-016', 'notifications'>;
 
 // The suite names TWO STRINGS and no types at all: which requirement it is, and which member of
 // `harness.sut` it drives. It deliberately cannot name - or re-label - the harness TYPE: that shape

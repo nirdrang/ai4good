@@ -131,12 +131,14 @@ export const HARNESS_MODULE = './index.ts';
  * an object that never supplies it — the same defect closed fifteen times elsewhere in this seam,
  * left open here by an exclusion that contradicted its own criterion.
  *
- * The exploit needed `W` at its DEFAULT, which is what made it easy to miss: a suite that pins its
- * own world type (as REQ-016 does) resolves `w` to that type and never sees the merged member. Any
- * suite that does not pin one — and `atTest` is exported with `W = WorldLike` defaulted — did.
+ * The exploit needed `W` at its DEFAULT, which is what made it easy to miss: a suite that pinned its
+ * own world type (as REQ-016 did) resolved `w` to that type and never saw the merged member — which
+ * hid the hole rather than closing it.
  *
- * That the suite's chosen `W` is itself an unverified claim is a separate defect and remains
- * AI4DEV-31's. This is only about whether the door is open at all.
+ * A suite can no longer pin a world type at all. AI4DEV-31 derives `w` from the adapter that really
+ * produces it, so this type's job is now only what it always said on the tin: the minimum the
+ * harness needs in order to tear a world down, which is why `suite-adapters.ts` constrains every
+ * registered adapter's `fixtures.world()` to return one.
  */
 export type WorldLike = {
   teardown(): Promise<void>;
@@ -180,7 +182,29 @@ export class AtPending extends Error {
 
 /* --------------------------------------------------------------------------- the test context */
 
-export type OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
+/**
+ * THE STRUCTURE of what `open()` hands back, parameterized by shape and NOT EXPORTED.
+ *
+ * The exported `OpenWorld` below takes a requirement and a sut key instead, and this is why. Any
+ * exported type generic over the SUT's shape is a way back into the hole, and not through the door
+ * anyone was watching: leave `bindSuite` alone, and widen the type at the BODY instead —
+ * `async (ctx: AtContext<NotificationsSut & { invented?: string }, World>) => …` — then read the
+ * invented member. It needs no cast and no suppression. It was measured compiling clean against the
+ * first version of this change, with every other door already shut.
+ *
+ * NOTHING STRUCTURAL CAN REJECT IT, which is the part worth writing down. `NotificationsSut` and
+ * `NotificationsSut & { invented?: string }` are assignable in BOTH directions — an optional member
+ * adds no obligation — so they are indistinguishable to the assignability check however the
+ * variance is arranged. Marking the parameter invariant does not help; nor does any conditional
+ * "exactly this type" trick, because both directions genuinely hold.
+ *
+ * So the only close is to make the widened type UNSPELLABLE: a suite that cannot name a shape here
+ * cannot widen one. `OpenWorld`, `AtContext`, `AtTestBody` and `EvidenceCapture` are exported over
+ * `<R, K>` — a requirement and a sut key, both of which derive — and the shape-parameterized
+ * versions stay inside this module. That is the same decision D1 made for `bindSuite`, carried to
+ * the rest of the exported surface rather than stopped one type short.
+ */
+type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
   /**
    * The harness, at EXACTLY the type `createHarness()` is statically checked to produce — not a
    * suite-chosen type, and not the suite's type arguments pushed back into it.
@@ -226,6 +250,14 @@ export type OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
   sut: Sut;
 };
 
+/**
+ * What `open()` hands a test body, for the suite bound to requirement `R` and sut key `K`.
+ *
+ * Named by TWO STRINGS, never by a shape — see `SeamOpenWorld` above for why that distinction is
+ * the whole protection rather than a stylistic preference.
+ */
+export type OpenWorld<R extends SuiteId, K extends SutKeyOf<R>> = SeamOpenWorld<SutOf<R, K>, WorldOf<R>>;
+
 export interface OpenOverrides {
   /**
    * Re-tune pinned values for THIS world only, so one authored body can be run against two
@@ -236,14 +268,17 @@ export interface OpenOverrides {
   config?: ConfigOverrides;
 }
 
-/** Everything a test body is given. `atId` is read-only context, never re-supplied to open(). */
-export type AtContext<Sut = unknown, W extends WorldLike = WorldLike> = {
+/** The STRUCTURE of what a test body is given — not exported, for the reason on `SeamOpenWorld`. */
+type SeamContext<Sut = unknown, W extends WorldLike = WorldLike> = {
   atId: string;
   /** build a fresh "Given" world (and its own harness). Call it more than once for isolation. */
-  open(fixture?: string, opts?: OpenOverrides): Promise<OpenWorld<Sut, W>>;
+  open(fixture?: string, opts?: OpenOverrides): Promise<SeamOpenWorld<Sut, W>>;
   /** consume an immutable capture whose producer proved at least one real open() */
-  capture<T>(evidence: EvidenceCapture<T, Sut, W>): Promise<T>;
+  capture<T>(evidence: EvidenceCaptureImpl<T, Sut, W>): Promise<T>;
 };
+
+/** Everything a test body is given. `atId` is read-only context, never re-supplied to open(). */
+export type AtContext<R extends SuiteId, K extends SutKeyOf<R>> = SeamContext<SutOf<R, K>, WorldOf<R>>;
 
 const USAGE = Symbol('at-context-usage');
 
@@ -258,7 +293,7 @@ interface Usage {
  * even from inside this module. It is reachable from a test body — `capture()` hands it to an
  * evidence producer — and everything on that path obeys the alias rule.
  */
-type InternalContext<Sut, W extends WorldLike> = AtContext<Sut, W> & {
+type InternalContext<Sut, W extends WorldLike> = SeamContext<Sut, W> & {
   [USAGE]: Usage;
 };
 
@@ -343,7 +378,7 @@ class EvidenceCaptureImpl<T, Sut = unknown, W extends WorldLike = WorldLike> {
     readonly name: string,
     /** the suite this capture reads the seam of — it is in the failure text so a red says whose */
     readonly requirement: string,
-    private readonly producer: (ctx: AtContext<Sut, W>) => Promise<T>,
+    private readonly producer: (ctx: SeamContext<Sut, W>) => Promise<T>,
   ) {}
 
   consume(ctx: InternalContext<Sut, W>): Promise<T> {
@@ -371,8 +406,14 @@ class EvidenceCaptureImpl<T, Sut = unknown, W extends WorldLike = WorldLike> {
   }
 }
 
-/** An immutable capture, consumable by any test in the suite that defined it. Type only — see above. */
-export type EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike> = EvidenceCaptureImpl<T, Sut, W>;
+/**
+ * An immutable capture, consumable by any test in the suite that defined it.
+ *
+ * A TYPE, never the class — and named by a requirement and a sut key, never by a shape. Both halves
+ * matter: the class would expose a constructor that takes a producer at any types, and shape
+ * parameters would let a body widen the context it is handed. See `SeamOpenWorld`.
+ */
+export type EvidenceCapture<T, R extends SuiteId, K extends SutKeyOf<R>> = EvidenceCaptureImpl<T, SutOf<R, K>, WorldOf<R>>;
 
 /**
  * `defineEvidenceCapture` was the SECOND door to the seam AI4DEV-31 closes, and closing `bindSuite`
@@ -391,8 +432,8 @@ export type EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike> =
 type DefineEvidenceCaptureFn = <T, R extends SuiteId, K extends SutKeyOf<R>>(
   binding: SuiteBinding<R, K>,
   name: string,
-  producer: (ctx: AtContext<SutOf<R, K>, WorldOf<R>>) => Promise<T>,
-) => EvidenceCapture<T, SutOf<R, K>, WorldOf<R>>;
+  producer: (ctx: AtContext<R, K>) => Promise<T>,
+) => EvidenceCapture<T, R, K>;
 
 export const defineEvidenceCapture: DefineEvidenceCaptureFn = (binding, name, producer) =>
   new EvidenceCaptureImpl(name, binding.requirement, producer);
@@ -401,10 +442,20 @@ export function testUseProblem(opens: number, captures: number): string | null {
   return opens === 0 && captures === 0 ? 'test body never opened a fixture world or consumed trusted captured evidence' : null;
 }
 
+/**
+ * Runs one body and refuses a pass that observed nothing.
+ *
+ * Still parameterized by SHAPE rather than by `<R, K>`, and that is not an oversight. It is not a
+ * door to the seam: it never produces a harness-backed value, so the only context it can be given
+ * is one the caller built by hand — fabricating a type there is a caller lying to itself about its
+ * own object, with no harness claim anywhere in it. Keeping the structural signature is also what
+ * lets `conformance.selftest.ts` drive it with a hand-built context, which is the point of the
+ * false-green reproduction it appears in.
+ */
 export async function executeRegisteredBody<Sut, W extends WorldLike>(
   atId: string,
-  body: AtTestBody<Sut, W>,
-  ctx: AtContext<Sut, W>,
+  body: (ctx: SeamContext<Sut, W>) => Promise<void>,
+  ctx: SeamContext<Sut, W>,
   usage: Usage,
 ): Promise<void> {
   await body(ctx);
@@ -510,7 +561,13 @@ interface OpenOptions {
   configOverrides?: ConfigOverrides;
 }
 
-async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: AtHarness }> {
+/**
+ * Builds a harness and a world, at the types the HARNESS can actually prove: `sut` is `unknown`
+ * (`h.sut[key]` on a concrete `AtHarness`) and `w` is a bare `WorldLike`. It deliberately knows
+ * nothing about any suite — the narrowing to that suite's derived types happens once, at the end of
+ * `open()`, where the comment says exactly what is still taken on trust.
+ */
+async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harness: AtHarness }> {
   if (TIER === null) throw new AtPending(o.atId, 'tier-unset', tierError(o.requirement));
 
   if (!harnessModule) {
@@ -550,9 +607,8 @@ async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: 
 
 /* ------------------------------------------------------------------------------- registration */
 
-export type AtTestBody<Sut = unknown, W extends WorldLike = WorldLike> = (
-  ctx: AtContext<Sut, W>,
-) => Promise<void>;
+/** One authored test body, for the suite bound to requirement `R` and sut key `K`. */
+export type AtTestBody<R extends SuiteId, K extends SutKeyOf<R>> = (ctx: AtContext<R, K>) => Promise<void>;
 
 function emitRuntimeRegistration(registration: Registration): void {
   const dir = process.env.AT_REGISTRATION_DIR;
@@ -621,7 +677,7 @@ type AtTestFn = {
     atId: string,
     title: string,
     opts: AtTestOptions & SuiteBinding<R, K>,
-    body: AtTestBody<SutOf<R, K>, WorldOf<R>>,
+    body: AtTestBody<R, K>,
   ): void;
 };
 
@@ -629,7 +685,7 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
   atId: string,
   title: string,
   opts: AtTestOptions & SuiteBinding<R, K>,
-  body: AtTestBody<SutOf<R, K>, WorldOf<R>>,
+  body: AtTestBody<R, K>,
 ): void => {
   if (typeof body !== 'function') throw new Error(`${atId}: atTest was given no test body`);
 
@@ -685,7 +741,7 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
         // built at run time really is the one that module's `createFixtureAdapter()` returned. That
         // holds unless somebody casts inside `index.ts` or mutates the adapter after it is built —
         // both trusted-author escapes this item does not claim to close.
-        return opened as OpenWorld<SutOf<R, K>, WorldOf<R>>;
+        return opened as OpenWorld<R, K>;
       },
       capture: async (evidence) => {
         const value = await evidence.consume(ctx);
@@ -702,15 +758,15 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
 
 /** `atTest`, with the binding already applied — so bodies say `atTest(id, title, body)`. */
 type BoundAtTest<R extends SuiteId, K extends SutKeyOf<R>> = {
-  (atId: string, title: string, opts: AtTestOptions, body: AtTestBody<SutOf<R, K>, WorldOf<R>>): void;
-  (atId: string, title: string, body: AtTestBody<SutOf<R, K>, WorldOf<R>>): void;
+  (atId: string, title: string, opts: AtTestOptions, body: AtTestBody<R, K>): void;
+  (atId: string, title: string, body: AtTestBody<R, K>): void;
 };
 
 /** `defineEvidenceCapture`, with the binding already applied. */
 type BoundDefineEvidenceCapture<R extends SuiteId, K extends SutKeyOf<R>> = <T>(
   name: string,
-  producer: (ctx: AtContext<SutOf<R, K>, WorldOf<R>>) => Promise<T>,
-) => EvidenceCapture<T, SutOf<R, K>, WorldOf<R>>;
+  producer: (ctx: AtContext<R, K>) => Promise<T>,
+) => EvidenceCapture<T, R, K>;
 
 /**
  * A suite's ONE line of harness contact: name the requirement and the system-under-test key, and
@@ -736,11 +792,11 @@ export const bindSuite: BindSuiteFn = <R extends SuiteId, K extends SutKeyOf<R>>
   const boundAtTest = (
     atId: string,
     title: string,
-    optsOrBody: AtTestOptions | AtTestBody<SutOf<R, K>, WorldOf<R>>,
-    maybeBody?: AtTestBody<SutOf<R, K>, WorldOf<R>>,
+    optsOrBody: AtTestOptions | AtTestBody<R, K>,
+    maybeBody?: AtTestBody<R, K>,
   ): void => {
     const opts: AtTestOptions = typeof optsOrBody === 'function' ? {} : optsOrBody;
-    const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<SutOf<R, K>, WorldOf<R>>;
+    const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<R, K>;
     atTest<R, K>(atId, title, { ...opts, ...binding }, body);
   };
 
