@@ -197,3 +197,58 @@ jobs:
           else
             echo "ownership guard OK — this pull request touches neither territory"
           fi
+
+      - name: Guard against a pull request that closes an item it does not own
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # Linear closes an issue when a CLOSING MAGIC WORD sits next to its id in a pull
+          # request's title or body — close/fix/resolve/complete/implement and their inflections.
+          # A bare mention does not close; the verb does. That is how a careful post-mortem
+          # naming the item it learned from closed that item mid-work: the sentence read
+          # "the instruction that fixed AI4DEV-31's chain", and `fixed` was the whole cause.
+          #
+          # The hazard punishes good practice — the better the write-up, the more items it cites,
+          # and the most-cited item is the one somebody is actively working. Nothing checked that
+          # the pull request had any relationship to the item it closed, which is the same
+          # asserted-but-unobserved state this repository's way of work exists to delete.
+          #
+          # Title and body are read through the API rather than interpolated into this script:
+          # `${{ }}` expansion of attacker-controlled text into a run block is script injection.
+          if ! pr=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.title + "\n" + (.body // "")'); then
+            echo "::error::the pull request's title and body could not be read from the GitHub API — the guard does not pass text it could not read"
+            exit 1
+          fi
+
+          MAGIC='(clos(e|es|ed|ing)|fix(|es|ed|ing)|resolv(e|es|ed|ing)|complet(e|es|ed|ing)|implement(|s|ed|ing))'
+          ID='AI4(DEV|PM)-[0-9]+'
+
+          # Up to 24 non-space characters may sit between the verb and the id, so "fixes the
+          # last of AI4DEV-31" is caught while a verb three sentences away is not.
+          closing=$(printf '%s' "$pr" | grep -oiE "${MAGIC}[[:space:]]+([^[:space:]]+[[:space:]]+){0,3}${ID}" || true)
+          claimed=$(printf '%s\n' "$closing" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
+          owned=$(printf '%s' "$HEAD_REF" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
+
+          if [ -z "$claimed" ]; then
+            echo "closure guard OK — no closing reference to any item in the title or body"
+            exit 0
+          fi
+
+          echo "closing references found: $(printf '%s' "$claimed" | tr '\n' ' ')"
+          echo "this branch owns: $(printf '%s' "${owned:-none}" | tr '\n' ' ')"
+
+          stray=$(comm -23 <(printf '%s\n' "$claimed" | grep . | sort -u) <(printf '%s\n' "$owned" | grep . | sort -u) || true)
+          if [ -n "$stray" ]; then
+            echo "::error::this pull request would CLOSE an item its branch does not own"
+            printf '%s\n' "$stray" | sed 's/^/  would close: /'
+            echo "The branch names $(printf '%s' "${owned:-no item}" | tr '\n' ' '), so any other item here is being closed by prose, not by the work."
+            echo "Fix the wording: use a non-closing verb (repaired, taught, motivated), or Linear's non-closing references (ref, part of, related to, contributes to, towards)."
+            exit 1
+          fi
+
+          echo "closure guard OK — every closing reference belongs to this branch's own item"
