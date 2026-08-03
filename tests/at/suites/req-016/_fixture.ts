@@ -255,7 +255,6 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
   ): Promise<{ eventId: string }> => {
     const row = TAXONOMY.find((candidate) => candidate.event === event);
     if (!row) throw new Error(`fixture cannot fire unregistered notification event ${JSON.stringify(event)}`);
-    const eventId = `event-${state.nextId++}`;
     const channels = channelsFor(row);
     const payload = payloadFor(row, params);
     const recipients = row.recipients.map((role) => ({
@@ -266,10 +265,12 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
     // (1) THE TRANSITION COMMITS FIRST, (2) the fault point, (3) the event write and everything
     // that belongs to it. That order is what the point's name asserts.
     //
-    // ONE ROLLBACK UNIT: a crash at the point puts the transition back the way it was, so neither
-    // side is committed. Restoring the PREVIOUS value rather than deleting the key matters — an
-    // earlier firing of the same event legitimately left one behind, and deleting it would report
-    // "the transition never happened" about a transition that did.
+    // ONE ROLLBACK UNIT, and the list is exhaustive: the transition is the only thing committed
+    // before the point, and a crash there puts it back the way it was. Restoring the PREVIOUS value
+    // rather than deleting the key matters — an earlier firing of the same event legitimately left
+    // one behind, and deleting it would report "the transition never happened" about a transition
+    // that did. Everything else — the id, the event, the deliveries, the ops item — is allocated or
+    // written only after the point, so a crash has nothing of theirs to undo.
     const transitionBefore = state.transitions.get(event);
     state.transitions.set(event, true);
     try {
@@ -280,6 +281,11 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
       throw fault;
     }
 
+    // ALLOCATED AFTER THE POINT, deliberately. This used to run before it, so a crash consumed an
+    // id for an event that never existed and a later firing observed `event-2` with no `event-1` —
+    // a third side effect the rollback did not undo while the comment above called itself one unit.
+    // Removing the side effect is a stronger repair than compensating for it in the catch.
+    const eventId = `event-${state.nextId++}`;
     state.events.push({
       id: eventId,
       type: event,
@@ -297,6 +303,9 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
           channel,
           state: 'pending',
           emittedBy: 'notifications.emitter',
+          // Nothing has sent this yet, so no process owns it. `drainDeliveries` stamps the
+          // identity of the process that actually performed the send.
+          deliveredByProcess: null,
           payload: clone(payload),
           body: bodyFor(row, payload),
         });
@@ -331,7 +340,14 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
     opsItems: async (filter) =>
       clone(state.opsItems.filter((item) => !filter?.linkedEventId || item.linkedEventId === filter.linkedEventId)),
     drainDeliveries: async () => {
-      for (const delivery of state.deliveries) delivery.state = 'sent';
+      // THE DELIVERY PATH READS THE PROCESS IDENTITY. Every send is stamped with the identity of
+      // the process that performed it, which is what makes `processRestart()` causal rather than
+      // decorative: before this, nothing on this path consulted `processEpoch` at all, so deleting
+      // the restart from AT-016.07 changed no outcome and the green was bought with nothing.
+      for (const delivery of state.deliveries) {
+        delivery.state = 'sent';
+        delivery.deliveredByProcess = processEpoch;
+      }
       for (const event of state.events) {
         if (event.state === 'pending' || event.state === 'retrying') {
           event.state = 'sent';

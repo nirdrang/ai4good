@@ -36,9 +36,26 @@ describe('AT-REQ-016 B — delivery defaults', () => {
 
       // That the restart actually changed the delivery process's identity is the harness's
       // obligation, checked once in harness/guards.ts (processEpochProblem), not per suite.
+      const beforeRestart = await h.faults.processEpoch();
       await h.faults.processRestart();
+      const afterRestart = await h.faults.processEpoch();
 
       await sut.drainDeliveries();
+
+      // THE RESTART IS PART OF THIS RESULT, not a step beside it. Every delivery of this event was
+      // still pending above, so all of them had to be completed by the process that exists AFTER
+      // the restart — and the delivery path has to read that identity to say so. Before this
+      // assertion, `processRestart()` changed a label nothing on the delivery path consulted, and
+      // deleting the restart call left this test passing identically; now a process identity the
+      // delivery path ignores fails here instead of passing.
+      const stamps = (await sut.deliveries({ type: 'payment.succeeded' }))
+        .filter((d) => d.eventId === eventId)
+        .map((d) => d.deliveredByProcess);
+      expect(stamps.length, 'the event produced no delivery to attribute to any process').toBeGreaterThan(0);
+      expect(
+        [...new Set(stamps)],
+        `pending work was not completed by the post-restart delivery process (before=${beforeRestart}, after=${afterRestart})`,
+      ).toEqual([afterRestart]);
 
       const logical = (await sut.events({ type: 'payment.succeeded' })).filter((e) => e.id === eventId);
       expect(logical.length, 'the committed event yielded more or fewer than one logical notification').toBe(1);
