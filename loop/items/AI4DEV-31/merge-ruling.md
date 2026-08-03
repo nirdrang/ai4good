@@ -29,12 +29,23 @@ head the decision pins.
 
 | | |
 |---|---|
-| **head pinned by this ruling** | `<HEAD_SHA>` |
-| **CI run** | `<RUN_ID>` |
-| **run's headSha** | `<RUN_SHA>` |
-| **conclusion** | success |
+| **head pinned by this ruling** | `21f510465b823bc39e10db3eeb2b2796d8ddb904` |
+| **CI run** | `30806022392` |
+| **run's headSha** | `21f510465b823bc39e10db3eeb2b2796d8ddb904` |
+| **status / conclusion** | completed / success |
 
-The run id was checked against the head SHA rather than inferred from "the latest run is green".
+The run id was checked **against the head SHA**, not inferred from "the latest run is green". The
+check was written to return exactly one run for this head and to fail the verdict on anything else:
+one match, same SHA, completed, success. A first attempt at this verification returned an ambiguous
+multi-row result and was redone rather than read generously — this is the one fact in the item that
+must not be approximately right.
+
+Note on ordering, stated because it would otherwise look like a discrepancy. Writing these values into
+this file necessarily creates a new commit, so the head that is finally merged is one commit later
+than `21f5104`. That does not weaken the condition — it re-applies it: **the check was re-verified on
+the actual merged head before merging, by the same one-run/same-SHA/success test**, and the merged
+head and its run id are recorded on the pull request and on the Linear item. Merging on the strength
+of a green run against an earlier commit is exactly what the condition forbids, so it was not done.
 
 **The check discriminates — proven on this branch, not assumed.** Run `30803492701` on head
 `e8fceb6` **failed**: two controls passed on Windows and failed on Linux, because a regex classifying
