@@ -163,6 +163,34 @@ The message must name both values and the file, e.g.:
 `AT-017.03 was registered through a suite bound to req-016 — the harness would load req-016's
 fixture adapter while the type-check described req-017's`.
 
+**Decision D4b. `bindSuite` is not the only door — the evidence-capture generics are a second one,
+and they must be closed in the same change.**
+
+Found by re-reading before Gate 1 returned, and not by any reviewer.
+`tests/at/suites/req-016/d-taxonomy-evidence.test.ts:32` calls
+
+```ts
+defineEvidenceCapture<TaxonomyEvidence, NotificationsSut, World>('REQ-016 taxonomy execution', async ({ open }) => …)
+```
+
+`defineEvidenceCapture` (`registry.ts:309`), `EvidenceCapture` (`:276`) and `AtContext` (`:193`) are
+each generic over `<Sut, W>`, and the producer receives a full `AtContext<Sut, W>` whose `open()`
+returns `OpenWorld<Sut, W>`. So a suite that never touches `bindSuite` can declare any SUT and world
+shape it likes and read them green — **the identical hole, through a door the design as first written
+did not mention.** Closing `bindSuite` alone would have moved the defect rather than removed it, and
+the item would have shipped claiming a closure it did not have.
+
+So `bindSuite` must return a bound `defineEvidenceCapture` alongside the bound `atTest`, both
+carrying the derived `SutOf<R, K>` and `WorldOf<R>`; `_bind.ts` exports both; and
+`d-taxonomy-evidence.test.ts` imports the bound one instead of the raw generic. The raw generic must
+stop being reachable with suite-chosen type arguments — the same treatment `atTest` gets.
+
+The general rule, which the executor applies rather than re-deriving: **every exported symbol in
+`registry.ts` that is generic over `Sut` or `W` is a door to this hole.** As of this tree that is
+`OpenWorld`, `AtContext`, `EvidenceCapture`, `defineEvidenceCapture`, `AtTestBody`,
+`executeRegisteredBody`, `InternalContext`, `atTest` and `bindSuite`. Each must either derive, or be
+unreachable from a suite with suite-supplied arguments.
+
 **Decision D5. Extend the alias doctrine to the suite contract types that now flow through the seam.**
 
 After D1, `OpenWorld.sut` resolves to `NotificationsSut` and `OpenWorld.w` to the adapter's world —
@@ -185,6 +213,26 @@ in AI4DEV-24 and is the reason the alias rule exists at all.
 This is not scope drift: it is the same defect class, at the same seam, in the anchor the board item
 names. It is **not** H3/H4/H5 capability work and **not** a harness-factory redesign, both of which
 stay out.
+
+### D1 is not a hope — it was measured before briefing anyone
+
+The single largest risk in this design was that `typeof import()` would not resolve the way §2
+claims, given a non-annotated returned object literal and a world class that is neither exported nor
+structurally plain (it has private members). That was settled empirically with a throwaway spike
+under the real `tests/at/tsconfig.json` and the pinned compiler, then deleted; transcripts are in
+`loop/items/AI4DEV-31/spike-raw.txt` and `spike-raw-variant.txt`.
+
+| check | result |
+|---|---|
+| `SutOf<'req-016','notifications'>` assignable to `NotificationsSut` **and back** (exact match) | clean |
+| `WorldOf<'req-016'>` assignable to `World` | clean |
+| `WorldOf<'req-016'>` satisfies the `WorldLike` teardown constraint | clean |
+| a sut key the adapter does not supply | **TS2322**, and the message names the legal key set (`"notifications"`) |
+| reading a member `NotificationsSut` does not declare | **TS2339: Property … does not exist on type 'NotificationsSut'** |
+
+The private members and the non-exported class caused no diagnostic and leaked no implementation
+name; TypeScript still displays the resolved type as `NotificationsSut` even with no local import of
+it. The mechanism works in this configuration.
 
 ### Alternatives considered and rejected
 
