@@ -47,17 +47,11 @@ const REGISTRY_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harness', 
 const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.test.ts'], environment: 'node', testTimeout: 30000 } };\n`;
 
 /**
- * A minimal fixture adapter, so `open()` in a fixture suite reaches a real world through the real
- * harness. It is the same seam `harness/index.ts` loads for REQ-016.
- *
- * It declares its own requirement because the real `loadAdapter()` checks that literal against the
- * requirement it was asked to load, and throws when they disagree. These trees are not in
- * `suite-adapters.ts`'s type map and do not need to be — the check compares what the adapter says
- * about itself against what was requested, which needs no map.
+ * A minimal fixture adapter WITHOUT its self-declaring literal, so the two cases below can supply a
+ * wrong one or none at all. `open()` in a fixture suite reaches a real world through the real
+ * harness — it is the same seam `harness/index.ts` loads for REQ-016.
  */
-function fixtureAdapter(requirement: string): string {
-  return `export const requirement = 'req-${requirement}';
-export function createFixtureAdapter({ worlds }) {
+const ADAPTER_BODY = `export function createFixtureAdapter({ worlds }) {
   return {
     sut: { probe: { ping: async () => 'pong' } },
     fixtures: { world: async (name) => await worlds.world(name) },
@@ -65,6 +59,18 @@ export function createFixtureAdapter({ worlds }) {
   };
 }
 `;
+
+/**
+ * The adapter as a well-formed suite writes it: the body, plus the literal saying which requirement
+ * it is.
+ *
+ * It declares its own requirement because the real `loadAdapter()` checks that literal against the
+ * requirement it was asked to load, and throws when they disagree. These trees are not in
+ * `suite-adapters.ts`'s type map and do not need to be — the check compares what the adapter says
+ * about itself against what was requested, which needs no map.
+ */
+function fixtureAdapter(requirement: string): string {
+  return `export const requirement = 'req-${requirement}';\n${ADAPTER_BODY}`;
 }
 
 /**
@@ -98,9 +104,15 @@ interface RunnerOutcome {
  *
  * `acceptance` is the whole acceptance file, because its FORMATTING is under test in one of the
  * cases; `files` are the suite's files, written verbatim, because what a call site looks like in
- * source is under test in another.
+ * source is under test in another; `adapter` is the whole `_fixture.ts`, because what the adapter
+ * SAYS IT IS is under test in two more.
  */
-function runAgainstTree(requirement: string, acceptance: string, files: Record<string, string>): RunnerOutcome {
+function runAgainstTree(
+  requirement: string,
+  acceptance: string,
+  files: Record<string, string>,
+  adapter: string = fixtureAdapter(requirement),
+): RunnerOutcome {
   const tree = mkdtempSync(join(tmpdir(), 'at-blackbox-'));
   try {
     const suiteDir = join(tree, 'tests', 'at', 'suites', `req-${requirement}`);
@@ -108,7 +120,7 @@ function runAgainstTree(requirement: string, acceptance: string, files: Record<s
     mkdirSync(join(tree, '.taskmaster', 'docs', 'acceptance'), { recursive: true });
     writeFileSync(join(tree, '.taskmaster', 'docs', 'acceptance', `at-req-${requirement}.md`), acceptance, 'utf8');
     writeFileSync(join(tree, 'tests', 'at', 'vitest.config.ts'), FIXTURE_VITEST_CONFIG, 'utf8');
-    writeFileSync(join(suiteDir, '_fixture.ts'), fixtureAdapter(requirement), 'utf8');
+    writeFileSync(join(suiteDir, '_fixture.ts'), adapter, 'utf8');
     for (const [name, content] of Object.entries(files)) writeFileSync(join(suiteDir, name), content, 'utf8');
 
     const run = spawnSync(bunExecutable(), ['--no-env-file', RUNNER, `req-${requirement}`, '--tier', 'loop'], {
@@ -248,6 +260,87 @@ describe('the assembled runner refuses to run at all when the preflight cannot b
     expect(run.status, `a missing P0 id did not stop the run\n${run.output}`).toBe(2);
     expect(run.stderr).toContain('preflight refused the run');
     expect(run.stderr).toContain('AT-905.02');
+  });
+});
+
+/**
+ * THE ADAPTER'S SELF-DECLARED REQUIREMENT, EXERCISED THROUGH ITS FAILING PATH.
+ *
+ * `loadAdapter()` in `harness/index.ts` compares the literal a fixture module exports against the
+ * requirement it was asked to load, and throws naming both. Both Gate 2 reviewers found the same
+ * hole in the evidence rather than in the code: every synthetic adapter in these selftests carried
+ * the CORRECT literal, so deleting that check left all of them green. A guard nobody has watched
+ * fail is exactly the false-green shape this item exists to remove, so it is watched here.
+ *
+ * These cases are black-box on purpose — the real runner, a real child process, a real dynamic
+ * import — because the claim being made is that a mislabelled adapter cannot reach a passing test,
+ * not merely that a comparison in a function returns false.
+ *
+ * They are the run-time half of a pair. The compile-time half is the map entry in
+ * `suite-adapters.ts`, whose constraint rejects a module whose literal disagrees with its key; that
+ * one is asserted in `type-invention.selftest.ts`. Neither covers the other: the map cannot see a
+ * tree reached through `AT_REPO_ROOT`, and the run-time check cannot see a typo in a type map.
+ */
+describe('the assembled runner holds a fixture adapter to the requirement it declares', () => {
+  it('refuses an adapter that declares a different requirement, naming both values', () => {
+    // Everything else about this tree is well-formed: the acceptance file carries the id, the suite
+    // registers it, the body opens a world and asserts a real observation. The ONLY thing wrong is
+    // that the adapter says it is req-999 while the run asked for req-907 — so a green here would
+    // mean the suite's types were read off one module while another drove the run.
+    const run = runAgainstTree(
+      '907',
+      p0('AT-907.01', 'a well-formed test against an adapter that says it is a different suite'),
+      {
+        'g-mislabelled-adapter.test.ts':
+          suitePreamble('907') +
+          `describe('mislabelled adapter', () => {\n` +
+          `  atTest('AT-907.01', 'opens a world through an adapter claiming another requirement', async ({ open }) => {\n` +
+          `    const { sut } = await open();\n` +
+          `    expect(await sut.ping()).toBe('pong');\n` +
+          `  });\n` +
+          `});\n`,
+      },
+      fixtureAdapter('999'),
+    );
+
+    expect(run.status, `a mislabelled adapter produced a passing run\n${run.output}`).toBe(1);
+    const row = run.row('AT-907.01');
+    expect(row, `no report row for AT-907.01\n${run.output}`).not.toBeNull();
+    expect(row!.status).toBe('red');
+    // BOTH real values, because a message naming only one of them cannot be acted on: the reader
+    // has to know which module was loaded AND what it claims to be to tell which name is wrong.
+    expect(row!.detail, `the failure did not name what the adapter declares\n${run.output}`).toContain('req-999');
+    expect(row!.detail, `the failure did not name what was loaded\n${run.output}`).toContain('req-907');
+  });
+
+  it('refuses an adapter that declares no requirement at all', () => {
+    // The missing-field case is separate because a guard that switches itself off when a field is
+    // absent is the same hole arriving through the door marked convenience — and it would pass the
+    // case above, which only exercises a literal that is present and wrong.
+    const run = runAgainstTree(
+      '908',
+      p0('AT-908.01', 'a well-formed test against an adapter that names no requirement'),
+      {
+        'h-unlabelled-adapter.test.ts':
+          suitePreamble('908') +
+          `describe('unlabelled adapter', () => {\n` +
+          `  atTest('AT-908.01', 'opens a world through an adapter that declares nothing', async ({ open }) => {\n` +
+          `    const { sut } = await open();\n` +
+          `    expect(await sut.ping()).toBe('pong');\n` +
+          `  });\n` +
+          `});\n`,
+      },
+      ADAPTER_BODY,
+    );
+
+    expect(run.status, `an adapter declaring no requirement produced a passing run\n${run.output}`).toBe(1);
+    const row = run.row('AT-908.01');
+    expect(row, `no report row for AT-908.01\n${run.output}`).not.toBeNull();
+    expect(row!.status).toBe('red');
+    expect(row!.detail, `the failure did not say the literal is missing\n${run.output}`).toContain(
+      'it exports no `requirement`',
+    );
+    expect(row!.detail, `the failure did not name what was loaded\n${run.output}`).toContain('req-908');
   });
 });
 
