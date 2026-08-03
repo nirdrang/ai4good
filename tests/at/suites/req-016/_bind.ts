@@ -20,15 +20,17 @@ export type { PendingPhase } from '../../harness/registry.ts';
 // Re-exported ALREADY BOUND, so a test body annotating one of them writes `AtContext`, not
 // `AtContext<'req-016', 'notifications'>` — the suite names its requirement once, in this file, and
 // nowhere else. The harness types take a requirement and a sut key rather than a system-under-test
-// shape precisely so that annotating a body cannot widen the seam; see `SeamOpenWorld` in
-// `harness/registry.ts` for the attack that forced it.
+// shape precisely so that annotating a body has no SHAPE to widen with: reaching for these gets the
+// derived seam and nothing else. That is what closes the invited route; it does not close a widened
+// type rebuilt by hand out of these two, which was measured compiling clean and is documented on
+// `SeamOpenWorld` in `harness/registry.ts` alongside the attack that forced the change.
 export type AtContext = HarnessAtContext<'req-016', 'notifications'>;
 export type OpenWorld = HarnessOpenWorld<'req-016', 'notifications'>;
 
 // The suite names TWO STRINGS and no types at all: which requirement it is, and which member of
 // `harness.sut` it drives. It deliberately cannot name - or re-label - the harness TYPE: that shape
-// comes from the one shared contract the harness factory is statically checked to produce, so a
-// suite can never declare a seam nothing supplies.
+// comes from the one shared contract the harness factory is statically checked to produce, so there
+// is no argument here through which a suite can declare a seam nothing supplies.
 //
 // It can no longer name its own system-under-test or world type either. It used to
 // (`bindSuite<NotificationsSut, World>`), and that was two independent statements about one thing:

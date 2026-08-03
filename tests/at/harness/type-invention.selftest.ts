@@ -244,13 +244,18 @@ describe('the sut/world seam cannot be invented by a suite', () => {
     },
     {
       probe: seam,
-      what: 'widening the seam by annotating the body parameter',
+      what: 'widening the seam by annotating the body parameter with a fabricated shape',
       marker: `Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint '"req-016"'`,
       why:
-        'the subtlest route back: leave bindSuite alone and widen at the body with an OPTIONAL member. ' +
-        'Nothing structural can reject it — a type and that type intersected with an optional member ' +
-        'are assignable both ways — so the only defence is that the seam types take a requirement and ' +
-        'a sut key rather than shapes. If this fails, someone has re-parameterized them by shape',
+        'the subtlest INVITED route back: leave bindSuite alone and widen at the body with an ' +
+        'OPTIONAL member. Nothing structural can reject it — a type and that type intersected with ' +
+        'an optional member are assignable both ways — so the whole defence is that the seam types ' +
+        'take a requirement and a sut key rather than shapes. If this fails, someone has ' +
+        're-parameterized them by shape. Note precisely what it does and does not prove: it proves ' +
+        'the widened type cannot be PASSED to the seam any more, not that it cannot be BUILT. ' +
+        'Rebuilding one by hand out of the derived types still compiles — measured, and recorded as ' +
+        'a known-open case at the foot of sut-seam.probe.ts, where it cannot be an active attack ' +
+        'because that program must not compile and this one does',
     },
     {
       probe: seam,

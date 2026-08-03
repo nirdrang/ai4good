@@ -94,8 +94,8 @@ EXIT=2
   TS6200    one merge attack per contract AI4DEV-31 put on the seam path, all eight rejected
 
 
-3. THE ATTACK THAT SURVIVED THE FIRST FIX, AND WHAT IT COST TO CLOSE
---------------------------------------------------------------------
+3. THE ATTACK THAT SURVIVED THE FIRST FIX, AND WHAT CLOSING IT ACTUALLY BOUGHT
+------------------------------------------------------------------------------
 
 With `bindSuite`, `atTest` and `defineEvidenceCapture` all derived and all converted to consts, this
 still compiled CLEAN, measured in isolation:
@@ -113,12 +113,83 @@ And nothing structural can: `NotificationsSut` and `NotificationsSut & { invente
 assignable in BOTH directions — an optional member adds no obligation — so no variance annotation
 and no conditional "exactly this type" trick can distinguish them.
 
-The only close is to make the widened type UNSPELLABLE. `OpenWorld`, `AtContext`, `AtTestBody` and
-`EvidenceCapture` are now exported over `<R, K>` — a requirement id and a sut key, both of which
-derive — and the shape-parameterized versions stay module-private. The attack is line 72 above.
+So `OpenWorld`, `AtContext`, `AtTestBody` and `EvidenceCapture` are now exported over `<R, K>` — a
+requirement id and a sut key, both of which derive — and the shape-parameterized versions stay
+module-private. The attack is line 72 above, and it is rejected.
 
-This is the item's own lesson applied to itself: the first version would have shipped claiming a
-closure it did not have, and only running the compiler showed it.
+THIS SECTION USED TO END BY CALLING THE WIDENED TYPE "UNSPELLABLE". THAT WAS FALSE, AND IT IS THE
+SAME OVERCLAIM THE ITEM EXISTS TO REMOVE — see section 3b. What the change buys is precisely this:
+the API no longer INVITES the widening. It does not prevent it.
+
+
+3b. WHAT IS STILL OPEN: STRUCTURAL RECONSTRUCTION (Gate 2, confirmed here)
+--------------------------------------------------------------------------
+
+Both Gate 2 reviewers independently compiled the refutation, and it was reproduced in this worktree
+before being accepted — full transcript with controls in `gate2-widen-reproduction.txt`.
+
+A suite cannot NAME the seam types any more. But `AtContext<R, K>` and `OpenWorld<R, K>` are
+exported, because a body has to be able to annotate itself, and a determined author rebuilds the
+widened type out of THOSE with `Omit` and an intersection:
+
+  type WidenedOpen = OpenWorld<'req-016', 'notifications'> & {
+    sut: { inventedSut?: string };
+    w: { inventedWorld?: string };
+  };
+  type WidenedCtx = Omit<AtContext<'req-016', 'notifications'>, 'open'> & {
+    open(): Promise<WidenedOpen>;
+  };
+
+  suite.atTest('AT-016.97', 'reads an invented member', async (ctx: WidenedCtx) => {
+    const { sut, w } = await ctx.open();
+    const readSut: string | undefined = sut.inventedSut;      // compiles; undefined at run time
+    const readWorld: string | undefined = w.inventedWorld;    // compiles; undefined at run time
+  });
+
+$ node node_modules/typescript/bin/tsc --noEmit --pretty false -p <child config of tests/at/tsconfig.json>
+EXIT=0
+
+  entry point                                  compiled clean
+  --------------------------------------------|----------------
+  bound atTest (from bindSuite)                 YES
+  raw exported atTest                           YES
+  raw exported defineEvidenceCapture            YES
+
+Controls, both passing: `--listFiles` shows the probe file in the compiled program (so exit 0 is not
+an empty program), and appending `const x: number = 'oops'` makes the same command exit 2 with TS2322
+at the injected line (so this config genuinely reports errors). Each entry point was also isolated
+into its own single-attack file and compiled alone, so the clean result is not one of them carrying
+the others. No `as`, no `any`, no `@ts-ignore`, no `declare module`.
+
+IT CANNOT BE CLOSED WITH TYPES, for the reason already given in section 3: the derived type and the
+derived type intersected with an optional member are assignable both ways. Rejecting this needs a
+SOURCE-INSPECTION pass — permit only inline, unannotated suite and capture callbacks, refuse an
+explicitly annotated or indirect one — which is a different kind of machinery and is filed as its own
+item rather than built here.
+
+THE CLAIM THIS ITEM ACTUALLY CLOSES ON, stated so nothing downstream repeats the overclaim:
+
+  CLOSED   A suite can no longer NAME the seam types. Every route the old API invited is shut: no
+           shape arguments on bindSuite / atTest / defineEvidenceCapture, no shape-parameterized
+           type exported to annotate a body with, no EvidenceCapture constructor to reach, no
+           function declaration to merge a fresh overload onto, no interface on the seam path to
+           merge a member into.
+
+  OPEN     A deliberate structural reconstruction of the widened type out of the derived ones, and
+           the pre-existing escapes: `any`, `as`, `@ts-ignore`, `@ts-nocheck`, mutating an adapter
+           after it is built, and pointing AT_REPO_ROOT at another tree.
+
+The threat model is a suite DRIFTING from its harness with nobody able to notice — an honest mistake
+that type-checks green. The reconstruction above is not that: it takes `Omit`, an intersection and a
+deliberate annotation, which is as considered an act as writing a cast.
+
+The known-open case is recorded in `tests/at/typeprobes/sut-seam.probe.ts` as a comment block rather
+than as live code, because that program must NOT compile and this attack does — adding it would make
+the program's exit status meaningless.
+
+This is the item's own lesson applied to itself, twice. The first version would have shipped claiming
+a closure it did not have; the second version shipped a NARROWER version of the same overclaim, and
+only running the compiler showed either one.
 
 
 4. THE BASELINE, UNCHANGED
@@ -130,3 +201,27 @@ $ bun run at:verify req-016 --tier loop --expect    -> exit 0, 12 P0: 8 green, 4
 
 The 26 added tests are this item's own guards. The 8/4/0 split is identical to the pre-change
 baseline, and the four reds are the same four pending capabilities.
+
+
+5. RE-RUN AFTER THE GATE 2 FOLD
+--------------------------------
+
+Sections 1, 2 and 4 above are the transcript as captured at commit 74d9965 and are left exactly as
+they were recorded — a proof is not something to edit after the fact. What changed since, and the
+re-run confirming it, is here. The full re-run transcript is `verify-final.txt`.
+
+Both probe compiles still hold the red/green pair: the legacy probe exits 2, the new-API probe
+exits 2. Two diagnostic changes, both expected and both accounted for:
+
+  - LINE NUMBERS MOVED in section 2's listing. Only comment text was edited; every diagnostic still
+    appears, at its attack, with the same code.
+  - `World` JOINED THE TS6200 LIST. It now reads `NotificationsSut, World, SenderProbe, …` where
+    section 2 recorded eight names. That is Gate 2's second finding folded in: `World` was left an
+    interface on a measurement that covered only the DIRECT read, and the UPCAST route
+    (`const asWorld: World = w`, no cast, then read a merged-in member) was measured compiling clean
+    at exit 0. Converted to an alias, attacked in the probe, and asserted by name in
+    `type-invention.selftest.ts`.
+
+Test count: 140 at the time of section 4, 143 now. The three are `World`'s alias guard and the two
+black-box cases that watch `loadAdapter()`'s requirement check fail — a check both Gate 2 reviewers
+found had no failing-path test at all, so deleting it left every test green.

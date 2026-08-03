@@ -198,11 +198,34 @@ export class AtPending extends Error {
  * variance is arranged. Marking the parameter invariant does not help; nor does any conditional
  * "exactly this type" trick, because both directions genuinely hold.
  *
- * So the only close is to make the widened type UNSPELLABLE: a suite that cannot name a shape here
- * cannot widen one. `OpenWorld`, `AtContext`, `AtTestBody` and `EvidenceCapture` are exported over
- * `<R, K>` — a requirement and a sut key, both of which derive — and the shape-parameterized
- * versions stay inside this module. That is the same decision D1 made for `bindSuite`, carried to
- * the rest of the exported surface rather than stopped one type short.
+ * So what this closes is the INVITED spelling. `OpenWorld`, `AtContext`, `AtTestBody` and
+ * `EvidenceCapture` are exported over `<R, K>` — a requirement and a sut key, both of which derive —
+ * and the shape-parameterized versions stay inside this module. The old API positively ASKED a suite
+ * to name its seam types; the new one hands it nothing to name them with. That is the same decision
+ * D1 made for `bindSuite`, carried to the rest of the exported surface rather than stopped one type
+ * short.
+ *
+ * IT IS NOT UNSPELLABLE, AND AN EARLIER VERSION OF THIS COMMENT SAID IT WAS. Gate 2 refuted that by
+ * compiling the refutation, and it was reproduced here before being accepted. A determined author
+ * rebuilds the widened type out of the derived ones:
+ *
+ *   type WidenedCtx = Omit<AtContext<'req-016','notifications'>, 'open'> & {
+ *     open(): Promise<OpenWorld<'req-016','notifications'> & { sut: { invented?: string } }>;
+ *   };
+ *
+ * Exit 0 — through the bound `atTest`, the raw `atTest` and `defineEvidenceCapture` alike, with no
+ * cast, no `any`, no suppression and no module augmentation. NOTHING IN THE TYPE SYSTEM CAN STOP IT,
+ * for the reason two paragraphs up: the widened type and the derived one are assignable in both
+ * directions, so no annotation the harness writes can tell them apart. Closing it means INSPECTING
+ * SOURCE — permitting only inline, unannotated bodies — which is a different kind of machinery,
+ * filed as its own item rather than built here.
+ *
+ * The line is worth stating as a rule rather than as an excuse. What is closed is a suite NAMING the
+ * seam types, and with it every route the API used to invite. What is open is a hand-written
+ * structural reconstruction, which is a decision somebody takes rather than a mistake they make.
+ * `tests/at/typeprobes/sut-seam.probe.ts` carries it verbatim as a documented known-open case (it
+ * cannot be an active probe there, because that program must not compile and this attack does), and
+ * `loop/items/AI4DEV-31/gate2-widen-reproduction.txt` is the compile transcript with its controls.
  */
 type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
   /**
@@ -243,9 +266,11 @@ type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
    * run time. One assertion survives, at the end of `open()`, and it is commented there.
    *
    * WHAT IS NOT CHECKED: `any`, `as`, `@ts-ignore`, `@ts-nocheck`, mutating the adapter's object at
-   * run time, and pointing `AT_REPO_ROOT` at a different tree all still work. The threat model is a
-   * suite DRIFTING from its harness with nobody able to notice — an honest mistake that
-   * type-checks green — not an author set on defeating the type system, who can always write a cast.
+   * run time, pointing `AT_REPO_ROOT` at a different tree, and REBUILDING A WIDENED CONTEXT BY HAND
+   * out of the derived types (measured, and documented on `SeamOpenWorld` above) all still work. The
+   * threat model is a suite DRIFTING from its harness with nobody able to notice — an honest mistake
+   * that type-checks green — not an author set on defeating the type system, who can always write a
+   * cast, and who now has to write something at least as deliberate as one.
    */
   sut: Sut;
 };

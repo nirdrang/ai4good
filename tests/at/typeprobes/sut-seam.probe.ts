@@ -69,8 +69,12 @@ export const unregisteredRequirement = bindSuite({ requirement: 'req-999', sut: 
  * It was MEASURED still compiling clean once every other door here was shut, which is what forced
  * the exported seam types to be parameterized by requirement and sut key instead of by shape. No
  * structural defence exists: a type and that type intersected with an optional member are
- * assignable in both directions, so nothing can tell them apart. Only being unable to WRITE the
- * widened type stops it.
+ * assignable in both directions, so nothing can tell them apart.
+ *
+ * WHAT THIS ONE PROVES, EXACTLY. The shape can no longer be PASSED to the seam — this spelling of
+ * the widening, and every other spelling the old API invited, is gone. It does not prove the widened
+ * type cannot be BUILT: it can, out of the derived types, and that case is recorded at the foot of
+ * this file. Read the two together or this attack reads as a bigger promise than it is.
  */
 suite.atTest(
   'AT-016.94',
@@ -195,3 +199,68 @@ declare module '../suites/req-016/_contract.ts' {
     invented?: string;
   }
 }
+
+/* ============================================================================================
+ * KNOWN OPEN — STRUCTURAL RECONSTRUCTION OF THE WIDENED CONTEXT
+ *
+ * NOT AN ATTACK IN THIS FILE, AND IT CANNOT BE ONE. Every construct above is here because it must
+ * FAIL to compile; `type-invention.selftest.ts` asserts this program is non-zero and reads each
+ * diagnostic by name. The code below COMPILES CLEAN, so adding it as live code would make the
+ * program's exit status say nothing at all. It is recorded as a comment so that nobody rediscovers
+ * it as a surprise and reads the closure comments as a promise they never made.
+ *
+ * WHAT IT IS. A suite cannot NAME the seam types any more — that is what this item closed, and every
+ * route the old API invited is attacked above. But `AtContext<R, K>` and `OpenWorld<R, K>` are
+ * exported (a body has to be able to annotate itself), and a determined author rebuilds the widened
+ * type out of THOSE, with `Omit` and an intersection. Both spellings below were compiled under a
+ * child config of `tests/at/tsconfig.json` with the pinned compiler (TypeScript 5.9.3), with a
+ * `--listFiles` control proving the probe was in the program and a deliberate-error control proving
+ * the command can fail. Both: EXIT 0. No `as`, no `any`, no `@ts-ignore`, no `declare module`.
+ *
+ *   // spelling 1 — intersect the whole open-world, then re-point `open`
+ *   type WidenedOpen = OpenWorld<'req-016', 'notifications'> & {
+ *     sut: { inventedSut?: string };
+ *     w: { inventedWorld?: string };
+ *   };
+ *   type WidenedCtx = Omit<AtContext<'req-016', 'notifications'>, 'open'> & {
+ *     open(): Promise<WidenedOpen>;
+ *   };
+ *
+ *   // spelling 2 — same idea, one axis at a time, through SutOf from suite-adapters.ts
+ *   type WidenedContext = Omit<AtContext<'req-016', 'notifications'>, 'open'> & {
+ *     open(): Promise<
+ *       Omit<OpenWorld<'req-016', 'notifications'>, 'sut'> & {
+ *         sut: SutOf<'req-016', 'notifications'> & { invented?: string };
+ *       }
+ *     >;
+ *   };
+ *
+ *   const suite = bindSuite({ requirement: 'req-016', sut: 'notifications' });
+ *   suite.atTest('AT-016.97', 'reads an invented member', async (ctx: WidenedCtx) => {
+ *     const { sut, w } = await ctx.open();
+ *     const readSut: string | undefined = sut.inventedSut;      // compiles; undefined at run time
+ *     const readWorld: string | undefined = w.inventedWorld;    // compiles; undefined at run time
+ *     void readSut;
+ *     void readWorld;
+ *   });
+ *
+ * It works identically through the bound `atTest`, the raw exported `atTest`, and the raw exported
+ * `defineEvidenceCapture` — each isolated and compiled on its own, so the clean result is not one
+ * entry point carrying the others.
+ *
+ * WHY IT IS NOT CLOSED HERE, rather than deferred out of fatigue. No type can reject it. The derived
+ * type and the derived type intersected with an OPTIONAL member are assignable in BOTH directions —
+ * an optional member adds no obligation — so they are indistinguishable to the assignability check
+ * however the variance is arranged; no invariance marker and no conditional "exactly this type"
+ * trick separates them. Rejecting it means INSPECTING SOURCE: permitting only inline, unannotated
+ * suite and capture callbacks, and refusing an explicitly annotated or indirect one. That is a
+ * different kind of machinery from anything in this tree and it is filed as its own item.
+ *
+ * WHY THAT IS AN ACCEPTABLE PLACE TO STOP. The threat model is a suite DRIFTING from its harness
+ * with nobody able to notice — an honest mistake that type-checks green. Writing the type above is
+ * not that. It takes `Omit`, an intersection and a deliberate annotation, which is as considered an
+ * act as writing a cast, and casts were never claimed to be closed either.
+ *
+ * REPRODUCTION: `loop/items/AI4DEV-31/gate2-widen-reproduction.txt` — full transcript, both
+ * controls, per-entry-point isolation passes.
+ * ============================================================================================ */

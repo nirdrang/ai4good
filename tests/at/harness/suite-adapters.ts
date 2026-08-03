@@ -15,9 +15,13 @@
  *
  * ADDING A SUITE IS ONE LINE in `AdapterModules`, plus `export const requirement = 'req-0NN' as
  * const;` in that suite's `_fixture.ts`. A suite whose line is missing cannot call `bindSuite` at
- * all — the requirement literal is not a `SuiteId` — and the compile error says what to add. That
- * ergonomic cost is deliberate: an explicit, checkable list of suites is worth more than a
- * convention that silently resolves to whatever happens to be on disk.
+ * all: the requirement literal is not a `SuiteId`, so the compiler says
+ * `Type '"req-999"' is not assignable to type '"req-016"'`. THAT NAMES THE PROBLEM AND NOT THE
+ * REMEDY — an earlier version of this comment claimed the error tells an author what to add, and it
+ * does not. tsc's messages are not ours to write, which is exactly why the two lines to add are
+ * spelled out in this paragraph instead. That ergonomic cost is deliberate: an explicit, checkable
+ * list of suites is worth more than a convention that silently resolves to whatever happens to be on
+ * disk.
  *
  * `typeof import(...)` sits in TYPE position only, so it is erased at emit and adds no runtime edge
  * from the harness to the suites. It mirrors, at compile time, the resolution `index.ts` already
@@ -26,11 +30,20 @@
  * WHAT THIS DOES NOT CLOSE, said plainly because a closure claim wider than the truth is the very
  * defect this file removes. The threat model here is A SUITE DRIFTING FROM THE HARNESS WITH NOBODY
  * ABLE TO DETECT IT — an honest mistake that type-checks green. It is not an author determined to
- * defeat the type system, and that author is still not stopped: `any`, `as`, `@ts-ignore`,
- * `@ts-nocheck`, mutating the adapter's object at run time, and pointing `AT_REPO_ROOT` at a
- * different tree of `_fixture.ts` files all remain open. No machinery is added for them, on
- * purpose. Somebody who writes a cast has made a decision; somebody whose suite quietly disagrees
- * with its adapter has not, and only the second kind of failure is invisible.
+ * defeat the type system, and that author is still not stopped:
+ *
+ *   - `any`, `as`, `@ts-ignore`, `@ts-nocheck`
+ *   - mutating the adapter's object at run time
+ *   - pointing `AT_REPO_ROOT` at a different tree of `_fixture.ts` files
+ *   - STRUCTURAL RECONSTRUCTION: hand-building a widened context out of the DERIVED types —
+ *     `Omit<AtContext<R, K>, 'open'> & { open(): Promise<OpenWorld<R, K> & { sut: { … } }> }` — and
+ *     annotating a body with it. Measured compiling clean through every entry point, with no cast
+ *     and no suppression; see `SeamOpenWorld` in `registry.ts` for why no type can reject it and
+ *     `loop/items/AI4DEV-31/gate2-widen-reproduction.txt` for the transcript.
+ *
+ * No machinery is added for any of them, on purpose. Somebody who writes a cast — or who assembles
+ * a widened type out of `Omit` and an intersection — has made a decision; somebody whose suite
+ * quietly disagrees with its adapter has not, and only the second kind of failure is invisible.
  */
 
 import type { WorldLike } from './registry.ts';
