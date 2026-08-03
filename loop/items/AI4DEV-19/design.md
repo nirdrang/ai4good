@@ -56,11 +56,25 @@ points: (none)"*. So absence degrades to a loud refusal for free, which is the s
 
 ## Ruling 3 — the static provider scan stays pending, and one name must move
 
-Unchanged from the brief and now confirmed against the tests: `AT-016.01` reaches
-`h.vendors.email.attempts()` at `a-emitter-and-taxonomy.test.ts:71`, so it stays red behind the
-vendor stand-ins whatever this item does. `providerClientImporters()` needs **product source** to
-scan; at loop tier there is none, and scanning the fixture would be the self-report its own
-contract comment says it exists to avoid.
+`AT-016.01` stays red whatever this item does. Corrected after Gate 0: its blocker **right now**
+is the pending static scan itself — `h.static.providerClientImporters()` at
+`a-emitter-and-taxonomy.test.ts:28` throws before the test ever reaches `plant()` at line 50 or
+the vendor trace at line 71.
+
+**Why the scan is not implemented here, on the ground that survived review.** My first reason —
+"loop tier has no product source" — was wrong, and Gate 0 was right to refuse it: loop tier is
+database-free, not source-free, and `REPO_ROOT` is readable. The real reason is that implementing
+it **breaks the gate this item must leave green**:
+
+`expected.ts:45-48` admits exactly two declarable red shapes, `capability-pending` and `pending`
+with a phase from `['harness-missing','sut-missing','tier-unset']` (`expected.ts:100`) — all
+harness-thrown. A real scan would return `[]` today, because no notification product exists, and
+`AT-016.01` would fail `toEqual(['notifications.emitter'])` as an ordinary `AssertionError`. That
+matches neither shape, and `expected.ts:21-23` is explicit: *"a red whose detail fits neither
+shape is undeclarable — and therefore a failure."* So `at:verify … --expect` would fail.
+
+The scan belongs where the notification product exists, and how its honest red gets declared is a
+separate piece of work. **Filed, not built.**
 
 But the `static` seam is constructed with three names so its first throw reports the whole
 missing set. The moment `plant()` works, `'H3 sentinels'` in that list becomes a **false claim**.
@@ -194,9 +208,13 @@ substitute.
 
 ## What sentinels get proven by, given their only consumer stays red
 
-`req-016` is the **only** suite that exists, and its one sentinel consumer (`AT-016.01`) stays red
-behind the vendor work. `scan()` has no call site anywhere. So sentinels would ship with no
-acceptance test exercising them.
+`req-016` is the **only** suite that exists, and its one sentinel consumer (`AT-016.01`) throws at
+`h.static` on line 28 — **before** it ever reaches `plant()` on line 50. `scan()` has no call site
+anywhere in the tree. So nothing in the entire acceptance suite exercises sentinels, and a
+**no-op `Sentinels` implementation would pass `at:verify … --expect` completely.**
+
+That is the sharpest thing Gate 0 found, and it makes the conformance tests below not supporting
+evidence but the **entire** evidence base for half this item.
 
 They are therefore proven by **harness conformance tests** — presence, absence, refusal of an
 unregistered scope, refusal of a short value, refusal of a reused value. This is not a

@@ -64,6 +64,28 @@ bun run at:verify req-016 --tier loop 2>&1 | Tee-Object loop/items/AI4DEV-19/pro
 
 `AT-016.09` passes. Same test, same command, two transcripts — the difference is the rollback.
 
+### 3b. Tighten `AT-016.09`'s oracle — it currently passes on nothing
+
+Ruled after Gate 0 (`gate0-rulings.md`, finding 3). The test's oracle is:
+
+```ts
+if (transitionCommitted !== eventWritten) { problems.push(...) }
+```
+
+It rejects only **unequal** outcomes, so a fault firing *after* both writes leaves both committed,
+compares equal, and **passes** — having proved no atomicity at all. Turning this test green
+against that oracle would be a hollow green.
+
+Change it to assert, after a fired `crash`, that **both sides are false** for every guarded row.
+This is strictly stronger: it rejects a superset of what the old oracle rejected, so it cannot
+pass anything the old one failed. Leave the control run as it is — it already asserts both true.
+
+**Verification condition, and you must actually run it.** Temporarily move the fault point to
+*after* both writes and confirm the tightened oracle **FAILS**. Capture that to
+`loop/items/AI4DEV-19/proof-oracle.txt`, then put the point back. If it *passes* with the point
+misplaced, the tightening bought nothing and my ruling was wrong — **stop and tell me** rather
+than keeping the change.
+
 ### 4. Conformance tests that prove the WIRING, not just the predicates
 
 `conformance.selftest.ts:236-264` already tests the four guards as pure functions. That is not
@@ -72,9 +94,18 @@ not acted on is *"this tree's own recurring false-green shape"*.
 
 Add tests that the implementation **calls** each guard: a short value refused at `plant`, a typo
 point refused at `at`, a never-fired handle refused at `clear`, an unchanged epoch refused at
-`processRestart`. Plus sentinels' own proof — presence, absence, refusal of an unregistered scope,
-refusal of a reused value — because `req-016`'s only sentinel consumer stays red and `scan()` has
-no caller anywhere, so these tests are the only thing standing behind that half of the item.
+`processRestart`.
+
+**Then sentinels' own proof, and treat this as the load-bearing part of your work.** Gate 0
+established that `AT-016.01` throws at `h.static` on line 28, before it ever reaches `plant()` on
+line 50, and that `scan()` has no caller anywhere in the tree. So **nothing in the acceptance
+suite exercises sentinels at all — a no-op implementation would pass the gate.** These tests are
+not supporting evidence, they are the *entire* evidence: planting, refusal of a short value,
+refusal of a reused value, presence found in a known scope, absence returning `[]` from a scope
+that was genuinely read, and refusal of an unregistered scope.
+
+Write them so they would fail against a no-op. If you cannot see how a given test would catch a
+`Sentinels` that does nothing, that test is not pulling its weight.
 
 ### 5. Move the declaration in the SAME commit as the behaviour
 

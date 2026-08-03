@@ -73,7 +73,7 @@ Determined by reading each test body and the capability each one reaches first, 
 
 | test | capabilities it actually reaches | verdict |
 |---|---|---|
-| `AT-016.01` | `h.static` (line 28), `h.sentinels` (line 50), **`h.vendors.email.attempts()` (line 71)** | **stays RED** — blocked by H5, outside this item |
+| `AT-016.01` | **`h.static` (line 28) throws FIRST**; `h.sentinels` (line 50) and `h.vendors.email` (line 71) are never reached | **stays RED** — blocked now by the pending static scan, and by the vendor work behind it |
 | `AT-016.07` | `h.faults.processRestart()` only | **turns GREEN** |
 | `AT-016.09` | `h.faults.at(...)` + `fault.clear()` only | **turns GREEN** |
 | `AT-016.11` | `h.vendors.email` only | **stays RED**, untouched — pure H5 |
