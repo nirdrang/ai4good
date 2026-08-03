@@ -1,0 +1,83 @@
+ADVERSARIAL CODE REVIEW — Gate 2, on the implemented diff. REFUTE it; do not praise it.
+
+You are in the worktree, on the item's branch. Review the REAL TREE, not an exported diff — follow
+a call into a file the diff never touched if that is where the answer is.
+
+The change under review:  git diff origin/main...HEAD
+Item: AI4DEV-31 — "the harness does not check what it tests".
+
+BACKGROUND — read these, they are the reasoning and the rulings the code implements:
+  loop/items/AI4DEV-31/design.md
+  loop/items/AI4DEV-31/gate1-rulings.md     <- Gate 1's findings and how they were ruled
+  loop/items/AI4DEV-31/executor-brief.md    <- what the executor was told to build
+  loop/items/AI4DEV-31/proof-red.txt        <- the hole, executed, BEFORE the fix
+  loop/items/AI4DEV-31/proof-green.txt      <- the same probe failing AFTER the fix
+
+THE DEFECT BEING FIXED. `tests/at/harness/registry.ts` used to end `open()` with
+`return opened as OpenWorld<Sut, W>`, relabelling an `unknown` SUT and a bare `WorldSeam` with type
+arguments the SUITE chose. Nothing checked the harness supplied either shape. The fix derives both
+types from the fixture adapter that actually produces them, via a type-level registry
+(`tests/at/harness/suite-adapters.ts`), and removes the suite's ability to name them at all.
+
+SETTLED — do not re-litigate:
+  - Scope is the SUT seam and its world companion. No H3/H4/H5 capability work, no factory redesign.
+  - `OpenWorld.h` stays concrete `AtHarness`. Re-parameterizing the harness with suite types is a
+    door AI4DEV-24 shut with two gates; a proposal to reopen it is wrong by construction.
+  - `any` / `as` / `@ts-ignore` / runtime mutation / `AT_REPO_ROOT` are DOCUMENTED as out of the
+    threat model. The model is honest drift that type-checks green, not a determined author.
+    Do not report those as new findings; DO report if the code or comments claim more than that.
+
+WHAT I WANT ATTACKED. Be concrete: file, line, and the fix.
+
+1. IS THE HOLE ACTUALLY CLOSED? Try to break it. Write the attack you would use as a suite author
+   to read a member the harness does not supply, with a green `bun run typecheck`. Specifically try:
+   the generic surfaces (`AtContext`, `AtTestBody`, `EvidenceCapture`, `defineEvidenceCapture`,
+   `OpenWorld`), `declare module` overload merging on the exported entry points (Gate 1 found the
+   `function`-declaration door — confirm it is really shut, including for every entry point and not
+   just `bindSuite`), intersection types, and reaching `atTest` directly instead of via `bindSuite`.
+   If you find a route, that is a blocker. If you cannot, say what you tried — a list of failed
+   attacks is the evidence I actually need.
+
+2. IS THE PROOF SOUND? This is the item's central claim, so it gets the hardest look.
+   - Does `proof-red.txt` really demonstrate the hole, or could it exit 0 for another reason
+     (empty file set, config not inherited, unresolved imports)? Gate 1 already caught one unsound
+     method here; check the replacement is not unsound in a new way.
+   - Is the positive control (proving the probe was actually compiled) real?
+   - Do the selftest assertions fail INDIVIDUALLY when a single protection is removed, or only in
+     aggregate? Test this: actually remove one protection, run the selftest, confirm the failure
+     names it, then restore. Report what you did.
+   - Is the alias-protected list EXHAUSTIVE over what is reachable, or a sample claiming to be
+     exhaustive? That exact failure has now happened twice in this seam.
+
+3. THE RUNTIME CHECKS. `atTest` cross-checks the AT id's requirement against the binding, and
+   `loadAdapter()` validates the adapter's self-declared `requirement`. Can either be bypassed,
+   made vacuous, or produce a false accusation? Do their error messages name the real values? Are
+   both actually exercised by a test, or only asserted to exist?
+
+4. TYPE-LEVEL CORRECTNESS. Does `suite-adapters.ts` constrain what it claims to constrain? Verify
+   with the pinned compiler (`node node_modules/typescript/bin/tsc --noEmit --pretty false -p ...`):
+   does a map entry whose world lacks `teardown()` really fail AT THE ENTRY? Does an entry whose
+   module's `requirement` literal disagrees with its key really fail? Build the counter-examples;
+   do not accept the comment's word for it.
+
+5. WHAT BROKE QUIETLY. The runner black-box selftests generate synthetic suites at run time and
+   were edited to carry a requirement. Did that change what they ASSERT, or only how they set up?
+   Any weakening of an existing guarantee to make this item pass is a blocker. Check
+   `tests/at/harness/runner-blackbox.selftest.ts`, `runner-expect.selftest.ts`, `conformance.selftest.ts`.
+
+6. COMMENTS THAT ARE NOW FALSE. This codebase treats comments as documentation and they are dense.
+   The `OpenWorld` comment, `contracts.ts`'s doctrine block, `_bind.ts`'s and `_contract.ts`'s
+   headers, and `tests/at/README.md` all described the OLD world. Find every comment or document
+   that the diff has made untrue, and every NEW comment that claims more than the code delivers.
+   An overclaiming comment is a finding at the same severity as an overclaiming test.
+
+7. BEHAVIOUR. `bun run at:verify req-016 --tier loop --expect` must still be exit 0 with
+   8 green / 4 red / 0 missing, and `bun run at:selftest` green. RUN THEM. If you cannot run them,
+   say so plainly rather than inferring.
+
+8. SIMPLICITY. Is any of this machinery unnecessary to close the hole? Name what could be deleted
+   with no loss of guarantee. Over-building is a real finding here.
+
+OUTPUT: per finding — SEVERITY (blocker / important / minor), file:line, what is wrong, the concrete
+fix. Blockers first. One line for things that are sound. End with a verdict: merge as is, merge with
+named changes, or do not merge.
