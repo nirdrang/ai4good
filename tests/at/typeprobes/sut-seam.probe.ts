@@ -2,8 +2,10 @@
  * NEGATIVE TEST — every statement below MUST fail to compile.
  *
  * The attacks that are only MEANINGFUL after AI4DEV-31. `sut-seam-legacy.probe.ts` next door holds
- * the pre-fix API and proves the hole was real; this file holds the new API and proves each way
- * back in is shut. They are separate files because one file cannot serve both halves: the
+ * the pre-fix API and proves the hole was real; this file holds the new API and proves every route
+ * the old API invited is shut — not that every way back in is shut. A deliberate hand-built
+ * structural reconstruction of the widened context remains open and is recorded at the foot of this
+ * same file. They are separate files because one file cannot serve both halves: the
  * read-a-missing-member attacks need fabricated type arguments to compile BEFORE the fix, and after
  * it those arguments fail earlier, so the read is never reached and its diagnostic never appears.
  *
@@ -254,7 +256,7 @@ declare module '../suites/req-016/_contract.ts' {
  * however the variance is arranged; no invariance marker and no conditional "exactly this type"
  * trick separates them. Rejecting it means INSPECTING SOURCE: permitting only inline, unannotated
  * suite and capture callbacks, and refusing an explicitly annotated or indirect one. That is a
- * different kind of machinery from anything in this tree and it is filed as its own item.
+ * different kind of machinery from anything in this tree and it is filed as its own item, AI4DEV-37.
  *
  * WHY THAT IS AN ACCEPTABLE PLACE TO STOP. The threat model is a suite DRIFTING from its harness
  * with nobody able to notice — an honest mistake that type-checks green. Writing the type above is

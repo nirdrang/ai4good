@@ -218,7 +218,7 @@ export class AtPending extends Error {
  * for the reason two paragraphs up: the widened type and the derived one are assignable in both
  * directions, so no annotation the harness writes can tell them apart. Closing it means INSPECTING
  * SOURCE — permitting only inline, unannotated bodies — which is a different kind of machinery,
- * filed as its own item rather than built here.
+ * filed as its own item rather than built here (AI4DEV-37).
  *
  * The line is worth stating as a rule rather than as an excuse. What is closed is a suite NAMING the
  * seam types, and with it every route the API used to invite. What is open is a hand-written

@@ -79,6 +79,6 @@ already invokes it changed meaning.
   { sut: { invented?: string } }> }`, which was measured compiling clean with no cast and no
   suppression (`loop/items/AI4DEV-31/gate2-widen-reproduction.txt`). No type can reject that last one:
   a type and that type intersected with an optional member are assignable in both directions.
-  Rejecting it needs a source-inspection pass, filed as its own item. The threat model is a suite
-  drifting from its harness with nobody able to notice — an honest mistake that type-checks green —
-  not an author set on defeating the type system, who can always write a cast.
+  Rejecting it needs a source-inspection pass, filed as its own item (AI4DEV-37). The threat model
+  is a suite drifting from its harness with nobody able to notice — an honest mistake that
+  type-checks green — not an author set on defeating the type system, who can always write a cast.

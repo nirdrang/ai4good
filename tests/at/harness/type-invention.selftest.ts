@@ -167,7 +167,7 @@ describe('harness invention is rejected by the compiler', () => {
  * because the new `bindSuite` still takes two type parameters — they are just no longer shapes. A
  * guard asserting a predicted code would have passed on the wrong evidence.
  */
-describe('the sut/world seam cannot be invented by a suite', () => {
+describe('the listed sut/world invention attacks fail to compile', () => {
   const legacy = typecheckProbes(LEGACY_SEAM_PROJECT);
   const seam = typecheckProbes(SEAM_PROJECT);
 
@@ -184,7 +184,7 @@ describe('the sut/world seam cannot be invented by a suite', () => {
     ).not.toBe(0);
   });
 
-  it('the new-API attacks do not compile', () => {
+  it('the listed new-API attacks do not compile', () => {
     expect(seam.status, `${SEAM_PROJECT} compiled clean — an attack has reopened.\n${seam.output}`).not.toBe(0);
   });
 

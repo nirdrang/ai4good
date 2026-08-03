@@ -1,5 +1,10 @@
 # AI4DEV-31 — the harness does not check what it tests
 
+**This is the design as written BEFORE the gates ran.** Named parts of it were corrected by
+`gate1-rulings.md` and `gate2-rulings.md`; those two documents win wherever they disagree with this
+one. In particular, this design predicts the diagnostic `TS2558` for the sut/world seam attacks — the
+real code produces `TS2344` instead — and that correction is recorded in the gate rulings, not here.
+
 **Item agent: OPUS, not fable.** The fable predecessor died mid-design when the founder's fable
 credits ran out. The skill requires the fallback be stated, because a fable item run and an opus
 item run are not the same evidence. Note also that the Agent tool exposes no effort setting, so
