@@ -1,0 +1,29 @@
+﻿AI4DEV-19 step 3 — GREEN. Same test, same command as proof-red.txt. The ONLY difference is that the
+transition and the event write now commit as one rollback unit: a crash at
+notifications.between_transition_and_event_write puts the transition back, so neither side commits.
+10 green / 2 red is the design's final partition (AT-016.01 the pending static provider scan,
+AT-016.11 the pending email provider simulator). "FAILURE: 2 ids red" is the plain command's view;
+the gate is the --expect run, which is in the report.
+
+=== bun run at:verify req-016 --tier loop ===
+$ bun tests/at/harness/runner.ts "req-016" --tier loop
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-u7UJ3L/vitest-report.json
+
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan, H5 email provider simulator
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    green    one logical event per committed event, one delivery per recipient-channel pair, across a restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    green    every guarded transition writes its notification event atomically under an induced fault
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    red      CapabilityPending: CAPABILITY PENDING — H5 email provider simulator
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 10 green, 2 red, 0 missing
+  FAILURE: 2 ids red
+  FAILURE: the test process exited 1
+error: script "at:verify" exited with code 1
+

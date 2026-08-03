@@ -265,8 +265,20 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
     }));
     // (1) THE TRANSITION COMMITS FIRST, (2) the fault point, (3) the event write and everything
     // that belongs to it. That order is what the point's name asserts.
+    //
+    // ONE ROLLBACK UNIT: a crash at the point puts the transition back the way it was, so neither
+    // side is committed. Restoring the PREVIOUS value rather than deleting the key matters — an
+    // earlier firing of the same event legitimately left one behind, and deleting it would report
+    // "the transition never happened" about a transition that did.
+    const transitionBefore = state.transitions.get(event);
     state.transitions.set(event, true);
-    reachFaultPoint(FAULT_POINT);
+    try {
+      reachFaultPoint(FAULT_POINT);
+    } catch (fault) {
+      if (transitionBefore === undefined) state.transitions.delete(event);
+      else state.transitions.set(event, transitionBefore);
+      throw fault;
+    }
 
     state.events.push({
       id: eventId,

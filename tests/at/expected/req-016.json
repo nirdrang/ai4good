@@ -8,7 +8,9 @@
         "AT-016.04",
         "AT-016.05",
         "AT-016.06",
+        "AT-016.07",
         "AT-016.08",
+        "AT-016.09",
         "AT-016.10",
         "AT-016.12"
       ],
@@ -16,14 +18,6 @@
         "AT-016.01": {
           "kind": "capability-pending",
           "capabilities": ["H3 static provider scan", "H5 email provider simulator"]
-        },
-        "AT-016.07": {
-          "kind": "capability-pending",
-          "capabilities": ["H3 fault injection and process restart"]
-        },
-        "AT-016.09": {
-          "kind": "capability-pending",
-          "capabilities": ["H3 fault injection and process restart"]
         },
         "AT-016.11": {
           "kind": "capability-pending",
