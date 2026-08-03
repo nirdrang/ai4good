@@ -428,9 +428,43 @@ Written down because it was folklore, and folklore is rediscovered by failing:
   wrong both times — once from an unflushed file, once from a scan that did not match how Kimi
   runs). Measure the reviewer's own artifacts growing over an interval. The owner of a detached
   process is the only party that can judge whether it is alive.
+- **Watch the SESSION TRANSCRIPT, not the `-o` file.** `-o` writes only the final answer, and
+  the redirected streams can stay empty for several minutes, so a healthy reviewer looks dead
+  for its whole opening stretch — an item agent nearly killed one on exactly this. The
+  reviewer's own transcript grows continuously and is the honest liveness signal.
+
+### ONE WRITER IN A WORKTREE AT A TIME
+
+The skill told item agents to run reviewers in their worktree, and separately to use subagents
+freely, and never said those must not overlap. One agent lost **two** audit runs to this: a
+mutating subagent stashed the `workspace-write` auditor's in-flight changes, and later a kill
+hit a wrapper while the real process survived and kept writing into the tree for eight more
+minutes.
+
+So: **only one writer touches a worktree at a time.** While a `workspace-write` reviewer or
+auditor is running, nothing else mutates that tree — no editing subagent, no commit, no stash,
+no checkout. And a reviewer's process must be **confirmed dead by process id**, not by its
+wrapper exiting and not by an empty output file, before anything else writes there. A wrapper
+that has returned is not evidence that the process it launched has stopped.
 
 Confirmation runs at `high`; a confirmation asked to judge a *claim* rather than a fix is
 review work and gets `max`.
+
+### A ruling that REMOVES work carries a verification condition
+
+When you accept a gate finding that says *"this part is unnecessary, take it out"*, attach a
+condition the executor must check before removing it — and restore the work if the condition
+fails.
+
+This is not caution for its own sake. An item accepted a Gate 1 finding that converting one
+type bought nothing; the measurement behind it covered only the direct read and missed an
+upcast route, so the ruling was wrong. **Kimi caught it at Gate 2 — a finding terra missed, and
+what it caught was an error in the item agent's own earlier ruling.** It was recoverable only
+because the removal had carried a condition to verify.
+
+Removals are the rulings least likely to be re-examined: nothing downstream fails, the diff
+gets smaller, and the reviewer that proposed it has already moved on. A condition is the only
+thing that makes a removal falsifiable later.
 
 ## Committing — `.claude/` and `loop/out/` are GITIGNORED
 
@@ -517,11 +551,24 @@ Clear the held item, print `session is free`, report the phase's still-open sibl
 their labels, suggest the next `/work`. **Park** instead when stopping mid-item: commit WIP,
 release, item stays In Progress, resume later with `/work AI4DEV-19`.
 
-## Reflect on this skill, every item (founder ruling 2026-08-02)
+## Reflect on this skill — BEFORE the merge decision, not after
 
-Before the report, answer in plain sentences: **did `/work` behave as intended on this item,
-and does it need a fix?** Name what was awkward, what needed a rule that does not exist, and
-what a rule forced that turned out to be wrong.
+**Reflect while the pull request is still open.** The rule is that fixes found this way ride
+along in the item's own PR; scheduling the reflection after the merge made that impossible, and
+an item hit exactly that: by the time it was asked to reflect, its PR was closed and the only
+way to deliver four real findings was to open a second one, which the ride-along rule forbids.
+So the reflection belongs immediately **before** the merge decision, where its output can still
+be committed to the branch.
+
+**If a finding arrives after the merge anyway** — the audit turns something up late, or the
+post-merge check does — do NOT open a second pull request for it. Report it to the coordinator,
+which folds it into the way of work directly. A finding with nowhere to go is a finding that
+gets dropped, and dropping it is worse than the small inconsistency of the coordinator carrying
+it.
+
+Answer in plain sentences: **did `/work` behave as intended on this item, and does it need a
+fix?** Name what was awkward, what needed a rule that does not exist, and what a rule forced
+that turned out to be wrong.
 
 Fixes found this way **ride along in the current item's PR**. This is the mechanism by which
 the way of work improves from use rather than from redesign sessions — and it is why the
