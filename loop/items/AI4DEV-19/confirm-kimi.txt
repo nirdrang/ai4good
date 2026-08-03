@@ -1,0 +1,62 @@
+CONFIRMATION ROUND — AI4DEV-19 (planted markers, forced failures)
+
+You reviewed this item at Gate 2 and raised five findings. Four were accepted and fixed; one was
+rejected. This is a confirmation, not a new review: judge whether YOUR findings are closed, and
+push back where they are not.
+
+Working directory (the current code, head commit 23ea24f):
+
+    C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-adf5c7b803767a1c3
+
+The rulings are in `loop/items/AI4DEV-19/rulings-03.md` and `rulings-04.md`.
+
+## What was ruled on each of your findings
+
+**Your finding 1 — `state.nextId` allocated before the fault point, so "ONE ROLLBACK UNIT" has a
+third side effect. ACCEPTED and fixed.** Worth knowing: terra found the identical defect
+independently and ranked it P2 while you ranked it first. Cross-vendor agreement was treated as
+the strongest signal the gate produced. The allocation moved to after the try/catch, so a crashed
+emit consumes no id at all, and the comment was rewritten. A conformance case now arms, crashes,
+clears, fires again and requires `event-1` — added because the repair otherwise had no oracle and
+reverting it left the whole suite green.
+
+**Your finding 2 — arming an already-armed point silently displaces the live arming. ACCEPTED and
+fixed.** `guards.ts` gained a fifth predicate, `faultAlreadyArmedProblem`, and `createFaults` in
+`faults.ts` holds the live armings and routes `at()` through it. The reservation is taken only
+after `seam.arm()` succeeds, and released in the same breath as `disarm()` — before `clear()`
+judges and throws — so a refusal cannot leave a point permanently unarmable. Conformance cases
+cover arming twice, re-arming after a clear, and a refused kind reserving nothing.
+
+**Your finding 3 — sentinel uniqueness is exact-equality while the scan matches by substring.
+ACCEPTED and fixed.** `sentinelValueProblem` now also refuses a value that contains, or is
+contained in, an already-planted value. The exact-equality branch and its "planted before" wording
+were deliberately left untouched because a conformance test asserts on that text.
+
+**Your finding 4 — the fault KIND is validated per-adapter, not through a guard. REJECTED, and
+filed.** The reasoning, which you should attack if it is weak:
+
+- It was classified as NOT false-green class. No currently-declared green depends on it. The tree
+  has exactly one fault adapter; it refuses every non-`crash` kind at `_fixture.ts`, and a
+  conformance test drives that refusal. The hazard you describe needs a second, future adapter.
+- The remedy needs new surface on `AdapterFaultSeam`, and this item's brief admits contract
+  changes only where implementation proves a contract wrong. Implementation proved the opposite.
+- The same request was already ruled on once earlier in this item, and was re-derived rather than
+  inherited.
+
+That classification is load-bearing: under this project's rules, a finding ruled false-green class
+and then rejected is the one ruling the item agent may not make alone. **If you think finding 4 IS
+false-green class, say so explicitly and say why** — that changes who decides it, not just the
+outcome. If you agree it is a forward-looking centralization gap, say that too.
+
+**Your finding 5 — `faults.ts:13` says "the four judgements" and routes three. ACCEPTED and
+fixed.** The module now genuinely routes four (point real, already armed, fired, restart changed
+anything) and the docstring says where the fifth lives.
+
+## What to answer
+
+For each of your five findings: CLOSED, PARTIALLY CLOSED, NOT CLOSED, or — for finding 4 —
+whether you accept the rejection and its classification. Give the file and line you checked.
+
+Do not re-review the item and do not produce a fresh catalogue. If something genuinely serious is
+new, one line at the end is enough. What matters is whether a repair that reads correct actually
+is correct.

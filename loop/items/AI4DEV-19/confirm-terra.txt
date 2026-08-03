@@ -1,0 +1,68 @@
+CONFIRMATION ROUND — AI4DEV-19 (planted markers, forced failures)
+
+You reviewed this item's diff at Gate 2 and raised four findings. All four were ruled on and all
+four were acted on. This is a confirmation, not a new review: judge whether YOUR findings are
+closed, and say plainly where they are not.
+
+## READ THE CURRENT CODE AT THIS ABSOLUTE PATH — NOT THE DIRECTORY YOU ARE SITTING IN
+
+    C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-adf5c7b803767a1c3
+
+Your session's working root is a worktree that was abandoned when the previous item agent died.
+It is pinned at the OLD commit da0ad62 and does NOT contain any of the fixes below. Reading it
+would make you confirm against the code you already reviewed. Every path below is relative to the
+absolute path above; read files there.
+
+The rulings you are being asked to check are in `loop/items/AI4DEV-19/rulings-03.md` and
+`rulings-04.md`. The code head is commit 23ea24f.
+
+## What was ruled on each of your findings
+
+**Your finding 1 (P1) — the restart only increments an unused epoch, so AT-016.07 is a false
+green. UPHELD as false-green class.** Verified independently: an exhaustive search found no reader
+of `processEpoch` on the delivery path, and deleting the `processRestart()` call from AT-016.07
+left it passing identically.
+
+The repair is NOT the one you proposed first. Building a real delivery worker with volatile
+in-flight state was ruled independent work and FILED, not built — inventing state whose only
+purpose is to be discarded was judged to be staging the proof. Keeping AT-016.07 red was costed
+and refused: `AtPending`/`sut-missing` is raised per SUITE at `registry.ts:623`, and there is no
+per-test mechanism for one id to declare a missing sub-capability.
+
+What was built instead: `drainDeliveries` now stamps the identity of the process that performed
+each send (`_fixture.ts`, `deliveredByProcess`), and AT-016.07 requires the pending work to have
+been completed by the POST-restart identity. A falsification is captured in
+`loop/items/AI4DEV-19/proof-restart.txt`: breaking the coupling makes AT-016.07 fail.
+
+**This is the judgement I most want from you.** Is the mechanism you identified — "drainDeliveries
+never observes or replaces a delivery worker" — actually closed by this, or does AT-016.07 still
+claim more than it proves? Rule on the code. The residual limitation is stated openly in
+`rulings-03.md` and in the proof file: at loop tier there is still no volatile in-flight state for
+a restart to LOSE. If you think that residual makes the green unearned anyway, say so directly —
+that answer changes what merges.
+
+**Your finding 2 (P1) — AT-016.09 asserts only transition and event absence. ACCEPTED and fixed.**
+`c-reliability-guard.test.ts` now also requires no delivery of the row's type and no ops item of
+that kind in the fault world, and names which of the four leaked. Part two of
+`proof-oracle.txt` claims to falsify the widening: with a rollback that restores only the
+transition and the event record, the old two-read oracle passes and the widened one fails. Check
+that claim.
+
+**Your finding 3 (P2) — `state.nextId` allocated before the fault point and never rolled back.
+ACCEPTED and fixed.** Kimi raised the identical defect independently. The allocation moved to
+after the try/catch, so a crashed emit consumes no id at all. A conformance case in
+`conformance.selftest.ts` now arms, crashes, clears, fires again and requires `event-1` — added
+because the first repair had no oracle and reverting it left the suite green.
+
+**Your finding 4 (P3) — the proof files claim content they do not contain. ACCEPTED and fixed.**
+Both halves were verified true before ruling. All four proofs were re-captured against the final
+code commit; each names it; `proof-green.txt` carries a real `--expect` transcript.
+
+## What to answer
+
+For each of your four findings: CLOSED, PARTIALLY CLOSED, or NOT CLOSED, with the file and line
+you checked. Do not re-review the item and do not raise a fresh catalogue — if something new is
+genuinely serious, one line at the end is enough.
+
+Be specific about anything you think was closed in wording rather than in code. The purpose of a
+confirmation is to catch a repair that reads correct and is not.
