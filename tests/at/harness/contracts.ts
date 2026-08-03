@@ -158,8 +158,9 @@ export type Vendors<Channel extends string = string> = {
  * the harness object AND the objects `open()` hands a test body — `OpenWorld`, `AtContext` and
  * `WorldLike` in `registry.ts` obey it for the same reason these do. `WorldLike` was briefly
  * excluded as belonging to AI4DEV-31's seam; that conflated two different defects. The suite's `W`
- * being an unverified claim is AI4DEV-31's. The interface being augmentable is this one — and `w` is
- * handed to the body exactly as `h` is.
+ * being an unverified claim was AI4DEV-31's, and that item has since closed it: the seam types are derived from the
+ * fixture adapter that produces them, so a suite can no longer name either one. The interface being augmentable is
+ * this one — and `w` is handed to the body exactly as `h` is.
  *
  * `tests/at/typeprobes/` carries an attack for every protected type, and
  * `type-invention.selftest.ts` fails by name if any of them becomes an interface again.
