@@ -211,6 +211,28 @@ That file also carries the standing role — no code, derive your own chain, pus
 boundary, how to ask a question — so a brief carries only what is specific to its item. A
 shorter brief is a brief with fewer places to be wrong.
 
+### A brief states what to RESOLVE, never a resolved value
+
+The coordinator must not put a derived fact into a brief. Not the chain, not the parent, not a
+label, not a state the agent can read for itself. Say *"resolve your chain from the board"*,
+never *"your chain is X > Y"*.
+
+This was violated on AI4DEV-31: the brief contained a literal `Set-Chain … @{id='AI4DEV-3'…}`.
+It happened to be right, and that is the danger — the agent would have stamped a wrong value
+just as faithfully, for the life of the item, and no gate reads briefs. It is the
+declared-not-derived defect this entire way of work exists to delete, reintroduced by the one
+actor nobody reviews.
+
+Two nets already exist and neither is a substitute for the rule: the agent definition tells the
+agent to treat a handed chain as a hint to verify, and Gate 0 is asked to flag "a fact asserted
+that the agent could derive itself". Both fire AFTER the brief is written. This one fires
+before.
+
+**The general form, because it is what makes any of this survive:** a correction exists only if
+it lives in a file that loads every session — the skill, the agent definition, CLAUDE.md,
+memory. A correction delivered in a message to a running agent dies with that agent. If it
+matters for the next item, write it down before the conversation moves on.
+
 **`--fallback-model` does not rescue this.** It fires on model overload and non-retryable server
 errors; authentication, **billing**, rate-limit, request-size and transport errors explicitly
 never trigger it. Out of credits is a billing error, so the fable→opus handoff stays manual and
