@@ -218,8 +218,12 @@ jobs:
           # the pull request had any relationship to the item it closed, which is the same
           # asserted-but-unobserved state this repository's way of work exists to delete.
           #
-          # Title and body are read through the API rather than interpolated into this script:
-          # `${{ }}` expansion of attacker-controlled text into a run block is script injection.
+          # Title and body are read through the API rather than interpolated into this script.
+          # Expanding attacker-controlled text directly into a run block is script injection —
+          # and note that an expression cannot even be WRITTEN in one of these comments: an
+          # earlier draft spelled the syntax out here to explain the hazard, Actions evaluated
+          # it, and the workflow failed to parse. The warning broke the file by demonstrating
+          # itself.
           if ! pr=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.title + "\n" + (.body // "")'); then
             echo "::error::the pull request's title and body could not be read from the GitHub API — the guard does not pass text it could not read"
             exit 1
