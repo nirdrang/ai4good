@@ -81,6 +81,11 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         // The ops items are matched by `kind` rather than by `linkedEventId`: the crashed fire threw
         // instead of returning, so there is no event id to filter on, and `opsItems()` with no filter
         // is the whole set.
+        //
+        // This widening carries its own falsification, held to the same standard as the tightening
+        // below: with a fault path that rolls back exactly the transition and the event record and
+        // leaves the delivery and the ops item committed, the two-read form passes and this one
+        // fails (`loop/items/AI4DEV-19/proof-oracle.txt`, part two).
         const deliveryWritten = (await sut.deliveries({ type: row.event })).length > 0;
         const opsItemWritten = (await sut.opsItems()).some((item) => item.kind === row.event);
 
