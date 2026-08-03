@@ -103,12 +103,21 @@ so a failure can never leave an item falsely In Progress.
    could act on.
 2. Startability **blocks**: item missing, Done, Cancelled, or an open blocker → stop and say
    which. Attribution failures do **not** block — they print and continue.
-2a. **If the walk finds no requirement above the item, ASK — once, here at pickup**
+2a. **If the CHAIN'S ROOT has nothing above it, ASK — once, here at pickup**
+
+   **Check the ROOT, not the item.** An item can have a parent whose own root is bare, and then
+   the question never fires and the gap is inherited in silence by every sibling under that
+   root. That is exactly what happened: a harness item had a parent, so the check passed, and
+   nobody ever asked what the parent itself rolled up to — until the founder read a stamp and
+   asked what was above it. One unasked question had been propagating down a subtree of eight.
+
+   So: walk to the root first, then ask whether **the root** reaches a requirement, carries an
+   `attr:` floating label, or is marked `standalone-root`. If none of those, that is the gap.
    (founder ruling 2026-08-02). Two failures that look alike must not be treated alike:
 
    | what happened | what to do |
    |---|---|
-   | the walk **completed** and the item has no parent | **stop and ask.** The board is saying nothing is above this, which is a modelling gap and the founder is the one who can close it. |
+   | the walk **completed** and its ROOT has nothing above it — no requirement, no `attr:` label, no `standalone-root` marker | **stop and ask.** The board is saying nothing is above this, which is a modelling gap and the founder is the one who can close it. |
    | the board could **not be read** (API error, unreachable, partial response) | **do not ask.** That is a technical failure, not a modelling gap — asking would bake a guess into the board permanently. Print `CHAIN UNRESOLVED`, carry on, retry at the next boundary. |
 
    When asking, **offer suggestions rather than an open question**, ranked:
