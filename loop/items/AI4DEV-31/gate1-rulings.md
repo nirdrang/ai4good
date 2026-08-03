@@ -113,6 +113,13 @@ does not "restore uniformity" without knowing why it is absent.
 This is the gate working in the direction people forget it can: less code, because a claim was
 measured instead of assumed.
 
+**Superseded during Gate 2.** This ruling was overturned. The measurement above checked only the
+direct read (`open().w.invented`) and missed the upcast route: because the fixture class implements
+`World`, a plain `const asWorld: World = w` needs no cast, and a member merged into the `World`
+interface then reads green. `World` was converted to a type alias after all, and IS in the
+protected list. The full reasoning is in `gate2-rulings.md`, which wins wherever it disagrees with
+this ruling.
+
 ## 8 — the threat model, stated instead of implied
 
 The reviewer is right that `any`, `as`, `@ts-ignore`, `@ts-nocheck`, run-time mutation and an adapter

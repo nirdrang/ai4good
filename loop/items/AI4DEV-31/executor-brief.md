@@ -183,6 +183,13 @@ Apply design.md D1, D2, D4, D4b:
   way, record in the selftest WHY `World` is absent from the protected list, so a later author does
   not "restore uniformity" without knowing.
 
+  **Superseded during Gate 2.** This instruction was overturned. The reasoning above measured only
+  the direct read (`open().w.invented`) and missed the upcast route: because the fixture class
+  implements `World`, a plain `const asWorld: World = w` needs no cast, and a member merged into
+  the `World` interface then reads green. `World` was therefore converted to a type alias after
+  all, and IS in the protected list. The full reasoning is in `gate2-rulings.md`, which wins
+  wherever it disagrees with this brief.
+
 ## Step 4 — the runner selftests' synthetic suites
 
 `tests/at/harness/runner-blackbox.selftest.ts:63-69` and `runner-expect.selftest.ts:57-59` generate
