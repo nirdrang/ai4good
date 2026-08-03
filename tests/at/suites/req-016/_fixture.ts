@@ -33,6 +33,18 @@ import type {
 } from './_contract.ts';
 import { TAXONOMY, type Channel, type Role, type TaxonomyRow } from './taxonomy.ts';
 
+/**
+ * WHICH REQUIREMENT THIS ADAPTER IS, declared by the adapter itself.
+ *
+ * Three facts used to be independent: the key `harness/suite-adapters.ts` looks the types up under,
+ * the module those types are read from, and the module `loadAdapter()` imports at run time from a
+ * path it builds out of a string. A typo in any one of them would have let the type-check describe
+ * one suite while the run drove another, with nothing able to notice. This literal is what ties
+ * them together — the map entry is constrained to match it, and `loadAdapter()` re-checks it
+ * against the requirement it was asked for and throws naming both values.
+ */
+export const requirement = 'req-016' as const;
+
 interface AdapterOptions {
   clock: ControlledClock;
   worlds: FixtureWorldStore;
