@@ -1,0 +1,199 @@
+# KNOWN LIMITS — true of every CI system that runs a pull request's own configuration.
+# On a pull_request event GitHub runs this workflow as the PULL REQUEST defines it, and the
+# package.json scripts these steps call are equally editable by the pull request under test. What
+# this file proves is therefore: the head commit, against the checks as that commit defines them.
+# It cannot be tamper-proof — a check cannot police the file it is written in. Resistance to a
+# deliberately weakened check comes from server-side rules (required review, a ruleset restricting
+# .github/workflows edits) and from a human reading the diff, not from anything in here.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Minimal and explicit. `contents: read` is what checkout needs; `pull-requests: read` is what the
+# ownership guard's `gh api .../pulls/N/files` call needs. Nothing here writes anything.
+permissions:
+  contents: read
+  pull-requests: read
+
+# One in-flight run per pull request: a new push to the same pull request cancels the older run.
+# Anything that is not a pull request falls back to the run id, which is unique per run — so those
+# runs share no group at all, none of them queues behind or cancels another, and every commit
+# landing on main gets its own verdict. Grouping them by branch would NOT do that: GitHub keeps at
+# most one pending run per group, so a third quick push would discard the second one's pending run
+# and that commit would never be judged.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # THE HEAD COMMIT, NOT THE MERGE COMMIT. On a pull_request event GitHub's default ref is a
+      # synthetic merge of head into base — a commit that exists in no branch and that nobody
+      # reviewed. This item exists to make CI's verdict be about the commit in the pull request, so
+      # the head sha is named explicitly. On push events the expression falls through to
+      # github.sha, which is the pushed commit.
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Report the commit under test
+        shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "event:             ${GITHUB_EVENT_NAME}"
+          echo "pull request head: ${PR_HEAD_SHA:-(not a pull request)}"
+          echo "checked out:       $(git rev-parse HEAD)"
+          git log -1 --format='%H  %an  %s'
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies from the lockfile
+        shell: bash
+        run: bun install --frozen-lockfile
+
+      - name: Type-check both TypeScript projects
+        shell: bash
+        run: bun run typecheck
+
+      - name: Run the acceptance-harness self-tests
+        shell: bash
+        run: bun run at:selftest
+
+      # Every suite is checked even after one fails, and the step's exit code is the aggregate —
+      # the same reason tests/at/typecheck.ts refuses to use `&&`. Zero discoveries is a FAILURE:
+      # a loop that matched nothing and exited 0 is the exact false green this repository exists
+      # to kill.
+      - name: Check every acceptance suite against its acceptance file
+        shell: bash
+        run: |
+          shopt -s nullglob
+          suites=(tests/at/suites/req-*/)
+          if [ ${#suites[@]} -eq 0 ]; then
+            echo "::error::discovery found no suite directories matching tests/at/suites/req-* — an empty set is a failure, not a pass"
+            exit 1
+          fi
+          echo "discovered ${#suites[@]} suite(s): ${suites[*]}"
+          status=0
+          for dir in "${suites[@]}"; do
+            req=$(basename "$dir")
+            echo ""
+            echo "===== bun run at:check $req ====="
+            code=0
+            bun run at:check "$req" || code=$?
+            if [ "$code" -ne 0 ]; then
+              echo "::error::at:check $req exited $code (1 = ids missing/extra/duplicated or none parsed, 2 = the requirement or its acceptance file could not be read)"
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Verify every declared requirement at the loop tier
+        shell: bash
+        run: |
+          shopt -s nullglob
+          manifests=(tests/at/expected/req-*.json)
+          if [ ${#manifests[@]} -eq 0 ]; then
+            echo "::error::discovery found no declaration manifests matching tests/at/expected/req-*.json — an empty set is a failure, not a pass"
+            exit 1
+          fi
+          echo "discovered ${#manifests[@]} declaration manifest(s): ${manifests[*]}"
+          status=0
+          for file in "${manifests[@]}"; do
+            req=$(basename "$file" .json)
+            echo ""
+            echo "===== bun run at:verify $req --tier loop --expect ====="
+            code=0
+            bun run at:verify "$req" --tier loop --expect || code=$?
+            if [ "$code" -ne 0 ]; then
+              echo "::error::at:verify $req --tier loop --expect exited $code (1 = the run deviates from its declaration, 2 = the declaration or the AT-to-code preflight refused the run and NOTHING was graded, 3 = infrastructure, 4 = no usable vitest report)"
+              status=1
+            fi
+          done
+
+          # A suite with no declaration manifest is checked for bijection by the previous step and
+          # never RUN by this one — a green pull request for a suite nobody executed. The gap
+          # between the two discovery sets is named here so it can never be silent.
+          echo ""
+          uncovered=()
+          for dir in tests/at/suites/req-*/; do
+            req=$(basename "$dir")
+            if [ ! -f "tests/at/expected/$req.json" ]; then
+              uncovered+=("$req")
+            fi
+          done
+          if [ ${#uncovered[@]} -ne 0 ]; then
+            echo "::error::${#uncovered[@]} suite(s) have no declaration manifest, so none of their tests were run: ${uncovered[*]} — write tests/at/expected/<req>.json for each"
+            status=1
+          else
+            echo "every discovered suite has a declaration manifest"
+          fi
+          exit $status
+
+      # One pull request may not change both territories. Lovable owns src/; Claude owns
+      # supabase/, tests/, loop/, .claude/ and .github/. Anything else is neither, and is ignored.
+      # The changed-file list comes from the pull request itself, which IS the base-to-head diff —
+      # so the guard never depends on how deep the checkout fetched.
+      - name: Guard against a pull request that changes both territories
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # ONE LINE PER CHANGED FILE, carrying both of its paths: a file MOVED out of src/ into
+          # tests/ changes both territories, and the API reports only its destination under
+          # `filename`. One line per FILE (not per path) is what makes the count below an entry
+          # count, so a pull request full of renames cannot falsely trip the ceiling.
+          if ! files=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" --paginate \
+              --jq '.[] | [.filename, (.previous_filename // "")] | @tsv'); then
+            echo "::error::the pull request's changed files could not be read from the GitHub API — the guard does not pass a change set it could not read"
+            exit 1
+          fi
+
+          count=$(printf '%s\n' "$files" | grep -c . || true)
+          echo "the pull request changes $count file(s)"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::the GitHub API reported no changed files for this pull request — the guard does not pass a change set it could not read"
+            exit 1
+          fi
+          if [ "$count" -ge 3000 ]; then
+            echo "::error::the changed-file listing reached the GitHub API's 3000-file ceiling, so it is truncated and the guard cannot prove the two territories are separate"
+            exit 1
+          fi
+
+          # Both fields of every line are matched; the empty second field of an ordinary
+          # (non-renamed) file drops out here.
+          paths=$(printf '%s\n' "$files" | tr '\t' '\n' | grep . || true)
+          lovable=$(printf '%s\n' "$paths" | grep -E '^src/' || true)
+          claude=$(printf '%s\n' "$paths" | grep -E '^(supabase|tests|loop|\.claude|\.github)/' || true)
+
+          if [ -n "$lovable" ] && [ -n "$claude" ]; then
+            echo "::error::this pull request changes BOTH Lovable territory and Claude territory — split it into two pull requests"
+            echo "Lovable territory (src/):"
+            printf '%s\n' "$lovable" | sed 's/^/  /'
+            echo "Claude territory (supabase/, tests/, loop/, .claude/, .github/):"
+            printf '%s\n' "$claude" | sed 's/^/  /'
+            exit 1
+          fi
+
+          if [ -n "$lovable" ]; then
+            echo "ownership guard OK — this pull request stays inside Lovable territory"
+          elif [ -n "$claude" ]; then
+            echo "ownership guard OK — this pull request stays inside Claude territory"
+          else
+            echo "ownership guard OK — this pull request touches neither territory"
+          fi

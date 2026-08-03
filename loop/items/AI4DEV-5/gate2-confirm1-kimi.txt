@@ -1,0 +1,8 @@
+﻿• I cannot produce the sentence the challenge demands, because it does not exist. The premise in my finding was inverted.
+
+  GitHub's documentation for the `pull_request` event states the opposite of what I claimed: "By default, a workflow only runs when a `pull_request` event's activity type is `opened`, `synchronize`, or `reopened`." Activity types such as `labeled`, `unlabeled`, `edited`, `assigned`, and `review_requested` do **not** trigger a workflow unless you opt in with an explicit `types:` list. So the workflow as written — `on: pull_request: branches: [main]` with no `types:` filter — already runs only on those three activity types. Labeling or editing a PR does not start a run, does not enter the concurrency group, and cannot cancel an in-flight verdict run. Adding `types: [opened, synchronize, reopened]` would merely restate the default.
+
+  Consequently the scenario my finding described (a label change cancelling an in-flight run and forcing a redundant full re-run of the same head sha) cannot occur, and there is no concrete change the workflow needs. The finding was wrong on its single factual premise and I withdraw it.
+
+  FINDING 1: WITHDRAWN
+

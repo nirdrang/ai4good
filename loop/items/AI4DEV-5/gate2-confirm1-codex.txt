@@ -1,0 +1,9 @@
+“The `pull_request` webhook event payload is empty for merged pull requests and pull requests that come from forked repositories.”
+
+URL: [GitHub documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows?apiVersion=2022-11-28)
+
+Concrete change: add a pre-checkout PR resolver that derives the PR number from `GITHUB_REF`, fetches its head SHA through `gh api`, and uses those resolved values for checkout and the ownership guard; use `github.ref` as the PR concurrency key.
+
+Under the stated two-writer, same-repository operating model, this would not remain a BLOCKER even if the premise held. It is an out-of-model fork-PR limitation, not an in-scope merge blocker.
+
+FINDING 1: UPHELD

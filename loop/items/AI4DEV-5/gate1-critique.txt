@@ -1,0 +1,25 @@
+1. **BLOCKER — ownership guard can be removed by the PR it is meant to reject.**  
+   **Plan claim:** “One pull request may not change both territories. Lovable owns `src/`; Claude owns … `.github/`.”  
+   On `pull_request`, GitHub executes the workflow definition from the PR’s merge commit. Changing `actions/checkout` to the head SHA changes the workspace, not that already-parsed workflow. A PR can change `src/**` and `.github/workflows/ci.yml`, retain the `verify` job, and replace the inline guard with success. It then reports the required job as green. GitHub documents this workflow-source behavior for `pull_request` events and creates checks per job. [plan.md](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a180654671adb8ac4/loop/items/AI4DEV-5/plan.md:247) · [GitHub Actions semantics](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target)
+
+2. **BLOCKER — `package.json` is an unguarded no-op switch for every acceptance command.**  
+   **Plan claim:** “Anything else is neither, and is ignored.”  
+   All four verification invocations resolve through mutable scripts in [package.json](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a180654671adb8ac4/package.json:12). A PR changing only `src/**` plus those script bodies can replace `typecheck`, `at:selftest`, `at:check`, and `at:verify` with successful no-ops. `package.json` is outside both guard regexes, so the PR is classified Lovable-only; script-only changes are not represented in [bun.lock](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a180654671adb8ac4/bun.lock:1), so the frozen install still succeeds. Bun explicitly executes named `package.json` scripts for `bun run`. [Bun run documentation](https://bun.sh/docs/runtime)
+
+3. **BLOCKER — the plan does not put raw Vitest failure output in the CI log.**  
+   **Plan claim:** “`bun run at:verify "$req" --tier loop --expect || code=$?`” and that the exit-code handling makes the failure legible.  
+   [runner.ts](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a180654671adb8ac4/tests/at/harness/runner.ts:1131) runs Vitest only with `--reporter=json --outputFile=…`, parses that temporary JSON, then deletes it. It does not add Vitest’s `default` reporter, which is the reporter Vitest documents for terminal result/error output alongside JSON. The repository explicitly records that a hook failure in a file already containing a declared red is invisible in that JSON shape; the runner can therefore return zero while the raw failure is absent from the log. [expected.ts](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a180654671adb8ac4/tests/at/harness/expected.ts:371) · [Vitest reporters](https://v4.vitest.dev/guide/reporters)
+
+4. **MAJOR — pushes to `main` are still cancelled under this concurrency configuration.**  
+   **Plan claim:** “Pushes to main are NOT cancelled — every commit on main gets a verdict of its own.”  
+   Every main push shares `CI-refs/heads/main`. With no queue setting, GitHub retains at most one pending run in a concurrency group; a third rapid main push cancels the pending run for the second push, even though `cancel-in-progress` is false. Thus some main commits receive no verdict. [plan.md](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a180654671adb8ac4/loop/items/AI4DEV-5/plan.md:148) · [GitHub concurrency semantics](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+
+5. **MAJOR — a suite without a manifest passes without executing its tests.**  
+   **Plan claim:** “A suite with no declaration manifest is checked but never RUN.”  
+   This is acknowledged in the plan but absent from the proposed YAML. Step 7 only invokes the static checker; [check.ts](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a180654671adb8ac4/tests/at/harness/check.ts:9) reads call sites and does not run Vitest. Step 8 discovers only manifests. Adding `tests/at/suites/req-020/` with a valid static bijection but no `expected/req-020.json` therefore leaves all existing discovery nonempty and produces a green workflow without executing REQ-020.
+
+6. **MINOR — the 3,000-file truncation check falsely rejects one-territory rename PRs.**  
+   **Plan claim:** “the changed-file listing reached the GitHub API’s 3000-entry ceiling.”  
+   The code emits both `filename` and `previous_filename`, then counts output lines. A complete API response containing 1,500 detected renames within `src/**` produces 3,000 lines and fails, although GitHub’s 3,000 limit is file entries, not path strings. That rejects a PR touching only Lovable territory. [plan.md](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a180654671adb8ac4/loop/items/AI4DEV-5/plan.md:259) · [Pull-request files API](https://docs.github.com/en/rest/pulls/pulls)
+
+FINDINGS: 6.

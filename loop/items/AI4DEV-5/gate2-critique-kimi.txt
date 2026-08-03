@@ -1,0 +1,43 @@
+﻿• Reading the brief's context files and the diff under review.
+
+• Now the harness sources the workflow invokes, plus the on-disk discovery sets.
+
+• Checking exit-code semantics in both harness entry points against the workflow's printed legends.
+
+• Exit-code legends check out. Now I'll execute the guard's shell logic against fabricated PR file lists and sanity-parse the YAML.
+
+• Guard shell logic verified on 12 adversarial cases. Now parsing the YAML with whatever parser is present.
+
+• YAML parses (the `True` key is PyYAML's YAML-1.1 reading of `on:` — GitHub's own parser handles it, not a finding). Now the discovery loops and the item's paper trail.
+
+• Discovery logic verified end-to-end. Running the real step-c script body (verbatim, with actual `bun run at:check`) and the heavier `at:verify` command the workflow uses.
+
+• All verification done. Findings below — evidence-backed, against the diff alone.
+
+  ---
+
+  **Gate 2 findings — AI4DEV-5, `.github/workflows/ci.yml`**
+
+  **BLOCKER**
+
+  none found.
+
+  **MAJOR**
+
+  none found.
+
+  **MINOR**
+
+  **1. Unfiltered `pull_request` activity types let a label or title edit cancel an in-flight verdict run.**
+  Quoted: `on: pull_request: branches: [main]` (ci.yml:12-13) combined with `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` (ci.yml:31). With no `types:` filter, GitHub fires this workflow on every activity type — `labeled`, `unlabeled`, `edited`, `assigned`, `review_requested`, etc. — not just `opened`/`synchronize`/`reopened`. Every one of those events lands in concurrency group `CI-<number>` with cancel-in-progress true, so labeling a PR kills the run currently judging that head sha and starts a redundant full run (typecheck + selftest + vitest suite) of the identical commit. No false green results — the replacement run re-judges the same sha — but it is wasted compute on every label change and a standing cancellation-noise vector on the one run per PR that is allowed in flight. Decision 2 ratified the trigger as `pull_request` targeting `main` without prescribing types, so this is MINOR, not a deviation from the brief.
+
+  **Amendment trace (A1–A4, all verified applied, none missing or twisted):** A1 — the manifest-coverage check exists at ci.yml:126-142 and was executed live: a fabricated `tests/at/suites/req-999/` with no manifest is detected (`uncovered: 1 req-999`) and would fail the step; a fabricated manifest `req-777.json` with no suite is left for `at:verify` to refuse (exit 2, confirmed in `runner.ts:981-982`). A2 — group is `...${{ github.event.pull_request.number || github.run_id }}` (ci.yml:30), so push runs share no group and the F4 middle-commit verdict loss is closed. A3 — one TSV line per file entry via `--jq '.[] | [.filename, (.previous_filename // "")] | @tsv'` (ci.yml:161-162); executed against 12 constructed PR file lists: both-territory PRs fail, `src→tests` and `tests→src` renames fail, same-territory renames pass, 1500 renames inside `src/` count as 1500 entries and do not trip the 3000 ceiling, deletions are caught, and prefix traps (`srcfoo/`, `tests2/`, `supabase.config`, `.claudeX/`) correctly match neither territory. A4 — the Known-limits header block covering F1+F2 is present at ci.yml:1-7. F1/F2/F3 were not re-raised; the implementation made none of them worse.
+
+  **Head-commit claim:** the only checkout in the file names `ref: ${{ github.event.pull_request.head.sha || github.sha }}` (ci.yml:46); there is no second checkout and no other git operation that fetches, so the synthetic merge commit has no path back in, and the report step (ci.yml:48-56) prints the same event-payload field the checkout consumed.
+
+  **Exit-code legends:** the legends printed at ci.yml:97 and ci.yml:121 match the sources — `check.ts` returns 0/1/2 (`check.ts:130,138,164,170`) and `runner.ts` returns 0/1/2/3/4 (`runner.ts:965,976,982,991,1010,1017,1148,1156,1177-1201`) with the meanings the workflow states.
+
+  **Live evidence:** the step-c script body was executed verbatim under `bash --noprofile --norc -eo pipefail` against the real tree (`RESULT: 12 P0 ids in bijection`, aggregate exit 0), and `bun run at:verify req-016 --tier loop --expect` exits 0 with the run matching its declaration exactly. The YAML parses; the unquoted `on:` key reads as boolean `True` only under YAML-1.1 parsers such as PyYAML — GitHub Actions' parser handles it, as every unquoted-`on:` workflow in the wild demonstrates. Zero-discovery failure paths, the zero-file and ≥3000-entry guard edges, and the `req-888`-file-not-a-directory glob trap were all exercised and behave as designed.
+
+  FINDINGS: 1
+

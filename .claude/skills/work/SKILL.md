@@ -249,8 +249,23 @@ ten-minute foreground ceiling.
 over its item. If codex is unavailable, fall back to a fresh-context **sonnet** auditor and say
 which was used — an audit that is quietly skipped is worse than one that is openly weaker.
 
-### Three rules the testing forced
+**Known boundary (2026-08-03): in a PLATFORM worktree — always nested inside the main
+checkout — the workspace-scoped sandbox denies vitest's ancestor-directory config walk**
+(`Cannot read directory "../../../../.."`), so vitest-based boxes fail with access-denied
+while non-walking commands pass. Read that signature as COULD-NOT-VERIFY-IN-SANDBOX, take the
+execution evidence from the PR's own CI run instead, and say so — it is not a red of the code
+under audit.
 
+### Rules the testing forced
+
+- **Liveness of a detached reviewer is judged by ITS OWN ARTIFACTS, never by process scans
+  or someone else's observation** (added 2026-08-03, after two wrong death calls on one
+  item). An unflushed output file reads as zero bytes while the reviewer is mid-run; kimi
+  runs as a node process, so a name scan misses it. The owning agent checks the task
+  transcript's size and last-write time across a short interval — growth means alive. Only
+  a verified-EMPTY result after completion is a failed gate: one relaunch, then rule the
+  gate unavailable in writing and proceed. A coordinator does not make liveness claims; it
+  points at files and lets the owner measure.
 - **NEVER resume an agent after it has finished.** Its worktree is deleted on completion, and a
   resumed agent silently falls back to the main checkout. Observed: a resumed probe created a
   branch in the live checkout and switched it. If an agent must wait for a ruling, it stays

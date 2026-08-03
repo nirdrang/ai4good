@@ -1,0 +1,22 @@
+You are the PRE-MERGE AUDITOR for item AI4DEV-5 (the CI pipeline) — an independent re-verification, not a review of prose. The agent claiming green is the one being checked; its transcript is contaminated by having written the code. You re-derive the evidence yourself, by running things. You have workspace-write: USE it — an audit that executes nothing is a documentation review wearing an audit's name, and you must not produce one. If a command refuses to run, say so as a finding; never substitute reading for running.
+
+The claim under audit: the branch contains a finished CI workflow (.github/workflows/ci.yml) that (1) runs five named checks against a pull request's HEAD commit on GitHub Actions, (2) discovers acceptance suites and declaration manifests dynamically, (3) enforces the src-vs-rest ownership guard from the PR's base-to-head file list, and (4) is locally green: the exact commands CI runs pass in this worktree.
+
+Audit boxes — for EACH one, state the evidence you personally gathered (command + result, or file + line), then verdict PASS / FAIL / COULD-NOT-VERIFY:
+
+1. bun install --frozen-lockfile succeeds in this worktree (run it; it is safe — it installs into node_modules from the committed lockfile).
+2. bun run typecheck exits 0 (run it; capture the tail of its output).
+3. bun run at:selftest exits 0 (run it; note the test count).
+4. bun run at:check req-016 exits 0 and reports a bijection (run it).
+5. bun run at:verify req-016 --tier loop --expect exits 0 (run it; note declared greens/reds matched).
+6. ci.yml checks out the PR head sha on pull_request events (find the exact ref: line) and never checks out anything else afterwards.
+7. The five checks are five separate named steps; discovery of suites (tests/at/suites/req-*) and manifests (tests/at/expected/req-*.json) is dynamic; a zero-item discovery FAILS the step; every discovered requirement runs even after an earlier one fails, with an aggregated exit code (trace the shell yourself — subshell/pipe traps, nullglob, set -e interactions).
+8. Step (d) fails when a discovered suite has no matching declaration manifest (amendment A1).
+9. Concurrency: PR runs group by PR number with cancel-in-progress true; push runs group by run id — nothing on main queues or cancels (amendment A2). Quote the group expression.
+10. The ownership guard: emits one line per file entry including previous_filename (amendment A3), fails closed on API error / zero entries / >=3000 entries, and fails exactly when both a src/** path and a (supabase|tests|loop|.claude|.github)/ path appear — check the regexes and field handling character by character.
+11. The Known-limits header block exists and states the PR-side tamper limitation plainly (amendment A4).
+12. Scope: git diff origin/main...HEAD touches ONLY .github/workflows/ci.yml and loop/items/AI4DEV-5/** — nothing else. Run the diff --name-only yourself.
+
+Also: read loop/items/AI4DEV-5/rulings-02.md and check that every ADOPTED ruling is actually present in the file as ruled — a ruling recorded but not implemented is a FAIL on that box.
+
+Output: one section per box with evidence and verdict, then a final line: AUDIT: CLEAN or AUDIT: N FINDINGS, followed by the numbered findings with severity. You report; you rule on nothing — the ruling belongs to the item agent.
