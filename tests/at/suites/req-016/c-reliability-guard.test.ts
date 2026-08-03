@@ -73,6 +73,16 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
 
         const transitionCommitted = await w.transitionCommitted(row.event);
         const eventWritten = (await sut.events({ type: row.event })).length > 0;
+        // EVERYTHING THE ROLLBACK CLAIMS, not just the two halves the message used to name. `fire()`
+        // also writes deliveries and — for the guarded rows that carry one — an ops item, all after
+        // the fault point, and a fault path that put the transition and the event back while leaving
+        // an outbox delivery committed used to pass here. The drain above would then have SENT it.
+        //
+        // The ops items are matched by `kind` rather than by `linkedEventId`: the crashed fire threw
+        // instead of returning, so there is no event id to filter on, and `opsItems()` with no filter
+        // is the whole set.
+        const deliveryWritten = (await sut.deliveries({ type: row.event })).length > 0;
+        const opsItemWritten = (await sut.opsItems()).some((item) => item.kind === row.event);
 
         // NEITHER SIDE COMMITTED, not merely the two agreeing with each other.
         //
@@ -86,20 +96,26 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         // pass anything the old form failed. Its falsification is on file: with the fault point
         // moved after both writes, the old form passes and this one fails
         // (`loop/items/AI4DEV-19/proof-oracle.txt`).
-        if (transitionCommitted || eventWritten) {
+        if (transitionCommitted || eventWritten || deliveryWritten || opsItemWritten) {
           const committed = [
             ...(transitionCommitted ? ['the transition'] : []),
             ...(eventWritten ? ['the notification event'] : []),
+            ...(deliveryWritten ? ['a delivery'] : []),
+            ...(opsItemWritten ? ['an ops item'] : []),
           ];
           problems.push(
-            `${row.event}: transition=${transitionCommitted} notificationEvent=${eventWritten} — ` +
-              `a crash at ${FAULT_POINT} committed ${committed.join(' and ')}; the two must roll back ` +
-              `as one unit, leaving neither`,
+            `${row.event}: transition=${transitionCommitted} notificationEvent=${eventWritten} ` +
+              `delivery=${deliveryWritten} opsItem=${opsItemWritten} — ` +
+              `a crash at ${FAULT_POINT} committed ${committed.join(' and ')}; all of it must roll ` +
+              `back as one unit, leaving none of it`,
           );
         }
       }
 
-      expect(problems, `guarded rows where a crash between the transition and the event write left either side committed`).toEqual([]);
+      expect(
+        problems,
+        `guarded rows where a crash between the transition and the event write left any part of it committed`,
+      ).toEqual([]);
     },
   );
 
