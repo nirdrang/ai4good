@@ -35,40 +35,62 @@ Taken on this worktree at `761aaa9` after `bun install`:
 All three must hold at the end, with the identical 8/4/0 split and 114+ tests. If a number changes,
 that is a finding to report, not a number to update.
 
+## GATE 1 HAS RUN. Read `gate1-rulings.md` — it overrides parts of design.md
+
+The design went through an adversarial gate (codex terra at max) that **ran the compiler** rather
+than reasoning from the document, and it corrected several things I had predicted from analogy.
+`gate1-rulings.md` is authoritative where it and `design.md` disagree. The corrections that change
+your work most:
+
+- **My predicted diagnostics were wrong.** Do NOT hard-code a predicted TypeScript error code
+  anywhere. Run the compiler, read the code it actually emits, assert that. (The fabrication attack
+  gives TS2344, not the TS2558 design.md predicts.)
+- **My proof-isolation method does not work.** `tsc <file>` does not inherit a config; `-p` cannot be
+  combined with a filename. Use a committed child tsconfig per probe (below).
+- **`World` comes OUT of the D5 conversion list** (see step 3).
+- **Exported `function` declarations can be augmented with an extra overload** — the alias doctrine
+  does not protect them. See step 2.
+
 ## Step 0 — capture the RED half of the proof FIRST, before any fix
 
 This is the deliverable, not a formality, and it is **impossible to reproduce once you have changed
-`registry.ts`**. Do it first.
+`registry.ts`**. Do it first, and push it before touching a source file.
 
-Write `tests/at/typeprobes/sut-seam.probe.ts` containing the attacks in design.md §3, **written in
-the form a suite can use on TODAY's tree** — i.e. using the current
-`bindSuite<Sut, W>(...)` and `defineEvidenceCapture<T, Sut, W>(...)` signatures. Example of the
-shape (the fabricated-SUT attack):
+Write `tests/at/typeprobes/sut-seam-legacy.probe.ts` containing the attacks **written in the form a
+suite can use on TODAY's tree** — the current `bindSuite<Sut, W>(...)` and
+`defineEvidenceCapture<T, Sut, W>(...)` signatures. Cover at least: a fabricated SUT type read
+through `open()`; a fabricated world type read through `open()`; and the same two through
+`defineEvidenceCapture`'s generics. Shape:
 
 ```ts
 const t = bindSuite<{ notThere(): Promise<void> }, World>({ sut: 'notifications' });
 t('AT-016.99', 'reads a fabricated sut member', async ({ open }) => {
   const { sut, w } = await open();
-  await sut.notThere();          // must not compile after the fix
-  void (w as { invented?: string }).invented;
+  await sut.notThere();
+  void (w as unknown as { invented?: string }).invented;
 });
 ```
 
-Then compile **that file alone** with the pinned compiler and the probe config's options, into
-`loop/items/AI4DEV-31/proof-red.txt`, recording the command and the exit code.
+Give it a **committed** child config `tests/at/typeprobes/tsconfig.sut-seam-legacy.json` that
+`extends` `../tsconfig.json` (the acceptance config), sets `"files": ["sut-seam-legacy.probe.ts"]`
+and `"include": []`, and compile it with the pinned compiler via `-p`:
 
-**Expected: exit 0 — it compiles clean.** That is the defect, executed. If it does NOT compile
-clean, stop and report: either the attack is written wrong or the hole is not where we think it is,
-and both are findings I need before you go further.
+```
+node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+```
 
-Isolation matters here: `tests/at/typeprobes/tsconfig.json` includes `**/*.ts`, so the whole probe
-program already fails because of attacks 1-4. Compile the single new file with an explicit temporary
-config that `extends` `tests/at/tsconfig.json` and includes only that file, so the exit code
-describes only the new attacks. Guard against a misleading exit 0: the transcript must show the file
-was actually found and checked (a config that matches no files also exits 0 — that failure mode must
-be ruled out in the transcript, e.g. by `--listFiles` or by a deliberate syntax error trial).
+**Expected: exit 0 — it compiles clean.** That is the defect, executed. Capture the command, the
+exit code and the output into `loop/items/AI4DEV-31/proof-red.txt`.
 
-Commit and push the red transcript **before** touching any source file.
+**Rule out the empty-program exit 0**, which is the way this evidence could be a lie: a config that
+matches no files also exits 0. Include `--listFiles` output (or an equivalent positive control, e.g.
+show that inserting a deliberate error into the probe makes the same command fail) in the transcript.
+Without that control the red half proves nothing.
+
+If it does NOT compile clean, STOP and report — either the attack is written wrong or the hole is not
+where we think it is, and I need to know before you go further.
+
+After the fix this same file must FAIL. It stays in the tree as a permanent guard.
 
 ## Step 1 — the derived registry
 
@@ -77,11 +99,29 @@ which was **verified by spike** — see `loop/items/AI4DEV-31/spike-raw.txt`; it
 `SutOf<'req-016','notifications'>` to `NotificationsSut` exactly, and `WorldOf<'req-016'>` to a world
 assignable to `World` and satisfying the teardown constraint.
 
-Include D3: constrain the map so every entry's world extends `WorldLike`, so an adapter whose world
-forgets `teardown()` fails where the entry is written.
+**D3, corrected (Gate 1 finding 5).** The type shapes in design.md §2 do NOT actually constrain
+anything — I wrote derivations, not a constraint. Wrap the map in a generic constraint that requires
+each entry's adapter to have at least `sut`, `fixtures.world(): Promise<WorldLike>` and `teardown()`,
+so a malformed adapter fails **at the map entry** where it is written. The reviewer verified the real
+adapter satisfies such a constraint and that a world missing `teardown()` fails at the entry.
+
+**Blocker 2, the self-identifying adapter.** The map key and the module actually loaded at run time
+are still two independent facts — `AdapterModules['req-016']` could name `req-017/_fixture.ts` by a
+typo while `adapterUrl()` loads `req-016/_fixture.ts`, and nothing notices. Close it:
+
+- each fixture module exports `export const requirement = 'req-016' as const;`
+- each map entry is constrained so its module's `requirement` literal **equals its key** — a
+  mismatched entry fails in `suite-adapters.ts`
+- `loadAdapter()` in `tests/at/harness/index.ts` validates the same literal at run time against the
+  requirement it was asked for, and throws naming both values
+
+The synthetic adapters generated by the runner selftests need the tag too (step 4). They are not in
+the type map and do not need to be — the run-time check compares what the adapter declares against
+what was requested.
 
 The file's header comment must say what it is for: that the harness's knowledge of its suites is now
-explicit and checked rather than a path convention, and that a new suite adds one line here.
+explicit and checked rather than a path convention, that a new suite adds one line here, and that the
+`requirement` literal is what ties the entry to the module the loader actually resolves.
 
 ## Step 2 — `registry.ts`: derive instead of accept
 
@@ -99,9 +139,18 @@ Apply design.md D1, D2, D4, D4b:
   you did to each one.
 - **`OpenWorld.h` does not change.** It stays concrete `AtHarness`. Re-parameterizing the harness is
   the door AI4DEV-24 shut with two adversarial gates and reopening it is out of the question.
+- **Exported `function` declarations are a door the alias doctrine does not cover** (Gate 1
+  blocker 1, verified: a `declare module` overload on `bindSuite` restoring a required invented SUT
+  member compiles cleanly). So `bindSuite`, `atTest` and `defineEvidenceCapture` must stop being
+  exported `function` declarations and become `const` bindings typed by alias call signatures, which
+  cannot be merged into. Add a probe attack for the overload route and assert it by name.
 - D4: `atTest` asserts at registration that the AT id's requirement equals the bound requirement,
   throwing where it is written, with a message naming both values and saying what would otherwise
   happen (the harness loads one suite's adapter while the type-check described another's).
+  **Normalize the formats** (Gate 1 finding 6): `parseAtId('AT-016.01').requirement` is `"016"` while
+  the binding and map key are `"req-016"`, so compare against `` `req-${parsed.requirement}` ``. A
+  literal comparison would reject every valid suite. Keep the field mandatory. Add run-time selftests
+  for both the missing-field and the mismatch cases — the check itself needs a test.
 - The cast at the end of `open()` must survive only at the narrowest possible point, with a comment
   stating exactly what remains unchecked and why. Rewrite the `OpenWorld` doc comment
   (`registry.ts:160-180`): it currently says `w` and `sut` "are still the suite's own claims,
@@ -118,11 +167,21 @@ Apply design.md D1, D2, D4, D4b:
   world type either, and why.
 - `tests/at/suites/req-016/d-taxonomy-evidence.test.ts`: import the bound capture helper instead of
   the raw generic.
-- `tests/at/suites/req-016/_contract.ts` (D5): convert the seam-reachable `interface`s to type
-  aliases — `NotificationsSut`, `World`, `SenderProbe`, `RegisteredRow`, `DocumentedDefault`,
-  `NotificationEvent`, `Delivery`, `OpsItem`, `EmitResult`. `World extends WorldSeam` becomes an
-  intersection. `class NotificationFixtureWorld implements World` still works against an object type
-  alias — verify, do not assume.
+- `tests/at/suites/req-016/_fixture.ts`: add `export const requirement = 'req-016' as const;`.
+- `tests/at/suites/req-016/_contract.ts` (D5, **corrected by Gate 1 finding 7**): convert these
+  EIGHT to type aliases — `NotificationsSut`, `SenderProbe`, `RegisteredRow`, `DocumentedDefault`,
+  `NotificationEvent`, `Delivery`, `OpsItem`, `EmitResult`. They are the SUT and the values its
+  methods return, so they are all on the seam path.
+
+  **`World` is deliberately NOT in that list.** The reviewer verified that after D1 `open().w` is the
+  concrete `NotificationFixtureWorld`, and that augmenting the `World` interface still yields TS2339
+  on `open().w.invented` — a class does not acquire interface members merely by implementing the
+  interface. So converting it buys nothing.
+
+  **Condition on that ruling:** confirm for yourself that no remaining seam path resolves to `World`
+  once the capture helper is suite-bound. If one does, convert it, and say so in your report. Either
+  way, record in the selftest WHY `World` is absent from the protected list, so a later author does
+  not "restore uniformity" without knowing.
 
 ## Step 4 — the runner selftests' synthetic suites
 
@@ -139,16 +198,38 @@ stop and report.
 
 ## Step 5 — the GREEN half of the proof, and the selftest
 
-- Re-compile `sut-seam.probe.ts` alone, same method as step 0, into
-  `loop/items/AI4DEV-31/proof-green.txt`. Expected: non-zero, with each attack's diagnostic present.
-- Add the new attacks to `tests/at/typeprobes/sut-seam.probe.ts` in final form and extend
-  `tests/at/harness/type-invention.selftest.ts` so **each new protection is asserted by name**, in
-  the style of the existing `ALIAS_PROTECTED` loop — removing any single protection must fail a test
-  that says which one. Follow that file's own doctrine: the list is a SPECIFICATION, not a sample,
-  and the two files must not be able to drift apart silently.
-- If the new probe file needs to be part of the probe program too (so `bun run at:selftest` covers
-  it), make sure the existing whole-program assertion still holds and that the per-attack assertions
-  are specific enough to fail individually.
+- Re-compile `sut-seam-legacy.probe.ts` with its committed child config, same command as step 0,
+  into `loop/items/AI4DEV-31/proof-green.txt`. **Expected: non-zero.** That is the red-then-green
+  pair: the same file, the same command, exit 0 before and non-zero after.
+- Add `tests/at/typeprobes/sut-seam.probe.ts` — the NEW-API attacks, which are only meaningful after
+  the change — with its own committed child config. These carry: reading a member the adapter's sut
+  does not declare; reading a member the adapter's world does not supply; naming a sut key the
+  adapter does not have; the `declare module` overload attack on each of the three `const` entry
+  points; and one module-augmentation attack per protected alias.
+- **Do not predict diagnostics.** Run the compiler, read the codes it actually emits, and assert
+  those. Record the real output in the transcripts.
+- Extend `tests/at/harness/type-invention.selftest.ts` so **each protection is asserted by name and
+  per probe file** — asserting only that the combined output contains some code is what Gate 1
+  called unsound. Removing any single protection must fail a test that says which one. Follow that
+  file's own doctrine: the list is a SPECIFICATION, not a sample, and probe and list must not be
+  able to drift apart silently.
+- The alias list must be **exhaustive over the eight converted contracts** (Gate 1 blocker 4:
+  claiming exhaustive coverage while attacking two of nine is the exact failure AI4DEV-24's own
+  reviewers caught in that item).
+- Keep the existing whole-program probe assertion working.
+
+## Step 5b — say what is NOT closed, in the code
+
+Gate 1 finding 8, accepted: `any`, `as`, `@ts-ignore`, `@ts-nocheck`, run-time mutation and an
+adapter supplied through `AT_REPO_ROOT` all remain open, and this change does not close them. The
+threat model is *a suite drifting from the harness with nobody able to detect it* — an honest mistake
+that type-checks green — not an author determined to defeat the type system.
+
+Write that into the `suite-adapters.ts` header and the `OpenWorld` comment. A closure claim broader
+than the truth is this item's own defect, and the comments here are read as documentation.
+
+Also update `tests/at/README.md:48`, which still tells suite authors they parameterize `bindSuite`
+with their own types and channels. That instruction becomes false.
 
 ## Step 6 — verify, exhaustively
 
