@@ -1,0 +1,252 @@
+AI4DEV-31 — mechanical reproduction of the Gate 2 "structural widen" claim
+============================================================================
+Date: 2026-08-03
+Worktree: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-ae7047f6712c0743a
+Purpose: confirm or refute, by actually compiling it, a Gate 2 reviewer's claim that the AT
+harness seam can still be widened — reading members the harness never supplies, with NO cast,
+NO `any`, NO `@ts-ignore`, and NO module augmentation — by structurally rewriting around the
+legitimately derived types `OpenWorld<R,K>` / `AtContext<R,K>`.
+
+No permanent changes were made to any tracked file. All files below were temporary and were
+deleted after this transcript was written (see CLEANUP at the end).
+
+----------------------------------------------------------------------------------------------
+1. REAL EXPORTED NAMES (read from tests/at/harness/registry.ts, verbatim signatures)
+----------------------------------------------------------------------------------------------
+
+export type OpenWorld<R extends SuiteId, K extends SutKeyOf<R>> =
+  SeamOpenWorld<SutOf<R, K>, WorldOf<R>>;
+
+export type AtContext<R extends SuiteId, K extends SutKeyOf<R>> =
+  SeamContext<SutOf<R, K>, WorldOf<R>>;
+
+export type AtTestBody<R extends SuiteId, K extends SutKeyOf<R>> =
+  (ctx: AtContext<R, K>) => Promise<void>;
+
+export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
+  atId: string, title: string, opts: AtTestOptions & SuiteBinding<R, K>, body: AtTestBody<R, K>,
+): void => { ... };
+
+export const bindSuite: BindSuiteFn = <R extends SuiteId, K extends SutKeyOf<R>>(
+  binding: SuiteBinding<R, K>,
+) => ({ atTest: boundAtTest, defineEvidenceCapture: boundCapture });
+
+export const defineEvidenceCapture: DefineEvidenceCaptureFn = (binding, name, producer) =>
+  new EvidenceCaptureImpl(name, binding.requirement, producer);
+
+('req-016' / 'notifications' confirmed as a valid <R,K> pair via
+tests/at/harness/suite-adapters.ts's AdapterModules map and req-016/_fixture.ts's
+`sut: { notifications: sut }`.)
+
+----------------------------------------------------------------------------------------------
+2. PROBE SOURCE — tests/at/typeprobes/__verify-widen.probe.ts (as compiled for the main result)
+----------------------------------------------------------------------------------------------
+
+/**
+ * MECHANICAL VERIFICATION PROBE — TEMPORARY, deleted after use.
+ *
+ * Reproduces, verbatim, the attack a Gate 2 reviewer claims still works: widening the seam by
+ * intersecting the exported, requirement/sut-keyed types (`OpenWorld<R,K>`, `AtContext<R,K>`) with
+ * an invented shape — no cast, no `any`, no `@ts-ignore`, no module augmentation.
+ *
+ * Exercised through three entry points:
+ *   (a) the bound atTest returned by bindSuite
+ *   (b) the raw exported atTest
+ *   (c) the raw exported defineEvidenceCapture
+ *
+ * In each, the invented members are actually READ (assigned to a `string | undefined` variable),
+ * not merely typed at the parameter, so what is being checked is the read, not the annotation.
+ */
+
+import {
+  atTest,
+  bindSuite,
+  defineEvidenceCapture,
+  type AtContext,
+  type AtTestBody,
+  type OpenWorld,
+} from '../harness/registry.ts';
+
+type WidenedOpen = OpenWorld<'req-016', 'notifications'> & {
+  sut: { inventedSut?: string };
+  w: { inventedWorld?: string };
+};
+type WidenedCtx = Omit<AtContext<'req-016', 'notifications'>, 'open'> & {
+  open(): Promise<WidenedOpen>;
+};
+
+/* ------------------------------------------------------------- (a) bound atTest via bindSuite */
+
+const suite = bindSuite({ requirement: 'req-016', sut: 'notifications' });
+
+suite.atTest('AT-016.93', 'gate2 widen probe via bound atTest', async (ctx: WidenedCtx) => {
+  const { sut, w } = await ctx.open();
+  const readSut: string | undefined = sut.inventedSut;
+  const readWorld: string | undefined = w.inventedWorld;
+  void readSut;
+  void readWorld;
+});
+
+/* -------------------------------------------------------------------- (b) raw exported atTest */
+
+const rawBody: AtTestBody<'req-016', 'notifications'> = async (ctx: WidenedCtx) => {
+  const { sut, w } = await ctx.open();
+  const readSut: string | undefined = sut.inventedSut;
+  const readWorld: string | undefined = w.inventedWorld;
+  void readSut;
+  void readWorld;
+};
+
+atTest('AT-016.94', 'gate2 widen probe via raw atTest', { requirement: 'req-016', sut: 'notifications' }, rawBody);
+
+/* ---------------------------------------------------------- (c) raw exported defineEvidenceCapture */
+
+defineEvidenceCapture(
+  { requirement: 'req-016', sut: 'notifications' },
+  'gate2 widen probe via raw defineEvidenceCapture',
+  async (ctx: WidenedCtx) => {
+    const { sut, w } = await ctx.open();
+    const readSut: string | undefined = sut.inventedSut;
+    const readWorld: string | undefined = w.inventedWorld;
+    return `${readSut ?? ''}${readWorld ?? ''}`;
+  },
+);
+
+----------------------------------------------------------------------------------------------
+3. CONFIG — tests/at/typeprobes/tsconfig.__verify-widen.json
+----------------------------------------------------------------------------------------------
+
+{
+  "extends": "../tsconfig.json",
+  "files": ["__verify-widen.probe.ts"],
+  "include": []
+}
+
+----------------------------------------------------------------------------------------------
+4. MAIN RUN
+----------------------------------------------------------------------------------------------
+
+Command:
+  node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.__verify-widen.json
+
+Exit code: 0
+Output: (empty — no diagnostics)
+
+TypeScript version (pinned, from node_modules/typescript/package.json): 5.9.3
+
+----------------------------------------------------------------------------------------------
+5. CONTROL 1 — --listFiles, confirm the probe is really in the compiled program
+----------------------------------------------------------------------------------------------
+
+Command:
+  node node_modules/typescript/bin/tsc --noEmit --pretty false --listFiles -p tests/at/typeprobes/tsconfig.__verify-widen.json
+
+Exit code: 0
+Relevant line in --listFiles output:
+  C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/typeprobes/__verify-widen.probe.ts
+
+Confirms the probe file was actually part of the compiled program, not skipped by config.
+
+----------------------------------------------------------------------------------------------
+6. CONTROL 2 — deliberate type error, confirm the command CAN fail
+----------------------------------------------------------------------------------------------
+
+Appended to the end of the probe file:
+  const __controlTypeError: number = 'oops';
+  void __controlTypeError;
+
+Command (same as main run):
+  node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.__verify-widen.json
+
+Exit code: 2
+Output:
+  tests/at/typeprobes/__verify-widen.probe.ts(76,7): error TS2322: Type 'string' is not assignable to type 'number'.
+
+Confirms the pinned compiler, this tsconfig, and this exact command genuinely detect and report
+errors (non-zero exit, correct file/line, correct TS code) — the clean result above is not an
+artifact of a config that swallows all diagnostics.
+
+----------------------------------------------------------------------------------------------
+7. CONTROL 3 — remove the deliberate error, confirm the original clean result reproduces
+----------------------------------------------------------------------------------------------
+
+The two control lines were removed (probe restored to the source in section 2).
+
+Command (same as main run):
+  node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.__verify-widen.json
+
+Exit code: 0
+Output: (empty — no diagnostics)
+
+Reproduces the main run exactly.
+
+----------------------------------------------------------------------------------------------
+8. ISOLATION PASSES — attribute the clean result to each entry point individually
+----------------------------------------------------------------------------------------------
+
+Each pass rewrote the probe file to contain ONLY the named entry point (same WidenedOpen /
+WidenedCtx type definitions, same reads of sut.inventedSut / w.inventedWorld), compiled with the
+same command against the same tsconfig, then the probe was restored to the full three-entry-point
+source (section 2) before the file was deleted.
+
+Pass A — entry point (a) alone (bound atTest via bindSuite):
+  Exit code: 0
+  Output: (empty)
+
+Pass B — entry point (b) alone (raw exported atTest):
+  Exit code: 0
+  Output: (empty)
+
+Pass C — entry point (c) alone (raw exported defineEvidenceCapture):
+  Exit code: 0
+  Output: (empty)
+
+Final re-run after restoring the full 3-entry-point probe (identical to section 4/7):
+  Exit code: 0
+  Output: (empty)
+
+----------------------------------------------------------------------------------------------
+9. RESULT TABLE
+----------------------------------------------------------------------------------------------
+
+Entry point                                  | Compiled clean | Diagnostic
+----------------------------------------------|-----------------|------------------------------
+(a) bound atTest (from bindSuite)              | YES             | none
+(b) raw exported atTest                        | YES             | none
+(c) raw exported defineEvidenceCapture         | YES             | none
+
+Control (deliberate `const x: number = 'oops'`) | NO (exit 2)   | TS2322 at the exact
+                                                                    injected line — proves the
+                                                                    harness can detect and report
+                                                                    a real error under this exact
+                                                                    command/config.
+
+----------------------------------------------------------------------------------------------
+10. VERDICT
+----------------------------------------------------------------------------------------------
+
+CONFIRMED. The reviewer's claimed attack — intersecting the exported, requirement/sut-keyed types
+`OpenWorld<'req-016','notifications'>` and `AtContext<'req-016','notifications'>` with an invented
+`{ sut: { inventedSut?: string }; w: { inventedWorld?: string } }` shape, with no cast, no `any`,
+no `@ts-ignore`, and no module augmentation — type-checks CLEAN under the project's pinned
+TypeScript compiler (5.9.3) and its own tests/at tsconfig, through all three named entry points
+(bound atTest, raw atTest, raw defineEvidenceCapture), and the invented members are genuinely
+readable (assigned to `string | undefined` variables, not merely named in an annotation). The
+negative control shows the compiler and command are capable of catching a real error, so the
+clean result is not a config artifact.
+
+----------------------------------------------------------------------------------------------
+11. CLEANUP
+----------------------------------------------------------------------------------------------
+
+Deleted after this transcript was written:
+  - tests/at/typeprobes/__verify-widen.probe.ts
+  - tests/at/typeprobes/tsconfig.__verify-widen.json
+
+`git status --porcelain` after cleanup is recorded by the caller; this file
+(loop/items/AI4DEV-31/gate2-widen-reproduction.txt) is the only intended new tracked change from
+this verification pass. (A pre-existing, unrelated modification to
+tests/at/suites/req-016/_contract.ts, and pre-existing untracked files
+tests/at/typeprobes/gate2-scratch.probe.ts, tests/at/typeprobes/tsconfig.gate2-scratch.json,
+loop/items/AI4DEV-31/gate2-kimi.md and loop/items/AI4DEV-31/gate2-terra.md, were already present
+in the working tree BEFORE this verification pass started and were not touched by it.)

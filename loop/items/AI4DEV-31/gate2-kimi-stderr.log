@@ -1,0 +1,2347 @@
+• Read the prompt file first.This is a substantial adversarial code review task. Let me start by reading the background documents and the diff. This is a lot of work — I could delegate parts, but I need to be careful: the review requires me to actually run commands, build counter-examples, remove protections and re-run selftests, etc. This is substantial multi-step work. Let me do it myself but maybe use subagents for parts. Actually, let me first gather context myself: read the background files and the diff.
+
+  Let me start with parallel reads.
+
+ loop/items/AI4DEV-31/README.md                     |    4 +
+ loop/items/AI4DEV-31/baseline-atverify.txt         |   24 +
+ loop/items/AI4DEV-31/baseline-selftest.txt         |   16 +
+ loop/items/AI4DEV-31/baseline-typecheck.txt        |   13 +
+ loop/items/AI4DEV-31/design.md                     |  348 ++
+ loop/items/AI4DEV-31/executor-brief.md             |  250 +
+ loop/items/AI4DEV-31/gate1-critique.md             |   76 +
+ loop/items/AI4DEV-31/gate1-prompt.txt              |   82 +
+ loop/items/AI4DEV-31/gate1-rulings.md              |  143 +
+ loop/items/AI4DEV-31/gate1-stderr.log              | 5784 ++++++++++++++++++++
+ loop/items/AI4DEV-31/gate1-stdout.log              |   76 +
+ loop/items/AI4DEV-31/gate2-prompt.txt              |   83 +
+ loop/items/AI4DEV-31/lint-preexisting.txt          |  128 +
+ loop/items/AI4DEV-31/proof-green.txt               |  132 +
+ loop/items/AI4DEV-31/proof-red.txt                 |   86 +
+ loop/items/AI4DEV-31/spike-raw-variant.txt         |    1 +
+ loop/items/AI4DEV-31/spike-raw.txt                 |    2 +
+ loop/items/AI4DEV-31/verify-post.txt               |   95 +
+ tests/at/README.md                                 |   27 +-
+ tests/at/harness/conformance.selftest.ts           |   43 +
+ tests/at/harness/contracts.ts                      |    5 +-
+ tests/at/harness/index.ts                          |   29 +
+ tests/at/harness/registry.ts                       |  385 +-
+ tests/at/harness/runner-blackbox.selftest.ts       |   35 +-
+ tests/at/harness/runner-expect.selftest.ts         |   24 +-
+ tests/at/harness/suite-adapters.ts                 |  108 +
+ tests/at/harness/type-invention.selftest.ts        |  269 +-
+ tests/at/suites/req-016/_bind.ts                   |   30 +-
+ tests/at/suites/req-016/_contract.ts               |   60 +-
+ tests/at/suites/req-016/_fixture.ts                |   12 +
+ .../at/suites/req-016/d-taxonomy-evidence.test.ts  |    9 +-
+ tests/at/typeprobes/sut-seam-legacy.probe.ts       |   84 +
+ tests/at/typeprobes/sut-seam.probe.ts              |  193 +
+ tests/at/typeprobes/tsconfig.sut-seam-legacy.json  |   17 +
+ tests/at/typeprobes/tsconfig.sut-seam.json         |   14 +
+ 35 files changed, 8534 insertions(+), 153 deletions(-)
+475e951 AI4DEV-31: gate 2 prompt
+80ef21e AI4DEV-31: correct a comment the fix made false; record that lint was already failing tree-wide
+b316849 AI4DEV-31: step 6 - post-change verification, all five checks recorded
+1a9daf7 AI4DEV-31: step 5 - the green proof, and each protection asserted by name per probe file
+74d9965 AI4DEV-31: close the last door - the seam types are named by requirement, not by shape
+88db534 AI4DEV-31: steps 2-4 - the seam derives instead of accepting
+6b8954a AI4DEV-31: step 1 - the derived suite registry, constrained at the map entry
+da4a015 AI4DEV-31: step 0 - the RED half of the proof, captured before any fix
+c592c72 AI4DEV-31: gate 1 rulings folded - proof method replaced, function-declaration door closed, adapter self-identifies, World dropped from conversion
+5041a90 AI4DEV-31: executor brief (pre-gate-1-fold)
+b58830d AI4DEV-31: baseline at:selftest green (114 tests)
+03de5ad AI4DEV-31: design fold - the evidence-capture generics are a second door to the same hole; spike results recorded
+9438544 AI4DEV-31: feasibility spike proves the adapter-derived types resolve exactly; gate 1 prompt
+536d84b AI4DEV-31: design pass - derive the SUT and world types from the adapter instead of letting the suite declare them
+5379c21 AI4DEV-31: establish branch and item directory (opus item agent, fable fallback)
+• Now let me look at the actual diff for the source files. This is a large review task. Let me set up a todo list and read the key changed files. The core files:
+
+  - tests/at/harness/suite-adapters.ts (new, 108 lines)
+  - tests/at/harness/registry.ts (385 lines changed)
+  - tests/at/harness/index.ts (29 lines)
+  - tests/at/harness/contracts.ts (5)
+  - tests/at/suites/req-016/_bind.ts, _contract.ts, _fixture.ts, d-taxonomy-evidence.test.ts
+  - tests/at/typeprobes/* (new)
+  - tests/at/harness/type-invention.selftest.ts (269)
+  - runner selftests
+  - conformance.selftest.ts (+43)
+  - tests/at/README.md
+
+  Plan: read the full diff for the source files (excluding the loop/ artifacts). Then run the behavior checks. Then attack it: write counter-example probes in a temp location, run the pinned compiler. Also test removing a single protection and running the selftest.
+
+  Let me view the diff of the code files.
+
+diff --git a/tests/at/harness/registry.ts b/tests/at/harness/registry.ts
+index 88f0762..531c68c 100644
+--- a/tests/at/harness/registry.ts
++++ b/tests/at/harness/registry.ts
+@@ -21,6 +21,7 @@ import { join } from 'node:path';
+ import { expect, it } from 'vitest';
+ 
+ import type { AtHarness } from './contracts.ts';
++import type { SuiteId, SutKeyOf, SutOf, WorldOf } from './suite-adapters.ts';
+ 
+ /* ------------------------------------------------------------------------ the AT id grammar */
+ 
+@@ -55,11 +56,33 @@ export function parseAtId(atId: string): ParsedAtId {
+ /** Surface is an axis independent of tier: one authored body, driven through different drivers. */
+ export type Surface = 'backend' | 'ui' | 'skill';
+ 
++/**
++ * What a suite may vary PER TEST.
++ *
++ * Neither the requirement nor the system-under-test key is here any more. Both come from the
++ * binding, and both now determine TYPES (`SutOf` / `WorldOf`), so a per-test override would let one
++ * test in a suite describe a different seam from the one its neighbours describe — which is the
++ * drift this whole item exists to make impossible.
++ */
+ export interface AtTestOptions {
+   /** `ui` marks the test as part of a wiring leaf's `--wired` re-run selection */
+   surface?: Surface;
+-  /** which member of `harness.sut` this test drives (usually supplied once by `bindSuite`) */
+-  sut?: string;
++}
++
++/**
++ * WHICH SUITE THIS IS. The two facts a suite supplies, and the only two it is allowed to supply.
++ *
++ * `requirement` is a key of `suite-adapters.ts`'s registry, so it is not a free string: a
++ * requirement with no registered adapter cannot be bound at all. `sut` is constrained to the keys
++ * that adapter really exposes, so a misspelling is a compile error instead of a run-time
++ * `sut-missing`. Everything else about the seam — the system under test's shape and the fixture
++ * world's shape — is DERIVED from those two, never stated.
++ */
++export interface SuiteBinding<R extends SuiteId, K extends SutKeyOf<R>> {
++  /** the requirement this suite tests, e.g. 'req-016' */
++  requirement: R;
++  /** which member of `harness.sut` the whole suite drives, e.g. 'notifications' */
++  sut: K;
+   /** the suite's own words for "the implementation has not landed yet" */
+   sutMissingDetail?: string;
+ }
+@@ -108,12 +131,14 @@ export const HARNESS_MODULE = './index.ts';
+  * an object that never supplies it — the same defect closed fifteen times elsewhere in this seam,
+  * left open here by an exclusion that contradicted its own criterion.
+  *
+- * The exploit needed `W` at its DEFAULT, which is what made it easy to miss: a suite that pins its
+- * own world type (as REQ-016 does) resolves `w` to that type and never sees the merged member. Any
+- * suite that does not pin one — and `atTest` is exported with `W = WorldLike` defaulted — did.
++ * The exploit needed `W` at its DEFAULT, which is what made it easy to miss: a suite that pinned its
++ * own world type (as REQ-016 did) resolved `w` to that type and never saw the merged member — which
++ * hid the hole rather than closing it.
+  *
+- * That the suite's chosen `W` is itself an unverified claim is a separate defect and remains
+- * AI4DEV-31's. This is only about whether the door is open at all.
++ * A suite can no longer pin a world type at all. AI4DEV-31 derives `w` from the adapter that really
++ * produces it, so this type's job is now only what it always said on the tin: the minimum the
++ * harness needs in order to tear a world down, which is why `suite-adapters.ts` constrains every
++ * registered adapter's `fixtures.world()` to return one.
+  */
+ export type WorldLike = {
+   teardown(): Promise<void>;
+@@ -157,7 +182,29 @@ export class AtPending extends Error {
+ 
+ /* --------------------------------------------------------------------------- the test context */
+ 
+-export type OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
++/**
++ * THE STRUCTURE of what `open()` hands back, parameterized by shape and NOT EXPORTED.
++ *
++ * The exported `OpenWorld` below takes a requirement and a sut key instead, and this is why. Any
++ * exported type generic over the SUT's shape is a way back into the hole, and not through the door
++ * anyone was watching: leave `bindSuite` alone, and widen the type at the BODY instead —
++ * `async (ctx: AtContext<NotificationsSut & { invented?: string }, World>) => …` — then read the
++ * invented member. It needs no cast and no suppression. It was measured compiling clean against the
++ * first version of this change, with every other door already shut.
++ *
++ * NOTHING STRUCTURAL CAN REJECT IT, which is the part worth writing down. `NotificationsSut` and
++ * `NotificationsSut & { invented?: string }` are assignable in BOTH directions — an optional member
++ * adds no obligation — so they are indistinguishable to the assignability check however the
++ * variance is arranged. Marking the parameter invariant does not help; nor does any conditional
++ * "exactly this type" trick, because both directions genuinely hold.
++ *
++ * So the only close is to make the widened type UNSPELLABLE: a suite that cannot name a shape here
++ * cannot widen one. `OpenWorld`, `AtContext`, `AtTestBody` and `EvidenceCapture` are exported over
++ * `<R, K>` — a requirement and a sut key, both of which derive — and the shape-parameterized
++ * versions stay inside this module. That is the same decision D1 made for `bindSuite`, carried to
++ * the rest of the exported surface rather than stopped one type short.
++ */
++type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
+   /**
+    * The harness, at EXACTLY the type `createHarness()` is statically checked to produce — not a
+    * suite-chosen type, and not the suite's type arguments pushed back into it.
+@@ -169,16 +216,48 @@ export type OpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
+    * factory proves `AtHarness<…, WorldSeam, string>`, so a suite binding channel `'sms'` would have
+    * been told `vendors.email.attempts()` yields `'sms'` on the strength of nothing at all.
+    *
+-   * `w` and `sut` below are still the suite's own claims, asserted rather than verified. That is the
+-   * pre-existing seam AI4DEV-31 owns; it is named here so nobody mistakes this field's honesty for
+-   * the whole object's.
++   * `h` is deliberately NOT re-parameterized by AI4DEV-31 either. Deriving `w` and `sut` from the
++   * adapter does not license pushing them back into the harness: that is the same door, and it
++   * stays shut.
+    */
+   h: AtHarness;
++  /**
++   * The fixture world, at the type the requirement's ADAPTER really returns — `WorldOf<R>`, read
++   * off `fixtures.world`'s return type in `suite-adapters.ts`.
++   *
++   * It used to be the suite's own type argument, asserted rather than verified, so
++   * `bindSuite<NotificationsSut, AnythingAtAll>` type-checked green and a body could read members
++   * no fixture supplies. `tests/at/typeprobes/sut-seam-legacy.probe.ts` is that attack, kept alive:
++   * it compiled clean before this change and must fail now.
++   */
+   w: W;
+-  /** the requirement's system under test, guaranteed non-null once open() returns */
++  /**
++   * The requirement's system under test, at the type its ADAPTER declares (`SutOf<R, K>`), and
++   * guaranteed non-null once open() returns.
++   *
++   * WHAT IS ACTUALLY CHECKED, precisely, because a closure claim wider than the truth is the defect
++   * this item removes: the adapter annotates what it builds (`const sut: NotificationsSut = …`), so
++   * the shape is proven at the producer; the suite reads that type instead of restating it; the
++   * `requirement` literal ties the map entry, the module the type came from and the module
++   * `loadAdapter()` really imports to one self-declared value, checked at compile time AND again at
++   * run time. One assertion survives, at the end of `open()`, and it is commented there.
++   *
++   * WHAT IS NOT CHECKED: `any`, `as`, `@ts-ignore`, `@ts-nocheck`, mutating the adapter's object at
++   * run time, and pointing `AT_REPO_ROOT` at a different tree all still work. The threat model is a
++   * suite DRIFTING from its harness with nobody able to notice — an honest mistake that
++   * type-checks green — not an author set on defeating the type system, who can always write a cast.
++   */
+   sut: Sut;
+ };
+ 
++/**
++ * What `open()` hands a test body, for the suite bound to requirement `R` and sut key `K`.
++ *
++ * Named by TWO STRINGS, never by a shape — see `SeamOpenWorld` above for why that distinction is
++ * the whole protection rather than a stylistic preference.
++ */
++export type OpenWorld<R extends SuiteId, K extends SutKeyOf<R>> = SeamOpenWorld<SutOf<R, K>, WorldOf<R>>;
++
+ export interface OpenOverrides {
+   /**
+    * Re-tune pinned values for THIS world only, so one authored body can be run against two
+@@ -189,15 +268,18 @@ export interface OpenOverrides {
+   config?: ConfigOverrides;
+ }
+ 
+-/** Everything a test body is given. `atId` is read-only context, never re-supplied to open(). */
+-export type AtContext<Sut = unknown, W extends WorldLike = WorldLike> = {
++/** The STRUCTURE of what a test body is given — not exported, for the reason on `SeamOpenWorld`. */
++type SeamContext<Sut = unknown, W extends WorldLike = WorldLike> = {
+   atId: string;
+   /** build a fresh "Given" world (and its own harness). Call it more than once for isolation. */
+-  open(fixture?: string, opts?: OpenOverrides): Promise<OpenWorld<Sut, W>>;
++  open(fixture?: string, opts?: OpenOverrides): Promise<SeamOpenWorld<Sut, W>>;
+   /** consume an immutable capture whose producer proved at least one real open() */
+-  capture<T>(evidence: EvidenceCapture<T, Sut, W>): Promise<T>;
++  capture<T>(evidence: EvidenceCaptureImpl<T, Sut, W>): Promise<T>;
+ };
+ 
++/** Everything a test body is given. `atId` is read-only context, never re-supplied to open(). */
++export type AtContext<R extends SuiteId, K extends SutKeyOf<R>> = SeamContext<SutOf<R, K>, WorldOf<R>>;
++
+ const USAGE = Symbol('at-context-usage');
+ 
+ interface Usage {
+@@ -205,9 +287,15 @@ interface Usage {
+   captures: number;
+ }
+ 
+-interface InternalContext<Sut, W extends WorldLike> extends AtContext<Sut, W> {
++/**
++ * NOT EXPORTED, and a type alias rather than an interface, for the two different reasons this file
++ * keeps apart: not exported so no suite can name it, an alias so nothing can merge a member into it
++ * even from inside this module. It is reachable from a test body — `capture()` hands it to an
++ * evidence producer — and everything on that path obeys the alias rule.
++ */
++type InternalContext<Sut, W extends WorldLike> = SeamContext<Sut, W> & {
+   [USAGE]: Usage;
+-}
++};
+ 
+ /** Where in the captured structure a value sits, said in words a test author can act on. */
+ function evidencePath(path: string): string {
+@@ -273,13 +361,24 @@ export function captureProducerProblem(opensBefore: number, opensAfter: number):
+   return opensAfter === opensBefore ? 'capture producer completed without open()' : null;
+ }
+ 
+-export class EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike> {
++/**
++ * The implementation class, DELIBERATELY NOT EXPORTED — only the type alias below is.
++ *
++ * An exported class is a value with a public constructor, so `new EvidenceCapture<T, Anything,
++ * AnythingElse>(name, producer)` was a way to hand a producer a fabricated `AtContext` without ever
++ * touching `bindSuite`: the same lie as the one AI4DEV-31 closes at `open()`, reached through a
++ * `new`. Exporting only the type removes the constructor from a suite's reach, and has the second
++ * effect of making `EvidenceCapture` a type ALIAS, which declaration merging cannot open.
++ */
++class EvidenceCaptureImpl<T, Sut = unknown, W extends WorldLike = WorldLike> {
+   private result: Promise<T> | null = null;
+   private producerAtId = '';
+ 
+   constructor(
+     readonly name: string,
+-    private readonly producer: (ctx: AtContext<Sut, W>) => Promise<T>,
++    /** the suite this capture reads the seam of — it is in the failure text so a red says whose */
++    readonly requirement: string,
++    private readonly producer: (ctx: SeamContext<Sut, W>) => Promise<T>,
+   ) {}
+ 
+   consume(ctx: InternalContext<Sut, W>): Promise<T> {
+@@ -296,9 +395,10 @@ export class EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike>
+           return freezeEvidence(value);
+         } catch (err) {
+           const detail = err instanceof Error ? err.message : String(err);
+-          throw new Error(`evidence capture ${JSON.stringify(this.name)} produced by ${this.producerAtId} failed — ${detail}`, {
+-            cause: err,
+-          });
++          throw new Error(
++            `evidence capture ${JSON.stringify(this.name)} (${this.requirement}) produced by ${this.producerAtId} failed — ${detail}`,
++            { cause: err },
++          );
+         }
+       })();
+     }
+@@ -306,21 +406,56 @@ export class EvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike>
+   }
+ }
+ 
+-export function defineEvidenceCapture<T, Sut = unknown, W extends WorldLike = WorldLike>(
++/**
++ * An immutable capture, consumable by any test in the suite that defined it.
++ *
++ * A TYPE, never the class — and named by a requirement and a sut key, never by a shape. Both halves
++ * matter: the class would expose a constructor that takes a producer at any types, and shape
++ * parameters would let a body widen the context it is handed. See `SeamOpenWorld`.
++ */
++export type EvidenceCapture<T, R extends SuiteId, K extends SutKeyOf<R>> = EvidenceCaptureImpl<T, SutOf<R, K>, WorldOf<R>>;
++
++/**
++ * `defineEvidenceCapture` was the SECOND door to the seam AI4DEV-31 closes, and closing `bindSuite`
++ * alone would have moved the defect rather than removed it: this function handed its producer a
++ * full `AtContext<Sut, W>` at whatever types the caller named, so a suite that never called
++ * `bindSuite` could still declare a system under test and a world out of nothing and read both green.
++ *
++ * So it takes the BINDING and derives, exactly as `atTest` does. There is no type argument left to
++ * lie with: `SutOf<R, K>` and `WorldOf<R>` come from the adapter registered under `R`.
++ *
++ * A `const` typed by a call-signature alias, NOT an exported `function` declaration — that is not
++ * stylistic. Gate 1 measured that an exported function declaration can be given a fresh generic
++ * overload through `declare module`, restoring the fabricated type argument, and that type aliases
++ * do not protect it. A `const` has no declaration to merge an overload into.
++ */
++type DefineEvidenceCaptureFn = <T, R extends SuiteId, K extends SutKeyOf<R>>(
++  binding: SuiteBinding<R, K>,
+   name: string,
+-  producer: (ctx: AtContext<Sut, W>) => Promise<T>,
+-): EvidenceCapture<T, Sut, W> {
+-  return new EvidenceCapture(name, producer);
+-}
++  producer: (ctx: AtContext<R, K>) => Promise<T>,
++) => EvidenceCapture<T, R, K>;
++
++export const defineEvidenceCapture: DefineEvidenceCaptureFn = (binding, name, producer) =>
++  new EvidenceCaptureImpl(name, binding.requirement, producer);
+ 
+ export function testUseProblem(opens: number, captures: number): string | null {
+   return opens === 0 && captures === 0 ? 'test body never opened a fixture world or consumed trusted captured evidence' : null;
+ }
+ 
++/**
++ * Runs one body and refuses a pass that observed nothing.
++ *
++ * Still parameterized by SHAPE rather than by `<R, K>`, and that is not an oversight. It is not a
++ * door to the seam: it never produces a harness-backed value, so the only context it can be given
++ * is one the caller built by hand — fabricating a type there is a caller lying to itself about its
++ * own object, with no harness claim anywhere in it. Keeping the structural signature is also what
++ * lets `conformance.selftest.ts` drive it with a hand-built context, which is the point of the
++ * false-green reproduction it appears in.
++ */
+ export async function executeRegisteredBody<Sut, W extends WorldLike>(
+   atId: string,
+-  body: AtTestBody<Sut, W>,
+-  ctx: AtContext<Sut, W>,
++  body: (ctx: SeamContext<Sut, W>) => Promise<void>,
++  ctx: SeamContext<Sut, W>,
+   usage: Usage,
+ ): Promise<void> {
+   await body(ctx);
+@@ -426,7 +561,13 @@ interface OpenOptions {
+   configOverrides?: ConfigOverrides;
+ }
+ 
+-async function openWor
+ld(o: OpenOptions): Promise<{ opened: OpenWorld; harness: AtHarness }> {
++/**
++ * Builds a harness and a world, at the types the HARNESS can actually prove: `sut` is `unknown`
++ * (`h.sut[key]` on a concrete `AtHarness`) and `w` is a bare `WorldLike`. It deliberately knows
++ * nothing about any suite — the narrowing to that suite's derived types happens once, at the end of
++ * `open()`, where the comment says exactly what is still taken on trust.
++ */
++async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harness: AtHarness }> {
+   if (TIER === null) throw new AtPending(o.atId, 'tier-unset', tierError(o.requirement));
+ 
+   if (!harnessModule) {
+@@ -466,9 +607,8 @@ async function openWorld(o: OpenOptions): Promise<{ opened: OpenWorld; harness:
+ 
+ /* ------------------------------------------------------------------------------- registration */
+ 
+-export type AtTestBody<Sut = unknown, W extends WorldLike = WorldLike> = (
+-  ctx: AtContext<Sut, W>,
+-) => Promise<void>;
++/** One authored test body, for the suite bound to requirement `R` and sut key `K`. */
++export type AtTestBody<R extends SuiteId, K extends SutKeyOf<R>> = (ctx: AtContext<R, K>) => Promise<void>;
+ 
+ function emitRuntimeRegistration(registration: Registration): void {
+   const dir = process.env.AT_REGISTRATION_DIR;
+@@ -477,46 +617,89 @@ function emitRuntimeRegistration(registration: Registration): void {
+   appendFileSync(join(dir, `registration-${process.pid}.jsonl`), `${JSON.stringify(registration)}\n`, 'utf8');
+ }
+ 
++/**
++ * THE ONE PLACE the AT id's requirement and the binding's requirement are made to agree.
++ *
++ * They are two independent strings that must denote the same suite: the id decides which fixture
++ * adapter `createHarness()` loads at RUN time (`openWorld` passes `parsed.requirement` straight
++ * through), while the binding decides which adapter the TYPES were read off at compile time. Left
++ * unchecked, `AT-017.03` registered through a suite bound to `req-016` would drive req-017's
++ * implementation while every type in the body described req-016's, and both halves would look fine.
++ *
++ * The formats differ and the comparison must normalize, or it would reject every valid suite:
++ * `parseAtId('AT-016.01').requirement` is `"016"`, whereas the binding and the registry key are
++ * `"req-016"`.
++ *
++ * The field stays MANDATORY. Making the check fire only when a requirement happens to be supplied
++ * would reopen the hole through the door marked convenience — so a binding with no requirement is
++ * its own error, not a skipped check.
++ */
++export function requirementMismatch(atId: string, parsedRequirement: string, bound: string): string | null {
++  if (!bound) {
++    return (
++      `${atId} was registered with no requirement — atTest cannot check that the suite whose types ` +
++      `were used is the suite whose fixture adapter will be loaded. Bind the suite with ` +
++      `bindSuite({ requirement: 'req-${parsedRequirement}', sut: … }).`
++    );
++  }
++  const fromId = `req-${parsedRequirement}`;
++  if (fromId === bound) return null;
++  return (
++    `${atId} was registered through a suite bound to ${bound} — at run time the harness would load ` +
++    `${fromId}'s fixture adapter, because the requirement comes from the AT id, while the ` +
++    `type-check described ${bound}'s. One id, one suite: correct the id or correct the binding.`
++  );
++}
++
+ /**
+  * Register one acceptance test. The id is declared here and nowhere else.
+  *
+  * - a malformed id throws AT REGISTRATION — the id is checked where it is written.
++ * - the id's requirement must match the suite's binding, for the reason above.
+  * - `expect.hasAssertions()` makes a body that asserts nothing a RED, so a tagged test cannot
+  *   satisfy the bijection checker by existing.
+  * - worlds AND harnesses are tracked per test and always torn down, so a frozen clock, a vendor
+  *   counter or an armed fault cannot leak into the next id — and a teardown that REJECTS fails
+  *   the test rather than being swallowed, because state that was never released is a defect that
+  *   would otherwise land on a different id.
++ *
++ * THE BODY'S TYPES ARE DERIVED, NOT ACCEPTED. `Sut` and `W` used to be this function's own type
++ * parameters, filled in by whatever the suite wrote; now they are `SutOf<R, K>` and `WorldOf<R>`,
++ * read off the adapter registered under `R` in `suite-adapters.ts`. There is no type argument left
++ * for a suite to lie with.
++ *
++ * A `const` typed by a call-signature alias, NOT an exported `function` declaration, for the reason
++ * given on `defineEvidenceCapture`: a function declaration accepts a merged-in overload and a
++ * `const` does not.
+  */
+-export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
+-  atId: string,
+-  title: string,
+-  opts: AtTestOptions,
+-  body: AtTestBody<Sut, W>,
+-): void;
+-export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
+-  atId: string,
+-  title: string,
+-  body: AtTestBody<Sut, W>,
+-): void;
+-export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
++type AtTestFn = {
++  <R extends SuiteId, K extends SutKeyOf<R>>(
++    atId: string,
++    title: string,
++    opts: AtTestOptions & SuiteBinding<R, K>,
++    body: AtTestBody<R, K>,
++  ): void;
++};
++
++export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
+   atId: string,
+   title: string,
+-  optsOrBody: AtTestOptions | AtTestBody<Sut, W>,
+-  maybeBody?: AtTestBody<Sut, W>,
+-): void {
+-  const opts: AtTestOptions = typeof optsOrBody === 'function' ? {} : optsOrBody;
+-  const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<Sut, W>;
++  opts: AtTestOptions & SuiteBinding<R, K>,
++  body: AtTestBody<R, K>,
++): void => {
+   if (typeof body !== 'function') throw new Error(`${atId}: atTest was given no test body`);
+ 
+   const parsed = parseAtId(atId);
++  const mismatch = requirementMismatch(atId, parsed.requirement, opts.requirement);
++  if (mismatch) throw new Error(mismatch);
++
+   const previous = registrations.get(atId);
+   if (previous) throw new Error(`${atId} is registered twice ("${previous.title}" and "${title}") — one id, one test`);
+   const registration = { ...parsed, title, surface: opts.surface ?? 'backend' };
+   registrations.set(atId, registration);
+   emitRuntimeRegistration(registration);
+ 
+-  const sutKey = opts.sut ?? '';
++  const sutKey = opts.sut;
+   const sutMissing =
+     opts.sutMissingDetail ?? `REQ-${parsed.requirement}'s implementation is not in the tree — harness.sut.${sutKey} is absent`;
+ 
+@@ -526,22 +709,39 @@ export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
+     const worlds: TrackedTeardown[] = [];
+     const harnesses: TrackedTeardown[] = [];
+     const usage: Usage = { opens: 0, captures: 0 };
+-    const ctx: InternalContext<Sut, W> = {
++    const ctx: InternalContext<SutOf<R, K>, WorldOf<R>> = {
+       atId,
+       [USAGE]: usage,
+-      open: async (fixture = `req-${parsed.requirement}/base`, opts) => {
++      open: async (fixture = `req-${parsed.requirement}/base`, openOpts) => {
+         const { opened, harness } = await openWorld({
+           atId,
+           requirement: parsed.requirement,
+           sutKey,
+           sutMissing,
+           fixture,
+-          configOverrides: opts?.config,
++          configOverrides: openOpts?.config,
+         });
+         harnesses.push({ what: `harness for fixture world ${JSON.stringify(fixture)}`, teardown: () => harness.teardown() });
+         worlds.push({ what: `fixture world ${JSON.stringify(fixture)}`, teardown: () => opened.w.teardown() });
+         usage.opens += 1;
+-        return opened as OpenWorld<Sut, W>;
++        // THE ONE SURVIVING ASSERTION, and exactly what it still takes on trust.
++        //
++        // `h.sut[key]` is `unknown` and `h.fixtures.world()` is `WorldSeam`, because `h` is the
++        // concrete `AtHarness` the factory is checked to produce and that type deliberately says
++        // nothing about any one suite. No run-time value can prove its own static type, so this
++        // relabelling cannot be removed — only moved to where the claim is smallest.
++        //
++        // What changed is WHOSE claim it is. It used to be the suite's: `bindSuite<X, Y>` named two
++        // types and this line stamped them onto whatever the harness returned, so any pair of names
++        // was accepted. Now both come from `suite-adapters.ts`, which reads them off the adapter
++        // module that the `requirement` literal proves is the module `loadAdapter()` imports —
++        // checked at the map entry, and again at run time in `index.ts`.
++        //
++        // So what remains unchecked here is narrow and nameable: that the object `createHarness()`
++        // built at run time really is the one that module's `createFixtureAdapter()` returned. That
++        // holds unless somebody casts inside `index.ts` or mutates the adapter after it is built —
++        // both trusted-author escapes this item does not claim to close.
++        return opened as OpenWorld<R, K>;
+       },
+       capture: async (evidence) => {
+         const value = await evidence.consume(ctx);
+@@ -552,34 +752,63 @@ export function atTest<Sut = unknown, W extends WorldLike = WorldLike>(
+ 
+     await runTrackedTest(atId, () => executeRegisteredBody(atId, body, ctx, usage), worlds, harnesses);
+   });
+-}
++};
+ 
+ /* ------------------------------------------------------------------------------ suite binding */
+ 
+-export interface SuiteBinding {
+-  /** which member of `harness.sut` the whole suite drives, e.g. 'notifications' */
+-  sut: string;
+-  /** the suite's own words for "the implementation has not landed yet" */
+-  sutMissingDetail?: string;
+-}
++/** `atTest`, with the binding already applied — so bodies say `atTest(id, title, body)`. */
++type BoundAtTest<R extends SuiteId, K extends SutKeyOf<R>> = {
++  (atId: string, title: string, opts: AtTestOptions, body: AtTestBody<R, K>): void;
++  (atId: string, title: string, body: AtTestBody<R, K>): void;
++};
++
++/** `defineEvidenceCapture`, with the binding already applied. */
++type BoundDefineEvidenceCapture<R extends SuiteId, K extends SutKeyOf<R>> = <T>(
++  name: string,
++  producer: (ctx: AtContext<R, K>) => Promise<T>,
++) => EvidenceCapture<T, R, K>;
+ 
+ /**
+- * A suite's ONE line of harness contact: `bindSuite` pre-applies the suite's system-under-test
+- * key so the test bodies say `atTest(id, title, body)` and never repeat it. It is the same
+- * `atTest` above — there is one implementation, not one per suite.
++ * A suite's ONE line of harness contact: name the requirement and the system-under-test key, and
++ * get back both entry points with the seam types already derived from that suite's adapter.
++ *
++ * BOTH are returned because both were doors. Closing `atTest` alone would have moved the defect one
++ * import along — `defineEvidenceCapture` handed its producer the same `AtContext`, so a suite could
++ * fabricate a system under test there instead and read it green, and the item would have shipped
++ * claiming a closure it did not have.
++ *
++ * It is the same `atTest` and the same `defineEvidenceCapture` as above: one implementation, not
++ * one per suite. And it is a `const`, not an exported `function` declaration, so no suite can merge
++ * an extra generic overload onto it through `declare module` and restore the fabricated arguments.
+  */
+-export function bindSuite<Sut, W extends WorldLike>(binding: SuiteBinding) {
+-  function bound(atId: string, title: string, opts: AtTestOptions, body: AtTestBody<Sut, W>): void;
+-  function bound(atId: string, title: string, body: AtTestBody<Sut, W>): void;
+-  function bound(
++type BindSuiteFn = <R extends SuiteId, K extends SutKeyOf<R>>(
++  binding: SuiteBinding<R, K>,
++) => {
++  atTest: BoundAtTest<R, K>;
++  defineEvidenceCapture: BoundDefineEvidenceCapture<R, K>;
++};
++
++export const bindSuite: BindSuiteFn = <R extends SuiteId, K extends SutKeyOf<R>>(binding: SuiteBinding<R, K>) => {
++  const boundAtTest = (
+     atId: string,
+     title: string,
+-    optsOrBody: AtTestOptions | AtTestBody<Sut, W>,
+-    maybeBody?: AtTestBody<Sut, W>,
+-  ): void {
++    optsOrBody: AtTestOptions | AtTestBody<R, K>,
++    maybeBody?: AtTestBody<R, K>,
++  ): void => {
+     const opts: AtTestOptions = typeof optsOrBody === 'function' ? {} : optsOrBody;
+-    const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<Sut, W>;
+-    atTest<Sut, W>(atId, title, { ...opts, sut: binding.sut, sutMissingDetail: binding.sutMissingDetail }, body);
+-  }
+-  return bound;
+-}
++    const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<R, K>;
++    atTest<R, K>(atId, title, { ...opts, ...binding }, body);
++  };
++
++  // Annotated here rather than left to the contextual type from `BindSuiteFn`: inside the object
++  // literal the context would supply that alias's own `R`/`K`, which TypeScript treats as unrelated
++  // to this implementation's — the "two different types with this name exist" rejection. Naming the
++  // type against the local parameters is what makes `binding` line up with the call below.
++  const boundCapture: BoundDefineEvidenceCapture<R, K> = (name, producer) =>
++    defineEvidenceCapture(binding, name, producer);
++
++  return {
++    atTest: boundAtTest,
++    defineEvidenceCapture: boundCapture,
++  };
++};
+diff --git a/tests/at/harness/contracts.ts b/tests/at/harness/contracts.ts
+index 03ba5ac..771ac64 100644
+--- a/tests/at/harness/contracts.ts
++++ b/tests/at/harness/contracts.ts
+@@ -158,8 +158,9 @@ export type Vendors<Channel extends string = string> = {
+  * the harness object AND the objects `open()` hands a test body — `OpenWorld`, `AtContext` and
+  * `WorldLike` in `registry.ts` obey it for the same reason these do. `WorldLike` was briefly
+  * excluded as belonging to AI4DEV-31's seam; that conflated two different defects. The suite's `W`
+- * being an unverified claim is AI4DEV-31's. The interface being augmentable is this one — and `w` is
+- * handed to the body exactly as `h` is.
++ * being an unverified claim was AI4DEV-31's, and that item has since closed it: the seam types are derived from the
++ * fixture adapter that produces them, so a suite can no longer name either one. The interface being augmentable is
++ * this one — and `w` is handed to the body exactly as `h` is.
+  *
+  * `tests/at/typeprobes/` carries an attack for every protected type, and
+  * `type-invention.selftest.ts` fails by name if any of them becomes an interface again.
+diff --git a/tests/at/harness/index.ts b/tests/at/harness/index.ts
+index c6fdbc2..2797359 100644
+--- a/tests/at/harness/index.ts
++++ b/tests/at/harness/index.ts
+@@ -16,6 +16,8 @@ interface FixtureAdapter {
+ }
+ 
+ interface FixtureAdapterModule {
++  /** the requirement this adapter declares itself to be, e.g. 'req-016' — see loadAdapter() */
++  requirement: string;
+   createFixtureAdapter(opts: {
+     clock: ControlledClock;
+     worlds: FixtureWorldStore;
+@@ -50,6 +52,33 @@ async function loadAdapter(
+   if (typeof module.createFixtureAdapter !== 'function') {
+     throw new Error(`fixture adapter for ${requirement} exports no createFixtureAdapter()`);
+   }
++
++  /*
++   * THE ADAPTER SAYS WHO IT IS, AND IS HELD TO IT.
++   *
++   * `harness/suite-adapters.ts` reads a suite's system-under-test and world types from the module
++   * its map names, while THIS function loads a module from a path built out of a string. Those were
++   * two independent facts: a mistyped map entry, a renamed directory or an `AT_REPO_ROOT` pointing
++   * somewhere else would have made the type-check describe one suite while the run drove another,
++   * and every layer would have looked correct on its own.
++   *
++   * The map entry is constrained to match this literal at compile time; the same literal is checked
++   * here against the requirement actually requested. So the key, the module the types came from and
++   * the module really imported are one self-declared value, checked at both ends.
++   *
++   * A MISSING literal is an error too, not a skipped check — a guard that switches itself off when a
++   * field is absent is the hole again, arriving through the door marked convenience.
++   */
++  if (module.requirement !== requirement) {
++    throw new Error(
++      `fixture adapter at ${moduleUrl} declares requirement ` +
++        `${module.requirement === undefined ? '<nothing: it exports no `requirement`>' : JSON.stringify(module.requirement)} ` +
++        `but was loaded as ${JSON.stringify(requirement)} — the suite's types would be read off one ` +
++        `module while the run drove another. Add \`export const requirement = ${JSON.stringify(requirement)} as const;\` ` +
++        `to that file, or correct whichever of the two names is wrong.`,
++    );
++  }
++
+   return module.createFixtureAdapter({ clock, worlds, config });
+ }
+ 
+diff --git a/tests/at/suites/req-016/_bind.ts b/tests/at/suites/req-016/_bind.ts
+index de12266..558c57e 100644
+--- a/tests/at/suites/req-016/_bind.ts
++++ b/tests/at/suites/req-016/_bind.ts
+@@ -12,15 +12,33 @@
+  */
+ 
+ import { bindSuite } from '../../harness/registry.ts';
+-import type { NotificationsSut, World } from './_contract.ts';
++import type { AtContext as HarnessAtContext, OpenWorld as HarnessOpenWorld } from '../../harness/registry.ts';
+ 
+ export { AtPending, TIER, TIERS } from '../../harness/registry.ts';
+-export type { AtContext, OpenWorld, PendingPhase } from '..
+/../harness/registry.ts';
++export type { PendingPhase } from '../../harness/registry.ts';
+ 
+-// The suite names its system under test and its fixture world. It deliberately cannot name - or
+-// re-label - the harness TYPE: that shape comes from the one shared contract the harness factory is
+-// statically checked to produce, so a suite can never declare a seam nothing supplies.
+-export const atTest = bindSuite<NotificationsSut, World>({
++// Re-exported ALREADY BOUND, so a test body annotating one of them writes `AtContext`, not
++// `AtContext<'req-016', 'notifications'>` — the suite names its requirement once, in this file, and
++// nowhere else. The harness types take a requirement and a sut key rather than a system-under-test
++// shape precisely so that annotating a body cannot widen the seam; see `SeamOpenWorld` in
++// `harness/registry.ts` for the attack that forced it.
++export type AtContext = HarnessAtContext<'req-016', 'notifications'>;
++export type OpenWorld = HarnessOpenWorld<'req-016', 'notifications'>;
++
++// The suite names TWO STRINGS and no types at all: which requirement it is, and which member of
++// `harness.sut` it drives. It deliberately cannot name - or re-label - the harness TYPE: that shape
++// comes from the one shared contract the harness factory is statically checked to produce, so a
++// suite can never declare a seam nothing supplies.
++//
++// It can no longer name its own system-under-test or world type either. It used to
++// (`bindSuite<NotificationsSut, World>`), and that was two independent statements about one thing:
++// this file said what the seam is, `_fixture.ts` built what the seam is, and nothing compared them
++// - so any pair of type arguments type-checked green and a body could read members no adapter
++// supplies. Both shapes are now DERIVED from the adapter registered under 'req-016' in
++// `harness/suite-adapters.ts`, which is the module that really answers `open()`. There is one
++// statement, made where it is already checked, and no type argument left to disagree with it.
++export const { atTest, defineEvidenceCapture } = bindSuite({
++  requirement: 'req-016',
+   sut: 'notifications',
+   sutMissingDetail:
+     `REQ-016's notification emitter is not implemented — harness.sut.notifications is absent ` +
+diff --git a/tests/at/suites/req-016/_contract.ts b/tests/at/suites/req-016/_contract.ts
+index e535f40..0a32e29 100644
+--- a/tests/at/suites/req-016/_contract.ts
++++ b/tests/at/suites/req-016/_contract.ts
+@@ -40,37 +40,65 @@ export { TIERS } from '../../harness/contracts.ts';
+ 
+ /* ------------------------------------------------------------------ SUT (REQ-016) */
+ 
+-export interface SenderProbe {
++/*
++ * TYPE ALIASES, NOT INTERFACES, FROM HERE DOWN — the same rule `contracts.ts` states for the shared
++ * seams, arriving at this file only now, and for a reason that did not exist before.
++ *
++ * Nothing reachable from the objects `open()` hands a test body may be an interface, because an
++ * interface can be reopened with `declare module` and a member merged into it read green off a
++ * value that never supplies it. An OPTIONAL member is what makes that slip past everything: the
++ * producer still satisfies its annotation, so nothing goes red anywhere, and the body reads
++ * `undefined` at run time believing it read data.
++ *
++ * These types sat OUTSIDE that boundary while `open().sut` and `open().w` were the suite's own type
++ * arguments — pinning your own types hides a merged member rather than rejecting it, which is
++ * exactly why "REQ-016 is not affected" was never an answer. AI4DEV-31 derives both from the
++ * adapter instead, so `open().sut` now resolves to `NotificationsSut` and everything its methods
++ * return is on the seam path. Being on that path is what puts them under the rule.
++ *
++ * The severity did drop on the way in: with one derived type, a merged-in REQUIRED member breaks
++ * the adapter itself (TS2741). What the alias conversion kills is the OPTIONAL member that reads
++ * `undefined` and breaks nothing — precisely the case that slipped past two advers
+arial gates in
++ * AI4DEV-24 and is the reason this rule exists at all.
++ *
++ * `World` is deliberately NOT converted, and `harness/type-invention.selftest.ts` records why so a
++ * later author does not "restore uniformity" without knowing: after the derivation `open().w` is
++ * the adapter's concrete fixture-world CLASS, and a class does not acquire members merely because
++ * an interface it implements was augmented, so the read is rejected either way. Converting it would
++ * buy nothing. That is measured, not assumed — re-measure before changing it.
++ */
++
++export type SenderProbe = {
+   /** component identifier, e.g. 'notifications.emitter', 'blockers.service' */
+   component: string;
+   /** does this component hold a direct send path / provider credential? */
+   canSendDirectly: boolean;
+-}
++};
+ 
+-export interface RegisteredRow {
++export type RegisteredRow = {
+   event: string;
+   recipients: Role[];
+   channels: Channel[] | null;
+   tone: 'normal' | 'low';
+-}
++};
+ 
+-export interface DocumentedDefault {
++export type DocumentedDefault = {
+   event: string;
+   channels: Channel[];
+   /** where the default is documented — empty string = implicit behaviour, which fails AT-016.06 */
+   source: string;
+-}
++};
+ 
+-export interface NotificationEvent {
++export type NotificationEvent = {
+   id: string;
+   type: string;
+   /** resolved at event CREATION (AT-016.10), never at send time */
+   recipients: { role: Role; recipientId: string; channels: Channel[] }[];
+   state: 'pending' | 'retrying' | 'sent' | 'failed';
+   attempts: number;
+-}
++};
+ 
+-export interface Delivery {
++export type Delivery = {
+   eventId: string;
+   type: string;
+   role: Role;
+@@ -82,21 +110,21 @@ export interface Delivery {
+   payload: Record<string, unknown>;
+   /** rendered copy delivered to the recipient (payload semantics checks) */
+   body: string;
+-}
++};
+ 
+-export interface OpsItem {
++export type OpsItem = {
+   id: string;
+   kind: string;
+   linkedEventId: string | null;
+-}
++};
+ 
+-export interface EmitResult {
++export type EmitResult = {
+   accepted: boolean;
+   reason?: string;
+   eventId?: string;
+-}
++};
+ 
+-export interface NotificationsSut {
++export type NotificationsSut = {
+   /** every component the architecture lets send comms (AT-016.01) */
+   senders(): Promise<SenderProbe[]>;
+   /** the registered event set (AT-016.02/03/06) */
+@@ -117,7 +145,7 @@ export interface NotificationsSut {
+    * is unobservable if every drain is run-to-quiescence.
+    */
+   drainDeliveries(opts?: { passes?: number }): Promise<void>;
+-}
++};
+ 
+ /* ----------------------------------------------- REQ-016's fixture world + harness */
+ 
+diff --git a/tests/at/suites/req-016/_fixture.ts b/tests/at/suites/req-016/_fixture.ts
+index e944bfd..41331f4 100644
+--- a/tests/at/suites/req-016/_fixture.ts
++++ b/tests/at/suites/req-016/_fixture.ts
+@@ -33,6 +33,18 @@ import type {
+ } from './_contract.ts';
+ import { TAXONOMY, type Channel, type Role, type TaxonomyRow } from './taxonomy.ts';
+ 
++/**
++ * WHICH REQUIREMENT THIS ADAPTER IS, declared by the adapter itself.
++ *
++ * Three facts used to be independent: the key `harness/suite-adapters.ts` looks the types up under,
++ * the module those types are read from, and the module `loadAdapter()` imports at run time from a
++ * path it builds out of a string. A typo in any one of them would have let the type-check describe
++ * one suite while the run drove another, with nothing able to notice. This literal is what ties
++ * them together — the map entry is constrained to match it, and `loadAdapter()` re-checks it
++ * against the requirement it was asked for and throws naming both values.
++ */
++export const requirement = 'req-016' as const;
++
+ interface AdapterOptions {
+   clock: ControlledClock;
+   worlds: FixtureWorldStore;
+diff --git a/tests/at/suites/req-016/d-taxonomy-evidence.test.ts b/tests/at/suites/req-016/d-taxonomy-evidence.test.ts
+index 25ca133..d74ff4f 100644
+--- a/tests/at/suites/req-016/d-taxonomy-evidence.test.ts
++++ b/tests/at/suites/req-016/d-taxonomy-evidence.test.ts
+@@ -1,6 +1,5 @@
+ import { describe, expect } from 'vitest';
+-import { defineEvidenceCapture } from '../../harness/registry.ts';
+-import { atTest } from './_bind.ts';
++import { atTest, defineEvidenceCapture } from './_bind.ts';
+ import type { Delivery, DocumentedDefault, NotificationEvent, NotificationsSut, OpsItem, World } from './_contract.ts';
+ import { countPairs, expectedPairs, pairProblems } from './_oracles.ts';
+ import {
+@@ -29,7 +28,11 @@ interface TaxonomyEvidence {
+ 
+ let evidenceBuilds = 0;
+ 
+-const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence, NotificationsSut, World>(
++// The BOUND helper from `_bind.ts`, not the raw generic. The raw one took the system-under-test and
++// world types as arguments, so a capture could declare a seam nothing supplies and read it green —
++// the same defect `bindSuite` used to have, one import along. Only `TaxonomyEvidence` is named here,
++// and that is this file's own captured shape, not a claim about the harness.
++const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence>(
+   'REQ-016 taxonomy execution',
+   async ({ open }) => {
+     evidenceBuilds += 1;
+• Wait — `_bind.ts` now imports `AtContext as HarnessAtContext, OpenWorld as HarnessOpenWorld` from registry — but also `PendingPhase`. Let me check the d-taxonomy-evidence.test.ts: `defineEvidenceCapture<TaxonomyEvidence>` — the bound one has signature `<T>(name, producer)` so `<TaxonomyEvidence>` works.
+
+  Now let me look at the probes, type-invention.selftest.ts, runner selftests, conformance.selftest.ts, and README diffs.diff --git a/tests/at/README.md b/tests/at/README.md
+index c440d3d..7590530 100644
+--- a/tests/at/README.md
++++ b/tests/at/README.md
+@@ -45,8 +45,25 @@ already invokes it changed meaning.
+ - **`skipLibCheck` is `false`.** It cannot distinguish a third-party `.d.ts` from a first-party one
+   written under `tests/at`, and skipping our own declarations is the defect this check exists to
+   remove.
+-- **The harness shape is not a suite's to invent.** A suite parameterizes `bindSuite` with its
+-  system under test, its fixture world and its channel names — never with a harness type. The
+-  harness comes from the single shared contract in `harness/contracts.ts`, which
+-  `harness/index.ts`'s `createHarness` is statically checked to produce. A free harness parameter
+-  would let a suite declare seams the factory never supplies and still type-check green.
++- **A suite names STRINGS, never types.** `bindSuite({ requirement: 'req-016', sut: 'notifications' })`
++  is the whole of a suite's contact with the harness. It takes no type arguments at all: the
++  harness comes from the single shared contract in `harness/contracts.ts`, and the system under
++  test and the fixture world are read off the adapter registered for that requirement in
++  `harness/suite-adapters.ts` — the same module `harness/index.ts` loads at run time.
++
++  It used to take three: the harness type (removed by AI4DEV-24) and then the system-under-test and
++  world types (removed by AI4DEV-31). Each was a claim nothing checked, so
++  `bindSuite<AnythingAtAll, AnythingAtAll>` type-checked green and a body could read members no
++  runtime value supplies. `tests/at/typeprobes/sut-seam-legacy.probe.ts` is that hole, kept
++  compilable-looking and executable: it compiled clean before the change and fails now.
++
++- **Adding a suite is one line in `harness/suite-adapters.ts`,** plus
++  `export const requirement = 'req-0NN' as const;` in that suite's `_fixture.ts`. Until both exist
++  the suite cannot bind, and the compile error says what to add. The literal is what ties the map
++  key, the module the types are read from, and the module the loader actually imports to one
++  self-declared value — checked at the map entry and again at run time in `loadAdapter()`.
++
++- **What that does NOT close.** `any`, `as`, `@ts-ignore`, `@ts-nocheck`, mutating an adapter after
++  it is built, and pointing `AT_REPO_ROOT` at another tree all still work. The threat model is a
++  suite drifting from its harness with nobody able to notice — an honest mistake that type-checks
++  green — not an author set on defeating the type system, who can always write a cast.
+diff --git a/tests/at/harness/conformance.selftest.ts b/tests/at/harness/conformance.selftest.ts
+index cc61289..314b142 100644
+--- a/tests/at/harness/conformance.selftest.ts
++++ b/tests/at/harness/conformance.selftest.ts
+@@ -23,10 +23,12 @@ import {
+ } from './guards.ts';
+ import { analyzeReportedTests, type AssertionResult, type RuntimeRegistration } from './runner.ts';
+ import {
++  atTest,
+   captureProducerProblem,
+   drainTeardowns,
+   executeRegisteredBody,
+   freezeEvidence,
++  requirementMismatch,
+   runTrackedTest,
+   testUseProblem,
+   type TrackedTeardown,
+@@ -84,6 +86,47 @@ describe('the five false-green reproductions', () => {
+     expect(bijectionProblems([], [] as SuiteRegistration[]).join(' ')).toContain('zero P0');
+   });
+ 
++  /**
++   * The sixth reproduction, added by AI4DEV-31: the id says one suite, the binding says another.
++   *
++   * Two independent strings have to denote the same suite — the AT id decides which fixture adapter
++   * is loaded at RUN time, the binding decides which adapter the TYPES were read off. Left
++   * unchecked, `AT-017.03` in a suite bound to req-016 drives req-017's implementation while every
++   * type in the body describes req-016's, and both halves look correct on their own.
++   *
++   * The formats differ and the comparison MUST normalize: `parseAtId` yields `016` while the
++   * binding and the registry key are `req-016`. A literal comparison would reject every valid suite
+
++   * in the tree, so the happy path is asserted here too rather than left implied.
++   */
++  it('refuses an AT id whose requirement is not the suite it was bound to', () => {
++    expect(requirementMismatch('AT-016.01', '016', 'req-016'), 'a valid suite was rejected by the guard').toBeNull();
++    expect(requirementMismatch('AT-005.5.03', '005.5', 'req-005.5'), 'a dotted requirement id was rejected').toBeNull();
++
++    const mismatch = requirementMismatch('AT-017.03', '017', 'req-016');
++    expect(mismatch, 'the guard did not name the requirement the harness would actually load').toContain('req-017');
++    expect(mismatch, 'the guard did not name the requirement the type-check described').toContain('req-016');
++
++    const missing = requirementMismatch('AT-016.01', '016', '');
++    expect(missing, 'an absent requirement was treated as "nothing to check" rather than as an error').toContain(
++      'no requirement',
++    );
++
++    // AND THE GUARD IS ACTUALLY WIRED IN. A problem computed and not acted on is this tree's own
++    // recurring false-green shape, so the pure function above is not enough on its own. Both calls
++    // throw before `it()` is ever reached, which is why registering here adds no test to this run.
++    expect(() =>
++      atTest('AT-017.03', 'bound to the wrong suite', { requirement: 'req-016', sut: 'notifications' }, async () => undefined),
++    ).toThrow(/req-017/);
++
++    // The suites the runner's black-box tests generate are written as source at run time and are
++    // never type-checked, so this guard has to hold for a caller TypeScript never saw. The cast
++    // reproduces exactly that caller and nothing else.
++    const untyped = atTest as unknown as (atId: string, title: string, opts: object, body: () => Promise<void>) => void;
++    expect(() => untyped('AT-016.01', 'no requirement at all', { sut: 'notifications' }, async () => undefined)).toThrow(
++      /no requirement/,
++    );
++  });
++
+   it('derives stand-in provenance from the factory wrapper, not capability self-report', () => {
+     const dishonest = standInCapability('fixtures.worlds', {
+       stubbedCapabilities: () => [],
+diff --git a/tests/at/harness/runner-blackbox.selftest.ts b/tests/at/harness/runner-blackbox.selftest.ts
+index d84f8fc..35f225f 100644
+--- a/tests/at/harness/runner-blackbox.selftest.ts
++++ b/tests/at/harness/runner-blackbox.selftest.ts
+@@ -49,8 +49,15 @@ const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.t
+ /**
+  * A minimal fixture adapter, so `open()` in a fixture suite reaches a real world through the real
+  * harness. It is the same seam `harness/index.ts` loads for REQ-016.
++ *
++ * It declares its own requirement because the real `loadAdapter()` checks that literal against the
++ * requirement it was asked to load, and throws when they disagree. These trees are not in
++ * `suite-adapters.ts`'s type map and do not need to be — the check compares what the adapter says
++ * about itself against what was requested, which needs no map.
+  */
+-const FIXTURE_ADAPTER = `export function createFixtureAdapter({ worlds }) {
++function fixtureAdapter(requirement: string): string {
++  return `export const requirement = 'req-${requirement}';
++export function createFixtureAdapter({ worlds }) {
+   return {
+     sut: { probe: { ping: async () => 'pong' } },
+     fixtures: { world: async (name) => await worlds.world(name) },
+@@ -58,13 +65,21 @@ const FIXTURE_ADAPTER = `export function createFixtureAdapter({ worlds }) {
+   };
+ }
+ `;
++}
+ 
+-/** Preamble every fixture suite shares: vitest, plus the real registry bound to the probe sut. */
+-function suitePreamble(): string {
++/**
++ * Preamble every fixture suite shares: vitest, plus the real registry bound to the probe sut.
++ *
++ * The requirement is a parameter because `atTest` now refuses an id whose requirement disagrees
++ * with the binding's — the guard that stops a suite driving one implementation while the type-check
++ * described another. These suites are never type-checked (they live outside every tsconfig) but
++ * they ARE executed, so 
+the run-time half applies to them exactly as it does to a real suite.
++ */
++function suitePreamble(requirement: string): string {
+   return (
+     `import { describe, expect, it } from 'vitest';\n` +
+     `import { bindSuite } from '${REGISTRY_URL}';\n` +
+-    `const atTest = bindSuite({ sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
++    `const { atTest } = bindSuite({ requirement: 'req-${requirement}', sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
+   );
+ }
+ 
+@@ -93,7 +108,7 @@ function runAgainstTree(requirement: string, acceptance: string, files: Record<s
+     mkdirSync(join(tree, '.taskmaster', 'docs', 'acceptance'), { recursive: true });
+     writeFileSync(join(tree, '.taskmaster', 'docs', 'acceptance', `at-req-${requirement}.md`), acceptance, 'utf8');
+     writeFileSync(join(tree, 'tests', 'at', 'vitest.config.ts'), FIXTURE_VITEST_CONFIG, 'utf8');
+-    writeFileSync(join(suiteDir, '_fixture.ts'), FIXTURE_ADAPTER, 'utf8');
++    writeFileSync(join(suiteDir, '_fixture.ts'), fixtureAdapter(requirement), 'utf8');
+     for (const [name, content] of Object.entries(files)) writeFileSync(join(suiteDir, name), content, 'utf8');
+ 
+     const run = spawnSync(bunExecutable(), ['--no-env-file', RUNNER, `req-${requirement}`, '--tier', 'loop'], {
+@@ -135,7 +150,7 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
+   it('refuses a body that passed without ever opening a world', () => {
+     const run = runAgainstTree('901', p0('AT-901.01', 'a body that asserts but never opens'), {
+       'a-never-opens.test.ts':
+-        suitePreamble() +
++        suitePreamble('901') +
+         `describe('never opens', () => {\n` +
+         `  atTest('AT-901.01', 'asserts something true and opens nothing', async () => {\n` +
+         `    expect(1 + 1).toBe(2);\n` +
+@@ -154,7 +169,7 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
+     // The call site is statically visible — so the bijection checker is satisfied — and never
+     // executes, so nothing registers at runtime. A bare `it()` supplies the passing green.
+     const source =
+-      suitePreamble() +
++      suitePreamble('902') +
+       `describe('title only', () => {\n` +
+       `  if (false) atTest('AT-902.01', 'never reached', async ({ open }) => { await open(); });\n` +
+       `  it('AT-902.01 — placeholder', () => { expect(true).toBe(true); });\n` +
+@@ -177,7 +192,7 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
+   it('refuses an id reported twice instead of keeping whichever result came last', () => {
+     const run = runAgainstTree('903', p0('AT-903.01', 'a real test plus an impostor of the same name'), {
+       'c-duplicate.test.ts':
+-        suitePreamble() +
++        suitePreamble('903') +
+         `describe('duplicate', () => {\n` +
+         `  atTest('AT-903.01', 'the real test', async ({ open }) => {\n` +
+         `    const { sut } = await open();\n` +
+@@ -220,7 +235,7 @@ describe('the assembled runner refuses to run at all when the preflight cannot b
+       p0('AT-905.01', 'this one is registered') + p0('AT-905.02', 'this one is not registered anywhere'),
+       {
+         'e-missing.test.ts':
+-          suitePreamble() +
++          suitePreamble('905') +
+           `describe('missing', () => {\n` +
+           `  atTest('AT-905.01', 'the only registered id', async ({ open }) => {\n` +
+           `    const { sut } = await open();\n` +
+@@ -242,7 +257,7 @@ describe('the assembled runner reports a genuinely good suite as good', () => {
+     // everything, which is a useless gate in the other direction.
+     const run = runAgainstTree('906', p0('AT-906.01', 'a well-formed single test'), {
+       'f-good.test.ts':
+-        suitePreamble() +
++        suitePreamble('906') +
+         `describe('good', () => {\n` +
+         `  atTest('AT-906.01', 'opens a world and asserts a real observation', async ({ open }) => {\n` +
+         `    const { w, sut } = await open();\n` +
+diff --git a/tests/at/harness/runner-expect.selftest.ts b/tests/at
+/harness/runner-expect.selftest.ts
+index 210f807..54a0b11 100644
+--- a/tests/at/harness/runner-expect.selftest.ts
++++ b/tests/at/harness/runner-expect.selftest.ts
+@@ -39,7 +39,15 @@ const CAPABILITIES_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harnes
+ 
+ const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.test.ts'], environment: 'node', testTimeout: 30000 } };\n`;
+ 
+-const FIXTURE_ADAPTER = `export function createFixtureAdapter({ worlds }) {
++/**
++ * The adapter declares its own requirement because the real `loadAdapter()` checks that literal
++ * against the requirement it was asked to load. These trees are not in `suite-adapters.ts`'s type
++ * map and do not need to be — the check compares what the adapter says about itself against what
++ * was requested, which needs no map.
++ */
++function fixtureAdapter(requirement: string): string {
++  return `export const requirement = 'req-${requirement}';
++export function createFixtureAdapter({ worlds }) {
+   return {
+     sut: { probe: { ping: async () => 'pong' } },
+     fixtures: { world: async (name) => await worlds.world(name) },
+@@ -47,16 +55,22 @@ const FIXTURE_ADAPTER = `export function createFixtureAdapter({ worlds }) {
+   };
+ }
+ `;
++}
+ 
+ /** The capability a fixture red is pending on. Never a real one — nothing here waits on H9. */
+ const PENDING_CAPABILITY = 'H9 imaginary capability';
+ 
+-function suitePreamble(): string {
++/**
++ * The requirement is a parameter because `atTest` now refuses an id whose requirement disagrees
++ * with the binding's. These suites are never type-checked but they ARE executed, so that run-time
++ * guard applies to them exactly as it does to a real suite.
++ */
++function suitePreamble(requirement: string): string {
+   return (
+     `import { describe, expect, it } from 'vitest';\n` +
+     `import { bindSuite } from '${REGISTRY_URL}';\n` +
+     `import { CapabilityPending } from '${CAPABILITIES_URL}';\n` +
+-    `const atTest = bindSuite({ sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
++    `const { atTest } = bindSuite({ requirement: 'req-${requirement}', sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
+   );
+ }
+ 
+@@ -100,7 +114,7 @@ function twoIdSuite(
+   const { secondIsRed = true, untaggedFailure = false, brokenImport = false } = opts;
+   const files: Record<string, string> = {
+     'a-two-ids.test.ts':
+-      suitePreamble() +
++      suitePreamble(requirement) +
+       `describe('two ids', () => {\n` +
+       greenTest(`AT-${requirement}.01`) +
+       (secondIsRed ? redTest(`AT-${requirement}.02`) : greenTest(`AT-${requirement}.02`)) +
+@@ -146,7 +160,7 @@ function runExpectTree(spec: ExpectTree): RunnerOutcome {
+     mkdirSync(join(tree, '.taskmaster', 'docs', 'acceptance'), { recursive: true });
+     writeFileSync(join(tree, '.taskmaster', 'docs', 'acceptance', `at-req-${spec.requirement}.md`), spec.acceptance, 'utf8');
+     writeFileSync(join(tree, 'tests', 'at', 'vitest.config.ts'), FIXTURE_VITEST_CONFIG, 'utf8');
+-    writeFileSync(join(suiteDir, '_fixture.ts'), FIXTURE_ADAPTER, 'utf8');
++    writeFileSync(join(suiteDir, '_fixture.ts'), fixtureAdapter(spec.requirement), 'utf8');
+     for (const [name, content] of Object.entries(spec.files)) writeFileSync(join(suiteDir, name), content, 'utf8');
+ 
+     if (spec.manifest !== undefined) {
+diff --git a/tests/at/harness/type-invention.selftest.ts b/tests/at/harness/type-invention.selftest.ts
+index e94a79e..b315c97 100644
+--- a/tests/at/harness/type-invention.selftest.ts
++++ b/tests/at/harness/type-invention.selftest.ts
+@@ -1,13 +1,21 @@
+ /**
+- * The harness-invention attacks, kept dead by an executable test rather than by memory.
++ * The type-invention attacks, kept dead by an executable test rather than by memory.
+  *
+  * AI4DEV-24 exists to make `bun run typecheck` mean something. The thing that would quietly undo it
+- * is a suite declaring harness members no runtime value supplies and reading them green — a
+- * type-check that lies, which is worse than no type-check at all because it is believed.
++ * is a suite declaring members no runtime value supplies and reading them green — a type-check that
++ * lies, which is worse than no type-check at all because it is believed.
+  *
+- * Two routes to that lie were found and closed, one per adversarial gate. Neither needed `any` and
+- * neither needed a suppression, so grepping for those would not have caught either. This test runs
+- * the compiler over `tests/at/typeprobes/` and fails if that program EVER compiles clean.
++ * Two families live here now. AI4DEV-24's is HARNESS invention: a suite declaring seams
++ * `createHarness()` never produces. AI4DEV-31's is SUT-AND-WORLD invention: a suite declaring what
++ * its system under test and its fixture world are, when the adapter that really supplies them says
++ * otherwise. None of the attacks needs `any` and none needs a suppression, so grepping for those
++ * would not have caught any of them.
++ *
++ * THE PROBES ARE COMPILED PER FILE, not only as one program, and that is load-bearing. A combined
++ * exit code is satisfied by ANY error anywhere: a protection could be removed and the suite would
++ * stay green on the strength of its neighbours' diagnostics. Each probe file therefore has its own
++ * committed child config, and each protection is asserted against the output of the file that
++ * attacks it.
+  */
+ 
+ import { spawnSync } from 'node:child_process';
+@@ -17,20 +25,71 @@ import { INSTALL_ROOT } from './check.ts';
+ import { pinnedTsc } from '../typecheck.ts';
+ 
+ const PROBE_PROJECT = 'tests/at/typeprobes/tsconfig.json';
++/** AI4DEV-31's attacks in the API that ALLOWED them — the red half of that item's proof. */
++const LEGACY_SEAM_PROJECT = 'tests/at/typeprobes/tsconfig.sut-seam-legacy.json';
++/** AI4DEV-31's attacks in the API that REPLACED it — only meaningful after the change. */
++const SEAM_PROJECT = 'tests/at/typeprobes/tsconfig.sut-seam.json';
++
++interface ProbeRun {
++  status: number | null;
++  output: string;
++  /** every file tsc actually put in the program — the control against an empty-program exit 0 */
++  files: string[];
++}
+ 
+-function typecheckProbes(): { status: number | null; output: string } {
++function typecheckProbes(project: string): ProbeRun {
+   // The same pinned compiler `bun run typecheck` uses. A negative test is only meaningful if the
+   // compiler rejecting the attack is the compiler that will check everything else.
+-  const result = spawnSync(process.execPath, [pinnedTsc(INSTALL_ROOT), '--noEmit', '--pretty', 'false', '-p', PROBE_PROJECT], {
+-    cwd: INSTALL_ROOT,
+-    encoding: 'utf8',
+-  });
+-  if (result.error) throw new Error(`could not run the compiler over ${PROBE_PROJECT}: ${result.error.message}`);
+-  return { status: result.status, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
++  //
++  // `--listFiles` is not decoration: a tsconfig that matches NO files also exits 0 and reports
++  // nothing, so "the attack was rejected" and "the attack was never compiled" are indistinguishable
++  // without it. Every per-file assertion below leans on `compiled()` to rule that out.
++  const result = spawnSync(
++    process.execPath,
++    [pinnedTsc(INSTALL_ROOT), '--noEmit', '--pretty', 'false', '--listFiles', '-p', project],
++    { cwd: INSTALL_ROOT, encoding: 'utf8' },
++  );
++  if (result.error) throw new Error(`could not run the compiler over ${project}: ${result.error.message}`);
++  const raw = `${result.stdout ?? ''}${result.stderr ?? ''}`;
++  const lines = raw.split('\n');
++  // `--listFiles` interleaves the program's files with the diagnostics. The listed files are
++  // ABSOLUTE, while diagnostics name their file relative to the cwd and their continuation lines are
++  // indented — so the leading drive letter separates the two without guessing at message text.
++  const isListedFile = (line: string) => /^[A-Za-z]:[\\/]/.test(line);
++  return {
++    status: result.status,
++    output: lines.filter((line) => !isListedFile(line)).join('\n'),
++    files: lines.filter(isListedFile).map((line) => line.trim()),
++  };
++}
++
++/** Did tsc really read this probe? Guards every assertion below against a program matching nothing. */
++function compiled(run: ProbeRun, probeFile: string): boolean {
++  return run.files.some((file) => file.endsWith(probeFile));
++}
++
++/**
++ * TypeScript reports a blocked merge two different ways: `TS2300 Duplicate identifier 'X'` for a
++ * single clash, and one `TS6200` listing every identifier when a file has several at once. Both are
++ * the rejection these tests assert, so either is accepted — matching only the first form would make
++ * a test pass or fail on how many attacks happen to share a file.
++ */
++function rejects(output: string, name: string): boolean {
++  if (output.includes(`Duplicate identifier '${name}'`)) return true;
++  return output
++    .split('\n')
++    .filter((line) => line.includes('conflict with those in another file:'))
++    .some((line) => line.split(':').pop()!.split(',').some((entry) => entry.trim() === name));
+ }
+ 
+ describe('harness invention is rejected by the compiler', () => {
+-  const probe = typecheckProbes();
++  const probe = typecheckProbes(PROBE_PROJECT);
++
++  it('compiles the probes it claims to check', () => {
++    // The empty-program control. A config that matches nothing exits 0 and says nothing, so without
++    // this every assertion below could be passing because the attack was never read.
++    expect(compiled(probe, 'harness-invention.probe.ts'), `${PROBE_PROJECT} did not compile the probe file`).toBe(true);
++  });
+ 
+   it('the probe program does not compile — if it ever does, an attack has reopened', () => {
+     expect(
+@@ -83,20 +142,6 @@ describe('harness invention is rejected by the compiler', () => {
+     'WorldLike',
+   ];
+ 
+-  /**
+-   * TypeScript reports a blocked merge two different ways: `TS2300 Duplicate identifier 'X'` for a
+-   * single clash, and one `TS6200` listing every identifier when a file has several at once. Both
+-   * are the rejection this test is asserting, so it accepts either — matching only the first form
+-   * would make the test pass or fail on how many attacks happen to share a file.
+-   */
+-  function rejects(output: string, name: string): boolean {
+-    if (output.includes(`Duplicate identifier '${name}'`)) return true;
+-    return output
+-      .split('\n')
+-      .filter((line) => line.includes('conflict with those in another file:'))
+-      .some((line) => line.split(':').pop()!.split(',').some((entry) => entry.trim() === name));
+-  }
+-
+   for (const contract of ALIAS_PROTECTED) {
+     it(`rejects a member merged into ${contract}`, () => {
+       expect(
+@@ -107,3 +152,171 @@ describe('harness invention is rejected by the compiler', () => {
+     });
+   }
+ });
++
++/**
++ * AI4DEV-31's half: the system under test and the fixture world are the ADAPTER's to declare, and no
++ * longer the suite's to claim.
++ *
++ * Two probe files, compiled separately, because one file cannot carry both halves of the proof. The
++ * legacy probe is written in the API that ALLOWED the lie — at the pre-fix commit it compiled with
++ * exit 0, which is `loop/items/AI4DEV-31/proof-red.txt`; the same file must fail now. The new probe
++ * is written in the API that replaced it and is only meaningful afterwards.
++ *
++ * Every diagnostic asserted below was READ OFF THE COMPILER, never predicted. The design for this
++ * item predicted TS2558 by analogy with AI4DEV-24's arity defence and the real code is TS2344,
++ * because the new `bindSuite` still takes two type parameters — they are just no longer shapes. A
++ * guard asserting a predicted code would have passed on the wrong evidence.
++ */
++describe('the sut/world seam cannot be invented by a suite', () => {
++  const legacy = typecheckProbes(LEGACY_SEAM_PROJECT);
++  const seam = typecheckProbes(SEAM_PROJECT);
++
++  it('compiles both probe files it claims to check', () => {
++    expect(compiled(legacy, 'sut-seam-legacy.probe.ts'), `${LEGACY_SEAM_PROJECT} compiled no probe`).toBe(true);
++    expect(compiled(seam, 'sut-seam.probe.ts'), `${SEAM_PROJECT} compiled no probe`).toBe(true);
++  });
++
++  it('the old API can no longer be written at all', () => {
++    expect(
++      legacy.status,
++      `${LEGACY_SEAM_PROJECT} compiled clean. That is the state this item found the tree in: a suite ` +
++        `naming any two types it liked and reading them green off a harness that supplies neither.\n${legacy.output}`,
++    ).not.toBe(0);
++  });
++
++  it('the new-API attacks do not compile', () => {
++    expect(seam.status, `${SEAM_PROJECT} compiled clean — an attack has reopened.\n${seam.output}`).not.toBe(0);
++  });
++
++  /**
++   * THE ATTACK LIST IS A SPECIFICATION, not a sample, and each entry names the marker the compiler
++   * really emitted. Removing any single protection fails the test that names it, rather than being
++   * absorbed by a neighbour's diagnostic inside a shared exit code.
++   */
++  const SEAM_ATTACKS: { probe: ProbeRun; what: string; marker: string; why: string }[] = [
++    {
++      probe: legacy,
++      what: 'bindSuite<Sut, W> — a fabricated system under test',
++      marker: `Type '{ notThere(): Promise<void>; }' does not satisfy the constraint '"req-016"'`,
++      why: 'a suite can name a system under test again, and read methods no adapter implements',
++    },
++    {
++      probe: legacy,
++      what: 'bindSuite<Sut, W> — a fabricated fixture world',
++      marker: `Type 'NotificationsSut' does not satisfy the constraint '"req-016"'`,
++      why: 'a suite can name a world type again, and read members no fixture supplies',
++    },
++    {
++      probe: legacy,
++      what: 'defineEvidenceCapture<T, Sut, W> — the second door, with no binding at all',
++      marker: 'Expected 3 arguments, but got 2',
++      why: 'an evidence capture can invent both axes without ever calling bindSuite',
++    },
++    {
++      probe: seam,
++      what: 'reading a sut member the adapter does not declare',
++      marker: `Property 'notThere' does not exist on type 'NotificationsSut'`,
++      why: 'a body can read a method the implementation does not have and still type-check',
++    },
++    {
++      probe: seam,
++      what: 'reading a world member the fixture does not supply',
++      marker: `Property 'inventedByTheSuite' does not exist on type 'NotificationFixtureWorld'`,
++      why: 'a body can read a world member nothing supplies and still type-check',
++    },
++    {
++      probe: seam,
++      what: 'reading both invented axes through the raw evidence-capture entry point',
++      marker: `Property 'neitherIsThis' does not exist on type 'NotificationsSut'`,
++      why: 'the capture door is open again, so closing bindSuite alone only moved the defect',
++    },
++    {
++      probe: seam,
++      what: 'binding a sut key the adapter does not expose',
++      marker: `Type '"notificatoins"' is not assignable to type '"notifications"'`,
++      why: 'a misspelled key compiles again and fails at run time looking like an unbuilt requirement',
++    },
++    {
++      probe: seam,
++      what: 'binding a requirement with no registered adapter',
++      marker: `Type '"req-999"' is not assignable to type '"req-016"'`,
++      why: 'a suite can bind a requirement whose types are derived from nothing',
++    },
++    {
++      probe: seam,
++      what: 'widening the seam by annotating the body parameter',
++      marker: `Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint '"req-016"'`,
++      why:
++        'the subtlest route back: leave bindSuite alone and widen at the body with an OPTIONAL member. ' +
++        'Nothing structural can reject it — a type and that type intersected with an optional member ' +
++        'are assignable both ways — so the only defence is that the seam types take a requirement and ' +
++        'a sut key rather than shapes. If this fails, someone has re-parameterized them by shape',
++    },
++    {
++      probe: seam,
++      what: 'constructing an EvidenceCapture directly',
++      marker: `'EvidenceCapture' only refers to a type, but is being used as a value here`,
++      why: 'the class is exported again, so its constructor takes a producer at any types',
++    },
++    {
++      probe: seam,
++      what: 'merging a fresh generic overload onto bindSuite',
++      marker: `Cannot redeclare block-scoped variable 'bindSuite'`,
++      why: 'it is an exported function declaration again, and a declaration accepts a merged-in overload',
++    },
++    {
++      probe: seam,
++      what: 'merging a fresh generic overload onto atTest',
++      marker: `Cannot redeclare block-scoped variable 'atTest'`,
++      why: 'it is an exported function declaration again, and a declaration accepts a merged-in overload',
++    },
++    {
++      probe: seam,
++      what: 'merging a fresh generic overload onto defineEvidenceCapture',
++      marker: `Cannot redeclare block-scoped variable 'defineEvidenceCapture'`,
++      why: 'it is an exported function declaration again, and a declaration accepts a merged-in overload',
++    },
++  ];
++
++  for (const attack of SEAM_ATTACKS) {
++    it(`rejects ${attack.what}`, () => {
++      expect(attack.probe.output, `${attack.what} was accepted — ${attack.why}.\n${attack.probe.output}`).toContain(
++        attack.marker,
++      );
++    });
++  }
++
++  /**
++   * The suite-side contracts that AI4DEV-31 put ON the seam path, and therefore under AI4DEV-24's
++   * alias rule. EXHAUSTIVE over the conversion: naming nine and attacking two is the exact failure
++   * both AI4DEV-24 reviewers caught in that item, reproduced one item later by its own design.
++   *
++   * `World` IS DELIBERATELY ABSENT, and this is the record of why so that a later author does not
++   * "restore uniformity" without knowing. After the derivation `open().w` is the adapter's concrete
++   * fixture-world CLASS, not the `World` interface: a class does not acquire members merely because
++   * an interface it implements was augmented, so `open().w.invented` is TS2339 whether `World` is an
++   * interface or an alias. Converting it buys nothing. That was measured on this tree, not assumed —
++   * re-measure before adding it, because a name listed here with no attack in the probe fails.
++   */
++  const SEAM_ALIAS_PROTECTED = [
++    'NotificationsSut',
++    'SenderProbe',
++    'RegisteredRow',
++    'DocumentedDefault',
++    'NotificationEvent',
++    'Delivery',
++    'OpsItem',
++    'EmitResult',
++  ];
++
++  for (const contract of SEAM_ALIAS_PROTECTED) {
++    it(`rejects a member merged into ${contract}`, () => {
++      expect(
++        rejects(seam.output, contract),
++        `${contract} accepted a merged-in member, so it is an interface again. It is reachable from ` +
++          `open().sut now, so a suite can declare a member on it and read that member green against a ` +
++          `value that never supplies it.\n${seam.output}`,
++      ).toBe(true);
++    });
++  }
++});
+diff --git a/tests/at/typeprobes/tsconfig.sut-seam-legacy.json b/tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+new file mode 100644
+index 0000000..e0bf94f
+--- /dev/null
++++ b/tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+@@ -0,0 +1,17 @@
++{
++  /* ONE probe file, compiled alone, under the acceptance tree's real compiler settings.
++
++     `files` rather than `include`, and `include: []` to cancel the inherited one, because the
++     parent's `exclude` names `typeprobes` — `exclude` filters `include` and never filters `files`,
++     so this is the only spelling that both inherits the settings and reaches the file.
++
++     It extends the ACCEPTANCE config, not `typeprobes/tsconfig.json`: sharing a program with
++     `harness-invention.probe.ts` would drag in that file's program-wide `declare module` blocks and
++     its expected failures, and a shared exit code cannot isolate one attack from another.
++
++     A config that matches no files also exits 0, so the transcripts in `loop/items/AI4DEV-31/`
++     carry a `--listFiles` control proving the probe is actually in the program. */
++  "extends": "../tsconfig.json",
++  "files": ["sut-seam-legacy.probe.ts"],
++  "include": []
++}
+diff --git a/tests/at/typeprobes/tsconfig.sut-seam.json b/tests/at/typeprobes/tsconfig.sut-seam.json
+new file mode 100644
+index 0000000..97b8139
+--- /dev/null
++++ b/tests/at/typeprobes/tsconfig.sut-seam.json
+@@ -0,0 +1,14 @@
++{
++  /* The NEW-API attacks, compiled alone. Same reasoning as `tsconfig.sut-seam-legacy.json`:
++     `files` rather than `include` because the parent's `exclude` names `typeprobes` and `exclude`
++     never filters `files`, and a private program rather than `typeprobes/tsconfig.json` because the
++     other probe files carry program-wide `declare module` blocks whose diagnostics would be
++     indistinguishable from these.
++
++     Compiling each probe alone is what lets `type-invention.selftest.ts` assert a protection BY
++     NAME and PER FILE. A combined exit code cannot: it is satisfied by any error anywhere, so a
++     protection could be removed and the suite would stay green on the strength of its neighbours. */
++  "extends": "../tsconfig.json",
++  "files": ["sut-seam.probe.ts"],
++  "include": []
++}
+Now let me start running behavior checks in the background while I continue reading key parts of registry.ts (the current full state) and check things like `SuiteBinding` usage, `executeRegisteredBody` still exported (used by conformance.selftest with hand-built ctx — it's still generic over Sut, W shape; comment says that's fine).
+
+  Also check `_bind.ts` current full content, and whether `atTest` still supports the 3-arg overload form (bound atTest has two overloads). The raw `atTest` now only accepts the 4-arg form — this is a breaking change to callers; check if anything else in the tree calls atTest directly. Let me grep.
+
+  Also note: in conformance.selftest they call `atTest('AT-017.03', ..., { requirement: 'req-016', sut: 'notifications' }, body)` — atTest's type param R infers 'req-016'. Fine.
+
+  Potential attack vectors to test:
+  1. Reaching `atTest` directly with a requirement/sut and a body — derive types, same protection.
+  2. `declare module` overload on consts — probe covers.
+  3. `SuiteBinding` interface — it's exported and generic over <R, K>; it's an interface, can it be augmented? Augmenting an interface adds members to the binding object type, but that doesn't widen the derived types. Not a hole.
+  4. `OpenWorld<R, K>` — exported over R/K; R extends SuiteId, K extends SutKeyOf<R>. Can a suite create a new SuiteId? Only by editing suite-adapters.ts (the harness's own file) — that's trusted-author territory? Actually a suite author writing a new suite must add a line to suite-adapters.ts — that's the designed workflow, and the map entry is constrained so the module's requirement literal must equal the key, and the world must extend WorldLike. So adding an entry requires pointing at a module that self-declares the requirement. OK.
+  5. Intersection attack on `SutOf` via `declare module` on suite-adapters? AdapterModules is a type alias — can't merge.
+  6. Can a suite pass a body whose ctx is annotated as the exported `AtContext<'req-016', 'notifications'>` and then... nothing — it matches derived.
+  7. What about `atTest` called directly (not via bindSuite) — probe attack 4 uses req-999. Direct atTest with requirement 'req-016' and a body — types derived, fine.
+  8. What about the `capture` path — `ctx.capture(evidence)` where evidence is `EvidenceCapture<T, R, K>` — consume takes InternalContext<Sut, W>. Fine.
+  9. What about `EvidenceCapture` type alias exported — `EvidenceCapture<T, R, K>` where T is free — T is the suite's own captured shape, fine.
+
+  Possible attack: `AtContext` exported over <R, K> — could a suite write `AtContext<'req-016', 'notifications'>` and then cast? Casts are out of threat model.
+
+  What about the bound atTest's 3-arg overload: `boundAtTest(atId, title, optsOrBody, maybeBody)` — the implementation is a const arrow assigned to `BoundAtTest` via object literal return... wait, `bindSuite` returns `{ atTest: boundAtTest, ... }`. The returned object's type is checked against `BindSuiteFn` return. OK.
+
+  Another possible attack: the `defineEvidenceCapture` raw export still exists and takes a binding — a suite could call it directly with any binding `{requirement: 'req-016', sut: 'notifications'}` — but that derives. Can it supply a *different* suite's binding? Only registered ones; deriving from another suite's adapter is not fabricating.
+
+  Interesting subtlety: `SuiteBinding<R, K>` is an interface. Interfaces can be augmented via declare module! `declare module '../harness/registry.ts' { interface SuiteBinding<R, K> { extra: ... } }` — that adds a member to the binding object type but doesn't change derivation. Not a hole.
+
+  What about widening via `SutOf`? Not exported... it IS exported from suite-adapters.ts (`export type SutOf`). A suite could use `SutOf<'req-016', 'notifications'>` in annotation — that's the derived type itself, not wider. Intersecting it with optional member: `AtContext` no longer takes shapes, so can't inject. But could a suite annotate the body param as `SeamContext`-like hand-written type `{ open(): Promise<{sut: NotificationsSut & {invented?: string}}> }`? A hand-written structural annotation: `async (ctx: { open(): Promise<{ sut: NotificationsSut & { invented?: string }; w: WorldOf<'req-016'>; h: AtHarness }> }) => ...` — is that assignable to `AtTestBody<'req-016','notifications'>`? Function parameter bivariance/contravariance: body param type must be a supertype of AtContext<'req-016','notifications'> (with strictFunctionTypes, method parameters are bivariant though!). `open` is declared as a method `open(fixture?, opts?): Promise<...>` in SeamContext — method syntax is bivariant! So a narrower param annotation using method syntax may pass. Hmm wait — the probe attack 5 annotates with `AtContext<NotificationsSut & ..., World>` and it fails because AtContext now takes <R, K>. But a fully hand-written structural type with widened sut?
+
+  Consider:
+  ```ts
+  suite.atTest('AT-016.95', 'x', async (ctx: {
+    atId: string;
+    open(): Promise<{ h: AtHarness; w: WorldOf<'req-016'>; sut: NotificationsSut & { invented?: string } }>;
+    capture<T>(e: never): Promise<T>;
+  }) => {
+    const { sut } = await ctx.open();
+    void sut.invented;
+  });
+  ```
+  Parameter contravariance: for the body to be assignable to AtTestBody<R,K> = (ctx: AtContext<R,K>) => Promise<void>, the annotation must be a supertype of AtContext<R,K> (under strictFunctionTypes for function-type params). AtContext<R,K> = SeamContext<NotificationsSut, WorldOf<'req-016'>>. Is SeamContext assignable to the hand-written type? The `open` property: in SeamContext it's a method `open(fixture?, opts?): Promise<SeamOpenWorld<Sut,W>>`; in the hand-written it's a method `open(): Promise<{...sut: widened}>`. Method-parameter bivariance doesn't help here: the return types must be compatible: Promise<SeamOpenWorld<...>> assignable to Promise<{sut: widened,...}>? SeamOpenWorld's sut is NotificationsSut which IS assignable to NotificationsSut & {invented?: string} (since invented is optional!). So yes — return type is assignable. Parameter counts: target method open() with fewer params is fine. `capture`: SeamContext has capture<T>(evidence: EvidenceCaptureImpl<T,Sut,W>): Promise<T>; hand-written capture<T>(e: never): Promise<T> — EvidenceCaptureImpl assignable to never? No — never is only assignable from never. So use `capture<T>(e: any): Promise<T>` — any is out of threat model. Hmm, but we can write `capture: AtContext<'req-016','notifications'>['capture']`... that just copies. To widen we need the whole type to be a supertype; any member we don't want to change can be copied via indexed access of exported types. E.g.:
+
+  ```ts
+  type Sneaky = Omit<AtContext<'req-016','notifications'>, 'open'> & {
+    open(): Promise<Omit<OpenWorld<'req-016','notifications'>, 'sut'> & { sut: SutOf<'req-016','notifications'> & { invented?: string } }>;
+  };
+  ```
+
+  Wait but Omit produces properties not methods; assignability: is AtContext assignable to Sneaky? open in SeamContext is a method with optional params returning Promise<SeamOpenWorld>; Sneaky's open returns Promise<Omit<...> & {sut: widened}>. Return type assignability: SeamOpenWorld assignable to Omit<SeamOpenWorld,'sut'> & {sut: Sut & {invented?: string}}? Omit<SeamOpenWorld,'sut'> = {h, w} — yes. sut: NotificationsSut assignable to NotificationsSut & {invented?: string} — yes (optional). Parameters: Sneaky.open has no params — fine (fewer params OK). So AtContext is assignable to Sneaky. Under strictFunctionTypes, the body parameter check: body: (ctx: Sneaky) => Promise<void> vs expected (ctx: AtContext) => Promise<void>: need AtContext assignable to Sneaky — holds as shown. So the function IS assignable! Then inside the body, ctx.open() returns the widened type and `sut.invented` reads green!
+
+  Wait — but check tsconfig strictFunctionTypes. Need to check tests/at/tsconfig.json. Also even under strict, method-style declarations in the target... The relevant check is between two function types: source body fn (ctx: Sneaky) => Promise<void>, target (ctx: AtContext<R,K>) => Promise<void>. Function type param check under strictFunctionTypes is contravariant: Sneaky must be supertype of AtContext. We showed AtContext assignable to Sneaky. So yes it type-checks.
+
+  Hold on — is this actually the same attack as probe attack 5 but spelled structurally instead of via the alias? Attack 5 used `AtContext<NotificationsSut & {...}, World>` which is now a constraint violation since AtContext takes <R, K>. But a suite can reconstruct the widened type using `Omit` and `SutOf`/`WorldOf` which ARE exported from suite-adapters.ts! SutOf is exported. OpenWorld exported. AtContext exported. So Omit games are possible.
+
+  Hmm, wait — actually check: does the widened read survive? `sut.invented` where sut: SutOf<'req-016','notifications'> & {invented?: string} — the read of `invented` compiles, type string | undefined. Yes.
+
+  This is a real attack with no `any`, no cast, no suppression! It widens at the body parameter using only exported types and standard utility types. The claim "the only close is to make the widened type UNSPELLABLE: a suite that cannot name a shape here cannot widen one" — but the suite CAN spell a widened type without naming the exported shape-parameterized types: via Omit + intersection on the exported derived types. Making shape-parameterized versions unexported doesn't stop structural reconstruction.
+
+  Is this in threat model? It's an honest-looking type drift? It requires deliberate Omit construction — arguably adversarial, but no cast. Hmm. The design says the threat model is "honest drift that type-checks green, not a determined author". An Omit+intersection is a pretty determined construction. But it needs no `any`/`as`/suppression. The prompt says: "DO report if the code or comments claim more than that." The comments claim: "the only close is to make the widened type UNSPELLABLE: a suite that cannot name a shape here cannot widen one." If I can demonstrate a widening without naming a shape-parameterized harness type, the comment overclaims. That's a finding — severity debatable (important, maybe blocker per "if you find a route, that is a blocker").
+
+  Actually wait — let me double check strictness of param check. Also optional parameters: SeamContext.open has optional params (fixture?, opts?). Sneaky.open() has none. When checking AtContext → Sneaky: source open: (fixture?: string, opts?: OpenOverrides) => Promise<SeamOpenWorld>; target: () => Promise<widened>. Source assignable to target requires target's params ≤ source's. Target has none. OK.
+
+  Also capture: SeamContext.capture<T>(evidence: EvidenceCaptureImpl<T,Sut,W>): Promise<T>. Omit keeps it as-is. Fine.
+
+  But wait — is `Omit<AtContext<'req-016','notifications'>, 'open'>` going to lose the method vs property distinction? Doesn't matter for assignability.
+
+  Hmm, but actually there's a subtlety with `USAGE` symbol: the body's ctx at runtime is InternalContext, no issue.
+
+  Let me also double-check `EvidenceCapture` in Omit — no.
+
+  One more check: is `bindSuite`'s returned `atTest` body parameter type `AtTestBody<R, K>` a plain function type (contravariant under strictFunctionTypes) — yes.
+
+  So the attack plausibly compiles. I must verify empirically with the pinned compiler. If it compiles clean, that's a blocker: "the widened type is uns spellable" is false — it's spellable via Omit over the derived types. The claimed fix ("make it unspeakable") does not actually prevent widening; the real defense would be... nominal branding? Actually nothing structural can prevent it, as the design itself admits — a widened structural annotation is always assignable. The comment even admits "NOTHING STRUCTURAL CAN REJECT IT". So claiming unspeakability as "the whole protection" is overclaimed: it raises the bar (can't just use AtContext<Sut,W>) but doesn't close it. Per prompt: "DO report if the code or comments claim more than that."
+
+  Let me verify empirically. Also verify whether strictFunctionTypes is on in tests/at/tsconfig.json.
+
+  Other attacks to try:
+  - declare module augmentation on SuiteBinding interface (exported interface!): augmenting interfaces merges members — but doesn't widen derived types. Not a hole.
+  - `OpenWorld` is an exported type alias over <R,K> — aliases can't merge. OK.
+  - Reach `atTest` directly: same derivation, fine.
+  - The legacy probe attack C marker: 'Expected 3 arguments, but got 2'. Fine.
+
+  Also check proof-green line 73-74: attack 5 errors TS2345 + TS2344 + TS18046. The selftest asserts TS2344 marker for attack 5. Fine.
+
+  Now potential issue in the `CheckedAdapterModules` constraint: `type CheckedAdapterModules<M extends { [R in keyof M & string]: AdapterModuleFor<R> }> = M;` — `AdapterModules = CheckedAdapterModules<{...}>`. Does this check at the entry? If an entry's world lacks teardown, does the error point at the map entry? I'll test with a counter-example: temporarily modify suite-adapters.ts to point at a fake module... Actually simpler: create a temp probe tsconfig that declares a module with a bad adapter and a map. But AdapterModules is hardcoded in the file. To test the constraint at the entry, I can temporarily edit suite-adapters.ts in a scratch copy, compile, restore. E.g. add entry 'req-evil': typeof import of a temp fixture with requirement 'req-evil'... wait constraint requires requirement: R literal to equal key — test mismatch: point 'req-016' key at a module exporting requirement = 'req-017'. Create tests/at/suites/req-evil/_fixture.ts temporarily with a world lacking teardown and requirement 'req-017', add a map entry, compile the acceptance config, observe errors at the entry lines. Then restore.
+
+  Also test: world lacking teardown() fails at entry.
+
+  Also the runtime checks: loadAdapter validates module.requirement !== requirement. Exercised by conformance.selftest? The atTest mismatch test is exercised. loadAdapter's check — is it exercised by any test? The runner blackbox tests generate adapters with requirement — they exercise the passing path. Is the failing path tested? Let me grep for a test that loads an adapter with wrong requirement. Need to check. If not exercised, that's a finding (prompt asks: "Are both actually exercised by a test, or only asserted to exist?").
+
+  Also the requirementMismatch: `if (!bound)` — bound is typed R extends SuiteId, never empty at compile time; the '' case only from untyped callers. Tested via untyped cast in conformance.
+
+  Wait, there's a subtlety in `requirementMismatch` for dotted requirements: parseAtId('AT-005.5.03') gives requirement '005.5', fromId = 'req-005.5'. Binding 'req-005.5' — but SuiteId must be a key in AdapterModules. Fine.
+
+  Now — a big question on proof soundness: the legacy probe at pre-fix compiled clean. I can't easily re-verify pre-fix state without checking out the old commit — I could! git stash/worktree? The proof-red.txt transcript claims it. I can verify the green half by running the same command now. And I can verify red by compiling the legacy probe at the pre-fix commit — that requires checking out c592c72 for tests/at files... risky in this worktree (it's the item's branch, uncommitted? let me check git status). Actually the prompt says "Does proof-red.txt really demonstrate the hole, or could it exit 0 for another reason" — the controls (--listFiles, deliberate error) are in the transcript. I can re-run the green-half command now and confirm the transcript matches. For the red half, I could use `git worktree add` — but executor brief says don't create worktrees (that was for the executor). As reviewer, creating a temp worktree of the pre-fix commit to re-run the red proof is legitimate but heavy; maybe use `git archive` to a temp dir instead. That could take a while but is doable. Let me first do the quick stuff.
+
+  Also "remove one protection, run selftest, confirm the failure names it, restore". E.g., convert one alias back to interface in _contract.ts (e.g. change `export type Delivery = {` to `export interface Delivery {`... careful — interface with same members compiles? `export type Delivery = {...}` → `export interface Delivery {...}`), then run the selftest and confirm the Delivery test fails by name. Restore. That tests per-name failure. Similarly could remove a probe attack? Better: revert `bindSuite` const to function declaration — too invasive. Alias conversion is clean.
+
+  Now behavior: run bun run typecheck, at:verify, at:selftest. These take a while — run in background.
+
+  Let me also read the rest of registry.ts current state around openWorld and check for anything else exported that's generic over shapes. Grep for exports in registry.ts.
+
+  Let me check tsconfig for strictFunctionTypes.
+
+  Plan of parallel actions:
+  1. Start `bun run typecheck` in background.
+  2. Start `bun run at:selftest` in background (may conflict? typecheck is read-only; fine).
+  3. Read tests/at/tsconfig.json.
+  4. Grep registry.ts exports.
+
+• Note: `strict: true` → strictFunctionTypes on.
+
+  Now let me build the Omit-widening attack. Create a temp probe file + config. I'll write it under tests/at/typeprobes/ as a scratch (not committed... well, everything I write is in the working tree; I must delete afterwards to keep the tree clean for review). Actually careful: I'm reviewing the item's branch; I shouldn't leave junk. I'll create scratch files and delete them when done.
+
+  Attack file:
+
+  ```ts
+  import { bindSuite, type AtContext, type OpenWorld } from '../harness/registry.ts';
+  import type { SutOf, WorldOf } from '../harness/suite-adapters.ts';
+
+  const suite = bindSuite({ requirement: 'req-016', sut: 'notifications' });
+
+  type Widened = Omit<AtContext<'req-016', 'notifications'>, 'open'> & {
+    open(): Promise<Omit<OpenWorld<'req-016', 'notifications'>, 'sut'> & {
+      sut: SutOf<'req-016', 'notifications'> & { invented?: string };
+    }>;
+  };
+
+  suite.atTest('AT-016.96', 'widens the seam structurally, without naming a shape', async (ctx: Widened) => {
+    const { sut } = await ctx.open();
+    void sut.invented;
+  });
+  ```
+
+  Config: copy tsconfig.sut-seam.json with files: ["scratch-attack.probe.ts"]. Compile, check exit code. If exit 0 → the widening route is open → blocker (the comment claims unspeakability is "the whole protection").
+
+  Wait — need to double check contravariance direction. `suite.atTest(atId, title, body: AtTestBody<'req-016','notifications'>)`. Body supplied: (ctx: Widened) => Promise<void>. Assignability: (ctx: Widened) => Promise<void> assignable to (ctx: AtContext) => Promise<void> iff AtContext assignable to Widened (contravariant). Widened = Omit<AtContext,'open'> & {open(): Promise<WidenedWorld>}. AtContext assignable to Omit<AtContext,'open'> — yes. AtContext.open assignable to Widened.open? Source: (fixture?: string, opts?: OpenOverrides) => Promise<SeamOpenWorld<NotificationsSut, World>>. Target: () => Promise<WidenedWorld>. Return: SeamOpenWorld assignable to WidenedWorld = Omit<SeamOpenWorld,'sut'> & {sut: NotificationsSut & {invented?: string}}. SeamOpenWorld = {h, w, sut: NotificationsSut}. Is NotificationsSut assignable to NotificationsSut & {invented?: string}? Yes. So SeamOpenWorld assignable to WidenedWorld. So the whole thing type-checks. I'm fairly confident this compiles. Verify empirically.
+
+  Is this within threat model? It's more deliberate than "honest drift", but uses no any/cast/suppression — it's the same attack as probe attack 5, just spelled without the shape-parameterized alias. The comment in registry.ts explicitly says: "So the only close is to make the widened type UNSPELLABLE: a suite that cannot name a shape here cannot widen one." If I can widen one, that sentence is false. Also proof-green.txt section 3 claims "The only close is to make the widened type UNSPELLABLE" and line 89 of probe file claims this is rejected. The design admits nothing structural can reject it — so really, the widened read is NOT closed; only one spelling of it is. That's an overclaim → per prompt item 6, overclaiming comment is a finding at same severity as overclaiming test. And prompt item 1: "If you find a route, that is a blocker."
+
+  Hmm, severity: is this a blocker? The prompt says "If you find a route, that is a blocker." But the route needs to be a realistic suite-author attack to read a member the harness doesn't supply with green typecheck. The Omit construction is a deliberate adversarial act... but so is annotating the body with `AtContext<NotificationsSut & {invented?...}>` which they treated as a blocker-level attack and closed. The Omit spelling is equivalent in intent. And the whole point of making shape versions unexported was to stop this; if it doesn't, the fix's central claim for attack 5 fails. I'll mark blocker with measured evidence, and note the honest fix: either document that widening via structural reconstruction remains open (narrow the claim), or... actually there's no structural fix possible, as design itself says. The only real fix is to reword the comments to stop claiming closure, and possibly remove the per-attack assertion? Actually the selftest assertion for attack 5 still passes (that spelling is rejected). The finding is that the protection is narrower than claimed.
+
+  Hmm wait, actually — let me reconsider whether it's truly assignable. One wrinkle: `OpenWorld<'req-016','notifications'>` has `w: NotificationFixtureWorld` which has private members! Omit preserves. Fine. Another wrinkle: `SutOf` exported? Yes: `export type SutOf`. `WorldOf` exported too. Good.
+
+  Also wrinkle: body must return Promise<void> — fine.
+
+  Let me also test other attacks:
+  - Direct `atTest` reach: same derivation, expected rejected for fabricated stuff. Not needed.
+  - Augment `SuiteBinding` interface via declare module: doesn't widen. Skip.
+  - `declare module` adding overload — covered by probe.
+
+  Now also check: `EvidenceCaptureImpl` class — `consume(ctx: InternalContext<Sut, W>)`. The exported `EvidenceCapture<T, R, K>` alias exposes methods? EvidenceCaptureImpl has private fields, so it's nominal-ish; `ctx.capture(evidence)` requires EvidenceCaptureImpl<T, Sut, W> — a suite can't construct one except via defineEvidenceCapture. Fine.
+
+  Another possible door: `executeRegisteredBody` still exported, generic over shapes — but it doesn't produce harness-backed values; comment explains. OK.
+
+  Another door: `AtTestOptions` interface exported — augmentable, but only adds options. Not a hole.
+
+  What about `OpenOverrides`? fine.
+
+  Now check the probe attack 4: `bindSuite({ requirement: 'req-999', sut: 'notifications' })` gives TS2322 at line 59. Good.
+
+  Now, the constraint test for suite-adapters.ts: I'll create a scratch fixture module and temporarily add a map entry, run acceptance tsc, observe entry-level failure, restore. Two counter-examples: (a) requirement literal mismatch; (b) world missing teardown.
+
+  Actually careful: modifying suite-adapters.ts means the acceptance config compile includes suites... The new fixture dir tests/at/suites/req-scratch/_fixture.ts will be included by tests/at/tsconfig.json `**/*`. That's fine.
+
+  For (b): world missing teardown: createFixtureAdapter returns { sut: {...}, fixtures: { world: async () => ({ notTeardown: 1 }) }, teardown: async () => {} }. AdapterShape requires fixtures.world(name): Promise<WorldLike> — world returning object without teardown fails. Error should point at suite-adapters.ts entry line. Check.
+
+  For (a): requirement = 'req-other' while key 'req-scratch'.
+
+  Also verify error location is at the map entry, not elsewhere.
+
+  Runtime check exercise: does any test exercise loadAdapter's requirement validation failure path? Grep for tests. The blackbox selftests generate adapters with correct requirement — passing path only. Let me grep for a negative test (adapter declares wrong requirement → runner fails). If missing, finding: runtime check exists but its failure path is untested. Actually wait — conformance.selftest tests atTest mismatch. For loadAdapter... let me grep.
+
+  Also check the runner blackbox selftests: did assertions change? From the diff, only preamble parameterization. FIXTURE_ADAPTER became a function with requirement param. The acceptance docs p0(...) etc unchanged. Assertions (expect run...) — the diff shows no changes to expect lines in blackbox except preamble calls. In runner-expect, same. Good, but I should diff-check that no `expect(` lines changed. Let me grep the diff for changed expect lines — from what I saw, none changed.
+
+  Now "remove one protection, run selftest": convert `Delivery` back to interface in _contract.ts, run only the type-invention selftest (bun run at:selftest runs all 7 files; maybe I can run vitest on the single file — check package.json for at:selftest script). Then restore.
+
+  Also re-run the two probe compiles now to confirm green-half transcript matches reality.
+
+  Also verify proof-red isn't unsound: the red half was at pre-fix commit; to verify, I'd need the old tree. I can check out the pre-fix commit into a temp dir via git archive and run the legacy probe compile there. Legacy probe file didn't exist pre-fix? It was added in step 0 commit (da4a015 "step 0 - the RED half"), captured at commit c592c72 per transcript — wait, proof-red says commit c592c727585f... which is "gate 1 rulings folded" commit, before step 0? Hmm, the transcript says captured at c592c72 but the probe file was committed in da4a015 (step 0). The capture was probably done with the probe file present but uncommitted, at a tree whose HEAD was c592c72. To reproduce: archive commit c592c72 (pre-fix source) + the probe files from da4a015. Let me do: create temp dir, git archive c592c72 | tar -x, then copy tests/at/typeprobes/sut-seam-legacy.probe.ts and tsconfig.sut-seam-legacy.json from current tree (they were added in step 0, and shouldn't have changed since — verify with git log). Also need node_modules — that's huge; instead, run the compiler from the current repo's node_modules with cwd set appropriately... The config uses relative extends. I can run `node <repo>/node_modules/typescript/bin/tsc -p <tempdir>/tests/at/typeprobes/tsconfig.sut-seam-legacy.json`. Types: "types": ["node"] requires node_modules/@types/node resolvable from the temp dir — won't resolve. Hmm. Alternative: create the temp tree as a subdirectory of the current repo? No — must not pollute. Could use `git worktree add` in a temp location and symlink node_modules. Simpler: use `git stash`-free approach — copy the OLD versions of the changed files into a scratch overlay? Too messy.
+
+  Alternative cheaper verification: the prompt asks "could it exit 0 for another reason (empty file set, config not inherited, unresolved imports)?" The transcript itself includes the controls (--listFiles showing the probe in program, deliberate error causing failure). Those controls were captured at the time. The unsoundness Gate 1 caught was the isolation method; the replacement is -p with committed child config. I can verify the config is sound NOW (it compiles the probe, errors reported). For the pre-fix exit 0, replicating is nice-to-have. Let me try the git worktree approach with a symlinked node_modules:
+
+  git worktree add ../ai4dev31-prefix-check c592c72 — but the probe files came in da4a015 (child of c592c72? Let me check: order in git log: da4a015 "step 0" comes after c592c72). So at da4a015, source files are still pre-fix (steps 1+ came later: 6b8954a step 1). So I can just check out da4a015 in a worktree — the probe and its config are committed there, and source is pre-fix! Then symlink node_modules (or junction on Windows; ln -s in git bash creates a symlink... may need admin; could use `cmd //c mklink /J`). Alternatively, run tsc from the main repo node_modules with cwd=worktree; moduleResolution Bundler resolves relative imports fine; "types": ["node"] looks up node_modules/@types/node walking up from the tsconfig location — the worktree is outside the repo so it won't find @types/node. But I can pass via... hmm.
+
+  Option: add the worktree INSIDE the current repo? No — it would be included in tsconfig globs? tests/at/tsconfig include **/* under tests/at only; a worktree at repo root e.g. `.review-prefix/` would not be matched by tests/at config but WOULD be matched by root tsconfig include? And bun run typecheck might pick it up. Risky but temporary.
+
+  Simpler: extract just the needed subtree. The compile needs: tests/at/** (pre-fix versions) + node_modules. What if I create the worktree inside the current repo at `review-tmp/` (untracked), and create a symlink review-tmp/node_modules -> ../node_modules? Windows symlinks via git bash `ln -s` may work (MSYS=winsymlinks). Or use cmd mklink /J junction — junctions work without admin. `cmd //c "mklink /J review-tmp\node_modules node_modules"`. That should let @types/node resolve.
+
+  Let me try. If too messy, skip and note the controls in the transcript suffice as evidence, and that I re-verified the green half live.
+
+  Actually — wait. There's an even simpler reproduction that doesn't need the old tree for the red claim: the claim "the legacy API compiled clean pre-fix" — the legacy API doesn't exist anymore, so reproduction requires the old tree. I'll try the worktree approach; time-box it.
+
+  Order of work now:
+  1. Write scratch Omit-widening attack probe + config, compile.
+  2. Scratch counter-examples for suite-adapters constraint.
+  3. Grep for loadAdapter negative test.
+  4. Re-run both probe compiles.
+  5. Remove-one-protection selftest experiment (needs at:selftest script name).
+  6. Behavior checks (at:verify req-016, at:selftest) — typecheck running already.
+  7. Red-half reproduction via temp worktree.
+
+  Let me check package.json scripts first and grep for loadAdapter tests.
+
+    "typecheck": "bun tests/at/typecheck.ts",
+    "format": "prettier --write .",
+    "at:verify": "bun tests/at/harness/runner.ts",
+    "at:check": "bun tests/at/harness/check.ts",
+    "at:selftest": "bunx vitest run --root tests/at --config vitest.config.ts harness/",
+    "db:start": "bunx supabase start",
+    "db:stop": "bunx supabase stop",
+ M tests/at/suites/req-016/_contract.ts
+?? loop/items/AI4DEV-31/gate2-kimi.md
+• Two important discoveries:
+
+  1. `git status` shows ` M tests/at/suites/req-016/_contract.ts` — the working tree has an UNCOMMITTED modification to `_contract.ts`! And an untracked `loop/items/AI4DEV-31/gate2-kimi.md`. Wait — I'm the reviewer; did I modify anything? No, not yet. So the working tree was already dirty when I arrived. Let me check what that modification is — it could be leftover from the executor, or from a previous reviewer session. This matters: the review is of `git diff origin/main...HEAD`, and uncommitted changes may or may not be part of the change. Let me diff it.
+
+  2. expected.selftest.ts:85 references "declares requirement ... but ... is being verified" — that's a different check (acceptance doc requirement). Not the loadAdapter negative path. So loadAdapter's requirement validation failure path appears untested. Let me confirm by grepping more broadly.
+
+  Also typecheck finished — read output.warning: in the working copy of 'tests/at/suites/req-016/_contract.ts', LF will be replaced by CRLF the next time Git touches it
+---
+• I'll start by reading the background documents and the diff under review.
+
+• Background absorbed. Now I'll look at the actual code diff, excluding the `loop/` artifacts.
+
+• The diff is fully absorbed. Now I'll kick off the behavior checks in the background while I probe the type-level defenses.
+
+• `strict: true` is on, so `strictFunctionTypes` applies. Now I'll build my own attack probes. First, checking scripts and whether `loadAdapter`'s negative path is tested.
+
+Interesting:
+  - Typecheck: exit 0. ✓
+  - The `M tests/at/suites/req-016/_contract.ts` shows no content diff (`git diff --` printed only the LF/CRLF warning, no diff body) — so it's a line-ending touch, no content change. Good.
+  - `gate2-kimi.md` is my own session's progress notes (host-generated). Fine.
+
+  Now build the Omit-widening attack. Create scratch probe + config, compile with pinned tsc.
+
+EXIT=0
+• Confirmed: EXIT=0. The Omit-widening attack compiles clean. A suite author can read `sut.invented` (a member no adapter supplies) with a green typecheck, using only exported derived types + Omit + an optional-member intersection — no `any`, no `as`, no suppression, no `declare module`.
+
+  Let me double check the positive control for this config (that the probe is actually compiled). Run with --listFiles quickly, or add a deliberate error. Let me do the positive control: append a deliberate error via a second config? Simpler: run with a one-off check — create a temp file with an error? Actually let me just run --listFiles and grep for the probe.221
+C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/typeprobes/gate2-scratch.probe.ts
+tests/at/typeprobes/gate2-scratch.probe.ts(46,7): error TS2322: Type 'string' is not assignable to type 'number'.
+CONTROL_EXIT=2
+Confirmed with controls:
+  - Probe is in the program (221 files, probe listed).
+  - A deliberate error fails with exit 2.
+  - Without it, exit 0: both widening attacks compile clean.
+
+  This is a genuine route: a suite reads `sut.invented` and `w.inventedWorldMember` — members the harness does not supply — with green `bun run typecheck`, no `any`, no `as`, no `@ts-ignore`, no `declare module`, no runtime mutation. The attack is the same shape as probe attack 5 (which the item treats as its hardest-won closure) but spelled with `Omit` over the exported `<R, K>`-parameterized types instead of the old shape-parameterized aliases.
+
+  The design itself admits "NOTHING STRUCTURAL CAN REJECT IT" — and that's precisely why "make it unspeakable" cannot work: the widened type is always re-spellable from the exported derived types via standard utility types. So:
+
+  - The comment on `SeamOpenWorld` (registry.ts ~line 185-204): "So the only close is to make the widened type UNSPELLABLE: a suite that cannot name a shape here cannot widen one." — FALSE as demonstrated.
+  - proof-green.txt §3: "The only close is to make the widened type UNSPELLABLE." — overclaims.
+  - The selftest's attack-5 `why` text: "the only defence is that the seam types take a requirement and a sut key rather than shapes. If this fails, someone has re-parameterized them by shape" — the defence does not in fact defend; someone can widen without re-parameterizing anything.
+
+  Severity per the prompt: "If you find a route, that is a blocker."
+
+  Is there any mitigation? Nothing structural. Options: (a) narrow the claims in comments/proof to state that widening via structural reconstruction remains open (threat-model honesty — it's arguably "a determined author" since Omit+intersection is deliberate); (b) nominal branding of the sut/world (e.g. the adapter's types carry a brand) — no, branding doesn't stop widening either: widening creates a supertype annotation; branding can't prevent it. Actually wait — can anything prevent it? The read `sut.invented` requires sut's type to include invented. The body's param annotation is a supertype of AtContext. Any supertype works. The only way to prevent is to prevent reading unknown members, which is impossible structurally. So the honest fix is documentation: the closure claim for attack 5 must be narrowed to "the direct spelling via shape-parameterized harness types is gone; widening through structural utility types remains, and is a deliberate-author act outside the threat model." Hmm — but is it "honest drift"? An Omit-widened annotation is pretty deliberate. One could argue it's in the "determined author" bucket alongside casts. But the item's own text doesn't say that; it claims the route is CLOSED ("the only close", "the whole protection"). The prompt's instruction: report routes as blockers; report overclaims.
+
+  I'll classify: blocker — the claimed closure of the body-widening attack is not real; measured exit 0. Concrete fix options: (1) reword the three overclaiming comments/transcript to state precisely what is and isn't stopped, and add this attack to the probe as a *positive* (must-compile) canary or document it; or (2) accept and document. Since nothing structural can close it, the fix is honesty: narrow the claim. Whether "blocker" vs "important" — the prompt is explicit: "If you find a route, that is a blocker." I'll report blocker but note that since no structural fix exists, the resolution is re-scoping the claim, not more machinery (consistent with AGENTS.md simplicity).
+
+  Now continue: counter-examples for suite-adapters.ts constraint. Then re-run item probes. Then remove-one-protection. Then at:verify + at:selftest. Then red-half reproduction.
+
+  Counter-example A: map entry whose module's requirement literal disagrees with its key.
+  Counter-example B: entry whose adapter's world lacks teardown().
+
+  I'll create a scratch fixture dir tests/at/suites/req-scratch1/_fixture.ts etc., temporarily edit suite-adapters.ts to add entries, compile the acceptance config (tests/at/tsconfig.json), observe errors at the map entry lines, restore.
+
+  For B (world missing teardown): need the adapter's world type to lack teardown. Fixtures.world returns Promise<{...}> without teardown.
+
+  Note: acceptance tsconfig includes all of tests/at, so scratch suites get compiled too — fine, but I should make them otherwise valid.
+
+  Let me do both in one go: add two entries to AdapterModules and two scratch fixture modules.done
+
+
+  Type 'Awaited<ReturnType<Awaited<ReturnType<{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-g2a/_fixture"); 're...' is not assignable to type 'WorldLike'.
+        Type 'Promise<SeamOpenWorld<SutOf<R, K>, WorldLike>>' is not assignable to type 'Promise<SeamOpenWorld<SutOf<R, K>, Awaited<ReturnType<Awaited<ReturnType<{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/test...'.
+          Type 'SeamOpenWorld<SutOf<R, K>, WorldLike>' is not assignable to type 'SeamOpenWorld<SutOf<R, K>, Awaited<ReturnType<Awaited<ReturnType<{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/sui...'.
+            Type 'WorldLike' is not assignable to type 'Awaited<ReturnType<Awaited<ReturnType<{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-g2a/_fixture"); 're...'.
+        Type 'Promise<SeamOpenWorld<SutOf<R, K>, WorldLike>>' is not assignable to type 'Promise<SeamOpenWorld<SutOf<R, K>, Awaited<ReturnType<Awaited<ReturnType<{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/test...'.
+          Type 'SeamOpenWorld<SutOf<R, K>, WorldLike>' is not assignable to type 'SeamOpenWorld<SutOf<R, K>, Awaited<ReturnType<Awaited<ReturnType<{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/sui...'.
+            Type 'WorldLike' is not assignable to type 'Awaited<ReturnType<Awaited<ReturnType<{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-g2a/_fixture"); 're...'.
+tests/at/harness/suite-adapters.ts(80,52): error TS2344: Type '{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-g2a/_fixture"); 'req-g2b': typeof import("C:/Users/nirdr/...' does not satisfy the constraint '{ "req-016": AdapterModuleFor<"req-016">; "req-g2b": AdapterModuleFor<"req-g2b">; "req-g2a": AdapterModuleFor<"req-g2a">; }'.
+  The types returned by '"req-g2b".createFixtureAdapter(...)' are incompatible between these types.
+EXIT=2
+• Interesting results:
+
+  1. The whole map fails with one TS2344 at suite-adapters.ts(80,52) — at the map entry location. But note: it reports only ONE error at the map for the whole object; the message names `"req-g2b".createFixtureAdapter(...)` (the world lacking teardown). What about req-g2a (requirement mismatch)? The error message shown is truncated. Let me get the full error output to see if both violations are named. Also there are downstream errors in registry.ts (WorldLike not assignable stuff) — because the map fails, WorldOf<R> falls back and produces noise errors elsewhere. The message does point at the entry (line 80), which is what D3 required: "fails AT THE ENTRY". But one bad entry poisons the whole map and produces confusing downstream errors in registry.ts. Acceptable, but let me see the full diagnostic to check both bad entries are named.
+
+  Let me rerun capturing full output.tests/at/harness/registry.ts(259,94): error TS2344: Type 'WorldOf<R>' does not satisfy the constraint 'WorldLike'.
+tests/at/harness/registry.ts(281,92): error TS2344: Type 'WorldOf<R>' does not satisfy the constraint 'WorldLike'.
+tests/at/harness/registry.ts(416,112): error TS2344: Type 'WorldOf<R>' does not satisfy the constraint 'WorldLike'.
+tests/at/harness/registry.ts(439,3): error TS2322: Type 'EvidenceCaptureImpl<T, SutOf<R, K>, WorldLike>' is not assignable to type 'EvidenceCapture<T, R, K>'.
+tests/at/harness/registry.ts(439,54): error TS2345: Argument of type '(ctx: AtContext<R, K>) => Promise<T>' is not assignable to parameter of type '(ctx: SeamContext<SutOf<R, K>, WorldLike>) => Promise<T>'.
+tests/at/harness/registry.ts(712,45): error TS2344: Type 'WorldOf<R>' does not satisfy the constraint 'WorldLike'.
+tests/at/harness/registry.ts(753,66): error TS2345: Argument of type 'AtTestBody<R, K>' is not assignable to parameter of type '(ctx: SeamContext<SutOf<R, K>, WorldLike>) => Promise<void>'.
+tests/at/harness/suite-adapters.ts(80,52): error TS2344: Type '{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-g2a/_fixture"); 'req-g2b': typeof import("C:/Users/nirdr/...' does not satisfy the constraint '{ "req-016": AdapterModuleFor<"req-016">; "req-g2b": AdapterModuleFor<"req-g2b">; "req-g2a": AdapterModuleFor<"req-g2a">; }'.
+Both bad entries are present, but the map-level TS2344 only narrates one incompatibility at a time (it showed req-g2b). Let me check whether the message mentions req-g2a's requirement mismatch too. Let me look at the full elaboration of the suite-adapters error. Also test each bad entry alone to confirm each independently fails at the entry.
+
+  Let me remove req-g2b entry first, compile (expect failure naming requirement mismatch), then swap.tests/at/harness/suite-adapters.ts(80,52): error TS2344: Type '{ 'req-016': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture"); 'req-g2a': typeof import("C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-g2a/_fixture"); }' does not satisfy the constraint '{ "req-016": AdapterModuleFor<"req-016">; "req-g2a": AdapterModuleFor<"req-g2a">; }'.
+  The types of '"req-g2a".requirement' are incompatible between these types.
+    Type '"req-g2a-WRONG"' is not assignable to type '"req-g2a"'.
+Both counter-examples confirmed:
+  - requirement literal mismatch: fails at the map entry, message names `"req-g2a".requirement` and both literal types. ✓
+  - world missing teardown: fails at the map entry, names `"req-g2b".createFixtureAdapter(...)` and WorldLike. ✓
+
+  Note: a bad entry also produces cascading `WorldOf<R> does not satisfy WorldLike` errors in registry.ts — noisy but the entry error is present and first-party. That's acceptable; maybe minor observation. Actually interesting: when the map check fails, `AdapterModules` degrades and `WorldOf<R>` loses its constraint, causing 7 downstream errors in registry.ts. Not a finding per se.
+
+  Now restore suite-adapters.ts and delete scratch suites. Then verify restoration with typecheck.
+
+warning: in the working copy of 'tests/at/harness/suite-adapters.ts', LF will be replaced by CRLF the next time Git touches it
+RESTORED_EXIT=0
+• Restored clean (git diff --stat shows no output = no diff; exit 0).
+
+  Now: re-run the item's two probe compiles to confirm proof-green's transcript matches reality, and run the behavior checks. Let me kick off at:verify and at:selftest in background (they take a while), and run the probe compiles in foreground.
+
+  Actually, at:selftest includes type-invention.selftest which itself spawns tsc over the probes — so running probe compiles separately is quick confirmation.
+
+tests/at/typeprobes/sut-seam-legacy.probe.ts(45,52): error TS2344: Type '{ notThere(): Promise<void>; }' does not satisfy the constraint '"req-016"'.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(49,1): error TS2349: This expression is not callable.
+  Type '{ atTest: BoundAtTest<{ notThere(): Promise<void>; }, World>; defineEvidenceCapture: BoundDefineEvidenceCapture<{ notThere(): Promise<void>; }, World>; }' has no call signatures.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(49,91): error TS7031: Binding element 'open' implicitly has an 'any' type.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(61,54): error TS2344: Type 'NotificationsSut' does not satisfy the constraint '"req-016"'.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(65,1): error TS2349: This expression is not callable.
+  Type '{ atTest: BoundAtTest<NotificationsSut, FabricatedWorld>; defineEvidenceCapture: BoundDefineEvidenceCapture<NotificationsSut, FabricatedWorld>; }' has no call signatures.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(65,95): error TS7031: Binding element 'open' implicitly has an 'any' type.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(77,49): error TS2554: Expected 3 arguments, but got 2.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(81,48): error TS7031: Binding element 'open' implicitly has an 'any' type.
+LEGACY_EXIT=2
+tests/at/harness/registry.ts(438,14): error TS2451: Cannot redeclare block-scoped variable 'defineEvidenceCapture'.
+tests/at/harness/registry.ts(684,14): error TS2451: Cannot redeclare block-scoped variable 'atTest'.
+tests/at/harness/registry.ts(791,14): error TS2451: Cannot redeclare block-scoped variable 'bindSuite'.
+tests/at/suites/req-016/_contract.ts(18,1): error TS6200: Definitions of the following identifiers conflict with those in another file: NotificationsSut, SenderProbe, RegisteredRow, DocumentedDefault, NotificationEvent, Delivery, OpsItem, EmitResult
+tests/at/typeprobes/sut-seam.probe.ts(18,1): error TS6200: Definitions of the following identifiers conflict with those in another file: NotificationsSut, SenderProbe, RegisteredRow, DocumentedDefault, NotificationEvent, Delivery, OpsItem, EmitResult
+tests/at/typeprobes/sut-seam.probe.ts(33,13): error TS2339: Property 'notThere' does not exist on type 'NotificationsSut'.
+tests/at/typeprobes/sut-seam.probe.ts(40,10): error TS2339: Property 'inventedByTheSuite' does not exist on type 'NotificationFixtureWorld'.
+tests/at/typeprobes/sut-seam.probe.ts(50,69): error TS2322: Type '"notificatoins"' is not assignable to type '"notifications"'.
+tests/at/typeprobes/sut-seam.probe.ts(59,52): error TS2322: Type '"req-999"' is not assignable to type '"req-016"'.
+tests/at/typeprobes/sut-seam.probe.ts(78,3): error TS2345: Argument of type '(ctx: AtContext<NotificationsSut & { invented?: string; }, World>) => Promise<void>' is not assignable to parameter of type 'AtTestBody<"req-016", "notifications">'.
+  Types of parameters 'ctx' and 'ctx' are incompatible.
+    Type 'AtContext<"req-016", "notifications">' is not assignable to type 'AtContext<NotificationsSut & { invented?: string | undefined; }, World>'.
+      Type 'string' is not assignable to type 'NotificationsSut & { invented?: string | undefined; }'.
+        Type 'string' is not assignable to type 'NotificationsSut'.
+tests/at/typeprobes/sut-seam.probe.ts(78,25): error TS2344: Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint '"req-016"'.
+tests/at/typeprobes/sut-seam.probe.ts(80,10): error TS18046: 'sut' is of type 'unknown'.
+tests/at/typeprobes/sut-seam.probe.ts(99,25): error TS2339: Property 'neitherIsThis' does not exist on type 'NotificationsSut'.
+tests/at/typeprobes/sut-seam.probe.ts(99,45): error TS2339: Property 'norIsThisSupplied' does not exist on type 'NotificationFixtureWorld'.
+tests/at/typeprobes/sut-seam.probe.ts(110,39): error TS2693: 'EvidenceCapture' only refers to a type, but is being used as a value here.
+tests/at/typeprobes/sut-seam.probe.ts(113,12): error TS7031: Binding element 'open' implicitly has an 'any' type.
+tests/at/typeprobes/sut-seam.probe.ts(134,19): error TS2451: Cannot redeclare block-scoped variable 'bindSuite'.
+tests/at/typeprobes/sut-seam.probe.ts(139,19): error TS2451: Cannot redeclare block-scoped variable 'atTest'.
+tests/at/typeprobes/sut-seam.probe.ts(146,19): error TS2451: Cannot redeclare block-scoped variable 'defineEvidenceCapture'.
+SEAM_EXIT=2
+• Both probes fail as the transcript claims (line numbers differ slightly from the transcript — 78 vs 72, 99 vs 90, 110 vs 101, 134/139/146 vs 125/130/137 — because the probe file has evolved? Wait, the transcript proof-green.txt was captured at commit 74d9965 and the probe file may have changed since (commit 1a9daf7 "step 5" added selftest). Let me check: current probe has attack 5 at line 78, transcript says line 72. The selftest asserts markers (strings), not line numbers, so that's fine. Transcript line drift is expected if the probe file was edited after proof-green capture. Not a finding per se — the selftest asserts the markers, which are all present in this output. Let me verify each SEAM_ATTACKS marker appears in this output:
+
+  1. legacy: `Type '{ notThere(): Promise<void>; }' does not satisfy the constraint '"req-016"'` ✓ (45,52)
+  2. legacy: `Type 'NotificationsSut' does not satisfy the constraint '"req-016"'` ✓ (61,54)
+  3. legacy: `Expected 3 arguments, but got 2` ✓ (77,49)
+  4. seam: `Property 'notThere' does not exist on type 'NotificationsSut'` ✓ (33,13)
+  5. seam: `Property 'inventedByTheSuite' does not exist on type 'NotificationFixtureWorld'` ✓ (40,10)
+  6. seam: `Property 'neitherIsThis' does not exist on type 'NotificationsSut'` ✓ (99,25)
+  7. seam: `Type '"notificatoins"' is not assignable to type '"notifications"'` ✓
+  8. seam: `Type '"req-999"' is not assignable to type '"req-016"'` ✓
+  9. seam: `Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint '"req-016"'` ✓
+  10. seam: `'EvidenceCapture' only refers to a type, but is being used as a value here` ✓
+  11-13. seam: `Cannot redeclare block-scoped variable 'bindSuite'/'atTest'/'defineEvidenceCapture'` ✓ (both in registry.ts, because declare module merging into the module produces redeclare errors at the original declarations too, and in the probe)
+  14. aliases: TS6200 listing all eight ✓ — and `rejects()` parses the TS6200 line and checks each name appears after the colon. The TS6200 line lists all eight names. ✓
+
+  All markers present. Good.
+
+  Now start at:verify and at:selftest in background. at:selftest will re-run these tsc invocations anyway (type-invention.selftest). Then the remove-one-protection experiment after at:selftest completes (to avoid interference — the selftest runs the probes; if I modify _contract.ts concurrently it would corrupt the run). Actually run at:verify first in background, then selftest sequentially? They both may spawn vitest; at:verify runs the runner over req-016. Running them in parallel could be fine but heavy; let me run at:verify in background now, and selftest after it, or both in sequence in one background command. Simpler: one background command chaining both.While that runs, continue investigation:
+
+  1. Runtime checks coverage: is `loadAdapter`'s requirement validation failure path exercised by any test? Earlier grep found only expected.selftest.ts:85 with a different message. Let me grep the whole tests/at for the loadAdapter error text and check index.ts callers. Also verify conformance tests for requirementMismatch — present (the sixth reproduction). For loadAdapter: the runner blackbox selftests generate adapters WITH the correct tag — passing path only. Is there a test where an adapter declares the wrong requirement and the load fails? Let me grep for "was loaded as" or "declares requirement".
+
+  2. Runner selftests assertion weakening: diff showed only preamble changes; verify no `expect` lines changed: `git diff origin/main...HEAD -- tests/at/harness/runner-blackbox.selftest.ts tests/at/harness/runner-expect.selftest.ts | grep -E "^[-+].*expect"`.
+
+  3. Red-half reproduction: worktree approach at commit da4a015 (step 0 — probe + config committed, source still pre-fix). Try: git worktree add with junction to node_modules.
+
+  4. Also check the `_bind.ts` full current content and remaining suite files for anything odd (e.g. other tests using raw atTest with old signature). Grep for `bindSuite<` and `defineEvidenceCapture<` with 2-3 type args anywhere in suites.
+
+  5. Check tests/at/harness/index.ts full context of loadAdapter (moduleUrl variable in the error message — is it defined? The diff shows `moduleUrl` used; check it exists).
+
+  Let me do these greps/reads now.
+
+=== no output above means no assertion lines changed ===
+• Behavior checks pass: at:verify exit 0, 8/4/0, EXPECTED matches; at:selftest 7 files, 140 tests, exit 0.
+
+  Runtime checks coverage:
+  - `requirementMismatch` + atTest wiring: exercised by conformance.selftest (happy path, mismatch, missing, untyped caller). ✓
+  - `loadAdapter` requirement validation: the error text appears only in index.ts — no test exercises the mismatch path. The passing path is exercised implicitly by every suite run (adapters now carry the tag, so the check runs and passes). But the FAILURE path (adapter declares wrong/missing requirement → throw naming both) has no test. Finding: important — the check is asserted to exist but its failure path is untested. Actually wait — the runner blackbox selftests generate adapters with the tag, so they exercise the passing path. A negative test would be easy: generate a tree whose _fixture.ts declares the wrong requirement and assert the run fails naming both. Missing. I'll report as important.
+
+  Now the remove-one-protection experiment: convert `Delivery` back to an interface in _contract.ts, run just the type-invention selftest, confirm the failure names Delivery, restore.
+
+  Note the selftest file: `bunx vitest run --root tests/at --config vitest.config.ts harness/type-invention.selftest.ts`. ❯ harness/type-invention.selftest.ts (43 tests | 1 failed) 14ms
+     × rejects a member merged into Delivery 5ms
+ FAIL  harness/type-invention.selftest.ts > the sut/world seam cannot be invented by a suite > rejects a member merged into Delivery
+AssertionError: Delivery accepted a merged-in member, so it is an interface again. It is reachable from open().sut now, so a suite can declare a member on it and read that member green against a value that never supplies it.
+ Test Files  1 failed (1)
+      Tests  1 failed | 42 passed (43)
+Confirmed: removing one protection (Delivery interface) fails exactly one test, named `rejects a member merged into Delivery`, with a message saying which protection. Restore now.
+
+      Tests  43 passed (43)
+   Start at  11:40:38
+   Duration  3.18s (transform 40ms, setup 0ms, import 3.04s, tests 9ms, environment 0ms)
+
+warning: in the working copy of 'tests/at/suites/req-016/_contract.ts', LF will be replaced by CRLF the next time Git touches it
+• Restored: 43 passed. git diff --stat shows no content diff (only the CRLF warning). 
+
+  Also verify the alias-protected list is exhaustive over what's reachable. The eight converted aliases: NotificationsSut, SenderProbe, RegisteredRow, DocumentedDefault, NotificationEvent, Delivery, OpsItem, EmitResult. What's reachable from open().sut (NotificationsSut methods' returns): senders→SenderProbe[], registeredEvents→RegisteredRow[], documentedDefaults→DocumentedDefault[], emitEvent→EmitResult, eventState→NotificationEvent, deliveries→Delivery[], opsItems→OpsItem[]. That's 7 + NotificationsSut itself = 8. Are there other types reachable? Their members reference Role, Channel (from taxonomy.ts — let me check whether those are interfaces or aliases), and payload: Record<string, unknown>, body: string. NotificationEvent.recipients: {role, recipientId, channels} — inline object, fine. Role and Channel — check taxonomy.ts. If Role/Channel are interfaces reachable from the seam path, they'd be augmentable too — a merged member on Role? Role is likely a string union. Let me check.
+
+  Also the World axis: open().w is NotificationFixtureWorld (concrete class). Reachable from it: whatever its public members return — those are the same contract types presumably. World interface was deliberately excluded with measured reasoning. But wait — the World interface members: does the body ever receive a value TYPED as World (rather than the class)? _bind.ts exports OpenWorld = HarnessOpenWorld<'req-016','notifications'> which is the class. The suite's _contract World interface: bodies annotate `w` usages? They use derived types. Gate 1 verified augmenting World yields TS2339 on open().w.invented. OK.
+
+  But what about taxonomy.ts Role/Channel — check them.
+
+• Role/Channel/Tone/EventClass are unions of string literals — augmenting is irrelevant (can't merge members into a union via interface merging). `TaxonomyRow` and `ChannelRule` are interfaces in taxonomy.ts — are they reachable from the seam (open()'s objects)? The seam objects are sut and w. NotificationsSut methods return SenderProbe/RegisteredRow/etc. Do any of those reach TaxonomyRow? RegisteredRow: {event, recipients: Role[], channels, tone} — no TaxonomyRow. TaxonomyRow is used by the fixture/tests directly (TAXONOMY), not handed by open(). So not on the seam path. OK.
+
+  What about the world's public methods: fire→{eventId: string}, transitionCommitted→boolean, reassignRole→string, burstThreadComments→void, teardown. Plus readonly actors: Record<Role, string>. Fine — primitives/unions.
+
+  Is the world class reachable interface `World`? open().w is the class. But does the class expose any member typed as an interface? `base` is private. OK.
+
+  What about FixtureWorld (base) — private. OK.
+
+  So the alias list looks exhaustive over the seam path: the 8 converted + unions. One caveat: `payload: Record<string, unknown>` — fine.
+
+  Now the red-half reproduction. Commit da4a015 ("step 0 - the RED half of the proof, captured before any fix") — at that commit, the probe file and its config are committed, and source is pre-fix. Create a worktree... the executor brief said don't create worktrees — that was for the executor. I'm a reviewer; but to be safe I'll use a temp directory + git archive, and solve the @types/node resolution. Actually simplest: `git worktree add` into a temp path under the current repo? Worktrees inside the repo dir would be picked up by... the acceptance tsconfig only covers tests/at/**. The root tsconfig might include the whole repo — a worktree dir would then be typechecked by `bun run typecheck` while it exists, but I'm not running typecheck during that window. Risk is low but let me instead put the worktree OUTSIDE and create a junction for node_modules.
+
+  Plan:
+  - git worktree add C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/gate2-red-check da4a015 --detach
+  - mklink /J node_modules inside it pointing to the main worktree's node_modules
+  - run node <main>/node_modules/typescript/bin/tsc -p <redcheck>/tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+  - expect exit 0 (the hole open) — with --listFiles control
+  - then git worktree remove --force
+
+  Wait — does the worktree add touch git state of the shared repo? It registers an admin entry; remove cleans it. Acceptable and reversible. Let me do it.HEAD is now at da4a015 AI4DEV-31: step 0 - the RED half of the proof, captured before any fix
+Junction created for ..\gate2-red-check\node_modules <<===>> node_modules
+harness-invention.probe.ts
+sut-seam-legacy.probe.ts
+tsconfig.json
+tsconfig.sut-seam-legacy.json
+RED_REPRO_EXIT=0
+1
+The red half reproduces live: at the pre-fix commit da4a015, the legacy probe compiles with exit 0, and the probe is in the program. The proof is sound.
+
+  Clean up the worktree now.
+
+C:/Users/nirdr/Downloads/ai4good                                            04b346d [main]
+C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a  475e951 [nirdrang/ai4dev-31-the-sut-seam-is-an-unverified-claim-openworld-hands-back] locked
+C:/Users/nirdr/Downloads/ai4good-design                                     6a5212e [design-track]
+• Worktree removed cleanly.
+
+  Now the remaining attack attempts I should try (per prompt item 1): I found the Omit route. Let me also try a few more for completeness:
+
+  1. Direct `atTest` reach (not via bindSuite): covered by probe attack 4 indirectly. A direct atTest with fabricated stuff can't name shapes either. Fine.
+  2. `declare module` overload — probe covers all three entry points, rejected.
+  3. Intersection types — that's my Omit attack (found open).
+  4. What about augmenting `SuiteBinding` interface? Not a route to reading members.
+  5. What about `EvidenceCapture` alias — `T` free; fine.
+
+  One more possible route worth a quick test: the 3-arg bound atTest overload `(atId, title, opts: AtTestOptions, body)`. AtTestOptions has only `surface`. Fine.
+
+  What about `open(fixture, opts)` returning `SeamOpenWorld` inside registry — internal only.
+
+  Another possible route: a suite annotating the DESTRUCTURED param: `async ({ open }: { open: () => Promise<{ sut: NotificationsSut & { invented?: string } }> }) => ...` — same structural widening, subset of my Omit attack. Already proven by the same mechanism.
+
+  What about widening via `capture`? The producer receives AtContext<R,K> — derived. A capture producer could also annotate its ctx with Omit-widened type — same attack family.
+
+  So the core finding stands: attack 5's closure is spelling-deep.
+
+  Now let me think about whether the Omit attack is genuinely "in threat model". The threat model: "honest drift that type-checks green, not a determined author." Writing `Omit<AtContext<'req-016','notifications'>,'open'> & { open(): ... & { invented?: string } }` is a determined construction. But so is `AtContext<NotificationsSut & { invented?: string }, World>` — which the item treated as a must-close blocker and built machinery for. Both are equally "determined" and equally cast-free. If the item closes one spelling and claims the route shut, the claim is false. Severity: the prompt says routes are blockers. I'll report it as a blocker with the honest resolution: no structural close exists (the design itself says so), so the comments and proof text must stop claiming the widened type is unspellable/closed, and instead document it in the trusted-author/threat-model list. Alternatively add my attack to the probe as a *positive* test? There's no mechanism for "must compile" probes currently. Minimal fix: reword the three overclaiming spots (SeamOpenWorld comment, selftest attack-5 why-text, proof-green §3) to say the narrowing raises the bar but cannot close structural reconstruction, and that this route is part of the documented not-closed set.
+
+  Also check: does the same Omit attack work pre-fix? Sure, but irrelevant.
+
+  Next: comments audit. Let me check remaining docs: contracts.ts doctrine block (updated — check the full text around line 151-170), _contract.ts header (lines 1-40), tests/at/README.md (updated, looks accurate), _bind.ts full file, and the WorldLike comment at registry.ts:128-147 (updated). Also the `OpenWorld` comment rewrite. Let me read the current _bind.ts fully and contracts.ts block.Comment audit notes:
+
+  1. `contracts.ts:161-163` — the updated text says "that item has since closed it: the seam types are derived from the fixture adapter that produces them, so a suite can no longer name either one." Given the Omit attack, "closed it" is broader than the truth (same finding as the blocker). Also line wrapping is off (lines 161-163 run long vs house style ~110 chars) — cosmetic, not worth a finding. Minor note maybe.
+
+  2. `_bind.ts:23`: "so that annotating a body cannot widen the seam" — false per Omit attack. Covered by the same blocker finding (fix = reword).
+
+  3. `registry.ts` SeamOpenWorld comment: "So the only close is to make the widened type UNSPELLABLE: a suite that cannot name a shape here cannot widen one." — false per Omit attack.
+
+  4. Selftest attack-5 `why`: "the only defence is that the seam types take a requirement and a sut key rather than shapes. If this fails, someone has re-parameterized them by shape" — overclaims; the defence does not prevent widening via structural reconstruction.
+
+  5. proof-green.txt §3: "The only close is to make the widened type UNSPELLABLE." — overclaims.
+
+  6. Check `_contract.ts` header comment in taxonomy area? The `_contract.ts` header (lines 1-40) — I haven't read the top of _contract.ts. Let me check it for stale doctrine. Also `tests/at/README.md` updated text: "It takes no type arguments at all... A suite names STRINGS, never types." Accurate enough, but "annotating a body cannot widen the seam" claim appears in _bind. The README says nothing false about widening.
+
+  7. The WorldLike comment at registry.ts:128-147 — rewritten; says suite can no longer pin a world type. True.
+
+  8. Also check `conformance.selftest.ts` comment — fine.
+
+  Let me check _contract.ts top header quickly.
+
+  Also one more attack-surface check per prompt: "reaching atTest directly instead of via bindSuite" — atTest requires opts with requirement + sut; types derive the same. No shape args. Fine. And "intersection types" — that's the Omit finding.
+
+  One more: `SuiteBinding` is exported as an interface — `declare module` merging could add members to it but cannot change derivation. Not a hole.
+
+  What about `AtTestOptions` — exported interface, augmentable; a merged member would just be ignored. Not a hole.
+
+  Another subtle one: `boundAtTest`'s 3-arg overload allows opts: AtTestOptions only. And the spread `{ ...opts, ...binding }` — fine.
+
+  Potential runtime bypass of the atTest cross-check: `requirementMismatch(atId, parsed.requirement, opts.requirement)` — opts.requirement comes from binding spread. A JS-only suite (allowJs!) under tests/at — checkJs is on, so JS suites are type-checked too. But JS could still call with mismatched requirement — the runtime check catches it. OK.
+
+  The loadAdapter check bypass: AT_REPO_ROOT pointing elsewhere — documented out of scope. `module.requirement !== requirement` — module is Partial<FixtureAdapterModule> — fine.
+
+  False accusation possibility: requirement literal mismatch error message names both values and the file (moduleUrl). Good.
+
+  Now, is `loadAdapter`'s negative path tested anywhere? No — only the passing path. Finding: important. Wait — let me double check runner-expect.selftest / expected.selftest for a negative loadAdapter test. Earlier grep for "was loaded as" found only index.ts. Let me also grep for "exports no `requirement`" in tests. It appeared only in index.ts. Confirmed untested failure path.
+
+  Also — one more possible hole: `defineEvidenceCapture`'s producer receives `AtContext<R, K>`, but `EvidenceCaptureImpl.consume(ctx)` passes the CONSUMING test's InternalContext to the producer. The consuming test is in the same suite (bound), so types align. Could a capture defined for req-016 be consumed in a different suite's test? capture(evidence: EvidenceCaptureImpl<T, Sut, W>) — the consumer's ctx is InternalContext<SutOf<R',K'>, WorldOf<R'>>; the evidence is EvidenceCaptureImpl<T, SutOf<R,K>, WorldOf<R>>. consume(ctx: InternalContext<Sut, W>) — passing InternalContext<Sut', W'> where Sut'≠Sut fails unless compatible. Since only one suite exists, can't test cross-suite. Type-level it would error. Fine.
+
+  Simplicity pass: is anything unnecessary?
+  - `EvidenceCaptureImpl.requirement` field — used only to enrich an error message. Small, justified.
+  - The `BoundDefineEvidenceCapture` annotation comment block — fine.
+  - `SuiteBinding` being exported interface vs inline — fine.
+  - `requirementMismatch` exported for testing — justified (conformance test uses it).
+  - Nothing jumps out as deletable without loss. Maybe the `AdapterShape`/`AdapterModuleFor` machinery is the minimum for D3/blocker-2. Fine.
+
+  One more check: `openWorld` returns `SeamOpenWorld` with default type args `unknown, WorldLike` — the cast at the end of open() is `opened as OpenWorld<R, K>`. Since SeamOpenWorld default Sut=unknown, W=WorldLike; casting from SeamOpenWorld<unknown, WorldLike> to SeamOpenWorld<SutOf, WorldOf> — allowed. The comment documents it. OK.
+
+  Wait — one more possible attack: the `h.fixtures.world()` half. `open()` destructures? Actually opened.w comes from `h.fixtures.world(o.fixture)` typed WorldSeam. Cast covers it. Documented.
+
+  Another check on proof soundness — Gate 1's concern: "does proof-red really demonstrate the hole... check the replacement is not unsound in a new way." I reproduced red live at da4a015: exit 0, probe in program. Also verified green: exit 2 with all markers. Sound.
+
+  One residual question: the legacy probe's TS2349/TS7031 errors — the selftest asserts only the TS2344 markers and 'Expected 3 arguments, but got 2'. Are those markers actually attributable to the right attacks? Marker 2 `Type 'NotificationsSut' does not satisfy the constraint '"req-016"'` at (61,54) — that's attack B's bindSuite call (61,54 → line 61 col 54 is the type arg position). Yes. But note: marker 2's text could also be produced by attack... no, attack A's first arg is `{notThere...}`, attack B's is NotificationsSut. Distinct. Marker 3 'Expected 3 arguments, but got 2' at (77,49) — attack C. Distinct. Fine.
+
+  However — a subtle selftest weakness: legacy markers 1 and 2 both guard "bindSuite takes shapes again". If someone reverted bindSuite to accept shapes but kept defineEvidenceCapture binding-based, markers 1&2 disappear, marker 3 stays. Each protection individually covered. OK.
+
+  Now, one more attack to be thorough on item 1: can a suite still pin types via the bound atTest's SECOND overload? BoundAtTest overloads take AtTestOptions only. No.
+
+  What about `suite.atTest` with an explicit type argument? BoundAtTest is not generic. `suite.atTest<X>(...)` — error. Fine.
+
+  What about `atTest` direct call with explicit type args: `atTest<'req-016', 'notifications'>(...)` — those are R, K; must be valid. No shape injection. Fine.
+
+  What about `EvidenceCapture<T, R, K>` used as an annotation with fabricated T? T is the capture's own payload — suite's business. Fine.
+
+  I think the investigation is complete. Remaining: _contract.ts header check, then write findings.
+
+  Actually, let me also double-check the claim in the selftest comment and _contract comment that World augmentation "still yields TS2339 on open().w.invented". Quick empirical check: add a declare module merging World interface in my scratch probe and read w.invented off open().w — expect TS2339 (since w is the class). Let me test that plus one more variant: reading via a World-typed reference — bodies CAN annotate `const world: World = w` and then... if World is augmented with an optional member, `world.invented` reads green! Wait: `const world: World = w; void world.invented;` — if a suite merges `invented?: string` into the World interface (which remains an interface!), then annotating a local as World and reading invented compiles — and at runtime it's undefined. Is that on the seam path? The value came from open(). The Gate 1 ruling: "augmenting the World interface still yields TS2339 on open().w.invented — a class does not acquire interface members". True for direct reads on w. But an UP-CAST to World (no cast operator needed — the class implements World, so plain annotation suffices) then reading the merged member compiles green!
+
+  Let me verify: 
+  ```ts
+  declare module '../suites/req-016/_contract.ts' {
+    interface World { invented?: string }
+  }
+  suite.atTest('AT-016.99', 'x', async ({ open }) => {
+    const { w } = await open();
+    const asWorld: World = w;   // OK, class implements World
+    void asWorld.invented;      // compiles if World augmented
+  });
+  ```
+  At runtime, undefined. And this is a module augmentation (declare module) — is that in the threat model? The alias doctrine exists precisely because interface augmentation is the attack they defend against for the other eight types; they explicitly left World an interface, reasoning that reads off open().w are rejected. But the upcast route doesn't read off open().w's type — it reads off the World interface directly. The merged member is optional → reads undefined → same lie as the other eight aliases protect against.
+
+  Hold on — but does a plain annotation `const asWorld: World = w` require anything malicious? It's ordinary code a suite author would write ("I want the interface view"). Then reading a member that a DIFFERENT file merged in... the merging itself is the malicious/drift act. The alias doctrine's whole point: interfaces can be augmented, so nothing on the seam path may be an interface. World is on the seam path (values typed World flow to bodies — the suite's own tests annotate `World`! d-taxonomy-evidence.test.ts imports type World and presumably uses it). Let me check how World is used in the suite tests — if bodies annotate things as World, then an augmentation of World reads green on real seam values.
+
+  Let me test this empirically — add to my scratch probe:
+  - declare module augmenting World with invented?: string
+  - in a body: const ww: World = w; void ww.invented;
+
+  If exit 0, this is a second live route — and it directly contradicts the Gate 1 finding-7 ruling ("converting World buys nothing"), which considered only direct reads on open().w. Severity: this is exactly the optional-member lie the alias rule exists to kill, on a value the harness hands the body. The ruling's condition was "confirm that no remaining seam path resolves to World" — annotating `w` as World IS a seam path resolving to World, and it's idiomatic (the suite's own test file imports World!). Actually wait — does augmenting World even compile? World is an interface, so yes, interface merging works (no TS6200/TS2300). The scratch probe would compile clean → live route.
+
+  Hmm, but is `declare module` augmentation within the threat model? The eight aliases were converted precisely to defend against it. So yes, it's in model — it's the D5 attack family, and World was exempted on measured grounds that missed the upcast path. Let me test.
+
+  Also test the same upcast for NotificationsSut? It's an alias now — augmentation impossible. But direct `const s: NotificationsSut = sut` — nothing to gain. Fine.
+
+  Let me extend the scratch probe.`World` is still an interface (need to confirm) and it's used in the suite (`World['actors']`). Let me look at the World declaration in _contract.ts and then write the upcast attack probe.`World` is still an interface extending `WorldSeam`. Now the upcast attack. I'll write it into my scratch probe (replace the file) and compile.EXIT=0
+Second live route confirmed: augment the `World` interface with an optional member, view `open().w` through a plain `World` annotation (no cast — the class implements the interface), read the merged member green. `undefined` at runtime.
+
+  This directly refutes Gate 1 finding 7's ruling and the comment in _contract.ts and the selftest's recorded reasoning ("a class does not acquire interface members... the read is rejected either way. Converting it buys nothing"). The read via the interface IS accepted. The ruling measured only the direct read on the class-typed value.
+
+  Severity: this is the same attack family (module augmentation, optional member, reads undefined) that D5 converted eight types to kill, and `World` is on the seam path — the value the harness hands the body is viewed as `World` by the suite's own code (d-taxonomy-evidence.test.ts:23 uses `World['actors']`). The condition Gate 1 attached ("confirm no remaining seam path resolves to World") is not satisfied: `World` is exported from _contract.ts and used in suite code; any body can annotate `w` as World. So per the item's own ruling, World should go back into the conversion list. That's a blocker too, per "if you find a route".
+
+  Wait — one consideration: if World becomes an alias `type World = WorldSeam & {...}`, does `class NotificationFixtureWorld implements World` still work? Yes, classes can implement object type aliases. Would anything break? d-taxonomy uses World['actors'] — fine with alias. So the fix is cheap: convert World to an alias and add it to SEAM_ALIAS_PROTECTED with a probe attack.
+
+  But hold on — is augmentation of World via declare module in threat model while the Omit attack arguably isn't? The alias doctrine clearly treats declare-module merging as in-model (it's what the whole D5 machinery defends against). So this one is squarely in-model by the item's own standards. Blocker, concrete fix: convert World to alias + probe + selftest entry. Also update the measured claims.
+
+  Now, similarly — check the OTHER direction: could a suite augment `WorldSeam` (in contracts.ts)? It's an alias per AI4DEV-24. Fine.
+
+  What about augmenting via the FixtureWorld base? Private. Fine.
+
+  Now let me also double-check my Omit attack isn't stoppable by something I missed... it compiled clean, with controls. Done.
+
+  One more sanity check on attack 1 (Omit): does the selftest catch it if the item added my attack to the probe? Not my job — report.
+
+  Now also confirm there's no OTHER remaining seam path resolving to shape-parameterized exported types: `executeRegisteredBody` is exported generic over <Sut, W> — but it produces nothing harness-backed; comment justifies. It's used by conformance selftest with hand-built contexts. Hmm — could a suite use executeRegisteredBody to launder? It takes body + ctx, both supplied by caller — the caller must BUILD a ctx themselves; no harness values. Not a hole.
+
+  Now clean up scratch files and write the review. Also check tests/at/README.md updated portion — accurate. The _bind.ts comment "annotating a body cannot widen the seam" — false (Omit). The SeamOpenWorld comment — false. The selftest why-text — overclaims. proof-green §3 — overclaims. contracts.ts:161 — "that item has since closed it" — too broad given both routes.
+
+  Also the _contract.ts conversion comment and selftest SEAM_ALIAS_PROTECTED comment record the World reasoning — now refuted; both need updating along with converting World.
+
+  Minor findings:
+  - loadAdapter requirement-validation failure path has no test (passing path exercised by all runs; atTest's mismatch path is tested in conformance). Important.
+  - Line-wrap in contracts.ts:161-163 exceeds house width — trivial, skip or mention as nit? Skip; too cosmetic. Actually the house style is dense but wrapped ~115; lines 161-163 look long. I'll mention as a nit at most. Let me not bother — actually the prompt says comments are documentation; wrapping isn't falsity. Skip.
+  - git working tree had `_contract.ts` touched (CRLF) — not part of review.
+
+  Simplicity: nothing to delete. The machinery is all load-bearing given the two doors (capture + overload). Maybe `EvidenceCaptureImpl.requirement` is a nice-to-have but cheap and improves red text. Fine.
+
+  One more thing to verify for proof soundness item 2: "Is the positive control (proving the probe was actually compiled) real?" — the selftest's `compiled()` checks run.files entries ending with the probe filename from --listFiles. I verified --listFiles works and my own control. Also the selftest has the empty-program test. Sound.
+
+  "Does the alias-protected list exhaustive over what's reachable" — checked: 8 aliases + unions; World interface is reachable and NOT protected (the blocker above). So no — the protection is NOT exhaustive over what's reachable: World is reachable (used as `World['actors']`, annotatable) and unprotected. That's the finding.
+
+  Now cleanup: delete scratch probe + config. Then write the report.
+
+  Also should I check `bun run at:check req-016` (bijection)? The executor's verify-post ran it. Prompt item 7 only requires at:verify + at:selftest. I ran both. at:check is static call-site reading; unaffected. Skip? Quick run for completeness — it's cheap. Let me run it.
+
+  Also confirm final tree state is clean (only the pre-existing CRLF touch + my session's gate2-kimi.md note).
+
+$ bun tests/at/harness/check.ts "req-016"
+at:check req-016 — 12 P0 in the acceptance file, 12 registered in the suite
+RESULT: 12 P0 ids in bijection
+CHECK_EXIT=0
+ M tests/at/suites/req-016/_contract.ts
+?? loop/items/AI4DEV-31/gate2-kimi.md
+?? loop/items/AI4DEV-31/gate2-terra.md
+?? loop/items/AI4DEV-31/gate2-widen-reproduction.txt
+• The tree is back to the reviewed state (`_contract.ts` CRLF touch pre-existed; the loop/items untracked files are session artifacts — gate2-terra.md and gate2-widen-reproduction.txt are from another reviewer session? They appeared... wait, gate2-terra.md and gate2-widen-reproduction.txt — I didn't create those. They may have been created by a parallel/previous gate-2 reviewer. Interesting — "gate2-widen-reproduction.txt" suggests another reviewer found the same widening attack. Let me peek at it briefly to make sure I'm not missing context (e.g., the item agent already knows about the widening route).
+
+AI4DEV-31 — mechanical reproduction of the Gate 2 "structural widen" claim
+============================================================================
+Date: 2026-08-03
+Worktree: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-ae7047f6712c0743a
+Purpose: confirm or refute, by actually compiling it, a Gate 2 reviewer's claim that the AT
+harness seam can still be widened — reading members the harness never supplies, with NO cast,
+NO `any`, NO `@ts-ignore`, and NO module augmentation — by structurally rewriting around the
+legitimately derived types `OpenWorld<R,K>` / `AtContext<R,K>`.
+
+No permanent changes were made to any tracked file. All files below were temporary and were
+deleted after this transcript was written (see CLEANUP at the end).
+
+----------------------------------------------------------------------------------------------
+1. REAL EXPORTED NAMES (read from tests/at/harness/registry.ts, verbatim signatures)
+----------------------------------------------------------------------------------------------
+
+export type OpenWorld<R extends SuiteId, K extends SutKeyOf<R>> =
+  SeamOpenWorld<SutOf<R, K>, WorldOf<R>>;
+
+export type AtContext<R extends SuiteId, K extends SutKeyOf<R>> =
+  SeamContext<SutOf<R, K>, WorldOf<R>>;
+
+export type AtTestBody<R extends SuiteId, K extends SutKeyOf<R>> =
+  (ctx: AtContext<R, K>) => Promise<void>;
+
+export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
+  atId: string, title: string, opts: AtTestOptions & SuiteBinding<R, K>, body: AtTestBody<R, K>,
+): void => { ... };
+
+export const bindSuite: BindSuiteFn = <R extends SuiteId, K extends SutKeyOf<R>>(
+  binding: SuiteBinding<R, K>,
+) => ({ atTest: boundAtTest, defineEvidenceCapture: boundCapture });
+
+export const defineEvidenceCapture: DefineEvidenceCaptureFn = (binding, name, producer) =>
+  new EvidenceCaptureImpl(name, binding.requirement, producer);
+
+('req-016' / 'notifications' confirmed as a valid <R,K> pair via
+tests/at/harness/suite-adapters.ts's AdapterModules map and req-016/_fixture.ts's
+`sut: { notifications: sut }`.)
+
+----------------------------------------------------------------------------------------------
+2. PROBE SOURCE — tests/at/typeprobes/__verify-widen.probe.ts (as compiled for the main result)
+----------------------------------------------------------------------------------------------
+
+/**
+ * MECHANICAL VERIFICATION PROBE — TEMPORARY, deleted after use.
+ *
+ * Reproduces, verbatim, the attack a Gate 2 reviewer claims still works: widening the seam by
+ * intersecting the exported, requirement/sut-keyed types (`OpenWorld<R,K>`, `AtContext<R,K>`) with
+ * an invented shape — no cast, no `any`, no `@ts-ignore`, no module augmentation.
+ *
+ * Exercised through three entry points:
+ *   (a) the bound atTest returned by bindSuite
+ *   (b) the raw exported atTest
+ *   (c) the raw exported defineEvidenceCapture
+ *
+ * In each, the invented members are actually READ (assigned to a `string | undefined` variable),
+ * not merely typed at the parameter, so what is being checked is the read, not the annotation.
+ */
+
+===
+**BLOCKER** — [registry.ts:259](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:259), [registry.ts:611](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:611): the seam is still widenable with a valid `R, K` plus an `Omit`/intersection. A temporary pinned-TypeScript probe compiled cleanly while reading invented optional members through bound `atTest`, raw `atTest`, and raw `defineEvidenceCapture`:
+
+```ts
+type WidenedOpen = OpenWorld<'req-016', 'notifications'> & {
+  sut: { inventedSut?: string };
+  w: { inventedWorld?: string };
+};
+type WidenedCtx = Omit<AtContext<'req-016', 'notifications'>, 'open'> & {
+  open(): Promise<WidenedOpen>;
+};
+```
+
+`AtTestBody<'req-016', 'notifications'> = async (ctx: WidenedCtx) => …` type-checks green, and `sut.inventedSut` / `w.inventedWorld` are readable despite not being supplied at runtime. This uses no cast, suppression, mutation, or `AT_REPO_ROOT`.
+
+The existing probe only rejects illegal shape arguments such as `AtContext<NotificationsSut & …, World>`; it misses a structural rewrite around the valid derived type. The closure comments are therefore false, including [registry.ts:185](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:185), [_bind.ts:20](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_bind.ts:20), and [README.md:48](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/README.md:48).
+
+Concrete fix: do not try another generic constraint—an optional-property intersection is structurally assignable. Add a type-aware validation step to `bun run typecheck` that permits only inline, unannotated suite/capture callbacks (and rejects indirect or explicitly annotated callback contexts), then add this exact attack as a named negative probe. Revise the closure documentation only after that guard exists.
+
+**IMPORTANT** — [index.ts:72](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/index.ts:72): `loadAdapter()` correctly rejects a mismatched self-declared requirement, but no committed test covers its rejection path. I manually loaded a temporary adapter declaring `req-999` as `req-016`; its error named both real values correctly. Deleting this check would still leave the committed tests green. Add a synthetic mismatched and missing-literal adapter test that asserts the rejection text.
+
+• Another reviewer (terra) has already run Gate 2 in this worktree and found the same Omit-widening blocker, plus the loadAdapter untested-rejection-path important. Their notes are untracked files in the item directory. My independent review confirms both findings (I measured the Omit attack exit 0 with controls, and found the same untested loadAdapter path). I additionally found the World-interface upcast route, which refutes Gate 1 finding 7's ruling — let me check whether terra's report mentions it. Let me read the rest of gate2-terra.md.**BLOCKER** — [registry.ts:259](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:259), [registry.ts:611](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:611): the seam is still widenable with a valid `R, K` plus an `Omit`/intersection. A temporary pinned-TypeScript probe compiled cleanly while reading invented optional members through bound `atTest`, raw `atTest`, and raw `defineEvidenceCapture`:
+
+```ts
+type WidenedOpen = OpenWorld<'req-016', 'notifications'> & {
+  sut: { inventedSut?: string };
+  w: { inventedWorld?: string };
+};
+type WidenedCtx = Omit<AtContext<'req-016', 'notifications'>, 'open'> & {
+  open(): Promise<WidenedOpen>;
+};
+```
+
+`AtTestBody<'req-016', 'notifications'> = async (ctx: WidenedCtx) => …` type-checks green, and `sut.inventedSut` / `w.inventedWorld` are readable despite not being supplied at runtime. This uses no cast, suppression, mutation, or `AT_REPO_ROOT`.
+
+The existing probe only rejects illegal shape arguments such as `AtContext<NotificationsSut & …, World>`; it misses a structural rewrite around the valid derived type. The closure comments are therefore false, including [registry.ts:185](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:185), [_bind.ts:20](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_bind.ts:20), and [README.md:48](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/README.md:48).
+
+Concrete fix: do not try another generic constraint—an optional-property intersection is structurally assignable. Add a type-aware validation step to `bun run typecheck` that permits only inline, unannotated suite/capture callbacks (and rejects indirect or explicitly annotated callback contexts), then add this exact attack as a named negative probe. Revise the closure documentation only after that guard exists.
+
+**IMPORTANT** — [index.ts:72](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/index.ts:72): `loadAdapter()` correctly rejects a mismatched self-declared requirement, but no committed test covers its rejection path. I manually loaded a temporary adapter declaring `req-999` as `req-016`; its error named both real values correctly. Deleting this check would still leave the committed tests green. Add a synthetic mismatched and missing-literal adapter test that asserts the rejection text.
+
+**MINOR** — [README.md:49](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/README.md:49) says `bindSuite` “takes no type arguments at all,” but [registry.ts:784](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:784) still has `<R, K>`. The README and [suite-adapters.ts:17](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/suite-adapters.ts:17) also overpromise that the compiler tells authors what to add; it currently reports only the literal mismatch. Reword these precisely.
+
+Sound:
+
+- Fabricated generic uses of `OpenWorld`, `AtContext`, `AtTestBody`, `EvidenceCapture`, direct `atTest`, and raw `defineEvidenceCapture` fail with `TS2344`.
+- `declare module` overload attacks on all three exported entry points fail with `TS2451`.
+- The adapter map rejects both a world without `teardown()` and a mismatched requirement literal at the map entry.
+- The red proof is sound: its pre-fix commit differs only by the probe/transcript, and the positive control plus `--listFiles` control are real.
+- Reverting only `NotificationsSut` to an interface made exactly its named selftest fail; I restored it.
+- Runner black-box and expectation assertions were not weakened; their changes are setup-only.
+
+Verification:
+
+- `bun run typecheck` passed.
+- `bun run at:check req-016` passed.
+- The exact `at:verify` and `at:selftest` commands could not run in this sandbox: Vitest’s default config bundler is denied access while traversing parent paths. With Vitest’s runner config loader, REQ-016 produced the expected 8 passing / 4 capability-pending failures, and the focused conformance plus type-invention selftests passed 61 tests. The full selftest remains unverified here because its child runners use the blocked default loader and inaccessible lock directory.
+
+Temporary probes were removed and tracked content was restored.
+
+Verdict: **do not merge**.
+A terra reviewer already ran Gate 2 here (their findings are untracked). My job is my own independent review — the prompt says "You are reviewing the real tree." My independent results:
+
+  Confirmed independently (same as terra):
+  1. Omit-widening blocker — I measured it independently (exit 0, controls).
+  2. loadAdapter untested rejection path — I found the same gap.
+  3. Red proof sound — I reproduced it live at da4a015 (stronger than terra's check: they compared commits; I ran the compiler in a scratch worktree, exit 0, probe in program).
+  4. Remove-one-protection — I did it with Delivery (terra used NotificationsSut).
+  5. Behavior: I ran the FULL at:verify (exit 0, 8/4/0) and at:selftest (140 tests, exit 0) — terra couldn't run them; I can, and both pass.
+
+  New finding terra does not have: the World-interface upcast route (declare module merges into World — still an interface — then `const asWorld: World = w; asWorld.invented` reads green). This refutes Gate 1 finding 7's ruling and its recorded condition. Terra's sound list says fabricated uses fail TS2344 etc., but doesn't mention the World upcast. This is a second blocker with a cheap, in-scope fix (convert World to an alias + add to SEAM_ALIAS_PROTECTED + probe attack), and it's exactly the attack family D5 exists to kill.
+
+  Terra's minor (README "takes no type arguments at all" — bindSuite still has <R, K> type params, they're just not shapes): fair nit. The README phrase "takes no type arguments at all" — a suite supplies no type arguments; the function has type parameters but callers can't fill them with shapes. Saying "no type arguments" from the suite's perspective is arguably true ("there is no type argument left to lie with" is the design's own language). The compile-error-says-what-to-add claim: the error for an unregistered requirement is `Type '"req-999"' is not assignable to type '"req-016"'` — does it "say what to add"? It doesn't literally say "add a line to suite-adapters.ts". suite-adapters.ts:17 claims "the compile error says what to add" — that's an overpromise. Minor finding, agreed.
+
+  Terra's proposed fix for the Omit blocker (a type-aware lint banning annotated callbacks) — I should form my own view. Options:
+  (a) Ban annotated body params via lint — heavy, new machinery; AGENTS.md warns against over-building; and it changes ergonomics (legit annotations like `_bind.ts`'s exported AtContext aliases are annotated... wait, would banning annotations break the legitimate re-exported `AtContext`/`OpenWorld` aliases in _bind.ts? A body written as `async (ctx: AtContext) => ...` with the bound alias is legitimate and used? Let me check if any suite body annotates ctx... The suite's tests mostly destructure `async ({ open }) =>`. A lint rule would be a blunt instrument.
+  (b) Accept and document: the Omit-widening is a deliberate construction (like a cast, it requires the author to write machinery whose only purpose is to defeat the check). Move it into the documented trusted-author escape list, and fix the overclaiming comments. This matches the threat model: honest drift doesn't write `Omit<AtContext<'req-016','notifications'>,'open'> & { open(): Promise<... & {invented?: string}> }`.
+
+  Hmm, which is right? The threat model explicitly excludes "an author determined to defeat the type system, who can always write a cast". The Omit attack requires no cast, but it requires deliberate, purpose-built type machinery that serves no legitimate goal — unlike annotating `AtContext<NotificationsSut & {invented?: string}, World>`, which looks like an innocent annotation a drifting author might write ("I thought the sut also has X"). Actually is that innocent? Also fairly deliberate. The distinction the item drew was: that spelling was CLOSED, so it's now rejected; the claim "a suite that cannot name a shape here cannot widen one" is simply false. My verdict: blocker stands as an overclaim + open route; the proportionate fix is (b) — reword the claims to state precisely what is stopped (direct shape arguments, interface merging on the protected aliases, overload merging) and what is not (structural reconstruction via utility types, which no type-system machinery can stop, and which joins the documented deliberate-author escapes). Optionally add the Omit attack as a *positive* canary... there's no positive-probe mechanism; simplest is documentation honesty. I should present this rather than prescribe the lint.
+
+  For the World upcast — different: this one IS in the threat model by the item's own standard (module augmentation is D5's whole family, defended for eight types). Fix: convert World to alias, add to SEAM_ALIAS_PROTECTED + one probe augmentation attack + update the two recorded "why World is absent" texts (selftest + _contract.ts comment), and the gate1-rulings condition is then satisfied. Cheap, in scope. Blocker.
+
+  Wait — but one check: if World becomes an alias, does the legacy probe or anything else break? Legacy probe imports World as a type — aliases import fine. d-taxonomy uses World['actors'] — fine. `class NotificationFixtureWorld implements World` — implementing an object type alias is fine. The harness-invention probe (AI4DEV-24's)? It attacks WorldLike, AtHarness etc. Does anything declare-module augment World expecting rejection already? No — World isn't in any protected list. Also, the TS6200 line in the seam probe would then need World added: adding an interface World augmentation to the probe's declare module block → TS6200 lists it too (since _contract would have `type World` and the probe declares `interface World` → conflict). The selftest's rejects() would need World in SEAM_ALIAS_PROTECTED. Straightforward.
+
+  Also verify: does converting World to alias break `_fixture.ts`'s `class ... implements World`? `WorldSeam` is an interface in contracts.ts? Let me check: WorldSeam in contracts.ts — is it alias or interface? contracts.ts was made aliases by AI4DEV-24 ("Every capability contract in this file is an alias"). If World = WorldSeam & {...} via intersection alias, `implements` works with object type aliases including intersections of object types, as long as statically known members. Yes.
+
+  One more consideration on the World finding severity: is it really a blocker per the prompt's rules? "If you find a route, that is a blocker." It's a route to read a member the harness doesn't supply with green typecheck, via module augmentation — in the threat model (D5 exists for exactly this). Blocker.
+
+  Also my behavior runs: at:verify exit 0 8/4/0 matching expected; at:selftest 140/140; typecheck exit 0; at:check exit 0. All pass — stronger than terra's partial run.
+
+  Now — output. The prompt: "OUTPUT: per finding — SEVERITY, file:line, what is wrong, the concrete fix. Blockers first. One line for things that are sound. End with a verdict."
+
+  Should I write the report to a file? The terra reviewer wrote gate2-terra.md in the item dir. I'm "kimi" presumably (gate2-kimi.md exists with my progress notes — created by the host). Writing my report as loop/items/AI4DEV-31/gate2-kimi.md would match the pattern. The gate2-kimi.md file currently contains my session progress bullets (host-generated). Hmm, it was created by the host tracking. I'll write my findings to gate2-kimi.md (overwriting the progress notes — that's the apparent convention: gate2-terra.md holds terra's findings). Actually, safer: the prompt says "OUTPUT: per finding..." — deliver in my reply. Writing a file also matches the item's convention. I'll write the report to loop/items/AI4DEV-31/gate2-kimi.md AND summarize in the reply.
+
+  Let me also double-check line numbers for citations:
+  - registry.ts:185-204 SeamOpenWorld comment ("the only close is to make the widened type UNSPELLABLE") — around line 200-203. The comment block starts at 185 per diff (`@@ -157,7 +182,29` → new line ~185). The exact "UNSPELLABLE" sentence: let me grep for line numbers.
+  - _bind.ts:22-24 "annotating a body cannot widen the seam".
+  - selftest attack-5 why text (~line 235-245 of type-invention.selftest.ts).
+  - proof-green.txt §3 lines 97-121.
+  - _contract.ts World exclusion comment: lines 33-38 area ("World is deliberately NOT converted...").
+  - selftest SEAM_ALIAS_PROTECTED comment (~line 293-306).
+  - contracts.ts:161 "that item has since closed it".
+  - README.md:48-49 minor.
+  - suite-adapters.ts:17-18 "the compile error says what to add" minor.
+  - index.ts:72 untested rejection path.
+
+  Let me grep exact line numbers for the "UNSPELLABLE" phrase and the selftest why-text.I have all citations. Now write the report to `loop/items/AI4DEV-31/gate2-kimi.md` and deliver the summary in the reply.
+
+  Let me also reconfirm exact current line numbers for the selftest's SEAM_ALIAS_PROTECTED World-absence comment (~293-300) and _contract.ts's World comment (~33-38). From the earlier read of _contract.ts diff: the comment "World is deliberately NOT converted" sits right above SenderProbe, around lines 33-38 in the new file. And the World interface is at _contract.ts:153.
+
+  One more sanity issue to note: my Omit attack #2 (world axis) also compiled, so both axes.
+
+  Verdict: do not merge as-is; two blockers. For blocker 1 (Omit-widening) the concrete fix is honesty (reword the claims, document structural reconstruction as outside what the type system can close — it needs no cast but is deliberate machinery) OR a lint guard; I recommend the rewording since no structural close exists and a lint banning annotated callbacks would be heavy and would arguably be scope drift; but note the item's own doctrine ("a closure claim wider than the truth is the defect") demands one or the other before merge. For blocker 2 (World upcast) the fix is cheap and in-scope: convert World to an alias, add it to SEAM_ALIAS_PROTECTED with a probe attack, update the two "why World is absent" records and gate1 finding 7's condition.
+
+  Important: loadAdapter rejection path untested — add a synthetic-tree negative test (the runner selftests already have the machinery: generate an adapter whose requirement disagrees, assert the run fails naming both values; plus a missing-literal case).
+
+  Minor: README.md:48 "takes no type arguments at all" / suite-adapters.ts:18 + README:62 "the compile error says what to add" — overpromise; the actual diagnostic for an unregistered requirement is `Type '"req-999"' is not assignable to type '"req-016"'`, which does not say what to add. Reword or improve the error path (can't customize tsc messages — so reword).
+
+  Sound list (one line each):
+  - bindSuite/atTest/defineEvidenceCapture as consts: declare-module overload merging fails TS2451 on all three (probe + my rerun).
+  - Map constraint: world without teardown() and requirement/key mismatch both fail AT the entry (built counter-examples; suite-adapters.ts:80).
+  - Red proof: reproduced live at da4a015 — exit 0 with the probe in the program (scratch worktree + junction, cleaned up).
+  - Green proof: reran both probe compiles; exit 2, every marker the selftest asserts is present.
+  - Per-name failure: reverted Delivery to interface → exactly "rejects a member merged into Delivery" failed; restored, 43/43.
+  - Runner selftests: no assertion lines changed (setup-only preamble parameterization).
+  - Alias list exhaustiveness: the 8 aliases cover everything reachable from open().sut; Role/Channel/Tone/EventClass are unions; TaxonomyRow/ChannelRule not on the seam path — EXCEPT World, which is the blocker.
+  - requirementMismatch: tested for happy path, dotted id, mismatch, missing field, and wired into atTest (conformance.selftest); error names both values.
+  - Behavior: typecheck exit 0; at:verify req-016 exit 0, 8 green/4 red/0 missing matching expected; at:selftest 7 files 140 tests exit 0; at:check exit 0.
+  - Simplicity: no dead machinery; the EvidenceCaptureImpl requirement field and the bound-capture annotation are justified.
+
+  Attacks I tried that failed (item 1 asks for the list): 
+  - declare module overloads on the three entry points (TS2451).
+  - fabricated type args on legacy API (TS2344/TS2554).
+  - direct atTest with unregistered requirement (TS2322).
+  - misspelled sut key (TS2322).
+  - reading undeclared members off derived sut/world (TS2339).
+  - augmenting the 8 aliases (TS6200).
+  - constructing EvidenceCapture (TS2693).
+  - annotating body with AtContext<shape...> (TS2344/TS2345).
+  Attacks that SUCCEEDED: Omit-reconstruction widening (both axes), World-interface augmentation + upcast read.
+
+  Write the file. Note the existing gate2-kimi.md contains host progress bullets — overwrite with the report (the terra precedent suggests findings live there). Actually wait — should I overwrite? gate2-kimi.md is untracked and appears to be my own session's auto-notes. The item dir convention from terra: findings file gate2-<agent>.md. I'll overwrite gate2-kimi.md with my report.
+
+• Done. Final summary for the user — the full report is in gate2-kimi.md; summarize findings, verdict. Note the terra report existed mid-review; my findings were independent. Keep it concise.
+
+To resume this session: kimi -r session_ff8f41d9-59ea-44de-93d9-f0249fb46b6f
