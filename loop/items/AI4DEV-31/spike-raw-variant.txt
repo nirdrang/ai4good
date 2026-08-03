@@ -1,0 +1,1 @@
+﻿tests/at/harness/__spike.ts(18,27): error TS2339: Property 'thisMemberDoesNotExist' does not exist on type 'NotificationsSut'.
