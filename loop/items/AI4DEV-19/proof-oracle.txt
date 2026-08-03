@@ -1,5 +1,8 @@
 ﻿AI4DEV-19 step 3b — the tightened AT-016.09 oracle, falsified on purpose.
 
+COMPANION FILE: proof-red.txt and proof-green.txt are the red-then-green pair for the ROLLBACK; this
+file is the separate proof that the oracle judging that pair is strong enough to notice.
+
 Gate 0 finding 3 ruled that the old oracle - `if (transitionCommitted !== eventWritten)` - rejected
 only UNEQUAL outcomes, so a fault firing AFTER both writes leaves both committed, compares equal,
 and passes, having proved no atomicity at all. The ruling came with a verification condition: the

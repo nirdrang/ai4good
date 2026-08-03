@@ -1,4 +1,140 @@
-﻿AI4DEV-19 step 2 — RED. The fixture is faultable (transition -> fault point -> event write) but the
+﻿AI4DEV-19 (planted markers, forced failures) — the RED half of the red-then-green proof.
+
+RE-CAPTURED AGAINST THE FINAL MERGED CODE, and the reason is worth stating rather than hiding. The
+first capture (section 3 below, kept deliberately) was taken before AT-016.09's oracle was
+tightened, so it quotes a failure message no test in this tree can produce any more. That made the
+item's central evidence non-reproducible from the code being merged, which is exactly what
+red-then-green exists to prevent. Sections 1 and 2 are reproducible from the merged tree.
+
+WHAT WAS REVERTED, and it is the ONLY difference: the rollback in `emitKnown` in
+tests/at/suites/req-016/_fixture.ts. The transition and the event write stop committing as one unit.
+Everything else is exactly as merged — the fault point stays between the two writes, the tightened
+"neither side committed" oracle stays, no assertion and no manifest entry changed. To reproduce,
+
+    const transitionBefore = state.transitions.get(event);
+    state.transitions.set(event, true);
+    try {
+      reachFaultPoint(FAULT_POINT);
+    } catch (fault) {
+      if (transitionBefore === undefined) state.transitions.delete(event);
+      else state.transitions.set(event, transitionBefore);
+      throw fault;
+    }
+
+becomes
+
+    state.transitions.set(event, true);
+    reachFaultPoint(FAULT_POINT);
+
+THE RESULT: AT-016.09 fails on ATOMICITY at all 11 guarded rows — transition=true
+notificationEvent=false, the transition committed and the notification event did not. It does NOT
+fail on CapabilityPending, and that distinction is the whole proof: a capability-pending red would
+show only that a seam still throws, whereas this one shows the fault genuinely fired and the oracle
+discriminates between a rolled-back pair and a half-committed one.
+
+RED (this file) and GREEN (proof-green.txt) therefore differ ONLY by that rollback — same test, same
+tier, same commands, one behavioural change between them. The separate question of whether the
+oracle itself is strong enough to notice is answered in proof-oracle.txt.
+
+=================================================================================================
+SECTION 1 — the failure at full detail.
+
+`bun run at:verify` alone does NOT contain the atomicity complaint: it prints one line per AT id,
+and vitest summarises the failed array as [ ...(11) ]. So the complaint is captured by running the
+same test at the same tier directly, which is what this section is:
+
+    $env:AT_TIER='loop'
+    bunx vitest run --root tests/at --config vitest.config.ts suites/req-016/c-reliability-guard.test.ts -t AT-016.09
+=================================================================================================
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a622111467e48f14d/tests/at
+
+ ❯ suites/req-016/c-reliability-guard.test.ts (3 tests | 1 failed | 2 skipped) 36ms
+     × AT-016.09 — every guarded transition writes its notification event atomically under an induced fault 36ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  suites/req-016/c-reliability-guard.test.ts > AT-REQ-016 C — critical-event reliability guard > AT-016.09 — every guarded transition writes its notification event atomically under an induced fault
+AssertionError: guarded rows where a crash between the transition and the event write left either side committed: expected [ …(11) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "funding.deadline_expired: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "payment.succeeded: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "payment.failed: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "fuel.threshold_20: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "fuel.threshold_5: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "fuel.depleted: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "leftover.released: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "chargeback.opened: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "access.key_issued: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "access.key_revoked: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++   "project.completed: transition=true notificationEvent=false — a crash at notifications.between_transition_and_event_write committed the transition; the two must roll back as one unit, leaving neither",
++ ]
+
+ ❯ suites/req-016/c-reliability-guard.test.ts:102:124
+    100|       }
+    101|
+    102|       expect(problems, `guarded rows where a crash between the transit…
+       |                                                                                                                            ^
+    103|     },
+    104|   );
+ ❯ executeRegisteredBody harness/registry.ts:486:3
+ ❯ runTrackedTest harness/registry.ts:555:5
+ ❯ harness/registry.ts:778:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  16:15:00
+   Duration  298ms (transform 123ms, setup 0ms, import 134ms, tests 36ms, environment 0ms)
+
+
+=================================================================================================
+SECTION 2 — the same broken state seen by the gate command, for the id-level partition.
+
+    bun run at:verify req-016 --tier loop
+
+9 green / 3 red here, against the 10 green / 2 red the merged tree produces. AT-016.09's one-line
+detail is the truncated form of the failure printed in full above.
+=================================================================================================
+$ bun tests/at/harness/runner.ts "req-016" --tier loop
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-2iYNui/vitest-report.json
+
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan, H5 email provider simulator
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    green    one logical event per committed event, one delivery per recipient-channel pair, across a restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    red      AssertionError: guarded rows where a crash between the transition and the event write left either side committed: expected [ …(11) ] to deeply equal []
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    red      CapabilityPending: CAPABILITY PENDING — H5 email provider simulator
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 9 green, 3 red, 0 missing
+  FAILURE: 3 ids red
+  FAILURE: the test process exited 1
+error: script "at:verify" exited with code 1
+
+=================================================================================================
+SECTION 3 — SUPERSEDED, kept on purpose rather than dropped.
+
+The original step-2 capture, verbatim. It is a real transcript of a real run, but of an EARLIER
+state of the tree: the oracle then read `transitionCommitted !== eventWritten`, so its message is
+"the fault committed one without the other" — wording that no longer exists in any test, because
+step 3b replaced that oracle with the stronger "neither side committed" form. Kept because it is
+the honest record of the order the work actually happened in, and because deleting a superseded
+transcript is how a proof quietly becomes a claim.
+=================================================================================================
+AI4DEV-19 step 2 — RED. The fixture is faultable (transition -> fault point -> event write) but the
 two writes are NOT yet one rollback unit. AT-016.09 fails on ATOMICITY, not on CapabilityPending:
 the fault fired at all 11 guarded rows and committed the transition without the event.
 
@@ -74,5 +210,6 @@ AssertionError: guarded rows where transition-without-event (or event-without-tr
       Tests  1 failed | 2 skipped (3)
    Start at  16:01:37
    Duration  286ms (transform 116ms, setup 0ms, import 130ms, tests 34ms, environment 0ms)
+
 
 
