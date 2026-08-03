@@ -148,6 +148,15 @@ their own. Rules:
     are often a whole sentence; shorten them, never paste them. `AI4DEV-35 (short titles in
     parens)`, not `AI4DEV-35 (Every item id printed to the founder carries a very short title
     in parentheses)`.
+  - **STRIP INTERNAL CODES — the label must say what the thing IS** (founder 2026-08-03: *"I
+    can't understand the H5 or its equivalent, it means nothing to me"*). Many board titles
+    lead with a code — `H5 — `, `REQ-0NN — `, `Batch 3 — `. Truncating from the front keeps the
+    code and throws away the meaning, which is the exact opposite of the point. Drop the code
+    and describe the thing:
+    - `AI4DEV-21 (fake Stripe, GitHub, Anthropic)` — not `(H5 vendor stand-ins)`
+    - `AI4DEV-20 (judging AI output meaning)` — not `(H4 semantic-oracle)`
+    - `AI4DEV-22 (first requirement green end to end)` — not `(H7 proving ground)`
+    A label a stranger could not act on is not a label; it is the id twice.
   - Applies everywhere an id reaches the founder: replies, status reports, board listings,
     suggestions of what to work on next, prose in commit and PR bodies, and the WORKING-ON
     disclaimer â€” where the stamp hook formats `id (label)` from a cached short label, because

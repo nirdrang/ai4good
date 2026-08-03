@@ -95,6 +95,12 @@ so a failure can never leave an item falsely In Progress.
 
 1. Resolve the item: id, short label, `gitBranchName`, state, blockers; walk `parent` upward
    (depth cap 8, cycle detection) to the root; derive short labels for every id in the chain.
+
+   **Deriving a short label: strip the internal code, keep the meaning.** Board titles often
+   lead with one — `H5 — `, `REQ-0NN — `, `Batch 3 — `. Truncating from the front preserves the
+   code and discards what the item actually is, which is backwards. `AI4DEV-21 (fake Stripe,
+   GitHub, Anthropic)`, never `AI4DEV-21 (H5 vendor stand-ins)`. Two to five words a stranger
+   could act on.
 2. Startability **blocks**: item missing, Done, Cancelled, or an open blocker → stop and say
    which. Attribution failures do **not** block — they print and continue.
 2a. **If the walk finds no requirement above the item, ASK — once, here at pickup**
