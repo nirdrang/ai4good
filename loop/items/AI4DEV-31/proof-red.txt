@@ -1,0 +1,86 @@
+AI4DEV-31 — THE RED HALF OF THE PROOF
+=====================================
+
+The defect, executed rather than described: on the PRE-FIX tree, a file full of attacks that
+fabricate the system-under-test type and the fixture-world type and then READ members neither one
+supplies compiles with EXIT 0.
+
+Captured BEFORE any source file was touched, because it cannot be reproduced afterwards.
+
+  worktree   C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-ae7047f6712c0743a
+  branch     nirdrang/ai4dev-31-the-sut-seam-is-an-unverified-claim-openworld-hands-back
+  commit     c592c727585f623637c22afe7412c4320a3827dc
+  compiler   node_modules/typescript/bin/tsc — Version 5.9.3 (the pinned compiler, by path)
+  captured   2026-08-03 10:11 local
+  probe      tests/at/typeprobes/sut-seam-legacy.probe.ts
+  config     tests/at/typeprobes/tsconfig.sut-seam-legacy.json  (extends ../tsconfig.json)
+
+The probe carries four attacks, all written in the API a suite could really use on this tree:
+  A  bindSuite<{ notThere(): Promise<void> }, World>            -> reads open().sut.notThere()
+  B  bindSuite<NotificationsSut, FabricatedWorld>               -> reads open().w.inventedByTheSuite
+  C  defineEvidenceCapture<string, {notThere}, FabricatedWorld> -> reads BOTH, through the second door
+
+
+1. THE ATTACK COMPILES CLEAN — this is the defect
+-------------------------------------------------
+
+$ node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+EXIT=0
+
+No diagnostics. Every fabricated member was accepted and read.
+
+
+2. CONTROL — the program is NOT empty
+-------------------------------------
+
+A tsconfig that matches no files also exits 0, so the exit code above proves nothing on its own.
+`--listFiles` shows the probe really is in the compiled program: 217 files total, of which these
+seven are first-party (the remaining 210 are lib.*.d.ts, @types/node and vitest under node_modules).
+
+$ node node_modules/typescript/bin/tsc --noEmit --pretty false --listFiles -p tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+EXIT=0
+COUNT=217
+  .../tests/at/harness/atconfig.ts
+  .../tests/at/harness/config.ts
+  .../tests/at/harness/contracts.ts
+  .../tests/at/harness/registry.ts
+  .../tests/at/suites/req-016/taxonomy.ts
+  .../tests/at/suites/req-016/_contract.ts
+  .../tests/at/typeprobes/sut-seam-legacy.probe.ts     <- the probe, in the program
+
+
+3. CONTROL — this command CAN fail
+----------------------------------
+
+The second way exit 0 could be a lie is a command that never reports anything. Appending one
+deliberate type error to the probe and re-running the IDENTICAL command:
+
+  + const deliberateError: number = 'positive control';
+
+$ node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+tests/at/typeprobes/sut-seam-legacy.probe.ts(85,7): error TS2322: Type 'string' is not assignable to type 'number'.
+EXIT=2
+
+The line was then removed and the clean-compile result reproduced:
+
+$ node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+RESTORED-EXIT=0
+
+So: the config resolves the probe, the compiler does check it, it does report errors when there are
+errors — and it reports none for four attacks that invent a system under test and a world out of
+nothing. The seam accepted the suite's word for both.
+
+
+4. BASELINE AT THIS COMMIT
+--------------------------
+
+$ bun run typecheck
+=== typecheck: app (tsconfig.json) ===
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+typecheck OK: both configs clean
+EXIT=0
+
+The whole tree type-checks clean WHILE this hole is open — which is the point. `bun run typecheck`
+was green and meant less than it appeared to.
+
+The green half of this pair is `proof-green.txt`: the same file, the same command, after the fix.

@@ -1,0 +1,17 @@
+{
+  /* ONE probe file, compiled alone, under the acceptance tree's real compiler settings.
+
+     `files` rather than `include`, and `include: []` to cancel the inherited one, because the
+     parent's `exclude` names `typeprobes` — `exclude` filters `include` and never filters `files`,
+     so this is the only spelling that both inherits the settings and reaches the file.
+
+     It extends the ACCEPTANCE config, not `typeprobes/tsconfig.json`: sharing a program with
+     `harness-invention.probe.ts` would drag in that file's program-wide `declare module` blocks and
+     its expected failures, and a shared exit code cannot isolate one attack from another.
+
+     A config that matches no files also exits 0, so the transcripts in `loop/items/AI4DEV-31/`
+     carry a `--listFiles` control proving the probe is actually in the program. */
+  "extends": "../tsconfig.json",
+  "files": ["sut-seam-legacy.probe.ts"],
+  "include": []
+}
