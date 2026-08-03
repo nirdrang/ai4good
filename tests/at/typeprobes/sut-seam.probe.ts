@@ -159,15 +159,19 @@ declare module '../harness/registry.ts' {
  * `NotificationsSut` carries the REQUIRED member and the rest carry optional ones, because the
  * required case is the one that proves this is not merely a repeat of the optional-member attack.
  *
- * `World` is deliberately ABSENT, and that absence is deliberate rather than an oversight: after
- * the derivation `open().w` is the adapter's concrete fixture-world class, and a class does not
- * acquire members merely because an interface it implements was augmented — so the read is rejected
- * either way and converting `World` would buy nothing. `type-invention.selftest.ts` records the
- * same reasoning next to the list.
+ * `World` IS HERE, after being left out on a measurement that covered the wrong route. Gate 1
+ * measured the direct read — `open().w.invented` on the adapter's concrete fixture-world class — and
+ * found it rejected whether `World` is an interface or an alias, which is true. Gate 2 measured the
+ * UPCAST: the class implements `World`, so `const asWorld: World = w` needs no cast, and a member
+ * merged into the interface reads green off THAT — exit 0. The suite is on that path too, annotating
+ * with `World['actors']`. So it is converted and attacked like the rest.
  */
 declare module '../suites/req-016/_contract.ts' {
   interface NotificationsSut {
     inventedRequired(): Promise<string>;
+  }
+  interface World {
+    invented?: string;
   }
   interface SenderProbe {
     invented?: string;

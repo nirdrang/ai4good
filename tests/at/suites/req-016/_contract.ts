@@ -61,11 +61,19 @@ export { TIERS } from '../../harness/contracts.ts';
  * `undefined` and breaks nothing — precisely the case that slipped past two adversarial gates in
  * AI4DEV-24 and is the reason this rule exists at all.
  *
- * `World` is deliberately NOT converted, and `harness/type-invention.selftest.ts` records why so a
- * later author does not "restore uniformity" without knowing: after the derivation `open().w` is
- * the adapter's concrete fixture-world CLASS, and a class does not acquire members merely because
- * an interface it implements was augmented, so the read is rejected either way. Converting it would
- * buy nothing. That is measured, not assumed — re-measure before changing it.
+ * `World` IS CONVERTED TOO, and the story of why is worth keeping because it is a measurement that
+ * was right about one route and wrong about the route that mattered. Gate 1 measured the DIRECT read
+ * — `open().w.invented`, on a world that resolves to the adapter's concrete fixture-world class —
+ * and found it TS2339 whether `World` is an interface or an alias, because a class does not acquire
+ * members merely because an interface it implements was augmented. True, and it was taken as reason
+ * to leave `World` alone.
+ *
+ * Gate 2 measured the UPCAST route, which that reasoning never covered. The class implements `World`,
+ * so `const asWorld: World = w` needs no cast; a member merged into the `World` INTERFACE then reads
+ * green off it — exit 0, measured. And the suite still spells `World` on the seam path
+ * (`d-taxonomy-evidence.test.ts` annotates with `World['actors']`), so the condition the earlier
+ * ruling attached to itself — "no remaining seam path resolves to `World`" — did not hold. So it is
+ * an alias like everything else here, and the uniform rule needs no exception to explain.
  */
 
 export type SenderProbe = {
@@ -149,8 +157,13 @@ export type NotificationsSut = {
 
 /* ----------------------------------------------- REQ-016's fixture world + harness */
 
-/** What REQ-016's scenarios need a world to do, on top of the shared world seam. */
-export interface World extends WorldSeam {
+/**
+ * What REQ-016's scenarios need a world to do, on top of the shared world seam.
+ *
+ * An INTERSECTION, not `interface World extends WorldSeam`, for the alias reason above: an interface
+ * can be reopened, and a member merged into this one reads green off any value upcast to it.
+ */
+export type World = WorldSeam & {
   /** role -> actor id in this world */
   actors: Record<Role, string>;
   /**
@@ -164,7 +177,7 @@ export interface World extends WorldSeam {
   reassignRole(role: Role, toActorId: string): Promise<string>;
   /** post N thread comments inside one anti-spam window (AT-016.08) */
   burstThreadComments(count: number): Promise<void>;
-}
+};
 
 /** The shared vendor seams, bound to the channel names REQ-016's taxonomy uses. */
 export type ProviderAttempt = SharedProviderAttempt<Channel>;

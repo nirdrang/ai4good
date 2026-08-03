@@ -291,12 +291,24 @@ describe('the sut/world seam cannot be invented by a suite', () => {
    * alias rule. EXHAUSTIVE over the conversion: naming nine and attacking two is the exact failure
    * both AI4DEV-24 reviewers caught in that item, reproduced one item later by its own design.
    *
-   * `World` IS DELIBERATELY ABSENT, and this is the record of why so that a later author does not
-   * "restore uniformity" without knowing. After the derivation `open().w` is the adapter's concrete
-   * fixture-world CLASS, not the `World` interface: a class does not acquire members merely because
-   * an interface it implements was augmented, so `open().w.invented` is TS2339 whether `World` is an
-   * interface or an alias. Converting it buys nothing. That was measured on this tree, not assumed —
-   * re-measure before adding it, because a name listed here with no attack in the probe fails.
+   * `World` IS ON THIS LIST, and the record of how it nearly was not is the useful part — it is a
+   * worked example of a measurement that was correct and still concluded the wrong thing.
+   *
+   * Gate 1 measured the DIRECT read: after the derivation `open().w` is the adapter's concrete
+   * fixture-world CLASS, and a class does not acquire members merely because an interface it
+   * implements was augmented, so `open().w.invented` is TS2339 with `World` an interface or an
+   * alias. That is true, it was measured on this tree, and it was taken as reason to leave `World`
+   * out — with the ruling's own condition attached: only if no remaining seam path resolves to
+   * `World`.
+   *
+   * Gate 2 measured the UPCAST route the direct read never touched. The fixture class IMPLEMENTS
+   * `World`, so `const asWorld: World = w` needs no cast, and a member merged into the `World`
+   * interface reads green off that — exit 0, measured. The condition failed on its own terms as
+   * well: `d-taxonomy-evidence.test.ts` annotates with `World['actors']`, so the suite still spells
+   * it. Hence the conversion, and hence the attack in the probe.
+   *
+   * The lesson worth keeping: measuring ONE route and generalizing to "the type is safe" is the
+   * same overclaim, one level down, that this whole item exists to remove.
    */
   const SEAM_ALIAS_PROTECTED = [
     'NotificationsSut',
@@ -307,6 +319,7 @@ describe('the sut/world seam cannot be invented by a suite', () => {
     'Delivery',
     'OpsItem',
     'EmitResult',
+    'World',
   ];
 
   for (const contract of SEAM_ALIAS_PROTECTED) {
