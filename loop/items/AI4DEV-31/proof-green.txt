@@ -1,0 +1,132 @@
+AI4DEV-31 — THE GREEN HALF OF THE PROOF
+=======================================
+
+The same file, the same command, after the fix. `proof-red.txt` recorded EXIT 0 at commit
+c592c72; below it is EXIT 2. A claim of "it fails now" without the recorded "it passed before" is
+not evidence, and that pair is the deliverable.
+
+  worktree   C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-ae7047f6712c0743a
+  branch     nirdrang/ai4dev-31-the-sut-seam-is-an-unverified-claim-openworld-hands-back
+  commit     74d99652a5444fe9685062bf0a16e1a1d6edab8a
+  compiler   node_modules/typescript/bin/tsc — Version 5.9.3 (identical to the red run)
+  captured   2026-08-03 local
+
+NOTE ON THE DIAGNOSTICS BELOW: every one was read off the compiler. The design for this item
+predicted TS2558 (arity) by analogy with AI4DEV-24's harness defence; the real code is TS2344,
+because the new `bindSuite` still takes two type parameters — they are just no longer shapes. The
+selftest asserts what the compiler emits, never what anyone expected it to emit.
+
+
+1. THE LEGACY PROBE — was exit 0, is now exit 2
+-----------------------------------------------
+
+$ node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+tests/at/typeprobes/sut-seam-legacy.probe.ts(45,52): error TS2344: Type '{ notThere(): Promise<void>; }' does not satisfy the constraint '"req-016"'.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(49,1): error TS2349: This expression is not callable.
+  Type '{ atTest: BoundAtTest<{ notThere(): Promise<void>; }, World>; defineEvidenceCapture: BoundDefineEvidenceCapture<{ notThere(): Promise<void>; }, World>; }' has no call signatures.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(49,91): error TS7031: Binding element 'open' implicitly has an 'any' type.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(61,54): error TS2344: Type 'NotificationsSut' does not satisfy the constraint '"req-016"'.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(65,1): error TS2349: This expression is not callable.
+  Type '{ atTest: BoundAtTest<NotificationsSut, FabricatedWorld>; defineEvidenceCapture: BoundDefineEvidenceCapture<NotificationsSut, FabricatedWorld>; }' has no call signatures.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(65,95): error TS7031: Binding element 'open' implicitly has an 'any' type.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(77,49): error TS2554: Expected 3 arguments, but got 2.
+tests/at/typeprobes/sut-seam-legacy.probe.ts(81,48): error TS7031: Binding element 'open' implicitly has an 'any' type.
+EXIT=2
+
+Read attack by attack:
+  A (line 45) the fabricated SUT is rejected where the type argument is written — the first
+              parameter is now a REQUIREMENT ID, so a shape cannot be passed at all
+  B (line 61) the fabricated world, same defence, reached through the same call form
+  C (line 77) `defineEvidenceCapture` now requires the binding it derives from, so the two-argument
+              call the second door depended on does not exist
+
+Same non-empty-program control as the red run, still passing after the change:
+
+$ node ... --listFiles -p tests/at/typeprobes/tsconfig.sut-seam-legacy.json
+LEGACY-COUNT=231   (first-party files below; the rest are lib/@types/vitest)
+  .../tests/at/harness/atconfig.ts
+  .../tests/at/harness/config.ts
+  .../tests/at/harness/contracts.ts
+  .../tests/at/harness/clock.ts
+  .../tests/at/harness/fixtures.ts
+  .../tests/at/suites/req-016/taxonomy.ts
+  .../tests/at/suites/req-016/_contract.ts
+  .../tests/at/suites/req-016/_fixture.ts
+  .../tests/at/harness/suite-adapters.ts
+  .../tests/at/harness/registry.ts
+  .../tests/at/typeprobes/sut-seam-legacy.probe.ts     <- the probe, still in the program
+
+
+2. THE NEW-API PROBE — the attacks that are only meaningful after the change
+----------------------------------------------------------------------------
+
+$ node node_modules/typescript/bin/tsc --noEmit --pretty false -p tests/at/typeprobes/tsconfig.sut-seam.json
+tests/at/harness/registry.ts(438,14): error TS2451: Cannot redeclare block-scoped variable 'defineEvidenceCapture'.
+tests/at/harness/registry.ts(684,14): error TS2451: Cannot redeclare block-scoped variable 'atTest'.
+tests/at/harness/registry.ts(791,14): error TS2451: Cannot redeclare block-scoped variable 'bindSuite'.
+tests/at/suites/req-016/_contract.ts(18,1): error TS6200: Definitions of the following identifiers conflict with those in another file: NotificationsSut, SenderProbe, RegisteredRow, DocumentedDefault, NotificationEvent, Delivery, OpsItem, EmitResult
+tests/at/typeprobes/sut-seam.probe.ts(18,1): error TS6200: Definitions of the following identifiers conflict with those in another file: NotificationsSut, SenderProbe, RegisteredRow, DocumentedDefault, NotificationEvent, Delivery, OpsItem, EmitResult
+tests/at/typeprobes/sut-seam.probe.ts(33,13): error TS2339: Property 'notThere' does not exist on type 'NotificationsSut'.
+tests/at/typeprobes/sut-seam.probe.ts(40,10): error TS2339: Property 'inventedByTheSuite' does not exist on type 'NotificationFixtureWorld'.
+tests/at/typeprobes/sut-seam.probe.ts(50,69): error TS2322: Type '"notificatoins"' is not assignable to type '"notifications"'.
+tests/at/typeprobes/sut-seam.probe.ts(59,52): error TS2322: Type '"req-999"' is not assignable to type '"req-016"'.
+tests/at/typeprobes/sut-seam.probe.ts(72,3): error TS2345: Argument of type '(ctx: AtContext<NotificationsSut & { invented?: string; }, World>) => Promise<void>' is not assignable to parameter of type 'AtTestBody<"req-016", "notifications">'.
+tests/at/typeprobes/sut-seam.probe.ts(72,25): error TS2344: Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint '"req-016"'.
+tests/at/typeprobes/sut-seam.probe.ts(74,10): error TS18046: 'sut' is of type 'unknown'.
+tests/at/typeprobes/sut-seam.probe.ts(90,25): error TS2339: Property 'neitherIsThis' does not exist on type 'NotificationsSut'.
+tests/at/typeprobes/sut-seam.probe.ts(90,44): error TS2339: Property 'norIsThisSupplied' does not exist on type 'NotificationFixtureWorld'.
+tests/at/typeprobes/sut-seam.probe.ts(101,39): error TS2693: 'EvidenceCapture' only refers to a type, but is being used as a value here.
+tests/at/typeprobes/sut-seam.probe.ts(104,12): error TS7031: Binding element 'open' implicitly has an 'any' type.
+tests/at/typeprobes/sut-seam.probe.ts(125,19): error TS2451: Cannot redeclare block-scoped variable 'bindSuite'.
+tests/at/typeprobes/sut-seam.probe.ts(130,19): error TS2451: Cannot redeclare block-scoped variable 'atTest'.
+tests/at/typeprobes/sut-seam.probe.ts(137,19): error TS2451: Cannot redeclare block-scoped variable 'defineEvidenceCapture'.
+EXIT=2
+
+  line 33   reading a sut member the adapter does not declare
+  line 40   reading a world member the fixture does not supply
+  line 50   a misspelled sut key — was a run-time `sut-missing` that reads like an unbuilt requirement
+  line 59   a requirement with no registered adapter
+  line 72   widening the seam by ANNOTATING THE BODY PARAMETER — see section 3
+  line 90   both axes again through the raw evidence-capture entry point (the second door)
+  line 101  constructing an EvidenceCapture directly — the class is no longer a value
+  125/130/137  a `declare module` generic overload on each of the three entry points, which is the
+               door Gate 1 found that the alias doctrine never covered
+  TS6200    one merge attack per contract AI4DEV-31 put on the seam path, all eight rejected
+
+
+3. THE ATTACK THAT SURVIVED THE FIRST FIX, AND WHAT IT COST TO CLOSE
+--------------------------------------------------------------------
+
+With `bindSuite`, `atTest` and `defineEvidenceCapture` all derived and all converted to consts, this
+still compiled CLEAN, measured in isolation:
+
+  async (ctx: AtContext<NotificationsSut & { invented?: string }, World>) => {
+    const { sut } = await ctx.open();
+    void sut.invented;                       // string | undefined; `undefined` at run time
+  }
+
+$ node ... -p (isolated single-attack config)
+EXIT=0
+
+Widening happens at the BODY, not at the entry point, so closing the entry points did not reach it.
+And nothing structural can: `NotificationsSut` and `NotificationsSut & { invented?: string }` are
+assignable in BOTH directions — an optional member adds no obligation — so no variance annotation
+and no conditional "exactly this type" trick can distinguish them.
+
+The only close is to make the widened type UNSPELLABLE. `OpenWorld`, `AtContext`, `AtTestBody` and
+`EvidenceCapture` are now exported over `<R, K>` — a requirement id and a sut key, both of which
+derive — and the shape-parameterized versions stay module-private. The attack is line 72 above.
+
+This is the item's own lesson applied to itself: the first version would have shipped claiming a
+closure it did not have, and only running the compiler showed it.
+
+
+4. THE BASELINE, UNCHANGED
+--------------------------
+
+$ bun run typecheck                                 -> exit 0, both configs clean
+$ bun run at:selftest                               -> exit 0, 7 files, 140 tests passed (was 114)
+$ bun run at:verify req-016 --tier loop --expect    -> exit 0, 12 P0: 8 green, 4 red, 0 missing
+
+The 26 added tests are this item's own guards. The 8/4/0 split is identical to the pre-change
+baseline, and the four reds are the same four pending capabilities.

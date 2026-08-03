@@ -634,7 +634,7 @@ function emitRuntimeRegistration(registration: Registration): void {
  * would reopen the hole through the door marked convenience — so a binding with no requirement is
  * its own error, not a skipped check.
  */
-function requirementMismatch(atId: string, parsedRequirement: string, bound: string): string | null {
+export function requirementMismatch(atId: string, parsedRequirement: string, bound: string): string | null {
   if (!bound) {
     return (
       `${atId} was registered with no requirement — atTest cannot check that the suite whose types ` +

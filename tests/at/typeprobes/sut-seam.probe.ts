@@ -65,6 +65,12 @@ export const unregisteredRequirement = bindSuite({ requirement: 'req-999', sut: 
  * BODY instead, with an intersection carrying an OPTIONAL member. An optional member is what makes
  * this dangerous — the derived type still satisfies the annotation, so nothing goes red at the
  * producer, and the body reads `undefined` at run time believing it read data.
+ *
+ * It was MEASURED still compiling clean once every other door here was shut, which is what forced
+ * the exported seam types to be parameterized by requirement and sut key instead of by shape. No
+ * structural defence exists: a type and that type intersected with an optional member are
+ * assignable in both directions, so nothing can tell them apart. Only being unable to WRITE the
+ * widened type stops it.
  */
 suite.atTest(
   'AT-016.94',
@@ -85,9 +91,12 @@ suite.atTest(
 export const rawCaptureAttack = defineEvidenceCapture(
   { requirement: 'req-016', sut: 'notifications' },
   'a capture that invents both axes',
+  // Distinct member names from attacks 1 and 2 on purpose: the selftest asserts each attack by the
+  // diagnostic it produces, so two attacks sharing a member name would be one assertion covering
+  // both, and removing either protection could leave the test green.
   async ({ open }) => {
     const { sut, w } = await open();
-    return `${await sut.notThere()}${w.inventedByTheSuite}`;
+    return `${await sut.neitherIsThis()}${w.norIsThisSupplied}`;
   },
 );
 

@@ -45,8 +45,25 @@ already invokes it changed meaning.
 - **`skipLibCheck` is `false`.** It cannot distinguish a third-party `.d.ts` from a first-party one
   written under `tests/at`, and skipping our own declarations is the defect this check exists to
   remove.
-- **The harness shape is not a suite's to invent.** A suite parameterizes `bindSuite` with its
-  system under test, its fixture world and its channel names — never with a harness type. The
-  harness comes from the single shared contract in `harness/contracts.ts`, which
-  `harness/index.ts`'s `createHarness` is statically checked to produce. A free harness parameter
-  would let a suite declare seams the factory never supplies and still type-check green.
+- **A suite names STRINGS, never types.** `bindSuite({ requirement: 'req-016', sut: 'notifications' })`
+  is the whole of a suite's contact with the harness. It takes no type arguments at all: the
+  harness comes from the single shared contract in `harness/contracts.ts`, and the system under
+  test and the fixture world are read off the adapter registered for that requirement in
+  `harness/suite-adapters.ts` — the same module `harness/index.ts` loads at run time.
+
+  It used to take three: the harness type (removed by AI4DEV-24) and then the system-under-test and
+  world types (removed by AI4DEV-31). Each was a claim nothing checked, so
+  `bindSuite<AnythingAtAll, AnythingAtAll>` type-checked green and a body could read members no
+  runtime value supplies. `tests/at/typeprobes/sut-seam-legacy.probe.ts` is that hole, kept
+  compilable-looking and executable: it compiled clean before the change and fails now.
+
+- **Adding a suite is one line in `harness/suite-adapters.ts`,** plus
+  `export const requirement = 'req-0NN' as const;` in that suite's `_fixture.ts`. Until both exist
+  the suite cannot bind, and the compile error says what to add. The literal is what ties the map
+  key, the module the types are read from, and the module the loader actually imports to one
+  self-declared value — checked at the map entry and again at run time in `loadAdapter()`.
+
+- **What that does NOT close.** `any`, `as`, `@ts-ignore`, `@ts-nocheck`, mutating an adapter after
+  it is built, and pointing `AT_REPO_ROOT` at another tree all still work. The threat model is a
+  suite drifting from its harness with nobody able to notice — an honest mistake that type-checks
+  green — not an author set on defeating the type system, who can always write a cast.
