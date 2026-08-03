@@ -1,0 +1,14 @@
+{
+  /* The NEW-API attacks, compiled alone. Same reasoning as `tsconfig.sut-seam-legacy.json`:
+     `files` rather than `include` because the parent's `exclude` names `typeprobes` and `exclude`
+     never filters `files`, and a private program rather than `typeprobes/tsconfig.json` because the
+     other probe files carry program-wide `declare module` blocks whose diagnostics would be
+     indistinguishable from these.
+
+     Compiling each probe alone is what lets `type-invention.selftest.ts` assert a protection BY
+     NAME and PER FILE. A combined exit code cannot: it is satisfied by any error anywhere, so a
+     protection could be removed and the suite would stay green on the strength of its neighbours. */
+  "extends": "../tsconfig.json",
+  "files": ["sut-seam.probe.ts"],
+  "include": []
+}

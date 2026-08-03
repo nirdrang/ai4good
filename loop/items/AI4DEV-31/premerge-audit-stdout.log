@@ -1,0 +1,34 @@
+Audit complete for [premerge-audit-brief.txt](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/premerge-audit-brief.txt).
+
+The audited head is exactly:
+
+`5cf71365efd922282da2301b2a35c9e8376c37fc`
+
+GitHub Actions run `30804092099` checked out that exact SHA. The required `verify` job completed successfully: [CI run](https://github.com/nirdrang/ai4good/actions/runs/30804092099).
+
+| Check | Verdict | Evidence |
+|---|---|---|
+| C1 | VERIFIED | `bun run typecheck` → `typecheck OK: both configs clean`, exit 0. |
+| C2 | VERIFIED by CI; local COULD-NOT-VERIFY | CI output: `12 P0: 8 green, 4 red, 0 missing`; expected JSON matched exactly. Local command hit the documented Vitest ancestor-directory `EPERM` sandbox signature. |
+| C3 | VERIFIED by CI; local COULD-NOT-VERIFY | CI: `7 passed`, `143 passed`. Local command hit the same documented sandbox signature. |
+| C4 | VERIFIED | `at:check req-016` → `12 P0 ids in bijection`, exit 0. |
+| C5 | VERIFIED | Pre-fix probe compiled cleanly, listed 217 files including the probe, and deliberate `TS2322` failed. Current probe fails with expected `TS2344`, `TS2349`, `TS7031`, and `TS2554` diagnostics. |
+| C6 | VERIFIED | Current code and acceptance documentation explicitly keep structural widening open. World alias protection and `loadAdapter` requirement checks are present and covered by tests. |
+| C7 | VERIFIED | `git status --porcelain` → `CLEAN`; branch changes are scoped to AI4DEV-31. |
+
+Additional required checks:
+
+- A — VERIFIED. Reverting `World`, `Delivery`, and `NotificationsSut` to interfaces caused exactly these failures, each with `1 failed | 43 passed`:
+  - `rejects a member merged into World`
+  - `rejects a member merged into Delivery`
+  - `rejects a member merged into NotificationsSut`
+
+  Restoring each guard returned the focused suite to `44 passed`.
+
+- B — VERIFIED. The protected alias list is exhaustive and matches the nine probe augmentations: `NotificationsSut`, `SenderProbe`, `RegisteredRow`, `DocumentedDefault`, `NotificationEvent`, `Delivery`, `OpsItem`, `EmitResult`, and `World`. Focused tests passed: `44 passed`.
+
+- C — PARTIALLY VERIFIED. Disabling the `atTest` requirement guard caused `refuses an AT id whose requirement is not the suite it was bound to` to fail (`1 failed | 17 passed`), then passed after restoration. The `loadAdapter` mutation could not be isolated locally because of the documented nested-worktree sandbox failure; its two guard tests pass in the exact CI run.
+
+- D — REFUTED. Current executable comments and README text match the implementation, but [executor-brief.md:171](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/executor-brief.md:171) is stale: it says `World` is deliberately excluded, while the current implementation protects `World` as an alias.
+
+No repository files were changed; the temporary pre-fix reconstruction was removed. The executable evidence supports merging, subject to correcting or explicitly superseding that stale documentation.

@@ -45,8 +45,40 @@ already invokes it changed meaning.
 - **`skipLibCheck` is `false`.** It cannot distinguish a third-party `.d.ts` from a first-party one
   written under `tests/at`, and skipping our own declarations is the defect this check exists to
   remove.
-- **The harness shape is not a suite's to invent.** A suite parameterizes `bindSuite` with its
-  system under test, its fixture world and its channel names — never with a harness type. The
-  harness comes from the single shared contract in `harness/contracts.ts`, which
-  `harness/index.ts`'s `createHarness` is statically checked to produce. A free harness parameter
-  would let a suite declare seams the factory never supplies and still type-check green.
+- **A suite names STRINGS, never types.** `bindSuite({ requirement: 'req-016', sut: 'notifications' })`
+  is the whole of a suite's contact with the harness. It still has type parameters — `<R, K>` — but
+  they are a requirement id and a system-under-test key, so **there is no type argument left to lie
+  with**: the harness comes from the single shared contract in `harness/contracts.ts`, and the system
+  under test and the fixture world are read off the adapter registered for that requirement in
+  `harness/suite-adapters.ts` — the same module `harness/index.ts` loads at run time.
+
+  It used to take three SHAPES: the harness type (removed by AI4DEV-24) and then the
+  system-under-test and world types (removed by AI4DEV-31). Each was a claim nothing checked, so
+  `bindSuite<AnythingAtAll, AnythingAtAll>` type-checked green and a body could read members no
+  runtime value supplies. `tests/at/typeprobes/sut-seam-legacy.probe.ts` is that hole, kept
+  compilable-looking and executable: it compiled clean before the change and fails now.
+
+- **Adding a suite is one line in `harness/suite-adapters.ts`,** plus
+  `export const requirement = 'req-0NN' as const;` in that suite's `_fixture.ts`. Until both exist
+  the suite cannot bind. The compile error is `Type '"req-999"' is not assignable to type '"req-016"'`,
+  which names the problem and **not** the remedy — tsc's wording is not ours to change, so the two
+  lines to add are written out here and in `harness/suite-adapters.ts` instead. The literal is what
+  ties the map key, the module the types are read from, and the module the loader actually imports to
+  one self-declared value — checked at the map entry and again at run time in `loadAdapter()`, whose
+  two failing paths are exercised in `harness/runner-blackbox.selftest.ts`.
+
+- **What IS closed.** A suite can no longer **name** the seam types. Every route the old API invited
+  is shut: no shape arguments on `bindSuite` / `atTest` / `defineEvidenceCapture`, no
+  shape-parameterized type exported for a body to annotate with, no constructor to reach
+  `EvidenceCapture` through, no function declaration to merge a fresh overload onto, and no interface
+  on the seam path to merge a member into.
+
+- **What that does NOT close.** `any`, `as`, `@ts-ignore`, `@ts-nocheck`, mutating an adapter after
+  it is built, pointing `AT_REPO_ROOT` at another tree, and **rebuilding a widened context by hand**
+  out of the derived types — `Omit<AtContext<R, K>, 'open'> & { open(): Promise<OpenWorld<R, K> &
+  { sut: { invented?: string } }> }`, which was measured compiling clean with no cast and no
+  suppression (`loop/items/AI4DEV-31/gate2-widen-reproduction.txt`). No type can reject that last one:
+  a type and that type intersected with an optional member are assignable in both directions.
+  Rejecting it needs a source-inspection pass, filed as its own item (AI4DEV-37). The threat model
+  is a suite drifting from its harness with nobody able to notice — an honest mistake that
+  type-checks green — not an author set on defeating the type system, who can always write a cast.

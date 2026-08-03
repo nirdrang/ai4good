@@ -23,10 +23,12 @@ import {
 } from './guards.ts';
 import { analyzeReportedTests, type AssertionResult, type RuntimeRegistration } from './runner.ts';
 import {
+  atTest,
   captureProducerProblem,
   drainTeardowns,
   executeRegisteredBody,
   freezeEvidence,
+  requirementMismatch,
   runTrackedTest,
   testUseProblem,
   type TrackedTeardown,
@@ -82,6 +84,47 @@ describe('the five false-green reproductions', () => {
 
   it('refuses a zero-id acceptance suite', () => {
     expect(bijectionProblems([], [] as SuiteRegistration[]).join(' ')).toContain('zero P0');
+  });
+
+  /**
+   * The sixth reproduction, added by AI4DEV-31: the id says one suite, the binding says another.
+   *
+   * Two independent strings have to denote the same suite — the AT id decides which fixture adapter
+   * is loaded at RUN time, the binding decides which adapter the TYPES were read off. Left
+   * unchecked, `AT-017.03` in a suite bound to req-016 drives req-017's implementation while every
+   * type in the body describes req-016's, and both halves look correct on their own.
+   *
+   * The formats differ and the comparison MUST normalize: `parseAtId` yields `016` while the
+   * binding and the registry key are `req-016`. A literal comparison would reject every valid suite
+   * in the tree, so the happy path is asserted here too rather than left implied.
+   */
+  it('refuses an AT id whose requirement is not the suite it was bound to', () => {
+    expect(requirementMismatch('AT-016.01', '016', 'req-016'), 'a valid suite was rejected by the guard').toBeNull();
+    expect(requirementMismatch('AT-005.5.03', '005.5', 'req-005.5'), 'a dotted requirement id was rejected').toBeNull();
+
+    const mismatch = requirementMismatch('AT-017.03', '017', 'req-016');
+    expect(mismatch, 'the guard did not name the requirement the harness would actually load').toContain('req-017');
+    expect(mismatch, 'the guard did not name the requirement the type-check described').toContain('req-016');
+
+    const missing = requirementMismatch('AT-016.01', '016', '');
+    expect(missing, 'an absent requirement was treated as "nothing to check" rather than as an error').toContain(
+      'no requirement',
+    );
+
+    // AND THE GUARD IS ACTUALLY WIRED IN. A problem computed and not acted on is this tree's own
+    // recurring false-green shape, so the pure function above is not enough on its own. Both calls
+    // throw before `it()` is ever reached, which is why registering here adds no test to this run.
+    expect(() =>
+      atTest('AT-017.03', 'bound to the wrong suite', { requirement: 'req-016', sut: 'notifications' }, async () => undefined),
+    ).toThrow(/req-017/);
+
+    // The suites the runner's black-box tests generate are written as source at run time and are
+    // never type-checked, so this guard has to hold for a caller TypeScript never saw. The cast
+    // reproduces exactly that caller and nothing else.
+    const untyped = atTest as unknown as (atId: string, title: string, opts: object, body: () => Promise<void>) => void;
+    expect(() => untyped('AT-016.01', 'no requirement at all', { sut: 'notifications' }, async () => undefined)).toThrow(
+      /no requirement/,
+    );
   });
 
   it('derives stand-in provenance from the factory wrapper, not capability self-report', () => {

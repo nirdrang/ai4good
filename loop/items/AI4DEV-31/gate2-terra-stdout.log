@@ -1,0 +1,40 @@
+**BLOCKER** — [registry.ts:259](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:259), [registry.ts:611](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:611): the seam is still widenable with a valid `R, K` plus an `Omit`/intersection. A temporary pinned-TypeScript probe compiled cleanly while reading invented optional members through bound `atTest`, raw `atTest`, and raw `defineEvidenceCapture`:
+
+```ts
+type WidenedOpen = OpenWorld<'req-016', 'notifications'> & {
+  sut: { inventedSut?: string };
+  w: { inventedWorld?: string };
+};
+type WidenedCtx = Omit<AtContext<'req-016', 'notifications'>, 'open'> & {
+  open(): Promise<WidenedOpen>;
+};
+```
+
+`AtTestBody<'req-016', 'notifications'> = async (ctx: WidenedCtx) => …` type-checks green, and `sut.inventedSut` / `w.inventedWorld` are readable despite not being supplied at runtime. This uses no cast, suppression, mutation, or `AT_REPO_ROOT`.
+
+The existing probe only rejects illegal shape arguments such as `AtContext<NotificationsSut & …, World>`; it misses a structural rewrite around the valid derived type. The closure comments are therefore false, including [registry.ts:185](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:185), [_bind.ts:20](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_bind.ts:20), and [README.md:48](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/README.md:48).
+
+Concrete fix: do not try another generic constraint—an optional-property intersection is structurally assignable. Add a type-aware validation step to `bun run typecheck` that permits only inline, unannotated suite/capture callbacks (and rejects indirect or explicitly annotated callback contexts), then add this exact attack as a named negative probe. Revise the closure documentation only after that guard exists.
+
+**IMPORTANT** — [index.ts:72](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/index.ts:72): `loadAdapter()` correctly rejects a mismatched self-declared requirement, but no committed test covers its rejection path. I manually loaded a temporary adapter declaring `req-999` as `req-016`; its error named both real values correctly. Deleting this check would still leave the committed tests green. Add a synthetic mismatched and missing-literal adapter test that asserts the rejection text.
+
+**MINOR** — [README.md:49](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/README.md:49) says `bindSuite` “takes no type arguments at all,” but [registry.ts:784](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:784) still has `<R, K>`. The README and [suite-adapters.ts:17](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/suite-adapters.ts:17) also overpromise that the compiler tells authors what to add; it currently reports only the literal mismatch. Reword these precisely.
+
+Sound:
+
+- Fabricated generic uses of `OpenWorld`, `AtContext`, `AtTestBody`, `EvidenceCapture`, direct `atTest`, and raw `defineEvidenceCapture` fail with `TS2344`.
+- `declare module` overload attacks on all three exported entry points fail with `TS2451`.
+- The adapter map rejects both a world without `teardown()` and a mismatched requirement literal at the map entry.
+- The red proof is sound: its pre-fix commit differs only by the probe/transcript, and the positive control plus `--listFiles` control are real.
+- Reverting only `NotificationsSut` to an interface made exactly its named selftest fail; I restored it.
+- Runner black-box and expectation assertions were not weakened; their changes are setup-only.
+
+Verification:
+
+- `bun run typecheck` passed.
+- `bun run at:check req-016` passed.
+- The exact `at:verify` and `at:selftest` commands could not run in this sandbox: Vitest’s default config bundler is denied access while traversing parent paths. With Vitest’s runner config loader, REQ-016 produced the expected 8 passing / 4 capability-pending failures, and the focused conformance plus type-invention selftests passed 61 tests. The full selftest remains unverified here because its child runners use the blocked default loader and inaccessible lock directory.
+
+Temporary probes were removed and tracked content was restored.
+
+Verdict: **do not merge**.

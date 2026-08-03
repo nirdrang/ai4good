@@ -1,0 +1,13 @@
+﻿bun : $ bun tests/at/typecheck.ts
+At line:1 char:383
++ ... 712c0743a"; bun run typecheck > loop/items/AI4DEV-31/baseline-typeche ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/typecheck.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean

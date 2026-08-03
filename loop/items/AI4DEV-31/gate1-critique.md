@@ -1,0 +1,76 @@
+## Blockers
+
+**SEVERITY: blocker — the proposed API still admits fabricated seam types.**  
+Location: [registry.ts:193](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:193), [registry.ts:276](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:276), [registry.ts:469](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:469), [design.md:105](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:105).
+
+`AtContext`, `AtTestBody`, `EvidenceCapture`, and `defineEvidenceCapture` remain public and generic over `Sut, W`. Under the real strict project config, I verified that a bound test accepting `AtContext<NotificationsSut & { invented?: string }, NotificationFixtureWorld & { invented?: string }>` compiles and can read both invented members. The same is true for an `EvidenceCapture` carrying those widened types. This is precisely the optional-member case D5 says matters.
+
+A suite can also augment the exported `bindSuite` function with a new generic overload through `declare module`; I verified an overload that restores a required invented SUT method compiles cleanly. Type aliases do not protect exported function declarations.
+
+Concrete fix: make `bindSuite`, raw `atTest`, and `defineEvidenceCapture` non-mergeable `const` exports with type-alias call signatures; remove or restrict raw generic `atTest`; expose a capture creator bound by `bindSuite` rather than allowing callers to choose `Sut, W`. If voluntary local optional overlays remain outside the threat model, say that explicitly—aliases alone cannot stop them.
+
+**SEVERITY: blocker — D4 does not prove the type map and runtime module are the same module.**  
+Location: [design.md:85](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:85), [design.md:151](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:151), [index.ts:32](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/index.ts:32).
+
+`AdapterModules['req-016']` can accidentally import another fixture module while `adapterUrl()` still dynamically loads `req-016/_fixture.ts`. D4 compares the bound key with the AT id, not the map entry’s import path, so it passes despite this split.
+
+Concrete fix: either treat `suite-adapters.ts` as trusted configuration and remove the “by construction” claim, or add `export const requirement = 'req-016' as const` to each fixture module. Constrain each map entry’s exported literal to its key, and validate that literal in `loadAdapter()` as well. This requires adding the tag to the synthetic adapters too.
+
+**SEVERITY: blocker — the negative-proof plan cannot produce the diagnostics it claims.**  
+Location: [design.md:108](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:108), [design.md:220](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:220), [type-invention.selftest.ts:24](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/type-invention.selftest.ts:24).
+
+The new `bindSuite<R, K>` still has two type parameters. Therefore the old two-argument fabrication attack is not TS2558; the pinned compiler reports TS2344 because the fabricated SUT does not satisfy `SuiteId`. I verified that result. Attacks 8 and 9 cannot both compile before the change and independently yield TS2339 after it: before D1 they need explicit fabricated generic types; after D1 those type arguments fail earlier.
+
+Also, compiling `tsc sut-seam.probe.ts` does not inherit the probe config. `--showConfig` returns empty compiler options, and a real one-file compile fails on unrelated defaults such as `.ts` imports. `-p` cannot be combined with a filename.
+
+Concrete fix: use one committed child `tsconfig` per probe (`extends` the AT config, `files` only that probe, empty inherited include), and invoke the pinned compiler with `-p`. Record a legacy red probe before the API change, then use post-change probes for the new API; do not pretend one unchanged source proves both APIs. Assert diagnostics per probe file, not merely that the combined output contains TS2558.
+
+**SEVERITY: blocker — D5 calls its alias coverage exhaustive but tests only two of nine interfaces.**  
+Location: [design.md:166](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:166), [design.md:226](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:226), [_contract.ts:43](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_contract.ts:43).
+
+The proposed attacks cover only `NotificationsSut` and `World`. They omit `SenderProbe`, `RegisteredRow`, `DocumentedDefault`, `NotificationEvent`, `Delivery`, `OpsItem`, and `EmitResult`, all of which flow out through SUT methods.
+
+Concrete fix: add every retained suite contract alias to a named, exhaustive selftest list, with one module-augmentation rejection per name. Otherwise this repeats the prior “three checked, all claimed” failure.
+
+## Important findings
+
+**SEVERITY: important — D3 is not implemented by the shown types.**  
+Location: [design.md:92](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:92), [index.ts:12](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/index.ts:12).
+
+The displayed `AdapterModules` aliases never constrain `fixtures.world()` to return `WorldLike`; they also fail to validate adapter teardown or the rest of the dynamically cast adapter shape. A malformed adapter can still type-check until runtime because `loadAdapter()` casts it through `Partial<FixtureAdapterModule>`.
+
+Concrete fix: wrap the map in a generic constraint requiring at least `sut`, `fixtures.world(): Promise<WorldLike>`, and `teardown()`. I verified the real adapter satisfies such a constraint and a missing `teardown()` world fails at the map entry.
+
+**SEVERITY: important — D4 is worthwhile, but its comparison must normalize formats.**  
+Location: [registry.ts:42](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/registry.ts:42), [design.md:85](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/loop/items/AI4DEV-31/design.md:85).
+
+`parseAtId('AT-016.01').requirement` is `"016"`; the proposed map key and binding are `"req-016"`. A literal equality check rejects every valid suite.
+
+Concrete fix: compare `binding.requirement` with ``req-${parsed.requirement}``. Keep the field mandatory: the bijection checker only compares AT ids in files, not the suite binding, so D4 uniquely catches a test with `AT-016.*` bound to `req-017`. Add missing-field and mismatch runtime selftests.
+
+**SEVERITY: important — D5 is justified for the SUT and its returned values, but overstates the need for `World`.**  
+Location: [_fixture.ts:107](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture.ts:107), [_fixture.ts:211](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture.ts:211).
+
+The required-member claim is true in substance: a required `NotificationsSut` augmentation produces TS2741 at line 211, and a required `World` augmentation produces TS2420 at line 107. Optional members produce no errors.
+
+But after D1, `open().w` is inferred as `NotificationFixtureWorld`, not `World`. I verified that augmenting `World` still yields TS2339 on `open().w.invented`; the class does not acquire interface members merely by implementing the interface. Convert the eight SUT/nested-return interfaces if D5 remains, but either justify `World` through the evidence-capture path or remove that part of D5.
+
+**SEVERITY: important — the checked producer boundary still trusts explicit escapes.**  
+Location: [_fixture.ts:211](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/_fixture.ts:211), [index.ts:43](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/index.ts:43).
+
+A normal missing required member is caught. `any`, `as`, `@ts-ignore`, `@ts-nocheck`, optional local annotations, runtime mutation, and an adapter supplied through `AT_REPO_ROOT` are not. The dynamic loader’s `Record<string, unknown>` boundary has no runtime type validation.
+
+Concrete fix: document these as trusted-author escapes; if they are in scope, add a policy/lint check rather than claiming D1 closes them.
+
+## Caller impact
+
+**SEVERITY: minor — the known synthetic callers must change, and one capture caller is a design constraint.**  
+Location: [runner-blackbox.selftest.ts:63](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/runner-blackbox.selftest.ts:63), [runner-expect.selftest.ts:54](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/runner-expect.selftest.ts:54), [d-taxonomy-evidence.test.ts:32](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/suites/req-016/d-taxonomy-evidence.test.ts:32).
+
+The two synthetic preambles need the required binding id, as the design notes. The existing `defineEvidenceCapture<TaxonomyEvidence, NotificationsSut, World>` remains assignable to a concrete `NotificationFixtureWorld` context under strict checking, so D1 alone does not break it. It must change if capture creation becomes suite-bound, which it should to close the generic injection route.
+
+The existing three-argument harness-invention probe remains correctly rejected. [conformance.selftest.ts:273](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/harness/conformance.selftest.ts:273) retains explicit `as World` / `as NotificationsSut` casts: not broken, but outside D1’s guarantee. [README.md:48](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at/README.md:48) also needs updating because it still describes suite-supplied types and channels.
+
+The `typeof import()` mechanism itself is sound. Using the pinned TypeScript 5.9.3 and the real AT config, I verified zero diagnostics; `SutOf<'req-016','notifications'>` is exactly `NotificationsSut`, and `WorldOf<'req-016'>` is the private `NotificationFixtureWorld`. Its private members do not prevent this type query or public-member access.
+
+Verdict: implement this design only with the named changes, not as written. Producer-derived types and the concrete-harness boundary are sound, and the mandatory runtime binding check catches a real gap the bijection checker misses. But the current proof is unsound, the declared exhaustive alias defense is incomplete, and the public generic/function surfaces still permit the same category of type invention.

@@ -1,0 +1,128 @@
+AI4DEV-31 — evidence that `bun run lint` failure is pre-existing and tree-wide, not caused by this item
+
+WHAT THIS SHOWS: `bun run lint` was already failing across the whole tree (config files and files
+under src/, none of which this item touched) before and independent of this item's changes, and
+this branch introduces zero diff against origin/main in eslint.config.js or src/, so the failure
+is inherited, not caused, by AI4DEV-31.
+
+This item touched ONLY files under tests/at/ and loop/items/.
+
+=====================================================================
+1. `bun run lint` — full run, exit code and summary
+=====================================================================
+
+Command:
+  bun run lint
+
+Exit code: 1
+
+Tail of output (last lines, including the summary):
+
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-ae7047f6712c0743a\tests\at\vitest.config.ts
+   1:4   error  Delete `␍`                                                                                                                 prettier/prettier
+   2:52  error  Delete `␍`                                                                                                                 prettier/prettier
+   ... (truncated — full run listed errors across many config and src files)
+  21:4   error  Delete `␍`                                                                                                                 prettier/prettier
+
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-ae7047f6712c0743a\vite.config.ts
+   1:95   error  Delete `␍`  prettier/prettier
+   2:49   error  Delete `␍`  prettier/prettier
+   ...
+  15:4    error  Delete `␍`  prettier/prettier
+
+✖ 14046 problems (14040 errors, 6 warnings)
+  14039 errors and 0 warnings potentially fixable with the `--fix` option.
+
+error: script "lint" exited with code 1
+
+(~14,040 errors total — matches the "about 14,038" figure reported before this evidence was
+gathered; exact count fluctuates run to run by a handful of lines but is consistently in this
+range.)
+
+=====================================================================
+2. Proof it fails on files this item never touched
+=====================================================================
+
+Command:
+  bunx eslint eslint.config.js
+
+Exit code: 1
+
+Output (full):
+
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-ae7047f6712c0743a\eslint.config.js
+   1:29   error  Delete `␍`  prettier/prettier
+   2:71   error  Delete `␍`  prettier/prettier
+   3:31   error  Delete `␍`  prettier/prettier
+   ... (40 `␍`/prettier errors total, one per line of the file)
+  40:3    error  Delete `␍`  prettier/prettier
+
+✖ 40 problems (40 errors, 0 warnings)
+  40 errors and 0 warnings potentially fixable with the `--fix` option.
+
+---
+
+Command:
+  bunx eslint src/
+
+Exit code: 1
+
+Tail of output:
+
+  11:6   error  Delete `␍`  prettier/prettier
+  12:26  error  Delete `␍`  prettier/prettier
+  13:45  error  Delete `␍`  prettier/prettier
+  ...
+  23:5   error  Delete `␍`  prettier/prettier
+
+✖ 4766 problems (4760 errors, 6 warnings)
+  4760 errors and 0 warnings potentially fixable with the `--fix` option.
+
+Both `eslint.config.js` and everything under `src/` are outside this item's change set (this item
+touched only tests/at/ and loop/items/), and both fail lint on their own, independent of any suite
+file.
+
+=====================================================================
+3. Proof it fails on origin/main too, without switching this worktree's branch
+=====================================================================
+
+Command:
+  git stash list
+
+Output: (empty — nothing stashed, so no stashed changes could be inflating the error count)
+
+---
+
+Command:
+  git worktree list
+
+Output:
+C:/Users/nirdr/Downloads/ai4good                                            0947d7b [main]
+C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a  b316849 [nirdrang/ai4dev-31-the-sut-seam-is-an-unverified-claim-openworld-hands-back] locked
+C:/Users/nirdr/Downloads/ai4good-design                                     6a5212e [design-track]
+
+(This worktree is on the AI4DEV-31 branch at b316849; the main worktree is on `main` at 0947d7b,
+which is the same commit as origin/main below — no branch switch performed in this worktree.)
+
+---
+
+Command:
+  git diff --stat origin/main...HEAD -- eslint.config.js src/
+
+Output: (empty)
+
+---
+
+Command:
+  git rev-parse HEAD
+  git rev-parse origin/main
+
+Output:
+  HEAD:        b31684986c6858a047055531eac80ee23c1bf704
+  origin/main: 0947d7b8bc144ab3992f73ca0465323d25b8bf2b
+
+The empty `git diff --stat` against origin/main for `eslint.config.js` and `src/` means this
+branch has made zero changes to either, relative to origin/main. Combined with section 2 (both of
+those paths fail lint right now, on this branch), the failure necessarily also exists on
+origin/main — the errors on those paths did not arrive with this item's changes because this
+item's changes never touched them.

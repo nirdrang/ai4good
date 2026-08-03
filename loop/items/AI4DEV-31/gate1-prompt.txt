@@ -1,0 +1,82 @@
+ADVERSARIAL DESIGN REVIEW — Gate 1. Your job is to REFUTE this design, not to praise it.
+
+You are in the worktree. Read the real source, not just the design document. Follow calls into
+files the design does not mention if that is where the answer is.
+
+READ FIRST:
+  loop/items/AI4DEV-31/design.md        <- the design under review
+  tests/at/harness/registry.ts          <- the defect (line ~544) and bindSuite/atTest
+  tests/at/harness/contracts.ts         <- the shared contract; read its doctrine comments
+  tests/at/harness/index.ts             <- createHarness and loadAdapter (the type-erasing boundary)
+  tests/at/suites/req-016/_bind.ts      <- the suite's declaration
+  tests/at/suites/req-016/_fixture.ts   <- the adapter (the producer)
+  tests/at/suites/req-016/_contract.ts  <- the suite's own types
+  tests/at/typeprobes/harness-invention.probe.ts   <- the established negative-test pattern
+  tests/at/harness/type-invention.selftest.ts      <- the selftest that guards it
+  tests/at/harness/runner-blackbox.selftest.ts     <- generates synthetic suites at runtime
+  tests/at/harness/runner-expect.selftest.ts       <- same
+  tests/at/tsconfig.json, tests/at/typeprobes/tsconfig.json
+
+CONTEXT YOU MUST RESPECT (these are settled; do not re-litigate them):
+  - Scope is the SUT seam and its W companion at the cast in registry.ts. No H3/H4/H5 capability
+    work. No harness-factory redesign.
+  - AI4DEV-24 already shut two doors and they MUST STAY SHUT: (a) a free harness type parameter,
+    (b) re-labelling the harness with the suite's own type arguments. `OpenWorld.h` is concrete
+    `AtHarness` and must remain so. A proposal that reopens either is wrong by construction.
+  - The proof must be a negative TYPE test demonstrated red-then-green, following the existing
+    typeprobes + selftest pattern.
+  - `bun run at:verify req-016 --tier loop --expect` must still match its declaration exactly
+    (baseline measured: exit 0, 12 P0, 8 green / 4 red / 0 missing).
+
+THE QUESTIONS I MOST WANT ATTACKED. Be concrete; quote file and line.
+
+1. FEASIBILITY. Decision D1 uses `typeof import('../suites/req-016/_fixture.ts')` in a type
+   position, with `moduleResolution: Bundler`, `allowImportingTsExtensions`, `noEmit`,
+   `strict`, `skipLibCheck: false`. Does that actually resolve and give the types the design
+   claims? Specifically: does
+   `Awaited<ReturnType<M['createFixtureAdapter']>>['sut']['notifications']` really resolve to
+   `NotificationsSut`, and does `Awaited<ReturnType<...['fixtures']['world']>>` really resolve to
+   the concrete world class? `createFixtureAdapter` returns a non-annotated object literal and
+   `NotificationFixtureWorld` is NOT exported and has PRIVATE members — say whether either breaks
+   this, and what the failure mode would be. If it does not work, name the concrete alternative.
+
+2. DOES IT ACTUALLY CLOSE THE HOLE, or does it move it? After D1, what can a suite author still
+   write that type-checks green against a shape the harness does not supply? I want the residual
+   enumerated, not reassured about. Consider at minimum: the adapter annotating its own `sut` with
+   a type it does not satisfy; `any`/`as` inside the adapter; a suite reaching `atTest` directly
+   rather than through `bindSuite`; and the `Record<string, unknown>` in `index.ts:12-16`.
+
+3. THE ATTACK LIST (design §3, attacks 5-11). Is it EXHAUSTIVE for this seam, or a sample? The
+   AI4DEV-24 selftest was caught by both reviewers for asserting three things while claiming to
+   assert all. Name every attack the list is missing. Also: will each listed attack really produce
+   the diagnostic the design predicts?
+
+4. THE RED-THEN-GREEN METHOD (design §3). Compiling one probe file in isolation with the pinned
+   compiler — is that sound, or can it produce a misleading exit 0 for a reason other than the
+   hole being open (missing lib, unresolved import, config not inherited)? A demonstration method
+   that can pass for the wrong reason is worse than none. Propose the sound method if this is not it.
+
+5. DECISION D4, the runtime requirement cross-check. Is it worth its cost, given that the runtime
+   requirement is already derived from the AT id and the bijection checker already scans per
+   directory? Is there a case it actually catches that nothing else does — or is it ceremony? I
+   rejected making it optional; attack that too.
+
+6. DECISION D5, converting the suite's own `_contract.ts` interfaces to type aliases. Is this in
+   scope, and is it necessary, or is the design over-reaching? Note my claim that after D1 a
+   REQUIRED invented member already breaks the producer with TS2741 and only the OPTIONAL case
+   survives. Check that claim — is it true?
+
+7. WHAT WILL BREAK that the design has not noticed. I found the synthetic suites in the two runner
+   selftests by reading. What else? Check every caller of `bindSuite`, `atTest`, `OpenWorld`,
+   `AtContext`, `EvidenceCapture`, `defineEvidenceCapture` and `AtTestBody` — `EvidenceCapture` and
+   `defineEvidenceCapture` are also generic over `<T, Sut, W>` and the design does not mention them
+   at all. Is that an omission that breaks the design?
+
+8. IS THERE A SIMPLER DESIGN that closes the same hole with less machinery? The per-suite registry
+   line is a real ergonomic commitment across thirty future suites. If a smaller fix gets the same
+   guarantee, say what it is and why it is better.
+
+OUTPUT FORMAT. For each finding: SEVERITY (blocker / important / minor), the file and line, what
+is wrong, and the concrete fix. Put blockers first. If the design is sound on a point, say so in
+one line and move on — I need your attention on what is broken. End with a one-paragraph verdict:
+should this design be implemented as written, implemented with named changes, or replaced?

@@ -1,0 +1,16 @@
+﻿bun : $ bunx vitest run --root tests/at --config vitest.config.ts harness/
+At line:1 char:383
++ ... 712c0743a"; bun run at:selftest > loop/items/AI4DEV-31/baseline-selft ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx vitest r...fig.ts harness/:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-ae7047f6712c0743a/tests/at
+
+
+ Test Files  7 passed (7)
+      Tests  114 passed (114)
+   Start at  09:45:16
+   Duration  6.10s (transform 442ms, setup 0ms, import 1.90s, tests 10.39s, environment 1ms)
+

@@ -1,0 +1,71 @@
+PRE-MERGE AUDIT — AI4DEV-31 ("the harness does not check what it tests").
+
+You are the INDEPENDENT AUDITOR. You are not reviewing the code's design — two adversarial gates
+already did that and their findings are folded. You are checking whether the CLAIM that this is
+ready to merge is TRUE. The agent making that claim is the one being checked, and its own transcript
+is contaminated by having written the code, so RE-RUN things rather than reading reports about them.
+
+You are in the worktree, on the item's branch, with workspace-write. RUN the commands.
+
+=== WHAT IS CLAIMED ===
+
+Read these, then verify them:
+  loop/items/AI4DEV-31/verify-final.txt      <- the claimed verification results
+  loop/items/AI4DEV-31/proof-red.txt         <- the hole, executed, BEFORE the fix
+  loop/items/AI4DEV-31/proof-green.txt       <- the same probe failing AFTER the fix
+  loop/items/AI4DEV-31/gate2-terra.md, gate2-kimi.md   <- the two Gate 2 critiques
+  loop/items/AI4DEV-31/design.md, gate1-rulings.md     <- the design and earlier rulings
+
+The claims, each of which you should independently confirm or refute:
+
+  C1. `bun run typecheck` exits 0.
+  C2. `bun run at:verify req-016 --tier loop --expect` exits 0 with "12 P0: 8 green, 4 red, 0
+      missing", matching tests/at/expected/req-016.json exactly — i.e. UNCHANGED from before this
+      item. The four reds are pending capabilities, not damage.
+  C3. `bun run at:selftest` exits 0 (143 tests claimed; it was 114 before this item).
+  C4. `bun run at:check req-016` exits 0, 12 P0 ids in bijection.
+  C5. RED-THEN-GREEN IS REAL. The legacy probe (tests/at/typeprobes/sut-seam-legacy.probe.ts) with
+      its committed child config compiled CLEAN (exit 0) before the fix and FAILS (non-zero) now.
+      This is the item's central evidence — check it hardest.
+  C6. Every Gate 2 blocker was either fixed or is honestly documented as open. In particular the
+      structural-widening attack is DELIBERATELY not fixed (founder-confirmed) — so verify that no
+      comment, README, probe or document claims it IS fixed.
+  C7. `git status --porcelain` is clean and the branch contains only this item's work.
+
+=== HOW TO AUDIT C5, WHICH MATTERS MOST ===
+
+Do not take proof-red.txt on trust. Reconstruct it: the pre-fix commit is c592c72 and the probe was
+added at da4a015. Use a scratch git worktree or `git stash`-free read-only techniques to compile the
+probe against the PRE-FIX source and confirm exit 0, then against HEAD and confirm non-zero. Remove
+any scratch worktree afterwards.
+
+Guard against the two ways an exit code can lie, and SAY whether each control is real:
+  - a tsconfig matching no files also exits 0 (check `--listFiles` shows the probe in the program)
+  - a command that cannot run at all also produces nothing useful (check a deliberate error IS
+    reported)
+
+=== ALSO CHECK, BECAUSE THESE ARE THE ITEM'S OWN FAILURE MODES ===
+
+  A. Does any test PASS FOR THE WRONG REASON? Pick at least three of the new guards, break the
+     protection they claim to guard, and confirm the failing test NAMES that protection. Restore
+     each. Report exactly what you broke and what failed.
+  B. Is the alias-protected list actually EXHAUSTIVE over what a test body can reach, or a sample
+     claiming to be exhaustive? That failure has now occurred twice in this seam's history.
+  C. Are there checks in the code that NO test exercises? (One such was already found and fixed —
+     `loadAdapter`'s requirement validation. Look for others: delete a check, see if anything goes
+     red.)
+  D. Do the comments match the code? This codebase treats comments as documentation. Report any
+     comment that claims more than the code delivers, and any that is now stale.
+
+=== KNOWN SANDBOX BOUNDARY — do not mis-report it ===
+
+In a worktree nested inside the main checkout, the workspace-scoped sandbox can deny vitest's
+ancestor-directory config walk ("Cannot read directory ..."). If you hit that signature, report it
+as COULD-NOT-VERIFY-IN-SANDBOX and say so plainly — it is NOT a red of the code under audit. Do not
+infer a pass from a command you could not run; say which ones you actually executed.
+
+=== OUTPUT ===
+
+For EACH claim C1-C7 and each check A-D: VERIFIED / REFUTED / COULD-NOT-VERIFY, the command you ran,
+and the actual output. Then a merge recommendation with reasons. You RULE ON NOTHING — the item
+agent holds the decision — but say plainly whether the evidence supports merging.

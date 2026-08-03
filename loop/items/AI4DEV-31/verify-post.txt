@@ -1,0 +1,95 @@
+AI4DEV-31 — POST-CHANGE VERIFICATION
+====================================
+
+  commit    1a9daf7cf224429a9ac74cda4d8d7594bf652be9
+  branch    nirdrang/ai4dev-31-the-sut-seam-is-an-unverified-claim-openworld-hands-back
+  captured  2026-08-03 local
+
+Baseline to beat (measured on this worktree at 761aaa9 / c592c72, recorded in the brief):
+  bun run typecheck                               exit 0
+  bun run at:verify req-016 --tier loop --expect  exit 0, 12 P0: 8 green, 4 red, 0 missing
+  bun run at:selftest                             exit 0, 7 files, 114 tests passed
+
+
+1. bun run typecheck  ->  EXIT 0   (unchanged)
+----------------------------------------------
+$ bun tests/at/typecheck.ts
+=== typecheck: app (tsconfig.json) ===
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+typecheck OK: both configs clean
+TYPECHECK-EXIT=0
+
+
+2. bun run at:verify req-016 --tier loop --expect  ->  EXIT 0   (identical 8/4/0)
+---------------------------------------------------------------------------------
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan, H3 sentinels, H5 email provider simulator
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    red      CapabilityPending: CAPABILITY PENDING — H3 fault injection and process restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    red      CapabilityPending: CAPABILITY PENDING — H3 fault injection and process restart
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    red      CapabilityPending: CAPABILITY PENDING — H5 email provider simulator
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 8 green, 4 red, 0 missing
+  EXPECTED: the run matches tests/at/expected/req-016.json exactly (8 declared green, 4 declared red)
+VERIFY-EXIT=0
+
+Same four reds as the baseline, on the same four pending capabilities. Nothing turned green that was
+red, and nothing turned red that was green.
+
+
+3. bun run at:selftest  ->  EXIT 0, 7 files, 140 tests passed   (was 114)
+--------------------------------------------------------------------------
+ Test Files  7 passed (7)
+      Tests  140 passed (140)
+SELFTEST-EXIT=0
+
++26 tests, all of them this item's own guards, all in existing files (no eighth file):
+  +25 in type-invention.selftest.ts — 2 empty-program controls, 2 whole-file compile assertions,
+      13 named seam attacks, 8 alias-merge attacks over the converted contracts
+  +1  in conformance.selftest.ts   — the AT id / binding cross-check, its two failure messages,
+      its happy path including a dotted requirement id, and proof it is wired into atTest
+
+No pre-existing test was modified. In particular not one assertion in runner-blackbox.selftest.ts or
+runner-expect.selftest.ts changed: their generated suites now pass a requirement, and that is all.
+
+
+4. bun run at:check req-016  ->  EXIT 0   (unchanged)
+------------------------------------------------------
+$ bun tests/at/harness/check.ts "req-016"
+at:check req-016 — 12 P0 in the acceptance file, 12 registered in the suite
+RESULT: 12 P0 ids in bijection
+CHECK-EXIT=0
+
+Expected to be untouched: no AT id and no `atTest(` call site moved.
+
+
+5. bun run lint  ->  EXIT 1, AND IT WAS ALREADY FAILING. NOT FIXED, ON PURPOSE.
+-------------------------------------------------------------------------------
+14,045 findings, of which 14,038 are `prettier/prettier`. The failure is tree-wide and predates
+this branch:
+
+  - it flags `eslint.config.js` ITSELF, `vite.config.ts`, and all 50-odd files under `src/`
+  - it flags files this branch never touched, e.g. `tests/at/harness/clock.ts`:
+        clock.ts 1:31  error  Delete `␍`                     prettier/prettier
+        clock.ts 2:34  error  Replace `'2026-01-01T…'` with `"2026-01-01T…"`   prettier/prettier
+  - the two causes are (a) CRLF in the working tree on Windows against a prettier config expecting
+    LF, and (b) prettier wanting double quotes where this entire codebase — including everything
+    AI4DEV-24 wrote — uses single quotes
+
+The files this item ADDED show only cause (b), the same single-versus-double-quote disagreement the
+rest of the tree shows, which is to say they match house style and prettier disagrees with house
+style everywhere. `suite-adapters.ts` reports 5 findings, all of them quote style.
+
+Per the brief: reported, not fixed. Reformatting the repository to satisfy prettier would be a
+14,000-line diff with no relation to this item.
+
+
+DIFF SIZE
+---------
+16 files, +1188 / -151 under tests/, plus the item's own transcripts under loop/items/AI4DEV-31/.

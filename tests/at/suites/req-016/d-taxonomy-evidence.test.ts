@@ -1,6 +1,5 @@
 import { describe, expect } from 'vitest';
-import { defineEvidenceCapture } from '../../harness/registry.ts';
-import { atTest } from './_bind.ts';
+import { atTest, defineEvidenceCapture } from './_bind.ts';
 import type { Delivery, DocumentedDefault, NotificationEvent, NotificationsSut, OpsItem, World } from './_contract.ts';
 import { countPairs, expectedPairs, pairProblems } from './_oracles.ts';
 import {
@@ -29,7 +28,11 @@ interface TaxonomyEvidence {
 
 let evidenceBuilds = 0;
 
-const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence, NotificationsSut, World>(
+// The BOUND helper from `_bind.ts`, not the raw generic. The raw one took the system-under-test and
+// world types as arguments, so a capture could declare a seam nothing supplies and read it green —
+// the same defect `bindSuite` used to have, one import along. Only `TaxonomyEvidence` is named here,
+// and that is this file's own captured shape, not a claim about the harness.
+const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence>(
   'REQ-016 taxonomy execution',
   async ({ open }) => {
     evidenceBuilds += 1;
