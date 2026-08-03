@@ -344,9 +344,16 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
       // the process that performed it, which is what makes `processRestart()` causal rather than
       // decorative: before this, nothing on this path consulted `processEpoch` at all, so deleting
       // the restart from AT-016.07 changed no outcome and the green was bought with nothing.
+      //
+      // THE FIRST SEND OWNS THE STAMP. Re-stamping on every drain would record the identity of the
+      // LAST drain instead of the process that actually performed the send, so a delivery completed
+      // before a restart would silently acquire the post-restart identity — and `_contract.ts`
+      // claims the opposite about this field, that a send after a restart carries a different
+      // string than one before it. `null` is exactly "no process has sent this yet", which is why
+      // it, and not the delivery's state, is what the guard reads.
       for (const delivery of state.deliveries) {
+        if (delivery.deliveredByProcess === null) delivery.deliveredByProcess = processEpoch;
         delivery.state = 'sent';
-        delivery.deliveredByProcess = processEpoch;
       }
       for (const event of state.events) {
         if (event.state === 'pending' || event.state === 'retrying') {

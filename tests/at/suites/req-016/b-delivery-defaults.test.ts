@@ -63,6 +63,15 @@ describe('AT-REQ-016 B — delivery defaults', () => {
       const deliveries = (await sut.deliveries({ type: 'payment.succeeded' })).filter((d) => d.eventId === eventId);
       const perPair = countPairs(deliveries);
 
+      // THIS ASSERTION CANNOT FAIL AT LOOP TIER, and saying so here is the point. In the reference
+      // stand-in, `emitKnown` writes exactly one delivery per recipient-channel pair by
+      // construction and `drainDeliveries` mutates those rows in place — no code path anywhere
+      // appends a second delivery for a pair, so no restart and no drain can make this list
+      // non-empty. Its worth is as a regression guard for the tier where a REAL delivery process
+      // exists: one with volatile in-flight state, an outbox it can re-read after a restart, and
+      // therefore a way to send the same pair twice. That process is filed, not built (see
+      // `loop/items/AI4DEV-19/proof-restart.txt`, "what this does not prove"), and until it exists
+      // a green here is a green about the fixture's shape, not about duplicate suppression.
       const duplicated = [...perPair.entries()].filter(([, n]) => n !== 1);
       expect(duplicated, 'a recipient-channel pair received more than one delivery').toEqual([]);
 

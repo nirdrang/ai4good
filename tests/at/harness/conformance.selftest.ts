@@ -481,6 +481,40 @@ describe('the H3 wall: sentinels and fault injection call the guards, and refuse
     }
   });
 
+  it('consumes no event id when the crash rolls the emit back, so the surviving event is still event-1', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('fault-id-rollback')) as World;
+      const sut = h.sut.notifications as NotificationsSut;
+
+      const armed = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(world.fire('payment.succeeded'), 'the induced crash did not surface at all').rejects.toThrow(
+        /induced fault/,
+      );
+      await armed.clear();
+
+      // THE ID ALLOCATION IS A SIDE EFFECT LIKE ANY OTHER, and it is the one the rollback used to
+      // miss. Allocated before the fault point, the crashed emit spent `event-1` on an event that
+      // was never written, the next firing came back `event-2` with no `event-1` anywhere, and the
+      // rollback's own comment called itself one unit while a third thing survived the crash.
+      //
+      // This case exists because NOTHING ELSE IN THE TREE READS ID CONTIGUITY: move the allocation
+      // back above the try/catch and every suite stays green, so a repair nobody can notice being
+      // undone is on the same footing as the defect it repaired.
+      const { eventId } = await world.fire('payment.succeeded');
+      expect(
+        eventId,
+        'the crashed emit consumed an event id — the rollback left the counter advanced, so the ids no longer match the events that exist',
+      ).toBe('event-1');
+      expect(
+        (await sut.events({ type: 'payment.succeeded' })).map((event) => event.id),
+        'the one event that survived does not carry the id its own fire() reported',
+      ).toEqual(['event-1']);
+    } finally {
+      await h.teardown();
+    }
+  });
+
   it('changes the delivery process identity on restart, and refuses a restart that changed nothing', async () => {
     const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
     try {
@@ -510,6 +544,44 @@ describe('the H3 wall: sentinels and fault injection call the guards, and refuse
       restartsNothing.processRestart(),
       'a restart that left the process identity exactly as it was returned successfully',
     ).rejects.toThrow(/restarted nothing/);
+  });
+
+  it('lets the process that first sent a delivery keep it, so a send before a restart is told apart from one after', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('epoch-stamp')) as World;
+      const sut = h.sut.notifications as NotificationsSut;
+
+      const before = await h.faults.processEpoch();
+      await world.fire('payment.succeeded');
+      await sut.drainDeliveries();
+
+      await h.faults.processRestart();
+      const after = await h.faults.processEpoch();
+      await world.fire('payment.failed');
+      await sut.drainDeliveries();
+
+      // WHAT `_contract.ts` PROMISES ABOUT `deliveredByProcess`: a send that happened after a
+      // restart carries a different string than one that happened before it. That is only true if
+      // the FIRST send owns the stamp — a drain that re-stamps every row it sweeps records the
+      // identity of the last drain instead, and the earlier send is retroactively attributed to a
+      // process that did not perform it. Nothing else in the tree can tell those two apart:
+      // AT-016.07 drains once, after its restart, so it reads the same value either way.
+      const sentBefore = (await sut.deliveries({ type: 'payment.succeeded' })).map((d) => d.deliveredByProcess);
+      const sentAfter = (await sut.deliveries({ type: 'payment.failed' })).map((d) => d.deliveredByProcess);
+      expect(sentBefore.length, 'the pre-restart send produced no delivery to attribute').toBeGreaterThan(0);
+      expect(sentAfter.length, 'the post-restart send produced no delivery to attribute').toBeGreaterThan(0);
+      expect(
+        [...new Set(sentBefore)],
+        'a delivery sent BEFORE the restart was re-stamped by the later drain — the field reports the last drain, not the process that sent it',
+      ).toEqual([before]);
+      expect(
+        [...new Set(sentAfter)],
+        'the post-restart send does not carry the identity the process had when it performed it',
+      ).toEqual([after]);
+    } finally {
+      await h.teardown();
+    }
   });
 
   it('degrades an adapter that exposes neither seam to a loud refusal, never to a no-op', async () => {
