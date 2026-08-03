@@ -211,6 +211,25 @@ That file also carries the standing role — no code, derive your own chain, pus
 boundary, how to ask a question — so a brief carries only what is specific to its item. A
 shorter brief is a brief with fewer places to be wrong.
 
+### Print the item's stamp to the founder when it starts (founder ruling 2026-08-03)
+
+Every time an item is started, the coordinator derives that agent's stamp and prints it in the
+conversation. Not a paraphrase — run the hook against the agent's worktree and paste what it
+says:
+
+```
+$env:CLAUDE_PROJECT_DIR = <the agent's worktree>; powershell -NoProfile -File loop/work/stamp-hook.ps1
+```
+
+Subagent threads get no stamp hook, so an item agent's attribution is invisible unless somebody
+renders it. Without this the founder has no way to see what a spawned agent believes it is
+working on until its first report, which can be an hour later.
+
+**Print it as emitted, including when it is not yet resolved.** A stamp reading
+`CHAIN UNRESOLVED` while an agent is still walking the board is the honest state and worth
+seeing — it is the difference between an agent that does not know its root yet and one that has
+invented one.
+
 ### A brief states what to RESOLVE, never a resolved value
 
 The coordinator must not put a derived fact into a brief. Not the chain, not the parent, not a
