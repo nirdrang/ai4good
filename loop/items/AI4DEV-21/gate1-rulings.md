@@ -1,5 +1,21 @@
 # AI4DEV-21 (fake Stripe, GitHub, Anthropic) — Gate 1 rulings
 
+> **Confirmation outcome (same sol session, resumed with pins verified — model
+> `gpt-5.6-sol`, effort `high`, sandbox `read-only`; rollout carries both turn_context
+> events):** findings 2–6 CONFIRMED-RESOLVED; finding 1 NOT-RESOLVED on two points, both
+> with prescribed fixes, both folded into the plan in the commit that carries this note:
+> (a) the deferred set is ALL FIVE named vendors, not four — the email sim is a sixth
+> capability claimed by the item's note, and my amended text had miscounted; the plan now
+> maps five backlog items, one per vendor, as the durable owners under Option A;
+> (b) Option B now carries a mandatory re-gate clause — if ruled, the plan is amended with
+> the five contract designs and passes a fresh Gate 1 review before that implementation
+> begins.
+> **Ruling on proceeding:** sol judged the substantive posture of D1 sound ("D1's merge
+> block is sound"); the residual was a count correction and a conditional clause, closed
+> verbatim as the reviewer prescribed. I rule the gate satisfied for the email-sim
+> implementation to begin; the merge remains blocked on the founder's Option A/B answer.
+> A third sol round is not spent on transcription of the reviewer's own words.
+
 **Reviewer:** codex `gpt-5.6-sol` @ `max`, read-only, in this worktree (session
 `019fcd79-2db3-7022-85ad-6727a045d1a7`; pins verified in the rollout's `turn_context`).
 **Verdict received:** REFUTED — 2 blockers, 4 majors. **All six findings are ACCEPTED**, with

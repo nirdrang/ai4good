@@ -58,13 +58,26 @@ amendment to founder-authored item text and to the parent spec (Part A.8 assigns
 stand-ins to this slice), and no decomposition manifest today assigns the four sims anywhere
 else — so "each future suite carries its sim" was a prediction, not a tracked fact, and a
 Linear comment + PR body is not closure-coupled. **The question goes to the founder** with a
-recommendation (Option A: amend the parent spec to build the four just-in-time with their
-first consuming suite, PLUS four backlog items under AI4DEV-3 (AT harness) so the parent
-cannot fold while they are missing; Option B: build all five in this item now). Interim
-posture: the email sim is in scope under BOTH options and its implementation proceeds; the
-MERGE waits for the founder's answer, and if Option A is ruled, the spec amendment and the
-four backlog items are created before the merge. The stale line in `contracts.ts`'s header
-comment ("implementations arrive per slice (… H5 vendor sims)") is updated per the ruling.
+recommendation. **Count, corrected at sol's confirmation pass: ALL FIVE named vendors are
+deferred** — Anthropic usage/cost, Stripe, GitHub, Lovable, Linear. The email/notification
+provider sim this item builds is a sixth capability, claimed for this slice by the item's
+own note; it is not one of the five.
+
+- **Option A (recommended):** amend the parent spec to build the five just-in-time with
+  their first consuming suite, PLUS **five backlog items under AI4DEV-3 (AT harness), one
+  per vendor** — Anthropic usage/cost report sim; Stripe checkout/webhook/dispute sim;
+  GitHub repo/merge-event sim; Lovable credit-status sim; Linear task-tree sim — so each
+  deferred capability has a durable owner and the parent cannot fold while any is missing.
+- **Option B:** build all five in this item. **If Option B is ruled, this plan must first be
+  amended with the five contract designs and pass a fresh Gate 1 review before any of that
+  implementation begins** — the current Gate 1 verdict covers only the email sim; the five
+  contracts are undesigned and unreviewed.
+
+Interim posture: the email sim is in scope under BOTH options and its implementation
+proceeds; the MERGE waits for the founder's answer, and if Option A is ruled, the spec
+amendment and the five backlog items are created before the merge. The stale line in
+`contracts.ts`'s header comment ("implementations arrive per slice (… H5 vendor sims)") is
+updated per the ruling.
 
 **Verification condition attached to this ruling** (a ruling that removes work must carry
 one): before implementing, the executor sweeps `tests/at/` and `loop/decomp/` for any OTHER
