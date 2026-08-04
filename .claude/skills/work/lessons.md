@@ -175,6 +175,20 @@ A one-line rule change once became its own board item, worktree, branch and PR i
 flat, bypassing every gate — while the session was mid-design of the process it bypassed.
 Ride-along exists so mechanics can never take that path again.
 
+## Confirmation was dropped (founder 2026-08-05)
+
+The confirmation step — each Gate 2 reviewer re-engaged in its resumed session to approve the
+fixes to its own findings — was deleted outright: *"I don't want confirmation drop it out now
+and from the skill."* Why it lost its place: it re-checked material already covered three
+independent ways (the verify suite proves the fixes run, luna re-executes before merge, the
+required CI check gates the pinned head), and its wake choreography was the process's most
+fragile part — on the first item it ran, both confirmation launches died silently with their
+parent and stalled the item for hours while everyone watched files that would never appear.
+Disposition authority was already the item agent's; confirmation had become a fourth check
+that mostly manufactured waiting. The re-engagement mechanics (resumed session, pinned, header
+verified, session-store recovery, Kimi's directory rule) survive in the core for the rare
+cases a reviewer is genuinely re-engaged — they are recovery tools now, not a phase.
+
 ## Token discipline — where the budget actually went (2026-08-04)
 
 Measured on the first two items: item-agent stretches ran 246K–330K tokens and every wake-up
