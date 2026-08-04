@@ -22,6 +22,41 @@
 the amendments below folded into `plan.md` in the same commit as this file. A confirmation
 pass by the same sol session follows on the amended plan.
 
+> **FOUNDER RULING RECEIVED (2026-08-04, relayed verbatim through the coordinator: "A
+> defer"):** Option A stands. The five title-named vendor stand-ins are deferred, each built
+> with the first test suite that consumes it. Durable tracking executed the same day: five
+> backlog items filed under AI4DEV-3 (AT harness) — AI4DEV-38 (Anthropic usage/cost sim),
+> AI4DEV-39 (Stripe sim), AI4DEV-40 (GitHub sim), AI4DEV-41 (Lovable credit sim), AI4DEV-42
+> (Linear tree sim) — and the parent working spec amended in this branch
+> (`loop/bringup/AI4DEV-3-at-harness.md`, Part A item 8 + the H5 breakdown line). Finding 1
+> is thereby closed on the reviewer's own condition: founder-approved scope amendment plus a
+> durable tracked owner per deferred vendor. The merge block on this front is lifted.
+
+## Post-implementation rulings (executor round, same authority)
+
+The opus executor's report contained six adaptations and three deferred judgment calls.
+Rulings:
+
+- **All six adaptations ACCEPTED** — the `Vendors`-map value under the unchanged
+  `'vendors.email'` capability name; `EmailProviderPort` living in `harness/vendors.ts`
+  beside its implementation (the `AdapterFaultSeam` precedent); the sim non-generic (the
+  harness is used at its default channel type everywhere); one implementation commit (the
+  declaration-with-seam drift rule made the suggested split incoherent); proofs re-captured
+  at the final code commit (the standing capture rule); the `deliveredByProcess` null-check
+  retained (documented behaviour a conformance case reads).
+- **`EmailProviderPort` stays OUT of the type-invention guard's protected list.** The list's
+  stated scope is types reachable from the harness object or from what `open()` hands a test
+  body; the port travels harness→adapter, exactly like `AdapterFaultSeam` and
+  `AdapterSentinelSeam`, which are also outside the list. Widening the list would change its
+  specification and require probe augmentations this item does not need. Gate 2 is
+  explicitly invited to attack this reasoning.
+- **Ride-along accepted (one line):** `tests/at/expected/README.md`'s schema example cited
+  AT-016.11's old red declaration, which THIS diff removed — the example now cites the real
+  remaining red (AT-016.01, `["H3 static provider scan"]`). The adjacent `pending`-kind
+  example and the stale measurement note in `expected.ts` (~line 484, "6 failed suites for 4
+  failed tests") were already counterfactual before this item — mentioned in the PR body,
+  deliberately not edited (surgical-changes rule).
+
 ## Finding 1 (BLOCKER) — the deferral of the five named vendors is a scope amendment the item agent cannot self-ratify
 
 **ACCEPTED, with one correction of framing.** Sol is right on the substance: the parent

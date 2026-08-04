@@ -49,10 +49,19 @@ every configured number** those tests read.
 7. **Semantic oracles.** Judge the MEANING of AI output where string-match cannot: rejection
    copy instructs-never-accuses (AT-009.07); Opus yields a valid scope over 5–10 turns
    (AT-004.10); the assistant's four framed answers (AT-033.07). A judge model or rubric.
-8. **Provider/vendor simulation at the seams.** Controllable stand-ins the tests drive:
-   Anthropic per-workspace usage/cost report (the whole money path — provider-truth
-   conformance, 20/5/0% stop, nightly reconciliation), Stripe (checkout/webhooks/disputes),
-   GitHub, Lovable credit status, Linear.
+8. **Provider/vendor simulation at the seams.** Controllable stand-ins the tests drive.
+   AMENDED (founder ruling, 2026-08-04, on AI4DEV-21's Gate 1 finding): the
+   email/notification provider stand-in ships with the H5 item (it has a consuming test,
+   AT-016.11); the five named vendor stand-ins — Anthropic per-workspace usage/cost report
+   (the whole money path — provider-truth conformance, 20/5/0% stop, nightly
+   reconciliation), Stripe (checkout/webhooks/disputes), GitHub, Lovable credit status,
+   Linear — are each built with the FIRST test suite that consumes them, never ahead of a
+   consumer, because a sim contract authored without its consuming test is a guess that gets
+   rewritten when the real suite arrives. Durable owners: board items AI4DEV-38 (Anthropic
+   usage/cost sim), AI4DEV-39 (Stripe sim), AI4DEV-40 (GitHub sim), AI4DEV-41 (Lovable
+   credit sim), AI4DEV-42 (Linear tree sim), all under this parent so it cannot fold while
+   any is missing. Their contracts land in `tests/at/harness/contracts.ts` with conformance
+   tests when built (rule 5 below).
 9. **AT↔code bijection checker.** The code-level sibling of `loop/decomp/check-tree.ps1`:
    every P0 id has a tagged executable test, no invented ids. Prevents silent skips.
 10. **Per-id reporting** consumable by the skills (green/red per AT id + summary).
@@ -171,7 +180,9 @@ atomicity/fault-injection, and provider-acceptance paths in one suite.
 - **H2 Fixture harness + controlled clock** — world build/teardown seam + time control.
 - **H3 Sentinels + fault injection** — plant/scan utilities + induced-fault hooks.
 - **H4 Semantic-oracle harness** — the judge/rubric surface.
-- **H5 Vendor sims** — Anthropic usage/cost, Stripe, GitHub, Lovable, Linear stand-ins.
+- **H5 Vendor sims** — the email/notification provider stand-in now; Anthropic usage/cost,
+  Stripe, GitHub, Lovable, Linear stand-ins deferred to their first consuming suites
+  (AI4DEV-38..42 — see Part A item 8's amendment, founder 2026-08-04).
 - **H6 at-config registry** — the pinned-value module every test reads.
 - **H7 Proving ground** — translate REQ-016's 12 P0 end-to-end at integration tier; green. Its
   in-app surface also exercises done-criterion 5 (one authored body, both surfaces).

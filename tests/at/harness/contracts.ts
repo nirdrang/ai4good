@@ -12,8 +12,9 @@
  * sentinels/faults, H4 oracles), and `pendingCapability()` in `index.ts` is what stands where one
  * has not landed — a seam that throws the capability's name, never a no-op. Of the vendor sims, the
  * EMAIL provider landed with AI4DEV-21 (`harness/vendors.ts`); the Anthropic usage/cost, Stripe,
- * GitHub, Lovable and Linear stand-ins are not built, and when they are built is a founder ruling
- * that is still open at the time of writing.
+ * GitHub, Lovable and Linear stand-ins are each built with the FIRST test suite that consumes them
+ * (founder ruling, 2026-08-04), tracked as board items AI4DEV-38 through AI4DEV-42 under the
+ * AT-harness parent — their contracts land in this file when they do.
  *
  * Requirement-SPECIFIC types stay in the suite: which system under test it drives, what its
  * fixture world can do. The generics below are the joints those bolt onto.

@@ -44,7 +44,7 @@ Then copy the cause out of the reported detail into the declaration. A red is de
 object carrying its **kind**, never as a free-text reason:
 
 ```json
-"AT-016.11": { "kind": "capability-pending", "capabilities": ["H5 email provider simulator"] }
+"AT-016.01": { "kind": "capability-pending", "capabilities": ["H3 static provider scan"] }
 ```
 
 ```json
