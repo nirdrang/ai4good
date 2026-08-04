@@ -141,7 +141,7 @@ coordinator (main checkout, never moves) - spawns, watches, merges. Nothing else
 | item agent | fable @ xhigh (fallback: `item-agent-opus` opus @ max) | judgment only, no code: plan, rulings, merge decision |
 | executor | opus | the code: implements the amended plan, triages first-hand, fixes |
 | mechanical | sonnet | housekeeping, publish, merge execution, courier, waiting-room checks |
-| Gate 1 | codex `gpt-5.6-sol` @ `max` | refutes the plan, intent included |
+| Gate 1 | codex `gpt-5.6-sol` @ `xhigh` (founder 2026-08-05) | refutes the plan, intent included |
 | Gate 2 | codex `gpt-5.6-terra` @ `max` + Kimi `kimi-code/k3` @ `high` | adversarial diff review |
 | auditor | codex `gpt-5.6-luna` @ `max`, `--sandbox workspace-write` | independent pre-merge re-run |
 
@@ -182,8 +182,18 @@ codex exec --sandbox workspace-write -C <worktree> -c model=gpt-5.6-luna \
 - **Park once per phase, wake once per phase.** A parked item agent's resume replays its whole
   transcript, so wake-ups are the expensive unit. Launch a phase's detached work as one batch,
   tell the coordinator in the parking message exactly which FILES complete the phase, and be
-  woken once when the set is complete — not per file. A detached process notifies nobody, ever:
-  whoever waits arms an explicit watch or names the coordinator as the watcher.
+  woken once when the set is complete — not per file. A detached process notifies nobody, ever.
+- **Your PRIMARY alarm is your own tracked child.** Before parking, start a tracked
+  background shell (an until-loop on the phase's files that then exits) — a tracked child's
+  completion re-invokes you directly, costing the coordinator nothing. The coordinator's
+  file-watch is the BACKSTOP, not the mechanism.
+- **Detached must mean SURVIVES-THE-LAUNCHER.** A reviewer launched as a child of your shell
+  dies with you (observed: two confirmation runs silently died with a session-limited agent
+  and stalled the item for hours). Launch OS-detached (`Start-Process`), then verify the
+  process is alive by its own artifact growing before you park.
+- **A watch expiring with nothing landed is a SIGNAL, not a shrug.** Investigate immediately —
+  silence looks identical to progress, and the one time it was shrugged off cost four idle
+  hours. Every watch names its expiry as the investigate-now trigger.
 - **Mechanics never run in premium context.** Liveness checks, file polling, header reads,
   publish/merge execution — sonnet children or the coordinator's shell, never the item agent's
   own turns.
@@ -234,7 +244,7 @@ single focused gate on the actually-code part — and say so in the report.
   model. A lost output may already exist in the vendor's session store — recover rather than
   re-derive, and verify whose it is. codex `resume` rejects `-C`; Kimi resumes only in the
   directory that created the session (exit 199 otherwise; placeholder-directory workaround).
-- Pins: Gate 1 `-c model=gpt-5.6-sol -c model_reasoning_effort=max` · Gate 2
+- Pins: Gate 1 `-c model=gpt-5.6-sol -c model_reasoning_effort=xhigh` (founder 2026-08-05) · Gate 2
   `-c model=gpt-5.6-terra -c model_reasoning_effort=max` · Kimi
   `kimi -m kimi-code/k3 -p "<short>" --output-format text` (effort from config).
 - Launch folklore: short prompt on the command line, material in a file; capture `-o` plus

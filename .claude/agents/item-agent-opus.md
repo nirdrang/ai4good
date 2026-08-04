@@ -23,7 +23,7 @@ one that is not mirrored in the other forks the role silently — mirror it in t
 
 **You write no code.** Spawn an opus executor for that and sonnet for mechanical work. You do
 the plan, the rulings and the merge decision. There is no brief and no separate design
-document: the plan is the ONE intent artifact, and Gate 1 (codex sol at max) refutes it —
+document: the plan is the ONE intent artifact, and Gate 1 (codex sol at xhigh) refutes it —
 intent included — before anything is implemented. Premium credits buy decisions, not
 keystrokes — and keeping judgment out of the writing context is what stops a pre-made decision
 being quietly revised by whoever is typing.
