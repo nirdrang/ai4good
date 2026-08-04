@@ -34,11 +34,23 @@ describe('AT-REQ-016 B — delivery defaults', () => {
         'delivery already completed before the restart — the restart is not mid-flight and proves nothing',
       ).toEqual([]);
 
-      // That the restart actually changed the delivery process's identity is the harness's
-      // obligation, checked once in harness/guards.ts (processEpochProblem), not per suite.
+      // THE THIRD PRECONDITION — that the restart happened at all. Two obligations here, and they
+      // have different owners. The HARNESS owns "an invoked restart must change the identity":
+      // `processEpochProblem` in harness/guards.ts, routed by harness/faults.ts from INSIDE
+      // `processRestart()`, so a restart that restarted nothing throws before this test reaches a
+      // single assertion below. The TEST owns "a restart was invoked here at all", because a guard
+      // that lives inside the call cannot fire for a call that was deleted — and deleting exactly
+      // this call is how the Gate 2 finding was proved in the first place. So the pin below is not
+      // a second opinion on the harness's judgement; it is this scenario refusing to hold still
+      // while its restart is taken away.
       const beforeRestart = await h.faults.processEpoch();
       await h.faults.processRestart();
       const afterRestart = await h.faults.processEpoch();
+      expect(
+        afterRestart,
+        'the delivery-process identity is unchanged across the restart — this scenario never ' +
+          'actually restarted, so every claim below would be about a process that never stopped',
+      ).not.toBe(beforeRestart);
 
       await sut.drainDeliveries();
 
