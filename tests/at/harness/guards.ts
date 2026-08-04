@@ -13,7 +13,8 @@
  * a symptom. H3 (sentinels + fault injection) MUST route its `sentinels.plant`, `faults.at`,
  * `FaultHandle.clear` and `faults.processRestart` implementations through the predicates below
  * rather than re-deriving them — that is what makes this file the single place the property can
- * be got wrong, and the single place a test can prove it right.
+ * be got wrong, and the single place a test can prove it right. H5's email provider simulator routes
+ * `rejectNext` and `acceptButLoseAck` the same way.
  *
  * Each predicate returns a plain-words problem, or null when the thing is acceptable. Returning
  * text rather than throwing lets a caller decide whether the problem is a refusal (H3 throwing at
@@ -125,6 +126,29 @@ export function processEpochProblem(before: string, after: string): string | nul
   if (!before.trim() || !after.trim()) return 'the delivery process reported an empty epoch, so a restart cannot be observed at all';
   if (before === after) {
     return `the delivery process identity is still ${JSON.stringify(after)} after a restart — processRestart() restarted nothing`;
+  }
+  return null;
+}
+
+/**
+ * Arming "the next N sends" with a count that queues nothing must be a REFUSAL, never a no-op.
+ *
+ * `rejectNext(0)` reads as if a rejection were waiting at the provider; the next send then takes the
+ * default acceptance, and the test draws its conclusion about the rejection path from a run in which
+ * the provider never rejected anything. That is the same catastrophe as arming a fault point the
+ * product does not expose, reached through a different door. A fractional count is refused for the
+ * same reason rather than rounded: `rejectNext(1.5)` has no honest meaning, and silently choosing
+ * one for it is how the count a test wrote stops being the count the provider armed.
+ */
+export function providerForceCountProblem(count: number): string | null {
+  if (!Number.isInteger(count)) {
+    return `a forced-outcome count must be a whole number of sends, got ${String(count)}`;
+  }
+  if (count < 1) {
+    return (
+      `a forced-outcome count of ${count} queues nothing — the next send would take the provider's ` +
+      `default while the test that armed it believes an outcome is waiting`
+    );
   }
   return null;
 }

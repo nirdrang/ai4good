@@ -8,9 +8,12 @@
  * package existed to declare it — and thirty suites each restating the seam would drift into
  * thirty subtly different seams, at which point "the harness contract" means nothing.
  *
- * These are types only. The implementations arrive per slice (H2 clock/fixtures here, H3
- * sentinels/faults, H4 oracles, H5 vendor sims), and `pendingCapability()` in `index.ts` is what
- * stands where one has not landed — a seam that throws the capability's name, never a no-op.
+ * These are types only. The implementations arrive per slice (H2 clock/fixtures, H3
+ * sentinels/faults, H4 oracles), and `pendingCapability()` in `index.ts` is what stands where one
+ * has not landed — a seam that throws the capability's name, never a no-op. Of the vendor sims, the
+ * EMAIL provider landed with AI4DEV-21 (`harness/vendors.ts`); the Anthropic usage/cost, Stripe,
+ * GitHub, Lovable and Linear stand-ins are not built, and when they are built is a founder ruling
+ * that is still open at the time of writing.
  *
  * Requirement-SPECIFIC types stay in the suite: which system under test it drives, what its
  * fixture world can do. The generics below are the joints those bolt onto.

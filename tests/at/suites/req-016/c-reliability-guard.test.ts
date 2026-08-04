@@ -197,8 +197,41 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
       // (c) the ambiguous outcome: provider ACCEPTED, acknowledgment lost before the durable mark
       h.vendors.email.acceptButLoseAck(1);
       const ambiguous = await w.fire('access.key_revoked');
+
+      // ONE PASS FIRST, and the unconfirmed state is OBSERVED rather than assumed. Under a
+      // run-to-quiescence drain the lost-ack attempt and its replay both happen inside the same
+      // call, so the assertions below this block cannot tell a sender that retried from one that
+      // received `no_ack` and wrongly marked the delivery sent on the spot: one logical row, both
+      // deliveries sent, exactly one accepted pair — true of both. That fixture is the defect this
+      // clause exists to catch, so the pass boundary is where it has to be caught.
+      await sut.drainDeliveries({ passes: 1 });
+      expect(
+        attemptsFor(ambiguous.eventId).map((a) => a.outcome),
+        'the provider was not asked to send exactly once — the lost-ack path was not exercised as one attempt',
+      ).toEqual(['ack_lost']);
+
+      const unacked = (await sut.deliveries({ type: 'access.key_revoked' })).filter(
+        (d) => d.eventId === ambiguous.eventId && d.channel === 'email',
+      );
+      expect(unacked.length, 'the lost-ack send left nothing observable at all').toBeGreaterThan(0);
+      expect(
+        unacked.every((d) => d.state !== 'sent'),
+        'a send whose acknowledgment was lost was marked sent — the sender cannot tell that outcome from silence, so it must not',
+      ).toBe(true);
+
+      let ambiguousEvent = (await sut.events({ type: 'access.key_revoked' })).find((e) => e.id === ambiguous.eventId);
+      expect(ambiguousEvent, 'the notification event vanished after a lost acknowledgment').toBeDefined();
+      expect(['pending', 'retrying'], 'an unacknowledged send was marked sent').toContain(ambiguousEvent!.state);
+
+      // THE RETRY PHYSICALLY HAPPENS, and the provider's trace is what says so — not the SUT's own
+      // counter, which is checked beside it precisely because the two can disagree.
       await sut.drainDeliveries();
-      await sut.drainDeliveries(); // the retry pass
+      expect(
+        attemptsFor(ambiguous.eventId).map((a) => a.outcome),
+        'the retry never reached the provider a second time',
+      ).toEqual(['ack_lost', 'accepted']);
+      ambiguousEvent = (await sut.events({ type: 'access.key_revoked' })).find((e) => e.id === ambiguous.eventId);
+      expect(ambiguousEvent!.attempts, "the event's own attempt counter did not record the retry").toBeGreaterThanOrEqual(2);
 
       const logical = (await sut.events({ type: 'access.key_revoked' })).filter((e) => e.id === ambiguous.eventId);
       expect(logical.length, 'the retry minted a second logical notification').toBe(1);
