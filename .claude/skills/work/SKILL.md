@@ -273,8 +273,20 @@ earlier draft had it escalating to the coordinator, which would have made the pa
 three agents all queued behind one conversation, with the coordinator as the serializer.
 
 What still leaves the item goes **to the founder directly, not through the coordinator** — a
-finding that contradicts ratified text, scope growth, a disputed false-green tag. The
-coordinator spawns and merges. That is the whole of its job.
+finding that contradicts ratified text, or scope growth. The coordinator spawns and merges.
+That is the whole of its job.
+
+**A reviewer's maintained "this green is unearned" tag is the ORCHESTRATOR'S judgment call**
+(founder ruling 2026-08-04, on the first real firing of the old escalation tripwire: *"this is
+a judgement call to the orchestrator"*). An earlier rule reserved the dismissal of such a tag
+for the founder; the first time it fired, the item agent had already done everything a judge
+needs — undisputed facts on the record, fix routes exhausted, both remedies rejected for
+written cause — and the founder's answer was that the remaining call belonged to the agent.
+So: the item agent rules a maintained residual terminal itself, with two conditions that are
+not optional. The reviewer's maintained disagreement is recorded **verbatim** next to the
+ruling and stays visible in the PR body — a ruling may overrule the objection, never erase it.
+And the ruling states what the green DOES claim and what it does not, so the residual is a
+documented boundary rather than a swallowed defect.
 
 Its subagents **inherit its worktree and branch** (tested: a child reported the identical
 directory and branch, and read a file its parent had just written). The coordinator does not
