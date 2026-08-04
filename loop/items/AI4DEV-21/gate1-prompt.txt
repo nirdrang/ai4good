@@ -1,0 +1,60 @@
+GATE 1 — adversarial refutation of the plan for board item AI4DEV-21 (vendor stand-ins slice
+of the acceptance-test harness). You are the ONLY reviewer of intent: nothing upstream of you
+reviews this plan, so attack the intent as hard as the mechanics.
+
+READ FIRST (repo-relative; you run in the worktree root):
+- loop/items/AI4DEV-21/plan.md            — THE PLAN UNDER REVIEW
+- loop/bringup/AI4DEV-3-at-harness.md     — the parent working spec (scope boundary, suite-authoring rules)
+- tests/at/harness/contracts.ts           — the shared capability contract (H5 section is the vendor seam)
+- tests/at/harness/index.ts               — createHarness wiring, pendingCapability seams
+- tests/at/harness/capabilities.ts        — CapabilityPending / stand-in provenance
+- tests/at/harness/registry.ts            — per-test harness lifecycle, stubbed-above-loop refusal
+- tests/at/harness/guards.ts              — the centralized-guard pattern the plan extends
+- tests/at/harness/expected.ts + tests/at/expected/req-016.json + tests/at/expected/README.md
+                                          — the declared-red gate the plan edits
+- tests/at/suites/req-016/_contract.ts, _fixture.ts, taxonomy.ts
+- tests/at/suites/req-016/a-emitter-and-taxonomy.test.ts (AT-016.01)
+- tests/at/suites/req-016/c-reliability-guard.test.ts    (AT-016.11 — the consumer of the sim)
+- tests/at/suites/req-016/b-delivery-defaults.test.ts, d-taxonomy-evidence.test.ts
+                                          — currently green; the plan claims they stay green
+- .github/workflows/ci.yml                — what the required check actually runs
+
+ATTACK ALL OF THESE DIRECTIONS (the standing list — none may be skipped):
+1. A decision stated as settled that is not actually decided.
+2. A fact asserted that is wrong against the code — VERIFY the plan's "Facts this plan
+   asserts" section in the tree; trust nothing.
+3. A constraint that contradicts the way-of-work skill or the parent spec.
+4. Scope that will force a mid-flight redesign.
+5. Anything the plan requires that no tool can do — a plan that cannot be executed as
+   written is the failure this gate exists to catch.
+6. The plan's own teeth: steps that do not reach the item's done-criterion, oracles too weak
+   to prove what they claim, a test whose green would not mean what the item says it means.
+
+ITEM-SPECIFIC PRESSURE POINTS (additive — attack these too, never instead):
+- D1 defers four of the five vendors named in the item's title to their future consuming
+  suites. Is the deferral sound against the parent spec's own text (Part A.8 lists all
+  five), and does its verification condition actually protect it? Is recording the
+  disposition in a Linear comment + PR body (no new board item) a hole?
+- D2's idempotency semantics: does "replay returns accepted, never re-recorded in
+  accepted(), does not consume a forced outcome" actually make AT-016.11(c) pass for the
+  RIGHT reason? Walk the test's three clauses (a)/(b)/(c) against D2+D4 step by step,
+  including the passes:1 drain, the retry drain, and the exact attempts()/accepted()
+  contents. Find any clause that would pass vacuously or fail.
+- D4's drain rework: does any CURRENTLY-GREEN id (016.02–.10, .12) break under
+  provider-routed email deliveries? Check AT-016.07's stamp semantics and its
+  "nothing sent before the restart" precondition, AT-016.09's control+fault worlds, and the
+  d-file capture (45 rows, default drain, default-accept).
+- D5's declaration edit: --expect matches a capability-pending red's WHOLE first line,
+  rebuilt from the declaration, order-sensitively. Does the plan's post-change thrown set
+  for the static seam match the post-change declaration exactly?
+- The stand-in provenance choice ('vendors.email' as standInCapability): confirm the
+  above-loop refusal consequence is stated correctly and does not break the loop-tier run.
+- D6: are the two falsification runs (F1 sent-without-confirmation, F2 dedupe removed) the
+  RIGHT negative controls, and are they sufficient? Name a false-green implementation of
+  the sim or the fixture that would survive both AND the conformance list.
+
+OUTPUT: a numbered list of findings, each with severity (BLOCKER / MAJOR / MINOR / NOTE),
+the exact file+claim it refutes, and the evidence you verified in the tree. If a finding
+proposes REMOVING planned work, state the verification condition the removal must carry.
+End with a verdict: REFUTED (plan must change before implementation) or STANDS (with any
+conditions). Do not paraphrase the plan back; only findings.

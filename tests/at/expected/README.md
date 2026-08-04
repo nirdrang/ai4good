@@ -44,7 +44,7 @@ Then copy the cause out of the reported detail into the declaration. A red is de
 object carrying its **kind**, never as a free-text reason:
 
 ```json
-"AT-016.11": { "kind": "capability-pending", "capabilities": ["H5 email provider simulator"] }
+"AT-016.01": { "kind": "capability-pending", "capabilities": ["H3 static provider scan"] }
 ```
 
 ```json
@@ -57,7 +57,7 @@ declare and compared:
 - `capability-pending` must match the **whole first line**. The line is
   `CapabilityPending: CAPABILITY PENDING — ` followed by your capability names joined with `, ` in
   the order you list them. So the names must be complete and in the harness's order: declaring
-  `H5 email provider` when the real detail says `H5 email provider simulator` fails, and so does
+  `H3 static provider` when the real detail says `H3 static provider scan` fails, and so does
   listing two capabilities the other way round.
 - `pending` must match `AtPending: <id> PENDING [<phase>] — ` as an **anchored prefix**. The class,
   the id and the phase are all matched exactly, from the first character. Only the trailing detail

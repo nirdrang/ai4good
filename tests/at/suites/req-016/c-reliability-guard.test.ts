@@ -170,6 +170,25 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         'the provider was never asked to send — the rejection path was not exercised',
       ).toEqual(['rejected']);
 
+      /*
+       * AND THE TRACE IS BOUND TO THE PAIR THE TAXONOMY RESOLVED, not merely to the event.
+       *
+       * Outcomes alone say that a send happened, never that it was THIS send. A fixture that mails
+       * the NGO — or mails anyone in-app — while writing an honest delivery row for the volunteer
+       * produces the identical outcome sequence, and every other clause here reads the SUT's own
+       * records, which that fixture keeps correct. The provider's record is the one witness that is
+       * not the sender, so the recipient and the channel are the axis it has to be read on.
+       *
+       * Both access rows are volunteer-only, email + in-app (`taxonomy.ts`), and in-app never
+       * reaches the provider — so every attempt here owes exactly the volunteer, on email.
+       */
+      const misdirected = (eventId: string) =>
+        attemptsFor(eventId).filter((a) => a.recipientId !== w.actors.volunteer || a.channel !== 'email');
+      expect(
+        misdirected(rejected.eventId),
+        'the provider was handed a recipient or a channel this event never resolved to',
+      ).toEqual([]);
+
       let event = (await sut.events({ type: 'access.key_issued' })).find((e) => e.id === rejected.eventId);
       expect(event, 'the notification event vanished after a provider rejection').toBeDefined();
       expect(['pending', 'retrying'], 'an unaccepted send was marked sent').toContain(event!.state);
@@ -189,6 +208,10 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         `only ${outcomes.length} provider attempt(s) for a rejected send — no retry actually reached the provider`,
       ).toBeGreaterThanOrEqual(2);
       expect(outcomes[outcomes.length - 1], 'the retry did not end in provider acceptance').toBe('accepted');
+      expect(
+        misdirected(rejected.eventId),
+        'the retry reached the provider carrying a recipient or a channel this event never resolved to',
+      ).toEqual([]);
 
       event = (await sut.events({ type: 'access.key_issued' })).find((e) => e.id === rejected.eventId);
       expect(event!.state, 'the accepted send was never marked sent').toBe('sent');
@@ -197,8 +220,41 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
       // (c) the ambiguous outcome: provider ACCEPTED, acknowledgment lost before the durable mark
       h.vendors.email.acceptButLoseAck(1);
       const ambiguous = await w.fire('access.key_revoked');
+
+      // ONE PASS FIRST, and the unconfirmed state is OBSERVED rather than assumed. Under a
+      // run-to-quiescence drain the lost-ack attempt and its replay both happen inside the same
+      // call, so the assertions below this block cannot tell a sender that retried from one that
+      // received `no_ack` and wrongly marked the delivery sent on the spot: one logical row, both
+      // deliveries sent, exactly one accepted pair — true of both. That fixture is the defect this
+      // clause exists to catch, so the pass boundary is where it has to be caught.
+      await sut.drainDeliveries({ passes: 1 });
+      expect(
+        attemptsFor(ambiguous.eventId).map((a) => a.outcome),
+        'the provider was not asked to send exactly once — the lost-ack path was not exercised as one attempt',
+      ).toEqual(['ack_lost']);
+
+      const unacked = (await sut.deliveries({ type: 'access.key_revoked' })).filter(
+        (d) => d.eventId === ambiguous.eventId && d.channel === 'email',
+      );
+      expect(unacked.length, 'the lost-ack send left nothing observable at all').toBeGreaterThan(0);
+      expect(
+        unacked.every((d) => d.state !== 'sent'),
+        'a send whose acknowledgment was lost was marked sent — the sender cannot tell that outcome from silence, so it must not',
+      ).toBe(true);
+
+      let ambiguousEvent = (await sut.events({ type: 'access.key_revoked' })).find((e) => e.id === ambiguous.eventId);
+      expect(ambiguousEvent, 'the notification event vanished after a lost acknowledgment').toBeDefined();
+      expect(['pending', 'retrying'], 'an unacknowledged send was marked sent').toContain(ambiguousEvent!.state);
+
+      // THE RETRY PHYSICALLY HAPPENS, and the provider's trace is what says so — not the SUT's own
+      // counter, which is checked beside it precisely because the two can disagree.
       await sut.drainDeliveries();
-      await sut.drainDeliveries(); // the retry pass
+      expect(
+        attemptsFor(ambiguous.eventId).map((a) => a.outcome),
+        'the retry never reached the provider a second time',
+      ).toEqual(['ack_lost', 'accepted']);
+      ambiguousEvent = (await sut.events({ type: 'access.key_revoked' })).find((e) => e.id === ambiguous.eventId);
+      expect(ambiguousEvent!.attempts, "the event's own attempt counter did not record the retry").toBeGreaterThanOrEqual(2);
 
       const logical = (await sut.events({ type: 'access.key_revoked' })).filter((e) => e.id === ambiguous.eventId);
       expect(logical.length, 'the retry minted a second logical notification').toBe(1);
@@ -216,13 +272,18 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         'a delivery the provider accepted never reached the sent state',
       ).toEqual([]);
 
-      // Provider side: the email pair was physically accepted, and accepted exactly once.
-      const acceptedPairs = h.vendors.email
-        .accepted()
-        .filter((a) => a.eventId === ambiguous.eventId)
-        .map((a) => `${a.recipientId}:${a.channel}`);
-      expect(acceptedPairs.length, 'the provider never accepted the send at all').toBeGreaterThan(0);
-      expect(acceptedPairs.length, 'the provider accepted the same recipient-channel pair twice').toBe(new Set(acceptedPairs).size);
+      // PROVIDER SIDE: exactly the pairs this event owes, each accepted exactly once — EQUALITY,
+      // not internal consistency. Checking only that the accepted pairs carry no duplicate among
+      // themselves passes a retry sent to the wrong recipient: `volunteer:email` from the lost ack
+      // and `ngo:email` from the retry are two distinct pairs, so a de-dupe check sees nothing
+      // wrong, while the provider's own record says a revocation the taxonomy restricts to the
+      // volunteer was mailed to the NGO. The same oracle as the delivery side above, applied to
+      // the record the sender does not write.
+      const acceptedForEvent = h.vendors.email.accepted().filter((a) => a.eventId === ambiguous.eventId);
+      expect(
+        pairProblems(expectedPairs(w.actors, ['volunteer'], ['email']), countPairs(acceptedForEvent)),
+        'the pairs the provider physically accepted are not exactly the pairs this event resolved to',
+      ).toEqual([]);
     },
   );
 });

@@ -1,0 +1,42 @@
+PRE-MERGE AUDIT — board item AI4DEV-21, the email provider stand-in slice of the
+acceptance-test harness. You are codex luna, workspace-write, in the worktree. You REPORT;
+you rule on nothing — the ruling belongs to the item agent. The agent claiming green is the
+one being checked, so gather every box's evidence yourself; trust no transcript you did not
+produce.
+
+THE CLAIM UNDER AUDIT (the merge ruling will assert): at the branch head, all of —
+1. `bun run typecheck` exits 0 (both TypeScript projects; the typeprobe programs still
+   fail-to-compile per file, which their selftests assert).
+2. `bun run at:selftest` exits 0 with 167 tests green across 8 files.
+3. `bun run at:verify req-016 --tier loop --expect` exits 0: 11 green / 1 red, exact match
+   to tests/at/expected/req-016.json — the one red is AT-016.01, detail exactly
+   `CapabilityPending: CAPABILITY PENDING — H3 static provider scan`.
+4. `bun run at:check req-016` exits 0 (12 P0 ids in bijection).
+5. The falsification transcripts loop/items/AI4DEV-21/proof-f1.txt .. proof-f4.txt each show
+   the named cheat producing a RED under the suite as it stood, and the working tree carries
+   no residue of any of those mutations.
+6. The tree is clean: no uncommitted changes, HEAD pushed to origin on branch
+   nirdrang/ai4dev-21-h5-vendor-stand-ins-anthropic-usage-stripe-github-lovable.
+
+DO:
+- Record the HEAD sha you audit (git rev-parse HEAD) and confirm it matches origin.
+- RUN commands 1-4 yourself and read their real exit codes and outputs.
+- Verify claim 5 by reading the four proof files and checking `git status --short` +
+  a targeted grep that none of the described mutations is present in the working tree.
+- Spot-check the two load-bearing oracles against their falsifications: the accepted-pairs
+  EQUALITY in tests/at/suites/req-016/c-reliability-guard.test.ts (clause (c)) and the
+  two-direction provider reconciliation in d-taxonomy-evidence.test.ts (AT-016.05).
+- Check the declaration coupling: the static seam's thrown name set in
+  tests/at/harness/index.ts vs the declared capabilities for AT-016.01 — exact, ordered.
+
+KNOWN BOUNDARY, and how to report it honestly: this is a PLATFORM worktree nested inside the
+main checkout. The workspace-scoped sandbox has been observed denying vitest's
+ancestor-directory config walk (signature: `Cannot read directory "../../../.."` or similar
+EACCES on an ancestor). If a vitest-based command fails with THAT signature, report that box
+as COULD-NOT-VERIFY-IN-SANDBOX — not as a red of the code — and name the PR's CI run on the
+same head as the substitute evidence (PR #35; the required check is `verify`). Do not let a
+sandbox denial masquerade as either a pass or a failure.
+
+OUTPUT: one section per box (1-6) with the evidence you gathered — command, exit code, the
+decisive lines — then a final section: anything you found that the merge ruling should know,
+including nothing-found stated plainly. No verdict line; you report, the item agent rules.

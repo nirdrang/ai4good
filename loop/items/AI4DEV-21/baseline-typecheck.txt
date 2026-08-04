@@ -1,0 +1,7 @@
+$ bun tests/at/typecheck.ts
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean

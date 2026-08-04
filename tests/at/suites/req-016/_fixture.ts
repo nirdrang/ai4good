@@ -22,6 +22,7 @@ import type { ControlledClock } from '../../harness/clock.ts';
 import type { AdapterFaultSeam, ArmedFault, FaultKind } from '../../harness/faults.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
 import type { AdapterSentinelSeam } from '../../harness/sentinels.ts';
+import type { EmailProviderPort } from '../../harness/vendors.ts';
 import type {
   ConfigRegistry,
   Delivery,
@@ -51,6 +52,8 @@ interface AdapterOptions {
   clock: ControlledClock;
   worlds: FixtureWorldStore;
   config: ConfigRegistry;
+  /** The harness's email provider seam — the only vendor this requirement's deliveries reach. */
+  vendors: { email: EmailProviderPort };
 }
 
 /**
@@ -177,7 +180,7 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) {
+export function createFixtureAdapter({ clock, worlds, config, vendors }: AdapterOptions) {
   const state: MutableState = {
     events: [],
     deliveries: [],
@@ -317,6 +320,71 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
     return { eventId };
   };
 
+  /**
+   * A DELIVERY BECOMES `sent`, and the process that did it owns the stamp.
+   *
+   * THE DELIVERY PATH READS THE PROCESS IDENTITY. Every send is stamped with the identity of the
+   * process that performed it, which is what makes `processRestart()` causal rather than decorative:
+   * before this, nothing on this path consulted `processEpoch` at all, so deleting the restart from
+   * AT-016.07 changed no outcome and the green was bought with nothing.
+   *
+   * THE FIRST SEND OWNS THE STAMP. Re-stamping would record the identity of the LAST drain instead
+   * of the process that actually performed the send, so a delivery completed before a restart would
+   * silently acquire the post-restart identity — and `_contract.ts` claims the opposite about this
+   * field, that a send after a restart carries a different string than one before it. `null` is
+   * exactly "no process has sent this yet", which is why it, and not the delivery's state, is what
+   * the guard reads.
+   */
+  const markSent = (delivery: Delivery): void => {
+    if (delivery.deliveredByProcess === null) delivery.deliveredByProcess = processEpoch;
+    delivery.state = 'sent';
+  };
+
+  /**
+   * ONE WORKER PASS — and the provider, not the worker, decides whether an email send is done.
+   *
+   * This used to mark every delivery `sent` unconditionally, which made "sent only on provider
+   * acceptance" untestable: there was no seam to accept or refuse anything. Now an email delivery is
+   * `sent` ONLY on `'accepted'`; `'rejected'` (a stated refusal) and `'no_ack'` (silence) both leave
+   * it `retrying` for a later pass. The sender cannot tell `'no_ack'` from a provider that accepted
+   * and lost the acknowledgment — that is the point — so it retries, and the provider's own
+   * idempotency is what stops the retry minting a duplicate.
+   */
+  const runDeliveryPass = (): void => {
+    const attemptedEvents = new Set<string>();
+
+    for (const delivery of state.deliveries) {
+      if (delivery.state === 'sent') continue;
+      attemptedEvents.add(delivery.eventId);
+
+      // IN-APP NEVER REACHES THE PROVIDER: there is no email provider in the path of an in-app
+      // notification, so consulting one would record a send at the seam that never happened — and
+      // AT-016.01's provider-side trace reads exactly that set.
+      if (delivery.channel !== 'email') {
+        markSent(delivery);
+        continue;
+      }
+
+      const outcome = vendors.email.deliver({
+        recipientId: delivery.recipientId,
+        eventId: delivery.eventId,
+        channel: delivery.channel,
+      });
+      if (outcome === 'accepted') markSent(delivery);
+      else delivery.state = 'retrying';
+    }
+
+    // An event the pass did not touch is left exactly as it was: its attempt counter must count
+    // attempts, and an event whose deliveries were all already sent was not attempted again.
+    for (const event of state.events) {
+      if (!attemptedEvents.has(event.id)) continue;
+      event.attempts += 1;
+      event.state = state.deliveries.some((delivery) => delivery.eventId === event.id && delivery.state !== 'sent')
+        ? 'retrying'
+        : 'sent';
+    }
+  };
+
   const sut: NotificationsSut = {
     senders: async () => clone(SENDERS),
     taxonomy: async (): Promise<RegisteredRow[]> =>
@@ -339,27 +407,36 @@ export function createFixtureAdapter({ clock, worlds, config }: AdapterOptions) 
     deliveries: async (filter) => clone(state.deliveries.filter((delivery) => !filter?.type || delivery.type === filter.type)),
     opsItems: async (filter) =>
       clone(state.opsItems.filter((item) => !filter?.linkedEventId || item.linkedEventId === filter.linkedEventId)),
-    drainDeliveries: async () => {
-      // THE DELIVERY PATH READS THE PROCESS IDENTITY. Every send is stamped with the identity of
-      // the process that performed it, which is what makes `processRestart()` causal rather than
-      // decorative: before this, nothing on this path consulted `processEpoch` at all, so deleting
-      // the restart from AT-016.07 changed no outcome and the green was bought with nothing.
+    drainDeliveries: async (opts) => {
+      // DEFAULT = TO QUIESCENCE, WITH NO PASS CAP, and the termination argument is structural rather
+      // than a number: each pass either transitions a delivery to `sent` or consumes one forced
+      // outcome from the simulator's FINITE queue, and once that queue is empty every email send is
+      // accepted — or idempotency-replayed as accepted — so the loop is bounded by the queue length
+      // plus one. A cap would contradict `_contract.ts`'s "default = to quiescence" for any test
+      // that armed more forced failures than the cap allowed passes, which is a reachable scenario.
       //
-      // THE FIRST SEND OWNS THE STAMP. Re-stamping on every drain would record the identity of the
-      // LAST drain instead of the process that actually performed the send, so a delivery completed
-      // before a restart would silently acquire the post-restart identity — and `_contract.ts`
-      // claims the opposite about this field, that a send after a restart carries a different
-      // string than one before it. `null` is exactly "no process has sent this yet", which is why
-      // it, and not the delivery's state, is what the guard reads.
-      for (const delivery of state.deliveries) {
-        if (delivery.deliveredByProcess === null) delivery.deliveredByProcess = processEpoch;
-        delivery.state = 'sent';
+      // `passes` bounds the worker so a test can observe the state BETWEEN attempts: AT-016.11's
+      // "the unconfirmed send is observable as pending/retrying" is unobservable if every drain runs
+      // to quiescence.
+      //
+      // AND A `passes` THAT IS NOT A WHOLE NUMBER OF PASSES IS REFUSED, never interpreted. The
+      // loop's guard is `pass >= limit`, and that quietly gave three different meanings to three
+      // nonsense values: `0` ran no pass at all while reading as "one bounded pass", `1.5` ran two,
+      // and `NaN` — where every comparison is false — ran to quiescence, which is the opposite of
+      // bounding anything. A test that asked for a bounded drain and silently got an unbounded one
+      // observes the state AFTER the retry it meant to catch the system between.
+      const limit = opts?.passes;
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+        throw new Error(
+          `drainDeliveries refuses passes=${String(limit)} — a pass budget must be a whole number of ` +
+            `worker passes, at least 1; anything else bounds the drain by something other than what the test asked for`,
+        );
       }
-      for (const event of state.events) {
-        if (event.state === 'pending' || event.state === 'retrying') {
-          event.state = 'sent';
-          event.attempts += 1;
-        }
+      let pass = 0;
+      while (state.deliveries.some((delivery) => delivery.state !== 'sent')) {
+        if (limit !== undefined && pass >= limit) break;
+        pass += 1;
+        runDeliveryPass();
       }
     },
   };

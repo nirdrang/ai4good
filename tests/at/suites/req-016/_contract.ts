@@ -103,6 +103,13 @@ export type NotificationEvent = {
   /** resolved at event CREATION (AT-016.10), never at send time */
   recipients: { role: Role; recipientId: string; channels: Channel[] }[];
   state: 'pending' | 'retrying' | 'sent' | 'failed';
+  /**
+   * WORKER PASSES THAT ATTEMPTED THIS EVENT — not provider sends. A pass that attempted only an
+   * in-app delivery increments it, and in-app never reaches a provider, so this number can exceed
+   * the sends that were physically made. It is the system under test's own counter, and the
+   * provider trace (`EmailProviderSim.attempts()`) is the send-count oracle beside it; AT-016.11
+   * checks both precisely because the two can disagree.
+   */
   attempts: number;
 };
 

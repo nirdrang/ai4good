@@ -1,0 +1,74 @@
+﻿verify-final-2 - after the founder-ruling fold (spec amendment, contracts pointer, README example, rulings)
+captured: 2026-08-04T16:43:20.8167971Z
+working tree HEAD: fbb1d25f71bebe45a966a7c2d20820a1451be89b (uncommitted fold on top - committed sha appended below after commit)
+
+===== bun run typecheck =====
+bun : $ bun tests/at/typecheck.ts
+At line:1 char:860
++ ...  Out-File $out -Append -Encoding utf8; bun run typecheck 2>&1 | Out-F ...
++                                            ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/typecheck.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean
+typecheck exit: 0
+===== bun run at:selftest =====
+bun : $ bunx vitest run --root tests/at --config vitest.config.ts harness/
+At line:1 char:1069
++ ... ut-File $out -Append -Encoding utf8; bun run at:selftest 2>&1 | Selec ...
++                                          ~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx vitest r...fig.ts harness/:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af1e90584864a51d0/tests/at
+
+
+ Test Files  8 passed (8)
+      Tests  162 passed (162)
+   Start at  19:43:26
+   Duration  6.55s (transform 534ms, setup 0ms, import 4.65s, tests 12.75s, environment 1ms)
+
+at:selftest exit: 0
+===== bun run at:verify req-016 --tier loop --expect =====
+bun : $ bun tests/at/harness/runner.ts "req-016" --tier loop --expect
+At line:1 char:1334
++ ... oding utf8; bun run at:verify req-016 --tier loop --expect 2>&1 | Out ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/...r loop --expect:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-oavkyl/vitest-report.json
+
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    green    one logical event per committed event, one delivery per recipient-channel pair, across a restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    green    every guarded transition writes its notification event atomically under an induced fault
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    green    sent only on provider acceptance; unconfirmed sends retry; a lost ack mints no duplicate
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 11 green, 1 red, 0 missing
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af1e90584864a51d0\tests\at\expected\req-016.json exactly (11 declared green, 1 declared red)
+at:verify exit: 0
+===== bun run at:check req-016 =====
+bun : $ bun tests/at/harness/check.ts "req-016"
+At line:1 char:1577
++ ... le $out -Append -Encoding utf8; bun run at:check req-016 2>&1 | Out-F ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/...ck.ts "req-016":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+at:check req-016 — 12 P0 in the acceptance file, 12 registered in the suite
+RESULT: 12 P0 ids in bijection
+at:check exit: 0

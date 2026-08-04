@@ -155,6 +155,7 @@ describe('the harness reports its own provenance honestly', () => {
         'clock.controlled',
         'fixtures.worlds',
         'sut.notifications',
+        'vendors.email',
       ]);
       expect(
         stubbed,

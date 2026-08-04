@@ -1,0 +1,22 @@
+Confirmation pass on your Gate 2 review of AI4DEV-21 (you reviewed at head 9435eb7; verdict
+CHANGES REQUIRED, findings 1 and 2 gating). A combined fix round has landed since:
+commits c85304f..57ccdf9 (fix commit 360fb23, proofs commit 57ccdf9).
+
+Read, in this worktree:
+- loop/items/AI4DEV-21/gate2-rulings.md — the ruling table F-A..F-H covering your five
+  findings and Kimi's; your finding 1 is F-A, 2 is F-B, 3 is F-C, 4 is F-D, 5 is F-E.
+- The fixed files: tests/at/suites/req-016/c-reliability-guard.test.ts,
+  tests/at/suites/req-016/d-taxonomy-evidence.test.ts, tests/at/suites/req-016/_fixture.ts,
+  tests/at/harness/vendors.ts, tests/at/harness/vendors.selftest.ts,
+  tests/at/expected/README.md, tests/at/suites/req-016/_contract.ts.
+- The falsification transcripts loop/items/AI4DEV-21/proof-f3.txt (your finding 1's cheat —
+  wrong-recipient retry — caught red) and proof-f4.txt (your finding 2's cheat — inapp row
+  through the provider — caught red), and loop/items/AI4DEV-21/verify-final-3.txt.
+
+For EACH of your five findings state CONFIRMED-RESOLVED or NOT-RESOLVED with the specific
+code that resolves it or fails to. Be strict on the gating pair: check the (c) pair-binding
+uses EQUALITY against the expected volunteer-email set (not uniqueness), that (a)/(b) bind
+the attempts to the intended pair, and that the capture reconciliation covers all 45 rows in
+BOTH directions (no off-email attempt; accepted pairs equal the expected email pairs, empty
+for rows without email). End with exactly one line:
+VERDICT: RESOLVED (merge may proceed to audit)  — or —  VERDICT: NOT RESOLVED — finding <n>.
