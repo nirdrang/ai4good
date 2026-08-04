@@ -122,6 +122,17 @@ coordinator (main checkout, never moves) - spawns, watches, merges. Nothing else
 - **Print the item's stamp to the founder at start** (founder 2026-08-03): run
   `$env:CLAUDE_PROJECT_DIR=<worktree>; powershell -NoProfile -File loop/work/stamp-hook.ps1`
   and paste as emitted — including `CHAIN UNRESOLVED`; honest-unresolved beats invented.
+- **The SUPERVISION TREE is in the stamp itself** (founder 2026-08-05): from the main checkout
+  the hook appends one `AGENT` line pair per platform worktree — each derived by the hook
+  re-run against that worktree, one derivation logic, never a second formula. The founder sees
+  every agent standing under the coordinator on every prompt; a worktree nobody remembers is
+  visible by construction. The spawn-moment print above remains — it is the birth stamp, at
+  the one moment the tree line does not yet resolve.
+- **Stale-worktree sweep** (founder 2026-08-05): a platform worktree whose lock pid is DEAD,
+  whose tree is CLEAN, and whose head is FULLY MERGED to main is residue — unlock, remove,
+  delete the merged remote branch. Checked in that order, so a live agent or unpushed work can
+  never be swept; a LIVE lock pid is never touched (force-removing a locked agent worktree is
+  the resumed-agent fallback hazard).
 - **The item agent has FULL AUTHORITY and never sends judgment to the coordinator** (founder
   2026-08-02). To the founder go exactly two things: a finding that contradicts ratified text,
   and scope growth. **A reviewer's unearned-green claim that the item agent dismisses rather
