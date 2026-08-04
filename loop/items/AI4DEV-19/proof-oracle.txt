@@ -1,32 +1,33 @@
 AI4DEV-19 — AT-016.09's oracle, falsified on purpose. TWICE, for two different widenings.
 
-CAPTURED AGAINST COMMIT 0494ab5 ("AI4DEV-19: the event-id rollback and the delivery stamp each get
-an oracle, and the unfailable assertion says so out loud"), the last code commit of the round-2 fix
-round. All four temporary edits below were reverted afterwards and `git diff` against that commit is
-empty.
+CAPTURED AGAINST COMMIT a970880 ("AI4DEV-19: AT-016.07 pins its own restart, so deleting the call is
+a red"), the last code commit of the confirmation-round fix. All four temporary edits below were
+reverted afterwards and `git diff` against that commit is empty.
 
-WHY THIS FILE WAS RE-CAPTURED, AGAIN. The previous re-capture was forced by the output: the Gate 2
-round widened this oracle to four reads, so the earlier transcripts quoted text no test could
-produce. This one is not forced by the output — round 2 changed nothing AT-016.09 prints, and the
-four runs below say what they said last round apart from timestamps. It is re-taken because
-`rulings-04.md` ordered every proof captured against the FINAL code commit with nothing changed
-afterwards, including comments; round 1 broke that by adding a cross-reference comment after
-capturing, which shifted line numbers inside committed stack traces. A file that names a commit it
-was not taken against is stale evidence in the same way a file quoting a dead message is, only
-quieter.
+WHY THIS FILE WAS RE-CAPTURED, AGAIN. An earlier re-capture was forced by the output: the Gate 2
+round widened this oracle to four reads, so the transcripts before it quoted text no test could
+produce. This one is not forced by the output — the confirmation-round fix touches only AT-016.07,
+changes nothing AT-016.09 prints, and the four runs below say what they said last round apart from
+timestamps and the worktree path. It is re-taken because the standing capture rule, set in
+`rulings-04.md` and binding this round too, is that every proof is captured against the FINAL code
+commit with nothing changed afterwards, comments included; an earlier round broke that by adding a
+cross-reference comment after capturing, which shifted line numbers inside committed stack traces. A
+file that names a commit it was not taken against is stale evidence in the same way a file quoting a
+dead message is, only quieter.
 
 The previous version is kept below the banner, unchanged: it quotes "the two must roll back as one
 unit, leaving neither", which nothing in this tree emits any more, so it cannot be reproduced. The
-round-1 sections are not kept, because they can be — the procedure below reproduces them exactly.
+later sections are not kept, because they can be — the procedure below reproduces them exactly.
 
 COMPANION FILES: proof-red.txt and proof-green.txt are the red-then-green pair for the ROLLBACK;
-proof-restart.txt is the falsification for AT-016.07's restart. This file is the separate proof that
-the oracle judging the rollback is strong enough to notice.
+proof-restart.txt is the falsification for AT-016.07's restart, in two runs — the delivery path's
+read of the process identity broken, and the restart call itself deleted. This file is the separate
+proof that the oracle judging the rollback is strong enough to notice.
 
 WHAT THIS FILE IS NOT EVIDENCE ABOUT. Round 2's two repairs — the event id that a crashed emit must
 not consume, and the delivery stamp that belongs to the process which FIRST sent a row — are guarded
 by conformance cases in tests/at/harness/conformance.selftest.ts, not by a transcript here. That is
-deliberate and it is the lesson this round was ordered for: a captured falsification proves a repair
+deliberate and it is the lesson that round was ordered for: a captured falsification proves a repair
 worked on the day it was taken, and a case left in the tree fails on the day someone undoes it.
 
 HOW THESE TRANSCRIPTS WERE CAPTURED. stdout and stderr are redirected to separate files, and the
@@ -114,13 +115,13 @@ the oldest oracle called it green. That is the hollow green the first tightening
 -------------------------------------------------------------------------------------------------
 --- stdout ---
 
- RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-adf5c7b803767a1c3/tests/at
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at
 
 
  Test Files  1 passed (1)
       Tests  1 passed | 2 skipped (3)
-   Start at  00:20:30
-   Duration  299ms (transform 126ms, setup 0ms, import 138ms, tests 37ms, environment 0ms)
+   Start at  13:03:22
+   Duration  294ms (transform 120ms, setup 0ms, import 131ms, tests 34ms, environment 0ms)
 
 --- stderr ---
 (empty)
@@ -192,29 +193,30 @@ oracle put back.
 
 TEMPORARY EDIT D, applied to c-reliability-guard.test.ts: the condition became
 `transitionCommitted || eventWritten || (false && (deliveryWritten || opsItemWritten))` — the
-"neither side committed" form exactly as it stood before this round, with the two new reads present
+"neither side committed" form exactly as it stood before that round, with the two new reads present
 but deciding nothing.
 
 exit 0 — the test PASSES. A fault path that left a delivery in the outbox for every guarded row, and
-an ops item for chargeback.opened, was green under the oracle that shipped last round. That is what
-the widening removes, and it is the finding demonstrated rather than accepted on its sentence.
+an ops item for chargeback.opened, was green under the oracle that shipped before the widening. That
+is what the widening removes, and it is the finding demonstrated rather than accepted on its
+sentence.
 -------------------------------------------------------------------------------------------------
 --- stdout ---
 
- RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-adf5c7b803767a1c3/tests/at
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at
 
 
  Test Files  1 passed (1)
       Tests  1 passed | 2 skipped (3)
-   Start at  00:21:07
-   Duration  278ms (transform 115ms, setup 0ms, import 129ms, tests 31ms, environment 0ms)
+   Start at  13:04:19
+   Duration  288ms (transform 120ms, setup 0ms, import 131ms, tests 35ms, environment 0ms)
 
 --- stderr ---
 (empty)
 
 =================================================================================================
 All four temporary edits were reverted with `git checkout --` on both files; `git diff` against
-0494ab5 is empty and the fault point is back between the transition and the event write, with the
+a970880 is empty and the fault point is back between the transition and the event write, with the
 full rollback. The `--expect` transcript in proof-green.txt is the evidence that the oracle passes
 there.
 =================================================================================================

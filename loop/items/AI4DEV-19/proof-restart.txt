@@ -1,16 +1,15 @@
-AI4DEV-19 — AT-016.07's restart, falsified on purpose.
+AI4DEV-19 — AT-016.07's restart, falsified on purpose. TWICE, for the two ways it can be hollow.
 
-CAPTURED AGAINST COMMIT 0494ab5 ("AI4DEV-19: the event-id rollback and the delivery stamp each get
-an oracle, and the unfailable assertion says so out loud"), the last code commit of the round-2 fix
-round. `git diff` against that commit is empty after the temporary edit below was reverted.
+CAPTURED AGAINST COMMIT a970880 ("AI4DEV-19: AT-016.07 pins its own restart, so deleting the call is
+a red"), the last code commit of the confirmation-round fix. `git diff` against that commit is empty
+after each temporary edit below was reverted.
 
-RE-CAPTURED, and for a reason worth stating precisely because it is smaller than the ruling that
-ordered it. `rulings-04.md` required this file re-taken on the grounds that round 2 "moves
-`b-delivery-defaults.test.ts:58`", the line this transcript pins. It does not: round 2's comment
-sits at line 66, below the assertion, so line 58 is exactly where it was and the pinned stack
-reference below is unchanged. What DID change is the code the temporary edit is applied to — the
-stamp is now taken once, on the first send — so the edit is spelled against the current line, and
-the commit this file names is the current one. Both of those are reason enough on their own.
+RE-CAPTURED, AND THIS TIME THE OUTPUT FORCED IT. The previous version of this file named commit
+0494ab5 and its transcript quoted a stack frame at `b-delivery-defaults.test.ts:58`. This round adds
+nine comment lines and a five-line assertion above that point, so the same assertion now reports at
+:70. A transcript citing a line number the tree no longer has is stale evidence of exactly the kind
+Gate 2 (terra, finding 4) raised against this file's ancestors, so RUN 1 is re-taken rather than
+re-labelled. RUN 2 is entirely new, and it is what this round was ordered for.
 
 WHY THIS FILE EXISTS. Gate 2 (terra, finding 1) found that `processRestart()` assigned an epoch
 string that NO code on the delivery path read, so deleting `await h.faults.processRestart()` from
@@ -19,21 +18,49 @@ participate in the result, and the green was unearned. AT-016.09 had been held t
 falsification (`proof-oracle.txt`) and AT-016.07 had not; that asymmetry is the finding. This file
 removes it — the same standard, applied to the other test.
 
+WHY THERE ARE NOW TWO RUNS. Terra's confirmation closed the finding only PARTIALLY, and the residual
+was real. Round 2 proved something true but conditional: WHEN the scenario restarts, a delivery path
+that ignores the new identity fails. It never pinned the antecedent. The harness guard that judges a
+no-op restart (`processEpochProblem` in harness/guards.ts) runs from INSIDE
+`faults.processRestart()`, so deleting the call skipped the guard entirely — both epoch reads
+returned `delivery-process-1`, `drainDeliveries` stamped exactly that, `[...new Set(stamps)]` still
+equalled `[afterRestart]`, and the test passed. The step whose removal changes no outcome was back,
+one level up: not the epoch this time, but the restart call itself.
+
+So RUN 1 falsifies the COUPLING — does the delivery path read the identity? — and RUN 2 falsifies the
+ANTECEDENT — did a restart happen here at all? Neither run alone closes the finding, which is why
+round 2's single run left a residual for terra to find.
+
 WHAT MAKES THE RESTART CAUSAL NOW. `Delivery` carries `deliveredByProcess`, created `null` and
 stamped by `drainDeliveries` with the identity of the process that performed the send. AT-016.07
-reads the epoch before and after the restart and requires every delivery of the event to carry the
-POST-restart identity. The delivery path therefore has to read the process identity for the test to
-pass at all.
+reads the epoch before and after the restart, REQUIRES THE TWO TO DIFFER, and requires every delivery
+of the event to carry the POST-restart identity. So the delivery path has to read the process
+identity, and the scenario has to actually restart, for the test to pass at all.
 
-WHAT ROUND 2 CHANGED ABOUT THE STAMP. The FIRST send now owns it: the drain writes the identity only
-into a row that is still `null`. Re-stamping on every sweep recorded the identity of the last drain
-rather than of the process that actually sent, which made `_contract.ts`'s claim about this field —
-a send after a restart carries a different string than one before it — only nearly true. AT-016.07
-cannot tell the two apart, because it drains once and only after its restart; the conformance case
-`lets the process that first sent a delivery keep it` is what tells them apart, and it fails if the
-guard is removed.
+WHAT ROUND 2 CHANGED ABOUT THE STAMP, unchanged this round and restated because RUN 1 depends on it.
+The FIRST send owns it: the drain writes the identity only into a row that is still `null`.
+Re-stamping on every sweep recorded the identity of the last drain rather than of the process that
+actually sent, which made `_contract.ts`'s claim about this field — a send after a restart carries a
+different string than one before it — only nearly true. AT-016.07 cannot tell the two apart, because
+it drains once and only after its restart; the conformance case `lets the process that first sent a
+delivery keep it` is what tells them apart, and it fails if the guard is removed.
 
-THE TEMPORARY EDIT, applied to tests/at/suites/req-016/_fixture.ts and then reverted — it breaks the
+HOW THESE TRANSCRIPTS WERE CAPTURED. stdout and stderr are redirected to separate files, because
+vitest prints the run header and the summary on stdout and the failure detail on stderr. The
+redirection is done by `cmd`, not by PowerShell: PowerShell 5.1 wraps a native command's stderr in
+its own ErrorRecords even when redirecting to a file, so a "verbatim" capture arrived carrying six
+lines of NativeCommandError text and with vitest's own lines hard-wrapped at the console width.
+Neither artifact is anything the test emitted. Routing the redirection through `cmd` writes the
+child's bytes untouched. Every run below used
+
+    cmd /c "set AT_TIER=loop&& bunx vitest run --root tests/at --config vitest.config.ts suites/req-016/b-delivery-defaults.test.ts -t AT-016.07 > out.txt 2> err.txt"
+
+=================================================================================================
+RUN 1 — THE COUPLING BROKEN. MUST FAIL, and does: exit 1. The restart moved the identity from
+delivery-process-1 to delivery-process-2, and the deliveries still report delivery-process-1, so the
+pending work was not completed by the process that exists after the restart.
+
+TEMPORARY EDIT A, applied to tests/at/suites/req-016/_fixture.ts and then reverted — it breaks the
 coupling and nothing else. In `drainDeliveries`:
 
     if (delivery.deliveredByProcess === null) delivery.deliveredByProcess = processEpoch;
@@ -44,34 +71,18 @@ becomes
 
 which is exactly what a delivery path that ignores the process identity looks like: a constant that
 happens to equal the identity the process had before the restart.
-
-HOW THESE TRANSCRIPTS WERE CAPTURED, and this changed this round for a reason that is itself an
-evidence problem. stdout and stderr are redirected to separate files, because vitest prints the run
-header and the summary on stdout and the failure detail on stderr. The redirection is now done by
-`cmd`, not by PowerShell: PowerShell 5.1 wraps a native command's stderr in its own ErrorRecords
-even when redirecting to a file, so a "verbatim" capture arrived carrying six lines of
-NativeCommandError text and with vitest's own lines hard-wrapped at the console width. Neither
-artifact is anything the test emitted. Routing the redirection through `cmd` writes the child's
-bytes untouched.
-
-    cmd /c "set AT_TIER=loop&& bunx vitest run --root tests/at --config vitest.config.ts suites/req-016/b-delivery-defaults.test.ts -t AT-016.07 > out.txt 2> err.txt"
-
-=================================================================================================
-RUN 1 — THE COUPLING BROKEN. MUST FAIL, and does: exit 1. The restart moved the identity from
-delivery-process-1 to delivery-process-2, and the deliveries still report delivery-process-1, so the
-pending work was not completed by the process that exists after the restart.
 =================================================================================================
 --- stdout ---
 
- RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-adf5c7b803767a1c3/tests/at
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at
 
  ❯ suites/req-016/b-delivery-defaults.test.ts (2 tests | 1 failed | 1 skipped) 29ms
      × AT-016.07 — one logical event per committed event, one delivery per recipient-channel pair, across a restart 28ms
 
  Test Files  1 failed (1)
       Tests  1 failed | 1 skipped (2)
-   Start at  00:15:58
-   Duration  285ms (transform 114ms, setup 0ms, import 122ms, tests 29ms, environment 0ms)
+   Start at  13:00:58
+   Duration  263ms (transform 107ms, setup 0ms, import 113ms, tests 29ms, environment 0ms)
 
 --- stderr ---
 
@@ -88,13 +99,13 @@ AssertionError: pending work was not completed by the post-restart delivery proc
 +   "delivery-process-1",
   ]
 
- ❯ suites/req-016/b-delivery-defaults.test.ts:58:9
-     56|         [...new Set(stamps)],
-     57|         `pending work was not completed by the post-restart delivery p…
-     58|       ).toEqual([afterRestart]);
+ ❯ suites/req-016/b-delivery-defaults.test.ts:70:9
+     68|         [...new Set(stamps)],
+     69|         `pending work was not completed by the post-restart delivery p…
+     70|       ).toEqual([afterRestart]);
        |         ^
-     59|
-     60|       const logical = (await sut.events({ type: 'payment.succeeded' })…
+     71|
+     72|       const logical = (await sut.events({ type: 'payment.succeeded' })…
  ❯ executeRegisteredBody harness/registry.ts:486:3
  ❯ runTrackedTest harness/registry.ts:555:5
  ❯ harness/registry.ts:778:5
@@ -102,18 +113,72 @@ AssertionError: pending work was not completed by the post-restart delivery proc
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
 
 =================================================================================================
-RUN 2 — THE COUPLING RESTORED, nothing else changed. Exit 0. `git diff` against 0494ab5 is empty at
-this point, so what passes here is the merged code and not a variant of it.
+RUN 2 — THE RESTART DELETED. MUST FAIL, and does: exit 1. This is the run the confirmation round was
+ordered for, and before this round's fix it did not exist because it could not: the same deletion
+left AT-016.07 GREEN.
+
+TEMPORARY EDIT B, applied to tests/at/suites/req-016/b-delivery-defaults.test.ts and then reverted.
+Exactly one line is removed and nothing else is touched:
+
+    const beforeRestart = await h.faults.processEpoch();
+    await h.faults.processRestart();
+    const afterRestart = await h.faults.processEpoch();
+
+becomes
+
+    const beforeRestart = await h.faults.processEpoch();
+    const afterRestart = await h.faults.processEpoch();
+
+`git diff` while the edit was live reported one deleted line and no other change. This is the exact
+deletion terra used to prove the original finding. Note WHERE it now fails: not on the stamp
+assertion at :70, which would still have passed, but on the scenario pin at :52, with before and
+after both reading `delivery-process-1` — the test refusing to make claims about a process that
+never stopped.
 =================================================================================================
 --- stdout ---
 
- RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-adf5c7b803767a1c3/tests/at
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at
+
+ ❯ suites/req-016/b-delivery-defaults.test.ts (2 tests | 1 failed | 1 skipped) 26ms
+     × AT-016.07 — one logical event per committed event, one delivery per recipient-channel pair, across a restart 25ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 skipped (2)
+   Start at  13:01:32
+   Duration  270ms (transform 109ms, setup 0ms, import 116ms, tests 26ms, environment 0ms)
+
+--- stderr ---
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  suites/req-016/b-delivery-defaults.test.ts > AT-REQ-016 B — delivery defaults > AT-016.07 — one logical event per committed event, one delivery per recipient-channel pair, across a restart
+AssertionError: the delivery-process identity is unchanged across the restart — this scenario never actually restarted, so every claim below would be about a process that never stopped: expected 'delivery-process-1' not to be 'delivery-process-1' // Object.is equality
+ ❯ suites/req-016/b-delivery-defaults.test.ts:52:13
+     50|         'the delivery-process identity is unchanged across the restart…
+     51|           'actually restarted, so every claim below would be about a p…
+     52|       ).not.toBe(beforeRestart);
+       |             ^
+     53|
+     54|       await sut.drainDeliveries();
+ ❯ executeRegisteredBody harness/registry.ts:486:3
+ ❯ runTrackedTest harness/registry.ts:555:5
+ ❯ harness/registry.ts:778:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+=================================================================================================
+RUN 3 — BOTH EDITS REVERTED, nothing else changed. Exit 0. `git diff` against a970880 is empty at
+this point, so what passes here is the committed code and not a variant of it.
+=================================================================================================
+--- stdout ---
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at
 
 
  Test Files  1 passed (1)
       Tests  1 passed | 1 skipped (2)
-   Start at  00:16:25
-   Duration  266ms (transform 113ms, setup 0ms, import 119ms, tests 25ms, environment 0ms)
+   Start at  13:01:50
+   Duration  273ms (transform 120ms, setup 0ms, import 122ms, tests 31ms, environment 0ms)
 
 --- stderr ---
 (empty)
@@ -126,16 +191,21 @@ and durable pending work was completed exactly once, by the identity that exists
 A `processEpoch` the delivery path ignores now fails AT-016.07 instead of passing it, which is the
 mechanism terra named.
 
+AND PROVES, NEW THIS ROUND: the scenario cannot silently drop its restart, because deleting the call
+is itself a captured red (RUN 2). The harness guard cannot make that claim on the test's behalf — it
+only ever runs when the call is there — so the obligation belongs in the scenario, where the
+deletion is what trips it.
+
 DOES NOT PROVE: that a restart loses and recovers in-flight work. At loop tier there is no volatile
 in-flight state for a restart to lose — `drainDeliveries` is a synchronous sweep, not a process with
 a lifecycle. Building a delivery worker with volatile state inside a stand-in fixture was FILED, not
 built: inventing state whose only purpose is to be discarded would be staging the proof. Whoever
 builds a real delivery process inherits that half.
 
-AND ONE MORE THING IT DOES NOT PROVE, now said in the test rather than only here. AT-016.07's
+AND ONE MORE THING IT DOES NOT PROVE, said in the test rather than only here. AT-016.07's
 anti-duplication assertion — no recipient-channel pair receives more than one delivery — cannot fail
 in this fixture at all: one delivery per pair is written by construction and the drain mutates those
-rows in place, so nothing can make that list non-empty. Round 2 states that beside the assertion
+rows in place, so nothing can make that list non-empty. The test states that beside the assertion
 itself, with what it is waiting on, because a limitation recorded only in a rulings file is a
 limitation nobody will meet again. The assertion is kept, unweakened, as the regression guard for
 the tier where a real delivery process can send a pair twice.

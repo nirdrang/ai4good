@@ -1,30 +1,30 @@
 AI4DEV-19 (planted markers, forced failures) — the RED half of the red-then-green proof.
 
-CAPTURED AGAINST COMMIT 0494ab5 ("AI4DEV-19: the event-id rollback and the delivery stamp each get
-an oracle, and the unfailable assertion says so out loud"), the last code commit of the round-2 fix
-round. The commit is stated here because Gate 2 (terra, finding 4) found it missing: `rulings-02.md`
-had ruled that it would ride along in this item and it did not, and a promise recorded and unkept is
-worse evidence than no promise, because a reader who finds the ruling stops looking.
+CAPTURED AGAINST COMMIT a970880 ("AI4DEV-19: AT-016.07 pins its own restart, so deleting the call is
+a red"), the last code commit of the confirmation-round fix. The commit is stated here because Gate 2
+(terra, finding 4) found it missing: `rulings-02.md` had ruled that it would ride along in this item
+and it did not, and a promise recorded and unkept is worse evidence than no promise, because a reader
+who finds the ruling stops looking.
 
-RE-CAPTURED FOR THE THIRD TIME, and the reason differs from the previous two. The first two
-re-captures were forced: the oracle's message changed, so the transcripts quoted text no test could
-produce any more. This one is not forced by the output — round 2 changed nothing AT-016.09 prints,
-and the sections below are line-for-line what round 1 captured apart from timestamps and the
-temp-directory name. It is re-taken because `rulings-04.md` ordered every proof captured against the
-FINAL code commit and nothing changed afterwards, including comments. Round 1 broke that by adding a
-cross-reference comment after capturing, which shifted the line numbers inside committed stack
-traces. Naming a commit a transcript was not taken against is the same defect as quoting a message
-no test emits, only harder to spot.
+RE-CAPTURED FOR THE FOURTH TIME, and the reason is the same one that forced the third. The first two
+re-captures were forced by the output: the oracle's message changed, so the transcripts quoted text
+no test could produce any more. This one is not — the confirmation-round fix touches only AT-016.07,
+changes nothing AT-016.09 prints, and the sections below are what round 3 captured apart from
+timestamps, the temp-directory name and the worktree path. It is re-taken because the standing
+capture rule, set in `rulings-04.md` and binding this round too, is that every proof is captured
+against the FINAL code commit with nothing changed afterwards, comments included. Naming a commit a
+transcript was not taken against is the same defect as quoting a message no test emits, only harder
+to spot.
 
 Only the block below the banner at the bottom is preserved: it quotes "the two must roll back as one
 unit, leaving neither", which no test emits any more, so it cannot be reproduced from this tree. The
-round-1 sections are NOT preserved, because they can be — running the procedure below reproduces
-them exactly, so keeping a stale copy would add a second transcript that says the same thing while
-naming an older commit.
+later sections are NOT preserved, because they can be — running the procedure below reproduces them
+exactly, so keeping a stale copy would add a second transcript that says the same thing while naming
+an older commit.
 
 WHAT WAS REVERTED, and it is the ONLY difference: the rollback in `emitKnown` in
 tests/at/suites/req-016/_fixture.ts. The transition and the event write stop committing as one unit.
-Everything else is exactly as merged — the fault point stays between the two writes, the widened
+Everything else is exactly as committed — the fault point stays between the two writes, the widened
 "nothing committed" oracle stays, no assertion and no manifest entry changed. To reproduce,
 
     const transitionBefore = state.transitions.get(event);
@@ -58,7 +58,7 @@ emit back`, which fails with `event-2` if the allocation is moved back above the
 RED (this file) and GREEN (proof-green.txt) therefore differ ONLY by that rollback — same test, same
 tier, same commands, one behavioural change between them. Whether the oracle itself is strong enough
 to notice is a separate question, answered in proof-oracle.txt; whether AT-016.07's restart is
-causal is answered in proof-restart.txt.
+causal, and whether the scenario can silently drop it, are answered in proof-restart.txt.
 
 HOW THESE TRANSCRIPTS WERE CAPTURED. stdout and stderr are redirected to separate files, and the
 redirection is done by `cmd` rather than by PowerShell. PowerShell 5.1 wraps a native command's
@@ -79,15 +79,15 @@ exit 1.
 =================================================================================================
 --- stdout ---
 
- RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-adf5c7b803767a1c3/tests/at
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at
 
- ❯ suites/req-016/c-reliability-guard.test.ts (3 tests | 1 failed | 2 skipped) 35ms
-     × AT-016.09 — every guarded transition writes its notification event atomically under an induced fault 34ms
+ ❯ suites/req-016/c-reliability-guard.test.ts (3 tests | 1 failed | 2 skipped) 37ms
+     × AT-016.09 — every guarded transition writes its notification event atomically under an induced fault 35ms
 
  Test Files  1 failed (1)
       Tests  1 failed | 2 skipped (3)
-   Start at  00:18:56
-   Duration  287ms (transform 117ms, setup 0ms, import 130ms, tests 35ms, environment 0ms)
+   Start at  13:02:15
+   Duration  294ms (transform 120ms, setup 0ms, import 133ms, tests 37ms, environment 0ms)
 
 --- stderr ---
 
@@ -132,11 +132,11 @@ SECTION 2 — the same broken state seen by the gate command, for the id-level p
 
     bun run at:verify req-016 --tier loop
 
-9 green / 3 red here, against the 10 green / 2 red the merged tree produces. AT-016.09's one-line
+9 green / 3 red here, against the 10 green / 2 red the committed tree produces. AT-016.09's one-line
 detail is the truncated form of the failure printed in full above. exit 1.
 =================================================================================================
 --- stdout ---
-JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-lS5PGC/vitest-report.json
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-pdybaw/vitest-report.json
 
 at:verify req-016 --tier loop
   AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan, H5 email provider simulator
@@ -158,8 +158,8 @@ at:verify req-016 --tier loop
 $ bun tests/at/harness/runner.ts "req-016" --tier loop
 error: script "at:verify" exited with code 1
 
-After these two runs the temporary edit was reverted and `git diff` against 0494ab5 was empty, which
-is what makes proof-green.txt a capture of the merged code rather than of a variant of it.
+After these two runs the temporary edit was reverted and `git diff` against a970880 was empty, which
+is what makes proof-green.txt a capture of the committed code rather than of a variant of it.
 
 #################################################################################################
 #################################################################################################

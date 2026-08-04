@@ -1,22 +1,21 @@
 AI4DEV-19 (planted markers, forced failures) — the GREEN half of the red-then-green proof.
 
-CAPTURED AGAINST COMMIT 0494ab5 ("AI4DEV-19: the event-id rollback and the delivery stamp each get
-an oracle, and the unfailable assertion says so out loud"), the last code commit of the round-2 fix
-round, with `git diff` against that commit empty. Same test, same tier, same commands as
-proof-red.txt. The ONLY difference is that the transition and the event write commit as one rollback
-unit again: a crash at notifications.between_transition_and_event_write puts the transition back, so
-nothing commits.
+CAPTURED AGAINST COMMIT a970880 ("AI4DEV-19: AT-016.07 pins its own restart, so deleting the call is
+a red"), the last code commit of the confirmation-round fix, with `git diff` against that commit
+empty. Same test, same tier, same commands as proof-red.txt. The ONLY difference is that the
+transition and the event write commit as one rollback unit again: a crash at
+notifications.between_transition_and_event_write puts the transition back, so nothing commits.
 
-WHAT ROUND 2 CHANGED ABOUT THIS FILE. Nothing in the transcripts, and that is worth stating rather
-than leaving to be inferred. Round 2 added a conformance case for the event-id rollback, made
-AT-016.07's unfailable anti-duplication assertion say so in the test, and gave the delivery stamp to
-the process that FIRST sent a row — none of which changes any AT id's verdict, so both sections
-below print exactly what they printed last round. They are re-run and re-captured anyway, against
-the new commit, because a proof file that names a commit it was not taken against is the same defect
-Gate 2 (terra, finding 4) raised about this file's ancestor, only quieter.
+WHAT THIS ROUND CHANGED ABOUT THIS FILE. Nothing in the verdicts, and that is worth stating rather
+than leaving to be inferred. The confirmation-round fix added a scenario precondition to AT-016.07 —
+that the restart actually produced a new identity — which changes no AT id's colour, so both sections
+below print the same partition they printed last round. They are re-run and re-captured anyway,
+against the new commit, because a proof file that names a commit it was not taken against is the same
+defect Gate 2 (terra, finding 4) raised about this file's ancestor, only quieter. The transcripts are
+not identical to last round's: they were taken in a different worktree, and the paths below say so.
 
-WHAT THE PREVIOUS ROUND CHANGED, kept because it is why section 2 exists at all: terra found that
-this file said "the gate is the --expect run, which is in the report" while containing no --expect
+WHAT THE EARLIER ROUND CHANGED, kept because it is why section 2 exists at all: terra found that this
+file said "the gate is the --expect run, which is in the report" while containing no --expect
 transcript. A file claiming content it does not have is worse than one saying nothing, because a
 reader who finds the claim stops looking. The --expect run is section 2, in this file, rather than
 referred to.
@@ -38,7 +37,7 @@ red" is this view's opinion, not the gate's.
     bun run at:verify req-016 --tier loop
 
 --- stdout ---
-JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-dMwFyW/vitest-report.json
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-2kEwVf/vitest-report.json
 
 at:verify req-016 --tier loop
   AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan, H5 email provider simulator
@@ -71,7 +70,7 @@ the raw counts are compared as well, so leaving a green declared red fails on ar
     bun run at:verify req-016 --tier loop --expect
 
 --- stdout ---
-JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-dvNUr4/vitest-report.json
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-ZfauTQ/vitest-report.json
 
 at:verify req-016 --tier loop
   AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan, H5 email provider simulator
@@ -87,7 +86,7 @@ at:verify req-016 --tier loop
   AT-016.11    red      CapabilityPending: CAPABILITY PENDING — H5 email provider simulator
   AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
   12 P0: 10 green, 2 red, 0 missing
-  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-adf5c7b803767a1c3\tests\at\expected\req-016.json exactly (10 declared green, 2 declared red)
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af28a10a9a65040ff\tests\at\expected\req-016.json exactly (10 declared green, 2 declared red)
 --- stderr ---
 $ bun tests/at/harness/runner.ts "req-016" --tier loop --expect
 
@@ -98,7 +97,8 @@ THE COMPANION PROOFS, so that nobody has to guess which file answers which quest
   proof-oracle.txt   whether AT-016.09's oracle is strong enough to notice — the fault point moved
                      after all the writes, the widened oracle failing and the old one passing.
   proof-restart.txt  whether AT-016.07's restart is causal — the delivery path's read of the
-                     process identity broken, and the test failing because of it.
+                     process identity broken, and separately the restart call itself deleted, the
+                     test failing on each.
 
 WHAT NO PROOF FILE COVERS, and where to find it instead. The two repairs round 2 made are guarded by
 conformance cases rather than by a transcript here, which is the whole point of them: a captured
