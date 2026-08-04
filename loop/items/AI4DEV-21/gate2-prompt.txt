@@ -1,0 +1,69 @@
+GATE 2 — adversarial review of the IMPLEMENTED DIFF for board item AI4DEV-21 (the vendor
+stand-in slice of the acceptance-test harness: the email/notification provider simulator).
+You run in the real worktree; review the real tree, not a summary. The diff under review is
+every change against origin/main (merge-base fa18fda, head 9435eb7). A rendering of the diff
+is at loop/items/AI4DEV-21/gate2-diff.txt for orientation; THE TREE IS AUTHORITATIVE.
+
+Changed code (review all of it):
+- tests/at/harness/vendors.ts            — NEW: the sim (test face) + port (SUT face)
+- tests/at/harness/vendors.selftest.ts   — NEW: the conformance wall (9 cases)
+- tests/at/harness/guards.ts             — new predicate providerForceCountProblem
+- tests/at/harness/index.ts              — sim wired per harness; static seam name list shrank
+- tests/at/harness/conformance.selftest.ts — stubbed-list oracle gains 'vendors.email'
+- tests/at/harness/contracts.ts          — header comment only (types untouched)
+- tests/at/suites/req-016/_fixture.ts    — drain rework: provider-gated email, passes option,
+                                           quiescent default with structural termination
+- tests/at/suites/req-016/c-reliability-guard.test.ts — AT-016.11 clause (c) strengthened
+- tests/at/expected/req-016.json         — AT-016.11 red→green; AT-016.01 list shrank
+- tests/at/expected/README.md            — schema example follows the changed declaration
+- loop/bringup/AI4DEV-3-at-harness.md    — spec amendment recording the founder's deferral
+                                           ruling (five sims to first consuming suites)
+
+Intent record (what the code claims to implement): loop/items/AI4DEV-21/plan.md (decisions
+D2–D8) and loop/items/AI4DEV-21/gate1-rulings.md (Gate 1 rulings + post-implementation
+rulings). The suite contract is tests/at/suites/req-016/_contract.ts; the shared contract is
+tests/at/harness/contracts.ts. Falsification transcripts: proof-f1.txt, proof-f2.txt;
+verification: verify-final.txt, verify-final-2.txt.
+
+ATTACK DIRECTIONS — all of them, none skipped:
+1. FALSE GREENS above all. For every id declared green (AT-016.02 .. AT-016.12), can you
+   construct an implementation of the sim or the fixture that passes the suite while
+   violating what the id's sentence claims? Pay particular attention to:
+   - AT-016.11: the rejected path (a)/(b), the strengthened lost-ack path (c), the
+     interplay of idempotency with the forced-outcome queue, and whether `attempts()` /
+     `accepted()` traces can be gamed. Walk the exact drain passes.
+   - AT-016.07: deliveredByProcess stamping moved into markSent — is "the post-restart
+     process completed the pending work" still forced, or can a pre-restart stamp survive?
+   - AT-016.09: the drain rework's interaction with the rollback path — can a crashed fire
+     leave a delivery the new drain then sends?
+   - AT-016.03/.05/.12: the capture fires 45 rows through the provider-gated drain — is any
+     row's meaning changed by the email channel now being provider-gated?
+2. The declaration edit: --expect rebuilds a capability-pending red's WHOLE first line and
+   compares exactly, order-sensitively. Verify the new thrown set of the static seam matches
+   the new declaration for AT-016.01 exactly, and that nothing else in the tree still names
+   'H5 email provider simulator'.
+3. The conformance wall (vendors.selftest.ts): does it actually pin the semantics the plan
+   claims — one cross-method FIFO in call order, idempotency only for physically-accepted
+   identities, replay recorded-but-not-re-accepted and consuming no forced outcome, count
+   guard refusals, fresh copies of both traces, quiescence past three consecutive
+   rejections through the REAL harness? Name any semantic the implementation has that no
+   test pins.
+4. Type discipline: every new exported type must be an alias, never an interface. The item
+   agent RULED that EmailProviderPort/ProviderSend/EmailProviderStandIn stay OUT of
+   type-invention.selftest.ts's ALIAS_PROTECTED list because they are adapter-facing (the
+   AdapterFaultSeam precedent) and not reachable from a test body. ATTACK THIS RULING: find
+   a route by which a test body reaches one of these types, or accept the reasoning.
+5. Cross-test leakage: the sim is per-harness and open() builds a fresh harness per call —
+   verify nothing in the new code holds state across opens or survives teardown.
+6. The fixture's drain: the passes option's semantics vs _contract.ts's documented promise;
+   the structural termination argument's validity; event attempts/state transitions vs what
+   AT-016.11 (a)/(b)/(c) assert; inapp never touching the provider vs AT-016.01's
+   provider-side orphan check.
+7. Anything the plan or rulings claim that the code contradicts — the plan is the intent
+   contract; a silent divergence is a finding even if the code is better.
+
+OUTPUT: numbered findings with severity (BLOCKER / MAJOR / MINOR / NOTE), exact file:line,
+the failing scenario spelled out (for false-green claims: the concrete implementation that
+would pass), and the evidence you verified in the tree. End with a verdict line:
+APPROVE (merge-worthy as is) or CHANGES REQUIRED (list which findings gate). Findings only —
+do not restate the diff.
