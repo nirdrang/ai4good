@@ -124,10 +124,10 @@ coordinator (main checkout, never moves) - spawns, watches, merges. Nothing else
   and paste as emitted — including `CHAIN UNRESOLVED`; honest-unresolved beats invented.
 - **The item agent has FULL AUTHORITY and never sends judgment to the coordinator** (founder
   2026-08-02). To the founder go exactly two things: a finding that contradicts ratified text,
-  and scope growth. **A reviewer's maintained "this green is unearned" tag is the item agent's
-  own terminal ruling** (founder 2026-08-04), under two non-optional conditions: the
-  disagreement recorded verbatim beside the ruling and visible in the PR body, and the ruling
-  states what the green does and does not claim.
+  and scope growth. **A reviewer's unearned-green claim that the item agent dismisses rather
+  than fixes is the item agent's own terminal ruling** (founder 2026-08-04), under two
+  non-optional conditions: the claim recorded verbatim beside the ruling and visible in the PR
+  body, and the ruling states what the green does and does not claim.
 - Subagents inherit the worktree and branch. The coordinator reads only what is **published** —
   the pushed branch and the PR.
 - A correction that matters beyond this conversation lives only if written into a file every
@@ -199,7 +199,7 @@ codex exec --sandbox workspace-write -C <worktree> -c model=gpt-5.6-luna \
 
 **Plan** (the item agent's own, from the Linear item, spec and code) → **Gate 1** (sol refutes
 it, intent included) → rulings → implement → **Gate 2** (terra + Kimi in parallel on the diff)
-→ bounded fix cycles → verify.
+→ fix round → **the item agent rules each finding's disposition** → verify.
 
 **There is no brief and no Gate 0** (founder 2026-08-04). The item agent IS the planner; ONE
 plan carries decisions, steps, and expected verification state per AT id. The executor
@@ -223,15 +223,17 @@ single focused gate on the actually-code part — and say so in the report.
 - **Detached, in the worktree, against the real tree** — never foreground (ten-minute ceiling
   kills max-effort runs), never an exported diff (a reviewer is a process with a working
   directory; pointer-prompt it to files).
-- **Confirmations resume the RAISER'S session** — a fresh session re-derives and silently
-  breaks confirmed-by-its-raiser. codex: `codex exec resume <SESSION_ID>` (rejects `-C`);
-  Kimi: `kimi -S <id>` / `-c` — and Kimi resumes ONLY in the directory that created the
-  session (exit 199 otherwise; placeholder-directory workaround if the worktree is gone).
-- **Pin model, effort and sandbox on EVERY resume and verify the RUN HEADER** — an unpinned
-  resume runs CLI defaults; a confirmation not provably the raiser's model is a different
-  reviewer wearing its session.
-- **A lost output may exist in the vendor's session store** — recover before re-running (a
-  re-run replaces the raiser's answer); verify WHOSE it is by run header before trusting it.
+- **There is NO confirmation step** (founder 2026-08-05). Reviewers are not re-engaged to
+  approve fixes. After the fix round the item agent rules each finding — closed by the fix, or
+  rejected with a written reason — and the checks on the fixes are the ones that already
+  exist: the verify suite, luna's independent audit, and the required CI check on the pinned
+  head.
+- **Re-engaging a reviewer at all** (rare — recovering a lost output, or a fresh scoped review
+  of changed material): resume its own session; pin model, effort and sandbox; **verify the
+  RUN HEADER** — an unpinned resume runs CLI defaults, and one once silently ran as the wrong
+  model. A lost output may already exist in the vendor's session store — recover rather than
+  re-derive, and verify whose it is. codex `resume` rejects `-C`; Kimi resumes only in the
+  directory that created the session (exit 199 otherwise; placeholder-directory workaround).
 - Pins: Gate 1 `-c model=gpt-5.6-sol -c model_reasoning_effort=max` · Gate 2
   `-c model=gpt-5.6-terra -c model_reasoning_effort=max` · Kimi
   `kimi -m kimi-code/k3 -p "<short>" --output-format text` (effort from config).
@@ -242,8 +244,6 @@ single focused gate on the actually-code part — and say so in the report.
 - **ONE WRITER IN A WORKTREE AT A TIME.** While a workspace-write reviewer or auditor runs,
   nothing else mutates that tree; confirm a reviewer dead by PROCESS ID, not wrapper exit, not
   an empty file.
-- Confirmation effort `high`; a confirmation judging a CLAIM rather than a fix is review work
-  and gets `max`.
 
 ### A ruling that REMOVES work carries a verification condition
 
