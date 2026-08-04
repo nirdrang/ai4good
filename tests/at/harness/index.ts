@@ -5,13 +5,24 @@ import { pendingCapability, realCapability, standInCapability, stubbedCapability
 import { REPO_ROOT } from './check.ts';
 import { ControlledClock } from './clock.ts';
 import { createConfigRegistry, type ConfigRegistry } from './config.ts';
-import type { AtHarness, Faults, Sentinels, StaticScan, Vendors } from './contracts.ts';
+import type { AtHarness, StaticScan, Vendors } from './contracts.ts';
+import { createFaults, type AdapterFaultSeam } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore } from './fixtures.ts';
+import { createSentinels, type AdapterSentinelSeam } from './sentinels.ts';
 import type { ConfigOverrides, Tier } from './registry.ts';
 
 interface FixtureAdapter {
   fixtures: { world(name: string): Promise<{ teardown(): Promise<void> }> };
   sut: Record<string, unknown>;
+  /**
+   * OPTIONAL, and refused at use rather than ignored. The runner's own black-box trees write
+   * disposable adapters that export `sut`, `fixtures` and `teardown` and nothing else, so a
+   * required member here would break them at run time. Absence is not permission to no-op: an
+   * adapter that offers no fault seam exposes no fault points, so `faults.at()` refuses through
+   * `faultPointProblem` in the guard's own words, and a scan of any scope is refused the same way.
+   */
+  faults?: AdapterFaultSeam;
+  sentinels?: AdapterSentinelSeam;
   teardown(): Promise<void>;
 }
 
@@ -103,10 +114,19 @@ export async function createHarness(opts: {
   const config = realCapability('config.registry', createConfigRegistry(opts.configOverrides));
   const adapter = await loadAdapter(opts.requirement, clock.value, worlds, config.value);
   const fixtures = standInCapability('fixtures.worlds', adapter.fixtures);
+  // REAL, not stand-ins, for the same reason `config.registry` is. `stubbedCapabilities()` reports
+  // what the HARNESS substituted, and nothing about H3 is substituted here — the marker store and
+  // the fault router below are the article. What is a substitute in a loop-tier run is the product,
+  // and `sut.notifications` already declares that; declaring H3 a stand-in as well would count the
+  // same substitution twice and blame the wrong layer for it. It would also cost something real:
+  // `registry.ts` refuses ANY stubbed capability above the loop tier, so the label would bar this
+  // identical machinery from ever running at integration tier — the tier that is the closing gate.
+  const sentinels = realCapability('sentinels.planted', createSentinels(adapter.sentinels));
+  const faults = realCapability('faults.injection', createFaults(adapter.faults));
   const sutCapabilities: Capability<unknown>[] = Object.entries(adapter.sut).map(([name, value]) =>
     standInCapability(`sut.${name}`, value),
   );
-  const constructed: Capability<unknown>[] = [clock, fixtures, config, ...sutCapabilities];
+  const constructed: Capability<unknown>[] = [clock, fixtures, config, sentinels, faults, ...sutCapabilities];
 
   let tornDown = false;
   return {
@@ -115,9 +135,14 @@ export async function createHarness(opts: {
     clock: clock.value,
     fixtures: fixtures.value,
     sut: adapter.sut,
-    sentinels: pendingCapability<Sentinels>('H3 sentinels'),
-    faults: pendingCapability<Faults>('H3 fault injection and process restart'),
-    static: pendingCapability<StaticScan>('H3 static provider scan', 'H3 sentinels', 'H5 email provider simulator'),
+    sentinels: sentinels.value,
+    faults: faults.value,
+    // 'H3 sentinels' is GONE from this list, in the same change that made planting work. The seam
+    // names three capabilities so its first throw reports the whole missing set at once; the moment
+    // one of them lands, keeping its name here is a declared fact that has drifted from a real one.
+    // `AT-016.01` stays red — `providerClientImporters()` is what throws — but the reason it is red
+    // changed, and `tests/at/expected/req-016.json` states the same two names for the same reason.
+    static: pendingCapability<StaticScan>('H3 static provider scan', 'H5 email provider simulator'),
     vendors: pendingCapability<Vendors>('H5 email provider simulator'),
     config: config.value,
     teardown: async () => {

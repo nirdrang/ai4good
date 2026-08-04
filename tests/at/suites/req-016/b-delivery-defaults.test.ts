@@ -34,11 +34,40 @@ describe('AT-REQ-016 B — delivery defaults', () => {
         'delivery already completed before the restart — the restart is not mid-flight and proves nothing',
       ).toEqual([]);
 
-      // That the restart actually changed the delivery process's identity is the harness's
-      // obligation, checked once in harness/guards.ts (processEpochProblem), not per suite.
+      // THE THIRD PRECONDITION — that the restart happened at all. Two obligations here, and they
+      // have different owners. The HARNESS owns "an invoked restart must change the identity":
+      // `processEpochProblem` in harness/guards.ts, routed by harness/faults.ts from INSIDE
+      // `processRestart()`, so a restart that restarted nothing throws before this test reaches a
+      // single assertion below. The TEST owns "a restart was invoked here at all", because a guard
+      // that lives inside the call cannot fire for a call that was deleted — and deleting exactly
+      // this call is how the Gate 2 finding was proved in the first place. So the pin below is not
+      // a second opinion on the harness's judgement; it is this scenario refusing to hold still
+      // while its restart is taken away.
+      const beforeRestart = await h.faults.processEpoch();
       await h.faults.processRestart();
+      const afterRestart = await h.faults.processEpoch();
+      expect(
+        afterRestart,
+        'the delivery-process identity is unchanged across the restart — this scenario never ' +
+          'actually restarted, so every claim below would be about a process that never stopped',
+      ).not.toBe(beforeRestart);
 
       await sut.drainDeliveries();
+
+      // THE RESTART IS PART OF THIS RESULT, not a step beside it. Every delivery of this event was
+      // still pending above, so all of them had to be completed by the process that exists AFTER
+      // the restart — and the delivery path has to read that identity to say so. Before this
+      // assertion, `processRestart()` changed a label nothing on the delivery path consulted, and
+      // deleting the restart call left this test passing identically; now a process identity the
+      // delivery path ignores fails here instead of passing.
+      const stamps = (await sut.deliveries({ type: 'payment.succeeded' }))
+        .filter((d) => d.eventId === eventId)
+        .map((d) => d.deliveredByProcess);
+      expect(stamps.length, 'the event produced no delivery to attribute to any process').toBeGreaterThan(0);
+      expect(
+        [...new Set(stamps)],
+        `pending work was not completed by the post-restart delivery process (before=${beforeRestart}, after=${afterRestart})`,
+      ).toEqual([afterRestart]);
 
       const logical = (await sut.events({ type: 'payment.succeeded' })).filter((e) => e.id === eventId);
       expect(logical.length, 'the committed event yielded more or fewer than one logical notification').toBe(1);
@@ -46,6 +75,15 @@ describe('AT-REQ-016 B — delivery defaults', () => {
       const deliveries = (await sut.deliveries({ type: 'payment.succeeded' })).filter((d) => d.eventId === eventId);
       const perPair = countPairs(deliveries);
 
+      // THIS ASSERTION CANNOT FAIL AT LOOP TIER, and saying so here is the point. In the reference
+      // stand-in, `emitKnown` writes exactly one delivery per recipient-channel pair by
+      // construction and `drainDeliveries` mutates those rows in place — no code path anywhere
+      // appends a second delivery for a pair, so no restart and no drain can make this list
+      // non-empty. Its worth is as a regression guard for the tier where a REAL delivery process
+      // exists: one with volatile in-flight state, an outbox it can re-read after a restart, and
+      // therefore a way to send the same pair twice. That process is filed, not built (see
+      // `loop/items/AI4DEV-19/proof-restart.txt`, "what this does not prove"), and until it exists
+      // a green here is a green about the fixture's shape, not about duplicate suppression.
       const duplicated = [...perPair.entries()].filter(([, n]) => n !== 1);
       expect(duplicated, 'a recipient-channel pair received more than one delivery').toEqual([]);
 

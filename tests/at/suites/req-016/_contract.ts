@@ -115,6 +115,14 @@ export type Delivery = {
   state: 'pending' | 'retrying' | 'sent' | 'failed';
   /** which component performed the send — AT-016.01's sole-writer observable */
   emittedBy: string;
+  /**
+   * WHICH PROCESS INSTANCE performed the send — `null` until one did. Deliberately NOT named
+   * `deliveredBy`: it sits beside `emittedBy`, which names a COMPONENT, and the two must not read
+   * as the same kind of thing. This one is the delivery process's identity, the value
+   * `Faults.processEpoch()` reports and `processRestart()` changes, so a send that happened after
+   * a restart carries a different string than one that happened before it (AT-016.07).
+   */
+  deliveredByProcess: string | null;
   payload: Record<string, unknown>;
   /** rendered copy delivered to the recipient (payload semantics checks) */
   body: string;

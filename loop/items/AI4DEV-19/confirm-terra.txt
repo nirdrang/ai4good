@@ -1,0 +1,69 @@
+CONFIRMATION ROUND 2 — AI4DEV-19 (planted markers, forced failures)
+
+You raised four findings at Gate 2. This round asks you, the raiser, to confirm all four against
+the current head. Two things about this session you should know before you judge:
+
+1. A previous confirmation turn in THIS session was accidentally run under a different model
+   (sol) and a different sandbox; its answers are on record as corroboration, not as yours. You
+   are terra, the model that raised the findings. Answer as the raiser. Do not defer to the
+   earlier turn's verdicts; re-derive them.
+2. Your original working root and the worktree that earlier turn read are both DELETED.
+
+## READ THE CODE HERE AND ONLY HERE — run every command against this absolute path
+
+    C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff
+
+Every relative path below resolves against that root. The final CODE commit is a970880; the four
+proof files were re-captured against it in commit 88e2be9; every commit above those touches only
+rulings and prompt files under loop/items/. The rulings since your review:
+`loop/items/AI4DEV-19/rulings-03.md`, `rulings-04.md`, `rulings-05.md` (whose postscript explains
+the wrong-model turn).
+
+## What was done about each of your findings
+
+**Finding 1 (P1) — the restart changed only an unused label; AT-016.07's green was unearned.
+UPHELD as false-green class, repaired in two steps.** Step one (round 2): `Delivery` gained
+`deliveredByProcess`, stamped by `drainDeliveries` with the identity of the process that performs
+the FIRST send; AT-016.07 requires every delivery of its event to carry the post-restart
+identity. Step two (this round, after the earlier turn in this session found the residual): the
+test now also PINS ITS OWN SCENARIO — directly after reading the epoch across the restart it
+asserts the identity actually changed, so deleting the `processRestart()` call is no longer
+outcome-neutral: it is a red. The comment above it now distinguishes the harness's obligation (an
+invoked restart must change the identity — `processEpochProblem`) from the test's own (a restart
+was invoked here at all).
+
+Falsifications on file in `loop/items/AI4DEV-19/proof-restart.txt`, both captured against
+a970880: (A) `drainDeliveries` stamping a constant instead of the epoch fails the post-restart
+stamp assertion at `b-delivery-defaults.test.ts:70`; (B) deleting the restart call fails the new
+scenario pin at `:52` with before === after in the message. Judge on the code:
+`tests/at/suites/req-016/b-delivery-defaults.test.ts` (AT-016.07),
+`tests/at/suites/req-016/_fixture.ts` (`drainDeliveries`, `processRestart`),
+`tests/at/harness/faults.ts` (guard routing).
+
+The recorded residual stands unchanged and is stated in the code and the proof file: at loop tier
+there is no volatile in-flight state for a restart to LOSE; a real delivery process is filed, not
+built. If you hold that residual makes the green unearned even with the scenario pinned, say so
+explicitly — that answer changes what merges.
+
+**Finding 2 (P1) — AT-016.09 read only two of the four things its message claims roll back.
+Fixed.** `c-reliability-guard.test.ts` also requires no delivery of the row's type and no ops
+item of that kind in the fault world, and names which of the four leaked. `proof-oracle.txt`
+carries the falsification: a rollback restoring only transition and event passes the old oracle
+and fails the widened one.
+
+**Finding 3 (P2) — `state.nextId` allocated before the fault point, never rolled back. Fixed.**
+The allocation moved below the try/catch (`_fixture.ts`, `emitKnown`), so a crashed emit consumes
+no id. A conformance case arms, crashes, clears, fires again and requires `event-1`
+(`conformance.selftest.ts`).
+
+**Finding 4 (P3) — the proof files claimed content they did not contain. Fixed.** All four proofs
+were re-captured against the final code commit and each names it — re-check this against the
+CURRENT files, because this round re-captured them again: each must name a970880, and
+`proof-green.txt` must contain a real `--expect` transcript.
+
+## What to answer
+
+For each of your four findings: CLOSED, PARTIALLY CLOSED, or NOT CLOSED, with the file and line
+you checked in the worktree above. This is a confirmation, not a re-review — do not raise a fresh
+catalogue; if something new is genuinely serious, one line at the end is enough. Be specific about
+anything closed in wording rather than in code.

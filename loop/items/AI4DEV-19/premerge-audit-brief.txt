@@ -1,0 +1,82 @@
+PRE-MERGE AUDIT — AI4DEV-19 (planted markers, forced failures).
+
+You are the INDEPENDENT AUDITOR. Two adversarial gates already reviewed the design and the diff;
+their findings are folded and confirmed. You are checking whether the CLAIM that this is ready to
+merge is TRUE. The agent making that claim is the one being checked, and its transcript is
+contaminated by having ordered the code, so RE-RUN things rather than reading reports about them.
+
+You are in the worktree, on the item's branch, with workspace-write. RUN the commands.
+
+Worktree: C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff
+Branch: nirdrang/ai4dev-19-h3-sentinels-fault-injection, the head that added this brief. Final CODE commit
+a970880, proofs against it in 88e2be9 — verify with git log that every commit after 88e2be9 touches only loop/items/ (proofs, prompts, rulings, this brief).
+
+=== WHAT IS CLAIMED ===
+
+Read these, then verify them:
+  loop/items/AI4DEV-19/rulings-03.md, rulings-04.md, rulings-05.md  <- the rulings, newest last
+  loop/items/AI4DEV-19/proof-green.txt, proof-red.txt, proof-oracle.txt, proof-restart.txt
+  loop/items/AI4DEV-19/confirm-terra-result-2.md, confirm-kimi-result.md  <- raiser confirmations
+  tests/at/expected/req-016.json  <- the declaration
+
+The claims, each of which you should independently confirm or refute:
+
+  C1. `bun run typecheck` exits 0.
+  C2. `bun run at:verify req-016 --tier loop --expect` exits 0, matching the declaration exactly:
+      10 green, 2 red, the reds being AT-016.01 and AT-016.11, both capability-pending.
+  C3. `bun run at:selftest` exits 0 — the harness conformance wall, including the H3 cases.
+  C4. `bun run at:check req-016` exits 0.
+  C5. THE RESTART IS CAUSAL TWICE OVER. AT-016.07 (tests/at/suites/req-016/
+      b-delivery-defaults.test.ts) requires (a) deliveries stamped with the POST-restart process
+      identity — so an epoch the delivery path ignores fails — and (b) as of this round, that the
+      identity actually CHANGED across the restart — so deleting the `processRestart()` call
+      fails instead of passing identically. proof-restart.txt claims both falsifications were
+      captured against a970880. Do not take the file on trust: re-perform BOTH temporary edits
+      (the constant stamp; the deleted restart call), confirm each fails on the assertion the
+      proof names, and REVERT each fully.
+  C6. AT-016.09's widened oracle (c-reliability-guard.test.ts) reads all four rollback surfaces
+      (transition, event, deliveries, ops items); proof-oracle.txt's falsification claim holds
+      on the code: a rollback restoring only transition+event passes the OLD two-read oracle and
+      fails the widened one.
+  C7. Every proof file names a970880 as its capture commit and contains what its own prose
+      claims — proof-green.txt a real `--expect` transcript; nothing in any proof cites a line
+      number that no longer matches the code it pins.
+  C8. The raisers confirmed against THIS head: the verdicts written inside
+      confirm-terra-result-2.md and confirm-kimi-result.md match what rulings-05.md and later
+      claim they say. A verdict quoted stronger than it reads is exactly your quarry. (Note:
+      confirm-terra-result.md without the -2 is an earlier turn answered by the WRONG MODEL,
+      kept as corroboration only — rulings-05.md's postscript explains.)
+  C9. `git status --porcelain` clean; `git diff origin/main...HEAD` touches only tests/ and
+      loop/ (Claude territory); no change outside loop/items/ after a970880.
+
+=== ALSO CHECK, BECAUSE THESE ARE THE ITEM'S OWN FAILURE MODES ===
+
+  A. Does any NEW assertion pass for the wrong reason? The item's whole subject is unearned
+     greens. Break at least two of the protections this item added (e.g. make
+     `faultAlreadyArmedProblem` return null; make the sentinel containment check pass
+     everything) and confirm a test fails NAMING that protection. Restore each, report what you
+     broke and what failed.
+  B. Comments as documentation: report any comment in the diff that claims more than the code
+     delivers — including the AT-016.07 comment block distinguishing the harness's obligation
+     from the test's own scenario pin, and the unfailable-assertion comment beside the
+     anti-duplication check.
+
+=== KNOWN SANDBOX BOUNDARY — do not mis-report it ===
+
+This worktree is nested inside the main checkout, and the workspace-scoped sandbox has been
+observed to deny vitest's ancestor-directory config walk ("Cannot read directory ..."). If you
+hit that exact signature, report COULD-NOT-VERIFY-IN-SANDBOX for that command and say so plainly
+— it is NOT a red of the code under audit, and the pull request's CI run supplies the execution
+evidence instead. Never infer a pass from a command you could not run; say which ones executed.
+
+=== TREE DISCIPLINE ===
+
+Leave the tree EXACTLY as you found it. Every temporary edit reverted; `git status --short`
+clean at the end, and state in the report that it was.
+
+=== OUTPUT ===
+
+For EACH claim C1-C9 and each check A-B: VERIFIED / REFUTED / COULD-NOT-VERIFY, the command you
+ran, and the actual output that matters. Then a merge recommendation with reasons. You RULE ON
+NOTHING — the item agent holds the decision — but say plainly whether the evidence supports
+merging.

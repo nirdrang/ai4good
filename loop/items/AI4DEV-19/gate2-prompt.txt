@@ -1,0 +1,68 @@
+GATE 2 — adversarially review the DIFF for board item AI4DEV-19 (sentinels + fault injection)
+in the acceptance-test harness. You are running in the worktree; read the real tree, not just
+the diff, and follow any call into files the diff never touched.
+
+The diff under review:
+
+    git diff origin/main...HEAD
+
+What was built: two harness capabilities that were previously seams throwing "capability
+pending" — `Sentinels` (plant a marker, scan a scope for presence AND absence) and `Faults`
+(induce a failure at a named point, restart the delivery process, assert atomicity). New files
+`tests/at/harness/sentinels.ts` and `tests/at/harness/faults.ts`; the `req-016` fixture was made
+faultable; `AT-016.09`'s oracle was tightened; six conformance tests were added.
+
+Read for context (they state the decisions and WHY, so you can attack the reasoning):
+  loop/items/AI4DEV-19/design.md
+  loop/items/AI4DEV-19/gate0-rulings.md
+  loop/items/AI4DEV-19/proof-red.txt, proof-green.txt, proof-oracle.txt
+
+THE CENTRAL RISK, and what this gate exists to catch. This is harness code: every future
+acceptance suite in this project reaches its faults and sentinels through it. A bug here does
+not fail one test — it silently green-lights thirty suites at once. The specific catastrophe
+named in the project's own spec is "a fault handle that counts 'armed' as 'triggered' makes
+every atomicity test pass on nothing". Hunt for anything of that shape.
+
+Attack these specifically:
+
+1. **FALSE GREEN.** Can any assertion in the new code pass while the property it names is false?
+   In particular: does `triggerCount()` count times execution genuinely REACHED the armed point,
+   or can it be incremented by arming, by clearing, by teardown, or by a code path that does not
+   actually inject the fault? Can `clear()` succeed on a fault that never fired?
+
+2. **THE ROLLBACK.** `_fixture.ts`'s `emitKnown` must commit the transition and the event write
+   as ONE unit, with the fault point between them. Verify by reading: is EVERYTHING on the event
+   side rolled back (event, deliveries, ops item) or only some of it? Is `state.nextId` left
+   advanced? Can a partial rollback leave state that makes a LATER row's assertion pass or fail
+   for the wrong reason? Is the rollback correct when the same event type fired earlier?
+
+3. **THE TIGHTENED ORACLE.** `AT-016.09` now asserts neither side committed, rather than merely
+   that the two agree. Is the new assertion actually stronger in every case, or does it admit a
+   new way to pass vacuously — e.g. a row that no-ops, a fault that fires before the transition,
+   or a `continue` that skips the assertion?
+
+4. **ISOLATION.** `AT-016.09` opens 22 worlds and arms 11 faults in one run. Can an armed fault,
+   a planted sentinel value, a trigger count or a process epoch leak from one world, one AT id,
+   or one guarded row into the next? What happens if a test throws before `clear()`?
+
+5. **THE GUARDS ARE ACTUALLY CALLED.** `guards.ts` says H3 MUST route `plant`, `at`, `clear` and
+   `processRestart` through its four predicates rather than re-deriving them. Verify each one
+   genuinely calls the predicate and ACTS on a non-null result. A problem computed and not acted
+   on is this project's own recurring false-green shape.
+
+6. **SENTINELS HAVE NO ACCEPTANCE-TEST CONSUMER.** It is established that a no-op `Sentinels`
+   passes `at:verify --expect` completely — the six conformance tests are the ENTIRE evidence for
+   that half. So audit those tests hard: would each one actually fail against an implementation
+   that did nothing? Does the absence test prove the scope was genuinely READ, rather than just
+   returning empty? Is "not there" distinguishable from "did not look"?
+
+7. **THE DECLARATION.** `tests/at/expected/req-016.json` must match the run exactly. Is every red
+   still honestly declared, and is `AT-016.01`'s capability list now exactly what its seam
+   actually throws, in the same order?
+
+8. Anything the diff BREAKS that its own tests would not notice, and any place the code and its
+   comments disagree.
+
+Report findings only — no praise, no summary of what the code does. For each: file, line, what
+is wrong, how it could produce a false green, and the smallest correct fix. Rank by blast radius.
+If you find nothing in a category, say so in one line rather than inventing something.

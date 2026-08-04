@@ -1,0 +1,25 @@
+# Terra confirmation, round 2 — the raiser, model pinned
+
+Session: 019fc7c7-c54b-7033-b161-1fe9cd46360b (the Gate 2 raiser session), resumed by the third
+item agent on 2026-08-04 with the pins verified in the run header: model `gpt-5.6-terra`,
+reasoning effort `high`, sandbox `read-only`, workdir this item's live worktree. Prompt:
+`confirm-kimi.txt`'s sibling `confirm-terra.txt` at commit f3dfa2d, pointing at final code commit
+a970880 (proofs commit 88e2be9). Exit 0; answer below verbatim from stdout.
+
+The earlier turn in this session (recovered in `confirm-terra-result.md`) was answered by sol
+under full access — the wrong model — and is corroboration only; `rulings-05.md`'s postscript
+rules on that. This file is the raiser's own confirmation.
+
+Verdicts: finding 1 PARTIALLY CLOSED — the pin and both falsifications confirmed real, the
+residual maintained as "unearned as a resilience claim" (the disputed tag escalated to the
+founder; see rulings-06.md). Findings 2, 3, 4 CLOSED.
+
+---
+
+1. **PARTIALLY CLOSED.** The test now pins that an invoked restart changed identity at [b-delivery-defaults.test.ts:49](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/suites/req-016/b-delivery-defaults.test.ts:49), and delivery now reads and stamps that identity at [_fixture.ts:342](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/suites/req-016/_fixture.ts:342). The two required falsifications are real: breaking the stamp fails ([proof-restart.txt:59](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-restart.txt:59)) and deleting the restart call fails ([proof-restart.txt:116](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-restart.txt:116)). But `processRestart()` still changes only a string ([`_fixture.ts:241`](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/suites/req-016/_fixture.ts:241)); the fixture explicitly has no delivery-process lifecycle ([line 197](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/suites/req-016/_fixture.ts:197)), and duplicate delivery remains unexercisable by construction ([b-delivery-defaults.test.ts:78](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/suites/req-016/b-delivery-defaults.test.ts:78)). It proves attribution after a modeled identity change, not restart resilience; I still consider the “across a restart” green unearned as a resilience claim.
+
+2. **CLOSED.** The atomicity oracle reads leaked deliveries and matching operations items at [c-reliability-guard.test.ts:89](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/suites/req-016/c-reliability-guard.test.ts:89) and rejects either at [line 104](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/suites/req-016/c-reliability-guard.test.ts:104). The captured partial rollback leaves those two fields committed ([proof-oracle.txt:138](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-oracle.txt:138)); the widened oracle fails while the earlier two-read form passes ([line 191](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-oracle.txt:191)).
+
+3. **CLOSED.** Event-ID allocation follows the fault point and rollback at [_fixture.ts:284](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/suites/req-016/_fixture.ts:284). The permanent conformance case induces the crash, clears it, fires again, and requires `event-1` at [conformance.selftest.ts:490](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/harness/conformance.selftest.ts:490) and [line 508](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/tests/at/harness/conformance.selftest.ts:508).
+
+4. **CLOSED.** Each current proof identifies final code commit `a970880`: [proof-red.txt:3](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-red.txt:3), [proof-green.txt:3](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-green.txt:3), [proof-oracle.txt:3](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-oracle.txt:3), and [proof-restart.txt:3](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-restart.txt:3). The real expected-partition transcript is present in [proof-green.txt:63](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-green.txt:63), with the command at [line 70](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-green.txt:70) and its exact-match result at [line 89](/C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff/loop/items/AI4DEV-19/proof-green.txt:89).

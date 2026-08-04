@@ -11,10 +11,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { standInCapability, stubbedCapabilityNames } from './capabilities.ts';
+import { createFaults } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore, LIFECYCLE_STATES } from './fixtures.ts';
 import { bijectionProblems, type SuiteRegistration } from './check.ts';
 import { createHarness } from './index.ts';
+import { createSentinels } from './sentinels.ts';
 import {
+  faultAlreadyArmedProblem,
   faultFiredProblem,
   faultPointProblem,
   MIN_SENTINEL_VALUE_LENGTH,
@@ -38,6 +41,11 @@ import type { NotificationsSut, World } from '../suites/req-016/_contract.ts';
 /** The guard configuration AT-016.08 drives, addressed the way a suite addresses it. */
 const GUARD_CAP_KEY = 'req-015.thread_comment_notifications.max_per_window';
 const GUARD_WINDOW_KEY = 'req-015.thread_comment_notifications.window_ms';
+
+/** The fault point AT-016.09 arms, addressed the way that suite addresses it. */
+const FAULT_POINT = 'notifications.between_transition_and_event_write';
+/** The only store the req-016 adapter registers as scannable. */
+const SENTINEL_SCOPE = 'notifications.delivery_bodies';
 
 describe('the five false-green reproductions', () => {
   it('refuses a passing body that never opens a world or consumes trusted evidence', async () => {
@@ -234,13 +242,30 @@ describe('a teardown failure fails the test instead of disappearing', () => {
 });
 
 describe('the centralized generic guards refuse as well as accept', () => {
-  it('accepts a long unique sentinel and refuses a short one, a blank one and a reused one', () => {
+  it('accepts a long unique sentinel and refuses a short one, a blank one, a reused one and an overlapping one', () => {
     const good = 'AT-016.01/blockers/1767225600000';
     expect(good.length).toBeGreaterThanOrEqual(MIN_SENTINEL_VALUE_LENGTH);
     expect(sentinelValueProblem(good, [])).toBeNull();
     expect(sentinelValueProblem('short', [])).toContain('characters');
     expect(sentinelValueProblem('   ', [])).toContain('non-empty');
     expect(sentinelValueProblem(good, [good])).toContain('planted before');
+
+    // OVERLAP, both directions. The scan asks whether a body CONTAINS the value, so a value that
+    // extends an already-planted one — or that an already-planted one extends — makes every body
+    // carrying either report both present. Equality was the only case this guard used to reject,
+    // and substring matching is what makes that insufficient.
+    expect(
+      sentinelValueProblem(`${good}/extended`, [good]),
+      'a value containing an earlier one was accepted — every body carrying it would report the earlier one present too',
+    ).toContain('overlaps');
+    expect(
+      sentinelValueProblem(good, [`${good}/extended`]),
+      'a value contained in an earlier one was accepted — the harm is symmetric and so must the refusal be',
+    ).toContain('overlaps');
+    expect(
+      sentinelValueProblem(good, ['AT-016.02/scope/1767225600000']),
+      'two distinct sentinels of the same shape were refused as overlapping — the guard stopped discriminating',
+    ).toBeNull();
   });
 
   it('accepts a fault point the product exposes and refuses one it does not', () => {
@@ -249,6 +274,15 @@ describe('the centralized generic guards refuse as well as accept', () => {
     const problem = faultPointProblem('notifications.typo', exposed) ?? '';
     expect(problem).toContain('exposes no fault point');
     expect(problem, 'the refusal does not say which points DO exist, so a typo is hard to see').toContain(exposed[0]);
+  });
+
+  it('accepts arming a point nothing holds and refuses one that already has a live arming', () => {
+    const point = 'notifications.between_transition_and_event_write';
+    expect(faultAlreadyArmedProblem(point, [])).toBeNull();
+    expect(faultAlreadyArmedProblem(point, ['notifications.other'])).toBeNull();
+    const problem = faultAlreadyArmedProblem(point, ['notifications.other', point]) ?? '';
+    expect(problem, 'a second arming of a live point was accepted').toContain('already armed');
+    expect(problem, 'the refusal does not say what to do about it').toContain('Clear the existing handle');
   });
 
   it('accepts a fault that fired and refuses one that was merely armed', () => {
@@ -261,6 +295,310 @@ describe('the centralized generic guards refuse as well as accept', () => {
     expect(processEpochProblem('epoch-1', 'epoch-2')).toBeNull();
     expect(processEpochProblem('epoch-1', 'epoch-1')).toContain('restarted nothing');
     expect(processEpochProblem('epoch-1', '')).toContain('empty epoch');
+  });
+});
+
+/**
+ * H3's wall, and the reason it is not a formality.
+ *
+ * The blocks above test the guards AS PURE FUNCTIONS. That is not enough, and this file says so
+ * about itself thirty lines up: a problem computed and not acted on is "this tree's own recurring
+ * false-green shape". Nothing above proves that `plant`, `at`, `clear` and `processRestart` ever
+ * CALL the predicate that would refuse them.
+ *
+ * And for sentinels the stakes are higher still. `req-016` is the only suite that exists; its one
+ * sentinel consumer, `AT-016.01`, throws at `h.static.providerClientImporters()` on line 28 and never
+ * reaches `plant()` on line 50, and `scan()` has no caller anywhere in the tree. So a completely
+ * NO-OP `Sentinels` would satisfy `at:verify req-016 --tier loop --expect` from end to end. These
+ * tests are therefore not supporting evidence for half this capability — they are the entire
+ * evidence, and every one of them is written so that a no-op fails it.
+ *
+ * They drive `createHarness()` rather than hand-built parts wherever the real fixture can produce the
+ * condition, for the reason the clock test gives: what is worth proving is the object a suite is
+ * really handed. Only the two conditions the conforming fixture cannot produce — an unchanged epoch,
+ * and an adapter offering no seam at all — are built from stubs, and each says so where it sits.
+ */
+describe('the H3 wall: sentinels and fault injection call the guards, and refuse', () => {
+  it('plants a usable marker and refuses a blank, a short, a reused and an overlapping value', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const value = 'conformance/plant/1767225600000';
+      const sentinel = await h.sentinels.plant('notification-body', value);
+      expect(sentinel.value, 'plant() did not hand back the value it was asked to plant').toBe(value);
+      expect(sentinel.id.length, 'the sentinel carries no id, so two plantings are indistinguishable').toBeGreaterThan(0);
+
+      // The refusals are the guard's judgement, reached through the implementation rather than
+      // called directly: a plant() that computed sentinelValueProblem and ignored it passes every
+      // test in the block above and fails all four of these.
+      await expect(h.sentinels.plant('notification-body', 'short')).rejects.toThrow(/characters/);
+      await expect(h.sentinels.plant('notification-body', '   ')).rejects.toThrow(/non-empty/);
+      await expect(h.sentinels.plant('notification-body', value)).rejects.toThrow(/planted before/);
+
+      // OVERLAP, through the implementation. `scan()` matches with `body.includes()`, so planting a
+      // value that extends a live one would make every body carrying the longer one report the
+      // shorter one present as well — a sentinel found in a scope no event carried it to.
+      await expect(
+        h.sentinels.plant('notification-body', `${value}/extended`),
+        'a value extending a planted one was accepted, so the scan can report it present off the other one alone',
+      ).rejects.toThrow(/overlaps/);
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('finds a planted sentinel where it landed, reports absence from a scope it really read, and refuses a scope nothing registered', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('sentinel-scan')) as World;
+      const sut = h.sut.notifications as NotificationsSut;
+
+      const carried = await h.sentinels.plant('notification-body', 'conformance/carried/1767225600001');
+      const neverFired = await h.sentinels.plant('notification-body', 'conformance/absent/1767225600002');
+
+      // ABSENCE, from a scope that is real and was searched. This is the assertion the whole design
+      // of scan() turns on: before it can mean anything, "not there" has to be distinguishable from
+      // "did not look", and the refusal at the end of this test is what makes it so.
+      expect(
+        await h.sentinels.scan(SENTINEL_SCOPE),
+        'a scope holding nothing did not come back empty',
+      ).toEqual([]);
+
+      await world.fire('blocker.raised', { sentinel: carried.value });
+      await sut.drainDeliveries();
+
+      expect(
+        (await h.sentinels.scan(SENTINEL_SCOPE)).map((found) => found.value),
+        'the sentinel that was carried into a delivery body was not found by the scan',
+      ).toEqual([carried.value]);
+      expect(
+        (await h.sentinels.scan(SENTINEL_SCOPE)).map((found) => found.id),
+        'a sentinel nothing carried was reported present — the scan is matching on something other than the value',
+      ).not.toContain(neverFired.id);
+
+      const refusal = await h.sentinels.scan('notifications.nowhere').then(
+        () => null,
+        (err: Error) => err.message,
+      );
+      expect(
+        refusal,
+        'scanning a scope the adapter never registered returned instead of refusing, so "absent" and "never looked" are the same answer again',
+      ).toContain('no sentinel scope named');
+      expect(refusal, 'the refusal does not say which scopes DO exist, so a typo is hard to see').toContain(SENTINEL_SCOPE);
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('refuses a fault point the product does not expose, and a kind the point does not implement', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      expect(await h.faults.points(), 'the fixture stopped exposing the point AT-016.09 arms').toEqual([FAULT_POINT]);
+
+      const refusal = await h.faults.at('notifications.typo', 'crash').then(
+        () => null,
+        (err: Error) => err.message,
+      );
+      expect(
+        refusal,
+        'arming a point nothing exposes was a no-op, so the atomicity oracle would read "both committed" as proof while no fault was ever injected',
+      ).toContain('exposes no fault point');
+      expect(refusal, 'the refusal does not name the points that DO exist').toContain(FAULT_POINT);
+
+      // The kind is part of the arming. A point that accepted a kind it does not implement would
+      // arm nothing, still report a trigger when execution passed it, and read as fault-injected.
+      await expect(h.faults.at(FAULT_POINT, 'lose_ack')).rejects.toThrow(/implements no/);
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('counts reaching the armed point and never counts arming it, and refuses to clear a fault that never fired', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('fault-count')) as World;
+
+      const neverReached = await h.faults.at(FAULT_POINT, 'crash');
+      expect(neverReached.point, 'the handle reports a point other than the one it was armed at').toBe(FAULT_POINT);
+      expect(
+        await neverReached.triggerCount(),
+        'arming was counted as firing — every atomicity test in every future suite would then pass on a fault that never happened',
+      ).toBe(0);
+      await expect(
+        neverReached.clear(),
+        'a fault that was armed and never reached was cleared without complaint',
+      ).rejects.toThrow(/never fired/);
+
+      const reached = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(world.fire('payment.succeeded'), 'the induced crash did not surface at all').rejects.toThrow(
+        /induced fault/,
+      );
+      expect(
+        await reached.triggerCount(),
+        'execution reached the armed point and the handle did not count it',
+      ).toBe(1);
+      await reached.clear();
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('refuses to arm a point that already holds a live arming, and lets a cleared point be armed again', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('fault-displacement')) as World;
+
+      const first = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(
+        h.faults.at(FAULT_POINT, 'crash'),
+        'a second arming displaced the live one silently — the first handle would then count a point ' +
+          'nothing reaches, and clearing the replacement would disarm the point while that handle ' +
+          'still reported itself armed',
+      ).rejects.toThrow(/already armed/);
+
+      // The surviving arming is the FIRST one, and it is the one that catches the fault. A
+      // displacement that had been allowed would leave this count at zero.
+      await expect(world.fire('payment.succeeded'), 'the induced crash did not surface at all').rejects.toThrow(
+        /induced fault/,
+      );
+      expect(await first.triggerCount(), 'the arming that survived did not count the fault it caught').toBe(1);
+      await first.clear();
+
+      // CLEARING RELEASES THE POINT. A reservation that outlived its handle would make the point
+      // unarmable for the rest of this harness's life — the refusal turning into a second silent
+      // hole in place of the first.
+      const second = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(world.fire('payment.succeeded')).rejects.toThrow(/induced fault/);
+      await second.clear();
+
+      // A REFUSED arming reserves nothing either: this one is rejected inside the adapter, on the
+      // kind, after the point check — so the point must still be free afterwards.
+      await expect(h.faults.at(FAULT_POINT, 'lose_ack')).rejects.toThrow(/implements no/);
+      const third = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(world.fire('payment.succeeded')).rejects.toThrow(/induced fault/);
+      await third.clear();
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('consumes no event id when the crash rolls the emit back, so the surviving event is still event-1', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('fault-id-rollback')) as World;
+      const sut = h.sut.notifications as NotificationsSut;
+
+      const armed = await h.faults.at(FAULT_POINT, 'crash');
+      await expect(world.fire('payment.succeeded'), 'the induced crash did not surface at all').rejects.toThrow(
+        /induced fault/,
+      );
+      await armed.clear();
+
+      // THE ID ALLOCATION IS A SIDE EFFECT LIKE ANY OTHER, and it is the one the rollback used to
+      // miss. Allocated before the fault point, the crashed emit spent `event-1` on an event that
+      // was never written, the next firing came back `event-2` with no `event-1` anywhere, and the
+      // rollback's own comment called itself one unit while a third thing survived the crash.
+      //
+      // This case exists because NOTHING ELSE IN THE TREE READS ID CONTIGUITY: move the allocation
+      // back above the try/catch and every suite stays green, so a repair nobody can notice being
+      // undone is on the same footing as the defect it repaired.
+      const { eventId } = await world.fire('payment.succeeded');
+      expect(
+        eventId,
+        'the crashed emit consumed an event id — the rollback left the counter advanced, so the ids no longer match the events that exist',
+      ).toBe('event-1');
+      expect(
+        (await sut.events({ type: 'payment.succeeded' })).map((event) => event.id),
+        'the one event that survived does not carry the id its own fire() reported',
+      ).toEqual(['event-1']);
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('changes the delivery process identity on restart, and refuses a restart that changed nothing', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const before = await h.faults.processEpoch();
+      expect(before.trim().length, 'the delivery process has no identity, so no restart can be observed').toBeGreaterThan(0);
+      await h.faults.processRestart();
+      expect(
+        await h.faults.processEpoch(),
+        'processRestart() left the identity unchanged — every "survives a restart" assertion above it would be about a process that never stopped',
+      ).not.toBe(before);
+    } finally {
+      await h.teardown();
+    }
+
+    // A STUB, and only because the conforming fixture cannot produce this condition: its restart
+    // always changes the epoch. What is under test is the harness's routing to processEpochProblem,
+    // so the seam that lies is the fixture's half, deliberately.
+    const restartsNothing = createFaults({
+      points: () => [],
+      arm: () => {
+        throw new Error('this stub exposes no points, so nothing can arm one');
+      },
+      processEpoch: () => 'delivery-process-1',
+      processRestart: () => undefined,
+    });
+    await expect(
+      restartsNothing.processRestart(),
+      'a restart that left the process identity exactly as it was returned successfully',
+    ).rejects.toThrow(/restarted nothing/);
+  });
+
+  it('lets the process that first sent a delivery keep it, so a send before a restart is told apart from one after', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('epoch-stamp')) as World;
+      const sut = h.sut.notifications as NotificationsSut;
+
+      const before = await h.faults.processEpoch();
+      await world.fire('payment.succeeded');
+      await sut.drainDeliveries();
+
+      await h.faults.processRestart();
+      const after = await h.faults.processEpoch();
+      await world.fire('payment.failed');
+      await sut.drainDeliveries();
+
+      // WHAT `_contract.ts` PROMISES ABOUT `deliveredByProcess`: a send that happened after a
+      // restart carries a different string than one that happened before it. That is only true if
+      // the FIRST send owns the stamp — a drain that re-stamps every row it sweeps records the
+      // identity of the last drain instead, and the earlier send is retroactively attributed to a
+      // process that did not perform it. Nothing else in the tree can tell those two apart:
+      // AT-016.07 drains once, after its restart, so it reads the same value either way.
+      const sentBefore = (await sut.deliveries({ type: 'payment.succeeded' })).map((d) => d.deliveredByProcess);
+      const sentAfter = (await sut.deliveries({ type: 'payment.failed' })).map((d) => d.deliveredByProcess);
+      expect(sentBefore.length, 'the pre-restart send produced no delivery to attribute').toBeGreaterThan(0);
+      expect(sentAfter.length, 'the post-restart send produced no delivery to attribute').toBeGreaterThan(0);
+      expect(
+        [...new Set(sentBefore)],
+        'a delivery sent BEFORE the restart was re-stamped by the later drain — the field reports the last drain, not the process that sent it',
+      ).toEqual([before]);
+      expect(
+        [...new Set(sentAfter)],
+        'the post-restart send does not carry the identity the process had when it performed it',
+      ).toEqual([after]);
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('degrades an adapter that exposes neither seam to a loud refusal, never to a no-op', async () => {
+    // The seams are OPTIONAL on the adapter because the runner's black-box trees plant disposable
+    // adapters with three members and no more. Optional must not become silent: absence has to be
+    // refused at USE, and the same guards write those refusals.
+    const noFaults = createFaults();
+    expect(await noFaults.points()).toEqual([]);
+    await expect(noFaults.at(FAULT_POINT, 'crash')).rejects.toThrow(/Exposed points: \(none\)/);
+    await expect(noFaults.processRestart()).rejects.toThrow(/empty epoch/);
+
+    // Planting still works with no adapter at all — it is the harness's own act — but a scan has
+    // nothing it could honestly have read, so every scope is refused.
+    const noScopes = createSentinels();
+    const sentinel = await noScopes.plant('notification-body', 'conformance/no-seam/1767225600003');
+    expect(sentinel.value).toBe('conformance/no-seam/1767225600003');
+    await expect(noScopes.scan(SENTINEL_SCOPE)).rejects.toThrow(/Exposed scopes: \(none\)/);
   });
 });
 
