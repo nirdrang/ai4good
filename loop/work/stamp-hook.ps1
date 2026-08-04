@@ -24,12 +24,14 @@
 # reads the line at all.
 
 $ErrorActionPreference = 'Stop'
+$script:AgentLines = @()
 
 function Emit([string]$l1, [string]$l2, [string[]]$extra, [string]$pm, [string]$dev) {
     Write-Output ('WORKING ON  ' + $l1)
     Write-Output ('IN          ' + $l2)
     Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"/>' -f $pm, $dev)
     foreach ($e in $extra) { if ($e) { Write-Output $e } }
+    foreach ($a in $script:AgentLines) { if ($a) { Write-Output $a } }
 }
 
 function Fmt([string]$id, [string]$label) {
@@ -85,6 +87,33 @@ try {
     if (-not [System.IO.Path]::IsPathRooted($gitDir)) { $gitDir = Join-Path $top $gitDir }
     $wt = Split-Path -Leaf $top
     $extra = @()
+
+    # SUPERVISED AGENTS (founder 2026-08-05). From the MAIN checkout, every platform agent
+    # worktree gets its own derived stamp appended, so the founder sees the whole supervision
+    # tree on every prompt without asking. Each agent line is this hook re-run against that
+    # worktree - ONE derivation logic, never a second formula that could drift. An agent
+    # worktree itself skips this block (its stamp IS the agent line), which also terminates
+    # the recursion; the path guard matches both slash directions because git reports forward
+    # slashes on Windows.
+    try {
+        $wtRoot = Join-Path $top '.claude/worktrees'
+        if (($top -notmatch '[\\/]\.claude[\\/]worktrees[\\/]') -and (Test-Path -LiteralPath $wtRoot)) {
+            $savedEnv = $env:CLAUDE_PROJECT_DIR
+            foreach ($d in (Get-ChildItem -LiteralPath $wtRoot -Directory -ErrorAction SilentlyContinue)) {
+                $env:CLAUDE_PROJECT_DIR = $d.FullName
+                $child = @(& powershell -NoProfile -File $PSCommandPath 2>$null)
+                if ($child.Count -ge 2) {
+                    $script:AgentLines += ('AGENT       ' + (([string]$child[0]) -replace '^WORKING ON\s+', ''))
+                    $script:AgentLines += ('  IN        ' + (([string]$child[1]) -replace '^IN\s+', ''))
+                }
+            }
+            $env:CLAUDE_PROJECT_DIR = $savedEnv
+        }
+    }
+    catch {
+        # Never silent, never fatal: a broken enumeration names itself and the main stamp stands.
+        $script:AgentLines += ('AGENT       (enumeration failed: ' + ($_.Exception.Message -replace '[\r\n]', ' ') + ')')
+    }
 
     # Named git states. The earlier design printed "nothing" during a rebase or a bisect - hours of
     # genuinely attributed work reported as unattributed, which teaches you to ignore the line.
