@@ -170,6 +170,25 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         'the provider was never asked to send — the rejection path was not exercised',
       ).toEqual(['rejected']);
 
+      /*
+       * AND THE TRACE IS BOUND TO THE PAIR THE TAXONOMY RESOLVED, not merely to the event.
+       *
+       * Outcomes alone say that a send happened, never that it was THIS send. A fixture that mails
+       * the NGO — or mails anyone in-app — while writing an honest delivery row for the volunteer
+       * produces the identical outcome sequence, and every other clause here reads the SUT's own
+       * records, which that fixture keeps correct. The provider's record is the one witness that is
+       * not the sender, so the recipient and the channel are the axis it has to be read on.
+       *
+       * Both access rows are volunteer-only, email + in-app (`taxonomy.ts`), and in-app never
+       * reaches the provider — so every attempt here owes exactly the volunteer, on email.
+       */
+      const misdirected = (eventId: string) =>
+        attemptsFor(eventId).filter((a) => a.recipientId !== w.actors.volunteer || a.channel !== 'email');
+      expect(
+        misdirected(rejected.eventId),
+        'the provider was handed a recipient or a channel this event never resolved to',
+      ).toEqual([]);
+
       let event = (await sut.events({ type: 'access.key_issued' })).find((e) => e.id === rejected.eventId);
       expect(event, 'the notification event vanished after a provider rejection').toBeDefined();
       expect(['pending', 'retrying'], 'an unaccepted send was marked sent').toContain(event!.state);
@@ -189,6 +208,10 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         `only ${outcomes.length} provider attempt(s) for a rejected send — no retry actually reached the provider`,
       ).toBeGreaterThanOrEqual(2);
       expect(outcomes[outcomes.length - 1], 'the retry did not end in provider acceptance').toBe('accepted');
+      expect(
+        misdirected(rejected.eventId),
+        'the retry reached the provider carrying a recipient or a channel this event never resolved to',
+      ).toEqual([]);
 
       event = (await sut.events({ type: 'access.key_issued' })).find((e) => e.id === rejected.eventId);
       expect(event!.state, 'the accepted send was never marked sent').toBe('sent');
@@ -249,13 +272,18 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         'a delivery the provider accepted never reached the sent state',
       ).toEqual([]);
 
-      // Provider side: the email pair was physically accepted, and accepted exactly once.
-      const acceptedPairs = h.vendors.email
-        .accepted()
-        .filter((a) => a.eventId === ambiguous.eventId)
-        .map((a) => `${a.recipientId}:${a.channel}`);
-      expect(acceptedPairs.length, 'the provider never accepted the send at all').toBeGreaterThan(0);
-      expect(acceptedPairs.length, 'the provider accepted the same recipient-channel pair twice').toBe(new Set(acceptedPairs).size);
+      // PROVIDER SIDE: exactly the pairs this event owes, each accepted exactly once — EQUALITY,
+      // not internal consistency. Checking only that the accepted pairs carry no duplicate among
+      // themselves passes a retry sent to the wrong recipient: `volunteer:email` from the lost ack
+      // and `ngo:email` from the retry are two distinct pairs, so a de-dupe check sees nothing
+      // wrong, while the provider's own record says a revocation the taxonomy restricts to the
+      // volunteer was mailed to the NGO. The same oracle as the delivery side above, applied to
+      // the record the sender does not write.
+      const acceptedForEvent = h.vendors.email.accepted().filter((a) => a.eventId === ambiguous.eventId);
+      expect(
+        pairProblems(expectedPairs(w.actors, ['volunteer'], ['email']), countPairs(acceptedForEvent)),
+        'the pairs the provider physically accepted are not exactly the pairs this event resolved to',
+      ).toEqual([]);
     },
   );
 });

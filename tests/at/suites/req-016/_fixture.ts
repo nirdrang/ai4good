@@ -418,7 +418,20 @@ export function createFixtureAdapter({ clock, worlds, config, vendors }: Adapter
       // `passes` bounds the worker so a test can observe the state BETWEEN attempts: AT-016.11's
       // "the unconfirmed send is observable as pending/retrying" is unobservable if every drain runs
       // to quiescence.
+      //
+      // AND A `passes` THAT IS NOT A WHOLE NUMBER OF PASSES IS REFUSED, never interpreted. The
+      // loop's guard is `pass >= limit`, and that quietly gave three different meanings to three
+      // nonsense values: `0` ran no pass at all while reading as "one bounded pass", `1.5` ran two,
+      // and `NaN` — where every comparison is false — ran to quiescence, which is the opposite of
+      // bounding anything. A test that asked for a bounded drain and silently got an unbounded one
+      // observes the state AFTER the retry it meant to catch the system between.
       const limit = opts?.passes;
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+        throw new Error(
+          `drainDeliveries refuses passes=${String(limit)} — a pass budget must be a whole number of ` +
+            `worker passes, at least 1; anything else bounds the drain by something other than what the test asked for`,
+        );
+      }
       let pass = 0;
       while (state.deliveries.some((delivery) => delivery.state !== 'sent')) {
         if (limit !== undefined && pass >= limit) break;

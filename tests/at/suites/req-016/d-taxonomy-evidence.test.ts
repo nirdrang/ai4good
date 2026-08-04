@@ -1,6 +1,14 @@
 import { describe, expect } from 'vitest';
 import { atTest, defineEvidenceCapture } from './_bind.ts';
-import type { Delivery, DocumentedDefault, NotificationEvent, NotificationsSut, OpsItem, World } from './_contract.ts';
+import type {
+  Delivery,
+  DocumentedDefault,
+  NotificationEvent,
+  NotificationsSut,
+  OpsItem,
+  ProviderOutcome,
+  World,
+} from './_contract.ts';
 import { countPairs, expectedPairs, pairProblems } from './_oracles.ts';
 import {
   channelRuleProblems,
@@ -9,7 +17,24 @@ import {
   PAYLOAD_PREDICATES,
   PENALTY_LEXICON,
   TAXONOMY,
+  type Channel,
+  type TaxonomyRow,
 } from './taxonomy.ts';
+
+/**
+ * One send as the PROVIDER recorded it — the out-of-band half of a row's evidence.
+ *
+ * `channel` is `string`, not this suite's `Channel`. The harness is statically checked to produce
+ * `AtHarness<…, string>`, so narrowing it here would be the suite re-labelling a seam it does not
+ * own — the same move `registry.ts` refuses on `h`. That every attempt in this trace is on 'email'
+ * is a CHECK in AT-016.05, never a type that asserts it into existence.
+ */
+interface ProviderTrace {
+  recipientId: string;
+  eventId: string;
+  channel: string;
+  outcome: ProviderOutcome;
+}
 
 interface RowEvidence {
   eventId: string;
@@ -17,6 +42,10 @@ interface RowEvidence {
   events: NotificationEvent[];
   deliveries: Delivery[];
   opsItems: OpsItem[];
+  /** every send of this row's deliveries that ARRIVED at the provider seam, accepted or not */
+  providerAttempts: ProviderTrace[];
+  /** the subset the provider physically accepted — the send-count oracle, free of replays */
+  providerAccepted: ProviderTrace[];
 }
 
 interface TaxonomyEvidence {
@@ -24,6 +53,22 @@ interface TaxonomyEvidence {
   registered: string[];
   defaults: DocumentedDefault[];
   rows: Record<string, RowEvidence>;
+}
+
+/** The documented per-event delivery defaults, keyed by event for the lookup below. */
+function documentedChannels(evidence: TaxonomyEvidence): Map<string, Channel[]> {
+  return new Map(evidence.defaults.map((entry) => [entry.event, entry.channels]));
+}
+
+/**
+ * A row's EFFECTIVE channels: the ones the requirement names, or the documented default the row
+ * binds to when it names none (`channels: null` in `taxonomy.ts`).
+ *
+ * ONE derivation, because AT-016.03 and AT-016.05 both need it: two copies of this rule is how one
+ * test comes to grade a row against channels the other never expected of it.
+ */
+function effectiveChannels(row: TaxonomyRow, documented: Map<string, Channel[]>): Channel[] | undefined {
+  return row.channels ?? documented.get(row.event);
 }
 
 let evidenceBuilds = 0;
@@ -36,7 +81,7 @@ const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence>(
   'REQ-016 taxonomy execution',
   async ({ open }) => {
     evidenceBuilds += 1;
-    const { w, sut } = await open();
+    const { h, w, sut } = await open();
     const rows: Record<string, RowEvidence> = {};
 
     for (const row of TAXONOMY) {
@@ -49,6 +94,12 @@ const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence>(
         events: (await sut.events({ type: row.event })).filter((event) => event.id === eventId),
         deliveries: (await sut.deliveries({ type: row.event })).filter((delivery) => delivery.eventId === eventId),
         opsItems: await sut.opsItems({ linkedEventId: eventId }),
+        // THE OUT-OF-BAND HALF, snapshotted per row rather than read once at the end: the simulator
+        // accumulates every row's sends, and only the id this row just fired can tell them apart.
+        // The sim hands out copies, and they are plain objects, so `freezeEvidence` accepts them as
+        // the inert data captured evidence has to be.
+        providerAttempts: h.vendors.email.attempts().filter((attempt) => attempt.eventId === eventId),
+        providerAccepted: h.vendors.email.accepted().filter((attempt) => attempt.eventId === eventId),
       };
     }
 
@@ -68,7 +119,7 @@ describe.sequential('AT-REQ-016 taxonomy capture and projections', () => {
     async (ctx) => {
       const evidence = await ctx.capture(taxonomyEvidence);
       expect(evidenceBuilds, 'the taxonomy evidence was produced more than once').toBe(1);
-      const documented = new Map(evidence.defaults.map((entry) => [entry.event, entry.channels]));
+      const documented = documentedChannels(evidence);
       const problems: string[] = [];
 
       for (const row of TAXONOMY) {
@@ -78,7 +129,7 @@ describe.sequential('AT-REQ-016 taxonomy capture and projections', () => {
           continue;
         }
 
-        const channels = row.channels ?? documented.get(row.event);
+        const channels = effectiveChannels(row, documented);
         if (!channels || channels.length === 0) {
           problems.push(`${row.event}: channels unnamed and no documented default to bind to`);
           continue;
@@ -184,6 +235,42 @@ describe.sequential('AT-REQ-016 taxonomy capture and projections', () => {
       [...new Set(evidence.rows[LOW_TONE_FIXTURE].deliveries.map((delivery) => delivery.channel))].sort(),
       `${LOW_TONE_FIXTURE} is low-tone: in-app only, never email`,
     ).toEqual(['inapp']);
+
+    /*
+     * AND THE PROVIDER'S OWN RECORD SAYS THE SAME THING.
+     *
+     * Everything above reads delivery rows the system under test wrote about itself, so an
+     * implementation that records an in-app delivery and hands it to the email provider anyway —
+     * or that mails a recipient the row never resolved to — satisfies every clause of this id while
+     * doing the opposite of what it claims. `_fixture.ts` states the invariant ("in-app never
+     * reaches the provider"); this is its oracle, and the trace it reads was recorded at the seam
+     * by the simulator, not by the sender.
+     *
+     * BOTH DIRECTIONS, per row: nothing off-channel arrived at the email provider, and the pairs it
+     * physically accepted are EXACTLY the ones the taxonomy owes on email — none missing, none
+     * duplicated, nobody extra. A row whose channels do not include email owes the provider
+     * nothing at all, and an empty expectation is what makes "never reaches the provider" fail
+     * loudly instead of being a sentence in a comment.
+     */
+    const documented = documentedChannels(evidence);
+    const problems: string[] = [];
+    for (const row of TAXONOMY) {
+      const captured = evidence.rows[row.event];
+      for (const attempt of captured.providerAttempts.filter((a) => a.channel !== 'email')) {
+        problems.push(`${row.event}: a ${attempt.channel} delivery to ${attempt.recipientId} arrived at the EMAIL provider`);
+      }
+
+      const channels = effectiveChannels(row, documented);
+      if (!channels) {
+        problems.push(`${row.event}: channels unnamed and no documented default — what the provider was owed is underivable`);
+        continue;
+      }
+      const owed = channels.includes('email') ? expectedPairs(evidence.actors, row.recipients, ['email']) : [];
+      problems.push(
+        ...pairProblems(owed, countPairs(captured.providerAccepted)).map((problem) => `${row.event}: at the provider, ${problem}`),
+      );
+    }
+    expect(problems, 'rows whose provider-side trace contradicts the channels the taxonomy gives them').toEqual([]);
   });
 
   atTest('AT-016.06', 'a documented delivery default exists for every taxonomy row', async (ctx) => {

@@ -26,9 +26,11 @@ import { createHarness } from './index.ts';
 import { createEmailProviderSim } from './vendors.ts';
 import type { NotificationsSut, World } from '../suites/req-016/_contract.ts';
 
-/** Two DISTINCT send identities. Same event, different recipients — the shape a real event produces. */
+/** Four DISTINCT send identities. Same event, different recipients — the shape a real event produces. */
 const SEND_A = { recipientId: 'volunteer-1', eventId: 'event-1', channel: 'email' };
 const SEND_B = { recipientId: 'volunteer-2', eventId: 'event-1', channel: 'email' };
+const SEND_C = { recipientId: 'volunteer-3', eventId: 'event-1', channel: 'email' };
+const SEND_D = { recipientId: 'volunteer-4', eventId: 'event-1', channel: 'email' };
 
 const IDENTITY_A = 'event-1:volunteer-1:email';
 
@@ -107,6 +109,38 @@ describe('the H5 wall: the email provider simulator', () => {
     ).toEqual([IDENTITY_A]);
   });
 
+  it('keeps two sends apart when their ids merely CONCATENATE the same way', () => {
+    // The identity used to be `${eventId}:${recipientId}:${channel}`, and all three fields are
+    // unrestricted strings, so these two distinct sends produced one identity: the second was
+    // answered as a replay of the first and never delivered to anybody. A provider that swallows a
+    // physically new send is the exact opposite of what idempotency is for.
+    const { sim, port } = createEmailProviderSim();
+
+    expect(port.deliver({ eventId: 'e:a', recipientId: 'b', channel: 'email' })).toBe('accepted');
+    expect(port.deliver({ eventId: 'e', recipientId: 'a:b', channel: 'email' })).toBe('accepted');
+    expect(
+      sim.accepted().map((attempt) => `${attempt.eventId}|${attempt.recipientId}`),
+      'the second send was swallowed as a replay of the first — a delimiter collision, not a duplicate',
+    ).toEqual(['e:a|b', 'e|a:b']);
+  });
+
+  it('treats the same event and recipient on a SECOND channel as an independent send', () => {
+    // A simulator that deduped on `eventId:recipientId` alone passes every other case in this file
+    // and the whole of AT-016.11 — REQ-016's in-app channel bypasses the port by design, so nothing
+    // else here sends the same pair twice on two channels. It would then suppress a physically new
+    // send the moment a second provider-backed channel exists.
+    const { sim, port } = createEmailProviderSim();
+
+    expect(port.deliver(SEND_A)).toBe('accepted');
+    expect(port.deliver({ ...SEND_A, channel: 'sms' }), 'a send on a second channel was answered as a replay').toBe(
+      'accepted',
+    );
+    expect(
+      sim.accepted().map((attempt) => attempt.channel),
+      'the channel is not part of the send identity, so one channel silently suppresses the other',
+    ).toEqual(['email', 'sms']);
+  });
+
   it('refuses an arming count that queues nothing, for both arming methods, and arms nothing when it refuses', () => {
     const { sim, port } = createEmailProviderSim();
 
@@ -129,6 +163,22 @@ describe('the H5 wall: the email provider simulator', () => {
       port.deliver(SEND_A),
       'a refused arming still queued an outcome — the refusal was a message, not a refusal',
     ).toBe('accepted');
+  });
+
+  it('leaves an ALREADY-ARMED queue untouched when it refuses a later invalid arming', () => {
+    // The case above only ever refuses on an empty queue, so an implementation that cleared the
+    // queue and then threw would pass it — and would silently disarm a case a test had already set
+    // up, which is the same catastrophe as arming nothing while reporting an arming.
+    const { sim, port } = createEmailProviderSim();
+
+    sim.rejectNext(1);
+    expect(() => sim.rejectNext(0)).toThrow(/queues nothing/);
+    expect(() => sim.acceptButLoseAck(1.5)).toThrow(/whole number/);
+
+    expect(
+      port.deliver(SEND_A),
+      'the refused arming emptied the queue armed before it — a refusal must change nothing at all',
+    ).toBe('rejected');
   });
 
   it('hands out copies of its traces, so an assertion cannot rewrite the record the next one reads', () => {
@@ -169,6 +219,33 @@ describe('the H5 wall: the email provider simulator', () => {
       rejectFirst.sim.attempts().map((attempt) => attempt.outcome),
       'the reverse arming order produced the same sequence, so call order decides nothing',
     ).toEqual(['rejected', 'ack_lost']);
+  });
+
+  it('serves forced outcomes in call order at counts ABOVE ONE, in both arming orders', () => {
+    // Counts of one cannot tell one FIFO queue from a chunk round-robin that alternates between the
+    // two armings: both answer `rejectNext(1); acceptButLoseAck(1)` identically, and both pass the
+    // single-kind `rejectNext(3)` case in the harness block below. At counts of two they diverge —
+    // a round-robin returns rejected, ack_lost, rejected, ack_lost — so this is where the queue's
+    // claimed meaning is actually pinned.
+    const sends = [SEND_A, SEND_B, SEND_C, SEND_D];
+
+    const rejectFirst = createEmailProviderSim();
+    rejectFirst.sim.rejectNext(2);
+    rejectFirst.sim.acceptButLoseAck(2);
+    for (const send of sends) rejectFirst.port.deliver(send);
+    expect(
+      rejectFirst.sim.attempts().map((attempt) => attempt.outcome),
+      'two rejections were armed before two lost acks and the queue did not serve them in that order',
+    ).toEqual(['rejected', 'rejected', 'ack_lost', 'ack_lost']);
+
+    const lostFirst = createEmailProviderSim();
+    lostFirst.sim.acceptButLoseAck(2);
+    lostFirst.sim.rejectNext(2);
+    for (const send of sends) lostFirst.port.deliver(send);
+    expect(
+      lostFirst.sim.attempts().map((attempt) => attempt.outcome),
+      'the mirrored arming order did not produce the mirrored sequence, so call order decides nothing at counts above one',
+    ).toEqual(['ack_lost', 'ack_lost', 'rejected', 'rejected']);
   });
 });
 
@@ -238,6 +315,37 @@ describe('the H5 wall, through the harness a suite is really handed', () => {
       expect(
         deliveries.filter((delivery) => delivery.state !== 'sent'),
         'a delivery the provider finally accepted never reached the sent state',
+      ).toEqual([]);
+    } finally {
+      await h.teardown();
+    }
+  });
+
+  it('REFUSES a pass budget that is not a whole number of passes, rather than interpreting one', async () => {
+    const h = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const world = (await h.fixtures.world('vendors-pass-budget')) as World;
+      const sut = h.sut.notifications as NotificationsSut;
+
+      // WITH WORK WAITING, so a drain that interpreted the value instead of refusing it would
+      // return normally having done something — `passes: 0` no pass at all while reading as one
+      // bounded pass, `passes: 1.5` two of them. AT-016.11 asks for exactly one pass because the
+      // state BETWEEN attempts is what it observes; a budget that means something else there is a
+      // green bought from a run the test never asked for.
+      await world.fire('access.key_issued');
+
+      await expect(
+        sut.drainDeliveries({ passes: 0 }),
+        'a budget of zero passes was accepted — the drain read as bounded and ran nothing',
+      ).rejects.toThrow(/passes=0/);
+      await expect(
+        sut.drainDeliveries({ passes: 1.5 }),
+        'a fractional budget was silently rounded into some meaning',
+      ).rejects.toThrow(/passes=1\.5/);
+
+      expect(
+        (await sut.deliveries()).filter((delivery) => delivery.state !== 'pending'),
+        'the refused drain still ran a pass before refusing — a refusal must leave the work exactly where it was',
       ).toEqual([]);
     } finally {
       await h.teardown();

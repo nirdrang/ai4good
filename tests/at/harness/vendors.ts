@@ -48,11 +48,18 @@ export type EmailProviderStandIn = {
 };
 
 /**
- * `eventId:recipientId:channel` — the same pair identity AT-016.11(c) counts duplicates over, and
- * the identity a real provider's idempotency key would carry.
+ * The `eventId` / `recipientId` / `channel` triple — the same pair identity AT-016.11(c) counts
+ * duplicates over, and the identity a real provider's idempotency key would carry.
+ *
+ * JSON-ENCODED RATHER THAN JOINED WITH A DELIMITER, because all three fields are unrestricted
+ * strings and this seam is not allowed to guess where one ends. Under `${eventId}:${recipientId}:${channel}`
+ * the sends `{ eventId: 'e:a', recipientId: 'b' }` and `{ eventId: 'e', recipientId: 'a:b' }`
+ * produce the same string, so the second — physically a new send to a different recipient — was
+ * answered as a replay of the first and never delivered. Swallowing a real send is the one failure
+ * an idempotency key must not have; `JSON.stringify` escapes whatever the fields contain.
  */
 function sendIdentity(send: ProviderSend): string {
-  return `${send.eventId}:${send.recipientId}:${send.channel}`;
+  return JSON.stringify([send.eventId, send.recipientId, send.channel]);
 }
 
 export function createEmailProviderSim(): EmailProviderStandIn {
