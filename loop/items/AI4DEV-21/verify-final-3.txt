@@ -1,0 +1,52 @@
+verify-final-3 - after the Gate 2 fix round (rulings F-A .. F-H)
+
+Captured after the round's code commit and after BOTH falsification mutations were reverted
+(`git diff` clean of them; see proof-f3.txt and proof-f4.txt). Four commands, each with its exit
+code. stderr is not redirected into this file: PowerShell wraps a native command's stderr into
+ErrorRecords, which is what put the NativeCommandError noise in verify-final-2.txt.
+captured: 2026-08-04T20:13:34.9607318+03:00
+working tree HEAD: 360fb23d4e5e3a41504f5f2bb2eac0856c136d70
+tracked working tree: clean
+
+===== bun run typecheck =====
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean
+typecheck exit: 0
+===== bun run at:selftest =====
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af1e90584864a51d0/tests/at
+
+
+ Test Files  8 passed (8)
+      Tests  167 passed (167)
+   Start at  20:13:40
+   Duration  6.53s (transform 528ms, setup 0ms, import 4.61s, tests 12.75s, environment 1ms)
+
+at:selftest exit: 0
+===== bun run at:verify req-016 --tier loop --expect =====
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-JH6dii/vitest-report.json
+
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    green    one logical event per committed event, one delivery per recipient-channel pair, across a restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    green    every guarded transition writes its notification event atomically under an induced fault
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    green    sent only on provider acceptance; unconfirmed sends retry; a lost ack mints no duplicate
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 11 green, 1 red, 0 missing
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af1e90584864a51d0\tests\at\expected\req-016.json exactly (11 declared green, 1 declared red)
+at:verify exit: 0
+===== bun run at:check req-016 =====
+at:check req-016 — 12 P0 in the acceptance file, 12 registered in the suite
+RESULT: 12 P0 ids in bijection
+at:check exit: 0
