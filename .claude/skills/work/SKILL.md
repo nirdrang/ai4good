@@ -118,7 +118,10 @@ coordinator (main checkout, never moves) - spawns, watches, merges. Nothing else
   manual and **stated in the report**.
 - **A spawn prompt is: the item id, what has already happened, and item-specific deltas.
   Nothing else.** It states what to RESOLVE, never a resolved value — no chain, no parent, no
-  label, nothing the agent can read for itself. No gate ever reads a spawn prompt.
+  label, nothing the agent can read for itself. No gate ever reads a spawn prompt. **Process
+  instructions never travel in one either**: a spawn prompt saying "queue auto-merge at
+  PR-open" would have merged an item before its gates ran — Gate 1 caught it. How to run an
+  item lives HERE; the prompt carries only the item's own state.
 - **Print the item's stamp to the founder at start** (founder 2026-08-03): run
   `$env:CLAUDE_PROJECT_DIR=<worktree>; powershell -NoProfile -File loop/work/stamp-hook.ps1`
   and paste as emitted — including `CHAIN UNRESOLVED`; honest-unresolved beats invented.
@@ -183,10 +186,12 @@ codex exec --sandbox workspace-write -C <worktree> -c model=gpt-5.6-luna \
   transcript, so wake-ups are the expensive unit. Launch a phase's detached work as one batch,
   tell the coordinator in the parking message exactly which FILES complete the phase, and be
   woken once when the set is complete — not per file. A detached process notifies nobody, ever.
-- **Your PRIMARY alarm is your own tracked child.** Before parking, start a tracked
-  background shell (an until-loop on the phase's files that then exits) — a tracked child's
-  completion re-invokes you directly, costing the coordinator nothing. The coordinator's
-  file-watch is the BACKSTOP, not the mechanism.
+- **Your PRIMARY alarm is your own tracked child — AND the coordinator is always named.**
+  Before parking, start a tracked background shell (an until-loop on the phase's files that
+  then exits) — a tracked child's completion re-invokes you directly. But the delivery channel
+  has MISSED in practice (events arriving minutes late or never, on one item twice), so the
+  parking message always names the exact files for the coordinator's backstop watch. Two
+  channels, neither trusted alone.
 - **Detached must mean SURVIVES-THE-LAUNCHER.** A reviewer launched as a child of your shell
   dies with you (observed: two confirmation runs silently died with a session-limited agent
   and stalled the item for hours). Launch OS-detached (`Start-Process`), then verify the
@@ -242,8 +247,9 @@ single focused gate on the actually-code part — and say so in the report.
   of changed material): resume its own session; pin model, effort and sandbox; **verify the
   RUN HEADER** — an unpinned resume runs CLI defaults, and one once silently ran as the wrong
   model. A lost output may already exist in the vendor's session store — recover rather than
-  re-derive, and verify whose it is. codex `resume` rejects `-C`; Kimi resumes only in the
-  directory that created the session (exit 199 otherwise; placeholder-directory workaround).
+  re-derive, and verify whose it is. codex `resume` rejects `-C` and takes its sandbox pin as
+  `-c sandbox_mode=...`; Kimi resumes only in the directory that created the session (exit 199
+  otherwise; placeholder-directory workaround).
 - Pins: Gate 1 `-c model=gpt-5.6-sol -c model_reasoning_effort=xhigh` (founder 2026-08-05) · Gate 2
   `-c model=gpt-5.6-terra -c model_reasoning_effort=max` · Kimi
   `kimi -m kimi-code/k3 -p "<short>" --output-format text` (effort from config).
