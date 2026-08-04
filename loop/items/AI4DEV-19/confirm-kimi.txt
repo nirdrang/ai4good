@@ -4,11 +4,20 @@ You reviewed this item at Gate 2 and raised five findings. Four were accepted an
 rejected. This is a confirmation, not a new review: judge whether YOUR findings are closed, and
 push back where they are not.
 
-Working directory (the current code, head commit 23ea24f):
+## READ THE CODE HERE AND ONLY HERE — run every command against this absolute path
 
-    C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-adf5c7b803767a1c3
+    C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af28a10a9a65040ff
 
-The rulings are in `loop/items/AI4DEV-19/rulings-03.md` and `rulings-04.md`.
+The working directory your session was created in no longer exists — the agent that owned it
+died and its worktree was deleted. Everything you need is at the absolute path above, which
+holds the current code: final code commit a970880, proofs re-captured against it in 88e2be9,
+and every commit above those touches only rulings and prompt files under loop/items/. The
+rulings are in `loop/items/AI4DEV-19/rulings-03.md`, `rulings-04.md` and `rulings-05.md`.
+
+Since your review, a confirmation round also added a scenario pin to AT-016.07
+(`b-delivery-defaults.test.ts` — the test now asserts its restart actually changed the process
+identity). That is terra's finding, listed here only so the diff does not surprise you; your five
+findings' subjects are below.
 
 ## What was ruled on each of your findings
 
@@ -55,7 +64,8 @@ anything) and the docstring says where the fifth lives.
 ## What to answer
 
 For each of your five findings: CLOSED, PARTIALLY CLOSED, NOT CLOSED, or — for finding 4 —
-whether you accept the rejection and its classification. Give the file and line you checked.
+whether you accept the rejection and its classification. Give the file and line you checked, in
+the worktree named at the top.
 
 Do not re-review the item and do not produce a fresh catalogue. If something genuinely serious is
 new, one line at the end is enough. What matters is whether a repair that reads correct actually

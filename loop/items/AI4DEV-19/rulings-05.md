@@ -87,3 +87,58 @@ wave runs. A prompt that survives its author must name a path that survives too;
 worktree paths in committed prompts rot the moment the worktree dies, and this is the second
 time on this item (the Gate 2 findings themselves cite the first agent's tree). Carried into
 the reflection.
+
+---
+
+## POSTSCRIPT (same agent, later the same day): the recovered confirmation was answered by the wrong model
+
+The provenance section above says the recovered run is terra's confirmation. The session rollout's
+own turn records correct that in one material respect: the original Gate 2 review ran as
+`gpt-5.6-terra` @ max (read-only sandbox), but the resumed confirmation turn ran as
+**`gpt-5.6-sol`** @ max under `danger-full-access` — the resume command inherited the launcher's
+default model instead of pinning the raiser's, and the turn also compacted the session's history.
+Right session, wrong model: the answer recovered into `confirm-terra-result.md` is **sol answering
+inside terra's session**.
+
+What this changes, ruled rather than implied:
+
+- The recovered verdicts on findings 2, 3 and 4 are **downgraded from raiser confirmation to
+  max-effort cross-model corroboration**. They cite real lines and I verified finding 1's residual
+  against the tree myself, so they are evidence — but the rule "a finding is confirmed by the
+  reviewer that raised it" is not satisfied by a model swap inside the same context.
+- The confirmation wave after the ordered fix therefore asks terra — resumed with the model
+  **pinned explicitly** (`-c model=gpt-5.6-terra -c model_reasoning_effort=high`, read-only
+  sandbox) — to confirm **all four findings** against the final head, not only finding 1. One
+  resume, one prompt, and the raiser-confirms property is restored for the whole set.
+- Kimi's re-run pins its model the same way (`-m kimi-code/k3`). The handoff's resume flag `-r`
+  does not exist in this CLI — the real flag is `-S`, which resolves the session id from any
+  working directory (proven read-only via `kimi export`). That wrong flag is the likely cause of
+  the predecessor's exit-199, zero-byte run.
+
+Carried into the reflection: a resume that does not pin its model silently becomes a different
+reviewer, and nothing in the transcript warns the reader — the output file does not name the model
+that wrote it.
+
+## Fold of the executor's report (fix round, commits a970880 + 88e2be9)
+
+The ordered fix landed exactly as scoped: one test file, the scenario pin at
+`b-delivery-defaults.test.ts:49-53`, the comment rewrite at :37-45. Falsification A (constant
+stamp) fails at :70 on the stamp assertion; falsification B (deleted restart call) fails at :52
+on the new pin with before === after in the message. The executor additionally ran the deletion
+against the PRE-fix head `3fbbb60` (passes) and the post-fix head (fails) — execution evidence
+that the residual was real and is closed. All four proofs re-captured against `a970880`;
+`--expect` exact, selftest 153/153, typecheck clean — re-run by this agent as well, same results.
+
+Three executor flags, ruled:
+
+1. `proof-restart.txt` states the historical fact that the deletion "left AT-016.07 GREEN"
+   pre-fix without carrying a transcript of that pre-fix run. The fact is now execution-verified
+   twice over (the executor's 3fbbb60 run; the finding's own history). Ruling: **stands as
+   flagged** — the capture round is closed and nothing changes after capture; the pre-merge
+   auditor is asked to judge whether the file's prose claims only what it contains.
+2. The whole `tests/at` tree fails `prettier --check` (36 files, quote style), pre-existing and
+   untouched by this item; `bun run lint` fails wholesale on it today. CI runs no lint step, so
+   nothing reds now. Ruling: **not this item's work — reported upward** in the final report, for
+   whoever wires lint into CI.
+3. A fresh worktree cannot `bun run typecheck` until `bun install --frozen-lockfile` runs.
+   Ruling: reflection note for the worktree bring-up steps.
