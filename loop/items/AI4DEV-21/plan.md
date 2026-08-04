@@ -53,13 +53,18 @@ stand-ins now. Grounds:
    "Ruling: the static provider scan stays pending"). The same logic covers four simulators
    with zero consuming tests.
 
-**Disposition of the deferred four.** Recorded, not filed as dev items: a comment on
-AI4DEV-21 (fake Stripe, GitHub, Anthropic) and a "deferred, and why" section in the PR body.
-No new board item — a child under AI4DEV-3 (AT harness) would hold the bring-up parent open
-behind work that has no consumer yet; each future suite's own decomposition carries its sim
-when it is pulled. The stale line in `contracts.ts`'s header comment ("implementations arrive
-per slice (… H5 vendor sims)") is updated to say email landed here and the rest arrive with
-their consuming suites.
+**AMENDED AFTER GATE 1 (sol finding 1, BLOCKER, accepted).** The deferral is a scope
+amendment to founder-authored item text and to the parent spec (Part A.8 assigns all five
+stand-ins to this slice), and no decomposition manifest today assigns the four sims anywhere
+else — so "each future suite carries its sim" was a prediction, not a tracked fact, and a
+Linear comment + PR body is not closure-coupled. **The question goes to the founder** with a
+recommendation (Option A: amend the parent spec to build the four just-in-time with their
+first consuming suite, PLUS four backlog items under AI4DEV-3 (AT harness) so the parent
+cannot fold while they are missing; Option B: build all five in this item now). Interim
+posture: the email sim is in scope under BOTH options and its implementation proceeds; the
+MERGE waits for the founder's answer, and if Option A is ruled, the spec amendment and the
+four backlog items are created before the merge. The stale line in `contracts.ts`'s header
+comment ("implementations arrive per slice (… H5 vendor sims)") is updated per the ruling.
 
 **Verification condition attached to this ruling** (a ruling that removes work must carry
 one): before implementing, the executor sweeps `tests/at/` and `loop/decomp/` for any OTHER
@@ -134,6 +139,11 @@ method for a test to call).
   working — the member is additive on the options object, not a new required export.
   `suite-adapters.ts`'s `AdapterModuleFor` constrains the module shape with `(...args:
   never[])`, so no change is forced there; the executor verifies with `bun run typecheck`.
+- **AMENDED AFTER GATE 1 (sol finding 3, accepted):** the existing provenance oracle in
+  `conformance.selftest.ts` (~line 154) asserts the COMPLETE stubbed list
+  `['clock.controlled','fixtures.worlds','sut.notifications']`; registering `vendors.email`
+  makes it fail as written. The same commit updates that expected list to include
+  `'vendors.email'` (sorted after `'sut.notifications'`).
 
 ## Decision D4 — the reference SUT honours the provider seam (tests/at/suites/req-016/_fixture.ts)
 
@@ -151,10 +161,14 @@ The loop-tier reference stand-in currently marks every delivery sent uncondition
 - **Per event** with at least one attempted delivery in the pass: `attempts += 1`; state =
   all its deliveries `'sent'` ? `'sent'` : `'retrying'` (first pass from `'pending'` may go
   straight to `'sent'`).
-- **`passes` bounds the worker;** default runs to quiescence (every delivery `'sent'`),
-  capped at a small constant (`MAX_DRAIN_PASSES = 8`) so a hypothetical always-rejecting
-  queue cannot loop forever — no current test forces more than one consecutive failure per
-  identity.
+- **`passes` bounds the worker;** default runs to quiescence — every delivery `'sent'`,
+  with NO pass cap (**AMENDED AFTER GATE 1, sol finding 6, accepted**: a cap both violated
+  the suite contract's "default = to quiescence" in a reachable scenario — `rejectNext(8)`,
+  one email delivery — and guarded against a hazard that cannot occur). Termination is
+  structural, stated in a comment: each pass either transitions a delivery to `'sent'` or
+  consumes a forced outcome from the sim's finite queue; once the queue is empty every email
+  send is accepted (or idempotency-replayed as accepted), so the loop is bounded by the
+  queue length plus one.
 - The emit/rollback path (`emitKnown`, the fault point, the one-rollback-unit ordering) is
   UNTOUCHED. Deliveries are still created `'pending'` before any drain, which is what
   AT-016.07's "nothing delivered before the restart" precondition reads.
@@ -197,6 +211,14 @@ New `tests/at/harness/vendors.selftest.ts` (picked up by `at:selftest`'s
    (arming + a drain produces the armed outcome), `stubbedCapabilities()` contains
    `'vendors.email'` at loop tier, and the `static` seam still throws `CapabilityPending`
    naming exactly `'H3 static provider scan'`.
+8. **AMENDED AFTER GATE 1 (sol finding 5, accepted) — cross-method FIFO:** with two distinct
+   send identities, `acceptButLoseAck(1); rejectNext(1)` yields outcomes
+   `['ack_lost','rejected']` in send order, and the reverse arming order yields
+   `['rejected','ack_lost']` — call order decides, never outcome-kind priority.
+9. **AMENDED AFTER GATE 1 (sol finding 6, accepted) — quiescence past consecutive
+   rejections:** through the real harness, `rejectNext(3)` on one identity + one DEFAULT
+   drain → the delivery ends `'sent'` and the provider trace is exactly
+   `['rejected','rejected','rejected','accepted']`.
 
 Plus two **falsification runs** recorded as proof artifacts (the AI4DEV-19 pattern —
 temporary mutation, capture the red, restore):
@@ -212,6 +234,35 @@ temporary mutation, capture the red, restore):
 Captured to `loop/items/AI4DEV-21/proof-f1.txt` / `proof-f2.txt` from runs against the
 mutated tree, then the mutation reverted; the final code run to green is captured after the
 final code commit (capture-only-after-the-final-commit, AI4DEV-19's process rule).
+
+## Decision D7 — strengthen AT-016.11(c)'s MAINTAINED oracle (added after Gate 1; sol finding 4, accepted)
+
+Sol's counterexample is real: a fixture that calls the port once, receives `no_ack`, and
+wrongly marks the delivery sent passes every clause-(c) assertion as written — (c) never
+reads `attempts()` or the event's attempt counter, and under a quiescent default drain the
+"retry pass" line is a no-op. F2 catches the sim's dedupe being removed, not the fixture's
+no-ack handling, and only as a one-off run. So the suite's own oracle is strengthened, in
+place, same AT id (the AI4DEV-19 precedent of widening AT-016.09's oracle):
+
+1. after `acceptButLoseAck(1)` and the fire, the FIRST drain is `{ passes: 1 }`;
+2. assert the provider trace for the event is exactly `['ack_lost']`, the email-channel
+   delivery is NOT `'sent'`, and the event state is `'pending'`/`'retrying'` — the
+   unconfirmed state is observed, not assumed;
+3. then a default drain; assert the trace is exactly `['ack_lost','accepted']` and the
+   event's attempt counter is ≥ 2 — the retry physically happened;
+4. the existing one-logical-event / exact-pair / all-sent / accepted-once assertions follow
+   unchanged.
+
+## Decision D8 — draft PR; auto-merge only after the written ruling (added after Gate 1; sol finding 2, BLOCKER, accepted)
+
+Queuing `gh pr merge --auto --merge` at PR-open (the instruction carried in the spawn
+prompt) could merge the first CI-green head while Gate 2, the audit, the reflection and the
+ruling are still running. The skill's ordering wins: the PR opens as a **DRAFT** when
+implementation lands (CI runs on every push; a draft cannot auto-merge). Only after Gate 2
+is folded, the pre-merge audit is read, the reflection is committed and the written merge
+ruling pins the head SHA is the PR marked ready and auto-merge queued — so auto-merge can
+only ever merge the ruled head, on a green `verify` for exactly that SHA (run id recorded in
+the ruling; any later push voids the ruling).
 
 ## Facts this plan asserts (for Gate 1 to verify in the tree)
 
@@ -254,8 +305,9 @@ final code commit (capture-only-after-the-final-commit, AI4DEV-19's process rule
 5. **Docs**: `contracts.ts` header comment updated (email landed, rest arrive with their
    consuming suites); PR body carries the deferral section and the green's meaning.
 6. **Commit discipline**: implementation commit(s), then proofs commit; push at every phase
-   boundary; PR opened with `gh pr merge --auto --merge` queued; Linear comment with the D1
-   disposition posted when the PR opens.
+   boundary; PR opened as a DRAFT at implementation-complete (D8); ready + auto-merge only
+   after the written ruling; the D1 disposition (as the founder rules it) recorded on the
+   board and in the PR body before the merge.
 
 ## Expected verification state per AT id (req-016, loop tier, at the head this plan produces)
 
@@ -292,4 +344,6 @@ condition, pinned by SHA in the merge ruling.
   sandbox boundary is known — a `Cannot read directory` walk failure reads as
   COULD-NOT-VERIFY-IN-SANDBOX and the execution evidence comes from the PR's CI run.
 - **Reflection on `/work`** before the merge decision; fixes ride along.
-- **Merge**: only with the required `verify` check green on the exact pinned head.
+- **Merge**: per D8 — draft until the written ruling; ready + auto-merge only afterwards;
+  the required `verify` check green on the exact pinned head, run id recorded; the D1
+  founder answer folded in before the merge.
