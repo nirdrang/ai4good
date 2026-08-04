@@ -208,13 +208,17 @@ wrote the code, and a different variant from the one that reviewed it.
 
 Spawned as: `Agent(subagent_type: "item-agent", isolation: "worktree",
 run_in_background: true, model: "fable", prompt: <the spawn prompt>)`. The `isolation` line is
-what creates the worktree; nothing else creates one.
+what creates the worktree; nothing else creates one. When fable is out of credit, spawn
+`subagent_type: "item-agent-opus", model: "opus"` instead — the fallback is a different agent
+TYPE, never a model override on the fable definition.
 
 **Effort comes from the agent DEFINITION, not the call.** The Agent tool sets `model` but has
-no effort parameter, so "opus at max effort" cannot be requested at the call site.
-`.claude/agents/item-agent.md` carries `effort: max` in its frontmatter, and effort is not a
-caller parameter — so it applies whichever model the caller picks. To vary effort per call,
-define another agent type; the choice lives in `subagent_type`.
+no effort parameter, so an effort cannot be requested at the call site — which is why the
+orchestrator exists as TWO definition files (founder ruling 2026-08-04):
+`.claude/agents/item-agent.md` pins **fable @ xhigh** (premium credit runs one tier below the
+ceiling) and `.claude/agents/item-agent-opus.md` pins **opus @ max** (the cheaper model
+compensates with the ceiling). The two files share one body under an edit-both-or-neither
+rule written into each.
 
 That file also carries the standing role — no code, derive your own chain, push at every phase
 boundary, how to ask a question — so a spawn prompt carries only what is specific to its item:
@@ -297,7 +301,7 @@ which is the same surface the founder reviews.
 
 | role | model | what it does |
 |---|---|---|
-| **item agent — the orchestrator** | **fable** (→ opus only when fable is out of credit) | **judgment only. Writes no code.** The plan, rulings, merge decision |
+| **item agent — the orchestrator** | **fable @ xhigh** (→ `item-agent-opus`: **opus @ max**, only when fable is out of credit) | **judgment only. Writes no code.** The plan, rulings, merge decision |
 | **executor** | **opus** | **writes the code.** Implements the amended plan, triages findings first-hand, fixes |
 | mechanical | **sonnet** | housekeeping, publish, merge execution, courier runs |
 | **pre-merge auditor** | codex `gpt-5.6-luna` @ `max` | independent re-run — see below |
