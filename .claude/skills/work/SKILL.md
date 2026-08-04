@@ -207,7 +207,7 @@ Terra reviews the code; luna audits the claim about it. A different vendor from 
 wrote the code, and a different variant from the one that reviewed it.
 
 Spawned as: `Agent(subagent_type: "item-agent", isolation: "worktree",
-run_in_background: true, model: "fable", prompt: <the item brief>)`. The `isolation` line is
+run_in_background: true, model: "fable", prompt: <the spawn prompt>)`. The `isolation` line is
 what creates the worktree; nothing else creates one.
 
 **Effort comes from the agent DEFINITION, not the call.** The Agent tool sets `model` but has
@@ -217,8 +217,9 @@ caller parameter — so it applies whichever model the caller picks. To vary eff
 define another agent type; the choice lives in `subagent_type`.
 
 That file also carries the standing role — no code, derive your own chain, push at every phase
-boundary, how to ask a question — so a brief carries only what is specific to its item. A
-shorter brief is a brief with fewer places to be wrong.
+boundary, how to ask a question — so a spawn prompt carries only what is specific to its item:
+which item, and what has already happened to it. A shorter prompt is one with fewer places to
+be wrong.
 
 ### Print the item's stamp to the founder when it starts (founder ruling 2026-08-03)
 
@@ -239,22 +240,21 @@ working on until its first report, which can be an hour later.
 seeing — it is the difference between an agent that does not know its root yet and one that has
 invented one.
 
-### A brief states what to RESOLVE, never a resolved value
+### A spawn prompt states what to RESOLVE, never a resolved value
 
-The coordinator must not put a derived fact into a brief. Not the chain, not the parent, not a
-label, not a state the agent can read for itself. Say *"resolve your chain from the board"*,
-never *"your chain is X > Y"*.
+The coordinator must not put a derived fact into a spawn prompt. Not the chain, not the parent,
+not a label, not a state the agent can read for itself. Say *"resolve your chain from the
+board"*, never *"your chain is X > Y"*.
 
-This was violated on AI4DEV-31: the brief contained a literal `Set-Chain … @{id='AI4DEV-3'…}`.
-It happened to be right, and that is the danger — the agent would have stamped a wrong value
-just as faithfully, for the life of the item, and no gate reads briefs. It is the
-declared-not-derived defect this entire way of work exists to delete, reintroduced by the one
-actor nobody reviews.
+This was violated on AI4DEV-31: the spawn prompt contained a literal
+`Set-Chain … @{id='AI4DEV-3'…}`. It happened to be right, and that is the danger — the agent
+would have stamped a wrong value just as faithfully, for the life of the item, and no gate ever
+reads a spawn prompt. It is the declared-not-derived defect this entire way of work exists to
+delete, reintroduced by the one actor nobody reviews.
 
-Two nets already exist and neither is a substitute for the rule: the agent definition tells the
-agent to treat a handed chain as a hint to verify, and Gate 0 is asked to flag "a fact asserted
-that the agent could derive itself". Both fire AFTER the brief is written. This one fires
-before.
+One net already exists and is not a substitute for the rule: the agent definition tells the
+agent to treat a handed chain as a hint to verify. It fires AFTER the prompt is written. This
+one fires before.
 
 **The general form, because it is what makes any of this survive:** a correction exists only if
 it lives in a file that loads every session — the skill, the agent definition, CLAUDE.md,
@@ -285,15 +285,15 @@ which is the same surface the founder reviews.
 
 | role | model | what it does |
 |---|---|---|
-| **item agent — the orchestrator** | **fable** (→ opus only when fable is out of credit) | **judgment only. Writes no code.** Brief, checkpoint, rulings, merge decision |
-| **executor** | **opus** | **writes the code.** Plans, implements, triages findings first-hand, fixes |
+| **item agent — the orchestrator** | **fable** (→ opus only when fable is out of credit) | **judgment only. Writes no code.** The plan, rulings, merge decision |
+| **executor** | **opus** | **writes the code.** Implements the amended plan, triages findings first-hand, fixes |
 | mechanical | **sonnet** | housekeeping, publish, merge execution, courier runs |
 | **pre-merge auditor** | codex `gpt-5.6-luna` @ `max` | independent re-run — see below |
 | gate reviewers | codex `gpt-5.6-terra` @ `max`, Kimi `k3` @ `high` | adversarial critique |
 
 **Three tiers, and the boundary is strict** (founder ruling 2026-08-03: *"fable as orchestrator
 is doing judgments, not creating code — that's the opus executor role"*). Premium credits buy
-decisions, not keystrokes. The orchestrator writes the brief with every decision pre-made, rules
+decisions, not keystrokes. The orchestrator writes the plan with every decision made, rules
 on findings, and signs the merge decision; **it does not implement.** An earlier draft had it
 driving the work itself and handing edits to sonnet — that spent fable tokens on typing and put
 judgment and implementation in one context, where a decision can be quietly revised by whoever
@@ -371,30 +371,50 @@ fail with "not recognized". Source and use in the *same* command.
 
 ## Phase C — build
 
-**Gate 0** (sol refutes the BRIEF) → plan → **Gate 1** (terra refutes the plan) → triage →
-orchestrator checkpoint → implement → **Gate 2** (terra + Kimi in parallel on the diff) →
-bounded fix cycles → verify.
+**Plan** (the item agent's own, from the Linear item, the spec and the code) → **Gate 1** (sol
+refutes the plan, intent included) → rulings → implement → **Gate 2** (terra + Kimi in parallel
+on the diff) → bounded fix cycles → verify.
 
-### Gate 0 — the brief itself is reviewed (founder ruling 2026-08-03)
+### There is no brief, and no Gate 0 (founder ruling 2026-08-04)
+
+The brief was the handoff document from when the planner and the orchestrator were different
+contexts. In `/work` the item agent IS the planner, so a brief was the orchestrator writing
+itself a letter — and Gate 0 was a gate invented to review that letter. The first real run
+showed where that leads: three intent documents (brief, design, executor brief), of which only
+the first was ever reviewed, while the one the executor actually follows was reviewed by
+nobody.
+
+**One plan.** It carries the decisions, the steps, and the expected verification state per AT
+id — a plan is where decisions live. The executor implements the amended plan; it does not
+write a second one. The plan's review absorbed Gate 0's job, so a defect in the intent is
+caught at the same gate as a defect in the steps.
+
+Sol refutes the plan, terra reviews the code, luna audits the claim. Three variants, three
+jobs, decorrelated blind spots — and the plan and the diff are never judged by the same eyes.
+
+### Gate 1 — sol refutes the plan, intent included
 
 **codex `-c model=gpt-5.6-sol -c model_reasoning_effort=max`**, in the worktree, detached.
 
-The brief is where every decision is pre-made, so it is the highest-leverage document in an
-item — and until now it was the only one nobody read adversarially. Gate 1 reviews a plan and
-Gate 2 reviews a diff; both check implementation against stated intent, so **neither can catch
-a defect in the intent**. Three real defects reached the founder on 2026-08-03 for exactly that
-reason, one of them a coordinator hardcoding a derived fact into a brief where no gate would
-ever see it.
+Gate 1 attacks BOTH layers, because nothing upstream of it reviews intent at all:
+- a decision stated as settled that is not actually decided;
+- a fact asserted that is wrong against the code — the reviewer verifies the plan's claims
+  in the tree, never trusts them;
+- a constraint that contradicts the skill;
+- scope that will force a mid-flight redesign;
+- anything the plan requires that no tool can do — **a plan that cannot be executed as written
+  is the failure this gate exists to catch**, because an executor blocked mid-item is expensive
+  and the block was knowable before a line was written;
+- and the plan's own teeth: steps that do not reach the item's done-criterion, oracles too weak
+  to prove what they claim, a test whose green would not mean what the item says it means.
 
-Sol reviews briefs and designs, terra reviews code, luna audits the claim. Three variants,
-three jobs, decorrelated blind spots.
+The last point has already paid once: on its first real run this review caught a test oracle
+that would have greened without proving anything, and a do-nothing implementation that would
+have satisfied the whole verification gate.
 
-Ask it specifically for what a plan review cannot surface: a decision stated as settled that is
-not actually decided; a fact asserted that the agent could derive itself; a constraint that
-contradicts the skill; scope that will force a mid-flight redesign; and anything the brief
-requires that no tool can do. **A brief that cannot be executed as written is the failure this
-gate exists to catch** — an executor blocked mid-item is expensive, and the block was knowable
-before a line was written.
+**Item-specific prompt content is ADDITIVE ONLY.** The plan's author writes the review prompt,
+which is a conflict of interest held in check by one rule: point the reviewer at more files or
+more risks, never at fewer attack directions than the list above.
 
 **Proportionality (founder 2026-08-02).** The gates exist for correctness risk. An item that
 is documentation, or whose design has already been through adversarial review, runs a single
@@ -425,8 +445,10 @@ resume it:
 
 Reviewer pins, in each vendor's own vocabulary — **the ladders differ, and invalid values fall
 back silently**:
-- codex: `-c model=gpt-5.6-terra -c model_reasoning_effort=max` (ladder tops at `max`; `xhigh`
-  is one tier below — believing otherwise already cost a real under-run)
+- codex Gate 1 (the plan): `-c model=gpt-5.6-sol -c model_reasoning_effort=max`
+- codex Gate 2 (the diff): `-c model=gpt-5.6-terra -c model_reasoning_effort=max` (the codex
+  ladder tops at `max`; `xhigh` is one tier below — believing otherwise already cost a real
+  under-run)
 - Kimi: `kimi -m kimi-code/k3 -p "<short>" --output-format text`, effort `high` from config
 
 Useful codex flags, all verified present: `-C <dir>` sets the working root, `-o <file>` writes
@@ -437,7 +459,7 @@ events as JSONL.
 
 Written down because it was folklore, and folklore is rediscovered by failing:
 
-- **Short prompt on the command line, brief in a FILE.** The reviewer runs in the worktree and
+- **Short prompt on the command line, the material in a FILE.** The reviewer runs in the worktree and
   can read files, so pass a pointer — "read `loop/items/<ITEM>/gate2-prompt.txt` and the diff"
   — not the material itself. A long inline prompt hits the Windows argument limit and dies, and
   embedded quotes mangle it before that.

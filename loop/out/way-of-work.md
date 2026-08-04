@@ -231,8 +231,13 @@ WORKING ON  ~infrastructure > AI4DEV-5 (CI pipeline)
 
 ### C — the loop
 
-Brief → plan → Gate 1 (codex tries to break the plan) → triage → checkpoint → implement →
-Gate 2 (codex + Kimi in parallel on the code) → bounded fix cycles → verify.
+Plan (the item agent's own — decisions, steps and expected verification state in one document)
+→ Gate 1 (codex sol at max tries to break it, intent included) → rulings → implement →
+Gate 2 (codex terra + Kimi in parallel on the code) → bounded fix cycles → verify.
+
+There is no brief. The item agent is the planner, so a separate brief was an unreviewed
+intent document standing in front of the reviewed one — the first real item ran with three
+intent documents of which only the first was reviewed (founder ruling, 2026-08-04).
 
 ### D — finish
 
