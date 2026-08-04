@@ -55,20 +55,64 @@ jobs:
           echo "checked out:       $(git rev-parse HEAD)"
           git log -1 --format='%H  %an  %s'
 
+      # THE PROSE FAST LANE (founder 2026-08-04). A pull request that changes only prose — the
+      # skill, agent definitions, specs, item records — proves nothing by running a TypeScript
+      # suite, and the founder should not wait minutes for a green that was knowable in seconds.
+      # Whether the diff is prose is DERIVED from the changed-file list, never declared: a label
+      # or a magic word in the body could drift from the real diff, which is the exact defect
+      # class this repository deletes. Code territory is src/, supabase/, tests/, .github/ and
+      # the root build files; touch ANY of those and the full suite runs regardless of intent.
+      # If the file list cannot be read, the answer is the SLOW path — the degraded state runs
+      # more checks, never fewer. Push events always run everything: main is judged in full.
+      - name: Decide whether the diff reaches code
+        id: scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if ! files=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" --paginate \
+              --jq '.[] | .filename, (.previous_filename // empty)'); then
+            echo "the changed files could not be read - taking the SLOW path, never the fast one"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! printf '%s\n' "$files" | grep -q .; then
+            echo "the API reported no changed files - taking the SLOW path, never the fast one"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          code=$(printf '%s\n' "$files" \
+            | grep -E '^(src|supabase|tests|\.github)/|^package\.json$|^bun\.lock|^tsconfig|^vitest' || true)
+          if [ -n "$code" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "code territory touched - the full suite runs:"
+            printf '%s\n' "$code" | sed 's/^/  /'
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "prose-only diff - the suite is skipped; the ownership and closure guards still run"
+          fi
+
       - name: Install bun
+        if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
       - name: Install dependencies from the lockfile
+        if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
         shell: bash
         run: bun install --frozen-lockfile
 
       - name: Type-check both TypeScript projects
+        if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
         shell: bash
         run: bun run typecheck
 
       - name: Run the acceptance-harness self-tests
+        if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
         shell: bash
         run: bun run at:selftest
 
@@ -77,6 +121,7 @@ jobs:
       # a loop that matched nothing and exited 0 is the exact false green this repository exists
       # to kill.
       - name: Check every acceptance suite against its acceptance file
+        if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
         shell: bash
         run: |
           shopt -s nullglob
@@ -101,6 +146,7 @@ jobs:
           exit $status
 
       - name: Verify every declared requirement at the loop tier
+        if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
         shell: bash
         run: |
           shopt -s nullglob
