@@ -1,0 +1,58 @@
+AI4DEV-21 (fake Stripe, GitHub, Anthropic) — F1: AT-016.11 falsified against a sender that never
+asks the provider anything.
+
+CAPTURED AGAINST COMMIT 35d5787 ("AI4DEV-21: the email provider stand-in, and AT-016.11 turns
+green"), the item's final code commit. The one temporary edit below was reverted immediately
+afterwards, and `git diff` against that commit is empty.
+
+WHAT WAS MUTATED, exactly one hunk, in tests/at/suites/req-016/_fixture.ts inside `runDeliveryPass`:
+
+    -      const outcome = vendors.email.deliver({
+    -        recipientId: delivery.recipientId,
+    -        eventId: delivery.eventId,
+    -        channel: delivery.channel,
+    -      });
+    -      if (outcome === 'accepted') markSent(delivery);
+    -      else delivery.state = 'retrying';
+    +      markSent(delivery);
+
+That is the do-nothing wiring: the delivery worker marks an email delivery sent without consulting
+the provider at all — which is precisely what the fixture did before this item, and what a future
+author could restore by deleting a few lines.
+
+WHAT THIS PROVES. AT-016.11 goes red, at clause (a), naming the actual cause: the provider was never
+asked to send. So the suite discriminates between a sender that honours the provider seam and one
+that only appears to. Without this run, "AT-016.11 is green" would be compatible with the seam being
+decorative.
+
+WHAT IT DOES NOT PROVE. It says nothing about the product: `sut.notifications` is a declared stand-in
+and the registry bars every stand-in from the tiers that gate. It proves the ORACLE bites.
+
+REPRODUCE: apply the hunk above, run the command below, revert.
+
+-----------------------------------------------------------------------------------------------
+run at 2026-08-04T19:37:20+03:00, HEAD 35d5787e0f0181de6bf3c3e38e1b29dc72fb94c6
+
+$ bun tests/at/harness/runner.ts "req-016" --tier loop --expect
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-gFH4Ej/vitest-report.json
+
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    green    one logical event per committed event, one delivery per recipient-channel pair, across a restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    green    every guarded transition writes its notification event atomically under an induced fault
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    red      AssertionError: the provider was never asked to send — the rejection path was not exercised: expected [] to deeply equal [ 'rejected' ]
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 10 green, 2 red, 0 missing
+  DEVIATION: AT-016.11 — declared green, reported red: AssertionError: the provider was never asked to send — the rejection path was not exercised: expected [] to deeply equal [ 'rejected' ]
+  DEVIATION: the report counts 2 failed tests but the declaration declares 1 red — a failure outside the declared ids (an untagged test, a failing hook) looks exactly like this
+  DEVIATION: the report counts 10 passed tests but the declaration declares 11 greens
+  EXPECT FAILURE: 3 deviation(s) from the declaration. A red that turned green is a failure too — if reality improved, update the declaration in the same change.
+error: script "at:verify" exited with code 1
+-> exit code 1

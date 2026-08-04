@@ -1,0 +1,10 @@
+$ bunx vitest run --root tests/at --config vitest.config.ts harness/
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-af1e90584864a51d0/tests/at
+
+
+ Test Files  7 passed (7)
+      Tests  153 passed (153)
+   Start at  19:22:48
+   Duration  6.52s (transform 422ms, setup 0ms, import 4.56s, tests 12.74s, environment 1ms)
+
