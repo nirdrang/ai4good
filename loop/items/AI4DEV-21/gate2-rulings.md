@@ -34,7 +34,43 @@ upheld). Terra's "once AT-016.01's static scan is implemented" framing in findin
 alter F-B — the oracle belongs in this diff because the invariant does.
 
 **Round accounting:** this is the one combined fix round for Gate 2 (both reviewers' findings
-folded together). Confirmation goes to the RAISERS after the fix lands: terra resumed
-(pinned) to confirm its two gating findings; Kimi resumed in this working directory to
-confirm its two minors. Cap remains: at most one further fix→confirm cycle if a confirmation
-surfaces a real residual.
+folded together).
+
+---
+
+## THE CONFIRMATION STEP IS DELETED (founder ruling, 2026-08-05)
+
+Verbatim, relayed through the coordinator: **"I don't want confirmation drop it out now and
+from the skill."** Effective immediately: no reviewer-confirmation phase exists. The item
+agent rules each finding's disposition itself — closed by the fix, or rejected with a written
+reason — on the basis of the fixes, the verification runs, and its own reading. The checks on
+the fixes are the ones that already exist: the verify suite, luna's independent audit, and
+the required CI check on the pinned head. The two recording conditions for dismissing a
+maintained unearned-green claim stay in force (verbatim recording beside the ruling, visible
+in the PR body; the ruling stating what the green does and does not claim).
+
+Historical note, for honesty about what actually happened: two confirmation runs launched
+before this ruling arrived completed on their own (`gate2-terra-confirm.md`,
+`gate2-kimi-confirm.md`; both ended VERDICT: RESOLVED). They are retained as free evidence
+and were read as such. They gate nothing; the dispositions below are the item agent's own.
+
+## Dispositions (the item agent's own, per the founder's ruling)
+
+Basis for every row: the fix diff read directly in the tree (not the executor's report), the
+verify suite at the fix head (`verify-final-3.txt`: typecheck clean, 167/167 selftests,
+expect gate exact at 11 green / 1 red, bijection 12/12), and the falsification transcripts.
+
+| finding | disposition | evidence read in the tree |
+|---|---|---|
+| F-A (terra 1 + Kimi 1) | **CLOSED BY FIX** | `c-reliability-guard.test.ts:185-190,211-214` — every provider attempt for the access events must carry the volunteer on email; `:282-287` — accepted pairs judged by `pairProblems` EQUALITY against `expectedPairs(volunteer × email)`, the same multiset oracle as the delivery side. `proof-f3.txt`: the wrong-recipient retry passes the OLD oracle, fails the new one naming `actor-ngo:email: 1 unexpected deliveries` |
+| F-B (terra 2) | **CLOSED BY FIX** | `d-taxonomy-evidence.test.ts:45-48,97-103` — per-row snapshot of BOTH provider traces; `:259-271` — both directions asserted for all 45 rows (no off-email attempt; accepted pairs exactly the expected email pairs, empty when the row has no email). `proof-f4.txt`: the inapp-through-provider cheat fails both halves, only that id moves |
+| F-C (terra 3) | **CLOSED BY FIX** | `_fixture.ts` refuses a defined non-positive-integer `passes` naming the value; wall case proves the refusal with work pending and untouched |
+| F-D (terra 4) | **CLOSED BY FIX** | wall cases: refusal preserves an armed queue; mixed-order FIFO at counts of two, both orders |
+| F-E (terra 5) | **CLOSED BY FIX** | `vendors.ts` identity is `JSON.stringify([eventId, recipientId, channel])`; wall case drives the colliding raw strings, both physically accepted |
+| F-F (Kimi 2) | **CLOSED BY FIX** | wall case: same event+recipient on a second channel is an independent send, both in `accepted()` |
+| F-G (Kimi 4) | **CLOSED BY FIX** | README illustration names the real remaining capability |
+| F-H (Kimi 5) | **CLOSED BY FIX** | `_contract.ts` comment on `NotificationEvent.attempts`: worker passes, not sends; the provider trace is the send-count oracle |
+
+**No finding is rejected**, so no unearned-green claim stands dismissed and no residual needs
+recording. Terra's Gate 2 verdict (CHANGES REQUIRED on findings 1 and 2) is answered by the
+fixes themselves; nothing of either reviewer's critique is overruled.

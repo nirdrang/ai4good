@@ -1,0 +1,19 @@
+Confirmation pass on your Gate 2 review of AI4DEV-21 (you reviewed at head 9435eb7; verdict
+APPROVE, findings 1-2 as follow-up hardening, notes 4-5 advisory). A combined fix round has
+landed since: commits c85304f..57ccdf9.
+
+Read, in this worktree:
+- loop/items/AI4DEV-21/gate2-rulings.md — the ruling table; your finding 1 is F-A, your
+  finding 2 is F-F, your note 4 is F-G, your note 5 is F-H.
+- The fixed files: tests/at/suites/req-016/c-reliability-guard.test.ts,
+  tests/at/suites/req-016/d-taxonomy-evidence.test.ts, tests/at/harness/vendors.ts,
+  tests/at/harness/vendors.selftest.ts, tests/at/suites/req-016/_fixture.ts,
+  tests/at/expected/README.md, tests/at/suites/req-016/_contract.ts.
+- loop/items/AI4DEV-21/proof-f3.txt, proof-f4.txt, verify-final-3.txt.
+
+For EACH of your findings 1, 2, 4 and 5, state CONFIRMED-RESOLVED or NOT-RESOLVED with
+evidence read from the tree (your finding 1: the accepted-pairs EQUALITY in clause (c) plus
+the attempt pair-binding in (a)/(b); your finding 2: the channel-scoped identity case; your
+note 4: the README illustration names; your note 5: the attempts-counter comment). End with
+exactly one line:
+VERDICT: RESOLVED  — or —  VERDICT: NOT RESOLVED — finding <n>.
