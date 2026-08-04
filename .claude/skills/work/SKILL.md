@@ -375,11 +375,14 @@ The auto-generated folder name (`agent-<hash>`) is irrelevant, because **attribu
 branch, not the folder**. The agent checks out the item's Linear branch inside its own worktree
 and the stamp resolves correctly.
 
-### Footgun
+### Footguns
 
 **PowerShell keeps no shell state between tool calls** — only the working directory persists.
 A script that dot-sources `work-lib.ps1` in one call and uses its functions in the next will
 fail with "not recognized". Source and use in the *same* command.
+
+**A fresh worktree has no `node_modules`.** Run `bun install --frozen-lockfile` before the
+first typecheck or test run, or the failure will look like broken code instead of a bare tree.
 
 ## Phase C — build
 
@@ -455,6 +458,18 @@ resume it:
 - Kimi: `kimi -S <id>`, or `-c` to continue the previous session **for this working
   directory** — which scopes to the item's worktree by itself
 
+**Pin the model, effort and sandbox on EVERY resume, and verify the run header.** An unpinned
+`codex exec resume` runs under whatever defaults the CLI holds — observed: a terra confirmation
+that silently ran as sol with full access, discovered only from the run header after the fact.
+A resumed reviewer that is not provably the raiser's model is a different reviewer wearing the
+raiser's session.
+
+**A lost reviewer output may already exist in the vendor's session store.** Check there before
+re-running a gate or a confirmation — a re-run does not recover the raiser's answer, it
+replaces it with a new derivation, which is exactly what the resume rule exists to prevent.
+And having recovered one, verify WHOSE it is by its run header before trusting it (see above:
+the recovered answer can be the wrong model's).
+
 Reviewer pins, in each vendor's own vocabulary — **the ladders differ, and invalid values fall
 back silently**:
 - codex Gate 1 (the plan): `-c model=gpt-5.6-sol -c model_reasoning_effort=max`
@@ -494,6 +509,18 @@ Written down because it was folklore, and folklore is rediscovered by failing:
   the redirected streams can stay empty for several minutes, so a healthy reviewer looks dead
   for its whole opening stretch — an item agent nearly killed one on exactly this. The
   reviewer's own transcript grows continuously and is the honest liveness signal.
+- **Kimi resumes only in the directory that created the session.** `kimi -r <id>` from any
+  other working directory exits 199 with an empty output file — which looks like a reviewer
+  failure and is actually a handoff failure. Proven workaround when the original worktree is
+  gone: recreate its path as an empty placeholder directory and resume from there.
+- **Committed reviewer prompts must not embed a worktree path.** Worktrees are mortal; a prompt
+  that says `C:\...\agent-<hash>\...` breaks for every successor agent (bit one item twice).
+  Write repo-relative paths — the reviewer runs in the tree and resolves them itself.
+- **A DETACHED process finishes silently — nothing wakes you.** The platform notifies only for
+  its own tracked children; a codex or Kimi launched detached notifies nobody, ever. Whoever
+  waits on one arms an explicit watch on its artifact, or asks the coordinator to watch and
+  send the wake-up. "Its completion will bring me back" is a sleep with no alarm — believed
+  twice in one item, wrong both times.
 
 ### ONE WRITER IN A WORKTREE AT A TIME
 
