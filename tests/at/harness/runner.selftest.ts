@@ -39,6 +39,11 @@ const SENTINELS = {
   SUPABASE_SERVICE_ROLE_KEY: 'sentinel-hosted-service-role',
   ANTHROPIC_API_KEY: 'sentinel-provider-key',
   STRIPE_SECRET_KEY: 'sentinel-stripe-key',
+  // The semantic oracle's judge credential (AI4DEV-20). It is documented parent-side-only and the
+  // allowlist has never carried it — but "has never carried it" was a fact about a list nobody
+  // asserted, and the harm if it changed is a test process able to bill a provider. Named here so
+  // the property is PROVEN against a real child rather than read off the allowlist's source.
+  AT_JUDGE_API_KEY: 'sentinel-judge-key',
 };
 
 describe('the child environment is allowlisted, so credentials cannot leak into a test', () => {

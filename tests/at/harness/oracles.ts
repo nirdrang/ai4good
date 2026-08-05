@@ -36,7 +36,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -163,11 +163,28 @@ export type JudgeResponse = {
 };
 
 /**
+ * WHAT KIND OF THING PRODUCED THESE BYTES. Not decoration: two separate rules are enforced off
+ * this brand, and neither could be enforced without it (Gate 2 cluster B, and cluster A.3).
+ *
+ *   - the capability factory refuses a live transport at loop tier and a filesystem-replay
+ *     transport above it, so the injectable seam cannot defeat the tier ruling from outside;
+ *   - the recorder DERIVES a recording's provenance from the transport that produced it, so
+ *     `recordedFrom: 'live'` is no longer something a caller can simply assert.
+ *
+ * `'fake'` is legal at every tier on purpose. Conformance fakes are the instrument the tier rules
+ * are proved WITH; barring them would leave the rules untestable, which is a worse trade than
+ * allowing an obviously-labelled fake. What a fake can never do is mint a live-provenance
+ * recording — that follows from the derivation above rather than from anyone's discipline.
+ */
+export type TransportKind = 'replay-fs' | 'live' | 'fake';
+
+/**
  * The injectable seam. Both real implementations below satisfy it, and so do the fakes in
  * `oracles.selftest.ts` — which is what lets the entire conformance wall run offline, with a
  * transport that throws if it is touched standing in for "the network was not reached".
  */
 export type JudgeTransport = {
+  kind: TransportKind;
   send(request: JudgeRequest, voteIndex: number): Promise<JudgeResponse>;
 };
 
@@ -488,9 +505,35 @@ export type RecordingEntry = {
   text: string;
 };
 
+/**
+ * The path as the FILESYSTEM understands it, not as the string does.
+ *
+ * `resolve()` alone compares text, and on the platform this repo is developed on that is the
+ * wrong comparison: Windows filesystems are case-insensitive, so an upper-cased spelling of the
+ * committed directory is the same physical directory and compared unequal — measured, and it is
+ * how the write-side guard below could be walked around (Gate 2 cluster A.2). `realpathSync`
+ * additionally collapses symlinks and junctions, so a link pointing at the store is recognised as
+ * the store. It throws for a path that does not exist yet, which is an ordinary case for a temp
+ * directory about to be created, so that falls back to the resolved text.
+ */
+function canonicalDir(dir: string): string {
+  let canonical = resolve(dir);
+  try {
+    canonical = realpathSync(canonical);
+  } catch {
+    /* not created yet — the resolved text is the best answer available, and is enough */
+  }
+  return process.platform === 'win32' ? canonical.toLowerCase() : canonical;
+}
+
 /** Is this the committed store — the one directory whose entries must all be live? */
 export function isCommittedRecordingsDir(dir: string): boolean {
-  return resolve(dir) === RECORDINGS_DIR;
+  return canonicalDir(dir) === canonicalDir(RECORDINGS_DIR);
+}
+
+/** The one place the `${key}.json` convention lives. The reader enforces it; the writer obeys it. */
+export function recordingFilePath(dir: string, key: string): string {
+  return join(dir, `${key}.json`);
 }
 
 /**
@@ -541,33 +584,73 @@ export function recordingProblem(entry: RecordingEntry, opts: { committed: boole
   return null;
 }
 
-/** What the writer is given. The key and the timestamp are the writer's to set, never a caller's. */
-export type RecordingDraft = Omit<RecordingEntry, 'key' | 'recordedAt'>;
+/**
+ * What the writer is given. The key, the timestamp AND THE PROVENANCE are the writer's to set.
+ *
+ * `recordedFrom` left this type in the Gate 2 fix round (cluster A.3): while a caller supplied it,
+ * `recordedFrom: 'live'` was an assertion anyone could make, and the committed store's whole
+ * defence rested on that assertion being true. It is now derived from the transport that actually
+ * produced the bytes, so a fake cannot mint live provenance even by asking for it.
+ */
+export type RecordingDraft = Omit<RecordingEntry, 'key' | 'recordedAt' | 'recordedFrom'>;
 
 /**
- * Atomic: written beside the target and renamed into place, so a crash mid-write cannot leave a
+ * Atomic, exclusive, and provenance-derived.
+ *
+ * ATOMIC: written beside the target and renamed into place, so a crash mid-write cannot leave a
  * half-parsed recording that the store would then refuse for the wrong reason.
  *
- * ONE WRITER for both the recorder and conformance (F2). Conformance exercising the same code
- * into a temp directory is what keeps the replay path tested while the committed store is empty.
+ * EXCLUSIVE: an existing file for this key is a REFUSAL, never an overwrite (Gate 2 cluster F).
+ * The key is a hash of the complete request, so a file already sitting there already answers this
+ * exact request — replacing it silently is how a verdict changes with nothing to show for it. To
+ * re-record, delete the file first and let git show what went. The existence check and the rename
+ * are not one atomic step; two writers racing is the one case this does not cover, and it is
+ * ruled out of scope deliberately — no key exists in CI and the recorder is a manual parent-side
+ * tool, so a lock would be machinery for a situation the repository cannot reach.
+ *
+ * DERIVED: `recordedFrom` comes from the transport's own brand. ONE WRITER for both the recorder
+ * and conformance (F2), and conformance exercising it into temp directories is what keeps the
+ * replay path tested while the committed store is empty — but conformance's entries are now
+ * marked `synthetic` because that is what they are.
  */
-export function writeRecording(dir: string, draft: RecordingDraft): RecordingEntry {
+export function writeRecording(dir: string, transport: JudgeTransport, draft: RecordingDraft): RecordingEntry {
   const entry: RecordingEntry = {
     ...draft,
+    recordedFrom: transport.kind === 'live' ? 'live' : 'synthetic',
     key: replayKey(draft.request, draft.voteIndex),
     recordedAt: new Date().toISOString(),
   };
   const problem = recordingProblem(entry, { committed: isCommittedRecordingsDir(dir) });
   if (problem !== null) throw new OracleError(`refusing to write a recording: ${problem}`);
   mkdirSync(dir, { recursive: true });
-  const target = join(dir, `${entry.key}.json`);
+  const target = recordingFilePath(dir, entry.key);
+  if (existsSync(target)) {
+    throw new OracleError(
+      `refusing to write a recording: ${target} already exists. The key is a hash of the complete request, so ` +
+        `that file already answers this exact request — overwriting it would change what the loop tier replays ` +
+        `with nothing in the diff to say a verdict moved. Delete it first if you mean to re-record.`,
+    );
+  }
   const scratch = `${target}.writing-${process.pid}`;
   writeFileSync(scratch, `${JSON.stringify(entry, null, 2)}\n`, 'utf8');
   renameSync(scratch, target);
   return entry;
 }
 
-/** Every recording in a directory, indexed by key. Refuses the whole directory on any bad entry. */
+/**
+ * Every recording in a directory, indexed by key. Refuses the whole directory on any bad entry.
+ *
+ * TWO OF THE THREE CHECKS BELOW EXIST BECAUSE OF ONE MEASURED HOLE (Gate 2 cluster A.1). The store
+ * indexes by the key an entry DECLARES, and a second file may declare a key the first one already
+ * holds: `entries.set()` overwrote silently, files are read in sorted filename order, so a file
+ * named later in the alphabet always won. A shadow recording committed beside a real one flipped
+ * what the loop tier replayed, with no refusal anywhere — the exact quiet provenance failure the
+ * F2 ruling exists to make impossible, arriving by a door nobody had looked at.
+ *
+ * So: the filename must BE the key, and a duplicate declared key refuses the whole store. Either
+ * check alone would close the measured hole; both are here because they fail for different
+ * reasons and a reader deserves to be told which one fired.
+ */
 export function readRecordings(dir: string): Map<string, RecordingEntry> {
   const committed = isCommittedRecordingsDir(dir);
   let files: string[];
@@ -589,6 +672,20 @@ export function readRecordings(dir: string): Map<string, RecordingEntry> {
     }
     const problem = recordingProblem(parsed, { committed });
     if (problem !== null) throw new OracleError(`refusing the replay store at ${dir}: ${problem} (${name})`);
+    // DUPLICATE FIRST, because it is the shadow attack's own error and says the useful thing: two
+    // files, one key, and the store about to pick one of them by filename order.
+    if (entries.has(parsed.key)) {
+      throw new OracleError(
+        `refusing the replay store at ${dir}: two files declare the key ${parsed.key} (${name} is the second). ` +
+          `Whichever sorted later would silently decide what the loop tier replays.`,
+      );
+    }
+    if (name !== `${parsed.key}.json`) {
+      throw new OracleError(
+        `refusing the replay store at ${dir}: ${name} declares key ${parsed.key}, so it must be named ` +
+          `${parsed.key}.json. A recording free to take any filename can be placed to sort wherever it likes.`,
+      );
+    }
     entries.set(parsed.key, parsed);
   }
   return entries;
@@ -604,6 +701,7 @@ export function readRecordings(dir: string): Map<string, RecordingEntry> {
 export function createReplayTransport(dir: string): JudgeTransport {
   let index: Map<string, RecordingEntry> | null = null;
   return {
+    kind: 'replay-fs',
     async send(request, voteIndex) {
       index ??= readRecordings(dir);
       const key = replayKey(request, voteIndex);
@@ -650,9 +748,49 @@ export function createReplayTransport(dir: string): JudgeTransport {
  * accepts. That is a compile-time check of the shape, not a runtime check of the behaviour, and
  * the difference is stated here rather than glossed.
  */
+/**
+ * The minimum of a provider message this code reads. Structural on purpose: it is what lets the
+ * shaping below be driven directly by a conformance test, with no client and no network.
+ */
+export type LiveMessage = {
+  model: string;
+  stop_reason: string | null;
+  stop_details?: { category?: string | null } | null;
+  content: unknown[];
+};
+
+/**
+ * Turn a provider message into a transport response — STOP REASON FIRST.
+ *
+ * The ordering is the fix for Gate 2 terra 4, and the reason it is worth a named function is that
+ * ordering is the only thing being asserted, so it needs somewhere a test can reach without a
+ * client. Content was previously filtered and joined before anything looked at why the model
+ * stopped: on a refusal or a truncation that is work done on material the caller is about to
+ * throw away, and it reads as though the text mattered when the call did not finish. Now nothing
+ * touches `content` unless the message says it finished.
+ *
+ * The caller still decides what a non-`end_turn` stop MEANS — `judge()` raises the typed error, so
+ * a REPLAYED refusal is refused on the same path as a live one. This function only declines to
+ * look at bytes it has been told not to trust.
+ */
+export function liveJudgeResponse(message: LiveMessage): JudgeResponse {
+  const stopReason = message.stop_reason ?? '<none reported>';
+  const stopDetail = message.stop_details?.category ?? undefined;
+  const detail = stopDetail ? { stopDetail } : {};
+  if (stopReason !== 'end_turn') {
+    return { source: 'live', servedModel: message.model, stopReason, ...detail, text: '' };
+  }
+  const text = message.content
+    .filter((block): block is { type: 'text'; text: string } => (block as { type?: unknown })?.type === 'text')
+    .map((block) => block.text)
+    .join('');
+  return { source: 'live', servedModel: message.model, stopReason, ...detail, text };
+}
+
 export function createLiveTransport(): JudgeTransport {
   let client: Anthropic | null = null;
   return {
+    kind: 'live',
     async send(request, voteIndex) {
       // Every vote sends the IDENTICAL request; they differ only by being separate samples. The
       // index reaches the key, not the wire.
@@ -682,17 +820,7 @@ export function createLiveTransport(): JudgeTransport {
           format: { type: 'json_schema', schema: request.outputSchema },
         },
       });
-      const text = message.content
-        .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
-        .map((block) => block.text)
-        .join('');
-      return {
-        source: 'live',
-        servedModel: message.model,
-        stopReason: message.stop_reason ?? '<none reported>',
-        ...(message.stop_details?.category ? { stopDetail: message.stop_details.category } : {}),
-        text,
-      };
+      return liveJudgeResponse(message);
     },
   };
 }
@@ -727,6 +855,25 @@ function answersProblem(rubric: Rubric, answers: JudgeAnswer[]): string | null {
   return null;
 }
 
+/**
+ * The property names the verdict schema allows, per shape. Kept beside the schema they mirror.
+ *
+ * `VERDICT_SCHEMA` says `additionalProperties: false` and the server enforces that; local
+ * re-validation used to ignore it entirely, so the same bytes could be accepted here and rejected
+ * there (Gate 2 terra 5). Two consequences, both bad: a REPLAYED response could carry fields a
+ * live one never could, and an answer object carrying both `holds` and `value` — a judge that
+ * hedged rather than answered — was silently read as whichever field its declared kind wanted.
+ */
+const ALLOWED_VERDICT_KEYS = ['answers'];
+const ALLOWED_ANSWER_KEYS: Record<string, string[]> = {
+  semantic: ['criterionId', 'kind', 'holds', 'evidence'],
+  extraction: ['criterionId', 'kind', 'value', 'evidence'],
+};
+
+function unknownKeys(value: object, allowed: string[]): string[] {
+  return Object.keys(value).filter((key) => !allowed.includes(key));
+}
+
 /** Local re-validation of one vote's structured output. Anything unexpected is an error, never a pass. */
 export function parseJudgeAnswers(rubric: Rubric, text: string): JudgeAnswer[] {
   let parsed: unknown;
@@ -739,7 +886,17 @@ export function parseJudgeAnswers(rubric: Rubric, text: string): JudgeAnswer[] {
         `one this code believes it sent.`,
     );
   }
-  const answersRaw = (parsed as { answers?: unknown })?.answers;
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new OracleError("the judge's output is not a verdict object");
+  }
+  const surplus = unknownKeys(parsed, ALLOWED_VERDICT_KEYS);
+  if (surplus.length) {
+    throw new OracleError(
+      `the judge's output carries ${surplus.join(', ')}, which the verdict schema does not allow. The server rejects ` +
+        `these; accepting them here would let a replayed response say things a live one never could.`,
+    );
+  }
+  const answersRaw = (parsed as { answers?: unknown }).answers;
   if (!Array.isArray(answersRaw)) throw new OracleError("the judge's output carries no `answers` array");
   const answers: JudgeAnswer[] = [];
   for (const raw of answersRaw as Record<string, unknown>[]) {
@@ -751,6 +908,16 @@ export function parseJudgeAnswers(rubric: Rubric, text: string): JudgeAnswer[] {
     }
     if (typeof evidence !== 'string' || evidence.trim() === '') {
       throw new OracleError(`the judge returned no evidence for criterion ${JSON.stringify(criterionId)}`);
+    }
+    if (raw.kind === 'semantic' || raw.kind === 'extraction') {
+      const extra = unknownKeys(raw, ALLOWED_ANSWER_KEYS[raw.kind]!);
+      if (extra.length) {
+        throw new OracleError(
+          `the judge's ${raw.kind} answer for ${JSON.stringify(criterionId)} carries ${extra.join(', ')}, which the ` +
+            `verdict schema does not allow. An answer holding both a judgement and a value is a judge that hedged ` +
+            `rather than answered, and reading whichever field its declared kind wanted would hide that.`,
+        );
+      }
     }
     if (raw.kind === 'semantic') {
       if (typeof raw.holds !== 'boolean') {
@@ -796,6 +963,19 @@ export function compareExtraction(criterion: ExtractionCriterion, value: number)
     );
   }
   return value >= compare.minimum;
+}
+
+/**
+ * Strict majority, and a TIE IS A FAIL.
+ *
+ * Exported so a test can drive it with a tally the rest of the system cannot produce. While this
+ * lived inline, the odd-vote-count validation and the `>` were each other's only witness: swap the
+ * `>` for `>=` and nothing anywhere goes red, because k is always odd so no tie ever reaches it.
+ * Two guards protecting each other is one regression away from neither (Gate 2 cluster G). If the
+ * odd-k refusal ever weakens, this decides an even split the safe way rather than the quiet way.
+ */
+export function majorityPass(passCount: number, votes: number): boolean {
+  return passCount * 2 > votes;
 }
 
 function voteOutcome(criterion: RubricCriterion, answer: JudgeAnswer): boolean {
@@ -880,8 +1060,9 @@ export function createSemanticOracle(opts: { transport: JudgeTransport; votes: n
           return { outcome: voteOutcome(criterion, answer), evidence: answer.evidence };
         });
         const passCount = outcomes.filter((entry) => entry.outcome).length;
-        // k is a positive ODD integer, so this is a strict majority with no tie to break.
-        const pass = passCount * 2 > votes;
+        // k is a positive ODD integer, so no tie can reach this — and `majorityPass` fails one
+        // anyway, which is the point of it being a named, separately tested function.
+        const pass = majorityPass(passCount, votes);
         return {
           criterionId: criterion.id,
           pass,
@@ -927,6 +1108,14 @@ export function createSemanticOracle(opts: { transport: JudgeTransport; votes: n
  * `recordingsDir` is consulted only at loop tier: the test that hands it a directory containing a
  * MATCHING recording at integration tier, and still gets the live transport's refusal, is what
  * proves live mode never consults the replay store.
+ *
+ * THE SEAM IS NOT A WAY ROUND THE TIER RULE, and until the Gate 2 fix round it was: nothing
+ * stopped a caller handing a loop-tier capability a live transport, or an above-loop capability a
+ * filesystem replay — the second of which would be marked `real` while answering from committed
+ * bytes, which is precisely the label the tier system exists to make honest. Both are now
+ * refused, by brand. A `'fake'` transport stays legal at every tier because it is the instrument
+ * these very rules are tested with; it is also, by the derivation in `writeRecording`, incapable
+ * of producing a recording that claims live provenance.
  */
 export function createOracleCapability(opts: {
   tier: Tier;
@@ -937,8 +1126,22 @@ export function createOracleCapability(opts: {
   const votes = readJudgeVotes(opts.config);
   if (opts.tier === 'loop') {
     const transport = opts.transport ?? createReplayTransport(opts.recordingsDir ?? RECORDINGS_DIR);
+    if (transport.kind === 'live') {
+      throw new OracleError(
+        'refusing to build a loop-tier oracle on a live transport: the loop tier is bit-deterministic because it ' +
+          'replays committed recordings, and a live call there would report today\'s answer under yesterday\'s ' +
+          'expectations while the capability ledger still called it a stand-in.',
+      );
+    }
     return standInCapability('oracles.judge', createSemanticOracle({ transport, votes }));
   }
   const transport = opts.transport ?? createLiveTransport();
+  if (transport.kind === 'replay-fs') {
+    throw new OracleError(
+      `refusing to build a ${opts.tier}-tier oracle on a filesystem replay transport: above loop the oracle is ` +
+        `registered REAL, and a real capability answering from committed bytes is the gate grading a recording ` +
+        `while reporting that it stubbed nothing.`,
+    );
+  }
   return realCapability('oracles.judge', createSemanticOracle({ transport, votes }));
 }

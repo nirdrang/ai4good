@@ -32,7 +32,7 @@
  * and response types, and nothing more. Treat the first real run as a bring-up, not a formality.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { INSTALL_ROOT } from './check.ts';
@@ -45,8 +45,10 @@ import {
   JUDGE_MODEL,
   parseJudgeAnswers,
   readJudgeVotes,
+  recordingFilePath,
   RECORDINGS_DIR,
   renderJudgeRequest,
+  replayKey,
   writeRecording,
   type JudgeResponse,
   type JudgeTransport,
@@ -91,6 +93,11 @@ const SPECIMENS: Specimen[] = [
 function recordingTransport(rubric: Rubric, record: boolean): JudgeTransport {
   const live = createLiveTransport();
   return {
+    // 'live', because that is what it IS: the live transport with a recording side effect. The
+    // brand is not a label anyone chooses for convenience — `writeRecording` derives a recording's
+    // provenance from it, so this is the single point at which live provenance can be created at
+    // all, and it sits directly on top of a real call (Gate 2 cluster A.3).
+    kind: 'live',
     async send(request, voteIndex) {
       const response: JudgeResponse = await live.send(request, voteIndex);
       if (response.stopReason !== 'end_turn') {
@@ -101,16 +108,23 @@ function recordingTransport(rubric: Rubric, record: boolean): JudgeTransport {
       // Throws if the output is not a verdict for THIS rubric. Nothing unvalidated is stored.
       parseJudgeAnswers(rubric, response.text);
       if (record) {
-        const entry = writeRecording(RECORDINGS_DIR, {
-          voteIndex,
-          recordedFrom: 'live',
-          request,
-          servedModel: response.servedModel,
-          stopReason: response.stopReason,
-          ...(response.stopDetail === undefined ? {} : { stopDetail: response.stopDetail }),
-          text: response.text,
-        });
-        console.log(`    recorded vote ${voteIndex} -> ${entry.key.slice(0, 16)}… (served by ${response.servedModel})`);
+        // The writer refuses to overwrite, so an existing recording is checked for here and
+        // reported rather than allowed to abort a whole run — a re-record after a partial failure
+        // has to be able to pick up where it stopped.
+        const key = replayKey(request, voteIndex);
+        if (existsSync(recordingFilePath(RECORDINGS_DIR, key))) {
+          console.log(`    vote ${voteIndex} is already recorded (${key.slice(0, 16)}…) — keeping the existing entry`);
+        } else {
+          const entry = writeRecording(RECORDINGS_DIR, live, {
+            voteIndex,
+            request,
+            servedModel: response.servedModel,
+            stopReason: response.stopReason,
+            ...(response.stopDetail === undefined ? {} : { stopDetail: response.stopDetail }),
+            text: response.text,
+          });
+          console.log(`    recorded vote ${voteIndex} -> ${entry.key.slice(0, 16)}… (served by ${response.servedModel})`);
+        }
       }
       return response;
     },

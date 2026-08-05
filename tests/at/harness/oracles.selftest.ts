@@ -11,9 +11,10 @@
  *
  * EVERY TEST HERE RUNS OFFLINE, and that is a rule rather than a happy accident: a loop-tier
  * oracle that touched the network would be a false green of the worst kind, so the transports
- * below are fakes, the replay directories are temp directories, and the one test that exercises
- * the live path deletes `AT_JUDGE_API_KEY` from this process first so that a developer who
- * happens to have one exported cannot turn a conformance run into a billed API call.
+ * below are fakes, the replay directories are temp directories, and a FILE-LEVEL guard deletes
+ * `AT_JUDGE_API_KEY` before every test in this file — not just the one that reaches for the live
+ * path, because the test most likely to meet a live transport by accident is whichever one a
+ * future regression sends there, and nobody has wrapped that one in advance.
  *
  * The load-bearing rubrics are requirement-NEUTRAL and defined here, shaped to hit machinery edges
  * rather than to resemble any requirement. `harness/rubrics/` holds the requirement-shaped
@@ -22,10 +23,10 @@
  * by the back door.
  */
 
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createConfigRegistry } from './config.ts';
 import type { CriterionComparator, ExtractionCriterion, Rubric, RubricCriterion, SemanticCriterion } from './contracts.ts';
@@ -36,20 +37,25 @@ import {
   createOracleCapability,
   createReplayTransport,
   createSemanticOracle,
+  createLiveTransport,
   isCommittedRecordingsDir,
   JUDGE_EFFORT,
   JUDGE_MODEL,
   JUDGE_VOTES_KEY,
   judgeVoteCountProblem,
+  liveJudgeResponse,
+  majorityPass,
   materialProblem,
   OracleError,
   OracleReplayMiss,
   OracleUnavailable,
   parseJudgeAnswers,
   readRecordings,
+  recordingFilePath,
   recordingProblem,
   RECORDINGS_DIR,
   renderJudgeRequest,
+  renderMaterial,
   renderSystemPrompt,
   replayKey,
   rubricProblem,
@@ -102,6 +108,35 @@ const MEASURED: Rubric = {
 };
 const MEASURED_MATERIAL: Record<string, string> = { reading: 'value 10.2 over four listed entries' };
 
+/**
+ * Comparator payloads made of digit strings that cannot occur incidentally in a rendered prompt.
+ * Their absence from the prompt is the only honest way to assert that the comparator is withheld
+ * from the judge — see the leak test, and the dead assertion it replaced.
+ */
+const COMPARATOR_SENTINELS: Rubric = {
+  id: 'conformance-comparator-sentinels',
+  version: '1',
+  materialSlots: ['reading'],
+  criteria: [
+    {
+      kind: 'extraction',
+      id: 'sentinel-near',
+      statement: 'What value does the reading state?',
+      required: true,
+      extract: { what: 'the stated value', unit: 'units' },
+      compare: { op: 'numeric_within_tolerance', expected: 918273645, tolerance: 564738291 },
+    },
+    {
+      kind: 'extraction',
+      id: 'sentinel-tally',
+      statement: 'How many entries does the reading list?',
+      required: true,
+      extract: { what: 'the number of listed entries' },
+      compare: { op: 'count_at_least', minimum: 372819465 },
+    },
+  ],
+};
+
 /** One vote's answers to a rubric: criterion id → `holds` for semantic, extracted number otherwise. */
 type Ballot = Record<string, boolean | number>;
 
@@ -141,6 +176,7 @@ function scripted(
   return {
     calls,
     transport: {
+      kind: 'fake',
       async send(_request, voteIndex) {
         calls.push(voteIndex);
         const ballot = ballots[Math.min(voteIndex, ballots.length - 1)]!;
@@ -158,6 +194,7 @@ function scripted(
 
 /** Stands where "the network was not reached" needs proving: any use at all fails the test. */
 const NEVER_TOUCHED: JudgeTransport = {
+  kind: 'fake',
   async send() {
     throw new Error('this transport must never be reached');
   },
@@ -165,6 +202,26 @@ const NEVER_TOUCHED: JudgeTransport = {
 
 function oracleWith(transport: JudgeTransport, votes = 3) {
   return createSemanticOracle({ transport, votes });
+}
+
+/**
+ * A draft the writer will stamp. It deliberately does NOT carry `recordedFrom` — that field left
+ * the caller's hands in the Gate 2 fix round, because a provenance a caller asserts is not
+ * provenance. Everything conformance writes therefore lands as `synthetic`, which is exactly what
+ * it is: the transport that "produced" it is a fake.
+ */
+function draftFor(request: JudgeRequest, voteIndex: number, text: string) {
+  return { voteIndex, request, servedModel: JUDGE_MODEL, stopReason: 'end_turn', text };
+}
+
+/** A recording literal, for the tests that drive the pure predicates rather than the writer. */
+function entryOf(request: JudgeRequest, voteIndex: number, text: string, recordedFrom: 'live' | 'synthetic') {
+  return {
+    ...draftFor(request, voteIndex, text),
+    recordedFrom,
+    key: replayKey(request, voteIndex),
+    recordedAt: new Date().toISOString(),
+  } satisfies RecordingEntry;
 }
 
 const tempDirs: string[] = [];
@@ -178,22 +235,26 @@ afterAll(() => {
 });
 
 /**
- * Run a body with no judge credential in this process, whatever the developer has exported.
+ * NO JUDGE CREDENTIAL IN THIS PROCESS, FOR EVERY TEST IN THIS FILE.
  *
  * The conformance wall must be incapable of making a real API call, and the live transport reads
- * its credential at call time — so the only way to guarantee that is to take it away here and put
- * it back afterwards. What the tests below then assert is exactly the state a test child is
- * guaranteed by the runner's environment allowlist: no key, and a refusal that names why.
+ * its credential at call time — so the only way to guarantee that is to take it away and put it
+ * back. This was originally a helper wrapped around the one test that touches the live path, and
+ * that was the wrong shape (Gate 2, cluster C): the test most likely to meet a live transport by
+ * ACCIDENT is whichever one a future regression sends there, and by definition nobody has wrapped
+ * that one. A file-level guard covers the tests not yet written as well as the tests here.
+ *
+ * What every test below therefore asserts is exactly the state a test child is guaranteed by the
+ * runner's environment allowlist: no key, and a refusal that names why.
  */
-async function withoutJudgeCredential<T>(body: () => Promise<T>): Promise<T> {
-  const saved = process.env.AT_JUDGE_API_KEY;
+let savedJudgeCredential: string | undefined;
+beforeEach(() => {
+  savedJudgeCredential = process.env.AT_JUDGE_API_KEY;
   delete process.env.AT_JUDGE_API_KEY;
-  try {
-    return await body();
-  } finally {
-    if (saved !== undefined) process.env.AT_JUDGE_API_KEY = saved;
-  }
-}
+});
+afterEach(() => {
+  if (savedJudgeCredential !== undefined) process.env.AT_JUDGE_API_KEY = savedJudgeCredential;
+});
 
 /* ------------------------------------------------------------------------------- tests */
 
@@ -320,34 +381,65 @@ describe('the replay key covers the complete rendered request', () => {
     expect(canonicalJson({ b: 1, a: 2 })).toBe(canonicalJson({ a: 2, b: 1 }));
   });
 
+  it('changes when a material SLOT NAME changes, at the same rubric id and version', () => {
+    // Slot names are part of the rendered request, so two rubrics that differ only in what they
+    // call their material must not share a key. Without this the value case above passes while a
+    // change that stopped rendering slot NAMES would let genuinely different requests collide —
+    // and a collision is a recording answering a question it was not asked.
+    const renamed: Rubric = { ...NEUTRAL, materialSlots: ['transcript'] };
+    expect(renamed.id, 'the renamed rubric must keep its identity or this proves nothing').toBe(NEUTRAL.id);
+    expect(renamed.version).toBe(NEUTRAL.version);
+    expect(replayKey(renderJudgeRequest(renamed, { transcript: NEUTRAL_MATERIAL.subject! }), 0)).not.toBe(base);
+  });
+
   it('never shows the judge the comparator it is not allowed to apply', () => {
     // The extraction-then-code-comparison split is only real if the expected value stays out of the
     // prompt. If it leaks in, the judge can answer the comparison and the arithmetic is back inside
     // the generation.
-    const prompt = renderSystemPrompt(MEASURED);
-    expect(prompt, 'the expected value reached the judge').not.toContain('10.5');
-    expect(prompt, 'the tolerance reached the judge').not.toContain('tolerance');
-    expect(prompt, 'the count minimum reached the judge').not.toContain('minimum');
-    expect(prompt, 'the criterion ids the judge must key its answers on are missing').toContain('within');
+    //
+    // THE VALUES ARE SENTINELS, and that is the fix for a test that could not fail (Gate 2, terra 7
+    // and kimi 3). It used to assert that `'10.5'` was absent — a string that appears in no rubric
+    // anywhere, so it was absent no matter what leaked — while the actual expected value (10), the
+    // tolerance (0.5) and the minimum (3) went unasserted. These digits cannot occur incidentally
+    // in a rendered prompt, so their absence means the comparator really is withheld.
+    const prompt = renderSystemPrompt(COMPARATOR_SENTINELS);
+    for (const sentinel of ['918273645', '564738291', '372819465']) {
+      expect(prompt, `the comparator value ${sentinel} reached the judge`).not.toContain(sentinel);
+    }
+    for (const opName of ['numeric_within_tolerance', 'count_at_least', 'tolerance', 'minimum', 'expected']) {
+      expect(prompt, `the comparator field ${opName} reached the judge`).not.toContain(opName);
+    }
+    // The control: what the judge IS supposed to see is still there, so the assertions above are
+    // not passing on an empty prompt.
+    expect(prompt, 'the criterion ids the judge must key its answers on are missing').toContain('sentinel-near');
+    expect(prompt, 'the extraction instruction is missing').toContain('the number of listed entries');
+  });
+
+  it('renders material in the RUBRIC declared order, not the caller object key order', () => {
+    // The claim was a comment with nothing behind it (Gate 2, kimi 4): every judged fixture has one
+    // slot, so caller key order could never differ from declared order and a mutation to this
+    // ordering failed nothing. The consequence would be a replay key that moved with the shape of a
+    // caller's object literal — a loud miss rather than a false green, but a miss nobody could
+    // explain.
+    const twoSlot: Rubric = { ...NEUTRAL, materialSlots: ['first', 'second'] };
+    const declared = renderMaterial(twoSlot, { first: 'ONE', second: 'TWO' });
+    const reversed = renderMaterial(twoSlot, { second: 'TWO', first: 'ONE' });
+    expect(reversed, 'material rendering follows the caller object, so the replay key does too').toBe(declared);
+    expect(declared.indexOf('ONE'), 'the declared order is not the order rendered').toBeLessThan(
+      declared.indexOf('TWO'),
+    );
+    expect(replayKey(renderJudgeRequest(twoSlot, { second: 'TWO', first: 'ONE' }), 0)).toBe(
+      replayKey(renderJudgeRequest(twoSlot, { first: 'ONE', second: 'TWO' }), 0),
+    );
   });
 });
 
 describe('the replay store answers from committed bytes, or refuses', () => {
-  const liveish = (request: JudgeRequest, voteIndex: number, text: string) =>
-    ({
-      voteIndex,
-      recordedFrom: 'live' as const,
-      request,
-      servedModel: JUDGE_MODEL,
-      stopReason: 'end_turn',
-      text,
-    });
-
   it('replays a recorded verdict bit-for-bit, through the same writer conformance uses', async () => {
     const dir = tempRecordingsDir();
     const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
     for (let vote = 0; vote < 3; vote++) {
-      writeRecording(dir, liveish(request, vote, ballotText(NEUTRAL, { alpha: true, beta: true }, `rec-${vote}`)));
+      writeRecording(dir, NEVER_TOUCHED, draftFor(request, vote, ballotText(NEUTRAL, { alpha: true, beta: true }, `rec-${vote}`)));
     }
     const first = await oracleWith(createReplayTransport(dir)).judge(NEUTRAL, NEUTRAL_MATERIAL);
     const second = await oracleWith(createReplayTransport(dir)).judge(NEUTRAL, NEUTRAL_MATERIAL);
@@ -378,20 +470,53 @@ describe('the replay store answers from committed bytes, or refuses', () => {
   it('refuses an entry whose declared key its own stored request does not hash to', () => {
     const dir = tempRecordingsDir();
     const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
-    const entry = writeRecording(dir, liveish(request, 0, ballotText(NEUTRAL, { alpha: true, beta: true }, 'r')));
+    const entry = writeRecording(dir, NEVER_TOUCHED, draftFor(request, 0, ballotText(NEUTRAL, { alpha: true, beta: true }, 'r')));
     // Hand-edit the recording the way a person would: keep the filename, change what it claims to
     // answer. Without the re-derivation the store would happily serve this for another request.
     const tampered: RecordingEntry = { ...entry, key: 'f'.repeat(64) };
-    writeFileSync(join(dir, `${entry.key}.json`), JSON.stringify(tampered, null, 2), 'utf8');
+    writeFileSync(recordingFilePath(dir, entry.key), JSON.stringify(tampered, null, 2), 'utf8');
     expect(() => readRecordings(dir)).toThrow(/does not hash to/);
+  });
+
+  it('refuses a SHADOW file that declares a key another recording already holds', () => {
+    // THE MEASURED HOLE (Gate 2, kimi 1), reproduced exactly. An honest recording says FAIL; a
+    // second file in the same directory declares the SAME key — the stored request is untouched so
+    // the hash re-derivation passes — and says PASS. Files were read in sorted filename order into
+    // a Map, so the one sorting later simply won, and the loop tier replayed a verdict nobody
+    // recorded. Nothing anywhere refused.
+    const dir = tempRecordingsDir();
+    const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
+    const honest = writeRecording(dir, NEVER_TOUCHED, draftFor(request, 0, ballotText(NEUTRAL, { alpha: false, beta: true }, 'honest')));
+    const shadow: RecordingEntry = { ...honest, text: ballotText(NEUTRAL, { alpha: true, beta: true }, 'shadow') };
+    writeFileSync(join(dir, 'zzz-shadow.json'), JSON.stringify(shadow, null, 2), 'utf8');
+    expect(() => readRecordings(dir), 'a shadow recording replaced a real one in silence').toThrow(
+      /two files declare the key/,
+    );
+    expect(() => readRecordings(dir), 'the refusal does not name the file that broke it').toThrow(/zzz-shadow\.json/);
+    // AND THE HONEST STORE STILL READS. A guard that refused every directory would pass the
+    // assertion above and be useless, so the same directory minus the shadow must work.
+    rmSync(join(dir, 'zzz-shadow.json'), { force: true });
+    expect(readRecordings(dir).get(honest.key)!.text, 'removing the shadow did not restore the real recording').toBe(
+      honest.text,
+    );
+  });
+
+  it('refuses a recording whose filename is not its key, even when no other file claims that key', () => {
+    // The second rule standing alone. This file declares a key nothing else holds, so the
+    // duplicate check cannot fire — what is wrong with it is only that it could have been named
+    // anything, which is what let the shadow above be positioned in the first place.
+    const dir = tempRecordingsDir();
+    const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
+    const entry = entryOf(request, 0, ballotText(NEUTRAL, { alpha: true, beta: true }, 'misnamed'), 'synthetic');
+    writeFileSync(join(dir, 'a-recording.json'), JSON.stringify(entry, null, 2), 'utf8');
+    expect(() => readRecordings(dir)).toThrow(/must be named/);
+    expect(() => readRecordings(dir)).toThrow(new RegExp(entry.key));
   });
 
   it('refuses a recording that does not say how it was produced', () => {
     const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
     const entry: RecordingEntry = {
-      ...liveish(request, 0, '{}'),
-      key: replayKey(request, 0),
-      recordedAt: new Date().toISOString(),
+      ...entryOf(request, 0, '{}', 'live'),
       recordedFrom: undefined as never,
     };
     expect(recordingProblem(entry, { committed: false }) ?? '').toContain('no provenance');
@@ -399,12 +524,7 @@ describe('the replay store answers from committed bytes, or refuses', () => {
 
   it('refuses a SYNTHETIC entry in the committed store and accepts one anywhere else (F2)', () => {
     const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
-    const synthetic: RecordingEntry = {
-      ...liveish(request, 0, '{}'),
-      recordedFrom: 'synthetic',
-      key: replayKey(request, 0),
-      recordedAt: new Date().toISOString(),
-    };
+    const synthetic: RecordingEntry = entryOf(request, 0, '{}', 'synthetic');
     expect(
       recordingProblem(synthetic, { committed: true }) ?? '',
       'a synthetic recording was accepted by the committed store — the loop tier would go green on a verdict no judge gave',
@@ -415,34 +535,61 @@ describe('the replay store answers from committed bytes, or refuses', () => {
     ).toBeNull();
   });
 
-  it('refuses to WRITE a synthetic recording into the committed store, and writes nothing', () => {
+  it('refuses to WRITE a fake-transport recording into the committed store, and writes nothing', () => {
     // This one aims the REAL writer at the REAL committed directory, because a refusal proven only
-    // against a temp path would prove nothing about the path that matters. The cleanup exists for
-    // the day the refusal regresses: the assertion below fails and says so, and the tree is not
-    // left carrying an invented recording that a later loop-tier run would answer from.
-    const before = readdirSync(RECORDINGS_DIR).sort();
+    // against a temp path would prove nothing about the path that matters.
+    //
+    // ITS BLAST RADIUS IS BOUNDED THREE WAYS (Gate 2, cluster F). The writer refuses to overwrite
+    // an existing file at all, so it cannot replace a real recording even if the provenance rule
+    // regressed. The cleanup below targets exactly the one path this test could have created —
+    // named, not "everything new" — so it cannot delete a recording that arrived by other means.
+    // And the assertion runs before the cleanup, so a regression is reported rather than tidied
+    // away. Concurrency is deliberately not covered: no key exists in CI and the recorder is a
+    // manual parent-side tool, so two writers cannot meet here.
+    const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
+    const target = recordingFilePath(RECORDINGS_DIR, replayKey(request, 0));
+    expect(existsSync(target), 'this test would be writing over a real recording — it must not run as written').toBe(
+      false,
+    );
     try {
       expect(() =>
-        writeRecording(RECORDINGS_DIR, {
+        writeRecording(RECORDINGS_DIR, NEVER_TOUCHED, {
           voteIndex: 0,
-          recordedFrom: 'synthetic',
-          request: renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL),
+          request,
           servedModel: JUDGE_MODEL,
           stopReason: 'end_turn',
           text: '{}',
         }),
       ).toThrow(/COMMITTED/);
-      expect(readdirSync(RECORDINGS_DIR).sort(), 'the refused write still left something behind').toEqual(before);
+      expect(existsSync(target), 'the refused write still left its file behind').toBe(false);
     } finally {
-      for (const name of readdirSync(RECORDINGS_DIR)) {
-        if (!before.includes(name)) rmSync(join(RECORDINGS_DIR, name), { force: true });
-      }
+      if (existsSync(target)) rmSync(target, { force: true });
     }
   });
 
-  it('knows which directory is the committed one', () => {
+  it('refuses to overwrite a recording that already exists', () => {
+    const dir = tempRecordingsDir();
+    const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
+    const first = writeRecording(dir, NEVER_TOUCHED, draftFor(request, 0, ballotText(NEUTRAL, { alpha: false, beta: true }, 'first')));
+    expect(() =>
+      writeRecording(dir, NEVER_TOUCHED, draftFor(request, 0, ballotText(NEUTRAL, { alpha: true, beta: true }, 'second'))),
+    ).toThrow(/already exists/);
+    expect(readRecordings(dir).get(first.key)!.text, 'the second write replaced the first').toBe(first.text);
+  });
+
+  it('knows which directory is the committed one, however it is spelled', () => {
     expect(isCommittedRecordingsDir(RECORDINGS_DIR)).toBe(true);
     expect(isCommittedRecordingsDir(tempRecordingsDir())).toBe(false);
+    // A TRAILING-SEGMENT DETOUR resolves to the same directory and must be recognised as it.
+    expect(isCommittedRecordingsDir(join(RECORDINGS_DIR, '..', 'recordings'))).toBe(true);
+    if (process.platform === 'win32') {
+      // MEASURED ON THIS PLATFORM (Gate 2, kimi 2): the filesystem is case-insensitive, so an
+      // upper-cased spelling IS this directory, and a plain string compare said it was not — which
+      // is how the write-side guard could be stepped around. Asserted only on win32, because on a
+      // case-sensitive filesystem the upper-cased path is genuinely a different directory and
+      // answering `true` there would be the opposite bug.
+      expect(isCommittedRecordingsDir(RECORDINGS_DIR.toUpperCase())).toBe(true);
+    }
   });
 
   it('accepts the committed store as it actually stands, and every entry in it is live', () => {
@@ -483,6 +630,24 @@ describe('a criterion is decided by majority over k votes', () => {
       pass: false,
       votes: { pass: 1, fail: 2 },
     });
+  });
+
+  it('fails a TIE rather than passing it, on a tally the rest of the system cannot produce', () => {
+    // THE THIRD WITNESS (Gate 2, cluster G). The vote count is always an odd number, so no tie ever
+    // reaches the majority rule — which means swapping its `>` for `>=` breaks nothing anywhere and
+    // no test goes red. The odd-k validation and the strict comparison were each other's only
+    // guard, and two guards protecting each other is one regression away from neither. Driving the
+    // rule directly with an even tally is the only way to witness which way a tie would fall.
+    expect(majorityPass(1, 2), 'a 1-1 tie passed').toBe(false);
+    expect(majorityPass(2, 4), 'a 2-2 tie passed').toBe(false);
+    expect(majorityPass(50, 100), 'an even split passed').toBe(false);
+    // And it still decides the cases that do occur.
+    expect(majorityPass(2, 3)).toBe(true);
+    expect(majorityPass(1, 3)).toBe(false);
+    expect(majorityPass(3, 5)).toBe(true);
+    expect(majorityPass(2, 5)).toBe(false);
+    expect(majorityPass(0, 1)).toBe(false);
+    expect(majorityPass(1, 1)).toBe(true);
   });
 
   it('decides each criterion on its OWN votes, on ballots that cross', async () => {
@@ -681,9 +846,98 @@ describe('a judge that could not answer is an ERROR, never a pass', () => {
     expect(() => parseJudgeAnswers(MEASURED, judged)).toThrow(/declares it extraction/);
   });
 
+  it('checks WHY the judge stopped before it touches a single byte of content', () => {
+    // Gate 2 terra 4, driven at the shaping function so no client is needed. The content property
+    // throws on access, so any implementation that reads it before consulting `stop_reason` fails
+    // here with the getter's own error rather than returning a response.
+    const refusal = {
+      model: JUDGE_MODEL,
+      stop_reason: 'refusal',
+      stop_details: { category: 'cyber' },
+    };
+    Object.defineProperty(refusal, 'content', {
+      get() {
+        throw new Error('content was read on a response that never finished');
+      },
+      enumerable: true,
+    });
+    const shaped = liveJudgeResponse(refusal as never);
+    expect(shaped.stopReason).toBe('refusal');
+    expect(shaped.stopDetail).toBe('cyber');
+    expect(shaped.text, 'a response that did not finish carried text anyway').toBe('');
+
+    // The control: on a finished response the content IS read, so the guard above is an ordering
+    // rule and not a permanent refusal to look.
+    expect(
+      liveJudgeResponse({
+        model: JUDGE_MODEL,
+        stop_reason: 'end_turn',
+        content: [{ type: 'thinking', thinking: 'ignored' }, { type: 'text', text: '{"answers":[]}' }],
+      }).text,
+    ).toBe('{"answers":[]}');
+  });
+
+  it('refuses properties the verdict schema does not allow, at the top level and per answer', () => {
+    // Gate 2 terra 5. `VERDICT_SCHEMA` says additionalProperties:false and the server enforces it;
+    // local re-validation ignored it, so a REPLAYED response could carry fields a live one never
+    // could — two paths disagreeing about the same bytes. The second case is the one with teeth: an
+    // answer holding BOTH `holds` and `value` is a judge that hedged, and reading whichever field
+    // its declared kind wanted would have hidden that entirely.
+    const withTopLevelExtra = JSON.stringify({
+      answers: [
+        { criterionId: 'alpha', kind: 'semantic', holds: true, evidence: 'q' },
+        { criterionId: 'beta', kind: 'semantic', holds: true, evidence: 'q' },
+      ],
+      confidence: 0.9,
+    });
+    expect(() => parseJudgeAnswers(NEUTRAL, withTopLevelExtra)).toThrow(/confidence/);
+
+    const hedged = JSON.stringify({
+      answers: [
+        { criterionId: 'alpha', kind: 'semantic', holds: true, value: 0, evidence: 'q' },
+        { criterionId: 'beta', kind: 'semantic', holds: true, evidence: 'q' },
+      ],
+    });
+    expect(() => parseJudgeAnswers(NEUTRAL, hedged)).toThrow(/value/);
+
+    const arrayNotObject = JSON.stringify([{ criterionId: 'alpha' }]);
+    expect(() => parseJudgeAnswers(NEUTRAL, arrayNotObject)).toThrow(/not a verdict object/);
+  });
+
+  it('applies that strictness on the live-shaped, replay and recording-read paths alike', async () => {
+    const surplus = JSON.stringify({
+      answers: [
+        { criterionId: 'alpha', kind: 'semantic', holds: true, evidence: 'q' },
+        { criterionId: 'beta', kind: 'semantic', holds: true, evidence: 'q' },
+      ],
+      note: 'not in the schema',
+    });
+
+    // (a) live-shaped: a transport branded live, whose bytes carry the surplus field.
+    const liveShaped: JudgeTransport = {
+      kind: 'fake',
+      async send() {
+        return { source: 'live', servedModel: JUDGE_MODEL, stopReason: 'end_turn', text: surplus };
+      },
+    };
+    await expect(oracleWith(liveShaped).judge(NEUTRAL, NEUTRAL_MATERIAL)).rejects.toThrow(/note/);
+
+    // (b) replay: the same bytes arriving from the replay transport.
+    const replayShaped = scripted(NEUTRAL, [{ alpha: true, beta: true }], { text: [surplus, surplus, surplus] });
+    await expect(oracleWith(replayShaped.transport).judge(NEUTRAL, NEUTRAL_MATERIAL)).rejects.toThrow(/note/);
+
+    // (c) read back off a real recording, through the real store — the path a committed recording
+    // takes, where a locally-tolerated surplus field would live forever.
+    const dir = tempRecordingsDir();
+    const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
+    for (let vote = 0; vote < 3; vote++) writeRecording(dir, NEVER_TOUCHED, draftFor(request, vote, surplus));
+    await expect(oracleWith(createReplayTransport(dir)).judge(NEUTRAL, NEUTRAL_MATERIAL)).rejects.toThrow(/note/);
+  });
+
   it('refuses a verdict assembled half from replay and half from a live call', async () => {
     const calls: number[] = [];
     const mixed: JudgeTransport = {
+      kind: 'fake',
       async send(_request, voteIndex) {
         calls.push(voteIndex);
         return {
@@ -707,18 +961,44 @@ describe('per-tier provenance, and live mode never consults the replay store', (
     expect(createOracleCapability({ tier: 'drill', config, transport: NEVER_TOUCHED }).provenance).toBe('real');
   });
 
+  it('refuses a transport branded for the WRONG TIER, in both directions', () => {
+    // THE SEAM WAS A WAY ROUND THE TIER RULE (Gate 2, terra 2). Nothing stopped a caller handing
+    // loop a live transport, or handing an above-loop capability a filesystem replay — the second
+    // being the worse of the two, because that capability is registered `real` and would have been
+    // answering from committed bytes while the ledger reported nothing stubbed.
+    const config = createConfigRegistry();
+    const replay = createReplayTransport(tempRecordingsDir());
+    const live = createLiveTransport();
+
+    expect(() => createOracleCapability({ tier: 'loop', config, transport: live })).toThrow(/loop-tier oracle on a live/);
+    expect(() => createOracleCapability({ tier: 'integration', config, transport: replay })).toThrow(
+      /filesystem replay transport/,
+    );
+    expect(() => createOracleCapability({ tier: 'drill', config, transport: replay })).toThrow(
+      /filesystem replay transport/,
+    );
+
+    // AND THE LEGAL COMBINATIONS STILL BUILD, including a fake at every tier — a rule that refused
+    // everything would satisfy the assertions above and leave the harness unable to run.
+    expect(createOracleCapability({ tier: 'loop', config, transport: replay }).provenance).toBe('stand-in');
+    expect(createOracleCapability({ tier: 'integration', config, transport: live }).provenance).toBe('real');
+    for (const tier of ['loop', 'integration', 'drill'] as const) {
+      expect(
+        createOracleCapability({ tier, config, transport: NEVER_TOUCHED }).name,
+        `a conformance fake was refused at ${tier}, which would leave the tier rules untestable`,
+      ).toBe('oracles.judge');
+    }
+  });
+
   it('above loop, ignores a recordings directory that WOULD have answered, and names the deferred boundary', async () => {
     const dir = tempRecordingsDir();
     const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
     for (let vote = 0; vote < 3; vote++) {
-      writeRecording(dir, {
-        voteIndex: vote,
-        recordedFrom: 'live',
-        request,
-        servedModel: JUDGE_MODEL,
-        stopReason: 'end_turn',
-        text: ballotText(NEUTRAL, { alpha: true, beta: true }, `rec-${vote}`),
-      });
+      writeRecording(
+        dir,
+        NEVER_TOUCHED,
+        draftFor(request, vote, ballotText(NEUTRAL, { alpha: true, beta: true }, `rec-${vote}`)),
+      );
     }
     // A matching recording for every vote is sitting right there. The loop-tier oracle answers from
     // it; the integration-tier one must not look, and must say why it cannot answer instead.
@@ -729,18 +1009,18 @@ describe('per-tier provenance, and live mode never consults the replay store', (
     }).value.judge(NEUTRAL, NEUTRAL_MATERIAL);
     expect(replayed.provenance.source).toBe('replay');
 
-    await withoutJudgeCredential(async () => {
-      const live = createOracleCapability({
-        tier: 'integration',
-        config: createConfigRegistry(),
-        recordingsDir: dir,
-      }).value;
-      const thrown = await live.judge(NEUTRAL, NEUTRAL_MATERIAL).then(() => null, (err: unknown) => err);
-      expect(thrown, 'the live oracle answered from committed recordings').toBeInstanceOf(OracleUnavailable);
-      expect((thrown as Error).message, 'the refusal does not name the deferred credential-delivery boundary').toContain(
-        'deferred to the slice that makes the integration tier real',
-      );
-    });
+    // The credential is already gone from this process — the file-level guard takes it from every
+    // test here, not just this one.
+    const live = createOracleCapability({
+      tier: 'integration',
+      config: createConfigRegistry(),
+      recordingsDir: dir,
+    }).value;
+    const thrown = await live.judge(NEUTRAL, NEUTRAL_MATERIAL).then(() => null, (err: unknown) => err);
+    expect(thrown, 'the live oracle answered from committed recordings').toBeInstanceOf(OracleUnavailable);
+    expect((thrown as Error).message, 'the refusal does not name the deferred credential-delivery boundary').toContain(
+      'deferred to the slice that makes the integration tier real',
+    );
   });
 
   it('hands a suite an oracle through createHarness, and reports it on the provenance ledger', async () => {
@@ -777,14 +1057,7 @@ describe('per-tier provenance, and live mode never consults the replay store', (
     const request = renderJudgeRequest(NEUTRAL, NEUTRAL_MATERIAL);
     const stale = oracleWith(createReplayTransport(dir), 1);
     await expect(stale.judge(NEUTRAL, NEUTRAL_MATERIAL)).rejects.toBeInstanceOf(OracleReplayMiss);
-    writeRecording(dir, {
-      voteIndex: 0,
-      recordedFrom: 'live',
-      request,
-      servedModel: JUDGE_MODEL,
-      stopReason: 'end_turn',
-      text: ballotText(NEUTRAL, { alpha: true, beta: true }, 'late'),
-    });
+    writeRecording(dir, NEVER_TOUCHED, draftFor(request, 0, ballotText(NEUTRAL, { alpha: true, beta: true }, 'late')));
     const fresh = oracleWith(createReplayTransport(dir), 1);
     expect((await fresh.judge(NEUTRAL, NEUTRAL_MATERIAL)).pass).toBe(true);
     await expect(stale.judge(NEUTRAL, NEUTRAL_MATERIAL)).rejects.toBeInstanceOf(OracleReplayMiss);

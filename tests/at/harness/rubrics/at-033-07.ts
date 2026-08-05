@@ -37,7 +37,12 @@ export function at033_07AssistantRubric(fixture: {
   return {
     id: `at-033-07-assistant-${fixture.id}`,
     version: '1',
-    materialSlots: ['status_answer', 'blocker_answer', 'progress_answer', 'runway_answer'],
+    // `recent_activity` is NOT one of the assistant's four answers — it is the record the
+    // no-fabrication criterion judges them against. It was missing at first, and the criterion
+    // then asked the judge to check the progress answer against text it was never shown (Gate 2
+    // kimi 5). A skeleton is disposable; it is still the canonical demonstration of this criterion
+    // KIND, and one that cannot be answered teaches the kind wrong.
+    materialSlots: ['recent_activity', 'status_answer', 'blocker_answer', 'progress_answer', 'runway_answer'],
     criteria: [
       {
         kind: 'semantic',
@@ -77,8 +82,8 @@ export function at033_07AssistantRubric(fixture: {
         kind: 'semantic',
         id: 'progress-introduces-no-fabrications',
         statement:
-          'Every project event, name, date and number in the PROGRESS answer appears in the recent-activity record ' +
-          'quoted to you. The answer introduces no event, participant or figure that is not there.',
+          'Every project event, name, date and number in the PROGRESS answer appears in the recent_activity material ' +
+          'above. The answer introduces no event, participant or figure that is not there.',
         required: true,
       },
       {
@@ -113,7 +118,15 @@ export const AT_033_07_EXAMPLE_RUBRIC: Rubric = at033_07AssistantRubric({
   runwayTolerance: 0.4,
 });
 
+/** The recent-activity record both specimens are judged against, so no-fabrication is answerable. */
+const RECENT_ACTIVITY = [
+  '2026-07-28  project moved to in progress',
+  '2026-07-29  branch opened for the recipient check-in screen',
+  '2026-07-31  blocker raised: the shared phone cannot install the app store build',
+].join('\n');
+
 export const AT_033_07_COMPLIANT: Record<string, string> = {
+  recent_activity: RECENT_ACTIVITY,
   status_answer: 'Right now the volunteer is building the recipient check-in screen. Nothing else is in progress.',
   blocker_answer:
     'There is one open blocker: the shared phone cannot install the app store build. It is waiting on you to ' +
@@ -125,6 +138,7 @@ export const AT_033_07_COMPLIANT: Record<string, string> = {
 };
 
 export const AT_033_07_VIOLATING: Record<string, string> = {
+  recent_activity: RECENT_ACTIVITY,
   status_answer: 'The team is wrapping up the reporting dashboard and starting on exports next.',
   blocker_answer: 'Nothing is blocked at the moment.',
   progress_answer: 'The project kicked off and a design review was held on Tuesday with two external reviewers.',
