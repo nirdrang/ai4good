@@ -8,6 +8,7 @@ import { createConfigRegistry, type ConfigRegistry } from './config.ts';
 import type { AtHarness, StaticScan } from './contracts.ts';
 import { createFaults, type AdapterFaultSeam } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore } from './fixtures.ts';
+import { createOracleCapability } from './oracles.ts';
 import { createSentinels, type AdapterSentinelSeam } from './sentinels.ts';
 import { createEmailProviderSim, type EmailProviderPort } from './vendors.ts';
 import type { ConfigOverrides, Tier } from './registry.ts';
@@ -139,10 +140,20 @@ export async function createHarness(opts: {
   // above the loop tier, so an integration-tier run cannot silently grade against the simulator.
   // What stands here at that tier is a later slice's decision, not this one's.
   const vendors = standInCapability('vendors.email', { email: provider.sim });
+  // H4's semantic oracle, and its provenance is decided by the tier rather than by this file: a
+  // REPLAY of committed recordings at loop (a stand-in, and it says so), the live judge above.
+  // `oracles.ts` explains what that settles — this capability's provenance — and what it does not:
+  // integration stays unreachable while the clock, fixtures, vendors and every SUT member above are
+  // still stand-ins, so this is not a claim that the gate has become runnable.
+  //
+  // The vote count comes from the at-config registry through `config.value`, which is why this is
+  // built after it. An override naming an unusable count fails HERE, at `createHarness()`, rather
+  // than at whichever test first judged something.
+  const oracles = createOracleCapability({ tier: opts.tier, config: config.value });
   const sutCapabilities: Capability<unknown>[] = Object.entries(adapter.sut).map(([name, value]) =>
     standInCapability(`sut.${name}`, value),
   );
-  const constructed: Capability<unknown>[] = [clock, fixtures, config, sentinels, faults, vendors, ...sutCapabilities];
+  const constructed: Capability<unknown>[] = [clock, fixtures, config, sentinels, faults, vendors, oracles, ...sutCapabilities];
 
   let tornDown = false;
   return {
@@ -161,6 +172,7 @@ export async function createHarness(opts: {
     // changed, and `tests/at/expected/req-016.json` states the same one name for the same reason.
     static: pendingCapability<StaticScan>('H3 static provider scan'),
     vendors: vendors.value,
+    oracles: oracles.value,
     config: config.value,
     teardown: async () => {
       if (tornDown) return;

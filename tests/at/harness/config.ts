@@ -20,11 +20,19 @@
 import { AT_CONFIG, type AtConfigKey } from './atconfig.ts';
 import type { ConfigOverrides } from './registry.ts';
 
-/** Every dotted key the suites may read, and the registry entry that pins it. */
+/**
+ * Every dotted key the suites may read, and the registry entry that pins it.
+ *
+ * The `req-0NN.` prefix names the requirement that owns a knob. `harness.` is the other kind: a
+ * knob the TEST MACHINERY owns, which no requirement names because it is not a promise the product
+ * makes. Both live in one registry for the same reason — the alternative is a literal in the
+ * implementation, and then two sources of truth drift apart with both looking correct.
+ */
 export const CONFIG_KEYS: Record<string, AtConfigKey> = {
   'req-015.thread_comment_notifications.max_per_window': 'threadCommentNotificationsMaxPerWindow',
   'req-015.thread_comment_notifications.window_ms': 'threadCommentNotificationsWindowMs',
   'req-015.thread_comment_notifications.coalesce': 'threadCommentNotificationsCoalesce',
+  'harness.oracle.judge_votes': 'oracleJudgeVotes',
 };
 
 export type ConfigRegistry = {
