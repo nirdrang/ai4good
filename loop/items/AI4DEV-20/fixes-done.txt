@@ -1,0 +1,226 @@
+AI4DEV-20 (judging AI output meaning) — GATE 2 FIX ROUND DONE
+=============================================================
+
+HEAD carrying the fixes: 6494f820de9c9dab667c74c1ee0db2e380636c5f
+Branch: nirdrang/ai4dev-20-h4-semantic-oracle-harness-judging-the-meaning-of-ai-output
+(This file is committed one commit above that SHA — a file cannot name the commit
+that contains it. Everything below is present at 6494f82.)
+
+  c58f52a  clusters A-H, one batch
+  6494f82  verification artifacts re-run, F8 artifact refreshed
+
+
+CLUSTER BY CLUSTER
+------------------
+
+A — COMMITTED-STORE INTEGRITY (terra 1 BLOCKER, kimi 1 MAJOR, kimi 2 MINOR)
+  A.1 `readRecordings` now refuses a duplicate declared key FIRST and then any
+      file whose name is not `${key}.json`. The duplicate check is first because
+      it is the shadow attack's own error and says the useful thing. Ordering
+      matters for a second reason: it makes both rules reachable, so each has a
+      test the other cannot satisfy.
+      TEST: 'refuses a SHADOW file that declares a key another recording already
+      holds' reproduces kimi's probe exactly — an honest recording saying FAIL,
+      then `zzz-shadow.json` declaring the same key and saying PASS — asserts the
+      refusal, asserts it names the offending file, then REMOVES the shadow and
+      asserts the honest store still reads. Plus 'refuses a recording whose
+      filename is not its key, even when no other file claims that key'.
+      MUTATION: disabling the duplicate rule fails the shadow test and nothing
+      else — confirming it was the only thing standing between the tree and the
+      hole kimi measured.
+  A.2 `isCommittedRecordingsDir` compares canonical real paths (`realpathSync`,
+      falling back to `resolve` for a directory not yet created) lower-cased on
+      win32.
+      TEST: 'knows which directory is the committed one, however it is spelled' —
+      a `..`-detour on every platform, and the upper-cased spelling asserted true
+      only on win32, because on a case-sensitive filesystem answering true would
+      be the opposite bug.
+  A.3 `recordedFrom` left `RecordingDraft` entirely. `writeRecording(dir,
+      transport, draft)` derives it from the transport's brand, so live
+      provenance can only be created by a real call through the live transport —
+      the recorder passes the live transport it just used. Every conformance
+      recording is now correctly marked `synthetic`.
+  A.4 (ruled residual) `recordings/README.md` rewritten: it now lists exactly
+      what the self-consistency checks establish, says plainly that a
+      hand-crafted file with a correctly derived key and an untrue
+      `recordedFrom: "live"` will be accepted, and names git review of the
+      directory as the authenticity boundary. The old "the store refuses them
+      anyway" sentence is gone. No code beyond the wording, as ruled.
+
+B — TIER SEMANTICS (terra 2 BLOCKER)
+  Transports carry `kind: 'replay-fs' | 'live' | 'fake'`. The factory refuses a
+  live transport at loop and a filesystem-replay transport above loop; a fake is
+  legal at every tier because it is the instrument the tier rules are tested
+  with, and (by A.3) cannot mint live provenance.
+  TEST: 'refuses a transport branded for the WRONG TIER, in both directions' —
+  both refusals, plus the legal combinations and a fake at all three tiers, so a
+  rule that refused everything would not pass.
+  MUTATION: disabling the above-loop refusal fails exactly that test.
+
+C — CREDENTIAL HYGIENE IN SELFTEST CHILDREN (terra 3 MAJOR, kimi residual)
+  (a) `withoutJudgeCredential` is gone; a file-level beforeEach/afterEach strips
+      `AT_JUDGE_API_KEY` for EVERY test in oracles.selftest.ts, including tests
+      not yet written — which is the point, since the test most likely to meet a
+      live transport by accident is whichever one a future regression sends
+      there.
+  (b) `AT_JUDGE_API_KEY` joined the SENTINELS map in runner.selftest.ts, so both
+      the allowlist test and the REAL-CHILD probe now prove it is dropped.
+      Test-only: `runner.ts` is untouched and the F8 condition holds.
+  (c) The typeprobe compiler spawn takes `env: childEnv()` instead of inheriting
+      — the runner's own allowlist, applied to the one other place this tree
+      starts a process.
+
+D — VERDICT PARSING (terra 4, terra 5 MAJOR, kimi residual 4)
+
+  *** THE D VERDICT: WHICH REVIEWER WAS RIGHT ***
+
+  BOTH, about different points on the same path, and terra's finding was real at
+  the line it cited.
+
+  Verified at oracles.ts:685 as it stood: `createLiveTransport().send()` filtered
+  and joined `message.content` and only then assembled the response object, so
+  `stop_reason` was not consulted until after the content had been read. Terra
+  was right, precisely and at the line.
+
+  Kimi's statement — "stopReason is checked before parsing on the judge path and
+  before writing on the recorder path" — was ALSO true, then and now: `judge()`
+  raises its typed error before `parseJudgeAnswers` is ever called, and the
+  recorder checks before it writes. Kimi was describing the layer above. Neither
+  reviewer contradicted the other; terra found an ordering defect one layer below
+  where kimi looked, and a reader of only kimi's report would have concluded the
+  path was clean.
+
+  HONEST SIZING: with the real SDK `message.content` is a plain array, so the old
+  ordering could not actually throw. What was wrong was the ordering itself —
+  work done on material the caller is about to discard, reading as though the text
+  mattered when the call had not finished. It is a discipline defect, not an
+  observed crash, and it is fixed rather than argued about.
+
+  FIX: the shaping moved into an exported `liveJudgeResponse(message)` which reads
+  `stop_reason` first and returns `text: ''` without touching `content` when the
+  message did not finish. Extracting it is what makes the ordering testable at
+  all — no client, no network.
+  TEST: 'checks WHY the judge stopped before it touches a single byte of content'
+  drives it with an object whose `content` getter throws, plus a control proving
+  content IS read on a finished response.
+  MUTATION: reading `message.content` one line early fails exactly that test.
+
+  (terra 5) Local re-validation now enforces unknown-property rejection at the top
+  level and per answer, mirroring `additionalProperties: false` in the schema the
+  server enforces. The sharp case is an answer carrying BOTH `holds` and `value`
+  — a judge that hedged rather than answered — which used to be read as whichever
+  field its declared kind wanted.
+  TESTS: 'refuses properties the verdict schema does not allow…' and 'applies
+  that strictness on the live-shaped, replay and recording-read paths alike',
+  the third of which writes real recordings and reads them back through the store.
+  MUTATION: disabling the top-level check fails both.
+
+E — INERT OR MIS-AIMED TESTS (terra 6, terra 7; kimi 3, kimi 4)
+  - renamed-slot replay-key case added: same rubric id and version, same material
+    value, different slot name → different key.
+  - the comparator-leak test is rebuilt on digit sentinels (918273645, 564738291,
+    372819465) that cannot occur incidentally, plus the comparator field names,
+    plus a control asserting the prompt is not simply empty. The dead `'10.5'`
+    assertion is gone. NOTE: the sentinel rubric's criterion ids had to be renamed
+    to `sentinel-near` / `sentinel-tally`, because ids containing the word
+    "tolerance" made the field-name assertion fail on the id rather than on a leak
+    — caught on the first run.
+  - `renderMaterial`'s declared-order claim gets the two-slot reversed-key-order
+    test, and the same case asserted at the replay-key level.
+
+F — THE COMMITTED-DIR TEST'S BLAST RADIUS (terra 8, narrowed)
+  `writeRecording` refuses outright if the target file exists, so it cannot
+  overwrite a real recording under any regression. The test asserts up front that
+  its target does not exist, and its cleanup removes exactly that one path rather
+  than "everything new". The assertion runs before the cleanup, so a regression is
+  reported rather than tidied away. A second test pins the refusal on its own.
+  Concurrency is not covered, as ruled.
+  SIDE EFFECT WORTH KNOWING: the recorder now checks for an existing recording and
+  logs a skip, so a re-record after a partial failure resumes instead of dying on
+  the first already-written key.
+
+G — THE TIE WITNESS (kimi residual, promoted)
+  `majorityPass(passCount, votes)` extracted and exported; a tie fails.
+  TEST: even tallies driven directly (1-of-2, 2-of-4, 50-of-100) plus the odd
+  cases that do occur.
+  MUTATION: `>` → `>=` fails this test AND NOTHING ELSE — which is the residual
+  kimi described, measured. Before this test that mutation was completely inert.
+
+H — THE SKELETON THAT TAUGHT THE PATTERN WRONG (kimi 5)
+  `at-033-07.ts` gains a `recent_activity` material slot carrying the record the
+  no-fabrication criterion judges against; both specimens supply it; the criterion
+  text now points at the slot. Still labelled DISPOSABLE.
+  TEST: the existing well-formedness and kind-coverage tests cover it (a rubric
+  whose criteria referenced an undeclared slot was always legal; what was wrong
+  was that the reference pointed at nothing, and now it points at a slot the
+  material fills — which `materialProblem` checks for both specimens).
+
+
+VERIFICATION AT 6494f82
+-----------------------
+  bun run typecheck                              exit 0   verify-typecheck.txt
+  bun run at:selftest                            exit 0   verify-selftest.txt
+                                                 243 passed, 9 files
+                                                 (233 before this round, 167 before the item)
+  bun run at:verify req-016 --tier loop --expect exit 0   verify-atverify.txt
+  tests/at/expected/req-016.json                 byte-identical, no git diff
+  tests/at/harness/runner.ts                     no diff at all — recorded
+                                                 separately from the wildcard
+                                                 path match in verify-f8-removal.txt,
+                                                 because runner.selftest.ts now
+                                                 legitimately appears there
+
+Five mutations run and reverted, each caught by the test written for it:
+  hard tie (`>` → `>=`)                     -> 1 test, and only 1
+  duplicate-key refusal disabled            -> 1 test (the shadow reproduction)
+  content read before stop_reason           -> 1 test (the throwing getter)
+  above-loop replay refusal disabled        -> 1 test (tier branding)
+  top-level unknown-property check disabled -> 2 tests (both strictness paths)
+
+
+RESIDUALS: NO CODE, AS RULED
+----------------------------
+Store authenticity beyond self-consistency (README wording only, done);
+`oracles.ts`-internal exported types outside the alias probes; prompt-injection
+hardening of judged material; the live-path execution gaps. All four are recorded
+in gate2-rulings.md and unchanged by this round. `live-smoke.md` still says NOT
+RUN and is still accurate: no credential exists, so the live transport — including
+`liveJudgeResponse`, which this round added — has still never executed against a
+real provider response.
+
+
+PROPOSALS FOR YOUR RULING
+-------------------------
+
+Q1. `writeRecording` REFUSES TO OVERWRITE, ALWAYS — not only in the conformance
+    test. Cluster F ruled the test's write exclusive-create; making the writer
+    exclusive was the way to get that by construction rather than by a flag the
+    test sets and the recorder does not, since such a flag is itself a seam. The
+    consequence reaches the recorder: re-recording a key now requires deleting
+    the file first, which I judged correct (the key is a hash of the complete
+    request, so an existing file already answers it, and a silent replacement is
+    a verdict moving with nothing in the diff to say so). The recorder skips
+    already-recorded keys rather than failing. RECOMMEND KEEPING; flagged because
+    it is slightly wider than the cluster's words.
+
+Q2. THE DUPLICATE-KEY CHECK RUNS BEFORE THE FILENAME CHECK. Either alone closes
+    the measured hole. I put duplicate first so the shadow attack produces its own
+    error, and so that both rules have a case the other cannot reach — otherwise
+    the second is untested code. Cheap, but it is an ordering decision that shapes
+    which message a future reader sees.
+
+Q3. `liveJudgeResponse` IS A NEW EXPORTED SEAM on oracles.ts. It exists because
+    the ordering terra found could not otherwise be tested without a client. It
+    is internal machinery, so by the ruled scope it is outside the alias probes —
+    consistent with the residual you already ruled, but it is one more name in
+    that unwatched set, so you may want the residual re-read rather than assumed
+    unchanged.
+
+Q4. THE SENTINEL RUBRIC'S CRITERION IDS were renamed (`sentinel-tolerance` →
+    `sentinel-near`) because an id containing "tolerance" made the field-name
+    assertion fail on the id instead of on a leak. Worth one sentence in the
+    record because it is the same class of defect the cluster is about: a test
+    that fails for a reason other than the one it names is as misleading as one
+    that cannot fail.
+
+No contradictions between the rulings and the tree were found in this round.
