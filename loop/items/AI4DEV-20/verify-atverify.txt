@@ -1,5 +1,5 @@
 $ bun tests/at/harness/runner.ts "req-016" --tier loop --expect
-JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-mtwQDZ/vitest-report.json
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-gBE3im/vitest-report.json
 
 at:verify req-016 --tier loop
   AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan

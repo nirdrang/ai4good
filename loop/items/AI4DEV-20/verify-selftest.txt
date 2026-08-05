@@ -4,9 +4,9 @@ $ bunx vitest run --root tests/at --config vitest.config.ts harness/
 
 
  Test Files  9 passed (9)
-      Tests  233 passed (233)
-   Start at  10:13:14
-   Duration  6.74s (transform 697ms, setup 0ms, import 5.00s, tests 13.19s, environment 1ms)
+      Tests  243 passed (243)
+   Start at  10:54:30
+   Duration  6.71s (transform 776ms, setup 0ms, import 5.00s, tests 13.16s, environment 1ms)
 
 
 EXIT CODE: 0
