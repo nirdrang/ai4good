@@ -1,0 +1,217 @@
+AI4DEV-20 (judging AI output meaning) — EXECUTOR DONE
+=====================================================
+
+HEAD carrying all of the work: 072dc317c37951d65a41b0ab9ce59b4f3e8fea31
+Branch: nirdrang/ai4dev-20-h4-semantic-oracle-harness-judging-the-meaning-of-ai-output
+(This file is committed one commit above that SHA — a file cannot name the commit
+that contains it. Everything listed below is present at 072dc31; this commit adds
+only this record.)
+
+Commits, oldest first:
+  fcf846f  the Anthropic SDK as a devDependency (step 7)
+  875e78e  contract, oracles.ts, tier wiring, at-config entry, alias probes (steps 1-4)
+  f720e70  the conformance wall and the three example rubrics (step 5)
+  4c89574  the parent-side recorder and the no-credential boundary (step 6)
+  072dc31  verification artifacts and the F8 removal condition (step 8)
+
+
+PLAN STEPS 1-8, EACH AGAINST ITS OWN DONE-CRITERION
+---------------------------------------------------
+
+STEP 1 — contract types, the `oracles` member, protected-alias extensions.
+  DONE. `bun run typecheck` exit 0 on both configs. Thirteen new aliases on
+  contracts.ts (SemanticCriterion, ExtractionSpec, NumericToleranceComparator,
+  CountAtLeastComparator, CriterionComparator, ExtractionCriterion,
+  RubricCriterion, Rubric, VoteTally, CriterionVerdict, VerdictProvenance,
+  SemanticVerdict, SemanticOracle), every one of them enumerated in
+  ALIAS_PROTECTED and attacked by a matching module augmentation in
+  harness-invention.probe.ts. The type-invention selftests went 167 -> 180 tests,
+  which is the thirteen new attacks arriving. SemanticOracle's attack uses a
+  REQUIRED member on purpose: `oracles` is a real object rather than a
+  pendingCapability() Proxy, so the required case is the one that proves the alias
+  rule is doing the work and not the factory's return annotation.
+
+STEP 2 — oracles.ts core.
+  DONE. Its conformance tests are green (53 of them, in oracles.selftest.ts).
+  Validation, prompt builder, full-request hashing, verdict schema plus local
+  re-validation, majority aggregation, extraction-then-code comparison, replay
+  store with key re-derivation, lazy live client, injectable transport seam.
+
+STEP 3 — wiring, per-tier provenance, stub-ledger update.
+  DONE. `bun run at:verify req-016 --tier loop --expect` exit 0 and
+  tests/at/expected/req-016.json is byte-identical (git reports no diff on it).
+  The exact loop ledger in conformance.selftest.ts now reads
+  clock.controlled / fixtures.worlds / oracles.judge / sut.notifications /
+  vendors.email. Per-tier provenance and live-never-replay are both tested.
+
+STEP 4 — at-config entry, dotted key, votes validation.
+  DONE. `oracleJudgeVotes` = 3, provisional, sourced to plan §3c and rulings
+  F1/F10; dotted key `harness.oracle.judge_votes`. Config and oracle conformance
+  green, including the override tests that make the registry observably the sole
+  writer.
+
+STEP 5 — example rubrics and specimens, labelled per §4f.
+  DONE, green offline. at-009-07.ts near-final; at-004-10.ts and at-033-07.ts
+  DISPOSABLE parameterized skeletons, each saying so in its own header. Compliant
+  and violating specimen per rubric. Conformance checks they are legal rubrics
+  with complete material and that the four criterion kinds stay covered — and
+  deliberately does NOT check that the compliant specimen passes, because that is
+  a claim about the judge and no recorded judgement exists to make it from.
+
+STEP 6 — recorder and conditional live smoke.
+  DONE IN ITS NO-KEY FORM. record-oracles.ts exists and compiles; its
+  no-credential path was executed and exits 2 writing nothing. The recordings
+  directory ships EMPTY apart from a README.md that explains why — that file is
+  also what keeps the directory in git. live-smoke.md is committed as an explicit
+  NOT RUN record naming the four things that stay unproved.
+
+STEP 7 — dependency delta.
+  DONE. @anthropic-ai/sdk 0.115.0 as a devDependency, bun.lock committed.
+
+STEP 8 — F8 removal verification.
+  DONE, recorded in verify-f8-removal.txt. No path matching *runner* appears in
+  `git diff de7a074..HEAD`; every childEnv() call site is listed and none carries
+  a judge credential; every AT_JUDGE_API_KEY line in the diff falls into
+  documentation, the two parent-side readers, or the selftest that deletes the
+  variable from its own process. Nothing writes it into an environment a child
+  could inherit.
+
+
+VERIFICATION AT 072dc31
+-----------------------
+  bun run typecheck                              exit 0   verify-typecheck.txt
+  bun run at:selftest                            exit 0   verify-selftest.txt
+                                                 233 passed, 9 files (167 before)
+  bun run at:verify req-016 --tier loop --expect exit 0   verify-atverify.txt
+  tests/at/expected/req-016.json                 byte-identical, no git diff
+  runner.ts                                      untouched, diff-proven
+
+The conformance wall was mutation-checked rather than trusted. Three deliberate
+breaks, each reverted:
+  hard-code the vote count in oracles.ts    -> 3 tests fail, including both
+                                               sole-writer tests
+  make the live tier fall back to replay    -> the live-never-replay test fails
+  drop the committed-store provenance rule  -> 4 tests fail, and the writer test
+                                               catches the recording it leaked
+                                               into the committed directory
+
+
+KEY AVAILABILITY
+----------------
+NO JUDGE CREDENTIAL WAS AVAILABLE. Checked without printing, echoing, logging or
+committing any value: `$env:AT_JUDGE_API_KEY` unset, `$env:ANTHROPIC_API_KEY`
+unset, no .env.local in the worktree and none in the main checkout.
+
+Consequences, all of them stated in live-smoke.md and recordings/README.md as
+well as here:
+  - the committed recordings directory is EMPTY. Nothing synthetic was written to
+    it, and the writer would have refused if anything had tried;
+  - no live call has ever been made through this code. The live transport and the
+    recorder are both unexercised except for the recorder's refusal path;
+  - the MEASURED stability figure ruling F1 asked for does not exist. The
+    instrument is built and has not been pointed at anything;
+  - the effort pin stays PROVISIONAL with no sweep behind it;
+  - the SDK is unproved under bun at run time. It installs and type-checks.
+
+What IS verified about the live path, and it is narrower than it looks: the
+request is assembled through the pinned SDK's own parameter types, so the model
+id, max_tokens, output_config.effort and output_config.format are compile-checked
+against @anthropic-ai/sdk@0.115.0. That is the SHAPE at compile time, not the
+behaviour at run time.
+
+Any loop-tier judge() call today therefore fails with a typed OracleReplayMiss
+naming the key it wanted. No suite consumes an oracle, so nothing goes red — but
+that is the honest state and not a working oracle.
+
+
+CONTRADICTIONS BETWEEN PLAN AND TREE
+------------------------------------
+NONE FOUND. Every step was implementable as written; nothing had to be worked
+around, and no plan text was contradicted by the tree.
+
+
+PROPOSED JUDGEMENTS — the item agent rules, the executor only proposes
+---------------------------------------------------------------------
+
+P1. THE SDK'S TYPE DECLARATIONS NOW JOIN THE STRICT ACCEPTANCE PROGRAM.
+    oracles.ts carries `import type Anthropic from '@anthropic-ai/sdk'` beside a
+    literal dynamic import for the value, so the client is still loaded lazily but
+    its .d.ts is type-checked under `skipLibCheck: false`. Measured before
+    choosing: it is clean today. The trade is real in both directions — this is
+    the ONLY check that exists on the live request shape while no credential does,
+    and an SDK upgrade whose declarations do not compile under ES2022-with-no-DOM
+    would redden `bun run typecheck` for a reason unrelated to the harness. The
+    alternative is a non-analyzable specifier (a variable, as loadAdapter() uses),
+    which buys immunity and costs the shape check. RECOMMEND KEEPING AS WRITTEN;
+    the version is pinned in bun.lock, so the failure mode arrives only on a
+    deliberate upgrade.
+
+P2. THE VOTE COUNT IS READ AT CONSTRUCTION, so an unusable override fails at
+    createHarness() rather than at whichever test first judged something. The plan
+    said the oracle constructs from h.config and this is the literal reading.
+    Consequence worth naming: every harness reads that knob, including the
+    twenty-nine suites that will never judge anything, and an unpinned or invalid
+    value would break all of them at once rather than only the oracle's consumers.
+    RECOMMEND KEEPING — an override that names a knob and gets it wrong should be
+    loud — but it is a coupling the item agent should see rather than discover.
+
+P3. VALIDATION PREDICATES LIVE IN oracles.ts, NOT guards.ts. Plan §4b puts them
+    there and I followed it. The argument for guards.ts is real: that file exists
+    because a bug in a centralized guard green-lights every suite at once, which
+    is precisely this file's situation. The argument against is that guards.ts is
+    scoped to checks EVERY SUITE would otherwise re-assert, and these are one
+    capability's construction checks. They are exported and tested both directly
+    and through the implementation, which is the standard guards.ts is held to.
+    RECOMMEND KEEPING; flagged because it is a judgement, not a mechanical step.
+
+P4. `createOracleCapability` GAINED A `recordingsDir` SEAM alongside the
+    transport seam the plan blessed. Without it, "live mode never consults the
+    replay store" could only be argued from the code rather than observed: the
+    test needs a directory holding a MATCHING recording for every vote, handed to
+    an integration-tier capability that must still refuse. The seam is consulted
+    only at loop tier and the harness passes neither override. RECOMMEND KEEPING —
+    it is what turns F3's live-never-replay clause into a real test.
+
+P5. PROVENANCE CARRIES ARRAYS WHERE THE PLAN NAMED SINGULARS. §3c lists "model id
+    requested, response.model served, request hash"; with k votes there are k
+    served models and k hashes, so VerdictProvenance has `servedModels[]` and
+    `requestHashes[]` in vote order. Collapsing them would hide exactly the case
+    they exist for — two votes served by different infrastructure under one pinned
+    id. RECOMMEND ACCEPTING as the faithful reading.
+
+P6. THE 'source' FIELD WAS SPLIT IN TWO. §4b says recordings carry provenance
+    including `source`. As built, JudgeResponse.source is where the bytes came
+    from THIS RUN ('live' | 'replay') and RecordingEntry.recordedFrom is how they
+    were produced ('live' | 'synthetic'). One field could not do both jobs: the
+    replay transport must rewrite the source to 'replay', because a verdict
+    replayed from a live recording that reported source 'live' would be claiming a
+    call that did not happen this run — the exact lie provenance exists to
+    prevent. RECOMMEND ACCEPTING.
+
+P7. live-smoke.md WAS WRITTEN IN THE NO-KEY STATE. The plan conditions that file
+    on having a credential. It is committed anyway, titled "NOT RUN" on its first
+    line, because an absent file states nothing and a reader six months from now
+    should find the boundary written down rather than infer it. If the item agent
+    would rather the file not exist until it holds a measurement, deleting it
+    costs nothing — but the boundary then needs to live somewhere else that the
+    pull request points at.
+
+P8. THE RECORDER STORES ONLY THE FIRST REPEAT. The five stability repeats send an
+    identical request, so they hash to identical keys and only one set can be
+    stored; the spread across repeats goes in the report instead. This follows
+    from the key design rather than being a choice, but it is worth the item agent
+    knowing that "recorded" and "measured" cover different numbers of calls.
+
+P9. ONE CONFORMANCE TEST AIMS THE REAL WRITER AT THE REAL COMMITTED DIRECTORY, to
+    prove the refusal on the path that matters rather than on a temp path. It
+    cleans up in a `finally` — proven necessary, because the third mutation run
+    made the refusal regress and the writer really did leave a recording behind.
+
+
+NOT DONE, AND OUT OF SCOPE BY THE PLAN'S OWN §8
+-----------------------------------------------
+No AT ids are owned or registered. REQ-004/009/033 suites are not translated. The
+integration tier remains unreachable — this item settled one capability's
+provenance and the other stand-ins are other slices' work. Child-side credential
+delivery stays deferred, with the boundary written into the error text a caller
+would actually see.
