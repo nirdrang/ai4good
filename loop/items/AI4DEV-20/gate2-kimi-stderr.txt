@@ -1,0 +1,927 @@
+• Read the prompt file first.I need to do an adversarial review of a git diff. This is substantial work. Let me first read the context files and run the diff. The diff may be large. Let me start by reading the context files and getting the diff stat. .env.example                                   |   9 +
+ bun.lock                                       |  13 +
+ loop/items/AI4DEV-20/live-smoke.md             |  60 ++
+ loop/items/AI4DEV-20/verify-atverify.txt       |  20 +
+ loop/items/AI4DEV-20/verify-f8-removal.txt     | 106 +++
+ loop/items/AI4DEV-20/verify-selftest.txt       |  12 +
+ loop/items/AI4DEV-20/verify-typecheck.txt      |   9 +
+ package.json                                   |   1 +
+ tests/at/harness/atconfig.ts                   |  19 +
+ tests/at/harness/config.ts                     |  10 +-
+ tests/at/harness/conformance.selftest.ts       |   1 +
+ tests/at/harness/contracts.ts                  | 153 ++++
+ tests/at/harness/index.ts                      |  14 +-
+ tests/at/harness/oracles.selftest.ts           | 853 ++++++++++++++++++++++
+ tests/at/harness/oracles.ts                    | 944 +++++++++++++++++++++++++
+ tests/at/harness/record-oracles.ts             | 247 +++++++
+ tests/at/harness/recordings/README.md          |  38 +
+ tests/at/harness/rubrics/at-004-10.ts          | 103 +++
+ tests/at/harness/rubrics/at-009-07.ts          |  57 ++
+ tests/at/harness/rubrics/at-033-07.ts          | 132 ++++
+ tests/at/harness/type-invention.selftest.ts    |  15 +
+ tests/at/typeprobes/harness-invention.probe.ts |  47 ++
+ 22 files changed, 2861 insertions(+), 2 deletions(-)
+41f86b8 AI4DEV-20: rulings on the executor proposals, and the Gate 2 brief
+127f800 AI4DEV-20: executor handoff record
+072dc31 AI4DEV-20: verification artifacts, and the F8 removal condition discharged
+4c89574 AI4DEV-20: the parent-side recorder, and the no-credential boundary written down
+f720e70 AI4DEV-20: the oracle conformance wall, and the three example rubrics
+875e78e AI4DEV-20: the semantic-oracle capability, its contract, and its tier provenance
+fcf846f AI4DEV-20: add the official Anthropic SDK as a devDependency
+The diff is ~2861 insertions. This is a large review. I should read the key files: executor-done.txt, executor-rulings.md, then the diff itself. The diff includes two record files at HEAD (live-smoke.md? No — the prompt says tree at HEAD carries everything plus two record files; diff is b9005ab..072dc31 which includes the record files listed: live-smoke.md, verify-*.txt — those are in the diff stat).
+
+  Wait — verify-atverify.txt, verify-f8-removal.txt, verify-selftest.txt, verify-typecheck.txt and live-smoke.md are in the diff b9005ab..072dc31. And executor-done.txt / executor-rulings.md are at HEAD (commits 127f800, 41f86b8).
+
+  Strategy: This is a big adversarial review. I should delegate heavy reading to subagents? The prompt says my entire output must be only the findings report. I can still use tools. Given the size (~2900 lines diff plus context), I could read the main files myself. oracles.ts (944 lines) + oracles.selftest.ts (853) + record-oracles.ts (247) + contracts.ts additions + rubrics. That's a lot but manageable. Alternatively delegate categories to subagents in parallel. But gate review quality depends on me synthesizing. Delegating to explore agents per category could work well, but the review requires deep adversarial analysis — maybe better to read the core files myself and delegate verification runs (typecheck, selftest) to bash.
+
+  Let me plan:
+  1. Read executor-done.txt and executor-rulings.md.
+  2. Read oracles.ts fully (944 lines — one Read call, capped at 1000 lines/100KB; 944 lines might exceed 100KB? Probably ~40KB, fine).
+  3. Read oracles.selftest.ts (853 lines).
+  4. Read record-oracles.ts, contracts.ts diff, index.ts diff, atconfig/config, rubrics, typeprobes.
+  5. Run verification: bun run typecheck, at:selftest, at:verify req-016.
+  6. Check req-016 expected json byte-identical: git diff b9005ab..072dc31 -- tests/at ... check expected/req-016.json unchanged.
+
+  Let me read the record files first, then the main files in parallel.Now read the main implementation files. oracles.ts is 944 lines — may exceed 100KB? 944 lines of TS is likely ~35-45KB, fine. Let me read in parallel: oracles.ts, oracles.selftest.ts (853 lines). Both under 1000 lines.Now read oracles.selftest.ts (853 lines).Now read the remaining diff files: record-oracles.ts, contracts.ts diff, index.ts diff, atconfig.ts diff, config.ts diff, conformance.selftest.ts diff, type-invention.selftest.ts diff, harness-invention.probe.ts, rubrics, recordings/README.md, .env.example diff, package.json, live-smoke.md, verify files. Also run verification commands.
+
+  Let me get the diff for the smaller edited files in one bash call, and read record-oracles.ts and rubrics via Read. Also check SDK version in node_modules.
+
+  Also important checks I should do:
+  - Verify SDK 0.115.0 supports output_config with effort + format json_schema. Check node_modules/@anthropic-ai/sdk version and its types.
+  - Run bun run typecheck, bun run at:selftest, at:verify req-016.
+  - Check req-016.json byte-identical: git diff b9005ab..072dc31 -- tests/at/expected/req-016.json should be empty.
+  - Check runner.ts untouched.
+
+  Potential findings to dig into while reading:
+
+  1. Replay key completeness: `canonicalJson` — the JudgeRequest includes messages with role 'user' only. Note: messages array order matters. Fine. What about `promptVersion`, `rubricId`, `rubricVersion` — included. Unicode/newline: JSON.stringify handles. One gap: canonicalJson drops `undefined` values but JSON.stringify of NaN → null. Probably fine.
+
+     Wait — a real issue: canonicalJson on `{ request, voteIndex }`. Object key sort: standard lexicographic. Non-ASCII key ordering could collide? Keys are fixed. Fine.
+
+     Bigger issue: `replayKey` is computed from `renderJudgeRequest`, but the actual wire request sent by the live transport is `client.messages.create({model, max_tokens, system, messages, output_config})`. Is there any input that changes the wire request but not the JudgeRequest? The apiKey — no (credential, correct to exclude). Thinking is at model default — not in the key, but it's not settable either. OK.
+
+     What about the rendered system prompt not including `promptVersion`? It includes rubric id/version in prose. promptVersion is in the key separately. OK.
+
+  2. Vote index in key: yes.
+
+  3. Live transport `stop_reason` check: done in judge() before parsing. But note: in the live transport, `message.stop_reason ?? '<none reported>'` — if stop_reason is null, judge() will error since it's not 'end_turn'. Good. But what about content blocks — filtering only text blocks; if the model returns non-text content only, text is '' and parse fails. Good.
+
+  4. Majority tie: k validated odd. But what about `votes=1`? allowed, pass = passCount*2 > 1 → passCount=1 → pass. Fine.
+
+  5. Tie mishandling: `passCount * 2 > votes` strict majority — with odd k no tie. OK.
+
+  6. `evidence: outcomes.find((entry) => entry.outcome === pass)!.evidence` — with strict majority, a vote agreeing with pass exists. OK.
+
+  7. `materialProblem` uses `Object.keys(material)` — prototype pollution? `material[slot]` — if slot is 'constructor' or '__proto__'? material[slot] !== 'string' check. '__proto__' as a key in object literal — Object.keys won't include it via literal... Edge, minor.
+
+  8. Stop-reason checked before content read: yes, in judge(). But in the live transport, text extraction happens before stop check — that's fine since judge checks stopReason first.
+
+  9. Refusal check happens per vote before parseJudgeAnswers — good. But note: sources.add happens after stop check; if a vote fails with refusal, error thrown — good.
+
+  10. Replay transport: on miss throws OracleReplayMiss. Note — replay transport throws on miss for ANY vote index; key names vote index. Good.
+
+  11. Provenance honesty: replayed verdict source rewritten to 'replay'. Live transport sets 'live'. Synthetic recordings can only enter temp dirs. But: can a synthetic recording enter the committed store? writeRecording refuses when committed. But someone could write a file by hand with recordedFrom:'live' — store can't detect that; that's the residual. Actually the deeper hole: `recordingProblem` with committed only checks recordedFrom === 'live'. A hand-crafted file with recordedFrom: 'live' and a correctly-derived key would pass readRecordings. There's no signature. That's a known limitation — F2 said "makes it unrepresentable" but actually hand-editing can fake it. Minor/residual.
+
+  12. P9 committed-dir test safety: the finally block removes any files not in `before`. If the write succeeds (regression), entry key.json is removed. But could it corrupt a REAL recording? The write target name is the hash key of NEUTRAL rubric request — if a real recording existed with the same key... the NEUTRAL rubric is conformance-only, so collision with a real recording is practically impossible. But the finally uses rmSync with force on files not in before — if the test's write failed but mkdir created... RECORDINGS_DIR exists. If `readdirSync(RECORDINGS_DIR)` in `before` throws (dir missing — but README.md keeps it in git, so it exists). If the finally itself fails, rmSync force doesn't throw on missing. Reasonably safe. One subtlety: the test writes with recordedFrom: 'synthetic' — writeRecording throws before writing. But scratch file: `${target}.writing-${pid}` — write happens after the problem check, so no scratch. OK.
+
+  13. The selftest that deletes AT_JUDGE_API_KEY: only used in one test ("above loop, ignores a recordings directory..."). But does any OTHER test path risk a billed call? The live transport is only constructed via createOracleCapability above loop, and in tests it's always passed a fake transport... wait — in the "above loop" test they pass `recordingsDir: dir` but no transport for integration tier → transport = createLiveTransport() → reads AT_JUDGE_API_KEY → withoutJudgeCredential wraps it. Good. Are there other places where createLiveTransport could be called in selftest? createHarness at loop tier → replay. Any test calling createOracleCapability with tier integration/drill without transport? The provenance test passes NEVER_TOUCHED. So only one path. But what about conformance.selftest.ts or other files? Need to check other selftest files don't call createLiveTransport. Also the runner spawns children — env allowlist. Check .env.example.
+
+      Actually a subtle one: `withoutJudgeCredential` deletes and restores — but tests in the same file run concurrently? Vitest runs tests within a file sequentially by default. Other test files run in separate processes (vitest forks/threads?). Vitest default pool is 'forks' in v3? Actually default is 'threads' (worker threads) in vitest 1-2, and 'forks' in vitest 3? In vitest 3, default pool is 'forks'. With threads pool, process.env is shared?? If pool is threads, deleting process.env.AT_JUDGE_API_KEY in one test file while another file's live transport reads it... but no other file calls the live transport. Only this file. And within a file, tests are sequential unless concurrent. OK, but worth checking vitest config for pool and whether env deletion could affect other files. Minor.
+
+  14. Contract protection F11: check type-invention probe enumerates all 13 aliases. Need to read the probe and type-invention.selftest.ts diff.
+
+  15. `sources` check: `if (sources.size !== 1)` — after loop. But provenance.source = [...sources][0] — fine.
+
+  16. Vote loop error: if transport throws mid-vote (e.g., vote 2 of 3), error propagates — good.
+
+  17. `scripted` helper: `ballots[Math.min(voteIndex, ballots.length - 1)]` — scripts clamp. Fine.
+
+  18. Replay key: does it include `voteIndex` — yes.
+
+  19. One potential FALSE GREEN: test "is stable for the same request and vote" — fine. Test "changes when a MATERIAL VALUE changes" — compares different render. Fine.
+
+  20. canonicalJson: numbers — JSON.stringify(NaN) → 'null'; Infinity → 'null'. Two different values NaN and Infinity both canonicalize to null → key collision if outputSchema contained them. Schema doesn't. Fine.
+
+  21. `renderMaterial` — slot names rendered in rubric order. Material values could contain `</material>` injection — prompt injection against judge; not key-related. Skip.
+
+  22. Live transport: `output_config` — need to verify SDK 0.115.0 supports this param shape. Check node_modules/@anthropic-ai/sdk. Also `stop_details` on message. Verify types compile — run typecheck.
+
+  23. req-016 non-regression: check git diff for expected/req-016.json — stat shows not in diff. Good, but verify.
+
+  24. Conformance ledger: conformance.selftest.ts +1 line. Check.
+
+  25. config.ts / atconfig.ts: read the diff.
+
+  26. index.ts diff: read.
+
+  27. record-oracles.ts: read fully.
+
+  28. Rubrics: read the three files.
+
+  29. recordings/README.md, live-smoke.md, verify files: read.
+
+  Also check `harness-invention.probe.ts` and type-invention.selftest.ts.
+
+  One more potential issue: `createOracleCapability` reads votes at construction via readJudgeVotes — createHarness at loop with invalid override throws. Tested. OK.
+
+  Another: `readJudgeVotes` uses `config.get<number>(JUDGE_VOTES_KEY)` — if key missing, what does config.get return? undefined → judgeVoteCountProblem(undefined) → "must be a number" — throws. But atconfig.ts should register default 3. If a config registry created without the entry... createConfigRegistry() presumably includes defaults from atconfig. Need to check config.ts diff and atconfig.ts.
+
+  Also: `oracles` member on AtHarness — check contracts/index wiring that h.oracles exists at loop; and what happens above loop — h.oracles.judge would call live transport and fail at call time. Fine.
+
+  Potential issue in the "refuses those counts through the factory AND through createHarness" test: createHarness rejects — but does createHarness validate ALL config? P2 noted.
+
+  Now potential FALSE GREENS to hunt in selftest:
+
+  - Test "answers a miss with a typed error naming the key, and NEVER falls through to a live call": they assert thrown is OracleReplayMiss and not OracleUnavailable. But a fallthrough mutation (live fallback) would throw OracleUnavailable only if no credential. If developer HAS AT_JUDGE_API_KEY set in env... the live transport would attempt a real network call! This test does NOT use withoutJudgeCredential! If a mutation made replay fall through to live, and the developer has a key, the test would make a BILLED API CALL. Category 4 says "check the selftest that deletes AT_JUDGE_API_KEY from its own process actually protects a keyed developer from billed calls in every selftest file, not just one". Here: the miss test would only reach live under a mutation, so not a false green per se, but the protection claim: with the code as-is, replay transport never calls live. Fine as-is. But is there any test where the CURRENT code could make a network call with a key present? The live transport is used in: (1) the "above loop" test — wrapped in withoutJudgeCredential. (2) createHarness above loop — integration runs rejected wholesale; but is there a test creating integration harness? Not in this file. OK.
+
+    However: `withoutJudgeCredential` restores the key in finally — but between delete and restore, other async tests? Sequential. OK.
+
+  - Test 'replays a recorded verdict bit-for-bit': uses `JSON.stringify(second) === JSON.stringify(first)` — but `first` and `second` are separate verdict objects; recordedAt isn't in verdict. OK.
+
+  - 'is INCLUSIVE at the tolerance' — 10.5 vs expected 10 tolerance 0.5: |10.5-10|=0.5 <= 0.5 → true. Float: 10.5-10 = 0.5 exactly. OK. 9.499999: |9.499999-10| = 0.500001 > 0.5 false. OK.
+
+  - Majority: 2-1 both directions tested. Crossed tested. OK.
+
+  - "changes which way a split criterion lands" — ballots length 5, votes 3: scripted uses ballots[min(voteIndex, len-1)] → votes 0,1,2 → true,true,false → alpha passes 2-1. votes 5 → 2 pass 3 fail → fail. Good.
+
+  - Sole-writer: oracleAt builds via createOracleCapability which reads config. If votes were hardcoded in oracles.ts, createOracleCapability's readJudgeVotes still reads config but votes variable would... mutation "hard-code the vote count in oracles.ts" → 3 tests fail including both sole-writer tests. Plausible.
+
+  - The ledger test: h.stubbedCapabilities() contains 'oracles.judge'. Check conformance.selftest.ts diff (+1 line) and index.ts.
+
+  Now important adversarial check on replay key completeness: the key hashes `JudgeRequest`, but the live transport ignores `promptVersion`, `rubricId`, `rubricVersion` on the wire. That's fine — key ⊇ wire.
+
+  Is there a behavior-changing input NOT in the key? The SDK client baseURL, timeout — defaults. `maxRetries`? SDK default retries (2) — affects reliability not semantics. OK.
+
+  What about `stop_details` handling — `message.stop_details?.category`. Does SDK 0.115.0 Message have stop_details? Need to check types. Typecheck will confirm.
+
+  Potential issue: live transport does not check `message.stop_reason === 'refusal'` specially — generic. Fine.
+
+  Another: VERDICT_SCHEMA has `additionalProperties: false` at top level with required answers, but `properties.answers.items.anyOf` — items could match both variants? additionalProperties false in each; an object with criterionId,kind,holds,evidence where kind='semantic' matches first. OK.
+
+  parseJudgeAnswers: checks `raw.kind === 'semantic'` requires holds boolean; doesn't reject extra properties (e.g., both holds and value present) — server-side schema forbids; locally tolerated. Minor.
+
+  Now — the replay index read once per instance: `index ??= readRecordings(dir)`. The isolation test 'builds a FRESH oracle per harness' also tests stale instance keeps missing. Good.
+
+  Live transport client caching: client created once per capability instance; reads apiKey at call time each call. Fine.
+
+  Check recordings README + record-oracles for synthetic-entry path: recorder sets recordedFrom: 'live' after a real call. Is there any code path where the recorder could write without a live call? Read record-oracles.ts.
+
+  Also check: recorder writes into RECORDINGS_DIR (committed) — writeRecording enforces live. The recorder is the only live writer. Test helpers write synthetic into temp dirs only — except the P9 test which attempts synthetic into committed and expects refusal, cleanup in finally. If refusal regressed AND finally ran, it removes the leaked file. If finally itself fails... rmSync force won't throw unless permission. OK.
+
+  One more: `writeRecording` mkdirSync(dir) — happens AFTER problem check? Let me re-read: problem check first, then mkdir. Yes — `if (problem !== null) throw` before mkdirSync. Good — refused write creates nothing. Wait, actually order: entry built, problem check, throw; then mkdir. Good.
+
+  BUT: the P9 test asserts `readdirSync(RECORDINGS_DIR)` unchanged — if write had succeeded it would leave key.json, caught by assertion and cleaned by finally. OK.
+
+  Now let's read the rest of the files. Then run the verification suite myself.
+
+  Let me batch: Read record-oracles.ts, rubrics (3 files), recordings/README.md, live-smoke.md; Bash for git diff of small files.
+
+diff --git a/.env.example b/.env.example
+index df2e9ac..998afce 100644
+--- a/.env.example
++++ b/.env.example
+@@ -22,6 +22,15 @@
+ #
+ # This file lists the variable names only, with empty values, as the shape to copy.
+ 
++# AT_JUDGE_API_KEY is PARENT-SIDE ONLY, and that is a design decision rather than a convention.
++# It is the credential the acceptance harness's semantic oracle (H4) uses to call the judge model,
++# and it is read by exactly two things, both of which run beside you rather than inside a test:
++# `tests/at/harness/record-oracles.ts` and the smoke it writes. The test runner's environment
++# allowlist does NOT carry it, so it cannot reach a spawned test process — which means it belongs
++# in your shell or in `.env.local`, never anywhere a child could inherit it. How a judge credential
++# should reach a child at integration tier is deliberately undecided; that call belongs to the
++# slice that makes the integration tier real, taken with its first consuming run.
++AT_JUDGE_API_KEY=
+ SUPABASE_PROJECT_ID=
+ SUPABASE_PUBLISHABLE_KEY=
+ SUPABASE_URL=
+diff --git a/package.json b/package.json
+index d51174d..7c29816 100644
+--- a/package.json
++++ b/package.json
+@@ -73,6 +73,7 @@
+     "zod": "^3.24.2"
+   },
+   "devDependencies": {
++    "@anthropic-ai/sdk": "^0.115.0",
+     "@eslint/js": "^9.32.0",
+     "@lovable.dev/vite-tanstack-config": "^2.3.2",
+     "@types/node": "^22.18.0",
+diff --git a/tests/at/harness/atconfig.ts b/tests/at/harness/atconfig.ts
+index 8d95def..8aaa34c 100644
+--- a/tests/at/harness/atconfig.ts
++++ b/tests/at/harness/atconfig.ts
+@@ -179,6 +179,25 @@ export const AT_CONFIG = {
+     provisional: true,
+     source: 'AT-016.08 — TEST-PINNED by the acceptance criterion itself ("an explicit cap/window/coalescing fixture")',
+   },
++  /*
++   * The semantic oracle's repeated-vote count. A HARNESS knob, not a product one: no requirement
++   * names it, because it is not a promise the product makes — it is how many times the judge is
++   * asked before a criterion is called, which is machinery. It lives here for the same reason the
++   * anti-spam pins do: the alternative is a literal inside `oracles.ts`, and then the registry
++   * entry and the real number can drift apart with both looking correct.
++   *
++   * Must be a positive ODD integer, enforced in `oracles.ts` — an even count can split evenly and
++   * whichever way the tie were broken would be a verdict nobody chose.
++   */
++  oracleJudgeVotes: {
++    name: 'repeated judge votes per semantic-oracle criterion',
++    value: 3,
++    unit: 'votes',
++    provisional: true,
++    source:
++      'AI4DEV-20 plan §3c + Gate 1 rulings F1/F10 — PROVISIONAL: no consuming suite exists to measure the ' +
++      'stability this count is meant to buy, so the first live smoke over a real suite is what would settle it',
++  },
+   prdGateThresholdScore: {
+     name: 'completion score at which the project PRD passes its gate',
+     value: null,
+diff --git a/tests/at/harness/config.ts b/tests/at/harness/config.ts
+index 3589a81..2773a98 100644
+--- a/tests/at/harness/config.ts
++++ b/tests/at/harness/config.ts
+@@ -20,11 +20,19 @@
+ import { AT_CONFIG, type AtConfigKey } from './atconfig.ts';
+ import type { ConfigOverrides } from './registry.ts';
+ 
+-/** Every dotted key the suites may read, and the registry entry that pins it. */
++/**
++ * Every dotted key the suites may read, and the registry entry that pins it.
++ *
++ * The `req-0NN.` prefix names the requirement that owns a knob. `harness.` is the other kind: a
++ * knob the TEST MACHINERY owns, which no requirement names because it is not a promise the product
++ * makes. Both live in one registry for the same reason — the alternative is a literal in the
++ * implementation, and then two sources of truth drift apart with both looking correct.
++ */
+ export const CONFIG_KEYS: Record<string, AtConfigKey> = {
+   'req-015.thread_comment_notifications.max_per_window': 'threadCommentNotificationsMaxPerWindow',
+   'req-015.thread_comment_notifications.window_ms': 'threadCommentNotificationsWindowMs',
+   'req-015.thread_comment_n
+otifications.coalesce': 'threadCommentNotificationsCoalesce',
++  'harness.oracle.judge_votes': 'oracleJudgeVotes',
+ };
+ 
+ export type ConfigRegistry = {
+diff --git a/tests/at/harness/conformance.selftest.ts b/tests/at/harness/conformance.selftest.ts
+index 2043585..89a89bb 100644
+--- a/tests/at/harness/conformance.selftest.ts
++++ b/tests/at/harness/conformance.selftest.ts
+@@ -154,6 +154,7 @@ describe('the harness reports its own provenance honestly', () => {
+       expect(stubbed, 'the loop-tier harness no longer reports the stand-ins it actually built').toEqual([
+         'clock.controlled',
+         'fixtures.worlds',
++        'oracles.judge',
+         'sut.notifications',
+         'vendors.email',
+       ]);
+diff --git a/tests/at/harness/contracts.ts b/tests/at/harness/contracts.ts
+index 5b914e9..6ec6eae 100644
+--- a/tests/at/harness/contracts.ts
++++ b/tests/at/harness/contracts.ts
+@@ -137,6 +137,152 @@ export type Vendors<Channel extends string = string> = {
+   email: EmailProviderSim<Channel>;
+ };
+ 
++/* -------------------------------------------------------------- H4 semantic oracles */
++
++/**
++ * Judging the MEANING of generated text, where string-matching cannot decide.
++ *
++ * Three ratified acceptance criteria need this: AT-009.07 (rejection copy instructs and never
++ * accuses), AT-004.10 (Discovery output satisfies a fixture-specific semantic oracle), AT-033.07
++ * (the assistant's four framed answers, each with a pinned oracle). NONE of their suites exists
++ * yet, so what the ratified text pins today is not any finished rubric — it is the set of
++ * criterion KINDS the contract has to be able to express: semantic-absence, semantic-containment,
++ * count-minimum, numeric-tolerance, no-fabrication. That set is what the shapes below are derived
++ * from, and `harness/rubrics/` says plainly which of its examples are near-final and which are
++ * disposable skeletons.
++ *
++ * THE CRITERION IS A DISCRIMINATED UNION, and that is the load-bearing decision (Gate 1 finding
++ * F4). A rubric that only carried prose statements would push every threshold into the judge:
++ * "is the runway within 10% of $4,200" is a question about arithmetic, and asking a language model
++ * arithmetic questions makes the answer as unstable as the language. So the union splits the work.
++ * A `semantic` criterion is a binary question only a reader can answer. An `extraction` criterion
++ * asks the judge for a NUMBER and nothing else, and the comparison against the expected value
++ * happens in `harness/oracles.ts`, in code, deterministically. The judge is never told the
++ * expected value or the tolerance — it cannot answer the question it is not asked.
++ *
++ * Expected values, tolerances and minimums for the real acceptance criteria are supplied by the
++ * suites that own those ids, when they are translated. What ships here is the SHAPE, with the
++ * boundary cases (a difference exactly equal to the tolerance, a count exactly one below the
++ * minimum) pinned in `oracles.selftest.ts`.
++ */
++
++/** A binary question about the material that only a reader can settle. */
++export type SemanticCriterion = {
++  kind: 'semantic';
++  id: string;
++  /** phrased so that TRUE is the compliant answer — the judge answers whether it holds */
++  statement: string;
++  /** a failing REQUIRED criterion fails the whole verdict; an optional one is reported and no more */
++  required: boolean;
++};
++
++/**
++ * What the judge is asked to pull out of the material. `unit` and `normalization` exist because
++ * "the runway" and "the runway in months, rounded down" are different questions, and the second
++ * one is the answerable one.
++ */
++export type ExtractionSpec = {
++  what: string;
++  unit?: string;
++  normalization?: string;
++};
++
++/** |extracted − expected| ≤ tolerance. Inclusive at the boundary, and conformance pins that. */
++export type NumericToleranceComparator = {
++  op: 'numeric_within_tolerance';
++  expected: number;
++  tolerance: number;
++};
++
++/** extracted ≥ minimum, over a count — so a fractional extraction is a typed error, not a round.
+ */
++export type CountAtLeastComparator = {
++  op: 'count_at_least';
++  minimum: number;
++};
++
++export type CriterionComparator = NumericToleranceComparator | CountAtLeastComparator;
++
++/** The judge extracts; `oracles.ts` compares. The comparator never reaches the judge. */
++export type ExtractionCriterion = {
++  kind: 'extraction';
++  id: string;
++  statement: string;
++  required: boolean;
++  extract: ExtractionSpec;
++  compare: CriterionComparator;
++};
++
++export type RubricCriterion = SemanticCriterion | ExtractionCriterion;
++
++/**
++ * One oracle, decomposed into named criteria.
++ *
++ * `materialSlots` names every piece of text the rubric may see, and `judge()` refuses material
++ * that does not match the declaration exactly — a missing slot would silently make a criterion
++ * unanswerable, and an undeclared one would let a caller feed the judge text no rubric mentions.
++ *
++ * `version` is a human-facing marker only. Recordings are invalidated by the request hash
++ * (`oracles.ts`), never by this string, because a hand-maintained version constant is exactly the
++ * mechanism a rubric edit forgets to bump (Gate 1 finding F6).
++ */
++export type Rubric = {
++  id: string;
++  version: string;
++  materialSlots: string[];
++  criteria: RubricCriterion[];
++};
++
++/** How the k repeated votes split on one criterion. `pass + fail` always equals the vote count. */
++export type VoteTally = {
++  pass: number;
++  fail: number;
++};
++
++export type CriterionVerdict = {
++  criterionId: string;
++  pass: boolean;
++  /** a short verbatim quote, taken from the first vote that agreed with the majority */
++  evidence: string;
++  votes: VoteTally;
++};
++
++/**
++ * What a verdict is worth, attached to the verdict itself.
++ *
++ * `requestedModel` and `servedModels` are deliberately two fields: a fixed model id is a pinned
++ * snapshot, not a pinned behaviour, so the id we asked for and the id the provider says it served
++ * are two facts and drift between them has to be visible rather than assumed away.
++ */
++export type VerdictProvenance = {
++  /** 'replay' = committed recordings, no network; 'live' = a real judge call this run */
++  source: 'live' | 'replay';
++  requestedModel: string;
++  /** `response.model` per vote, in vote order */
++  servedModels: string[];
++  /** the full-request hash per vote, in vote order — the replay key */
++  requestHashes: string[];
++  rubricId: string;
++  rubricVersion: string;
++  effort: string;
++  votes: number;
++};
++
++export type SemanticVerdict = {
++  /** every REQUIRED criterion passed */
++  pass: boolean;
++  criteria: CriterionVerdict[];
++  provenance: VerdictProvenance;
++};
++
++/**
++ * The seam a suite reaches. One method, because everything else about the oracle — which model,
++ * how many votes, live or replayed — is the harness's to decide from the tier and the at-config
++ * registry, not a suite's to pass in.
++ */
++export type SemanticOracle = {
++  judge(rubric: Rubric, material: Record<string, string>): Promise<SemanticVerdict>;
++};
++
+ /* ----------------------------------------------------------------------- the harness */
+ 
+ /**
+@@ -186,6 +332,13 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
+   static: StaticScan;
+   config: ConfigRegistry;
+   vendors: Vendors<Channel>;
++  /**
++   * REQUIRED, like every other capability: a suite that reaches for it and finds nothing must fail
++   * to compile, not read `undefined`. At `loop` this is a REPLAY of committed recordings and is
++   * reported as a stand-in; above `loop` it is the live judge and is reported as real. See
++   * `index.ts` for why that split establishes this capability's provenance and nothing more.
++   */
++  oracles: SemanticOracle;
+   sut: Sut;
+   /** REQUIRED, not optional: frozen clocks, vendor counters and fault state leak without it */
+   teardown(): Promise<void>;
+diff --git a/tests/at/harness/index.ts b/tests/at/harness/index.ts
+index e10bdd2..704bb2b 100644
+--- a/tests/at/harness/index.ts
++++ b/tests/at/harness/index.ts
+@@ -8,6 +8,7 @@ import { createConfigRegistry, type ConfigRegistry } from
+ './config.ts';
+ import type { AtHarness, StaticScan } from './contracts.ts';
+ import { createFaults, type AdapterFaultSeam } from './faults.ts';
+ import { createFixtureSeed, FixtureWorldStore } from './fixtures.ts';
++import { createOracleCapability } from './oracles.ts';
+ import { createSentinels, type AdapterSentinelSeam } from './sentinels.ts';
+ import { createEmailProviderSim, type EmailProviderPort } from './vendors.ts';
+ import type { ConfigOverrides, Tier } from './registry.ts';
+@@ -139,10 +140,20 @@ export async function createHarness(opts: {
+   // above the loop tier, so an integration-tier run cannot silently grade against the simulator.
+   // What stands here at that tier is a later slice's decision, not this one's.
+   const vendors = standInCapability('vendors.email', { email: provider.sim });
++  // H4's semantic oracle, and its provenance is decided by the tier rather than by this file: a
++  // REPLAY of committed recordings at loop (a stand-in, and it says so), the live judge above.
++  // `oracles.ts` explains what that settles — this capability's provenance — and what it does not:
++  // integration stays unreachable while the clock, fixtures, vendors and every SUT member above are
++  // still stand-ins, so this is not a claim that the gate has become runnable.
++  //
++  // The vote count comes from the at-config registry through `config.value`, which is why this is
++  // built after it. An override naming an unusable count fails HERE, at `createHarness()`, rather
++  // than at whichever test first judged something.
++  const oracles = createOracleCapability({ tier: opts.tier, config: config.value });
+   const sutCapabilities: Capability<unknown>[] = Object.entries(adapter.sut).map(([name, value]) =>
+     standInCapability(`sut.${name}`, value),
+   );
+-  const constructed: Capability<unknown>[] = [clock, fixtures, config, sentinels, faults, vendors, ...sutCapabilities];
++  const constructed: Capability<unknown>[] = [clock, fixtures, config, sentinels, faults, vendors, oracles, ...sutCapabilities];
+ 
+   let tornDown = false;
+   return {
+@@ -161,6 +172,7 @@ export async function createHarness(opts: {
+     // changed, and `tests/at/expected/req-016.json` states the same one name for the same reason.
+     static: pendingCapability<StaticScan>('H3 static provider scan'),
+     vendors: vendors.value,
++    oracles: oracles.value,
+     config: config.value,
+     teardown: async () => {
+       if (tornDown) return;
+diff --git a/tests/at/harness/type-invention.selftest.ts b/tests/at/harness/type-invention.selftest.ts
+index 8e504f2..0c98cd6 100644
+--- a/tests/at/harness/type-invention.selftest.ts
++++ b/tests/at/harness/type-invention.selftest.ts
+@@ -140,6 +140,21 @@ describe('harness invention is rejected by the compiler', () => {
+     'ProviderAttempt',
+     'EmailProviderSim',
+     'Vendors',
++    // H4's semantic-oracle contracts (contracts.ts) — every shape `judge()` takes or returns, not
++    // only the seam itself, because a rubric or a verdict is handed to a test body just as `h` is
++    'SemanticCriterion',
++    'ExtractionSpec',
++    'NumericToleranceComparator',
++    'CountAtLeastComparator',
++    'CriterionComparator',
++    'ExtractionCriterion',
++    'RubricCriterion',
++    'Rubric',
++    'VoteTally',
++    'CriterionVerdict',
++    'VerdictProvenance',
++    'SemanticVerdict',
++    'SemanticOracle',
+     // the config seam (config.ts)
+     'ConfigRegistry',
+     // the wrapper types every test body holds directly (registry.ts) — including the world itself,
+diff --git a/tests/at/typeprobes/harness-invention.probe.ts b/tests/at/typeprobes/harness-invention.probe.ts
+index 51b615e..554e8bb 100644
+--- a/tests/at/typeprobes/harness-invention.probe.ts
++++ b/tests/at/typeprobes/harness-invention.probe.ts
+@@ -94,6 +94,53 @@ declare module '../harness/contracts.ts' {
+   interface EmailProviderSim {
+     invented?: string;
+   }
++  // H4's oracle contracts. `SemanticOracle` is the one a suite reaches through `h.oracles`, but the
++  // rubric and verdict shapes are handed to and returned from `judge()`, so a member merged into
++  // any of them is a member a test body could read off a value that never supplies it. The union
++  // aliases (`RubricCriterion`, `CriterionComparator`) are attacked the same way: an interface
++  // sharing a type alias's name is a duplicate identifier whatever the alias resolves to.
++  interface SemanticCriterion {
++    invented?: string;
++  }
++  interface ExtractionSpec {
++    invented?: string;
++  }
++  interface NumericToleranceComparator {
++    invented?: string;
++  }
++  interface CountAtLeastComparator {
++    invented?: string;
++  }
++  interface CriterionComparator {
++    invented?: string;
++  }
++  interface ExtractionCriterion {
++    invented?: string;
++  }
++  interface RubricCriterion {
++    invented?: string;
++  }
++  interface Rubric {
++    invented?: string;
++  }
++  interface VoteTally {
++    invented?: string;
++  }
++  interface CriterionVerdict {
++    invented?: string;
++  }
++  interface VerdictProvenance {
++    invented?: string;
++  }
++  interface SemanticVerdict {
++    invented?: string;
++  }
++  // REQUIRED rather than optional, like `Faults` above: `oracles` is a real object on the harness
++  // and not a `pendingCapability()` Proxy, so a required merged-in member has to be rejected by the
++  // alias rule rather than by the factory's return annotation happening to notice it.
++  interface SemanticOracle {
++    inventedRequired: string;
++  }
+ }
+ 
+ declare module '../harness/config.ts' {
+• Now read the rubrics, recordings/README.md, live-smoke.md, and the verify files. Also run the verification commands. Also check SDK types for output_config/effort/stop_details, and check the ALIAS_PROTECTED mechanism (type-invention.selftest.ts) to verify the attacks actually exercise.
+
+  Also check: F11 says aliases join "protected-alias list with matching declaration-merging attacks". The probe has `interface X { invented?: string }` inside `declare module` — for type aliases, an interface with the same name is a duplicate identifier error. But how does the selftest VERIFY the attacks reject? Presumably it compiles the probe expecting errors. Need to see how type-invention.selftest works — read it (base file). Also, a subtle attack: does the probe attack actually get checked? The selftest went 167→180 tests (+13), consistent.
+
+  Potential finding: `SemanticOracle` attack uses `inventedRequired: string` — required member. If the probe expects specific compile errors, fine.
+
+  Also potential gap: `JudgeRequest`, `JudgeResponse`, `JudgeTransport`, `RecordingEntry`, `JudgeAnswer` are exported from oracles.ts (implementation), not contracts.ts — the protected list covers contracts only. Plan §4a listed only the contract aliases; oracles.ts exports are implementation surface. OK.
+
+  Let me now check remaining files and run tests. Batch:
+  - Read rubrics (3 files), recordings/README.md, live-smoke.md
+  - Bash: bun run typecheck (background? takes time; run in parallel as background), also check SDK types.
+
+  Actually let me first read the rubrics + README + live-smoke + verify-f8-removal, then run typecheck/selftest.Now run the verification commands and check some things:
+
+  1. `bun run typecheck` — verify green.
+  2. `bun run at:selftest` — verify green.
+  3. `bun run at:verify req-016 --tier loop --expect` — exit 0.
+  4. Check req-016.json diff empty; runner.ts untouched.
+  5. Check SDK 0.115.0 installed and types support output_config.effort + stop_details.
+  6. Check verify-f8-removal.txt.
+
+  Also check `capabilities.ts` for standInCapability/realCapability semantics, and config.ts `createConfigRegistry` to confirm get() behavior and that override merges. And check how the type-invention selftest verifies probe attacks (does it compile the probe and expect errors per alias? 167→180 = +13 tests).
+
+  Let me also consider deeper adversarial points:
+
+  A. Replay key: `canonicalJson` sorts object keys but NOT arrays — good, order matters. Unicode: JSON.stringify escapes control chars; different unicode normalization of material text produces different bytes — fine (that's desired).
+
+  Key completeness — one real gap candidate: the live transport sends `system: request.system` — but the Anthropic API system parameter; and messages content as string. JudgeRequest covers all. `voteIndex` — on live path `void voteIndex` — the wire request for all k votes is identical, but key includes voteIndex; consistent with recorder storing k entries with voteIndex 0..k-1. Good.
+
+  BUT: potential mismatch — the recorder writes recordings keyed by `replayKey(request, voteIndex)` where request comes from `renderJudgeRequest` inside the oracle's judge... actually in recordingTransport, `send(request, voteIndex)` receives the request from createSemanticOracle — same render. Fine.
+
+  B. `recordingProblem` — does not validate that `entry.request` is actually a well-formed JudgeRequest beyond being an object; replayKey(entry.request, voteIndex) is derived — if request is `{}` then derived key would be hash of {request:{},voteIndex} which won't match declared key unless attacker computed it. But a hand-crafted entry with consistent key + recordedFrom 'live' would pass. That's the residual (no signature). Fine to note.
+
+  C. Test 'refuses those counts through the factory AND through createHarness' — createHarness async rejects with /judge vote count/. OK.
+
+  D. Category 3: "the exact stub ledger" — conformance.selftest.ts ledger updated: oracles.judge present. Note the ledger order: clock.controlled, fixtures.worlds, oracles.judge, sut.notifications, vendors.email — alphabetical. Good.
+
+  E. Category 4: .env.example says parent-side only — yes. runner.ts untouched — check. Selftest deleting key: withoutJudgeCredential used only in the "above loop" test. Are there other tests that could reach live transport? In oracles.selftest.ts, `createOracleCapability({tier:'integration'...})` appears in: provenance test (with NEVER_TOUCHED transport — fine), and the above-loop test (wrapped). createHarness only at loop. Other selftest files: conformance.selftest.ts — does it create harnesses above loop? It asserts registry rejects non-loop. type-invention.selftest.ts — compile only. So credential deletion covers the only live path. But: withoutJudgeCredential restores in finally — if the file runs concurrently with another file in the same process (vitest threads pool shares process.env across worker threads? Actually each worker thread has its own process.env copy? No — worker threads share process.env? In Node worker_threads, process.env is per-thread copy... Actually process.env in worker threads: changes in one thread are not visible in others (each worker gets a copy at spawn). With forks pool, separate processes. So no cross-file risk. But within the file, if tests run sequentially, fine.
+
+  However there's a subtle issue: deleting AT_JUDGE_API_KEY in the "above loop" test — but the OTHER tests in the same file (e.g., the miss test) run WITHOUT deleting the key. Could the current code (not mutated) reach the network in any other test with a key present? The replay transport never calls live. createHarness at loop → replay. So no. The only live-transport construction is wrapped. OK — but the claim in the file header says "the one test that exercises the live path deletes AT_JUDGE_API_KEY ... so that a developer who happens to have one exported cannot turn a conformance run into a billed API call". Accurate.
+
+  F. Category 7: SDK usage. `output_config: { effort, format: { type: 'json_schema', schema } }`. Need to check SDK 0.115.0 types accept this. Typecheck green would prove compile-shape. Also `message.stop_details?.category` — check SDK type. If typecheck passes, fine.
+
+  But category 7 also asks: is stop_reason checked before content is read on EVERY path (live, replay, recorder)? Live transport: reads content to build text BEFORE judge() checks stopReason — but the check happens in judge() before parseJudgeAnswers. The response construction itself just extracts text — reading content blocks is not "reading content as verdict". The recorder checks stopReason before parse/write. Replay: judge() checks response.stopReason first. Good.
+
+  One thing: in live transport, if stop_reason is 'refusal', message.content may be empty; text='' — fine.
+
+  G. Category 1 false greens — mutations not checked: executor checked (1) hard-code vote count, (2) live→replay fallthrough, (3) drop committed-store provenance rule. Unchecked mutations:
+  - provenance-rule removal... checked (3rd). 
+  - hash-input omission: e.g., remove `voteIndex` from replayKey. Would any test fail? Test "changes per vote" would fail: replayKey(request,1) !== base — if voteIndex removed from key, that fails. Good.
+  - Remove material value from key: test "changes when a MATERIAL VALUE changes" fails. Good.
+  - majority-tie mishandling: k validated odd; mutation `passCount * 2 >= votes`? With odd k, >= and > give same result when passCount*2 != votes... 2*passCount == votes impossible for odd votes. So >= mutation is NOT caught by any test — but it only matters for even k, which is refused. Actually with odd k, `>=` vs `>` identical outcomes. So harmless. But wait — what if votes validation were removed too? Combined mutation. Single mutations: fine.
+  - refusal-treated-as-verdict: test exists ("refuses a declined request"). Would pass if refusal check removed? Then parseJudgeAnswers('' or text) — the scripted transport supplies valid ballot text with stopReason 'refusal' — without the stop check, the verdict would pass → test fails. Good.
+  - Mixed-source check removal: test exists.
+  - Evidence-from-dissenting-vote mutation: test exists ('vote-1:alpha').
+  - `answersProblem` unknown criterion: tested.
+  - What about mutation: change `renderMaterial` to use Object.keys order instead of rubric order? Test? The replay key stability test wouldn't catch; but behavior-wise it would produce different prompt but consistently. No test asserts slot ordering in rendered material. Hmm — "Slots are rendered in the RUBRIC's declared order" — is there a test? I didn't see one asserting renderMaterial order. A mutation sorting slots alphabetically would not fail any test. Minor — order is deterministic either way; the claim is about canonical ordering. Actually would it matter? Object key order in JS is insertion order — caller-dependent. If rubric order not used, two callers with different key insertion order would produce different prompts → different keys → replay misses, not false greens. So impact is a loud miss, not a false green. Minor note at most.
+  - Mutation: remove `sources.size !== 1` check → tested.
+  - Mutation: evidence = first vote's evidence regardless → tested.
+  - Mutation: `failedRequired` → all criteria → test 'fails the verdict only on a REQUIRED criterion' fails. Good.
+  - Mutation: compareExtraction inclusive→exclusive → boundary test fails. Good.
+  - Fractional count rounding → tested.
+  - writeRecording not validating → P9 test. 
+  - readRecordings skipping key re-derivation → tampered test.
+  - `parseJudgeAnswers` not checking unanswered → tested.
+
+  Hmm, what about the "2-1 both directions" test — the ballots in `scripted` clamp: ballots[Math.min(voteIndex, len-1)]. For NEUTRAL with votes=3 and ballots array of 3, fine.
+
+  Potential false green: test 'replays a recorded verdict bit-for-bit' — JSON.stringify comparison of two verdicts; both from same recordings; a mutation that makes replay non-deterministic (e.g., random) unlikely. Fine.
+
+  Test 'never shows the judge the comparator': `expect(prompt).not.toContain('tolerance')` — but renderCriterion includes `unit` and `normalization` but not compare. Also checks not.toContain('10.5')?? expected is 10, tolerance 0.5 — '10.5' wouldn't appear anyway; expected '10' would appear in 'criterion... '? Check: renderSystemPrompt for MEASURED includes statements 'What value does the reading state?' etc. '10' might appear in... hmm they check not.toContain('10.5') — 10.5 is not expected+tolerance; expected is 10. A leak of `expected: 10` would produce '10' substring — but the test checks '10.5'?? Wait, if compare leaked as JSON, it'd contain "expected":10,"tolerance":0.5 → contains '0.5' and '10'. The test checks '10.5' which would NOT detect a leak of '10' alone! But it checks not.toContain('tolerance') and not.toContain('minimum') — a JSON leak contains 'tolerance' and 'minimum' op names... The ops are 'numeric_within_tolerance' and 'count_at_least' — 'numeric_within_tolerance' contains 'tolerance' ✓, 'count_at_least' does NOT contain 'minimum'! The comparator payload key is `minimum: 3` — if compare object leaked as JSON, it'd contain '"minimum":3' → contains 'minimum' ✓. But if the leak rendered only the op names and values: 'count_at_least, minimum 3'? Depends on leak format. The test would catch a full-object leak via 'tolerance' (from the within comparator). For the atleast comparator alone: 'count_at_least' — test checks 'minimum' — 'count_at_least' doesn't contain 'minimum'; value 3 — not checked ('10.5' checked instead). Hmm, so a leak that renders ONLY the count comparator (e.g., `compare: count_at_least 3`) would not be caught ('minimum' not in that string unless key name rendered). Partial hole — but renderCriterion demonstrably doesn't include compare at all; the test is a smoke against accidental inclusion. The '10.5' check is odd — 10.5 isn't expected(10) or tolerance(0.5). Possibly intended to catch... expected+tolerance? Weird. Minor finding at most: the assertion doesn't target the actual values (10, 0.5, 3).
+
+  Actually wait: `expect(prompt).not.toContain('tolerance')` — but the word 'tolerance'... renderSystemPrompt static text: "a threshold is applied to it in code" — no 'tolerance'. normalization? MEASURED has no normalization for within; atleast has no normalization either. unit 'units'. OK.
+
+  H. Category 9: req-016 — diff shows no changes to expected/req-016.json (not in stat). Also "harness-missing message semantics" unchanged. Verify byte-identical via git diff.
+
+  I. Category 6: F11 — 13 aliases enumerated in ALIAS_PROTECTED and attacked. I should verify how the attacks are checked — read type-invention.selftest.ts fully to understand mechanism (it presumably runs tsc on probe files expecting errors). Potential attack: is the probe itself type-checked as part of a tsconfig that the selftest verifies fails? If the attack blocks were syntactically present but the selftest only counts them... need to look. Also check whether interface merging attack against a type alias actually errors (duplicate identifier) — yes, `interface Foo` conflicting with `type Foo` in same module declaration is a duplicate identifier error. But wait — inside `declare module '../harness/contracts.ts'`, adding `interface Rubric {}` — module augmentation merging an interface with an existing type alias export → error "Duplicate identifier"? Module augmentation with an interface whose name conflicts with a type alias — TS should error. And the selftest asserts the probe fails to compile with specific error counts? 167→180 = 13 new tests, one per alias presumably, each asserting the merge is rejected.
+
+  But hmm — one subtle issue: for the attack to prove the alias is protected, the selftest must check the error is ATTRIBUTED to the right alias. Let me read type-invention.selftest.ts.
+
+  J. Style/comments claims: mostly accurate. Check a few:
+  - oracles.ts comment says "The index is read ONCE per instance and never written" — true.
+  - "slots rendered in rubric's declared order" — true in code.
+  - record-oracles header: "IT IS ALSO THE SOLE WRITER of committed recordings" — hmm, but writeRecording is also called by conformance (into temp dirs) and the P9 test attempts committed. "Sole writer of committed recordings" — true for successful writes: conformance writes only to temp dirs (except the refused attempt). OK.
+  - README: "both the reader and the writer reject anything but 'live' in this directory" — true.
+
+  K. Now, deeper attack on category 2: canonicalization ambiguity. `canonicalJson` — for strings with lone surrogates? JSON.stringify handles. Numbers: 1 vs 1.0 same. -0 → JSON.stringify(-0) = "0", and 0 → "0". Collision between -0 and 0 — behavior-identical anyway. Key sort uses UTF-16 code unit comparison via `<`; JSON keys fixed. Fine.
+
+  One more: `canonicalJson` drops `undefined` values — JudgeRequest has no optional fields except... JudgeRequest fields all required. stopDetail optional in RecordingEntry but that's not hashed. OK.
+
+  L. Vote index in the key but live transport `void voteIndex` — comment says index reaches the key not the wire. But wait: provenance.requestHashes includes vote index in hash — good.
+
+  M. Category 5: "can a replayed verdict ever claim run-source 'live'?" Replay transport rewrites to 'replay'. But provenance.source comes from transport response source; a fake transport could claim 'live' in a test — but that's test's own business. In production paths: loop → replay transport → 'replay'; above loop → live → 'live'. OK.
+
+  "Can a synthetic recording enter the committed store through ANY code path?" writeRecording refuses when dir resolves to RECORDINGS_DIR. But isCommittedRecordingsDir uses resolve(dir) === RECORDINGS_DIR. On Windows, path case-insensitivity: resolve('tests/at/harness/RECORDINGS') vs RECORDINGS_DIR — case differs → not equal → treated as non-committed → synthetic write allowed into the SAME physical directory on case-insensitive filesystem! That's a real bypass on Windows/macOS. E.g., writeRecording(recordingsDir-with-different-case, synthetic) writes into the committed dir physically. Then readRecordings(RECORDINGS_DIR) reads it and refuses the whole store (recordedFrom synthetic in committed dir) — actually the reader checks committed: true → refuses. So the store would refuse to serve it — fails closed, not a false green. But the writer bypass exists: a synthetic file could land in the committed dir via case-variant path, then the reader REFUSES THE WHOLE DIRECTORY — availability issue, not false green. Still worth a MINOR/MAJOR note? The isCommittedRecordingsDir check is a string comparison; on Windows, `resolve` normalizes case? No, resolve doesn't change case. Also symlink: dir could be a symlink to RECORDINGS_DIR; resolve doesn't resolve symlinks (realpath would). A temp dir symlinked to committed → synthetic write allowed physically into committed → reader refuses all. Fails closed. I'd rate MINOR (fails closed, requires odd caller), worth noting.
+
+  N. P9 test safety: if the finally's rmSync fails (e.g., file locked), a leaked synthetic recording stays in committed dir → readRecordings refuses whole store → loop-tier judge calls fail loudly → not a false green. Also the test asserts directory unchanged. OK. But one more: the test writes with request rendered from NEUTRAL — the target filename is hash of that request+vote0 — if a REAL recording with same key existed (impossible practically). Fine.
+
+  O. `readRecordings` — `files.sort()` and entries.set(parsed.key, parsed): two files could declare the same key (different filenames) — later silently overwrites earlier! Filename is `${key}.json` written by writer, but a hand-added file `zzz.json` declaring an existing key would override the real recording. With recordedFrom 'live' and consistent hash... the key re-derivation ensures entry matches its own request, and key equality means same request — so override is same content semantically? The key covers request+voteIndex; the text/response differs potentially! Two entries, same key (same request), one with text saying pass, one fail — both hash-consistent (hash doesn't cover text). A malicious/accidental duplicate file could change the verdict. Duplicate keys should be refused. readRecordings doesn't check `entries.has(parsed.key)`. This is a genuine hole: the store indexes by declared key and silently lets a duplicate shadow. Severity: MINOR/MAJOR. Since store is committed data reviewed in git, a duplicate file would be visible in PR review — but the harness philosophy is loud refusal. I'd call it MINOR (requires committed-tree tampering visible in git) — actually let me think: is it a false-green vector? Someone adds `aaaaaaaa.json` with recordedFrom:'live', request copied from an existing recording (key re-derivation passes), but text changed to a passing verdict. Filename differs from `${key}.json` (else it would overwrite in git). readRecordings sorts filenames; the later-sorted wins. `README.md` is filtered (.json only). So yes, possible. The reader should refuse duplicates. MAJOR? The threat model in F2 is "synthetic recordings could impersonate live" — this is adjacent: tampered duplicate impersonating. The key re-derivation was meant to stop hand-edits; duplicate shadowing defeats it. I'll rate MAJOR... but hmm, actually the writer always writes `${key}.json`, so honest paths never create duplicates. The attack requires committing a hand-crafted file — same as the "no signature" residual. Given the store's own documented stance ("refuses the whole directory on any bad entry"), silent override is inconsistent. I'll list as MINOR-to-MAJOR; call it MINOR since it requires committed tampering that git review would show, but recommend refusing duplicates. Actually let me weigh: the whole design stance is "the store refuses anything unusual loudly". Silent shadowing is exactly the quiet failure mode they attack elsewhere. MAJOR feels right for an adversarial gate. I'll say MAJOR.
+
+  P. `OracleReplayMiss` message — includes key and rubric info. Fine.
+
+  Q. index.ts: `oracles` built unconditionally at every createHarness — reads config.value — if AT_CONFIG entry missing/unpinned... P2 accepted.
+
+  R. Check capabilities.ts standInCapability and how stubbedCapabilities() lists. Also check registry rejects non-loop — oracles registered real above loop — fine.
+
+  S. atconfig.ts: entry provisional: true. Config validation — does createConfigRegistry reject provisional entries being read? The comment says "unpinned registry entry" — need to check config.ts createConfigRegistry implementation for provisional handling. Let me read config.ts.
+
+  T. Category 11 — comment claims: "the executor mutation-checked three" — verify-f8-removal.txt etc. I'll check verify files quickly.
+
+  U. One more on category 1: "Would the mutations that matter actually fail it — ... live→replay fallthrough" — the test 'answers a miss... NEVER falls through' asserts not OracleUnavailable. If mutation made replay fall back to live, live transport without key → OracleUnavailable → test catches. But if developer HAS key: live call attempted → real network call during conformance → might SUCCEED and return a verdict → thrown would be null → `expect(thrown).toBeInstanceOf(OracleReplayMiss)` fails (null). Still fails. OK.
+
+  V. `withoutJudgeCredential` — only wraps the integration live test. But note `createLiveTransport` reads key at call time. In the "above loop" test, wrapped. Good.
+
+  W. Vote count: `judgeVoteCountProblem` — votes=1 allowed ("positive odd"). k=1 means majority of 1 — plan said k=3 default; validation allows 1. Positive odd includes 1 — message for <1 says "casts no votes". 1 is fine per spec ("positive odd integer"). OK.
+
+  X. Now check typecheck/selftest myself. Run bun run typecheck and bun run at:selftest. Also at:verify. These may take a while — run in background? Let's run sequentially in foreground with generous timeouts, or parallel background. I'll run typecheck and selftest in parallel background... Actually selftest is quick (233 tests). Run them.
+
+  Also check SDK: ls node_modules/@anthropic-ai/sdk/package.json version, grep output_config / stop_details in its d.ts.
+
+  Also read config.ts (createConfigRegistry) and type-invention.selftest.ts mechanism, capabilities.ts. And verify-f8-removal.txt.
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean
+TYPECHECK_EXIT=0
+---
+0.115.0
+• Typecheck green, req-016 expected untouched, no runner file in diff, SDK pinned 0.115.0.
+
+  Now run at:selftest and at:verify, and check SDK types for output_config/stop_details. Also read config.ts, capabilities.ts, type-invention.selftest.ts, verify-f8-removal.txt.$ bunx vitest run --root tests/at --config vitest.config.ts harness/
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a39ef92872b61dcff/tests/at
+
+
+ Test Files  9 passed (9)
+      Tests  233 passed (233)
+   Start at  10:27:58
+   Duration  6.96s (transform 839ms, setup 0ms, import 5.16s, tests 13.55s, environment 1ms)
+
+35:     * Send a structured list of input messages with text and/or image content, along with an expected `output_config.format` and
+44:     *   output_config: {
+56:     * If `output_config.format` is provided with a parseable format (like `zodOutputFormat()`),
+65:     *   output_config: {
+2209:    output_config?: OutputConfig;
+720:    stop_details: RefusalStopDetails | null;
+933:        stop_details: MessagesAPI.RefusalStopDetails | null;
+856:     * All possible effort levels.
+858:    effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null;
+Selftest green (233 passed). SDK 0.115.0 supports output_config, effort, stop_details.
+
+  Now: at:verify req-016. And read config.ts, capabilities.ts, type-invention.selftest.ts (mechanism), verify-f8-removal.txt, verify-atverify.txt.  AT-016.09    green    every guarded transition writes its notification event atomically under an induced fault
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    green    sent only on provider acceptance; unconfirmed sends retry; a lost ack mints no duplicate
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 11 green, 1 red, 0 missing
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a39ef92872b61dcff\tests\at\expected\req-016.json exactly (11 declared green, 1 declared red)
+EXIT=0
+Continue the review. Remaining checks: type-invention.selftest.ts mechanism (do the 13 attacks actually verify?), capabilities.ts, verify-f8-removal.txt, and a couple of mutation checks I want to run myself (e.g., duplicate-key in readRecordings hole, renderMaterial order). Also the "never shows the judge the comparator" test weakness.
+
+  Let me read type-invention.selftest.ts and capabilities.ts, plus verify-f8-removal.txt quickly.The type-invention mechanism is sound: per-alias `rejects()` asserted individually.
+
+  Now a few more things to verify:
+
+  1. verify-f8-removal.txt — skim.
+  2. Run a couple of my own mutations to confirm suspicion about unchecked mutations:
+     - duplicate-key shadowing in readRecordings — confirm no duplicate check (confirmed by reading: no `entries.has` check).
+     - the comparator-prompt test weakness (10.5 vs actual values) — confirmed by reading.
+  3. Check `withoutJudgeCredential` usage count — only one test. But also: does the miss-test risk a billed call under mutation? Not as-written. Also check other selftest files don't call live transport: grep createLiveTransport.
+  4. Check that `withoutJudgeCredential` also handles ANTHROPIC_API_KEY! The live transport creates `new AnthropicClient({ apiKey })` with explicit apiKey — but wait, it only creates the client AFTER checking apiKey non-empty. If AT_JUDGE_API_KEY is set, apiKey passed explicitly. But if AT_JUDGE_API_KEY is unset, it throws before client creation. But hold on — the Anthropic SDK falls back to ANTHROPIC_API_KEY env var when apiKey is not provided — here apiKey IS provided (from AT_JUDGE_API_KEY). So no fallback issue. But what if AT_JUDGE_API_KEY is set to whitespace? `.trim()` → empty → throws. OK.
+
+     However, one subtle credential-boundary point: in the "above loop" test, withoutJudgeCredential deletes only AT_JUDGE_API_KEY. If AT_JUDGE_API_KEY is unset but the code path... live transport checks only AT_JUDGE_API_KEY. Fine.
+
+  5. Check vote index key consistency: recorder writes entries with voteIndex per vote; oracle requests voteIndex 0..k-1. OK.
+
+  6. Check the "refuses those counts through ... createHarness" — createHarness throws for bad votes — but note it also means EVERY createHarness reads the key; atconfig entry value 3 — fine.
+
+  7. Registry `get` with override: `if (key in overrides) return overrides[key]` — override of even number 2 → readJudgeVotes throws at createHarness. Tested. Good.
+
+  8. One more replay-key completeness candidate: the key includes `outputSchema` (VERDICT_SCHEMA object). canonicalJson sorts keys — schema key order changes don't invalidate. Fine.
+
+  9. Is `JudgeRequest.messages` content including material — yes via renderMaterial.
+
+  10. Now the "above-loop oracle reads a recording" check — createOracleCapability: recordingsDir consulted only at loop. Above loop, transport = live. Confirmed.
+
+  11. Does any path where a loop-tier oracle touches the network? createReplayTransport — fs only. Confirmed.
+
+  12. F12: fresh instance per harness — index.ts builds per call. Tested.
+
+  13. Category 9: "harness-missing message semantics" — index.ts diff doesn't touch pendingCapability messages. req-016 byte-identical confirmed via empty diff stat + at:verify green.
+
+  Now let me do my own quick mutation checks for the ones I suspect are NOT covered:
+
+  Mutation A: remove `voteIndex` from replayKey → covered by test "changes per vote".
+  Mutation B: change `renderMaterial` to sort slots or use Object.keys(material) → is there a test? The key tests use renderJudgeRequest both times with same material object — wouldn't catch. Replay hit test: recordings written via renderJudgeRequest and read via same render — consistent either way. So a mutation using caller key order would NOT fail any test. Impact: two callers passing same logical material with different insertion order → different keys → replay miss (loud). Not a false green, but the code comment claims "never the caller object's key order" and no test pins it. MINOR.
+
+  Mutation C: `>=` vs `>` in majority — untestable difference with odd k; harmless. Skip.
+
+  Mutation D: remove the `sources.size !== 1` check → covered.
+  Mutation E: evidence selection change → covered.
+  Mutation F: parseJudgeAnswers skipping evidence check → covered by schema-drift test.
+  Mutation G: readRecordings not re-deriving key → covered.
+  Mutation H: recordingProblem committed check removed → covered (executor checked).
+  Mutation I: skip `answersProblem` unanswered → covered.
+  Mutation J: OracleReplayMiss message not containing key → covered.
+  Mutation K: stop-reason check moved AFTER parsing or removed → covered by refusal/truncation tests.
+  Mutation L: live transport constructing client eagerly / reading key at construction → the "above loop" test would... it reads at call time; mutation to read at construction: createOracleCapability integration in the provenance test passes NEVER_TOUCHED but real createLiveTransport is not used there (transport injected). In the above-loop test, createOracleCapability({tier:'integration', ...}) happens INSIDE withoutJudgeCredential, so construction-time read also throws? No — construction returns transport; key read at construction would... createLiveTransport doesn't throw at construction; the throw is in send(). If mutated to check key at construction, the test wraps construction inside withoutJudgeCredential too (const live = createOracleCapability... inside). Actually the thrown assertion is on judge() call. If key check moved to construction, createOracleCapability would throw inside the wrapper — uncaught → test fails with wrong error. So covered-ish.
+  Mutation M: writeRecording skipping problem check → P9 test catches (executor verified).
+  Mutation D2: `isCommittedRecordingsDir` returning false always → P9 test would fail (write succeeds → readdir assertion fails + finally cleans). Covered.
+
+  Now the duplicate-key shadowing: readRecordings has no duplicate detection. Also filename↔key mismatch: a file named `wrong-name.json` declaring a valid key would be served — the store doesn't check filename === `${key}.json`. Combined with duplicate shadowing, this is the hole. Is it exploitable for a false green? Scenario: an existing committed recording says criterion fails. Attacker (or careless merge) adds `zzz.json` with same key, same request, recordedFrom 'live', but text with passing answers. readRecordings sorts filenames; `zzz.json` sorts after `<hex>.json` possibly — hex keys are 0-9a-f; 'zzz' > any hex starting with... hex first char is 0-9a-f, all < 'z', so `zzz.json` sorts last → shadows. Loop tier then replays the passing verdict → false green. Key re-derivation passes because request is unchanged. The only guard is git review of the committed dir. Given the store's stated doctrine ("Refuses the whole directory on any bad entry"), silent shadowing is a genuine, minimal-fix finding: refuse when `entries.has(parsed.key)` and/or require filename === `${key}.json`. Severity: MAJOR within this review's frame (a green that doesn't mean what it claims, reachable by a single committed file). I'll call it MAJOR.
+
+  Next: the comparator-leak test ('never shows the judge the comparator'). Assertions: not.toContain('10.5') — 10.5 is neither expected (10) nor tolerance (0.5). If compare leaked into the prompt, plausible renderings: 'expected: 10, tolerance: 0.5' → contains 'tolerance' ✓ caught; '"minimum": 3' → contains 'minimum' ✓ caught. 'count_at_least' alone → NOT caught ('minimum' not substring, 3 not checked... 'atleast' criterion id contains... hmm 'minimum' — the extraction criterion statement 'How many entries...' no). But any realistic leak of the compare object includes the op name 'numeric_within_tolerance' (contains 'tolerance') or keys. Since BOTH comparators would presumably leak together via the same code path (renderCriterion change), 'tolerance' would catch it. And the expected value 10: '10' as substring — '10' might appear innocuously. The '10.5' check is simply inert — it checks a value that is nowhere in the rubric. Likely the author meant to check '10' and '0.5' but those are substring-risky. Minor finding: the assertion is inert as written; strengthen to check the actual expected value/tolerance rendering. MINOR.
+
+  Also: the miss test (`answers a miss with a typed error`) does not wrap in withoutJudgeCredential — as-written code can't reach network (replay transport has no live fallback). Fine as-is; only relevant under mutation. Not a finding. Actually wait — category 4 says "check the selftest that deletes AT_JUDGE_API_KEY from its own process actually protects a keyed developer from billed calls in every selftest file, not just one". Let me grep for createLiveTransport and AT_JUDGE_API_KEY across the tree to be sure no other test can hit the network.
+
+  Also check `withoutJudgeCredential` restores even on throw — yes finally.
+
+  One more: the withoutJudgeCredential test constructs the live oracle INSIDE the wrapper and calls judge inside. Good.
+
+  Also verify-f8-removal.txt — read it to confirm the executor's claims and check for runner-childEnv. Also check runner.ts env allowlist actually excludes AT_JUDGE_API_KEY — the claim "test runner's environment allowlist does NOT carry it". Let me check runner.ts (untouched, but does the allowlist exist and is it an allowlist?). If runner passes the whole parent env except a denylist, AT_JUDGE_API_KEY would leak to children! The claim says "allowlist". Verify: grep childEnv in runner.ts.
+
+  Also confirm: does anything else read AT_JUDGE_API_KEY? grep.
+
+  Also category 3: "the above-loop call-time error names the deferred boundary as ruled" — OracleUnavailable message: "deferred to the slice that makes the integration tier real" ✓ and test asserts it.
+
+  Also check recordings dir has only README (git ls-files).
+
+  Let me also spot-check bun.lock entry and .env.example. And read verify-f8-removal.txt + verify-atverify.txt briefly. And grep runner for env handling.
+
+tests/at/harness/recordings/README.md
+README.md
+• There are gate2-terra-stderr.txt and gate2-kimi-stderr.txt — interesting, other gate reviewers ran. I shouldn't peek? Not forbidden, but my review should be independent. Skip them.
+
+  runner.ts is elsewhere. Find it.Check runner.ts childEnv to verify allowlist semantics (AT_JUDGE_API_KEY not carried).The childEnv is a true allowlist; AT_JUDGE_API_KEY is not in it (allowlist is system paths + docker). Credential boundary holds.
+
+  Now let me run a few of my own quick mutation/attack checks to confirm the findings I intend to report:
+
+  1. Duplicate-key shadowing in readRecordings — write two files with same declared key but different filenames and confirm the later-sorted one wins silently. Quick script.
+  2. Case-variant committed-dir bypass on Windows: isCommittedRecordingsDir('tests/at/harness/recordings' with different case or trailing slash). resolve('.../recordings/') strips trailing slash? resolve normalizes trailing separators. Case variant: RECORDINGS vs recordings — on Windows resolve preserves given case. So `isCommittedRecordingsDir(dir.toUpperCase())` → false while physical dir same. Confirm quickly with node/bun.
+
+  Also check the miss test's `withoutJudgeCredential` — fine.
+
+  3. Check whether there is a test that pins slot render order (there isn't, from my read). Confirm by grepping for renderMaterial in selftest — not imported. Right, renderMaterial isn't imported in the selftest. So a mutation changing slot ordering to caller-key-order would not fail any test. But wait — would it change behavior in a way that matters? renderMaterial(rubric, material) uses rubric.materialSlots order. Mutation: use Object.keys(material) — for NEUTRAL single slot, tests unaffected; multi-slot rubrics (AT-033-07 has 4 slots) are only well-formedness tested, never judged. So no test catches it. Impact: caller-dependent prompt → key depends on caller object insertion order → two callers with same logical material could get different keys → replay miss (loud, not false green). And live determinism-wise it's still fine within one caller. MINOR.
+
+  Actually also the opposite mutation: does anything pin that material VALUES are in the prompt? Test "changes when a MATERIAL VALUE changes" — yes.
+
+  Let me verify the duplicate-shadowing empirically with a quick bun script in a temp dir, and the case-variant isCommittedRecordingsDir. Also empirically test one mutation the executor didn't: remove voteIndex from replayKey → expect "changes per vote" test to fail (I'm confident; skip running full mutation tests — expensive). But the duplicate-shadowing is a NEW finding, so verify it.
+
+  Also check: does readRecordings verify filename === key? No. Let me run the experiment.
+
+error: Cannot find module './tests/at/harness/oracles.ts' from 'C:\Users\nirdr\AppData\Local\Temp\oracle-attack.ts'
+
+Bun v1.3.14 (Windows x64)
+shadow won silently: true
+entry count (2 files on disk): 1
+committed-dir check, upper-case variant: false
+committed-dir check, trailing separator: true
+• Confirmed both:
+  1. Duplicate declared key silently shadows (2 files, 1 entry, later-sorted filename wins). A committed `zzz-shadow.json` with a flipped verdict would change the loop-tier answer with no refusal — a false green vector requiring only a committed file.
+  2. Case-variant path bypasses isCommittedRecordingsDir on Windows (fails closed at read time though — the reader would refuse the synthetic entry when reading via the real path; still, the writer's protection is bypassable, and a synthetic file landing in the committed dir reddens the whole store rather than being blocked at write). Trailing separator is fine.
+
+  Also note: filename↔key mismatch unchecked (the shadow file name didn't match its key and was accepted — demonstrated).
+
+  Now, severity: the shadowing attack requires committing a hand-crafted file with recordedFrom:'live' — the same act as faking provenance directly, which F2 acknowledged can't be cryptographically prevented. But the design's claim is stronger: "the store REFUSES provenance-less or non-live entries" and "re-deriving the hash makes a hand-edited key a refusal instead of a silent hit". The duplicate-shadow route defeats the re-derivation guard with a *valid* key, silently overriding. The store's own doctrine is "refuses the whole directory on any bad entry" — a duplicate declared key IS a bad entry and should refuse. Minimal fix: in readRecordings, throw if entries.has(parsed.key), and/or require name === `${parsed.key}.json`. I'd rate MAJOR.
+
+  The case-variant bypass: MINOR (fails closed downstream; write-side guard weakened on Windows).
+
+  Now the remaining categories to close out:
+
+  1. False greens — the comparator-leak test's inert assertion ('10.5' is nowhere in the rubric; expected=10, tolerance=0.5, minimum=3 are the real values and none is asserted absent). Also `not.toContain('tolerance')`/`'minimum'` do catch full-object leaks via op names/keys. The '10.5' assertion specifically can never fail. MINOR.
+
+  Also — the vote-count sole-writer tests are good. Majority tie: fine. One more unchecked mutation class: `parseJudgeAnswers` doesn't reject extra properties on answers (e.g., both holds and value) — server-side schema does; locally tolerated — residual note, not a test gap per se. Also `raw.kind` unknown → error, covered.
+
+  What about "refusal-treated-as-verdict" in the REPLAY path: a recorded refusal (stopReason refusal in a recording) replays → judge() checks stopReason → error. Is that tested? The refusal test uses a scripted transport, not a recording. A mutation... the check is transport-agnostic in judge(), so covered by the scripted test. OK.
+
+  2. Replay key completeness — no missing behavior-changing input found; canonicalization is order-independent, unicode-safe (JSON.stringify is byte-exact over UTF-16; different normalizations hash differently — desired). No finding. One nuance: `canonicalJson` maps NaN/Infinity to 'null' — not reachable via JudgeRequest fields from renderJudgeRequest (all strings/numbers fixed). No finding.
+
+  3. Tier semantics — clean. Stub ledger updated and green. Above-loop error names deferred boundary and test asserts the exact phrase. Loop-tier oracle cannot reach network (replay transport is fs-only). No finding.
+
+  4. Credential boundary — clean: runner untouched (verified in diff), childEnv is a true allowlist not carrying AT_JUDGE_API_KEY, only two parent-side readers, selftest deletes the key around the only live-path test, .env.example says parent-side only. One caveat: `withoutJudgeCredential` is only applied in one test, but it's the only test that can construct a working live path; other files never call createLiveTransport (grep confirmed only oracles.ts exports it; selftest imports don't include it — actually the selftest does NOT import createLiveTransport; it relies on createOracleCapability's default). Confirmed: only the wrapped test builds a live transport without an injected fake. No finding.
+
+  5. Provenance honesty — replay rewrites source to 'replay' (tested); synthetic can't enter committed store via the writer (tested on the real dir). The shadow-file route above is the finding here (category 5 as much as anywhere). P9 test safety: finally removes anything not present before; a finally failure leaves a synthetic file that the READER then refuses (fails closed, reddens rather than greens). OK.
+
+  6. Contract protection — all 13 aliases enumerated in ALIAS_PROTECTED and attacked in the probe; mechanism is per-alias diagnostic assertion, genuinely load-bearing. Also check: is any exported type from contracts reachable that's NOT in the list? contracts.ts diff exports: SemanticCriterion, ExtractionSpec, NumericToleranceComparator, CountAtLeastComparator, CriterionComparator, ExtractionCriterion, RubricCriterion, Rubric, VoteTally, CriterionVerdict, VerdictProvenance, SemanticVerdict, SemanticOracle = 13. All listed. oracles.ts exports types too (JudgeRequest, JudgeResponse, JudgeTransport, JudgeAnswer, RecordingEntry, RecordingDraft, JudgeEffort) — these are implementation-module types, also exported... are they reachable from a test body? A test could import them from oracles.ts and merge? They're in oracles.ts, not contracts.ts; the probe attacks contracts.ts module. The F11 ruling said "Every new exported oracle contract alias" — contracts.ts ones. oracles.ts's exported types: could a suite merge an interface into module './oracles.ts'? Same attack applies in principle. But F11's scope was the contract aliases; the probe file attacks contracts.ts and config.ts modules. Hmm — is this a gap worth a MINOR? The type-invention doctrine: "nothing reachable from the harness object, or from the wrapper handed to a test body, may be an interface". JudgeRequest etc. are reachable only if a suite imports oracles.ts directly (which conformance does). A suite COULD merge `interface JudgeTransport` etc. But these are aliases — merging an interface with same name is a duplicate-identifier error — that's exactly what the probe proves for contracts.ts. For oracles.ts types, no attack exists. Would it matter? A suite augmenting oracles.ts's RecordingEntry with an optional member... module augmentation merging into a type alias is already rejected by the compiler inherently (interface vs alias conflict) — the probe exists to keep them aliases. If someone converted JudgeRequest to an interface, no probe would catch it. But JudgeRequest isn't handed to test bodies by the harness. MINOR at most; I'll mention as a minor observation. Actually let me not overload. The F11 ruling was specifically about contract aliases; the executor did exactly that. I'll note it as a minor residual, not a finding. Hmm, findings list wants categories that yielded something. I'll put it as MINOR under category 6? Let me decide: the ruled requirement was "Every new exported oracle contract alias joins the protected-alias list" — done. The oracles.ts implementation types are out of the ruled scope. I'll mention in residual risks.
+
+  7. Structured output + SDK — output_config/effort/stop_details all exist in pinned SDK 0.115.0 d.ts; typecheck green both projects. stop_reason checked before parsing on every path (judge() before parse; recorder before write). Live path unexercised at runtime — honestly stated everywhere. No finding beyond residual.
+
+  8. Isolation/teardown — fresh instance per harness tested; replay index per instance tested (stale instance keeps missing); temp dirs cleaned in afterAll; only P9 touches the tree. No finding.
+
+  9. req-016 — byte-identical (no diff), at:verify green exit 0, ledger message semantics untouched. No finding.
+
+  10. Example rubrics — labels as ruled; conformance deliberately doesn't assert compliant passes; boundary kept. AT-033.07 extraction rubric: note 'progress-events-recalled' extraction on material with 4 slots — fine. No finding. One check: AT_033_07 rubric criteria reference "the recent-activity record quoted to you" — but materialSlots don't include a recent-activity record slot! The no-fabrication criterion says events must appear "in the recent-activity record quoted to you" — but the rubric's material slots are only the four ANSWERS; the recent-activity record itself is never supplied to the judge. So the no-fabrication criterion is unanswerable as authored — the judge is asked to verify against a record it never sees. That's a genuine rubric-content flaw... but it's a DISPOSABLE skeleton, and conformance deliberately doesn't judge specimens. Still, the skeleton's purpose is "prove the criterion KINDS express" — and this instance demonstrates no-fabrication against a missing reference. The factory could take the recent-activity record as a material slot. Since it's disposable and unjudged, MINOR — but it IS the kind of thing the reviewer should flag: the example teaching the no-fabrication pattern teaches it wrong (verification material not declared as a slot). I'll list MINOR.
+
+  11. Style/comments — mostly true. Check: oracles.ts:466 comment "Resolved from THIS file: they are harness data" ok. The comment on line 74: "Thinking is at the model default and is billed inside this cap." — hmm, with effort 'low'... thinking at model default — plausible, unverifiable here; fine. record-oracles.ts:11 "IT IS ALSO THE SOLE WRITER of committed recordings" — accurate for successful committed writes. README "both the reader and the writer reject anything but 'live' in this directory" — true, though the case-variant path weakens the writer side (covered by finding). oracles.selftest header: "every one of them is written so that the machinery going wrong fails it" — mostly true; the comparator-leak test's '10.5' assertion can never fail (finding), and slot-order isn't pinned (minor).
+
+  Also the comment at oracles.ts:109-111 "a miss must be visibly different from a live transport with no credential, which is how conformance proves loop tier never falls through" — true.
+
+  One more possible issue: `judgeVoteCountProblem` message for <1 says "casts no votes" — test expects 'no votes' for 0 and -1 ✓.
+
+  Another: In the "above loop" test, they create the live oracle with `recordingsDir: dir` — good, proves seam ignored above loop.
+
+  Also: `createOracleCapability` at loop with `transport: NEVER_TOUCHED` in provenance test — fine.
+
+  Also check `stubbedCapabilities()` on harness — includes oracles.judge at loop; tested both in conformance.selftest ledger and oracles.selftest. Above loop, oracles registered real — but registry rejects non-loop wholesale; per-tier factory test covers provenance directly. Good.
+
+  One more consideration for category 1: "majority-tie mishandling" — with odd k no tie; even k refused at construction AND at judge... createSemanticOracle validates. But `readJudgeVotes` validation happens at construction of capability; `createSemanticOracle` also validates. Both tested. OK.
+
+  And "hash-input omission": the tests cover effort, model, maxTokens, schema, material value, system text, rubric id/version, vote index. What about `promptVersion`? Not tested that changing promptVersion changes the key — trivially covered by it being a field. What about `messages` role? Fixed. Fine.
+
+  Mutation not checked: removing `rubricId`/`rubricVersion` from JudgeRequest (they're redundant with system prose) — test 'changes when the rubric identity or version changes' covers.
+
+  Mutation: canonicalJson NOT sorting keys (JSON.stringify insertion order) → test 'does NOT change when object key order changes' covers.
+
+  Mutation: replay transport serving without checking committed-ness — recordingProblem with committed flag... The replay transport reads via readRecordings(dir) which applies committed rule based on dir. At loop tier with default RECORDINGS_DIR → committed rules. Test 'accepts the committed store as it actually stands' covers reading.
+
+  OK. Also should I run the three mutations the executor claimed? Trust but verify — the prompt says "The executor mutation-checked three; find the mutations that were NOT checked." I found: slot-order (minor), comparator-leak inert assertion (minor), duplicate-key shadowing (major, store-level), case-variant committed-dir (minor). Also `>=` vs `>` tie mutation is un-catchable but inert under odd k — worth one line.
+
+  Let me also double check the "2-1 both directions" test uses oracleWith default votes=3 and scripted ballots arrays of 3 — yes.
+
+  One more possible false green: 'replays a recorded verdict bit-for-bit' — JSON.stringify(second) === JSON.stringify(first) — but both calls read the same store; a mutation making replay return the LIVE recording's raw text without parsing would... parseJudgeAnswers is in judge() regardless. Fine.
+
+  Check: is there a test that the live path sends the EXACT rendered request to the SDK (not a re-rendered/different one)? The live transport maps request → messages.create params directly. Unexercised at runtime. Residual.
+
+  Also: provenance.requestHashes — for live votes, hash includes voteIndex; fine.
+
+  Let me also confirm there's no test asserting `verdict.provenance.source` for a live path — can't (no live). Fine.
+
+  Severity call for the shadowing finding: The store is committed data; the attack requires a commit. But the harness's whole stance is that the store defends itself loudly. The README says "the store refuses them anyway". A shadow file is accepted silently. This directly enables "a green that does not mean what it claims" (flipped verdict replayed). MAJOR. Not BLOCKER because it requires committed-tree tampering that git review would show, and today the store is empty. Hmm — Gate wants adversarial severity. I'll say MAJOR.
+
+  Case-variant: MINOR.
+  Comparator '10.5' inert assertion: MINOR.
+  Slot-order comment claim unpinned by tests: MINOR.
+  AT-033.07 no-fabrication references an unquoted record (no material slot carries it): MINOR.
+  Tie-operator `>=` mutation inert-but-untestable: one line, MINOR or fold into residuals. I'll fold into findings as MINOR? It's harmless by construction (odd k enforced). I'll put in residuals.
+
+  Verdict: BLOCKING FINDINGS PRESENT? A MAJOR — is that blocking? The output format says verdict either NO BLOCKING FINDINGS or BLOCKING FINDINGS PRESENT with severity labels BLOCKER|MAJOR|MINOR. Blocking presumably = BLOCKER findings. Is the shadowing a BLOCKER? Let me think about the target failure: "a green that does not mean what it claims." The shadowing requires a committed malicious/erroneous file; the design explicitly relies on git as the review boundary for committed content (F2: "A committed recording claiming live provenance it does not have... makes it unrepresentable" — actually not unrepresentable, just refused-if-declared). The reader already refuses the whole dir on any bad entry; duplicates should be in that class. It's a real hole but needs a commit to exploit and the store is empty today. I'll call it MAJOR, verdict BLOCKING FINDINGS PRESENT? Hmm. The instruction: "NO BLOCKING FINDINGS / BLOCKING FINDINGS PRESENT — one sentence why." Given a MAJOR that undermines the store's core refusal doctrine (the exact false-green mechanism this item exists to kill), I judge it blocking-worthy: the fix is two lines, and merging with a known silent-shadow path in the provenance store contradicts the item's purpose. I'll mark the duplicate-shadow as MAJOR and render the verdict as BLOCKING FINDINGS PRESENT on the strength that a silent provenance-store override is precisely the failure class this gate exists to catch. Actually — being candid: is it truly blocking? The other gate reviewers (terra, kimi stderr files exist) may have found similar. My honest judgment: MAJOR, and since the project's own doctrine treats quiet provenance failures as the worst class, I'll say BLOCKING FINDINGS PRESENT with the shadowing as the reason. Let me reconsider once more... The F2 ruling says "A committed recording claiming live provenance it does not have is the false green this project exists to kill; the design now makes it unrepresentable." The shadow route keeps it representable (as an override, not a forgery per se). That's a direct contradiction of a BLOCKER-ruling's claim. Yes — MAJOR severity, blocking verdict.
+
+  Also line numbers:
+  - readRecordings: oracles.ts:571-595 (entries.set at 592).
+  - isCommittedRecordingsDir: oracles.ts:492-494.
+  - comparator test: oracles.selftest.ts:323-332 (the '10.5' at 328).
+  - slot order: oracles.ts:416-421; no test imports renderMaterial.
+  - AT-033.07: rubrics/at-033-07.ts:78-83 statement references record not in materialSlots (40).
+
+  Write the report. Model name: I'm Kimi (Moonshot). The gate2-kimi-stderr.txt exists — maybe I'm "kimi". I'll title "kimi" — the prompt says <your model name>. I'll use "Kimi (kimi-code)". Keep findings only, exact structure.
+
+To resume this session: kimi -r session_efdd80ff-dab0-4967-ba63-ee469250976f
