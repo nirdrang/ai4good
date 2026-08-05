@@ -1,0 +1,106 @@
+ .env.example                                   |    9 +
+ bun.lock                                       |   13 +
+ loop/items/AI4DEV-20/gate1-critique.md         |   41 +
+ loop/items/AI4DEV-20/gate1-prompt.txt          |   57 +
+ loop/items/AI4DEV-20/gate1-rulings.md          |  116 +
+ loop/items/AI4DEV-20/gate1-stderr.txt          | 5401 ++++++++++++++++++++++++
+ loop/items/AI4DEV-20/gate1-stdout.txt          |   42 +
+ loop/items/AI4DEV-20/live-smoke.md             |   60 +
+ loop/items/AI4DEV-20/plan.md                   |  433 +-
+ package.json                                   |    1 +
+ tests/at/harness/atconfig.ts                   |   19 +
+ tests/at/harness/config.ts                     |   10 +-
+ tests/at/harness/conformance.selftest.ts       |    1 +
+ tests/at/harness/contracts.ts                  |  153 +
+ tests/at/harness/index.ts                      |   14 +-
+ tests/at/harness/oracles.selftest.ts           |  853 ++++
+ tests/at/harness/oracles.ts                    |  944 +++++
+ tests/at/harness/record-oracles.ts             |  247 ++
+ tests/at/harness/recordings/README.md          |   38 +
+ tests/at/harness/rubrics/at-004-10.ts          |  103 +
+ tests/at/harness/rubrics/at-009-07.ts          |   57 +
+ tests/at/harness/rubrics/at-033-07.ts          |  132 +
+ tests/at/harness/type-invention.selftest.ts    |   15 +
+ tests/at/typeprobes/harness-invention.probe.ts |   47 +
+ 24 files changed, 8573 insertions(+), 233 deletions(-)
+
+=== paths in the diff matching *runner* ===
+NONE - runner.ts is untouched by this item
+
+=== every childEnv() call site in the tree (none carries a judge credential) ===
+runner-blackbox.selftest.ts:128: env: childEnv({ AT_REPO_ROOT: tree }),
+runner-expect.selftest.ts:175: env: childEnv({ AT_REPO_ROOT: tree }),
+runner-expect.selftest.ts:459: env: childEnv(),
+runner.selftest.ts:48: const env = childEnv({ AT_TIER: 'loop' });
+runner.selftest.ts:69: { cwd: REPO_ROOT, env: childEnv({ AT_TIER: 'loop' }), encoding: 'utf8' },
+runner.ts:163: export function childEnv(extra: Record<string, string> = {}): Record<string, string> {
+runner.ts:182: env: childEnv(),
+runner.ts:472: env: childEnv(),
+runner.ts:722: env: childEnv(),
+runner.ts:1137: env: childEnv({ ...stackEnv, ...rootOverride, AT_TIER: tier, AT_REGISTRATION_DIR: registrationDir }),
+
+=== files in the diff that mention AT_JUDGE_API_KEY ===
++++ b/.env.example
++# AT_JUDGE_API_KEY is PARENT-SIDE ONLY, and that is a design decision rather than a convention.
++AT_JUDGE_API_KEY=
++++ b/bun.lock
++++ b/loop/items/AI4DEV-20/gate1-critique.md
++8. [severity MAJOR] — §4d credential path — Passing `AT_JUDGE_API_KEY` to the Vitest child materially weakens the current leak model: the tree promises that provider secrets cannot reach tests, while the spawned test process inherits stdout/stderr directly and could print or misuse the key. Every test in every non-loop requirement receives it, not only semantic-oracle calls. Evidence: `.env.example:7-18`; `runner.ts:113-121,163-169,1121-1139`; `plan.md:165-172`. Fix: keep the key outside Vitest—prefer a bounded parent-side judge/recorder broker—or require an explicit, narrowly scoped live-oracle mode with a limited key and update the threat model.
++9. [severity MAJOR] — §§4d, 4g — The proposed credential sentinel can green without testing the real spawn condition. `childEnv(extra)` accepts and spreads any caller-supplied value, so testing `childEnv({AT_JUDGE_API_KEY: ...})` proves only that generic mechanism, not that the Vitest call passes it exclusively for non-loop tiers. Evidence: `runner.ts:163-169,1137`; current real-child probes at `runner.selftest.ts:44-84`. Fix: extract the exact tier-dependent environment builder used by the spawn site and run real-child probes for loop, integration, and `ANTHROPIC_API_KEY` exclusion.
++++ b/loop/items/AI4DEV-20/gate1-prompt.txt
++9. The credential path: does AT_JUDGE_API_KEY passed to non-loop children weaken the leak model
++++ b/loop/items/AI4DEV-20/gate1-rulings.md
++## F8 (MAJOR — AT_JUDGE_API_KEY into the vitest child weakens the leak model)
++parent-side only (recorder + smoke scripts, reading `AT_JUDGE_API_KEY` from their own
++++ b/loop/items/AI4DEV-20/gate1-stderr.txt
++9. The credential path: does AT_JUDGE_API_KEY passed to non-loop children weaken the leak model
++  154:   `AT_JUDGE_API_KEY` only (see 4d); a missing credential is an error at CALL time with remediation
++  168: OUT of it — that stays true. The judge key uses a DEDICATED name, `AT_JUDGE_API_KEY`, passed
++  170: credential-free and offline by construction. `runner.selftest.ts` gains: (a) `AT_JUDGE_API_KEY` is
++  199: If `AT_JUDGE_API_KEY` is available locally, run the three grounding rubrics once each against
++  241: - Credential surface: does `AT_JUDGE_API_KEY` pass-through weaken the leak-model the runner
++8. [severity MAJOR] — §4d credential path — Passing `AT_JUDGE_API_KEY` to the Vitest child materially weakens the current leak model: the tree promises that provider secrets cannot reach tests, while the spawned test process inherits stdout/stderr directly and could print or misuse the key. Every test in every non-loop requirement receives it, not only semantic-oracle calls. Evidence: `.env.example:7-18`; `runner.ts:113-121,163-169,1121-1139`; `plan.md:165-172`. Fix: keep the key outside Vitest—prefer a bounded parent-side judge/recorder broker—or require an explicit, narrowly scoped live-oracle mode with a limited key and update the threat model.
++9. [severity MAJOR] — §§4d, 4g — The proposed credential sentinel can green without testing the real spawn condition. `childEnv(extra)` accepts and spreads any caller-supplied value, so testing `childEnv({AT_JUDGE_API_KEY: ...})` proves only that generic mechanism, not that the Vitest call passes it exclusively for non-loop tiers. Evidence: `runner.ts:163-169,1137`; current real-child probes at `runner.selftest.ts:44-84`. Fix: extract the exact tier-dependent environment builder used by the spawn site and run real-child probes for loop, integration, and `ANTHROPIC_API_KEY` exclusion.
++++ b/loop/items/AI4DEV-20/gate1-stdout.txt
++8. [severity MAJOR] — §4d credential path — Passing `AT_JUDGE_API_KEY` to the Vitest child materially weakens the current leak model: the tree promises that provider secrets cannot reach tests, while the spawned test process inherits stdout/stderr directly and could print or misuse the key. Every test in every non-loop requirement receives it, not only semantic-oracle calls. Evidence: `.env.example:7-18`; `runner.ts:113-121,163-169,1121-1139`; `plan.md:165-172`. Fix: keep the key outside Vitest—prefer a bounded parent-side judge/recorder broker—or require an explicit, narrowly scoped live-oracle mode with a limited key and update the threat model.
++9. [severity MAJOR] — §§4d, 4g — The proposed credential sentinel can green without testing the real spawn condition. `childEnv(extra)` accepts and spreads any caller-supplied value, so testing `childEnv({AT_JUDGE_API_KEY: ...})` proves only that generic mechanism, not that the Vitest call passes it exclusively for non-loop tiers. Evidence: `runner.ts:163-169,1137`; current real-child probes at `runner.selftest.ts:44-84`. Fix: extract the exact tier-dependent environment builder used by the spawn site and run real-child probes for loop, integration, and `ANTHROPIC_API_KEY` exclusion.
++++ b/loop/items/AI4DEV-20/live-smoke.md
++**No live smoke was performed, because no judge credential existed.** `AT_JUDGE_API_KEY` was unset
++Checked, without printing or logging any value: `$env:AT_JUDGE_API_KEY` unset, `$env:ANTHROPIC_API_KEY`
++record-oracles: no AT_JUDGE_API_KEY in this process.
++$env:AT_JUDGE_API_KEY = '<key>'
++++ b/loop/items/AI4DEV-20/plan.md
++- Live transport: lazy `@anthropic-ai/sdk` client; credential `AT_JUDGE_API_KEY` read from the
++No runner change. No child-environment change. `AT_JUDGE_API_KEY` is read only by the
++excluded from children) stay untouched and green. `.env.example` documents `AT_JUDGE_API_KEY`
++validate → atomic write with full provenance. With `AT_JUDGE_API_KEY` present locally the
++items). Rides along: `.env.example` line for the parent-side `AT_JUDGE_API_KEY`. Nothing else.
++++ b/package.json
++++ b/tests/at/harness/atconfig.ts
++++ b/tests/at/harness/config.ts
++++ b/tests/at/harness/conformance.selftest.ts
++++ b/tests/at/harness/contracts.ts
++++ b/tests/at/harness/index.ts
++++ b/tests/at/harness/oracles.selftest.ts
++ * the live path deletes `AT_JUDGE_API_KEY` from this process first so that a developer who
++  const saved = process.env.AT_JUDGE_API_KEY;
++  delete process.env.AT_JUDGE_API_KEY;
++    if (saved !== undefined) process.env.AT_JUDGE_API_KEY = saved;
++++ b/tests/at/harness/oracles.ts
++            `with \`bun tests/at/harness/record-oracles.ts\` (needs AT_JUDGE_API_KEY in the CALLING process) and ` +
++ * PARENT-SIDE ONLY. `AT_JUDGE_API_KEY` is read from whatever process calls this and is never
++      const apiKey = process.env.AT_JUDGE_API_KEY?.trim();
++          'the semantic oracle has no judge credential in this process. AT_JUDGE_API_KEY is read only by the ' +
++++ b/tests/at/harness/record-oracles.ts
++ * the judge for real. It reads `AT_JUDGE_API_KEY` from its own environment and runs beside the
++  if (!process.env.AT_JUDGE_API_KEY?.trim()) {
++      'record-oracles: no AT_JUDGE_API_KEY in this process.\n' +
++        "    $env:AT_JUDGE_API_KEY = '<key>'\n" +
++++ b/tests/at/harness/recordings/README.md
++credential (`AT_JUDGE_API_KEY`) existed on the machine where AI4DEV-20 was built, so no live call
++$env:AT_JUDGE_API_KEY = '<key>'   # in the calling shell only; never committed, never logged
++++ b/tests/at/harness/rubrics/at-004-10.ts
++++ b/tests/at/harness/rubrics/at-009-07.ts
++++ b/tests/at/harness/rubrics/at-033-07.ts
++++ b/tests/at/harness/type-invention.selftest.ts
++++ b/tests/at/typeprobes/harness-invention.probe.ts
