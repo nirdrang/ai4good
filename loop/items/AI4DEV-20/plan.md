@@ -1,251 +1,222 @@
-# AI4DEV-20 — H4 Semantic-oracle harness (judging the meaning of AI output) — PLAN
+# AI4DEV-20 — H4 Semantic-oracle harness (judging the meaning of AI output) — PLAN, rev 2
 
-Item agent: fable @ xhigh. Chain: `~bringup → AI4DEV-3 (AT harness) → AI4DEV-20 (judging AI output meaning)`.
-Branch `nirdrang/ai4dev-20-h4-semantic-oracle-harness-judging-the-meaning-of-ai-output`, base `14fee90`.
-This plan is the ONE intent artifact for the item (no brief, no Gate 0). Gate 1 (codex sol @ xhigh)
-refutes it — intent included — before anything is implemented.
+**Rev 2, amended after Gate 1** (codex sol @ xhigh, `gate1-critique.md`; dispositions in
+`gate1-rulings.md` — F1..F12, all ruled by the item agent). Rev 1 is in git history at
+`de7a074`. Item agent: fable @ xhigh. Chain: `~bringup → AI4DEV-3 (AT harness) → AI4DEV-20
+(judging AI output meaning)`. Branch
+`nirdrang/ai4dev-20-h4-semantic-oracle-harness-judging-the-meaning-of-ai-output`.
 
 ## 1. What the item is
 
-Some acceptance tests assert on the MEANING of generated text, where string-matching cannot decide:
+Some acceptance tests assert on the MEANING of generated text, where string-matching cannot
+decide: AT-009.07 (rejection copy instructs, never accuses), AT-004.10 (Discovery output
+satisfies a fixture-specific semantic oracle), AT-033.07 (the assistant's four framed answers,
+each with a pinned oracle). H4 is the harness slice that makes such assertions executable: the
+oracle capability on the shared contract, the judge machinery behind it, and the determinism
+strategy. The item's open spec decision ("which judge model, and how determinism is achieved")
+is resolved in §3 and went through Gate 1 with the plan.
 
-- **AT-009.07** — rejection/failure copy "contains remediation instructions and no accusatory
-  language — instructs, never accuses (semantic oracle over the copy)".
-- **AT-004.10** — Discovery, run on Claude Opus over 5–10 turns, yields output that "satisfies a
-  fixture-specific semantic oracle — the required facts, constraints, user stories, and acceptance
-  criteria for that fixture are present and correct — not merely non-empty fields".
-- **AT-033.07** — the assistant's four framed answers each pass a pinned oracle (fixture task named;
-  blocker cause AND awaited action named; ≥ configured minimum of N fixture events with NO
-  fabricated facts; runway stated within a configured tolerance).
+## 2. Honest boundaries (amended per F3, F5, F8)
 
-H4 is the harness slice that makes such assertions executable: the **oracle capability** on the
-shared harness contract, the judge machinery behind it, and the **determinism strategy** so the same
-input does not pass one day and fail the next. The item text carries one open spec decision —
-"which judge model, and how determinism is achieved — fixed seed, rubric thresholds, or
-repeated-vote majority. Decide at the start of this item." That decision is §3 of this plan.
+- **No consuming suite exists yet.** The three consuming ATs live in untranslated suites. What
+  the ratified AT text pins TODAY is the set of criterion KINDS the contract must express:
+  semantic-absence, semantic-containment, count-minimum, numeric-tolerance, no-fabrication.
+  That — not any finished rubric — is the contract's grounding. Example rubrics (§4f) are
+  labeled accordingly: one near-final, two disposable skeletons.
+- **Integration tier is not reachable in this tree yet.** `createHarness()` registers clock,
+  fixtures, vendors and every SUT member as stand-ins, so `registry.ts` rejects any non-loop
+  run wholesale today. This item establishes ONLY the oracle capability's correct per-tier
+  provenance (stand-in at loop, real above); integration reachability belongs to the slices
+  that replace the other stand-ins (staging DB, proving-ground era).
+- **No credential enters any test child** (F8 scope cut, §4d). Live judging inside integration
+  test processes needs a credential-delivery mechanism (parent-side broker vs. env); that
+  decision is DEFERRED to the slice that makes the integration tier real, taken with its first
+  consuming run. This item's live surface is parent-side only.
 
-## 2. Honest boundary: no consuming suite exists yet
+## 3. The open spec decision — RESOLVED (this item, 2026-08-05; refined by Gate 1)
 
-The three consuming ATs live in REQ-009 / REQ-004 / REQ-033 suites, none of which is translated
-(just-in-time, per the scope boundary in `loop/bringup/AI4DEV-3-at-harness.md`). REQ-016 — the only
-translated suite, and the H7 proving ground — has no semantic AT. The H5 precedent (founder ruling
-2026-08-04) warns that a contract authored without its consuming test is a guess.
-
-Why H4 still builds now, and how the guess-risk is contained:
-
-- The founder picked this item today; the H7 item text lists H4 among its blockers; the parent
-  cannot fold without it. Deferral was available (as it was for the five vendor sims) and was not
-  chosen — H4 stayed a numbered slice.
-- Unlike a vendor sim (whose contract guesses at an EXTERNAL API's shape), the oracle contract is
-  grounded in RATIFIED text: the three AT statements above pin exactly what the oracle must decide.
-  We author the three rubrics NOW as committed grounding fixtures, derived line-by-line from the AT
-  text, and exercise the full machinery over them in conformance tests. The consuming suites will
-  own the final rubric parameters (minimums, tolerances) when they are authored; the rubric SHAPE
-  and the judge machinery are what this item pins.
-- The surface is kept minimal — one capability, one entry point (`judge`), no speculative modes.
-
-## 3. The open spec decision — RESOLVED (this item, 2026-08-05)
-
-### 3a. "Fixed seed" is REFUTED as unavailable, not merely rejected
-
-The Anthropic API exposes **no seed parameter** at all, and on current-generation models
-(Opus 4.7+, Opus 5, Sonnet 5, Fable/Mythos) the sampling parameters `temperature` / `top_p` /
-`top_k` are **removed — sending any of them is a 400**. Even on older models where temperature
-existed, temperature 0 never guaranteed identical outputs. A determinism strategy built on seeding
-is therefore not a design option on this provider; the spec's first listed option is closed by
-fact, not preference. (Source: claude-api skill, cached 2026-06, checked 2026-08-05.)
+### 3a. "Fixed seed" is REFUTED as unavailable
+The Anthropic API exposes no seed parameter on any model. On the pinned judge model's
+generation (Opus 4.7+) the sampling parameters are removed (400 when sent); on Sonnet 5
+non-default values are rejected. Even where temperature existed historically it never
+guaranteed identical outputs. Seeding is not a design option on this provider; the spec's
+first listed option is closed by fact.
 
 ### 3b. Judge model: **`claude-opus-5`**, pinned in one module
+- The judge answers pinned binary questions and does verbatim extraction over supplied text;
+  instruction-following stability under a strict output schema is the quality that matters.
+- Cost immaterial at this volume (one call carries a whole rubric; k votes × few semantic ATs).
+- `claude-sonnet-5` considered, rejected: the saving is immaterial while any variance increase
+  is paid by every future suite. Revisit = one-line change + re-record.
+- Self-preference (product generates with Claude too) is neutralized by rubric decomposition:
+  the judge never ranks or free-scores; it checks named criteria against supplied facts.
+- `claude-opus-5` is a fixed model id; behavior drift under a fixed id cannot be excluded by
+  pinning — the replay layer, full-request hashing and provenance record make drift visible.
+- Request shape: structured output via `output_config.format` (JSON schema = the verdict),
+  `max_tokens` ~4000, thinking at model default. **Effort: `"low"`, marked PROVISIONAL**
+  (F7) — no consuming evaluation exists to settle it; the labeled effort sweep is explicitly
+  deferred to the first consuming suite; effort participates in the replay key (F6), so any
+  change invalidates recordings by construction.
+- **No refusal fallback, deliberately.** A silent model swap would change the oracle's
+  identity mid-suite. `stop_reason: refusal` / `max_tokens` / unparseable output are typed
+  oracle ERRORS carrying the cause — never a pass, never a silent retry elsewhere.
+- Client: official `@anthropic-ai/sdk` (devDependency). Executor latitude (recorded if used):
+  if the SDK misbehaves under bun, a minimal fetch transport is the approved fallback,
+  documented as a decision in the item record.
 
-- The judge's job is narrow: binary criterion checks and verbatim extraction over supplied text,
-  against a pinned rubric. Reliability of instruction-following under a strict output schema is the
-  quality that matters; verdict flip-rate is the enemy, because a flaky gate poisons every suite
-  that leans on it.
-- Cost is not a deciding factor at this volume: one judge call carries ALL criteria of one rubric;
-  3 votes × a handful of semantic ATs × a few KB of material ≈ cents per integration run at
-  $5/$25 per MTok.
-- `claude-sonnet-5` ($3/$15) is the considered alternative — likely adequate, rejected because the
-  saving is immaterial while any increase in verdict variance is paid by every future suite.
-  Revisiting later is a one-line change in one module plus re-recording replay fixtures.
-- Self-preference risk (the product's Discovery generator is also Claude/Opus) is real for holistic
-  "is this good?" judging and largely neutralized here: the judge never ranks or scores freely — it
-  answers pinned binary questions against fixture facts supplied in the same prompt.
-- `claude-opus-5` is a fixed model id (no date-suffixed snapshots exist to pin). Behavior drift
-  under a fixed id therefore CANNOT be excluded by pinning alone — this is a stated reason for the
-  replay layer and the provenance record below, which make any drift visible rather than silent.
-- Request shape: `output_config: { effort: "low", format: { type: "json_schema", schema: <verdict
-  schema> } }`, `max_tokens` sized generously (~4000); thinking left at the model default
-  (adaptive). Effort `low` is documented as strong on this model for scoped tasks and reduces
-  output variance; the schema-constrained output is the verdict, so there is no prose to drift.
-- **No refusal fallback, deliberately.** The claude-api skill recommends server-side `fallbacks`
-  by default for product code; for a TEST ORACLE a silent model swap would change the oracle's
-  identity mid-suite — the exact "declared fact drifting from a real one" failure this project
-  deletes. A `stop_reason: "refusal"` (or `max_tokens`, or unparseable output) is a typed oracle
-  ERROR carrying the cause — never a pass, never a silent retry on another model.
+### 3c. Determinism: two-tier guarantee, stated honestly (F1)
+Bit-determinism at a live gate is IMPOSSIBLE on this provider. The ratified spec's own option
+menu (rubric thresholds, repeated-vote majority) defines "determinism" as verdict stability;
+replay at integration is structurally unavailable because the SUT generates the judged
+material fresh each run. The strategy, per tier:
 
-### 3c. Determinism: rubric decomposition + repeated-vote majority + committed replay
+1. **Loop tier: bit-deterministic by construction.** The oracle is a REPLAY of committed
+   recordings — no network, no credential, keyed as in §4b. A miss is a loud typed error
+   naming the key; never a fallthrough to live.
+2. **Integration/drill tier: stability-bounded.** (a) Rubric decomposition into named BINARY
+   criteria judged in one structured verdict; (b) extraction-then-code-comparison — the model
+   extracts values/quotes, CODE applies tolerances and minimums (deterministic arithmetic);
+   (c) repeated-vote majority per criterion, k read from the at-config registry
+   (`harness.oracle.judge_votes` = 3, provisional), validated positive odd integer.
+3. **Measured, not asserted** (F1): the live smoke (§4h) repeats the full k-vote verdict N
+   times over fixed specimens and records flip counts in the item record — a measured
+   stability bound, or its absence stated when no key exists.
 
-Four layers, each doing the part it is good at:
+Provenance is part of every verdict: model id requested, `response.model` served, request
+hash, rubric id+version, vote tallies, evidence quotes, source (`live` | `replay`).
 
-1. **Rubric thresholds (decomposition).** Every semantic AT is authored as a rubric of NAMED BINARY
-   criteria, each judged independently in one structured verdict. Binary questions over supplied
-   text at a fixed prompt are far more stable than one holistic judgment. Pass rule v1: every
-   `required` criterion true. Thresholds/minimums that the AT itself parameterizes (AT-033.07's
-   "configured minimum of N events", "configured tolerance") are rubric PARAMETERS read from
-   at-config by the consuming suite — never constants inside a rubric.
-2. **Extraction-then-code-comparison.** Numeric and countable claims are never judged by the model:
-   the judge EXTRACTS the stated value or the matched items (verbatim quotes in the verdict), and
-   CODE applies the tolerance or the minimum. The model answers semantic questions only
-   ("does this answer name the fixture's blocker cause?"); arithmetic is deterministic by
-   construction.
-3. **Repeated-vote majority (integration/drill tier).** `judge()` runs k independent live calls and
-   takes the per-criterion majority. k = 3, pinned in the at-config registry
-   (`harness.oracle.judge_votes`, provisional), so re-tuning is a registry edit, not a test edit.
-   For small per-vote flip probability p, the majority flips at ≈ 3p² — the standard variance
-   squeeze available on an API without seeds.
-4. **Committed replay (loop tier).** At loop tier the oracle capability is a REPLAY of committed
-   recordings — keyed by SHA-256 over (model id, prompt version, rubric id+version+hash, material
-   hash, vote index) — no network, no key, bit-deterministic, free. A missing recording is a loud
-   typed error naming the key, NEVER a fallthrough to a live call: loop tier stays offline by
-   construction. This obeys the tier contract in `registry.ts`: the replay oracle is registered as
-   a STAND-IN (legal at loop only); the live judge is registered REAL above loop, so
-   `stubbedCapabilities()` stays empty at integration exactly as `openWorld` asserts.
+## 4. Architecture (amended)
 
-**Provenance is part of the verdict.** Every `SemanticVerdict` records model id, `response.model`
-as served, prompt version, rubric hash, material hash, vote count, per-criterion vote tallies and
-evidence quotes, and source (`live` | `replay`). A drifting judge produces a visibly different
-record; a failing verdict is actionable from its own evidence.
-
-## 4. Architecture
-
-### 4a. Contract (types only, in `tests/at/harness/contracts.ts` — ALIASES, never interfaces)
-
+### 4a. Contract (`tests/at/harness/contracts.ts` — type ALIASES, never interfaces)
 ```
-Rubric            { id, version, materialSlots: string[], criteria: RubricCriterion[] }
-RubricCriterion   { id, kind: 'semantic' | 'extraction', statement, required } —
-                  extraction criteria also declare what to extract; code compares
-SemanticVerdict   { pass, criteria: CriterionVerdict[], provenance }
-CriterionVerdict  { criterionId, pass, evidence, votes: { pass, fail } }
-SemanticOracle    { judge(rubric, material: Record<string,string>): Promise<SemanticVerdict> }
-AtHarness         gains `oracles: SemanticOracle`
+Rubric              { id, version, materialSlots: string[], criteria: RubricCriterion[] }
+RubricCriterion     discriminated union (F4):
+  { kind:'semantic',   id, statement, required }
+  { kind:'extraction', id, statement, required, extract: {what, unit?, normalization?},
+                       compare: { op:'numeric_within_tolerance', expected, tolerance }
+                              | { op:'count_at_least', minimum } }
+SemanticVerdict     { pass, criteria: CriterionVerdict[], provenance: VerdictProvenance }
+CriterionVerdict    { criterionId, pass, evidence, votes: {pass, fail} }
+SemanticOracle      { judge(rubric, material: Record<string,string>): Promise<SemanticVerdict> }
+AtHarness           gains `oracles: SemanticOracle`
 ```
-
-Exact member names are the executor's latitude within this shape; the alias rule and the
-one-entry-point rule are not.
+Exact member names are executor latitude within this shape. Every new exported alias joins the
+protected-alias list in the type-invention probes with matching declaration-merging attacks
+(F11). Expected values/tolerances/minimums for real ATs are suite-supplied later; the SHAPE
+ships now with boundary-case conformance (at-tolerance, off-by-one minimum).
 
 ### 4b. Implementation (`tests/at/harness/oracles.ts`, new)
+- Rubric validation: refuses empty criteria, duplicate ids, unknown material slots, invalid
+  comparator payloads — loud, at construction.
+- Prompt builder: system prompt (judge role + criteria + extraction duties), user content
+  (material slots). Prompt metadata carries a version string for humans; **the invalidation
+  mechanism is the request hash, not the version constant** (F6).
+- **Replay key (F6):** SHA-256 over a canonical serialization of the COMPLETE rendered request
+  — model id, every request parameter (effort, max_tokens, output schema included), fully
+  rendered system + user messages (material slot names and values) — plus the vote index.
+- Verdict schema enforced server-side (structured outputs) AND re-validated locally;
+  `stop_reason` checked before parsing; refusal / truncation / unknown criterion ids / schema
+  drift are typed errors, never passes.
+- Aggregation: per-criterion majority over k votes; overall pass = all `required` criteria
+  pass; extraction criteria resolved by code comparison after extraction; k from `h.config`
+  (F10), validated positive odd integer (0/negative/fractional/even → typed refusal).
+- Replay store: committed JSON under `tests/at/harness/recordings/`, entries carry provenance
+  incl. `source`; the store REFUSES provenance-less or non-live entries in the committed dir
+  (F2); lookup by key; miss = typed error with the exact key.
+- Live transport: lazy `@anthropic-ai/sdk` client; credential `AT_JUDGE_API_KEY` read from the
+  CALLING process env only (recorder/smoke — parent-side; §4d). Injectable transport seam for
+  conformance (canned responses / throws-on-use).
+- Statelessness (F12): fresh oracle instance per `createHarness()` (email-sim pattern); replay
+  store read-only; fresh-instance isolation proven in conformance; if any state needing
+  disposal appears, it registers with harness teardown and its failure reddens the run.
 
-- Rubric validation (refuses empty criteria, duplicate ids, unknown material slot references —
-  loud, at construction).
-- Versioned prompt builder: system prompt states the judge role, the criteria, and the extraction
-  duties; user content carries the material slots. `PROMPT_VERSION` constant participates in the
-  replay key — any prompt edit invalidates recordings by construction instead of silently reusing
-  them.
-- Verdict schema: JSON schema enforced server-side via structured outputs AND re-validated locally
-  (a schema drift or refusal must be OUR error, with the cause, never a crash or a pass).
-  `stop_reason` checked before parsing; `refusal` / `max_tokens` / unknown criterion ids in the
-  response are typed errors.
-- Majority aggregation over k votes, per criterion; overall pass = all required criteria pass;
-  extraction criteria resolved by code comparison after extraction.
-- Replay store: committed JSON recordings under `tests/at/harness/recordings/`; lookup by the key
-  in §3c; misses throw with the exact key.
-- Live client: official `@anthropic-ai/sdk` (new devDependency — the project is TypeScript and the
-  skill mandates the SDK over hand-rolled fetch), constructed lazily; credential read from
-  `AT_JUDGE_API_KEY` only (see 4d); a missing credential is an error at CALL time with remediation
-  text, so building a harness for a suite that never touches oracles stays clean at any tier.
-- Transport is injectable for conformance tests (a fake that returns canned responses / throws on
-  use), so `at:selftest` never does network.
+### 4c. Wiring (`tests/at/harness/index.ts`) — narrowed claim (F3)
+`createHarness()` registers `oracles.judge` as `standInCapability` (replay) at loop and
+`realCapability` (live transport) above loop. That establishes THIS capability's provenance
+correctly; it does NOT make integration reachable (other stand-ins remain). The exact
+loop-tier stub ledger in `conformance.selftest.ts` gains `'oracles.judge'`. Factory-level
+tests assert provenance per tier and that live mode NEVER consults the replay store. Above
+loop, a `judge()` call fails at call time with a typed error naming the deferred
+credential-delivery boundary (§2). No change to req-016 behavior or its expected manifest.
 
-### 4c. Wiring (`tests/at/harness/index.ts`)
+### 4d. Credential path — REPLACED (F8/F9)
+No runner change. No child-environment change. `AT_JUDGE_API_KEY` is read only by the
+parent-side recorder and smoke scripts. The existing leak sentinels (`ANTHROPIC_API_KEY`
+excluded from children) stay untouched and green. `.env.example` documents `AT_JUDGE_API_KEY`
+as parent-side-only. **Removal verification condition (per the skill):** the executor proves
+by inspection of the final diff that `runner.ts` is untouched and no code passes any judge
+credential into a child environment; restore trigger: a conformance need the injectable fake
+transport cannot cover (none expected).
 
-`createHarness()` registers the capability by tier: `standInCapability('oracles.judge', replay)`
-at loop; `realCapability('oracles.judge', live)` at integration/drill. No change to the
-harness-missing message, no change to req-016 behavior (that suite never reaches `h.oracles`).
+### 4e. Registry pin (`atconfig.ts` + `config.ts`)
+`oracleJudgeVotes` = 3, unit `votes`, `provisional: true`, source: this plan §3c + rulings
+F1/F10; dotted key `harness.oracle.judge_votes`. The oracle constructs from `h.config` — the
+registry is the sole writer of the vote count, proven by an override test that observably
+changes transport call count and aggregation (F10).
 
-### 4d. Credential path (`tests/at/harness/runner.ts`)
+### 4f. Example rubrics (`tests/at/harness/rubrics/`) — relabeled (F5)
+- `at-009-07.ts`: near-final (fixture-independent: remediation-present, accusation-absent).
+- `at-004-10.ts`, `at-033-07.ts`: DISPOSABLE parameterized skeletons; example parameters are
+  explicitly NOT the future suites' oracles; they exist to prove the criterion KINDS express.
+- Compliant + violating specimen per rubric.
+The load-bearing conformance rubrics are requirement-NEUTRAL synthetic ones designed to hit
+machinery edges.
 
-The runner's child environment is an allowlist and `ANTHROPIC_API_KEY` is deliberately leak-tested
-OUT of it — that stays true. The judge key uses a DEDICATED name, `AT_JUDGE_API_KEY`, passed
-explicitly at the one vitest-spawn call site, ONLY when tier ≠ loop. Loop tier remains
-credential-free and offline by construction. `runner.selftest.ts` gains: (a) `AT_JUDGE_API_KEY` is
-NOT in the base allowlist, (b) the non-loop path passes it through, (c) `ANTHROPIC_API_KEY` still
-never leaks. `.env.example` documents the variable.
+### 4g. Conformance tests (`tests/at/harness/oracles.selftest.ts`) — the load-bearing wall
+Rubric validation refusals · replay key covers the complete request (change effort → new key;
+change a material value → new key) · replay hit bit-stable, miss = typed error + NO network
+(fake transport that throws if touched) · committed-store provenance refusal (F2) · majority
+math incl. 2-1 both directions and crossed multi-criterion patterns (F10) · votes
+sole-writer + invalid-votes refusals (F10) · required-vs-optional pass rule · extraction
+boundary cases (F4) · refusal / max_tokens / malformed / unknown-criterion are errors, never
+passes · per-tier provenance + live-never-replay (F3) · fresh-instance isolation (F12) ·
+protected-alias attacks for every new type (F11).
 
-### 4e. Registry pin (`tests/at/harness/atconfig.ts` + `config.ts`)
-
-`oracleJudgeVotes` = 3, unit `votes`, `provisional: true`, source: this item's §3c decision;
-dotted key `harness.oracle.judge_votes`. (Rubric minimums/tolerances for AT-033.07 are pinned when
-the REQ-033 suite is authored — they are that requirement's numbers, not the harness's.)
-
-### 4f. Grounding rubrics (`tests/at/harness/rubrics/`)
-
-`at-009-07.ts`, `at-004-10.ts`, `at-033-07.ts` — the three rubrics derived from the ratified AT
-text, plus small fixture material samples (a compliant and a violating specimen each), plus
-committed recordings so the replay path over real rubric shapes is conformance-tested offline.
-Marked as grounding: the consuming suite may amend parameters; the shapes are the contract's proof.
-
-### 4g. Conformance tests (`tests/at/harness/oracles.selftest.ts`)
-
-Per suite-authoring rule 2, these are the load-bearing wall — a bug here green-lights every future
-semantic AT. Cover at minimum: rubric validation refusals; prompt version participates in replay
-key; replay hit (bit-stable verdict), replay miss (typed error naming key, no network attempted);
-majority math (3-0, 2-1 both directions, extraction overrides); required-vs-optional pass rule;
-refusal / max_tokens / malformed-response / unknown-criterion outcomes are errors, never passes;
-loop-tier oracle never touches the network (fake transport that throws if invoked); provenance
-recorded; teardown leaves no state.
-
-### 4h. Live smoke (conditional, executor-run, recorded)
-
-If `AT_JUDGE_API_KEY` is available locally, run the three grounding rubrics once each against
-their fixture material via the REAL client (compliant specimen → pass, violating specimen → fail),
-capture full verdicts + `response.model` into `loop/items/AI4DEV-20/live-smoke.md`, and refresh
-the committed recordings from these real responses. If no key is available, say so in the PR
-plainly: the live path ships verified by schema + typed SDK + conformance, and the first
-consuming suite's integration run is named as the live proof point. The smoke never runs in CI.
+### 4h. Recorder + live smoke (parent-side; conditional on a key) (F2, F1)
+`tests/at/harness/record-oracles.ts` (name = executor latitude): canonicalize → live call →
+validate → atomic write with full provenance. With `AT_JUDGE_API_KEY` present locally the
+executor: records the example rubrics' specimens (compliant → pass, violating → fail),
+repeats the k-vote verdict N=5 times per specimen and records flip counts, writes
+`loop/items/AI4DEV-20/live-smoke.md`, commits the recordings. Without a key: the recordings
+dir ships EMPTY, nothing synthetic is committed, and the PR states the boundary and names the
+first consuming suite's integration run as the live proof point. The smoke never runs in CI.
 
 ## 5. Steps (executor implements; done-criterion per step)
-
-1. Contract types + `oracles` member → `bun run typecheck` green; type-invention probes still pass.
-2. `oracles.ts` core (validation, prompt, schema, aggregation, replay, live client, injectable
-   transport) → its conformance tests green.
-3. Wiring + tier provenance → `at:verify req-016 --tier loop --expect` UNCHANGED (exit 0);
-   integration-tier stub assertion unaffected.
-4. Runner credential pass-through + sentinel additions → `runner.selftest.ts` green.
-5. at-config entry + dotted key → config selftests green.
-6. Grounding rubrics + specimens + recordings → oracle conformance green offline.
-7. Live smoke (conditional) → `live-smoke.md` recorded, recordings refreshed.
-8. `bun install` delta (`@anthropic-ai/sdk` devDependency) committed with lockfile.
+1. Contract types + `oracles` member + protected-alias extensions → `bun run typecheck` green;
+   type-invention selftests green WITH the new aliases enumerated and attacked.
+2. `oracles.ts` core (validation, prompt, hashing, schema, aggregation, replay, live client,
+   injectable transport) → its conformance tests green.
+3. Wiring + per-tier provenance + stub-ledger update → `at:verify req-016 --tier loop
+   --expect` exit 0, manifest byte-identical; conformance ledger green.
+4. at-config entry + dotted key + votes validation → config/oracle conformance green.
+5. Example rubrics + specimens (labeled per 4f) → conformance green offline.
+6. Recorder + conditional live smoke → `live-smoke.md` + recordings committed, or the no-key
+   state with an EMPTY committed recordings dir, stated in the PR.
+7. Dependency delta (`@anthropic-ai/sdk` devDependency) committed with lockfile.
+8. F8 removal verification: diff inspection proving runner untouched, no credential to
+   children; recorded in the executor's report.
 
 ## 6. Verification state expected at the end
-
 | Check | Expected |
 |---|---|
 | `bun run typecheck` | exit 0 (both projects) |
-| `bun run at:selftest` | exit 0, including new oracle conformance |
-| `bun run at:verify req-016 --tier loop --expect` | exit 0, byte-identical expectations (no manifest change) |
+| `bun run at:selftest` | exit 0, incl. oracle conformance + extended alias attacks |
+| `bun run at:verify req-016 --tier loop --expect` | exit 0, expectations byte-identical |
 | CI `verify` on the PR head | green — required for merge, pinned head |
-| Live smoke | recorded in item record, or its absence stated in the PR |
+| Live smoke + stability figures | in item record, or absence stated in PR |
+| `runner.ts` | untouched (F8 condition, diff-proven) |
 
-No AT ids are owned by this item (infrastructure; the parent's done criteria are functional).
-Nothing in this item may alter req-016's expected manifest.
+No AT ids are owned by this item. Nothing may alter req-016's expected manifest.
 
-## 7. Risks Gate 1 should attack
-
-- The no-consuming-suite boundary (§2): is the grounding-rubric mitigation real or decorative?
-- The judge-model ruling (§3b): is `effort: "low"` + schema + k=3 actually the variance-minimizing
-  configuration, and is rejecting the refusal-fallback right for an oracle?
-- Replay keying: does any input that changes judge behavior escape the key (model id, prompt
-  version, rubric, material, vote index — anything missing)?
-- Tier semantics: any path by which an integration run silently grades against replay, or a loop
-  run silently goes live.
-- Credential surface: does `AT_JUDGE_API_KEY` pass-through weaken the leak-model the runner
-  enforces?
-- The `@anthropic-ai/sdk` dependency addition (territory: package.json is neither Lovable's nor
-  Claude's per the CI guard; CI code-territory triggers the full suite — is that acceptable?).
-- Anything here a tool cannot do as written.
+## 7. Risks accepted (Gate 1 residuals, recorded)
+Self-preference correlated across same-provider votes · provider availability/rate limits at
+gate time · SDK-under-bun unproved until smoke (fallback latitude in §3b) · two specimens per
+rubric cannot expose silently-ignored criteria · recording staleness handled by full-request
+hashing, not discipline · integration-tier live path lands with a later slice (deferred
+credential delivery, §2) — accepted knowingly, with the boundary written into the code's
+error text.
 
 ## 8. Out of scope / rides along
-
-- Translating REQ-004/009/033 suites, or registering any AT id — future items.
-- Vendor sims (AI4DEV-38..42), reporter envelope, capability codes — other items.
-- Rides along: none identified yet; `.env.example` line and runner comment ride naturally with 4d.
+Translating REQ-004/009/033 suites or registering AT ids · vendor sims (AI4DEV-38..42) ·
+child-side credential delivery (deferred, §2) · reporter envelope / capability codes (other
+items). Rides along: `.env.example` line for the parent-side `AT_JUDGE_API_KEY`. Nothing else.
