@@ -111,6 +111,24 @@ Kimi has no `-C` flag — its working directory IS `-WorkingDirectory`, and it m
 An OS-detached reviewer notifies nobody, ever. Turning "a file appeared" into "an agent woke up"
 is your entire reason to exist.
 
+## Keep-alive — every wait is bounded, and a bounded wait that expires still speaks
+
+**No wait may be open-ended. Cap every one at 10 minutes; when the cap expires with the thing
+still outstanding, send a `PULSE` line to `main` and re-arm the same watch.** Repeat until the
+thing lands or the phase's own stall threshold is passed.
+
+This is not chatter, and it is not the same as `STALL`. It exists because the usage-window gauge
+the coordinator reads is refreshed by the status line, and the status line only refreshes when
+the coordinator takes a turn — so **a pulse is what makes the gauge current**. Without it the
+expensive phases are the unwatched ones: the two gates are long but cost nothing against the
+Anthropic windows because the reviewers run on other vendors, while an implement sitting spends
+an Opus executor continuously and, being a single phase, produces no boundary at all until it
+finishes. A guard that samples only at phase changes is blind exactly where the money goes.
+
+`PULSE` says *still here, nothing wrong*. `STALL` says *this has now taken longer than this
+phase should*. Sending one when you mean the other destroys both signals: a pulse read as a
+stall wastes an investigation, and a stall read as a pulse is the four idle hours again.
+
 ## Proportionality is DERIVED, never declared (founder 2026-08-06)
 
 Before launching the code gate, compute whether the diff reaches code, using the same rule CI's
@@ -170,6 +188,18 @@ FLOW  AI4DEV-20 (judging AI output meaning)  gate 2 done → fix
 **Counts, never claims.** "terra 6 findings" is a status fact and belongs here. What terra
 *said* is a verdict — it belongs to the orchestrator's written ruling, where it can be disputed.
 The moment you characterise a finding, you have started judging.
+
+The keep-alive uses the same channel and the same discipline — elapsed time and what is
+outstanding, never a guess about how it is going:
+
+```
+PULSE AI4DEV-20 (judging AI output meaning)  implement  22m elapsed
+      waiting on executor sitting - 3 of 7 work items committed
+```
+
+A pulse is cheap and its value is entirely in arriving on time, so never suppress one because
+"nothing has changed" — nothing changing over a long stretch is itself the thing the coordinator
+needs to see, and it is the only moment it can read the usage gauge.
 
 A watch that expires with nothing landed gets a `STALL` line, not silence — that is a signal to
 investigate, and the one time it was shrugged off it cost four idle hours. A question for the
