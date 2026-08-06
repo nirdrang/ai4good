@@ -4,6 +4,17 @@
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\statusline.ps1\""
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\guard-branch-switch.ps1\""
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
