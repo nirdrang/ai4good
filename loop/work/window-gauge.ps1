@@ -152,6 +152,17 @@ $result.resetsAtUtc  = $worst.resetsAtUtc
 $result.resetsInMin  = $worst.resetsInMin
 
 if ($null -ne $ageMin -and $ageMin -gt $StaleMinutes) {
+    # A stale reading proves a FLOOR, not a level: inside one window the figure only ever climbs.
+    # So if the reading was already over the line AND its own window has not reset since, the
+    # level still stands and parking is the evidenced answer, not a cautious guess. Only once the
+    # reset has passed does the old number stop meaning anything - that is the case where we
+    # genuinely cannot say, and where a low stale reading always sat, since it may have climbed.
+    if ($worst.percent -ge $PauseAt -and $null -ne $worst.resetsInMin -and $worst.resetsInMin -gt 0) {
+        $result.verdict = 'PAUSE'
+        $result.reason  = ("{0} at {1}% (pause line {2}%) - reading is {3} min old, but that window has not reset, and a window only climbs" -f `
+            $worst.name, $worst.percent, $PauseAt, $ageMin)
+        Emit $result
+    }
     $result.verdict = 'UNKNOWN'
     $result.reason  = ("last reading is {0} min old (limit {1}) - treat as unknown, never as low" -f $ageMin, $StaleMinutes)
     Emit $result
