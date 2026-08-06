@@ -76,6 +76,17 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
 - Reviewer output never lands inside the tree **while a gate is open**; it goes to the item's
   artifacts directory. The fix and audit sittings then commit the raw critiques and distillates
   into the record — evidence that stays only in the artifacts directory dies with the sweep.
+- **A branch belongs to the DIRECTORY, not to the session.** Several sessions can sit in one
+  folder, and a branch change there moves all of them mid-turn, silently. So the main worktree
+  stays on `main` permanently and is where the coordinator works; every item gets its own folder
+  via `git worktree add`, with its own session opened in it. `loop/work/guard-branch-switch.ps1`
+  refuses a branch change in the main worktree so this cannot be forgotten mid-task rather than
+  merely written down here.
+- **Stale-worktree sweep** (founder 2026-08-05). A platform worktree is residue only when its
+  lock pid is DEAD, its tree is CLEAN, and its head is FULLY MERGED to main — then unlock,
+  remove, and delete the merged remote branch. **Check those three in that order**: a live agent
+  or unpushed work must never be swept, and a LIVE lock pid is never touched at all, because
+  force-removing a locked worktree is the hazard that breaks a resumed agent.
 
 ## Committing
 
@@ -96,7 +107,26 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
 
 - Never merge without the required CI check green on the exact head the merge ruling pins.
   Branch protection having `strict` and `enforce_admins` off is a configuration convenience,
-  not a licence.
+  not a licence — **for every role except the founder.**
+
+  **The founder may bypass the check deliberately** (founder 2026-08-07). `enforce_admins` is
+  false, so `gh pr merge <n> --squash --admin` lands a pull request whose check is red, absent, or
+  never dispatched. That is the founder's call to make and no agent may make it, propose it as
+  routine, or treat a past bypass as precedent for the next one.
+
+  **A bypass is only legitimate when it is recorded**, because a merged commit carries no trace
+  that nothing checked it — the merge looks identical either way, and six months later the
+  history claims a green that never existed. Before merging, a comment on the pull request states:
+  that the check was bypassed, why (dispatch outage, check unavailable, founder ruling), what
+  evidence stands in its place, and the exact head SHA that evidence was gathered against. If the
+  head moves afterwards, the evidence describes a different commit and must be regathered.
+
+  **Know which kind of bypass it is, and say so.** Overriding a check that could not RUN is not
+  the same act as overriding one that RAN AND OBJECTED, and an outage hides the difference. On
+  2026-08-07 a pull request looked like the first and was the second: dispatch was down, but its
+  diff also crossed both ownership territories, which CI would have rejected outright. Establish
+  what the check would have said — run its steps locally, or read the rule it would have applied
+  — before deciding the objection is absent rather than merely silent.
 - Never set a board item Done by hand outside a documented repair, and record a repair AS a
   repair.
 - Never treat an empty or progress-line-only reviewer output as a clean gate.
