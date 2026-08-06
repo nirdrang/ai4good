@@ -257,7 +257,7 @@ jobs:
             echo "ownership guard OK — this pull request touches neither territory"
           fi
 
-      - name: Guard against a pull request that closes an item it does not own
+      - name: Guard against a pull request that names an item it does not own
         if: github.event_name == 'pull_request'
         shell: bash
         env:
@@ -266,11 +266,17 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          # Linear closes an issue when a CLOSING MAGIC WORD sits next to its id in a pull
-          # request's title or body — close/fix/resolve/complete/implement and their inflections.
-          # A bare mention does not close; the verb does. That is how a careful post-mortem
-          # naming the item it learned from closed that item mid-work: the sentence read
-          # "the instruction that fixed AI4DEV-31's chain", and `fixed` was the whole cause.
+          # THE ID ITSELF IS THE TRIGGER. Linear links a pull request to every item id in its
+          # title or body, and the link alone is enough to drag an item's status — a finished
+          # item was pulled back to In Progress twenty-four minutes after its own merge had
+          # correctly closed it, by a body that said `ref AI4DEV-43`. The deliberately
+          # "non-closing" words are NOT safe: ref, part of, related to, towards all do it.
+          # A CLOSING verb additionally closes the item, which is louder but not separate.
+          #
+          # This guard therefore fails on ANY id the branch does not own, not only on ids beside
+          # a closing verb. An earlier version checked only the verb and told authors to reach
+          # for `ref`/`towards` instead — advice that caused the exact defect it was preventing.
+          # Refer to other items IN WORDS: "the item that landed the relay".
           #
           # The hazard punishes good practice — the better the write-up, the more items it cites,
           # and the most-cited item is the one somebody is actively working. Nothing checked that
@@ -288,30 +294,31 @@ jobs:
             exit 1
           fi
 
-          MAGIC='(clos(e|es|ed|ing)|fix(|es|ed|ing)|resolv(e|es|ed|ing)|complet(e|es|ed|ing)|implement(|s|ed|ing))'
+          # No closing-verb regex any more. An earlier draft of this rewrite kept one to report
+          # whether a stray id would be CLOSED or merely reopened, but the proximity window
+          # reaches across the branch's own id, so "Closes AI4DEV-46, towards AI4DEV-22" reported
+          # AI4DEV-22 as a closure. Both outcomes fail identically, so the wrong-but-confident
+          # label bought nothing and was deleted rather than patched.
           ID='AI4(DEV|PM)-[0-9]+'
 
-          # Up to 24 non-space characters may sit between the verb and the id, so "fixes the
-          # last of AI4DEV-31" is caught while a verb three sentences away is not.
-          closing=$(printf '%s' "$pr" | grep -oiE "${MAGIC}[[:space:]]+([^[:space:]]+[[:space:]]+){0,3}${ID}" || true)
-          claimed=$(printf '%s\n' "$closing" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
+          mentioned=$(printf '%s' "$pr" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
           owned=$(printf '%s' "$HEAD_REF" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
 
-          if [ -z "$claimed" ]; then
-            echo "closure guard OK — no closing reference to any item in the title or body"
+          if [ -z "$mentioned" ]; then
+            echo "reference guard OK — the title and body name no item at all"
             exit 0
           fi
 
-          echo "closing references found: $(printf '%s' "$claimed" | tr '\n' ' ')"
+          echo "items named: $(printf '%s' "$mentioned" | tr '\n' ' ')"
           echo "this branch owns: $(printf '%s' "${owned:-none}" | tr '\n' ' ')"
 
-          stray=$(comm -23 <(printf '%s\n' "$claimed" | grep . | sort -u) <(printf '%s\n' "$owned" | grep . | sort -u) || true)
+          stray=$(comm -23 <(printf '%s\n' "$mentioned" | grep . | sort -u) <(printf '%s\n' "$owned" | grep . | sort -u) || true)
           if [ -n "$stray" ]; then
-            echo "::error::this pull request would CLOSE an item its branch does not own"
-            printf '%s\n' "$stray" | sed 's/^/  would close: /'
-            echo "The branch names $(printf '%s' "${owned:-no item}" | tr '\n' ' '), so any other item here is being closed by prose, not by the work."
-            echo "Fix the wording: use a non-closing verb (repaired, taught, motivated), or Linear's non-closing references (ref, part of, related to, contributes to, towards)."
+            echo "::error::this pull request names an item its branch does not own — the link alone moves that item"
+            printf '%s\n' "$stray" | sed 's/^/  would move: /'
+            echo "The branch names $(printf '%s' "${owned:-no item}" | tr '\n' ' '), so any other id here moves an item by prose, not by the work."
+            echo "Fix the wording: name other items IN WORDS, never by id — 'the item that landed the relay'. There is no safe reference word; ref, part of, related to and towards all link and move the item."
             exit 1
           fi
 
-          echo "closure guard OK — every closing reference belongs to this branch's own item"
+          echo "reference guard OK — every item named belongs to this branch's own item"

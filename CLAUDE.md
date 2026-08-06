@@ -169,19 +169,23 @@ their own. Rules:
     the hook runs before every prompt and must never call Linear.
   - If the label is genuinely unknown, look it up; a bare id is acceptable only when the lookup
     itself failed, and then say so.
-- **NEVER PUT A CLOSING VERB NEXT TO AN ITEM ID UNLESS YOU MEAN TO CLOSE IT (MUST-FOLLOW).**
-  Linear closes an issue when **close / fix / resolve / complete / implement** — or any of their
-  inflections — sits beside its id in a pull request title or body. A bare mention is harmless;
-  the verb is the trigger. A careful post-mortem naming the item it learned from once closed
-  that item **mid-work**, because the sentence read *"the instruction that fixed AI4DEV-31's
-  chain"*. The hazard punishes good writing: the more thorough the explanation, the more items
-  it cites, and the item most likely to be cited is the one someone is actively working.
-  - Write **"the instruction that repaired X"**, **"X, which taught this rule"**, **"motivated
-    by X"** — or use Linear's deliberate non-closing references: `ref`, `references`, `part of`,
-    `related to`, `contributes to`, `towards`.
-  - CI enforces this on every pull request: a closing reference to an item the branch does not
-    own fails the build. The rule is written here because the guard should never be the first
-    place you learn it.
+- **NEVER NAME ANOTHER ITEM'S ID IN A PULL REQUEST TITLE OR BODY (MUST-FOLLOW).** The id itself
+  is the trigger, not the verb beside it. Linear links a pull request to every id in its text,
+  and **the link alone moves that item** — a finished item was dragged back to In Progress
+  twenty-four minutes after its own merge had correctly closed it, by a body that said
+  *"ref AI4DEV-43"*. A closing verb (**close / fix / resolve / complete / implement** and their
+  inflections) additionally *closes* the item — louder, but the same defect. A careful
+  post-mortem once closed the item it learned from **mid-work**, because the sentence read
+  *"the instruction that fixed AI4DEV-31's chain"*. The hazard punishes good writing: the more
+  thorough the explanation, the more items it cites, and the item most likely to be cited is the
+  one someone is actively working.
+  - **There is NO safe reference word.** `ref`, `references`, `part of`, `related to`,
+    `contributes to` and `towards` all link the item and all move it. Earlier guidance here
+    recommended them, and that advice caused the very defect it was meant to prevent.
+  - Name other items **in words**: *"the item that landed the relay"*, *"the requirement above
+    this one"*. The branch's own item is the sole exception — that link is what closes it.
+  - CI enforces this on every pull request: **any** id the branch does not own fails the build.
+    The rule is written here because the guard should never be the first place you learn it.
 - A status update should read like an explanation to a smart teammate who has NOT been
   following the internal naming — because that is exactly the situation.
 - Lists of steps get described by what the step does, not by its stage code.
