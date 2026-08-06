@@ -29,6 +29,41 @@ if ((docker info --format '{{.OSType}}') -ne 'linux') {
   Fail "Docker is not in Linux-container mode. The whole point of this runner is to judge the code on Linux."
 }
 
+# --- THE SAFETY PRECONDITION, CHECKED RATHER THAN REMEMBERED -----------------------------------
+# On a PUBLIC repository, anyone can fork it and open a pull request, and GitHub runs the workflow
+# as that pull request defines it. Without an approval gate, a stranger's code would execute on
+# this machine. So the runner refuses to exist unless every external contributor needs explicit
+# approval first.
+#
+# This is a precondition and not a note in a README on purpose: a setting nobody re-verifies is
+# exactly the kind of guarantee that decays silently. If someone loosens the policy later, the
+# runner stops coming up instead of quietly becoming the weakest thing in the system.
+$repoInfo = gh api "repos/$Repo" | ConvertFrom-Json
+if (-not $repoInfo.private) {
+  Write-Host "repository is PUBLIC - checking the fork-PR approval policy before going further"
+  try {
+    $policy = (gh api "repos/$Repo/actions/permissions/fork-pr-contributor-approval" | ConvertFrom-Json).approval_policy
+  } catch {
+    Fail "Could not read the fork-PR approval policy for $Repo, so it cannot be shown to be safe. Refusing to register a runner."
+  }
+  if ($policy -ne 'all_external_contributors') {
+    Fail @"
+REFUSING TO START. $Repo is public and its fork-PR approval policy is '$policy'.
+A fork's pull request could then run on this machine without anyone approving it.
+
+Fix it, then re-run:
+  gh api -X PUT repos/$Repo/actions/permissions/fork-pr-contributor-approval `
+    --input (a file containing {"approval_policy":"all_external_contributors"})
+
+Or make the repository private, where fork pull requests do not exist at all - note that on a
+free personal plan private also removes branch protection, which removes the merge gate.
+"@
+  }
+  Write-Host "  approval policy is '$policy' - no external code runs here without an explicit approval"
+} else {
+  Write-Host "repository is private - fork pull requests do not exist, so no approval gate is needed"
+}
+
 # --- image -------------------------------------------------------------------------------------
 $haveImage = (docker images -q $Image)
 if ($Rebuild -or -not $haveImage) {
@@ -40,12 +75,17 @@ if ($Rebuild -or -not $haveImage) {
 }
 
 # --- already running? --------------------------------------------------------------------------
-$state = (docker inspect -f '{{.State.Status}}' $Container 2>$null)
-if ($LASTEXITCODE -eq 0 -and $state -eq 'running') {
+# `docker ps --filter` rather than `docker inspect`, for two reasons learned the hard way:
+# `docker inspect` searches IMAGES as well as containers, and the image and container here share
+# a name on purpose - so it returns the image and then fails looking for container fields. And
+# inspecting something that does not exist writes to stderr, which in PowerShell 5.1 becomes a
+# terminating error even when redirected to $null. A filter matches nothing quietly and exits 0.
+$state = docker ps -a --filter "name=^$Container$" --format '{{.State}}'
+if ($state -eq 'running') {
   Write-Host "container $Container is already running - nothing to do"
   exit 0
 }
-if ($LASTEXITCODE -eq 0) {
+if ($state) {
   Write-Host "container $Container exists in state '$state' - starting it"
   docker start $Container | Out-Null
   exit 0

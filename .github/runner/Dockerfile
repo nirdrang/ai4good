@@ -66,7 +66,12 @@ RUN curl -fsSL -o runner.tar.gz \
  && chown -R runner:runner /actions-runner
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod 0755 /usr/local/bin/entrypoint.sh
+# Strip carriage returns as well as setting the mode. `.gitattributes` pins *.sh to LF, which is
+# the real fix; this line is the belt to that braces, because the build context is a Windows
+# working tree and a script that arrives with CRLF fails as `bash\r: No such file or directory`
+# and restarts forever with exit 127. It cost a debugging round once.
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
+ && chmod 0755 /usr/local/bin/entrypoint.sh
 
 # No Docker socket is mounted and none is needed: nothing in ci.yml builds or runs a container.
 # Mounting one would hand every workflow root on the host, which is the usual way a self-hosted

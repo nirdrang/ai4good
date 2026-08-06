@@ -1,0 +1,18 @@
+# This repository is developed on Windows with core.autocrlf=true, which rewrites checked-out
+# files to CRLF. That is harmless for most files and FATAL for a shell script that has to run on
+# Linux: a `#!/usr/bin/env bash` shebang becomes `bash\r`, and the kernel looks for an interpreter
+# whose name ends in a carriage return. The self-hosted runner's entrypoint failed exactly this
+# way, restarting in a loop with exit 127, while git had been printing
+# "LF will be replaced by CRLF" on every add.
+#
+# Anything executed by Linux keeps LF regardless of platform or local git configuration.
+*.sh    text eol=lf
+*.bash  text eol=lf
+
+# Dockerfiles are read by the daemon rather than a shell, but a heredoc or a line continuation
+# inside one has the same problem, so they are pinned too.
+Dockerfile      text eol=lf
+*.dockerfile    text eol=lf
+
+# PowerShell is Windows-side and reads either ending; left to the platform default deliberately
+# rather than pinned, so nothing here fights the editor.

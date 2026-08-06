@@ -39,10 +39,36 @@ project has already produced a green Windows run on a head whose Linux CI failed
 evidence that ended interim mode. A runner on the developer's own OS would discard that while
 still looking like a check. The base image tracks what `ubuntu-latest` resolves to.
 
-**The repository must be private.** GitHub advises against self-hosted runners on public
-repositories, because a pull request from a fork can execute arbitrary code on the runner — which
-here means on the developer's machine. Private removes fork pull requests entirely. **If this
-repository is ever made public again, stop the runner first.**
+**This repository is PUBLIC, so the approval policy is what keeps the runner safe.** Anyone can
+fork a public repository and open a pull request, and GitHub runs the workflow *as that pull
+request defines it* — so without a gate, a stranger's code would execute on the developer's
+machine. The gate is the repository's fork-PR approval policy, set to **`all_external_contributors`**:
+every pull request from every fork waits for a human to approve the run, no matter how often that
+person has contributed before. GitHub's own default is only `first_time_contributors`, which lets a
+returning outsider run workflows unapproved; that gap is why the policy is set explicitly.
+
+**`start.ps1` refuses to register the runner unless that policy is in place.** It is a precondition
+checked at start, not a line in this document, because a setting nobody re-verifies is exactly the
+kind of guarantee that decays without anyone noticing.
+
+**What this does and does not protect.** Nothing from outside runs here without a deliberate
+approval click. It does *not* protect against approving a hostile pull request without reading it —
+that click is the whole boundary. And it does not gate branches inside this repository: anything
+with write access runs immediately, which is correct, because write access is already full trust.
+The honest description of the boundary is therefore *everything with write access to this
+repository can run code on this machine*, and that means the owner plus any agent acting with the
+owner's credential.
+
+**Why not just make it private, where fork pull requests cannot exist at all?** Because on a free
+personal plan, a private repository **loses branch protection entirely** — both classic protection
+and rulesets answer `Upgrade to GitHub Pro or make this repository public to enable this feature`.
+That would delete the required `verify` check, which is this project's only merge licence. Measured
+on 2026-08-06 by doing it: protection was not merely hidden but **deleted**, and had to be restored
+from a config captured beforehand. Private plus an enforced gate plus a self-hosted runner needs
+GitHub Pro; the free path is public plus this approval policy.
+
+**If this repository is ever made private again:** the runner is fine — safer, in fact — but the
+merge gate will vanish. Restore protection first or accept that nothing enforces the check.
 
 **Every tool is listed, because a bare runner has none.** A hosted image ships hundreds of
 preinstalled tools; the runner tarball ships none. That gap is the usual reason a self-hosted
