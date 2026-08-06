@@ -1,0 +1,107 @@
+GATE 1 — refute the plan for AI4DEV-22 (H7, the proving-ground slice: REQ-016 green end to end at
+the integration tier).
+
+You are the adversarial plan reviewer. Your target failure: a plan that cannot be executed as
+written, or whose greens would not mean what the item says. Verify every claim IN THE TREE — never
+trust the plan's description of a file.
+
+THIS PLAN IS UNUSUAL AND YOU SHOULD KNOW WHY BEFORE YOU START. It concludes that the item's own
+stated goal is not reachable inside the item, and escalates that to the founder rather than
+building towards it. That conclusion is the single most consequential thing in the document. If it
+is wrong, almost everything else in the plan is wrong too, and saying so is the most valuable
+output this gate can produce. Attack it first and attack it hardest. Equally: if the escalation is
+over-cautious — if there is judgment here the orchestrator should simply have made — say that,
+because unnecessary escalation costs real time and is a defect in its own right.
+
+READ FIRST
+- loop/items/AI4DEV-22/plan.md              (the plan under review — the ONE intent artifact)
+- loop/bringup/AI4DEV-3-at-harness.md       (the parent working spec; H7 is line 187, and the
+                                             scope boundary at lines 166-172 is load-bearing)
+- loop/decomp/req-016.md                    (REQ-016's own decomposition and done contract)
+- .taskmaster/docs/acceptance/at-req-016.md (the 12 P0 acceptance criteria)
+- tests/at/expected/README.md               (what a declaration may and may not contain)
+
+VERIFY AGAINST THE CODE (the plan makes claims about all of these)
+- tests/at/harness/index.ts        (createHarness wiring; which capabilities are marked stand-in,
+                                    and whether any of that is tier-dependent)
+- tests/at/harness/registry.ts     (the tier contract: stubbedCapabilities must be empty above loop)
+- tests/at/harness/capabilities.ts (provenance machinery; pendingCapability semantics)
+- tests/at/harness/runner.ts       (the whole `tier !== 'loop'` sequence: DISABLED_SERVICES,
+                                    readStackStatus, localStackProblems, waitForReady,
+                                    resetLocalDatabase, proveMigrationsReplayed, ENV_ALLOWLIST,
+                                    the vitest spawn, and the --wired refusal)
+- tests/at/harness/expected.ts     (loadTierExpectation and the red kinds it accepts)
+- tests/at/harness/oracles.ts      (createOracleCapability's tier split; createLiveTransport;
+                                    when AT_JUDGE_API_KEY is actually read)
+- tests/at/harness/vendors.ts      (the email provider stand-in's two faces)
+- tests/at/suites/req-016/*        (the 12 bodies, the contract, the fixture adapter, the taxonomy)
+- tests/at/expected/req-016.json   (the loop-tier declaration the plan promises stays unchanged)
+- .github/workflows/ci.yml         (what the required check actually runs)
+- supabase/config.toml, supabase/migrations/  (what the integration tier would run against)
+
+MEASURED STATE OF THE MACHINE, so you can reason about the run without executing anything. These
+are measurements taken during the plan sitting, not assumptions — but treat them as claims to check
+against the code's expectations, not as facts about the code:
+- twelve supabase_*_poancmeitlmxejofwzuu containers are up, about three hours old
+- supabase_edge_runtime_… is Exited (255) and `supabase status` lists it under "Stopped services"
+- supabase_vector_… is in a restart loop
+- config.toml has [edge_runtime] enabled = true and [db.pooler] enabled = false
+- there is no supabase/functions/ directory, no supabase/seed.sql, and no .sql migration files
+- `supabase status -o json` returns DB_URL/API_URL on 127.0.0.1:54322/54321 plus ANON_KEY and
+  SERVICE_ROLE_KEY (legacy JWTs) alongside new-style sb_publishable_/sb_secret_ keys
+
+ATTACK, AT MINIMUM
+1. Section 3 — the core finding. Is there ANY reading under which REQ-016's twelve tests can go
+   green at the integration tier without REQ-016's product being implemented? Construct it if there
+   is. Check each of the four stand-in names (clock.controlled, fixtures.worlds, sut.notifications,
+   vendors.email) against index.ts and registry.ts yourself; if any can be made real without
+   product code, name which and how. A refutation here changes the item completely.
+2. Section 3's second leg — the cross-requirement dependency. Does AT-016.09's guarded matrix
+   genuinely require producers owned by other requirements, or can the fixture world legitimately
+   supply those transitions at integration tier? Read the test body, not the decomposition.
+3. Section 3a — done-criterion 5. Is there a REQ-016 id that is screen-observable through the
+   existing NotificationsSut seam WITHOUT rewriting its body? Name it if so. And is the plan right
+   that this half is blocked on an unratified convention, or is that overstated?
+4. D6 — the judge credential. Trace createOracleCapability → createLiveTransport → send. Is
+   anything read eagerly? Does an integration-tier run of THIS suite need a credential at all? Then
+   judge whether treating "its first consuming run" as the trigger is a faithful reading of
+   oracles.ts lines 798-807, or a quiet loosening of a deferral that names this very slice.
+5. D7 and the edge-runtime repair. Is turning the edge runtime off in config.toml honest, or does
+   it hide a crash that matters? Is there a third repair? Is DISABLED_SERVICES the right mechanism
+   at all, deciding from a name pattern rather than from what the configuration says?
+6. S2's prediction. Trace main() from `tier !== 'loop'` downwards against the measured state above.
+   Where does the run actually stop? What is the NEXT stage that fails once that one is cleared?
+   Name every stage that cannot pass as the tree stands, IN ORDER — the value here is a list, not a
+   verdict. Include the lock, the local-key issuer check, readiness, the reset with an empty
+   migration set and a missing seed file, and the migration-replay proof.
+7. S4's verify-first claim. Is the stubbed-capability red really undeclarable under expected.ts?
+   Read the loader, not the README. If the plan is wrong about this, say what the declaration would
+   actually look like.
+8. D3, the blast radius. Is runner.ts + expected.ts + config.toml genuinely sufficient for any
+   defect S2 could plausibly surface, or does the file list guarantee S3 stops short of its own
+   done-criterion? Name a concrete defect that would fall outside it.
+9. Steps missing teeth. Every step must have a done-criterion that can be checked rather than
+   asserted. Which of S1-S5 could be reported done while proving nothing?
+10. What the plan silently dropped. The steps are measurement and repair. Is there in-scope harness
+    work AI4DEV-3's engine genuinely owes — buildable without REQ-016's product — that would be
+    cheaper now than later, and that this plan has quietly omitted?
+11. The plan's own risk list (section 8) — confirm, refute, or extend each entry.
+12. Process constraints. Does anything in the plan instruct something the role contracts forbid?
+    Check especially: reviewer output never lands in the tree while a gate is open; a pull request
+    body may name no board id but the branch's own; secrets must never be committed.
+
+OUTPUT (this exact structure, as your final message)
+# Gate 1 critique — AI4DEV-22
+## Verdict
+One of: NO BLOCKING FINDINGS / BLOCKING FINDINGS PRESENT — one sentence why.
+## The escalation
+Your own answer, in three sentences or fewer: is the item's stated goal reachable inside the item
+as the tree stands, yes or no, and on what evidence.
+## Findings
+Numbered. Each: [severity BLOCKER|MAJOR|MINOR] — plan section attacked — what is wrong — the
+evidence (file:line or quoted text from THIS tree) — what would fix it.
+If a category above yielded nothing, say so in one line.
+## The ordered list of integration-tier stages that cannot pass today
+From attack 6. One line each: stage, why it fails, what would clear it.
+## Residual risks accepted if the plan proceeds unchanged
+Bullet list.
