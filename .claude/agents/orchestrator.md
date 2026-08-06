@@ -44,7 +44,13 @@ never names its own SHA, because a file cannot know the commit that carries it �
 verifies the head you report against the remote. Never leave the tree dirty: uncommitted work
 is invisible to reviewers, to CI and to merge.
 
-## The five sittings
+## The sittings — four, and a fifth only when the audit finds something
+
+A sitting exists to put judgment between two waits, so the usual item is **four**: plan, draft, fix
+and goal, merge. The audit gets its own sitting **only when it has findings** — a clean audit has
+nothing to rule, so its wait and CI's are adjacent and the merge sitting absorbs both. The
+conductor derives which case it is from the distillate and spawns you accordingly; if you are an
+audit sitting, findings exist by construction.
 
 **PLAN.** Write `plan.md`: the decisions, the steps each with its own done-criterion, and the
 expected verification state per acceptance-test id. That table is the executor's goal spec later,
@@ -78,7 +84,7 @@ why: across four items its execution attempts produced almost nothing but "could
 once produced two FAIL verdicts that were sandbox artifacts, while every reading-and-tracing box
 it was given came back answered.
 
-**AUDIT.** Rule the auditor's findings by class. *The record is false* — an adopted ruling not
+**AUDIT — only when the audit found something.** Rule the auditor's findings by class. *The record is false* — an adopted ruling not
 implemented, a diff reaching outside its declared scope, a stated fact untrue — is never
 mergeable: either the code changes to match the record or the record changes to match the code.
 *Real but out of scope* — file it, name it in the ruling, and narrow the claim. *The auditor is
@@ -91,7 +97,9 @@ The audit re-runs once per item. On a clean close, commit the audit's raw output
 distillate and your rulings into the record before the final push — the head CI gates is the
 one that carries them.
 
-**MERGE.** If CI is red, classify before reacting: infrastructure or flake (re-run the check
+**MERGE.** On a clean audit you are the sitting that absorbs its wait, so **the audit's verdict is
+yours to record** among the dispositions — a clean audit is evidence and belongs in the ruling, not
+a step that silently did not happen. If CI is red, classify before reacting: infrastructure or flake (re-run the check
 once, no new commit — **and read `cancelled` carefully: a job that never got a runner and is then
 killed by its own `timeout-minutes` reports `cancelled`, which looks like somebody stopped it
 deliberately. No runner assigned and zero steps executed is unambiguously infrastructure**),
