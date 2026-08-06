@@ -204,6 +204,48 @@ try {
     Check 'and still releases on the clock' $r2.code 0
 
     ''
+    '8. Coming out the other side of a park'
+    # Everything above started with the reset already behind us. This is the real shape: park
+    # while the reset is still ahead, sit through it, and come out.
+    Set-Reading @{ five_hour = (W 96 0.15) }        # resets in ~9 seconds
+    $t0 = Get-Date
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $wait -SnapshotPath $snap -PollSeconds 2 -SlackMinutes 0
+    $elapsed = ((Get-Date) - $t0).TotalSeconds
+    Check 'crossed the reset boundary and released' $LASTEXITCODE 0
+    Check 'and actually waited for it, rather than short-circuiting' ([bool]($elapsed -ge 6)) 'True'
+    Check 'and said the stated reset had passed' ([bool]($out -match 'stated reset time has passed')) 'True'
+
+    # The slack exists so a release cannot arrive before the provider has actually turned the
+    # window over. Reset half a minute gone, a minute of slack: still parked.
+    Set-Reading @{ five_hour = (W 96 -0.5) }
+    $job3 = Start-Job -ScriptBlock {
+        param($w, $s) & powershell -NoProfile -ExecutionPolicy Bypass -File $w -SnapshotPath $s -PollSeconds 2 | Out-Null
+    } -ArgumentList $wait, $snap
+    Start-Sleep -Seconds 4
+    Check 'still parked inside the slack, not released on the exact second' ($job3.State -eq 'Running') 'True'
+    Stop-Job $job3; Remove-Job $job3 -Force
+
+    # WHAT THE COORDINATOR SEES NEXT. Its first turn after the park renders the status line, so
+    # the reading is fresh. Three outcomes, and all three must be distinguishable.
+    Set-Reading @{ five_hour = (W 2 300) }
+    Check 'a genuinely new window -> release the work' (Verdict) 'OK'
+    # The reset can roll forward: the window turned over but the level did not fall enough, or a
+    # different window is now the blocker. Re-park, do not proceed because the clock said so.
+    Set-Reading @{ five_hour = (W 94 300) }
+    Check 'still over the line after the reset -> park again' (Verdict) 'PAUSE'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $wait -SnapshotPath $snap -PollSeconds 1 -MaxHours 0 | Out-Null
+    Check 'and the park is re-enterable' $LASTEXITCODE 1
+    # The degradation path: nothing refreshed the reading, so it is old AND its reset has gone by.
+    # The old number now proves nothing, so this is UNKNOWN - reported, not halted, by the rule.
+    Set-Reading @{ five_hour = (W 96 -20) } 45
+    Check 'nothing refreshed it after the park -> UNKNOWN, not a false PAUSE' (Verdict) 'UNKNOWN'
+    # And the weekly window is unmoved by a five-hour reset - a release must not be granted by the
+    # wrong window turning over.
+    Set-Reading @{ five_hour = (W 1 300); seven_day = (W 93 5000) }
+    Check 'the five-hour reset does not release a weekly block' (Verdict) 'PAUSE'
+    Check 'and the weekly one is still named as the blocker' (Gauge).worstWindow 'seven_day'
+
+    ''
     "RESULT: {0} passed, {1} failed" -f $pass, $fail
     if ($fail -gt 0) { ''; 'failed:'; $failed | ForEach-Object { '  - ' + $_ }; exit 1 }
 } finally {

@@ -40,7 +40,12 @@ param(
     [int]$PauseAt = 90,
 
     # Passed through: exercise the park against a synthetic snapshot, spending nothing.
-    [string]$SnapshotPath = ''
+    [string]$SnapshotPath = '',
+
+    # Grace past the stated reset before releasing. A reset is a boundary the provider crosses,
+    # not an instant we control, so releasing on the exact second risks arriving early. Only the
+    # simulation sets this to zero, to cross a boundary in seconds instead of a minute.
+    [double]$SlackMinutes = 1
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -72,7 +77,7 @@ if ($g.verdict -eq 'OK') {
 # The target comes from the provider's own statement of when this window resets. A minute of
 # slack because the reset is a boundary, not an instant we control.
 $target = $null
-if ($g.resetsAtUtc) { try { $target = ([datetime]::Parse($g.resetsAtUtc)).ToUniversalTime().AddMinutes(1) } catch { } }
+if ($g.resetsAtUtc) { try { $target = ([datetime]::Parse($g.resetsAtUtc)).ToUniversalTime().AddMinutes($SlackMinutes) } catch { } }
 if (-not $target) {
     Write-Output 'WAIT  abandoned - no reset time in the reading, so there is nothing to wait for'
     exit 1
