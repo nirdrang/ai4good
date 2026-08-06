@@ -193,6 +193,27 @@ the PR head as a required check. The proof it was needed: an item's local runs w
 head whose CI failed — a control passed on Windows and failed on Linux. Without the required
 check on the pinned head, that false green would have been merge evidence.
 
+## Read the vendor's status page BEFORE building a theory about the vendor
+
+On 2026-08-06 the required check queued for eleven to fifteen minutes, twice died to its own
+timeout with no runner assigned, and eventually stopped being created at all. Hours went into a
+capacity story — raise the timeout, file an item about queue time, price GitHub plans, weigh
+self-hosted runners, change the repository's visibility, lose branch protection to a free-plan
+limit, restore it, build and register a Linux runner. All of it on inference.
+
+**GitHub Actions was in a declared major outage the whole time**, incident open since 15:22Z:
+webhook triggers throttled to roughly 65% succeeding, and — the line that mattered most —
+*"runners are stuck retrying unavailable jobs, both GitHub-hosted and self-hosted runners
+affected."* One fetch of `githubstatus.com/api/v2/summary.json` would have said so before the first
+theory.
+
+Two rules. **When a hosted dependency behaves strangely, its status page is the first evidence to
+gather, not the last** — it is cheap, authoritative, and it is *observation* rather than inference,
+which the classification rule two sections down already demanded. And **an incident is not a
+capacity trend**: a remedy sized to one bad afternoon can outlive the afternoon by years. The
+timeout raise survives on its own merits; the self-hosted runner was built for a problem it cannot
+solve, because the outage was above the runner, not in it.
+
 ## Pushing while a check is in flight destroys the evidence you need to classify it
 
 The next item after the relay landed spent its one re-run on a runner-less CI failure, watched the
