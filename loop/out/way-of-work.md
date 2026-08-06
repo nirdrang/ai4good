@@ -2,6 +2,14 @@
 
 One verb. Supersedes `/pm-next`, `/item-loop`, `/dev-start`, `/dev-end`, `/bind`, `/override`.
 
+> **PARTLY SUPERSEDED — read this as history, not as the spec (2026-08-06).** The one-verb design
+> and derived attribution still hold and are still the rules. What changed is *how an item is
+> run*: the single item agent that lived a whole item became a relay of one-sitting orchestrators
+> coordinated by a per-item conductor, and the one skill became a coordinator manual plus one
+> contract per role. The current description of the flow is
+> `.claude/skills/work/WORKFLOW.md`, with `.claude/skills/work/shared-invariants.md` binding
+> every role. Where this document and those disagree, those win.
+
 Settled across this session with three adversarial review rounds (codex `gpt-5.6-sol`) plus a
 founder question that collapsed a whole subsystem — see §2.
 

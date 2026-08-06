@@ -32,8 +32,10 @@ was rewritten to walk to the root first and ask about the root.
 ## Floating roots — the founder's ruling over my objection
 
 I argued a free-text root should create a real board item. The founder overruled (2026-08-02):
-*the point of attribution is a log we can chew on for cadence and monitoring* — a grouping
-useful for that does not need a board item behind it. The tilde notation, root-only legality,
+*"No - a floating label is fine the main goal of this is to have our attribution log something
+we can chew on for attribution cadence and monitoring it can be floating and not actual on pm
+board."* A grouping useful for that does not need a board item behind it. The tilde notation,
+root-only legality,
 real-parent-wins, and the `attr:` label all exist to guarantee a floating root is never
 mistaken for a verified one.
 
@@ -60,8 +62,9 @@ lives only in a file every session loads; a message to a running agent dies with
 ## Why two orchestrator definition files
 
 The Agent tool has no effort parameter — effort lives in the definition frontmatter and
-applies whichever model the caller picks. So "fable at xhigh, opus fallback at max" (founder
-2026-08-04) requires two files. Tested the same day: a probe confirmed the running session
+applies whichever model the caller picks. So two files are required — the founder's instruction,
+2026-08-04, was *"You should have 2 different agent files for fable effort xhigh for opus
+fallback effort max."* Tested the same day: a probe confirmed the running session
 served a stale definition until the watcher caught up — after changing agent definitions,
 probe until live before spawning. Also tested: a subagent's resolved effort is UNOBSERVABLE
 (no docs mechanism, nothing in transcripts, agents cannot see their own), so effort pins are
@@ -107,12 +110,25 @@ process id.
 
 ## The auditor's sandbox boundary
 
-In a platform worktree (always nested inside the main checkout), the workspace-scoped sandbox
-denies vitest's ancestor-directory config walk (`Cannot read directory "../../../../.."`), so
-vitest-based checks fail with access-denied while non-walking commands pass. That signature is
-COULD-NOT-VERIFY-IN-SANDBOX — the execution evidence comes from the PR's CI run, said plainly.
-An audit run under `read-only` fails differently and worse: it degrades into a documentation
-review that reports green because it never executed anything.
+Under codex's workspace-scoped sandbox, vitest's config load walks up the directory tree and is
+denied at the workspace boundary (`Cannot read directory "../../../../.."`), so vitest-based
+checks fail with access-denied while non-walking commands pass. **This is NOT caused by worktree
+nesting**: the same command failed identically in a nested worktree, a sibling worktree and a
+sibling clone (measured 2026-08-05), with the number of `..` tracking the depth — it is a walk to
+the filesystem root, and any layout hits it. That signature is COULD-NOT-VERIFY-IN-SANDBOX — the
+execution evidence comes from the PR's CI run, said plainly. An audit run under `read-only` that
+is still *asked to execute* degrades into a documentation review; the read-only audit works only
+because its brief assigns execution evidence to the required CI check and confines the auditor to
+the claim.
+
+## The audit's execution half was measured, and it does not work
+
+Across four items, the auditor's attempts to run things produced almost nothing but "could not
+verify" (AI4DEV-19, AI4DEV-31) and once produced two FAIL verdicts on AI4DEV-5 that were sandbox
+artifacts rather than defects — while every reading-and-tracing box it was given came back
+answered, every time. That measurement is why the audit is now read-only and scoped to the claim
+(founder ruling 2026-08-06), with execution evidence assigned to the required CI check. Recorded
+here so the narrowing is not re-litigated from memory.
 
 ## Removal rulings carry conditions — the Kimi catch
 
@@ -166,8 +182,12 @@ rule lives in CLAUDE.md because the guard should never be where it is first lear
 
 The reflection was once scheduled after the finish phase — after the merge — so ride-along
 fixes were impossible by construction, and an item had to report four real findings with
-nowhere to put them. Reflection now happens while the PR is open; late findings go to the
-coordinator to fold.
+nowhere to put them. It was moved to while the PR is open.
+
+**Superseded:** the reflection step was removed entirely by founder ruling (2026-08-06,
+*"Reflection should be out"*). The way of work improves between items; a process finding
+surfaced mid-item still rides along or goes to the coordinator to fold. The placement lesson
+stands only as history.
 
 ## The four-minute bypass
 
@@ -185,9 +205,10 @@ required CI check gates the pinned head), and its wake choreography was the proc
 fragile part — on the first item it ran, both confirmation launches died silently with their
 parent and stalled the item for hours while everyone watched files that would never appear.
 Disposition authority was already the item agent's; confirmation had become a fourth check
-that mostly manufactured waiting. The re-engagement mechanics (resumed session, pinned, header
-verified, session-store recovery, Kimi's directory rule) survive in the core for the rare
-cases a reviewer is genuinely re-engaged — they are recovery tools now, not a phase.
+that mostly manufactured waiting. Reviewers are now stateless — never resumed. A lost output is
+re-run at the same pinned commit and said to be a fresh sample, not a reproduction. The resume
+mechanics (pinning, run-header verification, session-store recovery, Kimi's directory rule) are
+kept here only as history: they explain why statelessness was chosen.
 
 ## Token discipline — where the budget actually went (2026-08-04)
 
