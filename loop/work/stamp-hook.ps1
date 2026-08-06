@@ -97,9 +97,24 @@ try {
     # slashes on Windows.
     try {
         $wtRoot = Join-Path $top '.claude/worktrees'
-        if (($top -notmatch '[\\/]\.claude[\\/]worktrees[\\/]') -and (Test-Path -LiteralPath $wtRoot)) {
+        if ((-not $env:AI4GOOD_STAMP_CHILD) -and ($top -notmatch '[\\/]\.claude[\\/]worktrees[\\/]') -and (Test-Path -LiteralPath $wtRoot)) {
             $savedEnv = $env:CLAUDE_PROJECT_DIR
+            $env:AI4GOOD_STAMP_CHILD = '1'
             foreach ($d in (Get-ChildItem -LiteralPath $wtRoot -Directory -ErrorAction SilentlyContinue)) {
+                # ONLY a real worktree is recursed into. `.claude/worktrees` also holds ordinary
+                # directories - the artifacts directory the conductor keeps per item - and those
+                # are INSIDE this repository, so git answers with the MAIN checkout's toplevel.
+                # The old guard tested that answer, saw the main checkout, and enumerated this
+                # directory again: unbounded self-spawning that hung the hook for minutes and
+                # printed nothing. A stamp that does not appear is the one failure this file
+                # exists to prevent, so the test is now "is this directory itself a worktree",
+                # and AI4GOOD_STAMP_CHILD makes any future path incapable of recursing at all.
+                $childTop = (& git -C $d.FullName rev-parse --show-toplevel 2>$null)
+                if (-not $childTop) { continue }
+                $a = [System.IO.Path]::GetFullPath(($childTop.Trim() -replace '/', '\')).TrimEnd('\')
+                $b = [System.IO.Path]::GetFullPath($d.FullName).TrimEnd('\')
+                if (-not $a.Equals($b, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+
                 $env:CLAUDE_PROJECT_DIR = $d.FullName
                 $child = @(& powershell -NoProfile -File $PSCommandPath 2>$null)
                 if ($child.Count -ge 2) {
@@ -108,6 +123,7 @@ try {
                 }
             }
             $env:CLAUDE_PROJECT_DIR = $savedEnv
+            $env:AI4GOOD_STAMP_CHILD = $null
         }
     }
     catch {
