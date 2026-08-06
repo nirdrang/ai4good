@@ -122,6 +122,15 @@ conductor runs that loop; a fix that would need a second audit re-run is scope g
 escalated, never an excuse to skip the audit), or pre-existing on main (prove it against main —
 it is not this item's defect, and it goes to the founder). Local verify green while CI is red
 is debugging blind against a remote signal: **two pushes, then escalate with the evidence.**
+
+**A fourth class: CI IS UNAVAILABLE.** The re-run rule ends "fails again, treat it as real" — but
+that is about a flaky *result*, and it is the wrong reflex when the re-run fails the same
+runner-less way. If a second attempt also gets no runner and runs no step, the honest reading is
+not that this change is broken; it is that **the check cannot be obtained right now.** Say exactly
+that, name both run ids and the elapsed-to-timeout evidence, and stop: the merge stays blocked
+because the green is the only merge licence, and a blocked merge waiting on infrastructure is a
+wait to report, not a defect to invent. Never widen the two-push debugging budget to chase a
+failure whose steps never ran — there is nothing there to debug.
 Then write the merge ruling pinned to the exact head: what was built, every finding and
 its disposition, **what the green does and does not claim**, and any maintained reviewer
 disagreement verbatim. Confirm the required check green on that same SHA and record both the run
