@@ -1,0 +1,67 @@
+GATE 2 — adversarial review of the IMPLEMENTATION DIFF for AI4DEV-20 (semantic-oracle harness).
+
+You are reviewing code in the working tree of this repository. The diff under review is
+`git diff b9005ab..072dc31` (run it yourself; the tree at HEAD carries everything plus two
+record files). Base b9005ab holds the amended plan and Gate 1 rulings; 072dc31 is the
+implementation head. Verify every claim IN THE TREE — trust nothing said about it.
+
+CONTEXT (read before the diff)
+- loop/items/AI4DEV-20/plan.md            (rev 2 — the ruled plan the diff must implement)
+- loop/items/AI4DEV-20/gate1-rulings.md   (F1..F12 — why the design is what it is)
+- loop/items/AI4DEV-20/executor-done.txt  (the executor's own account + proposed judgements P1..P9)
+- loop/items/AI4DEV-20/executor-rulings.md (the item agent's rulings on P1..P9)
+
+THE DIFF (new: oracles.ts, oracles.selftest.ts, record-oracles.ts, rubrics/*, recordings/README.md;
+edited: contracts.ts, index.ts, atconfig.ts, config.ts, conformance.selftest.ts,
+type-invention.selftest.ts, typeprobes/harness-invention.probe.ts, .env.example, package.json, bun.lock)
+
+YOUR TARGET FAILURE: a green that does not mean what it claims. Attack, at minimum:
+
+1. FALSE GREENS IN THE CONFORMANCE WALL. Does any test in oracles.selftest.ts pass without
+   exercising the behavior its name claims? Would the mutations that matter actually fail it —
+   vote-count hardcoding, live→replay fallthrough, provenance-rule removal, hash-input omission,
+   refusal-treated-as-verdict, majority-tie mishandling? The executor mutation-checked three;
+   find the mutations that were NOT checked.
+2. REPLAY KEY COMPLETENESS IN CODE (F6): does the implemented canonical serialization really
+   cover every behavior-changing request input (model, effort, max_tokens, output schema, fully
+   rendered system + user content, material slot names AND values, vote index)? Find an input
+   that changes the request but not the key, or a canonicalization ambiguity (key collisions,
+   object-key ordering, unicode/newline normalization).
+3. TIER SEMANTICS (F3): provenance registration per tier; the exact stub ledger; any path where
+   a loop-tier oracle touches the network or an above-loop oracle reads a recording; whether the
+   above-loop call-time error names the deferred boundary as ruled.
+4. CREDENTIAL BOUNDARY (F8): confirm runner.ts is untouched in the diff and NO code path writes
+   any credential into a child environment; check the selftest that deletes AT_JUDGE_API_KEY
+   from its own process actually protects a keyed developer from billed calls in every selftest
+   file, not just one; check .env.example says parent-side only.
+5. PROVENANCE HONESTY (P5/P6): can a replayed verdict ever claim run-source 'live'? Can a
+   synthetic recording enter the committed store through ANY code path (recorder, store writer,
+   test helpers)? Is the committed-dir test (P9) actually safe — what happens if its finally
+   fails, and can it corrupt a real recording?
+6. CONTRACT PROTECTION (F11): are all thirteen new aliases really enumerated and attacked?
+   Write the attack in your head for each — is any exported type reachable from a test body
+   left mergeable or shape-parameterizable? Any interface smuggled in?
+7. STRUCTURED-OUTPUT + SDK USAGE: is the request shape valid against @anthropic-ai/sdk@0.115.0
+   as pinned (output_config.format json_schema, effort, max_tokens, no sampling params, no
+   fallbacks)? Is stop_reason checked before content is read? Is refusal/truncation/malformed
+   handling an error on EVERY path (live, replay, recorder)?
+8. ISOLATION AND TEARDOWN (F12): fresh-instance-per-harness proven; no cross-harness state; the
+   recordingsDir/transport seams cannot leak between tests; nothing mutates the tree outside
+   the P9 exception.
+9. REQ-016 NON-REGRESSION: expected/req-016.json byte-identical; nothing in the wiring changes
+   any existing capability's provenance or the harness-missing message semantics.
+10. THE EXAMPLE RUBRICS (F5): labels as ruled (one near-final, two DISPOSABLE with headers
+    saying so); conformance deliberately does NOT claim the compliant specimen passes — is that
+    boundary kept everywhere?
+11. STYLE AND COMMENT CLAIMS: this tree writes load-bearing comments citing rulings; do the
+    comments in the diff say true things about the code beside them?
+
+OUTPUT (this exact structure, as your final message — findings only, no transcript)
+# Gate 2 review — AI4DEV-20 — <your model name>
+## Verdict
+NO BLOCKING FINDINGS / BLOCKING FINDINGS PRESENT — one sentence why.
+## Findings
+Numbered. Each: [severity BLOCKER|MAJOR|MINOR] — file:line — what is wrong — why it matters —
+the minimal fix. If a category above yielded nothing, one line saying so.
+## Residual risks
+Bullets.

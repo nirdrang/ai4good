@@ -1,0 +1,30 @@
+# Gate 2 review — AI4DEV-20 — GPT-5
+
+## Verdict
+
+BLOCKING FINDINGS PRESENT — provenance and tier seams can produce a green from synthetic/replayed or live behavior in the wrong tier.
+
+## Findings
+
+1. [severity BLOCKER] — tests/at/harness/oracles.ts:554 — `writeRecording()` trusts caller-supplied `recordedFrom: 'live'`; the selftests already manufacture such “live” records, and the committed-directory test is only lexical at line 492. Synthetic bytes can therefore be written as live evidence and replayed green. Make committed writes private and live-transport-only, canonicalize the real directory path, and test forged provenance/path aliases.
+
+2. [severity BLOCKER] — tests/at/harness/oracles.ts:939 — the public `transport` seam bypasses tier semantics: loop can receive `createLiveTransport()`, while integration can receive `createReplayTransport(dir)` despite being marked real. Split or brand the test seam so each tier rejects the opposite transport, with negative tests for both paths.
+
+3. [severity MAJOR] — tests/at/harness/type-invention.selftest.ts:48 — only one oracle test removes `AT_JUDGE_API_KEY`; this spawned compiler and the direct children at `runner.selftest.ts:203` inherit the parent environment. That breaks the no-credential-in-test-children boundary. Use an explicit stripped environment for every selftest spawn and add an `AT_JUDGE_API_KEY` real-child sentinel.
+
+4. [severity MAJOR] — tests/at/harness/oracles.ts:685 — live response content is read before `stop_reason` is checked. A refusal or truncation can therefore touch malformed content before reaching the typed error path. Check the stop reason first and test with content that throws if accessed.
+
+5. [severity MAJOR] — tests/at/harness/oracles.ts:745 — local “schema re-validation” ignores unknown top-level and answer properties, despite `additionalProperties: false` in `VERDICT_SCHEMA`. Malformed live, replayed, and recorded responses can be accepted. Enforce the full schema locally and test extra fields on every path.
+
+6. [severity MAJOR] — tests/at/harness/oracles.selftest.ts:286 — the replay-key test claims to cover material slot names but changes only a material value. Removing slot names from rendering would leave this test green while distinct requests collide. Add a same-id/version renamed-slot case.
+
+7. [severity MAJOR] — tests/at/harness/oracles.selftest.ts:323 — the comparator-leak test does not assert the actual expected value (`10`) or count minimum (`3`); a leak such as `expected: 10` and `threshold: 3` passes its checks. Use unique comparator sentinels and assert none reach the prompt.
+
+8. [severity MAJOR] — tests/at/harness/oracles.selftest.ts:423 — the P9 cleanup deletes every newly named file, cannot restore an overwritten existing recording, and can leave or delete real data if its `finally` fails or a recorder runs concurrently. Use exclusive writes plus target-specific snapshot/restore under a lock.
+
+Default factory wiring, the `runner.ts` diff, the thirteen protected aliases, SDK request field names, rubric labels/boundary, and the REQ-016 manifest yielded no additional finding.
+
+## Residual risks
+
+- No live request, SDK-under-Bun behavior, or stability measurement has run because recordings remain empty.
+- Raw judged material and evidence quotes are not independently hardened against prompt injection or verified as verbatim source text.

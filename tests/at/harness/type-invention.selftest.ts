@@ -23,6 +23,7 @@ import { isAbsolute } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { INSTALL_ROOT } from './check.ts';
+import { childEnv } from './runner.ts';
 import { pinnedTsc } from '../typecheck.ts';
 
 const PROBE_PROJECT = 'tests/at/typeprobes/tsconfig.json';
@@ -45,10 +46,15 @@ function typecheckProbes(project: string): ProbeRun {
   // `--listFiles` is not decoration: a tsconfig that matches NO files also exits 0 and reports
   // nothing, so "the attack was rejected" and "the attack was never compiled" are indistinguishable
   // without it. Every per-file assertion below leans on `compiled()` to rule that out.
+  // AN EXPLICIT ENVIRONMENT, not an inherited one. This spawns a child from inside a test, and a
+  // child spawned from a test inherits whatever the developer has exported — including a judge or
+  // provider credential. The compiler needs none of them, so it is given the runner's own
+  // allowlist: the same list that keeps secrets out of acceptance-test children, applied to the
+  // one other place this tree starts a process (AI4DEV-20 Gate 2, cluster C).
   const result = spawnSync(
     process.execPath,
     [pinnedTsc(INSTALL_ROOT), '--noEmit', '--pretty', 'false', '--listFiles', '-p', project],
-    { cwd: INSTALL_ROOT, encoding: 'utf8' },
+    { cwd: INSTALL_ROOT, encoding: 'utf8', env: childEnv() },
   );
   if (result.error) throw new Error(`could not run the compiler over ${project}: ${result.error.message}`);
   const raw = `${result.stdout ?? ''}${result.stderr ?? ''}`;
@@ -140,6 +146,21 @@ describe('harness invention is rejected by the compiler', () => {
     'ProviderAttempt',
     'EmailProviderSim',
     'Vendors',
+    // H4's semantic-oracle contracts (contracts.ts) — every shape `judge()` takes or returns, not
+    // only the seam itself, because a rubric or a verdict is handed to a test body just as `h` is
+    'SemanticCriterion',
+    'ExtractionSpec',
+    'NumericToleranceComparator',
+    'CountAtLeastComparator',
+    'CriterionComparator',
+    'ExtractionCriterion',
+    'RubricCriterion',
+    'Rubric',
+    'VoteTally',
+    'CriterionVerdict',
+    'VerdictProvenance',
+    'SemanticVerdict',
+    'SemanticOracle',
     // the config seam (config.ts)
     'ConfigRegistry',
     // the wrapper types every test body holds directly (registry.ts) — including the world itself,
