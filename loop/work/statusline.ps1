@@ -60,6 +60,27 @@ try {
         try { $j = ConvertFrom-Json $raw } catch { }
     }
 
+    # SENSOR. The rate-limit windows (five_hour, seven_day, and the per-model weekly ones) are
+    # delivered ONLY to the status line - hooks get a different payload entirely - so this is the
+    # single place in the system that can see them. Snapshot them where a hook can read them.
+    # Written on EVERY refresh including when the field is absent, so a reader can tell "no
+    # reading yet" from "this build does not report windows" - a missing file and a null field
+    # mean different things and must not look alike.
+    try {
+        $snapDir = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good'
+        if (-not (Test-Path $snapDir)) { New-Item -ItemType Directory -Force $snapDir | Out-Null }
+        $snap = [ordered]@{
+            capturedAt = (Get-Date).ToUniversalTime().ToString('o')
+            sessionId  = [string](Get-Field $j @('session_id'))
+            version    = [string](Get-Field $j @('version'))
+            rateLimits = (Get-Field $j @('rate_limits'))
+        }
+        [System.IO.File]::WriteAllText(
+            (Join-Path $snapDir 'rate-limits.json'),
+            ($snap | ConvertTo-Json -Depth 8),
+            (New-Object System.Text.UTF8Encoding($false)))
+    } catch { }
+
     $parts = @()
 
     # 1. model - which brain is answering. Cheap to lose track of, expensive to be wrong about.
