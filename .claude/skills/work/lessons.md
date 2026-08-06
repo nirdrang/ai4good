@@ -193,6 +193,21 @@ the PR head as a required check. The proof it was needed: an item's local runs w
 head whose CI failed — a control passed on Windows and failed on Linux. Without the required
 check on the pinned head, that false green would have been merge evidence.
 
+## Pushing while a check is in flight destroys the evidence you need to classify it
+
+The next item after the relay landed spent its one re-run on a runner-less CI failure, watched the
+re-run sit queued, decided it was stuck, and pushed a ride-along. That push fired the workflow's
+`cancel-in-progress` rule and cancelled the re-run twenty-eight seconds later, two and a half
+minutes into its queue — so whether it would eventually have got a runner is now unknowable. The
+commit message then asserted that two attempts had timed out identically, which was false for the
+second one and had to be repaired in the item record.
+
+Two rules. **A push while the required check is unresolved is a decision to discard that check's
+evidence** — take it deliberately or not at all, and never at the moment the classification
+matters most. And **the classification must cite what was actually observed** (run id, the elapsed
+span, runner assigned or not, steps recorded), because a tidy narrative about infrastructure is
+just as capable of being wrong as one about a defect.
+
 ## A CI verdict of `cancelled` that nobody cancelled
 
 The relay fold's own first CI run sat queued for fifteen minutes without ever being assigned a

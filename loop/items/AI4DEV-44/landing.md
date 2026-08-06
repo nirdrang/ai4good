@@ -58,6 +58,28 @@ the conductor contract and the workflow step so nobody has to rediscover it.
 One premium sitting — roughly forty thousand tokens of cold reading — on every item whose audit
 comes back clean, spent ruling a list that is frequently empty.
 
+## Correction to this item's own record (recorded as a repair)
+
+**The commit message on `9d74275` overstates its evidence and is wrong on a fact.** It says two
+attempts "got no runner at all, ran zero steps, and were killed by the job's own timeout after
+exactly fifteen minutes." Only the **first** attempt did that: run 31121613598 attempt 1,
+16:57:31Z to 17:12:34Z, fifteen minutes exactly, no runner, zero steps.
+
+The **second** attempt did not fail on its own. It started 17:13:44Z and was cancelled at
+17:16:15Z — two and a half minutes in, twenty-eight seconds after a push of `9d74275` triggered
+the workflow's `cancel-in-progress` concurrency rule. It had been queued without a runner, but it
+never reached its timeout and **nobody knows whether it would have got one.**
+
+The rule the commit lands is unaffected, because it is written conditionally — *if* a second
+attempt also gets no runner and runs no step, the honest reading is that the check cannot be
+obtained. That is sound forward-looking guidance. What was wrong was the claim that this item had
+already seen it happen twice. Corrected here rather than by rewriting a pushed commit.
+
+**The lesson underneath it is the more useful half: pushing while a check is in flight destroys
+the evidence needed to classify that check.** The push was made *because* the run looked stuck,
+which is precisely when the classification matters most — and it converted an unresolved attempt
+into a cancelled one with the cause now permanently ambiguous. Written into `lessons.md`.
+
 ## Provenance and process notes
 
 Motivated by the founder's question on the merged relay item (ref AI4DEV-43): *"Why 4 and not 5
