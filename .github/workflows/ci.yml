@@ -41,7 +41,7 @@ jobs:
     #
     # See .github/runner/ for the Linux container that serves the self-hosted label, and why the
     # check still judges the code on Linux either way.
-    runs-on: ${{ vars.CI_RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ai4good-linux
     # Generous on purpose. This bounds a RUNAWAY JOB; it is not a queue policy. At 15 minutes it
     # was acting as one: hosted capacity queued this job for 11-15 minutes on 2026-08-06 and
     # twice the budget expired before a single step ran, reporting `cancelled` as though someone
