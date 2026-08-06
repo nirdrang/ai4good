@@ -37,7 +37,10 @@ param(
     [double]$MaxHours = 6,
 
     # Passed through, so a caller testing the mechanism can move the line without editing code.
-    [int]$PauseAt = 90
+    [int]$PauseAt = 90,
+
+    # Passed through: exercise the park against a synthetic snapshot, spending nothing.
+    [string]$SnapshotPath = ''
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -45,7 +48,9 @@ $gauge = Join-Path $PSScriptRoot 'window-gauge.ps1'
 
 function Read-Gauge {
     try {
-        $raw = & powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -Json -PauseAt $PauseAt
+        $a = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$gauge,'-Json','-PauseAt',$PauseAt)
+        if ($SnapshotPath) { $a += @('-SnapshotPath', $SnapshotPath) }
+        $raw = & powershell @a
         return ($raw | ConvertFrom-Json)
     } catch { return $null }
 }

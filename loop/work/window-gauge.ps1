@@ -40,6 +40,11 @@ param(
     # Emit the machine shape instead of the human lines.
     [switch]$Json,
 
+    # Read a different snapshot. Exists so the mechanism can be exercised end to end against
+    # synthetic readings without spending a single token, and without disturbing the live file
+    # the status line is writing. Defaults to the real one, so no caller has to know.
+    [string]$SnapshotPath = '',
+
     # Exit 0 only when work may proceed (verdict OK). For use as a wait condition: the coordinator
     # parks and polls this until it succeeds, rather than sleeping on a computed duration - the
     # window is authoritative about its own reset, our arithmetic is not.
@@ -48,7 +53,7 @@ param(
 
 $ErrorActionPreference = 'SilentlyContinue'
 
-$snapPath = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good\rate-limits.json'
+$snapPath = if ($SnapshotPath) { $SnapshotPath } else { Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good\rate-limits.json' }
 
 $result = [ordered]@{
     verdict      = 'UNKNOWN'
@@ -120,7 +125,12 @@ foreach ($name in $snap.rateLimits.PSObject.Properties.Name) {
             $inMin = [int][math]::Round(($resetLocal - $now).TotalMinutes)
         } catch { }
     }
-    $result.windows += [ordered]@{
+    # A PSCustomObject, NOT a hashtable: `Sort-Object percent` below silently does nothing to
+    # dictionary entries, because a dictionary has no such property. That bug shipped, and the
+    # live reading hid it - the worst window was simply whichever enumerated first, which
+    # happened to be the right answer. A weekly window at 95% beside a fresh five-hour one read
+    # OK. Found by window-sim.ps1 on its first run.
+    $result.windows += [pscustomobject][ordered]@{
         name        = $name
         percent     = $pct
         resetsLocal = $(if ($resetLocal) { $resetLocal.ToString('HH:mm') } else { '?' })
