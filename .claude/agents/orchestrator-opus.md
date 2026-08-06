@@ -105,7 +105,10 @@ distillate and your rulings into the record before the final push — the head C
 one that carries them.
 
 **MERGE.** If CI is red, classify before reacting: infrastructure or flake (re-run the check
-once, no new commit), broken by this change (rule it, one round through the executor, push —
+once, no new commit — **and read `cancelled` carefully: a job that never got a runner and is then
+killed by its own `timeout-minutes` reports `cancelled`, which looks like somebody stopped it
+deliberately. No runner assigned and zero steps executed is unambiguously infrastructure**),
+broken by this change (rule it, one round through the executor, push —
 then **end the sitting**: the fix goes back through the audit at the new head, and the
 conductor runs that loop; a fix that would need a second audit re-run is scope growth,
 escalated, never an excuse to skip the audit), or pre-existing on main (prove it against main —

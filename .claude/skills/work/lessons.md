@@ -193,6 +193,15 @@ the PR head as a required check. The proof it was needed: an item's local runs w
 head whose CI failed — a control passed on Windows and failed on Linux. Without the required
 check on the pinned head, that false green would have been merge evidence.
 
+## A CI verdict of `cancelled` that nobody cancelled
+
+The relay fold's own first CI run sat queued for fifteen minutes without ever being assigned a
+runner, and was then killed by the workflow's `timeout-minutes: 15` — reported as **`cancelled`**,
+a word that reads like a human stopped it. Zero steps had executed. One re-run, no new commit, got
+a runner immediately. Two things worth keeping: the classification test is *was a runner assigned
+and did any step run*, not the word in the conclusion; and a watch that only asks "is it still
+queued" learns nothing — measure the RUN, whose status and per-step conclusions are unambiguous.
+
 ## Linear closing verbs — the post-mortem that closed a live item
 
 A merged PR's body read "the instruction that fixed AI4DEV-31's chain" — and Linear closed
