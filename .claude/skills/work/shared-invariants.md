@@ -51,8 +51,21 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
   staleness limit means the instrument is broken, not that the window is spent — and a broken
   instrument is not a reason to stop working, exactly as attribution degrades rather than blocks.
   Say it in the open and fix the sensor; never let it pass silently as `OK`.
-- **Wait by polling the gauge, never by sleeping a computed duration.** The window is
-  authoritative about its own reset; our arithmetic across clocks and time zones is not.
+- **Parking and continuing — the exact shape.** Ask the running conductors to park, then run
+  `loop/work/window-wait.ps1` **as a background command**. Its exit re-invokes this session, so
+  the founder continues in the same conversation with its context intact: nothing is resumed,
+  nothing restarted, no scheduled task involved. Waiting costs nothing — a parked session makes
+  no API calls, which matters because the reason for waiting is that there is no budget.
+- **Its exit means "the window should be open", not "you have budget".** The wait is anchored on
+  the provider's stated `resets_at`, because the gauge is refreshed by the status line and a
+  parked session renders none — during the wait, the number it would poll is frozen. So the
+  FIRST TURN AFTER IT EXITS must re-read the gauge (that turn renders the status line, making it
+  the first genuinely fresh reading) and park again if it still says `PAUSE`. A reset time that
+  has already passed rolls forward, and a session limit is not the same thing as being out of
+  credit.
+- **Exit 1 is a report to the founder, never a licence to carry on.** It means the blocking
+  window is a weekly one, days away — a decision about what to do next, not something to sit
+  through.
 - **Release one item at a time** when the window reopens, re-reading the gauge between each.
   Restarting every parked conductor at once can spend a fresh window before anyone looks.
 
