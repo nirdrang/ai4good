@@ -2,7 +2,10 @@
 #
 # WHERE THE NUMBERS COME FROM. Claude Code delivers `rate_limits` to the STATUS LINE and nowhere
 # else - hooks receive a different payload entirely - so statusline.ps1 snapshots it on every
-# refresh and this script reads that snapshot. Two consequences worth holding on to:
+# refresh and this script reads that snapshot.
+#
+# ONE LINE ONLY (founder 2026-08-06): OK below the pause line, PAUSE at it, UNKNOWN when the
+# reading cannot be trusted. Two consequences worth holding on to:
 #   1. The reading is only as fresh as the last status-line refresh, which happens on every turn
 #      of the interactive session. While the coordinator is dormant, nothing updates it - which
 #      is exactly why the conductor sends a keep-alive pulse: a pulse wakes the coordinator, the
@@ -25,21 +28,10 @@ param(
     # PAUSE line - founder's number (2026-08-06): stop work at 90 percent of a window.
     [int]$PauseAt = 90,
 
-    # HOLD line - do not START a new sitting above this, because a sitting that cannot finish is
-    # worse than one never begun.
-    #
-    # PROVISIONAL AND KNOWN-UNSOUND. 75 leaves a 15-point reserve below the pause line, and that
-    # reserve is only adequate if a sitting costs less than 15 points of a window - which nobody
-    # has measured. If an implement sitting really costs 20, work begun at 74 sails through 90
-    # mid-flight and this guard bought nothing. The number is a placeholder for an unasked
-    # question, not a judgement.
-    #
-    # The sound form is not a percentage: it is "can the window fund the phase about to start?".
-    # Getting there needs one fact we lack - the cost of each sitting type. Record the window
-    # percentage at the start and end of each sitting; after a handful, set this to the pause
-    # line minus the cost of the most expensive sitting, and say in the commit that it was
-    # measured rather than chosen.
-    [int]$HoldAt = 75,
+    # There is deliberately NO second, lower line (founder 2026-08-06). A "start nothing new"
+    # band would have to be justified by the cost of a sitting, which nobody has measured, so it
+    # could only ever be a number that felt safe. One line, and a sitting that meets it mid-flight
+    # parks at its last committed work item - the per-work-item commits are the recovery.
 
     # Older than this and the gauge admits it cannot see, rather than reporting a stale number as
     # if it were current.
@@ -158,9 +150,6 @@ if ($null -ne $ageMin -and $ageMin -gt $StaleMinutes) {
 if ($worst.percent -ge $PauseAt) {
     $result.verdict = 'PAUSE'
     $result.reason  = ("{0} at {1}% (pause line {2}%) - resets {3}" -f $worst.name, $worst.percent, $PauseAt, $worst.resetsLocal)
-} elseif ($worst.percent -ge $HoldAt) {
-    $result.verdict = 'HOLD'
-    $result.reason  = ("{0} at {1}% (hold line {2}%) - finish what is running, start nothing new" -f $worst.name, $worst.percent, $HoldAt)
 } else {
     $result.verdict = 'OK'
     $result.reason  = ("{0} at {1}%" -f $worst.name, $worst.percent)

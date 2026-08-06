@@ -31,21 +31,26 @@ No context survives a phase boundary. Everything the next role needs is on disk 
 Anthropic reports how much of each usage window is spent. `statusline.ps1` snapshots those
 numbers on every status-line refresh — the status line is the only place Claude Code delivers
 them, hooks get a different payload — and `loop/work/window-gauge.ps1` reads the snapshot and
-returns `OK`, `HOLD`, `PAUSE` or `UNKNOWN`.
+returns `OK`, `PAUSE` or `UNKNOWN`.
 
 - **The coordinator decides; nothing else may.** Read the gauge on **every** `FLOW` and `PULSE`
-  line, and before spawning any conductor. A second thing with authority to halt work is the
-  same failure as a second way to close work — and a brake inside an agent is one the founder
-  cannot see.
-- **`HOLD` means finish, not stop.** Let running sittings complete; start no new one. A sitting
-  that cannot finish is worse than one never begun, because the work is abandoned mid-flight
-  instead of at a boundary.
+  line. A second thing with authority to halt work is the same failure as a second way to close
+  work — and a brake inside an agent is one the founder cannot see.
+- **One line, and it is `PAUSE`** (founder 2026-08-06). There is no lower "start nothing new"
+  band. Such a band would have to be justified by what a sitting costs, which nobody has
+  measured, so it could only ever be a number that felt safe. Work starts whenever the gauge
+  says `OK`.
 - **`PAUSE` means stop at the next boundary.** Ask each running conductor to park — write its
   state, push, and end — and stop it outright only if it does not. Graceful first: an agent
   killed mid-write leaves a record that lies about where the work got to.
-- **`UNKNOWN` is not `OK`.** No reading, an unparseable one, or one older than the staleness
-  limit all mean the guard is blind. Treat it as `HOLD` and say so out loud; a guard that reads
-  its own blindness as all-clear is worse than no guard, because it is trusted.
+- **A sitting that meets the line mid-flight parks at its last committed work item.** This is
+  why the executor commits one commit per work item: with no reserve band, running out mid-phase
+  is an expected outcome rather than a failure, and the commits are what make it cost one work
+  item instead of a sitting.
+- **`UNKNOWN` reports loudly and does not halt.** No reading, an unparseable one, or one past the
+  staleness limit means the instrument is broken, not that the window is spent — and a broken
+  instrument is not a reason to stop working, exactly as attribution degrades rather than blocks.
+  Say it in the open and fix the sensor; never let it pass silently as `OK`.
 - **Wait by polling the gauge, never by sleeping a computed duration.** The window is
   authoritative about its own reset; our arithmetic across clocks and time zones is not.
 - **Release one item at a time** when the window reopens, re-reading the gauge between each.
