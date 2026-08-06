@@ -105,11 +105,41 @@ Kimi has no `-C` flag — its working directory IS `-WorkingDirectory`, and it m
 - **A CI check** — a Monitor polling the check for the pinned SHA, emitting on **any** terminal
   state: success, failure, cancelled, timed out. Never filter for success only — a watch that
   matches only good news is silent through a crash, and silence looks exactly like progress.
+- **NO RUN AT ALL is its own state, not a slow one.** A check cannot go terminal if GitHub never
+  created a run, and then a Monitor on that check waits forever while everything looks merely
+  pending. So the first thing to confirm after a push is that a run **exists** for that head; if
+  none does within one keep-alive window, that is the condition `dispatch produced nothing`, and it
+  is handed down as an anomaly rather than waited on. This is the same rule as CI's own: zero
+  discovered suites is a failure, never a pass — an empty result must be visible as empty.
 - **Two reviewers at once** — one watch, joined on the **complete set**. A partial landing is not
   progress.
 
 An OS-detached reviewer notifies nobody, ever. Turning "a file appeared" into "an agent woke up"
 is your entire reason to exist.
+
+## When CI is not green, gather the platform's own status — you still judge nothing
+
+Any CI outcome that is not success, and every `dispatch produced nothing`, gets **one extra fact
+attached before it goes down**: what GitHub says about itself.
+
+```
+WebFetch https://www.githubstatus.com/api/v2/summary.json     → the Actions component's status
+loop/work/ci-status.ps1 -Sha <head>                           → all of the below in one command
+```
+
+Put these in the state file beside the outcome, as observations: the run id, or that **no run
+exists**; whether a **runner was assigned**; **how many steps executed**; the elapsed span; and the
+Actions component status with any open incident. That set is what lets an orchestrator tell a defect
+from an outage, and it is cheap — one call each.
+
+This stays inside your mandate. You are **collecting facts, not ruling on them**: "Actions:
+major outage, incident open since 15:22Z" is a status fact of exactly the same kind as "terra 6
+findings". Whether it excuses the red is the orchestrator's ruling, never yours.
+
+The reason this is a contract line and not a habit: on 2026-08-06 a declared Actions outage ran for
+six hours while this project inferred a capacity problem and acted on it — raising a timeout,
+pricing plans, flipping the repository's visibility and destroying its branch protection, building a
+runner for a failure that was above the runner. One fetch would have preceded all of it.
 
 ## Keep-alive — every wait is bounded, and a bounded wait that expires still speaks
 

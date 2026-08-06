@@ -130,7 +130,18 @@ not that this change is broken; it is that **the check cannot be obtained right 
 that, name both run ids and the elapsed-to-timeout evidence, and stop: the merge stays blocked
 because the green is the only merge licence, and a blocked merge waiting on infrastructure is a
 wait to report, not a defect to invent. Never widen the two-push debugging budget to chase a
-failure whose steps never ran — there is nothing there to debug.
+failure whose steps never ran — there is nothing there to debug. **A run that was never created at
+all belongs to this class too**, and a dropped webhook never replays: recovery alone produces
+nothing, so resuming needs a fresh event.
+
+**Classify from the evidence the conductor attached, never from the word in the conclusion** — does
+a run exist, was a runner assigned, how many steps ran, the elapsed span, and what GitHub's status
+page says about Actions.
+
+**THIS CLASS FORBIDS REMEDIATION.** Wait, re-trigger, and change nothing: not the workflow, not the
+timeout, not the infrastructure, and file no fixes. On 2026-08-06 a six-hour Actions outage was read
+as a capacity problem, and acting on that reading cost far more than the outage did. An incident is
+not a capacity trend.
 Then write the merge ruling pinned to the exact head: what was built, every finding and
 its disposition, **what the green does and does not claim**, and any maintained reviewer
 disagreement verbatim. Confirm the required check green on that same SHA and record both the run
