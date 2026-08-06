@@ -79,7 +79,9 @@ falsely In Progress.
    run_in_background: true, prompt: <item id, branch name, what has already happened>)`.
    **A spawn prompt is item facts only.** It states what to RESOLVE, never a resolved value — no
    chain, no parent, no label — and it never carries process instructions, because process lives
-   in the contracts and a spawn prompt is reviewed by nobody.
+   in the contracts and a spawn prompt is reviewed by nobody. One once told an item to queue
+   auto-merge at pull-request time, which would have merged it before a single gate ran; Gate 1
+   caught it on the plan.
 
 The conductor is born in the item's one worktree — the platform creates it at spawn, because
 the definition carries worktree isolation — installs once, and runs the item from there. You do

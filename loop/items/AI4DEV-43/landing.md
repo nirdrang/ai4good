@@ -88,6 +88,40 @@ its twin from the shared marker onward.
 - **`loop/out/way-of-work.md`** carries a superseded banner: the one-verb design and derived
   attribution still hold; how an item is *run* is now the workflow file's job.
 
+## The merge with main, and four fixes that would have been lost
+
+While this branch was being built, `AI4DEV-20 (judging AI output meaning)` merged — and it carried
+**four fixes to the old `SKILL.md`**, the one file this fold replaces wholesale. Resolving the
+conflict by keeping the new version would have deleted all four silently. Each was re-homed into
+the structure that now owns it:
+
+1. **A spawn prompt must not carry process instructions.** One told an item to queue auto-merge at
+   pull-request time, which would have merged it before a single gate ran; Gate 1 caught it on the
+   plan. The new coordinator manual already forbade process in a spawn prompt — it now carries the
+   evidence, and the story is in `lessons.md`. Nothing reviews a spawn prompt, so a process
+   instruction hidden in one is an unratified process change.
+2. **The tracked-child notification has MISSED in practice** — arriving minutes late or never,
+   twice on one item, and a child that cannot resolve its parent's name reports to the coordinator
+   instead, leaving the parent asleep through its own child finishing. This one **contradicted the
+   new design**: the conductor's contract called the tether "your primary signal and it is free"
+   and armed nothing for a sitting. The relay's entire flow depends on the conductor waking when a
+   sitting ends, so a missed event is a silent stall. The conductor now arms a backstop watch on
+   the remote tip moving off the head it holds, and the contract says plainly that the push is the
+   channel of record and the notification a bonus.
+3. **A read-intended reviewer once wrote probe files into the tree.** `reviewers.md` no longer
+   asserts "you have no write access" as a fact — it names `--sandbox read-only` as the
+   enforcement and carries an explicit NO WRITES instruction, with the rule that a claim only
+   settleable by writing is a verify-first finding for the executor. The conductor is told not to
+   drop that sentence when assembling an item's prompt file.
+4. **codex takes its sandbox pin as `-c sandbox_mode=…` on a resume**, not the launch flag. Folded
+   into the resume-mechanics history in `lessons.md`, since reviewers are now stateless and a
+   resume is only ever a recovery tool.
+
+Worth recording as a process observation: the fold was reviewed twice and the merge conflict is
+what surfaced these. A wholesale file replacement is the one change shape where `git` cannot warn
+you that you are discarding someone's work — the conflict marker says "two versions", not "four
+rules are about to vanish."
+
 ## Still open
 
 Two ratification calls, deliberately left to the founder rather than assumed:

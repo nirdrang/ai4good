@@ -179,6 +179,25 @@ export const AT_CONFIG = {
     provisional: true,
     source: 'AT-016.08 — TEST-PINNED by the acceptance criterion itself ("an explicit cap/window/coalescing fixture")',
   },
+  /*
+   * The semantic oracle's repeated-vote count. A HARNESS knob, not a product one: no requirement
+   * names it, because it is not a promise the product makes — it is how many times the judge is
+   * asked before a criterion is called, which is machinery. It lives here for the same reason the
+   * anti-spam pins do: the alternative is a literal inside `oracles.ts`, and then the registry
+   * entry and the real number can drift apart with both looking correct.
+   *
+   * Must be a positive ODD integer, enforced in `oracles.ts` — an even count can split evenly and
+   * whichever way the tie were broken would be a verdict nobody chose.
+   */
+  oracleJudgeVotes: {
+    name: 'repeated judge votes per semantic-oracle criterion',
+    value: 3,
+    unit: 'votes',
+    provisional: true,
+    source:
+      'AI4DEV-20 plan §3c + Gate 1 rulings F1/F10 — PROVISIONAL: no consuming suite exists to measure the ' +
+      'stability this count is meant to buy, so the first live smoke over a real suite is what would settle it',
+  },
   prdGateThresholdScore: {
     name: 'completion score at which the project PRD passes its gate',
     value: null,

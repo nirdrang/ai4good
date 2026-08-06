@@ -154,6 +154,7 @@ describe('the harness reports its own provenance honestly', () => {
       expect(stubbed, 'the loop-tier harness no longer reports the stand-ins it actually built').toEqual([
         'clock.controlled',
         'fixtures.worlds',
+        'oracles.judge',
         'sut.notifications',
         'vendors.email',
       ]);

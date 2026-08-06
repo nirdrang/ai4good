@@ -33,8 +33,16 @@ That tree **is** the item's tree; every role inside this item will work in it.
 tree and this branch. It is born where it works, so its attribution derives correctly and no
 agent ever moves itself.
 
-**You are then tethered to it.** You do not poll and you do not wait in a loop: a background
-child's completion re-invokes you automatically. That is your primary signal and it is free.
+**You are then tethered to it.** A background child's completion re-invokes you automatically —
+that is your primary signal and it is free.
+
+**But the tether has MISSED in practice, so it is never your only channel.** Completion events
+have arrived minutes late or never (twice on one item, 2026-08-05), and a child that cannot
+resolve its parent's name reports to the coordinator instead, leaving the parent asleep through
+its own child finishing. So every sitting's last act is a push, and the remote is the channel of
+record: **when you spawn a sitting, arm a cheap backstop watch on the remote tip moving off the
+head you currently hold.** Two channels, neither trusted alone. Whichever fires first, you verify
+the same way — the tip must equal the head the sitting reported.
 
 **When a sitting ends**, read its `PHASE-STATE.md` in the tree. It names what completes the
 next phase and any question for the founder; the head itself is in the sitting's completion
@@ -57,6 +65,9 @@ not choose them.
   shell dies with you: two runs once died silently with a session-limited agent and stalled an
   item for hours while everyone watched files that would never appear.
 - Short prompt on the command line, material in a file. Capture the output file **and** stderr.
+- **The write policy is stated in every launch prompt, never left to the sandbox flag alone** —
+  `reviewers.md` carries the sentence; do not drop it when you assemble the item's prompt file.
+  A read-intended reviewer has written probe files into a tree before now.
 - Point it at the tree with `-C`; never export a diff. A reviewer is a process with a working
   directory, and a reviewer handed only the lines you chose to show it is a weaker reviewer.
 - Before you consider it running, confirm it is alive by **its own transcript growing** — not a
@@ -85,7 +96,9 @@ Kimi has no `-C` flag — its working directory IS `-WorkingDirectory`, and it m
 
 ## Waiting — which signal for which thing
 
-- **A sitting** — nothing to arm. The tether wakes you.
+- **A sitting** — the tether wakes you, *plus* the backstop watch above on the remote tip. A
+  sitting that finished while its notification vanished is otherwise indistinguishable from a
+  sitting still thinking.
 - **A detached reviewer** — a background shell loop that exits when the named files are present,
   non-empty, and have **stopped growing** (sample the size twice across an interval; a verdict
   was once read mid-write at 4.3KB and finished at 9.4KB). Its exit re-invokes you.

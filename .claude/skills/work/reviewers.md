@@ -17,10 +17,17 @@ running as the wrong model because the resume was unpinned, a vendor refusing to
 its creating directory, and recovering half-written output from a session store. If an output is
 lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
 
-**You read; you never execute.** You have no write access and you are not asked to run the test
-suite. If a claim depends on runtime behaviour, **mark it as unverified** and state exactly what
-would settle it. That marker is not a weakness — it becomes a *verify-first* ruling, and the
-executor checks it with first-hand access. Reviewers assert; the executor verifies.
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** `--sandbox read-only` is the enforcement, and this sentence
+is the instruction; every launch prompt carries it explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
 
 **Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
 needs context beyond a hunk. But a defect in code this branch never touched belongs to another

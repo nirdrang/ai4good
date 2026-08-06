@@ -1,0 +1,57 @@
+GATE 1 — refute the plan for AI4DEV-20 (H4, the semantic-oracle harness slice).
+
+You are the adversarial plan reviewer. Your target failure: a plan that cannot be executed as
+written, or whose greens would not mean what the item says. Verify every claim IN THE TREE —
+never trust the plan's description of a file.
+
+READ FIRST
+- loop/items/AI4DEV-20/plan.md            (the plan under review — the ONE intent artifact)
+- loop/bringup/AI4DEV-3-at-harness.md     (the parent working spec; Part A item 7 is this slice)
+- .taskmaster/docs/acceptance/at-req-009.md  (AT-009.07)
+- .taskmaster/docs/acceptance/at-req-004.md  (AT-004.10)
+- .taskmaster/docs/acceptance/at-req-033.md  (AT-033.07)
+
+VERIFY AGAINST THE CODE (the plan makes claims about all of these)
+- tests/at/harness/contracts.ts   (alias-only rule; capability contract; where oracles types land)
+- tests/at/harness/index.ts       (createHarness wiring; real vs stand-in provenance; tier rules)
+- tests/at/harness/capabilities.ts (provenance machinery; pendingCapability semantics)
+- tests/at/harness/registry.ts    (tier contract: stubbedCapabilities must be empty above loop)
+- tests/at/harness/runner.ts      (ENV_ALLOWLIST; childEnv; the vitest spawn call site)
+- tests/at/harness/runner.selftest.ts (the credential leak sentinels the plan says it extends)
+- tests/at/harness/atconfig.ts + config.ts (registry shape for the votes pin + dotted key)
+- tests/at/expected/req-016.json  (the plan promises this stays byte-identical)
+- package.json                    (the plan adds @anthropic-ai/sdk as a devDependency)
+
+ATTACK, AT MINIMUM
+1. Decisions stated as settled that are not actually decided, or decided on wrong facts.
+2. Facts wrong against the code — especially the wiring claims about index.ts/registry.ts/runner.ts.
+3. Constraints contradicting the harness's own rules (type aliases, tier semantics, teardown
+   accounting, one-writer, config registry doctrine "null means fail loudly").
+4. Scope that forces a mid-flight redesign (the no-consuming-suite boundary in plan §2: is the
+   grounding-rubric mitigation real or decorative? does anything here get rewritten the moment
+   REQ-004/009/033 are authored?).
+5. Anything no tool can do as written (API claims: no seed parameter, sampling params removed on
+   current models, structured outputs via output_config.format, effort "low" on claude-opus-5 —
+   is any of this wrong or unusable from a bun/vitest child process?).
+6. The plan's teeth: steps missing a done-criterion; oracles too weak to prove what they claim;
+   any green that would not mean what the item says. In particular: do the conformance tests in
+   §4g actually pin the failure modes that matter (silent fallthrough replay→live, live→replay,
+   majority math, refusal-as-pass), or is there a hole?
+7. The plan's own risk list (§7) — confirm, refute, or extend each entry.
+8. The determinism claim itself: with no seed and no temperature, is rubric-decomposition +
+   k=3 majority + committed replay actually sufficient for "the same input does not pass one day
+   and fail the next", and is anything missing from the replay key?
+9. The credential path: does AT_JUDGE_API_KEY passed to non-loop children weaken the leak model
+   runner.ts enforces? Is the sentinel-test extension described in §4d coherent with how
+   childEnv() actually works?
+
+OUTPUT (this exact structure, as your final message)
+# Gate 1 critique — AI4DEV-20
+## Verdict
+One of: NO BLOCKING FINDINGS / BLOCKING FINDINGS PRESENT — one sentence why.
+## Findings
+Numbered. Each: [severity BLOCKER|MAJOR|MINOR] — plan section attacked — what is wrong — the
+evidence (file:line or quoted text from THIS tree) — what would fix it.
+If a category above yielded nothing, say so in one line.
+## Residual risks accepted if the plan proceeds unchanged
+Bullet list.

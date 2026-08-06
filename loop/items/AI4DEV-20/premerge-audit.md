@@ -1,0 +1,31 @@
+# Pre-merge audit — AI4DEV-20 — luna
+
+## Verdict
+
+VERIFIED-WITH-BOUNDARIES — Vitest was blocked by sandbox ancestor-directory access; live smoke remains NOT RUN; mutations were skipped. Required CI verification remains necessary.
+
+## Evidence
+
+- `bun run typecheck` — exit 0; both configs clean.
+- `bun run at:selftest` — exit 1; COULD-NOT-VERIFY-IN-SANDBOX; Vitest did not start.
+- `bun run at:verify req-016 --tier loop --expect` — exit 4; COULD-NOT-VERIFY-IN-SANDBOX; no Vitest report.
+- Mutations skipped because selftest did not run.
+
+| Cluster | Code and test located |
+|---|---|
+| A | `oracles.ts:530,616-689`; shadow, filename, overwrite, and path tests in `oracles.selftest.ts:481-591`. |
+| B | Branded transports and tier refusals in `oracles.ts:179,1127-1146`; test at `oracles.selftest.ts:964`. |
+| C | File credential guard at `oracles.selftest.ts:251-257`; sentinel and child-env tests at `runner.selftest.ts:37-83`; compiler uses `childEnv()` at `type-invention.selftest.ts:49-57`. |
+| D | `liveJudgeResponse` and strict parsing at `oracles.ts:776-938`; tests at `oracles.selftest.ts:849-935`. |
+| E | Complete replay hashing/render order at `oracles.ts:434-478`; tests at `oracles.selftest.ts:384-433`. |
+| F | Exclusive writes at `oracles.ts:603-637`; recorder skip at `record-oracles.ts:110-125`; tests at `oracles.selftest.ts:538-578`. |
+| G | `majorityPass` at `oracles.ts:977-979`; tie witness at `oracles.selftest.ts:635-650`. |
+| H | `recent_activity` slot and specimens at `rubrics/at-033-07.ts:45,121-145`; well-formedness test at `oracles.selftest.ts:1096`. |
+
+Boundaries confirmed: diff stat contains no `runner.ts`, `src/`, `supabase/`, or req-016 expected manifest; both expected-manifest and runner blob hashes match `14fee90`; recordings contain only `README.md`; judge-key references are limited to parent-side code, docs, and test guards/sentinels. `live-smoke.md:1` says `NOT RUN`; README line 29 names Git review as the authenticity boundary.
+
+Final `git status --short` output: no lines.
+
+## Discrepancies
+
+None in the audited implementation tree.

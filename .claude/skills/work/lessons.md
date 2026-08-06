@@ -59,6 +59,13 @@ be right, which is the danger: the agent would have stamped a wrong value just a
 for the life of the item, and no gate reads spawn prompts. The general form: a correction
 lives only in a file every session loads; a message to a running agent dies with it.
 
+**Process instructions must not travel in one either** (2026-08-05). A spawn prompt told an item
+to queue auto-merge when it opened the pull request — which would have merged the item before a
+single gate ran. Gate 1 caught it, on the plan, which is the only reason it is a story and not an
+incident. Nothing reviews a spawn prompt, so a process instruction hidden in one is a process
+change nobody ratified: how to run an item lives in the contracts, and the prompt carries only the
+item's own state.
+
 ## Why two orchestrator definition files
 
 The Agent tool has no effort parameter — effort lives in the definition frontmatter and
@@ -87,6 +94,14 @@ its run header showed it had silently run as SOL with full access, because the r
 unpinned and CLI defaults applied. The confirmation was redone. Corollary: recovered outputs
 are verified by run header before being trusted.
 
+## A read-only reviewer that wrote
+
+A reviewer meant to read wrote probe files into the tree to settle a finding empirically, and
+cleaned them up only by its own choice (2026-08-05). Two rules came out of it: the write policy is
+**stated in the prompt**, never left to the sandbox flag to imply, and a claim that can only be
+settled by writing is a *verify-first* finding for the executor rather than something a reviewer
+resolves itself.
+
 ## Kimi exit-199 — the directory rule
 
 `kimi -r <id>` from any directory other than the session's creator exits 199 with a zero-byte
@@ -100,6 +115,13 @@ platform notifies only for its own tracked children; a detached codex or Kimi no
 ever. Both times a coordinator file-watch caught the landing and sent the wake-up by hand. The
 partial-file hazard is real too: a Kimi verdict was sampled mid-write at 4.3KB and finished at
 9.4KB — folding a growing file as a final verdict is a false gate.
+
+**And the tracked-child channel itself has missed** (2026-08-05, twice more on one item): a
+completion event arrived minutes late, or never. A background child that cannot resolve its
+parent's name reports to the coordinator instead, so the parent sleeps through its own child
+finishing. The conclusion the relay is built on: a notification is a bonus, and the
+**remote-visible push is the channel of record.** Whoever is waiting arms a backstop on it and
+verifies the tip against the head the sitting reported.
 
 ## One writer in a worktree — two lost audit runs
 
@@ -207,8 +229,9 @@ parent and stalled the item for hours while everyone watched files that would ne
 Disposition authority was already the item agent's; confirmation had become a fourth check
 that mostly manufactured waiting. Reviewers are now stateless — never resumed. A lost output is
 re-run at the same pinned commit and said to be a fresh sample, not a reproduction. The resume
-mechanics (pinning, run-header verification, session-store recovery, Kimi's directory rule) are
-kept here only as history: they explain why statelessness was chosen.
+mechanics (pinning — including codex's sandbox pin, which on a resume is
+`-c sandbox_mode=…` rather than the launch flag — run-header verification, session-store recovery,
+Kimi's directory rule) are kept here only as history: they explain why statelessness was chosen.
 
 ## Token discipline — where the budget actually went (2026-08-04)
 

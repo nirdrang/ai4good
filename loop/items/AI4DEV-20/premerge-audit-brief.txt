@@ -1,0 +1,58 @@
+PRE-MERGE AUDIT — AI4DEV-20 (semantic-oracle harness slice). You are luna, the independent
+auditor. The agent claiming green is the one being checked — re-derive, do not trust.
+
+THE CLAIM UNDER AUDIT
+Branch nirdrang/ai4dev-20-h4-semantic-oracle-harness-judging-the-meaning-of-ai-output at
+head 92d682e (code at 6494f82). Claimed: typecheck exit 0 (both projects); at:selftest
+243/243 green; at:verify req-016 --tier loop --expect exit 0 with
+tests/at/expected/req-016.json byte-identical to the item base 14fee90; runner.ts has no
+diff against 14fee90; the committed recordings directory contains only README.md.
+
+CONTEXT (read, in this order)
+  loop/items/AI4DEV-20/plan.md              (rev 2 — the ruled plan)
+  loop/items/AI4DEV-20/gate2-rulings.md     (eight accepted clusters, four residuals)
+  loop/items/AI4DEV-20/fixes-done.txt       (the executor's account of the fix round)
+  loop/items/AI4DEV-20/gate2-closure.md     (the item agent's closure rulings incl. Q1-Q4)
+
+DO, IN ORDER
+1. INDEPENDENT RE-RUN (your sandbox is workspace-write so these can execute):
+     bun run typecheck
+     bun run at:selftest
+     bun run at:verify req-016 --tier loop --expect
+   Record each command's EXACT exit code and the pass/fail counts you observed yourself.
+   KNOWN BOUNDARY: in this platform worktree the sandbox may deny vitest's
+   ancestor-directory walk. If a command fails with that signature, mark it
+   COULD-NOT-VERIFY-IN-SANDBOX (not red), say so explicitly, and note that execution
+   evidence then comes from the required CI check on the PR head. Never report a
+   sandbox-denied run as either green or red.
+2. RECORD-VS-TREE: for each cluster A-H in fixes-done.txt, verify the named code change and
+   the named test EXIST in the tree and say what you checked (file, symbol, test title).
+   Flag any claim you could not locate.
+3. TWO INDEPENDENT MUTATIONS (only if step 1's selftest actually ran in your sandbox;
+   otherwise skip and say so — a mutation you cannot re-test must not be attempted):
+     (a) in majorityPass, change > to >=       -> expect exactly the tie-witness test red
+     (b) disable the duplicate-declared-key refusal in readRecordings
+                                               -> expect exactly the shadow test red
+   Restore each via `git checkout -- <file>` immediately after, re-run the affected test
+   file to confirm green again, and report before/after. Your FINAL act in the tree must be
+   `git status --short` showing it CLEAN — report that output verbatim.
+4. BOUNDARIES:
+     git diff 14fee90..HEAD --stat  -> confirm no runner.ts, no src/, no supabase/,
+                                       no tests/at/expected/req-016.json
+     the recordings directory       -> only README.md; no entry claims recordedFrom "live"
+     grep AT_JUDGE_API_KEY          -> only parent-side readers (oracles.ts live transport,
+                                       record-oracles.ts), docs, and test sentinels/strips;
+                                       nothing writes it into a child environment
+5. THE HONEST-STATE RECORDS: confirm live-smoke.md still says NOT RUN and that
+   recordings/README.md names git review as the authenticity boundary (not the store).
+
+OUTPUT (your final message, nothing else)
+# Pre-merge audit — AI4DEV-20 — luna
+## Verdict
+One of: VERIFIED / VERIFIED-WITH-BOUNDARIES (name them) / DISCREPANCIES FOUND.
+## Evidence
+The commands you ran with exit codes and counts; per-cluster spot-check table; mutation
+results if run; the final git status output.
+## Discrepancies
+Numbered, each with file:line and what the record claimed vs what the tree holds. If none,
+say so in one line.

@@ -1,0 +1,16 @@
+﻿bun : $ bunx vitest run --root tests/at --config vitest.config.ts harness/
+At line:1 char:554
++ ... ms\AI4DEV-20\baseline-typecheck.txt; bun run at:selftest 2>&1 | Out-F ...
++                                          ~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx vitest r...fig.ts harness/:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a39ef92872b61dcff/tests/at
+
+
+ Test Files  8 passed (8)
+      Tests  167 passed (167)
+   Start at  00:53:40
+   Duration  6.62s (transform 627ms, setup 0ms, import 4.82s, tests 12.88s, environment 1ms)
+

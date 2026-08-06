@@ -94,6 +94,53 @@ declare module '../harness/contracts.ts' {
   interface EmailProviderSim {
     invented?: string;
   }
+  // H4's oracle contracts. `SemanticOracle` is the one a suite reaches through `h.oracles`, but the
+  // rubric and verdict shapes are handed to and returned from `judge()`, so a member merged into
+  // any of them is a member a test body could read off a value that never supplies it. The union
+  // aliases (`RubricCriterion`, `CriterionComparator`) are attacked the same way: an interface
+  // sharing a type alias's name is a duplicate identifier whatever the alias resolves to.
+  interface SemanticCriterion {
+    invented?: string;
+  }
+  interface ExtractionSpec {
+    invented?: string;
+  }
+  interface NumericToleranceComparator {
+    invented?: string;
+  }
+  interface CountAtLeastComparator {
+    invented?: string;
+  }
+  interface CriterionComparator {
+    invented?: string;
+  }
+  interface ExtractionCriterion {
+    invented?: string;
+  }
+  interface RubricCriterion {
+    invented?: string;
+  }
+  interface Rubric {
+    invented?: string;
+  }
+  interface VoteTally {
+    invented?: string;
+  }
+  interface CriterionVerdict {
+    invented?: string;
+  }
+  interface VerdictProvenance {
+    invented?: string;
+  }
+  interface SemanticVerdict {
+    invented?: string;
+  }
+  // REQUIRED rather than optional, like `Faults` above: `oracles` is a real object on the harness
+  // and not a `pendingCapability()` Proxy, so a required merged-in member has to be rejected by the
+  // alias rule rather than by the factory's return annotation happening to notice it.
+  interface SemanticOracle {
+    inventedRequired: string;
+  }
 }
 
 declare module '../harness/config.ts' {
