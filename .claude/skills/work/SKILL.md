@@ -74,6 +74,9 @@ falsely In Progress.
    guess would be baked in permanently.
 4. **Branch name from the board's `gitBranchName`, verbatim.** Never invented; validate that it
    tokenises to exactly this item. That is what makes the pull request close the right item.
+   **Create it from `origin/main` after a fetch, never from local `main`** — local `main` can carry
+   unpushed work that is not yours (a founder commit landed there mid-session once), and a pull
+   request is precisely where someone else's commit becomes a wrong attribution.
 5. Claim: assign, In Progress.
 6. Spawn the conductor: `Agent(subagent_type: "conductor", model: "sonnet",
    run_in_background: true, prompt: <item id, branch name, what has already happened>)`.

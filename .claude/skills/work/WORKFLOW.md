@@ -17,7 +17,7 @@ definition file of its own — it is the founder's own session, so its contract 
 |---|---|---|---|
 | **Coordinator** | fable @ xhigh | the PM board · the founder channel · everything destructive | the whole session |
 | **Conductor** | sonnet | the item's worktree and its clock · narration | one item |
-| **Orchestrator** | fable @ xhigh (fallback opus @ max) | **all judgment** — plan, rulings, merge decision | one sitting |
+| **Orchestrator** | fable @ xhigh (fallback opus @ max) | **all judgment** — plan, rulings, merge decision | one sitting; four per item, five when the audit finds something |
 | **Executor** | opus | the code, and running verify | one task |
 | **Mechanical** | sonnet | publish · merge execution · capture | one task |
 | **Distiller** | sonnet | one raw critique → findings only | one file |
@@ -158,9 +158,20 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
 49  CONDUCTOR    launch luna OS-DETACHED · read-only · -C <tree>
 50  CONDUCTOR    arm the file-watch · flow "fix → audit"
 51  CONDUCTOR    watch exits → DISTILLER
-52  CONDUCTOR    flow "audit done · N findings" → spawn AUDIT SITTING
+52  CONDUCTOR    CLEAN OR NOT, DERIVED FROM THE DISTILLATE — never from anyone's word
+                 CLEAN = zero findings AND a distillate that reads as a real verdict
+                   → a MECHANICAL commits the raw output + distillate and pushes
+                   → flow "audit clean → ci" · arm CI ON THAT NEW HEAD (the commit moved it)
+                   → spawn the MERGE SITTING.  NO AUDIT SITTING — nothing to rule, so this
+                     wait and CI's are adjacent.  THIS is what makes the usual item FOUR
+                     orchestrator sittings rather than five
+                 FINDINGS, or truncated · cut off mid-write · progress lines and no findings
+                   → flow "audit done · N findings" → spawn the AUDIT SITTING (53)
+                     AMBIGUITY BUYS MORE JUDGMENT, NEVER LESS — the same reflex that sends
+                     CI down its slow path when it cannot read the file list
 
-53  ORCHESTRATOR rule each finding BY CLASS:
+53  ORCHESTRATOR [only when there is something to rule]
+                 rule each finding BY CLASS:
                  1 THE RECORD IS FALSE — an adopted ruling not implemented · the diff outside
                    its declared scope · a stated fact untrue
                    → NEVER mergeable: change the code, or change the record
@@ -280,6 +291,8 @@ cost four idle hours. Silence and progress look identical from outside.
   the coordinator to fold — only the mandated step is gone.
 - **No execution by reviewers.** They critique; the executor verifies; CI proves.
 - **No lazy install.** One tree that will certainly run the harness gets installed once, up front.
+- **No audit sitting on a clean audit.** A sitting exists to put judgment between two waits; with
+  nothing to rule there is no judgment to place, so the merge sitting absorbs both waits.
 
 ## The two things that make this cheaper than what it replaces
 

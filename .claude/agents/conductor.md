@@ -129,11 +129,34 @@ skipped.
 
 The audit is a claim check — it reads the diff and the record and asks whether the story matches
 the tree. If it changes anything, the head changes, and a CI green attached to an abandoned head
-is worthless. So: launch the audit, wait for it, let the audit sitting rule and fix, and only
-then watch CI on the **final** head.
+is worthless. So: launch the audit, wait for it, let any ruling and fixing finish, and only then
+watch CI on the **final** head.
 
 GitHub fires CI on every push, so intermediate runs will exist. They are not the gate. Only the
 run whose SHA equals the final head counts, and the merge ruling records both.
+
+## The audit sitting is CONDITIONAL — this is what makes the usual item four sittings
+
+A sitting ends where the next event is a wait, so the count of sittings is the count of waits plus
+one. Three of the gaps between your four waits need judgment in them: the plan critique is ruled
+before code is written, the code critique before the fixes, CI's verdict before anything merges.
+**The gap between the audit and CI is the exception — it needs judgment only if the audit found
+something.** A clean audit has nothing to rule, so those two waits sit back to back and the merge
+sitting absorbs both.
+
+Derive it from the distillate, never from anyone's word — the same rule as proportionality:
+
+- **Clean** — zero findings **and** a distillate that reads as a real verdict. Hand a MECHANICAL
+  the audit's raw output and distillate to commit and push, then arm CI **on that new head**, and
+  spawn the MERGE sitting. No audit sitting: there is nothing to rule.
+- **Findings, or anything ambiguous** — a distillate that is truncated, cut off mid-write, or
+  carries progress lines and no findings at all → spawn the AUDIT SITTING. **Ambiguity always
+  buys MORE judgment, never less**, exactly as an unreadable file list sends CI down its slow
+  path. An empty gate must never be mistaken for a clean one.
+
+The ordering matters and is easy to get backwards: committing the audit artifacts **moves the
+head**, so CI is armed after that push, never before. Same trap as a state file that cannot name
+its own commit.
 
 ## Narrating to the founder
 
