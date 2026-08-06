@@ -192,6 +192,12 @@ codex exec --sandbox workspace-write -C <worktree> -c model=gpt-5.6-luna \
   has MISSED in practice (events arriving minutes late or never, on one item twice), so the
   parking message always names the exact files for the coordinator's backstop watch. Two
   channels, neither trusted alone.
+- **A background SUBAGENT'S completion report is not a channel either.** A child that cannot
+  resolve its parent's name silently reports to the COORDINATOR instead, and the parent sleeps
+  through its own child finishing (observed 2026-08-05, twice more across the same item). Pin
+  the channel at spawn time: the child's LAST act is committing and pushing a named completion
+  file, and the parking message names that file — the remote-visible file is the channel of
+  record, the completion notification a bonus when it works.
 - **Detached must mean SURVIVES-THE-LAUNCHER.** A reviewer launched as a child of your shell
   dies with you (observed: two confirmation runs silently died with a session-limited agent
   and stalled the item for hours). Launch OS-detached (`Start-Process`), then verify the
@@ -256,7 +262,11 @@ single focused gate on the actually-code part — and say so in the report.
 - Launch folklore: short prompt on the command line, material in a file; capture `-o` plus
   stderr to a file; `-p` is incompatible with `--auto`/`--yolo`; **content is the test, not
   size** — a progress line is not a critique, check findings and exit code; committed reviewer
-  prompts carry repo-relative paths, never worktree paths.
+  prompts carry repo-relative paths, never worktree paths; **state the WRITE POLICY in every
+  reviewer launch prompt** — a read-intended reviewer has written probe files into the tree to
+  verify a finding empirically (it cleaned up, but only by its own choice; observed
+  2026-08-05). Read-only reviews say NO WRITES; empirical-probe reviews require cleanup plus a
+  final clean `git status` in the report.
 - **ONE WRITER IN A WORKTREE AT A TIME.** While a workspace-write reviewer or auditor runs,
   nothing else mutates that tree; confirm a reviewer dead by PROCESS ID, not wrapper exit, not
   an empty file.
