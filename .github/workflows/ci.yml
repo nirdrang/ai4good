@@ -32,8 +32,21 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # WHERE THIS RUNS IS A VARIABLE, NOT A CODE CHANGE. Set the repository variable
+    # `CI_RUNNER_LABEL` to a self-hosted runner's label to route the check there; clear it to
+    # come straight back to GitHub-hosted capacity. That indirection is deliberate and it is
+    # about safety, not convenience: this check is the ONLY licence to merge, so recovering from
+    # a broken runner must never itself require a merge. Editing `runs-on` to fall back would
+    # need a pull request, which would need this check, which is the runner that just broke.
+    #
+    # See .github/runner/ for the Linux container that serves the self-hosted label, and why the
+    # check still judges the code on Linux either way.
+    runs-on: ${{ vars.CI_RUNNER_LABEL || 'ubuntu-latest' }}
+    # Generous on purpose. This bounds a RUNAWAY JOB; it is not a queue policy. At 15 minutes it
+    # was acting as one: hosted capacity queued this job for 11-15 minutes on 2026-08-06 and
+    # twice the budget expired before a single step ran, reporting `cancelled` as though someone
+    # had stopped it. The work itself takes about ten seconds on the fast lane.
+    timeout-minutes: 30
     steps:
       # THE HEAD COMMIT, NOT THE MERGE COMMIT. On a pull_request event GitHub's default ref is a
       # synthetic merge of head into base — a commit that exists in no branch and that nobody
