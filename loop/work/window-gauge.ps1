@@ -26,9 +26,19 @@ param(
     [int]$PauseAt = 90,
 
     # HOLD line - do not START a new sitting above this, because a sitting that cannot finish is
-    # worse than one never begun. PROVISIONAL: no sitting has been measured yet, so this is a
-    # guess with a reason (leave roughly a sixth of a window spare), not a derived figure. Pin it
-    # from observed sitting costs once a few have run, and say in the commit that it was measured.
+    # worse than one never begun.
+    #
+    # PROVISIONAL AND KNOWN-UNSOUND. 75 leaves a 15-point reserve below the pause line, and that
+    # reserve is only adequate if a sitting costs less than 15 points of a window - which nobody
+    # has measured. If an implement sitting really costs 20, work begun at 74 sails through 90
+    # mid-flight and this guard bought nothing. The number is a placeholder for an unasked
+    # question, not a judgement.
+    #
+    # The sound form is not a percentage: it is "can the window fund the phase about to start?".
+    # Getting there needs one fact we lack - the cost of each sitting type. Record the window
+    # percentage at the start and end of each sitting; after a handful, set this to the pause
+    # line minus the cost of the most expensive sitting, and say in the commit that it was
+    # measured rather than chosen.
     [int]$HoldAt = 75,
 
     # Older than this and the gauge admits it cannot see, rather than reporting a stale number as
