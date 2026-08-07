@@ -19,10 +19,13 @@
  * refuses ANY stubbed capability above the loop tier, so this adapter cannot reach the
  * integration-tier run that is the evidence gate.
  *
- * What that is worth, stated exactly: the gate cannot be satisfied by relabelling this adapter, and
- * it takes a visible edit to a named witness in `harness/capabilities.ts` — not a one-word change
- * at a call site — to make it look otherwise. The harness is still source code, so this is a bound
- * on how cheap the lie is, not a proof that none is possible.
+ * What that is worth, stated exactly: the gate cannot be satisfied by relabelling this adapter. The
+ * `sut` family has NO NAMED WITNESS — it is off the closed witness table on purpose, so that nothing
+ * has to look a SUT name up — and the mechanism that actually decides its provenance is
+ * `adapterDerivedCapability()` in `harness/capabilities.ts`, the route that stamps every
+ * adapter-derived capability stand-in unconditionally. Making this adapter look real takes an edit
+ * to that one function, not a one-word change at a call site. The harness is still source code, so
+ * this is a bound on how cheap the lie is, not a proof that none is possible.
  */
 
 import type { ControlledClock } from '../../harness/clock.ts';

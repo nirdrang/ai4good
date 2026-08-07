@@ -101,6 +101,28 @@ function theArticleItself(what: string): CapabilityWitness {
 }
 
 /**
+ * THE LEGAL BRANDS ON EACH AXIS OF THE ORACLE'S EVIDENCE, ENUMERATED AT RUNTIME.
+ *
+ * The oracle witness used to accept BY ABSENCE on both axes: anything that was not `loop` counted
+ * as above loop, and anything that was not `replay-fs` counted as a transport worth a `real`
+ * verdict. That is "I found no forbidden thing, therefore the thing is present" — the sentence this
+ * file's own header forbids, on the ONE witness in the table with a reachable `real` outcome. A
+ * `{ tier: 'integration', transport: 'bogus' }` construction came back `real` with confident-sounding
+ * evidence for a brand nobody had ever heard of.
+ *
+ * SOURCE OF TRUTH FOR EACH LIST, so a future divergence is findable:
+ *   tiers      — `Tier` in `registry.ts`
+ *   transports — `TransportKind` in `oracles.ts`
+ *
+ * These are deliberately NOT imported as types. `oracles.ts` imports this file, so importing back
+ * would add a cycle — and a compile-time union cannot constrain a runtime string anyway, which is
+ * the whole reason this check has to exist at all: `CapabilityEvidence.tier` and `.transport` are
+ * plain `string`, because the evidence arrives from a caller.
+ */
+const LEGAL_TIERS: readonly string[] = ['loop', 'integration', 'drill'];
+const LEGAL_TRANSPORTS: readonly string[] = ['replay-fs', 'live', 'fake'];
+
+/**
  * THE TABLE IS CLOSED: six exact names, no prefixes and no wildcards.
  *
  * A prefix rule (`sut.*` had one) means nobody ever decided about the names it swallows, which is
@@ -172,6 +194,22 @@ const WITNESSES = new Map<string, CapabilityWitness>([
             `${REFUSAL_DOCTRINE}`,
         );
       }
+      // ENUMERATE BEFORE ANY RULE IS APPLIED. Every rule below reads a brand it recognises; a value
+      // neither list contains is unclassifiable, and unclassifiable refuses rather than falling
+      // through to whichever branch happens to catch it.
+      if (!LEGAL_TIERS.includes(tier)) {
+        throw new Error(
+          `refusing to construct capability "oracles.judge": the TIER axis was given ${JSON.stringify(tier)}, which is ` +
+            `not a brand this witness recognises. The legal tiers are ${LEGAL_TIERS.join(', ')}. ${REFUSAL_DOCTRINE}`,
+        );
+      }
+      if (!LEGAL_TRANSPORTS.includes(transport)) {
+        throw new Error(
+          `refusing to construct capability "oracles.judge": the TRANSPORT axis was given ${JSON.stringify(transport)}, ` +
+            `which is not a brand this witness recognises. The legal transports are ${LEGAL_TRANSPORTS.join(', ')}. ` +
+            `${REFUSAL_DOCTRINE}`,
+        );
+      }
       if (tier === 'loop') {
         if (transport === 'live') {
           throw new Error(
@@ -227,6 +265,18 @@ export function witnessedCapability<T>(name: string, value: T, evidence: Capabil
 }
 
 /**
+ * THE NAMES THIS ROUTE MAY BUILD: `fixtures.worlds` exactly, and every `sut.<key>`.
+ *
+ * `index.ts` composes the SUT names — `Object.entries(adapter.sut)` behind its own `sut.` literal —
+ * and strips the same prefix back off in `createHarness()`. This copy of the literal is the
+ * ADMISSION CHECK for the route, not a second place the name is built, and the two must stay in
+ * step: a change to the prefix there without a change here would refuse every SUT capability at
+ * construction, loudly and on the first run.
+ */
+const ADAPTER_DERIVED_EXACT = 'fixtures.worlds';
+const ADAPTER_DERIVED_PREFIX = 'sut.';
+
+/**
  * THE ADAPTER-DERIVED ROUTE, for the two families whose provenance comes from where the module was
  * loaded rather than from anything about the value: `fixtures.worlds` and every `sut.<key>`.
  *
@@ -235,11 +285,42 @@ export function witnessedCapability<T>(name: string, value: T, evidence: Capabil
  * dressed as a check — the same dishonesty this file exists to remove. The URL is the CONTENT of
  * the reason, so the ledger names the module really imported; it is not the condition of a test.
  *
- * The URL is loader-derived and cannot be caller-supplied: `loadAdapter()` computes it from
- * REPO_ROOT plus the requirement and hands it back, and no caller passes a path in.
+ * ON THE URL, STATED AS IT ACTUALLY IS. Through the one route the harness uses, it is loader-derived:
+ * `loadAdapter()` computes it from REPO_ROOT plus the requirement and hands it back, and no caller
+ * passes a path in. THE SIGNATURE DOES NOT ENFORCE THAT — this parameter is a plain string and any
+ * caller may supply any non-empty one. What bounds it is that every outcome here is stand-in: a
+ * fabricated URL ADDS a name to the ledger `registry.ts` refuses above loop, so it can only make the
+ * closing gate stricter. The failure direction is a false RED, never a false green.
+ *
+ * THE TWO ROUTES PARTITION THE NAMESPACE, and the check below is what makes that true rather than
+ * merely intended. Before it, `adapterDerivedCapability('clock.controlled', strippedClock, url)`
+ * minted a stand-in for a name the closed witness table would have REFUSED — routing around the
+ * table through a door the table does not watch. So this route refuses any name the table knows, and
+ * refuses any name outside its own two families.
+ *
+ * THIS IS NOT THE PREFIX RULE THAT WAS REMOVED FROM THE WITNESS TABLE, and the difference is the
+ * whole justification. There, a `sut.*` prefix matched a name into a table that GRANTS A VERDICT, so
+ * a verdict was handed to a name nobody had decided about — an unlimited namespace inside a table
+ * whose claim was that it was closed. Here the verdict is unconditional stand-in whatever the name
+ * is, so matching the prefix grants nothing at all; it only restricts WHICH NAMES MAY USE THIS
+ * ROUTE. A prefix that decides an outcome is a hole; a prefix that decides admission is a partition.
  */
 export function adapterDerivedCapability<T>(name: string, value: T, moduleUrl: string): Capability<T> {
   if (!name.trim()) throw new Error('a capability requires a non-empty name');
+  if (WITNESSES.has(name)) {
+    throw new Error(
+      `refusing to construct capability ${JSON.stringify(name)} on the adapter-derived route: a witness is registered ` +
+        'for that name, and this route would stamp it stand-in without ever asking that witness — including for a ' +
+        'value the witness would have REFUSED. The two routes partition the capability namespace; they do not overlap.',
+    );
+  }
+  if (name !== ADAPTER_DERIVED_EXACT && !(name.startsWith(ADAPTER_DERIVED_PREFIX) && name.length > ADAPTER_DERIVED_PREFIX.length)) {
+    throw new Error(
+      `refusing to construct capability ${JSON.stringify(name)} on the adapter-derived route: this route builds ` +
+        `${ADAPTER_DERIVED_EXACT} and every ${ADAPTER_DERIVED_PREFIX}<key> the fixture adapter exports, and nothing ` +
+        'else. A name outside both families belongs on the witness table, where something decides about it.',
+    );
+  }
   if (!moduleUrl.trim()) {
     throw new Error(
       `refusing to construct capability ${JSON.stringify(name)} on the adapter-derived route with no module URL: ` +

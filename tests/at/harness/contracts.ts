@@ -326,7 +326,16 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
    *
    * Each name on this list was put there by a witness in `capabilities.ts` that read the value's
    * own control seam, or by the module URL the fixture adapter was loaded from. No caller names a
-   * provenance, so emptying this list means removing a seam the suites drive, not editing a word.
+   * provenance.
+   *
+   * WHAT EMPTYING IT COSTS DIFFERS BY NAME, and one sentence for all five would overclaim. For
+   * `clock.controlled` and `vendors.email` the verdict is read off the very seam the suites drive,
+   * so removing either name means removing that seam — and the behaviour tests that command the
+   * clock forward and force a send to fail go red with it. For `fixtures.worlds`, every `sut.<key>`
+   * and `oracles.judge` there is no such seam: the verdict comes from the adapter-derived route or
+   * from the tier and transport brands, so emptying the list there is a source edit in
+   * `capabilities.ts` — visible in a diff and pinned by the conformance wall, but a word-edit all
+   * the same.
    */
   stubbedCapabilities(): Promise<string[]>;
   clock: Clock;
