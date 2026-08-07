@@ -125,6 +125,25 @@ function Set-Chain([string]$branch, [string]$item, $chain) {
 
 function Get-Chain([string]$branch) { Read-JsonCapped (Get-ChainPath $branch) }
 
+# The same write, but keyed FOR ANOTHER WORKTREE - the coordinator resolving a chain in the main
+# checkout and recording it where an agent's own stamp will look for it.
+#
+# Without this the supervision tree degrades to a bare id: the coordinator is the only actor that
+# reads the board, but the chain key is worktree-scoped, so a chain it resolved was filed under its
+# own worktree and the agent's stamp missed it. The founder saw `AGENT AI4DEV-22` with no parents
+# and asked for the chain - correctly, since the chain is the whole point of derived attribution.
+# The cache stays worktree-scoped rather than global because two clones must never share an entry.
+function Set-ChainForWorktree([string]$worktreePath, [string]$branch, [string]$item, $chain) {
+    if (-not (Test-ItemId $item)) { throw ('not a valid item id: ' + $item) }
+    $d = Get-StateDir
+    $key = (Get-WorktreeIdForPath $worktreePath) + '|' + $branch
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $k = ([System.BitConverter]::ToString($sha.ComputeHash(
+                [System.Text.Encoding]::UTF8.GetBytes($key.ToLower()))) -replace '-', '').Substring(0, 16).ToLower()
+    $o = @{ item = $item; branch = $branch; chain = $chain; resolvedAt = (Get-Date).ToString('o') }
+    [System.IO.File]::WriteAllText((Join-Path $d ('attr\chain-' + $k + '.json')), ($o | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+}
+
 # A cache entry is only usable if it proves it describes THIS branch and THIS item. Checking the
 # item alone let a copied or foreign entry print an arbitrary root as authoritative - "confidently
 # wrong", which is the one thing this design forbids. Anything that fails here is a miss, and a

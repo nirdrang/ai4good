@@ -85,6 +85,13 @@ falsely In Progress.
    in the contracts and a spawn prompt is reviewed by nobody. One once told an item to queue
    auto-merge at pull-request time, which would have merged it before a single gate ran; Gate 1
    caught it on the plan.
+7. **Record the chain FOR the agent's worktree, right after the spawn** (founder 2026-08-07):
+   `Set-ChainForWorktree <worktreePath> <branch> <item> <chain>` from `work-lib.ps1`, using the
+   chain you already walked in step 1. The chain cache is worktree-scoped, so a chain you resolved
+   in the main checkout is invisible to the agent's own stamp — skip this and the founder's
+   supervision tree degrades to `AGENT AI4DEV-nn` with no parents, which is the one thing the
+   stamp exists to show. This is not a fact handed to the agent: it is the coordinator filing what
+   only the coordinator can read, where the hook will look for it.
 
 The conductor is born in the item's one worktree — the platform creates it at spawn, because
 the definition carries worktree isolation — installs once, and runs the item from there. You do
