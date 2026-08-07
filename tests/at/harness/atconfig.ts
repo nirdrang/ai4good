@@ -75,10 +75,10 @@ export const AT_CONFIG = {
   },
   firstFundPerDayCapUsd: {
     name: 'per-day funding cap while the NGO has no completed-project history',
-    value: null,
+    value: 200,
     unit: 'usd',
-    provisional: true,
-    source: 'prd-mvp.md REQ-006 names a per-day cap alongside the $200 per-project cap but pins no figure',
+    source:
+      'founder 2026-08-07: equal to the $200 per-project cap, so a brand-new NGO can fully fund one project in a day and no more. v1 is single-dev projects matched by a human, so funding a second project on the first day is already outside the expected shape — the tightest bound that never blocks a legitimate first project is the right one.',
   },
   discoveryDailyCreditsUnverified: {
     name: 'daily Discovery credit grant, email-verified NGO',
@@ -124,24 +124,24 @@ export const AT_CONFIG = {
   },
   filePerFileSizeCapMb: {
     name: 'largest single uploaded project file',
-    value: null,
+    value: 25,
     unit: 'mb',
-    provisional: true,
-    source: 'requirements/req-032.md names "per-file and per-project size caps" but pins no figure',
+    source:
+      'founder 2026-08-07: sized for the realistic large case, a scanned PDF requirements document, and kept under the provider document limit so a file that uploads can always be read. Accepting a file Discovery cannot read would be worse than rejecting it, because the NGO would believe it had been understood.',
   },
   filePerProjectSizeCapMb: {
     name: 'total uploaded file size per project',
-    value: null,
+    value: 100,
     unit: 'mb',
-    provisional: true,
-    source: 'requirements/req-032.md names "per-file and per-project size caps" but pins no figure',
+    source:
+      'founder 2026-08-07: four maximum-size files, or many ordinary ones — generous for the internal tools v1 serves while still bounding what an abandoned project leaves behind.',
   },
   authorizedLinkTtlMinutes: {
     name: 'lifetime of a short-lived authorized file link',
-    value: null,
+    value: 15,
     unit: 'minutes',
-    provisional: true,
-    source: 'requirements/req-032.md says "short-lived authorized links" but pins no figure',
+    source:
+      'founder 2026-08-07: links are minted on demand from the project page, so none needs to survive — nobody is ever holding one they must come back to. Fifteen minutes bounds the damage when a link is pasted into a chat or forwarded, which is the realistic leak for files that may carry ordinary personal data.',
   },
   bindingCheckThresholdTokens: {
     name: 'request size at which the gateway enforces the project-binding check',
