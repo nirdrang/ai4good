@@ -1,0 +1,123 @@
+# Gate 1 critique — AI4DEV-22
+
+## Verdict
+
+BLOCKING FINDINGS PRESENT — the escalation about missing product work is justified, but the plan omits required harness work and does not prevent a reference stand-in from being relabelled “real” and producing a false integration green.
+
+## The escalation
+
+No: an honest integration green is unreachable because the notification product, schema, edge functions, and AT-016.09’s guarded producers do not exist. However, the current tests can be made mechanically green without them by relabelling the reference capabilities, so “green” does not yet prove the claimed result. Product ownership should go to the founder, but the screen-driver question and known harness gaps should not wait on that ruling.
+
+## Findings
+
+Scale: BLOCKER means the plan cannot establish or finish the item’s claim; MAJOR requires amendment before execution; MINOR does not invalidate the approach.
+
+1. [severity BLOCKER] — sections 3–4 and S3 — the provenance gate can be satisfied by assertion, not evidence.
+
+   claim: The plan equates an empty `stubbedCapabilities()` list with real product execution, although provenance is merely a caller-supplied label.
+
+   why it matters: Changing the wrappers at `tests/at/harness/index.ts:118,129,142,153-155` from `standInCapability` to `realCapability` removes all four names without changing the in-memory reference adapter. `capabilities.ts:12-23` validates no origin, and `registry.ts:617-620` checks only the resulting names. AT-016.02–12 are already green against that adapter (`tests/at/expected/req-016.json:5-16`); supplying a compliant static-scan result would make all twelve mechanically green while no database or product is touched—indeed, the only `AT_SUPABASE_*` consumers are the assignments at `runner.ts:1108-1111`.
+
+   evidence: `tests/at/suites/req-016/_fixture.ts:1-18` declares the adapter specification-derived; `tests/at/harness/capabilities.ts:12-29`; `tests/at/harness/index.ts:118-161`; `tests/at/harness/registry.ts:617-620`.
+
+   what would fix it: Add a structurally separate integration adapter path and conformance tests proving that it consumes the validated local coordinates and product-backed seams. A reference adapter merely relabelled real must be refused.
+
+   unverified-runtime-claim: no
+
+2. [severity BLOCKER] — sections 4, 7 and S6 — the plan knowingly leaves an in-scope harness capability unbuilt.
+
+   claim: Even after all four stand-ins are replaced, AT-016.01 still fails because `h.static` is an unconditional `pendingCapability`, yet the plan preserves that red and plans no repair.
+
+   why it matters: The parent explicitly owns static scanning, and AT-016.01 calls it before its other assertions. This is buildable harness work independent of the notification product; deferring it means the proving-ground item cannot reach twelve green after any founder ruling.
+
+   evidence: `tests/at/harness/index.ts:167-173`; `tests/at/suites/req-016/a-emitter-and-taxonomy.test.ts:24-30`; `tests/at/harness/contracts.ts:95-103`; `loop/bringup/AI4DEV-3-at-harness.md:42-45,181`; the plan deliberately keeps AT-016.01 red at `loop/items/AI4DEV-22/plan.md:288-291`.
+
+   what would fix it: Add a step implementing the real source scan with focused conformance tests, expand D3 accordingly, and require AT-016.01 to reach the product-dependent assertion rather than remain capability-pending.
+
+   unverified-runtime-claim: no
+
+3. [severity MAJOR] — section 3a — the second escalation rests on stale state and overlooks an executable surface choice.
+
+   claim: The stable-handle convention is already founder-ratified, and AT-016.10 is screen-observable without rewriting its body.
+
+   why it matters: The plan would spend founder time re-deciding a settled convention. AT-016.10 fires one event, transfers the NGO role, and asserts that the original recipient appears while the successor does not; a screen driver can implement the existing `deliveries()` seam from visible in-app rows. Adding `{ surface: 'ui' }` changes registration, not the authored body.
+
+   evidence: Ratification is recorded at `design/design-log.md:61-74`, `design/ui-ux-instructions.md:96-135`, and `design/change-orders/005-test-handles.md:3-6`; the draft status at `loop/bringup/testid-convention-draft.md:3` is stale. The candidate body is `tests/at/suites/req-016/c-reliability-guard.test.ts:127-151`; the surface marker is already supported at `tests/at/harness/registry.ts:56-69`. The actual remaining defects are the absent driver (`runner.ts:970-976`) and absent notification-center screen, not an unratified convention.
+
+   what would fix it: Remove the convention question from the escalation. Plan the screen driver, retrofit the relevant notification screen with handles, and use AT-016.10 as the first unchanged wired body unless a concrete driver constraint disproves it.
+
+   unverified-runtime-claim: no
+
+4. [severity MAJOR] — D7 — the edge-runtime repair decision is incomplete and may invalidate the target environment.
+
+   claim: Turning off an enabled edge runtime is not automatically honest, and the plan omits the configuration’s own third repair candidate.
+
+   why it matters: The parent defines the backend surface as edge functions plus the test database (`AI4DEV-3-at-harness.md:79-86`). Disabling edge execution can hide exactly the integration failure that later product wiring needs. The configuration itself documents `policy = "oneshot"` as the fallback when hot reload causes trouble.
+
+   evidence: `supabase/config.toml:374-383`; `loop/items/AI4DEV-22/plan.md:143-153`. `DISABLED_SERVICES` is a hard-coded name regex at `runner.ts:61-62`, while the comment claims it reflects configuration; the runner never parses those enablement fields.
+
+   what would fix it: Inspect the container’s failure evidence first; include `oneshot` as a candidate; keep the runtime enabled unless the declared integration surface is narrowed. Replace the name regex with either configuration-derived enabled-service validation or an explicit, reviewed required-service set.
+
+   unverified-runtime-claim: yes — container logs would determine whether `oneshot` actually repairs exit 255.
+
+5. [severity MAJOR] — S2 and risk section 8 — the downstream failure prediction conflates deterministic, conditional, and non-failing stages.
+
+   claim: Only the stopped-service refusal and eventual stand-in refusal are established from the supplied state; the vector container and empty migration set do not themselves fail the coded readiness or replay proof.
+
+   why it matters: After edge-runtime is cleared, the next failure cannot be named without inspecting the legacy JWT claims and observing the pinned CLI’s missing-seed behaviour. `waitForReady` probes only Postgres and the REST gateway, while an empty migration set explicitly passes.
+
+   evidence: `runner.ts:493-498,536-568,579-634,644-707`; `supabase/config.toml:66-71`; `supabase/migrations/README.md:1-15`. The vector service is not queried by readiness.
+
+   what would fix it: Replace the linear prediction with the ordered conditional ledger below and record each stage’s actual result separately.
+
+   unverified-runtime-claim: yes — issuer contents, gateway readiness, and missing-seed CLI behaviour require first-hand observation.
+
+6. [severity MAJOR] — S4 — “verify before writing” cannot reproduce the claimed refusal, and the proposed generic assertion kind weakens the declaration contract.
+
+   claim: With no integration block, the first `--expect` invocation stops at declaration preflight and never observes the stand-in assertion.
+
+   why it matters: The executor could claim to have reproduced undeclarability while proving only that the tier block was absent. A free-form assertion-first-line kind would then allow ordinary functional assertion failures to be blessed as expected reds, contrary to the format’s stated purpose.
+
+   evidence: `tests/at/expected/req-016.json:1-26`; declaration preflight precedes infrastructure and Vitest at `runner.ts:998-1011`; only two kinds are accepted at `expected.ts:45-48,120-170`; the stand-in failure is an ordinary `expect(...).toEqual([])` at `registry.ts:617-620`.
+
+   what would fix it: First capture the no-`--expect` result. Then introduce a typed `stubbed-capabilities` failure carrying the exact sorted capability names, with registry and declaration conformance tests; do not add a generic assertion kind.
+
+   unverified-runtime-claim: no
+
+7. [severity MAJOR] — D3 and S3 — the blast radius excludes files required by already-known defects, while S3 has no satisfiable blocked outcome.
+
+   claim: The allowed files cannot implement the static scan, a trustworthy integration adapter/provenance path, or a typed stand-in failure.
+
+   why it matters: S3 says it is done only when Vitest is reached, but also says an out-of-list repair stops the step. A stopped step therefore satisfies neither its done criterion nor an explicit blocked criterion, leaving the executor unable to complete the plan as written.
+
+   evidence: D3 limits changes at `loop/items/AI4DEV-22/plan.md:132-136`; S3’s conflicting completion/stop rules are at `plan.md:238-245`. The necessary seams are in `tests/at/harness/index.ts`, `capabilities.ts`, and `registry.ts`, all excluded.
+
+   what would fix it: Expand D3 to the minimum harness files justified by the known defects, or define an explicit blocked result with named evidence and no claim that S3 is complete.
+
+   unverified-runtime-claim: no
+
+Categories with no additional finding: AT-016.09’s cross-requirement dependency is genuine (`c-reliability-guard.test.ts:42-123` requires real no-fault and faulted producer transitions); D6 is correct because the credential is read only inside `send()` (`oracles.ts:790-812`) and this suite never calls the oracle; the current stubbed-capability red is indeed undeclarable; and the plan does not instruct reviewer-output commits, stray board IDs in the pull-request body, or secret commits.
+
+## The ordered list of integration-tier stages that cannot pass today
+
+1. Machine-wide lock — CONDITIONAL, not a tree blocker: it fails only if another live run holds it; wait for that run or let the recorded stale-takeover rules clear it.
+2. Stack-status read — FAIL from the supplied measurement: `supabase_edge_runtime_*` is reported stopped and is not matched by `DISABLED_SERVICES`; repair the enabled runtime or make service validation configuration-derived.
+3. Local-key issuer check — UNVERIFIED: new-style keys are irrelevant because the runner reads legacy `ANON_KEY` and `SERVICE_ROLE_KEY`; decode only their `iss`, `role`, and `ref` claims, and update the local-stack proof only if those claims genuinely changed.
+4. Pre-reset readiness — no established blocker: it checks only Postgres and the REST gateway, not edge runtime or vector; clear any observed failure by restoring the specific database/API dependency.
+5. Database reset — UNVERIFIED probable blocker: seeding is enabled for absent `./seed.sql`; either add the intended seed or set seeding off, based on the pinned CLI’s observed result.
+6. Post-reset readiness — CONDITIONAL: the same database/API probes rerun after reset; repair whichever probe fails.
+7. Migration-replay proof — PASS by design if reset leaves zero applied migrations: `expectedMigrations()` returns `[]`, and the code explicitly accepts an empty expected/applied set; only unexpected applied versions need clearing.
+8. Vitest spawn and capability gate — FAIL deterministically: every body encounters `clock.controlled`, `fixtures.worlds`, `sut.notifications`, and `vendors.email` as stand-ins before its own assertions; supply a product-backed integration adapter and an honest external-vendor test strategy.
+9. AT-016.01 after the provenance gate — FAIL deterministically: `h.static.providerClientImporters()` is still pending; implement the harness-owned static scan.
+10. AT-016.09 after harness capabilities exist — FAIL until the real money, access-key, and completion producers expose their transitions and fault point; implement those owning requirements rather than simulating them in an integration fixture.
+
+## Residual risks accepted if the plan proceeds unchanged
+
+- A reference fixture can be relabelled “real,” producing a false integration green.
+- The only loop-tier red remains an unbuilt harness capability despite its parent slice being treated as complete.
+- Integration evidence exists only in manually committed transcripts; CI runs the loop tier only, so evidence can become stale unless it records and reruns at the final commit.
+- Manual transcript redaction remains a secret-leak risk; S1 should generate an allowlisted summary rather than persist raw `supabase status` output.
+- The stack lock protects harness runs, but not separate reconnaissance or manual container repairs against the shared machine-wide stack.
+- Missing-seed behaviour and Windows process-tree termination remain runtime-unverified.
+- The restarting vector container is unhealthy but invisible to the runner’s readiness probes.
+- Disabling edge runtime could make the immediate runner pass while leaving the eventual edge-function integration surface broken.
