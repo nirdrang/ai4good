@@ -90,7 +90,16 @@ foreach ($f in (Get-ChildItem $attrDir -Filter 'chain-*.json' -File -ErrorAction
     } catch { }
 }
 
+# ROLE COMES FROM THE CONTRACT, NOT FROM THE SPAWN PROMPT (2026-08-07). Each agent definition
+# carries `ROLE: <name>` as its first body line, and the definition reaches the transcript. That
+# line changes only in a reviewed commit, whereas a spawn prompt is typed fresh every time by
+# whoever spawned and is reviewed by nobody - which is why one agent came back "role unstated"
+# when the role was read from the prompt. A contract cannot drift from itself.
+$roleRe = [regex]'ROLE: ([a-z-]{3,20})'
+
 $agg = @{}   # key "item|source" -> counters
+$roleAgg = @{}  # key "item|role" -> counters
+$agentItem = @{}  # agent id (the task file's base name) -> the item it worked on
 function Add-Usage([string]$key, $usage, [hashtable]$agg) {
     if (-not $agg.ContainsKey($key)) {
         $agg[$key] = @{ responses = 0; inTok = [long]0; outTok = [long]0; cacheRead = [long]0; cacheWrite = [long]0 }
@@ -108,6 +117,7 @@ $skipped = 0
 foreach ($f in $files) {
     $curBranch = ''          # derived, primary
     $curStamp = ''           # declared, fallback only
+    $curRole = ''            # from the agent's own contract; empty for a main session
     # Shared read: a transcript belonging to a RUNNING agent or background task is locked, and a
     # report that dies on a live file can never be run while anything is working - which is
     # exactly when it is most worth running.
@@ -122,6 +132,10 @@ foreach ($f in $files) {
             if ($line.IndexOf('"gitBranch"') -ge 0) {
                 $bm = $branchRe.Match($line)
                 if ($bm.Success) { $curBranch = $bm.Groups[1].Value }
+            }
+            if (-not $curRole -and $line.IndexOf('ROLE: ') -ge 0) {
+                $rm = $roleRe.Match($line)
+                if ($rm.Success) { $curRole = $rm.Groups[1].Value }
             }
             if ($line.IndexOf('ai4good-attribution') -ge 0) {
                 $m = $stampNew.Match($line)
@@ -149,6 +163,11 @@ foreach ($f in $files) {
                         elseif ($ids.Count -gt 1)  { Add-Usage ('unresolved|branch')  $u $agg }
                         elseif ($curStamp)         { Add-Usage ($curStamp + '|stamp') $u $agg }
                         else                       { Add-Usage ('unattributed|none')  $u $agg }
+                        if ($ids.Count -eq 1) {
+                            $r = if ($curRole) { $curRole } else { 'coordinator or unmarked' }
+                            Add-Usage ($ids[0] + '|' + $r) $u $roleAgg
+                            $agentItem[[System.IO.Path]::GetFileNameWithoutExtension($f.Name)] = $ids[0]
+                        }
                     }
                 } catch { }
             }
@@ -185,6 +204,90 @@ foreach ($k in $roll.Keys) {
 }
 $rollRows = $rollRows | Sort-Object -Property @{e='OutputTok';Descending=$true}
 
+# ---- vendor spend (codex), joined by the session id the reviewer printed into its own log
+#
+# Every codex run writes a header containing `session id: <uuid>`, and we COMMIT those logs into
+# loop/items/<ITEM>/ - so the ids live in the repository and survive the artifact sweep. Codex
+# stores each run as sessions/<y>/<m>/<d>/rollout-<timestamp>-<uuid>.jsonl carrying real token
+# counts. Joining the two attributes reviewer spend to the item whose folder holds the log:
+# derived from what the tool emitted and what the item recorded, declared by nobody.
+#
+# KIMI IS INCLUDED, and an earlier version of this file claimed it could not be. That claim was
+# FALSE and was written after a search that used `-SimpleMatch` with a pattern containing `|`,
+# so it looked for the literal pipes instead of the alternatives and found nothing. The founder
+# pointed at the real location. Kimi keeps
+# ~/.kimi-code/sessions/wd_agent-<agentId>_*/session_*/agents/*/wire.jsonl, whose usage records
+# read {inputOther, output, inputCacheRead, inputCacheCreation} and are PER TURN - so they are
+# summed, unlike codex's cumulative total. The directory name embeds the id of the agent that
+# launched it, and that agent's own transcript gives the item, so the join needs nothing declared.
+$vendor = @{}
+$itemsDir = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'loop\items'
+$sessRe = [regex]'session id:\s*([0-9a-fA-F-]{36})'
+$rollouts = @{}
+$codexSessions = Join-Path $env:USERPROFILE '.codex\sessions'
+if (Test-Path $codexSessions) {
+    foreach ($rf in (Get-ChildItem $codexSessions -Recurse -File -Filter 'rollout-*.jsonl' -ErrorAction SilentlyContinue)) {
+        $mm = [regex]::Match($rf.Name, '([0-9a-fA-F-]{36})\.jsonl$')
+        if ($mm.Success) { $rollouts[$mm.Groups[1].Value.ToLower()] = $rf.FullName }
+    }
+}
+if (Test-Path $itemsDir) {
+    foreach ($dir in (Get-ChildItem $itemsDir -Directory -ErrorAction SilentlyContinue)) {
+        $item = $dir.Name
+        foreach ($log in (Get-ChildItem $dir.FullName -File -Filter '*stderr*' -ErrorAction SilentlyContinue)) {
+            foreach ($sm in $sessRe.Matches([System.IO.File]::ReadAllText($log.FullName))) {
+                $sid = $sm.Groups[1].Value.ToLower()
+                if (-not $rollouts.ContainsKey($sid)) { continue }
+                if (-not $vendor.ContainsKey($item)) { $vendor[$item] = @{ runs = 0; inTok = [long]0; outTok = [long]0; cached = [long]0 } }
+                $v = $vendor[$item]; $v.runs++
+                foreach ($l in [System.IO.File]::ReadLines($rollouts[$sid])) {
+                    if ($l.IndexOf('"output_tokens"') -lt 0) { continue }
+                    try {
+                        $o = $l | ConvertFrom-Json
+                        $tu = $null
+                        if ($o.payload -and $o.payload.info -and $o.payload.info.total_token_usage) { $tu = $o.payload.info.total_token_usage }
+                        elseif ($o.info -and $o.info.total_token_usage) { $tu = $o.info.total_token_usage }
+                        if ($tu) {
+                            # total_token_usage is CUMULATIVE for the session, so the last one wins
+                            # rather than being summed - adding them would multiply the real cost.
+                            $v.inTok = [long]$tu.input_tokens; $v.outTok = [long]$tu.output_tokens
+                            if ($tu.cached_input_tokens) { $v.cached = [long]$tu.cached_input_tokens }
+                        }
+                    } catch { }
+                }
+            }
+        }
+    }
+}
+
+$kimi = @{}
+$kimiRoot = Join-Path $env:USERPROFILE '.kimi-code\sessions'
+if (Test-Path $kimiRoot) {
+    foreach ($wd in (Get-ChildItem $kimiRoot -Directory -ErrorAction SilentlyContinue)) {
+        $am = [regex]::Match($wd.Name, 'wd_agent-([A-Za-z0-9]+)_')
+        if (-not $am.Success) { continue }
+        $agentId = $am.Groups[1].Value
+        if (-not $agentItem.ContainsKey($agentId)) { continue }
+        $item = $agentItem[$agentId]
+        foreach ($wire in (Get-ChildItem $wd.FullName -Recurse -File -Filter 'wire.jsonl' -ErrorAction SilentlyContinue)) {
+            if (-not $kimi.ContainsKey($item)) { $kimi[$item] = @{ sessions = 0; inTok = [long]0; outTok = [long]0; cached = [long]0 } }
+            $kimi[$item].sessions++
+            foreach ($l in [System.IO.File]::ReadLines($wire.FullName)) {
+                if ($l.IndexOf('"usage"') -lt 0) { continue }
+                try {
+                    $o = $l | ConvertFrom-Json
+                    $u2 = $o.usage
+                    if ($u2) {
+                        if ($u2.inputOther)         { $kimi[$item].inTok  += [long]$u2.inputOther }
+                        if ($u2.output)             { $kimi[$item].outTok += [long]$u2.output }
+                        if ($u2.inputCacheRead)     { $kimi[$item].cached += [long]$u2.inputCacheRead }
+                    }
+                } catch { }
+            }
+        }
+    }
+}
+
 $totOut  = ($rows | Measure-Object OutputTok -Sum).Sum
 $totResp = ($rows | Measure-Object Responses -Sum).Sum
 $unatt   = ($rows | Where-Object { $_.Item -eq 'unattributed' } | Measure-Object OutputTok -Sum).Sum
@@ -198,9 +301,35 @@ Write-Output 'attribution DERIVED from each record''s own git branch; the stamp 
 Write-Output ''
 Write-Output '== PER ITEM =='
 $rows | Format-Table Item, From, Responses, OutputTok, InputTok, CacheRead, CacheWrite -AutoSize | Out-String -Width 200 | Write-Output
+Write-Output '== PER ROLE WITHIN EACH ITEM (role from the agent contract, not the spawn prompt) =='
+$roleRows = @()
+foreach ($k in $roleAgg.Keys) {
+    $it, $rl = $k -split '\|'
+    $a = $roleAgg[$k]
+    $roleRows += [pscustomobject]@{ Item=$it; Role=$rl; Responses=$a.responses; InputTok=$a.inTok; OutputTok=$a.outTok; CacheRead=$a.cacheRead; CacheWrite=$a.cacheWrite }
+}
+$roleRows | Sort-Object Item, @{e='OutputTok';Descending=$true} | Format-Table -AutoSize | Out-String -Width 200 | Write-Output
+Write-Output 'InputTok is nearly always tiny next to CacheRead: almost everything an agent reads arrives from cache, so input alone understates what was consumed by orders of magnitude.'
+Write-Output ''
+Write-Output '== REVIEWER SPEND (codex, joined by the session id in each item''s committed logs) =='
+if ($vendor.Count -eq 0) { Write-Output '  none joined - no committed reviewer log matched a stored codex session' }
+else {
+    $vRows = @()
+    foreach ($k in $vendor.Keys) { $vRows += [pscustomobject]@{ Item=$k; Runs=$vendor[$k].runs; InputTok=$vendor[$k].inTok; OutputTok=$vendor[$k].outTok; CachedIn=$vendor[$k].cached } }
+    $vRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output
+}
+Write-Output ''
+Write-Output '== REVIEWER SPEND (kimi, joined by the launching agent id in its session directory) =='
+if ($kimi.Count -eq 0) { Write-Output '  none joined - no kimi session directory named an agent this run resolved to an item' }
+else {
+    $kRows = @()
+    foreach ($k in $kimi.Keys) { $kRows += [pscustomobject]@{ Item=$k; Sessions=$kimi[$k].sessions; InputTok=$kimi[$k].inTok; OutputTok=$kimi[$k].outTok; CacheRead=$kimi[$k].cached } }
+    $kRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output
+}
+Write-Output ''
 Write-Output '== ROLLED UP THE CHAIN (each node includes everything beneath it) =='
 $rollRows | Format-Table Node, Covers, Responses, OutputTok -AutoSize | Out-String -Width 200 | Write-Output
 Write-Output ('TOTAL: ' + $totResp + ' responses, ' + $totOut + ' output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.')
 Write-Output ('COORDINATOR SIGNAL - unattributed share of output tokens: ' + $pct + '%')
 if ($skipped -gt 0) { Write-Output ($skipped.ToString() + ' transcript file(s) could not be opened and are NOT counted - said out loud rather than silently dropped') }
-Write-Output 'Every figure is a FLOOR: reviewer spend runs on other vendors and appears in no transcript here, and work done before an agent switches off main is attributed to nothing.'
+Write-Output 'Still a FLOOR, for two named reasons: work done before an agent switches off main attributes to nothing, and a role shows as unmarked for any agent spawned before its contract carried a ROLE line.'
