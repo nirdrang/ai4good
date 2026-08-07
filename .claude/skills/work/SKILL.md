@@ -56,6 +56,20 @@ matches idempotently by exact title, and never removes a leaf that has work agai
 no worktree — a manifest can be read at a commit without checking anything out. You check its
 report and list the leaves to the founder.
 
+**TITLES (founder 2026-08-07).** `materialize.ps1` emits no root title and gives leaves codes
+like `REQ-001 D1.L1` — a bare code is the id twice, and the founder cannot read a board of them.
+- **The dev root names its requirement and is called a root**, not a build:
+  `AI4PM-19 — Authentication and org membership: root`. Naming the requirement in the title is
+  what makes the join between the two trees legible at a glance.
+- **Every leaf gets plain words**, with the code as a suffix at most: `Email and Google signup,
+  three account types (D1.L1)`.
+- Titles are the idempotency key, so choose them once — a later edit makes a SECOND item rather
+  than matching the first.
+- **Only the ROOT may carry a requirement id.** A leaf title must not, because Linear derives
+  `gitBranchName` from the title: two ids in a branch name is the stamp's `BRANCH NAMES 2 ITEMS`
+  unresolved case, on the very items that get worked. The root is a container nobody builds on,
+  so its unusable branch name costs nothing.
+
 ## Phase B — start an item
 
 Read-only validation first; **the board claim happens last**, so a failure cannot leave an item
