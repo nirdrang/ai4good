@@ -93,8 +93,11 @@ If you find a reference to any of them, it is stale — `/work` does that job no
 - **Attribution degrades, never blocks.** Linear unreachable, chain ambiguous, root missing: the
   stamp says so and the work proceeds. The ONE thing it blocks is closing a requirement, because
   that is where a wrong answer becomes permanent.
-- **ECHO THE STAMP AS THE FIRST LINES OF EVERY REPLY (MUST-FOLLOW).** Open with the two lines the
-  hook emitted **this turn, verbatim** — `WORKING ON …` then `IN …` — then answer. Hook output
+- **ECHO THE STAMP AS THE FIRST LINES OF EVERY REPLY (MUST-FOLLOW).** Open with the lines the
+  hook emitted **this turn, verbatim** — every line leads with the actor that issued it
+  (`COORDINATOR WORKING ON …`, `COORDINATOR IN …`, then an `AGENT` pair per running item) — then
+  answer. **Anything relayed from another actor carries the arrival time and that actor's role**
+  (`09:41 · conductor — plan → gate 1`), so a claim is never read as the coordinator's own. Hook output
   reaches the agent but is not guaranteed to render for the founder, especially remotely. **Never
   reconstruct them from memory**: a guessed disclaimer is worse than none, because it looks like
   evidence. If the hook emitted nothing, say so. If its value is known to be wrong, print it as

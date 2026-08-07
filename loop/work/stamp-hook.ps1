@@ -26,9 +26,15 @@
 $ErrorActionPreference = 'Stop'
 $script:AgentLines = @()
 
+# EVERY LINE NAMES ITS ACTOR (founder 2026-08-07). A stamp is read across several concurrent
+# actors, so a line that does not say who is speaking is ambiguous exactly when it matters. The
+# actor is DERIVED like everything else here - the main checkout is the coordinator, a worktree
+# under .claude/worktrees is an agent - never declared, so it cannot drift.
+$script:Actor = 'SESSION'
+
 function Emit([string]$l1, [string]$l2, [string[]]$extra, [string]$pm, [string]$dev) {
-    Write-Output ('WORKING ON  ' + $l1)
-    Write-Output ('IN          ' + $l2)
+    Write-Output ($script:Actor.PadRight(12) + 'WORKING ON  ' + $l1)
+    Write-Output ($script:Actor.PadRight(12) + 'IN          ' + $l2)
     Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"/>' -f $pm, $dev)
     foreach ($e in $extra) { if ($e) { Write-Output $e } }
     foreach ($a in $script:AgentLines) { if ($a) { Write-Output $a } }
@@ -87,6 +93,7 @@ try {
     if (-not [System.IO.Path]::IsPathRooted($gitDir)) { $gitDir = Join-Path $top $gitDir }
     $wt = Split-Path -Leaf $top
     $extra = @()
+    $script:Actor = if ($top -match '[\\/]\.claude[\\/]worktrees[\\/]') { 'AGENT' } else { 'COORDINATOR' }
 
     # SUPERVISED AGENTS (founder 2026-08-05). From the MAIN checkout, every platform agent
     # worktree gets its own derived stamp appended, so the founder sees the whole supervision
@@ -118,8 +125,11 @@ try {
                 $env:CLAUDE_PROJECT_DIR = $d.FullName
                 $child = @(& powershell -NoProfile -File $PSCommandPath 2>$null)
                 if ($child.Count -ge 2) {
-                    $script:AgentLines += ('AGENT       ' + (([string]$child[0]) -replace '^WORKING ON\s+', ''))
-                    $script:AgentLines += ('  IN        ' + (([string]$child[1]) -replace '^IN\s+', ''))
+                    # Verbatim. The child already labels itself AGENT and formats both lines the
+                    # same way, so re-labelling here would be a second formatter free to drift
+                    # from the first.
+                    $script:AgentLines += ([string]$child[0])
+                    $script:AgentLines += ([string]$child[1])
                 }
             }
             $env:CLAUDE_PROJECT_DIR = $savedEnv
@@ -171,7 +181,9 @@ try {
         $extra += ('BRANCH NAMES ' + $ids.Count + ' ITEMS (' + ($ids -join ', ') + ') - unresolved; rename the branch or say which')
     }
 
-    $line2 = ('wt {0} - branch {1}' -f $wt, $branch)
+    # "folder", not "wt": an abbreviation nobody outside this repository can expand is exactly the
+    # shorthand the founder's standing instruction forbids, and this line is read by the founder.
+    $line2 = ('folder {0} - branch {1}' -f $wt, $branch)
 
     # CONFLICT outranks everything. Never pick a side: exactly one of the two describes work that
     # is not happening, and that is the condition the old design could never see.
@@ -192,7 +204,14 @@ try {
     }
 
     if (-not $item) {
-        Emit 'nothing' $line2 ($extra + 'no item in the branch and none held here - exploring? say so') 'none' 'none'
+        # The nudge is for a session doing untracked work. A session supervising agents plainly is
+        # not idling, so firing it every prompt there trains the founder to skip the whole block.
+        if ($script:AgentLines.Count -gt 0) {
+            Emit 'nothing - this session coordinates; the items below run in their own folders' $line2 $extra 'none' 'none'
+        }
+        else {
+            Emit 'nothing' $line2 ($extra + 'no item in the branch and none held here - exploring? say so') 'none' 'none'
+        }
         exit 0
     }
 

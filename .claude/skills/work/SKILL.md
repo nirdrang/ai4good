@@ -122,8 +122,15 @@ The conductor reports the merge. Then:
 1. **Sweep**: remove the item's worktree, its generated `worktree-agent-*` branch, and its
    artifacts directory — after confirming the raw critiques and distillates were committed into
    the record by the fix and audit sittings. Only you can sweep — the permission classifier
-   blocks subagents from removing a worktree. A live agent's tree is marked `locked` in
-   `git worktree list`; that is the never-touch signal.
+   blocks subagents from removing a worktree.
+   **`locked` does NOT mean an agent is alive** (measured 2026-08-07). The lock reason names the
+   PARENT SESSION's pid, not the agent's — read it and you will find your own `claude.exe
+   --resume <this session>`. It clears when the platform tears the agent down cleanly, and
+   survives when the agent dies abruptly, so on a stood-down item the lock outlives the agent and
+   would keep every stale worktree in the founder's project folder for the rest of the session.
+   Judge liveness by the AGENT, not the lock: its task is gone and its transcript is not growing.
+   Then confirm the tree is clean and its head is on the remote, `git worktree unlock`, and
+   remove. The tree of an agent that is genuinely still running is still never touched.
 2. **Fold upward**: re-read the parent's children **fresh**; all Done or Cancelled → fold,
    cascading, stopping below a requirement, naming every cancelled child.
 3. **Release**: print `session is free`, report open siblings with labels, suggest the next
