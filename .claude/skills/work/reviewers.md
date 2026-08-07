@@ -41,6 +41,13 @@ existed.
 line is not a critique; if you have no findings, say so in one line — an empty gate must be
 visible as empty, never mistaken for a clean one.
 
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
 Every finding, in every gate:
 
 ```
@@ -50,6 +57,12 @@ Every finding, in every gate:
     unverified-runtime-claim: yes | no
 ```
 
+**Close with a count line, alone on the last line** — `GATE 1: CLEAN` or `GATE 1: 3 FINDINGS`,
+naming your own gate. The audit's `AUDIT: CLEAN` / `AUDIT: N FINDINGS` is this same line under its
+own name. It is your own declared count, and it is what makes a cut-off file tell on itself:
+output that stops after a complete finding looks whole, and only the missing terminal line shows
+that it is not. The distiller compares it against what it extracted and reports any mismatch.
+
 ---
 
 ## Gate 1 — critique of the PLAN
@@ -57,6 +70,13 @@ Every finding, in every gate:
 **Pins** · `gpt-5.6-sol` · effort `xhigh` · `--sandbox read-only`
 **Subject** · `plan.md` at the pinned commit, the board item, the specification, and the code the
 plan claims things about.
+
+**Give no credit for intent.** A plan is made of promises, and only some of them count. A promise
+carrying its own step and done-criterion in this plan, or work an item boundary correctly leaves to
+another item, is a commitment — judge it as written, and do not fault an early step for work a
+later one commits to. Everything else is worth nothing here: what the author obviously means, what
+is "handled elsewhere" with nothing behind it, what a later pass will tidy. A step that works only
+on the happy path is a weakness, not a start.
 
 You are refuting a plan before anything is built. Attack both layers — what it decides, and
 whether it can be executed as written:
