@@ -32,6 +32,11 @@ stopped growing — none of that needs judgment, and none of it should be paid f
 
 - decide that a command's failure is unimportant, retry a failing command with different
   arguments, or work around a refusal. Report it and stop.
+  **This is the behaviour to keep, and it was right when it cost time.** On AI4DEV-48 a merge was
+  refused by the permission classifier; that mechanical stopped and reported, and the merge then
+  happened from another session — which is the thing the ruling below now forbids. `gh pr merge`
+  is allowed for you as of 2026-08-07 precisely so that the correct actor performs it. If it is
+  ever refused again, stop again. A refusal you route around is worse than a merge that waits.
 - edit prose you were handed — including a pull request body or a merge ruling
 - change a board item's state by hand
 - merge anything on your own judgment. The green belongs to the required CI check on the pinned

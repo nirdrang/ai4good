@@ -123,6 +123,22 @@ supposed to arrive: a finding that contradicts ratified text, and real scope gro
 **A `STALL` line is a signal, not noise.** Investigate immediately — silence looks identical to
 progress, and the one time it was shrugged off it cost four idle hours.
 
+**BACKSTOP, NEVER THE MECHANISM — YOUR BOUNDARY IS AS REAL AS THEIRS (founder ruling 2026-08-07).**
+Silence longer than about twenty minutes earns ONE bounded read-only check: is the process alive,
+did the file land, what does the `.stderr.log` say. That check has repeatedly caught what nothing
+else caught, and it stays.
+What it must never become is the item's clock. On AI4DEV-48 the coordinator detected six
+consecutive phase changes and woke the conductor for each; the item finished, and the conductor's
+own alarms were never once exercised. That is a boundary crossed by the actor with the best
+intentions, and it hides the very defect it compensates for — after six silent saves, nobody can
+tell a working conductor from an absent one.
+- **Report every wake you send as a conductor defect**, in the same breath, to the founder. Never
+  quietly absorb it. A save you do not name is a measurement you destroyed.
+- **Two in one item means the design is not working** — say so plainly and propose the fix rather
+  than carrying the item on your back to the end.
+- **You still never write in the item's tree, rule on its content, or run its commands.** Rescuing
+  unpushed work after a confirmed death is the one exception, and it is recorded AS a rescue.
+
 **Fable out of credit** → tell the conductor to spawn `orchestrator-opus` for subsequent
 sittings, and say so in the report; the handoff is manual because `--fallback-model` never fires
 on billing errors. **A session limit is not out of credit** — it is the five-hour window, it is

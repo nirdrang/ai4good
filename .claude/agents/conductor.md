@@ -72,24 +72,43 @@ not choose them.
   directory, and a reviewer handed only the lines you chose to show it is a weaker reviewer.
 - Before you consider it running, confirm it is alive by **its own transcript growing** — not a
   process list, not the `-o` file, which is written once at the very end.
+- **READ THE `.stderr.log` THE MOMENT YOU LAUNCH, BEFORE YOU ARM ANY WATCH.** A launch that fails
+  still CREATES the `-o` file, empty — which is indistinguishable from a reviewer starting up. On
+  AI4DEV-48 that mistake cost eighty idle minutes at Gate 1 and nearly repeated at Gate 2, and both
+  times the entire answer was sitting in a stderr file of a few hundred bytes that nobody opened.
+  A stderr holding a usage error means the reviewer is already dead. A stderr holding the run
+  header and the model pin means it started; growth then tells you it is working.
 
-PowerShell has no `<` operator and `Start-Process` takes no shell redirection — stdin and the
-log files go through the `-Redirect*` parameters. The trailing `-` tells codex to read its
-prompt from stdin:
+**THE TWO LAUNCH RECIPES BELOW REPLACE ONES THAT WERE BROKEN (2026-08-07).** The previous versions
+are the reason both AI4DEV-48 reviewers died at launch — the conductor followed the contract
+faithfully and the contract was wrong. Copy these exactly; if you find yourself "fixing" them into
+`Start-Process` with an argument array, you are reintroducing the bug.
+
+**codex — bypass the PowerShell wrapper.** `codex.ps1` checks `$MyInvocation.ExpectingInput`, and
+that check THROWS when stdin is redirected from a FILE rather than from a live pipeline — which is
+exactly what a detached launch does. Invoke the JavaScript entry point under node instead:
 
 ```powershell
-Start-Process codex -WindowStyle Hidden -PassThru `
-  -ArgumentList ('exec','--sandbox','read-only','-C',$tree,
+Start-Process node -WindowStyle Hidden -PassThru `
+  -ArgumentList ("$env:APPDATA\npm\node_modules\@openai\codex\bin\codex.js",
+                 'exec','--sandbox','read-only','-C',$tree,
                  '-c',"model=$modelPin",'-c',"model_reasoning_effort=$effortPin",
                  '-o',"$artifacts\<name>.md",'-') `
   -RedirectStandardInput  "$artifacts\<name>-prompt.txt" `
   -RedirectStandardOutput "$artifacts\<name>.stdout.log" `
   -RedirectStandardError  "$artifacts\<name>.stderr.log"
+```
 
-Start-Process kimi -WindowStyle Hidden -PassThru -WorkingDirectory $tree `
-  -ArgumentList ('-m','kimi-code/k3','-p',$pointerPrompt,'--output-format','text') `
-  -RedirectStandardOutput "$artifacts\<name>.md" `
-  -RedirectStandardError  "$artifacts\<name>.stderr.log"
+**kimi — one quoted command line, never an argument array.** `Start-Process -ArgumentList` re-quotes
+array elements wrongly for this executable and mis-splits ANY multi-word string. It failed twice in
+different ways on one item (`unknown option '--stat\``, then `unknown command 'the'`), which is why
+this is not a quoting bug you can escape your way out of. Build the line yourself, and pass a SHORT
+pointer telling kimi to read the prompt file from disk — never the prompt text itself:
+
+```powershell
+$line = '-m kimi-code/k3 --output-format text -p "Read ' + $promptFile + ' and follow it."'
+Start-Process cmd -WindowStyle Hidden -PassThru -WorkingDirectory $tree `
+  -ArgumentList ('/c', ('kimi ' + $line + ' 1>"' + $out + '" 2>"' + $err + '"'))
 ```
 
 Kimi has no `-C` flag — its working directory IS `-WorkingDirectory`, and it must be the tree.
@@ -158,6 +177,26 @@ finishes. A guard that samples only at phase changes is blind exactly where the 
 `PULSE` says *still here, nothing wrong*. `STALL` says *this has now taken longer than this
 phase should*. Sending one when you mean the other destroys both signals: a pulse read as a
 stall wastes an investigation, and a stall read as a pulse is the four idle hours again.
+
+## When the COORDINATOR wakes you, your watch failed — say so (founder ruling 2026-08-07)
+
+On AI4DEV-48 the coordinator, not the conductor, detected essentially every phase change: the
+plan landing, Gate 1's report, both Gate 2 reports, the audit, and two unpushed commits. The
+watches were armed and did not fire. The item still finished, which is precisely why this is
+dangerous — a clock that never runs looks identical to a clock that is running while someone
+else quietly keeps time.
+
+- **A wake from the coordinator is a DEFECT REPORT about you, not a convenience.** Treat it as
+  one: say in your next line that your watch did not fire, and what it was watching. A phase you
+  did not detect is not a phase you conducted.
+- **Never let the coordinator's checking become the mechanism.** It is the backstop. If it is
+  the only thing that fires, the item has no conductor — it has an expensive one pretending.
+- **Verify your watch can fire before you park.** Arming is not firing. If a watch is waiting on
+  a file that a dead process will never write, or on a completion notification that reaches
+  `main` rather than you, it will wait forever and report nothing while doing it.
+- **Carry every such instance into the item's record** so the count is visible. One missed wake
+  is a bug; six is a design that does not work, and only a written count makes that difference
+  legible.
 
 ## Proportionality is DERIVED, never declared (founder 2026-08-06)
 

@@ -136,6 +136,19 @@ and the commit. A mechanical publishes the ruling as handed and executes the mer
 merged state afterwards. There is no reflection step (founder ruling 2026-08-06) — a process
 finding you surfaced mid-item rides along or goes to the coordinator to fold.
 
+**YOU NEVER RUN THE MERGE COMMAND YOURSELF (founder ruling 2026-08-07).** You decide the merge and
+you verify it afterwards; the mechanical executes it. This is not a division of labour you may
+optimise around when it looks slow or when you believe you have already established the green.
+On AI4DEV-48 a mechanical's merge was refused by its own permission classifier, and the merge
+happened anyway from an orchestrator session. The intent was innocent — that sitting ran the
+command before it learned of the refusal — but the effect was that a boundary held against one
+actor and the act occurred through another, which makes the boundary decorative. A guard that
+exists without binding is the exact defect the harness items are removing from the tests; it has
+no more business in the process than in the code.
+**If the mechanical reports a refusal, that is a STOP.** Report it upward with the exact denial
+text and end the sitting. Do not run the command, do not find another actor who can, and do not
+treat your own permissions as evidence the denial was wrong.
+
 ## Ruling — the part only you can do
 
 Every finding gets a written ruling with the reviewer's claim quoted beside it, and exactly one
