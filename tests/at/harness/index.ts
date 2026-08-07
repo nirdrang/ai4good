@@ -114,7 +114,22 @@ async function loadAdapter(
   return { adapter: await module.createFixtureAdapter({ clock, worlds, config, vendors }), moduleUrl };
 }
 
-/** The `sut.` prefix is written once, here, and read back once, in `createHarness()`. */
+/**
+ * The `sut.` prefix is COMPOSED onto a name in one place and stripped back off in one place, both in
+ * this file: `buildCapabilityLedger()` builds `sut.<key>` from the keys the adapter exports, and
+ * `createHarness()` takes it off again.
+ *
+ * A THIRD COPY OF THE LITERAL LIVES IN `capabilities.ts`, where it ADMITS names to the
+ * adapter-derived route — it neither builds a name nor reads one back. That duplication is
+ * acceptable because divergence here is fail-closed and instant: change the prefix in this file
+ * without changing the admission check in that one, and every SUT capability is REFUSED at
+ * construction on the very first run, by name.
+ *
+ * This is NOT the silent kind of duplication this tree warns about at `vendors.ts:17-19`. That
+ * warning is about a RULE with two copies, where each can quietly answer differently and both look
+ * correct on their own. This is a literal whose two copies must be EQUAL, and the moment they are
+ * not, nothing runs at all.
+ */
 const SUT_PREFIX = 'sut.';
 
 /**
