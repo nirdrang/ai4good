@@ -277,13 +277,14 @@ REPLACE:
 ```
     // back `real` with confident-sounding evidence — on the one witness in the table that can reach
     // `real` at all. `CapabilityEvidence` carries plain strings, deliberately, because the evidence
+    // comes from a caller; a type union could not have caught this and is not what does.
 ```
 WITH:
 ```
     // back `real` with confident-sounding evidence — on the only witness whose `real` verdict is
     // derived from evidence rather than declared for a name, which is what makes it the one place
     // that reasoning can go wrong. `CapabilityEvidence` carries plain strings, deliberately, because
-    // the evidence
+    // the evidence comes from a caller; a type union could not have caught this and is not what does.
 ```
 
 ### E5 — `tests/at/harness/conformance.selftest.ts`, above the four accepting assertions
@@ -320,6 +321,15 @@ evidenced" before this file weakened it. The three
 
 **Not edited, deliberately:** `plan.md:230` (already accurate) and `audit-brief.md:106` (the brief as
 issued — editing it would falsify what the auditor was asked).
+
+**`PHASE-STATE.md:51` has no E-block on purpose, and my executor was right to say so.** It read the
+finding-1 table, saw a fourth site marked "fix" with no authored replacement beside it, and refused to
+compose one — which is exactly the instruction, and exactly the discipline whose absence produced the
+A5 defect in the first place. The gap was real and it was mine. **That sentence is corrected in this
+sitting's rewrite of `PHASE-STATE.md`, authored by me at the close of the sitting**, because the file
+is rewritten wholesale for the next phase anyway and a replacement string for a line that is about to
+be replaced entirely would be a fiction. Recorded here so the site marked "fix" is not left looking
+untouched.
 
 ---
 

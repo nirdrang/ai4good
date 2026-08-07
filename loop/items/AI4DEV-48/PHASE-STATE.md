@@ -1,8 +1,9 @@
 # AI4DEV-48 (a green can be faked) — phase state
 
-**Phase just completed:** FIX AND GOAL (sitting 3) — Gate 2 ruled, fixes applied, suite run, eight
-negative controls observed
-**Phase next:** AUDIT — and it is NOT skippable; see "What completes the next phase" below
+**Phase just completed:** AUDIT (sitting 4) — three findings ruled, all adopted, all prose; fixes
+applied and the whole verify surface re-run to prove they changed nothing executable
+**Phase next:** MERGE — CI green on the exact head, then the merge ruling. **No second audit is
+owed, and the reasoning is written out below rather than assumed**
 **Branch:** `nirdrang/ai4dev-48-a-green-can-be-faked-capability-provenance-is-a-caller`
 **Chain, derived:** AI4DEV-48 (a green can be faked) → parent AI4DEV-3 (AT harness), a bring-up
 root under the W0 Bring-up project, carrying `attr:bringup`. No requirement above it, so no
@@ -15,236 +16,239 @@ evidence gate — this closes on a merged pull request like any other foundation
 Fable is out of credit. Every orchestrator sitting on AI4DEV-48 runs as `orchestrator-opus`
 (opus at effort max), which is a different agent TYPE, never a model override on the fable
 definition. A fable ruling and an opus ruling are not the same evidence: read every ruling in this
-item — the plan's decisions, the twelve Gate 1 dispositions and the seven Gate 2 dispositions — as an
-opus ruling. Any successor sitting that finds itself running as fable should say so in its first line
-rather than assume continuity.
+item — the plan's decisions, the twelve Gate 1 dispositions, the seven Gate 2 dispositions and the
+three audit dispositions — as an opus ruling. Any successor sitting that finds itself running as
+fable should say so in its first line rather than assume continuity.
 
 ---
 
 ## What happened this sitting
 
-Gate 2 returned **seven findings from two reviewers covering five distinct defects**. All seven are
-ruled in writing in `gate2-rulings.md`, each with the reviewer's claim quoted beside it. **Five
-adopted, one rejected-as-framed with a different real defect adopted underneath it, plus one further
-fix I ruled on my executor's own finding.**
+The read-only pre-merge audit (luna, gpt-5.6, effort max) returned **"not mergeable as recorded"**
+with **three findings. All three are adopted. Every one is about prose describing the code, and not
+one is about the code.** Full rulings, with each claim quoted verbatim beside its disposition, are in
+`audit-rulings.md`.
 
-### The two reviewers disagreed with each other, and that is settled in writing
+### The larger half is what the audit CONFIRMED
 
-Terra rated the `oracles.judge` accepting branch a **BLOCKER**. Kimi read the same lines and rated it
-**MINOR**, closing "no BLOCKER, no MAJOR". **I ruled MAJOR, and both of them partly wrong.** The full
-reasoning is the first section of `gate2-rulings.md`; the short form:
+All three boxes the last sitting called the most consequential came back answered:
 
-- **Terra's structural claim is TRUE.** Above the loop tier the witness returned `real` after
-  refusing one transport brand — "I found no forbidden thing, therefore the thing is present", the
-  exact sentence `capabilities.ts:18` forbids. Terra also correctly named the **tier** axis, which
-  kimi missed.
-- **Terra's semantic claim is FALSE.** It read a `fake`-kind transport reaching `real` as a
-  contradiction this change introduced. **At the merge base `fc8d50dd` the function already did
-  exactly that** — I checked, and that single fact is what demoted the severity. The rule is
-  deliberate and argued at length in `oracles.ts:174-177`, and the test terra cited as evidence of a
-  bug is the *encoding* of the rule. Following terra's `verify` instruction would have reddened five
-  assertions in `oracles.selftest.ts`, a file on the may-not-touch list.
-- **Kimi's reachability analysis is right and its conclusion is wrong.** Through every production
-  path the two formulations produce identical ledgers. But the evidence fields are plain `string`, so
-  a direct call with an unrecognised brand returned `real` **needing no source edit at all** — which
-  is why kimi's filing of it under the "harness is source code" ceiling does not hold. And
-  `oracles.judge` is the **only** witness with a reachable `real` outcome, so that branch was the
-  entire surface on which this mechanism can produce one.
+- **The merge-base fact holds.** The entire severity ruling that demoted a reviewer's BLOCKER to a
+  MAJOR rests on `fc8d50dd` already labelling a `fake` transport real above loop. Not contradicted.
+- **The new pins genuinely pin**, and their regexes match the witness's own messages only — not also
+  `oracles.ts`'s. That was the fix most likely to be vacuous. It is not.
+- **The disagreement resolution stands.** The auditor was invited in writing to disagree with my
+  MAJOR against terra's BLOCKER and kimi's MINOR, and answered: *"I agree with the recorded MAJOR
+  resolution of the terra/kimi disagreement."* Nothing else in this process re-examines that call.
 
-### The six fixes, all inside the declared blast radius
+Also confirmed: A1–A4 and A6 implemented; rejected claims still rejected including `fake` above loop;
+forbidden files and the acceptance-test hash unchanged; scope and line endings clean with no control
+residue; **all eight negative-control assertions and their guards present.**
 
-1. **Enumeration on both axes** — legal tiers and legal transports enumerated at runtime; an
-   unrecognised value on either axis refuses, naming the axis and the value, before any existing rule
-   runs. No existing rule changed. `fake` above loop still yields `real`, as ruled.
-2. **The witness's refusal branches pinned, not deleted** — three new `it` blocks calling
-   `witnessedCapability` directly with the mismatched pairs. The regexes match wording unique to the
-   witness (`refusing to construct capability` versus `oracles.ts`'s `refusing to build a … oracle`),
-   verified in the actual strings before being relied on. No production string needed to change.
-3. **The two construction routes made disjoint** — the adapter route now refuses any name the witness
-   table knows, and any name that is not `fixtures.worlds` or `sut.<key>`.
-4. **The "cannot be caller-supplied" docblock corrected** — it was true of the route and false of the
-   signature; both reviewers found this independently.
-5. **Two overclaiming comments corrected** to name the mechanism that actually enforces.
-6. **`index.ts:117`'s `sut.` prefix comment narrowed** — my executor's own finding, raised rather than
-   decided, and I ruled it adopted for consistency with the three comment findings already adopted.
+### Finding 1 was four sites, not the one the audit named
 
-**Rejected, with reasons in the rulings file:** refusing `fake` above loop; the adapter route's
-unconstrained name/URL as a MAJOR (every outcome of that route is stand-in, so it makes the closing
-gate stricter, never laxer — the worst it produces is a false red); the path-traversal and symlink
-sub-claims; and deleting the witness's duplicated branches instead of pinning them.
+The claim *"`oracles.judge` is the only witness that can reach `real`"* is **false**:
+`theArticleItself()` is also a `CapabilityWitness`, returns `real` unconditionally, and is registered
+three times (`config.registry`, `sentinels.planted`, `faults.injection`) — all three built on **every**
+harness run, which makes them more reachable than `oracles.judge`'s `real`, which needs a non-loop
+tier. The accurate claim is that `oracles.judge` is the only witness whose `real` verdict is **derived
+from evidence** rather than declared for a name.
+
+**I swept the tree rather than editing the line I was handed, and found six instances, four of them
+defective — including two shipped source comments and this file, none of which the audit cited.**
+`plan.md:230` had it right all along as *"genuinely evidenced"*. That qualifier was dropped exactly
+once, when `gate2-rulings.md:87` restated it as *"reachable"*, and every downstream copy inherited the
+weaker word.
+
+**That is this item's own subject played out inside its own record**: a claim true where it was
+measured, restated slightly stronger, then propagated until the word that made it true was gone.
+Nothing checks prose. Corrected at every live site; `audit-brief.md` is deliberately left wrong,
+because it is the brief **as issued** and editing it would falsify what the auditor was asked.
+
+### Findings 2 and 3 are the same shape three times over
+
+Each is an unqualified header contradicted by a correct paragraph further down the same file:
+`contracts.ts` named two sources for a stubbed name when there are three and refuted itself nine lines
+later; `index.ts`'s ledger header credited a witness for two families that never see one, while
+`buildCapabilityLedger`'s own docblock 26 lines below says it correctly; and the conformance comment
+mistook the four pairs it asserts for the six the tree accepts (nine pairs minus `loop`+`live`,
+`integration`+`replay-fs` and `drill`+`replay-fs`).
+
+**Finding 2 stings and is recorded as such:** that comment was *itself* a Gate 2 correction adopted for
+overclaiming, and it came out inaccurate in a different way. Direct in-item evidence that this exact
+activity fails when done quickly — which is why every replacement string was authored in the ruling
+and the executor transcribed rather than composed.
+
+**I did not add the two missing assertions** for the unpinned combinations. `integration`+`fake` and
+`drill`+`live` reach `real` through the same single final branch as the already-pinned `drill`+`fake`,
+so they buy assertions and zero branch coverage — and they would change code. The corrected comment
+states the true count and names which pairs are refused, which forecloses the real hazard: a later
+reader believing only four are legal and "fixing" the witness to refuse the other two.
 
 ---
 
-## Verification — run, not reasoned about
+## WHY NO SECOND AUDIT IS OWED — the determination, and the evidence for it
 
-| check | result |
-|---|---|
-| `bun run at:selftest` | **9 files, 251 tests passed** — green first run, no iteration (baseline was 243) |
-| `bun run at:verify req-016 --tier loop --expect` | **`12 P0: 11 green, 1 red, 0 missing`** — matches the plan exactly; the one red is AT-016.01, `CAPABILITY PENDING — H3 static provider scan` |
-| `bun run at:check req-016` | `12 P0 in the acceptance file, 12 registered in the suite` |
-| `bun run typecheck` | clean, both projects |
-| S6 blob hashes | **identical** — `tests/at/expected/req-016.json` is `58408b86a6e8a772d8a3315e42b8a320369e1540` on both sides, and all four `*.test.ts` bodies match |
+The contract's trigger is *"The audit re-runs once per item, and only if code changed."* "Code changed"
+reads narrowly (executable behaviour) or broadly (any tracked file). **I applied the narrow reading**,
+and `shared-invariants.md` forbids inferring a loosening, so the reasoning is on the record in full in
+`audit-rulings.md`. In short:
 
-**S6 used blob-hash comparison against the merge base, not `git diff --stat`** — Gate 1's sharpest
-finding was that `git diff --stat` on the clean tree S6 itself requires is empty whether or not the
-file changed and was committed.
+1. The contract pairs "code" against "record" **in the very disposition governing this finding class** —
+   *"either the code changes to match the record or the record changes to match the code."* A remedy
+   the contract explicitly offers cannot be one that automatically fires the re-run condition.
+2. **Under the broad reading the condition is vacuous.** Every audit-driven fix writes at minimum the
+   rulings file and this file, both tracked. A qualifier true in every case that can reach it is not a
+   qualifier.
+3. Every affirmative finding the audit made is a claim about executable content or file identity —
+   guards present, assertions present, regexes unique, hashes unchanged, scope clean. **A comment edit
+   falsifies none of them, and that was measured rather than argued.**
 
-`bun run lint` was not run and no line endings were touched. That is settled in plan §5.
+**The argument against, stated at full strength:** finding 2 proves an unreviewed comment correction in
+this very item came out wrong, so the last act before merge is the activity with the worst demonstrated
+record in it. That is real. It did not flip the determination because the re-run is capped at one — 
+spending it on prose leaves nothing for a real finding, and a fourth prose nit would exhaust the cap
+and land me exactly here, one wait later — because the A5 failure mode was loose wording decided by
+whoever typed it, which I removed structurally, and because CI still gates the new head independently.
 
-### The eight negative controls, as OBSERVED
+**The determination was made falsifiable, and it survived.** The executor ran the entire verify surface
+**before and after** the edits, so "unchanged" is a measurement:
 
-The plan required four; the adopted fixes added four more guards, so the same rule applied to them.
-
-| # | guard reverted | observed |
+| check | before | after |
 |---|---|---|
-| 1 | clock stand-in reason made generic | **2 red** — the reason's specificity is asserted in two places, not one |
-| 2 | clock witness's refusal replaced with a real verdict (the first draft's exact defect) | **2 red** — the malformed-value test, plus the new cross-route test failing on its own precondition assertion, which was written in deliberately so it cannot go vacuous |
-| 3 | unwitnessed-name throw replaced with a stand-in verdict | **1 red** |
-| 4 | `theArticleItself` evidence emptied | **1 red** |
-| 5 | brand enumeration removed | **run twice** — vitest stops at the first failing assertion in a block, so one mutation could only show one axis. Both axes disabled → the tier assertion red; transport half only → the transport assertion red. Both observed independently |
-| 6 | witness's loop + `live` throw deleted | **exactly 1 red**, the new pin; `oracles.selftest.ts` stayed entirely green |
-| 7 | witness's above-loop + `replay-fs` throw deleted | **exactly 1 red**, the same new pin on the integration case; `oracles.selftest.ts` again fully green |
-| 8 | adapter route's name constraint removed | **1 red** |
+| `bun run typecheck` | clean, both configs | **clean, both configs** |
+| `bun run at:selftest` | 9 files, 251 passed | **9 files, 251 passed** |
+| `bun run at:verify req-016 --tier loop --expect` | `12 P0: 11 green, 1 red, 0 missing` | **identical** |
+| `bun run at:check req-016` | 12 in the acceptance file, 12 registered | **identical** |
+| `tests/at/expected/req-016.json` blob | `58408b86a6e8a772d8a3315e42b8a320369e1540` | **identical** |
 
-**Controls 6 and 7 are the empirical confirmation of both reviewers' claim**: before this pass,
-deleting either witness copy left *every test in the tree green*. Each deletion is now caught, and
-caught only by the new pin. Every control was restored and the suite confirmed back at 251 green
-before the next began; `git status --porcelain` is empty, so no control left residue.
+Line endings were checked byte by byte: the four TypeScript files were pure CRLF before and after with
+zero bare LF, the record file pure LF, and the line-count increases equal exactly the comment lines
+added. **Independently verified: nothing in the tree reads harness source text and asserts on it** —
+`check.ts` reads only `.taskmaster/docs/acceptance/at-req-0NN.md` and `tests/at/suites/req-016/*.test.ts`,
+and none of the five edited files is in either set.
 
----
-
-## A correction to my own record, found by my executor
-
-**`bun run at:check` takes a requirement argument, and plan §5, this file's verify surface and my own
-executor brief all wrote it bare** — a command that cannot pass. The executor raised it rather than
-quietly adding the argument. I ran both forms myself rather than take either the row or the report on
-trust: bare exits **2** with `"undefined" is not a requirement`; `bun run at:check req-016` exits
-**0**. **CI was always right** — `.github/workflows/ci.yml:153` runs `bun run at:check "$req"`.
-
-**This is the third criterion of mine in this item that was unexecutable or vacuous as written**,
-after the `git diff --stat` guard Gate 1 caught and the `bun run lint` row corrected in the draft
-pass. One cause every time: a command written into a goal spec without being run once. The baseline
-at `219cae23` measured typecheck, selftest and verify — and all three defects landed in exactly what
-it did not measure. Recorded in plan §5 as a second correction, in the same terms.
+**I read the full diff myself rather than taking the executor's report.** Every `+` and `-` line is a
+comment line or markdown prose. No statement, expression, type, assertion, import or string literal
+appears anywhere in it.
 
 ---
 
-## What completes the next phase — THE AUDIT, and it does not get skipped
+## What completes the next phase — MERGE
 
-**Gate 2 found real findings, including one rated BLOCKER by a reviewer and MAJOR by me, and code
-changed as a result. So this is NOT the clean-audit-skip case**, and the audit gets its own sitting
-under the conditional-audit rule.
+1. **CI green on the exact head this state file rides in.** Never merge without it. That head is the
+   one to pin; if the head moves, the evidence describes a different commit.
+2. **Classify a red before reacting**, per the contract: infrastructure or flake (re-run the check
+   once, no new commit — and read `cancelled` carefully: a job that never got a runner and is then
+   killed by its own `timeout-minutes` reports `cancelled`, which looks deliberate. **No runner
+   assigned and zero steps executed is unambiguously infrastructure, and that class forbids
+   remediation** — wait, re-trigger, change nothing, file nothing); broken by this change; or
+   pre-existing on main. Local green while CI is red gets **two pushes, then escalate**.
+3. **Write the merge ruling pinned to that head**, then a mechanical publishes it as handed and
+   executes the merge. Check the merged state afterwards. **There is no reflection step** (founder
+   ruling 2026-08-06).
 
-The brief is `loop/items/AI4DEV-48/audit-brief.md`. It is written for a **read-only** audit with
-**whole-tree access and change-only scope**, and it explicitly instructs the auditor **not to run the
-suite** — execution evidence is CI's, and this project's record shows audit execution attempts
-producing "could not verify" while every reading-and-tracing box came back answered.
+### THE MERGE RULING MUST SAY THIS, and I am binding my successor to it
 
-**The audit is complete when** its raw output exists in the item's artifacts directory and is
-distilled. A progress-line-only or empty output is not a clean gate and must be re-run.
+**The comment corrections on this branch were made AFTER the audit and are not themselves audited.**
+The mechanism is audited and confirmed. The prose describing it, at its last revision, is not. That is
+the honest statement of what the green does and does not claim, and it belongs in the pull request.
 
-**The three boxes that matter most:**
-1. **Box 4, fact 1 — is the merge-base claim true?** `git show fc8d50dd:tests/at/harness/oracles.ts`.
-   That single fact is what demoted a BLOCKER to a MAJOR. If it is false, the whole severity ruling
-   collapses.
-2. **Box 1, fix A2 — do the new pins actually pin?** Their entire purpose is that deleting the
-   witness's refusal branches must now redden something, and the regexes must be matched *only* by
-   the witness's message, not also by `oracles.ts`'s.
-3. **The disagreement itself.** The auditor is invited in writing to disagree with my resolution of
-   terra-versus-kimi. It is the most consequential judgment in the sitting, made by one orchestrator
-   against two disagreeing reviewers, and nothing else in the process re-examines it.
+It must also record, among the dispositions: the audit's verdict and its three findings all adopted;
+that the auditor **agreed** with the MAJOR resolution of the reviewer disagreement; and — carried
+forward from the last sitting and still owed — **that a reviewer's structural claim about the
+`oracles.judge` branch was upheld while its semantic claim was rejected**, with the rejected claim
+visible in the pull request.
 
-**The audit re-runs at most once per item, and only if code changes.** If the auditor's findings
-change code, that sitting ends at the new head with the audit owed again — the orchestrator never
-spans that wait.
+### The pull request
 
----
+**#46, already open, and its text requirement is RESOLVED.** I scanned title and body with a regex for
+every `AI4DEV-*` and `AI4PM-*` id: the only id present is this branch's own. **No foreign ids.** That
+matters because an id alone — with no closing verb — links and moves that item; a finished item was
+once dragged back to In Progress twenty-four minutes after its own merge by a body carrying a bare
+reference. CI enforces this.
 
-## Question for the founder — still ONE, still open, still not blocking
-
-Unchanged from the last sitting and **not re-litigated this sitting**. Raised because sitting 1
-promised to raise it if Gate 1 found what it found.
-
-The plan justified not building a separate integration-adapter path by citing your ruling of
-2026-08-04 about vendor stand-ins. **Gate 1 found that citation does not bear on the question, and it
-is right** — that ruling governs when the five named vendor stand-ins get built and says nothing
-about how the harness picks a fixture adapter. The plan is corrected to say the principle inside it
-is being **extended by analogy on my own authority, not yours.**
-
-**Do you want tier-specific fixture-adapter selection built now, or filed?**
-
-In plain terms: today the harness loads the same reference adapter no matter which tier you ask for,
-and the only thing stopping a reference adapter from satisfying the closing gate is the stand-in
-ledger. The alternative makes the tier decide which adapter file is loaded — the fast inner-loop tier
-keeps the reference adapter, and any deeper tier looks for a real product adapter that does not exist
-yet and fails loudly saying so. It builds no product code.
-
-- **I filed it rather than built it** because it covers only two of the eight capabilities this item
-  fixes, and because it changes building a harness at the deeper tier from something that works today
-  into something that throws, with knock-on effects on the oracle tests.
-- **The argument for doing it now** is that you have called this the last acceptance-test-engine item
-  before product work starts, and it would be a second, independent barrier.
-
-**No answer is needed for this item to proceed.** It is filed and the item is complete without it.
-
----
-
-## To report upward for filing — separate items, absorbed nowhere
-
-Unchanged from the last sitting, and nothing was added this sitting:
-
-1. **Tier-specific fixture-adapter selection** — the Gate 1 reviewer's alternative, rejected as this
-   item's work and described in the founder question above. **Recommend filing.** Note for whoever
-   picks it up: it changes building a harness at the integration tier from returning a harness to
-   throwing, which has a blast radius through the oracle self-tests.
-2. **The static provider scan has no board item.** `h.static` is an unconditional `pendingCapability`
-   (`tests/at/harness/index.ts`), which is why one of the twelve notification tests is the single red.
-   It is left-over work from the sentinels item (Done), harness-owned, buildable today, independent of
-   the product, and supplying it is what would make the count twelve rather than eleven. The board has
-   no item owning it, and the machinery that would have made an unowned red impossible is itself still
-   in Backlog. **Recommend filing.**
-3. **A typed `stubbed-capabilities` failure kind**, so the deeper-tier refusal is structurally
-   declarable rather than matched as free-form text. Close enough to the already-filed structured
-   capability codes item — whose own text says it *"Belongs to the slice that owns
-   `capabilities.ts`"* — that it should be **added to that existing item rather than filed fresh**.
-
-Also flagged, not for filing: that same structured-codes item wants a machine-readable code emitted
-from `capabilities.ts`, the exact file this item rewrote. It is deliberately not absorbed. The
-obligation carried was negative — the rewrite must not make emitting such a code harder than it is
-today — and the new `CapabilityVerdict` type arguably makes it easier, since every verdict now carries
-its own words.
-
----
-
-## A process note for whoever folds it
-
-The Gate 2 distiller wrote **terra's distillate to a nested `.claude/worktrees/artifacts-AI4DEV-48/`
-inside the item worktree** rather than the sibling artifacts directory where kimi's landed and where
-the conductor pointed. The file was correct and complete; it was simply in a second location, found
-only by searching. Both raw critiques and both distillates are now committed into
-`loop/items/AI4DEV-48/`, so the record is safe either way — but a distiller writing relative to its
-cwd will keep producing this, and evidence left only in an artifacts directory dies with the sweep.
-
----
-
-## For the mechanical touching the pull request
-
-The pull request is **#46**, already open. The body must **name no item id other than this branch's
-own**. Any other id links that item and moves it on the board even without a closing verb — a finished
-item was dragged back to In Progress twenty-four minutes after its own merge by a body that carried a
-bare reference. This item's record cites several sibling ids inside files, which is fine there and is
-not fine in the pull request. Refer to them in words. CI enforces this and will fail the build.
+**The body is STALE and the merge sitting must replace it.** It still says *"This pull request
+currently carries the PLAN only. No code has changed yet."* That was true at sitting 1 and is now
+false. Whoever rewrites it: describe other items **in words**, never by id.
 
 ---
 
 ## Verify surface for this item
 
 `bun run typecheck` · `bun run at:selftest` · `bun run at:verify req-016 --tier loop --expect` ·
-**`bun run at:check req-016`** (the requirement argument is required — corrected this sitting).
+`bun run at:check req-016` (**the requirement argument is required** — bare `at:check` exits 2).
 **Not `bun run lint`** — red repository-wide from a CRLF checkout, and CI runs no lint step.
 
-Baseline, measured at the pre-fix head `219cae23` and recorded in `baseline-before-fix.md`:
-`12 P0: 11 green, 1 red, 0 missing`; self-tests `243 passed (243)`. **After this sitting: the same
-verify numbers, and self-tests at `251 passed`** — the eight added tests are the new guards and their
-pins. `tests/at/expected/req-016.json` came out byte-identical, confirmed by blob hash against the
-merge base.
+Baseline at the pre-fix head `219cae23`: `12 P0: 11 green, 1 red, 0 missing`; self-tests `243 passed`.
+**Now: the same verify numbers, self-tests at `251 passed`** — the eight added tests are the new guards
+and their pins — and `tests/at/expected/req-016.json` byte-identical, confirmed by blob hash.
+
+### The eight negative controls were OBSERVED, not reasoned about
+
+Each guard was reverted, the suite run, and the reds counted, then restored and confirmed back at 251
+green before the next began. Controls 6 and 7 are the empirical confirmation of both reviewers' claim:
+before this item, deleting either copy of the witness's refusal branch left **every test in the tree
+green**. Each deletion is now caught, and caught only by the new pin. Full table in the previous
+revision of this file, in git history at `33a887e`.
+
+---
+
+## Question for the founder — still ONE, still open, still not blocking
+
+Unchanged and not re-litigated this sitting. The plan justified not building a separate
+integration-adapter path by citing a founder ruling about vendor stand-ins; **Gate 1 found that
+citation does not bear on the question, and it is right.** The plan is corrected to say the principle
+is being extended **by analogy on my own authority, not the founder's.**
+
+**Do you want tier-specific fixture-adapter selection built now, or filed?** In plain terms: today the
+harness loads the same reference adapter whatever tier you ask for, and the only thing stopping a
+reference adapter from satisfying the closing gate is the stand-in ledger. The alternative makes the
+tier decide which adapter file loads — the fast inner-loop tier keeps the reference adapter, any deeper
+tier looks for a real product adapter that does not exist yet and fails loudly. It builds no product
+code.
+
+I filed it rather than built it because it covers only two of the eight capabilities this item fixes,
+and because it turns building a harness at the deeper tier from something that works today into
+something that throws, with knock-on effects on the oracle tests. The argument for doing it now is that
+this is the last acceptance-test-engine item before product work starts, and it would be a second,
+independent barrier. **No answer is needed for this item to proceed.**
+
+---
+
+## To report upward for filing — separate items, absorbed nowhere
+
+Unchanged; the audit added nothing to this list.
+
+1. **Tier-specific fixture-adapter selection** — described in the founder question above. **Recommend
+   filing.** Note for whoever picks it up: it changes building a harness at the integration tier from
+   returning a harness to throwing, with a blast radius through the oracle self-tests.
+2. **The static provider scan has no board item.** `h.static` is an unconditional `pendingCapability`,
+   which is why one of the twelve notification tests is the single red. Left-over work from the
+   sentinels item (Done), harness-owned, buildable today, independent of the product, and supplying it
+   is what would make the count twelve rather than eleven. **Recommend filing.**
+3. **A typed `stubbed-capabilities` failure kind**, so the deeper-tier refusal is structurally
+   declarable rather than matched as free-form text. Close enough to the already-filed structured
+   capability codes item that it should be **added to that existing item rather than filed fresh**.
+
+Also flagged, not for filing: that same structured-codes item wants a machine-readable code emitted from
+`capabilities.ts`, the exact file this item rewrote. Deliberately not absorbed — the obligation carried
+was negative (the rewrite must not make emitting such a code harder), and the new `CapabilityVerdict`
+type arguably makes it easier, since every verdict now carries its own words.
+
+---
+
+## Process notes for whoever folds them
+
+1. **A distiller wrote to a nested artifacts directory inside the item worktree** rather than the
+   sibling one the conductor pointed at, found only by searching. A distiller writing relative to its
+   cwd will keep doing this, and evidence left only in an artifacts directory dies with the sweep. All
+   raw critiques and distillates for this item — Gate 1, both Gate 2 reviewers, and the audit — are now
+   committed into `loop/items/AI4DEV-48/`, so the record is safe either way.
+2. **Four of this item's defects were unexecutable or untrue criteria of mine, not code defects**: the
+   `git diff --stat` guard that was empty by construction (Gate 1), the `bun run lint` row (draft), the
+   bare `bun run at:check` that cannot pass (fix sitting), and now a claim that degraded across four
+   copies of the record (audit). One cause every time — **prose written into a record without being run
+   or re-checked against the thing it describes.** The baseline measured typecheck, selftest and verify,
+   and every one of the four landed in what it did not measure. Worth a process fix by someone; it is
+   not this item's to build.
