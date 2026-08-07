@@ -1,0 +1,83 @@
+SOURCE   C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\artifacts-AI4DEV-48\gate1-sol.md
+REVIEWER sol, gpt-5.6, effort xhigh, read-only, Gate 1 critique of loop/items/AI4DEV-48/plan.md at commit 219cae23
+COUNT    12 findings in source → 12 extracted
+NOTES    none
+
+[1] severity: BLOCKER   loop/items/AI4DEV-48/plan.md:70
+    claim: "D3's witnesses fail open: for a known capability, absence of the stand-in-shaped method produces `null`, which the plan defines as \"real,\" without any positive evidence of real backing."
+    why it matters: "A malformed or deliberately stripped `clock.controlled` value without `advance`, or `vendors.email` without `.email.rejectNext`, is classified real rather than refused. D2 protects unknown names only. `Clock` and `Vendors` actually require those methods at `tests/at/harness/contracts.ts:54-57,120-138`, so the same shape test also rejects every future product-backed implementation conforming to those contracts. For the current clock, `advance` is inherited from `ControlledClock.prototype` (`clock.ts:1,10`), not an own property, so an otherwise conforming `Object.hasOwn(value, 'advance')` witness would misclassify today's object immediately. The vendor seam is correctly one level down and directly reachable: `index.ts:127,142` → `vendors.ts:84-93`. Require positive, origin-bound evidence; malformed known values must throw rather than mean real."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 3-6
+
+[2] severity: BLOCKER   loop/items/AI4DEV-48/plan.md:106
+    claim: "D4 does not define a trustworthy route from the module actually imported to the proposed witness, and D5 rejects the only structure that would distinguish reference and product backing."
+    why it matters: "D1 says the constructor takes only name and value (`plan.md:65-70`), while the witness takes additional `evidence`; S3 then assumes callers can supply that evidence (`plan.md:167-173`). In the real loader, `moduleUrl` is local and discarded: `loadAdapter()` returns only `module.createFixtureAdapter(...)` at `tests/at/harness/index.ts:57-64,102`. Adding a caller-supplied URL simply replaces the caller-supplied word `real` with a caller-supplied path. Moreover, `adapterUrl()` always selects `suites/<requirement>/_fixture.ts`, regardless of tier (`index.ts:53-55`), and neither `loadAdapter` nor `createFixtureAdapter` receives the tier (`index.ts:57-63,34-44`). A product-backed implementation therefore cannot coexist with the reference implementation without redesigning this path. The separate path closes a concrete defect: it makes selecting the reference module above loop impossible, rather than trying to infer backing from a directory that could contain either implementation."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 8-11
+
+[3] severity: BLOCKER   loop/items/AI4DEV-48/plan.md:120
+    claim: "The founder ruling cited to settle D4 and D5 does not bear on integration-adapter routing."
+    why it matters: "`loop/bringup/AI4DEV-3-at-harness.md:52-64` rules specifically on provider/vendor simulators—email plus five named external vendors—and says their simulator contracts land with their first consuming suites. It says nothing about whether the harness needs separate loop and integration adapter paths. The working specification instead distinguishes loop from \"real components + real test DB\" at `AI4DEV-3-at-harness.md:32-38`. D5 is therefore an orchestrator choice without the claimed ratified authority, not a founder-settled rejection. A `backing` declaration alone is correctly rejected because it would be self-report, but that does not justify rejecting loader-derived, tier-separated routing."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 13-16
+
+[4] severity: BLOCKER   loop/items/AI4DEV-48/plan.md:180
+    claim: "S4 cannot inspect the promised `standInReason` \"assembled through createHarness\" because `createHarness()` exposes capability values and names, not capability wrappers."
+    why it matters: "`Capability<T>` owns `provenance` and would own `standInReason` (`capabilities.ts:5-10`), but `createHarness()` keeps every wrapper in the private `constructed` array and returns only `.value` fields (`index.ts:156-175`). `AtHarness.stubbedCapabilities()` returns only `string[]` (`contracts.ts:320-344`). Consequently S4 assertion 1 cannot read the reason for any capability through the canonical assembly. The plan must add a defined read-only diagnostic seam, test the constructor directly and weaken the \"through createHarness\" claim, or restructure assembly so tests can inspect the ledger without exposing it to suites."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 18-21
+
+[5] severity: BLOCKER   loop/items/AI4DEV-48/plan.md:151
+    claim: "S1 cannot be executed under the draft-pass role contract and does not specify how its reproducer survives removal of the API it exercises."
+    why it matters: "S1 requires running the new conformance test and recording its red before production changes. The executor's draft contract expressly says \"Do not run the verify suite\" at `.claude/agents/executor.md:22-24`. Separately, a test that calls today's `realCapability` exploit (`capabilities.ts:17-19`) stops compiling when S2 removes that export; retaining it as a throwing compatibility function violates S2. The plan needs an explicit pre-draft evidence step and a test form that remains meaningful after the API disappears, pinned to the exact pre-fix commit and exit result."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 23-26
+
+[6] severity: BLOCKER   loop/items/AI4DEV-48/plan.md:200
+    claim: "S6's byte-identity checks are guaranteed to pass for committed changes and therefore do not prove either protected file stayed unchanged."
+    why it matters: "S6 simultaneously requires a clean working tree and uses plain `git diff --stat <path>` (`plan.md:201-203,224-225`). Once a changed expected JSON or acceptance test is committed, that command compares the clean working tree to the index and prints nothing. This directly permits the forbidden declaration change while satisfying the criterion. Compare the branch head against its merge base or record and compare a pre-change hash. S5 has the same weaker form: \"only intended hits\" at `plan.md:197-198` names no exact permitted set and can bless any remaining call site."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 28-31
+
+[7] severity: MAJOR   loop/items/AI4DEV-48/plan.md:178
+    claim: "Three of S4's five assertions already pass on the unchanged harness, and assertion 5 does not exercise the registry gate it claims to prove."
+    why it matters: "The harness-owned capabilities are already absent from the stand-in list (`conformance.selftest.ts:146-164`), assertion 4 is the existing passing test at `:138-143`, and an integration-tier harness already returns a non-empty list. Merely checking that list never reaches the actual enforcement at `registry.ts:618-620`; that enforcement lives in private `openWorld()` (`registry.ts:595-620`). Deleting the registry expectation would leave proposed assertion 5 green. \"Both sides of every witness\" is also inaccurate: testing three accepting names is not testing the accepting branch of the clock, vendor, adapter-path, or SUT witnesses. The plan needs direct guard wiring evidence and an explicit positive/refusing pair for every witness family."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 33-36
+
+[8] severity: MAJOR   loop/items/AI4DEV-48/plan.md:251
+    claim: "Section 7's \"self-defeating lie\" and closure ceiling are narrower than the actual residual."
+    why it matters: "The capability value being judged need not remain the object handed to the suite. `index.ts` currently couples them only by convention: the wrapper is created at `:118,142`, while `h.clock` and `h.vendors` are assigned separately at `:162,174`. An edit can witness a stripped facade while returning the original functioning clock or simulator, leaving AT-016.08 and the vendor behavior tests green. The current exact-ledger assertions at `conformance.selftest.ts:154-160` and `vendors.selftest.ts:268-273` would still red, so a full false green also requires changing provenance assertions—but not removing the behavioral seam as sections 3 and 7 claim. Future values can additionally collide with a witness shape accidentally. The honest ceiling is \"known current assemblies are pinned by conformance assertions; deliberate or future producer/witness drift remains possible,\" not \"the seam must be removed.\""
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 38-41
+
+[9] severity: MAJOR   loop/items/AI4DEV-48/plan.md:160
+    claim: "The `sut.*` prefix is an open witness namespace, contradicting the stated closed-table/fail-closed commitment."
+    why it matters: "Any typo, empty key (`sut.`), nested-looking key, or future SUT name is automatically treated as witnessed without an explicit provenance decision. That moves D2's review boundary from every capability name to one unlimited prefix. The runner's generated `sut.probe` does require dynamic treatment (`runner-blackbox.selftest.ts:54-74`; `runner-expect.selftest.ts:48-57`), but it can be registered from the actual adapter key set after loading rather than authorizing every possible prefix. S3 also says \"six witnesses\" while naming eight decisions/families: clock, vendor, fixtures, SUT, config, sentinels, faults, and oracle (`plan.md:167-173`)."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 43-46
+
+[10] severity: MINOR   loop/items/AI4DEV-48/plan.md:275
+    claim: "Converting `Capability` from an interface to a type alias is not required by the cited doctrine or by this item's done contract."
+    why it matters: "The doctrine at `contracts.ts:288-319` protects contracts reachable by suites through `AtHarness`; the plan itself concedes that `Capability` never reaches a suite. Repository search finds no declaration augmentation or typeprobe for `Capability`, and its only type consumers are `index.ts` and `oracles.ts`. The conversion is likely compile-safe, but it is an unrelated hardening refactor based on the false statement that it is \"the only interface left on the harness path\"—there are numerous internal interfaces, including `FixtureAdapter` and `FixtureAdapterModule` at `index.ts:16,31`. Omit it unless the plan separately establishes why exposing `standInReason` changes that threat boundary."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 48-51
+
+[11] severity: MINOR   loop/items/AI4DEV-48/plan.md:36
+    claim: "The count correction is right as a declaration count, but the cited file does not verify that eleven tests are green at this pinned head."
+    why it matters: "`tests/at/expected/req-016.json:5-23` unambiguously declares eleven green IDs and AT-016.01 red on the static scan, so \"twelve currently green\" is wrong. But an expected-state file is not runtime evidence. Historical records show 11/1 on older heads; the exact claim for this review commit remains runtime-dependent."
+    unverified-runtime-claim: yes — run `bun run at:verify req-016 --tier loop --expect` at commit `219cae2` and require `12 P0: 11 green, 1 red, 0 missing`.
+    raw: gate1-sol.md lines 53-56
+
+[12] severity: MINOR   loop/items/AI4DEV-48/plan.md:49
+    claim: "Section 2 mischaracterizes `_fixture.ts:15-18` as a currently false enforcement claim."
+    why it matters: "The header accurately says code—not merely the comment—registers `sut.notifications` through `standInCapability`, and the registry refuses reported stand-ins; those mechanisms exist at `index.ts:153-155` and `registry.ts:618-620`. Its final absolute sentence, \"can only ever be satisfied by the real implementation,\" is too strong because the label is editable, but calling the named runtime mechanism \"itself a word in a file\" erases that distinction. S5 must update the stale function reference after the API changes, but the record should say the old enforcement was insufficient, not nonexistent."
+    unverified-runtime-claim: no
+    raw: gate1-sol.md lines 58-61
+
+VERDICT (verbatim, raw lines 63-67):
+"The remaining source checks are sound: the current clock has reachable `advance`; the current vendor witness must read `.email.rejectNext`; oracle provenance is already derived at `oracles.ts:1120-1147`; and the black-box adapters' `sut.probe` is covered by the proposed prefix. Their missing fault and sentinel seams do not create new capability names. No static break appears in those runner trees, but `bun run at:selftest` is the precise runtime check. The complete current reader set is `conformance.selftest.ts`, `oracles.selftest.ts`, `vendors.selftest.ts`, and `registry.ts`; the absolute capabilities import in `runner-expect.selftest.ts` uses only `CapabilityPending`. The Vitest glob includes every harness selftest, while the main acceptance TypeScript program excludes only the deliberate negative typeprobes.
+
+A simpler fix is available: make adapter selection tier-specific now—loop loads `_fixture.ts`; above loop selects a distinct product-adapter path and fails explicitly while that module does not exist. This adds no guessed product implementation, makes relabelling the reference adapter irrelevant, and directly encodes the distinction the original critique requested. If a general capability-provenance mechanism is still desired, evidence should be loader/producer-owned and opaque, with malformed known values refused; it should not be a string-name witness table where absence means real. A self-declared `backing` field alone remains insufficient.
+
+Verdict: **replace the plan**, not execute it as written. The central witness design fails open, D4 has no defined trustworthy evidence path, S4 cannot observe its promised reasons, S1 conflicts with the executor contract, and S6 cannot prove the byte-identity requirement. A tier-separated adapter route plus origin-bound, fail-closed evidence is both smaller and materially stronger."

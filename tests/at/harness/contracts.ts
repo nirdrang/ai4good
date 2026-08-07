@@ -323,6 +323,20 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
    * Capability names this harness STUBBED for the running tier (e.g. 'vendors.email',
    * 'sut.notifications'). MUST be empty above `loop` — otherwise an integration-tier run,
    * which is the /pm-done gate, can silently stub the thing it is gating.
+   *
+   * Each name on this list was put there by `capabilities.ts` from one of THREE sources: a witness
+   * that read the value's own control seam, the module URL the fixture adapter was loaded from, or —
+   * for `oracles.judge` alone — the running tier and the judge transport's kind brand. No caller
+   * names a provenance.
+   *
+   * WHAT EMPTYING IT COSTS DIFFERS BY NAME, and one sentence for all five would overclaim. For
+   * `clock.controlled` and `vendors.email` the verdict is read off the very seam the suites drive,
+   * so removing either name means removing that seam — and the behaviour tests that command the
+   * clock forward and force a send to fail go red with it. For `fixtures.worlds`, every `sut.<key>`
+   * and `oracles.judge` there is no such seam: the verdict comes from the adapter-derived route or
+   * from the tier and transport brands, so emptying the list there is a source edit in
+   * `capabilities.ts` — visible in a diff and pinned by the conformance wall, but a word-edit all
+   * the same.
    */
   stubbedCapabilities(): Promise<string[]>;
   clock: Clock;
@@ -334,9 +348,11 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
   vendors: Vendors<Channel>;
   /**
    * REQUIRED, like every other capability: a suite that reaches for it and finds nothing must fail
-   * to compile, not read `undefined`. At `loop` this is a REPLAY of committed recordings and is
-   * reported as a stand-in; above `loop` it is the live judge and is reported as real. See
-   * `index.ts` for why that split establishes this capability's provenance and nothing more.
+   * to compile, not read `undefined`. At `loop` this is a REPLAY of committed recordings and the
+   * ledger reports it a stand-in; above `loop` it is the live judge and is reported real. That
+   * verdict is DERIVED — `capabilities.ts` computes it from the running tier and the transport's
+   * kind brand, and `oracles.ts` says why the split establishes this capability's provenance and
+   * nothing more.
    */
   oracles: SemanticOracle;
   sut: Sut;

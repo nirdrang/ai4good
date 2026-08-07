@@ -10,11 +10,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { standInCapability, stubbedCapabilityNames } from './capabilities.ts';
+import { adapterDerivedCapability, stubbedCapabilityNames, witnessedCapability } from './capabilities.ts';
+import { ControlledClock } from './clock.ts';
 import { createFaults } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore, LIFECYCLE_STATES } from './fixtures.ts';
 import { bijectionProblems, type SuiteRegistration } from './check.ts';
-import { createHarness } from './index.ts';
+import { buildCapabilityLedger, createHarness } from './index.ts';
 import { createSentinels } from './sentinels.ts';
 import {
   faultAlreadyArmedProblem,
@@ -135,11 +136,240 @@ describe('the five false-green reproductions', () => {
     );
   });
 
-  it('derives stand-in provenance from the factory wrapper, not capability self-report', () => {
-    const dishonest = standInCapability('fixtures.worlds', {
-      stubbedCapabilities: () => [],
-    });
+  it('derives stand-in provenance from the constructor, not capability self-report', () => {
+    // The meaning this test has always carried: a VALUE that claims it stubbed nothing is still
+    // counted a stand-in, because the ledger is not built from anything the value says about
+    // itself. It used to call the deleted stand-in-labelling factory; `fixtures.worlds` is now
+    // built on the adapter-derived route, so that is the route this reproduction goes through.
+    const dishonest = adapterDerivedCapability(
+      'fixtures.worlds',
+      { stubbedCapabilities: () => [] },
+      'file:///probe/tests/at/suites/req-016/_fixture.ts',
+    );
     expect(stubbedCapabilityNames([dishonest])).toEqual(['fixtures.worlds']);
+  });
+});
+
+/**
+ * PROVENANCE IS A VERDICT THE HARNESS COMPUTES, NOT A WORD A CALLER WRITES (AI4DEV-48).
+ *
+ * The measured hole: calling the real-labelling factory for `clock.controlled` and four names like
+ * it turned the stand-in ledger empty, and `registry.ts` — which refuses any stubbed capability
+ * above the loop tier — then had nothing to refuse. That API is gone, so these tests are about the
+ * mechanism that replaced it, and the second one is the one that matters most: a witness that
+ * cannot classify a value must REFUSE it, because "I found no stand-in seam" is not evidence of
+ * real backing. That was the shape of the first draft's own defect.
+ */
+describe('provenance is computed from the value or the loader, and refuses what it cannot classify', () => {
+  it('refuses a capability name no witness has decided about, naming the name', () => {
+    // A name off the closed table: nobody has decided about it, so it is an error here rather than
+    // a default in either direction.
+    expect(() => witnessedCapability('vendors.sms', { email: {} })).toThrow(/vendors\.sms/);
+    expect(() => witnessedCapability('vendors.sms', {})).toThrow(/no witness is registered/);
+
+    // AND THE SUT FAMILY IS GENUINELY OFF THE TABLE, rather than swallowed by a `sut.*` prefix. A
+    // prefix rule would mean nobody ever decided about any SUT name — an unlimited namespace inside
+    // a table whose whole claim is that it is closed.
+    expect(() => witnessedCapability('sut.notifications', {})).toThrow(/sut\.notifications/);
+  });
+
+  it('refuses a KNOWN capability name whose value is malformed, instead of classifying it real', () => {
+    // THE SINGLE MOST IMPORTANT ASSERTION IN THIS FILE. Each value below is a known name whose
+    // control seam is absent or half present. A witness returning "real" because it found nothing
+    // to say is the deleted real-labelling factory reached through a different door.
+    expect(() => witnessedCapability('clock.controlled', {}), 'a clock with no seam at all was classified').toThrow(
+      /no callable Clock control seam/,
+    );
+    expect(
+      () => witnessedCapability('clock.controlled', { freezeAt: async () => undefined }),
+      'a clock that can be frozen but not advanced was classified — half a control seam is not a verdict',
+    ).toThrow(/clock\.controlled/);
+    expect(() => witnessedCapability('vendors.email', {}), 'a vendor wrapper with no sim behind it was classified').toThrow(
+      /no callable EmailProviderSim control seam/,
+    );
+    expect(
+      () => witnessedCapability('vendors.email', { email: { attempts: () => [] } }),
+      'a vendor sim that cannot be told to reject was classified — half a control seam is not a verdict',
+    ).toThrow(/vendors\.email/);
+
+    // THE ORACLE IS DERIVED FROM CALLER EVIDENCE, so its refusal is that the evidence is missing.
+    expect(
+      () => witnessedCapability('oracles.judge', { judge: async () => undefined }),
+      'an oracle built with neither tier nor transport was given a provenance anyway',
+    ).toThrow(/no tier/);
+
+    // AND THE REFUSALS DISCRIMINATE. A witness that refused everything would satisfy every
+    // assertion above and leave the harness unable to build — and the callability test has to walk
+    // the PROTOTYPE CHAIN, because `advance` is a method on `ControlledClock.prototype` and an
+    // own-property test would refuse the real clock on its first run.
+    const clock = witnessedCapability('clock.controlled', new ControlledClock());
+    expect(clock.provenance, 'the real controlled clock was refused — the witness is reading own properties').toBe(
+      'stand-in',
+    );
+    expect(clock.standInReason, 'the stand-in verdict does not name the seam that produced it').toContain('freezeAt');
+  });
+
+  /**
+   * THE WITNESS'S OWN TIER/TRANSPORT REFUSALS, PINNED DIRECTLY — and this test exists because they
+   * were not.
+   *
+   * `createOracleCapability()` in `oracles.ts` throws on both mismatched combinations BEFORE the
+   * witness is ever reached, so through production the witness's copies are unreachable. The
+   * assertions in `oracles.selftest.ts` that look like they cover them match text present in BOTH
+   * copies, so deleting the witness's half left every test in the tree green. That is a guard that
+   * cannot fail, inside the item whose subject is guards that cannot fail.
+   *
+   * D6's design is that neither side trusts the other to have checked — and since the witness table
+   * became the only thing between a direct `witnessedCapability()` call and a verdict, deleting the
+   * witness's half would reopen exactly the door this file's other tests close. So it is PINNED, not
+   * removed, and every regex below matches wording unique to the witness: it says
+   * `refusing to construct capability "oracles.judge"` where `oracles.ts` says
+   * `refusing to build a … oracle`. An assertion satisfiable by the other copy would pin nothing.
+   */
+  it("refuses each mismatched tier/transport pair at the WITNESS, not only at the oracle's own guard", () => {
+    const judge = { judge: async () => undefined };
+
+    expect(
+      () => witnessedCapability('oracles.judge', judge, { tier: 'loop', transport: 'live' }),
+      'the witness accepted a loop-tier oracle on a live transport — the only guard left is the one in oracles.ts',
+    ).toThrow(/refusing to construct capability "oracles\.judge": a loop-tier oracle on a live transport/);
+
+    for (const tier of ['integration', 'drill']) {
+      expect(
+        () => witnessedCapability('oracles.judge', judge, { tier, transport: 'replay-fs' }),
+        `the witness accepted a ${tier}-tier oracle answering from committed bytes while reporting nothing stubbed`,
+      ).toThrow(
+        new RegExp(`refusing to construct capability "oracles\\.judge": a ${tier}-tier oracle on a filesystem replay`),
+      );
+    }
+  });
+
+  it('refuses an unrecognised brand on either evidence axis, instead of accepting it by absence', () => {
+    // ACCEPT BY ENUMERATION, NOT BY ABSENCE. The witness used to read "not loop" as above-loop and
+    // "not replay-fs" as a transport worth a real verdict, so a brand nobody had ever heard of came
+    // back `real` with confident-sounding evidence — on the only witness whose `real` verdict is
+    // derived from evidence rather than declared for a name, which is what makes it the one place
+    // that reasoning can go wrong. `CapabilityEvidence` carries plain strings, deliberately, because
+    // the evidence comes from a caller; a type union could not have caught this and is not what does.
+    const judge = { judge: async () => undefined };
+
+    const badTier = () => witnessedCapability('oracles.judge', judge, { tier: 'staging', transport: 'live' });
+    expect(badTier, 'an unrecognised TIER brand was accepted as above-loop and given a real verdict').toThrow(
+      /TIER axis was given "staging"/,
+    );
+    expect(badTier, 'the refusal does not say which tiers ARE legal, so the caller cannot correct it').toThrow(
+      /loop, integration, drill/,
+    );
+
+    const badTransport = () => witnessedCapability('oracles.judge', judge, { tier: 'integration', transport: 'bogus' });
+    expect(badTransport, 'an unrecognised TRANSPORT brand was accepted and given a real verdict').toThrow(
+      /TRANSPORT axis was given "bogus"/,
+    );
+    expect(badTransport, 'the refusal does not say which transports ARE legal').toThrow(/replay-fs, live, fake/);
+
+    // AND THE ENUMERATION DISCRIMINATES rather than refusing everything. SIX of the nine brand pairs
+    // are accepted; the three refused are loop+live, integration+replay-fs and drill+replay-fs. The
+    // four pinned below cover every rule that produces an acceptance, including a `fake` transport
+    // above loop, which is the instrument the tier rules are themselves tested with. The two
+    // unpinned pairs — integration+fake and drill+live — reach `real` through the same final branch
+    // as drill+fake, so pinning them would add assertions and no coverage.
+    expect(witnessedCapability('oracles.judge', judge, { tier: 'loop', transport: 'replay-fs' }).provenance).toBe(
+      'stand-in',
+    );
+    expect(witnessedCapability('oracles.judge', judge, { tier: 'loop', transport: 'fake' }).provenance).toBe('stand-in');
+    expect(witnessedCapability('oracles.judge', judge, { tier: 'integration', transport: 'live' }).provenance).toBe(
+      'real',
+    );
+    expect(witnessedCapability('oracles.judge', judge, { tier: 'drill', transport: 'fake' }).provenance).toBe('real');
+  });
+
+  it('refuses a witnessed name on the adapter-derived route, so the two routes cannot overlap', () => {
+    // ROUTING AROUND THE TABLE. Every outcome of the adapter-derived route is stand-in, so this is
+    // never a false green — but it was a second door onto the ledger for a name the closed table
+    // would have REFUSED, and a function that stamps stand-in on any name at all is the deleted
+    // labelling factory wearing a mandatory reason string.
+    const strippedClock = { freezeAt: async () => undefined };
+    expect(
+      () => witnessedCapability('clock.controlled', strippedClock),
+      'the witness stopped refusing half a control seam, so this reproduction proves nothing',
+    ).toThrow(/no callable Clock control seam/);
+    expect(
+      () => adapterDerivedCapability('clock.controlled', strippedClock, 'file:///probe/_fixture.ts'),
+      'a name the witness table would have REFUSED was minted as a stand-in through the other route',
+    ).toThrow(/a witness is registered for that name/);
+
+    // AND THE ROUTE IS BOUNDED IN THE OTHER DIRECTION TOO: it builds its own two families and
+    // nothing else, so an unwitnessed name has no route at all rather than a permissive one.
+    expect(
+      () => adapterDerivedCapability('vendors.sms', {}, 'file:///probe/_fixture.ts'),
+      'a name belonging to neither family and to no witness was given a provenance anyway',
+    ).toThrow(/belongs on the witness table/);
+    expect(() => adapterDerivedCapability('sut.', {}, 'file:///probe/_fixture.ts')).toThrow(/adapter-derived route/);
+
+    // The two families it DOES build still build — the runner's black-box adapters produce
+    // `sut.probe`, and a refusal here would break every generated tree.
+    expect(adapterDerivedCapability('sut.probe', {}, 'file:///probe/_fixture.ts').provenance).toBe('stand-in');
+    expect(adapterDerivedCapability('fixtures.worlds', {}, 'file:///probe/_fixture.ts').provenance).toBe('stand-in');
+  });
+
+  it('reads every reference capability off the ledger as a stand-in that names what makes it one', async () => {
+    // THROUGH THE EXPORTED LEDGER BUILDER, not through `createHarness()`: the harness returns only
+    // `.value` fields, so the reasons are not reachable from an `AtHarness` at all — which is the
+    // point, since a diagnostic there would sit in front of every suite.
+    const ledger = await buildCapabilityLedger({ requirement: 'req-016', tier: 'loop' });
+    try {
+      const sut = ledger.sut.find((entry) => entry.name === 'sut.notifications');
+      expect(sut, 'the reference adapter registered no sut.notifications capability').toBeDefined();
+
+      for (const entry of [ledger.clock, ledger.vendors, ledger.fixtures, sut!]) {
+        expect(entry.provenance, `${entry.name} is not on the stand-in ledger`).toBe('stand-in');
+        expect(entry.realEvidence, `${entry.name} carries real evidence and a stand-in verdict at once`).toBeNull();
+      }
+
+      // NOT A GENERIC STRING. A reason that said "stand-in" and nothing else would tell a reader
+      // nothing about what would have to be removed to make it stop being one.
+      expect(ledger.clock.standInReason, 'the clock reason does not name the control seam').toContain('freezeAt/advance');
+      expect(ledger.vendors.standInReason, 'the vendor reason does not name the control seam').toContain(
+        'email.rejectNext',
+      );
+      expect(ledger.fixtures.standInReason, 'the fixtures reason does not name the module it was loaded from').toContain(
+        '_fixture.ts',
+      );
+      expect(sut!.standInReason, 'the sut reason does not name the module it was loaded from').toContain('_fixture.ts');
+    } finally {
+      await ledger.teardown();
+    }
+  });
+
+  it('reports the three harness-owned capabilities real through the accepting branch, not by absence from a list', async () => {
+    const ledger = await buildCapabilityLedger({ requirement: 'req-016', tier: 'loop' });
+    try {
+      // A guard that refuses everything is as broken as one that refuses nothing, so the accepting
+      // branch is asserted positively: each of these carries the witness's own words for why it is
+      // the article rather than a substitute for one.
+      for (const entry of [ledger.config, ledger.sentinels, ledger.faults]) {
+        expect(entry.provenance, `${entry.name} did not reach the accepting branch`).toBe('real');
+        expect(entry.standInReason, `${entry.name} is real and carries a stand-in reason at once`).toBeNull();
+        expect(entry.realEvidence, `${entry.name} came back real with nothing said about why`).toContain('article');
+      }
+    } finally {
+      await ledger.teardown();
+    }
+  });
+
+  it('still reports a non-empty stubbed list at integration tier', async () => {
+    // WHAT THIS PROVES AND WHAT IT DOES NOT. It proves the reference adapter still declares itself
+    // above loop. It does NOT prove the registry gate fires: that enforcement lives in `openWorld`,
+    // which is not exported and cannot be called from here.
+    const h = await createHarness({ requirement: 'req-016', tier: 'integration' });
+    try {
+      expect(
+        await h.stubbedCapabilities(),
+        'an integration-tier harness reported nothing stubbed while running the reference adapter',
+      ).toContain('sut.notifications');
+    } finally {
+      await h.teardown();
+    }
   });
 });
 

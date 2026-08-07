@@ -1,0 +1,114 @@
+ADVERSARIAL CODE REVIEW — Gate 2. Your job is to REFUTE this diff, not to praise it.
+
+The base reviewer contract in .claude/skills/work/reviewers.md applies in full and is not
+narrowed by anything below. Everything here is ADDITIONAL. You read; you never execute; you
+never write to the tree. A claim that depends on runtime behaviour is a finding carrying the
+unverified marker plus a precise statement of what would settle it.
+
+THE SUITE HAS DELIBERATELY NOT BEEN RUN. This is a draft: it compiles and typechecks, and the
+verify suite is the next pass's work. Do NOT report that tests have not passed — that is the
+process working, not a defect.
+
+You are in the worktree. Read the real source, not just the diff. Follow calls into files the
+diff does not touch if that is where the answer is.
+
+SUBJECT: the branch diff against origin/main at the pinned commit.
+
+READ FIRST:
+  tests/at/harness/capabilities.ts          <- THE CHANGE. The verdict type, the closed witness
+                                               table, the adapter-derived route. Read all of it.
+  tests/at/harness/index.ts                 <- createHarness, loadAdapter (now returns the module
+                                               URL), the ledger builder, every call site
+  tests/at/harness/conformance.selftest.ts  <- the new assertions; the rewritten existing test
+  tests/at/harness/oracles.ts               <- createOracleCapability, routed not rewritten
+  tests/at/harness/contracts.ts             <- Clock, Vendors/EmailProviderSim, AtHarness, the
+                                               type-alias doctrine at ~288-319
+  tests/at/harness/clock.ts                 <- ControlledClock: `advance` is a PROTOTYPE method
+  tests/at/harness/vendors.ts               <- the port/sim split the vendor witness reads
+  tests/at/harness/registry.ts              <- the integration gate at 618-620, in unexported openWorld
+  tests/at/harness/oracles.selftest.ts      <- NOT in the diff, and must stay passing: lines
+                                               960/961/984 assert real provenance above loop
+  tests/at/harness/runner-blackbox.selftest.ts, runner-expect.selftest.ts
+                                            <- generate throwaway adapters whose sut key is `probe`
+  tests/at/suites/req-016/_fixture.ts       <- reference adapter; its header comment was rewritten
+
+READ FOR INTENT, then hold the code to it:
+  loop/items/AI4DEV-48/plan.md          <- the amended plan; section 4's boxed note says which pass
+                                           runs what, and section 5 is the goal spec
+  loop/items/AI4DEV-48/gate1-rulings.md <- every Gate 1 ruling. A ruling adopted but not implemented
+                                           is a finding.
+
+CONTEXT YOU MUST RESPECT (settled; do not re-litigate):
+  - Tier-specific fixture-adapter selection was PROPOSED at Gate 1 and REJECTED as this item's
+    work, with reasons, and filed. Do not re-argue it. Findings about the mechanism that IS here
+    are wanted; a finding that says "the other mechanism would have been better" is not.
+  - No product code, no migrations, no schema, no edge functions. REQ-016 is not implemented.
+  - registry.ts, runner.ts, oracles.selftest.ts and tests/at/expected/req-016.json are
+    may-not-touch. If the diff touches any of them, that alone is a finding.
+  - `bun run lint` is red repository-wide from CRLF checkout and CI runs no lint step. Formatting
+    findings of that kind are noise here.
+
+THE QUESTIONS I MOST WANT ATTACKED. Be concrete; quote file and line.
+
+1. THE WHOLE POINT OF THE ITEM — can a capability still reach `real` without positive grounds?
+   The Gate 1 correction was that a witness which finds nothing to say must REFUSE, never default
+   to real. Hunt for any path — a witness branch, a constructor default, an evidence object with an
+   absent field, a `catch`, a type assertion — where a value nobody could classify ends up labelled
+   real, or where a stand-in silently becomes real. This is the finding I most want and the one the
+   first draft of the plan got wrong.
+
+2. THE THREE `real` ROWS ARE DECLARATIONS, NOT MEASUREMENTS. `config.registry`,
+   `sentinels.planted` and `faults.injection` inspect nothing about their value. The plan says this
+   is honest because the thing each would substitute for does not exist elsewhere. Is that true for
+   all three, in this tree, today? If any of them COULD be a substitute for something real, the
+   declaration is a false green with a comment on it.
+
+3. THE ADAPTER-DERIVED ROUTE. `fixtures.worlds` and every `sut.<key>` are unconditionally stand-in
+   with the loaded module URL as the reason. Two attacks: (a) can the URL be influenced by anything
+   a caller controls — AT_REPO_ROOT, the requirement string, a symlink, path normalisation — such
+   that the reason names a module that was not what executed? (b) is there any route by which a
+   capability reaches the ledger WITHOUT going through either the witness table or this route?
+
+4. THE LEDGER BUILDER AND WHO CAN REACH IT. index.ts exports the builder so the conformance test
+   can read `standInReason` and `realEvidence`, deliberately NOT adding a member to AtHarness. Does
+   that hold? Can a suite reach the ledger, or mutate it? Is the frozen capability actually frozen
+   all the way down, or is `value` a live object a test could reach through and modify?
+
+5. THE OBJECT JUDGED MUST BE THE OBJECT HANDED OVER. Gate 1 finding 8: witnessing a stripped facade
+   while returning the working clock would leave behaviour tests green and defeat the whole
+   "self-defeating lie" claim. The plan says createHarness now derives every member from the ledger
+   entry it judged, by construction. Verify that for EVERY capability — clock, fixtures, vendors,
+   sut, config, sentinels, faults, oracles. One member still assigned from a separately-held
+   variable is a real finding.
+
+6. WOULD THE NEW ASSERTIONS ACTUALLY FAIL? For each new conformance assertion, ask whether it would
+   still pass against the OLD harness, or against a plausible broken implementation. An assertion
+   that cannot fail is the exact defect this item exists to remove, and Gate 1 already caught one of
+   those in the plan (a `git diff --stat` check that was empty by construction). Look hard at the
+   malformed-value assertions: do they construct a value that genuinely lacks the seam, or one that
+   merely looks like it does?
+
+7. THE EXACT FIVE-NAME LEDGER. A loop-tier harness must still report exactly
+   ['clock.controlled','fixtures.worlds','oracles.judge','sut.notifications','vendors.email'].
+   Trace the construction and say whether that holds — including the sort order, the SUT key
+   mapping, and whether anything could add or drop a name.
+
+8. THE ORACLE WAS ROUTED, NOT REWRITTEN. oracles.ts must keep refusing both mismatched
+   tier/transport combinations, and oracles.selftest.ts (untouched) asserts real provenance at
+   integration and drill. Is the refusal now duplicated in two places that could disagree? If the
+   witness and oracles.ts both check, can they diverge — and does the witness's own refusal make any
+   existing assertion unreachable?
+
+9. THE RUNNER'S GENERATED ADAPTERS. Their sut key is `probe` and they export no fault or sentinel
+   seam. The plan claims removing the name lookup makes this a non-event. Walk the generated
+   adapter through the new construction path and say whether it survives — including `teardown`,
+   the missing seams, and the requirement literal check.
+
+10. WHAT THE COMMENTS NOW CLAIM. This item rewrote the provenance comments in contracts.ts,
+    index.ts and _fixture.ts's header because the old ones named a mechanism that no longer exists.
+    Are the NEW claims true? A comment that overstates the new enforcement is the same defect as the
+    old one, and Gate 1 finding 12 was exactly this — an over-strong sentence in that header.
+
+11. ANYTHING THE PLAN PROMISED THAT THE CODE QUIETLY DOES NOT DO. Read section 4's steps and
+    section 7's claims, then check each against the code. Section 7 states a deliberate ceiling; if
+    the code does not even reach that ceiling, say so.

@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 
 import type Anthropic from '@anthropic-ai/sdk';
 
-import { realCapability, standInCapability, type Capability } from './capabilities.ts';
+import { witnessedCapability, type Capability } from './capabilities.ts';
 import type { ConfigRegistry } from './config.ts';
 import type {
   CriterionComparator,
@@ -1095,9 +1095,15 @@ export function createSemanticOracle(opts: { transport: JudgeTransport; votes: n
 /**
  * The capability, per tier — and exactly what that does and does not establish (finding F3).
  *
- * At `loop` the oracle is a REPLAY and says so: `standInCapability` puts `oracles.judge` on the
- * provenance ledger, which is what stops an integration-tier run grading against committed bytes.
- * Above `loop` it is the live judge and is reported real.
+ * At `loop` the oracle is a REPLAY and the ledger says so, which is what stops an integration-tier
+ * run grading against committed bytes. Above `loop` it is the live judge and is reported real.
+ *
+ * NEITHER LABEL IS WRITTEN HERE. This function hands `witnessedCapability()` the two facts no
+ * witness could read off a `SemanticOracle` — the running tier and the transport's `kind` brand —
+ * and the witness registered for `oracles.judge` reaches the verdict from them. The tier/transport
+ * refusals below stay where they are: they are what makes the injectable seam unable to defeat the
+ * tier ruling from outside, and the witness refuses the same two combinations independently, so
+ * neither side is trusting the other to have checked.
  *
  * WHAT THIS DOES NOT DO is make the integration tier reachable. `createHarness()` still registers
  * the clock, the fixtures, the vendor sim and every system-under-test member as stand-ins, so
@@ -1133,7 +1139,10 @@ export function createOracleCapability(opts: {
           'expectations while the capability ledger still called it a stand-in.',
       );
     }
-    return standInCapability('oracles.judge', createSemanticOracle({ transport, votes }));
+    return witnessedCapability('oracles.judge', createSemanticOracle({ transport, votes }), {
+      tier: opts.tier,
+      transport: transport.kind,
+    });
   }
   const transport = opts.transport ?? createLiveTransport();
   if (transport.kind === 'replay-fs') {
@@ -1143,5 +1152,8 @@ export function createOracleCapability(opts: {
         `while reporting that it stubbed nothing.`,
     );
   }
-  return realCapability('oracles.judge', createSemanticOracle({ transport, votes }));
+  return witnessedCapability('oracles.judge', createSemanticOracle({ transport, votes }), {
+    tier: opts.tier,
+    transport: transport.kind,
+  });
 }

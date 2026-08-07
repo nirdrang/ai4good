@@ -1,0 +1,112 @@
+ADVERSARIAL PLAN REVIEW — Gate 1. Your job is to REFUTE this plan, not to praise it.
+
+The base reviewer contract in .claude/skills/work/reviewers.md applies in full and is not
+narrowed by anything below. Everything here is ADDITIONAL. You read; you never execute; you
+never write to the tree. A claim that depends on runtime behaviour is a finding carrying the
+unverified marker plus a precise statement of what would settle it.
+
+You are in the worktree. Read the real source, not just the plan. Follow calls into files the
+plan does not mention if that is where the answer is.
+
+READ FIRST:
+  loop/items/AI4DEV-48/plan.md              <- the plan under review
+  tests/at/harness/capabilities.ts          <- the defect itself (51 lines; read all of it)
+  tests/at/harness/index.ts                 <- createHarness, the four stand-in call sites, loadAdapter
+  tests/at/harness/registry.ts              <- the integration gate at lines 618-620
+  tests/at/harness/contracts.ts             <- Clock, Vendors/EmailProviderSim, AtHarness, the doctrine comments
+  tests/at/harness/oracles.ts               <- createOracleCapability (~1120-1147): provenance ALREADY derived here
+  tests/at/harness/conformance.selftest.ts  <- the existing false-green reproductions; where the new wall goes
+  tests/at/harness/clock.ts                 <- ControlledClock
+  tests/at/harness/vendors.ts               <- createEmailProviderSim; the port/sim split
+  tests/at/harness/config.ts, sentinels.ts, faults.ts   <- the three capabilities the plan keeps real
+  tests/at/suites/req-016/_fixture.ts       <- the reference adapter; read its header comment 1-19
+  tests/at/expected/req-016.json            <- the declaration that must stay byte-identical
+  tests/at/harness/runner-blackbox.selftest.ts  <- generates throwaway adapters at run time
+  tests/at/harness/runner-expect.selftest.ts    <- same
+  loop/bringup/AI4DEV-3-at-harness.md       <- the working spec; lines 52-64 carry the founder ruling the plan leans on
+
+CONTEXT YOU MUST RESPECT (settled; do not re-litigate):
+  - The board item's done contract is the target: relabelling the reference capabilities must not
+    yield a green, provenance must be established by something the harness can check, existing
+    suites stay green, and tests/at/expected/req-016.json stays byte-identical.
+  - No product code, no migrations, no schema, no edge functions. REQ-016 is not implemented and
+    this item does not implement it.
+  - This item does not build the static provider scan (h.static) and does not touch registry.ts's
+    integration gate or the runner.
+
+THE QUESTIONS I MOST WANT ATTACKED. Be concrete; quote file and line.
+
+1. THE RULING I AM LEAST SURE OF — decision D5. The critique that produced this item asked for "a
+   structurally separate integration adapter path, rather than one adapter that can be relabelled."
+   I REJECTED that and adopted only its third bullet, arguing that refusal-by-construction is
+   stronger than refusal-by-comparison and that building an adapter with no product to adapt is a
+   guess against a founder ruling. Attack this directly. Is there a defect that only a separate
+   adapter path closes and that D1-D4 leave open? If so, name it concretely — not as a principle.
+
+2. DO THE CONTROL-SEAM WITNESSES ACTUALLY WORK — decision D3. Verify against the real objects, not
+   the types. (a) The value registered at index.ts:118 is `new ControlledClock()`; does it expose
+   `advance`, and is `advance` reachable on every value that will ever be registered under that
+   name? (b) The value at index.ts:142 is a FRESH wrapper `{ email: provider.sim }` — confirm the
+   simulator seam is one level down and that a witness reading `.email.rejectNext` finds it.
+   (c) Are there other reachable shapes for either name — from the black-box trees, from a future
+   suite, from a second channel — under which the witness silently finds nothing and returns "real"?
+   A witness that fails OPEN is this item's own defect reproduced.
+
+3. IS THE SELF-DEFEATING-LIE CLAIM TRUE? The plan's teeth rest on it: that faking the clock or
+   vendor verdict requires removing the seam, which reddens tests. Check it. Can you remove or hide
+   `advance` from the clock capability VALUE (leaving `h.clock` working for the suites) in a way
+   that fools the witness and reddens nothing? Same for the vendor simulator seam. If yes, the
+   plan's central claim is overstated and I need to know before it is built.
+
+4. IS DECISION D4 A CHECK OR A CONSTANT WITH EXTRA STEPS? `fixtures.worlds` and `sut.*` are refused
+   on the module URL the adapter was loaded from. Since there is only one adapter path in the tree,
+   is this materially different from `return 'stand-in'`? I explicitly rejected adding a `backing`
+   declaration to the adapter (D4's second paragraph) as building ahead of a consumer. Attack both
+   halves: is the URL-derived refusal worth anything, and was rejecting the declaration right?
+
+5. DOES IT CLOSE THE HOLE OR MOVE IT? Enumerate the residual after S2-S4, exhaustively rather than
+   reassuringly. At minimum consider: editing a witness; editing a witness AND its conformance
+   assertion; a future capability name added without a witness; the `sut.*` prefix match; a value
+   that satisfies a witness's positive branch by accident; and anything reachable from the runner's
+   generated adapters. Section 7 of the plan states a ceiling — is that ceiling stated HONESTLY, or
+   is it wider or narrower than the truth?
+
+6. DECISION D2 versus the black-box trees. An unwitnessed capability name throws. The runner's
+   generated adapters export a `sut` whose key is `probe`, and expose no fault or sentinel seam.
+   Trace what those selftests will do under the plan as written. Will they break? Is the `sut.*`
+   prefix rule the plan gestures at actually sufficient, and is prefix-matching a name a hole?
+
+7. WHAT ELSE BREAKS that the plan has not noticed. I found the two runner selftests, the existing
+   conformance test at conformance.selftest.ts:138-143, and the `not.toContain('config.registry')`
+   assertion at :161-164 by reading. What else? Check every reader of `stubbedCapabilities()`,
+   every importer of capabilities.ts, the typeprobes, the vitest include globs, and anything
+   asserting on the `Capability` shape. Also: risk 2 converts `Capability` from an interface to a
+   type alias — is that in scope, necessary, and safe?
+
+8. THE FACTS. Verify every claim in plan.md section 2's table against the tree, and the count
+   correction in particular: the board says twelve notification tests are green, the plan says
+   eleven plus AT-016.01 pending on the static scan. Which is right? Also verify that the plan's
+   claim about `_fixture.ts:15-18` — that it names an enforcement mechanism that does not enforce —
+   is a fair reading and not a misquote.
+
+9. THE STEPS' TEETH. S1 requires the exploit be red BEFORE the fix. S4 lists five required
+   assertions. Would a conforming implementation of S1-S4 actually prove the done contract, or
+   could a do-nothing implementation satisfy every criterion as written? Name any step whose
+   done-criterion is checkable-looking but unfalsifiable, and any assertion in S4 that would pass
+   against a harness that changed nothing. This gate has previously caught exactly that.
+
+10. IS THERE A SIMPLER DESIGN that meets the same done contract with less machinery? A witness
+    table keyed by string name is a real commitment for every future capability. If a smaller fix
+    gets the same guarantee, say what it is and why it is better. Conversely, if the plan is too
+    small — if the done contract cannot be met without something it refuses to build — say that
+    instead, and say exactly what is missing.
+
+11. RATIFIED TEXT. Does anything in this plan contradict loop/bringup/AI4DEV-3-at-harness.md, the
+    role contracts in .claude/agents/, or .claude/skills/work/shared-invariants.md? The plan leans
+    on the founder ruling at AI4DEV-3-at-harness.md lines 52-64 to justify D4 and D5 — check that
+    the ruling says what the plan says it says, and that it actually bears on this case.
+
+OUTPUT FORMAT. Use the finding block from the base contract, with your severity scale stated. Put
+blockers first. If the plan is sound on a point, say so in one line and move on — I need your
+attention on what is broken. End with a one-paragraph verdict: should this plan be executed as
+written, executed with named changes, or replaced?
