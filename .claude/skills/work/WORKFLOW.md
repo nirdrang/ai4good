@@ -72,7 +72,10 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  expected verification state per acceptance-test id  ← the executor's goal spec
                  evidence by POINTER, never pasted
                  decide and record: is this large enough to slice, so the code gate runs per slice
-15  ORCHESTRATOR write the gate-1 prompt = reviewers.md + item additions (ADDITIVE ONLY)
+15  ORCHESTRATOR write the gate-1 prompt = reviewers.md `## Your contract` + the PLAN review
+                 section ONLY + item additions (ADDITIVE ONLY; no sibling section, no Pins
+                 line, and never a word telling this reviewer another gate exists —
+                 see the assembly section at the top of reviewers.md)
 16  ORCHESTRATOR write PHASE-STATE — gate-1 spec · the file that completes this phase —
                  THEN commit + push · tree clean · report the pushed head
                  (the state file rides IN the head it completes; it never names its own SHA —
@@ -104,7 +107,9 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
            the verify suite is NOT run — the draft exists to be critiqued, not to be green
            commit + push → report (coverage · typecheck · open questions)
 28  ORCHESTRATOR draft incomplete, or a dispute? → re-rule → back to 27      MAX 2 RE-ROUNDS
-29  ORCHESTRATOR write the gate-2 prompts (critique only, NO execution)
+29  ORCHESTRATOR write the gate-2 prompts (critique only, NO execution) = `## Your contract` +
+                 the DRAFT CODE review section ONLY + item additions. Two prompts, one per
+                 pinned model, and NEITHER may hint that the other reviewer exists
 30  ORCHESTRATOR write PHASE-STATE — BOTH completing files — THEN commit + push ·
                  tree clean · report the pushed head → end
 ```
@@ -146,7 +151,8 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
 44  ORCHESTRATOR normal exit: every ruling closed-by-fix or rejected-with-reason AND verify
                  green (the capped exit is 43)
 45  ORCHESTRATOR commit the fixes, the RAW critiques and the distillates into the record
-46  ORCHESTRATOR write the audit brief (claims, not code quality — see reviewers.md)
+46  ORCHESTRATOR write the audit brief = `## Your contract` + the AUDIT section ONLY + item
+                 additions (claims, not code quality — see reviewers.md)
 47  ORCHESTRATOR write PHASE-STATE — audit spec — THEN commit + push · tree clean ·
                  report the pushed head → end
 ```

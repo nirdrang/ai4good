@@ -43,7 +43,8 @@ green, and harder to notice because the evidence looks tidy.
 - **preserve the count.** State how many findings the raw file contained and how many you
   extracted. They must match.
 - **check the reviewer's own declared count.** The raw file should end with a count line naming its
-  gate — `GATE 2: 3 FINDINGS`, `AUDIT: CLEAN`. Compare it against what you found. A disagreement,
+  subject — `PLAN REVIEW: 3 FINDINGS`, `CODE REVIEW: CLEAN`, `AUDIT: CLEAN`. Compare it against
+  what you found. A disagreement,
   or no such line at all, goes in NOTES and is never reconciled silently: it is the one signal that
   catches a file cut off after a complete finding, which otherwise looks whole.
 - flag truncation, a file that appears cut off mid-write, or a raw file that contains progress

@@ -59,8 +59,11 @@ expected verification state per acceptance-test id. That table is the executor's
 so it has to be checkable rather than aspirational. Evidence goes in by pointer, never pasted —
 a plan past roughly 25KB is carrying evidence it should be citing. Decide and record whether the
 item is large enough that one diff review would be a wall of findings; if so, slice it so the
-code gate runs per slice. Write the Gate 1 prompt: item-specific content is **additive only** —
-more files, more risks, never fewer attack directions. After the closing push and before you
+code gate runs per slice. Write the Gate 1 prompt — **`reviewers.md` is assembled, never sent
+whole**: its `## Your contract` section, the PLAN review section only, and your additions. Read the
+assembly section at the top of that file first; it names what must never reach a reviewer, and no
+gate may learn another gate exists. Item-specific content is **additive only** — more files, more
+risks, never fewer attack directions. After the closing push and before you
 end, hand a mechanical the pull request to open — body as handed, non-closing references only —
 so the required CI check has a pull request to gate from the first push onward.
 
@@ -68,7 +71,9 @@ so the required CI check has a pull request to gate from the first push onward.
 there is no second plan and no brief. Push the rulings and the amendment **before** any code
 changes, so judgment survives an executor death. Then spawn the executor for a draft: every plan
 step implemented, typecheck and build passing, **the verify suite not yet run**. The draft exists
-to be critiqued, not to be green. Write the Gate 2 prompts — critique only, no execution.
+to be critiqued, not to be green. Write the Gate 2 prompts — critique only, no execution; two of
+them, one per pinned model, each assembled as `## Your contract` + the DRAFT CODE review section +
+your additions, and **neither may hint that the other reviewer exists**.
 
 **FIX AND GOAL.** Rule every Gate 2 finding. Push rulings first. Then spawn the executor to check
 any verify-first claims and removal conditions, apply the ruled fixes, and only then pursue the

@@ -72,8 +72,15 @@ The base of every reviewer prompt is `.claude/skills/work/reviewers.md`, **assem
 whole**: the `## Your contract` section, that reviewer's own gate section, and the orchestrator's
 additions. Read the assembly section at the top of that file before you launch anything — it is
 the only part that describes the system, and no reviewer may see it or any sibling gate section.
-The pins live there too — you copy them, you do not choose them, and the `**Pins**` line itself
+The pins live there too — you copy them, you do not choose them, and the whole `**Pins**` block
 never goes into a prompt.
+
+- **CHECK THE ASSEMBLED PROMPT BEFORE YOU LAUNCH IT.** Nothing else in this process can see what a
+  prompt contained, and a prompt carrying the assembly section or a sibling gate section produces a
+  perfectly normal-looking review. Search the prompt file for `## Assembly`, `**Pins**`, and the
+  two headings that are not this reviewer's — `## The PLAN review`, `## The DRAFT CODE review`,
+  `## The AUDIT`. **Any hit means the prompt is wrong: do not launch it, report it, and let the
+  orchestrator rewrite it.** This is a text search, not a judgement, which is why you may do it.
 
 - **OS-detached, always** (`Start-Process`). A reviewer launched as a background child of your
   shell dies with you: two runs once died silently with a session-limited agent and stalled an

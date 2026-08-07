@@ -1,14 +1,59 @@
-# Reviewer contracts — the base every gate prompt extends
+# Reviewer contracts — assembled per gate, never sent whole
 
-Three reviewer roles. They are **not Claude agents** — they are external processes launched by
-the conductor with a working directory. This file is the base of their prompts and the home of
-their pins; an item's prompt file is this text plus item-specific additions.
+## Assembly — for the orchestrator and the conductor. NEVER copied into a prompt.
 
-**Item-specific content is ADDITIVE ONLY.** More files to look at, more risks to consider, more
+Three reviewer roles live below. They are **not Claude agents** — they are external processes
+launched with a working directory. This section is the only part of this file that describes the
+system; everything under `## Your contract` and the gate headings is prompt material.
+
+**A reviewer's prompt is `## Your contract` + ITS OWN gate section + the item's additions.**
+Nothing else. The sibling gate sections are not copied, and **omitting them is not a narrowing** —
+the reviewer still receives its entire mandate. This exception is written down because without it
+an orchestrator following the rule below would correctly ship the whole file.
+
+**The `**Pins**` BLOCK — every line from `**Pins**` down to the line before `**Subject**` — is
+metadata for the conductor and is NOT copied into the prompt.** It is a block, not a line: the
+draft-code pins wrap onto a second line, and an assembler that drops only the first leaves behind
+a fragment naming a second model. It names models and effort; a reviewer that reads it learns who
+else is looking.
+
+**No gate learns that another gate exists** (founder ruling 2026-08-08). Not by name, not by
+count, not by contrast. A reviewer that knows something downstream will catch code, or that a peer
+is reading the same commit, has a defensible reason to report less — the same anchoring that makes
+two reviewers on one commit worth having is destroyed by telling either one about the other. When
+you add item-specific content, this binds you too: never write "the code gate will check that".
+
+**What slicing achieves, and what it cannot — state this plainly rather than believe otherwise.**
+A reviewer runs in the tree with whole-tree access, and this file is in the tree. Any reviewer can
+open it. The plan reviewer is positively *instructed* to check a plan against the role contracts,
+so reading them is part of its job. And the auditor's subject **is** the record — the rulings files
+and the committed critiques — so it cannot be blind at all, by construction. Slicing therefore
+removes the **default** exposure, not the possibility: no reviewer is handed a sibling contract it
+never asked for. It is not a guarantee, and nothing downstream can detect a reviewer that went
+looking. The instruction that actually carries the weight is the one in `## Your contract` telling
+every reviewer to assume it is the only reader — because the machine cannot be hidden, the
+inference is forbidden instead.
+
+**Item-specific additions are ADDITIVE ONLY.** More files to look at, more risks to consider, more
 context. Never fewer attack directions, never a softened mandate, never a shortened output
 contract. A gate that can be narrowed per item is a gate that will be.
 
-## What binds all three
+**Why two reviewers read the draft code.** Different model families carry decorrelated blind
+spots; that is the point of a panel, and it only pays if neither is told the other exists. The
+rationale lives here, in the part no reviewer reads.
+
+**Which section is which gate**, since the headings below deliberately carry no number — a
+reviewer told it is "gate 2" has been told a gate 1 exists:
+
+| the workflow calls it | the section below |
+|---|---|
+| gate 1 | `## The PLAN review` |
+| gate 2 | `## The DRAFT CODE review` — assembled twice, once per pinned model |
+| the audit | `## The AUDIT — critique of the CLAIM` |
+
+---
+
+## Your contract
 
 **Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
 tree at a pinned commit, this prompt, the model and effort pins, and the sandbox mode. A review
@@ -48,7 +93,14 @@ sure you are. **Dropping an observation is a ruling, and rulings belong to the o
 format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
 something an engineer can act on — never a filter on whether it is reported at all.
 
-Every finding, in every gate:
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
 
 ```
 [n] severity: <your own scale, stated>    <path>:<line>
@@ -57,15 +109,15 @@ Every finding, in every gate:
     unverified-runtime-claim: yes | no
 ```
 
-**Close with a count line, alone on the last line** — `GATE 1: CLEAN` or `GATE 1: 3 FINDINGS`,
-naming your own gate. The audit's `AUDIT: CLEAN` / `AUDIT: N FINDINGS` is this same line under its
-own name. It is your own declared count, and it is what makes a cut-off file tell on itself:
-output that stops after a complete finding looks whole, and only the missing terminal line shows
-that it is not. The distiller compares it against what it extracted and reports any mismatch.
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
 
 ---
 
-## Gate 1 — critique of the PLAN
+## The PLAN review
 
 **Pins** · `gpt-5.6-sol` · effort `xhigh` · `--sandbox read-only`
 **Subject** · `plan.md` at the pinned commit, the board item, the specification, and the code the
@@ -95,19 +147,18 @@ whether it can be executed as written:
   caught a test oracle that would have passed while proving nothing, and a do-nothing
   implementation that would have satisfied the entire verification gate.
 
+Your count line is `PLAN REVIEW: CLEAN` or `PLAN REVIEW: 3 FINDINGS`.
+
 ---
 
-## Gate 2 — critique of the DRAFT CODE
+## The DRAFT CODE review
 
-**Pins** · `gpt-5.6-terra` effort `max` · and `kimi-code/k3` effort `high` (from its config file;
-its CLI has no effort flag) · both `--sandbox read-only`
+**Pins** · `gpt-5.6-terra` effort `max` · `--sandbox read-only`
+**Pins** · `kimi-code/k3` effort `high` · `--sandbox read-only` · effort comes from its config
+file, since its CLI has no effort flag
 **Subject** · the branch diff at the pinned commit. The draft compiles and typechecks; **the test
 suite has deliberately not been run yet.** You are critiquing code before it is declared finished
 — do not report that tests haven't passed.
-
-Two reviewers run in parallel on the same commit, into separate files, and **neither sees the
-other's output**. Different families carry decorrelated blind spots; that is the point of a panel
-and it is destroyed by letting one anchor on the other.
 
 Attack:
 
@@ -121,6 +172,8 @@ Attack:
 You do not run the suite. A runtime-dependent suspicion is a finding with the unverified marker
 and a precise statement of what would settle it.
 
+Your count line is `CODE REVIEW: CLEAN` or `CODE REVIEW: 3 FINDINGS`.
+
 ---
 
 ## The AUDIT — critique of the CLAIM
@@ -129,8 +182,8 @@ and a precise statement of what would settle it.
 **Subject** · the branch diff **and the record that describes it** — the amended plan, the
 rulings files, and the state file's claims.
 
-You are not reviewing code quality; Gate 2 did that. You are answering one question: **does the
-story match the tree?**
+Code quality is not your subject. You are answering one question: **does the story match the
+tree?**
 
 - **Every adopted ruling is implemented as ruled.** A ruling recorded but not implemented is a
   FAIL — this is the box no other check in the system covers.
