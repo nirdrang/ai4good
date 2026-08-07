@@ -130,6 +130,18 @@ try {
                     # from the first.
                     $script:AgentLines += ([string]$child[0])
                     $script:AgentLines += ([string]$child[1])
+                    # AND ITS WARNINGS. Forwarding only the first two lines silently dropped every
+                    # qualifier the child raised - STALE, CHAIN UNRESOLVED, BRANCH NAMES 2 ITEMS,
+                    # an ignored held item. An agent whose branch named two items therefore showed
+                    # as "WORKING ON nothing" in the supervision tree, indistinguishable from one
+                    # that simply had not switched branch yet - and that exact display was on
+                    # screen this morning for an innocent reason, which is what makes the
+                    # ambiguity dangerous. A warning nobody can see is the failure this file
+                    # exists to prevent. The machine tag is the child's own and is not repeated.
+                    for ($i = 2; $i -lt $child.Count; $i++) {
+                        $w = [string]$child[$i]
+                        if ($w -and ($w -notmatch '^<ai4good-attribution')) { $script:AgentLines += ('            ' + $w) }
+                    }
                 }
             }
             $env:CLAUDE_PROJECT_DIR = $savedEnv
@@ -206,7 +218,13 @@ try {
     if (-not $item) {
         # The nudge is for a session doing untracked work. A session supervising agents plainly is
         # not idling, so firing it every prompt there trains the founder to skip the whole block.
-        if ($script:AgentLines.Count -gt 0) {
+        if ($script:Actor -eq 'AGENT') {
+            # An agent is never "exploring" - it was spawned for one item. Asking it to declare
+            # exploration is a question aimed at a human session, and now that agent warnings
+            # propagate upward it would reach the founder as noise on every prompt.
+            Emit 'nothing - this branch names no item yet' $line2 $extra 'none' 'none'
+        }
+        elseif ($script:AgentLines.Count -gt 0) {
             Emit 'nothing - this session coordinates; the items below run in their own folders' $line2 $extra 'none' 'none'
         }
         else {
