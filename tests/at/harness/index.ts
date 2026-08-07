@@ -1,11 +1,17 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { pendingCapability, realCapability, standInCapability, stubbedCapabilityNames, type Capability } from './capabilities.ts';
+import {
+  adapterDerivedCapability,
+  pendingCapability,
+  stubbedCapabilityNames,
+  witnessedCapability,
+  type Capability,
+} from './capabilities.ts';
 import { REPO_ROOT } from './check.ts';
 import { ControlledClock } from './clock.ts';
 import { createConfigRegistry, type ConfigRegistry } from './config.ts';
-import type { AtHarness, StaticScan } from './contracts.ts';
+import type { AtHarness, Faults, SemanticOracle, Sentinels, StaticScan, Vendors } from './contracts.ts';
 import { createFaults, type AdapterFaultSeam } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore } from './fixtures.ts';
 import { createOracleCapability } from './oracles.ts';
@@ -54,13 +60,19 @@ function adapterUrl(requirement: string): string {
   return pathToFileURL(join(REPO_ROOT, 'tests', 'at', 'suites', requirement, '_fixture.ts')).href;
 }
 
+/**
+ * The URL comes back WITH the adapter, because it is the evidence `fixtures.worlds` and every
+ * `sut.<key>` are registered on: their provenance is "this came out of the fixture adapter at
+ * <path>", and the reason on the ledger has to name the module really imported. It was computed
+ * here and discarded before; nothing else about the load changes.
+ */
 async function loadAdapter(
   requirement: string,
   clock: ControlledClock,
   worlds: FixtureWorldStore,
   config: ConfigRegistry,
   vendors: { email: EmailProviderPort },
-): Promise<FixtureAdapter> {
+): Promise<{ adapter: FixtureAdapter; moduleUrl: string }> {
   const moduleUrl = adapterUrl(requirement);
   let module: Partial<FixtureAdapterModule>;
   try {
@@ -99,7 +111,91 @@ async function loadAdapter(
     );
   }
 
-  return module.createFixtureAdapter({ clock, worlds, config, vendors });
+  return { adapter: await module.createFixtureAdapter({ clock, worlds, config, vendors }), moduleUrl };
+}
+
+/** The `sut.` prefix is written once, here, and read back once, in `createHarness()`. */
+const SUT_PREFIX = 'sut.';
+
+/**
+ * Every capability this harness constructs, each carrying the verdict its witness reached.
+ *
+ * This is the diagnostic surface, and it is deliberately NOT a member of `AtHarness`. The doctrine
+ * in `contracts.ts` covers everything reachable from the harness object AND the objects `open()`
+ * hands a test body, so a `capabilities` member there would be a provenance diagnostic sitting in
+ * front of every suite. The harness's own conformance tests import the builder below directly; a
+ * suite only ever holds an `AtHarness`, and nothing the harness gives it leads here.
+ */
+export type CapabilityLedger = {
+  readonly clock: Capability<ControlledClock>;
+  readonly config: Capability<ConfigRegistry>;
+  readonly fixtures: Capability<FixtureAdapter['fixtures']>;
+  readonly sentinels: Capability<Sentinels>;
+  readonly faults: Capability<Faults>;
+  readonly vendors: Capability<Vendors>;
+  readonly oracles: Capability<SemanticOracle>;
+  /** one entry per key the fixture adapter exports under `sut`, named `sut.<key>` */
+  readonly sut: readonly Capability<unknown>[];
+  /** every entry above, in construction order — what `stubbedCapabilities()` reads */
+  readonly all: readonly Capability<unknown>[];
+  teardown(): Promise<void>;
+};
+
+/**
+ * Builds the ledger, and with it every capability the harness owns.
+ *
+ * NOTHING HERE NAMES A PROVENANCE. Each construction either hands its value to the witness
+ * registered for that name, or — for the two adapter-derived families — carries the module URL the
+ * loader really imported. A value no witness can classify throws out of this function instead of
+ * arriving on the ledger as `real`, and a name nobody has decided about throws too.
+ */
+export async function buildCapabilityLedger(opts: {
+  requirement: string;
+  tier: Tier;
+  configOverrides?: ConfigOverrides;
+}): Promise<CapabilityLedger> {
+  const clock = witnessedCapability('clock.controlled', new ControlledClock());
+  const worlds = new FixtureWorldStore(createFixtureSeed());
+  const config = witnessedCapability('config.registry', createConfigRegistry(opts.configOverrides));
+  // BUILT BEFORE THE ADAPTER, because the adapter is handed the sending half of it. One sim per
+  // harness, so the forced-outcome queue and the accepted-identity set cannot survive into the next
+  // test — `registry.ts` opens a fresh harness per `open()` and tears it down per id.
+  const provider = createEmailProviderSim();
+  const { adapter, moduleUrl } = await loadAdapter(opts.requirement, clock.value, worlds, config.value, {
+    email: provider.port,
+  });
+  const fixtures = adapterDerivedCapability('fixtures.worlds', adapter.fixtures, moduleUrl);
+  const sentinels = witnessedCapability('sentinels.planted', createSentinels(adapter.sentinels));
+  const faults = witnessedCapability('faults.injection', createFaults(adapter.faults));
+  const vendors: Capability<Vendors> = witnessedCapability('vendors.email', { email: provider.sim });
+  // The vote count comes from the at-config registry through `config.value`, which is why this is
+  // built after it. An override naming an unusable count fails HERE rather than at whichever test
+  // first judged something. `oracles.ts` hands the constructor the tier and the transport's kind
+  // brand — the two facts no witness could read off the oracle object itself.
+  const oracles = createOracleCapability({ tier: opts.tier, config: config.value });
+  // NOTHING LOOKS A SUT NAME UP. This is the only thing that ever constructs one, and it registers
+  // whatever keys the adapter exports, on the adapter-derived route — so there is no table entry to
+  // omit and no name to mistype into existence. The runner's disposable black-box adapters export
+  // `sut: { probe }` and need no special case at all.
+  const sut: Capability<unknown>[] = Object.entries(adapter.sut).map(([key, value]) =>
+    adapterDerivedCapability(`${SUT_PREFIX}${key}`, value, moduleUrl),
+  );
+
+  return {
+    clock,
+    config,
+    fixtures,
+    sentinels,
+    faults,
+    vendors,
+    oracles,
+    sut,
+    all: [clock, fixtures, config, sentinels, faults, vendors, oracles, ...sut],
+    teardown: async () => {
+      await adapter.teardown();
+      await worlds.teardown();
+    },
+  };
 }
 
 /**
@@ -109,61 +205,29 @@ async function loadAdapter(
  * so `T` fell back to its constraint — and the result was not assignable to `AtHarness` at all.
  * With the annotation, dropping or misnaming a contract member is a compile error here, where it is
  * written, instead of a surprise in whichever suite reaches for it.
+ *
+ * EVERY MEMBER BELOW IS DERIVED FROM THE LEDGER ENTRY THAT WAS JUDGED, one expression each, and
+ * that is structural rather than cosmetic: it is what makes the object a witness inspected the SAME
+ * object the suite is handed. They happened to be the same object before and nothing enforced it,
+ * so an edit could have witnessed a stripped facade while returning the working clock — the ledger
+ * describing one thing, every behaviour test driving another, and both green.
  */
 export async function createHarness(opts: {
   requirement: string;
   tier: Tier;
   configOverrides?: ConfigOverrides;
 }): Promise<AtHarness> {
-  const clock = standInCapability('clock.controlled', new ControlledClock());
-  const worlds = new FixtureWorldStore(createFixtureSeed());
-  // REAL, not a stand-in: `atconfig.ts` IS the registry of pinned values, so what a test reads
-  // here is the article itself. Marking it stand-in would tell an integration-tier run that the
-  // gate is grading a substitute, which would be a lie in the other direction.
-  const config = realCapability('config.registry', createConfigRegistry(opts.configOverrides));
-  // BUILT BEFORE THE ADAPTER, because the adapter is handed the sending half of it. One sim per
-  // harness, so the forced-outcome queue and the accepted-identity set cannot survive into the next
-  // test — `registry.ts` opens a fresh harness per `open()` and tears it down per id.
-  const provider = createEmailProviderSim();
-  const adapter = await loadAdapter(opts.requirement, clock.value, worlds, config.value, { email: provider.port });
-  const fixtures = standInCapability('fixtures.worlds', adapter.fixtures);
-  // REAL, not stand-ins, for the same reason `config.registry` is. `stubbedCapabilities()` reports
-  // what the HARNESS substituted, and nothing about H3 is substituted here — the marker store and
-  // the fault router below are the article. What is a substitute in a loop-tier run is the product,
-  // and `sut.notifications` already declares that; declaring H3 a stand-in as well would count the
-  // same substitution twice and blame the wrong layer for it. It would also cost something real:
-  // `registry.ts` refuses ANY stubbed capability above the loop tier, so the label would bar this
-  // identical machinery from ever running at integration tier — the tier that is the closing gate.
-  const sentinels = realCapability('sentinels.planted', createSentinels(adapter.sentinels));
-  const faults = realCapability('faults.injection', createFaults(adapter.faults));
-  // A STAND-IN BY NATURE, and saying so has teeth: `registry.ts` refuses any stubbed capability
-  // above the loop tier, so an integration-tier run cannot silently grade against the simulator.
-  // What stands here at that tier is a later slice's decision, not this one's.
-  const vendors = standInCapability('vendors.email', { email: provider.sim });
-  // H4's semantic oracle, and its provenance is decided by the tier rather than by this file: a
-  // REPLAY of committed recordings at loop (a stand-in, and it says so), the live judge above.
-  // `oracles.ts` explains what that settles — this capability's provenance — and what it does not:
-  // integration stays unreachable while the clock, fixtures, vendors and every SUT member above are
-  // still stand-ins, so this is not a claim that the gate has become runnable.
-  //
-  // The vote count comes from the at-config registry through `config.value`, which is why this is
-  // built after it. An override naming an unusable count fails HERE, at `createHarness()`, rather
-  // than at whichever test first judged something.
-  const oracles = createOracleCapability({ tier: opts.tier, config: config.value });
-  const sutCapabilities: Capability<unknown>[] = Object.entries(adapter.sut).map(([name, value]) =>
-    standInCapability(`sut.${name}`, value),
-  );
-  const constructed: Capability<unknown>[] = [clock, fixtures, config, sentinels, faults, vendors, oracles, ...sutCapabilities];
+  const ledger = await buildCapabilityLedger(opts);
 
   let tornDown = false;
   return {
     tier: opts.tier,
-    stubbedCapabilities: async () => stubbedCapabilityNames(constructed),
-    clock: clock.value,
-    fixtures: fixtures.value,
-    sut: adapter.sut,
-    sentinels: sentinels.value,
-    faults: faults.value,
+    stubbedCapabilities: async () => stubbedCapabilityNames(ledger.all),
+    clock: ledger.clock.value,
+    fixtures: ledger.fixtures.value,
+    sut: Object.fromEntries(ledger.sut.map((entry) => [entry.name.slice(SUT_PREFIX.length), entry.value] as const)),
+    sentinels: ledger.sentinels.value,
+    faults: ledger.faults.value,
     // 'H3 sentinels' went from this list in the change that made planting work, and
     // 'H5 email provider simulator' goes in the change that builds the simulator above. The seam
     // names the whole missing set so its first throw reports all of it at once; the moment one of
@@ -171,14 +235,13 @@ export async function createHarness(opts: {
     // `AT-016.01` stays red — `providerClientImporters()` is what throws — but the reason it is red
     // changed, and `tests/at/expected/req-016.json` states the same one name for the same reason.
     static: pendingCapability<StaticScan>('H3 static provider scan'),
-    vendors: vendors.value,
-    oracles: oracles.value,
-    config: config.value,
+    vendors: ledger.vendors.value,
+    oracles: ledger.oracles.value,
+    config: ledger.config.value,
     teardown: async () => {
       if (tornDown) return;
       tornDown = true;
-      await adapter.teardown();
-      await worlds.teardown();
+      await ledger.teardown();
     },
   };
 }
