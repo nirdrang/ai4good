@@ -260,6 +260,23 @@ bounded (see §6) and sits in one subsystem. The code gate runs once, on the who
 
 ## 4. Steps, each with its own done-criterion
 
+> **WHICH SITTING RUNS WHAT — read this before starting.** Gate 1 finding 5 caught a step that
+> asked the executor to do what its own contract forbids on a draft pass, and the same conflict
+> survived into S3, S4 and S6 of this amendment. Closing it here rather than letting the executor
+> discover it:
+>
+> - **The DRAFT pass writes everything and runs nothing but the type-checker.** S2, S3, S5 and the
+>   *writing* of S1's and S4's assertions. `bun run typecheck` must be clean on both projects. The
+>   verify suite is **not** run — `.claude/agents/executor.md:22-24`. Where a done-criterion below
+>   names `at:selftest`, `at:verify` or a negative control, that half of the criterion belongs to
+>   the next pass, and the draft is done without it.
+> - **The FIX-AND-GOAL pass runs the suite.** §5's whole table, S4's four negative controls, and
+>   S6. That is the pass that may iterate to green.
+>
+> A draft that stops at a clean typecheck with the suite unrun is **complete**, not incomplete. It
+> exists to be critiqued, and polishing it to green first spends attempts on code the critique is
+> about to change.
+
 **S1 — The pre-fix baseline is already captured; the SURVIVING assertions are what this step owes.**
 *(Rewritten after Gate 1 finding 5. The first draft asked the executor to run a test and record its
 red before touching production code, which its own contract forbids — `.claude/agents/executor.md:22-24`
