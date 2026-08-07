@@ -29,6 +29,15 @@ That tree **is** the item's tree; every role inside this item will work in it.
    distillates live there so a tree reset can never destroy evidence and untracked files never
    pollute what reviewers read.
 
+**THE `.stderr.log` FILES GO INTO THE COMMITTED RECORD, not just the raw outputs (2026-08-07).**
+They carry the run header — model, effort, sandbox, and the vendor's `session id` — and that id is
+the only thing that lets an item's reviewer spend ever be attributed to it, because the vendor
+stores its token counts under that id and the artifacts directory is swept. AI4DEV-48 committed
+every reviewer output and no stderr log, so three codex runs at maximum effort are permanently
+unattributable to it; AI4DEV-20 committed them and its five runs are counted. The same header is
+also the only independent evidence that the model and effort pins were actually applied, which is
+otherwise taken on documentation trust.
+
 ## The loop you run, forever, until the item is done
 
 **Spawn a sitting** with **no isolation parameter at all** — that is what makes it inherit this
@@ -59,9 +68,12 @@ report, because a file cannot know the SHA of the commit that carries it. Then:
 
 ## Launching a reviewer
 
-The base of every reviewer prompt is `.claude/skills/work/reviewers.md`; the item's prompt file
-is that text plus the orchestrator's additions. The pins live there too — you copy them, you do
-not choose them.
+The base of every reviewer prompt is `.claude/skills/work/reviewers.md`, **assembled, never sent
+whole**: the `## Your contract` section, that reviewer's own gate section, and the orchestrator's
+additions. Read the assembly section at the top of that file before you launch anything — it is
+the only part that describes the system, and no reviewer may see it or any sibling gate section.
+The pins live there too — you copy them, you do not choose them, and the `**Pins**` line itself
+never goes into a prompt.
 
 - **OS-detached, always** (`Start-Process`). A reviewer launched as a background child of your
   shell dies with you: two runs once died silently with a session-limited agent and stalled an
