@@ -84,7 +84,10 @@ Kimi files that under §7's "the harness is source code" ceiling. It does not be
 ceiling is about an author who **edits a guard**; this needs no edit at all — the exported
 constructor hands out a `real` verdict for a brand nobody has ever heard of, on its current source.
 
-And `oracles.judge` is **the only witness in the table with a reachable `real` outcome**. The three
+And `oracles.judge` is **the only witness in the table whose `real` outcome is derived from evidence**
+— corrected here after the pre-merge audit, which caught this sentence overstated as "the only
+witness with a reachable `real` outcome"; that is false, and `plan.md:230` had it right as "genuinely
+evidenced" before this file weakened it. The three
 `theArticleItself` rows are declarations; the two seam witnesses can only ever return stand-in or
 throw. So this branch is the entire surface on which this item's mechanism can produce a `real`
 verdict — and on that whole surface, the grounds are negative. Shipping that inside the item whose

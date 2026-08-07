@@ -247,9 +247,10 @@ describe('provenance is computed from the value or the loader, and refuses what 
   it('refuses an unrecognised brand on either evidence axis, instead of accepting it by absence', () => {
     // ACCEPT BY ENUMERATION, NOT BY ABSENCE. The witness used to read "not loop" as above-loop and
     // "not replay-fs" as a transport worth a real verdict, so a brand nobody had ever heard of came
-    // back `real` with confident-sounding evidence — on the one witness in the table that can reach
-    // `real` at all. `CapabilityEvidence` carries plain strings, deliberately, because the evidence
-    // comes from a caller; a type union could not have caught this and is not what does.
+    // back `real` with confident-sounding evidence — on the only witness whose `real` verdict is
+    // derived from evidence rather than declared for a name, which is what makes it the one place
+    // that reasoning can go wrong. `CapabilityEvidence` carries plain strings, deliberately, because
+    // the evidence comes from a caller; a type union could not have caught this and is not what does.
     const judge = { judge: async () => undefined };
 
     const badTier = () => witnessedCapability('oracles.judge', judge, { tier: 'staging', transport: 'live' });
@@ -266,9 +267,12 @@ describe('provenance is computed from the value or the loader, and refuses what 
     );
     expect(badTransport, 'the refusal does not say which transports ARE legal').toThrow(/replay-fs, live, fake/);
 
-    // AND THE ENUMERATION DISCRIMINATES rather than refusing everything: the four legal combinations
-    // the tree deliberately allows still build, including a `fake` transport above loop, which is
-    // the instrument the tier rules are themselves tested with.
+    // AND THE ENUMERATION DISCRIMINATES rather than refusing everything. SIX of the nine brand pairs
+    // are accepted; the three refused are loop+live, integration+replay-fs and drill+replay-fs. The
+    // four pinned below cover every rule that produces an acceptance, including a `fake` transport
+    // above loop, which is the instrument the tier rules are themselves tested with. The two
+    // unpinned pairs — integration+fake and drill+live — reach `real` through the same final branch
+    // as drill+fake, so pinning them would add assertions and no coverage.
     expect(witnessedCapability('oracles.judge', judge, { tier: 'loop', transport: 'replay-fs' }).provenance).toBe(
       'stand-in',
     );

@@ -324,9 +324,10 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
    * 'sut.notifications'). MUST be empty above `loop` — otherwise an integration-tier run,
    * which is the /pm-done gate, can silently stub the thing it is gating.
    *
-   * Each name on this list was put there by a witness in `capabilities.ts` that read the value's
-   * own control seam, or by the module URL the fixture adapter was loaded from. No caller names a
-   * provenance.
+   * Each name on this list was put there by `capabilities.ts` from one of THREE sources: a witness
+   * that read the value's own control seam, the module URL the fixture adapter was loaded from, or —
+   * for `oracles.judge` alone — the running tier and the judge transport's kind brand. No caller
+   * names a provenance.
    *
    * WHAT EMPTYING IT COSTS DIFFERS BY NAME, and one sentence for all five would overclaim. For
    * `clock.controlled` and `vendors.email` the verdict is read off the very seam the suites drive,

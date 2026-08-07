@@ -106,7 +106,10 @@ function theArticleItself(what: string): CapabilityWitness {
  * The oracle witness used to accept BY ABSENCE on both axes: anything that was not `loop` counted
  * as above loop, and anything that was not `replay-fs` counted as a transport worth a `real`
  * verdict. That is "I found no forbidden thing, therefore the thing is present" — the sentence this
- * file's own header forbids, on the ONE witness in the table with a reachable `real` outcome. A
+ * file's own header forbids, on the only witness here whose `real` verdict is DERIVED. The three
+ * `theArticleItself` rows return `real` too, and on every run, but unconditionally and from a
+ * decision about the name; this is the one witness that reaches `real` by reasoning about evidence,
+ * so it is the only place that reasoning can be wrong. A
  * `{ tier: 'integration', transport: 'bogus' }` construction came back `real` with confident-sounding
  * evidence for a brand nobody had ever heard of.
  *

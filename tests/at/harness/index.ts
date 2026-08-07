@@ -133,7 +133,10 @@ async function loadAdapter(
 const SUT_PREFIX = 'sut.';
 
 /**
- * Every capability this harness constructs, each carrying the verdict its witness reached.
+ * Every capability this harness constructs, each carrying the verdict that classified it — from the
+ * witness registered for its name, or, for the two adapter-derived families (`fixtures.worlds` and
+ * every `sut.<key>`), from the route itself, which stamps stand-in and names the module URL it was
+ * loaded from. No witness is consulted for those two.
  *
  * This is the diagnostic surface, and it is deliberately NOT a member of `AtHarness`. The doctrine
  * in `contracts.ts` covers everything reachable from the harness object AND the objects `open()`
