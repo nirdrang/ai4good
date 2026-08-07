@@ -323,6 +323,10 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
    * Capability names this harness STUBBED for the running tier (e.g. 'vendors.email',
    * 'sut.notifications'). MUST be empty above `loop` — otherwise an integration-tier run,
    * which is the /pm-done gate, can silently stub the thing it is gating.
+   *
+   * Each name on this list was put there by a witness in `capabilities.ts` that read the value's
+   * own control seam, or by the module URL the fixture adapter was loaded from. No caller names a
+   * provenance, so emptying this list means removing a seam the suites drive, not editing a word.
    */
   stubbedCapabilities(): Promise<string[]>;
   clock: Clock;
@@ -334,9 +338,11 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
   vendors: Vendors<Channel>;
   /**
    * REQUIRED, like every other capability: a suite that reaches for it and finds nothing must fail
-   * to compile, not read `undefined`. At `loop` this is a REPLAY of committed recordings and is
-   * reported as a stand-in; above `loop` it is the live judge and is reported as real. See
-   * `index.ts` for why that split establishes this capability's provenance and nothing more.
+   * to compile, not read `undefined`. At `loop` this is a REPLAY of committed recordings and the
+   * ledger reports it a stand-in; above `loop` it is the live judge and is reported real. That
+   * verdict is DERIVED — `capabilities.ts` computes it from the running tier and the transport's
+   * kind brand, and `oracles.ts` says why the split establishes this capability's provenance and
+   * nothing more.
    */
   oracles: SemanticOracle;
   sut: Sut;

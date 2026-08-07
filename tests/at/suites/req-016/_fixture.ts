@@ -12,10 +12,17 @@
  * freeze, the oracles discriminate. It does NOT mean the product behaves, because there is no
  * product here; an assertion this adapter satisfies says nothing about code nobody has written.
  *
- * That claim is not left to a comment to enforce. The provenance ledger marks `sut.notifications`
- * a stand-in (`standInCapability` in `harness/index.ts`), and the registry refuses ANY stubbed
- * capability above the loop tier — so this adapter cannot reach the integration-tier run that is
- * the /pm-done evidence gate. The gate can only ever be satisfied by the real implementation.
+ * That claim is not left to a comment to enforce, and it is no longer left to a LABEL either. Every
+ * key this module exports under `sut` is registered on the provenance ledger through the harness's
+ * adapter-derived route, whose evidence is the module URL the loader actually imported — this file.
+ * There is no function a caller can call to name that provenance something else, and the registry
+ * refuses ANY stubbed capability above the loop tier, so this adapter cannot reach the
+ * integration-tier run that is the evidence gate.
+ *
+ * What that is worth, stated exactly: the gate cannot be satisfied by relabelling this adapter, and
+ * it takes a visible edit to a named witness in `harness/capabilities.ts` — not a one-word change
+ * at a call site — to make it look otherwise. The harness is still source code, so this is a bound
+ * on how cheap the lie is, not a proof that none is possible.
  */
 
 import type { ControlledClock } from '../../harness/clock.ts';
