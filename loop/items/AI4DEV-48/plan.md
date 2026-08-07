@@ -406,7 +406,7 @@ Baseline measured at `219cae23`, not read off a file: `12 P0: 11 green, 1 red, 0
 | `bun run typecheck` | clean, both projects |
 | `bun run at:selftest` | green — **at least 243 tests**, plus the new S1/S4 assertions |
 | `bun run at:verify req-016 --tier loop --expect` | `12 P0: 11 green, 1 red, 0 missing` |
-| `bun run at:check` | green (bijection unchanged — no AT id is added or removed) |
+| `bun run at:check req-016` | green (bijection unchanged — no AT id is added or removed). **The requirement argument is REQUIRED — see the second correction below** |
 | `bun run lint` | **NOT A GATE — see the correction below.** The changed files must carry no eslint error other than `prettier/prettier` |
 | `git rev-parse origin/main:tests/at/expected/req-016.json` vs `git rev-parse HEAD:…` | **identical hashes** |
 | same comparison for each `tests/at/suites/req-016/*.test.ts` | **identical hashes** |
@@ -425,7 +425,7 @@ passes when disabled is not a guard. Report the four observations individually.
 > - `.prettierrc` sets no `endOfLine`, so prettier defaults to `lf` and flags every one of those
 >   lines. The red is repository-wide, pre-existing, and an artifact of a Windows checkout.
 > - **CI does not run lint at all.** `.github/workflows/ci.yml` runs `bun run typecheck`,
->   `bun run at:selftest`, `bun run at:check` and `bun run at:verify … --tier loop --expect`, plus
+>   `bun run at:selftest`, `bun run at:check "$req"` and `bun run at:verify … --tier loop --expect`, plus
 >   the two-territory and item-id guards. There is no lint step, so this was never part of the
 >   required check.
 >
@@ -437,6 +437,26 @@ passes when disabled is not a guard. Report the four observations individually.
 > The wider lesson is mine to own: I put an expectation into a goal spec without measuring it, in
 > the same sitting that adopted a finding about a criterion guaranteed to pass. The baseline capture
 > measured typecheck, selftest and verify, and I did not think to measure lint.
+
+> **SECOND CORRECTION, MADE DURING THE FIX PASS: `bun run at:check` takes a REQUIREMENT, and this
+> table asked for it bare — a command that cannot pass.** The executor found it and raised it rather
+> than quietly adding the argument; I ran both forms myself rather than take either the row or the
+> report on trust:
+>
+> - `bun run at:check` exits **2** with `at:check — "undefined" is not a requirement — expected
+>   req-0NN`, and prints its own usage line, `usage: bun run at:check req-0NN`.
+> - `bun run at:check req-016` exits **0** with `12 P0 in the acceptance file, 12 registered in the
+>   suite`.
+> - **CI is unaffected and was always right**: `.github/workflows/ci.yml:153` runs
+>   `bun run at:check "$req"`. Only this plan, and PHASE-STATE.md's verify surface, wrote it bare.
+>
+> **This is the THIRD criterion of mine in this item that was unexecutable or vacuous as written** —
+> after the `git diff --stat` guard Gate 1 caught, and the `bun run lint` row corrected above. The
+> cause is identical every time: a command written into a goal spec without being run once. The
+> baseline capture at `219cae23` measured typecheck, selftest and verify, so those three were real;
+> everything I did NOT measure is exactly where all three defects landed. **A goal spec should be
+> executed before it is written down, not after** — which is the same lesson as the item's own
+> subject, one level up: an unrun criterion is a green nobody earned.
 
 ---
 
