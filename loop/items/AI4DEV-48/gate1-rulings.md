@@ -322,3 +322,67 @@ blast radius through the oracle selftests.
 The two items the plan already reported for filing — the static provider scan having no owner, and a
 typed `stubbed-capabilities` failure kind belonging to the structured-capability-codes item — are
 unchanged by this review and still stand.
+
+---
+
+## Rulings made during the draft pass
+
+The executor raised four things rather than deciding them itself. That is its contract working, and
+three of the four are improvements on what I wrote.
+
+### (a) Adding `realEvidence: string | null` beside `standInReason` → **ACCEPTED**
+
+The plan named only `standInReason`, but D1's verdict type carries an `evidence` string on the real
+branch, so with only the one field that string was computed and thrown away. **A computed-and-discarded
+guard value is this tree's recurring false-green shape**, and shipping one inside the item whose
+subject is exactly that would be self-refuting.
+
+It also makes S4's new-guard assertion 4 executable *as specified*. That assertion demands the three
+harness-owned capabilities come back real **"through the accepting branch, not by being absent from a
+list"** — and without a positive field there is nothing to assert but absence, which is what the
+assertion was written to stop. Adopted; the plan's S2 wording is the thing that was incomplete.
+
+### (b) Reason strings without the literal `stand-in — ` prefix → **ACCEPTED**
+
+`provenance` already carries the word. The prefix would duplicate it in every message. Trivial and
+correct.
+
+### (c) The exact-zero grep costing some historical record → **REJECTED, and the criterion stands**
+
+The executor is right that there is a tension with §8 risk 3, and right to surface it rather than
+quietly resolve it. I keep the criterion.
+
+The hazard finding 6's tail identified is a **leftover call site hiding behind "intended hits"**, and
+only an exact number closes it — "zero, plus any number of historical mentions" is not mechanically
+checkable and puts the judgement back where the finding took it from. The record loss is smaller
+than it looks: `capabilities.ts:4-8` now explains the removed design in full — two factories, one
+named after each provenance, and the one-word edit that emptied the ledger — which is the part a
+future reader actually needs. The identifiers themselves survive in this item's record, in the
+commit messages, and in git history. §8 risk 3's condition is met: every deleted claim has
+replacement text naming the real mechanism.
+
+### (d) `bun run lint` red on untouched files → **the plan was wrong, not the tree**
+
+Ruled in full in the amended §5. In short: repository-wide CRLF from `core.autocrlf=true`, prettier
+defaulting to `lf`, and **CI runs no lint step at all**. I verified each of those three myself rather
+than accept either the row I wrote or the observation reported. The row becomes "no eslint error
+other than `prettier/prettier` on the changed files", and the fix pass is forbidden from touching
+line endings.
+
+This one is my error and worth naming as such: I wrote an unmeasured expectation into a goal spec in
+the same sitting in which I adopted a finding about a criterion that could not fail. The baseline
+capture measured typecheck, selftest and verify. It should have measured every row in the table.
+
+### The two escalation questions I put to the executor, answered
+
+**D7 — the ledger builder is reachable by the conformance test and not by a suite.** Confirmed: no
+suite imports `harness/index.ts`; suites reach the harness through the binding and `registry.ts`, and
+`AtHarness` gained no member. The executor's caveat is fair and I record it rather than bury it —
+nothing *mechanically* stops a suite importing the builder directly, exactly as nothing stops it
+importing `capabilities.ts` today. That is the tree's existing barrier, not a new weakness, and it is
+the same ceiling §7 already states.
+
+**D4 — removing the `sut.*` lookup leaves the black-box adapters needing no special case.** Confirmed
+as far as reading proves: SUT capabilities are mapped straight from `Object.entries(adapter.sut)` onto
+the adapter-derived route, so `sut.probe` needs no entry. Only the run settles it, and that is the fix
+pass's first job.

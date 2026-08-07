@@ -407,13 +407,36 @@ Baseline measured at `219cae23`, not read off a file: `12 P0: 11 green, 1 red, 0
 | `bun run at:selftest` | green — **at least 243 tests**, plus the new S1/S4 assertions |
 | `bun run at:verify req-016 --tier loop --expect` | `12 P0: 11 green, 1 red, 0 missing` |
 | `bun run at:check` | green (bijection unchanged — no AT id is added or removed) |
-| `bun run lint` | clean |
+| `bun run lint` | **NOT A GATE — see the correction below.** The changed files must carry no eslint error other than `prettier/prettier` |
 | `git rev-parse origin/main:tests/at/expected/req-016.json` vs `git rev-parse HEAD:…` | **identical hashes** |
 | same comparison for each `tests/at/suites/req-016/*.test.ts` | **identical hashes** |
 
 Negative controls the executor must actually run, not reason about: revert each of S4's four
 new-guard assertions' guards one at a time and confirm the matching assertion goes red. A guard that
 passes when disabled is not a guard. Report the four observations individually.
+
+> **CORRECTION MADE DURING THE DRAFT PASS: `bun run lint` was never a measurable gate, and putting
+> it in this table was my error.** The executor observed it red on untouched files and I checked why
+> rather than taking either the row or the observation on trust:
+>
+> - `core.autocrlf` is `true` in this worktree and `.gitattributes:1-9` pins only `.sh`, `.bash` and
+>   Dockerfiles to LF, so every `.ts` file is checked out CRLF. I counted 92 CRLF pairs in the first
+>   4000 bytes of `tests/at/harness/atconfig.ts`, a file this item never touches.
+> - `.prettierrc` sets no `endOfLine`, so prettier defaults to `lf` and flags every one of those
+>   lines. The red is repository-wide, pre-existing, and an artifact of a Windows checkout.
+> - **CI does not run lint at all.** `.github/workflows/ci.yml` runs `bun run typecheck`,
+>   `bun run at:selftest`, `bun run at:check` and `bun run at:verify … --tier loop --expect`, plus
+>   the two-territory and item-id guards. There is no lint step, so this was never part of the
+>   required check.
+>
+> Making it a gate would demand a repository-wide line-ending change — far outside §6 and precisely
+> the scope growth this plan exists to avoid. The row is replaced with something checkable: the
+> changed files carry no eslint error other than `prettier/prettier`. **The fix pass must not
+> "fix" line endings anywhere.**
+>
+> The wider lesson is mine to own: I put an expectation into a goal spec without measuring it, in
+> the same sitting that adopted a finding about a criterion guaranteed to pass. The baseline capture
+> measured typecheck, selftest and verify, and I did not think to measure lint.
 
 ---
 
