@@ -15,6 +15,12 @@ should say so in its first line rather than assume continuity.
 >
 > **The founder answered the headline question: the signup screens stay out of this leaf, follow the
 > manifest.** D1 is confirmed, not merely proposed.
+>
+> **AMENDED AGAIN BY SITTING 3 (DRAFT EXECUTION), also `orchestrator-opus`, before the executor was
+> spawned.** One founder ruling relayed into the plan: **a real Google OAuth client will be created**,
+> with the local callback and the `env(...)` handling named concretely. It changes D7's posture, adds
+> a conditional step 7(f2) and sharpens AT-001.03's row in section 4. **It changes no step's shape and
+> blocks nothing** — the credential is a founder-manual step and its absence is the expected case.
 
 **Chain, derived from the branch** (`nirdrang/ai4dev-57-email-and-google-signup-and-the-three-account-types-d1l1`):
 AI4DEV-57 (email + Google signup, three account types) → parent AI4DEV-51 (accounts and sign-in
@@ -263,9 +269,44 @@ from the environment (`env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` / `..._SECR
 in with Google auth."* **No secret is committed**; `.env.local` is git-ignored and `.env` is
 public-values-only by founder decision.
 
-What is provable here: the stack starts with the block present and `/auth/v1/settings` reports
-Google enabled. What is **not** provable here: a real Google consent round trip, which needs an
-OAuth client that may not exist. That is the founder question in `PHASE-STATE.md`.
+**Read the template accurately before editing it.** That `skip_nonce_check` comment and the
+`env(...)` example both sit inside the **`[auth.external.apple]`** block (config.toml lines 322–335)
+— the one provider block the template ships enabled-false as an example. There is no google block to
+turn on. A new `[auth.external.google]` block is **added**; apple's is not repurposed, renamed or
+edited.
+
+#### The founder ruled on the OAuth client, and it changes the posture rather than the code
+**[relayed to sitting 3, 2026-08-08]**
+
+The prior sitting recorded "is there a Google OAuth client?" as an open founder question. It is
+answered in direction: **a real Google OAuth client will be created.** The reasoning given is that
+this project runs on external Supabase rather than Lovable Cloud, which makes a real client id and
+secret mandatory in every environment — not an optional piece of extra rigor that could be traded
+away. Concrete facts to build against:
+
+- the local redirect URI is **`http://127.0.0.1:54321/auth/v1/callback`** — the Supabase Auth
+  callback on the local API port, not the app's own `site_url` on port 3000;
+- the secret goes through **`env(...)` substitution and never lands in git**, matching how the
+  template's apple example does it;
+- **creating the credential is a founder-manual step**, exactly like Docker was. It is not the
+  executor's to obtain and not a reason to wait.
+
+**So: build the configuration assuming the client MAY be supplied as an environment variable, and do
+not treat its absence as a blocker.** If the credential is not in the environment when the executor
+runs, that is the expected case and the item proceeds unchanged — the same unproved-claim posture as
+before. What has changed is that the path to closing the claim is now known and concrete instead of
+open.
+
+**What is provable before the credential exists:** the block is well-formed, the stack starts with it
+present, and `/auth/v1/settings` reports Google enabled.
+**What becomes provable once the credential is in the environment, with no human in the loop:** that
+the configured client id is wired all the way into the provider handshake — `GET
+/auth/v1/authorize?provider=google` answers with a redirect to a Google accounts URL carrying that
+client id and the local callback above. Step 7(f) makes this conditional and honest.
+**What stays unprovable by any agent:** the consent round trip itself, because consent is a human
+pressing a button in a browser. AT-001.03's *"sign-in via Google succeeds on return visits"* clause
+is therefore named unproved in section 4 and in the merge ruling **whether or not the credential
+arrives** — the credential narrows the gap, it does not close it.
 
 ### D8 — One review slice, with a stated trigger to split
 
@@ -412,6 +453,14 @@ version; (b) signing in again with the same credentials succeeds; (c) a request 
 `platform_admin` is refused; (d) a volunteer account is refused by the `create-organization`
 function while an NGO account succeeds through it; (e) a direct client-key insert into
 `public.accounts` is denied by row-level security; (f) `/auth/v1/settings` reports Google enabled.
+→ **(f2) [D7, founder ruling relayed 2026-08-08] the handshake wiring, and only if the credential is
+present.** If `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` is set in the environment the stack started
+with, additionally record that `GET /auth/v1/authorize?provider=google` answers with a redirect
+whose `Location` is a Google accounts URL carrying **that** client id and
+`redirect_uri=http://127.0.0.1:54321/auth/v1/callback`. Follow no redirect and enter no credentials.
+**If the variable is unset, write one line in the transcript saying so and move on** — this is the
+expected case, it is not a failure, and a placeholder value must not be dressed up as this proof: a
+placeholder proves the block is well-formed, which is (f), and nothing more.
 **Four added by the plan review:**
 → (g) **[F2] a platform admin is provisioned and signs in.** Provisioned the only legal way — a
 service-role write, since the public path refuses the type — then signs in with email/password
@@ -466,7 +515,7 @@ against. **A clause named unproved here may not be described as proved anywhere 
 | id | proved at loop tier (CI) | proved on the live stack (step 7, one machine) | **not proved by this item** |
 |---|---|---|---|
 | AT-001.01 | the shipped decisions produce an `ngo` account, org, `admin` membership and a three-field acknowledgment; the predicate discriminates | (a), (b), (h), (i) — including that a partial failure leaves nothing behind | **"before any project creation is possible"** — nothing in the tree creates a project. The predicate is the hook; the leaf that lands project creation must call it |
-| AT-001.03 | that a session recorded as provider `google` completes signup through the same shipped path, with the same result as email | (f) — the stack reports Google enabled and the config block is well-formed | **"sign-in via Google succeeds on return visits"** — a real consent round trip needs an OAuth client, still an open founder question. **This is the weakest of the four greens and the record says so** |
+| AT-001.03 | that a session recorded as provider `google` completes signup through the same shipped path, with the same result as email | (f) — the stack reports Google enabled and the config block is well-formed; **(f2), only if the credential is in the environment** — the configured client id really reaches the provider handshake | **"sign-in via Google succeeds on return visits"** — a real consent round trip. **This is the weakest of the four greens and the record says so.** The founder has ruled a real OAuth client will be created; that narrows this gap but does not close it, because consent is a human act no agent performs. Closing it needs a person to sign in once and that evidence recorded |
 | AT-001.06 | `ngoOnlyActionAllowed` refuses a volunteer and permits an NGO | (d) — through the `create-organization` boundary, with a working NGO control | the **project-need** half of the criterion's parenthesis: no project or need table exists, and building one belongs to another requirement |
 | AT-001.07 | the public signup options are exactly `['ngo','volunteer']` | (g) a provisioned admin really authenticates and carries the type; (c) and (j) the public path and the database both refuse to mint one | nothing further — this id is fully covered once (g) lands |
 
@@ -504,7 +553,10 @@ sequencing decision, not an oversight.
    steps 4, 5 and 7 discover it one at a time.
 2. **Adding `[auth.external.google]` with unset environment variables prevents the stack from
    starting.** Mitigation: placeholder values in `.env.local`, which is git-ignored — that proves
-   the configuration is well-formed, which is all this leaf claims about Google.
+   the configuration is well-formed, which is all this leaf claims about Google **when no real
+   credential is present**. If a real client id and secret are in the environment, they are used as
+   they are and nothing is overwritten with a placeholder. **A placeholder is never described as a
+   credential**, and step 7(f2) is skipped rather than faked when only a placeholder exists.
 3. **A stub body throwing `AtPending` reports differently than the declaration expects.** The
    mechanism is read and verified above, but step 2 proves it on the real files before 37 of
    anything is written.
