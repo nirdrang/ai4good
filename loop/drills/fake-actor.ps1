@@ -9,8 +9,8 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('happy', 'die-at-launch', 'hang', 'finish-no-notify',
                  'reviewer-findings', 'reviewer-narration-only',
-                 'reviewer-die-at-launch', 'reviewer-hang',
-                 'drill-a', 'drill-b', 'drill-c', 'drill-d')]
+                 'reviewer-die-at-launch', 'reviewer-hang', 'reviewer-partial',
+                 'drill-a', 'drill-b', 'drill-c', 'drill-d', 'drill-e')]
     [string]$Mode,
 
     [Parameter(Mandatory = $true)]
@@ -28,6 +28,7 @@ switch ($Mode) {
     'drill-b' { $Mode = 'reviewer-findings' }
     'drill-c' { $Mode = 'reviewer-narration-only' }
     'drill-d' { $Mode = 'reviewer-hang' }
+    'drill-e' { $Mode = 'reviewer-partial' }
 }
 
 $log    = Join-Path $Dir 'actor.log'
@@ -111,5 +112,25 @@ switch ($Mode) {
         Write-RunHeader
         Add-Content -Path $Err -Value '[drill] reading the tree - step 1'
         Start-Sleep -Seconds 1200
+    }
+    'reviewer-partial' {
+        # The 4.3KB-then-9.4KB incident: a count line appears, sits stable long enough to look
+        # settled, and MORE findings arrive while the process is still alive. Reading the early
+        # version as the verdict is the defect being drilled.
+        New-Item -ItemType File -Path $Out -Force | Out-Null
+        Write-RunHeader
+        @(
+            'FINDING 1 (drill): early finding one.'
+            'FINDING 2 (drill): early finding two.'
+            'CODE REVIEW: 2 FINDINGS'
+        ) | Set-Content -Path $Out
+        Start-Sleep -Seconds 12
+        @(
+            'FINDING 1 (drill): early finding one.'
+            'FINDING 2 (drill): early finding two.'
+            'FINDING 3 (drill): the late finding that a premature read loses.'
+            'CODE REVIEW: 3 FINDINGS'
+        ) | Set-Content -Path $Out
+        exit 0
     }
 }
