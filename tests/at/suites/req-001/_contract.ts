@@ -87,6 +87,29 @@ export type AcknowledgmentRow = {
   textVersion: string;
 };
 
+/**
+ * One row of `public.volunteer_profiles` — AT-001.05's "profile", and every column of it.
+ *
+ * THE STATS ARE THE STUB IMPORT FIXTURE'S, NOT GITHUB'S. `stubGithubStatsFor` in
+ * `supabase/functions/_shared/github.ts` produces them, the decomposition manifest's cross-contract
+ * ratifies that stand-in ("stub import fixture until W3"), and no code in this item calls
+ * api.github.com. What the row proves is that onboarding FIRED and landed POPULATED — the
+ * criterion's "a queued-but-empty import fails this test" — and not that any statistic is real.
+ */
+export type VolunteerProfileRow = {
+  accountId: string;
+  /** the handle of the GitHub identity linked to the account — AT-001.05's "linked handle" */
+  githubHandle: string;
+  /** AT-001.05's "top languages"; never empty, in the schema by CHECK and here by assertion */
+  topLanguages: string[];
+  /** AT-001.05's "repository count" */
+  repositoryCount: number;
+  /** AT-001.05's "contribution summary" */
+  contributionSummary: string;
+  /** ISO-8601 instant the import landed */
+  importedAt: string;
+};
+
 /* --------------------------------------------------------------------------------- the session */
 
 /**
@@ -98,8 +121,13 @@ export type AcknowledgmentRow = {
  * body asserts that `completeSignup` behaves identically for `'google'` and `'email'`, which is a
  * real property of the shipped decision module (it never reads this field). It is NOT a claim that a
  * Google round trip works: see the suite's own note on AT-001.03, and the plan's per-id table.
+ *
+ * `'github'` joins the two for AT-001.02 and carries exactly the same caveat: a github-established
+ * session is the state Auth is in AFTER a consent round trip, and no handshake is simulated to reach
+ * it. The establishing provider still participates in NO decision the shipped modules make — the
+ * volunteer gate reads a LINKED IDENTITY, which is a different fact (see `linkGithubIdentity`).
  */
-export type SessionProvider = 'email' | 'google';
+export type SessionProvider = 'email' | 'google' | 'github';
 
 export type Session = {
   /** the auth user id, which is also the `public.accounts` primary key once signup completes */
@@ -144,8 +172,39 @@ export type AccountsSut = {
    * Auth is in AFTER a consent round trip, which is the only part of the story any agent can reach.
    */
   registerWithProvider(provider: SessionProvider, email: string): Promise<Session>;
+  /**
+   * A GitHub OAuth signup, as Auth records it: a session established by GitHub whose account already
+   * carries the linked GitHub identity — AT-001.02's "signs up via GitHub OAuth".
+   *
+   * Like `registerWithProvider` it performs NO handshake. It is `registerWithProvider('github', …)`
+   * plus the fact that a GitHub signup necessarily links the GitHub identity it signed up with, and
+   * it is a separate member rather than an argument because that second half is what AT-001.02's
+   * "the GitHub identity is linked to it" clause is about.
+   */
+  registerWithGithub(email: string, githubHandle: string): Promise<Session>;
+  /**
+   * The state Auth is in after a `linkIdentity` round trip — AT-001.04's "linking completes signup".
+   *
+   * A LINKED IDENTITY IS NOT THE ESTABLISHING PROVIDER, and keeping the two apart is the point of
+   * this member existing at all: an email- or Google-established volunteer links GitHub and their
+   * session's `provider` does not change. The gate in
+   * `supabase/functions/_shared/accounts.ts` reads the link; nothing shipped reads the provider.
+   *
+   * Same posture as every other Auth member here — no handshake, no fabricated authorization code.
+   */
+  linkGithubIdentity(session: Session, githubHandle: string): Promise<void>;
   /** Return sign-in with the same credentials — AT-001.01's final clause. */
   signInWithEmailPassword(email: string, password: string): Promise<SignInOutcome>;
+  /**
+   * The return visit through an external provider — AT-001.02's "a later sign-in via GitHub returns
+   * to the same account".
+   *
+   * What it asserts is IDENTITY CONTINUITY, which is the half of that clause reachable without a
+   * person: an existing user whose account carries that provider's identity signs in to the SAME
+   * account rather than to a second one. The consent round trip itself is not performed and is named
+   * unproved in the plan's per-id table.
+   */
+  signInWithProvider(provider: SessionProvider, email: string): Promise<SignInOutcome>;
 
   /* ----------------------------------- the two product operations ----------------------------- */
 
@@ -160,6 +219,15 @@ export type AccountsSut = {
   organization(organizationId: string): Promise<OrganizationRow | null>;
   membership(organizationId: string, accountId: string): Promise<MembershipRow | null>;
   acknowledgments(accountId: string): Promise<AcknowledgmentRow[]>;
+  /**
+   * The volunteer's imported GitHub profile, or `null` — AT-001.05's observable.
+   *
+   * `null` is a real and asserted answer, not merely the empty case: AT-001.05's pre-completion
+   * negative reads it AFTER the identity is linked and BEFORE the signup completes, and requires
+   * null there. That is what proves the population is CAUSED by completion rather than sitting in a
+   * queue somewhere waiting to be drained.
+   */
+  volunteerProfile(accountId: string): Promise<VolunteerProfileRow | null>;
 
   /**
    * The two read-backs a REFUSED action needs, which the keyed ones above cannot serve.

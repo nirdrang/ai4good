@@ -9,11 +9,12 @@
  * can reach the integration-tier run that is the evidence gate. What a loop-tier green from this
  * suite means is exactly this:
  *
- *   - PROVED: the four decisions in `supabase/functions/_shared/accounts.ts` — the module the two
- *     edge functions import, byte for byte the code that ships — behave as the four acceptance
- *     criteria require. Every accept and every refusal below comes from that module. There is no
- *     second copy of the rules in this file, deliberately: the moment there is one, this suite is
- *     grading a puppet and the green is worth nothing.
+ *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts` and
+ *     `supabase/functions/_shared/github.ts` — the modules the two edge functions import, byte for
+ *     byte the code that ships — behave as the seven acceptance criteria this suite lands require.
+ *     Every accept and every refusal below comes from those modules, and so does the onboarding
+ *     import's content. There is no second copy of the rules in this file, deliberately: the moment
+ *     there is one, this suite is grading a puppet and the green is worth nothing.
  *   - NOT PROVED: that the migration is correct, that either edge function works, that row-level
  *     security denies what it should, that Supabase Auth is configured, or that Google sign-in
  *     works. None of that is reachable from here — the storage below is a Map. The evidence for
@@ -40,6 +41,10 @@ import {
   type AccountType,
   type CompleteSignupRequest,
 } from '../../../../supabase/functions/_shared/accounts.ts';
+// The IMPORT SOURCE is the shipped stub, not a copy living in this file. AT-001.05 compares the
+// profile it reads back against `stubGithubStatsFor`, so if the two were separate implementations
+// the test would grade the fixture's copy and say nothing about what the edge function writes.
+import { stubGithubStatsFor } from '../../../../supabase/functions/_shared/github.ts';
 import type {
   AccountRow,
   AccountsSut,
@@ -51,6 +56,7 @@ import type {
   Session,
   SessionProvider,
   SignInOutcome,
+  VolunteerProfileRow,
   World,
 } from './_contract.ts';
 
@@ -73,6 +79,15 @@ interface AuthUser {
   email: string;
   password: string | null;
   provider: SessionProvider;
+  /**
+   * The handle of a LINKED GitHub identity, or null — Auth's `identities[]` narrowed to the one
+   * field anything here reads.
+   *
+   * It is stored on the auth user and NOT on the session, which is the whole reason the gate is a
+   * caller fact: linking happens after a session exists, changes nothing about how that session was
+   * established, and is a property of the user Auth answers for.
+   */
+  githubHandle: string | null;
 }
 
 interface StoredAcknowledgment extends AcknowledgmentRow {}
@@ -86,6 +101,8 @@ interface State {
   /** `${organizationId}:${accountId}` -> row */
   memberships: Map<string, MembershipRow>;
   acknowledgments: StoredAcknowledgment[];
+  /** account id -> the imported volunteer profile, mirroring `public.volunteer_profiles`'s primary key */
+  volunteerProfiles: Map<string, VolunteerProfileRow>;
   nextId: number;
 }
 
@@ -120,6 +137,7 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     organizations: new Map(),
     memberships: new Map(),
     acknowledgments: [],
+    volunteerProfiles: new Map(),
     nextId: 1,
   };
   const openedWorlds = new Set<AccountsFixtureWorld>();
@@ -127,17 +145,33 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
 
   const nextId = (prefix: string): string => `${prefix}-${state.nextId++}`;
 
-  const register = (email: string, password: string | null, provider: SessionProvider): Session => {
+  const register = (
+    email: string,
+    password: string | null,
+    provider: SessionProvider,
+    githubHandle: string | null = null,
+  ): Session => {
     // Supabase Auth's own uniqueness, mirrored: a second registration on one address is not a new
     // user. Left out, a body could accidentally create two auth users for one address and then read
     // back "one account per user" from a situation the real system cannot be in.
     const existing = state.byEmail.get(email);
     if (existing) throw new Error(`fixture: ${email} is already registered — Supabase Auth would refuse this`);
-    const user: AuthUser = { id: nextId('user'), email, password, provider };
+    const user: AuthUser = { id: nextId('user'), email, password, provider, githubHandle };
     state.authUsers.set(user.id, user);
     state.byEmail.set(email, user.id);
     return { accountId: user.id, email: user.email, provider: user.provider };
   };
+
+  /**
+   * Which providers can sign this user back in — Auth's `identities[]`, reduced to what AT-001.02
+   * asks about.
+   *
+   * A GitHub signup and a later GitHub LINK produce the same answer here, deliberately: after either,
+   * the account carries a GitHub identity, and "a later sign-in via GitHub returns to the same
+   * account" is a statement about the identity, not about which provider happened to create the user.
+   */
+  const reachableThroughProvider = (user: AuthUser, provider: SessionProvider): boolean =>
+    provider === 'github' ? user.githubHandle !== null : user.provider === provider;
 
   /**
    * The `complete-signup` operation, at the loop tier.
@@ -151,13 +185,17 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     request: CompleteSignupRequest,
     ip: string,
   ): Promise<CompleteSignupOutcome> => {
-    if (!state.authUsers.has(session.accountId)) {
+    const authUser = state.authUsers.get(session.accountId);
+    if (!authUser) {
       return { ok: false, reason: 'no authenticated user — sign in before completing signup' };
     }
 
-    const decision = validateCompleteSignup(request);
+    // THE CALLER FACT COMES FROM THE STORED AUTH USER, never from the request. That is the same
+    // shape the edge function has, where it comes from `/auth/v1/user` — a client cannot assert it
+    // in either place, which is the whole security property of the volunteer gate.
+    const decision = validateCompleteSignup(request, { githubHandle: authUser.githubHandle });
     if (!decision.ok) return { ok: false, reason: decision.reason };
-    const { accountType, organizationName, acknowledgmentTextVersion } = decision.value;
+    const { accountType, organizationName, acknowledgmentTextVersion, githubHandle } = decision.value;
 
     // ONE ROW PER AUTH USER is what makes "one account holds exactly one global type" structural
     // rather than remembered — the schema states it as a primary key, and this states it as a
@@ -175,6 +213,27 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       membership = { organizationId: organization.id, accountId: account.id, role: 'admin' };
     }
 
+    // THE ONBOARDING IMPORT, COMPUTED HERE AND WRITTEN BELOW WITH EVERYTHING ELSE — which is the
+    // shape `public.complete_signup` guarantees inside one transaction on the real database. There
+    // is no queue and no deferred job: a volunteer completion either lands the account AND the
+    // populated profile, or lands nothing. AT-001.05's "a queued-but-empty import fails this test"
+    // is unrepresentable rather than merely untested.
+    let volunteerProfile: VolunteerProfileRow | null = null;
+    if (githubHandle !== null) {
+      const stats = stubGithubStatsFor(githubHandle);
+      volunteerProfile = {
+        accountId: session.accountId,
+        githubHandle,
+        topLanguages: stats.topLanguages,
+        repositoryCount: stats.repositoryCount,
+        contributionSummary: stats.contributionSummary,
+        // Fixed rather than read from a clock, for the same reason the acknowledgment's instant is:
+        // nothing in these criteria depends on WHICH instant, and the live-stack proof reads the
+        // database's own `now()`.
+        importedAt: '2026-01-01T00:00:00.000Z',
+      };
+    }
+
     const acknowledgment: StoredAcknowledgment = {
       accountId: account.id,
       kind: PLATFORM_ACKNOWLEDGMENT_KIND,
@@ -186,10 +245,11 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       textVersion: acknowledgmentTextVersion,
     };
 
-    // All four, together. Nothing above this line has mutated `state`.
+    // All of them, together. Nothing above this line has mutated `state`.
     state.accounts.set(account.id, account);
     if (organization) state.organizations.set(organization.id, organization);
     if (membership) state.memberships.set(membershipKey(membership.organizationId, membership.accountId), membership);
+    if (volunteerProfile) state.volunteerProfiles.set(volunteerProfile.accountId, volunteerProfile);
     state.acknowledgments.push(acknowledgment);
 
     return { ok: true, accountId: account.id, organizationId: organization?.id ?? null };
@@ -202,6 +262,19 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
 
     registerWithEmailPassword: async (email, password) => register(email, password, 'email'),
     registerWithProvider: async (provider, email) => register(email, null, provider),
+    // A GitHub signup links the GitHub identity it signed up with — that is what makes it a GitHub
+    // signup rather than a session that merely says 'github'. Both halves are recorded here in one
+    // step because Auth performs them in one round trip.
+    registerWithGithub: async (email, githubHandle) => register(email, null, 'github', githubHandle),
+
+    linkGithubIdentity: async (session, githubHandle) => {
+      const user = state.authUsers.get(session.accountId);
+      // A throw, not a refusal: a body that links an identity onto a user Auth never registered has
+      // a bug in the TEST, and returning a polite outcome would let that bug read as a product
+      // refusal further down.
+      if (!user) throw new Error(`fixture: no auth user ${session.accountId} to link a GitHub identity to`);
+      user.githubHandle = githubHandle;
+    },
 
     signInWithEmailPassword: async (email, password): Promise<SignInOutcome> => {
       const userId = state.byEmail.get(email);
@@ -212,6 +285,20 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
         return { ok: false, reason: 'the email or password is incorrect' };
       }
       return { ok: true, session: { accountId: user.id, email: user.email, provider: user.provider } };
+    },
+
+    signInWithProvider: async (provider, email): Promise<SignInOutcome> => {
+      const userId = state.byEmail.get(email);
+      const user = userId ? state.authUsers.get(userId) : undefined;
+      // One reason again, for the AT-001.21 reason above: "no such account" and "that provider is
+      // not linked to it" must not be distinguishable to a caller.
+      if (!user || !reachableThroughProvider(user, provider)) {
+        return { ok: false, reason: `no account of this address is reachable through ${provider}` };
+      }
+      // THE SAME ACCOUNT, which is the clause under test. The id comes from the stored user, so a
+      // second identity minted per sign-in would show up as a different `accountId` rather than
+      // being invisible.
+      return { ok: true, session: { accountId: user.id, email: user.email, provider } };
     },
 
     completeSignup,
@@ -242,6 +329,7 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     organization: async (organizationId) => clone(state.organizations.get(organizationId) ?? null),
     membership: async (organizationId, accountId) => clone(state.memberships.get(membershipKey(organizationId, accountId)) ?? null),
     acknowledgments: async (accountId) => clone(state.acknowledgments.filter((row) => row.accountId === accountId)),
+    volunteerProfile: async (accountId) => clone(state.volunteerProfiles.get(accountId) ?? null),
 
     // The two searches a refused action needs: it hands back no identifier, so the rows it must NOT
     // have written can only be looked for by the name that was attempted and by who holds what.
@@ -290,6 +378,7 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       state.organizations.clear();
       state.memberships.clear();
       state.acknowledgments.length = 0;
+      state.volunteerProfiles.clear();
       state.nextId = 1;
     },
   };

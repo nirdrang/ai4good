@@ -1,6 +1,9 @@
 /**
- * EVERY DECISION REQ-001's first leaf makes, in ONE module that both the shipped edge functions and
- * the acceptance adapter import. (The plan named four; there are five. The fifth —
+ * EVERY DECISION REQ-001's ACCOUNT deliverable makes, in ONE module that both the shipped edge
+ * functions and the acceptance adapter import. It began as the first leaf's four judgements; the
+ * second leaf added the volunteer GitHub-link gate to `validateCompleteSignup` rather than building
+ * a second decision module beside this one, for the reason the next paragraph gives. (The plan named
+ * four; there are five. The fifth —
  * `validateOrganizationName` — was written twice at its call sites instead, and moved here when a
  * code review found the duplicate. "Four" is left out of this sentence rather than corrected to
  * "five", because the count is not the property that matters: what matters is that a rule has one
@@ -118,6 +121,20 @@ export type CompleteSignupRequest = {
   acknowledgmentTextVersion?: unknown;
 };
 
+/**
+ * WHAT IS TRUE OF THE CALLER, as opposed to what the caller SAID — and the distinction is the whole
+ * security property of the volunteer gate below.
+ *
+ * `githubHandle` is the handle on an identity Supabase Auth has linked to this authenticated user.
+ * It arrives from `/auth/v1/user` by way of `extractGithubHandle` in `./github.ts`; it is NEVER a
+ * field of the request body, because a request field is something a client asserts about itself and
+ * a gate built on one gates nothing.
+ */
+export type CompleteSignupCaller = {
+  /** the linked GitHub identity's handle, or `null` when no GitHub identity is linked */
+  githubHandle: string | null;
+};
+
 /** The same request once it has been judged: narrow, and safe to hand to the database. */
 export type ValidCompleteSignup = {
   accountType: PublicSignupAccountType;
@@ -125,25 +142,44 @@ export type ValidCompleteSignup = {
   organizationName: string | null;
   /** which version of the ToS + Platform Promise text was shown — AT-001.01 records it */
   acknowledgmentTextVersion: string;
+  /**
+   * The linked GitHub handle this completion is judged against: non-null for a volunteer (the gate
+   * below refuses the completion otherwise), null for an NGO.
+   *
+   * It is CARRIED OUT rather than re-derived by the caller, so the value the write path uses is the
+   * same value the decision was made on. A caller that re-read the identity itself could write a
+   * profile under a handle the gate never saw.
+   */
+  githubHandle: string | null;
 };
 
 /**
- * Judge a completion request in full.
+ * Judge a completion request in full — the request, and the one FACT about the caller the volunteer
+ * branch turns on.
  *
- * THE VOLUNTEER BRANCH DELIBERATELY HAS NO GITHUB-IDENTITY CONDITION, and this comment is the
- * reason it must stay that way rather than an apology for an omission. AT-001.04 — "completion is
- * blocked with the GitHub-link requirement stated" — belongs to the NEXT leaf of this deliverable
- * (`loop/decomp/req-001.md` D1.L2, which owns AT-001.02, .04 and .05), is declared red in
- * `tests/at/expected/req-001.json` by this leaf, and lands together with the GitHub OAuth path that
- * makes linking possible at all.
+ * THE VOLUNTEER BRANCH IS GATED ON A LINKED GITHUB IDENTITY. AT-001.04: "completion is blocked with
+ * the GitHub-link requirement stated; linking completes signup". The gate reads `caller.githubHandle`
+ * — a fact Supabase Auth reports about the authenticated user — and never a request field, so no
+ * client can assert its way past it. An NGO completion never reads the fact at all: AT-001.04's own
+ * scope is volunteer signup, and a gate that leaked onto NGOs would refuse a signup no criterion
+ * says anything about.
  *
- * Adding the gate here would ALSO make this leaf's own AT-001.06 unproducible: that test needs an
- * existing volunteer account to refuse an NGO-only action, and with a GitHub gate in place no
- * volunteer account could be created without OAuth work that is another leaf's. So this is a
- * sequencing decision, not an oversight — and no unused parameter is added in anticipation of it
- * either, because an unused parameter is a claim that the work is half done.
+ * IT FAILS CLOSED, AND THAT IS STATED BECAUSE THE EDGE ENTRY POINT HAS NO TYPE-CHECKER. Measured, not
+ * assumed: `bun run typecheck` covers the root project (`src/**`) and the `tests/at` program, and
+ * neither reaches an edge-function entry point (`supabase/functions/<name>/index.ts`). So a call
+ * site that forgets the second argument is
+ * a real possibility, and the reading below — `caller?.githubHandle`, absent or blank meaning "no
+ * linked identity" — makes that mistake BLOCK every volunteer completion loudly instead of waiving
+ * the gate silently. A gate that disappears when a caller is careless is not a gate.
+ *
+ * WHY THE JUDGED VALUE TRAVELS BACK OUT in `ValidCompleteSignup.githubHandle`: so the write path uses
+ * the handle this decision was made on rather than deriving its own, which is the same reason the
+ * organisation name comes back trimmed instead of being re-trimmed downstream.
  */
-export function validateCompleteSignup(request: CompleteSignupRequest): Decision<ValidCompleteSignup> {
+export function validateCompleteSignup(
+  request: CompleteSignupRequest,
+  caller: CompleteSignupCaller,
+): Decision<ValidCompleteSignup> {
   const parsedType = parseAccountType(request.accountType);
   if (!parsedType.ok) return refuse(parsedType.reason);
   const accountType = parsedType.value;
@@ -164,6 +200,17 @@ export function validateCompleteSignup(request: CompleteSignupRequest): Decision
     return refuse('a volunteer signup carries no organisation name — one account holds exactly one global type');
   }
 
+  // THE CALLER FACT, read defensively — see the fail-closed paragraph above. A missing argument, a
+  // null, or a blank string all mean the same thing here: no GitHub identity is linked.
+  const linkedGithubHandle =
+    typeof caller?.githubHandle === 'string' && caller.githubHandle.trim() !== '' ? caller.githubHandle.trim() : null;
+
+  if (accountType === 'volunteer' && linkedGithubHandle === null) {
+    return refuse(
+      'a volunteer signup cannot be completed without a linked GitHub account — link GitHub to this account, then complete signup',
+    );
+  }
+
   const rawVersion = request.acknowledgmentTextVersion;
   if (typeof rawVersion !== 'string' || rawVersion.trim() === '') {
     return refuse(
@@ -175,6 +222,10 @@ export function validateCompleteSignup(request: CompleteSignupRequest): Decision
     accountType,
     organizationName,
     acknowledgmentTextVersion: rawVersion.trim(),
+    // NULL FOR AN NGO EVEN WHEN ONE IS LINKED. An NGO's account may well carry a GitHub identity —
+    // nothing forbids it — but the GitHub link and the onboarding import it fires are volunteer
+    // signup's, so an NGO completion carries no handle onward and writes no volunteer profile.
+    githubHandle: accountType === 'volunteer' ? linkedGithubHandle : null,
   });
 }
 
