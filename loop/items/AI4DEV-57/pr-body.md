@@ -56,19 +56,34 @@ has no database and never runs above the loop tier. The only evidence for that h
 captured against a local Supabase stack on one machine, which a reviewer cannot reproduce. That
 distinction is stated again in the merge ruling rather than left to be inferred.
 
-**The Google credential does not exist on this machine, and one live-stack check was therefore
-SKIPPED rather than passed.** Neither environment variable is set in any shell or user environment,
-`.env` carries no Google entries, and `.env.local` does not exist — verified directly. So check (f2)
-of the live-stack proof, which would show the configured client id reaching the provider handshake,
-**did not run**. It is recorded as a skip everywhere it appears and is never counted as a pass; the
-proof script prints `EVERY CHECK THAT RAN PASSED — 1 DID NOT RUN` instead of `ALL CHECKS PASSED`,
-and an earlier version of that script would have counted the skip as a pass, which is a defect this
-item found and fixed in itself. What (f) alone establishes is that the provider block is well-formed
-and that Auth reports Google enabled.
+**The Google credential now exists, and the live-stack check that was previously skipped has
+PASSED.** The founder created a real OAuth client after the audit closed. It lives in Windows
+user-level environment variables and **no secret is in this repository** — verified by searching
+every file in the worktree for the literal values, not assumed. Check (f2) of the live-stack proof
+now shows the configured client id reaching the provider handshake: `GET
+/auth/v1/authorize?provider=google` answers `302` to `accounts.google.com` carrying exactly that
+client id and `redirect_uri=http://127.0.0.1:54321/auth/v1/callback`. The proof script was **not
+modified** to achieve this — the check was written with three states from the start and simply took
+the branch a real credential selects, so what changed is the evidence and not the code. All fourteen
+checks now pass, and the whole verify surface was re-run as a control and is unchanged.
 
-One clause is named unproved and stays unproved: a real Google consent round trip. Consent is a
-person pressing a button in a browser, so no agent closes it; a real OAuth client would narrow the
-gap without closing it.
+**What that does not mean.** (f2) reads a redirect composed by the **local** Auth server and **never
+contacts Google at all**, so it proves wiring and configuration rather than acceptance. It may not be
+read as Google having accepted the credential, nor as the provider being "reachable", nor as sign-in
+working. One clause is named unproved and stays unproved: a real Google consent round trip. Consent
+is a person pressing a button in a browser, so no agent closes it — the credential narrows that gap
+without closing it.
+
+Worth recording, because it is the sharpest evidence in this item about the limits of its own checks:
+before the stack was restarted with the credential in its environment, the Supabase CLI had been
+passing the literal unresolved string `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` through as the
+client id — it does not substitute an empty value when the variable is unset — and a real sign-in
+attempt against that stack returned `401 invalid_client` **while the settings endpoint still reported
+Google enabled and the enabled-provider check still passed**. That is a fact about the environment
+and the CLI rather than a defect in the committed configuration, which uses Supabase's documented
+`env()` syntax correctly. It also demonstrates precisely what the enabled-provider check never
+established on its own. Separately, an earlier version of the proof script would have counted a
+skipped check as a pass; that defect was found and fixed inside this item.
 
 ## The record
 

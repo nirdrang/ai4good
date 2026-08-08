@@ -21,6 +21,11 @@ should say so in its first line rather than assume continuity.
 > with the local callback and the `env(...)` handling named concretely. It changes D7's posture, adds
 > a conditional step 7(f2) and sharpens AT-001.03's row in section 4. **It changes no step's shape and
 > blocks nothing** — the credential is a founder-manual step and its absence is the expected case.
+>
+> **SUPERSEDED IN PART, after the audit: the credential now EXISTS and step 7(f2) PASSED.** The
+> sentence above about absence describes sitting 3's expectation, not the state of the world. See the
+> subsection in section 4 titled "The credential arrived after the audit" for what actually happened
+> and, more importantly, for what it does and does not license anyone to claim.
 
 **Chain, derived from the branch** (`nirdrang/ai4dev-57-email-and-google-signup-and-the-three-account-types-d1l1`):
 AI4DEV-57 (email + Google signup, three account types) → parent AI4DEV-51 (accounts and sign-in
@@ -490,6 +495,10 @@ whose `Location` is a Google accounts URL carrying **that** client id and
 **If the variable is unset, write one line in the transcript saying so and move on** — this is the
 expected case, it is not a failure, and a placeholder value must not be dressed up as this proof: a
 placeholder proves the block is well-formed, which is (f), and nothing more.
+**OUTCOME, recorded after the fact: skipped on the first run, then PASSED on the second.** The
+credential arrived after the audit closed, the stack was restarted with it, and (f2) answered `302`
+to `accounts.google.com` with the configured client id and the local callback. See the subsection in
+section 4 for what that does and does not license anyone to claim.
 **Four added by the plan review:**
 → (g) **[F2] a platform admin is provisioned and signs in**, then signs in with email/password
 against the live stack, with the read-back showing `account_type = platform_admin`. This is
@@ -557,9 +566,43 @@ against. **A clause named unproved here may not be described as proved anywhere 
 | id | proved at loop tier (CI) | proved on the live stack (step 7, one machine) | **not proved by this item** |
 |---|---|---|---|
 | AT-001.01 | the shipped decisions produce an `ngo` account, org, `admin` membership and a three-field acknowledgment; **the ADAPTER's** acknowledgment predicate discriminates — the shipped SQL predicate is not reachable from the loop tier at all | (a), (b), (i), and **(h), which is where the shipped SQL predicate is proved** to discriminate against the real database | **"before any project creation is possible"** — nothing in the tree creates a project. The predicate is the hook; the leaf that lands project creation must call it. **And the acknowledgment records AN address, never a verified source address** — see the measurement below |
-| AT-001.03 | that a session recorded as provider `google` completes signup through the same shipped path with the same result as email — **and the reason it holds is that the shipped path never receives a provider at all.** So it would NOT catch a provider branch introduced in an edge function; the pinned-value block is what carries the weight here | (f) — the stack reports Google enabled and the config block is well-formed. **(f2) was SKIPPED: no credential was in the environment when step 7 ran**, which is the expected case, and a skip is recorded as a skip rather than counted among the passes | **"sign-in via Google succeeds on return visits"** — a real consent round trip. **This is the weakest of the four greens and the record says so.** The founder has ruled a real OAuth client will be created; that narrows this gap but does not close it, because consent is a human act no agent performs. Closing it needs a person to sign in once and that evidence recorded. **The client id reaching the handshake is ALSO still unproved**, because (f2) did not run |
+| AT-001.03 | that a session recorded as provider `google` completes signup through the same shipped path with the same result as email — **and the reason it holds is that the shipped path never receives a provider at all.** So it would NOT catch a provider branch introduced in an edge function; the pinned-value block is what carries the weight here | (f) — the stack reports Google enabled and the config block is well-formed. **(f2) PASSED on the second run of step 7**, after the founder created a real OAuth client: with the credential in the environment the stack was started with, `GET /auth/v1/authorize?provider=google` answered `302` to `accounts.google.com` carrying exactly the configured client id and `redirect_uri=http://127.0.0.1:54321/auth/v1/callback`. `proof-local.ts` was not modified — this is the third state of a conditional that was already written, reviewed and audited | **"sign-in via Google succeeds on return visits"** — a real consent round trip. **This is STILL the weakest of the four greens, and the credential's arrival does not change that.** (f2) proves the WIRING and not the sign-in: it reads a redirect composed by the LOCAL Auth server with `redirect: 'manual'` and **never contacts Google at all**. So it may not be reported as Google accepting the credential, and not as the provider being "reachable" either. Closing this clause needs a person to sign in once and that evidence recorded; consent is a human act no agent performs |
 | AT-001.06 | `ngoOnlyActionAllowed` refuses a volunteer and permits an NGO, and the refused volunteer leaves no organisation and no membership behind | (d) — through the `create-organization` boundary, with a working NGO control; and (l), the database backstop refusing a non-NGO even when the function is called directly with the service role | the **project-need** half of the criterion's parenthesis: no project or need table exists, and building one belongs to another requirement |
 | AT-001.07 | the public signup options are exactly `['ngo','volunteer']`, and the public completion path refuses `platform_admin` leaving no account behind | (g) a provisioned admin really authenticates and carries the type; (c) and (j) the public path and the database both refuse to mint one; **(k) a direct service-role INSERT into `public.accounts` is refused** at the privilege layer | **no client-reachable path returns an account's type.** Row-level security is on with no policies, no Auth metadata carries the type, and no endpoint returns it — so the type is carried **for the server** (`create-organization` reads it with the service role and acts on it) and **for no browser.** The wiring leaf needs that read path, and it is a `supabase/`-territory change |
+
+### The credential arrived after the audit, step 7 was re-run, and (f2) moved from SKIP to PASS
+
+**Added by a short sitting between the audit and the merge, on `orchestrator-opus`.** The founder
+created the Google OAuth client (project `gen-lang-client-0617238024`, consent screen External and
+in Testing) and it was installed as **Windows user-level environment variables** — deliberately not
+in `.env`, not in `.env.local`, and not in any file in the tree. **Verified: neither credential value
+appears in any file in this worktree**, searched literally rather than assumed.
+
+**No code changed. `proof-local.ts` was not modified**, no SQL moved, no shipped decision logic moved,
+no configuration moved. The check took the third branch of a conditional that was already written,
+already reviewed at the code gate and already audited — which is precisely why it was written with
+three states instead of two. The whole verify surface was re-run as a control and is unchanged:
+typecheck, 251 self-tests, both bijection checks and both `--expect` runs all exit 0, with **req-016
+bit-identical to the step-0 baseline**. Nothing in the tree ever asserted the credential's absence,
+so nothing could break from its presence; that was established by search and then confirmed by
+measurement rather than left as reasoning.
+
+**Two facts about the tooling that this sitting measured, and that anyone bringing this stack up
+needs.** First, **a process only picks up a user-level environment variable when it starts**, and
+Windows never refreshes a running process's environment block — so the variables had to be read
+explicitly from the User scope and injected into the same invocation that started the stack, and the
+stack had to be restarted because the running auth container predated the credential. Second, and
+more important: **when the variables are unset the Supabase CLI does not substitute an empty value —
+it passes the literal string `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` through as the client
+id**, and the stack still starts and still reports `google: true`.
+
+**That second fact is the sharpest evidence in the item for what check (f) never proved.** The
+founder attempted a real sign-in against the stack as it was then running and Google answered
+`401 invalid_client` — while (f) was passing. So (f) establishes that the provider block is
+well-formed and enabled and establishes **nothing** about whether the client id means anything. The
+record already said that on reasoning alone; this is the measurement behind it. The 401 is a
+diagnosis of the environment, **not a defect in the committed configuration**, which uses Supabase's
+own documented `env()` syntax and is correct as written.
 
 ### Two things step 7 MEASURED that no green claims, added by the fix sitting
 
@@ -621,6 +664,13 @@ sequencing decision, not an oversight.
    credential is present**. If a real client id and secret are in the environment, they are used as
    they are and nothing is overwritten with a placeholder. **A placeholder is never described as a
    credential**, and step 7(f2) is skipped rather than faked when only a placeholder exists.
+   **MEASURED, and the risk was wrong in an instructive way: unset variables do NOT prevent the stack
+   from starting.** The CLI substitutes no empty value — it passes the literal string
+   `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` through as the client id, the stack starts, and
+   `/auth/v1/settings` still reports `google: true`. So the mitigation was never needed, no
+   `.env.local` was ever created, and the real hazard turned out to be the opposite one: a stack that
+   looks correctly configured while carrying a meaningless client id. A real sign-in against it
+   returns `401 invalid_client`.
 3. **A stub body throwing `AtPending` reports differently than the declaration expects.** The
    mechanism is read and verified above, but step 2 proves it on the real files before 37 of
    anything is written.

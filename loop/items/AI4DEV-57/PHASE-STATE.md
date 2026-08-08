@@ -1,12 +1,14 @@
 # AI4DEV-57 (email + Google signup, three account types) — phase state
 
-**Phase just completed:** the **AUDIT sitting (sitting 5)** — the conditional fifth sitting, which ran
-because the audit found 7 findings rather than closing clean. All 7 are ruled in `audit-rulings.md`,
-plus one finding of my own the audit could not have made. The local verify surface is green again at
-the new head.
-**Phase next:** **continuous integration on the new head, then the MERGE sitting.** There is no second
-audit — see "the audit cap is deliberately unused" below, which the merge sitting should read before
-deciding whether it agrees.
+**Phase just completed:** a short **CREDENTIAL sitting (sitting 6)**, inserted between the audit and
+the merge because a new fact arrived that changes what the merge ruling is allowed to claim. The
+founder created the Google OAuth client; step 7 was re-run against a stack restarted with it; **check
+(f2) moved from an honest SKIP to a PASS.** No code changed — this sitting's diff is records only.
+The audit sitting before it ruled all 7 audit findings in `audit-rulings.md`, plus one finding of its
+own the audit could not have made.
+**Phase next:** **continuous integration on the new head, then the MERGE sitting.** There is still no
+second audit, and this sitting did not spend that cap either — the reasoning is below and the merge
+sitting may disagree with it.
 **Branch:** `nirdrang/ai4dev-57-email-and-google-signup-and-the-three-account-types-d1l1`
 **Chain, derived from the branch:** AI4DEV-57 (email + Google signup, three account types) →
 AI4DEV-51 (accounts and sign-in container) → AI4DEV-50 (auth dev-tree root) → AI4PM-19 (the
@@ -115,7 +117,9 @@ The merge sitting absorbs the audit's wait and CI's together. It must:
    fixed, one rejected with its claim recorded verbatim, one a stale reference corrected. That is
    evidence and belongs in the ruling, not a step that silently did not happen.
 2. **State the gate coverage as two separate facts**, per the founder ruling above. Not blended.
-3. **Describe check (f2) as a SKIP**, never as a pass — see the Google credential section below.
+3. **Describe check (f2) as a PASS — and describe precisely what it proves**, which is wiring and
+   configuration, never sign-in and never "the provider is reachable". The Google credential section
+   below is rewritten and is the binding text.
 4. **Carry the rejected finding's claim verbatim into the pull request**, which
    `audit-rulings.md` finding 3 already quotes in full.
 5. **Confirm the required check green on the exact merge SHA** and record both the run and the commit.
@@ -146,9 +150,10 @@ after this file is written. This line exists because the previous version of thi
 `req-016` being untouched is the control that says this sitting's edits reached nothing outside their
 own item.
 
-**The live-stack evidence is unchanged and was not re-run**, because nothing this sitting changed can
-affect it: no SQL, no shipped decision logic, no configuration. `proof-local.txt` still records 14
-checks — 13 passed, 0 failed, 1 SKIPPED, plus 1 measurement that asserts nothing.
+**The live-stack evidence WAS re-run, in the credential sitting.** `proof-local.txt` now records 14
+checks — **14 passed, 0 failed, 0 skipped**, plus 1 measurement that asserts nothing. The re-run
+changed no code whatsoever; it changed which branch check (f2) took. Every row of the table above was
+re-run beside it and every one is unchanged, `req-016` still bit-identical to the step-0 baseline.
 
 ---
 
@@ -210,25 +215,61 @@ Both are written into `plan.md` section 4, which is what the merge ruling gets c
 
 ### 1. The signup SCREENS — ANSWERED and folded in. Closed.
 
-### 2. The Google OAuth client — ANSWERED, and the answer is that it does not exist
+### 2. The Google OAuth client — ANSWERED AGAIN: it now EXISTS, and check (f2) PASSED
 
-**The founder verified directly that the credential is absent from this machine:** neither
-`SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` nor `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` is set in any
-shell or user environment, `.env` carries no Google entries, and `.env.local` does not exist.
+**A PRIOR VERSION OF THIS SECTION SAID THE SKIP "may not be upgraded to a pass anywhere in the
+record, by any later sitting, for any reason." I have overridden that, and it is deleted rather than
+quietly worked around.** That instruction existed to stop a later sitting talking a skip into a pass
+by argument, which would have been the item's worst failure. It did not survive contact with the one
+event it did not anticipate: **the underlying fact changed.** The credential now exists, the check
+ran for real, and it passed on evidence. An instruction written to protect a fact must yield when the
+fact itself moves — but only to a measurement, never to a rereading. This override rests on a
+transcript, not on an argument.
 
-**The honest skip is therefore correct and must stay a skip.** It may not be upgraded to a pass
-anywhere in the record, by any later sitting, for any reason.
+**What arrived.** The founder created the OAuth client — Google project
+`gen-lang-client-0617238024`, authorised redirect URI exactly
+`http://127.0.0.1:54321/auth/v1/callback`, consent screen External and in Testing. It is installed as
+**Windows user-level environment variables** and in no file at all. **Verified, not assumed: neither
+credential value appears in any file in this worktree**, searched literally. `.env` is tracked by git
+and carries no Google entries; `.env.local` still does not exist and is git-ignored.
 
-- **Proved:** the provider block is well-formed, the stack starts with it, and `/auth/v1/settings`
-  reports Google enabled with apple untouched — check (f) passed.
-- **Not proved:** that the configured client id reaches the provider handshake. Check (f2) was
-  **SKIPPED**. It becomes provable with no human involved the moment the variable is in the
-  environment — one re-run of `proof-local.ts`.
-- **Never provable by any agent:** the consent round trip itself. **AT-001.03's "sign-in via Google
-  succeeds on return visits" clause stays unproved by this item whether or not the credential
-  arrives.** Closing it needs a person to sign in once and that evidence recorded.
+- **Proved by (f):** the provider block is well-formed, the stack starts with it, and
+  `/auth/v1/settings` reports Google enabled with apple untouched.
+- **Proved by (f2), which now PASSES:** with the credential in the environment the stack was started
+  with, `GET /auth/v1/authorize?provider=google` answers `302` to `accounts.google.com` carrying
+  exactly the configured client id and `redirect_uri=http://127.0.0.1:54321/auth/v1/callback`.
+- **NOT proved, and the merge ruling must not blur this:** (f2) reads a redirect composed by the
+  **local** Auth server with `redirect: 'manual'` and **never contacts Google**. It proves wiring and
+  configuration. It is **not** evidence that Google accepted the credential, and **"the provider is
+  reachable" overstates it** — nothing in this item has successfully reached Google with this client.
+- **Never provable by any agent:** the consent round trip. **AT-001.03's "sign-in via Google succeeds
+  on return visits" clause stays unproved by this item**, exactly as before. The credential narrowed
+  the gap and did not close it. Closing it needs a person to sign in once and that evidence recorded.
 
-`.env.example` names both variables, so there is an obvious place for the credential to land.
+**The one attempt so far FAILED, and the reason is worth carrying.** The founder tried a real sign-in
+before the stack was restarted and got `401 invalid_client`. The cause was environmental: **when the
+variables are unset the Supabase CLI does not substitute an empty value — it passes the literal string
+`env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` through as the client id**, and the stack starts
+anyway and still reports `google: true`. The committed `config.toml` is correct as written; it uses
+Supabase's documented `env()` syntax. **That failure is also the best proof in the item of what (f)
+never established** — (f) passed the whole time the client id was meaningless.
+
+**HOW TO REPRODUCE THIS, because it is not obvious and cost a wasted attempt.** A process only picks
+up a user-level environment variable **when it starts**, and Windows never refreshes a running
+process's block; children inherit the parent's block, not the registry. So every shell in this session
+tree is blind to the variables no matter how "fresh" it is. Read them explicitly and start the stack
+in the **same** invocation, from **this worktree** (the `[auth.external.google]` block exists only on
+this branch):
+
+```
+$env:SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID = [Environment]::GetEnvironmentVariable('SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID','User')
+$env:SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET    = [Environment]::GetEnvironmentVariable('SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET','User')
+bunx supabase stop --no-backup; bunx supabase start
+```
+
+**Do not write either credential into any file in the tree.** `.env` is tracked; the explicit read
+above needs neither it nor `.env.local`. `.env.example` names both variables, which is where a
+newcomer learns they are wanted.
 
 ### 3. Edge function or `createServerFn` — STILL OPEN; nothing challenged the ruling
 
@@ -257,15 +298,35 @@ Facts 1–16 from the previous sittings all still hold. Added by the audit sitti
 20. **`bun run at:check` takes a requirement argument** (`at:check req-001`). Called bare it exits 2
     with `"undefined" is not a requirement`, which reads like a failure and is not one.
 
+Added by the credential sitting:
+
+21. **An unset `env(...)` variable does not stop the Supabase stack — the CLI passes the literal
+    string through as the value.** The stack starts, the provider reports enabled, and a real sign-in
+    returns `401 invalid_client`. Plan risk 2 predicted the opposite failure and was wrong in an
+    instructive direction: the hazard is not a stack that refuses to start, it is a stack that looks
+    correctly configured while carrying a meaningless credential.
+22. **A user-level environment variable is invisible to every process already running**, including
+    every shell any agent in this session can spawn, because children inherit the parent's environment
+    block rather than the registry. Read it explicitly from the `User` scope and set it in the same
+    invocation that needs it. This is written out with the exact commands in the Google section above.
+23. **Check (f2) infers the stack's configuration from the SCRIPT's own environment** — it asserts
+    that the redirect's `client_id` equals `process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID`. That
+    makes a PASS trustworthy (the two agreeing means substitution really happened) and it makes a FAIL
+    safe, but it means the check reports a boolean and never a value. The independent redirect
+    observation recorded at the foot of `proof-local.txt` exists because of that, and it is what
+    positively rules out the literal `env(...)` string.
+
 ---
 
 ## Caps, carried forward
 
-- The executor gets three attempts to reach green inside one invocation, then reports. **This sitting
-  invoked no executor at all** — an audit sitting may make its own corrections, and every fix here was
-  a repair, a comment or a record change rather than code to be written.
+- The executor gets three attempts to reach green inside one invocation, then reports. **Neither the
+  audit sitting nor the credential sitting invoked an executor at all** — an audit sitting may make
+  its own corrections, and in both cases every change was a repair, a comment or a record change
+  rather than code to be written. The credential sitting used a **mechanical** for the evidence
+  capture, which is what a mechanical is for.
 - An orchestrator sitting may send the executor back twice — three invocations per sitting. **Unused
-  this sitting.**
+  in both sittings.**
 - **The audit re-runs once per item, and only if code changed. STILL NOT USED, deliberately.** See
   below — the merge sitting may still spend it.
 - A suspected CI flake gets one re-run of the check, with no new commit. **Not yet used.**
@@ -274,9 +335,16 @@ Facts 1–16 from the previous sittings all still hold. Added by the audit sitti
 
 ### The audit cap is deliberately unused, and here is the reasoning to disagree with
 
-No shipped decision logic, SQL, assertion, expectation, test body or configuration changed in this
-sitting. The only executable-adjacent edits are **test names and failure messages** — text that
+No shipped decision logic, SQL, assertion, expectation, test body or configuration changed in the
+audit sitting. The only executable-adjacent edits are **test names and failure messages** — text that
 appears in output and never in a judgement. The em-dash repair *restores* text `main` already had.
+
+**The credential sitting makes the case stronger rather than weaker, and it is a cleaner case.** Its
+diff is **records only** — `plan.md`, `proof-local.txt`, `PHASE-STATE.md`, `pr-body.md`. Not one byte
+of `supabase/`, `tests/` or `src/` moved, and `proof-local.ts` itself is byte-identical: the check
+took the third branch of a conditional the code gate reviewed and the auditor read. What changed is
+**evidence, not code**, and evidence moving in the direction of *more* proved is not a reason to
+re-audit code nobody touched. The whole verify surface was re-run as the control and is unchanged.
 
 Every box the auditor checked is therefore untouched or **more** true than when it checked it:
 finding 1's box now passes exactly (the diff is four marker lines), finding 2's claim is corrected,
@@ -292,7 +360,16 @@ filed as separate work, or escalated as scope growth. "We ran out of rounds" is 
 
 ---
 
-## Nothing escalates to the founder from this sitting
+## Nothing escalates to the founder from either sitting
 
-No finding contradicted ratified text, and nothing here is scope growth: five repairs, one rejection
-with its written reason, one record correction, and one publish that should have happened earlier.
+No finding contradicted ratified text, and nothing is scope growth. The audit sitting: five repairs,
+one rejection with its written reason, one record correction, and one publish that should have
+happened earlier. The credential sitting: one measurement and the record updates it forced.
+
+**One thing to RELAY, not escalate, and the item does not wait for it.** AT-001.03's *"sign-in via
+Google succeeds on return visits"* clause is closable now, cheaply, and only by the founder: the stack
+is correctly configured for the first time, so **one human sign-in through the consent screen would
+produce the evidence no agent can.** The item merges with that clause declared unproved either way —
+this is an opportunity, not a blocker, and it must not be allowed to hold up the merge. If the founder
+does click through, the place to record it is a new note in `proof-local.txt` marked plainly as human
+evidence rather than a check result, because no agent witnessed it.
