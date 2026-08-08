@@ -1,9 +1,8 @@
 # AI4DEV-57 (email + Google signup, three account types) — phase state
 
-**Phase just completed:** the plan review's RULINGS and the plan amendment (sitting 2). All 9 of
-sol's findings are ruled, `plan.md` is amended in place, and both are pushed. **No code exists yet;
-nothing has been built.**
-**Phase next:** the DRAFT — spawn the executor against the amended plan.
+**Phase just completed:** the DRAFT (sitting 3). The executor built every plan step; the code is
+committed and pushed. The plan was amended three more times, by rulings on the executor's own report.
+**Phase next:** the CODE CRITIQUE — two prompts, each launched twice, four runs in total.
 **Branch:** `nirdrang/ai4dev-57-email-and-google-signup-and-the-three-account-types-d1l1`
 **Chain, derived from the branch:** AI4DEV-57 (email + Google signup, three account types) →
 AI4DEV-51 (accounts and sign-in container) → AI4DEV-50 (auth dev-tree root) → AI4PM-19 (the
@@ -16,9 +15,9 @@ requirement; this leaf itself closes on a merged pull request.
 
 Fable is out of credit. Every orchestrator sitting on this item runs as `orchestrator-opus` (opus at
 effort max), a different agent TYPE, never a model override on the fable definition. A fable ruling
-and an opus ruling are not the same evidence: the eight decisions in `plan.md` section 2 and all
-nine rulings in `gate1-rulings.md` are opus rulings. A successor sitting that finds itself running
-as fable should say so in its first line rather than assume continuity.
+and an opus ruling are not the same evidence: every decision in `plan.md`, all nine rulings in
+`gate1-rulings.md` and all eight in `draft-rulings.md` are opus rulings. A successor sitting that
+finds itself running as fable should say so in its first line rather than assume continuity.
 
 A session limit is not the same thing as being out of credit. If the reason ever reads
 "You've hit your session limit · resets HH:MM", that is the account-wide five-hour window, it heals
@@ -26,155 +25,201 @@ itself, and an opus agent hits the same wall.
 
 ---
 
-## This sitting was scoped to rulings only — the DRAFT is deliberately split in two
+## STANDING HAZARD — READ THIS BEFORE RUNNING A BUILD ON THIS BRANCH
 
-The standard draft sitting rules the findings, amends the plan, pushes, **and then spawns the
-executor in the same sitting**, staying live because the executor may dispute a ruling. The
-conductor scoped this sitting to the rulings and the amendment, ending before the executor.
+**`bun run build` rewrites `src/routeTree.gen.ts`.** Ten lines, a stale `declare module` block,
+deterministic, reproduced twice by the executor and reverted both times.
 
-That is a two-sitting draft rather than a broken one: the executor sitting is a live ruler with the
-whole ruling record in front of it, so a dispute still reaches someone who can rule. Recorded here
-so the split reads as deliberate rather than as a dropped step. **What must not be lost is listed
-below.**
+Continuous integration fails any pull request whose files match **both** `^src/` and
+`^(supabase|tests|loop|\.claude|\.github)/`, and this branch is permanently on the wrong side of that
+line. **So an unexamined `git add -A` after a build breaks the build**, for a reason that has nothing
+to do with the change. Stage deliberately, and check `git status` after every build.
+
+Regenerating that file properly is a `src/`-only change belonging to a different pull request.
+**Filed, not fixed.**
 
 ---
 
 ## What completes the next phase
 
-**1. Spawn the executor** (model `opus`, synchronously, no isolation so it inherits this worktree)
-against `plan.md` as amended. Its target is a **draft**, not a green run: every plan step
-implemented, `bun run typecheck` and the build passing, **the verify suite deliberately not yet
-run**. The draft exists to be critiqued.
+**1. Launch the code critique: TWO PROMPT FILES, FOUR RUNS.** The draft is 1990 changed lines outside
+`loop/items/`, against a stated split trigger of 1200, so the gate is split. Ruling and reasoning:
+`draft-rulings.md` R8.
 
-**2. Two things in the plan can stop the executor, and both mean "report", not "work around":**
-- **Step 1** — if the local Supabase stack does not come up after two attempts, stop. Steps 4, 5 and
-  7 all depend on it and the plan needs amending, not patching.
-- **Step 6** — if AT-001.03 cannot be written without simulating a Google provider handshake in the
-  adapter, stop. An adapter that fakes a round trip and reads its own fake back as proof is this
-  item's worst outcome, and it is exactly what the plan review pressed on.
+| prompt file (in `loop/items/AI4DEV-57/`) | launched as |
+|---|---|
+| `gate2-prompt-sql-and-config.txt` | `gpt-5.6-terra` effort `max`, `--sandbox read-only` |
+| `gate2-prompt-sql-and-config.txt` | `kimi-code/k3` effort `high` (from its config file — its CLI has no effort flag), `--sandbox read-only` |
+| `gate2-prompt-typescript-and-tests.txt` | `gpt-5.6-terra` effort `max`, `--sandbox read-only` |
+| `gate2-prompt-typescript-and-tests.txt` | `kimi-code/k3` effort `high`, `--sandbox read-only` |
 
-**3. Write the Gate 2 prompts** — critique only, no execution. Two of them, one per pinned model
-(terra at max, and Kimi at high), each assembled as `reviewers.md`'s `## Your contract` plus the
-DRAFT CODE review section plus this item's additions. **Neither may hint that the other exists**,
-and item-specific content is additive only. They belong to the executor's sitting because their
-additions depend on what the draft actually touched.
+**Each slice is read by both models — not one model per slice.** One reader per slice would halve the
+independent readers per line, which is a narrowing of attack directions, and the gate may never be
+narrowed. The prompts are already assembled and checked: no metadata block, no sibling section,
+nothing telling any reader that another reader exists or that the change was split. **Send each file
+exactly as it is.**
 
-**4. The split trigger is still live.** If the draft diff exceeds 1200 changed lines outside
-`loop/items/`, the code gate splits into two prompts — SQL plus configuration, and TypeScript plus
-tests. The revised estimate (plan D8) is comfortably under it, but the two amendments grew the
-draft, so check rather than assume.
+Name the four outputs distinctly — model and slice in the filename — or two of them will be
+indistinguishable. They go to the item's artifacts directory, not into the tree, until the fix
+sitting commits them.
+
+**2. Distil each raw output separately**, one distiller per file, as usual.
+
+**3. Then a FIX-AND-GOAL sitting**, which is where this item's remaining work is concentrated. It
+must do all of the following, and the last three are not optional extras — they are plan steps whose
+done-criteria this sitting deliberately did not pursue:
+
+- Rule every finding from all four runs, and push the rulings **before** any code changes.
+- **Apply R4 from `draft-rulings.md` — a defect I found by reading, which no reviewer may catch
+  because it is mine.** `loop/items/AI4DEV-57/proof-local.ts` line 44 records a *skipped* check as
+  `passed: true`, so line 461 counts it among the passes and line 466 prints `ALL CHECKS PASSED` when
+  a check never ran. Its own docstring says "never as a pass". **Fix it before step 7 is executed** —
+  the check most likely to be skipped is (f2), the Google one, so the failure mode is this item
+  claiming a Google proof it did not perform. Nothing false exists yet: the script has never been run.
+- **Run step 7** — `proof-local.ts` against the live stack, transcript to `proof-local.txt`. This is
+  the only evidence the item will ever have about the real database, and it also closes step 5's
+  done-criterion, which is currently unmet (see `draft-rulings.md` R5 — that is my draft boundary,
+  not an executor omission).
+- **Run step 6's verification** — `bun run at:verify req-001 --tier loop --expect` must exit 0
+  reporting exactly 4 passed and 33 failed. The four real test bodies are written and have **never
+  been executed**.
+- **Run step 8** — the whole verify surface green together, both requirements, into `verify-final.txt`.
+- **Commit the four raw critiques and their distillates into the record**, and write the audit brief.
 
 ---
 
-## The rulings, in one paragraph
+## The state of the code, honestly
 
-Nine findings from sol (gpt-5.6, xhigh, read-only). **Six accepted outright, three accepted with a
-different remedy, none rejected** — a strong review. Full rulings with every claim quoted:
-`loop/items/AI4DEV-57/gate1-rulings.md`; the raw output and distillate are committed beside it.
+**Built, and committed at `b3de541`:** all four tables, two enumerated types and five database
+objects; the shared decision module; both edge functions; the full 37-site acceptance suite with 4
+real bodies and 33 declared pending; the Google provider block; and the step-7 proof script.
 
-**Two findings changed what gets built,** and the executor must not treat either as optional:
-- **A second edge function, `create-organization`** — AT-001.06 had no product operation to test, so
-  the test could only have called a helper directly, which proves nothing about a boundary.
-- **A transactional database function, `complete_signup`** — the plan promised four writes "in one
-  transaction" and had arranged no transaction at all.
+**Run and passing:** the step-0 baseline (all four commands exit 0 — a clean starting point), the
+local Supabase stack (**came up on the first attempt** — the item's riskiest unknown, now closed),
+the step-2 declaration spike (exit 0, 37 declared reds, matched exactly), `bun run db:reset` three
+times, `bun run typecheck` four times, `bun run build` twice, and both edge functions booting under
+the committed configuration.
 
-Three amendments exist to stop a well-meant simplification undoing a ruling: the deliberate absence
-of a GitHub gate on the volunteer path (F1), the deliberate duplication of the account-type refusal
-inside the database (F6), and the requirement that the acknowledgment predicate **discriminate**
-rather than merely exist (F3). Each is marked in the plan with its finding tag.
+**Deliberately NOT run:** the four real acceptance bodies, `proof-local.ts`, and the whole-surface
+step 8. That is the draft boundary, ruled in this sitting: a draft is implemented, not green, because
+the critique must land on oracles nobody has yet tuned to pass.
+
+**So expect continuous integration to be red or inconclusive at this head.** It runs
+`at:verify --expect` over every expected file, and `expected/req-001.json` declares an end state
+whose tests have never executed. **This is the normal state of a draft in this process and must not
+be classified as a defect.** The merge gate is the green on the final head, not on this one.
+
+---
+
+## The three defects the executor found by measuring, which reading alone would not have caught
+
+Recorded because they are the strongest argument in this item for why the plan front-loaded the live
+stack rather than deferring it.
+
+1. **`anon` could call `complete_signup`.** PostgreSQL grants `EXECUTE` on a new function to `PUBLIC`
+   by default, so a holder of only the publishable key could have completed a signup against another
+   user's auth id. Now revoked from `PUBLIC` before being granted to `service_role`.
+2. **`service_role` has no privileges on any of the four tables.** `BYPASSRLS` is a different
+   mechanism from a table privilege, so as first committed **both edge functions were broken against
+   the real database** — and only step 7 would have found it. The repair deliberately did *not* grant
+   the service role INSERT; see `draft-rulings.md` R2, because that repair would have gutted the F6
+   guard.
+3. **Two literal NUL bytes** in the fixture adapter made git classify it as a binary file, which
+   would have reached the critique unreviewable.
 
 ---
 
 ## Open questions for the founder — the conductor raises these, I do not
 
-### 1. The signup SCREENS — ANSWERED, and folded in
+### 1. The signup SCREENS — ANSWERED and folded in. Closed.
 
 The founder ruled the screens stay out of this leaf: follow the manifest, they belong to the wiring
-leaf. `plan.md` decision D1 now stands on that ruling as well as on its three original reasons, and
-its heading says "confirmed by the founder" rather than proposing a reduction. **Closed.**
+leaf. `plan.md` D1 stands on that ruling. Nothing further is needed.
 
-One correction the prior sitting owed: D1's third reason said the `--wired` runner flag "is not
-implemented". That was wrong. The flag is parsed and implemented; what does not exist is the screen
-driver behind it — `runner.ts` line 970 returns 3 with *"the screen driver does not exist yet"*. The
-conclusion is unchanged and the plan now states the fact correctly.
+### 2. The Google OAuth client — ANSWERED in direction, and folded into the plan this sitting
 
-### 2. Is there a Google OAuth client? — STILL OPEN, and it does NOT block code
+The founder ruled that **a real Google OAuth client will be created**: this project runs on external
+Supabase rather than Lovable Cloud, so a real client id and secret are mandatory in every
+environment, not optional extra rigor. Creating the credential is a **founder-manual step**, like
+Docker was.
 
-**Explicitly ruled this sitting, because the plan review pressed on exactly this:** the missing
-OAuth client does not block the executor. Every step of the plan can be built and run without one.
-What it bounds is a **claim**, not the work.
+Folded into `plan.md` D7 and step 7(f2). It blocked nothing: the credential was not set when the
+executor ran, which is the expected case, and the item proceeded unchanged.
 
-- What this item will prove: the `[auth.external.google]` block is well-formed, the stack starts
-  with it present, and `/auth/v1/settings` reports Google enabled; and that a session recorded as
-  provider `google` completes signup through the same shipped path as email.
-- What it will **not** prove: AT-001.03's clause *"sign-in via Google succeeds on return visits"* —
-  a real consent round trip. That is named as unproved in the plan's per-id claims table and will be
-  repeated in the merge ruling.
-- **If an OAuth client exists or can be created before the merge sitting**, step 7 proves the round
-  trip and the claim narrows no further. That is the only thing the founder's answer changes, and it
-  is worth asking for that reason — AT-001.03 is one of this leaf's four ids and is the green most
-  likely to be argued about at merge.
+**What is still worth the founder knowing, stated exactly:**
+- Proved now: the provider block is well-formed, the stack starts with it, and `/auth/v1/settings`
+  reports Google enabled.
+- Provable the moment the credential is in the environment, with no human involved: that the
+  configured client id reaches the provider handshake. That is step 7(f2), currently skipped.
+- **Never provable by any agent:** the consent round trip itself, because consent is a person
+  pressing a button in a browser. **AT-001.03's "sign-in via Google succeeds on return visits" clause
+  stays unproved by this item whether or not the credential arrives** — the credential narrows the
+  gap, it does not close it. Closing it needs a person to sign in once and that evidence recorded.
+  This is repeated in the merge ruling.
 
-### 3. Edge function or `createServerFn` — STILL OPEN with the founder; the ruling stands here
+### 3. Edge function or `createServerFn` — STILL OPEN; the ruling stands and nothing challenged it
 
-Nothing in the plan review gave a concrete reason the edge-function ruling is wrong for this leaf,
-so it stands as the prior sitting made it: server logic lives in `supabase/functions/`, because
-`createServerFn` lives in `src/`, which is Lovable's territory and which this item may not touch at
-all. The finding about a second operation (F4) was ruled *within* that decision — a second edge
-function — not against it.
-
-The underlying contradiction between the two checked-in documents is real, is not this item's to
-fix, and **will bite the screen-wiring leaf squarely**. Relayed, not escalated.
+Server logic lives in `supabase/functions/`, because `createServerFn` lives in `src/`, which is
+Lovable's territory and which this item may not touch at all. Nothing in the draft gave a concrete
+reason to revisit it. The underlying contradiction between the two checked-in documents is real, is
+not this item's to fix, and **will bite the screen-wiring leaf squarely.** Relayed, not escalated.
 
 ---
 
 ## Filed, not built
 
-- **`AGENTS.md` is badly stale.** It documents `/pm-next`, `/dev-start`, `/bind` and TaskMaster — all
-  deleted by the one-verb way of work — and its section 5 ends in a corrupted table fragment at line
-  93. Pre-existing, unrelated to this branch, and it will keep misleading anything that reads it.
-  Independent work that could stand alone: **file it, do not build it here.**
+- **`AGENTS.md` is badly stale** — it documents `/pm-next`, `/dev-start`, `/bind` and TaskMaster, all
+  deleted by the one-verb way of work, and its section 5 ends in a corrupted table fragment at line
+  93. Pre-existing, unrelated to this branch.
+- **`src/routeTree.gen.ts` is stale** and is regenerated by every build. A `src/`-only change; see the
+  standing hazard above.
 
 ---
 
 ## Facts established in the tree, which no later sitting should re-derive
 
-The first five were read in the plan sitting; the last four were read this sitting while checking
-the reviewer's claims. All were read in the tree, never taken from a prompt.
+The first nine were established in earlier sittings and all still hold. The rest were established
+this sitting, by running things rather than by reading them.
 
-1. **First product code: confirmed.** `supabase/migrations/` holds only `.gitkeep` and a README;
-   there is no `supabase/functions/`; `src/` is the untouched Lovable scaffold and references
-   Supabase nowhere.
+1. **First product code: confirmed** — this branch is it.
 2. **The acceptance harness is per-requirement, not per-leaf.** Creating `tests/at/suites/req-001/`
-   obliges all **37** call sites at once, or the run exits 2 with nothing graded. This leaf owns 4.
+   obliged all 37 call sites at once. Done; this leaf owns 4.
 3. **The integration tier cannot go green for any requirement today** — every `sut.<key>` is stamped
-   a stand-in unconditionally, and stand-ins are refused above the loop tier. This leaf's verify
-   command is pinned to `bun run at:verify req-001 --tier loop --expect`.
-4. **The `AtPending` declaration mechanism is verified** against `registry.ts` and `expected.ts`.
-   Step 2 still proves it on the real files before 37 of anything is written.
-5. **The local Supabase stack is still UNPROVEN.** `supabase start` has never been run in this repo.
-   Step 1 of the plan, first, and it stops the item rather than being worked around.
-6. **`bun run typecheck` is `bun tests/at/typecheck.ts`**, which runs `tsc -p` over both projects —
-   but the root project's `include` is `["src/**/*.ts", "src/**/*.tsx", "vite.config.ts",
-   "eslint.config.js"]`. **Nothing under `supabase/` is in the root program.** The shared module is
-   covered by the `tests/at` project alone, and the edge-function entry points by neither.
-7. **`registry.ts` line 723 is `surface: opts.surface ?? 'backend'`** — an unmarked test is a backend
-   test, and `--wired` selects the ui-marked ids. The wiring leaf inherits whatever this leaf marks.
-8. **`--wired` is implemented; the screen driver is not.** `runner.ts` line 970 returns **3**.
-9. **`--expect` and `--wired` cannot be combined** — a usage error, exit 2, *"cannot be combined"*.
-   Irrelevant here, but D2's wiring leaf will need a different command shape than the one this leaf
-   pins.
+   a stand-in unconditionally. This leaf's verify command is pinned to
+   `bun run at:verify req-001 --tier loop --expect`.
+4. **The `AtPending` declaration mechanism works** — no longer inferred. The spike ran: exit 0, 37
+   declared reds, matched exactly. It also settled an open question: a body that throws before
+   asserting is **not** disturbed by `expect.hasAssertions()`.
+5. **The local Supabase stack comes up** — proven, on the first attempt. API on 54321, database on
+   54322. This was the item's riskiest unknown and it is now closed.
+6. **`bun run typecheck` covers `supabase/functions/_shared/accounts.ts` through the `tests/at`
+   project only** — the root project's `include` is `src/`-only, so nothing under `supabase/` is in
+   its program.
+7. **Neither TypeScript project covers the two edge-function entry points or `_shared/edge.ts`, and
+   no Deno type-checker is reachable** — not on PATH, and the edge-runtime container ships no `deno`.
+   **Those three files have no type coverage at all.** Recorded, not worked around; installing a
+   language runtime is bigger than a leaf's call.
+8. **`registry.ts` line 723 is `surface: opts.surface ?? 'backend'`.** AT-001.01, .03 and .07 are
+   marked `surface: 'ui'`; AT-001.06 is left `backend`. The wiring leaf inherits these marks.
+9. **`--wired` is implemented; the screen driver is not** — `runner.ts` line 970 returns 3.
+10. **`--expect` and `--wired` cannot be combined** — usage error, exit 2. D2's wiring leaf will need
+    a different command shape than the one this leaf pins.
+11. **PowerShell 5.1's `Out-File -Encoding utf8` writes a byte-order mark**, and the harness's JSON
+    parser rejects a file carrying one outright. This cost the spike its first run. Any later sitting
+    writing JSON from PowerShell must write it without a BOM.
 
 ---
 
 ## Caps, carried forward
 
-- The executor gets three attempts to reach green inside one invocation, then reports.
-- An orchestrator sitting may send it back twice — three invocations per sitting.
+- The executor gets three attempts to reach green inside one invocation, then reports. **This sitting
+  used one of three** — the draft was a single linear pass with four in-flight corrections.
+- An orchestrator sitting may send the executor back twice — three invocations per sitting. **This
+  sitting used one of three.**
 - The audit re-runs once per item, and only if code changed.
 - A suspected CI flake gets one re-run of the check, with no new commit.
 - A green local verify against a red CI gets two pushes, then escalation with the evidence.
 
-When a cap fires: **stop working, do not stop judging.** What remains is written down as open items
-— filed as separate work, or escalated as scope growth. "We ran out of rounds" is never recorded as
+When a cap fires: **stop working, do not stop judging.** What remains is written down as open items —
+filed as separate work, or escalated as scope growth. "We ran out of rounds" is never recorded as
 "the finding was invalid."

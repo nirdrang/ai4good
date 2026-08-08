@@ -208,6 +208,25 @@ Two enums: `account_type` (`ngo`, `volunteer`, `platform_admin`) and `org_role` 
   place the database repeats a decision the shared module already makes, and it is deliberate: see
   below.
 
+- **[added in sitting 3] `public.create_organization(…)` — the same reasoning, applied to the
+  operation F4 added.** Creating an organisation is two writes, the organisation and its `admin`
+  membership. As two Data API calls that is two transactions, and a failure between them orphans an
+  organisation with no admin — **the exact defect F5 ruled against, reappearing inside the operation
+  F4 introduced.** The executor built it as a fifth database object rather than letting the new
+  operation reinstate the old defect; **I rule that correct.** It performs the two writes and decides
+  nothing: the NGO-only refusal stays in the shared module, so AT-001.06 still exercises shipped
+  TypeScript rather than a rule buried in SQL.
+
+- **[found in sitting 3, by measuring rather than by reading] The privilege posture is part of the
+  schema, not an afterthought.** Two facts were established against the live database and both
+  changed the migration. PostgreSQL grants `EXECUTE` on a new function to `PUBLIC` by default, so
+  every function here is explicitly revoked from `PUBLIC` before being granted to `service_role` —
+  without that, anyone holding only the publishable key could have called `complete_signup`. And
+  `service_role`'s `BYPASSRLS` is not a table privilege, so it holds `SELECT` on `accounts` and
+  **INSERT on nothing**; all writing goes through `SECURITY DEFINER` functions with
+  `set search_path = ''`. Recorded here because the obvious repair — granting the service role INSERT
+  — is the one that must not be made: see step 7(g).
+
 **No trigger on `auth.users`.** The account row is created by the edge function. A user who
 authenticated but never completed signup is a real and honest state — it is literally what
 AT-001.04 (deliverable D1 leaf L2) tests for. A trigger here would be a footgun whose failure mode
@@ -238,9 +257,19 @@ function directly with `platform_admin` and proves the refusal.
 `supabase/functions/complete-signup/`. The caller has already authenticated (email/password via
 `auth.signUp`, or Google via OAuth redirect — neither is a database call, so the standing rule
 holds). This function turns an authenticated auth user into a typed account: sets the type **once**,
-and for an NGO creates the organisation, the `admin` membership and the acknowledgment row with the
-request IP and text version — through the single `complete_signup` database call of D5, which is
-what makes "in one transaction" true rather than merely stated.
+records the acknowledgment with the request IP and text version, and **for an NGO** additionally
+creates the organisation and the `admin` membership — through the single `complete_signup` database
+call of D5, which is what makes "in one transaction" true rather than merely stated.
+
+**[amended in sitting 3] The acknowledgment is recorded for EVERY completion, volunteers included.**
+The plan originally listed it inside the NGO branch. The executor built it for both and flagged the
+change rather than making it silently; **I rule that correct and the plan is what moves.** D4.2
+requires `acknowledgmentTextVersion` from every caller and refuses a completion without it — so
+requiring the field from a volunteer and then discarding it would have validated something the
+system never records, which is worse than either consistent alternative. The `kind` and
+`text_version` columns are what let a later requirement distinguish who accepted which document, so
+recording both types costs nothing in future precision. **The organisation and the membership stay
+NGO-only**; only the acknowledgment is universal.
 
 This is why AT-001.01 and AT-001.03 are the same code path — the difference between email and
 Google is upstream, in how the session was obtained. One function, one job. A second operation, a
@@ -462,10 +491,23 @@ whose `Location` is a Google accounts URL carrying **that** client id and
 expected case, it is not a failure, and a placeholder value must not be dressed up as this proof: a
 placeholder proves the block is well-formed, which is (f), and nothing more.
 **Four added by the plan review:**
-→ (g) **[F2] a platform admin is provisioned and signs in.** Provisioned the only legal way — a
-service-role write, since the public path refuses the type — then signs in with email/password
-against the live stack, and the read-back shows `account_type = platform_admin`. This is AT-001.07's
-first clause, and nothing in the item proved it before.
+→ (g) **[F2] a platform admin is provisioned and signs in**, then signs in with email/password
+against the live stack, with the read-back showing `account_type = platform_admin`. This is
+AT-001.07's first clause, and nothing in the item proved it before.
+**[amended in sitting 3 — the executor disputed this step's wording and I ruled for it.]** This step
+used to say "provisioned the only legal way — a service-role write". **That is now false, and the
+plan moves rather than the code.** Building the migration established by measurement that
+`service_role` holds no INSERT privilege on any of the four tables — it has `BYPASSRLS`, which is a
+different mechanism from a table privilege — so every write goes through a `SECURITY DEFINER`
+function instead. Making the old sentence true would have meant granting `service_role` a direct
+INSERT on `accounts`, which is a write path straight past `complete_signup`'s `platform_admin`
+refusal: it would have **weakened the F6 guard to keep a sentence accurate.** Provisioning is
+therefore a direct database operation by an operator — a *narrower* authority than the service role,
+not a wider one. The auth credential itself is still minted through Auth's admin API, because only
+Auth can create something that can subsequently sign in.
+**This makes the F6 guard stronger than planned and the record should say so:** there is no
+key-reachable write path into `public.accounts` at all, so `complete_signup`'s refusal is not a
+second guard beside a first — it is the only door.
 → (h) **[F3] the acknowledgment predicate discriminates against the real database**: false for an
 authenticated user who has not completed signup, true for one who has.
 → (i) **[F5] atomicity is demonstrated, not asserted.** A completion that passes validation and then
