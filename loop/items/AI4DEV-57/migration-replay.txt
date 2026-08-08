@@ -1,0 +1,151 @@
+﻿# AI4DEV-57 step 4 - the first migration, replayed from empty
+# Captured 2026-08-08T11:39:54.5861866+03:00
+#
+# NOTE: this transcript is the SECOND replay. The first one is described below, because what it
+# found changed the migration.
+
+=== bun run db:reset ===
+bun.exe : $ bunx supabase db reset
+At line:1 char:392
++ ... es\agent-a1762a365a95e390c'; $reset = & bun run db:reset 2>&1 | Out-S ...
++                                           ~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx supabase db reset:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Resetting local database...
+Recreating database...
+Initialising schema...
+Seeding globals from roles.sql...
+Skipping migration .gitkeep... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration README.md... (file name must match pattern "<timestamp>_name.sql")
+Applying migration 20260808120000_accounts_org_membership_and_acknowledgments.sql...
+WARN: no files matched pattern: supabase/seed.sql
+Skipping migration .gitkeep... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration README.md... (file name must match pattern "<timestamp>_name.sql")
+Restarting containers...
+A new version of Supabase CLI is available: v2.113.0 (currently installed v2.110.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+A new version of Supabase CLI is available: v2.113.0 (currently installed v2.110.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+Finished [36msupabase db reset[39m on branch [36mmain[39m.
+{"target":"local","version":"","message":"Reset local database."}
+
+exit code: 0
+
+=== schema introspection against 127.0.0.1:54322 ===
+
+--- enums created in public ---
+{"enum_name":"account_type","labels":"ngo, volunteer, platform_admin"}
+{"enum_name":"org_role","labels":"admin, member"}
+
+--- tables in public, with row-level security enabled and policy count ---
+{"table_name":"accounts","rls_enabled":true,"policies":"0"}
+{"table_name":"acknowledgments","rls_enabled":true,"policies":"0"}
+{"table_name":"org_memberships","rls_enabled":true,"policies":"0"}
+{"table_name":"organizations","rls_enabled":true,"policies":"0"}
+
+--- columns of the four tables ---
+{"table_name":"accounts","column_name":"id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"accounts","column_name":"account_type","data_type":"USER-DEFINED","is_nullable":"NO"}
+{"table_name":"accounts","column_name":"created_at","data_type":"timestamp with time zone","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"account_id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"kind","data_type":"text","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"acknowledged_at","data_type":"timestamp with time zone","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"ip","data_type":"inet","is_nullable":"YES"}
+{"table_name":"acknowledgments","column_name":"text_version","data_type":"text","is_nullable":"NO"}
+{"table_name":"org_memberships","column_name":"org_id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"org_memberships","column_name":"account_id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"org_memberships","column_name":"role","data_type":"USER-DEFINED","is_nullable":"NO"}
+{"table_name":"org_memberships","column_name":"created_at","data_type":"timestamp with time zone","is_nullable":"NO"}
+{"table_name":"organizations","column_name":"id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"organizations","column_name":"name","data_type":"text","is_nullable":"NO"}
+{"table_name":"organizations","column_name":"created_at","data_type":"timestamp with time zone","is_nullable":"NO"}
+
+--- check and key constraints ---
+{"on_table":"accounts","conname":"accounts_id_fkey","definition":"FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"}
+{"on_table":"accounts","conname":"accounts_pkey","definition":"PRIMARY KEY (id)"}
+{"on_table":"acknowledgments","conname":"acknowledgments_account_id_fkey","definition":"FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE"}
+{"on_table":"acknowledgments","conname":"acknowledgments_kind_check","definition":"CHECK ((length(btrim(kind)) > 0))"}
+{"on_table":"acknowledgments","conname":"acknowledgments_pkey","definition":"PRIMARY KEY (id)"}
+{"on_table":"acknowledgments","conname":"acknowledgments_text_version_check","definition":"CHECK ((length(btrim(text_version)) > 0))"}
+{"on_table":"org_memberships","conname":"org_memberships_account_id_fkey","definition":"FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE"}
+{"on_table":"org_memberships","conname":"org_memberships_org_id_fkey","definition":"FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"}
+{"on_table":"org_memberships","conname":"org_memberships_pkey","definition":"PRIMARY KEY (org_id, account_id)"}
+{"on_table":"organizations","conname":"organizations_name_check","definition":"CHECK ((length(btrim(name)) > 0))"}
+{"on_table":"organizations","conname":"organizations_pkey","definition":"PRIMARY KEY (id)"}
+
+--- functions in public ---
+{"proname":"complete_signup","arguments":"p_account_id uuid, p_account_type text, p_organization_name text, p_acknowledgment_text_version text, p_ip inet","returns":"jsonb","security_definer":false}
+{"proname":"has_platform_acknowledgment","arguments":"p_account_id uuid","returns":"boolean","security_definer":false}
+
+--- policies in public (expected: none) ---
+
+--- Data API grants on the four tables ---
+{"table_name":"accounts","grantee":"anon","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"accounts","grantee":"authenticated","privileges":"INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE"}
+{"table_name":"accounts","grantee":"service_role","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"anon","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"authenticated","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"service_role","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"org_memberships","grantee":"anon","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"org_memberships","grantee":"authenticated","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"org_memberships","grantee":"service_role","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"organizations","grantee":"anon","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"organizations","grantee":"authenticated","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"organizations","grantee":"service_role","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+
+--- execute grants on the two functions ---
+{"proname":"complete_signup","grantee":"anon","can_execute":false}
+{"proname":"complete_signup","grantee":"authenticated","can_execute":false}
+{"proname":"complete_signup","grantee":"service_role","can_execute":true}
+{"proname":"has_platform_acknowledgment","grantee":"anon","can_execute":false}
+{"proname":"has_platform_acknowledgment","grantee":"authenticated","can_execute":false}
+{"proname":"has_platform_acknowledgment","grantee":"service_role","can_execute":true}
+
+--- supabase_migrations.schema_migrations ---
+{"version":"20260808120000","name":"accounts_org_membership_and_acknowledgments"}
+
+
+================================================================================
+WHAT THE FIRST REPLAY FOUND, and why this transcript is the second one
+================================================================================
+
+The migration was replayed once, introspected, and the introspection reported:
+
+  {"proname":"complete_signup","grantee":"anon","can_execute":true}
+  {"proname":"complete_signup","grantee":"authenticated","can_execute":true}
+  {"proname":"has_platform_acknowledgment","grantee":"anon","can_execute":true}
+  {"proname":"has_platform_acknowledgment","grantee":"authenticated","can_execute":true}
+
+PostgreSQL grants EXECUTE on a newly created function to PUBLIC by default, and the
+Data API roles inherit it. grant execute ... to service_role therefore locked
+nothing down - it added a grant beside one that was already there.
+
+Concretely, before the fix: anyone holding only the local publishable key could POST
+/rest/v1/rpc/complete_signup with an arbitrary p_account_id and mint an 
+go account,
+an organisation and an admin membership against an auth user that is not theirs. The
+platform_admin guard inside the function held throughout, so an administrator could
+not be minted - but a write nobody authorised could.
+
+The migration now REVOKES execute from PUBLIC on both functions before granting to
+service_role, and the transcript above is the replay of the corrected file. The
+migration had not left this machine, so it was corrected in place rather than with a
+follow-up file (see supabase/migrations/README.md on when that is allowed).
+
+This was found by MEASURING the replayed database rather than by reading the SQL. The
+SQL reads correct either way, which is exactly why the step exists.
+
+================================================================================
+SEEN AND DELIBERATELY NOT TOUCHED
+================================================================================
+
+The grant listing above shows anon, authenticated and service_role each holding
+REFERENCES, TRIGGER and TRUNCATE on all four new tables. Nothing in this migration
+grants those: they come from Supabase's own default privileges on the public schema
+and land on any table anyone creates here. They are not reachable through the Data
+API (PostgREST issues no TRUNCATE and no CREATE TRIGGER), and none of the three roles
+can open a direct database connection. Changing the platform's default privileges is
+a repository-wide decision and is not this leaf's to make - recorded here so the next
+reader does not have to rediscover it.
