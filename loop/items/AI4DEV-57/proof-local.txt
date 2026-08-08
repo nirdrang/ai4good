@@ -1,0 +1,78 @@
+﻿AI4DEV-57 (email + Google signup, three account types) - step 7, the local integration proof.
+
+Produced by: bun loop/items/AI4DEV-57/proof-local.ts
+Run at:      2026-08-08, local time, on the founder's Windows machine.
+Head:        ceed45b9bc35649c374ad4ea0f446fa231231bc4
+Stack:       supabase CLI 2.110.0, API on 127.0.0.1:54321, database on 127.0.0.1:54322,
+             edge runtime supabase-edge-runtime-1.74.2 (compatible with Deno v2.1.4).
+Preconditions performed in order: bun run db:start, bun run db:reset (the migration replayed
+clean from empty), then bunx supabase functions serve WITHOUT --no-verify-jwt, which reported
+both complete-signup and create-organization being served.
+
+THIS TRANSCRIPT IS EVIDENCE FROM ONE MACHINE AND A REVIEWER CANNOT REPRODUCE IT. It is the only
+evidence this item has about the real database, the real edge functions and real Supabase Auth;
+the loop-tier acceptance suite proves the shipped decision module and nothing below it.
+
+VERDICT: 14 checks, 13 passed, 0 failed, 1 SKIPPED, plus 1 measurement that asserts nothing.
+The skip is (f2), the Google handshake: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID was absent from
+the environment, which is the expected case because creating the OAuth client is a founder-manual
+step. A skip is not a pass, which is why the closing line does not say ALL CHECKS PASSED.
+
+-------------------------------------------------------------------------------------------------
+
+PASS  (a) email/password signup produces an ngo account, an organisation, an admin membership and a three-field acknowledgment
+        HTTP 200 {"ok":true,"accountId":"ac92caa9-51af-4da8-b41d-871a779655d9","accountType":"ngo","organizationId":"c89c75aa-c365-48e1-b3bc-73b6fe866db2"} · account=[{"account_type":"ngo"}] · org+membership=[{"id":"c89c75aa-c365-48e1-b3bc-73b6fe866db2","name":"Riverside Shelter","role":"admin"}] · acknowledgment=[{"kind":"platform_tos_and_promise","ip":"203.0.113.7","text_version":"tos-2026-01+promise-2026-01","acknowledged_at":"2026-08-08T10:00:35.344Z"}]
+PASS  (b) the same email and password sign in again, onto the same account
+        HTTP 200 · returned user ac92caa9-51af-4da8-b41d-871a779655d9 · original ac92caa9-51af-4da8-b41d-871a779655d9
+PASS  (c) the public signup path refuses platform_admin and writes nothing
+        HTTP 400 {"ok":false,"reason":"platform_admin is not available through public signup — a platform administrator is provisioned, never self-signed-up"} · accounts rows for that user: 0
+PASS  (d) the NGO-only action succeeds for an NGO account and is refused for a volunteer
+        ngo: HTTP 200 {"ok":true,"organizationId":"088a4f14-346c-4bd8-9a10-503f97ff01b4"} membership=[{"role":"admin","name":"Riverside Shelter Second Programme"}] · volunteer: HTTP 403 {"ok":false,"reason":"this action is available to NGO accounts only — the caller's account is of type \"volunteer\", and one account holds exactly one global type, so the NGO path requires a separate account"} memberships=0
+PASS  (e) a client-key insert into public.accounts is refused by row-level security, and changes nothing
+        HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"accounts\""} · account after the attempt: [{"account_type":"volunteer"}]
+PASS  (f) Auth reports the Google provider enabled, and apple untouched
+        external.google=true external.apple=false
+SKIP  (f2) the configured Google client id reaches the provider handshake
+        SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID is ABSENT from this environment. Creating the OAuth client is a founder-manual step, so this is the expected case and not a failure. (f) above still holds: the block is well-formed and Auth reports Google enabled. This check stays unperformed rather than being faked.
+PASS  (g) a provisioned platform administrator authenticates and carries the platform_admin type
+        sign-in HTTP 200 · user 14d52537-fef2-4e0f-8343-829623295618 · account row [{"account_type":"platform_admin"}]
+PASS  (h) has_platform_acknowledgment discriminates: false before signup completion, true after
+        the NGO before completion: false · after: true · a user whose completion was refused: false
+PASS  (i) a completion that fails on its last write leaves NO partial state
+        the database raised: new row for relation "acknowledgments" violates check constraint "acknowledgments_text_version_check" · rows left behind: {"accounts":0,"organizations":0,"memberships":0,"acknowledgments":0}
+PASS  (j) the database refuses platform_admin even when called directly with the service role
+        HTTP 403 {"code":"42501","details":null,"hint":null,"message":"complete_signup refuses account type platform_admin: a platform administrator is provisioned, never self-signed-up"} · accounts rows for that user: 0
+PASS  (k) a SERVICE-ROLE insert into public.accounts is refused for want of the privilege, and writes nothing
+        HTTP 403 {"code":"42501","details":null,"hint":"Grant the required privileges to the current role with: GRANT INSERT ON public.accounts TO service_role;","message":"permission denied for table accounts"} · accounts rows for that user: 0
+PASS  (l) the database refuses an organisation for a volunteer account even when called directly with the service role
+        HTTP 403 {"code":"42501","details":null,"hint":null,"message":"create_organization refuses account type volunteer: creating an organisation is an NGO-only action"} · organisations by that name: 0
+PASS  (m) the LOCAL gateway answers a browser preflight and the POST response carries the access-control headers
+        preflight HTTP 200 · allow-origin=* · allow-headers=authorization, apikey, content-type, x-client-info · allow-methods=GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS,TRACE,CONNECT · the earlier POST's allow-origin=* · this is the LOCAL Kong and edge runtime; it says nothing about the hosted gateway
+OBS   (n) what the local gateway does to a client-supplied x-forwarded-for (measured, asserts nothing)
+        NO header sent → completion HTTP 200, acknowledgments.ip = [{"ip":"172.18.0.1","is_null":false}] · SPOOFED header 198.51.100.99 sent → completion HTTP 200, acknowledgments.ip = [{"ip":"198.51.100.99","is_null":false}] · for comparison, the honest first call (a) sent 203.0.113.7 and recorded ["203.0.113.7"]
+
+14 checks · 13 passed · 0 failed · 1 skipped · 1 measurements recorded (which assert nothing)
+SKIPPED: (f2)
+EVERY CHECK THAT RAN PASSED — 1 DID NOT RUN, so this run does not certify them
+
+-------------------------------------------------------------------------------------------------
+
+TWO THINGS THE RUN SHOWED THAT THE LINES ABOVE DO NOT SPELL OUT. This section is the executor's
+reading of its own transcript, not a check result; nothing here passed or failed anything.
+
+1. MEASUREMENT (n) SETTLES THE x-forwarded-for QUESTION ON THE LOCAL STACK, AND IT SETTLES IT
+   AGAINST US. With no header sent, the recorded address was 172.18.0.1 - the Docker bridge, which
+   is the gateway's own hop and not the client. With a spoofed header sent, the recorded address
+   was 198.51.100.99 VERBATIM: the value the caller chose. So the local gateway neither overwrites
+   nor prepends, and the first entry of the chain is whatever the caller put there. Four reviewers
+   claimed the acknowledgment IP is client-controlled and all four marked the claim unverified
+   because it could not be settled by reading; on this stack it is now verified true. What the
+   HOSTED gateway does is a different question and is not observable from here. The acknowledgment
+   therefore records AN address, never a verified source address.
+
+2. CHECK (m) PASSED, BUT THE allow-methods HEADER IS NOT THE ONE THE FUNCTION SENDS. The edge
+   function sends 'POST, OPTIONS'; the preflight answer carried
+   'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS,TRACE,CONNECT', so the local Kong replaces that header
+   with its own. allow-headers came back exactly as the function set it. The check asserts that
+   POST is permitted rather than pinning the whole string, so it is unaffected - but a reader
+   comparing the code with this transcript would otherwise think the code was wrong.

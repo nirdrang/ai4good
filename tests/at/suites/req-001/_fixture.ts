@@ -16,9 +16,12 @@
  *     grading a puppet and the green is worth nothing.
  *   - NOT PROVED: that the migration is correct, that either edge function works, that row-level
  *     security denies what it should, that Supabase Auth is configured, or that Google sign-in
- *     works. None of that is reachable from here — the storage below is a Map. The evidence for that
- *     half is `loop/items/AI4DEV-57/proof-local.txt`, produced against the live local stack on one
- *     machine.
+ *     works. None of that is reachable from here — the storage below is a Map. The evidence for
+ *     that half is `loop/items/AI4DEV-57/proof-local.txt`, which was produced against the live
+ *     local stack on one machine and EXISTS: 14 checks, 13 passed, 0 failed, one skipped. The skip
+ *     is the Google handshake, because no OAuth credential was in the environment — so "Google
+ *     sign-in works" is not proved by the live tier either, and no amount of green anywhere in this
+ *     item proves it. A reviewer cannot reproduce that transcript; it is one machine's word.
  *
  * WHAT THE STORAGE HALF DOES MIRROR, because a stand-in that mirrors nothing tests nothing: one
  * account row per auth user (so "one account holds exactly one global type" is structural here as it
