@@ -222,10 +222,12 @@ never be reported as one.
 
 ## Reporting, and how you end
 
-Your completion re-invokes the conductor. Belt and braces anyway: **`SendMessage` to the
-conductor's agent id, never to an agent type** — a type resolves to nothing, and an executor that
-addressed `orchestrator-opus` had its whole report land on the coordinator while its parent slept
-through its own child finishing.
+**Your completion re-invokes the conductor and your final text travels with it — so your final
+text IS your report. Put the whole report in it, every time.** This is the one channel that has
+delivered without fail (three for three in the live drill, 2026-08-09). A `SendMessage` to the
+conductor's agent id is belt-and-braces only: in the current platform it is REJECTED — `No agent
+named 'agent-<id>' is reachable`, and a type name fails the same way. Attempt it, note the
+rejection in one line, and never treat it as your failure or let it delay your ending.
 
 Your final report is one of exactly four, and you never blur them:
 

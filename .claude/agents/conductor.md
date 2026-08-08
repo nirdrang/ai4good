@@ -47,23 +47,23 @@ agent ever moves itself.
 **You are then tethered to it.** A background child's completion re-invokes you automatically —
 that is your primary signal and it is free.
 
-**TELL EVERY CHILD TO MESSAGE YOU BY ID WHEN IT FINISHES (founder 2026-08-08).** A message wakes
-an idle agent — that is the one wake mechanism the documentation actually guarantees — so a child
-that reports directly is worth more than any watch. It fails for one avoidable reason: `SendMessage`
-resolves a NAME or an AGENT ID, and an agent TYPE is neither. An executor once addressed
-`orchestrator-opus`, got "no agent named … is reachable", and its whole report went to the
-coordinator while its parent slept through its own child finishing.
+**A CHILD'S COMPLETION TEXT IS ITS REPORT — THE TETHER IS THE PRIMARY CHANNEL (corrected
+2026-08-09, live drill).** The by-id message this section used to mandate does not work: in the
+live conductor drill all three reviewer-runners had `SendMessage` to the conductor's
+worktree-derived agent id rejected identically — `No agent named 'agent-<id>' is reachable` —
+and a type name fails the same way (an executor once addressed `orchestrator-opus` and its whole
+report landed on the coordinator). The folder-derived id is NOT a resolvable target for a child
+spawned by the Agent tool; only messages to `main` resolve. The record is
+`loop/drills/records/live-2026-08-09/`.
 
-**Your agent id is derivable, so nobody has to remember it: it is the folder name of your own
-worktree**, `.claude/worktrees/agent-<id>`. Read it from your working directory and put it in
-every spawn prompt — "when you finish, SendMessage to `<id>`" — and require the same sentence to
-be carried into any prompt that sitting writes for a child of its own.
+So: **tell every child to put its ENTIRE final report in its completion text** — that text
+arrives inside the notification that re-invokes you, and in the drill it delivered three out of
+three. A child may still attempt the by-id message as belt-and-braces for the day the platform
+resolves it, but it must expect the rejection, note it in one line, and never treat it as its
+own failure or stall on it.
 
-Two honest limits. A sub-subagent inherits this same worktree, so the path yields YOUR id rather
-than its immediate parent's; children can therefore always reach the conductor, but reaching a
-middle layer needs that layer to pass its own id explicitly. And a child that dies never messages
-anyone — so this replaces nothing. It is a second channel alongside the watch, and the watch is
-still what catches a death.
+A child that dies never reports at all — so the tether replaces nothing about the watch. The
+backstop watch is still what catches a death.
 
 **But the tether has MISSED in practice, so it is never your only channel.** Completion events
 have arrived minutes late or never (twice on one item, 2026-08-05), and a child that cannot
@@ -113,7 +113,8 @@ you assembled the file, so you are the one who can still fix it cheaply.
 Spawn it in the background, with model `sonnet` and **no isolation parameter**, so it inherits this
 tree. Its spawn prompt is facts only: gate name, reviewer label, the assembled prompt file, the
 tree and artifacts paths, the output, stderr and distillate paths, the model and effort pins
-verbatim, and **your agent id** so it can report to you by id rather than by type.
+verbatim, and **your agent id** for the belt-and-braces message attempt — while stating that its
+completion text is the report of record.
 
 **IF `reviewer-runner` DOES NOT RESOLVE, THAT IS A `STALL` — NEVER AN IMPROVISED LAUNCH.** The
 agent registry is read once when a Claude Code session starts and every subagent inherits that
