@@ -145,16 +145,16 @@ this is not a quoting bug you can escape your way out of. Build the line yoursel
 pointer telling kimi to read the prompt file from disk — never the prompt text itself:
 
 ```powershell
-# BOTH STREAMS INTO THE REVIEW FILE. Kimi's narration goes to stdout and its ANSWER — including
-# the `CODE REVIEW: N FINDINGS` count line — comes out on stderr. Splitting them wrote a review
-# file containing nothing but "Now reading the two depth files…" while the real critique, seven
-# findings of it, sat in the log nobody reads. The file existed, was non-empty, and stopped
-# growing, so every liveness test passed and the gate looked complete. Merge both and the answer
-# is captured whichever stream carries it.
 $line = '-m kimi-code/k3 --output-format text -p "Read ' + $promptFile + ' and follow it."'
 Start-Process cmd -WindowStyle Hidden -PassThru -WorkingDirectory $tree `
-  -ArgumentList ('/c', ('kimi ' + $line + ' 1>"' + $out + '" 2>&1'))
+  -ArgumentList ('/c', ('kimi ' + $line + ' 1>"' + $out + '" 2>"' + $err + '"'))
 ```
+
+**Kimi writes its narration to the output file PROGRESSIVELY and its verdict only at the end**, so
+mid-run that file is a few hundred bytes of "Now reading the two depth files…" and nothing else. A
+coordinator read it at that moment, concluded the answer was going to the wrong stream, and
+changed this recipe to merge stderr in — which would have buried seven findings inside a 68KB
+reasoning transcript. The recipe was never wrong. **Do not merge the streams.**
 
 **AND CHECK THE REVIEW FILE FOR FINDINGS, NOT FOR EXISTENCE.** Every reviewer's raw output must
 end with its own count line — `CODE REVIEW: N FINDINGS`, `CODE REVIEW: CLEAN`, `PLAN REVIEW: …`,
