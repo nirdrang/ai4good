@@ -1,0 +1,46 @@
+# AI4DEV-58 (GitHub sign-in, mandatory GitHub link) - STEP 4, DRAFT-LEVEL EVIDENCE ONLY
+# Captured 2026-08-09, after `bun run db:stop` then `bun run db:start` (both exit 0), which is the
+# restart the auth configuration change requires in order to take.
+
+WHAT THIS FILE IS, AND WHAT IT IS NOT
+-------------------------------------
+Step 4's done criterion has two halves. The first - the stack SERVES the changed function after a
+restart - is met here. The second - "exercised end to end" - is step 6's proof script and is
+DEFERRED to a later sitting by the draft brief. Nothing below drives a signup, and no green here
+may be read as one.
+
+It also prints no key material, deliberately. The first capture of this item's stack-up transcript
+held the local development keys verbatim and GitHub push protection refused the push, naming the
+Supabase secret key by file and line. Every capture in this item is written with that in mind.
+
+WHAT WAS MEASURED
+-----------------
+{"check":"complete-signup preflight","status":204,"allowHeaders":"authorization, apikey, content-type, x-client-info","allowMethods":"POST, OPTIONS"}
+{"check":"complete-signup unauthenticated POST","status":401,"body":"{\"ok\":false,\"reason\":\"authenticate before completing signup\"}"}
+{"check":"create-organization preflight","status":204}
+{"check":"/auth/v1/settings external providers","github":true,"google":true,"email":true}
+{"check":"GITHUB client id present in the environment the stack started with","present":false}
+
+WHY EACH LINE IS THE EVIDENCE IT CLAIMS TO BE
+---------------------------------------------
+1. The preflight is answered 204 with EXACTLY the four allowed headers and two methods that
+   `CORS_HEADERS` in supabase/functions/_shared/edge.ts spells. A container that merely listens
+   would not produce that header set, so this says our module loaded, not that a port is open.
+
+2. The unauthenticated POST is refused 401 with our own sentence. That refusal comes from
+   `resolveCaller` - the function this item widened to carry `githubHandle`, and the one that now
+   imports `./github.ts`. A module whose new import failed to resolve inside the Deno edge runtime
+   would 500 or fail to boot; a 401 carrying our text means the changed module is the one running.
+
+3. `create-organization` still serves. It shares the widened `Caller` type and reads only
+   `caller.id`, so this is the check that widening the type broke nothing beside it.
+
+4. `/auth/v1/settings` reports github: true, alongside the google: true the predecessor item
+   established. This is the whole of what the `[auth.external.github]` block can prove: the
+   configuration is WELL-FORMED and the stack started with it. It is NOT a claim that any GitHub
+   handshake works.
+
+5. No GitHub OAuth client id is set in the environment. This is the EXPECTED case and blocks
+   nothing - creating the OAuth app is a founder-manual step, exactly as it was for Google. It is
+   recorded because step 6(f2) is conditional on it, and because a stack reporting github: true with
+   no real credential must never be reported as more than well-formedness.
