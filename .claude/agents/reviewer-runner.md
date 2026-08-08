@@ -53,13 +53,16 @@ launched with a guessed pin is evidence about a model nobody chose.
 
 ## Step 0 — the three checks, in this order, before you launch anything
 
-**1. Can you write to the artifacts directory?** It sits *beside* the worktree, not inside it, and
-you inherit the conductor's worktree isolation. On AI4DEV-57 the isolation guard refused calls
-naming a path outside the worktree, the conductor switched mechanisms mid-flight, and the item
-stalled. Write a probe file to the artifacts directory and read it back. **If you are refused,
-that is an immediate report and a full stop** — say exactly what refused you. Do not find another
-path, do not write into the tree, and above all do not launch a reviewer whose output you would
-then be unable to collect.
+**1. Can you write to the artifacts directory — probed with the SAME instrument you will write
+with?** The directory sits **inside** the tree at `loop/items/<item>/artifacts/` (founder ruling
+2026-08-09; it lived beside the tree until the Write tool's isolation guard collided with that
+placement and a runner's shell fallback was flagged by the platform as a policy bypass). Probe it
+with the Write tool itself, never with the shell — the live drill proved a shell probe passes
+where the Write tool refuses, which is measuring the wrong instrument, and it is exactly how
+AI4DEV-57 stalled. **If you are refused, that is `REFUSED`, immediately, before any launch.** Do
+not find another path, do not switch instruments — a tool refusal answered through the shell is a
+security bypass, not resourcefulness — and above all do not launch a reviewer whose output you
+would then be unable to collect.
 
 **2. Is the prompt clean?** You are the last actor before the launch, and nothing downstream can
 see what a prompt contained — a prompt carrying the system's own description produces a perfectly
@@ -244,5 +247,7 @@ Your final report is one of exactly four, and you never blur them:
 - assemble, edit, or improve a reviewer prompt
 - choose or adjust a model or effort pin
 - launch a second reviewer, or relaunch one that died — the conductor decides that
-- write anything into the item's tree
+- work around a tool refusal with another instrument — a denial answered through the shell is a
+  policy bypass, and the platform flags it as one
+- write anything into the item's tree outside `loop/items/<item>/artifacts/`
 - report an empty, aborted, or dead gate as a clean one

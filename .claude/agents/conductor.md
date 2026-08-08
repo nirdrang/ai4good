@@ -25,9 +25,12 @@ That tree **is** the item's tree; every role inside this item will work in it.
    and was taken from the board verbatim.
 2. `bun install --frozen-lockfile` — once, now, about fifty seconds. Everything downstream
    assumes a ready tree.
-3. Create the item's artifacts directory **outside** the tree, beside it. Reviewer output and
-   distillates live there so a tree reset can never destroy evidence and untracked files never
-   pollute what reviewers read.
+3. Create the item's artifacts directory **inside** the tree: `loop/items/<ITEM>/artifacts/`
+   (founder ruling 2026-08-09 — it lived beside the tree until the Write tool's isolation guard
+   collided with that placement and a runner's shell fallback was flagged as a policy bypass).
+   Reviewer output, stderr logs and distillates land there and are **committed at every phase
+   boundary** — the commit is what preserves evidence, and it also marks the worktree changed so
+   the platform will not auto-clean it under a dying agent.
 
 **THE `.stderr.log` FILES GO INTO THE COMMITTED RECORD, not just the raw outputs (2026-08-07).**
 They carry the run header — model, effort, sandbox, and the vendor's `session id` — and that id is

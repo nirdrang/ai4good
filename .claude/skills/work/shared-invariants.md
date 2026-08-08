@@ -86,9 +86,14 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
 - **One writer at a time.** Only the role currently holding the work writes; everyone else reads.
 - A sitting exits with `git status --porcelain` empty. Uncommitted work is invisible to
   reviewers, to CI and to the merge — so if it is not committed, it does not exist.
-- Reviewer output never lands inside the tree **while a gate is open**; it goes to the item's
-  artifacts directory. The fix and audit sittings then commit the raw critiques and distillates
-  into the record — evidence that stays only in the artifacts directory dies with the sweep.
+- Reviewer output lands ONLY in the item's artifacts directory — `loop/items/<item>/artifacts/`,
+  **inside the tree** — and never elsewhere in the tree while a gate is open. (Founder ruling
+  2026-08-09: it lived beside the tree until the Write tool's isolation guard collided with that
+  design and a shell fallback got flagged as a policy bypass; inside the tree, no boundary is
+  crossed at all.) The fix and audit sittings commit the raw critiques, stderr logs and
+  distillates into the record at each phase boundary — the commit is what preserves evidence,
+  and it also marks the worktree changed so the platform will not auto-clean it under a dying
+  agent.
 - **A branch belongs to the DIRECTORY, not to the session.** Several sessions can sit in one
   folder, and a branch change there moves all of them mid-turn, silently. So the main worktree
   stays on `main` permanently and is where the coordinator works; every item gets its own folder
@@ -169,4 +174,8 @@ different tool, and every one of them was reported confidently the first time.
   non-optional, and leaves an open gate addressable by agent id. It also puts every reviewer wait
   on the wake channel that has not failed — a subagent's completion re-invokes its parent, whereas
   the background shell watches it replaces went silent twice on one item.
+- **Never work around a tool refusal by switching instruments.** A denial at the tool layer
+  answered with the same action through the shell is a security bypass, and the platform flags it
+  as exactly that (measured 2026-08-09, live drill). A tool refusal is a `REFUSED` report handed
+  up; the boundary's owner changes the boundary, never the actor it refused.
 - PowerShell, never Bash. bun, never npm or pnpm.
