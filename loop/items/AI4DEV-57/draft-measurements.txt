@@ -1,0 +1,136 @@
+AI4DEV-57 (email + Google signup, three account types)
+MEASURED FACTS FROM THE DRAFT SITTING
+======================================================
+
+These are the answers the plan asks to be RECORDED rather than assumed, gathered while the draft
+was written. `verify-final.txt` is plan step 8's artifact and step 8 was deliberately not run in
+the draft sitting, so they are collected here for the sitting that does run it to fold in.
+
+Every line below was measured on this machine on 2026-08-08, not reasoned about.
+
+
+1. THE GOOGLE PROVIDER BLOCK (plan step 7(f) and its precondition)
+------------------------------------------------------------------
+
+`GET http://127.0.0.1:54321/auth/v1/settings` with the local publishable key, after
+`[auth.external.google]` was added to supabase/config.toml and the stack restarted:
+
+    "external": { ... "apple": false, ... "google": true, ... "email": true, ... }
+
+  * google is TRUE - the new block is well-formed and Auth read it.
+  * apple is FALSE - the template's example block was not repurposed, renamed or edited. It is
+    exactly as it shipped.
+
+THE STACK STARTS WITH THE BLOCK PRESENT AND NO CREDENTIAL IN THE ENVIRONMENT.
+The plan's risk 2 anticipated that `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` resolving to
+nothing might prevent `supabase start` from completing, and prepared a git-ignored .env.local
+placeholder as the mitigation. Measured: `bunx supabase stop` then `bun run db:start` exits 0 with
+both variables unset, and Auth reports google enabled anyway. So NO PLACEHOLDER WAS CREATED - the
+mitigation was not needed and inventing an unnecessary untracked file would be worse than not
+having one.
+
+`SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` was NOT SET in the environment this sitting ran in.
+That is the expected case the founder's ruling names. Consequently:
+
+    STEP 7(f2) IS SKIPPED FOR WANT OF A REAL CREDENTIAL, NOT PERFORMED AND NOT FAKED.
+
+The empty value proves the block is well-formed, which is step 7(f), and nothing more. It is not
+a credential and must never be described as one.
+
+
+2. BOTH EDGE FUNCTIONS BOOT AND ANSWER (plan step 5)
+-----------------------------------------------------
+
+`bunx supabase functions serve`, with the committed configuration - NOT --no-verify-jwt:
+
+    Serving functions on http://127.0.0.1:54321/functions/v1/<function-name>
+     - http://127.0.0.1:54321/functions/v1/complete-signup
+     - http://127.0.0.1:54321/functions/v1/create-organization
+    Using supabase-edge-runtime-1.74.2 (compatible with Deno v2.1.4)
+
+Four requests, each carrying a valid local JWT so that verify_jwt admits them and the function
+itself runs (the server log confirms "serving the request with supabase/functions/<name>" for
+each):
+
+    complete-signup      GET   405  {"ok":false,"reason":"complete-signup accepts POST only"}
+    complete-signup      POST  401  {"ok":false,"reason":"authenticate before completing signup"}
+    create-organization  GET   405  {"ok":false,"reason":"create-organization accepts POST only"}
+    create-organization  POST  401  {"ok":false,"reason":"authenticate before creating an organisation"}
+
+WHAT THAT ESTABLISHES, exactly: every module in each function's import graph loaded, including
+`_shared/accounts.ts` and `_shared/edge.ts`; the three top-level `requireEnv` calls all resolved
+(a missing SUPABASE_URL, anon key or service-role key throws at module scope, which would have
+been a 500 and a boot error in the log, not a 401 with our own sentence); `Deno.serve` is running;
+the method guard works; and `resolveCaller` correctly refuses a token that is a valid JWT but is
+not a user's - it asks Supabase Auth rather than decoding the payload itself.
+
+WHAT IT DOES NOT ESTABLISH: that a signed-in happy path returns 200 with the expected rows. That
+is plan step 7, whose script is written and deliberately NOT executed in the draft sitting.
+
+
+3. THE DENO TYPE-CHECK QUESTION, ANSWERED RATHER THAN ASSUMED (plan step 5, F8)
+-------------------------------------------------------------------------------
+
+NO DENO TYPE-CHECKER IS REACHABLE ON THIS MACHINE, so NO TYPE COVERAGE IS CLAIMED for either
+edge-function entry point or for `supabase/functions/_shared/edge.ts`.
+
+Measured:
+  * `Get-Command deno` - not on PATH.
+  * The edge-runtime container `public.ecr.aws/supabase/edge-runtime:v1.74.2` ships
+    `/usr/local/bin/edge-runtime` and `edge-runtime.debug` and NO `deno` binary:
+    `docker exec supabase_edge_runtime_... sh -c "which deno"` answers `deno: not found`.
+
+Installing a standalone Deno would be adding a language runtime to the toolchain, which is a
+bigger decision than a leaf makes - reported, not worked around.
+
+WHICH PROGRAM DOES COVER WHAT, stated correctly:
+  * `supabase/functions/_shared/accounts.ts` IS covered, by the `tests/at` project only, because
+    `tests/at/suites/req-001/_fixture.ts` imports it. That project is the strict one
+    (skipLibCheck false, types ["node"], no DOM), so the constraint on that module is genuinely
+    enforced. The root project's `include` is src/** plus two config files, so nothing under
+    supabase/ is in its program - EXACTLY ONE project covers it, not both.
+  * The two `index.ts` entry points and `_shared/edge.ts` are covered by NEITHER, and are not
+    meant to be: they use `Deno.env` and `Deno.serve`, which the node-typed program cannot see.
+  * Neither tsconfig was edited to change that. The root project is Lovable's territory, and
+    putting Deno-targeted files into a DOM program trades one wrong answer for another.
+
+What stands in place of the type-check is section 2 above and plan step 7, which serve and
+exercise both functions - stronger evidence than a type-check in some ways and weaker in others.
+What is not acceptable is leaving a reader to assume `bun run typecheck` covered them, so this
+paragraph exists.
+
+
+4. HOW THE `surface: 'ui'` MARKING IS OBSERVABLE (plan step 6, F7)
+------------------------------------------------------------------
+
+READ FROM SOURCE, NOT MEASURED BY A RUN - and labelled that way deliberately, because the run
+that would measure it is the verify suite, which the draft sitting does not run.
+
+  * `bun run at:check req-001` does NOT show it. `tests/at/harness/check.ts` reads the
+    `atTest('AT-...'` call sites with a regular expression and never parses the options object, so
+    the surface is invisible to that command. Anyone looking for it there will conclude wrongly
+    that nothing was marked.
+  * The RUNTIME REGISTRATION does show it. `tests/at/harness/registry.ts` builds
+    `{ ...parsed, title, surface: opts.surface ?? 'backend' }` and `emitRuntimeRegistration()`
+    appends that object as JSON to `$AT_REGISTRATION_DIR/registration-<pid>.jsonl` whenever the
+    environment variable is set. So the command that observes it is:
+
+        AT_REGISTRATION_DIR=<dir> bun run at:verify req-001 --tier loop --expect
+        then read <dir>/registration-*.jsonl and look at each row's "surface"
+
+Expected content once run: `"surface":"ui"` on AT-001.01, AT-001.03 and AT-001.07, and
+`"surface":"backend"` on AT-001.06 and on all 33 pending stubs (which pass no surface option at
+all, so the leaf that lands each one sets its surface in the same edit that writes its body).
+
+The sitting that runs step 8 should execute the command above and replace this section with the
+measured output.
+
+
+5. ONE THING THE INTROSPECTION CAUGHT THAT READING THE SQL WOULD NOT HAVE
+-------------------------------------------------------------------------
+
+See `migration-replay.txt` for the full account. In short: PostgreSQL grants EXECUTE on a new
+function to PUBLIC by default, so the first replay left `anon` able to call `complete_signup`
+through the Data API. The migration now revokes execute from public on all three functions before
+granting to service_role, and the second replay confirms anon and authenticated can execute none
+of them.

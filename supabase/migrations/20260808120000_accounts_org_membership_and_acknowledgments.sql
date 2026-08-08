@@ -211,6 +211,51 @@ $$;
 comment on function public.complete_signup(uuid, text, text, text, inet) is
   'The one transactional signup-completion write path (REQ-001, AT-001.01/.03). All four rows or none; refuses platform_admin independently of the edge function.';
 
+-- THE SECOND TWO-WRITE PATH, and this object is NOT in the plan's list for this step.
+--
+-- Recorded as a deviation rather than slipped in. The plan's step 4 names the two enums, the four
+-- tables, the acknowledgment predicate and `complete_signup`; the `create-organization` edge
+-- function was added by the plan review because AT-001.06 had no product operation to test. But
+-- creating an organisation is TWO writes — the organisation and its `admin` membership — and issued
+-- as two Data API calls those are two transactions. A failure between them leaves an organisation
+-- nobody is a member of. That is the same defect the review found in the signup path and ruled a
+-- transaction for; leaving it here would reinstate it in the very function the ruling added.
+--
+-- IT DOES NOT RE-DECIDE ANYTHING. Unlike `complete_signup`, this function performs no account-type
+-- check: the NGO-only refusal is `ngoOnlyActionAllowed` in `supabase/functions/_shared/accounts.ts`
+-- and must stay there, because that is what makes AT-001.06 a test of shipped logic. Duplicating it
+-- here would move the decision away from the module the acceptance suite drives. The privilege-
+-- escalation duplication in `complete_signup` is justified by what it guards — the account TYPE, on
+-- the only path that can mint an administrator — and that argument does not extend to this one.
+create function public.create_organization(
+  p_account_id uuid,
+  p_name text
+)
+returns jsonb
+language plpgsql
+as $$
+declare
+  v_organization_id uuid;
+begin
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'create_organization refuses an empty organisation name'
+      using errcode = '22023';
+  end if;
+
+  insert into public.organizations (name)
+  values (btrim(p_name))
+  returning id into v_organization_id;
+
+  insert into public.org_memberships (org_id, account_id, role)
+  values (v_organization_id, p_account_id, 'admin');
+
+  return jsonb_build_object('organization_id', v_organization_id);
+end;
+$$;
+
+comment on function public.create_organization(uuid, text) is
+  'Creates an organisation and its admin membership in one transaction (REQ-001, AT-001.06). The NGO-only decision is made before this, in the shared module.';
+
 /* ================================================================== row-level security + grants == */
 
 alter table public.accounts enable row level security;
@@ -256,9 +301,11 @@ grant select, insert on public.accounts to authenticated;
 -- tightly — it answers a question about an account id, and letting any signed-in caller ask it
 -- about any id is a small existence oracle for no gain, since nothing client-side calls it.
 revoke execute on function public.complete_signup(uuid, text, text, text, inet) from public;
+revoke execute on function public.create_organization(uuid, text) from public;
 revoke execute on function public.has_platform_acknowledgment(uuid) from public;
 
 grant execute on function public.complete_signup(uuid, text, text, text, inet) to service_role;
+grant execute on function public.create_organization(uuid, text) to service_role;
 grant execute on function public.has_platform_acknowledgment(uuid) to service_role;
 
 -- PostgREST caches the schema. Without this, the first call to a freshly created function is a 404
