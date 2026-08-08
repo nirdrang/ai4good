@@ -47,6 +47,24 @@ agent ever moves itself.
 **You are then tethered to it.** A background child's completion re-invokes you automatically —
 that is your primary signal and it is free.
 
+**TELL EVERY CHILD TO MESSAGE YOU BY ID WHEN IT FINISHES (founder 2026-08-08).** A message wakes
+an idle agent — that is the one wake mechanism the documentation actually guarantees — so a child
+that reports directly is worth more than any watch. It fails for one avoidable reason: `SendMessage`
+resolves a NAME or an AGENT ID, and an agent TYPE is neither. An executor once addressed
+`orchestrator-opus`, got "no agent named … is reachable", and its whole report went to the
+coordinator while its parent slept through its own child finishing.
+
+**Your agent id is derivable, so nobody has to remember it: it is the folder name of your own
+worktree**, `.claude/worktrees/agent-<id>`. Read it from your working directory and put it in
+every spawn prompt — "when you finish, SendMessage to `<id>`" — and require the same sentence to
+be carried into any prompt that sitting writes for a child of its own.
+
+Two honest limits. A sub-subagent inherits this same worktree, so the path yields YOUR id rather
+than its immediate parent's; children can therefore always reach the conductor, but reaching a
+middle layer needs that layer to pass its own id explicitly. And a child that dies never messages
+anyone — so this replaces nothing. It is a second channel alongside the watch, and the watch is
+still what catches a death.
+
 **But the tether has MISSED in practice, so it is never your only channel.** Completion events
 have arrived minutes late or never (twice on one item, 2026-08-05), and a child that cannot
 resolve its parent's name reports to the coordinator instead, leaving the parent asleep through
