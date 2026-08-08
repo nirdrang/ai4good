@@ -154,8 +154,15 @@ Your count line is `PLAN REVIEW: CLEAN` or `PLAN REVIEW: 3 FINDINGS`.
 ## The DRAFT CODE review
 
 **Pins** · `gpt-5.6-terra` effort `max` · `--sandbox read-only`
-**Pins** · `kimi-code/k3` effort `high` · `--sandbox read-only` · effort comes from its config
-file, since its CLI has no effort flag
+**Pins** · SINGLE READER. Kimi is STOPPED — founder ruling 2026-08-08, after it exhausted its
+billing-cycle quota mid-gate (`403 … usage limit for this billing cycle`). Do not launch it, do
+not relaunch it, do not substitute a second codex variant in its place. The draft-code gate runs
+ONE reader until the founder rules otherwise.
+**The pull request must say so.** A gate designed for two readers that ran with one is a weaker
+gate, and the record states what it did and did not cover — never silently. The cost is known and
+accepted rather than assumed: on AI4DEV-48 Kimi returned "no blocker, no major" on code where
+terra found a BLOCKER, so the second reader has demonstrably caught what the first missed. Running
+one is a deliberate trade, and it is only honest while it is written down.
 **Subject** · the branch diff at the pinned commit. The draft compiles and typechecks; **the test
 suite has deliberately not been run yet.** You are critiquing code before it is declared finished
 — do not report that tests haven't passed.

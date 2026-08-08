@@ -144,17 +144,24 @@ different ways on one item (`unknown option '--stat\``, then `unknown command 't
 this is not a quoting bug you can escape your way out of. Build the line yourself, and pass a SHORT
 pointer telling kimi to read the prompt file from disk — never the prompt text itself:
 
+**KIMI IS STOPPED — DO NOT LAUNCH IT (founder ruling 2026-08-08).** It exhausted its billing-cycle
+quota mid-gate and the founder ruled the draft-code gate down to a single reader rather than buy
+more or substitute another model. The recipe is kept below only so that restoring it later is a
+decision rather than a rediscovery. Launching it now wastes a slot and produces a 403.
+
 ```powershell
+# NOT IN USE. Kept for the day the quota returns and the founder rules the panel back to two.
 $line = '-m kimi-code/k3 --output-format text -p "Read ' + $promptFile + ' and follow it."'
 Start-Process cmd -WindowStyle Hidden -PassThru -WorkingDirectory $tree `
   -ArgumentList ('/c', ('kimi ' + $line + ' 1>"' + $out + '" 2>"' + $err + '"'))
 ```
 
-**Kimi writes its narration to the output file PROGRESSIVELY and its verdict only at the end**, so
-mid-run that file is a few hundred bytes of "Now reading the two depth files…" and nothing else. A
-coordinator read it at that moment, concluded the answer was going to the wrong stream, and
-changed this recipe to merge stderr in — which would have buried seven findings inside a 68KB
-reasoning transcript. The recipe was never wrong. **Do not merge the streams.**
+**If it is ever restored: kimi writes its narration to the output file PROGRESSIVELY and its
+verdict only at the end**, so mid-run that file is a few hundred bytes of "Now reading the two
+depth files…" and nothing else. A coordinator read it at that moment, concluded the answer was
+going to the wrong stream, and changed this recipe to merge stderr in — which would have buried
+seven findings inside a 68KB reasoning transcript. The recipe was never wrong. Do not merge the
+streams, and judge completion by the count line rather than by the file.
 
 **AND CHECK THE REVIEW FILE FOR FINDINGS, NOT FOR EXISTENCE.** Every reviewer's raw output must
 end with its own count line — `CODE REVIEW: N FINDINGS`, `CODE REVIEW: CLEAN`, `PLAN REVIEW: …`,
