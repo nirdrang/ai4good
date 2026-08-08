@@ -11,9 +11,18 @@ wave).
 (`.taskmaster/docs/acceptance/at-req-001.md`). It builds directly on the leaf that landed email
 and Google signup and the three account types (merged as pull request #47).
 
-**Status: plan under review.** The plan is `loop/items/AI4DEV-58/plan.md`; the phase record is
-`loop/items/AI4DEV-58/PHASE-STATE.md`. Code follows only after the plan critique is ruled on —
-the commits on this branch so far are the item record, not the implementation.
+**Status: draft code under review.** The plan critique returned five findings; every one is
+ruled on in `loop/items/AI4DEV-58/gate1-rulings.md`, the plan is amended accordingly, and the
+draft implementing the amended plan is on this branch. The draft is deliberately un-verified —
+it is being critiqued before it is polished green; the verify suite runs after the code critique
+is ruled on.
+
+**The draft-code review gate is designed for two readers of different model families and is
+running with ONE.** The second reader is stopped by founder ruling (2026-08-08, after it
+exhausted its billing-cycle quota mid-gate). The cost is known, not assumed: on a previous item
+one reader found a blocker on code where the other reported nothing — the panel has demonstrably
+caught what a single reader missed — so a single-reader run is a deliberately weaker gate,
+recorded here so the record states what the gate did and did not cover.
 
 The merge ruling — what was built, every review finding and its disposition, and exactly what
 the green does and does not claim — will be posted on this pull request before merge, pinned to

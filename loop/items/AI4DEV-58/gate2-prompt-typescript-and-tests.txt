@@ -1,0 +1,187 @@
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the sandbox mode. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** `--sandbox read-only` is the enforcement, and this sentence
+is the instruction; every launch prompt carries it explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+
+---
+
+## The DRAFT CODE review
+
+**Subject** · the branch diff at the pinned commit. The draft compiles and typechecks; **the test
+suite has deliberately not been run yet.** You are critiquing code before it is declared finished
+— do not report that tests haven't passed.
+
+Attack:
+
+- correctness against the amended plan — does the code do what the plan decided, including the
+  parts nobody would notice were missing
+- the tests' **meaning** — would a green here prove the claim, or merely pass
+- edge cases, error paths, and what happens on the unhappy input
+- anything the plan promised that the code quietly does not do
+- state, concurrency and lifetime mistakes the type system will not catch
+
+You do not run the suite. A runtime-dependent suspicion is a finding with the unverified marker
+and a precise statement of what would settle it.
+
+Your count line is `CODE REVIEW: CLEAN` or `CODE REVIEW: 3 FINDINGS`.
+
+---
+
+## This change
+
+This branch is the second product-code change in the repository. The previous change (merged as
+pull request #47) landed the account model: an `accounts`/`organizations`/`memberships`/
+`acknowledgments` schema, a transactional `public.complete_signup` database function, a
+`complete-signup` edge function, a `create-organization` edge function, and four green acceptance
+tests. This change builds directly on it: GitHub sign-in for volunteers, a mandatory GitHub link
+without which a volunteer signup cannot complete, and a volunteer profile row imported at
+completion from a deliberately stubbed source. The import source is a SHIPPED stub by ratified
+design — the manifest's cross-contract says the real import belongs to a later requirement — so
+no green here may be read as proving a real GitHub import, and the code must not pretend
+otherwise.
+
+**The plan is in the tree at `loop/items/AI4DEV-58/plan.md`, as amended in its header, and it is
+the standard the code is judged against.** Read it before the code. Three parts matter most:
+- **Section 4, "Expected verification state, per acceptance-test id"**, and the "what the green
+  does and does not claim" paragraph under it. A claim in code, comments or tests that this
+  table contradicts is a defect.
+- **Decisions D-B, D-D, D-F, D-G, D-H and D-I** — the caller-fact gate and its fail-closed
+  claim, the stubbed source, the edge function's role, the fixture-and-contract split, the
+  surface marks, and the amendments to two existing tests.
+- **Section 6, the risks** — the plan names states it expects to be hard; judge whether the code
+  actually handles them or merely inherits the plan's optimism.
+
+The plan records **deliberate absences** (section 5 and the per-id table's "not proved" column).
+Do not assume a written argument is sound because it is written down. Judge whether each stated
+reason survives contact with the code, and if an absence has a consequence the plan did not
+anticipate, that is a finding.
+
+### Read the whole change; report in depth on the TypeScript and the tests
+
+The complete change is roughly 1,226 changed lines across 11 files outside the item's own
+evidence directory (`loop/items/AI4DEV-58/`). **Your depth goes here:**
+
+- `supabase/functions/_shared/github.ts` (145 changed lines, new) — `extractGithubHandle` and
+  `stubGithubStatsFor`, the shipped stub import source.
+- `supabase/functions/_shared/accounts.ts` (81) — `validateCompleteSignup` gains the caller
+  fact; the volunteer gate.
+- `supabase/functions/_shared/edge.ts` (41) and `supabase/functions/complete-signup/index.ts`
+  (61) — the caller extension and what gets passed to the database call.
+- `tests/at/suites/req-001/` — `a-signup-and-signin.test.ts` (324), `_fixture.ts` (111),
+  `_contract.ts` (70), `_pending.ts` (19) — three new test bodies (AT-001.02, AT-001.04,
+  AT-001.05), amendments to two existing ones (AT-001.03, AT-001.06), and the fixture that
+  mirrors Auth's post-link state.
+- `tests/at/expected/req-001.json` (13) — the declared green/red flip.
+
+Read the migration and the configuration for the context you need to judge these files — the
+schema is what the fixture claims to mirror and the rpc call targets. **Anything you notice
+anywhere in the change is reportable and should be reported**; say beside the finding that it
+sits outside your depth area, and keep it brief if you are less sure of it. Depth is allocated,
+not permission.
+
+Specific areas worth your attention, stated as areas rather than as conclusions — do not treat
+this list as exhaustive, and do not treat an item on it as a hint that something is wrong there:
+
+1. **The caller-fact gate and its fail-closed claim.** The plan asserts that in an untyped call
+   a missing caller argument BLOCKS volunteer completions rather than waiving the gate. Trace
+   the actual code: what happens when the second argument is absent, undefined, malformed, or
+   carries an empty-string handle — for a volunteer and for an NGO. Establish whether the fact
+   is genuinely a fact about the authenticated user (from Auth) or anything a client request
+   could assert.
+2. **`extractGithubHandle` against hostile shapes.** It judges an `unknown` response body:
+   missing `identities`, non-array forms, an entry without `identity_data`, a non-string
+   `user_name`, multiple GitHub identities. Does any shape produce a wrong answer rather than a
+   null?
+3. **The stub's construction.** `stubGithubStatsFor` is claimed deterministic and non-empty by
+   construction for every input handle; check the construction, not the claim — and check the
+   header names it as the stub the manifest's cross-contract calls for.
+4. **The three new tests' meaning.** Would a green prove the claim, or merely pass? AT-001.02's
+   same-account return visit; AT-001.04's refusal from BOTH email- and google-established
+   sessions, the no-partial-state assertions, and the NGO control; AT-001.05's pre-completion
+   negative, the immediate population, and whether asserting the stub's exact values is framed
+   honestly as asserting against the declared stub fixture.
+5. **The two amended tests.** The plan requires their assertions unchanged — verify no assertion
+   weakened or vanished in the amendment, and that the load-bearing comment about the provider
+   in AT-001.03 remains a true statement about the code as it now is.
+6. **The fixture's honesty.** The fixture may store state and mirror Auth; every judgement must
+   come from the shipped modules. Look for decisions smuggled into the fixture — a gate
+   re-implemented, a refusal reason invented, a write outside the all-or-nothing block — and
+   for any simulated OAuth handshake, which the plan forbids.
+7. **The declared-state flip and the ledger.** `tests/at/expected/req-001.json` flips exactly
+   three ids; `loop/items/AI4DEV-58/pending-ledger.txt` must name an owning leaf for all 30
+   remaining pending ids and none of this item's; `_pending.ts` loses an orphaned constant.
+8. **The edge function.** What it passes to the database call and when; whether the refusal
+   surface (status codes, CORS, auth handling) changed for existing paths; whether the handle it
+   sends is the one the identity check will bind against.
+
+### Two conventions, so you do not report them as defects
+
+- This repository uses **bun**, never npm or pnpm, and **PowerShell**, never bash.
+- The item deliberately touches **no files under `src/`**. That is a hard constraint enforced by
+  continuous integration, not an omission.
+
+### The item's evidence directory
+
+`loop/items/AI4DEV-58/` holds the item record: the plan, rulings, and run transcripts
+(`baseline.txt`, `stack-up.txt`, `migration-replay.txt`, `step4-serves.txt`,
+`pending-ledger.txt`). These are evidence, not product. The plan's step 6 (a live-stack proof
+script) and step 7 (the final verify run) have deliberately not been executed yet — do not
+report their absence as a defect, though findings about what step 6 *plans* to prove are
+welcome.
