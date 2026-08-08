@@ -9,7 +9,8 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('happy', 'die-at-launch', 'hang', 'finish-no-notify',
                  'reviewer-findings', 'reviewer-narration-only',
-                 'reviewer-die-at-launch', 'reviewer-hang')]
+                 'reviewer-die-at-launch', 'reviewer-hang',
+                 'drill-a', 'drill-b', 'drill-c', 'drill-d')]
     [string]$Mode,
 
     [Parameter(Mandatory = $true)]
@@ -19,6 +20,15 @@ param(
     [string]$Out,
     [string]$Err
 )
+
+# Blinded aliases: live drills hand these to real agents so the mode name cannot
+# coach the expected outcome. The mapping is deliberately only here, in the actor.
+switch ($Mode) {
+    'drill-a' { $Mode = 'reviewer-die-at-launch' }
+    'drill-b' { $Mode = 'reviewer-findings' }
+    'drill-c' { $Mode = 'reviewer-narration-only' }
+    'drill-d' { $Mode = 'reviewer-hang' }
+}
 
 $log    = Join-Path $Dir 'actor.log'
 $result = Join-Path $Dir 'result.txt'
