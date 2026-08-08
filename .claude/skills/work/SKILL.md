@@ -116,6 +116,16 @@ not follow it in.
 You receive one flow line per phase change and one completion. That is the whole of your
 involvement unless something asks for you.
 
+**COMMENCEMENT DEADLINE — a claim with no first flow line is a STARTUP STALL (founder
+2026-08-09).** A spawned conductor must produce its first flow line within ten minutes of the
+spawn. Until that line arrives the item has no clock owner: the board says In Progress and
+nothing is watching, and the drill review ranked this gap's six failure shapes — spawn rejected,
+receipt lost, death before the first turn, setup hung, first watch never armed, first line
+dropped — as the costliest uncovered class in the system. So commencement is its own bounded
+wait, sharper and earlier than the general silence check: no flow line at ten minutes → check
+that the task exists and its transcript is growing, and report a startup stall to the founder
+either way. A lost commencement left to the general check can cost a working day.
+
 **Relay, never rule.** A question from an item reaches you verbatim and reaches the founder
 verbatim. You do not answer it, soften it, or decide it is unnecessary. Exactly two things are
 supposed to arrive: a finding that contradicts ratified text, and real scope growth.
