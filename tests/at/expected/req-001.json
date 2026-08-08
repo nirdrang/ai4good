@@ -2,15 +2,11 @@
   "requirement": "001",
   "tiers": {
     "loop": {
-      "green": [],
+      "green": ["AT-001.01", "AT-001.03", "AT-001.06", "AT-001.07"],
       "red": {
-        "AT-001.01": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.02": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.03": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.04": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.05": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.06": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.07": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.09": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.10": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.38": { "kind": "pending", "phase": "sut-missing" },
