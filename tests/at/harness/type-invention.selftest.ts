@@ -2,7 +2,7 @@
  * The type-invention attacks, kept dead by an executable test rather than by memory.
  *
  * AI4DEV-24 exists to make `bun run typecheck` mean something. The thing that would quietly undo it
- * is a suite declaring members no runtime value supplies and reading them green — a type-check that
+ * is a suite declaring members no runtime value supplies and reading them green â€” a type-check that
  * lies, which is worse than no type-check at all because it is believed.
  *
  * Two families live here now. AI4DEV-24's is HARNESS invention: a suite declaring seams
@@ -27,15 +27,15 @@ import { childEnv } from './runner.ts';
 import { pinnedTsc } from '../typecheck.ts';
 
 const PROBE_PROJECT = 'tests/at/typeprobes/tsconfig.json';
-/** AI4DEV-31's attacks in the API that ALLOWED them — the red half of that item's proof. */
+/** AI4DEV-31's attacks in the API that ALLOWED them â€” the red half of that item's proof. */
 const LEGACY_SEAM_PROJECT = 'tests/at/typeprobes/tsconfig.sut-seam-legacy.json';
-/** AI4DEV-31's attacks in the API that REPLACED it — only meaningful after the change. */
+/** AI4DEV-31's attacks in the API that REPLACED it â€” only meaningful after the change. */
 const SEAM_PROJECT = 'tests/at/typeprobes/tsconfig.sut-seam.json';
 
 interface ProbeRun {
   status: number | null;
   output: string;
-  /** every file tsc actually put in the program — the control against an empty-program exit 0 */
+  /** every file tsc actually put in the program â€” the control against an empty-program exit 0 */
   files: string[];
 }
 
@@ -47,7 +47,7 @@ function typecheckProbes(project: string): ProbeRun {
   // nothing, so "the attack was rejected" and "the attack was never compiled" are indistinguishable
   // without it. Every per-file assertion below leans on `compiled()` to rule that out.
   // AN EXPLICIT ENVIRONMENT, not an inherited one. This spawns a child from inside a test, and a
-  // child spawned from a test inherits whatever the developer has exported — including a judge or
+  // child spawned from a test inherits whatever the developer has exported â€” including a judge or
   // provider credential. The compiler needs none of them, so it is given the runner's own
   // allowlist: the same list that keeps secrets out of acceptance-test children, applied to the
   // one other place this tree starts a process (AI4DEV-20 Gate 2, cluster C).
@@ -61,11 +61,11 @@ function typecheckProbes(project: string): ProbeRun {
   const lines = raw.split('\n');
   // `--listFiles` interleaves the program's files with the diagnostics. The listed files are
   // ABSOLUTE, while diagnostics name their file relative to the cwd and their continuation lines are
-  // indented — so absoluteness separates the two without guessing at message text.
+  // indented â€” so absoluteness separates the two without guessing at message text.
   //
   // The absoluteness test has to be THE RUNNING PLATFORM'S. This read `/^[A-Za-z]:[\\/]/`, which is
   // a Windows path and only a Windows path: on Linux every listed file begins with `/`, none matched,
-  // `files` came back empty and the two controls below failed on CI while passing locally — the
+  // `files` came back empty and the two controls below failed on CI while passing locally â€” the
   // controls doing their job, on the wrong question. `isAbsolute` is win32's on Windows and posix's
   // on Linux, which is the same platform whose compiler printed the line.
   const isListedFile = (line: string) => isAbsolute(line);
@@ -84,7 +84,7 @@ function compiled(run: ProbeRun, probeFile: string): boolean {
 /**
  * TypeScript reports a blocked merge two different ways: `TS2300 Duplicate identifier 'X'` for a
  * single clash, and one `TS6200` listing every identifier when a file has several at once. Both are
- * the rejection these tests assert, so either is accepted — matching only the first form would make
+ * the rejection these tests assert, so either is accepted â€” matching only the first form would make
  * a test pass or fail on how many attacks happen to share a file.
  */
 function rejects(output: string, name: string): boolean {
@@ -104,7 +104,7 @@ describe('harness invention is rejected by the compiler', () => {
     expect(compiled(probe, 'harness-invention.probe.ts'), `${PROBE_PROJECT} did not compile the probe file`).toBe(true);
   });
 
-  it('the probe program does not compile — if it ever does, an attack has reopened', () => {
+  it('the probe program does not compile â€” if it ever does, an attack has reopened', () => {
     expect(
       probe.status,
       `${PROBE_PROJECT} compiled clean. Every construct in it is a way for a suite to declare harness ` +
@@ -115,15 +115,15 @@ describe('harness invention is rejected by the compiler', () => {
 
   it('rejects a harness type invented through an intersection', () => {
     // `AtHarness & { auditLog }` is a SUBTYPE of AtHarness, so it satisfies any `extends` constraint.
-    // The defence is that the harness is not a type parameter at all — hence an arity error.
+    // The defence is that the harness is not a type parameter at all â€” hence an arity error.
     expect(probe.output, 'the intersection attack was not rejected by arity').toContain('TS2558');
   });
 
   /**
    * EVERY type that must stay a type alias, and why the list is exhaustive rather than a sample.
    *
-   * The rule is uniform — nothing reachable from the harness object, or from the wrapper handed to a
-   * test body, may be an interface — so the guard is uniform too. An earlier version of this test
+   * The rule is uniform â€” nothing reachable from the harness object, or from the wrapper handed to a
+   * test body, may be an interface â€” so the guard is uniform too. An earlier version of this test
    * asserted three of these and claimed to assert all of them; both Gate 2 reviewers caught that the
    * guard was narrower than its own comment, which is exactly the reversion such a gap invites.
    *
@@ -146,7 +146,7 @@ describe('harness invention is rejected by the compiler', () => {
     'ProviderAttempt',
     'EmailProviderSim',
     'Vendors',
-    // H4's semantic-oracle contracts (contracts.ts) — every shape `judge()` takes or returns, not
+    // H4's semantic-oracle contracts (contracts.ts) â€” every shape `judge()` takes or returns, not
     // only the seam itself, because a rubric or a verdict is handed to a test body just as `h` is
     'SemanticCriterion',
     'ExtractionSpec',
@@ -163,7 +163,7 @@ describe('harness invention is rejected by the compiler', () => {
     'SemanticOracle',
     // the config seam (config.ts)
     'ConfigRegistry',
-    // the wrapper types every test body holds directly (registry.ts) — including the world itself,
+    // the wrapper types every test body holds directly (registry.ts) â€” including the world itself,
     // because `open()` hands `w` to the body exactly as it hands `h`
     'OpenWorld',
     'AtContext',
@@ -186,13 +186,13 @@ describe('harness invention is rejected by the compiler', () => {
  * longer the suite's to claim.
  *
  * Two probe files, compiled separately, because one file cannot carry both halves of the proof. The
- * legacy probe is written in the API that ALLOWED the lie — at the pre-fix commit it compiled with
+ * legacy probe is written in the API that ALLOWED the lie â€” at the pre-fix commit it compiled with
  * exit 0, which is `loop/items/AI4DEV-31/proof-red.txt`; the same file must fail now. The new probe
  * is written in the API that replaced it and is only meaningful afterwards.
  *
  * Every diagnostic asserted below was READ OFF THE COMPILER, never predicted. The design for this
  * item predicted TS2558 by analogy with AI4DEV-24's arity defence and the real code is TS2344,
- * because the new `bindSuite` still takes two type parameters — they are just no longer shapes. A
+ * because the new `bindSuite` still takes two type parameters â€” they are just no longer shapes. A
  * guard asserting a predicted code would have passed on the wrong evidence.
  */
 describe('the listed sut/world invention attacks fail to compile', () => {
@@ -213,7 +213,7 @@ describe('the listed sut/world invention attacks fail to compile', () => {
   });
 
   it('the listed new-API attacks do not compile', () => {
-    expect(seam.status, `${SEAM_PROJECT} compiled clean — an attack has reopened.\n${seam.output}`).not.toBe(0);
+    expect(seam.status, `${SEAM_PROJECT} compiled clean â€” an attack has reopened.\n${seam.output}`).not.toBe(0);
   });
 
   /**
@@ -224,19 +224,19 @@ describe('the listed sut/world invention attacks fail to compile', () => {
   const SEAM_ATTACKS: { probe: ProbeRun; what: string; marker: string; why: string }[] = [
     {
       probe: legacy,
-      what: 'bindSuite<Sut, W> — a fabricated system under test',
-      marker: `Type '{ notThere(): Promise<void>; }' does not satisfy the constraint '"req-016"'`,
+      what: 'bindSuite<Sut, W> â€” a fabricated system under test',
+      marker: `Type '{ notThere(): Promise<void>; }' does not satisfy the constraint 'SuiteId'`,
       why: 'a suite can name a system under test again, and read methods no adapter implements',
     },
     {
       probe: legacy,
-      what: 'bindSuite<Sut, W> — a fabricated fixture world',
-      marker: `Type 'NotificationsSut' does not satisfy the constraint '"req-016"'`,
+      what: 'bindSuite<Sut, W> â€” a fabricated fixture world',
+      marker: `Type 'NotificationsSut' does not satisfy the constraint 'SuiteId'`,
       why: 'a suite can name a world type again, and read members no fixture supplies',
     },
     {
       probe: legacy,
-      what: 'defineEvidenceCapture<T, Sut, W> — the second door, with no binding at all',
+      what: 'defineEvidenceCapture<T, Sut, W> â€” the second door, with no binding at all',
       marker: 'Expected 3 arguments, but got 2',
       why: 'an evidence capture can invent both axes without ever calling bindSuite',
     },
@@ -267,21 +267,21 @@ describe('the listed sut/world invention attacks fail to compile', () => {
     {
       probe: seam,
       what: 'binding a requirement with no registered adapter',
-      marker: `Type '"req-999"' is not assignable to type '"req-016"'`,
+      marker: `Type '"req-999"' is not assignable to type 'SuiteId'`,
       why: 'a suite can bind a requirement whose types are derived from nothing',
     },
     {
       probe: seam,
       what: 'widening the seam by annotating the body parameter with a fabricated shape',
-      marker: `Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint '"req-016"'`,
+      marker: `Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint 'SuiteId'`,
       why:
         'the subtlest INVITED route back: leave bindSuite alone and widen at the body with an ' +
-        'OPTIONAL member. Nothing structural can reject it — a type and that type intersected with ' +
-        'an optional member are assignable both ways — so the whole defence is that the seam types ' +
+        'OPTIONAL member. Nothing structural can reject it â€” a type and that type intersected with ' +
+        'an optional member are assignable both ways â€” so the whole defence is that the seam types ' +
         'take a requirement and a sut key rather than shapes. If this fails, someone has ' +
         're-parameterized them by shape. Note precisely what it does and does not prove: it proves ' +
         'the widened type cannot be PASSED to the seam any more, not that it cannot be BUILT. ' +
-        'Rebuilding one by hand out of the derived types still compiles — measured, and recorded as ' +
+        'Rebuilding one by hand out of the derived types still compiles â€” measured, and recorded as ' +
         'a known-open case at the foot of sut-seam.probe.ts, where it cannot be an active attack ' +
         'because that program must not compile and this one does',
     },
@@ -313,7 +313,7 @@ describe('the listed sut/world invention attacks fail to compile', () => {
 
   for (const attack of SEAM_ATTACKS) {
     it(`rejects ${attack.what}`, () => {
-      expect(attack.probe.output, `${attack.what} was accepted — ${attack.why}.\n${attack.probe.output}`).toContain(
+      expect(attack.probe.output, `${attack.what} was accepted â€” ${attack.why}.\n${attack.probe.output}`).toContain(
         attack.marker,
       );
     });
@@ -324,19 +324,19 @@ describe('the listed sut/world invention attacks fail to compile', () => {
    * alias rule. EXHAUSTIVE over the conversion: naming nine and attacking two is the exact failure
    * both AI4DEV-24 reviewers caught in that item, reproduced one item later by its own design.
    *
-   * `World` IS ON THIS LIST, and the record of how it nearly was not is the useful part — it is a
+   * `World` IS ON THIS LIST, and the record of how it nearly was not is the useful part â€” it is a
    * worked example of a measurement that was correct and still concluded the wrong thing.
    *
    * Gate 1 measured the DIRECT read: after the derivation `open().w` is the adapter's concrete
    * fixture-world CLASS, and a class does not acquire members merely because an interface it
    * implements was augmented, so `open().w.invented` is TS2339 with `World` an interface or an
    * alias. That is true, it was measured on this tree, and it was taken as reason to leave `World`
-   * out — with the ruling's own condition attached: only if no remaining seam path resolves to
+   * out â€” with the ruling's own condition attached: only if no remaining seam path resolves to
    * `World`.
    *
    * Gate 2 measured the UPCAST route the direct read never touched. The fixture class IMPLEMENTS
    * `World`, so `const asWorld: World = w` needs no cast, and a member merged into the `World`
-   * interface reads green off that — exit 0, measured. The condition failed on its own terms as
+   * interface reads green off that â€” exit 0, measured. The condition failed on its own terms as
    * well: `d-taxonomy-evidence.test.ts` annotates with `World['actors']`, so the suite still spells
    * it. Hence the conversion, and hence the attack in the probe.
    *
