@@ -116,6 +116,26 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
   body — a careful post-mortem once closed a live item mid-work. Write "the instruction that
   repaired X", "motivated by X", or use `ref` / `part of` / `towards`. CI enforces this.
 
+## RE-MEASURE A NEGATIVE WITH A DIFFERENT INSTRUMENT BEFORE BELIEVING IT
+
+A negative result — "the file is empty", "no check exists", "the merge did not succeed", "the
+reviewer wrote nothing" — is the cheapest thing in this system to get wrong, because a broken
+instrument and a true absence produce identical output. AI4DEV-57 alone produced five:
+
+- a merge that HAD succeeded reported as "no commit SHA exists", because `gh`'s branch cleanup
+  failed afterwards and the failure was read as the merge failing;
+- a broken `jq` query reporting no CI check for six minutes while it had gone green in 37 seconds;
+- a reviewer's output read mid-run and declared "written to the wrong stream", when it simply had
+  not finished;
+- mangled em-dashes surviving an entire green CI run undetected;
+- a phantom byte-order mark and corrupted indentation in a captured diff.
+
+So: **before reporting that something is absent, failed, or empty, measure it a second way.** Ask
+the process, not the file. Ask the API, not the local cache. Read the error log, not the exit
+code. If the second instrument agrees, the negative is real and worth acting on; if it disagrees,
+you have just saved hours. Every one of the five above was caught by looking again with a
+different tool, and every one of them was reported confidently the first time.
+
 ## Never
 
 - Never merge without the required CI check green on the exact head the merge ruling pins.

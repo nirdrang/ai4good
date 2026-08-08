@@ -109,6 +109,12 @@ implemented, a diff reaching outside its declared scope, a stated fact untrue �
 mergeable: either the code changes to match the record or the record changes to match the code.
 *Real but out of scope* — file it, name it in the ruling, and narrow the claim. *The auditor is
 wrong* — reject with a written reason and put its claim verbatim in the pull request.
+**Verbatim has ONE exception, and it is mechanical, not editorial: elide any item id the branch
+does not own, and say you elided it.** The CI reference guard fails a pull request naming a
+foreign id, so quoting such a claim literally would either block your own merge or, worse, move
+three other items on the board. This is not licence to soften a finding — every word of the claim
+survives except the identifier, replaced by a description of what it referred to. Found on
+AI4DEV-57, where a rejected finding quoted three ids and the rule as written was unsatisfiable.
 
 If fixes change code, the executor applies them, you push — and you **end the sitting** with
 the state file saying the audit must re-run at the new head. Launching the auditor and waiting
