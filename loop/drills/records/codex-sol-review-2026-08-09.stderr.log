@@ -1,0 +1,2205 @@
+OpenAI Codex v0.146.0
+--------
+workdir: C:\Users\nirdr\Downloads\ai4good
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: max
+reasoning summaries: none
+session id: 019fe36c-3b46-7a70-9360-6ad05ab40b91
+--------
+user
+ROLE: adversarial reviewer of a TEST SYSTEM. You are reviewing drills for coverage holes, not code style.
+
+THE SYSTEM UNDER TEST: this repository runs board items through a phased relay of agents — a conductor owns one item's clock, spawns orchestrator "sittings" and one reviewer-runner per external reviewer, waits on them, and narrates phase changes. Every real failure this relay has had was a CONTROL failure: an actor stopped waiting, a hand-off silently didn't happen, or silence was mistaken for progress. A drill harness now exists to prove the control mechanics against scripted fake actors.
+
+READ, in this order:
+1. loop/drills/control-lib.ps1, loop/drills/fake-actor.ps1, loop/drills/run-drills.ps1 — the mechanical drill suite (8 drills, 15 assertions)
+2. loop/drills/prompts/ and loop/drills/records/live-2026-08-09/verdict.md — the live drill: a real conductor and real reviewer-runners against fake reviewers
+3. .claude/agents/conductor.md and .claude/agents/reviewer-runner.md — the contracts whose behavior the drills exist to protect
+4. .claude/skills/work/lessons.md — the incident record these rules were learned from
+
+YOUR TASK: enumerate control-flow failure scenarios that CAN go wrong in this system but are NOT covered by any existing drill, mechanical or live.
+
+Weight them by cost-of-miss, and treat as the HIGHEST-PRIORITY CLASS: a conductor that never commences at all — the spawn is lost, setup dies before the first narration, the first flow line never arrives, or the conductor sits idle believing it is waiting on something that was never armed. An item whose conductor never starts can silently cost a full day of work, and nothing in the current drills exercises the "commencement" edge.
+
+For each hole, give:
+(1) the scenario, concretely — who dies or goes silent, at what moment;
+(2) why it is plausible here — the mechanism or a past incident that makes it real;
+(3) what a drill covering it would assert, in one or two sentences.
+
+ALSO: flag any EXISTING drill whose assertion could pass while the behavior it names is broken (a weak oracle), and say what would strengthen it.
+
+Write policy, stated in words: this review is read-only; you write nothing into the tree.
+
+End your output with the exact line: DRILL REVIEW: N FINDINGS (N = your count).
+
+2026-08-08T22:09:18.420088Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"mcp\", resource_metadata=\"https://mcp.lovable.dev/.well-known/oauth-protected-resource\"" })
+2026-08-08T22:09:25.629191Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"mcp\", resource_metadata=\"https://mcp.lovable.dev/.well-known/oauth-protected-resource\"" })
+codex
+I’ll audit this strictly as a read-only control-flow review. I’ll follow the requested reading order, map each existing assertion to the behavior it actually proves, then rank uncovered scenarios by cost of miss—with conductor commencement failures first.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw -LiteralPath 'loop/drills/control-lib.ps1'; Get-Content -Raw -LiteralPath 'loop/drills/fake-actor.ps1'; Get-Content -Raw -LiteralPath 'loop/drills/run-drills.ps1'" in C:\Users\nirdr\Downloads\ai4good
+ succeeded in 1180ms:
+# The checkable mechanics the relay contracts rely on, extracted so drills can prove them.
+# Dot-source and use in the SAME tool call - PowerShell keeps no state between calls.
+
+function Start-DetachedActor {
+    # Survives-the-launcher launch: the one shape allowed for anything that must outlive its parent.
+    param([string]$ActorScript, [string]$Mode, [string]$Dir)
+    $p = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', $ActorScript, '-Mode', $Mode, '-Dir', $Dir
+    ) -WindowStyle Hidden -PassThru
+    return $p.Id
+}
+
+function Get-ActorLiveness {
+    # Liveness is process presence + output GROWTH across an interval.
+    # Never file existence: an empty output file looks identical to a reviewer starting up.
+    param([int]$ProcessId, [string]$LogFile, [int]$IntervalMs = 1200)
+    $len1 = 0
+    if (Test-Path $LogFile) { $len1 = (Get-Item $LogFile).Length }
+    Start-Sleep -Milliseconds $IntervalMs
+    $proc = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    $len2 = 0
+    if (Test-Path $LogFile) { $len2 = (Get-Item $LogFile).Length }
+    if (-not $proc) { return 'Dead' }
+    if ($len2 -gt $len1) { return 'Alive-Working' }
+    return 'Alive-Stalled'
+}
+
+function Wait-TwoChannel {
+    # The two-channel wait: the actor's own notify signal AND a backstop watch on the artifact.
+    # Either alone completes the wait; expiry is a LOUD distinct value, never a silent nothing.
+    param([string]$NotifyFile, [string]$ResultFile, [int]$TimeoutSec)
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-Path $NotifyFile) { return 'notify' }
+        if (Test-Path $ResultFile) { return 'backstop' }
+        Start-Sleep -Milliseconds 200
+    }
+    return 'EXPIRED'
+}
+
+function Get-SpawnFailureClass {
+    # A spawn error is classified into a NAMED stall, never improvised around.
+    param([string]$ErrorText)
+    if ($ErrorText -match 'not found') { return 'STALL:STALE-REGISTRY' }
+    return 'STALL:UNKNOWN'
+}
+
+function Get-ResumeState {
+    # After an abrupt death, the state on DISK decides - never the actor's claim about itself.
+    param([string]$Dir)
+    $log    = Join-Path $Dir 'actor.log'
+    $result = Join-Path $Dir 'result.txt'
+    if (Test-Path $result) { return 'COMPLETE' }
+    if (Test-Path $log) {
+        $last = Get-Content $log | Select-Object -Last 1
+        return "RESUME-FROM:$last"
+    }
+    return 'RESTART'
+}
+
+# The scripted stand-in for any relay actor (a reviewer, a sitting). Costs no tokens.
+# Each mode reproduces one real failure shape from the incident record.
+#
+# The plain modes (happy, die-at-launch, hang, finish-no-notify) exercise the control
+# library in run-drills.ps1. The reviewer-* modes mimic a codex reviewer's observable
+# surface - stderr run header, output file written once at the end, count line - so a
+# REAL conductor and reviewer-runner can be drilled against them live.
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('happy', 'die-at-launch', 'hang', 'finish-no-notify',
+                 'reviewer-findings', 'reviewer-narration-only',
+                 'reviewer-die-at-launch', 'reviewer-hang',
+                 'drill-a', 'drill-b', 'drill-c', 'drill-d')]
+    [string]$Mode,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Dir,
+
+    # reviewer-* modes only: where the "-o" verdict and the stderr transcript go.
+    [string]$Out,
+    [string]$Err
+)
+
+# Blinded aliases: live drills hand these to real agents so the mode name cannot
+# coach the expected outcome. The mapping is deliberately only here, in the actor.
+switch ($Mode) {
+    'drill-a' { $Mode = 'reviewer-die-at-launch' }
+    'drill-b' { $Mode = 'reviewer-findings' }
+    'drill-c' { $Mode = 'reviewer-narration-only' }
+    'drill-d' { $Mode = 'reviewer-hang' }
+}
+
+$log    = Join-Path $Dir 'actor.log'
+$result = Join-Path $Dir 'result.txt'
+$notify = Join-Path $Dir 'notify.txt'
+
+function Write-RunHeader {
+    # The shape the runner is contractually required to read at launch.
+    $sid = [guid]::NewGuid().ToString()
+    Add-Content -Path $Err -Value "[drill] model: drill-stand-in | effort: none | sandbox: read-only"
+    Add-Content -Path $Err -Value "[drill] session id: $sid"
+}
+
+switch ($Mode) {
+    'die-at-launch' {
+        # Creates its output file and dies at once - the empty file is the trap.
+        # (A real reviewer did exactly this and hid for 80 minutes.)
+        New-Item -ItemType File -Path $result -Force | Out-Null
+        [Console]::Error.WriteLine('fatal: could not start (drill stand-in)')
+        exit 1
+    }
+    'happy' {
+        foreach ($phase in 1..5) {
+            Add-Content -Path $log -Value "phase $phase"
+            Start-Sleep -Milliseconds 400
+        }
+        Set-Content -Path $result -Value 'done'
+        Set-Content -Path $notify -Value 'done'
+        exit 0
+    }
+    'hang' {
+        # Writes one phase, then goes silent while staying alive.
+        Add-Content -Path $log -Value 'phase 1'
+        Start-Sleep -Seconds 300
+    }
+    'finish-no-notify' {
+        # Finishes its work but never sends its completion signal.
+        Add-Content -Path $log -Value 'phase 1'
+        Set-Content -Path $result -Value 'done'
+        exit 0
+    }
+
+    'reviewer-die-at-launch' {
+        # The 80-minute incident: the -o file is created empty, the whole answer is
+        # a few hundred bytes of stderr, and the process is already gone.
+        New-Item -ItemType File -Path $Out -Force | Out-Null
+        Set-Content -Path $Err -Value "error: model 'drill-stand-in' not found; run 'codex login' or check -c model="
+        exit 1
+    }
+    'reviewer-findings' {
+        # A healthy reviewer: header at launch, transcript growing during the run,
+        # verdict written once at the very end WITH its count line.
+        New-Item -ItemType File -Path $Out -Force | Out-Null
+        Write-RunHeader
+        foreach ($i in 1..6) {
+            Add-Content -Path $Err -Value "[drill] reading the tree - step $i"
+            Start-Sleep -Seconds 12
+        }
+        @(
+            'FINDING 1 (drill): loop/drills/fake-actor.ps1 - the stand-in reviewer never reads the prompt file it is handed.'
+            'FINDING 2 (drill): loop/drills/control-lib.ps1 - Wait-TwoChannel polls at a fixed 200ms with no backoff.'
+            'CODE REVIEW: 2 FINDINGS'
+        ) | Set-Content -Path $Out
+        exit 0
+    }
+    'reviewer-narration-only' {
+        # The AI4DEV-57 shape: a plausible-looking output that is only narration.
+        # No count line anywhere - reporting this as landed is the defect being drilled.
+        New-Item -ItemType File -Path $Out -Force | Out-Null
+        Write-RunHeader
+        Start-Sleep -Seconds 40
+        @(
+            'Now reading the two depth files to understand the control flow...'
+            'Examining the wait primitives and their callers.'
+        ) | Set-Content -Path $Out
+        exit 0
+    }
+    'reviewer-hang' {
+        # Header lands, one narration line, then silence while alive. For abort drills.
+        New-Item -ItemType File -Path $Out -Force | Out-Null
+        Write-RunHeader
+        Add-Content -Path $Err -Value '[drill] reading the tree - step 1'
+        Start-Sleep -Seconds 1200
+    }
+}
+
+# Runs every relay control drill against the scripted fake actor. Free, deterministic, on demand.
+# Each drill encodes ONE real incident; a red names the hand-off that broke. Exit 1 on any red.
+$ErrorActionPreference = 'Stop'
+$here  = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $here 'control-lib.ps1')
+$actor = Join-Path $here 'fake-actor.ps1'
+$root  = Join-Path $env:TEMP ('relay-drills-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+$results = @()
+$cleanupPids = @()
+
+function New-DrillDir([string]$name) {
+    $d = Join-Path $root $name
+    New-Item -ItemType Directory -Force -Path $d | Out-Null
+    return $d
+}
+function Assert([string]$drill, [string]$claim, [bool]$ok) {
+    $script:results += [pscustomobject]@{ Drill = $drill; Claim = $claim; Pass = $ok }
+}
+
+# ---- Drill 1: happy path - phases in order, working liveness, notify channel fires ----
+$d1 = New-DrillDir 'happy'
+$pid1 = Start-DetachedActor -ActorScript $actor -Mode 'happy' -Dir $d1
+$live = Get-ActorLiveness -ProcessId $pid1 -LogFile (Join-Path $d1 'actor.log')
+Assert 'happy-path' 'a running actor reads Alive-Working' ($live -eq 'Alive-Working')
+$channel = Wait-TwoChannel -NotifyFile (Join-Path $d1 'notify.txt') -ResultFile (Join-Path $d1 'result.txt') -TimeoutSec 10
+Assert 'happy-path' 'completion arrives on the notify channel' ($channel -eq 'notify')
+$phases = @(Get-Content (Join-Path $d1 'actor.log'))
+Assert 'happy-path' 'phases ran in order 1..5' (($phases -join ',') -eq 'phase 1,phase 2,phase 3,phase 4,phase 5')
+
+# ---- Drill 2: dies at launch - the empty output file must NOT read as liveness ----
+$d2 = New-DrillDir 'die-at-launch'
+$pid2 = Start-DetachedActor -ActorScript $actor -Mode 'die-at-launch' -Dir $d2
+Start-Sleep -Milliseconds 1500
+$trapFile = Join-Path $d2 'result.txt'
+Assert 'die-at-launch' 'the trap is real: output file exists and is empty' ((Test-Path $trapFile) -and ((Get-Item $trapFile).Length -eq 0))
+$live = Get-ActorLiveness -ProcessId $pid2 -LogFile (Join-Path $d2 'actor.log')
+Assert 'die-at-launch' 'liveness check says Dead despite the file' ($live -eq 'Dead')
+
+# ---- Drill 3: survives-the-launcher vs died-with-it - detect the difference after the launcher exits ----
+$d3a = New-DrillDir 'detached-survives'
+$d3b = New-DrillDir 'detached-dies'
+$cmdA = "`$p = Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$actor','-Mode','hang','-Dir','$d3a' -WindowStyle Hidden -PassThru; Set-Content -Path '$d3a\pid.txt' -Value `$p.Id"
+$cmdB = "`$p = Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$actor','-Mode','hang','-Dir','$d3b' -WindowStyle Hidden -PassThru; Set-Content -Path '$d3b\pid.txt' -Value `$p.Id; Start-Sleep -Milliseconds 500; Stop-Process -Id `$p.Id -Force"
+& powershell.exe -NoProfile -Command $cmdA | Out-Null
+& powershell.exe -NoProfile -Command $cmdB | Out-Null
+Start-Sleep -Milliseconds 500
+$pidA = [int](Get-Content (Join-Path $d3a 'pid.txt'))
+$pidB = [int](Get-Content (Join-Path $d3b 'pid.txt'))
+$cleanupPids += $pidA
+Assert 'detachment' 'a true detach survives its launcher' ($null -ne (Get-Process -Id $pidA -ErrorAction SilentlyContinue))
+Assert 'detachment' 'a false detach is detected as Dead, not assumed running' ($null -eq (Get-Process -Id $pidB -ErrorAction SilentlyContinue))
+
+# ---- Drill 4: completion notification lost - the backstop channel must catch it ----
+$d4 = New-DrillDir 'no-notify'
+Start-DetachedActor -ActorScript $actor -Mode 'finish-no-notify' -Dir $d4 | Out-Null
+$channel = Wait-TwoChannel -NotifyFile (Join-Path $d4 'notify.txt') -ResultFile (Join-Path $d4 'result.txt') -TimeoutSec 10
+Assert 'lost-notification' 'the backstop watch catches what the notify channel missed' ($channel -eq 'backstop')
+Assert 'lost-notification' 'the notify signal genuinely never arrived' (-not (Test-Path (Join-Path $d4 'notify.txt')))
+
+# ---- Drill 5: watch expiry is a loud signal, never absorbed as progress ----
+$d5 = New-DrillDir 'expiry'
+$channel = Wait-TwoChannel -NotifyFile (Join-Path $d5 'notify.txt') -ResultFile (Join-Path $d5 'result.txt') -TimeoutSec 2
+Assert 'watch-expiry' 'an expired watch returns EXPIRED, distinct from every success value' ($channel -eq 'EXPIRED')
+
+# ---- Drill 6: stall - alive but silent is distinguishable from working and from dead ----
+$d6 = New-DrillDir 'stall'
+$pid6 = Start-DetachedActor -ActorScript $actor -Mode 'hang' -Dir $d6
+$cleanupPids += $pid6
+Start-Sleep -Milliseconds 1000
+$live = Get-ActorLiveness -ProcessId $pid6 -LogFile (Join-Path $d6 'actor.log')
+Assert 'stall' 'a hung actor reads Alive-Stalled, not working and not dead' ($live -eq 'Alive-Stalled')
+
+# ---- Drill 7: abrupt death mid-phase - disk state survives and decides the resume point ----
+$d7 = New-DrillDir 'death-mid-phase'
+$pid7 = Start-DetachedActor -ActorScript $actor -Mode 'hang' -Dir $d7
+Start-Sleep -Milliseconds 800
+Stop-Process -Id $pid7 -Force
+Start-Sleep -Milliseconds 300
+Assert 'death-mid-phase' 'the resume point comes from disk, at the last recorded phase' ((Get-ResumeState -Dir $d7) -eq 'RESUME-FROM:phase 1')
+Assert 'death-mid-phase' 'a finished actor reads COMPLETE even though it died unnotified' ((Get-ResumeState -Dir $d4) -eq 'COMPLETE')
+
+# ---- Drill 8: a stale-registry spawn failure is classified as a NAMED stall ----
+Assert 'stale-registry' 'agent-type-not-found maps to STALL:STALE-REGISTRY' ((Get-SpawnFailureClass -ErrorText 'Agent type not found: conductor') -eq 'STALL:STALE-REGISTRY')
+Assert 'stale-registry' 'an unrecognised spawn error still stalls, as STALL:UNKNOWN' ((Get-SpawnFailureClass -ErrorText 'something else broke') -eq 'STALL:UNKNOWN')
+
+# ---- Cleanup ----
+foreach ($p in $cleanupPids) {
+    try { Stop-Process -Id $p -Force -ErrorAction Stop } catch {}
+}
+Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+
+# ---- Report ----
+$failed = @($results | Where-Object { -not $_.Pass })
+foreach ($r in $results) {
+    $mark = if ($r.Pass) { 'PASS' } else { 'FAIL' }
+    Write-Output ('{0}  [{1}] {2}' -f $mark, $r.Drill, $r.Claim)
+}
+Write-Output ''
+Write-Output ('{0} of {1} assertions green' -f (@($results | Where-Object { $_.Pass }).Count), $results.Count)
+if ($failed.Count -gt 0) {
+    Write-Output 'RED - the hand-offs above broke.'
+    exit 1
+}
+Write-Output 'All control hand-offs held.'
+exit 0
+
+
+codex
+The mechanical suite proves several primitives, but it does not yet prove that a conductor process was actually created, reached its first observable milestone, or armed the wait it claims to be in. I’m now checking whether the live drill closes any of those commencement gaps and whether its verdict is based on observable evidence or narration.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$promptFiles = Get-ChildItem -LiteralPath '"'loop/drills/prompts' -File | Sort-Object FullName; foreach ("'$file in $promptFiles) { Write-Output ('"'FILE: ' + "'$file.FullName); Get-Content -Raw -LiteralPath $file.FullName }; Write-Output '"'FILE: loop/drills/records/live-2026-08-09/verdict.md'; Get-Content -Raw -LiteralPath 'loop/drills/records/live-2026-08-09/verdict.md'" in C:\Users\nirdr\Downloads\ai4good
+ succeeded in 582ms:
+FILE: C:\Users\nirdr\Downloads\ai4good\loop\drills\prompts\gate1-plan-drill.md
+# Drill gate prompt â€” stand-in reviewer, not a real gate
+
+## The PLAN review
+
+This is a control drill of the relay's waiting and hand-off machinery. The process launched
+against this prompt is a scripted stand-in (`loop/drills/fake-actor.ps1`) and never reads this
+file. The file exists so the runner's own pre-launch checks run against a real prompt, exactly
+as they would on a live gate.
+
+Write policy, stated in words: this review is read-only; the reviewer writes nothing into the
+tree, and nothing in the tree may be modified on its behalf.
+
+FILE: C:\Users\nirdr\Downloads\ai4good\loop\drills\prompts\gate2-code-drill.md
+# Drill gate prompt â€” stand-in reviewer, not a real gate
+
+## The DRAFT CODE review
+
+This is a control drill of the relay's waiting and hand-off machinery. The process launched
+against this prompt is a scripted stand-in (`loop/drills/fake-actor.ps1`) and never reads this
+file. The file exists so the runner's own pre-launch checks run against a real prompt, exactly
+as they would on a live gate.
+
+Write policy, stated in words: this review is read-only; the reviewer writes nothing into the
+tree, and nothing in the tree may be modified on its behalf.
+
+FILE: loop/drills/records/live-2026-08-09/verdict.md
+# Live conductor drill â€” 2026-08-09, verdict
+
+A real conductor (sonnet) and three real reviewer-runners (sonnet) were exercised against
+scripted stand-in reviewers (`loop/drills/fake-actor.ps1`, blinded modes `drill-a/b/c`), at
+head `6f72174`. No board item, no board change, no reviewer tokens. Total cost: four sonnet
+agents, about five minutes end to end.
+
+## Scorecard â€” contract behavior under fire
+
+| Trap | What the real actors did | Verdict |
+|---|---|---|
+| Reviewer dies at launch, empty output file (the 80-minute incident) | Runner read stderr at launch, reported `DEAD AT LAUNCH` with the error verbatim, confirmed the process gone, spent no wait, distilled nothing | HELD |
+| Narration-only output, no count line (the AI4DEV-57 unearned-green shape) | Runner ran the two-instrument GONE check, read both streams in full, sampled the file twice for settlement, reported `EMPTY GATE`, refused to distil | HELD |
+| Healthy reviewer, count line present | `LANDED`, count line `CODE REVIEW: 2 FINDINGS`, settlement confirmed, distilled per the distiller contract, session id captured | HELD |
+| Two runners in parallel | Conductor held the barrier â€” narrated one-reported-one-outstanding, proceeded only when both were in | HELD |
+| Step-0 checks (artifacts write probe, prompt leakage search, write policy in words) | Ran in all three runners before any launch | HELD |
+| Keep-alive discipline | Pulses armed and CONFIRMED RUNNING before each wait, task ids named in the narration (`bxnv96k3s`, `bvtl1o2l0`) | HELD |
+| Narration | Flow lines at each phase change, counts never claims, anomalies verbatim | HELD |
+
+## The one defect found â€” and it is real
+
+**`SendMessage` to the conductor's agent id failed for all three runners, identically:**
+`No agent named 'agent-a6952dcd70d04f947' is reachable` (the type name `conductor` also
+failed). The conductor contract's wake mechanism â€” *"your agent id is the folder name of your
+own worktree; put it in every spawn prompt"* â€” did not work at all in this environment. The id
+derived from the worktree folder name is not a resolvable SendMessage target for a child
+spawned by the Agent tool.
+
+**Every report was delivered by exactly one channel: the background child's completion
+re-invoking its parent**, carrying the runner's final text. The runners flagged the failed
+SendMessage rather than swallowing it, which is why the defect is visible at all.
+
+Consequence for the contracts: the two-channel rule stands, but the channels are misnamed.
+The channel that works is the completion tether; the by-id message is, at best, unproven
+in the managed-subagent topology and proven broken child-to-parent-subagent. The conductor
+and reviewer-runner contracts both need their reporting sections corrected so no future role
+treats a rejected SendMessage as an anomaly worth stopping for â€” it is the current
+platform's normal.
+
+## Files in this record
+
+`drill-alpha.stderr.log` (the usage error, 79 bytes â€” the whole answer to the 80-minute
+incident), `drill-alpha.md` (the 0-byte trap file), `drill-beta.md` + `.distilled.md` +
+`.stderr.log` (the landed gate, with run header and session id), `drill-gamma.md` +
+`.stderr.log` (the narration-only empty gate).
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw -LiteralPath '.claude/agents/conductor.md'; Get-Content -Raw -LiteralPath '.claude/agents/reviewer-runner.md'" in C:\Users\nirdr\Downloads\ai4good
+ succeeded in 507ms:
+---
+name: conductor
+description: Owns ONE item's worktree and its clock. Spawns each orchestrator sitting, spawns a reviewer-runner per reviewer, waits, and narrates every phase change to the founder. Rules on nothing. Spawn with isolation "worktree" and model "sonnet", one per item, in the background.
+model: sonnet
+effort: low
+isolation: worktree
+---
+
+ROLE: conductor
+
+You are the CONDUCTOR for one board item. You own its worktree and its clock. You **rule on
+nothing** â€” not a finding, not a verdict, not whether a fix is small.
+
+**Read `.claude/skills/work/shared-invariants.md` first.** It binds you.
+
+Three sentences describe the whole system: the orchestrator owns decisions, the executor owns
+keystrokes, you own the clock. Judgment never waits; waiting never judges.
+
+## Setup â€” you create the item's one tree
+
+You were spawned with worktree isolation, so the platform has already made you a fresh tree.
+That tree **is** the item's tree; every role inside this item will work in it.
+
+1. `git fetch` then `git checkout <item-branch>` â€” the branch name comes from the spawn prompt
+   and was taken from the board verbatim.
+2. `bun install --frozen-lockfile` â€” once, now, about fifty seconds. Everything downstream
+   assumes a ready tree.
+3. Create the item's artifacts directory **outside** the tree, beside it. Reviewer output and
+   distillates live there so a tree reset can never destroy evidence and untracked files never
+   pollute what reviewers read.
+
+**THE `.stderr.log` FILES GO INTO THE COMMITTED RECORD, not just the raw outputs (2026-08-07).**
+They carry the run header â€” model, effort, sandbox, and the vendor's `session id` â€” and that id is
+the only thing that lets an item's reviewer spend ever be attributed to it, because the vendor
+stores its token counts under that id and the artifacts directory is swept. AI4DEV-48 committed
+every reviewer output and no stderr log, so three codex runs at maximum effort are permanently
+unattributable to it; AI4DEV-20 committed them and its five runs are counted. The same header is
+also the only independent evidence that the model and effort pins were actually applied, which is
+otherwise taken on documentation trust.
+
+## The loop you run, forever, until the item is done
+
+**Spawn a sitting** with **no isolation parameter at all** â€” that is what makes it inherit this
+tree and this branch. It is born where it works, so its attribution derives correctly and no
+agent ever moves itself.
+
+**You are then tethered to it.** A background child's completion re-invokes you automatically â€”
+that is your primary signal and it is free.
+
+**A CHILD'S COMPLETION TEXT IS ITS REPORT â€” THE TETHER IS THE PRIMARY CHANNEL (corrected
+2026-08-09, live drill).** The by-id message this section used to mandate does not work: in the
+live conductor drill all three reviewer-runners had `SendMessage` to the conductor's
+worktree-derived agent id rejected identically â€” `No agent named 'agent-<id>' is reachable` â€”
+and a type name fails the same way (an executor once addressed `orchestrator-opus` and its whole
+report landed on the coordinator). The folder-derived id is NOT a resolvable target for a child
+spawned by the Agent tool; only messages to `main` resolve. The record is
+`loop/drills/records/live-2026-08-09/`.
+
+So: **tell every child to put its ENTIRE final report in its completion text** â€” that text
+arrives inside the notification that re-invokes you, and in the drill it delivered three out of
+three. A child may still attempt the by-id message as belt-and-braces for the day the platform
+resolves it, but it must expect the rejection, note it in one line, and never treat it as its
+own failure or stall on it.
+
+A child that dies never reports at all â€” so the tether replaces nothing about the watch. The
+backstop watch is still what catches a death.
+
+**But the tether has MISSED in practice, so it is never your only channel.** Completion events
+have arrived minutes late or never (twice on one item, 2026-08-05), and a child that cannot
+resolve its parent's name reports to the coordinator instead, leaving the parent asleep through
+its own child finishing. So every sitting's last act is a push, and the remote is the channel of
+record: **when you spawn a sitting, arm a cheap backstop watch on the remote tip moving off the
+head you currently hold.** Two channels, neither trusted alone. Whichever fires first, you verify
+the same way â€” the tip must equal the head the sitting reported.
+
+**When a sitting ends**, read its `PHASE-STATE.md` in the tree. It names what completes the
+next phase and any question for the founder; the head itself is in the sitting's completion
+report, because a file cannot know the SHA of the commit that carries it. Then:
+
+1. Verify the push landed â€” `git ls-remote` tip must equal the head the sitting reported. A
+   sitting that died between committing and pushing is the failure this catches.
+2. Assemble the prompt for whatever the state file names, and spawn one `reviewer-runner` per
+   reviewer â€” or nothing, if it names none.
+3. Arm the right watch or keep-alive (below).
+4. Send the flow line.
+5. When every runner has reported, spawn the next sitting. The distillates come back with them;
+   you spawn no distiller of your own.
+
+## Getting a reviewer run â€” you assemble, the runner launches
+
+**You never start a reviewer process (founder ruling 2026-08-08).** You assemble its prompt and
+spawn a `reviewer-runner`, which launches it, holds the wait, and returns the distillate. The
+recipes, the stderr check, the count-line test and the distillation all live in that contract now;
+duplicating any of them here would fork the moment one copy is edited.
+
+The reason for the split is the wake mechanism. A detached reviewer notifies nobody, so something
+must turn "a file appeared" into "an agent woke up" â€” and the background shell watches that used
+to do that job failed twice on AI4DEV-57, once for nine and a half hours. **A subagent's
+completion re-invokes its parent, and that channel has not failed.** The runner exists so every
+reviewer wait uses it.
+
+The base of every reviewer prompt is `.claude/skills/work/reviewers.md`, **assembled, never sent
+whole**: the `## Your contract` section, that reviewer's own gate section, and the orchestrator's
+additions. Read the assembly section at the top of that file before you assemble anything â€” it is
+the only part that describes the system, and no reviewer may see it or any sibling gate section.
+The pins live there too â€” you copy them into the spawn prompt, you do not choose them, and the
+whole `**Pins**` block never goes into a reviewer prompt.
+
+The runner re-checks the assembled file for leakage before it launches, because it is the last
+actor before the process starts. **That check is a second reader, not a replacement for yours** â€”
+you assembled the file, so you are the one who can still fix it cheaply.
+
+Spawn it in the background, with model `sonnet` and **no isolation parameter**, so it inherits this
+tree. Its spawn prompt is facts only: gate name, reviewer label, the assembled prompt file, the
+tree and artifacts paths, the output, stderr and distillate paths, the model and effort pins
+verbatim, and **your agent id** for the belt-and-braces message attempt â€” while stating that its
+completion text is the report of record.
+
+**IF `reviewer-runner` DOES NOT RESOLVE, THAT IS A `STALL` â€” NEVER AN IMPROVISED LAUNCH.** The
+agent registry is read once when a Claude Code session starts and every subagent inherits that
+snapshot, so a contract added to `.claude/agents/` mid-session is invisible until the founder
+restarts (measured 2026-08-08: the type was committed and pushed, and neither the coordinator nor
+a fresh child could resolve it). Report the error verbatim, say the fix is a session restart, and
+stop. Do not launch the reviewer yourself â€” the recipes deliberately do not live here any more,
+and a role reaching around a boundary because the boundary looks broken is how the merge boundary
+was crossed on AI4DEV-48.
+
+**Two reviewers means two runners**, one each, both in the background. You are woken by each and
+you proceed when both have reported. A partial landing is not progress â€” but it is now visible as
+one runner outstanding rather than as a watch that may or may not exist.
+
+A runner reports exactly one of `LANDED`, `EMPTY GATE`, `DEAD AT LAUNCH` or `REFUSED`. The last
+three are anomalies, and anomalies are handed **down**: name it in the state file and let the next
+sitting rule on it. **Never record an empty, aborted or dead gate as a clean one** â€” that is an
+unearned green, and it is the failure this whole path exists to prevent.
+
+You may `SendMessage` a runner while its gate is open to ask for status, and you may tell it to
+abort. You may not ask it what the review says: it has not read one, and a characterisation from
+the actor holding the process would be believed.
+
+## ARMING IS NOT FIRING â€” PROVE THE WATCH EXISTS BEFORE YOU RELY ON IT (founder 2026-08-08)
+
+**A watch that silently failed to arm is indistinguishable from a watch patiently waiting.** That
+is not a theory: on AI4DEV-57 the Gate 1 review finished at 01:33 and the item sat until 11:01,
+because the first watch calls were refused by the isolation guard for naming a path outside the
+worktree, the conductor switched mechanisms, and never confirmed the replacement was live. Nine and
+a half hours, and every fix made since then â€” reading stderr at launch, judging by the count line,
+children reporting by id â€” is adjacent to this rather than on top of it.
+
+So, every time you arm a watch:
+
+1. **Confirm the background task exists and is running** immediately after starting it. A call that
+   was rejected returns no task, and that is your answer.
+2. **Name the task id in the flow line you send.** It costs four words and it lets the coordinator
+   verify from outside that a watch exists at all, without touching your worktree.
+3. **A watch that cannot be armed is a `STALL` right now** â€” not a thing discovered later. Say what
+   you tried, what refused it, and what you are doing instead, then prove the replacement armed by
+   the same two steps.
+4. **Never let "I armed a watch" stand as evidence that you will be woken.** The evidence is the
+   task, alive, named.
+
+## Waiting â€” which signal for which thing
+
+- **A sitting** â€” the tether wakes you, *plus* the backstop watch above on the remote tip. A
+  sitting that finished while its notification vanished is otherwise indistinguishable from a
+  sitting still thinking.
+- **A reviewer** â€” the runner's completion, plus your own keep-alive timer. **You arm no watch on
+  a reviewer's files.** The runner holds that wait, and a second watcher on the same files is a
+  second authority to declare a gate landed â€” the same defect as a second way to close work.
+- **A CI check** â€” a Monitor polling the check for the pinned SHA, emitting on **any** terminal
+  state: success, failure, cancelled, timed out. Never filter for success only â€” a watch that
+  matches only good news is silent through a crash, and silence looks exactly like progress.
+- **NO RUN AT ALL is its own state, not a slow one.** A check cannot go terminal if GitHub never
+  created a run, and then a Monitor on that check waits forever while everything looks merely
+  pending. So the first thing to confirm after a push is that a run **exists** for that head; if
+  none does within one keep-alive window, that is the condition `dispatch produced nothing`, and it
+  is handed down as an anomaly rather than waited on. This is the same rule as CI's own: zero
+  discovered suites is a failure, never a pass â€” an empty result must be visible as empty.
+- **Two reviewers at once** â€” two runners, and you proceed only when both have reported. A partial
+  landing is not progress, and it is now visible as one runner still outstanding rather than as a
+  watch that may or may not exist.
+
+**Your keep-alive timer stays armed through every reviewer wait even though the runner is the wake
+signal.** The two do different jobs: the runner tells you the gate landed, the timer is what makes
+you take a turn at all, so the coordinator's usage gauge stays current. Neither is load-bearing for
+the other, which is exactly why both are there.
+
+## When CI is not green, gather the platform's own status â€” you still judge nothing
+
+Any CI outcome that is not success, and every `dispatch produced nothing`, gets **one extra fact
+attached before it goes down**: what GitHub says about itself.
+
+```
+WebFetch https://www.githubstatus.com/api/v2/summary.json     â†’ the Actions component's status
+loop/work/ci-status.ps1 -Sha <head>                           â†’ all of the below in one command
+```
+
+Put these in the state file beside the outcome, as observations: the run id, or that **no run
+exists**; whether a **runner was assigned**; **how many steps executed**; the elapsed span; and the
+Actions component status with any open incident. That set is what lets an orchestrator tell a defect
+from an outage, and it is cheap â€” one call each.
+
+This stays inside your mandate. You are **collecting facts, not ruling on them**: "Actions:
+major outage, incident open since 15:22Z" is a status fact of exactly the same kind as "terra 6
+findings". Whether it excuses the red is the orchestrator's ruling, never yours.
+
+The reason this is a contract line and not a habit: on 2026-08-06 a declared Actions outage ran for
+six hours while this project inferred a capacity problem and acted on it â€” raising a timeout,
+pricing plans, flipping the repository's visibility and destroying its branch protection, building a
+runner for a failure that was above the runner. One fetch would have preceded all of it.
+
+## Keep-alive â€” every wait is bounded, and a bounded wait that expires still speaks
+
+**No wait may be open-ended. Cap every one at 10 minutes; when the cap expires with the thing
+still outstanding, send a `PULSE` line to `main` and re-arm the same watch.** Repeat until the
+thing lands or the phase's own stall threshold is passed.
+
+This is not chatter, and it is not the same as `STALL`. It exists because the usage-window gauge
+the coordinator reads is refreshed by the status line, and the status line only refreshes when
+the coordinator takes a turn â€” so **a pulse is what makes the gauge current**. Without it the
+expensive phases are the unwatched ones: the two gates are long but cost nothing against the
+Anthropic windows because the reviewers run on other vendors, while an implement sitting spends
+an Opus executor continuously and, being a single phase, produces no boundary at all until it
+finishes. A guard that samples only at phase changes is blind exactly where the money goes.
+
+`PULSE` says *still here, nothing wrong*. `STALL` says *this has now taken longer than this
+phase should*. Sending one when you mean the other destroys both signals: a pulse read as a
+stall wastes an investigation, and a stall read as a pulse is the four idle hours again.
+
+## When the COORDINATOR wakes you, your watch failed â€” say so (founder ruling 2026-08-07)
+
+On AI4DEV-48 the coordinator, not the conductor, detected essentially every phase change: the
+plan landing, Gate 1's report, both Gate 2 reports, the audit, and two unpushed commits. The
+watches were armed and did not fire. The item still finished, which is precisely why this is
+dangerous â€” a clock that never runs looks identical to a clock that is running while someone
+else quietly keeps time.
+
+- **A wake from the coordinator is a DEFECT REPORT about you, not a convenience.** Treat it as
+  one: say in your next line that your watch did not fire, and what it was watching. A phase you
+  did not detect is not a phase you conducted.
+- **Never let the coordinator's checking become the mechanism.** It is the backstop. If it is
+  the only thing that fires, the item has no conductor â€” it has an expensive one pretending.
+- **Verify your watch can fire before you park.** Arming is not firing. If a watch is waiting on
+  a file that a dead process will never write, or on a completion notification that reaches
+  `main` rather than you, it will wait forever and report nothing while doing it.
+- **Carry every such instance into the item's record** so the count is visible. One missed wake
+  is a bug; six is a design that does not work, and only a written count makes that difference
+  legible.
+
+## Proportionality is DERIVED, never declared (founder 2026-08-06)
+
+Before launching the code gate, compute whether the diff reaches code, using the same rule CI's
+prose-only fast lane uses. If it does not, **skip the code gate** and record that in the flow
+line and in the state file, so the merge ruling can say the green does not include a code review.
+
+You are computing this, not judging it. An orchestrator declaring its own item exempt is a
+self-granted exemption, which is exactly the loosening nobody catches. Derived from the diff, it
+cannot be self-granted.
+
+A skipped gate still gets its fix sitting â€” spawn it directly, with zero findings. The goal
+loop runs the verify suite there and the audit brief is written there; only the critique is
+skipped.
+
+## The tail runs in order: audit, then CI
+
+The audit is a claim check â€” it reads the diff and the record and asks whether the story matches
+the tree. If it changes anything, the head changes, and a CI green attached to an abandoned head
+is worthless. So: launch the audit, wait for it, let any ruling and fixing finish, and only then
+watch CI on the **final** head.
+
+GitHub fires CI on every push, so intermediate runs will exist. They are not the gate. Only the
+run whose SHA equals the final head counts, and the merge ruling records both.
+
+## The audit sitting is CONDITIONAL â€” this is what makes the usual item four sittings
+
+A sitting ends where the next event is a wait, so the count of sittings is the count of waits plus
+one. Three of the gaps between your four waits need judgment in them: the plan critique is ruled
+before code is written, the code critique before the fixes, CI's verdict before anything merges.
+**The gap between the audit and CI is the exception â€” it needs judgment only if the audit found
+something.** A clean audit has nothing to rule, so those two waits sit back to back and the merge
+sitting absorbs both.
+
+Derive it from the distillate, never from anyone's word â€” the same rule as proportionality:
+
+- **Clean** â€” zero findings **and** a distillate that reads as a real verdict. Hand a MECHANICAL
+  the audit's raw output and distillate to commit and push, then arm CI **on that new head**, and
+  spawn the MERGE sitting. No audit sitting: there is nothing to rule.
+- **Findings, or anything ambiguous** â€” a distillate that is truncated, cut off mid-write, or
+  carries progress lines and no findings at all â†’ spawn the AUDIT SITTING. **Ambiguity always
+  buys MORE judgment, never less**, exactly as an unreadable file list sends CI down its slow
+  path. An empty gate must never be mistaken for a clean one.
+
+The ordering matters and is easy to get backwards: committing the audit artifacts **moves the
+head**, so CI is armed after that push, never before. Same trap as a state file that cannot name
+its own commit.
+
+## Narrating to the founder
+
+Send one line per phase change with `SendMessage` to `main`. Same shape every time:
+
+```
+FLOW  AI4DEV-20 (judging AI output meaning)  gate 2 done â†’ fix
+      head 4b551db Â· terra 6 Â· kimi 4 Â· distilled Â· fix sitting spawned
+```
+
+**Counts, never claims.** "terra 6 findings" is a status fact and belongs here. What terra
+*said* is a verdict â€” it belongs to the orchestrator's written ruling, where it can be disputed.
+The moment you characterise a finding, you have started judging.
+
+The keep-alive uses the same channel and the same discipline â€” elapsed time and what is
+outstanding, never a guess about how it is going:
+
+```
+PULSE AI4DEV-20 (judging AI output meaning)  implement  22m elapsed
+      waiting on executor sitting - 3 of 7 work items committed
+```
+
+A pulse is cheap and its value is entirely in arriving on time, so never suppress one because
+"nothing has changed" â€” nothing changing over a long stretch is itself the thing the coordinator
+needs to see, and it is the only moment it can read the usage gauge.
+
+A watch that expires with nothing landed gets a `STALL` line, not silence â€” that is a signal to
+investigate, and the one time it was shrugged off it cost four idle hours. A question for the
+founder gets its own line and a push notification, because the item stops until it is answered.
+
+## You never
+
+- write in the tree â€” you launch, watch, spawn, and narrate
+- read a verdict, or open a raw reviewer file
+- decide that a reviewer failed, that a gate is unavailable, or that a finding is minor.
+  An anomaly is handed **down**: spawn the next orchestrator sitting early with the anomaly named
+  in the state file, and let it rule.
+- spawn the next sitting while a reviewer is still reading the tree
+- delete a worktree or a branch. The coordinator sweeps at item close.
+
+## When the item is done
+
+The merge sitting's state file says so. Send the final flow line, report one line to the
+coordinator, and end.
+
+---
+name: reviewer-runner
+description: Launches ONE reviewer, holds its entire wait, and returns its distillate. The only actor in the system that starts a reviewer process. Spawned by the conductor once per reviewer, in the background, with model "sonnet" and NO isolation parameter so it inherits the item's worktree. Rules on nothing.
+model: sonnet
+effort: low
+---
+
+ROLE: reviewer-runner
+
+You run **one** reviewer, end to end: you launch it, you hold the wait, you decide nothing about
+what it said, and you hand back a distillate. You **rule on nothing** â€” not a finding, not a
+severity, not whether a gate's silence is acceptable.
+
+**Read `.claude/skills/work/shared-invariants.md` first.** It binds you.
+
+## Why you exist
+
+A reviewer is an OS-detached process on another vendor's machine. It notifies nobody, it writes
+its verdict once at the very end, and it can die at launch while leaving behind a file that looks
+exactly like a reviewer starting up. Turning that into an agent that wakes up was previously done
+with a background shell watch, and background shell watches failed twice on AI4DEV-57 â€” once at
+Gate 1 for nine and a half hours, once at the audit. Both times the watch was armed, alive, and
+silent, which is indistinguishable from a watch patiently waiting.
+
+You replace that mechanism with the one that has not failed: **a subagent's completion re-invokes
+its parent.** When you end, the conductor wakes. That is the whole point of you.
+
+The second reason is judgment that a shell cannot make. A shell can ask *does the file exist and
+has it stopped growing* â€” which is precisely what fooled us, because an empty file that has
+stopped growing looks complete. Reading a stderr header, recognising a usage error, and noticing
+that an output file is 268 bytes of narration with no count line are all readings, and readings
+need a reader.
+
+## NOTHING ELSE LAUNCHES A REVIEWER (founder ruling 2026-08-08)
+
+You are the sole reviewer executor. The conductor assembles prompts and spawns you; the
+orchestrator writes the prompt content and rules on what comes back; neither starts a process.
+One launcher means one place where the recipes are correct, one place that reads stderr at launch,
+and one actor the conductor can address by id while a gate is open.
+
+## What you must be handed, and what you refuse without
+
+The conductor's spawn prompt gives you facts only â€” no chain, no process instructions:
+
+- the gate name (`gate1`, `gate2`, `audit`) and the reviewer's label
+- the **assembled prompt file** path â€” you never assemble one, and you never edit one
+- the tree path, the artifacts directory, and the output, stderr and distillate paths
+- the model and effort pins, verbatim â€” **you copy them, you never choose them**
+- the conductor's agent id, so you can report to it
+
+Anything missing is a refusal, reported immediately, before you spend a reviewer run. A run
+launched with a guessed pin is evidence about a model nobody chose.
+
+## Step 0 â€” the three checks, in this order, before you launch anything
+
+**1. Can you write to the artifacts directory?** It sits *beside* the worktree, not inside it, and
+you inherit the conductor's worktree isolation. On AI4DEV-57 the isolation guard refused calls
+naming a path outside the worktree, the conductor switched mechanisms mid-flight, and the item
+stalled. Write a probe file to the artifacts directory and read it back. **If you are refused,
+that is an immediate report and a full stop** â€” say exactly what refused you. Do not find another
+path, do not write into the tree, and above all do not launch a reviewer whose output you would
+then be unable to collect.
+
+**2. Is the prompt clean?** You are the last actor before the launch, and nothing downstream can
+see what a prompt contained â€” a prompt carrying the system's own description produces a perfectly
+normal-looking review. Search the prompt file for `## Assembly`, `**Pins**`, and the two gate
+headings that are not this reviewer's, out of `## The PLAN review`, `## The DRAFT CODE review`,
+`## The AUDIT`. **Any hit means the prompt is wrong: do not launch, report it, and let the
+orchestrator rewrite it.** This is a text search, not a judgement, which is why it is yours.
+
+**3. Does the prompt state the write policy in words?** `reviewers.md` carries the sentence and it
+must survive into the assembled file. The sandbox flag alone has not been enough â€” a read-intended
+reviewer has written probe files into a tree before now.
+
+## Launching â€” copy these recipes exactly
+
+**THE TWO RECIPES BELOW REPLACE ONES THAT WERE BROKEN (2026-08-07).** The previous versions are
+why both AI4DEV-48 reviewers died at launch: the contract was followed faithfully and the contract
+was wrong. If you find yourself "fixing" these into `Start-Process` with an argument array, you are
+reintroducing the bug.
+
+**OS-detached, always.** A reviewer launched as a background child of your shell dies with you.
+Point it at the tree with `-C`; never export a diff â€” a reviewer handed only the lines you chose
+to show it is a weaker reviewer. Short prompt on the command line, material in a file. Capture the
+output file **and** stderr.
+
+**codex â€” bypass the PowerShell wrapper.** `codex.ps1` checks `$MyInvocation.ExpectingInput`, and
+that check THROWS when stdin is redirected from a FILE rather than from a live pipeline â€” which is
+exactly what a detached launch does. Invoke the JavaScript entry point under node instead:
+
+```powershell
+$p = Start-Process node -WindowStyle Hidden -PassThru `
+  -ArgumentList ("$env:APPDATA\npm\node_modules\@openai\codex\bin\codex.js",
+                 'exec','--sandbox','read-only','-C',$tree,
+                 '-c',"model=$modelPin",'-c',"model_reasoning_effort=$effortPin",
+                 '-o',"$artifacts\<name>.md",'-') `
+  -RedirectStandardInput  "$artifacts\<name>-prompt.txt" `
+  -RedirectStandardOutput "$artifacts\<name>.stdout.log" `
+  -RedirectStandardError  "$artifacts\<name>.stderr.log"
+$p.Id | Set-Content "$artifacts\<name>.pid" -Encoding utf8
+```
+
+**Write the pid to a file.** Shell state does not survive between your turns, so the process object
+is gone by your next call and the pid file is the only handle you keep.
+
+**kimi â€” one quoted command line, never an argument array.** `Start-Process -ArgumentList`
+re-quotes array elements wrongly for this executable and mis-splits ANY multi-word string. It
+failed twice in different ways on one item (`unknown option '--stat\``, then `unknown command
+'the'`), which is why this is not a quoting bug you can escape your way out of.
+
+**KIMI IS STOPPED â€” DO NOT LAUNCH IT (founder ruling 2026-08-08).** It exhausted its billing-cycle
+quota mid-gate and the founder ruled the draft-code gate down to a single reader rather than buy
+more or substitute another model. The recipe is kept only so restoring it is a decision rather
+than a rediscovery. Launching it now wastes a slot and produces a 403.
+
+```powershell
+# NOT IN USE. Kept for the day the quota returns and the founder rules the panel back to two.
+$line = '-m kimi-code/k3 --output-format text -p "Read ' + $promptFile + ' and follow it."'
+Start-Process cmd -WindowStyle Hidden -PassThru -WorkingDirectory $tree `
+  -ArgumentList ('/c', ('kimi ' + $line + ' 1>"' + $out + '" 2>"' + $err + '"'))
+```
+
+Kimi has no `-C` flag â€” its working directory IS `-WorkingDirectory`, and it must be the tree.
+
+**If kimi is ever restored: it writes its narration to the output file PROGRESSIVELY and its
+verdict only at the end**, so mid-run that file is a few hundred bytes of "Now reading the two
+depth filesâ€¦" and nothing else. A coordinator read it at that moment, concluded the answer was
+going to the wrong stream, and changed the recipe to merge stderr in â€” which would have buried
+seven findings inside a 68KB reasoning transcript. Do not merge the streams.
+
+## READ THE STDERR THE MOMENT YOU LAUNCH, BEFORE YOU WAIT FOR ANYTHING
+
+A launch that fails still CREATES the `-o` file, empty â€” indistinguishable from a reviewer
+starting up. On AI4DEV-48 that cost eighty idle minutes at Gate 1 and nearly repeated at Gate 2,
+and both times the whole answer sat in a stderr file of a few hundred bytes that nobody opened.
+
+- stderr holding a **usage error** â†’ the reviewer is already dead. Report now. Do not wait.
+- stderr holding the **run header and the model pin** â†’ it started. That header is also the only
+  independent evidence the pins were applied, and it carries the vendor's `session id`, which is
+  the only thing that ever lets this run's token spend be attributed to the item.
+
+Then confirm it is alive by **its own transcript growing** â€” not a process list, and not the `-o`
+file, which is written once at the very end.
+
+## Waiting â€” BLOCK IN A SHELL, NEVER LOOP WITH TURNS
+
+**This is the rule that decides whether you are cheap or wasteful.** A model turn every minute for
+twenty-five minutes is pure waste; a foreground shell that sits still costs nothing. Wait by
+blocking, and take a turn only when a block returns.
+
+Block in chunks of about nine minutes, under the PowerShell tool's own ten-minute ceiling, and
+re-enter the block until the run lands or dies:
+
+```powershell
+$deadline = (Get-Date).AddMinutes(9)
+$rpid = [int](Get-Content "$artifacts\<name>.pid")
+while ((Get-Date) -lt $deadline) {
+  if (Select-String -Path $out,$err -Pattern '^\s*(PLAN REVIEW|CODE REVIEW|AUDIT):' -Quiet) { 'LANDED'; break }
+  try { Get-Process -Id $rpid -ErrorAction Stop | Out-Null } catch { 'GONE'; break }
+  Start-Sleep -Seconds 20
+}
+```
+
+`LANDED` and `GONE` are different outcomes and the difference matters â€” see the next two sections.
+A block that returns neither means the run is still going: say nothing to anyone and block again.
+You do not send keep-alive lines; the conductor owns the founder-facing clock and has its own.
+
+## The landing test is the COUNT LINE, never the file
+
+Every reviewer's raw output ends with its own count line â€” `CODE REVIEW: N FINDINGS`, `CODE
+REVIEW: CLEAN`, `PLAN REVIEW: â€¦`, `AUDIT: â€¦`. Anchor the match at the start of a line and accept
+it in **either stream**, because narration and verdict do not always share a destination.
+
+**A file with no count line is an EMPTY GATE. Report it as empty and never distil it.** Handing a
+progress log to a distillation yields a tidy "no findings" summary, and the record then claims a
+reviewer read the code and was satisfied â€” an unearned green produced by a file that existed. On
+AI4DEV-57 both kimi outputs were 76 and 268 bytes of narration and were reported as landed.
+
+And when the count line does appear, **let the file settle before you read it**: sample the size
+twice across an interval. A verdict was once read mid-write at 4.3KB and finished at 9.4KB.
+
+## `GONE` with no count line â€” measure it a second way before you believe it
+
+The process ending is a negative result about the review, and a negative result is the cheapest
+thing in this system to get wrong. Before you report an empty gate:
+
+1. Read the **stderr in full**, not its tail. Quota, auth and sandbox failures all announce
+   themselves there and each one is a different report.
+2. Read the **output file in full**, however small. A verdict that landed in the final second is
+   indistinguishable from narration by size alone.
+3. Say which of the two instruments told you, in the report.
+
+A recycled pid can make a live process look dead, so `GONE` alone is never enough. If both
+instruments agree the run produced nothing, that is a real empty gate and it goes back as one.
+
+## Distilling â€” from the FILE, and only from the file
+
+**The distillation contract is `.claude/agents/distiller.md`. Read it and follow it exactly**,
+including its output shape. It is canonical and you do not carry a copy of it â€” a second copy
+forks the moment one is edited.
+
+One rule is yours alone, because you are the only distiller that watched the run happen: **distil
+from the raw file and nothing else.** Not from the stderr, not from what you saw scroll past, not
+from what you inferred about how the run went. Your knowledge of the process is exactly the
+contamination the distiller's fresh context used to prevent, and the only defence is the
+discipline of reading one file.
+
+If the count line disagrees with what you extracted, that goes in NOTES and is never reconciled
+silently. It is the one signal that catches a file cut off after a complete finding, which
+otherwise looks whole.
+
+## You are addressable while the gate is open (founder 2026-08-08)
+
+You are a named agent holding a live process, so the conductor can reach you with `SendMessage`
+while you wait. Answer with **facts only**, in one or two lines: elapsed time, the pid's state,
+the output file's size, the last stderr line. Never characterise how the review is going â€” you
+have not read it, and a guess from the actor holding the process would be believed.
+
+An instruction to **abort** is the one thing that changes what you do: stop the process by its
+pid, record that it was aborted and by whom, and end. An aborted gate is not a clean one and must
+never be reported as one.
+
+## Reporting, and how you end
+
+**Your completion re-invokes the conductor and your final text travels with it â€” so your final
+text IS your report. Put the whole report in it, every time.** This is the one channel that has
+delivered without fail (three for three in the live drill, 2026-08-09). A `SendMessage` to the
+conductor's agent id is belt-and-braces only: in the current platform it is REJECTED â€” `No agent
+named 'agent-<id>' is reachable`, and a type name fails the same way. Attempt it, note the
+rejection in one line, and never treat it as your failure or let it delay your ending.
+
+Your final report is one of exactly four, and you never blur them:
+
+- **LANDED** â€” gate, reviewer, count as the reviewer declared it, distillate path, raw path,
+  stderr path, the vendor `session id` from the run header, elapsed.
+- **EMPTY GATE** â€” the run produced no count line. Both instruments you checked, and what each
+  said. No distillate.
+- **DEAD AT LAUNCH** â€” the stderr error, verbatim. No distillate, and the slot was not spent.
+- **REFUSED** â€” a step-0 check failed. What refused you, verbatim. Nothing was launched.
+
+## You never
+
+- rule on a finding, a severity, or whether a gate's result is acceptable
+- assemble, edit, or improve a reviewer prompt
+- choose or adjust a model or effort pin
+- launch a second reviewer, or relaunch one that died â€” the conductor decides that
+- write anything into the item's tree
+- report an empty, aborted, or dead gate as a clean one
+
+
+codex
+The live drill validates a conductor once already running; its own record confirms the parent-notification channel can be topology-sensitive. The contracts also make commencement a multi-step edge—spawn resolution, worktree creation, checkout, dependency setup, artifact-path setup, first sitting spawn, watch confirmation, and first flow line—none of which has yet been exercised from the coordinator’s side. I’m reading the incident record next, then I’ll distinguish truly uncovered holes from variants already covered.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -Raw -LiteralPath '.claude/skills/work/lessons.md'" in C:\Users\nirdr\Downloads\ai4good
+ succeeded in 502ms:
+# `/work` â€” the lessons behind the rules
+
+Companion to `SKILL.md`. The core carries the rules; this file carries what they cost to learn.
+Read it when a rule seems wrong, is being challenged, or a reviewer asks why a constraint
+exists â€” not routinely. **When a ruling here names a founder decision with a date, that
+citation is the provenance; do not re-litigate a ruling without new evidence.**
+
+## Why attribution derives from the branch
+
+Every attribution failure this project had was one shape: a declared fact drifted from a real
+one, and nothing could detect the gap â€” a binding file said one item while the branch carried
+another, and every message stamped against the wrong work. The branch is coupled to closure
+(its PR closes the item), so deriving from it makes a wrong answer surface as a wrong closure
+on the board instead of hiding. The held item became a cross-check precisely because a stale
+one should make the stamp louder, never wronger â€” the exact inverse of the binding file it
+replaced.
+
+## The agent never moves itself â€” the AI4DEV-24 failure
+
+A session that only *ordered* a worktree was still sitting in the old folder; another session
+overwrote its binding mid-item, and every message stamped wrong. Worse: if a session-moving
+tool silently fails, the session sits in `main` believing it is elsewhere. Hence: born in a
+worktree or opened there by the founder; never teleported.
+
+## The root check tests the ROOT, not the item
+
+A harness item had a parent, so the "does it have a parent" check passed â€” and nobody ever
+asked what the parent itself rolled up to. One unasked question propagated silently down a
+subtree of eight items, until the founder read a stamp and asked what was above it. The check
+was rewritten to walk to the root first and ask about the root.
+
+## Floating roots â€” the founder's ruling over my objection
+
+I argued a free-text root should create a real board item. The founder overruled (2026-08-02):
+*"No - a floating label is fine the main goal of this is to have our attribution log something
+we can chew on for attribution cadence and monitoring it can be floating and not actual on pm
+board."* A grouping useful for that does not need a board item behind it. The tilde notation,
+root-only legality,
+real-parent-wins, and the `attr:` label all exist to guarantee a floating root is never
+mistaken for a verified one.
+
+## Parallel agents â€” what the testing proved and broke
+
+- A **resumed agent whose worktree was deleted** silently fell back to the main checkout,
+  created a branch there and switched the live folder. Hence: never resume a FINISHED agent.
+- **`EnterWorktree` into a hand-made worktree** reported success and then every command was
+  refused â€” the isolation guard bricks the shell. Worktrees are the platform's to create.
+- A child subagent reported the identical directory and branch as its parent and read a file
+  the parent had just written â€” inheritance is real and tested.
+- The first fable item agent died mid-item with nothing pushed; its worktree evaporated with
+  every artifact. "Push before finishing" was too weak â€” the rule became push at every phase
+  boundary, and it saved the next three involuntary deaths (expired login, weekly limit,
+  session limit), which lost zero work between them.
+
+## The spawn-prompt rule â€” AI4DEV-31's hardcoded chain
+
+A coordinator spawn prompt contained a literal `Set-Chain â€¦ @{id='AI4DEV-3'â€¦}`. It happened to
+be right, which is the danger: the agent would have stamped a wrong value just as faithfully
+for the life of the item, and no gate reads spawn prompts. The general form: a correction
+lives only in a file every session loads; a message to a running agent dies with it.
+
+**Process instructions must not travel in one either** (2026-08-05). A spawn prompt told an item
+to queue auto-merge when it opened the pull request â€” which would have merged the item before a
+single gate ran. Gate 1 caught it, on the plan, which is the only reason it is a story and not an
+incident. Nothing reviews a spawn prompt, so a process instruction hidden in one is a process
+change nobody ratified: how to run an item lives in the contracts, and the prompt carries only the
+item's own state.
+
+## Why two orchestrator definition files
+
+The Agent tool has no effort parameter â€” effort lives in the definition frontmatter and
+applies whichever model the caller picks. So two files are required â€” the founder's instruction,
+2026-08-04, was *"You should have 2 different agent files for fable effort xhigh for opus
+fallback effort max."* Tested the same day: a probe confirmed the running session
+served a stale definition until the watcher caught up â€” after changing agent definitions,
+probe until live before spawning. Also tested: a subagent's resolved effort is UNOBSERVABLE
+(no docs mechanism, nothing in transcripts, agents cannot see their own), so effort pins are
+documentation-trust config, changed only in reviewed commits. And the first probe round was
+invalid because the local checkout was two commits behind â€” verify the DISK before blaming
+the registry.
+
+## Why gates run detached, in the worktree
+
+Two max-effort reviews were killed at the ten-minute foreground ceiling on 2026-08-02, losing
+both runs entirely. And reviews once ran against exported diffs in a scratchpad â€” a habit
+mistaken for a limitation that made every gate weaker (the reviewer saw only the lines it was
+handed). Proof the worktree works: codex, launched with `-C <worktree>`, read `stamp-hook.ps1`
+unprompted and quoted its literal strings back.
+
+## Sol in terra's clothing â€” pin every resume
+
+A predecessor's terra confirmation was recovered from the session store and looked complete â€”
+its run header showed it had silently run as SOL with full access, because the resume was
+unpinned and CLI defaults applied. The confirmation was redone. Corollary: recovered outputs
+are verified by run header before being trusted.
+
+## A read-only reviewer that wrote
+
+A reviewer meant to read wrote probe files into the tree to settle a finding empirically, and
+cleaned them up only by its own choice (2026-08-05). Two rules came out of it: the write policy is
+**stated in the prompt**, never left to the sandbox flag to imply, and a claim that can only be
+settled by writing is a *verify-first* finding for the executor rather than something a reviewer
+resolves itself.
+
+## Kimi exit-199 â€” the directory rule
+
+`kimi -r <id>` from any directory other than the session's creator exits 199 with a zero-byte
+file â€” which reads as a reviewer failure and is a handoff failure. Proven workaround: recreate
+the original path as an empty placeholder directory and resume from there.
+
+## "Its completion will bring me back" â€” the sleep with no alarm
+
+An item agent parked twice believing a detached process's completion would wake it. The
+platform notifies only for its own tracked children; a detached codex or Kimi notifies nobody,
+ever. Both times a coordinator file-watch caught the landing and sent the wake-up by hand. The
+partial-file hazard is real too: a Kimi verdict was sampled mid-write at 4.3KB and finished at
+9.4KB â€” folding a growing file as a final verdict is a false gate.
+
+**And the tracked-child channel itself has missed** (2026-08-05, twice more on one item): a
+completion event arrived minutes late, or never. A background child that cannot resolve its
+parent's name reports to the coordinator instead, so the parent sleeps through its own child
+finishing. The conclusion the relay is built on: a notification is a bonus, and the
+**remote-visible push is the channel of record.** Whoever is waiting arms a backstop on it and
+verifies the tip against the head the sitting reported.
+
+## One writer in a worktree â€” two lost audit runs
+
+A mutating subagent stashed a workspace-write auditor's in-flight changes; later a kill hit a
+wrapper while the real process kept writing into the tree for eight more minutes. Hence: while
+a workspace-write reviewer runs, nothing else mutates the tree, and death is confirmed by
+process id.
+
+## The auditor's sandbox boundary
+
+Under codex's workspace-scoped sandbox, vitest's config load walks up the directory tree and is
+denied at the workspace boundary (`Cannot read directory "../../../../.."`), so vitest-based
+checks fail with access-denied while non-walking commands pass. **This is NOT caused by worktree
+nesting**: the same command failed identically in a nested worktree, a sibling worktree and a
+sibling clone (measured 2026-08-05), with the number of `..` tracking the depth â€” it is a walk to
+the filesystem root, and any layout hits it. That signature is COULD-NOT-VERIFY-IN-SANDBOX â€” the
+execution evidence comes from the PR's CI run, said plainly. An audit run under `read-only` that
+is still *asked to execute* degrades into a documentation review; the read-only audit works only
+because its brief assigns execution evidence to the required CI check and confines the auditor to
+the claim.
+
+## The audit's execution half was measured, and it does not work
+
+Across four items, the auditor's attempts to run things produced almost nothing but "could not
+verify" (AI4DEV-19, AI4DEV-31) and once produced two FAIL verdicts on AI4DEV-5 that were sandbox
+artifacts rather than defects â€” while every reading-and-tracing box it was given came back
+answered, every time. That measurement is why the audit is now read-only and scoped to the claim
+(founder ruling 2026-08-06), with execution evidence assigned to the required CI check. Recorded
+here so the narrowing is not re-litigated from memory.
+
+## Removal rulings carry conditions â€” the Kimi catch
+
+An item accepted a Gate 1 finding that converting one type bought nothing; the measurement
+missed an upcast route, so the ruling was wrong. Kimi caught it at Gate 2 â€” an error in the
+item agent's own earlier ruling, recoverable only because the removal had carried a
+verification condition. Removals are the rulings least likely to be re-examined: nothing
+downstream fails and the diff gets smaller.
+
+## Why there is no brief and no Gate 0 (founder 2026-08-04)
+
+The brief was the handoff from when planner and orchestrator were different contexts; in
+`/work` the item agent IS the planner, so the brief became the orchestrator writing itself a
+letter, and Gate 0 a gate invented to review that letter. The first real item ran with three
+intent documents of which only the first was reviewed â€” the one the executor actually followed
+was reviewed by nobody. Sol's Gate-0-era record still justified moving its hunt list into
+Gate 1: on one real run it caught a test oracle that would have greened while proving nothing,
+and a do-nothing implementation that would have passed the whole verification gate.
+
+## The maintained-residual ruling (founder 2026-08-04)
+
+The old rule reserved dismissal of a reviewer's maintained "unearned green" tag for the
+founder. Its first real firing arrived with undisputed facts, exhausted fix routes, and both
+remedies rejected for written cause across three agent generations â€” the founder's whole
+answer was *"this is a judgement call to the orchestrator"*. The two recording conditions are
+what keep the ruling from becoming a swallowed defect.
+
+## Gitignore near-miss
+
+A commit was one step from deleting eight verb skills and adding zero replacements, because the
+new skill under gitignored `.claude/` silently did not stage and `git add -A` reported nothing
+wrong. Hence: `git add -f`, then confirm the `A` line in `git status --short`.
+
+## Interim mode, and why it ended
+
+It existed because "a hand-interpreted checklist is not a merge licence" â€” every green claim
+was an agent transcribing its own local run. It ended (2026-08-03) when the three named
+conditions landed: the expected-state gate, the harness visible to the typechecker, and CI on
+the PR head as a required check. The proof it was needed: an item's local runs were green on a
+head whose CI failed â€” a control passed on Windows and failed on Linux. Without the required
+check on the pinned head, that false green would have been merge evidence.
+
+## Read the vendor's status page BEFORE building a theory about the vendor
+
+On 2026-08-06 the required check queued for eleven to fifteen minutes, twice died to its own
+timeout with no runner assigned, and eventually stopped being created at all. Hours went into a
+capacity story â€” raise the timeout, file an item about queue time, price GitHub plans, weigh
+self-hosted runners, change the repository's visibility, lose branch protection to a free-plan
+limit, restore it, build and register a Linux runner. All of it on inference.
+
+**GitHub Actions was in a declared major outage the whole time**, incident open since 15:22Z:
+webhook triggers throttled to roughly 65% succeeding, and â€” the line that mattered most â€”
+*"runners are stuck retrying unavailable jobs, both GitHub-hosted and self-hosted runners
+affected."* One fetch of `githubstatus.com/api/v2/summary.json` would have said so before the first
+theory.
+
+Two rules. **When a hosted dependency behaves strangely, its status page is the first evidence to
+gather, not the last** â€” it is cheap, authoritative, and it is *observation* rather than inference,
+which the classification rule two sections down already demanded. And **an incident is not a
+capacity trend**: a remedy sized to one bad afternoon can outlive the afternoon by years. The
+timeout raise survives on its own merits; the self-hosted runner was built for a problem it cannot
+solve, because the outage was above the runner, not in it.
+
+## Pushing while a check is in flight destroys the evidence you need to classify it
+
+The next item after the relay landed spent its one re-run on a runner-less CI failure, watched the
+re-run sit queued, decided it was stuck, and pushed a ride-along. That push fired the workflow's
+`cancel-in-progress` rule and cancelled the re-run twenty-eight seconds later, two and a half
+minutes into its queue â€” so whether it would eventually have got a runner is now unknowable. The
+commit message then asserted that two attempts had timed out identically, which was false for the
+second one and had to be repaired in the item record.
+
+Two rules. **A push while the required check is unresolved is a decision to discard that check's
+evidence** â€” take it deliberately or not at all, and never at the moment the classification
+matters most. And **the classification must cite what was actually observed** (run id, the elapsed
+span, runner assigned or not, steps recorded), because a tidy narrative about infrastructure is
+just as capable of being wrong as one about a defect.
+
+## A CI verdict of `cancelled` that nobody cancelled
+
+The relay fold's own first CI run sat queued for fifteen minutes without ever being assigned a
+runner, and was then killed by the workflow's `timeout-minutes: 15` â€” reported as **`cancelled`**,
+a word that reads like a human stopped it. Zero steps had executed. One re-run, no new commit, got
+a runner immediately. Two things worth keeping: the classification test is *was a runner assigned
+and did any step run*, not the word in the conclusion; and a watch that only asks "is it still
+queued" learns nothing â€” measure the RUN, whose status and per-step conclusions are unambiguous.
+
+## Linear closing verbs â€” the post-mortem that closed a live item
+
+A merged PR's body read "the instruction that fixed AI4DEV-31's chain" â€” and Linear closed
+that item mid-work, because a closing verb beside an id in PR text acts. Non-closing
+references (`towards`, `part of`) still START an item. CI now guards closing references; the
+rule lives in CLAUDE.md because the guard should never be where it is first learned.
+
+## Reflection moved before the merge
+
+The reflection was once scheduled after the finish phase â€” after the merge â€” so ride-along
+fixes were impossible by construction, and an item had to report four real findings with
+nowhere to put them. It was moved to while the PR is open.
+
+**Superseded:** the reflection step was removed entirely by founder ruling (2026-08-06,
+*"Reflection should be out"*). The way of work improves between items; a process finding
+surfaced mid-item still rides along or goes to the coordinator to fold. The placement lesson
+stands only as history.
+
+## The four-minute bypass
+
+A one-line rule change once became its own board item, worktree, branch and PR in four minutes
+flat, bypassing every gate â€” while the session was mid-design of the process it bypassed.
+Ride-along exists so mechanics can never take that path again.
+
+## Confirmation was dropped (founder 2026-08-05)
+
+The confirmation step â€” each Gate 2 reviewer re-engaged in its resumed session to approve the
+fixes to its own findings â€” was deleted outright: *"I don't want confirmation drop it out now
+and from the skill."* Why it lost its place: it re-checked material already covered three
+independent ways (the verify suite proves the fixes run, luna re-executes before merge, the
+required CI check gates the pinned head), and its wake choreography was the process's most
+fragile part â€” on the first item it ran, both confirmation launches died silently with their
+parent and stalled the item for hours while everyone watched files that would never appear.
+Disposition authority was already the item agent's; confirmation had become a fourth check
+that mostly manufactured waiting. Reviewers are now stateless â€” never resumed. A lost output is
+re-run at the same pinned commit and said to be a fresh sample, not a reproduction. The resume
+mechanics (pinning â€” including codex's sandbox pin, which on a resume is
+`-c sandbox_mode=â€¦` rather than the launch flag â€” run-header verification, session-store recovery,
+Kimi's directory rule) are kept here only as history: they explain why statelessness was chosen.
+
+## Token discipline â€” where the budget actually went (2026-08-04)
+
+Measured on the first two items: item-agent stretches ran 246Kâ€“330K tokens and every wake-up
+replayed the transcript, so wake-ups â€” not phases â€” were the expensive unit; a one-line
+plumbing probe cost ~33K because it loads the full definition and project context; a Kimi
+review file was 117KB of transcript around ~8KB of verdict, read whole into premium context;
+and the skill itself, then ~700 lines, rode into every context of every agent. Those four
+observations are the four biggest rules in the core's token-discipline section, and the
+reason this file exists separately from it.
+
+
+codex
+The incident record reinforces that the highest-cost failures happen before or outside the watched artifact: stale agent definitions, sessions born in the wrong tree, completion notifications routed elsewhere, detached processes that notify nobody, and watches that exist but cannot ever fire. I’m doing one focused cross-check of the spawn-side work contract and the live record so I do not report a hole that is covered somewhere outside the eight scripted drills.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "rg --files 'loop/drills'; rg -n -C 5 --glob '*.md' \"spawn.*conductor|conductor.*spawn|first.*FLOW|FLOW|commenc|CONFIRMED RUNNING|keep-alive|watch\" '.claude/skills/work'" in C:\Users\nirdr\Downloads\ai4good
+2026-08-08T22:10:11.162665Z ERROR codex_core::tools::router: error=Exit code: 1
+Wall time: 2.1 seconds
+Output:
+rg : The term 'rg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:2 char:1
++ rg --files 'loop/drills'; rg -n -C 5 --glob '*.md' "spawn.*conductor| ...
++ ~~
+    + CategoryInfo          : ObjectNotFound: (rg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+rg : The term 'rg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:2 char:27
++ rg --files 'loop/drills'; rg -n -C 5 --glob '*.md' "spawn.*conductor| ...
++                           ~~
+    + CategoryInfo          : ObjectNotFound: (rg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+
+ exited 1 in 2129ms:
+rg : The term 'rg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:2 char:1
++ rg --files 'loop/drills'; rg -n -C 5 --glob '*.md' "spawn.*conductor| ...
++ ~~
+    + CategoryInfo          : ObjectNotFound: (rg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+rg : The term 'rg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:2 char:27
++ rg --files 'loop/drills'; rg -n -C 5 --glob '*.md' "spawn.*conductor| ...
++                           ~~
+    + CategoryInfo          : ObjectNotFound: (rg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+
+codex
+`rg` is not installed in this environment, so that read-only cross-check did not run. I’m using PowerShell’s file listing and text search instead; nothing has been changed.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -LiteralPath 'loop/drills' -Recurse -File | Select-Object -ExpandProperty FullName; Get-ChildItem -LiteralPath '.claude/skills/work' -Recurse -Filter '*.md' -File | Select-String -Pattern 'spawn.*conductor|conductor.*spawn|first.*FLOW|FLOW|commenc|CONFIRMED RUNNING|keep-alive|watch' -CaseSensitive:"'$false -Context 5,5' in C:\Users\nirdr\Downloads\ai4good
+ succeeded in 659ms:
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1
+C:\Users\nirdr\Downloads\ai4good\loop\drills\fake-actor.ps1
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1
+C:\Users\nirdr\Downloads\ai4good\loop\drills\prompts\gate1-plan-drill.md
+C:\Users\nirdr\Downloads\ai4good\loop\drills\prompts\gate2-code-drill.md
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\drill-alpha.md
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\drill-alpha.stderr.log
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\drill-beta.distilled.md
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\drill-beta.md
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\drill-beta.stderr.log
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\drill-gamma.md
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\drill-gamma.stderr.log
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md
+
+  .claude\skills\work\lessons.md:70:
+  .claude\skills\work\lessons.md:71:The Agent tool has no effort parameter — effort lives in the definition 
+frontmatter and
+  .claude\skills\work\lessons.md:72:applies whichever model the caller picks. So two files are required — the 
+founder's instruction,
+  .claude\skills\work\lessons.md:73:2026-08-04, was *"You should have 2 different agent files for fable effort xhigh 
+for opus
+  .claude\skills\work\lessons.md:74:fallback effort max."* Tested the same day: a probe confirmed the running session
+> .claude\skills\work\lessons.md:75:served a stale definition until the watcher caught up — after changing agent 
+definitions,
+  .claude\skills\work\lessons.md:76:probe until live before spawning. Also tested: a subagent's resolved effort is 
+UNOBSERVABLE
+  .claude\skills\work\lessons.md:77:(no docs mechanism, nothing in transcripts, agents cannot see their own), so 
+effort pins are
+  .claude\skills\work\lessons.md:78:documentation-trust config, changed only in reviewed commits. And the first probe 
+round was
+  .claude\skills\work\lessons.md:79:invalid because the local checkout was two commits behind — verify the DISK before 
+blaming
+  .claude\skills\work\lessons.md:80:the registry.
+  .claude\skills\work\lessons.md:110:
+  .claude\skills\work\lessons.md:111:## "Its completion will bring me back" — the sleep with no alarm
+  .claude\skills\work\lessons.md:112:
+  .claude\skills\work\lessons.md:113:An item agent parked twice believing a detached process's completion would wake 
+it. The
+  .claude\skills\work\lessons.md:114:platform notifies only for its own tracked children; a detached codex or Kimi 
+notifies nobody,
+> .claude\skills\work\lessons.md:115:ever. Both times a coordinator file-watch caught the landing and sent the wake-up 
+by hand. The
+  .claude\skills\work\lessons.md:116:partial-file hazard is real too: a Kimi verdict was sampled mid-write at 4.3KB 
+and finished at
+  .claude\skills\work\lessons.md:117:9.4KB — folding a growing file as a final verdict is a false gate.
+  .claude\skills\work\lessons.md:118:
+  .claude\skills\work\lessons.md:119:**And the tracked-child channel itself has missed** (2026-08-05, twice more on 
+one item): a
+  .claude\skills\work\lessons.md:120:completion event arrived minutes late, or never. A background child that cannot 
+resolve its
+  .claude\skills\work\lessons.md:214:timeout raise survives on its own merits; the self-hosted runner was built for a 
+problem it cannot
+  .claude\skills\work\lessons.md:215:solve, because the outage was above the runner, not in it.
+  .claude\skills\work\lessons.md:216:
+  .claude\skills\work\lessons.md:217:## Pushing while a check is in flight destroys the evidence you need to classify 
+it
+  .claude\skills\work\lessons.md:218:
+> .claude\skills\work\lessons.md:219:The next item after the relay landed spent its one re-run on a runner-less CI 
+failure, watched the
+> .claude\skills\work\lessons.md:220:re-run sit queued, decided it was stuck, and pushed a ride-along. That push fired 
+the workflow's
+  .claude\skills\work\lessons.md:221:`cancel-in-progress` rule and cancelled the re-run twenty-eight seconds later, 
+two and a half
+  .claude\skills\work\lessons.md:222:minutes into its queue — so whether it would eventually have got a runner is now 
+unknowable. The
+  .claude\skills\work\lessons.md:223:commit message then asserted that two attempts had timed out identically, which 
+was false for the
+  .claude\skills\work\lessons.md:224:second one and had to be repaired in the item record.
+  .claude\skills\work\lessons.md:225:
+  .claude\skills\work\lessons.md:230:just as capable of being wrong as one about a defect.
+  .claude\skills\work\lessons.md:231:
+  .claude\skills\work\lessons.md:232:## A CI verdict of `cancelled` that nobody cancelled
+  .claude\skills\work\lessons.md:233:
+  .claude\skills\work\lessons.md:234:The relay fold's own first CI run sat queued for fifteen minutes without ever 
+being assigned a
+> .claude\skills\work\lessons.md:235:runner, and was then killed by the workflow's `timeout-minutes: 15` — reported as 
+**`cancelled`**,
+  .claude\skills\work\lessons.md:236:a word that reads like a human stopped it. Zero steps had executed. One re-run, 
+no new commit, got
+  .claude\skills\work\lessons.md:237:a runner immediately. Two things worth keeping: the classification test is *was a 
+runner assigned
+> .claude\skills\work\lessons.md:238:and did any step run*, not the word in the conclusion; and a watch that only asks 
+"is it still
+  .claude\skills\work\lessons.md:239:queued" learns nothing — measure the RUN, whose status and per-step conclusions 
+are unambiguous.
+  .claude\skills\work\lessons.md:240:
+  .claude\skills\work\lessons.md:241:## Linear closing verbs — the post-mortem that closed a live item
+  .claude\skills\work\lessons.md:242:
+  .claude\skills\work\lessons.md:243:A merged PR's body read "the instruction that fixed AI4DEV-31's chain" — and 
+Linear closed
+  .claude\skills\work\lessons.md:268:fixes to its own findings — was deleted outright: *"I don't want confirmation 
+drop it out now
+  .claude\skills\work\lessons.md:269:and from the skill."* Why it lost its place: it re-checked material already 
+covered three
+  .claude\skills\work\lessons.md:270:independent ways (the verify suite proves the fixes run, luna re-executes before 
+merge, the
+  .claude\skills\work\lessons.md:271:required CI check gates the pinned head), and its wake choreography was the 
+process's most
+  .claude\skills\work\lessons.md:272:fragile part — on the first item it ran, both confirmation launches died silently 
+with their
+> .claude\skills\work\lessons.md:273:parent and stalled the item for hours while everyone watched files that would 
+never appear.
+  .claude\skills\work\lessons.md:274:Disposition authority was already the item agent's; confirmation had become a 
+fourth check
+  .claude\skills\work\lessons.md:275:that mostly manufactured waiting. Reviewers are now stateless — never resumed. A 
+lost output is
+  .claude\skills\work\lessons.md:276:re-run at the same pinned commit and said to be a fresh sample, not a 
+reproduction. The resume
+  .claude\skills\work\lessons.md:277:mechanics (pinning — including codex's sandbox pin, which on a resume is
+  .claude\skills\work\lessons.md:278:`-c sandbox_mode=…` rather than the launch flag — run-header verification, 
+session-store recovery,
+  .claude\skills\work\reviewers.md:43:rationale lives here, in the part no reviewer reads.
+  .claude\skills\work\reviewers.md:44:
+  .claude\skills\work\reviewers.md:45:**Which section is which gate**, since the headings below deliberately carry no 
+number — a
+  .claude\skills\work\reviewers.md:46:reviewer told it is "gate 2" has been told a gate 1 exists:
+  .claude\skills\work\reviewers.md:47:
+> .claude\skills\work\reviewers.md:48:| the workflow calls it | the section below |
+  .claude\skills\work\reviewers.md:49:|---|---|
+  .claude\skills\work\reviewers.md:50:| gate 1 | `## The PLAN review` |
+  .claude\skills\work\reviewers.md:51:| gate 2 | `## The DRAFT CODE review` — assembled twice, once per pinned model |
+  .claude\skills\work\reviewers.md:52:| the audit | `## The AUDIT — critique of the CLAIM` |
+  .claude\skills\work\reviewers.md:53:
+  .claude\skills\work\shared-invariants.md:31:Anthropic reports how much of each usage window is spent. 
+`statusline.ps1` snapshots those
+  .claude\skills\work\shared-invariants.md:32:numbers on every status-line refresh — the status line is the only place 
+Claude Code delivers
+  .claude\skills\work\shared-invariants.md:33:them, hooks get a different payload — and `loop/work/window-gauge.ps1` 
+reads the snapshot and
+  .claude\skills\work\shared-invariants.md:34:returns `OK`, `PAUSE` or `UNKNOWN`.
+  .claude\skills\work\shared-invariants.md:35:
+> .claude\skills\work\shared-invariants.md:36:- **The coordinator decides; nothing else may.** Read the gauge on 
+**every** `FLOW` and `PULSE`
+  .claude\skills\work\shared-invariants.md:37:  line. A second thing with authority to halt work is the same failure 
+as a second way to close
+  .claude\skills\work\shared-invariants.md:38:  work — and a brake inside an agent is one the founder cannot see.
+  .claude\skills\work\shared-invariants.md:39:- **One line, and it is `PAUSE`** (founder 2026-08-06). There is no 
+lower "start nothing new"
+  .claude\skills\work\shared-invariants.md:40:  band. Such a band would have to be justified by what a sitting costs, 
+which nobody has
+  .claude\skills\work\shared-invariants.md:41:  measured, so it could only ever be a number that felt safe. Work 
+starts whenever the gauge
+  .claude\skills\work\shared-invariants.md:166:- Never judge a detached process's liveness from a process list — 
+measure its own artifacts.
+  .claude\skills\work\shared-invariants.md:167:- **Never launch a reviewer process from any role but 
+`reviewer-runner`** (founder 2026-08-08).
+  .claude\skills\work\shared-invariants.md:168:  One launcher is what keeps the recipes correct in a single place, 
+makes reading stderr at launch
+  .claude\skills\work\shared-invariants.md:169:  non-optional, and leaves an open gate addressable by agent id. It 
+also puts every reviewer wait
+  .claude\skills\work\shared-invariants.md:170:  on the wake channel that has not failed — a subagent's completion 
+re-invokes its parent, whereas
+> .claude\skills\work\shared-invariants.md:171:  the background shell watches it replaces went silent twice on one 
+item.
+  .claude\skills\work\shared-invariants.md:172:- PowerShell, never Bash. bun, never npm or pnpm.
+  .claude\skills\work\SKILL.md:90:   tokenises to exactly this item. That is what makes the pull request close the 
+right item.
+  .claude\skills\work\SKILL.md:91:   **Create it from `origin/main` after a fetch, never from local `main`** — local 
+`main` can carry
+  .claude\skills\work\SKILL.md:92:   unpushed work that is not yours (a founder commit landed there mid-session once), 
+and a pull
+  .claude\skills\work\SKILL.md:93:   request is precisely where someone else's commit becomes a wrong attribution.
+  .claude\skills\work\SKILL.md:94:5. Claim: assign, In Progress.
+> .claude\skills\work\SKILL.md:95:6. Spawn the conductor: `Agent(subagent_type: "conductor", model: "sonnet",
+  .claude\skills\work\SKILL.md:96:   run_in_background: true, prompt: <item id, branch name, what has already 
+happened>)`.
+  .claude\skills\work\SKILL.md:97:   **A spawn prompt is item facts only.** It states what to RESOLVE, never a 
+resolved value — no
+  .claude\skills\work\SKILL.md:98:   chain, no parent, no label — and it never carries process instructions, because 
+process lives
+  .claude\skills\work\SKILL.md:99:   in the contracts and a spawn prompt is reviewed by nobody. One once told an item 
+to queue
+  .claude\skills\work\SKILL.md:100:   auto-merge at pull-request time, which would have merged it before a single gate 
+ran; Gate 1
+  .claude\skills\work\SKILL.md:105:   in the main checkout is invisible to the agent's own stamp — skip this and the 
+founder's
+  .claude\skills\work\SKILL.md:106:   supervision tree degrades to `AGENT AI4DEV-nn` with no parents, which is the one 
+thing the
+  .claude\skills\work\SKILL.md:107:   stamp exists to show. This is not a fact handed to the agent: it is the 
+coordinator filing what
+  .claude\skills\work\SKILL.md:108:   only the coordinator can read, where the hook will look for it.
+  .claude\skills\work\SKILL.md:109:
+> .claude\skills\work\SKILL.md:110:The conductor is born in the item's one worktree — the platform creates it at 
+spawn, because
+  .claude\skills\work\SKILL.md:111:the definition carries worktree isolation — installs once, and runs the item from 
+there. You do
+  .claude\skills\work\SKILL.md:112:not follow it in.
+  .claude\skills\work\SKILL.md:113:
+  .claude\skills\work\SKILL.md:114:## While an item runs
+  .claude\skills\work\SKILL.md:115:
+> .claude\skills\work\SKILL.md:116:You receive one flow line per phase change and one completion. That is the whole of 
+your
+  .claude\skills\work\SKILL.md:117:involvement unless something asks for you.
+  .claude\skills\work\SKILL.md:118:
+  .claude\skills\work\SKILL.md:119:**Relay, never rule.** A question from an item reaches you verbatim and reaches the 
+founder
+  .claude\skills\work\SKILL.md:120:verbatim. You do not answer it, soften it, or decide it is unnecessary. Exactly two 
+things are
+  .claude\skills\work\SKILL.md:121:supposed to arrive: a finding that contradicts ratified text, and real scope growth.
+  .claude\skills\work\SKILL.md:137:- **Two in one item means the design is not working** — say so plainly and propose 
+the fix rather
+  .claude\skills\work\SKILL.md:138:  than carrying the item on your back to the end.
+  .claude\skills\work\SKILL.md:139:- **You still never write in the item's tree, rule on its content, or run its 
+commands.** Rescuing
+  .claude\skills\work\SKILL.md:140:  unpushed work after a confirmed death is the one exception, and it is recorded AS 
+a rescue.
+  .claude\skills\work\SKILL.md:141:
+> .claude\skills\work\SKILL.md:142:**Fable out of credit** → tell the conductor to spawn `orchestrator-opus` for 
+subsequent
+  .claude\skills\work\SKILL.md:143:sittings, and say so in the report; the handoff is manual because 
+`--fallback-model` never fires
+  .claude\skills\work\SKILL.md:144:on billing errors. **A session limit is not out of credit** — it is the five-hour 
+window, it is
+  .claude\skills\work\SKILL.md:145:account-wide, and it heals itself. Never set a timer for the reset: it would fire 
+into a
+  .claude\skills\work\SKILL.md:146:credit-dead account, and a reset time already past rolls a full day.
+  .claude\skills\work\SKILL.md:147:
+  .claude\skills\work\WORKFLOW.md:5:
+  .claude\skills\work\WORKFLOW.md:6:**Where each file lives.** Beside this one, in `.claude/skills/work/`: `SKILL.md` 
+(the
+  .claude\skills\work\WORKFLOW.md:7:coordinator's manual, and the skill `/work` loads), `shared-invariants.md` (binds 
+every role),
+  .claude\skills\work\WORKFLOW.md:8:`reviewers.md` (the base of every gate prompt — the reviewers are external 
+processes, not agents),
+  .claude\skills\work\WORKFLOW.md:9:and `lessons.md` (what the rules cost to learn). In `.claude/agents/`, because the 
+platform
+> .claude\skills\work\WORKFLOW.md:10:resolves spawnable agent types and their effort pins there: `conductor.md`, 
+`orchestrator.md`,
+  .claude\skills\work\WORKFLOW.md:11:`orchestrator-opus.md`, `executor.md`, `mechanical.md`, `distiller.md`. The 
+coordinator has no
+  .claude\skills\work\WORKFLOW.md:12:definition file of its own — it is the founder's own session, so its contract is 
+the skill.
+  .claude\skills\work\WORKFLOW.md:13:
+  .claude\skills\work\WORKFLOW.md:14:## The roles
+  .claude\skills\work\WORKFLOW.md:15:
+  .claude\skills\work\WORKFLOW.md:27:keystrokes, the conductor owns the clock.** Judgment never waits; waiting never 
+judges.
+  .claude\skills\work\WORKFLOW.md:28:
+  .claude\skills\work\WORKFLOW.md:29:## The trees
+  .claude\skills\work\WORKFLOW.md:30:
+  .claude\skills\work\WORKFLOW.md:31:- The **main checkout** on `main` — the coordinator's, permanent, never follows 
+anyone in.
+> .claude\skills\work\WORKFLOW.md:32:- **One worktree per item**, created by the platform when the conductor is 
+spawned with
+  .claude\skills\work\WORKFLOW.md:33:  isolation, checked out to the item branch, installed once. Every role inside 
+the item is
+  .claude\skills\work\WORKFLOW.md:34:  spawned **without** isolation and inherits it.
+  .claude\skills\work\WORKFLOW.md:35:- An **artifacts directory beside the tree**, outside it, for reviewer output and 
+distillates.
+  .claude\skills\work\WORKFLOW.md:36:
+  .claude\skills\work\WORKFLOW.md:37:No clones. No per-sitting trees. No `--detach` handoff — nothing else competes 
+for the branch.
+  .claude\skills\work\WORKFLOW.md:47: 3  COORDINATOR  startability: missing | Done | Cancelled | open blocker → stop, 
+say which
+  .claude\skills\work\WORKFLOW.md:48:                 chain ROOT bare → ask the founder ONCE, ranked options
+  .claude\skills\work\WORKFLOW.md:49:                 board unreadable → print CHAIN UNRESOLVED, carry on, never guess
+  .claude\skills\work\WORKFLOW.md:50: 4  COORDINATOR  create the branch from the board's name VERBATIM → push
+  .claude\skills\work\WORKFLOW.md:51: 5  COORDINATOR  claim: assign + In Progress          ← last, so a failure leaves 
+no false claim
+> .claude\skills\work\WORKFLOW.md:52: 6  COORDINATOR  spawn CONDUCTOR (sonnet, isolation: worktree, background)
+  .claude\skills\work\WORKFLOW.md:53:                 spawn prompt = item facts only; never a resolved chain, never 
+process
+  .claude\skills\work\WORKFLOW.md:54:```
+  .claude\skills\work\WORKFLOW.md:55:
+  .claude\skills\work\WORKFLOW.md:56:## SETUP
+  .claude\skills\work\WORKFLOW.md:57:
+  .claude\skills\work\WORKFLOW.md:58:```
+  .claude\skills\work\WORKFLOW.md:59: 7  CONDUCTOR    born in the item's ONE worktree
+  .claude\skills\work\WORKFLOW.md:60: 8  CONDUCTOR    git fetch ; git checkout <item-branch>
+  .claude\skills\work\WORKFLOW.md:61: 9  CONDUCTOR    bun install --frozen-lockfile              once per item, ~52s
+  .claude\skills\work\WORKFLOW.md:62:10  CONDUCTOR    create the artifacts dir OUTSIDE the tree
+> .claude\skills\work\WORKFLOW.md:63:11  CONDUCTOR    flow "claimed → plan" → spawn PLAN SITTING (no isolation → same 
+tree)
+  .claude\skills\work\WORKFLOW.md:64:```
+  .claude\skills\work\WORKFLOW.md:65:
+  .claude\skills\work\WORKFLOW.md:66:## PLAN
+  .claude\skills\work\WORKFLOW.md:67:
+  .claude\skills\work\WORKFLOW.md:68:```
+  .claude\skills\work\WORKFLOW.md:88:
+  .claude\skills\work\WORKFLOW.md:89:```
+  .claude\skills\work\WORKFLOW.md:90:18  CONDUCTOR    tether wakes it · verify the push landed (ls-remote tip == the 
+head the
+  .claude\skills\work\WORKFLOW.md:91:                 sitting reported)
+  .claude\skills\work\WORKFLOW.md:92:19  CONDUCTOR    launch sol OS-DETACHED · read-only · -C <tree> · -o <artifacts>
+> .claude\skills\work\WORKFLOW.md:93:20  CONDUCTOR    arm the file-watch (background loop, exits when final) · flow 
+"plan → gate 1"
+> .claude\skills\work\WORKFLOW.md:94:21  CONDUCTOR    watch exits → DISTILLER → findings-only (count in must equal 
+count out)
+> .claude\skills\work\WORKFLOW.md:95:22  CONDUCTOR    flow "gate 1 done · sol N" → spawn DRAFT SITTING
+  .claude\skills\work\WORKFLOW.md:96:```
+  .claude\skills\work\WORKFLOW.md:97:
+  .claude\skills\work\WORKFLOW.md:98:## DRAFT · the code is written, not finished
+  .claude\skills\work\WORKFLOW.md:99:
+  .claude\skills\work\WORKFLOW.md:100:```
+  .claude\skills\work\WORKFLOW.md:117:## GATE 2 · critique of the DRAFT CODE
+  .claude\skills\work\WORKFLOW.md:118:
+  .claude\skills\work\WORKFLOW.md:119:```
+  .claude\skills\work\WORKFLOW.md:120:31  CONDUCTOR    wake · verify the push landed
+  .claude\skills\work\WORKFLOW.md:121:32  CONDUCTOR    PROPORTIONALITY, DERIVED: does the diff reach code (the rule 
+CI's prose-only
+> .claude\skills\work\WORKFLOW.md:122:                 fast lane uses)?  NO → skip this gate, record it in the flow 
+line and the
+  .claude\skills\work\WORKFLOW.md:123:                 state file so the merge ruling can say the green excludes a 
+code review,
+  .claude\skills\work\WORKFLOW.md:124:                 then spawn the FIX SITTING directly with ZERO findings — the 
+goal loop and
+  .claude\skills\work\WORKFLOW.md:125:                 the audit brief still happen there; only the critique is skipped
+  .claude\skills\work\WORKFLOW.md:126:33  CONDUCTOR    launch terra AND kimi OS-DETACHED · read-only · -C <tree> · 
+separate files
+  .claude\skills\work\WORKFLOW.md:127:                 neither reviewer sees the other's output
+> .claude\skills\work\WORKFLOW.md:128:34  CONDUCTOR    arm ONE watch on BOTH · flow "draft → gate 2"
+  .claude\skills\work\WORKFLOW.md:129:                 join on the COMPLETE set — a partial landing is not progress
+> .claude\skills\work\WORKFLOW.md:130:35  CONDUCTOR    watch exits → DISTILLER ×2
+> .claude\skills\work\WORKFLOW.md:131:36  CONDUCTOR    flow "gate 2 done · terra N · kimi M" → spawn FIX SITTING
+  .claude\skills\work\WORKFLOW.md:132:```
+  .claude\skills\work\WORKFLOW.md:133:
+  .claude\skills\work\WORKFLOW.md:134:## FIX AND GOAL
+  .claude\skills\work\WORKFLOW.md:135:
+  .claude\skills\work\WORKFLOW.md:136:```
+  .claude\skills\work\WORKFLOW.md:160:## AUDIT · critique of the CLAIM — before CI, never beside it
+  .claude\skills\work\WORKFLOW.md:161:
+  .claude\skills\work\WORKFLOW.md:162:```
+  .claude\skills\work\WORKFLOW.md:163:48  CONDUCTOR    wake · verify the push landed
+  .claude\skills\work\WORKFLOW.md:164:49  CONDUCTOR    launch luna OS-DETACHED · read-only · -C <tree>
+> .claude\skills\work\WORKFLOW.md:165:50  CONDUCTOR    arm the file-watch · flow "fix → audit"
+> .claude\skills\work\WORKFLOW.md:166:51  CONDUCTOR    watch exits → DISTILLER
+  .claude\skills\work\WORKFLOW.md:167:52  CONDUCTOR    CLEAN OR NOT, DERIVED FROM THE DISTILLATE — never from anyone's 
+word
+  .claude\skills\work\WORKFLOW.md:168:                 CLEAN = zero findings AND a distillate that reads as a real 
+verdict
+  .claude\skills\work\WORKFLOW.md:169:                   → a MECHANICAL commits the raw output + distillate and pushes
+> .claude\skills\work\WORKFLOW.md:170:                   → flow "audit clean → ci" · arm CI ON THAT NEW HEAD (the 
+commit moved it)
+  .claude\skills\work\WORKFLOW.md:171:                   → spawn the MERGE SITTING.  NO AUDIT SITTING — nothing to 
+rule, so this
+  .claude\skills\work\WORKFLOW.md:172:                     wait and CI's are adjacent.  THIS is what makes the usual 
+item FOUR
+  .claude\skills\work\WORKFLOW.md:173:                     orchestrator sittings rather than five
+  .claude\skills\work\WORKFLOW.md:174:                 FINDINGS, or truncated · cut off mid-write · progress lines and 
+no findings
+> .claude\skills\work\WORKFLOW.md:175:                   → flow "audit done · N findings" → spawn the AUDIT SITTING 
+(53)
+  .claude\skills\work\WORKFLOW.md:176:                     AMBIGUITY BUYS MORE JUDGMENT, NEVER LESS — the same reflex 
+that sends
+  .claude\skills\work\WORKFLOW.md:177:                     CI down its slow path when it cannot read the file list
+  .claude\skills\work\WORKFLOW.md:178:
+  .claude\skills\work\WORKFLOW.md:179:53  ORCHESTRATOR [only when there is something to rule]
+  .claude\skills\work\WORKFLOW.md:180:                 rule each finding BY CLASS:
+  .claude\skills\work\WORKFLOW.md:183:                   → NEVER mergeable: change the code, or change the record
+  .claude\skills\work\WORKFLOW.md:184:                 2 REAL BUT OUT OF SCOPE  → file it · name it in the ruling · 
+narrow the claim
+  .claude\skills\work\WORKFLOW.md:185:                 3 THE AUDITOR IS WRONG   → reject with a reason · claim 
+verbatim into the PR
+  .claude\skills\work\WORKFLOW.md:186:54  ORCHESTRATOR fixes needed? → EXECUTOR → commit + push → PHASE-STATE: "the 
+audit must
+  .claude\skills\work\WORKFLOW.md:187:                 re-run at the new head" → END THE SITTING — launching luna and 
+waiting is
+> .claude\skills\work\WORKFLOW.md:188:                 the conductor's (it re-enters at 49 and spawns a FRESH audit 
+sitting);
+  .claude\skills\work\WORKFLOW.md:189:                 a sitting never spans the auditor's wait
+  .claude\skills\work\WORKFLOW.md:190:                 the audit re-runs ONLY if code changed                MAX 1 PER 
+ITEM
+  .claude\skills\work\WORKFLOW.md:191:55  ORCHESTRATOR the record is true and every finding disposed
+  .claude\skills\work\WORKFLOW.md:192:                 → commit the audit's raw output + distillate + rulings into the 
+record
+  .claude\skills\work\WORKFLOW.md:193:                 → write PHASE-STATE — completing signal = CI on the final head —
+  .claude\skills\work\WORKFLOW.md:198:
+  .claude\skills\work\WORKFLOW.md:199:```
+  .claude\skills\work\WORKFLOW.md:200:56  CONDUCTOR    arm a Monitor on the required check for the FINAL head
+  .claude\skills\work\WORKFLOW.md:201:                 emit on ANY terminal state — success · failure · cancelled · 
+timed out
+  .claude\skills\work\WORKFLOW.md:202:                 (GitHub fires CI on every push; intermediate runs are NOT the 
+gate)
+> .claude\skills\work\WORKFLOW.md:203:57  CONDUCTOR    flow "audit → ci"
+> .claude\skills\work\WORKFLOW.md:204:58  CONDUCTOR    terminal state → spawn MERGE SITTING
+  .claude\skills\work\WORKFLOW.md:205:```
+  .claude\skills\work\WORKFLOW.md:206:
+  .claude\skills\work\WORKFLOW.md:207:## MERGE
+  .claude\skills\work\WORKFLOW.md:208:
+  .claude\skills\work\WORKFLOW.md:209:```
+  .claude\skills\work\WORKFLOW.md:234:```
+  .claude\skills\work\WORKFLOW.md:235:
+  .claude\skills\work\WORKFLOW.md:236:## CLOSE
+  .claude\skills\work\WORKFLOW.md:237:
+  .claude\skills\work\WORKFLOW.md:238:```
+> .claude\skills\work\WORKFLOW.md:239:68  CONDUCTOR    flow "merged → done" → one line to the coordinator → end
+  .claude\skills\work\WORKFLOW.md:240:69  COORDINATOR  sweep: the item's worktree · its generated worktree-agent-* 
+branch ·
+  .claude\skills\work\WORKFLOW.md:241:                 the artifacts directory (its contents were committed into the 
+record by
+  .claude\skills\work\WORKFLOW.md:242:                 the fix and audit sittings — verify that before deleting)
+  .claude\skills\work\WORKFLOW.md:243:                 a live agent's tree is marked `locked` — that is the 
+never-touch signal
+  .claude\skills\work\WORKFLOW.md:244:70  COORDINATOR  fold upward — re-read the parent's children FRESH · cascade ·
+  .claude\skills\work\WORKFLOW.md:266:
+  .claude\skills\work\WORKFLOW.md:267:```
+  .claude\skills\work\WORKFLOW.md:268:executor disputes a ruling        → its own orchestrator sitting, addressed BY 
+AGENT ID
+  .claude\skills\work\WORKFLOW.md:269:                                    (an agent TYPE name does not resolve and 
+lands on the
+  .claude\skills\work\WORKFLOW.md:270:                                     coordinator, where nobody has authority 
+over the item)
+> .claude\skills\work\WORKFLOW.md:271:anomaly during a gap              → the conductor never investigates: it spawns 
+the next
+  .claude\skills\work\WORKFLOW.md:272:                                    sitting EARLY with the anomaly named in the 
+state file
+  .claude\skills\work\WORKFLOW.md:273:contradicts ratified text, or     → question into PHASE-STATE → sitting ends
+  .claude\skills\work\WORKFLOW.md:274:real scope growth                   → conductor sends a question line + push 
+notification
+  .claude\skills\work\WORKFLOW.md:275:                                    → coordinator relays VERBATIM, rules on 
+nothing
+  .claude\skills\work\WORKFLOW.md:276:                                    → answer into PHASE-STATE → a fresh sitting 
+resumes
+  .claude\skills\work\WORKFLOW.md:278:
+  .claude\skills\work\WORKFLOW.md:279:Exactly two things reach the founder from inside an item. Everything else the 
+orchestrator
+  .claude\skills\work\WORKFLOW.md:280:decides, including dismissing a reviewer's maintained "this green is unearned" — 
+recorded
+  .claude\skills\work\WORKFLOW.md:281:verbatim in the pull request, with the ruling stating what the green does and 
+does not claim.
+  .claude\skills\work\WORKFLOW.md:282:
+> .claude\skills\work\WORKFLOW.md:283:## Watchdog
+  .claude\skills\work\WORKFLOW.md:284:
+  .claude\skills\work\WORKFLOW.md:285:The conductor emits a `STALL` line when any sitting or gate exceeds its window 
+with nothing
+> .claude\skills\work\WORKFLOW.md:286:landed. **A watch expiring empty is a signal, not a shrug** — the one time it 
+was shrugged off it
+  .claude\skills\work\WORKFLOW.md:287:cost four idle hours. Silence and progress look identical from outside.
+  .claude\skills\work\WORKFLOW.md:288:
+  .claude\skills\work\WORKFLOW.md:289:## What is deliberately absent
+  .claude\skills\work\WORKFLOW.md:290:
+  .claude\skills\work\WORKFLOW.md:291:- **No reviewer clone.** A worktree holding commits survives its agent, so 
+reviewers read the
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$record = '"'loop/drills/records/live-2026-08-09'; Get-ChildItem -LiteralPath "'$record -File | Sort-Object Name | ForEach-Object { Write-Output (('"'{0} ({1} bytes)' -f "'$_.Name, $_.Length)); if ($_.Name -ne '"'verdict.md') { Get-Content -Raw -LiteralPath "'$_.FullName } }; Write-Output '"'COORDINATOR CONTRACT'; Get-Content -Raw -LiteralPath '.claude/skills/work/SKILL.md'" in C:\Users\nirdr\Downloads\ai4good
+ succeeded in 560ms:
+drill-alpha.md (0 bytes)
+drill-alpha.stderr.log (79 bytes)
+error: model 'drill-stand-in' not found; run 'codex login' or check -c model=
+
+drill-beta.distilled.md (665 bytes)
+SOURCE   C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a6952dcd70d04f947-artifacts\drill-beta.md
+REVIEWER drill-stand-in (drill-b, effort: none)
+COUNT    2 findings in source -> 2 extracted
+NOTES    none (count line "CODE REVIEW: 2 FINDINGS" matches extracted count)
+
+[1] severity: not stated   loop/drills/fake-actor.ps1
+    claim: "the stand-in reviewer never reads the prompt file it is handed."
+    unverified-runtime-claim: no
+    raw: drill-beta.md line 1
+
+[2] severity: not stated   loop/drills/control-lib.ps1
+    claim: "Wait-TwoChannel polls at a fixed 200ms with no backoff."
+    unverified-runtime-claim: no
+    raw: drill-beta.md line 2
+
+drill-beta.md (244 bytes)
+FINDING 1 (drill): loop/drills/fake-actor.ps1 - the stand-in reviewer never reads the prompt file it is handed.
+FINDING 2 (drill): loop/drills/control-lib.ps1 - Wait-TwoChannel polls at a fixed 200ms with no backoff.
+CODE REVIEW: 2 FINDINGS
+
+drill-beta.stderr.log (335 bytes)
+[drill] model: drill-stand-in | effort: none | sandbox: read-only
+[drill] session id: 4a14cec1-76db-43d4-a771-0103675c84d7
+[drill] reading the tree - step 1
+[drill] reading the tree - step 2
+[drill] reading the tree - step 3
+[drill] reading the tree - step 4
+[drill] reading the tree - step 5
+[drill] reading the tree - step 6
+
+drill-gamma.md (117 bytes)
+Now reading the two depth files to understand the control flow...
+Examining the wait primitives and their callers.
+
+drill-gamma.stderr.log (125 bytes)
+[drill] model: drill-stand-in | effort: none | sandbox: read-only
+[drill] session id: 1d9bd3fe-9f20-4c2e-8bf0-db5b9b031977
+
+verdict.md (3225 bytes)
+COORDINATOR CONTRACT
+---
+name: work
+description: The one verb. Pick up work â€” a requirement or a dev item â€” get it built, close it. /work alone recommends and waits. This is the COORDINATOR's manual; the roles inside an item have their own contracts.
+---
+
+# `/work` â€” the coordinator's manual
+
+`/work` Â· `/work AI4DEV-19` Â· `/work AI4PM-12` Â· `/work explore`
+
+**You are reading the coordinator manual. If you are an orchestrator, conductor, executor,
+distiller or mechanical, this file is not addressed to you â€” read your own contract.**
+
+One lifecycle, one entry point. `/work` is typed only here, in the main session, because the
+coordinator is the only actor that belongs to no item.
+
+**Read `shared-invariants.md` first.** It binds every role including you.
+The stories behind these rules are in `lessons.md` â€” read it when a rule seems wrong or is being
+challenged, not routinely.
+
+## What you are
+
+You own the PM board, the founder channel, and everything destructive. You own **no judgment
+about any item's content** â€” that belongs to its orchestrator, and a coordinator that starts
+ruling on findings has become an unreviewed decision-maker.
+
+You stay in the main checkout, on `main`, for the whole session. You never check out an item
+branch: attribution derives from the branch, so you would stamp yourself onto one item, and with
+several running you could only ever be right about one of them.
+
+Your model is fable at xhigh, and the reason is narrow â€” **you are the only actor nothing
+reviews.** An orchestrator gets two adversarial gates, an independent audit and a required CI
+check; your output gets none. Every intent-level defect this project has had was found by the
+founder reading something and asking a structural question.
+
+## Phase A â€” decide what
+
+| you type | what happens |
+|---|---|
+| `/work AI4DEV-19` | a LEAF â€” start it (phase B) |
+| `/work AI4DEV-3` | a PARENT â€” list open children with short labels and blockers, note "N of M done", recommend one, **wait** |
+| `/work AI4PM-12` | a requirement â€” states below |
+| `/work explore` | declare deliberately untracked work |
+| `/work` | **recommend and wait** â€” resume held; else In Progress; else open leaves; else a new requirement. Top three, one-line reasons, recommend, wait |
+
+**A dev item with children is a container, not work.** Check for children BEFORE treating an id
+as buildable â€” parents close by folding, never by being built.
+
+**Requirement states.** No decomposition file â†’ propose writing `loop/decomp/req-0NN.md` as the
+work. Merged but unclaimed â†’ claim it and materialise the dev tree, then list the leaves and
+wait. Claimed with open leaves â†’ list, recommend, wait. All leaves closed â†’ run the evidence
+gate and propose. Done â†’ say so.
+
+**Materialisation** is yours to decide and a sonnet's to execute: it reads the manifest at a
+named merged commit, creates the dev root as a sub-issue of the requirement, creates each leaf,
+matches idempotently by exact title, and never removes a leaf that has work against it. It needs
+no worktree â€” a manifest can be read at a commit without checking anything out. You check its
+report and list the leaves to the founder.
+
+**TITLES (founder 2026-08-07).** `materialize.ps1` emits no root title and gives leaves codes
+like `REQ-001 D1.L1` â€” a bare code is the id twice, and the founder cannot read a board of them.
+- **The dev root names its requirement and is called a root**, not a build:
+  `AI4PM-19 â€” Authentication and org membership: root`. Naming the requirement in the title is
+  what makes the join between the two trees legible at a glance.
+- **Every leaf gets plain words**, with the code as a suffix at most: `Email and Google signup,
+  three account types (D1.L1)`.
+- Titles are the idempotency key, so choose them once â€” a later edit makes a SECOND item rather
+  than matching the first.
+- **Only the ROOT may carry a requirement id.** A leaf title must not, because Linear derives
+  `gitBranchName` from the title: two ids in a branch name is the stamp's `BRANCH NAMES 2 ITEMS`
+  unresolved case, on the very items that get worked. The root is a container nobody builds on,
+  so its unusable branch name costs nothing.
+
+## Phase B â€” start an item
+
+Read-only validation first; **the board claim happens last**, so a failure cannot leave an item
+falsely In Progress.
+
+1. Resolve: id, short label, `gitBranchName`, state, blockers. Walk `parent` upward (depth cap 8,
+   cycle detection) and derive a short label for every link in the chain.
+2. Startability: missing, Done, Cancelled, or an open blocker â†’ stop and say which. Attribution
+   failures print and continue.
+3. **If the CHAIN'S ROOT has nothing above it, ask â€” once, at pickup, about the ROOT, not the
+   item.** A parented item can sit under a bare root and inherit the gap silently. Ask with
+   ranked suggestions, never open-ended: a dev item that already has children; an `AI4PM`
+   requirement the text points at; a free-text grouping label; or "standalone â€” its own root",
+   always offered and always legitimate. Record it so it is asked once ever. If the board is
+   unreadable, **do not ask** â€” print `CHAIN UNRESOLVED`, carry on, retry at the next boundary; a
+   guess would be baked in permanently.
+4. **Branch name from the board's `gitBranchName`, verbatim.** Never invented; validate that it
+   tokenises to exactly this item. That is what makes the pull request close the right item.
+   **Create it from `origin/main` after a fetch, never from local `main`** â€” local `main` can carry
+   unpushed work that is not yours (a founder commit landed there mid-session once), and a pull
+   request is precisely where someone else's commit becomes a wrong attribution.
+5. Claim: assign, In Progress.
+6. Spawn the conductor: `Agent(subagent_type: "conductor", model: "sonnet",
+   run_in_background: true, prompt: <item id, branch name, what has already happened>)`.
+   **A spawn prompt is item facts only.** It states what to RESOLVE, never a resolved value â€” no
+   chain, no parent, no label â€” and it never carries process instructions, because process lives
+   in the contracts and a spawn prompt is reviewed by nobody. One once told an item to queue
+   auto-merge at pull-request time, which would have merged it before a single gate ran; Gate 1
+   caught it on the plan.
+7. **Record the chain FOR the agent's worktree, right after the spawn** (founder 2026-08-07):
+   `Set-ChainForWorktree <worktreePath> <branch> <item> <chain>` from `work-lib.ps1`, using the
+   chain you already walked in step 1. The chain cache is worktree-scoped, so a chain you resolved
+   in the main checkout is invisible to the agent's own stamp â€” skip this and the founder's
+   supervision tree degrades to `AGENT AI4DEV-nn` with no parents, which is the one thing the
+   stamp exists to show. This is not a fact handed to the agent: it is the coordinator filing what
+   only the coordinator can read, where the hook will look for it.
+
+The conductor is born in the item's one worktree â€” the platform creates it at spawn, because
+the definition carries worktree isolation â€” installs once, and runs the item from there. You do
+not follow it in.
+
+## While an item runs
+
+You receive one flow line per phase change and one completion. That is the whole of your
+involvement unless something asks for you.
+
+**Relay, never rule.** A question from an item reaches you verbatim and reaches the founder
+verbatim. You do not answer it, soften it, or decide it is unnecessary. Exactly two things are
+supposed to arrive: a finding that contradicts ratified text, and real scope growth.
+
+**A `STALL` line is a signal, not noise.** Investigate immediately â€” silence looks identical to
+progress, and the one time it was shrugged off it cost four idle hours.
+
+**BACKSTOP, NEVER THE MECHANISM â€” YOUR BOUNDARY IS AS REAL AS THEIRS (founder ruling 2026-08-07).**
+Silence longer than about twenty minutes earns ONE bounded read-only check: is the process alive,
+did the file land, what does the `.stderr.log` say. That check has repeatedly caught what nothing
+else caught, and it stays.
+What it must never become is the item's clock. On AI4DEV-48 the coordinator detected six
+consecutive phase changes and woke the conductor for each; the item finished, and the conductor's
+own alarms were never once exercised. That is a boundary crossed by the actor with the best
+intentions, and it hides the very defect it compensates for â€” after six silent saves, nobody can
+tell a working conductor from an absent one.
+- **Report every wake you send as a conductor defect**, in the same breath, to the founder. Never
+  quietly absorb it. A save you do not name is a measurement you destroyed.
+- **Two in one item means the design is not working** â€” say so plainly and propose the fix rather
+  than carrying the item on your back to the end.
+- **You still never write in the item's tree, rule on its content, or run its commands.** Rescuing
+  unpushed work after a confirmed death is the one exception, and it is recorded AS a rescue.
+
+**Fable out of credit** â†’ tell the conductor to spawn `orchestrator-opus` for subsequent
+sittings, and say so in the report; the handoff is manual because `--fallback-model` never fires
+on billing errors. **A session limit is not out of credit** â€” it is the five-hour window, it is
+account-wide, and it heals itself. Never set a timer for the reset: it would fire into a
+credit-dead account, and a reset time already past rolls a full day.
+
+## Phase C â€” close the item
+
+The conductor reports the merge. Then:
+
+1. **Sweep**: remove the item's worktree, its generated `worktree-agent-*` branch, and its
+   artifacts directory â€” after confirming the raw critiques and distillates were committed into
+   the record by the fix and audit sittings. Only you can sweep â€” the permission classifier
+   blocks subagents from removing a worktree.
+   **`locked` does NOT mean an agent is alive** (measured 2026-08-07). The lock reason names the
+   PARENT SESSION's pid, not the agent's â€” read it and you will find your own `claude.exe
+   --resume <this session>`. It clears when the platform tears the agent down cleanly, and
+   survives when the agent dies abruptly, so on a stood-down item the lock outlives the agent and
+   would keep every stale worktree in the founder's project folder for the rest of the session.
+   Judge liveness by the AGENT, not the lock: its task is gone and its transcript is not growing.
+   Then confirm the tree is clean and its head is on the remote, `git worktree unlock`, and
+   remove. The tree of an agent that is genuinely still running is still never touched.
+2. **Fold upward**: re-read the parent's children **fresh**; all Done or Cancelled â†’ fold,
+   cascading, stopping below a requirement, naming every cancelled child.
+3. **Release**: print `session is free`, report open siblings with labels, suggest the next
+   `/work`.
+
+**When git and the board disagree, git is truth for merge state and the board mirrors it.**
+Repairing from primary evidence is legitimate and is recorded AS a repair; asserting a state you
+never observed is not. Webhook slow â†’ a bounded re-read. Two siblings merging at once â†’ confirm
+YOUR item Done before reading siblings, so whoever finishes second sees the complete set. No
+locks by design: converge on re-read.
+
+## Requirement evidence gate â€” pinned, not asserted
+
+An exhaustive leaf snapshot at a named commit Â· attribution resolved Â· the suite green at
+integration tier at that commit with named checks and timestamps Â· a recorded founder attestation
+with a date Â· an explicit recorded waiver path. **`/work` proposes; it never closes a requirement
+alone.**
+
+## Ride-along, and no nesting
+
+Machinery changed while an item is open rides along in that item's branch and pull request,
+listed under "rides along" â€” never a new dev item. Independent standalone work is **filed, not
+built**. One session, one item: `/work` at something else while one is open offers finish, park
+or file.
+
+## Never
+
+- Never rule on an item's content, or answer a question addressed to the founder.
+- Never check out an item branch, or follow an agent into its worktree.
+- Never close a requirement without the gate, or set an item Done by hand outside a repair.
+- Never silently pick between disagreeing signals.
+- Never hand an agent a derived fact it could compute itself.
+
+
+codex
+The cross-check found two especially important facts: the coordinator claims the board item before spawning the conductor, and its only startup expectation is a later flow line; there is no startup acknowledgment or lease. It also found a fourth live fake mode—reviewer hang/abort—that exists but was not used in the recorded live drill. I’m now tightening the findings around lifecycle boundaries and identifying assertion-level false greens.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$queries = @(@{Path='"'loop/drills/run-drills.ps1'; Pattern='Assert|Drill [1-8]'},@{Path='loop/drills/control-lib.ps1'; Pattern='function |Test-Path \\"'$NotifyFile|Test-Path '"\\"'$ResultFile|Test-Path '"\\"'$result'"'},@{Path='loop/drills/fake-actor.ps1'; Pattern=\"reviewer-hang|drill-d|CODE REVIEW\"},@{Path='loop/drills/records/live-2026-08-09/verdict.md'; Pattern='Scorecard|Keep-alive|Two runners|Narration|three real reviewer|one defect'},@{Path='.claude/skills/work/SKILL.md'; Pattern='Claim: assign|Spawn the conductor|right after the spawn|one flow line|Silence longer'},@{Path='.claude/agents/conductor.md'; Pattern='arm a cheap backstop|Confirm the background task|cap every one|NO RUN AT ALL|Two reviewers means|completion text|tip must equal'},@{Path='.claude/agents/reviewer-runner.md'; Pattern='Select-String|sample the size|either stream|GONE|abort|completion re-invokes|pid file'}); foreach ("'$q in $queries) { Select-String -LiteralPath $q.Path -Pattern $q.Pattern -CaseSensitive:$false | ForEach-Object { '"'{0}:{1}: {2}' -f (Resolve-Path "'$q.Path), $_.LineNumber, $_.Line.Trim() } }' in C:\Users\nirdr\Downloads\ai4good
+ succeeded in 592ms:
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:16: function Assert([string]$drill, [string]$claim, [bool]$ok) {
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:20: # ---- Drill 1: happy path - phases in order, working liveness, notify channel fires ----
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:24: Assert 'happy-path' 'a running actor reads Alive-Working' ($live -eq 'Alive-Working')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:26: Assert 'happy-path' 'completion arrives on the notify channel' ($channel -eq 'notify')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:28: Assert 'happy-path' 'phases ran in order 1..5' (($phases -join ',') -eq 'phase 1,phase 2,phase 3,phase 4,phase 5')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:30: # ---- Drill 2: dies at launch - the empty output file must NOT read as liveness ----
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:35: Assert 'die-at-launch' 'the trap is real: output file exists and is empty' ((Test-Path $trapFile) -and ((Get-Item $trapFile).Length -eq 0))
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:37: Assert 'die-at-launch' 'liveness check says Dead despite the file' ($live -eq 'Dead')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:39: # ---- Drill 3: survives-the-launcher vs died-with-it - detect the difference after the launcher exits ----
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:50: Assert 'detachment' 'a true detach survives its launcher' ($null -ne (Get-Process -Id $pidA -ErrorAction SilentlyContinue))
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:51: Assert 'detachment' 'a false detach is detected as Dead, not assumed running' ($null -eq (Get-Process -Id $pidB -ErrorAction SilentlyContinue))
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:53: # ---- Drill 4: completion notification lost - the backstop channel must catch it ----
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:57: Assert 'lost-notification' 'the backstop watch catches what the notify channel missed' ($channel -eq 'backstop')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:58: Assert 'lost-notification' 'the notify signal genuinely never arrived' (-not (Test-Path (Join-Path $d4 'notify.txt')))
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:60: # ---- Drill 5: watch expiry is a loud signal, never absorbed as progress ----
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:63: Assert 'watch-expiry' 'an expired watch returns EXPIRED, distinct from every success value' ($channel -eq 'EXPIRED')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:65: # ---- Drill 6: stall - alive but silent is distinguishable from working and from dead ----
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:71: Assert 'stall' 'a hung actor reads Alive-Stalled, not working and not dead' ($live -eq 'Alive-Stalled')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:73: # ---- Drill 7: abrupt death mid-phase - disk state survives and decides the resume point ----
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:79: Assert 'death-mid-phase' 'the resume point comes from disk, at the last recorded phase' ((Get-ResumeState -Dir $d7) -eq 'RESUME-FROM:phase 1')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:80: Assert 'death-mid-phase' 'a finished actor reads COMPLETE even though it died unnotified' ((Get-ResumeState -Dir $d4) -eq 'COMPLETE')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:82: # ---- Drill 8: a stale-registry spawn failure is classified as a NAMED stall ----
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:83: Assert 'stale-registry' 'agent-type-not-found maps to STALL:STALE-REGISTRY' ((Get-SpawnFailureClass -ErrorText 'Agent type not found: conductor') -eq 'STALL:STALE-REGISTRY')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:84: Assert 'stale-registry' 'an unrecognised spawn error still stalls, as STALL:UNKNOWN' ((Get-SpawnFailureClass -ErrorText 'something else broke') -eq 'STALL:UNKNOWN')
+C:\Users\nirdr\Downloads\ai4good\loop\drills\run-drills.ps1:99: Write-Output ('{0} of {1} assertions green' -f (@($results | Where-Object { $_.Pass }).Count), $results.Count)
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1:4: function Start-DetachedActor {
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1:14: function Get-ActorLiveness {
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1:29: function Wait-TwoChannel {
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1:35: if (Test-Path $NotifyFile) { return 'notify' }
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1:36: if (Test-Path $ResultFile) { return 'backstop' }
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1:42: function Get-SpawnFailureClass {
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1:49: function Get-ResumeState {
+C:\Users\nirdr\Downloads\ai4good\loop\drills\control-lib.ps1:54: if (Test-Path $result) { return 'COMPLETE' }
+C:\Users\nirdr\Downloads\ai4good\loop\drills\fake-actor.ps1:12: 'reviewer-die-at-launch', 'reviewer-hang',
+C:\Users\nirdr\Downloads\ai4good\loop\drills\fake-actor.ps1:13: 'drill-a', 'drill-b', 'drill-c', 'drill-d')]
+C:\Users\nirdr\Downloads\ai4good\loop\drills\fake-actor.ps1:30: 'drill-d' { $Mode = 'reviewer-hang' }
+C:\Users\nirdr\Downloads\ai4good\loop\drills\fake-actor.ps1:92: 'CODE REVIEW: 2 FINDINGS'
+C:\Users\nirdr\Downloads\ai4good\loop\drills\fake-actor.ps1:108: 'reviewer-hang' {
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md:3: A real conductor (sonnet) and three real reviewer-runners (sonnet) were exercised against
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md:8: ## Scorecard — contract behavior under fire
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md:13: | Narration-only output, no count line (the AI4DEV-57 unearned-green shape) | Runner ran the two-instrument GONE check, read both streams in full, sampled the file twice for settlement, reported `EMPTY GATE`, refused to distil | HELD |
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md:15: | Two runners in parallel | Conductor held the barrier — narrated one-reported-one-outstanding, proceeded only when both were in | HELD |
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md:17: | Keep-alive discipline | Pulses armed and CONFIRMED RUNNING before each wait, task ids named in the narration (`bxnv96k3s`, `bvtl1o2l0`) | HELD |
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md:18: | Narration | Flow lines at each phase change, counts never claims, anomalies verbatim | HELD |
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md:20: ## The one defect found — and it is real
+C:\Users\nirdr\Downloads\ai4good\loop\drills\records\live-2026-08-09\verdict.md:45: `.stderr.log` (the narration-only empty gate).
+C:\Users\nirdr\Downloads\ai4good\.claude\skills\work\SKILL.md:94: 5. Claim: assign, In Progress.
+C:\Users\nirdr\Downloads\ai4good\.claude\skills\work\SKILL.md:95: 6. Spawn the conductor: `Agent(subagent_type: "conductor", model: "sonnet",
+C:\Users\nirdr\Downloads\ai4good\.claude\skills\work\SKILL.md:102: 7. **Record the chain FOR the agent's worktree, right after the spawn** (founder 2026-08-07):
+C:\Users\nirdr\Downloads\ai4good\.claude\skills\work\SKILL.md:116: You receive one flow line per phase change and one completion. That is the whole of your
+C:\Users\nirdr\Downloads\ai4good\.claude\skills\work\SKILL.md:127: Silence longer than about twenty minutes earns ONE bounded read-only check: is the process alive,
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:50: **A CHILD'S COMPLETION TEXT IS ITS REPORT — THE TETHER IS THE PRIMARY CHANNEL (corrected
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:59: So: **tell every child to put its ENTIRE final report in its completion text** — that text
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:72: record: **when you spawn a sitting, arm a cheap backstop watch on the remote tip moving off the
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:74: the same way — the tip must equal the head the sitting reported.
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:80: 1. Verify the push landed — `git ls-remote` tip must equal the head the sitting reported. A
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:117: completion text is the report of record.
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:128: **Two reviewers means two runners**, one each, both in the background. You are woken by each and
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:152: 1. **Confirm the background task exists and is running** immediately after starting it. A call that
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:173: - **NO RUN AT ALL is its own state, not a slow one.** A check cannot go terminal if GitHub never
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\conductor.md:214: **No wait may be open-ended. Cap every one at 10 minutes; when the cap expires with the thing
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:25: You replace that mechanism with the one that has not failed: **a subagent's completion re-invokes
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:104: is gone by your next call and the pid file is the only handle you keep.
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:158: if (Select-String -Path $out,$err -Pattern '^\s*(PLAN REVIEW|CODE REVIEW|AUDIT):' -Quiet) { 'LANDED'; break }
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:159: try { Get-Process -Id $rpid -ErrorAction Stop | Out-Null } catch { 'GONE'; break }
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:164: `LANDED` and `GONE` are different outcomes and the difference matters — see the next two sections.
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:172: it in **either stream**, because narration and verdict do not always share a destination.
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:179: And when the count line does appear, **let the file settle before you read it**: sample the size
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:182: ## `GONE` with no count line — measure it a second way before you believe it
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:193: A recycled pid can make a live process look dead, so `GONE` alone is never enough. If both
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:219: An instruction to **abort** is the one thing that changes what you do: stop the process by its
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:220: pid, record that it was aborted and by whom, and end. An aborted gate is not a clean one and must
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:225: **Your completion re-invokes the conductor and your final text travels with it — so your final
+C:\Users\nirdr\Downloads\ai4good\.claude\agents\reviewer-runner.md:248: - report an empty, aborted, or dead gate as a clean one
+
+codex
+Write policy: this was a read-only review. I wrote nothing into the repository tree and did not execute the harness.
+
+Bottom line: I found 23 uncovered failure scenarios and 8 weak-oracle defects. The largest gap is exactly the one identified in the prompt: the drills begin after a conductor has successfully commenced; none tests the coordinator-to-conductor commencement edge.
+
+## Critical: conductor never commences
+
+1. **The board is claimed, but conductor spawn is rejected.**  
+   Scenario — The coordinator marks the item In Progress, then the conductor spawn returns “agent type not found” or no task. Plausibility — The coordinator contract claims before spawning, and stale agent registries have occurred; the mechanical drill only classifies a supplied string. Drill — Inject a rejected spawn and assert an immediate, visible commencement stall with the original error, no waiting state, and no claim that the item has a clock owner.
+
+2. **The spawn succeeds, but its receipt is lost.**  
+   Scenario — A conductor exists, but the coordinator never receives its task or worktree identity and either abandons it or retries, creating two conductors. Plausibility — Spawn and post-spawn chain registration are separate operations, while other platform notifications have demonstrably been delayed or lost. Drill — Lose the response after child creation and assert exactly one fenced conductor may advance, the original is rediscovered or explicitly stopped, and no duplicate first sitting is spawned.
+
+3. **The conductor dies before executing its first instruction.**  
+   Scenario — Worktree provisioning, model startup, or contract loading creates a task and then kills it before any narration. Plausibility — Stale definitions, invalid worktrees, and agents falling back into the wrong checkout are recorded incidents. Drill — Kill the conductor before its first turn and assert an independent coordinator-side commencement deadline detects the dead task and reports a startup stall.
+
+4. **Setup becomes a silent black hole.**  
+   Scenario — The conductor hangs or exits during `git fetch`, branch checkout, dependency installation, or external artifact-directory creation, before its first flow line. Plausibility — The isolation guard previously refused an external path, and all these operations precede narration. Drill — Fault and hang each setup step; assert a bounded, stage-specific startup failure, no sitting spawn, and no item reported as running.
+
+5. **The first sitting or its watch was never armed.**  
+   Scenario — Setup finishes, but the orchestrator spawn fails or the remote-tip watch is refused; the conductor nevertheless parks believing it is waiting. Plausibility — An isolation-rejected watch followed by an unconfirmed replacement caused the recorded nine-and-a-half-hour stall. Drill — Assert that both the sitting task and watch task exist and are running before waiting; absence of either must produce an immediate stall, not a pulse or silence.
+
+6. **The first flow line is lost.**  
+   Scenario — The conductor and first sitting are healthy, but the initial `claimed → plan` message to the coordinator is rejected or dropped. Plausibility — Message addressing is already proven topology-sensitive, and there is no acknowledgment for the first flow line. Drill — Drop that message and assert either acknowledged retry or an independent startup alarm; successful sending alone must not count as commencement.
+
+## High cost: lost, duplicated, or falsely completed handoffs
+
+7. **A fast sitting finishes before the watch is armed.**  
+   Scenario — The sitting pushes during the spawn-to-watch gap; the watch samples the already-moved tip as its baseline, and the tether is delayed. Plausibility — The contract orders spawn before watch arming, and tether notifications have missed. Drill — Push before watch confirmation and assert the move from the pre-spawn head is still detected immediately and exactly once.
+
+8. **Both completion channels advance the phase twice.**  
+   Scenario — The backstop fires first, then a delayed tether completion arrives after the next phase has started and spawns it again. Plausibility — Delayed tethers are recorded, and no phase-generation or consumed-event fence is described. Drill — Deliver both signals in both orders, including a late duplicate, and assert exactly one downstream spawn.
+
+9. **The conductor dies while its child remains active.**  
+   Scenario — A sitting or reviewer-runner continues, pushes, or reports after its conductor has vanished. Plausibility — Detached work and surviving worktrees are intentional, while completion routing can fall back to the coordinator. Drill — Kill a real conductor mid-wait and assert the coordinator reconstructs the phase from durable evidence, installs one successor, and neither loses nor duplicates the transition.
+
+10. **Sitting state, completion report, and remote head disagree.**  
+    Scenario — A sitting leaves stale `PHASE-STATE.md`, reports one head, and either fails to push or pushes another head. Plausibility — Unpushed commits and deaths between commit and push are recorded incidents; the state file cannot contain the SHA of its own commit. Drill — Exercise missing push, wrong remote head, and stale state; assert no next actor starts until all three belong to the same sitting generation.
+
+11. **A reviewer-runner cannot be spawned.**  
+    Scenario — The conductor reaches a gate, but the runner type is absent from the session registry. Plausibility — This exact stale-registry mechanism was measured when the runner contract was introduced. Drill — Fail the real runner spawn and assert an immediate stall, the exact error, and zero improvised reviewer processes.
+
+12. **The runner dies after launching its detached reviewer.**  
+    Scenario — The reviewer keeps running and may finish, but its sole collector and distiller is gone. Plausibility — Detachment deliberately lets the reviewer outlive the launching shell, while the conductor is forbidden to watch reviewer files. Drill — Kill the runner after its PID is persisted; assert the conductor detects the orphan and safely adopts or aborts it without launching a duplicate or declaring a clean gate.
+
+13. **The runner finishes, but its completion report disappears.**  
+    Scenario — The distillate exists and the runner exits normally, but the tether notification is lost; its by-id message is already known to fail. Plausibility — Tracked-child completion notifications have previously arrived late or never. Drill — Suppress the tether and assert the conductor’s keep-alive discovers a durable completion receipt or reports a stall instead of waiting indefinitely.
+
+14. **A reviewer hangs and the abort path is ineffective.**  
+    Scenario — The reviewer writes a header and one progress line, then remains alive forever; the abort message is rejected or the wrong process is stopped. Plausibility — `reviewer-hang`/`drill-d` exists specifically for this shape but was not used by the live drill, and parent-to-child addressability was not proven. Drill — Run `drill-d`, force timer expiries, assert pulse delivery and rearming, then a defined stall threshold, successful abort of the exact reviewer, and a non-clean terminal report.
+
+15. **The two-runner barrier accepts the wrong two reports.**  
+    Scenario — One runner reports twice, or a late report from an earlier gate/head is counted alongside one current report. Plausibility — Reports are asynchronous and no tested correlation key or generation fence is shown. Drill — Send duplicate, stale, and out-of-order reports; assert the barrier requires each distinct expected runner for the expected gate and head.
+
+16. **A stale artifact causes an instant false landing.**  
+    Scenario — A prior run’s output or stderr already contains a valid count line when a new reviewer starts. Plausibility — Review reruns and crash-surviving artifact directories are part of the workflow, while the landing loop searches existing files immediately. Drill — Pre-seed a valid old verdict and assert it cannot satisfy the new run without matching run identity and freshness.
+
+17. **An early count line produces a partial verdict.**  
+    Scenario — A reviewer writes its count line, pauses long enough to look settled, then appends more findings while still alive. Plausibility — A real verdict was previously read at 4.3 KB and later finished at 9.4 KB. Drill — Make the fake actor pause longer than the settlement interval after the count line, then append data; assert no distillation occurs from the partial version. The existing live actor writes the verdict atomically, so its settlement row is a weak oracle for this behavior.
+
+18. **The wrong or malformed marker is accepted as completion.**  
+    Scenario — A plan gate emits `CODE REVIEW: still working`, or the count appears only in stderr while the raw output contains narration. Plausibility — The loop accepts any of three prefixes with no expected-gate or terminal-grammar check, yet distillation must use only the raw output. Drill — Assert the expected gate’s exact terminal syntax, current run identity, and canonical verdict source; every mismatch must remain non-landed.
+
+19. **The pre-launch checks’ refusal paths are untested.**  
+    Scenario — The artifact probe is refused, the prompt leaks another gate, or the write policy is absent, but the runner launches anyway. Plausibility — The live drill supplied only clean, writable prompts; proving checks ran does not prove they stop execution. Drill — Inject each failure independently and assert `REFUSED`, no reviewer PID, no session header, and no output process.
+
+20. **PID reuse makes the runner observe or kill the wrong process.**  
+    Scenario — The reviewer exits and its numeric PID is reused; the runner waits on, reports, or aborts the unrelated process. Plausibility — The contract itself identifies PID recycling, but no drill validates process identity beyond the number. Drill — Simulate reuse and assert command/start-time or equivalent identity verification; the unrelated process must never be treated as the reviewer or terminated.
+
+21. **Distillation fails after a valid review lands.**  
+    Scenario — The raw verdict is complete, but the distillate is missing, truncated, or has a mismatched count; the runner still reports `LANDED`. Plausibility — Only successful distillation was exercised, and the four runner outcomes contain no explicit distillation-failure case. Drill — Inject each distillation failure and assert no successful handoff or next phase until the anomaly is surfaced.
+
+22. **The CI wait follows no run, the wrong run, or only good news.**  
+    Scenario — GitHub creates no run for the final head, an older head is green, or the final run ends failed, cancelled, or timed out. Plausibility — Every variant appears in the incident record, including an outage that produced no run and a misleading `cancelled` conclusion. Drill — Script all variants; assert “dispatch produced nothing” after the stated window, ignore every non-final SHA, and wake on every terminal result for the final SHA.
+
+## Medium cost: closing edge
+
+23. **The merge lands, but the closing handoff is lost.**  
+    Scenario — The conductor dies or its final flow/completion message disappears after merge, leaving the board, worktree, and parent folding stale. Plausibility — It uses the same unreliable notification surfaces as earlier handoffs, with no closing-edge drill. Drill — Drop the final report after a simulated merge and assert the coordinator detects the authoritative remote/board state, records the conductor defect, and reconciles exactly once.
+
+## Existing drills with weak oracles
+
+24. **Mechanical happy path tests the fake actor’s loop, not relay order.** The fake actor itself writes phases 1–5, so the assertion can pass while a conductor skips or duplicates real handoffs. Strengthen it by driving a conductor state machine with scripted child completions and asserting causal spawn, watch, narration, and exactly-once transitions.
+
+25. **The detachment comparison forcibly kills an equally detached process.** The “false detach” branch uses `Start-Process` and then `Stop-Process`; it never demonstrates a child dying because its launcher exited. Strengthen it with a genuinely launcher-bound child and verify the different lifetime behavior without an explicit kill.
+
+26. **The lost-notification backstop accepts mere file existence.** A zero-byte, partial, or stale result makes `Wait-TwoChannel` return `backstop`, so the assertion can pass while completion detection is unsafe. Require a run-specific terminal marker and settlement, and include the empty-file trap in this drill.
+
+27. **The resume drill calls any result file complete.** `Get-ResumeState` would classify the die-at-launch drill’s empty result as `COMPLETE`; the current assertion only feeds it a good file. Strengthen it with empty, partial, stale-generation, and valid terminal results.
+
+28. **The expiry and stall drills stop at classification.** Returning `EXPIRED` or `Alive-Stalled` does not prove a conductor emits a stall, refrains from advancing, and rearms or aborts correctly. Drive those values through the real consumer and assert the resulting transition and narration.
+
+29. **The stale-registry drill is only a string matcher.** It can pass while the coordinator ignores the classification, and its broad `not found` match can misclassify an unrelated missing file. Exercise an actual failed actor spawn through the caller and assert exact error taxonomy plus the visible no-commencement outcome.
+
+30. **The live keep-alive row proves arming, not firing.** “Task exists and is running” is precisely the condition the conductor contract says is insufficient evidence that a watch can fire. Let the timer expire, assert the pulse is received, verify rearming, and then exercise the stall threshold.
+
+31. **Most live scorecard claims are testimonial rather than replayable.** The archived reviewer files support output classification, but no conductor/runner reports or timestamped event trace prove immediate launch-death handling, the two-runner barrier, narration order, or absence of an unnecessary wait. Archive a machine-readable event trace and assert ordering, unique identities, task creation, timer firing, and downstream spawn times.
+
+DRILL REVIEW: 31 FINDINGS
+tokens used
+100,153
