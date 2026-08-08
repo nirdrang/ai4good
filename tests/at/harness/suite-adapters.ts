@@ -102,6 +102,7 @@ type CheckedAdapterModules<M extends { [R in keyof M & string]: AdapterModuleFor
 
 /** THE LIST. One line per suite; the key is the requirement id the runner and the loader use. */
 export type AdapterModules = CheckedAdapterModules<{
+  'req-001': typeof import('../suites/req-001/_fixture.ts');
   'req-016': typeof import('../suites/req-016/_fixture.ts');
 }>;
 
