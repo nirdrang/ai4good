@@ -21,6 +21,7 @@ import { validateCompleteSignup } from '../_shared/accounts.ts';
 import {
   callDatabaseFunction,
   callerIp,
+  edgeHandler,
   json,
   readJsonBody,
   refusal,
@@ -32,7 +33,9 @@ const SUPABASE_URL = requireEnv('SUPABASE_URL');
 const ANON_KEY = requireEnv('SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY');
 const SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
 
-Deno.serve(async (request: Request): Promise<Response> => {
+// `edgeHandler` answers the browser preflight and turns anything thrown into a shaped 502 — see its
+// own comment for why both belong to every entry point here rather than to this one.
+Deno.serve(edgeHandler('complete-signup', async (request: Request): Promise<Response> => {
   if (request.method !== 'POST') return refusal('complete-signup accepts POST only', 405);
 
   const caller = await resolveCaller(request, SUPABASE_URL, ANON_KEY);
@@ -82,4 +85,4 @@ Deno.serve(async (request: Request): Promise<Response> => {
     },
     200,
   );
-});
+}));

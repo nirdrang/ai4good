@@ -41,10 +41,15 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
 
       // THE PREDICATE MUST DISCRIMINATE, and this is the assertion that makes that true rather than
       // stated. AT-001.01 requires the acknowledgment "before any project creation is possible";
-      // `has_platform_acknowledgment` is the observable form of that clause, and a `return true`
+      // `has_platform_acknowledgment` is the observable form of that clause, and a constant-true
       // implementation would satisfy every other assertion in this test. Asserting FALSE first, on
-      // a user who has authenticated and not completed signup, is what fails such an implementation
-      // here instead of letting it through to the leaf that lands project creation.
+      // a user who has authenticated and not completed signup, is what fails such an implementation.
+      //
+      // WHICH implementation, exactly: at this tier the assertion reaches the fixture adapter's
+      // storage query, so what it establishes is the rule and that storage. The shipped SQL
+      // predicate `public.has_platform_acknowledgment` is NOT reached from here and could return
+      // true unconditionally without turning this red. Step 7(h) of the plan is what proves that
+      // one, against the live database, and it is the only thing in this item that does.
       expect(
         await sut.hasPlatformAcknowledgment(session.accountId),
         'a user who has authenticated but not completed signup must NOT hold the platform acknowledgment',
@@ -105,6 +110,30 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       expect(returning, 'the same credentials did not sign in again').toMatchObject({ ok: true });
       if (!returning.ok) return;
       expect(returning.session.accountId).toBe(session.accountId);
+
+      // THE ACKNOWLEDGMENT IS *REQUIRED*, and the happy path above does not establish that. An
+      // implementation that records the acknowledgment when one is offered and completes signup
+      // anyway when none is would satisfy every assertion so far — so the criterion's word
+      // "required" would be untested, which is the same as unmet. The refusal is asserted here, and
+      // with it that nothing was left behind: a completion that refuses AFTER writing the account
+      // row has not refused, it has half-succeeded.
+      const withoutAcknowledgment = await sut.registerWithEmailPassword(w.email('no-acknowledgment'), password);
+      const refused = await sut.completeSignup(
+        withoutAcknowledgment,
+        { accountType: 'ngo', organizationName: 'Riverside Shelter Annexe' },
+        CLIENT_IP,
+      );
+      expect(refused.ok, 'signup completed with no acknowledgment of the ToS and Platform Promise').toBe(false);
+      if (refused.ok) return;
+      expect(refused.reason, 'the refusal does not say the acknowledgment is what is missing').toMatch(/acknowledgment/i);
+      expect(
+        await sut.account(withoutAcknowledgment.accountId),
+        'the refused completion left an account row behind',
+      ).toBeNull();
+      expect(
+        await sut.hasPlatformAcknowledgment(withoutAcknowledgment.accountId),
+        'the refused completion recorded an acknowledgment anyway',
+      ).toBe(false);
     },
   );
 
@@ -119,11 +148,17 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
 
       // WHAT THIS TEST ASSERTS, AND WHAT IT REFUSES TO PRETEND.
       //
-      // The shipped code in this leaf is the decision module. It never reads the provider, and the
-      // claim being tested is exactly that: a session Auth recorded as `google` completes signup
-      // through the SAME path with the SAME result as one it recorded as `email`. That is a real,
-      // falsifiable property — if the shipped code ever grew a provider branch, these two results
-      // would differ and this test would go red.
+      // The shipped code in this leaf is the decision module, and it never reads the provider — it
+      // is never GIVEN one. `CompleteSignupRequest` has no provider field and the adapter's
+      // `completeSignup` passes only `session.accountId`, so the comparison below establishes that
+      // the shipped path ignores the provider BECAUSE IT NEVER RECEIVES ONE.
+      //
+      // WHICH MEANS THIS COMPARISON WOULD NOT CATCH A PROVIDER BRANCH, and an earlier version of
+      // this comment claimed it would. A branch treating Google differently would have to live in
+      // an edge function or in Auth, and no code this test drives can express one; both halves of
+      // the comparison would keep agreeing while the shipped behaviour diverged. What carries the
+      // weight here is the PINNED-VALUE block below — two identically wrong results satisfy an
+      // equality check, and the pinned expectations are what refuse them.
       //
       // IT SIMULATES NO HANDSHAKE. There is no fabricated authorization code, no token exchange and
       // no fake redirect anywhere in the adapter; `registerWithProvider` produces the state Auth is
@@ -243,9 +278,21 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       });
       if (!volunteerCompletion.ok) return;
 
-      const volunteerAction = await sut.createOrganization(volunteerSession, 'Riverside Shelter Copy');
+      const REFUSED_NAME = 'Riverside Shelter Copy';
+      const volunteerAction = await sut.createOrganization(volunteerSession, REFUSED_NAME);
       expect(volunteerAction.ok, 'a volunteer account performed an NGO-only action').toBe(false);
       if (volunteerAction.ok) return;
+
+      // "THE ACTION IS REJECTED" INCLUDES ITS WRITES NOT HAPPENING. The weakest implementation that
+      // passes the assertion above writes the organisation and its membership and then reports a
+      // refusal, which is not a rejection — it is a success with a rude message. So: the volunteer
+      // holds no membership anywhere, and no organisation by the attempted name exists.
+      const organizations = await sut.organizationsNamed(REFUSED_NAME);
+      expect(organizations, `the refused action created an organisation named ${JSON.stringify(REFUSED_NAME)}`).toEqual([]);
+      expect(
+        await sut.membershipsOf(volunteerCompletion.accountId),
+        'the refused action left the volunteer holding a membership',
+      ).toEqual([]);
       // The refusal must STATE why. A bare failure leaves the caller unable to act, and the
       // criterion's own wording — "one account holds exactly one global type; the NGO path requires
       // a separate account" — is what the reason has to convey.
@@ -261,9 +308,15 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
     async ({ open }) => {
       const { w, sut } = await open();
 
-      // Clause one: a provisioned administrator really exists and really authenticates. Provisioned
-      // the only legal way — an authority the public never holds — because the public path refuses
-      // the type outright, which the third block below proves rather than assumes.
+      // Clause one, at the tier this test actually runs at. What goes green here is that the
+      // `platform_admin` type is CARRIED — an account provisioned with it reads back with it, and a
+      // session against it resolves to the same account — and, in the third block, that the public
+      // completion path refuses to mint one. That is a real property of the shipped decision module.
+      //
+      // IT IS NOT A CLAIM THAT AN ADMINISTRATOR REALLY AUTHENTICATES, and this comment used to make
+      // one: `provisionPlatformAdmin` writes into a Map two lines below. A real administrator, in a
+      // real Auth, really signing in against the real schema is step 7(g) of the plan, on the live
+      // stack, and the per-id table assigns that clause there and not here.
       const adminEmail = w.email('platform-admin');
       const adminPassword = 'correct horse battery staple';
       const provisioned = await sut.provisionPlatformAdmin(adminEmail, adminPassword);

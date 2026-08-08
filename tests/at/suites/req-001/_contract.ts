@@ -155,15 +155,34 @@ export type AccountsSut = {
   organization(organizationId: string): Promise<OrganizationRow | null>;
   membership(organizationId: string, accountId: string): Promise<MembershipRow | null>;
   acknowledgments(accountId: string): Promise<AcknowledgmentRow[]>;
+
+  /**
+   * The two read-backs a REFUSED action needs, which the keyed ones above cannot serve.
+   *
+   * Asserting that a rejection wrote nothing means looking for rows whose identifiers were never
+   * handed out — a refused `createOrganization` returns no organisation id. So one search by the
+   * name that was attempted, and one listing of everything an account is a member of. Without them
+   * the strongest statement available is "the call said no", and an implementation that writes both
+   * rows and then says no would satisfy it.
+   */
+  organizationsNamed(name: string): Promise<OrganizationRow[]>;
+  membershipsOf(accountId: string): Promise<MembershipRow[]>;
   /**
    * `public.has_platform_acknowledgment(account_id)` — the observable form of AT-001.01's "before
    * any project creation is possible".
    *
    * It MUST DISCRIMINATE: false for an authenticated user who has not completed signup, true after.
-   * A constant-true implementation fails AT-001.01 rather than satisfying it, and the body asserts
-   * both halves for exactly that reason. What this leaf cannot do is ENFORCE the clause — nothing in
-   * the tree creates a project, and building project creation belongs to another requirement. This
-   * is the hook the leaf that lands project creation must call.
+   * The body asserts both halves for exactly that reason.
+   *
+   * WHICH IMPLEMENTATION THAT ASSERTION REACHES depends on the tier, and the difference matters. At
+   * loop tier it reaches the fixture adapter's storage query, so what goes green is the RULE and the
+   * adapter's storage — the shipped SQL function could return true unconditionally and the loop tier
+   * would not notice. `public.has_platform_acknowledgment` itself is proved by step 7(h) of the
+   * plan, against the live database, and by nothing else in this item.
+   *
+   * What this leaf cannot do at either tier is ENFORCE the clause — nothing in the tree creates a
+   * project, and building project creation belongs to another requirement. This is the hook the leaf
+   * that lands project creation must call.
    */
   hasPlatformAcknowledgment(accountId: string): Promise<boolean>;
 
@@ -171,8 +190,16 @@ export type AccountsSut = {
 
   /**
    * Provision a `platform_admin` — the ONLY legal way one exists, because the public path refuses
-   * the type. On the live stack this is a service-role write; here it is the same authority, which
-   * is why it sits apart from `completeSignup` rather than being one of its options.
+   * the type. It sits apart from `completeSignup` rather than being one of its options for that
+   * reason.
+   *
+   * ON THE LIVE STACK THIS IS **NOT** A SERVICE-ROLE WRITE, and the correction matters more than
+   * most: this comment used to say it was, and a later reader following it would have granted the
+   * service role an INSERT on `public.accounts` — a write path straight past `complete_signup`'s
+   * `platform_admin` refusal, which is the one guard that sits on the only write path. The service
+   * role holds no INSERT anywhere in this schema, by measurement and by decision. Provisioning is a
+   * direct database operation by an operator: a NARROWER authority than the service role, not a
+   * wider one, and not one any running service holds.
    */
   provisionPlatformAdmin(email: string, password: string): Promise<Session>;
 };

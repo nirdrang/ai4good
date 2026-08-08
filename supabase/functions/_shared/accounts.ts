@@ -1,6 +1,10 @@
 /**
- * THE FOUR DECISIONS REQ-001's first leaf makes, in ONE module that both the shipped edge functions
- * and the acceptance adapter import.
+ * EVERY DECISION REQ-001's first leaf makes, in ONE module that both the shipped edge functions and
+ * the acceptance adapter import. (The plan named four; there are five. The fifth —
+ * `validateOrganizationName` — was written twice at its call sites instead, and moved here when a
+ * code review found the duplicate. "Four" is left out of this sentence rather than corrected to
+ * "five", because the count is not the property that matters: what matters is that a rule has one
+ * home.)
  *
  * WHY THIS FILE EXISTS AT ALL, because the alternative is what most acceptance suites do and it is
  * worth naming: `adapterDerivedCapability()` in `tests/at/harness/capabilities.ts` stamps every
@@ -172,6 +176,26 @@ export function validateCompleteSignup(request: CompleteSignupRequest): Decision
     organizationName,
     acknowledgmentTextVersion: rawVersion.trim(),
   });
+}
+
+/* --------------------------------------------------------- 2b. is this organisation name usable */
+
+/**
+ * An organisation's name, trimmed, or a refusal naming why — the SAME rule `validateCompleteSignup`
+ * applies to the name arriving on an NGO signup, stated once.
+ *
+ * WHY IT IS HERE AND NOT AT ITS TWO CALL SITES, because that is where it used to be. The rule was
+ * written twice — once in `create-organization/index.ts`, a file no type-checker covers, and once
+ * in `tests/at/suites/req-001/_fixture.ts` — so the acceptance suite graded the adapter's copy and
+ * said nothing about the shipped one. Two independent statements of one rule with nothing able to
+ * notice them diverging is the exact defect this module exists to delete; it does not get an
+ * exception for being three lines long.
+ */
+export function validateOrganizationName(raw: unknown): Decision<string> {
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return refuse('an organisation needs a non-empty name');
+  }
+  return accept(raw.trim());
 }
 
 /* ---------------------------------------------------------------- 3. may this account do NGO work */

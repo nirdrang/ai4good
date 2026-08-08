@@ -33,6 +33,7 @@ import {
   PUBLIC_SIGNUP_ACCOUNT_TYPES,
   ngoOnlyActionAllowed,
   validateCompleteSignup,
+  validateOrganizationName,
   type AccountType,
   type CompleteSignupRequest,
 } from '../../../../supabase/functions/_shared/accounts.ts';
@@ -221,11 +222,13 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       const allowed = ngoOnlyActionAllowed(account.accountType);
       if (!allowed.ok) return { ok: false, reason: allowed.reason };
 
-      if (typeof organizationName !== 'string' || organizationName.trim() === '') {
-        return { ok: false, reason: 'an organisation needs a non-empty name' };
-      }
+      // The name rule is the shipped module's too. It used to be spelled out here, which made this
+      // file hold a second copy of a rule — the one thing its opening paragraph promises it does
+      // not do.
+      const name = validateOrganizationName(organizationName);
+      if (!name.ok) return { ok: false, reason: name.reason };
 
-      const organization: OrganizationRow = { id: nextId('org'), name: organizationName.trim() };
+      const organization: OrganizationRow = { id: nextId('org'), name: name.value };
       const membership: MembershipRow = { organizationId: organization.id, accountId: account.id, role: 'admin' };
       state.organizations.set(organization.id, organization);
       state.memberships.set(membershipKey(organization.id, account.id), membership);
@@ -237,9 +240,19 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     membership: async (organizationId, accountId) => clone(state.memberships.get(membershipKey(organizationId, accountId)) ?? null),
     acknowledgments: async (accountId) => clone(state.acknowledgments.filter((row) => row.accountId === accountId)),
 
-    // DISCRIMINATING, and the shape matters: it reads the acknowledgment table, so it is false until
-    // a completion writes a row and true afterwards. `return true` would satisfy nothing — AT-001.01
-    // asserts the false half first.
+    // The two searches a refused action needs: it hands back no identifier, so the rows it must NOT
+    // have written can only be looked for by the name that was attempted and by who holds what.
+    organizationsNamed: async (name) => clone([...state.organizations.values()].filter((row) => row.name === name.trim())),
+    membershipsOf: async (accountId) => clone([...state.memberships.values()].filter((row) => row.accountId === accountId)),
+
+    // DISCRIMINATING — and WHICH predicate that green grades is worth being exact about, because
+    // this one is not the shipped one. `public.has_platform_acknowledgment` is SQL, and a
+    // TypeScript module cannot supply a SQL predicate; the one judgement inside it — which
+    // acknowledgment kind counts — is shared, which is why the constant below is imported rather
+    // than spelled. So AT-001.01's loop-tier green proves THE RULE and THIS storage: a completion
+    // writes the row, and the answer is false before and true after. The shipped SQL predicate
+    // could still return true unconditionally and this would stay green. What proves that one is
+    // step 7(h) of the plan, against the live database, and nothing else in this item.
     hasPlatformAcknowledgment: async (accountId) =>
       state.acknowledgments.some((row) => row.accountId === accountId && row.kind === PLATFORM_ACKNOWLEDGMENT_KIND),
 

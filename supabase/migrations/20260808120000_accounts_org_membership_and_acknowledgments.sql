@@ -243,12 +243,20 @@ comment on function public.complete_signup(uuid, text, text, text, inet) is
 -- nobody is a member of. That is the same defect the review found in the signup path and ruled a
 -- transaction for; leaving it here would reinstate it in the very function the ruling added.
 --
--- IT DOES NOT RE-DECIDE ANYTHING. Unlike `complete_signup`, this function performs no account-type
--- check: the NGO-only refusal is `ngoOnlyActionAllowed` in `supabase/functions/_shared/accounts.ts`
--- and must stay there, because that is what makes AT-001.06 a test of shipped logic. Duplicating it
--- here would move the decision away from the module the acceptance suite drives. The privilege-
--- escalation duplication in `complete_signup` is justified by what it guards — the account TYPE, on
--- the only path that can mint an administrator — and that argument does not extend to this one.
+-- IT CARRIES A BACKSTOP, AND THE BACKSTOP IS NOT THE DECISION. This paragraph replaces one that
+-- argued for no account-type check here at all, on the grounds that duplicating it would move the
+-- decision away from the module the acceptance suite drives. That half is still true and still
+-- governs: the USER-FACING REFUSAL, with its reason, stays in `ngoOnlyActionAllowed` in
+-- `supabase/functions/_shared/accounts.ts`; AT-001.06 drives it; nothing below it is written to be
+-- read by an end user.
+--
+-- What the argument missed is that `ngoOnlyActionAllowed` sits in an edge-function entry point that
+-- NO TYPE-CHECKER COVERS — measured, not assumed — and that `service_role` holds `execute` on this
+-- function, so a service-role key holder reaches it directly with no TypeScript in the path at all.
+-- With no check here, a volunteer could be made the admin of a new organisation by any caller who
+-- bypassed the entry point. So this raise exists for exactly the path that skipped the decision,
+-- which is the same shape `complete_signup`'s `platform_admin` refusal has and the same reason:
+-- a guard on the only write path does not depend on the code that normally calls it.
 create function public.create_organization(
   p_account_id uuid,
   p_name text
@@ -263,10 +271,27 @@ set search_path = ''
 as $$
 declare
   v_organization_id uuid;
+  v_account_type public.account_type;
 begin
   if p_name is null or length(btrim(p_name)) = 0 then
     raise exception 'create_organization refuses an empty organisation name'
       using errcode = '22023';
+  end if;
+
+  -- THE BACKSTOP. It fires only on a call that did not come through the edge function, because the
+  -- edge function refuses a non-NGO caller before ever reaching here.
+  select account_type into v_account_type
+    from public.accounts
+   where id = p_account_id;
+
+  if v_account_type is null then
+    raise exception 'create_organization refuses %: no account has completed signup for this user', p_account_id
+      using errcode = '23503';
+  end if;
+
+  if v_account_type <> 'ngo' then
+    raise exception 'create_organization refuses account type %: creating an organisation is an NGO-only action', v_account_type
+      using errcode = '42501';
   end if;
 
   insert into public.organizations (name)
@@ -281,7 +306,7 @@ end;
 $$;
 
 comment on function public.create_organization(uuid, text) is
-  'Creates an organisation and its admin membership in one transaction (REQ-001, AT-001.06). The NGO-only decision is made before this, in the shared module.';
+  'Creates an organisation and its admin membership in one transaction (REQ-001, AT-001.06). The NGO-only decision is made before this, in the shared module; the check here is a backstop for callers that bypassed it.';
 
 /* ================================================================== row-level security + grants == */
 
