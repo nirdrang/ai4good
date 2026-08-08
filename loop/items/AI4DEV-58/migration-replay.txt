@@ -1,0 +1,124 @@
+﻿# AI4DEV-58 (GitHub sign-in, mandatory GitHub link) - STEP 3 MIGRATION REPLAY
+# Started: 2026-08-09 02:40:03 +03:00
+
+===== bun run db:reset (replay from empty) =====
+bun : $ bunx supabase db reset
+At line:1 char:1
++ bun run db:reset 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx supabase db reset:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Resetting local database...
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+Recreating database...
+Initialising schema...
+Seeding globals from roles.sql...
+Skipping migration .gitkeep... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration README.md... (file name must match pattern "<timestamp>_name.sql")
+Applying migration 20260808120000_accounts_org_membership_and_acknowledgments.sql...
+Applying migration 20260809090000_volunteer_github_link_and_imported_profile.sql...
+WARN: no files matched pattern: supabase/seed.sql
+Skipping migration .gitkeep... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration README.md... (file name must match pattern "<timestamp>_name.sql")
+Restarting containers...
+A new version of Supabase CLI is available: v2.113.0 (currently installed v2.110.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+A new version of Supabase CLI is available: v2.113.0 (currently installed v2.110.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+Finished [36msupabase db reset[39m on branch [36mmain[39m.
+{"target":"local","version":"","message":"Reset local database."}
+
+----- exit code: 0 -----
+
+===== catalog introspection against 127.0.0.1:54322, after the replay =====
+
+Read-only. Every query below asks the CATALOG what the migrated database actually contains,
+rather than asking the migration file what it said. What it has to establish, per the plan's
+step-3 done criterion: the new table exists, row-level security is on, the four CHECK
+constraints are there in the form ruling F2 requires, exactly ONE pg_proc row is named
+complete_signup (an overload would make PostgREST refuse the rpc as ambiguous), and the
+privilege posture matches the first migration's.
+
+The last section is not part of the criterion and is recorded because it is free here: the
+SQL-semantics fact ruling F2 turns on, evaluated by this very PostgreSQL. The EMPIRICAL check
+- that a direct service-role call with '{}'::text[] languages RAISES - belongs to step 6(d)
+and is not run in this sitting.
+
+
+--- the new table, its row-level security flag and its policy count ---
+{"table_name":"volunteer_profiles","rls_enabled":true,"policies":"0"}
+
+--- columns of public.volunteer_profiles ---
+{"column_name":"account_id","data_type":"uuid","is_nullable":"NO","column_default":null}
+{"column_name":"github_handle","data_type":"text","is_nullable":"NO","column_default":null}
+{"column_name":"top_languages","data_type":"ARRAY","is_nullable":"NO","column_default":null}
+{"column_name":"repository_count","data_type":"integer","is_nullable":"NO","column_default":null}
+{"column_name":"contribution_summary","data_type":"text","is_nullable":"NO","column_default":null}
+{"column_name":"imported_at","data_type":"timestamp with time zone","is_nullable":"NO","column_default":"now()"}
+
+--- constraints on public.volunteer_profiles (check, primary key, foreign key) ---
+{"constraint_name":"volunteer_profiles_contribution_summary_present","kind":"c","definition":"CHECK ((btrim(contribution_summary) <> ''::text))"}
+{"constraint_name":"volunteer_profiles_github_handle_present","kind":"c","definition":"CHECK ((btrim(github_handle) <> ''::text))"}
+{"constraint_name":"volunteer_profiles_repository_count_sane","kind":"c","definition":"CHECK ((repository_count >= 0))"}
+{"constraint_name":"volunteer_profiles_top_languages_present","kind":"c","definition":"CHECK ((cardinality(top_languages) >= 1))"}
+{"constraint_name":"volunteer_profiles_account_id_fkey","kind":"f","definition":"FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE"}
+{"constraint_name":"volunteer_profiles_pkey","kind":"p","definition":"PRIMARY KEY (account_id)"}
+
+--- EVERY pg_proc row named complete_signup - exactly one, or PostgREST cannot resolve the rpc ---
+{"oid":"18690","proname":"complete_signup","arguments":"p_account_id uuid, p_account_type text, p_organization_name text, p_acknowledgment_text_version text, p_ip inet, p_github_handle text, p_github_top_languages text[], p_github_repository_count integer, p_github_contribution_summary text","security_definer":true,"config":"{\"search_path=\\\"\\\"\"}"}
+
+--- execute privilege on complete_signup, per Data API role ---
+{"proname":"complete_signup","grantee":"anon","can_execute":false}
+{"proname":"complete_signup","grantee":"authenticated","can_execute":false}
+{"proname":"complete_signup","grantee":"public","can_execute":false}
+{"proname":"complete_signup","grantee":"service_role","can_execute":true}
+
+--- table privileges on public.volunteer_profiles - none is the intended answer ---
+{"grantee":"anon","privilege_type":"REFERENCES"}
+{"grantee":"anon","privilege_type":"TRIGGER"}
+{"grantee":"anon","privilege_type":"TRUNCATE"}
+{"grantee":"authenticated","privilege_type":"REFERENCES"}
+{"grantee":"authenticated","privilege_type":"TRIGGER"}
+{"grantee":"authenticated","privilege_type":"TRUNCATE"}
+{"grantee":"postgres","privilege_type":"DELETE"}
+{"grantee":"postgres","privilege_type":"INSERT"}
+{"grantee":"postgres","privilege_type":"REFERENCES"}
+{"grantee":"postgres","privilege_type":"SELECT"}
+{"grantee":"postgres","privilege_type":"TRIGGER"}
+{"grantee":"postgres","privilege_type":"TRUNCATE"}
+{"grantee":"postgres","privilege_type":"UPDATE"}
+{"grantee":"service_role","privilege_type":"REFERENCES"}
+{"grantee":"service_role","privilege_type":"TRIGGER"}
+{"grantee":"service_role","privilege_type":"TRUNCATE"}
+
+--- the whole public function inventory after the drop and recreate ---
+{"proname":"complete_signup","arguments":"p_account_id uuid, p_account_type text, p_organization_name text, p_acknowledgment_text_version text, p_ip inet, p_github_handle text, p_github_top_languages text[], p_github_repository_count integer, p_github_contribution_summary text"}
+{"proname":"create_organization","arguments":"p_account_id uuid, p_name text"}
+{"proname":"has_platform_acknowledgment","arguments":"p_account_id uuid"}
+
+--- all public tables and their row-level security flags, unchanged plus the new one ---
+{"table_name":"accounts","rls_enabled":true,"policies":"0"}
+{"table_name":"acknowledgments","rls_enabled":true,"policies":"0"}
+{"table_name":"org_memberships","rls_enabled":true,"policies":"0"}
+{"table_name":"organizations","rls_enabled":true,"policies":"0"}
+{"table_name":"volunteer_profiles","rls_enabled":true,"policies":"0"}
+
+--- the auth.identities columns the backstop reads - MEASURED, not assumed ---
+{"column_name":"provider_id","data_type":"text","is_nullable":"NO"}
+{"column_name":"user_id","data_type":"uuid","is_nullable":"NO"}
+{"column_name":"identity_data","data_type":"jsonb","is_nullable":"NO"}
+{"column_name":"provider","data_type":"text","is_nullable":"NO"}
+{"column_name":"last_sign_in_at","data_type":"timestamp with time zone","is_nullable":"YES"}
+{"column_name":"created_at","data_type":"timestamp with time zone","is_nullable":"YES"}
+{"column_name":"updated_at","data_type":"timestamp with time zone","is_nullable":"YES"}
+{"column_name":"email","data_type":"text","is_nullable":"YES"}
+{"column_name":"id","data_type":"uuid","is_nullable":"NO"}
+
+--- the NULL-semantics fact ruling F2 turns on, asserted against this very database ---
+{"array_length_of_empty_is_null":true,"cardinality_of_empty":0,"array_length_check_would_be_null":true,"cardinality_check_is_false":false}
+
+# Finished: 2026-08-09 02:41:54 +03:00
