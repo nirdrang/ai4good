@@ -127,10 +127,25 @@ this is not a quoting bug you can escape your way out of. Build the line yoursel
 pointer telling kimi to read the prompt file from disk — never the prompt text itself:
 
 ```powershell
+# BOTH STREAMS INTO THE REVIEW FILE. Kimi's narration goes to stdout and its ANSWER — including
+# the `CODE REVIEW: N FINDINGS` count line — comes out on stderr. Splitting them wrote a review
+# file containing nothing but "Now reading the two depth files…" while the real critique, seven
+# findings of it, sat in the log nobody reads. The file existed, was non-empty, and stopped
+# growing, so every liveness test passed and the gate looked complete. Merge both and the answer
+# is captured whichever stream carries it.
 $line = '-m kimi-code/k3 --output-format text -p "Read ' + $promptFile + ' and follow it."'
 Start-Process cmd -WindowStyle Hidden -PassThru -WorkingDirectory $tree `
-  -ArgumentList ('/c', ('kimi ' + $line + ' 1>"' + $out + '" 2>"' + $err + '"'))
+  -ArgumentList ('/c', ('kimi ' + $line + ' 1>"' + $out + '" 2>&1'))
 ```
+
+**AND CHECK THE REVIEW FILE FOR FINDINGS, NOT FOR EXISTENCE.** Every reviewer's raw output must
+end with its own count line — `CODE REVIEW: N FINDINGS`, `CODE REVIEW: CLEAN`, `PLAN REVIEW: …`,
+`AUDIT: …`. **A file with no count line is an EMPTY GATE, and it must be reported as empty, never
+distilled.** Handing a progress log to a distiller yields a tidy "no findings" summary, and the
+record then claims a reviewer read the code and was satisfied — an unearned green produced by a
+file that existed. On AI4DEV-57 both kimi outputs were 76 and 268 bytes of narration and were
+reported as landed; the coordinator caught it before distillation. Watch for the count line, in
+either stream, and treat its absence as the signal it is.
 
 Kimi has no `-C` flag — its working directory IS `-WorkingDirectory`, and it must be the tree.
 
