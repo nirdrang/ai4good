@@ -164,4 +164,9 @@ different tool, and every one of them was reported confidently the first time.
   repair.
 - Never treat an empty or progress-line-only reviewer output as a clean gate.
 - Never judge a detached process's liveness from a process list — measure its own artifacts.
+- **Never launch a reviewer process from any role but `reviewer-runner`** (founder 2026-08-08).
+  One launcher is what keeps the recipes correct in a single place, makes reading stderr at launch
+  non-optional, and leaves an open gate addressable by agent id. It also puts every reviewer wait
+  on the wake channel that has not failed — a subagent's completion re-invokes its parent, whereas
+  the background shell watches it replaces went silent twice on one item.
 - PowerShell, never Bash. bun, never npm or pnpm.

@@ -1,6 +1,6 @@
 ---
 name: distiller
-description: Turns ONE raw reviewer output into a findings-only file the orchestrator can read. Extracts, never judges. Spawned by the conductor, one per raw file, with model "sonnet" and no isolation.
+description: The canonical distillation contract — turns ONE raw reviewer output into a findings-only file the orchestrator can read. Extracts, never judges. Normally FOLLOWED by the reviewer-runner rather than spawned; spawn it directly, with model "sonnet" and no isolation, only for a one-off re-distillation.
 model: sonnet
 effort: low
 ---
