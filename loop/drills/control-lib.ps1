@@ -77,7 +77,10 @@ function Invoke-Commencement {
     # The coordinator's commencement deadline: a spawned conductor must produce its first flow
     # line within the deadline, or the claim has no clock owner and that is a STARTUP STALL now.
     # $Spawn returns @{ok=bool; error=string; taskId=string; procId=int}.
-    param([scriptblock]$Spawn, [string]$FlowLineFile, [int]$DeadlineSec, [string]$TranscriptFile)
+    # Liveness comes from procId (an OS process) or AliveProbe (any outside instrument, e.g. a
+    # harness task) - a live agent is not always an inspectable OS pid.
+    param([scriptblock]$Spawn, [string]$FlowLineFile, [int]$DeadlineSec, [string]$TranscriptFile,
+          [scriptblock]$AliveProbe)
     $r = & $Spawn
     if (-not $r.ok) { return @{ state = 'STARTUP-STALL'; why = 'SPAWN-REJECTED'; error = $r.error } }
     if (-not $r.taskId) { return @{ state = 'STARTUP-STALL'; why = 'NO-RECEIPT'; error = 'spawn returned no task identity' } }
@@ -88,6 +91,7 @@ function Invoke-Commencement {
     }
     $alive = $false
     if ($r.procId) { $alive = [bool](Get-Process -Id $r.procId -ErrorAction SilentlyContinue) }
+    elseif ($AliveProbe) { $alive = [bool](& $AliveProbe) }
     if (-not $alive) { return @{ state = 'STARTUP-STALL'; why = 'DEAD-TASK' } }
     $len1 = 0; if ($TranscriptFile -and (Test-Path $TranscriptFile)) { $len1 = (Get-Item $TranscriptFile).Length }
     Start-Sleep -Milliseconds 500
