@@ -8,8 +8,10 @@
  * SAME code path. The difference between them is upstream, in how the session was obtained.
  *
  * WHAT IT DOES: sets the global account type once, and for an NGO creates the organisation, the
- * `admin` membership and the ToS + Platform Promise acknowledgment with the request's source address
- * and the version of the text that was accepted. All of it through ONE call to
+ * `admin` membership and the ToS + Platform Promise acknowledgment with the address the gateway
+ * chain reported — NOT a verified source address; see `callerIp` in `../_shared/edge.ts` for the
+ * trust boundary and the measurement behind it — and the version of the text that was accepted.
+ * All of it through ONE call to
  * `public.complete_signup`, which is one round trip and therefore one transaction — all four rows or
  * none.
  *

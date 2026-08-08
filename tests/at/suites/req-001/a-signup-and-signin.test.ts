@@ -92,7 +92,9 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       expect(acknowledgments, 'exactly one platform acknowledgment is recorded by one completion').toHaveLength(1);
       const acknowledgment = acknowledgments[0];
       expect(acknowledgment.textVersion, 'the acknowledgment must say WHICH text was accepted').toBe(TEXT_VERSION);
-      expect(acknowledgment.ip, 'the acknowledgment must record the source address').toBe(CLIENT_IP);
+      // The address as REPORTED, never a verified source address: on the live stack a spoofed
+      // header is stored verbatim. What this pins is that the reported value reaches the row intact.
+      expect(acknowledgment.ip, 'the acknowledgment must record the reported address').toBe(CLIENT_IP);
       expect(
         Number.isFinite(Date.parse(acknowledgment.acknowledgedAt)),
         `the acknowledgment timestamp ${JSON.stringify(acknowledgment.acknowledgedAt)} is not a readable instant`,
@@ -308,10 +310,16 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
     async ({ open }) => {
       const { w, sut } = await open();
 
-      // Clause one, at the tier this test actually runs at. What goes green here is that the
-      // `platform_admin` type is CARRIED — an account provisioned with it reads back with it, and a
-      // session against it resolves to the same account — and, in the third block, that the public
-      // completion path refuses to mint one. That is a real property of the shipped decision module.
+      // Clause one, at the tier this test actually runs at. Two different strengths of evidence sit
+      // in this test and the difference is the whole point of the comment:
+      //
+      //   - that the public completion path REFUSES to mint a `platform_admin` (the third block) is
+      //     a real property of the shipped decision module — `validateCompleteSignup` in
+      //     `supabase/functions/_shared/accounts.ts`, which this suite imports rather than copies;
+      //   - that the type is CARRIED — provisioned with it, reads back with it, and a session
+      //     resolves to the same account — is the ADAPTER'S STORAGE answering, not shipped code.
+      //     Provisioning and sign-in are fixture stand-ins here, so this half proves the test is
+      //     well-formed and says nothing about the real schema or a real Auth.
       //
       // IT IS NOT A CLAIM THAT AN ADMINISTRATOR REALLY AUTHENTICATES, and this comment used to make
       // one: `provisionPlatformAdmin` writes into a Map two lines below. A real administrator, in a

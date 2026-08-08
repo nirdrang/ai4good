@@ -76,7 +76,12 @@ export type AcknowledgmentRow = {
   kind: string;
   /** ISO-8601 instant — AT-001.01's "timestamp" */
   acknowledgedAt: string;
-  /** the request's source address — AT-001.01's "IP" */
+  /**
+   * AT-001.01's "IP": the address the gateway chain REPORTED, never a verified source address.
+   * Measured on the live local stack — a spoofed `x-forwarded-for` is stored verbatim, and with no
+   * header at all the stored value is the gateway's own hop. See `callerIp` in
+   * `supabase/functions/_shared/edge.ts`.
+   */
   ip: string;
   /** which version of the ToS + Platform Promise text was accepted — AT-001.01's "text version" */
   textVersion: string;

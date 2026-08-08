@@ -56,9 +56,19 @@ has no database and never runs above the loop tier. The only evidence for that h
 captured against a local Supabase stack on one machine, which a reviewer cannot reproduce. That
 distinction is stated again in the merge ruling rather than left to be inferred.
 
+**The Google credential does not exist on this machine, and one live-stack check was therefore
+SKIPPED rather than passed.** Neither environment variable is set in any shell or user environment,
+`.env` carries no Google entries, and `.env.local` does not exist — verified directly. So check (f2)
+of the live-stack proof, which would show the configured client id reaching the provider handshake,
+**did not run**. It is recorded as a skip everywhere it appears and is never counted as a pass; the
+proof script prints `EVERY CHECK THAT RAN PASSED — 1 DID NOT RUN` instead of `ALL CHECKS PASSED`,
+and an earlier version of that script would have counted the skip as a pass, which is a defect this
+item found and fixed in itself. What (f) alone establishes is that the provider block is well-formed
+and that Auth reports Google enabled.
+
 One clause is named unproved and stays unproved: a real Google consent round trip. Consent is a
-person pressing a button in a browser, so no agent closes it; a real OAuth client narrows the gap
-without closing it.
+person pressing a button in a browser, so no agent closes it; a real OAuth client would narrow the
+gap without closing it.
 
 ## The record
 
@@ -67,10 +77,33 @@ expected verification state per acceptance id. `loop/items/AI4DEV-57/PHASE-STATE
 open questions and the standing hazards. The plan review, the code critique and the rulings on both
 are committed beside them, with every reviewer claim quoted next to the ruling it received.
 
-Ruled by the opus fallback orchestrator throughout, because fable is out of credit. One consequence
-is recorded rather than hidden: the code gate was designed as four independent reads and only three
-completed, because the second reader ran out of credit partway through the SQL and configuration
-slice.
+Ruled by the opus fallback orchestrator throughout, because fable is out of credit.
+
+## How much independent review this change actually got
+
+Stated as two separate facts, because averaging them into one sentence would hide which half of the
+change is thinner:
+
+- **The SQL and configuration slice — the migration, both edge functions' configuration and
+  `config.toml` — had ONE completed independent reader**, terra, which raised 8 findings. The gate's
+  design calls for two readers per slice. The second reader exhausted its billing quota partway
+  through this slice and never emitted a verdict or a closing count, so its partial output was
+  treated as leads to verify against the tree rather than as a reviewer's findings. One of those
+  leads produced the single most valuable check in the item: nothing anywhere proved that a
+  **service-role** write into `public.accounts` is refused, which is the load-bearing half of this
+  change's "the signup function is the only door" claim. That check now exists and passes.
+- **The TypeScript and tests slice had BOTH readers complete** — terra with 11 findings and kimi
+  with 7.
+
+**The second reader is now stopped permanently, by founder ruling. A single reader on the draft-code
+gate is the design going forward, not a temporary degradation to be repaired later.** This section
+records what this particular change received; it is not a defect report against the process.
+
+A read-only audit then ran against the finished tree and raised 7 findings. All 7 are ruled in
+`loop/items/AI4DEV-57/audit-rulings.md`: five were accepted and fixed, one was rejected with its
+claim recorded verbatim and the reason written out, and one was a stale reference corrected in
+place. The most serious was a character-encoding corruption in a harness self-test that had silently
+enlarged a surgical change from four lines to thirty-one.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 

@@ -67,7 +67,7 @@ not a PARTIAL — that is the defect this box set exists to catch.
 | **B2** | `public.create_organization` raises unless the account is `ngo`, **commented as a BACKSTOP and not as the decision** — the user-facing refusal must still be `ngoOnlyActionAllowed`'s |
 | **B3a** | `callerIp` returns `null` for anything that is not a well-formed IP, and its comment states the address is not authenticated |
 | **B5** | AT-001.03's comment no longer claims a provider branch would be caught; the **test body is unchanged** |
-| **B6** | a fifth export in `_shared/accounts.ts` judges the organisation name, and **both** `create-organization/index.ts` and `tests/at/suites/req-001/_fixture.ts` call it. **No duplicate copy of that rule remains outside the module** |
+| **B6** | a fifth export in `_shared/accounts.ts` judges the organisation name, and **both** `create-organization/index.ts` and `tests/at/suites/req-001/_fixture.ts` call it. ~~**No duplicate copy of that rule remains outside the module**~~ **← THIS SENTENCE WAS FALSE AND THE AUDIT CAUGHT IT.** It should have read: *no duplicate copy remains on the TypeScript path*. `public.create_organization` still checks the name in SQL, deliberately — see the correction note below the table |
 | **B7** | three comments corrected (`_fixture.ts`, `_contract.ts`, AT-001.01's body) and **no extraction attempted** |
 | **B8** | AT-001.01 asserts a completion with no acknowledgment text version is refused and leaves no account row |
 | **B9** | AT-001.06 asserts the refused volunteer left no membership and no organisation |
@@ -82,6 +82,19 @@ not a PARTIAL — that is the defect this box set exists to catch.
 | **L3** | `proof-local.ts` attempts a **service-role** insert into `public.accounts` and asserts the privilege-layer message |
 | **L4** | `.env.example` names both Google variables |
 | **E2** | the two new `AccountsSut` members are **read-only observations over storage** and supply no judgement |
+
+**TWO CORRECTIONS TO THIS BRIEF, made after the audit ran and left visible rather than edited away.**
+The audit applied this brief exactly as written and was right to; both defects are mine, in the brief.
+
+1. **B6's row overstated the ruling** (audit finding 2). B6's defect was a judgement **escaping the
+   shared module**, so the acceptance suite graded a copy instead of the shipped rule. Both escapees
+   were TypeScript and both were fixed. `public.create_organization` also checks the name in SQL, and
+   that check is **not** an escaped judgement — it is a database backstop on a `security definer`
+   function that `service_role` can execute directly, which is the exact shape **B2 ruled mandatory**
+   one row above. Removing it to satisfy this sentence would have implemented a regression against
+   B2. The sentence was wrong; the code is right.
+2. **The foreign-item-id rule was broader than the hazard and broader than the guard** (audit
+   finding 3). See BOX SET B item 3, corrected in place.
 
 **Rulings that were REJECTED or deliberately left undone. A tree that implements one of these is a
 finding, because it means a ruling was overridden by whoever was typing:**
@@ -101,9 +114,25 @@ finding, because it means a ruling was overridden by whoever was typing:**
 2. **Read-only files.** `.taskmaster/docs/acceptance/at-req-001.md` must be unchanged — it is the
    source of the 37 expected ids and changing it is a documentation change, not a side effect of
    building a leaf.
-3. **Foreign item ids.** No pull-request body, commit message or file in this change may name **any**
-   board item id other than `AI4DEV-57`. The id alone links and moves that item; a closing verb
-   additionally closes it. Check `pr-body.md` and `git log main..HEAD` messages.
+3. **Foreign item ids.** ~~No pull-request body, commit message or file in this change may name **any**
+   board item id other than `AI4DEV-57`.~~ **CORRECTED AFTER THE AUDIT — this was wrong, and it
+   produced a false finding (audit finding 3). The rule is:**
+
+   > No **pull-request title**, **pull-request body** or **commit message** may name any board item
+   > id other than `AI4DEV-57`.
+
+   **It does not extend to file contents, and it must not**, for three reasons that are each
+   sufficient. Linear links from the pull request's title and body and from commit messages; it does
+   not parse files inside a diff, so a markdown file naming an id moves nothing. The repository's own
+   guard agrees — `.github/workflows/ci.yml` reads `.title + "\n" + (.body // "")` from the GitHub
+   API and never looks at the diff. And `main` already carries **65 distinct board item ids** across
+   its `.ts` and `.md` files; the very file this branch edits
+   (`tests/at/harness/type-invention.selftest.ts`) names three of them on `main` in comments
+   explaining why the harness exists. A rule forbidding ids in files would condemn the repository as
+   it stands and would forbid the chain-of-derivation line that the way of work **requires** every
+   item to record.
+
+   Check `pr-body.md`, the live pull-request title and body, and `git log main..HEAD` messages.
 4. **Scope of the fix sitting.** Every changed file should trace to a ruling in `fix-rulings.md` or to
    one of plan steps 6, 7 and 8. Name anything that does not.
 5. **Secrets.** No credential, key or token may appear in any changed file. `.env.example` must carry

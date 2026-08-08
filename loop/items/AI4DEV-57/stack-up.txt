@@ -1,8 +1,18 @@
 ﻿# AI4DEV-57 step 1 - the local Supabase stack comes up
 
 Captured 2026-08-08T11:25:58.1564313+03:00 in worktree agent-a1762a365a95e390c.
-Local development keys are REDACTED below. They are the well-known Supabase
-local demo values and are not secrets, but nothing key-shaped is committed.
+Local development keys are REDACTED below. They are local-stack values reachable
+only at 127.0.0.1 on the machine that ran this, and nothing key-shaped is committed.
+
+CORRECTED AFTER THE AUDIT, and the correction is recorded rather than made quietly:
+this header already made that claim while the first JSON block below still carried
+three unredacted values - the local JWT secret and the two local S3 protocol keys -
+and the same JWT secret appeared again in the second block. The redaction was clearly
+intended, because the SAME two S3 values were correctly redacted a few lines further
+down; one line was simply missed, and the header asserting the opposite is what made
+it a false statement in the record rather than only an oversight. See
+`audit-rulings.md` finding 4 for what the values were and why no live system is
+affected.
 
 Docker: engine 29.6.2. supabase CLI: 2.110.0.
 
@@ -19,7 +29,7 @@ At line:1 char:608
     + FullyQualifiedErrorId : NativeCommandError
  
 Stopped services: [supabase_imgproxy_poancmeitlmxejofwzuu supabase_edge_runtime_poancmeitlmxejofwzuu supabase_pooler_poancmeitlmxejofwzuu]
-{"DB_URL":"postgresql://postgres:postgres@127.0.0.1:54322/postgres","API_URL":"http://127.0.0.1:54321","REST_URL":"http://127.0.0.1:54321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:54321/graphql/v1","MCP_URL":"http://127.0.0.1:54321/mcp","STUDIO_URL":"http://127.0.0.1:54323","PUBLISHABLE_KEY":"<REDACTED-local-publishable-key>","SECRET_KEY":"<REDACTED-local-secret-key>","JWT_SECRET":"super-secret-jwt-token-with-at-least-32-characters-long","ANON_KEY":"<REDACTED-local-demo-jwt>","SERVICE_ROLE_KEY":"<REDACTED-local-demo-jwt>","MAILPIT_URL":"http://127.0.0.1:54324","INBUCKET_URL":"http://127.0.0.1:54324","STORAGE_S3_URL":"http://127.0.0.1:54321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"625729a08b95bf1b7ff351a663f3a23c","S3_PROTOCOL_ACCESS_KEY_SECRET":"850181e4652dd023b7a98c58ae0d2d34bd487ee0cc3254aed6eda37307425907","S3_PROTOCOL_REGION":"local","message":""}
+{"DB_URL":"postgresql://postgres:postgres@127.0.0.1:54322/postgres","API_URL":"http://127.0.0.1:54321","REST_URL":"http://127.0.0.1:54321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:54321/graphql/v1","MCP_URL":"http://127.0.0.1:54321/mcp","STUDIO_URL":"http://127.0.0.1:54323","PUBLISHABLE_KEY":"<REDACTED-local-publishable-key>","SECRET_KEY":"<REDACTED-local-secret-key>","JWT_SECRET":"<REDACTED-local-jwt-secret>","ANON_KEY":"<REDACTED-local-demo-jwt>","SERVICE_ROLE_KEY":"<REDACTED-local-demo-jwt>","MAILPIT_URL":"http://127.0.0.1:54324","INBUCKET_URL":"http://127.0.0.1:54324","STORAGE_S3_URL":"http://127.0.0.1:54321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"<REDACTED>","S3_PROTOCOL_ACCESS_KEY_SECRET":"<REDACTED>","S3_PROTOCOL_REGION":"local","message":""}
 
 exit code: 0
 
@@ -31,7 +41,7 @@ exit code: 0
   "DB_URL": "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
   "GRAPHQL_URL": "http://127.0.0.1:54321/graphql/v1",
   "INBUCKET_URL": "http://127.0.0.1:54324",
-  "JWT_SECRET": "super-secret-jwt-token-with-at-least-32-characters-long",
+  "JWT_SECRET": "<REDACTED-local-jwt-secret>",
   "MAILPIT_URL": "http://127.0.0.1:54324",
   "MCP_URL": "http://127.0.0.1:54321/mcp",
   "PUBLISHABLE_KEY": "<REDACTED-local-publishable-key>",
