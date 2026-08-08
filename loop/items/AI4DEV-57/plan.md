@@ -181,7 +181,8 @@ Two enums: `account_type` (`ngo`, `volunteer`, `platform_admin`) and `org_role` 
 - `public.org_memberships` — `(org_id, account_id)` primary key, `role org_role` not null.
 - `public.acknowledgments` — `account_id`, `kind`, `acknowledged_at`, `ip inet`, `text_version`.
   **Exactly the three fields AT-001.01 names.** Name / title / authority attestation is AT-001.19,
-  deliverable D4 — adding those columns now would be speculation.
+  which the manifest's acknowledgment-identity deliverable owns — adding those columns now would be
+  speculation.
 - `public.has_platform_acknowledgment(account_id) returns boolean` — AT-001.01 says the
   acknowledgment is required *"before any project creation is possible"*, and no projects table
   exists. The predicate is the observable form of that clause; the future project path calls it.
@@ -208,7 +209,9 @@ is a 500 inside Supabase Auth.
 
 **Row-level security is enabled on every new table, and only the policies these four tests need are
 added.** Everything else stays denied, which is both the minimal change and the safe default. The
-full tenant-isolation policy set is deliverable D5 and is not built here.
+full tenant-isolation policy set belongs to the manifest's tenant-isolation deliverable and is not
+built here. (This plan numbers its own decisions D1–D8; the manifest numbers its deliverables the
+same way. Where the two could be confused, the manifest's are named in words.)
 
 **[F6] What the missing insert policy does and does not stop — the earlier wording here was false.**
 It stops the anon and authenticated key paths: a browser holding the public key cannot insert into
