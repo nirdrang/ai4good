@@ -1,0 +1,197 @@
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the sandbox mode. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** `--sandbox read-only` is the enforcement, and this sentence
+is the instruction; every launch prompt carries it explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+
+---
+
+## The DRAFT CODE review
+
+**Subject** · the branch diff at the pinned commit. The draft compiles and typechecks; **the test
+suite has deliberately not been run yet.** You are critiquing code before it is declared finished
+— do not report that tests haven't passed.
+
+Attack:
+
+- correctness against the amended plan — does the code do what the plan decided, including the
+  parts nobody would notice were missing
+- the tests' **meaning** — would a green here prove the claim, or merely pass
+- edge cases, error paths, and what happens on the unhappy input
+- anything the plan promised that the code quietly does not do
+- state, concurrency and lifetime mistakes the type system will not catch
+
+You do not run the suite. A runtime-dependent suspicion is a finding with the unverified marker
+and a precise statement of what would settle it.
+
+Your count line is `CODE REVIEW: CLEAN` or `CODE REVIEW: 3 FINDINGS`.
+
+---
+
+## This change
+
+This branch is the **first product code in the repository**. Before it, `supabase/migrations/` held
+only a `.gitkeep`, there was no `supabase/functions/` directory at all, and no acceptance suite
+existed for this requirement. Nothing here is a modification of working code; all of it is new, so
+there is no prior behaviour to preserve and no regression to compare against — every defect is one
+this change introduces.
+
+The item builds the account model behind email and Google signup: three account types, the signup
+completion path, and one NGO-only authorization boundary.
+
+**The plan is in the tree at `loop/items/AI4DEV-57/plan.md` and it is the standard the code is
+judged against.** Read it before the code. Two parts of it matter most:
+- **Section 4, "What that green claims, and what it does not"**, plus the per-acceptance-id table
+  under it. That table states, id by id, what this item claims to prove and what it explicitly does
+  not. A green that claims more than that table allows is a defect; so is a claim in the code's own
+  comments that the table contradicts.
+- The decisions **D3, D4 and D6**, which are what the suite and the shared module are supposed to
+  implement.
+
+The plan also records several **deliberate absences** — things a reader would reasonably expect to
+find and which are argued to belong to a later item. Do not assume the argument is sound because it
+is written down. **Judge whether each stated reason survives contact with the code**, and if an
+absence has a consequence the plan did not anticipate, that is a finding.
+
+### Read the whole change; report in depth on the TypeScript and the acceptance suite
+
+The complete change is 1990 lines across 18 files outside the item's own evidence directory. **Your
+depth goes here:**
+
+- `supabase/functions/_shared/accounts.ts` (209) — the four pure decisions, imported by both the
+  shipped edge functions and the test adapter.
+- `supabase/functions/_shared/edge.ts` (169), `complete-signup/index.ts` (85),
+  `create-organization/index.ts` (98) — the two HTTP operations and their shared helper.
+- `tests/at/suites/req-001/` — `_contract.ts` (195), `_fixture.ts` (280), `_bind.ts` (40),
+  `_pending.ts` (62), and six test files of which `a-signup-and-signin.test.ts` (301) holds all four
+  tests that actually run.
+- `tests/at/expected/req-001.json` (43) and the one-line registration in
+  `tests/at/harness/suite-adapters.ts`.
+
+Read the rest of the change for the context you need to judge those files — in particular the
+migration at `supabase/migrations/20260808120000_accounts_org_membership_and_acknowledgments.sql`,
+which is what the edge functions call into. **Anything you notice anywhere in the change is
+reportable and should be reported**; say beside the finding that it sits outside the TypeScript, and
+keep it brief if you are less sure of it. Depth is allocated, not permission.
+
+### How this suite is meant to work, because the design is unusual and the design is the point
+
+The acceptance harness stamps every system-under-test capability a **stand-in**, so an adapter that
+re-implements the requirement would produce a green proving the *test* is well-formed and nothing
+about the code that ships. The plan's answer is that the four real decisions live in
+`supabase/functions/_shared/accounts.ts` and are imported by **both** the edge functions and the test
+adapter, so the adapter supplies storage and the shipped module supplies every judgement.
+
+**That claim is worth checking rather than accepting.** Does the adapter delegate every judgement,
+or does any rule exist in two places? A second copy of a rule — even a small one, even one that
+currently agrees — means the suite is grading a puppet on that path.
+
+The requirement has **37 acceptance ids** and this item implements **4** of them
+(AT-001.01, .03, .06, .07). The other 33 are call sites that throw a declared "pending" error and are
+declared red in `tests/at/expected/req-001.json`. The harness refuses to run at all unless every
+expected id has a registered call site, which is why all 37 exist now.
+
+Specific things worth your attention, stated as areas rather than as conclusions — do not treat this
+list as exhaustive, and do not treat an item on it as a hint that something is wrong there:
+
+1. **Oracle strength, which is this item's central risk.** Each of the four tests is supposed to
+   assert an observable consequence rather than that a function was called. For each one, ask what
+   the weakest implementation is that would still pass it, and whether that implementation would
+   satisfy the acceptance criterion a human would recognise.
+2. **AT-001.03 in particular.** It asserts that a session recorded as provider `google` completes
+   signup with the same result as one recorded as `email`. Work out what the shipped code can
+   structurally distinguish about a session, and therefore what that comparison can and cannot fail
+   on. The plan states this is the weakest of the four greens; establish independently whether the
+   plan's own description of what it proves is accurate, too generous, or too modest.
+3. **The 33 pending stubs and the declaration file.** Does the declared "pending" red actually match
+   what the harness produces at runtime, and could a stub that is wrong in some way still be reported
+   as the expected red? What would happen to a later item that lands one of these ids?
+4. **Surface marks.** Three tests are marked `surface: 'ui'` and one is not. A later item re-runs the
+   ui-marked ids against real screens. Consider whether the marks are right and what a wrong mark
+   would cost that later item.
+5. **The two edge functions' error paths.** What happens on a malformed body, a missing or invalid
+   authorization header, a database error, a duplicate completion, or a request whose authenticated
+   user does not match the body. Consider what each failure returns to the caller and what it leaks.
+6. **How the request IP reaches the acknowledgment row.** The acknowledgment is required to record
+   the source address. Trace where that value actually comes from and whether the caller can
+   influence it.
+7. **The shared module's constraints.** It is compiled by `tests/at/tsconfig.json` under `strict`
+   with `skipLibCheck: false` and `types: ["node"]`, and also run by Deno inside the edge runtime.
+   The plan says it must therefore have zero non-relative imports and touch no Deno global. Neither
+   TypeScript project covers the two edge-function entry points, and no Deno type-checker was
+   reachable in this environment, so **those two files have no type coverage at all** — read them
+   with that in mind.
+8. **Fixture isolation.** The adapter holds module-level mutable state across tests within a run.
+   Consider what happens across worlds, across tests, and on teardown.
+
+### Two conventions, so you do not report them as defects
+
+- This repository uses **bun**, never npm or pnpm, and **PowerShell**, never bash.
+- The item deliberately touches **no files under `src/`**. That is a hard constraint enforced by
+  continuous integration, not an omission — a pull request whose files match both `^src/` and
+  `^(supabase|tests|loop|\.claude|\.github)/` fails the build outright. This is why the signup
+  screens are not in this change.
+
+### One file that is evidence, not product
+
+`loop/items/AI4DEV-57/proof-local.ts` is a run-once script that gathers evidence against a live
+local database. It is not a test, it guards nothing, and it ships nothing. It has **not been
+executed**. Findings about it are welcome — it is the only thing that will ever exercise the schema
+and the edge functions against a real database — but judge it as evidence-gathering rather than as
+production code.

@@ -16,7 +16,11 @@
  * ADDING A SUITE IS ONE LINE in `AdapterModules`, plus `export const requirement = 'req-0NN' as
  * const;` in that suite's `_fixture.ts`. A suite whose line is missing cannot call `bindSuite` at
  * all: the requirement literal is not a `SuiteId`, so the compiler says
- * `Type '"req-999"' is not assignable to type '"req-016"'`. THAT NAMES THE PROBLEM AND NOT THE
+ * `Type '"req-999"' is not assignable to type 'SuiteId'`. (How that constraint RENDERS depends on
+ * how many suites are registered: with exactly one, TypeScript printed its single literal — the
+ * message read `… to type '"req-016"'` while `req-016` was the only entry, and this comment quoted
+ * it. With two or more it prints the alias name instead. The alias name is what the message says
+ * now and what it will keep saying.) THAT NAMES THE PROBLEM AND NOT THE
  * REMEDY — an earlier version of this comment claimed the error tells an author what to add, and it
  * does not. tsc's messages are not ours to write, which is exactly why the two lines to add are
  * spelled out in this paragraph instead. That ergonomic cost is deliberate: an explicit, checkable
@@ -102,6 +106,7 @@ type CheckedAdapterModules<M extends { [R in keyof M & string]: AdapterModuleFor
 
 /** THE LIST. One line per suite; the key is the requirement id the runner and the loader use. */
 export type AdapterModules = CheckedAdapterModules<{
+  'req-001': typeof import('../suites/req-001/_fixture.ts');
   'req-016': typeof import('../suites/req-016/_fixture.ts');
 }>;
 

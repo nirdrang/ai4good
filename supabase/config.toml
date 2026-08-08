@@ -334,6 +334,30 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
+# REQ-001 AT-001.03 — Google sign-in. A NEW block; the [auth.external.apple] block above is the
+# template's own enabled-false example and is left exactly as it shipped.
+#
+# NO SECRET IS COMMITTED. Both credentials come through env() substitution: the real values live in
+# .env.local, which .gitignore covers ("secrets live here, never in the tracked .env"), and the
+# tracked .env carries public values only.
+#
+# skip_nonce_check is what the template's own comment documents as "Required for local sign in with
+# Google auth". It is a LOCAL development accommodation and this file is the local configuration;
+# the hosted project's provider settings are configured separately and are not this file.
+#
+# WHAT IS PROVED BY THIS BLOCK EXISTING AND THE STACK STARTING: that the configuration is
+# well-formed and /auth/v1/settings reports Google enabled. WHAT IS NOT: that a Google sign-in round
+# trip works. Consent is a person pressing a button in a browser, which no agent performs, so
+# AT-001.03's "sign-in via Google succeeds on return visits" clause is named unproved in this item's
+# record and in its merge ruling. A real OAuth client narrows that gap and does not close it.
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
+skip_nonce_check = true
+
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
 [auth.web3.solana]
@@ -384,6 +408,16 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
+
+# REQ-001's two edge functions. One block each, and `verify_jwt` is STATED rather than inherited:
+# both operate on behalf of an already-authenticated caller, and a default that changed underneath
+# us would silently open a public write path. Writing it down means a change to the default shows up
+# as a diff rather than as a behaviour nobody chose.
+[functions.complete-signup]
+verify_jwt = true
+
+[functions.create-organization]
+verify_jwt = true
 
 [analytics]
 enabled = true

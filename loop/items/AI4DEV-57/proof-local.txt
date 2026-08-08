@@ -1,0 +1,130 @@
+AI4DEV-57 (email + Google signup, three account types) - step 7, the local integration proof.
+
+Produced by: bun loop/items/AI4DEV-57/proof-local.ts
+Run at:      2026-08-08, local time, on the founder's Windows machine.
+Head:        81c157fca42972f96c0e12366f50beef7ba62a30
+Stack:       supabase CLI 2.110.0, API on 127.0.0.1:54321, database on 127.0.0.1:54322,
+             edge runtime supabase-edge-runtime-1.74.2 (compatible with Deno v2.1.4).
+Preconditions performed in order: bunx supabase stop --no-backup, bunx supabase start,
+bun run db:reset (the migration replayed clean from empty), then bunx supabase functions serve
+WITHOUT --no-verify-jwt.
+
+THIS TRANSCRIPT IS EVIDENCE FROM ONE MACHINE AND A REVIEWER CANNOT REPRODUCE IT. It is the only
+evidence this item has about the real database, the real edge functions and real Supabase Auth;
+the loop-tier acceptance suite proves the shipped decision module and nothing below it.
+
+THIS IS THE SECOND RUN. THE FIRST IS SUPERSEDED, AND THE ONLY CHECK WHOSE OUTCOME CHANGED IS (f2).
+The first run recorded 13 passed and 1 SKIPPED, the skip being (f2), because no Google OAuth
+credential existed on the machine. The founder then created the OAuth client (Google project
+gen-lang-client-0617238024, consent screen External/Testing) and it was installed as WINDOWS
+USER-LEVEL environment variables - deliberately not in .env, not in .env.local, and not in any file
+in the tree. proof-local.ts was NOT modified between the two runs: check (f2) was written with three
+states from the start, and this run simply took a different branch of a conditional that was already
+written, already reviewed and already audited. The other thirteen checks assert the same things they
+asserted before and still pass.
+
+A PROCESS ONLY PICKS UP A USER-LEVEL ENVIRONMENT VARIABLE WHEN IT STARTS, and Windows never
+refreshes the environment block of a process that is already running. Both variables therefore had
+to be read explicitly from the User scope with [System.Environment]::GetEnvironmentVariable(name,
+'User') and assigned into the environment of the SAME invocation that started the stack, because the
+Supabase CLI resolves config.toml's env() substitution from its own process environment at start
+time. The stack was restarted for exactly this reason: the previously running auth container had
+been started before the credential existed.
+
+VERDICT: 14 checks, 14 passed, 0 failed, 0 skipped, plus 1 measurement that asserts nothing.
+
+WHAT (f2) PASSING DOES AND DOES NOT MEAN - READ THIS BEFORE QUOTING IT ANYWHERE.
+It means the local Auth server, started with the real credential, hands out a redirect to
+accounts.google.com carrying that exact client id and the local callback. NO REQUEST IS MADE TO
+GOOGLE BY THIS CHECK: the redirect is read with redirect: 'manual' and the Location header is
+composed by the LOCAL Auth server, so this is a fact about configuration and wiring on this machine.
+It does NOT mean Google accepted the credential, and it does NOT mean anyone signed in. AT-001.03's
+"sign-in via Google succeeds on return visits" clause remains UNPROVED by this item, because consent
+is a person pressing a button in a browser and no agent performs it.
+
+-------------------------------------------------------------------------------------------------
+
+PASS  (a) email/password signup produces an ngo account, an organisation, an admin membership and a three-field acknowledgment
+        HTTP 200 {"ok":true,"accountId":"31c63207-dc83-4efc-9ede-9b6749fd58d1","accountType":"ngo","organizationId":"9933ad6a-617e-4107-aed8-99cf4dc6d1be"} · account=[{"account_type":"ngo"}] · org+membership=[{"id":"9933ad6a-617e-4107-aed8-99cf4dc6d1be","name":"Riverside Shelter","role":"admin"}] · acknowledgment=[{"kind":"platform_tos_and_promise","ip":"203.0.113.7","text_version":"tos-2026-01+promise-2026-01","acknowledged_at":"2026-08-08T11:04:00.444Z"}]
+PASS  (b) the same email and password sign in again, onto the same account
+        HTTP 200 · returned user 31c63207-dc83-4efc-9ede-9b6749fd58d1 · original 31c63207-dc83-4efc-9ede-9b6749fd58d1
+PASS  (c) the public signup path refuses platform_admin and writes nothing
+        HTTP 400 {"ok":false,"reason":"platform_admin is not available through public signup — a platform administrator is provisioned, never self-signed-up"} · accounts rows for that user: 0
+PASS  (d) the NGO-only action succeeds for an NGO account and is refused for a volunteer
+        ngo: HTTP 200 {"ok":true,"organizationId":"df7b5311-defb-4310-b225-0bfa007fa2cc"} membership=[{"role":"admin","name":"Riverside Shelter Second Programme"}] · volunteer: HTTP 403 {"ok":false,"reason":"this action is available to NGO accounts only — the caller's account is of type \"volunteer\", and one account holds exactly one global type, so the NGO path requires a separate account"} memberships=0
+PASS  (e) a client-key insert into public.accounts is refused by row-level security, and changes nothing
+        HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"accounts\""} · account after the attempt: [{"account_type":"volunteer"}]
+PASS  (f) Auth reports the Google provider enabled, and apple untouched
+        external.google=true external.apple=false
+PASS  (f2) the configured Google client id reaches the provider handshake, with the local callback
+        HTTP 302 · redirect host accounts.google.com · client_id matches the configured value: true · redirect_uri is the local Auth callback: true
+PASS  (g) a provisioned platform administrator authenticates and carries the platform_admin type
+        sign-in HTTP 200 · user 20acfbe5-d3b5-41d8-aa49-3560acdc2a7c · account row [{"account_type":"platform_admin"}]
+PASS  (h) has_platform_acknowledgment discriminates: false before signup completion, true after
+        the NGO before completion: false · after: true · a user whose completion was refused: false
+PASS  (i) a completion that fails on its last write leaves NO partial state
+        the database raised: new row for relation "acknowledgments" violates check constraint "acknowledgments_text_version_check" · rows left behind: {"accounts":0,"organizations":0,"memberships":0,"acknowledgments":0}
+PASS  (j) the database refuses platform_admin even when called directly with the service role
+        HTTP 403 {"code":"42501","details":null,"hint":null,"message":"complete_signup refuses account type platform_admin: a platform administrator is provisioned, never self-signed-up"} · accounts rows for that user: 0
+PASS  (k) a SERVICE-ROLE insert into public.accounts is refused for want of the privilege, and writes nothing
+        HTTP 403 {"code":"42501","details":null,"hint":"Grant the required privileges to the current role with: GRANT INSERT ON public.accounts TO service_role;","message":"permission denied for table accounts"} · accounts rows for that user: 0
+PASS  (l) the database refuses an organisation for a volunteer account even when called directly with the service role
+        HTTP 403 {"code":"42501","details":null,"hint":null,"message":"create_organization refuses account type volunteer: creating an organisation is an NGO-only action"} · organisations by that name: 0
+PASS  (m) the LOCAL gateway answers a browser preflight and the POST response carries the access-control headers
+        preflight HTTP 200 · allow-origin=* · allow-headers=authorization, apikey, content-type, x-client-info · allow-methods=GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS,TRACE,CONNECT · the earlier POST's allow-origin=* · this is the LOCAL Kong and edge runtime; it says nothing about the hosted gateway
+OBS   (n) what the local gateway does to a client-supplied x-forwarded-for (measured, asserts nothing)
+        NO header sent → completion HTTP 200, acknowledgments.ip = [{"ip":"172.18.0.1","is_null":false}] · SPOOFED header 198.51.100.99 sent → completion HTTP 200, acknowledgments.ip = [{"ip":"198.51.100.99","is_null":false}] · for comparison, the honest first call (a) sent 203.0.113.7 and recorded ["203.0.113.7"]
+
+14 checks · 14 passed · 0 failed · 0 skipped · 1 measurements recorded (which assert nothing)
+ALL CHECKS PASSED
+
+-------------------------------------------------------------------------------------------------
+
+AN INDEPENDENT OBSERVATION MADE ALONGSIDE THIS RUN, BECAUSE (f2) ALONE REPORTS A BOOLEAN AND NOT A
+VALUE. Check (f2) compares the redirect's client_id against the SCRIPT's own environment, so it
+proves the two agree without ever printing what they are. The authorize endpoint was therefore
+queried separately, with redirects disabled, and the Location header read directly:
+
+   HTTP 302 · Location host accounts.google.com
+   client_id is the literal unresolved string "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)": FALSE
+   client_id ends in ".apps.googleusercontent.com": TRUE
+   client_id length: 72
+   redirect_uri: http://127.0.0.1:54321/auth/v1/callback
+
+This matters because of what happened before the restart, recorded here as the diagnostic it is.
+The founder attempted a real Google sign-in against the stack as it was then running and Google
+answered 401 invalid_client. The cause was that the stack had been started with the variables absent
+from its environment, and THE SUPABASE CLI DOES NOT SUBSTITUTE AN EMPTY VALUE IN THAT CASE - IT
+PASSES THE LITERAL STRING "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)" THROUGH AS THE CLIENT ID.
+That is CLI behaviour and not a defect in the committed configuration: config.toml uses Supabase's
+own documented env() syntax and is correct as written. The observation above is what says the
+substitution is now genuinely happening.
+
+THE 401 IS ALSO THE SHARPEST AVAILABLE PROOF OF WHAT CHECK (f) NEVER ESTABLISHED. On that broken
+stack, /auth/v1/settings still reported google=true and (f) still passed, while the configured
+client id was a meaningless literal. So (f) proves the provider block is well-formed and enabled,
+and proves NOTHING about whether the client id means anything. The record already said exactly that
+on reasoning alone; this is the measurement behind it.
+
+-------------------------------------------------------------------------------------------------
+
+TWO THINGS THE RUN SHOWED THAT THE LINES ABOVE DO NOT SPELL OUT. This section is the executor's
+reading of its own transcript, not a check result; nothing here passed or failed anything. Both
+reproduced identically in this second run.
+
+1. MEASUREMENT (n) SETTLES THE x-forwarded-for QUESTION ON THE LOCAL STACK, AND IT SETTLES IT
+   AGAINST US. With no header sent, the recorded address was 172.18.0.1 - the Docker bridge, which
+   is the gateway's own hop and not the client. With a spoofed header sent, the recorded address
+   was 198.51.100.99 VERBATIM: the value the caller chose. So the local gateway neither overwrites
+   nor prepends, and the first entry of the chain is whatever the caller put there. Four reviewers
+   claimed the acknowledgment IP is client-controlled and all four marked the claim unverified
+   because it could not be settled by reading; on this stack it is now verified true. What the
+   HOSTED gateway does is a different question and is not observable from here. The acknowledgment
+   therefore records AN address, never a verified source address.
+
+2. CHECK (m) PASSED, BUT THE allow-methods HEADER IS NOT THE ONE THE FUNCTION SENDS. The edge
+   function sends 'POST, OPTIONS'; the preflight answer carried
+   'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS,TRACE,CONNECT', so the local Kong replaces that header
+   with its own. allow-headers came back exactly as the function set it. The check asserts that
+   POST is permitted rather than pinning the whole string, so it is unaffected - but a reader
+   comparing the code with this transcript would otherwise think the code was wrong.

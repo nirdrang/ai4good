@@ -225,13 +225,13 @@ describe('the listed sut/world invention attacks fail to compile', () => {
     {
       probe: legacy,
       what: 'bindSuite<Sut, W> — a fabricated system under test',
-      marker: `Type '{ notThere(): Promise<void>; }' does not satisfy the constraint '"req-016"'`,
+      marker: `Type '{ notThere(): Promise<void>; }' does not satisfy the constraint 'SuiteId'`,
       why: 'a suite can name a system under test again, and read methods no adapter implements',
     },
     {
       probe: legacy,
       what: 'bindSuite<Sut, W> — a fabricated fixture world',
-      marker: `Type 'NotificationsSut' does not satisfy the constraint '"req-016"'`,
+      marker: `Type 'NotificationsSut' does not satisfy the constraint 'SuiteId'`,
       why: 'a suite can name a world type again, and read members no fixture supplies',
     },
     {
@@ -267,13 +267,13 @@ describe('the listed sut/world invention attacks fail to compile', () => {
     {
       probe: seam,
       what: 'binding a requirement with no registered adapter',
-      marker: `Type '"req-999"' is not assignable to type '"req-016"'`,
+      marker: `Type '"req-999"' is not assignable to type 'SuiteId'`,
       why: 'a suite can bind a requirement whose types are derived from nothing',
     },
     {
       probe: seam,
       what: 'widening the seam by annotating the body parameter with a fabricated shape',
-      marker: `Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint '"req-016"'`,
+      marker: `Type 'NotificationsSut & { invented?: string | undefined; }' does not satisfy the constraint 'SuiteId'`,
       why:
         'the subtlest INVITED route back: leave bindSuite alone and widen at the body with an ' +
         'OPTIONAL member. Nothing structural can reject it — a type and that type intersected with ' +

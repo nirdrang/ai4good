@@ -248,15 +248,35 @@ describe('the rebuild is proven against the migration set, and an empty set is v
     expect(migrationSetProblems([], ['20260101000000']).join(' ')).toContain('applied but not in supabase/migrations: 20260101000000');
   });
 
+  // THE BASELINE IS OBSERVED, NEVER HARD-CODED, and that is what keeps this test true as the
+  // repository grows. It once asserted `toEqual([])`, which encoded "this repository has no
+  // migrations" as an invariant of the harness; the first product migration made it permanently
+  // false and the failure looked like a defect in the migration rather than in this line. Naming
+  // the current filenames instead would break again on the next migration and teach the next
+  // author to relax the assertion. So: read the baseline, and assert the PROPERTIES this test is
+  // named for — every entry is a bare fourteen-digit timestamp (which neither `.gitkeep` nor
+  // `README.md` can produce, so their exclusion is what that proves), a planted file adds exactly
+  // its own id, and removing it returns the answer exactly to the baseline.
   it('reads timestamped .sql files and ignores .gitkeep and README.md', () => {
+    // Asserted so the title cannot pass vacuously: with these two files deleted, "ignores them" is
+    // a claim about nothing.
+    expect(existsSync(`${REPO_ROOT}/supabase/migrations/.gitkeep`), 'the .gitkeep this test claims to ignore is not there').toBe(true);
+    expect(existsSync(`${REPO_ROOT}/supabase/migrations/README.md`), 'the README.md this test claims to ignore is not there').toBe(true);
+
+    const baseline = expectedMigrations();
+    for (const id of baseline) {
+      expect(id, `${JSON.stringify(id)} is not a bare 14-digit timestamp, so a non-migration file is being counted`).toMatch(/^\d{14}$/);
+    }
+
     const planted = `${REPO_ROOT}/supabase/migrations/20260101000000_selftest_probe.sql`;
-    expect(expectedMigrations(), 'the placeholder files are being counted as migrations').toEqual([]);
     try {
       writeFileSync(planted, '-- selftest probe\n');
-      expect(expectedMigrations()).toEqual(['20260101000000']);
+      expect(expectedMigrations(), 'planting one .sql file changed the answer by something other than its own id').toEqual(
+        [...baseline, '20260101000000'].sort(),
+      );
     } finally {
       rmSync(planted, { force: true });
     }
-    expect(expectedMigrations()).toEqual([]);
+    expect(expectedMigrations(), 'removing the planted file did not return the answer to the baseline').toEqual(baseline);
   });
 });

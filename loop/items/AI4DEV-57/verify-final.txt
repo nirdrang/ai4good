@@ -1,0 +1,206 @@
+﻿AI4DEV-57 (email + Google signup, three account types) - step 8, the whole verify surface, green
+together. Captured 2026-08-08, head ceed45b9bc35649c374ad4ea0f446fa231231bc4.
+
+SIX COMMANDS, ALL EXIT 0:
+  bun run typecheck                                  exit 0
+  bun run at:selftest                                exit 0   (9 files, 251 tests)
+  bun run at:check req-016                           exit 0   (12 P0 in bijection)
+  bun run at:verify req-016 --tier loop --expect     exit 0   (11 green, 1 red, declaration matched)
+  bun run at:check req-001                           exit 0   (37 P0 in bijection)
+  bun run at:verify req-001 --tier loop --expect     exit 0   (4 green, 33 red, declaration matched)
+
+req-016 IS UNCHANGED FROM THE STEP-0 BASELINE. Compared line by line against baseline.txt: 12 P0,
+11 green, 1 red, the red being AT-016.01 on the H3 static provider scan capability, the same
+declaration match, the same exit code. This branch touched three harness files - two self-tests and
+one comment - and none of them moved req-016 by a single row.
+
+THE NOISE AT THE TOP OF EACH BLOCK IS POWERSHELL, NOT A FAILURE. Windows PowerShell 5.1 wraps a
+native command's stderr in an ErrorRecord, so bun's own '\$ bun tests/at/...' banner is reported as
+a NativeCommandError. Every command's real exit code is on its own EXIT line below.
+
+-------------------------------------------------------------------------------------------------
+HOW THE surface: 'ui' MARKING IS OBSERVABLE FROM A COMMAND - the plan's step 6 asks, and the honest
+answer has two halves.
+
+NOT FROM EITHER COMMAND IN THE VERIFY SURFACE. t:check is a static scan of ids and never reads a
+surface. t:verify DOES receive it - registry.ts emits one JSON line per registered test into the
+directory named by AT_REGISTRATION_DIR, and that line carries the surface - but analyzeReportedTests
+(runner.ts:815) reads only atId and title from it, prints neither, and cleanupRun then deletes the
+whole report directory. The one command that would consume the marking is t:verify --wired, and
+it exits 3 before running anything because the screen driver does not exist. So no command in this
+repository PRINTS the marking today.
+
+IT IS OBSERVABLE, by running the suite directly with that environment variable pointed somewhere
+that survives - which is exactly what the runner does internally into a temporary directory:
+
+  \='<a directory>'; \='loop'
+  bunx vitest run --root tests/at --config vitest.config.ts suites/req-001
+
+Run at this head it wrote, and these four lines are the marking this leaf's whole no-screens
+decision depends on the wiring leaf being able to find:
+
+  {"atId":"AT-001.01",...,"surface":"ui"}
+  {"atId":"AT-001.03",...,"surface":"ui"}
+  {"atId":"AT-001.06",...,"surface":"backend"}
+  {"atId":"AT-001.07",...,"surface":"ui"}
+
+(That vitest invocation exits 1, reporting 33 failed and 4 passed. That is the raw view: the 33
+AtPending throws are failures to vitest and DECLARED reds to the runner, which is the whole point of
+the declaration mechanism. Only t:verify --expect grades them, and it exits 0.)
+
+-------------------------------------------------------------------------------------------------
+THE DENO TYPE-CHECK QUESTION, which the plan's step 5 requires answering rather than assuming.
+
+NO DENO TYPE-CHECKER IS REACHABLE, RE-CONFIRMED AT THIS HEAD, so NO type coverage is claimed for the
+two edge-function entry points or for _shared/edge.ts. Two places were checked:
+  * Get-Command deno on this machine -> not on PATH.
+  * docker exec supabase_edge_runtime_... sh -c 'command -v deno' inside the running edge-runtime
+    container -> no deno binary. The runtime embeds it; it ships no CLI.
+Installing a language runtime is bigger than a leaf's call, so it is recorded, not worked around.
+
+WHAT THOSE THREE FILES DO HAVE, stated so the absence is not read as nothing: each was parsed by
+bun's transpiler (un build <file> --no-bundle, exit 0 for all four files under supabase/
+functions/), which catches syntax but not types; and both entry points were SERVED and EXERCISED
+against the live stack in proof-local.txt, which is stronger evidence than a type-check for the
+behaviour and no evidence at all for the types. _shared/accounts.ts is the exception - it IS
+type-checked, by the tests/at project only, because the acceptance adapter imports it.
+
+-------------------------------------------------------------------------------------------------
+
+===== typecheck =====
+bun : $ bun tests/at/typecheck.ts
+At line:1 char:1
++ bun run typecheck 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/typecheck.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean
+EXIT: 0
+
+===== at:selftest =====
+bun : $ bunx vitest run --root tests/at --config vitest.config.ts harness/
+At line:1 char:1
++ bun run at:selftest 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx vitest r...fig.ts harness/:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a1762a365a95e390c/tests/at
+
+
+ Test Files  9 passed (9)
+      Tests  251 passed (251)
+   Start at  13:01:48
+   Duration  7.02s (transform 858ms, setup 0ms, import 5.29s, tests 13.66s, environment 1ms)
+EXIT: 0
+
+===== at:check req-016 =====
+bun : $ bun tests/at/harness/check.ts "req-016"
+At line:1 char:1
++ bun run at:check req-016 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/...ck.ts "req-016":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+at:check req-016 — 12 P0 in the acceptance file, 12 registered in the suite
+RESULT: 12 P0 ids in bijection
+EXIT: 0
+
+===== at:verify req-016 --tier loop --expect =====
+bun : $ bun tests/at/harness/runner.ts "req-016" --tier loop --expect
+At line:1 char:1
++ bun run at:verify req-016 --tier loop --expect 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/...r loop --expect:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-UdmFBv/vitest-report.json
+
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    green    one logical event per committed event, one delivery per recipient-channel pair, across a restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    green    every guarded transition writes its notification event atomically under an induced fault
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    green    sent only on provider acceptance; unconfirmed sends retry; a lost ack mints no duplicate
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 11 green, 1 red, 0 missing
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a1762a365a95e390c\tests\at\expected\req-016.json exactly (11 declared green, 1 declared red)
+EXIT: 0
+
+===== at:check req-001 =====
+bun : $ bun tests/at/harness/check.ts "req-001"
+At line:1 char:1
++ bun run at:check req-001 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/...ck.ts "req-001":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+at:check req-001 — 37 P0 in the acceptance file, 37 registered in the suite
+RESULT: 37 P0 ids in bijection
+EXIT: 0
+
+===== at:verify req-001 --tier loop --expect =====
+bun : $ bun tests/at/harness/runner.ts "req-001" --tier loop --expect
+At line:1 char:1
++ bun run at:verify req-001 --tier loop --expect 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/...r loop --expect:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-Hw4U1d/vitest-report.json
+
+at:verify req-001 --tier loop
+  AT-001.01    green    NGO email/password signup creates the account, org, admin membership and acknowledgment; sign-in returns
+  AT-001.02    red      AtPending: AT-001.02 PENDING [sut-missing] — REQ-001 D1.L2 (GitHub OAuth signup and the mandatory GitHub link at volunteer signup) has not landed
+  AT-001.03    green    a session established by Google completes signup through the same path, with the same result as email
+  AT-001.04    red      AtPending: AT-001.04 PENDING [sut-missing] — REQ-001 D1.L2 (GitHub OAuth signup and the mandatory GitHub link at volunteer signup) has not landed
+  AT-001.05    red      AtPending: AT-001.05 PENDING [sut-missing] — REQ-001 D1.L2 (GitHub OAuth signup and the mandatory GitHub link at volunteer signup) has not landed
+  AT-001.06    green    a volunteer is refused the NGO-only action while an NGO account performs it successfully
+  AT-001.07    green    a provisioned platform admin authenticates and carries the type; public signup offers only the two
+  AT-001.09    red      AtPending: AT-001.09 PENDING [sut-missing] — REQ-001 D2.L1 (email verification and the unverified-write gate on Discovery messages) has not landed
+  AT-001.10    red      AtPending: AT-001.10 PENDING [sut-missing] — REQ-001 D2.L1 (email verification and the unverified-write gate on Discovery messages) has not landed
+  AT-001.38    red      AtPending: AT-001.38 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+  AT-001.12    red      AtPending: AT-001.12 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+  AT-001.13    red      AtPending: AT-001.13 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+  AT-001.14    red      AtPending: AT-001.14 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+  AT-001.16    red      AtPending: AT-001.16 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+  AT-001.36    red      AtPending: AT-001.36 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+  AT-001.37    red      AtPending: AT-001.37 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+  AT-001.17    red      AtPending: AT-001.17 PENDING [sut-missing] — REQ-001 D3.L2 (the single-seat NGO and the single-dev project invariant) has not landed
+  AT-001.18    red      AtPending: AT-001.18 PENDING [sut-missing] — REQ-001 D3.L3 (the cross-surface single-seat integration) has not landed
+  AT-001.19    red      AtPending: AT-001.19 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+  AT-001.39    red      AtPending: AT-001.39 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+  AT-001.20    red      AtPending: AT-001.20 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+  AT-001.21    red      AtPending: AT-001.21 PENDING [sut-missing] — REQ-001 D5.L1 (cross-NGO denial and unassigned-volunteer denial) has not landed
+  AT-001.22    red      AtPending: AT-001.22 PENDING [sut-missing] — REQ-001 D5.L1 (cross-NGO denial and unassigned-volunteer denial) has not landed
+  AT-001.23    red      AtPending: AT-001.23 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.40    red      AtPending: AT-001.40 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.24    red      AtPending: AT-001.24 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.25    red      AtPending: AT-001.25 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.26    red      AtPending: AT-001.26 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.27    red      AtPending: AT-001.27 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.28    red      AtPending: AT-001.28 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.35    red      AtPending: AT-001.35 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.29    red      AtPending: AT-001.29 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.30    red      AtPending: AT-001.30 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.31    red      AtPending: AT-001.31 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.32    red      AtPending: AT-001.32 PENDING [sut-missing] — REQ-001 D3.L2 (the single-seat NGO and the single-dev project invariant) has not landed
+  AT-001.33    red      AtPending: AT-001.33 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+  AT-001.34    red      AtPending: AT-001.34 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+  37 P0: 4 green, 33 red, 0 missing
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a1762a365a95e390c\tests\at\expected\req-001.json exactly (4 declared green, 33 declared red)
+EXIT: 0
+
