@@ -1,389 +1,225 @@
-# AI4DEV-57 (email + Google signup, three account types) — phase state
+# AI4DEV-57 (email + Google signup, three account types) — CLOSING STATE
 
-**Phase just completed:** a short **CREDENTIAL sitting (sitting 6)**, inserted between the audit and
-the merge because a new fact arrived that changes what the merge ruling is allowed to claim. The
-founder created the Google OAuth client; step 7 was re-run against a stack restarted with it; **check
-(f2) moved from an honest SKIP to a PASS.** No code changed — this sitting's diff is records only.
-The audit sitting before it ruled all 7 audit findings in `audit-rulings.md`, plus one finding of its
-own the audit could not have made.
-**Phase next:** **continuous integration on the new head, then the MERGE sitting.** There is still no
-second audit, and this sitting did not spend that cap either — the reasoning is below and the merge
-sitting may disagree with it.
+**Phase just completed: the MERGE SITTING — the last one. There is no next phase.**
+
+The merge is **ruled and authorised**. The ruling is `merge-ruling.md`, in this directory, and it is
+published as a comment on the pull request. A mechanical executes the merge; the orchestrator never
+runs that command (founder ruling, 2026-08-07).
+
+**This file is committed before the merge runs, so it cannot say the merge happened** — for the same
+structural reason it may not name the commit that carries it. **If you are reading this file on
+`main`, the merge succeeded.** If you are reading it only on the branch, check the pull request: the
+merge either had not run yet or was refused, and a refusal is a STOP that ends the sitting and gets
+reported upward with the exact denial text.
+
 **Branch:** `nirdrang/ai4dev-57-email-and-google-signup-and-the-three-account-types-d1l1`
 **Chain, derived from the branch:** AI4DEV-57 (email + Google signup, three account types) →
 AI4DEV-51 (accounts and sign-in container) → AI4DEV-50 (auth dev-tree root) → AI4PM-19 (the
 authentication requirement). No `attr:` label anywhere on the chain. Product work under a real
-requirement; this leaf itself closes on a merged pull request.
+requirement; this leaf closes on a merged pull request.
 
 **This chain line names three other board items on purpose, and that is CORRECT — do not "fix" it.**
 The audit called it a violation because the audit brief's rule was written too broadly; the rule is
-corrected in `audit-brief.md` and the reasoning is in `audit-rulings.md` finding 3. Linear links from
-a pull request's title and body and from commit messages, never from file contents; the repository's
-own guard reads only `.title + .body` from the GitHub API; and `main` already carries 65 distinct item
-ids in its own files. Recording the derived chain is **required** by the way of work.
+corrected in `audit-brief.md` and the reasoning is in `audit-rulings.md` finding 3. The board links
+from a pull request's title and body and from commit messages, never from file contents; this
+repository's own guard reads only `.title + "\n" + (.body // "")` from the GitHub API; and `main`
+already carries 65 distinct item ids in its own files. Recording the derived chain is **required** by
+the way of work.
 
 ---
 
-## THE OPUS FALLBACK IS IN FORCE FOR THIS ITEM, NOT JUST ONE SITTING
+## THE OPUS FALLBACK WAS IN FORCE FOR THIS ENTIRE ITEM
 
-Fable is out of credit. Every orchestrator sitting on this item runs as `orchestrator-opus` (opus at
-effort max), a different agent TYPE, never a model override on the fable definition. A fable ruling
-and an opus ruling are not the same evidence: every decision in `plan.md`, all nine rulings in
-`gate1-rulings.md`, all eight in `draft-rulings.md`, all thirty-odd in `fix-rulings.md` and all seven
-in `audit-rulings.md` are opus rulings. A successor sitting that finds itself running as fable should
-say so in its first line rather than assume continuity.
+Fable was out of credit throughout. Every orchestrator sitting ran as `orchestrator-opus` (opus at
+effort max), a different agent TYPE — never a model override on the fable definition. **Every
+decision in `plan.md`, all nine rulings in `gate1-rulings.md`, all eight in `draft-rulings.md`, the
+code-critique rulings in `fix-rulings.md`, all seven in `audit-rulings.md` and the merge ruling
+itself are opus rulings.** A fable ruling and an opus ruling are not the same evidence.
 
-A session limit is not the same thing as being out of credit. If the reason ever reads
-"You've hit your session limit · resets HH:MM", that is the account-wide five-hour window, it heals
-itself, and an opus agent hits the same wall.
+A session limit is not the same thing as being out of credit. If the reason ever reads "You've hit
+your session limit · resets HH:MM", that is the account-wide five-hour window, it heals itself, and
+an opus agent hits the same wall.
 
 ---
 
-## STANDING HAZARD — STILL BINDING. READ BEFORE RUNNING A BUILD ON THIS BRANCH
+## What the merge sitting verified for itself, taking nothing from a report
 
-**`bun run build` rewrites `src/routeTree.gen.ts`.** Ten lines, a stale `declare module` block,
-deterministic, reproduced twice by the executor and reverted both times.
+| checked | result |
+|---|---|
+| local head, remote head and the pull request's head agree | all three `84b5cf9` |
+| working tree clean before any of this sitting's own writes | `git status --porcelain` empty |
+| the required check, read from the GitHub API against the head SHA | **`verify` — success**, `pull_request` event, attempt 1, **all 15 steps success** |
+| what branch protection actually requires | exactly one check, `verify`; `strict` off; `enforce_admins` off — a convenience, never a licence |
+| the live pull request body against `pr-body.md` | **character-identical**, measured through a different instrument than the previous sitting used |
+| item ids on the surfaces that carry the hazard | title, body and **every** commit message name `AI4DEV-57` and nothing else |
+| files under `src/` in the diff | **zero** |
+| encoding corruption across all 53 changed files | **none** — the only two mojibake sequences are the record files deliberately *quoting* the corrupted sequence while describing it |
+| the board link that closes the item | the pull request is already attached to the item in the tracker |
 
+**The previous sitting reported the pull request body as 8942 characters; this sitting measures 8943
+on both sides.** Recorded rather than smoothed over. What matters is that the live body and the file
+are identical *now*, measured here, with a different instrument.
+
+**One correction this sitting made before ruling.** The record obliged the merge sitting to carry the
+rejected audit finding's claim **verbatim** into the pull request. Its verbatim text names three
+foreign board ids, and the pull request body is the one surface the tracker reads and the repository's
+guard fails on. Obeying literally would have turned the required check red and moved three other
+items — the exact hazard the auditor named. **Ruled: quote the claim in full with the three ids
+elided and described in words, say plainly that they were elided and why, and point at the unaltered
+text in the committed record.** The body was rewritten accordingly and republished. This is written up
+as a process finding for the coordinator, because it will recur on any item whose rejected finding
+quotes an id.
+
+---
+
+## STANDING HAZARDS — these outlived the item and should outlive this file
+
+### `bun run build` rewrites `src/routeTree.gen.ts`
+
+Ten lines, a stale `declare module` block, deterministic, reproduced twice and reverted both times.
 Continuous integration fails any pull request whose files match **both** `^src/` and
-`^(supabase|tests|loop|\.claude|\.github)/`, and this branch is permanently on the wrong side of that
-line. **So an unexamined `git add -A` after a build breaks the build**, for a reason that has nothing
-to do with the change.
-
-Build is not in step 8's done-criterion — that list is `typecheck`, `at:selftest`, `at:check` and
-`at:verify --expect` for both requirements — and nothing ruled in this item touches anything a build
-covers. Verified again at this close: `git diff main...HEAD --name-only` matches `^src/` **zero
-times**.
-
-Regenerating that file properly is a `src/`-only change belonging to a different pull request.
+`^(supabase|tests|loop|\.claude|\.github)/`. **So an unexamined `git add -A` after a build breaks the
+build**, for a reason with nothing to do with the change. Build was deliberately never in this item's
+done-criterion. Regenerating that file properly is a `src/`-only change for a different pull request.
 **Filed, not fixed.**
 
----
+### Writing files through PowerShell corrupts them, and the instruments lie in three different ways
 
-## A SECOND STANDING HAZARD, NEW AND EXPENSIVE — WRITING FILES THROUGH POWERSHELL CORRUPTS THEM
-
-**The audit's most serious finding was character-encoding corruption**, and it is worth carrying
-forward because nothing in this repository's verify surface can catch it.
-
-Every em-dash in `tests/at/harness/type-invention.selftest.ts` had become `â€”` — 27 of them, the
-UTF-8 bytes of an em-dash decoded as Windows-1252 and re-encoded. A four-line surgical change read as
-31 changed lines. **All 251 self-tests passed and CI was green**, because the corruption landed in
-comments, `it()` test names and assertion messages while the asserted `marker` strings contain no
-em-dashes.
+**The audit's most serious finding was character-encoding corruption**, and nothing in this
+repository's verify surface can catch it. Every em-dash in a harness self-test had become `â€”` — 27
+of them, UTF-8 bytes decoded as Windows-1252 and re-encoded. A four-line surgical change read as 31
+changed lines. **All 251 self-tests passed and continuous integration was green**, because the
+corruption landed in comments, `it()` names and assertion messages while nothing asserted contains an
+em-dash.
 
 - **Never write a source file with `Set-Content`/`Out-File` defaults.** Use
   `[System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))`.
-- **`>` redirection in this environment writes UTF-8 WITH a byte-order mark.** This produced a second,
-  self-inflicted false finding during the repair: temp files written with `>` appeared to prove that
-  four files had lost a BOM, and one BOM was "restored" that `main` never had. The diff caught it. Do
-  not compare `git show X > tmp` against a working file and trust the first bytes.
-- **Detect it programmatically, never by eye:** the PowerShell console misrenders correct em-dashes
-  as mojibake, so four healthy files looked corrupt. `[System.IO.File]::ReadAllText` plus a real
-  character-code comparison is the only reading that is true.
-- **AND THE INSTRUMENT LIES A THIRD WAY — capturing a command's stdout into PowerShell loses leading
-  whitespace.** In the credential sitting a mechanical compared `pr-body.md` against the published
-  pull request body using `gh pr view --template` captured into a variable, and reported 20 differing
-  lines with the two-space markdown list indents stripped. **It was a false finding.** Read back
-  through `gh api ... --jq '.body'` and compared with `[System.IO.File]::ReadAllText`, the bodies are
-  byte-identical at 8942 characters, indents present in both. That is now three separate false
-  findings in this one item, all from a text comparison whose reading side was the corrupt half:
-  first `>` redirection inventing a lost byte-order mark, then the console inventing mojibake, now a
-  captured stdout inventing lost indentation. **Before believing any whitespace or encoding
-  difference, re-measure it with a different instrument.**
+- **`>` redirection here writes UTF-8 WITH a byte-order mark.** This produced a self-inflicted false
+  finding during the repair: temp files written with `>` appeared to prove four files had lost a BOM,
+  and one BOM was "restored" that `main` never had.
+- **The console misrenders correct em-dashes as mojibake**, so healthy files look corrupt. Only
+  `[System.IO.File]::ReadAllText` plus a real character-code comparison tells the truth.
+- **Capturing a command's stdout into PowerShell loses leading whitespace** — which invented a
+  20-line false difference between the body file and the live pull request body.
+
+**That is three separate false findings in one item, all from a comparison whose reading side was the
+corrupt half. Before believing any whitespace or encoding difference, re-measure it with a different
+instrument.** This sitting did exactly that twice and both re-measurements came back clean.
+
+### A user-level environment variable is invisible to every process already running
+
+Windows never refreshes a running process's environment block, and children inherit the parent's
+block rather than the registry — so every shell in a session tree is blind to a newly created
+variable no matter how "fresh" it is. Read it explicitly from the `User` scope and use it in the
+**same** invocation.
+
+### An unset `env(...)` variable does not stop the Supabase stack
+
+**The command-line tool passes the literal string `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)`
+through as the value.** The stack starts, the settings endpoint reports the provider enabled, the
+enabled-provider check passes — and a real sign-in returns `401 invalid_client`. The plan's risk 2
+predicted the opposite failure and was wrong in an instructive direction: **the hazard is not a stack
+that refuses to start, it is a stack that looks correctly configured while carrying a meaningless
+credential.**
 
 ---
 
-## THE DRAFT-CODE GATE HAS ONE READER, BY FOUNDER RULING — THIS IS THE DESIGN NOW
+## THE DRAFT-CODE GATE HAS ONE READER, BY FOUNDER RULING — THIS IS THE DESIGN
 
 **The second reader is stopped permanently. A single reader on the draft-code gate is the design going
-forward, not a temporary degradation awaiting repair.** Do not attempt a second-reader launch on this
-item, and do not describe the single reader as a shortfall in the merge ruling.
-
-**What this particular change received, stated as two separate facts because averaging them hides
-which half is thinner** — this is the founder's instruction and the pull request body follows it:
+forward, not a temporary degradation awaiting repair.** What this change received, stated as two
+separate facts because averaging them hides which half is thinner:
 
 - **SQL and configuration slice: ONE completed reader** — terra, 8 findings — where the two-reader
   design applied at the time.
 - **TypeScript and tests slice: BOTH readers completed** — terra 11 findings, kimi 7.
 
 The second reader exhausted its billing quota partway through the SQL slice and **never emitted a
-verdict or a closing count line**. Its salvaged notes were therefore treated as **leads to verify
-against the tree**, not as a reviewer's findings — the method is written out in `fix-rulings.md`
-Part C so an auditor can check the method rather than the outcome.
-
-**One of those leads produced the single most valuable check in the item** (L3): nothing anywhere
-proved that a **service-role** write into `public.accounts` is refused, which is the load-bearing half
-of this item's "there is no key-reachable write path — it is the only door" security claim. Check (e)
-only ever used the *authenticated* key. That check now exists and passes.
+verdict or a closing count line.** Its salvaged notes were treated as **leads to verify against the
+tree**, not as a reviewer's findings; the method is in `fix-rulings.md` Part C so an auditor can check
+the method rather than the outcome. **One of those leads produced the single most valuable check in
+the item** — nothing anywhere proved that a **service-role** write into `public.accounts` is refused,
+which is the load-bearing half of the "it is the only door" claim. That check now exists and passes.
 
 ---
 
-## What completes the next phase
+## What is proved, and the one thing that is not
 
-**CI green on the new head, then the MERGE sitting.**
+The full account is in `merge-ruling.md` sections 4 and 5, and in `plan.md` section 4, which is the
+binding claims table. In short:
 
-The merge sitting absorbs the audit's wait and CI's together. It must:
-
-1. **Record the audit's verdict among the dispositions.** The audit found 7; five were accepted and
-   fixed, one rejected with its claim recorded verbatim, one a stale reference corrected. That is
-   evidence and belongs in the ruling, not a step that silently did not happen.
-2. **State the gate coverage as two separate facts**, per the founder ruling above. Not blended.
-3. **Describe check (f2) as a PASS — and describe precisely what it proves**, which is wiring and
-   configuration, never sign-in and never "the provider is reachable". The Google credential section
-   below is rewritten and is the binding text.
-4. **Carry the rejected finding's claim verbatim into the pull request**, which
-   `audit-rulings.md` finding 3 already quotes in full.
-5. **Confirm the required check green on the exact merge SHA** and record both the run and the commit.
-6. **Hand the merge to a mechanical.** The orchestrator never runs the merge command (founder ruling
-   2026-08-07). If the mechanical reports a permission refusal, that is a STOP: report it upward with
-   the exact denial text and end the sitting.
-
----
-
-## The state of the code, honestly
-
-**Tree clean at the close of this sitting. The pushed head is reported in this sitting's completion
-report** — a state file cannot name the commit that carries it, because that SHA does not exist until
-after this file is written. This line exists because the previous version of this file named a head
-(`b4688fe`) that was stale by the time it was committed, which the audit correctly flagged as finding
-7. Obtain the real head with `git rev-parse HEAD` on this branch, or from the conductor's record.
-
-**Re-run by me at this head after every fix, and not taken from any report:**
-
-| what | result |
-|---|---|
-| `bun run typecheck` | **exit 0** — app and acceptance-test projects both clean |
-| `bun run at:selftest` | **exit 0 — 9 files, 251 tests passed** |
-| `bun run at:check req-001` / `req-016` | **exit 0** — 37 and 12 P0 ids, both in bijection |
-| `bun run at:verify req-001 --tier loop --expect` | **exit 0 — 37 P0: 4 green, 33 red, 0 missing**, matching the declaration exactly |
-| `bun run at:verify req-016 --tier loop --expect` | **exit 0 — 12 P0: 11 green, 1 red**, identical to the step-0 baseline |
-
-`req-016` being untouched is the control that says this sitting's edits reached nothing outside their
-own item.
-
-**The live-stack evidence WAS re-run, in the credential sitting.** `proof-local.txt` now records 14
-checks — **14 passed, 0 failed, 0 skipped**, plus 1 measurement that asserts nothing. The re-run
-changed no code whatsoever; it changed which branch check (f2) took. Every row of the table above was
-re-run beside it and every one is unchanged, `req-016` still bit-identical to the step-0 baseline.
-
----
-
-## What step 7 MEASURED, which changes what a green may claim
-
-**The acknowledgment IP is chosen by the caller.** Measurement (n), on the live local stack: a
-spoofed `x-forwarded-for` was stored **verbatim**; with **no** header the stored value was
-`172.18.0.1`, the Docker bridge — the gateway's own hop, not the client. Four reviewers asserted this
-and all four marked it unverifiable by reading. **AT-001.01 may say the acknowledgment records an
-address; it may never say a verified source address.** The code refuses anything that is not a
-well-formed IP, so the column cannot hold garbage — but validity is not authenticity. The hosted
-gateway is unobserved.
-
-**Three comments that still said "source address" were corrected in this sitting** (audit finding 5).
-This is the second time that claim has had to be narrowed after being widened by prose; the merge
-ruling should not widen it a third time.
-
-**The CORS preflight proves the LOCAL gateway only**, and the transcript records that Kong replaces
-the function's `access-control-allow-methods` with its own longer list. The check asserts POST is
-permitted rather than pinning the string, so it is unaffected.
-
-Both are written into `plan.md` section 4, which is what the merge ruling gets checked against.
+- The loop-tier green is a **declaration match**: 37 P0 ids, 4 green, 33 red, 0 missing, exit 0. It
+  claims the four acceptance tests really assert and that the shipped decision logic behaves as they
+  require. **It claims nothing about the migration, either edge function, row-level security,
+  authentication configuration, or Google sign-in** — continuous integration has no database and
+  never runs above the loop tier.
+- The live-stack transcript — **14 checks, 14 passed** — is the only evidence for that other half, and
+  it is one machine, one local stack, not reproducible by a reviewer.
+- **AT-001.03's clause "sign-in via Google succeeds on return visits" is NOT proved by this item.**
+  The credential now exists and the previously skipped check genuinely **passes** — the configured
+  client id reaches the handshake redirect with the correct local callback — but that check reads a
+  redirect composed by the **local** authentication server and **never contacts Google.** It proves
+  wiring and configuration; it is not Google accepting the credential, and "the provider is reachable"
+  overstates it. **Merging with the clause open is right because it is structurally unprovable by any
+  agent** — consent is a person pressing a button — **and the claims table declared it unproved before
+  the code was written rather than apologising afterwards.**
+- **The acknowledgment records AN address, never a verified source address** — measured, not
+  suspected. A spoofed header was stored verbatim; with no header the stored value was the Docker
+  bridge, the gateway's own hop. This claim has now had to be narrowed twice after prose widened it.
+  **Do not widen it a third time.**
 
 ---
 
 ## Filed, not built — carried forward, named rather than dropped
 
-1. **The `x-forwarded-for` trust model** (`fix-rulings.md` B3c, E1). Now with a real measurement
-   behind it. Belongs to whoever lands the hosted deployment, with the deployed proxy chain in view.
-2. **A client-reachable account-type read** (B4). Row-level security is on with no policies, no Auth
-   metadata carries the type, no endpoint returns it — so the type is carried for the **server** and
-   for **no browser**. The wiring leaf needs this and it is a `supabase/`-territory change, so it
-   cannot ride in the same pull request as the screens. Discovering that at its merge would be late.
-3. **The non-empty organisation-name rule now has THREE near-copies, and nothing tests the divergence**
-   (E3, extended by audit finding 2). `validateOrganizationName` and `validateCompleteSignup`'s NGO
-   branch both live in the shared module; `public.create_organization` carries a third in SQL as a
-   deliberate backstop. **No test attempts an NGO signup with an empty organisation name**, so a
-   divergence between any two of them would be caught by nothing. Deliberately not built at the close
-   of an audit sitting; no reviewer raised it.
-4. **Nothing in the process compares `pr-body.md` to the LIVE pull request body** — the gap that let
-   B18's fix sit unpublished through an entire sitting and an audit. The audit brief scopes the
-   auditor to the tree, so it structurally cannot catch this. A future item should either add it to
-   the brief or make publishing part of the same step that edits the file.
-   **The credential sitting published the rewritten body and then verified it byte-for-byte against
-   the file (8942 characters, identical), which is exactly what that step should always do — but it
-   did so by hand, on purpose, because the process still does not require it. THE PROCESS GAP IS
-   UNCHANGED and this is not evidence that it closed.** The live body is current as of that sitting.
-5. **`AGENTS.md` is badly stale** — documents `/pm-next`, `/dev-start`, `/bind` and TaskMaster, all
-   deleted, and its section 5 ends in a corrupted table fragment at line 93. Pre-existing.
-6. **`src/routeTree.gen.ts` is stale** and is regenerated by every build. See the standing hazard.
-7. **The 4xx→409 status mapping in both edge functions** is correct for every currently reachable
-   case and would mislabel a database-raised 400 or 403. Rejected as speculative (B10); it becomes
-   real when a second caller of those database functions appears, and is that change's to fix.
-8. **Three unredacted local-development values were committed and are scrubbed forward, not rewritten
-   out of history** (audit finding 4). They are Supabase's published local JWT secret and two
-   loopback-only S3 keys; no hosted system is involved and no rotation is required. Rewriting history
-   would force-push a branch under review and invalidate the audited SHA. **If the founder wants
-   history rewritten it is cheap before merge** — named here rather than assumed away.
+These are reproduced in `merge-ruling.md` as the founder-visible follow-ups. **None blocks the merge.**
+
+1. **One human click closes the last open clause.** One real Google sign-in through the consent screen
+   produces the evidence no agent can. Record it in `proof-local.txt` marked plainly as human evidence
+   rather than a check result. **Opportunity, not blocker.**
+2. **The address-trust model for a hosted deployment**, now with a real measurement behind it.
+3. **A client-reachable read of an account's own type does not exist.** The type is carried for the
+   **server** and for **no browser**. The screen-wiring leaf needs it, and it is a `supabase/`
+   change that cannot ride in the same pull request as the screens.
+4. **The edge-function-versus-server-function contradiction between two checked-in documents** is
+   unresolved and **will bite the screen-wiring leaf squarely**, together with 3 and 6.
+5. **`AGENTS.md` is badly stale** — four deleted commands, a deleted tool, and a corrupted table
+   fragment at the end of its section 5. Pre-existing.
+6. **A generated route file is stale and rewritten by every build.** See the standing hazard.
+7. **The non-empty organisation-name rule has three near-copies and nothing tests the divergence.** No
+   test attempts an NGO signup with an empty organisation name.
+8. **Nothing in the process compares the local body file to the live pull request body.** That gap let
+   a correction sit unpublished through a whole sitting and an audit; this sitting found a second
+   omission the same way, by hand, which is evidence the gap is systemic. **Unchanged.**
+9. **The verbatim-claim rule and the no-foreign-ids rule contradict each other** whenever a rejected
+   finding quotes an item id. Ruled once here; needs reconciling centrally.
+10. **Three local-development values are scrubbed forward, not rewritten out of history** — Supabase's
+    published local JWT secret and two loopback-only storage keys. No hosted system, no rotation. If
+    history is to be rewritten, **cheap before merge, expensive after.**
+11. **The 4xx-to-409 status mapping in both edge functions** would mislabel a database-raised 400 or
+    403. Rejected as speculative; it becomes real when a second caller of those database functions
+    appears.
 
 ---
 
-## Open questions for the founder — the conductor raises these, I do not
+## Caps — final accounting
 
-### 1. The signup SCREENS — ANSWERED and folded in. Closed.
+- **Executor: three attempts per invocation, three invocations per sitting.** The audit, credential
+  and merge sittings invoked **no executor at all**; their changes were repairs, comments, records and
+  evidence capture. Mechanicals did the housekeeping, which is what mechanicals are for.
+- **The audit re-runs once per item, and only if code changed. NEVER USED, deliberately.** No shipped
+  decision logic, SQL, assertion, expectation, test body or configuration changed after the audit read
+  the tree. Every box it checked is untouched or **more** true than when it checked it. The merge
+  sitting had the cap available, read the reasoning, and agreed.
+- **A suspected CI flake gets one re-run with no new commit. NOT USED** — the check was green first
+  time, first attempt.
+- **A green local verify against a red CI gets two pushes, then escalation. NOT USED** — CI was never
+  red on this item's final head.
+- **Nothing was left undone for want of a round.** Everything not fixed is filed and named above,
+  never recorded as invalid.
 
-### 2. The Google OAuth client — ANSWERED AGAIN: it now EXISTS, and check (f2) PASSED
+## Nothing escalated to the founder from this item
 
-**A PRIOR VERSION OF THIS SECTION SAID THE SKIP "may not be upgraded to a pass anywhere in the
-record, by any later sitting, for any reason." I have overridden that, and it is deleted rather than
-quietly worked around.** That instruction existed to stop a later sitting talking a skip into a pass
-by argument, which would have been the item's worst failure. It did not survive contact with the one
-event it did not anticipate: **the underlying fact changed.** The credential now exists, the check
-ran for real, and it passed on evidence. An instruction written to protect a fact must yield when the
-fact itself moves — but only to a measurement, never to a rereading. This override rests on a
-transcript, not on an argument.
-
-**What arrived.** The founder created the OAuth client — Google project
-`gen-lang-client-0617238024`, authorised redirect URI exactly
-`http://127.0.0.1:54321/auth/v1/callback`, consent screen External and in Testing. It is installed as
-**Windows user-level environment variables** and in no file at all. **Verified, not assumed: neither
-credential value appears in any file in this worktree**, searched literally. `.env` is tracked by git
-and carries no Google entries; `.env.local` still does not exist and is git-ignored.
-
-- **Proved by (f):** the provider block is well-formed, the stack starts with it, and
-  `/auth/v1/settings` reports Google enabled with apple untouched.
-- **Proved by (f2), which now PASSES:** with the credential in the environment the stack was started
-  with, `GET /auth/v1/authorize?provider=google` answers `302` to `accounts.google.com` carrying
-  exactly the configured client id and `redirect_uri=http://127.0.0.1:54321/auth/v1/callback`.
-- **NOT proved, and the merge ruling must not blur this:** (f2) reads a redirect composed by the
-  **local** Auth server with `redirect: 'manual'` and **never contacts Google**. It proves wiring and
-  configuration. It is **not** evidence that Google accepted the credential, and **"the provider is
-  reachable" overstates it** — nothing in this item has successfully reached Google with this client.
-- **Never provable by any agent:** the consent round trip. **AT-001.03's "sign-in via Google succeeds
-  on return visits" clause stays unproved by this item**, exactly as before. The credential narrowed
-  the gap and did not close it. Closing it needs a person to sign in once and that evidence recorded.
-
-**The one attempt so far FAILED, and the reason is worth carrying.** The founder tried a real sign-in
-before the stack was restarted and got `401 invalid_client`. The cause was environmental: **when the
-variables are unset the Supabase CLI does not substitute an empty value — it passes the literal string
-`env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` through as the client id**, and the stack starts
-anyway and still reports `google: true`. The committed `config.toml` is correct as written; it uses
-Supabase's documented `env()` syntax. **That failure is also the best proof in the item of what (f)
-never established** — (f) passed the whole time the client id was meaningless.
-
-**HOW TO REPRODUCE THIS, because it is not obvious and cost a wasted attempt.** A process only picks
-up a user-level environment variable **when it starts**, and Windows never refreshes a running
-process's block; children inherit the parent's block, not the registry. So every shell in this session
-tree is blind to the variables no matter how "fresh" it is. Read them explicitly and start the stack
-in the **same** invocation, from **this worktree** (the `[auth.external.google]` block exists only on
-this branch):
-
-```
-$env:SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID = [Environment]::GetEnvironmentVariable('SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID','User')
-$env:SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET    = [Environment]::GetEnvironmentVariable('SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET','User')
-bunx supabase stop --no-backup; bunx supabase start
-```
-
-**Do not write either credential into any file in the tree.** `.env` is tracked; the explicit read
-above needs neither it nor `.env.local`. `.env.example` names both variables, which is where a
-newcomer learns they are wanted.
-
-### 3. Edge function or `createServerFn` — STILL OPEN; nothing challenged the ruling
-
-Server logic lives in `supabase/functions/`, because `createServerFn` lives in `src/`, which this
-item may not touch. Nothing in the critique or the audit gave a reason to revisit it. The
-contradiction between the two checked-in documents is real, is not this item's to fix, and **will bite
-the screen-wiring leaf squarely** — together with items 2 and 7 in the filed list. Relayed, not
-escalated.
-
----
-
-## Facts established in the tree, which no later sitting should re-derive
-
-Facts 1–16 from the previous sittings all still hold. Added by the audit sitting:
-
-17. **The audit brief's foreign-item-id rule was wrong and is corrected.** Linear links from pull
-    request title/body and commit messages, never from file contents. `.github/workflows/ci.yml`
-    line 292 reads only `.title + "\n" + (.body // "")` from the GitHub API. `main` already carries
-    **65 distinct board item ids** in its `.ts` and `.md` files.
-18. **The SQL name check in `create_organization` is a deliberate backstop, not a B6 escapee**, and is
-    the same shape B2 ruled mandatory. Do not delete it to make a claim tidy — that would implement a
-    regression against a standing ruling.
-19. **A ruling is implemented when the THING changes, not when the file changes.** B18 corrected
-    `pr-body.md` and the live pull request body kept all three false statements through a whole
-    sitting and an audit. Convenience copies are not artifacts.
-20. **`bun run at:check` takes a requirement argument** (`at:check req-001`). Called bare it exits 2
-    with `"undefined" is not a requirement`, which reads like a failure and is not one.
-
-Added by the credential sitting:
-
-21. **An unset `env(...)` variable does not stop the Supabase stack — the CLI passes the literal
-    string through as the value.** The stack starts, the provider reports enabled, and a real sign-in
-    returns `401 invalid_client`. Plan risk 2 predicted the opposite failure and was wrong in an
-    instructive direction: the hazard is not a stack that refuses to start, it is a stack that looks
-    correctly configured while carrying a meaningless credential.
-22. **A user-level environment variable is invisible to every process already running**, including
-    every shell any agent in this session can spawn, because children inherit the parent's environment
-    block rather than the registry. Read it explicitly from the `User` scope and set it in the same
-    invocation that needs it. This is written out with the exact commands in the Google section above.
-23. **Check (f2) infers the stack's configuration from the SCRIPT's own environment** — it asserts
-    that the redirect's `client_id` equals `process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID`. That
-    makes a PASS trustworthy (the two agreeing means substitution really happened) and it makes a FAIL
-    safe, but it means the check reports a boolean and never a value. The independent redirect
-    observation recorded at the foot of `proof-local.txt` exists because of that, and it is what
-    positively rules out the literal `env(...)` string.
-
----
-
-## Caps, carried forward
-
-- The executor gets three attempts to reach green inside one invocation, then reports. **Neither the
-  audit sitting nor the credential sitting invoked an executor at all** — an audit sitting may make
-  its own corrections, and in both cases every change was a repair, a comment or a record change
-  rather than code to be written. The credential sitting used a **mechanical** for the evidence
-  capture, which is what a mechanical is for.
-- An orchestrator sitting may send the executor back twice — three invocations per sitting. **Unused
-  in both sittings.**
-- **The audit re-runs once per item, and only if code changed. STILL NOT USED, deliberately.** See
-  below — the merge sitting may still spend it.
-- A suspected CI flake gets one re-run of the check, with no new commit. **Not yet used.**
-- A green local verify against a red CI gets two pushes, then escalation with the evidence. **Not yet
-  used.**
-
-### The audit cap is deliberately unused, and here is the reasoning to disagree with
-
-No shipped decision logic, SQL, assertion, expectation, test body or configuration changed in the
-audit sitting. The only executable-adjacent edits are **test names and failure messages** — text that
-appears in output and never in a judgement. The em-dash repair *restores* text `main` already had.
-
-**The credential sitting makes the case stronger rather than weaker, and it is a cleaner case.** Its
-diff is **records only** — `plan.md`, `proof-local.txt`, `PHASE-STATE.md`, `pr-body.md`. Not one byte
-of `supabase/`, `tests/` or `src/` moved, and `proof-local.ts` itself is byte-identical: the check
-took the third branch of a conditional the code gate reviewed and the auditor read. What changed is
-**evidence, not code**, and evidence moving in the direction of *more* proved is not a reason to
-re-audit code nobody touched. The whole verify surface was re-run as the control and is unchanged.
-
-Every box the auditor checked is therefore untouched or **more** true than when it checked it:
-finding 1's box now passes exactly (the diff is four marker lines), finding 2's claim is corrected,
-findings 5 and 6's comments now match the claims table. A second pass would re-derive the same
-verdicts on the same code at cost.
-
-**CI on the new head plus the merge sitting's own review is sufficient. The re-run remains available
-if the merge sitting reads this and disagrees.**
-
-When a cap fires: **stop working, do not stop judging.** What remains is written down as open items —
-filed as separate work, or escalated as scope growth. "We ran out of rounds" is never recorded as
-"the finding was invalid."
-
----
-
-## Nothing escalates to the founder from either sitting
-
-No finding contradicted ratified text, and nothing is scope growth. The audit sitting: five repairs,
-one rejection with its written reason, one record correction, and one publish that should have
-happened earlier. The credential sitting: one measurement and the record updates it forced.
-
-**One thing to RELAY, not escalate, and the item does not wait for it.** AT-001.03's *"sign-in via
-Google succeeds on return visits"* clause is closable now, cheaply, and only by the founder: the stack
-is correctly configured for the first time, so **one human sign-in through the consent screen would
-produce the evidence no agent can.** The item merges with that clause declared unproved either way —
-this is an opportunity, not a blocker, and it must not be allowed to hold up the merge. If the founder
-does click through, the place to record it is a new note in `proof-local.txt` marked plainly as human
-evidence rather than a check result, because no agent witnessed it.
+No finding contradicted ratified text and nothing was scope growth. Two things are **relayed**: the
+one-click opportunity above, and the process findings in the filed list — which go to the coordinator
+to fold, not to the founder as a decision.

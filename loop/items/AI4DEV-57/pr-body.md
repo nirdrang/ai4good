@@ -115,10 +115,37 @@ gate is the design going forward, not a temporary degradation to be repaired lat
 records what this particular change received; it is not a defect report against the process.
 
 A read-only audit then ran against the finished tree and raised 7 findings. All 7 are ruled in
-`loop/items/AI4DEV-57/audit-rulings.md`: five were accepted and fixed, one was rejected with its
-claim recorded verbatim and the reason written out, and one was a stale reference corrected in
-place. The most serious was a character-encoding corruption in a harness self-test that had silently
-enlarged a surgical change from four lines to thirty-one.
+`loop/items/AI4DEV-57/audit-rulings.md`: six were accepted — five fixed in the code or the
+transcripts, one where the finding was right and the false sentence was in the audit brief rather
+than in the code, so the record moved and the code correctly did not — and one was rejected. The most
+serious was a character-encoding corruption in a harness self-test that had silently enlarged a
+surgical change from four lines to thirty-one, and which every check in this project passed straight
+over because it landed in comments and test names rather than in anything asserted.
+
+**The rejected finding, in the auditor's own words**, because rejecting a finding obliges this pull
+request to carry the claim itself rather than a summary of it:
+
+> A changed file names foreign board items [three ids — this item's parent, its grandparent, and the
+> requirement above them — elided, see immediately below], contrary to the single-item scope rule.
+> why it matters: Those IDs can link or move other work items even though the pull-request body and
+> commit subjects use only `AI4DEV-57`.
+
+**Those three ids are elided from that quotation and from nowhere else, and the elision is itself the
+point.** Writing them here would perform the exact act the auditor warns about, on the one surface
+where the warning is correct: the board links from a pull request's title and body, and this
+repository's own guard fails any pull request naming an item its branch does not own. The unaltered
+sentence sits in `loop/items/AI4DEV-57/audit-rulings.md`, committed in this pull request, where it is
+inert.
+
+**Rejected, because the hazard is real about the wrong surface.** The board links from title, body
+and commit messages — never from file contents; the repository's guard reads only the title and body
+from the GitHub API; `main` already carries 65 distinct board item ids across its own files,
+including three in the very file this branch edits. And the line objected to is the item's derived
+chain of parentage, which the way of work positively requires a state file to record — so the rule as
+written would have forbidden the process. Measured on the surfaces that do carry the hazard: every
+commit message on this branch, the live title and the live body name `AI4DEV-57` and nothing else.
+The audit brief's overbroad rule was corrected in place so this false finding does not recur on every
+future item.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
