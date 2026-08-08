@@ -730,3 +730,72 @@ leaf's own `supabase/`-territory change.
 
 **One ruling overturns a fact I recorded in the previous sitting** — B6 — and the correction is
 written into `draft-rulings.md`'s verification table rather than left to contradict this file.
+
+---
+
+## PART E — CLOSING RULINGS, after the executor reported
+
+### E1 — B3b came back PROVEN, and it settles against this item
+
+The verify-first ruling sent one claim to be measured rather than argued. It came back **true**, and
+more sharply than the reviewers put it. Step 7 measurement (n), against the live local stack:
+
+- a **spoofed** `x-forwarded-for: 198.51.100.99` was stored **verbatim** as the acknowledgment IP;
+- with **no** header at all, the stored value was `172.18.0.1` — the Docker bridge, which is the
+  gateway's own hop and **not the client at all**.
+
+So the local gateway neither overwrites nor prepends, the first entry of the chain is whatever the
+caller chose, and the "absent header" fallback records an address belonging to the infrastructure.
+Four readers asserted this and all four marked it unverifiable by reading; it is now measured.
+
+**Ruling: the claim narrows, exactly as B3c required, and now with evidence rather than caution
+behind it.** AT-001.01's row says the acknowledgment records **an** address and never a verified
+source address. The IP-validity fix (B3a) stands on its own merits — the column cannot hold garbage,
+and an unparseable header no longer refuses a legitimate signup — but validity is not authenticity
+and the record does not let the two be confused. The hosted gateway is unobserved and belongs to
+whoever lands the hosted deployment.
+
+### E2 — the two read-back members B9 required. ACCEPTED as built
+
+The executor flagged, rather than made, a judgment call: satisfying B9 needed two new read-only
+members on `AccountsSut`, because a refused `createOrganization` returns no identifier and the
+existing getters are all keyed by one.
+
+**Ruling: accept.** The alternative it offered — keep the contract narrow and assert less — is the
+weaker form B9 exists to reject: *"the weakest createOrganization that still passes writes the
+organisation and membership and then reports refusal."* You cannot assert that nothing was written
+through a getter that needs the key of the thing that must not exist. The two members are read-backs
+over storage, which is the half the adapter is allowed to supply, and they sit beside four that were
+already there. Nothing about the judgement half moves.
+
+### E3 — the third near-copy of the organisation-name rule. NOT the same finding; REJECTED, with the residual filed
+
+The executor flagged that `validateCompleteSignup`'s NGO branch still carries its own non-empty name
+check with its own sentence, and asked whether B6 should extend to it. Verified in the tree: it does,
+and the validity logic is textually the same as `validateOrganizationName`'s.
+
+**Ruling: reject, and the distinction is not a technicality.** B6's defect was a judgement **escaping
+the shared module**, so the acceptance suite graded a copy instead of the shipped rule. Neither of
+these has escaped: both live in `supabase/functions/_shared/accounts.ts`, both are imported by the
+edge functions and by the adapter, and for organisation creation the shipped function and the adapter
+now call the **same** one. There is no puppet left to grade. What remains is two operations —
+completing a signup and creating an organisation — that deliberately refuse with different sentences
+naming their own context, and consolidating them is a preference about repetition, not a defect.
+Against it: changing shipped decision code would invalidate a live-stack transcript that cost a full
+stack bring-up to produce, for zero behavioural difference.
+
+**The residual is real and is filed rather than dismissed.** No test attempts an NGO signup with an
+empty organisation name, so a divergence between those two checks would be caught by nothing. I am
+**not** building it in this sitting: no reviewer raised it, it is a second-order consequence of a
+ruling I am rejecting, and opening fresh work at the close of a fix sitting on my own initiative is
+the drift this process exists to prevent. It goes to `PHASE-STATE.md` as a named gap so the audit and
+the next leaf can see it. Stop working; do not stop judging.
+
+### E4 — one honest detail the executor recorded rather than smoothed over
+
+Step 7's CORS check (m) passed, and the transcript records that the preflight answer carried Kong's
+own `access-control-allow-methods` rather than the `POST, OPTIONS` the function sends. The check
+asserts that POST is permitted rather than pinning the whole string, so it is unaffected.
+
+**Noted, no action.** Recording a detail that makes the code look wrong until explained is the
+behaviour this process wants, and the note is in the transcript where a reader meets it.

@@ -556,10 +556,32 @@ against. **A clause named unproved here may not be described as proved anywhere 
 
 | id | proved at loop tier (CI) | proved on the live stack (step 7, one machine) | **not proved by this item** |
 |---|---|---|---|
-| AT-001.01 | the shipped decisions produce an `ngo` account, org, `admin` membership and a three-field acknowledgment; the predicate discriminates | (a), (b), (h), (i) — including that a partial failure leaves nothing behind | **"before any project creation is possible"** — nothing in the tree creates a project. The predicate is the hook; the leaf that lands project creation must call it |
-| AT-001.03 | that a session recorded as provider `google` completes signup through the same shipped path, with the same result as email | (f) — the stack reports Google enabled and the config block is well-formed; **(f2), only if the credential is in the environment** — the configured client id really reaches the provider handshake | **"sign-in via Google succeeds on return visits"** — a real consent round trip. **This is the weakest of the four greens and the record says so.** The founder has ruled a real OAuth client will be created; that narrows this gap but does not close it, because consent is a human act no agent performs. Closing it needs a person to sign in once and that evidence recorded |
-| AT-001.06 | `ngoOnlyActionAllowed` refuses a volunteer and permits an NGO | (d) — through the `create-organization` boundary, with a working NGO control | the **project-need** half of the criterion's parenthesis: no project or need table exists, and building one belongs to another requirement |
-| AT-001.07 | the public signup options are exactly `['ngo','volunteer']` | (g) a provisioned admin really authenticates and carries the type; (c) and (j) the public path and the database both refuse to mint one | nothing further — this id is fully covered once (g) lands |
+| AT-001.01 | the shipped decisions produce an `ngo` account, org, `admin` membership and a three-field acknowledgment; **the ADAPTER's** acknowledgment predicate discriminates — the shipped SQL predicate is not reachable from the loop tier at all | (a), (b), (i), and **(h), which is where the shipped SQL predicate is proved** to discriminate against the real database | **"before any project creation is possible"** — nothing in the tree creates a project. The predicate is the hook; the leaf that lands project creation must call it. **And the acknowledgment records AN address, never a verified source address** — see the measurement below |
+| AT-001.03 | that a session recorded as provider `google` completes signup through the same shipped path with the same result as email — **and the reason it holds is that the shipped path never receives a provider at all.** So it would NOT catch a provider branch introduced in an edge function; the pinned-value block is what carries the weight here | (f) — the stack reports Google enabled and the config block is well-formed. **(f2) was SKIPPED: no credential was in the environment when step 7 ran**, which is the expected case, and a skip is recorded as a skip rather than counted among the passes | **"sign-in via Google succeeds on return visits"** — a real consent round trip. **This is the weakest of the four greens and the record says so.** The founder has ruled a real OAuth client will be created; that narrows this gap but does not close it, because consent is a human act no agent performs. Closing it needs a person to sign in once and that evidence recorded. **The client id reaching the handshake is ALSO still unproved**, because (f2) did not run |
+| AT-001.06 | `ngoOnlyActionAllowed` refuses a volunteer and permits an NGO, and the refused volunteer leaves no organisation and no membership behind | (d) — through the `create-organization` boundary, with a working NGO control; and (l), the database backstop refusing a non-NGO even when the function is called directly with the service role | the **project-need** half of the criterion's parenthesis: no project or need table exists, and building one belongs to another requirement |
+| AT-001.07 | the public signup options are exactly `['ngo','volunteer']`, and the public completion path refuses `platform_admin` leaving no account behind | (g) a provisioned admin really authenticates and carries the type; (c) and (j) the public path and the database both refuse to mint one; **(k) a direct service-role INSERT into `public.accounts` is refused** at the privilege layer | **no client-reachable path returns an account's type.** Row-level security is on with no policies, no Auth metadata carries the type, and no endpoint returns it — so the type is carried **for the server** (`create-organization` reads it with the service role and acts on it) and **for no browser.** The wiring leaf needs that read path, and it is a `supabase/`-territory change |
+
+### Two things step 7 MEASURED that no green claims, added by the fix sitting
+
+**The acknowledgment IP is chosen by the caller, and this is now measured rather than suspected.**
+Four independent readings in the code critique said the address is client-controlled, and all four
+marked the claim unverifiable by reading. Step 7's measurement (n) settled it on the local stack:
+with a spoofed `x-forwarded-for` the stored value was the spoofed one **verbatim**, and with **no**
+header the stored value was `172.18.0.1` — the Docker bridge, which is the gateway's own hop and not
+the client at all. So the local gateway neither overwrites nor prepends, and the first entry of the
+chain is whatever the caller put there. **AT-001.01 may say the acknowledgment records an address; it
+may never say the address is the request's verified source.** What the HOSTED gateway does is a
+different question, is not observable from this machine, and belongs to whoever lands the hosted
+deployment. The code refuses anything that is not a well-formed IP address, so the column cannot hold
+garbage — that is a validity guarantee, not an authenticity one.
+
+**The preflight check proves the LOCAL gateway only.** The two edge functions now answer a CORS
+preflight, and step 7's check (m) proves that against the local Kong and the local edge runtime. It
+proves nothing about the hosted gateway. One honest detail recorded there rather than smoothed over:
+the function sends `POST, OPTIONS` as its allowed methods and the preflight answer came back carrying
+Kong's own longer list, so the local gateway replaces that header. The check asserts that POST is
+permitted rather than pinning the whole string, so it is unaffected — but a reader comparing the code
+against the transcript would otherwise conclude the code was wrong.
 
 One more deliberate gap, from the first finding: **a volunteer can complete signup in this leaf
 without a GitHub identity.** That is AT-001.04's gate, it belongs to manifest leaf D1.L2, it is

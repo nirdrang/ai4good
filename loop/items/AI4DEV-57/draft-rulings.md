@@ -214,7 +214,25 @@ The executor's report is evidence, not testimony. These were re-established dire
 | zero `src/` files in the diff | filtered the same file list | **true** — 0 |
 | the tree is clean and eight commits exist | `git status --porcelain`, `git log` | **true** |
 | the adapter fabricates no Google handshake | read `_fixture.ts` `registerWithProvider` — it records a provider on an auth user and performs no exchange | **true** |
-| every judgement in the adapter is the shipped module's | read `_fixture.ts`: `validateCompleteSignup`, `ngoOnlyActionAllowed` and `PUBLIC_SIGNUP_ACCOUNT_TYPES` are imported and called; no second copy of a rule found | **true**, and it is the reason the loop-tier green means anything |
+| every judgement in the adapter is the shipped module's | read `_fixture.ts`: `validateCompleteSignup`, `ngoOnlyActionAllowed` and `PUBLIC_SIGNUP_ACCOUNT_TYPES` are imported and called; no second copy of a rule found | ~~**true**~~ — **FALSE, and corrected by the code critique. See below.** |
+
+> **CORRECTION, written in by the FIX sitting (sitting 4).** The last row of that table was wrong.
+> Both Gate 2 readers independently found a fourth judgement that had escaped the shared module: the
+> organisation-name rule existed in **two** copies, one in `create-organization/index.ts` and one in
+> `_fixture.ts`, and neither was in `supabase/functions/_shared/accounts.ts`. So AT-001.06's green was
+> grading the adapter's copy of that rule rather than the shipped one — the exact "grading a puppet"
+> failure D4 exists to prevent.
+>
+> **How the check went wrong is the useful part, and it is not that I read carelessly.** I verified
+> the three judgements the plan enumerated, found all three correctly delegated, and wrote down a
+> conclusion about *all* judgements. The plan never named a fourth, so a check scoped by the plan's
+> own list could not have found one. **A list is only an exhaustive check if something independent
+> establishes that the list is complete**, and nothing did. That is the same overclaim shape this
+> project keeps meeting: measuring one route and generalising to "the type is safe".
+>
+> Ruled and fixed in `fix-rulings.md` B6 — a fifth export in the shared module, called by both sides.
+> Recorded here rather than only there, because a false line in a verification table is worse than no
+> table: it is the line a later reader would trust instead of re-checking.
 | `service_role` holds no INSERT | read the migration's grant block | **true** — `select` only on `accounts` |
 | the acknowledgment is written for volunteers too | read the adapter's `completeSignup` | **true** — outside the organisation branch |
 
