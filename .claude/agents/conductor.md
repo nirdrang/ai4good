@@ -115,6 +115,15 @@ tree. Its spawn prompt is facts only: gate name, reviewer label, the assembled p
 tree and artifacts paths, the output, stderr and distillate paths, the model and effort pins
 verbatim, and **your agent id** so it can report to you by id rather than by type.
 
+**IF `reviewer-runner` DOES NOT RESOLVE, THAT IS A `STALL` — NEVER AN IMPROVISED LAUNCH.** The
+agent registry is read once when a Claude Code session starts and every subagent inherits that
+snapshot, so a contract added to `.claude/agents/` mid-session is invisible until the founder
+restarts (measured 2026-08-08: the type was committed and pushed, and neither the coordinator nor
+a fresh child could resolve it). Report the error verbatim, say the fix is a session restart, and
+stop. Do not launch the reviewer yourself — the recipes deliberately do not live here any more,
+and a role reaching around a boundary because the boundary looks broken is how the merge boundary
+was crossed on AI4DEV-48.
+
 **Two reviewers means two runners**, one each, both in the background. You are woken by each and
 you proceed when both have reported. A partial landing is not progress — but it is now visible as
 one runner outstanding rather than as a watch that may or may not exist.
