@@ -174,6 +174,27 @@ either stream, and treat its absence as the signal it is.
 
 Kimi has no `-C` flag — its working directory IS `-WorkingDirectory`, and it must be the tree.
 
+## ARMING IS NOT FIRING — PROVE THE WATCH EXISTS BEFORE YOU RELY ON IT (founder 2026-08-08)
+
+**A watch that silently failed to arm is indistinguishable from a watch patiently waiting.** That
+is not a theory: on AI4DEV-57 the Gate 1 review finished at 01:33 and the item sat until 11:01,
+because the first watch calls were refused by the isolation guard for naming a path outside the
+worktree, the conductor switched mechanisms, and never confirmed the replacement was live. Nine and
+a half hours, and every fix made since then — reading stderr at launch, judging by the count line,
+children reporting by id — is adjacent to this rather than on top of it.
+
+So, every time you arm a watch:
+
+1. **Confirm the background task exists and is running** immediately after starting it. A call that
+   was rejected returns no task, and that is your answer.
+2. **Name the task id in the flow line you send.** It costs four words and it lets the coordinator
+   verify from outside that a watch exists at all, without touching your worktree.
+3. **A watch that cannot be armed is a `STALL` right now** — not a thing discovered later. Say what
+   you tried, what refused it, and what you are doing instead, then prove the replacement armed by
+   the same two steps.
+4. **Never let "I armed a watch" stand as evidence that you will be woken.** The evidence is the
+   task, alive, named.
+
 ## Waiting — which signal for which thing
 
 - **A sitting** — the tether wakes you, *plus* the backstop watch above on the remote tip. A
