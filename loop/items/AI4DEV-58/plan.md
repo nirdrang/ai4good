@@ -3,6 +3,15 @@
 **Sitting 1 of the item: PLAN. Ruled by the `orchestrator` definition on fable (claude-fable-5,
 effort xhigh).**
 
+**AMENDED in sitting 2 (DRAFT, same definition, same model) per the gate-1 rulings at
+`loop/items/AI4DEV-58/gate1-rulings.md` — this amended text is what gets built.** The amendments:
+D-C gains the abandoned-flow analysis and step 5's AT-001.05 oracle a pre-completion negative
+(ruling F1); D-E's array constraint becomes `cardinality(...) >= 1` and the function raises on an
+empty array, verified empirically in step 6(d) (ruling F2); D-E's identity check binds the handle
+and step 6(d) gains the mismatched-handle negative (ruling F4); D-I retains the provider comment
+and updates only its stale clause (ruling F5); section 5 records the filed unlink question
+(ruling F3).
+
 **Chain, derived from the branch**
 (`nirdrang/ai4dev-58-github-sign-in-and-the-mandatory-github-link-for-volunteers`):
 AI4DEV-58 (GitHub sign-in, mandatory GitHub link) → AI4DEV-51 (accounts and sign-in container) →
@@ -75,6 +84,15 @@ profile row is written by `public.complete_signup` **in the same transaction as 
 or nothing lands. A separate link-time firing point would require an event no server code
 observes, and a queue would manufacture the exact state the criterion forbids.
 
+**The abandoned flow, stated so no reader mistakes it for a violation (gate-1 ruling F1):** if a
+link succeeds in Auth and the completion request never arrives — browser closed, request failed —
+then **no account row, no profile surface and no acknowledgment exist**. That is an unfinished
+signup, not a completed link whose import went missing: AT-001.05's Then requires population "on
+the profile", and there is no profile to be unpopulated. AT-001.04's own text — "linking
+completes signup" — makes the link and the completion the same moment of the signup flow; the
+wiring leaf's `--wired` re-run of .04 drives exactly that screen transition. When the user
+returns and completes, the import fires then, populated, in the same transaction.
+
 ### D-D — The import source is SHIPPED stub code, named as such
 New pure module `supabase/functions/_shared/github.ts` (same two constraints as `accounts.ts`:
 relative imports only, no Deno global, no I/O — it is imported by the strict `tests/at` program
@@ -96,19 +114,28 @@ One new timestamped migration:
   delete cascade`, `github_handle text not null`, `top_languages text[] not null`,
   `repository_count integer not null`, `contribution_summary text not null`, `imported_at
   timestamptz not null default now()`; CHECK constraints refusing the empty forms
-  (`btrim(github_handle) <> ''`, `array_length(top_languages, 1) >= 1`,
+  (`btrim(github_handle) <> ''`, `cardinality(top_languages) >= 1`,
   `repository_count >= 0`, `btrim(contribution_summary) <> ''`) — the criterion's
-  "queued-but-empty fails" as a shape, not a convention. RLS enabled, **no policies** (same
+  "queued-but-empty fails" as a shape, not a convention. **`cardinality`, not `array_length`
+  (gate-1 ruling F2): `array_length('{}'::text[], 1)` is NULL — an empty array has no
+  dimensions — and a CHECK whose expression is NULL passes, so the originally planned constraint
+  enforced nothing on the one input it exists to refuse. `cardinality` returns 0 for the empty
+  array, never NULL. Step 6(d) confirms the refusal empirically on the migrated database.** RLS enabled, **no policies** (same
   posture as the four existing tables; read paths are later leaves' work).
 - **`public.complete_signup` is DROPPED and recreated** with four added parameters
   (`p_github_handle text, p_github_top_languages text[], p_github_repository_count integer,
   p_github_contribution_summary text`). Dropping first is load-bearing: CREATE with a new
   signature would OVERLOAD, and PostgREST refuses an ambiguous rpc name. The recreated function
   keeps every existing behaviour and refusal byte-comparable, and adds: for a volunteer — all
-  four github parameters required (raise otherwise), **and a defence-in-depth check that a row
-  exists in `auth.identities` with `provider = 'github'` for `p_account_id`** (the guard that
+  four github parameters required **and non-empty (`cardinality(p_github_top_languages) >= 1`
+  raises in the function body too, so a caller gets a stated reason rather than a bare
+  constraint violation — gate-1 ruling F2)**, **and a defence-in-depth check that a row
+  exists in `auth.identities` with `provider = 'github'` for `p_account_id` AND
+  `identity_data->>'user_name' = p_github_handle`** (the guard that
   holds even against a service-role caller bypassing the edge function, same shape and same
-  reason as the `platform_admin` refusal); then the profile insert joins the transaction. For an
+  reason as the `platform_admin` refusal; **the handle binding is gate-1 ruling F4 — existence
+  alone would let a service-role caller commit a profile under a handle the account never
+  linked**); then the profile insert joins the transaction. For an
   NGO — all four github parameters must be null (raise otherwise; the mirror of the
   organisation-name rule). Privilege posture identical: revoke from PUBLIC, grant EXECUTE to
   service_role, `security definer set search_path = ''`.
@@ -145,12 +172,22 @@ backend consequence, not one of the four named auth screens. Same reasoning that
 AT-001.03's Google-volunteer half and AT-001.06's volunteer actor currently complete signup with
 no GitHub identity — exactly what this item makes impossible. Each gains one
 `linkGithubIdentity` call before its completion. **Their assertions do not change**; their
-meaning (Google-vs-email equivalence; the NGO-only refusal) is untouched. Comments in the suite
-and in `_fixture.ts`/`_contract.ts` that state the pre-gate world ("the shipped path never
-receives a provider", the file-header sentence "the other three belong to the GitHub leaf") are
-corrected in the same edit — after this item they would be false statements of fact, which is
-the audit's first box. `LEAF.D1_L2` in `_pending.ts` loses its last users and is removed
-(the orphan rule).
+meaning (Google-vs-email equivalence; the NGO-only refusal) is untouched.
+
+**Comment handling, corrected by gate-1 ruling F5 — two different cases, not one:**
+- **RETAINED as true:** the load-bearing comment at `a-signup-and-signin.test.ts` lines 151–163
+  ("the shipped path ignores the provider BECAUSE IT NEVER RECEIVES ONE"). D-B adds a fact about
+  linked identities, not the session's establishing provider; the decision path still cannot
+  branch on email-vs-Google, which is exactly why AT-001.03's equivalence claim stays narrow.
+  Only its one stale mechanical clause — "the adapter's `completeSignup` passes only
+  `session.accountId`" — is updated to name the caller fact, plus one added sentence: a
+  linked-GitHub fact is not the session provider, and the equivalence claim stays exactly as
+  narrow as before.
+- **CORRECTED as false:** the file-header sentence "the other three belong to the GitHub leaf",
+  the `notLanded` stubs, and any comment stating the volunteer branch is ungated — after this
+  item those are false statements of fact, which is the audit's first box.
+
+`LEAF.D1_L2` in `_pending.ts` loses its last users and is removed (the orphan rule).
 
 ### D-J — Config: `[auth.external.github]` added; `enable_manual_linking` flipped to true
 The github block mirrors the google one: `enabled = true`, `client_id`/`secret` via
@@ -224,6 +261,9 @@ GitHub ids are pending or the volunteer branch ungated.
     asserted by value, `topLanguages` non-empty and equal to the stub's judgement for that
     handle, `repositoryCount` a non-negative number, `contributionSummary` a non-empty string —
     and the population is observable IMMEDIATELY after completion returns (no queue to drain).
+    **Pre-completion negative (gate-1 ruling F1): after `linkGithubIdentity` and BEFORE
+    completion, `volunteerProfile(accountId)` is null — population is CAUSED by completion, and
+    nothing sits queued.**
     Asserting the stub's exact values is honest here because the stub IS the declared import
     fixture; the test comment must say the source is the stub, so the green cannot be read as a
     real import.
@@ -241,7 +281,10 @@ transcript in `proof-local.txt`. It is evidence-gathering, run once, never a gua
   database function directly with github parameters on an NGO completion raises;
   (d) the defence-in-depth holds: `public.complete_signup` called directly with the service role
   for a volunteer WITH github parameters but NO `auth.identities` row raises; with an identities
-  row but null stats parameters raises;
+  row but null stats parameters raises; **with an identities row but EMPTY `'{}'::text[]`
+  languages raises — the empirical check of ruling F2's NULL-semantics claim on the migrated
+  database; and with an identities row carrying handle X but `p_github_handle` Y and non-empty
+  stats raises — ruling F4's mismatched-handle negative;**
   (e) atomicity: a volunteer completion forced to fail partway leaves no account, no profile,
   no acknowledgment row;
   (f) `/auth/v1/settings` reports github enabled; **(f2), conditional exactly like the
@@ -273,6 +316,13 @@ configured, that any OAuth handshake or real import works. That half's only evid
 step-6 transcript, one machine, not reproducible by a reviewer.
 
 ## 5. Seen, deliberately not touched
+- **Post-signup unlinking (gate-1 ruling F3, FILED):** `enable_manual_linking = true` also opens
+  Auth's unlink surface, and a Google+GitHub volunteer could unlink GitHub after signup. No
+  acceptance id in AT-REQ-001 addresses post-signup identity lifecycle, and AT-001.08's
+  retirement says the PRD deliberately defines no linking policy — so guarding it here would be
+  shipped behaviour no ratified text asks for. The product question goes up through
+  PHASE-STATE.md for the coordinator to file. Nothing this item ships calls unlink; an unlink
+  would remove the return-visit sign-in path while the imported profile row persists.
 - `AGENTS.md` staleness — pre-existing, filed by the predecessor, still not this item's.
 - The acceptance file and the manifest — read-only here; changes go through `/doc-sync`.
 - `create-organization`, the four existing tables, all existing policies — untouched.
@@ -288,8 +338,10 @@ step-6 transcript, one machine, not reproducible by a reviewer.
    only caller is `complete-signup/index.ts`, updated in the same change; the drop+recreate is
    one migration, one transaction.
 3. **GoTrue's github `identity_data` field is not `user_name`** when a real OAuth app arrives.
-   Confined to `extractGithubHandle` by design; a one-line change for the leaf that first drives
-   a real handshake.
+   Two readers of that field now exist (gate-1 ruling F4): `extractGithubHandle` and the
+   handle-binding check inside `public.complete_signup`. The leaf that first drives a real
+   handshake changes the extractor in place and recreates the function in a follow-up migration
+   — a two-place change, named here so it is not discovered as a surprise.
 4. **`enable_manual_linking = true` changes some default behaviour the existing four green tests
    feel.** Implausible (it gates an API surface nothing here calls), and step 7 re-runs the whole
    surface either way.
