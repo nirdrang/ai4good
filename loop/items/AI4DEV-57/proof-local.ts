@@ -30,19 +30,48 @@ import { SQL } from 'bun';
 
 /* ------------------------------------------------------------------------ reporting machinery */
 
-type Check = { id: string; title: string; passed: boolean; note: string };
+/**
+ * THREE OUTCOMES, NOT TWO, and the third is the reason this shape exists.
+ *
+ * A skipped check used to be stored as `passed: true`, which meant it was counted among the passes
+ * and `ALL CHECKS PASSED` printed over a check that never ran — while the docstring beside it said
+ * "never as a pass". The check most likely to be skipped is the Google one, so the failure mode was
+ * this item claiming a Google proof it had not performed. A skip is now distinguishable in the
+ * stored result, in the tally, AND in the verdict; nothing false was ever produced, because the
+ * script had not been run when this was found.
+ */
+type Outcome = 'pass' | 'fail' | 'skip';
+type Check = { id: string; title: string; outcome: Outcome; note: string };
 
 const results: Check[] = [];
 
 function record(id: string, title: string, passed: boolean, note: string): void {
-  results.push({ id, title, passed, note });
+  results.push({ id, title, outcome: passed ? 'pass' : 'fail', note });
   console.log(`${passed ? 'PASS' : 'FAIL'}  (${id}) ${title}\n        ${note}`);
 }
 
-/** A check that could not be attempted. Reported as SKIPPED and never as a pass. */
+/**
+ * A check that could not be attempted. Never a pass, and never a failure either — the distinction
+ * is the whole point: a skip says the evidence is MISSING, which is different from the claim being
+ * false, and both are different from the claim being proved.
+ */
 function skip(id: string, title: string, why: string): void {
-  results.push({ id, title, passed: true, note: `SKIPPED — ${why}` });
+  results.push({ id, title, outcome: 'skip', note: `SKIPPED — ${why}` });
   console.log(`SKIP  (${id}) ${title}\n        ${why}`);
+}
+
+/**
+ * A MEASUREMENT, not an assertion. Some questions this script asks have no known right answer to
+ * assert against — what the local gateway does to a client-supplied header is one — and inventing a
+ * desired value to compare with would turn an observation into a claim. These are recorded, printed,
+ * and counted separately from the checks; they can never make the run fail, and they can never make
+ * it look greener either.
+ */
+const observations: { id: string; title: string; note: string }[] = [];
+
+function observe(id: string, title: string, note: string): void {
+  observations.push({ id, title, note });
+  console.log(`OBS   (${id}) ${title}\n        ${note}`);
 }
 
 function fail(message: string): never {
@@ -106,26 +135,40 @@ async function signIn(email: string, password = PASSWORD): Promise<{ ok: boolean
 
 /* ------------------------------------------------------------------------ the edge functions */
 
+type FunctionResponse = {
+  status: number;
+  headers: Headers;
+  body: { ok?: boolean; reason?: string; accountId?: string; organizationId?: string | null };
+};
+
+/**
+ * `forwardedFor` is a parameter rather than a constant because check (n) needs to send NO
+ * `x-forwarded-for` at all, and a header you cannot omit is a variable you cannot measure. `null`
+ * omits it; anything else is sent as given.
+ */
 async function callFunction(
   name: string,
   session: AuthSession,
   body: unknown,
-): Promise<{ status: number; body: { ok?: boolean; reason?: string; accountId?: string; organizationId?: string | null } }> {
+  forwardedFor: string | null = CLIENT_IP,
+): Promise<FunctionResponse> {
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    apikey: PUBLIC_KEY,
+    Authorization: `Bearer ${session.accessToken}`,
+  };
+  // The address the acknowledgment records. Kong sits in front of the function and may prepend its
+  // own hop, and `callerIp` takes the FIRST entry of the chain — which is the original client — so
+  // check (a) asserts that an address was recorded and prints the value rather than pinning a string
+  // this script cannot fully control. What the local gateway ACTUALLY does with this header is
+  // measured, not assumed, in (n).
+  if (forwardedFor !== null) headers['x-forwarded-for'] = forwardedFor;
   const response = await fetch(`${API_URL}/functions/v1/${name}`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      apikey: PUBLIC_KEY,
-      Authorization: `Bearer ${session.accessToken}`,
-      // The address the acknowledgment records. Kong sits in front of the function and may prepend
-      // its own hop, and `callerIp` takes the FIRST entry of the chain — which is the original
-      // client — so check (a) asserts that an address was recorded and prints the value rather than
-      // pinning a string this script cannot fully control.
-      'x-forwarded-for': CLIENT_IP,
-    },
+    headers,
     body: JSON.stringify(body),
   });
-  return { status: response.status, body: (await response.json()) as Record<string, never> };
+  return { status: response.status, headers: response.headers, body: (await response.json()) as Record<string, never> };
 }
 
 /* =============================================================================================
@@ -292,23 +335,45 @@ record(
 );
 
 /* =============================================================================================
- * (f2) THE HANDSHAKE WIRING — and ONLY if a real credential is in the environment.
+ * (f2) THE HANDSHAKE WIRING — and ONLY if a REAL credential is in the environment.
  *
- * If `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` is unset this is SKIPPED and said so plainly. That
- * is the expected case: creating the OAuth client is a founder-manual step. A placeholder proves
- * the block is well-formed, which is (f), and NOTHING MORE — dressing one up as this check would
- * be manufacturing evidence.
+ * THREE STATES, NOT TWO, and the middle one is why this check needed fixing before it ever ran.
+ * This used to treat any non-empty client id as a credential. The local Auth server builds its
+ * authorize URL out of whatever is configured WITHOUT EVER CONTACTING GOOGLE, so a placeholder —
+ * which the plan explicitly permits in the git-ignored `.env.local` so the stack can start — would
+ * appear in the redirect, match itself, and PASS. That is a proof of nothing, dressed as the one
+ * proof this item cannot otherwise get.
+ *
+ *   absent      → SKIP. The expected case: creating the OAuth client is a founder-manual step.
+ *   placeholder → SKIP, said in those words. (f) still holds — the block is well-formed and Auth
+ *                 reports Google enabled — and that is all a placeholder can ever establish.
+ *   credential  → the check is performed.
+ *
+ * THE RULE USED TO TELL THEM APART, stated here so the transcript carries it rather than leaving a
+ * reader to infer it: every Google OAuth client id ends in `.apps.googleusercontent.com`. A value
+ * that does not is not a Google client id, whatever else it may be. This is a test of SHAPE and not
+ * of validity — it cannot tell a real client id from a well-shaped invented one, and it is not
+ * asked to: it is asked to stop a placeholder being counted as evidence, and a placeholder nobody
+ * built to defeat this check will not have that suffix.
  *
  * No redirect is followed and no credential is entered. What is read is the Location header of the
  * FIRST response, which is where the configured client id becomes observable.
  * ============================================================================================= */
 
 const configuredClientId = process.env.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID?.trim();
+const looksLikeARealClientId = configuredClientId?.endsWith('.apps.googleusercontent.com') === true;
+
 if (!configuredClientId) {
   skip(
     'f2',
     'the configured Google client id reaches the provider handshake',
-    'SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID is not set in this environment. Creating the OAuth client is a founder-manual step, so this is the expected case and not a failure. (f) above still holds: the block is well-formed and Auth reports Google enabled. This check stays unperformed rather than being faked with a placeholder.',
+    'SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID is ABSENT from this environment. Creating the OAuth client is a founder-manual step, so this is the expected case and not a failure. (f) above still holds: the block is well-formed and Auth reports Google enabled. This check stays unperformed rather than being faked.',
+  );
+} else if (!looksLikeARealClientId) {
+  skip(
+    'f2',
+    'the configured Google client id reaches the provider handshake',
+    `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID is set to a PLACEHOLDER, not a credential: ${JSON.stringify(configuredClientId)} does not end in ".apps.googleusercontent.com", which every Google OAuth client id does. The local Auth server would put this value in its authorize URL without ever contacting Google, so performing the check would compare the placeholder with itself and report a pass. It is skipped instead. What a placeholder does establish is (f): the provider block is well-formed and the stack starts with it.`,
   );
 } else {
   const authorize = await fetch(`${API_URL}/auth/v1/authorize?provider=google`, {
@@ -453,14 +518,185 @@ record(
   `HTTP ${directCall.status} ${directBody} · accounts rows for that user: ${guardRows.length}`,
 );
 
+/* =============================================================================================
+ * (k) A SERVICE-ROLE DIRECT INSERT INTO public.accounts IS REFUSED — at the PRIVILEGE layer.
+ *
+ * THIS IS THE EVIDENCE FOR THIS ITEM'S STRONGEST SENTENCE, which until now had none. The migration,
+ * the plan's step 7(g) and a previous sitting's ruling all assert that there is no key-reachable
+ * write path into `public.accounts` at all, so `complete_signup`'s platform_admin refusal "is not a
+ * second guard beside a first — it is the only door". That sentence covers the SERVICE ROLE, and
+ * check (e) does not: (e) uses the AUTHENTICATED key, and nothing anywhere in this script attempted
+ * a write with the service key.
+ *
+ * THE LAYER IS THE POINT, and it is a DIFFERENT layer from (e)'s. `authenticated` holds INSERT on
+ * this table, so its attempt reaches row-level security and is refused there ("new row violates
+ * row-level security policy"). `service_role` holds SELECT and nothing else, so its attempt never
+ * reaches row-level security at all — which is fortunate, because the service role BYPASSES
+ * row-level security, and if it held the privilege the refusal would not happen. The expected
+ * message is therefore "permission denied for table accounts", and it is asserted rather than
+ * merely "something failed": naming the layer is the whole difference between this proof and (e)'s.
+ * ============================================================================================= */
+
+const serviceInsertTarget = await signUp(address('service-role-insert'));
+const serviceInsert = await fetch(`${API_URL}/rest/v1/accounts`, {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+    apikey: SECRET_KEY,
+    Authorization: `Bearer ${SECRET_KEY}`,
+    Prefer: 'return=representation',
+  },
+  body: JSON.stringify({ id: serviceInsertTarget.userId, account_type: 'platform_admin' }),
+});
+const serviceInsertBody = await serviceInsert.text();
+const serviceInsertRows = await sql`select 1 from public.accounts where id = ${serviceInsertTarget.userId}`;
+
+record(
+  'k',
+  'a SERVICE-ROLE insert into public.accounts is refused for want of the privilege, and writes nothing',
+  serviceInsert.status >= 400 && /permission denied for table accounts/i.test(serviceInsertBody) && serviceInsertRows.length === 0,
+  `HTTP ${serviceInsert.status} ${serviceInsertBody} · accounts rows for that user: ${serviceInsertRows.length}`,
+);
+
+/* =============================================================================================
+ * (l) THE create_organization BACKSTOP — the database refusing a volunteer with no TypeScript in
+ *     the path.
+ *
+ * The mirror of (j), for the other two-write function. `ngoOnlyActionAllowed` lives in an edge
+ * function entry point that NO TYPE-CHECKER COVERS, and `service_role` holds EXECUTE on this
+ * database function, so a service-role caller reaches it with the deciding code bypassed entirely.
+ * The refusal below is the one that still fires in that case.
+ *
+ * The user-facing refusal is still the shared module's — that is what (d) drives, through the edge
+ * function, and what AT-001.06 grades. This is a backstop, and the check is written to show which
+ * of the two answered.
+ * ============================================================================================= */
+
+const BACKSTOP_ORG = 'Backstop Probe Organisation';
+const backstopCall = await fetch(`${API_URL}/rest/v1/rpc/create_organization`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', apikey: SECRET_KEY, Authorization: `Bearer ${SECRET_KEY}` },
+  body: JSON.stringify({ p_account_id: volunteer.userId, p_name: BACKSTOP_ORG }),
+});
+const backstopBody = await backstopCall.text();
+const backstopOrgs = await sql`select 1 from public.organizations where name = ${BACKSTOP_ORG}`;
+
+record(
+  'l',
+  'the database refuses an organisation for a volunteer account even when called directly with the service role',
+  backstopCall.status >= 400 && /NGO-only action/i.test(backstopBody) && backstopOrgs.length === 0,
+  `HTTP ${backstopCall.status} ${backstopBody} · organisations by that name: ${backstopOrgs.length}`,
+);
+
+/* =============================================================================================
+ * (m) THE BROWSER PREFLIGHT — because an endpoint no browser can call is an unfinished server half.
+ *
+ * A signup from the app origin is a cross-origin authenticated JSON request, so the browser sends
+ * an `OPTIONS` first and will not make the real call unless the answer permits the method and every
+ * header. Both function entry points refuse any method that is not POST, so before the fix this was
+ * a 405 and the whole signup screen would have failed with an unexplained network error.
+ *
+ * WHAT THIS PROVES IS THE LOCAL GATEWAY AND THE LOCAL EDGE RUNTIME — the Kong and the Deno running
+ * on this machine. IT DOES NOT PROVE THE HOSTED GATEWAY, which is a different deployment with its
+ * own configuration and is not observable from here. The claims table says so in those words.
+ * ============================================================================================= */
+
+const preflight = await fetch(`${API_URL}/functions/v1/complete-signup`, {
+  method: 'OPTIONS',
+  headers: {
+    Origin: 'http://localhost:3000',
+    'access-control-request-method': 'POST',
+    'access-control-request-headers': 'authorization, apikey, content-type, x-client-info',
+  },
+});
+const allowHeaders = (preflight.headers.get('access-control-allow-headers') ?? '').toLowerCase();
+const requiredHeaders = ['authorization', 'apikey', 'content-type', 'x-client-info'];
+const preflightOk =
+  preflight.status >= 200 &&
+  preflight.status < 300 &&
+  (preflight.headers.get('access-control-allow-origin') ?? '') !== '' &&
+  requiredHeaders.every((header) => allowHeaders.includes(header)) &&
+  (preflight.headers.get('access-control-allow-methods') ?? '').toUpperCase().includes('POST');
+// The POST answer must carry them too: a preflight that passes and a real response with no
+// access-control header still leaves the browser unable to read the body.
+const postCarriesCors = (completion.headers.get('access-control-allow-origin') ?? '') !== '';
+
+record(
+  'm',
+  'the LOCAL gateway answers a browser preflight and the POST response carries the access-control headers',
+  preflightOk && postCarriesCors,
+  `preflight HTTP ${preflight.status} · allow-origin=${preflight.headers.get('access-control-allow-origin') ?? '<none>'}` +
+    ` · allow-headers=${preflight.headers.get('access-control-allow-headers') ?? '<none>'}` +
+    ` · allow-methods=${preflight.headers.get('access-control-allow-methods') ?? '<none>'}` +
+    ` · the earlier POST's allow-origin=${completion.headers.get('access-control-allow-origin') ?? '<none>'}` +
+    ' · this is the LOCAL Kong and edge runtime; it says nothing about the hosted gateway',
+);
+
+/* =============================================================================================
+ * (n) WHAT THE LOCAL GATEWAY ACTUALLY DOES WITH `x-forwarded-for` — A MEASUREMENT, NOT A CHECK.
+ *
+ * Four separate readings of one review finding said the acknowledgment's IP is client-controlled,
+ * and every one of them marked itself unverified: what the local Kong and the hosted edge runtime
+ * do to a client-supplied `x-forwarded-for` cannot be settled by reading code. It can be settled by
+ * running it, on the local stack, which is what this does.
+ *
+ * TWO CALLS: one sending NO header at all, one sending a SPOOFED address that is not this machine.
+ * The stored `acknowledgments.ip` is read back after each. NOTHING IS ASSERTED — there is no known
+ * right answer to compare against, and inventing one would turn an observation into a claim. The
+ * transcript records what arrived; what the deployed trust model should be is settled by whoever
+ * lands the hosted deployment, with the real proxy chain in front of them.
+ * ============================================================================================= */
+
+const SPOOFED_IP = '198.51.100.99';
+
+const noHeaderUser = await signUp(address('ip-no-header'));
+const noHeaderCompletion = await callFunction(
+  'complete-signup',
+  noHeaderUser,
+  { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+  null,
+);
+const noHeaderIp = await sql`select host(ip) as ip, ip is null as is_null from public.acknowledgments where account_id = ${noHeaderUser.userId}`;
+
+const spoofedUser = await signUp(address('ip-spoofed'));
+const spoofedCompletion = await callFunction(
+  'complete-signup',
+  spoofedUser,
+  { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+  SPOOFED_IP,
+);
+const spoofedIp = await sql`select host(ip) as ip, ip is null as is_null from public.acknowledgments where account_id = ${spoofedUser.userId}`;
+
+observe(
+  'n',
+  'what the local gateway does to a client-supplied x-forwarded-for (measured, asserts nothing)',
+  `NO header sent → completion HTTP ${noHeaderCompletion.status}, acknowledgments.ip = ${JSON.stringify(noHeaderIp)}` +
+    ` · SPOOFED header ${SPOOFED_IP} sent → completion HTTP ${spoofedCompletion.status}, acknowledgments.ip = ${JSON.stringify(spoofedIp)}` +
+    ` · for comparison, the honest first call (a) sent ${CLIENT_IP} and recorded ${JSON.stringify(ackRows.map((row) => row.ip))}`,
+);
+
 /* ----------------------------------------------------------------------------------- verdict */
 
 await sql.end();
 
-const failed = results.filter((check) => !check.passed);
-console.log(`\n${results.length} checks · ${results.length - failed.length} passed · ${failed.length} failed`);
+const passed = results.filter((check) => check.outcome === 'pass');
+const failed = results.filter((check) => check.outcome === 'fail');
+const skipped = results.filter((check) => check.outcome === 'skip');
+
+console.log(
+  `\n${results.length} checks · ${passed.length} passed · ${failed.length} failed · ${skipped.length} skipped` +
+    ` · ${observations.length} measurements recorded (which assert nothing)`,
+);
+if (skipped.length) console.log(`SKIPPED: ${skipped.map((check) => `(${check.id})`).join(' ')}`);
 if (failed.length) {
   console.log(`FAILED: ${failed.map((check) => `(${check.id})`).join(' ')}`);
   process.exit(1);
+}
+if (skipped.length) {
+  // NOT `ALL CHECKS PASSED`, deliberately. Everything that ran passed; something did not run, and a
+  // verdict that says "all passed" over a check nobody performed is exactly the false certificate
+  // this wording exists to prevent.
+  console.log(`EVERY CHECK THAT RAN PASSED — ${skipped.length} DID NOT RUN, so this run does not certify them`);
+  process.exit(0);
 }
 console.log('ALL CHECKS PASSED');
