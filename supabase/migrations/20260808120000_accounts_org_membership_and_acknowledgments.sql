@@ -94,6 +94,8 @@ create function public.has_platform_acknowledgment(p_account_id uuid)
 returns boolean
 language sql
 stable
+security definer
+set search_path = ''
 as $$
   select exists (
     select 1
@@ -137,6 +139,26 @@ create function public.complete_signup(
 )
 returns jsonb
 language plpgsql
+-- SECURITY DEFINER, and this is what makes the guard below MEAN something.
+--
+-- Measured on the replayed database: `service_role` holds no SELECT and no INSERT on any of these
+-- four tables. It has BYPASSRLS, which is why it is easy to assume it can do anything, and it
+-- cannot — row-level security and table privileges are different mechanisms and only the first is
+-- bypassed. So a SECURITY INVOKER function called with the service role fails on its first insert,
+-- and both edge functions would have been broken against the real database.
+--
+-- The fix could have been `grant insert on … to service_role`, and that would have been worse. It
+-- would give the service role a direct write path into `public.accounts`, so anyone holding that
+-- key could write `account_type = 'platform_admin'` straight into the table and never come near the
+-- refusal below — and the whole point of that refusal is that it sits on the ONLY write path.
+-- Running as the owner instead, with no table privileges granted to the service role at all, is
+-- what makes "the only write path" literally true.
+--
+-- `set search_path = ''` is mandatory on a definer function and every name below is
+-- schema-qualified for it. Without it, a caller who can create objects in a schema earlier in the
+-- path can make this function resolve their table instead of ours, while running as the owner.
+security definer
+set search_path = ''
 as $$
 declare
   v_account_type public.account_type;
@@ -233,6 +255,11 @@ create function public.create_organization(
 )
 returns jsonb
 language plpgsql
+-- SECURITY DEFINER for the same measured reason as `complete_signup`: the service role has no
+-- INSERT on `public.organizations` or `public.org_memberships`, so an invoker function would fail
+-- on its first write.
+security definer
+set search_path = ''
 as $$
 declare
   v_organization_id uuid;
@@ -284,6 +311,21 @@ alter table public.acknowledgments enable row level security;
 -- something failed. The other three tables get no grant and are unreachable through the Data API
 -- entirely, which is stricter still.
 grant select, insert on public.accounts to authenticated;
+
+-- THE ONE PRIVILEGE THE SERVICE ROLE HOLDS ON A TABLE, and it is a read.
+--
+-- `create-organization` asks the Data API for the caller's `account_type` before deciding, and that
+-- read is the only thing on either edge-function path that does not go through one of the functions
+-- above. Everything that WRITES goes through a SECURITY DEFINER function, so the service role has
+-- no INSERT anywhere in this schema — which is what stops the service-role key from writing
+-- `account_type = 'platform_admin'` directly past `complete_signup`'s refusal.
+--
+-- A consequence worth stating rather than discovering later: a platform administrator therefore
+-- cannot be provisioned with the service-role key either. Provisioning one is a direct database
+-- operation by an operator. That is a narrower authority than the service role, not a wider one,
+-- and it keeps "provisioned, never self-signed-up" (AT-001.07) true of every path a running service
+-- has access to.
+grant select on public.accounts to service_role;
 
 -- THE REVOKE IS THE LOAD-BEARING HALF, AND IT WAS FOUND BY MEASURING RATHER THAN BY REASONING.
 --

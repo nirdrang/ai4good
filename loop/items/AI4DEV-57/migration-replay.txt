@@ -149,3 +149,133 @@ API (PostgREST issues no TRUNCATE and no CREATE TRIGGER), and none of the three 
 can open a direct database connection. Changing the platform's default privileges is
 a repository-wide decision and is not this leaf's to make - recorded here so the next
 reader does not have to rediscover it.
+
+================================================================================
+THIRD REPLAY - after the SECURITY DEFINER correction. This is the current state.
+Captured 2026-08-08T11:54:00.0791131+03:00
+================================================================================
+
+WHAT THE SECOND MEASUREMENT FOUND, and it would have broken both edge functions
+--------------------------------------------------------------------------------
+
+Probing table privileges by role reported:
+
+    SELECT  accounts service_role=false  acknowledgments false  org_memberships false  organizations false
+    INSERT  accounts service_role=false  acknowledgments false  org_memberships false  organizations false
+
+service_role held NOTHING on any of the four tables. It has BYPASSRLS, which is why it is easy
+to assume it can do anything - and it cannot: row-level security and table privileges are
+different mechanisms, and only the first is bypassed. Both edge functions call the database
+functions with the service-role key, and those functions were SECURITY INVOKER, so every write
+would have failed with "permission denied for table accounts". create-organization's direct read
+of the caller's account type would have failed the same way.
+
+Two fixes were available and they are not equivalent.
+
+  * grant insert ... to service_role would work and would be WORSE. It gives the service-role
+    key a direct write path into public.accounts, so anyone holding it could write
+    account_type = 'platform_admin' straight into the table and never reach complete_signup's
+    refusal - and the entire value of that refusal is that it sits on the only write path.
+  * SECURITY DEFINER on the three functions, with set search_path = '', and NO table privileges
+    for the service role at all. The functions run as the owner; the service role can perform
+    exactly the three operations they expose and nothing else.
+
+The second was taken. Measured after the correction:
+
+--- roles ---
+[{"rolname":"anon","rolbypassrls":false,"rolsuper":false},{"rolname":"authenticated","rolbypassrls":false,"rolsuper":false},{"rolname":"postgres","rolbypassrls":true,"rolsuper":false},{"rolname":"service_role","rolbypassrls":true,"rolsuper":false}]
+--- SELECT ---
+[{"relname":"accounts","service_role":true,"authenticated":true,"anon":false},{"relname":"acknowledgments","service_role":false,"authenticated":false,"anon":false},{"relname":"org_memberships","service_role":false,"authenticated":false,"anon":false},{"relname":"organizations","service_role":false,"authenticated":false,"anon":false}]
+--- INSERT ---
+[{"relname":"accounts","service_role":false,"authenticated":true,"anon":false},{"relname":"acknowledgments","service_role":false,"authenticated":false,"anon":false},{"relname":"org_memberships","service_role":false,"authenticated":false,"anon":false},{"relname":"organizations","service_role":false,"authenticated":false,"anon":false}]
+
+
+service_role now holds SELECT on public.accounts (create-organization reads the caller's account
+type before deciding) and INSERT on nothing anywhere. complete_signup is now literally the only
+write path into public.accounts that any running service can reach.
+
+ONE CONSEQUENCE, stated here rather than discovered later: a platform administrator cannot be
+provisioned with the service-role key either. Provisioning is a direct database operation by an
+operator - a NARROWER authority than the service role, not a wider one. The plan's step 7(g)
+describes provisioning as "a service-role write"; it is not one, and proof-local.ts says so where
+it does the provisioning.
+
+FULL INTROSPECTION OF THE CURRENT SCHEMA
+----------------------------------------
+
+--- enums created in public ---
+{"enum_name":"account_type","labels":"ngo, volunteer, platform_admin"}
+{"enum_name":"org_role","labels":"admin, member"}
+
+--- tables in public, with row-level security enabled and policy count ---
+{"table_name":"accounts","rls_enabled":true,"policies":"0"}
+{"table_name":"acknowledgments","rls_enabled":true,"policies":"0"}
+{"table_name":"org_memberships","rls_enabled":true,"policies":"0"}
+{"table_name":"organizations","rls_enabled":true,"policies":"0"}
+
+--- columns of the four tables ---
+{"table_name":"accounts","column_name":"id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"accounts","column_name":"account_type","data_type":"USER-DEFINED","is_nullable":"NO"}
+{"table_name":"accounts","column_name":"created_at","data_type":"timestamp with time zone","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"account_id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"kind","data_type":"text","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"acknowledged_at","data_type":"timestamp with time zone","is_nullable":"NO"}
+{"table_name":"acknowledgments","column_name":"ip","data_type":"inet","is_nullable":"YES"}
+{"table_name":"acknowledgments","column_name":"text_version","data_type":"text","is_nullable":"NO"}
+{"table_name":"org_memberships","column_name":"org_id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"org_memberships","column_name":"account_id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"org_memberships","column_name":"role","data_type":"USER-DEFINED","is_nullable":"NO"}
+{"table_name":"org_memberships","column_name":"created_at","data_type":"timestamp with time zone","is_nullable":"NO"}
+{"table_name":"organizations","column_name":"id","data_type":"uuid","is_nullable":"NO"}
+{"table_name":"organizations","column_name":"name","data_type":"text","is_nullable":"NO"}
+{"table_name":"organizations","column_name":"created_at","data_type":"timestamp with time zone","is_nullable":"NO"}
+
+--- check and key constraints ---
+{"on_table":"accounts","conname":"accounts_id_fkey","definition":"FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"}
+{"on_table":"accounts","conname":"accounts_pkey","definition":"PRIMARY KEY (id)"}
+{"on_table":"acknowledgments","conname":"acknowledgments_account_id_fkey","definition":"FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE"}
+{"on_table":"acknowledgments","conname":"acknowledgments_kind_check","definition":"CHECK ((length(btrim(kind)) > 0))"}
+{"on_table":"acknowledgments","conname":"acknowledgments_pkey","definition":"PRIMARY KEY (id)"}
+{"on_table":"acknowledgments","conname":"acknowledgments_text_version_check","definition":"CHECK ((length(btrim(text_version)) > 0))"}
+{"on_table":"org_memberships","conname":"org_memberships_account_id_fkey","definition":"FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE"}
+{"on_table":"org_memberships","conname":"org_memberships_org_id_fkey","definition":"FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"}
+{"on_table":"org_memberships","conname":"org_memberships_pkey","definition":"PRIMARY KEY (org_id, account_id)"}
+{"on_table":"organizations","conname":"organizations_name_check","definition":"CHECK ((length(btrim(name)) > 0))"}
+{"on_table":"organizations","conname":"organizations_pkey","definition":"PRIMARY KEY (id)"}
+
+--- functions in public ---
+{"proname":"complete_signup","arguments":"p_account_id uuid, p_account_type text, p_organization_name text, p_acknowledgment_text_version text, p_ip inet","returns":"jsonb","security_definer":true}
+{"proname":"create_organization","arguments":"p_account_id uuid, p_name text","returns":"jsonb","security_definer":true}
+{"proname":"has_platform_acknowledgment","arguments":"p_account_id uuid","returns":"boolean","security_definer":true}
+
+--- policies in public (expected: none) ---
+
+--- Data API grants on the four tables ---
+{"table_name":"accounts","grantee":"anon","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"accounts","grantee":"authenticated","privileges":"INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE"}
+{"table_name":"accounts","grantee":"service_role","privileges":"REFERENCES, SELECT, TRIGGER, TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"anon","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"authenticated","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"service_role","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"org_memberships","grantee":"anon","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"org_memberships","grantee":"authenticated","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"org_memberships","grantee":"service_role","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"organizations","grantee":"anon","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"organizations","grantee":"authenticated","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+{"table_name":"organizations","grantee":"service_role","privileges":"REFERENCES, TRIGGER, TRUNCATE"}
+
+--- execute grants on the two functions ---
+{"proname":"complete_signup","grantee":"anon","can_execute":false}
+{"proname":"complete_signup","grantee":"authenticated","can_execute":false}
+{"proname":"complete_signup","grantee":"service_role","can_execute":true}
+{"proname":"create_organization","grantee":"anon","can_execute":false}
+{"proname":"create_organization","grantee":"authenticated","can_execute":false}
+{"proname":"create_organization","grantee":"service_role","can_execute":true}
+{"proname":"has_platform_acknowledgment","grantee":"anon","can_execute":false}
+{"proname":"has_platform_acknowledgment","grantee":"authenticated","can_execute":false}
+{"proname":"has_platform_acknowledgment","grantee":"service_role","can_execute":true}
+
+--- supabase_migrations.schema_migrations ---
+{"version":"20260808120000","name":"accounts_org_membership_and_acknowledgments"}
+
