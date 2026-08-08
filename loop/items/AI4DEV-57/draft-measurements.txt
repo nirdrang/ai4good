@@ -134,3 +134,27 @@ function to PUBLIC by default, so the first replay left `anon` able to call `com
 through the Data API. The migration now revokes execute from public on all three functions before
 granting to service_role, and the second replay confirms anon and authenticated can execute none
 of them.
+
+6. un run build MUTATES src/ ON THIS BRANCH - a CI hazard for whoever runs it next
+--------------------------------------------------------------------------------------
+
+Measured: un run build exits 0 and, as a side effect, rewrites src/routeTree.gen.ts,
+appending ten lines - a declare module '@tanstack/react-start' block naming getRouter and
+startInstance. The TanStack router plugin regenerates that file during the build; the committed
+copy is simply out of date with the current plugin version.
+
+WHY IT MATTERS HERE. .github/workflows/ci.yml fails any pull request whose changed files match
+BOTH ^src/ and ^(supabase|tests|loop|.claude|.github)/, printing "split it into two pull
+requests". This branch is entirely in the second territory. So a build run, followed by an
+unexamined git add -A, turns a green pull request into a hard CI failure - and the file looks
+like ordinary generated churn, so it is easy to commit without noticing.
+
+The draft sitting ran the build, saw the modification in git status, and reverted it with
+git restore src/routeTree.gen.ts. The tree ends clean and no src/ file is in this branch's diff.
+
+WHAT TO DO, not fixed here: the stale generated file is a real, pre-existing mismatch and someone
+should regenerate and commit it - but that is a src/-only change and therefore belongs to a
+DIFFERENT pull request by the very rule above. Filed, not built.
+
+ANYONE WHO RUNS un run build ON THIS BRANCH must check git status afterwards and restore
+src/routeTree.gen.ts before committing.
