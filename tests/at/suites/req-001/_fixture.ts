@@ -125,10 +125,15 @@
  *          `provisionPlatformAdmin` returns is this fixture's convenience so AT-001.07 has
  *          something to act with. Nothing asserts an administrator's session layer.
  *   6. LOGGING OUT ENDS THAT SESSION'S ACCESS BEFORE THE ACCESS TOKEN'S OWN EXPIRY.
- *      BOUND — check (c): `POST /auth/v1/logout` with a live token, then the SAME access token at
- *      `/auth/v1/user` and at a DEPLOYED edge function, with the refusal code captured verbatim.
- *      This is the load-bearing vendor claim of AT-001.12's revocation half — a stateless reading
- *      of a JWT would say the token still works — so it is MEASURED and pinned rather than assumed.
+ *      BOUND — check (c): `POST /auth/v1/logout?scope=local` with a live token, then the SAME
+ *      access token at `/auth/v1/user` and at a DEPLOYED edge function, with the refusal code
+ *      captured verbatim. This is the load-bearing vendor claim of AT-001.12's revocation half — a
+ *      stateless reading of a JWT would say the token still works — so it is MEASURED and pinned
+ *      rather than assumed.
+ *      THE SCOPE IS NAMED BECAUSE THE VENDOR'S DEFAULT IS THE OTHER ONE. A plain logout, with no
+ *      scope, ends EVERY session the user holds (`global`); this mirror models one session ending
+ *      (`local`), and check (c) binds it with a sibling session standing as the control. Both
+ *      answers are in `proof-local.txt`, and no acceptance body asserts the difference.
  *   7. AN ACCESS TOKEN STOPS WORKING AT ITS EXPIRY, AND A REFRESH RE-ESTABLISHES ACCESS WITHOUT
  *      CREDENTIALS, INCLUDING AFTER THAT EXPIRY.
  *      BOUND — check (d), against a transiently lowered `jwt_expiry`: the expired token is refused
@@ -772,6 +777,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     //
     // ONE SESSION, NOT THE ACCOUNT. Nothing else about the user changes, which is what lets the
     // body prove re-authentication is the remedy: a fresh sign-in works immediately.
+    //
+    // WHICH SCOPE THIS MIRRORS, said because the vendor's DEFAULT is the other one. MEASURED on the
+    // live stack and recorded in `loop/items/AI4DEV-60/proof-local.txt`: a plain `POST
+    // /auth/v1/logout` ends EVERY session the user holds — it emptied `auth.sessions` — because
+    // GoTrue's default scope is `global`. This member models the `?scope=local` shape, one session
+    // ending, and check (c) binds exactly that: it logs out with `?scope=local` while a SIBLING
+    // session opened by the same account stands as the control, and the sibling still works
+    // afterwards. NO ACCEPTANCE BODY ASSERTS THE DIFFERENCE — every body signs in afresh after a
+    // sign-out, which both scopes permit — so nothing green depends on which one is modelled. It is
+    // written down because an unrecorded vendor default is how a mirror quietly stops matching.
     signOut: async (session) => {
       const stored = state.sessions.get(session.sessionId);
       // A throw, not a silent no-op, for the reason `linkGithubIdentity` gives: a body signing out

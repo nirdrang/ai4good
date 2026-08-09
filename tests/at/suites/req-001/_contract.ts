@@ -299,6 +299,14 @@ export type AccountsSut = {
    * untouched — a fresh sign-in works immediately, which is what makes re-authentication the
    * REMEDY rather than a coincidence.
    *
+   * SO IT MIRRORS THE `?scope=local` SHAPE, AND THE VENDOR'S DEFAULT IS THE OTHER ONE. Measured on
+   * the live stack and recorded in `loop/items/AI4DEV-60/proof-local.txt`: a plain
+   * `POST /auth/v1/logout` carries the `global` scope and ends EVERY session the user holds. The
+   * live counterpart of THIS member is therefore the scoped call, which is what check (c) makes —
+   * with a sibling session as the control, so "this session ended" and "the account's access ended"
+   * cannot be confused. No body in this suite asserts the difference: every one of them signs in
+   * afresh after a sign-out, which both scopes permit.
+   *
    * It returns nothing, and a handle Auth never issued THROWS rather than answering politely: a
    * body signing out a session that does not exist has a bug in the TEST, and a polite outcome
    * would let that bug read as a product refusal further down. Same posture as
