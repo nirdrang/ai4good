@@ -1,80 +1,51 @@
 # PHASE-STATE — AI4DEV-59 (email verification, unverified-write gate)
 
-**Phase just completed:** AUDIT (sitting 5, `orchestrator` on fable, claude-fable-5 @ xhigh),
-2026-08-09 — the sitting that ruled on the panel RE-RUN's findings. This file rides in the
-head that completes the phase; the sitting's completion report names that head, and the
-conductor verifies the report against the remote.
+**THE ITEM IS DONE.** Merge sitting (sitting 6, `orchestrator` on fable, claude-fable-5 @
+xhigh) completed 2026-08-09. There is no next phase.
 
-## What exists now
+## The closing facts, all verified live this sitting
 
-- **The audit re-run is ruled and the audit phase is CLOSED.** The whole panel re-ran at head
-  `6e22564`. Seat A (luna via codex): three findings; boxes rulings-implemented PASS,
-  diff-scope PASS, stated-facts FAIL, runtime COULD-NOT-VERIFY (correct — execution evidence
-  is CI's). Seat B (flash via opencode): first launch crashed on a ripgrep tool-output-size
-  error with NO output — an empty gate is an anomaly, never a clean seat — and the relaunch
-  landed two findings; boxes rulings-implemented PASS, diff-scope PASS, stated-facts FAIL.
-  The seats converged twice, so five raw findings yielded three rulings: `plan.md`
-  section 10, every claim quoted verbatim.
-- **Dispositions:** [M1] accepted, fixed differently — the record over-claimed check (e)'s
-  volunteer predicate ("repeats (a)–(d)"); the record now enumerates exactly what (e)
-  re-asserts and names the three (d)-conjuncts it does not (step 5(e), section 3). The
-  predicate itself is deliberately untouched: no adopted ruling required those conjuncts,
-  and a code change would demand a second panel re-run the once-per-item cap forbids. [M2]
-  accepted — the `stack-up.txt` launch-timestamp contradiction is real; fixed by a dated,
-  attributed annotation appended to the entry, original evidence lines untouched. [M3]
-  accepted — the ambiguous "seats converge on no defect" sentence in section 9 now says the
-  first run's seats' findings were DISJOINT, count of five beside it.
-- **No ruling changed code.** All three fixes are record: `plan.md` (sections 3, 9, 10) and
-  the `stack-up.txt` annotation. The audit re-run trigger is "only if code changed" (the
-  orchestrator contract's caps), so nothing re-arms it; the item's one re-run is spent and
-  stays spent. No executor was spawned this sitting: zero code changes existed, and the
-  record edits ARE the rulings, which the contract assigns to the orchestrator.
-- **Evidence in the record:** both re-run raw outputs, both distillates, seat B's tool-call
-  summary and identity extract were committed at `91b5933`; the rulings and amendments land
-  in this sitting's close commit. Seat B's crashed first launch wrote nothing to commit; its
-  record is section 10's opening and the `91b5933` commit message.
+- **Merged head:** `f877787dc0a047c2c6f0ba6db1bc282586275671` — squash-merged to main as
+  `e2e0799ce89f149e2602494fc404eb731f570daa` at 2026-08-09T17:12:04Z. Confirmed by two
+  instruments: the pull-request API (state MERGED) and a fetch showing that commit as the
+  tip of `origin/main`.
+- **CI:** required check `verify` (workflow "CI", the only required status context on main)
+  green on exactly the merged head — run 31325473331, job 93275013384, created
+  2026-08-09T17:05:03Z, conclusion success. Confirmed against the live API this sitting with
+  the head SHA in the run record.
+- **Merge ruling:** posted on pull request #49 as handed, before the merge —
+  https://github.com/nirdrang/ai4good/pull/49#issuecomment-5232724532 — pinned to the merged
+  head. It records every disposition: gate 1 (4 findings, 4 accepted), gate 2 (12 findings,
+  10 distinct defects, 12 accepted), audit wave 1 (5 findings, 5 accepted or verified), audit
+  wave 2 (5 raw findings, 3 rulings, 3 accepted), both audit seats' box verdicts in both
+  waves, the green-does-and-does-not-claim section, and the statement that no maintained
+  reviewer disagreement exists (zero rejections across the whole item).
+- **Execution:** a mechanical published the ruling and ran the merge (founder ruling
+  2026-08-07: the orchestrator never runs the merge command). The merge command itself was
+  not refused. The mechanical's post-merge READ (`gh pr view`) was refused by the permission
+  classifier; per the workflow the post-merge check is the orchestrator's own step, and the
+  orchestrator ran it in its own session. The denial text is carried verbatim in the merge
+  sitting's completion report for the founder.
+- **Board:** the integration flipped the item In Progress → Done at 2026-08-09T17:12:06Z,
+  two seconds after the merge. Verified in Linear directly. No repair was needed.
+- **Live PR body** was byte-identical to `loop/items/AI4DEV-59/pr-body.md` at ruling time
+  (normalized UTF-8 comparison; a first "mismatch" was this sitting's own instrument error —
+  a line-array capture — re-measured as single strings, exact match). The body names no item
+  id this branch does not own, and the green reference guard agrees.
+- The audit's one re-run was spent in the audit phase (code changed by three wave-1
+  rulings); CI never turned red; no post-merge fix exists; no founder question is open.
 
-## What completes the NEXT phase (MERGE)
+## Handed to the coordinator for filing (in the merge sitting's completion report)
 
-1. The conductor verifies this close push landed (ls-remote tip equals the head the sitting
-   reported), then ARMS the required CI check on that exact head — after the push, never
-   before, because the close commit moved the head. The pull request is already open.
-2. The conductor spawns the MERGE sitting (orchestrator, fable, no isolation) once CI has a
-   result — or with CI pending, for the sitting to hold per its contract's CI
-   classification rules.
-3. The merge ruling is pinned to the exact head and records: what was built; the
-   dispositions of EVERY finding from BOTH panel waves (section 9's five, section 10's
-   three) with both re-run seats' box verdicts beside them; what the green does and does not
-   claim (`plan.md` section 4 — repeat it); and no maintained reviewer disagreement exists —
-   every audit finding was accepted (none rejected), so nothing needs verbatim carriage as a
-   dismissed claim.
-4. A mechanical publishes the ruling and executes the merge; the orchestrator NEVER runs the
-   merge command itself and verifies the merged state afterwards. If the mechanical reports
-   a permission refusal, that is a STOP, reported upward with the exact denial text.
-5. The pull request body must name no item id this branch does not own; other items are
-   named in words.
+1. Pre-existing flaky selftest: `tests/at/harness/runner.selftest.ts` line 222, a stale-lock
+   race on the unchanged tree (evidence: the item's `baseline.txt` appendix).
+2. The Supabase CLI ignores the local `[auth.rate_limit] email_sent` config key; measured
+   this item, recorded in `stack-up.txt`. The container ran with its own default.
+3. `loop/items/` sits outside every typecheck config, so proof scripts there are proved only
+   by hand-scoped compiler runs.
 
-## Notes for the merge sitting
+## Cleanup note for the coordinator's sweep
 
-- **Flake carry-forward:** `tests/at/harness/runner.selftest.ts` line 222, stale-lock race,
-  pre-existing on the unchanged tree (evidence: `baseline.txt` appendix). If CI goes red
-  there: one flake re-run, no new commit; the same failure again → classify pre-existing on
-  main with the baseline appendix as proof — the founder's, never fixed in this branch.
-  Also a candidate standalone item to file.
-- **Candidate item to file:** the CLI ignoring `[auth.rate_limit] email_sent` on the local
-  stack (measured this item, recorded in `stack-up.txt`). Not this item's defect.
-- **Candidate item to file:** `loop/items/` sits outside every typecheck config, so proof
-  scripts there are proved only by hand-scoped compiler runs. Not this item's defect.
-- **Carried-forward instrument thinking (ruling [M1]):** a successor that copies
-  `verificationRoundTrip` into an aggregate check should carry (d)'s status conjuncts, and
-  an ASSERTED tampered-probe outcome, in the aggregate's predicate — never a prose
-  "repeats" claim. Filed thinking, not built.
-- **Noted by the draft sitting, still untouched:** `tests/at/suites/req-001/_bind.ts` line
-  31's "33 not-yet-landed ids" count was stale before this item (baseline truth 30; after
-  this item 28). Outside the plan's surfaces; reported, not fixed.
-
-## Open questions for the founder
-
-None. Nothing contradicts ratified text; no fix grew scope. (The one path that would have
-needed the founder — tightening `proof-local.ts`, a code change needing a second panel
-re-run — was not required for truth and was not taken; ruling [M1] records the reasoning.)
+The fix sitting's local Supabase stack and its `supabase functions serve` process may still
+be running on the machine; they are cleanup, not evidence. The remote item branch still
+exists (the merge did not delete it) and carries this close commit until the sweep.
