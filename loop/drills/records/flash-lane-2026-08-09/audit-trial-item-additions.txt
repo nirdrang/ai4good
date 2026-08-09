@@ -1,0 +1,39 @@
+## This item
+
+The claim under audit: this branch makes the acceptance-test harness derive what it tests instead
+of believing the suite. Before it, the suite's own declared types were trusted; a legacy probe
+(`tests/at/typeprobes/sut-seam-legacy.probe.ts`) compiled CLEAN against the pre-fix source, proving
+a suite could reach members through the SUT seam that nothing verifies. The branch closes that and
+records red-then-green evidence.
+
+## Your subject
+
+You are in the tree at the exact head the merge claim is pinned to. The item's complete record is in
+`loop/items/AI4DEV-31/` — the design, the executor brief, both gate critiques with their rulings,
+and the claimed verification outputs. `SUBJECT-DIFF-CODE.txt` in the repository root is the branch
+diff for the code paths (`tests/**`, `package.json`, `bun.lock`); the record files themselves are
+their own diff — they are all new in this branch.
+
+You will find an older audit brief in the record directory that orders commands to be RUN. That
+brief is superseded: your audit is read-only by design, and execution evidence belongs to the
+required CI check on this commit — cite it, never re-derive it, and never report an execution you
+could not perform as a failure of the code.
+
+The record claims, among others: typecheck exits 0; the loop-tier verify state is UNCHANGED at
+8 green / 4 red; the selftest count moved from 114 to 143; red-then-green is real (the legacy probe
+compiled clean at the pre-fix commit and fails at this head); every Gate 2 blocker was fixed or is
+honestly documented as open — in particular the structural-widening attack is DELIBERATELY not
+fixed, so no comment, README, probe or document may claim it IS fixed; and the branch contains only
+this item's work.
+
+## Additional attack directions for this item
+
+- The record against the tree, file by file. The item's own prose — design, briefs, READMEs,
+  rulings — states many facts about what the code now does and what was deliberately left open.
+  Every one of those sentences is a claim; find the ones the tree no longer honours.
+- Staleness. This record was written across several fix rounds. A sentence true in round one and
+  false at this head is exactly the class of defect no other gate catches.
+- The deliberate non-fix. Verify the structural-widening decision is stated consistently everywhere
+  it is mentioned — a single place that claims it is closed turns an honest limitation into a false
+  claim.
+- Scope. The branch declares its own boundaries; check the diff against them.

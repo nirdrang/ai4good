@@ -45,13 +45,16 @@ The conductor's spawn prompt gives you facts only — no chain, no process instr
 - the gate name (`gate1`, `gate2`, `audit`) and the reviewer's label
 - the **assembled prompt file** path — you never assemble one, and you never edit one
 - the tree path, the artifacts directory, and the output, stderr and distillate paths
+- **on the opencode lane, two more output paths**: the tool-call summary and the identity extract
+  (below). They are committed evidence, so the conductor must know their names to hand them to the
+  mechanical — a run whose cage proof has no agreed path is a run whose proof gets lost.
 - the model and effort pins, verbatim — **you copy them, you never choose them**
 - the conductor's agent id, so you can report to it
 
 Anything missing is a refusal, reported immediately, before you spend a reviewer run. A run
 launched with a guessed pin is evidence about a model nobody chose.
 
-## Step 0 — the three checks, in this order, before you launch anything
+## Step 0 — the four checks, in this order, before you launch anything
 
 **1. Can you write to the artifacts directory — probed with the SAME instrument you will write
 with?** The directory sits **inside** the tree at `loop/items/<item>/artifacts/` (founder ruling
@@ -66,14 +69,34 @@ would then be unable to collect.
 
 **2. Is the prompt clean?** You are the last actor before the launch, and nothing downstream can
 see what a prompt contained — a prompt carrying the system's own description produces a perfectly
-normal-looking review. Search the prompt file for `## Assembly`, `**Pins**`, and the two gate
-headings that are not this reviewer's, out of `## The PLAN review`, `## The DRAFT CODE review`,
-`## The AUDIT`. **Any hit means the prompt is wrong: do not launch, report it, and let the
-orchestrator rewrite it.** This is a text search, not a judgement, which is why it is yours.
+normal-looking review. Search the prompt file for, and refuse on ANY hit:
+- `## Assembly`, and the two gate headings that are not this reviewer's, out of `## The PLAN
+  review`, `## The DRAFT CODE review`, `## The AUDIT`;
+- `**Pins**` **and the tokens a Pins continuation line carries** — the pins block is now several
+  lines, and dropping only the line that starts `**Pins**` leaves the rest. Match the pin SHAPES,
+  not bare words: a model id (`gpt-5.6-`, `opencode-go/`, `kimi-code/`), a launch flag (`--variant`,
+  `--sandbox`), `agent reviewer-flash`, `reader one`/`reader two`, or the trial path `flash-lane-`.
+  Do NOT refuse on bare common words like `flash`, `panel`, or `codex` on their own — an item may
+  legitimately be about a UI panel or about these very contracts, and a substring ban would make
+  its real subject unreviewable. It is the pin-shaped token in metadata position that leaks a peer,
+  not the English word.
+
+**Any hit means the prompt is wrong: do not launch, report it, and let the orchestrator rewrite
+it.** This is a text search, not a judgement, which is why it is yours.
 
 **3. Does the prompt state the write policy in words?** `reviewers.md` carries the sentence and it
 must survive into the assembled file. The sandbox flag alone has not been enough — a read-intended
 reviewer has written probe files into a tree before now.
+
+**4. For an opencode launch only: does the agent file exist at the tree's OWN path —
+`<tree>\.opencode\agent\reviewer-flash.md`?** Check that exact path, never trust directory
+walk-up: opencode resolves agents by walking up from `--dir`, so a worktree missing its copy can
+silently pick up a DIFFERENT version from a parent checkout — or, worse, resolve nothing and fall
+back. **A missing agent name does not fail: opencode prints `agent "<name>" not found. Falling
+back to default agent` and runs its default `build` agent — full write and shell access — at exit
+code 0.** A reviewer that ran that way is not a reviewer; it is an unaudited actor in the tree.
+Missing file is `REFUSED`, before any launch. (Measured live, 2026-08-09: a copy step failed
+silently and the fallback ran a whole prompt under the write-capable default.)
 
 ## Launching — copy these recipes exactly
 
@@ -106,18 +129,104 @@ $p.Id | Set-Content "$artifacts\<name>.pid" -Encoding utf8
 **Write the pid to a file.** Shell state does not survive between your turns, so the process object
 is gone by your next call and the pid file is the only handle you keep.
 
+**opencode (flash) — a hidden PowerShell wrapping a stdin pipe.** This is the shape that ran every
+2026-08-09 trial; do not "simplify" it into a direct `-RedirectStandardInput` on the executable —
+that shape is untested here, and the codex wrapper above is bypassed for exactly this class of
+stdin surprise. **Never drop `--agent`** — the default agent writes.
+
+```powershell
+# $modelPin and $effortPin are the pins the conductor handed you, copied verbatim — NEVER a
+# hard-coded model. The pin is `opencode-go/deepseek-v4-flash` today, but a pin you type instead
+# of copy is a run against a model nobody selected.
+# TWO encodings, not one: -Encoding UTF8 DECODES the prompt file, but piping to a native command in
+# PowerShell 5.1 RE-ENCODES stdin through $OutputEncoding, which defaults to ASCII and turns Hebrew
+# or any non-ASCII item text into question marks before opencode sees it. Set BOTH inside the
+# launched shell, or the reviewer silently critiques a corrupted prompt.
+$cmd = "`$OutputEncoding = [Text.UTF8Encoding]::new(); " +
+       "[Console]::InputEncoding = [Text.UTF8Encoding]::new(); " +
+       "Get-Content '$promptFile' -Raw -Encoding UTF8 | opencode run --dir '$tree' " +
+       "-m $modelPin --agent reviewer-flash --variant $effortPin " +
+       "--pure --format json"
+$p = Start-Process powershell -WindowStyle Hidden -PassThru `
+  -ArgumentList '-NoProfile','-Command',$cmd `
+  -RedirectStandardOutput "$artifacts\<name>.events.jsonl" `
+  -RedirectStandardError  "$artifacts\<name>.stderr.log"
+$p.Id | Set-Content "$artifacts\<name>.pid" -Encoding utf8
+```
+
+Four facts about this lane that differ from codex, all measured, and the post-landing steps they
+force. **This lane's output is a JSON EVENT STREAM, not a findings file** — everything below is how
+you turn it into the raw file the distiller reads.
+
+- **The events file is what you watch and what you extract from — not `$out`.** The generic wait
+  loop and landing test further down search `$out`/`$err`; on this lane there is no `$out`, so
+  **substitute `$artifacts\<name>.events.jsonl` for `$out` in both**, and use the FINAL-ASSISTANT
+  landing test in the next bullet in place of the generic start-of-line count-line match — the two
+  are different tests, not the same one loosened. A runner that watches `$out` here never sees the
+  count line, times out, finds no raw file, and reports a finished review as an empty gate.
+- **The landing test keys on the FINAL ASSISTANT TEXT, never on any match in the stream.** The
+  audit's own subject is the record, which contains prior runs' count lines (`AUDIT: N FINDINGS`
+  strings live under `loop/items/`), and every file the reviewer reads is echoed into a tool-result
+  event. Matching the label anywhere would fire `LANDED` on a file the reviewer merely read. Land
+  only when a `type:"step_finish"` event whose **`part.reason` is `"stop"`** has arrived (that is
+  the field opencode actually emits — there is no top-level `finish`), AND the concatenated
+  `type:"text"` parts of that same final assistant message end in the count line.
+- **Extract the raw file from the final assistant message, then distil from that file.** After
+  landing: parse the events, take the `type:"text"` parts of the final assistant message in order,
+  write them to `<name>.md` with `-Encoding UTF8`, and distil from `<name>.md` — never from the
+  events stream and never from what you saw scroll by.
+- **`--format json` leaves stderr EMPTY on a healthy run** — so an empty stderr is normal here, not
+  evidence; the launch-time stderr read below applies only to what does land there (a usage error,
+  or the `not found. Falling back` fallback warning). **The identity check replaces the codex run
+  header: `opencode export <sessionID>`** (the sessionID is on every event line). The export splits
+  the pin into two fields, so compare them split: assert `providerID` + `/` + `modelID` equals
+  `$modelPin` (today `opencode-go` + `deepseek-v4-flash`), and `agent` equals `reviewer-flash`, on
+  every assistant message. A mismatch is an `INVALID RUN` (see Reporting) — the slot was spent but
+  the output is not trustworthy — report it, do not distil it.
+- **The cage is proven by what ran, not only by the file that configured it.** A branch-modified
+  `reviewer-flash.md` could keep the same name and model while re-enabling write or bash, so the
+  name check is necessary but not sufficient. After landing, assert the tool-call summary contains
+  **only** `read`, `glob` and `grep` events; any `write`, `edit`, `patch`, `bash`, `task` or
+  `webfetch` event is a cage breach — report it as an `INVALID RUN` and do NOT distil, exactly as a
+  write into the tree would be.
+
+**Do NOT commit the raw events stream into the record — commit a tool-call summary instead, and
+DELETE the raw stream before you end.** The stream embeds the full text of every file the reviewer
+read, so a reviewer that reads a gitignored secret (`.env`, a key file) would copy its contents
+into a committed artifact the source file is ignored to prevent. What the record needs is the
+*proof of read-only*: one line per tool event (`tool · target · state`) plus the `opencode export`
+identity extract. Commit those two. **Then remove `<name>.events.jsonl` and `<name>.stderr.log`
+from the artifacts directory** — that directory is inside the tree and is NOT gitignored, so a
+leftover events file makes `git status --porcelain` dirty and the orchestrator cannot reach the
+clean tree it requires before CI. Delete `<name>.pid` too — it is a handle, not evidence, and it
+sits in the same un-ignored directory. The committed record keeps `<name>.md` (the raw findings),
+the tool-call summary, and the identity extract; the events stream, the stderr and the pid are
+working files, not evidence. **This resolves the stderr question for this lane specifically:** the
+conductor's rule to commit every reviewer's stderr is a codex rule, where stderr carries the run
+header and session id — on the opencode lane a healthy run's stderr is empty and the identity
+extract carries that evidence instead, so there is nothing to commit and the file is deleted. On an
+UNhealthy run the runner reports the stderr verbatim and never reaches this cleanup.
+**One residue this does not remove:** `<name>.md` is the reviewer's own words and can still quote a
+secret the reviewer read — the same exposure every committed reviewer output has, codex included.
+That is a general redaction gap, filed for the whole reviewer lane, not solved by this recipe.
+
 **kimi — one quoted command line, never an argument array.** `Start-Process -ArgumentList`
 re-quotes array elements wrongly for this executable and mis-splits ANY multi-word string. It
 failed twice in different ways on one item (`unknown option '--stat\``, then `unknown command
 'the'`), which is why this is not a quoting bug you can escape your way out of.
 
-**KIMI IS STOPPED — DO NOT LAUNCH IT (founder ruling 2026-08-08).** It exhausted its billing-cycle
-quota mid-gate and the founder ruled the draft-code gate down to a single reader rather than buy
-more or substitute another model. The recipe is kept only so restoring it is a decision rather
-than a rediscovery. Launching it now wastes a slot and produces a 403.
+**KIMI IS STOPPED — DO NOT LAUNCH IT (founder ruling 2026-08-08, reaffirmed 2026-08-09).** It
+exhausted its billing-cycle quota mid-gate and the founder ruled the draft-code gate down to one
+reader; on 2026-08-09 flash was seated as the second reader instead, so the gate is a panel of two
+again — but a panel of terra + flash, NOT kimi. Restoring kimi now is a THIRD reader and needs its
+own founder ruling; it is not the automatic "quota returned" restoration this recipe once implied.
+The recipe is kept only so that decision is a choice, not a rediscovery. Launching it now wastes a
+slot and produces a 403.
 
 ```powershell
-# NOT IN USE. Kept for the day the quota returns and the founder rules the panel back to two.
+# NOT IN USE. The second seat is FILLED by flash (founder ruling 2026-08-09), so restoring kimi
+# now is a THIRD reader and needs its own founder ruling — not the automatic "quota returned"
+# restoration this recipe once implied. Kept only so that decision is a choice, not a rediscovery.
 $line = '-m kimi-code/k3 --output-format text -p "Read ' + $promptFile + ' and follow it."'
 Start-Process cmd -WindowStyle Hidden -PassThru -WorkingDirectory $tree `
   -ArgumentList ('/c', ('kimi ' + $line + ' 1>"' + $out + '" 2>"' + $err + '"'))
@@ -171,8 +280,13 @@ You do not send keep-alive lines; the conductor owns the founder-facing clock an
 ## The landing test is the COUNT LINE, never the file
 
 Every reviewer's raw output ends with its own count line — `CODE REVIEW: N FINDINGS`, `CODE
-REVIEW: CLEAN`, `PLAN REVIEW: …`, `AUDIT: …`. Anchor the match at the start of a line and accept
-it in **either stream**, because narration and verdict do not always share a destination.
+REVIEW: CLEAN`, `PLAN REVIEW: …`, `AUDIT: …`. On the **codex lane** anchor the match at the start
+of a line and accept it in either stream, because narration and verdict do not always share a
+destination. **On the opencode lane do NOT match the label anywhere** — the events file echoes
+every file the reviewer read, and the record's own prior count lines live in those echoes, so a
+free match lands on a file the reviewer merely opened. Use the final-assistant test from the
+recipe: the count line must be the end of the concatenated text parts of the `step_finish`
+(`part.reason == "stop"`) message, and nowhere else counts.
 
 **A file with no count line is an EMPTY GATE. Report it as empty and never distil it.** Handing a
 progress log to a distillation yields a tidy "no findings" summary, and the record then claims a
@@ -232,13 +346,22 @@ conductor's agent id is belt-and-braces only: in the current platform it is REJE
 named 'agent-<id>' is reachable`, and a type name fails the same way. Attempt it, note the
 rejection in one line, and never treat it as your failure or let it delay your ending.
 
-Your final report is one of exactly four, and you never blur them:
+Your final report is one of exactly five, and you never blur them:
 
 - **LANDED** — gate, reviewer, count as the reviewer declared it, distillate path, raw path,
-  stderr path, the vendor `session id` from the run header, elapsed.
+  stderr path, the vendor `session id` (from the codex run header, or from any opencode event
+  line), elapsed. **On the opencode lane, also the two committed-evidence paths** — the tool-call
+  summary and the identity extract — and one line confirming the identity matched and the tool set
+  was read-only, so the conductor knows the cage proof exists and where to hand it.
 - **EMPTY GATE** — the run produced no count line. Both instruments you checked, and what each
   said. No distillate.
 - **DEAD AT LAUNCH** — the stderr error, verbatim. No distillate, and the slot was not spent.
+- **INVALID RUN** — the run reached a verdict but failed a post-landing check: an identity that did
+  not match the pin, or a tool-call summary showing a write/edit/bash/patch/task/webfetch event a
+  cage should have removed. The slot WAS spent, so this is not `DEAD AT LAUNCH`; the output is NOT
+  trustworthy, so it is not `LANDED`. Report the exact mismatch or the breaching tool event
+  verbatim, and **do not distil** — a review from an actor that could write is not a review. The
+  conductor treats it as it would a dead gate: it decides whether to relaunch.
 - **REFUSED** — a step-0 check failed. What refused you, verbatim. Nothing was launched.
 
 ## You never

@@ -30,7 +30,10 @@ so reading them is part of its job. And the auditor's subject **is** the record 
 and the committed critiques — so it cannot be blind at all, by construction. Slicing therefore
 removes the **default** exposure, not the possibility: no reviewer is handed a sibling contract it
 never asked for. It is not a guarantee, and nothing downstream can detect a reviewer that went
-looking. The instruction that actually carries the weight is the one in `## Your contract` telling
+looking. **The two panel readers also share one artifacts directory in one worktree** — a reviewer
+that lists it sees the peer's label-named files, and a codex stderr log there names that reader's
+model and effort. That is the same class of exposure and the same answer: not handed, not hidden,
+and forbidden by instruction rather than by a wall. The instruction that actually carries the weight is the one in `## Your contract` telling
 every reviewer to assume it is the only reader — because the machine cannot be hidden, the
 inference is forbidden instead.
 
@@ -38,8 +41,13 @@ inference is forbidden instead.
 context. Never fewer attack directions, never a softened mandate, never a shortened output
 contract. A gate that can be narrowed per item is a gate that will be.
 
-**Why two reviewers read the draft code.** Different model families carry decorrelated blind
-spots; that is the point of a panel, and it only pays if neither is told the other exists. The
+**Why two reviewers read the draft code — and, since 2026-08-09, the audit.** Different model
+families carry decorrelated blind spots; that is the point of a panel, and it only pays if neither
+is told the other exists. Measured in both directions: on AI4DEV-48 one code reader returned "no
+blocker, no major" where the other held a BLOCKER, and on the graded audit trial that seated the
+second audit reader (2026-08-09, the AI4DEV-31 record — see
+`loop/drills/records/flash-lane-2026-08-09/`) the added reader found two record defects the
+recorded audit missed while missing the one it caught. The union is wider than either seat. The
 rationale lives here, in the part no reviewer reads.
 
 **Which section is which gate**, since the headings below deliberately carry no number — a
@@ -49,14 +57,15 @@ reviewer told it is "gate 2" has been told a gate 1 exists:
 |---|---|
 | gate 1 | `## The PLAN review` |
 | gate 2 | `## The DRAFT CODE review` — assembled twice, once per pinned model |
-| the audit | `## The AUDIT — critique of the CLAIM` |
+| the audit | `## The AUDIT — critique of the CLAIM` — assembled twice, once per pinned model |
 
 ---
 
 ## Your contract
 
 **Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
-tree at a pinned commit, this prompt, the model and effort pins, and the sandbox mode. A review
+tree at a pinned commit, this prompt, the model and effort pins, and the launch cage — a read-only
+sandbox, or an agent definition whose write tools are removed. A review
 is a function of a commit. This deletes three hazards that cost real time: a resumed session
 running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
 its creating directory, and recovering half-written output from a session store. If an output is
@@ -67,8 +76,9 @@ runtime behaviour, **mark it as unverified** and state exactly what would settle
 is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
 access. Reviewers assert; the executor verifies.
 
-**NO WRITES — stated, not assumed.** `--sandbox read-only` is the enforcement, and this sentence
-is the instruction; every launch prompt carries it explicitly. A read-*intended* reviewer once
+**NO WRITES — stated, not assumed.** The launch cage is the enforcement — a read-only sandbox, or
+a removed tool set — and this sentence is the instruction; every launch prompt carries it
+explicitly. A read-*intended* reviewer once
 wrote probe files into the tree to check a finding empirically and cleaned up only by its own
 choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
 a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
@@ -153,16 +163,15 @@ Your count line is `PLAN REVIEW: CLEAN` or `PLAN REVIEW: 3 FINDINGS`.
 
 ## The DRAFT CODE review
 
-**Pins** · `gpt-5.6-terra` effort `max` · `--sandbox read-only`
-**Pins** · SINGLE READER. Kimi is STOPPED — founder ruling 2026-08-08, after it exhausted its
-billing-cycle quota mid-gate (`403 … usage limit for this billing cycle`). Do not launch it, do
-not relaunch it, do not substitute a second codex variant in its place. The draft-code gate runs
-ONE reader until the founder rules otherwise.
-**The pull request must say so.** A gate designed for two readers that ran with one is a weaker
-gate, and the record states what it did and did not cover — never silently. The cost is known and
-accepted rather than assumed: on AI4DEV-48 Kimi returned "no blocker, no major" on code where
-terra found a BLOCKER, so the second reader has demonstrably caught what the first missed. Running
-one is a deliberate trade, and it is only honest while it is written down.
+**Pins** · reader one · `gpt-5.6-terra` · effort `max` · codex · `--sandbox read-only`
+**Pins** · reader two · `opencode-go/deepseek-v4-flash` · `--variant max` · opencode · agent
+`reviewer-flash` · clean session — the tool-caged agent, not a sandbox flag, is its enforcement
+**Pins** · The second seat was EMPTY from 2026-08-08, when Kimi died mid-gate on a billing-cycle
+quota (`403 … usage limit for this billing cycle`) and the founder ruled the gate down to one
+reader, until 2026-08-09, when the founder seated flash in it. **Kimi stays out — reaffirmed
+2026-08-09.** Do not launch it, do not relaunch it; restoring it now would be a THIRD reader and
+needs its own ruling. The single-reader confession that lived in this block is retired: the panel
+is two again, and the pull request no longer carries the weakness sentence.
 **Subject** · the branch diff at the pinned commit. The draft compiles and typechecks; **the test
 suite has deliberately not been run yet.** You are critiquing code before it is declared finished
 — do not report that tests haven't passed.
@@ -185,7 +194,12 @@ Your count line is `CODE REVIEW: CLEAN` or `CODE REVIEW: 3 FINDINGS`.
 
 ## The AUDIT — critique of the CLAIM
 
-**Pins** · `gpt-5.6-luna` · effort `max` · `--sandbox read-only`
+**Pins** · reader one · `gpt-5.6-luna` · effort `max` · codex · `--sandbox read-only`
+**Pins** · reader two · `opencode-go/deepseek-v4-flash` · `--variant max` · opencode · agent
+`reviewer-flash` · clean session (founder ruling 2026-08-09, on the graded trial in
+`loop/drills/records/flash-lane-2026-08-09/`). The audit is a panel: **clean means BOTH readers
+clean**, findings from either seat spawn the audit sitting, and the once-per-item re-run is of the
+whole panel at the new head, never one seat.
 **Subject** · the branch diff **and the record that describes it** — the amended plan, the
 rulings files, and the state file's claims.
 

@@ -28,9 +28,13 @@ That tree **is** the item's tree; every role inside this item will work in it.
 3. Create the item's artifacts directory **inside** the tree: `loop/items/<ITEM>/artifacts/`
    (founder ruling 2026-08-09 — it lived beside the tree until the Write tool's isolation guard
    collided with that placement and a runner's shell fallback was flagged as a policy bypass).
-   Reviewer output, stderr logs and distillates land there and are **committed at every phase
-   boundary** — the commit is what preserves evidence, and it also marks the worktree changed so
-   the platform will not auto-clean it under a dying agent.
+   Reviewer output and distillates land there and are **committed at every phase boundary** — the
+   commit is what preserves evidence, and it also marks the worktree changed so the platform will
+   not auto-clean it under a dying agent. **What counts as evidence differs by lane:** a codex
+   reviewer's stderr carries its run header and session id and IS committed; an opencode reviewer's
+   stderr is empty on a healthy run — its committed evidence is the tool-call summary and identity
+   extract instead, and the runner deletes its own working files (events stream, stderr, pid) so
+   they never dirty the tree.
 
 **THE `.stderr.log` FILES GO INTO THE COMMITTED RECORD, not just the raw outputs (2026-08-07).**
 They carry the run header — model, effort, sandbox, and the vendor's `session id` — and that id is
@@ -117,7 +121,9 @@ Spawn it in the background, with model `sonnet` and **no isolation parameter**, 
 tree. Its spawn prompt is facts only: gate name, reviewer label, the assembled prompt file, the
 tree and artifacts paths, the output, stderr and distillate paths, the model and effort pins
 verbatim, and **your agent id** for the belt-and-braces message attempt — while stating that its
-completion text is the report of record.
+completion text is the report of record. **For an opencode reviewer, two more output paths**: the
+tool-call summary and the identity extract. The runner refuses without them, and they are the
+committed cage evidence you will hand the mechanical — so their names are yours to assign here.
 
 **IF `reviewer-runner` DOES NOT RESOLVE, THAT IS A `STALL` — NEVER AN IMPROVISED LAUNCH.** The
 agent registry is read once when a Claude Code session starts and every subagent inherits that
@@ -132,10 +138,13 @@ was crossed on AI4DEV-48.
 you proceed when both have reported. A partial landing is not progress — but it is now visible as
 one runner outstanding rather than as a watch that may or may not exist.
 
-A runner reports exactly one of `LANDED`, `EMPTY GATE`, `DEAD AT LAUNCH` or `REFUSED`. The last
-three are anomalies, and anomalies are handed **down**: name it in the state file and let the next
-sitting rule on it. **Never record an empty, aborted or dead gate as a clean one** — that is an
-unearned green, and it is the failure this whole path exists to prevent.
+A runner reports exactly one of `LANDED`, `EMPTY GATE`, `DEAD AT LAUNCH`, `INVALID RUN` or
+`REFUSED`. All but the first are anomalies, and anomalies are handed **down**: name it in the state
+file and let the next sitting rule on it. `INVALID RUN` is the opencode lane's post-landing failure
+— a spent slot whose output failed the identity or read-only check — and you treat it as you would
+a dead gate: decide whether to relaunch, never distil it. **Never record an empty, aborted, invalid
+or dead gate as a clean one** — that is an unearned green, and it is the failure this whole path
+exists to prevent.
 
 You may `SendMessage` a runner while its gate is open to ask for status, and you may tell it to
 abort. You may not ask it what the review says: it has not read one, and a characterisation from
@@ -283,15 +292,23 @@ before code is written, the code critique before the fixes, CI's verdict before 
 something.** A clean audit has nothing to rule, so those two waits sit back to back and the merge
 sitting absorbs both.
 
-Derive it from the distillate, never from anyone's word — the same rule as proportionality:
+**The audit is a panel of two readers (founder ruling 2026-08-09) — two runners, two
+distillates**, exactly like the code gate. Derive from BOTH distillates, never from anyone's word
+— the same rule as proportionality:
 
-- **Clean** — zero findings **and** a distillate that reads as a real verdict. Hand a MECHANICAL
-  the audit's raw output and distillate to commit and push, then arm CI **on that new head**, and
-  spawn the MERGE sitting. No audit sitting: there is nothing to rule.
-- **Findings, or anything ambiguous** — a distillate that is truncated, cut off mid-write, or
-  carries progress lines and no findings at all → spawn the AUDIT SITTING. **Ambiguity always
-  buys MORE judgment, never less**, exactly as an unreadable file list sends CI down its slow
-  path. An empty gate must never be mistaken for a clean one.
+- **Clean** — **both** distillates carry zero findings **and** each reads as a real verdict. Hand
+  a MECHANICAL both raw outputs and both distillates — **and, for the opencode seat, its tool-call
+  summary and identity extract** — to commit and push, then arm CI **on that new head**, and spawn
+  the MERGE sitting. No audit sitting: there is nothing to rule.
+- **Findings in EITHER seat, or anything ambiguous in either** — a distillate that is truncated,
+  cut off mid-write, or carries progress lines and no findings at all → spawn the AUDIT SITTING
+  with both distillates named. One clean seat never outvotes the other's findings — it is
+  evidence for the ruling, not a veto over it. **Ambiguity always buys MORE judgment, never
+  less**, exactly as an unreadable file list sends CI down its slow path. An empty gate must
+  never be mistaken for a clean one.
+
+The once-per-item audit re-run is of the **whole panel** at the new head, never one seat alone —
+half a panel re-run is a different gate wearing the same name.
 
 The ordering matters and is easy to get backwards: committing the audit artifacts **moves the
 head**, so CI is armed after that push, never before. Same trap as a state file that cannot name
@@ -303,7 +320,7 @@ Send one line per phase change with `SendMessage` to `main`. Same shape every ti
 
 ```
 FLOW  AI4DEV-20 (judging AI output meaning)  gate 2 done → fix
-      head 4b551db · terra 6 · kimi 4 · distilled · fix sitting spawned
+      head 4b551db · terra 6 · flash 4 · distilled · fix sitting spawned
 ```
 
 **Counts, never claims.** "terra 6 findings" is a status fact and belongs here. What terra

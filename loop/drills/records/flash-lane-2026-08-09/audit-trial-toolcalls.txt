@@ -1,0 +1,68 @@
+﻿Tool-call summary from the audit trial's JSON event stream — the read-only PROOF, reduced to
+tool . target . state so no read file's CONTENTS enter the committed record (the new reviewer-runner rule).
+Full stream stays in the throwaway worktree; regenerate from the session store if ever needed.
+
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31
+glob   completed  loop/items/AI4DEV-31/**
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\README.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\design.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\executor-brief.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate1-rulings.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-rulings.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-terra.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-kimi.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\verify-final.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\proof-red.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\proof-green.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\SUBJECT-DIFF-CODE.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\SUBJECT-DIFF-CODE.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\SUBJECT-DIFF-CODE.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\harness\registry.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\harness\suite-adapters.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\harness\index.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\suites\req-016\_fixture.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\suites\req-016\_bind.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\typeprobes\sut-seam.probe.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\typeprobes\sut-seam-legacy.probe.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\harness\type-invention.selftest.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\suites\req-016\d-taxonomy-evidence.test.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\README.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\harness\runner-blackbox.selftest.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\harness\runner-expect.selftest.ts
+glob   completed  tests/at/**/*.selftest.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\harness\conformance.selftest.ts
+grep   completed  ^\s*it\(
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-widen-reproduction.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-terra-confirmation.md
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\verify-post.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\baseline-selftest.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\premerge-audit-brief.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate1-critique.md
+glob   completed  tests/at/typeprobes/**
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\suites\req-016\_contract.ts
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\typeprobes\tsconfig.json
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\package.json
+grep   completed  "typescript@|typescript@\^5\.8\.3|version: 5\.9\.3
+grep   completed  typescript
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\lint-preexisting.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\baseline-atverify.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\expected\req-016.json
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\ITEM-AUDIT.txt
+grep   completed  UNSPELLABLE|unspellable|structurally|widen
+grep   completed  UNSPELLABLE|unspellable|closes everything|all closed|fully closed|every attack
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\spike-raw.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-prompt.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate1-prompt.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-terra-stderr.log
+grep   completed  AI4DEV-31|three unverified reads|must name
+glob   completed  loop/items/AI4DEV-37/**
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\spike-raw-variant.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\baseline-typecheck.txt
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate1-stdout.log
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-kimi-stderr.log
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\loop\items\AI4DEV-31\gate2-terra-stdout.log
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\typeprobes\tsconfig.sut-seam-legacy.json
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\typeprobes\tsconfig.sut-seam.json
+read   completed  C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\audit-31\tests\at\tsconfig.json
+
+TOTALS: grep=6  read=52  glob=4

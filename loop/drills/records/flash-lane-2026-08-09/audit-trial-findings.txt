@@ -1,0 +1,56 @@
+﻿# AUDIT — AI4DEV-31: does the story match the tree?
+
+## Verdict per box
+
+**1. Adopted rulings implemented as ruled — PASS**
+Every Gate 1 ruling (1–9) and Gate 2 ruling (1–4) traces to code at head:
+- Ruling G1-1 (const entry points, overload door): `export const atTest` (registry.ts:709), `export const bindSuite` (registry.ts:816), `export const defineEvidenceCapture` (registry.ts:463), all typed by alias call-signatures; probe attack 8 (`declare module` overloads, sut-seam.probe.ts:139-156); selftest markers `Cannot redeclare block-scoped variable …` (type-invention.selftest.ts:276/282/288). The recorded TS2451 diagnostics cite registry.ts lines 463/709/816 — exactly the head's const lines, so registry.ts is byte-identical to the fold-verified state.
+- Ruling G1-2 (self-identifying adapter): `export const requirement = 'req-016' as const;` (_fixture.ts:46), `AdapterModuleFor<R>` with `requirement: R` (suite-adapters.ts:79-82), `CheckedAdapterModules` entry constraint (suite-adapters.ts:90), `loadAdapter()` runtime check naming both values (index.ts:72-80). Map key, type source and loaded module are one literal, checked at both ends — the stronger of the two fixes the gate offered.
+- Ruling G1-3 (proof method): legacy probe + committed child configs (`files`/`include: []` per probe, extending the acceptance config — verified tsconfig.sut-seam-legacy.json and tsconfig.sut-seam.json match the diff), `--listFiles` controls, per-file per-name assertions, `compiled()` empty-program guard (type-invention.selftest.ts:74-76, 181-184).
+- Ruling G1-4 (exhaustive aliases): 9 names in `SEAM_ALIAS_PROTECTED` (type-invention.selftest.ts:325-335), 9 attacks in the probe's `declare module` block (sut-seam.probe.ts:175-203) — no drift between list and probe.
+- Ruling G1-5 (D3 constraint): `AdapterShape` requires `sut`, `fixtures.world(): Promise<WorldLike>`, `teardown()` (suite-adapters.ts:60-64); the real adapter satisfies it (verified by reading: `_fixture.ts:165-305` returns `sut: {notifications}`, `fixtures.world` → `NotificationFixtureWorld` which has `teardown()` at line 156).
+- Ruling G1-6 (normalize `016` vs `req-016`): `requirementMismatch` builds `req-${parsedRequirement}` (registry.ts:670) and the happy path including dotted `AT-005.5.03` is asserted (conformance.selftest.ts:102-103).
+- Ruling G1-7, reversed by G2-2 (`World` converted after all): `export type World = WorldSeam & {…}` (_contract.ts:166-180), in the protected list, attacked in the probe, and the "why absent" records rewritten to the real story (type-invention.selftest.ts:301-324, _contract.ts:64-76). `d-taxonomy-evidence.test.ts:23` still spells `World['actors']`, which is the seam path that forced the reversal — the conditional the ruling attached actually fired.
+- Ruling G1-8 (threat model documented): `any`/`as`/`@ts-ignore`/mutation/`AT_REPO_ROOT`/reconstruction listed as open in suite-adapters.ts:30-46, registry.ts:268-273, README:76-84.
+- Ruling G2-1 (widen NOT fixed, overclaims corrected): registry.ts:208-228 explicitly retracts "UNSPELLABLE"; `_bind.ts:24-26`, contracts.ts:163, README:77-81 all state the reconstruction is open; the probe carries it as a comment block (sut-seam.probe.ts:205-268) because it compiles clean; `gate2-widen-reproduction.txt` is the transcript with both controls.
+- Ruling G2-3 (loadAdapter failing-path tests): runner-blackbox.selftest.ts:284-345, both wrong-literal and missing-literal, black-box through the real runner, asserting both real values in the message.
+- Ruling G2-4 (doc overpromises): README:48-50 ("still has type parameters — `<R, K>`"), README:63-64 and suite-adapters.ts:19-22 (the compile error names the problem and NOT the remedy).
+
+**2. Diff inside declared scope — PASS**
+The diff (`SUBJECT-DIFF-CODE.txt`) touches 18 code files; I cross-checked every hunk against the tree — all match character for character (registry.ts, suite-adapters.ts, index.ts, _bind.ts, _contract.ts, _fixture.ts, d-taxonomy-evidence.test.ts, both probes, both tsconfigs, type-invention/conformance/runner-blackbox/runner-expect selftests, contracts.ts, README.md). Each file traces to the design, a ruling, or the executor brief (conformance.selftest.ts and index.ts are the brief's "the check itself needs a test" and G1-2; contracts.ts is G2-1's comment correction). No package.json/bun.lock hunks; captured git evidence in the record (gate2-terra-stderr.log diff listing; lint-preexisting.txt `git diff --stat origin/main...HEAD -- eslint.config.js src/` empty; the branch log of 15 AI4DEV-31 commits) supports "only this item's work". I could not run git myself (no shell); the diff file and the captured git outputs are my evidence.
+
+**3. Stated facts about the code are true — PASS with two record-staleness exceptions (findings 1–2)**
+- The legacy probe at head matches proof-green's captured line numbers exactly (45/49/61/65/77/81) — the red/green file really is "the same file".
+- `WorldOf<'req-016'>` resolves to `NotificationFixtureWorld` (trace: `Awaited<ReturnType<…['fixtures']['world']>>` over `_fixture.ts:259-291`), matching the recorded TS2339 marker.
+- Markers in the selftest match the recorded compiler output for every one of the 13 seam attacks; each marker is attack-specific (distinct member names, distinct literals).
+- The 143 test count: I counted statically — 44 (type-invention) + 15 (runner) + 12 (runner-expect) + 8 (runner-blackbox) + 4 (req016-oracles) + 42 (expected) + 18 (conformance) = 143, exactly. The baseline 114 and the intermediate 140 are consistent with the pre-item structure (17+18+15+12+6+4+42) and the +26/+3 breakdowns given in verify-post/verify-final.
+- The four reds and their capability strings in expected/req-016.json match the transcripts verbatim; the pinned compiler claim is supported by bun.lock:1199 (typescript@5.9.3).
+- `typeprobes` cleanup claim holds: the directory contains only the six intended files; no scratch probes remain.
+
+**4. The deliberate non-fix — PASS**
+I grepped every mention of "widen"/"UNSPELLABLE" across tests/at and the record. Every site states the reconstruction is open; the word "UNSPELLABLE" appears only as a retraction (registry.ts:208, proof-green.txt:120, and the two gate critiques that caught it). No comment, README, probe or document claims the structural-widening attack is fixed. AI4DEV-37 is named as the filing in README:82, registry.ts:221, sut-seam.probe.ts:259 — I could not verify the Linear filing itself (no `loop/items/AI4DEV-37` in the tree; the claim is about the board, not the tree).
+
+**5. Red-then-green — PASS (evidence cited, execution not re-derived)**
+proof-red.txt (exit 0 at c592c72, `--listFiles` control showing the probe in a 217-file program, deliberate-error control exiting 2, restore-exit-0) and proof-green.txt (exit 2 at 74d9965, attack-by-attack read, controls re-run) are internally consistent and mutually consistent with verify-final.txt 5a/5b. Two Gate 2 reviewers additionally executed the red half live at the pre-fix commit (kimi at da4a015) and confirmed the controls real (terra). The selftest asserts the pair in CI by marker, per file, with the empty-program guard. These remain runtime claims — I did not and cannot run them here; the required CI check on this commit settles them.
+
+## Findings
+
+My severity scale: **minor** = a record/documentation defect that misleads a reader but does not change any code guarantee; **important** = a false claim about the code's behaviour; **blocker** = the item's closure claim is false.
+
+**[1] severity: minor — `loop/items/AI4DEV-31/gate2-terra-confirmation.md:1,14-36`**
+claim: The confirmation's verdict — "the tree still contains a few overbroad or stale statements" — and its two concrete examples are no longer true at head: it quotes sut-seam.probe.ts:4-6 as saying "proves each way back in is shut" and type-invention.selftest.ts:170/:187 as "the sut/world seam cannot be invented by a suite" / "the new-API attacks do not compile"; the head tree says "proves every route the old API invited is shut — not that every way back in is shut" (sut-seam.probe.ts:5-6) and "the listed sut/world invention attacks fail to compile" / "the listed new-API attacks do not compile" (type-invention.selftest.ts:177/:194).
+why it matters: this is the exact staleness class the item exists to remove, in its own record: a reader of the record — including a downstream auditor — is told the tree overclaims when it no longer does, and has no way to know the confirmation predates the correction (it carries no capture commit). The confirmation's own item 3 correctly dismisses design.md as historical; items 1-2 needed the same treatment and did not get it.
+unverified-runtime-claim: no
+
+**[2] severity: minor — `loop/items/AI4DEV-31/verify-final.txt:1-11`**
+claim: The item's FINAL verification transcript — the document the claims "typecheck exits 0", "143 tests", "8/4/0" rest on — does not name the commit it was captured at (unlike proof-red/proof-green/verify-post, which all do), and the head's sut-seam.probe.ts differs from the captured state by exactly 2 lines above line 33 (every recorded probe diagnostic is at head-line −2: 33→35, 40→42, 50→52, 59→61, 82→84, 103→105, 114→116, 138→140, 143→145, 150→152; the uniform offset proves a comment-only header edit, and the registry.ts diagnostics at 463/709/816 match head exactly).
+why it matters: the claim "the same file, the same command" for the new-API probe is not literally true at head (the file gained 2 comment lines after the fold), and no record documents that delta or pins which commit the final run described — an evidentiary gap in an item whose entire deliverable is evidence precision. The guards themselves are unaffected (the selftest asserts markers, not line numbers), so this is hygiene, not a closure risk.
+unverified-runtime-claim: no
+
+## Unverified runtime claims (for the executor, not failures)
+The exit codes in the record — typecheck 0, at:verify 8 green/4 red/0 missing, at:selftest 143, at:check bijection, the legacy probe non-zero at head, the widen-spelling exit 0 — were captured by the item at the fold commit and independently executed by both Gate 2 reviewers at 475e951; the head differs from those verified states only by the two probe header lines above. What would settle them: re-running the five commands plus both probe compiles at this head, per the superseded premerge-audit-brief (its C1-C7 list, run read-only). My static count of the current tree already reproduces 143 exactly.
+
+## Scope note
+One pre-existing item outside this branch's changes surfaced during the audit and belongs elsewhere: the AI4DEV-24-era whole-program probe config (`tests/at/typeprobes/tsconfig.json`, include `**/*.ts`, `exclude: []`) now also compiles the two new seam probes as a side effect of the shared directory; the per-file assertions are unaffected (no name overlap with ALIAS_PROTECTED, and the whole-program status only becomes more non-zero). The branch never edited that config, so it is not this item's defect — mentioned once, per contract.
+
+AUDIT: 2 FINDINGS

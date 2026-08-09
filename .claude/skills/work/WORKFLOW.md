@@ -21,7 +21,7 @@ definition file of its own — it is the founder's own session, so its contract 
 | **Executor** | opus | the code, and running verify | one task |
 | **Mechanical** | sonnet | publish · merge execution · capture | one task |
 | **Distiller** | sonnet | one raw critique → findings only | one file |
-| **Reviewers** | codex sol · terra · luna · Kimi k3 | critique — never execution | one run, never resumed |
+| **Reviewers** | codex sol · terra · luna · opencode flash | critique — never execution | one run, never resumed |
 
 Three sentences hold it together: **the orchestrator owns decisions, the executor owns
 keystrokes, the conductor owns the clock.** Judgment never waits; waiting never judges.
@@ -32,7 +32,9 @@ keystrokes, the conductor owns the clock.** Judgment never waits; waiting never 
 - **One worktree per item**, created by the platform when the conductor is spawned with
   isolation, checked out to the item branch, installed once. Every role inside the item is
   spawned **without** isolation and inherits it.
-- An **artifacts directory beside the tree**, outside it, for reviewer output and distillates.
+- An **artifacts directory INSIDE the tree** at `loop/items/<item>/artifacts/`, for reviewer
+  output and distillates (founder ruling 2026-08-09 — it lived beside the tree until the Write
+  tool's isolation guard collided with that placement; see reviewer-runner.md step 0).
 
 No clones. No per-sitting trees. No `--detach` handoff — nothing else competes for the branch.
 
@@ -59,7 +61,7 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
  7  CONDUCTOR    born in the item's ONE worktree
  8  CONDUCTOR    git fetch ; git checkout <item-branch>
  9  CONDUCTOR    bun install --frozen-lockfile              once per item, ~52s
-10  CONDUCTOR    create the artifacts dir OUTSIDE the tree
+10  CONDUCTOR    create the artifacts dir INSIDE the tree at loop/items/<item>/artifacts/
 11  CONDUCTOR    flow "claimed → plan" → spawn PLAN SITTING (no isolation → same tree)
 ```
 
@@ -123,12 +125,15 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  state file so the merge ruling can say the green excludes a code review,
                  then spawn the FIX SITTING directly with ZERO findings — the goal loop and
                  the audit brief still happen there; only the critique is skipped
-33  CONDUCTOR    launch terra AND kimi OS-DETACHED · read-only · -C <tree> · separate files
-                 neither reviewer sees the other's output
-34  CONDUCTOR    arm ONE watch on BOTH · flow "draft → gate 2"
-                 join on the COMPLETE set — a partial landing is not progress
-35  CONDUCTOR    watch exits → DISTILLER ×2
-36  CONDUCTOR    flow "gate 2 done · terra N · kimi M" → spawn FIX SITTING
+33  CONDUCTOR    spawn ONE reviewer-runner PER READER, in the background — terra via codex,
+                 flash via opencode (the second seat, founder ruling 2026-08-09; Kimi stays
+                 out). The runner launches, holds the wait, and distils; its completion wakes
+                 you. Neither reviewer learns the other exists
+34  CONDUCTOR    flow "draft → gate 2" · keep-alive timer armed · you watch no reviewer files —
+                 the runner holds that wait
+35  CONDUCTOR    proceed only when BOTH runners have reported — a partial landing is not
+                 progress, and it is visible as one runner still outstanding
+36  CONDUCTOR    flow "gate 2 done · terra N · flash M" → spawn FIX SITTING
 ```
 
 ## FIX AND GOAL
@@ -150,7 +155,9 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  items — filed, or escalated as scope growth. Never recorded as "invalid".
 44  ORCHESTRATOR normal exit: every ruling closed-by-fix or rejected-with-reason AND verify
                  green (the capped exit is 43)
-45  ORCHESTRATOR commit the fixes, the RAW critiques and the distillates into the record
+45  ORCHESTRATOR commit the fixes and each code reader's full evidence into the record
+                 (raw critique + distillate, PLUS the opencode reader's tool-call summary +
+                  identity extract — see reviewer-runner.md)
 46  ORCHESTRATOR write the audit brief = `## Your contract` + the AUDIT section ONLY + item
                  additions (claims, not code quality — see reviewers.md)
 47  ORCHESTRATOR write PHASE-STATE — audit spec — THEN commit + push · tree clean ·
@@ -161,18 +168,24 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
 
 ```
 48  CONDUCTOR    wake · verify the push landed
-49  CONDUCTOR    launch luna OS-DETACHED · read-only · -C <tree>
-50  CONDUCTOR    arm the file-watch · flow "fix → audit"
-51  CONDUCTOR    watch exits → DISTILLER
-52  CONDUCTOR    CLEAN OR NOT, DERIVED FROM THE DISTILLATE — never from anyone's word
-                 CLEAN = zero findings AND a distillate that reads as a real verdict
-                   → a MECHANICAL commits the raw output + distillate and pushes
+49  CONDUCTOR    spawn ONE reviewer-runner PER READER, in the background — luna via codex,
+                 flash via opencode: the audit is a PANEL of two (founder ruling 2026-08-09).
+                 The runner launches, holds the wait, and distils
+50  CONDUCTOR    flow "fix → audit" · keep-alive timer armed · the runners hold the waits
+51  CONDUCTOR    proceed only when BOTH runners have reported
+52  CONDUCTOR    CLEAN OR NOT, DERIVED FROM BOTH DISTILLATES — never from anyone's word
+                 CLEAN = BOTH seats zero findings AND each distillate reads as a real verdict
+                   → a MECHANICAL commits each reader's full evidence and pushes
+                     (a reader's evidence = raw output + distillate, PLUS for an opencode
+                      reader its tool-call summary + identity extract — see reviewer-runner.md)
                    → flow "audit clean → ci" · arm CI ON THAT NEW HEAD (the commit moved it)
                    → spawn the MERGE SITTING.  NO AUDIT SITTING — nothing to rule, so this
                      wait and CI's are adjacent.  THIS is what makes the usual item FOUR
                      orchestrator sittings rather than five
-                 FINDINGS, or truncated · cut off mid-write · progress lines and no findings
-                   → flow "audit done · N findings" → spawn the AUDIT SITTING (53)
+                 FINDINGS IN EITHER SEAT, or truncated · cut off mid-write · progress lines and
+                 no findings in either
+                   → flow "audit done · luna N · flash M" → spawn the AUDIT SITTING (53)
+                     one clean seat never outvotes the other's findings
                      AMBIGUITY BUYS MORE JUDGMENT, NEVER LESS — the same reflex that sends
                      CI down its slow path when it cannot read the file list
 
@@ -184,12 +197,14 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  2 REAL BUT OUT OF SCOPE  → file it · name it in the ruling · narrow the claim
                  3 THE AUDITOR IS WRONG   → reject with a reason · claim verbatim into the PR
 54  ORCHESTRATOR fixes needed? → EXECUTOR → commit + push → PHASE-STATE: "the audit must
-                 re-run at the new head" → END THE SITTING — launching luna and waiting is
-                 the conductor's (it re-enters at 49 and spawns a FRESH audit sitting);
-                 a sitting never spans the auditor's wait
-                 the audit re-runs ONLY if code changed                MAX 1 PER ITEM
-55  ORCHESTRATOR the record is true and every finding disposed
-                 → commit the audit's raw output + distillate + rulings into the record
+                 re-run at the new head" → END THE SITTING — launching BOTH auditors and
+                 waiting is the conductor's (it re-enters at 49 and spawns a FRESH audit sitting);
+                 a sitting never spans the auditors' wait
+                 the audit re-runs ONLY if code changed · the re-run is
+                 the WHOLE PANEL at the new head, never one seat         MAX 1 PER ITEM
+55  ORCHESTRATOR the record is true and every finding from BOTH seats disposed
+                 → commit each reader's full evidence + rulings into the record
+                   (full evidence per reader as defined at step 52 / reviewer-runner.md)
                  → write PHASE-STATE — completing signal = CI on the final head —
                  THEN commit + push · tree clean · report the FINAL head → end
 ```

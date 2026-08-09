@@ -91,11 +91,15 @@ your additions, and **neither may hint that the other reviewer exists**.
 **FIX AND GOAL.** Rule every Gate 2 finding. Push rulings first. Then spawn the executor to check
 any verify-first claims and removal conditions, apply the ruled fixes, and only then pursue the
 goal: every plan step at its done-criterion and the verify suite green, in at most three
-iterations with no further external critique. Before closing, commit the raw critiques and the
-distillates into the record — the auditor reads the record, and evidence left in the artifacts
-directory is invisible to it.
+iterations with no further external critique. Before closing, commit **each code reader's full
+evidence** — raw critique and distillate, plus the opencode reader's tool-call summary and identity
+extract (see reviewer-runner.md) — into the record. The auditors' defined subject is the committed
+record; uncommitted files in the artifacts directory are not part of it and do not survive the
+close, so evidence that stays there is evidence the audit does not rule on.
 
-The fix sitting also writes the **audit brief**. The auditor is read-only and its subject is the
+The fix sitting also writes the **audit brief** — assembled per reader, since the audit is a panel
+of two (luna via codex, flash via opencode; founder ruling 2026-08-09), each blind to the other,
+exactly as the draft-code gate. Each auditor is read-only and its subject is the
 claim, never the code's quality: does every adopted ruling appear in the tree as ruled, does the
 diff stay inside its declared scope, is every stated fact about the code true. Whole-tree access,
 change-only scope — a defect in code this branch never touched belongs to another item. Execution
@@ -104,7 +108,10 @@ why: across four items its execution attempts produced almost nothing but "could
 once produced two FAIL verdicts that were sandbox artifacts, while every reading-and-tracing box
 it was given came back answered.
 
-**AUDIT — only when the audit found something.** Rule the auditor's findings by class. *The record is false* — an adopted ruling not
+**AUDIT — only when the panel found something.** You rule on BOTH readers' findings — a clean seat
+beside a seat with findings is evidence, never a veto, and its clean verdict is recorded among the
+dispositions. Where the two converge on one defect, rule it once and note the convergence, the
+strongest signal a panel gives. Rule by class. *The record is false* — an adopted ruling not
 implemented, a diff reaching outside its declared scope, a stated fact untrue — is never
 mergeable: either the code changes to match the record or the record changes to match the code.
 *Real but out of scope* — file it, name it in the ruling, and narrow the claim. *The auditor is
@@ -117,14 +124,14 @@ survives except the identifier, replaced by a description of what it referred to
 AI4DEV-57, where a rejected finding quoted three ids and the rule as written was unsatisfiable.
 
 If fixes change code, the executor applies them, you push — and you **end the sitting** with
-the state file saying the audit must re-run at the new head. Launching the auditor and waiting
-for it is the conductor's; a fresh audit sitting rules on the re-run. You never span that wait.
-The audit re-runs once per item. On a clean close, commit the audit's raw output, its
-distillate and your rulings into the record before the final push — the head CI gates is the
-one that carries them.
+the state file saying the audit must re-run at the new head. Launching the auditors and waiting
+for them is the conductor's; a fresh audit sitting rules on the re-run. You never span that wait.
+The audit re-runs once per item, and the re-run is the **whole panel** at the new head, never one
+seat. On a clean close, commit **both** raw outputs, **both** distillates and your rulings into the
+record before the final push — the head CI gates is the one that carries them.
 
-**MERGE.** On a clean audit you are the sitting that absorbs its wait, so **the audit's verdict is
-yours to record** among the dispositions — a clean audit is evidence and belongs in the ruling, not
+**MERGE.** On a clean audit you are the sitting that absorbs its wait, so **both readers' verdicts
+are yours to record** among the dispositions — a clean panel is evidence and belongs in the ruling, not
 a step that silently did not happen. If CI is red, classify before reacting: infrastructure or flake (re-run the check
 once, no new commit — **and read `cancelled` carefully: a job that never got a runner and is then
 killed by its own `timeout-minutes` reports `cancelled`, which looks like somebody stopped it
