@@ -1,0 +1,152 @@
+﻿# AI4DEV-59 (email verification, unverified-write gate) - STEP 4: THE STACK WITH THE FLIPPED CONFIG
+# Started: 2026-08-09 18:27:51 +03:00
+# Worktree: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aa95110cbeab31aa7
+# Branch:   nirdrang/ai4dev-59-email-verification-and-the-gate-on-unverified-writing-d2l1
+#
+# LOCAL DEVELOPMENT KEYS ARE REDACTED BELOW, exactly as the predecessor item's stack-up
+# transcript redacts them. They are local-stack values reachable only at 127.0.0.1 on the
+# machine that ran this, and nothing key-shaped is committed. GitHub push protection once
+# REFUSED a push in this project for exactly this file's predecessor, so the rule has a
+# mechanical enforcer. What is redacted: the publishable key, the secret key, the local JWT
+# signing secret, both demo JWTs (anon and service role) and the two S3 protocol credentials.
+# What is NOT redacted, because none of it is a credential: every URL and port, and the
+# postgres/postgres local database URL the Supabase CLI prints on every machine.
+#
+# WHY THE STACK IS STOPPED AND STARTED RATHER THAN ONLY RESET. Auth reads config.toml when its
+# container is created. The stack that was already running was created BEFORE this branch flipped
+# [auth.email] enable_confirmations to true, and its container proved it - the reading is the
+# first command below. A db reset alone would have left that container in place, and every
+# check in step 5 would have measured the OLD setting.
+
+===== BEFORE: the running auth container's confirmation setting - GOTRUE_MAILER_AUTOCONFIRM=true means confirmations are OFF =====
+$ docker inspect supabase_auth_poancmeitlmxejofwzuu --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String -Pattern "AUTOCONFIRM|RATE_LIMIT_EMAIL"
+
+GOTRUE_MAILER_AUTOCONFIRM=true
+GOTRUE_SMS_AUTOCONFIRM=true
+GOTRUE_RATE_LIMIT_EMAIL_SENT=360000
+----- exit code: 0 -----
+
+===== bun run db:stop =====
+$ bun run db:stop
+bun : $ bunx supabase stop
+At line:1 char:1
++ bun run db:stop
++ ~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx supabase stop:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+{"project_id_filter":"poancmeitlmxejofwzuu","backup":true,"message":"Stopped supabase local development setup."}
+----- exit code: 0 -----
+
+===== bun run db:start - the stack comes back up, and its auth container is created from THIS branch's config.toml =====
+$ bun run db:start
+bun : $ bunx supabase start
+At line:1 char:1
++ bun run db:start
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx supabase start:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+{"DB_URL":"postgresql://postgres:postgres@127.0.0.1:54322/postgres","API_URL":"http://127.0.0.1:54321","REST_URL":"http://127.0.0.1:54321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:54321/graphql/v1","FUNCTIONS_URL":"http://127.0.0.1:54321/functions/v1","MCP_URL":"http://127.0.0.1:54321/mcp","STUDIO_URL":"http://127.0.0.1:54323","PUBLISHABLE_KEY":"<REDACTED-local-publishable-key>","SECRET_KEY":"<REDACTED-local-secret-key>","JWT_SECRET":"<REDACTED-local-jwt-secret>","ANON_KEY":"<REDACTED-local-demo-jwt>","SERVICE_ROLE_KEY":"<REDACTED-local-demo-jwt>","MAILPIT_URL":"http://127.0.0.1:54324","INBUCKET_URL":"http://127.0.0.1:54324","STORAGE_S3_URL":"http://127.0.0.1:54321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"<REDACTED>","S3_PROTOCOL_ACCESS_KEY_SECRET":"<REDACTED>","S3_PROTOCOL_REGION":"local","message":""}
+----- exit code: 0 -----
+
+===== AFTER: the NEW auth container's confirmation setting - GOTRUE_MAILER_AUTOCONFIRM=false means confirmations are ON =====
+$ docker inspect supabase_auth_poancmeitlmxejofwzuu --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String -Pattern "AUTOCONFIRM|RATE_LIMIT_EMAIL"
+
+GOTRUE_RATE_LIMIT_EMAIL_SENT=360000
+GOTRUE_SMS_AUTOCONFIRM=true
+GOTRUE_MAILER_AUTOCONFIRM=false
+----- exit code: 0 -----
+
+# MEASURED, AND NOT WHAT THE FILE SAYS: the auth container carries
+# GOTRUE_RATE_LIMIT_EMAIL_SENT=360000 while supabase/config.toml carries [auth.rate_limit]
+# email_sent = 2. The CLI did not push the file's value into the container. So the checked-in
+# number is NOT the cap this run measures against. Step 5 check (f) reports the file's value and
+# whether the mailer actually refused anything; this line records why those two can disagree.
+
+===== bun run db:reset =====
+$ bun run db:reset
+bun : $ bunx supabase db reset
+At line:1 char:1
++ bun run db:reset
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx supabase db reset:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Resetting local database...
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET
+Recreating database...
+Initialising schema...
+Seeding globals from roles.sql...
+Skipping migration .gitkeep... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration README.md... (file name must match pattern "<timestamp>_name.sql")
+Applying migration 20260808120000_accounts_org_membership_and_acknowledgments.sql...
+Applying migration 20260809090000_volunteer_github_link_and_imported_profile.sql...
+WARN: no files matched pattern: supabase/seed.sql
+Skipping migration .gitkeep... (file name must match pattern "<timestamp>_name.sql")
+Skipping migration README.md... (file name must match pattern "<timestamp>_name.sql")
+Restarting containers...
+A new version of Supabase CLI is available: v2.113.0 (currently installed v2.110.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET
+A new version of Supabase CLI is available: v2.113.0 (currently installed v2.110.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+Finished [36msupabase db reset[39m on branch [36mmain[39m.
+{"target":"local","version":"","message":"Reset local database."}
+----- exit code: 0 -----
+
+===== bunx supabase status - the stack is up after the reset =====
+$ bunx supabase status
+bunx : Stopped services: [supabase_imgproxy_poancmeitlmxejofwzuu supabase_pooler_poancmeitlmxejofwzuu]
+At line:1 char:1
++ bunx supabase status
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Stopped service...eitlmxejofwzuu]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+{"DB_URL":"postgresql://postgres:postgres@127.0.0.1:54322/postgres","API_URL":"http://127.0.0.1:54321","REST_URL":"http://127.0.0.1:54321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:54321/graphql/v1","FUNCTIONS_URL":"http://127.0.0.1:54321/functions/v1","MCP_URL":"http://127.0.0.1:54321/mcp","STUDIO_URL":"http://127.0.0.1:54323","PUBLISHABLE_KEY":"<REDACTED-local-publishable-key>","SECRET_KEY":"<REDACTED-local-secret-key>","JWT_SECRET":"<REDACTED-local-jwt-secret>","ANON_KEY":"<REDACTED-local-demo-jwt>","SERVICE_ROLE_KEY":"<REDACTED-local-demo-jwt>","MAILPIT_URL":"http://127.0.0.1:54324","INBUCKET_URL":"http://127.0.0.1:54324","STORAGE_S3_URL":"http://127.0.0.1:54321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"<REDACTED>","S3_PROTOCOL_ACCESS_KEY_SECRET":"<REDACTED>","S3_PROTOCOL_REGION":"local","message":""}
+----- exit code: 0 -----
+
+===== the auth container AFTER the reset, re-read - the flip survives the container restart =====
+$ docker inspect supabase_auth_poancmeitlmxejofwzuu --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String -Pattern "AUTOCONFIRM|RATE_LIMIT_EMAIL"
+
+GOTRUE_RATE_LIMIT_EMAIL_SENT=360000
+GOTRUE_SMS_AUTOCONFIRM=true
+GOTRUE_MAILER_AUTOCONFIRM=false
+----- exit code: 0 -----
+
+===== bunx supabase functions serve - THE OPERATOR-SIDE BINDING OF THE MOUNT TO THIS WORKTREE =====
+# Gate 2 ruling [A5] asks for this record, and this is it. The stale-mount probe inside
+# proof-local.ts can tell REACHABILITY from a 404; it cannot tell WHICH directory the edge runtime
+# mounted. So the launch is written down instead of inferred.
+#
+# COMMAND: bunx supabase functions serve
+# WORKING DIRECTORY: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aa95110cbeab31aa7
+# FLAGS: none. --no-verify-jwt is NOT passed, so the runtime verifies the caller's token exactly as
+#        it would in a deployment.
+# LAUNCHED: 2026-08-09 18:31:36 +03:00
+# PROCESS ID: 49328
+#
+# Its first lines of output, which name the two functions it mounted:
+2026-08-09T15:30:55.680974747Z Serving functions on http://127.0.0.1:54321/functions/v1/<function-name>
+2026-08-09T15:30:55.681020066Z  - http://127.0.0.1:54321/functions/v1/complete-signup
+2026-08-09T15:30:55.681022631Z  - http://127.0.0.1:54321/functions/v1/create-organization
+2026-08-09T15:30:55.681024475Z Using supabase-edge-runtime-1.74.2 (compatible with Deno v2.1.4)
+#
+# And the probe the proof script performs, run here by hand as well: an unauthenticated POST to
+# complete-signup answers HTTP 401 - a refusal, not a 404, so the function is being served.
+#
+# WHY THE MOUNT'S REVISION IS NOT LOAD-BEARING, verified in the tree before this run:
+#   git diff main...HEAD --stat -- supabase/functions/
+#     supabase/functions/_shared/verification.ts | 167 +++++++++++++++++++++++++++++
+#     1 file changed, 167 insertions(+)
+#   complete-signup/index.ts imports only _shared/accounts.ts, _shared/github.ts and _shared/edge.ts.
+# This branch therefore changes nothing complete-signup imports, and every revision it could be
+# compared against is byte for byte the same code.
+----- exit code: still running -----
