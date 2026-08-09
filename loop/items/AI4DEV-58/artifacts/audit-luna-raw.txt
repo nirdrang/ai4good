@@ -1,0 +1,35 @@
+Audited head `aa00f786...`; no tests, builds, or proof scripts were run.
+
+Severity scale: high = merge-blocking record/security defect; low = stale record claim.
+
+[1] high: R7 is not implemented as ruled    `supabase/functions/_shared/edge.ts:19`
+    claim: The comment cites the predecessor script `.ts`, not its transcript `.txt`, and omits that predecessor schema evidence is superseded.
+    why it matters: Reviewers may follow invalid predecessor evidence for the current edge/schema.
+    unverified-runtime-claim: no
+
+[2] high: a credential is committed    `loop/items/AI4DEV-58/stack-up.txt:26`
+    claim: The transcript embeds `postgresql://postgres:postgres@127.0.0.1...`.
+    why it matters: The changed tree contains a database username/password despite the no-credential requirement.
+    unverified-runtime-claim: no
+
+[3] low: the live PR description is stale    `loop/items/AI4DEV-58/pr-body.md:14`
+    claim: The PR says verification has not run, although this head contains `verify-final.txt` and completed proof evidence.
+    why it matters: The PR presents the current branch as deliberately unverified.
+    unverified-runtime-claim: no
+
+Box A: F1 PASS; F2 PASS; F4 PASS; F5 PASS; R1/R6 PASS; R3 PASS; R4 PASS; R5 PASS; R7 FAIL. Rejected R2, F3, the staged-rollout remedy, and predecessor-table grant changes remain absent as ruled.
+
+Box B: territory PASS; read-only files PASS; foreign IDs PASS (live PR #48 and commit messages contain only `AI4DEV-58` board IDs); scope PASS; secrets FAIL due finding 2.
+
+Box C:  
+1. TRUE — `a-signup-and-signin.test.ts:183`, `:358`, `:454`;  
+2. TRUE — `_fixture.ts:225`, `:252`;  
+3. TRUE — migration `:85-125`, replay `:85-89`;  
+4. TRUE — replay `:103-109`, edge `:101-117`, proof script `:579-605`;  
+5. TRUE — migration `:187-212`, `:421-443`, replay `:94-110`;  
+6. TRUE by textual consistency — proof script `:49-62`, `:732-746`, transcript `:61-68`; runtime evidence was not re-run;  
+7. TRUE — gate2 rulings `:243-249`, phase state `:24-28`;  
+8. TRUE — 30 pending entries at `pending-ledger.txt:49-88`, with only the three owned IDs absent from the entry list; expected JSON flips exactly those three;  
+9. TRUE — changed comments explicitly disclaim the OAuth handshake, real import, and `linkIdentity` round trip.
+
+AUDIT: 3 FINDINGS
