@@ -323,8 +323,10 @@ const CONFIRMATION_ERROR_CODE = 'email_not_confirmed';
  * So a pass needs BOTH halves:
  *
  *   - a 4xx that is NOT 429 — a client refusal, not a throttle and not a server fault;
- *   - a body that NAMES the unconfirmed state — the pinned error code, or `confirm` in the
- *     message, which is the weaker initial predicate the ruling allows.
+ *   - a body that NAMES the unconfirmed state through the pinned error code
+ *     `email_not_confirmed`, exactly. If the live refusal carries a different discriminator, the
+ *     check FAILS, the verbatim capture beside it shows the real discriminator, and the operator
+ *     pins that measured value and re-runs — measurement, never assumption.
  *
  * IT READS THE IN-MEMORY BODY, NOT THE PRINTED ONE, and that is load-bearing: the transcript
  * redactor's key pattern ends with `code$`, so `error_code` is blanked in everything it prints.
@@ -342,7 +344,7 @@ function unconfirmedSignInRefusal(wire: Wire): { ok: boolean; discriminator: str
     .join(' | ');
 
   const statusIsClientRefusal = wire.status >= 400 && wire.status < 500 && wire.status !== 429;
-  const bodyNamesTheState = errorCode === CONFIRMATION_ERROR_CODE || /confirm/i.test(message);
+  const bodyNamesTheState = errorCode === CONFIRMATION_ERROR_CODE;
 
   return {
     ok: statusIsClientRefusal && bodyNamesTheState,
@@ -505,7 +507,7 @@ async function discoverMailCatcher(): Promise<{ kind: CatcherKind; evidence: str
     try {
       const response = await fetch(`${MAIL_URL}${path}`);
       const text = (await response.text()).slice(0, 200);
-      return `GET ${path} -> HTTP ${response.status} ${JSON.stringify(text)}`;
+      return `GET ${path} -> HTTP ${response.status} ${JSON.stringify(scrubString(text))}`;
     } catch (error) {
       return `GET ${path} -> unreachable (${error instanceof Error ? error.message : String(error)})`;
     }
@@ -632,9 +634,11 @@ type RoundTrip = {
 
 async function verificationRoundTrip(email: string): Promise<RoundTrip> {
   const { wire: signupWire, userId, idFrom } = await signUp(email);
-  const signupBody = signupWire.body as { access_token?: unknown; session?: unknown } | null;
+  const signupBody = signupWire.body as { access_token?: unknown; refresh_token?: unknown; session?: unknown } | null;
   const signupCarriedSession =
-    typeof signupBody?.access_token === 'string' || (signupBody?.session !== null && signupBody?.session !== undefined);
+    typeof signupBody?.access_token === 'string' ||
+    typeof signupBody?.refresh_token === 'string' ||
+    (signupBody?.session !== null && signupBody?.session !== undefined);
 
   const confirmedBefore = await confirmedAt(userId);
 
