@@ -33,9 +33,12 @@ proof with checks (a)–(g), final verify ladder) are not started.
 
 Two readers, per the pins in `.claude/skills/work/reviewers.md` (draft-code section): terra
 via codex and flash via opencode — each launched by its own reviewer-runner, never by any
-other role, each blind to the other. Subject: the branch diff at THIS head (`87b38aa`).
-Prompt files: `gate2-prompt-terra.txt` for the codex seat, `gate2-prompt-flash.txt` for the
-opencode seat. Proportionality: the diff reaches code; ONE slice (draft ruling 3); both
+other role, each blind to the other. Subject: the branch diff at the head THIS FILE rides in
+— the sitting's reported close head, which the conductor verifies against the remote. (The
+code-bearing commits end at `87b38aa`; the commits above it touch only `loop/items/` — the
+amended plan the readers judge against and the prompt files exist only at the close head,
+which is why the pin is the close head and not the last code commit.) Prompt files:
+`gate2-prompt-terra.txt` for the codex seat, `gate2-prompt-flash.txt` for the opencode seat. Proportionality: the diff reaches code; ONE slice (draft ruling 3); both
 readers read the whole diff. The phase is complete when BOTH runners report LANDED with
 distillates in `loop/items/AI4DEV-60/artifacts/`. The FIX AND GOAL sitting then rules on
 every finding from both seats, pushes rulings before fixes, has the executor check any
