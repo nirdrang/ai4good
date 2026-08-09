@@ -93,15 +93,24 @@ If you find a reference to any of them, it is stale — `/work` does that job no
 - **Attribution degrades, never blocks.** Linear unreachable, chain ambiguous, root missing: the
   stamp says so and the work proceeds. The ONE thing it blocks is closing a requirement, because
   that is where a wrong answer becomes permanent.
-- **ECHO THE STAMP AS THE FIRST LINES OF EVERY REPLY (MUST-FOLLOW).** Open with the lines the
-  hook emitted **this turn, verbatim** — every line leads with the actor that issued it
-  (`COORDINATOR WORKING ON …`, `COORDINATOR IN …`, then an `AGENT` pair per running item) — then
-  answer. **Anything relayed from another actor carries the arrival time and that actor's role**
-  (`09:41 · conductor — plan → gate 1`), so a claim is never read as the coordinator's own. Hook output
-  reaches the agent but is not guaranteed to render for the founder, especially remotely. **Never
-  reconstruct them from memory**: a guessed disclaimer is worse than none, because it looks like
-  evidence. If the hook emitted nothing, say so. If its value is known to be wrong, print it as
-  emitted and say so on the next line — correcting it silently hides the drift it exists to show.
+- **OPEN EVERY REPLY WITH THIS TURN'S PICTURE, THEN THE HOOK'S FACTS (MUST-FOLLOW; founder
+  2026-08-09, superseding the verbatim-echo rule of 2026-08-07 — "what I want from your echo is
+  todo the mangling to take the hook facts and take into account the user prompt").** Two lines:
+  - `TURN  <attribution> - <what this response is about>` — the model's OPEN SYNTHESIS of the
+    hook facts and the current prompt, so the founder sees what this actual turn is about,
+    including attribution AFTER any direction change the prompt just made. A `TURN` line names a
+    board item only when the turn genuinely works that item; otherwise a `~floating` label.
+  - `HOOK  <its attribution> · <actor> · folder <f> - branch <b>` — the hook's facts from this
+    turn, compressed but NEVER altered; `AGENT` lines follow as the hook gave them. If the hook
+    emitted nothing, this line says so; if its value is known wrong, print it as emitted and
+    dispute it on the next line.
+
+  The split is the safety: judgment and evidence stay distinguishable, and a DIVERGENCE between
+  the two lines is itself the signal that direction changed — the same turn must then update the
+  held facts (`Set-HeldItem`, or clear) so the next prompt's hook agrees again. The stamp itself
+  stays script-derived and judgment-free; only the reply's opening line synthesizes.
+  **Anything relayed from another actor carries the arrival time and that actor's role**
+  (`09:41 · conductor — plan → gate 1`), so a claim is never read as the coordinator's own.
 - **PRINT THE TRANSITION LINE THE MOMENT THE BRANCH CHANGES (MUST-FOLLOW).** The stamp describes
   the turn as it began, so a turn that changes branch must say so in the transcript.
 - **The agent never moves itself between folders.** A session works where it was launched, on one
