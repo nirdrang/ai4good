@@ -211,3 +211,44 @@ edits `complete-signup/index.ts`, R3 edits `_fixture.ts`; then `db reset` + re-c
 privilege matrix); then the goal phase — plan steps 6 (with the extended probe list) and 7. R7's
 comment edits land after step 6 writes the transcript they cite. R2 requires no code — its plan
 sentence is amended by the orchestrator alongside these rulings.
+
+---
+
+# SITTING 3 ADDENDUM — rulings on the executor's reported deviations
+
+The executor (opus, one invocation, three commits `0d5400a` → `35f94a5` → `e5b9624`) implemented
+every adopted ruling, reached the goal in ONE step-7 iteration (all six checks exit 0; req-001 at
+exactly 7 green / 30 declared red; req-016 unchanged from baseline), and reported five
+deviations. Ruled here, after the fact, by the same orchestrator that wrote the rulings above:
+
+**Dev-1 — `\013` instead of `\v` in the whitespace trim set. ACCEPTED, and the near-miss is
+mine.** R1's suggested spelling `E' \t\r\n\v\f'` was wrong: PostgreSQL escape strings have no
+`\v`, the backslash would be dropped, and the trim set would have contained the LETTER `v` —
+stripping real characters from volunteers' handles. The executor implemented the ruling's intent
+(`E' \t\n\r\013\f'`, octal for vertical tab) and documented why. This is exactly what
+verify-before-implement is for; the ruling text above stands as written with this addendum as
+its correction.
+
+**Dev-2 — one probe beyond the plan's (d2) list (`[null]` languages THROUGH the function).
+ACCEPTED** as evidence-strengthening inside R1's scope: R1 requires the body check to refuse
+NULL elements with a stated reason, and without this probe that raise had no live evidence.
+
+**Dev-3 — the `auth.identities` fabrication needs EIGHT columns, not the five marked NOT NULL.
+ACCEPTED as a measured fact that supersedes the note handed forward.** `created_at`,
+`updated_at` and `last_sign_in_at` are nullable in the schema but GoTrue scans them into
+non-pointer Go timestamps, so a five-column row makes `GET /auth/v1/user` answer 500 and the
+edge function 401 — indistinguishable from an expired token. Measured directly (200 → 500 →
+200). Folded into PHASE-STATE for the audit and for any successor.
+
+**Dev-4 — the machine was serving edge functions from a DELETED worktree. RULED:** the draft
+sitting's `step4-serves.txt` is hereby SUPERSEDED as evidence — it cannot be established which
+process answered it. The live evidence for "the deployed function serves and decides" is
+`proof-local.txt`, produced after the executor verified the serve ran from THIS worktree's
+directory. The hazard itself — a `supabase functions serve` outliving its worktree and answering
+preflights from an empty directory — is a PROCESS finding, handed to the coordinator in the
+completion report to fold or file; it is not this item's code.
+
+**Dev-5 — the edge runtime holds keep-alive connections across `db:reset`, so its first rpc
+afterwards fails at the transport layer. ACCEPTED as a measured local-stack fact**, recorded in
+the transcript and carried in PHASE-STATE; handled by restarting the runtime, not by retrying
+until green — the right instinct (a 502 explained is not a flake absorbed).
