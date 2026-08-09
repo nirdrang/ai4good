@@ -1,0 +1,69 @@
+﻿# AI4DEV-58 (GitHub sign-in, mandatory GitHub link) - STEP 6, THE LIVE LOCAL PROOF
+# Started: 2026-08-09 03:48:12 +03:00
+#
+# WHAT THIS TRANSCRIPT IS. The only evidence in this item about the real migration, the real edge
+# function and the real Supabase Auth. It was produced on ONE machine, by hand, once. A reviewer
+# cannot reproduce it; it is one machine's word, and it is written that way rather than dressed up.
+#
+# WHAT WAS RUNNING. The local Supabase stack (bun run db:start), the migrations replayed from empty
+# immediately before this run (bun run db:reset, exit 0), and the edge functions served from THIS
+# worktree by bunx supabase functions serve, without --no-verify-jwt.
+#
+# THE SERVING DIRECTORY WAS CHECKED RATHER THAN ASSUMED, and it mattered. This machine was found
+# serving edge functions from a worktree that had since been DELETED - the process was still alive,
+# the container mount still answered browser preflights correctly, and nothing about that looked
+# wrong from outside. A fresh unctions serve was started from this worktree before the run below,
+# so the code exercised here is the code on this branch.
+#
+# AND THE EDGE RUNTIME WAS RESTARTED AFTER THE DATABASE RESET, which is not ceremony either. A reset
+# recreates the database and restarts containers, and the edge runtime holds keep-alive connections
+# to the gateway across that: the first rpc it attempts afterwards fails with "connection closed
+# before message completed" and the edge function correctly reports it as a 502 transport failure
+# rather than a refusal. That is an artifact of resetting under a running runtime, not a property of
+# this code, so it is removed by restarting the runtime rather than retried until it looks green.
+#
+# NO KEY MATERIAL APPEARS BELOW, and that is designed in rather than scrubbed afterwards. The script
+# reads every key from supabase status -o json at run time and prints none of them - not in a
+# note, not in a failure path, not in a precondition message. GitHub push protection has already
+# refused one push in this item for a transcript that captured that command verbatim.
+#
+# WHAT NO GREEN HERE CLAIMS: any real OAuth handshake (no GitHub OAuth app exists for this project),
+# and any real GitHub import (the statistics come from the shipped stub fixture the decomposition
+# manifest calls for). The post-link Auth state is fabricated by operator authority; the link
+# ITSELF is a human consent round trip and is proved by nothing in this item.
+
+PASS  (a) the deployed complete-signup refuses a volunteer with no linked GitHub identity, states the link requirement, and writes nothing
+        HTTP 400 {"ok":false,"reason":"a volunteer signup cannot be completed without a linked GitHub account — link GitHub to this account, then complete signup"} · rows left behind {"accounts":0,"profiles":0,"acknowledgments":0} · has_platform_acknowledgment=false
+PASS  (b) with the GitHub identity linked, the SAME completion succeeds and writes a profile carrying the handle and the shipped stub's exact statistics
+        HTTP 200 {"ok":true,"accountId":"824ce104-3e2d-4c9d-aaf3-700336c85211","accountType":"volunteer","organizationId":null} · profile rows BEFORE completion: 0 · account=[{"account_type":"volunteer"}] · stored profile=[{"github_handle":"octocat","top_languages":["Elixir"],"repository_count":151,"contribution_summary":"stub import fixture: octocat has 151 public repositories, most recently in Elixir — no GitHub API was called to produce this","imported_at":"2026-08-09T00:48:13.519Z"}] · the shipped stub's judgement for "octocat"={"topLanguages":["Elixir"],"repositoryCount":151,"contributionSummary":"stub import fixture: octocat has 151 public repositories, most recently in Elixir — no GitHub API was called to produce this"}
+PASS  (c) an NGO completes with no GitHub identity at all, and the database refuses GitHub import parameters on an NGO completion
+        ngo completion HTTP 200 {"ok":true,"accountId":"85a87025-d10d-4878-a027-8e8122a91462","accountType":"ngo","organizationId":"8d1f7570-22bb-4e0e-917e-e2fc99252c55"} · rows=[{"account_type":"ngo","name":"Riverside Shelter","role":"admin"}] · volunteer profiles for the NGO: 0 · github-params-on-an-NGO direct rpc: HTTP 400 {"code":"22023","details":null,"hint":null,"message":"complete_signup refuses GitHub import parameters on a ngo completion: the GitHub link and its onboarding import belong to volunteer signup"} · rows left behind {"accounts":0,"profiles":0,"acknowledgments":0}
+PASS  (d) the database refuses a service-role caller four ways: no linked identity, null stats, an empty language array, and a handle the account never linked
+        d-1 no identity: HTTP 403 {"code":"42501","details":null,"hint":null,"message":"complete_signup refuses volunteer f18e6cb0-14e3-4be0-9c32-8ac8748b463d: no GitHub identity with handle octocat is linked to this auth user"} rows={"accounts":0,"profiles":0,"acknowledgments":0}
+        d-2 null stats: HTTP 400 {"code":"22023","details":null,"hint":null,"message":"complete_signup refuses a volunteer completion whose imported top languages are missing or empty: a queued-but-empty import is not an import"} rows={"accounts":0,"profiles":0,"acknowledgments":0}
+        d-3 empty '{}' languages: HTTP 400 {"code":"22023","details":null,"hint":null,"message":"complete_signup refuses a volunteer completion whose imported top languages are missing or empty: a queued-but-empty import is not an import"} rows={"accounts":0,"profiles":0,"acknowledgments":0}
+        d-4 mismatched handle: HTTP 403 {"code":"42501","details":null,"hint":null,"message":"complete_signup refuses volunteer e5db6169-a242-4cac-928f-0715ceb140d2: no GitHub identity with handle a-handle-this-account-never-linked is linked to this auth user"} rows={"accounts":0,"profiles":0,"acknowledgments":0}
+PASS  (d2) the semantically-empty forms are refused — through the function with a stated reason, and by the table's named constraints against the operator
+        through the function — tab-only summary: HTTP 400 {"code":"22023","details":null,"hint":null,"message":"complete_signup refuses a volunteer completion whose imported contribution summary is missing, empty or whitespace-only"} rows={"accounts":0,"profiles":0,"acknowledgments":0}
+        through the function — [null] languages: HTTP 400 {"code":"22023","details":null,"hint":null,"message":"complete_signup refuses a volunteer completion whose imported top languages contain a null or blank entry: a list of empty slots is not a list of languages"} rows={"accounts":0,"profiles":0,"acknowledgments":0}
+        as operator — ARRAY[NULL]::text[] languages → new row for relation "volunteer_profiles" violates check constraint "volunteer_profiles_top_languages_present"
+        as operator — ARRAY[''] languages → new row for relation "volunteer_profiles" violates check constraint "volunteer_profiles_top_languages_present"
+        as operator — ARRAY['  '] languages → new row for relation "volunteer_profiles" violates check constraint "volunteer_profiles_top_languages_present"
+        as operator — a tab-only contribution summary → new row for relation "volunteer_profiles" violates check constraint "volunteer_profiles_contribution_summary_present"
+        as operator — a tab-only handle → new row for relation "volunteer_profiles" violates check constraint "volunteer_profiles_github_handle_present"
+        profile rows left for the probe account: 0
+PASS  (d3) an old-shape caller passing ONLY the original five named arguments still resolves against the migrated function, and completes an NGO signup
+        HTTP 200 {"account_id": "e449b913-d9ec-4888-a082-a827570989f2", "account_type": "ngo", "organization_id": "d63976d5-643c-416a-aa92-aa3f80e96c59"} · rows=[{"account_type":"ngo","name":"Old Caller Shelter","role":"admin"}] · acknowledgments=1
+PASS  (e) a volunteer completion that fails on its LAST write leaves no account, no profile and no acknowledgment
+        the database raised: new row for relation "acknowledgments" violates check constraint "acknowledgments_text_version_check" · rows left behind: {"accounts":0,"profiles":0,"acknowledgments":0}
+PASS  (f) Auth reports the GitHub provider enabled, Google still enabled, and apple untouched
+        external.github=true external.google=true external.apple=false — this is configuration well-formedness and provider advertisement, NOT a handshake
+SKIP  (f2) the configured GitHub client id reaches the provider handshake
+        SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID is ABSENT from the environment this stack was started with. Creating the GitHub OAuth app is a founder-manual step, so this is the EXPECTED case and not a failure — the same posture the predecessor item took for Google. (f) above still holds: the block is well-formed and Auth reports GitHub enabled. This check stays unperformed rather than being faked.
+
+9 checks · 8 passed · 0 failed · 1 skipped
+SKIPPED: (f2)
+EVERY CHECK THAT RAN PASSED — 1 DID NOT RUN, so this run does not certify them
+
+----- exit code: 0 -----
+# Finished: 2026-08-09 03:48:14 +03:00
