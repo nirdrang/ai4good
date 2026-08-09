@@ -12,6 +12,21 @@ and step 6(d) gains the mismatched-handle negative (ruling F4); D-I retains the 
 and updates only its stale clause (ruling F5); section 5 records the filed unlink question
 (ruling F3).
 
+**AMENDED AGAIN in sitting 3 (FIX AND GOAL, same definition, same model) per the gate-2 rulings
+at `loop/items/AI4DEV-58/gate2-rulings.md`.** The amendments: D-E's emptiness checks become
+whitespace-aware and element-wise — the scalar CHECKs refuse whitespace-only values, the array
+CHECK refuses NULL and blank elements via a small immutable helper, and the function-body
+mirrors both (rulings R1/R6); D-E's recreated function gives the four new parameters
+`default null` and D-F's edge call omits the github keys when the judged handle is null — the
+deployment-compatibility bridge (ruling R4); D-E's privilege posture gains an explicit
+`revoke all` on `public.volunteer_profiles` from the three Data API roles, because Supabase's
+default privileges granted TRUNCATE/TRIGGER/REFERENCES the "no grant" comment believed absent
+(ruling R5); the fixture derives the caller fact through the shipped `extractGithubHandle` over
+a mirrored `identities[]` shape (ruling R3); step 6(d)'s probe list is extended accordingly;
+section 4 states that statistics provenance is not database-enforced (ruling R2, risk accepted);
+risk 2 is rewritten honestly (ruling R4); the stale live-proof citations in the fixture header
+and `edge.ts` are repointed at this item's transcript once step 6 produces it (ruling R7).
+
 **Chain, derived from the branch**
 (`nirdrang/ai4dev-58-github-sign-in-and-the-mandatory-github-link-for-volunteers`):
 AI4DEV-58 (GitHub sign-in, mandatory GitHub link) → AI4DEV-51 (accounts and sign-in container) →
@@ -113,23 +128,38 @@ One new timestamped migration:
 - `public.volunteer_profiles` — `account_id uuid primary key references public.accounts(id) on
   delete cascade`, `github_handle text not null`, `top_languages text[] not null`,
   `repository_count integer not null`, `contribution_summary text not null`, `imported_at
-  timestamptz not null default now()`; CHECK constraints refusing the empty forms
-  (`btrim(github_handle) <> ''`, `cardinality(top_languages) >= 1`,
-  `repository_count >= 0`, `btrim(contribution_summary) <> ''`) — the criterion's
-  "queued-but-empty fails" as a shape, not a convention. **`cardinality`, not `array_length`
-  (gate-1 ruling F2): `array_length('{}'::text[], 1)` is NULL — an empty array has no
-  dimensions — and a CHECK whose expression is NULL passes, so the originally planned constraint
-  enforced nothing on the one input it exists to refuse. `cardinality` returns 0 for the empty
-  array, never NULL. Step 6(d) confirms the refusal empirically on the migrated database.** RLS enabled, **no policies** (same
-  posture as the four existing tables; read paths are later leaves' work).
+  timestamptz not null default now()`; CHECK constraints refusing the empty forms — the
+  criterion's "queued-but-empty fails" as a shape, not a convention. **`cardinality`, not
+  `array_length` (gate-1 ruling F2): `array_length('{}'::text[], 1)` is NULL — an empty array has
+  no dimensions — and a CHECK whose expression is NULL passes, so the originally planned
+  constraint enforced nothing on the one input it exists to refuse. `cardinality` returns 0 for
+  the empty array, never NULL. Step 6(d) confirms the refusal empirically on the migrated
+  database.** **Strengthened by gate-2 rulings R1/R6, because slot-counting and space-only
+  trimming accept semantically empty data (`ARRAY[NULL]`, `ARRAY['']`, a tab-only summary):
+  the scalar CHECKs are whitespace-aware (`github_handle !~ '^\s*$'`,
+  `contribution_summary !~ '^\s*$'`), and the languages CHECK requires `cardinality >= 1` AND
+  every element non-NULL and non-blank, via a small IMMUTABLE helper function (a CHECK
+  expression cannot hold a subquery; the helper references only `pg_catalog` names so it is safe
+  under `search_path = ''`, and its EXECUTE is revoked from PUBLIC). `repository_count >= 0`
+  unchanged.** RLS enabled, **no policies** (same
+  posture as the four existing tables; read paths are later leaves' work). **Privilege posture
+  (gate-2 ruling R5): explicit `revoke all on table public.volunteer_profiles from anon,
+  authenticated, service_role` — Supabase's default privileges grant on new tables, and the
+  committed replay capture measured TRUNCATE/TRIGGER/REFERENCES for all three roles; the
+  re-capture must show zero privilege rows for them.**
 - **`public.complete_signup` is DROPPED and recreated** with four added parameters
   (`p_github_handle text, p_github_top_languages text[], p_github_repository_count integer,
-  p_github_contribution_summary text`). Dropping first is load-bearing: CREATE with a new
+  p_github_contribution_summary text`), **each `default null` (gate-2 ruling R4): a call carrying
+  only the original five named arguments still resolves — the deployment-compatibility bridge —
+  and there is still exactly one function, so the drop-first reasoning stands**. Dropping first
+  is load-bearing: CREATE with a new
   signature would OVERLOAD, and PostgREST refuses an ambiguous rpc name. The recreated function
   keeps every existing behaviour and refusal byte-comparable, and adds: for a volunteer — all
   four github parameters required **and non-empty (`cardinality(p_github_top_languages) >= 1`
   raises in the function body too, so a caller gets a stated reason rather than a bare
-  constraint violation — gate-1 ruling F2)**, **and a defence-in-depth check that a row
+  constraint violation — gate-1 ruling F2; per gate-2 rulings R1/R6 the body checks are also
+  element-wise and whitespace-aware, matching the constraints: NULL or blank language elements,
+  and whitespace-only handle or summary, raise with stated reasons)**, **and a defence-in-depth check that a row
   exists in `auth.identities` with `provider = 'github'` for `p_account_id` AND
   `identity_data->>'user_name' = p_github_handle`** (the guard that
   holds even against a service-role caller bypassing the edge function, same shape and same
@@ -145,7 +175,11 @@ One new timestamped migration:
 `/auth/v1/user` response it already fetches — the one-line extension its comment reserves).
 `complete-signup/index.ts` passes `{ githubHandle: caller.githubHandle }` into
 `validateCompleteSignup` and, when the judged value carries a handle, computes
-`stubGithubStatsFor(handle)` and passes handle + stats to the rpc. No new edge function:
+`stubGithubStatsFor(handle)` and passes handle + stats to the rpc. **When the judged handle is
+null (an NGO — an unlinked volunteer never reaches the rpc), the four github keys are OMITTED
+from the rpc body entirely (gate-2 ruling R4): with the function's `default null` parameters,
+an NGO completion then carries the original five keys and works against either schema version,
+so neither rollout order can break NGO signup.** No new edge function:
 linking is Auth's, the import rides completion (D-C), and `create-organization` is untouched.
 
 ### D-G — Fixture and contract: mirror Auth's post-link state, judge nothing
@@ -157,10 +191,14 @@ linking is Auth's, the import rides completion (D-C), and `create-organization` 
 - `signInWithProvider(provider, email): Promise<SignInOutcome>` — the return visit: an existing
   user whose identity matches signs in to the SAME account,
 - `volunteerProfile(accountId): Promise<VolunteerProfileRow | null>` — read-back.
-`_fixture.ts`: `AuthUser` gains `githubHandle: string | null`; `completeSignup` passes the
-caller fact from its stored auth user into the shipped validator and, on a volunteer success,
-writes the profile row from `stubGithubStatsFor` **inside the same all-or-nothing write block**.
-Storage only; every judgement stays the shipped module's.
+`_fixture.ts`: `AuthUser` gains `githubHandle: string | null`; `completeSignup` **constructs the
+canonical GoTrue `/auth/v1/user` shape from stored state (`identities[]` with
+`identity_data.user_name`, empty when nothing is linked) and derives the caller fact through the
+shipped `extractGithubHandle` — gate-2 ruling R3: the extractor is one of the shipped decisions
+the suite claims to prove, so it must sit on the tested path exactly as it does in
+`resolveCaller`** — then passes that fact into the shipped validator and, on a volunteer
+success, writes the profile row from `stubGithubStatsFor` **inside the same all-or-nothing
+write block**. Storage only; every judgement stays the shipped module's.
 
 ### D-H — Surface marks: AT-001.02 `ui`, AT-001.04 `ui`, AT-001.05 backend
 .02 (the GitHub signup path) and .04 (the blocked completion and the link that unblocks it) are
@@ -233,6 +271,11 @@ refusal reason for an unlinked volunteer names GitHub and the link requirement.
 → done: `bun run db:reset` replays from empty with no error; a catalog query capturing the new
 table, its RLS flag, its constraints, the single `complete_signup` signature (exactly one row in
 `pg_proc` for that name) and its ACL lands in `loop/items/AI4DEV-58/migration-replay.txt`.
+**After the gate-2 migration edits, this step's replay and capture are RE-RUN and the capture
+extended: the helper function's row and ACL, the new constraint definitions, the four
+`default null` parameters visible in the signature, and the table-privilege matrix for ALL five
+public tables (volunteer_profiles must show zero rows for anon/authenticated/service_role; the
+other four are measured for the scope note in ruling R5, not fixed here).**
 
 **Step 4 — the edge function.** `edge.ts` caller extension + `complete-signup/index.ts` per D-F.
 → done: serves locally; exercised end to end by step 6's transcript. `config.toml` gains the
@@ -285,6 +328,14 @@ transcript in `proof-local.txt`. It is evidence-gathering, run once, never a gua
   languages raises — the empirical check of ruling F2's NULL-semantics claim on the migrated
   database; and with an identities row carrying handle X but `p_github_handle` Y and non-empty
   stats raises — ruling F4's mismatched-handle negative;**
+  **(d2, gate-2 rulings R1/R6) the semantically-empty forms are refused: through the function
+  with a valid linked identity, a tab-only contribution summary raises with the stated reason;
+  and as operator (psql direct INSERT into `public.volunteer_profiles`), `ARRAY[NULL]::text[]`,
+  `ARRAY['']`, `ARRAY['  ']` languages, a tab-only summary and a tab-only handle are each
+  refused by the named CHECK constraint;**
+  **(d3, gate-2 ruling R4) the compatibility bridge holds: an NGO completion called through
+  PostgREST rpc with ONLY the original five named arguments succeeds — the old-caller shape
+  proven against the new schema;**
   (e) atomicity: a volunteer completion forced to fail partway leaves no account, no profile,
   no acknowledgment row;
   (f) `/auth/v1/settings` reports github enabled; **(f2), conditional exactly like the
@@ -313,7 +364,11 @@ tests exist, execute, open worlds and assert; the shipped decision modules
 (`accounts.ts`, `github.ts`) behave as the three criteria require; the gate fails closed. Does
 not claim — that the migration is correct, that the edge function works, that Auth is
 configured, that any OAuth handshake or real import works. That half's only evidence is the
-step-6 transcript, one machine, not reproducible by a reviewer.
+step-6 transcript, one machine, not reproducible by a reviewer. **Also not claimed (gate-2
+ruling R2, risk accepted): that the database authenticates the PROVENANCE of imported
+statistics. It enforces their shape and the identity binding; a caller holding the service-role
+key — the deployment's own authority — can commit any shape-valid statistics for a correctly
+linked handle, and no design keeping one implementation of the stub could prevent that.**
 
 ## 5. Seen, deliberately not touched
 - **Post-signup unlinking (gate-1 ruling F3, FILED):** `enable_manual_linking = true` also opens
@@ -334,9 +389,17 @@ step-6 transcript, one machine, not reproducible by a reviewer.
    cannot be fabricated, the live proof narrows honestly — (a), (c), (d-null-stats), (e), (f)
    still stand — and the identities-existence check's live evidence is (d)'s raise; the plan is
    amended, not silently thinned.
-2. **The DROP of `complete_signup` breaks the predecessor's deployed callers** — it cannot: the
-   only caller is `complete-signup/index.ts`, updated in the same change; the drop+recreate is
-   one migration, one transaction.
+2. **The DROP of `complete_signup` breaks a deployed caller during a mixed-plane rollout** —
+   REWRITTEN by gate-2 ruling R4, because the original text ("it cannot") mistook source
+   co-location for deployment atomicity. The truth: the drop+recreate is one migration and one
+   transaction on the DATABASE plane, but the edge-function plane deploys separately, and during
+   a mixed window volunteer completion is unavailable in either order. The bridge (four
+   `default null` parameters; the edge omits null github keys) keeps NGO completion working
+   through BOTH orders and makes the volunteer window fail closed with a stated reason under
+   migration-first. Volunteer completion requires both planes at the new version — inherent to a
+   feature spanning both planes. Today no hosted deployment exists and the local stack deploys
+   both planes together, so the window is currently unrealisable; the bridge is for the first
+   real deployment, which will replay this migration.
 3. **GoTrue's github `identity_data` field is not `user_name`** when a real OAuth app arrives.
    Two readers of that field now exist (gate-1 ruling F4): `extractGithubHandle` and the
    handle-binding check inside `public.complete_signup`. The leaf that first drives a real
