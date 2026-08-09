@@ -20,7 +20,8 @@ definition file of its own — it is the founder's own session, so its contract 
 | **Orchestrator** | fable @ xhigh (fallback opus @ max) | **all judgment** — plan, rulings, merge decision | one sitting; four per item, five when the audit finds something |
 | **Executor** | opus | the code, and running verify | one task |
 | **Mechanical** | sonnet | publish · merge execution · capture | one task |
-| **Distiller** | sonnet | one raw critique → findings only | one file |
+| **Reviewer-runner** | sonnet | launching ONE reviewer · holding its wait · distilling its output — the sole actor that starts a reviewer process | one reviewer run |
+| **Distiller** | sonnet | one raw critique → findings only (the contract the runner follows; spawned alone only to re-distil) | one file |
 | **Reviewers** | codex sol · terra · luna · opencode flash | critique — never execution | one run, never resumed |
 
 Three sentences hold it together: **the orchestrator owns decisions, the executor owns
@@ -91,9 +92,11 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
 ```
 18  CONDUCTOR    tether wakes it · verify the push landed (ls-remote tip == the head the
                  sitting reported)
-19  CONDUCTOR    launch sol OS-DETACHED · read-only · -C <tree> · -o <artifacts>
-20  CONDUCTOR    arm the file-watch (background loop, exits when final) · flow "plan → gate 1"
-21  CONDUCTOR    watch exits → DISTILLER → findings-only (count in must equal count out)
+19  CONDUCTOR    spawn ONE reviewer-runner (sol via codex), in the background — the runner
+                 launches OS-DETACHED, holds the wait, and distils; its completion wakes you.
+                 No file-watch: that mechanism failed twice on one item, armed and silent
+20  CONDUCTOR    flow "plan → gate 1" · keep-alive timer armed · you watch no reviewer files
+21  CONDUCTOR    the runner reports — LANDED with its distillate, or an anomaly handed down
 22  CONDUCTOR    flow "gate 1 done · sol N" → spawn DRAFT SITTING
 ```
 
