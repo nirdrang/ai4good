@@ -288,15 +288,26 @@ redacted exactly as the predecessor transcripts redact them.
   (e) both email-capable types flow END TO END under the flipped config (gate-1 ruling [2],
   section 7 — the flip changes the auth context beneath BOTH completion paths, so the
   predecessor's completion evidence predates it and is re-proved, not cited): a second address
-  repeats (a)–(d); the NGO address completes signup through the deployed `complete-signup`
+  performs the same round trip as (a)–(d) — the same helper, the same journey, the same
+  measurements taken; the NGO address completes signup through the deployed `complete-signup`
   edge function AFTER confirmation; the volunteer address, after confirmation and sign-in,
   gains a GitHub identity by the predecessor's mechanism — the operator-authority insert into
   `auth.identities` (`fabricateGithubIdentity` in the predecessor's proof script, flip-
   independent because it is a database write, not an auth flow) — then completes as a
   volunteer through the same deployed function, and the account row and imported profile are
-  read back. The volunteer's "repeats (a)–(d)" claim has teeth (gate-2 rulings [A3]/[A4],
-  section 8): its link MUST come from the catcher (`linkSource === 'emailed'`) and its
-  pre-confirmation sign-in refusal MUST be the same confirmation-specific one as (c);
+  read back. What (e)'s predicate RE-ASSERTS of the volunteer's trip is this enumerated
+  subset, carrying the two ruled teeth (gate-2 rulings [A3]/[A4], section 8): signup carried
+  no session; the column NULL before; the pre-confirmation refusal is (c)'s own
+  confirmation-specific predicate with the pinned error code ([A3]); the link came from the
+  catcher — `linkSource === 'emailed'` ([A4]); the column non-NULL after; the shipped
+  extractor answers true; completion HTTP 200 and the rows read back. Three of (d)'s
+  conjuncts are NOT re-asserted — the 3xx follow status, sign-in-after HTTP 200, and
+  `/auth/v1/user` HTTP 200: the flip is measured by its effect (NULL to non-NULL, link
+  source pinned), and a working token is proved by completion HTTP 200 through the
+  JWT-verifying runtime. A fourth, the non-null access token, is entailed: without one the
+  completion call is never made and its recorded status 0 fails the predicate. (Enumeration
+  by ruling [M1], section 10, replacing the earlier "repeats (a)–(d)" wording, which both
+  re-run seats read as a predicate claim.);
   (f) if the mailer rate limit starves (b), the D-B relief valve fires and the transcript
   records it.
 
@@ -574,7 +585,10 @@ it (4 = 4); its verdict boxes: adopted-rulings FAIL, redaction FAIL, runtime cla
 COULD-NOT-VERIFY (correct — execution evidence belongs to CI, not to the panel), all others
 PASS. Seat B: one finding, raw output `loop/items/AI4DEV-59/artifacts/audit-flash-output.md`,
 distillate beside it (1 = 1); all three verdict boxes PASS, the one finding attached as a
-low-severity could-not-verify note. The seats converge on no defect. Seat B's three PASS boxes
+low-severity could-not-verify note. No finding of seat A matched a finding of seat B: the
+seats' findings were DISJOINT, while the panel as a whole recorded five (sentence made
+unambiguous by ruling [M3], section 10 — the earlier wording, "The seats converge on no
+defect", could read as a clean panel). Seat B's three PASS boxes
 stand beside seat A's two FAILs as evidence, never as a veto over them. Every claim below is
 quoted verbatim from the seat's raw output.
 
@@ -644,3 +658,116 @@ change no printed format string the committed transcript mirrors. This re-run is
 one audit re-run. If the re-run lands findings, a fresh audit sitting rules on them; a fix
 that would need a second re-run is scope growth, escalated — the cap bounds effort, never
 truth.
+
+## 10. Audit re-run rulings (sitting 5, AUDIT — fable, claude-fable-5, effort xhigh)
+
+The panel re-ran at head `6e22564` — the whole panel, both seats, this item's one audit
+re-run, exactly as section 9's consequences ordered. Seat A: luna via codex, three findings,
+raw `artifacts/audit-rerun-luna-output.md`, distillate beside it (3 = 3); its boxes:
+rulings-implemented PASS, diff-scope PASS, stated-facts FAIL (its three findings), runtime
+COULD-NOT-VERIFY — correct, execution evidence is CI's and the brief asks for no runs.
+Seat B: flash via opencode. Its FIRST launch crashed on a ripgrep tool-output-size error and
+wrote no output. An empty gate is an anomaly, never a clean seat, so the seat was relaunched;
+the crash left nothing to commit, and this sentence plus the evidence commit's message are
+its record. The relaunch LANDED: two findings, raw `artifacts/audit-rerun2-flash-output.md`,
+distillate beside it (2 = 2), tool-call summary and identity extract committed; its boxes:
+rulings-implemented PASS, diff-scope PASS, stated-facts FAIL (its two findings). The seats
+CONVERGE twice — A's [1] with B's [1], and A's [2] with B's [2] — the strongest signal a
+blind panel gives, so five raw findings yield three rulings. Every claim below is quoted
+verbatim from the seat's raw output; no claim names an item id this branch does not own, so
+nothing is elided.
+
+**[M1] — ACCEPT, FIXED DIFFERENTLY: the record changes to match the code.** Convergent.
+Seat A (medium): "Check (e) claims to repeat (a)–(d) but does not require the volunteer’s
+post-confirmation sign-in or `/auth/v1/user` response to have successful HTTP status." —
+"A token-bearing non-200 response with a body containing a non-empty `email_confirmed_at`
+can make `shippedVerdict` true and let (e) pass although (d) would fail."
+Seat B (medium): "Check (e)'s volunteer half claims to repeat (a)–(d) "with teeth"
+([A3]/[A4]) but its predicate omits the post-confirmation sign-in status and the
+/auth/v1/user status conjuncts that check (d) requires: (d) needs signInAfter.status ===
+200, accessToken !== null, rawUserWire.status === 200 and followStatus 3xx (lines 876-892),
+while (e)'s volunteer conjunction checks only signupCarriedSession, confirmedBefore, the
+refusal, linkSource === 'emailed', confirmedAfter, shippedVerdict, and completion/profile
+reads (lines 957-975)."
+The defect is real and statically verified this sitting against `proof-local.ts` lines
+876–892 and 948–975. One correction to seat B's enumeration: `accessToken !== null` is
+ENTAILED, not absent — the volunteer completion call is made only when the token exists
+(lines 928–933; without it the recorded status is 0) and the predicate requires completion
+HTTP 200. The materially absent conjuncts are three: the 3xx follow status,
+`signInAfter.status === 200`, and `rawUserWire.status === 200`.
+Why the record moves and not the code: no adopted ruling required (e) to re-assert (d)'s
+status conjuncts. [A3] required the pinned refusal predicate — implemented, line 961 via
+946. [A4] required `linkSource === 'emailed'` — implemented, line 965. Both seats'
+rulings-implemented boxes are PASS. The false statement is the plan's own summary sentence,
+"a second address repeats (a)–(d)", read as a predicate claim — the same class as [L1], a
+summary overstating its itemized record — and precision cures it: step 5(e) in section 3 now
+enumerates exactly what (e)'s predicate re-asserts, names the three conjuncts it does not,
+and records the proxy reasoning (the flip is measured by its effect, NULL to non-NULL with
+the link source pinned; a working token is proved by completion HTTP 200 through the
+JWT-verifying runtime — `--no-verify-jwt` is NOT passed, per the stack-up record). The
+recorded transcript's volunteer leg is healthy; seat B's own words: "the recorded EVIDENCE
+is not false — the instrument is weaker than its claim, and a future broken run could pass
+(e) while (d) would fail."
+Why the predicate is not tightened instead: that edit changes `proof-local.ts` — a code
+change — and section 9's consequences bind this exact case: "a fix that would need a second
+re-run is scope growth, escalated — the cap bounds effort, never truth." The item's one
+audit re-run is spent. No escalation is owed, because truth does not require the code fix:
+the true fact — (e) re-asserts this subset — is now stated exactly. The tightening is filed
+as carried-forward instrument thinking in the state file: a successor that copies
+`verificationRoundTrip` into an aggregate check should carry (d)'s status conjuncts, and an
+ASSERTED tampered-probe outcome ((e) prints the volunteer's probe but does not assert it),
+in the aggregate's predicate, never in a prose "repeats" claim. `proof-local.ts` is
+deliberately untouched, comments included: its line 957 comment describes the executed
+journey — the same helper does run the whole trip — and any edit to that file re-opens the
+code-change trigger this ruling declines.
+
+**[M2] — ACCEPT.** Convergent. Seat A (low): "The functions-serve launch is timestamped
+18:31:36 +03:00, but its “first” output is timestamped 15:30:55Z, which is 41 seconds
+earlier." — "The transcript does not chronologically establish that the shown mounted
+process is the process launched from this worktree."
+Seat B (low): "The serve launch is recorded as "LAUNCHED: 2026-08-09 18:31:36 +03:00", but
+the output presented as "Its first lines of output" is timestamped 2026-08-09T15:30:55Z,
+which is 18:30:55 +03:00 — 41 seconds BEFORE the recorded launch."
+The arithmetic is verified: 15:30:55Z is 18:30:55 +03:00, 41 seconds before the hand-written
+LAUNCHED line. The fix is an ANNOTATION appended to the `stack-up.txt` entry, dated and
+attributed to this ruling, with every original line untouched — recorded evidence is never
+edited, it is annotated. The annotation states what each timestamp is (machine-emitted
+container-log timestamps on the output lines; an operator's hand-written note on the
+LAUNCHED line), the one reconciliation consistent with both (the note written about 41
+seconds after the start, once output had been observed), that this is a reading and not a
+measurement (the serve process was stopped after step 5, so nothing can be re-measured), and
+what the worktree binding rests on: the recorded command, working directory, process id,
+mounted function list and 401 probe — chronological ordering is not claimed. Seat A's
+why-it-matters is conceded, not argued down: the entry does not chronologically establish
+the binding, and now says so in the open. Seat B's own assessment stands: "the impact is on
+the record's integrity, not on [A5]'s conclusion."
+
+**[M3] — ACCEPT.** Seat A (low): "The state says the first audit seats converged on no
+defect while also recording five findings and Seat A’s failed verdict boxes." — "This can
+read as a clean audit before the mandatory whole-panel rerun, although the recorded first
+run found defects."
+The sentence "The seats converge on no defect" — section 9's opening, repeated at line 10 of
+the superseded state file — is ambiguous between "the seats agreed there is no defect",
+which is false because the first run recorded five findings, and the intended "no defect was
+found by both seats". One word, one meaning: the section 9 sentence now says the seats'
+findings were DISJOINT and puts the count of five beside it, quoting the earlier wording in
+place; the state file is rewritten by this sitting, so the superseded copy lives only in
+history.
+
+**Seat notes outside the findings — acknowledged, no ruling owed.** Both seats re-surface
+facts the record already discloses: the stale "33 not-yet-landed ids" comment in the
+pre-existing harness file (disclosed in the state file, outside the declared scope); the
+stale-lock selftest race (the state file carries the one-flake-re-run protocol); the local
+CLI ignoring the mailer rate-limit key (a filed candidate item); the plan's ~450-line diff
+estimate against the actual ~968 (an estimate, never a stated fact — the one-slice decision
+sat under its trigger either way); and the visibility of the re-run wave itself in
+`artifacts/` (this phase, operating as designed).
+
+**Consequences.** No ruling changes code. The fixes are the step 5(e) enumeration ([M1]),
+the appended annotation ([M2]) and the section 9 sentence ([M3]) — all record. The audit
+re-run trigger is "only if code changed"; nothing re-arms it, the once-per-item re-run is
+spent and stays spent, and no founder question exists — nothing contradicts ratified text
+and no fix grew scope. The audit phase CLOSES at this sitting's head. Next is the MERGE
+sitting: CI armed on the close head, never before it, and the merge ruling records the
+dispositions of BOTH panel waves — section 9's five and this section's three — with both
+re-run seats' box verdicts beside them.

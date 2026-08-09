@@ -156,3 +156,20 @@ GOTRUE_MAILER_AUTOCONFIRM=false
 # integration has no database. The edge runtime CONTAINER that `supabase start` runs stays up and
 # still answers 401, which is the stack's normal state and not this launch.
 ----- the serve process was stopped by the executor after step 5 -----
+
+# ===== AUDIT ANNOTATION - added by ruling [M2] (plan.md section 10, audit sitting 5, 2026-08-09) =====
+# Both audit re-run seats found the same inconsistency in the entry above: the hand-written line
+# "LAUNCHED: 2026-08-09 18:31:36 +03:00" sits 41 seconds AFTER the timestamps on the output lines
+# (2026-08-09T15:30:55Z is 18:30:55 +03:00). The finding is correct. Every original line above is
+# left exactly as written; this annotation is the fix.
+# WHAT THE TWO TIMESTAMPS ARE: the output lines carry container-log timestamps, emitted by the
+# machine at the moment of output. The LAUNCHED line is the operator's hand-written note. The one
+# reconciliation consistent with both is that the operator wrote the note about 41 seconds after
+# starting the process, once its output had been observed. This is a reading, not a measurement:
+# the serve process was stopped after step 5 (the closing line above), so nothing can be
+# re-measured.
+# WHAT THE BINDING RESTS ON, therefore: the recorded command, the working directory, the process
+# id, the mounted function list, and the by-hand 401 probe - none of which depends on the order of
+# those two timestamps. Chronological ordering is NOT established by this entry and is not
+# claimed. The revision-independence argument (the git diff over supabase/functions/ above) is
+# unaffected.
