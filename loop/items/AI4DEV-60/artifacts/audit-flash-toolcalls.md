@@ -1,0 +1,46 @@
+﻿read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\plan.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\gate1-rulings.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\draft-rulings.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\gate2-rulings.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\fix-rulings.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\PHASE-STATE.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\baseline.txt - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\pending-ledger.txt - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\stack-up.txt - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\verify-final.txt - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\proof-local.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\proof-local.txt - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\proof-local.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\supabase\functions\_shared\caller.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\supabase\functions\_shared\edge.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\harness\shipped-caller.selftest.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\suites\req-001\_fixture.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\suites\req-001\_fixture.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\suites\req-001\_pending.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\expected\req-001.json - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\suites\req-001\b-verification-and-sessions.test.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\suites\req-001\_contract.ts - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\.taskmaster\docs\acceptance\at-req-001.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\decomp\req-001.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\vitest.config.ts - completed
+grep - import type \{ Caller \}|import \{.*Caller|resolveCaller|from '\.\./_shared/edge\.ts'|from '\.\./\.\./_shared/edge\.ts' - completed
+grep - LEAF|notLanded - completed
+grep - jwt_expiry|enable_refresh_token_rotation|refresh_token_reuse_interval|secure_password_change|max_frequency|email_sent|enable_confirmations - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\supabase\config.toml - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\tests\at\harness\index.ts - completed
+glob - loop/items/AI4DEV-60/** - completed
+grep - resend|reset link|password reset - completed
+grep - password|reset|recover - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\.git\HEAD - error
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\audit-prompt-flash.txt - completed
+glob - .git* - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\artifacts\gate2-flash.md - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\.git - completed
+read - C:\Users\nirdr\Downloads\ai4good\.git\worktrees\agent-af9426df70dc8b59e\HEAD - error
+read - C:\Users\nirdr\Downloads\ai4good\.git\worktrees\agent-af9426df70dc8b59e\logs\HEAD - error
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\audit-prompt-luna.txt - completed
+grep - adapterDerivedCapability|STAND-IN|stand-in - completed
+grep - advance|now\(\) - completed
+grep - PASS  \(|FAIL  \( - completed
+grep - sessionId: - completed
+read - C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\loop\items\AI4DEV-60\artifacts\gate2-terra-distillate.md - completed
