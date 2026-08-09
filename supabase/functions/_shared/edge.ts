@@ -11,10 +11,23 @@
  * NO TYPE-CHECKER COVERS THIS FILE, and that is stated rather than hoped. `bun run typecheck` runs
  * over the root project (whose `include` is `src/**` plus two config files) and the `tests/at`
  * project (whose `include` is `tests/at/**` plus whatever those files import). Neither reaches an
- * edge-function entry point or this module. What covers them instead is that both functions are
- * served and exercised against the live stack in `loop/items/AI4DEV-57/proof-local.ts` — weaker in
- * some ways and stronger in others, and named honestly either way.
+ * edge-function entry point or this module. What covers them instead is that they are served and
+ * exercised against the live stack — weaker in some ways and stronger in others, and named honestly
+ * either way. At this tree's head that evidence is `loop/items/AI4DEV-58/proof-local.txt`: 9 checks,
+ * 8 passed, 0 failed, 1 skipped, driving `complete-signup` through the deployed function for both
+ * account types. The one skip is the GitHub handshake, because no GitHub OAuth app exists for this
+ * project; the Google handshake is unproved for the same reason. `loop/items/AI4DEV-57/proof-local.txt`
+ * is retained for the ONE thing only it still covers: `create-organization`, which was exercised
+ * there and is untouched by this leaf. Its completion-path and schema evidence is SUPERSEDED — it
+ * predates this migration and called a `complete_signup` that no longer exists.
+ *
+ * ONE IMPORT CROSSES INTO THE PURE HALF: `extractGithubHandle` from `./github.ts`. That direction is
+ * the safe one and the arrangement is unchanged by it — a Deno-only file may import a pure one,
+ * while the reverse would drag `Deno` into the strict acceptance program. The judgement about which
+ * identity counts as a linked GitHub identity belongs on the pure side, where a test can reach it.
  */
+
+import { extractGithubHandle } from './github.ts';
 
 /**
  * A required environment variable, or a loud failure at first use.
@@ -96,6 +109,14 @@ export function edgeHandler(
 export type Caller = {
   /** the auth user's id, which is also the `public.accounts` primary key once signup completes */
   id: string;
+  /**
+   * The handle of a GitHub identity Auth has linked to this user, or `null` — the FACT the volunteer
+   * signup gate turns on.
+   *
+   * It is a property of the user, not of the session: an email- or Google-established session whose
+   * user later links GitHub carries a handle here while its establishing provider is unchanged.
+   */
+  githubHandle: string | null;
 };
 
 /**
@@ -117,15 +138,25 @@ export async function resolveCaller(request: Request, supabaseUrl: string, anonK
   });
   if (!response.ok) return null;
 
-  const user = (await response.json()) as { id?: unknown };
-  if (typeof user.id !== 'string') return null;
+  const user = (await response.json()) as unknown;
+  const id = (user as { id?: unknown }).id;
+  if (typeof id !== 'string') return null;
 
-  // ONLY THE ID. Auth also reports the address and the provider that established the session, and
-  // neither is carried: nothing on either path reads them, and a `provider` field sitting on the
-  // caller type is a standing suggestion that the provider participates in a decision here. It does
-  // not — that is the whole of what AT-001.03 establishes. The leaf that needs either adds it back
-  // in one line.
-  return { id: user.id };
+  // THE ID AND THE LINKED GITHUB HANDLE — and still NOT the establishing provider.
+  //
+  // This is the one-line extension the previous version of this comment reserved for "the leaf that
+  // needs either", and it takes exactly one of the two. The GitHub handle is carried because
+  // `validateCompleteSignup` gates volunteer completion on it and a client must not be able to
+  // assert it; the ADDRESS and the ESTABLISHING PROVIDER are still left behind, because nothing on
+  // either path reads them and a `provider` field sitting on this type would be a standing
+  // suggestion that email-vs-Google participates in a decision here. It does not — that is the whole
+  // of what AT-001.03 establishes, and a LINKED identity is a different fact from the one that
+  // established the session.
+  //
+  // `extractGithubHandle` is given the WHOLE response rather than a pre-narrowed field: it does the
+  // shape checking, in the pure module the acceptance suite also drives, so the judgement about what
+  // counts as a linked GitHub identity has one home.
+  return { id, githubHandle: extractGithubHandle(user) };
 }
 
 function isIpv4(value: string): boolean {

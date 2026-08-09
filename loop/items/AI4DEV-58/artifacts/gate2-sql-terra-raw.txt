@@ -1,0 +1,30 @@
+Severity scale: high = required behavior can fail despite a green gate; medium = service-role integrity boundary escape; low = conditional privilege mismatch.
+
+[1] severity: high    supabase/migrations/20260809090000_volunteer_github_link_and_imported_profile.sql:57
+    claim: The “populated” checks accept semantically empty data: `ARRAY[NULL]`/`ARRAY['']` count as languages, and a tab-only summary survives `btrim`.
+    why it matters: With a real matching GitHub identity, a direct service-role call can commit `ARRAY[NULL]`, `0`, and `E'\t'`, producing a profile with no usable language or summary despite the claimed structural guarantee; the stub path and the planned `{}` probe stay green. PostgreSQL defines `cardinality` as a count of all elements and defaults `btrim` to spaces only. [Array docs](https://www.postgresql.org/docs/current/functions-array.html), [string docs](https://www.postgresql.org/docs/current/functions-string.html)
+    unverified-runtime-claim: no
+
+[2] severity: medium    supabase/migrations/20260809090000_volunteer_github_link_and_imported_profile.sql:200
+    claim: A service-role caller that passes the identity check can forge arbitrary nonempty profile statistics instead of the declared `stubGithubStatsFor` output.
+    why it matters: For an unfinished user with a matching linked handle, `['forged']`, `0`, and `'forged'` pass every database check and commit; `0` is impossible for the shipped stub. The direct-RPC threat model therefore has a broader write capability than the plan’s current-source contract, and neither the acceptance suite nor Step 6 exercises this valid forged-input case.
+    unverified-runtime-claim: no
+
+[3] severity: high (outside schema: test meaning)    tests/at/suites/req-001/_fixture.ts:196
+    claim: The new acceptance tests inject `authUser.githubHandle` directly into `validateCompleteSignup` and never execute `extractGithubHandle`.
+    why it matters: A regression in `/auth/v1/user` parsing—for example, returning `null` for a linked GitHub identity—would make the deployed edge function reject linked volunteers while AT-001.02/.04/.05 remain green; this contradicts the broad claim that the loop green proves the shipped `github.ts` decisions.
+    unverified-runtime-claim: no
+
+[4] severity: high (deployment compatibility)    supabase/migrations/20260809090000_volunteer_github_link_and_imported_profile.sql:84
+    claim: Dropping the five-argument RPC and replacing it with a nine-argument RPC has no compatibility bridge, while updating the edge function in the same source change does not make cross-plane deployment atomic.
+    why it matters: A function-first rollout sends four unknown arguments to the old RPC, while a migration-first rollout leaves the old edge unable to supply the four required arguments; at minimum volunteer completion is unavailable during either ordinary sequential rollout. The plan’s claim that the old caller “cannot” break needs a deployment guarantee, not source co-location.
+    unverified-runtime-claim: yes
+    verify-first: Demonstrate an atomic schema-plus-function deployment, or stage both deployment orders while issuing NGO and volunteer completion requests.
+
+[5] severity: low    supabase/migrations/20260809090000_volunteer_github_link_and_imported_profile.sql:308
+    claim: The claimed no-table-grants/sole-write-path posture is contradicted by the committed replay capture, which records `TRUNCATE`, `TRIGGER`, and `REFERENCES` privileges for `service_role`, with no revoke here.
+    why it matters: If any deployed path can issue SQL as `service_role`, it can truncate `volunteer_profiles` outside `complete_signup`, leaving completed volunteer accounts without profiles.
+    unverified-runtime-claim: yes
+    verify-first: On the deployment target, check `has_table_privilege` for those privileges and establish whether any service-role SQL-capable path exists; revoke them if it does.
+
+CODE REVIEW: 5 FINDINGS

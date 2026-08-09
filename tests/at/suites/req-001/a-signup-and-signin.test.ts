@@ -2,30 +2,52 @@
  * AT-REQ-001 section A — signup and sign-in.
  * Source: .taskmaster/docs/acceptance/at-req-001.md
  *
- * Four of this file's seven ids are the ones AI4DEV-57 lands: AT-001.01, .03, .06 and .07. The
- * other three belong to the GitHub leaf and are declared, not written.
+ * ALL SEVEN of this file's ids are now written. Four came with the first accounts leaf — AT-001.01,
+ * .03, .06 and .07 — and the three GitHub ones, AT-001.02, .04 and .05, come with the leaf that
+ * lands GitHub signup and the mandatory GitHub link at volunteer signup. Nothing in this file is a
+ * declared stub any more.
  *
  * EVERY ASSERTION BELOW READS AN OBSERVABLE CONSEQUENCE, never that a function was called. That is
  * the whole discipline of this file: a test that checks "the validator ran" passes against a
  * validator that returns the wrong answer.
  *
- * SURFACE MARKS. AT-001.01, .03 and .07 are marked `surface: 'ui'`; AT-001.06 is not. The three
- * marked ones are the auth SCREENS — signup, Google signup and return sign-in, and which options the
- * public signup surface offers — and the manifest's wiring leaf (D2.LW) re-runs the ui-marked ids
- * with `--wired` rather than adding new ones. `registry.ts` defaults an omitted surface to
- * `backend`, so an unmarked suite would leave that leaf nothing to re-run, and this leaf's whole
- * decision to build no screens rests on that leaf finding these tests. AT-001.06 stays `backend`
- * because it is an authorization boundary, not one of the four auth screens the manifest names.
+ * NO HANDSHAKE IS SIMULATED ANYWHERE IN THIS FILE, for Google or for GitHub. `registerWithProvider`,
+ * `registerWithGithub`, `linkGithubIdentity` and `signInWithProvider` all record the state Supabase
+ * Auth is in AFTER a round trip, and fabricate no authorization code, token exchange or redirect.
+ * The round trips themselves need a person pressing a consent button and are named unproved in the
+ * item's per-id table. What IS proved here is everything downstream of them, which is where all the
+ * shipped code lives.
+ *
+ * SURFACE MARKS. AT-001.01, .02, .03, .04 and .07 are marked `surface: 'ui'`; AT-001.05 and .06 are
+ * not. The marked ones are the auth SCREENS — email signup, GitHub signup, Google signup, the
+ * blocked-then-linked volunteer completion, and which options the public signup surface offers — and
+ * the manifest's wiring leaf (D2.LW) re-runs the ui-marked ids with `--wired` rather than adding new
+ * ones. `registry.ts` defaults an omitted surface to `backend`, so an unmarked suite would leave
+ * that leaf nothing to re-run, and this leaf's whole decision to build no screens rests on that leaf
+ * finding these tests. AT-001.06 stays `backend` because it is an authorization boundary rather than
+ * one of the four auth screens the manifest names, and AT-001.05 stays `backend` because its
+ * observable is row contents — provider- and screen-independent, so a wired re-run would drive the
+ * same assertions through a screen that contributes nothing to them.
  */
 
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
-import { LEAF, notLanded } from './_pending.ts';
+// `LEAF`/`notLanded` are no longer imported here: this file's last declared stub was replaced with a
+// real body by the GitHub leaf, and an import kept for a stub that no longer exists is an orphan.
+// The other five suite files still declare their leaves' ids and import both.
+// THE STUB IMPORT FIXTURE, imported rather than restated. AT-001.05 asserts the profile's stats BY
+// VALUE, and the value it compares against has to be the shipped judgement — a literal copied into
+// this file would drift from `stubGithubStatsFor` the first time either changed, and the test would
+// then be grading a copy. See that test's own comment for why asserting the stub's exact output is
+// honest here and what it does and does not claim.
+import { stubGithubStatsFor } from '../../../../supabase/functions/_shared/github.ts';
 
 /** The version string of the ToS + Platform Promise text these tests accept on the user's behalf. */
 const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
 /** The address the acknowledgment must record — AT-001.01 names IP among the three fields. */
 const CLIENT_IP = '203.0.113.7';
+/** The password every email/password registration in this file uses. */
+const PASSWORD = 'correct horse battery staple';
 
 describe('AT-REQ-001 A — signup and sign-in', () => {
   atTest(
@@ -139,7 +161,75 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
     },
   );
 
-  atTest('AT-001.02', 'GitHub OAuth volunteer signup links the identity and returns to the same account', notLanded(LEAF.D1_L2));
+  atTest(
+    'AT-001.02',
+    'GitHub OAuth volunteer signup links the identity and returns to the same account',
+    { surface: 'ui' },
+    async ({ open }) => {
+      const { w, sut } = await open();
+
+      // THE CRITERION HAS THREE CLAUSES and each gets its own observable below: an account of global
+      // type `volunteer` is created, the GitHub identity is LINKED to it, and a later sign-in via
+      // GitHub returns to the SAME account.
+      //
+      // WHAT IS NOT PROVED, said before the first assertion rather than in a footnote: the OAuth
+      // handshake. `registerWithGithub` is the state Auth is in after a consent round trip — no
+      // authorization code, no token exchange, no redirect. Consent is a person pressing a button,
+      // which no agent performs, and the GitHub OAuth app is a founder-manual step that may not
+      // exist yet. Everything downstream of the round trip is this leaf's code and is what runs here.
+      const email = w.email('github-volunteer');
+      const HANDLE = 'riverside-octocat';
+
+      const session = await sut.registerWithGithub(email, HANDLE);
+      // A CONTROL, not decoration: if the session is not github-established, every clause below is
+      // being asserted about some other signup path and the test compares nothing.
+      expect(
+        session.provider,
+        'this test is about a github-established session; if it is not github, nothing below is about AT-001.02',
+      ).toBe('github');
+
+      const completion = await sut.completeSignup(
+        session,
+        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+        CLIENT_IP,
+      );
+      expect(completion, 'a GitHub volunteer signup was refused at completion').toMatchObject({ ok: true });
+      if (!completion.ok) return;
+
+      // Clause one: "an account with global type `volunteer` is created".
+      expect(await sut.account(completion.accountId)).toEqual({
+        id: session.accountId,
+        accountType: 'volunteer',
+      });
+      expect(completion.organizationId, 'a volunteer completion must create no organisation').toBeNull();
+
+      // Clause two: "the GitHub identity is linked to it". The link lives in Supabase Auth, which
+      // this leaf does not own; what it CAN observe — and what makes the link consequential rather
+      // than merely asserted — is that the account's own row carries the handle that was linked. A
+      // signup that accepted a GitHub session and recorded nothing about the identity would fail
+      // here while passing clause one.
+      const profile = await sut.volunteerProfile(completion.accountId);
+      expect(profile, 'the completed GitHub volunteer signup carries no linked handle anywhere').not.toBeNull();
+      if (!profile) return;
+      expect(profile.githubHandle, 'the recorded handle is not the one that signed up').toBe(HANDLE);
+
+      // Clause three: "a later sign-in via GitHub returns to the same account". The SAME account is
+      // the whole content of the clause — a path that minted a second account on the return visit
+      // would satisfy "sign-in succeeds" and fail the criterion.
+      const returning = await sut.signInWithProvider('github', email);
+      expect(returning, 'a later sign-in via GitHub did not succeed').toMatchObject({ ok: true });
+      if (!returning.ok) return;
+      expect(
+        returning.session.accountId,
+        'the GitHub return visit resolved to a DIFFERENT account than the one it signed up',
+      ).toBe(session.accountId);
+      expect(returning.session.provider).toBe('github');
+
+      // And the returned-to account is still the same one, with the same type — asserted rather than
+      // assumed, because "same id" and "same account" come apart if anything re-typed the row.
+      expect(await sut.account(returning.session.accountId)).toMatchObject({ accountType: 'volunteer' });
+    },
+  );
 
   atTest(
     'AT-001.03',
@@ -151,9 +241,15 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       // WHAT THIS TEST ASSERTS, AND WHAT IT REFUSES TO PRETEND.
       //
       // The shipped code in this leaf is the decision module, and it never reads the provider — it
-      // is never GIVEN one. `CompleteSignupRequest` has no provider field and the adapter's
-      // `completeSignup` passes only `session.accountId`, so the comparison below establishes that
-      // the shipped path ignores the provider BECAUSE IT NEVER RECEIVES ONE.
+      // is never GIVEN one. `CompleteSignupRequest` has no provider field, and the adapter's
+      // `completeSignup` passes the account id together with ONE fact about the caller — whether a
+      // GitHub identity is linked — and nothing else, so the comparison below establishes that the
+      // shipped path ignores the provider BECAUSE IT NEVER RECEIVES ONE.
+      //
+      // A LINKED-GITHUB FACT IS NOT THE SESSION PROVIDER, and the distinction is why this paragraph
+      // survived the GitHub leaf unchanged in substance. The decision path still cannot tell an
+      // email-established session from a Google-established one — that is what makes this test's
+      // equivalence claim exactly as narrow now as it was before, no narrower and no wider.
       //
       // WHICH MEANS THIS COMPARISON WOULD NOT CATCH A PROVIDER BRANCH, and an earlier version of
       // this comment claimed it would. A branch treating Google differently would have to live in
@@ -219,7 +315,14 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       });
 
       // "as either account type" — the volunteer half of the criterion, through the same path.
+      //
+      // THE LINK IS A PRECONDITION HERE, NOT AN ASSERTION. Since the GitHub leaf, a volunteer cannot
+      // complete signup without a linked GitHub identity (AT-001.04, which owns that rule and tests
+      // it). Adding the link is what keeps THIS test about what it has always been about — that a
+      // Google-established session completes through the same path as an email one — instead of
+      // silently becoming a second, worse test of the GitHub gate. Nothing below this line changed.
       const googleVolunteer = await sut.registerWithProvider('google', w.email('google-volunteer'));
+      await sut.linkGithubIdentity(googleVolunteer, 'google-volunteer-handle');
       const volunteerCompletion = await sut.completeSignup(
         googleVolunteer,
         { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
@@ -232,9 +335,190 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
     },
   );
 
-  atTest('AT-001.04', 'volunteer signup cannot complete without a linked GitHub account', notLanded(LEAF.D1_L2));
+  atTest(
+    'AT-001.04',
+    'volunteer signup cannot complete without a linked GitHub account',
+    { surface: 'ui' },
+    async ({ open }) => {
+      const { w, sut } = await open();
 
-  atTest('AT-001.05', 'linking GitHub fires volunteer onboarding with the public stats observably imported', notLanded(LEAF.D1_L2));
+      // THE CRITERION NAMES BOTH ESTABLISHING PROVIDERS — "completing volunteer signup by email or
+      // Google (no GitHub identity yet)" — so both are driven. That is not redundancy: the gate reads
+      // a LINKED identity, and if it had accidentally been written against the SESSION provider
+      // instead, an email session and a Google session would behave differently and only running
+      // both would show it.
+      const request = { accountType: 'volunteer' as const, acknowledgmentTextVersion: TEXT_VERSION };
+
+      const byEmail = await sut.registerWithEmailPassword(w.email('email-volunteer'), PASSWORD);
+      const byGoogle = await sut.registerWithProvider('google', w.email('google-volunteer'));
+      expect(byEmail.provider).toBe('email');
+      expect(byGoogle.provider, 'the google half of this criterion is not being driven by a google session').toBe('google');
+
+      for (const session of [byEmail, byGoogle]) {
+        const refused = await sut.completeSignup(session, request, CLIENT_IP);
+        expect(
+          refused.ok,
+          `a ${session.provider}-established volunteer completed signup with no linked GitHub account`,
+        ).toBe(false);
+        if (refused.ok) return;
+
+        // "BLOCKED WITH THE GITHUB-LINK REQUIREMENT STATED" — the reason is half the criterion. A
+        // bare refusal leaves the caller with nothing to do differently, and the screen the wiring
+        // leaf builds has nothing to display.
+        expect(refused.reason, 'the refusal does not name GitHub').toMatch(/github/i);
+        expect(refused.reason, 'the refusal does not say that LINKING is what is required').toMatch(/link/i);
+
+        // NO PARTIAL STATE. The weakest implementation that passes the assertions above writes the
+        // account row and then reports a refusal, which is not a refusal — it is a half-completed
+        // signup with a rude message. All four observables of a completion must be absent.
+        expect(await sut.account(session.accountId), 'the blocked completion left an account row behind').toBeNull();
+        expect(
+          await sut.volunteerProfile(session.accountId),
+          'the blocked completion imported a GitHub profile anyway',
+        ).toBeNull();
+        expect(
+          await sut.acknowledgments(session.accountId),
+          'the blocked completion recorded an acknowledgment anyway',
+        ).toEqual([]);
+        expect(
+          await sut.hasPlatformAcknowledgment(session.accountId),
+          'the blocked completion left the account holding the platform acknowledgment',
+        ).toBe(false);
+      }
+
+      // "LINKING COMPLETES SIGNUP" — and the request is byte-identical to the one just refused. That
+      // is what makes the link the cause: if anything else about the request had changed, the
+      // success would be attributable to that instead.
+      for (const session of [byEmail, byGoogle]) {
+        await sut.linkGithubIdentity(session, `${session.provider}-volunteer-handle`);
+        const completion = await sut.completeSignup(session, request, CLIENT_IP);
+        expect(
+          completion,
+          `linking GitHub did not unblock the ${session.provider}-established volunteer's completion`,
+        ).toMatchObject({ ok: true });
+        if (!completion.ok) return;
+        expect(await sut.account(completion.accountId)).toMatchObject({ accountType: 'volunteer' });
+        expect(
+          await sut.hasPlatformAcknowledgment(completion.accountId),
+          'the completion that the link unblocked recorded no acknowledgment',
+        ).toBe(true);
+      }
+
+      // THE NGO CONTROL, AND IT IS NOT OPTIONAL. A gate that refused EVERY completion would satisfy
+      // both refusals above, and the two successes after linking would not catch it either if the
+      // gate had simply been written as "refuse until any identity is linked". The criterion scopes
+      // itself to VOLUNTEER signup, so an NGO must still complete with no GitHub identity at all —
+      // that is the assertion which makes the gate's shape, and not merely its existence, correct.
+      const ngoSession = await sut.registerWithEmailPassword(w.email('ngo-control'), PASSWORD);
+      const ngoCompletion = await sut.completeSignup(
+        ngoSession,
+        { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+        CLIENT_IP,
+      );
+      expect(
+        ngoCompletion,
+        'the GitHub gate leaked onto NGO signup, which links no GitHub account and is outside this criterion',
+      ).toMatchObject({ ok: true });
+      if (!ngoCompletion.ok) return;
+      expect(
+        await sut.volunteerProfile(ngoCompletion.accountId),
+        'an NGO completion wrote a volunteer GitHub profile',
+      ).toBeNull();
+    },
+  );
+
+  atTest(
+    'AT-001.05',
+    'linking GitHub fires volunteer onboarding with the public stats observably imported',
+    async ({ open }) => {
+      const { w, sut } = await open();
+
+      // WHERE THE STATS COME FROM, STATED BEFORE THEY ARE ASSERTED SO NO GREEN CAN BE MISREAD.
+      //
+      // `stubGithubStatsFor` is a STUB. It calls nothing, fetches nothing, and reaches no part of
+      // GitHub. It is the "stub import fixture until W3" the decomposition manifest's own
+      // cross-contract ratifies, and the real import belongs to the volunteer-profile requirement in
+      // a later wave. So this test may NEVER be reported as "profile import from GitHub works".
+      //
+      // ASSERTING THE STUB'S EXACT VALUES IS NEVERTHELESS THE HONEST STRONG ORACLE HERE, because the
+      // stub IS the declared source: what the criterion puts under test is that onboarding FIRES and
+      // that what it produced arrives POPULATED on the profile, not that any statistic is true of a
+      // real person. A weaker "something non-empty is there" would pass against an implementation
+      // that wrote a placeholder, which is precisely the "queued-but-empty" state the criterion's
+      // last sentence forbids. Both strengths are asserted below: the structural non-emptiness AND
+      // the by-value equality.
+      const HANDLE = 'riverside-contributor';
+      const expected = stubGithubStatsFor(HANDLE);
+
+      const session = await sut.registerWithEmailPassword(w.email('volunteer-import'), PASSWORD);
+      await sut.linkGithubIdentity(session, HANDLE);
+
+      // THE PRE-COMPLETION NEGATIVE. The identity is linked and the signup has NOT completed, and at
+      // this instant there must be no profile at all.
+      //
+      // It is what makes the causal claim testable rather than merely stated. Without it, an
+      // implementation that populated the profile at link time — or one that had queued an empty row
+      // waiting to be filled — would satisfy every assertion after the completion below, and the
+      // criterion's "when the link completes, onboarding fires" would be untested. With it, the
+      // population is provably CAUSED by the completion and nothing sits queued in between.
+      expect(
+        await sut.volunteerProfile(session.accountId),
+        'a profile existed after linking and BEFORE completion — the import is not caused by completion, or an empty row is queued',
+      ).toBeNull();
+
+      const completion = await sut.completeSignup(
+        session,
+        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+        CLIENT_IP,
+      );
+      expect(completion, 'the linked volunteer signup was refused, so onboarding had nothing to fire from').toMatchObject({
+        ok: true,
+      });
+      if (!completion.ok) return;
+
+      // IMMEDIATELY — the very next read after completion returns, with no retry, no polling and no
+      // queue to drain. If the import were deferred to a job, this read would find nothing, which is
+      // exactly the failure the criterion's last sentence describes.
+      const profile = await sut.volunteerProfile(completion.accountId);
+      expect(profile, 'volunteer onboarding did not fire: no profile exists after a linked completion').not.toBeNull();
+      if (!profile) return;
+
+      // "the linked handle AND the imported public stats … are observably populated on the profile"
+      // — all four values, each by its own assertion, because a row with three empty fields in it
+      // records nothing while looking like a record.
+      expect(profile.githubHandle, 'the profile does not carry the handle that was linked').toBe(HANDLE);
+
+      expect(
+        profile.topLanguages.length,
+        'top languages came back empty — a queued-but-empty import fails this test',
+      ).toBeGreaterThan(0);
+      expect(profile.topLanguages, 'top languages are not what the declared import source produced for this handle').toEqual(
+        expected.topLanguages,
+      );
+
+      expect(
+        Number.isInteger(profile.repositoryCount) && profile.repositoryCount >= 0,
+        `repository count ${JSON.stringify(profile.repositoryCount)} is not a non-negative whole number of repositories`,
+      ).toBe(true);
+      expect(profile.repositoryCount).toBe(expected.repositoryCount);
+
+      expect(
+        profile.contributionSummary.trim(),
+        'the contribution summary is blank — a queued-but-empty import fails this test',
+      ).not.toBe('');
+      expect(profile.contributionSummary).toBe(expected.contributionSummary);
+
+      // The import landed WITH the account, not merely near it: the account exists, holds the
+      // volunteer type, and the acknowledgment of the same completion is recorded. All of it or none
+      // of it — which is the shape the database's single-transaction write path guarantees and the
+      // reason "queued-but-empty" is unrepresentable here rather than merely untested.
+      expect(await sut.account(completion.accountId)).toMatchObject({ accountType: 'volunteer' });
+      expect(
+        await sut.hasPlatformAcknowledgment(completion.accountId),
+        'the completion that fired the import recorded no acknowledgment, so the rows did not land together',
+      ).toBe(true);
+    },
+  );
 
   atTest(
     'AT-001.06',
@@ -269,7 +553,13 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       // Now the volunteer, driven through THE SAME BOUNDARY — the `create-organization` operation,
       // not the helper behind it. Calling `ngoOnlyActionAllowed` here would prove a helper behaves
       // and say nothing about whether the application enforces it.
-      const volunteerSession = await sut.registerWithEmailPassword(w.email('volunteer-actor'), 'correct horse battery staple');
+      const volunteerSession = await sut.registerWithEmailPassword(w.email('volunteer-actor'), PASSWORD);
+      // A PRECONDITION, not part of what this test asserts: since the GitHub leaf a volunteer cannot
+      // complete signup without a linked GitHub identity. The refusal under test below is the
+      // NGO-only one, and it must be attributable to the account type — so the volunteer has to
+      // reach the state of being a fully signed-up volunteer first. AT-001.04 owns the link rule and
+      // tests it; the assertions in this test are unchanged.
+      await sut.linkGithubIdentity(volunteerSession, 'volunteer-actor-handle');
       const volunteerCompletion = await sut.completeSignup(
         volunteerSession,
         { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },

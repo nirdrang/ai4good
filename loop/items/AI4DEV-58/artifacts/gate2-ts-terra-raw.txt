@@ -1,0 +1,18 @@
+Severity scale: high = possible user-facing outage; medium = integrity or verification-contract failure.
+
+[1] severity: high    supabase/migrations/20260809090000_volunteer_github_link_and_imported_profile.sql:84
+    claim: The five-argument RPC is removed before a nine-argument-only replacement, with no backward-compatible release path.
+    why it matters: `db push` and Edge Function deployment are separate operations. If either arrives first, old code sends five arguments to the new RPC or new code sends nine to the old RPC, blocking both NGO and volunteer signup during the rollout. Settle by proving an atomic traffic cutover or staging both deployment orders.
+    unverified-runtime-claim: yes
+
+[2] severity: medium    supabase/migrations/20260809090000_volunteer_github_link_and_imported_profile.sql:57
+    claim: The `top_languages` checks accept arrays containing only `NULL` or blank elements.
+    why it matters: `cardinality(...) >= 1` checks slots, not populated language values; the function repeats that check at line 200. A service-role RPC caller with a valid linked identity can persist `[NULL]` or `['']` as the sole “top language,” violating the claimed populated-profile guarantee. Settle by attempting those inputs against the migrated function.
+    unverified-runtime-claim: yes
+
+[3] severity: medium    tests/at/suites/req-001/_fixture.ts:21
+    claim: The fixture presents AI4DEV-57’s live proof as evidence for the current edge, migration, and configuration boundaries.
+    why it matters: That proof predates this migration and calls the old five-argument RPC, so it cannot verify the GitHub gate, profile import, or GitHub configuration. The same stale assertion appears in `supabase/functions/_shared/edge.ts:15`, falsely narrowing the current draft’s unverified boundary.
+    unverified-runtime-claim: no
+
+CODE REVIEW: 3 FINDINGS

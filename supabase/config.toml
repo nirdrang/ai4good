@@ -177,7 +177,24 @@ enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
-enable_manual_linking = false
+#
+# REQ-001 AT-001.04 — FLIPPED FROM THE TEMPLATE'S false, and this line is the subject of the
+# criterion rather than a convenience. "Given a visitor completing volunteer signup by email or
+# Google (no GitHub identity yet) … linking completes signup": that link is Auth's `linkIdentity`
+# call, and GoTrue REFUSES it outright while this flag is false. With the flag false the flow the
+# criterion describes could not exist at all.
+#
+# WHAT THIS PROVES: the configuration is well-formed and the stack starts with it. WHAT IT DOES NOT:
+# that any `linkIdentity` round trip works — that is a browser flow with a consent screen in it, and
+# it is named unproved in this item's per-id table.
+#
+# SEEN AND DELIBERATELY NOT GUARDED: the same flag also opens Auth's UNLINK surface, so a volunteer
+# who linked GitHub could later unlink it while their account and imported profile remain. No
+# acceptance id in AT-REQ-001 addresses post-signup identity lifecycle, and the file records the
+# omission as deliberate — AT-001.08 is retired with "the PRD defines no identity-collision/linking
+# policy". Guarding it here would be shipped behaviour no ratified text asks for, so the product
+# question is filed for its own board item instead. Nothing this item ships calls unlink.
+enable_manual_linking = true
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
 minimum_password_length = 6
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
@@ -357,6 +374,32 @@ client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = true
+
+# REQ-001 AT-001.02 — GitHub sign-in. A NEW block, mirroring the Google one above.
+#
+# NO SECRET IS COMMITTED, same arrangement as Google: both credentials come through env()
+# substitution, the real values live in .env.local which .gitignore covers, and the tracked .env
+# carries public values only.
+#
+# NO skip_nonce_check, AND THAT IS A DIFFERENCE RATHER THAN AN OMISSION. A nonce is an OpenID Connect
+# accommodation; GitHub is plain OAuth2 and issues no ID token, so there is no nonce to skip. Copying
+# the Google line here would be cargo cult.
+#
+# WHAT IS PROVED BY THIS BLOCK EXISTING AND THE STACK STARTING: that the configuration is well-formed
+# and /auth/v1/settings reports GitHub enabled. WHAT IS NOT: that a GitHub sign-in round trip works.
+# Consent is a person pressing a button in a browser, which no agent performs, so AT-001.02's real
+# handshake — both the signup and the return visit — is named unproved in this item's record and in
+# its merge ruling.
+#
+# CREATING THE GITHUB OAUTH APP IS A FOUNDER-MANUAL STEP, exactly like the Google client. Measured on
+# the predecessor item and carried forward: an UNSET env() variable does NOT stop the stack — the
+# literal string passes straight through — so a stack reporting github: true with no real credential
+# still proves only well-formedness. Its absence is the expected case and blocks nothing here.
+[auth.external.github]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID)"
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET)"
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.

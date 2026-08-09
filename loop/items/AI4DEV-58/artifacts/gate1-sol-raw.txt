@@ -1,0 +1,28 @@
+Severity scale: high = acceptance can be violated despite a green gate; medium = material integrity gap; low = misleading execution guidance.
+
+[1] severity: high    loop/items/AI4DEV-58/plan.md:67
+    claim: The plan moves onboarding from the GitHub-link completion event to a later `complete-signup` request, contrary to AT-001.05’s required firing point.
+    why it matters: If linking succeeds but the browser closes or the completion request fails, Auth retains the linked identity while no profile import exists. Step 5 always performs completion after linking, and marking AT-001.05 backend means the later wiring leaf will not test this missing transition.
+    unverified-runtime-claim: no
+
+[2] severity: high    loop/items/AI4DEV-58/plan.md:99
+    claim: The proposed `array_length(top_languages, 1) >= 1` constraint does not reliably reject an empty PostgreSQL array.
+    why it matters: PostgreSQL returns `NULL` for the first dimension of an empty array, and a CHECK passes when its expression is null; a direct `complete_signup` call can therefore persist `top_languages = '{}'`, defeating the claimed structural “queued-but-empty fails” guarantee. Verify first with `SELECT array_length('{}'::text[], 1)` and a migrated-database call supplying an empty stats array.
+    unverified-runtime-claim: yes
+
+[3] severity: high    loop/items/AI4DEV-58/plan.md:155
+    claim: Enabling manual identity linking without an unlink guard does not preserve the specification’s “no unlinked volunteer accounts” invariant after signup.
+    why it matters: An email- or Google-established volunteer has multiple identities after linking GitHub; if Auth permits that user to unlink the GitHub identity, the volunteer account and imported profile remain while the mandatory identity disappears. Verify first by completing such a signup on the local stack, invoking Auth’s identity-unlink operation, and querying `auth.identities`, `public.accounts`, and `public.volunteer_profiles`.
+    unverified-runtime-claim: yes
+
+[4] severity: medium    loop/items/AI4DEV-58/plan.md:108
+    claim: The database backstop checks only that some GitHub identity exists and never verifies that `p_github_handle` is the handle belonging to that identity.
+    why it matters: A service-role caller bypassing the edge function can supply a linked account id with a different non-empty handle and stats, and `complete_signup` will commit a profile for the wrong handle. Step 6 tests missing identities and missing stats but has no mismatched-handle negative case.
+    unverified-runtime-claim: no
+
+[5] severity: low    loop/items/AI4DEV-58/plan.md:149
+    claim: The plan classifies the existing statement that the signup path never receives the session provider as obsolete even though the proposed API adds only `githubHandle`, not `SessionProvider`.
+    why it matters: Rewriting that load-bearing comment as false would misdescribe AT-001.03’s coverage: the decision path still cannot branch on whether the session was established by email or Google, which is the reason that test’s equivalence claim remains narrow.
+    unverified-runtime-claim: no
+
+PLAN REVIEW: 5 FINDINGS
