@@ -105,12 +105,15 @@ If you find a reference to any of them, it is stale — `/work` does that job no
     `AI4PM-19 (auth and org membership) > AI4DEV-50 (auth root) > AI4DEV-59 (GitHub sign-in)`,
     never the leaf alone. The leaf alone hides which requirement the turn serves, which is the
     one thing the chain exists to show.
-  - `HOOK  <its attribution> · <actor> · folder <f> - branch <b>` — the hook's facts from this
-    turn, compressed but NEVER altered; `AGENT` lines follow as the hook gave them, **each with
-    its full chain**. Compression may shorten wording; it may never drop attribution. Dropping a
-    chain to save a line is altering the evidence, not compressing it. If the hook emitted
-    nothing, this line says so; if its value is known wrong, print it as emitted and dispute it
-    on the next line.
+  - **The `HOOK` block REPRODUCES the hook's own lines. The only permitted edit is dropping the
+    machine-readable `<ai4good-attribution .../>` tag** (founder corrections 2026-08-09, twice:
+    the chain went missing, then the branch went missing). Every other line stands as emitted —
+    each actor's `WORKING ON` line with its full chain, each `IN` line with its folder **and its
+    branch**, and every qualifier. Compression is what kept losing evidence, so there is no
+    compression: **line 1 is a conclusion and line 2 is what it was derived from, and a
+    conclusion without its derivation is exactly the failure the stamp exists to prevent.** If
+    the hook emitted nothing, say so; if a value is known wrong, print it as emitted and dispute
+    it on the next line.
 
   The split is the safety: judgment and evidence stay distinguishable, and a DIVERGENCE between
   the two lines is itself the signal that direction changed — the same turn must then update the
