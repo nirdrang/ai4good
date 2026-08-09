@@ -271,7 +271,10 @@ redacted exactly as the predecessor transcripts redact them.
   (b2) a tampered variant of that link — its token altered, so a token GoTrue never issued —
   is followed BEFORE the real one, and `auth.users.email_confirmed_at` stays NULL: the
   never-issued-link mirror measured rather than inferred (gate-2 rulings [A2]/[B1], section 8);
-  no expiry, single-use or resend semantics are touched — the token followed was never issued;
+  no expiry, single-use or resend semantics are touched — the token followed was never issued.
+  If only the operator-minted fallback link exists, (b2) runs against a tampered variant of THAT
+  link with a note naming the source — a mutated operator-minted token is equally never-issued —
+  and it skips only when no link exists at all (sitting-3 ruling on the executor's report);
   (c) sign-in BEFORE confirmation is refused with a CONFIRMATION-SPECIFIC refusal — a 4xx whose
   body names the unconfirmed state (expected GoTrue error code `email_not_confirmed`), captured
   verbatim; a 429 or a 5xx is NOT this refusal and fails the check (gate-2 ruling [A3], section
@@ -445,7 +448,11 @@ following it asserts nothing about expiry, single use or resend (retired AT-001.
 untouched). The fix: new proof check (b2) follows a tampered variant of the emailed link BEFORE
 the real one and requires `email_confirmed_at` still NULL; mirror 2's header entry cites (b2);
 step 2's criterion is amended (see section 3). The record was false as written and is corrected
-in the open, not thinned.
+in the open, not thinned. Interpretation ruled after the build, upheld: (b2) skips only when NO
+link exists at all; when only the operator-minted fallback yields one, it runs against a
+tampered variant of that link with a note naming the source, because a mutated operator-minted
+token is equally a token GoTrue never issued. On the real run the link was emailed, so the
+question was moot.
 
 **[A1] — ACCEPT.** Seat A (medium): "The malformed-caller selftest checks only `ok` and never
 verifies that those refusals name email verification as the remedy."
@@ -546,3 +553,14 @@ C's, the wrong-password id section B's.
 **Removal check:** no ruling removes work. [A5]'s fixed-differently declines a proposed
 ADDITION and carries its verification condition above. Nothing contradicts ratified text and
 nothing grows scope; there is no founder question.
+
+**Post-goal record notes (sitting 3).** [A5]'s verify-first condition HELD: the only change
+under `supabase/functions/` is the new `_shared/verification.ts`, and `complete-signup` does
+not import it — measured by the executor before any fix. Section 1's deferred rate-limit
+question is ANSWERED by measurement: the CLI did not push `email_sent = 2` into the auth
+container (the container carried `GOTRUE_RATE_LIMIT_EMAIL_SENT=360000`, recorded in
+`stack-up.txt` beside the reading), so the file's cap did not bind the run; check (f) passed
+honestly and the D-B relief valve did not fire. The proof script's rate-limit comment was
+amended in the open so no stated fact contradicts that measurement. Executor invocations this
+sitting: two of the permitted three (the goal, reached on its first attempt; the one-comment
+truth amendment).

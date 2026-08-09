@@ -1,0 +1,142 @@
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the launch cage — a read-only
+sandbox, or an agent definition whose write tools are removed. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** The launch cage is the enforcement — a read-only sandbox, or
+a removed tool set — and this sentence is the instruction; every launch prompt carries it
+explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+
+---
+
+## The AUDIT — critique of the CLAIM
+
+**Subject** · the branch diff **and the record that describes it** — the amended plan, the
+rulings files, and the state file's claims.
+
+Code quality is not your subject. You are answering one question: **does the story match the
+tree?**
+
+- **Every adopted ruling is implemented as ruled.** A ruling recorded but not implemented is a
+  FAIL — this is the box no other check in the system covers.
+- **The diff stays inside its declared scope.** Compare what changed against what the item says
+  it changed.
+- **Every stated fact about the code is true.** Trace the logic yourself, character by character
+  where it matters — a shell trap, a regex, a guard's field handling.
+
+**Do not run the test suite.** Execution evidence belongs to the required CI check on this
+commit: cite it, do not re-derive it. This is a deliberate narrowing, measured across four items —
+attempted execution here produced almost nothing but "could not verify", and once produced two
+FAIL verdicts that were sandbox artifacts rather than defects, while every reading-and-tracing box
+was answered every time.
+
+**Verdict per box: PASS · FAIL · COULD-NOT-VERIFY**, each with the evidence you personally
+gathered — the file and line, or the reasoning you traced. Then a final line: `AUDIT: CLEAN` or
+`AUDIT: N FINDINGS`.
+
+**You report; you rule on nothing.** The orchestrator rules, and it may dismiss your finding with
+a written reason — that is its authority, and your claim will be recorded verbatim beside it.
+
+---
+
+## This item's additions — more record to trace, never a narrowing
+
+The item: AI4DEV-59, branch
+`nirdrang/ai4dev-59-email-verification-and-the-gate-on-unverified-writing-d2l1`, at the pinned
+commit. The item lands acceptance ids AT-001.09 and AT-001.10 (email verification and the gate
+on unverified Discovery writing) as deliverable D2 leaf L1 of the authentication requirement.
+
+The record to audit (paths repository-relative):
+
+- `loop/items/AI4DEV-59/plan.md` — the amended plan. Section 7 holds the four plan-review
+  rulings; section 8 holds the twelve code-review rulings (ten distinct fixes; three ruled
+  "accept, fixed differently"; one carried a verify-first condition whose measured result is in
+  section 8's post-goal notes). Sections 2 (decisions), 3 (steps and done-criteria) and 4 (the
+  per-id claims table) are the claims the tree must match.
+- `loop/items/AI4DEV-59/PHASE-STATE.md` — the state file's claims.
+- `loop/items/AI4DEV-59/pr-body.md` — the pull-request body as published.
+- The evidence transcripts: `loop/items/AI4DEV-59/baseline.txt`, `stack-up.txt`,
+  `proof-local.txt`, `verify-final.txt`. They are one machine's word; audit their INTERNAL
+  consistency and their consistency with the code and the record. Do not re-execute anything.
+- `loop/items/AI4DEV-59/proof-local.ts` — the script that produced `proof-local.txt`.
+- `loop/items/AI4DEV-59/artifacts/` — the committed reviewer evidence (raw outputs and
+  distillates) behind the rulings in sections 7 and 8.
+
+The declared scope — the diff outside `loop/items/AI4DEV-59/` must stay inside this list:
+`supabase/functions/_shared/verification.ts` (new), `supabase/config.toml` (the
+`enable_confirmations` flip and its comment), `tests/at/harness/shipped-verification.selftest.ts`
+(new), `tests/at/suites/req-001/` (`_contract.ts`, `_fixture.ts`,
+`b-verification-and-sessions.test.ts`, `_pending.ts`), `tests/at/expected/req-001.json`.
+Nothing else.
+
+Boxes worth your trace, in addition to your mandate, never instead of it:
+
+- Each of the twelve rulings in plan.md section 8 against the tree — including the three
+  "fixed differently" implementations and the recorded verify-first result.
+- The fixture header's vendor-mirror section (`tests/at/suites/req-001/_fixture.ts`): does
+  every BOUND label cite a check that measures what the label claims, and is every UNBOUND or
+  recipe-labeled declaration still true.
+- The redaction promises in `proof-local.ts`'s header against the committed `proof-local.txt`.
+- The counts and headers this item rewrote (`_pending.ts`, the b-file header,
+  `tests/at/expected/req-001.json`) against `.taskmaster/docs/acceptance/at-req-001.md` and
+  `loop/decomp/req-001.md`.
+- The rate-limit statements: `stack-up.txt`'s recorded measurement against the comment above
+  `CONFIGURED_EMAIL_RATE_LIMIT` in `proof-local.ts` and against check (f)'s wording.
+
+If a finding must reference another board item, describe it in words; never write another
+item's id.
