@@ -12,7 +12,7 @@
  *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts`,
  *     `supabase/functions/_shared/github.ts`, `supabase/functions/_shared/caller.ts` and
  *     `supabase/functions/_shared/verification.ts`
- *     behave as the nine acceptance criteria this suite lands require. THE FOUR MODULES DO NOT
+ *     behave as the thirteen acceptance criteria this suite lands require. THE FOUR MODULES DO NOT
  *     HAVE THE SAME STANDING, and saying they do would be an untrue stated fact: `accounts.ts`,
  *     `github.ts` and `caller.ts` are imported by the deployed edge functions, byte for byte the
  *     code that ships — `caller.ts` through `resolveCaller` in `edge.ts`, which every authenticated
