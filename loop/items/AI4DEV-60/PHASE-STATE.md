@@ -1,81 +1,82 @@
 # PHASE-STATE — AI4DEV-60 (session expiry, refresh, password reset)
 
-**Phase just completed: FIX AND GOAL** (sitting 3, `orchestrator` on fable, claude-fable-5 @
-xhigh). This file rides in the head that completes the phase; the conductor verifies the
-reported head against the remote.
+**Phase just completed: AUDIT** (sitting 4, `orchestrator` on fable, claude-fable-5 @ xhigh).
+This file rides in the head that completes the phase; the conductor verifies the reported head
+against the remote.
 
 ## What exists at this head
 
-- `loop/items/AI4DEV-60/gate2-rulings.md` — seven rulings on the two draft-code readers'
-  findings (terra 6, flash 3; two converged pairs each ruled once; zero rejections; the one
-  verify-first claim settled by reading the pre-refactor file in history, evidence quoted).
-  Pushed BEFORE any fix, at `3d07f97`.
-- `loop/items/AI4DEV-60/fix-rulings.md` — four rulings on the live measurements that
-  contradicted the plan's written expectations; all accepted, plan re-pinned. Pushed at
-  `7484082`, before the last fix commit.
-- `loop/items/AI4DEV-60/plan.md` — amended a THIRD time (the gate-2 rulings) and a FOURTH
-  (the measurement re-pins); the header lists all four amendments.
-- The fixes, all seven gate-2 rulings implemented and verified in the tree by this sitting:
-  `f9e5791` (record-only), `fe0beb9` (oracle fixes), and `ef553c1` (the mirror-6 logout-scope
-  clause, fix-rulings ruling 3). The gate-2 ruling 2 removal condition was checked before the
-  removal and both halves passed (recorded in the executor's report and re-verified here).
-- Steps 4–6 of the plan, RUN: `0f96f05` (stack), `fce1dc7` (the live proof — 7 checks, 7
-  passed, including the transient-expiry phase, with `supabase/config.toml` verified
-  unchanged), `36f7e83` (the final verify surface). Evidence: `stack-up.txt`,
-  `proof-local.ts` + `proof-local.txt`, `verify-final.txt`.
-- Both gate-2 readers' FULL evidence committed at `3d07f97`: raw critiques, distillates, the
-  opencode reader's tool-call summary and identity extract, and the codex stderr/stdout logs.
-- `loop/items/AI4DEV-60/audit-prompt-luna.txt` and `audit-prompt-flash.txt` — the two
-  assembled audit briefs, identical content, one file per seat, neither naming the other.
+- `loop/items/AI4DEV-60/audit-rulings.md` — six rulings on the two-seat audit panel (luna via
+  codex 3, flash via opencode 3), every claim verified first-hand, ALL SIX ACCEPTED. All are
+  the "stated fact untrue" class; every remedy is the record changing to match the code and
+  the measurements. Both seats' box verdicts are recorded in the file, including flash's
+  clean identity extract (19 of 19 messages on the pin).
+- The panel's full evidence, committed at `ae2bb1f` BEFORE any fix: both raw outputs, both
+  distillates, the opencode seat's tool-call summary and identity extract, and the codex
+  seat's stderr/stdout logs (force-added past the `*.log` ignore, standing precedent).
+- The fixes, in three commits:
+  - `5235740` — record files, applied by the audit sitting itself: the plan header regains
+    its missing second amendment (ruling 1), `pr-body.md` states the item's real phase
+    (ruling 3), `verify-final.txt` compares against the recorded baseline — 257 tests in 10
+    files — with the correction marked as made at the audit sitting (ruling 4).
+  - `f8ba7e3` — code comments, applied by the executor (opus, one invocation, no dispute):
+    the two sites claiming Auth answers 401 now carry the measured 403 (ruling 2), mirror 5
+    carries the re-pinned unchanged-session-set predicate (ruling 5), the reset-retention
+    comment quotes the acceptance line exactly (ruling 6). Comment-only — 3 files, 15
+    insertions, 9 deletions, every changed line inside a comment (diff read by the
+    orchestrator).
+- The scope box seat two could not verify (no git in its cage) is resolved **PASS** by this
+  sitting's own enumeration: every changed path since merge-base `c11e352` is inside the
+  declared surfaces; nothing under `src/`, `.taskmaster/`, `loop/decomp/`;
+  `supabase/config.toml` absent from the diff. Recorded in `audit-rulings.md`.
+- Pull request #50's live body republished by a mechanical from `pr-body.md` as handed;
+  verified: current status present, "plan phase" gone, no item id other than this branch's own.
 
-## Verify state, confirmed FIRST-HAND by this sitting at this head
+## Verify state, confirmed FIRST-HAND by this sitting after the fixes
 
 `bun run at:verify req-001 --tier loop --expect` → **13 green / 24 red / 0 missing, exact
 declaration match, exit 0**. `bun run at:verify req-016 --tier loop --expect` → **11 green /
-1 red, exact match, exit 0**. `bun run typecheck` → both configs clean. The executor's ladder
-additionally showed `at:selftest` at 264 tests green and `at:check` in bijection for both
-requirements; the goal ledger from the plan (13/24) is met with no adjustment — no ruling
-changed the expected colours.
+1 red, exact match, exit 0**. The executor's ladder at the same tree additionally showed
+`typecheck` clean (both configs) and `at:selftest` at 264 tests in 11 files, no flake, no
+re-run.
 
-## What completes the next phase (THE AUDIT)
+## The audit does NOT re-run for these fixes — recorded judgment
 
-A PANEL OF TWO, per the pins in `.claude/skills/work/reviewers.md` (audit section): reader
-one gpt-5.6-luna via codex, effort max, sandbox read-only; reader two
-opencode-go/deepseek-v4-flash, variant max, agent reviewer-flash, clean session. Each is
-launched by its own reviewer-runner — never by any other role — and each is blind to the
-other. Subject: the branch diff AND the record that describes it, at the head THIS FILE rides
-in (the sitting's reported close head, which the conductor verifies against the remote).
-Prompt files: `audit-prompt-luna.txt` for the codex seat, `audit-prompt-flash.txt` for the
-opencode seat. The fix diff reaches code (test bodies, the fixture, comments in shipped
-files), so the audit is required; the one-slice proportionality decision is unchanged.
+The six fixes change comment text and record files only; zero executable statements moved,
+re-established by the full ladder above. Every new sentence is the one the panel's own finding
+dictated, quoted beside its ruling in `audit-rulings.md`. The conductor's directive for this
+sitting derived the same next phase. The whole reasoning is in `audit-rulings.md` under "Why
+the panel does NOT re-run for these fixes"; the merge sitting can audit the six fixes against
+that file.
 
-The phase is complete when BOTH runners report LANDED with distillates in
-`loop/items/AI4DEV-60/artifacts/`. CLEAN MEANS BOTH SEATS CLEAN — then the merge sitting
-absorbs the audit's wait and records both verdicts among its dispositions. Findings from
-EITHER seat spawn the audit sitting, which rules on BOTH seats' findings. The once-per-item
-re-run, if fixes change code, is of the WHOLE panel at the new head, never one seat.
+## What completes the next phase (CI, then THE MERGE)
+
+The conductor arms the CI watch on the head this sitting's completion report names — the
+FINAL head, after all audit fixes; never a prior one. When the required check is green on
+that exact SHA, the conductor spawns the MERGE sitting directly — no separate audit-wait
+sitting exists, because this sitting ruled the audit. The merge sitting records both audit
+seats' verdicts among its dispositions (they are ruled and recorded in `audit-rulings.md`),
+writes the merge ruling pinned to the exact head, and hands the merge to a mechanical. If CI
+is red, the merge sitting classifies before reacting, per the orchestrator contract.
 
 ## Item facts the next sitting needs
 
-- Branch `nirdrang/ai4dev-60-sessions-automatic-refresh-and-password-reset-d2l2`; PR #50 open.
-- Verify command pinned: `bun run at:verify req-001 --tier loop --expect` (goal 13/24, met);
+- Branch `nirdrang/ai4dev-60-sessions-automatic-refresh-and-password-reset-d2l2`; PR #50
+  open, body current.
+- Verify command pinned: `bun run at:verify req-001 --tier loop --expect` (13/24 exact);
   req-016 pinned at 11/1, unchanged.
-- Nineteen adopted rulings exist across four rulings files (gate1 5, draft 3, gate2 7, fix
-  4) — the audit briefs enumerate the boxes.
-- The audit runners' `*.stderr.log` outputs in `artifacts/` need `git add -f` past the
-  `.gitignore` `*.log` rule (standing precedent).
-- THE LOCAL SUPABASE STACK IS UP on this machine with the checked-in configuration restored
-  (`jwt_expiry = 3600`); no functions-serve process is running. Nothing downstream needs the
-  stack; it was left up deliberately rather than risk a teardown side effect at close. Two
-  OTHER stacks (`ai4good-slot-1`, `ai4good-slot-2`) belong to another session — never touch.
-- PROCESS NOTE for the coordinator to fold: a background-resumed executor cannot address its
-  parent — it tried the type name "orchestrator", which is unreachable, and its completion
-  report landed on `main`. Cause: SendMessage resumes a child in the BACKGROUND, so the
-  parent's synchronous return channel is gone, and this sitting never knew its own agent id
-  to hand over. Remedy next time: keep executor follow-ups synchronous (a fresh Agent call)
-  or put the parent's agent id in the resume message when one exists.
+- Twenty-five adopted rulings across five files: gate1 5, draft 3, gate2 7, fix 4, audit 6.
+  Zero rejections anywhere in the item; no maintained reviewer disagreement exists, so the
+  merge ruling carries none verbatim.
+- THE LOCAL SUPABASE STACK IS STILL UP on this machine with the checked-in configuration
+  (`jwt_expiry = 3600`); nothing downstream needs it. Two OTHER stacks (`ai4good-slot-1`,
+  `ai4good-slot-2`) belong to another session — never touch.
+- System observation, no ruling: the codex seat's belt-and-braces SendMessage to the
+  conductor's agent id DELIVERED this time (resumed the conductor from transcript), unlike
+  the earlier sittings of this item where the same send was rejected. Neither outcome is the
+  rule.
 
 ## Open questions for the founder
 
-None. All four live-measurement re-pins are vendor facts inside the leaf's own scope; nothing
-contradicts ratified text and nothing grew the scope.
+None. All six audit findings are record drift inside the leaf's own scope; nothing contradicts
+ratified text and nothing grew the scope.
