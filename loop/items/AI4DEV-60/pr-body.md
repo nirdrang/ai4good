@@ -9,9 +9,14 @@ rejection of a wrong password.
 and the verification leaf (pull requests #47, #48 and #49), which landed signup, sign-in,
 account types and the email-verification flow this leaf's sessions sit on.
 
-**Status: plan phase.** The plan is at `loop/items/AI4DEV-60/plan.md` and is under external
-review; code comes after the plan review is ruled. This body will be brought up to date as the
-item moves.
+**Status: built, reviewed, audited — waiting on CI, then the merge.** The implementation is in
+the tree. Three external gates ran and every finding was ruled: the plan gate, the two-reader
+draft-code gate, and a two-seat audit of the record against the tree — nineteen adopted rulings
+across the first three, six audit findings, all accepted as record repairs (stale comments and
+status lines; no behaviour change). The verify surface at the final head: req-001 at 13 green /
+24 declared red (exact declaration match), req-016 unchanged at 11 green / 1 red, typecheck
+clean, the harness selftest at 264 tests in 11 files, and the live local-stack proof at 7
+checks / 7 passed. The rulings and evidence live in `loop/items/AI4DEV-60/`.
 
 **The shape, in one paragraph.** Sessions are Supabase Auth's own machinery; this item ships no
 migration and no session table. The one shipped code change extracts the caller judgment from

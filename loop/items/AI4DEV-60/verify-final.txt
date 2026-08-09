@@ -17,8 +17,12 @@
 #   - req-016 is 11 GREEN / 1 RED, unchanged from the baseline. Nothing in this leaf touches it;
 #     it runs because a leaf that quietly broke another requirement's suite would otherwise close
 #     unnoticed.
-#   - at:selftest is 264 tests, one more than the baseline's 263. The one added is the blank-id
-#     case in tests/at/harness/shipped-caller.selftest.ts (gate-2 ruling 6).
+#   - at:selftest is 264 tests in 11 files; the baseline recorded 257 tests in 10 files. The
+#     delta is +1 file and +7 tests: the new tests/at/harness/shipped-caller.selftest.ts, whose
+#     seven cases are six from step 1 plus the blank-id case from gate-2 ruling 6.
+#     [CORRECTED at the audit sitting. This commentary first read "one more than the baseline's
+#     263" — 263 was the unrecorded intermediate count after step 1, not the baseline; the
+#     baseline is 257. audit-rulings.md ruling 4. The captured output below is untouched.]
 #
 # THE KNOWN FLAKE DID NOT FIRE. `runner.selftest.ts` has a stale-lock flake this project has seen
 # before, and one re-run is pre-authorized for it. It did not appear: the selftest run below is

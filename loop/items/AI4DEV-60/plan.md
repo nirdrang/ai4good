@@ -11,6 +11,15 @@ before completing signup (ruling 3); the mirror-binding labels are narrowed, two
 added to checks (d) and (e), and unbound issuance is labelled (ruling 4); the green-id count
 is nine, not eleven (ruling 5). This amended plan is what gets built.
 
+**AMENDED a second time, same sitting (DRAFT), per the three rulings in
+`loop/items/AI4DEV-60/draft-rulings.md`** on matters the draft executor surfaced: D-B records
+the accepted changed edge — a 2xx answer with an unparseable body now refuses instead of
+throwing (ruling 1); the module's blank-id acceptance is recorded as preservation of the old
+inline behaviour, not a tightening (ruling 2); D-H carries the measured diff size — 1,334
+insertions outside `loop/items/` — with the one-slice decision maintained (ruling 3). (This
+paragraph was restored by the audit sitting: the header had skipped from the first amendment
+to "a third time" — audit-rulings.md ruling 1.)
+
 **AMENDED a third time by sitting 3 (FIX AND GOAL), per the seven gate-2 rulings in
 `loop/items/AI4DEV-60/gate2-rulings.md`.** The amendments: D-B names TWO changed edges, not
 one — the 2xx body that is JSON `null` is the second (ruling 1); D-E's AT-001.38 step 3 no
