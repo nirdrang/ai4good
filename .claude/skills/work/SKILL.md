@@ -217,6 +217,25 @@ subject of the exploration is nameable, update the label when the subject shifts
 when the thread ends. The bare "coordination, no item claimed" line is only for the moments
 genuinely between things.
 
+## Filing candidates — few, distinct, and worth a stranger's time (founder 2026-08-09)
+
+Item runs hand up observations, and the coordinator files them. Filing is not free: every item
+is a promise the board makes to the founder, and a board of small promises hides the large ones.
+One day produced six filed candidates, and the founder called it out. Before filing, four checks:
+
+1. **Actionable** — the item names work someone can start. An observation with no action is a
+   note for the item's record, not a board item.
+2. **Distinct** — search the board first. A second item for a known fault is noise that splits
+   the evidence between two pages.
+3. **Worth a stranger's time** — if nobody should act on it within a month, it goes in the
+   item's record, where the reflection can still find it.
+4. **Batch the small** — several minor observations from one run become ONE record note or one
+   grouped item, never a fan of board entries.
+
+**The filing RATE is itself a signal.** Many candidates from one item means the item's scope was
+wrong or the machinery has a fault the candidates are symptoms of. Say that to the founder
+plainly instead of fanning out items — five symptoms filed separately bury the one cause.
+
 ## Ride-along, and no nesting
 
 Machinery changed while an item is open rides along in that item's branch and pull request,
