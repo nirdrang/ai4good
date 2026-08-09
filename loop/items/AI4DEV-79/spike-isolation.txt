@@ -1,0 +1,179 @@
+﻿
+AI4DEV-79 (parallel DB slot pool) - step S3, the isolation spike, run on the dev machine.
+
+REDACTION: every line below passed a redactor before it was written. JWT tokens (eyJ...),
+sb_ keys and database passwords are replaced. Nothing was removed for any other reason.
+
+machine   : MYPC
+worktree  : C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+branch    : nirdrang/ai4dev-79-a-pool-of-local-database-slots-so-items-verify-in-parallel
+head      : 1d62271239700059e38c9bac1dec17169ba4f14b
+
+=== containers, before the spike ===
+ai4good-runner | Up 3 days
+supabase_analytics_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_analytics_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_analytics_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_auth_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_auth_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_auth_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_db_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_db_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_db_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_edge_runtime_ai4good-slot-1 | Up 4 minutes
+supabase_edge_runtime_ai4good-slot-2 | Up 3 minutes
+supabase_edge_runtime_poancmeitlmxejofwzuu | Up 7 hours
+supabase_inbucket_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_inbucket_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_inbucket_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_kong_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_kong_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_kong_poancmeitlmxejofwzuu | Up 7 hours (unhealthy)
+supabase_pg_meta_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_pg_meta_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_pg_meta_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_realtime_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_realtime_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_realtime_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_rest_ai4good-slot-1 | Up 4 minutes
+supabase_rest_ai4good-slot-2 | Up 3 minutes
+supabase_rest_poancmeitlmxejofwzuu | Up 7 hours
+supabase_storage_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_storage_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_storage_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_studio_ai4good-slot-1 | Up 4 minutes (healthy)
+supabase_studio_ai4good-slot-2 | Up 3 minutes (healthy)
+supabase_studio_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_vector_ai4good-slot-1 | Restarting (0) 7 seconds ago
+supabase_vector_ai4good-slot-2 | Restarting (0) 22 seconds ago
+supabase_vector_poancmeitlmxejofwzuu | Restarting (0) 57 seconds ago
+
+AI4DEV-79 (parallel DB slot pool) - step S3, the isolation spike.
+
+date  : 2026-08-09T22:04:34.121Z
+pool  : C:\Users\nirdr\AppData\Local\ai4good-build\db-slots
+
+=== (a) preflight: every stack answers, on its own port block, BEFORE any reset ===
+slot-1    API http://127.0.0.1:55321   DB postgresql://<redacted>@127.0.0.1:55322/postgres
+slot-2    API http://127.0.0.1:56321   DB postgresql://<redacted>@127.0.0.1:56322/postgres
+personal  API http://127.0.0.1:54321   DB postgresql://<redacted>@127.0.0.1:54322/postgres
+preflight OK: three distinct stacks, the reset target is slot-2 on 56322, and it is not the personal block.
+
+=== (b) canary row in slot-1 ===
+slot-1 canary written: [{"note":"slot-1 canary"}]
+
+=== (c) canary row in the personal stack, in a scratch schema created for this run ===
+the scratch schema is "ai4dev79_spike" and it is dropped in the finally below - it is the only
+write this item ever makes to the personal stack.
+personal canary written: [{"note":"personal canary"}]
+
+=== (d) canary row in slot-2 - the row the reset MUST destroy ===
+slot-2 canary written: [{"note":"slot-2 canary"}]
+
+=== (e) supabase db reset, aimed at slot-2 ===
+reset exit code: 1
+  reset: {"_tag":"Error","error":{"code":"LegacyGoChildExitError","message":"failed to bootstrap the local database: exit 1"}}
+  reset: Resetting local database...
+  reset: WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID
+  reset: WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET
+  reset: WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
+  reset: WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+  reset: Recreating database...
+  reset: failed to start docker container "supabase_db_poancmeitlmxejofwzuu": Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint supabase_db_poancmeitlmxejofwzuu (f734f404e4471e17e21da52d325a8d77ab0b119666e6434d2984647b2c5a53b7): Bind for 0.0.0.0:56322 failed: port is already allocated
+  reset: Try stopping the running project with supabase stop --project-id ai4good-slot-2
+  reset: Or configure a different db port in supabase\config.toml
+THE RESET FAILED. The spike cannot conclude; the canaries below are reported as they stand.
+
+=== (f) the verdict: slot-2 destroyed, slot-1 and personal surviving ===
+
+=== (g) finally: dropping the scratch schema from the personal stack ===
+THE SCRATCH SCHEMA COULD NOT BE DROPPED. The personal stack still carries it.
+reason: no status JSON from C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7: [31msupabase_db_poancmeitlmxejofwzuu container is not running: created[39m
+Try rerunning the command with --debug to troubleshoot the error.
+
+MANUAL CLEANUP, run it by hand:
+  psql "postgresql://<redacted>@127.0.0.1:54322/postgres" -c "drop schema if exists ai4dev79_spike cascade"
+
+(The spike program then exited with an unhandled "connection closed" error, because the
+database it was talking to had gone away. That stack trace is cut from this transcript; nothing
+else was removed.)
+
+spike exit code: 1
+
+================================================================================
+POSTSCRIPT, written by hand after the run. THE SPIKE DID NOT PROVE THE WALL.
+IT BROKE IT, AND IT DESTROYED THE FOUNDER'S LOCAL DATABASE. Read this part first.
+================================================================================
+
+WHAT HAPPENED
+
+`supabase db reset` was aimed at slot 2. It was given --workdir <slot-2> and it was run with
+its working directory set to <slot-2>. It nevertheless removed and recreated the container
+supabase_db_poancmeitlmxejofwzuu - the founder's personal database - and it bound the new
+container to 56322, which is slot 2's port. The new container could not start, because slot 2's
+own database already holds that port. The CLI said so in its own words:
+
+  failed to start docker container "supabase_db_poancmeitlmxejofwzuu": Bind for 0.0.0.0:56322
+  failed: port is already allocated
+  Try stopping the running project with supabase stop --project-id ai4good-slot-2
+
+One command, two projects: the personal project's container name with slot 2's port.
+
+WHAT THE STATE IS, MEASURED AFTER THE RUN
+
+  slot-1    spike_canary = "slot-1 canary"   (present)
+  slot-2    spike_canary = "slot-2 canary"   (PRESENT - the reset destroyed nothing in slot 2)
+  personal  unreachable - its database container is in state "created" and does not run
+
+  docker volume supabase_db_poancmeitlmxejofwzuu  created 2026-08-09T22:04:38Z
+  docker volume supabase_storage_poancmeitlmxejofwzuu  created 2026-08-08T11:00:40Z
+  docker volume supabase_edge_runtime_poancmeitlmxejofwzuu  created 2026-08-08T11:00:41Z
+
+The two older personal volumes are the originals. The database volume is NOT: it was created at
+22:04:38, the moment of the reset. The original database volume was deleted and an empty one put
+in its place. THE FOUNDER'S LOCAL DATABASE CONTENT IS GONE. No backup file exists anywhere in
+the tree, and no dangling volume holds the old data. The schema itself is reproducible from
+supabase/migrations; any rows the founder had by hand are not.
+
+The scratch schema question is moot: the database that held it no longer exists.
+
+WHY IT HAPPENED - the root cause, measured
+
+The tracked file `.env` at the repo root contains:
+
+  SUPABASE_PROJECT_ID="poancmeitlmxejofwzuu"
+
+The Supabase CLI treats SUPABASE_PROJECT_ID as an override of `project_id` in config.toml. It
+therefore overrides the slot's identity while the slot's config.toml still supplies the ports.
+The override reaches the CLI by TWO separate routes, and both must be closed:
+
+  1. through the process environment. The spike program was started by `bun spike.ts` with its
+     working directory on the repo, so bun auto-loaded the repo's `.env` into its own
+     environment, and the CLI child inherited it.
+  2. through the CLI's own working directory. The CLI reads a `.env` file from the directory it
+     runs in. This is the earlier finding recorded in the S2 setup transcript, where
+     `supabase --workdir <slot-1> status` run from the repo reported slot ports beside personal
+     containers. That was the same override arriving by the other route.
+
+THIS IS WHY THE SETUP STEP WAS SAFE AND THE SPIKE WAS NOT. The pool's own code calls the CLI
+through `childEnv()`, an ALLOWLIST that does not carry SUPABASE_PROJECT_ID, and with the
+working directory set to the slot, which has no `.env`. Both routes are closed there, which is
+why setup created correct slot containers. The spike script called the CLI directly and closed
+neither. The pool code was right by construction and the hand-written spike was not, so the
+spike measured the hazard instead of the wall.
+
+WHAT THIS MEANS FOR THE DESIGN
+
+--workdir is NOT the isolation mechanism. A slot is isolated only when all three agree:
+the config it reads, the environment it runs in, and the working directory it runs from. The
+safe form is to state the identity positively rather than merely to avoid overriding it: pass
+SUPABASE_PROJECT_ID=<the slot's project id> to every slot invocation, so the variable that
+caused this becomes the one that enforces correctness, and add a guard that refuses when the
+containers the CLI would act on do not carry the slot's project id.
+
+THE WALL IS THEREFORE UNPROVEN. This transcript is evidence of a hazard, not of isolation. The
+spike has to be run again, with the identity stated on every invocation, before anything is
+built on it.
+
+END OF S3 TRANSCRIPT
+
