@@ -201,7 +201,7 @@ export function redact(text: string): string {
 }
 
 /** First non-empty line, redacted and length-capped — enough to diagnose, not enough to leak. */
-function diagnostic(text: string | undefined, limit = 400): string {
+export function diagnostic(text: string | undefined, limit = 400): string {
   const line =
     redact(text ?? '')
       .split('\n')
@@ -218,9 +218,15 @@ export interface LocalConfig {
   dbPort: number;
 }
 
-/** Ports and project id come from `supabase/config.toml` — never guessed, never hard-coded. */
-function readLocalConfig(): LocalConfig {
-  const file = join(REPO_ROOT, 'supabase', 'config.toml');
+/**
+ * Ports and project id come from `supabase/config.toml` — never guessed, never hard-coded.
+ *
+ * The root is a parameter so the database-slot pool can read a SLOT's own config with this exact
+ * scanner instead of a second copy of it. Unset — every ordinary run — it reads the repo tree, so
+ * the loop and integration call sites behave as they did before the parameter existed.
+ */
+export function readLocalConfig(root: string = REPO_ROOT): LocalConfig {
+  const file = join(root, 'supabase', 'config.toml');
   const text = readFileSync(file, 'utf8');
   let section = '';
   let projectId = '';
@@ -247,14 +253,22 @@ function readLocalConfig(): LocalConfig {
 
 /* ---------------------------------------------------------------------- the machine-wide lock */
 
-interface StackLock {
+export interface StackLock {
   file: string;
   release(): void;
 }
 
+/**
+ * Where the machine-wide claim files live.
+ *
+ * `AT_LOCK_DIR` overrides it, the same pattern and the same reason as `AT_REPO_ROOT`: a test that
+ * exercises the claim protocol must not write into the directory a real run reads, or a selftest
+ * and a live `at:verify` could take each other's lock. Unset — every ordinary run — the answer is
+ * unchanged.
+ */
 function lockDir(): string {
-  const base = process.env.LOCALAPPDATA ?? process.env.XDG_CACHE_HOME ?? tmpdir();
-  const dir = join(base, 'ai4good-build', 'at-locks');
+  const override = process.env.AT_LOCK_DIR?.trim();
+  const dir = override ? override : join(process.env.LOCALAPPDATA ?? process.env.XDG_CACHE_HOME ?? tmpdir(), 'ai4good-build', 'at-locks');
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -274,18 +288,37 @@ export function stackLockPath(config: LocalConfig): string {
   return join(lockDir(), `at-verify-${config.projectId}-${config.apiPort}.lock`);
 }
 
-interface Holder {
+export interface Holder {
   pid?: number;
   host?: string;
   requirement?: string;
   startedAt?: string;
+  /** Set only on a claim that replaced a stale one, so the takeover is recorded IN the claim. */
+  tookOverFrom?: { pid?: number; startedAt?: string; requirement?: string };
 }
 
-/** Live = the recorded process still exists AND the lock is young enough to be a real run. */
-function holderIsLive(holder: Holder): boolean {
+/**
+ * Which holders a caller is allowed to displace.
+ *
+ * `stale-or-dead` is the runner's own long-standing rule: a dead process, or a live one whose
+ * claim is older than `LOCK_STALE_MINUTES`. `dead-pid-only` never displaces a running process at
+ * any age — the database-slot pool passes it, because a slot's occupancy is ruled to break on a
+ * dead holder pid and on nothing else. A run that legitimately lasts longer than the stale window
+ * must not have its database reset under it.
+ */
+export type TakeoverPolicy = 'stale-or-dead' | 'dead-pid-only';
+
+export interface StackLockOptions {
+  takeover?: TakeoverPolicy;
+}
+
+/** Live = a holder this policy may not displace. */
+function holderIsLive(holder: Holder, policy: TakeoverPolicy = 'stale-or-dead'): boolean {
+  if (typeof holder.pid !== 'number' || !processIsAlive(holder.pid)) return false;
+  if (policy === 'dead-pid-only') return true;
   const startedAt = holder.startedAt ? Date.parse(holder.startedAt) : NaN;
   const ageMinutes = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 60_000 : Infinity;
-  return typeof holder.pid === 'number' && processIsAlive(holder.pid) && ageMinutes < LOCK_STALE_MINUTES;
+  return ageMinutes < LOCK_STALE_MINUTES;
 }
 
 function heldByAnotherRun(holder: Holder, file: string): Error {
@@ -340,10 +373,11 @@ function clearStrandedGate(gate: string): void {
  * holder never reaches that threshold, and clearing one wrongly degrades to two takers in the
  * section — today's behaviour, not worse.
  */
-export function acquireStackLock(config: LocalConfig, requirement: string): StackLock {
+export function acquireStackLock(config: LocalConfig, requirement: string, options: StackLockOptions = {}): StackLock {
   const file = stackLockPath(config);
+  const policy: TakeoverPolicy = options.takeover ?? 'stale-or-dead';
 
-  const claim = (): StackLock | null => {
+  const claim = (displaced?: Holder): StackLock | null => {
     let fd: number;
     try {
       fd = openSync(file, 'wx');
@@ -359,6 +393,18 @@ export function acquireStackLock(config: LocalConfig, requirement: string): Stac
           host: hostname(),
           requirement,
           startedAt: new Date().toISOString(),
+          // A takeover recorded ONLY on the console is lost the moment the terminal scrolls. The
+          // claim file outlives the run that wrote it, so whoever reads it later can see that this
+          // occupancy began by displacing an abandoned one, and whose.
+          ...(displaced
+            ? {
+                tookOverFrom: {
+                  pid: displaced.pid,
+                  startedAt: displaced.startedAt,
+                  requirement: displaced.requirement,
+                },
+              }
+            : {}),
         }),
       );
     } finally {
@@ -404,7 +450,7 @@ export function acquireStackLock(config: LocalConfig, requirement: string): Stac
 
     const holder = readHolder();
     if (holder === null) continue; // released between the failed claim and the read
-    if (holderIsLive(holder)) throw heldByAnotherRun(holder, file);
+    if (holderIsLive(holder, policy)) throw heldByAnotherRun(holder, file);
 
     // Stale. Enter the takeover gate — the only place the live lock path may be removed.
     let gateFd: number;
@@ -421,10 +467,10 @@ export function acquireStackLock(config: LocalConfig, requirement: string): Stac
       writeSync(gateFd, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
       const inside = readHolder();
       if (inside === null) continue; // released while we were entering; the next claim takes it
-      if (holderIsLive(inside)) continue; // refreshed under us; the next pass refuses it properly
+      if (holderIsLive(inside, policy)) continue; // refreshed under us; the next pass refuses it properly
 
       rmSync(file, { force: true });
-      const takeover = claim();
+      const takeover = claim(inside);
       if (!takeover) continue; // a third process claimed the free path first — delete nothing more
 
       console.log(
@@ -457,17 +503,26 @@ const REQUIRED_STATUS_FIELDS: Record<keyof StackStatus, string> = {
   serviceRoleKey: 'SERVICE_ROLE_KEY',
 };
 
-function supabaseArgs(...args: string[]): string[] {
+export function supabaseArgs(...args: string[]): string[] {
   if (!existsSync(SUPABASE_ENTRY)) throw new Error(`the Supabase CLI is not installed at ${SUPABASE_ENTRY} — run \`bun install\``);
   return ['--no-env-file', SUPABASE_ENTRY, ...args];
+}
+
+/**
+ * The CLI's global `--workdir` names the directory that CONTAINS a `supabase/` project folder.
+ * Omitted, the CLI uses its own working directory, which is the repo tree — today's behaviour at
+ * every existing call site.
+ */
+function workdirArgs(workdir?: string): string[] {
+  return workdir ? ['--workdir', workdir] : [];
 }
 
 /**
  * Ask the running stack to describe itself. The raw output is NEVER printed: it contains every
  * key the stack issues. Only field names travel into error messages.
  */
-function readStackStatus(): StackStatus {
-  const res = spawnSync(bunExecutable(), supabaseArgs('status', '-o', 'json'), {
+export function readStackStatus(workdir?: string): StackStatus {
+  const res = spawnSync(bunExecutable(), supabaseArgs(...workdirArgs(workdir), 'status', '-o', 'json'), {
     cwd: REPO_ROOT,
     env: childEnv(),
     encoding: 'utf8',
@@ -613,7 +668,7 @@ async function gatewayAnswers(status: StackStatus): Promise<string | null> {
  * readiness: a half-started stack answers 502/503, and a run launched against it fails in ways
  * that look like test failures instead of infrastructure failures.
  */
-async function waitForReady(status: StackStatus, phase: string): Promise<void> {
+export async function waitForReady(status: StackStatus, phase: string): Promise<void> {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   let lastProblem = 'not attempted';
   let delay = 250;
@@ -636,13 +691,19 @@ async function waitForReady(status: StackStatus, phase: string): Promise<void> {
 
 /* --------------------------------------------------------------------- the migration-set proof */
 
+/** Counted, not just proved — the pool's evidence line has to state the migration state it saw. */
+export interface MigrationProof {
+  expected: number;
+  applied: number;
+}
+
 /**
  * The migrations the reset is supposed to replay, read from disk. The CLI names them
  * `<timestamp>_name.sql` and records the timestamp as the applied version, so the timestamp is
  * the identity. `.gitkeep` and `README.md` are not migrations and are ignored.
  */
-export function expectedMigrations(): string[] {
-  const dir = join(REPO_ROOT, 'supabase', 'migrations');
+export function expectedMigrations(root: string = REPO_ROOT): string[] {
+  const dir = join(root, 'supabase', 'migrations');
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .map((name) => /^(\d{14})_.*\.sql$/.exec(name)?.[1])
@@ -691,8 +752,8 @@ export function migrationSetProblems(expected: string[], applied: string[]): str
  * An empty expected set is legitimate today (no migrations have been written yet) and is allowed —
  * but it is STATED on every run, so an empty rebuild can never be silently mistaken for a real one.
  */
-async function proveMigrationsReplayed(status: StackStatus): Promise<void> {
-  const expected = expectedMigrations();
+export async function proveMigrationsReplayed(status: StackStatus, root: string = REPO_ROOT): Promise<MigrationProof> {
+  const expected = expectedMigrations(root);
   const applied = await appliedMigrations(status.dbUrl);
   const problems = migrationSetProblems(expected, applied);
 
@@ -705,6 +766,7 @@ async function proveMigrationsReplayed(status: StackStatus): Promise<void> {
       ? `at:verify — ${summary} — the schema is empty by design at this stage`
       : `at:verify — ${summary} — the rebuilt schema matches supabase/migrations exactly`,
   );
+  return { expected: expected.length, applied: applied.length };
 }
 
 /* ------------------------------------------------------------------------------------- reset */
@@ -716,8 +778,8 @@ async function proveMigrationsReplayed(status: StackStatus): Promise<void> {
  * WHY EVERY RUN: without it the second run works on the first run's leftover rows, and on a
  * schema missing whatever migration landed since — a suite grading a database nobody established.
  */
-async function resetLocalDatabase(): Promise<void> {
-  const child = spawn(bunExecutable(), supabaseArgs('db', 'reset', '--local'), {
+export async function resetLocalDatabase(workdir?: string): Promise<void> {
+  const child = spawn(bunExecutable(), supabaseArgs(...workdirArgs(workdir), 'db', 'reset', '--local'), {
     cwd: REPO_ROOT,
     env: childEnv(),
     // progress is worth watching (a reset replays every migration); stderr is captured so a
