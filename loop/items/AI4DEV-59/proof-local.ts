@@ -222,9 +222,14 @@ const address = (local: string) => `${local}+${RUN}@example.test`;
  * The configured per-hour cap on auth emails, read from the file rather than remembered.
  *
  * This run sends TWO confirmation emails — one per email-capable account type — and the checked-in
- * value is 2. So this run sits EXACTLY on the limit, which is why check (f) exists and why the
- * plan pre-authorized raising it. Reading the number here means the transcript states the limit it
- * was measured against instead of a number somebody recalled.
+ * value is 2, so the file's cap sits EXACTLY on what this run sends — which is why check (f)
+ * exists and why the plan pre-authorized raising it.
+ *
+ * MEASURED ON THE FIRST RUN: the CLI did NOT push this file value into the auth container — the
+ * container carried GOTRUE_RATE_LIMIT_EMAIL_SENT=360000, recorded in stack-up.txt beside the
+ * reading — so the file's cap did not bind that run. Check (f) still reports the file's value AND
+ * whether any mailer refusal appeared, which together are the honest pair: the transcript shows
+ * what the file claims and what the mailer actually did.
  */
 const CONFIGURED_EMAIL_RATE_LIMIT = (() => {
   try {
