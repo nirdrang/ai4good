@@ -18,6 +18,13 @@ longer compares refusal texts — the single-reason shape is the fixture's state
 body's assertion (ruling 2); D-E's AT-001.12 expiry advance is exactly 3600 seconds, the
 boundary instant (ruling 5).
 
+**AMENDED a fourth time, same sitting, per the four measurement rulings in
+`loop/items/AI4DEV-60/fix-rulings.md`** after the live proof ran: D-G (a), (c) and (d) now
+carry the measured values — the implicit-flow session row that exists before check (a)'s
+refused attempt, HTTP 403 (not 401) from `/auth/v1/user` for a dead token, the logout scopes
+(`local` mirrored and bound, `global` the measured default), and the platform-layer refusal
+of an expired token at the deployed function.
+
 **Chain, derived from the branch**
 (`nirdrang/ai4dev-60-sessions-automatic-refresh-and-password-reset-d2l2`):
 AI4DEV-60 (session expiry, refresh, password reset) → AI4DEV-52 (verification, sessions and
@@ -246,20 +253,33 @@ credential residue before committing it. Checks:
   the redactor blanks `error_code`; if the live code differs the check FAILS, the executor
   pins the measured code and re-runs — the fail-and-re-pin protocol). The body carries no
   `access_token`, no `refresh_token`, no `session` (the widened credential guard from the
-  predecessor's [L3]). `auth.sessions` on port 54322 holds no row for the user.
+  predecessor's [L3]). The REFUSED attempt adds no `auth.sessions` row on port 54322 —
+  measured as an unchanged session-id set across the attempt, because one row already exists
+  by then: following the emailed confirmation link is an implicit-flow sign-in and mints a
+  session (MEASURED; re-pinned from this sentence's original "holds no row for the user" —
+  `fix-rulings.md` ruling 1).
   (b) CORRECT PASSWORD (control): 200 with tokens; the `auth.sessions` row exists.
-  (c) REVOCATION: `logout` with the live token; then the SAME access token at `/auth/v1/user`
-  → expected 401 with a session-referencing error code (expected `session_not_found` —
-  MEASURED and pinned, never assumed: this is the load-bearing vendor claim that revocation
-  ends access before the JWT's own expiry); the revoked session's refresh token at the token
+  (c) REVOCATION: `logout` with the live token — `?scope=local`, the shape the fixture's
+  `signOut` mirrors, with a SIBLING session as the control that exactly one row disappeared;
+  the vendor's DEFAULT scope is `global` (MEASURED: a plain logout emptied `auth.sessions`),
+  recorded and asserted by nothing (`fix-rulings.md` ruling 3); then the SAME access token at
+  `/auth/v1/user` → MEASURED HTTP 403 (this sentence originally expected 401; re-pinned,
+  `fix-rulings.md` ruling 2) carrying the pinned `session_not_found` error code — the
+  load-bearing vendor claim that revocation ends access before the JWT's own expiry,
+  confirmed; nothing shipped reads the status number (`callerFromAuthAnswer` accepts 2xx and
+  refuses everything else); the revoked session's refresh token at the token
   endpoint → refused; and the deployed `complete-signup` function called with the dead token →
   the auth-layer refusal (`resolveCaller` → null), distinguished from a product refusal by
   also calling it once with a LIVE token (whose refusal, for an already-completed account, is
   the product's 4xx with a reason — both captured).
   (d) EXPIRY AND REFRESH-AFTER-EXPIRY: a TRANSIENT local config change lowers `jwt_expiry` to
   a few seconds, stack restarted and recorded; sign in; the token works; wait past expiry; the
-  token at `/auth/v1/user` → 401 (expired code captured verbatim); the deployed function
-  refuses it; then the SAME session's refresh token → 200 with a fresh access token that works
+  token at `/auth/v1/user` → MEASURED HTTP 403 (originally expected 401; re-pinned,
+  `fix-rulings.md` ruling 2) with the expired-token code captured verbatim; the deployed
+  function refuses it — and that refusal is the PLATFORM's: `verify_jwt = true` rejects an
+  expired JWT (body `Invalid JWT`) before `resolveCaller` runs, so check (c)'s REVOKED token,
+  still signed and unexpired, is the one that reaches and binds `resolveCaller`
+  (`fix-rulings.md` ruling 4); then the SAME session's refresh token → 200 with a fresh access token that works
   at `/auth/v1/user` AND at the deployed function — refresh re-established access with no
   credentials, which is AT-001.13's live substance. THE SAME-SESSION-ROW PROBE (gate-1 ruling
   4): `auth.sessions` for this user is read with operator authority before and after the
