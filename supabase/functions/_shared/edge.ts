@@ -21,13 +21,15 @@
  * there and is untouched by this leaf. Its completion-path and schema evidence is SUPERSEDED — it
  * predates this migration and called a `complete_signup` that no longer exists.
  *
- * ONE IMPORT CROSSES INTO THE PURE HALF: `extractGithubHandle` from `./github.ts`. That direction is
- * the safe one and the arrangement is unchanged by it — a Deno-only file may import a pure one,
- * while the reverse would drag `Deno` into the strict acceptance program. The judgement about which
- * identity counts as a linked GitHub identity belongs on the pure side, where a test can reach it.
+ * ONE IMPORT CROSSES INTO THE PURE HALF: `callerFromAuthAnswer` from `./caller.ts`. That direction
+ * is the safe one and the arrangement is unchanged by it — a Deno-only file may import a pure one,
+ * while the reverse would drag `Deno` into the strict acceptance program. The judgement about WHO
+ * is calling belongs on the pure side, where a test can reach it; this file keeps the round trip
+ * that asks. (The import used to be `extractGithubHandle` from `./github.ts`; the caller module now
+ * makes that call, so this file names one pure module instead of two.)
  */
 
-import { extractGithubHandle } from './github.ts';
+import { callerFromAuthAnswer, type Caller } from './caller.ts';
 
 /**
  * A required environment variable, or a loud failure at first use.
@@ -106,18 +108,19 @@ export function edgeHandler(
   };
 }
 
-export type Caller = {
-  /** the auth user's id, which is also the `public.accounts` primary key once signup completes */
-  id: string;
-  /**
-   * The handle of a GitHub identity Auth has linked to this user, or `null` — the FACT the volunteer
-   * signup gate turns on.
-   *
-   * It is a property of the user, not of the session: an email- or Google-established session whose
-   * user later links GitHub carries a handle here while its establishing provider is unchanged.
-   */
-  githubHandle: string | null;
-};
+/**
+ * RE-EXPORTED, NOT DECLARED. `Caller` now lives in `./caller.ts` beside the only function that
+ * constructs one. It is re-exported here so neither deployed function changes an import — both say
+ * `import type { Caller } from '../_shared/edge.ts'` and both keep working.
+ *
+ * IT IS IMPORTED AT THE TOP AND RE-EXPORTED HERE, rather than written as
+ * `export type { Caller } from './caller.ts'`, and the difference is load-bearing. That one-line
+ * form creates NO LOCAL BINDING, so `resolveCaller`'s own `Promise<Caller | null>` annotation below
+ * would name something this file does not have. NO TYPE-CHECKER COVERS THIS FILE — the header says
+ * so — but Deno type-checks it when the function is served, so the mistake would surface as a
+ * serving failure of both deployed functions and nowhere earlier.
+ */
+export type { Caller };
 
 /**
  * WHO IS CALLING — answered by Supabase Auth, never by this function.
@@ -128,6 +131,28 @@ export type Caller = {
  * something upstream is believed to have checked it. So the token is presented to `/auth/v1/user`
  * instead and Auth answers. One extra round trip, no cryptography in our code, and no dependency:
  * `fetch` is enough.
+ *
+ * ============================================================================================
+ * THE ROUND TRIP IS HERE. THE JUDGEMENT IS IN `./caller.ts`, AND NONE OF IT IS LEFT IN THIS FILE.
+ * ============================================================================================
+ *
+ * This function used to read the status, dig `id` out of the body, check its type and extract the
+ * GitHub handle — four judgements about the ANSWER'S SHAPE, sitting in a file no type-checker
+ * covers and no test can import. They are now one call to `callerFromAuthAnswer`, which the
+ * acceptance fixture drives on every validated path and
+ * `tests/at/harness/shipped-caller.selftest.ts` drives shape by shape. What is left below is I/O:
+ * one header read, one `fetch`, one body parse.
+ *
+ * THE WHOLE BODY IS HANDED OVER, NEVER A NARROWED PIECE OF IT. `callerFromAuthAnswer` reads
+ * `identities[]` to find the linked GitHub handle, so passing `{ id }` — or anything else this file
+ * pre-selected — would return a caller with `githubHandle: null` and refuse every linked volunteer
+ * at this edge, while every unit-level check stayed green. This bridge is untyped, so nothing here
+ * would catch it. `loop/items/AI4DEV-60/proof-local.ts` check (g) is the live control that does:
+ * it completes a linked volunteer through the DEPLOYED function.
+ *
+ * THE MISSING-HEADER RETURN STAYS HERE, and it is not a judgement about the answer — there is no
+ * answer yet. It is this file declining to spend a round trip on a request that carries no
+ * credential at all, exactly as before.
  */
 export async function resolveCaller(request: Request, supabaseUrl: string, anonKey: string): Promise<Caller | null> {
   const authorization = request.headers.get('Authorization');
@@ -136,27 +161,27 @@ export async function resolveCaller(request: Request, supabaseUrl: string, anonK
   const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: { Authorization: authorization, apikey: anonKey },
   });
-  if (!response.ok) return null;
 
-  const user = (await response.json()) as unknown;
-  const id = (user as { id?: unknown }).id;
-  if (typeof id !== 'string') return null;
-
-  // THE ID AND THE LINKED GITHUB HANDLE — and still NOT the establishing provider.
-  //
-  // This is the one-line extension the previous version of this comment reserved for "the leaf that
-  // needs either", and it takes exactly one of the two. The GitHub handle is carried because
-  // `validateCompleteSignup` gates volunteer completion on it and a client must not be able to
-  // assert it; the ADDRESS and the ESTABLISHING PROVIDER are still left behind, because nothing on
-  // either path reads them and a `provider` field sitting on this type would be a standing
-  // suggestion that email-vs-Google participates in a decision here. It does not — that is the whole
-  // of what AT-001.03 establishes, and a LINKED identity is a different fact from the one that
-  // established the session.
-  //
-  // `extractGithubHandle` is given the WHOLE response rather than a pre-narrowed field: it does the
-  // shape checking, in the pure module the acceptance suite also drives, so the judgement about what
-  // counts as a linked GitHub identity has one home.
-  return { id, githubHandle: extractGithubHandle(user) };
+  // THE PARSE NEVER THROWS, and that is deliberate rather than defensive habit. The old code
+  // returned on `!response.ok` BEFORE touching the body, so a refusal was never parsed; reading the
+  // body first with `response.json()` would make an Auth outage that answers HTML — a proxy's error
+  // page — throw here and become a 502 where it used to be a 401. An unparseable body is handed
+  // over as `null` instead, so the status still decides and the deployed refusal path is
+  // byte-for-byte what it was.
+  const text = await response.text();
+  let user: unknown = null;
+  try {
+    user = JSON.parse(text) as unknown;
+  } catch {
+    // Left as `null`, which `callerFromAuthAnswer` reads as no caller. Nothing is judged here.
+    //
+    // ONE EDGE DOES CHANGE, and it is named rather than glossed: a 2xx whose body is unparseable
+    // used to throw and surface as a 502; it now refuses as a 401. That is the fail-closed
+    // direction and it matches this module's stated promise — a malformed body yields no caller.
+    // GoTrue answers JSON on both the 200 and the 401, so the case is not reachable through Auth
+    // itself; it is reachable through something in front of Auth.
+  }
+  return callerFromAuthAnswer(response.status, user);
 }
 
 function isIpv4(value: string): boolean {
