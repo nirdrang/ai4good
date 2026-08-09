@@ -146,7 +146,13 @@ try {
                     # unknown session id both degrade to words, never to a guess.
                     $who = 'spawner unrecorded - not necessarily this session''s'
                     try {
-                        $own = Get-OwnerForWorktreeRoot $a
+                        # GIT'S OWN STRING, never $a. The worktree id is a hash of the toplevel
+                        # TEXT, so `C:/x` and `C:\x` hash differently: $a is the backslash form
+                        # built for the path-equality test above, and passing it here missed a
+                        # record that existed and printed "spawner unrecorded" for my own agent
+                        # (measured 2026-08-09, first live use). Every writer uses git's forward-
+                        # slash output, so every reader must too.
+                        $own = Get-OwnerForWorktreeRoot ($childTop.Trim())
                         $ownSid = if ($own) { [string]$own.sessionId } else { '' }
                         if ($ownSid -and $script:SessionId) {
                             $who = if ($ownSid -eq $script:SessionId) { 'this session''s agent' } else { 'ANOTHER session''s agent' }
