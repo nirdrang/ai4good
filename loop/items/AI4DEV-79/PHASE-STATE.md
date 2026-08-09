@@ -1,60 +1,70 @@
 # PHASE-STATE — AI4DEV-79 (parallel local DB slot pool)
 
-**Phase: PLAN complete.** Plan sitting (sitting 1, `orchestrator` on fable, claude-fable-5 @
-xhigh) closed 2026-08-10. Chain, derived from the branch: AI4DEV-79 (parallel DB slot pool) →
-AI4DEV-3 (AT harness), root label `attr:bringup`. Foundation work — no requirement above, no
-acceptance-test ids.
+**Phase: DRAFT — INTERRUPTED BY AN INCIDENT. The founder must decide before work resumes.**
+Draft sitting (sitting 2, `orchestrator` on fable, claude-fable-5 @ xhigh) closed 2026-08-10.
+Chain, derived from the branch: AI4DEV-79 (parallel DB slot pool) → AI4DEV-3 (AT harness),
+root label `attr:bringup`.
 
-## What this phase produced, all in this head
+## THE INCIDENT — read plan.md §8 for the full record
 
-- `loop/items/AI4DEV-79/plan.md` — the plan: the ruled design quoted verbatim (§1), ten
-  verified tree facts (§2), twelve mechanism decisions (§3), seven steps each with a
-  done-criterion (§4), the expected verification state (§5), risks and residuals (§6), and an
-  empty §7 awaiting the gate-1 rulings.
-- `loop/items/AI4DEV-79/gate1-prompt.txt` — the assembled gate-1 prompt: `## Your contract` +
-  the PLAN review section (Pins block stripped) + this item's additive section.
-- `loop/items/AI4DEV-79/pr-body.md` — the pull-request body a mechanical publishes as handed.
-- Slicing decision (plan §3 D12): NO slicing — one draft-code gate reads the whole diff.
+The isolation spike destroyed the founder's personal local database. `supabase db reset`
+aimed at slot-2 acted on the personal project identity because the tracked `.env` carries
+`SUPABASE_PROJECT_ID="poancmeitlmxejofwzuu"` and the Supabase CLI treats that as a project-id
+override — `--workdir` is NOT the isolation wall the plan assumed (F8 settled against the
+plan). The personal db container is dead in state `Created`; its data volume was recreated
+empty at 2026-08-09T22:04:38Z; the old volume is deleted. Schema is reproducible from
+migrations; hand-made local rows are gone unless the founder holds a backup outside Docker.
+The executor stopped at the breach, committed both transcripts, and escalated. The
+orchestrator verified every fact independently (container states, volume timestamps, `.env`
+content, remote head).
 
-## What completes this phase — the gate-1 spec
+Nothing has touched the personal stack since the breach. The two slot stacks are healthy
+(55321 and 56321 blocks) and stay up.
 
-- One reviewer-runner: **sol via codex, effort xhigh, `--sandbox read-only`**, launched from
-  the item worktree at THIS pushed head.
-- Prompt file: `loop/items/AI4DEV-79/gate1-prompt.txt`, sent exactly as committed.
-- Raw output → `loop/items/AI4DEV-79/artifacts/gate1-sol-output.md`; stderr log beside it;
-  distillate → `loop/items/AI4DEV-79/artifacts/gate1-sol-distillate.md`.
-- **The completing file is the distillate.** An empty or progress-line-only raw output is an
-  anomaly handed to the next sitting, never a clean gate.
+## FOUNDER DECISIONS NEEDED — the conductor raises these, relayed verbatim
 
-## The pull request
+1. **Recovery of the personal stack.** The broken container must be removed before the stack
+   can start again (`docker rm supabase_db_poancmeitlmxejofwzuu`, then stop/start from the
+   main checkout). This rebuilds an EMPTY database from migrations. Whether to do that, when,
+   and whether any outside backup exists — only the founder can say. No agent will run these
+   commands.
+2. **Whether and how the spike re-runs.** The amended wall (plan §8 ruling E1: positive
+   identity on every slot CLI call through one shared helper, plus a pre-destructive identity
+   read) must be proven by a re-run spike. Options: (a) re-run as ruled, against the live
+   personal stack, after recovery; (b) a dry pass first with the personal stack STOPPED —
+   weaker proof (nothing could touch a stopped stack) but zero exposure, then the live run.
+   The ruled text wants the live proof; the sequencing is the founder's call after this loss.
+3. **Whether the item proceeds at all** given what the spike revealed about CLI identity
+   behavior.
 
-After this phase's closing push, the plan sitting hands a mechanical the pull request to open:
-base `main`, head this item branch, title `AI4DEV-79 - a pool of local database slots so items
-verify in parallel`, body exactly `loop/items/AI4DEV-79/pr-body.md`. The body names no item id
-this branch does not own. If it is not open when the conductor wakes for gate 1, that is an
-anomaly for the next sitting, named here per the escalation shape.
+## For the next sitting (after the founder rules)
 
-## For the DRAFT sitting (next orchestrator)
+- Head to build on: this close's push (see the conductor's record; plan §8 and this file ride
+  in it). Draft state: S1 done, S2 done (transcript committed), S3 FAILED (wall disproven,
+  transcript committed), S4/S5/S6 not started.
+- Implement ruling E1 (the shared invocation helper) in db-pool.ts FIRST; the re-run spike
+  uses only that helper. E2: S3 then S5, in that order, only after the founder's go.
+- Rulings E3 and E4 (plan §8) amend D7 and D2 — fold them into the S1 module when next
+  touched.
+- Gate 2 is NOT armed. No gate-2 prompts exist. The draft-code gate reads a COMPLETE draft;
+  writing prompts for a half-draft whose central mechanism was disproven would gate the wrong
+  thing. The sitting that completes S4–S6 (post-decision) writes both gate-2 prompts: terra
+  via codex @ max, and flash via opencode (agent `reviewer-flash`, `--variant max`), assembled
+  per reviewers.md, neither hinting the other exists.
+- Executor budget used this sitting: one invocation of three. The incident consumed the
+  sitting; no budget was exhausted and no cap fired — work stopped on judgment, not on limits.
 
-1. Read plan.md §1–§6 and the gate-1 distillate; read the raw critique only if the distillate
-   looks thin.
-2. Rule EVERY finding into plan §7, claim quoted verbatim; removals carry a verification
-   condition. Amend the plan; push rulings + amendment BEFORE any code changes.
-3. Spawn the executor for the DRAFT pass: plan steps S1–S4 and S5–S6 implemented, typecheck
-   and build green, **the verify suite not run**. Note the build-order rule in plan §4: setup
-   (S2) and the isolation spike (S3) run and their transcripts are committed BEFORE the runner
-   hook (S5) is built on the wall they prove. The spike's hard line: if the personal stack is
-   not running, the executor stops and reports — it never starts the founder's stack.
-4. Write TWO gate-2 prompts (critique only): terra via codex @ max, and flash via opencode
-   (agent `reviewer-flash`, `--variant max`); neither prompt may hint the other reader exists.
+## Gate-1 record (complete, committed at 6429e7e)
 
-## Open questions
-
-None for the founder. The one interpretive point — the personal-stack canary inside an
-"untouchable" stack — is resolved in plan §6 by the ruled text's own words and needs no
-ruling; gate 1 is pointed straight at it.
+All 15 sol findings ruled in plan §7: 11 accepted, 4 accepted-fixed-differently, 0 rejected.
+Raw output, stderr log (codex session id 019fe865-7f42-76d0-a39c-fbb5221a7f75 for spend
+attribution), stdout log, pid file and distillate committed under
+`loop/items/AI4DEV-79/artifacts/`.
 
 ## Anomalies
 
-None. The tree was clean at close; the conductor's `artifacts/watch-tip.sh` helper is
-committed into the record with this close.
+- The pull request: opened after the plan sitting per its hand-off; CI runs on the pushed
+  heads. The incident does not change the branch's CI posture (no harness test touches a real
+  stack).
+- F4's "reset tolerates an absent seed" verification is tainted (plan §8) and returns to
+  unverified.

@@ -459,3 +459,66 @@ Verified at ci.yml:44: `runs-on: ${{ vars.CI_RUNNER_LABEL || 'ubuntu-latest' }}`
 corrected: the check runs on ubuntu-latest, or on a self-hosted runner when that repository
 variable is set. The constraint this plan takes from F7 stands unchanged — every test this item
 adds must pass with no live stack and no Docker, on either runner.
+
+## 8. INCIDENT — the spike destroyed the personal database (draft sitting, 2026-08-10)
+
+The isolation spike (S3), run by the draft executor, destroyed the founder's personal local
+database instead of proving the wall. This section records the measured facts, the rulings on
+them, and what is blocked until the founder decides. The orchestrator verified every fact below
+with its own instruments after the executor's report.
+
+### The facts, measured
+
+- `supabase db reset` aimed at slot-2 — `--workdir <slot-2>` AND process working directory in
+  the slot — removed and recreated the container `supabase_db_poancmeitlmxejofwzuu`: the
+  founder's personal database, bound to slot-2's port 56322. The bind then failed (slot-2's
+  real container holds that port), so the personal db container now sits in state `Created`,
+  not running.
+- The personal db VOLUME was recreated at 2026-08-09T22:04:38Z, the moment of the reset; the
+  sibling personal volumes keep their 2026-08-08 timestamps. The old volume — the founder's
+  local data — is deleted. The schema is reproducible from `supabase/migrations`; hand-made
+  rows are not, unless a backup exists outside Docker that only the founder knows about.
+- Root cause: the tracked `.env` at the repo root, line 1, `SUPABASE_PROJECT_ID=
+  "poancmeitlmxejofwzuu"`. The Supabase CLI treats that variable as a `project_id` OVERRIDE,
+  so the slot's config supplied the ports while the environment supplied the personal
+  identity. The override reaches the CLI by two routes: the process environment, and env-file
+  loading in the invoking runtime. The hand-written spike script closed neither route; the
+  pool module's own `childEnv()` allowlist closed both, which is why S2's setup built correct
+  slot containers.
+- **F8 is settled AGAINST the plan: `--workdir` is NOT the wall.** D1's "outside every
+  worktree" layout stands, but nothing about `--workdir` isolates identity.
+- Collateral: F4's "reset with a configured-but-absent seed succeeds" verification is TAINTED
+  — the reset that appeared to succeed was acting on the personal identity. It returns to
+  unverified, settled by the re-run spike.
+- The slot-2 canary SURVIVED, proving the reset never touched slot-2 — gate-1 [7]'s vanishing
+  canary did exactly its job: without it, this spike could have read as a pass.
+
+### Rulings
+
+- **E1. The wall is positive identity, never absence of an override.** Every slot CLI
+  invocation goes through ONE shared invocation helper in db-pool.ts — no role ever hand-rolls
+  a slot CLI command again, the spike script's exact mistake. The helper: (a) sets
+  `SUPABASE_PROJECT_ID=<slot project id>` explicitly in the child env; (b) strips every other
+  `SUPABASE_*` variable; (c) invokes `bun --no-env-file` per F8's house rule; (d) sets the
+  child working directory to the slot. Before any DESTRUCTIVE act, a read through the same
+  helper must prove the resolved target: the status the CLI reports carries the slot's project
+  id and ports — mismatch refuses loudly. D5's guard now bites at the layer that was actually
+  breached.
+- **E2. S3 and S5 are BLOCKED until the founder decides.** The spike must re-run to prove the
+  amended wall, and S5 is built only on a proven wall (the plan's own build-order rule). No
+  role starts, stops, resets or repairs the personal stack — recovery is the founder's alone.
+- **E3. Executor reading RATIFIED, amending D7 and gate-1 [6]:** the closure rule is "mirror
+  `supabase/` entire; refuse on active references outside `supabase/`". The literal per-path
+  refusal would false-refuse today's tree — `sql_paths = ["./seed.sql"]` is active and
+  `seed.sql` does not exist (F4); the mirror faithfully reproduces the absence.
+- **E4. Executor reading RATIFIED, amending D2's general port rule:** the overlay applies to
+  the local stack's LISTENER ports only (api, db, shadow, pooler, studio, local_smtp web/smtp/
+  pop3, analytics, edge_runtime inspector). A client-connection port to an external service —
+  e.g. a real `[auth.email.smtp] port = 587` — is data, passes through unchanged. D5's
+  personal-band refusal stays broad over all port keys: fail-closed and loud is correct there.
+
+### Draft status at the interruption
+
+S1 done (typecheck green). S2 done, criteria met, transcript committed. S3 run and FAILED —
+done-criterion not met, wall disproven, transcript with postscript committed. S4, S5, S6 not
+started. The draft is incomplete; no draft-code gate can read it yet.
