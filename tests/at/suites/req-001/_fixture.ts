@@ -110,7 +110,10 @@
  *      EXPIRES ONE HOUR LATER.
  *      BOUND FOR SIGN-IN, AND FOR SIGN-IN ONLY — checks (a) and (b) of
  *      `loop/items/AI4DEV-60/proof-local.ts`: a password grant with the correct password answers
- *      200 with tokens and the `auth.sessions` row exists; with a wrong password no row exists.
+ *      200 with tokens and the `auth.sessions` row exists; a wrong-password attempt adds NO row —
+ *      measured as an unchanged session-id set across the refused attempt, one row already
+ *      standing from the confirmation-link implicit-flow sign-in (the re-pin in
+ *      `loop/items/AI4DEV-60/fix-rulings.md` ruling 1).
  *      The one hour is `jwt_expiry = 3600` at `supabase/config.toml` line 165, and the constant
  *      below cites that line.
  *      WHAT THIS ENTRY DOES NOT COVER, said plainly because the earlier draft of it overreached:
@@ -844,8 +847,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     // A SECOND REQUEST MINTS A NEW LINK AND LEAVES THE FIRST ONE ALIVE in `byPasswordResetLink`,
     // and that retention is DELIBERATELY UNMODELLED AND UNASSERTED rather than accidental. Clearing
     // the earlier entry would model resend invalidation, which is retired AT-001.15's ground
-    // (`.taskmaster/docs/acceptance/at-req-001.md` line 30 — reset-link expiry, single-use and
-    // resend semantics are not stated in REQ-001). No body here requests a reset twice, and none may
+    // (`.taskmaster/docs/acceptance/at-req-001.md` line 30 — "reset-link expiry/single-use
+    // semantics are not stated in REQ-001"; the plan's own binding extends the ban to resend,
+    // plan.md lines 42-43). No body here requests a reset twice, and none may
     // assert either retention or invalidation without re-entering that retired ground, so the
     // behaviour is unobservable inside this suite's rules. It is written down because an unstated
     // behaviour on retired ground is the thing a reader would otherwise have to guess about.

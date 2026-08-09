@@ -95,9 +95,10 @@ describe('the shipped caller module fails closed', () => {
     for (const status of [200, 201, 204, 299]) {
       expect(callerFromAuthAnswer(status, PLAIN_USER), `status ${status} is a success`).not.toBeNull();
     }
-    // THE REFUSALS THAT MATTER MOST. 401 is what Auth answers for a revoked session and for an
-    // expired access token — AT-001.12's whole subject — and a caller must not come back from it
-    // even though the body of such a refusal is perfectly well-formed JSON.
+    // THE REFUSALS THAT MATTER MOST. 403 is what the live Auth answered for a revoked session and
+    // for an expired access token (`session_not_found` and `bad_jwt` — the re-pin in
+    // loop/items/AI4DEV-60/fix-rulings.md ruling 2) — AT-001.12's whole subject — and a caller
+    // must not come back from any such refusal even though its body is perfectly well-formed JSON.
     for (const status of [400, 401, 403, 404, 429, 500, 502, 503]) {
       expect(callerFromAuthAnswer(status, PLAIN_USER), `status ${status} must resolve no caller`).toBeNull();
     }

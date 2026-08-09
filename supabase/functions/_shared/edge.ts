@@ -196,9 +196,10 @@ export async function resolveCaller(request: Request, supabaseUrl: string, anonK
     // behaviour differed.
     //
     // Both edges are the fail-closed direction and both match this module's stated promise — a
-    // malformed body yields no caller. GoTrue answers a JSON object on both the 200 and the 401, so
-    // neither case is reachable through Auth itself; both are reachable through something in front
-    // of Auth.
+    // malformed body yields no caller. GoTrue answers a JSON object on both the 200 and its
+    // refusal (HTTP 403 measured live for a dead and for an expired token — the re-pin in
+    // loop/items/AI4DEV-60/fix-rulings.md ruling 2), so neither case is reachable through Auth
+    // itself; both are reachable through something in front of Auth.
   }
   return callerFromAuthAnswer(response.status, user);
 }
