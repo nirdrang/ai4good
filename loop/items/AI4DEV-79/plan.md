@@ -75,10 +75,12 @@ even when the suite throws; the evidence line carries slot + migration state), a
 - F6. `config.toml` uses `env()` substitution for OAuth credentials; a missed env resolves to a
   literal string and does not stop the stack (documented in config.toml ~line 410, measured on
   the sign-in item).
-- F7. CI (`.github/workflows/ci.yml`, required check `verify`) runs on `ubuntu-latest` with NO
-  Docker step: typecheck, `at:selftest` (vitest over `tests/at/harness/`), `at:check` per
-  suite, `at:verify --tier loop --expect` per declaration. Every test this item adds to
-  `harness/` must be green with no live stack and no Windows-only path assumption.
+- F7. CI (`.github/workflows/ci.yml`, required check `verify`) runs on `ubuntu-latest`, or on
+  a self-hosted runner when the repository variable `CI_RUNNER_LABEL` is set (ci.yml:44;
+  corrected by gate-1 [15]), with NO Docker step either way: typecheck, `at:selftest` (vitest
+  over `tests/at/harness/`), `at:check` per suite, `at:verify --tier loop --expect` per
+  declaration. Every test this item adds to `harness/` must be green with no live stack, no
+  Docker, and no Windows-only path assumption.
 - F8. The Supabase CLI is pinned in devDependencies (`supabase ^2.110.0`) and always invoked as
   `bun --no-env-file <INSTALL_ROOT>/node_modules/supabase/dist/supabase.js` (runner.ts:69,
   460–463). The CLI takes a global `--workdir` flag naming a directory that contains a
@@ -103,6 +105,10 @@ even when the suite throws; the evidence line carries slot + migration state), a
   slot-2 = 56320/56321/56322/56323/56324/56327/56329, inspector 8103. Distinct project ids
   give distinct Docker container and volume names; distinct port blocks give the wall the
   spike proves. No slot value may fall in 54320–54329 or be 8083 (D5 enforces).
+  The overlay rule is GENERAL (gate-1 [5]): every active key named `port` or ending `_port`,
+  in every section, with a value in 54000–54999, maps to value + N*1000.
+  `edge_runtime.inspector_port` maps 8083 → 8083 + N*10. Any other active port value refuses
+  loudly as unmappable — a human decides, not a guess.
 - **D3. Slot config regeneration — identity is permanent, everything else is data.** The ruled
   identity/data split names project id + ports as the slot's identity. Auth flags, seed paths
   and `verify_jwt` pins also live in `config.toml`, and items change them (F4's
@@ -112,22 +118,29 @@ even when the suite throws; the evidence line carries slot + migration state), a
   slot's `config.toml` on every occupancy: take the item tree's `supabase/config.toml`
   verbatim, overlay ONLY the identity fields (project_id, the seven port keys, inspector_port)
   with the slot's permanent values, using the same section-aware line scan `readLocalConfig`
-  already uses. If the regenerated text equals the file already in the slot, nothing happens —
-  the warm stack keeps running (the ruled default). If it differs, prepare writes it and
-  restarts that slot's stack (`stop` + `start --workdir`) before the reset, because the auth
-  container reads config at start, not at reset. Invariant: a config write and a restart only
-  ever happen together, so the file on disk always describes the running stack.
+  already uses, and the general port rule in D2. The keep-warm decision compares against a
+  MARKER, not the file (gate-1 [1]): `slot-N/.last-start.json` holds the hash of the config the
+  stack last STARTED with, written only after a successful start. Regenerated hash equals the
+  marker → nothing happens, the warm stack keeps running (the ruled default). Different or
+  absent marker → prepare writes the config, restarts that slot's stack (`stop` + `start
+  --workdir`) before the reset — the auth container reads config at start, not at reset — and
+  writes the marker only when the restart succeeds. A crash between the write and the restart
+  therefore forces a restart on the next occupancy instead of hiding behind equal text.
 - **D4. Occupancy = the existing stack lock, extended.** `occupy()` acquires
   `acquireStackLock(slotConfig, requirement)` (F3) — it is already the atomic create-new,
   pid-stamped, stale-takeover-with-loud-line claim the ruled text describes, and it is already
-  released in the runner's `finally` chain. One extension: when a stale claim is broken, the
-  new claim file records `tookOverFrom` (the dead holder's pid and start time), so the
-  takeover is recorded IN the claim, not only on the console.
+  released in the runner's `finally` chain. Two extensions. First: when a stale claim is
+  broken, the new claim file records `tookOverFrom` (the dead holder's pid and start time), so
+  the takeover is recorded IN the claim, not only on the console. Second (gate-1 [3]):
+  `acquireStackLock` gains a takeover-policy parameter; the pool passes dead-pid-only, so a
+  LIVE holder is never taken over at any age — occupy refuses loudly and names the holder.
+  Existing call sites keep today's default policy unchanged.
 - **D5. The personal block is refused in code, not by convention.** db-pool refuses to occupy,
   prepare, reset or emit env for any slot whose config carries the repo config's `project_id`,
-  any port in 54320–54329, or inspector port 8083. The check runs before anything destructive,
-  every time, and has its own named selftest. This is the "untouchable" ruling as an
-  executable guard.
+  any port in 54320–54329, or inspector port 8083. The scan covers EVERY active port-valued
+  key in the config, not a fixed list (gate-1 [5]). The check runs before anything
+  destructive, every time, and has its own named selftest. This is the "untouchable" ruling as
+  an executable guard.
 - **D6. Reservation lookup is derived, never declared.** The coordinator's `Reserve-DbSlot`
   writes `reservations/slot-N.json` (exclusive create; content: item id, branch, timestamp,
   holder). At verify time the runner derives its item id from the current branch (the house
@@ -136,25 +149,42 @@ even when the suite throws; the evidence line carries slot + migration state), a
   fallback onto any free slot, because admission control is the coordinator's, not the
   runner's. `AT_DB_SLOT=N` is the explicit override for runs outside an item (the founder, the
   evidence gate, the spike); the occupancy claim still applies.
+  Three hardenings (gate-1 [2], [12]): the branch parser is a pure function over the branch
+  string and FAILS CLOSED — exactly one item id, or it refuses naming the condition (zero ids,
+  several ids, detached HEAD, git call failed); `occupy` re-reads the reservation AFTER the
+  claim is acquired and releases-then-refuses if it no longer names the runner's item;
+  `Release-DbSlot` deletes a reservation only when it names the item being swept, and refuses
+  loudly while a live occupancy claim exists on that slot.
 - **D7. Data copy at occupancy.** Before the reset, prepare deletes and re-copies into the
   slot: `supabase/migrations/*.sql` (timestamped files only, the runner's own pattern),
   `supabase/seed.sql` when the item tree has one — and removes the slot's copy when it does
   not (F4) — and `supabase/functions/**` (F5: integration suites can call edge functions
   through the injected URL). The previous holder's files are never trusted; delete-then-copy,
   not merge.
+  Fail closed on the closure (gate-1 [6]): after regeneration, prepare scans the config for
+  active relative-path values (seed `sql_paths`, `schema_paths`, email template files, TLS and
+  signing key paths) and refuses loudly on any path it cannot copy from the item tree — no
+  stack starts half-provisioned. Env policy, decided: slot start and restart inherit the
+  invoking process env; a missed `env()` resolves to a literal string and does not stop the
+  stack (F6, measured).
 - **D8. The runner hook is integration-tier only.** In main's stack block: when
   `tier === 'integration'`, resolve the stack through the pool — occupy → prepare (copy,
   config, reset via `--workdir`, readiness, prove migrations) → the same prove-local checks
   against the SLOT's config → inject the slot's env — and print the evidence line. The loop
-  tier stays byte-identical (it never enters the block). The DRILL tier keeps today's
-  repo-config behavior unchanged (F2); that residual path can still reach the personal stack
-  and is named in §6 as follow-up work to file, because the ruled hook is pinned to the
-  integration tier and widening it is not this plan's call.
+  tier stays byte-identical (it never enters the block). The DRILL tier REFUSES as
+  INFRASTRUCTURE (gate-1 [4]): "the drill tier's stack is not yet decided" — it no longer
+  reaches any stack, personal or slot. Nothing in the tree invokes `--tier drill` today
+  (verified: no script, no CI step, no process file), so nothing breaks, and the last harness
+  path that could reset the personal stack is closed in code. The follow-up item that decides
+  drill's stack replaces the refusal.
 - **D9. Existing helpers are parameterized, not duplicated.** `readLocalConfig`,
   `readStackStatus`, `resetLocalDatabase` and `proveMigrationsReplayed` currently hard-code
   REPO_ROOT (F1). Each gains a workdir/config parameter defaulting to today's value —
-  call-site behavior for loop and drill is unchanged — and the pool path passes the slot.
+  loop-tier call-site behavior is unchanged — and the pool path passes the slot.
   No second copy of the status parser, the prove-local checks or the reset process handling.
+  `lockDir()` honors an `AT_LOCK_DIR` env override (gate-1 [13]), the same pattern as
+  `AT_REPO_ROOT`; the default is unchanged; the db-pool selftests set it so their claims never
+  touch the machine-wide lock directory.
 - **D10. One place builds configs.** All TOML reading and generation lives in db-pool.ts
   (TypeScript). The one-time setup is a CLI entry in the same file (`bun
   tests/at/harness/db-pool.ts setup`, the `import.meta.main` pattern runner.ts uses): create
@@ -189,44 +219,69 @@ then S5 builds the runner hook on top of it.
   *Done when:* `supabase status --workdir` for slot-1 and slot-2 reports loopback URLs on the
   55321 and 56321 blocks respectively (this also settles F8's unverified `--workdir` claim);
   a plain read of the personal stack's status still reports the 54321 block untouched. The
-  personal-stack check is a read; setup performs no write to it.
+  personal-stack check is a read; setup performs no write to it. The committed transcript is
+  scanned clean first (gate-1 [14]): no `eyJ` token, no anon or service-role key value, no
+  database password.
 - **S3. The isolation spike** — the ruled done-criterion, run once, transcript to
   `loop/items/AI4DEV-79/spike-isolation.txt`. Procedure: (a) preflight — prove via `status
   --workdir` that slot-2's stack answers on the 56321 block BEFORE any reset, the same
   prove-first pattern the runner uses; (b) canary row in slot-1's database; (c) canary row in
-  the personal stack, in a dedicated scratch schema created for the spike; (d) `supabase db
-  reset --workdir <slot-2>`; (e) both canaries still present; (f) drop the scratch schema —
-  the personal stack ends the spike with zero residue. The spike REQUIRES the personal stack
-  to be running; if it is not, the executor stops and reports rather than starting it —
-  starting the founder's stack is touching it.
-  *Done when:* the transcript shows both canaries surviving slot-2's reset, and shows the
-  scratch schema dropped afterward.
+  the personal stack, in a dedicated scratch schema created for the spike; (d) canary row in
+  SLOT-2's database — the row the reset must DESTROY (gate-1 [7]); (e) `supabase db reset
+  --workdir <slot-2>`; (f) slot-1 and personal canaries still present AND the slot-2 canary
+  GONE — a reset that destroys nothing proved nothing; (g) drop the scratch schema — the
+  personal stack ends the spike with zero residue. Steps (b)–(f) run inside try/finally; the
+  scratch-schema drop is the `finally` (gate-1 [8]), and a failed drop is reported loudly with
+  the exact manual cleanup command. The spike REQUIRES the personal stack to be running; if it
+  is not, the executor stops and reports rather than starting it — starting the founder's
+  stack is touching it.
+  *Done when:* the transcript shows the slot-2 canary destroyed by the reset, both other
+  canaries surviving it, and the scratch schema dropped afterward; the committed transcript is
+  scanned clean per gate-1 [14].
 - **S4. `tests/at/harness/db-pool.selftest.ts`** — no Docker, temp pool roots via
-  `AT_DB_POOL_ROOT`, runnable on CI (F7). Named tests, each its own `it()`:
+  `AT_DB_POOL_ROOT`, temp lock dirs via `AT_LOCK_DIR` (gate-1 [13]), runnable on CI (F7).
+  Named tests, each its own `it()`:
   (1) two concurrent occupies on one slot → exactly one wins; (2) dead-pid claim → loud
-  takeover, and `tookOverFrom` recorded in the new claim; (3) release fires from `finally`
-  even when the suite throws; (4) the evidence line carries slot + migration state; (5) the
+  takeover, and `tookOverFrom` recorded in the new claim; (3) the pool module's occupy/release
+  pair releases in a `finally` when its caller throws — unit level, the honest scope of a
+  Dockerless test (gate-1 [11]); (4) the evidence line carries slot + migration state; (5) the
   personal-block guard refuses a 54321-block config and the repo project id; (6) no
   reservation and no override → refusal that names `Reserve-DbSlot`; (7) the identity overlay
-  changes exactly the identity fields and nothing else (byte-compare the rest).
+  changes exactly the identity fields and nothing else (byte-compare the rest), including the
+  generalized port rule (an enabled `smtp_port` maps, an out-of-band port refuses — gate-1
+  [5]); (8) a LIVE holder is never taken over — dead-pid-only policy refuses and names the
+  holder (gate-1 [3]); (9) the branch parser fails closed — zero ids, one id, several ids
+  (gate-1 [12]).
   *Done when:* `bun run at:selftest` is green including this file, on a machine with no
   running stack.
 - **S5. The runner hook** (D8, D9) in `tests/at/harness/runner.ts`.
-  *Done when:* typecheck green; `bun run at:verify req-001 --tier loop --expect` output
-  unchanged against main; the integration path resolves the stack only through db-pool; the
-  drill path is textually today's sequence; release stays in the existing `finally` chain.
+  *Done when:* typecheck green; the loop-tier oracle holds (gate-1 [10]): the full output of
+  `bun run at:verify req-001 --tier loop --expect` captured on main and on the branch head,
+  volatile tokens normalized (durations, temp paths, dates), diff EMPTY, both normalized
+  transcripts and the diff committed and scanned clean per gate-1 [14]; the integration path
+  resolves the stack only through db-pool; the drill path refuses per D8; the pool claim is
+  stored in the same `lock` variable `cleanupRun` releases, so release stays in the existing
+  `finally` chain (gate-1 [11]).
 - **S6. Reservation helpers and process lines** — `loop/work/db-slots.ps1` (D10);
   `.claude/skills/work/SKILL.md`: the claim step gains the admission-control line (reserve
   before claiming; full pool → the item is REJECTED at start, stated; database-free items skip
   the reservation, stated at start), the spawn-facts line gains the reserved slot as an item
   fact, the sweep step gains `Release-DbSlot`.
   *Done when:* the helpers dot-source and run under Windows PowerShell 5.1; `Reserve-DbSlot`
-  on a full pool returns a rejection, not a wait; the three SKILL.md touch points read
-  correctly in context.
+  on a full pool returns a rejection, not a wait; `Release-DbSlot` refuses a reservation
+  naming a different item, and refuses while a live occupancy claim exists on the slot
+  (gate-1 [2]); the three SKILL.md touch points read correctly in context.
 - **S7. The record** — commit setup and spike transcripts and this plan's amendments as they
   happen; every phase boundary pushes.
   *Done when:* the item directory carries `setup-pool.txt` and `spike-isolation.txt` committed,
   and `git status --porcelain` is empty at every sitting close.
+- **S8. End-to-end proof of the changed path** (gate-1 [9]) — goal phase, on the dev machine:
+  one real integration-tier verify through the pool, `bun run at:verify req-001 --tier
+  integration --expect` with `AT_DB_SLOT` set (the D6 override; this run is the evidence
+  gathering the override exists for). Transcript to
+  `loop/items/AI4DEV-79/integration-run.txt`.
+  *Done when:* the run is green, the evidence line names the slot, and the committed
+  transcript is scanned clean per gate-1 [14].
 
 ## 5. Expected verification state
 
@@ -236,23 +291,26 @@ sitting, all on the item branch:
 | check | expected |
 |---|---|
 | `bun run typecheck` | green |
-| `bun run at:selftest` | green, now including the seven named db-pool tests (S4) |
+| `bun run at:selftest` | green, now including the nine named db-pool tests (S4) |
 | `bun run at:check req-001` | green, unchanged |
-| `bun run at:verify req-001 --tier loop --expect` | green, output unchanged against main |
-| S3 spike done-criterion | met once, transcript committed |
-| CI required check `verify` | green on the final head (it runs the first four rows; it cannot run the spike — F7, no Docker) |
+| `bun run at:verify req-001 --tier loop --expect` | green, and the normalized main-vs-branch output diff is EMPTY (S5, gate-1 [10]) |
+| `bun run at:verify req-001 --tier integration --expect` via the pool | green once on the dev machine, evidence line naming the slot, transcript committed (S8, gate-1 [9]) |
+| S3 spike done-criterion | met once, transcript committed — slot-2 canary destroyed, the other two surviving |
+| every committed transcript | scanned clean: no `eyJ` token, no key value, no db password (gate-1 [14]) |
+| CI required check `verify` | green on the final head (it runs the first four rows; it cannot run the spike or the integration run — F7, no Docker) |
 
 What the green does NOT claim, stated now so no later phase inflates it: CI proves the pool's
-claim logic and guards on temp directories; only the committed spike and setup transcripts
-prove real stacks, real ports and the real wall, and they prove it on the dev machine at the
-recorded commit, once.
+claim logic and guards on temp directories; only the committed setup, spike and
+integration-run transcripts prove real stacks, real ports, the real wall and the real runner
+path, and they prove it on the dev machine at the recorded commit, once.
 
 ## 6. Risks, residuals, and one reading made explicit
 
-- **The drill tier residual (F2, D8).** After this item, `--tier drill` still targets the
-  repo-config stack — on the founder's machine, the personal stack. The ruled hook is pinned
-  to the integration tier, so this plan leaves drill alone and hands the coordinator a
-  follow-up to file: decide the drill tier's stack, in words, as its own item.
+- **The drill tier residual (F2, D8, amended by gate-1 [4]).** After this item, `--tier
+  drill` refuses as INFRASTRUCTURE instead of resetting the repo-config stack — the last
+  harness path that could reach the personal stack is closed in code. The coordinator still
+  gets a follow-up to file: decide the drill tier's stack, in words, as its own item; that
+  item replaces the refusal.
 - **The "untouchable" reading.** The ruled text makes the personal stack "OUTSIDE the pool,
   untouchable", and the same ruled text's spike requires a canary row IN the personal stack.
   These reconcile as: the POOL — its machinery, its resets, its tests — never targets the
@@ -277,5 +335,127 @@ recorded commit, once.
 
 ## 7. Gate-1 rulings
 
-(Empty at plan time. The draft sitting writes every ruling here, the reviewer's claim quoted
-verbatim beside each.)
+Written by the draft sitting (orchestrator, fable @ xhigh), 2026-08-10. Gate 1: sol
+(gpt-5.6-sol) via codex @ xhigh, sandbox read-only, 15 findings; distillate at
+`artifacts/gate1-sol-distillate.md`, count line matched. Every finding is ruled here, the claim
+quoted verbatim. The amended sections in §2–§6 carry the binding text; each ruling names them.
+Dispositions: 11 accepted, 4 accepted-fixed-differently, 0 rejected. No ruling removes work, so
+no removal verification conditions exist.
+
+**[1] ACCEPT** — claim: "File equality cannot enforce D3's invariant that the on-disk config
+describes the successfully restarted stack."
+The crash window is real: a config write followed by a death before the restart leaves equal
+text and a stack still running the old behavior. Fix: prepare compares the regenerated config
+against a marker written only AFTER a successful start — `slot-N/.last-start.json` (config
+hash, timestamp, pid). Equal hash → keep the warm stack. Different or absent marker → write
+config, restart, and write the marker only when the restart succeeds. D3 amended.
+
+**[2] ACCEPT, FIXED DIFFERENTLY** — claim: "D4 and D6 create separate reservation and occupancy
+files instead of the ruled single per-slot claim transitioning between reserved and occupied
+states."
+The races sol names are real and are fixed three ways: (i) `Release-DbSlot` deletes a
+reservation only when it names the item being swept — an ownership-checked release; (ii)
+`Release-DbSlot` refuses loudly while a live occupancy claim exists on that slot; (iii)
+`occupy` re-reads the reservation after the claim is acquired and releases-then-refuses if it
+no longer names the runner's item. The single-file shape itself is not adopted: the ruled
+text's own parenthetical describes occupancy as an "atomic create-new claim", and a create-new
+cannot target a file that already exists holding the reservation. The two ruled states are
+materialized as two files with one owner each; the three fixes close every gap sol names
+between them. D4 and D6 amended; S6's done-criterion extended.
+
+**[3] ACCEPT** — claim: "Reusing `acquireStackLock` permits takeover of a live occupier after
+`LOCK_STALE_MINUTES`, not only takeover of a dead PID."
+Verified at runner.ts:285-288 this sitting. The ruled text says "dead holder pid" — the code
+must match it. Fix: `acquireStackLock` gains a takeover-policy parameter; the pool passes
+dead-pid-only, so a live holder is never taken over at any age — occupy refuses loudly and
+names the holder instead. Existing call sites keep today's default, so the runner selftests
+stand. D4 amended; S4 gains a named test.
+
+**[4] ACCEPT, FIXED DIFFERENTLY** — claim: "D8 deliberately leaves the drill tier resetting the
+repo-configured personal stack despite the settled requirement that this stack remain
+untouchable."
+Verified this sitting: nothing in the tree invokes `--tier drill` — no script, no CI step, no
+process file; only type definitions and oracle-capability tests name it. Routing drill through
+the pool would widen the ruled hook, which is pinned to the integration tier — that is not this
+plan's call. So the drill tier REFUSES as INFRASTRUCTURE: "the drill tier's stack is not yet
+decided" — it no longer reaches any stack, personal or slot. Nothing breaks, and the reset path
+sol names is closed in code, not by a filed intention. The follow-up item that decides drill's
+stack replaces the refusal. D8 amended; the §6 residual is rewritten; the coordinator still
+gets the follow-up to file.
+
+**[5] ACCEPT** — claim: "The identity overlay omits valid host-port fields such as
+`local_smtp.smtp_port` and `local_smtp.pop3_port` shown in `supabase/config.toml:110-111`."
+Verified: both keys exist, commented today, and an item may enable them. The overlay
+generalizes: every ACTIVE key named `port` or ending `_port`, in every section, with a value in
+54000–54999, maps to value + N*1000; `edge_runtime.inspector_port` keeps its special case
+(8083 → 8083 + N*10); any other port value refuses loudly as unmappable. D5's personal-band
+scan covers every port-valued key, not a fixed seven. D2, D3 and D5 amended; S4 test 7 covers
+the generalization.
+
+**[6] ACCEPT, FIXED DIFFERENTLY** — claim: "D7's fixed copy set is not the dependency closure
+of the item's regenerated config."
+The hazard is real; the proposed fixture-probe is not adopted — F6 already measured the
+missed-env behavior, and a probe proves one config once, not the rule. Fix instead, fail
+closed: after regeneration, prepare scans the config for active relative-path values (seed
+`sql_paths`, `schema_paths`, email template files, TLS and signing key paths) and refuses
+loudly on any path it cannot copy from the item tree — no stack starts half-provisioned. Env
+policy recorded as a decision: slot start and restart inherit the invoking process env; a
+missed `env()` resolves to a literal string and does not stop the stack (F6, measured). D7
+amended.
+
+**[7] ACCEPT** — claim: "The isolation spike has no canary in slot 2 that must disappear."
+Correct, and the miss matters: without a vanishing canary, a no-op reset satisfies the whole
+done-criterion. The spike adds a canary row in slot-2 BEFORE the reset; the done-criterion
+requires it GONE after the reset, beside the two surviving canaries. S3 amended.
+
+**[8] ACCEPT** — claim: "Personal scratch-schema cleanup is only the last procedural step, not
+guaranteed by a `finally`-style cleanup."
+The spike runs inside try/finally; the scratch-schema drop is the finally. A failed drop is
+reported loudly with the exact manual cleanup command. S3 amended.
+
+**[9] ACCEPT** — claim: "No done-criterion executes the new integration runner path end to
+end."
+Correct — under the plan as written, the changed branch never runs before merge. New step S8
+(goal phase): one real integration-tier verify on the dev machine through the pool —
+`bun run at:verify req-001 --tier integration --expect` with `AT_DB_SLOT` set — green, the
+evidence line naming the slot, redacted transcript committed. §5 gains the row.
+
+**[10] ACCEPT** — claim: "A green `--tier loop --expect` run does not prove byte-identical
+output against main."
+The oracle is now defined: capture the loop-tier verify's full output on main and on the branch
+head, normalize volatile tokens (durations, temp paths, dates), and diff. An empty diff is the
+done-criterion; both normalized transcripts and the diff are committed. S5 amended.
+
+**[11] ACCEPT, FIXED DIFFERENTLY** — claim: "The Dockerless \"suite throws\" selftest has no
+specified seam capable of exercising the runner's occupied integration path."
+Correct that no seam exists without refactoring `main`, and a refactor made only for a test is
+not adopted. The test's claim narrows to what a Dockerless test can prove: the pool module's
+own occupy/release pair releases in a `finally` when its caller throws — unit level. The
+runner-level guarantee is delivered structurally: the pool path stores its claim in the SAME
+`lock` variable `cleanupRun` already releases (D9), S5's done-criterion pins that, and the
+draft-code gate reads it. S4 test 3 reworded.
+
+**[12] ACCEPT** — claim: "D6 does not define a fail-closed branch parser for detached HEAD, no
+Git executable, or branches containing multiple item IDs."
+The parser becomes a pure function over the branch string: exactly one item id, or it refuses.
+Zero ids, several ids, detached HEAD, or a failed git call → refusal as INFRASTRUCTURE naming
+the condition. Never the first match. D6 amended; S4 gains parser tests (zero / one / many).
+
+**[13] ACCEPT** — claim: "`AT_DB_POOL_ROOT` does not isolate the occupancy claim used by the
+proposed selftests."
+Verified: `lockDir()` (runner.ts:255-260) has no override. Fix: `lockDir` honors `AT_LOCK_DIR`
+(the same pattern as `AT_REPO_ROOT`); the default is unchanged; the db-pool selftests set it.
+D9 amended.
+
+**[14] ACCEPT** — claim: "The committed setup transcript has no redaction or 'contains no
+credentials' done-criterion."
+Every committed transcript — S2 setup, S3 spike, S8 integration run, S5 baselines — passes a
+scan before commit: no `eyJ` token, no anon or service-role key value, no database password.
+The clean scan is part of each done-criterion. S2, S3, S5 and S8 amended.
+
+**[15] ACCEPT** — claim: "F7 incorrectly states that the required check runs on
+`ubuntu-latest`."
+Verified at ci.yml:44: `runs-on: ${{ vars.CI_RUNNER_LABEL || 'ubuntu-latest' }}`. F7 is
+corrected: the check runs on ubuntu-latest, or on a self-hosted runner when that repository
+variable is set. The constraint this plan takes from F7 stands unchanged — every test this item
+adds must pass with no live stack and no Docker, on either runner.
