@@ -7,6 +7,11 @@ effort xhigh).**
 plan. The rulings are section 7. The amended text below is what gets built; the pre-amendment
 text is commit `46b7485`.**
 
+**Sitting 3 (FIX AND GOAL, same definition and model) ruled on gate 2's twelve findings — nine
+from seat A, three from seat B, two convergent pairs. The rulings are section 8. That sitting
+amended step 2's mirror-binding sentence and step 5's done-list; the pre-amendment text is
+commit `ac33db1`.**
+
 **Chain, derived from the branch**
 (`nirdrang/ai4dev-59-email-verification-and-the-gate-on-unverified-writing-d2l1`):
 AI4DEV-59 (email verification, unverified-write gate) → AI4DEV-52 (verification, sessions and
@@ -235,10 +240,14 @@ lane: the promise cannot arise through the fixture, and this lane is what CI alr
 written): `bun run typecheck` exits 0; both PRODUCT judgements — the verified-fact extraction
 and the Discovery gate — come only from the shipped `verification.ts`, with no second copy of
 either rule in the fixture; and every VENDOR MIRROR this leaf adds is named in the fixture
-header's mirror section with what binds it: link issuance at email signup, a never-issued link
-returning `ok: false`, and a used link setting `emailConfirmedAt` are bound by step 5 (a)–(d)
-on the live stack; a provider registration starting confirmed is declared UNBOUND, per the D-E
-amendment.
+header's mirror section with what binds it: link issuance at email signup is bound by step 5
+(a)–(b); a never-issued link returning `ok: false` is bound by step 5 (b2) — the tampered-link
+negative added by gate-2 rulings [A2]/[B1], section 8, because the earlier "(a)–(d)" wording
+claimed a binding no check measured; a used link setting `emailConfirmedAt` is bound by step 5
+(b) and (d); a provider registration starting confirmed is declared UNBOUND, per the D-E
+amendment; and the provisioned platform admin starting CONFIRMED mirrors the recorded
+provisioning recipe (gate-2 ruling [A8], section 8), read by nothing and live-bound by the
+first item that reads an admin's verified state.
 
 **Step 3 — the two real test bodies, and the bookkeeping.** D-F, D-G, D-H.
 → done: `bun run at:verify req-001 --tier loop --expect` exits 0 with exactly 9 passed and 28
@@ -259,8 +268,15 @@ redacted exactly as the predecessor transcripts redact them.
   the unverified-runtime-claims from section 1 measured, with exact wire responses captured;
   (b) the mail catcher on port 54324 holds the confirmation email for that address, and the
   verification link is extracted from it — the catcher's API shape MEASURED first, not assumed;
-  (c) sign-in BEFORE confirmation is refused, the refusal text captured verbatim — the
-  auth-layer block that stands upstream of the gate on the live stack;
+  (b2) a tampered variant of that link — its token altered, so a token GoTrue never issued —
+  is followed BEFORE the real one, and `auth.users.email_confirmed_at` stays NULL: the
+  never-issued-link mirror measured rather than inferred (gate-2 rulings [A2]/[B1], section 8);
+  no expiry, single-use or resend semantics are touched — the token followed was never issued;
+  (c) sign-in BEFORE confirmation is refused with a CONFIRMATION-SPECIFIC refusal — a 4xx whose
+  body names the unconfirmed state (expected GoTrue error code `email_not_confirmed`), captured
+  verbatim; a 429 or a 5xx is NOT this refusal and fails the check (gate-2 ruling [A3], section
+  8). The discriminator is read from the in-memory body, because the transcript redactor's
+  name-pattern also blanks `error_code`, and the note surfaces it through a safe extraction;
   (d) using the link (HTTP GET) flips `email_confirmed_at` to non-null; sign-in now succeeds;
   and the raw `/auth/v1/user` response of the signed-in user, fed to the SHIPPED
   `emailVerifiedFromUser`, returns true — the extractor bound to GoTrue's real serialisation
@@ -275,7 +291,9 @@ redacted exactly as the predecessor transcripts redact them.
   `auth.identities` (`fabricateGithubIdentity` in the predecessor's proof script, flip-
   independent because it is a database write, not an auth flow) — then completes as a
   volunteer through the same deployed function, and the account row and imported profile are
-  read back;
+  read back. The volunteer's "repeats (a)–(d)" claim has teeth (gate-2 rulings [A3]/[A4],
+  section 8): its link MUST come from the catcher (`linkSource === 'emailed'`) and its
+  pre-confirmation sign-in refusal MUST be the same confirmation-specific one as (c);
   (f) if the mailer rate limit starves (b), the D-B relief valve fires and the transcript
   records it.
 
@@ -399,3 +417,132 @@ pick the file up with zero script or CI change.
 
 No ruling removes work, so no removal-verification conditions exist. Nothing contradicts
 ratified text and nothing grows scope; there is no founder question.
+
+## 8. Gate 2 rulings (sitting 3, FIX AND GOAL — fable, claude-fable-5, effort xhigh)
+
+The gate was a panel of two, each blind to the other. Seat A: nine findings, raw output
+`loop/items/AI4DEV-59/artifacts/gate2-terra-output.md`, distillate beside it (9 = 9). Seat B:
+three findings, raw output `loop/items/AI4DEV-59/artifacts/gate2-flash-output.md`, distillate
+beside it (3 = 3). Seat B also names seven verified-sound areas in its raw output — the
+fail-closed oracle coverage, the fixture discipline, AT-001.10's discriminating pair,
+AT-001.09's ordering, the bookkeeping counts, the refactor's neutrality, and the selftest-lane
+placement — recorded here as evidence, not as findings. Every claim below is quoted verbatim
+from the seat's raw output. TWO CONVERGENT PAIRS — [A2]+[B1] and [A6]+[B2] — two blind seats
+independently finding the same defect, the strongest signal a panel gives; each pair is one
+defect with one fix. **Twelve findings, twelve accepted (three of them fixed differently), zero
+rejected — ten distinct defects.**
+
+**[A2] + [B1] — CONVERGENT. ACCEPT.**
+Seat A (medium): "The fixture calls the never-issued-link mirror live-bound even though the
+proof never follows or observes an unissued link."
+Seat B (low): "Mirror 2 — 'a link that was never issued confirms nothing' — is labeled
+**BOUND** by the live proof, but none of proof checks (a)–(d) ever attempts a never-issued
+link, so nothing in the named evidence measures the negative."
+Both are right: mirror 2's BOUND label cited evidence that measured only the positive half, and
+the step-2 criterion's "(a)–(d)" wording carried the same overstatement into this plan. Seat
+A's proposed instrument is adopted — a mutated issued link is a token GoTrue never issued, and
+following it asserts nothing about expiry, single use or resend (retired AT-001.11 stays
+untouched). The fix: new proof check (b2) follows a tampered variant of the emailed link BEFORE
+the real one and requires `email_confirmed_at` still NULL; mirror 2's header entry cites (b2);
+step 2's criterion is amended (see section 3). The record was false as written and is corrected
+in the open, not thinned.
+
+**[A1] — ACCEPT.** Seat A (medium): "The malformed-caller selftest checks only `ok` and never
+verifies that those refusals name email verification as the remedy."
+Verified: `shipped-verification.selftest.ts` lines 96–114 assert only `.ok`. Today the module
+has ONE refusal literal covering every non-allow path, so the promise holds — but its oracle
+does not reach the malformed-caller paths, and a later split of the refusal paths would keep
+this selftest green while breaking the module header's all-refusals promise. Fix: assert
+`/verif/i` and `/email/i` on the reason of every malformed-caller refusal in that test.
+
+**[A3] — ACCEPT.** Seat A (high): "Check (c) treats any HTTP status of 400 or greater as the
+expected pre-confirmation refusal and does not assert a confirmation-specific response."
+Verified: `ngoTrip.signInBefore.status >= 400` — a 429 or a 500 would record as PASS while
+confirmation enforced nothing. Fix: (c) passes only on a 4xx (never 5xx, never 429) whose body
+names the unconfirmed state — expected GoTrue error code `email_not_confirmed`, matched against
+the IN-MEMORY body because the transcript redactor's `code$` pattern blanks `error_code`; the
+note surfaces the discriminator through a safe extraction (an enum value, not a credential).
+If the live text differs, the check FAILS, the verbatim capture shows the real discriminator,
+and the executor pins that exact discriminator and re-runs — measurement, not assumption. The
+same tightening applies to the volunteer's pre-confirmation sign-in inside (e).
+
+**[A4] — ACCEPT.** Seat A (high): "Check (e) never requires the volunteer round trip to use an
+emailed verification link, despite claiming it repeats check (b)."
+Verified: (e)'s conjunction never reads `volunteerTrip.linkSource`, so the admin-generated
+fallback could pass (e) while the claim "repeats (a)–(d)" silently narrowed. The NGO half
+cannot do this — (b) fails with a NARROWED note on the fallback — so the volunteer half gets
+the same teeth: (e) requires `volunteerTrip.linkSource === 'emailed'`.
+
+**[A5] — ACCEPT, FIXED DIFFERENTLY, with a verification condition.** Seat A (medium): "The
+stale-worktree probe accepts any non-404 response as the current `complete-signup` function."
+The fact is right — the probe fails only on 404 or unreachable, and a stale mount answers 401.
+The proposed remedy — a verifiable revision/source marker in the mounted artifact — buys
+revision-binding that (e)'s evidence does not depend on: this branch changes nothing under
+`supabase/functions/` except the NEW `_shared/verification.ts`, which `complete-signup` does
+not import, so any live `complete-signup` is byte-for-byte the code this branch carries.
+**VERIFY FIRST, before relying on that:** the executor confirms with
+`git diff main...HEAD --stat -- supabase/functions/` and by reading `complete-signup`'s
+imports. If the condition fails, this ruling's fixed-differently route is VOID — stop and
+report, and the full revision-binding remedy applies. If it holds: the probe's comment states
+the revision-independence argument, and `stack-up.txt` records the `functions serve` launch
+(command and cwd) as the operator-side binding of the mount to this worktree.
+
+**[A6] + [B2] — CONVERGENT. ACCEPT, at seat A's severity (high).**
+Seat A: "The redirect redactor strips only URL fragments and logs credential-bearing query
+parameters unchanged."
+Seat B: "The header promises 'NO KEY IS WRITTEN INTO THIS FILE AND NONE IS PRINTED BY IT', but
+the followed redirect's `location` is printed after only fragment-stripping
+(`withoutFragment`), and `redact()` returns non-object values — including non-JSON response
+bodies — verbatim."
+Both right, and seat B widens the surface to raw string bodies. One fix, three parts: (i) every
+query-parameter VALUE in a printed location header is redacted, names kept — a token-hash or
+`?code=` redirect can no longer land in a transcript; (ii) `redact()` scrubs strings too —
+JWT-shaped substrings (`eyJ…`) and `name=value` pairs whose name matches the SENSITIVE pattern
+are replaced; (iii) the transcript is INSPECTED for credential residue before it is committed —
+the run this sitting performs is that inspection.
+
+**[A7] — ACCEPT.** Seat A (medium): "The updated fixture header falsely says `verification.ts`
+is imported by edge functions and that every accept/refusal below comes from shipped modules."
+Verified: no deployed function imports `verification.ts` — that is decision D-D's own point —
+and `sendDiscoveryMessage`'s no-completed-account refusal is fixture bookkeeping, not a shipped
+judgement. This diff rewrote that header paragraph, so the falsehood is this item's to fix.
+Fix: the PROVED paragraph names `verification.ts` as the module the FUTURE Discovery route must
+import — today imported only by this suite and its shape selftest — and scopes the
+accept/refusal sentence to the PRODUCT judgements, naming the fixture's bookkeeping
+precondition refusals as the exception.
+
+**[A8] — ACCEPT, FIXED DIFFERENTLY.** Seat A (low): "The new mirror makes a provisioned
+platform admin unconfirmed by reusing email registration, despite the repository's real
+provisioning flow creating that user with `email_confirm: true`."
+Premise verified in the tree: the predecessor's proof script provisions the admin through
+`POST /auth/v1/admin/users` with `email_confirm: true` — the only provisioning recipe this
+repository records — so the fixture's admin starting unconfirmed contradicts the repository's
+own record, and the header note presents that state as natural rather than as contradicted.
+The proposed remedy — a live admin-creation check in step 5 — buys a live measurement for a
+state NOTHING reads; disproportionate. Fixed differently: `provisionPlatformAdmin` marks its
+auth user confirmed at provisioning and mints no verification link (admin creation sends no
+email); the header's "ONE CONSEQUENCE" paragraph now says the provisioned admin starts
+CONFIRMED, mirroring the recorded recipe, that nothing reads this state, and that it is
+live-bound by the first item that reads an admin's verified state. The runtime half stays
+honestly unbound: the predecessor's transcript ran with confirmations OFF, so it does not
+measure the column under the flip — which is why the mirror is labeled by its recipe, never
+called live-bound.
+
+**[A9] — ACCEPT.** Seat A (low): "The PR body still says the branch is in the plan phase and
+that code comes after plan review, although this commit contains the draft implementation under
+code review."
+True — `pr-body.md`'s own text promised "This body will be brought up to date as the item
+moves" and was not. Fix: the status paragraph states the current truth (draft built, dual code
+review ruled, fixes applied, read-only audit and CI ahead of merge); a mechanical syncs the
+GitHub pull-request body from the file, as handed, after the close push.
+
+**[B3] — ACCEPT.** Seat B (low): "The rewritten header says 'The other four are section C's',
+but AT-001.38 (wrong-password rejection) sits in **section B** of the acceptance file
+(`at-req-001.md` line 23, under '## B. Email verification'); only .12/.13/.14 are section C's."
+Verified against the acceptance file — exactly as claimed. One-clause fix in the b-file
+header: the other four belong to the session-and-reset leaf (D2.L2), three of them section
+C's, the wrong-password id section B's.
+
+**Removal check:** no ruling removes work. [A5]'s fixed-differently declines a proposed
+ADDITION and carries its verification condition above. Nothing contradicts ratified text and
+nothing grows scope; there is no founder question.
