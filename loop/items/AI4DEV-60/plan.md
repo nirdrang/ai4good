@@ -3,6 +3,14 @@
 **Sitting 1 of the item: PLAN. Ruled by the `orchestrator` definition on fable (claude-fable-5,
 effort xhigh).**
 
+**AMENDED by sitting 2 (DRAFT), per the five gate-1 rulings in
+`loop/items/AI4DEV-60/gate1-rulings.md` — all five accepted.** The amendments: AT-001.13's
+surface mark is `ui` and the per-id table names the handoff (ruling 1); live check (g) binds
+the linked-volunteer path across the refactored edge (ruling 2); the .12/.13 setups sign in
+before completing signup (ruling 3); the mirror-binding labels are narrowed, two probes are
+added to checks (d) and (e), and unbound issuance is labelled (ruling 4); the green-id count
+is nine, not eleven (ruling 5). This amended plan is what gets built.
+
 **Chain, derived from the branch**
 (`nirdrang/ai4dev-60-sessions-automatic-refresh-and-password-reset-d2l2`):
 AI4DEV-60 (session expiry, refresh, password reset) → AI4DEV-52 (verification, sessions and
@@ -88,7 +96,12 @@ revoked }>`. The adapter starts destructuring `clock` (already delivered by the 
   `provisionPlatformAdmin` mint a session row at `clock.now()` with
   `expiresAt = now + 3600s` — the mirror of `jwt_expiry = 3600`. The `Session` handle gains
   `sessionId: string` (no literal is constructed outside the fixture; the executor re-verifies
-  before relying on it).
+  before relying on it). **What binds issuance is NARROW (gate-1 ruling 4):** checks (a)/(b)
+  bind SIGN-IN issuance and its `auth.sessions` row, and nothing wider. Registration issuance
+  is the declared divergence — the live stack mints none until the address confirms — and is
+  never labelled bound. Provider issuance and administrator issuance are labelled UNBOUND in
+  the fixture header: no OAuth credential exists here, and live administrator creation issues
+  no session; nothing in this suite asserts either.
 - **Revocation.** New member `signOut(session)` marks the row revoked — the mirror of
   `POST /auth/v1/logout` deleting the session.
 - **Refresh.** New member `refreshSession(session)` — valid only while the session is not
@@ -97,7 +110,10 @@ revoked }>`. The adapter starts destructuring `clock` (already delivered by the 
   to `now + 3600s` and returns the same-`sessionId` handle. It takes NO credentials — that is
   structural, not asserted. Refresh-token ROTATION and the reuse interval are NOT modelled: no
   criterion reads them, and modelling vendor semantics nothing asserts is how retired ground
-  creeps back in.
+  creeps back in. The same-session-row detail is BOUND by a probe in check (d) — an operator
+  read of `auth.sessions` before and after the live refresh, asserting the same row persists
+  (gate-1 ruling 4); if the vendor rotates the row instead, the fail-and-re-pin protocol
+  corrects this mirror to the measurement.
 - **Validation, uniform.** Every session-taking operation (`completeSignup`,
   `createOrganization`, `sendDiscoveryMessage`, `linkGithubIdentity`) resolves its caller the
   way the deployed functions do: a known, unrevoked, unexpired session renders the canonical
@@ -110,7 +126,7 @@ revoked }>`. The adapter starts destructuring `clock` (already delivered by the 
   returns the account's unrevoked, unexpired sessions — the mirror of reading `auth.sessions`
   with operator authority. AT-001.38's "no authenticated session is created" needs it: a
   refusal's own return value cannot show that nothing was minted.
-- **No behaviour change for the eleven green ids.** No existing body advances the clock, and
+- **No behaviour change for the nine green ids.** No existing body advances the clock, and
   every existing body uses its session within one frozen instant, so uniform validation
   changes nothing green. Step 0's baseline and step 3's full run are the check.
 
@@ -154,7 +170,9 @@ screens, and this is its negative path.
 **AT-001.12 (surface `backend`)** — expiry AND revocation, each with the stale-write oracle
 and the re-authentication discriminator. The write is `createOrganization` (no verification
 gate sits on it, so a refusal is unambiguously the session layer's).
-1. register, confirm, complete signup as an NGO; sign in.
+1. register, confirm, sign in, complete signup as an NGO under the signed-in session —
+   sign-in PRECEDES completion, the live public order (gate-1 ruling 3; the registration
+   handle plays no further part).
 2. control: a write under the live session succeeds.
 3. EXPIRY: `h.clock.advance(3601s)` → the same-shaped write with a fresh name is refused, and
    `organizationsNamed` shows the name absent — a stale session wrote nothing.
@@ -163,10 +181,12 @@ gate sits on it, so a refusal is unambiguously the session layer's).
 5. REVOCATION: with a live session, `signOut(session)` → a third-name write refused, name
    absent; sign in again → the write succeeds.
 
-**AT-001.13 (surface `backend`)** — refresh keeps a working session alive; a sibling session
-that is not refreshed dies at the same instant, which is what proves refresh did it.
-1. register, confirm, complete as an NGO; open TWO sessions at the same instant (two
-   sign-ins): `refreshed` and `control`.
+**AT-001.13 (surface `ui`, amended per gate-1 ruling 1)** — refresh keeps a working session
+alive; a sibling session that is not refreshed dies at the same instant, which is what proves
+refresh did it.
+1. register, confirm; open TWO sessions at the same instant (two sign-ins): `refreshed` and
+   `control`; complete signup as an NGO under `refreshed` — sign-in precedes completion
+   (gate-1 ruling 3), and the completed account serves both sessions.
 2. work under both succeeds (a write each).
 3. advance the clock to just under expiry; work still succeeds under both.
 4. `refreshSession(refreshed)` — no credentials pass through this call, structurally.
@@ -223,7 +243,11 @@ credential residue before committing it. Checks:
   token at `/auth/v1/user` → 401 (expired code captured verbatim); the deployed function
   refuses it; then the SAME session's refresh token → 200 with a fresh access token that works
   at `/auth/v1/user` AND at the deployed function — refresh re-established access with no
-  credentials, which is AT-001.13's live substance. Then `jwt_expiry` is RESTORED to 3600 and
+  credentials, which is AT-001.13's live substance. THE SAME-SESSION-ROW PROBE (gate-1 ruling
+  4): `auth.sessions` for this user is read with operator authority before and after the
+  refresh — same row id, no new row — which is what binds the fixture's extend-the-same-row
+  mirror; if the vendor rotates the row, the fail-and-re-pin protocol corrects the mirror to
+  the measurement. Then `jwt_expiry` is RESTORED to 3600 and
   the stack restarted; the final `git diff` shows `supabase/config.toml` UNCHANGED — the
   transient change lives only in the transcript. Two failed restart attempts → stop and
   report.
@@ -233,10 +257,25 @@ credential residue before committing it. Checks:
   never issued — no lifetime claim); the real link's flow SHAPE is MEASURED before it is
   asserted (token-in-fragment vs a PKCE code differ across CLI versions); the new password is
   set through the measured flow; then the old password → the (a)-pinned credential refusal,
-  and the new password → 200.
+  and the new password → 200. THE UNKNOWN-ADDRESS PROBE (gate-1 ruling 4): `/auth/v1/recover`
+  is also called once for a never-registered address and the answer captured — expected the
+  same 200 no-existence-oracle shape `requestPasswordReset` mirrors; if the live code differs,
+  fail and re-pin.
   (f) if the mailer rate limit starves any email here, the predecessor's pre-authorized relief
   valve applies (raise the local limit, restart, record) — measured last item as NOT binding
   (the CLI did not push the key), so it is expected not to fire.
+  (g) LINKED-VOLUNTEER CONTROL ACROSS THE REFACTORED EDGE (gate-1 ruling 2). The refactor
+  moves the caller judgment into the pure module and leaves an untyped delegation in
+  `edge.ts`; a delegation that pre-narrowed the Auth body (say `{ id }`) would lose
+  `identities[]`, pass every other planned check, and break every deployed linked-volunteer
+  completion. So: a fresh address registers and confirms; the GitHub identity is fabricated by
+  the predecessor's proven recipe (`fabricateGithubIdentity` in
+  `loop/items/AI4DEV-58/proof-local.ts` ~line 140 — a direct `auth.identities` insert with
+  operator authority, GoTrue's timestamp quirk already handled there); sign in; call the
+  DEPLOYED `complete-signup` with the live token as a volunteer → completion SUCCEEDS and the
+  `volunteer_profiles` row carries the handle and the shipped stub's exact statistics. This is
+  the one check that fails on a pre-narrowed bridge, and it re-establishes the predecessor's
+  deployed-linked-volunteer evidence, which this refactor supersedes.
 
 ### D-H — One review slice.
 Estimated diff outside `loop/items/`: ~50 pure module, ~25 edge.ts, ~60 selftest, ~90
@@ -244,15 +283,19 @@ contract, ~150 fixture, ~250 suite bodies and headers, ~30 declaration and pendi
 bookkeeping — roughly 650. Under the 1200-line trigger the earlier leaves used. **One slice**;
 both pinned draft-code readers read the whole diff.
 
-### D-I — Surface marks, decided from the manifest's own four screens.
+### D-I — Surface marks. AMENDED per gate-1 ruling 1: .13 is `ui`.
 The wiring leaf re-runs the ui-tagged subset of *"the auth screens (signup, sign-in,
-verification, reset)"*. AT-001.38 (`ui`) is the sign-in screen's negative; AT-001.14 (`ui`)
-is the reset screen. AT-001.12 and .13 are `backend`: no named screen carries expiry,
-revocation or refresh — the session layer does. The one clause that only a wired client can
-make true — .13's "automatically", the client SDK scheduling the refresh — is therefore NOT
-re-run by the wiring leaf under these marks; it is named in the per-id table as bound by the
-requirement's integration-tier evidence gate, and this plan says so rather than stretching a
-`ui` mark to force it.
+verification, reset)"* — the `ui` mark is the mechanism by which that leaf finds its work.
+AT-001.38 (`ui`) is the sign-in screen's negative; AT-001.14 (`ui`) is the reset screen.
+AT-001.12 is `backend`: expiry and revocation are the session layer's enforcement, and no
+named screen carries them. **AT-001.13 is `ui`**, and the reason is the mark's mechanism, not
+a screen: the one clause only a wired client can make true — "automatically", the client SDK
+scheduling the refresh — needs a dev-board owner, and a `backend` mark would orphan it until
+the requirement's far-away integration-tier gate (the gate-1 reviewer's finding, accepted).
+The wired re-run drives .13 through the wired client, where supabase-js's automatic refresh
+is the thing under test; the loop-tier body proves this leaf's half — refresh works, takes no
+credentials, and an unrefreshed sibling of the same instant dies. The mark leans on the wired
+client rather than on one named screen, and this sentence is the honest record of that.
 
 ## 3. Steps, each with its own done-criterion
 
@@ -279,12 +322,15 @@ and the delegation.
 judgment; the clock destructured and read at issuance and validation.
 → done: `bun run typecheck` exits 0; the ONLY caller-validity judgment in the fixture is the
 shipped `callerFromAuthAnswer` (no second copy of the fail-closed rule); every vendor mirror
-this leaf adds is named in the fixture header's mirror section with what binds it — session
-issuance and the `auth.sessions` row by (a)/(b), revocation ending access by (c),
-access expiry and refresh-after-expiry by (d), the reset flow by (e), the never-issued reset
-link by (e)'s tampered probe; the `jwt_expiry = 3600` TTL constant cites its config line;
+this leaf adds is named in the fixture header's mirror section with what binds it OR an
+explicit unbound label (gate-1 ruling 4) — SIGN-IN issuance and its `auth.sessions` row by
+(a)/(b), registration issuance stated as the declared divergence and never labelled bound,
+provider and administrator issuance labelled UNBOUND, revocation ending access by (c), access
+expiry, refresh-after-expiry and the same-session-row by (d), the reset flow by (e), the
+unknown-address 200 by (e)'s unknown-address probe, the never-issued reset link by (e)'s
+tampered probe; the `jwt_expiry = 3600` TTL constant cites its config line;
 `bun run at:verify req-001 --tier loop --expect` still exits 0 BEFORE the bodies land (the
-four ids still declared red, eleven green untouched by the session machinery).
+four ids still declared red, nine green untouched by the session machinery).
 
 **Step 3 — the four bodies, and the bookkeeping.** D-E, D-F.
 → done: `bun run at:verify req-001 --tier loop --expect` exits 0 with exactly 13 passed and
@@ -299,7 +345,7 @@ imports neither `LEAF` nor `notLanded`.
 happens and is reverted inside step 5, recorded in the same file.
 
 **Step 5 — the live proof.** D-G, transcript to `loop/items/AI4DEV-60/proof-local.txt`.
-→ done: checks (a)–(e) all pass as written (with (f) armed); every pinned discriminator
+→ done: checks (a)–(e) and (g) all pass as written (with (f) armed); every pinned discriminator
 captured verbatim from the in-memory body; the transcript passes the executor's credential
 inspection; `supabase/config.toml` shows no diff at the end.
 
@@ -317,7 +363,7 @@ At `bun run at:verify req-001 --tier loop --expect` when this item is done: **AT
 |---|---|---|---|
 | AT-001.38 | wrong password refuses through the fixture's Auth mirror with no session minted (`sessionsOf` unchanged), correct password mints one; the single-reason refusal shape observed | the wire refusal with its pinned `error_code`, no token material in the body, and no `auth.sessions` row — checks (a)/(b) | sign-in rate limiting (AT-001.34, another leaf); any screen (the wiring leaf's) |
 | AT-001.12 | an expired and a revoked session each refuse a write THROUGH THE SHIPPED `callerFromAuthAnswer`, the refused write writes nothing, and re-authentication is the exact change that unblocks | revocation kills the live token at `/auth/v1/user` and at a DEPLOYED function; an expired token likewise; both with captured codes — checks (c)/(d) | enforcement at routes that do not exist yet (only two functions are deployed; the pure module is the judgment every later route must call); admin-side revocation surfaces; the `[auth.sessions]` timebox/inactivity semantics, which are off locally |
-| AT-001.13 | refresh extends a session with no credentials while an unrefreshed sibling of the same instant dies — the discriminating pair; same account before and after | a real refresh token re-establishes access AFTER access expiry, no credentials — check (d) | **the "automatically" clause**: no client exists to schedule the refresh; the wired app (supabase-js auto-refresh) and the requirement's integration-tier gate own it — under D-I's marks the wiring leaf does not re-run this id, and this row is the honest record of that |
+| AT-001.13 | refresh extends a session with no credentials while an unrefreshed sibling of the same instant dies — the discriminating pair; same account before and after | a real refresh token re-establishes access AFTER access expiry, no credentials — check (d), including the same-session-row probe | **the "automatically" clause**: no client exists in this tree to schedule the refresh. The handoff is the `ui` mark (gate-1 ruling 1): the wiring leaf's wired re-run drives this id through the real client, whose automatic refresh is then the thing under test, and the requirement's integration-tier gate binds it above that. This item proves the mechanism, not the scheduling |
 | AT-001.14 | the emailed reset link is what changes the password (never-issued link changes nothing), the new password signs in, the old is refused | the recovery email in the catcher, the measured live flow, old password refused with the pinned code, new accepted — check (e) | email delivery beyond the local catcher; the reset screen (the wiring leaf's); reset-link expiry/single-use/resend — retired AT-001.15, deliberately unasserted; whether a live reset revokes other sessions — unasserted, no criterion reads it |
 
 **What the green does and does not claim** (repeated in the merge ruling): claims — the four
@@ -336,7 +382,7 @@ enforce anything, or anything about link lifetimes.
   (D-C); the live refresh in (d) exercises rotation implicitly and asserts nothing about it.
 - **Retired AT-001.15 and AT-001.11 semantics** — nothing modelled, nothing asserted (D-D).
 - **Audit rows for resets** — the criterion's own note drops the audit claim.
-- **The a-file's and b-file's eleven green bodies** — no assertion changes; the fixture gains
+- **The a-file's and b-file's nine green bodies** — no assertion changes; the fixture gains
   state beneath them, and step 0/3 prove the greens unmoved.
 - **The wiring leaf's screens** — `src/` is the other ownership territory besides.
 - **The two filed items under the auth root** (default-privilege residue; GitHub-unlink
