@@ -432,8 +432,9 @@ AT-001.09's ordering, the bookkeeping counts, the refactor's neutrality, and the
 placement — recorded here as evidence, not as findings. Every claim below is quoted verbatim
 from the seat's raw output. TWO CONVERGENT PAIRS — [A2]+[B1] and [A6]+[B2] — two blind seats
 independently finding the same defect, the strongest signal a panel gives; each pair is one
-defect with one fix. **Twelve findings, twelve accepted (three of them fixed differently), zero
-rejected — ten distinct defects.**
+defect with one fix. **Twelve findings, twelve accepted (two of them fixed differently), zero
+rejected — ten distinct defects.** (The count in the previous sentence said "three" until the
+audit corrected it — section 9, ruling [L1].)
 
 **[A2] + [B1] — CONVERGENT. ACCEPT.**
 Seat A (medium): "The fixture calls the never-issued-link mirror live-bound even though the
@@ -564,3 +565,82 @@ honestly and the D-B relief valve did not fire. The proof script's rate-limit co
 amended in the open so no stated fact contradicts that measurement. Executor invocations this
 sitting: two of the permitted three (the goal, reached on its first attempt; the one-comment
 truth amendment).
+
+## 9. Audit rulings (sitting 4, AUDIT — fable, claude-fable-5, effort xhigh)
+
+The audit was a panel of two, each blind to the other, at head `ad8daad`. Seat A: four
+findings, raw output `loop/items/AI4DEV-59/artifacts/audit-luna-output.md`, distillate beside
+it (4 = 4); its verdict boxes: adopted-rulings FAIL, redaction FAIL, runtime claims
+COULD-NOT-VERIFY (correct — execution evidence belongs to CI, not to the panel), all others
+PASS. Seat B: one finding, raw output `loop/items/AI4DEV-59/artifacts/audit-flash-output.md`,
+distillate beside it (1 = 1); all three verdict boxes PASS, the one finding attached as a
+low-severity could-not-verify note. The seats converge on no defect. Seat B's three PASS boxes
+stand beside seat A's two FAILs as evidence, never as a veto over them. Every claim below is
+quoted verbatim from the seat's raw output.
+
+**[L1] — ACCEPT.** Seat A (low): "Section 8 reports three "accept, fixed differently" rulings,
+but only A5 and A8 carry that disposition."
+Verified against section 8 as written: [A5] and [A8] are the only two. Sections 7 and 8
+together hold four ([1] and [3] in the plan gate, [A5] and [A8] in the code gate) — the likely
+origin of the miscount — but section 8's summary sentence speaks of the twelve and was false
+as written. The record changes to match its own itemized rulings: the count now reads two, in
+section 8 and in the audit brief (`audit-prompt.txt`), which carried the same number into the
+panel's first run. The superseded state file that repeated it is preserved in history and
+replaced by this sitting's state file. `pr-body.md`'s "All sixteen are accepted — several
+fixed differently" spans both gates (four of sixteen) and stays true as written.
+
+**[L2] — ACCEPT.** Seat A (medium): "The confirmation check accepts any 4xx body containing
+"confirm" even when `error_code` is not `email_not_confirmed`."
+Verified at `proof-local.ts` line 345: `errorCode === CONFIRMATION_ERROR_CODE ||
+/confirm/i.test(message)`. Ruling [A3] as recorded pins the error code and says: if the live
+text differs, the check FAILS, and the executor pins the measured discriminator and re-runs.
+The `/confirm/i` fallback would mask a differing live text — "MFA confirmation required"
+passes — so the adopted ruling is not implemented as ruled, and the header comment's claim
+that the ruling allows a weaker initial predicate misstates the ruling. The code changes to
+match the record: the predicate becomes the pinned error code alone, for both callers of the
+helper (checks (c) and (e)), and the comment is rewritten to state the fail-and-re-pin
+protocol. The committed transcript stays valid under the tightened predicate: both recorded
+refusals carry `error_code=email_not_confirmed (expected email_not_confirmed)` —
+`proof-local.txt` lines 62 and 67.
+
+**[L3] — ACCEPT.** Seat A (medium): "The signup-session guard checks only `access_token` and
+`session`, ignoring `refresh_token` and raw token responses."
+Verified at `proof-local.ts` lines 635–637. Check (a) certifies that signup issued no
+credential material; a body carrying only a refresh token would pass the guard as written. The
+guard now also treats a string `refresh_token` as a carried credential; a raw token response
+is already caught by its top-level `access_token`. The committed transcript stays valid under
+the widened guard: the NGO signup body is recorded verbatim (`proof-local.txt` line 56) and
+carries no `access_token`, no `refresh_token` and no `session`; the volunteer body is
+summarized by the narrower guard, with the NGO body as the shape witness for the same
+endpoint, the same config and the same minute.
+
+**[L4] — ACCEPT.** Seat A (medium, marked unverified-runtime): "The mail-catcher probe prints
+raw response text without passing it through `redact()`."
+Verified at `proof-local.ts` lines 504–512: `discoverMailCatcher`'s probe prints the first 200
+characters of the catcher's response through `JSON.stringify` alone. The header's promise —
+no key printed — must hold by construction, not by luck of the response: the probe text now
+passes through `scrubString` before it is printed. The runtime half of the claim is settled by
+the recorded inspection: the committed probe line (`proof-local.txt` line 53) is Mailpit
+version metadata, and the pre-commit credential search over the whole transcript found zero
+residue. The catch branch prints only the local fetch error, no external content, and is left
+as it is.
+
+**[L5] — VERIFY FIRST, VERIFIED THIS SITTING: the record stands.** Seat B (low): "The record
+asserts as measured — "git diff main...HEAD --stat -- supabase/functions/: 1 file changed, 167
+insertions" — that this branch changes nothing under supabase/functions/ except the new
+verification.ts, and this cannot be confirmed from the tree (no git access in this review)."
+The seat could not run git; this sitting ran it, read-only. `git diff main...HEAD --stat --
+supabase/functions/` answers exactly one file, `supabase/functions/_shared/verification.ts`,
+167 insertions. The whole diff outside `loop/items/AI4DEV-59/` matches section 8's declared
+scope list exactly — eight paths, nothing else. `git ls-remote` shows the audited head as the
+branch tip. The stated fact is true, and ruling [A5]'s fixed-differently route stands on its
+own condition.
+
+**Consequences.** Rulings [L2]–[L4] change `proof-local.ts`, so the WHOLE panel re-runs once
+at the new head — both seats, never one. `proof-local.txt` is NOT regenerated: it is the
+recorded output of the run pinned in the state file, its provenance header says so, and each
+tightening is shown above to hold against the recorded evidence by reading. The tightenings
+change no printed format string the committed transcript mirrors. This re-run is the item's
+one audit re-run. If the re-run lands findings, a fresh audit sitting rules on them; a fix
+that would need a second re-run is scope growth, escalated — the cap bounds effort, never
+truth.

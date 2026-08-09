@@ -104,9 +104,10 @@ on unverified Discovery writing) as deliverable D2 leaf L1 of the authentication
 The record to audit (paths repository-relative):
 
 - `loop/items/AI4DEV-59/plan.md` — the amended plan. Section 7 holds the four plan-review
-  rulings; section 8 holds the twelve code-review rulings (ten distinct fixes; three ruled
+  rulings; section 8 holds the twelve code-review rulings (ten distinct fixes; two ruled
   "accept, fixed differently"; one carried a verify-first condition whose measured result is in
-  section 8's post-goal notes). Sections 2 (decisions), 3 (steps and done-criteria) and 4 (the
+  section 8's post-goal notes). Section 9 holds the five audit rulings from the panel's first
+  run. Sections 2 (decisions), 3 (steps and done-criteria) and 4 (the
   per-id claims table) are the claims the tree must match.
 - `loop/items/AI4DEV-59/PHASE-STATE.md` — the state file's claims.
 - `loop/items/AI4DEV-59/pr-body.md` — the pull-request body as published.
@@ -126,8 +127,11 @@ Nothing else.
 
 Boxes worth your trace, in addition to your mandate, never instead of it:
 
-- Each of the twelve rulings in plan.md section 8 against the tree — including the three
+- Each of the twelve rulings in plan.md section 8 against the tree — including the two
   "fixed differently" implementations and the recorded verify-first result.
+- The audit tightenings in `proof-local.ts` (plan.md section 9, rulings [L2]–[L4]) against the
+  committed `proof-local.txt`: the transcript predates them, and section 9 names the recorded
+  lines that satisfy each tightened predicate — check that reasoning yourself.
 - The fixture header's vendor-mirror section (`tests/at/suites/req-001/_fixture.ts`): does
   every BOUND label cite a check that measures what the label claims, and is every UNBOUND or
   recipe-labeled declaration still true.
