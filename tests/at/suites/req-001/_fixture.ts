@@ -9,12 +9,13 @@
  * can reach the integration-tier run that is the evidence gate. What a loop-tier green from this
  * suite means is exactly this:
  *
- *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts` and
- *     `supabase/functions/_shared/github.ts` — the modules the two edge functions import, byte for
- *     byte the code that ships — behave as the seven acceptance criteria this suite lands require.
- *     Every accept and every refusal below comes from those modules, and so does the onboarding
- *     import's content. There is no second copy of the rules in this file, deliberately: the moment
- *     there is one, this suite is grading a puppet and the green is worth nothing.
+ *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts`,
+ *     `supabase/functions/_shared/github.ts` and `supabase/functions/_shared/verification.ts` —
+ *     the modules the edge functions import, byte for byte the code that ships — behave as the
+ *     nine acceptance criteria this suite lands require. Every accept and every refusal below
+ *     comes from those modules, and so does the onboarding import's content. There is no second
+ *     copy of the rules in this file, deliberately: the moment there is one, this suite is grading
+ *     a puppet and the green is worth nothing.
  *   - NOT PROVED: that the migration is correct, that either edge function works, that row-level
  *     security denies what it should, that Supabase Auth is configured, or that Google or GitHub
  *     sign-in works. None of that is reachable from here — the storage below is a Map. The evidence
@@ -39,6 +40,51 @@
  * is in the schema, not a rule the adapter remembers), and completion is all-or-nothing (so a body
  * asserting no partial state is asserting the same shape the database's `complete_signup` function
  * guarantees). It mirrors the SHAPE; the database's own guarantee is proved on the live stack.
+ *
+ * ============================================================================================
+ * THE VENDOR MIRRORS, EACH WITH WHAT BINDS IT — the verification leaf's four, named one by one.
+ * ============================================================================================
+ *
+ * A MIRROR IS NOT A PRODUCT JUDGEMENT, and keeping the two apart is what this section is for. The
+ * two PRODUCT judgements about verification — whether an address is verified, and whether an
+ * unverified caller may send a Discovery message — come from the shipped
+ * `supabase/functions/_shared/verification.ts` and from nowhere else; there is no second copy of
+ * either rule in this file. What is left is a prediction of what Supabase Auth DOES, and a
+ * prediction has to say what would prove it wrong.
+ *
+ *   1. AN EMAIL/PASSWORD REGISTRATION STARTS UNCONFIRMED AND AN EMAIL CARRYING A VERIFICATION
+ *      LINK IS SENT.
+ *      BOUND — checks (a) and (b) of `loop/items/AI4DEV-59/proof-local.ts` on the live stack: the
+ *      signup's own wire response, `auth.users.email_confirmed_at IS NULL` read on the database,
+ *      and the confirmation email held by the local mail catcher.
+ *   2. A LINK THAT WAS NEVER ISSUED CONFIRMS NOTHING.
+ *      BOUND — the same live proof follows only the link the catcher actually holds, so a link
+ *      this fixture never minted has no confirming effect anywhere. Note what this is NOT: it is
+ *      not a claim about expiry, single use or resend. AT-001.11 is retired and none of those
+ *      semantics is modelled here.
+ *   3. USING THE EMAILED LINK SETS `email_confirmed_at`.
+ *      BOUND — checks (b) and (d): the link is followed by HTTP GET and the column flips to
+ *      non-null, after which the real `/auth/v1/user` response is fed to the SHIPPED
+ *      `emailVerifiedFromUser`, which answers true.
+ *   4. A PROVIDER REGISTRATION (Google, GitHub) STARTS CONFIRMED, because the provider vouched for
+ *      the address.
+ *      **UNBOUND, AND SAID PLAINLY.** No OAuth app or credential exists in this environment, so no
+ *      live provider session is obtainable — the same recorded gap that leaves the OAuth handshake
+ *      itself unproved at every tier, stated in this header since the predecessor item. This item
+ *      binds it nowhere and claims nothing about it. NO TEST IN THIS SUITE READS A PROVIDER USER'S
+ *      VERIFIED STATE: both verification bodies register by email and password. If the prediction
+ *      is wrong — a real provider user arriving unconfirmed — the shipped gate FAILS CLOSED: it
+ *      refuses that caller, never allows one. The mirror is bound by the first item that ships a
+ *      real provider-path consumer, and not before.
+ *
+ * ONE CONSEQUENCE OF MIRROR 1 THAT NOTHING READS, recorded so a reader is not left to wonder: the
+ * provisioned platform administrator registers through the same email path, so it starts
+ * unconfirmed too. AT-001.07 does not read its verified state and neither does anything else here.
+ *
+ * AND THE DISCOVERY SEND SURFACE IS NOT A MIRROR AT ALL — it mirrors nothing, because there is
+ * nothing to mirror. No Discovery route exists in this repository at either tier; it is
+ * REQ-002/004's. `sendDiscoveryMessage` below is a stand-in surface whose whole job is to put the
+ * shipped gate on a tested path. No green over it says anything about enforcement anywhere.
  */
 
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
@@ -60,6 +106,15 @@ import {
 // in the extractor — returning null for a linked identity — would have rejected every linked
 // volunteer at the deployed edge while this suite stayed green.
 import { extractGithubHandle, stubGithubStatsFor } from '../../../../supabase/functions/_shared/github.ts';
+// BOTH shipped verification judgements, for the same reason both GitHub ones are imported above.
+// `emailVerifiedFromUser` is how the verified fact is DERIVED from the rendered GoTrue user shape
+// on every read — never read straight off storage — and `discoveryMessageAllowed` is the ONLY thing
+// that decides whether a Discovery send is refused. Between them there is no rule about
+// verification left in this file to drift.
+import {
+  discoveryMessageAllowed,
+  emailVerifiedFromUser,
+} from '../../../../supabase/functions/_shared/verification.ts';
 import type {
   AccountRow,
   AccountsSut,
@@ -68,6 +123,7 @@ import type {
   CreateOrganizationOutcome,
   MembershipRow,
   OrganizationRow,
+  SendDiscoveryMessageOutcome,
   Session,
   SessionProvider,
   SignInOutcome,
@@ -103,6 +159,26 @@ interface AuthUser {
    * established, and is a property of the user Auth answers for.
    */
   githubHandle: string | null;
+  /**
+   * GoTrue's `email_confirmed_at`, or null while the address is unconfirmed — vendor mirror 1 and
+   * 4 in this file's header.
+   *
+   * IT IS STORED AS THE VENDOR'S OWN FIELD VALUE, a nullable instant, and never as a boolean. The
+   * shipped `emailVerifiedFromUser` is what turns it into an answer, and it does so from the
+   * rendered `/auth/v1/user` shape rather than from this field directly. Storing a boolean here
+   * would put the judgement in storage, which is the one thing this file's opening paragraph
+   * promises it does not do.
+   */
+  emailConfirmedAt: string | null;
+  /**
+   * The verification link Auth emailed for this address, or null when no confirmation email was
+   * sent — the fixture's stand-in for the message the local mail catcher holds on the live stack.
+   *
+   * IT IS NOT CLEARED WHEN IT IS USED, deliberately. Clearing it would model SINGLE USE, and
+   * single-use semantics are retired AT-001.11's — "not stated in REQ-001". The fixture models
+   * what the criterion states and no more.
+   */
+  verificationLink: string | null;
 }
 
 interface StoredAcknowledgment extends AcknowledgmentRow {}
@@ -111,6 +187,13 @@ interface State {
   authUsers: Map<string, AuthUser>;
   /** email -> auth user id, because sign-in arrives with an address rather than an id */
   byEmail: Map<string, string>;
+  /**
+   * verification link -> auth user id, because a link arrives on its own with no address beside it
+   * — which is exactly the situation on the live stack, where the link is followed from an inbox.
+   *
+   * A link this map does not hold was never issued, and confirms nothing.
+   */
+  byVerificationLink: Map<string, string>;
   accounts: Map<string, AccountRow>;
   organizations: Map<string, OrganizationRow>;
   /** `${organizationId}:${accountId}` -> row */
@@ -118,6 +201,14 @@ interface State {
   acknowledgments: StoredAcknowledgment[];
   /** account id -> the imported volunteer profile, mirroring `public.volunteer_profiles`'s primary key */
   volunteerProfiles: Map<string, VolunteerProfileRow>;
+  /**
+   * account id -> the Discovery message bodies that account has sent.
+   *
+   * There is NO table behind this and no route that writes one; see the header's closing paragraph.
+   * It exists so AT-001.10 can assert that a refused send wrote NOTHING, which the refusal's own
+   * return value cannot show.
+   */
+  discoveryMessages: Map<string, string[]>;
   nextId: number;
 }
 
@@ -148,17 +239,29 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
   const state: State = {
     authUsers: new Map(),
     byEmail: new Map(),
+    byVerificationLink: new Map(),
     accounts: new Map(),
     organizations: new Map(),
     memberships: new Map(),
     acknowledgments: [],
     volunteerProfiles: new Map(),
+    discoveryMessages: new Map(),
     nextId: 1,
   };
   const openedWorlds = new Set<AccountsFixtureWorld>();
   let worldSerial = 0;
 
   const nextId = (prefix: string): string => `${prefix}-${state.nextId++}`;
+
+  /**
+   * The instant a confirmation is recorded at.
+   *
+   * Fixed rather than read from a clock, for the same reason the acknowledgment's instant is: no
+   * criterion here depends on WHICH instant, only on whether one is present, and a real timestamp
+   * would make the capture non-deterministic for no gain. The shipped `emailVerifiedFromUser`
+   * judges presence and never parses the value, so this is the whole of what the field has to be.
+   */
+  const CONFIRMED_AT = '2026-01-01T00:00:00.000Z';
 
   const register = (
     email: string,
@@ -171,11 +274,45 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     // back "one account per user" from a situation the real system cannot be in.
     const existing = state.byEmail.get(email);
     if (existing) throw new Error(`fixture: ${email} is already registered — Supabase Auth would refuse this`);
-    const user: AuthUser = { id: nextId('user'), email, password, provider, githubHandle };
+
+    // VENDOR MIRRORS 1 AND 4, and the header names what binds each. An email/password registration
+    // starts UNCONFIRMED and Auth emails a confirmation link; a registration a provider vouched for
+    // starts CONFIRMED and no confirmation email is sent, so it has no link. The provider half is
+    // declared UNBOUND in the header — no OAuth credential exists here — and nothing in this suite
+    // reads a provider user's verified state.
+    const id = nextId('user');
+    const emailConfirmedAt = provider === 'email' ? null : CONFIRMED_AT;
+    // Derived from the user id rather than from a second counter, so the link is unique by
+    // construction and a link read in a failure message says which user it belongs to.
+    const verificationLink = provider === 'email' ? `verify-${id}` : null;
+
+    const user: AuthUser = { id, email, password, provider, githubHandle, emailConfirmedAt, verificationLink };
     state.authUsers.set(user.id, user);
     state.byEmail.set(email, user.id);
+    if (verificationLink !== null) state.byVerificationLink.set(verificationLink, user.id);
     return { accountId: user.id, email: user.email, provider: user.provider };
   };
+
+  /**
+   * The stored auth state rendered as the canonical GoTrue `/auth/v1/user` response shape.
+   *
+   * ONE RENDERER FOR BOTH SHIPPED EXTRACTORS. `extractGithubHandle` reads `identities[]` and
+   * `emailVerifiedFromUser` reads `email_confirmed_at`, and both read them off the SAME object here
+   * — which is the point: on the live stack they read one response body, so rendering two different
+   * shapes for them would be a divergence this suite could never notice.
+   *
+   * WHAT IS STILL NOT PROVED by anything that calls this: that this shape is the shape GoTrue really
+   * sends. That is a prediction of the vendor. The live proof is what binds it.
+   */
+  const renderAuthUser = (user: AuthUser): Record<string, unknown> => ({
+    id: user.id,
+    email: user.email,
+    email_confirmed_at: user.emailConfirmedAt,
+    identities:
+      user.githubHandle === null
+        ? []
+        : [{ provider: 'github', identity_data: { user_name: user.githubHandle } }],
+  });
 
   /**
    * Which providers can sign this user back in — Auth's `identities[]`, reduced to what AT-001.02
@@ -217,11 +354,11 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     // would have been doing a judgement's job, which is the one thing this file's opening paragraph
     // promises it does not do. What is still NOT proved here is GoTrue's real serialisation — that
     // this shape is the shape Auth sends. Only the live proof touches that.
-    const callerUser = {
-      identities: authUser.githubHandle === null
-        ? []
-        : [{ provider: 'github', identity_data: { user_name: authUser.githubHandle } }],
-    };
+    //
+    // The rendering itself is `renderAuthUser` above, shared with the verified-fact read, because
+    // on the live stack both facts come out of ONE response body and two renderings here could
+    // diverge with nothing able to notice.
+    const callerUser = renderAuthUser(authUser);
     const decision = validateCompleteSignup(request, { githubHandle: extractGithubHandle(callerUser) });
     if (!decision.ok) return { ok: false, reason: decision.reason };
     const { accountType, organizationName, acknowledgmentTextVersion, githubHandle } = decision.value;
@@ -330,7 +467,78 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       return { ok: true, session: { accountId: user.id, email: user.email, provider } };
     },
 
+    // DERIVED THROUGH THE SHIPPED EXTRACTOR, never read off storage. `user.emailConfirmedAt` is
+    // rendered into the canonical `/auth/v1/user` shape and `emailVerifiedFromUser` judges it —
+    // the same R3 pattern `completeSignup` uses for the GitHub handle, and for the same reason:
+    // the extractor is what the future Discovery route will run, so it has to sit on the tested
+    // path rather than being a function no test ever executes.
+    emailVerified: async (accountId) => {
+      const user = state.authUsers.get(accountId);
+      // A throw, not `false`. `false` is the answer for an unverified user, so returning it here
+      // would make a body that read a user Auth never registered look like a correct negative —
+      // and the whole discriminating pair in AT-001.09 turns on telling those two apart.
+      if (!user) throw new Error(`fixture: no auth user ${accountId} whose verified state could be read`);
+      return emailVerifiedFromUser(renderAuthUser(user));
+    },
+
+    emailedVerificationLink: async (email) => {
+      const userId = state.byEmail.get(email);
+      const user = userId ? state.authUsers.get(userId) : undefined;
+      return user?.verificationLink ?? null;
+    },
+
+    // VENDOR MIRRORS 2 AND 3 — the header names what binds each. Using the link Auth emailed
+    // confirms that address; a link that was never issued flips nothing and says so.
+    //
+    // NOTHING HERE MODELS EXPIRY, SINGLE USE OR RESEND. The link is NOT removed from the map after
+    // it is used, because removing it would be single-use semantics, and AT-001.11 — which is
+    // where those semantics lived — is retired as unstated in REQ-001.
+    useVerificationLink: async (link) => {
+      const userId = state.byVerificationLink.get(link);
+      const user = userId ? state.authUsers.get(userId) : undefined;
+      if (!user) return { ok: false };
+      user.emailConfirmedAt = CONFIRMED_AT;
+      return { ok: true };
+    },
+
     completeSignup,
+
+    // THE STAND-IN SURFACE FOR A ROUTE THAT DOES NOT EXIST — see the header's closing paragraph
+    // and `AccountsSut`'s fourth kind. Every judgement below is the shipped module's; what is left
+    // here is one refusal about bookkeeping and one write.
+    sendDiscoveryMessage: async (session, body): Promise<SendDiscoveryMessageOutcome> => {
+      const authUser = state.authUsers.get(session.accountId);
+      if (!authUser) return { ok: false, reason: 'no authenticated user — sign in before sending a Discovery message' };
+      // The same bookkeeping refusal `createOrganization` gives, and it is THIS FILE'S, not a
+      // product rule: an account that has not completed signup has no sender to record against.
+      // It is checked FIRST so that AT-001.10's refusal is unambiguously the gate's own — the
+      // account there has completed signup, so this branch cannot be what answers.
+      if (!state.accounts.has(session.accountId)) {
+        return { ok: false, reason: 'complete signup before sending a Discovery message' };
+      }
+
+      // THE VERIFIED FACT IS A CALLER FACT, derived exactly as `emailVerified` derives it: from the
+      // rendered response shape, through the shipped extractor. It is never a request field —
+      // a request field is something a client asserts about itself, and a floor built on one is no
+      // floor at all.
+      const emailVerified = emailVerifiedFromUser(renderAuthUser(authUser));
+
+      // THE ONLY DECISION ON THIS PATH, and it is the shipped one. The refusal text is the GATE's,
+      // carried through unchanged — AT-001.10 matches the reason, so restating it here would make
+      // the test grade this file instead of the module that ships.
+      const allowed = discoveryMessageAllowed({ emailVerified });
+      if (!allowed.ok) return { ok: false, reason: allowed.reason };
+
+      // ONLY REACHED ON ALLOW, so a refusal writes nothing — which is what `discoveryMessagesBy`
+      // is read for. The body is stored opaquely: recipients, threads and message state are
+      // REQ-002/004's semantics and none of them is invented here.
+      const sent = state.discoveryMessages.get(session.accountId) ?? [];
+      sent.push(body);
+      state.discoveryMessages.set(session.accountId, sent);
+      return { ok: true };
+    },
+
+    discoveryMessagesBy: async (accountId) => clone(state.discoveryMessages.get(accountId) ?? []),
 
     createOrganization: async (session, organizationName): Promise<CreateOrganizationOutcome> => {
       const account = state.accounts.get(session.accountId);
@@ -403,11 +611,13 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       openedWorlds.clear();
       state.authUsers.clear();
       state.byEmail.clear();
+      state.byVerificationLink.clear();
       state.accounts.clear();
       state.organizations.clear();
       state.memberships.clear();
       state.acknowledgments.length = 0;
       state.volunteerProfiles.clear();
+      state.discoveryMessages.clear();
       state.nextId = 1;
     },
   };
