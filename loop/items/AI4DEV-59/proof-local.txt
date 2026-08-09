@@ -1,0 +1,75 @@
+﻿# AI4DEV-59 (email verification, unverified-write gate) - STEP 5, THE LIVE LOCAL PROOF
+# Started: 2026-08-09 18:31:50 +03:00
+# Command: bun loop/items/AI4DEV-59/proof-local.ts
+# Worktree: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aa95110cbeab31aa7
+# Branch:   nirdrang/ai4dev-59-email-verification-and-the-gate-on-unverified-writing-d2l1
+# Result:   7 checks - 7 passed - 0 failed - 0 skipped - exit code 0. ONE RUN, no re-run.
+#
+# WHAT THIS TRANSCRIPT IS. The only evidence in this item about the real Supabase Auth under
+# [auth.email] enable_confirmations = true, the real confirmation email, and the real /auth/v1/user
+# serialisation the shipped extractor has to read. It was produced on ONE machine, by hand, once. A
+# reviewer cannot reproduce it; it is one machine's word, and it is written that way rather than
+# dressed up.
+#
+# WHAT WAS RUNNING. The local Supabase stack, STOPPED AND STARTED so that the auth container was
+# created from this branch's config.toml, then the migrations replayed from empty
+# (bun run db:reset, exit 0), and the edge functions served from THIS worktree by
+# bunx supabase functions serve, without --no-verify-jwt. loop/items/AI4DEV-59/stack-up.txt is that
+# record, and it carries the readings that prove the flip is live: the auth container answered
+# GOTRUE_MAILER_AUTOCONFIRM=true before the restart (confirmations OFF) and
+# GOTRUE_MAILER_AUTOCONFIRM=false after it (confirmations ON).
+#
+# NO KEY MATERIAL APPEARS BELOW, and it is designed in rather than scrubbed afterwards. The script
+# reads every key from supabase status -o json at run time and prints none of them. Redaction covers
+# three surfaces after the second review gate: object bodies by key name, STRINGS (JWT-shaped runs
+# and credential-named name=value pairs), and the printed redirect location, whose fragment is cut
+# and whose every query-parameter VALUE is replaced.
+#
+# THE INSPECTION THAT RULING ASKS FOR, performed on this file before it was committed. Searched for:
+# eyJ, sb_secret, sb_publishable, access_token, refresh_token, token=, token_hash, provider_token,
+# apikey, JWT_SECRET, super-secret, S3_PROTOCOL, "Bearer ", password, otp, nonce - and for any
+# base64url-shaped run of 40 characters or more. RESULT: zero hits for every pattern except one
+# occurrence of "password", which is the phrase "email/password signup" in check (a)'s own title.
+# Zero long base64url-shaped runs. No credential residue.
+#
+# WHAT NO GREEN HERE CLAIMS: that any deployed route enforces the Discovery gate - none exists, and
+# no check below exercises discoveryMessageAllowed; that hosted email delivery works - only the
+# local mail catcher was read; that any screen exists; anything about link expiry, single use or
+# resend - retired AT-001.11's semantics, deliberately unasserted; or anything about a provider
+# (Google, GitHub) user's verified state - no OAuth credential exists in this environment.
+#
+# THREE MEASUREMENTS WORTH READING TWICE:
+#   1. GoTrue's pre-confirmation sign-in refusal is HTTP 400 with error_code "email_not_confirmed" -
+#      exactly the discriminator check (c) pins. The expectation was pinned BEFORE the run and did
+#      not have to be corrected afterwards.
+#   2. The mail catcher behind port 54324 is MAILPIT v1.30.2, measured by probing both known API
+#      shapes. The Inbucket shape answered 404.
+#   3. The tampered-token probe, check (b2): GoTrue answered the never-issued token with a 303 to
+#      the site URL, and auth.users.email_confirmed_at stayed NULL. The column is the fact; the
+#      status is recorded but not asserted on.
+
+
+mail catcher shape, measured: mailpit
+        catcher at http://127.0.0.1:54324 · GET /api/v1/info -> HTTP 200 "{\"Version\":\"v1.30.2\",\"LatestVersion\":\"v1.30.7\",\"Database\":\"/tmp/mailpit-1786289347825166043.db\",\"DatabaseSize\":94208,\"Messages\":0,\"Unread\":0,\"Tags\":{},\"RuntimeStats\":{\"Uptime\":161,\"Memory\":11540744,\"M" · GET /api/v1/mailbox/probe -> HTTP 404 "File not found\n"
+
+PASS  (a) an email/password signup under enable_confirmations = true returns NO session, and auth.users.email_confirmed_at is NULL
+        signup HTTP 200 {"id":"2b5c6886-e9fe-4a22-90ff-3881d08227a3","aud":"authenticated","role":"authenticated","email":"ngo-verify+mslynhy3@example.test","phone":"","confirmation_sent_at":"2026-08-09T15:31:50.269847917Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email":"ngo-verify+mslynhy3@example.test","email_verified":false,"phone_verified":false,"sub":"2b5c6886-e9fe-4a22-90ff-3881d08227a3"},"identities":[{"identity_id":"49acf32a-b7ac-4c52-9309-78218a41d324","id":"2b5c6886-e9fe-4a22-90ff-3881d08227a3","user_id":"2b5c6886-e9fe-4a22-90ff-3881d08227a3","identity_data":{"email":"ngo-verify+mslynhy3@example.test","email_verified":false,"phone_verified":false,"sub":"2b5c6886-e9fe-4a22-90ff-3881d08227a3"},"provider":"email","last_sign_in_at":"2026-08-09T15:31:50.264516402Z","created_at":"2026-08-09T15:31:50.264554Z","updated_at":"2026-08-09T15:31:50.264554Z","email":"ngo-verify+mslynhy3@example.test"}],"created_at":"2026-08-09T15:31:50.257063Z","updated_at":"2026-08-09T15:31:50.281371Z","is_anonymous":false} · carried a session: false · user id read from the response · auth.users.email_confirmed_at = NULL
+PASS  (b) the local mail catcher holds a confirmation email for the address, and the verification link is extracted from it
+        catcher shape: mailpit · mailpit held 1 message(s) for ngo-verify+mslynhy3@example.test; 2 verify link(s) found · link source: emailed
+PASS  (b2) a verification link carrying a token GoTrue never issued confirms nothing
+        the "token" parameter of the emailed link was mutated inside its own alphabet · following the tampered link answered HTTP 303 -> http://127.0.0.1:3000#<redacted-fragment> · auth.users.email_confirmed_at immediately afterwards = NULL · this says nothing about expiry, single use or resend: the token followed was never issued
+PASS  (c) sign-in BEFORE confirmation is refused by Auth itself, with a CONFIRMATION-SPECIFIC refusal (a 4xx that is not 429, naming the unconfirmed state)
+        sign-in HTTP 400 · error_code=email_not_confirmed (expected email_not_confirmed) · message="Email not confirmed" · redacted body: {"code":"<redacted>","error_code":"<redacted>","msg":"Email not confirmed"} — captured verbatim, this is the refusal text · the discriminator above is read from the in-memory body, because the redactor blanks error_code
+PASS  (d) following the verification link flips email_confirmed_at, sign-in then succeeds, and the SHIPPED emailVerifiedFromUser answers true on the real /auth/v1/user body
+        link follow HTTP 303 -> http://127.0.0.1:3000#<redacted-fragment> · email_confirmed_at before=NULL after=2026-08-09T15:31:50.433Z · sign-in after HTTP 200 (access token present: true) · /auth/v1/user HTTP 200 {"id":"2b5c6886-e9fe-4a22-90ff-3881d08227a3","aud":"authenticated","role":"authenticated","email":"ngo-verify+mslynhy3@example.test","email_confirmed_at":"2026-08-09T15:31:50.433812Z","phone":"","confirmation_sent_at":"2026-08-09T15:31:50.269847Z","confirmed_at":"2026-08-09T15:31:50.433812Z","last_sign_in_at":"2026-08-09T15:31:50.534234Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email":"ngo-verify+mslynhy3@example.test","email_verified":true,"phone_verified":false,"sub":"2b5c6886-e9fe-4a22-90ff-3881d08227a3"},"identities":[{"identity_id":"49acf32a-b7ac-4c52-9309-78218a41d324","id":"2b5c6886-e9fe-4a22-90ff-3881d08227a3","user_id":"2b5c6886-e9fe-4a22-90ff-3881d08227a3","identity_data":{"email":"ngo-verify+mslynhy3@example.test","email_verified":true,"phone_verified":false,"sub":"2b5c6886-e9fe-4a22-90ff-3881d08227a3"},"provider":"email","last_sign_in_at":"2026-08-09T15:31:50.264516Z","created_at":"2026-08-09T15:31:50.264554Z","updated_at":"2026-08-09T15:31:50.264554Z","email":"ngo-verify+mslynhy3@example.test"}],"created_at":"2026-08-09T15:31:50.257063Z","updated_at":"2026-08-09T15:31:50.537216Z","is_anonymous":false} · the SHIPPED emailVerifiedFromUser says: true · the extractor's FALSE half is NOT exercised here: an unconfirmed user holds no session to read /auth/v1/user with
+PASS  (e) both email-capable types flow end to end under the flipped config: the NGO completes after confirmation, and the volunteer confirms, links GitHub and completes with its profile populated
+        NGO completion HTTP 200 {"ok":true,"accountId":"2b5c6886-e9fe-4a22-90ff-3881d08227a3","accountType":"ngo","organizationId":"ffd1c7bb-471c-43b6-88e7-a4647d10d5af"} · rows=[{"account_type":"ngo","name":"Riverside Shelter","role":"admin"}]
+        volunteer round trip: signup carried a session=false · confirmed before=NULL after=2026-08-09T15:31:50.895Z · sign-in before confirmation HTTP 400 · error_code=email_not_confirmed (expected email_not_confirmed) · message="Email not confirmed", redacted body {"code":"<redacted>","error_code":"<redacted>","msg":"Email not confirmed"} · link source emailed (mailpit held 1 message(s) for volunteer-verify+mslynhy3@example.test; 2 verify link(s) found) · its own tampered-token probe: attempted=true email_confirmed_at afterwards=NULL · shipped emailVerifiedFromUser says true
+        volunteer completion HTTP 200 {"ok":true,"accountId":"efd1789a-217a-4a1e-a269-c5020cded07a","accountType":"volunteer","organizationId":null} · account=[{"account_type":"volunteer"}] · stored profile=[{"github_handle":"octoverifier","top_languages":["TypeScript","Python","Go"],"repository_count":9,"contribution_summary":"stub import fixture: octoverifier has 9 public repositories, most recently in TypeScript — no GitHub API was called to produce this","imported_at":"2026-08-09T15:31:51.110Z"}] · the shipped stub's judgement for "octoverifier"={"topLanguages":["TypeScript","Python","Go"],"repositoryCount":9,"contributionSummary":"stub import fixture: octoverifier has 9 public repositories, most recently in TypeScript — no GitHub API was called to produce this"}
+PASS  (f) the mailer rate limit did not starve this proof
+        configured [auth.rate_limit] email_sent = 2 per hour; this run sent 2 confirmation emails and saw no rate-limit answer. The D-B relief valve did NOT fire.
+
+7 checks · 7 passed · 0 failed · 0 skipped
+ALL CHECKS PASSED
+
+----- exit code: 0 -----
