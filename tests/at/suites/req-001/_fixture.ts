@@ -549,8 +549,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
    * NOT decide what a dead session means for a caller — that is the shipped judgement, one function
    * below, and the two are deliberately never written in the same place.
    *
-   * EXPIRY IS STRICT: at exactly `expiresAtMs` the session is already dead. An expiry instant that
-   * still worked at itself would be an off-by-one nobody could see from a test body.
+   * EXPIRY IS STRICT: at exactly `expiresAtMs` the session is already dead. AT-001.12's body is the
+   * oracle for that boundary — it advances the clock by EXACTLY the one-hour TTL and requires the
+   * write to be refused, so turning this `<` into an inclusive `<=` fails there. Before that
+   * advance was pinned to the boundary instant, the inclusive mutation was an off-by-one no test
+   * body could see.
    */
   const sessionIsLive = (stored: StoredSession | undefined): stored is StoredSession =>
     stored !== undefined && !stored.revoked && clock.now() < stored.expiresAtMs;
@@ -822,6 +825,15 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     // address would be an existence oracle, which is the shape AT-001.21 forbids elsewhere and which
     // the sign-in refusal in this same file avoids for the same reason. Check (e)'s unknown-address
     // probe is what binds it.
+    //
+    // A SECOND REQUEST MINTS A NEW LINK AND LEAVES THE FIRST ONE ALIVE in `byPasswordResetLink`,
+    // and that retention is DELIBERATELY UNMODELLED AND UNASSERTED rather than accidental. Clearing
+    // the earlier entry would model resend invalidation, which is retired AT-001.15's ground
+    // (`.taskmaster/docs/acceptance/at-req-001.md` line 30 — reset-link expiry, single-use and
+    // resend semantics are not stated in REQ-001). No body here requests a reset twice, and none may
+    // assert either retention or invalidation without re-entering that retired ground, so the
+    // behaviour is unobservable inside this suite's rules. It is written down because an unstated
+    // behaviour on retired ground is the thing a reader would otherwise have to guess about.
     requestPasswordReset: async (email) => {
       const userId = state.byEmail.get(email);
       const user = userId ? state.authUsers.get(userId) : undefined;

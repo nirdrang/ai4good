@@ -110,8 +110,14 @@ export function edgeHandler(
 
 /**
  * RE-EXPORTED, NOT DECLARED. `Caller` now lives in `./caller.ts` beside the only function that
- * constructs one. It is re-exported here so neither deployed function changes an import — both say
- * `import type { Caller } from '../_shared/edge.ts'` and both keep working.
+ * constructs one. WHAT THE TWO DEPLOYED FUNCTIONS ACTUALLY IMPORT TODAY, grep-verified rather than
+ * assumed: `complete-signup/index.ts` and `create-organization/index.ts` import VALUE names from
+ * this file only — `resolveCaller`, `json`, `refusal` and the rest — and neither one imports the
+ * `Caller` type at all. (An earlier version of this paragraph claimed both said
+ * `import type { Caller } from '../_shared/edge.ts'`; that was a false stated fact, corrected here.)
+ * The re-export therefore changes no import that exists. What it does is keep this module's surface
+ * unchanged: either function may take the type from here, exactly as it took it before `caller.ts`
+ * existed, without reaching into `caller.ts`.
  *
  * IT IS IMPORTED AT THE TOP AND RE-EXPORTED HERE, rather than written as
  * `export type { Caller } from './caller.ts'`, and the difference is load-bearing. That one-line
@@ -175,11 +181,24 @@ export async function resolveCaller(request: Request, supabaseUrl: string, anonK
   } catch {
     // Left as `null`, which `callerFromAuthAnswer` reads as no caller. Nothing is judged here.
     //
-    // ONE EDGE DOES CHANGE, and it is named rather than glossed: a 2xx whose body is unparseable
-    // used to throw and surface as a 502; it now refuses as a 401. That is the fail-closed
-    // direction and it matches this module's stated promise — a malformed body yields no caller.
-    // GoTrue answers JSON on both the 200 and the 401, so the case is not reachable through Auth
-    // itself; it is reachable through something in front of Auth.
+    // TWO EDGES DO CHANGE, and both are named rather than glossed. The first is this one: a 2xx
+    // whose body is UNPARSEABLE used to throw and surface as a 502; it now refuses as a 401. The
+    // second belongs to the parse below and is named here so the pair reads together: a 2xx whose
+    // body is the JSON literal `null` parsed cleanly, and the old unguarded `.id` read on `null`
+    // threw a TypeError which `edgeHandler` turned into a 502; it now yields no caller and refuses
+    // as a 401. (The old code is quoted from the committed history in
+    // `loop/items/AI4DEV-60/gate2-rulings.md`, which is where that reading was done.)
+    //
+    // AND THE CLAIM IS EXHAUSTIVE, which is the part that took a second reader to establish. Every
+    // OTHER parseable body behaves exactly as it did: a property read on a boxed primitive — a
+    // number, a string, a boolean — yields `undefined`, and an array has no `id` either, so all of
+    // them failed the string check then and fail it now. `null` is the one parseable body whose old
+    // behaviour differed.
+    //
+    // Both edges are the fail-closed direction and both match this module's stated promise — a
+    // malformed body yields no caller. GoTrue answers a JSON object on both the 200 and the 401, so
+    // neither case is reachable through Auth itself; both are reachable through something in front
+    // of Auth.
   }
   return callerFromAuthAnswer(response.status, user);
 }
