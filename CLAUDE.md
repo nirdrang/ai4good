@@ -148,6 +148,25 @@ what marks it as infrastructure. Nothing is declared to say so, and nothing can 
 ---
 ## Communication: simple English, never shorthand (founder instruction, stated repeatedly — 2026-07-16, 2026-07-18 and 2026-07-28)
 
+**ALWAYS USE ASD-STE100 SIMPLIFIED TECHNICAL ENGLISH (MUST-FOLLOW, founder 2026-08-09).** This
+is the aerospace controlled-language standard, and it applies to everything written for a
+person: replies, reports, plans, board items, commit and pull-request bodies, and the process
+files. What it means in practice:
+- **One word, one meaning. One meaning, one word.** Choose a term and keep it for the life of
+  the document. Do not reach for a synonym to avoid repetition — in a controlled language,
+  repetition is the feature.
+- **Short sentences.** Twenty words maximum in a procedure, twenty-five in a description. One
+  instruction per sentence.
+- **Active voice, present tense**, with the actor named: "the conductor spawns the runner", not
+  "the runner is spawned".
+- **No noun clusters longer than three words**, and no jargon, idiom, or metaphor where a plain
+  word exists.
+- **Say the condition first**, then the action: "If the gate is empty, report it as empty."
+- Keep paragraphs to about six sentences.
+
+This tightens the rules below; it never loosens them. Where full compliance would make a
+technical fact wrong or unsayable, keep the fact and say plainly that you did.
+
 When reporting to or planning with the founder, write in plain sentences. Do not lean on
 invented labels or compressed codes — "P3", "W1", "T4", "d82", "r2 fold" mean nothing on
 their own. Rules:
