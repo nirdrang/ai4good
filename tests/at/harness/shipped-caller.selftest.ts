@@ -56,6 +56,19 @@ describe('the shipped caller module fails closed', () => {
     expect(caller?.githubHandle).toBeNull();
   });
 
+  it('accepts a BLANK string id, because the shipped module says it does', () => {
+    // THE PRESERVED EDGE, AND IT IS PRESERVED ON PURPOSE. `caller.ts`'s "A BLANK `id` IS ACCEPTED"
+    // paragraph records the decision: the pre-refactor `edge.ts` checked `typeof id === 'string'`
+    // and nothing else, so `''` resolved a caller there, and the refactor preserved that rather
+    // than tightening it — a tightening would be a behaviour change wearing the costume of a
+    // refactor (draft ruling 2). A decision recorded in a comment with no test is a promise with no
+    // oracle, which this file's header calls an untrue stated fact waiting to happen. This is the
+    // oracle: tightening the judgement to reject `''` fails here.
+    const caller = callerFromAuthAnswer(200, { ...PLAIN_USER, id: '' });
+    expect(caller, 'a blank string id is a string, and this module accepts it').not.toBeNull();
+    expect(caller?.id, 'the blank id must be carried through unchanged, not replaced').toBe('');
+  });
+
   it('carries the linked GitHub handle through, judged from the WHOLE body', () => {
     const caller = callerFromAuthAnswer(200, LINKED_USER);
     expect(caller?.id).toBe(LINKED_USER.id);

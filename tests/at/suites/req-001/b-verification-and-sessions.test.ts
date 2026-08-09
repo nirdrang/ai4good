@@ -256,16 +256,26 @@ atTest(
  * leaves it in: created, and confirmed through the emailed link.
  *
  * IT EXISTS SO THE ORDER IS WRITTEN ONCE. Every one of the four opens the same way, and an order
- * repeated four times is an order three of them can drift out of. It returns the address only —
- * NOT the registration handle — which is the point: the live stack with confirmations on issues no
- * session at signup, so no body below may take one from here.
+ * repeated four times is an order three of them can drift out of.
+ *
+ * IT RETURNS THE ADDRESS AND THE ACCOUNT ID, AND STILL NEVER THE REGISTRATION HANDLE. Withholding
+ * the handle is the point: the live stack with confirmations on issues no session at signup, so no
+ * body below may take one from here. The account id is a different kind of fact and is
+ * LIVE-FAITHFUL — a registered, unconfirmed user exists on the real stack and has an id there, and
+ * an operator reading `auth.sessions` needs exactly that id to read anything at all. AT-001.38 uses
+ * it to count sessions BEFORE the first sign-in, which is what turns "a sign-in mints a session"
+ * from a count above zero into a count that grew by one.
  */
-const registerAndConfirm = async (sut: AccountsSut, email: string, password: string): Promise<string> => {
-  await sut.registerWithEmailPassword(email, password);
+const registerAndConfirm = async (
+  sut: AccountsSut,
+  email: string,
+  password: string,
+): Promise<{ email: string; accountId: string }> => {
+  const registration = await sut.registerWithEmailPassword(email, password);
   const link = await sut.emailedVerificationLink(email);
   expect(link, `no verification link was emailed to ${email}`).not.toBeNull();
   expect((await sut.useVerificationLink(link!)).ok, 'the emailed verification link was refused').toBe(true);
-  return email;
+  return { email, accountId: registration.accountId };
 };
 
 atTest(
@@ -275,11 +285,19 @@ atTest(
   async ({ open }) => {
     const { w, sut } = await open();
 
-    const email = await registerAndConfirm(sut, w.email('wrong-password'), PASSWORD);
+    const { email, accountId } = await registerAndConfirm(sut, w.email('wrong-password'), PASSWORD);
 
     // (1) THE CONTROL, AND IT COMES FIRST. Without it, a refusal below would be evidence of an
-    // account that cannot sign in at all rather than of a password being checked. The session count
-    // is read AFTER this sign-in, because that reading is what the failed attempt is compared with.
+    // account that cannot sign in at all rather than of a password being checked.
+    //
+    // THE COUNT IS READ ON BOTH SIDES OF THIS SIGN-IN, and the pair is what makes the control a
+    // control. A count above zero would prove nothing here: the fixture mints a session at
+    // registration — the divergence this file's header names — so a `signInWithEmailPassword` that
+    // minted nothing at all would still leave sessions behind. Exactly one more than before is the
+    // assertion, and only a sign-in that mints satisfies it. The after-reading is also what the
+    // failed attempt below is compared with.
+    const sessionsBeforeGoodSignIn = await sut.sessionsOf(accountId);
+
     const good = await sut.signInWithEmailPassword(email, PASSWORD);
     expect(good.ok, 'the correct password was refused — nothing below would be about AT-001.38').toBe(true);
     if (!good.ok) return;
@@ -287,25 +305,20 @@ atTest(
     const sessionsAfterGoodSignIn = await sut.sessionsOf(good.session.accountId);
     expect(
       sessionsAfterGoodSignIn.length,
-      'a successful sign-in must mint a session, or the second clause below has no oracle',
-    ).toBeGreaterThan(0);
+      'a successful sign-in must mint exactly one new session, or the second clause below has no oracle',
+    ).toBe(sessionsBeforeGoodSignIn.length + 1);
 
     // (2) THE CRITERION'S FIRST CLAUSE: correct email, incorrect password, rejected.
     const bad = await sut.signInWithEmailPassword(email, 'not the password');
     expect(bad.ok, 'sign-in with the correct email and a WRONG password was accepted').toBe(false);
-    if (bad.ok) return;
 
-    // THE REFUSAL CARRIES NO EXISTENCE ORACLE — observed here, not newly asserted. AT-001.21 owns
-    // that criterion and this body does not claim it. What is worth recording is that this refusal
-    // is the SAME sentence an unregistered address gets, so a caller cannot learn from the answer
-    // whether the address exists.
-    const unknownAddress = await sut.signInWithEmailPassword(w.email('never-registered'), PASSWORD);
-    expect(unknownAddress.ok, 'an address that was never registered signed in').toBe(false);
-    if (unknownAddress.ok) return;
-    expect(
-      bad.reason,
-      'the wrong-password refusal differs from the unknown-address refusal — that difference is an existence oracle',
-    ).toBe(unknownAddress.reason);
+    // THE REFUSAL CARRIES NO EXISTENCE ORACLE, AND THAT IS THE FIXTURE'S STATED FACT RATHER THAN
+    // THIS BODY'S ASSERTION. `_fixture.ts`'s `signInWithEmailPassword` answers both branches — no
+    // such account, and wrong password — from ONE reason, deliberately and with the reason written
+    // beside the code. The criterion that owns no-existence-oracle behaviour is AT-001.21, another
+    // leaf's, so no line here compares one refusal's text with another's: an implementation that
+    // satisfied both of THIS id's clauses must not fail this body on response-text policy.
+    if (bad.ok) return;
 
     // (3) THE CRITERION'S SECOND CLAUSE: "no authenticated session is created". The refusal's own
     // return value cannot show this — it hands back no handle — so it is read as a count across the
@@ -329,7 +342,7 @@ atTest(
     // verification gate sits on it, so every refusal below is unambiguously the session layer's
     // rather than the Discovery floor's. Each attempt uses a FRESH name, so `organizationsNamed`
     // can say whether that particular attempt wrote anything.
-    const email = await registerAndConfirm(sut, w.email('session-expiry'), PASSWORD);
+    const { email } = await registerAndConfirm(sut, w.email('session-expiry'), PASSWORD);
 
     // SIGN-IN PRECEDES COMPLETION — the live public order. The registration handle is not used for
     // anything, here or below: on the real stack with confirmations on it does not exist.
@@ -355,7 +368,15 @@ atTest(
 
     // (2) EXPIRY. The clock is the only thing that changes across this line: the same session, the
     // same account, the same shape of write.
-    await h.clock.advance(3601 * 1000);
+    //
+    // THE ADVANCE IS EXACTLY THE TTL, AND EXACTLY IS THE WHOLE POINT. One hour is
+    // `jwt_expiry = 3600` in `supabase/config.toml`, which the fixture mirrors, and this lands the
+    // clock ON the expiry instant rather than past it. The fixture's `sessionIsLive` compares with
+    // a strict `<`, so at this instant the session is already dead and the write below is refused;
+    // an inclusive `<=` would admit it and this body would fail. That boundary was a promise with
+    // no oracle until this line pinned it. AT-001.13 keeps its just-under/just-past pair, which
+    // discriminates the refresh rather than the boundary.
+    await h.clock.advance(3600 * 1000);
 
     const EXPIRED_NAME = 'Riverside Shelter Expired Programme';
     const afterExpiry = await sut.createOrganization(first.session, EXPIRED_NAME);
@@ -432,7 +453,7 @@ atTest(
      * itself. That half is handed to the manifest's wiring leaf by this id's `ui` mark, and the
      * requirement's integration-tier gate binds it above that.
      */
-    const email = await registerAndConfirm(sut, w.email('continuous-work'), PASSWORD);
+    const { email } = await registerAndConfirm(sut, w.email('continuous-work'), PASSWORD);
 
     // TWO SESSIONS OPENED AT THE SAME INSTANT. The clock does not move between them, so they share
     // an expiry — which is what makes the divergence later attributable to the refresh and to
@@ -515,7 +536,7 @@ atTest(
     const OLD_PASSWORD = PASSWORD;
     const NEW_PASSWORD = 'a different correct horse battery staple';
 
-    const email = await registerAndConfirm(sut, w.email('password-reset'), OLD_PASSWORD);
+    const { email } = await registerAndConfirm(sut, w.email('password-reset'), OLD_PASSWORD);
 
     // (1) THE CONTROL. The old password works before the reset, so "the old one does not" below is
     // a change this flow caused rather than a password that never worked.
