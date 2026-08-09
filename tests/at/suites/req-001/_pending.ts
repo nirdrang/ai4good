@@ -1,14 +1,16 @@
 /**
- * THE IDS REQ-001 HAS NOT LANDED YET, and the leaf that will land each one. There are 30 of them as
- * of the GitHub leaf; there were 33 before it, and the count moves down as leaves land.
+ * THE IDS REQ-001 HAS NOT LANDED YET, and the leaf that will land each one. There are 28 of them as
+ * of the verification leaf; there were 30 before it and 33 before that, and the count moves down as
+ * leaves land.
  *
  * WHY THEY EXIST AT ALL. `harness/check.ts`'s `bijectionProblems()` refuses a run when any expected
  * id has no registered call site, and `runner.ts` turns any such problem into exit 2 with NOTHING
  * graded. The expected set is every `AT-001.NN (P0)` in `.taskmaster/docs/acceptance/at-req-001.md`
  * — all 37 of them. So the moment `tests/at/suites/req-001/` exists, all 37 need executable call
- * sites; there is no partial suite. Seven are written — AT-001.01 through .07, across the first
- * accounts leaf and the GitHub one. The other 30 are declared, not faked: each one throws, loudly,
- * stamped with its own id and with the manifest leaf that will make it real.
+ * sites; there is no partial suite. Nine are written — AT-001.01 through .07 across the first
+ * accounts leaf and the GitHub one, and AT-001.09 and .10 with this one. The other 28 are declared,
+ * not faked: each one throws, loudly, stamped with its own id and with the manifest leaf that will
+ * make it real.
  *
  * THEY CANNOT SILENTLY GO GREEN. `AtPending` is a thrown error, so the id is RED, and
  * `tests/at/expected/req-001.json` declares that red by SHAPE — `expected.ts` rebuilds the anchored
@@ -19,7 +21,8 @@
  *
  * WHAT THE PREFIX DOES NOT CHECK, said plainly because it is the reason every leaf writes a ledger
  * of its own (`loop/items/AI4DEV-57/pending-ledger.txt`, then
- * `loop/items/AI4DEV-58/pending-ledger.txt`): the tail after the em dash is FREE. `expected.ts`
+ * `loop/items/AI4DEV-58/pending-ledger.txt`, then `loop/items/AI4DEV-59/pending-ledger.txt`): the
+ * tail after the em dash is FREE. `expected.ts`
  * anchors on the prefix only, so a stub whose detail read "todo" would pass every command in this
  * repository. Nothing mechanical holds the detail below to the truth. The check that does is a
  * written one — every leaf named here appears in `loop/decomp/req-001.md`, and the ledger is the
@@ -35,12 +38,13 @@ import { AtPending, type AtContext } from './_bind.ts';
  * purpose.
  */
 export const LEAF = {
-  // D1.L2 — GitHub OAuth signup and the mandatory GitHub link at volunteer signup — is GONE from
-  // this map rather than kept for symmetry. It landed AT-001.02, .04 and .05, so its label had no
-  // remaining user, and a leaf label sitting here with nothing pointing at it is a claim that
-  // something is still pending when nothing is. `tests/at/expected/req-001.json` declares those
-  // three ids green in the same change.
-  D2_L1: 'D2.L1 (email verification and the unverified-write gate on Discovery messages)',
+  // TWO LABELS ARE GONE FROM THIS MAP rather than kept for symmetry, and the rule is the same for
+  // both: a leaf label sitting here with nothing pointing at it is a claim that something is still
+  // pending when nothing is. `tests/at/expected/req-001.json` declares the landed ids green in the
+  // same change each time.
+  //   D1.L2 — GitHub OAuth signup and the mandatory GitHub link — landed AT-001.02, .04 and .05.
+  //   D2.L1 — email verification and the unverified-write gate on Discovery messages — landed
+  //           AT-001.09 and .10, its only two ids, so it is removed here by this leaf.
   D2_L2: 'D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection)',
   D3_L1: 'D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation)',
   D3_L2: 'D3.L2 (the single-seat NGO and the single-dev project invariant)',
@@ -59,8 +63,12 @@ export type LeafLabel = (typeof LEAF)[keyof typeof LEAF];
  * One not-yet-landed id's whole body.
  *
  * `sut-missing` rather than `harness-missing` is the honest phase word: the harness is up — this
- * suite's own four ids run against it — and what is absent is the system under test for these
+ * suite's written ids run against it — and what is absent is the system under test for these
  * criteria. The detail is what makes that word honest, by naming WHICH system under test.
+ *
+ * (The sentence above used to say "this suite's own four ids", which was true when four were
+ * written and false from the next leaf onward. The count lives in this file's header and in the
+ * ledger, and stating it a second time here only created somewhere for it to drift.)
  */
 export function notLanded(leaf: LeafLabel): (ctx: AtContext) => Promise<void> {
   return async (ctx: AtContext): Promise<void> => {

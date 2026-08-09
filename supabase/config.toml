@@ -240,7 +240,22 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+#
+# TURNED ON BY REQ-001's VERIFICATION LEAF (manifest D2.L1, AT-001.09 and AT-001.10). It was false
+# until then, and the acceptance suite's own header reserved the change for this leaf, because
+# flipping it earlier would have broken the signup ids that leaf did land while proving none of
+# the verification ones.
+#
+# WHAT THE FLIP CHANGES, on the local stack: GoTrue issues NO session at signup, refuses sign-in
+# until the address is confirmed, and sends a confirmation email that the local mail catcher on
+# port 54324 holds. NONE of that is reachable from the acceptance suite - its adapter's storage is
+# a Map. It is measured once, by hand, in `loop/items/AI4DEV-59/proof-local.ts`.
+#
+# WHAT IT DOES NOT CHANGE: the shipped gate in `supabase/functions/_shared/verification.ts`. That
+# module judges a response shape and refuses on anything it does not recognise, with this setting
+# on or off. Decision-8 makes verification the write path's own floor, so the floor does not
+# depend on how Auth is configured.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.

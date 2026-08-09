@@ -146,16 +146,40 @@ export type CompleteSignupOutcome =
 
 export type CreateOrganizationOutcome = { ok: true; organizationId: string } | { ok: false; reason: string };
 
+/**
+ * The outcome of an attempted Discovery message — and the refusal carries WHY, for the reason
+ * `Decision` in the shipped module gives: AT-001.10 asserts that the block NAMES verification as
+ * the remedy, so a bare boolean would make the criterion untestable.
+ */
+export type SendDiscoveryMessageOutcome = { ok: true } | { ok: false; reason: string };
+
 /* ------------------------------------------------------------------------------------ the SUT */
 
 /**
  * REQ-001's accounts system under test.
  *
- * The split is the point. `completeSignup` and `createOrganization` are the two PRODUCT OPERATIONS
- * — at loop tier the adapter runs them over its own storage but delegates every judgement to
- * `supabase/functions/_shared/accounts.ts`, the module the edge functions import; at integration
- * tier they would be the deployed edge functions. Everything else here is either Supabase Auth's
- * half (registration and sign-in, which are not this leaf's code) or read-back.
+ * The split is the point, and there are now FOUR kinds of member here rather than three:
+ *
+ *   1. THE TWO PRODUCT OPERATIONS — `completeSignup` and `createOrganization`. At loop tier the
+ *      adapter runs them over its own storage but delegates every judgement to
+ *      `supabase/functions/_shared/accounts.ts`, the module the edge functions import; at
+ *      integration tier they would be the deployed edge functions.
+ *   2. SUPABASE AUTH'S HALF — registration, sign-in, identity linking, and the verification state
+ *      (`emailVerified`, `emailedVerificationLink`, `useVerificationLink`). None of it is this
+ *      requirement's code. It is what produces the states the product operations judge.
+ *   3. READ-BACK — the row shapes an assertion reads after the fact.
+ *   4. ONE STAND-IN SURFACE, AND IT IS THE ONLY ONE — `sendDiscoveryMessage`, with
+ *      `discoveryMessagesBy` reading it back.
+ *
+ * THE FOURTH KIND NEEDS ITS OWN SENTENCE, because it is the one that could be misread. NO
+ * DISCOVERY ROUTE EXISTS IN THIS TREE. The Discovery message route is REQ-002/004's, and what
+ * this requirement's leaf ships is the DECISION that route must consult —
+ * `discoveryMessageAllowed` in `supabase/functions/_shared/verification.ts`. So
+ * `sendDiscoveryMessage` is not a deployed operation being tested; it is a stand-in surface whose
+ * only job is to put the shipped decision on a tested path, exactly as
+ * `hasPlatformAcknowledgment` below is the hook a project-creation leaf must call. A green over
+ * it says the DECISION is right. It says nothing about enforcement anywhere, because there is
+ * nowhere yet to enforce it.
  */
 export type AccountsSut = {
   /** AT-001.07's second clause: which types the PUBLIC signup surface offers. */
@@ -163,7 +187,19 @@ export type AccountsSut = {
 
   /* --- Supabase Auth's half. Not this leaf's code; it is what produces a session to complete. --- */
 
-  /** Register an auth user with an email and a password, and return the resulting session. */
+  /**
+   * Register an auth user with an email and a password, and return the resulting session.
+   *
+   * IT STILL RETURNS A SESSION, AND THE HONEST GAP THAT LEAVES IS STATED HERE RATHER THAN HIDDEN.
+   * With `enable_confirmations = true` the live GoTrue issues NO session at signup, so on the real
+   * stack a completed-but-unverified account is not reachable by the public path. This fixture's
+   * `Session` has always been an identity handle rather than an access token, and session ISSUANCE
+   * is D2.L2's subject (AT-001.12, .13 — declared red). So at the loop tier such an account IS
+   * constructible, and AT-001.10's body constructs one deliberately: the gate exists because
+   * decision-8 makes verification the write path's own floor, not a property borrowed from the
+   * session layer. The live-stack behaviour is measured in `loop/items/AI4DEV-59/proof-local.ts`
+   * checks (a) and (c), and nowhere else in this item.
+   */
   registerWithEmailPassword(email: string, password: string): Promise<Session>;
   /**
    * A session Auth recorded as having come from an external provider.
@@ -206,12 +242,79 @@ export type AccountsSut = {
    */
   signInWithProvider(provider: SessionProvider, email: string): Promise<SignInOutcome>;
 
+  /* ------------------------- Supabase Auth's verification state ------------------------------- */
+
+  /**
+   * Whether Supabase Auth reports this account's email address confirmed — AT-001.09's observable.
+   *
+   * IT IS DERIVED, NOT STORED-AND-READ. The adapter renders the account's stored Auth state as the
+   * canonical GoTrue `/auth/v1/user` shape and judges the answer out of it with the SHIPPED
+   * `emailVerifiedFromUser`. That is the same pattern `completeSignup` uses for the GitHub handle
+   * (the GitHub leaf's gate-2 ruling R3), and it exists so the shipped extractor sits on the tested
+   * path rather than being a function no test ever runs — which is exactly how the future Discovery
+   * route will resolve the same fact from the same response.
+   *
+   * WHAT NO LOOP-TIER GREEN OVER IT PROVES: that the rendered shape is the shape GoTrue really
+   * sends. Only `loop/items/AI4DEV-59/proof-local.ts` check (d) touches that, by feeding a real
+   * response to the same shipped function.
+   */
+  emailVerified(accountId: string): Promise<boolean>;
+  /**
+   * The verification link emailed to this address, or `null` when none was emailed.
+   *
+   * `null` is a real answer rather than only the empty case: a provider registration is confirmed
+   * by the provider and no confirmation email is sent for it.
+   */
+  emailedVerificationLink(email: string): Promise<string | null>;
+  /**
+   * Use a verification link. Using the link Auth emailed for an address confirms that address; a
+   * link that was never issued returns `ok: false` and flips nothing.
+   *
+   * NO EXPIRY, NO SINGLE USE AND NO RESEND IS MODELLED OR ASSERTED. AT-001.11 is retired — the
+   * acceptance file's own words are that "verification-link expiry/single-use/resend semantics are
+   * not stated in REQ-001" — so building any of them here would be asserting a criterion that was
+   * deliberately withdrawn.
+   *
+   * THE NEVER-ISSUED NEGATIVE IS NOT AT-001.11 GROUND, and the difference is worth being exact
+   * about. It is not a claim about a link's lifetime; it guards this test's own oracle. A
+   * link-shaped string that verified an account it never belonged to would make "using the emailed
+   * link is what flips it" mean nothing at all, because any string would flip anything.
+   */
+  useVerificationLink(link: string): Promise<{ ok: boolean }>;
+
   /* ----------------------------------- the two product operations ----------------------------- */
 
   /** `supabase/functions/complete-signup` — turns an authenticated auth user into a typed account. */
   completeSignup(session: Session, request: CompleteSignupRequest, ip: string): Promise<CompleteSignupOutcome>;
   /** `supabase/functions/create-organization` — the NGO-only action AT-001.06 drives. */
   createOrganization(session: Session, organizationName: string): Promise<CreateOrganizationOutcome>;
+
+  /* --------------------------- the Discovery gate's stand-in surface -------------------------- */
+
+  /**
+   * Attempt to send a Discovery message — AT-001.10's action.
+   *
+   * THERE IS NO DEPLOYED ROUTE BEHIND THIS, at either tier. See the fourth kind in this type's own
+   * header: the Discovery route is REQ-002/004's and does not exist, so this member is a stand-in
+   * surface that exists to put the SHIPPED `discoveryMessageAllowed` on a tested path. At loop
+   * tier the adapter derives the caller's verified fact through the shipped
+   * `emailVerifiedFromUser`, consults the shipped gate, and refuses with the GATE's own reason.
+   *
+   * THE BODY IS AN OPAQUE STRING AND NOTHING ELSE. Recipients, threads, attachments and message
+   * state are REQ-002/004's semantics; inventing any of them here to make this member look real
+   * would be building another requirement's surface early. What AT-001.10 needs is an attempted
+   * write and a way to see whether it happened, and one string supplies both.
+   */
+  sendDiscoveryMessage(session: Session, body: string): Promise<SendDiscoveryMessageOutcome>;
+  /**
+   * The Discovery message bodies this account has sent — read-back, and it is not optional.
+   *
+   * A BLOCK WHOSE WRITE HAPPENED ANYWAY IS NOT A BLOCK. The refusal's own return value cannot show
+   * that nothing was written, for the same reason `organizationsNamed` exists: a refusal hands
+   * back no identifier, so the row that must NOT be there can only be looked for by who would have
+   * written it.
+   */
+  discoveryMessagesBy(accountId: string): Promise<string[]>;
 
   /* ------------------------------------------- read-back -------------------------------------- */
 

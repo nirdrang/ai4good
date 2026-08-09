@@ -9,11 +9,11 @@
         "AT-001.04",
         "AT-001.05",
         "AT-001.06",
-        "AT-001.07"
+        "AT-001.07",
+        "AT-001.09",
+        "AT-001.10"
       ],
       "red": {
-        "AT-001.09": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.10": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.38": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.12": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.13": { "kind": "pending", "phase": "sut-missing" },

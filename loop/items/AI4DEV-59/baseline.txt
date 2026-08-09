@@ -1,0 +1,156 @@
+﻿# AI4DEV-59 (email verification, unverified-write gate) - STEP 0 BASELINE. Run BEFORE any edit to the tree.
+# Head: 135ea57c2154b9b193335944a02de570640a19c9
+# Started: 2026-08-09 17:24:09 +03:00
+
+===== bun run typecheck =====
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean
+--- stderr ---
+$ bun tests/at/typecheck.ts
+----- exit code: 0 -----
+
+===== bun run at:selftest =====
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-aa95110cbeab31aa7/tests/at
+
+
+ Test Files  9 passed (9)
+      Tests  251 passed (251)
+   Start at  17:24:16
+   Duration  7.08s (transform 896ms, setup 0ms, import 5.47s, tests 13.82s, environment 1ms)
+
+--- stderr ---
+$ bunx vitest run --root tests/at --config vitest.config.ts harness/
+----- exit code: 0 -----
+
+===== bun run at:check req-001 =====
+at:check req-001 — 37 P0 in the acceptance file, 37 registered in the suite
+RESULT: 37 P0 ids in bijection
+--- stderr ---
+$ bun tests/at/harness/check.ts "req-001"
+----- exit code: 0 -----
+
+===== bun run at:check req-016 =====
+at:check req-016 — 12 P0 in the acceptance file, 12 registered in the suite
+RESULT: 12 P0 ids in bijection
+--- stderr ---
+$ bun tests/at/harness/check.ts "req-016"
+----- exit code: 0 -----
+
+===== bun run at:verify req-001 --tier loop --expect =====
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-6tm4Tt/vitest-report.json
+
+at:verify req-001 --tier loop
+  AT-001.01    green    NGO email/password signup creates the account, org, admin membership and acknowledgment; sign-in returns
+  AT-001.02    green    GitHub OAuth volunteer signup links the identity and returns to the same account
+  AT-001.03    green    a session established by Google completes signup through the same path, with the same result as email
+  AT-001.04    green    volunteer signup cannot complete without a linked GitHub account
+  AT-001.05    green    linking GitHub fires volunteer onboarding with the public stats observably imported
+  AT-001.06    green    a volunteer is refused the NGO-only action while an NGO account performs it successfully
+  AT-001.07    green    a provisioned platform admin authenticates and carries the type; public signup offers only the two
+  AT-001.09    red      AtPending: AT-001.09 PENDING [sut-missing] — REQ-001 D2.L1 (email verification and the unverified-write gate on Discovery messages) has not landed
+  AT-001.10    red      AtPending: AT-001.10 PENDING [sut-missing] — REQ-001 D2.L1 (email verification and the unverified-write gate on Discovery messages) has not landed
+  AT-001.38    red      AtPending: AT-001.38 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+  AT-001.12    red      AtPending: AT-001.12 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+  AT-001.13    red      AtPending: AT-001.13 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+  AT-001.14    red      AtPending: AT-001.14 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+  AT-001.16    red      AtPending: AT-001.16 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+  AT-001.36    red      AtPending: AT-001.36 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+  AT-001.37    red      AtPending: AT-001.37 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+  AT-001.17    red      AtPending: AT-001.17 PENDING [sut-missing] — REQ-001 D3.L2 (the single-seat NGO and the single-dev project invariant) has not landed
+  AT-001.18    red      AtPending: AT-001.18 PENDING [sut-missing] — REQ-001 D3.L3 (the cross-surface single-seat integration) has not landed
+  AT-001.19    red      AtPending: AT-001.19 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+  AT-001.39    red      AtPending: AT-001.39 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+  AT-001.20    red      AtPending: AT-001.20 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+  AT-001.21    red      AtPending: AT-001.21 PENDING [sut-missing] — REQ-001 D5.L1 (cross-NGO denial and unassigned-volunteer denial) has not landed
+  AT-001.22    red      AtPending: AT-001.22 PENDING [sut-missing] — REQ-001 D5.L1 (cross-NGO denial and unassigned-volunteer denial) has not landed
+  AT-001.23    red      AtPending: AT-001.23 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.40    red      AtPending: AT-001.40 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.24    red      AtPending: AT-001.24 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.25    red      AtPending: AT-001.25 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.26    red      AtPending: AT-001.26 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.27    red      AtPending: AT-001.27 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.28    red      AtPending: AT-001.28 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.35    red      AtPending: AT-001.35 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.29    red      AtPending: AT-001.29 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.30    red      AtPending: AT-001.30 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.31    red      AtPending: AT-001.31 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.32    red      AtPending: AT-001.32 PENDING [sut-missing] — REQ-001 D3.L2 (the single-seat NGO and the single-dev project invariant) has not landed
+  AT-001.33    red      AtPending: AT-001.33 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+  AT-001.34    red      AtPending: AT-001.34 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+  37 P0: 7 green, 30 red, 0 missing
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aa95110cbeab31aa7\tests\at\expected\req-001.json exactly (7 declared green, 30 declared red)
+--- stderr ---
+$ bun tests/at/harness/runner.ts "req-001" --tier loop --expect
+----- exit code: 0 -----
+
+===== bun run at:verify req-016 --tier loop --expect =====
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-zfBDHa/vitest-report.json
+
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    green    one logical event per committed event, one delivery per recipient-channel pair, across a restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    green    every guarded transition writes its notification event atomically under an induced fault
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    green    sent only on provider acceptance; unconfirmed sends retry; a lost ack mints no duplicate
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 11 green, 1 red, 0 missing
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aa95110cbeab31aa7\tests\at\expected\req-016.json exactly (11 declared green, 1 declared red)
+--- stderr ---
+$ bun tests/at/harness/runner.ts "req-016" --tier loop --expect
+----- exit code: 0 -----
+
+# Finished: 2026-08-09 17:24:28 +03:00
+
+===== BASELINE RESULT =====
+All six commands exit 0. req-001 shows 7 green / 30 declared red, exactly as the plan's
+step-0 done-criterion states. req-016 shows 11 green / 1 declared red, unchanged.
+The baseline is green. Nothing was worked around.
+
+===== APPENDIX: a pre-existing FLAKY harness selftest, observed and measured =====
+The executor ran the step-0 list three times on the UNCHANGED tree (head 135ea57, working tree
+clean, no edit made yet). On the SECOND of those runs, `bun run at:selftest` exited 1. On the
+first and third it exited 0. The executor then ran `bun run at:selftest` three more times on
+its own; all three exited 0.
+
+Tally on the unchanged tree: 5 pass, 1 fail out of 6 runs of `at:selftest`.
+
+The failing test, captured verbatim from the failing run:
+
+     RUN  v4.1.10 .../agent-aa95110cbeab31aa7/tests/at
+     x harness/runner.selftest.ts (15 tests | 1 failed) 1280ms
+         x two contenders racing for ONE stale lock end with exactly one owner 1127ms
+     Test Files  1 failed | 8 passed (9)
+          Tests  1 failed | 250 passed (251)
+
+     FAIL  harness/runner.selftest.ts > taking over a stale lock is atomic - one owner, never
+     two > two contenders racing for ONE stale lock end with exactly one owner
+     AssertionError: outcomes were ["ACQUIRED","ACQUIRED"]: expected [ 'ACQUIRED', 'ACQUIRED' ]
+     to have a length of 1 but got 2
+      -> harness/runner.selftest.ts:222:101
+
+What this is: a race test in the acceptance harness's own runner selftest. Two contenders
+compete for one stale stack lock; the test asserts exactly one wins. Both won on that run.
+
+What this is NOT: it is not caused by this item. The tree was byte-identical to the pushed head
+`135ea57` on every one of the six runs, and no file had been edited yet.
+
+The executor does NOT fix it and does NOT touch `tests/at/harness/runner.selftest.ts` or the
+lock code. That file is outside this item's plan surfaces, and the plan's section 5 discipline
+is to report what is seen and not touch it. The executor reports it to the orchestrator sitting
+for a ruling on whether it gets filed as its own item.
+
+Consequence for this item: `at:selftest` is a CI step. A test that fails about one run in six
+can turn this item's pull request red for a reason that has nothing to do with its diff. That
+is a fact the merge sitting needs, so it is written here rather than left in a transcript
+nobody re-reads.

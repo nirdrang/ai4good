@@ -1,0 +1,133 @@
+AI4DEV-59 (email verification, unverified-write gate) - THE PENDING LEDGER
+==========================================================================
+
+Why this file exists
+--------------------
+`tests/at/expected/req-001.json` declares 28 of REQ-001's 37 P0 ids red, and
+`tests/at/harness/expected.ts` matches such a red by SHAPE: it rebuilds the anchored prefix
+
+    AtPending: <id> PENDING [sut-missing] -
+
+and compares it from position 0. Everything AFTER the em dash is free. So a stub whose detail
+read "todo" would satisfy `at:check`, `at:verify --expect` and CI alike, while the record said
+nothing about who lands the id or when.
+
+Nothing mechanical closes that. This file is the check that does: one line per pending id, and
+every deliverable-and-leaf named below really appears in `loop/decomp/req-001.md` at revision
+0579425. A reviewer compares the two files. No per-stub oracle is built - that is harness work
+and belongs to the harness item, not to a leaf.
+
+The detail strings themselves live in `tests/at/suites/req-001/_pending.ts` (the `LEAF` map) and
+are attached to each id at its own `atTest` call site.
+
+What changed since the predecessor's ledger
+-------------------------------------------
+Two lines are GONE, and their absence is the point of writing a new ledger rather than editing
+the old one (each earlier file is a historical record and is never edited):
+
+    AT-001.09 -> D2.L1      landed by this leaf, declared GREEN
+    AT-001.10 -> D2.L1      landed by this leaf, declared GREEN
+
+D2.L1 was this leaf's own manifest entry, and AT-001.09 and .10 are the only two ids it names.
+With both landed it has no remaining pending id, so the `LEAF.D2_L1` label was REMOVED from
+`tests/at/suites/req-001/_pending.ts` in the same change - a leaf label sitting in that map with
+nothing pointing at it would be a claim that something is still pending when nothing is. This is
+the same rule the predecessor applied to `LEAF.D1_L2`.
+
+30 - 2 = 28, and 28 + 9 green = 37, which is the acceptance file's P0 count.
+
+The nine ids ABSENT from this ledger, deliberately
+--------------------------------------------------
+AT-001.01, .03, .06 and .07 are the first accounts leaf's (manifest D1.L1). AT-001.02, .04 and
+.05 are the GitHub leaf's (manifest D1.L2). AT-001.09 and .10 are this leaf's (manifest D2.L1).
+All nine are declared GREEN, not pending. If any of them ever appears below, a landed leaf has
+regressed.
+
+The 28
+------
+format:  AT-001.NN -> <deliverable>.<leaf> - <what that leaf lands>
+
+AT-001.12 -> D2.L2 - session expiry and revocation, auto-refresh, password reset, wrong-password rejection
+AT-001.13 -> D2.L2 - session expiry and revocation, auto-refresh, password reset, wrong-password rejection
+AT-001.14 -> D2.L2 - session expiry and revocation, auto-refresh, password reset, wrong-password rejection
+AT-001.38 -> D2.L2 - session expiry and revocation, auto-refresh, password reset, wrong-password rejection
+
+AT-001.16 -> D3.L1 - per-NGO admin/member roles and multi-NGO membership isolation
+AT-001.36 -> D3.L1 - per-NGO admin/member roles and multi-NGO membership isolation
+AT-001.37 -> D3.L1 - per-NGO admin/member roles and multi-NGO membership isolation
+
+AT-001.17 -> D3.L2 - the single-seat NGO and the single-dev project invariant
+AT-001.32 -> D3.L2 - the single-seat NGO and the single-dev project invariant
+
+AT-001.18 -> D3.L3 - the cross-surface single-seat integration
+
+AT-001.19 -> D4.L1 - acknowledgment identity capture (name, title, authority attestation)
+AT-001.20 -> D4.L1 - acknowledgment identity capture (name, title, authority attestation)
+AT-001.39 -> D4.L1 - acknowledgment identity capture (name, title, authority attestation)
+
+AT-001.21 -> D5.L1 - cross-NGO denial and unassigned-volunteer denial
+AT-001.22 -> D5.L1 - cross-NGO denial and unassigned-volunteer denial
+
+AT-001.23 -> D5.L2 - assigned-volunteer scope, platform-admin reach, logged-out visibility
+AT-001.24 -> D5.L2 - assigned-volunteer scope, platform-admin reach, logged-out visibility
+AT-001.40 -> D5.L2 - assigned-volunteer scope, platform-admin reach, logged-out visibility
+
+AT-001.25 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+AT-001.26 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+AT-001.27 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+AT-001.28 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+AT-001.35 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+
+AT-001.29 -> D6.L2 - the lifecycle gate every write route registers through
+AT-001.30 -> D6.L2 - the lifecycle gate every write route registers through
+AT-001.31 -> D6.L2 - the lifecycle gate every write route registers through
+
+AT-001.33 -> D6.L3 - the append-only audit for role changes and transfer, and sign-in rate limiting
+AT-001.34 -> D6.L3 - the append-only audit for role changes and transfer, and sign-in rate limiting
+
+Count: 28. Plus the nine landed = 37, which is the acceptance file's P0 count.
+
+Checked against the manifest, leaf by leaf
+------------------------------------------
+`loop/decomp/req-001.md`'s own `verify:` lines, quoted as ids only, beside what is claimed above.
+The two agree exactly, in both directions.
+
+  manifest D2.L2  verify: AT-001.12,13,14,38       | ledger: 12, 13, 14, 38
+  manifest D3.L1  verify: AT-001.16,36,37          | ledger: 16, 36, 37
+  manifest D3.L2  verify: AT-001.17,32             | ledger: 17, 32
+  manifest D3.L3  verify: AT-001.18                | ledger: 18
+  manifest D4.L1  verify: AT-001.19,39,20          | ledger: 19, 20, 39
+  manifest D5.L1  verify: AT-001.21,22             | ledger: 21, 22
+  manifest D5.L2  verify: AT-001.23,40,24          | ledger: 23, 24, 40
+  manifest D6.L1  verify: AT-001.25,26,27,28,35    | ledger: 25, 26, 27, 28, 35
+  manifest D6.L2  verify: AT-001.29,30,31          | ledger: 29, 30, 31
+  manifest D6.L3  verify: AT-001.33,34             | ledger: 33, 34
+
+  manifest D1.L1  verify: AT-001.01,03,06,07       | the first accounts leaf - green, absent above
+  manifest D1.L2  verify: AT-001.02,04,05          | the GitHub leaf - green, absent above
+  manifest D2.L1  verify: AT-001.09,10             | THIS LEAF - green, absent above
+
+  manifest D2.LW  verify: a wired re-run of the ui-tagged ids, and it adds NO new id. It is
+                  therefore absent from this ledger by construction rather than by omission.
+                  AT-001.09 is marked `surface: 'ui'` by this leaf so that leaf finds it.
+
+The manifest's own coverage-check line states the same totals:
+"D1: 01,02,03,04,05,06,07 (7) - D2: 09,10,12,13,14,38 (6) - D3: 16,36,37 / 17,32 / 18 (6) -
+ D4: 19,20,39 (3) - D5: 21,22,23,24,40 (5) - D6: 25,26,27,28,29,30,31,33,34,35 (10). Total 37"
+
+D1 was complete at 7 of 7 after the GitHub leaf. D2 now stands at 2 of 6: this leaf's two, with
+D2.L2's four still pending and D2.LW adding none.
+
+Two things this ledger does NOT claim
+-------------------------------------
+That a later leaf will keep its promise. The ledger names the leaf; it cannot make that leaf land
+the id. What it does is make a broken promise VISIBLE - if a leaf lands and the id stays red, the
+two files disagree and a reader can see which one is lying.
+
+And, specific to the two ids this leaf removed: their green is a LOOP-TIER green. It says the
+shipped decision module `supabase/functions/_shared/verification.ts` behaves as the two criteria
+require and that the tests execute and assert. It does NOT say that any deployed Discovery route
+enforces the gate - none exists to, the route is REQ-002/004's, and the gate is the hook that
+route must call. It does not say that hosted email delivery works, that any screen exists, or
+that the requirement is done. The requirement's own done contract is integration tier plus the
+wiring leaf's wired re-run plus founder attestation, and that gate is AI4PM-19's, not a leaf's.
