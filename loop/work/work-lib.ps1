@@ -96,7 +96,10 @@ function Get-HeldItem { Read-JsonCapped (Get-HeldPath) }
 # later prompt on main still claims 19. The stamp only fills a gap from held state when the
 # branch still matches; otherwise it shows it as untrusted and attributes nothing.
 function Set-HeldItem([string]$itemId, [string]$label, [string]$branch) {
-    if (-not (Test-ItemId $itemId)) { throw ('not a valid item id: ' + $itemId) }
+    # A FLOATING label is legal here too (founder 2026-08-09): coordinator work that belongs to
+    # no board item - exploration, design discussion - holds `~exploration`-style labels so the
+    # stamp attributes it instead of printing an absence. The tilde keeps it unmistakable.
+    if (-not (Test-ItemId $itemId) -and -not (Test-FloatingRoot $itemId)) { throw ('not a valid item id or ~floating label: ' + $itemId) }
     $d = Get-StateDir  # the verbs may create; readers may not
     $h = @{ itemId = $itemId; label = $label; branch = $branch; heldAt = (Get-Date).ToUniversalTime().ToString('o') }
     [System.IO.File]::WriteAllText((Join-Path $d ('attr\' + (Get-WorktreeId) + '.held.json')), ($h | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))

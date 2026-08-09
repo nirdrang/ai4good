@@ -207,7 +207,7 @@ try {
     try { $held = Get-HeldItem } catch { }
     $heldId = ''
     $heldStale = ''
-    if ($held -and (Test-ItemId ([string]$held.itemId))) {
+    if ($held -and ((Test-ItemId ([string]$held.itemId)) -or (Test-FloatingRoot ([string]$held.itemId)))) {
         if (([string]$held.branch) -eq $branch) { $heldId = [string]$held.itemId }
         else { $heldStale = [string]$held.itemId }
     }

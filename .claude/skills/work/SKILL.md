@@ -208,6 +208,15 @@ a held item's documented role is exactly this: filling the gap the branch leaves
 overriding it. `Clear-HeldItem` when the work closes. Commits still cite the item; this is the
 same fact reaching the founder's eyes per prompt instead of only per commit.
 
+**Work that belongs to NO board item holds a FLOATING label instead** (founder 2026-08-09):
+`Set-HeldItem '~exploration' '<what, in a few words>' 'main'` prints
+`WORKING ON ~exploration (stamp and attribution design)`. The tilde is the floating-root
+convention from the attribution design — unmistakable to a reader and a parser, so the
+attribution log can separate item work from labeled exploration. Set it the moment the
+subject of the exploration is nameable, update the label when the subject shifts, clear it
+when the thread ends. The bare "coordination, no item claimed" line is only for the moments
+genuinely between things.
+
 ## Ride-along, and no nesting
 
 Machinery changed while an item is open rides along in that item's branch and pull request,
