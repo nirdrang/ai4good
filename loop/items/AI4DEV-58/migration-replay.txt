@@ -1,17 +1,19 @@
-﻿# AI4DEV-58 (GitHub sign-in, mandatory GitHub link) - STEP 3 MIGRATION REPLAY
-# Started: 2026-08-09 02:40:03 +03:00
+﻿# AI4DEV-58 (GitHub sign-in, mandatory GitHub link) - STEP 3 MIGRATION REPLAY, RE-RUN AFTER THE GATE-2 EDITS
+# Started: 2026-08-09 03:36:17 +03:00
 
 ===== bun run db:reset (replay from empty) =====
 bun : $ bunx supabase db reset
-At line:1 char:1
-+ bun run db:reset 2>&1
-+ ~~~~~~~~~~~~~~~~~~~~~
+At line:1 char:849
++ ...  -FilePath $out -Encoding utf8 -Append; bun run db:reset 2>&1 | Out-F ...
++                                             ~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: ($ bunx supabase db reset:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
 Resetting local database...
 WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
 WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET
 Recreating database...
 Initialising schema...
 Seeding globals from roles.sql...
@@ -25,6 +27,8 @@ Skipping migration README.md... (file name must match pattern "<timestamp>_name.
 Restarting containers...
 A new version of Supabase CLI is available: v2.113.0 (currently installed v2.110.0)
 We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET
 WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
 WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
 A new version of Supabase CLI is available: v2.113.0 (currently installed v2.110.0)
@@ -37,17 +41,35 @@ Finished [36msupabase db reset[39m on branch [36mmain[39m.
 ===== catalog introspection against 127.0.0.1:54322, after the replay =====
 
 Read-only. Every query below asks the CATALOG what the migrated database actually contains,
-rather than asking the migration file what it said. What it has to establish, per the plan's
-step-3 done criterion: the new table exists, row-level security is on, the four CHECK
-constraints are there in the form ruling F2 requires, exactly ONE pg_proc row is named
-complete_signup (an overload would make PostgREST refuse the rpc as ambiguous), and the
-privilege posture matches the first migration's.
+rather than asking the migration file what it said.
 
-The last section is not part of the criterion and is recorded because it is free here: the
-SQL-semantics fact ruling F2 turns on, evaluated by this very PostgreSQL. The EMPIRICAL check
-- that a direct service-role call with '{}'::text[] languages RAISES - belongs to step 6(d)
-and is not run in this sitting.
+WHAT THIS RE-RUN HAS TO ESTABLISH, over and above the first capture's list (the new table, its
+row-level security flag, its constraints, exactly ONE pg_proc row named complete_signup, and the
+privilege posture): the gate-2 rulings landed as SQL rather than as intentions. Specifically -
+the emptiness-predicate helper exists, is IMMUTABLE, and its EXECUTE is revoked from PUBLIC
+(rulings R1/R6); the scalar CHECKs are whitespace-aware and the languages CHECK calls the helper
+(R1/R6); the four new parameters carry DEFAULT NULL in the signature the catalog reports, which
+is what makes a five-named-argument call resolve (R4); and the table-privilege matrix across ALL
+FIVE public tables shows ZERO rows for anon, authenticated and service_role on
+volunteer_profiles (R5).
 
+THE OTHER FOUR TABLES ARE MEASURED AND NOT FIXED, deliberately. Ruling R5's scope note: if the
+predecessor's four tables carry the same default-privilege residue, that is pre-existing on main
+and belongs to its own board item, not to this branch. The matrix below is the measurement that
+decision needs. (They do. Every one of anon, authenticated and service_role holds REFERENCES,
+TRIGGER and TRUNCATE on all four - plus the deliberate INSERT/SELECT the first migration granted
+uthenticated on accounts, and the deliberate SELECT it granted service_role there, which are
+real grants and not residue.)
+
+ONE INSTRUMENT WAS WRONG AND WAS FIXED BEFORE THIS CAPTURE, recorded because a silently wrong
+measurement is the thing worth writing down: the first attempt asked whether a tab-only value
+matches '^\s*$' from a JavaScript template literal, where \s is not an escape sequence and the
+backslash is dropped - so PostgreSQL was asked about '^s*$' and answered false. The migration
+file is not JavaScript and was never affected; the last section below is the re-measurement with
+the backslash escaped, and it answers true.
+
+The EMPIRICAL refusals - a direct call with '{}'::text[], the semantically-empty forms, the
+mismatched handle, the five-named-argument bridge call - belong to step 6 and are not run here.
 
 --- the new table, its row-level security flag and its policy count ---
 {"table_name":"volunteer_profiles","rls_enabled":true,"policies":"0"}
@@ -60,47 +82,100 @@ and is not run in this sitting.
 {"column_name":"contribution_summary","data_type":"text","is_nullable":"NO","column_default":null}
 {"column_name":"imported_at","data_type":"timestamp with time zone","is_nullable":"NO","column_default":"now()"}
 
---- constraints on public.volunteer_profiles (check, primary key, foreign key) ---
-{"constraint_name":"volunteer_profiles_contribution_summary_present","kind":"c","definition":"CHECK ((btrim(contribution_summary) <> ''::text))"}
-{"constraint_name":"volunteer_profiles_github_handle_present","kind":"c","definition":"CHECK ((btrim(github_handle) <> ''::text))"}
+--- constraints on public.volunteer_profiles (check, primary key, foreign key) - AFTER the gate-2 strengthening ---
+{"constraint_name":"volunteer_profiles_contribution_summary_present","kind":"c","definition":"CHECK ((contribution_summary !~ '^\\s*$'::text))"}
+{"constraint_name":"volunteer_profiles_github_handle_present","kind":"c","definition":"CHECK ((github_handle !~ '^\\s*$'::text))"}
 {"constraint_name":"volunteer_profiles_repository_count_sane","kind":"c","definition":"CHECK ((repository_count >= 0))"}
-{"constraint_name":"volunteer_profiles_top_languages_present","kind":"c","definition":"CHECK ((cardinality(top_languages) >= 1))"}
+{"constraint_name":"volunteer_profiles_top_languages_present","kind":"c","definition":"CHECK (text_array_entries_all_populated(top_languages))"}
 {"constraint_name":"volunteer_profiles_account_id_fkey","kind":"f","definition":"FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE"}
 {"constraint_name":"volunteer_profiles_pkey","kind":"p","definition":"PRIMARY KEY (account_id)"}
 
---- EVERY pg_proc row named complete_signup - exactly one, or PostgREST cannot resolve the rpc ---
-{"oid":"18690","proname":"complete_signup","arguments":"p_account_id uuid, p_account_type text, p_organization_name text, p_acknowledgment_text_version text, p_ip inet, p_github_handle text, p_github_top_languages text[], p_github_repository_count integer, p_github_contribution_summary text","security_definer":true,"config":"{\"search_path=\\\"\\\"\"}"}
+--- the emptiness-predicate helper the languages CHECK calls - its pg_proc row ---
+{"proname":"text_array_entries_all_populated","arguments":"entries text[]","returns":"boolean","volatility":"i","security_definer":false,"config":"{\"search_path=\\\"\\\"\"}","language":"sql","acl":"{postgres=X/postgres}"}
+
+--- execute privilege on the helper, per Data API role - the revoke from PUBLIC must show ---
+{"proname":"text_array_entries_all_populated","grantee":"anon","can_execute":false}
+{"proname":"text_array_entries_all_populated","grantee":"authenticated","can_execute":false}
+{"proname":"text_array_entries_all_populated","grantee":"service_role","can_execute":false}
+{"proname":"text_array_entries_all_populated","grantee":"public","can_execute":false}
+{"proname":"text_array_entries_all_populated","grantee":"postgres","can_execute":true}
+
+--- EVERY pg_proc row named complete_signup - exactly one, and pg_get_function_arguments shows the DEFAULTs ---
+{"oid":"18691","proname":"complete_signup","arguments":"p_account_id uuid, p_account_type text, p_organization_name text, p_acknowledgment_text_version text, p_ip inet, p_github_handle text DEFAULT NULL::text, p_github_top_languages text[] DEFAULT NULL::text[], p_github_repository_count integer DEFAULT NULL::integer, p_github_contribution_summary text DEFAULT NULL::text","parameters_with_defaults":4,"security_definer":true,"config":"{\"search_path=\\\"\\\"\"}"}
 
 --- execute privilege on complete_signup, per Data API role ---
 {"proname":"complete_signup","grantee":"anon","can_execute":false}
 {"proname":"complete_signup","grantee":"authenticated","can_execute":false}
-{"proname":"complete_signup","grantee":"public","can_execute":false}
 {"proname":"complete_signup","grantee":"service_role","can_execute":true}
+{"proname":"complete_signup","grantee":"public","can_execute":false}
 
---- table privileges on public.volunteer_profiles - none is the intended answer ---
-{"grantee":"anon","privilege_type":"REFERENCES"}
-{"grantee":"anon","privilege_type":"TRIGGER"}
-{"grantee":"anon","privilege_type":"TRUNCATE"}
-{"grantee":"authenticated","privilege_type":"REFERENCES"}
-{"grantee":"authenticated","privilege_type":"TRIGGER"}
-{"grantee":"authenticated","privilege_type":"TRUNCATE"}
-{"grantee":"postgres","privilege_type":"DELETE"}
-{"grantee":"postgres","privilege_type":"INSERT"}
-{"grantee":"postgres","privilege_type":"REFERENCES"}
-{"grantee":"postgres","privilege_type":"SELECT"}
-{"grantee":"postgres","privilege_type":"TRIGGER"}
-{"grantee":"postgres","privilege_type":"TRUNCATE"}
-{"grantee":"postgres","privilege_type":"UPDATE"}
-{"grantee":"service_role","privilege_type":"REFERENCES"}
-{"grantee":"service_role","privilege_type":"TRIGGER"}
-{"grantee":"service_role","privilege_type":"TRUNCATE"}
+--- TABLE PRIVILEGES ACROSS ALL FIVE PUBLIC TABLES, per Data API role - volunteer_profiles must show NOTHING ---
+{"table_name":"accounts","grantee":"anon","privilege_type":"REFERENCES"}
+{"table_name":"accounts","grantee":"anon","privilege_type":"TRIGGER"}
+{"table_name":"accounts","grantee":"anon","privilege_type":"TRUNCATE"}
+{"table_name":"accounts","grantee":"authenticated","privilege_type":"INSERT"}
+{"table_name":"accounts","grantee":"authenticated","privilege_type":"REFERENCES"}
+{"table_name":"accounts","grantee":"authenticated","privilege_type":"SELECT"}
+{"table_name":"accounts","grantee":"authenticated","privilege_type":"TRIGGER"}
+{"table_name":"accounts","grantee":"authenticated","privilege_type":"TRUNCATE"}
+{"table_name":"accounts","grantee":"service_role","privilege_type":"REFERENCES"}
+{"table_name":"accounts","grantee":"service_role","privilege_type":"SELECT"}
+{"table_name":"accounts","grantee":"service_role","privilege_type":"TRIGGER"}
+{"table_name":"accounts","grantee":"service_role","privilege_type":"TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"anon","privilege_type":"REFERENCES"}
+{"table_name":"acknowledgments","grantee":"anon","privilege_type":"TRIGGER"}
+{"table_name":"acknowledgments","grantee":"anon","privilege_type":"TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"authenticated","privilege_type":"REFERENCES"}
+{"table_name":"acknowledgments","grantee":"authenticated","privilege_type":"TRIGGER"}
+{"table_name":"acknowledgments","grantee":"authenticated","privilege_type":"TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"service_role","privilege_type":"REFERENCES"}
+{"table_name":"acknowledgments","grantee":"service_role","privilege_type":"TRIGGER"}
+{"table_name":"acknowledgments","grantee":"service_role","privilege_type":"TRUNCATE"}
+{"table_name":"org_memberships","grantee":"anon","privilege_type":"REFERENCES"}
+{"table_name":"org_memberships","grantee":"anon","privilege_type":"TRIGGER"}
+{"table_name":"org_memberships","grantee":"anon","privilege_type":"TRUNCATE"}
+{"table_name":"org_memberships","grantee":"authenticated","privilege_type":"REFERENCES"}
+{"table_name":"org_memberships","grantee":"authenticated","privilege_type":"TRIGGER"}
+{"table_name":"org_memberships","grantee":"authenticated","privilege_type":"TRUNCATE"}
+{"table_name":"org_memberships","grantee":"service_role","privilege_type":"REFERENCES"}
+{"table_name":"org_memberships","grantee":"service_role","privilege_type":"TRIGGER"}
+{"table_name":"org_memberships","grantee":"service_role","privilege_type":"TRUNCATE"}
+{"table_name":"organizations","grantee":"anon","privilege_type":"REFERENCES"}
+{"table_name":"organizations","grantee":"anon","privilege_type":"TRIGGER"}
+{"table_name":"organizations","grantee":"anon","privilege_type":"TRUNCATE"}
+{"table_name":"organizations","grantee":"authenticated","privilege_type":"REFERENCES"}
+{"table_name":"organizations","grantee":"authenticated","privilege_type":"TRIGGER"}
+{"table_name":"organizations","grantee":"authenticated","privilege_type":"TRUNCATE"}
+{"table_name":"organizations","grantee":"service_role","privilege_type":"REFERENCES"}
+{"table_name":"organizations","grantee":"service_role","privilege_type":"TRIGGER"}
+{"table_name":"organizations","grantee":"service_role","privilege_type":"TRUNCATE"}
+
+--- the same query WITHOUT the role filter, so the owner rows are visible rather than merely asserted ---
+{"table_name":"accounts","grantee":"anon","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"accounts","grantee":"authenticated","privilege_count":"5","privileges":"INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE"}
+{"table_name":"accounts","grantee":"postgres","privilege_count":"7","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"}
+{"table_name":"accounts","grantee":"service_role","privilege_count":"4","privileges":"REFERENCES,SELECT,TRIGGER,TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"anon","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"authenticated","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"acknowledgments","grantee":"postgres","privilege_count":"7","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"}
+{"table_name":"acknowledgments","grantee":"service_role","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"org_memberships","grantee":"anon","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"org_memberships","grantee":"authenticated","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"org_memberships","grantee":"postgres","privilege_count":"7","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"}
+{"table_name":"org_memberships","grantee":"service_role","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"organizations","grantee":"anon","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"organizations","grantee":"authenticated","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"organizations","grantee":"postgres","privilege_count":"7","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"}
+{"table_name":"organizations","grantee":"service_role","privilege_count":"3","privileges":"REFERENCES,TRIGGER,TRUNCATE"}
+{"table_name":"volunteer_profiles","grantee":"postgres","privilege_count":"7","privileges":"DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"}
 
 --- the whole public function inventory after the drop and recreate ---
-{"proname":"complete_signup","arguments":"p_account_id uuid, p_account_type text, p_organization_name text, p_acknowledgment_text_version text, p_ip inet, p_github_handle text, p_github_top_languages text[], p_github_repository_count integer, p_github_contribution_summary text"}
+{"proname":"complete_signup","arguments":"p_account_id uuid, p_account_type text, p_organization_name text, p_acknowledgment_text_version text, p_ip inet, p_github_handle text DEFAULT NULL::text, p_github_top_languages text[] DEFAULT NULL::text[], p_github_repository_count integer DEFAULT NULL::integer, p_github_contribution_summary text DEFAULT NULL::text"}
 {"proname":"create_organization","arguments":"p_account_id uuid, p_name text"}
 {"proname":"has_platform_acknowledgment","arguments":"p_account_id uuid"}
+{"proname":"text_array_entries_all_populated","arguments":"entries text[]"}
 
---- all public tables and their row-level security flags, unchanged plus the new one ---
+--- all public tables and their row-level security flags ---
 {"table_name":"accounts","rls_enabled":true,"policies":"0"}
 {"table_name":"acknowledgments","rls_enabled":true,"policies":"0"}
 {"table_name":"org_memberships","rls_enabled":true,"policies":"0"}
@@ -118,7 +193,7 @@ and is not run in this sitting.
 {"column_name":"email","data_type":"text","is_nullable":"YES"}
 {"column_name":"id","data_type":"uuid","is_nullable":"NO"}
 
---- the NULL-semantics fact ruling F2 turns on, asserted against this very database ---
-{"array_length_of_empty_is_null":true,"cardinality_of_empty":0,"array_length_check_would_be_null":true,"cardinality_check_is_false":false}
+--- the NULL-semantics fact ruling F2 turns on, plus the slot-vs-content facts rulings R1/R6 turn on ---
+{"array_length_of_empty_is_null":true,"cardinality_of_empty":0,"cardinality_of_array_of_one_null":1,"cardinality_of_array_of_one_blank":1,"a_tab_only_value_survives_the_default_btrim":true,"the_explicit_trim_set_reduces_it_to_empty":true,"a_tab_only_value_matches_the_whitespace_regex":true,"helper_accepts_a_real_language":true,"helper_accepts_array_of_null":false,"helper_accepts_array_of_blank":false,"helper_accepts_array_of_whitespace":false,"helper_accepts_one_good_one_null":false,"helper_accepts_empty_array":false,"helper_refuses_a_null_array":true}
 
-# Finished: 2026-08-09 02:41:54 +03:00
+# Finished: 2026-08-09 03:37:08 +03:00

@@ -86,16 +86,34 @@ Deno.serve(edgeHandler('complete-signup', async (request: Request): Promise<Resp
   // untested. `null` throughout for an NGO, which the database function requires.
   const githubStats = githubHandle === null ? null : stubGithubStatsFor(githubHandle);
 
+  // THE FOUR GITHUB KEYS ARE OMITTED ENTIRELY WHEN THERE IS NO HANDLE, rather than sent as nulls,
+  // and the difference is a DEPLOYMENT property rather than a stylistic one.
+  //
+  // The database plane and this plane deploy separately. `public.complete_signup` gives its four new
+  // parameters `default null`, so a call carrying only the ORIGINAL FIVE named arguments resolves
+  // against either version of the function — which means an NGO completion sent from here keeps
+  // working while a migration is rolling, in either order. Sending `p_github_handle: null` instead
+  // would name an argument the older function does not have, and PostgREST would fail to resolve the
+  // call: same intent, and the NGO signup path broken for the length of the window.
+  //
+  // The database sees no difference in the new-plane case: an omitted argument arrives as the
+  // default, which is null, which is exactly what the NGO branch requires.
+  const githubArguments = githubHandle === null
+    ? {}
+    : {
+      p_github_handle: githubHandle,
+      p_github_top_languages: githubStats?.topLanguages ?? null,
+      p_github_repository_count: githubStats?.repositoryCount ?? null,
+      p_github_contribution_summary: githubStats?.contributionSummary ?? null,
+    };
+
   const outcome = await callDatabaseFunction(SUPABASE_URL, SERVICE_ROLE_KEY, 'complete_signup', {
     p_account_id: caller.id,
     p_account_type: accountType,
     p_organization_name: organizationName,
     p_acknowledgment_text_version: acknowledgmentTextVersion,
     p_ip: callerIp(request),
-    p_github_handle: githubHandle,
-    p_github_top_languages: githubStats?.topLanguages ?? null,
-    p_github_repository_count: githubStats?.repositoryCount ?? null,
-    p_github_contribution_summary: githubStats?.contributionSummary ?? null,
+    ...githubArguments,
   });
 
   if (!outcome.ok) {

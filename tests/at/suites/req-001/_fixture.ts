@@ -41,10 +41,15 @@ import {
   type AccountType,
   type CompleteSignupRequest,
 } from '../../../../supabase/functions/_shared/accounts.ts';
-// The IMPORT SOURCE is the shipped stub, not a copy living in this file. AT-001.05 compares the
-// profile it reads back against `stubGithubStatsFor`, so if the two were separate implementations
-// the test would grade the fixture's copy and say nothing about what the edge function writes.
-import { stubGithubStatsFor } from '../../../../supabase/functions/_shared/github.ts';
+// BOTH shipped GitHub judgements, not one. The IMPORT SOURCE is the shipped stub, not a copy living
+// in this file — AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the
+// two were separate implementations the test would grade the fixture's copy and say nothing about
+// what the edge function writes. And `extractGithubHandle` is the OTHER shipped decision on this
+// path: `completeSignup` below derives the caller fact through it rather than reading the stored
+// handle straight, exactly as `resolveCaller` does in the edge function. Before that, a regression
+// in the extractor — returning null for a linked identity — would have rejected every linked
+// volunteer at the deployed edge while this suite stayed green.
+import { extractGithubHandle, stubGithubStatsFor } from '../../../../supabase/functions/_shared/github.ts';
 import type {
   AccountRow,
   AccountsSut,
@@ -193,7 +198,21 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     // THE CALLER FACT COMES FROM THE STORED AUTH USER, never from the request. That is the same
     // shape the edge function has, where it comes from `/auth/v1/user` — a client cannot assert it
     // in either place, which is the whole security property of the volunteer gate.
-    const decision = validateCompleteSignup(request, { githubHandle: authUser.githubHandle });
+    //
+    // AND IT IS DERIVED, NOT READ. The stored state is rendered as the canonical GoTrue
+    // `/auth/v1/user` shape — an `identities[]` array, empty when nothing is linked — and the handle
+    // is then judged out of it by the SHIPPED `extractGithubHandle`, which is precisely what
+    // `resolveCaller` does with the real response. Passing `authUser.githubHandle` in directly, as
+    // this used to, pre-narrowed the fact and left the extractor unexecuted by any test: storage
+    // would have been doing a judgement's job, which is the one thing this file's opening paragraph
+    // promises it does not do. What is still NOT proved here is GoTrue's real serialisation — that
+    // this shape is the shape Auth sends. Only the live proof touches that.
+    const callerUser = {
+      identities: authUser.githubHandle === null
+        ? []
+        : [{ provider: 'github', identity_data: { user_name: authUser.githubHandle } }],
+    };
+    const decision = validateCompleteSignup(request, { githubHandle: extractGithubHandle(callerUser) });
     if (!decision.ok) return { ok: false, reason: decision.reason };
     const { accountType, organizationName, acknowledgmentTextVersion, githubHandle } = decision.value;
 

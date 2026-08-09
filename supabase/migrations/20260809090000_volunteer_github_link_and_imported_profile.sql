@@ -24,6 +24,58 @@
 --     caller imported and refuses the empty forms; it does not fetch anything and neither does
 --     anything else in this item.
 
+/* ==================================== the emptiness predicate a CHECK expression cannot spell ==== */
+
+-- THIS IS A FUNCTION BECAUSE A CHECK EXPRESSION MAY NOT CONTAIN A SUBQUERY, not because a helper
+-- looked tidy. "Every entry is a real language" is an ELEMENT-WISE question over an array, and the
+-- natural way to ask it — `not exists (select 1 from unnest(...) where ...)` — is exactly the form
+-- PostgreSQL rejects inside a CHECK. A small IMMUTABLE function is the supported way to put the same
+-- predicate there, and the constraint below calls it.
+--
+-- WHY ELEMENT-WISE AT ALL, and this is the correction of a real gap rather than a refinement:
+-- `cardinality(ARRAY[NULL]::text[])` is 1 and `cardinality(ARRAY[''])` is 1, so a slot-count alone
+-- ACCEPTS a language list that contains no language. AT-001.05's "a queued-but-empty import fails
+-- this test" is a statement about CONTENT, and a row holding one empty slot is empty content wearing
+-- a non-zero count.
+--
+-- `^\s*$` RATHER THAN `btrim(...) <> ''`, for the same class of reason: `btrim`'s default character
+-- set is the SPACE CHARACTER ONLY, so a tab-only, newline-only or vertical-tab-only value survives
+-- trimming unchanged and compares unequal to the empty string. `\s` is the POSIX regular-expression
+-- shorthand for the whitespace class, so `^\s*$` matches the empty string and every all-whitespace
+-- string alike.
+--
+-- SAFE UNDER `set search_path = ''`: every name below — `cardinality`, `array_position`, `unnest` —
+-- lives in `pg_catalog`, which PostgreSQL searches implicitly even when the path is empty. There is
+-- nothing here a search_path could redirect.
+--
+-- `array_position(entries, null::text)` FINDS NULLS on purpose: its comparisons use
+-- `IS NOT DISTINCT FROM` semantics, which is documented and is the reason it can search for NULL at
+-- all — `= null` never could. The cast is explicit because a bare `null` has no type to resolve the
+-- polymorphic argument against.
+create function public.text_array_entries_all_populated(entries text[])
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select entries is not null
+     and cardinality(entries) >= 1
+     and array_position(entries, null::text) is null
+     and not exists (select 1 from unnest(entries) as entry where entry ~ '^\s*$');
+$$;
+
+comment on function public.text_array_entries_all_populated(text[]) is
+  'True when a text array holds at least one entry and no entry is NULL, empty or whitespace-only. It exists because a CHECK expression cannot contain a subquery (REQ-001, AT-001.05).';
+
+-- THE SAME REVOKE EVERY FUNCTION IN THIS SCHEMA GETS, and nothing follows it. PostgreSQL grants
+-- EXECUTE on a new function to PUBLIC, and every Data API role inherits that, so the revoke is what
+-- makes the posture true rather than assumed. NO GRANT IS NEEDED: the only INSERT into
+-- `public.volunteer_profiles` runs inside `public.complete_signup`, whose definer is this schema's
+-- owner, and an owner needs no privilege on its own function. That distinction is load-bearing here
+-- because a CHECK expression IS evaluated with the current user's privileges — so a different writer
+-- would need EXECUTE, and there is deliberately no different writer.
+revoke execute on function public.text_array_entries_all_populated(text[]) from public;
+
 /* ================================================================ the imported profile table ==== */
 
 -- ONE ROW PER VOLUNTEER ACCOUNT, keyed by the account itself. The primary key IS the account id, so
@@ -32,20 +84,34 @@
 --
 -- THE FOUR CHECK CONSTRAINTS ARE AT-001.05'S LAST SENTENCE AS A SHAPE. The criterion ends "a
 -- queued-but-empty import fails this test", so the empty forms are refused by the table and not by a
--- convention: a blank handle, a language list with nothing in it, a negative repository count and a
--- blank summary cannot be stored at all, by any caller, through any path.
+-- convention: a blank or whitespace-only handle, a language list with nothing in it OR with nothing
+-- but NULL and blank slots in it, a negative repository count and a blank or whitespace-only summary
+-- cannot be stored at all, by any caller, through any path.
 --
--- `cardinality(top_languages) >= 1`, AND NOT `array_length(top_languages, 1) >= 1`, and the
--- difference is the whole constraint rather than a stylistic preference. `array_length` returns NULL
--- for an empty array — an empty array has no dimensions — and a CHECK constraint whose expression
+-- WHAT "EMPTY" HAD TO BE WIDENED TO MEAN, because the first version of these constraints said the
+-- sentence above while accepting three inputs that make it false, and a comment the catalog
+-- contradicts is worse than no comment:
+--   * `btrim(x) <> ''` trims THE SPACE CHARACTER ONLY. A tab-only handle or summary passed it
+--     untouched. The scalar constraints are therefore `x !~ '^\s*$'` — `\s` is the POSIX
+--     regular-expression whitespace class, so the empty string and every all-whitespace string are
+--     refused by one expression.
+--   * `cardinality(...) >= 1` counts SLOTS, not languages: `ARRAY[NULL]` and `ARRAY['']` both have
+--     cardinality 1. The languages constraint therefore calls
+--     `public.text_array_entries_all_populated` above, which asks the element-wise question a CHECK
+--     expression cannot spell for itself.
+--
+-- `cardinality`, AND NOT `array_length(top_languages, 1)`, remains the count inside that helper, and
+-- the difference is a constraint rather than a stylistic preference. `array_length` returns NULL for
+-- an empty array — an empty array has no dimensions — and a CHECK constraint whose expression
 -- evaluates to NULL PASSES, because SQL's three-valued logic treats NULL as not-false. The
 -- `array_length` form would therefore have enforced nothing at all on the one input it exists to
 -- refuse, and nothing downstream would ever have noticed: the stub stats are non-empty by
 -- construction, so every test would have stayed green while the structural guarantee was a fiction.
 -- `cardinality` returns 0 for the empty array and never NULL, so the comparison is two-valued on
--- exactly the input that matters. The live proof calls this function directly with `'{}'::text[]`
--- and requires a raise, so the claim is measured on the migrated database rather than reasoned about
--- here.
+-- exactly the input that matters. The live proof calls this function directly with `'{}'::text[]`,
+-- and inserts `ARRAY[NULL]::text[]`, `ARRAY['']`, `ARRAY['  ']`, a tab-only handle and a tab-only
+-- summary as operator, requiring a refusal from each — so every clause above is measured on the
+-- migrated database rather than reasoned about here.
 --
 -- `repository_count >= 0` PERMITS ZERO on purpose, and the asymmetry with the stub is deliberate: a
 -- real import may legitimately find a volunteer with no public repositories, so the column allows
@@ -53,10 +119,10 @@
 -- did not come from the stub.
 create table public.volunteer_profiles (
   account_id uuid primary key references public.accounts (id) on delete cascade,
-  github_handle text not null constraint volunteer_profiles_github_handle_present check (btrim(github_handle) <> ''),
-  top_languages text[] not null constraint volunteer_profiles_top_languages_present check (cardinality(top_languages) >= 1),
+  github_handle text not null constraint volunteer_profiles_github_handle_present check (github_handle !~ '^\s*$'),
+  top_languages text[] not null constraint volunteer_profiles_top_languages_present check (public.text_array_entries_all_populated(top_languages)),
   repository_count integer not null constraint volunteer_profiles_repository_count_sane check (repository_count >= 0),
-  contribution_summary text not null constraint volunteer_profiles_contribution_summary_present check (btrim(contribution_summary) <> ''),
+  contribution_summary text not null constraint volunteer_profiles_contribution_summary_present check (contribution_summary !~ '^\s*$'),
   imported_at timestamptz not null default now()
 );
 
@@ -75,9 +141,31 @@ alter table public.volunteer_profiles enable row level security;
 -- that says nothing about this migration. Dropping first and recreating is one statement pair in one
 -- migration, which is one transaction: there is no window in which no `complete_signup` exists.
 --
--- THE ONLY CALLER IS UPDATED IN THE SAME CHANGE. `supabase/functions/complete-signup/index.ts` is
--- the sole caller of this function in the tree, and it passes the four new parameters as of this
--- item. Nothing else in the repository names it.
+-- WHAT THE DROP DOES *NOT* GIVE, and an earlier draft of this comment claimed it did.
+-- `supabase/functions/complete-signup/index.ts` is the sole caller of this function in the tree and
+-- it is updated in the same commit — but SOURCE CO-LOCATION IS NOT DEPLOYMENT ATOMICITY. The
+-- database plane and the edge-function plane deploy separately, so any real environment has a window
+-- in which one is at the new version and the other is not, in whichever order it rolls. Saying "the
+-- caller is updated in the same change, therefore nothing can break" would be reasoning about a git
+-- diff and calling it a statement about a deployment.
+--
+-- THE BRIDGE, which is why that window is survivable rather than merely acknowledged:
+--   * THE FOUR NEW PARAMETERS ARE `default null`. PostgREST fills defaults on a NAMED-argument call,
+--     so a call carrying ONLY the original five names still resolves against this function. There is
+--     still exactly ONE `complete_signup` in the catalog, so the drop-first reasoning above is
+--     untouched — a default is not an overload.
+--   * THE NEW EDGE FUNCTION OMITS the four github keys from the rpc body when the judged handle is
+--     null, which is every NGO completion. So an NGO completion sends the original five keys under
+--     EITHER version of the edge function, and works against EITHER version of this schema.
+--
+-- THE HONEST RESIDUAL: during a mixed-plane window VOLUNTEER completion is unavailable. Migration
+-- first, old edge: the old edge cannot supply a handle, so this function refuses with the stated
+-- GitHub-link reason — fail-closed, and the old schema could not have stored the profile anyway.
+-- New edge, old migration: the nine-key call does not resolve and the caller sees a resolution
+-- error. Volunteer completion needs both planes at the new version; that is inherent to a feature
+-- that spans both planes and no bridge can remove it. The live proof calls this function through
+-- PostgREST with only the five original named arguments for an NGO completion, so the half of that
+-- matrix which is realisable today is measured rather than argued.
 --
 -- The privileges go with the dropped function and are re-granted below, which is why the revoke and
 -- grant statements are repeated rather than assumed to survive: they do not.
@@ -102,10 +190,13 @@ create function public.complete_signup(
   p_organization_name text,
   p_acknowledgment_text_version text,
   p_ip inet,
-  p_github_handle text,
-  p_github_top_languages text[],
-  p_github_repository_count integer,
-  p_github_contribution_summary text
+  -- `default null` ON ALL FOUR IS THE DEPLOYMENT BRIDGE described above the drop, not a convenience:
+  -- it is what lets a five-named-argument call from an edge function that has not rolled yet still
+  -- resolve to this function. It changes nothing for a caller that passes all nine.
+  p_github_handle text default null,
+  p_github_top_languages text[] default null,
+  p_github_repository_count integer default null,
+  p_github_contribution_summary text default null
 )
 returns jsonb
 language plpgsql
@@ -123,7 +214,16 @@ as $$
 declare
   v_account_type public.account_type;
   v_organization_id uuid := null;
-  v_github_handle text := btrim(p_github_handle);
+  -- THE TRIM SET IS SPELLED OUT, because `btrim(x)` with no second argument strips THE SPACE
+  -- CHARACTER ONLY — so a tab-only handle used to arrive here, survive the trim, compare unequal to
+  -- '' and be stored. The set below is the whitespace class the table's `^\s*$` constraints refuse,
+  -- written character by character so the two agree: space, tab, newline, carriage return, vertical
+  -- tab, form feed. `\013` IS THE VERTICAL TAB IN OCTAL and is written that way on purpose:
+  -- PostgreSQL's escape-string syntax has no `\v`, and a backslash before an unrecognised letter is
+  -- dropped — `E'\v'` is the letter "v", so spelling it that way would have stripped every "v" out
+  -- of volunteers' handles instead of stripping whitespace.
+  v_github_handle text := btrim(p_github_handle, E' \t\n\r\013\f');
+  v_contribution_summary text := btrim(p_github_contribution_summary, E' \t\n\r\013\f');
 begin
   -- THE INDEPENDENT GUARD. Named before the general enum check so the refusal says the right thing:
   -- `platform_admin` is not an unknown type, it is a real one that this path may never produce.
@@ -158,6 +258,9 @@ begin
     -- user-facing one: `validateCompleteSignup` in `supabase/functions/_shared/accounts.ts` refuses
     -- the same completion first, with the sentence a person reads. This one exists for the caller
     -- that never went through the edge function at all.
+    -- `v_github_handle` is the WHITESPACE-TRIMMED value (see the declare block), so a handle of
+    -- nothing but tabs reaches this test as the empty string and is refused here rather than being
+    -- stored and refused later by a constraint name the caller has never heard of.
     if v_github_handle is null or length(v_github_handle) = 0 then
       raise exception
         'complete_signup refuses a volunteer completion with no linked GitHub handle: linking a GitHub account is required to complete volunteer signup'
@@ -203,15 +306,28 @@ begin
         using errcode = '22023';
     end if;
 
+    -- AND THE SECOND, DISTINCT REASON: the list has slots but no languages in them.
+    -- `ARRAY[NULL]` and `ARRAY['']` both pass the count above, so counting alone would let a
+    -- structurally empty import through with a stated success. This is the SAME predicate the table's
+    -- CHECK constraint calls — one implementation of the rule, asked here so the caller gets a
+    -- sentence and asked there so no path can bypass it.
+    if not public.text_array_entries_all_populated(p_github_top_languages) then
+      raise exception
+        'complete_signup refuses a volunteer completion whose imported top languages contain a null or blank entry: a list of empty slots is not a list of languages'
+        using errcode = '22023';
+    end if;
+
     if p_github_repository_count is null or p_github_repository_count < 0 then
       raise exception
         'complete_signup refuses a volunteer completion whose imported repository count is missing or negative'
         using errcode = '22023';
     end if;
 
-    if p_github_contribution_summary is null or length(btrim(p_github_contribution_summary)) = 0 then
+    -- `v_contribution_summary` is whitespace-trimmed with the explicit set, for the reason the
+    -- declare block gives: a tab-only summary used to survive the default `btrim` and be stored.
+    if v_contribution_summary is null or length(v_contribution_summary) = 0 then
       raise exception
-        'complete_signup refuses a volunteer completion whose imported contribution summary is missing or empty'
+        'complete_signup refuses a volunteer completion whose imported contribution summary is missing, empty or whitespace-only'
         using errcode = '22023';
     end if;
   else
@@ -264,7 +380,7 @@ begin
       v_github_handle,
       p_github_top_languages,
       p_github_repository_count,
-      btrim(p_github_contribution_summary)
+      v_contribution_summary
     );
   end if;
 
@@ -305,10 +421,31 @@ comment on function public.complete_signup(uuid, text, text, text, inet, text, t
 revoke execute on function public.complete_signup(uuid, text, text, text, inet, text, text[], integer, text) from public;
 grant execute on function public.complete_signup(uuid, text, text, text, inet, text, text[], integer, text) to service_role;
 
--- NO GRANT ON `public.volunteer_profiles` TO ANY ROLE. `[api] auto_expose_new_tables` is unset, so
--- the table is unreachable through the Data API entirely — stricter than the grant-and-deny-by-policy
--- posture `public.accounts` needs, and appropriate here because nothing client-side reads it yet.
--- The service role writes it only through the definer function above.
+-- NO GRANT STATEMENT IS NOT THE SAME THING AS NO PRIVILEGE, and this comment used to confuse the
+-- two. It said "NO GRANT ON `public.volunteer_profiles` TO ANY ROLE" and inferred from the absence
+-- of a grant statement that the three Data API roles held nothing. THE CATALOG SAID OTHERWISE: the
+-- committed replay capture for this migration recorded REFERENCES, TRIGGER and TRUNCATE for `anon`,
+-- `authenticated` AND `service_role` on this table — Supabase ships ALTER DEFAULT PRIVILEGES for
+-- `public`, so a new table there arrives already granted, exactly as a new function arrives
+-- executable by PUBLIC. The first migration measured that fact for function EXECUTE with
+-- `has_function_privilege` instead of reasoning about it; this is the same measurement applied to a
+-- table, and it changed the answer.
+--
+-- SO THE REVOKE IS THE THING THAT MAKES THE POSTURE TRUE. What was standing before it is small but
+-- real: none of the three privileges is reachable through PostgREST's verb surface,
+-- `[api] auto_expose_new_tables` is unset, and `service_role` is not a login role — but TRUNCATE is
+-- NOT subject to row-level security, so the privilege existed even though no route to it did, and a
+-- migration must not claim a posture the catalog contradicts.
+--
+-- The `postgres` owner rows remain after this and are not a defect: an owner's implicit privileges
+-- are not grants, and revoking them from the schema owner would break the definer function that is
+-- the only writer here. The re-run replay capture must show ZERO rows for the three roles below.
+revoke all on table public.volunteer_profiles from anon, authenticated, service_role;
+
+-- WHAT REMAINS TRUE from the sentence this replaces: the table is unreachable through the Data API
+-- entirely, which is stricter than the grant-and-deny-by-policy posture `public.accounts` needs, and
+-- appropriate here because nothing client-side reads it yet. The service role writes it only through
+-- the definer function above.
 
 -- PostgREST caches the schema. Without this, the first call to the recreated function is a 404 from
 -- the schema cache rather than a real answer — and after a DROP the stale entry would name a
