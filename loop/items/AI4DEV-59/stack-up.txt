@@ -149,4 +149,10 @@ GOTRUE_MAILER_AUTOCONFIRM=false
 #   complete-signup/index.ts imports only _shared/accounts.ts, _shared/github.ts and _shared/edge.ts.
 # This branch therefore changes nothing complete-signup imports, and every revision it could be
 # compared against is byte for byte the same code.
------ exit code: still running -----
+#
+# STOPPED AFTER STEP 5 FINISHED, on purpose. A `functions serve` left alive against a worktree that
+# is later removed is the exact stale-mount hazard this file's own comment describes, and this item
+# has no further use for it: nothing else in the item calls an edge function, and continuous
+# integration has no database. The edge runtime CONTAINER that `supabase start` runs stays up and
+# still answers 401, which is the stack's normal state and not this launch.
+----- the serve process was stopped by the executor after step 5 -----
