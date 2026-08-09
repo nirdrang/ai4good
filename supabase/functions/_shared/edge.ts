@@ -16,9 +16,10 @@
  * either way. At this tree's head that evidence is `loop/items/AI4DEV-58/proof-local.txt`: 9 checks,
  * 8 passed, 0 failed, 1 skipped, driving `complete-signup` through the deployed function for both
  * account types. The one skip is the GitHub handshake, because no GitHub OAuth app exists for this
- * project; the Google handshake is unproved for the same reason. `loop/items/AI4DEV-57/proof-local.ts`
- * is retained for `create-organization`, which only it exercises; its completion-path evidence is
- * superseded, since it predates the current migration.
+ * project; the Google handshake is unproved for the same reason. `loop/items/AI4DEV-57/proof-local.txt`
+ * is retained for the ONE thing only it still covers: `create-organization`, which was exercised
+ * there and is untouched by this leaf. Its completion-path and schema evidence is SUPERSEDED — it
+ * predates this migration and called a `complete_signup` that no longer exists.
  *
  * ONE IMPORT CROSSES INTO THE PURE HALF: `extractGithubHandle` from `./github.ts`. That direction is
  * the safe one and the arrangement is unchanged by it — a Deno-only file may import a pure one,
