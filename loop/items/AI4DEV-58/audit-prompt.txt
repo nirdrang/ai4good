@@ -1,0 +1,260 @@
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the sandbox mode. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** `--sandbox read-only` is the enforcement, and this sentence
+is the instruction; every launch prompt carries it explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+
+---
+
+## The AUDIT — critique of the CLAIM
+
+**Subject** · the branch diff **and the record that describes it** — the amended plan, the
+rulings files, and the state file's claims.
+
+Code quality is not your subject. You are answering one question: **does the story match the
+tree?**
+
+- **Every adopted ruling is implemented as ruled.** A ruling recorded but not implemented is a
+  FAIL — this is the box no other check in the system covers.
+- **The diff stays inside its declared scope.** Compare what changed against what the item says
+  it changed.
+- **Every stated fact about the code is true.** Trace the logic yourself, character by character
+  where it matters — a shell trap, a regex, a guard's field handling.
+
+**Do not run the test suite.** Execution evidence belongs to the required CI check on this
+commit: cite it, do not re-derive it. This is a deliberate narrowing, measured across four items —
+attempted execution here produced almost nothing but "could not verify", and once produced two
+FAIL verdicts that were sandbox artifacts rather than defects, while every reading-and-tracing box
+was answered every time.
+
+**Verdict per box: PASS · FAIL · COULD-NOT-VERIFY**, each with the evidence you personally
+gathered — the file and line, or the reasoning you traced. Then a final line: `AUDIT: CLEAN` or
+`AUDIT: N FINDINGS`.
+
+**You report; you rule on nothing.** The orchestrator rules, and it may dismiss your finding with
+a written reason — that is its authority, and your claim will be recorded verbatim beside it.
+
+---
+
+## This item
+
+# AI4DEV-58 — the pre-merge AUDIT brief
+
+**Head to audit:** the pushed branch head that carries this brief — the conductor names the
+exact SHA when launching you (a file cannot know the commit that carries it).
+**Branch:** `nirdrang/ai4dev-58-github-sign-in-and-the-mandatory-github-link-for-volunteers`
+**The change:** `git diff main...HEAD`
+
+---
+
+## WHAT YOU ARE AUDITING — read this before anything else
+
+**Your subject is THE CLAIM, never the code's quality.** You are not asked whether this is good
+code, whether you would have designed it differently, or whether it could be simpler. Three
+questions, and only these three:
+
+1. **Does every adopted ruling appear in the tree as ruled?**
+2. **Does the diff stay inside its declared scope?**
+3. **Is every stated fact about the code true?**
+
+A defect in code this branch never touched belongs to another item. Say so and move on.
+
+**You have whole-tree access and change-only scope.** Read anything you need in order to judge
+the change; report only on the change.
+
+## DO NOT EXECUTE ANYTHING. This is not a limitation of trust — it is what the record shows works
+
+**Do not run the test suite, the acceptance harness, the type-checker, the local Supabase stack,
+the proof script, or the build.** Execution evidence belongs to continuous integration, which
+gates this merge on its own.
+
+Measured across prior items: an auditor's execution attempts produced almost nothing except
+"could not verify", and once produced two FAIL verdicts that were artifacts of its own sandbox —
+while **every reading-and-tracing question it was given came back answered.** Every box below is
+a reading-and-tracing question. Answer those.
+
+**`bun run build` in particular must never be run on this branch.** It rewrites
+`src/routeTree.gen.ts`, and continuous integration fails any pull request touching both `^src/`
+and the backend territories. Running it would create the defect you are auditing for.
+
+---
+
+## The record you are auditing against
+
+| file | what it is |
+|---|---|
+| `loop/items/AI4DEV-58/plan.md` | the twice-amended plan — decisions, steps with done-criteria, **section 4, the per-acceptance-id claims table** |
+| `loop/items/AI4DEV-58/gate1-rulings.md` | the plan-review rulings (F1–F5) |
+| `loop/items/AI4DEV-58/draft-rulings.md` | the draft sitting's rulings, including the split trigger and three executor deviations |
+| `loop/items/AI4DEV-58/gate2-rulings.md` | **this sitting's rulings** — R1–R7 over eight findings from two review slices, plus the sitting-3 addendum ruling on five executor deviations |
+| `loop/items/AI4DEV-58/artifacts/gate2-sql-terra-distilled.md`, `gate2-ts-terra-distilled.md` | the findings the rulings dispose of (raw outputs beside them) |
+| `loop/items/AI4DEV-58/migration-replay.txt` | the refreshed catalog capture after the gate-2 migration edits |
+| `loop/items/AI4DEV-58/proof-local.txt` | the live-stack transcript (9 checks, 8 passed, 0 failed, 1 skipped) |
+| `loop/items/AI4DEV-58/verify-final.txt` | the whole-surface verify capture |
+| `loop/items/AI4DEV-58/pending-ledger.txt` | one line per still-pending acceptance id (30) |
+| `loop/items/AI4DEV-58/PHASE-STATE.md` | carried facts, filed work, open questions |
+
+---
+
+## BOX SET A — does every adopted ruling appear in the tree as ruled?
+
+Each row names a ruling and what the tree must show. Trace it to the file and say **YES / NO /
+PARTIAL**, with the path and line. A ruling implemented *differently from how it was ruled* is a
+NO, not a PARTIAL — that is the defect this box set exists to catch. (One deliberate exception is
+pre-ruled: the whitespace set spells vertical tab as `\013` because PostgreSQL has no `\v`
+escape — gate2-rulings addendum Dev-1. That IS the ruling as ruled.)
+
+| ruling | what the tree must show |
+|---|---|
+| **F1** (gate 1) | AT-001.05's body asserts `volunteerProfile(accountId)` is null after linking and BEFORE completion; D-C's abandoned-flow analysis present in the plan |
+| **F2** (gate 1) | no `array_length` anywhere in the migration's constraints or checks; the empty-array refusal is empirically probed in `proof-local.txt` (the `'{}'::text[]` probe) |
+| **F4** (gate 1) | the migration's identity backstop matches `identity_data->>'user_name' = v_github_handle` — binding the HANDLE, not mere existence; the mismatched-handle probe is in `proof-local.txt` |
+| **F5** (gate 1) | the provider comment at `tests/at/suites/req-001/a-signup-and-signin.test.ts` (~lines 151–163) is RETAINED, with only its stale mechanical clause updated |
+| **R1/R6** | scalar CHECKs are `github_handle !~ '^\s*$'` and `contribution_summary !~ '^\s*$'` (names unchanged); `volunteer_profiles_top_languages_present` calls `public.text_array_entries_all_populated`, an IMMUTABLE SQL function with `set search_path = ''` whose EXECUTE is revoked from PUBLIC; the function body's volunteer branch raises with stated reasons for NULL/blank elements and whitespace-only handle/summary; the refreshed `migration-replay.txt` shows the new constraint definitions and the helper's row |
+| **R3** | `_fixture.ts`'s `completeSignup` constructs a GoTrue-shaped `{ identities: [...] }` from stored state and derives the caller fact through the SHIPPED `extractGithubHandle`; no test body changed for this |
+| **R4** | the four new rpc parameters carry `default null` (visible in the capture's `pg_get_function_arguments`); `complete-signup/index.ts` OMITS the four github keys when the judged handle is null; the migration's drop paragraph states that source co-location is NOT deployment atomicity, states the bridge, and states the honest residual (volunteer completion unavailable in a mixed-plane window); plan risk 2 is the rewritten version |
+| **R5** | `revoke all on table public.volunteer_profiles from anon, authenticated, service_role;` present; the "no grant" comment replaced by the measured default-privilege reality; the capture's privilege matrix shows ZERO rows for those three roles on `volunteer_profiles` |
+| **R7** | `_fixture.ts` header and `supabase/functions/_shared/edge.ts` cite `loop/items/AI4DEV-58/proof-local.txt` with its REAL counts (9 checks, 8 passed, 0 failed, 1 skipped), keep the Google-handshake caveat, add the GitHub-handshake caveat, and retain the predecessor's transcript for `create-organization` only, stating its completion-path and schema evidence is superseded |
+
+**Rulings that were REJECTED or deliberately left undone. A tree that implements one of these is
+a finding, because it means a ruling was overridden by whoever was typing:**
+
+- **R2** — NO SQL-side provenance check of the stub statistics may exist (no fingerprint
+  arithmetic mirrored into the migration). The plan's section 4 must carry the
+  provenance-not-claimed sentence instead.
+- **Gate-1 F3** — no unlink guard, no unlink policy, nothing calling Auth's unlink surface. The
+  product question is FILED in PHASE-STATE, not built.
+- **R4's rejected remedy** — no staged two-order deployment demonstration; the bridge plus the
+  single realisable probe (five-named-argument NGO call, proof check d3) is the adopted form.
+- **Predecessor-table grants** — the residue measured on the four pre-existing tables
+  (`accounts`, `acknowledgments`, `org_memberships`, `organizations`) is MEASURED ONLY in the
+  capture. A diff line touching their grants would be scope escape (it is pre-existing on main,
+  handed up for filing).
+
+---
+
+## BOX SET B — does the diff stay inside its declared scope?
+
+1. **Territory.** `git diff main...HEAD --name-only` must match `^src/` **zero times**.
+2. **Read-only files.** `.taskmaster/docs/acceptance/at-req-001.md` and `loop/decomp/req-001.md`
+   must be unchanged.
+3. **Foreign item ids.** No **pull-request title**, **pull-request body** or **commit message**
+   may name any board item id other than `AI4DEV-58`. **This rule does NOT extend to file
+   contents** — Linear links from PR text and commit messages, not from diffs; the repository's
+   guard reads only the PR title and body; and `main` already carries dozens of item ids in
+   files. (The predecessor's brief stated the wider rule, produced a false finding, and was
+   corrected — the correction is folded in here from the start.) Check `pr-body.md`, the live
+   pull-request title and body, and `git log main..HEAD` messages.
+4. **Scope of the sittings.** Every changed file should trace to a gate-1 ruling, a gate-2
+   ruling, or a plan step. Name anything that does not.
+5. **Secrets.** No credential, key or token in any changed file. `proof-local.txt` was required
+   REDACTED FROM THE START — no service-role key, no JWT verbatim. Read it and confirm.
+
+---
+
+## BOX SET C — is every stated fact about the code true?
+
+For each, trace it and answer **TRUE / FALSE / CANNOT BE DETERMINED BY READING**. The last
+answer is legitimate and better than a guess.
+
+1. **`plan.md` section 4's claims table.** For each of AT-001.02/.04/.05: does the "proved at
+   loop tier" column describe something the test body **actually drives**, and does the "not
+   proved" column omit nothing the tree shows is unproved? The table's own rule: a clause named
+   unproved there may not be described as proved anywhere else in this item.
+2. **The fixture's central claim** — storage only, every judgement the shipped module's. After
+   R3, `extractGithubHandle` sits on the tested path; search `_fixture.ts` for any judgement it
+   still decides for itself (a second copy of the handle-extraction, gate, or stats rule).
+3. **The migration's emptiness claims.** Its comments now assert the element-wise, whitespace-
+   aware refusals. Do the constraint definitions in the refreshed `migration-replay.txt` match
+   the comments, clause for clause?
+4. **The bridge claims.** Does the capture show exactly ONE `complete_signup` with four
+   `DEFAULT NULL` parameters? Does `complete-signup/index.ts` really send five keys for an NGO
+   (trace the conditional spread)? Does proof check (d3) evidence the five-named-argument call?
+5. **The posture claims.** The migration says the only write path into `volunteer_profiles` is
+   the definer function and that the three Data API roles hold nothing on it. Does the capture's
+   privilege matrix agree? Is the function still `security definer` with `set search_path = ''`,
+   EXECUTE revoked from PUBLIC and granted to `service_role` only?
+6. **`proof-local.txt` against `proof-local.ts`.** Does the transcript's verdict line match what
+   the script would print for those results? Is the one SKIP (the GitHub authorize redirect,
+   no client id in the environment) stated as skipped everywhere it is mentioned, never as
+   proved? Do the R7 citations' counts (9/8/0/1) match the transcript itself?
+7. **The supersession rulings.** Dev-4 ruled `step4-serves.txt` SUPERSEDED as serve evidence.
+   Does the record (PHASE-STATE, gate2-rulings addendum) say so, and does nothing elsewhere
+   still cite it as live evidence?
+8. **`pending-ledger.txt`** — exactly 30 lines, none of this leaf's three ids present, each line
+   naming a deliverable-and-leaf that appears in `loop/decomp/req-001.md`; and
+   `tests/at/expected/req-001.json` flips exactly AT-001.02/.04/.05 and nothing else relative to
+   main.
+9. **Comments as assertions.** Read the comments in every changed file as claims and check them
+   — this gate's findings were dominated by comments claiming more than the code does. In
+   particular: nothing may describe the GitHub OAuth handshake, the real import, or Auth's
+   `linkIdentity` round trip as proved.
+
+---
+
+## How to report
+
+For every box: the answer, the file and line you traced it to, and one sentence. **Quote the
+tree, not the record**, when the two disagree — the whole point of this pass is to find places
+where they do.
+
+Rank anything you find by whether it makes **the record false** (an adopted ruling absent, a
+diff outside its declared scope, a stated fact untrue) or is a real observation outside this
+item's scope. Say which. Close with a single explicit count line so a truncated run is
+detectable.
