@@ -1,82 +1,86 @@
 # PHASE-STATE — AI4DEV-60 (session expiry, refresh, password reset)
 
-**Phase just completed: AUDIT** (sitting 4, `orchestrator` on fable, claude-fable-5 @ xhigh).
-This file rides in the head that completes the phase; the conductor verifies the reported head
-against the remote.
+**Phase just completed: MERGE SITTING, WITHOUT THE MERGE** (sitting 5, `orchestrator` on
+fable, claude-fable-5 @ xhigh). The merge DECISION is made and recorded; its EXECUTION is
+blocked at the permission layer. This file rides in the head that closes the sitting; the
+conductor verifies the reported head against the remote.
 
-## What exists at this head
+## The merge ruling exists and the decision is MERGE
 
-- `loop/items/AI4DEV-60/audit-rulings.md` — six rulings on the two-seat audit panel (luna via
-  codex 3, flash via opencode 3), every claim verified first-hand, ALL SIX ACCEPTED. All are
-  the "stated fact untrue" class; every remedy is the record changing to match the code and
-  the measurements. Both seats' box verdicts are recorded in the file, including flash's
-  clean identity extract (19 of 19 messages on the pin).
-- The panel's full evidence, committed at `ae2bb1f` BEFORE any fix: both raw outputs, both
-  distillates, the opencode seat's tool-call summary and identity extract, and the codex
-  seat's stderr/stdout logs (force-added past the `*.log` ignore, standing precedent).
-- The fixes, in three commits:
-  - `5235740` — record files, applied by the audit sitting itself: the plan header regains
-    its missing second amendment (ruling 1), `pr-body.md` states the item's real phase
-    (ruling 3), `verify-final.txt` compares against the recorded baseline — 257 tests in 10
-    files — with the correction marked as made at the audit sitting (ruling 4).
-  - `f8ba7e3` — code comments, applied by the executor (opus, one invocation, no dispute):
-    the two sites claiming Auth answers 401 now carry the measured 403 (ruling 2), mirror 5
-    carries the re-pinned unchanged-session-set predicate (ruling 5), the reset-retention
-    comment quotes the acceptance line exactly (ruling 6). Comment-only — 3 files, 15
-    insertions, 9 deletions, every changed line inside a comment (diff read by the
-    orchestrator).
-- The scope box seat two could not verify (no git in its cage) is resolved **PASS** by this
-  sitting's own enumeration: every changed path since merge-base `c11e352` is inside the
-  declared surfaces; nothing under `src/`, `.taskmaster/`, `loop/decomp/`;
-  `supabase/config.toml` absent from the diff. Recorded in `audit-rulings.md`.
-- Pull request #50's live body republished by a mechanical from `pr-body.md` as handed;
-  verified: current status present, "plan phase" gone, no item id other than this branch's own.
+- `loop/items/AI4DEV-60/merge-ruling.md`, committed with this file. It pins head
+  `9c53e685b384efe08e3a4e6cd19b882800fbe089` and records: what was built, all 25 dispositions
+  (5 plan-gate, 3 draft, 7 draft-code, 4 measurement re-pins, 6 audit — re-counted first-hand
+  from the five rulings files, zero rejections, no maintained disagreement), both audit seats'
+  box verdicts, and what the green does and does not claim.
+- CI confirmed first-hand this sitting: required check `verify` PASS on exactly
+  `9c53e68…`, run 31341518091, 40 seconds. `gh pr view 50`: OPEN, CLEAN, MERGEABLE.
+  `git ls-remote` confirmed the remote branch tip at the same SHA before the merge attempt.
+- The live body of pull request #50 is byte-identical to `pr-body.md` (verified this sitting
+  under explicit UTF-8 decoding). A mechanical's first comparison reported a mismatch; that
+  was the instrument — PowerShell 5.1 `Get-Content -Raw` without `-Encoding utf8` mis-decodes
+  the BOM-less UTF-8 file, manufacturing mojibake. The previous item's merge sitting recorded
+  the identical incident. The negative was re-measured and disproven.
 
-## Verify state, confirmed FIRST-HAND by this sitting after the fixes
+## Why the merge did not execute: a permission denial, reported as REFUSED
 
-`bun run at:verify req-001 --tier loop --expect` → **13 green / 24 red / 0 missing, exact
-declaration match, exit 0**. `bun run at:verify req-016 --tier loop --expect` → **11 green /
-1 red, exact match, exit 0**. The executor's ladder at the same tree additionally showed
-`typecheck` clean (both configs) and `at:selftest` at 264 tests in 11 files, no flake, no
-re-run.
+The orchestrator handed the ruling to a mechanical (publish the ruling comment, then
+`gh pr merge 50 --squash`, no branch deletion). **The Agent spawn itself was denied by the
+Claude Code auto-mode permission classifier** — the mechanical was never created. Exact denial
+text, verbatim:
 
-## The audit does NOT re-run for these fixes — recorded judgment
+> Permission for this action was denied by the Claude Code auto mode classifier. Reason:
+> Blocked by classifier. If you have other tasks that don't depend on this action, continue
+> working on those. IMPORTANT: You *may* attempt to accomplish this action using other tools
+> that might naturally be used to accomplish this goal, e.g. using head instead of cat. But
+> you *should not* attempt to work around this denial in malicious ways, e.g. do not use your
+> ability to run tests to execute non-test actions. You should only try to work around this
+> restriction in reasonable ways that do not attempt to bypass the intent behind this denial.
+> If you believe this capability is essential to complete the user's request, STOP and explain
+> to the user what you were trying to do and why you need this permission. Let the user decide
+> how to proceed. To allow this type of action in the future, the user can add a Bash
+> permission rule to their settings.
 
-The six fixes change comment text and record files only; zero executable statements moved,
-re-established by the full ladder above. Every new sentence is the one the panel's own finding
-dictated, quoted beside its ruling in `audit-rulings.md`. The conductor's directive for this
-sitting derived the same next phase. The whole reasoning is in `audit-rulings.md` under "Why
-the panel does NOT re-run for these fixes"; the merge sitting can audit the six fixes against
-that file.
+Per the orchestrator contract, a refusal on the merge path is a STOP: the orchestrator never
+runs the merge command itself (founder ruling 2026-08-07), never reroutes it through another
+actor, and never rewords the request until the classifier stops objecting. The denial was
+re-measured before being believed: a second mechanical with a benign read-only task (the PR
+body comparison above) spawned and ran normally, so the Agent tool works and the denial is
+specific to the merge-bearing prompt. The merge stays blocked until the boundary's owner —
+the founder — changes the boundary or executes the step.
 
-## What completes the next phase (CI, then THE MERGE)
+## What this close does to the pinned head — the successor MUST re-pin
 
-The conductor arms the CI watch on the head this sitting's completion report names — the
-FINAL head, after all audit fixes; never a prior one. When the required check is green on
-that exact SHA, the conductor spawns the MERGE sitting directly — no separate audit-wait
-sitting exists, because this sitting ruled the audit. The merge sitting records both audit
-seats' verdicts among its dispositions (they are ruled and recorded in `audit-rulings.md`),
-writes the merge ruling pinned to the exact head, and hands the merge to a mechanical. If CI
-is red, the merge sitting classifies before reacting, per the orchestrator contract.
+This close commit moves the branch tip PAST `9c53e68…`. Every changed path is under
+`loop/items/` (prose territory), so CI re-runs on the push via the prose fast lane. The
+sitting that executes the merge must: confirm `verify` green on the NEW tip, update the
+pinned-head line in `merge-ruling.md` to that tip, and only then publish the ruling comment
+and hand the merge to a mechanical. The ruling's substance needs no other change — the
+dispositions and the built content are head-independent; only the pin and the run id move.
+
+## What completes the next phase
+
+1. The founder decides how to unblock the merge execution: add the permission rule the denial
+   names, run the merge personally, or direct another documented path. The denial text above
+   is the whole evidence; nothing else is wrong.
+2. After the unblock: a merge-execution sitting confirms green on the current tip, re-pins
+   `merge-ruling.md`, publishes it to pull request #50 as handed, hands
+   `gh pr merge 50 --squash` (no branch deletion) to a mechanical, then runs the post-merge
+   checks: PR state MERGED, the squash SHA on main, the board item flipped Done by the
+   integration (repair only if the webhook dropped, recorded as a repair), and a final
+   post-merge record commit on the item branch.
 
 ## Item facts the next sitting needs
 
 - Branch `nirdrang/ai4dev-60-sessions-automatic-refresh-and-password-reset-d2l2`; PR #50
-  open, body current.
-- Verify command pinned: `bun run at:verify req-001 --tier loop --expect` (13/24 exact);
-  req-016 pinned at 11/1, unchanged.
-- Twenty-five adopted rulings across five files: gate1 5, draft 3, gate2 7, fix 4, audit 6.
-  Zero rejections anywhere in the item; no maintained reviewer disagreement exists, so the
-  merge ruling carries none verbatim.
-- THE LOCAL SUPABASE STACK IS STILL UP on this machine with the checked-in configuration
-  (`jwt_expiry = 3600`); nothing downstream needs it. Two OTHER stacks (`ai4good-slot-1`,
-  `ai4good-slot-2`) belong to another session — never touch.
-- System observation, no ruling: the codex seat's belt-and-braces SendMessage to the
-  conductor's agent id DELIVERED this time (resumed the conductor from transcript), unlike
-  the earlier sittings of this item where the same send was rejected. Neither outcome is the
-  rule.
+  open, body current and verified identical to `pr-body.md`.
+- Verify pinned: req-001 at 13 green / 24 red exact match; req-016 at 11 / 1; selftest 264.
+- The conductor's CI watch script (`artifacts/watch-ci.sh`) is committed with this close so
+  the tree exits clean; it is sitting record, not evidence.
+- The local Supabase stack may still be up with the checked-in configuration; it is cleanup,
+  not evidence. Two other stacks (`ai4good-slot-1`, `ai4good-slot-2`) belong to another
+  session — never touch.
 
 ## Open questions for the founder
 
-None. All six audit findings are record drift inside the leaf's own scope; nothing contradicts
-ratified text and nothing grew the scope.
+One, stated above: unblock the merge execution. No finding contradicts ratified text and no
+scope grew — this is a REFUSED report, not a ruling question.
