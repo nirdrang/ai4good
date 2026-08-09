@@ -1,0 +1,6 @@
+Gate 2 (draft code review), seat B — opencode lane identity extract
+sessionID: ses_018fe4b3effe40v9QM2QR5tATB
+Pinned identity required: opencode-go/deepseek-v4-flash, variant max, agent reviewer-flash
+Observed in `opencode export`: providerID=opencode-go (19/19 occurrences), modelID=deepseek-v4-flash (19/19), agent=reviewer-flash (19/19), variant=max.
+Match: YES — identity matches the pin on every occurrence in the exported session.
+Tool cage: all 34 tool_use events are read, grep, or glob only (24 read, 8 grep, 2 glob). No write, edit, patch, bash, task or webfetch event present. Cage held.
