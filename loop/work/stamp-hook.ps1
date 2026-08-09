@@ -77,6 +77,20 @@ try {
     # item exists to delete.
     . (Join-Path $PSScriptRoot 'work-lib.ps1')
 
+    # The calling SESSION's identity, from the hook payload on stdin. Only read when stdin is
+    # genuinely redirected - reading a console would block, and a hook that hangs is the one
+    # failure this file must never have. Empty is a legal answer and degrades the ownership
+    # labels below, never the stamp.
+    $script:SessionId = ''
+    try {
+        if ([Console]::IsInputRedirected) {
+            $raw = [Console]::In.ReadToEnd()
+            $m = [regex]::Match($raw, '"session_id"\s*:\s*"([0-9a-fA-F-]{8,64})"')
+            if ($m.Success) { $script:SessionId = $m.Groups[1].Value }
+        }
+    }
+    catch { }
+
     # -LiteralPath: a legitimate directory containing [ or ] is treated as a wildcard by Test-Path
     # and reports false, silently falling back to some other directory's attribution.
     $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
@@ -125,10 +139,22 @@ try {
                 $env:CLAUDE_PROJECT_DIR = $d.FullName
                 $child = @(& powershell -NoProfile -File $PSCommandPath 2>$null)
                 if ($child.Count -ge 2) {
-                    # Verbatim. The child already labels itself AGENT and formats both lines the
-                    # same way, so re-labelling here would be a second formatter free to drift
-                    # from the first.
-                    $script:AgentLines += ([string]$child[0])
+                    # Verbatim, plus an OWNERSHIP tag (founder 2026-08-09). These lines print in
+                    # EVERY session opened in this folder - the tree is derived from disk - so a
+                    # parallel session reads them as its own agents unless each line says whose
+                    # agent it is. The owner is recorded by /work at spawn; absent records and an
+                    # unknown session id both degrade to words, never to a guess.
+                    $who = 'spawner unrecorded - not necessarily this session''s'
+                    try {
+                        $own = Get-OwnerForWorktreeRoot $a
+                        $ownSid = if ($own) { [string]$own.sessionId } else { '' }
+                        if ($ownSid -and $script:SessionId) {
+                            $who = if ($ownSid -eq $script:SessionId) { 'this session''s agent' } else { 'ANOTHER session''s agent' }
+                        }
+                        elseif ($ownSid) { $who = 'spawner recorded; this session''s id unknown' }
+                    }
+                    catch { }
+                    $script:AgentLines += ([string]$child[0] + '   [' + $who + ']')
                     $script:AgentLines += ([string]$child[1])
                     # AND ITS WARNINGS. Forwarding only the first two lines silently dropped every
                     # qualifier the child raised - STALE, CHAIN UNRESOLVED, BRANCH NAMES 2 ITEMS,
@@ -206,29 +232,34 @@ try {
     }
 
     # Branch names nothing, but the session took an item up ON THIS BRANCH: fill the gap, and say
-    # it is a gap.
+    # it is a gap. This is also how COORDINATOR LIGHT WORK attributes (founder 2026-08-09): work
+    # ruled onto main outside an item records a held item, and this line then carries it.
+    $heldFill = $false
+    $heldLabel = ''
     if (-not $item -and $heldId -and $ids.Count -eq 0) {
         $extra += ('held, not branch - the branch names no item' + $(if ($detached) { ' (detached HEAD)' } else { '' }))
         $item = $heldId
+        $heldFill = $true
+        if ($held) { $heldLabel = [string]$held.label }
     }
     if ($heldStale) {
         $extra += ('IGNORING held ' + $heldStale + ' - it was taken up on another branch; not attributing to it')
     }
 
     if (-not $item) {
-        # The nudge is for a session doing untracked work. A session supervising agents plainly is
-        # not idling, so firing it every prompt there trains the founder to skip the whole block.
+        # "nothing" was misleading (founder 2026-08-09): the coordinator is always DOING
+        # something - board, relays, sweeps, folds - it just claims no ITEM. So the coordinator's
+        # idle line names its standing work instead of an absence, and the nudge tells it how to
+        # attribute item-scoped light work: hold the item. An AGENT keeps the bare wording - it
+        # was spawned for one item, and "coordination" would be false there.
         if ($script:Actor -eq 'AGENT') {
-            # An agent is never "exploring" - it was spawned for one item. Asking it to declare
-            # exploration is a question aimed at a human session, and now that agent warnings
-            # propagate upward it would reach the founder as noise on every prompt.
             Emit 'nothing - this branch names no item yet' $line2 $extra 'none' 'none'
         }
         elseif ($script:AgentLines.Count -gt 0) {
-            Emit 'nothing - this session coordinates; the items below run in their own folders' $line2 $extra 'none' 'none'
+            Emit 'coordination, no item claimed here - the items below run in their own folders' $line2 $extra 'none' 'none'
         }
         else {
-            Emit 'nothing' $line2 ($extra + 'no item in the branch and none held here - exploring? say so') 'none' 'none'
+            Emit 'coordination, no item claimed - board, relays, sweeps and folds happen here' $line2 ($extra + 'item-scoped light work? hold the item so this line attributes it; exploring? say so') 'none' 'none'
         }
         exit 0
     }
@@ -255,6 +286,13 @@ try {
         }
         catch { }
         if (-not $fresh) { $extra += 'STALE - cached chain is old or its timestamp is unreadable; /work refreshes it' }
+    }
+    elseif ($heldFill) {
+        # Held attribution has no branch-keyed chain by design - the branch is main. The held
+        # label makes the line legible, and the "held, not branch" note above already says why
+        # there are no parents; adding CHAIN UNRESOLVED here would flag normal light work as a
+        # defect on every prompt.
+        $line1 = Fmt $item $heldLabel
     }
     else {
         $line1 = $item

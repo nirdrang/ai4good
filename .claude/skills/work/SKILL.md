@@ -101,11 +101,19 @@ falsely In Progress.
    caught it on the plan.
 7. **Record the chain FOR the agent's worktree, right after the spawn** (founder 2026-08-07):
    `Set-ChainForWorktree <worktreePath> <branch> <item> <chain>` from `work-lib.ps1`, using the
-   chain you already walked in step 1. The chain cache is worktree-scoped, so a chain you resolved
-   in the main checkout is invisible to the agent's own stamp — skip this and the founder's
-   supervision tree degrades to `AGENT AI4DEV-nn` with no parents, which is the one thing the
-   stamp exists to show. This is not a fact handed to the agent: it is the coordinator filing what
-   only the coordinator can read, where the hook will look for it.
+   chain you already walked in step 1 — **as an array of `@{ id; label }` nodes, never a
+   sentence** (a prose chain fails validation and the stamp prints `CHAIN UNRESOLVED`). The chain
+   cache is worktree-scoped, so a chain you resolved in the main checkout is invisible to the
+   agent's own stamp — skip this and the founder's supervision tree degrades to `AGENT AI4DEV-nn`
+   with no parents, which is the one thing the stamp exists to show. This is not a fact handed to
+   the agent: it is the coordinator filing what only the coordinator can read, where the hook
+   will look for it.
+8. **Record the spawner too**: `Set-OwnerForWorktree <worktreePath> <yourSessionId>` — the
+   session id is the GUID in your scratchpad path. The supervision tree prints in EVERY session
+   opened in this folder, so each agent line carries whose agent it is: `[this session's agent]`
+   here, `[ANOTHER session's agent]` in a parallel session (founder 2026-08-09 — unlabeled agent
+   lines in a parallel session read as that session's own work). A missing record degrades to
+   `[spawner unrecorded]`, loudly, never to a guess.
 
 The conductor is born in the item's one worktree — the platform creates it at spawn, because
 the definition carries worktree isolation — installs once, and runs the item from there. You do
@@ -188,6 +196,17 @@ An exhaustive leaf snapshot at a named commit · attribution resolved · the sui
 integration tier at that commit with named checks and timestamps · a recorded founder attestation
 with a date · an explicit recorded waiver path. **`/work` proposes; it never closes a requirement
 alone.**
+
+## Coordinator light work attributes through the HELD item (founder 2026-08-09)
+
+When the founder rules work done by the coordinator on `main` outside the full lifecycle —
+drill harnesses, stamp machinery, ruled contract folds — the stamp must not read
+"coordination, no item claimed" while real item-scoped work is happening. Before the first
+edit: `Set-HeldItem '<id>' '<short label>' 'main'`. The stamp then attributes every prompt —
+`COORDINATOR WORKING ON <id> (<label>)` with the honest qualifier `held, not branch` — because
+a held item's documented role is exactly this: filling the gap the branch leaves empty, never
+overriding it. `Clear-HeldItem` when the work closes. Commits still cite the item; this is the
+same fact reaching the founder's eyes per prompt instead of only per commit.
 
 ## Ride-along, and no nesting
 

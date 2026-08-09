@@ -107,6 +107,21 @@ function Clear-HeldItem {
     if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force }
 }
 
+# Which SESSION spawned the agent living in a worktree. Written by /work at spawn, read by the
+# stamp hook so a parallel session's stamp can say "another session's agent" instead of silently
+# appearing to own it (founder 2026-08-09: agent lines in a parallel session read as that
+# session's own work). A missing file degrades to "spawner unrecorded", never to a guess.
+function Set-OwnerForWorktree([string]$worktreePath, [string]$sessionId) {
+    $d = Get-StateDir
+    $id = Get-WorktreeIdForPath $worktreePath
+    $o = @{ sessionId = $sessionId; recordedAt = (Get-Date).ToUniversalTime().ToString('o') }
+    [System.IO.File]::WriteAllText((Join-Path $d ('attr\owner-' + $id + '.json')), ($o | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Get-OwnerForWorktreeRoot([string]$root) {
+    Read-JsonCapped (Join-Path (Get-StateDirRO) ('attr\owner-' + (Get-WorktreeIdFromRoot $root) + '.json'))
+}
+
 function Get-ChainKey([string]$branch) {
     $sha = [System.Security.Cryptography.SHA256]::Create()
     return ([System.BitConverter]::ToString($sha.ComputeHash(
