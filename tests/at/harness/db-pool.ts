@@ -600,10 +600,20 @@ function readMarker(slot: number): StartMarker | null {
   }
 }
 
-/** Run the pinned CLI against one slot. Raw output is never printed: `supabase start` prints keys. */
+/**
+ * Run the pinned CLI against one slot. Raw output is never printed: `supabase start` prints keys.
+ *
+ * THE WORKING DIRECTORY IS THE SLOT, NOT THE REPO, and that is the whole safety of this function.
+ * Measured 2026-08-10 on this machine: when the CLI runs from a directory that is itself a
+ * Supabase project, `--workdir <slot>` gives a HYBRID — the slot's ports with the repo project's
+ * containers. `supabase start --workdir <slot-1>` run from the repo therefore found the personal
+ * stack's database container healthy, concluded the project was already running, and exited zero
+ * having created nothing. The flag alone is not the wall; the flag and the working directory
+ * together are.
+ */
 function runSlotCli(slot: number, args: string[], what: string): void {
   const res = spawnSync(bunExecutable(), supabaseArgs('--workdir', slotDir(slot), ...args), {
-    cwd: REPO_ROOT,
+    cwd: slotDir(slot),
     env: childEnv(),
     encoding: 'utf8',
   });

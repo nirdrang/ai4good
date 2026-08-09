@@ -512,9 +512,26 @@ export function supabaseArgs(...args: string[]): string[] {
  * The CLI's global `--workdir` names the directory that CONTAINS a `supabase/` project folder.
  * Omitted, the CLI uses its own working directory, which is the repo tree — today's behaviour at
  * every existing call site.
+ *
+ * `--workdir` IS NOT SUFFICIENT ON ITS OWN, measured 2026-08-10 and the reason `cliCwd` exists.
+ * When the CLI's WORKING DIRECTORY is itself a Supabase project, `--workdir <other>` produces a
+ * hybrid: the values come from the other project's `config.toml` while the CONTAINER IDENTITY
+ * comes from the working directory's project. `supabase --workdir <slot-1> status` run from this
+ * repo reported the slot's ports and, in the same breath, the health of the containers of the
+ * project in the repo. A `db reset` under that hybrid would name one database and rebuild
+ * another. Run from a directory that is not a Supabase project, the same command correctly says
+ * `No such container: supabase_db_ai4good-slot-1`.
+ *
+ * So both are always passed together: the flag says which project, and the working directory
+ * makes sure nothing else can claim to be one.
  */
 function workdirArgs(workdir?: string): string[] {
   return workdir ? ['--workdir', workdir] : [];
+}
+
+/** See `workdirArgs`: the CLI's working directory decides container identity, so it must agree. */
+function cliCwd(workdir?: string): string {
+  return workdir ?? REPO_ROOT;
 }
 
 /**
@@ -523,7 +540,7 @@ function workdirArgs(workdir?: string): string[] {
  */
 export function readStackStatus(workdir?: string): StackStatus {
   const res = spawnSync(bunExecutable(), supabaseArgs(...workdirArgs(workdir), 'status', '-o', 'json'), {
-    cwd: REPO_ROOT,
+    cwd: cliCwd(workdir),
     env: childEnv(),
     encoding: 'utf8',
   });
@@ -780,7 +797,7 @@ export async function proveMigrationsReplayed(status: StackStatus, root: string 
  */
 export async function resetLocalDatabase(workdir?: string): Promise<void> {
   const child = spawn(bunExecutable(), supabaseArgs(...workdirArgs(workdir), 'db', 'reset', '--local'), {
-    cwd: REPO_ROOT,
+    cwd: cliCwd(workdir),
     env: childEnv(),
     // progress is worth watching (a reset replays every migration); stderr is captured so a
     // failure can be reported in our own words rather than scrolling past.
