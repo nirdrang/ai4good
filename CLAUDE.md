@@ -100,10 +100,17 @@ If you find a reference to any of them, it is stale — `/work` does that job no
     hook facts and the current prompt, so the founder sees what this actual turn is about,
     including attribution AFTER any direction change the prompt just made. A `TURN` line names a
     board item only when the turn genuinely works that item; otherwise a `~floating` label.
+    **ATTRIBUTION MEANS THE WHOLE CHAIN, root first, every id with its short title** (founder
+    correction 2026-08-09: *"Note that the stamp doesn't show the chain"*). Print
+    `AI4PM-19 (auth and org membership) > AI4DEV-50 (auth root) > AI4DEV-59 (GitHub sign-in)`,
+    never the leaf alone. The leaf alone hides which requirement the turn serves, which is the
+    one thing the chain exists to show.
   - `HOOK  <its attribution> · <actor> · folder <f> - branch <b>` — the hook's facts from this
-    turn, compressed but NEVER altered; `AGENT` lines follow as the hook gave them. If the hook
-    emitted nothing, this line says so; if its value is known wrong, print it as emitted and
-    dispute it on the next line.
+    turn, compressed but NEVER altered; `AGENT` lines follow as the hook gave them, **each with
+    its full chain**. Compression may shorten wording; it may never drop attribution. Dropping a
+    chain to save a line is altering the evidence, not compressing it. If the hook emitted
+    nothing, this line says so; if its value is known wrong, print it as emitted and dispute it
+    on the next line.
 
   The split is the safety: judgment and evidence stay distinguishable, and a DIVERGENCE between
   the two lines is itself the signal that direction changed — the same turn must then update the
