@@ -10,22 +10,28 @@
  * suite means is exactly this:
  *
  *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts`,
- *     `supabase/functions/_shared/github.ts` and `supabase/functions/_shared/verification.ts`
- *     behave as the nine acceptance criteria this suite lands require. THE THREE MODULES DO NOT
- *     HAVE THE SAME STANDING, and saying they do would be an untrue stated fact: `accounts.ts` and
- *     `github.ts` are imported by the deployed edge functions, byte for byte the code that ships.
+ *     `supabase/functions/_shared/github.ts`, `supabase/functions/_shared/caller.ts` and
+ *     `supabase/functions/_shared/verification.ts`
+ *     behave as the nine acceptance criteria this suite lands require. THE FOUR MODULES DO NOT
+ *     HAVE THE SAME STANDING, and saying they do would be an untrue stated fact: `accounts.ts`,
+ *     `github.ts` and `caller.ts` are imported by the deployed edge functions, byte for byte the
+ *     code that ships — `caller.ts` through `resolveCaller` in `edge.ts`, which every authenticated
+ *     request at both functions passes through.
  *     `verification.ts` is imported by NO deployed function — it is the module the FUTURE Discovery
  *     send route must import, and today only this suite and
  *     `tests/at/harness/shipped-verification.selftest.ts` import it. That is decision D-D of the
  *     verification leaf's plan and not an oversight; the module's own header says so too.
  *     Every PRODUCT judgement below — every accept and every refusal about account types, the
- *     GitHub precondition, the verified fact and the Discovery floor — comes from those modules,
- *     and so does the onboarding import's content. THE ONE EXCEPTION is the fixture's own
- *     BOOKKEEPING precondition refusals: `sendDiscoveryMessage` and `createOrganization` refuse an
- *     unknown session and an account that never completed signup, which is this storage checking
- *     that the world it was handed exists rather than any shipped rule judging anything. There is
- *     no second copy of the product rules in this file, deliberately: the moment there is one, this
- *     suite is grading a puppet and the green is worth nothing.
+ *     GitHub precondition, WHO IS CALLING, the verified fact and the Discovery floor — comes from
+ *     those modules, and so does the onboarding import's content. THE ONE EXCEPTION is the
+ *     fixture's own BOOKKEEPING precondition refusals: `sendDiscoveryMessage` and
+ *     `createOrganization` refuse an account that never completed signup, which is this storage
+ *     checking that the world it was handed exists rather than any shipped rule judging anything.
+ *     There is no second copy of the product rules in this file, deliberately: the moment there is
+ *     one, this suite is grading a puppet and the green is worth nothing. THAT INCLUDES THE
+ *     FAIL-CLOSED RULE ITSELF — this file decides WHICH sessions are live, which is vendor
+ *     bookkeeping, and `callerFromAuthAnswer` decides what a dead answer means, which is the
+ *     shipped judgement. The two are never both written here.
  *   - NOT PROVED: that the migration is correct, that either edge function works, that row-level
  *     security denies what it should, that Supabase Auth is configured, or that Google or GitHub
  *     sign-in works. None of that is reachable from here — the storage below is a Map. The evidence
@@ -52,15 +58,23 @@
  * guarantees). It mirrors the SHAPE; the database's own guarantee is proved on the live stack.
  *
  * ============================================================================================
- * THE VENDOR MIRRORS, EACH WITH WHAT BINDS IT — the verification leaf's four, named one by one.
+ * THE VENDOR MIRRORS, EACH WITH WHAT BINDS IT — named one by one, and never in a blanket claim.
  * ============================================================================================
  *
  * A MIRROR IS NOT A PRODUCT JUDGEMENT, and keeping the two apart is what this section is for. The
- * two PRODUCT judgements about verification — whether an address is verified, and whether an
- * unverified caller may send a Discovery message — come from the shipped
- * `supabase/functions/_shared/verification.ts` and from nowhere else; there is no second copy of
- * either rule in this file. What is left is a prediction of what Supabase Auth DOES, and a
- * prediction has to say what would prove it wrong.
+ * PRODUCT judgements on these paths — whether an address is verified, whether an unverified caller
+ * may send a Discovery message, and WHO IS CALLING — come from the shipped
+ * `supabase/functions/_shared/verification.ts` and `supabase/functions/_shared/caller.ts` and from
+ * nowhere else; there is no second copy of any of those rules in this file. What is left is a
+ * prediction of what Supabase Auth DOES, and a prediction has to say what would prove it wrong.
+ *
+ * EVERY ENTRY BELOW CARRIES EITHER A LIVE CHECK OR AN EXPLICIT UNBOUND LABEL. A blanket "all of
+ * these are live-bound" was the shape a gate-1 reviewer rejected, and correctly: it would let a
+ * mirror nothing measures sit under a label claiming something does. Where a check binds only part
+ * of a mirror, the label says which part.
+ *
+ * The first four are the verification leaf's. The session and reset mirrors follow, and the live
+ * checks they name are this item's own — `loop/items/AI4DEV-60/proof-local.ts`.
  *
  *   1. AN EMAIL/PASSWORD REGISTRATION STARTS UNCONFIRMED AND AN EMAIL CARRYING A VERIFICATION
  *      LINK IS SENT.
@@ -92,6 +106,64 @@
  *      refuses that caller, never allows one. The mirror is bound by the first item that ships a
  *      real provider-path consumer, and not before.
  *
+ *   5. SIGNING IN MINTS A SESSION, WHICH IS A ROW IN `auth.sessions` WITH AN ACCESS TOKEN THAT
+ *      EXPIRES ONE HOUR LATER.
+ *      BOUND FOR SIGN-IN, AND FOR SIGN-IN ONLY — checks (a) and (b) of
+ *      `loop/items/AI4DEV-60/proof-local.ts`: a password grant with the correct password answers
+ *      200 with tokens and the `auth.sessions` row exists; with a wrong password no row exists.
+ *      The one hour is `jwt_expiry = 3600` at `supabase/config.toml` line 165, and the constant
+ *      below cites that line.
+ *      WHAT THIS ENTRY DOES NOT COVER, said plainly because the earlier draft of it overreached:
+ *        - REGISTRATION issuance. This fixture mints a session at registration and the live stack
+ *          with confirmations on mints none. That is the DECLARED DIVERGENCE, written out in
+ *          `_contract.ts` on `registerWithEmailPassword`, and it is never labelled bound.
+ *        - PROVIDER issuance (Google, GitHub). **UNBOUND** — no OAuth app or credential exists in
+ *          this environment, the same recorded gap that leaves mirror 4 unbound. Nothing in this
+ *          suite asserts a provider session's expiry, revocation or refresh.
+ *        - ADMINISTRATOR issuance. **UNBOUND** — the recipe this repository records creates the
+ *          user through `POST /auth/v1/admin/users`, which issues NO session at all; the handle
+ *          `provisionPlatformAdmin` returns is this fixture's convenience so AT-001.07 has
+ *          something to act with. Nothing asserts an administrator's session layer.
+ *   6. LOGGING OUT ENDS THAT SESSION'S ACCESS BEFORE THE ACCESS TOKEN'S OWN EXPIRY.
+ *      BOUND — check (c): `POST /auth/v1/logout` with a live token, then the SAME access token at
+ *      `/auth/v1/user` and at a DEPLOYED edge function, with the refusal code captured verbatim.
+ *      This is the load-bearing vendor claim of AT-001.12's revocation half — a stateless reading
+ *      of a JWT would say the token still works — so it is MEASURED and pinned rather than assumed.
+ *   7. AN ACCESS TOKEN STOPS WORKING AT ITS EXPIRY, AND A REFRESH RE-ESTABLISHES ACCESS WITHOUT
+ *      CREDENTIALS, INCLUDING AFTER THAT EXPIRY.
+ *      BOUND — check (d), against a transiently lowered `jwt_expiry`: the expired token is refused
+ *      at `/auth/v1/user` and at the deployed function, then the same session's refresh token
+ *      answers 200 with a fresh access token that works at both. The transient config change is
+ *      restored inside the same check and `git diff` proves `supabase/config.toml` unchanged.
+ *   8. A REFRESH EXTENDS THE SAME SESSION ROW RATHER THAN OPENING A NEW ONE.
+ *      BOUND BY A PROBE — check (d) reads `auth.sessions` for the user with operator authority
+ *      before and after the refresh and asserts the same row id, no new row. This entry exists
+ *      because check (d)'s main body proves refreshed ACCESS and says nothing about the row; a
+ *      gate-1 reviewer caught the gap. If the vendor rotates the row instead, the fail-and-re-pin
+ *      protocol applies and `refreshSession` below is corrected to the measurement.
+ *      NOT MODELLED AND NOT ASSERTED: refresh-token rotation and `refresh_token_reuse_interval`.
+ *      No criterion reads either.
+ *   9. ASKING FOR A PASSWORD RESET EMAILS A LINK, AND COMPLETING THAT LINK'S FLOW CHANGES THE
+ *      PASSWORD.
+ *      BOUND — check (e): a registered address gets a recovery email in the local catcher, the
+ *      link's flow shape is MEASURED before anything is asserted (token-in-fragment and a PKCE code
+ *      differ across CLI versions), the new password is set through the measured flow, the old
+ *      password is then refused with the code check (a) pinned, and the new one answers 200.
+ *  10. ASKING FOR A RESET ON AN ADDRESS NOBODY REGISTERED ANSWERS THE SAME WAY.
+ *      BOUND BY A PROBE — check (e) calls `/auth/v1/recover` once for a never-registered address
+ *      and captures the answer, expecting the same 200 no-existence-oracle shape. One HTTP call,
+ *      added because the rest of check (e) exercises an EXISTING address only.
+ *  11. A RESET LINK THAT WAS NEVER ISSUED CHANGES NOTHING.
+ *      BOUND — check (e)'s tampered probe, and by that alone: a mutated variant of the real link
+ *      is followed FIRST and the old password still signs in. Note what this is NOT — the token
+ *      followed was never minted, so no lifetime and no use count is in play. AT-001.15 is retired
+ *      and no expiry, single-use or resend semantics are modelled here.
+ *
+ * NOT MIRRORED AT ALL, and therefore asserted nowhere: `[auth.sessions]`'s timebox and inactivity
+ * timeout. Both sit COMMENTED OUT in `supabase/config.toml` (lines 304-308), no criterion reads
+ * them, and a mirror of a setting that is off would be a prediction about a configuration this
+ * repository does not run.
+ *
  * THE PROVISIONED PLATFORM ADMINISTRATOR STARTS CONFIRMED, and it is a mirror of a RECIPE rather
  * than of a live measurement. `provisionPlatformAdmin` below marks its auth user confirmed and
  * mints no verification link, because creating an administrator sends no email. The recipe it
@@ -111,6 +183,7 @@
  * shipped gate on a tested path. No green over it says anything about enforcement anywhere.
  */
 
+import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
 import {
   PLATFORM_ACKNOWLEDGMENT_KIND,
@@ -121,15 +194,23 @@ import {
   type AccountType,
   type CompleteSignupRequest,
 } from '../../../../supabase/functions/_shared/accounts.ts';
-// BOTH shipped GitHub judgements, not one. The IMPORT SOURCE is the shipped stub, not a copy living
-// in this file — AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the
-// two were separate implementations the test would grade the fixture's copy and say nothing about
-// what the edge function writes. And `extractGithubHandle` is the OTHER shipped decision on this
-// path: `completeSignup` below derives the caller fact through it rather than reading the stored
-// handle straight, exactly as `resolveCaller` does in the edge function. Before that, a regression
-// in the extractor — returning null for a linked identity — would have rejected every linked
-// volunteer at the deployed edge while this suite stayed green.
-import { extractGithubHandle, stubGithubStatsFor } from '../../../../supabase/functions/_shared/github.ts';
+// THE SHIPPED CALLER JUDGEMENT — the ONE thing that decides whether a session's answer yields a
+// caller, on every session-taking operation below. It is the same function `resolveCaller` calls in
+// `edge.ts`, so a loop-tier green over an expired or revoked session grades byte for byte the code
+// both deployed functions run on every authenticated request. This file decides WHICH sessions are
+// live, which is vendor bookkeeping; it never decides what a dead answer means.
+import { callerFromAuthAnswer, type Caller } from '../../../../supabase/functions/_shared/caller.ts';
+// THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
+// AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
+// separate implementations the test would grade the fixture's copy and say nothing about what the
+// edge function writes.
+//
+// `extractGithubHandle` USED TO BE IMPORTED HERE TOO and is not any more, and that is a narrowing
+// rather than a loss. It is still on the tested path — `callerFromAuthAnswer` calls it, on the
+// whole rendered response, exactly as the deployed edge does — so the caller fact is derived by
+// one shipped chain instead of being assembled here from two. A regression in the extractor still
+// fails this suite, and it now fails it at the same place it would fail a deployed request.
+import { stubGithubStatsFor } from '../../../../supabase/functions/_shared/github.ts';
 // BOTH shipped verification judgements, for the same reason both GitHub ones are imported above.
 // `emailVerifiedFromUser` is how the verified fact is DERIVED from the rendered GoTrue user shape
 // on every read — never read straight off storage — and `discoveryMessageAllowed` is the ONLY thing
@@ -147,6 +228,7 @@ import type {
   CreateOrganizationOutcome,
   MembershipRow,
   OrganizationRow,
+  RefreshSessionOutcome,
   SendDiscoveryMessageOutcome,
   Session,
   SessionProvider,
@@ -165,6 +247,16 @@ import type {
 export const requirement = 'req-001' as const;
 
 interface AdapterOptions {
+  /**
+   * The harness's controlled clock — READ, not merely accepted.
+   *
+   * The harness has always handed it to this adapter and this adapter used to ignore it, which was
+   * honest while nothing here had a lifetime. Sessions have one, so `clock.now()` is what stamps a
+   * session's expiry at issuance and what decides at every validation whether it has passed. A body
+   * that advances the clock therefore changes what this fixture answers, which is exactly what
+   * AT-001.12 and AT-001.13 need.
+   */
+  clock: ControlledClock;
   worlds: FixtureWorldStore;
 }
 
@@ -203,6 +295,42 @@ interface AuthUser {
    * what the criterion states and no more.
    */
   verificationLink: string | null;
+  /**
+   * The password-reset link Auth emailed for this address, or null when none was emailed — the
+   * fixture's stand-in for the recovery message the local mail catcher holds on the live stack.
+   *
+   * IT IS NOT CLEARED WHEN IT IS USED, deliberately and for the same reason `verificationLink` is
+   * not: clearing it would model SINGLE USE, and single-use semantics are retired AT-001.15's —
+   * "not stated in REQ-001". The fixture models what the criterion states and no more.
+   */
+  passwordResetLink: string | null;
+}
+
+/**
+ * One row of `auth.sessions`, reduced to the three facts anything here reads.
+ *
+ * IT IS A ROW, NOT A TOKEN. There is no JWT, no signature and no expiry claim to parse; the
+ * validity of a session is looked up, exactly as GoTrue looks it up when `/auth/v1/user` is asked
+ * about a token. What a real token does is measured on the live stack, never here.
+ */
+interface StoredSession {
+  userId: string;
+  /**
+   * When this session's access stops working, in milliseconds on the harness clock — the mirror of
+   * `jwt_expiry`.
+   *
+   * A REFRESH MOVES THIS VALUE AND NOTHING ELSE, which is what makes `refreshSession` an extension
+   * of one session rather than the opening of another.
+   */
+  expiresAtMs: number;
+  /**
+   * Whether `signOut` ended this session — the mirror of `POST /auth/v1/logout` deleting the row.
+   *
+   * A FLAG RATHER THAN A DELETE, so that a revoked session is told apart from one that never
+   * existed while the code is being read. Neither is a caller, so nothing observable turns on the
+   * difference.
+   */
+  revoked: boolean;
 }
 
 interface StoredAcknowledgment extends AcknowledgmentRow {}
@@ -218,6 +346,22 @@ interface State {
    * A link this map does not hold was never issued, and confirms nothing.
    */
   byVerificationLink: Map<string, string>;
+  /**
+   * reset link -> auth user id, for the reason `byVerificationLink` gives: a link arrives on its
+   * own with no address beside it, which is the situation on the live stack where it is followed
+   * from an inbox.
+   *
+   * A link this map does not hold was never issued, and resets nothing.
+   */
+  byPasswordResetLink: Map<string, string>;
+  /**
+   * session id -> the session row — the mirror of `auth.sessions`.
+   *
+   * KEYED BY SESSION, NOT BY ACCOUNT, because one account holds many at once. AT-001.13's whole
+   * discriminator is two sessions of one account ending at different instants, and a store keyed by
+   * account could not hold that state at all.
+   */
+  sessions: Map<string, StoredSession>;
   accounts: Map<string, AccountRow>;
   organizations: Map<string, OrganizationRow>;
   /** `${organizationId}:${accountId}` -> row */
@@ -259,11 +403,13 @@ class AccountsFixtureWorld implements World {
   }
 }
 
-export function createFixtureAdapter({ worlds }: AdapterOptions) {
+export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const state: State = {
     authUsers: new Map(),
     byEmail: new Map(),
     byVerificationLink: new Map(),
+    byPasswordResetLink: new Map(),
+    sessions: new Map(),
     accounts: new Map(),
     organizations: new Map(),
     memberships: new Map(),
@@ -286,6 +432,39 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
    * judges presence and never parses the value, so this is the whole of what the field has to be.
    */
   const CONFIRMED_AT = '2026-01-01T00:00:00.000Z';
+
+  /**
+   * How long a session's access lasts — VENDOR MIRROR 5, and the number is the configuration's.
+   *
+   * `jwt_expiry = 3600` sits at `supabase/config.toml` line 165, in seconds; this is that value in
+   * milliseconds, because the harness clock counts milliseconds. It is written as the arithmetic
+   * rather than as `3_600_000` so that a reader can see the config value inside it, and so that
+   * changing the configuration is a one-line change here with the citation beside it.
+   *
+   * NOTHING ELSE ABOUT THE TOKEN'S LIFETIME IS MODELLED. `[auth.sessions]`'s timebox and inactivity
+   * timeout are commented out in that file (lines 304-308) and no criterion reads them.
+   */
+  const ACCESS_TOKEN_TTL_MS = 3600 * 1000;
+
+  /**
+   * Mint a session — VENDOR MIRROR 5. One `auth.sessions` row, expiring one hour from now.
+   *
+   * `now` IS THE HARNESS CLOCK, which is what makes expiry reachable from a test body: a body that
+   * advances the clock past this instant makes the session dead, and no other lever does.
+   *
+   * THE PROVIDER IS AN ARGUMENT rather than being read off the user, because `signInWithProvider`
+   * records the provider that established THIS session, which need not be the one that created the
+   * user — a GitHub identity linked later signs the user in through GitHub.
+   */
+  const issueSession = (user: AuthUser, provider: SessionProvider = user.provider): Session => {
+    const sessionId = nextId('session');
+    state.sessions.set(sessionId, {
+      userId: user.id,
+      expiresAtMs: clock.now() + ACCESS_TOKEN_TTL_MS,
+      revoked: false,
+    });
+    return { accountId: user.id, email: user.email, provider, sessionId };
+  };
 
   const register = (
     email: string,
@@ -320,20 +499,34 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     // construction and a link read in a failure message says which user it belongs to.
     const verificationLink = confirmedAtCreation ? null : `verify-${id}`;
 
-    const user: AuthUser = { id, email, password, provider, githubHandle, emailConfirmedAt, verificationLink };
+    const user: AuthUser = {
+      id,
+      email,
+      password,
+      provider,
+      githubHandle,
+      emailConfirmedAt,
+      verificationLink,
+      passwordResetLink: null,
+    };
     state.authUsers.set(user.id, user);
     state.byEmail.set(email, user.id);
     if (verificationLink !== null) state.byVerificationLink.set(verificationLink, user.id);
-    return { accountId: user.id, email: user.email, provider: user.provider };
+    // A SESSION AT REGISTRATION IS THE DECLARED DIVERGENCE, not a bound mirror. The live stack with
+    // confirmations on issues none; this mints one because every body written before this leaf
+    // takes its session from here. `_contract.ts`'s `registerWithEmailPassword` paragraph is where
+    // that divergence is written out, and the header's mirror 5 binds SIGN-IN issuance only.
+    return issueSession(user);
   };
 
   /**
    * The stored auth state rendered as the canonical GoTrue `/auth/v1/user` response shape.
    *
-   * ONE RENDERER FOR BOTH SHIPPED EXTRACTORS. `extractGithubHandle` reads `identities[]` and
-   * `emailVerifiedFromUser` reads `email_confirmed_at`, and both read them off the SAME object here
-   * — which is the point: on the live stack they read one response body, so rendering two different
-   * shapes for them would be a divergence this suite could never notice.
+   * ONE RENDERER FOR EVERY SHIPPED READER OF THIS SHAPE. `callerFromAuthAnswer` reads `id` and,
+   * through `extractGithubHandle`, `identities[]`; `emailVerifiedFromUser` reads
+   * `email_confirmed_at`. All of them read off the SAME object here — which is the point: on the
+   * live stack they read one response body, so rendering two different shapes for them would be a
+   * divergence this suite could never notice.
    *
    * WHAT IS STILL NOT PROVED by anything that calls this: that this shape is the shape GoTrue really
    * sends. That is a prediction of the vendor. The live proof is what binds it.
@@ -347,6 +540,61 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
         ? []
         : [{ provider: 'github', identity_data: { user_name: user.githubHandle } }],
   });
+
+  /**
+   * Whether this session row is one Auth would still answer for — known, not revoked, not expired.
+   *
+   * IT IS VENDOR BOOKKEEPING AND NOTHING ELSE. It decides WHICH sessions are live, which is a
+   * prediction about Supabase Auth (mirrors 5 to 8 in the header, each with what binds it). It does
+   * NOT decide what a dead session means for a caller — that is the shipped judgement, one function
+   * below, and the two are deliberately never written in the same place.
+   *
+   * EXPIRY IS STRICT: at exactly `expiresAtMs` the session is already dead. An expiry instant that
+   * still worked at itself would be an off-by-one nobody could see from a test body.
+   */
+  const sessionIsLive = (stored: StoredSession | undefined): stored is StoredSession =>
+    stored !== undefined && !stored.revoked && clock.now() < stored.expiresAtMs;
+
+  /**
+   * WHO IS CALLING — resolved exactly as the deployed edge functions resolve it, on every
+   * session-taking operation in this file.
+   *
+   * THE TWO HALVES, AND WHY THE SPLIT IS THE WHOLE POINT. This function renders what Supabase Auth
+   * WOULD ANSWER for the handle it was given: a live session renders the canonical `/auth/v1/user`
+   * shape with status 200, and anything else — an unknown handle, a revoked session, an expired one
+   * — renders status 401 with no user. Then the SHIPPED `callerFromAuthAnswer` judges that answer.
+   * So the rendering is this fixture's vendor mirror, and the verdict is byte for byte the code
+   * `resolveCaller` runs at the deployed edge. There is no second copy of the fail-closed rule in
+   * this file: a null caller here is null because the shipped module said so.
+   *
+   * THE 401'S BODY IS NOT MODELLED, and `null` is passed rather than an invented error shape. The
+   * shipped judgement never reads the body of a non-2xx — the status decides — so rendering
+   * GoTrue's error object here would be a prediction about the vendor that nothing in this suite
+   * reads and no live check binds. The real refusal bodies ARE captured, verbatim, in
+   * `loop/items/AI4DEV-60/proof-local.ts` checks (c) and (d).
+   *
+   * THE WHOLE RENDERED USER IS HANDED OVER, never a narrowed piece of it — the same discipline
+   * `edge.ts` is now under. `callerFromAuthAnswer` reads `identities[]` to find the linked GitHub
+   * handle, so pre-selecting fields here would silently strip every linked volunteer's handle.
+   */
+  const resolveCaller = (session: Session): Caller | null => {
+    const stored = state.sessions.get(session.sessionId);
+    const user = sessionIsLive(stored) ? state.authUsers.get(stored.userId) : undefined;
+    return user === undefined
+      ? callerFromAuthAnswer(401, null)
+      : callerFromAuthAnswer(200, renderAuthUser(user));
+  };
+
+  /**
+   * What a refused caller is told — FIXTURE BOOKKEEPING WORDING, and no body matches it.
+   *
+   * AT-001.12's criterion is that "the next request requires re-authentication", and this sentence
+   * says that in words. It is deliberately NOT asserted verbatim anywhere: the criterion is about
+   * the refusal and about the write not happening, and pinning a sentence would make a reword of
+   * this file fail a test that is supposed to be about the session layer. The refusals a body DOES
+   * match on are the shipped modules' own, which is the opposite case.
+   */
+  const DEAD_SESSION_REASON = 'this session is no longer valid — sign in again';
 
   /**
    * Which providers can sign this user back in — Auth's `identities[]`, reduced to what AT-001.02
@@ -371,40 +619,38 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     request: CompleteSignupRequest,
     ip: string,
   ): Promise<CompleteSignupOutcome> => {
-    const authUser = state.authUsers.get(session.accountId);
-    if (!authUser) {
-      return { ok: false, reason: 'no authenticated user — sign in before completing signup' };
-    }
+    // WHO IS CALLING, FIRST AND THROUGH THE SHIPPED JUDGEMENT — before any product rule is
+    // consulted, exactly as the deployed function does it. An expired or revoked session yields no
+    // caller and this returns here, having written nothing, which is the shape AT-001.12 reads.
+    //
+    // THE CALLER FACT COMES FROM AUTH'S ANSWER, never from the request. A client cannot assert it
+    // in either place, which is the whole security property of the volunteer gate. It is DERIVED,
+    // not read: the stored state is rendered as the canonical GoTrue `/auth/v1/user` shape and
+    // `callerFromAuthAnswer` judges the whole of it — the id and, through `extractGithubHandle`
+    // inside that module, the linked handle. Reading `authUser.githubHandle` straight, as this file
+    // once did, pre-narrowed the fact and left the shipped extractor unexecuted by any test.
+    //
+    // What is still NOT proved here is GoTrue's real serialisation — that this shape is the shape
+    // Auth sends. Only the live proof touches that.
+    const caller = resolveCaller(session);
+    if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
 
-    // THE CALLER FACT COMES FROM THE STORED AUTH USER, never from the request. That is the same
-    // shape the edge function has, where it comes from `/auth/v1/user` — a client cannot assert it
-    // in either place, which is the whole security property of the volunteer gate.
-    //
-    // AND IT IS DERIVED, NOT READ. The stored state is rendered as the canonical GoTrue
-    // `/auth/v1/user` shape — an `identities[]` array, empty when nothing is linked — and the handle
-    // is then judged out of it by the SHIPPED `extractGithubHandle`, which is precisely what
-    // `resolveCaller` does with the real response. Passing `authUser.githubHandle` in directly, as
-    // this used to, pre-narrowed the fact and left the extractor unexecuted by any test: storage
-    // would have been doing a judgement's job, which is the one thing this file's opening paragraph
-    // promises it does not do. What is still NOT proved here is GoTrue's real serialisation — that
-    // this shape is the shape Auth sends. Only the live proof touches that.
-    //
-    // The rendering itself is `renderAuthUser` above, shared with the verified-fact read, because
-    // on the live stack both facts come out of ONE response body and two renderings here could
-    // diverge with nothing able to notice.
-    const callerUser = renderAuthUser(authUser);
-    const decision = validateCompleteSignup(request, { githubHandle: extractGithubHandle(callerUser) });
+    const decision = validateCompleteSignup(request, { githubHandle: caller.githubHandle });
     if (!decision.ok) return { ok: false, reason: decision.reason };
     const { accountType, organizationName, acknowledgmentTextVersion, githubHandle } = decision.value;
 
     // ONE ROW PER AUTH USER is what makes "one account holds exactly one global type" structural
     // rather than remembered — the schema states it as a primary key, and this states it as a
     // refusal at the same point.
-    if (state.accounts.has(session.accountId)) {
+    //
+    // THE ID IS THE CALLER'S, not the handle's. They are the same value, and taking it from the
+    // answer Auth gave rather than from the handle the client passed is the same posture the
+    // deployed function has — there, the two are genuinely different sources.
+    if (state.accounts.has(caller.id)) {
       return { ok: false, reason: 'this account has already completed signup — one account holds exactly one global type' };
     }
 
-    const account: AccountRow = { id: session.accountId, accountType };
+    const account: AccountRow = { id: caller.id, accountType };
     let organization: OrganizationRow | null = null;
     let membership: MembershipRow | null = null;
 
@@ -422,7 +668,7 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     if (githubHandle !== null) {
       const stats = stubGithubStatsFor(githubHandle);
       volunteerProfile = {
-        accountId: session.accountId,
+        accountId: caller.id,
         githubHandle,
         topLanguages: stats.topLanguages,
         repositoryCount: stats.repositoryCount,
@@ -468,11 +714,18 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     registerWithGithub: async (email, githubHandle) => register(email, null, 'github', githubHandle),
 
     linkGithubIdentity: async (session, githubHandle) => {
-      const user = state.authUsers.get(session.accountId);
-      // A throw, not a refusal: a body that links an identity onto a user Auth never registered has
-      // a bug in the TEST, and returning a polite outcome would let that bug read as a product
-      // refusal further down.
-      if (!user) throw new Error(`fixture: no auth user ${session.accountId} to link a GitHub identity to`);
+      // THE SAME UNIFORM VALIDATION every session-taking operation uses, through the shipped
+      // judgement — a dead session links nothing. It THROWS rather than refusing politely, because
+      // this member returns nothing and has no refusal to return: a body linking an identity under
+      // a session Auth would not answer for has a bug in the TEST, and a silent no-op would let
+      // that bug read as a product refusal further down. A throw writes nothing either way, which
+      // is the property that matters.
+      const caller = resolveCaller(session);
+      if (caller === null) {
+        throw new Error(`fixture: session ${session.sessionId} is not one Auth would answer for — nothing to link an identity to`);
+      }
+      const user = state.authUsers.get(caller.id);
+      if (!user) throw new Error(`fixture: no auth user ${caller.id} to link a GitHub identity to`);
       user.githubHandle = githubHandle;
     },
 
@@ -484,7 +737,11 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       if (!user || user.password === null || user.password !== password) {
         return { ok: false, reason: 'the email or password is incorrect' };
       }
-      return { ok: true, session: { accountId: user.id, email: user.email, provider: user.provider } };
+      // VENDOR MIRROR 5, AND THIS IS THE HALF THE LIVE CHECKS BIND: a successful password grant
+      // mints a session. A REFUSED one mints none — which is AT-001.38's second clause, and it is
+      // structural here rather than remembered, because the only call to `issueSession` on this
+      // path sits after the refusal above.
+      return { ok: true, session: issueSession(user) };
     },
 
     signInWithProvider: async (provider, email): Promise<SignInOutcome> => {
@@ -497,8 +754,109 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       }
       // THE SAME ACCOUNT, which is the clause under test. The id comes from the stored user, so a
       // second identity minted per sign-in would show up as a different `accountId` rather than
-      // being invisible.
-      return { ok: true, session: { accountId: user.id, email: user.email, provider } };
+      // being invisible. The session's provider is the one that established THIS session, which is
+      // why it is passed rather than read off the user.
+      //
+      // PROVIDER ISSUANCE IS UNBOUND — the header's mirror 5 says so. No OAuth credential exists in
+      // this environment, and nothing in this suite asserts a provider session's expiry, revocation
+      // or refresh.
+      return { ok: true, session: issueSession(user, provider) };
+    },
+
+    // VENDOR MIRROR 6 — `POST /auth/v1/logout` deletes the session row, and access under that
+    // session ends before the access token's own expiry. That is the load-bearing claim of
+    // AT-001.12's revocation half, and check (c) is what measures it live.
+    //
+    // ONE SESSION, NOT THE ACCOUNT. Nothing else about the user changes, which is what lets the
+    // body prove re-authentication is the remedy: a fresh sign-in works immediately.
+    signOut: async (session) => {
+      const stored = state.sessions.get(session.sessionId);
+      // A throw, not a silent no-op, for the reason `linkGithubIdentity` gives: a body signing out
+      // a handle Auth never issued has a bug in the TEST.
+      if (!stored) throw new Error(`fixture: no session ${session.sessionId} to sign out`);
+      stored.revoked = true;
+    },
+
+    // VENDOR MIRRORS 7 AND 8 — a refresh re-establishes access with NO credentials, works after the
+    // access token has expired, and extends the SAME session row. Checks (d) and its
+    // same-session-row probe are what bind them.
+    //
+    // THERE IS NO PASSWORD PARAMETER, and that is the substance rather than a convenience: "the
+    // session refreshes without forced re-login" is exactly the claim that no credential passes
+    // through this call. A body cannot accidentally satisfy AT-001.13 by signing in again, because
+    // this member has nowhere to put a password.
+    //
+    // REVOCATION STOPS IT, EXPIRY DOES NOT. A revoked session is gone, so nothing is left to
+    // extend; an expired one still exists, and outliving the access token is the entire point of a
+    // refresh token. Getting these two the same way round is what makes AT-001.12 and AT-001.13
+    // different tests.
+    refreshSession: async (session): Promise<RefreshSessionOutcome> => {
+      const stored = state.sessions.get(session.sessionId);
+      if (!stored || stored.revoked) {
+        return { ok: false, reason: 'this session has ended — sign in again' };
+      }
+      const user = state.authUsers.get(stored.userId);
+      if (!user) return { ok: false, reason: 'this session has ended — sign in again' };
+
+      // THE SAME ROW, MOVED — no new session id, no second entry in the store. `sessionsOf` is what
+      // a body reads to see that, and check (d)'s probe is what binds it against the live vendor.
+      stored.expiresAtMs = clock.now() + ACCESS_TOKEN_TTL_MS;
+      return { ok: true, session: { accountId: user.id, email: user.email, provider: session.provider, sessionId: session.sessionId } };
+    },
+
+    // THE OPERATOR'S READ OF `auth.sessions` — live sessions only, so a session that has ended is
+    // absent rather than present-and-flagged.
+    //
+    // AT-001.38's SECOND CLAUSE NEEDS IT: "no authenticated session is created" cannot be shown by
+    // a refusal's own return value, only by a count taken across the refusal. Same reason
+    // `organizationsNamed` and `discoveryMessagesBy` exist.
+    sessionsOf: async (accountId) =>
+      [...state.sessions.entries()]
+        .filter(([, stored]) => stored.userId === accountId && sessionIsLive(stored))
+        .map(([sessionId]) => ({ sessionId })),
+
+    // VENDOR MIRROR 9 AND 10 — `/auth/v1/recover` answers the same way whatever the address is, and
+    // emails a link where there is a password to reset.
+    //
+    // IT ALWAYS SUCCEEDS, and the single answer is the point: a different answer for an unregistered
+    // address would be an existence oracle, which is the shape AT-001.21 forbids elsewhere and which
+    // the sign-in refusal in this same file avoids for the same reason. Check (e)'s unknown-address
+    // probe is what binds it.
+    requestPasswordReset: async (email) => {
+      const userId = state.byEmail.get(email);
+      const user = userId ? state.authUsers.get(userId) : undefined;
+      // A LINK ONLY WHERE THERE IS A PASSWORD. A provider-established account has none, so nothing
+      // is emailed — and the answer below does not change, which is the whole shape.
+      if (user && user.password !== null) {
+        const link = `reset-${user.id}-${state.nextId++}`;
+        user.passwordResetLink = link;
+        state.byPasswordResetLink.set(link, user.id);
+      }
+      return { ok: true };
+    },
+
+    emailedPasswordResetLink: async (email) => {
+      const userId = state.byEmail.get(email);
+      const user = userId ? state.authUsers.get(userId) : undefined;
+      return user?.passwordResetLink ?? null;
+    },
+
+    // VENDOR MIRROR 9 AND 11 — the emailed link changes the password; a link that was never issued
+    // changes nothing and says so.
+    //
+    // NOTHING HERE MODELS EXPIRY, SINGLE USE OR RESEND. The link is NOT removed from the map after
+    // it is used, exactly as a verification link is not, because removing it would be single-use
+    // semantics and AT-001.15 — where those semantics lived — is retired as unstated in REQ-001.
+    //
+    // AND NOTHING HERE REVOKES THE ACCOUNT'S OTHER SESSIONS. No criterion reads that, and
+    // `secure_password_change` sits false in `supabase/config.toml` (line 260). A mirror of a
+    // behaviour nothing asserts is how retired ground creeps back in.
+    completePasswordReset: async (link, newPassword) => {
+      const userId = state.byPasswordResetLink.get(link);
+      const user = userId ? state.authUsers.get(userId) : undefined;
+      if (!user) return { ok: false };
+      user.password = newPassword;
+      return { ok: true };
     },
 
     // DERIVED THROUGH THE SHIPPED EXTRACTOR, never read off storage. `user.emailConfirmedAt` is
@@ -541,13 +899,18 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     // and `AccountsSut`'s fourth kind. Every judgement below is the shipped module's; what is left
     // here is one refusal about bookkeeping and one write.
     sendDiscoveryMessage: async (session, body): Promise<SendDiscoveryMessageOutcome> => {
-      const authUser = state.authUsers.get(session.accountId);
-      if (!authUser) return { ok: false, reason: 'no authenticated user — sign in before sending a Discovery message' };
+      // WHO IS CALLING, FIRST AND THROUGH THE SHIPPED JUDGEMENT — the same uniform validation
+      // `completeSignup` and `createOrganization` use. A dead session is refused here, before the
+      // Discovery floor is consulted, and writes nothing.
+      const caller = resolveCaller(session);
+      if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
+      const authUser = state.authUsers.get(caller.id);
+      if (!authUser) return { ok: false, reason: DEAD_SESSION_REASON };
       // The same bookkeeping refusal `createOrganization` gives, and it is THIS FILE'S, not a
       // product rule: an account that has not completed signup has no sender to record against.
       // It is checked FIRST so that AT-001.10's refusal is unambiguously the gate's own — the
       // account there has completed signup, so this branch cannot be what answers.
-      if (!state.accounts.has(session.accountId)) {
+      if (!state.accounts.has(caller.id)) {
         return { ok: false, reason: 'complete signup before sending a Discovery message' };
       }
 
@@ -566,16 +929,25 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       // ONLY REACHED ON ALLOW, so a refusal writes nothing — which is what `discoveryMessagesBy`
       // is read for. The body is stored opaquely: recipients, threads and message state are
       // REQ-002/004's semantics and none of them is invented here.
-      const sent = state.discoveryMessages.get(session.accountId) ?? [];
+      const sent = state.discoveryMessages.get(caller.id) ?? [];
       sent.push(body);
-      state.discoveryMessages.set(session.accountId, sent);
+      state.discoveryMessages.set(caller.id, sent);
       return { ok: true };
     },
 
     discoveryMessagesBy: async (accountId) => clone(state.discoveryMessages.get(accountId) ?? []),
 
     createOrganization: async (session, organizationName): Promise<CreateOrganizationOutcome> => {
-      const account = state.accounts.get(session.accountId);
+      // WHO IS CALLING, FIRST AND THROUGH THE SHIPPED JUDGEMENT. This is AT-001.12's write: an
+      // expired session and a revoked one are both refused HERE, before any product rule, and
+      // nothing is written — which `organizationsNamed` is then read to prove.
+      //
+      // NO VERIFICATION GATE SITS ON THIS OPERATION, which is why AT-001.12 uses it: a refusal is
+      // unambiguously the session layer's rather than the Discovery floor's.
+      const caller = resolveCaller(session);
+      if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
+
+      const account = state.accounts.get(caller.id);
       if (!account) return { ok: false, reason: 'complete signup before creating an organisation' };
 
       // THE REFUSAL IS THE SHIPPED MODULE'S, not this file's. That is what makes AT-001.06 a test of
@@ -622,6 +994,11 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       // CONFIRMED AT PROVISIONING, AND NO VERIFICATION LINK — the header's administrator paragraph
       // says why: the only provisioning recipe this repository records creates the user with
       // `email_confirm: true`, and creating an administrator sends no email.
+      //
+      // THE SESSION IT RETURNS IS THIS FIXTURE'S CONVENIENCE, AND IS UNBOUND — mirror 5 says so.
+      // `POST /auth/v1/admin/users` issues no session at all; the handle exists so AT-001.07 has
+      // something to act with, and nothing in this suite asserts an administrator's expiry,
+      // revocation or refresh.
       const session = register(email, password, 'email', null, true);
       // Written directly, bypassing `completeSignup` — which is not a shortcut but the point:
       // `parseAccountType` refuses this type, so the public path CANNOT produce it, and the only way
@@ -649,6 +1026,8 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       state.authUsers.clear();
       state.byEmail.clear();
       state.byVerificationLink.clear();
+      state.byPasswordResetLink.clear();
+      state.sessions.clear();
       state.accounts.clear();
       state.organizations.clear();
       state.memberships.clear();

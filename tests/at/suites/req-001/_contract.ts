@@ -134,11 +134,36 @@ export type Session = {
   accountId: string;
   email: string;
   provider: SessionProvider;
+  /**
+   * WHICH session this handle is — the mirror of one `auth.sessions` row, and the thing expiry and
+   * revocation happen to.
+   *
+   * It is separate from `accountId` because one account holds MANY sessions at once, which is the
+   * whole substance of AT-001.12 and AT-001.13: a revoked session must end access while the account
+   * lives on, and a refreshed session must outlive an unrefreshed sibling of the same instant. A
+   * handle keyed only by account could express neither.
+   *
+   * IT IS STILL NOT AN ACCESS TOKEN. Nothing here is signed, nothing is decoded, and no expiry claim
+   * is parsed; the fixture holds the session's validity in its own store and the SHIPPED
+   * `callerFromAuthAnswer` judges the answer that store renders. What a real access token does is
+   * measured on the live stack, in `loop/items/AI4DEV-60/proof-local.ts` checks (c) and (d).
+   */
+  sessionId: string;
 };
 
 /* -------------------------------------------------------------------------------- the outcomes */
 
 export type SignInOutcome = { ok: true; session: Session } | { ok: false; reason: string };
+
+/**
+ * The outcome of refreshing a session — a HANDLE back, or a reason.
+ *
+ * It is its own type rather than a reuse of `SignInOutcome`, and the reason is the one thing
+ * AT-001.13 is about: a sign-in takes credentials and a refresh does not. Two names for two
+ * different acts keeps that difference readable at every call site, and the returned handle carries
+ * the SAME `sessionId` — a refresh extends a session, it does not open another one.
+ */
+export type RefreshSessionOutcome = { ok: true; session: Session } | { ok: false; reason: string };
 
 export type CompleteSignupOutcome =
   | { ok: true; accountId: string; organizationId: string | null }
@@ -164,9 +189,17 @@ export type SendDiscoveryMessageOutcome = { ok: true } | { ok: false; reason: st
  *      adapter runs them over its own storage but delegates every judgement to
  *      `supabase/functions/_shared/accounts.ts`, the module the edge functions import; at
  *      integration tier they would be the deployed edge functions.
- *   2. SUPABASE AUTH'S HALF — registration, sign-in, identity linking, and the verification state
+ *   2. SUPABASE AUTH'S HALF — registration, sign-in, identity linking, the session layer
+ *      (`signOut`, `refreshSession`, `sessionsOf`), password reset (`requestPasswordReset`,
+ *      `emailedPasswordResetLink`, `completePasswordReset`) and the verification state
  *      (`emailVerified`, `emailedVerificationLink`, `useVerificationLink`). None of it is this
  *      requirement's code. It is what produces the states the product operations judge.
+ *
+ *      THE SESSION AND RESET MEMBERS ARE VENDOR MIRRORS, and every one of them is named in
+ *      `_fixture.ts`'s mirror section with what binds it live or an explicit unbound label. What is
+ *      NOT a mirror is the judgement that reads them: every session-taking operation resolves its
+ *      caller through the SHIPPED `callerFromAuthAnswer`, so a dead session is refused by the same
+ *      code the deployed functions run.
  *   3. READ-BACK — the row shapes an assertion reads after the fact.
  *   4. ONE STAND-IN SURFACE, AND IT IS THE ONLY ONE — `sendDiscoveryMessage`, with
  *      `discoveryMessagesBy` reading it back.
@@ -190,15 +223,29 @@ export type AccountsSut = {
   /**
    * Register an auth user with an email and a password, and return the resulting session.
    *
-   * IT STILL RETURNS A SESSION, AND THE HONEST GAP THAT LEAVES IS STATED HERE RATHER THAN HIDDEN.
-   * With `enable_confirmations = true` the live GoTrue issues NO session at signup, so on the real
-   * stack a completed-but-unverified account is not reachable by the public path. This fixture's
-   * `Session` has always been an identity handle rather than an access token, and session ISSUANCE
-   * is D2.L2's subject (AT-001.12, .13 — declared red). So at the loop tier such an account IS
-   * constructible, and AT-001.10's body constructs one deliberately: the gate exists because
-   * decision-8 makes verification the write path's own floor, not a property borrowed from the
-   * session layer. The live-stack behaviour is measured in `loop/items/AI4DEV-59/proof-local.ts`
-   * checks (a) and (c), and nowhere else in this item.
+   * ============================================================================================
+   * IT STILL RETURNS A SESSION, AND THE LIVE STACK ISSUES NONE. THIS IS THE DECLARED DIVERGENCE.
+   * ============================================================================================
+   *
+   * With `enable_confirmations = true` the live GoTrue issues NO session at signup: it creates the
+   * user, sends the confirmation email, and answers with no tokens. This fixture mints one anyway,
+   * because every body written before this leaf takes its session from here and rewriting them all
+   * would be a change to nine green ids for no criterion's sake.
+   *
+   * SO REGISTRATION ISSUANCE IS NEVER LABELLED LIVE-BOUND, anywhere. `_fixture.ts`'s mirror section
+   * binds SIGN-IN issuance — the live checks (a) and (b) measure a password grant and the
+   * `auth.sessions` row it creates — and says of registration issuance only that it diverges. A
+   * label claiming otherwise would be an untrue stated fact, and this paragraph is where the truth
+   * is kept.
+   *
+   * WHAT THE NEW BODIES DO ABOUT IT: they narrow it. AT-001.12, .13, .14 and .38 all follow the
+   * LIVE PUBLIC ORDER — register, use the emailed verification link, sign in, and only then play
+   * the session and password games — so the registration-minted handle plays no part in any
+   * assertion they make. The older bodies still use it, and AT-001.10's body relies on it
+   * deliberately: it builds a completed-but-unverified account, which the live public path cannot
+   * reach, because decision-8 makes verification the WRITE PATH's own floor rather than a property
+   * borrowed from the session layer. The live-stack behaviour is measured in
+   * `loop/items/AI4DEV-59/proof-local.ts` checks (a) and (c), and in this item's own proof.
    */
   registerWithEmailPassword(email: string, password: string): Promise<Session>;
   /**
@@ -242,6 +289,99 @@ export type AccountsSut = {
    */
   signInWithProvider(provider: SessionProvider, email: string): Promise<SignInOutcome>;
 
+  /* ----------------------------- Supabase Auth's session layer -------------------------------- */
+
+  /**
+   * End this session — the mirror of `POST /auth/v1/logout`, which deletes the `auth.sessions` row.
+   *
+   * IT ENDS ONE SESSION, NOT THE ACCOUNT'S ACCESS. That is the distinction AT-001.12's revocation
+   * half turns on: after it, work under this handle is refused and the account is otherwise
+   * untouched — a fresh sign-in works immediately, which is what makes re-authentication the
+   * REMEDY rather than a coincidence.
+   *
+   * It returns nothing, and a handle Auth never issued THROWS rather than answering politely: a
+   * body signing out a session that does not exist has a bug in the TEST, and a polite outcome
+   * would let that bug read as a product refusal further down. Same posture as
+   * `linkGithubIdentity`.
+   */
+  signOut(session: Session): Promise<void>;
+  /**
+   * Refresh a session — AT-001.13's act, and the whole point of it is what it does NOT take.
+   *
+   * NO CREDENTIALS PASS THROUGH THIS CALL, and that is structural rather than asserted: there is no
+   * parameter for a password. On the live stack the refresh token does this, which is why a client
+   * can keep a session alive while the user works and never ask them to sign in again.
+   *
+   * IT WORKS AFTER THE ACCESS TOKEN HAS EXPIRED, which is the mirror that matters — a refresh token
+   * outliving the access token is the entire mechanism. It stops working once the session is
+   * revoked, because revocation removes the session itself.
+   *
+   * IT EXTENDS THE SAME SESSION, and the returned handle carries the same `sessionId`. Whether the
+   * live vendor extends the row or rotates it is MEASURED rather than assumed —
+   * `loop/items/AI4DEV-60/proof-local.ts` check (d) reads `auth.sessions` before and after a real
+   * refresh. If the vendor rotates, this mirror is corrected to the measurement.
+   *
+   * ROTATION OF THE REFRESH TOKEN AND THE REUSE INTERVAL ARE NOT MODELLED. No criterion reads
+   * either, and modelling vendor semantics nothing asserts is how retired ground creeps back in.
+   */
+  refreshSession(session: Session): Promise<RefreshSessionOutcome>;
+  /**
+   * The account's live sessions — the mirror of reading `auth.sessions` with operator authority.
+   *
+   * "LIVE" MEANS NEITHER REVOKED NOR EXPIRED, so a session that has ended is absent rather than
+   * present-and-flagged. That is what the read is for: AT-001.38's second clause is "no
+   * authenticated session is created", and a refusal's own return value cannot show that nothing
+   * was minted — only a count taken before and after can. Same reason `organizationsNamed` and
+   * `discoveryMessagesBy` exist.
+   *
+   * IT IS AN OPERATOR'S READ, not a caller's, so it takes an account id rather than a session. No
+   * product surface in this tree exposes it and none is implied by it.
+   */
+  sessionsOf(accountId: string): Promise<{ sessionId: string }[]>;
+
+  /* --------------------------- Supabase Auth's password reset --------------------------------- */
+
+  /**
+   * Ask for a password reset — the mirror of `POST /auth/v1/recover`.
+   *
+   * IT ALWAYS SUCCEEDS, INCLUDING FOR AN ADDRESS NOBODY REGISTERED, and that is a security shape
+   * rather than laziness: an answer that differed would tell an anonymous caller which addresses
+   * hold accounts. REQ-001 spends AT-001.21 forbidding exactly that shape elsewhere, and the
+   * sign-in refusal in this same fixture gives one reason for both of its branches for the same
+   * reason. The live behaviour is measured — `loop/items/AI4DEV-60/proof-local.ts` check (e)
+   * calls `/auth/v1/recover` for a never-registered address and captures the answer.
+   *
+   * A LINK IS EMAILED ONLY WHERE THERE IS A PASSWORD TO RESET: a registered email/password user.
+   * A provider-established account has no password, so nothing is sent, and the answer is the same.
+   */
+  requestPasswordReset(email: string): Promise<{ ok: true }>;
+  /**
+   * The reset link emailed to this address, or `null` when none was emailed — the stand-in for the
+   * message the local mail catcher holds on the live stack.
+   *
+   * `null` is a real answer rather than only the empty case: no reset was requested, or the address
+   * has no password to reset.
+   */
+  emailedPasswordResetLink(email: string): Promise<string | null>;
+  /**
+   * Complete the emailed reset flow with a new password — AT-001.14's act.
+   *
+   * NO EXPIRY, NO SINGLE USE AND NO RESEND IS MODELLED OR ASSERTED. AT-001.15 is retired — the
+   * acceptance file's own words are that "reset-link expiry/single-use semantics are not stated in
+   * REQ-001" — so building any of them here would be asserting a criterion that was deliberately
+   * withdrawn. The link is NOT cleared when it is used, exactly as a verification link is not.
+   *
+   * THE NEVER-ISSUED NEGATIVE IS NOT AT-001.15 GROUND, and the difference is worth being exact
+   * about — it is the same difference `useVerificationLink` draws. It is not a claim about a link's
+   * lifetime; it guards this test's own oracle. A link-shaped string that reset an account it never
+   * belonged to would make "completing the emailed flow is what changes the password" mean nothing,
+   * because any string would change anything.
+   *
+   * WHETHER A LIVE RESET REVOKES THE ACCOUNT'S OTHER SESSIONS IS NEITHER MODELLED NOR ASSERTED. No
+   * criterion reads it, and `secure_password_change` sits false in `supabase/config.toml`.
+   */
+  completePasswordReset(link: string, newPassword: string): Promise<{ ok: boolean }>;
+
   /* ------------------------- Supabase Auth's verification state ------------------------------- */
 
   /**
@@ -284,9 +424,22 @@ export type AccountsSut = {
 
   /* ----------------------------------- the two product operations ----------------------------- */
 
-  /** `supabase/functions/complete-signup` — turns an authenticated auth user into a typed account. */
+  /**
+   * `supabase/functions/complete-signup` — turns an authenticated auth user into a typed account.
+   *
+   * IT RESOLVES ITS CALLER FIRST, through the shipped `callerFromAuthAnswer`, exactly as the
+   * deployed function does. An expired or revoked session therefore refuses BEFORE any product rule
+   * is consulted and writes nothing — which is the shape AT-001.12 reads.
+   */
   completeSignup(session: Session, request: CompleteSignupRequest, ip: string): Promise<CompleteSignupOutcome>;
-  /** `supabase/functions/create-organization` — the NGO-only action AT-001.06 drives. */
+  /**
+   * `supabase/functions/create-organization` — the NGO-only action AT-001.06 drives, and the write
+   * AT-001.12 uses as its stale-session oracle.
+   *
+   * IT IS AT-001.12'S WRITE FOR A REASON: no verification gate sits on it, so a refusal here is
+   * unambiguously the session layer's rather than the Discovery floor's. It resolves its caller the
+   * same way `completeSignup` does.
+   */
   createOrganization(session: Session, organizationName: string): Promise<CreateOrganizationOutcome>;
 
   /* --------------------------- the Discovery gate's stand-in surface -------------------------- */
