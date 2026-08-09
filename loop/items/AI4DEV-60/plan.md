@@ -11,6 +11,13 @@ before completing signup (ruling 3); the mirror-binding labels are narrowed, two
 added to checks (d) and (e), and unbound issuance is labelled (ruling 4); the green-id count
 is nine, not eleven (ruling 5). This amended plan is what gets built.
 
+**AMENDED a third time by sitting 3 (FIX AND GOAL), per the seven gate-2 rulings in
+`loop/items/AI4DEV-60/gate2-rulings.md`.** The amendments: D-B names TWO changed edges, not
+one — the 2xx body that is JSON `null` is the second (ruling 1); D-E's AT-001.38 step 3 no
+longer compares refusal texts — the single-reason shape is the fixture's stated fact, not this
+body's assertion (ruling 2); D-E's AT-001.12 expiry advance is exactly 3600 seconds, the
+boundary instant (ruling 5).
+
 **Chain, derived from the branch**
 (`nirdrang/ai4dev-60-sessions-automatic-refresh-and-password-reset-d2l2`):
 AI4DEV-60 (session expiry, refresh, password reset) → AI4DEV-52 (verification, sessions and
@@ -86,10 +93,14 @@ This is the R3 pattern a third time: the fixture renders the vendor's answer sha
 SHIPPED judgment decides, so the loop-tier green grades byte-for-byte the code every deployed
 function runs on every authenticated request. Behaviour of the deployed functions is intended
 to be UNCHANGED by the refactor; step 5 (c) and (d) drive a deployed function with dead and
-live tokens, which is the live binding. ONE EDGE CHANGES, reported by the executor and
-accepted by the draft sitting (`draft-rulings.md` ruling 1): a 2xx answer whose body is
-unparseable used to throw and surface as 502, and now yields no caller and refuses — the
-fail-closed direction, not reachable through GoTrue itself, named in the code. A blank-string
+live tokens, which is the live binding. TWO EDGES CHANGE (amended per gate-2 ruling 1; the
+draft named one): a 2xx answer whose body is unparseable used to throw and surface as 502,
+and now yields no caller and refuses; and a 2xx answer whose body is the JSON literal `null`
+used to throw on the unguarded `.id` read (evidence quoted in `gate2-rulings.md`) and now
+yields no caller and refuses. Every other parseable body behaves exactly as before — a
+property read on a boxed primitive yields `undefined`, which failed the string check then and
+fails it now. Both edges are the fail-closed direction, not reachable through GoTrue itself,
+named in the code. A blank-string
 `id` remains accepted, exactly as before the refactor — preserved, not tightened
 (`draft-rulings.md` ruling 2).
 
@@ -166,9 +177,9 @@ criterion reads it, and `secure_password_change` sits false in the local config.
 screens, and this is its negative path.
 1. register an NGO address; confirm via the emailed verification link (the live public order).
 2. control: sign-in with the correct password succeeds, and `sessionsOf` grows by one.
-3. sign-in with the correct email and a WRONG password → refused; the refusal is the same
-   single reason the fixture gives for an unknown address (no existence oracle — observed,
-   not newly asserted).
+3. sign-in with the correct email and a WRONG password → refused. The fixture's refusal is
+   deliberately single-reasoned (no existence oracle — AT-001.21's ground, stated in the
+   fixture, asserted by no line of this body; gate-2 ruling 2).
 4. the criterion's second clause: `sessionsOf` shows NO new session after the failed attempt —
    count unchanged against the reading taken after step 2.
 
@@ -179,8 +190,10 @@ gate sits on it, so a refusal is unambiguously the session layer's).
    sign-in PRECEDES completion, the live public order (gate-1 ruling 3; the registration
    handle plays no further part).
 2. control: a write under the live session succeeds.
-3. EXPIRY: `h.clock.advance(3601s)` → the same-shaped write with a fresh name is refused, and
-   `organizationsNamed` shows the name absent — a stale session wrote nothing.
+3. EXPIRY: `h.clock.advance(3600s)` — EXACTLY the TTL, the boundary instant, where the
+   fixture's strict `<` refuses and an inclusive `<=` would admit (gate-2 ruling 5) → the
+   same-shaped write with a fresh name is refused, and `organizationsNamed` shows the name
+   absent — a stale session wrote nothing.
 4. re-authentication is the remedy, proved by being the exact change that unblocks: sign in
    again, repeat the write, it succeeds and the name is present.
 5. REVOCATION: with a live session, `signOut(session)` → a third-name write refused, name
