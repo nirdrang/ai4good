@@ -1,0 +1,14 @@
+Identity extract — AI4DEV-59 audit, seat B (opencode lane)
+
+Session ID: ses_018cbdef8ffeIiDUqdR6dh2IlP
+Assistant messages checked: 37 of 37
+Every message: providerID=opencode-go, modelID=deepseek-v4-flash, agent=reviewer-flash
+
+Pin required (from .claude/skills/work/reviewers.md, AUDIT reader two):
+  opencode-go/deepseek-v4-flash --variant max, opencode, agent reviewer-flash, clean session
+
+Result: MATCH. providerID + "/" + modelID equals the required pin, and agent equals reviewer-flash
+on every assistant message. No mismatch found.
+
+Source: `opencode export ses_018cbdef8ffeIiDUqdR6dh2IlP`, saved as audit-flash-identity.json
+(working file, not committed — this extract is the committed summary).
