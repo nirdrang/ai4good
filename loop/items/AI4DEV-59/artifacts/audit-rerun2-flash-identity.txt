@@ -1,0 +1,15 @@
+Session: ses_01898caacffenY3rwFehKRTbKl
+Agent: reviewer-flash
+Model providerID: opencode-go
+Model modelID: deepseek-v4-flash
+Model variant: max
+
+Expected pins (from .claude/skills/work/reviewers.md, AUDIT reader two):
+  opencode-go/deepseek-v4-flash · --variant max · opencode · agent reviewer-flash
+
+Match: agent == reviewer-flash: YES
+Match: providerID/modelID == opencode-go/deepseek-v4-flash: YES
+Match: variant == max: YES
+
+Tool-call cage check: all 59 tool events are one of {glob, grep, read}. No write, edit, patch,
+bash, task or webfetch event observed. Cage held.
