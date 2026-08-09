@@ -16,13 +16,23 @@
  *     import's content. There is no second copy of the rules in this file, deliberately: the moment
  *     there is one, this suite is grading a puppet and the green is worth nothing.
  *   - NOT PROVED: that the migration is correct, that either edge function works, that row-level
- *     security denies what it should, that Supabase Auth is configured, or that Google sign-in
- *     works. None of that is reachable from here — the storage below is a Map. The evidence for
- *     that half is `loop/items/AI4DEV-57/proof-local.txt`, which was produced against the live
- *     local stack on one machine and EXISTS: 14 checks, 13 passed, 0 failed, one skipped. The skip
- *     is the Google handshake, because no OAuth credential was in the environment — so "Google
- *     sign-in works" is not proved by the live tier either, and no amount of green anywhere in this
- *     item proves it. A reviewer cannot reproduce that transcript; it is one machine's word.
+ *     security denies what it should, that Supabase Auth is configured, or that Google or GitHub
+ *     sign-in works. None of that is reachable from here — the storage below is a Map. The evidence
+ *     for that half at THIS tree's head is `loop/items/AI4DEV-58/proof-local.txt`, produced against
+ *     the live local stack on one machine and EXISTS: 9 checks, 8 passed, 0 failed, 1 skipped. It
+ *     covers the migration, the GitHub gate, the imported profile, the database's own backstops
+ *     against a caller who never met TypeScript, atomicity, and the provider configuration. THE
+ *     SKIP IS THE GITHUB HANDSHAKE: no GitHub OAuth app exists for this project, so "GitHub
+ *     sign-in works" is not proved by the live tier either. The GOOGLE HANDSHAKE is unproved for
+ *     the same reason and was never re-attempted here — no Google credential was in the
+ *     environment when the predecessor measured it and none is now. No amount of green anywhere in
+ *     this suite proves either handshake. A reviewer cannot reproduce that transcript; it is one
+ *     machine's word.
+ *
+ *     `loop/items/AI4DEV-57/proof-local.txt` is retained for the ONE thing only it still covers:
+ *     `create-organization`, which was exercised there and is untouched by this leaf. Its
+ *     completion-path and schema evidence is SUPERSEDED — it predates this migration and called a
+ *     `complete_signup` that no longer exists.
  *
  * WHAT THE STORAGE HALF DOES MIRROR, because a stand-in that mirrors nothing tests nothing: one
  * account row per auth user (so "one account holds exactly one global type" is structural here as it

@@ -11,9 +11,14 @@
  * NO TYPE-CHECKER COVERS THIS FILE, and that is stated rather than hoped. `bun run typecheck` runs
  * over the root project (whose `include` is `src/**` plus two config files) and the `tests/at`
  * project (whose `include` is `tests/at/**` plus whatever those files import). Neither reaches an
- * edge-function entry point or this module. What covers them instead is that both functions are
- * served and exercised against the live stack in `loop/items/AI4DEV-57/proof-local.ts` — weaker in
- * some ways and stronger in others, and named honestly either way.
+ * edge-function entry point or this module. What covers them instead is that they are served and
+ * exercised against the live stack — weaker in some ways and stronger in others, and named honestly
+ * either way. At this tree's head that evidence is `loop/items/AI4DEV-58/proof-local.txt`: 9 checks,
+ * 8 passed, 0 failed, 1 skipped, driving `complete-signup` through the deployed function for both
+ * account types. The one skip is the GitHub handshake, because no GitHub OAuth app exists for this
+ * project; the Google handshake is unproved for the same reason. `loop/items/AI4DEV-57/proof-local.ts`
+ * is retained for `create-organization`, which only it exercises; its completion-path evidence is
+ * superseded, since it predates the current migration.
  *
  * ONE IMPORT CROSSES INTO THE PURE HALF: `extractGithubHandle` from `./github.ts`. That direction is
  * the safe one and the arrangement is unchanged by it — a Deno-only file may import a pure one,
