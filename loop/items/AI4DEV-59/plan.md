@@ -3,6 +3,10 @@
 **Sitting 1 of the item: PLAN. Ruled by the `orchestrator` definition on fable (claude-fable-5,
 effort xhigh).**
 
+**Sitting 2 (DRAFT, same definition and model) ruled on gate 1's four findings and amended this
+plan. The rulings are section 7. The amended text below is what gets built; the pre-amendment
+text is commit `46b7485`.**
+
 **Chain, derived from the branch**
 (`nirdrang/ai4dev-59-email-verification-and-the-gate-on-unverified-writing-d2l1`):
 AI4DEV-59 (email verification, unverified-write gate) → AI4DEV-52 (verification, sessions and
@@ -106,8 +110,15 @@ storage is a Map like all the rest.
 `_fixture.ts`: `AuthUser` gains `emailConfirmedAt: string | null` and
 `verificationLink: string | null`. An email/password registration starts unconfirmed and mints
 a link value (the fixture's stand-in for the emailed link the mail catcher would hold). A
-provider registration (Google/GitHub) starts confirmed — the provider vouched for the address;
-GoTrue's real serialisation of that fact is bound by step 5, not assumed here.
+provider registration (Google/GitHub) starts confirmed — the expected GoTrue behaviour when the
+provider vouches for the address. **This mirror is UNBOUND by this item** (gate-1 ruling [1],
+section 7): no OAuth app or credential exists in this environment, so no live provider session
+is obtainable — the same recorded gap that leaves the OAuth handshake itself unproved at every
+tier, stated in the fixture header since the predecessor. No test this item reads a provider
+user's verified state; both new bodies register by email/password. If the prediction is wrong —
+a real provider user arriving unconfirmed — the shipped gate fails closed: it refuses, never
+allows. The fixture header's mirror section states all of this; the mirror is bound by the
+first item that ships a real provider-path consumer.
 
 `_contract.ts`: `AccountsSut` gains five members —
 - `emailVerified(accountId): Promise<boolean>` — read-back, derived through the shipped
@@ -190,7 +201,8 @@ four auth screens, and the wiring leaf has nothing of it to re-run.
 
 ### D-I — One review slice
 Estimated diff outside `loop/items/`: ~70 lines shared module, ~10 config, ~60 contract, ~90
-fixture, ~140 suite bodies and headers, ~15 declaration and pending bookkeeping — roughly 400.
+fixture, ~140 suite bodies and headers, ~50 shape selftest (gate-1 ruling [4]), ~15 declaration
+and pending bookkeeping — roughly 450.
 Far under the 1200-line trigger the previous two leaves used. **One slice**; both pinned
 draft-code readers read the whole diff.
 
@@ -208,11 +220,25 @@ commits one commit per step (the parking rule).
 **Step 1 — the shipped gate.** `supabase/functions/_shared/verification.ts` per D-C, header
 naming the hook contract (D-D) and the fail-closed posture.
 → done: `bun run typecheck` exits 0 with the module imported by the acceptance program (via the
-fixture); the refusal reason names email verification as the remedy.
+fixture); the refusal reason names email verification as the remedy; and a direct shape test —
+`tests/at/harness/shipped-verification.selftest.ts` (gate-1 ruling [4], section 7) — proves the
+fail-closed promise: `emailVerifiedFromUser` returns false for a missing field, `null`, an
+empty string, a number, an object value, and a non-object user, and true only for a non-empty
+string; `discoveryMessageAllowed` refuses a missing and a malformed caller in the same file.
+The vitest include `harness/**/*.selftest.ts` and the `at:selftest` filter pick it up with zero
+script or CI change — verified against `tests/at/vitest.config.ts` line 16 and the
+`package.json` script. Its header states why a shipped module's shape test rides the selftest
+lane: the promise cannot arise through the fixture, and this lane is what CI already runs.
 
 **Step 2 — contract and fixture.** The D-E extensions, judgements delegated per D-C/D-D.
-→ done: `bun run typecheck` exits 0; no rule exists in the fixture that does not come from a
-shipped module (the fixture's own opening-paragraph discipline).
+→ done (rewritten by gate-1 ruling [3], section 7 — the earlier criterion was unsatisfiable as
+written): `bun run typecheck` exits 0; both PRODUCT judgements — the verified-fact extraction
+and the Discovery gate — come only from the shipped `verification.ts`, with no second copy of
+either rule in the fixture; and every VENDOR MIRROR this leaf adds is named in the fixture
+header's mirror section with what binds it: link issuance at email signup, a never-issued link
+returning `ok: false`, and a used link setting `emailConfirmedAt` are bound by step 5 (a)–(d)
+on the live stack; a provider registration starting confirmed is declared UNBOUND, per the D-E
+amendment.
 
 **Step 3 — the two real test bodies, and the bookkeeping.** D-F, D-G, D-H.
 → done: `bun run at:verify req-001 --tier loop --expect` exits 0 with exactly 9 passed and 28
@@ -240,11 +266,16 @@ redacted exactly as the predecessor transcripts redact them.
   `emailVerifiedFromUser`, returns true — the extractor bound to GoTrue's real serialisation
   (its false half is exercised at the loop tier; an unconfirmed user has no session to read
   `/auth/v1/user` with, and the transcript says so rather than dressing it up);
-  (e) both email-capable types flow: a second address repeats (a)–(d); the NGO address then
-  completes signup through the deployed `complete-signup` edge function AFTER confirmation —
-  proving the D1 path still works under the flipped config, which is the one regression the
-  flip could plausibly cause. The volunteer's completion mechanics are unchanged by this leaf
-  and were proved by the predecessor's transcript; they are not re-proved here;
+  (e) both email-capable types flow END TO END under the flipped config (gate-1 ruling [2],
+  section 7 — the flip changes the auth context beneath BOTH completion paths, so the
+  predecessor's completion evidence predates it and is re-proved, not cited): a second address
+  repeats (a)–(d); the NGO address completes signup through the deployed `complete-signup`
+  edge function AFTER confirmation; the volunteer address, after confirmation and sign-in,
+  gains a GitHub identity by the predecessor's mechanism — the operator-authority insert into
+  `auth.identities` (`fabricateGithubIdentity` in the predecessor's proof script, flip-
+  independent because it is a database write, not an auth flow) — then completes as a
+  volunteer through the same deployed function, and the account row and imported profile are
+  read back;
   (f) if the mailer rate limit starves (b), the D-B relief valve fires and the transcript
   records it.
 
@@ -259,9 +290,9 @@ exit 0.
 
 | id | proved at loop tier (CI) | proved on the live stack (step 5, one machine) | **not proved by this item** |
 |---|---|---|---|
-| AT-001.09 | the flow shape against the fixture's Auth mirror: both public types start email-unverified, a never-issued link flips nothing, the emailed link flips the account to verified, the type survives; the shipped `emailVerifiedFromUser` judges the rendered user shape on every read | the real substance: GoTrue issues no session at signup, the confirmation email exists and its link flips `email_confirmed_at`, sign-in is refused before and succeeds after, the shipped extractor answers true against GoTrue's real serialisation | email delivery anywhere but the local mail catcher; any screen (D2.LW's, and Lovable's territory); link expiry / single-use / resend semantics — retired AT-001.11, deliberately unasserted |
+| AT-001.09 | the flow shape against the fixture's Auth mirror: both public types start email-unverified, a never-issued link flips nothing, the emailed link flips the account to verified, the type survives; the shipped `emailVerifiedFromUser` judges the rendered user shape on every read | the real substance: GoTrue issues no session at signup, the confirmation email exists and its link flips `email_confirmed_at`, sign-in is refused before and succeeds after, the shipped extractor answers true against GoTrue's real serialisation | email delivery anywhere but the local mail catcher; any screen (D2.LW's, and Lovable's territory); link expiry / single-use / resend semantics — retired AT-001.11, deliberately unasserted; GoTrue's serialisation of provider-vouched confirmation — the fixture's provider-confirmed start is an unbound vendor mirror (D-E amendment) |
 | AT-001.10 | the SHIPPED gate refuses an unverified account's Discovery send with verification named as the remedy and writes nothing, and the SAME send succeeds once verified — the discriminating pair | the auth-layer fact: an unconfirmed email/password user cannot authenticate at all, refusal text captured — on the live stack the block sits upstream of the gate | **enforcement at a deployed Discovery route — none exists.** The route is REQ-002/004's; the gate is the hook it must call, stated in the module header. No green here may be read as "Discovery messaging is gated in production" |
-| AT-001.01–.07 | unchanged claims, bodies untouched | (e) re-proves the NGO email path end to end under the flipped config; everything else is the predecessors' record | unchanged from the predecessors' tables |
+| AT-001.01–.07 | unchanged claims, bodies untouched | (e) re-proves BOTH public email paths end to end under the flipped config — NGO completion, and volunteer GitHub-link-then-completion; everything else is the predecessors' record | unchanged from the predecessors' tables |
 
 **What the green does and does not claim** (repeated in the merge ruling): claims — the two
 tests exist, execute, open worlds and assert; the shipped decision module `verification.ts` —
@@ -301,8 +332,70 @@ or password reset (D2.L2's ids, declared red).
 3. **The email rate limit starves the proof.** The D-B relief valve is pre-authorized; the
    transcript records the raise.
 4. **The flip breaks an existing live flow.** Step 5(e) exists precisely to catch the plausible
-   one (email/password signup → completion). Anything else it surfaces is reported with the
+   ones (email/password signup → completion, for both public types). Anything else it surfaces is reported with the
    evidence, classified, and ruled — not patched silently.
 5. **The two bodies cannot be written without inventing Discovery semantics.** The send
    operation carries an opaque string and nothing else; if anything richer turns out to be
    needed, stop and report — richer semantics belong to REQ-002/004.
+
+## 7. Gate 1 rulings (sitting 2, DRAFT — fable, claude-fable-5, effort xhigh)
+
+The gate had one reader. Its raw output is
+`loop/items/AI4DEV-59/artifacts/gate1-sol-output.md`; the distillate beside it matches the raw
+count (4 = 4). Every claim below is quoted verbatim from the raw output.
+
+**[1] severity high — ACCEPT, FIXED DIFFERENTLY.**
+Claim: "The plan treats Google/GitHub users as email-confirmed without a ratified product
+ruling and incorrectly says step 5 verifies their GoTrue serialization, although that step
+exercises only email/password users."
+The second half is right and the plan text was false as written: step 5 has no OAuth flow, so
+it binds nothing about provider users. That sentence is removed (D-E amendment). The proposed
+remedy — raw `/auth/v1/user` responses from real Google and GitHub sessions — is not
+obtainable: no OAuth app or credential exists in this environment, the same recorded gap that
+leaves the OAuth handshake itself unproved at every tier (the fixture header has carried that
+statement since the predecessor item; this narrowing rides on that recorded gap rather than
+filing a duplicate). The first half needs no new product ruling: decision D-A already defines
+"verified" as GoTrue's own fact, so the fixture's provider-confirmed start is a prediction of
+the vendor, not a product choice this plan makes. No test this item reads a provider user's
+verified state, and if the prediction is wrong the shipped gate fails closed — a real
+unconfirmed provider user is refused, never allowed. The fix as built: the mirror is declared
+UNBOUND in D-E, in the fixture header's mirror section, and in section 4's not-proved column.
+
+**[2] severity medium — ACCEPT.**
+Claim: "Step 5 claims both email-capable account types flow, but only the NGO address
+completes signup; the second address repeats type-blind Auth operations and never becomes a
+volunteer account."
+Correct, and the reviewer's reasoning is adopted whole: the config flip changes the auth
+context beneath both completion paths, so the predecessor's volunteer evidence — produced
+with confirmations off — predates the flip and no longer covers it. Step 5(e) is rewritten:
+the second address confirms, signs in, gains a GitHub identity through the predecessor's
+operator-authority insert into `auth.identities`, completes as a volunteer through the
+deployed function, and the account row and imported profile are read back.
+
+**[3] severity medium — ACCEPT, FIXED DIFFERENTLY.**
+Claim: "Step 2's done-criterion that every fixture rule comes from a shipped module is
+impossible because the planned fixture itself decides link issuance, link validity,
+confirmation mutation, and provider auto-confirmation."
+Correct that the criterion was unsatisfiable read literally — the fixture necessarily mirrors
+vendor behaviour, and its own header already keeps a named mirror category. The remedy is not
+to drop the discipline but to state the real one: step 2's criterion is rewritten so that the
+two PRODUCT judgements come only from the shipped `verification.ts`, and every vendor mirror
+this leaf adds is named in the header's mirror section with what binds it. Three of the four
+named behaviours are bound by step 5 (a)–(d) on the live stack; provider auto-confirmation is
+declared UNBOUND per ruling [1] — bound "to live evidence" is met where live evidence is
+obtainable and honestly declined where it is not.
+
+**[4] severity medium — ACCEPT.**
+Claim: "The promised fail-closed handling of missing, non-string, and malformed
+`email_confirmed_at` values has no planned oracle because the tests exercise only `null` and a
+valid timestamp string."
+Correct — a promise without an oracle is exactly what the audit would flag as an untrue stated
+fact, and weakening the promise would invert the gate's point. The fix: a direct shape test,
+`tests/at/harness/shipped-verification.selftest.ts`, added to step 1's done-criterion,
+covering the malformed shapes for `emailVerifiedFromUser` and the malformed-caller refusals
+for `discoveryMessageAllowed`. Placement verified before ruling: the vitest include
+`harness/**/*.selftest.ts` (`tests/at/vitest.config.ts` line 16) and the `at:selftest` filter
+pick the file up with zero script or CI change.
+
+No ruling removes work, so no removal-verification conditions exist. Nothing contradicts
+ratified text and nothing grows scope; there is no founder question.
