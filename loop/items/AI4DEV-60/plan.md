@@ -86,7 +86,12 @@ This is the R3 pattern a third time: the fixture renders the vendor's answer sha
 SHIPPED judgment decides, so the loop-tier green grades byte-for-byte the code every deployed
 function runs on every authenticated request. Behaviour of the deployed functions is intended
 to be UNCHANGED by the refactor; step 5 (c) and (d) drive a deployed function with dead and
-live tokens, which is the live binding.
+live tokens, which is the live binding. ONE EDGE CHANGES, reported by the executor and
+accepted by the draft sitting (`draft-rulings.md` ruling 1): a 2xx answer whose body is
+unparseable used to throw and surface as 502, and now yields no caller and refuses — the
+fail-closed direction, not reachable through GoTrue itself, named in the code. A blank-string
+`id` remains accepted, exactly as before the refactor — preserved, not tightened
+(`draft-rulings.md` ruling 2).
 
 ### D-C — The fixture models Auth's session bookkeeping, as a named vendor mirror.
 `_fixture.ts` gains a session store: `sessions: Map<sessionId, { userId, expiresAt(ms),
@@ -282,6 +287,10 @@ Estimated diff outside `loop/items/`: ~50 pure module, ~25 edge.ts, ~60 selftest
 contract, ~150 fixture, ~250 suite bodies and headers, ~30 declaration and pending
 bookkeeping — roughly 650. Under the 1200-line trigger the earlier leaves used. **One slice**;
 both pinned draft-code readers read the whole diff.
+MEASURED at the draft head: 1,334 insertions outside `loop/items/` (1,605 total), above the
+estimate — the excess is comment weight in the fixture and contract, not logic. The one-slice
+decision is MAINTAINED by the draft sitting (`draft-rulings.md` ruling 3): the diff is one
+concern, and the bodies are unreadable apart from the fixture they drive.
 
 ### D-I — Surface marks. AMENDED per gate-1 ruling 1: .13 is `ui`.
 The wiring leaf re-runs the ui-tagged subset of *"the auth screens (signup, sign-in,
