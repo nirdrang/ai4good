@@ -2,8 +2,9 @@
  * AT-REQ-001 sections B and C — email verification, the wrong-password path, sessions and reset.
  *
  * TWO OF THE SIX IDS HERE ARE NOW WRITTEN — AT-001.09 and AT-001.10, the verification leaf's own
- * pair. The other four are section C's and belong to the session-and-reset leaf (D2.L2); they are
- * still declared, not faked, and `LEAF`/`notLanded` stay imported for them.
+ * pair. The other four all belong to the session-and-reset leaf (D2.L2): three of them are section
+ * C's, and the wrong-password one is section B's, beside this leaf's pair. They are still declared,
+ * not faked, and `LEAF`/`notLanded` stay imported for them.
  *
  * `supabase/config.toml` now carries `[auth.email] enable_confirmations = true`. Turning it on is
  * this leaf's own change, made in the same item as these two bodies. (The sentence this header

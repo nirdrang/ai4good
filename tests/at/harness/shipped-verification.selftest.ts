@@ -93,23 +93,38 @@ describe('the shipped verification module fails closed', () => {
     expect(refused.reason).toMatch(/email/i);
   });
 
-  it('refuses a missing or malformed caller', () => {
+  it('refuses a missing or malformed caller, naming email verification as the remedy', () => {
     // Every call below is a shape the type-checker would reject at a checked call site. The edge
     // entry point is NOT type-checked — measured, and stated in `accounts.ts`'s header — so these
     // are the mistakes a real caller can make, and the casts are how the test reaches them.
     const call = (caller: unknown) =>
       discoveryMessageAllowed(caller as Parameters<typeof discoveryMessageAllowed>[0]);
 
-    expect(call(undefined).ok, 'a missing caller must be refused, never allowed').toBe(false);
-    expect(call(null).ok).toBe(false);
-    expect(call({}).ok, 'a caller with no emailVerified field must be refused').toBe(false);
+    /**
+     * EVERY MALFORMED-CALLER REFUSAL MUST ALSO NAME THE REMEDY, and asserting only `ok === false`
+     * here was the gap gate 2 found. The module has ONE refusal literal today, so a check on `ok`
+     * alone happens to hold — but the moment somebody splits the refusal paths, this test would
+     * stay green while the module header's all-refusals promise broke. The two patterns are the
+     * same two AT-001.10's body matches.
+     */
+    const refusesNamingVerification = (caller: unknown, why: string): void => {
+      const decision = call(caller);
+      expect(decision.ok, why).toBe(false);
+      if (decision.ok) return;
+      expect(decision.reason, `${why} — and the reason must name verification`).toMatch(/verif/i);
+      expect(decision.reason, `${why} — and the reason must name email`).toMatch(/email/i);
+    };
+
+    refusesNamingVerification(undefined, 'a missing caller must be refused, never allowed');
+    refusesNamingVerification(null, 'a null caller must be refused');
+    refusesNamingVerification({}, 'a caller with no emailVerified field must be refused');
     // The truthy non-`true` values. A truthiness test would have allowed all four.
-    expect(call({ emailVerified: 'true' }).ok).toBe(false);
-    expect(call({ emailVerified: 1 }).ok).toBe(false);
-    expect(call({ emailVerified: 'yes' }).ok).toBe(false);
-    expect(call({ emailVerified: {} }).ok).toBe(false);
+    refusesNamingVerification({ emailVerified: 'true' }, 'the string "true" must not open the gate');
+    refusesNamingVerification({ emailVerified: 1 }, 'the number 1 must not open the gate');
+    refusesNamingVerification({ emailVerified: 'yes' }, 'the string "yes" must not open the gate');
+    refusesNamingVerification({ emailVerified: {} }, 'an object must not open the gate');
     // A near-miss field name, which is what a rename leaves behind.
-    expect(call({ email_verified: true }).ok).toBe(false);
-    expect(call('verified').ok).toBe(false);
+    refusesNamingVerification({ email_verified: true }, 'a near-miss field name must be refused');
+    refusesNamingVerification('verified', 'a string caller must be refused');
   });
 });

@@ -42,10 +42,22 @@
  *
  * NO KEY IS WRITTEN INTO THIS FILE AND NONE IS PRINTED BY IT. Everything is read from
  * `bunx supabase status -o json` at run time. Redaction is DESIGNED IN rather than applied
- * afterwards — `redact()` below walks every body before it reaches the transcript, and the
- * verification redirect's URL fragment is cut off entirely, because that fragment is where GoTrue
- * puts the access token it mints when a link is followed. GitHub push protection has already
- * refused one push in this project for a transcript that captured a status command verbatim.
+ * afterwards, and it covers THREE surfaces, because gate 2 found the first version covering only
+ * one:
+ *
+ *   1. BODIES. `redact()` below walks every object body before it reaches the transcript and
+ *      replaces the value under any credential-shaped key name.
+ *   2. STRINGS, including a body that is not JSON at all. `redact()` also scrubs JWT-shaped
+ *      substrings and `name=value` pairs whose name is credential-shaped, so a raw string answer
+ *      cannot carry a token through verbatim.
+ *   3. THE REDIRECT LOCATION. `redactedLocation()` cuts the URL fragment — that fragment is where
+ *      GoTrue puts the access token it mints when a link is followed — AND replaces EVERY
+ *      query-parameter VALUE, keeping the parameter names. A `?token=` or `?code=` redirect can
+ *      therefore not land in a file that gets pushed.
+ *
+ * GitHub push protection has already refused one push in this project for a transcript that
+ * captured a status command verbatim. The transcript is ALSO inspected for credential residue by
+ * hand before it is committed; that inspection is recorded in the item's report.
  */
 
 import { readFileSync } from 'node:fs';
@@ -99,8 +111,29 @@ function fail(message: string): never {
  * It returns a STRING, not an object, so there is no path by which an unredacted value reaches the
  * output through some later `JSON.stringify`.
  */
+const SENSITIVE = /token|secret|password|apikey|api_key|jwt|nonce|otp|code$/i;
+
+/**
+ * A STRING SCRUBBED OF CREDENTIALS, for the surface `redact()`'s key walk cannot see.
+ *
+ * A key walk protects `{"access_token": "..."}`. It protects nothing inside a value — and GoTrue
+ * answers with raw strings on some paths, while any body at all can carry a link with a token in
+ * its query. So two shapes are replaced here:
+ *
+ *   - A JWT. Three base64url runs separated by dots, beginning `eyJ`, which is what a JSON header
+ *     always encodes to. Every access token, refresh token and service key in this stack is one.
+ *   - A `name=value` pair whose NAME is credential-shaped by the same pattern the key walk uses.
+ *     The name survives, so the transcript still shows which parameter was present.
+ */
+function scrubString(text: string): string {
+  return text
+    .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '<redacted-jwt>')
+    .replace(/([A-Za-z0-9_.-]+)=([^&\s"'<>]+)/g, (whole, name: string) =>
+      SENSITIVE.test(name) ? `${name}=<redacted>` : whole,
+    );
+}
+
 function redact(value: unknown): string {
-  const SENSITIVE = /token|secret|password|apikey|api_key|jwt|nonce|otp|code$/i;
   const walk = (node: unknown): unknown => {
     if (Array.isArray(node)) return node.map(walk);
     if (node !== null && typeof node === 'object') {
@@ -110,6 +143,9 @@ function redact(value: unknown): string {
       }
       return out;
     }
+    // A STRING VALUE IS SCRUBBED TOO. This is the half gate 2 found missing: a body that is not
+    // JSON reaches here as one long string, and a key walk never looks inside it.
+    if (typeof node === 'string') return scrubString(node);
     return node;
   };
   try {
@@ -119,10 +155,33 @@ function redact(value: unknown): string {
   }
 }
 
-/** A URL with its fragment removed — GoTrue puts the minted access token in the fragment. */
-function withoutFragment(url: string): string {
+/**
+ * A URL SAFE TO PRINT: no fragment, and no query-parameter VALUES.
+ *
+ * The fragment is where GoTrue puts the minted access token. The QUERY is where it puts the
+ * token hash, the `code`, and the error description — and printing those unchanged was the defect
+ * two blind reviewers found independently. Parameter NAMES are kept, because which parameters a
+ * redirect carried is usually the fact a check needs, and a name is not a credential.
+ */
+function redactedLocation(url: string): string {
+  if (url === '') return '';
   const hash = url.indexOf('#');
-  return hash < 0 ? url : `${url.slice(0, hash)}#<redacted-fragment>`;
+  const fragmentNote = hash < 0 ? '' : '#<redacted-fragment>';
+  const withoutHash = hash < 0 ? url : url.slice(0, hash);
+
+  const question = withoutHash.indexOf('?');
+  if (question < 0) return `${withoutHash}${fragmentNote}`;
+
+  const query = withoutHash
+    .slice(question + 1)
+    .split('&')
+    .map((pair) => {
+      const equals = pair.indexOf('=');
+      // A bare flag has no value to redact.
+      return equals < 0 ? pair : `${pair.slice(0, equals)}=<redacted>`;
+    })
+    .join('&');
+  return `${withoutHash.slice(0, question)}?${query}${fragmentNote}`;
 }
 
 /* --------------------------------------------------------------------------- the environment */
@@ -242,6 +301,91 @@ async function signIn(email: string): Promise<{ wire: Wire; accessToken: string 
   return { wire, accessToken: typeof token === 'string' && token !== '' ? token : null };
 }
 
+/**
+ * GoTrue's error code for "this address is not confirmed yet".
+ *
+ * It is the DISCRIMINATOR check (c) needs, and it is pinned as a constant so the transcript states
+ * which value was expected. If the live stack answers a different code, the check FAILS and the
+ * verbatim capture beside it shows the real one — measurement, never assumption.
+ */
+const CONFIRMATION_ERROR_CODE = 'email_not_confirmed';
+
+/**
+ * IS THIS THE CONFIRMATION REFUSAL, or merely A refusal — the distinction gate 2 found missing.
+ *
+ * `status >= 400` alone passes on a 429 from the mailer's rate limiter and on a 500 from a broken
+ * stack, and either would record "confirmation is enforced" while confirmation enforced nothing.
+ * So a pass needs BOTH halves:
+ *
+ *   - a 4xx that is NOT 429 — a client refusal, not a throttle and not a server fault;
+ *   - a body that NAMES the unconfirmed state — the pinned error code, or `confirm` in the
+ *     message, which is the weaker initial predicate the ruling allows.
+ *
+ * IT READS THE IN-MEMORY BODY, NOT THE PRINTED ONE, and that is load-bearing: the transcript
+ * redactor's key pattern ends with `code$`, so `error_code` is blanked in everything it prints.
+ * Judging the printed text would judge `<redacted>`. The discriminator is surfaced separately
+ * below through a safe extraction — an error code is an enum value, not a credential.
+ */
+function unconfirmedSignInRefusal(wire: Wire): { ok: boolean; discriminator: string } {
+  const body =
+    wire.body !== null && typeof wire.body === 'object'
+      ? (wire.body as Record<string, unknown>)
+      : {};
+  const errorCode = typeof body.error_code === 'string' ? body.error_code : '';
+  const message = [body.msg, body.message, body.error_description, body.error, wire.body]
+    .filter((part): part is string => typeof part === 'string')
+    .join(' | ');
+
+  const statusIsClientRefusal = wire.status >= 400 && wire.status < 500 && wire.status !== 429;
+  const bodyNamesTheState = errorCode === CONFIRMATION_ERROR_CODE || /confirm/i.test(message);
+
+  return {
+    ok: statusIsClientRefusal && bodyNamesTheState,
+    discriminator:
+      `HTTP ${wire.status} · error_code=${errorCode === '' ? '<absent>' : errorCode}` +
+      ` (expected ${CONFIRMATION_ERROR_CODE}) · message=${JSON.stringify(scrubString(message) || '<absent>')}`,
+  };
+}
+
+/**
+ * THE SAME LINK WITH A TOKEN GOTRUE NEVER ISSUED — check (b2)'s instrument.
+ *
+ * The mirror under test says a link that was never issued confirms nothing, and following a
+ * MUTATED token is how that is measured without touching any semantics REQ-001 does not state.
+ * The token this returns was never minted, so following it says nothing about expiry, about single
+ * use, or about resend — retired AT-001.11 stays untouched. Every other part of the link, the
+ * `type` and the redirect included, is left exactly as GoTrue wrote it, so the only difference
+ * between this request and the real one is the token itself.
+ *
+ * The mutation shifts digits and letters inside their own alphabet, which keeps the token the same
+ * length and shape. A token that changed shape could be refused for being malformed rather than
+ * for being unissued, and the check would then measure input validation instead of the mirror.
+ */
+function tamperVerificationToken(link: string): { tampered: string; parameter: string } | null {
+  let url: URL;
+  try {
+    url = new URL(link);
+  } catch {
+    return null;
+  }
+  const parameter = ['token', 'token_hash', 'confirmation_token'].find((name) => {
+    const value = url.searchParams.get(name);
+    return typeof value === 'string' && value !== '';
+  });
+  if (parameter === undefined) return null;
+
+  const original = url.searchParams.get(parameter) as string;
+  const mutated = original.replace(/[0-9a-zA-Z]/g, (character) => {
+    if (character >= '0' && character <= '9') return String((Number(character) + 5) % 10);
+    const base = character >= 'a' ? 'a'.charCodeAt(0) : 'A'.charCodeAt(0);
+    return String.fromCharCode(base + ((character.charCodeAt(0) - base + 13) % 26));
+  });
+  if (mutated === original) return null;
+
+  url.searchParams.set(parameter, mutated);
+  return { tampered: url.toString(), parameter };
+}
+
 /** `auth.users.email_confirmed_at` read as the operator, on port 54322 — not through any API. */
 async function confirmedAt(userId: string): Promise<string | null> {
   const rows = await sql`select email_confirmed_at from auth.users where id = ${userId}::uuid`;
@@ -306,6 +450,20 @@ async function callFunction(name: string, accessToken: string, body: unknown): P
 // The stale-mount hazard the header names: probe the function before any check depends on it. An
 // unauthenticated POST must be REFUSED by something, and a connection error is a different failure
 // from a refusal. Only the second means the function is being served.
+//
+// THE PROBE GUARDS REACHABILITY, NOT REVISION, AND (e)'s EVIDENCE DOES NOT NEED IT TO.
+// A reviewer read this as a hole: a stale mount serving an older worktree answers 401, so any
+// non-404 passes and the probe cannot tell which REVISION of `complete-signup` replied. The fact is
+// right; the consequence is not, and the reason was verified in the tree before this comment was
+// written. This branch changes NOTHING under `supabase/functions/` except the NEW
+// `_shared/verification.ts` (`git diff main...HEAD --stat -- supabase/functions/`: one file, 167
+// insertions), and `complete-signup/index.ts` imports only `_shared/accounts.ts`,
+// `_shared/github.ts` and `_shared/edge.ts` — never `verification.ts`. So every revision of
+// `complete-signup` this branch could be compared against is byte for byte the same code, and the
+// mount's revision is not load-bearing for anything (e) claims.
+// The operator side of the binding is recorded rather than inferred:
+// `loop/items/AI4DEV-59/stack-up.txt` carries the exact `bunx supabase functions serve` command and
+// the directory it ran in.
 await (async () => {
   try {
     const probe = await fetch(`${API_URL}/functions/v1/complete-signup`, {
@@ -430,6 +588,21 @@ async function adminGeneratedLink(email: string): Promise<{ link: string | null;
  * repeats exactly the same measurement rather than an abbreviated version of it.
  * ============================================================================================ */
 
+/**
+ * What following a tampered link did — or why it could not be followed at all.
+ *
+ * `attempted: false` is never a pass. Check (b2) SKIPS on it, because a check that could not run
+ * is a missing measurement rather than a satisfied one.
+ */
+type TamperedFollow = {
+  attempted: boolean;
+  why: string;
+  parameter: string;
+  status: number;
+  location: string;
+  confirmedAfter: string | null;
+};
+
 type RoundTrip = {
   email: string;
   userId: string;
@@ -441,6 +614,8 @@ type RoundTrip = {
   linkSource: 'emailed' | 'admin-generated' | 'none';
   linkEvidence: string;
   signInBefore: Wire;
+  /** check (b2): the never-issued-token negative, measured BEFORE the real link is followed */
+  tampered: TamperedFollow;
   followStatus: number;
   followLocation: string;
   confirmedAfter: string | null;
@@ -475,14 +650,44 @@ async function verificationRoundTrip(email: string): Promise<RoundTrip> {
     linkEvidence = `${fromCatcher.evidence} · FALLBACK: ${fallback.evidence}`;
   }
 
+  // (b2) THE NEVER-ISSUED TOKEN, FOLLOWED BEFORE THE REAL LINK.
+  //
+  // The order matters and is the whole design of this block: once the real link has confirmed the
+  // address, `email_confirmed_at` is non-null for every later read, and the negative becomes
+  // unmeasurable. So the tampered variant goes first, and the column is read straight afterwards.
+  const tampered: TamperedFollow = {
+    attempted: false,
+    why: '',
+    parameter: '',
+    status: 0,
+    location: '',
+    confirmedAfter: null,
+  };
+  if (!link) {
+    tampered.why = 'no verification link was obtained at all, so there was nothing to tamper with';
+  } else {
+    const mutation = tamperVerificationToken(link);
+    if (mutation === null) {
+      tampered.why = 'the link carries no non-empty token parameter this script knows how to mutate';
+    } else {
+      const followed = await fetch(mutation.tampered, { redirect: 'manual' });
+      tampered.attempted = true;
+      tampered.parameter = mutation.parameter;
+      tampered.status = followed.status;
+      tampered.location = redactedLocation(followed.headers.get('location') ?? '');
+      tampered.confirmedAfter = await confirmedAt(userId);
+    }
+  }
+
   let followStatus = 0;
   let followLocation = '';
   if (link) {
     const followed = await fetch(link, { redirect: 'manual' });
     followStatus = followed.status;
-    // THE FRAGMENT IS CUT. GoTrue redirects to the site URL with the freshly minted access token in
-    // the URL fragment, and this string goes into a file that gets pushed.
-    followLocation = withoutFragment(followed.headers.get('location') ?? '');
+    // THE FRAGMENT IS CUT AND EVERY QUERY VALUE IS REPLACED. GoTrue redirects to the site URL with
+    // the freshly minted access token in the URL fragment, and this string goes into a file that
+    // gets pushed.
+    followLocation = redactedLocation(followed.headers.get('location') ?? '');
   }
 
   const confirmedAfter = await confirmedAt(userId);
@@ -513,6 +718,7 @@ async function verificationRoundTrip(email: string): Promise<RoundTrip> {
     linkSource,
     linkEvidence,
     signInBefore,
+    tampered,
     followStatus,
     followLocation,
     confirmedAfter,
@@ -581,19 +787,69 @@ if (catcher.kind === 'unknown') {
 }
 
 /* =============================================================================================
+ * (b2) A TOKEN GOTRUE NEVER ISSUED CONFIRMS NOTHING.
+ *
+ * The fixture's mirror 2 says a link that was never issued has no confirming effect. Two blind
+ * reviewers found the same defect: that mirror was labelled BOUND by checks (a)–(d), and none of
+ * those checks ever follows an unissued link — the named evidence measured only the positive half.
+ * This check is the negative, measured.
+ *
+ * The instrument is the REAL link with its token mutated inside its own alphabet, followed BEFORE
+ * the real one. What it asserts is exactly one thing: `auth.users.email_confirmed_at` is still
+ * NULL afterwards. It asserts NOTHING about expiry, single use or resend — the token followed was
+ * never minted, so no lifetime and no use count is in play, and retired AT-001.11's semantics stay
+ * untouched.
+ *
+ * THE RESPONSE STATUS IS RECORDED BUT NOT ASSERTED ON. GoTrue may answer a redirect carrying an
+ * error, or a 4xx, and which one it picks is its own business. The column is the fact.
+ * ============================================================================================= */
+
+if (!ngoTrip.tampered.attempted) {
+  skip(
+    'b2',
+    'a verification link carrying a token GoTrue never issued confirms nothing',
+    `${ngoTrip.tampered.why}. Link source was "${ngoTrip.linkSource}" (${ngoTrip.linkEvidence}). ` +
+      'This is NOT evidence that a never-issued token confirms an address — it is evidence that the ' +
+      'negative could not be measured on this run.',
+  );
+} else {
+  record(
+    'b2',
+    'a verification link carrying a token GoTrue never issued confirms nothing',
+    ngoTrip.tampered.confirmedAfter === null,
+    `the "${ngoTrip.tampered.parameter}" parameter of the ${ngoTrip.linkSource} link was mutated inside its own alphabet` +
+      ` · following the tampered link answered HTTP ${ngoTrip.tampered.status} -> ${ngoTrip.tampered.location || '<no location header>'}` +
+      ` · auth.users.email_confirmed_at immediately afterwards = ${ngoTrip.tampered.confirmedAfter ?? 'NULL'}` +
+      ' · this says nothing about expiry, single use or resend: the token followed was never issued' +
+      (ngoTrip.linkSource === 'admin-generated'
+        ? ' · NARROWED: the link mutated was the operator-minted one, because the catcher yielded none.'
+        : ''),
+  );
+}
+
+/* =============================================================================================
  * (c) SIGN-IN BEFORE CONFIRMATION IS REFUSED, WITH THE REFUSAL TEXT CAPTURED VERBATIM.
  *
  * The second unverified-runtime-claim. On the live stack this block sits UPSTREAM of the shipped
  * gate: an unconfirmed user cannot authenticate at all, so it never reaches a write path. That is
  * why the gate is not redundant rather than why it is — decision-8 makes verification the write
  * path's own floor, and non-public paths do not pass through this refusal.
+ *
+ * THE REFUSAL MUST BE THE CONFIRMATION ONE, not any refusal. `status >= 400` was the first
+ * version's predicate and a reviewer showed what it accepts: a 429 from the mailer's rate limiter
+ * and a 500 from a broken stack both record as PASS while confirmation enforces nothing. See
+ * `unconfirmedSignInRefusal` above for the two halves a pass now needs.
  * ============================================================================================= */
+
+const ngoRefusal = unconfirmedSignInRefusal(ngoTrip.signInBefore);
 
 record(
   'c',
-  'sign-in BEFORE confirmation is refused by Auth itself',
-  ngoTrip.signInBefore.status >= 400,
-  `sign-in HTTP ${ngoTrip.signInBefore.status} ${redact(ngoTrip.signInBefore.body)} — captured verbatim, this is the refusal text`,
+  'sign-in BEFORE confirmation is refused by Auth itself, with a CONFIRMATION-SPECIFIC refusal (a 4xx that is not 429, naming the unconfirmed state)',
+  ngoRefusal.ok,
+  `sign-in ${ngoRefusal.discriminator}` +
+    ` · redacted body: ${redact(ngoTrip.signInBefore.body)} — captured verbatim, this is the refusal text` +
+    ' · the discriminator above is read from the in-memory body, because the redactor blanks error_code',
 );
 
 /* =============================================================================================
@@ -676,6 +932,10 @@ const volunteerProfile = volunteerProfileRows[0] as
   | { github_handle: string; top_languages: string[]; repository_count: number; contribution_summary: string; imported_at: Date }
   | undefined;
 
+// THE VOLUNTEER'S PRE-CONFIRMATION REFUSAL GETS THE SAME TEETH AS (c)'s, per the same ruling: a
+// claim that the volunteer "repeats (a)-(d)" is only true if it is measured the same way.
+const volunteerRefusal = unconfirmedSignInRefusal(volunteerTrip.signInBefore);
+
 record(
   'e',
   'both email-capable types flow end to end under the flipped config: the NGO completes after confirmation, and the volunteer confirms, links GitHub and completes with its profile populated',
@@ -688,7 +948,12 @@ record(
     // The volunteer half: its OWN round trip repeated (a)-(d), then completion.
     volunteerTrip.signupCarriedSession === false &&
     volunteerTrip.confirmedBefore === null &&
-    volunteerTrip.signInBefore.status >= 400 &&
+    // THE REFUSAL IS THE CONFIRMATION ONE, not merely a 4xx — the same predicate (c) uses.
+    volunteerRefusal.ok &&
+    // AND THE LINK CAME FROM THE CATCHER. Without this, the admin-minted fallback could carry the
+    // volunteer half while the claim "repeats (b)" quietly narrowed to something smaller. The NGO
+    // half already cannot do that, because (b) fails with a NARROWED note on the fallback.
+    volunteerTrip.linkSource === 'emailed' &&
     volunteerTrip.confirmedAfter !== null &&
     volunteerTrip.shippedVerdict === true &&
     volunteerCompletion.status === 200 &&
@@ -702,8 +967,10 @@ record(
   `NGO completion HTTP ${ngoCompletion.status} ${redact(ngoCompletion.body)} · rows=${JSON.stringify(ngoRows)}\n        ` +
     `volunteer round trip: signup carried a session=${volunteerTrip.signupCarriedSession}` +
     ` · confirmed before=${volunteerTrip.confirmedBefore ?? 'NULL'} after=${volunteerTrip.confirmedAfter ?? 'NULL'}` +
-    ` · sign-in before confirmation HTTP ${volunteerTrip.signInBefore.status} ${redact(volunteerTrip.signInBefore.body)}` +
+    ` · sign-in before confirmation ${volunteerRefusal.discriminator}, redacted body ${redact(volunteerTrip.signInBefore.body)}` +
     ` · link source ${volunteerTrip.linkSource} (${volunteerTrip.linkEvidence})` +
+    ` · its own tampered-token probe: attempted=${volunteerTrip.tampered.attempted}` +
+    ` email_confirmed_at afterwards=${volunteerTrip.tampered.confirmedAfter ?? 'NULL'}` +
     ` · shipped emailVerifiedFromUser says ${volunteerTrip.shippedVerdict}\n        ` +
     `volunteer completion HTTP ${volunteerCompletion.status} ${redact(volunteerCompletion.body)}` +
     ` · account=${JSON.stringify(volunteerAccountRows)} · stored profile=${JSON.stringify(volunteerProfileRows)}` +

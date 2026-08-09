@@ -10,12 +10,22 @@
  * suite means is exactly this:
  *
  *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts`,
- *     `supabase/functions/_shared/github.ts` and `supabase/functions/_shared/verification.ts` —
- *     the modules the edge functions import, byte for byte the code that ships — behave as the
- *     nine acceptance criteria this suite lands require. Every accept and every refusal below
- *     comes from those modules, and so does the onboarding import's content. There is no second
- *     copy of the rules in this file, deliberately: the moment there is one, this suite is grading
- *     a puppet and the green is worth nothing.
+ *     `supabase/functions/_shared/github.ts` and `supabase/functions/_shared/verification.ts`
+ *     behave as the nine acceptance criteria this suite lands require. THE THREE MODULES DO NOT
+ *     HAVE THE SAME STANDING, and saying they do would be an untrue stated fact: `accounts.ts` and
+ *     `github.ts` are imported by the deployed edge functions, byte for byte the code that ships.
+ *     `verification.ts` is imported by NO deployed function — it is the module the FUTURE Discovery
+ *     send route must import, and today only this suite and
+ *     `tests/at/harness/shipped-verification.selftest.ts` import it. That is decision D-D of the
+ *     verification leaf's plan and not an oversight; the module's own header says so too.
+ *     Every PRODUCT judgement below — every accept and every refusal about account types, the
+ *     GitHub precondition, the verified fact and the Discovery floor — comes from those modules,
+ *     and so does the onboarding import's content. THE ONE EXCEPTION is the fixture's own
+ *     BOOKKEEPING precondition refusals: `sendDiscoveryMessage` and `createOrganization` refuse an
+ *     unknown session and an account that never completed signup, which is this storage checking
+ *     that the world it was handed exists rather than any shipped rule judging anything. There is
+ *     no second copy of the product rules in this file, deliberately: the moment there is one, this
+ *     suite is grading a puppet and the green is worth nothing.
  *   - NOT PROVED: that the migration is correct, that either edge function works, that row-level
  *     security denies what it should, that Supabase Auth is configured, or that Google or GitHub
  *     sign-in works. None of that is reachable from here — the storage below is a Map. The evidence
@@ -58,10 +68,15 @@
  *      signup's own wire response, `auth.users.email_confirmed_at IS NULL` read on the database,
  *      and the confirmation email held by the local mail catcher.
  *   2. A LINK THAT WAS NEVER ISSUED CONFIRMS NOTHING.
- *      BOUND — the same live proof follows only the link the catcher actually holds, so a link
- *      this fixture never minted has no confirming effect anywhere. Note what this is NOT: it is
- *      not a claim about expiry, single use or resend. AT-001.11 is retired and none of those
- *      semantics is modelled here.
+ *      BOUND — check (b2) of `loop/items/AI4DEV-59/proof-local.ts`, and by that check alone. It
+ *      follows a TAMPERED variant of the real link — the token mutated, so a token GoTrue never
+ *      issued — BEFORE the real link is followed, and reads `auth.users.email_confirmed_at` still
+ *      NULL afterwards. This entry used to cite checks (a)-(d), which measure only the POSITIVE
+ *      half; two blind reviewers found that overstatement independently, so the check that
+ *      measures the negative was added rather than the label softened. Note what this is NOT: it
+ *      is not a claim about expiry, single use or resend. The token followed was never minted, so
+ *      no lifetime and no use count is in play. AT-001.11 is retired and none of those semantics
+ *      is modelled here.
  *   3. USING THE EMAILED LINK SETS `email_confirmed_at`.
  *      BOUND — checks (b) and (d): the link is followed by HTTP GET and the column flips to
  *      non-null, after which the real `/auth/v1/user` response is fed to the SHIPPED
@@ -77,9 +92,18 @@
  *      refuses that caller, never allows one. The mirror is bound by the first item that ships a
  *      real provider-path consumer, and not before.
  *
- * ONE CONSEQUENCE OF MIRROR 1 THAT NOTHING READS, recorded so a reader is not left to wonder: the
- * provisioned platform administrator registers through the same email path, so it starts
- * unconfirmed too. AT-001.07 does not read its verified state and neither does anything else here.
+ * THE PROVISIONED PLATFORM ADMINISTRATOR STARTS CONFIRMED, and it is a mirror of a RECIPE rather
+ * than of a live measurement. `provisionPlatformAdmin` below marks its auth user confirmed and
+ * mints no verification link, because creating an administrator sends no email. The recipe it
+ * mirrors is the only one this repository records: the predecessor item's live-proof script creates
+ * that user through `POST /auth/v1/admin/users` with `email_confirm: true`. The earlier version of
+ * this fixture let the administrator start UNCONFIRMED by reusing the public email path, which
+ * contradicted that record.
+ * WHAT BINDS IT: nothing yet, and that is said plainly. NOTHING READS AN ADMINISTRATOR'S VERIFIED
+ * STATE — not AT-001.07, not anything else in this suite. The predecessor's transcript ran with
+ * confirmations OFF, so it does not measure the column under this leaf's flip either. So this
+ * mirror is labelled by its recipe and is never called live-bound; the first item that reads an
+ * administrator's verified state is the one that binds it.
  *
  * AND THE DISCOVERY SEND SURFACE IS NOT A MIRROR AT ALL — it mirrors nothing, because there is
  * nothing to mirror. No Discovery route exists in this repository at either tier; it is
@@ -268,6 +292,14 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     password: string | null,
     provider: SessionProvider,
     githubHandle: string | null = null,
+    /**
+     * Whether the CREATOR already confirmed the address, which only an operator can do.
+     *
+     * It exists for `provisionPlatformAdmin` and for nothing else. See the header: the recipe this
+     * repository records creates an administrator through `POST /auth/v1/admin/users` with
+     * `email_confirm: true`, so that user never receives a confirmation email and never has a link.
+     */
+    confirmedByTheCreator = false,
   ): Session => {
     // Supabase Auth's own uniqueness, mirrored: a second registration on one address is not a new
     // user. Left out, a body could accidentally create two auth users for one address and then read
@@ -275,16 +307,18 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
     const existing = state.byEmail.get(email);
     if (existing) throw new Error(`fixture: ${email} is already registered — Supabase Auth would refuse this`);
 
-    // VENDOR MIRRORS 1 AND 4, and the header names what binds each. An email/password registration
-    // starts UNCONFIRMED and Auth emails a confirmation link; a registration a provider vouched for
-    // starts CONFIRMED and no confirmation email is sent, so it has no link. The provider half is
-    // declared UNBOUND in the header — no OAuth credential exists here — and nothing in this suite
-    // reads a provider user's verified state.
+    // VENDOR MIRRORS 1 AND 4, and the header names what binds each. A public email/password
+    // registration starts UNCONFIRMED and Auth emails a confirmation link. A registration a
+    // provider vouched for, and one an operator created with the address already confirmed, both
+    // start CONFIRMED and receive no confirmation email, so neither has a link. The provider half
+    // is declared UNBOUND in the header — no OAuth credential exists here — and nothing in this
+    // suite reads a provider user's verified state.
     const id = nextId('user');
-    const emailConfirmedAt = provider === 'email' ? null : CONFIRMED_AT;
+    const confirmedAtCreation = provider !== 'email' || confirmedByTheCreator;
+    const emailConfirmedAt = confirmedAtCreation ? CONFIRMED_AT : null;
     // Derived from the user id rather than from a second counter, so the link is unique by
     // construction and a link read in a failure message says which user it belongs to.
-    const verificationLink = provider === 'email' ? `verify-${id}` : null;
+    const verificationLink = confirmedAtCreation ? null : `verify-${id}`;
 
     const user: AuthUser = { id, email, password, provider, githubHandle, emailConfirmedAt, verificationLink };
     state.authUsers.set(user.id, user);
@@ -585,7 +619,10 @@ export function createFixtureAdapter({ worlds }: AdapterOptions) {
       state.acknowledgments.some((row) => row.accountId === accountId && row.kind === PLATFORM_ACKNOWLEDGMENT_KIND),
 
     provisionPlatformAdmin: async (email, password) => {
-      const session = register(email, password, 'email');
+      // CONFIRMED AT PROVISIONING, AND NO VERIFICATION LINK — the header's administrator paragraph
+      // says why: the only provisioning recipe this repository records creates the user with
+      // `email_confirm: true`, and creating an administrator sends no email.
+      const session = register(email, password, 'email', null, true);
       // Written directly, bypassing `completeSignup` — which is not a shortcut but the point:
       // `parseAccountType` refuses this type, so the public path CANNOT produce it, and the only way
       // an administrator exists is an authority the public never holds. The type is still taken from

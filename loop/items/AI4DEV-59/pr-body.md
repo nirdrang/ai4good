@@ -9,13 +9,17 @@ stops an email-unverified account writing Discovery messages.
 leaf (pull requests #47 and #48), which landed signup, sign-in and the account types this flow
 verifies.
 
-**Status: plan phase.** The plan is at `loop/items/AI4DEV-59/plan.md` and is under external
-review. The code comes after the plan review's findings are ruled on. This body will be brought
-up to date as the item moves; the merge ruling — what was built, every review finding and its
-disposition, and exactly what the green does and does not claim, pinned to the exact head it
-licenses — will be posted on this pull request before merge.
+**Status: built, reviewed twice, fixes applied.** The plan is at
+`loop/items/AI4DEV-59/plan.md`. Two external review gates have run and both are ruled. The plan
+gate raised four findings; the draft-code gate was a panel of two blind seats and raised twelve.
+All sixteen are accepted — several fixed differently from the remedy the reviewer proposed — and
+every disposition, with the finding quoted verbatim, is in the plan's rulings sections 7 and 8.
+The fixes are applied and the live-stack proof is run. Still ahead of merge: the read-only audit,
+and continuous integration green on the exact head. The merge ruling — what was built, every
+review finding and its disposition, and exactly what the green does and does not claim, pinned to
+the head it licenses — will be posted on this pull request before merge.
 
-**Planned shape, in one paragraph.** "Verified" is Supabase Auth's own fact
+**The shape, in one paragraph.** "Verified" is Supabase Auth's own fact
 (`email_confirmed_at`); this item ships no migration. The local auth config turns email
 confirmations on — the change the suite's own header reserves for this leaf. The gate ships as
 a shared decision module (`supabase/functions/_shared/verification.ts`) that the future
