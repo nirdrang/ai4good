@@ -678,15 +678,25 @@ record(
  * THE RULE TELLING THEM APART is weaker for GitHub than it was for Google, and that is stated rather
  * than papered over. Every Google client id ends in `.apps.googleusercontent.com`; GitHub's OAuth
  * client ids have NO such suffix — they are opaque strings, historically 20 hex characters and more
- * recently `Iv1.`/`Iv23li` prefixed for GitHub Apps. So the shape test below can only reject the
- * obviously-not-a-credential; a well-formed invented value would pass it. It is not asked to
- * establish validity, only to stop a placeholder being counted as evidence.
+ * recently prefixed: `Iv1.`/`Iv23li` for GitHub Apps, and **`Ov23li` for OAuth Apps**. So the shape
+ * test below can only reject the obviously-not-a-credential; a well-formed invented value would pass
+ * it. It is not asked to establish validity, only to stop a placeholder being counted as evidence.
+ *
+ * THE `Ov23li` FORM WAS MISSING AND THAT MADE THIS CHECK UNRUNNABLE (2026-08-09). The founder
+ * created the real OAuth app, and this check still reported SKIP-as-placeholder against a genuine
+ * credential, because the recogniser knew only the App prefixes — `I`, not `O`. A guard that can
+ * never admit the real thing is not conservative, it is broken: it would have skipped forever while
+ * looking exactly like the expected founder-manual gap. Verified live: the authorize redirect
+ * carried this id to github.com with the local callback.
  * ============================================================================================= */
 
 const configuredClientId = process.env.SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID?.trim();
 const looksLikeARealClientId =
   configuredClientId !== undefined &&
-  (/^[0-9a-f]{20}$/i.test(configuredClientId) || /^Iv1\./.test(configuredClientId) || /^Iv23li/.test(configuredClientId));
+  (/^[0-9a-f]{20}$/i.test(configuredClientId) ||
+    /^Iv1\./.test(configuredClientId) ||
+    /^Iv23li/.test(configuredClientId) ||
+    /^Ov23li/.test(configuredClientId));
 
 if (!configuredClientId) {
   skip(
@@ -698,7 +708,7 @@ if (!configuredClientId) {
   skip(
     'f2',
     'the configured GitHub client id reaches the provider handshake',
-    `SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID is set to a value that does not have the shape of any GitHub OAuth client id (20 hex characters, or an "Iv1."/"Iv23li" prefix), so it is treated as a PLACEHOLDER. The local Auth server would put it in its authorize URL without ever contacting GitHub, so performing the check would compare the placeholder with itself and report a pass. It is skipped instead. The value itself is not printed here.`,
+    `SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID is set to a value that does not have the shape of any GitHub OAuth client id (20 hex characters, or an "Iv1."/"Iv23li"/"Ov23li" prefix), so it is treated as a PLACEHOLDER. The local Auth server would put it in its authorize URL without ever contacting GitHub, so performing the check would compare the placeholder with itself and report a pass. It is skipped instead. The value itself is not printed here.`,
   );
 } else {
   const authorize = await fetch(`${API_URL}/auth/v1/authorize?provider=github`, {
