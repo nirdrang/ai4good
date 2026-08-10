@@ -52,11 +52,24 @@ $projDir = $ProjectsDir
 if (-not (Test-Path $projDir)) { throw ('transcript directory not found: ' + $projDir) }
 $files = @(Get-ChildItem $projDir -Filter '*.jsonl' -File)
 
-# Agent transcripts live under the session temp directories, NOT beside the main sessions - which
-# is why they were invisible to this report for its whole life.
-$agentRoot = Join-Path $env:LOCALAPPDATA 'Temp\claude\C--Users-nirdr-Downloads-ai4good'
-if (Test-Path $agentRoot) {
-    $files += @(Get-ChildItem $agentRoot -Filter '*.output' -File -Recurse -ErrorAction SilentlyContinue)
+# AGENT TRANSCRIPTS ARE `.jsonl` FILES BESIDE THEIR SESSION, and the glob above is not recursive,
+# so this report never read one. They live under <projDir>\<sessionId>\subagents\.
+#
+# THE `subagents` TREE IS NOT FLAT, measured 2026-08-11: 290 of 877 agent transcripts sit directly
+# in `subagents`, and the other 587 sit one level deeper in `subagents\workflows\wf_<id>\`, each
+# with its meta file beside it. A flat glob would therefore leave two thirds of them invisible, so
+# the search recurses. It still names `agent-*.jsonl` only, so a `tasks\*.output` file inside the
+# same root is never counted.
+#
+# Usage is counted from `.jsonl` transcripts ONLY. The Temp `.output` store this report used to
+# scan is gone from the scan for two measured reasons: 33 of its 34 transcript-shaped files are
+# byte-identical twins of a `subagents` file, so scanning both double-counts every
+# background-spawned agent; and the 34th is not an agent at all but a background task whose 50
+# assistant-usage lines were counted as unattributed responses. Nothing is lost - zero orphan
+# transcripts were found there.
+foreach ($d in (Get-ChildItem $projDir -Directory -ErrorAction SilentlyContinue)) {
+    $sub = Join-Path $d.FullName 'subagents'
+    if (Test-Path $sub) { $files += @(Get-ChildItem $sub -Filter 'agent-*.jsonl' -File -Recurse -ErrorAction SilentlyContinue) }
 }
 if ($Days -gt 0) { $files = @($files | Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays(-$Days) }) }
 
@@ -70,41 +83,34 @@ if ($Item) {
 }
 
 # ---------------------------------------------------------------------------------------------
-# ROLE COMES FROM THE SPAWN CALL, NOT FROM A `ROLE:` LINE IN THE TRANSCRIPT (fixed 2026-08-10).
-# The premise the old detector rested on - "the contract's `ROLE:` line reaches the transcript" -
-# is FALSE for the current agents: a conductor's own `.output` file contains no `ROLE: conductor`.
-# The only `ROLE:` strings that appear are ones an agent READ from a sibling contract as a tool
-# result, so the detector reported the file it read (distiller) rather than the agent it was
-# (reviewer-runner) - a confident-wrong answer.
-# The honest signal: the PARENT records `subagent_type` when it spawns, and the spawn's tool_result
-# hands back the child's `agentId`. Each agent transcript is the file `<agentId>.output`. So a
-# first pass pairs the two by the shared tool_use id, building agentId -> role; the second pass
-# reads each file's role from its own name. A main-session `.jsonl` was spawned by nobody and is
-# the coordinator by definition.
-$roleOfAgent = @{}
-$typeRe   = [regex]'"subagent_type"\s*:\s*"([a-z][a-z0-9-]{2,30})"'
-$tuIdRe   = [regex]'"(?:id|tool_use_id)"\s*:\s*"(toolu_[A-Za-z0-9]+)"'
-$agentIdRe= [regex]'agentId:\s*(a[0-9a-f]{6,})'
-foreach ($f in $files) {
-    try {
-        $fs = New-Object System.IO.FileStream($f.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
-        $rd = New-Object System.IO.StreamReader($fs)
-    } catch { continue }
-    $pending = @{}   # tool_use id -> subagent_type, within THIS parent transcript
-    try {
-        while ($null -ne ($line = $rd.ReadLine())) {
-            if ($line.IndexOf('"subagent_type"') -ge 0) {
-                $tm = $typeRe.Match($line); $im2 = $tuIdRe.Match($line)
-                if ($tm.Success -and $im2.Success) { $pending[$im2.Groups[1].Value] = $tm.Groups[1].Value }
+# THE SPAWN FOREST IS ALREADY ON DISK. The platform writes agent-<agentId>.meta.json beside every
+# agent transcript - 872 of 872 measured, none missing. Each one carries `agentType` (the spawn
+# call's subagent_type), `parentAgentId` (absent at spawn depth 1, where the parent is the session
+# whose directory holds the file), `toolUseId` (the spawn call inside the parent) and `spawnDepth`.
+#
+# So the role comes from the spawn call, and the parent edge comes from the spawn call. An earlier
+# version paired a `subagent_type` line with an `agentId:` line by their shared tool_use id and
+# read the role from the file name; the meta file states both directly, at any nesting depth.
+# A transcript with no meta file reads role `unmarked agent`, builds no edge, and is counted in
+# the floor note - never silently.
+#
+# THE META FILES ARE ALWAYS ALL READ, whatever -Days says: they are tiny, and an edge must exist
+# even when the parent's transcript falls outside the window.
+$metaOf = @{}
+foreach ($d in (Get-ChildItem $projDir -Directory -ErrorAction SilentlyContinue)) {
+    $sub = Join-Path $d.FullName 'subagents'
+    if (-not (Test-Path $sub)) { continue }
+    foreach ($mf in (Get-ChildItem $sub -Filter 'agent-*.meta.json' -File -Recurse -ErrorAction SilentlyContinue)) {
+        $id = $mf.Name -replace '^agent-', '' -replace '\.meta\.json$', ''
+        try {
+            $mj = Get-Content $mf.FullName -Raw | ConvertFrom-Json
+            $metaOf[$id] = @{
+                agentType     = [string]$mj.agentType
+                parentAgentId = [string]$mj.parentAgentId
+                toolUseId     = [string]$mj.toolUseId
             }
-            elseif ($line.IndexOf('agentId:') -ge 0) {
-                $am = $agentIdRe.Match($line); $im2 = $tuIdRe.Match($line)
-                if ($am.Success -and $im2.Success -and $pending.ContainsKey($im2.Groups[1].Value)) {
-                    $roleOfAgent[$am.Groups[1].Value] = $pending[$im2.Groups[1].Value]
-                }
-            }
-        }
-    } finally { $rd.Dispose() }
+        } catch { }
+    }
 }
 
 # The tag is still read as a FALLBACK for old sessions whose branches predate the id convention.
@@ -171,10 +177,18 @@ $skipped = 0
 foreach ($f in $files) {
     $curBranch = ''          # derived, primary
     $curStamp = ''           # declared, fallback only
-    # role from the spawn map: an `.output` file is named by its agentId; a main `.jsonl` session
-    # was spawned by nobody and is the coordinator.
+    # Which kind of transcript this is comes from the PATH, declared by nobody: a file in a
+    # `subagents` directory is an agent, and its bare agent id is its name without the `agent-`
+    # prefix. A top-level session file was spawned by nobody and is the coordinator.
     $base = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-    $curRole = if ($f.Extension -eq '.output') { if ($roleOfAgent.ContainsKey($base)) { $roleOfAgent[$base] } else { 'unmarked agent' } } else { 'coordinator' }
+    $isAgent = ($f.Directory.Name -eq 'subagents')
+    $joinKey = $base
+    $curRole = 'coordinator'
+    if ($isAgent) {
+        $joinKey = $base -replace '^agent-', ''
+        if ($metaOf.ContainsKey($joinKey) -and $metaOf[$joinKey].agentType) { $curRole = $metaOf[$joinKey].agentType }
+        else { $curRole = 'unmarked agent' }
+    }
     # Shared read: a transcript belonging to a RUNNING agent or background task is locked, and a
     # report that dies on a live file can never be run while anything is working - which is
     # exactly when it is most worth running.
@@ -218,7 +232,7 @@ foreach ($f in $files) {
                         else                       { Add-Usage ('unattributed|none')  $u $agg }
                         if ($ids.Count -eq 1) {
                             Add-Usage ($ids[0] + '|' + $curRole) $u $roleAgg
-                            $agentItem[$base] = $ids[0]
+                            $agentItem[$joinKey] = $ids[0]
                         }
                     }
                 } catch { }
