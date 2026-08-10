@@ -65,6 +65,38 @@ function Read-DbSlotReservation([int]$slot) {
     try { return (Get-Content $p -Raw | ConvertFrom-Json) } catch { return $null }
 }
 
+# THE SAME READ, BUT IT WAITS OUT THE WRITE WINDOW.
+#
+# NOT RULED BY GATE 2. Ruling T10 asks the create-failure path in Reserve-DbSlot to re-read the
+# reservation; measurement showed that re-read cannot see the winner's file, so the ruled fix alone
+# left the defect open. This function and the block that calls it are the executor's completion of
+# T10 and need the orchestrator's ratification. Reverting this one commit restores exactly the
+# ruled text.
+#
+# THE MEASUREMENT, on this machine, 2026-08-10. A reservation file is created EXCLUSIVELY and
+# filled a moment later. Between those two acts the file EXISTS and cannot be read at all: the
+# creating handle holds it with no sharing, so a second reader gets a sharing violation, not an
+# empty file. The loser of the race is inside that window by definition - it lost by microseconds.
+# With the plain read above, five races out of five ended with one item holding BOTH slots; with
+# this read, eight races out of eight ended with one item holding exactly one slot and the loser
+# correctly told it already held it.
+#
+# One second of retries is thousands of times the window. It is the same remedy ruling T1 applies
+# to the same window shape in the harness's own claim files.
+function Read-DbSlotReservationWait([int]$slot) {
+    $p = Get-DbSlotReservationPath $slot
+    for ($try = 0; $try -lt 40; $try++) {
+        if (-not (Test-Path $p)) { return $null }
+        $raw = $null
+        try { $raw = Get-Content $p -Raw -ErrorAction Stop } catch { $raw = $null }
+        if ($raw -and $raw.Trim()) {
+            try { return ($raw | ConvertFrom-Json) } catch { }
+        }
+        Start-Sleep -Milliseconds 25
+    }
+    return $null
+}
+
 # The occupancy claim the harness writes, if one exists and its holder is still alive.
 #
 # The claim file name carries the slot's api port, which this file deliberately does not know - it
@@ -140,9 +172,20 @@ function Reserve-DbSlot([string]$Item, [string]$Branch = '') {
             # above; one wins slot 1, and without this the loser would read "taken", advance, and
             # win slot 2 - one item holding the whole pool of two. If the reservation that beat us
             # names this same item, this item already has the slot, so say so and stop.
-            $r = Read-DbSlotReservation $slot
-            if ($r -and ([string]$r.item) -eq $Item) { return @{ ok = $true; slot = $slot; alreadyHeld = $true } }
-            if ($r) { $held += ('slot ' + $slot + ' -> ' + [string]$r.item) } else { $held += ('slot ' + $slot + ' -> taken') }
+            #
+            # The read WAITS OUT THE WRITE WINDOW (see Read-DbSlotReservationWait; NOT ruled by
+            # gate 2, the executor's completion of T10, awaiting ratification). A reservation still
+            # unreadable after the wait REJECTS this item rather than giving it a second slot: a
+            # false rejection is loud and costs one look, a silent double-take costs the pool.
+            $r = Read-DbSlotReservationWait $slot
+            if ($r) {
+                if (([string]$r.item) -eq $Item) { return @{ ok = $true; slot = $slot; alreadyHeld = $true } }
+                $held += ('slot ' + $slot + ' -> ' + [string]$r.item)
+            } elseif (Test-Path (Get-DbSlotReservationPath $slot)) {
+                return @{ ok = $false; rejected = $true; reason = ('slot ' + $slot + ' holds a reservation this call cannot read, so it cannot tell whether that reservation belongs to ' + $Item + '. This item is REJECTED at start rather than given a second slot. Look at ' + (Get-DbSlotReservationPath $slot) + ' and run this again.') }
+            } else {
+                $held += ('slot ' + $slot + ' -> taken')
+            }
         } finally {
             if ($fs) { $fs.Dispose() }
         }
