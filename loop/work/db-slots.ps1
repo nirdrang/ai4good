@@ -17,11 +17,22 @@ $ErrorActionPreference = 'Stop'
 
 $script:DbSlotPoolSize = 2
 
-# The same base-resolution rule as the harness: the pool lives beside the claims it cooperates
-# with and outside every worktree. AT_DB_POOL_ROOT overrides it, for tests only.
+# THE SAME BASE-RESOLUTION CHAIN AS THE HARNESS, all three steps of it: LOCALAPPDATA, then
+# XDG_CACHE_HOME, then the system temp path. The harness resolves it that way (poolRoot and
+# lockDir in tests/at/harness/), and two resolution rules for one pool is how the two halves stop
+# seeing each other's files - this side would write a reservation the runner never reads.
+function Get-DbSlotBaseDir([string]$leaf) {
+    if ($env:LOCALAPPDATA) { $base = $env:LOCALAPPDATA }
+    elseif ($env:XDG_CACHE_HOME) { $base = $env:XDG_CACHE_HOME }
+    else { $base = [System.IO.Path]::GetTempPath() }
+    return (Join-Path $base ('ai4good-build\' + $leaf))
+}
+
+# The pool lives beside the claims it cooperates with and outside every worktree.
+# AT_DB_POOL_ROOT overrides it, for tests only.
 function Get-DbSlotPoolRoot {
     if ($env:AT_DB_POOL_ROOT) { $root = $env:AT_DB_POOL_ROOT }
-    else { $root = Join-Path $env:LOCALAPPDATA 'ai4good-build\db-slots' }
+    else { $root = Get-DbSlotBaseDir 'db-slots' }
     if (-not (Test-Path $root)) { New-Item -ItemType Directory -Force $root | Out-Null }
     return $root
 }
@@ -36,10 +47,10 @@ function Get-DbSlotReservationPath([int]$slot) {
     return Join-Path (Get-DbSlotReservationDir) ('slot-' + $slot + '.json')
 }
 
-# Where the harness runner writes its occupancy claims. Same override, same reason.
+# Where the harness runner writes its occupancy claims. Same chain, same override, same reason.
 function Get-DbSlotClaimDir {
     if ($env:AT_LOCK_DIR) { $d = $env:AT_LOCK_DIR }
-    else { $d = Join-Path $env:LOCALAPPDATA 'ai4good-build\at-locks' }
+    else { $d = Get-DbSlotBaseDir 'at-locks' }
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Force $d | Out-Null }
     return $d
 }
@@ -66,9 +77,19 @@ function Get-DbSlotOccupancy([int]$slot) {
         $holder = $null
         try { $holder = (Get-Content $f.FullName -Raw | ConvertFrom-Json) } catch { $holder = $null }
         if (-not $holder) { continue }
+        # NOT-FOUND MEANS DEAD; EVERY OTHER FAILURE MEANS ALIVE. Get-Process reports one specific
+        # error when no process holds that id, and it can fail for other reasons - a process owned
+        # by another user, for one. The harness's own liveness test treats a permission error as
+        # ALIVE, and it has to: an occupancy misread as dead lets Release-DbSlot hand the slot away
+        # under a running verify window. Fail closed, exactly as the harness does.
         $alive = $false
         if ($holder.pid) {
-            try { Get-Process -Id ([int]$holder.pid) -ErrorAction Stop | Out-Null; $alive = $true } catch { $alive = $false }
+            try {
+                Get-Process -Id ([int]$holder.pid) -ErrorAction Stop | Out-Null
+                $alive = $true
+            } catch {
+                if ($_.FullyQualifiedErrorId -like 'NoProcessFoundForGivenId*') { $alive = $false } else { $alive = $true }
+            }
         }
         if ($alive) {
             return @{ file = $f.FullName; holderPid = [int]$holder.pid; requirement = [string]$holder.requirement; startedAt = [string]$holder.startedAt }
@@ -115,7 +136,12 @@ function Reserve-DbSlot([string]$Item, [string]$Branch = '') {
             $fs.Write($bytes, 0, $bytes.Length)
             return @{ ok = $true; slot = $slot; alreadyHeld = $false }
         } catch {
+            # RE-READ, THEN DECIDE. Two calls for the SAME item can both pass the already-held scan
+            # above; one wins slot 1, and without this the loser would read "taken", advance, and
+            # win slot 2 - one item holding the whole pool of two. If the reservation that beat us
+            # names this same item, this item already has the slot, so say so and stop.
             $r = Read-DbSlotReservation $slot
+            if ($r -and ([string]$r.item) -eq $Item) { return @{ ok = $true; slot = $slot; alreadyHeld = $true } }
             if ($r) { $held += ('slot ' + $slot + ' -> ' + [string]$r.item) } else { $held += ('slot ' + $slot + ' -> taken') }
         } finally {
             if ($fs) { $fs.Dispose() }
@@ -150,6 +176,12 @@ function Release-DbSlot([string]$Item, [int]$Slot = 0) {
         if ($target -eq 0) { return @{ ok = $true; released = $false; reason = ('no slot is reserved for ' + $Item) } }
     }
 
+    # RESIDUAL, ruled and accepted (gate-2 T9): the window between this check and the delete below
+    # is real, and it changes nothing destructive. The serializer for destructive acts is the
+    # OCCUPANCY CLAIM, which is dead-pid-only - a live holder is never displaced. A runner that
+    # slips into this window still holds its own claim, so the worst outcome is the NEXT item's
+    # occupy refusing loudly until the window closes: a loud refusal, never a reset under a live
+    # run. An atomic two-file handoff here would buy no safety the claim does not already give.
     $o = Get-DbSlotOccupancy $target
     if ($o) {
         return @{ ok = $false; released = $false; slot = $target; reason = ('REFUSING: slot ' + $target + ' is OCCUPIED right now by pid ' + $o.holderPid + ' running ' + $o.requirement + ' since ' + $o.startedAt + '. A verify window is open on that database. Wait for it to finish.') }
