@@ -7,21 +7,24 @@
  * `AT_TIER`, and reports PER AT ID — green / red / missing — because "3 failed" tells a gate
  * nothing about which acceptance criterion is unmet.
  *
- * Above the `loop` tier the suite needs a real database, and that database is the LOCAL
- * Supabase stack (AI4DEV-6) — not a shared hosted project, because every run wipes and rebuilds
- * it. That makes the sequence below load-bearing, and it is deliberately paranoid:
+ * The `integration` tier needs a real database, and that database is a SLOT out of the local
+ * database pool (`db-pool.ts`) — never a shared hosted project, because every run wipes and
+ * rebuilds it, and never the stack described by this repository's own `supabase/config.toml`,
+ * because that one is the founder's personal stack and is untouchable. The sequence is
+ * deliberately paranoid:
  *
- *   1. take a machine-wide lock keyed by project id + api port, so two runs (or two checkouts
- *      sharing a project id, which share Docker identity and ports) cannot reset under each other;
- *   2. read the stack's own report of itself and PROVE it is local — loopback host, the ports
- *      configured in `supabase/config.toml`, and keys issued by the local development issuer —
- *      BEFORE anything destructive happens;
- *   3. wait for real readiness: the database answers a query AND a request through the API
- *      gateway succeeds, which takes Kong, PostgREST and Postgres all being up;
- *   4. only then reset the database, then re-prove readiness;
- *   5. run the suite with an ALLOWLISTED environment — the child gets the platform minimum plus
- *      the validated local coordinates, and nothing else, so a secret sitting in a developer's
+ *   1. occupy the slot the coordinator reserved for this item — a machine-wide claim keyed by the
+ *      slot's project id + api port, so two runs cannot reset under each other;
+ *   2. prepare the slot: mirror this tree's `supabase/` into it, overlay the slot's permanent
+ *      identity, PROVE the stack that answers is that slot — loopback host, the slot's own ports,
+ *      keys issued by the local development issuer — reset it, and prove the migration set
+ *      replayed. Every step of that lives in `db-pool.ts`;
+ *   3. print the evidence line naming the slot, so a green can always name the database it graded;
+ *   4. run the suite with an ALLOWLISTED environment — the child gets the platform minimum plus
+ *      the validated slot coordinates, and nothing else, so a secret sitting in a developer's
  *      `.env.local` can never reach a test (and a test can never reach the hosted project).
+ *
+ * The `drill` tier resolves no database at all until an item decides which stack it should use.
  *
  * Any failure in that sequence is an INFRASTRUCTURE failure: non-zero exit, no tests run, a
  * message naming what failed. The runner never falls back to the loop tier's stubs and never
@@ -36,6 +39,9 @@ import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { INSTALL_ROOT, inspectBijection, normalizeRequirement, REPO_ROOT, suiteDir } from './check.ts';
+// The cycle with db-pool.ts is deliberate and safe: neither module calls the other at module
+// scope, and both sides export hoisted function declarations.
+import { evidence, occupy, prepare, stackEnv as slotStackEnv, type Occupancy, type PrepareResult } from './db-pool.ts';
 import {
   expectationDeviations,
   expectedManifestPath,
@@ -1161,8 +1167,9 @@ async function main(argv: string[]): Promise<number> {
   const stackHelp =
     `Two things cause this:\n` +
     `  1. Docker Desktop is not installed, or is installed but not running, or its CLI is not on ` +
-    `PATH — the local stack is a set of Docker containers and cannot run without it.\n` +
-    `  2. Docker is fine but the stack was never started — run \`bun run db:start\`.`;
+    `PATH — a slot's stack is a set of Docker containers and cannot run without it.\n` +
+    `  2. Docker is fine but the pool was never set up on this machine — run ` +
+    `\`bun tests/at/harness/db-pool.ts setup\`.`;
 
   // The `loop` tier touches no database: no lock, no stack, no reset.
   const stackEnv: Record<string, string> = {};
@@ -1182,74 +1189,50 @@ async function main(argv: string[]): Promise<number> {
   process.once('SIGTERM', onSignal);
 
   try {
-    if (tier !== 'loop') {
-      let config: LocalConfig;
+    // THE DRILL TIER RESOLVES NO DATABASE. It used to reach the stack described by the repository's
+    // own `supabase/config.toml` — which is the founder's personal stack — and reset it. Nothing in
+    // this tree invokes the tier, so refusing costs nothing, and it closes the last path in the
+    // harness that could reset that stack. The item that decides drill's stack replaces this.
+    if (tier === 'drill') {
+      return infra(
+        `the drill tier's stack is not yet decided, so this tier resolves no database at all. It used ` +
+          `to reset the stack described by the repository's own supabase/config.toml, which is the ` +
+          `founder's personal stack, and that stack is untouchable.`,
+      );
+    }
+
+    if (tier === 'integration') {
+      // THE STACK IS RESOLVED ONLY THROUGH THE POOL. Occupy a slot, make its database be this
+      // tree's database, and hand the suite the slot's coordinates. The repo-configured stack is
+      // never read, never locked and never reset from here.
+      let occupancy: Occupancy;
       try {
-        config = readLocalConfig();
+        const override = process.env.AT_DB_SLOT?.trim();
+        occupancy = occupy(`req-${requirement}`, override ? { slot: Number(override) } : {});
       } catch (err) {
         return infra((err as Error).message);
       }
+      // The claim goes into the SAME `lock` variable `cleanupRun` already releases, so the release
+      // stays in the one `finally` chain that exists rather than in a second one nobody can see.
+      lock = occupancy.claim;
 
-      // (1) Lock FIRST — before anything reads, resets or runs against the stack.
+      let prepared: PrepareResult;
       try {
-        lock = acquireStackLock(config, `req-${requirement}`);
+        // prepare() mirrors this tree into the slot, regenerates the slot's identity, proves the
+        // stack that answers is the slot's own, resets it, and proves the migration set replayed.
+        prepared = await prepare(occupancy);
       } catch (err) {
-        return infra((err as Error).message);
-      }
-
-      // (2) Read the stack's report of itself and prove it is local, BEFORE anything destructive.
-      let status: StackStatus;
-      try {
-        status = readStackStatus();
-      } catch (err) {
-        return infra(`${(err as Error).message}\n${stackHelp}`);
-      }
-
-      const problems = localStackProblems(status, config);
-      if (problems.length) {
         return infra(
-          `the stack that answered is not provably the local development stack, so nothing was reset ` +
-            `and nothing was run. Failed checks: ${problems.join('; ')}. (Values are deliberately not printed.)`,
+          `slot ${occupancy.slot} could not be prepared: ${(err as Error).message}\n` +
+            `The integration tier rebuilds its slot's database from supabase/migrations on every run, ` +
+            `so that a suite never grades leftover rows or a schema missing a migration; if that ` +
+            `rebuild fails, the state under test is unknown and the run stops here.\n${stackHelp}`,
         );
       }
 
-      // (3) Readiness before the destructive step.
-      try {
-        await waitForReady(status, 'before the reset');
-      } catch (err) {
-        return infra(`${(err as Error).message}\n${stackHelp}`);
-      }
-
-      // (4) Reset, then prove readiness again — a reset takes the database down and back up.
-      try {
-        await resetLocalDatabase();
-      } catch (err) {
-        return infra(
-          `the local database could not be reset: ${(err as Error).message}\n` +
-            `The ${tier} tier rebuilds the database from supabase/migrations on every run, so that a ` +
-            `suite never grades leftover rows or a schema missing a migration; if that rebuild fails, ` +
-            `the state under test is unknown and the run stops here.`,
-        );
-      }
-
-      try {
-        await waitForReady(status, 'after the reset');
-      } catch (err) {
-        return infra((err as Error).message);
-      }
-
-      // (5) Prove the rebuild replayed the migration set — a reset that replays nothing also
-      // exits zero, and the suite would grade an empty schema believing it was the real one.
-      try {
-        await proveMigrationsReplayed(status);
-      } catch (err) {
-        return infra((err as Error).message);
-      }
-
-      stackEnv.AT_SUPABASE_URL = status.apiUrl;
-      stackEnv.AT_SUPABASE_DB_URL = status.dbUrl;
-      stackEnv.AT_SUPABASE_ANON_KEY = status.anonKey;
-      stackEnv.AT_SUPABASE_SERVICE_ROLE_KEY = status.serviceRoleKey;
+      // The ruled evidence line: which slot, that the reset happened, and the migration state.
+      console.log(evidence(occupancy, prepared));
+      Object.assign(stackEnv, slotStackEnv(occupancy, prepared.status));
     }
 
     // The suites and their vitest root come from the DATA root; vitest itself comes from the
