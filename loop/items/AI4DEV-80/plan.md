@@ -113,7 +113,11 @@ project key `C--Users-nirdr-Downloads-ai4good`.
   degrade, never guess. A branch naming two items stays `unresolved` (unchanged).
   FIX-PASS AMENDMENT (G2-1): the code applies the `$curStamp` fallback ONLY when the file
   is a session file (`-not $isAgent`) — the draft applied it to every file, which let a
-  stamp quoted inside an agent transcript guess an item.
+  stamp quoted inside an agent transcript guess an item. FIX-PASS AMENDMENT (G2-3,
+  PROVEN by measurement): `$spawnCtx` is keyed by SESSION plus tool-use id, because 580
+  `toolu_` ids appear in two session files on the real store — one resumed-session pair
+  copying records, five of them resolving a DIFFERENT item across the pair. A session
+  file's id is its base name; an agent's session derives from its directory path.
 - D4 **Tree-resolved responses feed the role table and `agentItem`** exactly as
   branch-resolved ones, so a sitting's tokens land under its item AND its role (ruled bullet
   3), and the kimi join keeps working. Join key note: subagents file base names carry an
@@ -394,7 +398,7 @@ findings (session-file stamp corruption via a quoted stamp) is filed in words, n
 |---|---|---|
 | G2-1 stamp fallback reaches agent files | accept — `-not $isAgent` guard at the fallback site; M1 stamp-line fixture | D3, S3, code |
 | G2-2 `$agentItem` collapses a multi-item agent | accept — skip the assignment when the file's own records name two or more items; M1 kimi directory; A10 extended | D4, S3 |
-| G2-3 spawn context keyed globally by toolUseId | verify first — measure the real store for cross-session `toolu_` duplicates before any change | goal-pass step 1 |
+| G2-3 spawn context keyed globally by toolUseId | verify first → PROVEN: 580 cross-session `toolu_` duplicates (one resumed-session pair, five resolving a different item); pre-ruled fix applied — `$spawnCtx` keyed by session plus tool-use id | D3, code, `artifacts/g2-3-probe.txt` |
 | G2-4 fixture lacks the nested W1 case | accept, already ruled (draft ruling D-1) — convergence noted | S3 (W1 bullet) |
 | G2-5 A1 checks response counts, not tokens | accept — A1 asserts `OutputTok` per row, computed from the fixture | S3 (A1) |
-| G2-6 A11 assumes a dot decimal separator | verify first — `de-DE` probe of the exact print shape | goal-pass step 1 |
+| G2-6 A11 assumes a dot decimal separator | verify first → DISPROVEN: in-process `de-DE` probe emits dot-decimal from the exact print shape and from `ConvertTo-Json`, with a live-culture control; no code change | `artifacts/g2-6-probe.txt` |

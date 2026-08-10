@@ -228,3 +228,68 @@ this item. Carried in PHASE-STATE's filed list.
 Gate 2 closes with SIX defects total, not twelve — the two seats converge on the same six.
 The convergence is recorded but, because of the contamination above, given no independence
 weight. The fixes proceed exactly as ruled at G2-1 through G2-6.
+
+---
+
+# Verify-first outcomes and the fix-pass report — ruled
+
+Ruled by the FIX-AND-GOAL sitting (second half) after the executor's pass, 2026-08-11.
+The executor's commits: `1349848` (probes), `c20d6c9` (fixes), `d3a7368` (RED),
+`3a5e25e` (green), `0499e51` (after evidence).
+
+## G2-3 — PROVEN. The pre-ruled fix is in the code.
+
+The probe (`artifacts/g2-3-probe.txt`) measured the real store both ways the ruling
+named. Meta files: 884 metas, 269 with a `toolUseId`, 269 distinct values, ZERO in two
+sessions. Session transcripts, scanned with the report's own regex: 10497 distinct
+`toolu_` ids, **580 appear in two session files** — all 580 in ONE file pair. The
+provider does not reuse ids; a RESUMED session writes a copy of the earlier session's
+records, so the records are duplicated, not the ids. **Five of the 580 resolve a
+DIFFERENT item in the two files** — exactly the harm both seats named. The duplicate
+condition fired, so the pre-ruled fix applies and is implemented: `$spawnCtx` keyed by
+session plus tool-use id; a session file's id is its base name; an agent's session
+derives from its directory path. Measured before/after: every subagents directory pairs
+with a same-named session file (7 of 7), and the same 7 root agents resolve an item
+under both keys — the guess goes, no answer goes. One probe settles both seats' claim
+(flash [5] with it). The fix is not fixture-detectable — the fixture holds one session —
+which the original ruling decided in advance; its evidence is the committed measurement.
+
+## G2-6 — DISPROVEN. No code change.
+
+The probe (`artifacts/g2-6-probe.txt`), run IN-PROCESS under `de-DE`: the report's exact
+print shape emits `66.7`, `ConvertTo-Json` emits `66.7`, and a culture-aware `ToString`
+in the same process emits `66,7` — the control proving the culture was live. Second
+instrument: the real report run in-process under `de-DE` printed its share with a dot.
+The executor's first attempt used a child `powershell` process and was DISCARDED from
+the evidence — a child process takes the OS culture, so it never ran under `de-DE` at
+all; the discard is the correct reading and is recorded here. Flash [6] settles with it.
+The print site and the selftest regex both stand unchanged.
+
+## The executor's two unruled additions — both RATIFIED
+
+1. The floor note's ambiguous-agent sentence now also states that their vendor spend
+   stays unjoined. G2-2 changed that behaviour, and step S7 requires no output sentence
+   to contradict behaviour — this is S7 compliance, not scope growth.
+2. `selftest-green.txt` carries three mutation checks (each new guard removed in turn,
+   suite re-run, mutation reverted): the G2-1 guard's removal turns five asserts red,
+   the G2-2 guard's removal turns exactly A10 red, a flat scan turns A1/A3/A13 red.
+   Ratified: it proves the fixture plants the hazards the rulings paid for, it changed
+   no shipped code, and the tree is clean.
+
+## The executor's proposed judgment — RULED: the report's text does not change
+
+The observation: the store grows while the item is worked (the sittings write into the
+store the report reads), so two heads cannot be compared unless both captures are taken
+at the same moment. Ruling: TRUE, and it is a property of before/after EVIDENCE, not an
+attribution floor — the report's floor note lists what attribution cannot resolve, not
+how to compare two runs. Its home is the delta note (`after-delta.md`, section 5), where
+it is recorded. The report's own text stays as S7 left it.
+
+## Goal state, confirmed by this sitting
+
+RED matched the predicted pattern assert for assert (PASS = A4, A8, A14; eleven FAIL,
+exit 1). Green on the FIRST goal iteration, exit 0, all fourteen asserts; the default
+report runs clean on the real store (919 files, 55 seconds). S8 re-measured at the goal
+head: unattributed 70.6% → 67.6%, transcript files 479 → 919, responses 26352 → 49071 —
+both denominators stated beside both percentages in `after-delta.md`. The open founder
+question about the headline stays live for the merge ruling.

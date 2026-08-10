@@ -1,113 +1,118 @@
 # PHASE-STATE — AI4DEV-80 (attribution by spawn tree)
 
-**Phase: gate 2 HALF-RULED — reader one's six findings ruled, reader two ruled a
-RELAUNCH. Next is that relaunch, then a successor fix-and-goal sitting.** Written by the
-fix-and-goal sitting (first half), orchestrator on fable (claude-fable-5 @ xhigh),
-2026-08-11. Chain, derived from the branch: AI4DEV-4 (the work skill, bring-up root) >
-AI4DEV-80 (attribution by spawn tree), label `attr:bringup`. Branch base: `ac8a235`.
-Draft code head: `9c8a6bd`; this sitting adds RECORD commits only — `loop/work` is
-byte-identical to `9c8a6bd`.
+**Phase: FIX-AND-GOAL COMPLETE — gate 2 fully ruled, selftest green at the head, after
+evidence committed. Next is the AUDIT: a two-reader panel, prompts assembled and
+committed.** Written by the fix-and-goal sitting (second half), orchestrator on fable
+(claude-fable-5 @ xhigh), 2026-08-11. Chain, derived from the branch: AI4DEV-4 (the work
+skill, bring-up root) > AI4DEV-80 (attribution by spawn tree), label `attr:bringup`.
+Branch base: `ac8a235`.
 
 ## What happened this sitting
 
-- Reader one (terra via codex) landed six findings. All six are ruled in
-  `loop/items/AI4DEV-80/gate2-rulings.md` with claims quoted: G2-1 accept, G2-2 accept,
-  G2-3 verify first, G2-4 accept (already ruled — draft ruling D-1, convergence noted),
-  G2-5 accept, G2-6 verify first.
-- Reader two (flash via opencode) died before reading anything: zero tokens,
-  `step_finish` reason "unknown", empty stderr, no count line. The runner cleaned its
-  own working files, so no artifact exists for that run. Recorded as an EMPTY GATE,
-  never as clean. Ruled: RELAUNCH (reasons in gate2-rulings.md).
-- Reader one's evidence is committed: distillate, raw output, stderr log (force-added
-  past the `*.log` ignore rule — the codex spend join reads committed `*stderr*` files),
-  pid file.
-- `plan.md` is deliberately NOT amended this sitting. The relaunched reader must review
-  the same plan reader one reviewed, and a gate-2 rulings section in the plan would
-  reveal the panel to its own second seat. The fix specs live complete in
-  gate2-rulings.md; the successor sitting folds them into the plan after it rules
-  reader two's seat.
+- Reader two (flash via opencode) landed on the relaunch: six findings naming the SAME
+  six defects as reader one. Its seat was NOT blind (it read the committed rulings and
+  reader one's distillate), so its convergence was given no independence weight; each
+  finding was judged against the code alone and subsumed by the standing rulings. Full
+  dispositions: `gate2-rulings.md`. Its evidence (raw output, distillate, tool-call
+  summary, identity extract) is committed in `artifacts/`.
+- The executor ran the goal pass. Both verify-first probes measured BEFORE any change:
+  **G2-3 PROVEN** (580 cross-session `toolu_` duplicates, one resumed-session pair, five
+  resolving a different item — the pre-ruled fix landed: `$spawnCtx` keyed by session
+  plus tool-use id); **G2-6 DISPROVEN** (in-process `de-DE` probe, dot-decimal
+  confirmed, live-culture control — no code change). Probes committed in `artifacts/`.
+- The ruled fixes landed: G2-1 (`-not $isAgent` on the stamp fallback), G2-2 (ambiguous
+  agents get no vendor join key), G2-5 (A1 asserts `OutputTok` per row), the W1 nested
+  fixture agent (draft ruling D-1), M1's stamp line, M1's kimi directory, A10 extended.
+- RED matched the predicted pattern assert for assert (PASS = A4, A8, A14; eleven FAIL).
+  Green on the FIRST goal iteration; `selftest-green.txt` also carries three mutation
+  checks proving the new guards bind. S8 committed: `report-after.txt`,
+  `report-after-79.txt`, `after-delta.md` with both percentages and BOTH denominators.
+- Two executor additions ratified, one proposed judgment ruled (the report's floor note
+  does not change; the store-growth caveat lives in the delta note) — all recorded in
+  `gate2-rulings.md`.
+- `plan.md` now carries section 9 (gate 2 rulings) and the fix-pass amendments to D3,
+  D4, S3, A1, A10.
 
-## What completes the next phase
+## What completes the next phase — the AUDIT
 
-1. The conductor spawns ONE reviewer-runner: reader two, per the DRAFT CODE pins in
-   `.claude/skills/work/reviewers.md`, prompt
-   `loop/items/AI4DEV-80/gate2-flash-prompt.txt` handed UNCHANGED, pinned at the head
-   this sitting pushes. The reviewed code in `loop/work` is unchanged from `9c8a6bd`,
-   so the seat still reviews the draft.
-2. Completing files: a reader-two distillate in `loop/items/AI4DEV-80/artifacts/` plus
-   the runner's LANDED report. If the relaunch dies the same empty way again, that
-   second death is a FACT for the successor sitting to rule on — report it as empty,
-   never as clean, and spawn the sitting anyway; deciding whether the panel's purpose
-   is still served on one seat belongs to an orchestrator, not to the conductor.
-3. Then spawn the successor FIX-AND-GOAL sitting with both gate-2 distillates (reader
-   one's is already in artifacts/). Its work, in order (plan section 5's closing block):
-   rule reader two's findings; run the verify-first probes (G2-3, G2-6) before changing
-   anything; apply the ruled fixes — G2-1, G2-2, G2-5, plus the fixture additions W1
-   (D-1), M1's stamp line (G2-1), M1's kimi directory (G2-2); RED capture from the S3
-   commit; goal loop to selftest green (three iterations maximum); S8 after-evidence.
-   Then the audit brief.
-4. Blindness note for the successor: the relaunched seat runs against a head whose
-   `loop/items/AI4DEV-80/` carries reader one's evidence and the rulings. Weigh any
-   reader-two finding that mirrors reader one's distillate wording rather than the
-   code, and say so if seen.
+1. The conductor spawns TWO reviewer-runners per the AUDIT pins in
+   `.claude/skills/work/reviewers.md`, pinned at the head this sitting pushes:
+   - reader one: prompt `loop/items/AI4DEV-80/audit-luna-prompt.txt`, handed UNCHANGED;
+   - reader two: prompt `loop/items/AI4DEV-80/audit-flash-prompt.txt`, handed UNCHANGED.
+   The two prompt files are byte-identical by design; the pins (model, lane, cage) come
+   from reviewers.md, and neither prompt names the other seat.
+2. Completing files: one distillate per reader in `loop/items/AI4DEV-80/artifacts/`,
+   plus each runner's LANDED report. An empty output is an EMPTY GATE, reported as
+   empty, never as clean.
+3. If EITHER seat has findings: spawn the AUDIT sitting — it rules on BOTH seats'
+   verdicts (a clean seat beside a seat with findings is evidence, recorded among the
+   dispositions, never a veto).
+4. If BOTH seats are clean: no audit sitting exists. The MERGE sitting absorbs the
+   audit's wait, records both clean verdicts among its dispositions, and proceeds per
+   its contract (CI classification, merge ruling pinned to the exact head, mechanical
+   executes the merge).
+5. Blindness note: by construction the audit readers read the record — it is their list
+   of claims. That is not contamination at this gate. The panel requirement that stands
+   is that neither seat learns the other exists; the prompts and the launch mechanics
+   keep it.
 
-## Standing facts the successor sitting needs (carried forward)
+## Standing facts for the audit and merge sittings
 
-1. Goal-pass order of operations: the closing block of plan section 5. The S3 commit
-   that pins the pre-mechanism report for the RED capture is `0c1bbf7`.
-2. The fixture gains W1 (the nested `workflows/wf_1` agent, plan S3, ruling D-1) — it
-   joins A1 and A3. Gate 2 adds: M1's stamp line (G2-1), M1's kimi directory and the
-   A10 extension (G2-2), A1's per-row token sums (G2-5).
-3. Predicted RED pattern: plan section 6 table — PASS = A4, A8, A14; every other assert
-   FAILS. The gate-2 fixture additions flip no prediction (checked this sitting: W1, the
-   M1 stamp line and the M1 kimi directory all sit in files the S3-era report never
-   scans). A deviation is reported, never silently adjusted around.
-4. Audit brief (the audit is a panel of two, per the AUDIT pins in reviewers.md): ADD
-   `git diff <base>...<head> -- loop/work` to the enumeration instrument; scope box =
-   the path-set in plan section 1. The claim checklist names rulings G1-1 through
-   G1-10, D-1, and G2-1 through G2-6 by id — including the verify-first outcomes of
-   G2-3 and G2-6 with their recorded evidence — plus the path-set and the code facts
-   stated in plan sections 3 and 8.
-5. S8's delta note states both percentages WITH both denominators. At the draft head:
-   unattributed 70.6% → 67.7%; transcript files scanned 480 → 912; responses
-   26371 → 48658. S8 re-measures at the goal head.
-6. Also measured on the real store: 2 agents ambiguous (two items in their own
-   records), 0 agents without a meta file.
-7. No pull-request text names any item id but AI4DEV-80; other items appear in words
-   only.
+1. This is a FIRST audit, not a re-run — no fix delta exists. The audit prompts say so.
+2. The audit's change-set instrument ADDS `git diff ac8a235...<head> -- loop/work`
+   (plan D10) — the pinned source-only command enumerates nothing for this item. The
+   scope box is plan section 1's path-set. The claim checklist names G1-1 through
+   G1-10, D-1, and G2-1 through G2-6 by id, including the verify-first outcomes of
+   G2-3 (proven, fix in code) and G2-6 (disproven, nothing changed).
+3. Pull request #52 is open and gates every push. No pull-request text names any item
+   id but AI4DEV-80; other items appear in words only.
+4. The required CI check takes the prose fast lane (guards run, TypeScript suite
+   skipped) — expected for a `loop/`-only diff. This item's verification is the
+   committed selftest evidence: `selftest-red.txt` (exit 1, predicted pattern),
+   `selftest-green.txt` (exit 0, plus mutation checks). The merge ruling must state
+   plainly what the CI green does and does not claim for this item.
+5. Goal-head measurements (S8, `after-delta.md`): unattributed 70.6% → 67.6%;
+   transcript files 479 → 919; responses 26352 → 49071; attributed responses
+   10816 → 21085 (+95.0%); the `tree` source attributes 4188 responses across 14
+   items; ambiguous agents 2, metaless 0.
+6. Kimi vendor-spend behaviour changed at G2-2: an ambiguous agent's spend now stays
+   unjoined; the floor note says so.
 
 ## Open founder question — non-blocking, raise at or before the merge ruling
 
 The board item expects the unattributed share to "drop sharply" as the headline
-evidence. Measured at the draft head: the share moves 70.6% → 67.7%, because the 877
-newly-visible transcripts also enlarge the denominator, and because 19892 of 37610
-branchless responses sit in coordinator sessions on `main`, where the tree has nothing
-to hand down. The mechanism itself works: 3764 responses across 14 items are newly
-attributed, and the previous item's scoped view grows from 249 to 1935 responses with
-its full role table. Question: does the founder accept the attribution numbers as the
-headline evidence, in place of a sharp percentage drop? This shapes the merge ruling
-only.
+evidence. Measured at the goal head: 70.6% → 67.6%, because 440 newly-visible
+transcripts also enlarge the denominator, and because most branchless responses sit in
+coordinator sessions on `main`, where the tree has nothing to hand down. The mechanism
+works: attributed responses nearly double (10816 → 21085), and the previous item's
+scoped view grows from 249 responses in 2 roles to 1935 in 7. Question: does the
+founder accept the attribution numbers as the headline evidence, in place of a sharp
+percentage drop? This shapes the merge ruling only.
 
-## At close — carry forward
+## At close — carried follow-ups, FILED IN WORDS, not built
 
-- Two follow-ups are FILED IN WORDS, not built: the flash/opencode reviewer-spend join
-  (scoped out by the item), and a one-sentence clarification in the conductor contract
-  and the workflow that a derived gate SKIP is a floor an orchestrator ruling recorded
-  in PHASE-STATE may tighten to RUN, never the reverse (ruling G1-1).
+1. The flash/opencode reviewer-spend join (scoped out by the item).
+2. One sentence in the conductor contract and the workflow: a derived gate SKIP is a
+   floor an orchestrator ruling recorded in PHASE-STATE may tighten to RUN, never the
+   reverse (ruling G1-1).
+3. NEW this sitting (flash's outside-findings observation, ruled pre-existing): a
+   session transcript whose tool result quotes a stamp can corrupt that session's stamp
+   state in the attribution report — predates this branch, untouched by this item.
 
 ## Expectations that are not anomalies
 
-- The required CI check takes the prose fast lane (guards run, TypeScript suite
-  skipped) — expected for a `loop/`-only diff; this item's verification is the
-  PowerShell selftest, run at the successor sitting.
-- Pull request #52 is open and gates every push.
-- `gate2-terra.stdout.log` stays untracked, like reader one's gate-1 twin — it
-  duplicates the committed raw output byte-for-near-byte.
+- `gate2-terra.stdout.log` stays untracked (ignored by the `*.log` rule; it duplicates
+  the committed raw output).
+- The fast-lane CI behaviour in standing fact 4.
+- The audit readers reading the record (blindness note above).
 
 ## Anomalies
 
-- Reader two's empty gate, described above — ruled, relaunch pending.
+- Reader two's gate-2 contamination — ruled this sitting, no independence weight given;
+  described in `gate2-rulings.md`.
+- The executor's first G2-6 probe attempt used a child process, which takes the OS
+  culture; it was discarded from the evidence and the in-process probe stands. Recorded,
+  correct, no action.
 - Carried from the draft sitting: one executor shell read denied by the permission
-  classifier, ruled compliance (the switch was TOWARD the sanctioned instrument); two
-  commit messages needed `git commit -F` (PowerShell 5.1 here-string mangling). No
-  action on either.
+  classifier, ruled compliance; two commit messages needed `git commit -F` (PowerShell
+  5.1 here-string mangling). No action on either.
