@@ -26,8 +26,10 @@ import {
   localStackProblems,
   migrationSetProblems,
   redact,
+  resetLocalDatabase,
   runVerdict,
   stackLockPath,
+  type CliTarget,
   type IdRow,
   type LocalConfig,
   type StackStatus,
@@ -135,6 +137,23 @@ describe('the stack must prove it is local before anything destructive happens',
     const problems = localStackProblems({ ...localStatus(), serviceRoleKey: hosted }, config).join(' ');
     expect(problems).toContain('local development issuer');
     expect(problems).toContain('hosted project reference');
+  });
+});
+
+describe('a reset aimed at a target demands the identity read that proved that target (ruling B2)', () => {
+  // NOTHING IS SPAWNED HERE. The refusal is the first statement in the function, so a mismatched
+  // proof never reaches the CLI. That is the property under test: the refusal happens BEFORE the
+  // destructive act, not instead of a failure inside it.
+  const target: CliTarget = { workdir: REPO_ROOT, projectId: 'ai4good-slot-2' };
+
+  it('refuses a proof that names another project', async () => {
+    await expect(resetLocalDatabase(target, { provenProjectId: 'ai4good-slot-1' })).rejects.toThrow(
+      /REFUSING TO RESET ai4good-slot-2: .*proves ai4good-slot-1, not ai4good-slot-2/,
+    );
+  });
+
+  it('refuses a read that proved no project at all', async () => {
+    await expect(resetLocalDatabase(target, { provenProjectId: null })).rejects.toThrow(/proves no project at all/);
   });
 });
 

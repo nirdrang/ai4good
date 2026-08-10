@@ -1,0 +1,148 @@
+﻿
+AI4DEV-79 (parallel DB slot pool) - step S8: one real integration-tier verify through the pool.
+
+REDACTION: this transcript is scanned before commit for key-shaped tokens, for anon and
+service-role key values, and for database passwords. It carries none. Slot numbers, project
+ids and ports are kept: they are the evidence.
+
+date      : 2026-08-10T08:04:40.1882743Z
+machine   : MYPC
+worktree  : C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+branch    : nirdrang/ai4dev-79-a-pool-of-local-database-slots-so-items-verify-in-parallel
+head      : 09dca7de84475f4938af88906e0d2028cc186f85
+tree state: DIRTY
+slot      : 1 (chosen because the pool showed it UNRESERVED and unoccupied)
+
+=== the pool before the run ===
+  slot 1: ai4good-slot-1, api 55321, reservation none, occupancy none
+  slot 2: ai4good-slot-2, api 56321, reservation none, occupancy none
+
+=== the hostile condition: the tracked .env is in place, unmodified ===
+bun loads the repository .env into the parent of this run, and line 1 of that file sets
+SUPABASE_PROJECT_ID to the founder personal project id. That is the exact override that
+destroyed the personal database on 2026-08-09. It is deliberately left in place: the wall is
+the positive identity the shared helper states, not the absence of the override.
+  .env line 1 names the personal project id: True
+
+=== (a) BEFORE: docker identity snapshot of the personal stack (a READ; nothing is written) ===
+  /supabase_analytics_poancmeitlmxejofwzuu | id 4f0cbd08610dfdd42c6c93fb9abf1eed25ecf5043bab3afa24bdad364837795d | created 2026-08-09T22:30:36.397633849Z | ports {"4000/tcp":[{"HostIp":"","HostPort":"54327"}]}
+  /supabase_auth_poancmeitlmxejofwzuu | id 38d058a45856033b6715edbb78b4fce73392283ff9930e9043fe490031d324f0 | created 2026-08-09T22:30:38.180055558Z | ports {}
+  /supabase_db_poancmeitlmxejofwzuu | id a9fc53b713132db35df62f08563a31552eb93662efd925e6e35efe19b9e7c588 | created 2026-08-09T22:30:25.016886496Z | ports {"5432/tcp":[{"HostIp":"","HostPort":"54322"}]}
+  /supabase_inbucket_poancmeitlmxejofwzuu | id 05a41d3f900184d874744b3f69099877ddcaad0facc5cdedeab768acb03e6937 | created 2026-08-09T22:30:38.737406565Z | ports {"8025/tcp":[{"HostIp":"","HostPort":"54324"}]}
+  /supabase_kong_poancmeitlmxejofwzuu | id c60a42f259068af05d0cffe4a8a2e21e49378fe644d69c1d0a144c747a20ba10 | created 2026-08-09T22:30:37.447243163Z | ports {"8000/tcp":[{"HostIp":"","HostPort":"54321"}]}
+  /supabase_pg_meta_poancmeitlmxejofwzuu | id dd9e8be3bb873f596ff92236e3d604ac10303cd5da8c5227e50e7b9f6d54dafd | created 2026-08-09T22:30:41.700396649Z | ports {}
+  /supabase_realtime_poancmeitlmxejofwzuu | id e1a443bf280ab38ab8bf6cfdc3947bda9540f0fda03557188b94d50a0ca75f2b | created 2026-08-09T22:30:39.298314473Z | ports {}
+  /supabase_rest_poancmeitlmxejofwzuu | id 720fc47910c49a2e12f0b6ef8386a29b651ed61ba01611aad962c580f2a798ef | created 2026-08-09T22:30:39.873216866Z | ports {}
+  /supabase_storage_poancmeitlmxejofwzuu | id e38f52bfb2c2b847d7b28db03b04c921cfaef24e4e680b25feb940a1ebb156ea | created 2026-08-09T22:30:40.509213548Z | ports {}
+  /supabase_studio_poancmeitlmxejofwzuu | id 0f2789d632ab074db933abb784b8e148b1f9b8fd86c5b74918bf45e767ec170a | created 2026-08-09T22:30:42.329002909Z | ports {"3000/tcp":[{"HostIp":"","HostPort":"54323"}]}
+  /supabase_vector_poancmeitlmxejofwzuu | id 54f791bf65decc8744a68ca032ec8ce195fd9cf88e1b225d29a48bef91ab18bb | created 2026-08-09T22:30:36.96867758Z | ports {}
+  supabase_db_poancmeitlmxejofwzuu | created 2026-08-09T22:25:17Z
+  supabase_edge_runtime_poancmeitlmxejofwzuu | created 2026-08-08T11:00:41Z
+  supabase_storage_poancmeitlmxejofwzuu | created 2026-08-08T11:00:40Z
+  11 containers, 3 volumes recorded
+
+=== (b) the run ===
+Command: bun run at:verify req-001 --tier integration      with AT_DB_SLOT=1
+
+WHY NOT --expect, stated plainly. The plan step names --expect. tests/at/expected/req-001.json
+declares the LOOP tier only, on this branch and on origin/main alike, so the runner refuses the
+declaration before running anything: "carries no declaration for the integration tier
+(declared: loop)". Writing that declaration is a decision about the acceptance contract, which
+is not this item. The run below therefore exercises the whole changed path - occupy, prepare,
+mirror, regenerate, reset, prove the migrations, print the evidence, inject the coordinates -
+and grades the ids without a declaration to compare them against.
+
+  $ bun tests/at/harness/runner.ts "req-001" --tier integration
+  db-pool — slot 1 identity proven before the prepare: project ai4good-slot-1, api 55321, db 55322, containers supabase_imgproxy_ai4good-slot-1, supabase_pooler_ai4good-slot-1
+  db-pool — slot 1 identity proven before the reset: project ai4good-slot-1, api 55321, db 55322, containers supabase_imgproxy_ai4good-slot-1, supabase_pooler_ai4good-slot-1
+  db-pool — docker confirms slot 1's own database container before the reset: supabase_db_ai4good-slot-1
+  at:verify — 2 migrations expected, 2 applied — the rebuilt schema matches supabase/migrations exactly
+  at:verify — db slot 1 (ai4good-slot-1, api 55321) — reset OK — migrations: 2 expected, 2 applied
+  JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-3PuXH5/vitest-report.json
+  
+  at:verify req-001 --tier integration
+    AT-001.01    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.02    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.03    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.04    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.05    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.06    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.07    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.09    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.10    red      AssertionError: a integration-tier run stubbed capabilities — the gate would be grading a stand-in: expected [ 'clock.controlled', …(3) ] to deeply equal []
+    AT-001.38    red      AtPending: AT-001.38 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+    AT-001.12    red      AtPending: AT-001.12 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+    AT-001.13    red      AtPending: AT-001.13 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+    AT-001.14    red      AtPending: AT-001.14 PENDING [sut-missing] — REQ-001 D2.L2 (session expiry and revocation, auto-refresh, password reset, wrong-password rejection) has not landed
+    AT-001.16    red      AtPending: AT-001.16 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+    AT-001.36    red      AtPending: AT-001.36 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+    AT-001.37    red      AtPending: AT-001.37 PENDING [sut-missing] — REQ-001 D3.L1 (per-NGO admin/member roles and multi-NGO membership isolation) has not landed
+    AT-001.17    red      AtPending: AT-001.17 PENDING [sut-missing] — REQ-001 D3.L2 (the single-seat NGO and the single-dev project invariant) has not landed
+    AT-001.18    red      AtPending: AT-001.18 PENDING [sut-missing] — REQ-001 D3.L3 (the cross-surface single-seat integration) has not landed
+    AT-001.19    red      AtPending: AT-001.19 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+    AT-001.39    red      AtPending: AT-001.39 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+    AT-001.20    red      AtPending: AT-001.20 PENDING [sut-missing] — REQ-001 D4.L1 (acknowledgment identity capture — name, title, authority attestation) has not landed
+    AT-001.21    red      AtPending: AT-001.21 PENDING [sut-missing] — REQ-001 D5.L1 (cross-NGO denial and unassigned-volunteer denial) has not landed
+    AT-001.22    red      AtPending: AT-001.22 PENDING [sut-missing] — REQ-001 D5.L1 (cross-NGO denial and unassigned-volunteer denial) has not landed
+    AT-001.23    red      AtPending: AT-001.23 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+    AT-001.40    red      AtPending: AT-001.40 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+    AT-001.24    red      AtPending: AT-001.24 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+    AT-001.25    red      AtPending: AT-001.25 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+    AT-001.26    red      AtPending: AT-001.26 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+    AT-001.27    red      AtPending: AT-001.27 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+    AT-001.28    red      AtPending: AT-001.28 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+    AT-001.35    red      AtPending: AT-001.35 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+    AT-001.29    red      AtPending: AT-001.29 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+    AT-001.30    red      AtPending: AT-001.30 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+    AT-001.31    red      AtPending: AT-001.31 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+    AT-001.32    red      AtPending: AT-001.32 PENDING [sut-missing] — REQ-001 D3.L2 (the single-seat NGO and the single-dev project invariant) has not landed
+    AT-001.33    red      AtPending: AT-001.33 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+    AT-001.34    red      AtPending: AT-001.34 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+    37 P0: 0 green, 37 red, 0 missing
+    FAILURE: 37 ids red
+    FAILURE: the test process exited 1
+  error: script "at:verify" exited with code 1
+
+  exit code: 1
+
+=== (c) AFTER: the same docker identity snapshot, compared on identity fields only ===
+  /supabase_analytics_poancmeitlmxejofwzuu | id 4f0cbd08610dfdd42c6c93fb9abf1eed25ecf5043bab3afa24bdad364837795d | created 2026-08-09T22:30:36.397633849Z | ports {"4000/tcp":[{"HostIp":"","HostPort":"54327"}]}
+  /supabase_auth_poancmeitlmxejofwzuu | id 38d058a45856033b6715edbb78b4fce73392283ff9930e9043fe490031d324f0 | created 2026-08-09T22:30:38.180055558Z | ports {}
+  /supabase_db_poancmeitlmxejofwzuu | id a9fc53b713132db35df62f08563a31552eb93662efd925e6e35efe19b9e7c588 | created 2026-08-09T22:30:25.016886496Z | ports {"5432/tcp":[{"HostIp":"","HostPort":"54322"}]}
+  /supabase_inbucket_poancmeitlmxejofwzuu | id 05a41d3f900184d874744b3f69099877ddcaad0facc5cdedeab768acb03e6937 | created 2026-08-09T22:30:38.737406565Z | ports {"8025/tcp":[{"HostIp":"","HostPort":"54324"}]}
+  /supabase_kong_poancmeitlmxejofwzuu | id c60a42f259068af05d0cffe4a8a2e21e49378fe644d69c1d0a144c747a20ba10 | created 2026-08-09T22:30:37.447243163Z | ports {"8000/tcp":[{"HostIp":"","HostPort":"54321"}]}
+  /supabase_pg_meta_poancmeitlmxejofwzuu | id dd9e8be3bb873f596ff92236e3d604ac10303cd5da8c5227e50e7b9f6d54dafd | created 2026-08-09T22:30:41.700396649Z | ports {}
+  /supabase_realtime_poancmeitlmxejofwzuu | id e1a443bf280ab38ab8bf6cfdc3947bda9540f0fda03557188b94d50a0ca75f2b | created 2026-08-09T22:30:39.298314473Z | ports {}
+  /supabase_rest_poancmeitlmxejofwzuu | id 720fc47910c49a2e12f0b6ef8386a29b651ed61ba01611aad962c580f2a798ef | created 2026-08-09T22:30:39.873216866Z | ports {}
+  /supabase_storage_poancmeitlmxejofwzuu | id e38f52bfb2c2b847d7b28db03b04c921cfaef24e4e680b25feb940a1ebb156ea | created 2026-08-09T22:30:40.509213548Z | ports {}
+  /supabase_studio_poancmeitlmxejofwzuu | id 0f2789d632ab074db933abb784b8e148b1f9b8fd86c5b74918bf45e767ec170a | created 2026-08-09T22:30:42.329002909Z | ports {"3000/tcp":[{"HostIp":"","HostPort":"54323"}]}
+  /supabase_vector_poancmeitlmxejofwzuu | id 54f791bf65decc8744a68ca032ec8ce195fd9cf88e1b225d29a48bef91ab18bb | created 2026-08-09T22:30:36.96867758Z | ports {}
+  supabase_db_poancmeitlmxejofwzuu | created 2026-08-09T22:25:17Z
+  supabase_edge_runtime_poancmeitlmxejofwzuu | created 2026-08-08T11:00:41Z
+  supabase_storage_poancmeitlmxejofwzuu | created 2026-08-08T11:00:40Z
+  IDENTICAL: same container ids, created timestamps, port bindings, volumes and volume CreatedAt.
+
+=== the pool after the run ===
+  slot 1: ai4good-slot-1, api 55321, reservation none, occupancy none
+  slot 2: ai4good-slot-2, api 56321, reservation none, occupancy none
+
+=== what this run proves, and what it does not ===
+PROVES: the integration tier resolves its stack ONLY through the pool; occupy took slot 1 under
+the AT_DB_SLOT override; prepare mirrored this tree, wrote the slot identity, proved the stack
+that answered was slot 1 own, reset it and proved the migrations replayed; the ruled evidence
+line named the slot; the coordinates injected into the child were slot 1 own; the claim was
+released; and the founder personal stack is byte-equal on every docker identity field.
+DOES NOT PROVE: that req-001 is green at the integration tier. It is not, for two reasons that
+predate this item and belong to that requirement, not to the pool - see the red ids above.
+
+END OF S8 TRANSCRIPT
+
+POSTSCRIPT (round-two audit sitting, 2026-08-10, on the panel's finding about line 13's
+"tree state: DIRTY"): the exact dirty-file list was not captured at run time and cannot be
+reconstructed now — that capture omission is real and stands acknowledged. What the commit
+graph proves: this run's head 09dca7de is the direct parent of c0994e7, and c0994e7 added
+exactly four files, all evidence under loop/items/AI4DEV-79/ (this transcript and the three
+loop-oracle files) — the files this capture session was writing. Every code path the run
+exercised sat at committed state 09dca7de unless the dirty delta touched code and was then
+discarded, which this record cannot exclude; what bounds that residue is CI's required
+check, which re-runs the four suites on the clean committed tree at every later head.

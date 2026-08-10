@@ -1,0 +1,160 @@
+﻿
+AI4DEV-79 (parallel DB slot pool) - step S2, the one-time pool setup on the dev machine.
+
+REDACTION: every line below passed a redactor before it was written. JWT tokens (eyJ...),
+sb_ keys, database passwords, the JWT secret and the S3 protocol keys are replaced. Nothing
+was removed for any other reason. Container names and ports are kept: they are the evidence.
+
+date            : 2026-08-10T00:59:58.7763402+03:00
+machine         : MYPC
+worktree        : C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+branch          : nirdrang/ai4dev-79-a-pool-of-local-database-slots-so-items-verify-in-parallel
+head            : 109c25a288dd92fcc404ad28382d395d64ec67fe
+pool root       : C:\Users\nirdr\AppData\Local\ai4good-build\db-slots
+
+WHAT THIS TRANSCRIPT SETTLES. The plan recorded the Supabase CLI global --workdir flag as
+UNVERIFIED and asked this step to settle it. It is only HALF true, and the half that is
+false is dangerous, so the measurement is recorded here before the setup that depends on it.
+
+=== docker server version ===
+29.6.2
+
+=== containers running BEFORE setup ===
+ai4good-runner | Up 3 days
+supabase_analytics_poancmeitlmxejofwzuu | Up 6 hours (healthy)
+supabase_auth_poancmeitlmxejofwzuu | Up 6 hours (healthy)
+supabase_db_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_edge_runtime_poancmeitlmxejofwzuu | Up 6 hours
+supabase_inbucket_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_kong_poancmeitlmxejofwzuu | Up 7 hours (unhealthy)
+supabase_pg_meta_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_realtime_poancmeitlmxejofwzuu | Up 6 hours (healthy)
+supabase_rest_poancmeitlmxejofwzuu | Up 7 hours
+supabase_storage_poancmeitlmxejofwzuu | Up 6 hours (healthy)
+supabase_studio_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_vector_poancmeitlmxejofwzuu | Restarting (0) 24 seconds ago
+
+=== MEASURED: --workdir alone does not isolate a slot ===
+Probe A - the CLI runs FROM THE REPO (itself a Supabase project) with --workdir slot-1.
+Expected, if --workdir were sufficient: slot-1 ports and slot-1 containers.
+Stopped services: [supabase_imgproxy_poancmeitlmxejofwzuu supabase_pooler_poancmeitlmxejofwzuu]
+{"DB_URL":"postgresql://<redacted>@127.0.0.1:55322/postgres","API_URL":"http://127.0.0.1:55321","REST_URL":"http://127.0.0.1:55321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:55321/graphql/v1","FU
+
+READ THAT AGAIN: the URL is the slot port 55321, and the container health it reports is the
+PERSONAL project poancmeitlmxejofwzuu. One command, two projects. A db reset under this
+hybrid would name one database and rebuild another.
+
+Probe B - the same command from C:\, which is not a Supabase project.
+{"_tag":"Error","error":{"code":"LegacyStatusDbInspectError","message":"failed to inspect container health: Error response from daemon: No such container: supabase_db_ai4good-slot-1"}}
+
+Probe B resolves the identity correctly and says so: no such container supabase_db_ai4good-slot-1.
+CONCLUSION, now built into the code: the pool always passes --workdir AND sets the working
+directory to the same slot. The flag says which project; the working directory stops anything
+else from claiming to be one. The first setup attempt on this machine ran with the working
+directory on the repo: supabase start found the personal database container healthy, decided
+the project was already running, and exited zero having created no slot container at all.
+
+=== the personal stack, read BEFORE setup (a read; nothing is written to it) ===
+Stopped services: [supabase_imgproxy_poancmeitlmxejofwzuu supabase_pooler_poancmeitlmxejofwzuu]
+{"DB_URL":"postgresql://<redacted>@127.0.0.1:54322/postgres","API_URL":"http://127.0.0.1:54321","REST_URL":"http://127.0.0.1:54321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:54321/graphql/v1","FUNCTIONS_URL":"http://127.0.0.1:54321/functions/v1","MCP_URL":"http://127.0.0.1:54321/mcp","STUDIO_URL":"http://127.0.0.1:54323","PUBLISHABLE_KEY":"<redacted-key>","SECRET_KEY":"<redacted-key>","JWT_SECRET":"<redacted>","ANON_KEY":"<redacted-jwt>","SERVICE_ROLE_KEY":"<redacted-jwt>","MAILPIT_URL":"http://127.0.0.1:54324","INBUCKET_URL":"http://127.0.0.1:54324","STORAGE_S3_URL":"http://127.0.0.1:54321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"<redacted>","S3_PROTOCOL_ACCESS_KEY_SECRET":"<redacted>","S3_PROTOCOL_REGION":"local","message":""}
+
+=== removing the two slot directories left by the first, failed attempt ===
+slot-1 present after removal: False
+slot-2 present after removal: False
+containers named for a slot before setup: 
+
+=== bun tests/at/harness/db-pool.ts setup ===
+db-pool setup — pool root C:\Users\nirdr\AppData\Local\ai4good-build\db-slots
+db-pool setup — source configuration C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\supabase\config.toml
+db-pool setup — personal stack project id poancmeitlmxejofwzuu (read only; never started, stopped or reset here)
+
+db-pool setup — slot 1 at C:\Users\nirdr\AppData\Local\ai4good-build\db-slots\slot-1
+  port  [api] port: 54321 -> 55321
+  port  [db] port: 54322 -> 55322
+  port  [db] shadow_port: 54320 -> 55320
+  port  [db.pooler] port: 54329 -> 55329
+  port  [studio] port: 54323 -> 55323
+  port  [local_smtp] port: 54324 -> 55324
+  port  [edge_runtime] inspector_port: 8083 -> 8093
+  port  [analytics] port: 54327 -> 55327
+  wrote C:\Users\nirdr\AppData\Local\ai4good-build\db-slots\slot-1\supabase\config.toml (project_id ai4good-slot-1)
+  starting slot 1 — this pulls container images on a first run
+  slot 1 API_URL http://127.0.0.1:55321
+  slot 1 DB_URL  postgresql://<redacted>@127.0.0.1:55322/postgres
+  slot 1 keys    issued (values deliberately not printed)
+
+db-pool setup — slot 2 at C:\Users\nirdr\AppData\Local\ai4good-build\db-slots\slot-2
+  port  [api] port: 54321 -> 56321
+  port  [db] port: 54322 -> 56322
+  port  [db] shadow_port: 54320 -> 56320
+  port  [db.pooler] port: 54329 -> 56329
+  port  [studio] port: 54323 -> 56323
+  port  [local_smtp] port: 54324 -> 56324
+  port  [edge_runtime] inspector_port: 8083 -> 8103
+  port  [analytics] port: 54327 -> 56327
+  wrote C:\Users\nirdr\AppData\Local\ai4good-build\db-slots\slot-2\supabase\config.toml (project_id ai4good-slot-2)
+  starting slot 2 — this pulls container images on a first run
+  slot 2 API_URL http://127.0.0.1:56321
+  slot 2 DB_URL  postgresql://<redacted>@127.0.0.1:56322/postgres
+  slot 2 keys    issued (values deliberately not printed)
+
+db-pool setup — reading the personal stack (a read; nothing is written to it)
+  personal API_URL http://127.0.0.1:54321
+  personal DB_URL  postgresql://<redacted>@127.0.0.1:54322/postgres
+
+db-pool setup — slot 1: ai4good-slot-1, api 55321, db 55322, reservation none, occupancy none
+db-pool setup — slot 2: ai4good-slot-2, api 56321, db 56322, reservation none, occupancy none
+(exit code 0)
+
+=== supabase status --workdir slot-1, run FROM slot-1 (the corrected invocation) ===
+Stopped services: [supabase_imgproxy_ai4good-slot-1 supabase_pooler_ai4good-slot-1]
+{"DB_URL":"postgresql://<redacted>@127.0.0.1:55322/postgres","API_URL":"http://127.0.0.1:55321","REST_URL":"http://127.0.0.1:55321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:55321/graphql/v1","FUNCTIONS_URL":"http://127.0.0.1:55321/functions/v1","MCP_URL":"http://127.0.0.1:55321/mcp","STUDIO_URL":"http://127.0.0.1:55323","PUBLISHABLE_KEY":"<redacted-key>","SECRET_KEY":"<redacted-key>","JWT_SECRET":"<redacted>","ANON_KEY":"<redacted-jwt>","SERVICE_ROLE_KEY":"<redacted-jwt>","MAILPIT_URL":"http://127.0.0.1:55324","INBUCKET_URL":"http://127.0.0.1:55324","STORAGE_S3_URL":"http://127.0.0.1:55321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"<redacted>","S3_PROTOCOL_ACCESS_KEY_SECRET":"<redacted>","S3_PROTOCOL_REGION":"local","message":""}
+
+=== supabase status --workdir slot-2, run FROM slot-2 (the corrected invocation) ===
+Stopped services: [supabase_imgproxy_ai4good-slot-2 supabase_pooler_ai4good-slot-2]
+{"DB_URL":"postgresql://<redacted>@127.0.0.1:56322/postgres","API_URL":"http://127.0.0.1:56321","REST_URL":"http://127.0.0.1:56321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:56321/graphql/v1","FUNCTIONS_URL":"http://127.0.0.1:56321/functions/v1","MCP_URL":"http://127.0.0.1:56321/mcp","STUDIO_URL":"http://127.0.0.1:56323","PUBLISHABLE_KEY":"<redacted-key>","SECRET_KEY":"<redacted-key>","JWT_SECRET":"<redacted>","ANON_KEY":"<redacted-jwt>","SERVICE_ROLE_KEY":"<redacted-jwt>","MAILPIT_URL":"http://127.0.0.1:56324","INBUCKET_URL":"http://127.0.0.1:56324","STORAGE_S3_URL":"http://127.0.0.1:56321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"<redacted>","S3_PROTOCOL_ACCESS_KEY_SECRET":"<redacted>","S3_PROTOCOL_REGION":"local","message":""}
+
+=== the personal stack, read AFTER setup (still its own project, still the 54321 block) ===
+Stopped services: [supabase_imgproxy_poancmeitlmxejofwzuu supabase_pooler_poancmeitlmxejofwzuu]
+{"DB_URL":"postgresql://<redacted>@127.0.0.1:54322/postgres","API_URL":"http://127.0.0.1:54321","REST_URL":"http://127.0.0.1:54321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:54321/graphql/v1","FUNCTIONS_URL":"http://127.0.0.1:54321/functions/v1","MCP_URL":"http://127.0.0.1:54321/mcp","STUDIO_URL":"http://127.0.0.1:54323","PUBLISHABLE_KEY":"<redacted-key>","SECRET_KEY":"<redacted-key>","JWT_SECRET":"<redacted>","ANON_KEY":"<redacted-jwt>","SERVICE_ROLE_KEY":"<redacted-jwt>","MAILPIT_URL":"http://127.0.0.1:54324","INBUCKET_URL":"http://127.0.0.1:54324","STORAGE_S3_URL":"http://127.0.0.1:54321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"<redacted>","S3_PROTOCOL_ACCESS_KEY_SECRET":"<redacted>","S3_PROTOCOL_REGION":"local","message":""}
+
+=== containers running AFTER setup ===
+ai4good-runner | Up 3 days
+supabase_analytics_ai4good-slot-1 | Up About a minute (healthy)
+supabase_analytics_ai4good-slot-2 | Up 25 seconds (healthy)
+supabase_analytics_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_auth_ai4good-slot-1 | Up About a minute (healthy)
+supabase_auth_ai4good-slot-2 | Up 23 seconds (healthy)
+supabase_auth_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_db_ai4good-slot-1 | Up About a minute (healthy)
+supabase_db_ai4good-slot-2 | Up 46 seconds (healthy)
+supabase_db_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_edge_runtime_ai4good-slot-1 | Up About a minute
+supabase_edge_runtime_ai4good-slot-2 | Up 20 seconds
+supabase_edge_runtime_poancmeitlmxejofwzuu | Up 6 hours
+supabase_inbucket_ai4good-slot-1 | Up About a minute (healthy)
+supabase_inbucket_ai4good-slot-2 | Up 23 seconds (healthy)
+supabase_inbucket_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_kong_ai4good-slot-1 | Up About a minute (healthy)
+supabase_kong_ai4good-slot-2 | Up 24 seconds (healthy)
+supabase_kong_poancmeitlmxejofwzuu | Up 7 hours (unhealthy)
+supabase_pg_meta_ai4good-slot-1 | Up About a minute (healthy)
+supabase_pg_meta_ai4good-slot-2 | Up 20 seconds (healthy)
+supabase_pg_meta_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_realtime_ai4good-slot-1 | Up About a minute (healthy)
+supabase_realtime_ai4good-slot-2 | Up 22 seconds (healthy)
+supabase_realtime_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_rest_ai4good-slot-1 | Up About a minute
+supabase_rest_ai4good-slot-2 | Up 22 seconds
+supabase_rest_poancmeitlmxejofwzuu | Up 7 hours
+supabase_storage_ai4good-slot-1 | Up About a minute (healthy)
+supabase_storage_ai4good-slot-2 | Up 21 seconds (healthy)
+supabase_storage_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_studio_ai4good-slot-1 | Up About a minute (healthy)
+supabase_studio_ai4good-slot-2 | Up 19 seconds (healthy)
+supabase_studio_poancmeitlmxejofwzuu | Up 7 hours (healthy)
+supabase_vector_ai4good-slot-1 | Restarting (0) Less than a second ago
+supabase_vector_ai4good-slot-2 | Restarting (0) 1 second ago
+supabase_vector_poancmeitlmxejofwzuu | Restarting (0) 59 seconds ago
+
+END OF S2 TRANSCRIPT

@@ -1,0 +1,3250 @@
+OpenAI Codex v0.146.0
+--------
+workdir: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019fe865-7f42-76d0-a39c-fbb5221a7f75
+--------
+user
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the launch cage — a read-only
+sandbox, or an agent definition whose write tools are removed. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** The launch cage is the enforcement — a read-only sandbox, or
+a removed tool set — and this sentence is the instruction; every launch prompt carries it
+explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+
+---
+
+## The PLAN review
+
+**Subject** · `plan.md` at the pinned commit, the board item, the specification, and the code the
+plan claims things about.
+
+**Give no credit for intent.** A plan is made of promises, and only some of them count. A promise
+carrying its own step and done-criterion in this plan, or work an item boundary correctly leaves to
+another item, is a commitment — judge it as written, and do not fault an early step for work a
+later one commits to. Everything else is worth nothing here: what the author obviously means, what
+is "handled elsewhere" with nothing behind it, what a later pass will tidy. A step that works only
+on the happy path is a weakness, not a start.
+
+You are refuting a plan before anything is built. Attack both layers — what it decides, and
+whether it can be executed as written:
+
+- **a decision stated as settled that is not decided** — the plan asserting a choice the founder
+  or the specification never made
+- **a fact wrong against the code** — verify every claim the plan makes about the tree; never
+  trust one
+- **a constraint that contradicts the role contracts** — the plan instructing something the
+  process forbids
+- **scope that forces a mid-flight redesign** — work that cannot be finished in the shape planned
+- **anything no tool can actually do.** *A plan that cannot be executed as written is this gate's
+  target failure.*
+- **the plan's teeth** — steps missing a done-criterion; oracles too weak to prove what they
+  claim; a green that would not mean what the item says it means. On one real outing this gate
+  caught a test oracle that would have passed while proving nothing, and a do-nothing
+  implementation that would have satisfied the entire verification gate.
+
+Your count line is `PLAN REVIEW: CLEAN` or `PLAN REVIEW: 3 FINDINGS`.
+
+---
+
+## This item
+
+The plan under review is `loop/items/AI4DEV-79/plan.md`. The item builds a pool of two standing
+local Supabase stacks ("slots") so that parallel board items can run database-backed verify runs
+without resetting each other — or the developer's personal default stack on the 54321 ports,
+which stays outside the pool. The board item's design section was ruled by the founder on
+2026-08-09; the plan quotes it verbatim in its §1, and your subject is the MECHANISM the plan
+builds under those ruled points, plus every claim the plan makes about the tree. The ruled
+points themselves (pool of 2, warm slots, claim-file states and owners, reject-at-full,
+state-never-inherited, loud stale breaking, evidence naming the slot, identity/data split) are
+settled; a finding that only re-litigates one of them will be rejected as out of scope — but a
+finding that the plan's mechanism fails to DELIVER a ruled point is squarely in scope.
+
+Read alongside the plan, all paths repository-relative:
+- `tests/at/harness/runner.ts` — the integration-tier sequence the plan hooks (main(), the
+  `tier !== 'loop'` block), `acquireStackLock`, `readLocalConfig`, `readStackStatus`,
+  `localStackProblems`, `resetLocalDatabase`, `proveMigrationsReplayed`, `cleanupRun`, and the
+  `AT_SUPABASE_*` env injection the suites depend on.
+- `tests/at/harness/runner.selftest.ts` — the existing lock-race and takeover tests the plan
+  claims already prove the occupancy semantics it reuses.
+- `tests/at/harness/check.ts` — `INSTALL_ROOT`, `REPO_ROOT` and the `AT_REPO_ROOT` override
+  pattern the plan's `AT_DB_POOL_ROOT` mirrors.
+- `supabase/config.toml` — the personal stack's identity the plan enumerates (project id, the
+  port set, the inspector port), the `[db.seed]` path, the `env()` credential pattern, and the
+  `[functions.*]` verify_jwt pins.
+- `supabase/migrations/`, `supabase/functions/` — what prepare() copies; note there is no
+  `supabase/seed.sql` in the tree.
+- `package.json` — the scripts CI and the plan cite; the pinned `supabase` CLI version.
+- `.github/workflows/ci.yml` — what the required check actually runs (no Docker), which the
+  plan's selftests must survive.
+- `loop/work/work-lib.ps1` — `Acquire-WorkLock`/`Release-WorkLock`, the house pattern the new
+  PowerShell helpers mirror.
+- `.claude/skills/work/SKILL.md` — the claim step, the spawn-facts step and the sweep step the
+  plan adds reservation lines to.
+
+Directions worth particular attack, in addition to your section's own list:
+- **The config-regeneration decision (plan D3).** The plan regenerates each slot's config.toml
+  from the item tree's config on every occupancy, overlaying only identity fields, and restarts
+  the slot stack when the result differs. Attack both horns: does regeneration break the ruled
+  "each slot directory permanently owns its config.toml", or would the alternative (a frozen
+  slot config) silently grade wrong auth behavior? Is the "config write and restart only happen
+  together" invariant actually enforceable in the code shape proposed? What happens if the
+  restart fails halfway — what state does the next occupier find, and does anything detect it?
+- **The occupancy reuse (plan D4).** The plan says `acquireStackLock` already IS the ruled
+  occupancy claim. Check that against the ruled wording: per verify window, atomic create-new,
+  pid stamped, release in a `finally`, stale claims broken loudly and recorded. Is anything in
+  the ruled claim NOT delivered by the existing lock — and is the release really on every exit
+  path of the modified runner, including the new failure exits the pool path adds?
+- **The reservation lookup (plan D6).** Item id derived from the current git branch, inside a
+  process (`runner.ts`) that today never touches git. What are the failure shapes — detached
+  HEAD, the coordinator's main checkout, a branch naming two ids, git absent from the child's
+  allowlisted env — and does the plan's refusal path cover each, or does one of them fall
+  through to something destructive?
+- **The personal-block guard (plan D5).** Is the guarded set (repo project id, ports
+  54320–54329, inspector 8083) the COMPLETE identity surface of the personal stack as
+  config.toml defines it, or is something reachable left out (commented smtp/pop3 ports, the
+  analytics port, anything the CLI derives rather than reads)? Could a slot config that passes
+  the guard still collide with the personal stack at the Docker level?
+- **The isolation spike (plan S3).** The done-criterion requires a canary IN the personal
+  stack while the same design calls that stack untouchable; the plan's §6 states its reading.
+  Attack the spike's mechanics: does the preflight actually rule out a reset landing on the
+  wrong stack, is the scratch-schema cleanup sufficient as "zero residue", and is anything
+  about `--workdir` semantics assumed where it should be marked unverified?
+- **The copy set (plan D7).** migrations, seed, functions — is that the complete data an
+  integration-tier suite reaches? What about config-referenced files the overlay preserves by
+  reference (signing keys paths, template paths, `env()` names), which exist relative to the
+  ITEM tree but not the slot directory?
+- **CI reality (plan F7/S4).** The seven named selftests must be green on ubuntu-latest with
+  no Docker and no LOCALAPPDATA. Check each named test as described: can it actually be tested
+  without a live stack, or does one of them (the evidence line? the takeover?) secretly need
+  Docker to mean anything?
+- **The loop-tier byte-identity claim (plan S5).** The plan parameterizes four existing
+  functions and claims loop-tier output unchanged. Is that claim checkable as written, and is
+  `at:verify req-001 --tier loop --expect` a strong enough oracle for "unchanged"?
+- **The plan's tree facts (its §2, F1–F10).** Verify every one against the tree — line ranges,
+  port numbers, the missing seed file, the CI steps, the lock path shape. A plan fact wrong
+  here poisons the steps built on it.
+
+2026-08-09T21:20:02.456890Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"mcp\", resource_metadata=\"https://mcp.lovable.dev/.well-known/oauth-protected-resource\"" })
+2026-08-09T21:20:09.210688Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"mcp\", resource_metadata=\"https://mcp.lovable.dev/.well-known/oauth-protected-resource\"" })
+codex
+I’ll review the plan as a static artifact only: read the pinned tree, verify its factual and mechanical claims against the named files, and mark any runtime-dependent concern as unverified with the exact check needed. I will not execute tests or write anything.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$line=0; Get-Content -LiteralPath '"'loop/items/AI4DEV-79/plan.md' | ForEach-Object { "'$line++; '"'{0,5}: {1}' -f "'$line, $_ }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 528ms:
+    1: # Plan â€” AI4DEV-79 (parallel local DB slot pool)
+    2: 
+    3: Written by the plan sitting (orchestrator, fable @ xhigh), 2026-08-10. Chain, derived from the
+    4: branch: AI4DEV-79 (parallel DB slot pool) â†’ AI4DEV-3 (AT harness), root label `attr:bringup`.
+    5: Foundation work: no requirement above it, no acceptance-test ids of its own.
+    6: 
+    7: ## 1. The ruled design â€” quoted from the board item, because the board is not in the tree
+    8: 
+    9: The Linear description carries the founder-ruled design (ruled 2026-08-09). This gate critiques
+   10: the mechanism below it; it does not reopen these decisions. The ruled points, quoted:
+   11: 
+   12: > * **A pool of 2 standing Supabase stacks** ("slots"), each with its own project id and port
+   13: >   block. Concurrency = pool size. The default stack on ports 54321+ is the founder's personal
+   14: >   stack and stays OUTSIDE the pool, untouchable.
+   15: > * **Warm slots**: the stacks stay running. (Flipping to start-on-acquire later is a one-line
+   16: >   change.)
+   17: > * **One claim file per slot, two states, three owners**: the coordinator RESERVES a slot when
+   18: >   an item starts (`/work` time â€” admission control); the harness runner OCCUPIES it for each
+   19: >   verify window (atomic create-new claim, pid stamped, release in a `finally`); the
+   20: >   coordinator RELEASES the reservation at the item sweep.
+   21: > * **Full pool = the next database-needing item is REJECTED at start.** No flagged limbo.
+   22: >   Items that need no database (docs, contracts) skip the reservation, stated at start.
+   23: > * **State is never inherited.** First act of every occupancy: copy the item tree's own
+   24: >   `supabase/migrations` + seed into the slot directory and run `supabase db reset --workdir
+   25: >   <slot>`. The previous holder is never trusted, including a crashed one.
+   26: > * **Stale claims are broken LOUDLY** â€” dead holder pid, takeover recorded in the claim, never
+   27: >   silent.
+   28: > * **The evidence names the slot**: the verify transcript carries one line â€” slot, reset
+   29: >   performed, migration state. A green that cannot name its reset ran against unknown state.
+   30: > * **Identity/data split**: each slot directory permanently owns its `config.toml` (project id
+   31: >   + ports = identity); the item supplies migrations by copy (data). The repo's committed
+   32: >   `supabase/config.toml` is never edited, so no item diff is ever polluted.
+   33: 
+   34: What gets built, per the item: (1) a one-time setup script; (2) `tests/at/harness/db-pool.ts`
+   35: (~150â€“250 lines) exporting `readPool / occupy / prepare / stackEnv / release / evidence`;
+   36: (3) one hook in `tests/at/harness/runner.ts` gated behind the integration tier, loop-tier
+   37: behavior byte-identical; (4) reservation helpers (PowerShell, work library) plus reservation
+   38: lines in the /work skill, the conductor's spawn facts, and release in the coordinator sweep.
+   39: 
+   40: The tests, per the item: `db-pool.selftest.ts` with named tests (two concurrent occupies on one
+   41: slot â†’ exactly one wins; dead-pid claim â†’ loud takeover, recorded; release fires from `finally`
+   42: even when the suite throws; the evidence line carries slot + migration state), and:
+   43: 
+   44: > **The isolation spike comes FIRST and is a done-criterion**: canary rows in slot-1 AND in the
+   45: > personal stack must survive a `db reset` aimed at slot-2. Never assume the wall â€” prove it
+   46: > before building on it.
+   47: 
+   48: > Suites change ZERO lines â€” they already reach the stack only through the env the runner
+   49: > injects.
+   50: 
+   51: ## 2. Facts about the tree this plan stands on (verified this sitting; pointers, not paste)
+   52: 
+   53: - F1. The runner's integration-tier sequence is `tests/at/harness/runner.ts` main(), the
+   54:   `tier !== 'loop'` block (~lines 1044â€“1112): read `supabase/config.toml` at REPO_ROOT â†’
+   55:   machine-wide stack lock â†’ `supabase status` â†’ prove-local checks â†’ readiness â†’ `db reset
+   56:   --local` â†’ readiness â†’ prove migrations replayed â†’ inject `AT_SUPABASE_URL`,
+   57:   `AT_SUPABASE_DB_URL`, `AT_SUPABASE_ANON_KEY`, `AT_SUPABASE_SERVICE_ROLE_KEY` into the vitest
+   58:   child. Suites see only that env (runner.ts ~1108â€“1111). The item's "suites change ZERO lines"
+   59:   claim is true against the tree.
+   60: - F2. The tiers are `loop | integration | drill` (runner.ts:47). The `tier !== 'loop'` guard
+   61:   means the DRILL tier also reaches the repo-config stack today.
+   62: - F3. `acquireStackLock` (runner.ts ~343â€“442) is already an atomic create-new claim file, pid
+   63:   and start-time stamped, with a race-proven stale-takeover gate (runner.selftest.ts) and a
+   64:   loud console line on takeover. Its release runs inside the runner's `finally` chain
+   65:   (`cleanupRun`, runner.ts ~938â€“946, called from main's `finally`). The lock file lives at
+   66:   `<LOCALAPPDATA|XDG_CACHE_HOME|tmpdir>/ai4good-build/at-locks/at-verify-<projectId>-<apiPort>.lock`.
+   67: - F4. The personal stack's identity (`supabase/config.toml`): `project_id
+   68:   "poancmeitlmxejofwzuu"`; ports 54321 (api), 54322 (db), 54320 (shadow), 54323 (studio),
+   69:   54324 (local_smtp), 54327 (analytics), 54329 (pooler, disabled), and `edge_runtime`
+   70:   `inspector_port` 8083. Seed config `[db.seed] sql_paths = ["./seed.sql"]` â€” and
+   71:   `supabase/seed.sql` does NOT exist in the tree today.
+   72: - F5. `supabase/functions/` carries two live edge functions plus `_shared` modules, and
+   73:   `config.toml` pins `verify_jwt = true` for both. A slot that lacks the functions directory
+   74:   serves 404 where the personal stack serves the function.
+   75: - F6. `config.toml` uses `env()` substitution for OAuth credentials; a missed env resolves to a
+   76:   literal string and does not stop the stack (documented in config.toml ~line 410, measured on
+   77:   the sign-in item).
+   78: - F7. CI (`.github/workflows/ci.yml`, required check `verify`) runs on `ubuntu-latest` with NO
+   79:   Docker step: typecheck, `at:selftest` (vitest over `tests/at/harness/`), `at:check` per
+   80:   suite, `at:verify --tier loop --expect` per declaration. Every test this item adds to
+   81:   `harness/` must be green with no live stack and no Windows-only path assumption.
+   82: - F8. The Supabase CLI is pinned in devDependencies (`supabase ^2.110.0`) and always invoked as
+   83:   `bun --no-env-file <INSTALL_ROOT>/node_modules/supabase/dist/supabase.js` (runner.ts:69,
+   84:   460â€“463). The CLI takes a global `--workdir` flag naming a directory that contains a
+   85:   `supabase/` project folder â€” used by nothing in this repo yet, so it is UNVERIFIED here;
+   86:   step S2's done-criterion proves it before anything depends on it.
+   87: - F9. The work library pattern for locks is `Acquire-WorkLock` / `Release-WorkLock`
+   88:   (`loop/work/work-lib.ps1` ~196â€“223). The /work skill's claim step and spawn-facts step are
+   89:   SKILL.md steps 4â€“6 (~lines 91â€“101); the coordinator sweep step is SKILL.md ~line 170.
+   90: - F10. The verify surface for this item (foundation work, no AT ids): `bun run typecheck`,
+   91:   `bun run at:selftest`, `bun run at:check req-001`, `bun run at:verify req-001 --tier loop
+   92:   --expect` â€” the same four things CI runs, and all four are green on main today.
+   93: 
+   94: ## 3. Decisions â€” the mechanism under the ruled design
+   95: 
+   96: - **D1. Pool root.** `<LOCALAPPDATA ?? XDG_CACHE_HOME ?? tmpdir>/ai4good-build/db-slots/`,
+   97:   the same base-resolution rule as the runner's `lockDir()` (F3), so the pool lives beside the
+   98:   locks it cooperates with, outside every worktree. Layout: `slot-1/supabase/â€¦`,
+   99:   `slot-2/supabase/â€¦`, `reservations/slot-N.json`. Env override `AT_DB_POOL_ROOT` exists for
+  100:   the selftests only, exactly as `AT_REPO_ROOT` exists for the runner's own tests.
+  101: - **D2. Slot identity.** Slot N owns `project_id "ai4good-slot-N"` and the port overlay
+  102:   `54xxx + N*1000`: slot-1 = 55320/55321/55322/55323/55324/55327/55329, inspector 8093;
+  103:   slot-2 = 56320/56321/56322/56323/56324/56327/56329, inspector 8103. Distinct project ids
+  104:   give distinct Docker container and volume names; distinct port blocks give the wall the
+  105:   spike proves. No slot value may fall in 54320â€“54329 or be 8083 (D5 enforces).
+  106: - **D3. Slot config regeneration â€” identity is permanent, everything else is data.** The ruled
+  107:   identity/data split names project id + ports as the slot's identity. Auth flags, seed paths
+  108:   and `verify_jwt` pins also live in `config.toml`, and items change them (F4's
+  109:   `enable_confirmations` was flipped by an item). A slot config frozen at setup time would
+  110:   drift from the item tree's config, and a verify on a slot would grade different auth
+  111:   behavior than a verify on the stack the config describes. So `prepare()` regenerates the
+  112:   slot's `config.toml` on every occupancy: take the item tree's `supabase/config.toml`
+  113:   verbatim, overlay ONLY the identity fields (project_id, the seven port keys, inspector_port)
+  114:   with the slot's permanent values, using the same section-aware line scan `readLocalConfig`
+  115:   already uses. If the regenerated text equals the file already in the slot, nothing happens â€”
+  116:   the warm stack keeps running (the ruled default). If it differs, prepare writes it and
+  117:   restarts that slot's stack (`stop` + `start --workdir`) before the reset, because the auth
+  118:   container reads config at start, not at reset. Invariant: a config write and a restart only
+  119:   ever happen together, so the file on disk always describes the running stack.
+  120: - **D4. Occupancy = the existing stack lock, extended.** `occupy()` acquires
+  121:   `acquireStackLock(slotConfig, requirement)` (F3) â€” it is already the atomic create-new,
+  122:   pid-stamped, stale-takeover-with-loud-line claim the ruled text describes, and it is already
+  123:   released in the runner's `finally` chain. One extension: when a stale claim is broken, the
+  124:   new claim file records `tookOverFrom` (the dead holder's pid and start time), so the
+  125:   takeover is recorded IN the claim, not only on the console.
+  126: - **D5. The personal block is refused in code, not by convention.** db-pool refuses to occupy,
+  127:   prepare, reset or emit env for any slot whose config carries the repo config's `project_id`,
+  128:   any port in 54320â€“54329, or inspector port 8083. The check runs before anything destructive,
+  129:   every time, and has its own named selftest. This is the "untouchable" ruling as an
+  130:   executable guard.
+  131: - **D6. Reservation lookup is derived, never declared.** The coordinator's `Reserve-DbSlot`
+  132:   writes `reservations/slot-N.json` (exclusive create; content: item id, branch, timestamp,
+  133:   holder). At verify time the runner derives its item id from the current branch (the house
+  134:   attribution rule) and occupies the slot whose reservation names that item. A run with no
+  135:   reservation for its item refuses as INFRASTRUCTURE, naming `Reserve-DbSlot` â€” no silent
+  136:   fallback onto any free slot, because admission control is the coordinator's, not the
+  137:   runner's. `AT_DB_SLOT=N` is the explicit override for runs outside an item (the founder, the
+  138:   evidence gate, the spike); the occupancy claim still applies.
+  139: - **D7. Data copy at occupancy.** Before the reset, prepare deletes and re-copies into the
+  140:   slot: `supabase/migrations/*.sql` (timestamped files only, the runner's own pattern),
+  141:   `supabase/seed.sql` when the item tree has one â€” and removes the slot's copy when it does
+  142:   not (F4) â€” and `supabase/functions/**` (F5: integration suites can call edge functions
+  143:   through the injected URL). The previous holder's files are never trusted; delete-then-copy,
+  144:   not merge.
+  145: - **D8. The runner hook is integration-tier only.** In main's stack block: when
+  146:   `tier === 'integration'`, resolve the stack through the pool â€” occupy â†’ prepare (copy,
+  147:   config, reset via `--workdir`, readiness, prove migrations) â†’ the same prove-local checks
+  148:   against the SLOT's config â†’ inject the slot's env â€” and print the evidence line. The loop
+  149:   tier stays byte-identical (it never enters the block). The DRILL tier keeps today's
+  150:   repo-config behavior unchanged (F2); that residual path can still reach the personal stack
+  151:   and is named in Â§6 as follow-up work to file, because the ruled hook is pinned to the
+  152:   integration tier and widening it is not this plan's call.
+  153: - **D9. Existing helpers are parameterized, not duplicated.** `readLocalConfig`,
+  154:   `readStackStatus`, `resetLocalDatabase` and `proveMigrationsReplayed` currently hard-code
+  155:   REPO_ROOT (F1). Each gains a workdir/config parameter defaulting to today's value â€”
+  156:   call-site behavior for loop and drill is unchanged â€” and the pool path passes the slot.
+  157:   No second copy of the status parser, the prove-local checks or the reset process handling.
+  158: - **D10. One place builds configs.** All TOML reading and generation lives in db-pool.ts
+  159:   (TypeScript). The one-time setup is a CLI entry in the same file (`bun
+  160:   tests/at/harness/db-pool.ts setup`, the `import.meta.main` pattern runner.ts uses): create
+  161:   both slot directories, generate both configs from the current tree + identity overlay, start
+  162:   both stacks via the pinned CLI, print both status reports. The PowerShell helpers
+  163:   (`loop/work/db-slots.ps1`: `Reserve-DbSlot`, `Release-DbSlot`, `Get-DbSlotPool`) do file
+  164:   operations only â€” reserve, release, list â€” mirroring the `Acquire-WorkLock` house pattern
+  165:   (F9). No TOML logic in PowerShell, so the overlay cannot fork.
+  166: - **D11. The evidence line.** One line on the verify transcript, printed by the runner on the
+  167:   pool path: `at:verify â€” db slot <N> (<project_id>, api <port>) â€” reset OK â€” migrations: <E>
+  168:   expected, <A> applied`. Slot, reset performed, migration state â€” the ruled three.
+  169: - **D12. No slicing.** The diff is one mechanism â€” pool module, its selftests, one runner
+  170:   hook, small PowerShell helpers, and process-file lines. The parts reference each other; a
+  171:   per-slice code gate would review the claim logic apart from the tests that pin it. One
+  172:   draft-code gate reads the whole diff.
+  173: 
+  174: ## 4. Steps, each with its done-criterion
+  175: 
+  176: Build order note: the ruled text says the spike comes FIRST â€” before anything is built ON the
+  177: wall. The spike needs the slots to exist, so S1â€“S2 create them, S3 proves the wall, and only
+  178: then S5 builds the runner hook on top of it.
+  179: 
+  180: - **S1. `tests/at/harness/db-pool.ts`** â€” pool root resolution (D1), config read/overlay/
+  181:   generation (D2, D3), `readPool`, `occupy` (D4), `prepare` (D3, D7), `stackEnv`, `release`,
+  182:   `evidence` (D11), the personal-block guard (D5), reservation lookup (D6), and the `setup`
+  183:   CLI entry (D10).
+  184:   *Done when:* `bun run typecheck` is green; every name the item lists (`readPool / occupy /
+  185:   prepare / stackEnv / release / evidence`) is exported; the guard (D5) runs on every
+  186:   destructive path.
+  187: - **S2. Setup run on the dev machine** â€” `bun tests/at/harness/db-pool.ts setup`; transcript
+  188:   to `loop/items/AI4DEV-79/setup-pool.txt`.
+  189:   *Done when:* `supabase status --workdir` for slot-1 and slot-2 reports loopback URLs on the
+  190:   55321 and 56321 blocks respectively (this also settles F8's unverified `--workdir` claim);
+  191:   a plain read of the personal stack's status still reports the 54321 block untouched. The
+  192:   personal-stack check is a read; setup performs no write to it.
+  193: - **S3. The isolation spike** â€” the ruled done-criterion, run once, transcript to
+  194:   `loop/items/AI4DEV-79/spike-isolation.txt`. Procedure: (a) preflight â€” prove via `status
+  195:   --workdir` that slot-2's stack answers on the 56321 block BEFORE any reset, the same
+  196:   prove-first pattern the runner uses; (b) canary row in slot-1's database; (c) canary row in
+  197:   the personal stack, in a dedicated scratch schema created for the spike; (d) `supabase db
+  198:   reset --workdir <slot-2>`; (e) both canaries still present; (f) drop the scratch schema â€”
+  199:   the personal stack ends the spike with zero residue. The spike REQUIRES the personal stack
+  200:   to be running; if it is not, the executor stops and reports rather than starting it â€”
+  201:   starting the founder's stack is touching it.
+  202:   *Done when:* the transcript shows both canaries surviving slot-2's reset, and shows the
+  203:   scratch schema dropped afterward.
+  204: - **S4. `tests/at/harness/db-pool.selftest.ts`** â€” no Docker, temp pool roots via
+  205:   `AT_DB_POOL_ROOT`, runnable on CI (F7). Named tests, each its own `it()`:
+  206:   (1) two concurrent occupies on one slot â†’ exactly one wins; (2) dead-pid claim â†’ loud
+  207:   takeover, and `tookOverFrom` recorded in the new claim; (3) release fires from `finally`
+  208:   even when the suite throws; (4) the evidence line carries slot + migration state; (5) the
+  209:   personal-block guard refuses a 54321-block config and the repo project id; (6) no
+  210:   reservation and no override â†’ refusal that names `Reserve-DbSlot`; (7) the identity overlay
+  211:   changes exactly the identity fields and nothing else (byte-compare the rest).
+  212:   *Done when:* `bun run at:selftest` is green including this file, on a machine with no
+  213:   running stack.
+  214: - **S5. The runner hook** (D8, D9) in `tests/at/harness/runner.ts`.
+  215:   *Done when:* typecheck green; `bun run at:verify req-001 --tier loop --expect` output
+  216:   unchanged against main; the integration path resolves the stack only through db-pool; the
+  217:   drill path is textually today's sequence; release stays in the existing `finally` chain.
+  218: - **S6. Reservation helpers and process lines** â€” `loop/work/db-slots.ps1` (D10);
+  219:   `.claude/skills/work/SKILL.md`: the claim step gains the admission-control line (reserve
+  220:   before claiming; full pool â†’ the item is REJECTED at start, stated; database-free items skip
+  221:   the reservation, stated at start), the spawn-facts line gains the reserved slot as an item
+  222:   fact, the sweep step gains `Release-DbSlot`.
+  223:   *Done when:* the helpers dot-source and run under Windows PowerShell 5.1; `Reserve-DbSlot`
+  224:   on a full pool returns a rejection, not a wait; the three SKILL.md touch points read
+  225:   correctly in context.
+  226: - **S7. The record** â€” commit setup and spike transcripts and this plan's amendments as they
+  227:   happen; every phase boundary pushes.
+  228:   *Done when:* the item directory carries `setup-pool.txt` and `spike-isolation.txt` committed,
+  229:   and `git status --porcelain` is empty at every sitting close.
+  230: 
+  231: ## 5. Expected verification state
+  232: 
+  233: No acceptance-test ids exist on this item (foundation work). The goal state for the fix-and-goal
+  234: sitting, all on the item branch:
+  235: 
+  236: | check | expected |
+  237: |---|---|
+  238: | `bun run typecheck` | green |
+  239: | `bun run at:selftest` | green, now including the seven named db-pool tests (S4) |
+  240: | `bun run at:check req-001` | green, unchanged |
+  241: | `bun run at:verify req-001 --tier loop --expect` | green, output unchanged against main |
+  242: | S3 spike done-criterion | met once, transcript committed |
+  243: | CI required check `verify` | green on the final head (it runs the first four rows; it cannot run the spike â€” F7, no Docker) |
+  244: 
+  245: What the green does NOT claim, stated now so no later phase inflates it: CI proves the pool's
+  246: claim logic and guards on temp directories; only the committed spike and setup transcripts
+  247: prove real stacks, real ports and the real wall, and they prove it on the dev machine at the
+  248: recorded commit, once.
+  249: 
+  250: ## 6. Risks, residuals, and one reading made explicit
+  251: 
+  252: - **The drill tier residual (F2, D8).** After this item, `--tier drill` still targets the
+  253:   repo-config stack â€” on the founder's machine, the personal stack. The ruled hook is pinned
+  254:   to the integration tier, so this plan leaves drill alone and hands the coordinator a
+  255:   follow-up to file: decide the drill tier's stack, in words, as its own item.
+  256: - **The "untouchable" reading.** The ruled text makes the personal stack "OUTSIDE the pool,
+  257:   untouchable", and the same ruled text's spike requires a canary row IN the personal stack.
+  258:   These reconcile as: the POOL â€” its machinery, its resets, its tests â€” never targets the
+  259:   personal stack's identity (D5 enforces this in code, S4 tests it); the one-time spike proves
+  260:   that wall, and its personal-stack canary is the founder's own ruled proof, performed in a
+  261:   scratch schema and removed, leaving zero residue (S3). The recurring selftests never open a
+  262:   connection to any 54321-block port: they run on temp directories with no Docker at all.
+  263: - **Config regeneration vs "warm" (D3).** A restart on functional-config drift is not a
+  264:   reopening of the warm-slots ruling: warm remains the steady state; a restart happens only
+  265:   when the item tree's own config differs from what the running slot was started with, which
+  266:   is exactly when a warm stack would grade the wrong behavior.
+  267: - **Two standing stacks cost real memory and containers.** Ruled ("standing"), so accepted;
+  268:   the setup transcript records what actually started, so the cost is visible.
+  269: - **Unverified runtime claims, routed to steps:** `--workdir` semantics (F8 â†’ S2); reset with
+  270:   a configured-but-absent seed file succeeds (F4 â†’ S2/S3, the slot reset runs before any
+  271:   suite depends on it); edge-runtime hot reload picks up functions copied after start (F5 â†’
+  272:   S3 window or the first integration run â€” if false, prepare restarts the slot after the
+  273:   copy, a contained change inside `prepare()`).
+  274: - **Port collisions with unrelated software** on 55321/56321 blocks: `supabase start` fails
+  275:   loudly at setup time; the setup transcript catches it on this machine now, not mid-item
+  276:   later.
+  277: 
+  278: ## 7. Gate-1 rulings
+  279: 
+  280: (Empty at plan time. The draft sitting writes every ruling here, the reviewer's claim quoted
+  281: verbatim beside each.)
+
+codex
+The plan contains several high-risk seams where its stated invariant depends on sequencing rather than a recoverable state model. I’m now checking those against the runner’s actual lock/finally structure, the full Supabase identity surface, and every relative file reference the generated slot config would retain.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$path='"'tests/at/harness/runner.ts'; "'$ranges=@(@(1,120),@(300,500),@(880,980),@(1000,1140)); $lines=Get-Content -LiteralPath $path; foreach($range in $ranges){ for($n=$range[0]; $n -le $range[1] -and $n -le $lines.Count; $n++){ '"'{0,5}: {1}' -f "'$n,$lines[$n-1] } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 549ms:
+    1: /**
+    2:  * The AT runner â€” `bun run at:verify req-0NN --tier <loop|integration|drill>`.
+    3:  *
+    4:  * The command shape is fixed: all 30 decomposition manifests cite it verbatim in their done
+    5:  * contracts, and the skills (`/dev-start`'s inner loop, `/dev-end`, `/pm-done`'s gate) call it.
+    6:  * It resolves the requirement's suite, runs it under vitest with the tier passed through
+    7:  * `AT_TIER`, and reports PER AT ID â€” green / red / missing â€” because "3 failed" tells a gate
+    8:  * nothing about which acceptance criterion is unmet.
+    9:  *
+   10:  * Above the `loop` tier the suite needs a real database, and that database is the LOCAL
+   11:  * Supabase stack (AI4DEV-6) â€” not a shared hosted project, because every run wipes and rebuilds
+   12:  * it. That makes the sequence below load-bearing, and it is deliberately paranoid:
+   13:  *
+   14:  *   1. take a machine-wide lock keyed by project id + api port, so two runs (or two checkouts
+   15:  *      sharing a project id, which share Docker identity and ports) cannot reset under each other;
+   16:  *   2. read the stack's own report of itself and PROVE it is local â€” loopback host, the ports
+   17:  *      configured in `supabase/config.toml`, and keys issued by the local development issuer â€”
+   18:  *      BEFORE anything destructive happens;
+   19:  *   3. wait for real readiness: the database answers a query AND a request through the API
+   20:  *      gateway succeeds, which takes Kong, PostgREST and Postgres all being up;
+   21:  *   4. only then reset the database, then re-prove readiness;
+   22:  *   5. run the suite with an ALLOWLISTED environment â€” the child gets the platform minimum plus
+   23:  *      the validated local coordinates, and nothing else, so a secret sitting in a developer's
+   24:  *      `.env.local` can never reach a test (and a test can never reach the hosted project).
+   25:  *
+   26:  * Any failure in that sequence is an INFRASTRUCTURE failure: non-zero exit, no tests run, a
+   27:  * message naming what failed. The runner never falls back to the loop tier's stubs and never
+   28:  * runs against a database whose state it could not establish â€” a gate grading a stand-in, or an
+   29:  * unknown database, is worse than a gate that refuses to run. Secrets are never printed: raw CLI
+   30:  * output is redacted, and validation reports which check failed, never the value that failed it.
+   31:  */
+   32: 
+   33: import { spawn, spawnSync } from 'node:child_process';
+   34: import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, writeSync } from 'node:fs';
+   35: import { hostname, tmpdir } from 'node:os';
+   36: import { join } from 'node:path';
+   37: 
+   38: import { INSTALL_ROOT, inspectBijection, normalizeRequirement, REPO_ROOT, suiteDir } from './check.ts';
+   39: import {
+   40:   expectationDeviations,
+   41:   expectedManifestPath,
+   42:   loadTierExpectation,
+   43:   reportAccountingDeviations,
+   44:   type TierExpectation,
+   45: } from './expected.ts';
+   46: 
+   47: const TIERS = ['loop', 'integration', 'drill'] as const;
+   48: type Tier = (typeof TIERS)[number];
+   49: 
+   50: const USAGE = 'usage: bun run at:verify req-0NN --tier <loop|integration|drill> [--wired] [--expect]';
+   51: 
+   52: /** How long the stack gets to become genuinely ready before the run is called off. */
+   53: const READY_TIMEOUT_MS = Number(process.env.AT_READY_TIMEOUT_MS ?? 120_000);
+   54: /** How long `supabase db reset` gets before it is assumed wedged and its process tree killed. */
+   55: const RESET_TIMEOUT_MS = Number(process.env.AT_RESET_TIMEOUT_MS ?? 600_000);
+   56: /** A lock older than this, or held by a process that is gone, is taken over. */
+   57: const LOCK_STALE_MINUTES = Number(process.env.AT_LOCK_STALE_MINUTES ?? 60);
+   58: /** The takeover gate is held for milliseconds; anything this old was abandoned by a dead process. */
+   59: const GATE_STALE_MINUTES = Number(process.env.AT_LOCK_GATE_STALE_MINUTES ?? 2);
+   60: 
+   61: /** `supabase status` reports these two as stopped because config.toml disables them. Benign. */
+   62: const DISABLED_SERVICES = /^supabase_(imgproxy|pooler)_/;
+   63: 
+   64: /**
+   65:  * The pinned CLI, invoked directly â€” no shell, no PATH lookup, no globally installed version.
+   66:  * Resolved from the INSTALL root, never the (overridable) data root: the pinned versions live in
+   67:  * the real checkout's `node_modules` wherever the acceptance files being read happen to be.
+   68:  */
+   69: const SUPABASE_ENTRY = join(INSTALL_ROOT, 'node_modules', 'supabase', 'dist', 'supabase.js');
+   70: 
+   71: interface Args {
+   72:   requirement: string;
+   73:   tier: Tier;
+   74:   wired: boolean;
+   75:   /** Named `expectDeclared`, not `expect`, so nobody later reads it as vitest's `expect`. */
+   76:   expectDeclared: boolean;
+   77: }
+   78: 
+   79: function parseArgs(argv: string[]): Args {
+   80:   let requirement = '';
+   81:   let tier = '';
+   82:   let wired = false;
+   83:   let expectDeclared = false;
+   84: 
+   85:   for (let i = 0; i < argv.length; i++) {
+   86:     const arg = argv[i];
+   87:     if (arg === '--wired') wired = true;
+   88:     else if (arg === '--expect') expectDeclared = true;
+   89:     else if (arg === '--tier') tier = argv[++i] ?? '';
+   90:     else if (arg.startsWith('--tier=')) tier = arg.slice('--tier='.length);
+   91:     else if (arg.startsWith('--')) throw new Error(`unknown option "${arg}"`);
+   92:     else if (!requirement) requirement = arg;
+   93:     else throw new Error(`unexpected argument "${arg}"`);
+   94:   }
+   95: 
+   96:   if (!requirement) throw new Error('no requirement given');
+   97:   if (!tier) throw new Error('--tier is required â€” there is no default tier, by design');
+   98:   if (!TIERS.includes(tier as Tier)) throw new Error(`unknown tier "${tier}" â€” expected one of ${TIERS.join('|')}`);
+   99:   // Refused here rather than later: `--wired` runs no tests at all, so there would be no report
+  100:   // for a declaration to be checked against, and a declaration refusal must never be reported as
+  101:   // the wired refusal. A usage error exits 2, which is what a `--expect` command that cannot be
+  102:   // honoured is required to do.
+  103:   if (wired && expectDeclared) {
+  104:     throw new Error('--expect and --wired cannot be combined: --wired runs no tests, so there is no report for a declaration to be checked against');
+  105:   }
+  106: 
+  107:   return { requirement: normalizeRequirement(requirement), tier: tier as Tier, wired, expectDeclared };
+  108: }
+  109: 
+  110: /* --------------------------------------------------------------- the child environment (leak) */
+  111: 
+  112: /**
+  113:  * The ONLY variables a child process inherits. Everything else is dropped.
+  114:  *
+  115:  * WHY AN ALLOWLIST: bun auto-loads `.env` and `.env.local` into this process, and `.env.example`
+  116:  * tells developers to put their real secrets in `.env.local`. Spreading `process.env` into the
+  117:  * test process would hand every one of those to every test â€” and a test reading a conventional
+  118:  * name like `SUPABASE_SERVICE_ROLE_KEY` would then be pointed at the HOSTED project, which the
+  119:  * acceptance suites must never touch. The child gets the platform minimum plus exactly the
+  120:  * values this runner validated. Children are additionally launched with bun's `--no-env-file`,
+  300: /**
+  301:  * A gate left behind by a process that died mid-takeover. The section lasts milliseconds, so
+  302:  * anything this old is certainly abandoned; removing one wrongly costs at most two processes in
+  303:  * the section, which is the behaviour we had before the gate existed.
+  304:  */
+  305: function clearStrandedGate(gate: string): void {
+  306:   try {
+  307:     const held = JSON.parse(readFileSync(gate, 'utf8')) as { pid?: number; at?: string };
+  308:     const at = held.at ? Date.parse(held.at) : NaN;
+  309:     const ageMinutes = Number.isFinite(at) ? (Date.now() - at) / 60_000 : Infinity;
+  310:     const alive = typeof held.pid === 'number' && processIsAlive(held.pid);
+  311:     if (!alive || ageMinutes > GATE_STALE_MINUTES) rmSync(gate, { force: true });
+  312:   } catch {
+  313:     // unreadable or already gone â€” the next pass finds out
+  314:   }
+  315: }
+  316: 
+  317: /**
+  318:  * Serialize every destructive run against one stack. The key is project id + api port because
+  319:  * that pair IS the stack's identity: a second checkout carrying the same `project_id` shares the
+  320:  * same Docker containers and the same ports, so its `at:verify` would reset this run's database
+  321:  * out from under it. Mirrors `Acquire-WorkLock` in loop/work/work-lib.ps1 â€” exclusive create,
+  322:  * holder recorded, stale takeover.
+  323:  *
+  324:  * TAKEOVER IS THE WHOLE DIFFICULTY. Two processes can both read the same leftover lock and both
+  325:  * conclude it is stale; if each then removed it and created its own, the second removal would take
+  326:  * out the FIRST one's brand-new live lock and both would run â€” the precise failure this exists to
+  327:  * prevent. Moving the stale file aside with an atomic rename does NOT fix that: the winner
+  328:  * repopulates the path microseconds later, so the loser's rename succeeds against a LIVE lock,
+  329:  * which is just as destructive as unlinking it. (Proved with a two-contender race, not reasoned
+  330:  * about; the race is in runner.selftest.ts.)
+  331:  *
+  332:  * So the takeover DECISION is serialized by a second exclusive-create lock â€” the gate. Only one
+  333:  * process is ever inside it, and it re-reads the holder INSIDE, so:
+  334:  *   - no other process can be taking over concurrently (the gate is exclusive);
+  335:  *   - no ordinary claim can have slipped in, because the stale file occupies the path continuously
+  336:  *     until the gate holder removes it, and an exclusive create only succeeds on a free path;
+  337:  *   - if a third process wins the claim in the instant after removal, the gate holder's own create
+  338:  *     simply fails and it restarts, having deleted nothing further.
+  339:  * A gate stranded by a killed process is cleared on age. The section lasts milliseconds, so a live
+  340:  * holder never reaches that threshold, and clearing one wrongly degrades to two takers in the
+  341:  * section â€” today's behaviour, not worse.
+  342:  */
+  343: export function acquireStackLock(config: LocalConfig, requirement: string): StackLock {
+  344:   const file = stackLockPath(config);
+  345: 
+  346:   const claim = (): StackLock | null => {
+  347:     let fd: number;
+  348:     try {
+  349:       fd = openSync(file, 'wx');
+  350:     } catch (err) {
+  351:       if ((err as NodeJS.ErrnoException).code === 'EEXIST') return null;
+  352:       throw err;
+  353:     }
+  354:     try {
+  355:       writeSync(
+  356:         fd,
+  357:         JSON.stringify({
+  358:           pid: process.pid,
+  359:           host: hostname(),
+  360:           requirement,
+  361:           startedAt: new Date().toISOString(),
+  362:         }),
+  363:       );
+  364:     } finally {
+  365:       closeSync(fd);
+  366:     }
+  367:     return {
+  368:       file,
+  369:       release: () => {
+  370:         try {
+  371:           const held = JSON.parse(readFileSync(file, 'utf8')) as { pid?: number };
+  372:           if (held.pid === process.pid) rmSync(file, { force: true });
+  373:         } catch {
+  374:           // already removed, or unreadable â€” nothing of ours left to release
+  375:         }
+  376:       },
+  377:     };
+  378:   };
+  379: 
+  380:   const gate = `${file}.takeover`;
+  381: 
+  382:   /** The recorded holder, or null if the lock is gone. */
+  383:   const readHolder = (): Holder | null => {
+  384:     try {
+  385:       return JSON.parse(readFileSync(file, 'utf8')) as Holder;
+  386:     } catch (err) {
+  387:       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+  388:       return {}; // unreadable or half-written: treat as an unidentifiable holder, judged below
+  389:     }
+  390:   };
+  391: 
+  392:   /** Bounded synchronous pause; a gate is held for milliseconds, so this is all the wait needed. */
+  393:   const pause = (ms: number) => {
+  394:     const until = Date.now() + ms;
+  395:     while (Date.now() < until) {
+  396:       /* spin */
+  397:     }
+  398:   };
+  399: 
+  400:   // Bounded: every retry follows another process winning the gate, which cannot repeat forever.
+  401:   for (let attempt = 0; attempt < 20; attempt++) {
+  402:     const claimed = claim();
+  403:     if (claimed) return claimed;
+  404: 
+  405:     const holder = readHolder();
+  406:     if (holder === null) continue; // released between the failed claim and the read
+  407:     if (holderIsLive(holder)) throw heldByAnotherRun(holder, file);
+  408: 
+  409:     // Stale. Enter the takeover gate â€” the only place the live lock path may be removed.
+  410:     let gateFd: number;
+  411:     try {
+  412:       gateFd = openSync(gate, 'wx');
+  413:     } catch (err) {
+  414:       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+  415:       clearStrandedGate(gate);
+  416:       pause(10);
+  417:       continue;
+  418:     }
+  419: 
+  420:     try {
+  421:       writeSync(gateFd, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
+  422:       const inside = readHolder();
+  423:       if (inside === null) continue; // released while we were entering; the next claim takes it
+  424:       if (holderIsLive(inside)) continue; // refreshed under us; the next pass refuses it properly
+  425: 
+  426:       rmSync(file, { force: true });
+  427:       const takeover = claim();
+  428:       if (!takeover) continue; // a third process claimed the free path first â€” delete nothing more
+  429: 
+  430:       console.log(
+  431:         `at:verify â€” took over a stale stack lock (holder pid ${inside.pid ?? 'unknown'} ` +
+  432:           `${typeof inside.pid === 'number' && processIsAlive(inside.pid) ? `is older than ${LOCK_STALE_MINUTES} minutes` : 'is no longer running'})`,
+  433:       );
+  434:       return takeover;
+  435:     } finally {
+  436:       closeSync(gateFd);
+  437:       rmSync(gate, { force: true });
+  438:     }
+  439:   }
+  440: 
+  441:   throw new Error(`could not acquire the stack lock at ${file} â€” it kept changing hands; try again`);
+  442: }
+  443: 
+  444: /* -------------------------------------------------------------------- the stack's own report */
+  445: 
+  446: export interface StackStatus {
+  447:   apiUrl: string;
+  448:   dbUrl: string;
+  449:   anonKey: string;
+  450:   serviceRoleKey: string;
+  451: }
+  452: 
+  453: const REQUIRED_STATUS_FIELDS: Record<keyof StackStatus, string> = {
+  454:   apiUrl: 'API_URL',
+  455:   dbUrl: 'DB_URL',
+  456:   anonKey: 'ANON_KEY',
+  457:   serviceRoleKey: 'SERVICE_ROLE_KEY',
+  458: };
+  459: 
+  460: function supabaseArgs(...args: string[]): string[] {
+  461:   if (!existsSync(SUPABASE_ENTRY)) throw new Error(`the Supabase CLI is not installed at ${SUPABASE_ENTRY} â€” run \`bun install\``);
+  462:   return ['--no-env-file', SUPABASE_ENTRY, ...args];
+  463: }
+  464: 
+  465: /**
+  466:  * Ask the running stack to describe itself. The raw output is NEVER printed: it contains every
+  467:  * key the stack issues. Only field names travel into error messages.
+  468:  */
+  469: function readStackStatus(): StackStatus {
+  470:   const res = spawnSync(bunExecutable(), supabaseArgs('status', '-o', 'json'), {
+  471:     cwd: REPO_ROOT,
+  472:     env: childEnv(),
+  473:     encoding: 'utf8',
+  474:   });
+  475: 
+  476:   if (res.error) {
+  477:     const err = res.error as NodeJS.ErrnoException;
+  478:     throw new Error(`could not launch the Supabase CLI (${err.code ?? 'spawn error'}): ${diagnostic(err.message)}`);
+  479:   }
+  480: 
+  481:   const stdout = res.stdout ?? '';
+  482:   const open = stdout.indexOf('{');
+  483:   const close = stdout.lastIndexOf('}');
+  484:   if (open < 0 || close <= open) {
+  485:     throw new Error(
+  486:       `\`supabase status\` reported no JSON (exit ${res.status}${res.signal ? `, signal ${res.signal}` : ''}): ` +
+  487:         `${diagnostic(res.stderr) || '(no error output)'}`,
+  488:     );
+  489:   }
+  490: 
+  491:   // The CLI exits non-zero merely because config.toml disables imgproxy and the pooler. That is
+  492:   // not a failure; anything ELSE reported stopped is.
+  493:   const notice = `${stdout.slice(0, open)}\n${res.stderr ?? ''}`;
+  494:   const stopped = /Stopped services:\s*\[([^\]]*)\]/.exec(notice)?.[1] ?? '';
+  495:   const unexpectedStopped = stopped.split(/\s+/).filter((name) => name && !DISABLED_SERVICES.test(name));
+  496:   if (unexpectedStopped.length) {
+  497:     throw new Error(`the stack reports stopped services: ${unexpectedStopped.join(', ')} â€” start them before running the suite`);
+  498:   }
+  499: 
+  500:   let parsed: Record<string, unknown>;
+  880: 
+  881: function runtimeRegistrations(dir: string): RuntimeRegistration[] {
+  882:   const registrations: RuntimeRegistration[] = [];
+  883:   for (const file of readdirSync(dir, { withFileTypes: true })) {
+  884:     if (!file.isFile() || !file.name.endsWith('.jsonl')) continue;
+  885:     const lines = readFileSync(join(dir, file.name), 'utf8').split(/\r?\n/).filter(Boolean);
+  886:     for (const line of lines) registrations.push(JSON.parse(line) as RuntimeRegistration);
+  887:   }
+  888:   return registrations;
+  889: }
+  890: 
+  891: export interface ProcessOutcome {
+  892:   error?: unknown;
+  893:   status: number | null;
+  894:   signal?: NodeJS.Signals | null;
+  895: }
+  896: 
+  897: /**
+  898:  * The verdict is NOT "did every row go green". A vitest process can report twelve green
+  899:  * assertions and still exit non-zero â€” a global teardown that threw, an unhandled rejection, a
+  900:  * worker that died after its last test. Treating that as success is exactly the false green this
+  901:  * harness exists to prevent, so the process's own exit is part of the verdict, and a discrepancy
+  902:  * between green rows and a non-zero exit is called out rather than smoothed over.
+  903:  */
+  904: export function runVerdict(rows: IdRow[], unexpected: string[], run: ProcessOutcome): string[] {
+  905:   const problems: string[] = [];
+  906:   const red = rows.filter((r) => r.status === 'red').length;
+  907:   const missing = rows.filter((r) => r.status === 'missing').length;
+  908: 
+  909:   if (red) problems.push(`${red} id${red === 1 ? '' : 's'} red`);
+  910:   if (missing) problems.push(`${missing} id${missing === 1 ? '' : 's'} missing`);
+  911:   if (unexpected.length) {
+  912:     problems.push(`${unexpected.length} registered id${unexpected.length === 1 ? '' : 's'} not P0 of this requirement`);
+  913:   }
+  914: 
+  915:   if (run.error) {
+  916:     const err = run.error as NodeJS.ErrnoException;
+  917:     problems.push(`the test process could not be launched (${err.code ?? 'spawn error'}): ${diagnostic(err.message)}`);
+  918:   } else if (run.status !== 0) {
+  919:     const how = run.status === null ? `was killed by signal ${run.signal}` : `exited ${run.status}`;
+  920:     problems.push(
+  921:       red || missing
+  922:         ? `the test process ${how}`
+  923:         : `the test process ${how} even though every id reported green â€” something failed outside the ` +
+  924:             `assertions (a teardown, an unhandled rejection, a worker that died). This run is a FAILURE.`,
+  925:     );
+  926:   }
+  927: 
+  928:   return problems;
+  929: }
+  930: 
+  931: /**
+  932:  * End-of-run housekeeping. The lock release lives in a `finally` of its OWN so that it cannot be
+  933:  * skipped: on Windows, removing the report directory can throw EPERM while a file in it is still
+  934:  * open, and if that throw escaped, the stack lock would be stranded and every later run would
+  935:  * find a leftover it has to reason about. A lost temp directory is untidy; a stranded lock blocks
+  936:  * work, so the release always wins and the cleanup failure is reported instead of hidden.
+  937:  */
+  938: export function cleanupRun(reportDir: string, lock: { release(): void } | null): void {
+  939:   try {
+  940:     rmSync(reportDir, { recursive: true, force: true });
+  941:   } catch (err) {
+  942:     console.error(`at:verify â€” could not remove the report directory ${reportDir}: ${diagnostic((err as Error).message)}`);
+  943:   } finally {
+  944:     lock?.release();
+  945:   }
+  946: }
+  947: 
+  948: function firstLine(text: string | undefined, fallback: string): string {
+  949:   const line = redact(text ?? '')
+  950:     .split('\n')
+  951:     .map((l) => l.trim())
+  952:     .find((l) => l.length > 0);
+  953:   return line ?? fallback;
+  954: }
+  955: 
+  956: /* --------------------------------------------------------------------------------------- main */
+  957: 
+  958: async function main(argv: string[]): Promise<number> {
+  959:   let args: Args;
+  960:   try {
+  961:     args = parseArgs(argv);
+  962:   } catch (err) {
+  963:     console.error(`at:verify â€” ${(err as Error).message}`);
+  964:     console.error(USAGE);
+  965:     return 2;
+  966:   }
+  967: 
+  968:   const { requirement, tier, wired, expectDeclared } = args;
+  969: 
+  970:   if (wired) {
+  971:     console.error(
+  972:       `at:verify req-${requirement} --wired â€” the screen driver does not exist yet. Wired re-runs ` +
+  973:         `drive the ui-marked ids through real screens; that driver is a later AI4DEV-3 slice, so ` +
+  974:         `there is nothing to re-run against and a silent fixture run would be a false green.`,
+  975:     );
+  976:     return 3;
+  977:   }
+  978: 
+  979:   const dir = suiteDir(requirement);
+  980:   if (!existsSync(dir)) {
+ 1000:   // refusal must run NO tests, so it must precede the vitest spawn. Placing it before the stack
+ 1001:   // sequence as well means a bad declaration never takes the machine-wide lock, never talks to
+ 1002:   // Docker and never resets a database â€” the refusal costs nothing at any tier.
+ 1003:   let expectation: TierExpectation | null = null;
+ 1004:   if (expectDeclared) {
+ 1005:     try {
+ 1006:       expectation = loadTierExpectation(requirement, tier, expected);
+ 1007:     } catch (err) {
+ 1008:       console.error(`at:verify req-${requirement} --tier ${tier} --expect â€” DECLARATION REFUSED: ${(err as Error).message}`);
+ 1009:       console.error(`No tests were run. The declaration is the contract; fix ${expectedManifestPath(requirement)}.`);
+ 1010:       return 2;
+ 1011:     }
+ 1012:   }
+ 1013: 
+ 1014:   const infra = (message: string): number => {
+ 1015:     console.error(`at:verify req-${requirement} --tier ${tier} â€” INFRASTRUCTURE: ${message}`);
+ 1016:     console.error('No tests were run. This is an infrastructure failure, not a test failure.');
+ 1017:     return 3;
+ 1018:   };
+ 1019: 
+ 1020:   const stackHelp =
+ 1021:     `Two things cause this:\n` +
+ 1022:     `  1. Docker Desktop is not installed, or is installed but not running, or its CLI is not on ` +
+ 1023:     `PATH â€” the local stack is a set of Docker containers and cannot run without it.\n` +
+ 1024:     `  2. Docker is fine but the stack was never started â€” run \`bun run db:start\`.`;
+ 1025: 
+ 1026:   // The `loop` tier touches no database: no lock, no stack, no reset.
+ 1027:   const stackEnv: Record<string, string> = {};
+ 1028:   let lock: StackLock | null = null;
+ 1029:   const reportDir = mkdtempSync(join(tmpdir(), 'at-verify-'));
+ 1030:   const registrationDir = join(reportDir, 'registrations');
+ 1031:   mkdirSync(registrationDir);
+ 1032:   const cleanup = () => {
+ 1033:     cleanupRun(reportDir, lock);
+ 1034:     lock = null;
+ 1035:   };
+ 1036:   const onSignal = () => {
+ 1037:     cleanup();
+ 1038:     process.exit(130);
+ 1039:   };
+ 1040:   process.once('SIGINT', onSignal);
+ 1041:   process.once('SIGTERM', onSignal);
+ 1042: 
+ 1043:   try {
+ 1044:     if (tier !== 'loop') {
+ 1045:       let config: LocalConfig;
+ 1046:       try {
+ 1047:         config = readLocalConfig();
+ 1048:       } catch (err) {
+ 1049:         return infra((err as Error).message);
+ 1050:       }
+ 1051: 
+ 1052:       // (1) Lock FIRST â€” before anything reads, resets or runs against the stack.
+ 1053:       try {
+ 1054:         lock = acquireStackLock(config, `req-${requirement}`);
+ 1055:       } catch (err) {
+ 1056:         return infra((err as Error).message);
+ 1057:       }
+ 1058: 
+ 1059:       // (2) Read the stack's report of itself and prove it is local, BEFORE anything destructive.
+ 1060:       let status: StackStatus;
+ 1061:       try {
+ 1062:         status = readStackStatus();
+ 1063:       } catch (err) {
+ 1064:         return infra(`${(err as Error).message}\n${stackHelp}`);
+ 1065:       }
+ 1066: 
+ 1067:       const problems = localStackProblems(status, config);
+ 1068:       if (problems.length) {
+ 1069:         return infra(
+ 1070:           `the stack that answered is not provably the local development stack, so nothing was reset ` +
+ 1071:             `and nothing was run. Failed checks: ${problems.join('; ')}. (Values are deliberately not printed.)`,
+ 1072:         );
+ 1073:       }
+ 1074: 
+ 1075:       // (3) Readiness before the destructive step.
+ 1076:       try {
+ 1077:         await waitForReady(status, 'before the reset');
+ 1078:       } catch (err) {
+ 1079:         return infra(`${(err as Error).message}\n${stackHelp}`);
+ 1080:       }
+ 1081: 
+ 1082:       // (4) Reset, then prove readiness again â€” a reset takes the database down and back up.
+ 1083:       try {
+ 1084:         await resetLocalDatabase();
+ 1085:       } catch (err) {
+ 1086:         return infra(
+ 1087:           `the local database could not be reset: ${(err as Error).message}\n` +
+ 1088:             `The ${tier} tier rebuilds the database from supabase/migrations on every run, so that a ` +
+ 1089:             `suite never grades leftover rows or a schema missing a migration; if that rebuild fails, ` +
+ 1090:             `the state under test is unknown and the run stops here.`,
+ 1091:         );
+ 1092:       }
+ 1093: 
+ 1094:       try {
+ 1095:         await waitForReady(status, 'after the reset');
+ 1096:       } catch (err) {
+ 1097:         return infra((err as Error).message);
+ 1098:       }
+ 1099: 
+ 1100:       // (5) Prove the rebuild replayed the migration set â€” a reset that replays nothing also
+ 1101:       // exits zero, and the suite would grade an empty schema believing it was the real one.
+ 1102:       try {
+ 1103:         await proveMigrationsReplayed(status);
+ 1104:       } catch (err) {
+ 1105:         return infra((err as Error).message);
+ 1106:       }
+ 1107: 
+ 1108:       stackEnv.AT_SUPABASE_URL = status.apiUrl;
+ 1109:       stackEnv.AT_SUPABASE_DB_URL = status.dbUrl;
+ 1110:       stackEnv.AT_SUPABASE_ANON_KEY = status.anonKey;
+ 1111:       stackEnv.AT_SUPABASE_SERVICE_ROLE_KEY = status.serviceRoleKey;
+ 1112:     }
+ 1113: 
+ 1114:     // The suites and their vitest root come from the DATA root; vitest itself comes from the
+ 1115:     // install root, so a run pointed at a disposable tree still runs the pinned test framework.
+ 1116:     const atRoot = join(REPO_ROOT, 'tests', 'at');
+ 1117:     const outputFile = join(reportDir, 'vitest-report.json');
+ 1118:     const rootOverride: Record<string, string> = {};
+ 1119:     if (process.env.AT_REPO_ROOT?.trim()) rootOverride.AT_REPO_ROOT = process.env.AT_REPO_ROOT.trim();
+ 1120: 
+ 1121:     const run = spawnSync(
+ 1122:       bunExecutable(),
+ 1123:       [
+ 1124:         '--no-env-file',
+ 1125:         join(INSTALL_ROOT, 'node_modules', 'vitest', 'vitest.mjs'),
+ 1126:         'run',
+ 1127:         '--root',
+ 1128:         atRoot,
+ 1129:         '--config',
+ 1130:         join(atRoot, 'vitest.config.ts'),
+ 1131:         '--reporter=json',
+ 1132:         `--outputFile=${outputFile}`,
+ 1133:         `suites/req-${requirement}/`,
+ 1134:       ],
+ 1135:       {
+ 1136:         cwd: INSTALL_ROOT,
+ 1137:         env: childEnv({ ...stackEnv, ...rootOverride, AT_TIER: tier, AT_REGISTRATION_DIR: registrationDir }),
+ 1138:         stdio: ['ignore', 'inherit', 'inherit'],
+ 1139:       },
+ 1140:     );
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$path='"'tests/at/harness/runner.ts'; "'$lines=Get-Content -LiteralPath $path; for($n=1140; $n -le [Math]::Min(1240,$lines.Count); $n++){ '"'{0,5}: {1}' -f "'$n,$lines[$n-1] }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 523ms:
+ 1140:     );
+ 1141: 
+ 1142:     if (!existsSync(outputFile)) {
+ 1143:       console.error(
+ 1144:         `at:verify req-${requirement} â€” vitest produced no report ` +
+ 1145:           `(exit ${run.status}${run.signal ? `, signal ${run.signal}` : ''}` +
+ 1146:           `${run.error ? `, ${diagnostic((run.error as Error).message)}` : ''})`,
+ 1147:       );
+ 1148:       return 4;
+ 1149:     }
+ 1150: 
+ 1151:     let report: VitestJson;
+ 1152:     try {
+ 1153:       report = JSON.parse(readFileSync(outputFile, 'utf8')) as VitestJson;
+ 1154:     } catch (err) {
+ 1155:       console.error(`at:verify req-${requirement} â€” unreadable vitest report: ${(err as Error).message}`);
+ 1156:       return 4;
+ 1157:     }
+ 1158: 
+ 1159:     const assertions = (report.testResults ?? []).flatMap((r) => r.assertionResults ?? []);
+ 1160:     const analysis = analyzeReportedTests(expected, runtimeRegistrations(registrationDir), assertions);
+ 1161:     const { rows, unexpected } = analysis;
+ 1162: 
+ 1163:     console.log('');
+ 1164:     console.log(`at:verify req-${requirement} --tier ${tier}`);
+ 1165:     for (const row of rows) console.log(`  ${row.id.padEnd(12)} ${row.status.padEnd(8)} ${row.detail}`);
+ 1166:     for (const id of unexpected) console.log(`  ${id.padEnd(12)} ${'extra'.padEnd(8)} registered but not a P0 of this requirement`);
+ 1167: 
+ 1168:     const green = rows.filter((r) => r.status === 'green').length;
+ 1169:     const red = rows.filter((r) => r.status === 'red').length;
+ 1170:     const missing = rows.filter((r) => r.status === 'missing').length;
+ 1171:     console.log(
+ 1172:       `  ${rows.length} P0: ${green} green, ${red} red, ${missing} missing${unexpected.length ? `, ${unexpected.length} extra` : ''}`,
+ 1173:     );
+ 1174: 
+ 1175:     if (!expectation) {
+ 1176:       const verdict = runVerdict(rows, unexpected, run as ProcessOutcome);
+ 1177:       if (verdict.length === 0) return 0;
+ 1178:       for (const problem of verdict) console.log(`  FAILURE: ${problem}`);
+ 1179:       return 1;
+ 1180:     }
+ 1181: 
+ 1182:     // Both deviation sets are computed and printed: an id-level and a report-level problem in the
+ 1183:     // same run are two facts an author needs at once, and printing only the first costs a second
+ 1184:     // run to find the second.
+ 1185:     const deviations = [
+ 1186:       ...expectationDeviations(rows, unexpected, expectation),
+ 1187:       ...reportAccountingDeviations(report, run as ProcessOutcome, expectation),
+ 1188:     ];
+ 1189:     if (deviations.length === 0) {
+ 1190:       console.log(
+ 1191:         `  EXPECTED: the run matches ${expectedManifestPath(requirement)} exactly ` +
+ 1192:           `(${expectation.green.length} declared green, ${Object.keys(expectation.red).length} declared red)`,
+ 1193:       );
+ 1194:       return 0;
+ 1195:     }
+ 1196:     for (const deviation of deviations) console.log(`  DEVIATION: ${deviation}`);
+ 1197:     console.log(
+ 1198:       `  EXPECT FAILURE: ${deviations.length} deviation(s) from the declaration. A red that turned green is a ` +
+ 1199:         `failure too â€” if reality improved, update the declaration in the same change.`,
+ 1200:     );
+ 1201:     return 1;
+ 1202:   } finally {
+ 1203:     process.off('SIGINT', onSignal);
+ 1204:     process.off('SIGTERM', onSignal);
+ 1205:     cleanup();
+ 1206:   }
+ 1207: }
+ 1208: 
+ 1209: if (import.meta.main) process.exit(await main(process.argv.slice(2)));
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'rg -n -C 6 "interface Holder|function holderIsLive|function heldByAnotherRun|function stackLockPath|lockDir" tests/at/harness/runner.ts tests/at/harness/runner.selftest.ts' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+2026-08-09T21:21:20.428557Z ERROR codex_core::tools::router: error=Exit code: 1
+Wall time: 1.5 seconds
+Output:
+rg : The term 'rg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:2 char:1
++ rg -n -C 6 "interface Holder|function holderIsLive|function heldByAno ...
++ ~~
+    + CategoryInfo          : ObjectNotFound: (rg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+
+ exited 1 in 1503ms:
+rg : The term 'rg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:2 char:1
++ rg -n -C 6 "interface Holder|function holderIsLive|function heldByAno ...
++ ~~
+    + CategoryInfo          : ObjectNotFound: (rg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -LiteralPath 'tests/at/harness' -File | Where-Object { "'$_.Name -in @('"'runner.ts','runner.selftest.ts') } | Select-String -Pattern 'interface Holder|function holderIsLive|function heldByAnotherRun|function stackLockPath|lockDir' -Context 6,6" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 563ms:
+
+  tests\at\harness\runner.ts:249:
+  tests\at\harness\runner.ts:250:interface StackLock {
+  tests\at\harness\runner.ts:251:  file: string;
+  tests\at\harness\runner.ts:252:  release(): void;
+  tests\at\harness\runner.ts:253:}
+  tests\at\harness\runner.ts:254:
+> tests\at\harness\runner.ts:255:function lockDir(): string {
+  tests\at\harness\runner.ts:256:  const base = process.env.LOCALAPPDATA ?? process.env.XDG_CACHE_HOME ?? tmpdir();
+  tests\at\harness\runner.ts:257:  const dir = join(base, 'ai4good-build', 'at-locks');
+  tests\at\harness\runner.ts:258:  mkdirSync(dir, { recursive: true });
+  tests\at\harness\runner.ts:259:  return dir;
+  tests\at\harness\runner.ts:260:}
+  tests\at\harness\runner.ts:261:
+  tests\at\harness\runner.ts:267:    // EPERM means it exists but belongs to someone else; ESRCH means it is gone.
+  tests\at\harness\runner.ts:268:    return (err as NodeJS.ErrnoException).code === 'EPERM';
+  tests\at\harness\runner.ts:269:  }
+  tests\at\harness\runner.ts:270:}
+  tests\at\harness\runner.ts:271:
+  tests\at\harness\runner.ts:272:/** The lock path for one stack. Machine-wide, and deliberately carries no folder 
+component. */
+> tests\at\harness\runner.ts:273:export function stackLockPath(config: LocalConfig): string {
+> tests\at\harness\runner.ts:274:  return join(lockDir(), `at-verify-${config.projectId}-${config.apiPort}.lock`);
+  tests\at\harness\runner.ts:275:}
+  tests\at\harness\runner.ts:276:
+> tests\at\harness\runner.ts:277:interface Holder {
+  tests\at\harness\runner.ts:278:  pid?: number;
+  tests\at\harness\runner.ts:279:  host?: string;
+  tests\at\harness\runner.ts:280:  requirement?: string;
+  tests\at\harness\runner.ts:281:  startedAt?: string;
+  tests\at\harness\runner.ts:282:}
+  tests\at\harness\runner.ts:283:
+  tests\at\harness\runner.ts:284:/** Live = the recorded process still exists AND the lock is young enough to be a 
+real run. */
+> tests\at\harness\runner.ts:285:function holderIsLive(holder: Holder): boolean {
+  tests\at\harness\runner.ts:286:  const startedAt = holder.startedAt ? Date.parse(holder.startedAt) : NaN;
+  tests\at\harness\runner.ts:287:  const ageMinutes = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 60_000 : 
+Infinity;
+  tests\at\harness\runner.ts:288:  return typeof holder.pid === 'number' && processIsAlive(holder.pid) && ageMinutes < 
+LOCK_STALE_MINUTES;
+  tests\at\harness\runner.ts:289:}
+  tests\at\harness\runner.ts:290:
+> tests\at\harness\runner.ts:291:function heldByAnotherRun(holder: Holder, file: string): Error {
+  tests\at\harness\runner.ts:292:  return new Error(
+  tests\at\harness\runner.ts:293:    `another at:verify run holds this stack (pid ${holder.pid} on ${holder.host ?? 
+'this machine'}, ` +
+  tests\at\harness\runner.ts:294:      `requirement ${holder.requirement ?? 'unknown'}, started ${holder.startedAt ?? 
+'unknown'}). ` +
+  tests\at\harness\runner.ts:295:      `Two runs against one stack destroy each other: the second would reset the 
+first's database ` +
+  tests\at\harness\runner.ts:296:      `mid-run. Wait for it to finish. If that process is definitely gone, delete 
+${file}.`,
+  tests\at\harness\runner.ts:297:  );
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$path='"'supabase/config.toml'; "'$lines=Get-Content -LiteralPath $path; for($n=1; $n -le $lines.Count; $n++){ if($lines[$n-1] -match '"'project_id|port\\s*=|sql_paths|env\\(|verify_jwt|content_path|template|import_map|entrypoint|file|path\\s*=|uri\\s*=|enabled\\s*='){ '{0,5}: {1}' -f "'$n,$lines[$n-1] } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 506ms:
+    5: project_id = "poancmeitlmxejofwzuu"
+    8: enabled = true
+   10: port = 54321
+   15: extra_search_path = ["public", "extensions"]
+   28: enabled = false
+   30: # cert_path = "../certs/my-cert.pem"
+   31: # key_path = "../certs/my-key.pem"
+   35: port = 54322
+   37: shadow_port = 54320
+   45: enabled = false
+   47: port = 54329
+   57: # secret_key = "env(SECRET_VALUE)"
+   61: enabled = true
+   62: # Specifies an ordered list of schema files, directories, or glob patterns that describe your database.
+   68: enabled = true
+   69: # Specifies an ordered list of seed files to load during db reset.
+   71: sql_paths = ["./seed.sql"]
+   75: enabled = false
+   85: # enabled = true
+   88: enabled = true
+   95: enabled = true
+   97: port = 54323
+  101: openai_api_key = "env(OPENAI_API_KEY)"
+  106: enabled = true
+  108: port = 54324
+  110: # smtp_port = 54325
+  111: # pop3_port = 54326
+  116: enabled = true
+  117: # The maximum file size allowed (e.g. "5MB", "500KB").
+  118: file_size_limit = "50MiB"
+  123: # file_size_limit = "50MiB"
+  125: # objects_path = "./images"
+  129: enabled = true
+  133: # enabled = true
+  138: enabled = false
+  148: enabled = true
+  156: enabled = true
+  168: # Path to JWT signing key. DO NOT commit your signing keys file to git.
+  169: # signing_keys_path = "./signing_keys.json"
+  181: # REQ-001 AT-001.04 â€” FLIPPED FROM THE TEMPLATE'S false, and this line is the subject of the
+  192: # who linked GitHub could later unlink it while their account and imported profile remain. No
+  193: # acceptance id in AT-REQ-001 addresses post-signup identity lifecycle, and the file records the
+  196: # question is filed for its own board item instead. Nothing this item ships calls unlink.
+  206: # enabled = false
+  232: # enabled = true
+  270: # enabled = true
+  272: # port = 587
+  274: # pass = "env(SENDGRID_API_KEY)"
+  278: # Uncomment to customize email template
+  279: # [auth.email.template.invite]
+  281: # content_path = "./supabase/templates/invite.html"
+  283: # Uncomment to customize notification email template
+  285: # enabled = true
+  287: # content_path = "./templates/password_changed_notification.html"
+  294: # Template for sending OTP to users
+  295: template = "Your code is {{ `{{ .Code }}` }}"
+  312: # enabled = true
+  313: # uri = "pg-functions://postgres/auth/before-user-created-hook"
+  317: # enabled = true
+  318: # uri = "pg-functions://<database>/<schema>/<hook_name>"
+  322: enabled = false
+  326: auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+  335: enroll_enabled = false
+  336: verify_enabled = false
+  340: enroll_enabled = false
+  341: verify_enabled = false
+  343: template = "Your code is {{ `{{ .Code }}` }}"
+  348: # enroll_enabled = true
+  349: # verify_enabled = true
+  355: enabled = false
+  358: secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
+  360: redirect_uri = ""
+  370: # template's own enabled-false example and is left exactly as it shipped.
+  372: # NO SECRET IS COMMITTED. Both credentials come through env() substitution: the real values live in
+  376: # skip_nonce_check is what the template's own comment documents as "Required for local sign in with
+  377: # Google auth". It is a LOCAL development accommodation and this file is the local configuration;
+  378: # the hosted project's provider settings are configured separately and are not this file.
+  386: enabled = true
+  387: client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+  389: secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+  395: # NO SECRET IS COMMITTED, same arrangement as Google: both credentials come through env()
+  410: # the predecessor item and carried forward: an UNSET env() variable does NOT stop the stack â€” the
+  414: enabled = true
+  415: client_id = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID)"
+  417: secret = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET)"
+  422: enabled = false
+  426: enabled = false
+  427: # project_id = "my-firebase-project"
+  431: enabled = false
+  437: enabled = false
+  443: enabled = false
+  450: enabled = false
+  452: authorization_url_path = "/oauth/consent"
+  457: enabled = true
+  463: inspector_port = 8083
+  468: # secret_key = "env(SECRET_VALUE)"
+  470: # REQ-001's two edge functions. One block each, and `verify_jwt` is STATED rather than inherited:
+  475: verify_jwt = true
+  478: verify_jwt = true
+  481: enabled = true
+  482: port = 54327
+  491: s3_host = "env(S3_HOST)"
+  493: s3_region = "env(S3_REGION)"
+  495: s3_access_key = "env(S3_ACCESS_KEY)"
+  497: s3_secret_key = "env(S3_SECRET_KEY)"
+  500: # Set enabled = false to fall back to the legacy migra engine.
+  502: enabled = true
+  503: # Directory under `supabase/` where declarative files are written.
+  504: # declarative_schema_path = "./database"
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$path='"'supabase/config.toml'; "'$lines=Get-Content -LiteralPath $path; $ranges=@(@(1,140),@(140,330),@(450,510)); foreach($range in $ranges){ for($n=$range[0]; $n -le $range[1] -and $n -le $lines.Count; $n++){ '"'{0,5}: {1}' -f "'$n,$lines[$n-1] } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 532ms:
+    1: # For detailed configuration reference documentation, visit:
+    2: # https://supabase.com/docs/guides/local-development/cli/config
+    3: # A string used to distinguish different Supabase projects on the same host. Defaults to the
+    4: # working directory name when running `supabase init`.
+    5: project_id = "poancmeitlmxejofwzuu"
+    6: 
+    7: [api]
+    8: enabled = true
+    9: # Port to use for the API URL.
+   10: port = 54321
+   11: # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
+   12: # endpoints. `public` and `graphql_public` schemas are included by default.
+   13: schemas = ["public", "graphql_public"]
+   14: # Extra schemas to add to the search_path of every request.
+   15: extra_search_path = ["public", "extensions"]
+   16: # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
+   17: # for accidental or malicious requests.
+   18: max_rows = 1000
+   19: # Controls whether new tables, views, sequences and functions created in the `public` schema by
+   20: # `postgres` are reachable through the Data API roles (`anon`, `authenticated`, `service_role`)
+   21: # without explicit GRANTs. When unset, new entities are NOT auto-exposed, matching the new cloud
+   22: # default. Set to `true` to keep the legacy behaviour of auto-exposing new entities; this is
+   23: # deprecated and the field is removed on 2026-10-30 once the always-revoked behaviour is permanent.
+   24: # auto_expose_new_tables = true
+   25: 
+   26: [api.tls]
+   27: # Enable HTTPS endpoints locally using a self-signed certificate.
+   28: enabled = false
+   29: # Paths to self-signed certificate pair.
+   30: # cert_path = "../certs/my-cert.pem"
+   31: # key_path = "../certs/my-key.pem"
+   32: 
+   33: [db]
+   34: # Port to use for the local database URL.
+   35: port = 54322
+   36: # Port used by db diff command to initialize the shadow database.
+   37: shadow_port = 54320
+   38: # Maximum amount of time to wait for health check when starting the local database.
+   39: health_timeout = "2m"
+   40: # The database major version to use. This has to be the same as your remote database's. Run `SHOW
+   41: # server_version;` on the remote database to check.
+   42: major_version = 17
+   43: 
+   44: [db.pooler]
+   45: enabled = false
+   46: # Port to use for the local connection pooler.
+   47: port = 54329
+   48: # Specifies when a server connection can be reused by other clients.
+   49: # Configure one of the supported pooler modes: `transaction`, `session`.
+   50: pool_mode = "transaction"
+   51: # How many server connections to allow per user/database pair.
+   52: default_pool_size = 20
+   53: # Maximum number of client connections allowed.
+   54: max_client_conn = 100
+   55: 
+   56: # [db.vault]
+   57: # secret_key = "env(SECRET_VALUE)"
+   58: 
+   59: [db.migrations]
+   60: # If disabled, migrations will be skipped during a db push or reset.
+   61: enabled = true
+   62: # Specifies an ordered list of schema files, directories, or glob patterns that describe your database.
+   63: # Supports paths relative to supabase directory: "./schemas/*.sql", "./database".
+   64: schema_paths = []
+   65: 
+   66: [db.seed]
+   67: # If enabled, seeds the database after migrations during a db reset.
+   68: enabled = true
+   69: # Specifies an ordered list of seed files to load during db reset.
+   70: # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
+   71: sql_paths = ["./seed.sql"]
+   72: 
+   73: [db.network_restrictions]
+   74: # Enable management of network restrictions.
+   75: enabled = false
+   76: # List of IPv4 CIDR blocks allowed to connect to the database.
+   77: # Defaults to allow all IPv4 connections. Set empty array to block all IPs.
+   78: allowed_cidrs = ["0.0.0.0/0"]
+   79: # List of IPv6 CIDR blocks allowed to connect to the database.
+   80: # Defaults to allow all IPv6 connections. Set empty array to block all IPs.
+   81: allowed_cidrs_v6 = ["::/0"]
+   82: 
+   83: # Uncomment to reject non-secure connections to the database.
+   84: # [db.ssl_enforcement]
+   85: # enabled = true
+   86: 
+   87: [realtime]
+   88: enabled = true
+   89: # Bind realtime via either IPv4 or IPv6. (default: IPv4)
+   90: # ip_version = "IPv6"
+   91: # The maximum length in bytes of HTTP request headers. (default: 4096)
+   92: # max_header_length = 4096
+   93: 
+   94: [studio]
+   95: enabled = true
+   96: # Port to use for Supabase Studio.
+   97: port = 54323
+   98: # External URL of the API server that frontend connects to.
+   99: api_url = "http://127.0.0.1"
+  100: # OpenAI API Key to use for Supabase AI in the Supabase Studio.
+  101: openai_api_key = "env(OPENAI_API_KEY)"
+  102: 
+  103: # Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
+  104: # are monitored, and you can view the emails that would have been sent from the web interface.
+  105: [local_smtp]
+  106: enabled = true
+  107: # Port to use for the email testing server web interface.
+  108: port = 54324
+  109: # Uncomment to expose additional ports for testing user applications that send emails.
+  110: # smtp_port = 54325
+  111: # pop3_port = 54326
+  112: # admin_email = "admin@email.com"
+  113: # sender_name = "Admin"
+  114: 
+  115: [storage]
+  116: enabled = true
+  117: # The maximum file size allowed (e.g. "5MB", "500KB").
+  118: file_size_limit = "50MiB"
+  119: 
+  120: # Uncomment to configure local storage buckets
+  121: # [storage.buckets.images]
+  122: # public = false
+  123: # file_size_limit = "50MiB"
+  124: # allowed_mime_types = ["image/png", "image/jpeg"]
+  125: # objects_path = "./images"
+  126: 
+  127: # Allow connections via S3 compatible clients
+  128: [storage.s3_protocol]
+  129: enabled = true
+  130: 
+  131: # Image transformation API is available to Supabase Pro plan.
+  132: # [storage.image_transformation]
+  133: # enabled = true
+  134: 
+  135: # Store analytical data in S3 for running ETL jobs over Iceberg Catalog
+  136: # This feature is only available on the hosted platform.
+  137: [storage.analytics]
+  138: enabled = false
+  139: max_namespaces = 5
+  140: max_tables = 10
+  140: max_tables = 10
+  141: max_catalogs = 2
+  142: 
+  143: # Analytics Buckets is available to Supabase Pro plan.
+  144: # [storage.analytics.buckets.my-warehouse]
+  145: 
+  146: # Store vector embeddings in S3 for large and durable datasets
+  147: [storage.vector]
+  148: enabled = true
+  149: max_buckets = 10
+  150: max_indexes = 5
+  151: 
+  152: # Vector Buckets is available to Supabase Pro plan.
+  153: # [storage.vector.buckets.documents-openai]
+  154: 
+  155: [auth]
+  156: enabled = true
+  157: # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
+  158: # in emails.
+  159: site_url = "http://127.0.0.1:3000"
+  160: # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
+  161: # external_url = ""
+  162: # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+  163: additional_redirect_urls = ["https://127.0.0.1:3000"]
+  164: # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
+  165: jwt_expiry = 3600
+  166: # JWT issuer URL. If not set, defaults to auth.external_url.
+  167: # jwt_issuer = ""
+  168: # Path to JWT signing key. DO NOT commit your signing keys file to git.
+  169: # signing_keys_path = "./signing_keys.json"
+  170: # If disabled, the refresh token will never expire.
+  171: enable_refresh_token_rotation = true
+  172: # Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
+  173: # Requires enable_refresh_token_rotation = true.
+  174: refresh_token_reuse_interval = 10
+  175: # Allow/disallow new user signups to your project.
+  176: enable_signup = true
+  177: # Allow/disallow anonymous sign-ins to your project.
+  178: enable_anonymous_sign_ins = false
+  179: # Allow/disallow testing manual linking of accounts
+  180: #
+  181: # REQ-001 AT-001.04 â€” FLIPPED FROM THE TEMPLATE'S false, and this line is the subject of the
+  182: # criterion rather than a convenience. "Given a visitor completing volunteer signup by email or
+  183: # Google (no GitHub identity yet) â€¦ linking completes signup": that link is Auth's `linkIdentity`
+  184: # call, and GoTrue REFUSES it outright while this flag is false. With the flag false the flow the
+  185: # criterion describes could not exist at all.
+  186: #
+  187: # WHAT THIS PROVES: the configuration is well-formed and the stack starts with it. WHAT IT DOES NOT:
+  188: # that any `linkIdentity` round trip works â€” that is a browser flow with a consent screen in it, and
+  189: # it is named unproved in this item's per-id table.
+  190: #
+  191: # SEEN AND DELIBERATELY NOT GUARDED: the same flag also opens Auth's UNLINK surface, so a volunteer
+  192: # who linked GitHub could later unlink it while their account and imported profile remain. No
+  193: # acceptance id in AT-REQ-001 addresses post-signup identity lifecycle, and the file records the
+  194: # omission as deliberate â€” AT-001.08 is retired with "the PRD defines no identity-collision/linking
+  195: # policy". Guarding it here would be shipped behaviour no ratified text asks for, so the product
+  196: # question is filed for its own board item instead. Nothing this item ships calls unlink.
+  197: enable_manual_linking = true
+  198: # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
+  199: minimum_password_length = 6
+  200: # Passwords that do not meet the following requirements will be rejected as weak. Supported values
+  201: # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
+  202: password_requirements = ""
+  203: 
+  204: # Configure passkey sign-ins.
+  205: # [auth.passkey]
+  206: # enabled = false
+  207: 
+  208: # Configure WebAuthn relying party settings (required when passkey is enabled).
+  209: # [auth.webauthn]
+  210: # rp_display_name = "Supabase"
+  211: # rp_id = "localhost"
+  212: # rp_origins = ["http://127.0.0.1:3000"]
+  213: 
+  214: [auth.rate_limit]
+  215: # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
+  216: email_sent = 2
+  217: # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
+  218: sms_sent = 30
+  219: # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
+  220: anonymous_users = 30
+  221: # Number of sessions that can be refreshed in a 5 minute interval per IP address.
+  222: token_refresh = 150
+  223: # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
+  224: sign_in_sign_ups = 30
+  225: # Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
+  226: token_verifications = 30
+  227: # Number of Web3 logins that can be made in a 5 minute interval per IP address.
+  228: web3 = 30
+  229: 
+  230: # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
+  231: # [auth.captcha]
+  232: # enabled = true
+  233: # provider = "hcaptcha"
+  234: # secret = ""
+  235: 
+  236: [auth.email]
+  237: # Allow/disallow new user signups via email to your project.
+  238: enable_signup = true
+  239: # If enabled, a user will be required to confirm any email change on both the old, and new email
+  240: # addresses. If disabled, only the new email is required to confirm.
+  241: double_confirm_changes = true
+  242: # If enabled, users need to confirm their email address before signing in.
+  243: #
+  244: # TURNED ON BY REQ-001's VERIFICATION LEAF (manifest D2.L1, AT-001.09 and AT-001.10). It was false
+  245: # until then, and the acceptance suite's own header reserved the change for this leaf, because
+  246: # flipping it earlier would have broken the signup ids that leaf did land while proving none of
+  247: # the verification ones.
+  248: #
+  249: # WHAT THE FLIP CHANGES, on the local stack: GoTrue issues NO session at signup, refuses sign-in
+  250: # until the address is confirmed, and sends a confirmation email that the local mail catcher on
+  251: # port 54324 holds. NONE of that is reachable from the acceptance suite - its adapter's storage is
+  252: # a Map. It is measured once, by hand, in `loop/items/AI4DEV-59/proof-local.ts`.
+  253: #
+  254: # WHAT IT DOES NOT CHANGE: the shipped gate in `supabase/functions/_shared/verification.ts`. That
+  255: # module judges a response shape and refuses on anything it does not recognise, with this setting
+  256: # on or off. Decision-8 makes verification the write path's own floor, so the floor does not
+  257: # depend on how Auth is configured.
+  258: enable_confirmations = true
+  259: # If enabled, users will need to reauthenticate or have logged in recently to change their password.
+  260: secure_password_change = false
+  261: # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
+  262: max_frequency = "1s"
+  263: # Number of characters used in the email OTP.
+  264: otp_length = 6
+  265: # Number of seconds before the email OTP expires (defaults to 1 hour).
+  266: otp_expiry = 3600
+  267: 
+  268: # Use a production-ready SMTP server
+  269: # [auth.email.smtp]
+  270: # enabled = true
+  271: # host = "smtp.sendgrid.net"
+  272: # port = 587
+  273: # user = "apikey"
+  274: # pass = "env(SENDGRID_API_KEY)"
+  275: # admin_email = "admin@email.com"
+  276: # sender_name = "Admin"
+  277: 
+  278: # Uncomment to customize email template
+  279: # [auth.email.template.invite]
+  280: # subject = "You have been invited"
+  281: # content_path = "./supabase/templates/invite.html"
+  282: 
+  283: # Uncomment to customize notification email template
+  284: # [auth.email.notification.password_changed]
+  285: # enabled = true
+  286: # subject = "Your password has been changed"
+  287: # content_path = "./templates/password_changed_notification.html"
+  288: 
+  289: [auth.sms]
+  290: # Allow/disallow new user signups via SMS to your project.
+  291: enable_signup = false
+  292: # If enabled, users need to confirm their phone number before signing in.
+  293: enable_confirmations = false
+  294: # Template for sending OTP to users
+  295: template = "Your code is {{ `{{ .Code }}` }}"
+  296: # Controls the minimum amount of time that must pass before sending another sms otp.
+  297: max_frequency = "5s"
+  298: 
+  299: # Use pre-defined map of phone number to OTP for testing.
+  300: # [auth.sms.test_otp]
+  301: # 4152127777 = "123456"
+  302: 
+  303: # Configure logged in session timeouts.
+  304: # [auth.sessions]
+  305: # Force log out after the specified duration.
+  306: # timebox = "24h"
+  307: # Force log out if the user has been inactive longer than the specified duration.
+  308: # inactivity_timeout = "8h"
+  309: 
+  310: # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
+  311: # [auth.hook.before_user_created]
+  312: # enabled = true
+  313: # uri = "pg-functions://postgres/auth/before-user-created-hook"
+  314: 
+  315: # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
+  316: # [auth.hook.custom_access_token]
+  317: # enabled = true
+  318: # uri = "pg-functions://<database>/<schema>/<hook_name>"
+  319: 
+  320: # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
+  321: [auth.sms.twilio]
+  322: enabled = false
+  323: account_sid = ""
+  324: message_service_sid = ""
+  325: # DO NOT commit your Twilio auth token to git. Use environment variable substitution instead:
+  326: auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+  327: 
+  328: # Multi-factor-authentication is available to Supabase Pro plan.
+  329: [auth.mfa]
+  330: # Control how many MFA factors can be enrolled at once per user.
+  450: enabled = false
+  451: # Path for OAuth consent flow UI
+  452: authorization_url_path = "/oauth/consent"
+  453: # Allow dynamic client registration
+  454: allow_dynamic_registration = false
+  455: 
+  456: [edge_runtime]
+  457: enabled = true
+  458: # Supported request policies: `oneshot`, `per_worker`.
+  459: # `per_worker` (default) â€” enables hot reload during local development.
+  460: # `oneshot` â€” fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
+  461: policy = "per_worker"
+  462: # Port to attach the Chrome inspector for debugging edge functions.
+  463: inspector_port = 8083
+  464: # The Deno major version to use.
+  465: deno_version = 2
+  466: 
+  467: # [edge_runtime.secrets]
+  468: # secret_key = "env(SECRET_VALUE)"
+  469: 
+  470: # REQ-001's two edge functions. One block each, and `verify_jwt` is STATED rather than inherited:
+  471: # both operate on behalf of an already-authenticated caller, and a default that changed underneath
+  472: # us would silently open a public write path. Writing it down means a change to the default shows up
+  473: # as a diff rather than as a behaviour nobody chose.
+  474: [functions.complete-signup]
+  475: verify_jwt = true
+  476: 
+  477: [functions.create-organization]
+  478: verify_jwt = true
+  479: 
+  480: [analytics]
+  481: enabled = true
+  482: port = 54327
+  483: # Configure one of the supported backends: `postgres`, `bigquery`.
+  484: backend = "postgres"
+  485: 
+  486: # Experimental features may be deprecated any time
+  487: [experimental]
+  488: # Configures Postgres storage engine to use OrioleDB (S3)
+  489: orioledb_version = ""
+  490: # Configures S3 bucket URL, eg. <bucket_name>.s3-<region>.amazonaws.com
+  491: s3_host = "env(S3_HOST)"
+  492: # Configures S3 bucket region, eg. us-east-1
+  493: s3_region = "env(S3_REGION)"
+  494: # Configures AWS_ACCESS_KEY_ID for S3 bucket
+  495: s3_access_key = "env(S3_ACCESS_KEY)"
+  496: # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
+  497: s3_secret_key = "env(S3_SECRET_KEY)"
+  498: 
+  499: # pg-delta is the schema diff engine for db diff / db pull / db remote commit.
+  500: # Set enabled = false to fall back to the legacy migra engine.
+  501: [experimental.pgdelta]
+  502: enabled = true
+  503: # Directory under `supabase/` where declarative files are written.
+  504: # declarative_schema_path = "./database"
+  505: # JSON string passed through to pg-delta SQL formatting.
+  506: # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$path='"'tests/at/harness/runner.ts'; "'$lines=Get-Content -LiteralPath $path; for($n=180; $n -le 300; $n++){ '"'{0,5}: {1}' -f "'$n,$lines[$n-1] }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 497ms:
+  180:   const lookup = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['bun'], {
+  181:     encoding: 'utf8',
+  182:     env: childEnv(),
+  183:   });
+  184:   const found = (lookup.stdout ?? '')
+  185:     .split('\n')
+  186:     .map((line) => line.trim())
+  187:     .find(Boolean);
+  188:   if (!found) throw new Error('bun was not found on PATH â€” the harness runs its children under bun');
+  189:   return found;
+  190: }
+  191: 
+  192: /* --------------------------------------------------------------------------------- redaction */
+  193: 
+  194: /** Strip anything key-shaped out of text that is about to be printed. */
+  195: export function redact(text: string): string {
+  196:   return String(text ?? '')
+  197:     .replace(/eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g, '<redacted-jwt>')
+  198:     .replace(/\bsb_[a-z]+_[A-Za-z0-9_-]{8,}/g, '<redacted-key>')
+  199:     .replace(/(postgres(?:ql)?:\/\/)[^@\s/]+@/gi, '$1<redacted>@')
+  200:     .replace(/[A-Za-z0-9_-]{40,}/g, '<redacted-token>');
+  201: }
+  202: 
+  203: /** First non-empty line, redacted and length-capped â€” enough to diagnose, not enough to leak. */
+  204: function diagnostic(text: string | undefined, limit = 400): string {
+  205:   const line =
+  206:     redact(text ?? '')
+  207:       .split('\n')
+  208:       .map((l) => l.trim())
+  209:       .find((l) => l.length > 0) ?? '';
+  210:   return line.length > limit ? `${line.slice(0, limit)}â€¦` : line;
+  211: }
+  212: 
+  213: /* ------------------------------------------------------------------------ config.toml reading */
+  214: 
+  215: export interface LocalConfig {
+  216:   projectId: string;
+  217:   apiPort: number;
+  218:   dbPort: number;
+  219: }
+  220: 
+  221: /** Ports and project id come from `supabase/config.toml` â€” never guessed, never hard-coded. */
+  222: function readLocalConfig(): LocalConfig {
+  223:   const file = join(REPO_ROOT, 'supabase', 'config.toml');
+  224:   const text = readFileSync(file, 'utf8');
+  225:   let section = '';
+  226:   let projectId = '';
+  227:   let apiPort = 0;
+  228:   let dbPort = 0;
+  229: 
+  230:   for (const raw of text.split('\n')) {
+  231:     const line = raw.trim();
+  232:     const header = /^\[([^\]]+)\]/.exec(line);
+  233:     if (header) {
+  234:       section = header[1];
+  235:       continue;
+  236:     }
+  237:     const port = /^port\s*=\s*(\d+)/.exec(line);
+  238:     if (section === '' && /^project_id\s*=/.test(line)) projectId = /"([^"]+)"/.exec(line)?.[1] ?? '';
+  239:     else if (section === 'api' && port && !apiPort) apiPort = Number(port[1]);
+  240:     else if (section === 'db' && port && !dbPort) dbPort = Number(port[1]);
+  241:   }
+  242: 
+  243:   const missing = [projectId ? '' : 'project_id', apiPort ? '' : '[api] port', dbPort ? '' : '[db] port'].filter(Boolean);
+  244:   if (missing.length) throw new Error(`${file} is missing ${missing.join(' and ')}`);
+  245:   return { projectId, apiPort, dbPort };
+  246: }
+  247: 
+  248: /* ---------------------------------------------------------------------- the machine-wide lock */
+  249: 
+  250: interface StackLock {
+  251:   file: string;
+  252:   release(): void;
+  253: }
+  254: 
+  255: function lockDir(): string {
+  256:   const base = process.env.LOCALAPPDATA ?? process.env.XDG_CACHE_HOME ?? tmpdir();
+  257:   const dir = join(base, 'ai4good-build', 'at-locks');
+  258:   mkdirSync(dir, { recursive: true });
+  259:   return dir;
+  260: }
+  261: 
+  262: function processIsAlive(pid: number): boolean {
+  263:   try {
+  264:     process.kill(pid, 0);
+  265:     return true;
+  266:   } catch (err) {
+  267:     // EPERM means it exists but belongs to someone else; ESRCH means it is gone.
+  268:     return (err as NodeJS.ErrnoException).code === 'EPERM';
+  269:   }
+  270: }
+  271: 
+  272: /** The lock path for one stack. Machine-wide, and deliberately carries no folder component. */
+  273: export function stackLockPath(config: LocalConfig): string {
+  274:   return join(lockDir(), `at-verify-${config.projectId}-${config.apiPort}.lock`);
+  275: }
+  276: 
+  277: interface Holder {
+  278:   pid?: number;
+  279:   host?: string;
+  280:   requirement?: string;
+  281:   startedAt?: string;
+  282: }
+  283: 
+  284: /** Live = the recorded process still exists AND the lock is young enough to be a real run. */
+  285: function holderIsLive(holder: Holder): boolean {
+  286:   const startedAt = holder.startedAt ? Date.parse(holder.startedAt) : NaN;
+  287:   const ageMinutes = Number.isFinite(startedAt) ? (Date.now() - startedAt) / 60_000 : Infinity;
+  288:   return typeof holder.pid === 'number' && processIsAlive(holder.pid) && ageMinutes < LOCK_STALE_MINUTES;
+  289: }
+  290: 
+  291: function heldByAnotherRun(holder: Holder, file: string): Error {
+  292:   return new Error(
+  293:     `another at:verify run holds this stack (pid ${holder.pid} on ${holder.host ?? 'this machine'}, ` +
+  294:       `requirement ${holder.requirement ?? 'unknown'}, started ${holder.startedAt ?? 'unknown'}). ` +
+  295:       `Two runs against one stack destroy each other: the second would reset the first's database ` +
+  296:       `mid-run. Wait for it to finish. If that process is definitely gone, delete ${file}.`,
+  297:   );
+  298: }
+  299: 
+  300: /**
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files=@('"'package.json','.github/workflows/ci.yml','tests/at/harness/check.ts','loop/work/work-lib.ps1','.claude/skills/work/SKILL.md'); foreach("'$file in $files){ Write-Output ('"'FILE '+"'$file); $line=0; Get-Content -LiteralPath $file | ForEach-Object { $line++; if($file -eq '"'package.json' -or "'$file -eq '"'.github/workflows/ci.yml' -or ("'$file -eq '"'tests/at/harness/check.ts' -and ("'$line -le 90)) -or ($file -eq '"'loop/work/work-lib.ps1' -and "'$line -ge 175 -and $line -le 240) -or ($file -eq '"'.claude/skills/work/SKILL.md' -and (("'$line -ge 80 -and $line -le 115) -or ($line -ge 155 -and $line -le 180)))){ '"'{0,5}: {1}' -f "'$line,$_ } } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 601ms:
+FILE package.json
+    1: {
+    2:   "name": "tanstack_start_ts",
+    3:   "private": true,
+    4:   "sideEffects": false,
+    5:   "type": "module",
+    6:   "scripts": {
+    7:     "dev": "vite dev",
+    8:     "build": "vite build",
+    9:     "build:dev": "vite build --mode development",
+   10:     "preview": "vite preview",
+   11:     "lint": "eslint .",
+   12:     "typecheck": "bun tests/at/typecheck.ts",
+   13:     "format": "prettier --write .",
+   14:     "at:verify": "bun tests/at/harness/runner.ts",
+   15:     "at:check": "bun tests/at/harness/check.ts",
+   16:     "at:selftest": "bunx vitest run --root tests/at --config vitest.config.ts harness/",
+   17:     "db:start": "bunx supabase start",
+   18:     "db:stop": "bunx supabase stop",
+   19:     "db:reset": "bunx supabase db reset"
+   20:   },
+   21:   "dependencies": {
+   22:     "@hookform/resolvers": "^5.2.2",
+   23:     "@radix-ui/react-accordion": "^1.2.12",
+   24:     "@radix-ui/react-alert-dialog": "^1.1.15",
+   25:     "@radix-ui/react-aspect-ratio": "^1.1.8",
+   26:     "@radix-ui/react-avatar": "^1.1.11",
+   27:     "@radix-ui/react-checkbox": "^1.3.3",
+   28:     "@radix-ui/react-collapsible": "^1.1.12",
+   29:     "@radix-ui/react-context-menu": "^2.2.16",
+   30:     "@radix-ui/react-dialog": "^1.1.15",
+   31:     "@radix-ui/react-dropdown-menu": "^2.1.16",
+   32:     "@radix-ui/react-hover-card": "^1.1.15",
+   33:     "@radix-ui/react-label": "^2.1.8",
+   34:     "@radix-ui/react-menubar": "^1.1.16",
+   35:     "@radix-ui/react-navigation-menu": "^1.2.14",
+   36:     "@radix-ui/react-popover": "^1.1.15",
+   37:     "@radix-ui/react-progress": "^1.1.8",
+   38:     "@radix-ui/react-radio-group": "^1.3.8",
+   39:     "@radix-ui/react-scroll-area": "^1.2.10",
+   40:     "@radix-ui/react-select": "^2.2.6",
+   41:     "@radix-ui/react-separator": "^1.1.8",
+   42:     "@radix-ui/react-slider": "^1.3.6",
+   43:     "@radix-ui/react-slot": "^1.2.4",
+   44:     "@radix-ui/react-switch": "^1.2.6",
+   45:     "@radix-ui/react-tabs": "^1.1.13",
+   46:     "@radix-ui/react-toggle": "^1.1.10",
+   47:     "@radix-ui/react-toggle-group": "^1.1.11",
+   48:     "@radix-ui/react-tooltip": "^1.2.8",
+   49:     "@tailwindcss/vite": "^4.2.1",
+   50:     "@tanstack/react-query": "^5.83.0",
+   51:     "@tanstack/react-router": "^1.168.25",
+   52:     "@tanstack/react-start": "^1.167.50",
+   53:     "@tanstack/router-plugin": "^1.167.28",
+   54:     "class-variance-authority": "^0.7.1",
+   55:     "clsx": "^2.1.1",
+   56:     "cmdk": "^1.1.1",
+   57:     "date-fns": "^4.1.0",
+   58:     "embla-carousel-react": "^8.6.0",
+   59:     "input-otp": "^1.4.2",
+   60:     "lucide-react": "^0.575.0",
+   61:     "react": "^19.2.0",
+   62:     "react-day-picker": "^9.14.0",
+   63:     "react-dom": "^19.2.0",
+   64:     "react-hook-form": "^7.71.2",
+   65:     "react-resizable-panels": "^4.6.5",
+   66:     "recharts": "^2.15.4",
+   67:     "sonner": "^2.0.7",
+   68:     "tailwind-merge": "^3.5.0",
+   69:     "tailwindcss": "^4.2.1",
+   70:     "tw-animate-css": "^1.3.4",
+   71:     "vaul": "^1.1.2",
+   72:     "vite-tsconfig-paths": "^6.0.2",
+   73:     "zod": "^3.24.2"
+   74:   },
+   75:   "devDependencies": {
+   76:     "@anthropic-ai/sdk": "^0.115.0",
+   77:     "@eslint/js": "^9.32.0",
+   78:     "@lovable.dev/vite-tanstack-config": "^2.3.2",
+   79:     "@types/node": "^22.18.0",
+   80:     "@types/react": "^19.2.0",
+   81:     "@types/react-dom": "^19.2.0",
+   82:     "@vitejs/plugin-react": "^5.0.4",
+   83:     "eslint": "^9.32.0",
+   84:     "eslint-config-prettier": "^10.1.1",
+   85:     "eslint-plugin-prettier": "^5.2.6",
+   86:     "eslint-plugin-react-hooks": "^5.2.0",
+   87:     "eslint-plugin-react-refresh": "^0.4.20",
+   88:     "globals": "^15.15.0",
+   89:     "nitro": "3.0.260603-beta",
+   90:     "prettier": "^3.7.3",
+   91:     "supabase": "^2.110.0",
+   92:     "typescript": "^5.8.3",
+   93:     "typescript-eslint": "^8.56.1",
+   94:     "vite": "^7.3.1",
+   95:     "vitest": "^4.1.10"
+   96:   }
+   97: }
+FILE .github/workflows/ci.yml
+    1: # KNOWN LIMITS â€” true of every CI system that runs a pull request's own configuration.
+    2: # On a pull_request event GitHub runs this workflow as the PULL REQUEST defines it, and the
+    3: # package.json scripts these steps call are equally editable by the pull request under test. What
+    4: # this file proves is therefore: the head commit, against the checks as that commit defines them.
+    5: # It cannot be tamper-proof â€” a check cannot police the file it is written in. Resistance to a
+    6: # deliberately weakened check comes from server-side rules (required review, a ruleset restricting
+    7: # .github/workflows edits) and from a human reading the diff, not from anything in here.
+    8: 
+    9: name: CI
+   10: 
+   11: on:
+   12:   pull_request:
+   13:     branches: [main]
+   14:   push:
+   15:     branches: [main]
+   16: 
+   17: # Minimal and explicit. `contents: read` is what checkout needs; `pull-requests: read` is what the
+   18: # ownership guard's `gh api .../pulls/N/files` call needs. Nothing here writes anything.
+   19: permissions:
+   20:   contents: read
+   21:   pull-requests: read
+   22: 
+   23: # One in-flight run per pull request: a new push to the same pull request cancels the older run.
+   24: # Anything that is not a pull request falls back to the run id, which is unique per run â€” so those
+   25: # runs share no group at all, none of them queues behind or cancels another, and every commit
+   26: # landing on main gets its own verdict. Grouping them by branch would NOT do that: GitHub keeps at
+   27: # most one pending run per group, so a third quick push would discard the second one's pending run
+   28: # and that commit would never be judged.
+   29: concurrency:
+   30:   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+   31:   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+   32: 
+   33: jobs:
+   34:   verify:
+   35:     # WHERE THIS RUNS IS A VARIABLE, NOT A CODE CHANGE. Set the repository variable
+   36:     # `CI_RUNNER_LABEL` to a self-hosted runner's label to route the check there; clear it to
+   37:     # come straight back to GitHub-hosted capacity. That indirection is deliberate and it is
+   38:     # about safety, not convenience: this check is the ONLY licence to merge, so recovering from
+   39:     # a broken runner must never itself require a merge. Editing `runs-on` to fall back would
+   40:     # need a pull request, which would need this check, which is the runner that just broke.
+   41:     #
+   42:     # See .github/runner/ for the Linux container that serves the self-hosted label, and why the
+   43:     # check still judges the code on Linux either way.
+   44:     runs-on: ${{ vars.CI_RUNNER_LABEL || 'ubuntu-latest' }}
+   45:     # Generous on purpose. This bounds a RUNAWAY JOB; it is not a queue policy. At 15 minutes it
+   46:     # was acting as one: hosted capacity queued this job for 11-15 minutes on 2026-08-06 and
+   47:     # twice the budget expired before a single step ran, reporting `cancelled` as though someone
+   48:     # had stopped it. The work itself takes about ten seconds on the fast lane.
+   49:     timeout-minutes: 30
+   50:     steps:
+   51:       # THE HEAD COMMIT, NOT THE MERGE COMMIT. On a pull_request event GitHub's default ref is a
+   52:       # synthetic merge of head into base â€” a commit that exists in no branch and that nobody
+   53:       # reviewed. This item exists to make CI's verdict be about the commit in the pull request, so
+   54:       # the head sha is named explicitly. On push events the expression falls through to
+   55:       # github.sha, which is the pushed commit.
+   56:       - name: Check out the commit under test
+   57:         uses: actions/checkout@v4
+   58:         with:
+   59:           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+   60: 
+   61:       - name: Report the commit under test
+   62:         shell: bash
+   63:         env:
+   64:           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+   65:         run: |
+   66:           echo "event:             ${GITHUB_EVENT_NAME}"
+   67:           echo "pull request head: ${PR_HEAD_SHA:-(not a pull request)}"
+   68:           echo "checked out:       $(git rev-parse HEAD)"
+   69:           git log -1 --format='%H  %an  %s'
+   70: 
+   71:       # THE PROSE FAST LANE (founder 2026-08-04). A pull request that changes only prose â€” the
+   72:       # skill, agent definitions, specs, item records â€” proves nothing by running a TypeScript
+   73:       # suite, and the founder should not wait minutes for a green that was knowable in seconds.
+   74:       # Whether the diff is prose is DERIVED from the changed-file list, never declared: a label
+   75:       # or a magic word in the body could drift from the real diff, which is the exact defect
+   76:       # class this repository deletes. Code territory is src/, supabase/, tests/, .github/ and
+   77:       # the root build files; touch ANY of those and the full suite runs regardless of intent.
+   78:       # If the file list cannot be read, the answer is the SLOW path â€” the degraded state runs
+   79:       # more checks, never fewer. Push events always run everything: main is judged in full.
+   80:       - name: Decide whether the diff reaches code
+   81:         id: scope
+   82:         if: github.event_name == 'pull_request'
+   83:         shell: bash
+   84:         env:
+   85:           GH_TOKEN: ${{ github.token }}
+   86:           REPOSITORY: ${{ github.repository }}
+   87:           PR_NUMBER: ${{ github.event.pull_request.number }}
+   88:         run: |
+   89:           if ! files=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" --paginate \
+   90:               --jq '.[] | .filename, (.previous_filename // empty)'); then
+   91:             echo "the changed files could not be read - taking the SLOW path, never the fast one"
+   92:             echo "code=true" >> "$GITHUB_OUTPUT"
+   93:             exit 0
+   94:           fi
+   95:           if ! printf '%s\n' "$files" | grep -q .; then
+   96:             echo "the API reported no changed files - taking the SLOW path, never the fast one"
+   97:             echo "code=true" >> "$GITHUB_OUTPUT"
+   98:             exit 0
+   99:           fi
+  100:           code=$(printf '%s\n' "$files" \
+  101:             | grep -E '^(src|supabase|tests|\.github)/|^package\.json$|^bun\.lock|^tsconfig|^vitest' || true)
+  102:           if [ -n "$code" ]; then
+  103:             echo "code=true" >> "$GITHUB_OUTPUT"
+  104:             echo "code territory touched - the full suite runs:"
+  105:             printf '%s\n' "$code" | sed 's/^/  /'
+  106:           else
+  107:             echo "code=false" >> "$GITHUB_OUTPUT"
+  108:             echo "prose-only diff - the suite is skipped; the ownership and closure guards still run"
+  109:           fi
+  110: 
+  111:       - name: Install bun
+  112:         if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
+  113:         uses: oven-sh/setup-bun@v2
+  114:         with:
+  115:           bun-version: 1.3.14
+  116: 
+  117:       - name: Install dependencies from the lockfile
+  118:         if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
+  119:         shell: bash
+  120:         run: bun install --frozen-lockfile
+  121: 
+  122:       - name: Type-check both TypeScript projects
+  123:         if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
+  124:         shell: bash
+  125:         run: bun run typecheck
+  126: 
+  127:       - name: Run the acceptance-harness self-tests
+  128:         if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
+  129:         shell: bash
+  130:         run: bun run at:selftest
+  131: 
+  132:       # Every suite is checked even after one fails, and the step's exit code is the aggregate â€”
+  133:       # the same reason tests/at/typecheck.ts refuses to use `&&`. Zero discoveries is a FAILURE:
+  134:       # a loop that matched nothing and exited 0 is the exact false green this repository exists
+  135:       # to kill.
+  136:       - name: Check every acceptance suite against its acceptance file
+  137:         if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
+  138:         shell: bash
+  139:         run: |
+  140:           shopt -s nullglob
+  141:           suites=(tests/at/suites/req-*/)
+  142:           if [ ${#suites[@]} -eq 0 ]; then
+  143:             echo "::error::discovery found no suite directories matching tests/at/suites/req-* â€” an empty set is a failure, not a pass"
+  144:             exit 1
+  145:           fi
+  146:           echo "discovered ${#suites[@]} suite(s): ${suites[*]}"
+  147:           status=0
+  148:           for dir in "${suites[@]}"; do
+  149:             req=$(basename "$dir")
+  150:             echo ""
+  151:             echo "===== bun run at:check $req ====="
+  152:             code=0
+  153:             bun run at:check "$req" || code=$?
+  154:             if [ "$code" -ne 0 ]; then
+  155:               echo "::error::at:check $req exited $code (1 = ids missing/extra/duplicated or none parsed, 2 = the requirement or its acceptance file could not be read)"
+  156:               status=1
+  157:             fi
+  158:           done
+  159:           exit $status
+  160: 
+  161:       - name: Verify every declared requirement at the loop tier
+  162:         if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
+  163:         shell: bash
+  164:         run: |
+  165:           shopt -s nullglob
+  166:           manifests=(tests/at/expected/req-*.json)
+  167:           if [ ${#manifests[@]} -eq 0 ]; then
+  168:             echo "::error::discovery found no declaration manifests matching tests/at/expected/req-*.json â€” an empty set is a failure, not a pass"
+  169:             exit 1
+  170:           fi
+  171:           echo "discovered ${#manifests[@]} declaration manifest(s): ${manifests[*]}"
+  172:           status=0
+  173:           for file in "${manifests[@]}"; do
+  174:             req=$(basename "$file" .json)
+  175:             echo ""
+  176:             echo "===== bun run at:verify $req --tier loop --expect ====="
+  177:             code=0
+  178:             bun run at:verify "$req" --tier loop --expect || code=$?
+  179:             if [ "$code" -ne 0 ]; then
+  180:               echo "::error::at:verify $req --tier loop --expect exited $code (1 = the run deviates from its declaration, 2 = the declaration or the AT-to-code preflight refused the run and NOTHING was graded, 3 = infrastructure, 4 = no usable vitest report)"
+  181:               status=1
+  182:             fi
+  183:           done
+  184: 
+  185:           # A suite with no declaration manifest is checked for bijection by the previous step and
+  186:           # never RUN by this one â€” a green pull request for a suite nobody executed. The gap
+  187:           # between the two discovery sets is named here so it can never be silent.
+  188:           echo ""
+  189:           uncovered=()
+  190:           for dir in tests/at/suites/req-*/; do
+  191:             req=$(basename "$dir")
+  192:             if [ ! -f "tests/at/expected/$req.json" ]; then
+  193:               uncovered+=("$req")
+  194:             fi
+  195:           done
+  196:           if [ ${#uncovered[@]} -ne 0 ]; then
+  197:             echo "::error::${#uncovered[@]} suite(s) have no declaration manifest, so none of their tests were run: ${uncovered[*]} â€” write tests/at/expected/<req>.json for each"
+  198:             status=1
+  199:           else
+  200:             echo "every discovered suite has a declaration manifest"
+  201:           fi
+  202:           exit $status
+  203: 
+  204:       # One pull request may not change both territories. Lovable owns src/; Claude owns
+  205:       # supabase/, tests/, loop/, .claude/ and .github/. Anything else is neither, and is ignored.
+  206:       # The changed-file list comes from the pull request itself, which IS the base-to-head diff â€”
+  207:       # so the guard never depends on how deep the checkout fetched.
+  208:       - name: Guard against a pull request that changes both territories
+  209:         if: github.event_name == 'pull_request'
+  210:         shell: bash
+  211:         env:
+  212:           GH_TOKEN: ${{ github.token }}
+  213:           REPOSITORY: ${{ github.repository }}
+  214:           PR_NUMBER: ${{ github.event.pull_request.number }}
+  215:         run: |
+  216:           # ONE LINE PER CHANGED FILE, carrying both of its paths: a file MOVED out of src/ into
+  217:           # tests/ changes both territories, and the API reports only its destination under
+  218:           # `filename`. One line per FILE (not per path) is what makes the count below an entry
+  219:           # count, so a pull request full of renames cannot falsely trip the ceiling.
+  220:           if ! files=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" --paginate \
+  221:               --jq '.[] | [.filename, (.previous_filename // "")] | @tsv'); then
+  222:             echo "::error::the pull request's changed files could not be read from the GitHub API â€” the guard does not pass a change set it could not read"
+  223:             exit 1
+  224:           fi
+  225: 
+  226:           count=$(printf '%s\n' "$files" | grep -c . || true)
+  227:           echo "the pull request changes $count file(s)"
+  228:           if [ "$count" -eq 0 ]; then
+  229:             echo "::error::the GitHub API reported no changed files for this pull request â€” the guard does not pass a change set it could not read"
+  230:             exit 1
+  231:           fi
+  232:           if [ "$count" -ge 3000 ]; then
+  233:             echo "::error::the changed-file listing reached the GitHub API's 3000-file ceiling, so it is truncated and the guard cannot prove the two territories are separate"
+  234:             exit 1
+  235:           fi
+  236: 
+  237:           # Both fields of every line are matched; the empty second field of an ordinary
+  238:           # (non-renamed) file drops out here.
+  239:           paths=$(printf '%s\n' "$files" | tr '\t' '\n' | grep . || true)
+  240:           lovable=$(printf '%s\n' "$paths" | grep -E '^src/' || true)
+  241:           claude=$(printf '%s\n' "$paths" | grep -E '^(supabase|tests|loop|\.claude|\.github)/' || true)
+  242: 
+  243:           if [ -n "$lovable" ] && [ -n "$claude" ]; then
+  244:             echo "::error::this pull request changes BOTH Lovable territory and Claude territory â€” split it into two pull requests"
+  245:             echo "Lovable territory (src/):"
+  246:             printf '%s\n' "$lovable" | sed 's/^/  /'
+  247:             echo "Claude territory (supabase/, tests/, loop/, .claude/, .github/):"
+  248:             printf '%s\n' "$claude" | sed 's/^/  /'
+  249:             exit 1
+  250:           fi
+  251: 
+  252:           if [ -n "$lovable" ]; then
+  253:             echo "ownership guard OK â€” this pull request stays inside Lovable territory"
+  254:           elif [ -n "$claude" ]; then
+  255:             echo "ownership guard OK â€” this pull request stays inside Claude territory"
+  256:           else
+  257:             echo "ownership guard OK â€” this pull request touches neither territory"
+  258:           fi
+  259: 
+  260:       - name: Guard against a pull request that names an item it does not own
+  261:         if: github.event_name == 'pull_request'
+  262:         shell: bash
+  263:         env:
+  264:           GH_TOKEN: ${{ github.token }}
+  265:           REPOSITORY: ${{ github.repository }}
+  266:           PR_NUMBER: ${{ github.event.pull_request.number }}
+  267:           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+  268:         run: |
+  269:           # THE ID ITSELF IS THE TRIGGER. Linear links a pull request to every item id in its
+  270:           # title or body, and the link alone is enough to drag an item's status â€” a finished
+  271:           # item was pulled back to In Progress twenty-four minutes after its own merge had
+  272:           # correctly closed it, by a body that said `ref AI4DEV-43`. The deliberately
+  273:           # "non-closing" words are NOT safe: ref, part of, related to, towards all do it.
+  274:           # A CLOSING verb additionally closes the item, which is louder but not separate.
+  275:           #
+  276:           # This guard therefore fails on ANY id the branch does not own, not only on ids beside
+  277:           # a closing verb. An earlier version checked only the verb and told authors to reach
+  278:           # for `ref`/`towards` instead â€” advice that caused the exact defect it was preventing.
+  279:           # Refer to other items IN WORDS: "the item that landed the relay".
+  280:           #
+  281:           # The hazard punishes good practice â€” the better the write-up, the more items it cites,
+  282:           # and the most-cited item is the one somebody is actively working. Nothing checked that
+  283:           # the pull request had any relationship to the item it closed, which is the same
+  284:           # asserted-but-unobserved state this repository's way of work exists to delete.
+  285:           #
+  286:           # Title and body are read through the API rather than interpolated into this script.
+  287:           # Expanding attacker-controlled text directly into a run block is script injection â€”
+  288:           # and note that an expression cannot even be WRITTEN in one of these comments: an
+  289:           # earlier draft spelled the syntax out here to explain the hazard, Actions evaluated
+  290:           # it, and the workflow failed to parse. The warning broke the file by demonstrating
+  291:           # itself.
+  292:           if ! pr=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}" --jq '.title + "\n" + (.body // "")'); then
+  293:             echo "::error::the pull request's title and body could not be read from the GitHub API â€” the guard does not pass text it could not read"
+  294:             exit 1
+  295:           fi
+  296: 
+  297:           # No closing-verb regex any more. An earlier draft of this rewrite kept one to report
+  298:           # whether a stray id would be CLOSED or merely reopened, but the proximity window
+  299:           # reaches across the branch's own id, so "Closes AI4DEV-46, towards AI4DEV-22" reported
+  300:           # AI4DEV-22 as a closure. Both outcomes fail identically, so the wrong-but-confident
+  301:           # label bought nothing and was deleted rather than patched.
+  302:           ID='AI4(DEV|PM)-[0-9]+'
+  303: 
+  304:           mentioned=$(printf '%s' "$pr" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
+  305:           owned=$(printf '%s' "$HEAD_REF" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
+  306: 
+  307:           if [ -z "$mentioned" ]; then
+  308:             echo "reference guard OK â€” the title and body name no item at all"
+  309:             exit 0
+  310:           fi
+  311: 
+  312:           echo "items named: $(printf '%s' "$mentioned" | tr '\n' ' ')"
+  313:           echo "this branch owns: $(printf '%s' "${owned:-none}" | tr '\n' ' ')"
+  314: 
+  315:           stray=$(comm -23 <(printf '%s\n' "$mentioned" | grep . | sort -u) <(printf '%s\n' "$owned" | grep . | sort -u) || true)
+  316:           if [ -n "$stray" ]; then
+  317:             echo "::error::this pull request names an item its branch does not own â€” the link alone moves that item"
+  318:             printf '%s\n' "$stray" | sed 's/^/  would move: /'
+  319:             echo "The branch names $(printf '%s' "${owned:-no item}" | tr '\n' ' '), so any other id here moves an item by prose, not by the work."
+  320:             echo "Fix the wording: name other items IN WORDS, never by id â€” 'the item that landed the relay'. There is no safe reference word; ref, part of, related to and towards all link and move the item."
+  321:             exit 1
+  322:           fi
+  323: 
+  324:           echo "reference guard OK â€” every item named belongs to this branch's own item"
+FILE tests/at/harness/check.ts
+    1: /**
+    2:  * The ATâ†”code bijection checker â€” `bun run at:check req-0NN`.
+    3:  *
+    4:  * The code-level sibling of `loop/decomp/check-tree.ps1`: every P0 id in the requirement's
+    5:  * acceptance file has exactly one executable test, and no executable test claims an id the
+    6:  * acceptance file does not carry. Without it a suite can go green while quietly skipping ids.
+    7:  *
+    8:  * It reads the `atTest('AT-0NN.MM'` CALL SITES rather than importing the suite: the id is
+    9:  * declared at that call site and nowhere else, and a static read needs neither a running
+   10:  * test framework nor a harness that has not been built yet.
+   11:  */
+   12: 
+   13: import { readdirSync, readFileSync } from 'node:fs';
+   14: import { join } from 'node:path';
+   15: 
+   16: /**
+   17:  * The real checkout this file was loaded from. Where `node_modules` lives, and the default answer
+   18:  * for everything below.
+   19:  */
+   20: export const INSTALL_ROOT = new URL('../../../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+   21: 
+   22: /**
+   23:  * The tree the checker, the runner and the harness read acceptance files, suites and fixture
+   24:  * adapters from â€” the real checkout unless `AT_REPO_ROOT` says otherwise.
+   25:  *
+   26:  * WHY THE OVERRIDE EXISTS: the runner's own black-box tests have to feed it whole malformed
+   27:  * situations â€” an acceptance file that yields zero P0 ids, a suite claiming an id nothing
+   28:  * registers, a test that reports twice â€” and observe the exit code and per-id report it produces.
+   29:  * Planting those inside the real repository would mean the runner's tests could damage the tree
+   30:  * they are checking. With the override the runner is pointed at a disposable tree that is complete
+   31:  * in itself, and the paths it resolves stay consistent between the preflight, the harness and
+   32:  * vitest's root.
+   33:  *
+   34:  * The override moves DATA only: `node_modules` is always resolved from INSTALL_ROOT, so a child
+   35:  * still runs the pinned vitest and the pinned Supabase CLI. Unset â€” every ordinary run â€” it
+   36:  * changes nothing at all.
+   37:  */
+   38: export const REPO_ROOT = process.env.AT_REPO_ROOT?.trim() ? process.env.AT_REPO_ROOT.trim() : INSTALL_ROOT;
+   39: 
+   40: /** `req-016` or `016` â†’ `016`. Throws on anything else. */
+   41: export function normalizeRequirement(arg: string): string {
+   42:   const m = /^(?:req-)?(\d{3}(?:\.\d+)*)$/.exec(arg ?? '');
+   43:   if (!m) throw new Error(`"${arg}" is not a requirement â€” expected req-0NN, e.g. req-016 or req-005.5`);
+   44:   return m[1];
+   45: }
+   46: 
+   47: /** Every P0 id in `.taskmaster/docs/acceptance/at-req-0NN.md`, in file order. */
+   48: export function acceptanceP0Ids(requirement: string): string[] {
+   49:   const file = join(REPO_ROOT, '.taskmaster', 'docs', 'acceptance', `at-req-${requirement}.md`);
+   50:   const text = readFileSync(file, 'utf8');
+   51:   const escaped = requirement.replace(/\./g, '\\.');
+   52:   const pattern = new RegExp(`AT-${escaped}\\.(\\d+[a-z]?)\\*?\\*?\\s*\\(P0\\)`, 'g');
+   53:   const ids: string[] = [];
+   54:   for (const m of text.matchAll(pattern)) {
+   55:     const id = `AT-${requirement}.${m[1]}`;
+   56:     if (!ids.includes(id)) ids.push(id);
+   57:   }
+   58:   return ids;
+   59: }
+   60: 
+   61: export function suiteDir(requirement: string): string {
+   62:   return join(REPO_ROOT, 'tests', 'at', 'suites', `req-${requirement}`);
+   63: }
+   64: 
+   65: export interface SuiteRegistration {
+   66:   atId: string;
+   67:   file: string;
+   68: }
+   69: 
+   70: /** Every `atTest('AT-â€¦'` call site under the requirement's suite directory. */
+   71: export function registeredIds(requirement: string): SuiteRegistration[] {
+   72:   const dir = suiteDir(requirement);
+   73:   const found: SuiteRegistration[] = [];
+   74:   for (const entry of readdirSync(dir, { withFileTypes: true })) {
+   75:     if (!entry.isFile() || !entry.name.endsWith('.test.ts')) continue;
+   76:     const text = readFileSync(join(dir, entry.name), 'utf8');
+   77:     for (const m of text.matchAll(/atTest\(\s*['"`](AT-[\d.]+[a-z]?)['"`]/g)) {
+   78:       found.push({ atId: m[1], file: entry.name });
+   79:     }
+   80:   }
+   81:   return found;
+   82: }
+   83: 
+   84: export interface BijectionReport {
+   85:   expected: string[];
+   86:   registered: SuiteRegistration[];
+   87:   missing: string[];
+   88:   extra: string[];
+   89:   duplicate: string[];
+   90:   problems: string[];
+FILE loop/work/work-lib.ps1
+  175:     for ($i = 0; $i -lt $nodes.Count; $i++) {
+  176:         $id = [string]$nodes[$i].id
+  177:         # A floating label is legal only as the ROOT. Anywhere else it would be claiming a board
+  178:         # relationship that does not exist.
+  179:         if ($i -eq 0 -and (Test-FloatingRoot $id)) { continue }
+  180:         if (-not (Test-ItemId $id)) { return $false }
+  181:     }
+  182:     if (([string]$nodes[$nodes.Count - 1].id) -ne $item) { return $false }   # must END on the item
+  183:     return $true
+  184: }
+  185: 
+  186: # The PM-acknowledgment file is DELETED with the buckets it protected. It existed because a
+  187: # declared `bringup` bucket silenced the "which requirement is this?" question, so a second
+  188: # mechanism was needed to re-ask it. Attribution is now derived: if the chain does not reach a
+  189: # requirement, the stamp says so on every prompt and there is nothing to acknowledge away.
+  190: #
+  191: # Clear-ItemState and Write-BindingFor are deleted with the bindings themselves. /work clears
+  192: # what it holds with Clear-HeldItem; nothing needs to write state INTO another folder, because a
+  193: # session works in the folder it was launched in and never moves itself.
+  194: 
+  195: # Machine-wide lock serializing state-changing verbs. Exclusive-create lock file with stale takeover.
+  196: function Acquire-WorkLock([int]$staleMinutes = 30) {
+  197:     $lock = Join-Path (Get-StateDir) 'locks\verb.lock'
+  198:     if (Test-Path $lock) {
+  199:         $age = (Get-Date) - (Get-Item $lock).LastWriteTime
+  200:         if ($age.TotalMinutes -lt $staleMinutes) {
+  201:             $holder = Get-Content $lock -Raw -ErrorAction SilentlyContinue
+  202:             return @{ ok = $false; holder = $holder }
+  203:         }
+  204:         Remove-Item $lock -Force   # stale: takeover
+  205:     }
+  206:     $fs = $null
+  207:     try {
+  208:         $fs = [System.IO.File]::Open($lock, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write)
+  209:         $info = ('pid=' + $PID + ' worktree=' + (Get-WorktreeId) + ' at=' + (Get-Date).ToUniversalTime().ToString('o'))
+  210:         $bytes = [System.Text.Encoding]::UTF8.GetBytes($info)
+  211:         $fs.Write($bytes, 0, $bytes.Length)
+  212:         return @{ ok = $true }
+  213:     } catch {
+  214:         return @{ ok = $false; holder = 'concurrent-create' }
+  215:     } finally {
+  216:         if ($fs) { $fs.Dispose() }
+  217:     }
+  218: }
+  219: 
+  220: function Release-WorkLock {
+  221:     $lock = Join-Path (Get-StateDir) 'locks\verb.lock'
+  222:     if (Test-Path $lock) { Remove-Item $lock -Force }
+  223: }
+  224: 
+  225: # Manifest identity: the last commit touching it + a content digest. Pinned in the pull record.
+  226: function Get-ManifestIdentity([string]$req) {
+  227:     $root = Get-RepoRoot
+  228:     $rel = 'loop/decomp/req-' + $req + '.md'
+  229:     $file = Join-Path $root $rel
+  230:     if (-not (Test-Path $file)) { throw ('manifest not found: ' + $rel) }
+  231:     $rev = (& git -C $root log -1 --format=%h -- $rel).Trim()
+  232:     $sha = [System.Security.Cryptography.SHA256]::Create()
+  233:     $digest = ([System.BitConverter]::ToString($sha.ComputeHash([System.IO.File]::ReadAllBytes($file))) -replace '-','').Substring(0,16).ToLower()
+  234:     return @{ rel = $rel; revision = $rev; digest = $digest }
+  235: }
+FILE .claude/skills/work/SKILL.md
+   80: 2. Startability: missing, Done, Cancelled, or an open blocker â†’ stop and say which. Attribution
+   81:    failures print and continue.
+   82: 3. **If the CHAIN'S ROOT has nothing above it, ask â€” once, at pickup, about the ROOT, not the
+   83:    item.** A parented item can sit under a bare root and inherit the gap silently. Ask with
+   84:    ranked suggestions, never open-ended: a dev item that already has children; an `AI4PM`
+   85:    requirement the text points at; a free-text grouping label; or "standalone â€” its own root",
+   86:    always offered and always legitimate. Record it so it is asked once ever. If the board is
+   87:    unreadable, **do not ask** â€” print `CHAIN UNRESOLVED`, carry on, retry at the next boundary; a
+   88:    guess would be baked in permanently.
+   89: 4. **Branch name from the board's `gitBranchName`, verbatim.** Never invented; validate that it
+   90:    tokenises to exactly this item. That is what makes the pull request close the right item.
+   91:    **Create it from `origin/main` after a fetch, never from local `main`** â€” local `main` can carry
+   92:    unpushed work that is not yours (a founder commit landed there mid-session once), and a pull
+   93:    request is precisely where someone else's commit becomes a wrong attribution.
+   94: 5. Claim: assign, In Progress.
+   95: 6. Spawn the conductor: `Agent(subagent_type: "conductor", model: "sonnet",
+   96:    run_in_background: true, prompt: <item id, branch name, what has already happened>)`.
+   97:    **A spawn prompt is item facts only.** It states what to RESOLVE, never a resolved value â€” no
+   98:    chain, no parent, no label â€” and it never carries process instructions, because process lives
+   99:    in the contracts and a spawn prompt is reviewed by nobody. One once told an item to queue
+  100:    auto-merge at pull-request time, which would have merged it before a single gate ran; Gate 1
+  101:    caught it on the plan.
+  102: 7. **Record the chain FOR the agent's worktree, right after the spawn** (founder 2026-08-07):
+  103:    `Set-ChainForWorktree <worktreePath> <branch> <item> <chain>` from `work-lib.ps1`, using the
+  104:    chain you already walked in step 1 â€” **as an array of `@{ id; label }` nodes, never a
+  105:    sentence** (a prose chain fails validation and the stamp prints `CHAIN UNRESOLVED`). The chain
+  106:    cache is worktree-scoped, so a chain you resolved in the main checkout is invisible to the
+  107:    agent's own stamp â€” skip this and the founder's supervision tree degrades to `AGENT AI4DEV-nn`
+  108:    with no parents, which is the one thing the stamp exists to show. This is not a fact handed to
+  109:    the agent: it is the coordinator filing what only the coordinator can read, where the hook
+  110:    will look for it.
+  111: 8. **Record the spawner too**: `Set-OwnerForWorktree <worktreePath> <yourSessionId>` â€” the
+  112:    session id is the GUID in your scratchpad path. The supervision tree prints in EVERY session
+  113:    opened in this folder, so each agent line carries whose agent it is: `[this session's agent]`
+  114:    here, `[ANOTHER session's agent]` in a parallel session (founder 2026-08-09 â€” unlabeled agent
+  115:    lines in a parallel session read as that session's own work). A missing record degrades to
+  155: - **Two in one item means the design is not working** â€” say so plainly and propose the fix rather
+  156:   than carrying the item on your back to the end.
+  157: - **You still never write in the item's tree, rule on its content, or run its commands.** Rescuing
+  158:   unpushed work after a confirmed death is the one exception, and it is recorded AS a rescue.
+  159: 
+  160: **Fable out of credit** â†’ tell the conductor to spawn `orchestrator-opus` for subsequent
+  161: sittings, and say so in the report; the handoff is manual because `--fallback-model` never fires
+  162: on billing errors. **A session limit is not out of credit** â€” it is the five-hour window, it is
+  163: account-wide, and it heals itself. Never set a timer for the reset: it would fire into a
+  164: credit-dead account, and a reset time already past rolls a full day.
+  165: 
+  166: ## Phase C â€” close the item
+  167: 
+  168: The conductor reports the merge. Then:
+  169: 
+  170: 1. **Sweep**: remove the item's worktree, its generated `worktree-agent-*` branch, and its
+  171:    artifacts directory â€” after confirming the raw critiques and distillates were committed into
+  172:    the record by the fix and audit sittings. Only you can sweep â€” the permission classifier
+  173:    blocks subagents from removing a worktree.
+  174:    **`locked` does NOT mean an agent is alive** (measured 2026-08-07). The lock reason names the
+  175:    PARENT SESSION's pid, not the agent's â€” read it and you will find your own `claude.exe
+  176:    --resume <this session>`. It clears when the platform tears the agent down cleanly, and
+  177:    survives when the agent dies abruptly, so on a stood-down item the lock outlives the agent and
+  178:    would keep every stale worktree in the founder's project folder for the rest of the session.
+  179:    Judge liveness by the AGENT, not the lock: its task is gone and its transcript is not growing.
+  180:    Then confirm the tree is clean and its head is on the remote, `git worktree unlock`, and
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Select-String -LiteralPath 'tests/at/harness/runner.selftest.ts' -Pattern 'acquireStackLock|cleanupRun|release|takeover|stale|finally|suite throws|lock' -Context 4,8" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 573ms:
+
+  tests\at\harness\runner.selftest.ts:1:/**
+  tests\at\harness\runner.selftest.ts:2: * Tests OF the harness, not tests run BY it.
+  tests\at\harness\runner.selftest.ts:3: *
+  tests\at\harness\runner.selftest.ts:4: * These deliberately live outside `tests/at/suites/` and depend on nothing 
+that AI4DEV-3 has not
+> tests\at\harness\runner.selftest.ts:5: * built yet: no fixtures, no clock, no vendor sims, no `createHarness`. They 
+import the runner's
+  tests\at\harness\runner.selftest.ts:6: * pure pieces and spawn a real child process, so they run today, on a machine 
+with no stack and
+  tests\at\harness\runner.selftest.ts:7: * no Docker. Run them with `bun run at:selftest`.
+  tests\at\harness\runner.selftest.ts:8: *
+  tests\at\harness\runner.selftest.ts:9: * The leak test is the important one: it proves that a secret sitting in this 
+process's
+  tests\at\harness\runner.selftest.ts:10: * environment — which is exactly where bun puts everything in `.env` and 
+`.env.local` — does not
+  tests\at\harness\runner.selftest.ts:11: * reach a child. That property is not visible in a diff, only in a spawned 
+process's own view of
+  tests\at\harness\runner.selftest.ts:12: * its environment, so it is asserted against a real child rather than 
+against the code.
+  tests\at\harness\runner.selftest.ts:13: */
+  tests\at\harness\runner.selftest.ts:17:import { describe, expect, it } from 'vitest';
+  tests\at\harness\runner.selftest.ts:18:
+  tests\at\harness\runner.selftest.ts:19:import { REPO_ROOT } from './check.ts';
+  tests\at\harness\runner.selftest.ts:20:import {
+> tests\at\harness\runner.selftest.ts:21:  acquireStackLock,
+  tests\at\harness\runner.selftest.ts:22:  bunExecutable,
+  tests\at\harness\runner.selftest.ts:23:  childEnv,
+> tests\at\harness\runner.selftest.ts:24:  cleanupRun,
+  tests\at\harness\runner.selftest.ts:25:  expectedMigrations,
+  tests\at\harness\runner.selftest.ts:26:  localStackProblems,
+  tests\at\harness\runner.selftest.ts:27:  migrationSetProblems,
+  tests\at\harness\runner.selftest.ts:28:  redact,
+  tests\at\harness\runner.selftest.ts:29:  runVerdict,
+> tests\at\harness\runner.selftest.ts:30:  stackLockPath,
+  tests\at\harness\runner.selftest.ts:31:  type IdRow,
+  tests\at\harness\runner.selftest.ts:32:  type LocalConfig,
+  tests\at\harness\runner.selftest.ts:33:  type StackStatus,
+  tests\at\harness\runner.selftest.ts:34:} from './runner.ts';
+  tests\at\harness\runner.selftest.ts:35:
+  tests\at\harness\runner.selftest.ts:36:/** Names a developer following `.env.example` could plausibly have sitting 
+in `.env.local`. */
+  tests\at\harness\runner.selftest.ts:37:const SENTINELS = {
+  tests\at\harness\runner.selftest.ts:38:  AT_LEAK_SENTINEL_SERVICE_ROLE: 'sentinel-service-role-value',
+  tests\at\harness\runner.selftest.ts:54:      for (const name of Object.keys(SENTINELS)) expect(env, `${name} 
+survived into the child environment`).not.toHaveProperty(name);
+  tests\at\harness\runner.selftest.ts:55:      expect(env.AT_TIER, 'the tier the runner passes deliberately was 
+dropped').toBe('loop');
+  tests\at\harness\runner.selftest.ts:56:      const platform = Object.keys(env).map((k) => k.toLowerCase());
+  tests\at\harness\runner.selftest.ts:57:      expect(platform, 'PATH was dropped, which would break every 
+child').toContain('path');
+> tests\at\harness\runner.selftest.ts:58:    } finally {
+  tests\at\harness\runner.selftest.ts:59:      for (const name of Object.keys(SENTINELS)) delete process.env[name];
+  tests\at\harness\runner.selftest.ts:60:    }
+  tests\at\harness\runner.selftest.ts:61:  });
+  tests\at\harness\runner.selftest.ts:62:
+  tests\at\harness\runner.selftest.ts:63:  it('a REAL child process cannot see them, and does not re-read the env 
+files for itself', () => {
+  tests\at\harness\runner.selftest.ts:64:    for (const [name, value] of Object.entries(SENTINELS)) process.env[name] 
+= value;
+  tests\at\harness\runner.selftest.ts:65:    let seen: string[];
+  tests\at\harness\runner.selftest.ts:66:    try {
+  tests\at\harness\runner.selftest.ts:75:      );
+  tests\at\harness\runner.selftest.ts:76:      expect(child.error, 'the probe child could not be 
+launched').toBeUndefined();
+  tests\at\harness\runner.selftest.ts:77:      expect(child.status, 'the probe child failed').toBe(0);
+  tests\at\harness\runner.selftest.ts:78:      seen = JSON.parse(child.stdout) as string[];
+> tests\at\harness\runner.selftest.ts:79:    } finally {
+  tests\at\harness\runner.selftest.ts:80:      for (const name of Object.keys(SENTINELS)) delete process.env[name];
+  tests\at\harness\runner.selftest.ts:81:    }
+  tests\at\harness\runner.selftest.ts:82:
+  tests\at\harness\runner.selftest.ts:83:    for (const name of Object.keys(SENTINELS)) expect(seen, `${name} reached 
+the child process`).not.toContain(name);
+  tests\at\harness\runner.selftest.ts:84:    // Names that exist only in the tracked .env: their presence would mean 
+bun loaded the file.
+  tests\at\harness\runner.selftest.ts:85:    for (const name of ['SUPABASE_PROJECT_ID', 'SUPABASE_PUBLISHABLE_KEY', 
+'VITE_SUPABASE_URL']) {
+  tests\at\harness\runner.selftest.ts:86:      expect(seen, `${name} reached the child — the env file was 
+loaded`).not.toContain(name);
+  tests\at\harness\runner.selftest.ts:87:    }
+  tests\at\harness\runner.selftest.ts:146:    
+expect(redact('postgresql://postgres:hunter2@127.0.0.1:54322/postgres')).not.toContain('hunter2');
+  tests\at\harness\runner.selftest.ts:147:  });
+  tests\at\harness\runner.selftest.ts:148:});
+  tests\at\harness\runner.selftest.ts:149:
+> tests\at\harness\runner.selftest.ts:150:describe('taking over a stale lock is atomic — one owner, never two', () => {
+> tests\at\harness\runner.selftest.ts:151:  /** A key of its own, so nothing here can disturb a real stack's lock. */
+  tests\at\harness\runner.selftest.ts:152:  const testConfig = (): LocalConfig => ({ projectId: 
+`selftest-${Math.random().toString(36).slice(2, 10)}`, apiPort: 1, dbPort: 2 });
+  tests\at\harness\runner.selftest.ts:153:
+> tests\at\harness\runner.selftest.ts:154:  const plantLock = (config: LocalConfig, holder: Record<string, unknown>) 
+=> {
+> tests\at\harness\runner.selftest.ts:155:    writeFileSync(stackLockPath(config), JSON.stringify(holder));
+  tests\at\harness\runner.selftest.ts:156:  };
+> tests\at\harness\runner.selftest.ts:157:  const scrub = (config: LocalConfig) => rmSync(stackLockPath(config), { 
+force: true });
+  tests\at\harness\runner.selftest.ts:158:
+> tests\at\harness\runner.selftest.ts:159:  it('takes over a lock whose holder is gone', () => {
+  tests\at\harness\runner.selftest.ts:160:    const config = testConfig();
+> tests\at\harness\runner.selftest.ts:161:    plantLock(config, { pid: 999_999, host: 'gone', requirement: 'req-000', 
+startedAt: new Date().toISOString() });
+  tests\at\harness\runner.selftest.ts:162:    try {
+> tests\at\harness\runner.selftest.ts:163:      const lock = acquireStackLock(config, 'req-016');
+> tests\at\harness\runner.selftest.ts:164:      expect(JSON.parse(readFileSync(lock.file, 'utf8')).pid, 'the takeover 
+did not record this process as the holder').toBe(process.pid);
+> tests\at\harness\runner.selftest.ts:165:      lock.release();
+> tests\at\harness\runner.selftest.ts:166:      expect(existsSync(lock.file), 'release left the lock 
+behind').toBe(false);
+> tests\at\harness\runner.selftest.ts:167:    } finally {
+  tests\at\harness\runner.selftest.ts:168:      scrub(config);
+  tests\at\harness\runner.selftest.ts:169:    }
+  tests\at\harness\runner.selftest.ts:170:  });
+  tests\at\harness\runner.selftest.ts:171:
+  tests\at\harness\runner.selftest.ts:172:  it('refuses a live, fresh holder', () => {
+  tests\at\harness\runner.selftest.ts:173:    const config = testConfig();
+> tests\at\harness\runner.selftest.ts:174:    plantLock(config, { pid: process.pid, host: 'here', requirement: 
+'req-000', startedAt: new Date().toISOString() });
+  tests\at\harness\runner.selftest.ts:175:    try {
+> tests\at\harness\runner.selftest.ts:176:      expect(() => acquireStackLock(config, 'req-016')).toThrow(/another 
+at:verify run holds this stack/);
+> tests\at\harness\runner.selftest.ts:177:    } finally {
+  tests\at\harness\runner.selftest.ts:178:      scrub(config);
+  tests\at\harness\runner.selftest.ts:179:    }
+  tests\at\harness\runner.selftest.ts:180:  });
+  tests\at\harness\runner.selftest.ts:181:
+> tests\at\harness\runner.selftest.ts:182:  it('two contenders racing for ONE stale lock end with exactly one owner', 
+async () => {
+  tests\at\harness\runner.selftest.ts:183:    const config = testConfig();
+> tests\at\harness\runner.selftest.ts:184:    // Stale by age as well as by liveness, so neither contender can decide 
+otherwise.
+> tests\at\harness\runner.selftest.ts:185:    plantLock(config, {
+  tests\at\harness\runner.selftest.ts:186:      pid: 999_999,
+  tests\at\harness\runner.selftest.ts:187:      host: 'gone',
+  tests\at\harness\runner.selftest.ts:188:      requirement: 'req-000',
+  tests\at\harness\runner.selftest.ts:189:      startedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+  tests\at\harness\runner.selftest.ts:190:    });
+  tests\at\harness\runner.selftest.ts:191:
+  tests\at\harness\runner.selftest.ts:192:    const runnerUrl = new URL('./runner.ts', import.meta.url).href;
+  tests\at\harness\runner.selftest.ts:193:    const startAt = Date.now() + 600;
+  tests\at\harness\runner.selftest.ts:194:    const contender = (): Promise<string> => {
+  tests\at\harness\runner.selftest.ts:195:      const code =
+> tests\at\harness\runner.selftest.ts:196:        `const { acquireStackLock } = await 
+import(${JSON.stringify(runnerUrl)});\n` +
+  tests\at\harness\runner.selftest.ts:197:        `const config = ${JSON.stringify(JSON.stringify(config))};\n` +
+  tests\at\harness\runner.selftest.ts:198:        `while (Date.now() < ${startAt}) {}\n` + // a barrier, so both 
+attempt at the same instant
+  tests\at\harness\runner.selftest.ts:199:        `try {\n` +
+> tests\at\harness\runner.selftest.ts:200:        `  const lock = acquireStackLock(JSON.parse(config), 'req-016');\n` +
+  tests\at\harness\runner.selftest.ts:201:        `  console.log('ACQUIRED');\n` +
+  tests\at\harness\runner.selftest.ts:202:        `  await Bun.sleep(500);\n` + // hold it, so the loser meets a LIVE 
+holder
+> tests\at\harness\runner.selftest.ts:203:        `  lock.release();\n` +
+  tests\at\harness\runner.selftest.ts:204:        `} catch { console.log('REFUSED'); }\n`;
+  tests\at\harness\runner.selftest.ts:205:      // spawn, NOT spawnSync: a synchronous spawn would run the two 
+contenders one after the
+> tests\at\harness\runner.selftest.ts:206:      // other, and the second would find the lock already released — a race 
+that never raced.
+  tests\at\harness\runner.selftest.ts:207:      return new Promise<string>((resolve) => {
+  tests\at\harness\runner.selftest.ts:208:        const child = spawn(bunExecutable(), ['--no-env-file', '-e', code], 
+{ stdio: ['ignore', 'pipe', 'pipe'] });
+  tests\at\harness\runner.selftest.ts:209:        let out = '';
+  tests\at\harness\runner.selftest.ts:210:        child.stdout.on('data', (chunk: Buffer) => (out += 
+chunk.toString('utf8')));
+  tests\at\harness\runner.selftest.ts:211:        child.stderr.on('data', (chunk: Buffer) => (out += 
+chunk.toString('utf8')));
+  tests\at\harness\runner.selftest.ts:212:        child.once('error', (err) => resolve(`ERROR ${err.message}`));
+  tests\at\harness\runner.selftest.ts:213:        child.once('close', () => resolve(out));
+  tests\at\harness\runner.selftest.ts:214:      });
+  tests\at\harness\runner.selftest.ts:220:
+  tests\at\harness\runner.selftest.ts:221:    try {
+  tests\at\harness\runner.selftest.ts:222:      expect(outcomes.filter((o) => o === 'ACQUIRED'), `outcomes were 
+${JSON.stringify(outcomes)}`).toHaveLength(1);
+  tests\at\harness\runner.selftest.ts:223:      expect(outcomes.filter((o) => o === 'REFUSED'), `outcomes were 
+${JSON.stringify(outcomes)}`).toHaveLength(1);
+> tests\at\harness\runner.selftest.ts:224:      expect(existsSync(stackLockPath(config)), 'the winner did not release 
+its lock').toBe(false);
+> tests\at\harness\runner.selftest.ts:225:    } finally {
+  tests\at\harness\runner.selftest.ts:226:      scrub(config);
+  tests\at\harness\runner.selftest.ts:227:    }
+  tests\at\harness\runner.selftest.ts:228:  }, 60_000);
+  tests\at\harness\runner.selftest.ts:229:});
+  tests\at\harness\runner.selftest.ts:230:
+> tests\at\harness\runner.selftest.ts:231:describe('the stack lock is released even when the report directory cannot 
+be removed', () => {
+> tests\at\harness\runner.selftest.ts:232:  it('reports the cleanup failure and releases anyway', () => {
+> tests\at\harness\runner.selftest.ts:233:    let released = false;
+  tests\at\harness\runner.selftest.ts:234:    // A path containing a NUL byte cannot be removed and cannot be 
+swallowed by `force`.
+> tests\at\harness\runner.selftest.ts:235:    cleanupRun('C:\\at-verify\0broken', { release: () => (released = true) 
+});
+> tests\at\harness\runner.selftest.ts:236:    expect(released, 'a failing report cleanup stranded the stack 
+lock').toBe(true);
+  tests\at\harness\runner.selftest.ts:237:  });
+  tests\at\harness\runner.selftest.ts:238:});
+  tests\at\harness\runner.selftest.ts:239:
+  tests\at\harness\runner.selftest.ts:240:describe('the rebuild is proven against the migration set, and an empty set 
+is visible', () => {
+  tests\at\harness\runner.selftest.ts:241:  it('accepts an exact match, including the empty set', () => {
+  tests\at\harness\runner.selftest.ts:242:    expect(migrationSetProblems([], [])).toEqual([]);
+  tests\at\harness\runner.selftest.ts:243:    expect(migrationSetProblems(['20260101000000'], 
+['20260101000000'])).toEqual([]);
+  tests\at\harness\runner.selftest.ts:244:  });
+  tests\at\harness\runner.selftest.ts:273:      writeFileSync(planted, '-- selftest probe\n');
+  tests\at\harness\runner.selftest.ts:274:      expect(expectedMigrations(), 'planting one .sql file changed the 
+answer by something other than its own id').toEqual(
+  tests\at\harness\runner.selftest.ts:275:        [...baseline, '20260101000000'].sort(),
+  tests\at\harness\runner.selftest.ts:276:      );
+> tests\at\harness\runner.selftest.ts:277:    } finally {
+  tests\at\harness\runner.selftest.ts:278:      rmSync(planted, { force: true });
+  tests\at\harness\runner.selftest.ts:279:    }
+  tests\at\harness\runner.selftest.ts:280:    expect(expectedMigrations(), 'removing the planted file did not return 
+the answer to the baseline').toEqual(baseline);
+  tests\at\harness\runner.selftest.ts:281:  });
+  tests\at\harness\runner.selftest.ts:282:});
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Select-String -LiteralPath 'bun.lock' -Pattern '\"supabase\"|supabase@' | Select-Object -First 12" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 547ms:
+
+bun.lock:77:        "supabase": "^2.110.0",
+bun.lock:1166:    "supabase": ["supabase@2.110.0", "", { "dependencies": { "eciesjs": "^0.5.0", "jose": "^6.2.3" }, 
+"optionalDependencies": { "@supabase/cli-darwin-arm64": "2.110.0", "@supabase/cli-darwin-x64": "2.110.0", 
+"@supabase/cli-linux-arm64": "2.110.0", "@supabase/cli-linux-arm64-musl": "2.110.0", "@supabase/cli-linux-x64": 
+"2.110.0", "@supabase/cli-linux-x64-musl": "2.110.0", "@supabase/cli-windows-arm64": "2.110.0", 
+"@supabase/cli-windows-x64": "2.110.0" }, "bin": { "supabase": "dist/supabase.js" } }, 
+"sha512-63QKsdLSVOFKTqABIAeOpg12daBZb9WYqc1NeMNimDP+gFGY8YsIh7VOJawUENXhIWWRlWNprHCOmafCc3LD7Q=="],
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$path='"'tests/at/harness/runner.ts'; "'$lines=Get-Content -LiteralPath $path; for($n=110; $n -le 190; $n++){ '"'{0,5}: {1}' -f "'$n,$lines[$n-1] }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 512ms:
+  110: /* --------------------------------------------------------------- the child environment (leak) */
+  111: 
+  112: /**
+  113:  * The ONLY variables a child process inherits. Everything else is dropped.
+  114:  *
+  115:  * WHY AN ALLOWLIST: bun auto-loads `.env` and `.env.local` into this process, and `.env.example`
+  116:  * tells developers to put their real secrets in `.env.local`. Spreading `process.env` into the
+  117:  * test process would hand every one of those to every test â€” and a test reading a conventional
+  118:  * name like `SUPABASE_SERVICE_ROLE_KEY` would then be pointed at the HOSTED project, which the
+  119:  * acceptance suites must never touch. The child gets the platform minimum plus exactly the
+  120:  * values this runner validated. Children are additionally launched with bun's `--no-env-file`,
+  121:  * so a child does not re-read the env files for itself.
+  122:  */
+  123: const ENV_ALLOWLIST = [
+  124:   // process/platform basics
+  125:   'PATH',
+  126:   'PATHEXT',
+  127:   'COMSPEC',
+  128:   'SystemRoot',
+  129:   'SystemDrive',
+  130:   'windir',
+  131:   'OS',
+  132:   'NUMBER_OF_PROCESSORS',
+  133:   'PROCESSOR_ARCHITECTURE',
+  134:   'PROCESSOR_IDENTIFIER',
+  135:   'USERNAME',
+  136:   'LANG',
+  137:   'LC_ALL',
+  138:   'TZ',
+  139:   // temp + home, which bun, vitest and the Supabase CLI all need in order to write caches
+  140:   'TEMP',
+  141:   'TMP',
+  142:   'TMPDIR',
+  143:   'HOME',
+  144:   'HOMEDRIVE',
+  145:   'HOMEPATH',
+  146:   'USERPROFILE',
+  147:   'APPDATA',
+  148:   'LOCALAPPDATA',
+  149:   'PROGRAMDATA',
+  150:   'PROGRAMFILES',
+  151:   'PROGRAMFILES(X86)',
+  152:   'PROGRAMW6432',
+  153:   'XDG_CACHE_HOME',
+  154:   'BUN_INSTALL',
+  155:   // how the Supabase CLI finds the container runtime (never a credential)
+  156:   'DOCKER_HOST',
+  157:   'DOCKER_CONTEXT',
+  158:   'DOCKER_CONFIG',
+  159:   'DOCKER_CERT_PATH',
+  160: ];
+  161: 
+  162: /** Windows environment names are case-insensitive, so match that way and keep the parent's casing. */
+  163: export function childEnv(extra: Record<string, string> = {}): Record<string, string> {
+  164:   const wanted = new Set(ENV_ALLOWLIST.map((name) => name.toLowerCase()));
+  165:   const env: Record<string, string> = {};
+  166:   for (const [key, value] of Object.entries(process.env)) {
+  167:     if (value !== undefined && wanted.has(key.toLowerCase())) env[key] = value;
+  168:   }
+  169:   return { ...env, ...extra };
+  170: }
+  171: 
+  172: /**
+  173:  * The bun binary. Children are launched under bun deliberately â€” `--no-env-file` is a bun flag,
+  174:  * and it is what stops a child from re-reading `.env`/`.env.local` for itself. Normally this
+  175:  * process IS bun, so its own path is the answer; the PATH lookup only matters when something
+  176:  * else (a test runner's node worker, say) is asking.
+  177:  */
+  178: export function bunExecutable(): string {
+  179:   if (/[\\/]bun(\.exe)?$/i.test(process.execPath)) return process.execPath;
+  180:   const lookup = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['bun'], {
+  181:     encoding: 'utf8',
+  182:     env: childEnv(),
+  183:   });
+  184:   const found = (lookup.stdout ?? '')
+  185:     .split('\n')
+  186:     .map((line) => line.trim())
+  187:     .find(Boolean);
+  188:   if (!found) throw new Error('bun was not found on PATH â€” the harness runs its children under bun');
+  189:   return found;
+  190: }
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -LiteralPath 'tests/at' -Recurse -File | Select-String -Pattern 'AT_SUPABASE_URL|AT_SUPABASE_DB_URL|AT_SUPABASE_ANON_KEY|AT_SUPABASE_SERVICE_ROLE_KEY|functions/v1|complete-signup|create-organization' | Select-Object Path,LineNumber,Line" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 585ms:
+
+Path                                                                                                                   
+----                                                                                                                   
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\harness\runner.ts                  
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\harness\runner.ts                  
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\harness\runner.ts                  
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\harness\runner.ts                  
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\a-signup-and-sign...
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\_contract.ts        
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\_contract.ts        
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\_fixture.ts         
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\_fixture.ts         
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -LiteralPath 'tests/at/suites/req-001' -File | Select-String -Pattern 'AT_SUPABASE_URL|AT_SUPABASE_DB_URL|AT_SUPABASE_ANON_KEY|AT_SUPABASE_SERVICE_ROLE_KEY|functions/v1|complete-signup|create-organization' | ForEach-Object { '{0}:{1}: {2}' -f "'$_.Path,$_.LineNumber,$_.Line.Trim() }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 531ms:
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\a-signup-and-signin.test.ts:553: // Now the volunteer, driven through THE SAME BOUNDARY — the `create-organization` operation,
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\_contract.ts:287: /** `supabase/functions/complete-signup` — turns an authenticated auth user into a typed account. */
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\_contract.ts:289: /** `supabase/functions/create-organization` — the NGO-only action AT-001.06 drives. */
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\_fixture.ts:44: *     `create-organization`, which was exercised there and is untouched by this leaf. Its
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\tests\at\suites\req-001\_fixture.ts:363: * The `complete-signup` operation, at the loop tier.
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -LiteralPath 'supabase/migrations' -File | Select-Object -ExpandProperty Name; Write-Output 'FUNCTION FILES'; Get-ChildItem -LiteralPath 'supabase/functions' -Recurse -File | ForEach-Object { "'$_.FullName.Substring((Resolve-Path '"'.').Path.Length+1) }; Write-Output 'SUPABASE ROOT FILES'; Get-ChildItem -LiteralPath 'supabase' -File | Select-Object -ExpandProperty Name" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 537ms:
+.gitkeep
+20260808120000_accounts_org_membership_and_acknowledgments.sql
+20260809090000_volunteer_github_link_and_imported_profile.sql
+README.md
+FUNCTION FILES
+supabase\functions\complete-signup\index.ts
+supabase\functions\create-organization\index.ts
+supabase\functions\_shared\accounts.ts
+supabase\functions\_shared\edge.ts
+supabase\functions\_shared\github.ts
+supabase\functions\_shared\verification.ts
+SUPABASE ROOT FILES
+config.toml
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Item -LiteralPath 'node_modules/supabase/dist/supabase.js' -ErrorAction SilentlyContinue | Select-Object FullName,Length,LastWriteTime; Get-ChildItem -LiteralPath 'node_modules/supabase' -Recurse -File -ErrorAction SilentlyContinue | Select-String -Pattern 'workdir' | Select-Object -First 20 Path,LineNumber,Line" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 515ms:
+
+FullName                                                                                                          Lengt
+                                                                                                                      h
+--------                                                                                                          -----
+C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7\node_modules\supabase\dist\supabase.js  1500
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Select-String -LiteralPath 'tests/at/harness/runner.ts' -Pattern 'function localStackProblems|export function localStackProblems|supabase-demo|issuer' -Context 2,28" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 539ms:
+
+  tests\at\harness\runner.ts:15: *      sharing a project id, which share Docker identity and ports) cannot reset 
+under each other;
+  tests\at\harness\runner.ts:16: *   2. read the stack's own report of itself and PROVE it is local — loopback host, 
+the ports
+> tests\at\harness\runner.ts:17: *      configured in `supabase/config.toml`, and keys issued by the local development 
+issuer —
+  tests\at\harness\runner.ts:18: *      BEFORE anything destructive happens;
+  tests\at\harness\runner.ts:19: *   3. wait for real readiness: the database answers a query AND a request through 
+the API
+  tests\at\harness\runner.ts:20: *      gateway succeeds, which takes Kong, PostgREST and Postgres all being up;
+  tests\at\harness\runner.ts:21: *   4. only then reset the database, then re-prove readiness;
+  tests\at\harness\runner.ts:22: *   5. run the suite with an ALLOWLISTED environment — the child gets the platform 
+minimum plus
+  tests\at\harness\runner.ts:23: *      the validated local coordinates, and nothing else, so a secret sitting in a 
+developer's
+  tests\at\harness\runner.ts:24: *      `.env.local` can never reach a test (and a test can never reach the hosted 
+project).
+  tests\at\harness\runner.ts:25: *
+  tests\at\harness\runner.ts:26: * Any failure in that sequence is an INFRASTRUCTURE failure: non-zero exit, no tests 
+run, a
+  tests\at\harness\runner.ts:27: * message naming what failed. The runner never falls back to the loop tier's stubs 
+and never
+  tests\at\harness\runner.ts:28: * runs against a database whose state it could not establish — a gate grading a 
+stand-in, or an
+  tests\at\harness\runner.ts:29: * unknown database, is worse than a gate that refuses to run. Secrets are never 
+printed: raw CLI
+  tests\at\harness\runner.ts:30: * output is redacted, and validation reports which check failed, never the value that 
+failed it.
+  tests\at\harness\runner.ts:31: */
+  tests\at\harness\runner.ts:32:
+  tests\at\harness\runner.ts:33:import { spawn, spawnSync } from 'node:child_process';
+  tests\at\harness\runner.ts:34:import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, 
+readFileSync, rmSync, writeSync } from 'node:fs';
+  tests\at\harness\runner.ts:35:import { hostname, tmpdir } from 'node:os';
+  tests\at\harness\runner.ts:36:import { join } from 'node:path';
+  tests\at\harness\runner.ts:37:
+  tests\at\harness\runner.ts:38:import { INSTALL_ROOT, inspectBijection, normalizeRequirement, REPO_ROOT, suiteDir } 
+from './check.ts';
+  tests\at\harness\runner.ts:39:import {
+  tests\at\harness\runner.ts:40:  expectationDeviations,
+  tests\at\harness\runner.ts:41:  expectedManifestPath,
+  tests\at\harness\runner.ts:42:  loadTierExpectation,
+  tests\at\harness\runner.ts:43:  reportAccountingDeviations,
+  tests\at\harness\runner.ts:44:  type TierExpectation,
+  tests\at\harness\runner.ts:45:} from './expected.ts';
+  tests\at\harness\runner.ts:534: * names of the checks that failed — never the values, which are keys and connection 
+strings.
+  tests\at\harness\runner.ts:535: */
+> tests\at\harness\runner.ts:536:export function localStackProblems(status: StackStatus, config: LocalConfig): 
+string[] {
+  tests\at\harness\runner.ts:537:  const problems: string[] = [];
+  tests\at\harness\runner.ts:538:
+  tests\at\harness\runner.ts:539:  const checkUrl = (label: string, raw: string, expectedPort: number) => {
+  tests\at\harness\runner.ts:540:    let url: URL;
+  tests\at\harness\runner.ts:541:    try {
+  tests\at\harness\runner.ts:542:      url = new URL(raw);
+  tests\at\harness\runner.ts:543:    } catch {
+  tests\at\harness\runner.ts:544:      problems.push(`${label} is not a URL`);
+  tests\at\harness\runner.ts:545:      return;
+  tests\at\harness\runner.ts:546:    }
+  tests\at\harness\runner.ts:547:    if (!LOOPBACK.has(url.hostname)) problems.push(`${label} does not point at the 
+loopback address`);
+  tests\at\harness\runner.ts:548:    if (url.port !== String(expectedPort)) problems.push(`${label} port is not the 
+${expectedPort} configured in supabase/config.toml`);
+  tests\at\harness\runner.ts:549:  };
+  tests\at\harness\runner.ts:550:
+  tests\at\harness\runner.ts:551:  checkUrl('API_URL', status.apiUrl, config.apiPort);
+  tests\at\harness\runner.ts:552:  checkUrl('DB_URL', status.dbUrl, config.dbPort);
+  tests\at\harness\runner.ts:553:
+  tests\at\harness\runner.ts:554:  const checkKey = (label: string, token: string, expectedRole: string) => {
+  tests\at\harness\runner.ts:555:    const claims = decodeJwtClaims(token);
+  tests\at\harness\runner.ts:556:    if (!claims) {
+  tests\at\harness\runner.ts:557:      problems.push(`${label} is not a decodable local development JWT`);
+  tests\at\harness\runner.ts:558:      return;
+  tests\at\harness\runner.ts:559:    }
+> tests\at\harness\runner.ts:560:    if (claims.iss !== 'supabase-demo') problems.push(`${label} was not issued by the 
+local development issuer`);
+  tests\at\harness\runner.ts:561:    if (claims.role !== expectedRole) problems.push(`${label} does not carry the 
+${expectedRole} role`);
+  tests\at\harness\runner.ts:562:    if (typeof claims.ref === 'string') problems.push(`${label} carries a hosted 
+project reference`);
+  tests\at\harness\runner.ts:563:  };
+  tests\at\harness\runner.ts:564:
+  tests\at\harness\runner.ts:565:  checkKey('ANON_KEY', status.anonKey, 'anon');
+  tests\at\harness\runner.ts:566:  checkKey('SERVICE_ROLE_KEY', status.serviceRoleKey, 'service_role');
+  tests\at\harness\runner.ts:567:
+  tests\at\harness\runner.ts:568:  return problems;
+  tests\at\harness\runner.ts:569:}
+  tests\at\harness\runner.ts:570:
+  tests\at\harness\runner.ts:571:/* --------------------------------------------------------------------------------- 
+readiness */
+  tests\at\harness\runner.ts:572:
+  tests\at\harness\runner.ts:573:interface BunSqlClient {
+  tests\at\harness\runner.ts:574:  (strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown>;
+  tests\at\harness\runner.ts:575:  close(): Promise<void>;
+  tests\at\harness\runner.ts:576:}
+  tests\at\harness\runner.ts:577:type BunSqlCtor = new (url: string) => BunSqlClient;
+  tests\at\harness\runner.ts:578:
+  tests\at\harness\runner.ts:579:/** Postgres itself answers a query — not "the port is open", which a half-started 
+stack satisfies. */
+  tests\at\harness\runner.ts:580:async function databaseAnswers(dbUrl: string): Promise<string | null> {
+  tests\at\harness\runner.ts:581:  const SQL = (globalThis as { Bun?: { SQL?: BunSqlCtor } }).Bun?.SQL;
+  tests\at\harness\runner.ts:582:  if (!SQL) return 'this runtime has no SQL client (expected bun)';
+  tests\at\harness\runner.ts:583:  let sql: BunSqlClient | null = null;
+  tests\at\harness\runner.ts:584:  try {
+  tests\at\harness\runner.ts:585:    sql = new SQL(dbUrl);
+  tests\at\harness\runner.ts:586:    await sql`select 1`;
+  tests\at\harness\runner.ts:587:    return null;
+  tests\at\harness\runner.ts:588:  } catch (err) {
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Select-String -LiteralPath '.claude/skills/work/SKILL.md' -Pattern 'abort|cancel|stand|sweep|remove the item|failed|reject|stuck' -Context 2,4" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 540ms:
+
+  .claude\skills\work\SKILL.md:78:1. Resolve: id, short label, `gitBranchName`, state, blockers. Walk `parent` upward 
+(depth cap 8,
+  .claude\skills\work\SKILL.md:79:   cycle detection) and derive a short label for every link in the chain.
+> .claude\skills\work\SKILL.md:80:2. Startability: missing, Done, Cancelled, or an open blocker → stop and say which. 
+Attribution
+  .claude\skills\work\SKILL.md:81:   failures print and continue.
+  .claude\skills\work\SKILL.md:82:3. **If the CHAIN'S ROOT has nothing above it, ask — once, at pickup, about the 
+ROOT, not the
+  .claude\skills\work\SKILL.md:83:   item.** A parented item can sit under a bare root and inherit the gap silently. 
+Ask with
+  .claude\skills\work\SKILL.md:84:   ranked suggestions, never open-ended: a dev item that already has children; an 
+`AI4PM`
+> .claude\skills\work\SKILL.md:85:   requirement the text points at; a free-text grouping label; or "standalone — its 
+own root",
+  .claude\skills\work\SKILL.md:86:   always offered and always legitimate. Record it so it is asked once ever. If the 
+board is
+  .claude\skills\work\SKILL.md:87:   unreadable, **do not ask** — print `CHAIN UNRESOLVED`, carry on, retry at the 
+next boundary; a
+  .claude\skills\work\SKILL.md:88:   guess would be baked in permanently.
+  .claude\skills\work\SKILL.md:89:4. **Branch name from the board's `gitBranchName`, verbatim.** Never invented; 
+validate that it
+  .claude\skills\work\SKILL.md:128:2026-08-09).** A spawned conductor must produce its first flow line within ten 
+minutes of the
+  .claude\skills\work\SKILL.md:129:spawn. Until that line arrives the item has no clock owner: the board says In 
+Progress and
+> .claude\skills\work\SKILL.md:130:nothing is watching, and the drill review ranked this gap's six failure shapes — 
+spawn rejected,
+  .claude\skills\work\SKILL.md:131:receipt lost, death before the first turn, setup hung, first watch never armed, 
+first line
+  .claude\skills\work\SKILL.md:132:dropped — as the costliest uncovered class in the system. So commencement is its 
+own bounded
+  .claude\skills\work\SKILL.md:133:wait, sharper and earlier than the general silence check: no flow line at ten 
+minutes → check
+  .claude\skills\work\SKILL.md:134:that the task exists and its transcript is growing, and report a startup stall to 
+the founder
+  .claude\skills\work\SKILL.md:168:The conductor reports the merge. Then:
+  .claude\skills\work\SKILL.md:169:
+> .claude\skills\work\SKILL.md:170:1. **Sweep**: remove the item's worktree, its generated `worktree-agent-*` branch, 
+and its
+  .claude\skills\work\SKILL.md:171:   artifacts directory — after confirming the raw critiques and distillates were 
+committed into
+> .claude\skills\work\SKILL.md:172:   the record by the fix and audit sittings. Only you can sweep — the permission 
+classifier
+  .claude\skills\work\SKILL.md:173:   blocks subagents from removing a worktree.
+  .claude\skills\work\SKILL.md:174:   **`locked` does NOT mean an agent is alive** (measured 2026-08-07). The lock 
+reason names the
+  .claude\skills\work\SKILL.md:175:   PARENT SESSION's pid, not the agent's — read it and you will find your own 
+`claude.exe
+  .claude\skills\work\SKILL.md:176:   --resume <this session>`. It clears when the platform tears the agent down 
+cleanly, and
+  .claude\skills\work\SKILL.md:180:   Then confirm the tree is clean and its head is on the remote, `git worktree 
+unlock`, and
+  .claude\skills\work\SKILL.md:181:   remove. The tree of an agent that is genuinely still running is still never 
+touched.
+> .claude\skills\work\SKILL.md:182:2. **Fold upward**: re-read the parent's children **fresh**; all Done or Cancelled 
+→ fold,
+> .claude\skills\work\SKILL.md:183:   cascading, stopping below a requirement, naming every cancelled child.
+  .claude\skills\work\SKILL.md:184:3. **Release**: print `session is free`, report open siblings with labels, suggest 
+the next
+  .claude\skills\work\SKILL.md:185:   `/work`.
+  .claude\skills\work\SKILL.md:186:
+  .claude\skills\work\SKILL.md:187:**When git and the board disagree, git is truth for merge state and the board 
+mirrors it.**
+  .claude\skills\work\SKILL.md:240:
+  .claude\skills\work\SKILL.md:241:Machinery changed while an item is open rides along in that item's branch and pull 
+request,
+> .claude\skills\work\SKILL.md:242:listed under "rides along" — never a new dev item. Independent standalone work is 
+**filed, not
+  .claude\skills\work\SKILL.md:243:built**. One session, one item: `/work` at something else while one is open offers 
+finish, park
+  .claude\skills\work\SKILL.md:244:or file.
+  .claude\skills\work\SKILL.md:245:
+  .claude\skills\work\SKILL.md:246:## Never
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -Force -LiteralPath '.' | Where-Object { "'$_.Name -like '"'.env*' } | Select-Object Name,Length; Get-ChildItem -Force -LiteralPath 'supabase' | Select-Object Name,Mode,Length" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 549ms:
+
+Name         Length
+----         ------
+.env            691
+.env.example   5141
+functions          
+migrations         
+config.toml   22033
+
+
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content -LiteralPath '.env' | ForEach-Object { if("'$_ -match '"'"'^'"\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*='){ "'$matches[1] } }; Write-Output '"'EXAMPLE'; Get-Content -LiteralPath '.env.example' | ForEach-Object { if("'$_ -match '"'"'^'"\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*='){ "'$matches[1] } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 527ms:
+SUPABASE_PROJECT_ID
+SUPABASE_PUBLISHABLE_KEY
+SUPABASE_URL
+VITE_SUPABASE_PROJECT_ID
+VITE_SUPABASE_PUBLISHABLE_KEY
+VITE_SUPABASE_URL
+EXAMPLE
+AT_JUDGE_API_KEY
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
+SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID
+SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET
+SUPABASE_PROJECT_ID
+SUPABASE_PUBLISHABLE_KEY
+SUPABASE_URL
+VITE_SUPABASE_PROJECT_ID
+VITE_SUPABASE_PUBLISHABLE_KEY
+VITE_SUPABASE_URL
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$line=0; Get-Content -LiteralPath '"'tests/at/expected/req-001.json' | ForEach-Object { "'$line++; '"'{0,5}: {1}' -f "'$line,$_ }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 511ms:
+    1: {
+    2:   "requirement": "001",
+    3:   "tiers": {
+    4:     "loop": {
+    5:       "green": [
+    6:         "AT-001.01",
+    7:         "AT-001.02",
+    8:         "AT-001.03",
+    9:         "AT-001.04",
+   10:         "AT-001.05",
+   11:         "AT-001.06",
+   12:         "AT-001.07",
+   13:         "AT-001.09",
+   14:         "AT-001.10"
+   15:       ],
+   16:       "red": {
+   17:         "AT-001.38": { "kind": "pending", "phase": "sut-missing" },
+   18:         "AT-001.12": { "kind": "pending", "phase": "sut-missing" },
+   19:         "AT-001.13": { "kind": "pending", "phase": "sut-missing" },
+   20:         "AT-001.14": { "kind": "pending", "phase": "sut-missing" },
+   21:         "AT-001.16": { "kind": "pending", "phase": "sut-missing" },
+   22:         "AT-001.36": { "kind": "pending", "phase": "sut-missing" },
+   23:         "AT-001.37": { "kind": "pending", "phase": "sut-missing" },
+   24:         "AT-001.17": { "kind": "pending", "phase": "sut-missing" },
+   25:         "AT-001.18": { "kind": "pending", "phase": "sut-missing" },
+   26:         "AT-001.19": { "kind": "pending", "phase": "sut-missing" },
+   27:         "AT-001.39": { "kind": "pending", "phase": "sut-missing" },
+   28:         "AT-001.20": { "kind": "pending", "phase": "sut-missing" },
+   29:         "AT-001.21": { "kind": "pending", "phase": "sut-missing" },
+   30:         "AT-001.22": { "kind": "pending", "phase": "sut-missing" },
+   31:         "AT-001.23": { "kind": "pending", "phase": "sut-missing" },
+   32:         "AT-001.40": { "kind": "pending", "phase": "sut-missing" },
+   33:         "AT-001.24": { "kind": "pending", "phase": "sut-missing" },
+   34:         "AT-001.25": { "kind": "pending", "phase": "sut-missing" },
+   35:         "AT-001.26": { "kind": "pending", "phase": "sut-missing" },
+   36:         "AT-001.27": { "kind": "pending", "phase": "sut-missing" },
+   37:         "AT-001.28": { "kind": "pending", "phase": "sut-missing" },
+   38:         "AT-001.35": { "kind": "pending", "phase": "sut-missing" },
+   39:         "AT-001.29": { "kind": "pending", "phase": "sut-missing" },
+   40:         "AT-001.30": { "kind": "pending", "phase": "sut-missing" },
+   41:         "AT-001.31": { "kind": "pending", "phase": "sut-missing" },
+   42:         "AT-001.32": { "kind": "pending", "phase": "sut-missing" },
+   43:         "AT-001.33": { "kind": "pending", "phase": "sut-missing" },
+   44:         "AT-001.34": { "kind": "pending", "phase": "sut-missing" }
+   45:       }
+   46:     }
+   47:   }
+   48: }
+
+codex
+The core execution path is now clear: the proposed automated gate never enters the new integration branch, and the manual isolation spike lacks a negative control showing that slot 2 was actually reset. I’m finishing a cross-check of reservation ownership, CI assumptions, and recovery paths so the final list contains only concrete failures.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'git rev-parse HEAD; git status --short; git branch --show-current' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 452ms:
+3cb66f45c541c42b9ab69ec2362f63810f37e103
+?? loop/items/AI4DEV-79/artifacts/gate1-sol-output.pid
+nirdrang/ai4dev-79-a-pool-of-local-database-slots-so-items-verify-in-parallel
+warning: unable to access 'C:\Users\nirdr/.config/git/ignore': Permission denied
+warning: unable to access 'C:\Users\nirdr/.config/git/ignore': Permission denied
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "git status --short -- 'loop/items/AI4DEV-79/plan.md'; git ls-tree -r --name-only HEAD -- 'loop/items/AI4DEV-79/plan.md'" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 379ms:
+loop/items/AI4DEV-79/plan.md
+warning: unable to access 'C:\Users\nirdr/.config/git/ignore': Permission denied
+warning: unable to access 'C:\Users\nirdr/.config/git/ignore': Permission denied
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command 'git show --stat --oneline --decorate --no-renames HEAD; git show --format= --name-only HEAD' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a064eb77d7bb37dd7
+ succeeded in 404ms:
+3cb66f4 (HEAD -> nirdrang/ai4dev-79-a-pool-of-local-database-slots-so-items-verify-in-parallel, origin/nirdrang/ai4dev-79-a-pool-of-local-database-slots-so-items-verify-in-parallel) AI4DEV-79: plan sitting - slot-pool plan, gate-1 prompt, PR body, phase state
+ loop/items/AI4DEV-79/PHASE-STATE.md         |  60 ++++++
+ loop/items/AI4DEV-79/artifacts/watch-tip.sh |  11 ++
+ loop/items/AI4DEV-79/gate1-prompt.txt       | 176 +++++++++++++++++
+ loop/items/AI4DEV-79/plan.md                | 281 ++++++++++++++++++++++++++++
+ loop/items/AI4DEV-79/pr-body.md             |  24 +++
+ 5 files changed, 552 insertions(+)
+loop/items/AI4DEV-79/PHASE-STATE.md
+loop/items/AI4DEV-79/artifacts/watch-tip.sh
+loop/items/AI4DEV-79/gate1-prompt.txt
+loop/items/AI4DEV-79/plan.md
+loop/items/AI4DEV-79/pr-body.md
+
+codex
+Severity scale: high = isolation/data-safety violation or a false completion gate; medium = supported states or required proof are missing; low = a factual error that weakens evidence.
+
+[1] high: loop/items/AI4DEV-79/plan.md:106
+    claim: File equality cannot enforce D3’s invariant that the on-disk config describes the successfully restarted stack.
+    why it matters: If the process stops after writing config but before a successful restart, the next occupancy sees equal text and skips restart, leaving either a stopped slot or a running stack with the previous auth behavior.
+    unverified-runtime-claim: no
+
+[2] high: loop/items/AI4DEV-79/plan.md:120
+    claim: D4 and D6 create separate reservation and occupancy files instead of the ruled single per-slot claim transitioning between reserved and occupied states.
+    why it matters: A sweep can delete the reservation while its occupancy lock remains, allowing another item to reserve the slot and then be refused; the plan also provides no ownership-checked transition preventing a delayed release from deleting a newer reservation.
+    unverified-runtime-claim: no
+
+[3] high: loop/items/AI4DEV-79/plan.md:120
+    claim: Reusing `acquireStackLock` permits takeover of a live occupier after `LOCK_STALE_MINUTES`, not only takeover of a dead PID.
+    why it matters: `runner.ts:285-288` treats an alive holder older than 60 minutes as stale, so a second verify can take the claim and reset the first verify’s database while it is still running.
+    unverified-runtime-claim: no
+
+[4] high: loop/items/AI4DEV-79/plan.md:145
+    claim: D8 deliberately leaves the drill tier resetting the repo-configured personal stack despite the settled requirement that this stack remain untouchable.
+    why it matters: `--tier drill` still follows `runner.ts:1044-1105` and executes `db reset` against the 54321 stack; an unfiled future follow-up does not deliver the ruled protection.
+    unverified-runtime-claim: no
+
+[5] high: loop/items/AI4DEV-79/plan.md:101
+    claim: The identity overlay omits valid host-port fields such as `local_smtp.smtp_port` and `local_smtp.pop3_port` shown in `supabase/config.toml:110-111`.
+    why it matters: Enabling them with personal defaults makes D5 reject a legitimate item config, while assigning any other common value preserves that same value in both slots and allows the slots to collide with each other.
+    unverified-runtime-claim: no
+
+[6] high: loop/items/AI4DEV-79/plan.md:139
+    claim: D7’s fixed copy set is not the dependency closure of the item’s regenerated config.
+    why it matters: Active `schema_paths`, TLS keys, signing keys, email templates, or storage paths can point to files absent from the slot, while the plan never defines whether slot start receives the config’s `env()` variables or the existing credential-dropping child environment; settle this with a fixture config containing one active relative file and one `env()` provider, followed by a restart and behavior probe.
+    unverified-runtime-claim: yes
+
+[7] high: loop/items/AI4DEV-79/plan.md:193
+    claim: The isolation spike has no canary in slot 2 that must disappear.
+    why it matters: A reset that is ignored, is a no-op, or targets some third stack can leave the slot-1 and personal canaries intact and satisfy the entire stated done-criterion without proving that slot 2 was reset.
+    unverified-runtime-claim: no
+
+[8] medium: loop/items/AI4DEV-79/plan.md:193
+    claim: Personal scratch-schema cleanup is only the last procedural step, not guaranteed by a `finally`-style cleanup.
+    why it matters: If reset or either survival assertion fails, execution stops before step (f), leaving residue in the personal stack despite the plan’s zero-residue promise.
+    unverified-runtime-claim: no
+
+[9] high: loop/items/AI4DEV-79/plan.md:214
+    claim: No done-criterion executes the new integration runner path end to end.
+    why it matters: Setup and the spike bypass reservation lookup, runner preparation, environment injection, evidence printing, and runner cleanup, while the only planned `at:verify` uses the loop tier and never enters the changed branch.
+    unverified-runtime-claim: no
+
+[10] medium: loop/items/AI4DEV-79/plan.md:214
+    claim: A green `--tier loop --expect` run does not prove byte-identical output against main.
+    why it matters: The command checks acceptance-result accounting only; additional output or loop-tier side effects can be introduced while it remains green, and the plan defines no captured baseline or byte-comparison oracle.
+    unverified-runtime-claim: no
+
+[11] medium: loop/items/AI4DEV-79/plan.md:204
+    claim: The Dockerless “suite throws” selftest has no specified seam capable of exercising the runner’s occupied integration path.
+    why it matters: `main` is not exported, its stack operations are not injectable, and a loop-tier child holds no slot, so testing `cleanupRun` alone would not prove that a real post-occupancy suite failure reaches the runner’s `finally`.
+    unverified-runtime-claim: no
+
+[12] medium: loop/items/AI4DEV-79/plan.md:131
+    claim: D6 does not define a fail-closed branch parser for detached HEAD, no Git executable, or branches containing multiple item IDs.
+    why it matters: The sole reservation selftest covers only “no reservation”; an implementation that selects the first ID from an ambiguous branch can reset a slot reserved for the wrong item instead of refusing before occupancy.
+    unverified-runtime-claim: no
+
+[13] medium: loop/items/AI4DEV-79/plan.md:204
+    claim: `AT_DB_POOL_ROOT` does not isolate the occupancy claim used by the proposed selftests.
+    why it matters: `acquireStackLock` still writes to the machine-wide `at-locks` directory and D9 does not parameterize it, so tests using fixed slot identity can collide with a real verify or another selftest process despite their temporary pool roots.
+    unverified-runtime-claim: no
+
+[14] medium: loop/items/AI4DEV-79/plan.md:187
+    claim: The committed setup transcript has no redaction or “contains no credentials” done-criterion.
+    why it matters: The required Supabase start/status reports include anon and service-role keys—the existing runner deliberately captures rather than prints this raw output—so a straightforward implementation can commit those values while satisfying S2.
+    unverified-runtime-claim: no
+
+[15] low: loop/items/AI4DEV-79/plan.md:78
+    claim: F7 incorrectly states that the required check runs on `ubuntu-latest`.
+    why it matters: `.github/workflows/ci.yml:44` selects an externally configured self-hosted runner when `CI_RUNNER_LABEL` is set, so a required-check green cannot itself establish that the selftests passed on a Dockerless host.
+    unverified-runtime-claim: no
+
+PLAN REVIEW: 15 FINDINGS
+tokens used
+127,755

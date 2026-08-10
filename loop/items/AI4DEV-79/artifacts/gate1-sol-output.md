@@ -1,0 +1,78 @@
+Severity scale: high = isolation/data-safety violation or a false completion gate; medium = supported states or required proof are missing; low = a factual error that weakens evidence.
+
+[1] high: loop/items/AI4DEV-79/plan.md:106
+    claim: File equality cannot enforce D3’s invariant that the on-disk config describes the successfully restarted stack.
+    why it matters: If the process stops after writing config but before a successful restart, the next occupancy sees equal text and skips restart, leaving either a stopped slot or a running stack with the previous auth behavior.
+    unverified-runtime-claim: no
+
+[2] high: loop/items/AI4DEV-79/plan.md:120
+    claim: D4 and D6 create separate reservation and occupancy files instead of the ruled single per-slot claim transitioning between reserved and occupied states.
+    why it matters: A sweep can delete the reservation while its occupancy lock remains, allowing another item to reserve the slot and then be refused; the plan also provides no ownership-checked transition preventing a delayed release from deleting a newer reservation.
+    unverified-runtime-claim: no
+
+[3] high: loop/items/AI4DEV-79/plan.md:120
+    claim: Reusing `acquireStackLock` permits takeover of a live occupier after `LOCK_STALE_MINUTES`, not only takeover of a dead PID.
+    why it matters: `runner.ts:285-288` treats an alive holder older than 60 minutes as stale, so a second verify can take the claim and reset the first verify’s database while it is still running.
+    unverified-runtime-claim: no
+
+[4] high: loop/items/AI4DEV-79/plan.md:145
+    claim: D8 deliberately leaves the drill tier resetting the repo-configured personal stack despite the settled requirement that this stack remain untouchable.
+    why it matters: `--tier drill` still follows `runner.ts:1044-1105` and executes `db reset` against the 54321 stack; an unfiled future follow-up does not deliver the ruled protection.
+    unverified-runtime-claim: no
+
+[5] high: loop/items/AI4DEV-79/plan.md:101
+    claim: The identity overlay omits valid host-port fields such as `local_smtp.smtp_port` and `local_smtp.pop3_port` shown in `supabase/config.toml:110-111`.
+    why it matters: Enabling them with personal defaults makes D5 reject a legitimate item config, while assigning any other common value preserves that same value in both slots and allows the slots to collide with each other.
+    unverified-runtime-claim: no
+
+[6] high: loop/items/AI4DEV-79/plan.md:139
+    claim: D7’s fixed copy set is not the dependency closure of the item’s regenerated config.
+    why it matters: Active `schema_paths`, TLS keys, signing keys, email templates, or storage paths can point to files absent from the slot, while the plan never defines whether slot start receives the config’s `env()` variables or the existing credential-dropping child environment; settle this with a fixture config containing one active relative file and one `env()` provider, followed by a restart and behavior probe.
+    unverified-runtime-claim: yes
+
+[7] high: loop/items/AI4DEV-79/plan.md:193
+    claim: The isolation spike has no canary in slot 2 that must disappear.
+    why it matters: A reset that is ignored, is a no-op, or targets some third stack can leave the slot-1 and personal canaries intact and satisfy the entire stated done-criterion without proving that slot 2 was reset.
+    unverified-runtime-claim: no
+
+[8] medium: loop/items/AI4DEV-79/plan.md:193
+    claim: Personal scratch-schema cleanup is only the last procedural step, not guaranteed by a `finally`-style cleanup.
+    why it matters: If reset or either survival assertion fails, execution stops before step (f), leaving residue in the personal stack despite the plan’s zero-residue promise.
+    unverified-runtime-claim: no
+
+[9] high: loop/items/AI4DEV-79/plan.md:214
+    claim: No done-criterion executes the new integration runner path end to end.
+    why it matters: Setup and the spike bypass reservation lookup, runner preparation, environment injection, evidence printing, and runner cleanup, while the only planned `at:verify` uses the loop tier and never enters the changed branch.
+    unverified-runtime-claim: no
+
+[10] medium: loop/items/AI4DEV-79/plan.md:214
+    claim: A green `--tier loop --expect` run does not prove byte-identical output against main.
+    why it matters: The command checks acceptance-result accounting only; additional output or loop-tier side effects can be introduced while it remains green, and the plan defines no captured baseline or byte-comparison oracle.
+    unverified-runtime-claim: no
+
+[11] medium: loop/items/AI4DEV-79/plan.md:204
+    claim: The Dockerless “suite throws” selftest has no specified seam capable of exercising the runner’s occupied integration path.
+    why it matters: `main` is not exported, its stack operations are not injectable, and a loop-tier child holds no slot, so testing `cleanupRun` alone would not prove that a real post-occupancy suite failure reaches the runner’s `finally`.
+    unverified-runtime-claim: no
+
+[12] medium: loop/items/AI4DEV-79/plan.md:131
+    claim: D6 does not define a fail-closed branch parser for detached HEAD, no Git executable, or branches containing multiple item IDs.
+    why it matters: The sole reservation selftest covers only “no reservation”; an implementation that selects the first ID from an ambiguous branch can reset a slot reserved for the wrong item instead of refusing before occupancy.
+    unverified-runtime-claim: no
+
+[13] medium: loop/items/AI4DEV-79/plan.md:204
+    claim: `AT_DB_POOL_ROOT` does not isolate the occupancy claim used by the proposed selftests.
+    why it matters: `acquireStackLock` still writes to the machine-wide `at-locks` directory and D9 does not parameterize it, so tests using fixed slot identity can collide with a real verify or another selftest process despite their temporary pool roots.
+    unverified-runtime-claim: no
+
+[14] medium: loop/items/AI4DEV-79/plan.md:187
+    claim: The committed setup transcript has no redaction or “contains no credentials” done-criterion.
+    why it matters: The required Supabase start/status reports include anon and service-role keys—the existing runner deliberately captures rather than prints this raw output—so a straightforward implementation can commit those values while satisfying S2.
+    unverified-runtime-claim: no
+
+[15] low: loop/items/AI4DEV-79/plan.md:78
+    claim: F7 incorrectly states that the required check runs on `ubuntu-latest`.
+    why it matters: `.github/workflows/ci.yml:44` selects an externally configured self-hosted runner when `CI_RUNNER_LABEL` is set, so a required-check green cannot itself establish that the selftests passed on a Dockerless host.
+    unverified-runtime-claim: no
+
+PLAN REVIEW: 15 FINDINGS
