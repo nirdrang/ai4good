@@ -319,7 +319,7 @@ sitting, all on the item branch:
 | `bun run at:selftest` | green, now including the nine named db-pool tests (S4) |
 | `bun run at:check req-001` | green, unchanged |
 | `bun run at:verify req-001 --tier loop --expect` | green, and the normalized main-vs-branch output diff is EMPTY (S5, gate-1 [10]) |
-| `bun run at:verify req-001 --tier integration --expect` via the pool | green once on the dev machine, evidence line naming the slot, transcript committed (S8, gate-1 [9]) |
+| S8: one integration-tier verify via the pool, `AT_DB_SLOT` set | AMENDED by ruling X2 (§9): req-001 declares the loop tier only, so `--expect` refuses at integration; the criterion is the changed path end to end — occupancy, prepare, both identity instruments, the evidence line naming the slot, suite executed on the slot env, claim released — transcript committed (S8, gate-1 [9], X2) |
 | S3 spike done-criterion (amended, E5) | met once, transcript `spike-isolation-2.txt` committed — hostile env present, identity pre-read shown, slot-2 canary destroyed, slot-1 canary surviving, personal docker snapshots equal on every identity field |
 | every committed transcript | scanned clean: no `eyJ` token, no key value, no db password (gate-1 [14]) |
 | CI required check `verify` | green on the final head (it runs the first four rows; it cannot run the spike or the integration run — F7, no Docker) |
@@ -874,3 +874,53 @@ plant time.
   alongside the drill-tier follow-up (§6).
 - **Note 4 (the one-seam and strip hold under attack)** — a clean verdict on the wall itself
   from the seat that was seated to attack it. Recorded as evidence, not as a finding.
+
+### Rulings on the executor's fix-and-goal report (fix sitting, 2026-08-10)
+
+The fix executor (opus, one invocation, two iterations) implemented every accepted ruling and
+ran the goal suite. Five judgment calls came back for ruling:
+
+- **X1. The [T10] completion — RATIFIED (commit bb14267).** The executor implemented [T10]
+  exactly as ruled, then MEASURED it: five races out of five still ended with one item holding
+  both slots, because the winner's exclusive-create handle holds the reservation file with no
+  sharing until Dispose — the loser's re-read gets a sharing violation, not a readable file.
+  The completion: the re-read waits out the window (bounded, up to one second), and a
+  reservation still unreadable REJECTS the item rather than granting a second slot. That is
+  the same remedy [T1] applies to the same window shape in the harness's claim files, and the
+  fail-closed direction is E7's. After: eight races out of eight, one item holds exactly one
+  slot. The commit stands; its "NOT RULED BY GATE 2" marker is answered by this ruling.
+- **X2. S8's done-criterion is CORRECTED against the tree.** S8 as written (gate-1 [9]) said
+  `--tier integration --expect`, "the run is green". Discovered at execution:
+  `tests/at/expected/req-001.json` declares the LOOP tier only — on this branch and on main
+  alike — so `--expect` at integration refuses the declaration before any test runs. The
+  criterion as written was unsatisfiable, and writing an integration-tier declaration is a
+  decision about the acceptance contract, which is not this foundation item's to make; the
+  executor's refusal to write one is RATIFIED. The corrected criterion, met and committed in
+  `loop/items/AI4DEV-79/integration-run.txt`: the changed path executes end to end — occupancy
+  claimed, prepare ran (mirror, regenerated config, reset, migration proof), BOTH identity
+  instruments visible in the transcript ([T2]: the container-token read and the docker
+  corroboration), the ruled evidence line naming the slot, the suite executed against the
+  slot's env, the claim released, the personal docker snapshot IDENTICAL. What the suite then
+  scored at integration tier — 28 pre-existing sut-missing pendings and 9 ids whose suites
+  refuse their stubbed capabilities outside the loop tier — is the requirement's own
+  pre-existing state on main, not this item's defect, and is recorded here for the
+  requirement's own work. §5's table row is amended to match.
+- **X3. The oracle baseline is the MERGE BASE, RATIFIED — and the branch stays behind main.**
+  origin/main moved ten commits ahead of this branch mid-item; one of them landed new
+  acceptance tests for req-001 and moved four ids in the declaration. Gate-1 [10]'s oracle
+  exists to prove THIS BRANCH changes nothing on the loop tier, so the honest baseline is the
+  commit the branch departs from (c11e352), and the committed diff header says so. The diff is
+  EMPTY. Folding main's ten commits in mid-item would widen the audit's subject with foreign
+  changes for no safety gain; mergeability is the merge sitting's check, and this fact is
+  recorded in PHASE-STATE for it.
+- **X4. The [T2] instrument's own residual — RECORDED.** The measurement found the
+  container-name tokens exist in status output because the tracked config disables imgproxy
+  and the pooler (`Stopped services: [...]`). A future config enabling both would print no
+  such line, and destructive acts would REFUSE loudly until the instrument is amended —
+  fail-closed (E7), loud, named in the code comment at `ownContainerNames`. The docker
+  corroboration is unaffected by that shape.
+- **X5. One pre-existing draft defect fixed in passing — RATIFIED.** `db-pool.selftest.ts`
+  asserted `/is inside the founder's personal port block/` while the guard has always emitted
+  "is inside the personal stack's port block". This branch's own file, invisible until the
+  first suite run (the draft contract forbids running the suite), wording aligned, substance
+  unchanged.
