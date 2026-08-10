@@ -1316,3 +1316,35 @@ head, and CI's required check re-proves them on the exact merge head. The record
 carry no code at all. The residual — that these four small fixes go unread by an external
 panel — is the accepted cost of the re-run cap, stated here so the merge sitting and the
 founder weigh it with open eyes.
+
+### Rulings on the round-two fix executor's report (audit sitting, 2026-08-10)
+
+The executor (opus, one invocation, one iteration) applied [B2]–[B5] at 5277366; all four
+suites green (typecheck 0; at:selftest 0, 286 tests — two new from the [B2] selftest;
+at:check req-001 0; at:verify req-001 --tier loop --expect 0, matching the declaration). The
+loop tier is behaviorally untouched: the fresh capture matches `oracle-loop-branch.txt` line
+for line after the recorded non-ASCII fold. No supabase command, no Docker command, no stack
+touched — slot stacks included; every measurement ran on temp directories and cleaned up in
+a `finally`. The [B5] measurement, recorded: BEFORE, against a temp claim directory that
+exists but denies listing, `Get-DbSlotOccupancy` returned null in 6 ms and `Release-DbSlot`
+deleted the reservation under a live claim — the fail-open reached the ruled harm. AFTER:
+the occupancy returns live-unknown in 2 ms naming the directory and the access error, and
+release refuses. The [B4] verification: pid shapes 0, missing, null, empty and negative all
+released BEFORE; all five refuse AFTER, naming the claim file; the dead-pid, live-pid,
+no-claim and A4-unreadable control paths are unchanged, measured. The [B2] skip is now a
+compile error (TS2575, measured on a deleted probe) and no parameterized stop helper exists
+in runner.ts to widen the rule to. Four judgment calls, ruled:
+
+- **BX1 — RATIFIED.** The occupancy record gained an `unknownHolder` sentence and
+  `Release-DbSlot` refuses on it rather than on `readable`. Three distinct conditions now
+  mean "this call cannot identify the holder", and each needs its own words for the person
+  fixing it by hand; `readable` keeps exactly the meaning AX6 ratified.
+- **BX2 — RATIFIED.** `provenProjectId` is set only when the CLI's own output named a
+  container of the slot's own — the stronger reading, and it makes a non-destructive read
+  unusable as a reset proof at zero cost to any real path.
+- **BX3 — RATIFIED.** The [B3] selftest pins five garbage shapes, not just `null`, so every
+  clause of the shape rule is tested. A test is never scope growth (AX7).
+- **BX4 — RATIFIED, the change named.** A negative pid is now unidentifiable-live rather
+  than dead. Before, `-7` read as dead only because `Get-Process` happens to answer
+  not-found for an impossible id; the ruled text says strictly positive, and an impossible
+  pid in a claim is a reason to look, not to release.
