@@ -273,7 +273,8 @@ if (Test-Path $codexSessions) {
 if (Test-Path $itemsDir) {
     foreach ($dir in (Get-ChildItem $itemsDir -Directory -ErrorAction SilentlyContinue)) {
         $item = $dir.Name
-        foreach ($log in (Get-ChildItem $dir.FullName -File -Filter '*stderr*' -ErrorAction SilentlyContinue)) {
+        # -Recurse: since 2026-08-09 reviewer logs land in loop/items/<ITEM>/artifacts/, one level down
+        foreach ($log in (Get-ChildItem $dir.FullName -File -Filter '*stderr*' -Recurse -ErrorAction SilentlyContinue)) {
             foreach ($sm in $sessRe.Matches([System.IO.File]::ReadAllText($log.FullName))) {
                 $sid = $sm.Groups[1].Value.ToLower()
                 if (-not $rollouts.ContainsKey($sid)) { continue }
