@@ -208,6 +208,18 @@ finding is now OUT OF YOUR SCOPE. You read the record only as the list of claims
 against the tree; you never raise a finding about the record itself — not its counts, not its
 citations, not its headers, not its phrasing.
 
+**Your change-set instrument is a SOURCE-ONLY diff (founder ruling 2026-08-10).** Enumerate the
+changes with the pinned range restricted to the code territory — the same path set CI's fast
+lane derives from:
+
+```
+git diff <base>...<head> -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts
+```
+
+The record directory (`loop/items/`) never enters the diff you read. The full tree stays open
+for TRACING a claim through unchanged code — following an import, reading a caller — but the
+list of what you audit comes from that command and nothing else.
+
 Code quality is not your subject either. You are answering one question: **does the code match
 what is claimed about it?**
 
