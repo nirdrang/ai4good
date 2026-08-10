@@ -1,0 +1,57 @@
+G2-6 PROBE - does the report's printed percentage use a comma under a comma culture?
+Run by the EXECUTOR of the fix-and-goal pass, 2026-08-11, before any code change.
+Head at probe time: adc5d67. The probe is read-only.
+
+VERDICT: DISPROVEN. Both the concatenation and ConvertTo-Json emit 66.7 under de-DE.
+No code change. The selftest's regex is not loosened.
+
+-----------------------------------------------------------------------------------------
+INSTRUMENT ONE - the report's exact print shape, reconstructed
+-----------------------------------------------------------------------------------------
+A Windows PowerShell 5.1 process sets CurrentCulture and CurrentUICulture to de-DE, then
+evaluates the shape at attribution-report.ps1 line 564 and the -Json rendering of the same
+value.
+
+PSVersion: 5.1.26100.8875
+CurrentCulture: de-DE
+NumberDecimalSeparator: [,]
+
+CONCAT  -> x: 66.7%
+JSON    -> {     "unattributedPct":  66.7 }
+
+CONTROL culture-aware ToString() -> 66,7
+
+SELFTEST REGEX matched: True value: 66.7
+
+The CONTROL line is what makes the result trustworthy. .NET's culture-aware ToString on the
+same value prints 66,7, so the culture genuinely took effect. Had the control also printed a
+dot, the probe would have been a broken instrument and the two lines above would have proven
+nothing.
+
+-----------------------------------------------------------------------------------------
+INSTRUMENT TWO - the real report, in process, on the real store
+-----------------------------------------------------------------------------------------
+A first attempt launched the report as a CHILD `powershell -File` process. That instrument is
+weak and its result is discarded: a new process takes the operating system culture, not the
+parent thread's, so it never ran under de-DE at all.
+
+The second attempt calls the report with `& $report` in the SAME process, where the de-DE
+thread culture genuinely applies:
+
+culture: de-DE sep [,]
+control (culture-aware ToString): 66,7
+REAL REPORT, IN-PROCESS, de-DE -> unattributed share of output tokens: 67.5%
+
+The real print site emits a dot while the control in the same process emits a comma.
+
+-----------------------------------------------------------------------------------------
+WHY
+-----------------------------------------------------------------------------------------
+PowerShell's own string conversion (the `'text' + $number` shape) and ConvertTo-Json both use
+the invariant culture, not the current culture. Only an explicit culture-aware ToString or a
+format operator reaches the comma. The reader's premise - that nothing at the print site
+names a culture - is literally true, and the consequence it predicted does not follow.
+
+Probe scripts (scratchpad, not committed - the outputs above are the record):
+  g2-6-probe.ps1  (instrument one)
+  g2-6-real2.ps1  (instrument two)

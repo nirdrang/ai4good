@@ -117,6 +117,10 @@ foreach ($d in (Get-ChildItem $projDir -Directory -ErrorAction SilentlyContinue)
                 agentType     = [string]$mj.agentType
                 parentAgentId = [string]$mj.parentAgentId
                 toolUseId     = [string]$mj.toolUseId
+                # The agent's session, DERIVED from where the file sits, never declared: an agent
+                # transcript lives under <projDir>\<sessionId>\subagents\. The spawn-context key
+                # needs it (see the pre-pass below).
+                session       = $d.Name
             }
         } catch { }
     }
@@ -176,15 +180,23 @@ function Get-StampValue([string]$line, [string]$current) {
 #
 # This pre-pass collects the two facts the walk needs:
 #   - for each agent transcript, the distinct items its OWN records name;
-#   - for each session, the item it had resolved at each spawn call, keyed by the tool_use id
-#     that the child's meta file names. State at the CALL, not at the end of the file: one
-#     session holds different items at different times, and each child inherits what was held
-#     when it was spawned.
+#   - for each session, the item it had resolved at each spawn call, keyed by the SESSION plus
+#     the tool_use id that the child's meta file names. State at the CALL, not at the end of the
+#     file: one session holds different items at different times, and each child inherits what
+#     was held when it was spawned.
+#
+# THE KEY CARRIES THE SESSION, and that is measured rather than assumed. A tool_use id alone was
+# not unique on this store: 580 ids appear in two session files, all of them in ONE pair, because
+# a resumed session writes a copy of the earlier session's records. The ids are not reused - the
+# records are copied. Five of those 580 resolve a DIFFERENT item in the two files, so a global key
+# lets whichever file is scanned first answer for the other. The session is derived from the file
+# for a session transcript and from the directory path for an agent, so nothing is declared.
+# (Measured 2026-08-11: loop/items/AI4DEV-80/artifacts/g2-3-probe.txt.)
 #
 # Both reads use the SAME unescaped-only branch match as the counting pass. An escaped
 # \"gitBranch\" inside a quoted tool result is another transcript being read, never a branch fact.
 $fileItems = @{}   # bare agent id -> the distinct items its own records name
-$spawnCtx  = @{}   # tool_use id -> the item the spawning session had resolved at that call
+$spawnCtx  = @{}   # "<sessionId>|<tool_use id>" -> the item that session had resolved at that call
 $tuIdRe = [regex]'"(?:id|tool_use_id)"\s*:\s*"(toolu_[A-Za-z0-9]+)"'
 foreach ($f in $files) {
     try {
@@ -206,6 +218,9 @@ foreach ($f in $files) {
         else {
             $cb = ''
             $cs = ''
+            # A session file IS its session: the file's base name is the session id, and the
+            # agent directory beside it carries the same name (7 of 7 measured).
+            $sessId = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
             while ($null -ne ($line = $rd.ReadLine())) {
                 if ($line.IndexOf('"gitBranch"') -ge 0) {
                     $bm = $branchRe.Match($line)
@@ -214,8 +229,9 @@ foreach ($f in $files) {
                 if ($line.IndexOf('ai4good-attribution') -ge 0) { $cs = Get-StampValue $line $cs }
                 if ($line.IndexOf('toolu_') -lt 0) { continue }
                 foreach ($m in $tuIdRe.Matches($line)) {
-                    $tid = $m.Groups[1].Value
-                    # FIRST sighting wins: the spawn call comes before its own tool result.
+                    $tid = $sessId + '|' + $m.Groups[1].Value
+                    # FIRST sighting wins WITHIN THE SESSION: the spawn call comes before its own
+                    # tool result. Another session's copy of the same id is a different key.
                     if ($spawnCtx.ContainsKey($tid)) { continue }
                     $bids = @(Get-BranchItems $cb)
                     if ($bids.Count -eq 1) { $spawnCtx[$tid] = $bids[0] }
@@ -253,7 +269,10 @@ function Get-TreeItem([string]$agentId, [hashtable]$visited) {
     elseif ($own.Count -eq 0 -and $metaOf.ContainsKey($agentId)) {
         $meta = $metaOf[$agentId]
         if ($meta.parentAgentId) { $result = [string](Get-TreeItem $meta.parentAgentId $visited) }
-        elseif ($meta.toolUseId -and $spawnCtx.ContainsKey($meta.toolUseId)) { $result = $spawnCtx[$meta.toolUseId] }
+        elseif ($meta.toolUseId -and $meta.session) {
+            $ctxKey = [string]$meta.session + '|' + [string]$meta.toolUseId
+            if ($spawnCtx.ContainsKey($ctxKey)) { $result = $spawnCtx[$ctxKey] }
+        }
     }
     $treeItem[$agentId] = $result
     return $result
