@@ -84,7 +84,10 @@ project key `C--Users-nirdr-Downloads-ai4good`.
 ## 4. Decisions
 
 - D1 **Usage is counted ONLY from `.jsonl` transcripts**: the top-level session files (as
-  today) plus `*/subagents/agent-*.jsonl` (new). Temp `.output` files leave the usage scan
+  today) plus every `agent-*.jsonl` under each session's `subagents` tree — RECURSIVE,
+  because 587 of the 877 real transcripts sit one level deeper, in
+  `subagents/workflows/wf_<id>/` (draft ruling D-1; the flat glob this plan first wrote
+  would have kept two thirds of the store invisible). Temp `.output` files leave the usage scan
   entirely. This lands ruled bullet 4 structurally (F5's file can never count again), avoids
   the twin double-count F4 proves, and loses nothing (zero orphan transcripts measured). The
   header's "transcript file(s)" count then counts scanned `.jsonl` transcripts only.
@@ -182,15 +185,20 @@ that pass, not at draft time.
     plus branchless usage lines, + meta (parentAgentId C1) — the ambiguity case (G1-4);
   - `agent-X1.jsonl`: usage lines, NO meta file — the `unmarked agent`, unattributed by
     design (G1-8);
+  - `workflows/wf_1/agent-W1.jsonl` one level deeper in the session's `subagents` tree
+    (branch-less, usage) + meta beside it (agentType `reviewer-runner`, parentAgentId C1)
+    — the nested-store case (draft ruling D-1). ADDED AFTER THE DRAFT: the drafted
+    selftest predates this fixture agent; the fix sitting implements it;
   - one background file INSIDE the fixture projects root, `<session>/tasks/bg.output`,
     carrying 3 transcript-shaped assistant-usage lines (G1-3);
   - a minimal kimi usage fixture under `-KimiRoot`, keyed by the BARE agentId `O1`, file
     shape copied from the real store (G1-7);
   - a chain cache with `AI4DEV-900 > AI4DEV-901`; `AI4DEV-902` stays chainless.
   It runs the report with the override parameters and `-Json` and asserts:
-  - A1 the tree-mechanism agents' tokens land under `AI4DEV-901`: C1 via branch, O1/O2/E1
-    via tree, U1 via spawn context; the coordinator's stamp lines split between
-    `AI4DEV-901` and `AI4DEV-902` as written.
+  - A1 the tree-mechanism agents' tokens land under `AI4DEV-901`: C1 via branch,
+    O1/O2/E1/W1 via tree (W1 proves the nested store is scanned, D-1), U1 via spawn
+    context; the coordinator's stamp lines split between `AI4DEV-901` and `AI4DEV-902`
+    as written.
   - A2 the executor's tokens are under the item; the unattributed row carries none of them.
   - A3 `bg.output`'s 3 usage lines appear in no row; the response total equals exactly the
     assistant-usage line sum over ALL fixture `.jsonl` files — computed by the selftest
@@ -219,8 +227,9 @@ that pass, not at draft time.
   time, ruling G1-2): the file exists, carries all fourteen asserts, and passes a
   PowerShell syntax check (tokenize/parse only — NO execution). The S3 commit pins the
   pre-mechanism report code for the goal pass's RED capture.
-- **S4 — the scan set** (D1). Add `*/subagents/agent-*.jsonl` to the usage scan; remove the
-  Temp `.output` scan and the transcript-pairing pass it fed. Goal-spec criterion: A3 green
+- **S4 — the scan set** (D1). Add the recursive `subagents` scan — `agent-*.jsonl` only,
+  nested `workflows/wf_*` directories included (D-1) — to the usage scan; remove the Temp
+  `.output` scan and the transcript-pairing pass it fed. Goal-spec criterion: A3 green
   in full — every fixture `.jsonl` scanned, `bg.output` not, though it sits inside the
   scanned root.
 - **S5 — the forest from meta** (D2). Goal-spec criterion: A5 green; roles on the real
@@ -240,8 +249,11 @@ that pass, not at draft time.
 - **S8 — AFTER evidence (goal pass only).** At the goal head, run the full report →
   `report-after.txt` and `-Item AI4DEV-79` → `report-after-79.txt`; commit both plus a
   short delta note in the record (unattributed % before → after; the previous item's
-  response count before → after). Done: files committed; the after % is STRICTLY LOWER
-  than the before %, both stated with their response counts (G1-8). No fixed threshold is
+  response count before → after). The note states BOTH denominators beside the
+  percentages — the after run counts hundreds of previously-invisible transcripts, so the
+  two percentages divide different totals and the note must say so (draft measurement,
+  section 8). Done: files committed; the after % is STRICTLY LOWER than the before %,
+  both stated with their response counts (G1-8). No fixed threshold is
   promised — the number is the evidence, and if the drop is not large, the delta note says
   that number plainly rather than hiding it.
 
@@ -315,3 +327,36 @@ its ruling id:
 | G1-8 unattributed % unproven | accept in part — A11; fixed live threshold rejected with written reason | S3, S8 |
 | G1-9 `-Days`/`-Item` unprotected | accept — A12, A13 | S3 |
 | G1-10 escaped-JSON decoys | accept — unescaped-only predicate; A14 | D3, S3 |
+
+## 8. Draft-pass ruling and measured facts
+
+Ruled by the DRAFT sitting after the executor's report, 2026-08-11. Draft head `a119c4e`;
+the S3 commit that pins the pre-mechanism report for the RED capture is `0c1bbf7`.
+
+**D-1 — the recursive scan, accepted.** The executor measured the real store before
+obeying the written glob: 877 agent transcripts, only 290 directly in
+`<session>/subagents/`, 587 one level deeper in `subagents/workflows/wf_<id>/`, each with
+its meta beside it. The plan's flat glob would have scanned 290 of 877 — preserving two
+thirds of the exact blindness this item removes. The executor implemented the recursive
+form, still `agent-*.jsonl` only, and reported the deviation instead of hiding it. Ruling:
+this is D1 executed correctly against the measured tree; the plan text above is amended to
+match (D1, S4), and the fixture gains the nested agent W1 at the fix sitting.
+
+**Measured on the real store at the draft head** (the fix sitting's S8 restates these at
+the goal head):
+
+- Unattributed output-token share: 70.6% before → 67.7% after. The drop in the headline
+  percentage is SMALL, and per ruling G1-8 that is stated, not hidden. The denominators
+  differ: transcript files scanned 480 → 912, responses 26371 → 48658, because 877
+  previously-invisible transcripts now count at all.
+- The tree mechanism itself works: 3764 responses across 14 items are newly attributed;
+  the previous item's scoped view grows from 249 to 1935 responses and its role table now
+  shows the whole relay instead of two roles.
+- The measured floor, named in the report's closing note: of 37610 branchless responses,
+  19892 sit in coordinator session files on `main`, and most of the rest have their whole
+  ancestry on `main`, `HEAD` or a branch naming no item — there is nothing to inherit.
+- Ambiguous agents (two items in their own records): 2. Metaless agents: 0.
+
+The board item expects the unattributed share to "drop sharply" as the headline evidence.
+The measured store says the honest headline is the attribution numbers above, not the
+percentage. This is flagged for the founder at the merge ruling; it blocks nothing now.
