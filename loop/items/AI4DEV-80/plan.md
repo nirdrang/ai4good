@@ -135,8 +135,14 @@ project key `C--Users-nirdr-Downloads-ai4good`.
   `-AttrDir`, `-ItemsDir`, `-CodexSessions`, `-KimiRoot` — defaulting to today's hard-coded
   paths, plus a `-Json` switch that emits the aggregates (per-item rows, role rows, rollup
   rows, totals, unattributed %, AND the vendor aggregate tables `codexRows` and `kimiRows`
-  — ruling G1-7) as one JSON object instead of tables. Default invocation output is
-  unchanged. The selftest asserts on parsed JSON, not on `Format-Table` text — an exact
+  — ruling G1-7) as one JSON object instead of tables. AUDIT AMENDMENT (AUD-2): this
+  section earlier said "Default invocation output is unchanged." — false as written, and
+  replaced by the narrow claim that was meant: the SEAMS add no output change of their
+  own. The root-override parameters default to the previous hard-coded paths, and the
+  table output renders exactly when `-Json` is absent. The default run's CONTENT does
+  change with this item, by design — the recursive agent scan, the `tree` source rows,
+  the revised header and floor notes — and the before/after evidence (D9, S8) documents
+  that change. The selftest asserts on parsed JSON, not on `Format-Table` text — an exact
   oracle instead of a whitespace-brittle one.
 - D7 **Windows PowerShell 5.1 is the target** (`powershell -File`): no ternary, no `??`, no
   `-AsHashtable`; `ConvertTo-Json` gets an explicit `-Depth`. Same for the selftest.
@@ -402,3 +408,15 @@ findings (session-file stamp corruption via a quoted stamp) is filed in words, n
 | G2-4 fixture lacks the nested W1 case | accept, already ruled (draft ruling D-1) — convergence noted | S3 (W1 bullet) |
 | G2-5 A1 checks response counts, not tokens | accept — A1 asserts `OutputTok` per row, computed from the fixture | S3 (A1) |
 | G2-6 A11 assumes a dot decimal separator | verify first → DISPROVEN: in-process `de-DE` probe emits dot-decimal from the exact print shape and from `ConvertTo-Json`, with a live-culture control; no code change | `artifacts/g2-6-probe.txt` |
+
+## 10. Audit rulings
+
+Ruled by the AUDIT sitting, 2026-08-11, at audited head `2be9782`. Full rulings with both
+readers' verdicts and every claim quoted verbatim: `loop/items/AI4DEV-80/audit-rulings.md`.
+Reader one (luna via codex) landed two findings; reader two (flash via opencode) was
+clean, with two COULD-NOT-VERIFY boxes the sitting settled PASS by its own measurement.
+
+| ruling | outcome | lands in |
+|---|---|---|
+| AUD-1 first sighting does not win when unresolved | accept — pin the spawn-context key on EVERY first sighting, empty when unresolved; new assert A15, red before green | D3 site in code, S3 (A15), `selftest-a15-red.txt`, `selftest-a15-green.txt` |
+| AUD-2 "default invocation output is unchanged" is false | accept — cured in the record: D6 amended to the narrow seams-only claim; no code change | D6 |

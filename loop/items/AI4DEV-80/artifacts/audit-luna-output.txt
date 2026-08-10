@@ -1,0 +1,47 @@
+Severity scale: medium = incorrect attribution/output behavior; low = contract mismatch.
+
+1. G1-1 — PASS. The committed diff contains only the two `loop/work` files and `loop/items/AI4DEV-80/**`; no process contract changed.
+
+2. G1-2 — PASS. The selftest contains A1–A14 at `loop/work/attribution-report.selftest.ps1:332,343,351,360,371,379,389,399,408,421,435,447,455,469`. The committed RED log records exit 1 with only A4/A8/A14 passing (`selftest-red.txt:13-29`), and GREEN records all fourteen passing with exit 0 (`selftest-green.txt:7-24`).
+
+3. G1-3 — PASS. `bg.output` is planted at `selftest.ps1:240-247`; the report scans only `.jsonl` files at `attribution-report.ps1:62,79-82`; totals are computed from fixture `.jsonl` files at `selftest.ps1:292-299`.
+
+4. G1-4 — PASS. Ambiguous agents do not enter the tree fallback (`attribution-report.ps1:266-275`), while per-record branches remain independently resolved (`:368-373`). A9 covers both cases at `selftest.ps1:403-410`.
+
+5. G1-5 — PASS. The walk uses only the visited-set guard at `attribution-report.ps1:261-264`; no depth cap is present.
+
+6. G1-6 — FAIL. A7 passes for the fixture (`selftest-green.txt:13`), but the implementation does not guarantee first-sighting/per-spawn semantics when the first occurrence is unresolved. See finding [1].
+
+7. G1-7 — PASS. JSON emits `codexRows` and `kimiRows` at `attribution-report.ps1:552-558`; Kimi strips `agent-` at `:487-491`. A10 passes (`selftest-green.txt:16`).
+
+8. G1-8 — PASS. A11 derives expected unattributed output from fixture measurements and recomputes the rounded percentage (`selftest.ps1:429-437`); the report uses the same rounding at `attribution-report.ps1:511-516`.
+
+9. G1-9 — PASS. `-Days` filters transcripts while meta files are read separately before it (`attribution-report.ps1:83,106-123`); `-Item` filters rows at `:520-523`. A12/A13 pass (`selftest-green.txt:18-19`).
+
+10. G1-10 — PASS. The branch regex requires the unescaped `"gitBranch":"` shape (`attribution-report.ps1:136`), and A14’s escaped decoy passes without attribution (`selftest.ps1:459-471`, `selftest-green.txt:20`).
+
+11. D-1 — PASS. Recursive `agent-*.jsonl` scanning is at `attribution-report.ps1:79-82`; `.output` and meta files are excluded. W1 is planted at `selftest.ps1:209-218` and included in A1/A3 expectations.
+
+12. G2-1 — PASS. Stamp fallback is guarded by `-not $isAgent` at `attribution-report.ps1:363-373`; M1’s stamp fixture is at `selftest.ps1:220-230`.
+
+13. G2-2 — PASS. Ambiguous agents skip `$agentItem` assignment at `attribution-report.ps1:333-335,382-389`; A10 verifies M1’s Kimi spend remains unjoined (`selftest.ps1:417-423`, `selftest-green.txt:16`).
+
+14. G2-3 — FAIL. The session-qualified key is present and supported by the committed probe (`g2-3-probe.txt:44-60`), but first-sighting handling is incomplete. See finding [1].
+
+15. G2-5 — PASS. A1 asserts output tokens using fixture-derived measurements at `selftest.ps1:318-335`; the GREEN log records it passing (`selftest-green.txt:7`).
+
+16. G2-6 — PASS. No culture-forcing was added at the print site (`attribution-report.ps1:516,599`), and the committed probe confirms dot-decimal output under `de-DE` (`g2-6-probe.txt:5-24`).
+
+17. Stated code facts — PASS. `.output` scanning and the old pairing pass are absent; meta roles and `unmarked agent` handling are at `attribution-report.ps1:116-123,330-331,605`; resolution order is at `:368-373`; defaults and JSON aggregates are at `:13-21,552-570`.
+
+[1] severity: medium    `loop/work/attribution-report.ps1:235`
+    claim: `$spawnCtx` does not make the first sighting win when that sighting has no resolved item.
+    why it matters: If a spawn call first appears while the session has no branch or stamp, lines 236-241 store no key; a later `tool_use_id` occurrence after the session resolves an item is then accepted, so the child inherits the later tool-result state rather than the state at its spawn call.
+    unverified-runtime-claim: no
+
+[2] severity: low    `loop/work/attribution-report.ps1:574`
+    claim: The item’s claim that the default invocation output is unchanged is false.
+    why it matters: The new recursive scan at `:79-82`, changed header at `:574`, and new floor/output text at `:602-607` make a no-argument run differ materially from the base output, not only by its date.
+    unverified-runtime-claim: no
+
+AUDIT: 2 FINDINGS
