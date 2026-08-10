@@ -206,12 +206,28 @@ try {
     Write-Lines (Join-Path $subagents 'agent-U2.jsonl') $u2Lines
     Write-Lines (Join-Path $subagents 'agent-U2.meta.json') @((New-MetaJson @{ agentType='general-purpose'; description='fixture utility two'; toolUseId='toolu_01FixtureUTILTWO'; spawnDepth=1; model='sonnet' }))
 
+    # --- W1, one level DEEPER in the subagents tree: subagents\workflows\wf_1\. Most real agent
+    # transcripts live at this depth, so a flat direct-child scan must not satisfy the suite.
+    # Branch-less, so it resolves only through the tree, W1 -> C1.
+    $w1Lines = @(
+        (New-UsageLine '' 101),
+        (New-UsageLine '' 101)
+    )
+    $wfDir = Join-Path $subagents 'workflows\wf_1'
+    Write-Lines (Join-Path $wfDir 'agent-W1.jsonl') $w1Lines
+    Write-Lines (Join-Path $wfDir 'agent-W1.meta.json') @((New-MetaJson @{ agentType='reviewer-runner'; description='fixture nested runner'; toolUseId='toolu_01FixtureRUNNER'; parentAgentId='C1'; spawnDepth=2; model='sonnet' }))
+
     # --- M1, the ambiguity case: its own records name TWO items, so its branchless lines must
     # stay unattributed rather than inherit C1's item.
+    #
+    # The stamp line between them is the second door: the stamp regex matches the escaped form,
+    # so an agent transcript that merely QUOTES a stamp would let the branchless lines below it
+    # be guessed as AI4DEV-902. The stamp fallback belongs to session files only.
     $m1BranchA   = @( (New-UsageLine 'nirdrang/ai4dev-901-mixed' 81) )
     $m1BranchB   = @( (New-UsageLine 'nirdrang/ai4dev-902-mixed' 83) )
+    $m1Stamp     = @( (New-StampLine $ITEM_B) )
     $m1Branchless= @( (New-UsageLine '' 85), (New-UsageLine '' 85) )
-    Write-Lines (Join-Path $subagents 'agent-M1.jsonl') ($m1BranchA + $m1BranchB + $m1Branchless)
+    Write-Lines (Join-Path $subagents 'agent-M1.jsonl') ($m1BranchA + $m1BranchB + $m1Stamp + $m1Branchless)
     Write-Lines (Join-Path $subagents 'agent-M1.meta.json') @((New-MetaJson @{ agentType='mechanical'; description='fixture mechanical'; toolUseId='toolu_01FixtureMECH'; parentAgentId='C1'; spawnDepth=2; model='haiku' }))
 
     # --- X1, the metaless agent: no role, no edge, unattributed BY DESIGN.
@@ -243,6 +259,17 @@ try {
     $kimiExpectedOut = [long]120
     Write-Lines (Join-Path $kimiDir 'wd_agent-O1_ab12cd34\session_99999999-8888-7777-6666-555555555555\agents\main\wire.jsonl') $kimiWire
 
+    # The AMBIGUOUS agent's kimi spend. M1's own records name two items, so no per-agent item
+    # fact exists and this spend must stay UNJOINED - it may not be credited whole to whichever
+    # of M1's items its last branch record happened to name. The amounts are distinctive, so a
+    # leak shows up as an amount rather than as a count.
+    $kimiWireM1 = @(
+        '{"type":"usage.record","model":"kimi-code/k3","usage":{"inputOther":300,"output":4444,"inputCacheRead":700,"inputCacheCreation":0},"usageScope":"turn","time":1786180263600}',
+        '{"type":"usage.record","model":"kimi-code/k3","usage":{"inputOther":400,"output":5555,"inputCacheRead":600,"inputCacheCreation":0},"usageScope":"turn","time":1786180269600}'
+    )
+    $kimiM1PlantedOut = [long]9999
+    Write-Lines (Join-Path $kimiDir 'wd_agent-M1_ef56ab78\session_88888888-7777-6666-5555-444444444444\agents\main\wire.jsonl') $kimiWireM1
+
     # -----------------------------------------------------------------------------------------
     # what the fixture wrote - every expectation below is derived from these measurements
     # -----------------------------------------------------------------------------------------
@@ -253,6 +280,7 @@ try {
     $mE1        = Measure-File $e1Path
     $mU1        = Measure-File (Join-Path $subagents 'agent-U1.jsonl')
     $mU2        = Measure-File (Join-Path $subagents 'agent-U2.jsonl')
+    $mW1        = Measure-File (Join-Path $wfDir 'agent-W1.jsonl')
     $mX1        = Measure-File (Join-Path $subagents 'agent-X1.jsonl')
     $mBg        = Measure-File (Join-Path $tasksDir 'bg.output')
     $mSessA     = Measure-Lines $sessionA
@@ -287,17 +315,24 @@ try {
     $jsonDays7 = (Invoke-Report @('-Json', '-Days', '7')) | ConvertFrom-Json
 
     # -----------------------------------------------------------------------------------------
-    # A1 - the tree mechanism puts every sitting's tokens under the item
+    # A1 - the tree mechanism puts every sitting's tokens under the item.
+    # BOTH counters are asserted, responses AND output tokens: tokens could be moved between the
+    # branch, tree and stamp rows while every response count and the global total stayed right.
     # -----------------------------------------------------------------------------------------
     $rABranch = Get-Row $j $ITEM_A 'branch'
     $rATree   = Get-Row $j $ITEM_A 'tree'
     $rAStamp  = Get-Row $j $ITEM_A 'stamp'
     $rBStamp  = Get-Row $j $ITEM_B 'stamp'
-    $expABranch = $mC1.Responses + $mM1A.Responses
-    $expATree   = $mO1.Responses + $mO2.Responses + $mE1.Responses + $mU1.Responses
-    Assert-That 'A1' 'tree agents land under the item (C1 by branch, O1/O2/E1 by tree, U1 by spawn context, stamp lines split)' `
-        (($rABranch.Responses -eq $expABranch) -and ($rATree.Responses -eq $expATree) -and ($rAStamp.Responses -eq $mSessA.Responses) -and ($rBStamp.Responses -eq $mSessB.Responses)) `
-        ('branch=' + $rABranch.Responses + '/' + $expABranch + ' tree=' + $rATree.Responses + '/' + $expATree + ' stampA=' + $rAStamp.Responses + '/' + $mSessA.Responses + ' stampB=' + $rBStamp.Responses + '/' + $mSessB.Responses)
+    $expABranch    = $mC1.Responses + $mM1A.Responses
+    $expABranchOut = $mC1.OutputTok + $mM1A.OutputTok
+    $expATree      = $mO1.Responses + $mO2.Responses + $mE1.Responses + $mU1.Responses + $mW1.Responses
+    $expATreeOut   = $mO1.OutputTok + $mO2.OutputTok + $mE1.OutputTok + $mU1.OutputTok + $mW1.OutputTok
+    $a1RespOk = ($rABranch.Responses -eq $expABranch) -and ($rATree.Responses -eq $expATree) -and ($rAStamp.Responses -eq $mSessA.Responses) -and ($rBStamp.Responses -eq $mSessB.Responses)
+    $a1TokOk  = ([long]$rABranch.OutputTok -eq $expABranchOut) -and ([long]$rATree.OutputTok -eq $expATreeOut) -and ([long]$rAStamp.OutputTok -eq $mSessA.OutputTok) -and ([long]$rBStamp.OutputTok -eq $mSessB.OutputTok)
+    Assert-That 'A1' 'tree agents land under the item, in responses AND output tokens (C1 by branch, O1/O2/E1/W1 by tree, U1 by spawn context, stamp lines split)' `
+        ($a1RespOk -and $a1TokOk) `
+        ('branch=' + $rABranch.Responses + '/' + $expABranch + ' tree=' + $rATree.Responses + '/' + $expATree + ' stampA=' + $rAStamp.Responses + '/' + $mSessA.Responses + ' stampB=' + $rBStamp.Responses + '/' + $mSessB.Responses +
+         ' || branchOut=' + $rABranch.OutputTok + '/' + $expABranchOut + ' treeOut=' + $rATree.OutputTok + '/' + $expATreeOut + ' stampAOut=' + $rAStamp.OutputTok + '/' + $mSessA.OutputTok + ' stampBOut=' + $rBStamp.OutputTok + '/' + $mSessB.OutputTok)
 
     # -----------------------------------------------------------------------------------------
     # A2 - the executor's tokens are under the item, and the unattributed row holds none of them
@@ -375,15 +410,17 @@ try {
         ('unatt=' + $rUnatt.Responses + '/' + $expUnattResp + ' branchA=' + $rABranch.Responses + '/' + $expABranch + ' branchB=' + $rBBranch.Responses + '/' + $mM1B.Responses)
 
     # -----------------------------------------------------------------------------------------
-    # A10 - the kimi join works on the BARE agent id and on a TREE-resolved agent
+    # A10 - the kimi join works on the BARE agent id and on a TREE-resolved agent, and the
+    # AMBIGUOUS agent's spend stays out of it. The fixture planted two kimi directories; exactly
+    # one row may exist, and its tokens must be the O1 wire sum alone.
     # -----------------------------------------------------------------------------------------
     $kRows = @($j.kimiRows)
     $kRow  = @($kRows | Where-Object { $_.Item -eq $ITEM_A })
-    $kOk = ($kRow.Count -eq 1)
+    $kOk = (($kRows.Count -eq 1) -and ($kRow.Count -eq 1))
     if ($kOk) { $kOk = (([long]$kRow[0].OutputTok -eq $kimiExpectedOut) -and ([int]$kRow[0].Sessions -eq 1)) }
-    Assert-That 'A10' 'the kimi row joins to the item through the tree-resolved agent, on the bare agent id' `
+    Assert-That 'A10' 'the kimi table holds exactly the O1 join, on the bare agent id, and the ambiguous agent M1 contributes nothing' `
         (($kOk) -and ($roleOrch.Responses -eq $expOrchResp)) `
-        ('kimiRows=' + @($kRows).Count + ' matched=' + $kRow.Count + ' out=' + $(if ($kRow.Count -eq 1) { $kRow[0].OutputTok } else { 'n/a' }) + '/' + $kimiExpectedOut)
+        ('kimiRows=' + $kRows.Count + '/1 matched=' + $kRow.Count + ' out=' + $(if ($kRow.Count -eq 1) { $kRow[0].OutputTok } else { 'n/a' }) + '/' + $kimiExpectedOut + ' M1 planted but unjoinable=' + $kimiM1PlantedOut + ' allRows=' + (($kRows | ForEach-Object { $_.Item + ':' + $_.OutputTok }) -join ','))
 
     # -----------------------------------------------------------------------------------------
     # A11 - the unattributed row is exactly what the fixture planted, and the printed share is

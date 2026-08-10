@@ -324,11 +324,15 @@ foreach ($f in $files) {
     $joinKey = $base
     $curRole = 'coordinator'
     $curTree = ''
+    $curAmbiguous = $false
     if ($isAgent) {
         $joinKey = $base -replace '^agent-', ''
         if ($metaOf.ContainsKey($joinKey) -and $metaOf[$joinKey].agentType) { $curRole = $metaOf[$joinKey].agentType }
         else { $curRole = 'unmarked agent'; $unmarkedAgents++ }
         $curTree = [string](Get-TreeItem $joinKey (New-Object 'System.Collections.Hashtable'))
+        # An agent whose own records name TWO OR MORE items is ambiguous. Per-record attribution
+        # to two items is a fact; per-AGENT vendor spend credited wholly to one of them is a guess.
+        if ($fileItems.ContainsKey($joinKey) -and @($fileItems[$joinKey]).Count -gt 1) { $curAmbiguous = $true }
     }
     # Shared read: a transcript belonging to a RUNNING agent or background task is locked, and a
     # report that dies on a live file can never be run while anything is working - which is
@@ -355,17 +359,29 @@ foreach ($f in $files) {
                     if ($u -and $o.type -eq 'assistant') {
                         # Own record branch first, exactly as before. The tree is a FALLBACK for a
                         # record that resolves nothing on its own - it never overrides a branch.
+                        #
+                        # THE STAMP FALLBACK IS FOR SESSION FILES ONLY. The stamp regex matches the
+                        # escaped form on purpose, so an agent transcript that QUOTES a stamp - in
+                        # a spawn prompt or a tool result - would otherwise set $curStamp and let an
+                        # unresolvable agent guess an item from text it merely read. An agent
+                        # resolves branch, then tree, then nothing.
                         $ids = @(Get-BranchItems $curBranch)
-                        if ($ids.Count -eq 1)      { Add-Usage ($ids[0] + '|branch')  $u $agg }
-                        elseif ($ids.Count -gt 1)  { Add-Usage ('unresolved|branch')  $u $agg }
-                        elseif ($curTree)          { Add-Usage ($curTree + '|tree')   $u $agg }
-                        elseif ($curStamp)         { Add-Usage ($curStamp + '|stamp') $u $agg }
-                        else                       { Add-Usage ('unattributed|none')  $u $agg }
+                        if ($ids.Count -eq 1)                  { Add-Usage ($ids[0] + '|branch')  $u $agg }
+                        elseif ($ids.Count -gt 1)              { Add-Usage ('unresolved|branch')  $u $agg }
+                        elseif ($curTree)                      { Add-Usage ($curTree + '|tree')   $u $agg }
+                        elseif ($curStamp -and (-not $isAgent)) { Add-Usage ($curStamp + '|stamp') $u $agg }
+                        else                                   { Add-Usage ('unattributed|none')  $u $agg }
                         # A tree-resolved response feeds the role table and the vendor join key
                         # exactly as a branch-resolved one does.
+                        #
+                        # THE VENDOR JOIN KEY DEGRADES LIKE THE TREE WALK. An ambiguous agent gets
+                        # no $agentItem entry, so its kimi spend stays unjoined rather than being
+                        # credited whole to whichever of its items its last branch record named.
+                        # The tree-fed assignment below needs no such guard: an ambiguous agent
+                        # never has a tree item.
                         if ($ids.Count -eq 1) {
                             Add-Usage ($ids[0] + '|' + $curRole) $u $roleAgg
-                            $agentItem[$joinKey] = $ids[0]
+                            if (-not $curAmbiguous) { $agentItem[$joinKey] = $ids[0] }
                         }
                         elseif ($ids.Count -eq 0 -and $curTree) {
                             Add-Usage ($curTree + '|' + $curRole) $u $roleAgg
@@ -585,7 +601,7 @@ if ($skipped -gt 0) { Write-Output ($skipped.ToString() + ' transcript file(s) c
 Write-Output ''
 Write-Output 'Still a FLOOR, for named reasons. A nested sitting no longer falls to unattributed: that gap is closed, because the agent transcripts are now scanned and an agent that resolves no item of its own inherits its nearest ancestor''s item. What remains:'
 Write-Output '  - Coordinator work on main that holds no item resolves to nothing, and neither do the agents beneath it: the tree has no item to hand down.'
-Write-Output ('  - ' + $ambiguousAgents + ' agent transcript(s) name TWO OR MORE items in their own records. Their branchless responses stay unattributed rather than being guessed.')
+Write-Output ('  - ' + $ambiguousAgents + ' agent transcript(s) name TWO OR MORE items in their own records. Their branchless responses stay unattributed rather than being guessed, and their vendor spend stays unjoined for the same reason.')
 Write-Output ('  - ' + $unmarkedAgents + ' agent transcript(s) have no meta file beside them, so their role reads "unmarked agent" and they build no edge.')
 Write-Output '  - Reviewer spend is only partly joined. The codex and kimi tables above cover the runs whose logs this repository holds. The flash and opencode reviewer spend is not joined at all; that work is filed separately and is not built here.'
 Write-Output '  - A -Days window that excludes an ancestor transcript loses the item that ancestor would have handed down. The default, all history, has no such gap.'
