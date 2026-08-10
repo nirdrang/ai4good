@@ -75,6 +75,13 @@ like `REQ-001 D1.L1` — a bare code is the id twice, and the founder cannot rea
 Read-only validation first; **the board claim happens last**, so a failure cannot leave an item
 falsely In Progress.
 
+0. **The twin guard, before anything else**: run `loop/work/twin-check.ps1`. It proves the two
+   orchestrator contract files still say the same thing (the founder-placed pre-flight,
+   2026-08-11 — the rule drifted silently within a day of being relied on). `SYNCED` → proceed.
+   `TWINS DRIFTED` or `STALE GUARD` → **STOP: no spawn happens from forked contracts.** Fix the
+   lagging twin (light, mirroring the missing text verbatim) or the guard's allowance, then
+   re-run to green and continue. An item started on drifted contracts hands its fallback
+   orchestrator different rules than its primary — the exact silent fork the twin rule forbids.
 1. Resolve: id, short label, `gitBranchName`, state, blockers. Walk `parent` upward (depth cap 8,
    cycle detection) and derive a short label for every link in the chain.
 2. Startability: missing, Done, Cancelled, or an open blocker → stop and say which. Attribution

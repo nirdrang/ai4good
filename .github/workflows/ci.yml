@@ -68,6 +68,20 @@ jobs:
           echo "checked out:       $(git rev-parse HEAD)"
           git log -1 --format='%H  %an  %s'
 
+      # THE TWIN GUARD. orchestrator.md and orchestrator-opus.md are one role in two files and
+      # must be identical apart from the frontmatter and two declared fallback paragraphs. The
+      # edit-both-or-neither rule drifted within a day of being relied on (2026-08-10), so it is
+      # a check now, not a sentence. Fails fast, before anything expensive runs. The same script
+      # backs the /work pre-flight and the drill suite: one definition of "synced".
+      - name: Guard the orchestrator twins against drift
+        shell: bash
+        run: |
+          if command -v pwsh >/dev/null 2>&1; then
+            pwsh -NoProfile -File loop/work/twin-check.ps1
+          else
+            powershell -NoProfile -File loop/work/twin-check.ps1
+          fi
+
       # THE PROSE FAST LANE (founder 2026-08-04). A pull request that changes only prose — the
       # skill, agent definitions, specs, item records — proves nothing by running a TypeScript
       # suite, and the founder should not wait minutes for a green that was knowable in seconds.
