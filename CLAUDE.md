@@ -81,6 +81,13 @@ If you find a reference to any of them, it is stale — `/work` does that job no
 - **`/work` is the only verb.** Claiming, building, merging and closing are PHASES inside it,
   never separate verbs — a second way to close work is how unreviewed work lands while the way of
   work appears followed.
+- **`/work` IS INVOKED FRESH AT EVERY ITEM START — never executed from memory of a prior
+  reading (MUST-FOLLOW, founder ruling 2026-08-11).** A skill's text freezes in context at the
+  moment it is invoked, and merged items change the skill mid-day; a coordinator that recites the
+  procedure runs the version in its head, not the one on main. This is a measured failure, not a
+  hypothesis: AI4DEV-80 (attribution by spawn tree) was started without the database-slot step
+  that AI4DEV-79 (database slot pool) had merged into the skill hours earlier, and the founder
+  caught it from the outside by asking why no slot messages appeared.
 - **ATTRIBUTION IS DERIVED FROM THE BRANCH, NEVER DECLARED (MUST-FOLLOW).** cwd → git worktree →
   branch → exactly one item id → walk `parent` upward for the chain. The branch is primary
   because it is coupled to closure: its pull request closes that item, so a wrong branch shows up
