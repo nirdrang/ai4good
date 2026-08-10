@@ -140,6 +140,116 @@ function Get-BranchItems([string]$branch) {
     return $ids
 }
 
+# One stamp rule, used by both passes below, so they can never disagree.
+function Get-StampValue([string]$line, [string]$current) {
+    $m = $stampNew.Match($line)
+    if ($m.Success -and ($m.Value -notmatch '[{}]')) {
+        $d = $m.Groups[2].Value
+        if ($d -and $d -ne 'none' -and $d -ne '-') { return $d }
+        return ''
+    }
+    $m = $stampOld.Match($line)
+    if ($m.Success -and ($m.Value -notmatch '[{}]')) {
+        $b = $m.Groups[3].Value
+        if ($b) { return ('legacy:' + $b) }
+        return ''
+    }
+    return $current
+}
+
+# ---------------------------------------------------------------------------------------------
+# PROPAGATION DOWN THE SPAWN TREE (the ruled design, founder 2026-08-11).
+#
+# Most agent records name the item branch themselves, and those need nothing. The rest are the
+# records an agent wrote before its worktree branch existed, or on `main`, or on a generated
+# `worktree-agent-*` branch. Today they all fall to unattributed. They belong to whatever item
+# their nearest ancestor was working on, and the spawn forest says who that ancestor is.
+#
+# This pre-pass collects the two facts the walk needs:
+#   - for each agent transcript, the distinct items its OWN records name;
+#   - for each session, the item it had resolved at each spawn call, keyed by the tool_use id
+#     that the child's meta file names. State at the CALL, not at the end of the file: one
+#     session holds different items at different times, and each child inherits what was held
+#     when it was spawned.
+#
+# Both reads use the SAME unescaped-only branch match as the counting pass. An escaped
+# \"gitBranch\" inside a quoted tool result is another transcript being read, never a branch fact.
+$fileItems = @{}   # bare agent id -> the distinct items its own records name
+$spawnCtx  = @{}   # tool_use id -> the item the spawning session had resolved at that call
+$tuIdRe = [regex]'"(?:id|tool_use_id)"\s*:\s*"(toolu_[A-Za-z0-9]+)"'
+foreach ($f in $files) {
+    try {
+        $fs = New-Object System.IO.FileStream($f.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+        $rd = New-Object System.IO.StreamReader($fs)
+    } catch { continue }
+    try {
+        if ($f.Name.StartsWith('agent-')) {
+            $aid = [System.IO.Path]::GetFileNameWithoutExtension($f.Name) -replace '^agent-', ''
+            $own = @()
+            while ($null -ne ($line = $rd.ReadLine())) {
+                if ($line.IndexOf('"gitBranch"') -lt 0) { continue }
+                $bm = $branchRe.Match($line)
+                if (-not $bm.Success) { continue }
+                foreach ($id in (Get-BranchItems $bm.Groups[1].Value)) { if ($own -notcontains $id) { $own += $id } }
+            }
+            $fileItems[$aid] = $own
+        }
+        else {
+            $cb = ''
+            $cs = ''
+            while ($null -ne ($line = $rd.ReadLine())) {
+                if ($line.IndexOf('"gitBranch"') -ge 0) {
+                    $bm = $branchRe.Match($line)
+                    if ($bm.Success) { $cb = $bm.Groups[1].Value }
+                }
+                if ($line.IndexOf('ai4good-attribution') -ge 0) { $cs = Get-StampValue $line $cs }
+                if ($line.IndexOf('toolu_') -lt 0) { continue }
+                foreach ($m in $tuIdRe.Matches($line)) {
+                    $tid = $m.Groups[1].Value
+                    # FIRST sighting wins: the spawn call comes before its own tool result.
+                    if ($spawnCtx.ContainsKey($tid)) { continue }
+                    $bids = @(Get-BranchItems $cb)
+                    if ($bids.Count -eq 1) { $spawnCtx[$tid] = $bids[0] }
+                    elseif ($bids.Count -eq 0 -and $cs) {
+                        $sids = @(Get-BranchItems $cs)
+                        if ($sids.Count -eq 1) { $spawnCtx[$tid] = $sids[0] }
+                    }
+                }
+            }
+        }
+    }
+    finally { $rd.Dispose() }
+}
+
+$ambiguousAgents = 0
+foreach ($k in $fileItems.Keys) { if (@($fileItems[$k]).Count -gt 1) { $ambiguousAgents++ } }
+
+# TREE-ITEM(agent), in the ruled order:
+#   (a) the single distinct item the agent's own records name;
+#   (b) ONLY when (a) finds ZERO items, the parent agent's tree item, walking parentAgentId
+#       upward. A file naming TWO items is ambiguous and inherits NOTHING - degrade, never guess;
+#   (c) at a session root, the item the session had resolved at this agent's own spawn call.
+#
+# THERE IS NO DEPTH CAP. The VISITED SET is the only guard and must stay: a cap would truncate a
+# valid deep chain, while a parentAgentId cycle would recurse for ever without the set.
+$treeItem = @{}
+function Get-TreeItem([string]$agentId, [hashtable]$visited) {
+    if ($treeItem.ContainsKey($agentId)) { return $treeItem[$agentId] }
+    if ($visited.ContainsKey($agentId)) { return '' }
+    $visited[$agentId] = $true
+    $result = ''
+    $own = @()
+    if ($fileItems.ContainsKey($agentId)) { $own = @($fileItems[$agentId]) }
+    if ($own.Count -eq 1) { $result = $own[0] }
+    elseif ($own.Count -eq 0 -and $metaOf.ContainsKey($agentId)) {
+        $meta = $metaOf[$agentId]
+        if ($meta.parentAgentId) { $result = [string](Get-TreeItem $meta.parentAgentId $visited) }
+        elseif ($meta.toolUseId -and $spawnCtx.ContainsKey($meta.toolUseId)) { $result = $spawnCtx[$meta.toolUseId] }
+    }
+    $treeItem[$agentId] = $result
+    return $result
+}
+
 # ---- the chains, from the cache /work writes (never a Linear call from a report)
 $chains = @{}
 $attrDir = $AttrDir
@@ -174,20 +284,23 @@ function Add-Usage([string]$key, $usage, [hashtable]$agg) {
 
 $sessions = 0
 $skipped = 0
+$unmarkedAgents = 0
 foreach ($f in $files) {
     $curBranch = ''          # derived, primary
     $curStamp = ''           # declared, fallback only
-    # Which kind of transcript this is comes from the PATH, declared by nobody: a file in a
-    # `subagents` directory is an agent, and its bare agent id is its name without the `agent-`
-    # prefix. A top-level session file was spawned by nobody and is the coordinator.
+    # Which kind of transcript this is comes from the platform's own naming, declared by nobody:
+    # an agent transcript is `agent-<agentId>.jsonl` at any depth, and a session file is named by
+    # its session id. A session was spawned by nobody and is the coordinator.
     $base = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-    $isAgent = ($f.Directory.Name -eq 'subagents')
+    $isAgent = $f.Name.StartsWith('agent-')
     $joinKey = $base
     $curRole = 'coordinator'
+    $curTree = ''
     if ($isAgent) {
         $joinKey = $base -replace '^agent-', ''
         if ($metaOf.ContainsKey($joinKey) -and $metaOf[$joinKey].agentType) { $curRole = $metaOf[$joinKey].agentType }
-        else { $curRole = 'unmarked agent' }
+        else { $curRole = 'unmarked agent'; $unmarkedAgents++ }
+        $curTree = [string](Get-TreeItem $joinKey (New-Object 'System.Collections.Hashtable'))
     }
     # Shared read: a transcript belonging to a RUNNING agent or background task is locked, and a
     # report that dies on a live file can never be run while anything is working - which is
@@ -204,20 +317,7 @@ foreach ($f in $files) {
                 $bm = $branchRe.Match($line)
                 if ($bm.Success) { $curBranch = $bm.Groups[1].Value }
             }
-            if ($line.IndexOf('ai4good-attribution') -ge 0) {
-                $m = $stampNew.Match($line)
-                if ($m.Success -and ($m.Value -notmatch '[{}]')) {
-                    $d = $m.Groups[2].Value
-                    $curStamp = if ($d -and $d -ne 'none' -and $d -ne '-') { $d } else { '' }
-                }
-                else {
-                    $m = $stampOld.Match($line)
-                    if ($m.Success -and ($m.Value -notmatch '[{}]')) {
-                        $b = $m.Groups[3].Value
-                        $curStamp = if ($b) { 'legacy:' + $b } else { '' }
-                    }
-                }
-            }
+            if ($line.IndexOf('ai4good-attribution') -ge 0) { $curStamp = Get-StampValue $line $curStamp }
             if ($line.IndexOf('"usage"') -ge 0 -and $line.IndexOf('"output_tokens"') -ge 0) {
                 try {
                     $o = $line | ConvertFrom-Json
@@ -225,14 +325,23 @@ foreach ($f in $files) {
                     if ($o.message -and $o.message.usage) { $u = $o.message.usage }
                     elseif ($o.usage) { $u = $o.usage }
                     if ($u -and $o.type -eq 'assistant') {
+                        # Own record branch first, exactly as before. The tree is a FALLBACK for a
+                        # record that resolves nothing on its own - it never overrides a branch.
                         $ids = @(Get-BranchItems $curBranch)
                         if ($ids.Count -eq 1)      { Add-Usage ($ids[0] + '|branch')  $u $agg }
                         elseif ($ids.Count -gt 1)  { Add-Usage ('unresolved|branch')  $u $agg }
+                        elseif ($curTree)          { Add-Usage ($curTree + '|tree')   $u $agg }
                         elseif ($curStamp)         { Add-Usage ($curStamp + '|stamp') $u $agg }
                         else                       { Add-Usage ('unattributed|none')  $u $agg }
+                        # A tree-resolved response feeds the role table and the vendor join key
+                        # exactly as a branch-resolved one does.
                         if ($ids.Count -eq 1) {
                             Add-Usage ($ids[0] + '|' + $curRole) $u $roleAgg
                             $agentItem[$joinKey] = $ids[0]
+                        }
+                        elseif ($ids.Count -eq 0 -and $curTree) {
+                            Add-Usage ($curTree + '|' + $curRole) $u $roleAgg
+                            $agentItem[$joinKey] = $curTree
                         }
                     }
                 } catch { }
