@@ -1049,3 +1049,41 @@ named a foreign item id, so nothing is elided. Finding names: [A1]–[A5] are lu
 verified clean, no change. Nothing is rejected, so no maintained-disagreement text is owed to
 the pull request from this gate. Code changes, so the WHOLE panel re-runs once at the new
 head — the once-per-item re-run, both seats, never one.
+
+### Rulings on the audit-fix executor's report (audit sitting, 2026-08-10)
+
+The executor (opus, one invocation, one iteration) implemented [A2]–[A5] as ruled, all four
+suites green (typecheck 0; at:selftest 0, 284 tests; at:check req-001 0; at:verify req-001
+--tier loop --expect 0), no stack and no Docker touched, measurements on temp directories
+only. The [A4] measurement, recorded: BEFORE the fix, a claim-shaped file held open with no
+sharing was invisible to `Get-DbSlotOccupancy` (returned null in 21 ms) and `Release-DbSlot`
+then deleted the reservation under it — the fail-open was real and reached the ruled harm.
+AFTER: the occupancy returns as live-unreadable in ~1.3 s and release refuses, naming the
+file. The loop tier is behaviorally untouched, shown two ways: the normalized loop output
+matches `oracle-loop-branch.txt` line for line (the one raw difference was the em-dash
+encoding between capture environments, folded before comparison and stated here plainly),
+and the commit does not touch `runner.ts` at all. Eight judgment calls, ruled:
+
+- **AX1 — RATIFIED.** The post-claim strict read releases the occupancy claim before its
+  refusal travels. A refusal that strands a claim locks the slot against everyone; it copies
+  the adjacent refusal on the same path.
+- **AX2 — RATIFIED as an observation, no change.** `slotForItem` keeps the lenient read: on
+  the reservation path an unreadable file makes the lookup find no slot and the run REFUSES
+  loudly ("no database slot is reserved") — fail-closed by a different route, never a silent
+  take.
+- **AX3 — RATIFIED.** The evidence line's port helper does not throw on an unparseable
+  status URL; it prints what the status said verbatim. The status is proven before
+  `evidence()` runs, no destructive act rides on the line, and honesty about what answered
+  is the line's whole job.
+- **AX4 — RATIFIED.** A trailing `# comment` is dropped before the port token is judged.
+  TOML ignores the comment, so the guard judges exactly the value TOML delivers; a comment
+  cannot smuggle a different port past it.
+- **AX5 — RATIFIED.** `generateSlotConfig`'s rewrite pattern matches underscored integers —
+  the necessary consequence of [A5]: replacing only the leading digits of a mapped `54_321`
+  would write a corrupt value. Pinned by its own selftest (AX7).
+- **AX6 — RATIFIED.** The occupancy record gained a `readable` field so `Release-DbSlot`
+  can refuse naming the exact claim file — the field is the carrier of the ruled refusal.
+- **AX7 — RATIFIED.** One selftest beyond the ruled list ("an underscored port maps and
+  rewrites whole") exists to protect AX5. A test is never scope growth.
+- **AX8 — Already ruled.** The conductor's watcher file rode along unaltered, the E9
+  pattern; nothing new to rule.
