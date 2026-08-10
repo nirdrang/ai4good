@@ -276,7 +276,11 @@ describe('admission control belongs to the coordinator, not to the run', () => {
     // A RESERVATION NOBODY CAN READ IS NOT NO RESERVATION. `Reserve-DbSlot` creates the file
     // exclusively and fills it a moment later, so between those two acts it exists and says
     // nothing. Reading that as absent lets this run take a slot another item holds.
-    for (const planted of ['', '   \n', '{"item":', 'not json at all']) {
+    //
+    // THE LAST FIVE PARSE CLEANLY AND ARE STILL NOT RESERVATIONS (audit ruling B3). `null` is the
+    // one that reached the harm: it parsed, it was handed back, and the override's `if (reserved)`
+    // read it as no reservation at all — a present file taking the ABSENT branch.
+    for (const planted of ['', '   \n', '{"item":', 'not json at all', 'null', '42', '[]', '{"slot":2}', '{"item":"   "}']) {
       plantRawReservation(2, planted);
       try {
         expect(() => occupy('req-016', { slot: 2, item: 'AI4DEV-79' }), `a reservation containing ${JSON.stringify(planted)} was ignored`).toThrow(

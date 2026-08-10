@@ -895,13 +895,42 @@ export async function proveMigrationsReplayed(status: StackStatus, root: string 
 /* ------------------------------------------------------------------------------------- reset */
 
 /**
+ * WHAT A PRE-DESTRUCTIVE IDENTITY READ PROVED (audit ruling B2, decision D13).
+ *
+ * The read itself lives beside the pool, because only the pool knows what a slot is. What travels
+ * from the read to the destructive act is this: the project id the CLI's own output POSITIVELY
+ * named, or `null` when the read proved no project at all.
+ */
+export interface SlotIdentityProof {
+  /** The project id the identity read proved, from the CLI's own container names. */
+  provenProjectId: string | null;
+}
+
+/**
  * Rebuild the local database from `supabase/migrations` — the same work `bun run db:reset` does,
  * invoked at the pinned CLI so failures are catchable and bounded.
  *
  * WHY EVERY RUN: without it the second run works on the first run's leftover rows, and on a
  * schema missing whatever migration landed since — a suite grading a database nobody established.
+ *
+ * A TARGET COSTS A PROOF, AND THE TYPE SYSTEM COLLECTS IT (audit ruling B2). D13 rules the identity
+ * read structurally ON the destructive path, "never a separate call a caller can skip". Before this
+ * signature the read sat at the one call site instead, so any importer could aim a reset at a slot
+ * with no read at all and still compile. Now a target demands the proof object the read returns:
+ * the overloads make the skip a compile error, and a proof that names another project — or names
+ * none — is a named refusal here, before anything is spawned. No target is the repository's own
+ * project and is unchanged, exactly as it behaved before targets existed.
  */
-export async function resetLocalDatabase(target?: CliTarget): Promise<void> {
+export async function resetLocalDatabase(): Promise<void>;
+export async function resetLocalDatabase(target: CliTarget, proof: SlotIdentityProof): Promise<void>;
+export async function resetLocalDatabase(target?: CliTarget, proof?: SlotIdentityProof): Promise<void> {
+  if (target && proof?.provenProjectId !== target.projectId) {
+    throw new Error(
+      `REFUSING TO RESET ${target.projectId}: the identity read handed to this reset ` +
+        `${proof?.provenProjectId ? `proves ${proof.provenProjectId}` : 'proves no project at all'}, not ${target.projectId}. ` +
+        `A reset aimed at a target is only permitted on the read that proved that target. Nothing was done.`,
+    );
+  }
   const invocation = supabaseInvocation(target, ['db', 'reset', '--local']);
   const child = spawn(bunExecutable(), invocation.args, {
     cwd: invocation.cwd,

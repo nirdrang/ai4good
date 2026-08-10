@@ -110,23 +110,55 @@ function Read-DbSlotJsonWait([string]$path) {
 # reads no config.toml - so the lookup is a glob on the project id. A claim whose pid is gone is
 # STALE, not live: the run that wrote it died, and the harness itself would take it over.
 #
-# AN UNREADABLE CLAIM IS A LIVE CLAIM (audit ruling A4). The read catches the same window the
-# reservation read does: the harness creates the claim file exclusively and fills it a moment later,
-# and in between the file exists and cannot be read at all. MEASURED on this machine, 2026-08-10,
-# against a temporary claim directory: with the plain read this function returned $null for a claim
-# file held open by its writer, and Release-DbSlot then deleted the reservation under it. So the read
-# waits out the window, and a claim file that EXISTS but is still unreadable afterwards is reported
-# as an occupancy with an unknown pid. The cost is stated and accepted: a crashed writer's residue
-# now needs one look by hand instead of a silent skip.
+# AN OCCUPANCY WHOSE HOLDER THIS CALL CANNOT IDENTIFY IS A LIVE OCCUPANCY. Three conditions mean
+# that, and all three fail closed. Each one returns an occupancy carrying an `unknownHolder`
+# sentence that says which condition happened, and Release-DbSlot refuses on that field and names
+# the path in it.
+#
+#   1. THE CLAIM FILE EXISTS BUT IS STILL UNREADABLE after the bounded wait (audit ruling A4). The
+#      read catches the same window the reservation read does: the harness creates the claim file
+#      exclusively and fills it a moment later, and in between the file exists and cannot be read
+#      at all. MEASURED on this machine, 2026-08-10, against a temporary claim directory: with the
+#      plain read this function returned $null for a claim file held open by its writer, and
+#      Release-DbSlot then deleted the reservation under it.
+#   2. THE CLAIM FILE PARSES BUT RECORDS NO USABLE PROCESS ID (audit ruling B4). The liveness check
+#      used to be guarded by `if ($holder.pid)`, so a pid of 0, missing, null or empty skipped the
+#      check, $alive stayed false, the claim read as dead residue, and release proceeded. A process
+#      id is usable only when it is a whole number greater than zero.
+#   3. THE CLAIM DIRECTORY EXISTS BUT CANNOT BE LISTED (audit ruling B5). `-ErrorAction
+#      SilentlyContinue` turned every enumeration failure into an empty list, and an empty list read
+#      as no occupancy. MEASURED on this machine, 2026-08-10, on a temporary claim directory holding
+#      one live claim, with list rights denied to this account: this function returned $null in 6 ms
+#      and Release-DbSlot then deleted the reservation under that live claim.
+#
+# A claim directory that does NOT EXIST is a different thing and is legitimately empty: no claim was
+# ever created there. The cost of all three is stated and accepted: residue now needs one look by
+# hand instead of a silent skip.
 function Get-DbSlotOccupancy([int]$slot) {
     $pattern = 'at-verify-ai4good-slot-' + $slot + '-*.lock'
-    $files = @(Get-ChildItem -Path (Get-DbSlotClaimDir) -Filter $pattern -File -ErrorAction SilentlyContinue)
+    $dir = Get-DbSlotClaimDir
+    $files = @()
+    try {
+        $files = @(Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction Stop)
+    } catch {
+        if (-not (Test-Path $dir)) { return $null }
+        return @{ file = $dir; holderPid = $null; requirement = 'unknown'; startedAt = 'unknown'; readable = $false;
+                  unknownHolder = ('the claim directory ' + $dir + ' exists but this call cannot list it (' + $_.Exception.Message + '), so it cannot prove that no live claim sits in it') }
+    }
     foreach ($f in $files) {
         $holder = Read-DbSlotJsonWait $f.FullName
         if (-not $holder) {
             # Gone means released while we looked. Still there means unreadable, which is LIVE.
             if (-not (Test-Path $f.FullName)) { continue }
-            return @{ file = $f.FullName; holderPid = $null; requirement = 'unknown'; startedAt = 'unknown'; readable = $false }
+            return @{ file = $f.FullName; holderPid = $null; requirement = 'unknown'; startedAt = 'unknown'; readable = $false;
+                      unknownHolder = ('the claim file ' + $f.FullName + ' exists but this call cannot read it') }
+        }
+        # A HOLDER WITHOUT A USABLE PROCESS ID IS UNIDENTIFIABLE, NOT DEAD (audit ruling B4).
+        $holderPid = 0
+        if (-not [int]::TryParse([string]$holder.pid, [ref]$holderPid)) { $holderPid = 0 }
+        if ($holderPid -le 0) {
+            return @{ file = $f.FullName; holderPid = $null; requirement = [string]$holder.requirement; startedAt = [string]$holder.startedAt; readable = $true;
+                      unknownHolder = ('the claim file ' + $f.FullName + ' records no usable process id, so this call cannot tell whether the run that wrote it is still alive') }
         }
         # NOT-FOUND MEANS DEAD; EVERY OTHER FAILURE MEANS ALIVE. Get-Process reports one specific
         # error when no process holds that id, and it can fail for other reasons - a process owned
@@ -134,16 +166,14 @@ function Get-DbSlotOccupancy([int]$slot) {
         # ALIVE, and it has to: an occupancy misread as dead lets Release-DbSlot hand the slot away
         # under a running verify window. Fail closed, exactly as the harness does.
         $alive = $false
-        if ($holder.pid) {
-            try {
-                Get-Process -Id ([int]$holder.pid) -ErrorAction Stop | Out-Null
-                $alive = $true
-            } catch {
-                if ($_.FullyQualifiedErrorId -like 'NoProcessFoundForGivenId*') { $alive = $false } else { $alive = $true }
-            }
+        try {
+            Get-Process -Id $holderPid -ErrorAction Stop | Out-Null
+            $alive = $true
+        } catch {
+            if ($_.FullyQualifiedErrorId -like 'NoProcessFoundForGivenId*') { $alive = $false } else { $alive = $true }
         }
         if ($alive) {
-            return @{ file = $f.FullName; holderPid = [int]$holder.pid; requirement = [string]$holder.requirement; startedAt = [string]$holder.startedAt; readable = $true }
+            return @{ file = $f.FullName; holderPid = $holderPid; requirement = [string]$holder.requirement; startedAt = [string]$holder.startedAt; readable = $true; unknownHolder = $null }
         }
     }
     return $null
@@ -246,8 +276,8 @@ function Release-DbSlot([string]$Item, [int]$Slot = 0) {
     # run. An atomic two-file handoff here would buy no safety the claim does not already give.
     $o = Get-DbSlotOccupancy $target
     if ($o) {
-        if (-not $o.readable) {
-            return @{ ok = $false; released = $false; slot = $target; reason = ('REFUSING: slot ' + $target + ' carries a claim file this call cannot read: ' + $o.file + '. A claim being written right now looks exactly like this, so it is treated as a LIVE verify window. Wait for the run to finish, and if no run holds that slot, delete that file by hand.') }
+        if ($o.unknownHolder) {
+            return @{ ok = $false; released = $false; slot = $target; reason = ('REFUSING: slot ' + $target + ' carries an occupancy whose holder this call cannot identify - ' + $o.unknownHolder + '. A verify window that is opening right now looks exactly like this, so it is treated as a LIVE verify window. Wait for the run to finish, and if no run holds that slot, look at ' + $o.file + ' by hand.') }
         }
         return @{ ok = $false; released = $false; slot = $target; reason = ('REFUSING: slot ' + $target + ' is OCCUPIED right now by pid ' + $o.holderPid + ' running ' + $o.requirement + ' since ' + $o.startedAt + '. A verify window is open on that database. Wait for it to finish.') }
     }

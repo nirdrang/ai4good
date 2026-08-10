@@ -60,6 +60,7 @@ import {
   type Holder,
   type LocalConfig,
   type MigrationProof,
+  type SlotIdentityProof,
   type StackLock,
   type StackStatus,
 } from './runner.ts';
@@ -606,6 +607,13 @@ function pause(ms: number): void {
   }
 }
 
+/** A parse result a decision path may act on: an object naming the item that holds the slot. */
+function isReservation(value: unknown): value is Reservation {
+  if (typeof value !== 'object' || value === null) return false;
+  const item = (value as { item?: unknown }).item;
+  return typeof item === 'string' && item.trim() !== '';
+}
+
 /**
  * THE RESERVATION AS A DECISION PATH MUST READ IT (audit ruling A2).
  *
@@ -618,6 +626,13 @@ function pause(ms: number): void {
  *   - the file is STILL unreadable after the wait — it REFUSES, naming the file. A reservation
  *     nobody can read is not the same thing as no reservation, and treating it as absent lets a
  *     run take a slot another item holds.
+ *
+ * PARSING IS NOT READING (audit ruling B3). `null`, `42`, `"text"` and `[]` are all valid JSON and
+ * none of them is a reservation. Handing one back made a present-but-garbage file indistinguishable
+ * from ENOENT, and the `AT_DB_SLOT` override — which asks `if (reserved && ...)` — then read a
+ * reservation file containing `null` as no reservation at all. So the parse result must have the
+ * SHAPE of a reservation, and everything else takes the half-written path into the refusal below.
+ * After this, a `null` return means ENOENT and nothing else.
  */
 export function readReservationStrict(slot: number): Reservation | null {
   const path = reservationPath(slot);
@@ -631,11 +646,14 @@ export function readReservationStrict(slot: number): Reservation | null {
       continue; // present, and held by its writer — look again in a moment
     }
     if (raw.trim() === '') continue; // created, not yet filled
+    let parsed: unknown;
     try {
-      return JSON.parse(raw) as Reservation;
+      parsed = JSON.parse(raw);
     } catch {
       continue; // half written
     }
+    if (isReservation(parsed)) return parsed;
+    // parses, and says nothing a decision can use — half written, or not a reservation at all
   }
   throw new Error(
     `refusing to decide about slot ${slot}: it holds a reservation at ${path} that this run cannot read after ` +
@@ -1006,11 +1024,21 @@ function proveSlotDbContainer(slot: number, act: string): void {
   console.log(`db-pool — docker confirms slot ${slot}'s own database container before the ${act}: ${own.join(', ')}`);
 }
 
-export interface SlotIdentityRead {
+export interface SlotIdentityRead extends SlotIdentityProof {
   /** The stack's own report, when a stack answered. */
   status: StackStatus | null;
   /** Why no stack answered, when none did. Never a mismatch — a mismatch throws. */
   notRunning: string | null;
+  /**
+   * The project id this read POSITIVELY proved, or `null` when it proved none (audit ruling B2).
+   *
+   * Positive evidence means the CLI's own output named a container belonging to this slot. The
+   * other three checks can all hold over an output that names no container at all, and that is the
+   * exact shape the 2026-08-09 hybrid produced. A destructive read always carries the id, because a
+   * destructive read with no own container refuses above; a non-running or merely informational
+   * read carries `null`, and `resetLocalDatabase` refuses on it.
+   */
+  provenProjectId: string | null;
 }
 
 /**
@@ -1060,7 +1088,7 @@ export function proveSlotTarget(slot: number, act: string, itemRoot: string = RE
   try {
     status = parseStackStatus(res);
   } catch (err) {
-    return { status: null, notRunning: diagnostic((err as Error).message) };
+    return { status: null, notRunning: diagnostic((err as Error).message), provenProjectId: null };
   }
 
   const config = readLocalConfig(slotDir(slot));
@@ -1085,7 +1113,7 @@ export function proveSlotTarget(slot: number, act: string, itemRoot: string = RE
     `db-pool — slot ${slot} identity proven before the ${act}: project ${project}, api ${config.apiPort}, db ${config.dbPort}` +
       (own.length ? `, containers ${own.join(', ')}` : ''),
   );
-  return { status, notRunning: null };
+  return { status, notRunning: null, provenProjectId: own.length ? project : null };
 }
 
 /**
@@ -1105,7 +1133,9 @@ export async function resetSlotDatabase(slot: number, itemRoot: string = REPO_RO
     );
   }
   proveSlotDbContainer(slot, 'reset');
-  await resetLocalDatabase(slotTarget(slot));
+  // THE READ TRAVELS INTO THE RESET (audit ruling B2). The proof is a parameter, so this call site
+  // cannot be bypassed by an importer that aims the reset at a slot without reading it first.
+  await resetLocalDatabase(slotTarget(slot), read);
   return read.status;
 }
 
