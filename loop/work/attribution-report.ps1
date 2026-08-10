@@ -40,11 +40,20 @@ $ErrorActionPreference = 'Stop'
 # so a map captures one edge of many - and a declared fact that drifts is the failure class this
 # project exists to delete. The branch is on every record, at any nesting depth, declared by nobody.
 #
+# THE TREE IS NOW USED AS A FALLBACK, and it is still derived (founder, 2026-08-11). The platform
+# writes the whole spawn forest to disk at spawn time - parent edge, spawn call and role - so the
+# report reads the edges rather than declaring them. A record that names its own item branch is
+# never overridden. Only a record that resolves NOTHING on its own asks the tree, and it inherits
+# the item of its nearest ancestor that resolves one.
+#
 # WHAT THIS UNDERCOUNTS, stated rather than hidden:
-#   - work done before an agent switches off `main` or its generated `worktree-agent-*` branch,
-#   - the reviewers entirely: codex and kimi are other vendors' processes and appear in no
-#     Claude transcript, so an item's true cost is higher than any figure here,
-#   - a branch naming two items, which resolves to unresolved rather than guessing.
+#   - work whose whole ancestry sits on `main`, on a generated `worktree-agent-*` branch, or on a
+#     branch naming no item: the tree has nothing to inherit, so it stays unattributed,
+#   - the reviewers only partly: the codex and kimi joins below are real, but they cover the runs
+#     whose logs this repository holds, so an item's true cost is higher than any figure here,
+#   - a branch naming two items, which resolves to unresolved rather than guessing,
+#   - an agent file naming two items, whose branchless records stay unattributed for the same
+#     reason.
 # So every number below is a FLOOR, not a total.
 # ---------------------------------------------------------------------------------------------
 
@@ -527,9 +536,9 @@ if ($Json) {
     exit 0
 }
 
-Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s)' + $(if ($Days -gt 0) { ' (last ' + $Days + ' days)' } else { '' }) + $scopeNote)
+Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s), sessions and agents' + $(if ($Days -gt 0) { ' (last ' + $Days + ' days)' } else { '' }) + $scopeNote)
 Write-Output 'units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere'
-Write-Output 'attribution DERIVED from each record''s own git branch; role DERIVED from the spawn call'
+Write-Output 'attribution DERIVED from each record''s own git branch, and from the spawn tree where the record names none; role DERIVED from the spawn call'
 Write-Output ''
 Write-Output ('== PER ITEM ==' + $scopeNote)
 if ($rows.Count -eq 0) { Write-Output ('  no responses attributed to ' + $ItemFilter + ' in this window') }
@@ -554,4 +563,10 @@ $rollRows | Format-Table Node, Covers, Responses, OutputTok -AutoSize | Out-Stri
 Write-Output ('TOTAL: ' + $totResp + ' responses, ' + $totOut + ' output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.')
 Write-Output ('COORDINATOR SIGNAL - unattributed share of output tokens: ' + $pct + '%')
 if ($skipped -gt 0) { Write-Output ($skipped.ToString() + ' transcript file(s) could not be opened and are NOT counted - said out loud rather than silently dropped') }
-Write-Output 'Still a FLOOR, for named reasons: work before an agent switches off main attributes to nothing; a deeply-nested sitting whose .output carries no gitBranch falls to unattributed rather than to its item (the current largest gap - it is why the unattributed share is high); and a role reads "unmarked agent" when the spawn pairing that names it could not be found.'
+Write-Output ''
+Write-Output 'Still a FLOOR, for named reasons. A nested sitting no longer falls to unattributed: that gap is closed, because the agent transcripts are now scanned and an agent that resolves no item of its own inherits its nearest ancestor''s item. What remains:'
+Write-Output '  - Coordinator work on main that holds no item resolves to nothing, and neither do the agents beneath it: the tree has no item to hand down.'
+Write-Output ('  - ' + $ambiguousAgents + ' agent transcript(s) name TWO OR MORE items in their own records. Their branchless responses stay unattributed rather than being guessed.')
+Write-Output ('  - ' + $unmarkedAgents + ' agent transcript(s) have no meta file beside them, so their role reads "unmarked agent" and they build no edge.')
+Write-Output '  - Reviewer spend is only partly joined. The codex and kimi tables above cover the runs whose logs this repository holds. The flash and opencode reviewer spend is not joined at all; that work is filed separately and is not built here.'
+Write-Output '  - A -Days window that excludes an ancestor transcript loses the item that ancestor would have handed down. The default, all history, has no such gap.'
