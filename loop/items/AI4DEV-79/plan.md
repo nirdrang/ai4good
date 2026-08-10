@@ -1087,3 +1087,232 @@ and the commit does not touch `runner.ts` at all. Eight judgment calls, ruled:
   rewrites whole") exists to protect AX5. A test is never scope growth.
 - **AX8 — Already ruled.** The conductor's watcher file rode along unaltered, the E9
   pattern; nothing new to rule.
+
+## 11. Audit round-two rulings (audit sitting, orchestrator on fable, 2026-08-10)
+
+The whole panel re-ran at head db4a451 — the once-per-item re-run, now spent. Neither seat
+came back clean: luna (gpt-5.6-luna via codex @ max, read-only) returned six findings
+([B1]–[B6], its [1]–[6]); flash (deepseek-v4-flash via opencode, agent reviewer-flash,
+variant max) returned three ([BF1]–[BF3], its [1]–[3]). Every claim below is quoted verbatim
+from the seat's distillate. No claim names a foreign item id, so nothing is elided. One
+convergence exists and it is the strongest signal this panel gave: [B1] and [BF1] are the
+same defect class — reviewer working files carrying the repo's tracked `.env` content, and
+that content crossing into the committed record. Round one's [AF1] warned of the exact
+mechanism ("if this file or its content lands in the record, the rule is violated"); [B1]
+found where it had already landed.
+
+### [B1] — ACCEPTED; the stated severity is corrected with evidence; record and tree both repaired
+
+Luna, severity critical (its scale: "critical = credential disclosure"), on
+`artifacts/audit-luna-output.stderr.log:11185`: "The committed audit stderr log embeds raw
+audit-event output containing JWT-shaped Supabase key values, contrary to AF1 and gate-1
+[14]." — "Credential material is committed in the item record, so the claimed clean artifact
+set is false and a hosted project credential may be exposed."
+
+**The factual core is TRUE, verified this sitting by direct measurement.** The round-one
+stderr log, committed at 2e2a215, carried 21 whole-token JWT-shaped matches. The round-two
+stderr log on disk carried 61 more of the same two values. Exactly two distinct token values
+exist across both files, and this sitting decoded both:
+
+1. A 208-character token whose payload reads `{"iss":"supabase","ref":"poancmeitlmxejofwzuu",
+   "role":"anon","iat":1781524573,"exp":2097100573}`. This is the cloud project's ANON
+   ("publishable") key — the key Supabase designs to ship inside every client bundle. The
+   repository itself carries this exact value, twice, in the TRACKED `.env` at the repo root
+   (`SUPABASE_PUBLISHABLE_KEY` and `VITE_SUPABASE_PUBLISHABLE_KEY`), deliberately: the
+   `.gitignore` comment at line 34 reads "secrets live here, never in the tracked .env" and
+   routes secrets to the untracked `.env.local`. The committed log therefore exposed a value
+   the same repository already publishes on the same remote by design. Zero incremental
+   exposure resulted.
+2. A 65-character token whose signature segment decodes to the literal word "signature"
+   (`c2lnbmF0dXJl`) — the redaction selftest's own deliberate fixture (`const jwtish = ...`),
+   quoted through terra's gate-2 log. A real HS256 signature is 43 base64url characters; this
+   one is 12. It is cryptographically invalid and is not a credential.
+
+A wider secret battery over the record found nothing else: the two `sb_secret_` matches are
+the fixture `sb_secret_abcdefghijklmnop` inside the redaction selftest's own expect line; the
+connection-string matches carry the passwords `postgres` (the universal local default) and
+`hunter2` (a fixture). No service-role key, no database password, no access token of any
+vendor shape exists anywhere in the record.
+
+**How the material crossed.** During the round-one panel, flash's lane held working files in
+the artifacts directory (`audit-flash-output.events.jsonl`, `audit-flash-identity.raw.json`)
+whose raw tool events quoted the tracked `.env`. Luna read and grepped that directory while
+auditing; codex logs every tool output to its own stderr; the runner captured that stderr;
+the audit sitting committed it. The runner's cleanup deleted flash's working files — after
+their content had already crossed. Round two repeated the pattern: luna re-read the committed
+round-one log to verify its own finding, and its new stderr carried the values again.
+
+**The record-false half.** §10 [AF1] states "a token-shape scan ... across every file in the
+artifacts directory returns ZERO matches." That statement cannot be reproduced: the same scan
+this sitting returned 21 matches in a file committed in that same commit. The negative was
+never re-measured with a second instrument — the exact failure shared-invariants names. This
+section is the record's correction, and gate-1 [14]'s precise scope is restated: its
+done-criterion binds the four committed TRANSCRIPTS (S2, S3, S5, S8), and all four do scan
+clean; the stderr logs sat outside its literal scope and inside [AF1]'s broader claim, which
+is the claim that was false.
+
+**The tree repair, applied this sitting before this commit.** Both stderr logs are redacted
+in place: every occurrence of the anon key is now `[REDACTED:anon-publishable-key:
+poancmeitlmxejofwzuu]` and every occurrence of the fixture is
+`[REDACTED:fixture-jwt-from-redact-selftest]`. Post-redaction, a whole-token scan and a
+key-fragment scan over everything under `loop/items/AI4DEV-79/` — tracked and untracked —
+return zero matches. The repo-level residents are stated so no scan surprises anyone again:
+the tracked `.env` carries the publishable key by design (pre-existing, not this item's
+doing), and the redaction selftest carries its named fixture as its test subject.
+
+**What redaction does NOT do, stated plainly.** The values remain in git history at 2e2a215
+and every commit through db4a451, on the remote. A pushed value cannot be un-pushed by a
+forward edit, and this sitting does not rewrite history. **No key rotation is warranted**:
+the exposed value is the publishable key, public by design, and published by this same
+repository in plaintext `.env` deliberately; the other token is not a key. No live secret,
+no service-role key, and no password beyond fixtures and the local default ever appeared.
+This is a hygiene defect in the record, not a credential incident, and the severity
+"critical = credential disclosure" is corrected on that evidence.
+
+**Filed for the coordinator, in words, never built here:** (a) the reviewer-runner could
+scrub key-shaped tokens from reviewer session logs at capture time, before anything lands in
+the artifacts directory; (b) whether the tracked `.env` should carry even publishable keys is
+a standing repo design decision worth one deliberate look.
+
+### [B2] — ACCEPTED; the tree changes to match the record
+
+Luna, severity high, on `tests/at/harness/runner.ts:904`: "The exported parameterized
+resetLocalDatabase can reset a slot target without the required identity read or Docker
+proof." — "A direct caller can reach the destructive CLI invocation without proveSlotTarget
+or proveSlotDbContainer, contradicting D13's structural guarantee."
+
+VERIFIED in source: `resetLocalDatabase(target?)` is exported and spawns `db reset --local`
+with no proof inside; the proofs live only at db-pool's call site (db-pool.ts:1099–1108).
+D13's ruled text reads "The read is structurally ON the destructive path, never a separate
+call a caller can skip. This applies to every slot-aimed use of the parameterized runner
+helpers (D9) too." The tree does not implement that sentence: any compiling importer can aim
+the reset at a slot with no read. Adopted-ruling-absent — never mergeable as is.
+
+The ruled fix: the identity read's RESULT becomes a required parameter of every slot-aimed
+destructive runner helper. When a target is present, the helper demands the proof object the
+identity read returns and refuses loudly when the proof's identity does not match the
+target; with no target the signature is unchanged. db-pool's guarded paths pass the reads
+they already perform. The executor applies the same rule to every parameterized destructive
+runner helper (reset, and stop if runner exports one), so the skip becomes a compile error
+for every caller and a named refusal at runtime for a mismatched proof. A selftest pins the
+mismatch refusal. `refusePersonal` stays exactly where it is — this fix narrows nothing.
+
+### [B3] — ACCEPTED; the tree changes to match the record
+
+Luna, severity high, on `tests/at/harness/db-pool.ts:635`: "readReservationStrict accepts
+JSON primitives, and the override's truthiness check treats an existing null reservation as
+absent." — "A reservation file containing null lets AT_DB_SLOT proceed to claim and reset a
+slot despite the A2 fail-closed rule."
+
+VERIFIED in source: line 635 casts `JSON.parse(raw)` blindly. A file containing the valid
+JSON `null` parses cleanly, returns `null`, and becomes indistinguishable from ENOENT — the
+caller proceeds as if no reservation exists. That is a present-but-garbage file taking the
+ABSENT branch, against A2's own three-outcome rule written directly above the function. The
+ruled fix: after parse, the value must be a non-null object whose `item` is a non-empty
+string; every other parse result takes the half-written path and lands in the bounded
+refusal. After the fix, a `null` return means ENOENT and nothing else. The A2 selftest grows
+the case: a reservation file containing `null` plus the override refuses.
+
+### [B4] — ACCEPTED; the tree changes to match the record
+
+Luna, severity high, on `loop/work/db-slots.ps1:137`: "Get-DbSlotOccupancy treats a parsed
+claim with pid 0 as no occupancy." — "Release-DbSlot can then delete the matching reservation
+under an existing unidentifiable claim, violating A4."
+
+VERIFIED in source: line 137 guards the liveness check with truthiness (`if ($holder.pid)`),
+so a parsed claim whose pid is 0, missing, null or empty skips the check, `$alive` stays
+false, the claim is treated as dead residue, and release proceeds — directly beside A4's own
+fail-closed comment. The ruled fix: a parsed claim without a strictly positive integer pid is
+an occupancy with an unidentifiable holder — returned as live, carrying the claim file's
+path, so `Release-DbSlot` refuses and names the file. Same loud-over-silent trade A4 already
+ratified, same manual remedy.
+
+### [B5] — ACCEPTED; measured first, then the tree changes to match the record
+
+Luna, severity high, marked unverified-runtime, on `loop/work/db-slots.ps1:123`:
+"Claim-directory enumeration errors are silently converted into an empty occupancy result." —
+"An unreadable claim directory can make release delete a reservation without proving that no
+live claim exists; settle this by exercising release with an inaccessible claim directory."
+
+The structural half is VERIFIED in source: `-ErrorAction SilentlyContinue` inside `@()` turns
+every enumeration failure into an empty list, and an empty list reads as no occupancy. The
+runtime half the executor MEASURES before fixing, on a TEMP directory only, the A4 protocol:
+make a claim directory unreadable and observe what `Get-DbSlotOccupancy` returns today. The
+ruled fix applies either way: enumeration runs fail-closed — a claim directory that does not
+exist is legitimately empty (no claim was ever created); a directory that EXISTS but cannot
+be enumerated is a PROBLEM, reported as a live occupancy with an unknown holder, naming the
+directory, so release refuses. The measurement and its result go in this section's executor
+ruling.
+
+### [B6] — ACCEPTED; record fix, applied in this commit
+
+Luna, severity medium, on `loop/items/AI4DEV-79/oracle-loop.diff:8`: "The oracle header says
+origin/main is ten commits ahead of c11e352, while the pinned graph has eight descendants." —
+"The merge base and empty normalized diff are valid, but the record's stated baseline
+provenance does not match the tree."
+
+VERIFIED: `git rev-list --count c11e352..origin/main` returns 8, measured this sitting;
+origin/main only grows, so the count at capture time was at most eight and the header's "ten"
+was wrong when written. The header now reads eight and carries a bracketed correction naming
+this sitting. The oracle's substance — merge base, both transcripts, the empty normalized
+diff — is untouched and was not challenged.
+
+### [BF1] — ACCEPTED as the verification it asks; verified with two instruments; convergence with [B1] recorded
+
+Flash, severity high, on `artifacts/audit2-flash.events.jsonl:95`: "the audit RE-RUN's live
+tool-call log (the audit2- artifact this sitting's own recipe creates) records raw tool
+outputs verbatim and already contains the complete repo `.env` content, including both live
+SUPABASE_PUBLISHABLE_KEY JWT tokens, inside the item's artifacts directory at this snapshot."
+
+The verification, performed this sitting: the events file is ABSENT from disk (Test-Path
+false), zero `*events*` files exist in the artifacts directory, and `git ls-files` shows no
+events file ever entered the index — the negative measured two ways, the round-one lesson
+applied. The disposition the finding asks for (exclude at close) was already satisfied by the
+runner's cleanup before this sitting opened. What the finding adds beyond round one's [AF1]
+is the convergence with [B1]: the working file's existence WHILE a concurrent reader runs is
+itself the leak path, independent of whether the file is ever staged. The forward remedy is
+the reviewer-runner scrub filed under [B1]; nothing in this tree changes for [BF1] itself.
+
+### [BF2] — ACCEPTED; record fix, applied in this commit
+
+Flash, severity low, on `loop/items/AI4DEV-79/integration-run.txt:13`: "the item's only
+end-to-end proof of the changed path ran on a tree whose uncommitted delta is never
+identified — the transcript discloses "tree state: DIRTY" but nothing in the record says
+which files were dirty."
+
+TRUE, and the exact porcelain list was not captured and cannot be reconstructed. A postscript
+now states what the graph proves: the run's head 09dca7de is the direct parent of c0994e7,
+and c0994e7 added exactly four files, all evidence under `loop/items/AI4DEV-79/` — the
+transcripts and oracles that capture session was writing. Every code path the run exercised
+sat at committed state 09dca7de unless the dirty delta touched code and was then discarded,
+which the record cannot exclude; what bounds that residue is CI's required check, which
+re-runs the four suites on the clean committed tree at every subsequent head.
+
+### [BF3] — ACCEPTED; record fix, applied in this commit
+
+Flash, severity low, on `loop/items/AI4DEV-79/pr-body.md:14`: "the pull-request body still
+reads "Status: planned; nothing is built yet" while the branch it describes is fully built,
+ruled, reviewed and audited."
+
+TRUE and stale since the draft landed. The status paragraph now states the actual position:
+built, both gates ruled, audit rounds one and two ruled, ahead only CI green and the merge
+ruling. A mechanical syncs the live pull request body from the corrected file.
+
+### Disposition summary, and the re-run decision
+
+Nine findings, nine ACCEPTED, zero rejected — no maintained-disagreement text is owed to the
+pull request from this gate. [B1], [B6], [BF2], [BF3] are record repairs, applied in this
+commit; [BF1] is a verification, performed; [B2]–[B5] are code fixes, applied by the
+executor AFTER this commit is pushed.
+
+**No third panel run happens, and here is the reasoning in the open.** The once-per-item
+re-run is spent. PHASE-STATE's standing rule: a fix that would need another panel re-run is
+scope growth and goes up as an escalation. These fixes do not reach that bar. [B2]–[B5]
+tighten guards the record already rules fail-closed — they change what the guards REFUSE on
+edges no committed transcript ever exercised, and they change nothing on any proven path:
+no new mechanism, no new file, no behavioral change to the loop tier or to any green
+evidence. Each fix is pinned by its own selftest, the four suites re-run green at the new
+head, and CI's required check re-proves them on the exact merge head. The record repairs
+carry no code at all. The residual — that these four small fixes go unread by an external
+panel — is the accepted cost of the re-run cap, stated here so the merge sitting and the
+founder weigh it with open eyes.

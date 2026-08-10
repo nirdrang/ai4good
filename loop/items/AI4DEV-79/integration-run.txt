@@ -136,3 +136,13 @@ DOES NOT PROVE: that req-001 is green at the integration tier. It is not, for tw
 predate this item and belong to that requirement, not to the pool - see the red ids above.
 
 END OF S8 TRANSCRIPT
+
+POSTSCRIPT (round-two audit sitting, 2026-08-10, on the panel's finding about line 13's
+"tree state: DIRTY"): the exact dirty-file list was not captured at run time and cannot be
+reconstructed now — that capture omission is real and stands acknowledged. What the commit
+graph proves: this run's head 09dca7de is the direct parent of c0994e7, and c0994e7 added
+exactly four files, all evidence under loop/items/AI4DEV-79/ (this transcript and the three
+loop-oracle files) — the files this capture session was writing. Every code path the run
+exercised sat at committed state 09dca7de unless the dirty delta touched code and was then
+discarded, which this record cannot exclude; what bounds that residue is CI's required
+check, which re-runs the four suites on the clean committed tree at every later head.

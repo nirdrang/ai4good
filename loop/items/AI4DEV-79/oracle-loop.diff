@@ -5,9 +5,11 @@
 #                                  with origin/main.
 # RIGHT (oracle-loop-branch.txt) : the same command at this branch head.
 #
-# WHY THE MERGE BASE AND NOT origin/main: origin/main has moved ten commits ahead of this
-# branch, and one of them landed new acceptance tests for req-001 and moved four ids from green
-# to red in the declaration. A diff against that head would measure main own changes, not this
+# WHY THE MERGE BASE AND NOT origin/main: origin/main has moved eight commits ahead of this
+# branch [corrected by the round-two audit sitting, 2026-08-10: this header originally said
+# ten; `git rev-list --count c11e352..origin/main` measures eight, and the count can only have
+# grown since capture, so ten was wrong when written], and one of them landed new acceptance
+# tests for req-001 and moved four ids from green to red in the declaration. A diff against that head would measure main own changes, not this
 # branch effect, which is the one thing this oracle exists to measure.
 #
 # NORMALIZED IN BOTH: the tree root, the report temporary directory, every temp path,

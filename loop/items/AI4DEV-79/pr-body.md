@@ -11,14 +11,18 @@ resets the slot before use. The personal stack on the 54321 ports stays outside 
 untouchable — enforced by a guard in code, and proven once by an isolation spike whose
 transcript is committed in the item record.
 
-**Status: planned; nothing is built yet.** The plan is at `loop/items/AI4DEV-79/plan.md`. Ahead
-of merge, in order: the external plan review, the draft, a draft-code review panel of two blind
-readers, the fix-and-goal pass, the read-only audit panel, and continuous integration green on
-the exact head. The merge ruling — what was built, every review finding and its disposition,
-and exactly what the green does and does not claim — will be posted on this pull request before
-merge.
+**Status: built, reviewed and audited; ahead of merge only continuous integration green on the
+final head and the merge ruling.** The plan and every ruling live at
+`loop/items/AI4DEV-79/plan.md`. Completed, in order: the external plan review (15 findings
+ruled), the draft, a draft-code review panel of two blind readers (rulings in the plan's
+gate-two section), the fix-and-goal pass with the four suites green, and the read-only audit
+panel — two blind seats, run twice: round one's six findings ruled and fixed, and the
+once-per-item panel re-run's nine findings ruled, with the record repairs and the fail-closed
+guard fixes applied at their rulings' commits. The merge ruling — what was built, every review
+finding and its disposition, and exactly what the green does and does not claim — will be
+posted on this pull request before merge.
 
-What the diff will contain when built: `tests/at/harness/db-pool.ts` and its named selftests,
-one integration-tier hook in `tests/at/harness/runner.ts` (loop-tier behavior byte-identical),
-PowerShell reservation helpers in the work library, reservation lines in the work skill, and
-the committed setup and spike transcripts.
+The diff contains: `tests/at/harness/db-pool.ts` and its named selftests, one integration-tier
+hook in `tests/at/harness/runner.ts` (loop-tier behavior proven unchanged by the committed
+loop oracle), PowerShell reservation helpers in the work library, reservation lines in the
+work skill, and the committed setup, spike, baseline and integration-run transcripts.
