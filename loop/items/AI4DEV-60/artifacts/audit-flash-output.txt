@@ -1,0 +1,97 @@
+﻿I have completed the full trace. Here is the audit.
+
+---
+
+# AUDIT â€” AI4DEV-60 D2.L2 (session expiry, refresh, password reset, wrong-password rejection)
+
+**Severity scale I use below:** `low` = a record/comment-level inconsistency with zero code-behaviour impact (the "untrue stated fact" class this repository's own doctrine treats as a defect); `medium` = a false stated fact about code that could mislead a reader into a wrong action; `high` = a recorded ruling not implemented, or a false fact that breaks a shipped guarantee.
+
+---
+
+## Per-box verdicts
+
+**1. Every adopted ruling is implemented as ruled (19 across four files). â€” PASS.**
+
+I traced all 19:
+
+- *Gate 1 (5):* (1) `.13` marked `ui` â€” plan D-I (plan.md:328â€“340), per-id table names the handoff (plan.md:408), body comment states which half each tier proves (b-file:443â€“454), `{ surface: 'ui' }` at b-file:439. (2) Live check (g) â€” proof-local.ts:1072â€“1120, plan D-G (g) (plan.md:305â€“316). (3) Sign-in precedes completion in `.12`/`.13` â€” b-file:345â€“359 and 456â€“479. (4) Narrowed/unbound issuance labels â€” fixture header mirrors 5 (fixture:109â€“126, "BOUND FOR SIGN-IN, AND FOR SIGN-IN ONLY", provider and administrator UNBOUND); same-session-row probe (proof-local.ts:645,665,692â€“694); unknown-address probe (proof-local.ts:970, predicate at 1048); step-2 done-criterion rewritten (plan.md:366â€“373). (5) Nine not eleven, all three places â€” plan.md:152, 375, 427.
+- *Draft (3):* (1) unparseable-2xx edge recorded â€” plan D-B (plan.md:103â€“107), edge.ts:184â€“190; (2) blank-id preservation â€” caller.ts:104â€“109, selftest case (selftest:59â€“70), plan.md:110â€“112; (3) one-slice maintained with measured number â€” plan D-H (plan.md:322â€“326).
+- *Gate 2 (7):* (1) both changed edges + exhaustiveness in edge.ts:184â€“201 and plan D-B â€” verified below; (2) equality assertion removed, comment cites the single-reason fixture (b-file:315â€“320), plan D-E (plan.md:187â€“189); (3) `registerAndConfirm` returns `{ email, accountId }` (b-file:269â€“279), grows-by-one asserted (b-file:299â€“309), failed-attempt comparison pinned to after-good reading (b-file:327â€“330), other three bodies destructure `email` (b-file:345,456,539); (4) retention comment at `requestPasswordReset` (fixture:844â€“851); (5) exactly-3600s advance (b-file:379) with the `sessionIsLive` comment citing AT-001.12 as the oracle (fixture:557â€“561), plan.md:200â€“201; (6) blank-id selftest case (selftest:59â€“70); (7) re-export comment corrected (edge.ts:112â€“120) â€” grep confirms `import type { Caller }` appears nowhere under `supabase/functions/` outside that comment, and both `complete-signup/index.ts:40â€“41` and `create-organization/index.ts:32â€“33` import value names only.
+- *Fix (4):* (1) D-G (a) re-pinned (plan.md:256â€“260); (2) 403 re-pins in D-G (c)/(d) (plan.md:266â€“267, 277â€“278); (3) logout-scope clause â€” plan.md:262â€“264, fixture mirror-6 (fixture:127â€“136), `signOut` block (fixture:774â€“789), contract `signOut` doc (contract:302â€“308); (4) platform-layer clause in D-G (d) (plan.md:279â€“282) and proof-local.ts:719â€“723.
+
+**2. The diff stays inside its declared scope. â€” COULD-NOT-VERIFY.**
+
+This cage has no git tool and the `.git` directory lives outside the worktree root (reads denied by the sandbox), so I cannot enumerate the branch's changed paths. What I can say: nothing I read contradicts the declared scope â€” the acceptance file (`.taskmaster/docs/acceptance/at-req-001.md`) and manifest (`loop/decomp/req-001.md`) content match the record's quotes with no drift, and the record's own transcripts assert `supabase/config.toml` byte-identical at the end (proof-local.txt:126â€“136; the file itself carries `jwt_expiry = 3600` at line 165 and `[auth.sessions]` commented at 304â€“308, as the plan states). What would settle it: `git diff <merge-base>...HEAD --stat` plus `--name-only` checks against `src/`, `.taskmaster/docs/acceptance/`, `loop/decomp/`, `supabase/config.toml`.
+
+**3. Every stated fact about the code is true. â€” FAIL.** Three findings (1â€“3 below).
+
+**4. The nineteen adopted rulings appear in the tree. â€” PASS** (box 1's content).
+
+**5. The removal condition (gate2-rulings.md ruling 2) was satisfiable at removal. â€” PASS.**
+
+Both clauses of AT-001.38 are still asserted in the body: the wrong-password refusal (`bad.ok` false, b-file:313) and the no-new-session count comparison against the after-good-sign-in reading (b-file:327â€“330). And no other body reads the unknown-address probe â€” it exists only in proof-local.ts:970; no suite body touches a never-registered address (AT-001.14 operates on its own registered address only). The acceptance text (at-req-001.md:23) carries exactly the two clauses the ruling names.
+
+**6. The edge.ts equivalence claim is true against the quoted pre-refactor code. â€” PASS.**
+
+I traced the old fragment quoted in gate2-rulings.md:18â€“24 (`if (!response.ok) return null; const user = (await response.json()) as unknown; const id = (user as { id?: unknown }).id; if (typeof id !== 'string') return null;`) against the new `resolveCaller` (edge.ts:163â€“204) + `callerFromAuthAnswer` (caller.ts:111â€“118) per body shape: non-2xx (old: return before parse â†’ null; new: status short-circuit â†’ null) same; 2xx + object with string id (same, including the blank `''` case â€” `typeof '' === 'string'` in both) same; 2xx + missing/non-string id (old: `.id` â†’ undefined â†’ null; new: same) same; 2xx + parseable number/string/boolean (old: boxed property read â†’ `undefined` â†’ null; new: `typeof !== 'object'` â†’ null) same; 2xx + array (old: `.id` on array â†’ undefined â†’ null; new: same) same; 2xx + JSON `null` (old: `.id` on `null` throws â†’ 502; new: null-guard â†’ null â†’ 401) â€” changed edge #2, named; 2xx + unparseable body, including empty text (old: `response.json()` throws â†’ 502; new: non-throwing parse â†’ null â†’ 401) â€” changed edge #1, named. The exhaustiveness claim (edge.ts:192â€“201) is correct: `null` is the only parseable body whose old behaviour differed, and both named edges are fail-closed. The historical quote's authenticity is the gate-2 sitting's own first-hand read (I cannot run `git show`), but nothing in the current tree contradicts it.
+
+**7. The fixture's mirror comments state only what the record says was measured or deliberately left unbound. â€” FAIL.** Findings 2 and 3 below. All other mirrors (6â€“11) match the transcript: mirror 6's scope clause and sibling control match check (c); mirror 8's probe matches check (d)'s same-row sets; mirrors 9â€“11 match check (e) (recovery email held, implicit-fragment shape, tampered-first order, 200 both addresses).
+
+**8. Bookkeeping is consistent. â€” PASS.** `tests/at/expected/req-001.json`: 13 green (01â€“07, 09, 10, 38, 12, 13, 14) / 24 red â€” I counted the red block: 24 entries; 13+24=37. `pending-ledger.txt` carries exactly 24 lines, and I checked each leaf's `verify:` line in `loop/decomp/req-001.md` against the ledger's leaf-by-leaf table: all nine D3â€“D6 leaf lines, the four green-leaf lines, D2.L2 (`verify: AT-001.12,13,14,38`), D2.LW ("adds NO new id"), and the coverage-check line all match. `_pending.ts`: `LEAF.D2_L2` removed with the three-removed-labels comment (lines 41â€“50); header counts 24 remaining / thirteen written correct. b-file imports neither `LEAF` nor `notLanded` (only `expect`, `atTest`, `AccountsSut`, `PUBLIC_SIGNUP_ACCOUNT_TYPES`); c/d/e/f files keep both imports. No comment in any touched file still claims the four ids pending (the only "has not landed" mentions are in the historical transcripts, baseline.txt and AI4DEV-59's files, which are records of the past state).
+
+**9. proof-local.txt agrees with the plan's D-G text, and its redaction summary is consistent with its visible content. â€” PASS.** Check-by-check against plan D-G: (a) 400/`invalid_credentials`, no token material (`[none]`), unchanged session-id set with the re-pin note naming the confirmation-link session â€” matches plan.md:251â€“260 and fix-rulings ruling 1; (b) 200 + tokens, count grew by exactly one; (c) `?scope=local` 204 with sibling control, exactly one row gone, dead token 403/`session_not_found` (re-pin note present), refresh token 400, deployed function 401 vs live-token 409 pair, default logout emptied `auth.sessions`; (d) transient `jwt_expiry = 5` proven from the container (`GOTRUE_JWT_EXP=5`), 403/`bad_jwt`, platform's `Invalid JWT` with the layer-attribution note, refresh 200 + fresh token working at both surfaces, same-row probe `before == after`, restore to 3600 with empty `git diff`/`git status` output; (e) unknown-address 200 alongside known-address 200, tampered-first with old password still 200, implicit-fragment shape measured, PUT /auth/v1/user 200, old refused with pinned code, new 200; (f) rate-limit valve did not fire; (g) volunteer completion 200 with the profile carrying `octosessions` and the stub's exact stats. The header's "THREE EXPECTATIONS WERE RE-PINNED" summary (lines 23â€“38) matches the three re-pinned expectations in the body (the fourth fix-ruling, the platform-layer attribution, is a record fix already stated in check (d)'s own note â€” consistent). Redaction summary (lines 13â€“21): I searched the visible text for JWT-shaped strings, `name=value` fragments, and the two test passwords â€” none appear; `access_token`/`refresh_token`/`weak_password` values are all `<redacted>`; the visible uuid strings are exactly the row/user/org identifiers the summary names; `@example.test` addresses and `#<redacted-fragment>` locations appear as described.
+
+---
+
+## Findings
+
+```
+[1] severity: low    loop/items/AI4DEV-60/verify-final.txt:20-21
+    claim: The step-6 transcript says "at:selftest is 264 tests, one more than the baseline's 263. The
+    one added is the blank-id case in shipped-caller.selftest.ts (gate-2 ruling 6)" â€” but this item's
+    own baseline (baseline.txt:22, 127-129) records 257 tests in 10 files and states the item "adds an
+    eleventh file in step 1"; the delta from that baseline is +1 file and +7 tests (the whole new
+    selftest), and 263 appears nowhere in the record.
+    why it matters: The file's own header instructs a reader to compare it line for line against
+    baseline.txt; a reader doing so finds 264 âˆ’ 257 = 7 tests and one new file, contradicting both
+    claims ("263", "the one added is the blank-id case"). The number that binds (264) is correct â€”
+    the 263 is the unrecorded intermediate count after step 1 and before the blank-id case â€” so the
+    defect is a mislabelled comparison point, a false stated fact about the record it cites.
+    unverified-runtime-claim: no
+```
+
+```
+[2] severity: low    tests/at/suites/req-001/_fixture.ts:113
+    claim: Mirror 5's bound clause says the live checks measured "with a wrong password no row exists",
+    but the item's own re-pin (fix-rulings.md ruling 1; proof-local.txt check (a)) recorded the
+    opposite: a row already existed before the attempt (the confirmation-link implicit-flow sign-in),
+    and the measured predicate is the unchanged session-id set â€” the sentence retains exactly the
+    pre-re-pin wording the fix sitting corrected.
+    why it matters: The mirror section's whole contract (fixture:69-74) is that each label states what
+    the live check actually binds. A reader trusting mirror 5 will believe the live stack holds no
+    `auth.sessions` row for a wrong-password user, which the item's own transcript and its recorded
+    ruling say is false; the plan's re-pinned wording (plan.md:256-260) is the accurate statement the
+    mirror should carry. Comment-only; nothing asserts it, so no body fails.
+    unverified-runtime-claim: no
+```
+
+```
+[3] severity: low    tests/at/suites/req-001/_fixture.ts:846-848
+    claim: The reset-link retention comment cites `.taskmaster/docs/acceptance/at-req-001.md` line 30
+    as reading "reset-link expiry, single-use and resend semantics are not stated in REQ-001", but the
+    line reads "reset-link expiry/single-use semantics are not stated in REQ-001" â€” the word "resend"
+    is added to the citation.
+    why it matters: The parenthetical presents itself as the content of the retired-id line, and it is
+    not the content â€” the acceptance file distinguishes resend from single-use (line 22, AT-001.11,
+    explicitly includes "resend"; line 30 does not). Substance is unaffected: the plan's own binding
+    (plan.md:43) extends the ban to resend, and no body asserts resend anywhere, so this is a
+    mis-citation, not a smuggled assertion â€” the same comment-vs-file class the item itself corrected
+    in edge.ts under gate-2 ruling 7.
+    unverified-runtime-claim: no
+```
+
+---
+
+Out-of-scope note: I found no defect in code this branch did not touch while reading; nothing to report outside the findings.
+
+**AUDIT: 3 FINDINGS**

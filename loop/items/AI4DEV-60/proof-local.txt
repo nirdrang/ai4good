@@ -1,0 +1,170 @@
+# AI4DEV-60 (session expiry, refresh, password reset) - STEP 5: THE LIVE PROOF
+# Script:   loop/items/AI4DEV-60/proof-local.ts
+# Worktree: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e
+# Branch:   nirdrang/ai4dev-60-sessions-automatic-refresh-and-password-reset-d2l2
+# Stack:    the local Supabase stack recorded in loop/items/AI4DEV-60/stack-up.txt, project id
+#           poancmeitlmxejofwzuu, functions served from THIS worktree without --no-verify-jwt.
+# Run on:   2026-08-10, between 01:22 and 01:31 +03:00
+#
+# SEVEN CHECKS IN TWO PHASES. The main phase runs (a), (b), (c), (e), (g) and (f) against the
+# checked-in configuration. Phase `d` runs the one check that needs a different `jwt_expiry`,
+# against a TRANSIENT lowered value, and the restore is recorded between the two blocks below.
+#
+# CREDENTIAL INSPECTION, performed by the executor before this file was committed and recorded
+# here because the item's contract asks for it. Five patterns were searched across both phase
+# transcripts: JWT-shaped strings (`eyJ....`), unredacted values under any of access_token,
+# refresh_token, provider_token, weak_password, apikey or secret, the local publishable and
+# secret key prefixes and the local JWT signing secret, URL fragments that still carry
+# `name=value`, and the literal test password. ALL FIVE RETURNED ZERO MATCHES. What does appear
+# and is not a credential: `@example.test` addresses this run created, `auth.users` and
+# `auth.sessions` row identifiers, and organisation identifiers. A session id is the name of a
+# row an operator already owns; holding it grants nothing.
+#
+# THREE EXPECTATIONS WERE RE-PINNED TO MEASUREMENTS, and every original expectation is printed
+# beside the value that replaced it, inside the check that measured it. In summary:
+#   1. (a) the plan expected `auth.sessions` to hold NO row for the user. One row was already
+#      there: following the emailed confirmation link is an implicit-flow sign-in, so GoTrue
+#      mints a session at that moment. The clause is now the criterion's own - the REFUSED
+#      attempt creates no row - and it is measured as an unchanged set of ids.
+#   2. (c) and (d) the plan expected HTTP 401 from `/auth/v1/user` for a dead token. GoTrue
+#      answers HTTP 403, for the revoked token and for the expired one alike. The error codes
+#      are exactly the pinned ones (`session_not_found`, and an expired-token message), so the
+#      vendor claims themselves are CONFIRMED and only the number was wrong. Nothing reads that
+#      number: the shipped `callerFromAuthAnswer` accepts 2xx and refuses everything else.
+#   3. (c) a plain `/auth/v1/logout` ends EVERY session the user holds, which is GoTrue's default
+#      `global` scope. The fixture's `signOut(session)` models one session ending, which is the
+#      `local` scope. The check now calls both: `?scope=local` with a sibling session standing as
+#      the control, which is what binds the fixture's mirror, and then the default, recorded for
+#      what it is. No acceptance body asserts either shape.
+#
+# THE ONE THING NOBODY SHOULD READ OUT OF THIS FILE: that the expired-token refusal at the
+# deployed function is this repository's code. It is not, and check (d) says so in its own note.
+# `verify_jwt = true` means the platform rejects an expired token before the function runs, so
+# the body there is the platform's "Invalid JWT". Check (c) is the one that reaches
+# `resolveCaller`, because a REVOKED token is still signed and unexpired: it passes the platform
+# and comes back with this repository's own sentence, "authenticate before completing signup".
+
+===== PHASE MAIN - checks (a), (b), (c), (e), (g), (f), against the checked-in jwt_expiry = 3600 =====
+$ bun loop/items/AI4DEV-60/proof-local.ts
+
+mail catcher shape, measured: mailpit
+        catcher at http://127.0.0.1:54324 · GET /api/v1/info -> HTTP 200 "{\"Version\":\"v1.30.2\",\"LatestVersion\":\"v1.30.7\",\"Database\":\"/tmp/mailpit-1786313631155365458.db\",\"DatabaseSize\":94208,\"Messages\":4,\"Unread\":0,\"Tags\":{\"msmdbxe2\":4},\"RuntimeStats\":{\"Uptime\":739,\"Memory\"" · GET /api/v1/mailbox/probe -> HTTP 404 "File not found\n"
+
+PASS  (a) a password grant with the WRONG password is refused with the credential error code, the answer carries no session material, and the refused attempt creates NO auth.sessions row
+        sign-in HTTP 400 · error_code=invalid_credentials (expected invalid_credentials) · message="Invalid login credentials" · redacted body: {"code":"<redacted>","error_code":"<redacted>","msg":"Invalid login credentials"} — captured, this is the refusal text · credential fields present in the answer: [none] (the widened guard: access_token, refresh_token, session, provider_token, provider_refresh_token) · auth.sessions for this user before the attempt=[{"id":"8dc28191-0127-4d49-b2dd-5694a1cf8269","not_after":null}] after=[{"id":"8dc28191-0127-4d49-b2dd-5694a1cf8269","not_after":null}] · unchanged: true
+        RE-PINNED: the plan expected NO row at all here. The first run measured one already present, minted when the emailed confirmation link was followed — that link is an implicit-flow sign-in. The clause is now what the criterion says, that the REFUSED attempt creates none, and both readings are printed above. · the discriminator is read from the in-memory body, because the redactor blanks error_code
+PASS  (b) the CORRECT password answers 200 carrying session material, and exactly one auth.sessions row appears
+        sign-in HTTP 200 · credential fields present: [access_token, refresh_token] · redacted body {"access_token":"<redacted>","token_type":"<redacted>","expires_in":3600,"expires_at":1786317970,"refresh_token":"<redacted>","user":{"id":"9cada9c3-ac57-4561-9a37-e808243926fb","aud":"authenticated","role":"authenticated","email":"wrong-password+msmdgbed@example.test","email_confirmed_at":"2026-08-09T22:26:10.329196Z","phone":"","confirmation_sent_at":"2026-08-09T22:26:10.282863Z","confirmed_at":"2026-08-09T22:26:10.329196Z","last_sign_in_at":"2026-08-09T22:26:10.518141264Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email":"wrong-password+msmdgbed@example.test","email_verified":true,"phone_verified":false,"sub":"9cada9c3-ac57-4561-9a37-e808243926fb"},"identities":[{"identity_id":"ebc598c6-0d62-40e9-91a4-d97a86f644d2","id":"9cada9c3-ac57-4561-9a37-e808243926fb","user_id":"9cada9c3-ac57-4561-9a37-e808243926fb","identity_data":{"email":"wrong-password+msmdgbed@example.test","email_verified":true,"phone_verified":false,"sub":"9cada9c3-ac57-4561-9a37-e808243926fb"},"provider":"email","last_sign_in_at":"2026-08-09T22:26:10.278707Z","created_at":"2026-08-09T22:26:10.278727Z","updated_at":"2026-08-09T22:26:10.278727Z","email":"wrong-password+msmdgbed@example.test"}],"created_at":"2026-08-09T22:26:10.272984Z","updated_at":"2026-08-09T22:26:10.520649Z","is_anonymous":false},"weak_password":"<redacted>"} · auth.sessions before=[{"id":"8dc28191-0127-4d49-b2dd-5694a1cf8269","not_after":null}] after=[{"id":"8dc28191-0127-4d49-b2dd-5694a1cf8269","not_after":null},{"id":"5dccccc5-6179-426b-a544-5d00859888fd","not_after":null}] — the count grew by exactly one, which is the live counterpart of the fixture mirror the acceptance body reads
+PASS  (c) logging out ends that session's access at once: the SAME access token is refused at /auth/v1/user and at the DEPLOYED complete-signup, its refresh token is refused too, and a SIBLING session opened by the same account keeps working
+        first completion with the LIVE token: HTTP 200 {"ok":true,"accountId":"9cada9c3-ac57-4561-9a37-e808243926fb","accountType":"ngo","organizationId":"13699f92-0a41-481e-bf26-8a063251b651"}
+        LIVE-TOKEN CONTROL — the same call again: HTTP 409 {"ok":false,"reason":"complete_signup refuses 9cada9c3-ac57-4561-9a37-e808243926fb: this account has already completed signup"} — 409 with the database's own sentence, which only a caller the auth layer ACCEPTED can reach
+        a SECOND session was opened before the logout: auth.sessions=[{"id":"8dc28191-0127-4d49-b2dd-5694a1cf8269","not_after":null},{"id":"5dccccc5-6179-426b-a544-5d00859888fd","not_after":null},{"id":"ecaf442b-758f-4138-bbd5-2a76389c8b58","not_after":null}]
+        logout ?scope=local HTTP 204 · the signed-out session's row is 5dccccc5-6179-426b-a544-5d00859888fd · auth.sessions afterwards=[{"id":"8dc28191-0127-4d49-b2dd-5694a1cf8269","not_after":null},{"id":"ecaf442b-758f-4138-bbd5-2a76389c8b58","not_after":null}] · exactly that row disappeared and no other: true
+        the SAME access token at /auth/v1/user: HTTP 403 · error_code=session_not_found (expected session_not_found) · message="Session from session_id claim in JWT does not exist" · redacted body {"code":"<redacted>","error_code":"<redacted>","msg":"Session from session_id claim in JWT does not exist"} — RE-PINNED: the plan expected HTTP 401; the MEASURED status is 403 carrying the pinned error code. The vendor claim itself is confirmed, and neither the fixture nor the shipped judgement reads this number: callerFromAuthAnswer accepts 2xx and refuses everything else
+        the revoked session's refresh token at the token endpoint: HTTP 400 {"code":"<redacted>","error_code":"<redacted>","msg":"Invalid Refresh Token: Refresh Token Not Found"} · credential fields it carried: [none]
+        the SAME access token at the DEPLOYED complete-signup: HTTP 401 {"ok":false,"reason":"authenticate before completing signup"} — 401 where the live token got 409, so this refusal is the auth layer's and it is the refactored resolveCaller returning null
+        THE SIBLING SESSION, untouched: /auth/v1/user HTTP 200 — revoking one session did not end the account's access, which is what makes re-authentication a remedy rather than a wall
+        THE DEFAULT SCOPE, measured afterwards: a plain /auth/v1/logout HTTP 204 left auth.sessions=[] — every row, not one. RE-PINNED: the first run used the default and read two rows going to zero. GoTrue's default scope is global; the fixture's signOut models the local scope. No acceptance body asserts either shape.
+PASS  (e) the emailed reset link changes the password: a tampered variant changes nothing, the real link's flow shape is measured, the new password signs in and the old one is refused with the code (a) pinned
+        UNKNOWN-ADDRESS PROBE: /auth/v1/recover for an address nobody registered -> HTTP 200 {} · for the registered address -> HTTP 200 {} — the same answer either way, which is the no-existence-oracle shape the fixture mirrors
+        link source: emailed (mailpit held 2 message(s) for password-reset+msmdgbed@example.test; 4 verify link(s) found; types=[recovery, recovery, signup, signup]; wanted "recovery")
+        TAMPERED FIRST: the "token" parameter was mutated inside its own alphabet · following it answered HTTP 303 -> http://127.0.0.1:3000#<redacted-fragment> · the OLD password still signed in afterwards: HTTP 200 · this says nothing about expiry, single use or resend: the token followed was never issued
+        REAL LINK: HTTP 303 -> http://127.0.0.1:3000#<redacted-fragment> · MEASURED flow shape: implicit-fragment (the fragment is cut before printing, so the shape is read in memory)
+        PASSWORD CHANGE through that shape: PUT /auth/v1/user HTTP 200 {"id":"9a725c43-6a6e-459a-a1f1-a47d3dadc1a2","aud":"authenticated","role":"authenticated","email":"password-reset+msmdgbed@example.test","email_confirmed_at":"2026-08-09T22:26:11.219414Z","phone":"","confirmed_at":"2026-08-09T22:26:11.219414Z","last_sign_in_at":"2026-08-09T22:26:11.429753Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email":"password-reset+msmdgbed@example.test","email_verified":true,"phone_verified":false,"sub":"9a725c43-6a6e-459a-a1f1-a47d3dadc1a2"},"identities":[{"identity_id":"0ae737b9-0faa-4d1c-9d39-387e98445ecf","id":"9a725c43-6a6e-459a-a1f1-a47d3dadc1a2","user_id":"9a725c43-6a6e-459a-a1f1-a47d3dadc1a2","identity_data":{"email":"password-reset+msmdgbed@example.test","email_verified":true,"phone_verified":false,"sub":"9a725c43-6a6e-459a-a1f1-a47d3dadc1a2"},"provider":"email","last_sign_in_at":"2026-08-09T22:26:11.18466Z","created_at":"2026-08-09T22:26:11.18468Z","updated_at":"2026-08-09T22:26:11.18468Z","email":"password-reset+msmdgbed@example.test"}],"created_at":"2026-08-09T22:26:11.180143Z","updated_at":"2026-08-09T22:26:11.577023Z","is_anonymous":false}
+        OLD password afterwards: HTTP 400 · error_code=invalid_credentials (expected invalid_credentials) · message="Invalid login credentials" · redacted body {"code":"<redacted>","error_code":"<redacted>","msg":"Invalid login credentials"}
+        NEW password afterwards: HTTP 200 · credential fields present: [access_token, refresh_token]
+PASS  (g) a LINKED volunteer completes through the DEPLOYED function across the refactored edge, and the stored profile carries the handle and the shipped stub's exact statistics
+        volunteer completion HTTP 200 {"ok":true,"accountId":"60179de1-2bac-4038-8a6f-fbc4a9d1f7b5","accountType":"volunteer","organizationId":null} · account=[{"account_type":"volunteer"}] · stored profile=[{"github_handle":"octosessions","top_languages":["C","TypeScript"],"repository_count":32,"contribution_summary":"stub import fixture: octosessions has 32 public repositories, most recently in C — no GitHub API was called to produce this"}] · the shipped stub's judgement for "octosessions"={"topLanguages":["C","TypeScript"],"repositoryCount":32,"contributionSummary":"stub import fixture: octosessions has 32 public repositories, most recently in C — no GitHub API was called to produce this"} · a delegation in edge.ts that pre-narrowed the Auth body to { id } would lose identities[] and fail exactly here
+PASS  (f) the mailer rate limit did not starve this proof
+        configured [auth.rate_limit] email_sent = 2 per hour, but the auth CONTAINER carries GOTRUE_RATE_LIMIT_EMAIL_SENT=360000 — the CLI does not push the file's value in, measured again this run and recorded in stack-up.txt. This run sent 3 confirmation emails and 1 recovery email and saw no rate-limit answer. The pre-authorized relief valve did NOT fire.
+
+phase main · 6 checks · 6 passed · 0 failed · 0 skipped
+ALL CHECKS PASSED
+----- exit code: 0 -----
+
+===== THE TRANSIENT CONFIGURATION CHANGE, made and reverted by the operator around phase `d` =====
+# WHY IT IS THE OPERATOR'S ACTION AND NOT THE SCRIPT'S: a script that edited configuration and
+# restarted a stack behind the operator's back would leave a transcript nobody could audit. That
+# reasoning is the predecessor item's and it is kept.
+#
+# THE CHANGE: supabase/config.toml line 165, jwt_expiry = 3600 -> jwt_expiry = 5.
+# THE RESTART: bunx supabase stop; bunx supabase start. ONE attempt, and it took first time;
+#              the plan's stop-and-report rule allows two failures and none occurred.
+# THE PROOF IT TOOK, read from the container rather than from the file:
+$ docker inspect supabase_auth_poancmeitlmxejofwzuu --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String -Pattern "JWT_EXP"
+GOTRUE_JWT_EXP=5
+#
+# The edge functions were re-served afterwards, because `supabase stop` removes the edge runtime
+# container. The relaunch is the same command from the same directory recorded in stack-up.txt,
+# and its own output named both functions again:
+2026-08-09T22:27:20.669511124Z Serving functions on http://127.0.0.1:54321/functions/v1/<function-name>
+2026-08-09T22:27:20.669570592Z  - http://127.0.0.1:54321/functions/v1/complete-signup
+2026-08-09T22:27:20.669575492Z  - http://127.0.0.1:54321/functions/v1/create-organization
+
+===== PHASE d - check (d), against the TRANSIENT jwt_expiry = 5 =====
+$ bun loop/items/AI4DEV-60/proof-local.ts d
+
+mail catcher shape, measured: mailpit
+        catcher at http://127.0.0.1:54324 · GET /api/v1/info -> HTTP 200 "{\"Version\":\"v1.30.2\",\"LatestVersion\":\"v1.30.7\",\"Database\":\"/tmp/mailpit-1786314418178046187.db\",\"DatabaseSize\":94208,\"Messages\":2,\"Unread\":0,\"Tags\":{\"msmdim6x\":1,\"msmdjuk7\":1},\"RuntimeStats\":{\"Uptime\"" · GET /api/v1/mailbox/probe -> HTTP 404 "File not found\n"
+
+
+waiting 10s for the access token to pass its 5s expiry...
+
+PASS  (d) an access token stops working at its expiry — at /auth/v1/user AND at a deployed function — and the SAME session's refresh token re-establishes access with no credentials, extending the same auth.sessions row
+        container GOTRUE_JWT_EXP=5 · config.toml at the moment of this run says 5 · both are the TRANSIENT lowered value; the checked-in value is 3600 and is restored right after this phase
+        LIVE: /auth/v1/user HTTP 200 · deployed complete-signup HTTP 200 {"ok":true,"accountId":"b2e75403-02d5-4b7e-a422-9d53a8f26e56","accountType":"ngo","organizationId":"f69ef4c7-0032-449c-8b25-8bd459867874"}
+        AFTER 10s: /auth/v1/user HTTP 403 (error_code=bad_jwt, read in memory because the redactor blanks it) — RE-PINNED: the plan expected 401, the MEASURED status is 403, the same number check (c) measured for a revoked token · {"code":"<redacted>","error_code":"<redacted>","msg":"invalid JWT: unable to parse or verify signature, token has invalid claims: token is expired"} · deployed complete-signup HTTP 401 {"msg":"Invalid JWT"} — 401 and not 409, so the token was refused BEFORE any product rule was consulted.
+        WHO REFUSED IT, said exactly rather than left to be assumed: the body is the PLATFORM's "Invalid JWT", not this repository's "authenticate before completing signup". `verify_jwt = true` means the edge runtime checks the token's own expiry before the function runs, so an EXPIRED token never reaches resolveCaller. Check (c) is the one that binds resolveCaller: a REVOKED token is still signed and unexpired, so it passes the platform and is refused by this repository's own sentence. The two checks cover the two layers, and only together.
+        REFRESH (no credentials in the call): HTTP 200 · fresh access token present: true · credential fields the answer carried: [access_token, refresh_token] · redacted body {"access_token":"<redacted>","token_type":"<redacted>","expires_in":5,"expires_at":1786314595,"refresh_token":"<redacted>","user":{"id":"b2e75403-02d5-4b7e-a422-9d53a8f26e56","aud":"authenticated","role":"authenticated","email":"expiry-refresh+msmdkvl8@example.test","email_confirmed_at":"2026-08-09T22:29:40.663933Z","phone":"","confirmation_sent_at":"2026-08-09T22:29:40.620244Z","confirmed_at":"2026-08-09T22:29:40.663933Z","last_sign_in_at":"2026-08-09T22:29:40.76095Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email":"expiry-refresh+msmdkvl8@example.test","email_verified":true,"phone_verified":false,"sub":"b2e75403-02d5-4b7e-a422-9d53a8f26e56"},"identities":[{"identity_id":"4809655d-f60c-4c79-a5f7-cc6b07a1e27e","id":"b2e75403-02d5-4b7e-a422-9d53a8f26e56","user_id":"b2e75403-02d5-4b7e-a422-9d53a8f26e56","identity_data":{"email":"expiry-refresh+msmdkvl8@example.test","email_verified":true,"phone_verified":false,"sub":"b2e75403-02d5-4b7e-a422-9d53a8f26e56"},"provider":"email","last_sign_in_at":"2026-08-09T22:29:40.616694Z","created_at":"2026-08-09T22:29:40.616711Z","updated_at":"2026-08-09T22:29:40.616711Z","email":"expiry-refresh+msmdkvl8@example.test"}],"created_at":"2026-08-09T22:29:40.612396Z","updated_at":"2026-08-09T22:29:50.986148Z","is_anonymous":false}}
+        AFTER REFRESH: /auth/v1/user HTTP 200 · deployed complete-signup HTTP 409 {"ok":false,"reason":"complete_signup refuses b2e75403-02d5-4b7e-a422-9d53a8f26e56: this account has already completed signup"} — 409 is the PRODUCT refusing an already-completed account, which is only reachable through a caller the auth layer accepted
+        SAME-SESSION-ROW PROBE (auth.sessions read with operator authority): before=[{"id":"64a0c9b3-29a5-43bc-ade6-96dc6141bc27","not_after":null},{"id":"69b2c1c0-71b2-40f2-97c8-e2f5f00b03bb","not_after":null}] after=[{"id":"64a0c9b3-29a5-43bc-ade6-96dc6141bc27","not_after":null},{"id":"69b2c1c0-71b2-40f2-97c8-e2f5f00b03bb","not_after":null}] · the same set of rows, none added and none replaced: true — this is what binds the fixture's extend-the-same-row mirror; a vendor that opened a new session on refresh would show an id here that was not there before. The second row present throughout is the session the emailed confirmation link minted, not something the refresh did.
+
+phase d · 1 checks · 1 passed · 0 failed · 0 skipped
+ALL CHECKS PASSED
+----- exit code: 0 -----
+
+===== THE RESTORE, AND THE PROOF THAT THE CHANGE WAS TRANSIENT =====
+# supabase/config.toml line 165 was set back to jwt_expiry = 3600, and the stack was stopped and
+# started again. ONE attempt, and it took first time.
+$ docker inspect supabase_auth_poancmeitlmxejofwzuu --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String -Pattern "JWT_EXP"
+GOTRUE_JWT_EXP=3600
+#
+# AND THE FILE ITSELF, which is the claim that matters, because a transcript can say anything:
+$ git diff --stat -- supabase/config.toml
+$ git status --porcelain -- supabase/config.toml
+# Both printed NOTHING. supabase/config.toml is byte for byte what this branch had before step 5,
+# so the lowered expiry lives only in the phase `d` block above.
+
+===== WHAT THE TWO PHASES TOGETHER ESTABLISH, and what they do not =====
+# ESTABLISHED, on the real local Supabase Auth, with every wire answer captured:
+#   - a wrong password is refused with error_code invalid_credentials, the answer carries none of
+#     access_token, refresh_token, session, provider_token or provider_refresh_token, and the
+#     refused attempt adds no auth.sessions row - AT-001.38's live half;
+#   - the correct password answers 200 and adds exactly one row - the control;
+#   - logging out one session ends THAT session's access at once, at /auth/v1/user, at the token
+#     endpoint and at a DEPLOYED edge function whose refusal is this repository's own sentence,
+#     while a sibling session of the same account keeps working - AT-001.12's revocation half,
+#     including the clause that re-authentication is a remedy rather than a wall;
+#   - an access token stops working at its expiry and the SAME session's refresh token
+#     re-establishes access with no credentials, extending the same auth.sessions row rather than
+#     opening a new one - AT-001.13's mechanism and AT-001.12's expiry half;
+#   - the emailed reset link is what changes the password: a tampered variant changes nothing, the
+#     flow shape was measured before it was used (implicit fragment on this CLI version), the new
+#     password signs in and the old one is refused with the code check (a) pinned - AT-001.14;
+#   - asking for a reset on an address nobody registered answers exactly as it does for a real
+#     one, which is the no-existence-oracle shape the fixture mirrors;
+#   - a LINKED volunteer still completes through the DEPLOYED function across the refactored edge,
+#     with the stored profile carrying the handle and the shipped stub's exact statistics - the
+#     one check that would fail if the untyped delegation in edge.ts pre-narrowed the Auth body.
+#
+# NOT ESTABLISHED, and nothing here claims it:
+#   - that any client refreshes AUTOMATICALLY. No client exists in this tree. This proves the
+#     mechanism, never the scheduling; the wiring leaf's re-run is where the real client is the
+#     thing under test.
+#   - anything about how long a reset link or a verification link lasts, or how often it may be
+#     used. Retired AT-001.15 and AT-001.11 ground, deliberately untouched: every link this run
+#     followed in the negative was a token GoTrue never issued.
+#   - that hosted email delivery works. The local catcher is what held every message.
+#   - that routes beyond the two deployed functions enforce anything. Only two exist.
+#   - anything about refresh-token rotation or the reuse interval. The refresh in phase `d`
+#     exercises them implicitly and asserts nothing about them.

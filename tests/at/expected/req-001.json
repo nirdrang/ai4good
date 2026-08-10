@@ -11,13 +11,13 @@
         "AT-001.06",
         "AT-001.07",
         "AT-001.09",
-        "AT-001.10"
+        "AT-001.10",
+        "AT-001.38",
+        "AT-001.12",
+        "AT-001.13",
+        "AT-001.14"
       ],
       "red": {
-        "AT-001.38": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.12": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.13": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.14": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.16": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.36": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.37": { "kind": "pending", "phase": "sut-missing" },

@@ -1,0 +1,33 @@
+Severity scale: medium = incorrect deployed behavior or acceptance gate; low = unguarded stated boundary.
+
+[1] severity: medium    supabase/functions/_shared/edge.ts:171
+    claim: A 2xx response whose valid JSON body is `null` now becomes a 401 refusal, whereas the old `user.id` read threw and became a 502; only unparseable 2xx bodies were accepted as a behavior change.
+    why it matters: An upstream/proxy anomaly returning `200` with `null` is now misclassified as an authentication failure, violating the stated refactor-equivalence boundary.
+    unverified-runtime-claim: no
+
+[2] severity: medium    tests/at/suites/req-001/b-verification-and-sessions.test.ts:308
+    claim: AT-001.38 makes equality between wrong-password and unknown-address refusal text a pass/fail assertion, despite the plan saying that no-existence behavior is observed, not asserted.
+    why it matters: An implementation can reject the wrong password and create no session—the criterion’s two clauses—yet fail this unrelated response-text policy.
+    unverified-runtime-claim: no
+
+[3] severity: medium    tests/at/suites/req-001/b-verification-and-sessions.test.ts:291
+    claim: The correct-password control does not prove that sign-in minted a session, because `registerAndConfirm` already leaves the fixture’s registration session live and `length > 0` passes without a before/after increase.
+    why it matters: A successful sign-in that returns a non-stored handle would keep AT-001.38 green, contrary to the plan’s required “`sessionsOf` grows by one” control.
+    unverified-runtime-claim: no
+
+[4] severity: medium    tests/at/suites/req-001/_fixture.ts:833
+    claim: A second password-reset request retains the first link in `byPasswordResetLink`, so the earlier link remains usable after a resend.
+    why it matters: Reset A → reset B → complete reset A succeeds, which defines a resend policy even though reset-link resend semantics are retired and explicitly declared unmodeled.
+    unverified-runtime-claim: no
+
+[5] severity: low    tests/at/suites/req-001/b-verification-and-sessions.test.ts:358
+    claim: Neither expiry body exercises the exact 3600-second boundary; both only test at 3601 seconds.
+    why it matters: Changing the fixture’s strict `< expiresAtMs` check to inclusive `<=` would allow access at expiry while all new bodies still pass.
+    unverified-runtime-claim: no
+
+[6] severity: low    tests/at/harness/shipped-caller.selftest.ts:51
+    claim: The caller selftest never covers the explicitly preserved blank-string `id` case.
+    why it matters: Tightening the judgment to reject `''` would leave the selftest green while breaking the stated deployed-behavior equivalence.
+    unverified-runtime-claim: no
+
+CODE REVIEW: 6 FINDINGS

@@ -1,0 +1,132 @@
+# AI4DEV-60 (session expiry, refresh, password reset) - STEP 4: THE STACK, CONFIG UNCHANGED
+# Started:  2026-08-10 01:09 +03:00
+# Finished: 2026-08-10 01:15:49 +03:00
+# Worktree: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e
+# Branch:   nirdrang/ai4dev-60-sessions-automatic-refresh-and-password-reset-d2l2
+# Head at step 4: fe0beb9
+#
+# LOCAL DEVELOPMENT KEYS ARE REDACTED BELOW, exactly as the two predecessor items redact them.
+# They are local-stack values reachable only at 127.0.0.1 on the machine that ran this, and
+# nothing key-shaped is committed. GitHub push protection once REFUSED a push in this project
+# for this file's predecessor, so the rule has a mechanical enforcer. What is redacted: the
+# publishable key, the secret key, the local JWT signing secret, both demo JWTs (anon and
+# service role) and the two S3 protocol credentials. What is NOT redacted, because none of it
+# is a credential: every URL and port, and the postgres/postgres local database URL the
+# Supabase CLI prints on every machine.
+#
+# NO CONFIGURATION CHANGE HAPPENS IN THIS STEP. The transient `jwt_expiry` change check (d)
+# needs is made and reverted inside step 5, and it is recorded in proof-local.txt beside the
+# measurement it serves. `git diff` over supabase/config.toml is clean at the end of the item.
+
+===== WHAT THE DOCKER HOST HELD BEFORE ANYTHING WAS TOUCHED - three stacks, one of them this project's =====
+$ docker ps -a --format "{{.Names}}`t{{.Status}}" | Select-String supabase
+
+supabase_db_poancmeitlmxejofwzuu        Created
+supabase_kong_poancmeitlmxejofwzuu      Up 7 hours (unhealthy)
+supabase_auth_poancmeitlmxejofwzuu      Up 7 hours (healthy)
+supabase_realtime_poancmeitlmxejofwzuu  Restarting (1) 29 seconds ago
+supabase_analytics_poancmeitlmxejofwzuu Up 7 hours (unhealthy)
+   ... and the remaining poancmeitlmxejofwzuu containers, all "Up 7 hours"
+supabase_*_ai4good-slot-1               Up 12 minutes
+supabase_*_ai4good-slot-2               Up 11 minutes
+
+# READ THIS BEFORE READING ANY MEASUREMENT BELOW. `supabase/config.toml` line 5 carries
+# project_id = "poancmeitlmxejofwzuu", so the containers named with that id are the ONLY ones
+# this worktree's CLI commands address. The `ai4good-slot-1` and `ai4good-slot-2` stacks carry a
+# different project id, belong to another session on this machine, and were neither read nor
+# touched by anything in this item.
+#
+# THE PROJECT'S OWN STACK WAS BROKEN, and that is why step 4 restarts rather than confirms: the
+# database container sat in state "Created" (never started), so `bunx supabase status` exited 1
+# with LegacyStatusDbNotRunningError and no check in step 5 could have run.
+
+===== bunx supabase stop =====
+$ bunx supabase stop
+{"project_id_filter":"poancmeitlmxejofwzuu","backup":true,"message":"Stopped supabase local development setup."}
+----- exit code: 0 -----
+
+===== bunx supabase start - the stack comes back up, created from THIS worktree's config.toml =====
+$ bunx supabase start
+{"DB_URL":"postgresql://postgres:postgres@127.0.0.1:54322/postgres","API_URL":"http://127.0.0.1:54321","REST_URL":"http://127.0.0.1:54321/rest/v1","GRAPHQL_URL":"http://127.0.0.1:54321/graphql/v1","FUNCTIONS_URL":"http://127.0.0.1:54321/functions/v1","MCP_URL":"http://127.0.0.1:54321/mcp","STUDIO_URL":"http://127.0.0.1:54323","PUBLISHABLE_KEY":"<REDACTED-local-publishable-key>","SECRET_KEY":"<REDACTED-local-secret-key>","JWT_SECRET":"<REDACTED-local-jwt-secret>","ANON_KEY":"<REDACTED-local-demo-jwt>","SERVICE_ROLE_KEY":"<REDACTED-local-demo-jwt>","MAILPIT_URL":"http://127.0.0.1:54324","INBUCKET_URL":"http://127.0.0.1:54324","STORAGE_S3_URL":"http://127.0.0.1:54321/storage/v1/s3","S3_PROTOCOL_ACCESS_KEY_ID":"<REDACTED>","S3_PROTOCOL_ACCESS_KEY_SECRET":"<REDACTED>","S3_PROTOCOL_REGION":"local","message":""}
+----- exit code: 0 -----
+
+# `bunx supabase status` is the same payload as the line above and is not repeated. The start
+# command prints the status object on success, which is the status this step records.
+
+===== bunx supabase db reset - migrations from THIS worktree, and a known-empty database for step 5 =====
+$ bunx supabase db reset
+Resetting local database...
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID
+WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET
+Recreating database...
+Initialising schema...
+Seeding globals from roles.sql...
+Applying migration 20260808120000_accounts_org_membership_and_acknowledgments.sql...
+Applying migration 20260809090000_volunteer_github_link_and_imported_profile.sql...
+Restarting containers...
+{"target":"local","version":"","message":"Reset local database."}
+----- exit code: 0 -----
+
+# THIS LEAF SHIPS NO MIGRATION (plan decision D-A). The two applied above are the predecessors'
+# and are unchanged by this branch.
+
+===== the auth container's settings, read from the container rather than from the file =====
+$ docker inspect supabase_auth_poancmeitlmxejofwzuu --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String -Pattern "AUTOCONFIRM|RATE_LIMIT_EMAIL|JWT_EXP"
+
+GOTRUE_SMS_AUTOCONFIRM=true
+GOTRUE_MAILER_AUTOCONFIRM=false
+GOTRUE_RATE_LIMIT_EMAIL_SENT=360000
+GOTRUE_JWT_EXP=3600
+----- exit code: 0 -----
+
+# THREE FACTS THIS READING ESTABLISHES, and one disagreement it records:
+#   - GOTRUE_MAILER_AUTOCONFIRM=false means email confirmations are ON, which is what
+#     `[auth.email] enable_confirmations = true` asks for. The predecessor item flipped it and
+#     this branch changes nothing there.
+#   - GOTRUE_JWT_EXP=3600 is the access-token lifetime the fixture's ACCESS_TOKEN_TTL_MS mirrors.
+#     Step 5 check (d) lowers it transiently and restores it.
+#   - GOTRUE_RATE_LIMIT_EMAIL_SENT=360000 while supabase/config.toml carries
+#     [auth.rate_limit] email_sent = 2. The CLI does NOT push the file's value into the
+#     container - the same disagreement the predecessor item measured and recorded. So the
+#     checked-in number is not the cap this run measures against, and check (f) is expected not
+#     to fire.
+
+===== bunx supabase functions serve - THE OPERATOR-SIDE BINDING OF THE MOUNT TO THIS WORKTREE =====
+# The stale-mount probe inside proof-local.ts can tell REACHABILITY from a 404; it cannot tell
+# WHICH directory the edge runtime mounted. So the launch is written down instead of inferred.
+#
+# COMMAND: bunx supabase functions serve
+# WORKING DIRECTORY: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e
+# FLAGS: none. --no-verify-jwt is NOT passed, so the runtime verifies the caller's token exactly
+#        as it would in a deployment.
+# LAUNCHED: 2026-08-10 01:15:15 +03:00, which is the container-log timestamp on its first line
+#           of output below (22:15:15Z is 01:15:15 +03:00) rather than a hand-written note. The
+#           predecessor item's audit found a hand-written launch time disagreeing with its own
+#           log lines by 41 seconds; taking the time from the log removes that class of error.
+# PROCESS ID: 54996
+# PROCESS COMMAND LINE, read from the operating system rather than from the shell that started
+# it - this is what binds the running binary to this worktree:
+#   C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-af9426df70dc8b59e\node_modules\
+#   @supabase\cli-windows-x64\bin\supabase.exe functions serve
+#
+# Its first lines of output, which name the two functions it mounted:
+Setting up Edge Functions runtime...
+2026-08-09T22:15:15.176677643Z Serving functions on http://127.0.0.1:54321/functions/v1/<function-name>
+2026-08-09T22:15:15.176734846Z  - http://127.0.0.1:54321/functions/v1/complete-signup
+2026-08-09T22:15:15.176738484Z  - http://127.0.0.1:54321/functions/v1/create-organization
+2026-08-09T22:15:15.176740868Z Using supabase-edge-runtime-1.74.2 (compatible with Deno v2.1.4)
+#
+# And the probe performed here by hand as well as inside the proof script: an unauthenticated
+# POST to complete-signup answers HTTP 401 - a refusal, not a 404, so the function is served.
+$ Invoke-WebRequest -Uri http://127.0.0.1:54321/functions/v1/complete-signup -Method POST -Body "{}"
+probe HTTP status: 401
+#
+# THE MOUNT'S REVISION IS LOAD-BEARING FOR THIS ITEM, unlike the predecessor's, and that is why
+# the binding above is recorded in this much detail. This branch CHANGES code both deployed
+# functions run: `_shared/edge.ts`'s resolveCaller now delegates to the new `_shared/caller.ts`.
+# A stale mount serving an older worktree would answer 401 to the probe while running the
+# pre-refactor judgement, and checks (c), (d) and (g) would then measure code this branch does
+# not ship. The process command line above is what rules that out: the running binary is this
+# worktree's own, launched with this worktree as its working directory.
