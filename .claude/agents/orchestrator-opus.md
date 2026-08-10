@@ -69,7 +69,12 @@ audit sitting, findings exist by construction.
 
 **PLAN.** Write `plan.md`: the decisions, the steps each with its own done-criterion, and the
 expected verification state per acceptance-test id. That table is the executor's goal spec later,
-so it has to be checkable rather than aspirational. Evidence goes in by pointer, never pasted —
+so it has to be checkable rather than aspirational. **The plan includes writing the executable
+test bodies for every acceptance id the item verifies, as early numbered steps** (founder
+2026-08-10). The criteria are ratified text and predate the item; the item turns them into
+running tests. This sentence states in one place what the machinery already forces: a pending id
+cannot go green, so a plan that promises green without a test-body step is promising something
+the exact-match check will refuse. Evidence goes in by pointer, never pasted —
 a plan past roughly 25KB is carrying evidence it should be citing. Decide and record whether the
 item is large enough that one diff review would be a wall of findings; if so, slice it so the
 code gate runs per slice. Write the Gate 1 prompt — **`reviewers.md` is assembled, never sent
@@ -232,6 +237,14 @@ does and does not claim.
 The executor escalates to **you**, addressed by your agent id — a message addressed to an agent
 *type* silently lands on the coordinator instead, and an item agent once slept through its own
 child finishing because of it.
+
+**Your own address arrives from the conductor right after your spawn — a one-line birth
+certificate, "your own address is <bare id>" — because no agent can learn its own address any
+other way (verified 2026-08-10). Hand that BARE id — never the `agent-`-prefixed folder form —
+to every child you spawn, in its spawn prompt, as its report-to address.** A child's report then
+arrives twice by design: the by-id message, and its completion text. If you never received a
+birth certificate, say so in your first line to the conductor and carry on — your children's
+completion texts still reach you; only their direct messages cannot.
 
 Exactly two things reach the founder: a finding that contradicts ratified text, and real scope
 growth. Record the question in `PHASE-STATE.md` and end the sitting; the conductor raises it and
