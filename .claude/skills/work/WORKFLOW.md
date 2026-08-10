@@ -162,7 +162,8 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  (raw critique + distillate, PLUS the opencode reader's tool-call summary +
                   identity extract — see reviewer-runner.md)
 46  ORCHESTRATOR write the audit brief = `## Your contract` + the AUDIT section ONLY + item
-                 additions (claims, not code quality — see reviewers.md)
+                 additions — the item additions ARE the CLAIM CHECKLIST: adopted rulings by id,
+                 the declared code path-set, each stated code fact, enumerated (see reviewers.md)
 47  ORCHESTRATOR write PHASE-STATE — audit spec — THEN commit + push · tree clean ·
                  report the pushed head → end
 ```
@@ -200,11 +201,14 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  2 REAL BUT OUT OF SCOPE  → file it · name it in the ruling · narrow the claim
                  3 THE AUDITOR IS WRONG   → reject with a reason · claim verbatim into the PR
 54  ORCHESTRATOR fixes needed? → EXECUTOR → commit + push → PHASE-STATE: "the audit must
-                 re-run at the new head" → END THE SITTING — launching BOTH auditors and
+                 re-run at the new head" · NAME THE FIX DELTA (audited head → new head) ·
+                 REBUILD the checklist (add the adopted audit rulings + changed facts)
+                 → END THE SITTING — launching BOTH auditors and
                  waiting is the conductor's (it re-enters at 49 and spawns a FRESH audit sitting);
                  a sitting never spans the auditors' wait
-                 the audit re-runs ONLY if code changed · the re-run is
-                 the WHOLE PANEL at the new head, never one seat         MAX 1 PER ITEM
+                 the audit re-runs ONLY if code changed · BOTH seats, but SCOPED to what the
+                 fix delta can REACH, not the whole range again (scope box alone re-checks the
+                 full code-territory file list) — a scoped fix earns a scoped re-read  MAX 1 PER ITEM
 55  ORCHESTRATOR the record is true and every finding from BOTH seats disposed
                  → commit each reader's full evidence + rulings into the record
                    (full evidence per reader as defined at step 52 / reviewer-runner.md)

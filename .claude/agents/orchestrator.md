@@ -91,7 +91,12 @@ close, so evidence that stays there is evidence the audit does not rule on.
 
 The fix sitting also writes the **audit brief** — assembled per reader, since the audit is a panel
 of two (luna via codex, flash via opencode; founder ruling 2026-08-09), each blind to the other,
-exactly as the draft-code gate. Each auditor is read-only and its subject is the
+exactly as the draft-code gate. **The brief carries this item's CLAIM CHECKLIST — an enumerated,
+testable list, not a paragraph**: every ruling adopted named by its id, the code territory the item
+declares it stayed inside (the path-set), and each concrete fact the item states about the code.
+That list is the auditor's floor — the same way the plan's per-step done-criteria are the
+executor's — so the audit grades a named checklist rather than re-deriving what to look for. Each
+auditor is read-only and its subject is the
 claim, never the code's quality: does every adopted ruling appear in the tree as ruled, does the
 diff stay inside its declared scope, is every stated fact about the code true. Whole-tree access,
 change-only scope — a defect in code this branch never touched belongs to another item. Execution
@@ -116,11 +121,18 @@ survives except the identifier, replaced by a description of what it referred to
 AI4DEV-57, where a rejected finding quoted three ids and the rule as written was unsatisfiable.
 
 If fixes change code, the executor applies them, you push — and you **end the sitting** with
-the state file saying the audit must re-run at the new head. Launching the auditors and waiting
+the state file saying the audit must re-run at the new head. **Name the fix delta in that state
+file — the head you just audited and the head the fixes produced — and REBUILD the claim checklist
+for the re-run**: add the audit rulings you just adopted (by id) and any code fact the fixes
+changed, so the re-run grades the current claims, not the pre-audit ones. Because the re-run is
+scoped to that delta: both readers run again (never one seat), but their change-set is
+`git diff <audited-head>...<new-head>` in the code territory, not the full range a second time. Everything the first pass cleared that the
+fix did not touch stays cleared; only the scope box re-checks against the full file list, since a fix
+can add a stray file. This is what keeps the once-per-item re-run from re-auditing the whole item —
+a scoped fix earns a scoped re-read. Launching the auditors and waiting
 for them is the conductor's; a fresh audit sitting rules on the re-run. You never span that wait.
-The audit re-runs once per item, and the re-run is the **whole panel** at the new head, never one
-seat. On a clean close, commit **both** raw outputs, **both** distillates and your rulings into the
-record before the final push — the head CI gates is the one that carries them.
+The audit re-runs once per item. On a clean close, commit **both** raw outputs, **both** distillates
+and your rulings into the record before the final push — the head CI gates is the one that carries them.
 
 **MERGE.** On a clean audit you are the sitting that absorbs its wait, so **both readers' verdicts
 are yours to record** among the dispositions — a clean panel is evidence and belongs in the ruling, not

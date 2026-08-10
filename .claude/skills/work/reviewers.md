@@ -231,6 +231,26 @@ what is claimed about it?**
   where it matters — a shell trap, a regex, a guard's field handling. A false statement about
   code is a finding; a clumsy sentence about a true fact is not.
 
+**The item's additions give you the CLAIM CHECKLIST — grade every line of it.** This item's
+brief lists its specific testable claims: the rulings it adopted (by id), the code territory it
+says it stayed inside, and each concrete fact it stated about the code. Confirm each against the
+tree and answer it by name. The checklist is your FLOOR, never your ceiling — a false claim it
+omits is still a finding — but nothing on it may go unanswered.
+
+**On a RE-RUN, your change-set is the FIX DELTA, not the whole range.** The previous audit already
+cleared the tree at the earlier head; only the fix moved it. Read `git diff <prev-audited-head>...<head>`
+restricted to the code territory, and re-grade every checklist line the delta can REACH — not only
+the files the delta edited, but any claim whose subject the delta could affect: a caller of a
+changed function, an importer of a changed module, a reader of changed config or shared state.
+**"Untouched" means the delta cannot reach the claim, NOT that the claim's file is byte-identical** —
+a fix to a shared helper can falsify a claim about a file that never changed. Carry a line forward
+only when you can say why the delta cannot reach it; when in doubt, re-grade it. **One box always
+re-checks in full**: "diff stays in declared scope", against the full `<base>...<head>` file list
+(still restricted to the code territory — the record directory never enters it), because a fix can
+add a stray file the narrow delta would hide. Say which boxes you carried forward and on what
+independence, rather than silently re-deriving them. This is what keeps the once-per-item re-run
+cheap without making it blind: a scoped fix earns a scoped re-read, a far-reaching one does not.
+
 **Do not run the test suite.** Execution evidence belongs to the required CI check on this
 commit: cite it, do not re-derive it. This is a deliberate narrowing, measured across four items —
 attempted execution here produced almost nothing but "could not verify", and once produced two
