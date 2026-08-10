@@ -59,6 +59,20 @@ Run 2026-08-10: delivered first try. This scenario is the regression for the fou
 reports of the sessions item — a failure here means either the resolver changed or a contract
 regressed to a wrong address form (type name, or the prefixed folder name).
 
+## Scenario 6 — the certificate RELAY across two generations (run 2026-08-10: HELD)
+
+Scenario 5 proves one hop; this proves the chain the real items run: main certifies A (the
+conductor shape), **A certifies B from B's spawn result** (conductor → sitting), **B hands its
+own certified address to C in C's spawn prompt** (sitting → executor), C reports to B by bare
+id, and B reports to A the same way. Expected: A ends with `CHAIN HELD`. Run 2026-08-10:
+`CHAIN HELD: B-RELAY-OK`, first try — C→B and B→A both delivered. This is the regression for
+the two real misroutes of the sessions item (executor→sitting, sitting→conductor): a failure
+here means the relay broke at a generation boundary, which no single-hop drill can see.
+
+Coverage after this scenario: all five spawning relationships in the workflow — coordinator→
+conductor, conductor→sitting, conductor→runner, sitting→executor, sitting→mechanical — have
+drill or production evidence for both directions of their messaging.
+
 ## Drill regressions run on WORKFLOW CHANGES (founder ruling 2026-08-10)
 
 A change to the control machinery — the agent contracts in `.claude/agents/`, the work skill,
