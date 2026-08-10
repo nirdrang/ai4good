@@ -1,0 +1,119 @@
+﻿
+AI4DEV-79 (parallel DB slot pool) - step S3 as amended by ruling E5, the isolation re-proof.
+
+REDACTION: database passwords and any key-shaped token are replaced before printing.
+Container names, project ids and ports are kept: they are the evidence.
+
+date      : 2026-08-10T06:50:54.123Z
+machine   : MyPC
+worktree  : C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/agent-a064eb77d7bb37dd7/
+branch    : nirdrang/ai4dev-79-a-pool-of-local-database-slots-so-items-verify-in-parallel
+head      : 3ca44eb6cddd15c9a13d289d1c6ec9ea64a526af
+pool root : C:\Users\nirdr\AppData\Local\ai4good-build\db-slots
+
+=== the hostile condition, mandatory ===
+SUPABASE_PROJECT_ID IS PRESENT IN THIS PROCESS: "poancmeitlmxejofwzuu".
+That is the founder's personal project id, and it is the exact override that destroyed the personal
+database on 2026-08-09. It stays in this process for the whole run. Every CLI call below is made
+through the shared helper, which states the slot identity positively in the child environment.
+
+=== (a) BEFORE: docker identity snapshot of the personal stack (a READ; nothing is written) ===
+  /supabase_analytics_poancmeitlmxejofwzuu | id 4f0cbd08610dfdd42c6c93fb9abf1eed25ecf5043bab3afa24bdad364837795d | created 2026-08-09T22:30:36.397633849Z | image public.ecr.aws/supabase/logflare:1.47.1 | ports {"4000/tcp":[{"HostIp":"","HostPort":"54327"}]}
+  /supabase_auth_poancmeitlmxejofwzuu | id 38d058a45856033b6715edbb78b4fce73392283ff9930e9043fe490031d324f0 | created 2026-08-09T22:30:38.180055558Z | image public.ecr.aws/supabase/gotrue:v2.193.0 | ports {}
+  /supabase_db_poancmeitlmxejofwzuu | id a9fc53b713132db35df62f08563a31552eb93662efd925e6e35efe19b9e7c588 | created 2026-08-09T22:30:25.016886496Z | image public.ecr.aws/supabase/postgres:17.6.1.143 | ports {"5432/tcp":[{"HostIp":"","HostPort":"54322"}]}
+  /supabase_inbucket_poancmeitlmxejofwzuu | id 05a41d3f900184d874744b3f69099877ddcaad0facc5cdedeab768acb03e6937 | created 2026-08-09T22:30:38.737406565Z | image public.ecr.aws/supabase/mailpit:v1.30.2 | ports {"8025/tcp":[{"HostIp":"","HostPort":"54324"}]}
+  /supabase_kong_poancmeitlmxejofwzuu | id c60a42f259068af05d0cffe4a8a2e21e49378fe644d69c1d0a144c747a20ba10 | created 2026-08-09T22:30:37.447243163Z | image public.ecr.aws/supabase/kong:2.8.1 | ports {"8000/tcp":[{"HostIp":"","HostPort":"54321"}]}
+  /supabase_pg_meta_poancmeitlmxejofwzuu | id dd9e8be3bb873f596ff92236e3d604ac10303cd5da8c5227e50e7b9f6d54dafd | created 2026-08-09T22:30:41.700396649Z | image public.ecr.aws/supabase/postgres-meta:v0.96.6 | ports {}
+  /supabase_realtime_poancmeitlmxejofwzuu | id e1a443bf280ab38ab8bf6cfdc3947bda9540f0fda03557188b94d50a0ca75f2b | created 2026-08-09T22:30:39.298314473Z | image public.ecr.aws/supabase/realtime:v2.113.4 | ports {}
+  /supabase_rest_poancmeitlmxejofwzuu | id 720fc47910c49a2e12f0b6ef8386a29b651ed61ba01611aad962c580f2a798ef | created 2026-08-09T22:30:39.873216866Z | image public.ecr.aws/supabase/postgrest:v14.15 | ports {}
+  /supabase_storage_poancmeitlmxejofwzuu | id e38f52bfb2c2b847d7b28db03b04c921cfaef24e4e680b25feb940a1ebb156ea | created 2026-08-09T22:30:40.509213548Z | image public.ecr.aws/supabase/storage-api:v1.66.4 | ports {}
+  /supabase_studio_poancmeitlmxejofwzuu | id 0f2789d632ab074db933abb784b8e148b1f9b8fd86c5b74918bf45e767ec170a | created 2026-08-09T22:30:42.329002909Z | image public.ecr.aws/supabase/studio:2026.07.13-sha-b5ada96 | ports {"3000/tcp":[{"HostIp":"","HostPort":"54323"}]}
+  /supabase_vector_poancmeitlmxejofwzuu | id 54f791bf65decc8744a68ca032ec8ce195fd9cf88e1b225d29a48bef91ab18bb | created 2026-08-09T22:30:36.96867758Z | image public.ecr.aws/supabase/vector:0.53.0-alpine | ports {}
+  supabase_db_poancmeitlmxejofwzuu | created 2026-08-09T22:25:17Z
+  supabase_edge_runtime_poancmeitlmxejofwzuu | created 2026-08-08T11:00:41Z
+  supabase_storage_poancmeitlmxejofwzuu | created 2026-08-08T11:00:40Z
+  11 containers, 3 volumes recorded
+
+=== (b) preflight: both slots answer on their own port block, through the helper ===
+db-pool — slot 1 identity proven before the preflight of slot 1: project ai4good-slot-1, api 55321, db 55322
+  slot 1  API http://127.0.0.1:55321  DB postgresql://<redacted>@127.0.0.1:55322/postgres
+db-pool — slot 2 identity proven before the preflight of slot 2: project ai4good-slot-2, api 56321, db 56322
+  slot 2  API http://127.0.0.1:56321  DB postgresql://<redacted>@127.0.0.1:56322/postgres
+
+=== (c) canary row in slot 1 — the bystander that must SURVIVE ===
+  slot 1 canary written: "slot-1 canary"
+
+=== (d) canary row in slot 2 — the row the reset must DESTROY ===
+  slot 2 canary written: "slot-2 canary"
+
+=== (e) the pre-destructive identity read on slot 2 ===
+db-pool — slot 2 identity proven before the reset: project ai4good-slot-2, api 56321, db 56322
+  the line above is the helper stating which project the CLI resolved, before anything destructive.
+
+=== (f) supabase db reset, aimed at slot 2, through the helper, hostile variable present ===
+db-pool — slot 2 identity proven before the reset: project ai4good-slot-2, api 56321, db 56322
+  the reset exited zero.
+
+=== (g) the canaries after the reset ===
+  slot 1 canary: "slot-1 canary"
+  slot 2 canary: null
+
+=== (h) AFTER: the same docker identity snapshot, compared on identity fields only ===
+  /supabase_analytics_poancmeitlmxejofwzuu | id 4f0cbd08610dfdd42c6c93fb9abf1eed25ecf5043bab3afa24bdad364837795d | created 2026-08-09T22:30:36.397633849Z | image public.ecr.aws/supabase/logflare:1.47.1 | ports {"4000/tcp":[{"HostIp":"","HostPort":"54327"}]}
+  /supabase_auth_poancmeitlmxejofwzuu | id 38d058a45856033b6715edbb78b4fce73392283ff9930e9043fe490031d324f0 | created 2026-08-09T22:30:38.180055558Z | image public.ecr.aws/supabase/gotrue:v2.193.0 | ports {}
+  /supabase_db_poancmeitlmxejofwzuu | id a9fc53b713132db35df62f08563a31552eb93662efd925e6e35efe19b9e7c588 | created 2026-08-09T22:30:25.016886496Z | image public.ecr.aws/supabase/postgres:17.6.1.143 | ports {"5432/tcp":[{"HostIp":"","HostPort":"54322"}]}
+  /supabase_inbucket_poancmeitlmxejofwzuu | id 05a41d3f900184d874744b3f69099877ddcaad0facc5cdedeab768acb03e6937 | created 2026-08-09T22:30:38.737406565Z | image public.ecr.aws/supabase/mailpit:v1.30.2 | ports {"8025/tcp":[{"HostIp":"","HostPort":"54324"}]}
+  /supabase_kong_poancmeitlmxejofwzuu | id c60a42f259068af05d0cffe4a8a2e21e49378fe644d69c1d0a144c747a20ba10 | created 2026-08-09T22:30:37.447243163Z | image public.ecr.aws/supabase/kong:2.8.1 | ports {"8000/tcp":[{"HostIp":"","HostPort":"54321"}]}
+  /supabase_pg_meta_poancmeitlmxejofwzuu | id dd9e8be3bb873f596ff92236e3d604ac10303cd5da8c5227e50e7b9f6d54dafd | created 2026-08-09T22:30:41.700396649Z | image public.ecr.aws/supabase/postgres-meta:v0.96.6 | ports {}
+  /supabase_realtime_poancmeitlmxejofwzuu | id e1a443bf280ab38ab8bf6cfdc3947bda9540f0fda03557188b94d50a0ca75f2b | created 2026-08-09T22:30:39.298314473Z | image public.ecr.aws/supabase/realtime:v2.113.4 | ports {}
+  /supabase_rest_poancmeitlmxejofwzuu | id 720fc47910c49a2e12f0b6ef8386a29b651ed61ba01611aad962c580f2a798ef | created 2026-08-09T22:30:39.873216866Z | image public.ecr.aws/supabase/postgrest:v14.15 | ports {}
+  /supabase_storage_poancmeitlmxejofwzuu | id e38f52bfb2c2b847d7b28db03b04c921cfaef24e4e680b25feb940a1ebb156ea | created 2026-08-09T22:30:40.509213548Z | image public.ecr.aws/supabase/storage-api:v1.66.4 | ports {}
+  /supabase_studio_poancmeitlmxejofwzuu | id 0f2789d632ab074db933abb784b8e148b1f9b8fd86c5b74918bf45e767ec170a | created 2026-08-09T22:30:42.329002909Z | image public.ecr.aws/supabase/studio:2026.07.13-sha-b5ada96 | ports {"3000/tcp":[{"HostIp":"","HostPort":"54323"}]}
+  /supabase_vector_poancmeitlmxejofwzuu | id 54f791bf65decc8744a68ca032ec8ce195fd9cf88e1b225d29a48bef91ab18bb | created 2026-08-09T22:30:36.96867758Z | image public.ecr.aws/supabase/vector:0.53.0-alpine | ports {}
+  supabase_db_poancmeitlmxejofwzuu | created 2026-08-09T22:25:17Z
+  supabase_edge_runtime_poancmeitlmxejofwzuu | created 2026-08-08T11:00:41Z
+  supabase_storage_poancmeitlmxejofwzuu | created 2026-08-08T11:00:40Z
+  IDENTICAL: same container ids, created timestamps, images, port bindings, volumes and volume CreatedAt.
+
+=== the done-criterion, item by item ===
+  PASS  the hostile variable was present in the parent process
+  PASS  the identity pre-read named slot 2 before the reset
+  PASS  the reset ran through the helper and exited zero
+  PASS  the slot 2 canary is GONE — the reset acted on slot 2
+  PASS  the slot 1 canary SURVIVES — the reset acted on nothing else
+  PASS  the personal docker snapshots are equal on every identity field
+
+THE SPIKE PASSED: the wall holds under the exact condition that broke it.
+
+Residue: slot 1 keeps a public.spike_canary table until its next occupancy, which resets it.
+END OF S3 TRANSCRIPT (re-proof)
+
+================================================================================
+POSTSCRIPT, written by hand after the run.
+================================================================================
+
+THE TREE THE RUN USED. The head line above says 3ca44eb, which was the last
+commit at the moment of the run. The working tree also carried one uncommitted
+edit: writeCanary drops and recreates its table instead of using CREATE TABLE IF
+NOT EXISTS. Both are in the commit that carries this transcript.
+
+THE FIRST ATTEMPT, recorded because a transcript that hides one is not evidence.
+The spike was run once before this run and stopped at step (c) with:
+
+  null value in column "id" of relation "spike_canary" violates not-null constraint
+
+Slot 1 still held a spike_canary table left by the first, failed spike of
+2026-08-09, with a column set of its own. CREATE TABLE IF NOT EXISTS therefore
+created nothing and the insert failed on that table's constraint. The stop was a
+canary client problem in a slot database. No identity was resolved, no CLI
+command ran after the preflight reads, and step (h) of that attempt already
+reported the personal docker snapshot IDENTICAL. The fix was to drop and
+recreate the canary table, and the run above is the re-run.
+
+TWO INDEPENDENT READS AGREE THAT THE PERSONAL STACK WAS NOT TOUCHED. Step (h)
+compares the docker identity snapshot and reports it identical. A separate
+docker ps taken after the run reports every personal container still up with the
+same uptime it had before the run, so nothing recreated or restarted one. The
+tracked .env is byte for byte unchanged, verified by SHA-256 before and after.
+
+END OF POSTSCRIPT

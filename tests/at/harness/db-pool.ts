@@ -38,7 +38,7 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import { REPO_ROOT } from './check.ts';
@@ -952,13 +952,266 @@ function redactDbUrl(url: string): string {
   return url.replace(/(postgres(?:ql)?:\/\/)[^@\s/]+@/i, '$1<redacted>@');
 }
 
+/* ---------------------------------------------------------------------------------- spike CLI */
+
+/**
+ * THE ISOLATION SPIKE, step S3 as amended by ruling E5 — a CLI entry of this module, never a
+ * hand-written script. The first spike WAS a hand-written script; it closed neither route the
+ * identity override travels by, and it destroyed the founder's personal database. So the thing
+ * that proves the wall is now the thing that IS the wall: every CLI call below goes through the
+ * same helper the runner uses.
+ *
+ * IT TOUCHES THE PERSONAL STACK NOT AT ALL. Its instrument for the personal stack is a docker-level
+ * identity snapshot — a read — taken before and after, and compared on identity fields only. The
+ * breach signature was RECREATION (a new container id, a new volume timestamp), so identity-field
+ * equality is the direct negative of the breach. Run state is excluded on purpose: one container
+ * (`vector`) restart-loops on all three stacks by itself.
+ *
+ * THE HOSTILE CONDITION IS MANDATORY. The spike refuses to run unless its own process carries
+ * `SUPABASE_PROJECT_ID=<the personal project id>` — the exact override that caused the incident.
+ * A pass therefore proves the helper closes the route WHILE the route is loaded, rather than
+ * proving the route happened to be empty that day.
+ */
+
+/** bun's SQL client. Described here rather than imported: the runner keeps its own private copy. */
+interface BunSqlClient {
+  (strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown>;
+  close(): Promise<void>;
+}
+type BunSqlCtor = new (url: string) => BunSqlClient;
+
+/** A canary connection may only ever reach a slot; the personal block is refused at the socket. */
+async function withSlotSql<T>(slot: number, status: StackStatus, fn: (sql: BunSqlClient) => Promise<T>): Promise<T> {
+  const port = Number(new URL(status.dbUrl).port);
+  if (!Number.isFinite(port) || (port >= PERSONAL_PORT_LOW && port <= PERSONAL_PORT_HIGH)) {
+    throw new Error(`refusing to open a connection for slot ${slot}: port ${port} is inside the founder's personal port block`);
+  }
+  const SQL = (globalThis as { Bun?: { SQL?: BunSqlCtor } }).Bun?.SQL;
+  if (!SQL) throw new Error('this runtime has no SQL client (expected bun)');
+  const sql = new SQL(status.dbUrl);
+  try {
+    return await fn(sql);
+  } finally {
+    await sql.close().catch(() => undefined);
+  }
+}
+
+/**
+ * DROP AND RECREATE, never `create table if not exists`: the first spike left a `spike_canary`
+ * table of its own shape in slot 1, and an insert against somebody else's columns fails on a
+ * constraint rather than writing the canary. The canary has to be this run's own table.
+ */
+async function writeCanary(slot: number, status: StackStatus, note: string): Promise<void> {
+  await withSlotSql(slot, status, async (sql) => {
+    await sql`drop table if exists public.spike_canary`;
+    await sql`create table public.spike_canary (note text)`;
+    await sql`insert into public.spike_canary (note) values (${note})`;
+  });
+}
+
+/** The canary's note, or null when the table or the row is gone — which is what a reset does. */
+async function readCanary(slot: number, status: StackStatus): Promise<string | null> {
+  return withSlotSql(slot, status, async (sql) => {
+    try {
+      const rows = (await sql`select note from public.spike_canary`) as { note?: unknown }[];
+      return rows.length ? String(rows[0].note) : null;
+    } catch (err) {
+      const message = (err as Error).message ?? '';
+      if (/spike_canary/.test(message) && /does not exist/i.test(message)) return null;
+      throw err;
+    }
+  });
+}
+
+function dockerLines(args: string[]): string[] {
+  const res = spawnSync('docker', args, { env: childEnv(), encoding: 'utf8' });
+  if (res.error) throw new Error(`docker could not be run (${diagnostic((res.error as Error).message)})`);
+  if (res.status !== 0) throw new Error(`\`docker ${args.slice(0, 2).join(' ')}\` exited ${res.status}: ${diagnostic(res.stderr) || '(no error output)'}`);
+  return (res.stdout ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+interface DockerSnapshot {
+  containers: string[];
+  volumes: string[];
+}
+
+/**
+ * A READ-ONLY identity record of the personal stack's docker objects. Only `ps`, `inspect`,
+ * `volume ls` and `volume inspect` are used, and only identity fields are recorded: container id,
+ * created timestamp, image and port bindings; volume name and CreatedAt. No run state.
+ */
+function personalDockerSnapshot(personal: string): DockerSnapshot {
+  const containerNames = dockerLines(['ps', '-a', '--filter', `name=${personal}`, '--format', '{{.Names}}']).sort();
+  const containers = containerNames.length
+    ? dockerLines([
+        'inspect',
+        '--format',
+        '{{.Name}} | id {{.Id}} | created {{.Created}} | image {{.Config.Image}} | ports {{json .HostConfig.PortBindings}}',
+        ...containerNames,
+      ]).sort()
+    : [];
+  const volumeNames = dockerLines(['volume', 'ls', '--filter', `name=${personal}`, '--format', '{{.Name}}']).sort();
+  const volumes = volumeNames.length
+    ? dockerLines(['volume', 'inspect', '--format', '{{.Name}} | created {{.CreatedAt}}', ...volumeNames]).sort()
+    : [];
+  return { containers, volumes };
+}
+
+function snapshotDifferences(before: DockerSnapshot, after: DockerSnapshot): string[] {
+  const differences: string[] = [];
+  const pairs = [
+    ['container', before.containers, after.containers],
+    ['volume', before.volumes, after.volumes],
+  ] as const;
+  for (const [what, first, second] of pairs) {
+    for (const line of first) if (!second.includes(line)) differences.push(`${what} recorded BEFORE and not after: ${line}`);
+    for (const line of second) if (!first.includes(line)) differences.push(`${what} recorded AFTER and not before: ${line}`);
+  }
+  return differences;
+}
+
+function gitHead(): string {
+  const res = spawnSync('git', ['-C', REPO_ROOT, 'rev-parse', 'HEAD'], { encoding: 'utf8', env: childEnv() });
+  return (res.stdout ?? '').trim() || '(git could not report the head)';
+}
+
+async function spike(): Promise<number> {
+  const personal = personalProjectId();
+  const hostile = process.env.SUPABASE_PROJECT_ID ?? '';
+
+  console.log('');
+  console.log('AI4DEV-79 (parallel DB slot pool) - step S3 as amended by ruling E5, the isolation re-proof.');
+  console.log('');
+  console.log('REDACTION: database passwords and any key-shaped token are replaced before printing.');
+  console.log('Container names, project ids and ports are kept: they are the evidence.');
+  console.log('');
+  console.log(`date      : ${new Date().toISOString()}`);
+  console.log(`machine   : ${hostname()}`);
+  console.log(`worktree  : ${REPO_ROOT}`);
+  console.log(`branch    : ${(() => { try { return currentBranch(); } catch { return '(unreadable)'; } })()}`);
+  console.log(`head      : ${gitHead()}`);
+  console.log(`pool root : ${poolRoot()}`);
+  console.log('');
+
+  console.log('=== the hostile condition, mandatory ===');
+  if (hostile !== personal) {
+    console.log(`REFUSING TO RUN. The parent process carries SUPABASE_PROJECT_ID="${hostile}" and the proof needs "${personal}".`);
+    console.log('Run this entry so the tracked .env loads into the parent, or set the variable in the parent shell.');
+    console.log('A pass under a clean environment would prove nothing: the route this helper closes would not be loaded.');
+    return 2;
+  }
+  console.log(`SUPABASE_PROJECT_ID IS PRESENT IN THIS PROCESS: "${hostile}".`);
+  console.log('That is the founder\'s personal project id, and it is the exact override that destroyed the personal');
+  console.log('database on 2026-08-09. It stays in this process for the whole run. Every CLI call below is made');
+  console.log('through the shared helper, which states the slot identity positively in the child environment.');
+  console.log('');
+
+  console.log('=== (a) BEFORE: docker identity snapshot of the personal stack (a READ; nothing is written) ===');
+  const before = personalDockerSnapshot(personal);
+  for (const line of before.containers) console.log(`  ${line}`);
+  for (const line of before.volumes) console.log(`  ${line}`);
+  console.log(`  ${before.containers.length} containers, ${before.volumes.length} volumes recorded`);
+  console.log('');
+
+  let failure: string | null = null;
+  let slot1Canary: string | null = null;
+  let slot2Canary: string | null = null;
+  let preReadShown = false;
+  let resetDone = false;
+
+  try {
+    console.log('=== (b) preflight: both slots answer on their own port block, through the helper ===');
+    const statuses = new Map<number, StackStatus>();
+    for (const slot of [1, 2]) {
+      let read = proveSlotTarget(slot, `preflight of slot ${slot}`);
+      if (!read.status) {
+        console.log(`  slot ${slot} reported no running stack (${read.notRunning}); starting it — slots are pool property`);
+        startSlotStack(slot);
+        read = proveSlotTarget(slot, `preflight of slot ${slot}`);
+      }
+      if (!read.status) throw new Error(`slot ${slot} still reports no running stack: ${read.notRunning}`);
+      statuses.set(slot, read.status);
+      console.log(`  slot ${slot}  API ${read.status.apiUrl}  DB ${redactDbUrl(read.status.dbUrl)}`);
+    }
+    const slot1 = statuses.get(1) as StackStatus;
+    const slot2 = statuses.get(2) as StackStatus;
+    console.log('');
+
+    console.log('=== (c) canary row in slot 1 — the bystander that must SURVIVE ===');
+    await writeCanary(1, slot1, 'slot-1 canary');
+    console.log(`  slot 1 canary written: ${JSON.stringify(await readCanary(1, slot1))}`);
+    console.log('');
+
+    console.log('=== (d) canary row in slot 2 — the row the reset must DESTROY ===');
+    await writeCanary(2, slot2, 'slot-2 canary');
+    console.log(`  slot 2 canary written: ${JSON.stringify(await readCanary(2, slot2))}`);
+    console.log('');
+
+    console.log('=== (e) the pre-destructive identity read on slot 2 ===');
+    const read = proveSlotTarget(2, 'reset');
+    if (!read.status) throw new Error(`slot 2 reported no running stack: ${read.notRunning}`);
+    preReadShown = true;
+    console.log('  the line above is the helper stating which project the CLI resolved, before anything destructive.');
+    console.log('');
+
+    console.log('=== (f) supabase db reset, aimed at slot 2, through the helper, hostile variable present ===');
+    await resetSlotDatabase(2);
+    resetDone = true;
+    console.log('  the reset exited zero.');
+    console.log('');
+
+    console.log('=== (g) the canaries after the reset ===');
+    slot1Canary = await readCanary(1, slot1);
+    slot2Canary = await readCanary(2, slot2);
+    console.log(`  slot 1 canary: ${JSON.stringify(slot1Canary)}`);
+    console.log(`  slot 2 canary: ${JSON.stringify(slot2Canary)}`);
+    console.log('');
+  } catch (err) {
+    failure = diagnostic((err as Error).message, 2000);
+    console.log('');
+    console.log(`STOPPED: ${failure}`);
+    console.log('');
+  }
+
+  console.log('=== (h) AFTER: the same docker identity snapshot, compared on identity fields only ===');
+  const after = personalDockerSnapshot(personal);
+  for (const line of after.containers) console.log(`  ${line}`);
+  for (const line of after.volumes) console.log(`  ${line}`);
+  const differences = snapshotDifferences(before, after);
+  if (differences.length === 0) console.log('  IDENTICAL: same container ids, created timestamps, images, port bindings, volumes and volume CreatedAt.');
+  else for (const line of differences) console.log(`  DIFFERENT: ${line}`);
+  console.log('');
+
+  const criteria: [string, boolean][] = [
+    ['the hostile variable was present in the parent process', hostile === personal],
+    ['the identity pre-read named slot 2 before the reset', preReadShown],
+    ['the reset ran through the helper and exited zero', resetDone],
+    ['the slot 2 canary is GONE — the reset acted on slot 2', resetDone && slot2Canary === null],
+    ['the slot 1 canary SURVIVES — the reset acted on nothing else', slot1Canary === 'slot-1 canary'],
+    ['the personal docker snapshots are equal on every identity field', differences.length === 0],
+  ];
+  console.log('=== the done-criterion, item by item ===');
+  for (const [what, met] of criteria) console.log(`  ${met ? 'PASS' : 'FAIL'}  ${what}`);
+  const passed = criteria.every(([, met]) => met);
+  console.log('');
+  console.log(passed ? 'THE SPIKE PASSED: the wall holds under the exact condition that broke it.' : 'THE SPIKE FAILED. The wall is NOT proven.');
+  console.log('');
+  console.log('Residue: slot 1 keeps a public.spike_canary table until its next occupancy, which resets it.');
+  console.log('END OF S3 TRANSCRIPT (re-proof)');
+  return passed ? 0 : 1;
+}
+
 function usage(): void {
-  console.error('usage: bun tests/at/harness/db-pool.ts <setup|status>');
+  console.error('usage: bun tests/at/harness/db-pool.ts <setup|status|spike>');
 }
 
 async function main(argv: string[]): Promise<number> {
   const command = argv[0] ?? '';
   if (command === 'setup') return setup();
+  if (command === 'spike') return spike();
   if (command === 'status') {
     for (const view of readPool()) {
       console.log(
