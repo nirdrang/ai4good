@@ -37,7 +37,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
@@ -124,6 +124,22 @@ export function slotProjectId(slot: number): string {
   return `ai4good-slot-${assertSlotNumber(slot)}`;
 }
 
+/**
+ * A slot's PERMANENT identity, used for one purpose: naming the occupancy claim file (ruling T6).
+ *
+ * The runner's claim path is built from a project id and an api port, and for a repository stack
+ * both are permanent. A SLOT's ports are not: `prepare` lawfully rewrites them from the item
+ * tree's own config on every occupancy, so two runs bracketing a port change would hold two
+ * DIFFERENT claim files for one slot and neither would see the other. The claim therefore keys on
+ * the slot's project id — which never changes — and on a fixed sentinel in place of the port.
+ *
+ * The sentinel is 0, which is not a port. It only has to be constant. The PowerShell helper globs
+ * `at-verify-ai4good-slot-N-*.lock`, so it matches this and every earlier name unchanged.
+ */
+export function slotClaimKey(slot: number): LocalConfig {
+  return { projectId: slotProjectId(slot), apiPort: 0, dbPort: 0 };
+}
+
 /* --------------------------------------------------------------------------- config.toml scan */
 
 interface ConfigEntry {
@@ -206,7 +222,10 @@ export interface PortMapping {
  * The identity overlay's port rule (ruling E4).
  *
  *   - a LISTENER port (see `LISTENER_PORTS`) in 54000–54999 moves by 1000 per slot;
- *     `edge_runtime.inspector_port` moves by 10 per slot, because the inspector is not in that band.
+ *     `edge_runtime.inspector_port` set to EXACTLY 8083 moves by 10 per slot, because the ruled
+ *     inspector value is 8083 and it is not in that band. Any OTHER inspector value falls to the
+ *     generic rule below, so it maps when it is in band and refuses when it is not — a +10 applied
+ *     to a value nobody ruled is a guess, and D2 forbids guesses.
  *   - a listener port outside those bands REFUSES loudly as unmappable. A guess here is a port
  *     collision with software nobody in this process knows about, so a person decides.
  *   - any OTHER port-valued key passes through unchanged: it addresses somebody else's service and
@@ -243,7 +262,7 @@ export function portMappings(text: string, slot: number): { mappings: PortMappin
       problems.push(`[${entry.section}] ${entry.key} = ${entry.value} is not a plain port number, so the slot overlay cannot move it`);
       continue;
     }
-    if (entry.section === 'edge_runtime' && entry.key === 'inspector_port') {
+    if (entry.section === 'edge_runtime' && entry.key === 'inspector_port' && from === PERSONAL_INSPECTOR_PORT) {
       mappings.push({ section: entry.section, key: entry.key, line: entry.line, from, to: from + slot * 10 });
       continue;
     }
@@ -334,6 +353,24 @@ function refusePersonal(slotConfigText: string, itemRoot: string, act: string): 
   }
 }
 
+/**
+ * The same guard, over a slot's config AS IT SITS ON DISK (rulings T7 and F1).
+ *
+ * `occupy` and `prepare` run the guard over text they hold in hand. The other three entry points —
+ * reset, stop and the env emitter — are exported and reachable directly, so each runs the guard
+ * for itself over the file. A guard that only the usual caller runs is a convention, not a guard.
+ */
+function refusePersonalSlotConfig(slot: number, itemRoot: string, act: string): void {
+  const configPath = slotConfigPath(slot);
+  if (!existsSync(configPath)) {
+    throw new Error(
+      `refusing to ${act} slot ${slot}: it has no config at ${configPath}, so it cannot be shown to be outside the ` +
+        `founder's personal stack. Run \`bun tests/at/harness/db-pool.ts setup\`. Nothing was done.`,
+    );
+  }
+  refusePersonal(readFileSync(configPath, 'utf8'), itemRoot, `${act} slot ${slot}`);
+}
+
 /* ------------------------------------------------------------------------- the path closure */
 
 /** Config settings whose value names a file or directory the stack has to be able to read. */
@@ -366,7 +403,14 @@ function stringValues(raw: string): string[] {
  *
  * A path that points OUTSIDE `supabase/` is a different thing: the mirror cannot deliver it, so
  * the slot would start half-provisioned and grade against a file it does not have. That refuses
- * loudly and a person decides.
+ * loudly and a person decides. The same applies to the two directories the mirror EXCLUDES
+ * (`MIRROR_EXCLUSIONS`): a config that names a file inside the CLI's own runtime state is naming
+ * something the slot will not have, so the closure stays honest about the exclusions.
+ *
+ * A VALUE THIS SCANNER CANNOT SEE REFUSES rather than passing. `scanConfig` reads one line per
+ * setting, so a multi-line array — `sql_paths = [` on its own line — yields the value `[` and no
+ * paths at all. For the OVERLAY an invisible value is harmless: it is copied verbatim. For the
+ * CLOSURE it is a missed refusal, which is the failure this function exists to prevent.
  */
 export function pathClosureProblems(configText: string, itemRoot: string): string[] {
   const problems: string[] = [];
@@ -374,6 +418,14 @@ export function pathClosureProblems(configText: string, itemRoot: string): strin
 
   for (const entry of scanConfig(configText)) {
     if (!PATH_KEYS.has(entry.key)) continue;
+    if (entry.value.startsWith('[') && !entry.value.includes(']')) {
+      problems.push(
+        `[${entry.section}] ${entry.key} opens an array that does not close on the same line, so this check ` +
+          `cannot see the paths it names — write the value on one line (${entry.key} = ["./a.sql", "./b.sql"]) ` +
+          `and run this again`,
+      );
+      continue;
+    }
     for (const value of stringValues(entry.value)) {
       if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
         problems.push(`[${entry.section}] ${entry.key} names "${value}", which is a URL rather than a file the slot can be given`);
@@ -390,6 +442,15 @@ export function pathClosureProblems(configText: string, itemRoot: string): strin
           `[${entry.section}] ${entry.key} names "${value}", which is outside supabase/ — the slot mirror copies supabase/ ` +
             `and nothing else, so this file would be missing from the slot`,
         );
+        continue;
+      }
+      const first = inside.split(/[\\/]/)[0];
+      if (MIRROR_EXCLUSIONS.includes(first)) {
+        problems.push(
+          `[${entry.section}] ${entry.key} names "${value}", which resolves into supabase/${first} — the slot mirror ` +
+            `deliberately does not copy that directory (it is the CLI's own runtime state about another stack), so ` +
+            `this file would be missing from the slot`,
+        );
       }
     }
   }
@@ -400,26 +461,82 @@ export function pathClosureProblems(configText: string, itemRoot: string): strin
 /* -------------------------------------------------------------------------------- the mirror */
 
 /**
- * Copy the item tree's `supabase/` into the slot ENTIRE, having first removed the slot's copy.
+ * What the mirror does NOT carry into a slot (rulings T3, F3 and T11). Top-level entries of
+ * `supabase/` only, so the list cannot quietly grow into a filter on file names.
+ *
+ *   - `.temp` and `.branches` are the CLI's OWN RUNTIME STATE, not project source. `.temp` holds
+ *     the CLI's record of the stack it last ran — the founder's personal one — and `.gitignore`
+ *     itself says its `start-secrets/**` "must NEVER be committed". Copying it carries another
+ *     stack's identity residue and its secrets into every slot.
+ *   - `config.toml` is the slot's IDENTITY, and the item tree's copy carries the personal
+ *     identity. Excluding it means no slot config ever holds that identity, not even for the
+ *     instant between the mirror and the regenerated write — and a crash in that instant leaves
+ *     NO config rather than a personal one.
+ */
+export const MIRROR_EXCLUSIONS: readonly string[] = ['.temp', '.branches', 'config.toml'];
+
+/**
+ * Every symlink under a directory tree. A pre-copy scan, because a symlink is not a file the
+ * mirror can reproduce: `cpSync` would copy it as a link, and the link points wherever it likes —
+ * including straight back at the personal stack's own directory.
+ */
+function symlinksUnder(dir: string): string[] {
+  const found: string[] = [];
+  const walk = (current: string): void => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const full = join(current, entry.name);
+      if (entry.isSymbolicLink()) {
+        found.push(full);
+        continue; // never follow it — that is the whole point
+      }
+      if (entry.isDirectory()) walk(full);
+    }
+  };
+  walk(dir);
+  return found;
+}
+
+/**
+ * Copy the item tree's `supabase/` into the slot, having first removed the slot's copy.
  *
  * DELETE THEN COPY, never merge: the previous holder's leftover migration or leftover function is
  * exactly the state this pool exists to make impossible.
  *
- * ENTIRE, with nothing filtered out (ruling E3), and that is what makes `pathClosureProblems`
- * above provable: every path the config names under `supabase/` is in the slot exactly as the item
- * tree has it — present if present, absent if absent. A filter, however harmless it looks, turns
- * that guarantee into a claim about a list. (`README.md` and `.gitkeep` therefore travel into the
- * slot's `migrations/` too. The CLI reads only `<timestamp>_name.sql` there, and the runner's
- * migration proof counts exactly those, so they change nothing.)
+ * THE PROJECT SOURCE ENTIRE, and nothing else (ruling E3 as narrowed by T3, F3 and T11). Every
+ * path the config names under `supabase/` arrives in the slot exactly as the item tree has it —
+ * present if present, absent if absent — and `pathClosureProblems` refuses any config path that
+ * names one of the three excluded entries, so the closure guarantee stays honest about them.
+ * (`README.md` and `.gitkeep` therefore travel into the slot's `migrations/` too. The CLI reads
+ * only `<timestamp>_name.sql` there, and the runner's migration proof counts exactly those.)
+ *
+ * A SYMLINK ANYWHERE UNDER `supabase/` REFUSES THE WHOLE MIRROR (ruling T13). The tree carries
+ * none today, so nothing breaks; one smuggled in later refuses loudly instead of being copied as
+ * a link into a directory the pool then resets.
  */
 export function mirrorItemTree(itemRoot: string, slot: number): void {
   const source = join(itemRoot, 'supabase');
   const destination = join(slotDir(slot), 'supabase');
   if (!existsSync(source)) throw new Error(`${source} does not exist — there is no project to give the slot`);
 
+  const links = symlinksUnder(source);
+  if (links.length) {
+    throw new Error(
+      `refusing to mirror ${source} into slot ${slot}: it contains ${links.length} symlink(s) — ${links.join(', ')}. ` +
+        `A symlink is not a file the mirror can reproduce, and a link copied into a slot points wherever it likes, ` +
+        `including outside the pool. Replace them with real files, or decide by hand. Nothing was copied.`,
+    );
+  }
+
   rmSync(destination, { recursive: true, force: true });
   mkdirSync(destination, { recursive: true });
-  cpSync(source, destination, { recursive: true });
+  cpSync(source, destination, {
+    recursive: true,
+    filter: (from: string) => {
+      const inside = relative(source, from);
+      if (inside === '') return true;
+      return !MIRROR_EXCLUSIONS.includes(inside.split(/[\\/]/)[0]);
+    },
+  });
 }
 
 /* --------------------------------------------------------------------------- the reservation */
@@ -498,13 +615,13 @@ export function readPool(): PoolSlotView[] {
     } catch {
       config = null;
     }
+    // The claim is keyed on the slot's PERMANENT identity (ruling T6), so this read finds it even
+    // when the slot has no config yet and even after `prepare` has moved the slot's ports.
     let occupiedBy: Holder | null = null;
-    if (config) {
-      try {
-        occupiedBy = JSON.parse(readFileSync(stackLockPath(config), 'utf8')) as Holder;
-      } catch {
-        occupiedBy = null;
-      }
+    try {
+      occupiedBy = JSON.parse(readFileSync(stackLockPath(slotClaimKey(slot)), 'utf8')) as Holder;
+    } catch {
+      occupiedBy = null;
     }
     views.push({
       slot,
@@ -549,6 +666,13 @@ export interface OccupyOptions {
  *
  * The claim is the runner's existing stack lock, with the takeover policy the ruled text asks
  * for: a DEAD holder pid is broken loudly, a live holder is never displaced at any age.
+ *
+ * THE OVERRIDE SKIPS ADMISSION CONTROL, NOT OWNERSHIP (ruling T5). `AT_DB_SLOT` is ruled — the
+ * founder, the evidence gate and the spike all use it — and slot STATE is disposable by design, so
+ * the reservation is not what protects a slot; the occupancy claim is, and the override keeps it.
+ * But taking a slot another item is holding is a silent collision and costs nothing to refuse, so
+ * an override run refuses loudly when the target slot's reservation names a DIFFERENT item than
+ * this run can derive. A run that can derive no item at all treats ANY reservation as foreign.
  */
 export function occupy(requirement: string, options: OccupyOptions = {}): Occupancy {
   let slot: number;
@@ -559,6 +683,25 @@ export function occupy(requirement: string, options: OccupyOptions = {}): Occupa
     slot = assertSlotNumber(options.slot);
     item = options.item ?? null;
     via = 'override';
+
+    let derived: string | null = options.item ?? null;
+    if (derived === null) {
+      try {
+        derived = itemFromBranch(currentBranch());
+      } catch {
+        derived = null; // no item derivable — every reservation is then somebody else's
+      }
+    }
+    const reserved = readReservation(slot);
+    if (reserved && reserved.item !== derived) {
+      throw new Error(
+        `refusing to take slot ${slot} with AT_DB_SLOT: it is reserved for ${reserved.item} ` +
+          `(branch ${reserved.branch || 'unrecorded'}, taken ${reserved.at}, holder ${reserved.holder}) and this run ` +
+          `${derived === null ? 'can derive no item of its own' : `belongs to ${derived}`}. Every occupancy resets the ` +
+          `slot's database from its own tree, so this run would rebuild that item's database under it. Use a slot the ` +
+          `pool shows free, or release that reservation first.`,
+      );
+    }
   } else {
     item = options.item ?? itemFromBranch(currentBranch());
     const reserved = slotForItem(item);
@@ -577,12 +720,23 @@ export function occupy(requirement: string, options: OccupyOptions = {}): Occupa
   const dir = slotDir(slot);
   const configPath = slotConfigPath(slot);
   if (!existsSync(configPath)) {
-    throw new Error(`slot ${slot} has no config at ${configPath} — the pool has not been set up on this machine. Run \`bun tests/at/harness/db-pool.ts setup\`.`);
+    // TWO CAUSES, and the repair is the same one command (ruling T11). Either the pool was never
+    // set up on this machine, or a `prepare` died between the mirror — which removes the slot's
+    // config on purpose, so no slot ever holds the personal identity — and the regenerated write
+    // that immediately follows it. A missing config is the safe end of that window, never a wrong
+    // one, and it is not permanent.
+    throw new Error(
+      `slot ${slot} has no config at ${configPath}. Either the pool was never set up on this machine, or a ` +
+        `previous run stopped between the mirror and the write that follows it — the mirror removes the slot's ` +
+        `config on purpose, so a slot never carries the personal identity even for an instant. Either way the ` +
+        `repair is one command: \`bun tests/at/harness/db-pool.ts setup\`.`,
+    );
   }
   refusePersonal(readFileSync(configPath, 'utf8'), REPO_ROOT, `occupy slot ${slot}`);
 
   const config = readLocalConfig(dir);
-  const claim = acquireStackLock(config, requirement, { takeover: 'dead-pid-only' });
+  // Keyed on the slot's PERMANENT identity, never on the config's current ports (ruling T6).
+  const claim = acquireStackLock(slotClaimKey(slot), requirement, { takeover: 'dead-pid-only' });
 
   // The reservation is re-read AFTER the claim. Between the lookup above and this line the
   // coordinator may have released the slot and given it to another item, and a run that resets a
@@ -689,6 +843,71 @@ export function foreignContainerNames(text: string, slotProject: string): string
   return [...new Set(names.filter((name) => !name.endsWith(`_${slotProject}`)))];
 }
 
+/**
+ * The Supabase container names in a piece of CLI output that DO belong to this slot — the positive
+ * half of the same instrument (ruling T2).
+ *
+ * MEASURED BEFORE THIS WAS WRITTEN, 2026-08-10, read-only, both slots: `status -o json` through the
+ * shared helper prints exactly two such tokens on stderr —
+ * `Stopped services: [supabase_imgproxy_ai4good-slot-N supabase_pooler_ai4good-slot-N]` — and zero
+ * tokens that belong to any other project. So the evidence this check demands is evidence the CLI
+ * really does produce.
+ *
+ * Absence is not innocence: `foreignContainerNames` finds nothing in an output that names no
+ * container at all, which is exactly the hybrid shape the 2026-08-09 incident wore (the slot's
+ * ports beside another project's containers). A destructive act therefore requires at least one
+ * name that IS this slot's, never merely the lack of one that is not.
+ *
+ * Residual, recorded rather than hidden: those two tokens exist because the tracked config disables
+ * imgproxy and the pooler. A config that enables both would print no "Stopped services" line, this
+ * check would find no evidence, and the destructive act would REFUSE. That is the fail-closed
+ * direction (ruling E7) and it is loud, but it is a real coupling to the config and to the pinned
+ * CLI's output shape (residual F4 in the plan).
+ */
+export function ownContainerNames(text: string, slotProject: string): string[] {
+  const names = [...String(text ?? '').matchAll(/\bsupabase_[A-Za-z0-9][A-Za-z0-9_.-]*/g)].map((match) => match[0]);
+  return [...new Set(names.filter((name) => name.endsWith(`_${slotProject}`)))];
+}
+
+/**
+ * DOCKER'S OWN ANSWER, on the destructive path, every time (ruling T2).
+ *
+ * The CLI's status output is one instrument and it is coupled to the CLI's version. Docker is a
+ * second, independent one: before a reset, docker must show this slot's OWN database container
+ * running. A docker read is the only interaction anything here is permitted to have with the
+ * founder's stack, and it is unrestricted on slots.
+ *
+ * It fails closed. If docker cannot be run, or reports no container of this slot's own, the reset
+ * refuses: an instrument that cannot answer is not an answer of "yes".
+ */
+export function slotDbContainers(slot: number): string[] {
+  const project = slotProjectId(slot);
+  const res = spawnSync('docker', ['ps', '--filter', `name=supabase_db_${project}`, '--format', '{{.Names}}'], {
+    env: childEnv(),
+    encoding: 'utf8',
+  });
+  if (res.error) throw new Error(`docker could not be run to confirm slot ${slot}'s database container (${diagnostic((res.error as Error).message)})`);
+  if (res.status !== 0) throw new Error(`\`docker ps\` exited ${res.status} while confirming slot ${slot}'s database container: ${diagnostic(res.stderr) || '(no error output)'}`);
+  return (res.stdout ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function proveSlotDbContainer(slot: number, act: string): void {
+  const project = slotProjectId(slot);
+  const names = slotDbContainers(slot);
+  const own = names.filter((name) => name.includes(project));
+  if (own.length !== names.length || own.length === 0) {
+    throw new Error(
+      `REFUSING TO ${act.toUpperCase()} SLOT ${slot}: docker does not confirm this slot's own database container. ` +
+        `\`docker ps\` named ${names.length ? names.join(', ') : 'no running container'} for ${project}. ` +
+        `Start the slot (\`bun tests/at/harness/db-pool.ts setup\`) and try again. Nothing was done.`,
+    );
+  }
+  console.log(`db-pool — docker confirms slot ${slot}'s own database container before the ${act}: ${own.join(', ')}`);
+}
+
 export interface SlotIdentityRead {
   /** The stack's own report, when a stack answered. */
   status: StackStatus | null;
@@ -708,10 +927,18 @@ export interface SlotIdentityRead {
  *   3. the ports and keys the stack reports are the slot's own, loopback, locally issued
  *      (`localStackProblems`, against the SLOT's config).
  *
+ * A DESTRUCTIVE act adds a fourth, and it is the one that closes the vacuous pass (ruling T2):
+ *
+ *   4. at least one Supabase container name in the output IS this slot's own.
+ *
+ * The first three can all hold over an output that names no container at all, and an output that
+ * names no container is precisely what the 2026-08-09 hybrid produced when it reported the slot's
+ * ports while resolving another project. Absence of contrary evidence is not identity.
+ *
  * A stack that is simply not running is not a mismatch: it is reported as `notRunning` so the
  * caller can decide (there is nothing to stop), and only a real disagreement throws.
  */
-export function proveSlotTarget(slot: number, act: string, itemRoot: string = REPO_ROOT): SlotIdentityRead {
+export function proveSlotTarget(slot: number, act: string, itemRoot: string = REPO_ROOT, destructive = false): SlotIdentityRead {
   const project = slotProjectId(slot);
   const res: CliResult = runSupabaseCli(slotTarget(slot), ['status', '-o', 'json']);
   if (res.error) {
@@ -747,7 +974,19 @@ export function proveSlotTarget(slot: number, act: string, itemRoot: string = RE
     );
   }
 
-  console.log(`db-pool — slot ${slot} identity proven before the ${act}: project ${project}, api ${config.apiPort}, db ${config.dbPort}`);
+  const own = ownContainerNames(raw, project);
+  if (destructive && own.length === 0) {
+    throw new Error(
+      `REFUSING TO ${act.toUpperCase()} SLOT ${slot}: the identity read names no container belonging to ${project}, ` +
+        `so it carries no positive evidence of which project the CLI resolved. The ports alone are not identity — ` +
+        `the 2026-08-09 incident reported the right ports while resolving another project. Nothing was done.`,
+    );
+  }
+
+  console.log(
+    `db-pool — slot ${slot} identity proven before the ${act}: project ${project}, api ${config.apiPort}, db ${config.dbPort}` +
+      (own.length ? `, containers ${own.join(', ')}` : ''),
+  );
   return { status, notRunning: null };
 }
 
@@ -756,20 +995,26 @@ export function proveSlotTarget(slot: number, act: string, itemRoot: string = RE
  * that is what "structurally on the destructive path" means, as opposed to a rule someone follows.
  */
 export async function resetSlotDatabase(slot: number, itemRoot: string = REPO_ROOT): Promise<StackStatus> {
-  const read = proveSlotTarget(slot, 'reset', itemRoot);
+  // The BROAD guard first (rulings T7 and F1). D5's ruled sentence names "occupy, prepare, reset or
+  // emit env", and this is an exported entry point a caller reaches directly — the spike does — so
+  // it runs the guard itself instead of trusting whoever called it to have run it.
+  refusePersonalSlotConfig(slot, itemRoot, 'reset');
+  const read = proveSlotTarget(slot, 'reset', itemRoot, true);
   if (!read.status) {
     throw new Error(
       `refusing to reset slot ${slot}: it reported no running stack, so its identity could not be proven ` +
         `(${read.notRunning}). Start the slot first; nothing was reset.`,
     );
   }
+  proveSlotDbContainer(slot, 'reset');
   await resetLocalDatabase(slotTarget(slot));
   return read.status;
 }
 
-/** `stop` on a slot, behind the same read. A slot that reports no stack has nothing to stop. */
+/** `stop` on a slot, behind the same guard and the same read. A slot with no stack has nothing to stop. */
 export function stopSlotStack(slot: number, itemRoot: string = REPO_ROOT): void {
-  const read = proveSlotTarget(slot, 'stop', itemRoot);
+  refusePersonalSlotConfig(slot, itemRoot, 'stop');
+  const read = proveSlotTarget(slot, 'stop', itemRoot, true);
   if (!read.status) {
     console.log(`db-pool — slot ${slot} reported no running stack (${read.notRunning}); there is nothing to stop`);
     return;
@@ -808,13 +1053,15 @@ export async function prepare(occupancy: Occupancy, itemRoot: string = REPO_ROOT
     );
   }
 
+  // THE MIRROR AND THE CONFIG WRITE ARE ONE STEP (ruling T11). The mirror excludes `config.toml`
+  // and removes the slot's copy, so between these two statements the slot has NO config — never the
+  // item tree's one, which carries the personal identity. A crash in the window leaves a slot with
+  // nothing, which `occupy` refuses loudly and one `setup` repairs. The write is unconditional:
+  // the mirror has just deleted whatever was there.
   mirrorItemTree(itemRoot, slot);
-
   const configPath = slotConfigPath(slot);
-  if (!existsSync(configPath) || readFileSync(configPath, 'utf8') !== generated) {
-    mkdirSync(join(dir, 'supabase'), { recursive: true });
-    writeFileSync(configPath, generated, 'utf8');
-  }
+  mkdirSync(join(dir, 'supabase'), { recursive: true });
+  writeFileSync(configPath, generated, 'utf8');
 
   const hash = hashConfig(generated);
   const marker = readMarker(slot);
@@ -851,8 +1098,14 @@ export async function prepare(occupancy: Occupancy, itemRoot: string = REPO_ROOT
  * The coordinates a suite is allowed to see. Nothing else about the slot travels into the child,
  * and the personal guard runs here too: env is how a stack reaches a test, so emitting the wrong
  * one is as destructive as resetting the wrong one.
+ *
+ * TWO CHECKS, and they see different things (rulings T7 and F1). The broad guard reads the slot's
+ * CONFIG, which is where a personal identity would arrive from; the inline checks below read the
+ * STATUS, which is what actually answered, and the config guard cannot see that.
  */
-export function stackEnv(occupancy: Occupancy, status: StackStatus): Record<string, string> {
+export function stackEnv(occupancy: Occupancy, status: StackStatus, itemRoot: string = REPO_ROOT): Record<string, string> {
+  refusePersonalSlotConfig(occupancy.slot, itemRoot, 'emit the coordinates of');
+
   for (const [label, raw] of [
     ['AT_SUPABASE_URL', status.apiUrl],
     ['AT_SUPABASE_DB_URL', status.dbUrl],
@@ -915,6 +1168,13 @@ async function setup(): Promise<number> {
     mkdirSync(join(poolRoot(), 'reservations'), { recursive: true });
     console.log(`  wrote ${slotConfigPath(slot)} (project_id ${slotProjectId(slot)})`);
 
+    // STOP BEFORE START (ruling F6). The marker written below means "the stack was started with
+    // exactly this config", and S2's own transcript measured that `supabase start` on an
+    // already-running project exits zero having started nothing. A no-op start would write a
+    // marker that says the slot runs a config it has never read. Stopping first removes the
+    // condition instead of measuring around it; on a slot that is down this only prints a line.
+    console.log(`  stopping slot ${slot} first, so the start below is a real one`);
+    stopSlotStack(slot, REPO_ROOT);
     console.log(`  starting slot ${slot} — this pulls container images on a first run`);
     startSlotStack(slot);
     writeFileSync(slotMarkerPath(slot), JSON.stringify({ configHash: hashConfig(generated), at: new Date().toISOString(), pid: process.pid }), 'utf8');
@@ -1121,8 +1381,21 @@ async function spike(): Promise<number> {
   let slot2Canary: string | null = null;
   let preReadShown = false;
   let resetDone = false;
+  let held1: Occupancy | null = null;
+  let held2: Occupancy | null = null;
 
   try {
+    // THE SPIKE TAKES BOTH SLOTS FIRST (ruling T4). D6's own sentence — "the occupancy claim still
+    // applies" for override runs — binds this run too: it writes to slot 1 and resets slot 2, so a
+    // verify window opening on either one under it would be exactly the collision the pool exists
+    // to prevent. Both claims are released in the `finally` below.
+    console.log('=== (a2) occupying both slots, dead-pid-only, before anything is touched ===');
+    held1 = occupy('spike', { slot: 1 });
+    held2 = occupy('spike', { slot: 2 });
+    console.log(`  slot 1 claim ${held1.claim.file}`);
+    console.log(`  slot 2 claim ${held2.claim.file}`);
+    console.log('');
+
     console.log('=== (b) preflight: both slots answer on their own port block, through the helper ===');
     const statuses = new Map<number, StackStatus>();
     for (const slot of [1, 2]) {
@@ -1151,7 +1424,7 @@ async function spike(): Promise<number> {
     console.log('');
 
     console.log('=== (e) the pre-destructive identity read on slot 2 ===');
-    const read = proveSlotTarget(2, 'reset');
+    const read = proveSlotTarget(2, 'reset', REPO_ROOT, true);
     if (!read.status) throw new Error(`slot 2 reported no running stack: ${read.notRunning}`);
     preReadShown = true;
     console.log('  the line above is the helper stating which project the CLI resolved, before anything destructive.');
@@ -1174,6 +1447,11 @@ async function spike(): Promise<number> {
     console.log('');
     console.log(`STOPPED: ${failure}`);
     console.log('');
+  } finally {
+    release(held2);
+    release(held1);
+    console.log('=== both slot claims released ===');
+    console.log('');
   }
 
   console.log('=== (h) AFTER: the same docker identity snapshot, compared on identity fields only ===');
@@ -1187,10 +1465,19 @@ async function spike(): Promise<number> {
 
   const criteria: [string, boolean][] = [
     ['the hostile variable was present in the parent process', hostile === personal],
+    // Ruling F2: without this, a slot 2 canary READ that throws after a good reset is swallowed by
+    // the catch, and every remaining criterion passes with the canary never read at all.
+    ['the spike body completed without an exception', failure === null],
     ['the identity pre-read named slot 2 before the reset', preReadShown],
     ['the reset ran through the helper and exited zero', resetDone],
     ['the slot 2 canary is GONE — the reset acted on slot 2', resetDone && slot2Canary === null],
     ['the slot 1 canary SURVIVES — the reset acted on nothing else', slot1Canary === 'slot-1 canary'],
+    // Ruling T12: two empty docker queries compare EQUAL, so the central instrument would report
+    // IDENTICAL while having observed nothing at all.
+    [
+      'the BEFORE snapshot recorded at least one personal container and one personal volume',
+      before.containers.length > 0 && before.volumes.length > 0,
+    ],
     ['the personal docker snapshots are equal on every identity field', differences.length === 0],
   ];
   console.log('=== the done-criterion, item by item ===');
