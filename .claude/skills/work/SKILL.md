@@ -91,15 +91,24 @@ falsely In Progress.
    **Create it from `origin/main` after a fetch, never from local `main`** — local `main` can carry
    unpushed work that is not yours (a founder commit landed there mid-session once), and a pull
    request is precisely where someone else's commit becomes a wrong attribution.
-5. Claim: assign, In Progress.
-6. Spawn the conductor: `Agent(subagent_type: "conductor", model: "sonnet",
-   run_in_background: true, prompt: <item id, branch name, what has already happened>)`.
+5. **Reserve a database slot, BEFORE the claim** — `Reserve-DbSlot -Item <id> -Branch <branch>`
+   from `loop/work/db-slots.ps1`. There are two slots, so two items verify at once without
+   resetting each other's database. **A full pool REJECTS this item at start** — say so, name the
+   two items holding the slots, and stop; there is no queue and no flagged limbo. **An item that
+   needs no database skips the reservation**, and you say at start that it is skipping it, so a
+   later "why has it no slot?" has an answer in the record. Reserve before claiming: a reservation
+   that fails must not leave an item falsely In Progress.
+6. Claim: assign, In Progress.
+7. Spawn the conductor: `Agent(subagent_type: "conductor", model: "sonnet",
+   run_in_background: true, prompt: <item id, branch name, reserved database slot, what has
+   already happened>)`.
    **A spawn prompt is item facts only.** It states what to RESOLVE, never a resolved value — no
    chain, no parent, no label — and it never carries process instructions, because process lives
    in the contracts and a spawn prompt is reviewed by nobody. One once told an item to queue
    auto-merge at pull-request time, which would have merged it before a single gate ran; Gate 1
-   caught it on the plan.
-7. **Record the chain FOR the agent's worktree, right after the spawn** (founder 2026-08-07):
+   caught it on the plan. The reserved slot is an item fact and belongs here: only the coordinator
+   reserves, and the item's verify runs have to know which slot they own.
+8. **Record the chain FOR the agent's worktree, right after the spawn** (founder 2026-08-07):
    `Set-ChainForWorktree <worktreePath> <branch> <item> <chain>` from `work-lib.ps1`, using the
    chain you already walked in step 1 — **as an array of `@{ id; label }` nodes, never a
    sentence** (a prose chain fails validation and the stamp prints `CHAIN UNRESOLVED`). The chain
@@ -108,7 +117,7 @@ falsely In Progress.
    with no parents, which is the one thing the stamp exists to show. This is not a fact handed to
    the agent: it is the coordinator filing what only the coordinator can read, where the hook
    will look for it.
-8. **Record the spawner too**: `Set-OwnerForWorktree <worktreePath> <yourSessionId>` — the
+9. **Record the spawner too**: `Set-OwnerForWorktree <worktreePath> <yourSessionId>` — the
    session id is the GUID in your scratchpad path. The supervision tree prints in EVERY session
    opened in this folder, so each agent line carries whose agent it is: `[this session's agent]`
    here, `[ANOTHER session's agent]` in a parallel session (founder 2026-08-09 — unlabeled agent
@@ -167,10 +176,13 @@ credit-dead account, and a reset time already past rolls a full day.
 
 The conductor reports the merge. Then:
 
-1. **Sweep**: remove the item's worktree, its generated `worktree-agent-*` branch, and its
-   artifacts directory — after confirming the raw critiques and distillates were committed into
-   the record by the fix and audit sittings. Only you can sweep — the permission classifier
-   blocks subagents from removing a worktree.
+1. **Sweep**: release the database slot, then remove the item's worktree, its generated
+   `worktree-agent-*` branch, and its artifacts directory — after confirming the raw critiques and
+   distillates were committed into the record by the fix and audit sittings. Only you can sweep —
+   the permission classifier blocks subagents from removing a worktree.
+   **`Release-DbSlot -Item <id>`** from `loop/work/db-slots.ps1` gives the slot back. It refuses a
+   reservation naming a different item, and it refuses while a verify window is still open on that
+   slot — both refusals are loud, and both mean the sweep is early, not that the helper is broken.
    **`locked` does NOT mean an agent is alive** (measured 2026-08-07). The lock reason names the
    PARENT SESSION's pid, not the agent's — read it and you will find your own `claude.exe
    --resume <this session>`. It clears when the platform tears the agent down cleanly, and
