@@ -111,10 +111,17 @@ project key `C--Users-nirdr-Downloads-ai4good`.
   spawn's `toolUseId` — the stamp is rendered from the chain cache `/work` maintains, which
   is exactly the ruled coordinator root (bullet 2). Unresolvable stays unattributed —
   degrade, never guess. A branch naming two items stays `unresolved` (unchanged).
+  FIX-PASS AMENDMENT (G2-1): the code applies the `$curStamp` fallback ONLY when the file
+  is a session file (`-not $isAgent`) — the draft applied it to every file, which let a
+  stamp quoted inside an agent transcript guess an item.
 - D4 **Tree-resolved responses feed the role table and `agentItem`** exactly as
   branch-resolved ones, so a sitting's tokens land under its item AND its role (ruled bullet
   3), and the kimi join keeps working. Join key note: subagents file base names carry an
-  `agent-` prefix — strip it, keys stay bare agentIds.
+  `agent-` prefix — strip it, keys stay bare agentIds. FIX-PASS AMENDMENT (G2-2): the
+  `$agentItem` assignment is SKIPPED for an agent file whose own records name two or more
+  items (the pre-pass `$fileItems` count) — the ambiguous agent's vendor spend stays
+  unjoined, per the floor note. The tree-fed assignment needs no guard: an ambiguous
+  agent never has a tree item.
 - D5 **`-Days` filters which transcripts are usage-scanned** (unchanged semantics). Meta
   files are ALWAYS all read — 872 tiny files, and edges must exist even when a parent
   transcript sits outside the window. Spawn-context (D3c) is captured only from scanned
@@ -182,7 +189,10 @@ that pass, not at draft time.
   - utility agents `agent-U1.jsonl` and `agent-U2.jsonl` (branch-less, usage) + metas
     (spawnDepth 1, each with its own toolUseId);
   - `agent-M1.jsonl`: records on TWO item branches (`…ai4dev-901…` and `…ai4dev-902…`)
-    plus branchless usage lines, + meta (parentAgentId C1) — the ambiguity case (G1-4);
+    plus branchless usage lines, + meta (parentAgentId C1) — the ambiguity case (G1-4).
+    ADDED AT THE FIX PASS (G2-1): a stamp line naming `AI4DEV-902` BEFORE the branchless
+    lines — if the stamp fallback leaks into agent files, A1's stamp-row counts, A9 and
+    A11 go red from the fixture's own bytes;
   - `agent-X1.jsonl`: usage lines, NO meta file — the `unmarked agent`, unattributed by
     design (G1-8);
   - `workflows/wf_1/agent-W1.jsonl` one level deeper in the session's `subagents` tree
@@ -192,13 +202,18 @@ that pass, not at draft time.
   - one background file INSIDE the fixture projects root, `<session>/tasks/bg.output`,
     carrying 3 transcript-shaped assistant-usage lines (G1-3);
   - a minimal kimi usage fixture under `-KimiRoot`, keyed by the BARE agentId `O1`, file
-    shape copied from the real store (G1-7);
+    shape copied from the real store (G1-7). ADDED AT THE FIX PASS (G2-2): a
+    `wd_agent-M1_*` kimi directory with turn-usage lines carrying distinctive amounts —
+    the ambiguous agent's spend, which must stay unjoined;
   - a chain cache with `AI4DEV-900 > AI4DEV-901`; `AI4DEV-902` stays chainless.
   It runs the report with the override parameters and `-Json` and asserts:
   - A1 the tree-mechanism agents' tokens land under `AI4DEV-901`: C1 via branch,
     O1/O2/E1/W1 via tree (W1 proves the nested store is scanned, D-1), U1 via spawn
     context; the coordinator's stamp lines split between `AI4DEV-901` and `AI4DEV-902`
-    as written.
+    as written. EXTENDED AT THE FIX PASS (G2-5): A1 also asserts `OutputTok` on each of
+    its rows, computed from the fixture's own measurements — branch = C1 + M1's first
+    branch line; tree = O1 + O2 + E1 + U1 + W1; stamp rows = each session segment —
+    computed, never hard-coded.
   - A2 the executor's tokens are under the item; the unattributed row carries none of them.
   - A3 `bg.output`'s 3 usage lines appear in no row; the response total equals exactly the
     assistant-usage line sum over ALL fixture `.jsonl` files — computed by the selftest
@@ -213,7 +228,9 @@ that pass, not at draft time.
   - A9 M1's branchless responses land in the unattributed row, never under C1's item; its
     branch-resolved records land under their own items (G1-4).
   - A10 the kimi row for `O1` joins to (`AI4DEV-901`, orchestrator) — the `agent-` prefix
-    strip and the tree-fed `agentItem` both hold (G1-7).
+    strip and the tree-fed `agentItem` both hold (G1-7). EXTENDED AT THE FIX PASS (G2-2):
+    the kimi table holds exactly ONE row (the O1 join) and its output tokens equal the O1
+    wire sum alone — the ambiguous M1's kimi spend stays unjoined.
   - A11 the unattributed row equals exactly X1's responses plus M1's branchless responses,
     and the printed unattributed % equals the value recomputed from the JSON totals, to the
     report's own rounding (G1-8).
@@ -360,3 +377,24 @@ the goal head):
 The board item expects the unattributed share to "drop sharply" as the headline evidence.
 The measured store says the honest headline is the attribution numbers above, not the
 percentage. This is flagged for the founder at the merge ruling; it blocks nothing now.
+
+## 9. Gate 2 rulings
+
+Ruled across the two halves of the fix-and-goal sitting, 2026-08-11. Full rulings with
+every claim quoted verbatim: `loop/items/AI4DEV-80/gate2-rulings.md`. Gate 2 is a panel
+of two readers. Reader one (terra via codex) landed six findings, ruled G2-1 through
+G2-6. Reader two (flash via opencode) died empty once, was ruled a relaunch, landed on
+the relaunch with six findings naming the SAME six defects — each subsumed by the
+standing ruling. The relaunched seat was NOT blind to reader one (it read the committed
+rulings and distillate), so its convergence carries no independence weight; every
+disposition stands on the code alone. One pre-existing exposure it observed outside its
+findings (session-file stamp corruption via a quoted stamp) is filed in words, not built.
+
+| ruling | outcome | lands in |
+|---|---|---|
+| G2-1 stamp fallback reaches agent files | accept — `-not $isAgent` guard at the fallback site; M1 stamp-line fixture | D3, S3, code |
+| G2-2 `$agentItem` collapses a multi-item agent | accept — skip the assignment when the file's own records name two or more items; M1 kimi directory; A10 extended | D4, S3 |
+| G2-3 spawn context keyed globally by toolUseId | verify first — measure the real store for cross-session `toolu_` duplicates before any change | goal-pass step 1 |
+| G2-4 fixture lacks the nested W1 case | accept, already ruled (draft ruling D-1) — convergence noted | S3 (W1 bullet) |
+| G2-5 A1 checks response counts, not tokens | accept — A1 asserts `OutputTok` per row, computed from the fixture | S3 (A1) |
+| G2-6 A11 assumes a dot decimal separator | verify first — `de-DE` probe of the exact print shape | goal-pass step 1 |

@@ -1,0 +1,41 @@
+I have read the full change, the plan (sections 4–6, 8), the gate-1 rulings, and the before-captures, and I have verified every candidate against the code line by line. I am the relaunched reader-two seat; the gate-2 rulings document that a prior reader landed six findings which are ruled but not yet fixed — the code I am reviewing is still the draft (`loop/work` unchanged from `9c8a6bd`). I independently re-derived each of the six from the code rather than from that reader's wording; all six survive static verification in the tree as it stands, and I found no seventh.
+
+Severity scale I use here: **high** = produces a wrong attribution on a plausible real input, or the suite provably cannot detect the regression this item exists to fix; **medium** = degrades a guarantee or makes an oracle self-referential; **low** = environment-dependent failure of an assert.
+
+---
+
+[1] severity: high    loop/work/attribution-report.ps1:343
+    claim: The stamp fallback fires for agent files, though plan D3 restricts the stamp fallback to session files.
+    why it matters: `$curStamp` is updated for every file (line 329), and the resolution chain `branch → tree → stamp → unattributed` applies the stamp branch unconditionally. The stamp regex deliberately matches the escaped form (lines 130–131), so an agent transcript that merely *quotes* a stamp — in a spawn prompt or inside a tool result — sets `$curStamp`. An M1-style ambiguous agent (own records name two items, so `$curTree` is empty) or a metaless/unresolvable agent then has its branchless responses attributed to the quoted item: a guess, exactly the "degrade, never guess" failure G1-4 closed for the tree path, reopened on a second door. The fixture plants no stamp line in any agent file, so A9/A11 cannot catch it.
+    unverified-runtime-claim: no
+
+[2] severity: high    loop/work/attribution-report.ps1:349
+    claim: `$agentItem` collapses a multi-item agent to whichever branch-resolved record occurs last in its file.
+    why it matters: Every branch-resolved response assigns `$agentItem[$joinKey] = $ids[0]` (line 349), so for an agent whose own records name two items (M1 in the fixture, and 2 measured on the real store) the join key ends up holding only the last item. The kimi join (lines 452–456) then credits the whole `wd_agent-M1_*` session spend to that one guessed item — per-agent vendor spend attributed without any item fact, bypassing the ambiguity rule that the tree walk honours. The fixture has no `wd_agent-M1_*` directory, so A10 passes with the defect in place.
+    unverified-runtime-claim: no
+
+[3] severity: high    loop/work/attribution-report.selftest.ps1:162-231
+    claim: The fixture never creates the nested `subagents/workflows/wf_*/` store, so the suite cannot detect a regression to a flat scan.
+    why it matters: The recursive scan is the core of this item — 587 of 877 real agent transcripts sit one level deeper in `workflows/wf_<id>/` (plan section 8, D-1). The drafted fixture places every agent directly in `subagents/`, and A1's tree expectation (line 297) counts only O1/O2/E1/U1. A flat `Get-ChildItem` (no `-Recurse`) would scan every fixture file and all fourteen asserts would still pass. The plan (S3, D-1) schedules this fixture agent (W1, joining A1 and A3) for the fix pass; it is not in the draft.
+    unverified-runtime-claim: no
+
+[4] severity: medium    loop/work/attribution-report.selftest.ps1:298-300, 362-366
+    claim: A1 asserts response counts only, and A8 derives its expected rollup from the report's own rows — neither can detect token misallocation.
+    why it matters: A1 compares `.Responses` on all four item/source rows; a defect that moves *output tokens* between rows while preserving response counts passes A1, and A3 only pins the global total. A8's expected root totals are computed from `$rABranch/$rATree/$rAStamp` — the report's own row objects — so any misallocation the report makes is silently ratified. The plan's A1 wording promises "tokens land under the item"; the assert checks only counts.
+    unverified-runtime-claim: no
+
+[5] severity: medium    loop/work/attribution-report.ps1:219
+    claim: Spawn context is keyed by `toolUseId` alone, with no enclosing-session component.
+    why it matters: `$spawnCtx` is one global hashtable (line 187) populated from every session file; if two sessions ever reuse a `toolu_` id, whichever session is scanned first wins and a branchless session-root agent in the other session inherits the wrong item. Whether provider-minted ids ever collide across sessions is a runtime fact I cannot check from the tree — the settling measurement is specified in ruling G2-3: scan every meta file's `toolUseId` and every session transcript with `$tuIdRe` and count cross-session duplicates. If both counts are zero, the risk is accepted by design; if not, the key must become session-file + id.
+    unverified-runtime-claim: yes
+
+[6] severity: low    loop/work/attribution-report.selftest.ps1:396-400 (and loop/work/attribution-report.ps1:564)
+    claim: A11's printed-percentage check assumes a dot decimal separator that nothing forces.
+    why it matters: The report prints `'...' + $pct + '%'` with no culture forcing, and Windows PowerShell 5.1 converts doubles to strings using the current culture; on a comma-decimal machine the share prints as `66,7%`, the selftest's regex `([0-9]+(?:\.[0-9]+)?)` finds no match, `$printed` stays −1, and A11 fails against an otherwise-correct report (PS 5.1 `ConvertTo-Json` has the same culture sensitivity, which can additionally disturb `$j.totals.unattributedPct` on the way back in). Settling probe, as recorded in G2-6: run the selftest in a Windows PowerShell 5.1 process with `CurrentCulture` set to `de-DE`; a failure proves the finding and the fix is invariant formatting at the print site, never loosening the test's regex.
+    unverified-runtime-claim: yes
+
+---
+
+One observation outside the findings, for completeness: the same escaped-stamp-matching that makes finding [1] possible can also corrupt `$curStamp` in *session* files when a tool result quotes a stamp — that behaviour predates this branch's rework, so I do not count it against this change; [1] is the new exposure this branch introduces (agent files were never scanned before), and its fix (`-not $isAgent`) is the right single door to close.
+
+`CODE REVIEW: 6 FINDINGS`

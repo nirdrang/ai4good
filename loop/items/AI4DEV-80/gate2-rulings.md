@@ -148,3 +148,83 @@ recorded: the relaunch pins a head whose `loop/items/AI4DEV-80/` now carries rea
 one's evidence and these rulings; the reviewed CODE in `loop/work` is unchanged from
 `9c8a6bd`. The successor sitting weighs any reader-two finding that mirrors reader one's
 distillate wording rather than the code, and says so if it sees it.
+
+---
+
+# Reader two (flash via opencode) — relaunch LANDED, six findings, ruled
+
+Ruled by the FIX-AND-GOAL sitting (second half), orchestrator on fable (claude-fable-5 @
+xhigh), 2026-08-11, at head `0c86d61` (code in `loop/work` still unchanged from `9c8a6bd`).
+Count line `CODE REVIEW: 6 FINDINGS`, matched by the distillate
+(`artifacts/gate2-flash-distillate.md`; raw output, tool-call summary and identity extract
+committed beside it).
+
+## Blindness contamination — a fact, weighed before any disposition
+
+The raw output states the reviewer read `gate2-rulings.md` and `gate2-terra-distillate.md`
+during its run; the runner's tool-call log confirms a read of the terra distillate. The
+panel requires each seat blind to the other, and this seat was not. The relaunch ruling
+above accepted exactly this risk in writing: the record was committed, the prompt could not
+be edited to steer around it, and nothing can hide the tree from a reader that looks.
+
+Consequence for weight: flash's agreement with reader one is NOT independent confirmation.
+Convergence between the two seats carries no added signal at this gate, and no disposition
+below rests on it. Each flash finding is judged against the code alone — and each was
+already verified against the code when reader one's seat was ruled. Flash's own sentence
+that it "independently re-derived each of the six from the code rather than from that
+reader's wording" cannot be verified and receives no weight.
+
+Mirror check (the standing instruction from PHASE-STATE): flash's claims are phrased in
+its own words and cite its own line spans — its nested-store finding cites the
+fixture-builder span `selftest.ps1:162-231` where reader one cited the assert list at
+`:297`, and its decimal-separator finding adds the report's print site
+(`attribution-report.ps1:564`), which reader one did not cite. That is consistent with
+reading the code, but with reader one's distillate in its context the wording evidence is
+inconclusive. Recorded as inconclusive, not leaned on.
+
+## Dispositions — six findings, six subsumptions, no new defect
+
+Flash's six findings name the same six defects reader one's seat named. Each is subsumed
+by the standing ruling, which does not change:
+
+- **Flash [1]** — "The stamp fallback fires for agent files, though plan D3 restricts the
+  stamp fallback to session files." (high, `attribution-report.ps1:343`) — **subsumed by
+  G2-1 (accept)**. Same line, same defect, and flash independently names the same fix
+  (`-not $isAgent`) in its outside-findings observation. No new work.
+- **Flash [2]** — "`$agentItem` collapses a multi-item agent to whichever branch-resolved
+  record occurs last in its file." (high, `attribution-report.ps1:349`) — **subsumed by
+  G2-2 (accept)**. No new work.
+- **Flash [3]** — "The fixture never creates the nested `subagents/workflows/wf_*/` store,
+  so the suite cannot detect a regression to a flat scan." (high,
+  `selftest.ps1:162-231`) — **subsumed by G2-4, itself already ruled at the draft (D-1)**.
+  The W1 fixture agent lands this pass. No new work.
+- **Flash [4]** — "A1 asserts response counts only, and A8 derives its expected rollup from
+  the report's own rows — neither can detect token misallocation." (medium,
+  `selftest.ps1:298-300, 362-366`) — **subsumed by G2-5 (accept)**. No new work.
+- **Flash [5]** — "Spawn context is keyed by `toolUseId` alone, with no enclosing-session
+  component." (medium, `attribution-report.ps1:219`, unverified-runtime-claim: yes) —
+  **subsumed by G2-3 (verify first)**. One probe settles both seats' claim.
+- **Flash [6]** — "A11's printed-percentage check assumes a dot decimal separator that
+  nothing forces." (low, `selftest.ps1:396-400` and `attribution-report.ps1:564`,
+  unverified-runtime-claim: yes) — **subsumed by G2-6 (verify first)**. Flash adds the
+  print-site line number; the probe already targets that exact print shape.
+
+## Outside-findings observation — pre-existing exposure, FILED IN WORDS
+
+Flash, verbatim: "the same escaped-stamp-matching that makes finding [1] possible can also
+corrupt `$curStamp` in *session* files when a tool result quotes a stamp — that behaviour
+predates this branch's rework, so I do not count it against this change; [1] is the new
+exposure this branch introduces (agent files were never scanned before), and its fix
+(`-not $isAgent`) is the right single door to close."
+
+Ruling: correct on both halves. The session-file stamp fallback predates this branch and
+D3 preserves it unchanged; a defect this branch did not introduce belongs to another item.
+FILED IN WORDS, not built: a session transcript whose tool result quotes a stamp can
+corrupt that session's stamp state in the attribution report — pre-existing, untouched by
+this item. Carried in PHASE-STATE's filed list.
+
+## Panel disposition
+
+Gate 2 closes with SIX defects total, not twelve — the two seats converge on the same six.
+The convergence is recorded but, because of the contamination above, given no independence
+weight. The fixes proceed exactly as ruled at G2-1 through G2-6.
