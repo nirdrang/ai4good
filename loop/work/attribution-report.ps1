@@ -3,9 +3,10 @@
 # response's PROVIDER-ECHOED token usage with the item that response was working on, and rolls
 # that up the attribution chain (REQ-034's model: token-denominated, honest buckets, totals that
 # reconcile).
-#   powershell -File loop/work/attribution-report.ps1            -> all sessions
-#   powershell -File loop/work/attribution-report.ps1 -Days 1    -> sessions touched in the last day
-param([int]$Days = 0)
+#   powershell -File loop/work/attribution-report.ps1                    -> all sessions
+#   powershell -File loop/work/attribution-report.ps1 -Days 1            -> touched in the last day
+#   powershell -File loop/work/attribution-report.ps1 -Item AI4DEV-79    -> one item only
+param([int]$Days = 0, [string]$Item = '')
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------------------------------------
@@ -45,6 +46,53 @@ if (Test-Path $agentRoot) {
     $files += @(Get-ChildItem $agentRoot -Filter '*.output' -File -Recurse -ErrorAction SilentlyContinue)
 }
 if ($Days -gt 0) { $files = @($files | Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays(-$Days) }) }
+
+# -Item normalisation: accept AI4DEV-79, ai4dev-79, or a bare 79, and turn it into the canonical id.
+$ItemFilter = ''
+if ($Item) {
+    $im = [regex]::Match($Item, '(?i)(?:AI4(DEV|PM)-)?0*([0-9]{1,7})')
+    if (-not $im.Success) { throw ('unrecognised -Item value: ' + $Item) }
+    $prefix = if ($im.Groups[1].Value) { $im.Groups[1].Value.ToUpperInvariant() } else { 'DEV' }
+    $ItemFilter = 'AI4' + $prefix + '-' + [string][int]$im.Groups[2].Value
+}
+
+# ---------------------------------------------------------------------------------------------
+# ROLE COMES FROM THE SPAWN CALL, NOT FROM A `ROLE:` LINE IN THE TRANSCRIPT (fixed 2026-08-10).
+# The premise the old detector rested on - "the contract's `ROLE:` line reaches the transcript" -
+# is FALSE for the current agents: a conductor's own `.output` file contains no `ROLE: conductor`.
+# The only `ROLE:` strings that appear are ones an agent READ from a sibling contract as a tool
+# result, so the detector reported the file it read (distiller) rather than the agent it was
+# (reviewer-runner) - a confident-wrong answer.
+# The honest signal: the PARENT records `subagent_type` when it spawns, and the spawn's tool_result
+# hands back the child's `agentId`. Each agent transcript is the file `<agentId>.output`. So a
+# first pass pairs the two by the shared tool_use id, building agentId -> role; the second pass
+# reads each file's role from its own name. A main-session `.jsonl` was spawned by nobody and is
+# the coordinator by definition.
+$roleOfAgent = @{}
+$typeRe   = [regex]'"subagent_type"\s*:\s*"([a-z][a-z0-9-]{2,30})"'
+$tuIdRe   = [regex]'"(?:id|tool_use_id)"\s*:\s*"(toolu_[A-Za-z0-9]+)"'
+$agentIdRe= [regex]'agentId:\s*(a[0-9a-f]{6,})'
+foreach ($f in $files) {
+    try {
+        $fs = New-Object System.IO.FileStream($f.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+        $rd = New-Object System.IO.StreamReader($fs)
+    } catch { continue }
+    $pending = @{}   # tool_use id -> subagent_type, within THIS parent transcript
+    try {
+        while ($null -ne ($line = $rd.ReadLine())) {
+            if ($line.IndexOf('"subagent_type"') -ge 0) {
+                $tm = $typeRe.Match($line); $im2 = $tuIdRe.Match($line)
+                if ($tm.Success -and $im2.Success) { $pending[$im2.Groups[1].Value] = $tm.Groups[1].Value }
+            }
+            elseif ($line.IndexOf('agentId:') -ge 0) {
+                $am = $agentIdRe.Match($line); $im2 = $tuIdRe.Match($line)
+                if ($am.Success -and $im2.Success -and $pending.ContainsKey($im2.Groups[1].Value)) {
+                    $roleOfAgent[$am.Groups[1].Value] = $pending[$im2.Groups[1].Value]
+                }
+            }
+        }
+    } finally { $rd.Dispose() }
+}
 
 # The tag is still read as a FALLBACK for old sessions whose branches predate the id convention.
 # Quotes arrive escaped (\") because a transcript is JSONL; the original pattern was written
@@ -90,13 +138,6 @@ foreach ($f in (Get-ChildItem $attrDir -Filter 'chain-*.json' -File -ErrorAction
     } catch { }
 }
 
-# ROLE COMES FROM THE CONTRACT, NOT FROM THE SPAWN PROMPT (2026-08-07). Each agent definition
-# carries `ROLE: <name>` as its first body line, and the definition reaches the transcript. That
-# line changes only in a reviewed commit, whereas a spawn prompt is typed fresh every time by
-# whoever spawned and is reviewed by nobody - which is why one agent came back "role unstated"
-# when the role was read from the prompt. A contract cannot drift from itself.
-$roleRe = [regex]'ROLE: ([a-z-]{3,20})'
-
 $agg = @{}   # key "item|source" -> counters
 $roleAgg = @{}  # key "item|role" -> counters
 $agentItem = @{}  # agent id (the task file's base name) -> the item it worked on
@@ -117,7 +158,10 @@ $skipped = 0
 foreach ($f in $files) {
     $curBranch = ''          # derived, primary
     $curStamp = ''           # declared, fallback only
-    $curRole = ''            # from the agent's own contract; empty for a main session
+    # role from the spawn map: an `.output` file is named by its agentId; a main `.jsonl` session
+    # was spawned by nobody and is the coordinator.
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+    $curRole = if ($f.Extension -eq '.output') { if ($roleOfAgent.ContainsKey($base)) { $roleOfAgent[$base] } else { 'unmarked agent' } } else { 'coordinator' }
     # Shared read: a transcript belonging to a RUNNING agent or background task is locked, and a
     # report that dies on a live file can never be run while anything is working - which is
     # exactly when it is most worth running.
@@ -132,10 +176,6 @@ foreach ($f in $files) {
             if ($line.IndexOf('"gitBranch"') -ge 0) {
                 $bm = $branchRe.Match($line)
                 if ($bm.Success) { $curBranch = $bm.Groups[1].Value }
-            }
-            if (-not $curRole -and $line.IndexOf('ROLE: ') -ge 0) {
-                $rm = $roleRe.Match($line)
-                if ($rm.Success) { $curRole = $rm.Groups[1].Value }
             }
             if ($line.IndexOf('ai4good-attribution') -ge 0) {
                 $m = $stampNew.Match($line)
@@ -164,9 +204,8 @@ foreach ($f in $files) {
                         elseif ($curStamp)         { Add-Usage ($curStamp + '|stamp') $u $agg }
                         else                       { Add-Usage ('unattributed|none')  $u $agg }
                         if ($ids.Count -eq 1) {
-                            $r = if ($curRole) { $curRole } else { 'coordinator or unmarked' }
-                            Add-Usage ($ids[0] + '|' + $r) $u $roleAgg
-                            $agentItem[[System.IO.Path]::GetFileNameWithoutExtension($f.Name)] = $ids[0]
+                            Add-Usage ($ids[0] + '|' + $curRole) $u $roleAgg
+                            $agentItem[$base] = $ids[0]
                         }
                     }
                 } catch { }
@@ -295,36 +334,46 @@ if (-not $totOut) { $totOut = 0 }
 if (-not $unatt) { $unatt = 0 }
 $pct = if ($totOut -gt 0) { [math]::Round(100.0 * $unatt / $totOut, 1) } else { 0 }
 
-Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s)' + $(if ($Days -gt 0) { ' (last ' + $Days + ' days)' } else { '' }))
+# -Item scopes every section to one item (and, for the rollup, to nodes that cover it).
+$scopeNote = if ($ItemFilter) { ' - SCOPED to ' + $ItemFilter } else { '' }
+if ($ItemFilter) {
+    $rows     = @($rows     | Where-Object { $_.Item -eq $ItemFilter })
+    $rollRows = @($rollRows | Where-Object { $_.Node -eq $ItemFilter -or $chains[$ItemFilter] -contains $_.Node })
+}
+
+Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s)' + $(if ($Days -gt 0) { ' (last ' + $Days + ' days)' } else { '' }) + $scopeNote)
 Write-Output 'units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere'
-Write-Output 'attribution DERIVED from each record''s own git branch; the stamp is a fallback for older sessions'
+Write-Output 'attribution DERIVED from each record''s own git branch; role DERIVED from the spawn call'
 Write-Output ''
-Write-Output '== PER ITEM =='
-$rows | Format-Table Item, From, Responses, OutputTok, InputTok, CacheRead, CacheWrite -AutoSize | Out-String -Width 200 | Write-Output
-Write-Output '== PER ROLE WITHIN EACH ITEM (role from the agent contract, not the spawn prompt) =='
+Write-Output ('== PER ITEM ==' + $scopeNote)
+if ($rows.Count -eq 0) { Write-Output ('  no responses attributed to ' + $ItemFilter + ' in this window') }
+else { $rows | Format-Table Item, From, Responses, OutputTok, InputTok, CacheRead, CacheWrite -AutoSize | Out-String -Width 200 | Write-Output }
+Write-Output ('== PER ROLE WITHIN EACH ITEM (role from the spawn call, not any ROLE: text)' + $scopeNote + ' ==')
 $roleRows = @()
 foreach ($k in $roleAgg.Keys) {
     $it, $rl = $k -split '\|'
+    if ($ItemFilter -and $it -ne $ItemFilter) { continue }
     $a = $roleAgg[$k]
     $roleRows += [pscustomobject]@{ Item=$it; Role=$rl; Responses=$a.responses; InputTok=$a.inTok; OutputTok=$a.outTok; CacheRead=$a.cacheRead; CacheWrite=$a.cacheWrite }
 }
-$roleRows | Sort-Object Item, @{e='OutputTok';Descending=$true} | Format-Table -AutoSize | Out-String -Width 200 | Write-Output
+if ($roleRows.Count -eq 0) { Write-Output '  no role-attributed responses in scope' }
+else { $roleRows | Sort-Object Item, @{e='OutputTok';Descending=$true} | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 Write-Output 'InputTok is nearly always tiny next to CacheRead: almost everything an agent reads arrives from cache, so input alone understates what was consumed by orders of magnitude.'
 Write-Output ''
 Write-Output '== REVIEWER SPEND (codex, joined by the session id in each item''s committed logs) =='
 if ($vendor.Count -eq 0) { Write-Output '  none joined - no committed reviewer log matched a stored codex session' }
 else {
     $vRows = @()
-    foreach ($k in $vendor.Keys) { $vRows += [pscustomobject]@{ Item=$k; Runs=$vendor[$k].runs; InputTok=$vendor[$k].inTok; OutputTok=$vendor[$k].outTok; CachedIn=$vendor[$k].cached } }
-    $vRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output
+    foreach ($k in $vendor.Keys) { if ($ItemFilter -and $k -ne $ItemFilter) { continue }; $vRows += [pscustomobject]@{ Item=$k; Runs=$vendor[$k].runs; InputTok=$vendor[$k].inTok; OutputTok=$vendor[$k].outTok; CachedIn=$vendor[$k].cached } }
+    if ($vRows.Count -eq 0) { Write-Output '  none in scope' } else { $vRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 }
 Write-Output ''
 Write-Output '== REVIEWER SPEND (kimi, joined by the launching agent id in its session directory) =='
 if ($kimi.Count -eq 0) { Write-Output '  none joined - no kimi session directory named an agent this run resolved to an item' }
 else {
     $kRows = @()
-    foreach ($k in $kimi.Keys) { $kRows += [pscustomobject]@{ Item=$k; Sessions=$kimi[$k].sessions; InputTok=$kimi[$k].inTok; OutputTok=$kimi[$k].outTok; CacheRead=$kimi[$k].cached } }
-    $kRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output
+    foreach ($k in $kimi.Keys) { if ($ItemFilter -and $k -ne $ItemFilter) { continue }; $kRows += [pscustomobject]@{ Item=$k; Sessions=$kimi[$k].sessions; InputTok=$kimi[$k].inTok; OutputTok=$kimi[$k].outTok; CacheRead=$kimi[$k].cached } }
+    if ($kRows.Count -eq 0) { Write-Output '  none in scope' } else { $kRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 }
 Write-Output ''
 Write-Output '== ROLLED UP THE CHAIN (each node includes everything beneath it) =='
@@ -332,4 +381,4 @@ $rollRows | Format-Table Node, Covers, Responses, OutputTok -AutoSize | Out-Stri
 Write-Output ('TOTAL: ' + $totResp + ' responses, ' + $totOut + ' output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.')
 Write-Output ('COORDINATOR SIGNAL - unattributed share of output tokens: ' + $pct + '%')
 if ($skipped -gt 0) { Write-Output ($skipped.ToString() + ' transcript file(s) could not be opened and are NOT counted - said out loud rather than silently dropped') }
-Write-Output 'Still a FLOOR, for two named reasons: work done before an agent switches off main attributes to nothing, and a role shows as unmarked for any agent spawned before its contract carried a ROLE line.'
+Write-Output 'Still a FLOOR, for named reasons: work before an agent switches off main attributes to nothing; a deeply-nested sitting whose .output carries no gitBranch falls to unattributed rather than to its item (the current largest gap - it is why the unattributed share is high); and a role reads "unmarked agent" when the spawn pairing that names it could not be found.'
