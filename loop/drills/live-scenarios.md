@@ -48,6 +48,27 @@ the ruled content, and the report counts two iterations with nothing else change
 Result: held on every assertion, both halves. The stop is real, the resume is real, and the
 ruled content — not a preference — is what landed.
 
+## Scenario 5 — the birth-certificate address chain (run 2026-08-10, founder-ordered: HELD)
+
+The addressing pattern the contracts now mandate, proven end to end: main spawns a PARENT
+agent; the parent waits for its birth certificate (no agent can learn its own address); main
+sends it — "your own address is <bare id>", no `agent-` prefix; the parent spawns a CHILD,
+handing that address in the spawn prompt; the child sends one `SendMessage` to the bare id.
+Expected: the message DELIVERS to the parent, which ends with `BY-ID DELIVERY WORKED`.
+Run 2026-08-10: delivered first try. This scenario is the regression for the four misrouted
+reports of the sessions item — a failure here means either the resolver changed or a contract
+regressed to a wrong address form (type name, or the prefixed folder name).
+
+## Drill regressions run on WORKFLOW CHANGES (founder ruling 2026-08-10)
+
+A change to the control machinery — the agent contracts in `.claude/agents/`, the work skill,
+`reviewers.md`, the drill library itself — is not trusted on inspection. Before the next item
+relies on it: run the mechanical suite (`run-drills.ps1`, all assertions green), and run the
+live scenario nearest the changed behaviour when one exists. Record the result in
+`loop/drills/records/`. A workflow change with no drill evidence is the same defect as code
+with no test — and the addressing bug lived in a contract for a full day because nothing
+drilled the sentence that carried it.
+
 ## Judging rules
 
 - Every expectation is asserted on observable evidence: files present or absent, processes

@@ -217,6 +217,16 @@ subject of the exploration is nameable, update the label when the subject shifts
 when the thread ends. The bare "coordination, no item claimed" line is only for the moments
 genuinely between things.
 
+## Workflow changes get drilled before they are trusted (founder 2026-08-10)
+
+After any change to the control machinery lands — an agent contract, this skill,
+`reviewers.md`, the drill library — run the drill regression before the next item depends on
+it: the mechanical suite green, plus the live scenario in `loop/drills/live-scenarios.md`
+nearest the changed behaviour when one exists, with the result recorded in
+`loop/drills/records/`. The addressing bug lived in a contract for a day because nothing
+drilled the sentence that carried it; a workflow change with no drill evidence is code with no
+test.
+
 ## Filing candidates — few, distinct, and worth a stranger's time (founder 2026-08-09)
 
 Item runs hand up observations, and the coordinator files them. Filing is not free: every item

@@ -200,18 +200,24 @@ Your count line is `CODE REVIEW: CLEAN` or `CODE REVIEW: 3 FINDINGS`.
 `loop/drills/records/flash-lane-2026-08-09/`). The audit is a panel: **clean means BOTH readers
 clean**, findings from either seat spawn the audit sitting, and the once-per-item re-run is of the
 whole panel at the new head, never one seat.
-**Subject** · the branch diff **and the record that describes it** — the amended plan, the
-rulings files, and the state file's claims.
+**Subject** · **THE CODE, ONLY THE CODE (founder ruling 2026-08-10: "I want auditor only in
+code not on records at all").** Three product items in a row produced fourteen audit findings,
+every one about the record's own prose — miscounted totals, citation wording, stale status
+paragraphs — and zero about code, at a cost of roughly two extra hours per item. That class of
+finding is now OUT OF YOUR SCOPE. You read the record only as the list of claims to test
+against the tree; you never raise a finding about the record itself — not its counts, not its
+citations, not its headers, not its phrasing.
 
-Code quality is not your subject. You are answering one question: **does the story match the
-tree?**
+Code quality is not your subject either. You are answering one question: **does the code match
+what is claimed about it?**
 
-- **Every adopted ruling is implemented as ruled.** A ruling recorded but not implemented is a
-  FAIL — this is the box no other check in the system covers.
+- **Every adopted ruling is implemented as ruled.** A ruling recorded but not implemented in the
+  code is a FAIL — this is the box no other check in the system covers.
 - **The diff stays inside its declared scope.** Compare what changed against what the item says
   it changed.
-- **Every stated fact about the code is true.** Trace the logic yourself, character by character
-  where it matters — a shell trap, a regex, a guard's field handling.
+- **Every stated fact about the CODE is true.** Trace the logic yourself, character by character
+  where it matters — a shell trap, a regex, a guard's field handling. A false statement about
+  code is a finding; a clumsy sentence about a true fact is not.
 
 **Do not run the test suite.** Execution evidence belongs to the required CI check on this
 commit: cite it, do not re-derive it. This is a deliberate narrowing, measured across four items —
