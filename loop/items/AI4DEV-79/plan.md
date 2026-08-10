@@ -300,13 +300,19 @@ then S5 builds the runner hook on top of it.
   happen; every phase boundary pushes.
   *Done when:* the item directory carries `setup-pool.txt` and `spike-isolation.txt` committed,
   and `git status --porcelain` is empty at every sitting close.
-- **S8. End-to-end proof of the changed path** (gate-1 [9]) — goal phase, on the dev machine:
-  one real integration-tier verify through the pool, `bun run at:verify req-001 --tier
-  integration --expect` with `AT_DB_SLOT` set (the D6 override; this run is the evidence
+- **S8. End-to-end proof of the changed path** (gate-1 [9]) — AMENDED by ruling X2 (§9);
+  the audit finding [A1] (§10) caught this step still carrying its original text after §5's
+  row was amended, and this rewrite is that record fix. The original text stands in the
+  history at commit 63dfe3d. Goal phase, on the dev machine: one real verify of the changed
+  path through the pool with `AT_DB_SLOT` set (the D6 override; this run is the evidence
   gathering the override exists for). Transcript to
   `loop/items/AI4DEV-79/integration-run.txt`.
-  *Done when:* the run is green, the evidence line names the slot, and the committed
-  transcript is scanned clean per gate-1 [14].
+  *Done when (as corrected by X2):* `tests/at/expected/req-001.json` declares the loop tier
+  only, so `--expect` refuses at the integration tier — NO integration-tier green exists or
+  is claimed. The criterion is the changed path end to end: occupancy claimed, prepare ran,
+  both identity instruments visible, the evidence line naming the slot, the suite executed
+  on the slot's env, the claim released — and the committed transcript is scanned clean per
+  gate-1 [14].
 
 ## 5. Expected verification state
 
@@ -924,3 +930,122 @@ ran the goal suite. Five judgment calls came back for ruling:
   "is inside the personal stack's port block". This branch's own file, invisible until the
   first suite run (the draft contract forbids running the suite), wording aligned, substance
   unchanged.
+
+## 10. Audit rulings (audit sitting, orchestrator on fable, 2026-08-10)
+
+The audit panel of two, each blind to the other, read the record at head 63dfe3d: luna
+(gpt-5.6-luna via codex @ max, read-only) returned five findings; flash
+(deepseek-v4-flash via opencode, agent reviewer-flash, variant max) returned one finding, with
+every other box PASS except git-level facts marked could-not-verify (its cage has no git
+tooling — expected, and not a defect). The six findings are disjoint: no convergence exists
+between the seats. Every claim below is quoted verbatim from the seat's distillate. No claim
+named a foreign item id, so nothing is elided. Finding names: [A1]–[A5] are luna's [1]–[5];
+[AF1] is flash's [1].
+
+- **[A1] — ACCEPTED, record-false; the record changes to match the tree.** Luna, on
+  `plan.md` §4 S8: "S8 still requires a green integration-tier `--expect` run." — "X2
+  correctly says the expected file declares only the loop tier, so `--expect` refuses; this
+  stale criterion conflicts with X2 and the integration transcript's 0-green result." TRUE:
+  X2 amended §5's table row but left §4's step text carrying the original criterion, so the
+  record contradicted itself. The fix is in this same commit: S8's step text now carries the
+  X2 correction, on the pattern S3 uses for E5. Record fix only; no code changed for this
+  finding.
+
+- **[A2] — ACCEPTED, record-false; the tree changes to match the record.** Luna, severity
+  high, on `db-pool.ts:695`: "The `AT_DB_SLOT` override treats an existing unreadable
+  reservation as absent." — "`readReservation` converts parse/read failures to `null`, so an
+  empty or partial reservation file does not block takeover of a slot reserved for another
+  item, violating the fail-closed reservation rule." VERIFIED in source this sitting:
+  `readReservation` (db-pool.ts:552) catches every read and parse failure to `null`, and the
+  override path at 695 treats `null` as no reservation. The write window is real and already
+  measured on this machine (T10/X1: the winner's exclusive-create handle holds the file with
+  no sharing until Dispose — a concurrent reader gets a sharing violation, not the content).
+  So an override run inside that window takes a slot whose reservation names another item —
+  the exact refusal ruling T5 establishes, missing on this one path; fail-open against E7's
+  direction. Scope of the harm, stated so the claim stays exact: this defect CANNOT reach the
+  personal stack — `refusePersonal` guards that wall independently on every destructive path;
+  the harm is a slot-vs-slot collision between items. The ruled fix: a strict reservation
+  read for decision paths — absent proceeds; present-but-unreadable waits out the window with
+  the same bounded remedy T1 and T10 use, and a reservation still unreadable after the wait
+  REFUSES, naming the file. `readPool`'s view read stays lenient (a view refusing to render
+  is no safety). The 745 re-read may share the strict read so its message stops calling an
+  unreadable file "nobody", behavior direction unchanged (it already refuses). The selftest
+  grows: an empty or garbage reservation file plus the override → refusal.
+
+- **[A3] — ACCEPTED.** Luna, severity medium, on `db-pool.ts:1136`: "The evidence line
+  reports the API port from the pre-prepare occupancy configuration." — "`prepare` can
+  regenerate a changed port, and the runtime environment uses the new status while the
+  evidence names the old port, producing misleading verification evidence." VERIFIED:
+  `evidence()` prints `occupancy.config.apiPort`, read at occupy time, before `prepare`
+  regenerates the slot config from the item tree; `stackEnv` emits from the post-prepare
+  status. Under config drift the record's one evidence line names a port the suite did not
+  use — and a truthful evidence line is this item's ruled deliverable (D11). The ruled fix:
+  the evidence line takes its api port from the proven post-prepare status (what actually
+  answered); the slot project id is permanent identity (T6) and stays as is. Selftest 4
+  asserts the port comes from the status. The committed S8 transcript is NOT invalidated: in
+  that run no drift existed and the line was true.
+
+- **[A4] — ACCEPTED, with a measurement recorded before the fix.** Luna, severity medium,
+  marked unverified-runtime-claim, on `db-slots.ps1:110`: "`Get-DbSlotOccupancy` treats an
+  empty or unparseable occupancy claim as no occupancy." — "During the runner's claim-file
+  creation/write window, release can miss a live claim and delete the reservation, contrary
+  to the release refusal rule; settle by invoking release during that window." The
+  structural half is VERIFIED by reading: line 110 catches any read or parse failure to
+  `$null` and line 111 skips the file — fail-open, directly beside a liveness check whose
+  own comment demands fail-closed ("an occupancy misread as dead lets Release-DbSlot hand
+  the slot away under a running verify window"). The runtime half the executor MEASURES
+  before fixing, against a TEMP claim dir, never the live one: hold a claim-shaped file open
+  without sharing and observe what `Get-DbSlotOccupancy` returns today. The fix applies
+  either way, because a mid-write claim file is unreadable while its writer is alive by
+  definition: read with the bounded wait (mirror `Read-DbSlotReservationWait`), and a claim
+  file that EXISTS but stays unreadable or unparseable after the wait is treated as a LIVE
+  occupancy, so `Release-DbSlot` refuses and names the file. Stated cost, accepted: a
+  crashed writer's residue now needs one manual look instead of a silent skip — the same
+  loud-over-silent trade the reservation path already made.
+
+- **[A5] — ACCEPTED.** Luna, severity medium, on `db-pool.ts:328`: "The personal-block guard
+  does not semantically parse every port value." — "A valid TOML value such as
+  `port = 54_321` is read as `54`; an unrecognized/client port field can therefore pass the
+  guard despite carrying a forbidden personal-stack port." VERIFIED: line 328 parses a
+  numeric PREFIX (`/^(\d+)/`) of the raw value, and line 329 silently skips a port-valued
+  key whose value does not parse at all — two fail-opens in the wall's own guard. TOML
+  permits underscores in integers, so `54_321` is a valid encoding of a personal-block port
+  that the guard reads as 54. The ruled fix: whole-token parse, underscore-aware — the
+  entire value must be an integer once underscores are stripped; a port-valued key whose
+  value does not parse is a PROBLEM (fail closed, E7), named with its raw value. The
+  executor also checks `portMappings` for the same prefix-parse and aligns it to the same
+  whole-token rule if it shares the defect (an unparseable or out-of-band port already
+  refuses there per gate-1 [5] — that direction stands). Selftest 5 grows: `54_321` refuses;
+  a non-numeric port value refuses. Stated so the claim stays exact: the tracked
+  `supabase/config.toml` carries plain integers, so no committed transcript's guard pass is
+  invalidated — the defect is in what the guard WOULD accept, not in anything it accepted.
+
+- **[AF1] — ACCEPTED as the verification it asks for; verified clean, no change needed.**
+  Flash, severity low (its own scale), on the audit's own working file
+  `audit-flash-output.events.jsonl`: "the current audit sitting's live tool-call log records
+  raw tool outputs verbatim and already contains the complete repo `.env` content, including
+  two live SUPABASE_PUBLISHABLE_KEY JWT tokens (eyJ...), inside the item's artifacts
+  directory." Why it matters, verbatim: "the item's own ruling gate-1 [14] makes \"no eyJ
+  token\" a done-criterion for every committed transcript in this record, and PHASE-STATE's
+  recipe commits the audit sitting's tool-call artifacts alongside the outputs; if this file
+  or its content lands in the record, the rule is violated and a live credential value is
+  committed. If it stays untracked and is excluded at close, nothing is violated." The
+  verification, performed this sitting before any artifact was staged: the events file is
+  ABSENT from disk (deleted by the reviewer-runner's cleanup per its contract); `git
+  ls-files` shows it never entered the index; a token-shape scan (`eyJ` followed by 15+
+  token characters) across every file in the artifacts directory returns ZERO matches; a
+  scan for other secret shapes (sb_secret, service-role key assignments, db password names)
+  returns zero. The only `eyJ` occurrences in the record are the reviewer's own truncated
+  "eyJ..." mentions, which carry no token material — the gate-1 [14] criterion reads "no
+  eyJ token", and a three-character prefix followed by an ellipsis is not a token. Nothing
+  derived from the events log lands in the record. Flash's two non-finding observations are
+  recorded as given: (a) several §7–§9 line-number citations are pre-fix and drifted — left
+  as written, because they cite the lines as they stood at ruling time and the cited facts
+  hold structurally; rewriting citations after every fix would churn the record they anchor;
+  (b) git-level facts were could-not-verify from its cage — expected, the cage has no git.
+
+**Disposition summary.** Six findings: [A1] record fix, applied in this commit; [A2], [A3],
+[A4], [A5] code fixes, applied by the fix executor AFTER this commit is pushed; [AF1]
+verified clean, no change. Nothing is rejected, so no maintained-disagreement text is owed to
+the pull request from this gate. Code changes, so the WHOLE panel re-runs once at the new
+head — the once-per-item re-run, both seats, never one.

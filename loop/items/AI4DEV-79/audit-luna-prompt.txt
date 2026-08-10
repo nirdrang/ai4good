@@ -107,7 +107,10 @@ default stack on the 54321 ports, which stays outside the pool and untouchable.
   amended by ruling X2); §7 the first review's rulings [1]–[15]; §8 an incident record and
   rulings E1–E9 (the first isolation spike destroyed the personal database; the wall was
   redesigned as positive identity at one invocation seam); §9 the code review's rulings
-  [T1]–[T13] and [F1]–[F9], four ruled notes, and rulings X1–X5 on the fix executor's report.
+  [T1]–[T13] and [F1]–[F9], four ruled notes, and rulings X1–X5 on the fix executor's report;
+  §10 the first audit round's rulings [A1]–[A5] and [AF1] — [A1] a record fix applied in
+  place (§4 S8 rewritten to the X2 criterion), [A2]–[A5] code fixes applied after the ruling
+  commit, [AF1] a verification recorded with no change.
 - `loop/items/AI4DEV-79/PHASE-STATE.md` — the state file and its claims.
 - Committed transcripts the record cites as evidence: `setup-pool.txt`,
   `spike-isolation.txt` (the incident), `spike-isolation-2.txt` (the re-proof),
@@ -130,7 +133,11 @@ compare the diff against the merge base, not against main's current tip.
 **Boxes to answer, beyond your section's three standing ones:**
 
 - Ruling sets to check for presence-as-ruled in the tree: §7 [1]–[15] as amended by §8 and §9;
-  §8 E1–E9 (E2 as amended, E3 as narrowed by [T3]); §9 [T1]–[T13] and [F1]–[F9] as ruled —
+  §8 E1–E9 (E2 as amended, E3 as narrowed by [T3]); §10 [A2]–[A5] as ruled — the strict
+  fail-closed reservation read on the override path, the evidence line's port from the
+  post-prepare status, the fail-closed occupancy read in the release helper, the whole-token
+  port parse in the personal guard — and that the commits carrying them stayed inside the
+  declared scope; §9 [T1]–[T13] and [F1]–[F9] as ruled —
   note that four are "accepted, fixed differently" and one ([T9]) is REJECTED with a written
   reason, so for those the ruled shape, not the reviewer's proposed shape, is what must be in
   the tree.
