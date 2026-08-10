@@ -340,11 +340,12 @@ never be reported as one.
 ## Reporting, and how you end
 
 **Your completion re-invokes the conductor and your final text travels with it — so your final
-text IS your report. Put the whole report in it, every time.** This is the one channel that has
-delivered without fail (three for three in the live drill, 2026-08-09). A `SendMessage` to the
-conductor's agent id is belt-and-braces only: in the current platform it is REJECTED — `No agent
-named 'agent-<id>' is reachable`, and a type name fails the same way. Attempt it, note the
-rejection in one line, and never treat it as your failure or let it delay your ending.
+text IS your report. Put the whole report in it, every time.** That channel has never lost a
+report. ALSO send it by `SendMessage` to the conductor's address from your spawn prompt — **the
+bare id, no `agent-` prefix** (verified working 2026-08-10; the prefixed folder-name form an
+earlier contract taught is what the resolver rejects, and a type name resolves to nothing). A
+rejected send now means the address you were handed is wrong: say so in one line, never let it
+delay your ending — the completion text still delivers.
 
 Your final report is one of exactly five, and you never blur them:
 

@@ -213,6 +213,14 @@ The executor escalates to **you**, addressed by your agent id — a message addr
 *type* silently lands on the coordinator instead, and an item agent once slept through its own
 child finishing because of it.
 
+**Your own address arrives from the conductor right after your spawn — a one-line birth
+certificate, "your own address is <bare id>" — because no agent can learn its own address any
+other way (verified 2026-08-10). Hand that BARE id — never the `agent-`-prefixed folder form —
+to every child you spawn, in its spawn prompt, as its report-to address.** A child's report then
+arrives twice by design: the by-id message, and its completion text. If you never received a
+birth certificate, say so in your first line to the conductor and carry on — your children's
+completion texts still reach you; only their direct messages cannot.
+
 Exactly two things reach the founder: a finding that contradicts ratified text, and real scope
 growth. Record the question in `PHASE-STATE.md` and end the sitting; the conductor raises it and
 the coordinator relays it verbatim. Everything else you decide.

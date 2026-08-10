@@ -54,20 +54,24 @@ agent ever moves itself.
 **You are then tethered to it.** A background child's completion re-invokes you automatically —
 that is your primary signal and it is free.
 
-**A CHILD'S COMPLETION TEXT IS ITS REPORT — THE TETHER IS THE PRIMARY CHANNEL (corrected
-2026-08-09, live drill).** The by-id message this section used to mandate does not work: in the
-live conductor drill all three reviewer-runners had `SendMessage` to the conductor's
-worktree-derived agent id rejected identically — `No agent named 'agent-<id>' is reachable` —
-and a type name fails the same way (an executor once addressed `orchestrator-opus` and its whole
-report landed on the coordinator). The folder-derived id is NOT a resolvable target for a child
-spawned by the Agent tool; only messages to `main` resolve. The record is
-`loop/drills/records/live-2026-08-09/`.
+**THE CHILD-TO-PARENT ADDRESS IS THE BARE AGENT ID — THE `agent-` PREFIX WAS OUR BUG (verified
+2026-08-10, live drill, after four misrouted reports in one item).** A child CAN message its
+parent subagent directly. What never works is a wrong address form: a type name (`orchestrator`,
+`conductor`) resolves to nothing, and the worktree FOLDER name (`agent-<id>`) — which an earlier
+version of this section taught — carries a prefix the resolver does not accept. Strip it. Your
+own address is your worktree folder name **minus the leading `agent-`**.
 
-So: **tell every child to put its ENTIRE final report in its completion text** — that text
-arrives inside the notification that re-invokes you, and in the drill it delivered three out of
-three. A child may still attempt the by-id message as belt-and-braces for the day the platform
-resolves it, but it must expect the rejection, note it in one line, and never treat it as its
-own failure or stall on it.
+Three duties follow:
+1. **Put your bare address in every spawn prompt** as the report-to address — runners and
+   sittings alike.
+2. **Send every sitting a birth certificate**: you receive the sitting's id the moment you spawn
+   it, and no agent can learn its own address any other way (measured; the docs agree). One
+   message — "your own address is <bare id>" — is what lets the sitting hand a valid report-to
+   address to its executor. Skip this and the executor's report lands on the coordinator again.
+3. **The completion text remains the report of record** — the notification channel has never
+   lost one. The by-id message is the direct channel on top; now that the address form is
+   proven, a rejected send means a WRONG ADDRESS and is recorded as a defect, never shrugged off
+   as platform weather.
 
 A child that dies never reports at all — so the tether replaces nothing about the watch. The
 backstop watch is still what catches a death.
