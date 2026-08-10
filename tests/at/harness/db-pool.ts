@@ -44,17 +44,19 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { REPO_ROOT } from './check.ts';
 import {
   acquireStackLock,
-  bunExecutable,
   childEnv,
   diagnostic,
   localStackProblems,
+  parseStackStatus,
   proveMigrationsReplayed,
   readLocalConfig,
   readStackStatus,
   resetLocalDatabase,
+  runSupabaseCli,
   stackLockPath,
-  supabaseArgs,
   waitForReady,
+  type CliResult,
+  type CliTarget,
   type Holder,
   type LocalConfig,
   type MigrationProof,
@@ -163,6 +165,35 @@ function isPortKey(key: string): boolean {
   return key === 'port' || key.endsWith('_port');
 }
 
+/**
+ * THE LOCAL STACK'S OWN LISTENER PORTS — the only ports a slot's identity moves (ruling E4).
+ *
+ * A `config.toml` holds two kinds of port. A LISTENER port is a socket this machine opens for
+ * this stack, so two stacks that share one collide, and the overlay must move it. A CLIENT port
+ * is part of an address of somebody else's service — `[auth.email.smtp] port = 587` is Postmark's
+ * port, not ours — so it is DATA, and moving it or refusing it would break a slot that is
+ * configured exactly like the tree it grades.
+ *
+ * The list is exact section + key pairs, so `[api] port` moves while `[api.tls] port` (were one
+ * added) does not silently inherit the rule.
+ */
+const LISTENER_PORTS: readonly { section: string; key: string }[] = [
+  { section: 'api', key: 'port' },
+  { section: 'db', key: 'port' },
+  { section: 'db', key: 'shadow_port' },
+  { section: 'db.pooler', key: 'port' },
+  { section: 'studio', key: 'port' },
+  { section: 'local_smtp', key: 'port' },
+  { section: 'local_smtp', key: 'smtp_port' },
+  { section: 'local_smtp', key: 'pop3_port' },
+  { section: 'analytics', key: 'port' },
+  { section: 'edge_runtime', key: 'inspector_port' },
+];
+
+function isListenerPort(section: string, key: string): boolean {
+  return LISTENER_PORTS.some((listener) => listener.section === section && listener.key === key);
+}
+
 export interface PortMapping {
   section: string;
   key: string;
@@ -172,14 +203,20 @@ export interface PortMapping {
 }
 
 /**
- * The identity overlay's port rule, stated GENERALLY rather than as a list of seven keys: a list
- * goes stale the moment an item enables `local_smtp.smtp_port`, and a slot that inherits one
- * personal-block port is not isolated at all.
+ * The identity overlay's port rule (ruling E4).
  *
- *   - `edge_runtime.inspector_port` moves by 10 per slot — the inspector is not in the 54xxx band.
- *   - every other active port-valued key in 54000–54999 moves by 1000 per slot.
- *   - anything else REFUSES loudly as unmappable. A guess here is a port collision with software
- *     nobody in this process knows about, so a person decides.
+ *   - a LISTENER port (see `LISTENER_PORTS`) in 54000–54999 moves by 1000 per slot;
+ *     `edge_runtime.inspector_port` moves by 10 per slot, because the inspector is not in that band.
+ *   - a listener port outside those bands REFUSES loudly as unmappable. A guess here is a port
+ *     collision with software nobody in this process knows about, so a person decides.
+ *   - any OTHER port-valued key passes through unchanged: it addresses somebody else's service and
+ *     is data, not identity.
+ *   - except that a non-listener port sitting in 54000–54999 also REFUSES. It looks exactly like a
+ *     local stack port and this rule does not recognise it, and treating an unrecognised local port
+ *     as data would hand two slots the same socket. Fail closed, and a person decides.
+ *
+ * `personalBlockProblems` stays broad over EVERY port key regardless of this rule, so a port in the
+ * founder's own block can never reach a slot by being classified as data.
  */
 export function portMappings(text: string, slot: number): { mappings: PortMapping[]; problems: string[] } {
   assertSlotNumber(slot);
@@ -189,11 +226,23 @@ export function portMappings(text: string, slot: number): { mappings: PortMappin
   for (const entry of scanConfig(text)) {
     if (!isPortKey(entry.key)) continue;
     const literal = /^(\d+)/.exec(entry.value);
+    const from = literal ? Number(literal[1]) : NaN;
+    const listener = isListenerPort(entry.section, entry.key);
+
+    if (!listener) {
+      if (Number.isFinite(from) && from >= MAPPABLE_PORT_LOW && from <= MAPPABLE_PORT_HIGH) {
+        problems.push(
+          `[${entry.section}] ${entry.key} = ${from} is not a listener port this rule knows, but it sits in the local ` +
+            `stack's band ${MAPPABLE_PORT_LOW}–${MAPPABLE_PORT_HIGH} — decide by hand whether the slot moves it`,
+        );
+      }
+      continue; // a client-connection port is data and travels unchanged
+    }
+
     if (!literal) {
       problems.push(`[${entry.section}] ${entry.key} = ${entry.value} is not a plain port number, so the slot overlay cannot move it`);
       continue;
     }
-    const from = Number(literal[1]);
     if (entry.section === 'edge_runtime' && entry.key === 'inspector_port') {
       mappings.push({ section: entry.section, key: entry.key, line: entry.line, from, to: from + slot * 10 });
       continue;
@@ -350,19 +399,18 @@ export function pathClosureProblems(configText: string, itemRoot: string): strin
 
 /* -------------------------------------------------------------------------------- the mirror */
 
-/** The CLI's own migration identity: `<14-digit timestamp>_name.sql`. Nothing else is a migration. */
-const MIGRATION_FILE = /^\d{14}_.*\.sql$/;
-
 /**
- * Copy the item tree's `supabase/` into the slot, having first removed the slot's copy.
+ * Copy the item tree's `supabase/` into the slot ENTIRE, having first removed the slot's copy.
  *
  * DELETE THEN COPY, never merge: the previous holder's leftover migration or leftover function is
- * exactly the state this pool exists to make impossible. Copying the whole directory (rather than
- * a list of three subdirectories) is also what makes the path closure above provable — anything
- * the config names under `supabase/` is present in the slot because the whole directory is.
+ * exactly the state this pool exists to make impossible.
  *
- * `migrations/` is the one filtered part: the CLI reads timestamped `.sql` files there, and the
- * runner's migration proof counts exactly those, so `README.md` and `.gitkeep` are left behind.
+ * ENTIRE, with nothing filtered out (ruling E3), and that is what makes `pathClosureProblems`
+ * above provable: every path the config names under `supabase/` is in the slot exactly as the item
+ * tree has it — present if present, absent if absent. A filter, however harmless it looks, turns
+ * that guarantee into a claim about a list. (`README.md` and `.gitkeep` therefore travel into the
+ * slot's `migrations/` too. The CLI reads only `<timestamp>_name.sql` there, and the runner's
+ * migration proof counts exactly those, so they change nothing.)
  */
 export function mirrorItemTree(itemRoot: string, slot: number): void {
   const source = join(itemRoot, 'supabase');
@@ -371,14 +419,7 @@ export function mirrorItemTree(itemRoot: string, slot: number): void {
 
   rmSync(destination, { recursive: true, force: true });
   mkdirSync(destination, { recursive: true });
-  cpSync(source, destination, {
-    recursive: true,
-    filter: (from) => {
-      const rel = relative(source, from).split(/[\\/]/);
-      if (rel[0] !== 'migrations' || rel.length !== 2) return true;
-      return MIGRATION_FILE.test(rel[1]);
-    },
-  });
+  cpSync(source, destination, { recursive: true });
 }
 
 /* --------------------------------------------------------------------------- the reservation */
@@ -603,26 +644,142 @@ function readMarker(slot: number): StartMarker | null {
 /**
  * Run the pinned CLI against one slot. Raw output is never printed: `supabase start` prints keys.
  *
- * THE WORKING DIRECTORY IS THE SLOT, NOT THE REPO, and that is the whole safety of this function.
- * Measured 2026-08-10 on this machine: when the CLI runs from a directory that is itself a
- * Supabase project, `--workdir <slot>` gives a HYBRID — the slot's ports with the repo project's
- * containers. `supabase start --workdir <slot-1>` run from the repo therefore found the personal
- * stack's database container healthy, concluded the project was already running, and exited zero
- * having created nothing. The flag alone is not the wall; the flag and the working directory
- * together are.
+ * THIS IS THE ONE HELPER (ruling E1, decision D13). No role hand-writes a slot CLI command: the
+ * incident of 2026-08-09 was a hand-written spike script that closed neither route the identity
+ * override travels by, and it destroyed the founder's database. Everything the wall is made of
+ * lives in `supabaseInvocation` in runner.ts — the positive `SUPABASE_PROJECT_ID`, the refusal of
+ * any other `SUPABASE_*`, `bun --no-env-file`, and the working directory equal to `--workdir` —
+ * and `slotTarget` is the only thing this file has to get right.
+ *
+ * It is for commands that must EXIT ZERO. `status` does not (the config disables imgproxy and the
+ * pooler), so the identity read below runs the CLI through the same seam and parses the result
+ * with the runner's own parser instead.
  */
 function runSlotCli(slot: number, args: string[], what: string): void {
-  const res = spawnSync(bunExecutable(), supabaseArgs('--workdir', slotDir(slot), ...args), {
-    cwd: slotDir(slot),
-    env: childEnv(),
-    encoding: 'utf8',
-  });
+  const res = runSupabaseCli(slotTarget(slot), args);
   if (res.error) {
-    throw new Error(`could not launch the Supabase CLI to ${what} slot ${slot} (${diagnostic((res.error as Error).message)})`);
+    throw new Error(`could not launch the Supabase CLI to ${what} slot ${slot} (${diagnostic(res.error.message)})`);
   }
   if (res.status !== 0) {
     throw new Error(`\`supabase ${args.join(' ')}\` could not ${what} slot ${slot} (exit ${res.status}): ${diagnostic(res.stderr) || diagnostic(res.stdout) || '(no error output)'}`);
   }
+}
+
+/** Both halves of a slot's identity, in the shape the shared CLI seam takes. */
+export function slotTarget(slot: number): CliTarget {
+  return { workdir: slotDir(slot), projectId: slotProjectId(slot) };
+}
+
+/**
+ * The Supabase container names in a piece of CLI output that do NOT belong to this slot.
+ *
+ * The CLI names its containers `supabase_<service>_<project id>`, and it prints them: a healthy
+ * `supabase status` opens with `Stopped services: [supabase_imgproxy_<id> supabase_pooler_<id>]`,
+ * and its error paths say things like `No such container: supabase_db_<id>`. That line is the
+ * CLI's own statement of WHICH PROJECT it resolved, and it is the instrument that would have
+ * caught the incident: on 2026-08-10 a hybrid invocation reported the slot's ports beside
+ * `supabase_imgproxy_poancmeitlmxejofwzuu` — the personal project — in the same output.
+ *
+ * The rule is a suffix match and it is deliberately strict: a `supabase_…` token that does not end
+ * in this slot's project id is reported, whatever it is. A false report costs a loud refusal on a
+ * read; a missed one costs a database.
+ */
+export function foreignContainerNames(text: string, slotProject: string): string[] {
+  const names = [...String(text ?? '').matchAll(/\bsupabase_[A-Za-z0-9][A-Za-z0-9_.-]*/g)].map((match) => match[0]);
+  return [...new Set(names.filter((name) => !name.endsWith(`_${slotProject}`)))];
+}
+
+export interface SlotIdentityRead {
+  /** The stack's own report, when a stack answered. */
+  status: StackStatus | null;
+  /** Why no stack answered, when none did. Never a mismatch — a mismatch throws. */
+  notRunning: string | null;
+}
+
+/**
+ * THE PRE-DESTRUCTIVE IDENTITY READ (ruling E1, decision D13).
+ *
+ * Before anything destructive, the CLI is asked — through the same helper, so the read and the
+ * destructive act resolve identically — to say what it resolves. Three things must hold, and any
+ * one of them failing refuses loudly and does nothing:
+ *
+ *   1. every Supabase container name in the output belongs to this slot's project;
+ *   2. the founder's personal project id appears nowhere in the output;
+ *   3. the ports and keys the stack reports are the slot's own, loopback, locally issued
+ *      (`localStackProblems`, against the SLOT's config).
+ *
+ * A stack that is simply not running is not a mismatch: it is reported as `notRunning` so the
+ * caller can decide (there is nothing to stop), and only a real disagreement throws.
+ */
+export function proveSlotTarget(slot: number, act: string, itemRoot: string = REPO_ROOT): SlotIdentityRead {
+  const project = slotProjectId(slot);
+  const res: CliResult = runSupabaseCli(slotTarget(slot), ['status', '-o', 'json']);
+  if (res.error) {
+    throw new Error(`refusing to ${act} slot ${slot}: the Supabase CLI could not be launched to read its identity (${diagnostic(res.error.message)})`);
+  }
+
+  const raw = `${res.stdout}\n${res.stderr}`;
+  const personal = personalProjectId(itemRoot);
+  const foreign = foreignContainerNames(raw, project);
+  const carriesPersonal = personal !== '' && raw.includes(personal);
+  if (foreign.length || carriesPersonal) {
+    throw new Error(
+      `REFUSING TO ${act.toUpperCase()} SLOT ${slot}: the identity read did not resolve to ${project}. ` +
+        (foreign.length ? `The CLI named ${foreign.join(', ')}. ` : '') +
+        (carriesPersonal ? `The founder's personal project id appears in the output. ` : '') +
+        `Nothing was done.`,
+    );
+  }
+
+  let status: StackStatus;
+  try {
+    status = parseStackStatus(res);
+  } catch (err) {
+    return { status: null, notRunning: diagnostic((err as Error).message) };
+  }
+
+  const config = readLocalConfig(slotDir(slot));
+  const problems = localStackProblems(status, config);
+  if (problems.length) {
+    throw new Error(
+      `REFUSING TO ${act.toUpperCase()} SLOT ${slot}: the stack that answered is not provably slot ${slot}'s own. ` +
+        `Failed checks: ${problems.join('; ')}. (Values are deliberately not printed.) Nothing was done.`,
+    );
+  }
+
+  console.log(`db-pool — slot ${slot} identity proven before the ${act}: project ${project}, api ${config.apiPort}, db ${config.dbPort}`);
+  return { status, notRunning: null };
+}
+
+/**
+ * `db reset` on a slot. THE IDENTITY READ IS INSIDE, so no caller can reach the reset without it —
+ * that is what "structurally on the destructive path" means, as opposed to a rule someone follows.
+ */
+export async function resetSlotDatabase(slot: number, itemRoot: string = REPO_ROOT): Promise<StackStatus> {
+  const read = proveSlotTarget(slot, 'reset', itemRoot);
+  if (!read.status) {
+    throw new Error(
+      `refusing to reset slot ${slot}: it reported no running stack, so its identity could not be proven ` +
+        `(${read.notRunning}). Start the slot first; nothing was reset.`,
+    );
+  }
+  await resetLocalDatabase(slotTarget(slot));
+  return read.status;
+}
+
+/** `stop` on a slot, behind the same read. A slot that reports no stack has nothing to stop. */
+export function stopSlotStack(slot: number, itemRoot: string = REPO_ROOT): void {
+  const read = proveSlotTarget(slot, 'stop', itemRoot);
+  if (!read.status) {
+    console.log(`db-pool — slot ${slot} reported no running stack (${read.notRunning}); there is nothing to stop`);
+    return;
+  }
+  runSlotCli(slot, ['stop'], 'stop');
+}
+
+/** `start` on a slot. Not destructive, and a stack that is down cannot be asked who it is first. */
+export function startSlotStack(slot: number): void {
+  runSlotCli(slot, ['start'], 'start');
 }
 
 /**
@@ -666,23 +823,22 @@ export async function prepare(occupancy: Occupancy, itemRoot: string = REPO_ROOT
     // The auth container reads config at START, not at reset, so a changed config that is not
     // restarted into would grade the previous item's auth behaviour.
     console.log(`at:verify — db slot ${slot} configuration changed since its last start; restarting the slot's stack`);
-    runSlotCli(slot, ['stop'], 'stop');
-    runSlotCli(slot, ['start'], 'start');
+    stopSlotStack(slot, itemRoot);
+    startSlotStack(slot);
     const proven: StartMarker = { configHash: hash, at: new Date().toISOString(), pid: process.pid };
     writeFileSync(slotMarkerPath(slot), JSON.stringify(proven), 'utf8');
   }
 
-  const status = readStackStatus(dir);
-  const problems = localStackProblems(status, occupancy.config);
-  if (problems.length) {
-    throw new Error(
-      `the stack that answered for slot ${slot} is not provably the local development stack, so nothing was reset ` +
-        `and nothing was run. Failed checks: ${problems.join('; ')}. (Values are deliberately not printed.)`,
-    );
+  // The identity read doubles as the prove-local check against the SLOT's config, and it is the
+  // same read the reset performs again for itself immediately before acting.
+  const read = proveSlotTarget(slot, 'prepare', itemRoot);
+  if (!read.status) {
+    throw new Error(`slot ${slot} reported no running stack (${read.notRunning}), so nothing was reset and nothing was run`);
   }
+  const status = read.status;
 
   await waitForReady(status, `before the slot ${slot} reset`);
-  await resetLocalDatabase(dir);
+  await resetSlotDatabase(slot, itemRoot);
   await waitForReady(status, `after the slot ${slot} reset`);
   const migrations = await proveMigrationsReplayed(status, itemRoot);
 
@@ -760,10 +916,12 @@ async function setup(): Promise<number> {
     console.log(`  wrote ${slotConfigPath(slot)} (project_id ${slotProjectId(slot)})`);
 
     console.log(`  starting slot ${slot} — this pulls container images on a first run`);
-    runSlotCli(slot, ['start'], 'start');
+    startSlotStack(slot);
     writeFileSync(slotMarkerPath(slot), JSON.stringify({ configHash: hashConfig(generated), at: new Date().toISOString(), pid: process.pid }), 'utf8');
 
-    const status = readStackStatus(dir);
+    const read = proveSlotTarget(slot, 'status report', REPO_ROOT);
+    if (!read.status) throw new Error(`slot ${slot} started but reported no running stack: ${read.notRunning}`);
+    const status = read.status;
     console.log(`  slot ${slot} API_URL ${status.apiUrl}`);
     console.log(`  slot ${slot} DB_URL  ${redactDbUrl(status.dbUrl)}`);
     console.log(`  slot ${slot} keys    issued (values deliberately not printed)`);

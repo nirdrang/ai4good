@@ -509,42 +509,103 @@ export function supabaseArgs(...args: string[]): string[] {
 }
 
 /**
- * The CLI's global `--workdir` names the directory that CONTAINS a `supabase/` project folder.
- * Omitted, the CLI uses its own working directory, which is the repo tree — today's behaviour at
- * every existing call site.
- *
- * `--workdir` IS NOT SUFFICIENT ON ITS OWN, measured 2026-08-10 and the reason `cliCwd` exists.
- * When the CLI's WORKING DIRECTORY is itself a Supabase project, `--workdir <other>` produces a
- * hybrid: the values come from the other project's `config.toml` while the CONTAINER IDENTITY
- * comes from the working directory's project. `supabase --workdir <slot-1> status` run from this
- * repo reported the slot's ports and, in the same breath, the health of the containers of the
- * project in the repo. A `db reset` under that hybrid would name one database and rebuild
- * another. Run from a directory that is not a Supabase project, the same command correctly says
- * `No such container: supabase_db_ai4good-slot-1`.
- *
- * So both are always passed together: the flag says which project, and the working directory
- * makes sure nothing else can claim to be one.
+ * WHICH PROJECT an invocation acts on. A target names both halves of an identity, because either
+ * half alone is a hybrid.
  */
-function workdirArgs(workdir?: string): string[] {
-  return workdir ? ['--workdir', workdir] : [];
+export interface CliTarget {
+  /** The directory that CONTAINS the `supabase/` project folder — what `--workdir` names. */
+  workdir: string;
+  /** The project id the invocation must resolve, stated POSITIVELY in `SUPABASE_PROJECT_ID`. */
+  projectId: string;
 }
 
-/** See `workdirArgs`: the CLI's working directory decides container identity, so it must agree. */
-function cliCwd(workdir?: string): string {
-  return workdir ?? REPO_ROOT;
+export interface CliInvocation {
+  args: string[];
+  cwd: string;
+  env: Record<string, string>;
+}
+
+/**
+ * THE ONE SEAM every Supabase CLI invocation is built at. Nothing in this repository assembles a
+ * CLI command line, working directory or environment anywhere else, and that single seam is the
+ * whole wall — a wall with two builders is a wall with a gap.
+ *
+ * THREE THINGS HAVE TO AGREE, and the reason each is here was measured, not reasoned about:
+ *
+ *   1. `SUPABASE_PROJECT_ID`, set POSITIVELY to the target's project id. The CLI treats that
+ *      variable as an OVERRIDE of `project_id` in `config.toml`. The repo's tracked `.env` carries
+ *      it, bun loads `.env` into this process, and on 2026-08-09 a `db reset` aimed at slot 2
+ *      destroyed the founder's personal database because the environment supplied the identity
+ *      while the slot's config supplied the ports. The wall is stating the identity, never merely
+ *      avoiding an override: an absence can be reintroduced by any parent process, a positive
+ *      value cannot.
+ *   2. NO OTHER `SUPABASE_*` variable. `childEnv` is an allowlist that carries none, and this
+ *      function asserts that rather than trusting it, because the allowlist is edited by people.
+ *   3. The WORKING DIRECTORY, equal to `--workdir`. Measured 2026-08-10: when the CLI's working
+ *      directory is itself a Supabase project, `--workdir <other>` produces a hybrid — the other
+ *      project's ports beside the working directory's project's containers. Run from a directory
+ *      that is not a project, the same command correctly says
+ *      `No such container: supabase_db_ai4good-slot-1`.
+ *
+ * `bun --no-env-file` (in `supabaseArgs`) closes the fourth route: a child that re-reads `.env`
+ * for itself.
+ *
+ * No target means the repository's own project, exactly as every call site behaved before targets
+ * existed: no `--workdir`, the repo root, and an environment carrying no `SUPABASE_*` at all.
+ */
+export function supabaseInvocation(target: CliTarget | undefined, args: string[]): CliInvocation {
+  if (!target) return { args: supabaseArgs(...args), cwd: REPO_ROOT, env: childEnv() };
+
+  const env = childEnv({ SUPABASE_PROJECT_ID: target.projectId });
+  const foreign = Object.keys(env).filter((name) => /^SUPABASE_/i.test(name) && name.toUpperCase() !== 'SUPABASE_PROJECT_ID');
+  if (foreign.length) {
+    throw new Error(
+      `refusing to run the Supabase CLI against ${target.projectId}: the child environment would also carry ` +
+        `${foreign.join(', ')}, and a second SUPABASE_* variable can override the identity this invocation states.`,
+    );
+  }
+  if (env.SUPABASE_PROJECT_ID !== target.projectId) {
+    throw new Error(`refusing to run the Supabase CLI: SUPABASE_PROJECT_ID would not be "${target.projectId}"`);
+  }
+  return { args: supabaseArgs('--workdir', target.workdir, ...args), cwd: target.workdir, env };
+}
+
+export interface CliResult {
+  status: number | null;
+  signal?: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+  error?: Error;
+}
+
+/** Run the pinned CLI through the seam and hand back the RAW result. The caller decides what to
+ * read and what may be printed — raw output carries every key the stack issues. */
+export function runSupabaseCli(target: CliTarget | undefined, args: string[]): CliResult {
+  const invocation = supabaseInvocation(target, args);
+  const res = spawnSync(bunExecutable(), invocation.args, { cwd: invocation.cwd, env: invocation.env, encoding: 'utf8' });
+  return {
+    status: res.status,
+    signal: res.signal,
+    stdout: res.stdout ?? '',
+    stderr: res.stderr ?? '',
+    error: res.error as Error | undefined,
+  };
 }
 
 /**
  * Ask the running stack to describe itself. The raw output is NEVER printed: it contains every
  * key the stack issues. Only field names travel into error messages.
  */
-export function readStackStatus(workdir?: string): StackStatus {
-  const res = spawnSync(bunExecutable(), supabaseArgs(...workdirArgs(workdir), 'status', '-o', 'json'), {
-    cwd: cliCwd(workdir),
-    env: childEnv(),
-    encoding: 'utf8',
-  });
+export function readStackStatus(target?: CliTarget): StackStatus {
+  return parseStackStatus(runSupabaseCli(target, ['status', '-o', 'json']));
+}
 
+/**
+ * The status parser, separate from the invocation so that a caller which needs the RAW output for
+ * its own checks (the slot pool's identity read) reads it once and parses the same result, rather
+ * than running the CLI twice or keeping a second copy of this parser.
+ */
+export function parseStackStatus(res: CliResult): StackStatus {
   if (res.error) {
     const err = res.error as NodeJS.ErrnoException;
     throw new Error(`could not launch the Supabase CLI (${err.code ?? 'spawn error'}): ${diagnostic(err.message)}`);
@@ -795,10 +856,11 @@ export async function proveMigrationsReplayed(status: StackStatus, root: string 
  * WHY EVERY RUN: without it the second run works on the first run's leftover rows, and on a
  * schema missing whatever migration landed since — a suite grading a database nobody established.
  */
-export async function resetLocalDatabase(workdir?: string): Promise<void> {
-  const child = spawn(bunExecutable(), supabaseArgs(...workdirArgs(workdir), 'db', 'reset', '--local'), {
-    cwd: cliCwd(workdir),
-    env: childEnv(),
+export async function resetLocalDatabase(target?: CliTarget): Promise<void> {
+  const invocation = supabaseInvocation(target, ['db', 'reset', '--local']);
+  const child = spawn(bunExecutable(), invocation.args, {
+    cwd: invocation.cwd,
+    env: invocation.env,
     // progress is worth watching (a reset replays every migration); stderr is captured so a
     // failure can be reported in our own words rather than scrolling past.
     stdio: ['ignore', 'inherit', 'pipe'],
