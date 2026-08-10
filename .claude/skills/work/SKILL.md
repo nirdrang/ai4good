@@ -227,6 +227,18 @@ nearest the changed behaviour when one exists, with the result recorded in
 drilled the sentence that carried it; a workflow change with no drill evidence is code with no
 test.
 
+**And PROBE THE REGISTRY before the next spawn (founder 2026-08-10 — "this should have
+proposed by u").** Skills and reviewer briefs are read from disk at use, so their changes are
+live at once. Agent DEFINITIONS are served from a per-session registry that refreshes with a
+lag of minutes, and a spawn during the lag runs the OLD contract silently. So after editing any
+`.claude/agents/*.md`: spawn the changed type as a two-line PROBE (model sonnet, "quote the
+sentence I changed"), and only spawn real work once the probe returns the new text. If the
+probe stays stale, a session restart is the fix, and PROPOSING that restart to the founder is
+the coordinator's duty, not the founder's discovery. Agents already running keep the contract
+they were born with — an in-flight item finishes under mixed vintages, and the contracts must
+stay backward-tolerant for exactly that reason (the birth-certificate fallback line is the
+model).
+
 ## Filing candidates — few, distinct, and worth a stranger's time (founder 2026-08-09)
 
 Item runs hand up observations, and the coordinator files them. Filing is not free: every item
