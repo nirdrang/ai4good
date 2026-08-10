@@ -600,3 +600,36 @@ which described 2026-08-09 22:04–22:30 only.
 - **E2 amended: UNBLOCKED (founder, 2026-08-10).** S3 as amended runs now; S5 follows only
   after S3's done-criterion is met, per the plan's build-order rule. The no-touch rule on the
   personal stack is unchanged and permanent.
+
+### Draft-pass ratifications (resumed draft sitting, 2026-08-10)
+
+The draft executor (opus) completed E1/D13 with E3 and E4 folded, the amended S3, S4, S5 and
+S6 in one invocation. The spike ran twice inside it: the first run stopped on a leftover
+canary table in slot 1's database — a client problem, no identity resolved, the personal
+snapshot already IDENTICAL on that attempt — and the postscript of
+`loop/items/AI4DEV-79/spike-isolation-2.txt` records both runs. The wall is re-proven under
+the hostile condition; the orchestrator read the transcript and confirmed the personal
+stack's docker identity with its own instrument. Four executor judgment calls, ruled:
+
+- **E6. The identity pre-read instrument — RATIFIED.** E1's "any project identity the CLI
+  reports matches the slot id" clause is implemented as a strict scan over every `supabase_*`
+  container-name token in the CLI's own status output: every token must end in the slot's
+  project id, the personal project id must appear nowhere, and `localStackProblems` must pass
+  against the slot's config. The executor's observation is correct and recorded: ports alone
+  would NOT have caught the incident — the hybrid invocation reported slot-2's ports
+  correctly; the container names carry the RESOLVED project. The pre-read stays a
+  corroborating instrument; the wall itself is the positive `SUPABASE_PROJECT_ID` plus the
+  working directory (E1).
+- **E7. The scan's fail-closed bias — ACCEPTED.** A `supabase_*` token that does not end in
+  the slot's project id refuses loudly, so an unknown token false-refuses rather than passes.
+  A false refusal is loud and costs a look; a false pass destroyed a database. Consistent
+  with D2's unmappable-port refusal and D6's fail-closed parser.
+- **E8. Two selftests beyond the nine named — KEPT.** The positive reservation-lookup case
+  and the guard-accepts-a-generated-slot-config case exist so the refusal tests cannot pass
+  vacuously. Gate 1's central theme was oracles too weak to prove their claim; these apply
+  that lesson.
+- **E9. Watcher-file churn — RATIFIED as housekeeping.** The conductor's remote-tip watcher
+  (`artifacts/watch-tip.sh`, a tracked file) rewrites its own base pointer after every push,
+  so the tree goes dirty moments after each close. The executor committed the arrived change
+  unaltered, labelled as not-item work; this sitting did the same. Recorded here so the
+  change-scope check downstream reads these commits as declared, not as scope drift.
