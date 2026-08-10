@@ -166,7 +166,8 @@ even when the suite throws; the evidence line carries slot + migration state), a
   signing key paths) and refuses loudly on any path it cannot copy from the item tree — no
   stack starts half-provisioned. Env policy, decided: slot start and restart inherit the
   invoking process env; a missed `env()` resolves to a literal string and does not stop the
-  stack (F6, measured).
+  stack (F6, measured). [The inherit-env sentence is SUPERSEDED by ruling E1's strip — see §9,
+  flash note 1: every `env()` substitution resolves to the literal string on a slot, always.]
 - **D8. The runner hook is integration-tier only.** In main's stack block: when
   `tier === 'integration'`, resolve the stack through the pool — occupy → prepare (copy,
   config, reset via `--workdir`, readiness, prove migrations) → the same prove-local checks
@@ -360,6 +361,11 @@ path, and they prove it on the dev machine at the recorded commit, once.
 - **Port collisions with unrelated software** on 55321/56321 blocks: `supabase start` fails
   loudly at setup time; the setup transcript catches it on this machine now, not mid-item
   later.
+- **The identity-read instrument is coupled to the CLI's output shape** (gate-2 [F4], §9). The
+  container-token scan and the personal-id substring check both read what the pinned CLI
+  (`supabase ^2.110.0`) prints in status output. A CLI upgrade that changes that shape must
+  re-prove the instrument. [T2]'s docker corroboration on the destructive path narrows the
+  exposure; it does not remove it.
 
 ## 7. Gate-1 rulings
 
@@ -633,3 +639,238 @@ stack's docker identity with its own instrument. Four executor judgment calls, r
   so the tree goes dirty moments after each close. The executor committed the arrived change
   unaltered, labelled as not-item work; this sitting did the same. Recorded here so the
   change-scope check downstream reads these commits as declared, not as scope drift.
+
+## 9. Gate-2 rulings (fix sitting, orchestrator on fable, 2026-08-10)
+
+Gate 2 was a panel of two, each blind to the other. Reader one: terra via codex @ max,
+read-only sandbox — 13 findings, distillate `artifacts/gate2-terra-distillate.md`, count line
+matched. Reader two: flash via opencode, agent `reviewer-flash`, variant max — 9 findings plus
+four notes outside the findings, distillate `artifacts/gate2-flash-distillate.md`, count line
+matched. Every finding is ruled here with the claim quoted verbatim. Neither seat outvotes the
+other; convergences are named because a panel converging on one defect is its strongest signal.
+
+Dispositions: terra — 8 accepted, 4 accepted-fixed-differently, 1 rejected. flash — 9 accepted,
+0 rejected; all four notes ruled below. No ruling removes work, so no removal verification
+conditions exist. One ruling ([T2]) carries a verify-first component for the executor.
+
+### Terra's findings
+
+**[T1] ACCEPT — the critical.** Claim: "An empty or partially written lock file is treated as a
+dead holder under `dead-pid-only`, so a second occupier can delete a live process's just-created
+claim."
+Verified at runner.ts:440: `readHolder` returns `{}` for an unreadable or half-written file, and
+`holderIsLive({})` is false under every policy — so an unidentifiable holder is takeover-eligible
+even under the policy whose ruled meaning is "a DEAD HOLDER PID and nothing else". The window is
+the microseconds between `openSync(file, 'wx')` and the `writeSync`, and it is real. Fix, scoped
+to `dead-pid-only`: an unidentifiable holder is NEVER takeover-eligible. After one bounded
+re-read (a short pause, then read again — enough to skate over the write window), a holder that
+still has no parseable pid refuses loudly, naming the file and the manual deletion path. The
+same guard applies to the re-read INSIDE the takeover gate, so the gate cannot remove an
+unidentifiable file either. `stale-or-dead` keeps today's behaviour: that path predates this
+item and is another item's business if anyone wants it changed.
+
+**[T2] ACCEPT, with a verify-first component.** Claim: "`proveSlotTarget` accepts a valid status
+result containing zero `supabase_*` container tokens, so its project-identity check can pass
+vacuously."
+True by code: `foreignContainerNames` on empty input returns nothing, `carriesPersonal` is
+false, and the read proceeds on port checks alone — the exact hybrid shape the incident wore
+(right ports, wrong project) passes if the CLI prints no container names. Fail-closed (E7) says
+absence of identity evidence must refuse a destructive act. VERIFY FIRST (executor, read-only):
+run `status -o json` through the helper on a slot and measure whether `supabase_*` tokens appear
+in the combined output. Then: destructive acts require POSITIVE identity evidence — at least one
+`supabase_*` token ending in the slot's project id when the measurement shows tokens appear; and
+in every case a docker READ (`docker ps` filtered on the slot's own project id) must confirm the
+slot's own db container exists before a reset. Docker reads are the one permitted instrument on
+the untouchable stack and are unrestricted on slots. This also narrows [F4]'s residual: the CLI
+output shape is no longer the only instrument.
+
+**[T3] ACCEPT — amends ruling E3 (convergence with flash [F3]).** Claim: "The full-tree mirror
+copies ignored `supabase/.temp` and `.branches` runtime state into slots."
+Both seats found this independently. `supabase/.temp` is the CLI's runtime state about the
+PERSONAL stack — and `.gitignore` itself says its `start-secrets/**` "must NEVER be committed" —
+so the mirror carries another stack's identity residue and secrets into every slot. E3's
+"mirror entire, no filter" is narrowed, not removed: the mirror carries the item tree's PROJECT
+SOURCE entire; the CLI's own runtime directories `.temp` and `.branches` are not project source
+and are excluded, as is `config.toml` (see [T11]). `pathClosureProblems` gains the matching
+refusal: a config path that resolves into `.temp` or `.branches` refuses loudly, so the closure
+guarantee stays honest about the exclusions.
+
+**[T4] ACCEPT (convergence with flash note 2).** Claim: "The `spike` command resets slot 2
+without acquiring either slot's occupancy claim."
+D6's own ruled sentence — "the occupancy claim still applies" for override runs — is not
+implemented by the spike, which calls `resetSlotDatabase` and writes canaries with no claim
+held. Fix: the spike occupies both slots through the normal `occupy` path (dead-pid-only
+policy) before touching either, and releases both in a `finally`.
+
+**[T5] ACCEPT, FIXED DIFFERENTLY.** Claim: "`AT_DB_SLOT` bypasses branch-derived reservation
+ownership and the post-claim reservation reread even when invoked from a normal item branch."
+The framing over-claims: slot STATE is disposable by design ("state is never inherited" — every
+occupancy resets from its own tree), so the wall against destruction is the occupancy claim,
+which the override keeps, not the reservation, which is admission control. The override itself
+is ruled (D6: the founder, the evidence gate, the spike). But a silent stomp on a slot another
+item holds is real and cheap to refuse: `occupy` via override now refuses loudly when the
+target slot carries a reservation naming a DIFFERENT item than this run can derive (from
+`options.item` or the branch); a run that can derive no item treats ANY reservation as foreign.
+The refusal names the reservation holder. An unreserved slot, or one reserved for this run's
+own item, proceeds as today.
+
+**[T6] ACCEPT.** Claim: "Occupancy locks the previous slot config, while `prepare` can rewrite
+that config's listener ports from the current item tree."
+The claim file's name derives from `projectId + apiPort` read from the slot's CURRENT on-disk
+config, which `prepare` may lawfully rewrite — so two runs bracketing a port change would hold
+two different lock files for one slot. Fix: slot claims are keyed on the slot's PERMANENT
+identity — project id `ai4good-slot-N` plus a fixed sentinel port — used by `occupy` and by
+`readPool`'s occupancy read, and documented at the key. The PowerShell occupancy glob
+(`at-verify-ai4good-slot-N-*.lock`) already matches any suffix and is unchanged.
+
+**[T7] ACCEPT (convergence with flash [F1] — same line, both seats).** Claim:
+"`resetSlotDatabase`, `stopSlotStack`, and `stackEnv` do not run the broad D5 personal-block
+guard themselves."
+D5's ruled sentence names "occupy, prepare, reset or emit env"; the code runs `refusePersonal`
+on the first two only, and the last two are exported entry points a caller can reach directly —
+the spike does. Fix: each of the three runs `refusePersonal` over the slot's on-disk config
+text before acting. `stackEnv` keeps its inline URL-port checks besides — they check the
+STATUS, which the config guard cannot see.
+
+**[T8] ACCEPT, FIXED DIFFERENTLY — one half of the claim is wrong and is recorded as such.**
+Claim: "`edge_runtime.inspector_port` is remapped from any value, including non-numeric values,
+instead of refusing every value other than the ruled 8083."
+The non-numeric half is false: the `!literal` branch at db-pool.ts:242 refuses before the
+inspector case is reached. The numeric half is right: any numeric inspector value is remapped
+by +N*10, which is a guess for every value except the ruled 8083, and a guess is what D2
+forbids. Fix: the special case pins to exactly 8083; any other inspector value falls through to
+the generic listener rule — in-band maps, out-of-band refuses loudly.
+
+**[T9] REJECT.** Claim: "`Release-DbSlot` checks occupancy and deletes the reservation without
+an atomic handoff."
+The TOCTOU window is real and changes nothing destructive. The serializer for destructive acts
+is the occupancy claim (dead-pid-only; a live holder is never displaced): a runner that slips
+into the window still holds its claim, so the worst outcome is the NEXT item's occupy refusing
+loudly until the window closes — a loud refusal, not a reset under a live run. An atomic
+two-file handoff in PowerShell 5.1 would buy no safety the claim does not already provide.
+Recorded as a residual beside the sweep helper's comment.
+
+**[T10] ACCEPT.** Claim: "Two concurrent `Reserve-DbSlot` calls for the same item can reserve
+both slots."
+True by walk-through: both pass the already-held scan, one wins slot 1, the loser's catch
+records "held" and advances to slot 2, and one item holds the whole pool. Fix: in the
+create-failure catch, re-read the reservation; when it names the same item, return
+`alreadyHeld` for that slot instead of advancing.
+
+**[T11] ACCEPT, FIXED DIFFERENTLY.** Claim: "An interruption between delete/copy and
+regenerated-config write can permanently strand a slot before the marker recovery logic runs."
+Ruling this surfaced something worse than stranding: between the mirror and the config write,
+the slot's `config.toml` IS the item tree's config — the personal identity — on disk in a slot
+directory. A crash in that window leaves a slot wearing the personal identity (occupy would
+refuse loudly, but the file should never exist at all). Fix: the mirror excludes `config.toml`
+(with [T3]'s exclusions, one mechanism) and the generated config is written immediately after —
+so no slot config ever carries the personal identity, even transiently, and a crash in the
+window leaves NO config rather than a wrong one. The missing-config refusal in `occupy` names
+both causes (never set up; a prepare that died mid-window) and the one-command repair. Not
+permanent, and loud at every step.
+
+**[T12] ACCEPT (convergence with flash [F2], second half).** Claim: "The personal Docker
+snapshot can report `IDENTICAL` when both before/after queries return zero containers and
+volumes."
+A vacuous pass on the spike's central instrument — gate 1's whole theme. Fix: a new spike
+criterion requires the BEFORE snapshot non-empty (at least one personal container AND one
+personal volume recorded); an empty snapshot fails the run.
+
+**[T13] ACCEPT, FIXED DIFFERENTLY.** Claim: "The path-closure check validates lexical paths but
+does not resolve symlinks under `supabase/`."
+Real, and resolving symlinks lexically is the wrong instrument. Fix, fail-closed and total: the
+mirror refuses loudly on ANY symlink found under the item tree's `supabase/` before copying.
+The tree carries none today (the executor confirms the scan passes), so nothing breaks, and a
+symlink smuggled in later refuses instead of copying as a link that points wherever it likes.
+
+### Flash's findings
+
+**[F1] ACCEPT — same defect as [T7], one fix.** Claim: "The D5 personal-block guard
+(`refusePersonal`) runs on occupy/prepare/stackEnv but NOT on the exported destructive entry
+points `resetSlotDatabase` and `stopSlotStack` — those run only the identity read."
+Both seats converged on this line independently. Ruled at [T7]; flash's tampered-config probe
+becomes unnecessary once the guard is structural.
+
+**[F2] ACCEPT.** Claim: "The spike's \"slot 2 canary is GONE\" criterion can pass vacuously: if
+`readCanary(2)` throws after a successful reset (while the slot-1 read, which runs first,
+succeeded), the catch swallows the failure and `resetDone && slot2Canary === null` passes with
+the canary never read."
+Verified against db-pool.ts:1167-1194: the read order is exactly as claimed, and a slot-2 read
+failure after a good slot-1 read passes every criterion. Fix, as the reviewer proposes: the
+criteria gain "the spike body completed without an exception" (`failure === null`) and the
+non-empty before-snapshot criterion ([T12]).
+
+**[F3] ACCEPT — same defect as [T3], one fix.** Claim: "`mirrorItemTree` copies the item tree's
+`supabase/` entire including CLI runtime state — `supabase/.temp` (whose `start-secrets/**` the
+.gitignore itself says \"must NEVER be committed\") and `supabase/.branches` — and deletes the
+slot's own copies."
+Ruled at [T3].
+
+**[F4] ACCEPT, as a named residual.** Claim: "The only instruments that catch the incident's
+hybrid shape (slot ports + personal containers) are the `supabase_*` container-token scan and
+the personal-id substring check, and both depend on the CLI printing container names/project
+ids in status output."
+Correct, and not settleable today. Recorded in §6 as a residual pinned to the CLI version in
+devDependencies (`supabase ^2.110.0`): a CLI upgrade that changes status output shape must
+re-prove the identity-read instrument. [T2]'s docker corroboration narrows the exposure — the
+CLI's own output is no longer the only instrument on the destructive path.
+
+**[F5] ACCEPT.** Claim: "`pathClosureProblems` cannot see multi-line array values: `scanConfig`
+reads one line per setting, so a valid multi-line `sql_paths = [\n \"./x.sql\"\n]` yields value
+`[` and no paths are extracted."
+For the OVERLAY an invisible value is copied verbatim — safe. For the CLOSURE an invisible
+value is a missed refusal — not safe. Fix: a PATH_KEYS entry whose value opens an array without
+closing it on the same line refuses loudly as unscannable, with the one-line rewrite named. A
+selftest carries the multi-line fixture.
+
+**[F6] ACCEPT.** Claim: "`setup()` writes the `.last-start.json` marker after a `start` that
+did not stop first, and the S2 transcript itself measured that `supabase start` on an
+already-running project \"exited zero having created no slot container at all\" — so a setup
+re-run over a warm slot with a changed tree config writes a matching marker while the stack
+still runs the old config."
+The marker's whole meaning (gate-1 [1]) is "written only after a start that provably ran this
+config"; a no-op start breaks that meaning. Fix: setup stops the slot before starting it —
+`stopSlotStack` is identity-read-guarded and no-ops loudly on a down slot — so the start is
+real and the marker truthful. The unverified runtime half (does a slot behave as the personal
+identity did) needs no measurement once the condition is removed.
+
+**[F7] ACCEPT.** Claim: "`Get-DbSlotOccupancy` treats a claim pid that exists but is not
+inspectable as dead — `Get-Process` throws on another user's process — while the runner's own
+`processIsAlive` (runner.ts:282-290) treats EPERM as alive."
+An occupancy misread as dead lets `Release-DbSlot` hand the slot away under a live run. Fix:
+the catch distinguishes not-found (dead) from every other failure (alive — fail-closed, E7's
+bias), matching the runner's semantics.
+
+**[F8] ACCEPT.** Claim: "The PowerShell pool-root resolution uses `$env:LOCALAPPDATA` alone,
+while the harness `poolRoot()` (db-pool.ts:87-94) falls back `XDG_CACHE_HOME` → `tmpdir`; plan
+D1 promises \"the same base-resolution rule\"."
+Two resolution rules for one pool is how the two halves stop seeing each other's files. Fix:
+the PowerShell helpers mirror the full chain — LOCALAPPDATA, then XDG_CACHE_HOME, then the
+system temp path.
+
+**[F9] ACCEPT.** Claim: "The dead-pid takeover test plants pid 999_999, which is assumed dead
+but is not provably dead — a busy machine (Linux pid_max 4194304, Windows pid space larger) can
+legitimately hold that pid."
+A flaky-by-environment selftest on the exact test that guards the takeover rule. Fix: the test
+spawns a real short-lived child, waits for its exit, and plants THAT pid — provably dead at
+plant time.
+
+### Flash's notes outside the findings, ruled
+
+- **Note 1 (the D7 wording conflict) — ACCEPTED as a plan correction.** The reviewer is right
+  that the code resolves the tension in favour of E1: `supabaseInvocation` strips every
+  `SUPABASE_*` and the allowlist drops the rest, so a config `env()` substitution always
+  resolves to the F6 literal string on a slot. D7's sentence "slot start and restart inherit
+  the invoking process env" is SUPERSEDED by E1's strip — recorded here rather than rewriting
+  §3's history. Consequence, named unproved exactly as the reviewer put it: OAuth-dependent
+  integration ids will grade the literal-string config on slots — unchanged from the old
+  integration path and unexercised today.
+- **Note 2 (the spike holds no slot claims) — ruled at [T4]**, where terra's numbered finding
+  says the same thing. Convergence noted.
+- **Note 3 (out of scope, pre-existing on main)** — `package.json` `db:start`/`db:stop`/
+  `db:reset` reach the personal stack directly via `bunx supabase`, and runner.selftest.ts
+  writes a probe file into the repo's `supabase/migrations`. Both predate this branch. OUT OF
+  SCOPE, per the change-only rule; named here for the coordinator to file as separate work
+  alongside the drill-tier follow-up (§6).
+- **Note 4 (the one-seam and strip hold under attack)** — a clean verdict on the wall itself
+  from the seat that was seated to attack it. Recorded as evidence, not as a finding.
