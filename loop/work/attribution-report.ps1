@@ -6,7 +6,20 @@
 #   powershell -File loop/work/attribution-report.ps1                    -> all sessions
 #   powershell -File loop/work/attribution-report.ps1 -Days 1            -> touched in the last day
 #   powershell -File loop/work/attribution-report.ps1 -Item AI4DEV-79    -> one item only
-param([int]$Days = 0, [string]$Item = '')
+#   powershell -File loop/work/attribution-report.ps1 -Json              -> aggregates as JSON
+#
+# The five root parameters exist so the selftest can point the report at a synthetic store. They
+# default to this machine's real roots, so a default invocation is unchanged.
+param(
+    [int]$Days = 0,
+    [string]$Item = '',
+    [switch]$Json,
+    [string]$ProjectsDir   = (Join-Path $env:USERPROFILE '.claude\projects\C--Users-nirdr-Downloads-ai4good'),
+    [string]$AttrDir       = (Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good\attr'),
+    [string]$ItemsDir      = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'loop\items'),
+    [string]$CodexSessions = (Join-Path $env:USERPROFILE '.codex\sessions'),
+    [string]$KimiRoot      = (Join-Path $env:USERPROFILE '.kimi-code\sessions')
+)
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------------------------------------
@@ -35,7 +48,7 @@ $ErrorActionPreference = 'Stop'
 # So every number below is a FLOOR, not a total.
 # ---------------------------------------------------------------------------------------------
 
-$projDir = Join-Path $env:USERPROFILE '.claude\projects\C--Users-nirdr-Downloads-ai4good'
+$projDir = $ProjectsDir
 if (-not (Test-Path $projDir)) { throw ('transcript directory not found: ' + $projDir) }
 $files = @(Get-ChildItem $projDir -Filter '*.jsonl' -File)
 
@@ -123,7 +136,7 @@ function Get-BranchItems([string]$branch) {
 
 # ---- the chains, from the cache /work writes (never a Linear call from a report)
 $chains = @{}
-$attrDir = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good\attr'
+$attrDir = $AttrDir
 foreach ($f in (Get-ChildItem $attrDir -Filter 'chain-*.json' -File -ErrorAction SilentlyContinue)) {
     try {
         $j = Get-Content $f.FullName -Raw | ConvertFrom-Json
@@ -260,10 +273,10 @@ $rollRows = $rollRows | Sort-Object -Property @{e='OutputTok';Descending=$true}
 # summed, unlike codex's cumulative total. The directory name embeds the id of the agent that
 # launched it, and that agent's own transcript gives the item, so the join needs nothing declared.
 $vendor = @{}
-$itemsDir = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'loop\items'
+$itemsDir = $ItemsDir
 $sessRe = [regex]'session id:\s*([0-9a-fA-F-]{36})'
 $rollouts = @{}
-$codexSessions = Join-Path $env:USERPROFILE '.codex\sessions'
+$codexSessions = $CodexSessions
 if (Test-Path $codexSessions) {
     foreach ($rf in (Get-ChildItem $codexSessions -Recurse -File -Filter 'rollout-*.jsonl' -ErrorAction SilentlyContinue)) {
         $mm = [regex]::Match($rf.Name, '([0-9a-fA-F-]{36})\.jsonl$')
@@ -301,7 +314,7 @@ if (Test-Path $itemsDir) {
 }
 
 $kimi = @{}
-$kimiRoot = Join-Path $env:USERPROFILE '.kimi-code\sessions'
+$kimiRoot = $KimiRoot
 if (Test-Path $kimiRoot) {
     foreach ($wd in (Get-ChildItem $kimiRoot -Directory -ErrorAction SilentlyContinue)) {
         $am = [regex]::Match($wd.Name, 'wd_agent-([A-Za-z0-9]+)_')
@@ -342,6 +355,55 @@ if ($ItemFilter) {
     $rollRows = @($rollRows | Where-Object { $_.Node -eq $ItemFilter -or $chains[$ItemFilter] -contains $_.Node })
 }
 
+# Every row set is built here, BEFORE any output, so the JSON oracle and the printed tables
+# describe exactly the same aggregates - one derivation, two renderings.
+$roleRows = @()
+foreach ($k in $roleAgg.Keys) {
+    $it, $rl = $k -split '\|'
+    if ($ItemFilter -and $it -ne $ItemFilter) { continue }
+    $a = $roleAgg[$k]
+    $roleRows += [pscustomobject]@{ Item=$it; Role=$rl; Responses=$a.responses; InputTok=$a.inTok; OutputTok=$a.outTok; CacheRead=$a.cacheRead; CacheWrite=$a.cacheWrite }
+}
+$roleRows = @($roleRows | Sort-Object Item, @{e='OutputTok';Descending=$true})
+
+$vRows = @()
+foreach ($k in $vendor.Keys) {
+    if ($ItemFilter -and $k -ne $ItemFilter) { continue }
+    $vRows += [pscustomobject]@{ Item=$k; Runs=$vendor[$k].runs; InputTok=$vendor[$k].inTok; OutputTok=$vendor[$k].outTok; CachedIn=$vendor[$k].cached }
+}
+$vRows = @($vRows | Sort-Object OutputTok -Descending)
+
+$kRows = @()
+foreach ($k in $kimi.Keys) {
+    if ($ItemFilter -and $k -ne $ItemFilter) { continue }
+    $kRows += [pscustomobject]@{ Item=$k; Sessions=$kimi[$k].sessions; InputTok=$kimi[$k].inTok; OutputTok=$kimi[$k].outTok; CacheRead=$kimi[$k].cached }
+}
+$kRows = @($kRows | Sort-Object OutputTok -Descending)
+
+# -Json emits the aggregates instead of the tables, so a test asserts on numbers rather than on
+# Format-Table whitespace. Windows PowerShell 5.1 needs an explicit -Depth.
+if ($Json) {
+    $out = [pscustomobject]@{
+        rows      = @($rows)
+        roleRows  = $roleRows
+        rollRows  = @($rollRows)
+        codexRows = $vRows
+        kimiRows  = $kRows
+        totals    = [pscustomobject]@{
+            responses             = $totResp
+            outputTok             = $totOut
+            unattributedOutputTok = $unatt
+            unattributedPct       = $pct
+            transcriptFiles       = $sessions
+            skippedFiles          = $skipped
+            item                  = $ItemFilter
+            days                  = $Days
+        }
+    }
+    $out | ConvertTo-Json -Depth 6
+    exit 0
+}
+
 Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s)' + $(if ($Days -gt 0) { ' (last ' + $Days + ' days)' } else { '' }) + $scopeNote)
 Write-Output 'units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere'
 Write-Output 'attribution DERIVED from each record''s own git branch; role DERIVED from the spawn call'
@@ -350,32 +412,19 @@ Write-Output ('== PER ITEM ==' + $scopeNote)
 if ($rows.Count -eq 0) { Write-Output ('  no responses attributed to ' + $ItemFilter + ' in this window') }
 else { $rows | Format-Table Item, From, Responses, OutputTok, InputTok, CacheRead, CacheWrite -AutoSize | Out-String -Width 200 | Write-Output }
 Write-Output ('== PER ROLE WITHIN EACH ITEM (role from the spawn call, not any ROLE: text)' + $scopeNote + ' ==')
-$roleRows = @()
-foreach ($k in $roleAgg.Keys) {
-    $it, $rl = $k -split '\|'
-    if ($ItemFilter -and $it -ne $ItemFilter) { continue }
-    $a = $roleAgg[$k]
-    $roleRows += [pscustomobject]@{ Item=$it; Role=$rl; Responses=$a.responses; InputTok=$a.inTok; OutputTok=$a.outTok; CacheRead=$a.cacheRead; CacheWrite=$a.cacheWrite }
-}
 if ($roleRows.Count -eq 0) { Write-Output '  no role-attributed responses in scope' }
-else { $roleRows | Sort-Object Item, @{e='OutputTok';Descending=$true} | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
+else { $roleRows | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 Write-Output 'InputTok is nearly always tiny next to CacheRead: almost everything an agent reads arrives from cache, so input alone understates what was consumed by orders of magnitude.'
 Write-Output ''
 Write-Output '== REVIEWER SPEND (codex, joined by the session id in each item''s committed logs) =='
 if ($vendor.Count -eq 0) { Write-Output '  none joined - no committed reviewer log matched a stored codex session' }
-else {
-    $vRows = @()
-    foreach ($k in $vendor.Keys) { if ($ItemFilter -and $k -ne $ItemFilter) { continue }; $vRows += [pscustomobject]@{ Item=$k; Runs=$vendor[$k].runs; InputTok=$vendor[$k].inTok; OutputTok=$vendor[$k].outTok; CachedIn=$vendor[$k].cached } }
-    if ($vRows.Count -eq 0) { Write-Output '  none in scope' } else { $vRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
-}
+elseif ($vRows.Count -eq 0) { Write-Output '  none in scope' }
+else { $vRows | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 Write-Output ''
 Write-Output '== REVIEWER SPEND (kimi, joined by the launching agent id in its session directory) =='
 if ($kimi.Count -eq 0) { Write-Output '  none joined - no kimi session directory named an agent this run resolved to an item' }
-else {
-    $kRows = @()
-    foreach ($k in $kimi.Keys) { if ($ItemFilter -and $k -ne $ItemFilter) { continue }; $kRows += [pscustomobject]@{ Item=$k; Sessions=$kimi[$k].sessions; InputTok=$kimi[$k].inTok; OutputTok=$kimi[$k].outTok; CacheRead=$kimi[$k].cached } }
-    if ($kRows.Count -eq 0) { Write-Output '  none in scope' } else { $kRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
-}
+elseif ($kRows.Count -eq 0) { Write-Output '  none in scope' }
+else { $kRows | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 Write-Output ''
 Write-Output '== ROLLED UP THE CHAIN (each node includes everything beneath it) =='
 $rollRows | Format-Table Node, Covers, Responses, OutputTok -AutoSize | Out-String -Width 200 | Write-Output
