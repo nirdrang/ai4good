@@ -449,13 +449,49 @@ export function acquireStackLock(config: LocalConfig, requirement: string, optio
     }
   };
 
+  /**
+   * UNDER `dead-pid-only`, AN UNIDENTIFIABLE HOLDER IS NEVER TAKEOVER-ELIGIBLE.
+   *
+   * `readHolder` returns `{}` for a file it cannot read or parse, and `holderIsLive({})` is false
+   * under every policy — so without this guard a claim file that is empty or half written looks
+   * exactly like a dead holder and is deleted. The window is real and small: it is the microseconds
+   * between `openSync(file, 'wx')` and the `writeSync` that fills the file, so a second occupier
+   * arriving in that instant would remove a LIVE process's brand-new claim. That is the one thing
+   * this policy exists to make impossible.
+   *
+   * One bounded re-read skates over the write window. A holder that STILL has no parseable pid is
+   * not a dead holder — it is a file nobody in this process can account for — so it refuses loudly
+   * and names the manual repair. `stale-or-dead` keeps its long-standing behaviour: that path
+   * predates the slot pool and is another item's business.
+   *
+   * Returns the identified holder, or null when the file went away and the loop should retry.
+   */
+  const identified = (holder: Holder, where: string): Holder | null => {
+    if (typeof holder.pid === 'number') return holder;
+    if (policy !== 'dead-pid-only') return holder;
+
+    pause(50);
+    const again = readHolder();
+    if (again === null) return null; // released while we looked; the loop takes the free path
+    if (typeof again.pid === 'number') return again;
+
+    throw new Error(
+      `refusing to take over the claim at ${file}: it names no process id that this run can read, ` +
+        `so it cannot be shown to be dead — and a claim file being written right now looks exactly ` +
+        `like this. Nothing was taken over. If no run holds that stack, delete ${file} by hand ` +
+        `(checked ${where}).`,
+    );
+  };
+
   // Bounded: every retry follows another process winning the gate, which cannot repeat forever.
   for (let attempt = 0; attempt < 20; attempt++) {
     const claimed = claim();
     if (claimed) return claimed;
 
-    const holder = readHolder();
-    if (holder === null) continue; // released between the failed claim and the read
+    const read = readHolder();
+    if (read === null) continue; // released between the failed claim and the read
+    const holder = identified(read, 'before the takeover gate');
+    if (holder === null) continue;
     if (holderIsLive(holder, policy)) throw heldByAnotherRun(holder, file);
 
     // Stale. Enter the takeover gate — the only place the live lock path may be removed.
@@ -471,8 +507,11 @@ export function acquireStackLock(config: LocalConfig, requirement: string, optio
 
     try {
       writeSync(gateFd, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
-      const inside = readHolder();
-      if (inside === null) continue; // released while we were entering; the next claim takes it
+      const readInside = readHolder();
+      if (readInside === null) continue; // released while we were entering; the next claim takes it
+      // The same guard as above: the gate must not be able to remove an unidentifiable file either.
+      const inside = identified(readInside, 'inside the takeover gate');
+      if (inside === null) continue;
       if (holderIsLive(inside, policy)) continue; // refreshed under us; the next pass refuses it properly
 
       rmSync(file, { force: true });
