@@ -1,0 +1,18 @@
+﻿# Gate-1 [10] - the loop-tier oracle diff.
+#
+# LEFT  (oracle-loop-main.txt)   : bun run at:verify req-001 --tier loop --expect, run at commit
+#                                  c11e352 - the commit this branch departs from, its merge base
+#                                  with origin/main.
+# RIGHT (oracle-loop-branch.txt) : the same command at this branch head.
+#
+# WHY THE MERGE BASE AND NOT origin/main: origin/main has moved ten commits ahead of this
+# branch, and one of them landed new acceptance tests for req-001 and moved four ids from green
+# to red in the declaration. A diff against that head would measure main own changes, not this
+# branch effect, which is the one thing this oracle exists to measure.
+#
+# NORMALIZED IN BOTH: the tree root, the report temporary directory, every temp path,
+# durations, ISO timestamps and clock times.
+#
+# branch exit code: 0   main exit code: 0
+#
+# RESULT: EMPTY. The normalized outputs are identical line for line.
