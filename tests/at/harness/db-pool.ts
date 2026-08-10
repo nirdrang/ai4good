@@ -182,6 +182,24 @@ function isPortKey(key: string): boolean {
 }
 
 /**
+ * A PORT VALUE, PARSED WHOLE (audit ruling A5).
+ *
+ * The rule is the ENTIRE value token, never a prefix of it. TOML writes an integer with optional
+ * underscores between digits, so `54_321` is a perfectly ordinary way to write a personal-block
+ * port — and a prefix parse reads it as `54`, which is in no band anybody checks. That is a hole
+ * in the wall's own guard, so the whole token must be an integer or this returns `null` and the
+ * caller treats the value as a PROBLEM.
+ *
+ * A trailing `# comment` is not part of the value and is dropped before the token is judged;
+ * anything else left beside the digits — quotes, an `env()` call, a second number — fails.
+ */
+function portValue(raw: string): number | null {
+  const token = raw.split('#')[0].trim();
+  if (!/^\d(?:_?\d)*$/.test(token)) return null;
+  return Number(token.replace(/_/g, ''));
+}
+
+/**
  * THE LOCAL STACK'S OWN LISTENER PORTS — the only ports a slot's identity moves (ruling E4).
  *
  * A `config.toml` holds two kinds of port. A LISTENER port is a socket this machine opens for
@@ -244,8 +262,9 @@ export function portMappings(text: string, slot: number): { mappings: PortMappin
 
   for (const entry of scanConfig(text)) {
     if (!isPortKey(entry.key)) continue;
-    const literal = /^(\d+)/.exec(entry.value);
-    const from = literal ? Number(literal[1]) : NaN;
+    // WHOLE TOKEN, never a prefix (ruling A5): `54_321` is 54321 here, not 54.
+    const parsed = portValue(entry.value);
+    const from = parsed ?? NaN;
     const listener = isListenerPort(entry.section, entry.key);
 
     if (!listener) {
@@ -258,7 +277,7 @@ export function portMappings(text: string, slot: number): { mappings: PortMappin
       continue; // a client-connection port is data and travels unchanged
     }
 
-    if (!literal) {
+    if (parsed === null) {
       problems.push(`[${entry.section}] ${entry.key} = ${entry.value} is not a plain port number, so the slot overlay cannot move it`);
       continue;
     }
@@ -298,7 +317,9 @@ export function generateSlotConfig(sourceText: string, slot: number): string {
   const lines = sourceText.split('\n');
   lines[projectIdEntry.line] = lines[projectIdEntry.line].replace(/^(\s*project_id\s*=\s*)"[^"]*"/, `$1"${slotProjectId(slot)}"`);
   for (const mapping of mappings) {
-    const pattern = new RegExp(`^(\\s*${mapping.key}\\s*=\\s*)\\d+`);
+    // The digits AND any TOML underscores between them, so a value written `54_321` is replaced
+    // whole. Replacing only the leading digits would leave the tail of the old value behind.
+    const pattern = new RegExp(`^(\\s*${mapping.key}\\s*=\\s*)\\d(?:_?\\d)*`);
     lines[mapping.line] = lines[mapping.line].replace(pattern, `$1${mapping.to}`);
   }
   return lines.join('\n');
@@ -325,8 +346,18 @@ export function personalBlockProblems(slotConfigText: string, personalProjectId:
 
   for (const entry of entries) {
     if (!isPortKey(entry.key)) continue;
-    const port = Number(/^(\d+)/.exec(entry.value)?.[1] ?? NaN);
-    if (!Number.isFinite(port)) continue;
+    // WHOLE TOKEN, AND AN UNPARSEABLE VALUE IS A PROBLEM (audit ruling A5). Two fail-opens sat
+    // here: a prefix parse read `54_321` — a legal TOML spelling of a personal-block port — as
+    // 54, and a value that did not parse at all was skipped in silence. A port this guard cannot
+    // read cannot be shown to be outside the founder's block, so it refuses, named with its value.
+    const port = portValue(entry.value);
+    if (port === null) {
+      problems.push(
+        `[${entry.section}] ${entry.key} = ${entry.value} is not a plain port number, so it cannot be shown to be ` +
+          `outside the personal stack's port block ${PERSONAL_PORT_LOW}–${PERSONAL_PORT_HIGH}`,
+      );
+      continue;
+    }
     if (port >= PERSONAL_PORT_LOW && port <= PERSONAL_PORT_HIGH) {
       problems.push(`[${entry.section}] ${entry.key} = ${port} is inside the personal stack's port block ${PERSONAL_PORT_LOW}–${PERSONAL_PORT_HIGH}`);
     }
@@ -549,12 +580,69 @@ export interface Reservation {
   holder: string;
 }
 
+/**
+ * The reservation as a VIEW reads it: anything this run cannot read is reported as nothing.
+ *
+ * This read is for rendering a picture of the pool, never for deciding whether a slot may be
+ * taken. A view that refuses to render is no safety. Decision paths use `readReservationStrict`.
+ */
 export function readReservation(slot: number): Reservation | null {
   try {
     return JSON.parse(readFileSync(reservationPath(slot), 'utf8')) as Reservation;
   } catch {
     return null;
   }
+}
+
+/** One second of small steps — thousands of times the write window, and the same remedy T1 uses. */
+const RESERVATION_READ_TRIES = 40;
+const RESERVATION_READ_STEP_MS = 25;
+
+/** Bounded synchronous pause, the same shape `acquireStackLock` uses for the same window. */
+function pause(ms: number): void {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    /* spin */
+  }
+}
+
+/**
+ * THE RESERVATION AS A DECISION PATH MUST READ IT (audit ruling A2).
+ *
+ * Three outcomes, and the middle one is the whole point:
+ *
+ *   - the file is ABSENT — there is no reservation, and the caller proceeds;
+ *   - the file EXISTS but this run cannot read or parse it — it waits out the write window and
+ *     reads again, because `Reserve-DbSlot` creates the file exclusively and fills it a moment
+ *     later, and in between the file exists and says nothing (measured on this machine, T10);
+ *   - the file is STILL unreadable after the wait — it REFUSES, naming the file. A reservation
+ *     nobody can read is not the same thing as no reservation, and treating it as absent lets a
+ *     run take a slot another item holds.
+ */
+export function readReservationStrict(slot: number): Reservation | null {
+  const path = reservationPath(slot);
+  for (let attempt = 0; attempt < RESERVATION_READ_TRIES; attempt++) {
+    if (attempt > 0) pause(RESERVATION_READ_STEP_MS);
+    let raw: string;
+    try {
+      raw = readFileSync(path, 'utf8');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      continue; // present, and held by its writer — look again in a moment
+    }
+    if (raw.trim() === '') continue; // created, not yet filled
+    try {
+      return JSON.parse(raw) as Reservation;
+    } catch {
+      continue; // half written
+    }
+  }
+  throw new Error(
+    `refusing to decide about slot ${slot}: it holds a reservation at ${path} that this run cannot read after ` +
+      `${(RESERVATION_READ_TRIES * RESERVATION_READ_STEP_MS) / 1000} seconds of trying. A reservation nobody can read is ` +
+      `NOT the same thing as no reservation, and reading it as absent would let this run take a slot another item ` +
+      `holds. Nothing was done. Look at that file, and delete it by hand if no item holds this slot.`,
+  );
 }
 
 /** The slot reserved for this item, or null. Derived from the file, never declared by a caller. */
@@ -692,7 +780,8 @@ export function occupy(requirement: string, options: OccupyOptions = {}): Occupa
         derived = null; // no item derivable — every reservation is then somebody else's
       }
     }
-    const reserved = readReservation(slot);
+    // STRICT (ruling A2): an unreadable reservation refuses here rather than reading as absent.
+    const reserved = readReservationStrict(slot);
     if (reserved && reserved.item !== derived) {
       throw new Error(
         `refusing to take slot ${slot} with AT_DB_SLOT: it is reserved for ${reserved.item} ` +
@@ -742,7 +831,16 @@ export function occupy(requirement: string, options: OccupyOptions = {}): Occupa
   // coordinator may have released the slot and given it to another item, and a run that resets a
   // database another item now owns is the exact collision this pool exists to prevent.
   if (via === 'reservation' && item !== null) {
-    const still = readReservation(slot);
+    // STRICT here too (ruling A2), so `nobody` below means the file is GONE and never means the
+    // file could not be read. The claim is released before the refusal travels, exactly as the
+    // refusal below does it: a refusal that strands a claim locks the slot against everyone.
+    let still: Reservation | null;
+    try {
+      still = readReservationStrict(slot);
+    } catch (err) {
+      claim.release();
+      throw err;
+    }
     if (still?.item !== item) {
       claim.release();
       throw new Error(
@@ -1127,13 +1225,34 @@ export function stackEnv(occupancy: Occupancy, status: StackStatus, itemRoot: st
 }
 
 /**
+ * The api port THAT ANSWERED, read from the post-prepare status (audit ruling A3).
+ *
+ * The status is proven before this is called, so the parse cannot fail in practice; if it ever
+ * does, the line carries what the status said verbatim rather than a number from somewhere else.
+ */
+function statusApiPort(status: StackStatus): string {
+  try {
+    const port = new URL(status.apiUrl).port;
+    if (port) return port;
+  } catch {
+    /* not a URL this run can parse — fall through and print what the status actually said */
+  }
+  return status.apiUrl || 'unknown';
+}
+
+/**
  * The one line the verify transcript carries about the database it ran against: which slot, that
  * the reset happened, and what the migration state was. A green that cannot name its reset ran
  * against unknown state.
+ *
+ * THE PORT COMES FROM THE STATUS, NOT FROM THE OCCUPANCY (ruling A3). The occupancy's config is
+ * read when the slot is taken, and `prepare` then regenerates that config from the item tree — so
+ * under a port change the occupancy names the OLD port while the suite runs against the new one.
+ * The project id is the slot's permanent identity (ruling T6) and cannot drift that way.
  */
 export function evidence(occupancy: Occupancy, result: PrepareResult): string {
   return (
-    `at:verify — db slot ${occupancy.slot} (${occupancy.config.projectId}, api ${occupancy.config.apiPort}) — ` +
+    `at:verify — db slot ${occupancy.slot} (${occupancy.config.projectId}, api ${statusApiPort(result.status)}) — ` +
     `reset OK — migrations: ${result.migrations.expected} expected, ${result.migrations.applied} applied`
   );
 }

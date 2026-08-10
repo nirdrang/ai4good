@@ -84,11 +84,18 @@ function Read-DbSlotReservation([int]$slot) {
 # One second of retries is thousands of times the window. It is the same remedy ruling T1 applies
 # to the same window shape in the harness's own claim files.
 function Read-DbSlotReservationWait([int]$slot) {
-    $p = Get-DbSlotReservationPath $slot
+    return (Read-DbSlotJsonWait (Get-DbSlotReservationPath $slot))
+}
+
+# THE SAME BOUNDED WAIT, over any one file. The reservation read above and the occupancy read below
+# meet the identical window - a file created exclusively and filled a moment later - so they use one
+# remedy. Returns the parsed object, or $null when the file is gone or is still unreadable after the
+# wait. The CALLER decides what an unreadable file means; the two callers decide it differently.
+function Read-DbSlotJsonWait([string]$path) {
     for ($try = 0; $try -lt 40; $try++) {
-        if (-not (Test-Path $p)) { return $null }
+        if (-not (Test-Path $path)) { return $null }
         $raw = $null
-        try { $raw = Get-Content $p -Raw -ErrorAction Stop } catch { $raw = $null }
+        try { $raw = Get-Content $path -Raw -ErrorAction Stop } catch { $raw = $null }
         if ($raw -and $raw.Trim()) {
             try { return ($raw | ConvertFrom-Json) } catch { }
         }
@@ -102,13 +109,25 @@ function Read-DbSlotReservationWait([int]$slot) {
 # The claim file name carries the slot's api port, which this file deliberately does not know - it
 # reads no config.toml - so the lookup is a glob on the project id. A claim whose pid is gone is
 # STALE, not live: the run that wrote it died, and the harness itself would take it over.
+#
+# AN UNREADABLE CLAIM IS A LIVE CLAIM (audit ruling A4). The read catches the same window the
+# reservation read does: the harness creates the claim file exclusively and fills it a moment later,
+# and in between the file exists and cannot be read at all. MEASURED on this machine, 2026-08-10,
+# against a temporary claim directory: with the plain read this function returned $null for a claim
+# file held open by its writer, and Release-DbSlot then deleted the reservation under it. So the read
+# waits out the window, and a claim file that EXISTS but is still unreadable afterwards is reported
+# as an occupancy with an unknown pid. The cost is stated and accepted: a crashed writer's residue
+# now needs one look by hand instead of a silent skip.
 function Get-DbSlotOccupancy([int]$slot) {
     $pattern = 'at-verify-ai4good-slot-' + $slot + '-*.lock'
     $files = @(Get-ChildItem -Path (Get-DbSlotClaimDir) -Filter $pattern -File -ErrorAction SilentlyContinue)
     foreach ($f in $files) {
-        $holder = $null
-        try { $holder = (Get-Content $f.FullName -Raw | ConvertFrom-Json) } catch { $holder = $null }
-        if (-not $holder) { continue }
+        $holder = Read-DbSlotJsonWait $f.FullName
+        if (-not $holder) {
+            # Gone means released while we looked. Still there means unreadable, which is LIVE.
+            if (-not (Test-Path $f.FullName)) { continue }
+            return @{ file = $f.FullName; holderPid = $null; requirement = 'unknown'; startedAt = 'unknown'; readable = $false }
+        }
         # NOT-FOUND MEANS DEAD; EVERY OTHER FAILURE MEANS ALIVE. Get-Process reports one specific
         # error when no process holds that id, and it can fail for other reasons - a process owned
         # by another user, for one. The harness's own liveness test treats a permission error as
@@ -124,7 +143,7 @@ function Get-DbSlotOccupancy([int]$slot) {
             }
         }
         if ($alive) {
-            return @{ file = $f.FullName; holderPid = [int]$holder.pid; requirement = [string]$holder.requirement; startedAt = [string]$holder.startedAt }
+            return @{ file = $f.FullName; holderPid = [int]$holder.pid; requirement = [string]$holder.requirement; startedAt = [string]$holder.startedAt; readable = $true }
         }
     }
     return $null
@@ -227,6 +246,9 @@ function Release-DbSlot([string]$Item, [int]$Slot = 0) {
     # run. An atomic two-file handoff here would buy no safety the claim does not already give.
     $o = Get-DbSlotOccupancy $target
     if ($o) {
+        if (-not $o.readable) {
+            return @{ ok = $false; released = $false; slot = $target; reason = ('REFUSING: slot ' + $target + ' carries a claim file this call cannot read: ' + $o.file + '. A claim being written right now looks exactly like this, so it is treated as a LIVE verify window. Wait for the run to finish, and if no run holds that slot, delete that file by hand.') }
+        }
         return @{ ok = $false; released = $false; slot = $target; reason = ('REFUSING: slot ' + $target + ' is OCCUPIED right now by pid ' + $o.holderPid + ' running ' + $o.requirement + ' since ' + $o.startedAt + '. A verify window is open on that database. Wait for it to finish.') }
     }
 

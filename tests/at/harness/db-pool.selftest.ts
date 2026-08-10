@@ -80,6 +80,12 @@ function writeReservation(slot: number, item: string): void {
   );
 }
 
+/** A reservation file exactly as it looks mid-write, or after a crash: present, and saying nothing. */
+function plantRawReservation(slot: number, text: string): void {
+  mkdirSync(join(poolTemp, 'reservations'), { recursive: true });
+  writeFileSync(reservationPath(slot), text, 'utf8');
+}
+
 function plantClaim(slot: number, holder: Record<string, unknown>): void {
   writeFileSync(claimPath(slot), JSON.stringify(holder), 'utf8');
 }
@@ -265,6 +271,41 @@ describe('admission control belongs to the coordinator, not to the run', () => {
     }
   });
 
+  it('refuses an AT_DB_SLOT run when the reservation exists but cannot be read (ruling A2)', () => {
+    installSlot(2);
+    // A RESERVATION NOBODY CAN READ IS NOT NO RESERVATION. `Reserve-DbSlot` creates the file
+    // exclusively and fills it a moment later, so between those two acts it exists and says
+    // nothing. Reading that as absent lets this run take a slot another item holds.
+    for (const planted of ['', '   \n', '{"item":', 'not json at all']) {
+      plantRawReservation(2, planted);
+      try {
+        expect(() => occupy('req-016', { slot: 2, item: 'AI4DEV-79' }), `a reservation containing ${JSON.stringify(planted)} was ignored`).toThrow(
+          /cannot read after/,
+        );
+        expect(existsSync(claimPath(2)), 'the refusal still took the claim').toBe(false);
+      } finally {
+        rmSync(reservationPath(2), { force: true });
+        scrubClaim(2);
+      }
+    }
+  }, 60_000);
+
+  it('lets an AT_DB_SLOT run past the reservation check when no reservation exists (ruling A2)', () => {
+    installSlot(2);
+    rmSync(reservationPath(2), { force: true });
+    // An ABSENT file is the one case that proceeds. The refusal tests above would pass vacuously
+    // if the strict read refused everything, so this pins the other side of the rule.
+    try {
+      const held = occupy('req-016', { slot: 2, item: 'AI4DEV-79' });
+      held.release();
+    } catch (err) {
+      expect((err as Error).message, 'an absent reservation was refused as unreadable').not.toMatch(/cannot read after/);
+      throw err;
+    } finally {
+      scrubClaim(2);
+    }
+  });
+
   it('lets an AT_DB_SLOT run take a slot reserved for its OWN item', () => {
     installSlot(2);
     writeReservation(2, 'AI4DEV-79');
@@ -303,6 +344,30 @@ describe('the personal stack is refused in code', () => {
     expect(problems.join(' '), 'the repo config was not recognised as the personal identity').toContain(`project id "${personal}"`);
     expect(problems.join(' '), 'a 54321-block port was not refused').toMatch(/is inside the personal stack's port block/);
     expect(problems.join(' '), 'the personal inspector port was not refused').toContain('inspector_port');
+  });
+
+  it('reads a port value WHOLE, so a TOML underscore cannot smuggle one past it (ruling A5)', () => {
+    // TOML writes integers with optional underscores between digits, so `54_321` IS the personal
+    // stack's api port. A parse of the leading digits reads it as 54, which is in no band anybody
+    // checks — the guard would pass a config carrying the founder's own port.
+    const underscored = personalBlockProblems('project_id = "demo"\n[api]\nport = 54_321\n', 'the-personal-identity');
+    expect(underscored.join(' '), 'a port written 54_321 was not seen as 54321').toContain("is inside the personal stack's port block");
+
+    const inspector = personalBlockProblems('project_id = "demo"\n[edge_runtime]\ninspector_port = 80_83\n', 'the-personal-identity');
+    expect(inspector.join(' '), 'an underscored inspector port was not seen as 8083').toContain('inspector port');
+  });
+
+  it('refuses a port-valued key whose value is not a plain number, and names the value (ruling A5)', () => {
+    // A value this guard cannot read cannot be shown to be outside the founder's block, and it was
+    // SKIPPED in silence. Fail closed: an unreadable port value is a problem, not a pass.
+    for (const value of ['"54321"', 'env("API_PORT")', '54321 54322', '']) {
+      const problems = personalBlockProblems(`project_id = "demo"\n[api]\nport = ${value}\n`, 'the-personal-identity');
+      expect(problems.join(' '), `a port value of ${JSON.stringify(value)} passed the guard in silence`).toContain(
+        'is not a plain port number',
+      );
+    }
+    // And a plain integer with a trailing comment is still an ordinary port, not a refusal.
+    expect(personalBlockProblems('project_id = "demo"\n[api]\nport = 55321 # the slot api port\n', 'the-personal-identity')).toEqual([]);
   });
 
   it('accepts a generated slot config, which is the same file wearing a slot identity', () => {
@@ -347,6 +412,15 @@ describe('the identity overlay moves the identity and nothing else', () => {
 
     const strayLocal = portMappings('project_id = "demo"\n[storage]\nport = 54500\n', 1);
     expect(strayLocal.problems.join(' '), 'an unrecognised port in the local band was treated as data').toContain('decide by hand');
+  });
+
+  it('maps a port written with a TOML underscore, and replaces the whole value (ruling A5)', () => {
+    const underscored = portMappings('project_id = "demo"\n[api]\nport = 54_321\n', 1);
+    expect(underscored.problems, 'a legal TOML integer was refused').toEqual([]);
+    expect(underscored.mappings.map((m) => `${m.from}->${m.to}`)).toEqual(['54321->55321']);
+    // The rewrite must take the underscore with it. Replacing the leading digits alone would
+    // leave `55321_321` behind — a config the stack could not read.
+    expect(generateSlotConfig('project_id = "demo"\n[api]\nport = 54_321\n', 1)).toContain('port = 55321\n');
   });
 
   it('moves the ruled inspector port by ten and refuses to guess at any other (ruling T8)', () => {
@@ -441,7 +515,10 @@ describe('the mirror carries the project source and nothing else', () => {
 });
 
 describe('the evidence names the slot it ran against', () => {
-  it('carries the slot, the project id, the api port, the reset and the migration state', () => {
+  it('carries the slot, the project id, the api port THAT ANSWERED, the reset and the migration state (ruling A3)', () => {
+    // The occupancy's config is read when the slot is TAKEN; `prepare` then regenerates it from
+    // the item tree and may lawfully move the api port. So the two disagree here on purpose: the
+    // line must name the port the suite actually used, which is the post-prepare status.
     const held = {
       slot: 2,
       dir: slotDir(2),
@@ -452,7 +529,7 @@ describe('the evidence names the slot it ran against', () => {
       release: () => undefined,
     } as Occupancy;
     const result: PrepareResult = {
-      status: {} as StackStatus,
+      status: { apiUrl: 'http://127.0.0.1:56421', dbUrl: 'postgresql://postgres:postgres@127.0.0.1:56422/postgres' } as StackStatus,
       migrations: { expected: 2, applied: 2 },
       restarted: false,
     };
@@ -460,7 +537,8 @@ describe('the evidence names the slot it ran against', () => {
     const line = evidence(held, result);
     expect(line).toContain('db slot 2');
     expect(line).toContain('ai4good-slot-2');
-    expect(line).toContain('api 56321');
+    expect(line, 'the evidence named the port the status reported').toContain('api 56421');
+    expect(line, 'the evidence named the pre-prepare port instead of the one that answered').not.toContain('56321');
     expect(line).toContain('reset OK');
     expect(line).toContain('2 expected, 2 applied');
   });
