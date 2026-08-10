@@ -270,6 +270,35 @@ One day produced six filed candidates, and the founder called it out. Before fil
 wrong or the machinery has a fault the candidates are symptoms of. Say that to the founder
 plainly instead of fanning out items — five symptoms filed separately bury the one cause.
 
+## Batching mode — at most ONE partner, chosen by PROXIMITY (founder 2026-08-11)
+
+At every `/work X` pickup, look for **at most one** partner item to ride the same run and the
+same pull request, and propose it beside the claim — the founder confirms or declines before
+anything spawns. Finding none is said out loud, never silent.
+
+**A partner qualifies by PROXIMITY, not size** (founder correction: size is the split trigger's
+job). Strongest first: a sibling under the same deliverable; a cousin in the same requirement
+whose surfaces touch; a filed fix living in territory the primary already works. An open
+blocker, an open founder question, or a different database need disqualifies.
+
+**The mechanics, each one load-bearing:**
+- The branch names the PRIMARY only. The partner is claimed at pickup too, and recorded on both
+  board items.
+- Every commit cites the item it belongs to — in a batch this is the abort path: dropping the
+  partner means reverting the partner-cited commits in one commit, and its ids return to
+  declared reds. Shared groundwork cites the primary.
+- One joint plan, shared decisions hoisted, each step tagged to its item, the verify table
+  spanning both id sets. Gate 1 reads the pair as one plan — the cheap place a wrong pairing
+  dies. Gate 2 slices by surface as always; the audit reads one source-only diff and both
+  claim lists.
+- The partner closes through ONE sanctioned line in the pull-request body — `Closes AI4DEV-nn`,
+  alone on its line, at most one, declared in the merge ruling. The CI ownership guard verifies
+  exactly that shape and still fails every other foreign id.
+- The stamp shows the pair: record the partner beside the chain at spawn
+  (`Set-ChainForWorktree ... -BatchedWith @{ id; label }`), so the supervision tree never shows
+  one id while two items ride.
+- One database slot covers the pair, reserved under the primary.
+
 ## Ride-along, and no nesting
 
 Machinery changed while an item is open rides along in that item's branch and pull request,

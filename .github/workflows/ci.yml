@@ -313,12 +313,34 @@ jobs:
           echo "this branch owns: $(printf '%s' "${owned:-none}" | tr '\n' ' ')"
 
           stray=$(comm -23 <(printf '%s\n' "$mentioned" | grep . | sort -u) <(printf '%s\n' "$owned" | grep . | sort -u) || true)
+
+          # THE ONE SANCTIONED EXCEPTION — a BATCH PARTNER (founder ruling 2026-08-11).
+          # Batching mode lands at most one extra item in the same pull request. Its closure is
+          # deliberate and uses the integration on purpose: a line of EXACTLY this shape, alone
+          # on its line, nothing else on it:
+          #     Closes AI4DEV-nn
+          # At most ONE such line may exist, it must be declared in the merge ruling, and the id
+          # it names is the only foreign id this guard permits. Everything else about the rule
+          # stands: any other foreign id, in any wording, still fails — including a second
+          # closes-line, because the founder's cap is one partner, ever.
+          batch=$(printf '%s' "$pr" | grep -oiE "^[[:space:]]*Closes[[:space:]]+${ID}[[:space:]]*$" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
+          batch_lines=$(printf '%s' "$pr" | grep -ciE "^[[:space:]]*Closes[[:space:]]+${ID}[[:space:]]*$" || true)
+          if [ "${batch_lines:-0}" -gt 1 ]; then
+            echo "::error::more than one batch closes-line — the batching rule is AT MOST ONE partner per pull request"
+            exit 1
+          fi
+          sanctioned=$(comm -23 <(printf '%s\n' "$batch" | grep . | sort -u) <(printf '%s\n' "$owned" | grep . | sort -u) || true)
+          stray=$(comm -23 <(printf '%s\n' "$stray" | grep . | sort -u) <(printf '%s\n' "$sanctioned" | grep . | sort -u) || true)
+          if [ -n "$sanctioned" ]; then
+            echo "batch partner sanctioned by closes-line: $(printf '%s' "$sanctioned" | tr '\n' ' ')"
+          fi
+
           if [ -n "$stray" ]; then
             echo "::error::this pull request names an item its branch does not own — the link alone moves that item"
             printf '%s\n' "$stray" | sed 's/^/  would move: /'
             echo "The branch names $(printf '%s' "${owned:-no item}" | tr '\n' ' '), so any other id here moves an item by prose, not by the work."
-            echo "Fix the wording: name other items IN WORDS, never by id — 'the item that landed the relay'. There is no safe reference word; ref, part of, related to and towards all link and move the item."
+            echo "Fix the wording: name other items IN WORDS, never by id — 'the item that landed the relay'. The one exception is a batch partner's own closes-line, declared in the merge ruling."
             exit 1
           fi
 
-          echo "reference guard OK — every item named belongs to this branch's own item"
+          echo "reference guard OK — every item named belongs to this branch's own item or its sanctioned batch partner"

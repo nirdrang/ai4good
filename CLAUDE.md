@@ -231,8 +231,13 @@ their own. Rules:
     `contributes to` and `towards` all link the item and all move it. Earlier guidance here
     recommended them, and that advice caused the very defect it was meant to prevent.
   - Name other items **in words**: *"the item that landed the relay"*, *"the requirement above
-    this one"*. The branch's own item is the sole exception — that link is what closes it.
-  - CI enforces this on every pull request: **any** id the branch does not own fails the build.
+    this one"*. TWO exceptions only: the branch's own item — that link is what closes it — and,
+    since the batching mode (founder 2026-08-11), **a batch partner's closes-line**: one line of
+    the exact shape `Closes AI4DEV-nn`, alone on its line, at most one per pull request,
+    declared in the merge ruling. That line closes the partner on merge deliberately; it is the
+    integration used on purpose, once, and the guard verifies its shape.
+  - CI enforces this on every pull request: **any** id the branch does not own fails the build,
+    except the one sanctioned closes-line above.
     The rule is written here because the guard should never be the first place you learn it.
 - A status update should read like an explanation to a smart teammate who has NOT been
   following the internal naming — because that is exactly the situation.

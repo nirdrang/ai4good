@@ -151,14 +151,18 @@ function Get-Chain([string]$branch) { Read-JsonCapped (Get-ChainPath $branch) }
 # own worktree and the agent's stamp missed it. The founder saw `AGENT AI4DEV-22` with no parents
 # and asked for the chain - correctly, since the chain is the whole point of derived attribution.
 # The cache stays worktree-scoped rather than global because two clones must never share an entry.
-function Set-ChainForWorktree([string]$worktreePath, [string]$branch, [string]$item, $chain) {
+function Set-ChainForWorktree([string]$worktreePath, [string]$branch, [string]$item, $chain, $BatchedWith) {
+    # $BatchedWith (optional): the batch partner as @{ id; label }. Batching mode rides two items
+    # on one branch, and the stamp must show the pair (founder 2026-08-11).
     if (-not (Test-ItemId $item)) { throw ('not a valid item id: ' + $item) }
+    if ($BatchedWith -and -not (Test-ItemId ([string]$BatchedWith.id))) { throw ('not a valid batch partner id: ' + [string]$BatchedWith.id) }
     $d = Get-StateDir
     $key = (Get-WorktreeIdForPath $worktreePath) + '|' + $branch
     $sha = [System.Security.Cryptography.SHA256]::Create()
     $k = ([System.BitConverter]::ToString($sha.ComputeHash(
                 [System.Text.Encoding]::UTF8.GetBytes($key.ToLower()))) -replace '-', '').Substring(0, 16).ToLower()
     $o = @{ item = $item; branch = $branch; chain = $chain; resolvedAt = (Get-Date).ToString('o') }
+    if ($BatchedWith) { $o.batchedWith = @{ id = [string]$BatchedWith.id; label = [string]$BatchedWith.label } }
     [System.IO.File]::WriteAllText((Join-Path $d ('attr\chain-' + $k + '.json')), ($o | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
 }
 
