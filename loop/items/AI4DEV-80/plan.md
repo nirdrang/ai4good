@@ -30,7 +30,11 @@ No product code. No database. No UI. Declared path-set (the audit's scope box):
    sharply; that drop is the headline evidence.
 
 Scope boundary from the item: the flash/opencode reviewer-spend join is OUT — filed
-separately, named in the record in words, not built here.
+separately, named in the record in words, not built here. A second filed follow-up comes
+from ruling G1-1: one clarifying sentence in the conductor contract and the workflow, that
+a derived gate SKIP is a floor an orchestrator ruling recorded in PHASE-STATE may tighten
+to RUN, never the reverse. Also filed in words, not built here — the path-set above does
+not include the process contracts.
 
 ## 3. Measured facts the mechanism stands on
 
@@ -93,12 +97,17 @@ project key `C--Users-nirdr-Downloads-ai4good`.
   branch → item (unchanged); stamp fallback for session files (unchanged); NEW for agent
   files: the agent's TREE-ITEM, labeled source `tree` in the From column. TREE-ITEM(agent) =
   first of: (a) the single distinct item the agent's own branch records resolve anywhere in
-  its file (F3 makes this the common case); (b) TREE-ITEM(parent agent), walking
-  `parentAgentId` upward, depth cap 8, visited-set cycle guard; (c) at a session root: the
-  item the session had resolved (branch first, stamp fallback) at the spawn's `toolUseId` —
-  the stamp is rendered from the chain cache `/work` maintains, which is exactly the ruled
-  coordinator root (bullet 2). Unresolvable stays unattributed — degrade, never guess.
-  A branch naming two items stays `unresolved` (unchanged).
+  its file (F3 makes this the common case; the whole-file discovery uses the SAME
+  unescaped-only match shape as the existing per-record scan — an escaped `\"gitBranch\"`
+  inside a tool result is never a branch fact, ruling G1-10); (b) ONLY when (a) finds ZERO
+  items: TREE-ITEM(parent agent), walking `parentAgentId` upward with a visited-set cycle
+  guard — no depth cap (ruling G1-5; the visited set must remain, as the removal
+  condition); if (a) finds TWO OR MORE distinct items, the file's branchless responses stay
+  unattributed and the floor note states the ambiguous-file count (ruling G1-4); (c) at a
+  session root: the item the session had resolved (branch first, stamp fallback) at the
+  spawn's `toolUseId` — the stamp is rendered from the chain cache `/work` maintains, which
+  is exactly the ruled coordinator root (bullet 2). Unresolvable stays unattributed —
+  degrade, never guess. A branch naming two items stays `unresolved` (unchanged).
 - D4 **Tree-resolved responses feed the role table and `agentItem`** exactly as
   branch-resolved ones, so a sitting's tokens land under its item AND its role (ruled bullet
   3), and the kimi join keeps working. Join key note: subagents file base names carry an
@@ -111,9 +120,10 @@ project key `C--Users-nirdr-Downloads-ai4good`.
 - D6 **Testability seams**: the report gains root-override parameters — `-ProjectsDir`,
   `-AttrDir`, `-ItemsDir`, `-CodexSessions`, `-KimiRoot` — defaulting to today's hard-coded
   paths, plus a `-Json` switch that emits the aggregates (per-item rows, role rows, rollup
-  rows, totals, unattributed %) as one JSON object instead of tables. Default invocation
-  output is unchanged. The selftest asserts on parsed JSON, not on `Format-Table` text — an
-  exact oracle instead of a whitespace-brittle one.
+  rows, totals, unattributed %, AND the vendor aggregate tables `codexRows` and `kimiRows`
+  — ruling G1-7) as one JSON object instead of tables. Default invocation output is
+  unchanged. The selftest asserts on parsed JSON, not on `Format-Table` text — an exact
+  oracle instead of a whitespace-brittle one.
 - D7 **Windows PowerShell 5.1 is the target** (`powershell -File`): no ternary, no `??`, no
   `-AsHashtable`; `ConvertTo-Json` gets an explicit `-Depth`. Same for the selftest.
 - D8 **No slicing.** One script plus one selftest is one reviewable diff; the code gate runs
@@ -138,6 +148,14 @@ Test bodies come early (S3 writes every executable criterion before the mechanis
 One commit per step (S4+S5 may share one commit if splitting them would leave the role
 column broken mid-sequence; the commit message must say so).
 
+**Draft/goal split (ruling G1-2).** The verify suite of this item is the SELFTEST. The
+draft pass implements S1–S7 and NEVER invokes the selftest. The report script itself is
+the subject under test: the draft runs the REPORT where a done-criterion needs it (S1's
+evidence, S2's comparison) — that is a build check, not a suite run. The RED baseline, the
+green run and S8 all belong to the fix-and-goal pass; its order of operations closes this
+section. Selftest-dependent done-criteria below are therefore the GOAL SPEC, checked in
+that pass, not at draft time.
+
 - **S1 — capture BEFORE evidence, before touching any code.** Run the CURRENT script: full
   report → `loop/items/AI4DEV-80/report-before.txt`; `-Item AI4DEV-79` →
   `report-before-79.txt`. Done: both files committed; each carries the header date, the
@@ -145,45 +163,73 @@ column broken mid-sequence; the commit message must say so).
 - **S2 — seams.** Add the root-override parameters and `-Json` (D6, D7). Done: a default run
   differs from S1's capture only in the header date line; `-Json` output parses with
   `ConvertFrom-Json` and carries `rows`, `roleRows`, `rollRows`, `totals` fields.
-- **S3 — the selftest, written RED.** `loop/work/attribution-report.selftest.ps1` builds a
-  synthetic fixture in a temp directory: a coordinator session `.jsonl` (stamp lines holding
-  item `AI4DEV-901`, a spawn tool_use for the conductor, a later spawn for one utility agent
-  while the stamp still holds the item); `subagents/agent-C1.jsonl` (conductor, records on
-  branch `nirdrang/ai4dev-901-fixture`, with usage) + meta (agentType `conductor`,
-  spawnDepth 1, its toolUseId); two sittings `agent-O1/O2.jsonl` (records with empty
-  `gitBranch`, usage) + metas (agentType `orchestrator`, parentAgentId C1); one executor
-  `agent-E1.jsonl` (branch-less, usage) + meta (agentType `executor`, parentAgentId O1 — a
-  two-level walk); the utility agent `agent-U1.jsonl` (branch-less, usage) + meta
-  (spawnDepth 1, its toolUseId); one background file `tasks/bg.output` carrying 3
-  transcript-shaped assistant-usage lines; a chain cache with `AI4DEV-900 > AI4DEV-901`.
+- **S3 — the selftest, complete, not yet run.** `loop/work/attribution-report.selftest.ps1`
+  builds a synthetic fixture in a temp directory:
+  - a coordinator session `.jsonl`: stamp lines holding item `AI4DEV-901`, a spawn
+    tool_use for the conductor C1, a spawn for utility agent U1 (still under `AI4DEV-901`),
+    THEN stamp lines holding `AI4DEV-902`, then a spawn for utility agent U2 (ruling G1-6);
+  - `subagents/agent-C1.jsonl` (conductor, records on branch `nirdrang/ai4dev-901-fixture`,
+    with usage) + meta (agentType `conductor`, spawnDepth 1, its toolUseId);
+  - two sittings `agent-O1/O2.jsonl` (records with empty `gitBranch`, usage) + metas
+    (agentType `orchestrator`, parentAgentId C1). O1 additionally carries a tool-result
+    record containing an ESCAPED `\"gitBranch\":\"nirdrang/ai4dev-999-decoy\"` (G1-10);
+  - one executor `agent-E1.jsonl` (branch-less, usage) + meta (agentType `executor`,
+    parentAgentId O1 — a two-level walk); the fixture sets this file's LastWriteTime 40
+    days back for A13 (G1-9);
+  - utility agents `agent-U1.jsonl` and `agent-U2.jsonl` (branch-less, usage) + metas
+    (spawnDepth 1, each with its own toolUseId);
+  - `agent-M1.jsonl`: records on TWO item branches (`…ai4dev-901…` and `…ai4dev-902…`)
+    plus branchless usage lines, + meta (parentAgentId C1) — the ambiguity case (G1-4);
+  - `agent-X1.jsonl`: usage lines, NO meta file — the `unmarked agent`, unattributed by
+    design (G1-8);
+  - one background file INSIDE the fixture projects root, `<session>/tasks/bg.output`,
+    carrying 3 transcript-shaped assistant-usage lines (G1-3);
+  - a minimal kimi usage fixture under `-KimiRoot`, keyed by the BARE agentId `O1`, file
+    shape copied from the real store (G1-7);
+  - a chain cache with `AI4DEV-900 > AI4DEV-901`; `AI4DEV-902` stays chainless.
   It runs the report with the override parameters and `-Json` and asserts:
-  - A1 every fixture agent's tokens land under `AI4DEV-901` (coordinator rows via stamp,
-    conductor via branch, O1/O2/E1/U1 via tree).
+  - A1 the tree-mechanism agents' tokens land under `AI4DEV-901`: C1 via branch, O1/O2/E1
+    via tree, U1 via spawn context; the coordinator's stamp lines split between
+    `AI4DEV-901` and `AI4DEV-902` as written.
   - A2 the executor's tokens are under the item; the unattributed row carries none of them.
   - A3 `bg.output`'s 3 usage lines appear in no row; the response total equals exactly the
-    assistant-usage line count of the six `.jsonl` fixtures.
+    assistant-usage line sum over ALL fixture `.jsonl` files — computed by the selftest
+    from what it wrote, never hard-coded.
   - A4 the per-item rows sum to the TOTAL line's responses and output tokens (reconciliation).
   - A5 role rows: O1+O2 tokens under (item, `orchestrator`), E1 under (item, `executor`) —
     role from meta `agentType`.
   - A6 tree-resolved rows carry `From = tree`.
-  - A7 U1 (branch-less, session-rooted) inherits the item via the session's stamp state at
-    its spawn `toolUseId`.
+  - A7 U1 inherits `AI4DEV-901` and U2 inherits `AI4DEV-902`, each via the session's stamp
+    state at its own spawn `toolUseId` — latest-wins and file-wide-single both fail (G1-6).
   - A8 the rollup credits `AI4DEV-900` with its child's totals (chain preserved).
-  Exit code: 0 all green, 1 otherwise, one PASS/FAIL line per assert. Done at S3: the
-  selftest runs against the S2 code and is RED exactly as predicted — A1 (tree part), A2,
-  A5, A6, A7 fail because subagents files are unscanned and no forest exists; A3's total
-  side and A4 hold; the RED run log is committed to
-  `loop/items/AI4DEV-80/selftest-red.txt`.
+  - A9 M1's branchless responses land in the unattributed row, never under C1's item; its
+    branch-resolved records land under their own items (G1-4).
+  - A10 the kimi row for `O1` joins to (`AI4DEV-901`, orchestrator) — the `agent-` prefix
+    strip and the tree-fed `agentItem` both hold (G1-7).
+  - A11 the unattributed row equals exactly X1's responses plus M1's branchless responses,
+    and the printed unattributed % equals the value recomputed from the JSON totals, to the
+    report's own rounding (G1-8).
+  - A12 a separate `-Json -Item AI4DEV-902` run returns rows for that item only, with the
+    fixture's known response sum for it (G1-9).
+  - A13 a separate `-Days 7` run excludes exactly E1's responses; the default all-history
+    run includes them (G1-9).
+  - A14 no row in any table names `AI4DEV-999` — the escaped decoy is never read as a
+    branch fact (G1-10).
+  Exit code: 0 all green, 1 otherwise, one PASS/FAIL line per assert. Done at S3 (draft
+  time, ruling G1-2): the file exists, carries all fourteen asserts, and passes a
+  PowerShell syntax check (tokenize/parse only — NO execution). The S3 commit pins the
+  pre-mechanism report code for the goal pass's RED capture.
 - **S4 — the scan set** (D1). Add `*/subagents/agent-*.jsonl` to the usage scan; remove the
-  Temp `.output` scan and the transcript-pairing pass it fed. Done: the fixture's six
-  `.jsonl` files are scanned, `bg.output` is not; A3 green in full.
-- **S5 — the forest from meta** (D2). Done: A5 green; roles on the real store show
-  `conductor` / `orchestrator` / `reviewer-runner` / `executor` rows (visible in S8's
-  capture).
+  Temp `.output` scan and the transcript-pairing pass it fed. Goal-spec criterion: A3 green
+  in full — every fixture `.jsonl` scanned, `bg.output` not, though it sits inside the
+  scanned root.
+- **S5 — the forest from meta** (D2). Goal-spec criterion: A5 green; roles on the real
+  store show `conductor` / `orchestrator` / `reviewer-runner` / `executor` rows (visible in
+  S8's capture).
 - **S6 — propagation** (D3, D4, D5). Per-response `tree` fallback for agent files; session
   spawn-context capture at `toolUseId`; role table and `agentItem` fed from tree-resolved
-  responses; depth cap 8 with a visited set. Done: A1, A2, A6, A7, A8 green — selftest exit
-  0, log committed as `loop/items/AI4DEV-80/selftest-green.txt`.
+  responses; parent walk guarded by a visited set, no depth cap (G1-5). Goal-spec
+  criterion: A1, A2, A6–A14 green.
 - **S7 — the text tells the truth.** Rewrite the closing floor note (the "deeply-nested
   sitting" gap is closed; the remaining floors: coordinator work on `main` holding no item;
   vendor reviewer tokens only partially joined, with the flash/opencode spend join named in
@@ -191,36 +237,81 @@ column broken mid-sequence; the commit message must say so).
   loses that spawn-context root; a metaless agent reads `unmarked agent`). Update the header
   line that counts transcripts. Done: no output sentence contradicts the implemented
   behaviour.
-- **S8 — AFTER evidence.** At the goal head, run the full report → `report-after.txt` and
-  `-Item AI4DEV-79` → `report-after-79.txt`; commit both plus a short delta note in the
-  record (unattributed % before → after; the previous item's response count before → after).
-  Done: files committed; the drop is stated in numbers. No fixed threshold is promised — the
-  number is the evidence.
+- **S8 — AFTER evidence (goal pass only).** At the goal head, run the full report →
+  `report-after.txt` and `-Item AI4DEV-79` → `report-after-79.txt`; commit both plus a
+  short delta note in the record (unattributed % before → after; the previous item's
+  response count before → after). Done: files committed; the after % is STRICTLY LOWER
+  than the before %, both stated with their response counts (G1-8). No fixed threshold is
+  promised — the number is the evidence, and if the drop is not large, the delta note says
+  that number plainly rather than hiding it.
+
+**The fix-and-goal pass — order of operations (rulings G1-2, G1-8):**
+
+1. Check every verify-first claim and removal condition from gate 2, before changing
+   anything.
+2. Apply the ruled gate-2 fixes; commit.
+3. Capture the RED baseline: restore the pre-mechanism report alone from the S3 commit
+   (`git checkout <S3-sha> -- loop/work/attribution-report.ps1`), run the FINAL selftest
+   against it, expect exit 1 matching the predicted pattern in section 6; commit the log as
+   `loop/items/AI4DEV-80/selftest-red.txt`; restore the head file (`git checkout HEAD --
+   loop/work/attribution-report.ps1`). Fallback, decided now: if a gate-2 fix changed a
+   seam so the final selftest cannot drive the S3-era report, capture RED with BOTH files
+   from the S3 commit and say so in the delta note. A RED run deviating from the predicted
+   pattern is REPORTED, never silently adjusted around.
+4. Goal loop, three iterations maximum: selftest exit 0 at the head; log committed as
+   `loop/items/AI4DEV-80/selftest-green.txt`.
+5. S8, at the goal head.
 
 ## 6. Verification state
 
 This is a bring-up item: NO ratified acceptance-test ids attach to it, and the product
 acceptance suite is untouched (CI's fast lane will skip it for this diff — D10). The
 executable criteria of this item are the selftest asserts, written at S3 before the
-mechanism lands:
+mechanism lands. At draft end every step is implemented and UNVERIFIED (ruling G1-2); the
+RED column below is the predicted pattern of the goal pass's baseline capture — the FINAL
+selftest against the S3-commit report code:
 
-| criterion | at S3 (RED run) | at goal |
+| criterion | at the RED capture (goal pass) | at goal |
 |---|---|---|
-| A1 all nodes under the item | FAIL (tree nodes absent) | PASS |
+| A1 tree agents under the item | FAIL (tree nodes absent) | PASS |
 | A2 executor not unattributed | FAIL | PASS |
-| A3 background file excluded | PASS on total, scan-set half lands at S4 | PASS |
+| A3 background file excluded, totals exact | FAIL (subagents unscanned → total short) | PASS |
 | A4 totals reconcile | PASS | PASS |
 | A5 roles from meta | FAIL | PASS |
 | A6 `From = tree` visible | FAIL | PASS |
-| A7 session-rooted inheritance | FAIL | PASS |
+| A7 per-spawn stamp inheritance (U1≠U2) | FAIL | PASS |
 | A8 chain rollup preserved | PASS (chain cache path unchanged) | PASS |
-| E1 before evidence | committed at S1 | committed |
+| A9 two-item file stays unattributed | FAIL (M1 unscanned) | PASS |
+| A10 kimi join on bare agentId | FAIL (no `agentItem` entry) | PASS |
+| A11 unattributed row and % exact | FAIL (X1/M1 unscanned) | PASS |
+| A12 `-Item` scoping | FAIL (902 rows incomplete) | PASS |
+| A13 `-Days` filtering | FAIL (E1 absent from both runs → delta 0) | PASS |
+| A14 escaped decoy ignored | PASS (decoy file unscanned) | PASS |
+| E1 before evidence | committed at S1 (draft) | committed |
 | E2 after evidence + delta note | — | committed at S8 |
 
-The verify command for the goal loop: `powershell -File loop/work/attribution-report.selftest.ps1`
-exits 0, and a default `powershell -File loop/work/attribution-report.ps1` completes without
-error on the real store.
+A RED capture deviating from this pattern is reported, never silently adjusted around
+(G1-2). The verify command for the goal loop:
+`powershell -File loop/work/attribution-report.selftest.ps1` exits 0, and a default
+`powershell -File loop/work/attribution-report.ps1` completes without error on the real
+store.
 
 ## 7. Gate 1 rulings
 
-(Appended by the DRAFT sitting after the plan review lands.)
+Ruled by the DRAFT sitting, 2026-08-11, at head `1c475af`. Full rulings with the
+reviewer's claims quoted verbatim: `loop/items/AI4DEV-80/gate1-rulings.md`. Ten findings,
+ten rulings; the amendments are woven into sections 2, 4, 5 and 6 above, each marked with
+its ruling id:
+
+| ruling | outcome | lands in |
+|---|---|---|
+| G1-1 gate ruled to run vs derived skip | accept, fixed differently — D10 stands; contract clarification filed in words | section 2 |
+| G1-2 draft pass ran the suite | accept, fixed differently — no draft-time run; RED captured in the goal pass | section 5 preamble, S3, goal-pass block |
+| G1-3 A3 prediction impossible | accept — bg.output inside the fixture root; prediction corrected | S3, section 6 |
+| G1-4 two-item file inherited parent | accept — zero-item condition; A9 | D3, S3 |
+| G1-5 depth cap truncates | accept — cap removed, visited set is the checked removal condition | D3, S6 |
+| G1-6 A7 passes latest-wins | accept — mid-fixture stamp change, U2, split oracle | S3 |
+| G1-7 vendor joins untested | accept, fixed differently — JSON vendor tables; A10; codex via E1/E2 evidence | D6, S3 |
+| G1-8 unattributed % unproven | accept in part — A11; fixed live threshold rejected with written reason | S3, S8 |
+| G1-9 `-Days`/`-Item` unprotected | accept — A12, A13 | S3 |
+| G1-10 escaped-JSON decoys | accept — unescaped-only predicate; A14 | D3, S3 |
