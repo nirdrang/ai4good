@@ -1,5 +1,5 @@
 #!/bin/sh
-base="847092a5cc4d984291a2a96298bb0a147a1da0ed"
+base="0d61a182c968faa0a4903a565c34579e102b06d0"
 branch="nirdrang/ai4dev-79-a-pool-of-local-database-slots-so-items-verify-in-parallel"
 while true; do
   tip=$(git ls-remote origin "$branch" 2>/dev/null | awk '{print $1}')
