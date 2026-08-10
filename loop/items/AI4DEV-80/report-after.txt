@@ -1,0 +1,231 @@
+ai4good buildout burn report - 2026-08-11 - 919 transcript file(s), sessions and agents
+units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere
+attribution DERIVED from each record's own git branch, and from the spawn tree where the record names none; role DERIVED from the spawn call
+
+== PER ITEM ==
+
+Item                From   Responses OutputTok InputTok  CacheRead CacheWrite
+----                ----   --------- --------- --------  --------- ----------
+unattributed        none       27986  33792045  4899908 6912978787  368893388
+legacy:bringup      stamp       2235   3186391    16043  826264541   55790457
+legacy:task         stamp       1953   3136902    34034  881724358   61064398
+legacy:unattributed stamp        798   1327529     1543  404200865   30837752
+AI4DEV-79           branch      1576    613128     8023  195817528   11567617
+~exploration        stamp        546    585710     1758  185361835    6750400
+AI4DEV-60           branch      1199    572008    27057  178520280   11873139
+AI4DEV-59           branch      1360    516109     2681  153318404   10589937
+AI4DEV-57           branch       825    504371     1763  198478076    8084371
+AI4DEV-31           branch      1092    443910     2335  193590236   18798288
+AI4DEV-48           branch       974    418380     9638  159826716    9653498
+AI4DEV-58           branch      1018    405693    19077  115915697    8702695
+AI4DEV-57           tree         854    394871   113466   85289365    9390677
+AI4DEV-5            branch       536    382124     1184  136861733    5595577
+AI4DEV-43           branch       245    342514      453   61697862    1389075
+AI4DEV-21           branch       568    327396    14564  113676319    9481372
+AI4DEV-20           branch       479    302603      932  136207761   11671411
+AI4DEV-19           tree         727    296702     1432  111838971    6960107
+AI4DEV-80           tree         603    292168    13209   56187306    4772230
+AI4DEV-47           branch       203    249753      385   95772817     261900
+AI4DEV-79           tree         359    202760     8827   37105272    3156078
+AI4DEV-6            branch       276    188769      534   73056846    4981622
+AI4DEV-48           tree         408    184198     3258   33693743    3937836
+AI4DEV-6            tree         309    169198      618   57019238    4054248
+AI4DEV-80           branch       253    140591     2271   55859426    3576596
+AI4DEV-22           tree         280    105155      556   25609748    1724159
+AI4DEV-44           branch       107     98561      195   40872031     113624
+legacy:exploration  stamp         77     71683      149   16803122     365532
+AI4DEV-60           tree         118     58537    10695   13020782     843960
+AI4DEV-59           tree         103     58458    72401    9612344     997589
+conflict            stamp         55     58151      103   20682696     102326
+AI4DEV-19           branch       159     57684     8326   20278673     875922
+AI4DEV-22           branch        89     57297      175   14263860    1477955
+AI4DEV-23           stamp         53     53468       98   21231119     930396
+AI4DEV-31           tree         144     49244      283   16571631    1831211
+AI4DEV-36           stamp         49     47058       93   16835239      65205
+AI4DEV-58           tree          88     46731     6879    7330939     795969
+AI4DEV-21           tree          80     42688      154   24665852    3431108
+AI4DEV-20           tree         109     38472      209   25641587    7036923
+AI4DEV-4            stamp         22     24982       39   13931486      33109
+AI4DEV-47           stamp         18     23647       32    6565061      35026
+AI4DEV-14           stamp          8     16528       14    4200764    1398566
+AI4DEV-48           stamp          9     14271       15    3596483      17705
+AI4DEV-44           stamp         17     13892       32    7211557      21948
+AI4DEV-2            branch        15     11209       28   10421899      33953
+AI4DEV-43           stamp          9     10792       15    3086934      16105
+AI4DEV-5            stamp         14      9606       27    7815897      12756
+AI4DEV-19           stamp         11      9471       21    9677915       9746
+AI4DEV-98           branch        32      6121      108    2730138     154069
+AI4DEV-99           branch        19      2656      146    1127530       6282
+AI4DEV-31           stamp          1       622        2     729592       1355
+AI4DEV-5            tree           3       351        6          0      91875
+
+
+
+== PER ROLE WITHIN EACH ITEM (role from the spawn call, not any ROLE: text) ==
+
+Item      Role               Responses InputTok OutputTok CacheRead CacheWrite
+----      ----               --------- -------- --------- --------- ----------
+AI4DEV-19 item-agent               436      858    194036  68210272    5524763
+AI4DEV-19 general-purpose          367      726    117963  49938890    1682734
+AI4DEV-19 Explore                   64     8136     21406   6348715     603784
+AI4DEV-19 coordinator               19       38     20981   7619767      24748
+AI4DEV-2  coordinator               15       28     11209  10421899      33953
+AI4DEV-20 general-purpose          282      557    149218  94555587    2382631
+AI4DEV-20 item-agent               211      403    108732  58352328   15337131
+AI4DEV-20 coordinator               95      181     83125   8941433     988572
+AI4DEV-21 item-agent               308    14050    168932  72928687   10598398
+AI4DEV-21 general-purpose          269      531    123034  39453211    1061261
+AI4DEV-21 coordinator               71      137     78118  25960273    1252821
+AI4DEV-22 orchestrator-opus        114      224     58540  18860238     789375
+AI4DEV-22 Explore                  126      252     45501   5701563     725695
+AI4DEV-22 coordinator               35       67     42603   9203413    1214528
+AI4DEV-22 conductor                 86      172     14611   5885629     395568
+AI4DEV-22 mechanical                 8       16      1197    222765      76948
+AI4DEV-31 general-purpose         1134     2254    400516 160676193   16164445
+AI4DEV-31 coordinator               68      128     89643  48605006    4088583
+AI4DEV-31 claude-code-guide         27      222      2960    806562     146856
+AI4DEV-31 item-agent                 7       14        35     74106     229615
+AI4DEV-43 coordinator              245      453    342514  61697862    1389075
+AI4DEV-44 coordinator              107      195     98561  40872031     113624
+AI4DEV-47 coordinator              203      385    249753  95772817     261900
+AI4DEV-48 orchestrator-opus        483     3405    260427  50096510    4734874
+AI4DEV-48 coordinator              150      285    114534  72481169     189088
+AI4DEV-48 executor                 280     8273    105617  31368524    1570738
+AI4DEV-48 conductor                276      552     42317  30322820    5960820
+AI4DEV-48 distiller                 40       80     35517   1720537     191303
+AI4DEV-48 Explore                   73      141     29692   4509650     535268
+AI4DEV-48 mechanical                80      160     14474   3021249     409243
+AI4DEV-5  coordinator              167      321    219060  98914933    1640938
+AI4DEV-5  general-purpose          372      869    163415  37946800    4046514
+AI4DEV-57 orchestrator-opus        734    70926    437637  85972828    6003413
+AI4DEV-57 executor                 373      741    183304  69771730    1195985
+AI4DEV-57 coordinator              112      209    129511  92395430    2560075
+AI4DEV-57 conductor                187      374     52711  18850995    5495416
+AI4DEV-57 Explore                  132    42559     49671  11517666    1080647
+AI4DEV-57 distiller                 32       64     23775   1247234     320545
+AI4DEV-57 mechanical                87      174     18450   3237596     545327
+AI4DEV-57 claude-code-guide         22      182      4183    773962     273640
+AI4DEV-58 orchestrator             361     9709    210928  31261988    3325909
+AI4DEV-58 executor                 364    15489    168427  55409892    1451600
+AI4DEV-58 coordinator               52      100     25946  12928000    1638153
+AI4DEV-58 conductor                195      390     25944  17756968    1836320
+AI4DEV-58 reviewer-runner          103      206     15488   5062726     898623
+AI4DEV-58 distiller                 10       20      2865    287707     116770
+AI4DEV-58 mechanical                21       42      2826    539355     231289
+AI4DEV-59 orchestrator             422    73016    283240  37798075    3966392
+AI4DEV-59 executor                 397      782    150280  47953252    1176134
+AI4DEV-59 coordinator               79      154     53579  34321524      76557
+AI4DEV-59 reviewer-runner          264      528     45065  15727202    2045334
+AI4DEV-59 conductor                279      558     39668  26551615    4102115
+AI4DEV-59 mechanical                22       44      2735    579080     220994
+AI4DEV-6  general-purpose          375      750    192643  66826259    4431848
+AI4DEV-6  coordinator              186      356    151646  62685082    4501746
+AI4DEV-6  codex:codex-rescue        24       46     13678    564743     102276
+AI4DEV-60 orchestrator             493    19562    285967  58579628    5811374
+AI4DEV-60 executor                 438    17421    217633  74844214    2509778
+AI4DEV-60 coordinator               69      135     61219  40379637    1354258
+AI4DEV-60 reviewer-runner          182      364     31835  10827192    1031380
+AI4DEV-60 conductor                103      206     23750   6052603    1613868
+AI4DEV-60 distiller                 13       26      6742    346368     209638
+AI4DEV-60 mechanical                19       38      3399    511420     186803
+AI4DEV-79 orchestrator             587    14108    367970  57445165    5885351
+AI4DEV-79 executor                 712     1410    314548 107399784    2280001
+AI4DEV-79 reviewer-runner          280      622     51296  16472902    1835876
+AI4DEV-79 conductor                292      584     50889  30988351    4329956
+AI4DEV-79 coordinator               36       70     28245  19829323      57290
+AI4DEV-79 mechanical                13       26      1830    251066     217504
+AI4DEV-79 general-purpose           15       30      1110    536209     117717
+AI4DEV-80 orchestrator             252      491    193041  24549168    2819413
+AI4DEV-80 executor                 222    12454    121810  25129947     715325
+AI4DEV-80 coordinator               62      122     54366  42381700    1384930
+AI4DEV-80 conductor                165      330     31151  12380544    2204701
+AI4DEV-80 reviewer-runner          128      256     25639   7033282     924546
+AI4DEV-80 claude-code-guide         19     1811      4198    387367     181067
+AI4DEV-80 distiller                  4        8      1723     78590      79994
+AI4DEV-80 mechanical                 4        8       831    106134      38850
+AI4DEV-98 general-purpose           29      102      4036   1084605     141394
+AI4DEV-98 coordinator                3        6      2085   1645533      12675
+AI4DEV-99 general-purpose           18      144      2071    595888       5150
+AI4DEV-99 coordinator                1        2       585    531642       1132
+
+
+
+InputTok is nearly always tiny next to CacheRead: almost everything an agent reads arrives from cache, so input alone understates what was consumed by orders of magnitude.
+
+== REVIEWER SPEND (codex, joined by the session id in each item's committed logs) ==
+
+Item      Runs InputTok OutputTok CachedIn
+----      ---- -------- --------- --------
+AI4DEV-59    4  3739677     49623  3540480
+AI4DEV-31    3 14493459     46615 13959424
+AI4DEV-80    2   988912     44934   893952
+AI4DEV-60    3  2898056     36191  2672896
+AI4DEV-20    5  4671486     32167  4422400
+AI4DEV-79    3  1651358     30573  1554176
+AI4DEV-58    4  2064234     29835  1913600
+
+
+
+
+== REVIEWER SPEND (kimi, joined by the launching agent id in its session directory) ==
+
+Item      Sessions InputTok OutputTok CacheRead
+----      -------- -------- --------- ---------
+AI4DEV-57        2   159005     38853   1174272
+AI4DEV-31        1   102103     31128   3808256
+AI4DEV-19        1   170436     22725   1513728
+AI4DEV-21        1   215267     22133   1766144
+AI4DEV-20        1    81934     20301   1127680
+AI4DEV-5         1    49969     19170    584704
+AI4DEV-48        1    73965     18770    695552
+
+
+
+
+== ROLLED UP THE CHAIN (each node includes everything beneath it) ==
+
+Node               Covers Responses OutputTok
+----               ------ --------- ---------
+AI4DEV-3                6      6477   2822906
+AI4DEV-50               4      5565   2556778
+AI4PM-19                4      5565   2556778
+~bringup                6      5095   2399099
+(chain not cached)     11      1921   1553165
+AI4DEV-51               2      2785   1351666
+AI4DEV-52               2      2780   1205112
+AI4DEV-57               1      1679    899242
+AI4DEV-79               1      1935    815888
+AI4DEV-60               1      1317    630545
+AI4DEV-48               1      1391    616849
+AI4DEV-59               1      1463    574567
+AI4DEV-4                3       927    504799
+AI4DEV-31               1      1237    493776
+AI4DEV-58               1      1106    452424
+AI4DEV-80               1       856    432759
+AI4DEV-5                1       553    392081
+AI4DEV-21               1       648    370084
+AI4DEV-19               1       897    363857
+AI4DEV-6                1       585    357967
+AI4DEV-43               1       254    353306
+AI4DEV-20               1       588    341075
+AI4DEV-47               1       221    273400
+AI4DEV-22               1       369    162452
+AI4DEV-44               1       124    112453
+AI4DEV-23               1        53     53468
+AI4DEV-36               1        49     47058
+AI4DEV-14               1         8     16528
+AI4DEV-2                1        15     11209
+AI4DEV-98               1        32      6121
+AI4DEV-99               1        19      2656
+
+
+
+TOTAL: 49071 responses, 49963158 output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.
+COORDINATOR SIGNAL - unattributed share of output tokens: 67.6%
+
+Still a FLOOR, for named reasons. A nested sitting no longer falls to unattributed: that gap is closed, because the agent transcripts are now scanned and an agent that resolves no item of its own inherits its nearest ancestor's item. What remains:
+  - Coordinator work on main that holds no item resolves to nothing, and neither do the agents beneath it: the tree has no item to hand down.
+  - 2 agent transcript(s) name TWO OR MORE items in their own records. Their branchless responses stay unattributed rather than being guessed, and their vendor spend stays unjoined for the same reason.
+  - 0 agent transcript(s) have no meta file beside them, so their role reads "unmarked agent" and they build no edge.
+  - Reviewer spend is only partly joined. The codex and kimi tables above cover the runs whose logs this repository holds. The flash and opencode reviewer spend is not joined at all; that work is filed separately and is not built here.
+  - A -Days window that excludes an ancestor transcript loses the item that ancestor would have handed down. The default, all history, has no such gap.
