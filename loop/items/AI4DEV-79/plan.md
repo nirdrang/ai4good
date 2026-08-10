@@ -200,6 +200,15 @@ even when the suite throws; the evidence line carries slot + migration state), a
   hook, small PowerShell helpers, and process-file lines. The parts reference each other; a
   per-slice code gate would review the claim logic apart from the tests that pin it. One
   draft-code gate reads the whole diff.
+- **D13. One shared invocation helper (ruling E1, §8; added by the resumed draft sitting,
+  2026-08-10).** Every slot CLI invocation goes through one helper in db-pool.ts. The helper:
+  sets `SUPABASE_PROJECT_ID=<slot project id>` positively in the child env; strips every other
+  `SUPABASE_*` variable; invokes `bun --no-env-file` per the house rule; sets the child working
+  directory to the slot. The destructive path (reset, stop) performs an identity read through
+  the same helper first — the status the CLI reports must carry the slot's ports, and any
+  project identity it reports must be the slot's — and refuses loudly on mismatch. The read is
+  structurally ON the destructive path, never a separate call a caller can skip. This applies
+  to every slot-aimed use of the parameterized runner helpers (D9) too.
 
 ## 4. Steps, each with its done-criterion
 
@@ -222,22 +231,37 @@ then S5 builds the runner hook on top of it.
   personal-stack check is a read; setup performs no write to it. The committed transcript is
   scanned clean first (gate-1 [14]): no `eyJ` token, no anon or service-role key value, no
   database password.
-- **S3. The isolation spike** — the ruled done-criterion, run once, transcript to
-  `loop/items/AI4DEV-79/spike-isolation.txt`. Procedure: (a) preflight — prove via `status
-  --workdir` that slot-2's stack answers on the 56321 block BEFORE any reset, the same
-  prove-first pattern the runner uses; (b) canary row in slot-1's database; (c) canary row in
-  the personal stack, in a dedicated scratch schema created for the spike; (d) canary row in
-  SLOT-2's database — the row the reset must DESTROY (gate-1 [7]); (e) `supabase db reset
-  --workdir <slot-2>`; (f) slot-1 and personal canaries still present AND the slot-2 canary
-  GONE — a reset that destroys nothing proved nothing; (g) drop the scratch schema — the
-  personal stack ends the spike with zero residue. Steps (b)–(f) run inside try/finally; the
-  scratch-schema drop is the `finally` (gate-1 [8]), and a failed drop is reported loudly with
-  the exact manual cleanup command. The spike REQUIRES the personal stack to be running; if it
-  is not, the executor stops and reports rather than starting it — starting the founder's
-  stack is touching it.
-  *Done when:* the transcript shows the slot-2 canary destroyed by the reset, both other
-  canaries surviving it, and the scratch schema dropped afterward; the committed transcript is
-  scanned clean per gate-1 [14].
+- **S3. The isolation spike — AMENDED by ruling E5 (§8) after the incident; this text
+  replaces the original procedure, which stands in the history at commit 6429e7e.** Run once,
+  through the pool module's own `spike` CLI entry — never a hand-written script (E1).
+  Transcript to `loop/items/AI4DEV-79/spike-isolation-2.txt`; the first spike's transcript
+  stays committed as the incident record.
+  Hard constraint (founder, 2026-08-10): no command starts, stops, resets, connects to, or
+  writes to the personal stack. Docker READS (`docker ps`, `docker inspect`, `docker volume
+  ls` / `volume inspect`) are the only permitted interaction with it.
+  Hostile condition, mandatory: the spike parent process carries
+  `SUPABASE_PROJECT_ID=<the personal project id>` in its own environment — the exact override
+  that caused the breach — while the tracked `.env` stays in place unmodified. The transcript
+  prints that the variable was present in the parent.
+  Procedure: (a) BEFORE snapshot — docker-level identity record of every personal container
+  (container id, created timestamp, image, port bindings) and every personal volume (name,
+  CreatedAt); (b) preflight — status through the shared helper (D13) proves slot-1 and slot-2
+  answer on the 55321 and 56321 blocks; (c) canary row in slot-1's database; (d) canary row in
+  slot-2's database — the row the reset must DESTROY (gate-1 [7]); (e) the helper's
+  pre-destructive identity read on slot-2, visible in the transcript; (f) `db reset` aimed at
+  slot-2 through the helper, hostile env present; (g) slot-1 canary PRESENT and slot-2 canary
+  GONE; (h) AFTER snapshot — equal to (a) on every identity field: same container ids, same
+  created timestamps, same port bindings, same volume set, same volume CreatedAt values.
+  Run-state fields are excluded from the comparison: one personal container restart-loops on
+  its own (`vector`, observed on all three stacks, 2026-08-10), and run state is not the
+  breach signature — recreation is. Canary connections go only to slot ports; the spike opens
+  no connection to any 54321-block port.
+  *Done when:* the transcript shows the hostile variable present in the parent; the identity
+  pre-read naming slot-2's target before the reset; the slot-2 canary destroyed by the reset;
+  the slot-1 canary surviving it; and the before and after docker snapshots equal on every
+  identity field. The committed transcript is scanned clean per gate-1 [14]. The slot-2 reset
+  here also settles F4 for slots: the config references `./seed.sql`, the mirror reproduces
+  its absence (E3), and a reset that succeeds settles the claim on a slot identity this time.
 - **S4. `tests/at/harness/db-pool.selftest.ts`** — no Docker, temp pool roots via
   `AT_DB_POOL_ROOT`, temp lock dirs via `AT_LOCK_DIR` (gate-1 [13]), runnable on CI (F7).
   Named tests, each its own `it()`:
@@ -295,7 +319,7 @@ sitting, all on the item branch:
 | `bun run at:check req-001` | green, unchanged |
 | `bun run at:verify req-001 --tier loop --expect` | green, and the normalized main-vs-branch output diff is EMPTY (S5, gate-1 [10]) |
 | `bun run at:verify req-001 --tier integration --expect` via the pool | green once on the dev machine, evidence line naming the slot, transcript committed (S8, gate-1 [9]) |
-| S3 spike done-criterion | met once, transcript committed — slot-2 canary destroyed, the other two surviving |
+| S3 spike done-criterion (amended, E5) | met once, transcript `spike-isolation-2.txt` committed — hostile env present, identity pre-read shown, slot-2 canary destroyed, slot-1 canary surviving, personal docker snapshots equal on every identity field |
 | every committed transcript | scanned clean: no `eyJ` token, no key value, no db password (gate-1 [14]) |
 | CI required check `verify` | green on the final head (it runs the first four rows; it cannot run the spike or the integration run — F7, no Docker) |
 
@@ -318,6 +342,10 @@ path, and they prove it on the dev machine at the recorded commit, once.
   that wall, and its personal-stack canary is the founder's own ruled proof, performed in a
   scratch schema and removed, leaving zero residue (S3). The recurring selftests never open a
   connection to any 54321-block port: they run on temp directories with no Docker at all.
+  SUPERSEDED 2026-08-10 by ruling E5 (§8): after the incident and the founder's answer, the
+  re-proof touches the personal stack not at all — its survival instrument is the docker-level
+  identity snapshot, and no canary ever enters the personal database. The paragraph above
+  stays as the record of the original reading.
 - **Config regeneration vs "warm" (D3).** A restart on functional-config drift is not a
   reopening of the warm-slots ruling: warm remains the steady state; a restart happens only
   when the item tree's own config differs from what the running slot was started with, which
@@ -522,3 +550,53 @@ with its own instruments after the executor's report.
 S1 done (typecheck green). S2 done, criteria met, transcript committed. S3 run and FAILED —
 done-criterion not met, wall disproven, transcript with postscript committed. S4, S5, S6 not
 started. The draft is incomplete; no draft-code gate can read it yet.
+
+### Founder decisions and the re-proof ruling (resumed draft sitting, 2026-08-10)
+
+The founder answered, relayed verbatim by the conductor (2026-08-10, morning, founder local
+time): "Personal can stay stopped. And continue 79." Mapped to the three questions above:
+
+1. **Recovery:** no agent recovers, starts, stops, or repairs the personal stack. It stays as
+   the founder leaves it.
+2. **Spike sequencing:** not ruled explicitly. The first answer fixes the CONSTRAINT — the
+   re-proof must not require starting the personal stack, and no agent may touch it. The shape
+   inside that constraint is the orchestrator's ruling: E5 below.
+3. **Proceed:** yes — the item continues.
+
+Observed at sitting open (2026-08-10 09:30 founder local), recorded and not acted on: the
+personal db container was recreated at 2026-08-09T22:30:25Z — 26 minutes after the breach —
+and has run healthy on its correct port 54322 since; the recreated data volume dates
+2026-08-09T22:25:17Z. Recovery happened outside the item, before the founder's morning answer.
+Recovery is the founder's alone (E2), so this is consistent, and no item agent touched the
+stack. Ruling E5 makes the re-proof independent of the personal stack's run state, so this
+observation changes no step; it corrects the "container dead in state Created" line above,
+which described 2026-08-09 22:04–22:30 only.
+
+- **E5. The re-proof shape: a zero-touch pass under the hostile condition.** The amended S3
+  (§4) proves the wall with zero interaction with the personal stack beyond docker-level
+  reads. Three instruments replace the original personal-stack canary:
+  (1) the vanishing slot-2 canary and the surviving slot-1 canary — reset scope, exactly as
+  gate-1 [7] required; (2) the shared helper's pre-destructive identity read (E1/D13) —
+  positive identity, visible in the transcript; (3) a docker-level before/after snapshot of
+  every personal container and volume, compared on identity fields: container id, created
+  timestamp, port bindings, volume name set, volume CreatedAt. The breach signature was
+  RECREATION — the incident recreated the db container and its volume — so identity-field
+  equality is the direct negative of the breach.
+  **Why no disposable stand-in plays the personal stack's part:** docker object names derive
+  from the project id, so a stand-in carrying the personal project id IS the personal stack's
+  container set — creating or removing it would itself touch what must stay untouched — and a
+  stand-in under any other id is just another bystander, a role slot-1 already fills. A
+  stand-in adds cost and no proof.
+  **Why the proof does not depend on the personal stack's run state:** the CLI selects the
+  docker objects it acts on by resolved project identity, not by what is running — the
+  incident demonstrated this by destroying the personal identity's containers while running
+  slot-2 went untouched. A leak under the amended helper surfaces as one of: the identity
+  pre-read reporting the wrong target (refusal before the reset), the reset acting on the
+  personal identity (snapshot mismatch), or the reset failing to act on slot-2 (the canary
+  survives and the done-criterion fails). No leak shape produces a green transcript.
+  **The hostile condition is mandatory:** the spike parent deliberately carries the `.env`
+  override that caused the breach, so a pass proves the helper closes the route WHILE the
+  route is loaded — not that the route happened to be empty on the day.
+- **E2 amended: UNBLOCKED (founder, 2026-08-10).** S3 as amended runs now; S5 follows only
+  after S3's done-criterion is met, per the plan's build-order rule. The no-touch rule on the
+  personal stack is unchanged and permanent.
