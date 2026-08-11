@@ -44,9 +44,25 @@ import { at00101, at00105, at00106, at00107 } from './_integration.ts';
 // then be grading a copy. See that test's own comment for why asserting the stub's exact output is
 // honest here and what it does and does not claim.
 import { stubGithubStatsFor } from '../../../../supabase/functions/_shared/github.ts';
+// THE SHIPPED AUTHORITY STATEMENT, imported for the reason the stub stats are: the server accepts
+// exactly one statement, and a literal copied into this file would drift from it silently.
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 
 /** The version string of the ToS + Platform Promise text these tests accept on the user's behalf. */
 const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
+/**
+ * WHO IS SIGNING — AT-001.19's three fields, which every completion that must SUCCEED now carries.
+ *
+ * A completion whose refusal is pinned to an EARLIER check does NOT carry them, and that is
+ * deliberate rather than an oversight: `validateCompleteSignup` runs the identity checks last, so
+ * AT-001.01's no-acknowledgment request and AT-001.07's `platform_admin` request keep refusing for
+ * the reasons those criteria name. AT-001.19 and AT-001.39 own these fields and test them.
+ */
+const SIGNER = {
+  signerName: 'Dana Okonkwo',
+  signerTitle: 'Executive Director',
+  authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+} as const;
 /** The address the acknowledgment must record — AT-001.01 names IP among the three fields. */
 const CLIENT_IP = '203.0.113.7';
 /** The password every email/password registration in this file uses. */
@@ -87,6 +103,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
             accountType: 'ngo',
             organizationName: 'Riverside Shelter',
             acknowledgmentTextVersion: TEXT_VERSION,
+            ...SIGNER,
           },
           CLIENT_IP,
         );
@@ -196,7 +213,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
 
       const completion = await sut.completeSignup(
         session,
-        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(completion, 'a GitHub volunteer signup was refused at completion').toMatchObject({ ok: true });
@@ -283,6 +300,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
         accountType: 'ngo' as const,
         organizationName: 'Riverside Shelter',
         acknowledgmentTextVersion: TEXT_VERSION,
+        ...SIGNER,
       };
 
       const viaGoogle = await sut.completeSignup(googleSession, request, CLIENT_IP);
@@ -331,7 +349,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       await sut.linkGithubIdentity(googleVolunteer, 'google-volunteer-handle');
       const volunteerCompletion = await sut.completeSignup(
         googleVolunteer,
-        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(volunteerCompletion, 'a volunteer signup whose session came from Google was refused').toMatchObject({ ok: true });
@@ -353,7 +371,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       // a LINKED identity, and if it had accidentally been written against the SESSION provider
       // instead, an email session and a Google session would behave differently and only running
       // both would show it.
-      const request = { accountType: 'volunteer' as const, acknowledgmentTextVersion: TEXT_VERSION };
+      const request = { accountType: 'volunteer' as const, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER };
 
       const byEmail = await sut.registerWithEmailPassword(w.email('email-volunteer'), PASSWORD);
       const byGoogle = await sut.registerWithProvider('google', w.email('google-volunteer'));
@@ -418,7 +436,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       const ngoSession = await sut.registerWithEmailPassword(w.email('ngo-control'), PASSWORD);
       const ngoCompletion = await sut.completeSignup(
         ngoSession,
-        { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(
@@ -475,7 +493,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
   
         const completion = await sut.completeSignup(
           session,
-          { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+          { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
           CLIENT_IP,
         );
         expect(completion, 'the linked volunteer signup was refused, so onboarding had nothing to fire from').toMatchObject({
@@ -543,7 +561,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
         const ngoSession = await sut.registerWithEmailPassword(w.email('ngo-actor'), 'correct horse battery staple');
         const ngoCompletion = await sut.completeSignup(
           ngoSession,
-          { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+          { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
           CLIENT_IP,
         );
         expect(ngoCompletion, 'the NGO control could not complete signup').toMatchObject({ ok: true });
@@ -572,7 +590,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
         await sut.linkGithubIdentity(volunteerSession, 'volunteer-actor-handle');
         const volunteerCompletion = await sut.completeSignup(
           volunteerSession,
-          { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+          { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
           CLIENT_IP,
         );
         expect(volunteerCompletion, 'the volunteer could not complete signup, so the refusal below is not the one under test').toMatchObject({
