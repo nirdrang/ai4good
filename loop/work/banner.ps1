@@ -20,6 +20,29 @@ function Emit([string]$visible, [string]$context) {
 }
 
 try {
+    # THE FRESHNESS BASELINE IS PROCESS-BOUND, NOT SESSION-BOUND (founder 2026-08-11: "an addon
+    # to our resume - so it will zap the state"). A session START - fresh launch, resume, clear -
+    # is a NEW process that just loaded CLAUDE.md and the agent registry from disk, so the old
+    # baseline describes a dead process and would raise FALSE drift alarms (measured: a resumed
+    # session's probes returned the newest contract text while the old baseline still cried
+    # stale). Delete it here; the first prompt re-lays it from what this process actually loaded.
+    # A COMPACT is the one start where the process SURVIVES with its old registry - there the
+    # baseline stays, because its staleness claims remain true. The held label is untouched
+    # always: the conversation and its declared thread continue across a resume.
+    try {
+        $raw = ''
+        if ([Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
+        $sid = ''
+        $m = [regex]::Match($raw, '"session_id"\s*:\s*"([0-9a-fA-F-]{8,64})"')
+        if ($m.Success) { $sid = $m.Groups[1].Value }
+        $isCompact = ($raw -match '"source"\s*:\s*"compact"')
+        if ($sid -and -not $isCompact) {
+            $wf = Join-Path $env:LOCALAPPDATA ('ai4good-build\nirdrang-ai4good\sessions\' + $sid + '\watch.json')
+            if (Test-Path -LiteralPath $wf) { Remove-Item -LiteralPath $wf -Force }
+        }
+    }
+    catch { }
+
     # ONE base, resolved exactly as the stamp resolves it. Reading HEAD from the process's own
     # working directory while the stamp reads CLAUDE_PROJECT_DIR would print one repository's
     # attribution beside another repository's commit.
