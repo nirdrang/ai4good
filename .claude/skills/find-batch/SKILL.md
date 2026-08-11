@@ -42,7 +42,14 @@ entry and the candidate's text, never guessed from titles.
 
 ## Disqualifiers — any one kills a candidate, whatever its rung
 
-- an open blocker, or state other than Backlog
+- an open blocker, or state other than Backlog — **with ONE ruled exception (founder
+  2026-08-11): a blocker that is the PRIMARY ITSELF does not disqualify.** The batch builds the
+  blocker in the same run and the same pull request, so the joint plan simply sequences the
+  partner's steps after the primary's — the same ordering any item gives its own steps. The
+  dependency arrow must point at the primary and nowhere else: a partner blocked by any THIRD
+  item is still dead, whatever its rung, because the run does nothing to satisfy that blocker.
+  Name the exception in the verdict when it is used, so the founder approves the pair knowing
+  the ordering it implies.
 - an open founder decision inside it
 - a container (an item with children is not work)
 - a different database need than the primary (one slot serves the pair)
