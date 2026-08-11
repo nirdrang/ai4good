@@ -133,6 +133,9 @@ fix did not touch stays cleared; only the scope box re-checks against the full f
 can add a stray file. This is what keeps the once-per-item re-run from re-auditing the whole item —
 a scoped fix earns a scoped re-read. Launching the auditors and waiting
 for them is the conductor's; a fresh audit sitting rules on the re-run. You never span that wait.
+**That re-run sitting works from the rebuilt checklist and the fix delta, not the full plan** — it
+reaches for the plan only when a re-run finding turns on original intent the adopted rulings did
+not capture, and that case is usually scope growth, which escalates rather than being ruled here.
 The audit re-runs once per item. On a clean close, commit **both** raw outputs, **both** distillates
 and your rulings into the record before the final push — the head CI gates is the one that carries them.
 
