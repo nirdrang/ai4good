@@ -182,6 +182,9 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                    → a MECHANICAL commits each reader's full evidence and pushes
                      (a reader's evidence = raw output + distillate, PLUS for an opencode
                       reader its tool-call summary + identity extract — see reviewer-runner.md)
+                     EVIDENCE ONLY — this mechanical never touches the pull request; the
+                     merge tail has ONE executor and the MERGE SITTING spawns it (founder
+                     2026-08-11, after two mechanicals raced the tail)
                    → flow "audit clean → ci" · arm CI ON THAT NEW HEAD (the commit moved it)
                    → spawn the MERGE SITTING.  NO AUDIT SITTING — nothing to rule, so this
                      wait and CI's are adjacent.  THIS is what makes the usual item FOUR

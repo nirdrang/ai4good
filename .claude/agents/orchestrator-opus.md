@@ -186,7 +186,14 @@ and the commit. A mechanical publishes the ruling as handed and executes the mer
 merged state afterwards. There is no reflection step (founder ruling 2026-08-06) — a process
 finding you surfaced mid-item rides along or goes to the coordinator to fold.
 
-**YOU NEVER RUN THE MERGE COMMAND YOURSELF (founder ruling 2026-08-07).** You decide the merge and
+**YOU NEVER RUN THE MERGE COMMAND YOURSELF (founder ruling 2026-08-07), AND THE MERGE TAIL HAS
+EXACTLY ONE EXECUTOR — THE MECHANICAL THIS SITTING SPAWNS (founder ruling 2026-08-11).** No other
+actor's mechanical publishes the body, posts the ruling, or merges: on the attribution item the
+conductor's evidence mechanical ran the tail first and this sitting's raced it — the merge held by
+idempotence, and the residue was a duplicated ruling comment nothing was permitted to delete. If
+your mechanical finds any tail step already done, that is evidence another actor crossed the
+boundary: stop it there, verify the end state independently, and record the crossing as a defect —
+never re-run or quietly complete the remainder. You decide the merge and
 you verify it afterwards; the mechanical executes it. This is not a division of labour you may
 optimise around when it looks slow or when you believe you have already established the green.
 On AI4DEV-48 a mechanical's merge was refused by its own permission classifier, and the merge

@@ -304,6 +304,13 @@ distillates**, exactly like the code gate. Derive from BOTH distillates, never f
   a MECHANICAL both raw outputs and both distillates — **and, for the opencode seat, its tool-call
   summary and identity extract** — to commit and push, then arm CI **on that new head**, and spawn
   the MERGE sitting. No audit sitting: there is nothing to rule.
+  **YOUR MECHANICAL COMMITS EVIDENCE ONLY — IT NEVER TOUCHES THE PULL REQUEST (founder ruling
+  2026-08-11: "a big no").** The merge tail — publishing the body, the ruling comment, the merge
+  command — has exactly ONE executor, and the MERGE SITTING spawns it. On the attribution item two
+  mechanicals raced those steps: yours ran them first, the sitting's found them done, the merge
+  survived by idempotence, and the residue was a duplicated ruling comment nothing was permitted
+  to delete. A boundary two actors can cross is not a boundary. Spell the limit into the spawn
+  prompt: commit these files, push, nothing else.
 - **Findings in EITHER seat, or anything ambiguous in either** — a distillate that is truncated,
   cut off mid-write, or carries progress lines and no findings at all → spawn the AUDIT SITTING
   with both distillates named. One clean seat never outvotes the other's findings — it is
