@@ -174,6 +174,10 @@ tell a working conductor from an absent one.
 - **You still never write in the item's tree, rule on its content, or run its commands.** Rescuing
   unpushed work after a confirmed death is the one exception, and it is recorded AS a rescue.
 
+**The MERGE sitting runs on `orchestrator-opus` by design** (founder 2026-08-11), to spare fable
+— the merge sitting is procedural, and fable credit runs out sooner than opus. The conductor does
+this on its own; you never tell it to. This is separate from the credit-out handoff below.
+
 **Fable out of credit** → tell the conductor to spawn `orchestrator-opus` for subsequent
 sittings, and say so in the report; the handoff is manual because `--fallback-model` never fires
 on billing errors. **A session limit is not out of credit** — it is the five-hour window, it is

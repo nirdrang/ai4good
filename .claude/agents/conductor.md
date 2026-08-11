@@ -51,6 +51,15 @@ otherwise taken on documentation trust.
 tree and this branch. It is born where it works, so its attribution derives correctly and no
 agent ever moves itself.
 
+**Which orchestrator type per sitting.** Spawn `orchestrator` (fable @ xhigh) for the plan,
+draft, fix-and-goal and audit sittings. **Spawn the MERGE sitting as `orchestrator-opus`
+(opus @ max) — by design, to spare fable (founder 2026-08-11), not because fable is out of
+credit.** The merge sitting is procedural: it rules on CI, writes the merge ruling, and spawns
+the one mechanical that runs the tail; opus @ max carries it, and every merge sitting kept on
+fable is fable drained faster. When the coordinator tells you fable is out of credit, spawn
+`orchestrator-opus` for every subsequent sitting instead. Never spawn `orchestrator` with a
+model override — the effort pin lives in the definition file, so an override runs opus at xhigh.
+
 **You are then tethered to it.** A background child's completion re-invokes you automatically —
 that is your primary signal and it is free.
 
@@ -303,7 +312,8 @@ distillates**, exactly like the code gate. Derive from BOTH distillates, never f
 - **Clean** — **both** distillates carry zero findings **and** each reads as a real verdict. Hand
   a MECHANICAL both raw outputs and both distillates — **and, for the opencode seat, its tool-call
   summary and identity extract** — to commit and push, then arm CI **on that new head**, and spawn
-  the MERGE sitting. No audit sitting: there is nothing to rule.
+  the MERGE sitting as `orchestrator-opus` (opus @ max — see "Which orchestrator type per sitting"
+  above). No audit sitting: there is nothing to rule.
   **YOUR MECHANICAL COMMITS EVIDENCE ONLY — IT NEVER TOUCHES THE PULL REQUEST (founder ruling
   2026-08-11: "a big no").** The merge tail — publishing the body, the ruling comment, the merge
   command — has exactly ONE executor, and the MERGE SITTING spawns it. On the attribution item two

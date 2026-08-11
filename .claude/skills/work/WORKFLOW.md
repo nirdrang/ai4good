@@ -17,7 +17,7 @@ definition file of its own — it is the founder's own session, so its contract 
 |---|---|---|---|
 | **Coordinator** | fable @ xhigh | the PM board · the founder channel · everything destructive | the whole session |
 | **Conductor** | sonnet | the item's worktree and its clock · narration | one item |
-| **Orchestrator** | fable @ xhigh (fallback opus @ max) | **all judgment** — plan, rulings, merge decision | one sitting; four per item, five when the audit finds something |
+| **Orchestrator** | fable @ xhigh; the **MERGE sitting** and any credit-out sitting on opus @ max | **all judgment** — plan, rulings, merge decision | one sitting; four per item, five when the audit finds something |
 | **Executor** | opus | the code, and running verify | one task |
 | **Mechanical** | sonnet | publish · merge execution · capture | one task |
 | **Reviewer-runner** | sonnet | launching ONE reviewer · holding its wait · distilling its output — the sole actor that starts a reviewer process | one reviewer run |
@@ -186,7 +186,8 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                      merge tail has ONE executor and the MERGE SITTING spawns it (founder
                      2026-08-11, after two mechanicals raced the tail)
                    → flow "audit clean → ci" · arm CI ON THAT NEW HEAD (the commit moved it)
-                   → spawn the MERGE SITTING.  NO AUDIT SITTING — nothing to rule, so this
+                   → spawn the MERGE SITTING as orchestrator-opus (opus @ max, by design — see
+                     the MERGE step).  NO AUDIT SITTING — nothing to rule, so this
                      wait and CI's are adjacent.  THIS is what makes the usual item FOUR
                      orchestrator sittings rather than five
                  FINDINGS IN EITHER SEAT, or truncated · cut off mid-write · progress lines and
@@ -226,10 +227,14 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  emit on ANY terminal state — success · failure · cancelled · timed out
                  (GitHub fires CI on every push; intermediate runs are NOT the gate)
 57  CONDUCTOR    flow "audit → ci"
-58  CONDUCTOR    terminal state → spawn MERGE SITTING
+58  CONDUCTOR    terminal state → spawn MERGE SITTING as orchestrator-opus (opus @ max, by design)
 ```
 
 ## MERGE
+
+The merge sitting runs on **orchestrator-opus (opus @ max)** by design — it spares fable, whose
+credit runs out sooner, and the merge sitting's work is procedural rather than the item's hardest
+judgment (founder 2026-08-11).
 
 ```
 59  ORCHESTRATOR read PHASE-STATE + the CI result
