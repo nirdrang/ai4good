@@ -87,26 +87,41 @@ function Read-JsonCapped([string]$path, [int]$maxBytes = 65536) {
     catch { return $null }
 }
 
-function Get-HeldPath { Join-Path (Get-StateDirRO) ('attr\' + (Get-WorktreeId) + '.held.json') }
+# SESSION-PRIVATE STATE lives in a per-session directory (founder 2026-08-11: "each session has
+# its own cache directory"), because two sessions in one folder fought over the single held slot
+# and one session's thread label showed in the other's stamp. Session-private = the held label
+# and the freshness baseline. The CHAIN and OWNER caches deliberately stay SHARED in attr\ —
+# they exist so OTHER sessions can read them (the supervision tree shows a neighbour's agent
+# with its chain, labelled with its owner, only because those caches cross session lines).
+function Get-SessionStateDir([string]$sessionId) {
+    if (-not ($sessionId -cmatch '^[0-9a-fA-F-]{8,64}$')) { throw ('not a valid session id: ' + $sessionId) }
+    $d = Join-Path (Get-StateDirRO) ('sessions\' + $sessionId)
+    if (-not (Test-Path $d)) { New-Item -ItemType Directory -Force $d | Out-Null }
+    return $d
+}
 
-function Get-HeldItem { Read-JsonCapped (Get-HeldPath) }
+function Get-HeldItem([string]$SessionId) {
+    if (-not $SessionId) { return $null }
+    Read-JsonCapped (Join-Path (Get-StateDirRO) ('sessions\' + $SessionId + '\held.json'))
+}
 
 # The branch in force when the item was taken up is stored WITH it. Without that provenance a
 # held item silently outlives the work it describes: take up AI4DEV-19, switch to main, and every
 # later prompt on main still claims 19. The stamp only fills a gap from held state when the
 # branch still matches; otherwise it shows it as untrusted and attributes nothing.
-function Set-HeldItem([string]$itemId, [string]$label, [string]$branch) {
+function Set-HeldItem([string]$itemId, [string]$label, [string]$branch, [string]$SessionId) {
     # A FLOATING label is legal here too (founder 2026-08-09): coordinator work that belongs to
     # no board item - exploration, design discussion - holds `~exploration`-style labels so the
     # stamp attributes it instead of printing an absence. The tilde keeps it unmistakable.
     if (-not (Test-ItemId $itemId) -and -not (Test-FloatingRoot $itemId)) { throw ('not a valid item id or ~floating label: ' + $itemId) }
-    $d = Get-StateDir  # the verbs may create; readers may not
+    if (-not $SessionId) { throw 'Set-HeldItem now requires -SessionId (founder 2026-08-11: held state is session-bound). Your session id is the GUID in your scratchpad path.' }
     $h = @{ itemId = $itemId; label = $label; branch = $branch; heldAt = (Get-Date).ToUniversalTime().ToString('o') }
-    [System.IO.File]::WriteAllText((Join-Path $d ('attr\' + (Get-WorktreeId) + '.held.json')), ($h | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText((Join-Path (Get-SessionStateDir $SessionId) 'held.json'), ($h | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
 }
 
-function Clear-HeldItem {
-    $p = Get-HeldPath
+function Clear-HeldItem([string]$SessionId) {
+    if (-not $SessionId) { throw 'Clear-HeldItem now requires -SessionId (held state is session-bound).' }
+    $p = Join-Path (Get-StateDirRO) ('sessions\' + $SessionId + '\held.json')
     if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force }
 }
 

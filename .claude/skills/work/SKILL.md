@@ -219,10 +219,17 @@ alone.**
 
 ## Coordinator light work attributes through the HELD item (founder 2026-08-09)
 
+**Held state is SESSION-BOUND (founder 2026-08-11: "all I care is stamping to be session
+bound").** Every session has its own cache directory, keyed by its session id — the GUID in
+your scratchpad path — and the stamp reads ONLY this session's held label through the id in the
+hook payload. `Set-HeldItem` and `Clear-HeldItem` REQUIRE the session id and refuse loudly
+without it; two sessions can no longer fight over one slot, and a neighbour's thread can never
+show in your stamp.
+
 When the founder rules work done by the coordinator on `main` outside the full lifecycle —
 drill harnesses, stamp machinery, ruled contract folds — the stamp must not read
 "coordination, no item claimed" while real item-scoped work is happening. Before the first
-edit: `Set-HeldItem '<id>' '<short label>' 'main'`. The stamp then attributes every prompt —
+edit: `Set-HeldItem '<id>' '<short label>' 'main' '<your session id>'`. The stamp then attributes every prompt —
 `COORDINATOR WORKING ON <id> (<label>)` with the honest qualifier `held, not branch` — because
 a held item's documented role is exactly this: filling the gap the branch leaves empty, never
 overriding it. `Clear-HeldItem` when the work closes. Commits still cite the item; this is the

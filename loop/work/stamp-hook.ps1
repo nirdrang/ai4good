@@ -139,11 +139,13 @@ try {
                 $h = [System.BitConverter]::ToString($sha.ComputeHash([System.IO.File]::ReadAllBytes($f))) -replace '-', ''
                 $now[(Split-Path -Leaf $f)] = $h.Substring(0, 16).ToLower()
             }
-            $wfile = Join-Path (Get-StateDirRO) ('attr\session-' + $script:SessionId + '.watch.json')
+            # Session-bound (founder 2026-08-11): the baseline lives in THIS session's own cache
+            # directory, beside its held label — one directory per session, keyed by the id the
+            # hook payload carries.
+            $wfile = Join-Path (Get-StateDirRO) ('sessions\' + $script:SessionId + '\watch.json')
             $watchBaseline = Read-JsonCapped $wfile
             if (-not $watchBaseline) {
-                $d = Get-StateDir
-                [System.IO.File]::WriteAllText($wfile, (@{ files = $now; recordedAt = (Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+                [System.IO.File]::WriteAllText((Join-Path (Get-SessionStateDir $script:SessionId) 'watch.json'), (@{ files = $now; recordedAt = (Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
             }
             else {
                 $drifted = @()
@@ -265,7 +267,7 @@ try {
     # An id that fails validation is discarded outright: one containing newlines would forge extra
     # stamp lines and a fake attribution tag - the very output the founder is told to trust.
     $held = $null
-    try { $held = Get-HeldItem } catch { }
+    try { $held = Get-HeldItem -SessionId $script:SessionId } catch { }
     $heldId = ''
     $heldStale = ''
     if ($held -and ((Test-ItemId ([string]$held.itemId)) -or (Test-FloatingRoot ([string]$held.itemId)))) {
