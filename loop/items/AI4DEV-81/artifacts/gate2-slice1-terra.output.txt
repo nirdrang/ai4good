@@ -1,0 +1,33 @@
+Severity scale: critical = can modify the protected personal stack; high = can falsely grant live provenance or bypass an integration gate.
+
+[1] severity: critical    tests/at/harness/attestation.ts:67
+    claim: `writeAttestation` deletes and writes the attestation table for any supplied database URL without applying the slot identity, port, or project-ID safety checks.
+    why it matters: A caller can pass the founder’s database URL and mutate it through this new exported path, bypassing the protections used by slot preparation.
+    unverified-runtime-claim: no
+
+[2] severity: high    tests/at/harness/clock.ts:30
+    claim: `createAttestedRealClock` trusts the structural `LiveAttestation` type instead of validating a branded slot attestation; `createLiveEmail` has the same flaw at `live-email.ts:82`.
+    why it matters: Supplying `{ evidence: "...", constructedFor: "slot" }` can create capability-branded clock or email objects without a nonce round trip, allowing the ledger to report `real` from fabricated evidence.
+    unverified-runtime-claim: no
+
+[3] severity: high    tests/at/harness/capabilities.ts:473
+    claim: `liveSutCapability` admits any `sut.*` capability name and accepts inherited methods through `surface[method]`, rather than using a closed, own-method enumeration.
+    why it matters: For example, an unreviewed `sut.anything` backed by `toString` passes against a plain object and receives `real` provenance; the same open namespace is also accepted by the adapter-derived route.
+    unverified-runtime-claim: no
+
+[4] severity: high    tests/at/harness/capabilities.ts:621
+    claim: The pending-method proxy’s `has` trap returns false for an omitted unbacked method, rather than making the method observably pending.
+    why it matters: The live adapter intentionally omits unsupported account methods, so a test can use `'registerWithProvider' in sut.accounts` to skip the call and avoid the required `CapabilityPending` red.
+    unverified-runtime-claim: no
+
+[5] severity: high    tests/at/harness/registry.ts:702
+    claim: A bare test body or `default` body is typed as a loop-tier body but is also executed at integration tier.
+    why it matters: Such a body can typecheck while calling `h.clock.advance()` and then run against an attested real clock that has no control seam, producing an undeclarable runtime failure instead of a compile-time seam-misuse error.
+    unverified-runtime-claim: yes
+
+[6] severity: high    tests/at/harness/runner.ts:711
+    claim: The runner forwards an unvalidated Mailpit URL from stack status, and the live-email probe grants identity after any HTTP 200 response.
+    why it matters: A hybrid or malformed status can direct the child to the founder’s Mailpit port or another arbitrary HTTP service; a 200 response then yields a `real` email capability without proving it belongs to the reserved slot.
+    unverified-runtime-claim: no
+
+CODE REVIEW: 6 FINDINGS
