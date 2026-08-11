@@ -367,6 +367,12 @@ export async function createLiveAdapter(opts: {
      * means. The database's own backstop reads the same field, so a wrapped value fails there too.
      */
     linkGithubIdentity: async (session, githubHandle) => {
+      // THE HANDLE MUST NAME A SESSION THIS PROCESS REALLY OBTAINED — R-D3's divergence handle. A
+      // registration under confirmations holds none, and it is refused BY NAME here rather than
+      // reaching the write below. That write is operator-level SQL and carries no token, so the
+      // VALIDATION is the point and the returned tokens are deliberately unused. Same posture as
+      // the sim fixture and as this method's own doc in `_contract.ts`.
+      tokensOf(sessions, session, 'link a GitHub identity');
       const identityId = crypto.randomUUID();
       await sql`
         insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)

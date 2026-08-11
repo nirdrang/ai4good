@@ -25,7 +25,11 @@ declaration bent (plan step 7's doctrine). The five, as code facts for the recor
    `organizationName`.
 3. The operator-written GitHub identity stored `identity_data` as a JSON **string**; Auth
    answered 500 for that user until the `::text::jsonb` cast.
-4. The membership table's column is `organization_id`; the adapter's read said `org_id`.
+4. The adapter's read said `organization_id`; the membership table's physical column is
+   `org_id`, so the read threw until it queried `org_id AS organization_id`. *(Corrected by
+   audit ruling AU-2 in `rulings-audit.md`: this line originally stated the two names the
+   other way round. The code and its comment at `tests/at/suites/req-001/_live.ts` are the
+   authority.)*
 5. `emailVerified` handed the shipped extractor a `Date` where it requires a string.
 
 ## RF-3 — the evidence-capture wrapper fix: RATIFIED
