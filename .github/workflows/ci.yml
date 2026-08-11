@@ -76,6 +76,17 @@ jobs:
       - name: Guard the orchestrator twins against drift
         shell: bash
         run: |
+          # The workflow file comes from the merge ref, but the checkout is the PR head - a
+          # branch cut before this guard landed does not contain the script (measured on run
+          # 31446415848, 2026-08-11: pwsh died on the missing file and failed an innocent PR).
+          # A tree that predates the guard is skipped LOUDLY, never failed: its twins are
+          # whatever its branch point carried, and the merged head - which is what actually
+          # lands - runs the guard from main's side on the next push.
+          if [ ! -f loop/work/twin-check.ps1 ]; then
+            echo "twin guard: script not in this tree (branch predates the guard) - skipping."
+            echo "The guard binds this PR at its merged head; merge main forward to run it here."
+            exit 0
+          fi
           if command -v pwsh >/dev/null 2>&1; then
             pwsh -NoProfile -File loop/work/twin-check.ps1
           else
