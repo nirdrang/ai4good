@@ -237,11 +237,13 @@ import type {
   AccountRow,
   AccountsSut,
   AcknowledgmentRow,
+  AssignVolunteerOutcome,
   CompleteSignupOutcome,
   CreateOrganizationOutcome,
   GrantMembershipOutcome,
   MembershipRow,
   OrganizationRow,
+  ProjectRow,
   RefreshSessionOutcome,
   SendDiscoveryMessageOutcome,
   Session,
@@ -381,6 +383,8 @@ interface State {
   organizations: Map<string, OrganizationRow>;
   /** `${organizationId}:${accountId}` -> row */
   memberships: Map<string, MembershipRow>;
+  /** project id -> row, mirroring `public.projects`'s primary key */
+  projects: Map<string, ProjectRow>;
   acknowledgments: StoredAcknowledgment[];
   /** account id -> the imported volunteer profile, mirroring `public.volunteer_profiles`'s primary key */
   volunteerProfiles: Map<string, VolunteerProfileRow>;
@@ -428,6 +432,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     accounts: new Map(),
     organizations: new Map(),
     memberships: new Map(),
+    projects: new Map(),
     acknowledgments: [],
     volunteerProfiles: new Map(),
     discoveryMessages: new Map(),
@@ -1119,6 +1124,62 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       return { ok: true, membership: clone(membership) };
     },
 
+    /**
+     * A PROJECT, PROVISIONED BY THE OPERATOR — with its seat free, which is the only state a
+     * created project can be in.
+     *
+     * Nothing in this tree creates a project through a product path, at either tier. This is the
+     * Given AT-001.32 needs and nothing more; it does not validate the organisation's own state and
+     * it does not check who is asking, because there is no caller.
+     */
+    createProjectAsOperator: async (organizationId, name) => {
+      if (!state.organizations.has(organizationId)) {
+        throw new Error(`fixture: no organisation ${organizationId} to create a project in`);
+      }
+      const trimmed = name.trim();
+      if (trimmed === '') throw new Error('fixture: a project needs a non-empty name');
+      const project: ProjectRow = { id: nextId('project'), organizationId, name: trimmed, assignedVolunteerId: null };
+      state.projects.set(project.id, project);
+      return clone(project);
+    },
+
+    /**
+     * ATTACH A VOLUNTEER — and the refusal below MIRRORS THE DATABASE's guard trigger, which is the
+     * same exposure `grantMembershipAsOperator` carries and is stated in the plan for the same
+     * reason: there is no shipped module to defer to, because the rule is a trigger and a column.
+     *
+     * WHAT IS REFUSED IS A REPLACEMENT, AND NOTHING ELSE. Attaching the first volunteer is the
+     * assignment; re-writing the SAME account id is a no-op and stays allowed, because refusing an
+     * idempotent write would make it look like a second developer; releasing the seat to null is
+     * offboarding's, which belongs to another leaf. Measured on the slot stack — the release to null
+     * is recorded ALLOWED in the item's verify-first answers, answer (d).
+     *
+     * NO ACCOUNT-TYPE CHECK, deliberately. Whether the attached account is of type `volunteer` and
+     * whether it was matched to this project is the matching requirement's concern; AT-001.32 is
+     * about the SECOND volunteer, and a check here would be an untested requirement.
+     */
+    assignVolunteerAsOperator: async (projectId, accountId): Promise<AssignVolunteerOutcome> => {
+      const project = state.projects.get(projectId);
+      if (!project) return { ok: false, kind: 'refused', reason: `no project ${projectId} exists` };
+      if (!state.accounts.has(accountId)) {
+        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
+      }
+      if (project.assignedVolunteerId !== null && project.assignedVolunteerId !== accountId) {
+        return {
+          ok: false,
+          kind: 'seat-occupied',
+          reason:
+            `project ${projectId} refuses a second volunteer: its single developer seat is held by account ` +
+            `${project.assignedVolunteerId}`,
+        };
+      }
+      const assigned: ProjectRow = { ...project, assignedVolunteerId: accountId };
+      state.projects.set(projectId, assigned);
+      return { ok: true, project: clone(assigned) };
+    },
+
+    projectAssignment: async (projectId) => clone(state.projects.get(projectId) ?? null),
+
     account: async (accountId) => clone(state.accounts.get(accountId) ?? null),
     organization: async (organizationId) => clone(state.organizations.get(organizationId) ?? null),
     membership: async (organizationId, accountId) => clone(state.memberships.get(membershipKey(organizationId, accountId)) ?? null),
@@ -1182,6 +1243,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.accounts.clear();
       state.organizations.clear();
       state.memberships.clear();
+      state.projects.clear();
       state.acknowledgments.length = 0;
       state.volunteerProfiles.clear();
       state.discoveryMessages.clear();

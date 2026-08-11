@@ -28,6 +28,9 @@ import { expect } from 'vitest';
 import { CapabilityPending } from '../../harness/capabilities.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import type { Session } from './_contract.ts';
+// AT-001.17's source arm, shared with its loop body: the arm runs identically at both tiers, and the
+// two bodies live in different files, so the check has one home rather than two copies.
+import { inviteOrAddMemberSurface } from './_source-scan.ts';
 
 /** The integration tier's context: no clock control seam, and a mail catcher instead of a sim. */
 type Ctx = HarnessAtContext<'req-001', 'accounts', 'integration'>;
@@ -868,6 +871,181 @@ export async function at00137(ctx: Ctx): Promise<void> {
   if (!controlCompletion.ok) return;
   const seated = await sut.grantMembershipAsOperator(organization.id, controlCompletion.accountId, 'member');
   expect(seated, 'the operator grant refuses an NGO account too, so the refusals above prove nothing').toMatchObject({ ok: true });
+}
+
+/* ------------------------------------------------- the single-seat and single-dev ids (D3.L2) --- */
+
+/**
+ * AT-001.17 — no capability exists to invite or add a second member to an org.
+ *
+ * A NEGATIVE CRITERION NEEDS MORE THAN ONE WITNESS, because "no capability exists" is a claim about
+ * every path rather than about one. Four arms, each closing a different way in:
+ *
+ *   1. NO DEPLOYED FUNCTION. The functions router is asked for an invite endpoint by name and
+ *      answers 404 `Function not found` — with a DEPLOYED function on the same stack as the control,
+ *      because a router that answered 404 to everything would make the first answer meaningless.
+ *      Both shapes were measured before this body was written (verify-first answer (e)).
+ *   2. NO CLIENT REACH. `public.org_memberships` is asked for through the Data API with the
+ *      publishable key and refuses — the privilege layer, not a policy, since the table is granted
+ *      to no client role at all.
+ *   3. NO ROOM IN THE DATABASE. The operator, whose authority exceeds anything the product holds,
+ *      tries to seat a second member in an organisation that already holds its one seat, and the
+ *      unique index refuses.
+ *   4. NO SURFACE IN THE APP. `src/routes/` and the generated route tree carry no invite or
+ *      add-member naming — the source arm, shared with the loop body, with its residual stated in
+ *      `_source-scan.ts`.
+ */
+export async function at00117(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+
+  // ARM 4 first, because it needs no state and a failure in it is the cheapest to read.
+  expect(
+    inviteOrAddMemberSurface(),
+    'the app carries a route named like an invite or add-member surface, so "UI absent" is no longer true',
+  ).toEqual([]);
+
+  const url = (process.env.AT_SUPABASE_URL ?? '').replace(/\/$/, '');
+  const anonKey = process.env.AT_SUPABASE_ANON_KEY ?? '';
+  expect(url && anonKey, 'this child holds no slot coordinates, so the absence probes below cannot run').toBeTruthy();
+
+  // ARM 1 — the deployed-function absence probe, with its control.
+  const absent = await fetch(`${url}/functions/v1/invite-member`, {
+    method: 'POST',
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const absentBody = await absent.text();
+  expect(absent.status, 'an invite-member function answered on the deployed stack').toBe(404);
+  expect(absentBody, 'the router did not answer with its not-found shape').toContain('Function not found');
+
+  const present = await fetch(`${url}/functions/v1/create-organization`, {
+    method: 'POST',
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  expect(
+    present.status,
+    'a function that IS deployed also answered 404, so the router answers 404 to everything and the probe above proves nothing',
+  ).not.toBe(404);
+
+  // ARM 2 — the membership table through the Data API, with the publishable key.
+  const clientRead = await fetch(`${url}/rest/v1/org_memberships?select=role`, {
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, Accept: 'application/json' },
+  });
+  expect(clientRead.status, 'a client key reached the membership table').toBeGreaterThanOrEqual(400);
+
+  // ARM 3 — the operator's own attempt at a second seat, on an organisation the PRODUCT path
+  // created and seated. The one-seat index is what refuses; nothing about the product is consulted.
+  const owner = await registerConfirmAndSignIn(sut, w.email('single-seat-owner-17'));
+  const ownerCompletion = await sut.completeSignup(
+    owner,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter 17', acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(ownerCompletion, 'the NGO owner could not complete signup, so there is no seated organisation').toMatchObject({ ok: true });
+  if (!ownerCompletion.ok || ownerCompletion.organizationId === null) return;
+
+  const wouldBeSecond = await registerConfirmAndSignIn(sut, w.email('would-be-second-17'));
+  const secondCompletion = await sut.completeSignup(
+    wouldBeSecond,
+    { accountType: 'ngo', organizationName: 'Northgate Foodbank 17', acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(secondCompletion, 'the second NGO account could not complete signup').toMatchObject({ ok: true });
+  if (!secondCompletion.ok) return;
+
+  for (const role of ['admin', 'member'] as const) {
+    const seated = await sut.grantMembershipAsOperator(ownerCompletion.organizationId, secondCompletion.accountId, role);
+    expect(seated.ok, `a second ${role} was seated in an organisation that already holds its one seat`).toBe(false);
+    if (seated.ok) return;
+    expect(seated.kind, `the second ${role} was refused for a reason other than the seat being taken`).toBe('org-already-seated');
+  }
+
+  // AND THE ORGANISATION STILL HOLDS EXACTLY ONE SEAT, its owner's.
+  const seats = await sut.membershipsOf(secondCompletion.accountId);
+  expect(
+    seats.map((row) => row.organizationId),
+    'the refused grant seated the second account in the first organisation anyway',
+  ).not.toContain(ownerCompletion.organizationId);
+  expect(
+    await sut.membership(ownerCompletion.organizationId, ownerCompletion.accountId),
+    'the owner lost its own seat',
+  ).toMatchObject({ role: 'admin' });
+}
+
+/**
+ * AT-001.32 — attaching a second volunteer to a project is rejected.
+ *
+ * THE GIVEN IS OPERATOR-PROVISIONED AND SAYS SO. No product path creates a project or attaches a
+ * volunteer in this tree, at either tier; building one to reach this criterion's Given would be
+ * landing another requirement's surface early. What is under test is the REFUSAL, and the path this
+ * body drives is the one with nothing on it but the database — which is what makes the invariant a
+ * property of the table rather than of a writer somebody could change.
+ *
+ * THE CONTROL IS THE IDEMPOTENT RE-WRITE: attaching the SAME volunteer again is not refused. Without
+ * it, a guard that refused every update at all would satisfy the negative, and the criterion's word
+ * is "a SECOND volunteer".
+ */
+export async function at00132(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+
+  const ngo = await registerConfirmAndSignIn(sut, w.email('project-owner-32'));
+  const ngoCompletion = await sut.completeSignup(
+    ngo,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter 32', acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(ngoCompletion, 'the NGO could not complete signup, so there is no organisation to hold a project').toMatchObject({ ok: true });
+  if (!ngoCompletion.ok || ngoCompletion.organizationId === null) return;
+
+  const first = await registerConfirmAndSignIn(sut, w.email('first-volunteer-32'));
+  await sut.linkGithubIdentity(first, `first-32-${first.accountId.slice(0, 8)}`);
+  const firstCompletion = await sut.completeSignup(
+    first,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(firstCompletion, 'the first volunteer could not complete signup').toMatchObject({ ok: true });
+  if (!firstCompletion.ok) return;
+
+  const second = await registerConfirmAndSignIn(sut, w.email('second-volunteer-32'));
+  await sut.linkGithubIdentity(second, `second-32-${second.accountId.slice(0, 8)}`);
+  const secondCompletion = await sut.completeSignup(
+    second,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(secondCompletion, 'the second volunteer could not complete signup').toMatchObject({ ok: true });
+  if (!secondCompletion.ok) return;
+
+  // THE GIVEN: a project with an assigned volunteer.
+  const project = await sut.createProjectAsOperator(ngoCompletion.organizationId, 'Riverside Shelter Website 32');
+  expect(project.assignedVolunteerId, 'a freshly created project already carries a developer').toBeNull();
+  const assigned = await sut.assignVolunteerAsOperator(project.id, firstCompletion.accountId);
+  expect(assigned, 'the first volunteer could not be attached, so this criterion has no Given').toMatchObject({ ok: true });
+  expect(await sut.projectAssignment(project.id), 'the seat does not hold the first volunteer').toMatchObject({
+    assignedVolunteerId: firstCompletion.accountId,
+  });
+
+  // THE ACT UNDER TEST.
+  const secondAttach = await sut.assignVolunteerAsOperator(project.id, secondCompletion.accountId);
+  expect(secondAttach.ok, 'a second volunteer was attached to a project that already has one').toBe(false);
+  if (secondAttach.ok) return;
+  expect(secondAttach.kind, 'the second attach was refused for a reason other than the seat being taken').toBe('seat-occupied');
+
+  // AND IT WROTE NOTHING: the seat still holds the FIRST volunteer.
+  expect(await sut.projectAssignment(project.id), 'the refused attach changed the project seat').toMatchObject({
+    id: project.id,
+    assignedVolunteerId: firstCompletion.accountId,
+  });
+
+  // THE CONTROL — the same call with the SAME volunteer is not refused, so the guard is about a
+  // second developer rather than about writing to the column at all.
+  const again = await sut.assignVolunteerAsOperator(project.id, firstCompletion.accountId);
+  expect(again, 'attaching the volunteer that already holds the seat was refused, so the refusal above is not about a SECOND one').toMatchObject(
+    { ok: true },
+  );
+  expect(await sut.projectAssignment(project.id)).toMatchObject({ assignedVolunteerId: firstCompletion.accountId });
 }
 
 /* -------------------------------------------------------- the ids that refuse, and what they name */

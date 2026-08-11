@@ -67,6 +67,27 @@ export type MembershipRow = {
 };
 
 /**
+ * One row of `public.projects` — and the single developer seat IS the shape of it.
+ *
+ * `assignedVolunteerId` is ONE nullable field, so a project holds at most one developer and there is
+ * no collaborator seat for a second to occupy. AT-001.32's "no collaborator seats" is therefore
+ * unrepresentable here rather than merely refused: a join table would have made it a rule, a field
+ * makes it a fact about the shape.
+ *
+ * PRODUCT PROJECT CREATION DOES NOT EXIST, at either tier, and this row does not imply it. Nothing
+ * in the tree creates a project; the table and this shape land so the single-developer invariant can
+ * be tested, and `hasPlatformAcknowledgment` is still the hook the leaf that lands project creation
+ * must call.
+ */
+export type ProjectRow = {
+  id: string;
+  organizationId: string;
+  name: string;
+  /** the single developer's account id, or `null` while the seat is free */
+  assignedVolunteerId: string | null;
+};
+
+/**
  * One row of `public.acknowledgments` — EXACTLY the three fields AT-001.01 names recorded, plus the
  * account and kind that identify it.
  *
@@ -212,6 +233,19 @@ export type UpdateOrganizationOutcome =
 export type GrantMembershipOutcome =
   | { ok: true; membership: MembershipRow }
   | { ok: false; kind: 'not-an-ngo-account' | 'org-already-seated' | 'refused'; reason: string };
+
+/**
+ * The outcome of an OPERATOR attaching a volunteer to a project — AT-001.32's act.
+ *
+ * `seat-occupied` is the database guard refusing to re-point a seat that is already held at a
+ * DIFFERENT account, which is what "attaching a second volunteer" means. Releasing the seat to null
+ * is not refused and is not tested here: offboarding belongs to another leaf, and a guard that
+ * refused it would be building that leaf's requirement early. `refused` is the unclassified case,
+ * for the reason `UpdateOrganizationOutcome` gives.
+ */
+export type AssignVolunteerOutcome =
+  | { ok: true; project: ProjectRow }
+  | { ok: false; kind: 'seat-occupied' | 'refused'; reason: string };
 
 /**
  * The outcome of an attempted Discovery message — and the refusal carries WHY, for the reason
@@ -546,6 +580,39 @@ export type AccountsSut = {
    * Given is reached. The body that uses it says so in its own evidence.
    */
   grantMembershipAsOperator(organizationId: string, accountId: string, role: OrgRole): Promise<GrantMembershipOutcome>;
+
+  /**
+   * Create a project, as the operator — a GIVEN, never an act under test.
+   *
+   * NO PRODUCT PATH CREATES A PROJECT, at either tier, and this method does not pretend otherwise.
+   * AT-001.32's Given is "a project with an assigned volunteer", and the criterion is about the
+   * SECOND volunteer; reaching that state needs a project, and building product project creation to
+   * get one would be landing another requirement's surface early. It throws on failure, for the
+   * reason `createOrganizationAsOperator` throws.
+   */
+  createProjectAsOperator(organizationId: string, name: string): Promise<ProjectRow>;
+
+  /**
+   * Attach a volunteer to a project, as the operator — the Given AND the refusal probe, exactly as
+   * `grantMembershipAsOperator` is both.
+   *
+   * THE FIRST ATTACH IS THE GIVEN; THE SECOND IS THE ACT UNDER TEST. AT-001.32 says attaching a
+   * second volunteer is rejected, and the path this method drives is the one with no product code on
+   * it at all — which is what makes the refusal a property of the database rather than of a writer
+   * somebody could change.
+   */
+  assignVolunteerAsOperator(projectId: string, accountId: string): Promise<AssignVolunteerOutcome>;
+
+  /**
+   * The project as it stands, or `null` when there is no such project — the read-back a refused
+   * attach needs.
+   *
+   * IT RETURNS THE WHOLE ROW rather than the assigned id alone, and the difference is not cosmetic:
+   * a bare `string | null` cannot tell "the seat is free" from "there is no such project", and a
+   * body asserting the seat still holds the FIRST volunteer would then pass over a project that had
+   * been deleted.
+   */
+  projectAssignment(projectId: string): Promise<ProjectRow | null>;
 
   /* --------------------------- the Discovery gate's stand-in surface -------------------------- */
 

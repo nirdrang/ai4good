@@ -21,8 +21,10 @@
  * `member` half of the enum exists for AT-001.36, and both bodies state the provisioning in their
  * own evidence rather than leaving a reader to find it.
  *
- * AT-001.17 IS STILL DECLARED, not written: it is the single-seat leaf's, which lands beside this
- * one. AT-001.18, .19, .39 and .20 belong to leaves further out.
+ * AT-001.17 IS WRITTEN TOO, and it belongs to the single-seat item that rides this branch rather
+ * than to the three above. It is the negative of the same subject: the roles are held per
+ * organisation AND there is exactly one seat to hold one in. AT-001.18, .19, .39 and .20 belong to
+ * leaves further out and stay declared.
  */
 
 import { expect } from 'vitest';
@@ -30,8 +32,11 @@ import { atTest } from './_bind.ts';
 // The INTEGRATION-tier procedures. Same criterion, same id, one registration; only the procedure
 // differs — at that tier the Given is real rows on a real database and the action is the deployed
 // function. See _integration.ts.
-import { at00116, at00136, at00137, INTEGRATION_TIMEOUT_MS } from './_integration.ts';
+import { at00116, at00117, at00136, at00137, INTEGRATION_TIMEOUT_MS } from './_integration.ts';
 import { LEAF, notLanded } from './_pending.ts';
+// AT-001.17's source arm, shared with its integration body — see `_source-scan.ts` for what a
+// naming oracle does and does not establish.
+import { inviteOrAddMemberSurface } from './_source-scan.ts';
 
 /** The version string of the ToS + Platform Promise text these tests accept on the user's behalf. */
 const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
@@ -272,7 +277,73 @@ atTest(
   },
 );
 
-atTest('AT-001.17', 'no capability exists to invite or add a second member to an org', notLanded(LEAF.D3_L2));
+atTest(
+  'AT-001.17',
+  'no capability exists to invite or add a second member to an org',
+  { surface: 'backend', timeoutMs: { integration: INTEGRATION_TIMEOUT_MS } },
+  {
+    default: async ({ open }) => {
+      const { w, sut } = await open();
+
+      // ARM 1 — THE SOURCE. The criterion's parenthetical is "(UI absent; API rejects)", and this is
+      // the only arm that looks at the app at all. Its residual — it is a NAMING oracle, so a
+      // deliberately renamed invite screen escapes it — is stated in `_source-scan.ts` and carried
+      // in the merge ruling. It runs identically at both tiers.
+      expect(
+        inviteOrAddMemberSurface(),
+        'the app carries a route named like an invite or add-member surface, so "UI absent" is no longer true',
+      ).toEqual([]);
+
+      // ARM 2 — THE CAPABILITY. There is no invite or add-member operation on the system under test
+      // to call, which at this tier is a fact about the whole modelled surface: the fixture
+      // implements every member of the contract, so its own keys ARE the surface.
+      const surface = Object.keys(sut).filter((name) => /invite|add[-_]?member|adduser|add[-_]?user/i.test(name));
+      expect(surface, 'the accounts surface offers an invite or add-member operation').toEqual([]);
+
+      // ARM 3 — THE SEAT. The operator, whose authority exceeds anything the product holds, tries to
+      // seat a second member in an organisation that already holds its one seat. Nothing about the
+      // product is consulted: the one-seat rule is what refuses.
+      const owner = await sut.registerWithEmailPassword(w.email('single-seat-owner-17'), PASSWORD);
+      const ownerCompletion = await sut.completeSignup(
+        owner,
+        { accountType: 'ngo', organizationName: 'Riverside Shelter 17', acknowledgmentTextVersion: TEXT_VERSION },
+        CLIENT_IP,
+      );
+      expect(ownerCompletion, 'the NGO owner could not complete signup, so there is no seated organisation').toMatchObject({ ok: true });
+      if (!ownerCompletion.ok || ownerCompletion.organizationId === null) return;
+
+      const wouldBeSecond = await sut.registerWithEmailPassword(w.email('would-be-second-17'), PASSWORD);
+      const secondCompletion = await sut.completeSignup(
+        wouldBeSecond,
+        { accountType: 'ngo', organizationName: 'Northgate Foodbank 17', acknowledgmentTextVersion: TEXT_VERSION },
+        CLIENT_IP,
+      );
+      expect(secondCompletion, 'the second NGO account could not complete signup').toMatchObject({ ok: true });
+      if (!secondCompletion.ok) return;
+
+      // BOTH ROLES ARE ATTEMPTED: "a second member" is not a claim about which role the second
+      // account would have held.
+      for (const role of ['admin', 'member'] as const) {
+        const seated = await sut.grantMembershipAsOperator(ownerCompletion.organizationId, secondCompletion.accountId, role);
+        expect(seated.ok, `a second ${role} was seated in an organisation that already holds its one seat`).toBe(false);
+        if (seated.ok) return;
+        expect(seated.kind, `the second ${role} was refused for a reason other than the seat being taken`).toBe('org-already-seated');
+      }
+
+      // AND THE ORGANISATION STILL HOLDS EXACTLY ONE SEAT, its owner's. A refusal that seated the
+      // caller anyway would pass every assertion above.
+      expect(
+        (await sut.membershipsOf(secondCompletion.accountId)).map((row) => row.organizationId),
+        'the refused grant seated the second account in the first organisation anyway',
+      ).not.toContain(ownerCompletion.organizationId);
+      expect(
+        await sut.membership(ownerCompletion.organizationId, ownerCompletion.accountId),
+        'the owner lost its own seat',
+      ).toMatchObject({ role: 'admin' });
+    },
+    integration: at00117,
+  },
+);
 
 atTest('AT-001.18', 'every NGO-side action succeeds under the one account with its own preconditions met', notLanded(LEAF.D3_L3));
 

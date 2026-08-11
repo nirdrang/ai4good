@@ -78,12 +78,14 @@ import type {
   AccountRow,
   AccountsSut,
   AcknowledgmentRow,
+  AssignVolunteerOutcome,
   CompleteSignupOutcome,
   CompleteSignupRequest,
   CreateOrganizationOutcome,
   GrantMembershipOutcome,
   MembershipRow,
   OrganizationRow,
+  ProjectRow,
   RefreshSessionOutcome,
   Session,
   SignInOutcome,
@@ -118,6 +120,9 @@ export const backedSutMethods = {
     'updateOrganization',
     'createOrganizationAsOperator',
     'grantMembershipAsOperator',
+    'createProjectAsOperator',
+    'assignVolunteerAsOperator',
+    'projectAssignment',
     'account',
     'organization',
     'membership',
@@ -647,6 +652,67 @@ export async function createLiveAdapter(opts: {
       }
     },
 
+    /**
+     * A PROJECT, PROVISIONED BY THE OPERATOR — one insert, with its seat free.
+     *
+     * There is no product project-creation path in this repository at either tier, so this is the
+     * only way AT-001.32's Given is reached. `public.projects` reaches no Data API role at all
+     * (measured after reset — verify-first answer (f): zero catalog rows for `anon`, `authenticated`
+     * and `service_role`), so this is a direct database write and could not be anything else.
+     */
+    createProjectAsOperator: async (organizationId, name): Promise<ProjectRow> => {
+      const created = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
+        sql`insert into public.projects (org_id, name) values (${organizationId}::uuid, ${name})
+            returning id, org_id, name, assigned_volunteer_id`,
+      );
+      if (created.length !== 1) throw new Error(`the operator insert of project ${JSON.stringify(name)} returned no row`);
+      return {
+        id: String(created[0].id),
+        organizationId: String(created[0].org_id),
+        name: created[0].name,
+        assignedVolunteerId: created[0].assigned_volunteer_id === null ? null : String(created[0].assigned_volunteer_id),
+      };
+    },
+
+    /**
+     * ATTACH A VOLUNTEER, AS THE OPERATOR — and the guard trigger's refusal is classified rather
+     * than swallowed.
+     *
+     * The sentence and the SQLSTATE were measured on the slot stack (verify-first answer (d)):
+     * `projects refuses a second volunteer on project …: its single developer seat is held by
+     * account …`, SQLSTATE `42501`. The same probe recorded that releasing the seat to null is
+     * ALLOWED and that the seat still held the FIRST volunteer after the refusal — both of which the
+     * loop fixture mirrors.
+     *
+     * THE UPDATE IS AIMED BY PRIMARY KEY AND RETURNS THE ROW, so an update that matched nothing is
+     * `refused` with its own reason rather than reading as a silent success.
+     */
+    assignVolunteerAsOperator: async (projectId, accountId): Promise<AssignVolunteerOutcome> => {
+      try {
+        const updated = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
+          sql`update public.projects set assigned_volunteer_id = ${accountId}::uuid
+               where id = ${projectId}::uuid
+           returning id, org_id, name, assigned_volunteer_id`,
+        );
+        if (updated.length !== 1) return { ok: false, kind: 'refused', reason: `no project ${projectId} exists` };
+        return {
+          ok: true,
+          project: {
+            id: String(updated[0].id),
+            organizationId: String(updated[0].org_id),
+            name: updated[0].name,
+            assignedVolunteerId: updated[0].assigned_volunteer_id === null ? null : String(updated[0].assigned_volunteer_id),
+          },
+        };
+      } catch (error) {
+        const { code, message } = databaseRefusal(error);
+        if (code === '42501' || /single developer seat/i.test(message)) {
+          return { ok: false, kind: 'seat-occupied', reason: message };
+        }
+        return { ok: false, kind: 'refused', reason: message };
+      }
+    },
+
     /* -------------------------------------------------------- read-back, as the operator, over SQL */
 
     account: async (accountId): Promise<AccountRow | null> => {
@@ -675,6 +741,19 @@ export async function createLiveAdapter(opts: {
       return found.length === 1
         ? { organizationId: String(found[0].organization_id), accountId: String(found[0].account_id), role: found[0].role }
         : null;
+    },
+
+    projectAssignment: async (projectId): Promise<ProjectRow | null> => {
+      const found = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
+        sql`select id, org_id, name, assigned_volunteer_id from public.projects where id = ${projectId}::uuid`,
+      );
+      if (found.length !== 1) return null;
+      return {
+        id: String(found[0].id),
+        organizationId: String(found[0].org_id),
+        name: found[0].name,
+        assignedVolunteerId: found[0].assigned_volunteer_id === null ? null : String(found[0].assigned_volunteer_id),
+      };
     },
 
     acknowledgments: async (accountId): Promise<AcknowledgmentRow[]> => {
