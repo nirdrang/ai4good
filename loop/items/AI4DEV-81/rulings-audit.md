@@ -113,3 +113,32 @@ The executor applies AU-1 (one code edit) and AU-2 (one record correction) in on
 Fixes change code, so the once-per-item AUDIT RE-RUN of the whole panel follows at the new
 head, scoped to the fix delta, with the rebuilt checklist. A further fix that would need a
 second re-run is scope growth and escalates.
+
+## Post-fix verification, and the dispositions of the executor's observations (head `7525e32`)
+
+The executor (opus, one invocation of the three this sitting may spend, one iteration inside
+it) landed the fix as commit `7525e32`: exactly two files. The code-territory delta is
+`tests/at/suites/req-001/_live.ts`, 6 insertions, 0 deletions; the record correction is
+`rulings-fix.md`, 5 insertions, 1 deletion.
+
+Verification at the new head, as the executor captured it after the commit: typecheck
+`OK: both configs clean`; build clean (`✓ built in 169ms`); `at:selftest` 344 passed,
+count UNCHANGED; the four exact-match runs green with exit 0 — req-001 loop
+`13 green, 24 red, 0 missing`, req-016 loop `11 green, 1 red, 0 missing`, req-001
+integration `8 green, 29 red, 0 missing`, req-016 integration `0 green, 12 red, 0 missing`
+— serial on the reserved slot (`db slot 1 (ai4good-slot-1, api 55321) — reset OK —
+migrations: 2 expected, 2 applied`); twin-check `SYNCED`. **No declared red's kind shifted
+and no manifest line was amended.** AU-1's verification condition is met, and the
+reachability analysis recorded above held.
+
+Two observations the executor proposed, ruled here:
+
+1. **`src/routeTree.gen.ts` build drift** — the build regenerates the file; the executor
+   restored it rather than committing it. That is the exact condition fix ruling RF-6
+   already ruled on, and the handling matches it. Reconfirmed at this head; still a
+   standing repository condition, still not this item's defect, still not fixed here.
+2. **`goal-evidence.md` line 5** ("Head the runs graded: `41bcadc` — the last commit that
+   changes code") — TRUE when written: it names the heads those runs graded, and it is a
+   dated phase document. It stays as written. From `7525e32` on, THIS section is the record
+   of the current code head and its verification; the re-run brief and `PHASE-STATE.md`
+   carry the same fact forward.
