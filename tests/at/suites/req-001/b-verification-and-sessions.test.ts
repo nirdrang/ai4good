@@ -66,7 +66,7 @@ import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
 // The INTEGRATION-tier procedures for the ids whose criteria are proved differently against a real
 // stack. Same criterion, same id, one registration; only the procedure differs. See _integration.ts.
-import { at00109, at00110, at00112, at00113, at00114, at00138 } from './_integration.ts';
+import { at00109, at00110, at00112, at00113, at00114, at00138, INTEGRATION_TIMEOUT_MS } from './_integration.ts';
 import type { AccountsSut } from './_contract.ts';
 // THE TWO EMAIL-CAPABLE PUBLIC TYPES, read from the shipped vocabulary rather than spelled as a
 // pair of literals. AT-001.09's own words are "EITHER account type that can register by email (NGO
@@ -346,7 +346,9 @@ atTest(
 atTest(
   'AT-001.12',
   'an expired or revoked session ends access — the next request re-authenticates',
-  { surface: 'backend' },
+  // THE INTEGRATION BODY WAITS OUT A REAL ACCESS TOKEN, so it gets a bounded raise at that tier and
+  // at no other; the loop body advances a controlled clock and keeps vitest's own 30 seconds.
+  { surface: 'backend', timeoutMs: { integration: INTEGRATION_TIMEOUT_MS } },
   {
     default: async ({ open }) => {
       const { h, w, sut } = await open();
@@ -451,7 +453,9 @@ atTest(
 atTest(
   'AT-001.13',
   'a session in continuous use refreshes without a forced mid-work re-login',
-  { surface: 'ui' },
+  // Same reason as the id above: the integration body polls a real client for a rotation it must not
+  // ask for, which takes minutes rather than seconds. The loop body is unaffected.
+  { surface: 'ui', timeoutMs: { integration: INTEGRATION_TIMEOUT_MS } },
   {
     default: async ({ open }) => {
       const { h, w, sut } = await open();

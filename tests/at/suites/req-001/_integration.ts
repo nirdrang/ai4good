@@ -46,6 +46,24 @@ const PASSWORD = 'correct horse battery staple';
  */
 const SLOT_JWT_EXPIRY_MS = 120_000;
 
+/**
+ * THE BUDGET FOR THE TWO BODIES THAT WAIT OUT REAL TIME (gate-2 ruling S2-1).
+ *
+ * `vitest.config.ts` pins `testTimeout: 30_000`, which is right for every body whose clock can be
+ * commanded — and wrong for these two, whose criteria are ABOUT the passage of time: AT-001.12 waits
+ * `SLOT_JWT_EXPIRY_MS + 15_000` = 135 seconds for a real access token to expire, and AT-001.13 polls
+ * for up to `SLOT_JWT_EXPIRY_MS + 30_000` = 150 seconds for a rotation it must not ask for. Under 30
+ * seconds both would time out red however correct they were, so the declared integration green could
+ * not occur.
+ *
+ * FOUR MINUTES, AND IT IS STILL A BOUND. It is the longer of the two waits plus about ninety seconds
+ * for the live round trips around it — a sign-up, a mail-catcher read, a confirmation, a sign-in, a
+ * completion and several writes. It is a raise, not a removal: a body that hangs still fails here
+ * rather than running until somebody notices. The raise is PER TIER, so the loop tier's 30 seconds
+ * are untouched.
+ */
+export const INTEGRATION_TIMEOUT_MS = 240_000;
+
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /* ------------------------------------------------------------------ the real client, for AT-001.13 */
@@ -183,9 +201,29 @@ export async function at00101(ctx: Ctx): Promise<void> {
   if (!returning.ok) return;
   expect(returning.session.accountId).toBe(session.accountId);
 
-  // THE NEGATIVE ARM: the acknowledgment is REQUIRED, and a refusal that wrote the account row first
-  // has not refused — it has half-succeeded. On the live stack this is the database's own
-  // single-transaction guarantee, which is what the loop tier could only mirror.
+  /*
+   * THE NEGATIVE ARM, AND EXACTLY WHAT IT PROVES — narrowed by gate-2 ruling S2-3, which asked
+   * whether it proves more than this and had the question measured rather than argued.
+   *
+   * WHAT IT PROVES: the DEPLOYED completion path refuses a completion that carries no
+   * acknowledgment, states the acknowledgment as the reason, and leaves NO account row and NO
+   * acknowledgment behind. That is the criterion's clause — the acknowledgment is required — proved
+   * against the deployed function rather than against a fixture.
+   *
+   * WHAT IT DOES NOT PROVE, said plainly because an earlier version of this comment implied it: it
+   * is NOT a demonstration of mid-transaction rollback. The refusal here comes from
+   * `validateCompleteSignup` BEFORE the database is called, so "zero rows left" is true because
+   * nothing was ever written, not because something was written and undone.
+   *
+   * AND THAT IS NOT A GAP LEFT UNEXAMINED. `verify-first.md` Part C records the inspection: the only
+   * write inside `public.complete_signup` that can fail after an earlier one has succeeded is the
+   * acknowledgment insert, whose lever is an empty `text_version` — and JavaScript's `trim()` strips
+   * a superset of what Postgres's `btrim()` strips, so every value the constraint would refuse the
+   * validator refuses first. Measured on both instruments; the intersection is empty by
+   * construction. In-transaction rollback is therefore NOT externally drivable on the deployed
+   * surface, and no fault-injection seam was added to shipped code to manufacture one. The green
+   * rests on the full-outcome positive oracle above plus this refusal.
+   */
   const other = await registerConfirmAndSignIn(sut, w.email('no-acknowledgment'));
   const refused = await sut.completeSignup(other, { accountType: 'ngo', organizationName: 'Riverside Shelter Annexe' }, CLIENT_IP);
   expect(refused.ok, 'signup completed with no acknowledgment of the ToS and Platform Promise').toBe(false);
@@ -302,6 +340,14 @@ export async function at00107(ctx: Ctx): Promise<void> {
  * "EITHER account type … (NGO and volunteer)" and carries the acceptance file's own
  * "parameterized over account types" note, and the migrated NGO-only set proved half of it.
  *
+ * AND EACH ITERATION REALLY IS ITS TYPE (gate-2 ruling S2-4). The first version of this body labelled
+ * the two iterations `ngo` and `volunteer` and differed only in the email address it used — neither
+ * one ever created an account of either type, so the parameterization was nominal and a
+ * type-specific verification regression would have gone unnoticed by both halves. Each iteration now
+ * COMPLETES SIGNUP as its type after verification — the NGO with an organisation, the volunteer with
+ * a linked GitHub identity, both with the acknowledgment — and asserts the account row carries that
+ * global type.
+ *
  * WHAT IS LIVE HERE: the message is the one GoTrue really sent, held by the slot's own mail catcher;
  * the link is followed by HTTP; and the verified fact is judged by the SHIPPED extractor over the
  * real row rather than read as a boolean.
@@ -337,6 +383,25 @@ export async function at00109(ctx: Ctx): Promise<void> {
 
     const after = await sut.signInWithEmailPassword(email, PASSWORD);
     expect(after, `a confirmed ${kind} account could not sign in`).toMatchObject({ ok: true });
+    if (!after.ok) return;
+
+    // THE COMPLETION AS THIS TYPE, which is what makes the two iterations two different runs of the
+    // criterion rather than the same run under two labels. The volunteer's linked GitHub identity is
+    // a GIVEN written by the operator — AT-001.04 owns the link rule and is red at this tier — and
+    // without it the deployed path refuses a volunteer completion, correctly.
+    const request =
+      kind === 'ngo'
+        ? { accountType: 'ngo' as const, organizationName: `Riverside Shelter ${kind}-verify`, acknowledgmentTextVersion: TEXT_VERSION }
+        : { accountType: 'volunteer' as const, acknowledgmentTextVersion: TEXT_VERSION };
+    if (kind === 'volunteer') await sut.linkGithubIdentity(after.session, `verify-${registered.accountId.slice(0, 8)}`);
+
+    const completion = await sut.completeSignup(after.session, request, CLIENT_IP);
+    expect(completion, `the verified ${kind} could not complete signup as a ${kind}`).toMatchObject({ ok: true });
+    if (!completion.ok) return;
+    expect(
+      await sut.account(completion.accountId),
+      `the completed ${kind} account does not carry the ${kind} global type`,
+    ).toEqual({ id: registered.accountId, accountType: kind });
   }
 }
 
@@ -432,7 +497,17 @@ export async function at00112(ctx: Ctx): Promise<void> {
 export async function at00113(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const email = w.email('auto-refresh');
-  await registerConfirmAndSignIn(sut, email);
+  const session = await registerConfirmAndSignIn(sut, email);
+
+  // SIGNUP IS COMPLETED FIRST, so there is an account row for the rotated session to resolve TO.
+  // Without it the same-account assertion below could only ever compare two nulls, which is how the
+  // vacuous version of it came to be written (gate-2 ruling S2-5).
+  const completion = await sut.completeSignup(
+    session,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter Auto Refresh', acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(completion, 'the account under test could not complete signup, so it holds no account row').toMatchObject({ ok: true });
 
   const url = process.env.AT_SUPABASE_URL ?? '';
   const anonKey = process.env.AT_SUPABASE_ANON_KEY ?? '';
@@ -444,6 +519,15 @@ export async function at00113(ctx: Ctx): Promise<void> {
     expect(signedIn.error, 'the real client could not sign in against the slot').toBeNull();
     const first = signedIn.data.session?.access_token ?? '';
     expect(first, 'the real client signed in with no access token').not.toBe('');
+
+    // WHOSE SESSION THIS IS, captured AT SIGN-IN and from the client's own answer — so the assertion
+    // after the rotation compares the rotated identity with a value that was read before any
+    // rotation happened, rather than with itself.
+    const signedInAs = (await client.auth.getUser()).data.user?.id ?? '';
+    expect(signedInAs, 'the real client signed in and named no user').not.toBe('');
+    expect(signedInAs, 'the real client signed in as a different account than the harness registered').toBe(
+      session.accountId,
+    );
 
     // WAIT, AND ONLY WAIT. The client's own scheduler is the thing under test, so the body issues no
     // refresh of any kind. The budget is the token's whole lifetime plus a margin: the client
@@ -464,10 +548,18 @@ export async function at00113(ctx: Ctx): Promise<void> {
     });
     expect(me.status, 'the automatically rotated token does not carry access').toBe(200);
 
-    // AND THE ACCOUNT IS THE SAME ONE, so the rotation extended this user's work rather than
-    // silently starting somebody else's.
-    const account = await sut.account((await client.auth.getUser()).data.user?.id ?? '');
-    expect(account === null || account.id.length > 0, 'the rotated session resolved to no readable account').toBe(true);
+    // AND IT IS THE SAME USER'S WORK THAT CONTINUED, which is the clause the previous version of
+    // this assertion did not reach: `account === null || account.id.length > 0` is satisfied by
+    // every possible value, so it passed whoever the rotated token belonged to. Two independent
+    // reads now say the same name — the client's own `getUser()` over the rotated token, and the
+    // account row read out of the database with operator authority.
+    const rotatedUser = (await client.auth.getUser()).data.user?.id ?? '';
+    expect(rotatedUser, 'the automatically rotated token names a different user than the one that signed in').toBe(
+      signedInAs,
+    );
+    const account = await sut.account(rotatedUser);
+    expect(account, 'the rotated session resolved to no readable account row').not.toBeNull();
+    expect(account?.id, 'the account row the rotated session resolves to is somebody else\'s').toBe(signedInAs);
   } finally {
     await client.auth.stopAutoRefresh().catch(() => undefined);
   }

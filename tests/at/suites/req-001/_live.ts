@@ -326,6 +326,22 @@ export async function createLiveAdapter(opts: {
       `;
     },
 
+    /**
+     * THE CACHED TOKENS SURVIVE THE LOGOUT, DELIBERATELY (gate-2 ruling S2-2).
+     *
+     * This method used to end with `sessions.delete(session.sessionId)`, and that one line made the
+     * revocation clause untestable: the next call with the same handle threw client-side in
+     * `tokensOf` before any request left this process, so the assertion "a revoked session cannot
+     * write" was measuring THIS FILE'S bookkeeping rather than the live stack's judgement. A test
+     * that passes because the client refused to try has proved nothing about the server.
+     *
+     * So the handle keeps its tokens and the post-logout write really goes out, carrying a token
+     * that is revoked and not yet expired. Whatever the live stack answers is the measured fact.
+     *
+     * THE DIVERGENCE HANDLE IS UNTOUCHED. `tokensOf` still refuses a handle that never held a
+     * session — a registration under confirmations — which is a different case from a session that
+     * existed and was revoked, and is the one the file header describes.
+     */
     signOut: async (session) => {
       const tokens = tokensOf(sessions, session, 'sign out');
       // `?scope=local` ends THIS session. The vendor's default is `global`, which ends every session
@@ -335,7 +351,6 @@ export async function createLiveAdapter(opts: {
         headers: { apikey: slot.anonKey, Authorization: `Bearer ${tokens.accessToken}` },
       });
       if (response.status >= 400) throw new Error(`the live logout answered ${response.status}`);
-      sessions.delete(session.sessionId);
     },
 
     refreshSession: async (session): Promise<RefreshSessionOutcome> => {
