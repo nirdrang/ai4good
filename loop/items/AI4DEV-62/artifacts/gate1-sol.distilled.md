@@ -1,0 +1,28 @@
+SOURCE   loop/items/AI4DEV-62/artifacts/gate1-sol.raw.txt
+REVIEWER gpt-5.6-sol / codex, effort xhigh (gate1, plan review)
+COUNT    4 findings in source → 4 extracted
+NOTES    none — declared count line "PLAN REVIEW: 4 FINDINGS" matches extracted count
+
+[1] severity: high   loop/items/AI4DEV-62/plan.md:210
+    claim: "The AT-001.16 oracle cannot prove two-organisation data isolation because `updateOrganization` has no acting-organisation context and the planned B refusal treats the actor as a non-member after the Given seats that actor in B."
+    why it matters: "An implementation can authorize solely from the target organisation, reject one rename, yet leak B data through reads or other operations and still pass; using a different A-only caller avoids the contradiction but no longer tests AT-001.16's two-membership Given."
+    unverified-runtime-claim: no
+    raw: loop/items/AI4DEV-62/artifacts/gate1-sol.raw.txt:3-6
+
+[2] severity: high   loop/items/AI4DEV-62/plan.md:117
+    claim: "The fixed SUT surface leaves the operator-provisioned `member` Given undefined under the one-seat index."
+    why it matters: "Both product organisation-creation paths immediately insert an `admin` membership, while the unique `org_id` index rejects another row; constructing AT-001.16/.36 therefore requires either converting the existing row or creating an unseated organisation, but neither behavior is promised by `grantMembershipAsOperator` and no other method provides it."
+    unverified-runtime-claim: no
+    raw: loop/items/AI4DEV-62/artifacts/gate1-sol.raw.txt:8-11
+
+[3] severity: medium   loop/items/AI4DEV-62/plan.md:213
+    claim: "AT-001.17 has no executable oracle for its 'UI absent' clause."
+    why it matters: "Absence from the fixture SUT, a missing edge-function probe, Data API denial, and the database index do not inspect `src/routes`; an invite or add-member UI could be introduced while both-tier tests remain green."
+    unverified-runtime-claim: no
+    raw: loop/items/AI4DEV-62/artifacts/gate1-sol.raw.txt:13-16
+
+[4] severity: medium   loop/items/AI4DEV-62/plan.md:185
+    claim: "Migration B promises a `projects` table with no grants but neither commits to explicit revocation nor verifies the resulting catalog privileges."
+    why it matters: "The preceding migration documents that Supabase default privileges gave a new public table `REFERENCES`, `TRIGGER`, and `TRUNCATE` until `REVOKE ALL` ran, and RLS does not protect `TRUNCATE`; a reset plus the planned acceptance tests could pass while the stated privilege posture is false. This must be settled after reset with `information_schema.role_table_grants` or `has_table_privilege` checks for `anon`, `authenticated`, and `service_role`."
+    unverified-runtime-claim: yes
+    raw: loop/items/AI4DEV-62/artifacts/gate1-sol.raw.txt:18-21

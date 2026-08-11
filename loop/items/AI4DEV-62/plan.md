@@ -7,6 +7,14 @@ partner with the one sanctioned closes-line; that line is NOT in the body at ope
 sitting opens the pull request with non-closing references only, and the line is added before the
 merge ruling declares it.
 
+**Amended by the DRAFT sitting after gate 1** (rulings in `loop/items/AI4DEV-62/gate1-rulings.md`,
+all four findings accepted): the operator surface gains a sixth method that creates an UNSEATED
+organisation (ruling 2); AT-001.16's not-a-member arm targets a third organisation instead of
+contradicting its own Given (ruling 1); AT-001.17 gains a source arm over `src/routes/` and the
+generated route tree (ruling 3); migration B revokes table privileges explicitly and step 7 gains
+verify-first (f) for the post-reset catalog check (ruling 4). This amended plan is what gets
+built.
+
 ## What the board items ask
 
 **AI4DEV-62** (primary, manifest leaf D3.L1 of `loop/decomp/req-001.md`): admin and member roles
@@ -82,6 +90,10 @@ The acceptance texts are in `.taskmaster/docs/acceptance/at-req-001.md` lines 34
   member half exists exactly for this criterion. The Given (admin in A, member in B) is minted
   through the operator surface (D8) and stated in the body's evidence, per F10's precedent. The
   alternative — building a product path that mints members — would violate AT-001.17.
+  **Construction under the one-seat index (gate-1 ruling 2):** the product path creates A and
+  seats the actor as admin; `createOrganizationAsOperator` creates B with NO membership row; the
+  operator grant then seats the actor as B's single `member`. The same method mints the
+  organisation C that ruling 1's not-a-member arm targets.
 - **D3 — the admin-only NGO-side action is organisation rename.** New edge function
   `update-organization` + SECURITY DEFINER RPC `update_organization` + a typed decision
   `orgAdminActionAllowed(role: 'admin' | 'member' | null)` in a new
@@ -99,7 +111,9 @@ The acceptance texts are in `.taskmaster/docs/acceptance/at-req-001.md` lines 34
   — strictly stronger than the composite primary key. Every existing path writes exactly one
   admin row per new organisation, so nothing on main can trip it. AT-001.17's refusal arms:
   capability absence (no invite surface, no deployed invite function), Data-API unreachability
-  (F4's privilege layer), and the index refusing a second seat on the operator path.
+  (F4's privilege layer), the index refusing a second seat on the operator path, and the source
+  arm from gate-1 ruling 3 (no invite or add-member naming in `src/routes/` or the generated
+  route tree — a naming oracle, residual stated in the ruling).
 - **D6 — projects land minimally.** `projects (id, org_id references organizations, name,
   assigned_volunteer_id uuid null references accounts, created_at)`; RLS on, no grants, no
   policies, no product paths. Single-developer is structural — one nullable column can hold at
@@ -113,9 +127,15 @@ The acceptance texts are in `.taskmaster/docs/acceptance/at-req-001.md` lines 34
   role rows proved by read-backs, authority-never-crosses proved by the rename refusals, and
   refusal-writes-nothing proved by read-backs after each refusal. The broad data-class denial
   (drafts, ledger, files, no existence oracle) is D5.L1's, blocked by this leaf; this plan does
-  not annex it.
-- **D8 — the SUT surface gains five methods**, landed three-files-in-step plus the backed list
+  not annex it. **Per gate-1 ruling 1**, the not-a-member refusal targets a third organisation C
+  in which the actor holds no membership; the .16 green claims operation-surface isolation, and
+  the merge ruling states that limit.
+- **D8 — the SUT surface gains six methods** (five planned; the sixth added by gate-1 ruling 2),
+  landed three-files-in-step plus the backed list
   (F5e): `updateOrganization(session, orgId, name)` (product path),
+  `createOrganizationAsOperator(name)` (operator write — creates an organisation with NO
+  membership row; product paths always seat their creator, so this method exists exactly to
+  construct multi-membership Givens under the one-seat index),
   `grantMembershipAsOperator(orgId, accountId, role)` (operator write — provisioning AND the
   refusal probe), `createProjectAsOperator(orgId, name)`,
   `assignVolunteerAsOperator(projectId, accountId)`, and the read-back
@@ -152,10 +172,11 @@ fails there rather than shipping.
    `orgAdminActionAllowed` with the two distinct refusal kinds (D3), consumable by the edge
    function and the fixture; reuse `validateOrganizationName` for the new name. Done: module
    exists, typed, imported nowhere yet breaks nothing; `bun run typecheck` green.
-2. **The SUT surface, three files in step (D8).** `_contract.ts` gains the five methods and
-   their outcome types; `_fixture.ts` implements all five with database-mirroring semantics
+2. **The SUT surface, three files in step (D8).** `_contract.ts` gains the six methods and
+   their outcome types; `_fixture.ts` implements all six with database-mirroring semantics
    (non-NGO grantee refused, second seat refused, occupied project refused — the same kinds D8
-   names); `_live.ts` implements all five (HTTP to the deployed `update-organization` for the
+   names — and operator organisation-creation seats nobody); `_live.ts` implements all six
+   (HTTP to the deployed `update-organization` for the
    product path; operator SQL over the slot's database URL for the rest) and
    `backedSutMethods.accounts` gains exactly these names. Done: typecheck green; the
    enumeration/adapter admission rule (F5e) satisfied by construction.
@@ -183,11 +204,16 @@ fails there rather than shipping.
    success renames. Done: served from the mirrored `supabase/` on the slot stack; the live
    adapter's product path (step 2) drives it end to end.
 7. **Migration B (slice 2).** The one-seat unique index (D5); the `projects` table with RLS on
-   and no grants; the assignment guard trigger (D6); prose marking the deliberate absences.
+   and an explicit `revoke all on table public.projects from anon, authenticated, service_role`
+   (gate-1 ruling 4, mirroring migration 2's measured pattern at its line 443); the assignment
+   guard trigger (D6); prose marking the deliberate absences.
    **Verify first:** (d) the unique-violation and trigger-refusal error shapes over the operator
    SQL path, as the live adapter must surface them; (e) the functions router's answer on the
    slot stack for a function name that does not exist — the shape .17's integration absence
-   probe asserts. Done: replays clean on reset; answers recorded.
+   probe asserts; (f) after reset on slot 2, the catalog check
+   (`has_table_privilege` or `information_schema.role_table_grants`) for `anon`, `authenticated`
+   and `service_role` on `projects` returns ZERO privileges, recorded with command evidence
+   (gate-1 ruling 4). Done: replays clean on reset; answers recorded.
 8. **Declarations, pending map, ledger (per slice, D10).** `tests/at/expected/req-001.json`
    moves .16/.36/.37 then .17/.32 from red to green at BOTH tiers; `_pending.ts` loses `D3_L1`
    then `D3_L2` and its header count goes 24 → 21 → 19; `loop/items/AI4DEV-62/pending-ledger.txt`
@@ -207,10 +233,10 @@ step 9 defines the goal loop.
 
 | id | loop | integration | the body's arms |
 |---|---|---|---|
-| AT-001.16 | green | green | one NGO account seated in two organisations with different roles; read-backs prove two independent rows (role held per org); rename of B attempted with only-A standing (not a member of B) refused with the not-a-member kind and writes nothing (read-back); rename of A as admin succeeds |
-| AT-001.36 | green | green | Given admin-in-A and member-in-B (member seat operator-provisioned, D2, stated in body evidence); the admin-only action succeeds in A; the same action in B refused with the not-an-admin kind — distinct from not-a-member — and writes nothing |
+| AT-001.16 | green | green | one NGO account seated in two organisations with different roles (admin in A via the product path; member in B, operator-provisioned onto the unseated organisation B per D2); read-backs prove two independent rows (role held per org); rename of A as admin succeeds; rename of B refused with the not-an-admin kind and writes nothing (read-back) — admin standing in A does not carry into B; rename of C, a third operator-created organisation the actor holds no membership in, refused with the not-a-member kind and writes nothing (read-back) — no ambient authority (gate-1 ruling 1); the read-surface breadth of "never grants access to B's data" stays with the tenant-isolation leaf (D7) |
+| AT-001.36 | green | green | Given admin-in-A and member-in-B (member seat operator-provisioned onto the unseated organisation B, D2, stated in body evidence); the admin-only action succeeds in A; the same action in B refused with the not-an-admin kind — distinct from not-a-member — and writes nothing |
 | AT-001.37 | green | green | a volunteer account; product arms: the NGO-only organisation action refuses it, and a volunteer completion carrying an organisation name refuses (F2); operator arm: a direct membership grant is refused by the trigger (D4); read-back: zero membership rows exist for it |
-| AT-001.17 | green | green | capability absence: the SUT surface holds no invite or add-member method, and no such deployed function exists (integration: the absence probe per verify-first (e); loop: the fixture surface's absence); operator arm: a second seat insert is refused by the one-seat index (D5); client arm: the membership table is unreachable through the Data API (F4) |
+| AT-001.17 | green | green | capability absence: the SUT surface holds no invite or add-member method, and no such deployed function exists (integration: the absence probe per verify-first (e); loop: the fixture surface's absence); operator arm: a second seat insert is refused by the one-seat index (D5); client arm: the membership table is unreachable through the Data API (F4); source arm (gate-1 ruling 3, in the `default` body, both tiers): `src/routes/` file names and the route paths in `src/routeTree.gen.ts` match no invite or add-member naming — a naming oracle, its residual stated in the ruling |
 | AT-001.32 | green | green | Given a project with an assigned volunteer (operator-provisioned, D6); attaching a different volunteer over the occupied seat is refused by the guard trigger and writes nothing (read-back); structurally one nullable column holds at most one developer; no product attach path exists |
 | every other req-001 id | unchanged | unchanged | the 13 loop and 8 integration greens stay green; every other red keeps its exact declared kind |
 | req-016, all ids | unchanged | unchanged | both manifests must still exit 0 at both tiers |
