@@ -39,6 +39,26 @@
 -- clicked; the statement records WHAT was attested, exactly as `text_version` records which text
 -- was accepted. The edge validation accepts exactly one statement today, so the column is what
 -- keeps today's rows distinguishable from those of any later statement.
+--
+-- WHERE THIS FILE'S AUTHORITY ENDS, stated because a reader may assume it goes further. The three
+-- constraints above floor PRESENCE and NONBLANK, and nothing else. The CONTENT pin — exactly one
+-- statement is valid today — lives in `validateCompleteSignup` and is deliberately NOT duplicated
+-- here. A SQL copy of the shipped statement would be a second source of truth for it, and the
+-- drift is worse than the gap it closes: one edit to the copy module without a drop-and-recreate
+-- migration leaves the database refusing every legitimate completion, so signup is down entirely.
+-- A `service_role` caller that bypasses the edge function can therefore store a nonblank statement
+-- that is not the shipped one. That row then shows verbatim which statement was affirmed, so a
+-- wrong statement is visibly not the shipped one. Accepted residual, recorded in this item's
+-- rulings.
+--
+-- THE TWO BLANK FLOORS ARE NOT THE SAME WIDTH, and that is measured rather than assumed. This
+-- file's floor is the POSIX class `[[:space:]]`. The validation layer's floor is ECMAScript
+-- `trim()`, which is wider: `U+FEFF` trims to the empty string in the suite's runtime, and it does
+-- NOT match `^\s*$` on slot 1. So a FEFF-only signer value is refused by the validation layer and
+-- accepted by these constraints. It is reachable only by the same trusted-key caller, and it is
+-- the same accepted residual. Chasing the ECMAScript whitespace set through PostgreSQL character
+-- classes would rebuild, character by character, the two-source drift hazard the paragraph above
+-- rejects. The two measurements are in `loop/items/AI4DEV-65/artifacts/verify-first-feff.txt`.
 alter table public.acknowledgments
   add column signer_name text not null check (signer_name !~ '^\s*$'),
   add column signer_title text not null check (signer_title !~ '^\s*$'),

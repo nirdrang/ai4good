@@ -1,0 +1,100 @@
+VERIFY-FIRST — terra finding 2 (U+FEFF: POSIX whitespace class vs ECMAScript trim)
+AI4DEV-65 (who signed fields), FIX AND GOAL sitting, executor.
+Ruling that ordered these probes: loop/items/AI4DEV-65/gate2-rulings.md, "Terra [2] P3 — verify
+first, both branches pre-ruled".
+
+OUTCOME: BRANCH B HELD. Probe 1 returned false. U+FEFF is NOT in PostgreSQL's POSIX whitespace
+class on the slot-1 deployment, and ECMAScript trim() DOES strip it in the suite's runtime. The
+divergence terra names is real on this deployment. Per the ruling, no constraint changes; the
+boundary statement ordered under terra finding 1 gains the one ruled sentence.
+
+================================================================================
+WHICH DATABASE
+================================================================================
+
+Slot 1 of the local database slot pool — the same stack the integration tier occupies with
+AT_DB_SLOT=1. The slot's database port is derived by the pool's own overlay rule: the item tree's
+supabase/config.toml carries [db] port = 54322, and tests/at/harness/db-pool.ts maps a listener
+port in 54000-54999 by +1000 per slot, so slot 1 listens on 55322. Confirmed independently by
+docker:
+
+  PS> docker port supabase_db_ai4good-slot-1
+  5432/tcp -> 0.0.0.0:55322
+  5432/tcp -> [::]:55322
+
+55322 is outside the founder's personal port block (54320-54329). Both probes are READ-ONLY. The
+probe script ran from the scratchpad, outside the item tree, and was deleted afterwards.
+
+================================================================================
+PROBE 1 — the database. Is U+FEFF in PostgreSQL's POSIX whitespace class?
+================================================================================
+
+Statement sent, verbatim:
+
+  select U&'\FEFF' ~ '^\s*$' as feff_is_posix_blank
+
+Driver: bun's SQL client (Bun.SQL), connection
+postgresql://postgres:postgres@127.0.0.1:55322/postgres.
+
+Command, verbatim:
+
+  PS> bun "C:\Users\nirdr\AppData\Local\Temp\claude\C--Users-nirdr-Downloads-ai4good\007dee8b-00c5-4a4a-ac9c-cc583206d805\scratchpad\feff-probe.ts"
+
+The script, verbatim (deleted after the run; it is reproduced here so the reading can be repeated):
+
+  // Throwaway probe, outside the item tree. Read-only, slot 1 only (port 55322).
+  const port = 55322;
+  if (port >= 54320 && port <= 54329) throw new Error('refusing: personal port block');
+  const SQL = (globalThis as { Bun?: { SQL?: new (url: string) => any } }).Bun?.SQL;
+  if (!SQL) throw new Error('no bun SQL client');
+  const sql = new SQL(`postgresql://postgres:postgres@127.0.0.1:${port}/postgres`);
+  try {
+    const rows = await sql`select U&'\FEFF' ~ '^\s*$' as feff_is_posix_blank`;
+    console.log(JSON.stringify(rows));
+  } finally {
+    await sql.close().catch(() => undefined);
+  }
+
+Output, verbatim:
+
+  [{"feff_is_posix_blank":false}]
+
+Reading: FALSE. A string of nothing but U+FEFF does NOT match '^\s*$', so the columns' check
+constraints — signer_name !~ '^\s*$' and its two siblings — accept it. The database's blank floor
+does not treat U+FEFF as blank.
+
+================================================================================
+PROBE 2 — the JS runtime. Does trim() strip U+FEFF?
+================================================================================
+
+Command, verbatim:
+
+  PS> bun -e "console.log(JSON.stringify({ trimmedIsEmpty: '\uFEFF'.trim() === '', codePoint: '\uFEFF'.codePointAt(0), trimmedLength: '\uFEFF'.trim().length, runtime: 'bun ' + Bun.version }))"
+
+The character is written as the JavaScript escape \uFEFF rather than as the raw character. Windows
+PowerShell does not expand \u in a double-quoted string, so bun received the escape and JavaScript
+resolved it. The reported codePoint 65279 is 0xFEFF, which proves the string under test is the one
+the ruling names.
+
+Output, verbatim:
+
+  {"trimmedIsEmpty":true,"codePoint":65279,"trimmedLength":0,"runtime":"bun 1.3.14"}
+
+Reading: TRUE. A U+FEFF-only string trims to the empty string in the suite's runtime, and the
+trimmed length is 0. So validateCompleteSignup's presence-and-blank checks refuse a FEFF-only
+signer field: the value trims to the empty string and the check names its field.
+
+================================================================================
+WHAT THE TWO READINGS TOGETHER MEAN
+================================================================================
+
+The two blank floors disagree, and they disagree in the safe direction for every caller that goes
+through the edge function. Through the deployed path a FEFF-only value never reaches the database:
+the validation layer trims it to empty and refuses the completion. The only writer that can persist
+a FEFF-only signer field is a caller holding the service key that calls public.complete_signup
+directly and bypasses the edge function — the same trusted-key caller, and the same boundary, that
+terra finding 1 describes.
+
+Per the ruling this is an accepted residual, stated rather than moved. Chasing the ECMAScript
+whitespace set through PostgreSQL character classes would reproduce, character by character, the
+two-source drift hazard that finding 1 rejects.
