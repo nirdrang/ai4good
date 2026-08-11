@@ -1,0 +1,61 @@
+﻿All evidence gathered. Here is my audit.
+
+---
+
+# AUDIT â€” AI4DEV-80 re-run at the fix head
+
+**Cage boundary, stated up front.** This cage has no shell tool and denies the git object store (the worktree's `.git` pointer resolves outside the allowed tree). Every mechanical enumeration (`git diff â€¦`) is therefore beyond my reach; where a box needs one I grade COULD-NOT-VERIFY with the exact settling command, and I relied on the launch prompt's own change-set statement plus the tree's observable bytes for everything else. The first audit's reader two was in the same position and the sitting settled its two boxes by running the commands; the same two commands settle mine.
+
+**The delta, as specified and as read.** The fix delta is `git diff 2be9782...<head> -- loop/work`: one hunk at the `$spawnCtx` sighting site (`loop/work/attribution-report.ps1:233-252` region) plus A15 additions in `loop/work/attribution-report.selftest.ps1` (second fixture root, two measurements, assert A15). I verified the current bytes: `$spawnCtx` has exactly one write site (`:252`, guarded by `ContainsKey` at `:244`) and one read site (`:285` in `Get-TreeItem`); the selftest defines exactly fifteen `Assert-That` calls A1â€“A15 (`:378`â€“`:539`). The fix commits per the rulings addendum (`loop/items/AI4DEV-80/audit-rulings.md:117-135`) are `ef85ecf` (A15 + RED capture) and `92d8ec0` (the pin, GREEN, refreshed evidence).
+
+## The scope box (re-checks in full)
+
+**COULD-NOT-VERIFY** â€” needs `git diff ac8a235...HEAD --name-only`. Corroboration gathered, no contrary evidence: the launch prompt's own full-range statement names only the three paths; the sitting's measurement at the prior head (`audit-rulings.md:31-36`: 31 record files + exactly the two `loop/work` files) is recorded; the addendum describes the fix commits touching only the selftest, the report, and record evidence; my whole-tree grep for `AI4DEV-80` matches nothing outside `loop/items/AI4DEV-80/` and `loop/work/`.
+
+## Checklist grades
+
+**1. G1-1 â€” filed in words only.** PASS (process-contract half, personally verified). The filed clarifying sentence ("a derived SKIP is a floor â€¦ may tighten to RUN, never the reverse") appears in my whole-tree grep ONLY under `loop/items/AI4DEV-80/` (gate1-rulings.md:34, PHASE-STATE.md:97) â€” absent from `.claude/agents/conductor.md` and `.claude/skills/work/WORKFLOW.md`, consistent with nothing built. The full-file-list half is the scope box's COULD-NOT-VERIFY.
+
+**2. G1-2 â€” RED before green.** PASS. Current selftest defines exactly A1â€“A15 (fifteen calls, `selftest.ps1:378-539`). Committed logs read as claimed: `selftest-red.txt` (exit 1, PASS only A4/A8/A14, method: `git checkout 0c1bbf7 -- loop/work/attribution-report.ps1`); `selftest-green.txt` (exit 0, fourteen asserts); `selftest-a15-red.txt` (exit 1, A15 the only FAIL: `unatt=0/2 unattOut=0/262 â€¦ treeRow=2/0 roleRows=1/0 leakedTo=AI4DEV-901:2`); `selftest-a15-green.txt` (exit 0, fifteen asserts). The RED detail is internally consistent with the pre-pin code the audit sitting personally traced at `2be9782` (`audit-rulings.md:40-56`): an unresolved first sighting stored nothing, so the tool-result sighting answered â€” producing exactly treeRow=2, roleRows=1, unatt=0. The byte-identity claim "head bef7285, byte-identical to 2be9782" (`selftest-a15-red.txt:2`) is not mechanically checkable here (no git), but nothing in the evidence contradicts it.
+
+**3. G1-3 â€” the background file cannot count.** CARRIED FORWARD â€” the delta cannot reach it: the `.jsonl`-only scan set (`attribution-report.ps1:62,79-82`), the `tasks/bg.output` fixture (`selftest.ps1:252-259`) and A3 (`:397-399`) all sit outside the hunk; the A15 root (`$projects2`) contains no `.output` and is excluded from A3's `$allJsonl` glob (`:337` globs `$projects`, and `$projects2` is a sibling under `$root`, `:299`).
+
+**4. G1-4 â€” ambiguity degrades.** CARRIED FORWARD â€” the ambiguity mechanism (`$fileItems` pre-pass `:207-217`, `$ambiguousAgents` `:260-261`, Get-TreeItem's `$own.Count -eq 1/gt 1` handling `:277-287`) is untouched; the pin only changes `$spawnCtx` values, which Get-TreeItem consults only on the zero-own-item path.
+
+**5. G1-5 â€” no depth cap.** CARRIED FORWARD â€” visited set (`:274-275`) and no cap unchanged; the fix's empty-string value flows through the existing `ContainsKey` read (`:285`), needing no Get-TreeItem change, matching the claim.
+
+**6. G1-6 â€” inheritance is per spawn call (re-graded; first audit FAIL).** PASS. Traced: the pre-pass keys each spawn sighting by session+tool-use id at the line where it appears (`:224-254`); U1's sighting sees branch `main` + stamp AI4DEV-901 â†’ stores AI4DEV-901; U2's sees stamp AI4DEV-902 â†’ stores AI4DEV-902 (fixture `:158-172`); A7 (`:430-437`) asserts the two inherit DIFFERENT items in both counts and tokens. The pin strengthens the same "state at the call" semantics â€” both fixture spawns resolve at first sighting, so the fix leaves this exact behavior intact.
+
+**7. G1-7 â€” vendor tables in JSON.** CARRIED FORWARD â€” vendor code (`:453-520`) and `codexRows`/`kimiRows` in `-Json` (`:563-583`) untouched by the delta.
+
+**8. G1-8 â€” the unattributed row is exact.** CARRIED FORWARD â€” A11 (`:475-483`) untouched; and the pin cannot move the first root's unattributed row because all three first-root spawn sightings resolve at first sighting (C1/U1 under stamp AI4DEV-901, U2 under AI4DEV-902), so pre- and post-fix values are identical there.
+
+**9. G1-9 â€” the switches are protected.** CARRIED FORWARD â€” `-Item`/`-Days` code (`:83`, `:531-534`) and A12/A13 untouched.
+
+**10. G1-10 â€” escaped decoys never resolve.** CARRIED FORWARD â€” `$branchRe` (`:136`) and the decoy fixture (`selftest.ps1:185-191`) untouched; A14 unchanged.
+
+**11. D-1 â€” the scan is recursive.** CARRIED FORWARD â€” scan set (`:79-82`) and the W1 fixture (`selftest.ps1:221-230`) untouched.
+
+**12. G2-1 â€” the stamp fallback is session-only.** CARRIED FORWARD â€” the `-not $isAgent` guard (`:383`) and the M1 stamp-line fixture (`:238-242`) untouched; the A15 session and L1 contain no stamp lines.
+
+**13. G2-2 â€” the vendor join degrades on ambiguity.** CARRIED FORWARD â€” `$curAmbiguous` skip (`:346,395`) and the M1 kimi fixture (`:278-283`) untouched.
+
+**14. G2-3 â€” the spawn-context key carries the session (re-graded; first audit FAIL on the first-sighting half).** PASS. Key composition unchanged and correct: build `:232` (`$sessId + '|' + id`), session from base name `:223`, agent session from directory at meta read `:123`, read at `:284-285`. Measurement committed and cited: `artifacts/g2-3-probe.txt` (580 cross-session duplicates in one resumed pair, 5 resolving different items, 7-of-7 directory pairing, same 7 root agents resolve under both keys). The previously-failing half is now implemented: every first sighting stores a value â€” resolved item at `:247`/`:250`, empty string otherwise (`:245`, `:252`) â€” and the guard at `:244` blocks every later occurrence. The pin cannot alter G2-3's own evidence: it changes only unresolved-first-sighting cases.
+
+**15. G2-5 â€” A1 asserts tokens, not only counts.** CARRIED FORWARD â€” `a1TokOk` (`:377-381`) asserts `OutputTok` per row from fixture measurements.
+
+**16. G2-6 â€” disproven, so nothing changed.** PASS (re-verified by reading, since the delta could theoretically have touched it). The print site (`:610`) carries no culture-forcing; the selftest regex (`:479`) still requires the dot form, not loosened; probe committed and cited (`artifacts/g2-6-probe.txt`, de-DE in-process control emitting `66,7` while the report emits `66.7`).
+
+**17. Stated code facts.** (a) PASS â€” grep confirms no `.output` scan code and no `agentRoot` anywhere; only comments mention the deleted store (`:70,73`); the scan is `.jsonl`-only. (b) PASS â€” role from meta `agentType` (`:341`), metaless reads `unmarked agent` with counter (`:342`) and is announced (`:616`). (c) PASS â€” resolution order at `:379-384`: own branch one â†’ branch; two+ â†’ unresolved; tree â†’ tree; stamp, session files only â†’ stamp; else unattributed. (d) PASS â€” defaults `:17-21` are the real paths; `-Json` emits all aggregates incl. `codexRows`/`kimiRows` (`:563-583`).
+
+**18. AUD-1 â€” the first sighting pins, resolved or not (new with the fix).** PASS, traced character by character. `:244` guard above the assignment; `:245` `$val=''` default; `:247` single branch item wins; `:248-251` stamp fallback only when the branch yields zero items and only for exactly one item; `:252` unconditional store â€” and this is the file's only `$spawnCtx` write (grep: lines 199, 244, 252, 285). Get-TreeItem (`:285`) reads a stored empty string as unattributed with no change needed. A15 fixture (`selftest.ps1:285-314`): isolated second root `$projects2`; the spawn line is the session's FIRST record, carrying no `gitBranch` key and no stamp (`New-SpawnLineNoBranch`, `:56-58`); the session then resolves AI4DEV-901 on its own record; the same id recurs in the tool result (`:306`); L1 is branchless with meta naming that session and tool-use id and no parent (`:313-314`). Traced through the report: the first sighting stores `''`, the tool-result sighting hits `ContainsKey` and continues, Get-TreeItem('L1') returns `''`, L1's 2 responses (262 tokens) land in `unattributed|none`, the session's own line lands in `AI4DEV-901|branch` (1/17) â€” every A15 measurement (`:532-543`) matches. RED/GREEN committed and consistent with this trace. "Every A1â€“A14 oracle is byte-unchanged": evidenced by the additions being purely additive â€” no A1â€“A14 assert references `$mLateSess`/`$mL1`/`$projects2`, `$allJsonl` excludes the second root, and the A1â€“A14 PASS-line texts are identical between the pre-A15 capture (`selftest-green.txt:7-20`) and the A15-era captures (`selftest-a15-red.txt:4-17`) â€” strict byte-diffing was beyond this cage, but every observable surface is consistent. The isolation was ratified (`audit-rulings.md:122-131`).
+
+**19. AUD-2 â€” the withdrawn sentence.** PASS on the narrow claim (the withdrawal itself is record prose, out of scope): the seams add no output change of their own â€” defaults `:17-21`, and the tables render exactly when `-Json` is absent (`if ($Json) { â€¦ exit 0 }` at `:563-583`; tables `:585-618`). The default run's content changing with this item is by design and is not a defect.
+
+## Findings
+
+None. The AUD-1 fix is implemented exactly as ruled, the A15 test binds (red against the pre-pin behavior, which I re-derived from the audit sitting's own trace of `2be9782` and which the committed RED reproduces), and nothing in the delta falsifies any checklist line it can reach.
+
+Out-of-scope mention, once: the pre-existing exposure (a session transcript whose tool result quotes a stamp can corrupt that session's stamp state) is already filed as follow-up 3 in `loop/items/AI4DEV-80/PHASE-STATE.md` and is not this item's code.
+
+AUDIT: 0 FINDINGS
