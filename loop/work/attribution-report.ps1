@@ -14,6 +14,8 @@ param(
     [int]$Days = 0,
     [string]$Item = '',
     [switch]$Json,
+    [switch]$All,
+    [string]$EpochFile = (Join-Path $PSScriptRoot 'attribution-epoch.txt'),
     [string]$ProjectsDir   = (Join-Path $env:USERPROFILE '.claude\projects\C--Users-nirdr-Downloads-ai4good'),
     [string]$AttrDir       = (Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good\attr'),
     [string]$ItemsDir      = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'loop\items'),
@@ -80,7 +82,30 @@ foreach ($d in (Get-ChildItem $projDir -Directory -ErrorAction SilentlyContinue)
     $sub = Join-Path $d.FullName 'subagents'
     if (Test-Path $sub) { $files += @(Get-ChildItem $sub -Filter 'agent-*.jsonl' -File -Recurse -ErrorAction SilentlyContinue) }
 }
-if ($Days -gt 0) { $files = @($files | Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays(-$Days) }) }
+# THE ATTRIBUTION EPOCH (founder ruling 2026-08-11). By default the scan starts at a committed
+# marker instant, so a routine run does not dig through months of pre-fix transcripts - the old
+# default was ALL history, which is what diluted the unattributed share and made every run slow.
+# -All ignores the marker; -Days N is a tighter rolling window layered on top; the later of the
+# two bounds wins when both apply. The marker filters only the transcripts scanned for USAGE -
+# the meta files (spawn edges) are always read in full below, so an ancestor before the epoch can
+# still hand its item down to a child inside it.
+$epoch = $null
+if (-not $All -and (Test-Path $EpochFile)) {
+    foreach ($line in (Get-Content $EpochFile)) {
+        $t = $line.Trim()
+        if ($t -and -not $t.StartsWith('#')) {
+            try { $epoch = [datetime]::Parse($t, $null, [System.Globalization.DateTimeStyles]::AdjustToUniversal -bor [System.Globalization.DateTimeStyles]::AssumeUniversal) } catch { $epoch = $null }
+            break
+        }
+    }
+}
+$bound = $null
+if ($epoch) { $bound = $epoch }
+if ($Days -gt 0) {
+    $dayBound = (Get-Date).ToUniversalTime().AddDays(-$Days)
+    if (-not $bound -or $dayBound -gt $bound) { $bound = $dayBound }
+}
+if ($bound) { $files = @($files | Where-Object { $_.LastWriteTime.ToUniversalTime() -ge $bound }) }
 
 # -Item normalisation: accept AI4DEV-79, ai4dev-79, or a bare 79, and turn it into the canonical id.
 $ItemFilter = ''
@@ -582,7 +607,8 @@ if ($Json) {
     exit 0
 }
 
-Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s), sessions and agents' + $(if ($Days -gt 0) { ' (last ' + $Days + ' days)' } else { '' }) + $scopeNote)
+$windowNote = if ($All) { ' (ALL history - epoch marker ignored)' } elseif ($bound) { ' (since ' + $bound.ToString('yyyy-MM-dd HH:mm') + 'Z' + $(if ($epoch -and $bound -eq $epoch) { ', epoch marker' } else { ', last ' + $Days + ' days' }) + ')' } else { '' }
+Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s), sessions and agents' + $windowNote + $scopeNote)
 Write-Output 'units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere'
 Write-Output 'attribution DERIVED from each record''s own git branch, and from the spawn tree where the record names none; role DERIVED from the spawn call'
 Write-Output ''

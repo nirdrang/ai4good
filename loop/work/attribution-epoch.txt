@@ -1,0 +1,10 @@
+2026-08-11T00:00:00Z
+# The attribution epoch. The burn report scans transcripts touched AT OR AFTER this instant by
+# default, so it does not dig through months of pre-fix history for every run - the founder's
+# ruling of 2026-08-11 ("limit attribution handling from a marker so we don't dig in old
+# transcripts"), taken once the spawn-tree fix (AI4DEV-80) made the numbers trustworthy.
+#
+# First non-comment line = an ISO-8601 UTC instant. Move it forward to narrow the default window;
+# run the report with -All to ignore this marker and scan everything; -Days N still applies a
+# tighter rolling window on top. Meta files (the spawn edges) are ALWAYS read in full regardless,
+# so an ancestor outside the window can still hand its item down.

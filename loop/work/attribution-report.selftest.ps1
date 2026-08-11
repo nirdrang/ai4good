@@ -349,7 +349,14 @@ try {
     function Invoke-Report([string[]]$extra, [string]$projectsRoot = $projects) {
         $psArgs = @('-NoProfile', '-File', $report,
                     '-ProjectsDir', $projectsRoot, '-AttrDir', $attrDir, '-ItemsDir', $itemsDir,
-                    '-CodexSessions', $codexDir, '-KimiRoot', $kimiDir) + $extra
+                    '-CodexSessions', $codexDir, '-KimiRoot', $kimiDir)
+        # Neutralise the REAL committed epoch marker unless a case supplies its own: every existing
+        # assertion predates the epoch feature and expects the synthetic (backdated) store scanned
+        # in full. A case that tests the epoch passes its own -EpochFile in $extra.
+        if ($extra -notcontains '-EpochFile' -and $extra -notcontains '-All') {
+            $psArgs += @('-EpochFile', (Join-Path $root 'no-such-epoch.txt'))
+        }
+        $psArgs += $extra
         return (& powershell @psArgs | Out-String)
     }
 
@@ -501,6 +508,19 @@ try {
     Assert-That 'A13' '-Days 7 excludes exactly the backdated executor transcript that the default run includes' `
         ((([int]$jsonDays7.totals.responses) -eq $expDaysResp) -and (([int]$j.totals.responses) -eq $expTotalResp) -and ($mE1.Responses -gt 0)) `
         ('days7=' + $jsonDays7.totals.responses + '/' + $expDaysResp + ' default=' + $j.totals.responses + '/' + $expTotalResp)
+
+    # -----------------------------------------------------------------------------------------
+    # A13b - the EPOCH MARKER: an epoch 20 days back excludes the -40d transcript by default,
+    # and -All ignores the marker and scans it back in. The meta edges are always read, so the
+    # epoch drops usage only, never the spawn forest.
+    # -----------------------------------------------------------------------------------------
+    $epochFile = Join-Path $root 'test-epoch.txt'
+    Set-Content -LiteralPath $epochFile -Value ((Get-Date).ToUniversalTime().AddDays(-20).ToString('o')) -Encoding utf8
+    $jsonEpoch = (Invoke-Report @('-Json', '-EpochFile', $epochFile)) | ConvertFrom-Json
+    $jsonAll   = (Invoke-Report @('-Json', '-All')) | ConvertFrom-Json
+    Assert-That 'A13b' 'the epoch marker excludes the -40d transcript by default, -All scans it back in' `
+        ((([int]$jsonEpoch.totals.responses) -eq $expDaysResp) -and (([int]$jsonAll.totals.responses) -eq $expTotalResp)) `
+        ('epoch=' + $jsonEpoch.totals.responses + '/' + $expDaysResp + ' all=' + $jsonAll.totals.responses + '/' + $expTotalResp)
 
     # -----------------------------------------------------------------------------------------
     # A14 - the escaped gitBranch inside a tool result is never read as a branch fact
