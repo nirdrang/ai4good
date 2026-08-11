@@ -253,3 +253,99 @@ the loop declaration does.
 The plan settles these red on F8 (no OAuth credential exists) and F9 (no Discovery route exists in
 this repository). Both facts were re-checked and both hold: `supabase/functions/` contains exactly
 `complete-signup` and `create-organization`, and 58 (f2) records the absent GitHub credential.
+
+---
+
+## Part C — the GATE-2 verify-first question (ruling S2-3)
+
+Written by the FIX executor. Appended; nothing above is changed.
+
+### The question the ruling asks
+
+> "the executor inspects the deployed complete-signup function. If an input exists that passes
+> upfront validation and fails inside the transaction after earlier writes, the arm drives that
+> input and asserts zero rows."
+
+### ANSWER: NO. No such input exists on the deployed surface. The remedy takes the second branch
+
+The only write inside `public.complete_signup` that can fail AFTER an earlier write has succeeded is
+the LAST one — the acknowledgment insert — and every input that would make it fail is refused by the
+deployed function's own upfront validation, before the database is called at all.
+
+### Evidence 1 — where the function can fail, read from the source
+
+`supabase/migrations/20260809090000_volunteer_github_link_and_imported_profile.sql` recreates
+`public.complete_signup`. Its body is in two halves:
+
+1. **Every argument check comes first, before the first insert** — the `platform_admin` refusal, the
+   unknown-type refusal, the NGO organisation-name rule, the volunteer organisation-name rule, and
+   the whole volunteer block (the linked handle, the identity backstop, the four import checks). A
+   refusal from any of them happens with ZERO rows written, so it proves a refusal and not a
+   rollback.
+2. **Then the four writes**: the account (1), the organisation and membership for an NGO (2, 3), the
+   volunteer profile (3b), and the acknowledgment (4) last.
+
+The account insert's own failure mode is the `unique_violation` of a second completion — the FIRST
+write, with nothing before it to roll back. Every other table-level constraint on the path
+(`organizations.name`, and the four on `volunteer_profiles`) is pre-checked by the function body with
+the SAME predicate the constraint carries, so the insert cannot be the thing that fails. The
+migration says as much in its own words at the acknowledgment insert: "IT STAYS LAST, and that
+placement is depended upon: the atomicity proof makes this write fail after the earlier ones have
+succeeded."
+
+So the ONE lever is `acknowledgments.text_version`, whose constraint is
+`check (length(btrim(text_version)) > 0)`.
+
+### Evidence 2 — the deployed function's upfront validation, MEASURED
+
+`validateCompleteSignup` (`supabase/functions/_shared/accounts.ts`) was driven with `bun` over every
+candidate lever. Output, verbatim:
+
+```
+REFUSED   ngo, acknowledgmentTextVersion ''  ->  the ToS + Platform Promise acknowledgment text version is required …
+REFUSED   ngo, ack version single space  ->  the ToS + Platform Promise acknowledgment text version is required …
+REFUSED   ngo, ack version tab  ->  the ToS + Platform Promise acknowledgment text version is required …
+REFUSED   ngo, ack version NBSP U+00A0  ->  the ToS + Platform Promise acknowledgment text version is required …
+ACCEPTED  ngo, ack version ZWSP U+200B  ->  accountType=ngo organizationName="X" ackVersion="<U+200B>" githubHandle=null
+REFUSED   ngo, ack version omitted  ->  the ToS + Platform Promise acknowledgment text version is required …
+REFUSED   ngo, organizationName tab  ->  an NGO signup must carry a non-empty organisation name
+REFUSED   ngo, organizationName NBSP  ->  an NGO signup must carry a non-empty organisation name
+ACCEPTED  ngo, organizationName ZWSP  ->  accountType=ngo organizationName="<U+200B>" ackVersion="v1" githubHandle=null
+REFUSED   volunteer, handle of tabs  ->  a volunteer signup cannot be completed without a linked GitHub account …
+```
+
+### Evidence 3 — what a REAL Postgres says about the two values that pass
+
+The one accepted candidate is the zero-width space, so the question is whether the constraint refuses
+it. Asked of slot 1's own running database, read-only:
+
+```
+{"zwsp_len":1,"tab_len":1,"space_len":0,"zwsp_not_blank_regex":true,"tab_not_blank_regex":false}
+```
+
+`btrim` with no second argument strips THE SPACE CHARACTER ONLY. So
+`length(btrim(<U+200B>)) = 1 > 0` — the acknowledgment insert SUCCEEDS on the one input the validator
+lets through. The same holds for the organisation name.
+
+### Why that closes the question rather than merely failing to open it
+
+The database refuses a `text_version` that is empty or made only of SPACES. JavaScript's `trim()`
+strips a strict SUPERSET of that set (space, tab, newline, and every Unicode space including the
+non-breaking one). The validator refuses exactly when `rawVersion.trim() === ''`. So every value the
+database would refuse, the validator refuses first, and the intersection is empty **by construction,
+not by coincidence** — measured on both instruments above.
+
+### What this means for the arm, and what the item claims instead
+
+- The arm at `_integration.ts` STAYS. Its comment is rewritten to claim exactly what it proves: the
+  DEPLOYED path refuses a completion carrying no acknowledgment, and leaves no account row and no
+  acknowledgment behind.
+- **In-transaction rollback is NOT externally drivable on the deployed surface.** AT-001.01's
+  integration green therefore rests on the full-outcome positive oracle plus this refusal arm, which
+  is what gate-1 ruling 9 conditioned the green on. No fault-injection seam was added to shipped
+  code, per the ruling.
+- The recorded live proof of mid-transaction rollback (the finished GitHub-link item's check (e))
+  reached the lever by calling `public.complete_signup` DIRECTLY over the operator connection with an
+  empty `text_version` — that is, by going round the edge function's validation rather than through
+  it. It is recorded here as history, and as the reason the arm's narrowed claim is honest rather
+  than a gap nobody looked into.
