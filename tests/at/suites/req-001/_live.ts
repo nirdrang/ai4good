@@ -249,13 +249,29 @@ export async function createLiveAdapter(opts: {
    * `type` parameter — which is what AI4DEV-60's proof had to do too, because one address can hold
    * both kinds at once.
    */
-  const linksFor = async (address: string, wanted: 'signup' | 'recovery'): Promise<string[]> => {
+  const linksIn = async (address: string, wanted: 'signup' | 'recovery'): Promise<string[]> => {
     const messages = await vendors.email.messagesFor(address);
     const links: string[] = [];
     for (const message of messages) {
-      // Quoted-printable soft line breaks are what a mail transport inserts into a long URL; leaving
-      // them in produces a link that 404s and reads exactly like "no email arrived".
-      const body = message.body.replace(/=\r?\n/g, '').replace(/&amp;/g, '&');
+      /*
+       * QUOTED-PRINTABLE IS DECODED IN FULL, not merely unwrapped — measured on the slot's own
+       * catcher, because the first integration run said "no confirmation email reached the mail
+       * catcher" while the message was sitting in it.
+       *
+       * The message this stack sends carries `Content-Transfer-Encoding: quoted-printable`, and that
+       * encoding does TWO things to a long URL: it wraps it with soft line breaks (`=` then a
+       * newline), and it escapes every literal `=` as `=3D`. Unwrapping alone leaves
+       * `?token=3D…&type=3Dsignup`, so the `type=signup` test below was false for every message and
+       * the link that WAS found would have been unfollowable anyway. Both steps are the same
+       * decoding and neither is optional.
+       *
+       * The order is load-bearing: the soft breaks go first, because a break can sit in the middle
+       * of an escape sequence.
+       */
+      const body = message.body
+        .replace(/=\r?\n/g, '')
+        .replace(/=([0-9A-Fa-f]{2})/g, (_match, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+        .replace(/&amp;/g, '&');
       for (const match of body.matchAll(/https?:\/\/[^\s"'<>)\]]+/g)) {
         const url = match[0].replace(/[.,;]+$/, '');
         if (!url.includes('/auth/v1/verify')) continue;
@@ -264,6 +280,31 @@ export async function createLiveAdapter(opts: {
       }
     }
     return links;
+  };
+
+  /**
+   * THE SAME READ, WAITED FOR — because sending mail is not synchronous with the request that
+   * causes it. GoTrue answers `POST /auth/v1/signup` and hands the message to the SMTP transport
+   * afterwards, so a body that reads the catcher on the next line can read it before the message
+   * has landed.
+   *
+   * WHAT WAS MEASURED, said exactly, because this wait is NOT what fixed the first integration run
+   * and a comment that implied otherwise would be evidence of the wrong thing. On this stack a
+   * confirmation message reached the catcher 4 ms after the signup answered. The decoding above is
+   * what the run needed. Four milliseconds is a measurement of one delivery, not a guarantee about
+   * every delivery, so the read waits rather than assuming.
+   *
+   * A BOUNDED POLL, AND THE BOUND IS THE POINT. It costs nothing when the message is already there.
+   * When no message ever arrives the read still returns nothing and the assertion still fails —
+   * this waits for a message, it does not invent one, and the failure direction is unchanged.
+   */
+  const linksFor = async (address: string, wanted: 'signup' | 'recovery'): Promise<string[]> => {
+    const deadline = Date.now() + 20_000;
+    for (;;) {
+      const links = await linksIn(address, wanted);
+      if (links.length > 0 || Date.now() >= deadline) return links;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
   };
 
   const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
@@ -311,6 +352,20 @@ export async function createLiveAdapter(opts: {
      * refuse with the missing capability named rather than reaching this method, and the manifest
      * declares them red on exactly that. The distinction is the criterion's, not this file's.
      */
+    /*
+     * `::text::jsonb`, AND THE DOUBLE CAST IS THE WHOLE DIFFERENCE — measured, because the single
+     * cast wrote a row that broke Supabase Auth for that user.
+     *
+     * A bound string parameter cast straight to `jsonb` arrives as a JSON STRING SCALAR: the column
+     * then holds `"{\"sub\":…}"` rather than `{"sub":…}`, so `identity_data->>'user_name'` is null
+     * and GoTrue's own `/auth/v1/user` answers 500 for the account. The completion that follows is
+     * then refused 401 "authenticate before completing signup" — a refusal that reads like an auth
+     * rule and is really a malformed fixture row. Measured on slot 1:
+     *   `${text}::jsonb`        -> "{\"sub\":\"h\",…}"  ->>'user_name' = null
+     *   `${text}::text::jsonb`  -> {"sub":"h",…}        ->>'user_name' = "h"
+     * The text cast makes Postgres PARSE the value rather than wrap it, which is what the column
+     * means. The database's own backstop reads the same field, so a wrapped value fails there too.
+     */
     linkGithubIdentity: async (session, githubHandle) => {
       const identityId = crypto.randomUUID();
       await sql`
@@ -319,7 +374,7 @@ export async function createLiveAdapter(opts: {
           ${identityId}::uuid,
           ${githubHandle},
           ${session.accountId}::uuid,
-          ${JSON.stringify({ sub: githubHandle, user_name: githubHandle, provider_id: githubHandle })}::jsonb,
+          ${JSON.stringify({ sub: githubHandle, user_name: githubHandle, provider_id: githubHandle })}::text::jsonb,
           'github',
           now(), now(), now()
         )
@@ -443,7 +498,12 @@ export async function createLiveAdapter(opts: {
     },
 
     createOrganization: async (session, organizationName): Promise<CreateOrganizationOutcome> => {
-      const { status, json } = await callFunction('create-organization', { organizationName }, session, '203.0.113.7');
+      // THE FIELD THE DEPLOYED FUNCTION READS IS `name`, and it is measured rather than assumed:
+      // `create-organization/index.ts` calls `validateOrganizationName(body.value.name)`. A body
+      // keyed `organizationName` was refused 400 "an organisation needs a non-empty name" — a
+      // refusal that reads like a product rule and is really a wire mismatch, which would have made
+      // AT-001.06's NGO CONTROL fail and every refusal after it prove nothing.
+      const { status, json } = await callFunction('create-organization', { name: organizationName }, session, '203.0.113.7');
       if (status >= 400 || json.ok === false) {
         return { ok: false, reason: String(json.reason ?? json.msg ?? `the deployed create-organization answered ${status}`) };
       }
