@@ -37,6 +37,7 @@ founder reading something and asking a structural question.
 | you type | what happens |
 |---|---|
 | `/work AI4DEV-19` | a LEAF — start it (phase B) |
+| `/work AI4DEV-61 AI4DEV-75` | a BATCH — two leaves, one run, one pull request. The first id is the PRIMARY, the second the partner; typing both ids IS the founder's batch confirmation. Three or more ids → refuse: the cap is one partner, ever |
 | `/work AI4DEV-3` | a PARENT — list open children with short labels and blockers, note "N of M done", recommend one, **wait** |
 | `/work AI4PM-12` | a requirement — states below |
 | `/work explore` | declare deliberately untracked work |
@@ -284,13 +285,21 @@ One day produced six filed candidates, and the founder called it out. Before fil
 wrong or the machinery has a fault the candidates are symptoms of. Say that to the founder
 plainly instead of fanning out items — five symptoms filed separately bury the one cause.
 
-## Batching mode — at most ONE partner, chosen by PROXIMITY (founder 2026-08-11)
+## Batching mode — the batch SIGNAL is two ids on the /work line (founder 2026-08-11)
 
-At every `/work X` pickup, run the **`find-batch` skill** on the item (carved out, founder
-2026-08-11 — it owns the proximity ladder, the disqualifiers, and the verdict shape). Its
-output is binary: one closest-proximity partner, or `NO BATCH` when nothing is near — **far
-means fail, never stretch**. Present its verdict beside the claim; the founder confirms or
-declines before anything spawns. Finding none is said out loud, never silent.
+`/work <primary> <partner>` is the whole interface. **The coordinator never proposes a batch
+and never invokes `find-batch` itself** — that skill is the founder's manual scout, and its
+recommendation becomes a batch only when the founder types both ids into `/work`. One partner
+maximum: three or more ids is a refusal, not a bigger batch.
+
+A two-id invocation changes phase B like this:
+- **Both items get the full startability validation** — state, blockers, container check — and
+  the pair gets the batch checks: neither may hold an open founder decision, need a different
+  database than the other, or require new acceptance criteria. Any failure stops the WHOLE
+  invocation before any claim; there is no silent fallback to a solo run of the primary —
+  scaling down is the founder's call.
+- **The first id is the PRIMARY**: its `gitBranchName` names the branch, its reservation holds
+  the slot, its chain leads the stamp.
 
 **The mechanics, each one load-bearing:**
 - The branch names the PRIMARY only. The partner is claimed at pickup too, and recorded on both

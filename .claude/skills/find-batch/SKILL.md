@@ -1,6 +1,6 @@
 ---
 name: find-batch
-description: Given one dev item, find AT MOST one batch partner at the CLOSEST proximity — or fail plainly when nothing is near. Recommends only; the founder confirms; the work skill carries the batch mechanics.
+description: The founder's MANUAL scout — given one dev item, find AT MOST one batch partner at the CLOSEST proximity, or fail plainly when nothing is near. Never invoked automatically; a batch happens only when the founder types both ids into /work.
 ---
 
 # `/find-batch AI4DEV-nn` — the partner finder
@@ -9,9 +9,14 @@ One job: given a primary dev item, name the single best batch partner, or say **
 stop. Carved out of the work skill (founder 2026-08-11) so the search has one home, one
 standard, and its own verdict shape.
 
-**This skill recommends. It never claims, spawns, or edits the board.** The founder confirms or
-declines; the batch mechanics — one branch, owner-cited commits, the joint plan, the sanctioned
-closes-line, the stamp pair — live in the work skill and do not repeat here.
+**Manual only (founder 2026-08-11).** The work skill does not call this; the coordinator does
+not run it unprompted. The founder invokes it to scout, reads the verdict, and — if convinced —
+types `/work <primary> <partner>`, which is the batch signal itself. This skill's output is a
+recommendation and nothing else.
+
+**This skill recommends. It never claims, spawns, or edits the board.** The batch mechanics —
+one branch, owner-cited commits, the joint plan, the sanctioned closes-line, the stamp pair —
+live in the work skill and do not repeat here.
 
 ## The verdict is binary, and FAR MEANS FAIL
 
