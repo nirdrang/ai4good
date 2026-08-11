@@ -60,13 +60,60 @@ export function mintAttestationNonce(): string {
 }
 
 /**
+ * WHAT A WRITE OF THE ATTESTATION IS AIMED AT. A project id, exactly as a CLI target names one.
+ *
+ * It is a structural type rather than an import of `CliTarget`, so this file keeps its single
+ * dependency on `capabilities.ts` and adds no cycle with the runner. A `CliTarget` satisfies it.
+ */
+export interface AttestationTarget {
+  projectId: string;
+}
+
+/**
+ * WHAT A PRE-DESTRUCTIVE IDENTITY READ PROVED, as this file needs it — the same object
+ * `proveSlotTarget()` returns, described structurally for the reason above.
+ *
+ * The DATABASE URL COMES OUT OF THE READ, and that is the whole point of taking the read at all: an
+ * importer cannot hand this function a proof of one database and the coordinates of another, because
+ * there is no second parameter to disagree with the first.
+ */
+export interface ProvenSlotRead {
+  /** the project id the identity read POSITIVELY proved, or null when it proved none */
+  provenProjectId: string | null;
+  /** the stack's own report, when a stack answered — the dbUrl is read from here and nowhere else */
+  status: { dbUrl: string } | null;
+}
+
+/**
  * Write this run's nonce into the slot database with operator authority. Called by `prepare()`,
  * AFTER the reset and after the migration-set proof, so nothing it writes can be mistaken for
  * migrated schema and nothing that survived a reset can be mistaken for it.
+ *
+ * THE PROOF TRAVELS IN (gate-2 ruling S1-1, and the same idiom as `resetLocalDatabase`). This
+ * function DELETES a table and writes a row, on whatever database it is pointed at. It used to take
+ * a bare URL, so the guard that makes the aim safe — `prepare()` proving the slot first — lived at
+ * the one call site rather than on the destructive path, and any importer could aim it at an
+ * unproven database and still compile. Now the target demands the read that proved that target, and
+ * the URL is read OUT of that proof: a proof naming another project, a proof naming none, and a read
+ * where no stack answered are all named refusals here, before any connection is opened.
  */
-export async function writeAttestation(dbUrl: string, nonce: string): Promise<void> {
+export async function writeAttestation(target: AttestationTarget, read: ProvenSlotRead, nonce: string): Promise<void> {
+  if (read.provenProjectId !== target.projectId) {
+    throw new Error(
+      `REFUSING TO WRITE THE ATTESTATION INTO ${target.projectId}: the identity read handed to this write ` +
+        `${read.provenProjectId ? `proves ${read.provenProjectId}` : 'proves no project at all'}, not ${target.projectId}. ` +
+        `This write deletes and rewrites a table, so it is only permitted on the read that proved that target. ` +
+        `Nothing was done.`,
+    );
+  }
+  if (!read.status?.dbUrl.trim()) {
+    throw new Error(
+      `REFUSING TO WRITE THE ATTESTATION INTO ${target.projectId}: the identity read carries no stack report, so it ` +
+        `names no database to write into. Nothing was done.`,
+    );
+  }
   const SQL = sqlConstructor();
-  const sql = new SQL(dbUrl);
+  const sql = new SQL(read.status.dbUrl);
   try {
     await sql`create schema if not exists at_runtime`;
     await sql`create table if not exists at_runtime.slot_attestation (nonce text primary key, minted_at timestamptz not null default now())`;

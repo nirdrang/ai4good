@@ -439,6 +439,32 @@ export function adapterDerivedCapability<T>(name: string, value: T, moduleUrl: s
 /* --------------------------------------------------------------------------- the LIVE route */
 
 /**
+ * DOES THE ADAPTER REALLY WRITE THIS MEMBER — as opposed to inheriting it from every object there
+ * has ever been (gate-2 ruling S1-3).
+ *
+ * The existence check under `liveSutCapability` used to be `typeof surface[method] === 'function'`,
+ * and plain property access walks the WHOLE prototype chain. So an enumeration naming `toString`,
+ * `constructor` or `hasOwnProperty` passed it, and the ledger then granted `real` over a member the
+ * live adapter never wrote — a real verdict covering nothing, which is the false green in miniature.
+ *
+ * THE CHAIN IS WALKED, AND IT STOPS AT `Object.prototype`. Own-property-only would be too strict: an
+ * adapter is free to be a class instance or to sit on an authored prototype, and its methods would
+ * live one link up. What is never the adapter's own work is what every object already has, so the
+ * walk stops exactly there. Today's live adapter is a plain object literal, so both readings agree on
+ * it; the difference only ever shows up on a name nobody authored, which is the case this exists for.
+ */
+function authoredMethod(surface: Record<string, unknown>, method: string): boolean {
+  for (
+    let cursor: object | null = surface;
+    cursor !== null && cursor !== Object.prototype;
+    cursor = Object.getPrototypeOf(cursor) as object | null
+  ) {
+    if (Object.prototype.hasOwnProperty.call(cursor, method)) return typeof surface[method] === 'function';
+  }
+  return false;
+}
+
+/**
  * THE THIRD ROUTE, and it is a SEPARATE CONSTRUCTOR WITH ITS OWN ADMISSION PARTITION — deliberately,
  * mirroring the two-route design above rather than adding a branch inside either of them.
  *
@@ -498,12 +524,13 @@ export function liveSutCapability<T extends object>(
         `${duplicated.join(', ')} more than once, so the enumeration is not the closed list it claims to be.`,
     );
   }
-  const absent = backedMethods.filter((method) => typeof surface[method] !== 'function');
+  const absent = backedMethods.filter((method) => !authoredMethod(surface, method));
   if (absent.length) {
     throw new Error(
       `refusing to construct capability ${JSON.stringify(name)}: its backed-method enumeration names ` +
-        `${absent.join(', ')}, which the loaded live adapter does not implement as callable members. An enumeration ` +
-        'is a claim about a surface, and a claim about a member that is not there would grant real over nothing.',
+        `${absent.join(', ')}, which the loaded live adapter does not implement as a callable member of its own ` +
+        `(a member reached only through Object.prototype is not one). An enumeration is a claim about a surface, ` +
+        'and a claim about a member that is not there would grant real over nothing.',
     );
   }
   const attested = attestationOf(attestation, SLOT_ATTESTATION_BRAND);
@@ -615,11 +642,23 @@ export function pendingMethodProxy<T extends object>(
       }
       throw new CapabilityPending([`${capabilityName}.${property}`]);
     },
-    // A body cannot discover which methods are backed by enumerating the object and then take a
-    // different path: `has` answers for the whole surface, exactly as the loop adapter's does, so an
-    // unbacked method is present and refuses rather than being absent and skippable.
+    /*
+     * A BODY CANNOT DISCOVER WHICH METHODS ARE BACKED AND THEN TAKE A DIFFERENT PATH.
+     *
+     * This trap used to be `Reflect.has(target, property)` while its own comment claimed the
+     * behaviour below (gate-2 ruling S1-4). For a contract method the raw adapter OMITS entirely —
+     * which is every unbacked method, because the live adapter deliberately writes none of them —
+     * `'method' in sut` answered false, so a body could branch around the refusal and report a
+     * green for a criterion it skipped. That is the one thing this proxy exists to prevent.
+     *
+     * SO EVERY STRING PROPERTY ANSWERS PRESENT, and the read then throws `CapabilityPending` naming
+     * it. The failure direction stays a false RED: nothing new can be reached, one more thing
+     * refuses. Symbols keep `Reflect.has`, for the same reason the `get` trap answers them — a
+     * runtime probing for a well-known symbol is not a body leaning on a capability.
+     */
     has(target, property) {
-      return Reflect.has(target, property);
+      if (typeof property === 'symbol') return Reflect.has(target, property);
+      return true;
     },
   }) as T;
 }

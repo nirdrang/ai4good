@@ -222,6 +222,16 @@ export interface LocalConfig {
   projectId: string;
   apiPort: number;
   dbPort: number;
+  /**
+   * `[local_smtp] port` — where THIS config says its mail catcher listens.
+   *
+   * OPTIONAL, for the same reason `StackStatus.mailUrl` is: a stack with no catcher block still
+   * runs everything else, and making it required would turn a config that omits it into an
+   * infrastructure failure for every run. `localStackProblems` checks the reported catcher URL
+   * against it when both exist, and says so plainly when the status reports one and the config
+   * states none.
+   */
+  mailPort?: number;
 }
 
 /**
@@ -238,6 +248,7 @@ export function readLocalConfig(root: string = REPO_ROOT): LocalConfig {
   let projectId = '';
   let apiPort = 0;
   let dbPort = 0;
+  let mailPort = 0;
 
   for (const raw of text.split('\n')) {
     const line = raw.trim();
@@ -250,11 +261,15 @@ export function readLocalConfig(root: string = REPO_ROOT): LocalConfig {
     if (section === '' && /^project_id\s*=/.test(line)) projectId = /"([^"]+)"/.exec(line)?.[1] ?? '';
     else if (section === 'api' && port && !apiPort) apiPort = Number(port[1]);
     else if (section === 'db' && port && !dbPort) dbPort = Number(port[1]);
+    // `[local_smtp]`'s FIRST port is the catcher's web API — the one `supabase status` reports as
+    // `MAILPIT_URL`. `smtp_port` and `pop3_port` follow it in the same section and are not it, which
+    // is why this reads the first `port` key and nothing else.
+    else if (section === 'local_smtp' && port && !mailPort) mailPort = Number(port[1]);
   }
 
   const missing = [projectId ? '' : 'project_id', apiPort ? '' : '[api] port', dbPort ? '' : '[db] port'].filter(Boolean);
   if (missing.length) throw new Error(`${file} is missing ${missing.join(' and ')}`);
-  return { projectId, apiPort, dbPort };
+  return { projectId, apiPort, dbPort, ...(mailPort ? { mailPort } : {}) };
 }
 
 /* ---------------------------------------------------------------------- the machine-wide lock */
@@ -753,6 +768,26 @@ export function localStackProblems(status: StackStatus, config: LocalConfig): st
 
   checkUrl('API_URL', status.apiUrl, config.apiPort);
   checkUrl('DB_URL', status.dbUrl, config.dbPort);
+
+  /*
+   * THE MAIL CATCHER URL IS CHECKED TOO (gate-2 ruling S1-6), because it travels into the child
+   * exactly as the other coordinates do — `stackEnv` puts it in `AT_SUPABASE_MAIL_URL` and the live
+   * email capability reads mail through it. It used to flow from `supabase status` into the child
+   * with nothing looking at it, so the one coordinate that is not a credential was also the one
+   * coordinate nothing proved was this slot's.
+   *
+   * ONLY WHEN A CATCHER IS REPORTED. A stack with no catcher is not a failure — the field is
+   * optional in both directions, and a suite that needs one refuses at its own construction. What
+   * IS a failure is a reported catcher this config cannot vouch for, and that is said rather than
+   * skipped.
+   */
+  if (status.mailUrl !== undefined) {
+    if (config.mailPort === undefined) {
+      problems.push('MAIL_URL was reported but supabase/config.toml states no [local_smtp] port to check it against');
+    } else {
+      checkUrl('MAIL_URL', status.mailUrl, config.mailPort);
+    }
+  }
 
   const checkKey = (label: string, token: string, expectedRole: string) => {
     const claims = decodeJwtClaims(token);

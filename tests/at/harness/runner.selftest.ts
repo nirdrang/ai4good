@@ -130,6 +130,29 @@ describe('the stack must prove it is local before anything destructive happens',
     expect(localStackProblems(localStatus(), config)).toEqual([]);
   });
 
+  it('checks the mail catcher URL against the config\'s own [local_smtp] port (ruling S1-6)', () => {
+    /*
+     * The catcher URL travels into the child in `AT_SUPABASE_MAIL_URL` and the live email capability
+     * reads mail through it, so it is a coordinate like the others. It used to flow from
+     * `supabase status` into the child with nothing looking at it at all.
+     */
+    const withMail: LocalConfig = { ...config, mailPort: 54324 };
+    expect(localStackProblems({ ...localStatus(), mailUrl: 'http://127.0.0.1:54324' }, withMail)).toEqual([]);
+    expect(
+      localStackProblems({ ...localStatus(), mailUrl: 'http://127.0.0.1:54999' }, withMail).join(' '),
+    ).toContain('54324');
+    expect(
+      localStackProblems({ ...localStatus(), mailUrl: 'http://mail.example.com:54324' }, withMail).join(' '),
+    ).toContain('loopback');
+    // A REPORTED CATCHER THIS CONFIG CANNOT VOUCH FOR is said plainly rather than skipped.
+    expect(localStackProblems({ ...localStatus(), mailUrl: 'http://127.0.0.1:54324' }, config).join(' ')).toContain(
+      'no [local_smtp] port',
+    );
+    // And a stack that reports no catcher at all is not a failure — a suite that needs one refuses
+    // at its own construction, which is where that refusal belongs.
+    expect(localStackProblems(localStatus(), withMail)).toEqual([]);
+  });
+
   it('refuses a hosted host, a wrong port, and a hosted-issued key', () => {
     expect(localStackProblems({ ...localStatus(), apiUrl: 'https://poancmeitlmxejofwzuu.supabase.co' }, config).join(' ')).toContain('loopback');
     expect(localStackProblems({ ...localStatus(), dbUrl: 'postgresql://postgres:postgres@127.0.0.1:5432/postgres' }, config).join(' ')).toContain('54322');

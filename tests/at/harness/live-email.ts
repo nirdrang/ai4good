@@ -27,7 +27,7 @@
  * of a mystery.
  */
 
-import { stampAttestation, type LiveAttestation } from './capabilities.ts';
+import { attestationOf, stampAttestation, SLOT_ATTESTATION_BRAND, type LiveAttestation } from './capabilities.ts';
 
 export type LiveEmailMessage = {
   /** the catcher's own id for the message */
@@ -67,7 +67,9 @@ function addressesOf(value: unknown): string[] {
     .filter((address) => address.length > 0);
 }
 
-async function readJson(url: string): Promise<{ status: number; text: string }> {
+type HttpAnswer = { status: number; text: string };
+
+async function readJson(url: string): Promise<HttpAnswer> {
   const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   return { status: response.status, text: await response.text() };
 }
@@ -77,10 +79,32 @@ async function readJson(url: string): Promise<{ status: number; text: string }> 
  *
  * The attestation is required and is not decoration: it is the same slot round trip every other live
  * capability is granted on, so the ledger can never carry a `real` mail catcher for a stack this run
- * did not prepare.
+ * did not prepare. It is VALIDATED here rather than merely typed (gate-2 ruling S1-2): a
+ * `LiveAttestation` is two strings, so an object literal used to mint a live email capability, and
+ * the brand — which only `attestSlot()` stamps — is what tells the two apart.
+ *
+ * `readAnswer` IS A SELFTEST SEAM and the harness passes it nowhere; `attestation.ts` states the
+ * doctrine at length on its own seam and the same words apply here. It supplies an ANSWER and never
+ * a verdict: whatever it returns goes through the SAME identification below as a real response, so
+ * an answer that is not a catcher's still refuses. Without it the refusals below would be rules
+ * nothing exercises, because this file's checks are about what an HTTP answer MEANS and the loop
+ * tier has no catcher to ask.
  */
-export async function createLiveEmail(opts: { catcherUrl: string; attestation: LiveAttestation }): Promise<LiveVendors> {
+export async function createLiveEmail(opts: {
+  catcherUrl: string;
+  attestation: LiveAttestation;
+  readAnswer?: (url: string) => Promise<HttpAnswer>;
+}): Promise<LiveVendors> {
   const base = opts.catcherUrl.replace(/\/$/, '');
+  const read = opts.readAnswer ?? readJson;
+  const attested = attestationOf(opts.attestation, SLOT_ATTESTATION_BRAND);
+  if (!attested) {
+    throw new Error(
+      'refusing to build the live email capability: the attestation handed in carries no slot brand, so it is a ' +
+        'plain object with two strings on it rather than the record of a round trip that happened. A live mail ' +
+        'catcher is granted `real` on this evidence, so the evidence has to be the real article.',
+    );
+  }
   if (!base) {
     throw new Error(
       "refusing to build the live email capability: the slot's status reported no mail catcher URL, so there is " +
@@ -88,9 +112,9 @@ export async function createLiveEmail(opts: { catcherUrl: string; attestation: L
     );
   }
 
-  let info: { status: number; text: string };
+  let info: HttpAnswer;
   try {
-    info = await readJson(`${base}/api/v1/info`);
+    info = await read(`${base}/api/v1/info`);
   } catch (err) {
     throw new Error(
       `refusing to build the live email capability: the mail catcher at ${base} did not answer its identification ` +
@@ -98,7 +122,7 @@ export async function createLiveEmail(opts: { catcherUrl: string; attestation: L
     );
   }
   if (info.status !== 200) {
-    const inbucket = await readJson(`${base}/api/v1/mailbox/probe`).catch(() => ({ status: 0, text: '' }));
+    const inbucket = await read(`${base}/api/v1/mailbox/probe`).catch(() => ({ status: 0, text: '' }));
     throw new Error(
       `refusing to build the live email capability: the endpoint at ${base} answered ${info.status} to the Mailpit ` +
         `identification probe and ${inbucket.status} to the Inbucket one, so this harness cannot say what is behind ` +
@@ -106,13 +130,38 @@ export async function createLiveEmail(opts: { catcherUrl: string; attestation: L
         'shipped both and their APIs differ.',
     );
   }
-  const version = /"Version"\s*:\s*"([^"]*)"/.exec(info.text)?.[1] ?? 'an unstated version';
+
+  /*
+   * A 200 IS NOT AN IDENTIFICATION (gate-2 ruling S1-6). Any HTTP server answers 200 to something,
+   * and the version used to fall back to "an unstated version" — so a web page, a proxy, or the
+   * wrong service on a reused port passed identification and the ledger then called it a real mail
+   * catcher. What identifies Mailpit is its own answer shape: parseable JSON carrying a non-empty
+   * string `Version`. Anything else refuses, and the refusal names what was expected rather than
+   * printing the body, which is somebody's mail.
+   */
+  let identification: { Version?: unknown };
+  try {
+    identification = JSON.parse(info.text) as { Version?: unknown };
+  } catch {
+    throw new Error(
+      `refusing to build the live email capability: the endpoint at ${base} answered 200 to the Mailpit ` +
+        'identification probe with something that is not JSON, so this harness cannot say what is behind it.',
+    );
+  }
+  const version = typeof identification?.Version === 'string' ? identification.Version.trim() : '';
+  if (!version) {
+    throw new Error(
+      `refusing to build the live email capability: the endpoint at ${base} answered 200 to the Mailpit ` +
+        'identification probe with JSON that carries no string `Version`, which is the field a Mailpit identifies ' +
+        'itself with. A 200 from an unidentified endpoint is not positive evidence.',
+    );
+  }
   const describedAs = `Mailpit ${version} at ${base}`;
 
   const email: LiveEmail = {
     describedAs,
     messagesFor: async (address: string): Promise<LiveEmailMessage[]> => {
-      const search = await readJson(`${base}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}&limit=50`);
+      const search = await read(`${base}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}&limit=50`);
       if (search.status !== 200) {
         throw new Error(`the mail catcher answered ${search.status} to a search for messages addressed to ${address}`);
       }
@@ -124,7 +173,7 @@ export async function createLiveEmail(opts: { catcherUrl: string; attestation: L
         if (!id) continue;
         // The SOURCE, not the rendered HTML: a verification link survives verbatim in the raw
         // message, while a renderer is free to rewrite what it displays.
-        const source = await readJson(`${base}/api/v1/message/${encodeURIComponent(id)}/raw`);
+        const source = await read(`${base}/api/v1/message/${encodeURIComponent(id)}/raw`);
         messages.push({
           id,
           to: addressesOf(summary.To),
@@ -138,7 +187,7 @@ export async function createLiveEmail(opts: { catcherUrl: string; attestation: L
 
   return {
     email: stampAttestation(email, {
-      evidence: `${describedAs} answered its identification probe — ${opts.attestation.evidence}`,
+      evidence: `${describedAs} answered its identification probe — ${attested.evidence}`,
       constructedFor: 'vendors.email',
     }),
   };

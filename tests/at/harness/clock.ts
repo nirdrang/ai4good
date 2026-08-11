@@ -1,4 +1,4 @@
-import { stampAttestation, type LiveAttestation } from './capabilities.ts';
+import { attestationOf, stampAttestation, SLOT_ATTESTATION_BRAND, type LiveAttestation } from './capabilities.ts';
 
 /**
  * THE PASSAGE OF TIME, WITH NO SEAM TO COMMAND IT — the integration tier's clock.
@@ -26,10 +26,26 @@ export class AttestedRealClock {
  *
  * A FUNCTION RATHER THAN A PUBLIC CONSTRUCTOR, so there is exactly one place a real clock can come
  * into existence and it is a place that has an attestation in its hand.
+ *
+ * AND THE ATTESTATION IS VALIDATED, NOT MERELY TYPED (gate-2 ruling S1-2). `LiveAttestation` is a
+ * STRUCTURAL type — two strings — so `{ evidence: 'anything', constructedFor: 'slot' }` satisfied it
+ * and minted a real clock out of an object literal. The live sut and fixtures constructors already
+ * check the BRAND, which is stamped on the attestation object itself and cannot be written by hand;
+ * this one now asks the same question the same way. The threat model this tree names is the honest
+ * mistake nothing notices, and an unbranded attestation was one.
  */
 export function createAttestedRealClock(attestation: LiveAttestation): AttestedRealClock {
+  const attested = attestationOf(attestation, SLOT_ATTESTATION_BRAND);
+  if (!attested) {
+    throw new Error(
+      'refusing to construct an attested real clock: the attestation handed in carries no slot brand, so it is a ' +
+        'plain object with two strings on it rather than the record of a round trip that happened. Only ' +
+        '`attestSlot()` mints one, and it mints it after the coordinates it was handed answered with this run\'s ' +
+        'runner-minted value.',
+    );
+  }
   return stampAttestation(new AttestedRealClock(), {
-    evidence: `the harness's own real-clock constructor built it against the prepared slot — ${attestation.evidence}`,
+    evidence: `the harness's own real-clock constructor built it against the prepared slot — ${attested.evidence}`,
     constructedFor: 'clock.controlled',
   });
 }

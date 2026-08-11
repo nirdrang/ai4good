@@ -1280,8 +1280,12 @@ export async function prepare(occupancy: Occupancy, itemRoot: string = REPO_ROOT
   // runs before it, so nothing this writes can be mistaken for migrated schema. What the child can
   // then establish is exactly one fact, and it is the fact nothing else establishes: the database at
   // the coordinates it was handed is the database this run prepared.
+  //
+  // AND THE PROOF TRAVELS INTO IT (ruling S1-1), exactly as it travels into the reset: the write
+  // takes the identity read that proved this slot and reads the database URL out of it, so there is
+  // no way to aim it at coordinates the read did not prove.
   const attestation = mintAttestationNonce();
-  await writeAttestation(status.dbUrl, attestation);
+  await writeAttestation(slotTarget(slot), read, attestation);
 
   return { status, migrations, restarted, attestation };
 }

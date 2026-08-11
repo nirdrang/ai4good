@@ -68,6 +68,35 @@ export type Surface = 'backend' | 'ui' | 'skill';
 export interface AtTestOptions {
   /** `ui` marks the test as part of a wiring leaf's `--wired` re-run selection */
   surface?: Surface;
+  /**
+   * PER TIER, AND ONLY FOR A BODY THAT WAITS OUT REAL TIME (gate-2 ruling S2-1).
+   *
+   * `vitest.config.ts` pins `testTimeout: 30_000` and the runner passes exactly that at every tier.
+   * That is the right budget for a body whose clock can be commanded: at the loop tier a session
+   * expiry is one `advance()` call. Against a real GoTrue there is nothing to command, so the two
+   * ids whose criteria are ABOUT the passage of time have to wait for it — and a body that waits
+   * 135 seconds under a 30-second budget times out red however correct it is.
+   *
+   * IT IS PER TIER, so the loop tier keeps the 30 seconds unchanged: a map naming only
+   * `integration` leaves every other tier on vitest's own value. And it BOUNDS the wait rather than
+   * removing it — a value is still a value, so a body that hangs still fails instead of running
+   * until somebody notices.
+   */
+  timeoutMs?: Partial<Record<Tier, number>>;
+}
+
+/**
+ * The timeout for THIS tier, or `undefined` to leave vitest's own `testTimeout` in place. PURE, so
+ * the rule is unit testable without registering anything.
+ *
+ * NO DEFAULT AND NO FALLBACK TO ANOTHER TIER'S VALUE. A raise is granted to the tier it was written
+ * for and to nothing else — a `default` here would be a way for one id's real-time budget to become
+ * every tier's, which is exactly the loop-tier promise this item is not allowed to touch.
+ */
+export function tierTimeout(timeoutMs: Partial<Record<Tier, number>> | undefined, tier: Tier | null): number | undefined {
+  if (!timeoutMs || tier === null) return undefined;
+  const chosen = timeoutMs[tier];
+  return typeof chosen === 'number' && Number.isFinite(chosen) && chosen > 0 ? chosen : undefined;
 }
 
 /**
@@ -895,6 +924,10 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
   const sutMissing =
     opts.sutMissingDetail ?? `REQ-${parsed.requirement}'s implementation is not in the tree — harness.sut.${sutKey} is absent`;
 
+  // THE TIER'S OWN BUDGET, or vitest's when this id asked for none. `undefined` is what vitest is
+  // handed for every id in this tree except the two whose bodies wait out a real access token.
+  const timeout = tierTimeout(opts.timeoutMs, TIER);
+
   it(`${atId} — ${title}`, async () => {
     expect.hasAssertions();
 
@@ -943,7 +976,7 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
     };
 
     await runTrackedTest(atId, () => executeRegisteredBody(atId, resolved, ctx, usage), worlds, harnesses);
-  });
+  }, timeout);
 };
 
 /* ------------------------------------------------------------------------------ suite binding */

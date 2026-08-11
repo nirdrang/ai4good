@@ -21,7 +21,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { attestSlot, mintAttestationNonce } from './attestation.ts';
+import { attestSlot, mintAttestationNonce, writeAttestation } from './attestation.ts';
 import {
   adapterDerivedCapability,
   CapabilityPending,
@@ -36,7 +36,8 @@ import {
 import { AttestedRealClock, ControlledClock, createAttestedRealClock } from './clock.ts';
 import { declaredDetail, detailMatches } from './expected.ts';
 import { buildCapabilityLedger } from './index.ts';
-import { aboveLoopStubbedRefusal, chooseTierBody, tierBodyProblem } from './registry.ts';
+import { createLiveEmail } from './live-email.ts';
+import { aboveLoopStubbedRefusal, chooseTierBody, tierBodyProblem, tierTimeout } from './registry.ts';
 
 /** One attestation, minted the way the real path mints it: through the round trip, never by hand. */
 async function anAttestation(label = 'slot 1'): Promise<LiveAttestation> {
@@ -145,6 +146,34 @@ describe('a callable pending proxy refuses at use, by name', () => {
     const sut = pendingMethodProxy<Record<string, unknown>>('sut.accounts', ['signInWithEmailPassword'], surface);
     expect('registerWithProvider' in sut, 'an unbacked method was reported absent, which is a skippable state').toBe(true);
   });
+
+  it('reports a method the adapter OMITS ENTIRELY as present, and refuses on the read (ruling S1-4)', () => {
+    /*
+     * THE CASE THE TEST ABOVE DOES NOT COVER, and the one that actually occurs. The live adapter
+     * deliberately writes NO member for the methods it does not back — its own comment says why — so
+     * the raw surface has no `sendDiscoveryMessage` at all. With `Reflect.has` the `in` check
+     * answered FALSE for exactly those methods, which is the skippable state the proxy's own comment
+     * said could not exist.
+     */
+    const sut = pendingMethodProxy<Record<string, unknown>>('sut.accounts', ['signInWithEmailPassword'], surface);
+    expect('sendDiscoveryMessage' in sut, 'a method the adapter omits was reported absent, so a body could skip it').toBe(
+      true,
+    );
+
+    let thrown: unknown;
+    try {
+      void sut.sendDiscoveryMessage;
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown, 'reading an omitted method did not refuse').toBeInstanceOf(CapabilityPending);
+    expect((thrown as CapabilityPending).capabilities).toEqual(['sut.accounts.sendDiscoveryMessage']);
+  });
+
+  it('keeps Reflect.has for symbols, so a runtime probe is not answered as a capability', () => {
+    const sut = pendingMethodProxy<Record<string, unknown>>('sut.accounts', [], surface);
+    expect(Symbol.iterator in sut, 'a well-known symbol was reported present on a surface that has none').toBe(false);
+  });
 });
 
 describe('real provenance requires the attestation round trip', () => {
@@ -203,6 +232,82 @@ describe('real provenance requires the attestation round trip', () => {
   });
 });
 
+describe('the attestation WRITE demands the identity read that proved its target (ruling S1-1)', () => {
+  /*
+   * NOTHING IS CONNECTED TO HERE. Every refusal below is a statement before the SQL client is
+   * constructed, which is the property under test: the write is refused BEFORE it opens a connection,
+   * not caught while failing inside one. This is the same shape `runner.selftest.ts` uses for the
+   * reset's own proof parameter, and the same doctrine — the proof travels in.
+   */
+  const target = { projectId: 'ai4good-slot-2' };
+  const dbUrl = 'postgresql://postgres:postgres@127.0.0.1:56322/postgres';
+
+  it('refuses a read that proves ANOTHER project', async () => {
+    await expect(
+      writeAttestation(target, { provenProjectId: 'ai4good-slot-1', status: { dbUrl } }, mintAttestationNonce()),
+    ).rejects.toThrow(/proves ai4good-slot-1, not ai4good-slot-2/);
+  });
+
+  it('refuses a read that proved no project at all', async () => {
+    await expect(
+      writeAttestation(target, { provenProjectId: null, status: { dbUrl } }, mintAttestationNonce()),
+    ).rejects.toThrow(/proves no project at all/);
+  });
+
+  it('refuses a read where no stack answered, so it names no database', async () => {
+    await expect(
+      writeAttestation(target, { provenProjectId: 'ai4good-slot-2', status: null }, mintAttestationNonce()),
+    ).rejects.toThrow(/carries no stack report/);
+  });
+});
+
+describe('the live mail catcher is granted on a BRAND and an IDENTIFICATION, never on a 200 (rulings S1-2, S1-6)', () => {
+  const answer = (status: number, text: string) => async (): Promise<{ status: number; text: string }> => ({ status, text });
+
+  it('refuses an attestation that carries no slot brand', async () => {
+    await expect(
+      createLiveEmail({
+        catcherUrl: 'http://127.0.0.1:55324',
+        attestation: { evidence: 'a mail catcher answered, honestly', constructedFor: 'slot' },
+        readAnswer: answer(200, JSON.stringify({ Version: 'v1.30.2' })),
+      }),
+    ).rejects.toThrow(/carries no slot brand/);
+  });
+
+  it('refuses a 200 that is not JSON', async () => {
+    await expect(
+      createLiveEmail({
+        catcherUrl: 'http://127.0.0.1:55324',
+        attestation: await anAttestation(),
+        readAnswer: answer(200, '<html><body>it works!</body></html>'),
+      }),
+    ).rejects.toThrow(/not JSON/);
+  });
+
+  it('refuses a 200 of JSON that carries no string Version — the field a Mailpit identifies itself with', async () => {
+    for (const body of ['{}', JSON.stringify({ Version: 42 }), JSON.stringify({ Version: '  ' }), JSON.stringify({ version: 'v1' })]) {
+      await expect(
+        createLiveEmail({
+          catcherUrl: 'http://127.0.0.1:55324',
+          attestation: await anAttestation(),
+          readAnswer: answer(200, body),
+        }),
+      ).rejects.toThrow(/carries no string `Version`/);
+    }
+  });
+
+  it('grants on the Mailpit identification shape, and says which catcher it measured', async () => {
+    const vendors = await createLiveEmail({
+      catcherUrl: 'http://127.0.0.1:55324/',
+      attestation: await anAttestation(),
+      readAnswer: answer(200, JSON.stringify({ Version: 'v1.30.2' })),
+    });
+    expect(vendors.email.describedAs).toBe('Mailpit v1.30.2 at http://127.0.0.1:55324');
+    // And the witness grants on it, which is the whole point of the probe.
+    expect(witnessedCapability('vendors.email', vendors).provenance).toBe('real');
+  });
+});
+
 describe('nothing is granted real by prefix — the live route\'s admission checks', () => {
   const surface = { completeSignup: async () => ({}), signIn: async () => ({}) };
 
@@ -220,6 +325,40 @@ describe('nothing is granted real by prefix — the live route\'s admission chec
     expect(() =>
       liveSutCapability('sut.accounts', {} as object, ['completeSignup', 'teleport'], surface, attestation),
     ).toThrow(/teleport/);
+  });
+
+  it('refuses an enumeration naming a member that comes from Object.prototype (ruling S1-3)', async () => {
+    /*
+     * `typeof surface[method] === 'function'` walks the whole prototype chain, so `toString`,
+     * `hasOwnProperty` and `constructor` all passed the existence check — and the ledger then granted
+     * `real` over a member the adapter never wrote. A member counts only if it is found before
+     * `Object.prototype`.
+     */
+    const attestation = await anAttestation();
+    for (const inherited of ['toString', 'hasOwnProperty', 'constructor']) {
+      expect(
+        () => liveSutCapability('sut.accounts', {} as object, ['completeSignup', inherited], surface, attestation),
+        inherited,
+      ).toThrow(new RegExp(inherited));
+    }
+  });
+
+  it('still admits a method on an AUTHORED prototype — the walk stops at Object.prototype, not at the surface', async () => {
+    // Own-property-only would refuse a class instance's methods, which are the adapter's own work.
+    class Authored {
+      async completeSignup(): Promise<object> {
+        return {};
+      }
+    }
+    const attestation = await anAttestation();
+    const capability = liveSutCapability(
+      'sut.accounts',
+      {} as object,
+      ['completeSignup'],
+      new Authored() as unknown as Record<string, unknown>,
+      attestation,
+    );
+    expect(capability.provenance).toBe('real');
   });
 
   it('refuses an EMPTY enumeration — a real verdict over nothing at all', async () => {
@@ -354,6 +493,26 @@ describe('the per-tier body form', () => {
   it('accepts a full map and a map with a default', () => {
     expect(tierBodyProblem({ loop: loopBody, integration: integrationBody, drill: loopBody }, 'AT-001.12')).toBeNull();
     expect(tierBodyProblem({ default: loopBody, integration: integrationBody }, 'AT-001.12')).toBeNull();
+  });
+
+  it('raises the timeout for the TIER it was written for, and for no other (ruling S2-1)', () => {
+    /*
+     * The loop tier keeps `vitest.config.ts`'s 30 seconds — `undefined` is what leaves it in place —
+     * and the two ids that wait out a real access token get a bounded raise at integration only.
+     * A body that hangs still fails, because a value is still a value.
+     */
+    const raised = { integration: 240_000 };
+    expect(tierTimeout(raised, 'integration')).toBe(240_000);
+    expect(tierTimeout(raised, 'loop'), 'the loop tier inherited an integration-tier raise').toBeUndefined();
+    expect(tierTimeout(raised, 'drill')).toBeUndefined();
+    expect(tierTimeout(undefined, 'integration')).toBeUndefined();
+    expect(tierTimeout(raised, null)).toBeUndefined();
+  });
+
+  it('ignores a timeout that is not a usable number, rather than passing it to vitest', () => {
+    expect(tierTimeout({ integration: 0 }, 'integration')).toBeUndefined();
+    expect(tierTimeout({ integration: -1 }, 'integration')).toBeUndefined();
+    expect(tierTimeout({ integration: Number.POSITIVE_INFINITY }, 'integration')).toBeUndefined();
   });
 
   it('with no tier set, the default body is chosen rather than nothing', () => {
