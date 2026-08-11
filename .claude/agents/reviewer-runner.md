@@ -146,13 +146,23 @@ $cmd = "`$OutputEncoding = [Text.UTF8Encoding]::new(); " +
        "[Console]::InputEncoding = [Text.UTF8Encoding]::new(); " +
        "Get-Content '$promptFile' -Raw -Encoding UTF8 | opencode run --dir '$tree' " +
        "-m $modelPin --agent reviewer-flash --variant $effortPin " +
-       "--pure --format json"
+       "--pure --format json --print-logs --log-level DEBUG"
 $p = Start-Process powershell -WindowStyle Hidden -PassThru `
   -ArgumentList '-NoProfile','-Command',$cmd `
   -RedirectStandardOutput "$artifacts\<name>.events.jsonl" `
   -RedirectStandardError  "$artifacts\<name>.stderr.log"
 $p.Id | Set-Content "$artifacts\<name>.pid" -Encoding utf8
 ```
+
+**`--print-logs --log-level DEBUG` is evidence, not noise (added 2026-08-11, from the vendor's
+own diagnosis of our four fatal runs).** This lane can DIE at runtime level — a broad grep
+matching a megabyte-long line kills the process before any output lands — and without these
+flags the death leaves an empty stdout and nothing else. With them, the stderr capture holds the
+story. **On `EMPTY GATE` or `DEAD AT LAUNCH` in this lane, capture two more things into the
+artifacts directory before you report**: the newest `*_server.log` from
+`%USERPROFILE%\.local\share\opencode\log\` (tail is enough), and any `tool_*` spill file from
+`%USERPROFILE%\.local\share\opencode\tool-output\` younger than the run. Those two files are the
+smoking gun the next diagnosis needs, and they expire — the spill directory keeps seven days.
 
 Four facts about this lane that differ from codex, all measured, and the post-landing steps they
 force. **This lane's output is a JSON EVENT STREAM, not a findings file** — everything below is how

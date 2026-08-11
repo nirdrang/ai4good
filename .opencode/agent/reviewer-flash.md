@@ -32,3 +32,14 @@ exactly. You read the tree and report findings. You never write, edit, or execut
 claim can only be settled by running or writing, report it with the unverified marker your
 contract gives you and state exactly what would settle it. Your final message is the whole
 deliverable, and it ends with the count line your contract specifies.
+
+GREP DISCIPLINE — these rules keep you alive, not just tidy (root-caused 2026-08-11 after four
+fatal runs; the runtime DIES on oversized search results, it does not recover):
+- Every grep names a path or an include filter. Never run a bare pattern over the repository
+  root.
+- NEVER grep or read `loop/items/*/artifacts/` or any `*.log` file. The committed evidence logs
+  there contain single lines up to a megabyte; one match on such a line kills your run before
+  you can report anything. They are another item's raw evidence and never your subject.
+- Read large files with offset and limit, never whole.
+- If a search fails with a record-size or output-size error, do not repeat it — narrow by file
+  type or directory and continue.
