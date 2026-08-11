@@ -104,7 +104,10 @@ If you find a reference to any of them, it is stale — `/work` does that job no
   2026-08-09, superseding the verbatim-echo rule of 2026-08-07 — "what I want from your echo is
   todo the mangling to take the hook facts and take into account the user prompt").** Both lines
   are PLAIN TEXT — never wrapped in backticks or a fenced code block (founder 2026-08-11: the
-  content was meant, not a code wrap). Two lines:
+  content was meant, not a code wrap). **The header leads the FIRST text the turn emits**
+  (founder correction 2026-08-11: a status line before tool calls arrived bare, and the founder
+  read "response first, stamp after") — interim narration before or between tool calls runs
+  UNDER the header, never above it; the turn's later messages do not repeat it. Two lines:
   - `[<session tag>] TURN  <attribution> - <what this response is about>` — **every line of the
     reply header carries the session prefix, the `TURN` line included** (founder 2026-08-11).
     The tag is the one the hook prints; when the hook emitted none, the prefix is omitted rather
