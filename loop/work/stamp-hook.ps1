@@ -107,6 +107,52 @@ try {
     if (-not [System.IO.Path]::IsPathRooted($gitDir)) { $gitDir = Join-Path $top $gitDir }
     $wt = Split-Path -Leaf $top
     $extra = @()
+
+    # SESSION FRESHNESS GUARD (founder 2026-08-11). A session loads CLAUDE.md and the agent
+    # contracts ONCE, at start; disk edits after that are invisible to it, and spawns serve the
+    # registry's old bodies (adds never reload; edits lag). This session's first prompt records a
+    # fingerprint of those files; every later prompt compares, and drift prints HERE — the
+    # earliest point in any turn, in the one channel always read. Baseline is per session id, so
+    # every session in the folder gets its own honest answer. No session id (child re-runs,
+    # manual runs) → skip silently. Any failure degrades to a named note, never a block.
+    try {
+        if ($script:SessionId) {
+            $watched = @()
+            $cm = Join-Path $top 'CLAUDE.md'
+            if (Test-Path -LiteralPath $cm) { $watched += $cm }
+            $agentsDir = Join-Path $top '.claude\agents'
+            if (Test-Path -LiteralPath $agentsDir) {
+                $watched += (Get-ChildItem -LiteralPath $agentsDir -Filter '*.md' -File | ForEach-Object { $_.FullName })
+            }
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            $now = @{}
+            foreach ($f in $watched) {
+                $h = [System.BitConverter]::ToString($sha.ComputeHash([System.IO.File]::ReadAllBytes($f))) -replace '-', ''
+                $now[(Split-Path -Leaf $f)] = $h.Substring(0, 16).ToLower()
+            }
+            $wfile = Join-Path (Get-StateDirRO) ('attr\session-' + $script:SessionId + '.watch.json')
+            $watchBaseline = Read-JsonCapped $wfile
+            if (-not $watchBaseline) {
+                $d = Get-StateDir
+                [System.IO.File]::WriteAllText($wfile, (@{ files = $now; recordedAt = (Get-Date).ToUniversalTime().ToString('o') } | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+            }
+            else {
+                $drifted = @()
+                foreach ($k in $now.Keys) {
+                    $old = $null
+                    try { $old = [string]$watchBaseline.files.$k } catch { }
+                    if ($old -and $old -ne $now[$k]) { $drifted += $k }
+                    elseif (-not $old) { $drifted += ($k + ' (new)') }
+                }
+                if ($drifted.Count -gt 0) {
+                    $extra += ('CONTRACTS DRIFTED since this session started: ' + ($drifted -join ', ') + ' - this session and its running agents keep the OLD text, and new spawns may too (adds never reload; edits lag). Restart before the next spawn, or probe the changed type live.')
+                }
+            }
+        }
+    }
+    catch {
+        $extra += ('freshness guard degraded: ' + ($_.Exception.Message -replace '[\r\n]', ' '))
+    }
     $script:Actor = if ($top -match '[\\/]\.claude[\\/]worktrees[\\/]') { 'AGENT' } else { 'COORDINATOR' }
 
     # SUPERVISED AGENTS (founder 2026-08-05). From the MAIN checkout, every platform agent

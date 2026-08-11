@@ -246,6 +246,13 @@ nearest the changed behaviour when one exists, with the result recorded in
 drilled the sentence that carried it; a workflow change with no drill evidence is code with no
 test.
 
+**The stamp now raises the alarm ITSELF (founder 2026-08-11): a `CONTRACTS DRIFTED` line
+appears on the first prompt after `CLAUDE.md` or any agent contract changes on disk**, because
+every session fingerprints those files at its first prompt and the hook compares on every one
+after. The line names the changed files and says the session and its spawns may still carry the
+old text. When it appears: finish nothing that depends on the changed contract, probe or
+restart, exactly as below.
+
 **And PROBE THE REGISTRY before the next spawn (founder 2026-08-10 — "this should have
 proposed by u").** Skills and reviewer briefs are read from disk at use, so their changes are
 live at once. Agent DEFINITIONS are served from a per-session registry that refreshes with a
