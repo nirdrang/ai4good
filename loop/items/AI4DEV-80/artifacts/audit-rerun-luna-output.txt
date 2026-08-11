@@ -1,0 +1,41 @@
+1. G1-1 — PASS. Full-range diff contains only `loop/work/*` and `loop/items/AI4DEV-80/*`; no process-contract file changed.
+
+2. G1-2 — PASS. The selftest has exactly A1–A15 (`loop/work/attribution-report.selftest.ps1:378-539`). Committed red/green logs show the required failures and exits; no rerun performed.
+
+3. G1-3 — CARRIED-FORWARD. The fix does not reach the `.jsonl` scan or A3 fixture (`attribution-report.ps1:62,79-83`; selftest `:252-259,337-344`).
+
+4. G1-4 — CARRIED-FORWARD. Ambiguity handling and A9’s fixture are untouched (`attribution-report.ps1:207-216,263-289`; selftest `:232-243,450-456`).
+
+5. G1-5 — CARRIED-FORWARD. The visited-set tree walk and absence of a depth cap are unchanged (`attribution-report.ps1:269-289`).
+
+6. G1-6 — PASS. The session state is read at each tool-use sighting, with separate U1/U2 results (`attribution-report.ps1:223-252`). A7 passes in the committed green evidence.
+
+7. G1-7 — CARRIED-FORWARD. JSON vendor fields and bare-agent Kimi joining are unchanged (`attribution-report.ps1:339-341,494-520,547-569`).
+
+8. G1-8 — CARRIED-FORWARD. The unattributed calculation and A11 oracle are untouched (`attribution-report.ps1:522-527,610`; selftest `:475-483`); A15 uses an isolated fixture root.
+
+9. G1-9 — CARRIED-FORWARD. `-Days`, metadata loading, and `-Item` filtering are unchanged (`attribution-report.ps1:83,108-126,529-559`).
+
+10. G1-10 — CARRIED-FORWARD. The branch regex and A14 fixture are outside the fix delta (`attribution-report.ps1:136-154`; selftest `:185-188,506-517`).
+
+11. D-1 — CARRIED-FORWARD. Recursive transcript discovery and exclusion of `.output`/meta files are unchanged (`attribution-report.ps1:62,79-82`; selftest `:221-230`).
+
+12. G2-1 — CARRIED-FORWARD. Session-only stamp fallback is unchanged (`attribution-report.ps1:374-384`).
+
+13. G2-2 — CARRIED-FORWARD. Ambiguous-agent vendor suppression is unchanged (`attribution-report.ps1:344-400`; selftest `:274-283,459-469`).
+
+14. G2-3 — PASS. `$spawnCtx` is session-qualified, and the unconditional first-sighting store now preserves an empty result (`attribution-report.ps1:199-200,223,244-252,284-285`). The committed probe and A15 evidence support this.
+
+15. G2-5 — CARRIED-FORWARD. A1’s token computations and assertions are unchanged (`selftest.ps1:365-381`); the isolated A15 addition cannot alter them.
+
+16. G2-6 — CARRIED-FORWARD. The percentage site and decimal assertion are unchanged (`attribution-report.ps1:527,610`; selftest `:476-483`), with the committed probe showing no culture defect.
+
+17. Stated code facts — CARRIED-FORWARD. The scan, role fallback, resolution order, parameter defaults, and JSON switch are outside the fix hunk (`attribution-report.ps1:13-21,62-83,341-384,561-581`).
+
+18. AUD-1 — PASS. Every first session-qualified sighting stores either its resolved item or `''`, and later sightings cannot overwrite it (`attribution-report.ps1:244-252`). A15 is red before the fix and green after it in committed evidence.
+
+19. AUD-2 — PASS. The defaults match the previous paths (`attribution-report.ps1:17-21`), JSON is gated by `-Json` (`:561-581`), and normal table rendering remains the non-JSON path (`:585-618`).
+
+Outside this re-run’s scope: the unchanged branch regex at `attribution-report.ps1:136` does not guard against a preceding backslash, so a line containing only an escaped `\"gitBranch\"` could match. This is not counted because the fix delta cannot reach it.
+
+AUDIT: CLEAN

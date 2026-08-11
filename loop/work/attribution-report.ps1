@@ -6,7 +6,20 @@
 #   powershell -File loop/work/attribution-report.ps1                    -> all sessions
 #   powershell -File loop/work/attribution-report.ps1 -Days 1            -> touched in the last day
 #   powershell -File loop/work/attribution-report.ps1 -Item AI4DEV-79    -> one item only
-param([int]$Days = 0, [string]$Item = '')
+#   powershell -File loop/work/attribution-report.ps1 -Json              -> aggregates as JSON
+#
+# The five root parameters exist so the selftest can point the report at a synthetic store. They
+# default to this machine's real roots, so a default invocation is unchanged.
+param(
+    [int]$Days = 0,
+    [string]$Item = '',
+    [switch]$Json,
+    [string]$ProjectsDir   = (Join-Path $env:USERPROFILE '.claude\projects\C--Users-nirdr-Downloads-ai4good'),
+    [string]$AttrDir       = (Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good\attr'),
+    [string]$ItemsDir      = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'loop\items'),
+    [string]$CodexSessions = (Join-Path $env:USERPROFILE '.codex\sessions'),
+    [string]$KimiRoot      = (Join-Path $env:USERPROFILE '.kimi-code\sessions')
+)
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------------------------------------
@@ -27,23 +40,45 @@ $ErrorActionPreference = 'Stop'
 # so a map captures one edge of many - and a declared fact that drifts is the failure class this
 # project exists to delete. The branch is on every record, at any nesting depth, declared by nobody.
 #
+# THE TREE IS NOW USED AS A FALLBACK, and it is still derived (founder, 2026-08-11). The platform
+# writes the whole spawn forest to disk at spawn time - parent edge, spawn call and role - so the
+# report reads the edges rather than declaring them. A record that names its own item branch is
+# never overridden. Only a record that resolves NOTHING on its own asks the tree, and it inherits
+# the item of its nearest ancestor that resolves one.
+#
 # WHAT THIS UNDERCOUNTS, stated rather than hidden:
-#   - work done before an agent switches off `main` or its generated `worktree-agent-*` branch,
-#   - the reviewers entirely: codex and kimi are other vendors' processes and appear in no
-#     Claude transcript, so an item's true cost is higher than any figure here,
-#   - a branch naming two items, which resolves to unresolved rather than guessing.
+#   - work whose whole ancestry sits on `main`, on a generated `worktree-agent-*` branch, or on a
+#     branch naming no item: the tree has nothing to inherit, so it stays unattributed,
+#   - the reviewers only partly: the codex and kimi joins below are real, but they cover the runs
+#     whose logs this repository holds, so an item's true cost is higher than any figure here,
+#   - a branch naming two items, which resolves to unresolved rather than guessing,
+#   - an agent file naming two items, whose branchless records stay unattributed for the same
+#     reason.
 # So every number below is a FLOOR, not a total.
 # ---------------------------------------------------------------------------------------------
 
-$projDir = Join-Path $env:USERPROFILE '.claude\projects\C--Users-nirdr-Downloads-ai4good'
+$projDir = $ProjectsDir
 if (-not (Test-Path $projDir)) { throw ('transcript directory not found: ' + $projDir) }
 $files = @(Get-ChildItem $projDir -Filter '*.jsonl' -File)
 
-# Agent transcripts live under the session temp directories, NOT beside the main sessions - which
-# is why they were invisible to this report for its whole life.
-$agentRoot = Join-Path $env:LOCALAPPDATA 'Temp\claude\C--Users-nirdr-Downloads-ai4good'
-if (Test-Path $agentRoot) {
-    $files += @(Get-ChildItem $agentRoot -Filter '*.output' -File -Recurse -ErrorAction SilentlyContinue)
+# AGENT TRANSCRIPTS ARE `.jsonl` FILES BESIDE THEIR SESSION, and the glob above is not recursive,
+# so this report never read one. They live under <projDir>\<sessionId>\subagents\.
+#
+# THE `subagents` TREE IS NOT FLAT, measured 2026-08-11: 290 of 877 agent transcripts sit directly
+# in `subagents`, and the other 587 sit one level deeper in `subagents\workflows\wf_<id>\`, each
+# with its meta file beside it. A flat glob would therefore leave two thirds of them invisible, so
+# the search recurses. It still names `agent-*.jsonl` only, so a `tasks\*.output` file inside the
+# same root is never counted.
+#
+# Usage is counted from `.jsonl` transcripts ONLY. The Temp `.output` store this report used to
+# scan is gone from the scan for two measured reasons: 33 of its 34 transcript-shaped files are
+# byte-identical twins of a `subagents` file, so scanning both double-counts every
+# background-spawned agent; and the 34th is not an agent at all but a background task whose 50
+# assistant-usage lines were counted as unattributed responses. Nothing is lost - zero orphan
+# transcripts were found there.
+foreach ($d in (Get-ChildItem $projDir -Directory -ErrorAction SilentlyContinue)) {
+    $sub = Join-Path $d.FullName 'subagents'
+    if (Test-Path $sub) { $files += @(Get-ChildItem $sub -Filter 'agent-*.jsonl' -File -Recurse -ErrorAction SilentlyContinue) }
 }
 if ($Days -gt 0) { $files = @($files | Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays(-$Days) }) }
 
@@ -57,41 +92,38 @@ if ($Item) {
 }
 
 # ---------------------------------------------------------------------------------------------
-# ROLE COMES FROM THE SPAWN CALL, NOT FROM A `ROLE:` LINE IN THE TRANSCRIPT (fixed 2026-08-10).
-# The premise the old detector rested on - "the contract's `ROLE:` line reaches the transcript" -
-# is FALSE for the current agents: a conductor's own `.output` file contains no `ROLE: conductor`.
-# The only `ROLE:` strings that appear are ones an agent READ from a sibling contract as a tool
-# result, so the detector reported the file it read (distiller) rather than the agent it was
-# (reviewer-runner) - a confident-wrong answer.
-# The honest signal: the PARENT records `subagent_type` when it spawns, and the spawn's tool_result
-# hands back the child's `agentId`. Each agent transcript is the file `<agentId>.output`. So a
-# first pass pairs the two by the shared tool_use id, building agentId -> role; the second pass
-# reads each file's role from its own name. A main-session `.jsonl` was spawned by nobody and is
-# the coordinator by definition.
-$roleOfAgent = @{}
-$typeRe   = [regex]'"subagent_type"\s*:\s*"([a-z][a-z0-9-]{2,30})"'
-$tuIdRe   = [regex]'"(?:id|tool_use_id)"\s*:\s*"(toolu_[A-Za-z0-9]+)"'
-$agentIdRe= [regex]'agentId:\s*(a[0-9a-f]{6,})'
-foreach ($f in $files) {
-    try {
-        $fs = New-Object System.IO.FileStream($f.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
-        $rd = New-Object System.IO.StreamReader($fs)
-    } catch { continue }
-    $pending = @{}   # tool_use id -> subagent_type, within THIS parent transcript
-    try {
-        while ($null -ne ($line = $rd.ReadLine())) {
-            if ($line.IndexOf('"subagent_type"') -ge 0) {
-                $tm = $typeRe.Match($line); $im2 = $tuIdRe.Match($line)
-                if ($tm.Success -and $im2.Success) { $pending[$im2.Groups[1].Value] = $tm.Groups[1].Value }
+# THE SPAWN FOREST IS ALREADY ON DISK. The platform writes agent-<agentId>.meta.json beside every
+# agent transcript - 872 of 872 measured, none missing. Each one carries `agentType` (the spawn
+# call's subagent_type), `parentAgentId` (absent at spawn depth 1, where the parent is the session
+# whose directory holds the file), `toolUseId` (the spawn call inside the parent) and `spawnDepth`.
+#
+# So the role comes from the spawn call, and the parent edge comes from the spawn call. An earlier
+# version paired a `subagent_type` line with an `agentId:` line by their shared tool_use id and
+# read the role from the file name; the meta file states both directly, at any nesting depth.
+# A transcript with no meta file reads role `unmarked agent`, builds no edge, and is counted in
+# the floor note - never silently.
+#
+# THE META FILES ARE ALWAYS ALL READ, whatever -Days says: they are tiny, and an edge must exist
+# even when the parent's transcript falls outside the window.
+$metaOf = @{}
+foreach ($d in (Get-ChildItem $projDir -Directory -ErrorAction SilentlyContinue)) {
+    $sub = Join-Path $d.FullName 'subagents'
+    if (-not (Test-Path $sub)) { continue }
+    foreach ($mf in (Get-ChildItem $sub -Filter 'agent-*.meta.json' -File -Recurse -ErrorAction SilentlyContinue)) {
+        $id = $mf.Name -replace '^agent-', '' -replace '\.meta\.json$', ''
+        try {
+            $mj = Get-Content $mf.FullName -Raw | ConvertFrom-Json
+            $metaOf[$id] = @{
+                agentType     = [string]$mj.agentType
+                parentAgentId = [string]$mj.parentAgentId
+                toolUseId     = [string]$mj.toolUseId
+                # The agent's session, DERIVED from where the file sits, never declared: an agent
+                # transcript lives under <projDir>\<sessionId>\subagents\. The spawn-context key
+                # needs it (see the pre-pass below).
+                session       = $d.Name
             }
-            elseif ($line.IndexOf('agentId:') -ge 0) {
-                $am = $agentIdRe.Match($line); $im2 = $tuIdRe.Match($line)
-                if ($am.Success -and $im2.Success -and $pending.ContainsKey($im2.Groups[1].Value)) {
-                    $roleOfAgent[$am.Groups[1].Value] = $pending[$im2.Groups[1].Value]
-                }
-            }
-        }
-    } finally { $rd.Dispose() }
+        } catch { }
+    }
 }
 
 # The tag is still read as a FALLBACK for old sessions whose branches predate the id convention.
@@ -121,9 +153,145 @@ function Get-BranchItems([string]$branch) {
     return $ids
 }
 
+# One stamp rule, used by both passes below, so they can never disagree.
+function Get-StampValue([string]$line, [string]$current) {
+    $m = $stampNew.Match($line)
+    if ($m.Success -and ($m.Value -notmatch '[{}]')) {
+        $d = $m.Groups[2].Value
+        if ($d -and $d -ne 'none' -and $d -ne '-') { return $d }
+        return ''
+    }
+    $m = $stampOld.Match($line)
+    if ($m.Success -and ($m.Value -notmatch '[{}]')) {
+        $b = $m.Groups[3].Value
+        if ($b) { return ('legacy:' + $b) }
+        return ''
+    }
+    return $current
+}
+
+# ---------------------------------------------------------------------------------------------
+# PROPAGATION DOWN THE SPAWN TREE (the ruled design, founder 2026-08-11).
+#
+# Most agent records name the item branch themselves, and those need nothing. The rest are the
+# records an agent wrote before its worktree branch existed, or on `main`, or on a generated
+# `worktree-agent-*` branch. Today they all fall to unattributed. They belong to whatever item
+# their nearest ancestor was working on, and the spawn forest says who that ancestor is.
+#
+# This pre-pass collects the two facts the walk needs:
+#   - for each agent transcript, the distinct items its OWN records name;
+#   - for each session, the item it had resolved at each spawn call, keyed by the SESSION plus
+#     the tool_use id that the child's meta file names. State at the CALL, not at the end of the
+#     file: one session holds different items at different times, and each child inherits what
+#     was held when it was spawned.
+#
+# THE KEY CARRIES THE SESSION, and that is measured rather than assumed. A tool_use id alone was
+# not unique on this store: 580 ids appear in two session files, all of them in ONE pair, because
+# a resumed session writes a copy of the earlier session's records. The ids are not reused - the
+# records are copied. Five of those 580 resolve a DIFFERENT item in the two files, so a global key
+# lets whichever file is scanned first answer for the other. The session is derived from the file
+# for a session transcript and from the directory path for an agent, so nothing is declared.
+# (Measured 2026-08-11: loop/items/AI4DEV-80/artifacts/g2-3-probe.txt.)
+#
+# Both reads use the SAME unescaped-only branch match as the counting pass. An escaped
+# \"gitBranch\" inside a quoted tool result is another transcript being read, never a branch fact.
+$fileItems = @{}   # bare agent id -> the distinct items its own records name
+$spawnCtx  = @{}   # "<sessionId>|<tool_use id>" -> the item that session had resolved at that call
+$tuIdRe = [regex]'"(?:id|tool_use_id)"\s*:\s*"(toolu_[A-Za-z0-9]+)"'
+foreach ($f in $files) {
+    try {
+        $fs = New-Object System.IO.FileStream($f.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+        $rd = New-Object System.IO.StreamReader($fs)
+    } catch { continue }
+    try {
+        if ($f.Name.StartsWith('agent-')) {
+            $aid = [System.IO.Path]::GetFileNameWithoutExtension($f.Name) -replace '^agent-', ''
+            $own = @()
+            while ($null -ne ($line = $rd.ReadLine())) {
+                if ($line.IndexOf('"gitBranch"') -lt 0) { continue }
+                $bm = $branchRe.Match($line)
+                if (-not $bm.Success) { continue }
+                foreach ($id in (Get-BranchItems $bm.Groups[1].Value)) { if ($own -notcontains $id) { $own += $id } }
+            }
+            $fileItems[$aid] = $own
+        }
+        else {
+            $cb = ''
+            $cs = ''
+            # A session file IS its session: the file's base name is the session id, and the
+            # agent directory beside it carries the same name (7 of 7 measured).
+            $sessId = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+            while ($null -ne ($line = $rd.ReadLine())) {
+                if ($line.IndexOf('"gitBranch"') -ge 0) {
+                    $bm = $branchRe.Match($line)
+                    if ($bm.Success) { $cb = $bm.Groups[1].Value }
+                }
+                if ($line.IndexOf('ai4good-attribution') -ge 0) { $cs = Get-StampValue $line $cs }
+                if ($line.IndexOf('toolu_') -lt 0) { continue }
+                foreach ($m in $tuIdRe.Matches($line)) {
+                    $tid = $sessId + '|' + $m.Groups[1].Value
+                    # FIRST sighting wins WITHIN THE SESSION: the spawn call comes before its own
+                    # tool result. Another session's copy of the same id is a different key.
+                    #
+                    # THE FIRST SIGHTING PINS THE KEY EVEN WHEN IT RESOLVES NOTHING, and the
+                    # empty string is a real answer. Storing a key only for a sighting that
+                    # RESOLVES an item would leave a spawn call made before the session held any
+                    # item unrecorded - and the next occurrence of that id, the tool result, is
+                    # written after the session has resolved one. The child would then inherit
+                    # the state at its tool result rather than the state at its spawn call. An
+                    # empty stored value reads as unattributed in Get-TreeItem, which is the
+                    # honest answer: nothing was held when this child was spawned.
+                    if ($spawnCtx.ContainsKey($tid)) { continue }
+                    $val = ''
+                    $bids = @(Get-BranchItems $cb)
+                    if ($bids.Count -eq 1) { $val = $bids[0] }
+                    elseif ($bids.Count -eq 0 -and $cs) {
+                        $sids = @(Get-BranchItems $cs)
+                        if ($sids.Count -eq 1) { $val = $sids[0] }
+                    }
+                    $spawnCtx[$tid] = $val
+                }
+            }
+        }
+    }
+    finally { $rd.Dispose() }
+}
+
+$ambiguousAgents = 0
+foreach ($k in $fileItems.Keys) { if (@($fileItems[$k]).Count -gt 1) { $ambiguousAgents++ } }
+
+# TREE-ITEM(agent), in the ruled order:
+#   (a) the single distinct item the agent's own records name;
+#   (b) ONLY when (a) finds ZERO items, the parent agent's tree item, walking parentAgentId
+#       upward. A file naming TWO items is ambiguous and inherits NOTHING - degrade, never guess;
+#   (c) at a session root, the item the session had resolved at this agent's own spawn call.
+#
+# THERE IS NO DEPTH CAP. The VISITED SET is the only guard and must stay: a cap would truncate a
+# valid deep chain, while a parentAgentId cycle would recurse for ever without the set.
+$treeItem = @{}
+function Get-TreeItem([string]$agentId, [hashtable]$visited) {
+    if ($treeItem.ContainsKey($agentId)) { return $treeItem[$agentId] }
+    if ($visited.ContainsKey($agentId)) { return '' }
+    $visited[$agentId] = $true
+    $result = ''
+    $own = @()
+    if ($fileItems.ContainsKey($agentId)) { $own = @($fileItems[$agentId]) }
+    if ($own.Count -eq 1) { $result = $own[0] }
+    elseif ($own.Count -eq 0 -and $metaOf.ContainsKey($agentId)) {
+        $meta = $metaOf[$agentId]
+        if ($meta.parentAgentId) { $result = [string](Get-TreeItem $meta.parentAgentId $visited) }
+        elseif ($meta.toolUseId -and $meta.session) {
+            $ctxKey = [string]$meta.session + '|' + [string]$meta.toolUseId
+            if ($spawnCtx.ContainsKey($ctxKey)) { $result = $spawnCtx[$ctxKey] }
+        }
+    }
+    $treeItem[$agentId] = $result
+    return $result
+}
+
 # ---- the chains, from the cache /work writes (never a Linear call from a report)
 $chains = @{}
-$attrDir = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good\attr'
+$attrDir = $AttrDir
 foreach ($f in (Get-ChildItem $attrDir -Filter 'chain-*.json' -File -ErrorAction SilentlyContinue)) {
     try {
         $j = Get-Content $f.FullName -Raw | ConvertFrom-Json
@@ -155,13 +323,28 @@ function Add-Usage([string]$key, $usage, [hashtable]$agg) {
 
 $sessions = 0
 $skipped = 0
+$unmarkedAgents = 0
 foreach ($f in $files) {
     $curBranch = ''          # derived, primary
     $curStamp = ''           # declared, fallback only
-    # role from the spawn map: an `.output` file is named by its agentId; a main `.jsonl` session
-    # was spawned by nobody and is the coordinator.
+    # Which kind of transcript this is comes from the platform's own naming, declared by nobody:
+    # an agent transcript is `agent-<agentId>.jsonl` at any depth, and a session file is named by
+    # its session id. A session was spawned by nobody and is the coordinator.
     $base = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-    $curRole = if ($f.Extension -eq '.output') { if ($roleOfAgent.ContainsKey($base)) { $roleOfAgent[$base] } else { 'unmarked agent' } } else { 'coordinator' }
+    $isAgent = $f.Name.StartsWith('agent-')
+    $joinKey = $base
+    $curRole = 'coordinator'
+    $curTree = ''
+    $curAmbiguous = $false
+    if ($isAgent) {
+        $joinKey = $base -replace '^agent-', ''
+        if ($metaOf.ContainsKey($joinKey) -and $metaOf[$joinKey].agentType) { $curRole = $metaOf[$joinKey].agentType }
+        else { $curRole = 'unmarked agent'; $unmarkedAgents++ }
+        $curTree = [string](Get-TreeItem $joinKey (New-Object 'System.Collections.Hashtable'))
+        # An agent whose own records name TWO OR MORE items is ambiguous. Per-record attribution
+        # to two items is a fact; per-AGENT vendor spend credited wholly to one of them is a guess.
+        if ($fileItems.ContainsKey($joinKey) -and @($fileItems[$joinKey]).Count -gt 1) { $curAmbiguous = $true }
+    }
     # Shared read: a transcript belonging to a RUNNING agent or background task is locked, and a
     # report that dies on a live file can never be run while anything is working - which is
     # exactly when it is most worth running.
@@ -177,20 +360,7 @@ foreach ($f in $files) {
                 $bm = $branchRe.Match($line)
                 if ($bm.Success) { $curBranch = $bm.Groups[1].Value }
             }
-            if ($line.IndexOf('ai4good-attribution') -ge 0) {
-                $m = $stampNew.Match($line)
-                if ($m.Success -and ($m.Value -notmatch '[{}]')) {
-                    $d = $m.Groups[2].Value
-                    $curStamp = if ($d -and $d -ne 'none' -and $d -ne '-') { $d } else { '' }
-                }
-                else {
-                    $m = $stampOld.Match($line)
-                    if ($m.Success -and ($m.Value -notmatch '[{}]')) {
-                        $b = $m.Groups[3].Value
-                        $curStamp = if ($b) { 'legacy:' + $b } else { '' }
-                    }
-                }
-            }
+            if ($line.IndexOf('ai4good-attribution') -ge 0) { $curStamp = Get-StampValue $line $curStamp }
             if ($line.IndexOf('"usage"') -ge 0 -and $line.IndexOf('"output_tokens"') -ge 0) {
                 try {
                     $o = $line | ConvertFrom-Json
@@ -198,14 +368,35 @@ foreach ($f in $files) {
                     if ($o.message -and $o.message.usage) { $u = $o.message.usage }
                     elseif ($o.usage) { $u = $o.usage }
                     if ($u -and $o.type -eq 'assistant') {
+                        # Own record branch first, exactly as before. The tree is a FALLBACK for a
+                        # record that resolves nothing on its own - it never overrides a branch.
+                        #
+                        # THE STAMP FALLBACK IS FOR SESSION FILES ONLY. The stamp regex matches the
+                        # escaped form on purpose, so an agent transcript that QUOTES a stamp - in
+                        # a spawn prompt or a tool result - would otherwise set $curStamp and let an
+                        # unresolvable agent guess an item from text it merely read. An agent
+                        # resolves branch, then tree, then nothing.
                         $ids = @(Get-BranchItems $curBranch)
-                        if ($ids.Count -eq 1)      { Add-Usage ($ids[0] + '|branch')  $u $agg }
-                        elseif ($ids.Count -gt 1)  { Add-Usage ('unresolved|branch')  $u $agg }
-                        elseif ($curStamp)         { Add-Usage ($curStamp + '|stamp') $u $agg }
-                        else                       { Add-Usage ('unattributed|none')  $u $agg }
+                        if ($ids.Count -eq 1)                  { Add-Usage ($ids[0] + '|branch')  $u $agg }
+                        elseif ($ids.Count -gt 1)              { Add-Usage ('unresolved|branch')  $u $agg }
+                        elseif ($curTree)                      { Add-Usage ($curTree + '|tree')   $u $agg }
+                        elseif ($curStamp -and (-not $isAgent)) { Add-Usage ($curStamp + '|stamp') $u $agg }
+                        else                                   { Add-Usage ('unattributed|none')  $u $agg }
+                        # A tree-resolved response feeds the role table and the vendor join key
+                        # exactly as a branch-resolved one does.
+                        #
+                        # THE VENDOR JOIN KEY DEGRADES LIKE THE TREE WALK. An ambiguous agent gets
+                        # no $agentItem entry, so its kimi spend stays unjoined rather than being
+                        # credited whole to whichever of its items its last branch record named.
+                        # The tree-fed assignment below needs no such guard: an ambiguous agent
+                        # never has a tree item.
                         if ($ids.Count -eq 1) {
                             Add-Usage ($ids[0] + '|' + $curRole) $u $roleAgg
-                            $agentItem[$base] = $ids[0]
+                            if (-not $curAmbiguous) { $agentItem[$joinKey] = $ids[0] }
+                        }
+                        elseif ($ids.Count -eq 0 -and $curTree) {
+                            Add-Usage ($curTree + '|' + $curRole) $u $roleAgg
+                            $agentItem[$joinKey] = $curTree
                         }
                     }
                 } catch { }
@@ -260,10 +451,10 @@ $rollRows = $rollRows | Sort-Object -Property @{e='OutputTok';Descending=$true}
 # summed, unlike codex's cumulative total. The directory name embeds the id of the agent that
 # launched it, and that agent's own transcript gives the item, so the join needs nothing declared.
 $vendor = @{}
-$itemsDir = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'loop\items'
+$itemsDir = $ItemsDir
 $sessRe = [regex]'session id:\s*([0-9a-fA-F-]{36})'
 $rollouts = @{}
-$codexSessions = Join-Path $env:USERPROFILE '.codex\sessions'
+$codexSessions = $CodexSessions
 if (Test-Path $codexSessions) {
     foreach ($rf in (Get-ChildItem $codexSessions -Recurse -File -Filter 'rollout-*.jsonl' -ErrorAction SilentlyContinue)) {
         $mm = [regex]::Match($rf.Name, '([0-9a-fA-F-]{36})\.jsonl$')
@@ -301,7 +492,7 @@ if (Test-Path $itemsDir) {
 }
 
 $kimi = @{}
-$kimiRoot = Join-Path $env:USERPROFILE '.kimi-code\sessions'
+$kimiRoot = $KimiRoot
 if (Test-Path $kimiRoot) {
     foreach ($wd in (Get-ChildItem $kimiRoot -Directory -ErrorAction SilentlyContinue)) {
         $am = [regex]::Match($wd.Name, 'wd_agent-([A-Za-z0-9]+)_')
@@ -342,14 +533,8 @@ if ($ItemFilter) {
     $rollRows = @($rollRows | Where-Object { $_.Node -eq $ItemFilter -or $chains[$ItemFilter] -contains $_.Node })
 }
 
-Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s)' + $(if ($Days -gt 0) { ' (last ' + $Days + ' days)' } else { '' }) + $scopeNote)
-Write-Output 'units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere'
-Write-Output 'attribution DERIVED from each record''s own git branch; role DERIVED from the spawn call'
-Write-Output ''
-Write-Output ('== PER ITEM ==' + $scopeNote)
-if ($rows.Count -eq 0) { Write-Output ('  no responses attributed to ' + $ItemFilter + ' in this window') }
-else { $rows | Format-Table Item, From, Responses, OutputTok, InputTok, CacheRead, CacheWrite -AutoSize | Out-String -Width 200 | Write-Output }
-Write-Output ('== PER ROLE WITHIN EACH ITEM (role from the spawn call, not any ROLE: text)' + $scopeNote + ' ==')
+# Every row set is built here, BEFORE any output, so the JSON oracle and the printed tables
+# describe exactly the same aggregates - one derivation, two renderings.
 $roleRows = @()
 foreach ($k in $roleAgg.Keys) {
     $it, $rl = $k -split '\|'
@@ -357,29 +542,77 @@ foreach ($k in $roleAgg.Keys) {
     $a = $roleAgg[$k]
     $roleRows += [pscustomobject]@{ Item=$it; Role=$rl; Responses=$a.responses; InputTok=$a.inTok; OutputTok=$a.outTok; CacheRead=$a.cacheRead; CacheWrite=$a.cacheWrite }
 }
+$roleRows = @($roleRows | Sort-Object Item, @{e='OutputTok';Descending=$true})
+
+$vRows = @()
+foreach ($k in $vendor.Keys) {
+    if ($ItemFilter -and $k -ne $ItemFilter) { continue }
+    $vRows += [pscustomobject]@{ Item=$k; Runs=$vendor[$k].runs; InputTok=$vendor[$k].inTok; OutputTok=$vendor[$k].outTok; CachedIn=$vendor[$k].cached }
+}
+$vRows = @($vRows | Sort-Object OutputTok -Descending)
+
+$kRows = @()
+foreach ($k in $kimi.Keys) {
+    if ($ItemFilter -and $k -ne $ItemFilter) { continue }
+    $kRows += [pscustomobject]@{ Item=$k; Sessions=$kimi[$k].sessions; InputTok=$kimi[$k].inTok; OutputTok=$kimi[$k].outTok; CacheRead=$kimi[$k].cached }
+}
+$kRows = @($kRows | Sort-Object OutputTok -Descending)
+
+# -Json emits the aggregates instead of the tables, so a test asserts on numbers rather than on
+# Format-Table whitespace. Windows PowerShell 5.1 needs an explicit -Depth.
+if ($Json) {
+    $out = [pscustomobject]@{
+        rows      = @($rows)
+        roleRows  = $roleRows
+        rollRows  = @($rollRows)
+        codexRows = $vRows
+        kimiRows  = $kRows
+        totals    = [pscustomobject]@{
+            responses             = $totResp
+            outputTok             = $totOut
+            unattributedOutputTok = $unatt
+            unattributedPct       = $pct
+            transcriptFiles       = $sessions
+            skippedFiles          = $skipped
+            item                  = $ItemFilter
+            days                  = $Days
+        }
+    }
+    $out | ConvertTo-Json -Depth 6
+    exit 0
+}
+
+Write-Output ('ai4good buildout burn report - ' + (Get-Date -Format 'yyyy-MM-dd') + ' - ' + $sessions + ' transcript file(s), sessions and agents' + $(if ($Days -gt 0) { ' (last ' + $Days + ' days)' } else { '' }) + $scopeNote)
+Write-Output 'units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere'
+Write-Output 'attribution DERIVED from each record''s own git branch, and from the spawn tree where the record names none; role DERIVED from the spawn call'
+Write-Output ''
+Write-Output ('== PER ITEM ==' + $scopeNote)
+if ($rows.Count -eq 0) { Write-Output ('  no responses attributed to ' + $ItemFilter + ' in this window') }
+else { $rows | Format-Table Item, From, Responses, OutputTok, InputTok, CacheRead, CacheWrite -AutoSize | Out-String -Width 200 | Write-Output }
+Write-Output ('== PER ROLE WITHIN EACH ITEM (role from the spawn call, not any ROLE: text)' + $scopeNote + ' ==')
 if ($roleRows.Count -eq 0) { Write-Output '  no role-attributed responses in scope' }
-else { $roleRows | Sort-Object Item, @{e='OutputTok';Descending=$true} | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
+else { $roleRows | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 Write-Output 'InputTok is nearly always tiny next to CacheRead: almost everything an agent reads arrives from cache, so input alone understates what was consumed by orders of magnitude.'
 Write-Output ''
 Write-Output '== REVIEWER SPEND (codex, joined by the session id in each item''s committed logs) =='
 if ($vendor.Count -eq 0) { Write-Output '  none joined - no committed reviewer log matched a stored codex session' }
-else {
-    $vRows = @()
-    foreach ($k in $vendor.Keys) { if ($ItemFilter -and $k -ne $ItemFilter) { continue }; $vRows += [pscustomobject]@{ Item=$k; Runs=$vendor[$k].runs; InputTok=$vendor[$k].inTok; OutputTok=$vendor[$k].outTok; CachedIn=$vendor[$k].cached } }
-    if ($vRows.Count -eq 0) { Write-Output '  none in scope' } else { $vRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
-}
+elseif ($vRows.Count -eq 0) { Write-Output '  none in scope' }
+else { $vRows | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 Write-Output ''
 Write-Output '== REVIEWER SPEND (kimi, joined by the launching agent id in its session directory) =='
 if ($kimi.Count -eq 0) { Write-Output '  none joined - no kimi session directory named an agent this run resolved to an item' }
-else {
-    $kRows = @()
-    foreach ($k in $kimi.Keys) { if ($ItemFilter -and $k -ne $ItemFilter) { continue }; $kRows += [pscustomobject]@{ Item=$k; Sessions=$kimi[$k].sessions; InputTok=$kimi[$k].inTok; OutputTok=$kimi[$k].outTok; CacheRead=$kimi[$k].cached } }
-    if ($kRows.Count -eq 0) { Write-Output '  none in scope' } else { $kRows | Sort-Object OutputTok -Descending | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
-}
+elseif ($kRows.Count -eq 0) { Write-Output '  none in scope' }
+else { $kRows | Format-Table -AutoSize | Out-String -Width 200 | Write-Output }
 Write-Output ''
 Write-Output '== ROLLED UP THE CHAIN (each node includes everything beneath it) =='
 $rollRows | Format-Table Node, Covers, Responses, OutputTok -AutoSize | Out-String -Width 200 | Write-Output
 Write-Output ('TOTAL: ' + $totResp + ' responses, ' + $totOut + ' output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.')
 Write-Output ('COORDINATOR SIGNAL - unattributed share of output tokens: ' + $pct + '%')
 if ($skipped -gt 0) { Write-Output ($skipped.ToString() + ' transcript file(s) could not be opened and are NOT counted - said out loud rather than silently dropped') }
-Write-Output 'Still a FLOOR, for named reasons: work before an agent switches off main attributes to nothing; a deeply-nested sitting whose .output carries no gitBranch falls to unattributed rather than to its item (the current largest gap - it is why the unattributed share is high); and a role reads "unmarked agent" when the spawn pairing that names it could not be found.'
+Write-Output ''
+Write-Output 'Still a FLOOR, for named reasons. A nested sitting no longer falls to unattributed: that gap is closed, because the agent transcripts are now scanned and an agent that resolves no item of its own inherits its nearest ancestor''s item. What remains:'
+Write-Output '  - Coordinator work on main that holds no item resolves to nothing, and neither do the agents beneath it: the tree has no item to hand down.'
+Write-Output ('  - ' + $ambiguousAgents + ' agent transcript(s) name TWO OR MORE items in their own records. Their branchless responses stay unattributed rather than being guessed, and their vendor spend stays unjoined for the same reason.')
+Write-Output ('  - ' + $unmarkedAgents + ' agent transcript(s) have no meta file beside them, so their role reads "unmarked agent" and they build no edge.')
+Write-Output '  - Reviewer spend is only partly joined. The codex and kimi tables above cover the runs whose logs this repository holds. The flash and opencode reviewer spend is not joined at all; that work is filed separately and is not built here.'
+Write-Output '  - A -Days window that excludes an ancestor transcript loses the item that ancestor would have handed down. The default, all history, has no such gap.'

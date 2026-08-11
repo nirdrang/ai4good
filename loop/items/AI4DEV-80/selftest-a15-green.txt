@@ -1,0 +1,26 @@
+Command: powershell -NoProfile -File loop\work\attribution-report.selftest.ps1
+Report code: loop/work/attribution-report.ps1 with the AUD-1 fix APPLIED - the spawn context pins the key on every first sighting, and stores the empty string when the session resolves nothing.
+
+PASS A1 - tree agents land under the item, in responses AND output tokens (C1 by branch, O1/O2/E1/W1 by tree, U1 by spawn context, stamp lines split)
+PASS A2 - the executor is attributed to the item and appears in no unattributed row
+PASS A3 - the total counts every fixture transcript and excludes the background .output file
+PASS A4 - the per-item rows reconcile to the TOTAL line
+PASS A5 - roles come from the spawn meta: O1+O2 orchestrator, E1 executor, C1 conductor
+PASS A6 - tree-resolved rows carry From = tree
+PASS A7 - U1 inherits the first item and U2 the second, each at its own spawn tool_use id
+PASS A8 - the rollup credits the chain root with its child item totals
+PASS A9 - a two-item agent file stays ambiguous: its branchless lines are unattributed, its branch lines keep their own items
+PASS A10 - the kimi table holds exactly the O1 join, on the bare agent id, and the ambiguous agent M1 contributes nothing
+PASS A11 - the unattributed row equals the planted lines, and the printed share equals the recomputed share
+PASS A12 - -Item returns rows for that item only, summing to the fixture value
+PASS A13 - -Days 7 excludes exactly the backdated executor transcript that the default run includes
+PASS A14 - no table names the decoy item planted as an escaped gitBranch in a tool result
+PASS A15 - a spawn call sighted before its session resolves anything pins EMPTY, and the later tool-result sighting never overwrites it
+all asserts PASSED
+
+exit code: 0
+
+Reached on the FIRST iteration: the ruled fix was applied once and the suite went green, with
+no assert touched between the red capture and this run. The only change between
+selftest-a15-red.txt and this run is the nine-line edit at the sighting site in
+attribution-report.ps1.

@@ -1,0 +1,47 @@
+﻿ai4good buildout burn report - 2026-08-11 - 480 transcript file(s) - SCOPED to AI4DEV-79
+units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere
+attribution DERIVED from each record's own git branch; role DERIVED from the spawn call
+
+== PER ITEM == - SCOPED to AI4DEV-79
+
+Item      From   Responses OutputTok InputTok CacheRead CacheWrite
+----      ----   --------- --------- -------- --------- ----------
+AI4DEV-79 branch       249     65209      496  45275553    3637708
+
+
+
+== PER ROLE WITHIN EACH ITEM (role from the spawn call, not any ROLE: text) - SCOPED to AI4DEV-79 ==
+
+Item      Role        Responses InputTok OutputTok CacheRead CacheWrite
+----      ----        --------- -------- --------- --------- ----------
+AI4DEV-79 conductor         213      426     36964  25446230    3580418
+AI4DEV-79 coordinator        36       70     28245  19829323      57290
+
+
+
+InputTok is nearly always tiny next to CacheRead: almost everything an agent reads arrives from cache, so input alone understates what was consumed by orders of magnitude.
+
+== REVIEWER SPEND (codex, joined by the session id in each item's committed logs) ==
+
+Item      Runs InputTok OutputTok CachedIn
+----      ---- -------- --------- --------
+AI4DEV-79    3  1651358     30573  1554176
+
+
+
+
+== REVIEWER SPEND (kimi, joined by the launching agent id in its session directory) ==
+  none in scope
+
+== ROLLED UP THE CHAIN (each node includes everything beneath it) ==
+
+Node      Covers Responses OutputTok
+----      ------ --------- ---------
+AI4DEV-3       6      1731    863934
+AI4DEV-79      1       249     65209
+
+
+
+TOTAL: 26358 responses, 39662234 output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.
+COORDINATOR SIGNAL - unattributed share of output tokens: 70.6%
+Still a FLOOR, for named reasons: work before an agent switches off main attributes to nothing; a deeply-nested sitting whose .output carries no gitBranch falls to unattributed rather than to its item (the current largest gap - it is why the unattributed share is high); and a role reads "unmarked agent" when the spawn pairing that names it could not be found.

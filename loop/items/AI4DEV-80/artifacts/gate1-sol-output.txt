@@ -1,0 +1,53 @@
+Severity scale: critical = plan cannot be executed under governing contracts; high = required behavior can be wrong while the gate passes; medium = concrete edge-case or regression gap.
+
+[1] severity: critical    loop/items/AI4DEV-80/plan.md:126
+    claim: D10 orders the draft-code gate to run even though the governing territory rule requires a `loop/`-only diff to skip it.
+    why it matters: `.github/workflows/ci.yml:101` confirms this diff is outside code territory, while `.claude/agents/conductor.md:268-274` says the resulting skip is derived rather than subject to orchestrator judgment; the conductor cannot obey both instructions.
+    unverified-runtime-claim: no
+
+[2] severity: critical    loop/items/AI4DEV-80/plan.md:137
+    claim: The numbered implementation sequence requires RED and GREEN selftest executions during the draft pass, which the executor contract expressly forbids.
+    why it matters: `.claude/agents/executor.md:24-27` requires every plan step to be implemented without running the verify suite, but S3 must run that same suite before S4 and S6 must run it green; deferring execution until the goal pass loses the required pre-mechanism RED state.
+    unverified-runtime-claim: no
+
+[3] severity: high    loop/items/AI4DEV-80/plan.md:163
+    claim: A3 cannot have the predicted S3 PASS state against the S2 scan set.
+    why it matters: Before S4, only the top-level coordinator JSONL is scanned, so the response total cannot equal all six JSONL fixtures; if `bg.output` is made visible through the still-hard-coded Temp root, its three lines also violate the exclusion assertion, while if it is not visible the test proves nothing about removing `.output` files.
+    unverified-runtime-claim: no
+
+[4] severity: high    loop/items/AI4DEV-80/plan.md:95
+    claim: An agent file resolving two distinct items falls through to ancestor inheritance instead of remaining ambiguous.
+    why it matters: If a child has records on `AI4DEV-10` and `AI4DEV-11`, criterion D3(a) is not “single distinct,” so D3(b) can assign its branchless responses to the parent’s item even though the child’s own records did resolve items; this is a confident misattribution rather than “degrade, never guess.”
+    unverified-runtime-claim: no
+
+[5] severity: high    loop/items/AI4DEV-80/plan.md:97
+    claim: The depth cap of eight truncates the ruled full spawn forest without any stated platform bound justifying it.
+    why it matters: A valid branchless descendant nine edges below its nearest resolved ancestor remains unattributed despite the ancestor being present; the visited set already handles cycles, so the additional cap directly weakens the required propagation.
+    unverified-runtime-claim: no
+
+[6] severity: high    loop/items/AI4DEV-80/plan.md:169
+    claim: A7 does not prove that session-root inheritance is resolved at the specific spawn `toolUseId`.
+    why it matters: Both root children are spawned while the coordinator holds `AI4DEV-901`, so an incorrect implementation that assigns one file-wide or latest session item to every root child passes; the oracle needs two spawn calls separated by a change to a different item.
+    unverified-runtime-claim: no
+
+[7] severity: high    loop/items/AI4DEV-80/plan.md:111
+    claim: The JSON oracle exposes neither Codex nor Kimi aggregates, and the fixture exercises neither required vendor join.
+    why it matters: The implementation can omit tree-resolved entries from `agentItem`, retain the `agent-` prefix that Kimi cannot join, or empty either vendor table while all A1–A8 pass; these joins are explicitly required preserved behavior.
+    unverified-runtime-claim: no
+
+[8] severity: high    loop/items/AI4DEV-80/plan.md:197
+    claim: The headline unattributed-percentage requirement has neither a correctness assertion nor a quantitative done-criterion.
+    why it matters: A hard-coded or incorrectly calculated percentage can manufacture a drop, and even a negligible decrease satisfies “the drop is stated in numbers” despite the specification requiring it to drop sharply.
+    unverified-runtime-claim: no
+
+[9] severity: medium    loop/items/AI4DEV-80/plan.md:159
+    claim: The goal selftest never invokes `-Days` or `-Item`, so its green result cannot preserve either filter’s semantics.
+    why it matters: `-Days` can stop filtering transcripts or mishandle out-of-window ancestry, and `-Item` can stop scoping rows, while the sole synthetic invocation and all eight assertions remain green; the live captures only require files to exist, not correct filtering.
+    unverified-runtime-claim: no
+
+[10] severity: medium    loop/items/AI4DEV-80/plan.md:95
+    claim: The new whole-file branch discovery and spawn-context reads are not constrained or tested to ignore escaped JSON embedded in tool results.
+    why it matters: Existing lines 102–104 only recognize raw `"gitBranch"` fields; a new pass that accepts `\"gitBranch\"` can treat a quoted transcript or source snippet as another item, making TREE-ITEM ambiguous or wrong while the fixture, which contains no escaped decoy, stays green.
+    unverified-runtime-claim: no
+
+PLAN REVIEW: 10 FINDINGS

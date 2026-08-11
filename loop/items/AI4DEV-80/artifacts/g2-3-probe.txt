@@ -1,0 +1,95 @@
+G2-3 PROBE - do tool_use ids repeat across different sessions in the real store?
+Run by the EXECUTOR of the fix-and-goal pass, 2026-08-11 02:10, before any code change.
+Machine: the founder's. Store: C:\Users\nirdr\.claude\projects\C--Users-nirdr-Downloads-ai4good
+Head at probe time: adc5d67. The probe is read-only.
+
+VERDICT: DUPLICATES EXIST. Count 1 is zero. Count 2 is 580.
+The pre-ruled fix therefore applies: key $spawnCtx by session file plus toolUseId, and
+derive an agent's session from its directory path.
+
+-----------------------------------------------------------------------------------------
+METHOD
+-----------------------------------------------------------------------------------------
+Count 1 - every agent meta file under <projDir>\<sessionId>\subagents\ (recursive) is read.
+Its `toolUseId` is grouped by the top-level session directory that holds it. A value counts
+as a cross-session duplicate when it appears under two or more different session directories.
+
+Count 2 - every top-level session transcript (<projDir>\*.jsonl) is scanned line by line with
+the report's OWN regex, unchanged:
+    '"(?:id|tool_use_id)"\s*:\s*"(toolu_[A-Za-z0-9]+)"'
+An id counts as a cross-session duplicate when it appears in two or more different session
+files.
+
+Count 3 (supplementary) - for each duplicated id, the probe resolves the item the way the
+report's pre-pass does (current branch, else the stamp, first sighting wins) in EACH file,
+and compares the two answers. This separates a harmless duplicate from a real conflict.
+
+Count 4 (supplementary) - the fix derives an agent's session from its directory path, so the
+probe checks that every session directory holding a subagents tree has a session file of the
+same base name. If that pairing failed, the fix would lose spawn context it has today.
+
+Count 5 (supplementary) - how many root agents (no parentAgentId, so the spawn-context path
+is the only one they have) resolve an item with the global key today, and how many still
+resolve one with the per-session key.
+
+-----------------------------------------------------------------------------------------
+COUNTS
+-----------------------------------------------------------------------------------------
+COUNT 1 - meta files toolUseId across sessions
+  meta files read: 884
+  meta files carrying a toolUseId: 269
+  distinct toolUseId values: 269
+  values appearing in metas of TWO OR MORE different sessions: 0
+
+COUNT 2 - toolu_ ids in session transcripts, report regex
+  session transcript files found: 35
+  session transcript files scanned: 35
+  distinct toolu_ ids seen: 10497
+  ids appearing in TWO OR MORE different session files: 580
+
+COUNT 3 - detail on the cross-session duplicates
+  duplicated toolu_ ids: 580
+  distinct file groups carrying them: 1
+    580 id(s) shared by 33dad8c9-7eec-4c5c-af5c-d030c116be96.jsonl
+                     + 3fc8d3ef-8151-4d53-8606-daeb6eedf095.jsonl
+  duplicated ids whose two files resolve DIFFERENT items (real harm): 5
+    CONFLICT toolu_01B2Y9wNWExsteftAPEuv3DD :: 33dad8c9=(none) | 3fc8d3ef=AI4DEV-2
+    CONFLICT toolu_01WFZ827ft45dg1QjYcZeZua :: 33dad8c9=(none) | 3fc8d3ef=AI4DEV-2
+    CONFLICT toolu_01PztETofBuxZsPRAYSj8TRB :: 33dad8c9=(none) | 3fc8d3ef=AI4DEV-2
+    CONFLICT toolu_019zULYesgWjDZeSWtpxuAMJ :: 33dad8c9=(none) | 3fc8d3ef=AI4DEV-2
+    CONFLICT toolu_012JnVkPNoxUJGFLUw3p7hWj :: 33dad8c9=(none) | 3fc8d3ef=AI4DEV-2
+
+COUNT 4 - session directory names versus session file names
+  top-level session .jsonl files: 35
+  directories holding a subagents tree: 7
+  of those, a session file of the same name exists: 7
+  unpaired directories: 0
+
+COUNT 5 - effect of the per-session key on root agents (no parentAgentId)
+  root-agent metas: 713
+  of those carrying a toolUseId: 98
+  resolve an item with the GLOBAL key (today): 7
+  resolve an item with the PER-SESSION key (fixed): 7
+
+-----------------------------------------------------------------------------------------
+WHAT THE NUMBERS SAY
+-----------------------------------------------------------------------------------------
+1. The provider does not mint the same id twice. All 580 duplicates sit in ONE file pair, and
+   the reader's premise ("two sessions reuse a tool-use id") is satisfied by a different
+   mechanism than collision: one session file holds a copy of the other's history, which is
+   what a resumed or forked session writes. The ids are not reused; the RECORDS are copied.
+2. The harm the reader named is real but small here: 5 of the 580 duplicated ids resolve to
+   different items in the two files. In every one of the five the earlier-scanned file
+   resolves nothing and the other resolves AI4DEV-2, so with a global key the first file
+   scanned wins and a root agent of the second session would inherit nothing where the
+   per-session key gives it AI4DEV-2. The direction of the error is loss, not a wrong item,
+   on this store today. It is direction, not principle: nothing makes the reverse impossible.
+3. The fix costs nothing measurable. Count 5 shows the same 7 root agents resolve an item
+   before and after, so the per-session key removes the guess without removing any answer.
+4. Count 4 makes the fix safe to derive: every subagents directory pairs with a session file
+   of the same name, 7 of 7, so "the agent's session is its directory name" is a fact of this
+   store, not an assumption.
+
+Probe scripts (scratchpad, not committed - the counts above are the record):
+  g2-3-probe.ps1  (counts 1 and 2)
+  g2-3-probe2.ps1 (counts 3, 4 and 5)

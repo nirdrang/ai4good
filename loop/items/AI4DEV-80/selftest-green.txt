@@ -1,0 +1,53 @@
+GREEN - the selftest at the goal head.
+Captured by the executor of the fix-and-goal pass, 2026-08-11. Reached on the FIRST goal
+iteration: no assert needed a second attempt after the ruled gate-2 fixes landed.
+
+Command: powershell -NoProfile -File loop\work\attribution-report.selftest.ps1
+
+PASS A1 - tree agents land under the item, in responses AND output tokens (C1 by branch, O1/O2/E1/W1 by tree, U1 by spawn context, stamp lines split)
+PASS A2 - the executor is attributed to the item and appears in no unattributed row
+PASS A3 - the total counts every fixture transcript and excludes the background .output file
+PASS A4 - the per-item rows reconcile to the TOTAL line
+PASS A5 - roles come from the spawn meta: O1+O2 orchestrator, E1 executor, C1 conductor
+PASS A6 - tree-resolved rows carry From = tree
+PASS A7 - U1 inherits the first item and U2 the second, each at its own spawn tool_use id
+PASS A8 - the rollup credits the chain root with its child item totals
+PASS A9 - a two-item agent file stays ambiguous: its branchless lines are unattributed, its branch lines keep their own items
+PASS A10 - the kimi table holds exactly the O1 join, on the bare agent id, and the ambiguous agent M1 contributes nothing
+PASS A11 - the unattributed row equals the planted lines, and the printed share equals the recomputed share
+PASS A12 - -Item returns rows for that item only, summing to the fixture value
+PASS A13 - -Days 7 excludes exactly the backdated executor transcript that the default run includes
+PASS A14 - no table names the decoy item planted as an escaped gitBranch in a tool result
+all asserts PASSED
+
+
+EXIT CODE: 0
+
+-----------------------------------------------------------------------------------------
+THE ASSERTS ARE NOT VACUOUS - three mutation checks against this same head
+-----------------------------------------------------------------------------------------
+A green suite can mean the fixture never planted the hazard, so each new guard was removed
+in turn and the suite re-run. Every mutation was reverted immediately; the tree is clean.
+
+1. G2-1 guard removed (the stamp fallback reaches agent files again):
+   FAIL A1 FAIL A2 PASS A3 PASS A4 PASS A5 PASS A6 PASS A7 PASS A8 FAIL A9 PASS A10
+   FAIL A11 FAIL A12 PASS A13 PASS A14
+   The M1 stamp line the ruling asked for is what turns them red, and it catches two asserts
+   more than the ruling predicted (A2 and A12 as well as A1, A9 and A11).
+
+2. G2-2 guard removed (a multi-item agent gets a vendor join key again):
+   PASS A1 PASS A2 PASS A3 PASS A4 PASS A5 PASS A6 PASS A7 PASS A8 PASS A9 FAIL A10
+   PASS A11 PASS A12 PASS A13 PASS A14
+   Exactly A10, exactly as ruled: the planted wd_agent-M1_* spend appears as a second row.
+
+3. The subagents transcript scan made non-recursive (the flat glob the draft nearly shipped):
+   FAIL A1 PASS A2 FAIL A3 PASS A4 PASS A5 PASS A6 PASS A7 PASS A8 PASS A9 PASS A10
+   PASS A11 PASS A12 FAIL A13 PASS A14
+   The nested W1 transcript closes the hole gate 2 named: a flat scan no longer satisfies the
+   suite.
+
+ONE FIX IS NOT FIXTURE-DETECTABLE, said plainly: the per-session spawn-context key (G2-3).
+The fixture holds ONE session, so a global key and a per-session key agree on it. Ruling G2-3
+decided this in advance - "No fixture either way - a fixture would only encode whichever
+answer we assumed". Its evidence is the real-store measurement in artifacts/g2-3-probe.txt.
+

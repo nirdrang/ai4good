@@ -1,0 +1,29 @@
+Command: powershell -NoProfile -File loop\work\attribution-report.selftest.ps1
+Report code: loop/work/attribution-report.ps1 as the audit read it (head bef7285, byte-identical to the audited head 2be9782) - UNFIXED, the AUD-1 pin is NOT applied.
+
+PASS A1 - tree agents land under the item, in responses AND output tokens (C1 by branch, O1/O2/E1/W1 by tree, U1 by spawn context, stamp lines split)
+PASS A2 - the executor is attributed to the item and appears in no unattributed row
+PASS A3 - the total counts every fixture transcript and excludes the background .output file
+PASS A4 - the per-item rows reconcile to the TOTAL line
+PASS A5 - roles come from the spawn meta: O1+O2 orchestrator, E1 executor, C1 conductor
+PASS A6 - tree-resolved rows carry From = tree
+PASS A7 - U1 inherits the first item and U2 the second, each at its own spawn tool_use id
+PASS A8 - the rollup credits the chain root with its child item totals
+PASS A9 - a two-item agent file stays ambiguous: its branchless lines are unattributed, its branch lines keep their own items
+PASS A10 - the kimi table holds exactly the O1 join, on the bare agent id, and the ambiguous agent M1 contributes nothing
+PASS A11 - the unattributed row equals the planted lines, and the printed share equals the recomputed share
+PASS A12 - -Item returns rows for that item only, summing to the fixture value
+PASS A13 - -Days 7 excludes exactly the backdated executor transcript that the default run includes
+PASS A14 - no table names the decoy item planted as an escaped gitBranch in a tool result
+FAIL A15 - a spawn call sighted before its session resolves anything pins EMPTY, and the later tool-result sighting never overwrites it :: unatt=0/2 unattOut=0/262 sessionBranch=1/1 sessionBranchOut=17/17 treeRow=2/0 roleRows=1/0 leakedTo=AI4DEV-901:2
+1 assert(s) FAILED
+
+exit code: 1
+
+READING THE A15 DETAIL LINE. The fixture plants two branchless responses (262 output tokens)
+in agent L1, whose spawn call is the first record of its session and carries no branch and no
+stamp. The unfixed report shows unatt=0/2: the unattributed row holds NONE of them. It shows
+treeRow=2/0 and leakedTo=AI4DEV-901:2: both responses are credited to the item the session
+resolved AFTER the spawn call, because the first sighting stored no key and the tool-result
+sighting answered for it. sessionBranch=1/1 proves the session really does resolve that item
+later, so the assert cannot pass by nothing resolving at all.
