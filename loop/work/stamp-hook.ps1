@@ -25,6 +25,7 @@
 
 $ErrorActionPreference = 'Stop'
 $script:AgentLines = @()
+$script:BatchAttr = ''
 
 # EVERY LINE NAMES ITS ACTOR (founder 2026-08-07). A stamp is read across several concurrent
 # actors, so a line that does not say who is speaking is ambiguous exactly when it matters. The
@@ -35,7 +36,15 @@ $script:Actor = 'SESSION'
 function Emit([string]$l1, [string]$l2, [string[]]$extra, [string]$pm, [string]$dev) {
     Write-Output ($script:Actor.PadRight(12) + 'WORKING ON  ' + $l1)
     Write-Output ($script:Actor.PadRight(12) + 'IN          ' + $l2)
-    Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"/>' -f $pm, $dev)
+    # The batch attribute is ADDITIVE (founder 2026-08-11): a batched partner must reach the
+    # machine tag too, or every report over the attribution log under-counts the partner's work.
+    # Parsers reading pm/dev are unaffected; the attribute appears only when a partner rides.
+    if ($script:BatchAttr) {
+        Write-Output ('<ai4good-attribution pm="{0}" dev="{1}" batch="{2}"/>' -f $pm, $dev, $script:BatchAttr)
+    }
+    else {
+        Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"/>' -f $pm, $dev)
+    }
     foreach ($e in $extra) { if ($e) { Write-Output $e } }
     foreach ($a in $script:AgentLines) { if ($a) { Write-Output $a } }
 }
@@ -343,6 +352,7 @@ try {
         try {
             if ($chain.batchedWith -and (Test-ItemId ([string]$chain.batchedWith.id))) {
                 $extra += ('batched with ' + (Fmt ([string]$chain.batchedWith.id) ([string]$chain.batchedWith.label)) + ' - closes via its sanctioned line in this branch''s pull request')
+                $script:BatchAttr = [string]$chain.batchedWith.id
             }
         }
         catch { }
