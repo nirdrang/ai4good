@@ -1,0 +1,24 @@
+﻿db-pool — slot 2 identity proven before the prepare: project ai4good-slot-2, api 56321, db 56322, containers supabase_imgproxy_ai4good-slot-2, supabase_pooler_ai4good-slot-2
+db-pool — slot 2 identity proven before the reset: project ai4good-slot-2, api 56321, db 56322, containers supabase_imgproxy_ai4good-slot-2, supabase_pooler_ai4good-slot-2
+db-pool — docker confirms slot 2's own database container before the reset: supabase_db_ai4good-slot-2
+at:verify — 4 migrations expected, 4 applied — the rebuilt schema matches supabase/migrations exactly
+half: before
+at:verify — db slot 2 (ai4good-slot-2, api 56321) — reset OK — migrations: 4 expected, 4 applied
+
+=== (v1) the deployed update-organization, a valid session, a well-formed RANDOM uuid ===
+  the random organisation id: 4e2406bf-1e0d-4509-a4e1-ee22f696797b
+  ANSWER: HTTP 403 body "{\"ok\":false,\"kind\":\"not-a-member\",\"reason\":\"this action is available to members of this organisation only — the caller holds no membership in it, and membership is held per organisation, so acting in one organisation grants nothing in another\"}"
+  kind "not-a-member" — the removal condition HOLDS
+  control (the organisation this caller administers): HTTP 200 body "{\"ok\":true,\"organizationId\":\"068210b0-16da-48e1-a1be-5d54021d0b78\",\"name\":\"Gate Two Probe Organisation Renamed\"}"
+
+=== (v2) org_memberships through the Data API, with the ANON (publishable) key ===
+  ANSWER: HTTP 401 body "{\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT SELECT ON public.org_memberships TO anon;\",\"message\":\"permission denied for table org_memberships\"}"
+  control (organizations, same key): HTTP 401 body "{\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT SELECT ON public.organizations TO anon;\",\"message\":\"permission denied for table organizations\"}"
+
+=== (v3, before the fix) the definer RPC update_organization with p_name = one TAB ===
+  ANSWER: HTTP 200 body "{\"name\": \"\\t\", \"organization_id\": \"068210b0-16da-48e1-a1be-5d54021d0b78\"}"
+  sqlstate on the answer: undefined
+  read-back of the row: name "\t"
+
+END OF THE GATE-2 VERIFICATION PROBES
+=== the slot claim was released ===
