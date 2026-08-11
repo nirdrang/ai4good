@@ -51,6 +51,18 @@ function New-SpawnLine([string]$toolUseId, [string]$agentType) {
     return '{"type":"assistant","gitBranch":"main","message":{"content":[{"type":"tool_use","id":"' + $toolUseId + '","name":"Task","input":{"subagent_type":"' + $agentType + '"}}]}}'
 }
 
+# A spawn call in a session that has resolved NOTHING yet: the record carries no gitBranch key at
+# all, so no branch fact precedes it in the file.
+function New-SpawnLineNoBranch([string]$toolUseId, [string]$agentType) {
+    return '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"' + $toolUseId + '","name":"Task","input":{"subagent_type":"' + $agentType + '"}}]}}'
+}
+
+# The tool RESULT of a spawn call: it names the same tool_use id a second time, and it carries the
+# branch the session holds when the child has already finished.
+function New-ToolResultLine([string]$toolUseId, [string]$branch) {
+    return '{"type":"user","gitBranch":"' + $branch + '","message":{"content":[{"type":"tool_result","tool_use_id":"' + $toolUseId + '","content":"fixture agent finished"}]}}'
+}
+
 # A tool result that QUOTES another transcript. Its gitBranch is escaped, so it is not a branch
 # fact - the decoy of G1-10.
 function New-DecoyLine([string]$decoyBranch) {
@@ -271,6 +283,37 @@ try {
     Write-Lines (Join-Path $kimiDir 'wd_agent-M1_ef56ab78\session_88888888-7777-6666-5555-444444444444\agents\main\wire.jsonl') $kimiWireM1
 
     # -----------------------------------------------------------------------------------------
+    # THE LATE-RESOLVING SESSION (A15), in a store of ITS OWN.
+    #
+    # The spawn call for L1 is the FIRST record of this session file, and it carries no gitBranch
+    # key and no stamp: the session had resolved NOTHING when it spawned L1. The session then
+    # works on ITEM_A and names that branch on its own records, and the SAME tool_use id appears
+    # a second time in the tool result. First sighting wins, so the tree must hand L1 nothing -
+    # L1 was spawned before the session held any item.
+    #
+    # WHY A SECOND STORE. Every assert above measures ONE store, and A11 pins the unattributed
+    # row to an exact value. An agent that moves out of that row when the pin is missing would
+    # make A2, A9 and A11 red for a defect A15 already names, so one defect would print four
+    # failures. The mechanism under test is per session, so a second session in a second root
+    # tests it exactly, and the fourteen asserts above keep their oracles untouched.
+    $projects2   = Join-Path $root 'projects-late'
+    $sessionId2  = '66666666-7777-8888-9999-aaaaaaaaaaaa'
+    $subagents2  = Join-Path $projects2 ($sessionId2 + '\subagents')
+    $LATE_ROLE   = 'distiller'
+    $lateSession = @(
+        (New-SpawnLineNoBranch 'toolu_01FixtureLATE' $LATE_ROLE),
+        (New-UsageLine 'nirdrang/ai4dev-901-late' 17),
+        (New-ToolResultLine 'toolu_01FixtureLATE' 'nirdrang/ai4dev-901-late')
+    )
+    Write-Lines (Join-Path $projects2 ($sessionId2 + '.jsonl')) $lateSession
+    $l1Lines = @(
+        (New-UsageLine '' 131),
+        (New-UsageLine '' 131)
+    )
+    Write-Lines (Join-Path $subagents2 'agent-L1.jsonl') $l1Lines
+    Write-Lines (Join-Path $subagents2 'agent-L1.meta.json') @((New-MetaJson @{ agentType=$LATE_ROLE; description='fixture late-resolving spawn'; toolUseId='toolu_01FixtureLATE'; spawnDepth=1; model='haiku' }))
+
+    # -----------------------------------------------------------------------------------------
     # what the fixture wrote - every expectation below is derived from these measurements
     # -----------------------------------------------------------------------------------------
     $mSession   = Measure-File $sessionFile
@@ -288,6 +331,8 @@ try {
     $mM1A       = Measure-Lines $m1BranchA
     $mM1B       = Measure-Lines $m1BranchB
     $mM1None    = Measure-Lines $m1Branchless
+    $mLateSess  = Measure-Lines $lateSession
+    $mL1        = Measure-File (Join-Path $subagents2 'agent-L1.jsonl')
 
     $allJsonl = @(Get-ChildItem $projects -Recurse -File -Filter '*.jsonl')
     $expTotalResp = 0
@@ -301,9 +346,9 @@ try {
     # -----------------------------------------------------------------------------------------
     # run the report against the fixture
     # -----------------------------------------------------------------------------------------
-    function Invoke-Report([string[]]$extra) {
+    function Invoke-Report([string[]]$extra, [string]$projectsRoot = $projects) {
         $psArgs = @('-NoProfile', '-File', $report,
-                    '-ProjectsDir', $projects, '-AttrDir', $attrDir, '-ItemsDir', $itemsDir,
+                    '-ProjectsDir', $projectsRoot, '-AttrDir', $attrDir, '-ItemsDir', $itemsDir,
                     '-CodexSessions', $codexDir, '-KimiRoot', $kimiDir) + $extra
         return (& powershell @psArgs | Out-String)
     }
@@ -313,6 +358,7 @@ try {
     $textOut   = Invoke-Report @()
     $jsonItemB = (Invoke-Report @('-Json', '-Item', $ITEM_B)) | ConvertFrom-Json
     $jsonDays7 = (Invoke-Report @('-Json', '-Days', '7')) | ConvertFrom-Json
+    $jsonLate  = (Invoke-Report @('-Json') $projects2) | ConvertFrom-Json
 
     # -----------------------------------------------------------------------------------------
     # A1 - the tree mechanism puts every sitting's tokens under the item.
@@ -469,6 +515,32 @@ try {
     Assert-That 'A14' 'no table names the decoy item planted as an escaped gitBranch in a tool result' `
         (-not $decoySeen) `
         ('decoy ' + $DECOY + ' found in the output')
+
+    # -----------------------------------------------------------------------------------------
+    # A15 - the FIRST sighting of a spawn call pins the session's state even when that state
+    # resolves NOTHING. The late store plants the whole sequence: the spawn call first, with no
+    # branch and no stamp before it; then the session resolving ITEM_A on its own records; then
+    # the SAME tool_use id again in the tool result. Storing a key only for a RESOLVED sighting
+    # would leave the first sighting unrecorded, and the tool result would answer for it - so L1
+    # would inherit an item the session took AFTER it was spawned.
+    #
+    # Four measurements, all from the fixture's own bytes: L1 is exactly the unattributed row;
+    # the session's own branch line is exactly the branch row (which proves the session really
+    # does resolve ITEM_A later, so the assert cannot pass because nothing resolved at all);
+    # no tree row exists for ITEM_A; and no role row names the spawned role.
+    # -----------------------------------------------------------------------------------------
+    $lateUnatt  = Get-Row $jsonLate 'unattributed' 'none'
+    $lateBranch = Get-Row $jsonLate $ITEM_A 'branch'
+    $lateTree   = Get-Row $jsonLate $ITEM_A 'tree'
+    $lateRoles  = @($jsonLate.roleRows | Where-Object { $_.Role -eq $LATE_ROLE })
+    $a15Ok = (($lateUnatt.Responses -eq $mL1.Responses) -and ([long]$lateUnatt.OutputTok -eq $mL1.OutputTok) -and
+              ($lateBranch.Responses -eq $mLateSess.Responses) -and ([long]$lateBranch.OutputTok -eq $mLateSess.OutputTok) -and
+              ($lateTree.Responses -eq 0) -and ($lateRoles.Count -eq 0))
+    Assert-That 'A15' 'a spawn call sighted before its session resolves anything pins EMPTY, and the later tool-result sighting never overwrites it' `
+        $a15Ok `
+        ('unatt=' + $lateUnatt.Responses + '/' + $mL1.Responses + ' unattOut=' + $lateUnatt.OutputTok + '/' + $mL1.OutputTok +
+         ' sessionBranch=' + $lateBranch.Responses + '/' + $mLateSess.Responses + ' sessionBranchOut=' + $lateBranch.OutputTok + '/' + $mLateSess.OutputTok +
+         ' treeRow=' + $lateTree.Responses + '/0 roleRows=' + $lateRoles.Count + '/0 leakedTo=' + (($lateRoles | ForEach-Object { $_.Item + ':' + $_.Responses }) -join ','))
 }
 finally {
     if (Test-Path $root) {
