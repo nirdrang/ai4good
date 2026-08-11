@@ -68,6 +68,31 @@ jobs:
           echo "checked out:       $(git rev-parse HEAD)"
           git log -1 --format='%H  %an  %s'
 
+      # THE TWIN GUARD. orchestrator.md and orchestrator-opus.md are one role in two files and
+      # must be identical apart from the frontmatter and two declared fallback paragraphs. The
+      # edit-both-or-neither rule drifted within a day of being relied on (2026-08-10), so it is
+      # a check now, not a sentence. Fails fast, before anything expensive runs. The same script
+      # backs the /work pre-flight and the drill suite: one definition of "synced".
+      - name: Guard the orchestrator twins against drift
+        shell: bash
+        run: |
+          # The workflow file comes from the merge ref, but the checkout is the PR head - a
+          # branch cut before this guard landed does not contain the script (measured on run
+          # 31446415848, 2026-08-11: pwsh died on the missing file and failed an innocent PR).
+          # A tree that predates the guard is skipped LOUDLY, never failed: its twins are
+          # whatever its branch point carried, and the merged head - which is what actually
+          # lands - runs the guard from main's side on the next push.
+          if [ ! -f loop/work/twin-check.ps1 ]; then
+            echo "twin guard: script not in this tree (branch predates the guard) - skipping."
+            echo "The guard binds this PR at its merged head; merge main forward to run it here."
+            exit 0
+          fi
+          if command -v pwsh >/dev/null 2>&1; then
+            pwsh -NoProfile -File loop/work/twin-check.ps1
+          else
+            powershell -NoProfile -File loop/work/twin-check.ps1
+          fi
+
       # THE PROSE FAST LANE (founder 2026-08-04). A pull request that changes only prose — the
       # skill, agent definitions, specs, item records — proves nothing by running a TypeScript
       # suite, and the founder should not wait minutes for a green that was knowable in seconds.
@@ -313,12 +338,34 @@ jobs:
           echo "this branch owns: $(printf '%s' "${owned:-none}" | tr '\n' ' ')"
 
           stray=$(comm -23 <(printf '%s\n' "$mentioned" | grep . | sort -u) <(printf '%s\n' "$owned" | grep . | sort -u) || true)
+
+          # THE ONE SANCTIONED EXCEPTION — a BATCH PARTNER (founder ruling 2026-08-11).
+          # Batching mode lands at most one extra item in the same pull request. Its closure is
+          # deliberate and uses the integration on purpose: a line of EXACTLY this shape, alone
+          # on its line, nothing else on it:
+          #     Closes AI4DEV-nn
+          # At most ONE such line may exist, it must be declared in the merge ruling, and the id
+          # it names is the only foreign id this guard permits. Everything else about the rule
+          # stands: any other foreign id, in any wording, still fails — including a second
+          # closes-line, because the founder's cap is one partner, ever.
+          batch=$(printf '%s' "$pr" | grep -oiE "^[[:space:]]*Closes[[:space:]]+${ID}[[:space:]]*$" | grep -oiE "$ID" | tr '[:lower:]' '[:upper:]' | sort -u || true)
+          batch_lines=$(printf '%s' "$pr" | grep -ciE "^[[:space:]]*Closes[[:space:]]+${ID}[[:space:]]*$" || true)
+          if [ "${batch_lines:-0}" -gt 1 ]; then
+            echo "::error::more than one batch closes-line — the batching rule is AT MOST ONE partner per pull request"
+            exit 1
+          fi
+          sanctioned=$(comm -23 <(printf '%s\n' "$batch" | grep . | sort -u) <(printf '%s\n' "$owned" | grep . | sort -u) || true)
+          stray=$(comm -23 <(printf '%s\n' "$stray" | grep . | sort -u) <(printf '%s\n' "$sanctioned" | grep . | sort -u) || true)
+          if [ -n "$sanctioned" ]; then
+            echo "batch partner sanctioned by closes-line: $(printf '%s' "$sanctioned" | tr '\n' ' ')"
+          fi
+
           if [ -n "$stray" ]; then
             echo "::error::this pull request names an item its branch does not own — the link alone moves that item"
             printf '%s\n' "$stray" | sed 's/^/  would move: /'
             echo "The branch names $(printf '%s' "${owned:-no item}" | tr '\n' ' '), so any other id here moves an item by prose, not by the work."
-            echo "Fix the wording: name other items IN WORDS, never by id — 'the item that landed the relay'. There is no safe reference word; ref, part of, related to and towards all link and move the item."
+            echo "Fix the wording: name other items IN WORDS, never by id — 'the item that landed the relay'. The one exception is a batch partner's own closes-line, declared in the merge ruling."
             exit 1
           fi
 
-          echo "reference guard OK — every item named belongs to this branch's own item"
+          echo "reference guard OK — every item named belongs to this branch's own item or its sanctioned batch partner"

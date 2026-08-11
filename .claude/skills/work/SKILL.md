@@ -75,6 +75,13 @@ like `REQ-001 D1.L1` — a bare code is the id twice, and the founder cannot rea
 Read-only validation first; **the board claim happens last**, so a failure cannot leave an item
 falsely In Progress.
 
+0. **The twin guard, before anything else**: run `loop/work/twin-check.ps1`. It proves the two
+   orchestrator contract files still say the same thing (the founder-placed pre-flight,
+   2026-08-11 — the rule drifted silently within a day of being relied on). `SYNCED` → proceed.
+   `TWINS DRIFTED` or `STALE GUARD` → **STOP: no spawn happens from forked contracts.** Fix the
+   lagging twin (light, mirroring the missing text verbatim) or the guard's allowance, then
+   re-run to green and continue. An item started on drifted contracts hands its fallback
+   orchestrator different rules than its primary — the exact silent fork the twin rule forbids.
 1. Resolve: id, short label, `gitBranchName`, state, blockers. Walk `parent` upward (depth cap 8,
    cycle detection) and derive a short label for every link in the chain.
 2. Startability: missing, Done, Cancelled, or an open blocker → stop and say which. Attribution
@@ -269,6 +276,35 @@ One day produced six filed candidates, and the founder called it out. Before fil
 **The filing RATE is itself a signal.** Many candidates from one item means the item's scope was
 wrong or the machinery has a fault the candidates are symptoms of. Say that to the founder
 plainly instead of fanning out items — five symptoms filed separately bury the one cause.
+
+## Batching mode — at most ONE partner, chosen by PROXIMITY (founder 2026-08-11)
+
+At every `/work X` pickup, look for **at most one** partner item to ride the same run and the
+same pull request, and propose it beside the claim — the founder confirms or declines before
+anything spawns. Finding none is said out loud, never silent.
+
+**A partner qualifies by PROXIMITY, not size** (founder correction: size is the split trigger's
+job). Strongest first: a sibling under the same deliverable; a cousin in the same requirement
+whose surfaces touch; a filed fix living in territory the primary already works. An open
+blocker, an open founder question, or a different database need disqualifies.
+
+**The mechanics, each one load-bearing:**
+- The branch names the PRIMARY only. The partner is claimed at pickup too, and recorded on both
+  board items.
+- Every commit cites the item it belongs to — in a batch this is the abort path: dropping the
+  partner means reverting the partner-cited commits in one commit, and its ids return to
+  declared reds. Shared groundwork cites the primary.
+- One joint plan, shared decisions hoisted, each step tagged to its item, the verify table
+  spanning both id sets. Gate 1 reads the pair as one plan — the cheap place a wrong pairing
+  dies. Gate 2 slices by surface as always; the audit reads one source-only diff and both
+  claim lists.
+- The partner closes through ONE sanctioned line in the pull-request body — `Closes AI4DEV-nn`,
+  alone on its line, at most one, declared in the merge ruling. The CI ownership guard verifies
+  exactly that shape and still fails every other foreign id.
+- The stamp shows the pair: record the partner beside the chain at spawn
+  (`Set-ChainForWorktree ... -BatchedWith @{ id; label }`), so the supervision tree never shows
+  one id while two items ride.
+- One database slot covers the pair, reserved under the primary.
 
 ## Ride-along, and no nesting
 

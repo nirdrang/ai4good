@@ -292,6 +292,14 @@ try {
         }
         catch { }
         if (-not $fresh) { $extra += 'STALE - cached chain is old or its timestamp is unreadable; /work refreshes it' }
+        # A batch partner rides this branch (batching mode, founder 2026-08-11). The stamp says
+        # so, or two items run while the tree shows one.
+        try {
+            if ($chain.batchedWith -and (Test-ItemId ([string]$chain.batchedWith.id))) {
+                $extra += ('batched with ' + (Fmt ([string]$chain.batchedWith.id) ([string]$chain.batchedWith.label)) + ' - closes via its sanctioned line in this branch''s pull request')
+            }
+        }
+        catch { }
     }
     elseif ($heldFill) {
         # Held attribution has no branch-keyed chain by design - the branch is main. The held

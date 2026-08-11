@@ -295,6 +295,11 @@ Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 
 # ---- Report ----
 $failed = @($results | Where-Object { -not $_.Pass })
+# ---- twin guard: the orchestrator pair must be identical apart from the declared differences.
+# The rule drifted within a day of being relied on (2026-08-10); this assertion is that lesson.
+& powershell -NoProfile -File (Join-Path $here '..\work\twin-check.ps1') | Out-Null
+Assert 'twin-guard' 'orchestrator twins are in sync (edit both or neither)' ($LASTEXITCODE -eq 0)
+
 foreach ($r in $results) {
     $mark = if ($r.Pass) { 'PASS' } else { 'FAIL' }
     Write-Output ('{0}  [{1}] {2}' -f $mark, $r.Drill, $r.Claim)
