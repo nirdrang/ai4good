@@ -86,6 +86,19 @@ export interface AttestationCoordinates {
   nonce: string;
   /** what to call the slot in the evidence line; never a credential */
   label: string;
+  /**
+   * A SELFTEST SEAM, and the harness passes it nowhere.
+   *
+   * `live-ledger.selftest.ts` runs under vitest at the loop tier, in CI, with no database anywhere.
+   * Every refusal below is a rule about what an answer means, and a rule nothing exercises is a rule
+   * nobody knows works — this seam is how the four refusals are driven without a container.
+   *
+   * IT CANNOT BE A WAY ROUND THE ROUND TRIP. Whatever it returns is put through the SAME comparison
+   * as a real read, so the only thing it can do is supply an answer; it cannot supply a verdict, and
+   * an answer that does not carry this run's nonce still refuses. The seam substitutes the database,
+   * never the judgement — the same split `oracles.ts` draws for its transport.
+   */
+  readNonce?: (dbUrl: string) => Promise<string[]>;
 }
 
 /**
@@ -104,18 +117,27 @@ export async function attestSlot(coordinates: AttestationCoordinates): Promise<L
     );
   }
 
-  const SQL = sqlConstructor();
-  const sql = new SQL(dbUrl);
-  let rows: { nonce?: unknown }[];
+  const read =
+    coordinates.readNonce ??
+    (async (url: string): Promise<string[]> => {
+      const SQL = sqlConstructor();
+      const sql = new SQL(url);
+      try {
+        const rows = (await sql`select nonce from at_runtime.slot_attestation`) as { nonce?: unknown }[];
+        return rows.map((row) => String(row?.nonce ?? ''));
+      } finally {
+        await sql.close().catch(() => undefined);
+      }
+    });
+
+  let rows: string[];
   try {
-    rows = (await sql`select nonce from at_runtime.slot_attestation`) as { nonce?: unknown }[];
+    rows = await read(dbUrl);
   } catch (err) {
     throw new Error(
       `refusing to attest the slot: the database at the supplied coordinates did not answer the attestation read ` +
         `(${(err as Error).message.split('\n')[0]}). Well-formed coordinates that nothing answers are not evidence.`,
     );
-  } finally {
-    await sql.close().catch(() => undefined);
   }
 
   if (rows.length !== 1) {
@@ -124,7 +146,7 @@ export async function attestSlot(coordinates: AttestationCoordinates): Promise<L
         'prepare step writes after its reset.',
     );
   }
-  if (String(rows[0]?.nonce ?? '') !== nonce) {
+  if (rows[0] !== nonce) {
     throw new Error(
       'refusing to attest the slot: the database at the supplied coordinates answered with a value that is not the ' +
         "one this run's runner minted. Those coordinates address a different database, or one this run did not prepare.",

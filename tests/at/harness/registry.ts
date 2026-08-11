@@ -650,10 +650,8 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
      * is for every `AtPending` body in every suite: a thrown error is the reported failure and the
      * assertion count is not consulted.
      */
-    if (TIER !== 'loop') {
-      const stubbed = await h.stubbedCapabilities();
-      if (stubbed.length) throw new CapabilityPending(stubbed);
-    }
+    const stubRefusal = aboveLoopStubbedRefusal(TIER, await h.stubbedCapabilities());
+    if (stubRefusal) throw stubRefusal;
 
     const sut = h.sut?.[o.sutKey];
     if (!sut) throw new AtPending(o.atId, 'sut-missing', o.sutMissing);
@@ -730,6 +728,33 @@ export function tierBodyProblem(bodies: Record<string, unknown>, atId: string): 
     );
   }
   return null;
+}
+
+/**
+ * WHICH body a per-tier map supplies for a tier. PURE, so the choice is unit testable without
+ * registering anything with vitest.
+ *
+ * `null` for the tier means the map named a body for a DIFFERENT tier and no default — which
+ * `tierBodyProblem` refuses before this is ever consulted in the real path. It is returned rather
+ * than thrown so the selftest can state the rule positively: a body written for one tier does not
+ * run at another.
+ */
+export function chooseTierBody<B>(bodies: Record<string, B | undefined>, tier: Tier | null): B | null {
+  const named = tier === null ? undefined : bodies[tier];
+  return named ?? bodies.default ?? bodies.loop ?? null;
+}
+
+/**
+ * THE ABOVE-LOOP STAND-IN REFUSAL, as a value rather than as a statement inside `openWorld`.
+ *
+ * It is exported and pure for one reason: `expected.ts` rebuilds the text a declared
+ * `capability-pending` red must produce, and the ONLY way to know the two agree is to compare them.
+ * `live-ledger.selftest.ts` does exactly that, so a wording change on either side breaks a test
+ * instead of silently making every integration declaration unmatchable.
+ */
+export function aboveLoopStubbedRefusal(tier: Tier, stubbed: readonly string[]): CapabilityPending | null {
+  if (tier === 'loop' || stubbed.length === 0) return null;
+  return new CapabilityPending([...stubbed]);
 }
 
 function emitRuntimeRegistration(registration: Registration): void {
@@ -846,7 +871,7 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
     if (typeof body === 'function') return body;
     const problem = tierBodyProblem(body as Record<string, unknown>, atId);
     if (problem) throw new Error(problem);
-    const chosen = (TIER === null ? undefined : body[TIER]) ?? body.default ?? body.loop;
+    const chosen = chooseTierBody(body as Record<string, unknown>, TIER);
     // THE ONE BRIDGE BETWEEN THE TWO TIERS' CONTEXT TYPES, and it is a widening of a NARROWER type.
     // An integration body is written against a context whose clock and vendor seams have FEWER
     // members, so the object built below — which has all of them — satisfies it; what the cast says
