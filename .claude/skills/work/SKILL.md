@@ -174,8 +174,10 @@ tell a working conductor from an absent one.
 - **You still never write in the item's tree, rule on its content, or run its commands.** Rescuing
   unpushed work after a confirmed death is the one exception, and it is recorded AS a rescue.
 
-**The MERGE sitting runs on `orchestrator-opus` by design** (founder 2026-08-11), to spare fable
-— the merge sitting is procedural, and fable credit runs out sooner than opus. The conductor does
+**The MERGE sitting and the AUDIT RE-RUN sitting run on `orchestrator-opus` by design** (founder
+2026-08-11), to spare fable. Both are fenced judgment: the merge sitting cannot merge without a
+green on the exact head, and the re-run grades a scoped fix delta against the rebuilt checklist.
+The FIRST audit stays on fable — it is the item's last open-ended safety net. The conductor does
 this on its own; you never tell it to. This is separate from the credit-out handoff below.
 
 **Fable out of credit** → tell the conductor to spawn `orchestrator-opus` for subsequent

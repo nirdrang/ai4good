@@ -17,7 +17,7 @@ definition file of its own — it is the founder's own session, so its contract 
 |---|---|---|---|
 | **Coordinator** | fable @ xhigh | the PM board · the founder channel · everything destructive | the whole session |
 | **Conductor** | sonnet | the item's worktree and its clock · narration | one item |
-| **Orchestrator** | fable @ xhigh; the **MERGE sitting** and any credit-out sitting on opus @ max | **all judgment** — plan, rulings, merge decision | one sitting; four per item, five when the audit finds something |
+| **Orchestrator** | fable @ xhigh; the **MERGE** and **AUDIT RE-RUN** sittings and any credit-out sitting on opus @ max | **all judgment** — plan, rulings, merge decision | one sitting; four per item, five when the audit finds something |
 | **Executor** | opus | the code, and running verify | one task |
 | **Mechanical** | sonnet | publish · merge execution · capture | one task |
 | **Reviewer-runner** | sonnet | launching ONE reviewer · holding its wait · distilling its output — the sole actor that starts a reviewer process | one reviewer run |
@@ -170,6 +170,10 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
 
 ## AUDIT · critique of the CLAIM — before CI, never beside it
 
+The first audit sitting runs on **fable @ xhigh** — it is the item's last open-ended safety net.
+The **re-run** sitting runs on **orchestrator-opus (opus @ max)** by design: the rebuilt checklist
+and the fix delta fence its judgment, so it spares fable (founder 2026-08-11).
+
 ```
 48  CONDUCTOR    wake · verify the push landed
 49  CONDUCTOR    spawn ONE reviewer-runner PER READER, in the background — luna via codex,
@@ -208,7 +212,8 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  re-run at the new head" · NAME THE FIX DELTA (audited head → new head) ·
                  REBUILD the checklist (add the adopted audit rulings + changed facts)
                  → END THE SITTING — launching BOTH auditors and
-                 waiting is the conductor's (it re-enters at 49 and spawns a FRESH audit sitting);
+                 waiting is the conductor's (it re-enters at 49 and spawns a FRESH audit sitting
+                 as orchestrator-opus, opus @ max by design — the first audit was on fable);
                  a sitting never spans the auditors' wait
                  the audit re-runs ONLY if code changed · BOTH seats, but SCOPED to what the
                  fix delta can REACH, not the whole range again (scope box alone re-checks the

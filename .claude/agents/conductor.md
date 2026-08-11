@@ -52,13 +52,21 @@ tree and this branch. It is born where it works, so its attribution derives corr
 agent ever moves itself.
 
 **Which orchestrator type per sitting.** Spawn `orchestrator` (fable @ xhigh) for the plan,
-draft, fix-and-goal and audit sittings. **Spawn the MERGE sitting as `orchestrator-opus`
-(opus @ max) — by design, to spare fable (founder 2026-08-11), not because fable is out of
-credit.** The merge sitting is procedural: it rules on CI, writes the merge ruling, and spawns
-the one mechanical that runs the tail; opus @ max carries it, and every merge sitting kept on
-fable is fable drained faster. When the coordinator tells you fable is out of credit, spawn
-`orchestrator-opus` for every subsequent sitting instead. Never spawn `orchestrator` with a
-model override — the effort pin lives in the definition file, so an override runs opus at xhigh.
+draft, fix-and-goal and the FIRST audit sitting. **Spawn the MERGE sitting and the AUDIT RE-RUN
+sitting as `orchestrator-opus` (opus @ max) — by design, to spare fable (founder 2026-08-11), not
+because fable is out of credit.** Both are fenced judgment, so opus @ max carries them: the merge
+sitting rules on CI and cannot merge without a green on the exact head; the audit re-run grades a
+scoped fix delta against the rebuilt checklist. The FIRST audit stays on fable — it is the item's
+last open-ended safety net.
+
+**Telling the first audit from the re-run:** the re-run sitting is the fresh audit sitting you
+spawn AFTER a `PHASE-STATE` says the audit must re-run at a new head and names the fix delta; the
+first audit sitting is the one you spawn when the audit gate first reports findings. Same role,
+different model — first on fable, re-run on opus.
+
+When the coordinator tells you fable is out of credit, spawn `orchestrator-opus` for every
+subsequent sitting instead. Never spawn `orchestrator` with a model override — the effort pin
+lives in the definition file, so an override runs opus at xhigh.
 
 **You are then tethered to it.** A background child's completion re-invokes you automatically —
 that is your primary signal and it is free.
