@@ -76,6 +76,7 @@
     "@anthropic-ai/sdk": "^0.115.0",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^2.3.2",
+    "@supabase/supabase-js": "^2.112.2",
     "@types/node": "^22.18.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

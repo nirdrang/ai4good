@@ -32,6 +32,9 @@
 
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
+// The INTEGRATION-tier procedures for the ids whose criteria are proved differently against a real
+// stack. Same criterion, same id, one registration; only the procedure differs. See _integration.ts.
+import { at00101, at00105, at00106, at00107 } from './_integration.ts';
 // `LEAF`/`notLanded` are no longer imported here: this file's last declared stub was replaced with a
 // real body by the GitHub leaf, and an import kept for a stub that no longer exists is an orphan.
 // The other five suite files still declare their leaves' ids and import both.
@@ -54,110 +57,113 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
     'AT-001.01',
     'NGO email/password signup creates the account, org, admin membership and acknowledgment; sign-in returns',
     { surface: 'ui' },
-    async ({ open }) => {
-      const { w, sut } = await open();
-      const email = w.email('ngo-signup');
-      const password = 'correct horse battery staple';
-
-      const session = await sut.registerWithEmailPassword(email, password);
-
-      // THE PREDICATE MUST DISCRIMINATE, and this is the assertion that makes that true rather than
-      // stated. AT-001.01 requires the acknowledgment "before any project creation is possible";
-      // `has_platform_acknowledgment` is the observable form of that clause, and a constant-true
-      // implementation would satisfy every other assertion in this test. Asserting FALSE first, on
-      // a user who has authenticated and not completed signup, is what fails such an implementation.
-      //
-      // WHICH implementation, exactly: at this tier the assertion reaches the fixture adapter's
-      // storage query, so what it establishes is the rule and that storage. The shipped SQL
-      // predicate `public.has_platform_acknowledgment` is NOT reached from here and could return
-      // true unconditionally without turning this red. Step 7(h) of the plan is what proves that
-      // one, against the live database, and it is the only thing in this item that does.
-      expect(
-        await sut.hasPlatformAcknowledgment(session.accountId),
-        'a user who has authenticated but not completed signup must NOT hold the platform acknowledgment',
-      ).toBe(false);
-
-      const completion = await sut.completeSignup(
-        session,
-        {
+    {
+      default: async ({ open }) => {
+        const { w, sut } = await open();
+        const email = w.email('ngo-signup');
+        const password = 'correct horse battery staple';
+  
+        const session = await sut.registerWithEmailPassword(email, password);
+  
+        // THE PREDICATE MUST DISCRIMINATE, and this is the assertion that makes that true rather than
+        // stated. AT-001.01 requires the acknowledgment "before any project creation is possible";
+        // `has_platform_acknowledgment` is the observable form of that clause, and a constant-true
+        // implementation would satisfy every other assertion in this test. Asserting FALSE first, on
+        // a user who has authenticated and not completed signup, is what fails such an implementation.
+        //
+        // WHICH implementation, exactly: at this tier the assertion reaches the fixture adapter's
+        // storage query, so what it establishes is the rule and that storage. The shipped SQL
+        // predicate `public.has_platform_acknowledgment` is NOT reached from here and could return
+        // true unconditionally without turning this red. Step 7(h) of the plan is what proves that
+        // one, against the live database, and it is the only thing in this item that does.
+        expect(
+          await sut.hasPlatformAcknowledgment(session.accountId),
+          'a user who has authenticated but not completed signup must NOT hold the platform acknowledgment',
+        ).toBe(false);
+  
+        const completion = await sut.completeSignup(
+          session,
+          {
+            accountType: 'ngo',
+            organizationName: 'Riverside Shelter',
+            acknowledgmentTextVersion: TEXT_VERSION,
+          },
+          CLIENT_IP,
+        );
+        expect(completion, 'the NGO completion was refused').toMatchObject({ ok: true });
+        if (!completion.ok) return;
+        expect(completion.organizationId, 'an NGO completion produced no organisation').not.toBeNull();
+  
+        // (1) the global account type
+        expect(await sut.account(completion.accountId)).toEqual({
+          id: session.accountId,
           accountType: 'ngo',
-          organizationName: 'Riverside Shelter',
-          acknowledgmentTextVersion: TEXT_VERSION,
-        },
-        CLIENT_IP,
-      );
-      expect(completion, 'the NGO completion was refused').toMatchObject({ ok: true });
-      if (!completion.ok) return;
-      expect(completion.organizationId, 'an NGO completion produced no organisation').not.toBeNull();
-
-      // (1) the global account type
-      expect(await sut.account(completion.accountId)).toEqual({
-        id: session.accountId,
-        accountType: 'ngo',
-      });
-
-      // (2) the organisation, by the name that was asked for — not merely that one exists
-      expect(await sut.organization(completion.organizationId!)).toMatchObject({ name: 'Riverside Shelter' });
-
-      // (3) the membership, AND ITS ROLE. "an org membership with the admin role is created" is one
-      // clause with two halves, and a membership at the wrong role satisfies neither.
-      expect(await sut.membership(completion.organizationId!, completion.accountId)).toEqual({
-        organizationId: completion.organizationId,
-        accountId: completion.accountId,
-        role: 'admin',
-      });
-
-      // (4) the acknowledgment, carrying ALL THREE fields the criterion names. Each is asserted for
-      // its value, because a row with three empty strings in it records nothing while looking like
-      // a record.
-      const acknowledgments = await sut.acknowledgments(completion.accountId);
-      expect(acknowledgments, 'exactly one platform acknowledgment is recorded by one completion').toHaveLength(1);
-      const acknowledgment = acknowledgments[0];
-      expect(acknowledgment.textVersion, 'the acknowledgment must say WHICH text was accepted').toBe(TEXT_VERSION);
-      // The address as REPORTED, never a verified source address: on the live stack a spoofed
-      // header is stored verbatim. What this pins is that the reported value reaches the row intact.
-      expect(acknowledgment.ip, 'the acknowledgment must record the reported address').toBe(CLIENT_IP);
-      expect(
-        Number.isFinite(Date.parse(acknowledgment.acknowledgedAt)),
-        `the acknowledgment timestamp ${JSON.stringify(acknowledgment.acknowledgedAt)} is not a readable instant`,
-      ).toBe(true);
-
-      // The other half of the discriminating pair.
-      expect(
-        await sut.hasPlatformAcknowledgment(completion.accountId),
-        'the platform acknowledgment must be held once signup has completed',
-      ).toBe(true);
-
-      // "a later sign-in with the same email/password succeeds" — and returns to the SAME account,
-      // which is the part that would not hold if signup had minted a second identity.
-      const returning = await sut.signInWithEmailPassword(email, password);
-      expect(returning, 'the same credentials did not sign in again').toMatchObject({ ok: true });
-      if (!returning.ok) return;
-      expect(returning.session.accountId).toBe(session.accountId);
-
-      // THE ACKNOWLEDGMENT IS *REQUIRED*, and the happy path above does not establish that. An
-      // implementation that records the acknowledgment when one is offered and completes signup
-      // anyway when none is would satisfy every assertion so far — so the criterion's word
-      // "required" would be untested, which is the same as unmet. The refusal is asserted here, and
-      // with it that nothing was left behind: a completion that refuses AFTER writing the account
-      // row has not refused, it has half-succeeded.
-      const withoutAcknowledgment = await sut.registerWithEmailPassword(w.email('no-acknowledgment'), password);
-      const refused = await sut.completeSignup(
-        withoutAcknowledgment,
-        { accountType: 'ngo', organizationName: 'Riverside Shelter Annexe' },
-        CLIENT_IP,
-      );
-      expect(refused.ok, 'signup completed with no acknowledgment of the ToS and Platform Promise').toBe(false);
-      if (refused.ok) return;
-      expect(refused.reason, 'the refusal does not say the acknowledgment is what is missing').toMatch(/acknowledgment/i);
-      expect(
-        await sut.account(withoutAcknowledgment.accountId),
-        'the refused completion left an account row behind',
-      ).toBeNull();
-      expect(
-        await sut.hasPlatformAcknowledgment(withoutAcknowledgment.accountId),
-        'the refused completion recorded an acknowledgment anyway',
-      ).toBe(false);
+        });
+  
+        // (2) the organisation, by the name that was asked for — not merely that one exists
+        expect(await sut.organization(completion.organizationId!)).toMatchObject({ name: 'Riverside Shelter' });
+  
+        // (3) the membership, AND ITS ROLE. "an org membership with the admin role is created" is one
+        // clause with two halves, and a membership at the wrong role satisfies neither.
+        expect(await sut.membership(completion.organizationId!, completion.accountId)).toEqual({
+          organizationId: completion.organizationId,
+          accountId: completion.accountId,
+          role: 'admin',
+        });
+  
+        // (4) the acknowledgment, carrying ALL THREE fields the criterion names. Each is asserted for
+        // its value, because a row with three empty strings in it records nothing while looking like
+        // a record.
+        const acknowledgments = await sut.acknowledgments(completion.accountId);
+        expect(acknowledgments, 'exactly one platform acknowledgment is recorded by one completion').toHaveLength(1);
+        const acknowledgment = acknowledgments[0];
+        expect(acknowledgment.textVersion, 'the acknowledgment must say WHICH text was accepted').toBe(TEXT_VERSION);
+        // The address as REPORTED, never a verified source address: on the live stack a spoofed
+        // header is stored verbatim. What this pins is that the reported value reaches the row intact.
+        expect(acknowledgment.ip, 'the acknowledgment must record the reported address').toBe(CLIENT_IP);
+        expect(
+          Number.isFinite(Date.parse(acknowledgment.acknowledgedAt)),
+          `the acknowledgment timestamp ${JSON.stringify(acknowledgment.acknowledgedAt)} is not a readable instant`,
+        ).toBe(true);
+  
+        // The other half of the discriminating pair.
+        expect(
+          await sut.hasPlatformAcknowledgment(completion.accountId),
+          'the platform acknowledgment must be held once signup has completed',
+        ).toBe(true);
+  
+        // "a later sign-in with the same email/password succeeds" — and returns to the SAME account,
+        // which is the part that would not hold if signup had minted a second identity.
+        const returning = await sut.signInWithEmailPassword(email, password);
+        expect(returning, 'the same credentials did not sign in again').toMatchObject({ ok: true });
+        if (!returning.ok) return;
+        expect(returning.session.accountId).toBe(session.accountId);
+  
+        // THE ACKNOWLEDGMENT IS *REQUIRED*, and the happy path above does not establish that. An
+        // implementation that records the acknowledgment when one is offered and completes signup
+        // anyway when none is would satisfy every assertion so far — so the criterion's word
+        // "required" would be untested, which is the same as unmet. The refusal is asserted here, and
+        // with it that nothing was left behind: a completion that refuses AFTER writing the account
+        // row has not refused, it has half-succeeded.
+        const withoutAcknowledgment = await sut.registerWithEmailPassword(w.email('no-acknowledgment'), password);
+        const refused = await sut.completeSignup(
+          withoutAcknowledgment,
+          { accountType: 'ngo', organizationName: 'Riverside Shelter Annexe' },
+          CLIENT_IP,
+        );
+        expect(refused.ok, 'signup completed with no acknowledgment of the ToS and Platform Promise').toBe(false);
+        if (refused.ok) return;
+        expect(refused.reason, 'the refusal does not say the acknowledgment is what is missing').toMatch(/acknowledgment/i);
+        expect(
+          await sut.account(withoutAcknowledgment.accountId),
+          'the refused completion left an account row behind',
+        ).toBeNull();
+        expect(
+          await sut.hasPlatformAcknowledgment(withoutAcknowledgment.accountId),
+          'the refused completion recorded an acknowledgment anyway',
+        ).toBe(false);
+      },
+      integration: at00101,
     },
   );
 
@@ -430,166 +436,172 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
   atTest(
     'AT-001.05',
     'linking GitHub fires volunteer onboarding with the public stats observably imported',
-    async ({ open }) => {
-      const { w, sut } = await open();
-
-      // WHERE THE STATS COME FROM, STATED BEFORE THEY ARE ASSERTED SO NO GREEN CAN BE MISREAD.
-      //
-      // `stubGithubStatsFor` is a STUB. It calls nothing, fetches nothing, and reaches no part of
-      // GitHub. It is the "stub import fixture until W3" the decomposition manifest's own
-      // cross-contract ratifies, and the real import belongs to the volunteer-profile requirement in
-      // a later wave. So this test may NEVER be reported as "profile import from GitHub works".
-      //
-      // ASSERTING THE STUB'S EXACT VALUES IS NEVERTHELESS THE HONEST STRONG ORACLE HERE, because the
-      // stub IS the declared source: what the criterion puts under test is that onboarding FIRES and
-      // that what it produced arrives POPULATED on the profile, not that any statistic is true of a
-      // real person. A weaker "something non-empty is there" would pass against an implementation
-      // that wrote a placeholder, which is precisely the "queued-but-empty" state the criterion's
-      // last sentence forbids. Both strengths are asserted below: the structural non-emptiness AND
-      // the by-value equality.
-      const HANDLE = 'riverside-contributor';
-      const expected = stubGithubStatsFor(HANDLE);
-
-      const session = await sut.registerWithEmailPassword(w.email('volunteer-import'), PASSWORD);
-      await sut.linkGithubIdentity(session, HANDLE);
-
-      // THE PRE-COMPLETION NEGATIVE. The identity is linked and the signup has NOT completed, and at
-      // this instant there must be no profile at all.
-      //
-      // It is what makes the causal claim testable rather than merely stated. Without it, an
-      // implementation that populated the profile at link time — or one that had queued an empty row
-      // waiting to be filled — would satisfy every assertion after the completion below, and the
-      // criterion's "when the link completes, onboarding fires" would be untested. With it, the
-      // population is provably CAUSED by the completion and nothing sits queued in between.
-      expect(
-        await sut.volunteerProfile(session.accountId),
-        'a profile existed after linking and BEFORE completion — the import is not caused by completion, or an empty row is queued',
-      ).toBeNull();
-
-      const completion = await sut.completeSignup(
-        session,
-        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
-        CLIENT_IP,
-      );
-      expect(completion, 'the linked volunteer signup was refused, so onboarding had nothing to fire from').toMatchObject({
-        ok: true,
-      });
-      if (!completion.ok) return;
-
-      // IMMEDIATELY — the very next read after completion returns, with no retry, no polling and no
-      // queue to drain. If the import were deferred to a job, this read would find nothing, which is
-      // exactly the failure the criterion's last sentence describes.
-      const profile = await sut.volunteerProfile(completion.accountId);
-      expect(profile, 'volunteer onboarding did not fire: no profile exists after a linked completion').not.toBeNull();
-      if (!profile) return;
-
-      // "the linked handle AND the imported public stats … are observably populated on the profile"
-      // — all four values, each by its own assertion, because a row with three empty fields in it
-      // records nothing while looking like a record.
-      expect(profile.githubHandle, 'the profile does not carry the handle that was linked').toBe(HANDLE);
-
-      expect(
-        profile.topLanguages.length,
-        'top languages came back empty — a queued-but-empty import fails this test',
-      ).toBeGreaterThan(0);
-      expect(profile.topLanguages, 'top languages are not what the declared import source produced for this handle').toEqual(
-        expected.topLanguages,
-      );
-
-      expect(
-        Number.isInteger(profile.repositoryCount) && profile.repositoryCount >= 0,
-        `repository count ${JSON.stringify(profile.repositoryCount)} is not a non-negative whole number of repositories`,
-      ).toBe(true);
-      expect(profile.repositoryCount).toBe(expected.repositoryCount);
-
-      expect(
-        profile.contributionSummary.trim(),
-        'the contribution summary is blank — a queued-but-empty import fails this test',
-      ).not.toBe('');
-      expect(profile.contributionSummary).toBe(expected.contributionSummary);
-
-      // The import landed WITH the account, not merely near it: the account exists, holds the
-      // volunteer type, and the acknowledgment of the same completion is recorded. All of it or none
-      // of it — which is the shape the database's single-transaction write path guarantees and the
-      // reason "queued-but-empty" is unrepresentable here rather than merely untested.
-      expect(await sut.account(completion.accountId)).toMatchObject({ accountType: 'volunteer' });
-      expect(
-        await sut.hasPlatformAcknowledgment(completion.accountId),
-        'the completion that fired the import recorded no acknowledgment, so the rows did not land together',
-      ).toBe(true);
+    {
+      default: async ({ open }) => {
+        const { w, sut } = await open();
+  
+        // WHERE THE STATS COME FROM, STATED BEFORE THEY ARE ASSERTED SO NO GREEN CAN BE MISREAD.
+        //
+        // `stubGithubStatsFor` is a STUB. It calls nothing, fetches nothing, and reaches no part of
+        // GitHub. It is the "stub import fixture until W3" the decomposition manifest's own
+        // cross-contract ratifies, and the real import belongs to the volunteer-profile requirement in
+        // a later wave. So this test may NEVER be reported as "profile import from GitHub works".
+        //
+        // ASSERTING THE STUB'S EXACT VALUES IS NEVERTHELESS THE HONEST STRONG ORACLE HERE, because the
+        // stub IS the declared source: what the criterion puts under test is that onboarding FIRES and
+        // that what it produced arrives POPULATED on the profile, not that any statistic is true of a
+        // real person. A weaker "something non-empty is there" would pass against an implementation
+        // that wrote a placeholder, which is precisely the "queued-but-empty" state the criterion's
+        // last sentence forbids. Both strengths are asserted below: the structural non-emptiness AND
+        // the by-value equality.
+        const HANDLE = 'riverside-contributor';
+        const expected = stubGithubStatsFor(HANDLE);
+  
+        const session = await sut.registerWithEmailPassword(w.email('volunteer-import'), PASSWORD);
+        await sut.linkGithubIdentity(session, HANDLE);
+  
+        // THE PRE-COMPLETION NEGATIVE. The identity is linked and the signup has NOT completed, and at
+        // this instant there must be no profile at all.
+        //
+        // It is what makes the causal claim testable rather than merely stated. Without it, an
+        // implementation that populated the profile at link time — or one that had queued an empty row
+        // waiting to be filled — would satisfy every assertion after the completion below, and the
+        // criterion's "when the link completes, onboarding fires" would be untested. With it, the
+        // population is provably CAUSED by the completion and nothing sits queued in between.
+        expect(
+          await sut.volunteerProfile(session.accountId),
+          'a profile existed after linking and BEFORE completion — the import is not caused by completion, or an empty row is queued',
+        ).toBeNull();
+  
+        const completion = await sut.completeSignup(
+          session,
+          { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+          CLIENT_IP,
+        );
+        expect(completion, 'the linked volunteer signup was refused, so onboarding had nothing to fire from').toMatchObject({
+          ok: true,
+        });
+        if (!completion.ok) return;
+  
+        // IMMEDIATELY — the very next read after completion returns, with no retry, no polling and no
+        // queue to drain. If the import were deferred to a job, this read would find nothing, which is
+        // exactly the failure the criterion's last sentence describes.
+        const profile = await sut.volunteerProfile(completion.accountId);
+        expect(profile, 'volunteer onboarding did not fire: no profile exists after a linked completion').not.toBeNull();
+        if (!profile) return;
+  
+        // "the linked handle AND the imported public stats … are observably populated on the profile"
+        // — all four values, each by its own assertion, because a row with three empty fields in it
+        // records nothing while looking like a record.
+        expect(profile.githubHandle, 'the profile does not carry the handle that was linked').toBe(HANDLE);
+  
+        expect(
+          profile.topLanguages.length,
+          'top languages came back empty — a queued-but-empty import fails this test',
+        ).toBeGreaterThan(0);
+        expect(profile.topLanguages, 'top languages are not what the declared import source produced for this handle').toEqual(
+          expected.topLanguages,
+        );
+  
+        expect(
+          Number.isInteger(profile.repositoryCount) && profile.repositoryCount >= 0,
+          `repository count ${JSON.stringify(profile.repositoryCount)} is not a non-negative whole number of repositories`,
+        ).toBe(true);
+        expect(profile.repositoryCount).toBe(expected.repositoryCount);
+  
+        expect(
+          profile.contributionSummary.trim(),
+          'the contribution summary is blank — a queued-but-empty import fails this test',
+        ).not.toBe('');
+        expect(profile.contributionSummary).toBe(expected.contributionSummary);
+  
+        // The import landed WITH the account, not merely near it: the account exists, holds the
+        // volunteer type, and the acknowledgment of the same completion is recorded. All of it or none
+        // of it — which is the shape the database's single-transaction write path guarantees and the
+        // reason "queued-but-empty" is unrepresentable here rather than merely untested.
+        expect(await sut.account(completion.accountId)).toMatchObject({ accountType: 'volunteer' });
+        expect(
+          await sut.hasPlatformAcknowledgment(completion.accountId),
+          'the completion that fired the import recorded no acknowledgment, so the rows did not land together',
+        ).toBe(true);
+      },
+      integration: at00105,
     },
   );
 
   atTest(
     'AT-001.06',
     'a volunteer is refused the NGO-only action while an NGO account performs it successfully',
-    async ({ open }) => {
-      const { w, sut } = await open();
-
-      // THE CONTROL IS NOT OPTIONAL. A rejection with no working control proves only that the path
-      // is broken — an operation that refuses everybody would pass the negative half on its own. So
-      // the NGO succeeds FIRST, and the volunteer's refusal is then attributable to the account
-      // type and to nothing else.
-      const ngoSession = await sut.registerWithEmailPassword(w.email('ngo-actor'), 'correct horse battery staple');
-      const ngoCompletion = await sut.completeSignup(
-        ngoSession,
-        { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
-        CLIENT_IP,
-      );
-      expect(ngoCompletion, 'the NGO control could not complete signup').toMatchObject({ ok: true });
-      if (!ngoCompletion.ok) return;
-
-      const ngoAction = await sut.createOrganization(ngoSession, 'Riverside Shelter Second Programme');
-      expect(ngoAction, 'the NGO control was refused the NGO-only action, so the refusal below proves nothing').toMatchObject({
-        ok: true,
-      });
-      if (!ngoAction.ok) return;
-      // The control SUCCEEDED, observably: the organisation exists and the actor is its admin.
-      expect(await sut.organization(ngoAction.organizationId)).toMatchObject({
-        name: 'Riverside Shelter Second Programme',
-      });
-      expect(await sut.membership(ngoAction.organizationId, ngoCompletion.accountId)).toMatchObject({ role: 'admin' });
-
-      // Now the volunteer, driven through THE SAME BOUNDARY — the `create-organization` operation,
-      // not the helper behind it. Calling `ngoOnlyActionAllowed` here would prove a helper behaves
-      // and say nothing about whether the application enforces it.
-      const volunteerSession = await sut.registerWithEmailPassword(w.email('volunteer-actor'), PASSWORD);
-      // A PRECONDITION, not part of what this test asserts: since the GitHub leaf a volunteer cannot
-      // complete signup without a linked GitHub identity. The refusal under test below is the
-      // NGO-only one, and it must be attributable to the account type — so the volunteer has to
-      // reach the state of being a fully signed-up volunteer first. AT-001.04 owns the link rule and
-      // tests it; the assertions in this test are unchanged.
-      await sut.linkGithubIdentity(volunteerSession, 'volunteer-actor-handle');
-      const volunteerCompletion = await sut.completeSignup(
-        volunteerSession,
-        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
-        CLIENT_IP,
-      );
-      expect(volunteerCompletion, 'the volunteer could not complete signup, so the refusal below is not the one under test').toMatchObject({
-        ok: true,
-      });
-      if (!volunteerCompletion.ok) return;
-
-      const REFUSED_NAME = 'Riverside Shelter Copy';
-      const volunteerAction = await sut.createOrganization(volunteerSession, REFUSED_NAME);
-      expect(volunteerAction.ok, 'a volunteer account performed an NGO-only action').toBe(false);
-      if (volunteerAction.ok) return;
-
-      // "THE ACTION IS REJECTED" INCLUDES ITS WRITES NOT HAPPENING. The weakest implementation that
-      // passes the assertion above writes the organisation and its membership and then reports a
-      // refusal, which is not a rejection — it is a success with a rude message. So: the volunteer
-      // holds no membership anywhere, and no organisation by the attempted name exists.
-      const organizations = await sut.organizationsNamed(REFUSED_NAME);
-      expect(organizations, `the refused action created an organisation named ${JSON.stringify(REFUSED_NAME)}`).toEqual([]);
-      expect(
-        await sut.membershipsOf(volunteerCompletion.accountId),
-        'the refused action left the volunteer holding a membership',
-      ).toEqual([]);
-      // The refusal must STATE why. A bare failure leaves the caller unable to act, and the
-      // criterion's own wording — "one account holds exactly one global type; the NGO path requires
-      // a separate account" — is what the reason has to convey.
-      expect(volunteerAction.reason).toMatch(/NGO accounts only/i);
-      expect(volunteerAction.reason).toMatch(/volunteer/i);
+    {
+      default: async ({ open }) => {
+        const { w, sut } = await open();
+  
+        // THE CONTROL IS NOT OPTIONAL. A rejection with no working control proves only that the path
+        // is broken — an operation that refuses everybody would pass the negative half on its own. So
+        // the NGO succeeds FIRST, and the volunteer's refusal is then attributable to the account
+        // type and to nothing else.
+        const ngoSession = await sut.registerWithEmailPassword(w.email('ngo-actor'), 'correct horse battery staple');
+        const ngoCompletion = await sut.completeSignup(
+          ngoSession,
+          { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+          CLIENT_IP,
+        );
+        expect(ngoCompletion, 'the NGO control could not complete signup').toMatchObject({ ok: true });
+        if (!ngoCompletion.ok) return;
+  
+        const ngoAction = await sut.createOrganization(ngoSession, 'Riverside Shelter Second Programme');
+        expect(ngoAction, 'the NGO control was refused the NGO-only action, so the refusal below proves nothing').toMatchObject({
+          ok: true,
+        });
+        if (!ngoAction.ok) return;
+        // The control SUCCEEDED, observably: the organisation exists and the actor is its admin.
+        expect(await sut.organization(ngoAction.organizationId)).toMatchObject({
+          name: 'Riverside Shelter Second Programme',
+        });
+        expect(await sut.membership(ngoAction.organizationId, ngoCompletion.accountId)).toMatchObject({ role: 'admin' });
+  
+        // Now the volunteer, driven through THE SAME BOUNDARY — the `create-organization` operation,
+        // not the helper behind it. Calling `ngoOnlyActionAllowed` here would prove a helper behaves
+        // and say nothing about whether the application enforces it.
+        const volunteerSession = await sut.registerWithEmailPassword(w.email('volunteer-actor'), PASSWORD);
+        // A PRECONDITION, not part of what this test asserts: since the GitHub leaf a volunteer cannot
+        // complete signup without a linked GitHub identity. The refusal under test below is the
+        // NGO-only one, and it must be attributable to the account type — so the volunteer has to
+        // reach the state of being a fully signed-up volunteer first. AT-001.04 owns the link rule and
+        // tests it; the assertions in this test are unchanged.
+        await sut.linkGithubIdentity(volunteerSession, 'volunteer-actor-handle');
+        const volunteerCompletion = await sut.completeSignup(
+          volunteerSession,
+          { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+          CLIENT_IP,
+        );
+        expect(volunteerCompletion, 'the volunteer could not complete signup, so the refusal below is not the one under test').toMatchObject({
+          ok: true,
+        });
+        if (!volunteerCompletion.ok) return;
+  
+        const REFUSED_NAME = 'Riverside Shelter Copy';
+        const volunteerAction = await sut.createOrganization(volunteerSession, REFUSED_NAME);
+        expect(volunteerAction.ok, 'a volunteer account performed an NGO-only action').toBe(false);
+        if (volunteerAction.ok) return;
+  
+        // "THE ACTION IS REJECTED" INCLUDES ITS WRITES NOT HAPPENING. The weakest implementation that
+        // passes the assertion above writes the organisation and its membership and then reports a
+        // refusal, which is not a rejection — it is a success with a rude message. So: the volunteer
+        // holds no membership anywhere, and no organisation by the attempted name exists.
+        const organizations = await sut.organizationsNamed(REFUSED_NAME);
+        expect(organizations, `the refused action created an organisation named ${JSON.stringify(REFUSED_NAME)}`).toEqual([]);
+        expect(
+          await sut.membershipsOf(volunteerCompletion.accountId),
+          'the refused action left the volunteer holding a membership',
+        ).toEqual([]);
+        // The refusal must STATE why. A bare failure leaves the caller unable to act, and the
+        // criterion's own wording — "one account holds exactly one global type; the NGO path requires
+        // a separate account" — is what the reason has to convey.
+        expect(volunteerAction.reason).toMatch(/NGO accounts only/i);
+        expect(volunteerAction.reason).toMatch(/volunteer/i);
+      },
+      integration: at00106,
     },
   );
 
@@ -597,56 +609,59 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
     'AT-001.07',
     'a provisioned platform admin authenticates and carries the type; public signup offers only the two',
     { surface: 'ui' },
-    async ({ open }) => {
-      const { w, sut } = await open();
-
-      // Clause one, at the tier this test actually runs at. Two different strengths of evidence sit
-      // in this test and the difference is the whole point of the comment:
-      //
-      //   - that the public completion path REFUSES to mint a `platform_admin` (the third block) is
-      //     a real property of the shipped decision module — `validateCompleteSignup` in
-      //     `supabase/functions/_shared/accounts.ts`, which this suite imports rather than copies;
-      //   - that the type is CARRIED — provisioned with it, reads back with it, and a session
-      //     resolves to the same account — is the ADAPTER'S STORAGE answering, not shipped code.
-      //     Provisioning and sign-in are fixture stand-ins here, so this half proves the test is
-      //     well-formed and says nothing about the real schema or a real Auth.
-      //
-      // IT IS NOT A CLAIM THAT AN ADMINISTRATOR REALLY AUTHENTICATES, and this comment used to make
-      // one: `provisionPlatformAdmin` writes into a Map two lines below. A real administrator, in a
-      // real Auth, really signing in against the real schema is step 7(g) of the plan, on the live
-      // stack, and the per-id table assigns that clause there and not here.
-      const adminEmail = w.email('platform-admin');
-      const adminPassword = 'correct horse battery staple';
-      const provisioned = await sut.provisionPlatformAdmin(adminEmail, adminPassword);
-
-      const signedIn = await sut.signInWithEmailPassword(adminEmail, adminPassword);
-      expect(signedIn, 'the provisioned platform admin could not sign in').toMatchObject({ ok: true });
-      if (!signedIn.ok) return;
-      expect(signedIn.session.accountId).toBe(provisioned.accountId);
-      expect(
-        await sut.account(signedIn.session.accountId),
-        'the signed-in administrator does not carry the platform_admin global type',
-      ).toMatchObject({ accountType: 'platform_admin' });
-
-      // Clause two: "the public signup surfaces offer only NGO/volunteer". Exact equality, not
-      // containment — a third option added later must fail this.
-      expect(await sut.publicSignupAccountTypes()).toEqual(['ngo', 'volunteer']);
-
-      // Clause two, in its behavioural form, because a list is a claim and a refusal is a fact. The
-      // public completion path must REFUSE the administrator type and leave no account behind.
-      const visitor = await sut.registerWithEmailPassword(w.email('would-be-admin'), adminPassword);
-      const escalation = await sut.completeSignup(
-        visitor,
-        { accountType: 'platform_admin', acknowledgmentTextVersion: TEXT_VERSION },
-        CLIENT_IP,
-      );
-      expect(escalation.ok, 'the public signup path minted a platform administrator').toBe(false);
-      if (escalation.ok) return;
-      expect(escalation.reason).toMatch(/platform_admin/);
-      expect(
-        await sut.account(visitor.accountId),
-        'the refused escalation left an account row behind',
-      ).toBeNull();
+    {
+      default: async ({ open }) => {
+        const { w, sut } = await open();
+  
+        // Clause one, at the tier this test actually runs at. Two different strengths of evidence sit
+        // in this test and the difference is the whole point of the comment:
+        //
+        //   - that the public completion path REFUSES to mint a `platform_admin` (the third block) is
+        //     a real property of the shipped decision module — `validateCompleteSignup` in
+        //     `supabase/functions/_shared/accounts.ts`, which this suite imports rather than copies;
+        //   - that the type is CARRIED — provisioned with it, reads back with it, and a session
+        //     resolves to the same account — is the ADAPTER'S STORAGE answering, not shipped code.
+        //     Provisioning and sign-in are fixture stand-ins here, so this half proves the test is
+        //     well-formed and says nothing about the real schema or a real Auth.
+        //
+        // IT IS NOT A CLAIM THAT AN ADMINISTRATOR REALLY AUTHENTICATES, and this comment used to make
+        // one: `provisionPlatformAdmin` writes into a Map two lines below. A real administrator, in a
+        // real Auth, really signing in against the real schema is step 7(g) of the plan, on the live
+        // stack, and the per-id table assigns that clause there and not here.
+        const adminEmail = w.email('platform-admin');
+        const adminPassword = 'correct horse battery staple';
+        const provisioned = await sut.provisionPlatformAdmin(adminEmail, adminPassword);
+  
+        const signedIn = await sut.signInWithEmailPassword(adminEmail, adminPassword);
+        expect(signedIn, 'the provisioned platform admin could not sign in').toMatchObject({ ok: true });
+        if (!signedIn.ok) return;
+        expect(signedIn.session.accountId).toBe(provisioned.accountId);
+        expect(
+          await sut.account(signedIn.session.accountId),
+          'the signed-in administrator does not carry the platform_admin global type',
+        ).toMatchObject({ accountType: 'platform_admin' });
+  
+        // Clause two: "the public signup surfaces offer only NGO/volunteer". Exact equality, not
+        // containment — a third option added later must fail this.
+        expect(await sut.publicSignupAccountTypes()).toEqual(['ngo', 'volunteer']);
+  
+        // Clause two, in its behavioural form, because a list is a claim and a refusal is a fact. The
+        // public completion path must REFUSE the administrator type and leave no account behind.
+        const visitor = await sut.registerWithEmailPassword(w.email('would-be-admin'), adminPassword);
+        const escalation = await sut.completeSignup(
+          visitor,
+          { accountType: 'platform_admin', acknowledgmentTextVersion: TEXT_VERSION },
+          CLIENT_IP,
+        );
+        expect(escalation.ok, 'the public signup path minted a platform administrator').toBe(false);
+        if (escalation.ok) return;
+        expect(escalation.reason).toMatch(/platform_admin/);
+        expect(
+          await sut.account(visitor.accountId),
+          'the refused escalation left an account row behind',
+        ).toBeNull();
+      },
+      integration: at00107,
     },
   );
 });
