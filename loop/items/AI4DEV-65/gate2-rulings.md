@@ -116,4 +116,13 @@ a panel gives — and the fix is to state the boundary, which is what [1] orders
 
 ## Verify-first outcome addendum
 
-(Written after the executor's probes; empty until then.)
+**Branch B held.** Probe 1 on the slot-1 database: `feff_is_posix_blank` = `false` — U+FEFF is
+not in the POSIX class there, so the constraints accept a FEFF-only value. Probe 2 in the
+suite's runtime (bun 1.3.14): `'﻿'.trim() === ''` is `true` — the validation layer refuses
+the same value as blank. The divergence terra named is real and confined to the trusted-key
+boundary of [1]. The ruled extension is in the migration comment ("THE TWO BLANK FLOORS ARE
+NOT THE SAME WIDTH"); both probe outputs are verbatim in
+`loop/items/AI4DEV-65/artifacts/verify-first-feff.txt`, committed at the code head. Terra's
+second suggested probe — a direct service-role completion — was not run: class membership
+settles the constraint's behavior mechanically, and both branches were pre-ruled, so the extra
+write would have measured nothing the first probe left open.
