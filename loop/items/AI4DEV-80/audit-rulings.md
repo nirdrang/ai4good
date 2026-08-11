@@ -113,3 +113,33 @@ not the full range; the scope box alone re-checks the full range. The re-run pro
 the rebuilt claim checklist are `audit-rerun-luna-prompt.txt` and
 `audit-rerun-flash-prompt.txt`, byte-identical by design. The conductor launches the
 runners; a fresh audit sitting rules on the re-run.
+
+## Addendum — the executor's pass under AUD-1, ruled
+
+Written after the executor's report, same sitting. Fix commits: `ef85ecf` (A15 plus its
+RED capture), `92d8ec0` (the pin, the GREEN capture, the refreshed evidence).
+
+**Executor proposed judgment — the isolated fixture root: RATIFIED.** My work order
+predicted a RED with A15 as the ONLY failing assert, and also asked the A15 fixture to
+join the shared fixture store. The executor showed those two cannot both hold: in the
+shared store the leaked rows also turn A2, A9 and A11 red — four failures for one defect,
+and a forced stop. It placed the A15 session in an ISOLATED SECOND FIXTURE ROOT inside
+the selftest's temp store instead. Ruling: this is the better construction, ratified —
+the mechanism under test is per session, a second root exercises the identical code path,
+every A1-A14 oracle stays byte-unchanged, and the RED names the defect exactly
+(`leakedTo` on both leaked responses). The alternative would have churned oracles this
+audit had already cleared.
+
+**The RED matched the predicted pattern**: exit 1, A15 the only FAIL, A1-A14 PASS,
+captured against the audited head's report code (`selftest-a15-red.txt`). GREEN on the
+first iteration: exit 0, fifteen asserts (`selftest-a15-green.txt`).
+
+**Measured on the live store after the fix** (evidence refreshed at the fix head:
+`report-after.txt`, `report-after-79.txt`, `after-delta.md`): unattributed share 67.5%,
+transcript files 924, responses 49336, attributed responses 21345, the `tree` source at
+4445 responses across 14 items. **The pin itself moves nothing on today's store** — the
+executor ran the audited code and the fixed code back to back with identical parameters
+and got identical output; the small drift against the goal-head numbers is store growth,
+and `after-delta.md` section 5 records that A/B measurement. So AUD-1 corrects semantics
+that today's store does not yet exercise — exactly the kind of defect only a reading
+audit finds.
