@@ -39,11 +39,15 @@ function Emit([string]$l1, [string]$l2, [string[]]$extra, [string]$pm, [string]$
     # The batch attribute is ADDITIVE (founder 2026-08-11): a batched partner must reach the
     # machine tag too, or every report over the attribution log under-counts the partner's work.
     # Parsers reading pm/dev are unaffected; the attribute appears only when a partner rides.
+    # The short session tag reaches the machine line too (additive, founder 2026-08-11), so the
+    # attribution log can group prompts by session without parsing the human lines.
+    $sess = ''
+    if ($script:SessionId -and $script:SessionId.Length -ge 8) { $sess = (' session="' + $script:SessionId.Substring(0, 8) + '"') }
     if ($script:BatchAttr) {
-        Write-Output ('<ai4good-attribution pm="{0}" dev="{1}" batch="{2}"/>' -f $pm, $dev, $script:BatchAttr)
+        Write-Output ('<ai4good-attribution pm="{0}" dev="{1}" batch="{2}"{3}/>' -f $pm, $dev, $script:BatchAttr, $sess)
     }
     else {
-        Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"/>' -f $pm, $dev)
+        Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"{2}/>' -f $pm, $dev, $sess)
     }
     foreach ($e in $extra) { if ($e) { Write-Output $e } }
     foreach ($a in $script:AgentLines) { if ($a) { Write-Output $a } }
@@ -284,7 +288,15 @@ try {
 
     # "folder", not "wt": an abbreviation nobody outside this repository can expand is exactly the
     # shorthand the founder's standing instruction forbids, and this line is read by the founder.
+    # The SHORT SESSION TAG (founder 2026-08-11: "I want a hash or something unique that can
+    # identify the session... short since session ids are long"): the first 8 characters of the
+    # session id — already random hex, so no hashing is needed, and the founder can match it to
+    # a window at a glance. A new tag after a compact or resume is a FEATURE: identity rotation
+    # becomes visible instead of silent. Child re-runs carry no session id and print no tag.
     $line2 = ('folder {0} - branch {1}' -f $wt, $branch)
+    if ($script:SessionId -and $script:SessionId.Length -ge 8) {
+        $line2 += (' - session ' + $script:SessionId.Substring(0, 8))
+    }
 
     # CONFLICT outranks everything. Never pick a side: exactly one of the two describes work that
     # is not happening, and that is the condition the old design could never see.
