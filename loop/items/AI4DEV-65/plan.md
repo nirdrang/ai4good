@@ -186,7 +186,7 @@ Commands, in order, all exit 0:
 
 | command | proves |
 |---|---|
-| `bun run at:check` | every expected id has exactly one call site |
+| `bun run at:check req-001` and `bun run at:check req-016` | every expected id has exactly one call site (the command takes one requirement per run) |
 | `bun run typecheck` | the suite and src typecheck |
 | `bun run at:verify req-001 --tier loop --expect` | loop exact-match below |
 | `bun run at:verify req-016 --tier loop --expect` | the other manifest is untouched |
