@@ -1,0 +1,38 @@
+Severity scale: critical = deployment-wide outage; high = mandatory acceptance behavior can be absent despite green verification; medium = narrower invariant or verification gap.
+
+[1] severity: critical    loop/items/AI4DEV-65/plan.md:67
+    claim: The proposed `default null` parameters do not provide a viable rolling-deployment bridge.
+    why it matters: Migration-first makes the current edge omit signer arguments, whose null defaults then violate the new `not null` columns; edge-first sends `p_signer_*` names the old function does not recognize. Every signup therefore fails during either mixed-plane window. Rehearsing both deployment orders and submitting a completion would settle this.
+    unverified-runtime-claim: yes
+
+[2] severity: high    loop/items/AI4DEV-65/plan.md:116
+    claim: AT-001.20 directly imports an otherwise unused constant, so it cannot prove the ratified “When displayed” behavior.
+    why it matters: Both tiers remain green if no product surface imports or displays the copy—or if the module is absent from the deployed function graph. The plan explicitly excludes UI while declaring the entire acceptance id green.
+    unverified-runtime-claim: no
+
+[3] severity: high    loop/items/AI4DEV-65/plan.md:124
+    claim: Validation checks only that `authorityAttestation` is nonblank and never establishes that it affirms the server-owned authority statement.
+    why it matters: A valid request containing `authorityAttestation: "I am not authorized"` is trimmed, accepted, and stored as an authority attestation despite contradicting the required authority to bind, fund, and accept no-SLA terms; none of the planned tests supplies a wrong-content counterexample.
+    unverified-runtime-claim: no
+
+[4] severity: high    loop/items/AI4DEV-65/plan.md:84
+    claim: The migration has no executable upgrade path for an acknowledgment table containing existing rows.
+    why it matters: Adding a `text not null` column without a default immediately aborts on any nonempty staging or deployed database; calling that failure “loud” does not complete the migration. A row census in every target environment or a migration rehearsal against a populated snapshot would settle the stated empty-database assumption.
+    unverified-runtime-claim: yes
+
+[5] severity: medium    loop/items/AI4DEV-65/plan.md:129
+    claim: The migration’s done-criterion omits the PostgREST schema-cache reload required after recreating `complete_signup`.
+    why it matters: The existing migration states that without `notify pgrst, 'reload schema'`, the first RPC sees the stale signature and fails instead of completing signup. Apply the migration without restarting PostgREST and immediately call the new signature to verify this behavior.
+    unverified-runtime-claim: yes
+
+[6] severity: medium    loop/items/AI4DEV-65/plan.md:107
+    claim: AT-001.39 claims to prove absence of every write but checks only the account, acknowledgment rows, and acknowledgment predicate.
+    why it matters: A refusal that leaves an organization or membership behind still satisfies the listed assertions, so the planned green does not prove its own no-partial-state promise. The existing `organizationsNamed` and `membershipsOf` observables can close this gap.
+    unverified-runtime-claim: no
+
+[7] severity: medium    loop/items/AI4DEV-65/plan.md:25
+    claim: The proposed `length(btrim(...)) > 0` constraints do not reject all whitespace-only signer fields.
+    why it matters: PostgreSQL’s one-argument `btrim` strips spaces but not tabs and other whitespace, as the current GitHub migration already documents; a direct database caller can therefore store tab-only name, title, and attestation values, contradicting the claim that these constraints force meaningful fields for future acknowledgment paths.
+    unverified-runtime-claim: no
+
+PLAN REVIEW: 7 FINDINGS
