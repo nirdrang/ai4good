@@ -43,6 +43,49 @@
         "AT-001.33": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.34": { "kind": "pending", "phase": "sut-missing" }
       }
+    },
+    "integration": {
+      "green": [
+        "AT-001.01",
+        "AT-001.06",
+        "AT-001.07",
+        "AT-001.09",
+        "AT-001.12",
+        "AT-001.13",
+        "AT-001.14",
+        "AT-001.38"
+      ],
+      "red": {
+        "AT-001.02": { "kind": "capability-pending", "capabilities": ["sut.accounts.registerWithGithub"] },
+        "AT-001.03": { "kind": "capability-pending", "capabilities": ["sut.accounts.registerWithProvider"] },
+        "AT-001.04": { "kind": "capability-pending", "capabilities": ["sut.accounts.registerWithProvider"] },
+        "AT-001.05": { "kind": "capability-pending", "capabilities": ["vendors.github-public-statistics"] },
+        "AT-001.10": { "kind": "capability-pending", "capabilities": ["sut.accounts.sendDiscoveryMessage"] },
+        "AT-001.16": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.36": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.37": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.17": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.18": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.19": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.39": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.20": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.21": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.22": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.23": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.40": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.24": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.25": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.26": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.27": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.28": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.35": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.29": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.30": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.31": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.32": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.33": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.34": { "kind": "pending", "phase": "sut-missing" }
+      }
     }
   }
 }

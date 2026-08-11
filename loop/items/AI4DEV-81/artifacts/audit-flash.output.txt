@@ -1,0 +1,124 @@
+﻿# AUDIT â€” AI4DEV-81 (per-item integration verification) at the pinned head
+
+**Instrument note.** This cage has no shell, so `git diff` itself could not be run. For every claim that is a pure reading of the tree I traced the code character by character. For claims whose truth is the diff itself (B1's exclusivity, B2's "nothing changed", C2's insertion arithmetic, A11's "comment-only"), I graded the current tree's full consistency with the claim and cite the item's own recorded diff instruments (gate-2 ruling F5 ran `git diff 466880d...HEAD` with the exact instrument; `goal-evidence.md` records the run outputs). Where the diff is the only possible evidence, I say so beside the verdict rather than pretending to have recomputed it. Execution evidence (selftest counts, integration runs) is cited from the record per the brief, never re-derived.
+
+One caution was carried: the harness files in B1 had only one landed external reading; my verdicts on them below are a fresh reading, and I flag where my reading is the only one.
+
+---
+
+## A. Adopted rulings
+
+**A1 â€” PASS.** `prepare()` mints the nonce and writes it AFTER the reset and migration proof: `db-pool.ts:1287-1288` (`mintAttestationNonce()` â†’ `writeAttestation(slotTarget(slot), read, attestation)`), ordered after `resetSlotDatabase` (`:1274`) and `proveMigrationsReplayed` (`:1276`). The child reads it back through the supplied coordinates: `attestation.ts:157-208` (`attestSlot`) refuses on absent dbUrl (`:159`), absent nonce naming `AT_SLOT_ATTESTATION` (`:160-165`), read failure (`:182-188`), wrong row count (`:190-195`) and nonce mismatch (`:196-201`). The nonce reaches the child via `stackEnv` â†’ `AT_SLOT_ATTESTATION` (`db-pool.ts:1338`, `runner.ts:1366`).
+
+**A2 â€” PASS.** `liveSutCapability` (`capabilities.ts:492-554`) grants `real` only for exact `sut.<key>` names (`:499-505`), refuses witness-table names (`:506-512`), refuses empty (`:513-519`) and duplicated (`:520-526`) enumerations, requires every enumerated name to exist on the loaded surface (`:527-535` via `authoredMethod`), and requires the branded slot attestation (`:536-543`). Nothing grants `real` by prefix: the route's own comment states it (`:476-479`), and the selftest `live-ledger.selftest.ts:421-441` refuses `clock.controlled`, `vendors.email`, `fixtures.worlds`, bare `accounts` and empty `sut.`.
+
+**A3 â€” PASS.** `buildLiveLedger` (`index.ts:337-447`) attests first (`:344-348`), constructs `createAttestedRealClock` (`:350`), `createLiveEmail` from the slot's own reported `mailUrl` (`:353`), and the probe happens inside `createLiveEmail` before any grant (`live-email.ts:115-158`); the sim branch of the loop path is untouched (`index.ts:193-200`) and the `vendors.email` witness keeps its sim seam branch (`capabilities.ts:243-254`).
+
+**A4 â€” PASS.** `AttestedRealClock` has only `now()` (`clock.ts:18-22`); the `clock.controlled` witness gained the attested-real branch granting only on `attestationOf(value, 'clock.controlled')` (`capabilities.ts:227-233`); per-tier context types subtract the seam at integration â€” `TierHarness<T>` (`contracts.ts:400-407`) gives integration bodies `RealClock`/`LiveVendors`, and `registry.ts:284` hands bodies `h: TierHarness<T>`, so `freezeAt`/`advance` in an integration body is a compile error. `_integration.ts:33` types its context at `'integration'`.
+
+**A5 â€” PASS.** `pendingMethodProxy` (`capabilities.ts:629-664`) throws `CapabilityPending([`${capabilityName}.${property}`])` on read (`:643`); `index.ts:421` constructs it with `name = 'sut.' + key`, so the refusal names `sut.accounts.<method>`. Selftests: `live-ledger.selftest.ts:93-110` asserts the exact name.
+
+**A6 â€” PASS.** `SLOT_JWT_EXPIRY_SECONDS = 120` (`db-pool.ts:338`); `generateSlotConfig` rewrites the active `[auth] jwt_expiry` line to it (`:355-368`) and fails closed on absence (`:356-361`). Grep across `tests/at` and `supabase` finds no transient override, no restore and no other writer â€” the only other occurrences are the generator, selftests, and comments. Selftest asserts it is the only new difference: `db-pool.selftest.ts:395-424` (`changed.length === mappings.length + 2`).
+
+**A7 â€” PASS.** `at00113` (`_integration.ts:497-566`) builds a real supabase-js client with `autoRefreshToken: true, persistSession: false` (`:99-110`), then only waits and polls `getSession()` (`:536-543`) â€” no refresh call of any kind exists in the body.
+
+**A8 â€” PASS.** `at00109` iterates `['ngo', 'volunteer']` (`_integration.ts:358`), each iteration completing signup as its type.
+
+**A9 â€” PASS.** `at00101` (`_integration.ts:156-237`): account type NGO (`:175`), org row (`:176`), admin membership (`:177-181`), acknowledgment with text version (`:185`), IP (`:188`), timestamp (`:189-192`), pre-project gate discriminating falseâ†’true (`:161-164`, `:194-197`), later sign-in to the same account (`:199-202`), refusal arm (`:227-236`).
+
+**A10 â€” PASS.** `req-001.json` integration block (green = .01, .06, .07, .09, .12, .13, .14, .38; red = .02/.03/.04 registerWithProvider-family, .05 `vendors.github-public-statistics`, .10 `sut.accounts.sendDiscoveryMessage`, plus the 24 `pending/sut-missing`) matches the plan's settled table (`plan.md:242-254`) and the refusal bodies (`_integration.ts:636-667`); `req-016.json` integration (12 red `capability-pending`, `fixtures.worlds`+`sut.notifications`) matches D7 (`plan.md:256-257`).
+
+**A11 â€” PASS.** The comment at `ci.yml:45-57` states both explanations as undistinguished â€” "Two explanations fit the evidence equally well - GitHub-hosted capacity queueing the job, and a self-hosted lane that was not answering" â€” and explicitly disowns the earlier queue-only assertion; `timeout-minutes: 30` sits at `:58`. The "comment-only, no behaviour line touched" half is a diff fact; the current file is fully consistent with it, and the gate-2 sitting's recorded instrument (F5) confirmed it. Not re-derived here.
+
+**A12 â€” PASS.** Registration returns `sessionId: ''` with no token stored (`_live.ts:315-323`); `tokensOf` refuses every handle that holds no session, by name (`:151-162`), and it sits on every session-taking act (`:221`, `:401`, `:412`). The one deliberate exception is `signOut`, per A22.
+
+**A13 â€” PASS.** `package.json:79` â€” `"@supabase/supabase-js": "^2.112.2"` in `devDependencies`; the only supabase-js addition in the tree (grep confirms no other occurrence outside `bun.lock`).
+
+**A14 â€” PASS.** `req-001.json:61` declares `AT-001.04` red with `["sut.accounts.registerWithProvider"]`; the loop body's first unbacked call at integration is `sut.registerWithProvider('google', â€¦)` (`a-signup-and-signin.test.ts:359`), which the proxy refuses with exactly that name â€” the Google half, as R-D5 ruled.
+
+**A15 â€” PASS.** `writeAttestation(target, read, nonce)` (`attestation.ts:100-127`) takes the proven identity read and reads the dbUrl out of it, refusing a read proving another project (`:101-108`) or none/no stack (`:109-114`); its only call site is `prepare()` with the proven read (`db-pool.ts:1288`). Selftest proves the unproven path refuses: `live-ledger.selftest.ts:280-307`.
+
+**A16 â€” PASS.** `createAttestedRealClock` (`clock.ts:37-51`) and `createLiveEmail` (`live-email.ts:93-107`) both call `attestationOf(attestation, SLOT_ATTESTATION_BRAND)` and refuse an unbranded structural object. Selftests: `live-ledger.selftest.ts:312-320` (email), `:476-494` (clock, including a wrong-brand refusal).
+
+**A17 â€” PASS.** `authoredMethod` walks the chain and stops at `Object.prototype` (`capabilities.ts:456-465`); selftest refuses `toString`/`hasOwnProperty`/`constructor` in an enumeration (`live-ledger.selftest.ts:375-389`) and still admits an authored-prototype method (`:391-407`). The `sut.*` name admission in `liveSutCapability` was indeed NOT changed (only `sut.<key>` exact keys are admitted, `:499-505`) â€” the accepted-half-only ruling is implemented as ruled; no missing implementation to report.
+
+**A18 â€” PASS.** `has` answers `true` for every string property, symbols keep `Reflect.has` (`capabilities.ts:659-662`); reads throw `CapabilityPending` (`:643`). Selftest: omitted method is `in`-present and pending on read (`live-ledger.selftest.ts:150-171`); symbols stay absent (`:173-176`).
+
+**A19 â€” PASS.** The single-body form still runs at every tier; the documented design sits in the comment block above `AtTestFn` (`registry.ts:874-885`) and `chooseTierBody` (`:794-797`) falls back to the bare/default body for un-named tiers. Presence is correct, not a defect.
+
+**A20 â€” PASS.** `localStackProblems` checks `MAIL_URL` for loopback and the slot config's own `[local_smtp]` port (`runner.ts:784-790`, with the fail-closed "reported but config states no port" branch), and the probe requires parseable JSON with a non-empty string `Version`, refusing any other 200 (`live-email.ts:142-158`). Selftests: `runner.selftest.ts:133-154` (URL validation), `live-ledger.selftest.ts:322-342` (probe refusals).
+
+**A21 â€” PASS.** `tierTimeout` (`registry.ts:96-100`) returns the named tier's value only; `INTEGRATION_TIMEOUT_MS = 240_000` (`_integration.ts:65`); both time-based registrations carry `timeoutMs: { integration: INTEGRATION_TIMEOUT_MS }` (`b-verification-and-sessions.test.ts:351, 458`); `it(..., timeout)` receives it (`registry.ts:952, 1002`); `vitest.config.ts:18` still pins `testTimeout: 30_000`, the runner passes no timeout override (`runner.ts:1379-1398`), and `tierTimeout` returns `undefined` for loop, leaving the loop tier at 30 s.
+
+**A22 â€” PASS.** `signOut` (`_live.ts:400-409`) performs `?scope=local` logout and KEEPS the cached tokens â€” no `sessions.delete` anywhere; its comment records the S2-2 rationale (`:384-398`). In `at00112`, the post-logout `createOrganization` therefore sends the revoked-but-unexpired token to the live stack (`_integration.ts:450-452`), and the measured refusal is the stack's.
+
+**A23 â€” PASS.** The negative arm stays a validator-refusal check; its comment claims exactly what it proves â€” "the DEPLOYED completion path refuses a completion that carries no acknowledgment â€¦ it is NOT a demonstration of mid-transaction rollback" (`_integration.ts:204-226`) â€” and no fault-injection seam exists anywhere in shipped code (B2: shipped territory untouched; nothing in `_integration.ts` injects faults).
+
+**A24 â€” PASS.** `at00109` completes signup as its type after verification: NGO with `organizationName`, volunteer after `linkGithubIdentity`, both with the acknowledgment, and asserts `sut.account(...)` equals `{ id: registered.accountId, accountType: kind }` (`_integration.ts:388-404`).
+
+**A25 â€” PASS.** `at00113` captures `signedInAs` at sign-in (`:526`), asserts post-rotation `getUser()` equals it (`:556-559`) and the account row is non-null with the same id (`:560-562`); the comment names the deleted tautology (`:552-553`).
+
+**A26 â€” PASS.** Rejected rulings â€” no implementation exists or is required; the sanctioned closes-line and in-file item-id citations remain (e.g., `_live.ts:36-37, 344, 389` cite AI4DEV-58/59/60; `contracts.ts:16-17` cites AI4DEV-21/38-42). Presence is correct.
+
+**A27 â€” PASS.** `captureFailure` (`registry.ts:462-469`) is pure, passes `CapabilityPending` and `AtPending` through by identity and wraps ordinary failures with capture/suite/producer named. Selftests: `live-ledger.selftest.ts:235-278`.
+
+**A28 â€” PASS.** `linksFor` polls with a 20 s deadline (`_live.ts:301-308`); the comment records the measured 4 ms delivery and the reason for the bound (`:285-299`), exactly as RF-4 requires.
+
+---
+
+## B. Declared scope
+
+**B1 â€” COULD-NOT-VERIFY** (exclusivity is a diff fact; this cage has no shell). The positive half is fully verified: all 22 named files exist, all are inside `tests/` except `ci.yml` and `package.json`, and each is exactly the file this item's own docs say it wrote. What I cannot rule out is an unlisted 23rd file; nothing in the tree contradicts the list, and the recorded diff instruments (gate-2 F5, goal-evidence) are consistent with it. An executor with `git diff 466880d...HEAD -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts` settles it in one command.
+
+**B2 â€” COULD-NOT-VERIFY** (negative diff claim), with strong consistency: all 22 changed files sit outside `src/` and `supabase/`; no file under `src/` or `supabase/` carries any AI4DEV-81 marker (grep, both trees empty); RF-6 records that `src/routeTree.gen.ts` regeneration was restored rather than committed. The live adapter reads the deployed `supabase/functions/_shared/*` modules as imports only. Same settle-it command as B1.
+
+**B3 â€” PASS.** `bun.lock` (text) exists and carries `"@supabase/supabase-js": "^2.112.2"` at `bun.lock:65` with the resolved entry at `:501`, exactly paired with the `package.json` line; `bun.lockb` does not exist in this tree, and the diff command's path list names `bun.lockb` and not `bun.lock`, so the claim's geography is correct. (The "also changed" half is diff-derived; the lockfile content is the consistency evidence.)
+
+---
+
+## C. Stated facts about the code
+
+**C1 â€” PASS.** `SLOT_JWT_EXPIRY_SECONDS = 120` (`db-pool.ts:338`) and `SLOT_JWT_EXPIRY_MS = 120_000` (`_integration.ts:47`) â€” 120 s = 120 000 ms.
+
+**C2 â€” PASS** (with the arithmetic cited, not re-derived). The integration blocks are exactly 43 lines (`req-001.json:47-89`) and 17 lines (`req-016.json:25-41`), appended as the LAST tier after the loop blocks; the loop blocks' content (13 green/24 red; 11 green/1 red) matches the plan's pre-branch description (F4: "declare ONLY the loop tier today") and the recorded loop runs. That structure is exactly what an insertions-only append produces; the zero-deletions arithmetic is the gate-2 sitting's recorded instrument output (F5), which I could not re-run.
+
+**C3 â€” PASS.** `req-001.json:48-57` declares exactly the eight green ids named, in the claimed set; the 29 reds are all exact declarable kinds â€” five `capability-pending` (with capability names matching the refusal bodies in `_integration.ts:636-667` and the unbacked methods in `_live.ts:100-126`) and 24 `pending/sut-missing`. `req-016.json:25-41` declares all twelve ids red (`capability-pending`, `fixtures.worlds`+`sut.notifications`), zero green. Bijection holds: 8+29=37 and 0+12=12.
+
+**C4 â€” PASS.** `linksIn` decodes quoted-printable in full before extracting links: soft breaks (`=\r?\n`) first, then hex escapes (`=3D` â†’ `=`), then `&amp;` (`_live.ts:271-283`), and the comment records why both steps are needed; the decoded links are what bodies follow (`useVerificationLink`, `completePasswordReset`).
+
+**C5 â€” FAIL** (one of the four clauses is false as stated; the other three PASS). Traced clause by clause: sends `{ name: organizationName }` to `create-organization`, matching the deployed function's `validateOrganizationName(body.value.name)` (`_live.ts:514`, `supabase/functions/create-organization/index.ts:96`) â€” true. Casts the operator-written `identity_data` through `::text::jsonb` (`_live.ts:377`) â€” true. Hands `emailVerifiedFromUser` a string, never a `Date` (`_live.ts:476-481` passes `new Date(confirmedAt).toISOString()`, and `verification.ts:114-118` only ever answers on a non-blank string) â€” true. But "reads the membership column `organization_id`" is not what the code does: the read is `select org_id as organization_id, account_id, role from public.org_memberships where org_id = â€¦` (`_live.ts:541-549`), the column is defined `org_id` by migration `20260808120000:57-62` (and used as `org_id` in `20260809090000:366-367`), and the adapter's own comment says so verbatim: "THE COLUMN IS `org_id`, not `organization_id` â€” the migration's own name" (`_live.ts:537-540`). The adapter reads `org_id` and aliases the RESULT to `organization_id`; the claim names the column as `organization_id`. The code itself is correct (the read works against the real schema â€” the recorded integration run has AT-001.06 green through this read), so this is a misstatement about the code, not a defect in it. See finding [1].
+
+**C6 â€” PASS.** `at00112` (`_integration.ts:422-476`): scoped logout `?scope=local` (`_live.ts:404`) with sibling-session control (`:437-446`); the post-logout write is sent with the cached revoked token and refused by the live stack (`:450-452`); re-authentication succeeds (`:455-459`); the expiry arm waits `SLOT_JWT_EXPIRY_MS + 15_000` = 135 s past the 120 s lifetime (`:464`); refresh restores access (`:471-475`).
+
+**C7 â€” PASS.** `at00113` issues no refresh call of any kind; rotation is observed by polling `client.auth.getSession()` at 5 s intervals (`_integration.ts:536-543`), and the body's comment states the "WAIT, AND ONLY WAIT" design (`:532-535`).
+
+**C8 â€” PASS.** The narrowed claim traces to the code: `validateCompleteSignup` refuses exactly when `rawVersion.trim() === ''` (`supabase/functions/_shared/accounts.ts:215`), the acknowledgment constraint is `check (length(btrim(text_version)) > 0)` (`20260808120000:78`), and the acknowledgment insert is literally the last write with the migration's own "IT STAYS LAST â€¦ depended upon" comment (`20260809090000:396-400`). JS `trim()` strips a strict superset of `btrim`'s single character (space), so the refused-by-database set is a subset of the refused-by-validator set â€” the intersection is empty by construction, as claimed. The arm's comment claims exactly that (`_integration.ts:204-226`), and the measured evidence is the verify-first record's, which I cite rather than re-derive. No fault-injection seam anywhere on the branch.
+
+**C9 â€” PASS** for the coverage half, with the arithmetic cited as execution evidence. All six named areas have selftests in the changed files, verified by name and line: attestation refusals (`live-ledger.selftest.ts:185-232, 280-307`), brand validations (`:312-320, 359-365, 454, 476-494`), enumeration and proxy rules (`:93-176, 356-466`), mail probe refusals (`:322-342`), tier-timeout choice (`:543-561`), capture pass-through (`:235-278`). The 327â†’344 arithmetic is a runtime count: I did not re-run the suite (per the brief, execution evidence belongs to CI); the item record quotes the run output (`goal-evidence.md:103`: "Tests 344 passed (344)") and CI's required check runs `at:selftest` (`ci.yml:161-164`). My own static count of `it(` call sites across the 13 selftest files is 293 â€” a consistent lower bound, since loop-expanded `it()` calls (e.g., `type-invention.selftest.ts:174` over the ~25-entry `ALIAS_PROTECTED` list, `:315` over the attack list, `oracles.selftest.ts:1096` over three examples) produce multiple runtime tests per call site.
+
+---
+
+## Finding
+
+```
+[1] low    tests/at/suites/req-001/_live.ts:543 (claim checklist line C5)
+    claim: C5 states the live adapter "reads the membership column `organization_id`"; the
+    adapter reads `org_id` (aliased to `organization_id`): `select org_id as organization_id â€¦
+    from public.org_memberships where org_id = â€¦`. The column is `org_id` per migration
+    20260808120000:57-62 (and 20260809090000:366-367), and the adapter's own comment says
+    "THE COLUMN IS `org_id`, not `organization_id`" (_live.ts:537-540).
+    why it matters: a stated fact about the code in the claim checklist is false as written â€”
+    a reader using C5 to locate the membership read would be pointed at a column that does
+    not exist. The code itself is correct (the read matches the real schema and is exercised
+    green by AT-001.06 in the recorded integration run), so this is a misstatement, not a
+    defect; the charitable reading â€” the read's RESULT field is named organization_id â€” does
+    not match the sentence's "reads the membership column" wording. The record's fix note
+    RF-2.4 repeats the same error in the opposite direction ("the column is organization_id;
+    the adapter's read said org_id"), which the migration contradicts.
+    unverified-runtime-claim: no  (settles by reading _live.ts:541-549 and migration
+    20260808120000:57-62; no execution needed)
+```
+
+Nothing else in the change-set contradicted its claims; every other line of the checklist is PASS or the diff-limited COULD-NOT-VERIFY above. Both prior audit log artifacts (`audit-luna.stdout.log`, `audit-flash.stderr.log`) are empty, so this is effectively the first landed reading of this commit; my harness-machinery verdicts (A1â€“A6, A15â€“A18, A20, A27, A28) stand as a single reading, per the brief's caution.
+
+AUDIT: 1 FINDING

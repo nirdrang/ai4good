@@ -357,19 +357,24 @@ describe('provenance is computed from the value or the loader, and refuses what 
     }
   });
 
-  it('still reports a non-empty stubbed list at integration tier', async () => {
-    // WHAT THIS PROVES AND WHAT IT DOES NOT. It proves the reference adapter still declares itself
-    // above loop. It does NOT prove the registry gate fires: that enforcement lives in `openWorld`,
-    // which is not exported and cannot be called from here.
-    const h = await createHarness({ requirement: 'req-016', tier: 'integration' });
-    try {
-      expect(
-        await h.stubbedCapabilities(),
-        'an integration-tier harness reported nothing stubbed while running the reference adapter',
-      ).toContain('sut.notifications');
-    } finally {
-      await h.teardown();
-    }
+  it('refuses to build an integration-tier harness at all when no slot attestation reached this process', async () => {
+    /*
+     * THIS TEST REPLACED ONE THAT ASSERTED A NON-EMPTY STUBBED LIST HERE, and the replacement is the
+     * point rather than a consequence. An integration-tier ledger is now built out of live articles
+     * against a prepared database slot, and the FIRST thing it does is the attestation round trip:
+     * read back, through the coordinates this process was handed, the nonce the runner minted after
+     * its reset. This process was launched by vitest with no slot at all, so there is nothing to
+     * read back and the construction stops before anything is built.
+     *
+     * WHY THAT IS THE RIGHT SHAPE. The old behaviour built a ledger of stand-ins and let the caller
+     * discover them afterwards. The failure direction is the same — nothing goes green — but the
+     * refusal now names the missing evidence instead of naming the substitutes, and it arrives
+     * before a database connection is attempted rather than after.
+     *
+     * WHAT IT STILL DOES NOT PROVE: that the registry gate fires. That enforcement lives in
+     * `openWorld`, which is not exported and cannot be called from here.
+     */
+    await expect(createHarness({ requirement: 'req-016', tier: 'integration' })).rejects.toThrow(/refusing to attest the slot/);
   });
 });
 

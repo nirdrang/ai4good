@@ -1,0 +1,99 @@
+Read-only source audit completed. No tests or live checks were run. `PASS` means the source implements the claimed shape; runtime outcomes are marked where they cannot be verified here.
+
+### Checklist
+
+A1 — PASS — `db-pool.ts:1274–1288` writes after reset; `attestation.ts:157–206` validates the returned nonce and refuses missing, failed, or mismatched reads.
+
+A2 — PASS — `index.ts:408–422` grants per enumerated method; `capabilities.ts:492–554` performs exact admission checks.
+
+A3 — PASS — `index.ts:337–354` builds and probes live mail from slot coordinates; the loop branch remains simulated.
+
+A4 — PASS — `clock.ts:37–50`, `capabilities.ts:208–237`, and `contracts.ts:400–407` implement attested real time without integration control methods.
+
+A5 — PASS — `capabilities.ts:629–664` provides method-level `CapabilityPending` proxies.
+
+A6 — PASS — `db-pool.ts:338–375` emits standing expiry `120`; selftests at `db-pool.selftest.ts:385–434` constrain the generator delta.
+
+A7 — PASS — `_integration.ts:87–109,532–543` enables `autoRefreshToken` and only polls; the runtime rotation itself was not executed.
+
+A8 — PASS — `_integration.ts:355–405` iterates both `ngo` and `volunteer`.
+
+A9 — PASS — `_integration.ts:156–237` asserts the full NGO outcome, pre-gate, later sign-in, acknowledgment fields, and refusal arm.
+
+A10 — PASS — `req-001.json:48–87` and `req-016.json:25–39` match the settled integration dispositions.
+
+A11 — PASS — `.github/workflows/ci.yml:45–58` changes comments only; the 30-minute timeout and behavior lines remain unchanged.
+
+A12 — FAIL — Registration returns `sessionId: ''` at `_live.ts:315–322`, but `linkGithubIdentity` at `_live.ts:369–381` bypasses `tokensOf` and accepts that handle.
+
+A13 — PASS — `package.json:79` adds only `@supabase/supabase-js` to dev dependencies.
+
+A14 — PASS — `req-001.json:60–61` declares `sut.accounts.registerWithProvider`.
+
+A15 — PASS — `writeAttestation` receives `ProvenSlotRead` at `attestation.ts:100–107`; `db-pool.ts:1287–1288` passes the proof, and selftests cover rejection.
+
+A16 — PASS — `clock.ts:37–50` and `live-email.ts:100–107` validate branded attestations.
+
+A17 — PASS — `capabilities.ts:456–465,527–535` rejects inherited `Object.prototype` names; selftests cover `toString`, `constructor`, and `hasOwnProperty`.
+
+A18 — PASS — `capabilities.ts:654–663` makes every string property present while reads throw pending.
+
+A19 — PASS — `registry.ts:748–766,874–911` documents and implements the all-tier bare/default body design.
+
+A20 — PASS — `runner.ts:772–789` validates the mail URL and `live-email.ts:142–158` requires JSON with a nonblank string `Version`.
+
+A21 — PASS — `registry.ts:96–100,950–1002` applies per-tier timeouts; `_integration.ts:65` sets 240 seconds while loop remains at 30 seconds.
+
+A22 — PASS — `_live.ts:385–409` keeps cached tokens and sends logout; the live-stack refusal was not executed here.
+
+A23 — PASS — `_integration.ts:204–225` narrows the negative arm to validator refusal without adding a production fault seam.
+
+A24 — PASS — `_integration.ts:355–405` completes each type-specific signup and checks the global account type.
+
+A25 — PASS — `_integration.ts:523–562` preserves the signed-in identity and checks the rotated account row; runtime rotation was not executed.
+
+A26 — PASS — The rejected rulings impose no code implementation requirement.
+
+A27 — PASS — `registry.ts:445–468,482–496` passes declarable refusals through and wraps ordinary failures; selftests cover both paths.
+
+A28 — PASS — `_live.ts:285–307` implements the bounded 20-second mail poll with measured-timing rationale.
+
+B1 — PASS — The source-only diff contains exactly the declared 22 files.
+
+B2 — PASS — No `src/` or `supabase/` paths changed.
+
+B3 — PASS — `bun.lock` changed alongside the package dependency and remains outside the source-only command.
+
+C1 — PASS — `db-pool.ts:338–375` emits 120 seconds; `_integration.ts:47` uses `120_000` ms.
+
+C2 — PASS — The manifest diff is insertions-only: 43 lines for `req-001.json` and 17 for `req-016.json`.
+
+C3 — PASS — `req-001.json:48–87` has exactly eight integration greens and exact reds; `req-016.json:25–39` has all IDs red.
+
+C4 — PASS — `_live.ts:271–279` removes quoted-printable soft breaks and decodes hexadecimal escapes before following links.
+
+C5 — FAIL — `_live.ts:537–544` reads physical `org_id` and aliases it to `organization_id`; the claimed physical column name is false.
+
+C6 — COULD-NOT-VERIFY — `_integration.ts:422–475` contains the sibling, logout, expiry, and refresh assertions, but the live-stack outcomes require the integration run.
+
+C7 — COULD-NOT-VERIFY — `_integration.ts:532–543` contains no explicit refresh call and polls the client session, but actual token rotation requires the integration run.
+
+C8 — PASS — The validator’s `trim()` checks at `_shared/accounts.ts:190–224` precede the database writes, while the acknowledgment constraint is `btrim`-based at the migration’s acknowledgment table definition.
+
+C9 — COULD-NOT-VERIFY — The numeric selftest count requires the CI selftest execution on this head; it was not run.
+
+### Findings
+
+Severity scale: high = adopted ruling or false-green boundary failure; medium = false code claim with actionable consequences.
+
+[1] severity: high    tests/at/suites/req-001/_live.ts:369  
+    claim: `linkGithubIdentity` accepts a session handle without passing it through `tokensOf`.  
+    why it matters: A registration handle with `sessionId: ''` reaches the operator `auth.identities` insert instead of refusing, allowing state mutation from a session the live stack never issued.  
+    unverified-runtime-claim: no
+
+[2] severity: medium    tests/at/suites/req-001/_live.ts:543  
+    claim: The checklist’s claim that the physical membership column is `organization_id` is false; the adapter queries `org_id AS organization_id`.  
+    why it matters: The unchanged schema defines `org_memberships.org_id`; a query using physical `organization_id` would fail every membership read, although the current alias is correct.  
+    unverified-runtime-claim: no
+
+AUDIT: 2 FINDINGS

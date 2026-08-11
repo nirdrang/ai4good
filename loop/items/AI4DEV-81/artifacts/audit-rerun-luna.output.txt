@@ -1,0 +1,56 @@
+No source-code finding in the fix delta. No tests were run. The fix delta is exactly six inserted lines in `tests/at/suites/req-001/_live.ts`; carried boxes are independent because no relevant caller, importer, harness file, or shared state changed.
+
+### A. Adopted rulings
+
+- A1 — PASS. `attestation.ts:100` receives the proven read; `db-pool.ts:1287` writes the nonce after preparation.
+- A2 — PASS. `index.ts:410` grants per enumerated method; `capabilities.ts:492` performs admission checks.
+- A3 — PASS. `index.ts:337` builds live mail for integration and retains the simulated loop branch.
+- A4 — PASS. `clock.ts:37` constructs the attested real clock; integration types expose no control seam.
+- A5 — PASS. `capabilities.ts:629` creates method-level pending proxies.
+- A6 — PASS. `db-pool.ts:338` pins `jwt_expiry = 120`; selftests constrain the generator change.
+- A7 — PASS. `_integration.ts:108` enables `autoRefreshToken`; the body polls without an explicit refresh call. Runtime rotation remains unverified.
+- A8 — PASS. `_integration.ts:358` iterates both NGO and volunteer account types.
+- A9 — PASS. `_integration.ts:156` asserts the full NGO outcome, acknowledgment fields, gate, later sign-in, and refusal arm.
+- A10 — PASS. The integration manifests remain unchanged since the prior audit and match the settled declarations.
+- A11 — PASS. `.github/workflows/ci.yml:45` changes comments only; timeout and behavior remain unchanged.
+- A12 — PASS. `_live.ts:375` is the first executable statement in `linkGithubIdentity`; it validates through `tokensOf` before the insert.
+- A13 — PASS. `package.json:79` adds only `@supabase/supabase-js` as a dev dependency.
+- A14 — PASS. `req-001.json:60` declares `sut.accounts.registerWithProvider`.
+- A15 — PASS. `attestation.ts:100` requires the proven slot read, with selftest refusals.
+- A16 — PASS. `clock.ts:37` and `live-email.ts:100` validate the attestation brand.
+- A17 — PASS. `capabilities.ts:456` rejects inherited `Object.prototype` methods; the intentionally unchanged `sut.*` admission remains as ruled.
+- A18 — PASS. `capabilities.ts:659` reports all string properties as present while reads throw pending.
+- A19 — PASS. `registry.ts:763` documents the deliberate all-tier bare-body design.
+- A20 — PASS. `runner.ts:754` validates mail coordinates; `live-email.ts:142` requires a string `Version`.
+- A21 — PASS. `registry.ts:952` applies tier timeouts; `_integration.ts:65` sets 240 seconds while loop remains at 30 seconds.
+- A22 — PASS. `_live.ts:406` retains cached tokens and sends the post-logout request. Live-stack refusal is runtime-unverified.
+- A23 — PASS. `_integration.ts:204` narrows the negative arm to validator refusal without adding a production seam.
+- A24 — PASS. `_integration.ts:358` completes and asserts each account type.
+- A25 — PASS. `_integration.ts:526` captures identity and `_integration.ts:556` checks the rotated account. Runtime rotation is unverified.
+- A26 — PASS. The rejected ruling imposes no code implementation requirement.
+- A27 — PASS. `registry.ts:462` preserves declarable refusal shapes and wraps ordinary failures.
+- A28 — PASS. `_live.ts:301` contains the bounded mail poll with its measured-timing rationale.
+- A29 — PASS. `_live.ts:369` adds exactly the required first-statement guard; the method’s prior insert and preceding documentation are unchanged.
+
+### B. Declared scope
+
+- B1 — PASS. The full source-only diff contains exactly 22 declared paths.
+- B2 — PASS. `git diff 466880d...HEAD -- src supabase` is empty.
+- B3 — PASS. `bun.lock` changed alongside `package.json` and remains outside the source-only path set.
+
+### C. Stated code facts
+
+- C1 — PASS. `db-pool.ts:338` emits 120 seconds and `_integration.ts:47` uses `120_000` ms.
+- C2 — PASS. Manifest diffs are insertions only: 43 and 17 lines, with zero deletions.
+- C3 — PASS. `req-001.json:48` has eight integration greens and exact reds; `req-016.json:25` has no integration greens.
+- C4 — PASS. `_live.ts:271` removes quoted-printable breaks and decodes hexadecimal escapes before link use.
+- C5 — PASS. `_live.ts:520` sends `{ name }`; `:549` reads `org_id AS organization_id`; `:383` uses `::text::jsonb`; `:486` supplies an ISO string.
+- C6 — COULD-NOT-VERIFY. `_integration.ts:422` contains the sibling, logout, expiry, and refresh assertions; live outcomes require the integration CI run.
+- C7 — COULD-NOT-VERIFY. `_integration.ts:532` only polls the client session; actual automatic rotation requires integration CI.
+- C8 — PASS. `_integration.ts:204` states the narrowed claim; the validator’s `trim()` precedes the database call and the unchanged migration uses `btrim`.
+- C9 — COULD-NOT-VERIFY. The numeric selftest count requires executing the selftest lane; CI at this head would settle it.
+- C10 — PASS. The fix delta is exactly six insertions, zero deletions, in `_live.ts`, with no other code file changed since the prior audited head.
+
+The three COULD-NOT-VERIFY boxes are runtime verification items, not source mismatches.
+
+AUDIT: CLEAN

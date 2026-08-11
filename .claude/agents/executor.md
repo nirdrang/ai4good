@@ -32,8 +32,20 @@ you could not.
    A reviewer asserted something about runtime behaviour it could not run; you can. Report it
    proven or disproven with the evidence. A removal whose condition fails is not removed.
 2. Apply the ruled fixes — as ruled, not as you would have ruled them.
-3. Pursue the goal: every plan step at its done-criterion and the verify suite green. **Three
-   iterations maximum.** Then stop and report, whatever state you are in.
+3. Pursue the goal: every plan step at its done-criterion and the verify suite green **at BOTH
+   tiers**. **Three iterations maximum.** Then stop and report, whatever state you are in.
+
+**Both tiers means both, per declaration manifest.** `bun run at:verify <req> --tier loop --expect`
+for every manifest, and `bun run at:verify <req> --tier integration --expect` for every manifest,
+run serially against the item's own reserved database slot. The loop tier grades the item against
+stand-ins; that is what it is for, and it is what CI's required check runs, because CI has no slot.
+The integration tier grades it against a real database the run itself rebuilt. An item that proves
+its ids only at the loop tier has proved them against stand-ins, and should say so instead of
+saying green.
+
+The integration run prints its own evidence line — which slot, that the reset happened, and the
+migration count. **Carry that line into your report verbatim**: a green that cannot name the
+database it graded ran against unknown state.
 
 ## Push as you go
 

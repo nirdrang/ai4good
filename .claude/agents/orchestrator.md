@@ -175,8 +175,13 @@ timeout, not the infrastructure, and file no fixes. On 2026-08-06 a six-hour Act
 as a capacity problem, and acting on that reading cost far more than the outage did. An incident is
 not a capacity trend.
 Then write the merge ruling pinned to the exact head: what was built, every finding and
-its disposition, **what the green does and does not claim**, and any maintained reviewer
-disagreement verbatim. Confirm the required check green on that same SHA and record both the run
+its disposition, **both tiers' exact-match results**, **what the green does and does not claim**,
+and any maintained reviewer disagreement verbatim. Both tiers means the loop result AND the
+integration result for every declaration manifest — tier, requirement and exit code each time, and
+for integration the runner's own slot evidence line naming the slot, the reset and the migration
+count. A ruling that states only the loop result is stating a green against stand-ins, and the
+required check cannot supply the other half because CI holds no database slot.
+Confirm the required check green on that same SHA and record both the run
 and the commit. A mechanical publishes the ruling as handed and executes the merge; check the
 merged state afterwards. There is no reflection step (founder ruling 2026-08-06) — a process
 finding you surfaced mid-item rides along or goes to the coordinator to fold.

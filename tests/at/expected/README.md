@@ -34,6 +34,17 @@ to `green` here. That is one line in the same commit, and it is the record of wh
 
 ## 3. How to write and update one
 
+**A NEW TIER'S DECLARATION IS AUTHORED BEFORE ITS FIRST RUN, never derived from one.** The
+exact-match machinery pins DRIFT — it catches the day reality stops matching the contract — and it
+cannot establish what the contract should have said in the first place. A declaration copied out of
+the first run gives that run authority over its own expectations, which is the one thing a
+declaration exists to prevent. So the first declaration for a tier is written from the settled
+per-id analysis: what each id's body does, which capabilities the harness supplies at that tier, and
+what the criterion requires. **The run must then match it.** A divergence is investigated as a
+defect first; a declaration is amended toward a run only with the cause traced to code or fixture
+and recorded in the item's record.
+
+Updating an EXISTING tier's declaration is the different case the rest of this section describes.
 Run the suite and read what it actually reports:
 
 ```
@@ -135,7 +146,16 @@ no declaration could reproduce the line, so that id is undeclarable: the run fai
 so, rather than matching something that identifies nothing. None of REQ-016's reds is affected —
 every detail contains spaces — but if you hit it, that is the cause.
 
-**Integration-tier declarations are unexercised.** `--expect` is tier-agnostic by construction, but
-every conformance test runs at the loop tier, so the only integration-tier behaviour that has been
-exercised is the "no declaration for this tier" refusal. That changes when integration-tier
-declarations exist.
+**Integration-tier declarations now exist, and what they mean differs from the loop tier's.** Both
+files here declare both tiers. A loop-tier green says the shipped DECISIONS behave as the criterion
+requires, over storage that is a Map; an integration-tier green says the criterion holds against a
+real database this run rebuilt, the deployed edge functions, and the real Supabase Auth. The two are
+not the same claim and neither implies the other, which is why both are declared and both are run.
+
+Two things follow that are easy to get wrong. An id green at loop and red at integration is a
+NORMAL state, not a defect — it means the decision is right and something the criterion also
+requires cannot be reached here, and the red names which capability that is. And an
+integration-tier red of kind `capability-pending` carries capability names from three different
+places: `sut.<key>.<method>` for a method the suite's live adapter does not back, the ledger's own
+names (`fixtures.worlds`, `sut.<key>`) for a suite that has no live adapter at all, and a
+suite-authored name for a criterion whose missing article is neither.
