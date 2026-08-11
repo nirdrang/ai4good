@@ -232,13 +232,24 @@ foreach ($f in $files) {
                     $tid = $sessId + '|' + $m.Groups[1].Value
                     # FIRST sighting wins WITHIN THE SESSION: the spawn call comes before its own
                     # tool result. Another session's copy of the same id is a different key.
+                    #
+                    # THE FIRST SIGHTING PINS THE KEY EVEN WHEN IT RESOLVES NOTHING, and the
+                    # empty string is a real answer. Storing a key only for a sighting that
+                    # RESOLVES an item would leave a spawn call made before the session held any
+                    # item unrecorded - and the next occurrence of that id, the tool result, is
+                    # written after the session has resolved one. The child would then inherit
+                    # the state at its tool result rather than the state at its spawn call. An
+                    # empty stored value reads as unattributed in Get-TreeItem, which is the
+                    # honest answer: nothing was held when this child was spawned.
                     if ($spawnCtx.ContainsKey($tid)) { continue }
+                    $val = ''
                     $bids = @(Get-BranchItems $cb)
-                    if ($bids.Count -eq 1) { $spawnCtx[$tid] = $bids[0] }
+                    if ($bids.Count -eq 1) { $val = $bids[0] }
                     elseif ($bids.Count -eq 0 -and $cs) {
                         $sids = @(Get-BranchItems $cs)
-                        if ($sids.Count -eq 1) { $spawnCtx[$tid] = $sids[0] }
+                        if ($sids.Count -eq 1) { $val = $sids[0] }
                     }
+                    $spawnCtx[$tid] = $val
                 }
             }
         }

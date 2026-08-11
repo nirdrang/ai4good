@@ -1,4 +1,4 @@
-ai4good buildout burn report - 2026-08-11 - 919 transcript file(s), sessions and agents
+ai4good buildout burn report - 2026-08-11 - 924 transcript file(s), sessions and agents
 units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere
 attribution DERIVED from each record's own git branch, and from the spawn tree where the record names none; role DERIVED from the spawn call
 
@@ -6,7 +6,7 @@ attribution DERIVED from each record's own git branch, and from the spawn tree w
 
 Item                From   Responses OutputTok InputTok  CacheRead CacheWrite
 ----                ----   --------- --------- --------  --------- ----------
-unattributed        none       27986  33792045  4899908 6912978787  368893388
+unattributed        none       27991  33795125  4899918 6916766263  368896771
 legacy:bringup      stamp       2235   3186391    16043  826264541   55790457
 legacy:task         stamp       1953   3136902    34034  881724358   61064398
 legacy:unattributed stamp        798   1327529     1543  404200865   30837752
@@ -17,6 +17,7 @@ AI4DEV-59           branch      1360    516109     2681  153318404   10589937
 AI4DEV-57           branch       825    504371     1763  198478076    8084371
 AI4DEV-31           branch      1092    443910     2335  193590236   18798288
 AI4DEV-48           branch       974    418380     9638  159826716    9653498
+AI4DEV-80           tree         863    406017    13723   79960614    7883468
 AI4DEV-58           branch      1018    405693    19077  115915697    8702695
 AI4DEV-57           tree         854    394871   113466   85289365    9390677
 AI4DEV-5            branch       536    382124     1184  136861733    5595577
@@ -24,7 +25,6 @@ AI4DEV-43           branch       245    342514      453   61697862    1389075
 AI4DEV-21           branch       568    327396    14564  113676319    9481372
 AI4DEV-20           branch       479    302603      932  136207761   11671411
 AI4DEV-19           tree         727    296702     1432  111838971    6960107
-AI4DEV-80           tree         603    292168    13209   56187306    4772230
 AI4DEV-47           branch       203    249753      385   95772817     261900
 AI4DEV-79           tree         359    202760     8827   37105272    3156078
 AI4DEV-6            branch       276    188769      534   73056846    4981622
@@ -135,13 +135,13 @@ AI4DEV-79 conductor                292      584     50889  30988351    4329956
 AI4DEV-79 coordinator               36       70     28245  19829323      57290
 AI4DEV-79 mechanical                13       26      1830    251066     217504
 AI4DEV-79 general-purpose           15       30      1110    536209     117717
-AI4DEV-80 orchestrator             252      491    193041  24549168    2819413
-AI4DEV-80 executor                 222    12454    121810  25129947     715325
+AI4DEV-80 orchestrator             347      677    239126  33398664    3623827
+AI4DEV-80 executor                 278    12564    168984  31239432    1332000
 AI4DEV-80 coordinator               62      122     54366  42381700    1384930
-AI4DEV-80 conductor                165      330     31151  12380544    2204701
-AI4DEV-80 reviewer-runner          128      256     25639   7033282     924546
+AI4DEV-80 conductor                207      414     39122  17426976    3385637
+AI4DEV-80 reviewer-runner          191      382     37974  10686918    1378500
 AI4DEV-80 claude-code-guide         19     1811      4198    387367     181067
-AI4DEV-80 distiller                  4        8      1723     78590      79994
+AI4DEV-80 distiller                  8       16      2007    192849     135253
 AI4DEV-80 mechanical                 4        8       831    106134      38850
 AI4DEV-98 general-purpose           29      102      4036   1084605     141394
 AI4DEV-98 coordinator                3        6      2085   1645533      12675
@@ -158,7 +158,7 @@ Item      Runs InputTok OutputTok CachedIn
 ----      ---- -------- --------- --------
 AI4DEV-59    4  3739677     49623  3540480
 AI4DEV-31    3 14493459     46615 13959424
-AI4DEV-80    2   988912     44934   893952
+AI4DEV-80    3   988912     44934   893952
 AI4DEV-60    3  2898056     36191  2672896
 AI4DEV-20    5  4671486     32167  4422400
 AI4DEV-79    3  1651358     30573  1554176
@@ -196,12 +196,12 @@ AI4DEV-52               2      2780   1205112
 AI4DEV-57               1      1679    899242
 AI4DEV-79               1      1935    815888
 AI4DEV-60               1      1317    630545
+AI4DEV-4                3      1187    618648
 AI4DEV-48               1      1391    616849
 AI4DEV-59               1      1463    574567
-AI4DEV-4                3       927    504799
+AI4DEV-80               1      1116    546608
 AI4DEV-31               1      1237    493776
 AI4DEV-58               1      1106    452424
-AI4DEV-80               1       856    432759
 AI4DEV-5                1       553    392081
 AI4DEV-21               1       648    370084
 AI4DEV-19               1       897    363857
@@ -220,8 +220,8 @@ AI4DEV-99               1        19      2656
 
 
 
-TOTAL: 49071 responses, 49963158 output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.
-COORDINATOR SIGNAL - unattributed share of output tokens: 67.6%
+TOTAL: 49336 responses, 50080087 output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.
+COORDINATOR SIGNAL - unattributed share of output tokens: 67.5%
 
 Still a FLOOR, for named reasons. A nested sitting no longer falls to unattributed: that gap is closed, because the agent transcripts are now scanned and an agent that resolves no item of its own inherits its nearest ancestor's item. What remains:
   - Coordinator work on main that holds no item resolves to nothing, and neither do the agents beneath it: the tree has no item to hand down.

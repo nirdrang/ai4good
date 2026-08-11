@@ -1,4 +1,4 @@
-ai4good buildout burn report - 2026-08-11 - 919 transcript file(s), sessions and agents - SCOPED to AI4DEV-79
+ai4good buildout burn report - 2026-08-11 - 924 transcript file(s), sessions and agents - SCOPED to AI4DEV-79
 units: provider-echoed tokens per response (REQ-034 model); money lives elsewhere
 attribution DERIVED from each record's own git branch, and from the spawn tree where the record names none; role DERIVED from the spawn call
 
@@ -48,8 +48,8 @@ AI4DEV-79      1      1935    815888
 
 
 
-TOTAL: 49071 responses, 49963158 output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.
-COORDINATOR SIGNAL - unattributed share of output tokens: 67.6%
+TOTAL: 49336 responses, 50080087 output tokens. The PER ITEM table reconciles to this total by construction; the rollup deliberately double-counts, because a parent includes its children.
+COORDINATOR SIGNAL - unattributed share of output tokens: 67.5%
 
 Still a FLOOR, for named reasons. A nested sitting no longer falls to unattributed: that gap is closed, because the agent transcripts are now scanned and an agent that resolves no item of its own inherits its nearest ancestor's item. What remains:
   - Coordinator work on main that holds no item resolves to nothing, and neither do the agents beneath it: the tree has no item to hand down.
