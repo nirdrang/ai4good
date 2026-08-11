@@ -103,7 +103,13 @@ If you find a reference to any of them, it is stale — `/work` does that job no
 - **OPEN EVERY REPLY WITH THIS TURN'S PICTURE, THEN THE HOOK'S FACTS (MUST-FOLLOW; founder
   2026-08-09, superseding the verbatim-echo rule of 2026-08-07 — "what I want from your echo is
   todo the mangling to take the hook facts and take into account the user prompt").** Two lines:
-  - `TURN  <attribution> - <what this response is about>` — the model's OPEN SYNTHESIS of the
+  - `[<session tag>] TURN  <attribution> - <what this response is about>` — **every line of the
+    reply header carries the session prefix, the `TURN` line included** (founder 2026-08-11).
+    The tag is the one the hook prints; when the hook emitted none, the prefix is omitted rather
+    than invented. The reason is the reason the prefix exists at all: two sessions' output can
+    sit side by side in one view, and a header line without its speaker is an orphan — the
+    synthesis line most of all, because it is the one the founder reads first.
+    The `TURN` line is the model's OPEN SYNTHESIS of the
     hook facts and the current prompt, so the founder sees what this actual turn is about,
     including attribution AFTER any direction change the prompt just made. A `TURN` line names a
     board item only when the turn genuinely works that item; otherwise a NAMED floating root that
