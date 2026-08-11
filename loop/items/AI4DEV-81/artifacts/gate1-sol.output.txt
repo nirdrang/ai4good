@@ -1,0 +1,58 @@
+Severity scale: critical = permits false green or shared-state corruption; high = required outcome cannot be met as planned; medium = verification can certify the wrong cause; low = bounded defect.
+
+[1] critical: false-green    loop/items/AI4DEV-81/plan.md:83
+    claim: D4 treats syntactically local connection strings as positive provenance even though they are not bound to the runner’s validated slot evidence.
+    why it matters: `localStackProblems` only checks loopback URLs, ports, and unsigned JWT claims (`tests/at/harness/runner.ts:714`), while the child receives four plain strings (`tests/at/harness/db-pool.ts:1249`); fabricated URLs and tokens with matching `iss`/`role` claims can therefore mint `real` without any prepared database answering. Step 3 tests malformed and absent evidence, but not valid-looking fabricated evidence or an opaque runner-issued attestation.
+    unverified-runtime-claim: no
+
+[2] critical: false-green    loop/items/AI4DEV-81/plan.md:90
+    claim: The proposed generic live-backed route does not preserve the closed-table doctrine for `sut.*` names.
+    why it matters: the current prefix route is considered safe specifically because it always grants `stand-in` (`tests/at/harness/capabilities.ts:304`); letting the same open-ended namespace grant `real` allows a new or misspelled `sut.fake` capability to bypass name-specific review. Step 3 only proves that the existing witness table refuses unknown names, not that the new live route does.
+    unverified-runtime-claim: no
+
+[3] high: unexecutable    tests/at/harness/index.ts:181
+    claim: Every integration harness will still contain the `vendors.email` stand-in, so D2 rejects every planned green body before it reaches the live adapter.
+    why it matters: `buildCapabilityLedger` always creates `EmailProviderSim` and registers it as `vendors.email` (`tests/at/harness/index.ts:181` and `:188`), whose witness always returns `stand-in` (`tests/at/harness/capabilities.ts:158`). The above-loop gate inspects the whole ledger (`tests/at/harness/registry.ts:617`), while D3–D4 provide no live email capability or integration-tier omission.
+    unverified-runtime-claim: no
+
+[4] high: unexecutable    loop/items/AI4DEV-81/plan.md:88
+    claim: The attested clock specified by D4 cannot satisfy the harness types because it deliberately lacks the methods the contract requires.
+    why it matters: `AtHarness.clock` must implement `freezeAt` and `advance` (`tests/at/harness/contracts.ts:54`), adapter construction currently requires `ControlledClock` (`tests/at/harness/index.ts:41`), and the ledger always constructs one (`tests/at/harness/index.ts:175`). Supplying the planned no-seam clock therefore fails typechecking unless the plan adds a tier-aware contract and adapter redesign; retaining or casting the seam contradicts D4’s provenance claim.
+    unverified-runtime-claim: no
+
+[5] critical: false-green    loop/items/AI4DEV-81/plan.md:76
+    claim: D3 assigns provenance at the wrong granularity because every REQ-001 id shares the single `sut.accounts` key.
+    why it matters: the suite binds only `accounts` (`tests/at/suites/req-001/_bind.ts:34`), while that object contains all live, unbuilt, and Discovery methods. Marking `sut.accounts` real because some methods use the slot can hide nested stand-ins from D2; marking it pending makes every floor id red. The promised “back a subset of sut keys and proxy every other key” cannot represent this suite without method-level provenance and a new callable pending mechanism.
+    unverified-runtime-claim: no
+
+[6] critical: shared-state risk    loop/items/AI4DEV-81/plan.md:155
+    claim: The transient `jwt_expiry` step has neither a safe slot-management mechanism nor an oracle capable of proving restoration.
+    why it matters: the test child receives connection values but no slot directory or pool authority, while `prepare()` owns configuration mirroring, restarts, and the configuration-hash marker (`tests/at/harness/db-pool.ts:1189`). Editing the repository file cannot affect the already-started slot, and `git diff supabase/config.toml` cannot observe the external slot copy; editing or restarting the slot directly can leave Auth running with the lowered expiry while the unchanged marker prevents the next preparation from restarting it.
+    unverified-runtime-claim: no
+
+[7] critical: false-green    loop/items/AI4DEV-81/plan.md:183
+    claim: The plan declares AT-001.13 green using evidence that explicitly does not prove automatic refresh.
+    why it matters: AT-001.13 requires continuous work to refresh automatically, but the current body invokes `refreshSession` explicitly and states that automatic scheduling is unproved (`tests/at/suites/req-001/b-verification-and-sessions.test.ts:451`); the live transcript repeats that no client exists and only the mechanism was proved (`loop/items/AI4DEV-60/proof-local.txt:160`). A per-tier body citing the same acceptance text does not supply the missing client behavior.
+    unverified-runtime-claim: no
+
+[8] high: incomplete oracle    loop/items/AI4DEV-81/plan.md:154
+    claim: The selected AT-001.09 migration omits the check that proves verification for both email-capable account types.
+    why it matters: checks (a), (b), (b2), and (d) operate on the NGO round trip; the volunteer repeats the flow only in check (e), beginning at `loop/items/AI4DEV-59/proof-local.ts:923`. AT-001.09 requires both NGO and volunteer, so the Step 6 body and the table’s proof-(d)-only ground can go green with the volunteer path broken.
+    unverified-runtime-claim: no
+
+[9] high: incomplete oracle    loop/items/AI4DEV-81/plan.md:181
+    claim: Signup atomicity does not prove AT-001.01, yet the plan makes that id a mandatory integration green.
+    why it matters: AT-001.01 also requires the NGO account, organization, admin membership, acknowledgment fields, the pre-project acknowledgment gate, and later sign-in with the same credentials. The cited atomicity check only forces a late failure and asserts that three row sets remain empty (`loop/items/AI4DEV-58/proof-local.ts:622`); even the successful NGO control does not assert the acknowledgment fields, project gate, or later sign-in.
+    unverified-runtime-claim: no
+
+[10] medium: circular oracle    loop/items/AI4DEV-81/plan.md:160
+    claim: Step 7 derives initial red declarations from the run they are supposed to judge.
+    why it matters: exact matching prevents later drift but cannot establish that the first recorded cause was correct. For example, REQ-016 can acquire an unintended additional stand-in, report a well-formed `CapabilityPending` list, have that list copied into the manifest, and pass `--expect`; the instruction only rejects undeclarable shapes and supplies no independent expected capability inventory.
+    unverified-runtime-claim: no
+
+[11] high: requirement contradiction    .github/workflows/ci.yml:45
+    claim: D10 incorrectly says the existing workflow comment avoids choosing between queueing and a dead runner.
+    why it matters: the comment explicitly asserts that “hosted capacity queued this job for 11–15 minutes” (`.github/workflows/ci.yml:46`), selecting the queue explanation that the quoted partner requirement forbids treating as distinguished. Closing the partner with zero change therefore leaves one of its stated constraints unmet.
+    unverified-runtime-claim: no
+
+PLAN REVIEW: 11 FINDINGS
