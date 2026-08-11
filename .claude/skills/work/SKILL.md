@@ -286,14 +286,11 @@ plainly instead of fanning out items — five symptoms filed separately bury the
 
 ## Batching mode — at most ONE partner, chosen by PROXIMITY (founder 2026-08-11)
 
-At every `/work X` pickup, look for **at most one** partner item to ride the same run and the
-same pull request, and propose it beside the claim — the founder confirms or declines before
-anything spawns. Finding none is said out loud, never silent.
-
-**A partner qualifies by PROXIMITY, not size** (founder correction: size is the split trigger's
-job). Strongest first: a sibling under the same deliverable; a cousin in the same requirement
-whose surfaces touch; a filed fix living in territory the primary already works. An open
-blocker, an open founder question, or a different database need disqualifies.
+At every `/work X` pickup, run the **`find-batch` skill** on the item (carved out, founder
+2026-08-11 — it owns the proximity ladder, the disqualifiers, and the verdict shape). Its
+output is binary: one closest-proximity partner, or `NO BATCH` when nothing is near — **far
+means fail, never stretch**. Present its verdict beside the claim; the founder confirms or
+declines before anything spawns. Finding none is said out loud, never silent.
 
 **The mechanics, each one load-bearing:**
 - The branch names the PRIMARY only. The partner is claimed at pickup too, and recorded on both
