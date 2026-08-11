@@ -43,9 +43,18 @@ jobs:
     # check still judges the code on Linux either way.
     runs-on: ${{ vars.CI_RUNNER_LABEL || 'ubuntu-latest' }}
     # Generous on purpose. This bounds a RUNAWAY JOB; it is not a queue policy. At 15 minutes it
-    # was acting as one: hosted capacity queued this job for 11-15 minutes on 2026-08-06 and
-    # twice the budget expired before a single step ran, reporting `cancelled` as though someone
-    # had stopped it. The work itself takes about ten seconds on the fast lane.
+    # was acting as one. Twice on 2026-08-06 this job got no runner for 11-15 minutes and the
+    # budget expired before a single step ran, reporting `cancelled` as though someone had
+    # stopped it.
+    #
+    # WHY NO RUNNER, SAID AS IT WAS MEASURED: nobody established that. Two explanations fit the
+    # evidence equally well - GitHub-hosted capacity queueing the job, and a self-hosted lane that
+    # was not answering - and the observable is the same either way, which is a job sitting with
+    # no runner. The budget is raised because the budget was wrong for the observed wait, not
+    # because either story was settled. An earlier version of this comment asserted the queueing
+    # one; that assertion had nothing behind it.
+    #
+    # The work itself takes about ten seconds on the fast lane.
     timeout-minutes: 30
     steps:
       # THE HEAD COMMIT, NOT THE MERGE COMMIT. On a pull_request event GitHub's default ref is a

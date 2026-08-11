@@ -151,6 +151,11 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
         └─ a) check every verify-first claim and removal condition FIRST → proven / disproven
            b) apply the ruled fixes, as ruled
            c) GOAL: every plan step at its done-criterion AND the verify suite green
+              AT BOTH TIERS — `--tier loop --expect` for every declaration manifest, and
+              `--tier integration --expect` for every one, serially on the item's own
+              reserved database slot. An item that proves its ids only against stand-ins
+              has proved them against stand-ins. CI's required check is UNCHANGED: it
+              stays loop-only and fast, because it has no slot
               MAX 3 ITERATIONS · no external critique
            d) commit + push → report (per-ruling status · verify · ITERATION COUNT · disputes)
 42  ORCHESTRATOR dispute, or the goal not reached? → re-rule → back to 41     MAX 2 RE-ROUNDS
@@ -167,6 +172,15 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
 47  ORCHESTRATOR write PHASE-STATE — audit spec — THEN commit + push · tree clean ·
                  report the pushed head → end
 ```
+
+**THE VERIFICATION INSTRUMENT IS `at:verify`, AT BOTH TIERS, AND NOTHING ELSE.** A hand-written
+proof script that talks to a real stack is legitimate as a VENDOR MEASUREMENT feeding a plan
+decision — what a live provider really answers, what a real client really does — and it is never
+an item's evidence that an acceptance id holds. Three such transcripts are in the record and they
+stay there as history; nothing about them is deleted. What changed is their standing: a
+transcript is one machine's word, produced once, which a reviewer cannot reproduce, and it grades
+no id. The suite at the integration tier grades every id, on a slot any run rebuilds, and states
+exactly which id it graded.
 
 ## AUDIT · critique of the CLAIM — before CI, never beside it
 
@@ -257,6 +271,9 @@ judgment (founder 2026-08-11).
                  MAX 2 pushes, then escalate with the evidence
 62  ORCHESTRATOR write the merge ruling, pinned to the exact head:
                  what was built · every finding and its disposition ·
+                 BOTH TIERS' exact-match results — tier, requirement, exit code, and for
+                 integration the runner's own slot evidence line naming the slot, the
+                 reset and the migration count ·
                  WHAT THE GREEN DOES AND DOES NOT CLAIM ·
                  any maintained reviewer disagreement, verbatim
 63  ORCHESTRATOR confirm the required check green on THAT SHA — record the run id AND the sha
