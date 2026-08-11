@@ -1,71 +1,63 @@
 # PHASE-STATE — AI4DEV-80 (attribution by spawn tree)
 
-**Phase: MERGE RULED — the ruling is written and rides in this head. What remains is
-mechanical: the required check green on this exact head, then a mechanical publishes the
-ruling and executes the squash merge.** Written by the merge sitting, orchestrator on
-fable (claude-fable-5 @ xhigh), 2026-08-11. Chain, derived from the branch: AI4DEV-4 (the
-work skill, bring-up root) > AI4DEV-80 (attribution by spawn tree), label `attr:bringup`.
+**Phase: DONE.** The item is merged and closed. Written by the merge sitting, orchestrator
+on fable (claude-fable-5 @ xhigh), 2026-08-11. Chain, derived from the branch: AI4DEV-4
+(the work skill, bring-up root) > AI4DEV-80 (attribution by spawn tree), label
+`attr:bringup`.
 
-## What happened this sitting
+## Terminal record
 
-1. **Both audit re-run seats came back clean** — reader one "AUDIT: CLEAN" (19/19 boxes),
-   reader two "AUDIT: 0 FINDINGS" (18 boxes graded, scope box COULD-NOT-VERIFY). This
-   sitting recorded both verdicts among its dispositions and settled the scope box PASS
-   with the reviewer's own settling command: 54 files in the full range, zero outside
-   `loop/items/AI4DEV-80/` and `loop/work/`; the only code files are the report and its
-   selftest.
-2. **The red check was classified, not merged through.** Thirteen pull-request runs
-   failed on one cause outside this branch: main added the twin-guard step (21:55:18 UTC)
-   while the checkout is pinned to the branch head, whose tree predates the guard's
-   script. The last green run started 21:55:00 UTC — eighteen seconds before the guard
-   landed. Earliest and latest failures spot-checked: same single step, script missing,
-   twins never compared. Main's own push runs stay green. Not this item's defect, not
-   infrastructure, not a flake — the one-re-run budget stays unspent (a re-run is pinned
-   to its original workflow snapshot and would fail identically). The coordinator relayed
-   the same diagnosis and fixed the skew on main (the guard now skips loudly on trees
-   that predate it); the relay ruled nothing, this sitting ruled.
-3. **Cure: forward merge of main into the branch, `93ee7f1`.** Zero conflicts (the file
-   sets are disjoint). The item's own diff is byte-identical across the merge — patch-id
-   `d4b20d0b8448731ba3301aedf5ca06d88c83bbd6` before and after — so no item code changed
-   and the spent audit stands; no audit question reopens. The twin check passes locally
-   on the merged tree ("SYNCED - 231 body lines identical apart from the declared
-   differences", exit 0).
-4. **The merge ruling is written: `merge-ruling.md`** — what was built, every disposition
-   from gate 1, gate 2, the first audit and the re-run, the CI classification, what the
-   green does and does not claim, the evidence stated plainly, the open founder question,
-   and four follow-ups in words. It contains no item id but this branch's own.
-5. **The pull-request body update is written: `pr-body.md`** — corrects the stale assert
-   count (fifteen, not eight) and states plainly what the evidence shows.
+- Final head of the branch: `d83e8a9` (carries the merge ruling, the pull-request body
+  file, the forward merge `93ee7f1`, and the previous phase state).
+- Required check GREEN on that exact head: run 31447099690, job "verify" pass, completed
+  2026-08-11 ~00:45 UTC. The thirteen prior red runs are classified in
+  `merge-ruling.md` section 4: one cause outside this branch (the twin-guard script
+  absent from a head tree that predates it), cured by the forward merge; the flake
+  re-run budget was never spent.
+- Pull request #52: MERGED at 2026-08-11T00:46:17Z. Squash commit on main:
+  `712782a4fc391b23722c5cbc9ae43cb0243dd410` — verified an ancestor of `origin/main`.
+- Board: the item flipped Done at 2026-08-11T00:46:19Z by the integration, two seconds
+  after the merge. No hand edit.
+- The merge ruling is published on the pull request (comment 5247745467, 00:46:12Z) and
+  committed here as `merge-ruling.md`. The pull-request body was updated from
+  `pr-body.md` as handed.
 
-## What completes the item
+## Anomaly at the merge: two mechanicals raced, the merge ran once
 
-1. The required check goes green on THIS head (the commit that carries this file, the
-   ruling, and the forward merge `93ee7f1`). Expected: prose fast lane, guards only; the
-   twin guard now finds its script in the tree.
-2. A mechanical, handed exact instructions:
-   a. verify the required check is green on this exact head and record run id + SHA;
-   b. `gh pr edit 52 --body-file loop/items/AI4DEV-80/pr-body.md` (as handed);
-   c. `gh pr comment 52 --body-file loop/items/AI4DEV-80/merge-ruling.md` (as handed);
-   d. `gh pr merge 52 --squash` — never `--admin`, never on a non-green check. A refusal
-      is a STOP: report the exact denial text upward; no other actor runs the command.
-3. The orchestrator (this sitting if alive, a successor otherwise) checks the merged
-   state: pull request MERGED, the squash commit on main, the board item flipped Done by
-   the integration. Then PHASE-STATE: done.
-4. If the check comes back red on this head: it is a NEW cause by construction (the twin
-   skew is cured in this tree; the guards passed this pull request's shape at the last
-   green run). Classify fresh; do not spend the flake re-run on the old cause.
+The orchestrator handed the merge steps to its mechanical per the workflow. In parallel,
+the conductor — whose CI monitor fired on the green — spawned a second mechanical from
+the instruction list the previous PHASE-STATE carried. The conductor's mechanical
+executed first: body edit, ruling comment 00:46:12Z, merge 00:46:17Z. The orchestrator's
+mechanical then found the pull request already merged, reported exactly that, and never
+retried. The merge command ran effectively once, from a mechanical both times it was
+attempted — the boundary held; no orchestrator and no other role ran it. Residue: the
+ruling comment posted twice (byte-identical): id 5247745467 at 00:46:12Z (kept, it
+accompanied the merge) and id 5247747047 at 00:46:28Z (the duplicate). **Both mechanicals
+attempted to delete the duplicate, independently, and the permission classifier refused
+both DELETEs** ("Permission for this action was denied by the Claude Code auto mode
+classifier. Reason: Blocked by classifier." — full text in each mechanical's transcript,
+denial kind `automode-blocked`). Each stopped without retry or workaround. The two
+instructions were issued before either instructing role knew of the other's refusal; once
+the refusal was known, the orchestrator stopped all deletion work. **The duplicate
+comment REMAINS on the merged pull request, by the boundary's ruling.** Surfaced to the
+founder (delete in the UI / rule a permission / leave it); it blocks nothing. Lessons for
+the workflow, filed in words: (a) a PHASE-STATE that lists executable merge steps must
+name the ONE role that hands them to a mechanical, or two faithful actors will both do
+it; (b) both mechanicals' reports were misdelivered because they addressed "orchestrator"
+by type — a type name never resolves; every spawn prompt must hand the report-to address
+as a bare agent id.
 
-## Open founder question — carried in the ruling, not resolved
+## Open founder question — carried in the merge ruling, unresolved
 
 The board item expected the unattributed share to "drop sharply". Measured: 70.6% to
 67.5%, because the denominator grows too (479 to 924 transcript files, 26352 to 49336
 responses). Attributed responses nearly double (10816 to 21345, +97.4%); the spawn-tree
 source attributes 4445 responses across 14 items; the previous item's scoped view grows
-from 249 responses in 2 roles to 1935 in 7. Question for the founder: are the attribution
-numbers the accepted headline, in place of a sharp percentage drop? Shapes the reading of
-the outcome, not the merge.
+from 249 responses in 2 roles to 1935 in 7. Question: are the attribution numbers the
+accepted headline, in place of a sharp percentage drop? Shapes the reading of the
+outcome only; the item is closed.
 
-## At close — follow-ups, FILED IN WORDS, not built
+## Follow-ups — FILED IN WORDS, not built (for the coordinator's fold)
 
 1. The flash/opencode reviewer-spend join (scoped out by the item).
 2. One sentence for the conductor contract and the workflow: a derived gate SKIP is a
@@ -76,18 +68,19 @@ the outcome, not the merge.
 4. Pre-existing (audit re-run, reader one, out of scope): the branch regex at
    `attribution-report.ps1:136` does not guard against a preceding backslash; the fix
    delta cannot reach it.
+5. Process, from this sitting's close: the merge-race lesson above.
+
+## Corrections to the previous phase state
+
+- The previous PHASE-STATE said this merge sitting "received its birth certificate ...
+  normally". Wrong: the spawn brief carried the conductor's address but no "your own
+  address is" line. Nothing was lost — the mechanical reported by completion text — but
+  the record now says what actually happened.
 
 ## Standing pointers
 
-Dispositions: `merge-ruling.md` (summary), `audit-rulings.md`, `gate1-rulings.md`,
-`gate2-rulings.md`, plan sections 7-10. Evidence: `after-delta.md` (section 5 is the A/B
-run), the four selftest captures, `artifacts/` (all committed). Heads: base `ac8a235`,
-audited `2be9782`, fix/re-run `8af0e18`, forward merge `93ee7f1`, final head = the commit
-carrying this file.
-
-## Anomalies
-
-- This merge sitting received its birth certificate and its conductor address normally.
-- Carried, no action: reader two's gate-2 contamination (ruled, no independence weight);
-  the first audit's two-box seat conflict (resolved for the traced FAIL); `git commit -F`
-  for multi-line messages in PowerShell 5.1.
+Dispositions: `merge-ruling.md`, `audit-rulings.md`, `gate1-rulings.md`,
+`gate2-rulings.md`, plan sections 7-10. Evidence: `after-delta.md`, the four selftest
+captures, `artifacts/` (committed). Heads: base `ac8a235`, audited `2be9782`,
+fix/re-run `8af0e18`, forward merge `93ee7f1`, final `d83e8a9`, squash on main
+`712782a`.
