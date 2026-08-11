@@ -23,16 +23,20 @@ identity fields ride the completion request and land on `public.acknowledgments`
 ## Decisions
 
 - **A — where the fields live.** Three new columns on `public.acknowledgments`: `signer_name`,
-  `signer_title`, `authority_attestation`, each `text not null check (length(btrim(...)) > 0)`
-  — the same belt-and-braces shape `text_version` already has (migration
-  `20260808120000_...` line 78). TypeScript names: `signerName`, `signerTitle`,
-  `authorityAttestation`.
+  `signer_title`, `authority_attestation`, each `text not null check (col !~ '^\s*$')` — the
+  POSIX-whitespace-class shape the GitHub migration documents and uses (migration
+  `20260809090000_...` lines 41–43 and 94–96), because one-argument `btrim` strips the space
+  character only and would pass a tab-only value (gate 1 finding 7). `text_version`'s older
+  `btrim` shape has that gap; it is pre-existing code and stays untouched. TypeScript names:
+  `signerName`, `signerTitle`, `authorityAttestation`.
 - **B — where omission rejects.** In `validateCompleteSignup`
   (`supabase/functions/_shared/accounts.ts`), the module both the deployed function and the
-  loop-tier fixture drive. The three checks go AFTER the existing acknowledgment-text-version
-  check, in the order name → title → attestation, one refusal per field, each refusal naming
-  its field. Order matters: every already-green test that pins a refusal reason keeps firing
-  its own check first — AT-001.07's `platform_admin` refusal at `parseAccountType`, AT-001.04's
+  loop-tier fixture drive. FOUR checks go AFTER the existing acknowledgment-text-version
+  check, in the order name → title → attestation-present → attestation-matches, one refusal per
+  condition, each refusal naming its field. The fourth (gate 1 finding 3): the trimmed
+  attestation must equal `ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement` exactly; the refusal
+  says the statement does not match the shipped authority statement. Order matters: every
+  already-green test that pins a refusal reason keeps firing its own check first — AT-001.07's `platform_admin` refusal at `parseAccountType`, AT-001.04's
   GitHub-link refusal, AT-001.01's missing-acknowledgment refusal (`/acknowledgment/i`) at the
   text-version check. Requests in those tests that omit the signer fields never reach the new
   checks.
@@ -40,6 +44,9 @@ identity fields ride the completion request and land on `public.acknowledgments`
   affirmed, verbatim and trimmed, exactly as `text_version` stores which text was accepted. A
   `true` in a column captures that something was clicked; the statement captures WHAT was
   attested. The shipped statement lives in the copy module (decision D) and the tests submit it.
+  The server refuses an attestation that is not the shipped statement (decision B, fourth
+  check) — today exactly one statement is valid, and the column records which one was affirmed
+  so that future statement versions stay distinguishable.
 - **D — the copy is a shipped constant module.** New file
   `supabase/functions/_shared/acknowledgment-copy.ts`:
 
@@ -60,19 +67,26 @@ identity fields ride the completion request and land on `public.acknowledgments`
   AT-001.20 grades this constant BY DIRECT IMPORT, the same way the suite already imports
   `stubGithubStatsFor` from a shipped module (`a-signup-and-signin.test.ts` line 46). No new
   SUT-contract method: no deployed surface reports copy (the live adapter's own header, point 3,
-  refuses the read-the-module-back pattern for `publicSignupAccountTypes`), and unlike that case
-  the copy has no behavioural form at any tier — its content IS the article. The screen that
-  will display it is later UI work; the green claims content, never display (see "what the green
-  claims").
+  refuses the read-the-module-back pattern for `publicSignupAccountTypes`). The module is NOT
+  test-only: `validateCompleteSignup` imports it for the attestation-match check (decision B),
+  so the copy is in the deployed function graph and `authorityStatement` has behavioral force
+  at runtime (gate 1 finding 2, first half). The prohibition and recommendation strings have no
+  behavioural form at any tier — their content IS the article. The screen that will display
+  them is later UI work; the green claims content, never display (see "what the green claims").
 - **E — the database function changes by drop-and-recreate.** New migration, timestamp after
   the latest existing file: adds the three columns, then drops `public.complete_signup` by its
   exact current signature and recreates it with three appended parameters `p_signer_name text
   default null`, `p_signer_title text default null`, `p_authority_attestation text default
-  null`, inserted into the acknowledgment row. `default null` is the rolling-deploy pattern the
-  GitHub leaf established (see the long comment at `complete-signup/index.ts` lines 89–100);
-  enforcement is the columns' constraints — a null reaching the insert aborts the whole
-  transaction, so no partial signup can exist. The revoke/grant tail is re-stated after the
-  recreate, exactly as migration `20260809090000` does, because a drop loses grants.
+  null`, inserted into the acknowledgment row. The defaults are NOT a rolling-deploy bridge
+  (gate 1 finding 1: that pattern needs nullable columns, and these are `not null`) — they
+  exist for call-signature tolerance only. A caller that omits the new arguments fails at the
+  column constraints, the whole transaction aborts, and no partial signup exists; that refusal
+  is the requirement's own demanded behavior for omission. No mixed-plane window exists in any
+  environment: slots re-migrate from scratch and the functions deploy from the same tree. The
+  revoke/grant tail is re-stated after the recreate, exactly as migration `20260809090000`
+  does, because a drop loses grants, and the file ends with `notify pgrst, 'reload schema';`
+  as both existing migrations do — after a drop the stale cache entry names a signature that no
+  longer exists (gate 1 finding 5).
 - **F — what integration proves, and what it cannot.** Integration runs on the item's reserved
   database slot 1 and proves the email/Google completion path end to end: deployed function →
   database function → row. A GitHub-established session is not obtainable at integration tier
@@ -105,14 +119,18 @@ Test bodies first — the acceptance ids predate the item, and the pending machi
    - Done when: the body compiles, registers through `atTest`, and its assertions are the ones
      above — no weaker oracle.
 2. **AT-001.39 body**, same file, `{ default, integration }` pair:
-   - default (loop): six refusal variants — each of the three fields omitted, and each blank
-     (`'   '`) — every one refused with a reason naming the missing field, and after EVERY
-     refusal: no account row (`sut.account` null), no acknowledgment rows, and
-     `hasPlatformAcknowledgment` false. A control completion with all three fields then
-     succeeds, so the refusals are attributable to the missing field and nothing else.
+   - default (loop): seven refusal variants — each of the three fields omitted, each blank
+     (`'   '`), and a wrong-content attestation (`'I am not authorized'` — gate 1 finding 3's
+     counterexample) — every one refused with a reason naming the field, and after EVERY
+     refusal: no account row (`sut.account` null), no acknowledgment rows,
+     `hasPlatformAcknowledgment` false, `organizationsNamed(<the NGO name submitted>)` empty,
+     and `membershipsOf` empty (gate 1 finding 6). A control completion with all three fields
+     then succeeds, so the refusals are attributable to the missing field and nothing else.
    - integration: the three omission variants against the deployed function, same
-     no-partial-state assertions over the slot database.
-   - Done when: compiles, registered, asserts refusal reason AND absence of every write.
+     no-partial-state assertions — organizations and memberships included — over the slot
+     database.
+   - Done when: compiles, registered, asserts refusal reason AND absence of every write the
+     completion could have made.
 3. **AT-001.20 body**, same file, one body for both tiers: import
    `ACKNOWLEDGMENT_IDENTITY_COPY`; assert `sharedCredentialsProhibition` matches
    `/shared credential/i` AND `/prohibit/i`; assert `orgEmailRecommendation` matches
@@ -124,10 +142,12 @@ Test bodies first — the acceptance ids predate the item, and the pending machi
 5. **Shared decision module** — `supabase/functions/_shared/accounts.ts`:
    `CompleteSignupRequest` gains `signerName?`, `signerTitle?`, `authorityAttestation?` (all
    `unknown`); `ValidCompleteSignup` gains the three as `string`; `validateCompleteSignup`
-   checks them per decision B and returns them trimmed. Done when: typecheck passes and the
-   refusal strings each name their field.
-6. **Migration** per decision E. Done when: columns + checks + drop/recreate + insert + grants
-   are all in one new file whose timestamp sorts after every existing migration.
+   checks them per decision B — three presence-and-blank checks, then the attestation-match
+   check against the imported `ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement` — and returns
+   them trimmed. Done when: typecheck passes and the refusal strings each name their field.
+6. **Migration** per decision E. Done when: columns + `!~ '^\s*$'` checks + drop/recreate +
+   insert + grants + `notify pgrst, 'reload schema';` tail are all in one new file whose
+   timestamp sorts after every existing migration.
 7. **Edge function** — `complete-signup/index.ts`: pass the three body fields into
    `validateCompleteSignup`; pass the judged values as `p_signer_name`, `p_signer_title`,
    `p_authority_attestation` in the `complete_signup` call. Done when: the judged value — never
@@ -186,9 +206,11 @@ Expected verification state per acceptance id (the exact-match contract):
 ## What the green claims, and what it does not
 
 - It claims: every acknowledgment written through the one existing acknowledgment moment
-  records name, title and the affirmed authority statement; any omission or blank refuses with
-  the field named and writes nothing at all; the shipped copy states the shared-credentials
-  prohibition and the organisation-email recommendation.
+  records name, title and the affirmed authority statement; any omission or blank — and any
+  attestation that is not the shipped authority statement — refuses with the field named and
+  writes nothing at all, no account, no organization, no membership, no acknowledgment; the
+  shipped copy states the shared-credentials prohibition and the organisation-email
+  recommendation, and the deployed validation enforces its authority statement at runtime.
 - It does NOT claim: that any screen displays the copy (no screen exists; UI wiring is other
   items' work); that a GitHub-established session was driven at integration tier (capability-
   gated, as for every GitHub id); that future acknowledgment moments (funding, REQ-006's) carry
