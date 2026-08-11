@@ -1,0 +1,43 @@
+﻿db-pool — slot 2 identity proven before the prepare: project ai4good-slot-2, api 56321, db 56322, containers supabase_imgproxy_ai4good-slot-2, supabase_pooler_ai4good-slot-2
+db-pool — slot 2 identity proven before the reset: project ai4good-slot-2, api 56321, db 56322, containers supabase_imgproxy_ai4good-slot-2, supabase_pooler_ai4good-slot-2
+db-pool — docker confirms slot 2's own database container before the reset: supabase_db_ai4good-slot-2
+at:verify — 4 migrations expected, 4 applied — the rebuilt schema matches supabase/migrations exactly
+at:verify — db slot 2 (ai4good-slot-2, api 56321) — reset OK — migrations: 4 expected, 4 applied
+
+=== (a) does the BEFORE trigger fire under the OPERATOR (superuser) connection? ===
+  the operator connection is {"current_user":"postgres","superuser":false,"bypassrls":true}
+  ANSWER: YES — refused. sqlstate "ERR_POSTGRES_SERVER_ERROR" message "org_memberships refuses a per-organisation role for account a8f63613-b6b4-486e-935a-23ae1c487adf of type volunteer: per-NGO roles are NGO accounts only"
+  control: the NGO grantee was seated, role "admin"
+  read-back: organisation one holds 1 membership row(s)
+
+=== (b) an ABSENT accounts row: which refuses first, the trigger or the foreign key? ===
+  ANSWER: refused by THE TRIGGER
+  sqlstate "ERR_POSTGRES_SERVER_ERROR" message "org_memberships refuses a per-organisation role for e9848c90-aecf-407e-b65e-13cdbc933dfc: no account has completed signup for this user, so it holds no account type"
+
+=== (c) does the service-role REST read of org_memberships need the new grant? ===
+  with the migration's grant present: HTTP 200 body "[{\"role\":\"admin\"}]"
+  with the grant REVOKED: HTTP 403 body "{\"code\":\"42501\",\"details\":null,\"hint\":\"Grant the required privileges to the current role with: GRANT SELECT ON public.org_memberships TO service_role;\",\"message\":\"permission denied for table org_membe"
+  with the grant restored: HTTP 200 body "[{\"role\":\"admin\"}]"
+
+=== (d) the error shapes the live adapter must classify, over operator SQL ===
+  error own properties: ["message","name","code","errno","severity","where","file","originalLine","originalColumn","line","column","sourceURL","stack","routine"]
+  error field values: {"message":"org_memberships refuses a per-organisation role for account a8f63613-b6b4-486e-935a-23ae1c487adf of type volunteer: per-NGO roles are NGO accounts only","name":"PostgresError","code":"ERR_POSTGRES_SERVER_ERROR","errno":"42501","severity":"ERROR","where":"PL/pgSQL function public.org_membership_grantee_must_be_ngo() line 24 at RAISE","file":"pl_exec.c","originalLine":171,"originalColumn":27,"line":"3911","column":27,"sourceURL":"internal:sql/postgres","routine":"exec_stmt_raise"}
+  constructor name: "PostgresError"
+  trigger refusal (non-NGO grantee): sqlstate "ERR_POSTGRES_SERVER_ERROR" message "org_memberships refuses a per-organisation role for account a8f63613-b6b4-486e-935a-23ae1c487adf of type volunteer: per-NGO roles are NGO accounts only"
+  one-seat refusal (second seat, NGO grantee): sqlstate "ERR_POSTGRES_SERVER_ERROR" message "duplicate key value violates unique constraint \"org_memberships_one_seat_per_org_idx\""
+  ordering (non-NGO grantee, already-seated organisation): refused by THE TRIGGER
+    sqlstate "ERR_POSTGRES_SERVER_ERROR" message "org_memberships refuses a per-organisation role for account a8f63613-b6b4-486e-935a-23ae1c487adf of type volunteer: per-NGO roles are NGO accounts only"
+  seat-occupied refusal (re-point an occupied project seat): sqlstate "ERR_POSTGRES_SERVER_ERROR" message "projects refuses a second volunteer on project 8b2db184-73f8-4d07-8b5b-e13309b7029d: its single developer seat is held by account a8f63613-b6b4-486e-935a-23ae1c487adf"
+  read-back: the project seat holds "a8f63613-b6b4-486e-935a-23ae1c487adf" (the FIRST volunteer is "a8f63613-b6b4-486e-935a-23ae1c487adf")
+  release to null: ALLOWED
+
+=== (e) what does the functions router answer for a function that does not exist? ===
+  POST /functions/v1/invite-member -> HTTP 404 body "Function not found"
+  POST /functions/v1/create-organization -> HTTP 401 body "{\"ok\":false,\"reason\":\"authenticate before creating an organisation\"}"
+
+=== (f) the catalog posture on public.projects for the three Data API roles ===
+  information_schema.role_table_grants rows for the three roles: 0
+  has_table_privilege: {"anon_select":false,"anon_truncate":false,"authenticated_select":false,"authenticated_truncate":false,"service_role_select":false,"service_role_truncate":false,"anon_references":false,"anon_trigger":false}
+
+END OF THE VERIFY-FIRST PROBES
+=== the slot claim was released ===
