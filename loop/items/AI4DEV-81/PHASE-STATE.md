@@ -2,39 +2,64 @@
 
 ## Where the item stands
 
-Phase: **PLAN complete.** The PLAN sitting (fable) wrote `plan.md`, the gate-1 prompt, and the
-pull-request body, and ended. This file rides in the head that completes the phase; the sitting
-reports that head, and the conductor verifies the report against the remote.
+Phase: **DRAFT complete.** The DRAFT sitting (fable) ruled all 11 gate-1 findings — every one
+accepted, one fixed differently (`rulings-gate1.md`) — amended `plan.md` (this amended plan is
+what gets built; decisions D1-D12 and the settled per-id table), and pushed the rulings BEFORE
+any code changed. The executor (opus, one invocation of the three permitted — two remain) then
+wrote the draft for both slices: plan steps 1-8 implemented, typecheck and build clean, 327
+harness selftests green, loop-tier exact-match unchanged for both requirements, **the
+integration verify suite deliberately not run**. The sitting then ruled on the five judgments
+the executor raised (`rulings-draft.md`) and assembled the four gate-2 prompts. This file rides
+in the head that completes the phase; the conductor verifies the reported head against the
+remote.
 
 ## What completes the next phase
 
-Gate 1 — critique of the plan. One reviewer (sol via codex, per the pins in
-`.claude/skills/work/reviewers.md`), launched by a reviewer-runner. The phase is complete when
-the runner reports LANDED with its distillate in `loop/items/AI4DEV-81/artifacts/`. The prompt to
-send is `loop/items/AI4DEV-81/gate1-prompt.txt`, verbatim.
+Gate 2 — critique of the draft code, per slice (plan D11), two readers per slice, four runs in
+all, each launched by its own reviewer-runner with the prompt sent VERBATIM:
 
-## Facts the next sitting needs
+| slice | reader pins (assembly metadata — never sent) | prompt file |
+|---|---|---|
+| 1 — harness machinery | `gpt-5.6-terra`, effort `max`, codex, `--sandbox read-only` | `loop/items/AI4DEV-81/gate2-slice1-terra.txt` |
+| 1 — harness machinery | `opencode-go/deepseek-v4-flash`, `--variant max`, opencode, agent `reviewer-flash`, clean session | `loop/items/AI4DEV-81/gate2-slice1-flash.txt` |
+| 2 — suite, declarations, process text | `gpt-5.6-terra`, effort `max`, codex, `--sandbox read-only` | `loop/items/AI4DEV-81/gate2-slice2-terra.txt` |
+| 2 — suite, declarations, process text | `opencode-go/deepseek-v4-flash`, `--variant max`, opencode, agent `reviewer-flash`, clean session | `loop/items/AI4DEV-81/gate2-slice2-flash.txt` |
 
-- Branch: `nirdrang/ai4dev-81-per-item-integration-verification-every-item-proves-its-ids`,
-  cut from main at 466880d. Reserved database slot: slot 1, under this item, serving the pair.
-- Batch: AI4DEV-45 is the partner; its remedy is ALREADY on main (`.github/workflows/ci.yml`
-  line 49, `timeout-minutes: 30`, landed in commit 2795926) — plan decision D10: zero code
-  change, closed by the sanctioned closes-line in the pull request, declared in the merge ruling
-  with that evidence.
-- The pull request: a mechanical opens it at the end of the PLAN sitting — title
-  `AI4DEV-81: items prove their acceptance ids against a real slot database`, body verbatim from
-  `loop/items/AI4DEV-81/pr-body.md` (it carries the partner's closes-line; no other foreign id).
-- Proportionality: this item reaches code. The code gate runs, per slice (plan D11: slice 1 =
-  harness machinery, slice 2 = live adapter + bodies + declarations + process text).
-- Key plan decisions the DRAFT sitting builds on: D2 (declarable above-loop refusal), D3
-  (tier-selected adapter), D4 (real provenance only on positive evidence; attested real clock),
-  D5 (per-tier bodies, one per id per tier), D6 (integration green floor = the three migrated
-  check sets; provider-handshake ids and the Discovery id are NOT green).
-- Step 1 of the plan (id ↔ check-set mapping against the acceptance file) settles the
-  "green target / red expected" rows of the plan's table; the DRAFT sitting amends the plan with
-  the settled table after ruling gate-1 findings.
+The four runs are independent and may run in parallel; all four pin the same head (the one this
+file rides in). The phase is complete when all four runners report LANDED with distillates in
+`loop/items/AI4DEV-81/artifacts/`. No reader learns another reader or another gate exists; the
+per-slice prompt pairs are byte-identical by design, since the pins are launch metadata.
+
+## Facts the FIX sitting needs
+
+- Branch: `nirdrang/ai4dev-81-per-item-integration-verification-every-item-proves-its-ids`, cut
+  from main at 466880d. PR #53 open. Reserved database slot: slot 1.
+- Draft head before this file: 26ac293 (executor's six commits, one per step group; its full
+  report is reproduced in the conductor's record of this sitting's completion).
+- Read `rulings-gate1.md` AND `rulings-draft.md` before ruling on gate-2 findings — several
+  likely findings are already ruled there (the sessionless-handle design R-D3, the supabase-js
+  load seam R-D4, AT-001.05 red R-D1) and a gate-2 claim against them is ruled on its merits,
+  not re-litigated from scratch.
+- Known accepted gap (executor report, step 4): the loader's two live paths (adapter present /
+  absent fallback) have no selftest — both need an attested slot; the goal phase's integration
+  run exercises them. A gate-2 finding about this is expected; the ruling context is that the
+  gap was declared, not hidden.
+- Verify-first answers (evidence in `verify-first.md`): (a) slot serves edge functions from its
+  own container, no serve process per run; (b) Mailpit at the slot's status-reported URL;
+  (c) `jwt_expiry` 120 pinned and verified live; (d) supabase-js auto-refresh rotation observed
+  at ~30 s into a 120 s token.
+- Slot 1 state: the executor deleted its start marker after probing, so the next `prepare()`
+  restarts it into the generated config carrying `jwt_expiry = 120`. Recorded in
+  `rulings-draft.md`.
+- The partner item's remedy: already on main (ci.yml line 49, `timeout-minutes: 30`); this
+  branch's only ci.yml change is the comment neutralization (D10, gate-1 ruling 11). The pull
+  request body already carries the one sanctioned closes-line — do not touch `pr-body.md` or
+  the PR.
+- Executor invocation budget for the FIX sitting: fresh (the three-invocation cap is per
+  sitting; the DRAFT sitting used one).
 
 ## Open questions
 
-None for the founder. Nothing contradicts ratified text; no scope growth identified at plan
-time.
+None for the founder. Nothing contradicts ratified text; no scope growth. The plan's D1 was
+loosened one notch by gate-1 ruling 11 (ci.yml comment-only edit) — recorded, behavior
+unchanged, inside this item's batch scope.

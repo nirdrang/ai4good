@@ -247,7 +247,7 @@ from THIS table, never from the run):
 | AT-001.12, .38 | green | the sessions transcript's own recipes: sign-in mint, wrong-password refusal adds no row, logout scope=local with sibling-session control, expiry and same-row refresh under D12's standing low `jwt_expiry` (ruling 6 — no transient override) |
 | AT-001.13 | green ONLY with the genuine client auto-refresh body (ruling 7); else red exact kind | supabase-js `autoRefreshToken` rotation observed with no explicit refresh call under D12's expiry, then continued access; feasibility is step 5(d)'s verify-first |
 | AT-001.14 | green | password reset via the emailed flow (sessions proof set) |
-| AT-001.04 | red expected — the "linking completes signup" clause needs the handshake (F8); step 1 confirms no legitimate live link path exists, else settles green | the block arm alone does not satisfy the criterion's full text (same doctrine as rulings 8 and 9) |
+| AT-001.04 | red expected — the "linking completes signup" clause needs the handshake (F8); step 1 confirms no legitimate live link path exists, else settles green | the block arm alone does not satisfy the criterion's full text (same doctrine as rulings 8 and 9). Settled red; the declared refusal names `sut.accounts.registerWithProvider` — the Google half, the true first refusal on the body's path (draft ruling R-D5) |
 | AT-001.06, .07 | green target — step 1 confirms the full criterion is live-oracleable from the deployed surfaces; else red exact kind | volunteer-refused-NGO-action and platform-admin sign-in are handshake-free; the oracle surfaces must exist live |
 | AT-001.02, .03 | red | provider handshakes, F8: no credential exists; green here would be false |
 | AT-001.10 | red — capability-pending | F9: no Discovery route exists |
