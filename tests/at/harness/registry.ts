@@ -441,6 +441,33 @@ export function captureProducerProblem(opensBefore: number, opensAfter: number):
  * `new`. Exporting only the type removes the constructor from a suite's reach, and has the second
  * effect of making `EvidenceCapture` a type ALIAS, which declaration merging cannot open.
  */
+/**
+ * WHAT A FAILING SHARED PRODUCER THROWS — and the two refusals it must NOT dress up.
+ *
+ * PURE AND EXPORTED, so the rule has an oracle: it is a rule about what a red LOOKS like, and a
+ * rule about a shape that nothing compares is a rule nobody knows works.
+ *
+ * The wrapper exists so an ordinary failure inside a shared producer says WHICH capture failed and
+ * whose, instead of surfacing on five consumer ids as an unattributed error. That is right for an
+ * ordinary failure and wrong for a REFUSAL. `CapabilityPending` and `AtPending` are the two red
+ * shapes a declaration can describe, and `expected.ts` rebuilds their first line and compares it
+ * exactly. Wrapping one turns `CapabilityPending: CAPABILITY PENDING — …` into
+ * `Error: evidence capture "…" failed — CAPABILITY PENDING — …`, which no declaration can express.
+ * Measured on REQ-016's first integration run: five ids were red in a shape nobody could declare,
+ * which is the exact defect the declarable refusal exists to remove.
+ *
+ * Nothing is hidden by passing them through: both carry their own names, and the id that reports
+ * one is the id that leaned on it.
+ */
+export function captureFailure(name: string, requirement: string, producerAtId: string, err: unknown): unknown {
+  if (err instanceof CapabilityPending || err instanceof AtPending) return err;
+  const detail = err instanceof Error ? err.message : String(err);
+  return new Error(
+    `evidence capture ${JSON.stringify(name)} (${requirement}) produced by ${producerAtId} failed — ${detail}`,
+    { cause: err },
+  );
+}
+
 class EvidenceCaptureImpl<C, Sut = unknown, W extends WorldLike = WorldLike, T extends Tier = 'loop'> {
   private result: Promise<C> | null = null;
   private producerAtId = '';
@@ -465,11 +492,7 @@ class EvidenceCaptureImpl<C, Sut = unknown, W extends WorldLike = WorldLike, T e
           }
           return freezeEvidence(value);
         } catch (err) {
-          const detail = err instanceof Error ? err.message : String(err);
-          throw new Error(
-            `evidence capture ${JSON.stringify(this.name)} (${this.requirement}) produced by ${this.producerAtId} failed — ${detail}`,
-            { cause: err },
-          );
+          throw captureFailure(this.name, this.requirement, this.producerAtId, err);
         }
       })();
     }

@@ -37,7 +37,7 @@ import { AttestedRealClock, ControlledClock, createAttestedRealClock } from './c
 import { declaredDetail, detailMatches } from './expected.ts';
 import { buildCapabilityLedger } from './index.ts';
 import { createLiveEmail } from './live-email.ts';
-import { aboveLoopStubbedRefusal, chooseTierBody, tierBodyProblem, tierTimeout } from './registry.ts';
+import { aboveLoopStubbedRefusal, AtPending, captureFailure, chooseTierBody, tierBodyProblem, tierTimeout } from './registry.ts';
 
 /** One attestation, minted the way the real path mints it: through the round trip, never by hand. */
 async function anAttestation(label = 'slot 1'): Promise<LiveAttestation> {
@@ -229,6 +229,51 @@ describe('real provenance requires the attestation round trip', () => {
 
   it('refuses a child that received no coordinates at all', async () => {
     await expect(attestSlot({ dbUrl: '', nonce: 'anything', label: 'slot 1' })).rejects.toThrow(/no database URL reached this child/);
+  });
+});
+
+describe('a shared evidence capture does not dress a REFUSAL up as an ordinary failure', () => {
+  /*
+   * MEASURED ON REQ-016'S FIRST INTEGRATION RUN. Five ids consume one shared producer; the producer
+   * refused with `CapabilityPending`, and the wrapper turned each of the five reds into an `Error`
+   * naming the capture. The names were still in the text, but the SHAPE was one no declaration can
+   * express — so five ids were red in a way nobody could declare, which is what the declarable
+   * refusal exists to prevent.
+   */
+  it('lets the two declarable refusals through unchanged', () => {
+    const pending = new CapabilityPending(['fixtures.worlds', 'sut.notifications']);
+    expect(captureFailure('REQ-016 taxonomy execution', 'req-016', 'AT-016.03', pending)).toBe(pending);
+
+    const notLanded = new AtPending('AT-016.03', 'sut-missing', 'REQ-016 has not landed');
+    expect(captureFailure('REQ-016 taxonomy execution', 'req-016', 'AT-016.03', notLanded)).toBe(notLanded);
+  });
+
+  it('rebuilds the declared line for a refusal that travelled through a capture', () => {
+    // The end-to-end property, rather than object identity: what a consumer id reports is what a
+    // `capability-pending` declaration rebuilds, byte for byte.
+    const thrown = captureFailure(
+      'REQ-016 taxonomy execution',
+      'req-016',
+      'AT-016.03',
+      new CapabilityPending(['fixtures.worlds', 'sut.notifications']),
+    ) as Error;
+    expect(
+      detailMatches(
+        'AT-016.04',
+        { kind: 'capability-pending', capabilities: ['fixtures.worlds', 'sut.notifications'] },
+        `${thrown.name}: ${thrown.message}`,
+      ),
+    ).toBe(true);
+  });
+
+  it('still names the capture, the suite and the producer for an ordinary failure', () => {
+    // The wrapper's own purpose is unchanged: a real failure inside a shared producer must not
+    // surface on five consumer ids as an unattributed error.
+    const wrapped = captureFailure('REQ-016 taxonomy execution', 'req-016', 'AT-016.03', new Error('the database went away')) as Error;
+    expect(wrapped.message).toContain('REQ-016 taxonomy execution');
+    expect(wrapped.message).toContain('req-016');
+    expect(wrapped.message).toContain('AT-016.03');
+    expect(wrapped.message).toContain('the database went away');
   });
 });
 
