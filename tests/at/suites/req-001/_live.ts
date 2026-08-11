@@ -81,11 +81,13 @@ import type {
   CompleteSignupOutcome,
   CompleteSignupRequest,
   CreateOrganizationOutcome,
+  GrantMembershipOutcome,
   MembershipRow,
   OrganizationRow,
   RefreshSessionOutcome,
   Session,
   SignInOutcome,
+  UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
 } from './_contract.ts';
@@ -113,6 +115,9 @@ export const backedSutMethods = {
     'useVerificationLink',
     'completeSignup',
     'createOrganization',
+    'updateOrganization',
+    'createOrganizationAsOperator',
+    'grantMembershipAsOperator',
     'account',
     'organization',
     'membership',
@@ -173,6 +178,40 @@ function sessionIdOf(accessToken: string): string {
 function accountIdOf(accessToken: string): string {
   const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as { sub?: unknown };
   return String(claims.sub ?? '');
+}
+
+/**
+ * WHAT A POSTGRES REFUSAL CARRIES — the SQLSTATE and the sentence, and WHERE THE SQLSTATE REALLY
+ * LIVES WAS MEASURED RATHER THAN ASSUMED.
+ *
+ * The operator methods below drive SQL directly, so a refused write arrives as a thrown error rather
+ * than as a status and a body. The obvious field is wrong on this client: `loop/items/AI4DEV-62`'s
+ * verify-first probe, answer (d), dumped a real refusal's own properties on the slot stack and found
+ *
+ *   name `PostgresError`, code `ERR_POSTGRES_SERVER_ERROR`, **errno `42501`**, severity `ERROR`,
+ *   where `PL/pgSQL function public.org_membership_grantee_must_be_ngo() line 24 at RAISE`
+ *
+ * — so `code` is the client's own error CLASS and `errno` is the SQLSTATE the migration raised. A
+ * classification written against `code === '42501'` would have matched nothing, every refusal would
+ * have fallen through to `refused`, and two acceptance criteria would have gone red for a reason
+ * that had nothing to do with the product.
+ *
+ * SO EVERY CANDIDATE FIELD IS READ AND THE ONE THAT LOOKS LIKE A SQLSTATE WINS — five characters,
+ * digits and capitals, which is the format's own shape. A client that reports it somewhere else
+ * again simply yields no code, and the call sites below fall back on the sentence.
+ */
+function databaseRefusal(error: unknown): { code: string; message: string } {
+  const carrier = error as Record<string, unknown> | null;
+  let code = '';
+  for (const field of ['errno', 'errcode', 'code'] as const) {
+    const value = carrier?.[field];
+    if (typeof value === 'string' && /^[0-9A-Z]{5}$/.test(value)) {
+      code = value;
+      break;
+    }
+  }
+  const message = typeof carrier?.message === 'string' ? carrier.message : String(error);
+  return { code, message };
 }
 
 /* -------------------------------------------------------------------------------- the factory */
@@ -522,6 +561,90 @@ export async function createLiveAdapter(opts: {
         return { ok: false, reason: String(json.reason ?? json.msg ?? `the deployed create-organization answered ${status}`) };
       }
       return { ok: true, organizationId: String(json.organizationId ?? '') };
+    },
+
+    /**
+     * THE DEPLOYED `update-organization`, called exactly as a browser client would.
+     *
+     * THE `kind` IS READ OFF THE WIRE AND VALIDATED AGAINST THE THREE THE FUNCTION CAN SEND. An
+     * unrecognised value becomes `refused` rather than being trusted, which is the direction that
+     * matters: AT-001.16 asserts the not-a-member kind and AT-001.36 the not-an-admin one, so a
+     * gateway error page or a future field rename must not be able to arrive wearing either label.
+     */
+    updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
+      const { status, json } = await callFunction('update-organization', { organizationId, name }, session, '203.0.113.7');
+      if (status < 400 && json.ok !== false) {
+        return {
+          ok: true,
+          organizationId: String(json.organizationId ?? organizationId),
+          name: String(json.name ?? ''),
+        };
+      }
+      const reason = String(json.reason ?? json.msg ?? `the deployed update-organization answered ${status}`);
+      const kind = json.kind;
+      const known = kind === 'not-a-member' || kind === 'not-an-admin' || kind === 'invalid-name';
+      return { ok: false, kind: known ? kind : 'refused', reason };
+    },
+
+    /* ------------------------------- the operator's surface, over SQL, as the operator ---------- */
+
+    /**
+     * AN ORGANISATION WITH NO MEMBERSHIP ROW — one insert, and the absence of the second insert is
+     * the whole content of this method.
+     *
+     * Both product paths write the organisation AND its admin membership inside one definer
+     * function, so neither can produce this state. See `_contract.ts` for why the Given AT-001.16
+     * and AT-001.36 need is unreachable without it.
+     */
+    createOrganizationAsOperator: async (name): Promise<OrganizationRow> => {
+      const created = await rows<{ id: string; name: string }>(
+        sql`insert into public.organizations (name) values (${name}) returning id, name`,
+      );
+      if (created.length !== 1) throw new Error(`the operator insert of organisation ${JSON.stringify(name)} returned no row`);
+      return { id: String(created[0].id), name: created[0].name };
+    },
+
+    /**
+     * THE OPERATOR'S DIRECT MEMBERSHIP GRANT — a plain insert, with the database's own refusals
+     * classified rather than swallowed.
+     *
+     * WHY THIS PATH IS THE ONE AT-001.37 NEEDS: it carries no edge function, no shared module and no
+     * TypeScript at all. "Any path attempts to grant it a per-NGO role" is a claim about paths
+     * nobody has written yet, and the only object that can hold on all of them is the trigger this
+     * leaf's migration lands. This method is how a test reaches that trigger directly.
+     *
+     * THE SQLSTATES ARE THIS LEAF'S OWN, chosen in the migration and measured on the slot stack
+     * (verify-first answer (d)): `42501` is the trigger refusing a non-NGO grantee, `23505` is the
+     * one-seat unique index refusing a second membership row. The sentence is checked as well as the
+     * code, so a client that reports no SQLSTATE still classifies correctly; anything matching
+     * neither is `refused`, never a meaningful kind.
+     */
+    grantMembershipAsOperator: async (organizationId, accountId, role): Promise<GrantMembershipOutcome> => {
+      try {
+        const inserted = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
+          sql`insert into public.org_memberships (org_id, account_id, role)
+              values (${organizationId}::uuid, ${accountId}::uuid, ${role}::public.org_role)
+              returning org_id as organization_id, account_id, role`,
+        );
+        if (inserted.length !== 1) throw new Error('the operator membership insert returned no row');
+        return {
+          ok: true,
+          membership: {
+            organizationId: String(inserted[0].organization_id),
+            accountId: String(inserted[0].account_id),
+            role: inserted[0].role,
+          },
+        };
+      } catch (error) {
+        const { code, message } = databaseRefusal(error);
+        if (code === '42501' || /NGO accounts only/i.test(message)) {
+          return { ok: false, kind: 'not-an-ngo-account', reason: message };
+        }
+        if (code === '23505' || /duplicate key value|one_seat/i.test(message)) {
+          return { ok: false, kind: 'org-already-seated', reason: message };
+        }
+        return { ok: false, kind: 'refused', reason: message };
+      }
     },
 
     /* -------------------------------------------------------- read-back, as the operator, over SQL */

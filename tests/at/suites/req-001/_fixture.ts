@@ -208,6 +208,11 @@ import {
 // both deployed functions run on every authenticated request. This file decides WHICH sessions are
 // live, which is vendor bookkeeping; it never decides what a dead answer means.
 import { callerFromAuthAnswer, type Caller } from '../../../../supabase/functions/_shared/caller.ts';
+// THE SHIPPED PER-ORGANISATION ROLE JUDGEMENT — the ONE thing that decides whether an admin-only
+// NGO-side action is permitted in the target organisation. `update-organization` imports the same
+// function, so a loop-tier green over AT-001.16 and AT-001.36 grades the code that ships. This file
+// supplies the membership ROW it judges, which is storage; it never decides what a role means.
+import { orgAdminActionAllowed } from '../../../../supabase/functions/_shared/memberships.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
 // separate implementations the test would grade the fixture's copy and say nothing about what the
@@ -234,6 +239,7 @@ import type {
   AcknowledgmentRow,
   CompleteSignupOutcome,
   CreateOrganizationOutcome,
+  GrantMembershipOutcome,
   MembershipRow,
   OrganizationRow,
   RefreshSessionOutcome,
@@ -241,6 +247,7 @@ import type {
   Session,
   SessionProvider,
   SignInOutcome,
+  UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
 } from './_contract.ts';
@@ -997,6 +1004,119 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.organizations.set(organization.id, organization);
       state.memberships.set(membershipKey(organization.id, account.id), membership);
       return { ok: true, organizationId: organization.id };
+    },
+
+    /**
+     * THE ADMIN-ONLY NGO-SIDE ACTION, at the loop tier — and every judgement on this path is the
+     * shipped module's.
+     *
+     * WHO IS CALLING comes from `callerFromAuthAnswer`, the role comes from the membership row IN
+     * THE TARGET ORGANISATION, and whether that role may act comes from `orgAdminActionAllowed`.
+     * The refusal's KIND and its sentence are carried through unchanged, because the bodies assert
+     * the kind — restating it here would make the tests grade this file instead of the module the
+     * deployed function imports.
+     *
+     * THE ORDER MIRRORS THE DEPLOYED FUNCTION: caller, then the role in the target organisation,
+     * then the name. Authorisation before validation, exactly as `create-organization` has it, so a
+     * caller with no standing learns nothing about whether its name would have been accepted.
+     */
+    updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
+      const caller = resolveCaller(session);
+      // `refused` rather than a meaningful kind: a dead session is not a statement about roles at
+      // all, and no body drives this path. Classifying it as one of the two role kinds would put a
+      // refusal the session layer produced under a label two acceptance criteria read.
+      if (caller === null) return { ok: false, kind: 'refused', reason: DEAD_SESSION_REASON };
+
+      const existing = state.organizations.get(organizationId);
+      if (!existing) return { ok: false, kind: 'refused', reason: `no organisation ${organizationId} exists` };
+
+      const membership = state.memberships.get(membershipKey(organizationId, caller.id));
+      const allowed = orgAdminActionAllowed(membership?.role ?? null);
+      // NOTHING ABOVE THIS LINE HAS MUTATED STATE, which is what makes the bodies' read-backs after a
+      // refusal measure a real property rather than this file's good intentions.
+      if (!allowed.ok) return { ok: false, kind: allowed.kind, reason: allowed.reason };
+
+      const validated = validateOrganizationName(name);
+      if (!validated.ok) return { ok: false, kind: 'invalid-name', reason: validated.reason };
+
+      state.organizations.set(organizationId, { id: organizationId, name: validated.value });
+      return { ok: true, organizationId, name: validated.value };
+    },
+
+    /**
+     * THE OPERATOR'S UNSEATED ORGANISATION — the one thing no product path can produce.
+     *
+     * It writes an organisation row and NO membership row. See `_contract.ts` for why the Given
+     * AT-001.16 and AT-001.36 need is unreachable without it: every product path seats its creator,
+     * and the one-seat index then refuses a second row.
+     */
+    createOrganizationAsOperator: async (name) => {
+      const validated = validateOrganizationName(name);
+      // A THROW, not an outcome: a Given that could not be provisioned is a bug in the TEST, and a
+      // polite refusal would read as a product answer several assertions later.
+      if (!validated.ok) throw new Error(`fixture: an operator cannot create an organisation named ${JSON.stringify(name)} — ${validated.reason}`);
+      const organization: OrganizationRow = { id: nextId('org'), name: validated.value };
+      state.organizations.set(organization.id, organization);
+      return clone(organization);
+    },
+
+    /**
+     * THE OPERATOR'S DIRECT MEMBERSHIP GRANT — and the two refusals below MIRROR THE DATABASE, which
+     * is this file's whole exposure on this leaf.
+     *
+     * There is no shipped module to defer to here: the rules are a BEFORE trigger and a unique
+     * index, and a TypeScript module cannot supply either. So these two branches are a hand-written
+     * PREDICTION of `public.org_memberships`'s constraints, and the plan says so openly. The
+     * integration tier is what grades the prediction — both tiers run at the goal step, so a
+     * divergence between this file and the database fails there rather than shipping.
+     *
+     * THE ORDER IS THE DATABASE'S ORDER, and it is load-bearing rather than arbitrary: a BEFORE
+     * trigger runs before any index is consulted, so a non-NGO grantee offered into an
+     * already-seated organisation is refused for being non-NGO. Getting the order the other way
+     * round would make one of AT-001.37's arms report the wrong kind.
+     */
+    grantMembershipAsOperator: async (organizationId, accountId, role): Promise<GrantMembershipOutcome> => {
+      if (!state.organizations.has(organizationId)) {
+        return { ok: false, kind: 'refused', reason: `no organisation ${organizationId} exists` };
+      }
+
+      // THE NGO-ONLY TRIGGER, mirrored. AT-001.37: per-NGO roles are NGO accounts only, on every
+      // path — a volunteer and a platform administrator are both refused, and an account that never
+      // completed signup has no type to be NGO with.
+      const account = state.accounts.get(accountId);
+      if (!account) {
+        // `refused` rather than `not-an-ngo-account`: no account row is a different fact from an
+        // account of the wrong type, and no criterion reads it. The database's own refusal for this
+        // case is recorded in the item's verify-first answers.
+        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
+      }
+      if (account.accountType !== 'ngo') {
+        return {
+          ok: false,
+          kind: 'not-an-ngo-account',
+          reason:
+            `a per-organisation role may be granted to NGO accounts only — account ${accountId} is of type ` +
+            `${JSON.stringify(account.accountType)}`,
+        };
+      }
+
+      // THE ONE-SEAT INDEX, mirrored: a unique index on `org_id` alone, which is strictly stronger
+      // than the composite primary key. One organisation holds at most one membership row, whoever
+      // it belongs to, so there is no second seat to invite anybody into.
+      const seated = [...state.memberships.values()].find((row) => row.organizationId === organizationId);
+      if (seated) {
+        return {
+          ok: false,
+          kind: 'org-already-seated',
+          reason:
+            `organisation ${organizationId} already holds its single seat (account ${seated.accountId}) — ` +
+            'a v1 NGO is single-seat, so no second member can be added',
+        };
+      }
+
+      const membership: MembershipRow = { organizationId, accountId, role };
+      state.memberships.set(membershipKey(organizationId, accountId), membership);
+      return { ok: true, membership: clone(membership) };
     },
 
     account: async (accountId) => clone(state.accounts.get(accountId) ?? null),

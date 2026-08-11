@@ -620,6 +620,256 @@ export async function at00138(ctx: Ctx): Promise<void> {
   expect((await sut.sessionsOf(session.accountId)).length, 'the accepted sign-in added no session row').toBe(after.length + 1);
 }
 
+/* ------------------------------------------------- the per-organisation role ids (D3.L1) -------- */
+
+/**
+ * THE TWO-MEMBERSHIP GIVEN, provisioned once for AT-001.16 and AT-001.36 — and HOW it is reached is
+ * part of what those greens claim, so it is written down here rather than buried in a helper name.
+ *
+ * ONE ACCOUNT, THREE ORGANISATIONS, TWO MEMBERSHIP ROWS:
+ *   * A — created by the PRODUCT path. `complete_signup` writes the organisation and seats the
+ *     caller as its `admin`, inside one transaction, exactly as an NGO signup does.
+ *   * B — created by the OPERATOR with NO membership row, and the actor is then granted B's single
+ *     seat as `member`.
+ *   * C — created by the OPERATOR and left unseated, so the actor holds no membership in it at all.
+ *
+ * WHY B AND C NEED AN OPERATOR AT ALL, said plainly because it is the honest part. No product path
+ * writes `'member'`: the single-seat invariant (AT-001.17) forbids invites, so there is no invite
+ * surface to mint a second member and no second seat for one to occupy. The `member` half of the
+ * `org_role` enum exists for AT-001.36 and this is how that criterion's Given is reached — the same
+ * posture the merged integration-verification item recorded for its own operator-provisioned Givens.
+ * The Given is provisioned; the BEHAVIOUR under test is entirely the product's.
+ */
+async function twoMembershipGiven(
+  sut: Awaited<ReturnType<Ctx['open']>>['sut'],
+  w: Awaited<ReturnType<Ctx['open']>>['w'],
+  label: string,
+  names: { a: string; b: string; c: string },
+): Promise<{ session: Session; accountId: string; organizationA: string; organizationB: string; organizationC: string }> {
+  const session = await registerConfirmAndSignIn(sut, w.email(label));
+  const completion = await sut.completeSignup(
+    session,
+    { accountType: 'ngo', organizationName: names.a, acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(completion, 'the NGO actor could not complete signup, so nothing below is about a seated admin').toMatchObject({ ok: true });
+  if (!completion.ok || completion.organizationId === null) throw new Error('unreachable: the assertion above fails first');
+
+  const organizationB = await sut.createOrganizationAsOperator(names.b);
+  const seated = await sut.grantMembershipAsOperator(organizationB.id, completion.accountId, 'member');
+  expect(seated, `the operator could not seat the actor as ${names.b}'s single member, so the Given does not exist`).toMatchObject({
+    ok: true,
+  });
+  const organizationC = await sut.createOrganizationAsOperator(names.c);
+
+  return {
+    session,
+    accountId: completion.accountId,
+    organizationA: completion.organizationId,
+    organizationB: organizationB.id,
+    organizationC: organizationC.id,
+  };
+}
+
+/**
+ * AT-001.16 — membership and role are held per NGO, and acting in one grants nothing in another.
+ *
+ * WHAT IS LIVE HERE THAT WAS NOT AT LOOP TIER: the two membership rows are rows in
+ * `public.org_memberships` read back with operator authority, the rename is the DEPLOYED
+ * `update-organization` — so the platform's token check, `resolveCaller`, the service-role
+ * membership read and the definer function all sit on the path — and the refusals are the ones the
+ * deployed function really sent.
+ *
+ * WHAT THIS GREEN CLAIMS, AND WHAT IT DOES NOT (gate-1 ruling 1). It claims OPERATION-SURFACE
+ * isolation: the same account's authority does not cross organisations on this action, proved by
+ * three different answers to one caller. It does NOT claim read isolation over drafts, ledgers and
+ * files — that breadth is the tenant-isolation deliverable's, which is blocked by this leaf, and
+ * this tree has no read surface to leak through (row-level security on, zero policies,
+ * `org_memberships` reachable by no client role).
+ */
+export async function at00116(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const NAMES = {
+    a: 'Riverside Shelter 16A',
+    b: 'Northgate Foodbank 16B',
+    c: 'Eastside Legal Aid 16C',
+  };
+  const RENAMED_A = 'Riverside Shelter and Kitchen 16A';
+  const ATTEMPTED_B = 'Northgate Foodbank Renamed By An Outsider 16B';
+  const ATTEMPTED_C = 'Eastside Legal Aid Renamed By An Outsider 16C';
+
+  const given = await twoMembershipGiven(sut, w, 'two-orgs-16', NAMES);
+
+  // (1) ROLE IS HELD PER ORGANISATION — two independent rows, different roles, and NO row in C.
+  expect(await sut.membership(given.organizationA, given.accountId), 'the actor is not A\'s admin').toMatchObject({ role: 'admin' });
+  expect(await sut.membership(given.organizationB, given.accountId), 'the actor is not B\'s member').toMatchObject({ role: 'member' });
+  expect(await sut.membership(given.organizationC, given.accountId), 'the actor holds a membership in C, which the Given denies').toBeNull();
+  const held = await sut.membershipsOf(given.accountId);
+  expect(held, 'the actor does not hold exactly two memberships').toHaveLength(2);
+  expect(
+    held.map((row) => row.role).sort(),
+    'the two memberships do not carry two different roles, so the role is not being held per organisation',
+  ).toEqual(['admin', 'member']);
+
+  // (2) THE ADMIN ACTS IN A. The positive is not optional: an action that refused everybody would
+  // satisfy both refusals below on its own.
+  const renamed = await sut.updateOrganization(given.session, given.organizationA, RENAMED_A);
+  expect(renamed, 'A\'s own admin was refused the admin-only action, so the refusals below prove nothing').toMatchObject({ ok: true });
+  expect(await sut.organization(given.organizationA), 'the rename did not reach the row').toMatchObject({ name: RENAMED_A });
+
+  // (3) ADMIN STANDING IN A DOES NOT CARRY INTO B, where the same account holds `member`.
+  const refusedInB = await sut.updateOrganization(given.session, given.organizationB, ATTEMPTED_B);
+  expect(refusedInB.ok, 'A\'s admin renamed an organisation where it holds only the member role').toBe(false);
+  if (refusedInB.ok) return;
+  expect(refusedInB.kind, 'the refusal in B is not the not-an-admin one').toBe('not-an-admin');
+  expect(await sut.organization(given.organizationB), 'the refused rename reached B\'s row anyway').toMatchObject({ name: NAMES.b });
+  expect(await sut.organizationsNamed(ATTEMPTED_B), 'the refused rename created an organisation by the attempted name').toEqual([]);
+
+  // (4) NO AMBIENT AUTHORITY — C, where the actor holds no membership at all, refuses with the
+  // OTHER kind. Two different refusals from one caller is what makes this an isolation oracle
+  // rather than a blanket denial.
+  const refusedInC = await sut.updateOrganization(given.session, given.organizationC, ATTEMPTED_C);
+  expect(refusedInC.ok, 'the actor renamed an organisation it holds no membership in').toBe(false);
+  if (refusedInC.ok) return;
+  expect(refusedInC.kind, 'the refusal in C is not the not-a-member one').toBe('not-a-member');
+  expect(await sut.organization(given.organizationC), 'the refused rename reached C\'s row anyway').toMatchObject({ name: NAMES.c });
+  expect(await sut.organizationsNamed(ATTEMPTED_C), 'the refused rename created an organisation by the attempted name').toEqual([]);
+
+  // (5) AND NEITHER REFUSAL WROTE A MEMBERSHIP. A refusal that quietly enrolled the caller would
+  // pass every assertion above and hand it the authority next time.
+  expect(await sut.membershipsOf(given.accountId), 'a refused action changed what the actor is a member of').toHaveLength(2);
+}
+
+/**
+ * AT-001.36 — an admin in NGO A and a member in NGO B succeeds only where it is the admin.
+ *
+ * THE DISCRIMINATOR IS THE `member` ROW, and it is asserted before the action is attempted. The
+ * refusal under test is `not-an-admin` — the caller IS in this organisation and its role here is too
+ * low — which is a DIFFERENT refusal from AT-001.16's `not-a-member`. Without the row assertion the
+ * body could not tell "rejected because the role is member" from "rejected because nothing was
+ * found", and the criterion's whole point is that "NGO admin" names the admin role IN THAT NGO.
+ */
+export async function at00136(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const NAMES = {
+    a: 'Riverside Shelter 36A',
+    b: 'Northgate Foodbank 36B',
+    c: 'Eastside Legal Aid 36C',
+  };
+  const RENAMED_A = 'Riverside Shelter Second Programme 36A';
+  const ATTEMPTED_B = 'Northgate Foodbank Renamed By A Member 36B';
+
+  const given = await twoMembershipGiven(sut, w, 'admin-and-member-36', NAMES);
+
+  // THE GIVEN, ASSERTED: admin in A, member in B, one account.
+  expect(await sut.membership(given.organizationA, given.accountId), 'the actor is not A\'s admin').toMatchObject({
+    accountId: given.accountId,
+    role: 'admin',
+  });
+  expect(await sut.membership(given.organizationB, given.accountId), 'the actor is not B\'s member').toMatchObject({
+    accountId: given.accountId,
+    role: 'member',
+  });
+
+  // IT SUCCEEDS IN A.
+  const inA = await sut.updateOrganization(given.session, given.organizationA, RENAMED_A);
+  expect(inA, 'the admin-only action failed where the caller IS the admin').toMatchObject({ ok: true });
+  expect(await sut.organization(given.organizationA)).toMatchObject({ name: RENAMED_A });
+
+  // AND IS REJECTED IN B, on the role rather than on absence.
+  const inB = await sut.updateOrganization(given.session, given.organizationB, ATTEMPTED_B);
+  expect(inB.ok, 'the same account performed the admin-only action where it holds the member role').toBe(false);
+  if (inB.ok) return;
+  expect(inB.kind, 'the refusal is not the not-an-admin one').toBe('not-an-admin');
+  expect(
+    inB.kind,
+    'the refusal came back as not-a-member, which would mean the member row was not found rather than not sufficient',
+  ).not.toBe('not-a-member');
+
+  // AND IT WROTE NOTHING.
+  expect(await sut.organization(given.organizationB), 'the refused action renamed B anyway').toMatchObject({ name: NAMES.b });
+  expect(await sut.organizationsNamed(ATTEMPTED_B), 'the refused action created an organisation by the attempted name').toEqual([]);
+  expect(await sut.membership(given.organizationB, given.accountId), 'the refused action changed the actor\'s role in B').toMatchObject({
+    role: 'member',
+  });
+}
+
+/**
+ * AT-001.37 — granting a per-NGO role to a volunteer account is rejected on EVERY path.
+ *
+ * "EVERY PATH" IS WHY THIS BODY HAS THREE ARMS AND A CONTROL. Two product paths already refuse, and
+ * they refuse for product reasons a future change could move; the third arm is the one that closes
+ * the criterion, because it carries no edge function, no shared module and no TypeScript at all —
+ * an operator's direct insert, which is the shape every path nobody has written yet will have.
+ *
+ * THE CONTROL IS NOT OPTIONAL: an insert that refused everybody would satisfy the negative on its
+ * own, so an NGO account is granted the same seat afterwards and must succeed.
+ */
+export async function at00137(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const ATTEMPTED_ORG = 'Volunteer Attempted Organisation 37';
+  const ATTEMPTED_ON_SIGNUP = 'Volunteer Owned Organisation 37';
+  const OPERATOR_ORG = 'Operator Created Organisation 37';
+
+  const volunteer = await registerConfirmAndSignIn(sut, w.email('volunteer-37'));
+  await sut.linkGithubIdentity(volunteer, `volunteer-37-${volunteer.accountId.slice(0, 8)}`);
+  const completion = await sut.completeSignup(
+    volunteer,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(completion, 'the volunteer could not complete signup, so nothing below is about a volunteer account').toMatchObject({ ok: true });
+  if (!completion.ok) return;
+  expect(await sut.account(completion.accountId), 'the account under test is not a volunteer').toMatchObject({ accountType: 'volunteer' });
+
+  // ARM 1 — the product's NGO-only action. A volunteer cannot create the organisation that would
+  // have seated it as an admin.
+  const ngoOnly = await sut.createOrganization(volunteer, ATTEMPTED_ORG);
+  expect(ngoOnly.ok, 'a volunteer performed the NGO-only action and would have been seated as its admin').toBe(false);
+  expect(await sut.organizationsNamed(ATTEMPTED_ORG), 'the refused action created an organisation').toEqual([]);
+
+  // ARM 2 — the product's signup path. A volunteer completion carrying an organisation name is
+  // refused outright, so the seat is never reached through signup either.
+  const second = await registerConfirmAndSignIn(sut, w.email('volunteer-with-org-37'));
+  await sut.linkGithubIdentity(second, `volunteer-org-37-${second.accountId.slice(0, 8)}`);
+  const withOrganization = await sut.completeSignup(
+    second,
+    { accountType: 'volunteer', organizationName: ATTEMPTED_ON_SIGNUP, acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(withOrganization.ok, 'a volunteer completion carrying an organisation name was accepted').toBe(false);
+  expect(await sut.account(second.accountId), 'the refused completion left an account row behind').toBeNull();
+  expect(await sut.organizationsNamed(ATTEMPTED_ON_SIGNUP), 'the refused completion created an organisation').toEqual([]);
+
+  // ARM 3 — THE OPERATOR'S DIRECT GRANT, into an organisation whose single seat is free, so the
+  // refusal cannot be the one-seat index answering instead of the NGO-only rule. Both roles are
+  // attempted: the criterion is about a per-NGO role, not about the admin role.
+  const organization = await sut.createOrganizationAsOperator(OPERATOR_ORG);
+  for (const role of ['admin', 'member'] as const) {
+    const granted = await sut.grantMembershipAsOperator(organization.id, completion.accountId, role);
+    expect(granted.ok, `an operator granted the ${role} role to a volunteer account`).toBe(false);
+    if (granted.ok) return;
+    expect(granted.kind, `the ${role} grant was refused for a reason other than the account type`).toBe('not-an-ngo-account');
+  }
+
+  // THE READ-BACK: zero membership rows anywhere for this account.
+  expect(await sut.membershipsOf(completion.accountId), 'the volunteer holds a per-organisation role after every path refused').toEqual([]);
+  expect(await sut.membership(organization.id, completion.accountId), 'the refused grant wrote a membership row').toBeNull();
+
+  // THE CONTROL — the same seat, the same method, an NGO account: it succeeds. So the three
+  // refusals above are about the account TYPE and not about the path being closed to everybody.
+  const control = await registerConfirmAndSignIn(sut, w.email('ngo-control-37'));
+  const controlCompletion = await sut.completeSignup(
+    control,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter Control 37', acknowledgmentTextVersion: TEXT_VERSION },
+    CLIENT_IP,
+  );
+  expect(controlCompletion, 'the NGO control could not complete signup').toMatchObject({ ok: true });
+  if (!controlCompletion.ok) return;
+  const seated = await sut.grantMembershipAsOperator(organization.id, controlCompletion.accountId, 'member');
+  expect(seated, 'the operator grant refuses an NGO account too, so the refusals above prove nothing').toMatchObject({ ok: true });
+}
+
 /* -------------------------------------------------------- the ids that refuse, and what they name */
 
 /**

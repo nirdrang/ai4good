@@ -23,6 +23,10 @@ import type {
   AccountType,
   CompleteSignupRequest,
 } from '../../../../supabase/functions/_shared/accounts.ts';
+// THE PER-ORGANISATION ROLE VOCABULARY, imported for the reason the header gives about every other
+// judgement type here: `OrgRole` is the shipped module's, the same one the rename edge function and
+// the database enum state, so the operator grant below cannot name a role the product does not have.
+import type { OrgAdminRefusalKind, OrgRole } from '../../../../supabase/functions/_shared/memberships.ts';
 
 export type {
   Clock,
@@ -39,7 +43,7 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-export type { AccountType, CompleteSignupRequest };
+export type { AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole };
 
 /* ------------------------------------------------------------------------- what gets read back */
 
@@ -170,6 +174,44 @@ export type CompleteSignupOutcome =
   | { ok: false; reason: string };
 
 export type CreateOrganizationOutcome = { ok: true; organizationId: string } | { ok: false; reason: string };
+
+/**
+ * The outcome of the admin-only NGO-side action — renaming an organisation — and its refusal
+ * carries a KIND, not only a sentence.
+ *
+ * THE KIND IS THE ORACLE. AT-001.16 needs the refusal that says the caller is not in that
+ * organisation at all; AT-001.36 needs the refusal that says the caller IS in it and holds
+ * `member`. A single boolean, or a single reason string, would let one implementation satisfy both
+ * criteria while authorising from the wrong organisation's row. `OrgAdminRefusalKind` is imported
+ * from the shipped decision module rather than restated, so the two kinds a body asserts are the
+ * two kinds the product can produce.
+ *
+ * TWO KINDS THE SHIPPED DECISION DOES NOT PRODUCE ARE STILL HERE, and both are the adapter's
+ * honesty rather than product surface:
+ *   * `invalid-name` — the shared `validateOrganizationName` refused, before any role was consulted.
+ *   * `refused` — the adapter could not classify the refusal it received. It exists so a live
+ *     adapter facing an unexpected status reports "something refused and I do not know what" rather
+ *     than picking whichever meaningful kind happens to make a test pass.
+ */
+export type UpdateOrganizationOutcome =
+  | { ok: true; organizationId: string; name: string }
+  | { ok: false; kind: OrgAdminRefusalKind | 'invalid-name' | 'refused'; reason: string };
+
+/**
+ * The outcome of an OPERATOR granting a membership directly — used both to provision a Given and as
+ * the refusal probe two criteria read.
+ *
+ * THE THREE KINDS ARE THE DATABASE'S, not a decision module's, and that is the point of this method
+ * existing at all:
+ *   * `not-an-ngo-account` — the NGO-only membership trigger refused the grantee. AT-001.37's
+ *     "on every path" clause is about exactly this path: the operator's, with no TypeScript on it.
+ *   * `org-already-seated` — the one-seat unique index refused a second membership row in that
+ *     organisation. AT-001.17's structural arm.
+ *   * `refused` — anything else, unclassified, for the reason `UpdateOrganizationOutcome` gives.
+ */
+export type GrantMembershipOutcome =
+  | { ok: true; membership: MembershipRow }
+  | { ok: false; kind: 'not-an-ngo-account' | 'org-already-seated' | 'refused'; reason: string };
 
 /**
  * The outcome of an attempted Discovery message — and the refusal carries WHY, for the reason
@@ -449,6 +491,61 @@ export type AccountsSut = {
    * same way `completeSignup` does.
    */
   createOrganization(session: Session, organizationName: string): Promise<CreateOrganizationOutcome>;
+
+  /**
+   * `supabase/functions/update-organization` — THE ADMIN-ONLY NGO-SIDE ACTION, and the operation
+   * AT-001.16 and AT-001.36 are both graded through.
+   *
+   * IT TAKES THE ORGANISATION AS AN ARGUMENT, which is what makes it usable as an isolation oracle:
+   * one caller, three targets, three different answers. The same session renames the organisation it
+   * administers, is refused in the organisation where it holds `member`, and is refused in an
+   * organisation it holds no membership in — and the two refusals carry DIFFERENT kinds.
+   *
+   * WHAT A GREEN OVER IT CLAIMS, said narrowly because the criterion's words are wider. It claims
+   * OPERATION-SURFACE isolation: authority does not cross organisations on this action. It does NOT
+   * claim read isolation — "acting in NGO A never grants access to NGO B's data" over drafts,
+   * ledgers and files is the tenant-isolation deliverable's (`loop/decomp/req-001.md` D5.L1), which
+   * is blocked by this leaf and lands the policy set. This tree has no read surface to leak through:
+   * row-level security is on with zero policies and `org_memberships` reaches no Data API role.
+   */
+  updateOrganization(session: Session, organizationId: string, name: string): Promise<UpdateOrganizationOutcome>;
+
+  /* ------------------------------------ the operator's surface -------------------------------- */
+
+  /**
+   * Create an organisation WITH NO MEMBERSHIP ROW — an authority no product path holds, and the
+   * reason it exists is exact.
+   *
+   * EVERY PRODUCT PATH SEATS ITS CREATOR AS ADMIN: `complete_signup` does it for an NGO signup and
+   * `create_organization` does it for a second organisation. The single-seat invariant then refuses
+   * a second membership row in that organisation. So the Given AT-001.16 and AT-001.36 both need —
+   * one account holding DIFFERENT roles in two organisations — is unconstructible through product
+   * paths alone, not because the product is wrong but because the product is right. This method
+   * creates the unseated organisation the operator then seats the actor into as `member`, and mints
+   * the third organisation AT-001.16's not-a-member arm targets.
+   *
+   * IT IS AN OPERATOR ACT, exactly as `provisionPlatformAdmin` is: a direct database operation, not
+   * a service-role write, and no running service holds it. It THROWS on failure rather than
+   * returning an outcome, because a Given that could not be provisioned is a bug in the TEST and a
+   * polite refusal would read as a product answer three assertions later.
+   */
+  createOrganizationAsOperator(name: string): Promise<OrganizationRow>;
+
+  /**
+   * Grant a membership directly, as the operator — the provisioning act AND the refusal probe.
+   *
+   * IT IS BOTH, deliberately, and that is why it returns an outcome where
+   * `createOrganizationAsOperator` throws. Two criteria read its REFUSALS as the thing under test:
+   * AT-001.37 needs a direct grant to a volunteer account to be rejected on a path with no
+   * TypeScript on it, and AT-001.17 needs a second seat in an already-seated organisation to be
+   * rejected. Its successes are Givens; its refusals are evidence.
+   *
+   * NOTHING IN THE PRODUCT WRITES `'member'`, and that is by design rather than by omission — the
+   * single-seat invariant forbids invites, so no product path can mint a second member. The
+   * `member` half of the `org_role` enum exists for AT-001.36, and this is how that criterion's
+   * Given is reached. The body that uses it says so in its own evidence.
+   */
+  grantMembershipAsOperator(organizationId: string, accountId: string, role: OrgRole): Promise<GrantMembershipOutcome>;
 
   /* --------------------------- the Discovery gate's stand-in surface -------------------------- */
 
