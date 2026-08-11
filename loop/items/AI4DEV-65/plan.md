@@ -46,7 +46,10 @@ identity fields ride the completion request and land on `public.acknowledgments`
   attested. The shipped statement lives in the copy module (decision D) and the tests submit it.
   The server refuses an attestation that is not the shipped statement (decision B, fourth
   check) — today exactly one statement is valid, and the column records which one was affirmed
-  so that future statement versions stay distinguishable.
+  so that future statement versions stay distinguishable. That pin lives in the validation
+  layer only, by design: the database floors presence and nonblank, never content (gate 2
+  finding 1, ruled accept-fixed-differently in `gate2-rulings.md` — a SQL copy of the shipped
+  literal is a second source of truth whose drift would refuse every legitimate completion).
 - **D — the copy is a shipped constant module.** New file
   `supabase/functions/_shared/acknowledgment-copy.ts`:
 
@@ -215,7 +218,11 @@ Expected verification state per acceptance id (the exact-match contract):
   items' work); that a GitHub-established session was driven at integration tier (capability-
   gated, as for every GitHub id); that future acknowledgment moments (funding, REQ-006's) carry
   the fields — they will reuse `public.acknowledgments`, whose constraints now force the fields,
-  and that constraint is the hook they inherit, not a claim proved here.
+  and that constraint is the hook they inherit, not a claim proved here; and that the DATABASE
+  pins the attestation's content — the columns floor presence and nonblank, the exact-statement
+  pin and the trim live in the deployed validation layer, and a caller holding the service key
+  can store a different nonblank statement, which the row then shows verbatim (gate 2 finding 1,
+  accepted residual; the drift-hazard reasoning is in `gate2-rulings.md`).
 
 ## Evidence pointers (never pasted)
 
