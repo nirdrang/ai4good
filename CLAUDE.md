@@ -106,7 +106,12 @@ If you find a reference to any of them, it is stale — `/work` does that job no
   - `TURN  <attribution> - <what this response is about>` — the model's OPEN SYNTHESIS of the
     hook facts and the current prompt, so the founder sees what this actual turn is about,
     including attribution AFTER any direction change the prompt just made. A `TURN` line names a
-    board item only when the turn genuinely works that item; otherwise a `~floating` label.
+    board item only when the turn genuinely works that item; otherwise a `~exploration (<topic>)`
+    label that NAMES the subject. **A bare `~floating` is banned** (founder, twice: 2026-08-09
+    "this should be at least exploration or something more informing", and 2026-08-11 "I don't
+    like floating") — an attribution the reader cannot act on is the same defect as a bare
+    internal code. The only labels a TURN line may carry are a chain of item ids with short
+    titles, or `~exploration (<what, in words>)`.
     **ATTRIBUTION MEANS THE WHOLE CHAIN, root first, every id with its short title** (founder
     correction 2026-08-09: *"Note that the stamp doesn't show the chain"*). Print
     `AI4PM-19 (auth and org membership) > AI4DEV-50 (auth root) > AI4DEV-59 (GitHub sign-in)`,
