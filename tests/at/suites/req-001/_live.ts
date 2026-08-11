@@ -462,14 +462,22 @@ export async function createLiveAdapter(opts: {
      * what binds the RENDERED shape to the real one — it fed a real response to the same function.
      */
     emailVerified: async (accountId) => {
-      const found = await rows<{ email_confirmed_at: string | null; email: string }>(
+      const found = await rows<{ email_confirmed_at: string | Date | null; email: string }>(
         sql`select email, email_confirmed_at from auth.users where id = ${accountId}::uuid`,
       );
       if (found.length !== 1) return false;
+      // THE ROW IS RENDERED AS GoTrue RENDERS IT, and the rendering is the load-bearing part rather
+      // than a formality. The driver hands back a `timestamptz` as a Date OBJECT, and the shipped
+      // extractor's only verified answer is a non-blank STRING — deliberately, because it judges a
+      // JSON body that crossed a network. Handing it the Date made `emailVerified` answer false for
+      // a confirmed account, so AT-001.09 reported "using the emailed link did not flip the account
+      // to verified" while GoTrue had confirmed it. The other reads here already convert
+      // (`acknowledgments`, `volunteerProfile`); this one did not.
+      const confirmedAt = found[0].email_confirmed_at;
       return emailVerifiedFromUser({
         id: accountId,
         email: found[0].email,
-        email_confirmed_at: found[0].email_confirmed_at,
+        email_confirmed_at: confirmedAt === null ? null : new Date(confirmedAt).toISOString(),
       });
     },
 
@@ -526,10 +534,14 @@ export async function createLiveAdapter(opts: {
       return found.length === 1 ? { id: String(found[0].id), name: found[0].name } : null;
     },
 
+    // THE COLUMN IS `org_id`, not `organization_id` — the migration's own name, and the reason this
+    // read used to throw `column "organization_id" does not exist` on every id that asserts a
+    // membership. The CONTRACT's field is `organizationId`, so the two are aliased here rather than
+    // renamed anywhere: one name in the database, one name in the contract, and this is the seam.
     membership: async (organizationId, accountId): Promise<MembershipRow | null> => {
       const found = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
-        sql`select organization_id, account_id, role from public.org_memberships
-            where organization_id = ${organizationId}::uuid and account_id = ${accountId}::uuid`,
+        sql`select org_id as organization_id, account_id, role from public.org_memberships
+            where org_id = ${organizationId}::uuid and account_id = ${accountId}::uuid`,
       );
       return found.length === 1
         ? { organizationId: String(found[0].organization_id), accountId: String(found[0].account_id), role: found[0].role }
@@ -579,7 +591,7 @@ export async function createLiveAdapter(opts: {
 
     membershipsOf: async (accountId): Promise<MembershipRow[]> => {
       const found = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
-        sql`select organization_id, account_id, role from public.org_memberships where account_id = ${accountId}::uuid`,
+        sql`select org_id as organization_id, account_id, role from public.org_memberships where account_id = ${accountId}::uuid`,
       );
       return found.map((row) => ({
         organizationId: String(row.organization_id),
