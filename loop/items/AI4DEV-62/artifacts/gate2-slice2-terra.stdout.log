@@ -1,0 +1,23 @@
+Severity scale: medium = a green acceptance result can prove less than the plan requires.
+
+[1] severity: medium    tests/at/suites/req-001/_integration.ts:926
+    claim: The known-function control accepts any non-404 response instead of the measured 401 response.
+    why it matters: A 500/502 or misrouted `create-organization` request passes the control, so the preceding 404 does not prove the functions router is live and resolving names; assert the recorded 401 shape.
+    unverified-runtime-claim: no
+
+[2] severity: medium    tests/at/suites/req-001/_integration.ts:935
+    claim: The Data API arm treats every HTTP error as privilege denial.
+    why it matters: A missing/stale table route (404) or server failure (5xx) passes, so AT-001.17 can green without proving `org_memberships` is unreachable because of its intended Data-API privilege posture.
+    unverified-runtime-claim: no
+
+[3] severity: medium    tests/at/suites/req-001/_live.ts:645
+    claim: SQLSTATE alone classifies arbitrary `42501` and `23505` failures as the expected membership refusal; the same `42501` shortcut classifies project-seat refusal at line 709.
+    why it matters: An unrelated permission or unique-constraint failure can become `not-an-ngo-account`, `org-already-seated`, or `seat-occupied`, while the bodies assert only the kind; require the expected error message when a SQLSTATE is present, with message-only fallback only when it is absent.
+    unverified-runtime-claim: no
+
+[4] severity: medium    tests/at/suites/req-001/_fixture.ts:1084
+    claim: The fixture checks parent/account existence before emulating the database `BEFORE` trigger conditions.
+    why it matters: A volunteer inserted into a nonexistent organisation, or a nonexistent account assigned over an occupied project seat, receives generic `refused` in the fixture although the database trigger should fire first with the role/seat refusal; direct operator probes of those two writes would settle the ordering.
+    unverified-runtime-claim: yes
+
+CODE REVIEW: 4 FINDINGS
