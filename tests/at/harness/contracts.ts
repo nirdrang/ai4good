@@ -23,8 +23,10 @@
 export type { Tier } from './registry.ts';
 export { TIERS } from './registry.ts';
 export type { ConfigRegistry } from './config.ts';
+export type { LiveEmail, LiveEmailMessage, LiveVendors } from './live-email.ts';
 
 import type { ConfigRegistry } from './config.ts';
+import type { LiveVendors } from './live-email.ts';
 import type { Tier } from './registry.ts';
 
 /* ---------------------------------------------------------------- H2 fixtures + clock */
@@ -54,6 +56,24 @@ export type Fixtures<W extends WorldSeam = WorldSeam> = {
 export type Clock = {
   freezeAt(iso: string): Promise<void>;
   advance(ms: number): Promise<void>;
+};
+
+/**
+ * TIME AT THE INTEGRATION TIER, and the seam is gone rather than disabled.
+ *
+ * Above the loop tier the harness runs against a real database whose sessions really expire, so
+ * there is nothing for a control seam to command: a clock that could jump forward would not move
+ * GoTrue's notion of `now` by one millisecond, and a body that called it would be asserting against
+ * a fiction while believing it had aged a real session.
+ *
+ * SO THE METHODS ARE ABSENT FROM THE TYPE, not present and throwing. `registry.ts` hands an
+ * integration body a context whose `h.clock` is this type, so `await h.clock.advance(3600_000)` in
+ * an integration body is a COMPILE error naming the method — which is the difference between a
+ * mistake a reviewer has to notice and one the type-checker refuses.
+ */
+export type RealClock = {
+  /** the wall clock, which is the only clock a live stack shares with the test */
+  now(): number;
 };
 
 /* ------------------------------------------------- H3 sentinels + faults + static scan */
@@ -359,3 +379,29 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
   /** REQUIRED, not optional: frozen clocks, vendor counters and fault state leak without it */
   teardown(): Promise<void>;
 };
+
+/**
+ * THE SAME HARNESS, SEEN AT ONE TIER — two members differ and the rest is identical.
+ *
+ * `clock` and `vendors` are the two capabilities whose provenance is read off the very seam a suite
+ * drives (`AtHarness.stubbedCapabilities` says so above). At the loop tier both are stand-ins with
+ * control seams, which is what the loop bodies command. Above it the harness constructs the real
+ * article — the passage of time, and the slot's own mail catcher — and NEITHER has a control seam,
+ * because a capability that can be commanded is a substitute by definition.
+ *
+ * WHY IT IS A TYPE AND NOT A RUNTIME CHECK. A per-tier body written against the wrong tier's
+ * capabilities is an honest mistake that would otherwise surface as a run-time `TypeError` inside a
+ * test whose red is then undeclarable. Here it is a compile error at the body.
+ *
+ * NOTHING ELSE FORKS. `sut`, `fixtures`, `sentinels`, `faults`, `static`, `config` and `oracles` are
+ * the same type at every tier: what changes at integration is what BACKS them, which is the ledger's
+ * business and not the body's.
+ */
+export type TierHarness<
+  T extends Tier,
+  Sut = Record<string, unknown>,
+  W extends WorldSeam = WorldSeam,
+  Channel extends string = string,
+> = T extends 'loop'
+  ? AtHarness<Sut, W, Channel>
+  : Omit<AtHarness<Sut, W, Channel>, 'clock' | 'vendors'> & { clock: RealClock; vendors: LiveVendors };

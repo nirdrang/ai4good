@@ -41,6 +41,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, write
 import { hostname, tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
+import { mintAttestationNonce, writeAttestation } from './attestation.ts';
 import { REPO_ROOT } from './check.ts';
 import {
   acquireStackLock,
@@ -305,6 +306,37 @@ export function portMappings(text: string, slot: number): { mappings: PortMappin
  * regenerated config differing anywhere else would mean the slot grades different behaviour from
  * the tree that asked for the run.
  */
+/**
+ * THE ONE NON-IDENTITY TRANSFORM A SLOT CONFIG CARRIES, and it is a standing value rather than a
+ * change anything makes at run time.
+ *
+ * WHY IT EXISTS. Two acceptance criteria are about what happens when an access token's own lifetime
+ * runs out — a session expiring, and a client refreshing itself before it does. Against a real
+ * GoTrue there is nothing to command: a controlled clock moves the test's notion of time and not the
+ * vendor's. The only way to reach the state the criteria describe is to WAIT, and at the shipped
+ * `jwt_expiry = 3600` that wait is an hour.
+ *
+ * WHY IT IS STANDING AND NOT TRANSIENT. The obvious alternative — lower the value for one test and
+ * put it back — has no safe mechanism and no oracle. `prepare()` owns the config mirror, the
+ * generated write, the start marker and the restarts, and a test body holds coordinates only: a body
+ * editing the repository's file changes nothing in the running slot, a body editing the slot's file
+ * breaks the marker discipline, and `git diff supabase/config.toml` measures the wrong object
+ * entirely. A standing value has nothing to restore, so there is nothing to prove restored. It rides
+ * the machinery that already exists: the generated config differs from the last start's hash, the
+ * slot restarts into it, and every run afterwards is identical.
+ *
+ * WHY 120 SECONDS. Measured, not chosen: the running GoTrue issues tokens with `expires_in=120` and
+ * an `exp - iat` of 120 at this value, and supabase-js's auto-refresh rotates about one tick in. Low
+ * enough that the two bodies that WANT an expiry wait about two minutes; high enough that no other
+ * body in the manifest ever meets one. The evidence is in this item's verify-first record.
+ *
+ * WHAT IT COSTS, said plainly: a slot grades session lifetime differently from the tree that asked
+ * for the run, and every id in the manifest runs under that difference. That is a deliberate,
+ * reviewed extension of this generator's permitted transform set — the ONLY one — and its selftests
+ * assert it is the only new difference the generator produces.
+ */
+export const SLOT_JWT_EXPIRY_SECONDS = 120;
+
 export function generateSlotConfig(sourceText: string, slot: number): string {
   assertSlotNumber(slot);
   const { mappings, problems } = portMappings(sourceText, slot);
@@ -312,11 +344,28 @@ export function generateSlotConfig(sourceText: string, slot: number): string {
     throw new Error(`the slot ${slot} config cannot be generated from this supabase/config.toml — ${problems.join('; ')}`);
   }
 
-  const projectIdEntry = scanConfig(sourceText).find((entry) => entry.section === '' && entry.key === 'project_id');
+  const entries = scanConfig(sourceText);
+  const projectIdEntry = entries.find((entry) => entry.section === '' && entry.key === 'project_id');
   if (!projectIdEntry) throw new Error('supabase/config.toml carries no top-level project_id, so a slot identity cannot be built from it');
+
+  // FAIL CLOSED ON AN ABSENT SETTING. A generator that quietly skipped the transform would produce a
+  // slot running the shipped hour-long expiry while every declaration downstream assumed two
+  // minutes, and the two session bodies would hang rather than fail — the worst shape of failure to
+  // diagnose. The setting exists in this tree's config; if it ever stops existing, this says so.
+  const jwtExpiryEntry = entries.find((entry) => entry.section === 'auth' && entry.key === 'jwt_expiry');
+  if (!jwtExpiryEntry) {
+    throw new Error(
+      'supabase/config.toml carries no active [auth] jwt_expiry, so the slot config cannot pin the standing low ' +
+        'session lifetime the integration tier grades against. Add the setting, or change this generator deliberately.',
+    );
+  }
 
   const lines = sourceText.split('\n');
   lines[projectIdEntry.line] = lines[projectIdEntry.line].replace(/^(\s*project_id\s*=\s*)"[^"]*"/, `$1"${slotProjectId(slot)}"`);
+  lines[jwtExpiryEntry.line] = lines[jwtExpiryEntry.line].replace(
+    /^(\s*jwt_expiry\s*=\s*)\d(?:_?\d)*/,
+    `$1${SLOT_JWT_EXPIRY_SECONDS}`,
+  );
   for (const mapping of mappings) {
     // The digits AND any TOML underscores between them, so a value written `54_321` is replaced
     // whole. Replacing only the leading digits would leave the tail of the old value behind.
@@ -891,6 +940,15 @@ export interface PrepareResult {
   migrations: MigrationProof;
   /** True when the slot's stack had to be restarted because its configuration changed. */
   restarted: boolean;
+  /**
+   * The nonce this run minted and wrote into the slot database AFTER the reset.
+   *
+   * It is what turns four plain strings into positive evidence downstream: the child reads it back
+   * through the coordinates it was handed, and only then may any capability be called `real`. See
+   * `attestation.ts` for why the shape checks in `runner.ts` cannot do that job — they guard the
+   * personal stack and are fabricable by anyone with a text editor.
+   */
+  attestation: string;
 }
 
 interface StartMarker {
@@ -1217,7 +1275,15 @@ export async function prepare(occupancy: Occupancy, itemRoot: string = REPO_ROOT
   await waitForReady(status, `after the slot ${slot} reset`);
   const migrations = await proveMigrationsReplayed(status, itemRoot);
 
-  return { status, migrations, restarted };
+  // THE ATTESTATION IS WRITTEN LAST, and the order is the whole point. The reset destroys everything
+  // the previous run left, so a nonce written after it cannot be a leftover; the migration proof
+  // runs before it, so nothing this writes can be mistaken for migrated schema. What the child can
+  // then establish is exactly one fact, and it is the fact nothing else establishes: the database at
+  // the coordinates it was handed is the database this run prepared.
+  const attestation = mintAttestationNonce();
+  await writeAttestation(status.dbUrl, attestation);
+
+  return { status, migrations, restarted, attestation };
 }
 
 /* ------------------------------------------------------------------------------- env and evidence */
@@ -1231,7 +1297,12 @@ export async function prepare(occupancy: Occupancy, itemRoot: string = REPO_ROOT
  * CONFIG, which is where a personal identity would arrive from; the inline checks below read the
  * STATUS, which is what actually answered, and the config guard cannot see that.
  */
-export function stackEnv(occupancy: Occupancy, status: StackStatus, itemRoot: string = REPO_ROOT): Record<string, string> {
+export function stackEnv(
+  occupancy: Occupancy,
+  status: StackStatus,
+  itemRoot: string = REPO_ROOT,
+  extra: { attestation?: string; mailUrl?: string } = {},
+): Record<string, string> {
   refusePersonalSlotConfig(occupancy.slot, itemRoot, 'emit the coordinates of');
 
   for (const [label, raw] of [
@@ -1251,6 +1322,17 @@ export function stackEnv(occupancy: Occupancy, status: StackStatus, itemRoot: st
     AT_SUPABASE_DB_URL: status.dbUrl,
     AT_SUPABASE_ANON_KEY: status.anonKey,
     AT_SUPABASE_SERVICE_ROLE_KEY: status.serviceRoleKey,
+    // TWO MORE COORDINATES, AND NEITHER IS A CREDENTIAL.
+    //
+    // The attestation nonce is a value THIS RUN minted and wrote into the slot after its reset; it
+    // grants nothing and unlocks nothing, and its only use is to be read back through the four
+    // strings above so that "these coordinates answered" becomes a fact instead of a shape.
+    //
+    // The mail catcher URL comes from the slot's OWN status, never from `[local_smtp] port` plus the
+    // per-slot offset. That arithmetic lives in `portMappings` and a second copy of it downstream is
+    // how two copies come to disagree while both look right.
+    ...(extra.attestation ? { AT_SLOT_ATTESTATION: extra.attestation } : {}),
+    ...(extra.mailUrl ? { AT_SUPABASE_MAIL_URL: extra.mailUrl } : {}),
   };
 }
 

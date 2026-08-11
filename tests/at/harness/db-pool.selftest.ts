@@ -36,6 +36,7 @@ import {
   slotConfigPath,
   slotDir,
   slotProjectId,
+  SLOT_JWT_EXPIRY_SECONDS,
   type Occupancy,
   type PrepareResult,
 } from './db-pool.ts';
@@ -381,8 +382,17 @@ describe('the personal stack is refused in code', () => {
   });
 });
 
+/**
+ * THE ONE NON-IDENTITY SETTING every generated config carries, so a synthetic source in these tests
+ * is a source `generateSlotConfig` will accept. The generator FAILS CLOSED on an absent
+ * `[auth] jwt_expiry` — a slot silently running the shipped hour-long expiry would make the two
+ * session bodies hang rather than fail — so a fixture without it is not a smaller case, it is an
+ * invalid one.
+ */
+const SYNTHETIC_AUTH = '[auth]\njwt_expiry = 3600\n';
+
 describe('the identity overlay moves the identity and nothing else', () => {
-  it('changes exactly the project id and the listener ports, byte for byte elsewhere', () => {
+  it('changes exactly the project id, the listener ports and the standing session lifetime, byte for byte elsewhere', () => {
     const generated = generateSlotConfig(REPO_CONFIG, 1);
     const source = REPO_CONFIG.split('\n');
     const slot = generated.split('\n');
@@ -390,18 +400,43 @@ describe('the identity overlay moves the identity and nothing else', () => {
 
     const changed = source.map((line, index) => (line === slot[index] ? -1 : index)).filter((index) => index >= 0);
     const { mappings } = portMappings(REPO_CONFIG, 1);
-    expect(changed.length, 'the overlay changed lines that are not identity fields').toBe(mappings.length + 1);
+    // ONE MORE THAN THE IDENTITY FIELDS, and exactly one: the project id, every mapped listener
+    // port, and the standing `auth.jwt_expiry`. This count is the assertion that the permitted
+    // transform set did not grow again — a second non-identity edit fails here, naming its line.
+    expect(changed.length, 'the overlay changed lines that are neither identity fields nor the standing session lifetime').toBe(
+      mappings.length + 2,
+    );
 
     for (const mapping of mappings) {
       expect(changed, `[${mapping.section}] ${mapping.key} was not rewritten`).toContain(mapping.line);
       expect(slot[mapping.line]).toContain(String(mapping.to));
     }
     expect(generated).toContain(`project_id = "${slotProjectId(1)}"`);
+
+    // THE STANDING LOW SESSION LIFETIME (D12). It is a value the slot runs permanently, not a
+    // transient override a test makes and restores: there is nothing to restore, so there is nothing
+    // to prove restored. The value is measured rather than chosen — the running GoTrue issues tokens
+    // with `expires_in` equal to it — and this item's verify-first record carries the reading.
+    expect(generated).toContain(`jwt_expiry = ${SLOT_JWT_EXPIRY_SECONDS}`);
+    expect(generated, 'the shipped hour-long expiry survived into the slot config').not.toMatch(/^\s*jwt_expiry\s*=\s*3600/m);
+    const expiryLine = source.findIndex((line) => /^\s*jwt_expiry\s*=/.test(line));
+    expect(changed, 'the jwt_expiry line was not the line that changed').toContain(expiryLine);
+  });
+
+  it('refuses to generate a slot config from a source carrying no active [auth] jwt_expiry', () => {
+    // FAIL CLOSED, and this is the test that says why. A generator that quietly skipped the
+    // transform would hand back a config the CLI accepts and the stack starts — running the shipped
+    // hour-long expiry while every declaration downstream assumed two minutes. The two session
+    // bodies would then WAIT rather than fail, which is the worst shape of failure to diagnose.
+    expect(() => generateSlotConfig('project_id = "demo"\n[api]\nport = 54321\n', 1)).toThrow(/no active \[auth\] jwt_expiry/);
+    // A COMMENTED setting is not an active one, and `scanConfig` already knows the difference.
+    expect(() => generateSlotConfig('project_id = "demo"\n[auth]\n# jwt_expiry = 3600\n', 1)).toThrow(/no active \[auth\] jwt_expiry/);
   });
 
   it('maps an enabled smtp_port, passes a client port through, and refuses what it cannot place', () => {
     const withSmtp =
-      'project_id = "demo"\n[local_smtp]\nport = 54324\nsmtp_port = 54325\n[auth.email.smtp]\nport = 587\nhost = "smtp.example.com"\n';
+      'project_id = "demo"\n[local_smtp]\nport = 54324\nsmtp_port = 54325\n[auth.email.smtp]\nport = 587\nhost = "smtp.example.com"\n' +
+      SYNTHETIC_AUTH;
     const mapped = portMappings(withSmtp, 1);
     expect(mapped.problems, 'a legitimate configuration was refused').toEqual([]);
     expect(mapped.mappings.map((m) => `${m.section}.${m.key}:${m.from}->${m.to}`)).toEqual([
@@ -424,7 +459,11 @@ describe('the identity overlay moves the identity and nothing else', () => {
     expect(underscored.mappings.map((m) => `${m.from}->${m.to}`)).toEqual(['54321->55321']);
     // The rewrite must take the underscore with it. Replacing the leading digits alone would
     // leave `55321_321` behind — a config the stack could not read.
-    expect(generateSlotConfig('project_id = "demo"\n[api]\nport = 54_321\n', 1)).toContain('port = 55321\n');
+    expect(generateSlotConfig(`project_id = "demo"\n[api]\nport = 54_321\n${SYNTHETIC_AUTH}`, 1)).toContain('port = 55321\n');
+    // The same whole-value rule applies to the standing session lifetime, for the same reason.
+    expect(generateSlotConfig(`project_id = "demo"\n[api]\nport = 54321\n[auth]\njwt_expiry = 3_600\n`, 1)).toContain(
+      `jwt_expiry = ${SLOT_JWT_EXPIRY_SECONDS}\n`,
+    );
   });
 
   it('moves the ruled inspector port by ten and refuses to guess at any other (ruling T8)', () => {
@@ -536,6 +575,7 @@ describe('the evidence names the slot it ran against', () => {
       status: { apiUrl: 'http://127.0.0.1:56421', dbUrl: 'postgresql://postgres:postgres@127.0.0.1:56422/postgres' } as StackStatus,
       migrations: { expected: 2, applied: 2 },
       restarted: false,
+      attestation: 'at-selftest-nonce',
     };
 
     const line = evidence(held, result);

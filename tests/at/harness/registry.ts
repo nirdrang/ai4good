@@ -20,7 +20,8 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 
-import type { AtHarness } from './contracts.ts';
+import { CapabilityPending } from './capabilities.ts';
+import type { AtHarness, TierHarness } from './contracts.ts';
 import type { SuiteId, SutKeyOf, SutOf, WorldOf } from './suite-adapters.ts';
 
 /* ------------------------------------------------------------------------ the AT id grammar */
@@ -227,7 +228,7 @@ export class AtPending extends Error {
  * cannot be an active probe there, because that program must not compile and this attack does), and
  * `loop/items/AI4DEV-31/gate2-widen-reproduction.txt` is the compile transcript with its controls.
  */
-type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
+type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike, T extends Tier = 'loop'> = {
   /**
    * The harness, at EXACTLY the type `createHarness()` is statically checked to produce — not a
    * suite-chosen type, and not the suite's type arguments pushed back into it.
@@ -242,8 +243,16 @@ type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
    * `h` is deliberately NOT re-parameterized by AI4DEV-31 either. Deriving `w` and `sut` from the
    * adapter does not license pushing them back into the harness: that is the same door, and it
    * stays shut.
+   *
+   * IT IS PARAMETERIZED BY THE TIER, AND THAT IS NOT THE SAME DOOR. `T` is not a suite's type
+   * argument: a suite never writes it, and the only two values it takes come from which key of a
+   * per-tier body map a body was written under. `TierHarness<T>` then SUBTRACTS — at integration the
+   * clock loses its control seam and the vendors seam loses its arming methods — so the parameter
+   * can only ever narrow what a body may reach. A free harness type parameter widened; this one
+   * cannot, because the mapping from `T` to the harness type is written here and there is no `T` a
+   * suite can supply that adds a member.
    */
-  h: AtHarness;
+  h: TierHarness<T>;
   /**
    * The fixture world, at the type the requirement's ADAPTER really returns — `WorldOf<R>`, read
    * off `fixtures.world`'s return type in `suite-adapters.ts`.
@@ -281,7 +290,11 @@ type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike> = {
  * Named by TWO STRINGS, never by a shape — see `SeamOpenWorld` above for why that distinction is
  * the whole protection rather than a stylistic preference.
  */
-export type OpenWorld<R extends SuiteId, K extends SutKeyOf<R>> = SeamOpenWorld<SutOf<R, K>, WorldOf<R>>;
+export type OpenWorld<R extends SuiteId, K extends SutKeyOf<R>, T extends Tier = 'loop'> = SeamOpenWorld<
+  SutOf<R, K>,
+  WorldOf<R>,
+  T
+>;
 
 export interface OpenOverrides {
   /**
@@ -294,16 +307,20 @@ export interface OpenOverrides {
 }
 
 /** The STRUCTURE of what a test body is given — not exported, for the reason on `SeamOpenWorld`. */
-type SeamContext<Sut = unknown, W extends WorldLike = WorldLike> = {
+type SeamContext<Sut = unknown, W extends WorldLike = WorldLike, T extends Tier = 'loop'> = {
   atId: string;
   /** build a fresh "Given" world (and its own harness). Call it more than once for isolation. */
-  open(fixture?: string, opts?: OpenOverrides): Promise<SeamOpenWorld<Sut, W>>;
+  open(fixture?: string, opts?: OpenOverrides): Promise<SeamOpenWorld<Sut, W, T>>;
   /** consume an immutable capture whose producer proved at least one real open() */
-  capture<T>(evidence: EvidenceCaptureImpl<T, Sut, W>): Promise<T>;
+  capture<C>(evidence: EvidenceCaptureImpl<C, Sut, W, T>): Promise<C>;
 };
 
 /** Everything a test body is given. `atId` is read-only context, never re-supplied to open(). */
-export type AtContext<R extends SuiteId, K extends SutKeyOf<R>> = SeamContext<SutOf<R, K>, WorldOf<R>>;
+export type AtContext<R extends SuiteId, K extends SutKeyOf<R>, T extends Tier = 'loop'> = SeamContext<
+  SutOf<R, K>,
+  WorldOf<R>,
+  T
+>;
 
 const USAGE = Symbol('at-context-usage');
 
@@ -318,7 +335,7 @@ interface Usage {
  * even from inside this module. It is reachable from a test body — `capture()` hands it to an
  * evidence producer — and everything on that path obeys the alias rule.
  */
-type InternalContext<Sut, W extends WorldLike> = SeamContext<Sut, W> & {
+type InternalContext<Sut, W extends WorldLike, T extends Tier = 'loop'> = SeamContext<Sut, W, T> & {
   [USAGE]: Usage;
 };
 
@@ -395,18 +412,18 @@ export function captureProducerProblem(opensBefore: number, opensAfter: number):
  * `new`. Exporting only the type removes the constructor from a suite's reach, and has the second
  * effect of making `EvidenceCapture` a type ALIAS, which declaration merging cannot open.
  */
-class EvidenceCaptureImpl<T, Sut = unknown, W extends WorldLike = WorldLike> {
-  private result: Promise<T> | null = null;
+class EvidenceCaptureImpl<C, Sut = unknown, W extends WorldLike = WorldLike, T extends Tier = 'loop'> {
+  private result: Promise<C> | null = null;
   private producerAtId = '';
 
   constructor(
     readonly name: string,
     /** the suite this capture reads the seam of — it is in the failure text so a red says whose */
     readonly requirement: string,
-    private readonly producer: (ctx: SeamContext<Sut, W>) => Promise<T>,
+    private readonly producer: (ctx: SeamContext<Sut, W, T>) => Promise<C>,
   ) {}
 
-  consume(ctx: InternalContext<Sut, W>): Promise<T> {
+  consume(ctx: InternalContext<Sut, W, T>): Promise<C> {
     if (!this.result) {
       this.producerAtId = ctx.atId;
       const opensBefore = ctx[USAGE].opens;
@@ -614,9 +631,28 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
   try {
     expect(h.tier, `harness built tier "${h.tier}" for a --tier ${TIER} run`).toBe(TIER);
 
-    // Tier semantics: above `loop`, nothing the suite leans on may be a stand-in.
+    /*
+     * TIER SEMANTICS: above `loop`, nothing the suite leans on may be a stand-in. The RULE is
+     * unchanged and is not relaxed by one capability. What changed is the SHAPE OF THE REFUSAL.
+     *
+     * This was a bare `expect(await h.stubbedCapabilities()).toEqual([])`, and the failure it
+     * produced fit NEITHER declarable red kind — so an integration run of any suite was not merely
+     * red, it was UNDECLARABLE, and `--expect` could never be honoured at the tier that is the
+     * closing gate. A red nobody can describe exactly is a red nobody understands, which is the
+     * doctrine `expected.ts` states and this line contradicted.
+     *
+     * `CapabilityPending` names the exact stubbed capabilities, which is precisely the
+     * `capability-pending` shape a declaration rebuilds and compares from position 0. The gate is if
+     * anything STRICTER than before: the names travel into the report, so a declaration has to say
+     * WHICH capabilities are still stubbed rather than only that some are.
+     *
+     * `expect.hasAssertions()` is satisfied by the throw rather than by an assertion, exactly as it
+     * is for every `AtPending` body in every suite: a thrown error is the reported failure and the
+     * assertion count is not consulted.
+     */
     if (TIER !== 'loop') {
-      expect(await h.stubbedCapabilities(), `a ${TIER}-tier run stubbed capabilities — the gate would be grading a stand-in`).toEqual([]);
+      const stubbed = await h.stubbedCapabilities();
+      if (stubbed.length) throw new CapabilityPending(stubbed);
     }
 
     const sut = h.sut?.[o.sutKey];
@@ -632,8 +668,69 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
 
 /* ------------------------------------------------------------------------------- registration */
 
-/** One authored test body, for the suite bound to requirement `R` and sut key `K`. */
-export type AtTestBody<R extends SuiteId, K extends SutKeyOf<R>> = (ctx: AtContext<R, K>) => Promise<void>;
+/** One authored test body, for the suite bound to requirement `R` and sut key `K`, at tier `T`. */
+export type AtTestBody<R extends SuiteId, K extends SutKeyOf<R>, T extends Tier = 'loop'> = (
+  ctx: AtContext<R, K, T>,
+) => Promise<void>;
+
+/**
+ * ONE BODY PER ID PER TIER — the per-tier body form.
+ *
+ * WHY IT EXISTS. Some acceptance criteria are proved by DIFFERENT PROCEDURES at different tiers,
+ * proving the same criterion. AT-001.12's expiry arm at loop tier commands a controlled clock
+ * forward; at integration there is nothing to command, and the same criterion is proved by waiting
+ * out a real access token against a real GoTrue. Writing one body that branched on the tier would put
+ * two procedures inside one function with a conditional deciding which claim was being made — and a
+ * body that reads `if (h.tier === …)` is a body whose green means something different depending on a
+ * value the reader has to trace.
+ *
+ * WHAT DOES NOT FORK. The CRITERION never forks: both bodies carry the same acceptance text in their
+ * title, and the id is registered once. What forks is the procedure and, with it, the capabilities
+ * the procedure may reach — which is what the per-tier context types carry.
+ *
+ * EVERY TIER MUST BE COVERED, and that is refused rather than defaulted. `analyzeReportedTests()`
+ * requires EXACTLY ONE runtime registration and EXACTLY ONE vitest result per expected id; a map
+ * that named only `loop` would emit neither at integration, and the id would be reported `missing` —
+ * a state no declaration can describe. So a map either names every tier or supplies `default` for
+ * the ones it does not, and a map that leaves a hole is an error AT THE CALL SITE, where it is
+ * written, rather than a missing row three commands later.
+ */
+export type AtTestBodies<R extends SuiteId, K extends SutKeyOf<R>> = {
+  /**
+   * The body for every tier this map does not name — typed at the LOOP tier, exactly as the
+   * single-body form is, because it is the single-body form wearing a key. See `AtTestFn` for why
+   * that is the tier the shared shape is written at, and what it does and does not protect.
+   */
+  default?: AtTestBody<R, K, 'loop'>;
+  loop?: AtTestBody<R, K, 'loop'>;
+  integration?: AtTestBody<R, K, 'integration'>;
+  drill?: AtTestBody<R, K, 'drill'>;
+};
+
+/**
+ * The tier's body, or the problem that means there is none. PURE, so the refusal is unit testable.
+ *
+ * A bare function is the single-body form and covers every tier — every suite in this tree is
+ * written that way and none of them changes.
+ */
+export function tierBodyProblem(bodies: Record<string, unknown>, atId: string): string | null {
+  const named = TIERS.filter((tier) => typeof bodies[tier] === 'function');
+  if (named.length === 0 && typeof bodies.default !== 'function') {
+    return (
+      `${atId} was registered with a per-tier body map that names no body at all — neither a tier nor a default. ` +
+      `One id, one body per tier.`
+    );
+  }
+  const uncovered = TIERS.filter((tier) => typeof bodies[tier] !== 'function');
+  if (uncovered.length && typeof bodies.default !== 'function') {
+    return (
+      `${atId} was registered with a per-tier body map that covers ${named.join(', ')} but not ` +
+      `${uncovered.join(', ')}, and supplies no default. An id with no body at a tier reports as MISSING there, ` +
+      `which no declaration can describe — supply a body for every tier, or a default.`
+    );
+  }
+  return null;
+}
 
 function emitRuntimeRegistration(registration: Registration): void {
   const dir = process.env.AT_REGISTRATION_DIR;
@@ -696,13 +793,25 @@ export function requirementMismatch(atId: string, parsedRequirement: string, bou
  * A `const` typed by a call-signature alias, NOT an exported `function` declaration, for the reason
  * given on `defineEvidenceCapture`: a function declaration accepts a merged-in overload and a
  * `const` does not.
+ *
+ * THE SINGLE-BODY FORM IS TYPED AT THE LOOP TIER, and it is worth saying exactly what that does and
+ * does not buy. One body runs at every tier, so it is typed at the tier with the RICHEST
+ * capabilities — the loop tier, whose clock can be commanded and whose vendor seam can be armed.
+ * That keeps every suite in this tree compiling unchanged, and it means the type system does NOT
+ * stop a single body from commanding a clock that, above loop, is the passage of time.
+ *
+ * WHAT DOES STOP IT is the per-tier form: an id whose procedure differs above loop supplies an
+ * integration body, and THAT body is typed at `'integration'`, where the two seams are absent from
+ * the type. So the protection is opt-in at exactly the ids that need it, which are the ids whose
+ * criteria are about real time and real mail. An id that needs it and does not take it fails at run
+ * time rather than at compile time, and the fix is to write the body, not to widen the type.
  */
 type AtTestFn = {
   <R extends SuiteId, K extends SutKeyOf<R>>(
     atId: string,
     title: string,
     opts: AtTestOptions & SuiteBinding<R, K>,
-    body: AtTestBody<R, K>,
+    body: AtTestBody<R, K, 'loop'> | AtTestBodies<R, K>,
   ): void;
 };
 
@@ -710,9 +819,42 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
   atId: string,
   title: string,
   opts: AtTestOptions & SuiteBinding<R, K>,
-  body: AtTestBody<R, K>,
+  body: AtTestBody<R, K, 'loop'> | AtTestBodies<R, K>,
 ): void => {
-  if (typeof body !== 'function') throw new Error(`${atId}: atTest was given no test body`);
+  if (typeof body !== 'function' && (body === null || typeof body !== 'object')) {
+    throw new Error(`${atId}: atTest was given no test body`);
+  }
+
+  /*
+   * WHICH BODY RUNS, decided here and once.
+   *
+   * A bare function is the single-body form: one procedure, every tier, exactly as every suite in
+   * this tree is written today. A MAP is the per-tier form, and the tier is resolved from `TIER` —
+   * the runner's own value, with no default anywhere — so the body that registers is the body
+   * written for the tier this process is running.
+   *
+   * A MAP WITH A HOLE IS REFUSED AT REGISTRATION, not skipped. `tierBodyProblem` says why: an id
+   * with no body at a tier reports MISSING there, and MISSING is the one state no declaration can
+   * describe. Refusing at the call site puts the error where the map is written.
+   *
+   * WITH `AT_TIER` UNSET there is no tier to choose, so the map's `default` — or, failing that, the
+   * loop body — registers, and `openWorld` refuses with `tier-unset` on its first `open()` exactly
+   * as it always has. The alternative would be registering NOTHING, which turns a plainly-diagnosed
+   * misuse into an unexplained missing row.
+   */
+  const resolved: AtTestBody<R, K, 'loop'> = (() => {
+    if (typeof body === 'function') return body;
+    const problem = tierBodyProblem(body as Record<string, unknown>, atId);
+    if (problem) throw new Error(problem);
+    const chosen = (TIER === null ? undefined : body[TIER]) ?? body.default ?? body.loop;
+    // THE ONE BRIDGE BETWEEN THE TWO TIERS' CONTEXT TYPES, and it is a widening of a NARROWER type.
+    // An integration body is written against a context whose clock and vendor seams have FEWER
+    // members, so the object built below — which has all of them — satisfies it; what the cast says
+    // is that this function hands one runtime object to bodies written at two different types, and
+    // the direction is always narrow-body/wide-object. A body cannot reach a member the object
+    // lacks, because no tier's type names one the loop type does not.
+    return chosen as AtTestBody<R, K, 'loop'>;
+  })();
 
   const parsed = parseAtId(atId);
   const mismatch = requirementMismatch(atId, parsed.requirement, opts.requirement);
@@ -734,7 +876,7 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
     const worlds: TrackedTeardown[] = [];
     const harnesses: TrackedTeardown[] = [];
     const usage: Usage = { opens: 0, captures: 0 };
-    const ctx: InternalContext<SutOf<R, K>, WorldOf<R>> = {
+    const ctx: InternalContext<SutOf<R, K>, WorldOf<R>, 'loop'> = {
       atId,
       [USAGE]: usage,
       open: async (fixture = `req-${parsed.requirement}/base`, openOpts) => {
@@ -766,7 +908,7 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
         // built at run time really is the one that module's `createFixtureAdapter()` returned. That
         // holds unless somebody casts inside `index.ts` or mutates the adapter after it is built —
         // both trusted-author escapes this item does not claim to close.
-        return opened as OpenWorld<R, K>;
+        return opened as OpenWorld<R, K, 'loop'>;
       },
       capture: async (evidence) => {
         const value = await evidence.consume(ctx);
@@ -775,7 +917,7 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
       },
     };
 
-    await runTrackedTest(atId, () => executeRegisteredBody(atId, body, ctx, usage), worlds, harnesses);
+    await runTrackedTest(atId, () => executeRegisteredBody(atId, resolved, ctx, usage), worlds, harnesses);
   });
 };
 
@@ -783,8 +925,8 @@ export const atTest: AtTestFn = <R extends SuiteId, K extends SutKeyOf<R>>(
 
 /** `atTest`, with the binding already applied — so bodies say `atTest(id, title, body)`. */
 type BoundAtTest<R extends SuiteId, K extends SutKeyOf<R>> = {
-  (atId: string, title: string, opts: AtTestOptions, body: AtTestBody<R, K>): void;
-  (atId: string, title: string, body: AtTestBody<R, K>): void;
+  (atId: string, title: string, opts: AtTestOptions, body: AtTestBody<R, K, 'loop'> | AtTestBodies<R, K>): void;
+  (atId: string, title: string, body: AtTestBody<R, K, 'loop'> | AtTestBodies<R, K>): void;
 };
 
 /** `defineEvidenceCapture`, with the binding already applied. */
@@ -817,11 +959,20 @@ export const bindSuite: BindSuiteFn = <R extends SuiteId, K extends SutKeyOf<R>>
   const boundAtTest = (
     atId: string,
     title: string,
-    optsOrBody: AtTestOptions | AtTestBody<R, K>,
-    maybeBody?: AtTestBody<R, K>,
+    optsOrBody: AtTestOptions | AtTestBody<R, K, 'loop'> | AtTestBodies<R, K>,
+    maybeBody?: AtTestBody<R, K, 'loop'> | AtTestBodies<R, K>,
   ): void => {
-    const opts: AtTestOptions = typeof optsOrBody === 'function' ? {} : optsOrBody;
-    const body = (typeof optsOrBody === 'function' ? optsOrBody : maybeBody) as AtTestBody<R, K>;
+    // THREE SHAPES ARRIVE HERE and the discriminator is which of them the third argument is: a
+    // function is a single body, an options object comes with the body fourth, and a per-tier body
+    // MAP is an object too — told apart by carrying at least one body-shaped member. A map that
+    // names none of them is not silently read as options: `tierBodyProblem` refuses it by name.
+    const looksLikeBodies =
+      typeof optsOrBody === 'object' &&
+      optsOrBody !== null &&
+      (['default', ...TIERS] as const).some((key) => typeof (optsOrBody as Record<string, unknown>)[key] === 'function');
+    const givenBody = typeof optsOrBody === 'function' || looksLikeBodies;
+    const opts: AtTestOptions = givenBody ? {} : (optsOrBody as AtTestOptions);
+    const body = (givenBody ? optsOrBody : maybeBody) as AtTestBody<R, K, 'loop'> | AtTestBodies<R, K>;
     atTest<R, K>(atId, title, { ...opts, ...binding }, body);
   };
 
