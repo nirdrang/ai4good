@@ -1,0 +1,282 @@
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the launch cage — a read-only
+sandbox, or an agent definition whose write tools are removed. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** The launch cage is the enforcement — a read-only sandbox, or
+a removed tool set — and this sentence is the instruction; every launch prompt carries it
+explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+
+---
+
+## The AUDIT — critique of the CLAIM
+
+**Subject** · **THE CODE, ONLY THE CODE (founder ruling 2026-08-10: "I want auditor only in
+code not on records at all").** Three product items in a row produced fourteen audit findings,
+every one about the record's own prose — miscounted totals, citation wording, stale status
+paragraphs — and zero about code, at a cost of roughly two extra hours per item. That class of
+finding is now OUT OF YOUR SCOPE. You read the record only as the list of claims to test
+against the tree; you never raise a finding about the record itself — not its counts, not its
+citations, not its headers, not its phrasing.
+
+**Your change-set instrument is a SOURCE-ONLY diff (founder ruling 2026-08-10).** Enumerate the
+changes with the pinned range restricted to the code territory — the same path set CI's fast
+lane derives from:
+
+```
+git diff <base>...<head> -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts
+```
+
+The record directory (`loop/items/`) never enters the diff you read. The full tree stays open
+for TRACING a claim through unchanged code — following an import, reading a caller — but the
+list of what you audit comes from that command and nothing else.
+
+Code quality is not your subject either. You are answering one question: **does the code match
+what is claimed about it?**
+
+- **Every adopted ruling is implemented as ruled.** A ruling recorded but not implemented in the
+  code is a FAIL — this is the box no other check in the system covers.
+- **The diff stays inside its declared scope.** Compare what changed against what the item says
+  it changed.
+- **Every stated fact about the CODE is true.** Trace the logic yourself, character by character
+  where it matters — a shell trap, a regex, a guard's field handling. A false statement about
+  code is a finding; a clumsy sentence about a true fact is not.
+
+**The item's additions give you the CLAIM CHECKLIST — grade every line of it.** This item's
+brief lists its specific testable claims: the rulings it adopted (by id), the code territory it
+says it stayed inside, and each concrete fact it stated about the code. Confirm each against the
+tree and answer it by name. The checklist is your FLOOR, never your ceiling — a false claim it
+omits is still a finding — but nothing on it may go unanswered.
+
+**On a RE-RUN, your change-set is the FIX DELTA, not the whole range.** The previous audit already
+cleared the tree at the earlier head; only the fix moved it. Read `git diff <prev-audited-head>...<head>`
+restricted to the code territory, and re-grade every checklist line the delta can REACH — not only
+the files the delta edited, but any claim whose subject the delta could affect: a caller of a
+changed function, an importer of a changed module, a reader of changed config or shared state.
+**"Untouched" means the delta cannot reach the claim, NOT that the claim's file is byte-identical** —
+a fix to a shared helper can falsify a claim about a file that never changed. Carry a line forward
+only when you can say why the delta cannot reach it; when in doubt, re-grade it. **One box always
+re-checks in full**: "diff stays in declared scope", against the full `<base>...<head>` file list
+(still restricted to the code territory — the record directory never enters it), because a fix can
+add a stray file the narrow delta would hide. Say which boxes you carried forward and on what
+independence, rather than silently re-deriving them. This is what keeps the once-per-item re-run
+cheap without making it blind: a scoped fix earns a scoped re-read, a far-reaching one does not.
+
+**Do not run the test suite.** Execution evidence belongs to the required CI check on this
+commit: cite it, do not re-derive it. This is a deliberate narrowing, measured across four items —
+attempted execution here produced almost nothing but "could not verify", and once produced two
+FAIL verdicts that were sandbox artifacts rather than defects, while every reading-and-tracing box
+was answered every time.
+
+**Verdict per box: PASS · FAIL · COULD-NOT-VERIFY**, each with the evidence you personally
+gathered — the file and line, or the reasoning you traced. Then a final line: `AUDIT: CLEAN` or
+`AUDIT: N FINDINGS`.
+
+**You report; you rule on nothing.** The orchestrator rules, and it may dismiss your finding with
+a written reason — that is its authority, and your claim will be recorded verbatim beside it.
+
+---
+
+## This item's additions — the CLAIM CHECKLIST
+
+The item is AI4DEV-81 ("Per-item integration verification: every item proves its ids at the
+loop tier AND the integration tier"), a declared batch whose pull request also closes the CI
+timeout item by one sanctioned closes-line. Branch:
+`nirdrang/ai4dev-81-per-item-integration-verification-every-item-proves-its-ids`. Diff base:
+`466880d`. Head: the commit this tree is checked out at. Commits after code head `41bcadc`
+touch only the record directory, so the source-only diff at the pinned head equals the diff at
+`41bcadc`.
+
+The adopted rulings live in `loop/items/AI4DEV-81/rulings-gate1.md`, `rulings-draft.md`,
+`rulings-gate2.md` and `rulings-fix.md` — read them for each ruling's exact remedy text; the
+ids below are your index into them. Grade every numbered line; answer each by name.
+
+### A. Adopted rulings — each must appear in the tree as ruled
+
+A1. Gate-1 ruling 1: slot attestation round trip — `prepare()` mints a nonce and writes it
+    after the reset; the child reads it back through the supplied coordinates and refuses on
+    mismatch, absence, or read failure (`tests/at/harness/attestation.ts`, `db-pool.ts`).
+A2. Gate-1 ruling 2: nothing granted `real` by prefix — the live route grants per exact
+    enumerated method name with admission checks (`capabilities.ts`, `liveSutCapability`).
+A3. Gate-1 ruling 3: tier-aware ledger — live email built from the slot's own mail catcher,
+    probed before grant; the sim branch untouched (`index.ts` `buildLiveLedger`,
+    `live-email.ts`).
+A4. Gate-1 ruling 4: attested real clock with NO control seam; the `clock.controlled` witness
+    gains the attested-real branch; per-tier context types expose no seam at integration
+    (`clock.ts`, `capabilities.ts`, `registry.ts`).
+A5. Gate-1 ruling 5: method-level backing — callable pending proxies throw `CapabilityPending`
+    naming `sut.accounts.<method>` on use (`capabilities.ts` `pendingMethodProxy`).
+A6. Gate-1 ruling 6 (fixed differently): a STANDING `auth.jwt_expiry = 120` in
+    `generateSlotConfig` — no transient override, no restore anywhere; generator selftests
+    assert it is the only new difference (`db-pool.ts`, `db-pool.selftest.ts`).
+A7. Gate-1 ruling 7: AT-001.13's integration body observes supabase-js `autoRefreshToken`
+    rotation with NO explicit refresh call (`tests/at/suites/req-001/_integration.ts`).
+A8. Gate-1 ruling 8: AT-001.09 parameterized over both account types.
+A9. Gate-1 ruling 9: AT-001.01's full-outcome oracle — NGO account type, org row, admin
+    membership, acknowledgment fields (timestamp, IP, text version), pre-project gate, later
+    sign-in, refusal arm.
+A10. Gate-1 ruling 10: both integration declarations authored from the plan's settled table —
+    `tests/at/expected/req-001.json` and `req-016.json` match the table in
+    `loop/items/AI4DEV-81/plan.md`, not the other way round.
+A11. Gate-1 ruling 11: `.github/workflows/ci.yml` received ONLY a comment change stating both
+    no-runner explanations as undistinguished; `timeout-minutes: 30` and every behaviour line
+    unchanged.
+A12. Draft ruling R-D3: the live registration handle holds NO session and every session-taking
+    operation refuses it by name (`_live.ts` `tokensOf`) — except that gate-2 ruling S2-2
+    modifies `signOut` as below.
+A13. Draft ruling R-D4: the one production-code-adjacent dependency addition is
+    `@supabase/supabase-js` as a dev dependency (`package.json`, one line).
+A14. Draft ruling R-D5: AT-001.04's declared refusal names `sut.accounts.registerWithProvider`.
+A15. Gate-2 ruling S1-1: the slot identity proof travels INTO `writeAttestation` as a
+    parameter — no call path hands it a bare, unproven URL; a selftest proves the unproven
+    path refuses.
+A16. Gate-2 ruling S1-2: `createAttestedRealClock` and `createLiveEmail` validate the
+    attestation BRAND (`attestationOf(attestation, SLOT_ATTESTATION_BRAND)`) and refuse a
+    structural non-branded object.
+A17. Gate-2 ruling S1-3, accepted half only: a backed method counts only if found before
+    `Object.prototype` (an enumeration naming `toString` is refused, with a selftest). The
+    `sut.*` name admission in `liveSutCapability` was deliberately NOT changed — do not report
+    its absence as a missing implementation.
+A18. Gate-2 ruling S1-4: `pendingMethodProxy`'s `has` trap answers true for string properties,
+    so an omitted unbacked method is observably pending; its read throws `CapabilityPending`.
+A19. Gate-2 ruling S1-5 was REJECTED: the bare/single-body form still runs at every tier typed
+    at loop — this is the documented design (`registry.ts`, the comment block above `AtTestFn`)
+    and its presence is correct, not a defect.
+A20. Gate-2 ruling S1-6: `localStackProblems` validates the mail-catcher URL (loopback and the
+    slot config's own mail port); `createLiveEmail`'s probe requires the Mailpit
+    identification shape (parseable JSON with a string `Version`), refusing any other 200.
+A21. Gate-2 ruling S2-1: the two time-based integration bodies carry a per-tier timeout of
+    240000 ms via the registration machinery (`registry.ts` `tierTimeout`,
+    `_integration.ts` `INTEGRATION_TIMEOUT_MS`); `tests/at/vitest.config.ts` still pins
+    `testTimeout: 30_000` and the loop tier is untouched.
+A22. Gate-2 ruling S2-2: `signOut` in `_live.ts` KEEPS the cached tokens — the post-logout
+    write reaches the live stack and the stack's refusal is the measured fact; no
+    client-side `sessions.delete` fabricates the refusal.
+A23. Gate-2 ruling S2-3, branch 2: AT-001.01's negative arm stays as the validator-refusal
+    check and its comment claims exactly what it proves — no fault-injection seam was added to
+    shipped code; the narrowed claim is C8 below.
+A24. Gate-2 ruling S2-4: each AT-001.09 iteration completes signup AS its type after
+    verification (NGO with organization and acknowledgment; volunteer with linked GitHub
+    identity and acknowledgment) and asserts the account row carries that global type.
+A25. Gate-2 ruling S2-5: AT-001.13 captures the signed-in account id and asserts the
+    post-rotation `getUser()` identity equals it, with a non-null account row of the same id —
+    the former tautological assertion (`account === null || account.id.length > 0`) is gone.
+A26. Gate-2 rulings S2-6 and F4 were REJECTED: `loop/items/AI4DEV-81/pr-body.md` is untouched
+    and in-file item-id citations remain — their presence is correct, not a defect.
+A27. Fix ruling RF-3: the evidence-capture path passes the declarable refusal shapes through
+    unchanged (a pure `captureFailure` with selftests); ordinary failures are still wrapped.
+A28. Fix ruling RF-4: the bounded mail poll is present BY RULING, with a comment recording the
+    measured delivery time and the reason for the bound — do not report it as speculative.
+
+### B. Declared scope — the diff must stay inside it
+
+B1. The source-only diff (the command above, base `466880d`) names EXACTLY these 22 files, all
+    inside `tests/` except the first two:
+    `.github/workflows/ci.yml` (comment-only), `package.json` (one dev-dependency line),
+    `tests/at/expected/README.md`, `tests/at/expected/req-001.json`,
+    `tests/at/expected/req-016.json`, `tests/at/harness/attestation.ts`,
+    `tests/at/harness/capabilities.ts`, `tests/at/harness/clock.ts`,
+    `tests/at/harness/conformance.selftest.ts`, `tests/at/harness/contracts.ts`,
+    `tests/at/harness/db-pool.selftest.ts`, `tests/at/harness/db-pool.ts`,
+    `tests/at/harness/index.ts`, `tests/at/harness/live-email.ts`,
+    `tests/at/harness/live-ledger.selftest.ts`, `tests/at/harness/registry.ts`,
+    `tests/at/harness/runner.selftest.ts`, `tests/at/harness/runner.ts`,
+    `tests/at/suites/req-001/_integration.ts`, `tests/at/suites/req-001/_live.ts`,
+    `tests/at/suites/req-001/a-signup-and-signin.test.ts`,
+    `tests/at/suites/req-001/b-verification-and-sessions.test.ts`.
+B2. NOTHING under `src/` and NOTHING under `supabase/` changed: the deployed product surfaces
+    and migrations are untouched; the live adapter tests AGAINST them.
+B3. The text lockfile `bun.lock` also changed, paired with B1's `package.json` line; it sits
+    outside your diff command's path list — that is expected, not a scope escape.
+
+### C. Stated facts about the code — each must be true
+
+C1. The slot config generator emits a standing `jwt_expiry = 120`, and
+    `_integration.ts`'s `SLOT_JWT_EXPIRY_MS = 120_000` matches it.
+C2. The two loop-tier declaration manifests have INSERTIONS ONLY on this branch (43 and 17
+    added lines, zero deletions) — every loop-tier declaration line is byte-unchanged.
+C3. `req-001.json`'s integration tier declares exactly eight green ids — AT-001.01, .06, .07,
+    .09, .12, .13, .14, .38 — and every other P0 id red with an exact declarable kind;
+    `req-016.json`'s integration tier declares every id red.
+C4. The live adapter decodes quoted-printable in emailed links before following them.
+C5. The live adapter sends the deployed create-organization function the field `name`, reads
+    the membership column `organization_id`, casts the operator-written `identity_data`
+    through `::text::jsonb`, and hands the shipped email-verified extractor a string, never a
+    `Date`.
+C6. AT-001.12's body: scoped logout with a sibling-session control, a post-logout write
+    refused BY THE LIVE STACK, re-authentication succeeding, the expiry arm waiting out the
+    real token past its lifetime with margin, and refresh restoring access.
+C7. AT-001.13's body issues NO refresh call of any kind; rotation is observed by polling the
+    client's own session.
+C8. The narrowed atomicity claim (`loop/items/AI4DEV-81/verify-first.md`, Part C): no input
+    passes the deployed complete-signup's upfront validation and then fails inside the
+    database transaction after earlier writes — the validator's `trim()` strips a superset of
+    what Postgres `btrim` strips, so the intersection is empty by construction. AT-001.01's
+    green claims the full-outcome oracle plus the validator-refusal arm, NOT mid-transaction
+    rollback proved through the deployed surface.
+C9. The harness selftest count rose from 327 to 344; the 17 new selftests cover the
+    attestation refusals, the brand validations, the enumeration and proxy rules, the mail
+    probe refusals, the tier-timeout choice, and the capture pass-through.
+
+One caution that is itself part of the record: one of the two code readings of the harness
+machinery portion of this branch never landed (its process terminated abnormally twice,
+vendor-side), so the harness files in B1 have had one external reading, not two. Weigh your
+own reading of those files accordingly — it is not duplicate effort.
+
+Your verdicts: one per checklist line, by name (A1–A28, B1–B3, C1–C9), PASS / FAIL /
+COULD-NOT-VERIFY with the evidence you personally gathered, then the final count line.
