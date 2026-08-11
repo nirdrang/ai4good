@@ -34,8 +34,16 @@ $script:BatchAttr = ''
 $script:Actor = 'SESSION'
 
 function Emit([string]$l1, [string]$l2, [string[]]$extra, [string]$pm, [string]$dev) {
-    Write-Output ($script:Actor.PadRight(12) + 'WORKING ON  ' + $l1)
-    Write-Output ($script:Actor.PadRight(12) + 'IN          ' + $l2)
+    # EVERY HUMAN LINE CARRIES THE SESSION PREFIX (founder 2026-08-11: "I want session id print
+    # on every line of the stamp - prefix"). One formatter, applied at the single output point,
+    # so a forwarded agent line and a warning line cannot drift from the actor lines. The
+    # machine tag stays UNPREFIXED on purpose: parsers anchor on its opening bracket, and it
+    # already carries the session as an attribute — humans get the prefix, machines the field.
+    # Runs with no session id (agent child re-runs, manual invocations) print no prefix.
+    $pfx = ''
+    if ($script:SessionId -and $script:SessionId.Length -ge 8) { $pfx = ('[' + $script:SessionId.Substring(0, 8) + '] ') }
+    Write-Output ($pfx + $script:Actor.PadRight(12) + 'WORKING ON  ' + $l1)
+    Write-Output ($pfx + $script:Actor.PadRight(12) + 'IN          ' + $l2)
     # The batch attribute is ADDITIVE (founder 2026-08-11): a batched partner must reach the
     # machine tag too, or every report over the attribution log under-counts the partner's work.
     # Parsers reading pm/dev are unaffected; the attribute appears only when a partner rides.
@@ -49,8 +57,8 @@ function Emit([string]$l1, [string]$l2, [string[]]$extra, [string]$pm, [string]$
     else {
         Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"{2}/>' -f $pm, $dev, $sess)
     }
-    foreach ($e in $extra) { if ($e) { Write-Output $e } }
-    foreach ($a in $script:AgentLines) { if ($a) { Write-Output $a } }
+    foreach ($e in $extra) { if ($e) { Write-Output ($pfx + $e) } }
+    foreach ($a in $script:AgentLines) { if ($a) { Write-Output ($pfx + $a) } }
 }
 
 function Fmt([string]$id, [string]$label) {
