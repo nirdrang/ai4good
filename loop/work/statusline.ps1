@@ -66,8 +66,24 @@ try {
     # Written on EVERY refresh including when the field is absent, so a reader can tell "no
     # reading yet" from "this build does not report windows" - a missing file and a null field
     # mean different things and must not look alike.
+    #
+    # IT ALSO WRITES THE VERDICT, AND IT WRITES IT FIRST. A per-tool checkpoint is paid on every
+    # tool call in the system, so it cannot afford to run the gauge; it reads one line and matches
+    # its first token. That line is composed here, where the numbers already are.
+    #
+    # THE ORDER AND THE SINGLE try ARE THE INVARIANT, not tidiness. Verdict first, snapshot
+    # second, one envelope: a verdict write that fails therefore also skips the snapshot write, so
+    # the verdict file can never be OLDER than the snapshot beside it. "A snapshot at 95% sitting
+    # beside a stuck OK verdict" is not defended against here - it is impossible. The residual is
+    # the opposite case, a verdict one refresh NEWER than its snapshot, which is conservative (the
+    # alarm fires on the newest data) and heals at the next refresh.
+    #
+    # THE PATH FORMULA IS THE LIBRARY'S, never rebuilt here. This file already shipped one bug of
+    # exactly that kind - it hand-built the path to the old bindings directory instead of calling
+    # the helper, and the cut-over that deleted the helper's callers could not see it.
     try {
-        $snapDir = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good'
+        . (Join-Path $PSScriptRoot 'window-lib.ps1')
+        $snapDir = Get-WindowDir
         if (-not (Test-Path $snapDir)) { New-Item -ItemType Directory -Force $snapDir | Out-Null }
         $snap = [ordered]@{
             capturedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -75,10 +91,15 @@ try {
             version    = [string](Get-Field $j @('version'))
             rateLimits = (Get-Field $j @('rate_limits'))
         }
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText(
-            (Join-Path $snapDir 'rate-limits.json'),
+            (Get-WindowVerdictPath),
+            ((Format-WindowVerdictLine (Get-WindowVerdict -Snapshot $snap)) + "`n"),
+            $utf8)
+        [System.IO.File]::WriteAllText(
+            (Get-WindowSnapshotPath),
             ($snap | ConvertTo-Json -Depth 8),
-            (New-Object System.Text.UTF8Encoding($false)))
+            $utf8)
     } catch { }
 
     $parts = @()
