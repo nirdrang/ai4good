@@ -260,6 +260,27 @@ finishes. A guard that samples only at phase changes is blind exactly where the 
 phase should*. Sending one when you mean the other destroys both signals: a pulse read as a
 stall wastes an investigation, and a stall read as a pulse is the four idle hours again.
 
+## Parking the item when the window is low — the park note is the whole hand-off
+
+The line is **85 percent** (founder 2026-08-12). You will meet it as a REFUSED spawn: the
+PreToolUse window gate denies your next `Agent` call and the reason tells you what to do. Running
+work is never interrupted, so nothing you already launched is stopped — only the new thing.
+
+When your own spawn is refused, or a sitting reports `PARKED — window low` to you, park the item:
+
+1. **Write the park note** into the item record — `loop/items/<item>/PHASE-STATE.md`. It names the
+   item, the phase that just finished, **the next phase**, and the **verified pushed head** (read
+   it back from the remote; a head you did not verify is a head that may not exist).
+2. **Push it.** The remote is the only durable output, and the note is now the hand-off.
+3. **Send one flow line** — `PARKED — window low` — with the item, the next phase and that head.
+4. **End.** Do not wait, do not poll the gauge, and do not sit on a keep-alive. A parked conductor
+   that stays alive is spending the window it parked for.
+
+**You are not the conductor that resumes.** Resume is centralized in the coordinator: it releases
+one item at a time when the window reopens and spawns a FRESH conductor, which reads your note and
+starts at the phase you named. So the note has to be readable by somebody with no memory of this
+sitting — that is the only reader it will ever have.
+
 ## When the COORDINATOR wakes you, your watch failed — say so (founder ruling 2026-08-07)
 
 On AI4DEV-48 the coordinator, not the conductor, detected essentially every phase change: the

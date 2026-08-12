@@ -36,10 +36,28 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
 - **The coordinator decides; nothing else may.** Read the gauge on **every** `FLOW` and `PULSE`
   line. A second thing with authority to halt work is the same failure as a second way to close
   work — and a brake inside an agent is one the founder cannot see.
-- **One line, and it is `PAUSE`** (founder 2026-08-06). There is no lower "start nothing new"
-  band. Such a band would have to be justified by what a sitting costs, which nobody has
-  measured, so it could only ever be a number that felt safe. Work starts whenever the gauge
-  says `OK`.
+- **One line, and it is `PAUSE`. The line is 85 percent** (founder 2026-08-12, superseding the 90
+  of 2026-08-06 — only the number moved). There is no lower "start nothing new" band. Such a band
+  would have to be justified by what a sitting costs, which nobody has measured, so it could only
+  ever be a number that felt safe. Work starts whenever the gauge says `OK`.
+- **Three hooks enforce that standing line mechanically, and they decide nothing.** They are the
+  prompt stamp's class of machinery: they apply a decision the founder already made, at the
+  moment it bites, and they are incapable of anything else. `window-gate.ps1` (PreToolUse on the
+  `Agent` tool) refuses a SPAWN at the line; `window-alarm.cmd` (PostToolUse and
+  PostToolUseFailure) puts the verdict line in front of any model within one tool call;
+  `stamp-hook.ps1` puts it in front of the founder on every prompt. None of them can stop running
+  work, none can message anyone, and none can be turned off by the actor it denies. The
+  coordinator remains the only decider — what the gate refuses is new work starting, never work
+  in flight, and every judgement about what to do next is still the coordinator's.
+- **A denied actor parks itself, and the denial travels up one level at a time.** The deny reason
+  carries the choreography, so no role has to remember it: write your state, commit and push,
+  report `PARKED — window low` to your spawner naming the item, the next phase and the pushed
+  head, and end. Your spawner then meets the same wall on its own next spawn and does the same,
+  until the conductor parks the item with a park note. Nobody waits inside a running agent.
+- **`UNKNOWN` at a hook allows and warns; it never denies.** A broken instrument is not a spent
+  window, exactly as attribution degrades rather than blocks. The per-tool alarm stays silent on
+  `UNKNOWN` by decision: a running subagent can neither act on it nor fix it, and the actors who
+  can act hear it at every spawn and every prompt.
 - **`PAUSE` means stop at the next boundary.** Ask each running conductor to park — write its
   state, push, and end — and stop it outright only if it does not. Graceful first: an agent
   killed mid-write leaves a record that lies about where the work got to.
@@ -68,6 +86,11 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
   through.
 - **Release one item at a time** when the window reopens, re-reading the gauge between each.
   Restarting every parked conductor at once can spend a fresh window before anyone looks.
+- **Resume is centralized in the coordinator, and it is a FRESH conductor that resumes.** The
+  conductor that parked an item has ended; it is not restarted and it is not waited for. The
+  coordinator reads the park note, spawns a new conductor for that item, and points it at the
+  next phase from the note. This is why the park note names the item, the next phase and the
+  verified pushed head: the note is the whole hand-off.
 
 ## Writing about the founder
 
