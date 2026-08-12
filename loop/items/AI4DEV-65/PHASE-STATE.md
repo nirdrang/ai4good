@@ -2,48 +2,48 @@
 
 ## Where the item stands
 
-- Phase completed: FIX AND GOAL. Gate 2 ruled (`loop/items/AI4DEV-65/gate2-rulings.md`: terra's
-  finding 1 accept-fixed-differently, terra's finding 2 verify-first with branch B held,
-  flash's clean seat recorded, flash's self-dismissed concern ratified). Rulings were pushed
-  before any code change.
-- Code head (the audit's pinned commit): `6ee87419b88aa210b1d08003536469666b65fec0`. Every
-  branch commit after it is record-only (files under `loop/items/`, outside the source-only
-  code territory by construction). Branch base for diffs:
-  `ea4f3453ed59081a3e24c035e6d321d1f2ebaa45`.
-- Verify-first measurement, on the record: U+FEFF is NOT in the slot-1 database's POSIX
-  `[[:space:]]` class (`feff_is_posix_blank` = false) and DOES trim to empty in the suite's
-  runtime (bun 1.3.14). Evidence verbatim in
-  `loop/items/AI4DEV-65/artifacts/verify-first-feff.txt`.
-- The ruled fix is comment-only: the migration's boundary paragraphs ("WHERE THIS FILE'S
-  AUTHORITY ENDS", "THE TWO BLANK FLOORS ARE NOT THE SAME WIDTH"). Zero SQL statements changed.
-- Goal reached in ONE executor iteration. Full verification table exit 0: `at:check` req-001
-  (37 ids) and req-016 (12 ids) in bijection; typecheck clean; `at:verify` loop and integration
-  both requirements `--expect` exact-match. Integration ran serially on slot 1 with the
-  runner's slot evidence lines (project ai4good-slot-1, api 55321, db 55322; reset OK;
-  3 migrations expected, 3 applied). AT-001.19, .20, .39 green at both tiers; every other id
-  unchanged in both manifests.
-- Gate 2 evidence is fully committed: both raws, both distillates, terra's stderr log, flash's
-  tool-call summary and identity extract, and the runner pid files.
+- Phase completed: AUDIT (first audit). The panel ran at code head
+  `6ee87419b88aa210b1d08003536469666b65fec0`: reader one 2 findings, reader two CLEAN with two
+  COULD-NOT-VERIFY items. All rulings are in `loop/items/AI4DEV-65/audit-rulings.md` (committed
+  at `ad55590`): both findings ACCEPTED as comment-only fixes; the clean seat's verdict
+  recorded; both COULD-NOT-VERIFY items settled PASS first-hand by the sitting.
+- Recovery note: the first audit sitting died at the account session limit after committing its
+  rulings, with the two fix edits staged but uncommitted. A recovery sitting (fable) verified
+  the staged edits first-hand — every fact claim in the new comment text checked against the
+  previous migration — and adopted them unchanged.
+- **Fix delta**: previous audited head `6ee87419b88aa210b1d08003536469666b65fec0` → fix head
+  `9728a82f9361e5138f4f65ac51c637d3bf148551`. Two files, comments only
+  (`supabase/migrations/20260811120000_acknowledgment_signer_identity.sql`,
+  `tests/at/suites/req-001/_contract.ts`). Zero SQL statements and zero TypeScript declarations
+  change; typecheck clean on both configs after the fixes.
 - Branch: `nirdrang/ai4dev-65-who-signed-name-title-and-authority-on-every-acknowledgment`.
-  Database slot 1 remains reserved under this item.
+  Database slot 1 remains reserved under this item. Branch base for full-range diffs:
+  `ea4f3453ed59081a3e24c035e6d321d1f2ebaa45`.
 
-## What completes the next phase (the audit)
+## What completes the next phase — the audit RE-RUN (required; ruled by this sitting)
 
-- TWO readers per the audit pins in `.claude/skills/work/reviewers.md` (a panel, blind to each
-  other): reader one codex `gpt-5.6-luna` effort max, prompt
-  `loop/items/AI4DEV-65/audit-prompt-luna.md`; reader two opencode flash variant max, agent
-  `reviewer-flash`, prompt `loop/items/AI4DEV-65/audit-prompt-flash.md`. The two prompt files
-  are byte-identical (SHA256 `C83F12AA74E56161D1EF96195A667DC81EB2B701AF774A523ED82B6169631C6C`);
-  the model pin lives with the conductor, never in the prompt.
-- Subject: the CLAIM CHECKLIST in the brief (8 ruling lines R1–R8, the 13-path territory, 10
-  fact lines F1–F10), against the source-only diff `ea4f345...6ee8741`. Read-only; no suite
-  execution — CI holds execution evidence.
+- **The re-run IS required.** The fixes are comment-only, but both files sit inside the declared
+  13-path code territory, so the source-only diff instrument moves at the fix head. This item's
+  migration comments are ruled load-bearing boundary text, the first audit's only findings were
+  false comment claims, and the fixes state NEW facts about the code (the rebuilt checklist's
+  F12 and F13). New claims of the class the audit just caught wrong get the same independent
+  read.
+- BOTH readers run again at the fix head — never one seat: reader one codex `gpt-5.6-luna`
+  effort max, prompt `loop/items/AI4DEV-65/audit-rerun-prompt-luna.md`; reader two opencode
+  flash variant max, agent `reviewer-flash`, prompt
+  `loop/items/AI4DEV-65/audit-rerun-prompt-flash.md`. The two prompt files are byte-identical
+  (SHA256 `4BDDB6C377A22DA674AAEFCB3E84045457B8C8ECD49FFED808D22E1A4DA98EEB`); the model pin
+  lives with the conductor, never in the prompt.
+- Subject: the REBUILT claim checklist in the brief — R9, R10 (the two adopted audit rulings),
+  F11–F13 (the new fact claims), the declared-scope box in full against the full range, and
+  carry-forward of R1–R8 / F1–F10 where the delta cannot reach them. Change-set instrument: the
+  fix delta `6ee8741...9728a82` restricted to the code territory. Read-only; no suite execution.
+- This is the ONE re-run this item gets.
 - The phase is complete when BOTH distillates have landed in `loop/items/AI4DEV-65/artifacts/`
-  and both runners have reported. Clean means BOTH seats clean; findings from EITHER seat spawn
-  the AUDIT sitting (fable), which rules on both seats' output. On a clean panel the MERGE
-  sitting (orchestrator-opus, by design) absorbs the audit wait and records both verdicts among
-  its dispositions. If audit fixes change code, the whole panel re-runs once at the new head
-  and the re-run sitting runs on opus.
+  and both runners have reported. Findings from EITHER seat spawn the AUDIT RE-RUN sitting
+  (orchestrator-opus @ max, by design), which works from the rebuilt checklist and the fix
+  delta. A clean panel means the MERGE sitting (orchestrator-opus, by design) absorbs the wait
+  and records both re-run verdicts among its dispositions.
 
 ## What the merge ruling must carry (accumulating list)
 
@@ -56,6 +56,10 @@
   lives in the validation layer, service-role residual accepted.
 - Both tiers' exact-match results for BOTH declaration manifests — tier, requirement, exit code
   each time, and the integration runner's slot evidence line (slot, reset, migration count).
+- The first audit panel's result: both findings quoted verbatim beside their accept rulings and
+  the comment-only fixes (`audit-rulings.md`); the clean seat's verdict; the two
+  COULD-NOT-VERIFY items settled PASS first-hand.
+- The re-run panel's verdicts, both seats, at the fix head.
 
 ## Open questions
 
@@ -64,6 +68,7 @@
 ## Notes for the next sitting
 
 - Any local `bun run build` rewrites `src/routeTree.gen.ts` (pre-existing generator drift) —
-  never commit that file under this item. It is untouched at the audit head.
-- The audit brief instructs by-name grading of every checklist line; a false claim the
-  checklist omits is still a finding (floor, not ceiling).
+  never commit that file under this item. It is untouched at the fix head.
+- The re-run brief instructs by-name grading of the rebuilt lines and named carry-forward of
+  the rest; a false claim the checklist omits is still a finding (floor, not ceiling).
+- CI is to be armed on the final head after a clean re-run; the required check gates the merge.
