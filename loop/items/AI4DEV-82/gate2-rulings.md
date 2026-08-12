@@ -408,3 +408,83 @@ and returned, and twins that had crashed because `$PSScriptRoot` resolved to TEM
 to measure the pre-item status line by running it, because that version ignores the override and
 twenty-one runs would have written synthetic readings into the founder's live snapshot. That is
 this item's own incident, avoided by the executor unprompted.
+
+---
+
+# ADDENDUM 2 — the alarm entries did not deliver. This is OUR defect, and it must be fixed before merge.
+
+The probe re-run came back 10 of 12. It PROVED three things at runtime, one of them better than
+the plan expected:
+
+- the spawn gate DENIES against the deployed entry shape, with window, percent, reset and the
+  parking choreography in the reason — the item's core mechanism, proven;
+- `additionalContext` IS visible to the model on an allow, so D11's `systemMessage`-only fallback
+  is not needed and the full guarantee stands. **Contingency closed.**
+- `UserPromptSubmit` DOES fire headless and carries the founder line. The limit this item nearly
+  recorded as measured — "UserPromptSubmit may not fire headless" — is DISPROVEN. That was only
+  knowable because ruling [T4]/[F1] gave the stamp case its own over-the-line run; against the old
+  UNKNOWN transcript it could never have passed. **The finding paid for itself.**
+
+**Both alarm entries delivered nothing — `PostToolUse` and `PostToolUseFailure` alike.** The
+executor established, before calling it a negative, that a real tool call happened in both runs,
+that the synthetic reading reached the child processes (the gate denied at 95% in the SAME runs),
+that `window-alarm.cmd` works when invoked as `cmd /c "<path>"`, and that every other entry in the
+same twin fired. It then declined to guess between "not dispatched" and "dispatched but the exit-2
+stderr was not surfaced", and brought it to me. Correct.
+
+## The ruling — it is neither of those two hypotheses, and I am not deferring it
+
+I read `.claude/settings.json` myself. The correlation is total and it points at us:
+
+| entry | invocation | delivered? |
+|---|---|---|
+| PreToolUse → guard-branch-switch | `powershell -NoProfile … -File "…"` | yes |
+| PreToolUse → window-gate | `powershell -NoProfile … -File "…"` | **yes** |
+| UserPromptSubmit → stamp-hook | `powershell -NoProfile … -File "…"` | **yes** |
+| SessionStart | `powershell -NoProfile … -File "…"` | yes |
+| PostToolUse → window-alarm | `"C:\…\window-alarm.cmd"` — **no interpreter** | **no** |
+| PostToolUseFailure → window-alarm | `"C:\…\window-alarm.cmd"` — **no interpreter** | **no** |
+
+Every entry that names an interpreter fired. The only two that do not name one are the only two
+that did not. A hook command runs through a shell, and on Windows that shell is a POSIX `sh`, in
+which backslashes are escape characters and a `.cmd` file is not an executable format at all. The
+executor's own measurement fits exactly: the batch file works under `cmd /c` and the bare quoted
+path was never tried the way the shell would see it.
+
+**So this is not an instrument limitation and not an unprovable absence. It is a defect in our own
+wiring, it is reachable, and it would have shipped a checkpoint that silently never runs** — which
+is precisely the failure class this whole item exists to remove. It does not get deferred to a
+post-merge check.
+
+## What the executor does — one invocation, a decision tree, at most one probe run
+
+1. **Cheap local diagnosis first, no model calls.** Invoke the alarm entry exactly as
+   `settings.json` spells it, through the same shell a hook runs in, and record what happens.
+   Then invoke it as `cmd /c "<path>"`. If the bare form fails and the `cmd /c` form works, the
+   hypothesis is confirmed and no further diagnosis is needed.
+2. **If confirmed, fix `.claude/settings.json`**: both alarm entries invoke through `cmd /c`.
+   `.claude/settings.json` is in the declared territory. The measured 35.5 ms median already
+   reflects the `cmd /c` form, so the overhead number stands and step 6 needs no re-measurement —
+   confirm that rather than assume it.
+3. **Then ONE probe re-run** to prove the corrected entries deliver. This is the run that closes
+   step 10 and moves step 9.
+4. **If the bare form turns out to work standalone**, the hypothesis is wrong: STOP, do not fix
+   anything, report to me. I will rule again. Do not start characterizing the runtime on your own
+   initiative — that is a different investigation and it needs a ruling first.
+5. If a genuine `PostToolUseFailure`-only gap survives a corrected success entry, D11's
+   pre-decided contingency finally applies as written: drop that ONE entry, keep the rest, record
+   the residual gap.
+
+## Recorded
+
+**The probe earned its place.** Plan-review ruling [6] mandated it over the objection that the
+settings JSON parsing plus a post-merge check was enough. It caught a checkpoint that does not run
+at all, before merge. Without it this item would have shipped three hooks and delivered two, with
+a green suite and a true-looking record.
+
+**A disclosure from the executor, recorded because it disclosed it.** Its `git add` of the item
+directory swept in three untracked files that were mine — `audit-additions.md`,
+`artifacts/gate2-verification/mutex-privilege-check.out.txt` and
+`artifacts/gate2-verification/post-fix-gate-recheck.out.txt` — so they sit under a commit message
+that does not describe them. They belong in the record and they are in it. No history is rewritten
+for a cosmetic attribution; saying so here is the correction.
