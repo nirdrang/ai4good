@@ -13,6 +13,12 @@ Chain, derived from the branch and the manifest:
 Branch: `nirdrang/ai4dev-66-denying-access-across-organisations-with-no-existence-oracle`, cut from
 `origin/main` at `948d4f0`. Database slot **1**, reserved under this item, covers both items.
 
+**AMENDED BY THE DRAFT SITTING, 2026-08-12.** Gate 1 returned eleven findings. All eleven are
+adopted, four with a different remedy than the reviewer proposed, in
+`loop/items/AI4DEV-66/rulings-gate1.md`. **This amended plan is what gets built. There is no second
+plan and no brief.** Each amendment below carries its ruling number, so a step and its reason stay
+attached. Two additions of my own ride with them, marked A and B in the same file.
+
 ---
 
 ## What the board items ask
@@ -182,8 +188,24 @@ TENANT_NOT_FOUND = { status: 404, body: { ok: false, reason: '<one sentence>' } 
 
 Every non-public read surface returns exactly this constant for BOTH "no such row" and "exists,
 not yours". There is nowhere in the surface to put a second refusal, so the two cannot drift apart
-by an edit that looks harmless. The test compares the two responses byte for byte and asserts the
-same status, not merely that both refused.
+by an edit that looks harmless.
+
+**THE TARGET ROW IS READ LAST, AND THAT ORDERING IS THE SECOND STRUCTURAL CLAUSE (gate-1 ruling
+4).** Every read a decision needs - the caller's account, its membership in the target organisation,
+its assignment to the target project - is issued BEFORE the target row is read, and the target read
+is the LAST read the handler makes. The decision is then computed from values already in hand. The
+reason is that an outage answer must not depend on whether the target exists: with a lookup AFTER
+the target read, a fault reachable only on the existing-row path answers 502 for a real foreign id
+while a nonexistent id already answered 404, and those two answers are an existence oracle outside
+the constant. With nothing after the target read, a fault answers the same 502 either way, by
+construction rather than by care.
+
+**How the two answers are compared, per tier (gate-1 ruling 5).** At integration tier the
+comparison is on the RAW response text and the status, through the unparsed helper of step 9 - not
+through `callFunction`, which returns `{ status, json }` after `JSON.parse` (`_live.ts:266-288`)
+and would let two differently serialised bodies compare equal. At loop tier there are no bytes, so
+the comparison is deep equality of the returned outcome value and its status. Both assert equality
+of the two responses, never merely that both refused.
 
 **404 rather than 403, and the alternative was considered.** `update-organization` uses one 403 for
 both cases and is equally non-oracular; either works so long as it is the SAME. 404 is chosen
@@ -200,11 +222,31 @@ by a test as the isolation property holding.
 
 ### C. Enforcement lands in the database, not only in the function
 
-The migration adds the policy set. Two stable `security definer` helpers keyed on `auth.uid()` -
+The policy set uses two stable `security definer` helpers keyed on `auth.uid()` -
 `public.viewer_is_org_member(uuid)` and `public.viewer_is_platform_admin()` - so a policy on
 `org_memberships` does not recurse into itself. Then `select` policies on `organizations`,
 `org_memberships`, `acknowledgments` and `projects`, and `grant select ... to authenticated` on
 each. **Nothing is granted to `anon`**: the public surface is an edge function, not a table.
+
+**THE SET LANDS IN TWO MIGRATIONS, ONE PER SLICE (gate-1 ruling 7).** Several permissive `select`
+policies on one table are OR'd, so the set splits by BRANCH without either half becoming vacuous.
+Slice 1 ships `viewer_is_org_member` and the organisation-member policies, which AT-001.21's own
+Data API control exercises. Slice 2 ships `viewer_is_platform_admin`, the assigned-volunteer policy
+and the platform-admin policies, which AT-001.23 and AT-001.40 exercise in the same slice that
+ships them. The rule this obeys: **a slice does not ship a policy branch it does not test.** In
+slice 1 the volunteer and the platform admin are denied at the Data API because no policy admits
+them yet, which is what slice 1's denials assert; slice 2 re-runs AT-001.21 and .22, so a new
+branch that broke a denial fails there.
+
+**THE HELPERS' POSTURE, DICTATED (gate-1 ruling 6).** Each helper is `language sql`, `stable`,
+`security definer`, `set search_path = ''`, with every name inside it schema-qualified - the
+posture all four existing migrations use. Then `revoke execute on function <full signature> from
+public;` and **`grant execute on function <full signature> to authenticated, service_role;`**. The
+grant to `authenticated` is mandatory and is the part that copying the existing service-role-only
+posture would break: a policy expression is evaluated as the querying role, so the querying role
+needs EXECUTE on any helper the policy calls. The comment states that, and states why the resulting
+remote-procedure exposure leaks nothing - both helpers answer only about `auth.uid()`, so a caller
+learns only its own standing, which it already knows.
 
 **Why both layers.** The Data API is literally the criterion's "direct API/ID probing", and with a
 policy a denied keyed read returns `[]` - the same answer as a row that does not exist, so the
@@ -236,11 +278,29 @@ are surfaces no requirement has landed. This item isolates every kind of tenant 
 and states the rest as absent, in the plan, in the per-id table and in the merge ruling.
 
 **And it makes the absence self-correcting.** A conformance arm at integration tier reads the live
-catalog and fails when a table in `public` is neither declared as unreachable by any client role
-nor covered by a select policy. The declared list is shipped code, so a table added by a later
-requirement fails the build until somebody decides which it is. This is the device the manifest
-already ratifies for D6.L2's write routes, applied to reads. Without it this leaf's green would be
-a statement about today's four tables and nothing else.
+catalog. The declared lists are shipped code, so a table added by a later requirement fails the
+build until somebody decides which it is. This is the device the manifest already ratifies for
+D6.L2's write routes, applied to reads. Without it this leaf's green would be a statement about
+today's four tables and nothing else.
+
+**WHAT THE ARM CHECKS, DICTATED (gate-1 ruling 8).** "Carries a select policy" is not isolation - a
+table with `USING (true)` would satisfy it while exposing every row. The arm checks three things:
+
+1. Every table in `public` appears in **exactly one** of two shipped lists,
+   `unreachableByClientRoles` or `tenantIsolated`. A table in neither, or in both, FAILS.
+2. A table in `unreachableByClientRoles` is unreachable for a stated reason: **either**
+   `information_schema.role_table_grants` shows no `select` grant to `anon` or `authenticated`,
+   **or** row-level security is on and `pg_policies` shows zero `select` policies reaching those
+   roles. Both arms are needed. `public.accounts` carries `grant select, insert ... to
+   authenticated` and reaches no row only because it has no policy;
+   `public.volunteer_profiles` carries `revoke all` and is unreachable by privilege. An arm that
+   tested grants alone would call `accounts` reachable and fail on the first run.
+3. A table in `tenantIsolated` carries at least one `select` policy for `authenticated`; no
+   `select` policy on it has a `qual` of `true`; and every `select` policy's `qual` names
+   `viewer_is_org_member`, `viewer_is_platform_admin`, or that table's declared tenant key column.
+
+**What the arm does NOT prove, and the merge ruling says so:** that a declared predicate is
+correct. It proves a table is declared, reachable only as declared, and not trivially open.
 
 ### F. AT-001.24's UI clause cannot be built here - the decision lands, the screens do not
 
@@ -261,6 +321,20 @@ So this item lands the three halves it can:
 At integration tier AT-001.24 REFUSES with `CapabilityPending(['ui.logged-out-surface-rendering'])`
 - the shape AT-001.05 and AT-001.10 already use. A green there would claim a rendering nobody
 observed.
+
+**The line between a green id and a capability-pending one (gate-1 ruling 1).** If the criterion's
+OUTCOME can be observed without a screen, the id goes green and registers with `{ surface: 'ui' }`,
+so a wiring leaf's `--wired` re-run selects it when screens land. If the outcome IS the screen, the
+id refuses with a capability. AT-001.21's outcome is "access is denied and nothing leaks",
+observable at the API; AT-001.24's outcome is the rendering itself. So AT-001.21 and AT-001.22 are
+green AND `ui`-tagged, and AT-001.24 is not green at integration tier.
+
+**THE BATCH PARTNER'S CLOSES-LINE IS CONDITIONAL (gate-1 ruling 3).** The merge ruling adds the one
+sanctioned `Closes` line for the partner item **only if** the founder has answered open question 1
+- by ratifying a D5 wiring leaf for the screens, the way D2 has one, or by ruling AT-001.24's
+browser half out of that item. With no founder answer, the line is OMITTED, the partner item stays
+open, and the merge ruling states why. This item does not edit `loop/decomp/req-001.md`; filing a
+wiring leaf takes founder approval.
 
 **This is the open question for the founder. See the last section.**
 
@@ -301,22 +375,28 @@ by `pendingMethodProxy` and refuses at first use, which turns a forgotten name i
 **2. Write AT-001.21's two bodies.** The id keeps its ONE call site in
 `tests/at/suites/req-001/d-tenant-isolation.test.ts`, moving from the one-argument `notLanded`
 form to the four-argument form
-`atTest('AT-001.21', '<title>', { surface: 'backend' }, { default: <loop body>, integration: at00121 })`,
-with `at00121` exported from `_integration.ts` beside the other integration bodies. Arms, in this
-order: the owning NGO reads its own dashboard
+`atTest('AT-001.21', '<title>', { surface: 'ui' }, { default: <loop body>, integration: at00121 })`,
+with `at00121` exported from `_integration.ts` beside the other integration bodies. **The `ui`
+surface is gate-1 ruling 1**: the criterion names a browser route this pull request cannot build,
+and the tag is what makes a wiring leaf's `--wired` re-run select the id later
+(`tests/at/harness/registry.ts:69`). It changes no current run - `--wired` exits 3 today
+(`runner.ts:1245-1251`). Arms, in this order: the owning NGO reads its own dashboard
 (control); the other NGO is refused; the other NGO probes a well-formed uuid that names nothing and
-receives a BYTE-IDENTICAL answer; the same pair through the Data API for `organizations`,
-`projects`, `org_memberships` and `acknowledgments`, each answering `[]`; the owning NGO's Data API
-read returns exactly its own row (control); an unfiltered Data API listing by the other NGO returns
-its own rows only and never the first NGO's.
+receives an IDENTICAL answer - raw response text and status at integration tier, deep equality of
+the outcome value and its status at loop tier (gate-1 ruling 5); the same pair through the Data API
+for `organizations`, `projects`, `org_memberships` and `acknowledgments`, each answering `[]`; the
+owning NGO's Data API read returns exactly its own row (control); an unfiltered Data API listing by
+the other NGO returns its own rows only and never the first NGO's.
 *Done:* `bun run at:check req-001` exits 0, each id at one call site, and the body asserts equality
 of the two refusal responses rather than that both refused.
 
-**3. Write AT-001.22's two bodies.** Arms: an unassigned volunteer is refused the project workspace;
-the same volunteer probes a nonexistent project id and receives the identical answer; the Data API
-keyed probe answers `[]`; the public project page answers that same volunteer AND an anonymous
-caller with the public projection; the projection contains no field the workspace holds; the
-assigned volunteer's workspace read succeeds (control).
+**3. Write AT-001.22's two bodies.** Registered with `{ surface: 'ui' }` for the same reason - the
+criterion's "the public project page remains visible" names a page. Arms: an unassigned volunteer is
+refused the project workspace; the same volunteer probes a nonexistent project id and receives the
+identical answer, compared per tier as in step 2; the Data API keyed probe answers `[]`; the public
+project page answers that same volunteer AND an anonymous caller with the public projection; the
+projection contains no field the workspace holds; the assigned volunteer's workspace read succeeds
+(control).
 *Done:* `bun run at:check req-001` exits 0 and the public-projection assertion names each absent
 field explicitly rather than checking a length.
 
@@ -324,12 +404,22 @@ field explicitly rather than checking a length.
 *Done:* `bun run typecheck` exits 0 with the module inside the strict acceptance program; the file
 holds no import that is not relative and no reference to `Deno`.
 
-**5. Ship the migration.** One file,
-`supabase/migrations/<stamp>_tenant_isolation_policy_set.sql`: the two helper predicates, the
-select policies on the four tenant tables, the grants to `authenticated`, and no grant to `anon`.
-Its comment states what is deliberately absent, the way every migration in this tree does.
-*Done:* `supabase db reset` on slot 1 exits 0 and the run's own line reports the new migration
-count; `select count(*) from pg_policies where schemaname='public'` is greater than zero.
+**5. Ship SLICE 1's migration.** One file,
+`supabase/migrations/<stamp>_tenant_isolation_policy_set.sql`: the `viewer_is_org_member(uuid)`
+helper under decision C's dictated posture, the organisation-member select policies on the four
+tenant tables, the grants to `authenticated`, and no grant to `anon`. The platform-admin helper and
+the volunteer and admin policies are NOT in this file - they are slice 2's, under gate-1 ruling 7.
+Its comment states what is deliberately absent, the way every migration in this tree does, **and it
+names the statement it reverses**: `20260811130000_single_seat_org_and_single_developer_projects.sql`
+line 123 carries `revoke all on table public.projects from anon, authenticated, service_role;`, and
+a silent reversal of a deliberate revoke is not acceptable even though a later migration overriding
+an earlier one is ordinary (my addition A).
+*Done:* **no step runs `supabase db reset`, directly or through any wrapper (gate-1 ruling 10).**
+The migration is proved by the integration run of step 9, which resets through the guarded path in
+`tests/at/harness/db-pool.ts` and prints its own slot evidence line naming the slot and the
+migration count; the executor carries that line into its report verbatim. The policy count -
+`select count(*) from pg_policies where schemaname='public'` greater than zero - is read over the
+operator connection the live adapter already opens.
 
 **6. Verify the privilege posture did not move under the existing suite.** Measure, do not assume:
 `GET /rest/v1/org_memberships` with the ANON key still answers `401` and `permission denied`
@@ -348,17 +438,38 @@ answer 401 to an anonymous caller; `public-project-page` answers 200.
 every judgement to `visibility.ts`, the binding rule its own header states. Any new storage joins
 `interface State` **and is cleared in `teardown`**; a map that is not cleared leaks one test's rows
 into the next and would show up as an isolation defect that is the fixture's, not the product's.
-*Done:* `bun run at:verify req-001 --tier loop --expect` runs AT-001.21 and .22 and both are green.
 
-**9. Back the new members in the live adapter.** `_live.ts`, against the slot: the edge functions
-through the existing `callFunction` helper with the caller's own access token; the catalog
-conformance read through the existing operator connection (`Bun.SQL` over `slot.dbUrl`). **The Data
-API probes need a helper this file does not have** - every existing REST helper uses either the
-anon key (`authPost`) or the operator; the direct-probing clause needs a `GET /rest/v1/...` carrying
-the CALLER'S OWN access token, because that is the request a real client makes and the only one
-row-level security judges as that user. Add it beside `callFunction`, named for what it is.
+**The fixture also accepts a READ FAULT, and that is gate-1 ruling 4's proof.** One flag - "fail the
+next read of the named store" - joins `interface State` and is cleared in `teardown` with the rest.
+An arm then asserts that an existing-but-foreign target and a well-formed nonexistent target produce
+the SAME outcome under each fault: same kind, same status, same body. It is storage, not judgement,
+so the fixture's binding rule holds. There is no fault injection at integration tier and the merge
+ruling says so.
+*Done:* `bun run at:verify req-001 --tier loop --expect` runs AT-001.21 and .22 and both are green,
+and the fault arm fails if the target read is moved before any other read.
+
+**9. Back the new members in the live adapter.** `_live.ts`, against the slot. Three helpers, and
+the distinction between them is gate-1 rulings 5 and 9:
+
+- **The edge functions go through a NEW sibling of `callFunction` that returns the body UNPARSED** -
+  `{ status, text, contentType }`. `callFunction` itself is not changed: it returns
+  `{ status, json }` after `JSON.parse` (lines 266-288), so two differently serialised bodies would
+  compare equal, and landed bodies across the suite use it. Only the tenant-read members use the
+  new one.
+- **The Data API probes need a helper this file does not have.** Every existing REST helper uses
+  either the anon key (`authPost`) or the operator; the direct-probing clause needs a
+  `GET /rest/v1/...` carrying `apikey: slot.anonKey` **and** `Authorization: Bearer <the caller's
+  own access token>`. Both headers: every existing call in this tree sends `apikey` (lines 249 and
+  271; `_integration.ts` lines 954 and 977), and without it the gateway can refuse before PostgREST
+  and row-level security ever run, which would make the probe a gateway test.
+- The catalog conformance read goes through the existing operator connection (`Bun.SQL` over
+  `slot.dbUrl`).
+
 *Done:* `bun run at:verify req-001 --tier integration --expect` runs AT-001.21 and .22 and both are
-green on slot 1, and every new member is named in `backedSutMethods.accounts`.
+green on slot 1; every new member is named in `backedSutMethods.accounts`; the run's own slot
+evidence line is carried into the report verbatim (step 5); and **the owning NGO's keyed Data API
+read returning exactly its own row is what settles that row-level security ran** - without that
+control passing, an empty array from a denied read could be a gateway refusal in disguise.
 
 **10. Move the declarations.** Remove `D5_L1` from `_pending.ts`'s `LEAF` map, correct that file's
 written/pending counts and its enumeration, and move AT-001.21 and .22 out of the `red` block into
@@ -368,7 +479,18 @@ acceptance file's 37 P0 ids; and the counts in `_pending.ts`'s header still sum 
 
 ### Slice 2 - the grants (AI4DEV-67: AT-001.23, AT-001.40, AT-001.24)
 
-**11. Write AT-001.23's two bodies.** Arms: the assigned volunteer reads its project's workspace;
+**11. Ship SLICE 2's migration.** One file,
+`supabase/migrations/<stamp>_tenant_visibility_volunteer_and_admin.sql`: the
+`viewer_is_platform_admin()` helper under decision C's dictated posture, the assigned-volunteer
+`select` policy on `public.projects`, and the platform-admin `select` policies on the four tenant
+tables. This is gate-1 ruling 7 - these branches ship in the slice whose tests exercise them, and
+they are OR'd with slice 1's organisation-member policies rather than replacing them.
+*Done:* `bun run at:verify req-001 --tier integration --expect` (step 17) reports the higher
+migration count on its own slot evidence line; **AT-001.21 and AT-001.22 are still green in that
+same run**, which is what proves the added branches broke no denial; and no step runs
+`supabase db reset`.
+
+**12. Write AT-001.23's two bodies.** Arms: the assigned volunteer reads its project's workspace;
 the same volunteer is refused a DIFFERENT project's workspace, with the not-found answer; the same
 volunteer is refused the owning organisation's dashboard, because its scope is the project and not
 the organisation; the volunteer's unfiltered Data API listing of `projects` returns exactly its own
@@ -376,13 +498,13 @@ project.
 *Done:* `bun run at:check req-001` exits 0 and the third arm exists, because it is the one that
 proves "scoped to that project only".
 
-**12. Write AT-001.40's two bodies.** Arms: the platform admin reads two DIFFERENT organisations'
+**13. Write AT-001.40's two bodies.** Arms: the platform admin reads two DIFFERENT organisations'
 dashboards and two different projects' workspaces; its unfiltered Data API listing returns both
 organisations; a non-admin repeats one of those reads and is refused, so the reach is attributable
 to the account type.
 *Done:* `bun run at:check req-001` exits 0 and the body uses two tenants, never one.
 
-**13. Write AT-001.24's bodies.** Registered with `{ surface: 'ui' }`, because it is a
+**14. Write AT-001.24's bodies.** Registered with `{ surface: 'ui' }`, because it is a
 user-interface criterion and the manifest's wiring leaf re-runs the ui-tagged ids. Loop body: an
 anonymous caller is refused both authenticated functions with 401, is refused the Data API at the
 privilege layer, and receives the public projection from the public function; and every route in
@@ -393,7 +515,7 @@ half of the criterion it can reach; and the capability string in the body is wri
 the manifest, because a `capability-pending` declaration is matched as a whole string, not by
 prefix.
 
-**14. Ship the route registry and its conformance arm.** The registry is shipped code naming each
+**15. Ship the route registry and its conformance arm.** The registry is shipped code naming each
 route as public or authenticated with its redirect target; the arm lives beside `_source-scan.ts`
 and reads `src/routes/` and `src/routeTree.gen.ts`. It THROWS when it cannot read the directory,
 never reports an empty result - the rule `_source-scan.ts` states and this repository's
@@ -401,12 +523,16 @@ re-measure-a-negative invariant demands.
 *Done:* the arm fails when handed a synthetic file list holding an undeclared route, and passes on
 the real tree. The failure case is exercised, not asserted.
 
-**15. Ship the catalog conformance arm.** Decision E: at integration tier, every table in `public`
-is either declared unreachable by any client role or carries a select policy.
+**16. Ship the catalog conformance arm.** Decision E's three checks, as dictated there under gate-1
+ruling 8: exactly-one-list membership, an unreachable table unreachable for a stated reason by
+either arm, and an isolated table whose every `select` policy is non-trivial and names a known
+predicate or its tenant key column.
 *Done:* the arm fails when the declared list is missing a table that exists, proved by running it
-against a list with one entry removed, and passes on the real list.
+against a list with one entry removed; it fails a synthetic catalog row whose `select` policy `qual`
+is `true`; and it passes on the real list, with `public.accounts` classified as unreachable through
+the zero-policy arm rather than the grant arm.
 
-**16. Back the remaining members in both adapters, and move the declarations.** `D5_L2` leaves the
+**17. Back the remaining members in both adapters, and move the declarations.** `D5_L2` leaves the
 `LEAF` map; `_pending.ts` counts and enumeration are corrected; AT-001.23, .40 and .24 move in
 `tests/at/expected/req-001.json` - into `green` at loop for all three, into `green` at integration
 for .23 and .40, and to
@@ -416,10 +542,17 @@ integration for .24.
 (passed equals green, total equals green plus red); and the manifest holds no id this item did not
 move.
 
-**17. Correct the statements this item makes false.** The two comments that say this tree has no
-read surface and zero policies -`_contract.ts`'s note on `updateOrganization` and
-`_integration.ts`'s note on AT-001.16 - now describe a tree that has both.
-*Done:* `grep` for "zero policies" and "no read surface" returns nothing that is still false.
+**18. Correct the statements this item makes false.** The comments that say this tree has no read
+surface and zero policies - `_contract.ts`'s note on `updateOrganization` and `_integration.ts`'s
+note on AT-001.16 - now describe a tree that has both.
+
+**AND ONE MORE, NAMED BY FILE AND LINE (gate-1 ruling 11).** `_live.ts` lines 709-712 state that
+`public.projects` reaches no Data API role at all, and cite the measurement behind it. Step 5 grants
+`select` on that table to `authenticated`, so the sentence stops being true and neither original
+search phrase finds it. The corrected comment KEEPS the original measurement as history and says the
+date it stopped being true.
+*Done:* a search for "zero policies", "no read surface", "reaches no Data API role" and "zero
+catalog rows" returns nothing that is still false.
 
 ---
 
@@ -427,8 +560,8 @@ read surface and zero policies -`_contract.ts`'s note on `updateOrganization` an
 
 | id | loop tier | integration tier | what the green claims | what it does NOT claim |
 |---|---|---|---|---|
-| AT-001.21 | GREEN | GREEN | Cross-organisation denial over every kind of tenant data that exists, through the edge surface AND through direct Data API id probing, with denial and absence byte-identical. | Isolation of drafts, ledger, files or threads - no such table exists. Timing side channels. |
-| AT-001.22 | GREEN | GREEN | An unassigned volunteer is denied a project's non-public data by both paths, while the public project surface answers it and an anonymous caller. | That the public project PAGE renders - there is no page, only its API surface. |
+| AT-001.21 | GREEN, `ui`-tagged | GREEN | Cross-organisation denial over every kind of tenant data that exists, through the edge surface AND through direct Data API id probing, with denial and absence identical - raw text and status at integration tier, outcome value and status at loop tier. | The criterion's BROWSER route: no screen exists and `src/` is another territory. The `ui` tag enrols the id in a wiring leaf's `--wired` re-run. Isolation of drafts, ledger, files or threads - no such table exists. Timing side channels. |
+| AT-001.22 | GREEN, `ui`-tagged | GREEN | An unassigned volunteer is denied a project's non-public data by both paths, while the public project surface answers it and an anonymous caller. | That the public project PAGE renders - there is no page, only its API surface. Same `ui` tag, same reason. |
 | AT-001.23 | GREEN | GREEN | The assigned volunteer reads its own project's working data, is denied another project's, and is denied the owning organisation's dashboard. | Reference files, thread and tasks - no such table exists. |
 | AT-001.40 | GREEN | GREEN | A platform admin reads two different organisations' and two different projects' data, where a non-admin is refused. | Reach over data kinds that do not exist. |
 | AT-001.24 | GREEN | **capability-pending** `ui.logged-out-surface-rendering` | The shipped DECISION: every non-public API surface refuses an anonymous caller, the public one answers, and every route in the tree is declared public or authenticated. | Any rendering or any redirect. No screen exists and `src/` is another territory. |
@@ -449,8 +582,18 @@ indistinguishable from the rest. The slice boundary is the item boundary - slice
 two denial ids, slice 2 is AI4DEV-67's three grant ids - so each slice is also a complete,
 reviewable claim.
 
-The policy set lands whole in slice 1 (step 5) even though slice 2's positives read it, because a
-policy set is one object and splitting it would make slice 1's denials vacuous.
+**THE POLICY SET SPLITS BY BRANCH, ONE MIGRATION PER SLICE (gate-1 ruling 7).** The plan first said
+the set lands whole in slice 1, on the reasoning that splitting it would make slice 1's denials
+vacuous. That reasoning does not survive the split being by BRANCH rather than by table. Slice 1
+ships the organisation-member branch, which AT-001.21's Data API control exercises; slice 2 ships
+the volunteer and platform-admin branches, which AT-001.23 and AT-001.40 exercise. The rule: **a
+slice does not ship a policy branch it does not test.**
+
+**What slice 1 still ships unproven, said plainly so both code readers see it.** `visibility.ts`
+lands whole in slice 1, deliberately - it is one pure rule and splitting a decision function across
+slices is worse than the residual. Its organisation-member and volunteer branches ARE exercised in
+slice 1 (AT-001.22 carries both an unassigned denial and an assigned control). **Its platform-admin
+branch carries no test until slice 2.** Slice 1's code-gate additions say exactly that.
 
 ## Rides along
 
