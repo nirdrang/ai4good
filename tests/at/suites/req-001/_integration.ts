@@ -1365,6 +1365,125 @@ export async function at00121(ctx: Ctx): Promise<void> {
   expect((projects.rows ?? []).map((row) => String(row.id)), 'B\'s unfiltered listing shows a project B does not own').toEqual([]);
 }
 
+/**
+ * AT-001.22 — a volunteer who is not assigned to a project is denied that project's non-public data,
+ * and the public project surface stays visible.
+ *
+ * WHAT IS LIVE HERE THAT WAS NOT AT LOOP TIER: the project and its developer seat are rows on a real
+ * database, the workspace read is the DEPLOYED `project-workspace`, and the public read is the
+ * DEPLOYED `public-project-page` — the first and only `verify_jwt = false` block in this repository,
+ * so the anonymous call really does cross a gateway that was told to let it through.
+ *
+ * THERE IS NO FAULT ARM HERE, AND THE ABSENCE IS DELIBERATE. Gate-1 ruling 4's read-ordering proof
+ * is a loop-tier arm: `_live.ts` does not back `failNextReadOf`, so an integration body reaching for
+ * it would refuse by name rather than fault a real database. This tier proves the ordinary pair.
+ */
+export async function at00122(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const ORGANIZATION_NAME = 'Riverside Shelter 22';
+  const PROJECT_NAME = 'Riverside Shelter Website 22';
+
+  const ngo = await registerConfirmAndSignIn(sut, w.email('project-owner-22'));
+  const owner = await sut.completeSignup(
+    ngo,
+    { accountType: 'ngo', organizationName: ORGANIZATION_NAME, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(owner, 'the NGO could not complete signup, so there is no organisation to hold a project').toMatchObject({ ok: true });
+  if (!owner.ok || owner.organizationId === null) return;
+
+  // TWO VOLUNTEERS, and the difference between them is the ONE fact the criterion turns on: which of
+  // them holds the project's developer seat.
+  const assignedSession = await registerConfirmAndSignIn(sut, w.email('assigned-volunteer-22'));
+  await sut.linkGithubIdentity(assignedSession, `assigned-22-${assignedSession.accountId.slice(0, 8)}`);
+  const assigned = await sut.completeSignup(
+    assignedSession,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(assigned, 'the assigned volunteer could not complete signup, so there is no control').toMatchObject({ ok: true });
+  if (!assigned.ok) return;
+
+  const unassigned = await registerConfirmAndSignIn(sut, w.email('unassigned-volunteer-22'));
+  await sut.linkGithubIdentity(unassigned, `unassigned-22-${unassigned.accountId.slice(0, 8)}`);
+  const outsider = await sut.completeSignup(
+    unassigned,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(outsider, 'the unassigned volunteer could not complete signup, so there is nobody to be denied').toMatchObject({ ok: true });
+  if (!outsider.ok) return;
+
+  const project = await sut.createProjectAsOperator(owner.organizationId, PROJECT_NAME);
+  const seated = await sut.assignVolunteerAsOperator(project.id, assigned.accountId);
+  expect(seated, 'the volunteer could not be attached, so this criterion has no Given').toMatchObject({ ok: true });
+  expect(await sut.projectAssignment(project.id), 'the seat does not hold the assigned volunteer').toMatchObject({
+    assignedVolunteerId: assigned.accountId,
+  });
+
+  // (1) THE CONTROL COMES FIRST — the ASSIGNED volunteer reads the workspace through the deployed
+  // function. A surface that refused everybody would satisfy every denial below while proving
+  // nothing.
+  const allowed = await sut.projectWorkspace(assignedSession, project.id);
+  expect(allowed.ok, 'the ASSIGNED volunteer was refused its own project workspace').toBe(true);
+  if (!allowed.ok) return;
+  expect(allowed.status, 'the allowed workspace read did not answer 200').toBe(200);
+  expect(allowed.value, 'the workspace does not hold the project working data it is supposed to').toEqual({
+    projectId: project.id,
+    projectName: PROJECT_NAME,
+    organizationId: owner.organizationId,
+    assignedVolunteerId: assigned.accountId,
+  });
+
+  // (2) THE UNASSIGNED VOLUNTEER IS REFUSED THE SAME WORKSPACE.
+  const refused = await sut.projectWorkspace(unassigned, project.id);
+  expect(refused.ok, 'a volunteer who holds no seat on the project read its workspace').toBe(false);
+  if (refused.ok) return;
+
+  // (3) AND THE IDENTIFIER THAT NAMES NOTHING ANSWERS IDENTICALLY — compared as RAW response text
+  // and status, gate-1 ruling 5.
+  const absent = await sut.projectWorkspace(unassigned, ABSENT_ID);
+  expect(absent.ok, 'a project that does not exist answered with a projection').toBe(false);
+  if (absent.ok) return;
+  expect(
+    typeof refused.body,
+    'the refusal did not carry the RAW response text, so the comparison below would be about a re-serialisation',
+  ).toBe('string');
+  expect(absent.status, 'the two refusals carry different statuses, which says which project is real').toBe(refused.status);
+  expect(absent.body, 'the two refusals differ byte for byte, so the answer says whether the project is there').toBe(refused.body);
+
+  // (4) THE SAME DENIAL THROUGH THE DATA API, with the volunteer's own access token on it. Slice 1
+  // ships no policy branch that admits a volunteer, so this answers `[]` for the seat-holder too;
+  // what is asserted here is the UNASSIGNED one, which is this criterion's clause.
+  const keyed = await sut.dataApiRead(unassigned, { table: 'projects', keyedBy: 'id', value: project.id });
+  expect(keyed.rows, 'the volunteer\'s keyed probe was refused before any row was considered').not.toBeNull();
+  expect(keyed.rows ?? [], 'an unassigned volunteer read the project row by identifier').toEqual([]);
+  const keyedAbsent = await sut.dataApiRead(unassigned, { table: 'projects', keyedBy: 'id', value: ABSENT_ID });
+  expect(keyedAbsent, 'a real foreign project and one that names nothing answered differently at the Data API').toEqual(keyed);
+
+  // (5) AND THE PUBLIC PAGE STAYS VISIBLE — to that same refused volunteer AND to a caller with no
+  // session at all, which is the half that makes it PUBLIC rather than merely wider.
+  const toVolunteer = await sut.publicProjectPage(project.id, unassigned);
+  expect(toVolunteer.ok, 'the public project page was hidden from the volunteer the workspace refused').toBe(true);
+  if (!toVolunteer.ok) return;
+  const toAnyone = await sut.publicProjectPage(project.id, null);
+  expect(toAnyone.ok, 'the public project page was hidden from a caller holding no session').toBe(true);
+  if (!toAnyone.ok) return;
+  expect(toAnyone, 'the public page answered a signed-in caller and an anonymous one differently').toEqual(toVolunteer);
+
+  // (6) AND THE PUBLIC PROJECTION CARRIES NEITHER FIELD THE WORKSPACE HOLDS, each named rather than
+  // counted. The live adapter hands back the WIRE object with only `ok` removed, so this is an
+  // assertion about what the deployed function really sent and not about a shape this suite rebuilt.
+  const publicFields = Object.keys(toAnyone.value);
+  expect(publicFields, 'the public project page leaks the owning organisation identifier').not.toContain('organizationId');
+  expect(publicFields, 'the public project page names the assigned developer').not.toContain('assignedVolunteerId');
+  expect(toAnyone.value, 'the public projection is not the three fields the shipped module builds').toEqual({
+    projectId: project.id,
+    projectName: PROJECT_NAME,
+    organizationName: ORGANIZATION_NAME,
+  });
+}
+
 /* -------------------------------------------------------- the ids that refuse, and what they name */
 
 /**
