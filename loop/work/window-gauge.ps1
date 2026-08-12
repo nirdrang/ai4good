@@ -4,8 +4,9 @@
 # else - hooks receive a different payload entirely - so statusline.ps1 snapshots it on every
 # refresh and this script reads that snapshot.
 #
-# ONE LINE ONLY (founder 2026-08-06): OK below the pause line, PAUSE at it, UNKNOWN when the
-# reading cannot be trusted. Two consequences worth holding on to:
+# ONE LINE ONLY (founder 2026-08-06, the number moved to 85 on 2026-08-12): OK below the pause
+# line, PAUSE at it, UNKNOWN when the reading cannot be trusted. Two consequences worth holding
+# on to:
 #   1. The reading is only as fresh as the last status-line refresh, which happens on every turn
 #      of the interactive session. While the coordinator is dormant, nothing updates it - which
 #      is exactly why the conductor sends a keep-alive pulse: a pulse wakes the coordinator, the
@@ -31,9 +32,11 @@
 
 [CmdletBinding()]
 param(
-    # PAUSE line - founder's number (2026-08-06): stop work at 90 percent of a window. The same
-    # number is window-lib.ps1's own default, for the readers that call the library directly.
-    [int]$PauseAt = 90,
+    # PAUSE line - founder's number (2026-08-12): stop work at 85 percent of a window. This
+    # supersedes the 90 of 2026-08-06; only the number moved, the one-line principle below is
+    # unchanged. The same number is window-lib.ps1's own default, for the readers that call the
+    # library directly.
+    [int]$PauseAt = 85,
 
     # There is deliberately NO second, lower line (founder 2026-08-06). A "start nothing new" band
     # would have to be justified by the cost of a sitting, which nobody has measured, so it

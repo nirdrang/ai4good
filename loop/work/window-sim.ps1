@@ -57,27 +57,29 @@ try {
     '1. A five-hour window filling up across a working session'
     # The narrative the guard exists for: work proceeds, spend climbs, and at one specific
     # reading the answer changes. Nothing else about the situation changes at that moment.
-    foreach ($step in @(3, 25, 60, 85, 89)) {
+    foreach ($step in @(3, 25, 60, 80, 84)) {
         Set-Reading @{ five_hour = (W $step 120); seven_day = (W 30 5000) }
         Check ("at {0}% -> keep working" -f $step) (Verdict) 'OK'
     }
-    foreach ($step in @(90, 91, 99, 100)) {
+    foreach ($step in @(85, 91, 99, 100)) {
         Set-Reading @{ five_hour = (W $step 120); seven_day = (W 30 5000) }
         Check ("at {0}% -> park" -f $step) (Verdict) 'PAUSE'
     }
 
     ''
     '2. The line itself'
-    Set-Reading @{ five_hour = (W 89 60) }
-    Check '89 is under the line' (Verdict) 'OK'
-    Set-Reading @{ five_hour = (W 90 60) }
-    Check '90 is ON the line and counts as over' (Verdict) 'PAUSE'
+    # The line is 85 (founder 2026-08-12, superseding 90 of 2026-08-06). These four cases are what
+    # pins it: a line half-moved between the gauge, the wait and the library goes red here.
+    Set-Reading @{ five_hour = (W 84 60) }
+    Check '84 is under the line' (Verdict) 'OK'
+    Set-Reading @{ five_hour = (W 85 60) }
+    Check '85 is ON the line and counts as over' (Verdict) 'PAUSE'
     # The provider sends floats carrying binary noise; the gauge rounds before comparing. Without
     # that, the boundary behaves differently depending on invisible digits.
-    Set-Reading @{ five_hour = (W 89.6 60) }
-    Check '89.6 rounds to 90 -> park' (Verdict) 'PAUSE'
-    Set-Reading @{ five_hour = (W 89.4 60) }
-    Check '89.4 rounds to 89 -> keep working' (Verdict) 'OK'
+    Set-Reading @{ five_hour = (W 84.6 60) }
+    Check '84.6 rounds to 85 -> park' (Verdict) 'PAUSE'
+    Set-Reading @{ five_hour = (W 84.4 60) }
+    Check '84.4 rounds to 84 -> keep working' (Verdict) 'OK'
     Set-Reading @{ five_hour = (W 7.000000000000001 60) }
     Check 'float noise does not become an odd percentage' (Gauge).worstPercent 7
     Set-Reading @{ five_hour = (W 0 60) }

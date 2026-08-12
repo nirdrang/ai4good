@@ -18,13 +18,14 @@
 # nothing is the capture-diff in loop/items/AI4DEV-82/artifacts/ (every byte of the CLI surface
 # over a fixed synthetic set, before and after); window-sim.ps1 remains the permanent net.
 
-# THE PAUSE LINE - founder's number (2026-08-06): stop work at 90 percent of a window. There is
-# deliberately no lower "start nothing new" band - alarm and park are the same line.
+# THE PAUSE LINE - founder's number (2026-08-12): stop work at 85 percent of a window. This
+# supersedes the 90 of 2026-08-06; only the NUMBER moved. The principle behind it stands
+# unchanged: ONE line, no lower "start nothing new" band - alarm and park are the same line.
 #
 # The number appears in three param defaults: here (every library caller), window-gauge.ps1 and
 # window-wait.ps1 (their CLI defaults, which callers pass through). They move together, and
-# window-sim.ps1 pins the gauge's default at the boundary so a half-moved line goes red.
-$script:WindowPauseLine = 90
+# window-sim.ps1 pins the gauge's default at exactly 84/85 so a half-moved line goes red.
+$script:WindowPauseLine = 85
 
 # Older than this and the reading is admitted to be unreadable rather than reported as current.
 $script:WindowStaleMinutes = 15
