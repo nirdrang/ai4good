@@ -225,17 +225,17 @@ try {
                     # agent it is. The owner is recorded by /work at spawn; absent records and an
                     # unknown session id both degrade to words, never to a guess.
                     # A DIFFERENT SPAWNER ID IS NOT ANOTHER SESSION (founder catch 2026-08-12).
-                    # A resume can FORK the conversation onto a new session id (measured: a
-                    # 22:10 picker resume forked; a plain reopen keeps the id), so agents spawned
-                    # in a forked branch carry an id no current session owns - including agents
-                    # this same conversation's founder spawned in a sibling branch. The old
-                    # wording asserted "ANOTHER session's agent" on any mismatch, and the
-                    # coordinator believed it over the founder's own account. No repair is
-                    # derivable: the hook payload names no predecessor id (docs checked
-                    # 2026-08-12) and fork transcripts are rewritten under their own id. So the
-                    # label states exactly what the comparison knows - the spawner's tag, and
-                    # both readings of a mismatch - and the reader resolves it by asking or from
-                    # conversation memory.
+                    # The founder's one thread of work can span several session ids: /clear
+                    # always mints a new id, resume can fork onto one, and a resume aimed at an
+                    # explicit id can land on an OLDER trunk than the session it meant to
+                    # continue (measured 2026-08-12: a stale dispatch pointer did exactly that,
+                    # and agents spawned in the post-clear session read as id mismatches in the
+                    # resumed trunk). The old wording asserted "ANOTHER session's agent" on any
+                    # mismatch, and the coordinator believed it over the founder's own account.
+                    # No repair is derivable: the hook payload names no predecessor id and
+                    # transcripts carry only their own id. So the label states exactly what the
+                    # comparison knows - the spawner's tag, and the mismatch's readings - and
+                    # the reader resolves it by asking or from conversation memory.
                     $who = 'spawner unrecorded - not necessarily this session''s'
                     try {
                         # GIT'S OWN STRING, never $a. The worktree id is a hash of the toplevel
