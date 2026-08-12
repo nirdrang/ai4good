@@ -17,6 +17,10 @@ import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { at00132, INTEGRATION_TIMEOUT_MS } from './_integration.ts';
 import { LEAF, notLanded } from './_pending.ts';
+// THE SHIPPED AUTHORITY STATEMENT, imported rather than restated — the acknowledgment-identity leaf
+// makes name, title and attestation mandatory on EVERY completion, and the deployed validation
+// refuses any attestation that is not this statement word for word.
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 
 /** The version string of the ToS + Platform Promise text this file's one written body accepts. */
 const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
@@ -24,6 +28,18 @@ const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
 const CLIENT_IP = '203.0.113.7';
 /** The password every email/password registration in this file uses. */
 const PASSWORD = 'correct horse battery staple';
+/**
+ * AT-001.19's three fields, carried by every completion here.
+ *
+ * All three completions in this file must SUCCEED — they are AT-001.32's Given, not its act — so
+ * each one carries the identity the shared validation now requires. Nothing here grades the
+ * identity fields; that is the acknowledgment-identity leaf's own three ids.
+ */
+const SIGNER = {
+  signerName: 'Dana Okonkwo',
+  signerTitle: 'Executive Director',
+  authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+} as const;
 
 atTest('AT-001.29', 'every enumerated write is rejected for a deactivated account while an active control succeeds', notLanded(LEAF.D6_L2));
 
@@ -46,7 +62,7 @@ atTest(
       const ngo = await sut.registerWithEmailPassword(w.email('project-owner-32'), PASSWORD);
       const ngoCompletion = await sut.completeSignup(
         ngo,
-        { accountType: 'ngo', organizationName: 'Riverside Shelter 32', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: 'Riverside Shelter 32', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(ngoCompletion, 'the NGO could not complete signup, so there is no organisation to hold a project').toMatchObject({ ok: true });
@@ -56,7 +72,7 @@ atTest(
       await sut.linkGithubIdentity(first, 'first-volunteer-32-handle');
       const firstCompletion = await sut.completeSignup(
         first,
-        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(firstCompletion, 'the first volunteer could not complete signup').toMatchObject({ ok: true });
@@ -66,7 +82,7 @@ atTest(
       await sut.linkGithubIdentity(second, 'second-volunteer-32-handle');
       const secondCompletion = await sut.completeSignup(
         second,
-        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(secondCompletion, 'the second volunteer could not complete signup').toMatchObject({ ok: true });

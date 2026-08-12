@@ -99,7 +99,7 @@ atTest(
       const session = await sut.registerWithEmailPassword(w.email('two-orgs-16'), PASSWORD);
       const completion = await sut.completeSignup(
         session,
-        { accountType: 'ngo', organizationName: NAME_A, acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: NAME_A, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(completion, 'the NGO actor could not complete signup, so nothing below is about a seated admin').toMatchObject({ ok: true });
@@ -182,7 +182,7 @@ atTest(
       const session = await sut.registerWithEmailPassword(w.email('admin-and-member-36'), PASSWORD);
       const completion = await sut.completeSignup(
         session,
-        { accountType: 'ngo', organizationName: NAME_A, acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: NAME_A, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(completion, 'the actor could not complete signup, so it is nobody\'s admin').toMatchObject({ ok: true });
@@ -247,7 +247,7 @@ atTest(
       await sut.linkGithubIdentity(volunteer, 'volunteer-37-handle');
       const completion = await sut.completeSignup(
         volunteer,
-        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(completion, 'the volunteer could not complete signup, so nothing below is about a volunteer account').toMatchObject({
@@ -299,7 +299,7 @@ atTest(
       const control = await sut.registerWithEmailPassword(w.email('ngo-control-37'), PASSWORD);
       const controlCompletion = await sut.completeSignup(
         control,
-        { accountType: 'ngo', organizationName: 'Riverside Shelter Control 37', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: 'Riverside Shelter Control 37', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(controlCompletion, 'the NGO control could not complete signup').toMatchObject({ ok: true });
@@ -357,7 +357,7 @@ atTest(
       const owner = await sut.registerWithEmailPassword(w.email('single-seat-owner-17'), PASSWORD);
       const ownerCompletion = await sut.completeSignup(
         owner,
-        { accountType: 'ngo', organizationName: 'Riverside Shelter 17', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: 'Riverside Shelter 17', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(ownerCompletion, 'the NGO owner could not complete signup, so there is no seated organisation').toMatchObject({ ok: true });
@@ -366,7 +366,7 @@ atTest(
       const wouldBeSecond = await sut.registerWithEmailPassword(w.email('would-be-second-17'), PASSWORD);
       const secondCompletion = await sut.completeSignup(
         wouldBeSecond,
-        { accountType: 'ngo', organizationName: 'Northgate Foodbank 17', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: 'Northgate Foodbank 17', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(secondCompletion, 'the second NGO account could not complete signup').toMatchObject({ ok: true });
