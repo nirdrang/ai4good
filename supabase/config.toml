@@ -467,10 +467,20 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
-# REQ-001's three edge functions. One block each, and `verify_jwt` is STATED rather than inherited:
-# all three operate on behalf of an already-authenticated caller, and a default that changed
-# underneath us would silently open a public write path. Writing it down means a change to the
-# default shows up as a diff rather than as a behaviour nobody chose.
+# REQ-001's six edge functions. One block each, and `verify_jwt` is STATED rather than inherited: a
+# default that changed underneath us would silently open a public path. Writing it down means a
+# change to the default shows up as a diff rather than as a behaviour nobody chose.
+#
+# FIVE OF THE SIX OPERATE FOR AN ALREADY-AUTHENTICATED CALLER. This comment used to say all of them
+# did, which was true of the first three and is not true any more: `public-project-page` is the
+# repository's FIRST public function and the correction lands in the same change that adds it.
+#
+# WHY EXACTLY ONE IS PUBLIC. AT-001.22 says a project's public page remains visible while its
+# non-public data is denied, and AT-001.24 says a logged-out visitor renders public surfaces only. A
+# surface that refused everybody would satisfy the denial half of both criteria and break the other
+# half. Keeping the public answer in its OWN function, rather than as a branch inside
+# `project-workspace`, is what stops it contaminating AT-001.21's no-existence-oracle test: the two
+# authenticated read surfaces have one refusal and no public branch to fall through to.
 [functions.complete-signup]
 verify_jwt = true
 
@@ -479,6 +489,17 @@ verify_jwt = true
 
 [functions.update-organization]
 verify_jwt = true
+
+[functions.organization-dashboard]
+verify_jwt = true
+
+[functions.project-workspace]
+verify_jwt = true
+
+# THE ONE PUBLIC FUNCTION. See the paragraph above; the value is `false` on purpose and a change to
+# `true` would break AT-001.22's second clause.
+[functions.public-project-page]
+verify_jwt = false
 
 [analytics]
 enabled = true

@@ -304,6 +304,41 @@ export async function callDatabaseFunction(
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
 }
 
+/** The result of one Data API read: the rows, or the fact that the read did not happen. */
+export type RowsOutcome = { ok: true; rows: Record<string, unknown>[] } | { ok: false; detail: string };
+
+/**
+ * Read rows from one `public.` table, with the service role — the read half of `callDatabaseFunction`.
+ *
+ * TWO OUTCOMES, AND `ok: false` MEANS THE READ DID NOT HAPPEN — never "there are no rows". An empty
+ * array is a successful read of nothing, which is a completely different fact from a Data API that
+ * answered an error, and the three read surfaces branch on the difference: no rows is a refusal a
+ * caller earned, a failed read is an outage that answers 502 and says so. Collapsing them would let
+ * an outage be read by an acceptance test as the isolation property holding.
+ *
+ * `path` IS THE TABLE AND ITS QUERY STRING, already encoded by the caller — `accounts?id=eq.…`. It is
+ * not built here because each surface's filter is part of that surface's own read ORDER, which is
+ * load-bearing for the no-existence-oracle property and belongs where a reader can see it.
+ */
+export async function readRows(supabaseUrl: string, serviceRoleKey: string, path: string): Promise<RowsOutcome> {
+  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      Accept: 'application/json',
+    },
+  });
+  if (!response.ok) return { ok: false, detail: `a read of ${path.split('?')[0]} answered ${response.status}` };
+  const text = await response.text();
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (!Array.isArray(parsed)) return { ok: false, detail: `a read of ${path.split('?')[0]} answered a body that is not an array` };
+    return { ok: true, rows: parsed as Record<string, unknown>[] };
+  } catch {
+    return { ok: false, detail: `a read of ${path.split('?')[0]} answered a body that is not JSON` };
+  }
+}
+
 /** Read a JSON request body, or refuse — a malformed body must not read as an empty one. */
 export async function readJsonBody(request: Request): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; reason: string }> {
   let text: string;

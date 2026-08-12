@@ -233,23 +233,39 @@ import {
   discoveryMessageAllowed,
   emailVerifiedFromUser,
 } from '../../../../supabase/functions/_shared/verification.ts';
+// THE SHIPPED TENANT-READ JUDGEMENT — the ONE thing that decides whether a caller may read an
+// organisation's or a project's non-public data, and the ONE refusal a denied read answers with. The
+// three deployed read functions import the same three names, so a loop-tier green over AT-001.21 and
+// AT-001.22 grades the code that ships. This file supplies the ROWS it judges, which is storage; it
+// never decides what a role or a seat means.
+import {
+  TENANT_NOT_FOUND,
+  publicProjectView,
+  tenantReadAllowed,
+} from '../../../../supabase/functions/_shared/visibility.ts';
 import type {
   AccountRow,
   AccountsSut,
   AcknowledgmentRow,
   AssignVolunteerOutcome,
+  CatalogTable,
   CompleteSignupOutcome,
   CreateOrganizationOutcome,
+  DataApiReadOutcome,
   GrantMembershipOutcome,
   MembershipRow,
+  OrganizationDashboardOutcome,
   OrganizationRow,
   ProjectRow,
+  ProjectWorkspaceOutcome,
+  PublicProjectPageOutcome,
   RefreshSessionOutcome,
   RepointMembershipOutcome,
   SendDiscoveryMessageOutcome,
   Session,
   SessionProvider,
   SignInOutcome,
+  TenantReadStore,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
@@ -397,6 +413,18 @@ interface State {
    * return value cannot show.
    */
   discoveryMessages: Map<string, string[]>;
+  /**
+   * THE STORES WHOSE NEXT READ MUST FAIL — the loop tier's only fault seam, and the proof of the
+   * read-ordering half of the no-existence-oracle property (gate-1 ruling 4).
+   *
+   * A store in this set makes the next read of it fail ONCE and removes itself, so a body arms one
+   * fault per call rather than poisoning the world. It is cleared in `teardown` with everything else:
+   * a fault surviving into the next id would look exactly like an outage the product caused.
+   *
+   * THERE IS NO COUNTERPART AT THE INTEGRATION TIER. `_live.ts` does not back `failNextReadOf`, so an
+   * integration body reaching for it refuses by name rather than faulting a real database.
+   */
+  readFaults: Set<TenantReadStore>;
   nextId: number;
 }
 
@@ -437,6 +465,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     acknowledgments: [],
     volunteerProfiles: new Map(),
     discoveryMessages: new Map(),
+    readFaults: new Set(),
     nextId: 1,
   };
   const openedWorlds = new Set<AccountsFixtureWorld>();
@@ -738,6 +767,44 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
     return { ok: true, accountId: account.id, organizationId: organization?.id ?? null };
   };
+
+  /* ------------------------------------------------------- the three tenant-read surfaces' storage */
+
+  /**
+   * ONE STORAGE READ, AND THE FAULT THAT CAN MAKE IT FAIL.
+   *
+   * Every read the three read surfaces make goes through here, which is what lets a body arm a fault
+   * against a NAMED store and see the answer change. The fault is ONE-SHOT: it is consumed by the
+   * read it fails, so one `failNextReadOf` call fails one read.
+   */
+  const readStore = <T>(store: TenantReadStore, read: () => T): { ok: true; value: T } | { ok: false } =>
+    state.readFaults.delete(store) ? { ok: false } : { ok: true, value: read() };
+
+  /**
+   * THE REFUSAL, AND IT IS THE SHIPPED CONSTANT — never a shape this file chose.
+   *
+   * `TENANT_NOT_FOUND` is what the deployed functions return for BOTH "no such row" and "exists, and
+   * is not yours". Restating it here would give the loop tier a second refusal to drift from the one
+   * that ships, which is the whole property AT-001.21 is about.
+   */
+  const tenantNotFound = () => ({ ok: false as const, status: TENANT_NOT_FOUND.status, body: clone(TENANT_NOT_FOUND.body) });
+
+  /**
+   * AN OUTAGE, AND THE SENTENCE NAMES NO IDENTIFIER.
+   *
+   * That is the half of the no-oracle property the fault arm measures: two faulted reads must be
+   * indistinguishable, and a reason quoting the organisation or project id would make them
+   * distinguishable while looking helpful. The deployed functions answer the same shape and say the
+   * same thing about it.
+   */
+  const tenantReadFailed = (surface: string) => ({
+    ok: false as const,
+    status: 502,
+    body: { ok: false, reason: `${surface} could not read what it needs, so no decision was made` },
+  });
+
+  /** A dead session at a read surface — the session layer refusing, before any tenant rule is consulted. */
+  const tenantUnauthenticated = () => ({ ok: false as const, status: 401, body: { ok: false, reason: DEAD_SESSION_REASON } });
 
   const sut: AccountsSut = {
     // Read straight off the shipped constant. A literal here would be a second statement of the same
@@ -1255,6 +1322,226 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
     projectAssignment: async (projectId) => clone(state.projects.get(projectId) ?? null),
 
+    /* ------------------------------------------------- the three tenant-read surfaces ----------- */
+
+    /**
+     * `organization-dashboard`, at the loop tier — and the READ ORDER below is the deployed
+     * function's own, statement for statement.
+     *
+     * FOUR READS, AND THE ORGANISATION ROW IS THE LAST OF THEM. Every read the decision or the
+     * projection needs is issued before it, and nothing is read after it. That ordering is what makes
+     * a faulted read answer the SAME 502 for a real foreign organisation and for an identifier that
+     * names nothing — the property gate-1 ruling 4 dictated, and the property the fault arm measures.
+     *
+     * THE DECISION IS THE SHIPPED MODULE'S. What is left here is storage: which rows exist, and in
+     * what order they are looked at.
+     */
+    organizationDashboard: async (session, organizationId): Promise<OrganizationDashboardOutcome> => {
+      const caller = resolveCaller(session);
+      if (caller === null) return tenantUnauthenticated();
+
+      // READ 1 — the caller's own account row.
+      const accountRead = readStore('accounts', () => state.accounts.get(caller.id) ?? null);
+      if (!accountRead.ok) return tenantReadFailed('the organisation dashboard');
+
+      // READ 2 — the target organisation's seats, on a DIFFERENT store from the target.
+      const seatRead = readStore('memberships', () =>
+        [...state.memberships.values()].filter((row) => row.organizationId === organizationId),
+      );
+      if (!seatRead.ok) return tenantReadFailed('the organisation dashboard');
+
+      // READ 3 — the projection's projects, on a DIFFERENT store again.
+      const projectRead = readStore('projects', () =>
+        [...state.projects.values()].filter((row) => row.organizationId === organizationId),
+      );
+      if (!projectRead.ok) return tenantReadFailed('the organisation dashboard');
+
+      // READ 4 — THE TARGET, AND IT IS LAST. Nothing is read after this line.
+      const targetRead = readStore('organizations', () => state.organizations.get(organizationId) ?? null);
+      if (!targetRead.ok) return tenantReadFailed('the organisation dashboard');
+
+      const callerSeat = seatRead.value.find((row) => row.accountId === caller.id) ?? null;
+      const allowed = tenantReadAllowed(
+        {
+          accountType: accountRead.value?.accountType ?? null,
+          roleInTargetOrganization: callerSeat?.role ?? null,
+          assignedVolunteerOfTargetProject: false,
+        },
+        'organization',
+      );
+
+      const organization = targetRead.value;
+      // ONE ANSWER FOR BOTH CASES — the caller that may not read, and the organisation that is not
+      // there. There is one constant to return and no second refusal to reach.
+      if (!allowed.ok || organization === null) return tenantNotFound();
+
+      const seat = seatRead.value[0] ?? null;
+      return {
+        ok: true,
+        status: 200,
+        value: {
+          organizationId: organization.id,
+          organizationName: organization.name,
+          seat: seat === null ? null : { accountId: seat.accountId, role: seat.role },
+          projects: [...projectRead.value]
+            .sort((left, right) => left.name.localeCompare(right.name))
+            .map((row) => ({ projectId: row.id, projectName: row.name, assignedVolunteerId: row.assignedVolunteerId })),
+        },
+      };
+    },
+
+    /**
+     * `project-workspace`, at the loop tier — two reads, and the project is the second of them.
+     *
+     * WHETHER THE CALLER HOLDS THE SEAT IS A FACT THE TARGET ROW CARRIES, so the target read is both
+     * the last read and one of the decision's inputs. That is consistent with the ordering rather
+     * than an exception to it: the constraint is that NOTHING is read after the target, and nothing
+     * is.
+     */
+    projectWorkspace: async (session, projectId): Promise<ProjectWorkspaceOutcome> => {
+      const caller = resolveCaller(session);
+      if (caller === null) return tenantUnauthenticated();
+
+      // READ 1 — the caller's own account row.
+      const accountRead = readStore('accounts', () => state.accounts.get(caller.id) ?? null);
+      if (!accountRead.ok) return tenantReadFailed('the project workspace');
+
+      // READ 2 — THE TARGET, AND IT IS LAST.
+      const targetRead = readStore('projects', () => state.projects.get(projectId) ?? null);
+      if (!targetRead.ok) return tenantReadFailed('the project workspace');
+
+      const project = targetRead.value;
+      const allowed = tenantReadAllowed(
+        {
+          accountType: accountRead.value?.accountType ?? null,
+          roleInTargetOrganization: null,
+          assignedVolunteerOfTargetProject: project !== null && project.assignedVolunteerId === caller.id,
+        },
+        'project',
+      );
+
+      if (!allowed.ok || project === null) return tenantNotFound();
+      return {
+        ok: true,
+        status: 200,
+        value: {
+          projectId: project.id,
+          projectName: project.name,
+          organizationId: project.organizationId,
+          assignedVolunteerId: project.assignedVolunteerId,
+        },
+      };
+    },
+
+    /**
+     * `public-project-page`, at the loop tier — and THE SESSION IS NOT A PARAMETER OF THIS FUNCTION.
+     *
+     * That omission is the criterion in structural form. AT-001.22 says the public page remains
+     * visible, and AT-001.24 says a logged-out visitor renders public surfaces; a page whose answer
+     * could depend on who is asking would satisfy neither honestly. The contract's member takes a
+     * session so a body can pass one and see that it changes nothing — this implementation has
+     * nowhere to read it.
+     *
+     * THE PROJECTION IS THE SHIPPED MODULE'S. `publicProjectView` builds it field by field, so a
+     * field added to the workspace projection cannot arrive here by accident.
+     */
+    publicProjectPage: async (projectId): Promise<PublicProjectPageOutcome> => {
+      const projectRead = readStore('projects', () => state.projects.get(projectId) ?? null);
+      if (!projectRead.ok) return tenantReadFailed('the public project page');
+      const project = projectRead.value;
+      if (project === null) return tenantNotFound();
+
+      const organizationRead = readStore('organizations', () => state.organizations.get(project.organizationId) ?? null);
+      if (!organizationRead.ok) return tenantReadFailed('the public project page');
+      const organization = organizationRead.value;
+      if (organization === null) return tenantNotFound();
+
+      return {
+        ok: true,
+        status: 200,
+        value: publicProjectView({ id: project.id, name: project.name }, { name: organization.name }),
+      };
+    },
+
+    /**
+     * ONE DIRECT DATA API READ — and this member MIRRORS THE POLICY SET, which is this file's whole
+     * exposure on this leaf.
+     *
+     * There is no shipped module to defer to here: the rules are `select` policies and a `security
+     * definer` helper, and a TypeScript module cannot supply either. So the filtering below is a
+     * hand-written PREDICTION of `20260812120000_tenant_isolation_policy_set.sql`, exactly as
+     * `grantMembershipAsOperator`'s two refusals are a prediction of a trigger and an index. The
+     * integration tier is what grades the prediction: both tiers run at the goal step, so a
+     * divergence between this file and the database fails there rather than shipping.
+     *
+     * THE ORDER IS POSTGREST'S ORDER — the policy decides which rows exist for this caller, and the
+     * query's own filter is applied WITHIN that set. Filtering first and then applying the policy
+     * would produce the same answer here and a different one the first time a filter names a column
+     * the policy reads.
+     *
+     * ACKNOWLEDGMENTS ARE KEYED ON THE ACCOUNT, not on an organisation, so their branch does not
+     * consult the caller's memberships at all — the same split the migration's four policies make.
+     */
+    dataApiRead: async (session, probe): Promise<DataApiReadOutcome> => {
+      const caller = resolveCaller(session);
+      // A dead session carries no user, so PostgREST would resolve the request to the `anon` role,
+      // which this migration grants nothing. `rows: null` is the privilege layer, not a policy.
+      if (caller === null) return { status: 401, rows: null };
+
+      const seatedIn = new Set(
+        [...state.memberships.values()].filter((row) => row.accountId === caller.id).map((row) => row.organizationId),
+      );
+
+      let visible: Record<string, unknown>[];
+      switch (probe.table) {
+        case 'organizations':
+          visible = [...state.organizations.values()]
+            .filter((row) => seatedIn.has(row.id))
+            .map((row) => ({ id: row.id, name: row.name }));
+          break;
+        case 'org_memberships':
+          visible = [...state.memberships.values()]
+            .filter((row) => seatedIn.has(row.organizationId))
+            .map((row) => ({ org_id: row.organizationId, account_id: row.accountId, role: row.role }));
+          break;
+        case 'projects':
+          visible = [...state.projects.values()]
+            .filter((row) => seatedIn.has(row.organizationId))
+            .map((row) => ({ id: row.id, org_id: row.organizationId, name: row.name, assigned_volunteer_id: row.assignedVolunteerId }));
+          break;
+        case 'acknowledgments':
+          visible = state.acknowledgments
+            .filter((row) => row.accountId === caller.id)
+            .map((row) => ({ account_id: row.accountId, kind: row.kind, text_version: row.textVersion }));
+          break;
+      }
+
+      const keyedBy = probe.keyedBy;
+      const rows = keyedBy === null ? visible : visible.filter((row) => row[keyedBy] === probe.value);
+      return { status: 200, rows: clone(rows) };
+    },
+
+    /**
+     * THERE IS NO CATALOG AT THE LOOP TIER, and this THROWS rather than answering with an invented
+     * one.
+     *
+     * An empty list would be the false green this whole arrangement exists to remove: the conformance
+     * arm's job is to fail when a table exists and is undeclared, and a witness that reported no
+     * tables would report that every declaration is complete. Same posture `_source-scan.ts` takes
+     * when it cannot read `src/routes/`.
+     */
+    publicSchemaCatalog: async (): Promise<CatalogTable[]> => {
+      throw new Error(
+        'fixture: there is no database catalog at the loop tier — the conformance arm reads the live one, ' +
+          'and an empty answer here would report every table as declared',
+      );
+    },
+
+    /** ARM A READ FAULT against the named store — consumed by the next read of it. */
+    failNextReadOf: async (store) => {
+      state.readFaults.add(store);
+    },
+
     account: async (accountId) => clone(state.accounts.get(accountId) ?? null),
     organization: async (organizationId) => clone(state.organizations.get(organizationId) ?? null),
     membership: async (organizationId, accountId) => clone(state.memberships.get(membershipKey(organizationId, accountId)) ?? null),
@@ -1322,6 +1609,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.acknowledgments.length = 0;
       state.volunteerProfiles.clear();
       state.discoveryMessages.clear();
+      state.readFaults.clear();
       state.nextId = 1;
     },
   };
