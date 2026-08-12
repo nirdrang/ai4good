@@ -25,8 +25,11 @@
 
 [CmdletBinding()]
 param(
-    # PAUSE line - founder's number (2026-08-06): stop work at 90 percent of a window.
-    [int]$PauseAt = 90,
+    # PAUSE line - founder's number (2026-08-12): stop work at 85 percent of a window. This
+    # supersedes the 90 percent of 2026-08-06. The same number lives in window-wait.ps1 and in
+    # shared-invariants.md; window-sim.ps1 asserts all three agree, because a guard whose copies
+    # disagree stops at a different place than the process document promises.
+    [int]$PauseAt = 85,
 
     # There is deliberately NO second, lower line (founder 2026-08-06). A "start nothing new"
     # band would have to be justified by the cost of a sitting, which nobody has measured, so it
@@ -151,7 +154,24 @@ $result.worstPercent = $worst.percent
 $result.resetsAtUtc  = $worst.resetsAtUtc
 $result.resetsInMin  = $worst.resetsInMin
 
-if ($null -ne $ageMin -and $ageMin -gt $StaleMinutes) {
+if ($null -eq $ageMin) {
+    # An UNDATABLE reading - `capturedAt` missing, empty or unparseable. Before this rule the
+    # gauge skipped every staleness test here and scored the reading on its percentage alone, so a
+    # corrupt file holding a low number read OK for ever. A reading nobody can date is a reading
+    # nobody can trust: it says UNKNOWN. It says PAUSE instead when the number is over the line,
+    # because a window only climbs, so an over-the-line reading of any age proves a floor.
+    if ($worst.percent -ge $PauseAt) {
+        $result.verdict = 'PAUSE'
+        $result.reason  = ("{0} at {1}% (pause line {2}%) - the reading carries no usable capture time, and a window only climbs" -f `
+            $worst.name, $worst.percent, $PauseAt)
+        Emit $result
+    }
+    $result.verdict = 'UNKNOWN'
+    $result.reason  = 'the reading carries no usable capture time, so its age cannot be judged - treat as unknown, never as low'
+    Emit $result
+}
+
+if ($ageMin -gt $StaleMinutes) {
     # A stale reading proves a FLOOR, not a level: inside one window the figure only ever climbs.
     # So if the reading was already over the line AND its own window has not reset since, the
     # level still stands and parking is the evidenced answer, not a cautious guess. Only once the

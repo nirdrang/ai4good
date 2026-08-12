@@ -57,27 +57,27 @@ try {
     '1. A five-hour window filling up across a working session'
     # The narrative the guard exists for: work proceeds, spend climbs, and at one specific
     # reading the answer changes. Nothing else about the situation changes at that moment.
-    foreach ($step in @(3, 25, 60, 85, 89)) {
+    foreach ($step in @(3, 25, 60, 80, 84)) {
         Set-Reading @{ five_hour = (W $step 120); seven_day = (W 30 5000) }
         Check ("at {0}% -> keep working" -f $step) (Verdict) 'OK'
     }
-    foreach ($step in @(90, 91, 99, 100)) {
+    foreach ($step in @(85, 86, 99, 100)) {
         Set-Reading @{ five_hour = (W $step 120); seven_day = (W 30 5000) }
         Check ("at {0}% -> park" -f $step) (Verdict) 'PAUSE'
     }
 
     ''
     '2. The line itself'
-    Set-Reading @{ five_hour = (W 89 60) }
-    Check '89 is under the line' (Verdict) 'OK'
-    Set-Reading @{ five_hour = (W 90 60) }
-    Check '90 is ON the line and counts as over' (Verdict) 'PAUSE'
+    Set-Reading @{ five_hour = (W 84 60) }
+    Check '84 is under the line' (Verdict) 'OK'
+    Set-Reading @{ five_hour = (W 85 60) }
+    Check '85 is ON the line and counts as over' (Verdict) 'PAUSE'
     # The provider sends floats carrying binary noise; the gauge rounds before comparing. Without
     # that, the boundary behaves differently depending on invisible digits.
-    Set-Reading @{ five_hour = (W 89.6 60) }
-    Check '89.6 rounds to 90 -> park' (Verdict) 'PAUSE'
-    Set-Reading @{ five_hour = (W 89.4 60) }
-    Check '89.4 rounds to 89 -> keep working' (Verdict) 'OK'
+    Set-Reading @{ five_hour = (W 84.6 60) }
+    Check '84.6 rounds to 85 -> park' (Verdict) 'PAUSE'
+    Set-Reading @{ five_hour = (W 84.4 60) }
+    Check '84.4 rounds to 84 -> keep working' (Verdict) 'OK'
     Set-Reading @{ five_hour = (W 7.000000000000001 60) }
     Check 'float noise does not become an odd percentage' (Gauge).worstPercent 7
     Set-Reading @{ five_hour = (W 0 60) }
@@ -124,6 +124,22 @@ try {
     Check 'a window with no reset time still reports its level' (Verdict) 'PAUSE'
     Set-Raw ('{"capturedAt":"not-a-date","rateLimits":{"five_hour":{"used_percentage":95,"resets_at":' + [DateTimeOffset]::UtcNow.AddMinutes(60).ToUnixTimeSeconds() + '}}}')
     Check 'an unreadable timestamp does not crash it' (Verdict) 'PAUSE'
+
+    # A reading nobody can DATE. The gauge used to skip every staleness rule here and score the
+    # number alone, so a corrupt file holding a low percentage read OK for ever - the guard was
+    # off and nothing said so. An undatable reading is UNKNOWN, and PAUSE when it is over the
+    # line, because a window only climbs.
+    $reset = [DateTimeOffset]::UtcNow.AddMinutes(60).ToUnixTimeSeconds()
+    Set-Raw ('{"capturedAt":"not-a-date","rateLimits":{"five_hour":{"used_percentage":12,"resets_at":' + $reset + '}}}')
+    Check 'undatable and low -> UNKNOWN, never OK' (Verdict) 'UNKNOWN'
+    Set-Raw ('{"rateLimits":{"five_hour":{"used_percentage":12,"resets_at":' + $reset + '}}}')
+    Check 'no capture time at all, low -> UNKNOWN' (Verdict) 'UNKNOWN'
+    Set-Raw ('{"capturedAt":"","rateLimits":{"five_hour":{"used_percentage":12,"resets_at":' + $reset + '}}}')
+    Check 'an empty capture time, low -> UNKNOWN' (Verdict) 'UNKNOWN'
+    Set-Raw ('{"rateLimits":{"five_hour":{"used_percentage":88,"resets_at":' + $reset + '}}}')
+    Check 'no capture time, over the line -> PAUSE, a window only climbs' (Verdict) 'PAUSE'
+    Set-Raw ('{"capturedAt":"not-a-date","rateLimits":{"five_hour":{"used_percentage":88,"resets_at":' + [DateTimeOffset]::UtcNow.AddMinutes(-30).ToUnixTimeSeconds() + '}}}')
+    Check 'undatable, over the line, reset already gone -> still PAUSE' (Verdict) 'PAUSE'
 
     ''
     '5. Staleness'
@@ -244,6 +260,77 @@ try {
     Set-Reading @{ five_hour = (W 1 300); seven_day = (W 93 5000) }
     Check 'the five-hour reset does not release a weekly block' (Verdict) 'PAUSE'
     Check 'and the weekly one is still named as the blocker' (Gauge).worstWindow 'seven_day'
+
+    ''
+    '9. One number, written in three places, all agreeing'
+    # The stop line is copied into the gauge, into the wait, and into the process document the
+    # coordinator follows. Every check above reads the gauge with NO -PauseAt, so the default is
+    # what they measured. These three assertions are what stop the copies drifting apart.
+    $root = Split-Path -Parent (Split-Path -Parent $here)
+    function Get-DefaultPauseAt([string]$file) {
+        $m = [regex]::Match((Get-Content $file -Raw), '(?m)^\s*\[int\]\$PauseAt\s*=\s*(\d+)')
+        if ($m.Success) { [int]$m.Groups[1].Value } else { -1 }
+    }
+    $gaugeLine = Get-DefaultPauseAt $gauge
+    Check 'the gauge stops at 85' $gaugeLine 85
+    Check 'the wait carries the same number, not one of its own' (Get-DefaultPauseAt $wait) $gaugeLine
+    $inv = Join-Path $root '.claude\skills\work\shared-invariants.md'
+    $docLine = -1
+    $dm = [regex]::Match((Get-Content $inv -Raw), 'pause line is (\d+) percent')
+    if ($dm.Success) { $docLine = [int]$dm.Groups[1].Value }
+    Check 'the process document states the same number' $docLine $gaugeLine
+
+    ''
+    '10. The coordinator sequence end to end: stop at the line, arm the wait, resume at the reset'
+    # The whole behaviour in one run, with the real scripts. A window crosses the line while an
+    # item is running, the coordinator stops the workflow, arms the wait on the time the reading
+    # itself states, and comes back when that time passes. Sections 7 and 8 exercise the wait;
+    # this one exercises the SEQUENCE the coordinator follows around it.
+    $parkNote = Join-Path $env:TEMP ('window-sim-park-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.txt')
+    try {
+        Set-Reading @{ five_hour = (W 62 10); seven_day = (W 30 5000) }
+        Check 'the item runs while the window is under the line' (Verdict) 'OK'
+
+        # The window crosses the line mid-item. The reading states its own reset, 12 seconds out.
+        Set-Reading @{ five_hour = (W 87 0.2); seven_day = (W 30 5000) }
+        $g = Gauge
+        Check 'crossing the line stops the workflow' $g.verdict 'PAUSE'
+        Check 'and the reading names the window that blocked' $g.worstWindow 'five_hour'
+
+        # STOP. The conductor parks and the coordinator starts nothing new. The park note stands
+        # for the parked item: it is what a fresh conductor reads to resume.
+        Set-Content -Path $parkNote -Value ('PARKED at {0}% on {1}' -f $g.worstPercent, $g.worstWindow)
+        Check 'the parked item left a note to resume from' (Test-Path $parkNote) 'True'
+
+        # ARM. The wait runs as a background command, anchored on the reset time in the reading.
+        $armed = Start-Job -ScriptBlock {
+            param($w, $s)
+            $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $w -SnapshotPath $s -PollSeconds 2 -SlackMinutes 0
+            [pscustomobject]@{ code = $LASTEXITCODE; out = ($o -join "`n") }
+        } -ArgumentList $wait, $snap
+        Start-Sleep -Seconds 3
+        Check 'the wait is armed and holding before the reset' ($armed.State -eq 'Running') 'True'
+
+        $released = Wait-Job $armed -Timeout 60
+        $r = Receive-Job $armed; Remove-Job $armed -Force
+        Check 'the wait exits when the stated reset time passes' ([bool]$released) 'True'
+        Check 'and exits 0, which is what wakes the session' $r.code 0
+        Check 'and it waited on the window the reading named' ([bool]($r.out -match 'parked on five_hour at 87%')) 'True'
+
+        # RESUME, first turn after the wake: re-read the gauge. Here the window turned over but
+        # the level did not fall. The wake says the window SHOULD be open, never that budget exists.
+        Set-Reading @{ five_hour = (W 91 300) }
+        Check 'still over the line after the wake -> stop again' (Verdict) 'PAUSE'
+        Check 'and the item stays parked' (Test-Path $parkNote) 'True'
+
+        # A genuinely new window: release the parked item, one at a time.
+        Set-Reading @{ five_hour = (W 4 300) }
+        Check 'under the line -> release the parked work' (Verdict) 'OK'
+        Remove-Item $parkNote -Force
+        Check 'the note is consumed by the resume, so nothing releases twice' (Test-Path $parkNote) 'False'
+    } finally {
+        Remove-Item $parkNote -Force -ErrorAction SilentlyContinue
+    }
 
     ''
     "RESULT: {0} passed, {1} failed" -f $pass, $fail
