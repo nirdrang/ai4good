@@ -870,9 +870,19 @@ export async function createLiveAdapter(opts: {
      * A PROJECT, PROVISIONED BY THE OPERATOR — one insert, with its seat free.
      *
      * There is no product project-creation path in this repository at either tier, so this is the
-     * only way AT-001.32's Given is reached. `public.projects` reaches no Data API role at all
-     * (measured after reset — verify-first answer (f): zero catalog rows for `anon`, `authenticated`
-     * and `service_role`), so this is a direct database write and could not be anything else.
+     * only way AT-001.32's Given is reached. It is a direct database write and could not be anything
+     * else: no client role holds an INSERT on that table, and none is granted one here.
+     *
+     * WHAT THE ORIGINAL MEASUREMENT SAID, AND THE DATE IT STOPPED BEING TRUE (gate-1 ruling 11).
+     * This comment used to state that `public.projects` reaches NO Data API role at all, on the
+     * single-seat leaf's own measurement after a reset — verify-first answer (f): zero catalog rows
+     * for `anon`, `authenticated` and `service_role`. That was true when it was measured, and it
+     * stopped being true on 2026-08-12, when
+     * `supabase/migrations/20260812120000_tenant_isolation_policy_set.sql` granted `select` on the
+     * table to `authenticated` and to `service_role`. The measurement is kept because it is the
+     * history of why the earlier revoke existed, and because a corrected fact with no record of what
+     * it replaced reads as if nothing ever changed. What did NOT change is the part this method
+     * depends on: `select` is all that was granted back, so no role holds an INSERT.
      */
     createProjectAsOperator: async (organizationId, name): Promise<ProjectRow> => {
       const created = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(

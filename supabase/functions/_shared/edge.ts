@@ -1,5 +1,5 @@
 /**
- * The plumbing both edge functions need: read the environment, answer with JSON, establish WHO is
+ * The plumbing all six edge functions need: read the environment, answer with JSON, establish WHO is
  * calling, and reach the database.
  *
  * It is deliberately separate from `accounts.ts`. That module holds the DECISIONS and is imported by
