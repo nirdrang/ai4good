@@ -170,15 +170,26 @@ export function tenantReadAllowed(viewer: TenantViewer, scope: TenantReadScope):
     };
   }
 
-  // scope === 'project'
-  if (accountType === 'volunteer' && viewer?.assignedVolunteerOfTargetProject === true) {
-    return { ok: true, basis: 'assigned-volunteer' };
+  if (scope === 'project') {
+    if (accountType === 'volunteer' && viewer?.assignedVolunteerOfTargetProject === true) {
+      return { ok: true, basis: 'assigned-volunteer' };
+    }
+    return {
+      ok: false,
+      reason:
+        "a project's working data is readable by that project's assigned developer only — " +
+        'a volunteer who is not assigned to it reads nothing of it',
+    };
   }
+
+  // THE SAME FAIL-CLOSED POSTURE `knownAccountType` AND `parseOrgRole` APPLY, on the third argument
+  // rather than the first two, and no call site can reach it today because `TenantReadScope` is a
+  // union of exactly two strings. Before this branch existed, every OTHER value fell through to the
+  // project rule, where an assigned volunteer is allowed — so an unrecognised scope WIDENED access
+  // while the header above promised the opposite.
   return {
     ok: false,
-    reason:
-      "a project's working data is readable by that project's assigned developer only — " +
-      'a volunteer who is not assigned to it reads nothing of it',
+    reason: 'the read names no recognised scope, so it reads nothing at all',
   };
 }
 
