@@ -1,0 +1,336 @@
+# window-gauge.ps1 CLI capture
+# label: AFTER the window-lib extraction (gauge default PauseAt=90)
+# normalised: readingAgeMin, resetsInMin, "(in N min)", "reading is N min old"
+
+===== case=ok mode=human =====
+exit=0
+WINDOW  OK  - five_hour at 50%
+        five_hour                     50%   resets 14:00  (in <NORM> min)
+        reading is <NORM> min old
+
+===== case=ok mode=json =====
+exit=0
+{
+    "verdict":  "OK",
+    "reason":  "five_hour at 50%",
+    "worstWindow":  "five_hour",
+    "worstPercent":  50,
+    "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z",
+    "resetsInMin":  <NORM>,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+                    {
+                        "name":  "five_hour",
+                        "percent":  50,
+                        "resetsLocal":  "14:00",
+                        "resetsInMin":  <NORM>,
+                        "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z"
+                    }
+                ]
+}
+
+===== case=ok mode=exitonready-human =====
+exit=0
+WINDOW  OK  - five_hour at 50%
+        five_hour                     50%   resets 14:00  (in <NORM> min)
+        reading is <NORM> min old
+
+===== case=ok mode=exitonready-json =====
+exit=0
+{
+    "verdict":  "OK",
+    "reason":  "five_hour at 50%",
+    "worstWindow":  "five_hour",
+    "worstPercent":  50,
+    "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z",
+    "resetsInMin":  <NORM>,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+                    {
+                        "name":  "five_hour",
+                        "percent":  50,
+                        "resetsLocal":  "14:00",
+                        "resetsInMin":  <NORM>,
+                        "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z"
+                    }
+                ]
+}
+
+===== case=pause mode=human =====
+exit=0
+WINDOW  PAUSE  - five_hour at 95% (pause line 90%) - resets 14:00
+        five_hour                     95%   resets 14:00  (in <NORM> min)
+        reading is <NORM> min old
+
+===== case=pause mode=json =====
+exit=0
+{
+    "verdict":  "PAUSE",
+    "reason":  "five_hour at 95% (pause line 90%) - resets 14:00",
+    "worstWindow":  "five_hour",
+    "worstPercent":  95,
+    "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z",
+    "resetsInMin":  <NORM>,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+                    {
+                        "name":  "five_hour",
+                        "percent":  95,
+                        "resetsLocal":  "14:00",
+                        "resetsInMin":  <NORM>,
+                        "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z"
+                    }
+                ]
+}
+
+===== case=pause mode=exitonready-human =====
+exit=1
+WINDOW  PAUSE  - five_hour at 95% (pause line 90%) - resets 14:00
+        five_hour                     95%   resets 14:00  (in <NORM> min)
+        reading is <NORM> min old
+
+===== case=pause mode=exitonready-json =====
+exit=1
+{
+    "verdict":  "PAUSE",
+    "reason":  "five_hour at 95% (pause line 90%) - resets 14:00",
+    "worstWindow":  "five_hour",
+    "worstPercent":  95,
+    "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z",
+    "resetsInMin":  <NORM>,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+                    {
+                        "name":  "five_hour",
+                        "percent":  95,
+                        "resetsLocal":  "14:00",
+                        "resetsInMin":  <NORM>,
+                        "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z"
+                    }
+                ]
+}
+
+===== case=stale-high mode=human =====
+exit=0
+WINDOW  PAUSE  - five_hour at 97% (pause line 90%) - reading is <NORM> min old, but that window has not reset, and a window only climbs
+        five_hour                     97%   resets 14:00  (in <NORM> min)
+        reading is <NORM> min old
+
+===== case=stale-high mode=json =====
+exit=0
+{
+    "verdict":  "PAUSE",
+    "reason":  "five_hour at 97% (pause line 90%) - reading is <NORM> min old, but that window has not reset, and a window only climbs",
+    "worstWindow":  "five_hour",
+    "worstPercent":  97,
+    "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z",
+    "resetsInMin":  <NORM>,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+                    {
+                        "name":  "five_hour",
+                        "percent":  97,
+                        "resetsLocal":  "14:00",
+                        "resetsInMin":  <NORM>,
+                        "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z"
+                    }
+                ]
+}
+
+===== case=stale-high mode=exitonready-human =====
+exit=1
+WINDOW  PAUSE  - five_hour at 97% (pause line 90%) - reading is <NORM> min old, but that window has not reset, and a window only climbs
+        five_hour                     97%   resets 14:00  (in <NORM> min)
+        reading is <NORM> min old
+
+===== case=stale-high mode=exitonready-json =====
+exit=1
+{
+    "verdict":  "PAUSE",
+    "reason":  "five_hour at 97% (pause line 90%) - reading is <NORM> min old, but that window has not reset, and a window only climbs",
+    "worstWindow":  "five_hour",
+    "worstPercent":  97,
+    "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z",
+    "resetsInMin":  <NORM>,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+                    {
+                        "name":  "five_hour",
+                        "percent":  97,
+                        "resetsLocal":  "14:00",
+                        "resetsInMin":  <NORM>,
+                        "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z"
+                    }
+                ]
+}
+
+===== case=stale-low mode=human =====
+exit=0
+WINDOW  UNKNOWN  - last reading is <NORM> min old (limit 15) - treat as unknown, never as low
+        five_hour                     40%   resets 14:00  (in <NORM> min)
+        reading is <NORM> min old
+
+===== case=stale-low mode=json =====
+exit=0
+{
+    "verdict":  "UNKNOWN",
+    "reason":  "last reading is <NORM> min old (limit 15) - treat as unknown, never as low",
+    "worstWindow":  "five_hour",
+    "worstPercent":  40,
+    "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z",
+    "resetsInMin":  <NORM>,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+                    {
+                        "name":  "five_hour",
+                        "percent":  40,
+                        "resetsLocal":  "14:00",
+                        "resetsInMin":  <NORM>,
+                        "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z"
+                    }
+                ]
+}
+
+===== case=stale-low mode=exitonready-human =====
+exit=1
+WINDOW  UNKNOWN  - last reading is <NORM> min old (limit 15) - treat as unknown, never as low
+        five_hour                     40%   resets 14:00  (in <NORM> min)
+        reading is <NORM> min old
+
+===== case=stale-low mode=exitonready-json =====
+exit=1
+{
+    "verdict":  "UNKNOWN",
+    "reason":  "last reading is <NORM> min old (limit 15) - treat as unknown, never as low",
+    "worstWindow":  "five_hour",
+    "worstPercent":  40,
+    "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z",
+    "resetsInMin":  <NORM>,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+                    {
+                        "name":  "five_hour",
+                        "percent":  40,
+                        "resetsLocal":  "14:00",
+                        "resetsInMin":  <NORM>,
+                        "resetsAtUtc":  "2026-12-31T12:00:00.0000000Z"
+                    }
+                ]
+}
+
+===== case=missing-file mode=human =====
+exit=0
+WINDOW  UNKNOWN  - no reading yet - the status line has not refreshed since the sensor was installed
+
+===== case=missing-file mode=json =====
+exit=0
+{
+    "verdict":  "UNKNOWN",
+    "reason":  "no reading yet - the status line has not refreshed since the sensor was installed",
+    "worstWindow":  "",
+    "worstPercent":  null,
+    "resetsAtUtc":  "",
+    "resetsInMin":  null,
+    "readingAgeMin":  null,
+    "windows":  [
+
+                ]
+}
+
+===== case=missing-file mode=exitonready-human =====
+exit=1
+WINDOW  UNKNOWN  - no reading yet - the status line has not refreshed since the sensor was installed
+
+===== case=missing-file mode=exitonready-json =====
+exit=1
+{
+    "verdict":  "UNKNOWN",
+    "reason":  "no reading yet - the status line has not refreshed since the sensor was installed",
+    "worstWindow":  "",
+    "worstPercent":  null,
+    "resetsAtUtc":  "",
+    "resetsInMin":  null,
+    "readingAgeMin":  null,
+    "windows":  [
+
+                ]
+}
+
+===== case=unparseable mode=human =====
+exit=0
+WINDOW  UNKNOWN  - the snapshot could not be parsed
+
+===== case=unparseable mode=json =====
+exit=0
+{
+    "verdict":  "UNKNOWN",
+    "reason":  "the snapshot could not be parsed",
+    "worstWindow":  "",
+    "worstPercent":  null,
+    "resetsAtUtc":  "",
+    "resetsInMin":  null,
+    "readingAgeMin":  null,
+    "windows":  [
+
+                ]
+}
+
+===== case=unparseable mode=exitonready-human =====
+exit=1
+WINDOW  UNKNOWN  - the snapshot could not be parsed
+
+===== case=unparseable mode=exitonready-json =====
+exit=1
+{
+    "verdict":  "UNKNOWN",
+    "reason":  "the snapshot could not be parsed",
+    "worstWindow":  "",
+    "worstPercent":  null,
+    "resetsAtUtc":  "",
+    "resetsInMin":  null,
+    "readingAgeMin":  null,
+    "windows":  [
+
+                ]
+}
+
+===== case=no-rate-limits mode=human =====
+exit=0
+WINDOW  UNKNOWN  - this build reports no usage windows
+        reading is <NORM> min old
+
+===== case=no-rate-limits mode=json =====
+exit=0
+{
+    "verdict":  "UNKNOWN",
+    "reason":  "this build reports no usage windows",
+    "worstWindow":  "",
+    "worstPercent":  null,
+    "resetsAtUtc":  "",
+    "resetsInMin":  null,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+
+                ]
+}
+
+===== case=no-rate-limits mode=exitonready-human =====
+exit=1
+WINDOW  UNKNOWN  - this build reports no usage windows
+        reading is <NORM> min old
+
+===== case=no-rate-limits mode=exitonready-json =====
+exit=1
+{
+    "verdict":  "UNKNOWN",
+    "reason":  "this build reports no usage windows",
+    "worstWindow":  "",
+    "worstPercent":  null,
+    "resetsAtUtc":  "",
+    "resetsInMin":  null,
+    "readingAgeMin":  <NORM>,
+    "windows":  [
+
+                ]
+}
+
