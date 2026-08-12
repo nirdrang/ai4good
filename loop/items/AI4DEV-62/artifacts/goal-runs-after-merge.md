@@ -89,8 +89,12 @@ attributable to the duplicate version and to nothing else.
 
 ## 2. The four runs
 
-All four exit 0 under `--expect`, run serially against reserved slot 2, at head `8371ff8` plus this
-record file.
+All four exit 0 under `--expect`, run serially against reserved slot 2.
+
+**These are the runs taken AFTER `src/routeTree.gen.ts` was restored to main's version** (section 5).
+An earlier set of four ran before that restore and reported the same numbers, but it graded a tree
+that no longer exists, so it is superseded and not recorded as the evidence. AT-001.17's source arm
+reads that file, which is why the runs were taken again rather than reused.
 
 | run | requirement | tier | result | exit |
 |---|---|---|---|---|
@@ -158,9 +162,56 @@ doctrine, applied to this branch's bodies.
 **After the fix all four runs passed on their first attempt.** No second iteration was needed and
 none was run.
 
+**Round 2 of this sitting added NO goal iteration.** It carried out one ruled change — the
+generated-file restore in section 4 — and re-ran all four to describe the restored tree. Every run
+passed first time and no count moved. The iteration count for the whole sitting stays at ONE.
+
 ---
 
-## 4. What this sitting did NOT do
+## 4. The ownership guard — deviation (iii) is REVERSED (plan step 15)
+
+CI ran for the first time since the integration and went RED on head `dce5dde`, run `31614130816`,
+at the step "Guard against a pull request that changes both territories". One file did it:
+`src/routeTree.gen.ts`, which is Lovable territory. The fix-and-goal sitting had adopted it as
+build-regenerated where CI could not answer. The merge sitting reversed that ruling
+(`merge-rulings.md` section 9), and this sitting carried the reversal out.
+
+`git checkout origin/main -- src/routeTree.gen.ts`. The whole difference was ten lines: a type-only
+`declare module '@tanstack/react-start'` block appended at the end. It adds no route.
+
+### AT-001.17's source arm is unaffected — measured, not assumed
+
+The ruling states this. This sitting ran the arm on BOTH versions of the file rather than taking it
+on trust, because the arm reads that exact file and a wrong answer here would be a false green.
+
+| | with the block | without the block |
+|---|---|---|
+| `src/routeTree.gen.ts` bytes | 1797 | 1562 |
+| quoted string literals found | 19 | 16 |
+| `inviteOrAddMemberSurface()` | `[]` | `[]` |
+
+The three literals the block adds are `'./router.tsx'`, `'./start.ts'` and `'@tanstack/react-start'`.
+The arm's pattern is `/invite|add[-_ ]?member|addmember|add[-_ ]?user|adduser/i`. None of the three
+matches, so the arm returns the same empty array either way. The ruling is confirmed first-hand.
+
+### The standing fact: `bun run build` DOES regenerate the block
+
+Measured on this tree, and it is a fact about the repository rather than about this item.
+
+1. Restore the file to main's version — `git diff -- src/` is empty.
+2. Run `bun run build` — it exits 0.
+3. `git diff --stat -- src/` reports `src/routeTree.gen.ts | 10 ++++++++++`. The same ten lines are
+   back.
+
+So any Claude-territory item that builds will dirty a Lovable-territory file and meet this guard.
+That is the process finding the merge sitting filed, and this measurement is the evidence for it.
+
+**Two other commands were tested and do NOT regenerate it:** `bun run typecheck`, and all four
+`at:verify` runs. `git diff -- src/` stayed empty across every one of them. Only the build writes
+the file, so the restore is done LAST, after the final build, and the committed tree is the tree
+that ships.
+
+## 5. What this sitting did NOT do
 
 - It did not rebase. Main was merged INTO the branch (`git merge origin/main`, main at `390042c`),
   so every audited SHA — `0b8517d` above all — is still an ancestor.
@@ -172,3 +223,5 @@ none was run.
   past reading of it false, and editing evidence to match a later tree would.
 - It did not repair the environment. Docker was already up and slot 2 was already running when this
   sitting started, so no repair step was needed and none is recorded.
+- It did not propose waiving the ownership guard, and it changed no CI machinery. The item came
+  into compliance instead, which is what the ruling directs.
