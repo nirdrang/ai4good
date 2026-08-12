@@ -26,6 +26,13 @@ Spawn an opus executor to write code and a sonnet mechanical for housekeeping. P
 buy decisions, not keystrokes — and keeping judgment out of the writing context is what stops a
 decision being quietly revised by whoever is typing.
 
+**Once judgment is complete, a mechanical may carry the typing (founder ruling 2026-08-12).**
+When your ruling fixes the exact text to apply — every character decided, nothing left to the
+typist — a mechanical may apply it, even to a code file, provided the ruling records the dictated
+text verbatim and the change is verified afterwards as any change is. Anything that leaves a
+decision to the writer still goes through the executor, which also holds the dispute right. The
+line is whether judgment remains, not which file is touched.
+
 You hold one sitting. When the next event is a **wait** — a reviewer, CI — you write the state
 file and **end**. A successor sitting reads the record. The one exception is the executor: you
 stay for it, because it may dispute a ruling and a dispute needs a live ruler.

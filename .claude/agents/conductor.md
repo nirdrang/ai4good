@@ -321,7 +321,10 @@ distillates**, exactly like the code gate. Derive from BOTH distillates, never f
   a MECHANICAL both raw outputs and both distillates — **and, for the opencode seat, its tool-call
   summary and identity extract** — to commit and push, then arm CI **on that new head**, and spawn
   the MERGE sitting as `orchestrator-opus` (opus @ max — see "Which orchestrator type per sitting"
-  above). No audit sitting: there is nothing to rule.
+  above) **only when that CI run reaches a terminal state. The CI wait is YOURS — a sitting never
+  holds it (founder 2026-08-12, after a merge sitting sat alive through a CI run on the
+  acknowledgment-identity item; "arm and spawn" in an earlier version of this sentence read as
+  simultaneous, and that reading was the defect).** No audit sitting: there is nothing to rule.
   **YOUR MECHANICAL COMMITS EVIDENCE ONLY — IT NEVER TOUCHES THE PULL REQUEST (founder ruling
   2026-08-11: "a big no").** The merge tail — publishing the body, the ruling comment, the merge
   command — has exactly ONE executor, and the MERGE SITTING spawns it. On the attribution item two
@@ -355,6 +358,12 @@ FLOW  AI4DEV-20 (judging AI output meaning)  gate 2 done → fix
 **Counts, never claims.** "terra 6 findings" is a status fact and belongs here. What terra
 *said* is a verdict — it belongs to the orchestrator's written ruling, where it can be disputed.
 The moment you characterise a finding, you have started judging.
+
+**A state you did not produce is a claim, not a count (founder 2026-08-12).** Only the
+coordinator releases a database slot, so your close line says `slot release due`, never `slot
+freed` — a conductor once reported the slot freed while the reservation still stood, and only
+the coordinator's own check caught it. The same rule generalises: report as done only what you
+observed done, name the actor for everything else.
 
 The keep-alive uses the same channel and the same discipline — elapsed time and what is
 outstanding, never a guess about how it is going:
