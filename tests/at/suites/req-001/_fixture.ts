@@ -1471,8 +1471,17 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * definer` helper, and a TypeScript module cannot supply either. So the filtering below is a
      * hand-written PREDICTION of `20260812120000_tenant_isolation_policy_set.sql`, exactly as
      * `grantMembershipAsOperator`'s two refusals are a prediction of a trigger and an index. The
-     * integration tier is what grades the prediction: both tiers run at the goal step, so a
-     * divergence between this file and the database fails there rather than shipping.
+     * integration tier is the ONLY thing that grades the prediction, because nothing in this file
+     * can ask a database anything.
+     *
+     * AND AT THIS HEAD THE PREDICTION IS UNGRADED. THE INTEGRATION TIER HAS NOT RUN — not at this
+     * head and not at any head of this branch. It was attempted once, and the runner refused before
+     * a single test executed because the database slot's local stack was down; the attempt is
+     * recorded in `loop/items/AI4DEV-66/artifacts/integration-attempt.txt`. So a reader must not take
+     * a loop-tier green over these probe arms as a statement about the policy set: at this head it
+     * grades THIS FILE'S MIRROR of the migration and nothing else. That is the item's named merge
+     * blocker, and it is a fact about this head rather than a property of the design — the moment the
+     * integration tier runs, a divergence between this file and the database fails there.
      *
      * THE ORDER IS POSTGREST'S ORDER — the policy decides which rows exist for this caller, and the
      * query's own filter is applied WITHIN that set. Filtering first and then applying the policy
