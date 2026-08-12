@@ -1,11 +1,66 @@
 # PHASE-STATE — AI4DEV-82 (window guard at the sitting boundary)
 
+## PARK NOTE — 2026-08-12, founder ruling
+
+This item is PARKED. It is not closed. It is not merged.
+
+**Reason.** The founder ruled to stop this item on 2026-08-12. Founder ruling, verbatim: "Stop.
+The item without a valid sensor this is useless." The watchdog's sensor for founder-presence
+cadence was measured tonight and found unreliable. A separate item now carries the sensor
+redesign. This item resumes after that item lands.
+
+**Phase at park time.** The audit panel ran with two readers, `gpt-5.6-luna` and
+`opencode-go/deepseek-v4-flash`. The panel found 7 findings in total (luna found 3, flash found
+4, one pair converged into a single ruling). The audit sitting ruled 6 findings accepted and 1
+rejected. All 6 accepted fixes were applied. See `audit-rulings.md` for the full record.
+
+**Verified head at park time.** Commit `284edb6`, branch
+`nirdrang/ai4dev-82-window-guard-at-the-sitting-boundary-park-before-the-wall`. The tree is
+clean. The remote agrees with local head.
+
+**What was NOT done.**
+- The once-per-item audit panel re-run was never run and never decided. This item's own
+  contract requires that re-run after any audit-driven fix, before anything can move to merge.
+- CI was never armed on this final head.
+- No merge sitting ran.
+- The stale PR #56 body issue is still open. An earlier sitting flagged that the PR body still
+  shows "Current state: PLAN phase" and asked the merge sitting to fix it. It is still unfixed.
+  Noted here for whoever resumes.
+
+**What resumption needs, in order.**
+1. Confirm the sensor redesign item has landed and the sensor is trustworthy.
+2. Re-open this branch.
+3. Run the once-per-item audit panel re-run. Use both readers again, at whatever head resumption
+   starts from. If no further code changes are needed, re-run at `284edb6`. If the sensor
+   redesign requires touching this item's code too, that is a fresh decision for whoever
+   resumes.
+4. If the re-run is clean, proceed to CI and merge. If it is not clean, a fresh audit sitting
+   rules on the new findings.
+
+**Reference the item's own history.** Gate 1 rulings (`gate1-rulings.md`), gate 2 rulings with
+three addenda including the corrected alarm diagnosis (`gate2-rulings.md`), and the audit
+rulings (`audit-rulings.md`) are the full record. They should not be re-litigated on resumption
+without cause.
+
+**Known gap, carried forward — unrelated to the park reason, but real.** The per-tool alarm's
+end-to-end delivery was never proven. A proposed fix was tested and found unsafe: it silently
+exits 0 under Git Bash `sh`. That fix was NOT applied. This remains true and unresolved at park
+time.
+
+---
+
+## Prior sitting's phase record (STALE — kept for reference only)
+
+The section below was written by the RECOVERY FIX AND GOAL sitting, before the audit sitting
+ran. It says "Phase: FIX AND GOAL COMPLETE" and describes the state as of the fix, not the
+audit. It is superseded by the park note above and by `audit-rulings.md`. Kept for history.
+
 **Phase: FIX AND GOAL COMPLETE — the next event is the AUDIT, a wait the conductor holds.**
 Written by the RECOVERY FIX AND GOAL sitting, orchestrator on **opus @ max**, 2026-08-12. Chain,
 derived from the branch: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the sitting
 boundary)`. Bring-up item; no database slot. The pull request is #56.
 
-## Why this sitting ran on opus, and what the conductor must decide next
+### Why this sitting ran on opus, and what the conductor must decide next
 
 This is neither the merge sitting nor the audit re-run, so it should have been fable. It ran on the
 opus twin as the standing fallback because an active vendor incident ("degraded performance for
@@ -17,7 +72,7 @@ that incident is still active and report the state. That call is the conductor's
 sitting's. If fable is healthy, the audit sitting is fable; if the incident is still open, it is the
 opus twin under the same fallback, and the sitting says so in its first line either way.
 
-## What happened this sitting
+### What happened this sitting
 
 1. Recovered the dead sitting's untracked evidence and committed it: both readers' raw output and
    distillates, the opencode reader's tool-call summary and identity extract, and the unfinished
@@ -29,7 +84,7 @@ opus twin under the same fallback, and the sitting says so in its first line eit
    that Addendum 2's diagnosis was WRONG and its proposed fix FORBIDDEN.** Read it before touching
    the alarm.
 
-## Verification state at this head
+### Verification state at this head
 
 | check | result |
 |---|---|
@@ -45,7 +100,7 @@ opus twin under the same fallback, and the sitting says so in its first line eit
 `run-drills.ps1` was re-run by the ORCHESTRATOR, not only by the executor, with the live snapshot
 hashed before and after.
 
-## THE ONE THING THAT IS NOT PROVEN — read this before writing anything about this item
+### THE ONE THING THAT IS NOT PROVEN — read this before writing anything about this item
 
 **The per-tool alarm is not proven to deliver end to end.** Both alarm entries returned nothing in
 the headless probe while every other entry fired, and the cause was never established. It is NOT
@@ -62,7 +117,7 @@ comment in `window-alarm.cmd` records this so the next reader meets the measurem
 stamp proven at runtime against the deployed entry shapes. **What it does NOT claim:** that the
 per-tool alarm delivers. Any sentence saying "three hooks working" is false.
 
-## What completes the next phase
+### What completes the next phase (SUPERSEDED — the audit ran; see audit-rulings.md and the park note above)
 
 THE AUDIT — a panel of two, blind to each other, at the head this file rides in (verify against the
 remote):
@@ -79,7 +134,7 @@ the default source-only diff yields an EMPTY list here, and the prompts carry th
 Clean means BOTH readers clean. If either finds anything, the conductor spawns an AUDIT sitting; if
 both are clean, the merge sitting absorbs that wait.
 
-## Facts the next sitting needs
+### Facts the next sitting needs
 
 - Branch base for the audit diff: **390042c**.
 - Gate 2 rulings and all three addenda: `gate2-rulings.md`. Gate 1: `gate1-rulings.md`. Draft:
@@ -96,7 +151,7 @@ both are clean, the merge sitting absorbs that wait.
   disproved only because ruling `[T4]`/`[F1]` gave the stamp case its own over-the-line run.
 - node_modules is not installed in this tree; nothing in this item needs it.
 
-## REQUIRED of the merge sitting
+### REQUIRED of the merge sitting (unchanged; still applies whenever this item reaches merge)
 
 1. Verify post-merge, in the live interactive session, whether the alarm line appears after a tool
    call while the window is over the line. It is directly observable and needs no probe. Record the
@@ -107,7 +162,7 @@ both are clean, the merge sitting absorbs that wait.
 4. Verify the committed settings' absolute paths went live post-merge and whether the running
    session picked the entries up.
 
-## Open questions for the founder
+### Open questions for the founder
 
 **None that block, but ONE the founder should be told at merge, and it is not an escalation.** The
 founder's design asks for three hooks. Three are built and wired; two are proven at runtime and the
