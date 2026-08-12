@@ -1,0 +1,156 @@
+AI4DEV-62 (per-org roles and isolation) + the single-seat partner item - THE PENDING LEDGER
+===========================================================================================
+
+Why this file exists
+--------------------
+`tests/at/expected/req-001.json` declares 16 of REQ-001's 37 P0 ids red at the loop tier, and
+`tests/at/harness/expected.ts` matches such a red by SHAPE: it rebuilds the anchored prefix
+
+    AtPending: <id> PENDING [sut-missing] -
+
+and compares it from position 0. Everything AFTER the em dash is free. So a stub whose detail
+read "todo" would satisfy `at:check`, `at:verify --expect` and CI alike, while the record said
+nothing about who lands the id or when.
+
+Nothing mechanical closes that. This file is the check that does: one line per pending id, and
+every deliverable-and-leaf named below really appears in `loop/decomp/req-001.md`. A reviewer
+compares the two files.
+
+The detail strings themselves live in `tests/at/suites/req-001/_pending.ts` (the `LEAF` map) and
+are attached to each id at its own `atTest` call site.
+
+What changed since the predecessor's ledger
+-------------------------------------------
+EIGHT lines are GONE, and they come from THREE leaves, not two. Their absence is the point of
+writing a new ledger rather than editing the old one (each earlier file is a historical record and
+is never edited).
+
+Five of the eight are this branch's own:
+
+    AT-001.16 -> D3.L1      landed by the primary item, declared GREEN at BOTH tiers
+    AT-001.36 -> D3.L1      landed by the primary item, declared GREEN at BOTH tiers
+    AT-001.37 -> D3.L1      landed by the primary item, declared GREEN at BOTH tiers
+
+    AT-001.17 -> D3.L2      landed by the partner item, declared GREEN at BOTH tiers
+    AT-001.32 -> D3.L2      landed by the partner item, declared GREEN at BOTH tiers
+
+Three arrive with main. The acknowledgment-identity leaf merged to main while this branch was in
+flight, and this branch then took main into itself. It edits the same shared suite, so its three
+ids are landed in this tree too and this ledger has to say so:
+
+    AT-001.19 -> D4.L1      landed by the acknowledgment-identity leaf, GREEN at BOTH tiers
+    AT-001.39 -> D4.L1      landed by the acknowledgment-identity leaf, GREEN at BOTH tiers
+    AT-001.20 -> D4.L1      landed by the acknowledgment-identity leaf, GREEN at BOTH tiers
+
+D3.L1 names exactly three ids, D3.L2 exactly two and D4.L1 exactly three, so none of the three
+leaves has any remaining pending id. `LEAF.D3_L1`, `LEAF.D3_L2` AND `LEAF.D4_L1` are therefore all
+REMOVED from `tests/at/suites/req-001/_pending.ts`, because a leaf label sitting in that map with
+nothing pointing at it would be a claim that something is still pending when nothing is. That is
+the same rule earlier leaves applied to `LEAF.D1_L2`, `LEAF.D2_L1` and `LEAF.D2_L2`. Six labels are
+gone from that map now, and its own comment says six.
+
+24 - 8 = 16, and 16 + 21 green = 37, which is the acceptance file's P0 count.
+
+`tests/at/suites/req-001/f-lifecycle-and-audit.test.ts` still imports `LEAF` and `notLanded`: it
+holds five pending ids beside its one written body. `c-membership-and-acknowledgment.test.ts`
+keeps both imports too, for the ONE id it still declares - AT-001.18, on `LEAF.D3_L3`. Seven of
+that file's eight ids are written.
+
+The twenty-one ids ABSENT from this ledger, deliberately
+--------------------------------------------------------
+AT-001.01, .03, .06 and .07 are the first accounts leaf's (manifest D1.L1). AT-001.02, .04 and
+.05 are the GitHub leaf's (D1.L2). AT-001.09 and .10 are the verification leaf's (D2.L1).
+AT-001.38, .12, .13 and .14 are the session-and-reset leaf's (D2.L2). AT-001.16, .36 and .37 are
+the primary item's here (D3.L1), and AT-001.17 and .32 the partner item's (D3.L2). AT-001.19, .39
+and .20 are the acknowledgment-identity leaf's (D4.L1), landed on main and merged into this
+branch. All twenty-one are declared GREEN, not pending. If any of them ever appears below, a
+landed leaf has regressed.
+
+The 16
+------
+format:  AT-001.NN -> <deliverable>.<leaf> - <what that leaf lands>
+
+AT-001.18 -> D3.L3 - the cross-surface single-seat integration
+
+AT-001.21 -> D5.L1 - cross-NGO denial and unassigned-volunteer denial
+AT-001.22 -> D5.L1 - cross-NGO denial and unassigned-volunteer denial
+
+AT-001.23 -> D5.L2 - assigned-volunteer scope, platform-admin reach, logged-out visibility
+AT-001.24 -> D5.L2 - assigned-volunteer scope, platform-admin reach, logged-out visibility
+AT-001.40 -> D5.L2 - assigned-volunteer scope, platform-admin reach, logged-out visibility
+
+AT-001.25 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+AT-001.26 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+AT-001.27 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+AT-001.28 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+AT-001.35 -> D6.L1 - contact transfer, lost-access recovery and the escalation contact
+
+AT-001.29 -> D6.L2 - the lifecycle gate every write route registers through
+AT-001.30 -> D6.L2 - the lifecycle gate every write route registers through
+AT-001.31 -> D6.L2 - the lifecycle gate every write route registers through
+
+AT-001.33 -> D6.L3 - the append-only audit for role changes and transfer, and sign-in rate limiting
+AT-001.34 -> D6.L3 - the append-only audit for role changes and transfer, and sign-in rate limiting
+
+Count: 16. Plus the twenty-one landed = 37, which is the acceptance file's P0 count.
+
+Checked against the manifest, leaf by leaf
+------------------------------------------
+`loop/decomp/req-001.md`'s own `verify:` lines, quoted as ids only, beside what is claimed above.
+The two agree exactly, in both directions.
+
+  manifest D3.L3  verify: AT-001.18                | ledger: 18
+  manifest D5.L1  verify: AT-001.21,22             | ledger: 21, 22
+  manifest D5.L2  verify: AT-001.23,40,24          | ledger: 23, 24, 40
+  manifest D6.L1  verify: AT-001.25,26,27,28,35    | ledger: 25, 26, 27, 28, 35
+  manifest D6.L2  verify: AT-001.29,30,31          | ledger: 29, 30, 31
+  manifest D6.L3  verify: AT-001.33,34             | ledger: 33, 34
+
+  manifest D1.L1  verify: AT-001.01,03,06,07       | the first accounts leaf - green, absent above
+  manifest D1.L2  verify: AT-001.02,04,05          | the GitHub leaf - green, absent above
+  manifest D2.L1  verify: AT-001.09,10             | the verification leaf - green, absent above
+  manifest D2.L2  verify: AT-001.12,13,14,38       | the session-and-reset leaf - green, absent above
+  manifest D3.L1  verify: AT-001.16,36,37          | THE PRIMARY ITEM - green, absent above
+  manifest D3.L2  verify: AT-001.17,32             | THE PARTNER ITEM - green, absent above
+  manifest D4.L1  verify: AT-001.19,39,20          | the leaf merged in from main - green, absent above
+
+  manifest D2.LW  verify: a wired re-run of the ui-tagged ids, and it adds NO new id. It is
+                  therefore absent from this ledger by construction rather than by omission.
+                  Neither item here marks any id `surface: 'ui'`: all five are backend
+                  authorization and structural invariants, not one of the four auth screens that
+                  leaf re-runs.
+
+D3 IS NOW COMPLETE AT 5 OF 6: D3.L1's three and D3.L2's two, with D3.L3's AT-001.18 still open -
+it is blocked on cross-manifest work in REQ-006 and REQ-005.5 and is not this batch's.
+
+D5.L1 becomes REACHABLE by this batch: the manifest blocks it on D3.L1, which now lands. That is
+the leaf that owns the read-side breadth of AT-001.16's "never grants access to NGO B's data" -
+see the next section.
+
+Two things this ledger does NOT claim
+-------------------------------------
+That a later leaf will keep its promise. The ledger names the leaf; it cannot make that leaf land
+the id. What it does is make a broken promise VISIBLE - if a leaf lands and the id stays red, the
+two files disagree and a reader can see which one is lying.
+
+And, specific to the five ids these two items removed: what their green claims is narrower than
+the criteria read on their own.
+
+  AT-001.16 claims OPERATION-SURFACE isolation - one account's authority does not cross
+  organisations on the admin-only action, proved by three different answers to one caller. It
+  does NOT claim read isolation over drafts, ledgers or files. That breadth belongs to D5.L1,
+  which the manifest blocks on this very leaf, and this tree has no read surface to leak through:
+  row-level security is on with zero policies and `org_memberships` reaches no client role.
+
+  AT-001.36's `member` seat is OPERATOR-PROVISIONED, and both bodies say so in their own
+  evidence. No product path writes that role and none may - the single-seat invariant forbids
+  invites - so the enum's member half exists for this criterion and is reached by an operator.
+
+  AT-001.17's "UI absent" clause is proved by a NAMING oracle over `src/routes/` and the
+  generated route tree. A deliberately renamed invite screen escapes it, as it escapes any static
+  check; semantic absence stays with review.
+
+  AT-001.32's Given - a project with an assigned volunteer - is operator-provisioned too. No
+  product path creates a project or attaches a volunteer in this tree, and the table landing here
+  is not project creation landing: `has_platform_acknowledgment` is still the hook the leaf that
+  lands creation must call.

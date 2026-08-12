@@ -78,14 +78,19 @@ import type {
   AccountRow,
   AccountsSut,
   AcknowledgmentRow,
+  AssignVolunteerOutcome,
   CompleteSignupOutcome,
   CompleteSignupRequest,
   CreateOrganizationOutcome,
+  GrantMembershipOutcome,
   MembershipRow,
   OrganizationRow,
+  ProjectRow,
   RefreshSessionOutcome,
+  RepointMembershipOutcome,
   Session,
   SignInOutcome,
+  UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
 } from './_contract.ts';
@@ -113,6 +118,13 @@ export const backedSutMethods = {
     'useVerificationLink',
     'completeSignup',
     'createOrganization',
+    'updateOrganization',
+    'createOrganizationAsOperator',
+    'grantMembershipAsOperator',
+    'repointMembershipAsOperator',
+    'createProjectAsOperator',
+    'assignVolunteerAsOperator',
+    'projectAssignment',
     'account',
     'organization',
     'membership',
@@ -173,6 +185,40 @@ function sessionIdOf(accessToken: string): string {
 function accountIdOf(accessToken: string): string {
   const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as { sub?: unknown };
   return String(claims.sub ?? '');
+}
+
+/**
+ * WHAT A POSTGRES REFUSAL CARRIES — the SQLSTATE and the sentence, and WHERE THE SQLSTATE REALLY
+ * LIVES WAS MEASURED RATHER THAN ASSUMED.
+ *
+ * The operator methods below drive SQL directly, so a refused write arrives as a thrown error rather
+ * than as a status and a body. The obvious field is wrong on this client: `loop/items/AI4DEV-62`'s
+ * verify-first probe, answer (d), dumped a real refusal's own properties on the slot stack and found
+ *
+ *   name `PostgresError`, code `ERR_POSTGRES_SERVER_ERROR`, **errno `42501`**, severity `ERROR`,
+ *   where `PL/pgSQL function public.org_membership_grantee_must_be_ngo() line 24 at RAISE`
+ *
+ * — so `code` is the client's own error CLASS and `errno` is the SQLSTATE the migration raised. A
+ * classification written against `code === '42501'` would have matched nothing, every refusal would
+ * have fallen through to `refused`, and two acceptance criteria would have gone red for a reason
+ * that had nothing to do with the product.
+ *
+ * SO EVERY CANDIDATE FIELD IS READ AND THE ONE THAT LOOKS LIKE A SQLSTATE WINS — five characters,
+ * digits and capitals, which is the format's own shape. A client that reports it somewhere else
+ * again simply yields no code, and the call sites below fall back on the sentence.
+ */
+function databaseRefusal(error: unknown): { code: string; message: string } {
+  const carrier = error as Record<string, unknown> | null;
+  let code = '';
+  for (const field of ['errno', 'errcode', 'code'] as const) {
+    const value = carrier?.[field];
+    if (typeof value === 'string' && /^[0-9A-Z]{5}$/.test(value)) {
+      code = value;
+      break;
+    }
+  }
+  const message = typeof carrier?.message === 'string' ? carrier.message : String(error);
+  return { code, message };
 }
 
 /* -------------------------------------------------------------------------------- the factory */
@@ -524,6 +570,202 @@ export async function createLiveAdapter(opts: {
       return { ok: true, organizationId: String(json.organizationId ?? '') };
     },
 
+    /**
+     * THE DEPLOYED `update-organization`, called exactly as a browser client would.
+     *
+     * THE `kind` IS READ OFF THE WIRE AND VALIDATED AGAINST THE THREE THE FUNCTION CAN SEND. An
+     * unrecognised value becomes `refused` rather than being trusted, which is the direction that
+     * matters: AT-001.16 asserts the not-a-member kind and AT-001.36 the not-an-admin one, so a
+     * gateway error page or a future field rename must not be able to arrive wearing either label.
+     */
+    updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
+      const { status, json } = await callFunction('update-organization', { organizationId, name }, session, '203.0.113.7');
+      if (status < 400 && json.ok !== false) {
+        return {
+          ok: true,
+          organizationId: String(json.organizationId ?? organizationId),
+          name: String(json.name ?? ''),
+        };
+      }
+      const reason = String(json.reason ?? json.msg ?? `the deployed update-organization answered ${status}`);
+      const kind = json.kind;
+      const known = kind === 'not-a-member' || kind === 'not-an-admin' || kind === 'invalid-name';
+      return { ok: false, kind: known ? kind : 'refused', reason };
+    },
+
+    /* ------------------------------- the operator's surface, over SQL, as the operator ---------- */
+
+    /**
+     * AN ORGANISATION WITH NO MEMBERSHIP ROW — one insert, and the absence of the second insert is
+     * the whole content of this method.
+     *
+     * Both product paths write the organisation AND its admin membership inside one definer
+     * function, so neither can produce this state. See `_contract.ts` for why the Given AT-001.16
+     * and AT-001.36 need is unreachable without it.
+     */
+    createOrganizationAsOperator: async (name): Promise<OrganizationRow> => {
+      const created = await rows<{ id: string; name: string }>(
+        sql`insert into public.organizations (name) values (${name}) returning id, name`,
+      );
+      if (created.length !== 1) throw new Error(`the operator insert of organisation ${JSON.stringify(name)} returned no row`);
+      return { id: String(created[0].id), name: created[0].name };
+    },
+
+    /**
+     * THE OPERATOR'S DIRECT MEMBERSHIP GRANT — a plain insert, with the database's own refusals
+     * classified rather than swallowed.
+     *
+     * WHY THIS PATH IS THE ONE AT-001.37 NEEDS: it carries no edge function, no shared module and no
+     * TypeScript at all. "Any path attempts to grant it a per-NGO role" is a claim about paths
+     * nobody has written yet, and the only object that can hold on all of them is the trigger this
+     * leaf's migration lands. This method is how a test reaches that trigger directly.
+     *
+     * THE CLASSIFICATION IS SENTENCE-PRIMARY, WITH THE SQLSTATE AS AGREEMENT (gate-2 ruling R3).
+     * The sentence must match, AND the SQLSTATE must either be absent or be the one this leaf's
+     * migration raises — `42501` for the trigger refusing a non-NGO grantee, `23505` for the
+     * one-seat unique index refusing a second membership row, both measured on the slot stack
+     * (verify-first answer (d)). A SQLSTATE alone no longer mints a meaningful kind: an unrelated
+     * `42501` from some future policy, or an unrelated unique violation, would otherwise arrive
+     * wearing a label two acceptance criteria read as their refusal. A client that reports no
+     * SQLSTATE still classifies on the sentence; anything else is `refused`, never a meaningful kind.
+     */
+    grantMembershipAsOperator: async (organizationId, accountId, role): Promise<GrantMembershipOutcome> => {
+      try {
+        const inserted = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
+          sql`insert into public.org_memberships (org_id, account_id, role)
+              values (${organizationId}::uuid, ${accountId}::uuid, ${role}::public.org_role)
+              returning org_id as organization_id, account_id, role`,
+        );
+        if (inserted.length !== 1) throw new Error('the operator membership insert returned no row');
+        return {
+          ok: true,
+          membership: {
+            organizationId: String(inserted[0].organization_id),
+            accountId: String(inserted[0].account_id),
+            role: inserted[0].role,
+          },
+        };
+      } catch (error) {
+        const { code, message } = databaseRefusal(error);
+        if (/NGO accounts only/i.test(message) && (code === '' || code === '42501')) {
+          return { ok: false, kind: 'not-an-ngo-account', reason: message };
+        }
+        // THE INDEX'S OWN NAME, not the generic `duplicate key value` half it used to carry: an
+        // unrelated unique violation on this statement must land in `refused` rather than in the kind
+        // AT-001.17 reads as its structural refusal.
+        if (/org_memberships_one_seat_per_org_idx/i.test(message) && (code === '' || code === '23505')) {
+          return { ok: false, kind: 'org-already-seated', reason: message };
+        }
+        return { ok: false, kind: 'refused', reason: message };
+      }
+    },
+
+    /**
+     * THE SAME GRANT REACHED IN TWO STATEMENTS — one update, aimed at the organisation's single
+     * membership row, with the trigger's UPDATE half as the only thing that can refuse it.
+     *
+     * WHY IT IS A SEPARATE PATH: re-pointing changes no row COUNT, so the one-seat unique index
+     * never sees this write. The migration's own prose names the attack — a row inserted for an NGO
+     * account and then re-pointed at a volunteer — and gate-2 ruling R5 added this method because no
+     * test drove the binding that stops it.
+     *
+     * THE UPDATE IS AIMED BY ORGANISATION AND RETURNS THE ROW, so an update that matched nothing is
+     * `refused` with its own reason rather than reading as a silent success. The classification is
+     * sentence-primary with the SQLSTATE as agreement, the same rule the grant above follows
+     * (gate-2 ruling R3); a new account that never completed signup meets the trigger's OTHER branch
+     * — SQLSTATE `23503`, its own sentence — and lands in `refused`, which is the fixture's answer
+     * for it too.
+     */
+    repointMembershipAsOperator: async (organizationId, accountId): Promise<RepointMembershipOutcome> => {
+      try {
+        const updated = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
+          sql`update public.org_memberships set account_id = ${accountId}::uuid
+               where org_id = ${organizationId}::uuid
+           returning org_id as organization_id, account_id, role`,
+        );
+        if (updated.length !== 1) {
+          return { ok: false, kind: 'refused', reason: `no membership row exists in organisation ${organizationId} to re-point` };
+        }
+        return {
+          ok: true,
+          membership: {
+            organizationId: String(updated[0].organization_id),
+            accountId: String(updated[0].account_id),
+            role: updated[0].role,
+          },
+        };
+      } catch (error) {
+        const { code, message } = databaseRefusal(error);
+        if (/NGO accounts only/i.test(message) && (code === '' || code === '42501')) {
+          return { ok: false, kind: 'not-an-ngo-account', reason: message };
+        }
+        return { ok: false, kind: 'refused', reason: message };
+      }
+    },
+
+    /**
+     * A PROJECT, PROVISIONED BY THE OPERATOR — one insert, with its seat free.
+     *
+     * There is no product project-creation path in this repository at either tier, so this is the
+     * only way AT-001.32's Given is reached. `public.projects` reaches no Data API role at all
+     * (measured after reset — verify-first answer (f): zero catalog rows for `anon`, `authenticated`
+     * and `service_role`), so this is a direct database write and could not be anything else.
+     */
+    createProjectAsOperator: async (organizationId, name): Promise<ProjectRow> => {
+      const created = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
+        sql`insert into public.projects (org_id, name) values (${organizationId}::uuid, ${name})
+            returning id, org_id, name, assigned_volunteer_id`,
+      );
+      if (created.length !== 1) throw new Error(`the operator insert of project ${JSON.stringify(name)} returned no row`);
+      return {
+        id: String(created[0].id),
+        organizationId: String(created[0].org_id),
+        name: created[0].name,
+        assignedVolunteerId: created[0].assigned_volunteer_id === null ? null : String(created[0].assigned_volunteer_id),
+      };
+    },
+
+    /**
+     * ATTACH A VOLUNTEER, AS THE OPERATOR — and the guard trigger's refusal is classified rather
+     * than swallowed.
+     *
+     * The sentence and the SQLSTATE were measured on the slot stack (verify-first answer (d)):
+     * `projects refuses a second volunteer on project …: its single developer seat is held by
+     * account …`, SQLSTATE `42501`. The same probe recorded that releasing the seat to null is
+     * ALLOWED and that the seat still held the FIRST volunteer after the refusal — both of which the
+     * loop fixture mirrors.
+     *
+     * THE UPDATE IS AIMED BY PRIMARY KEY AND RETURNS THE ROW, so an update that matched nothing is
+     * `refused` with its own reason rather than reading as a silent success.
+     */
+    assignVolunteerAsOperator: async (projectId, accountId): Promise<AssignVolunteerOutcome> => {
+      try {
+        const updated = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
+          sql`update public.projects set assigned_volunteer_id = ${accountId}::uuid
+               where id = ${projectId}::uuid
+           returning id, org_id, name, assigned_volunteer_id`,
+        );
+        if (updated.length !== 1) return { ok: false, kind: 'refused', reason: `no project ${projectId} exists` };
+        return {
+          ok: true,
+          project: {
+            id: String(updated[0].id),
+            organizationId: String(updated[0].org_id),
+            name: updated[0].name,
+            assignedVolunteerId: updated[0].assigned_volunteer_id === null ? null : String(updated[0].assigned_volunteer_id),
+          },
+        };
+      } catch (error) {
+        const { code, message } = databaseRefusal(error);
+        // SENTENCE-PRIMARY, SQLSTATE AS AGREEMENT — gate-2 ruling R3, the same rule the membership
+        // grant above follows and for the same reason.
+        if (/single developer seat/i.test(message) && (code === '' || code === '42501')) {
+          return { ok: false, kind: 'seat-occupied', reason: message };
+        }
+        return { ok: false, kind: 'refused', reason: message };
+      }
+    },
+
     /* -------------------------------------------------------- read-back, as the operator, over SQL */
 
     account: async (accountId): Promise<AccountRow | null> => {
@@ -552,6 +794,19 @@ export async function createLiveAdapter(opts: {
       return found.length === 1
         ? { organizationId: String(found[0].organization_id), accountId: String(found[0].account_id), role: found[0].role }
         : null;
+    },
+
+    projectAssignment: async (projectId): Promise<ProjectRow | null> => {
+      const found = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
+        sql`select id, org_id, name, assigned_volunteer_id from public.projects where id = ${projectId}::uuid`,
+      );
+      if (found.length !== 1) return null;
+      return {
+        id: String(found[0].id),
+        organizationId: String(found[0].org_id),
+        name: found[0].name,
+        assignedVolunteerId: found[0].assigned_volunteer_id === null ? null : String(found[0].assigned_volunteer_id),
+      };
     },
 
     acknowledgments: async (accountId): Promise<AcknowledgmentRow[]> => {

@@ -23,6 +23,10 @@ import type {
   AccountType,
   CompleteSignupRequest,
 } from '../../../../supabase/functions/_shared/accounts.ts';
+// THE PER-ORGANISATION ROLE VOCABULARY, imported for the reason the header gives about every other
+// judgement type here: `OrgRole` is the shipped module's, the same one the rename edge function and
+// the database enum state, so the operator grant below cannot name a role the product does not have.
+import type { OrgAdminRefusalKind, OrgRole } from '../../../../supabase/functions/_shared/memberships.ts';
 
 export type {
   Clock,
@@ -39,7 +43,7 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-export type { AccountType, CompleteSignupRequest };
+export type { AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole };
 
 /* ------------------------------------------------------------------------- what gets read back */
 
@@ -60,6 +64,27 @@ export type MembershipRow = {
   organizationId: string;
   accountId: string;
   role: 'admin' | 'member';
+};
+
+/**
+ * One row of `public.projects` — and the single developer seat IS the shape of it.
+ *
+ * `assignedVolunteerId` is ONE nullable field, so a project holds at most one developer and there is
+ * no collaborator seat for a second to occupy. AT-001.32's "no collaborator seats" is therefore
+ * unrepresentable here rather than merely refused: a join table would have made it a rule, a field
+ * makes it a fact about the shape.
+ *
+ * PRODUCT PROJECT CREATION DOES NOT EXIST, at either tier, and this row does not imply it. Nothing
+ * in the tree creates a project; the table and this shape land so the single-developer invariant can
+ * be tested, and `hasPlatformAcknowledgment` is still the hook the leaf that lands project creation
+ * must call.
+ */
+export type ProjectRow = {
+  id: string;
+  organizationId: string;
+  name: string;
+  /** the single developer's account id, or `null` while the seat is free */
+  assignedVolunteerId: string | null;
 };
 
 /**
@@ -187,6 +212,76 @@ export type CompleteSignupOutcome =
   | { ok: false; reason: string };
 
 export type CreateOrganizationOutcome = { ok: true; organizationId: string } | { ok: false; reason: string };
+
+/**
+ * The outcome of the admin-only NGO-side action — renaming an organisation — and its refusal
+ * carries a KIND, not only a sentence.
+ *
+ * THE KIND IS THE ORACLE. AT-001.16 needs the refusal that says the caller is not in that
+ * organisation at all; AT-001.36 needs the refusal that says the caller IS in it and holds
+ * `member`. A single boolean, or a single reason string, would let one implementation satisfy both
+ * criteria while authorising from the wrong organisation's row. `OrgAdminRefusalKind` is imported
+ * from the shipped decision module rather than restated, so the two kinds a body asserts are the
+ * two kinds the product can produce.
+ *
+ * TWO KINDS THE SHIPPED DECISION DOES NOT PRODUCE ARE STILL HERE, and both are the adapter's
+ * honesty rather than product surface:
+ *   * `invalid-name` — the shared `validateOrganizationName` refused, before any role was consulted.
+ *   * `refused` — the adapter could not classify the refusal it received. It exists so a live
+ *     adapter facing an unexpected status reports "something refused and I do not know what" rather
+ *     than picking whichever meaningful kind happens to make a test pass.
+ */
+export type UpdateOrganizationOutcome =
+  | { ok: true; organizationId: string; name: string }
+  | { ok: false; kind: OrgAdminRefusalKind | 'invalid-name' | 'refused'; reason: string };
+
+/**
+ * The outcome of an OPERATOR granting a membership directly — used both to provision a Given and as
+ * the refusal probe two criteria read.
+ *
+ * THE THREE KINDS ARE THE DATABASE'S, not a decision module's, and that is the point of this method
+ * existing at all:
+ *   * `not-an-ngo-account` — the NGO-only membership trigger refused the grantee. AT-001.37's
+ *     "on every path" clause is about exactly this path: the operator's, with no TypeScript on it.
+ *   * `org-already-seated` — the one-seat unique index refused a second membership row in that
+ *     organisation. AT-001.17's structural arm.
+ *   * `refused` — anything else, unclassified, for the reason `UpdateOrganizationOutcome` gives.
+ */
+export type GrantMembershipOutcome =
+  | { ok: true; membership: MembershipRow }
+  | { ok: false; kind: 'not-an-ngo-account' | 'org-already-seated' | 'refused'; reason: string };
+
+/**
+ * The outcome of an OPERATOR re-pointing an existing membership row at a DIFFERENT account — the
+ * grant reached in two statements rather than one.
+ *
+ * IT EXISTS BECAUSE THE NGO-ONLY TRIGGER IS BOUND TO UPDATE AS WELL AS INSERT, and that binding is
+ * the only guard on this path: a row inserted for an NGO account and then re-keyed to a volunteer
+ * changes no row COUNT, so the one-seat index never sees it. AT-001.37 says "on every path", and an
+ * unexercised trigger binding is a path nobody drives. Gate-2 ruling R5 added it.
+ *
+ * TWO KINDS ONLY, and the missing one is deliberate:
+ *   * `not-an-ngo-account` — the trigger refused the new account, which is the arm under test.
+ *   * `refused` — anything else, unclassified: no membership row in that organisation to re-point,
+ *     an account that never completed signup, or a refusal this adapter cannot name.
+ * `org-already-seated` cannot arise here — re-pointing keeps the organisation's row count at one.
+ */
+export type RepointMembershipOutcome =
+  | { ok: true; membership: MembershipRow }
+  | { ok: false; kind: 'not-an-ngo-account' | 'refused'; reason: string };
+
+/**
+ * The outcome of an OPERATOR attaching a volunteer to a project — AT-001.32's act.
+ *
+ * `seat-occupied` is the database guard refusing to re-point a seat that is already held at a
+ * DIFFERENT account, which is what "attaching a second volunteer" means. Releasing the seat to null
+ * is not refused and is not tested here: offboarding belongs to another leaf, and a guard that
+ * refused it would be building that leaf's requirement early. `refused` is the unclassified case,
+ * for the reason `UpdateOrganizationOutcome` gives.
+ */
+export type AssignVolunteerOutcome =
+  | { ok: true; project: ProjectRow }
+  | { ok: false; kind: 'seat-occupied' | 'refused'; reason: string };
 
 /**
  * The outcome of an attempted Discovery message — and the refusal carries WHY, for the reason
@@ -466,6 +561,109 @@ export type AccountsSut = {
    * same way `completeSignup` does.
    */
   createOrganization(session: Session, organizationName: string): Promise<CreateOrganizationOutcome>;
+
+  /**
+   * `supabase/functions/update-organization` — THE ADMIN-ONLY NGO-SIDE ACTION, and the operation
+   * AT-001.16 and AT-001.36 are both graded through.
+   *
+   * IT TAKES THE ORGANISATION AS AN ARGUMENT, which is what makes it usable as an isolation oracle:
+   * one caller, three targets, three different answers. The same session renames the organisation it
+   * administers, is refused in the organisation where it holds `member`, and is refused in an
+   * organisation it holds no membership in — and the two refusals carry DIFFERENT kinds.
+   *
+   * WHAT A GREEN OVER IT CLAIMS, said narrowly because the criterion's words are wider. It claims
+   * OPERATION-SURFACE isolation: authority does not cross organisations on this action. It does NOT
+   * claim read isolation — "acting in NGO A never grants access to NGO B's data" over drafts,
+   * ledgers and files is the tenant-isolation deliverable's (`loop/decomp/req-001.md` D5.L1), which
+   * is blocked by this leaf and lands the policy set. This tree has no read surface to leak through:
+   * row-level security is on with zero policies and `org_memberships` reaches no Data API role.
+   */
+  updateOrganization(session: Session, organizationId: string, name: string): Promise<UpdateOrganizationOutcome>;
+
+  /* ------------------------------------ the operator's surface -------------------------------- */
+
+  /**
+   * Create an organisation WITH NO MEMBERSHIP ROW — an authority no product path holds, and the
+   * reason it exists is exact.
+   *
+   * EVERY PRODUCT PATH SEATS ITS CREATOR AS ADMIN: `complete_signup` does it for an NGO signup and
+   * `create_organization` does it for a second organisation. The single-seat invariant then refuses
+   * a second membership row in that organisation. So the Given AT-001.16 and AT-001.36 both need —
+   * one account holding DIFFERENT roles in two organisations — is unconstructible through product
+   * paths alone, not because the product is wrong but because the product is right. This method
+   * creates the unseated organisation the operator then seats the actor into as `member`, and mints
+   * the third organisation AT-001.16's not-a-member arm targets.
+   *
+   * IT IS AN OPERATOR ACT, exactly as `provisionPlatformAdmin` is: a direct database operation, not
+   * a service-role write, and no running service holds it. It THROWS on failure rather than
+   * returning an outcome, because a Given that could not be provisioned is a bug in the TEST and a
+   * polite refusal would read as a product answer three assertions later.
+   */
+  createOrganizationAsOperator(name: string): Promise<OrganizationRow>;
+
+  /**
+   * Grant a membership directly, as the operator — the provisioning act AND the refusal probe.
+   *
+   * IT IS BOTH, deliberately, and that is why it returns an outcome where
+   * `createOrganizationAsOperator` throws. Two criteria read its REFUSALS as the thing under test:
+   * AT-001.37 needs a direct grant to a volunteer account to be rejected on a path with no
+   * TypeScript on it, and AT-001.17 needs a second seat in an already-seated organisation to be
+   * rejected. Its successes are Givens; its refusals are evidence.
+   *
+   * NOTHING IN THE PRODUCT WRITES `'member'`, and that is by design rather than by omission — the
+   * single-seat invariant forbids invites, so no product path can mint a second member. The
+   * `member` half of the `org_role` enum exists for AT-001.36, and this is how that criterion's
+   * Given is reached. The body that uses it says so in its own evidence.
+   */
+  grantMembershipAsOperator(organizationId: string, accountId: string, role: OrgRole): Promise<GrantMembershipOutcome>;
+
+  /**
+   * Re-point an organisation's EXISTING membership row at a different account, as the operator —
+   * the refusal probe for the trigger's UPDATE half.
+   *
+   * THE ROLE IS NOT AN ARGUMENT, because the role is not what moves: the row keeps whatever role it
+   * holds and only its account changes. That is exactly the attack the migration names in its own
+   * prose — a row inserted for an NGO account and then re-keyed to a volunteer — and the read-back a
+   * body makes afterwards is that the row still holds the ORIGINAL account with its ORIGINAL role.
+   *
+   * IT IS A REFUSAL PROBE AND NOTHING ELSE, so it returns an outcome rather than throwing: no Given
+   * in this suite is reached by re-pointing a seat, and every body that calls it is asserting that
+   * the database said no.
+   */
+  repointMembershipAsOperator(organizationId: string, accountId: string): Promise<RepointMembershipOutcome>;
+
+  /**
+   * Create a project, as the operator — a GIVEN, never an act under test.
+   *
+   * NO PRODUCT PATH CREATES A PROJECT, at either tier, and this method does not pretend otherwise.
+   * AT-001.32's Given is "a project with an assigned volunteer", and the criterion is about the
+   * SECOND volunteer; reaching that state needs a project, and building product project creation to
+   * get one would be landing another requirement's surface early. It throws on failure, for the
+   * reason `createOrganizationAsOperator` throws.
+   */
+  createProjectAsOperator(organizationId: string, name: string): Promise<ProjectRow>;
+
+  /**
+   * Attach a volunteer to a project, as the operator — the Given AND the refusal probe, exactly as
+   * `grantMembershipAsOperator` is both.
+   *
+   * THE FIRST ATTACH IS THE GIVEN; THE SECOND IS THE ACT UNDER TEST. AT-001.32 says attaching a
+   * second volunteer is rejected, and the path this method drives is the one with no product code on
+   * it at all — which is what makes the refusal a property of the database rather than of a writer
+   * somebody could change.
+   */
+  assignVolunteerAsOperator(projectId: string, accountId: string): Promise<AssignVolunteerOutcome>;
+
+  /**
+   * The project as it stands, or `null` when there is no such project — the read-back a refused
+   * attach needs.
+   *
+   * IT RETURNS THE WHOLE ROW rather than the assigned id alone, and the difference is not cosmetic:
+   * a bare `string | null` cannot tell "the seat is free" from "there is no such project", and a
+   * body asserting the seat still holds the FIRST volunteer would then pass over a project that had
+   * been deleted.
+   */
+  projectAssignment(projectId: string): Promise<ProjectRow | null>;
 
   /* --------------------------- the Discovery gate's stand-in surface -------------------------- */
 

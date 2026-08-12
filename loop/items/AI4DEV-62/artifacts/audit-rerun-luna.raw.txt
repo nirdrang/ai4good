@@ -1,0 +1,31 @@
+Box 1 — adopted rulings: all PASS.
+
+C1 `c-membership...:82-165`, `_integration.ts:713-764`  
+C2 `_contract.ts:602`, `_fixture.ts:1078-1085`, `_live.ts:606-612,122`  
+C3 `_source-scan.ts:39-80`, called by both tiers  
+C4 migration `20260811130000...sql:123`  
+C5 `_fixture.ts:1107-1150`  
+C6 `_fixture.ts:1236-1253`  
+C7 `_fixture.ts:1051-1069`; no existence pre-check  
+C8 `_live.ts:648-659,699-702,758-765`  
+C9 migration `20260811125000...sql:146,150`  
+C10 `_contract.ts:620-633`, `_fixture.ts:1166-1193`, `_live.ts:679-703`  
+C11 `_integration.ts:970-973`  
+C12 `_integration.ts:975-990`  
+C13 `_pending.ts:2-16,45-67`; expected manifest totals 37  
+C14 migration filenames and diff show five unique stamps  
+C15 successful completion bodies carry `SIGNER`; intentional refusals are at the cited lines  
+C16 `c-membership-and-acknowledgment.test.ts:5-9`  
+C17 restricted `src` diff is empty
+
+Box 2 — scope: PASS. The restricted diff contains exactly the fourteen declared paths; no `src/`, `.github`, `package.json`, `bun.lock`, or `tsconfig.json` changes.
+
+Box 3 — stated code facts:
+
+F1 COULD-NOT-VERIFY. Static evidence supports the generated-file claim (`package.json:7`, `tsconfig.json`), but command write behavior requires executor verification. No tests or builds were run.
+
+F2–F6 PASS. Evidence is `supabase/config.toml`, the two migration files, and the restricted-tree search showing no product project creation or assignment path.
+
+No code defects found. Runtime evidence remains CI’s `verify` check for `4235a2e` and the recorded measurements named in the brief.
+
+AUDIT: CLEAN

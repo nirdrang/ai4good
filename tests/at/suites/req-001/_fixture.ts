@@ -208,6 +208,11 @@ import {
 // both deployed functions run on every authenticated request. This file decides WHICH sessions are
 // live, which is vendor bookkeeping; it never decides what a dead answer means.
 import { callerFromAuthAnswer, type Caller } from '../../../../supabase/functions/_shared/caller.ts';
+// THE SHIPPED PER-ORGANISATION ROLE JUDGEMENT — the ONE thing that decides whether an admin-only
+// NGO-side action is permitted in the target organisation. `update-organization` imports the same
+// function, so a loop-tier green over AT-001.16 and AT-001.36 grades the code that ships. This file
+// supplies the membership ROW it judges, which is storage; it never decides what a role means.
+import { orgAdminActionAllowed } from '../../../../supabase/functions/_shared/memberships.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
 // separate implementations the test would grade the fixture's copy and say nothing about what the
@@ -232,15 +237,20 @@ import type {
   AccountRow,
   AccountsSut,
   AcknowledgmentRow,
+  AssignVolunteerOutcome,
   CompleteSignupOutcome,
   CreateOrganizationOutcome,
+  GrantMembershipOutcome,
   MembershipRow,
   OrganizationRow,
+  ProjectRow,
   RefreshSessionOutcome,
+  RepointMembershipOutcome,
   SendDiscoveryMessageOutcome,
   Session,
   SessionProvider,
   SignInOutcome,
+  UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
 } from './_contract.ts';
@@ -374,6 +384,8 @@ interface State {
   organizations: Map<string, OrganizationRow>;
   /** `${organizationId}:${accountId}` -> row */
   memberships: Map<string, MembershipRow>;
+  /** project id -> row, mirroring `public.projects`'s primary key */
+  projects: Map<string, ProjectRow>;
   acknowledgments: StoredAcknowledgment[];
   /** account id -> the imported volunteer profile, mirroring `public.volunteer_profiles`'s primary key */
   volunteerProfiles: Map<string, VolunteerProfileRow>;
@@ -421,6 +433,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     accounts: new Map(),
     organizations: new Map(),
     memberships: new Map(),
+    projects: new Map(),
     acknowledgments: [],
     volunteerProfiles: new Map(),
     discoveryMessages: new Map(),
@@ -1013,6 +1026,235 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       return { ok: true, organizationId: organization.id };
     },
 
+    /**
+     * THE ADMIN-ONLY NGO-SIDE ACTION, at the loop tier — and every judgement on this path is the
+     * shipped module's.
+     *
+     * WHO IS CALLING comes from `callerFromAuthAnswer`, the role comes from the membership row IN
+     * THE TARGET ORGANISATION, and whether that role may act comes from `orgAdminActionAllowed`.
+     * The refusal's KIND and its sentence are carried through unchanged, because the bodies assert
+     * the kind — restating it here would make the tests grade this file instead of the module the
+     * deployed function imports.
+     *
+     * THE ORDER MIRRORS THE DEPLOYED FUNCTION: caller, then the role in the target organisation,
+     * then the name. Authorisation before validation, exactly as `create-organization` has it, so a
+     * caller with no standing learns nothing about whether its name would have been accepted.
+     *
+     * AN UNKNOWN ORGANISATION IS NOT A CASE OF ITS OWN, and that is the deployed function's own
+     * behaviour rather than a simplification. Its membership read finds no row for an organisation
+     * that does not exist, so the decision it consults is `orgAdminActionAllowed(null)` and the
+     * answer is the not-a-member refusal. This file used to answer `refused` here, which no live
+     * surface produces; gate-2 ruling R2c removed the pre-check, and its removal condition (v1) was
+     * measured on slot 2 first — the deployed function answered HTTP 403 kind `not-a-member` for a
+     * well-formed random uuid, recorded in `artifacts/gate2-verify-answers.md`.
+     */
+    updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
+      const caller = resolveCaller(session);
+      // `refused` rather than a meaningful kind: a dead session is not a statement about roles at
+      // all, and no body drives this path. Classifying it as one of the two role kinds would put a
+      // refusal the session layer produced under a label two acceptance criteria read.
+      if (caller === null) return { ok: false, kind: 'refused', reason: DEAD_SESSION_REASON };
+
+      const membership = state.memberships.get(membershipKey(organizationId, caller.id));
+      const allowed = orgAdminActionAllowed(membership?.role ?? null);
+      // NOTHING ABOVE THIS LINE HAS MUTATED STATE, which is what makes the bodies' read-backs after a
+      // refusal measure a real property rather than this file's good intentions.
+      if (!allowed.ok) return { ok: false, kind: allowed.kind, reason: allowed.reason };
+
+      const validated = validateOrganizationName(name);
+      if (!validated.ok) return { ok: false, kind: 'invalid-name', reason: validated.reason };
+
+      state.organizations.set(organizationId, { id: organizationId, name: validated.value });
+      return { ok: true, organizationId, name: validated.value };
+    },
+
+    /**
+     * THE OPERATOR'S UNSEATED ORGANISATION — the one thing no product path can produce.
+     *
+     * It writes an organisation row and NO membership row. See `_contract.ts` for why the Given
+     * AT-001.16 and AT-001.36 need is unreachable without it: every product path seats its creator,
+     * and the one-seat index then refuses a second row.
+     */
+    createOrganizationAsOperator: async (name) => {
+      const validated = validateOrganizationName(name);
+      // A THROW, not an outcome: a Given that could not be provisioned is a bug in the TEST, and a
+      // polite refusal would read as a product answer several assertions later.
+      if (!validated.ok) throw new Error(`fixture: an operator cannot create an organisation named ${JSON.stringify(name)} — ${validated.reason}`);
+      const organization: OrganizationRow = { id: nextId('org'), name: validated.value };
+      state.organizations.set(organization.id, organization);
+      return clone(organization);
+    },
+
+    /**
+     * THE OPERATOR'S DIRECT MEMBERSHIP GRANT — and the two refusals below MIRROR THE DATABASE, which
+     * is this file's whole exposure on this leaf.
+     *
+     * There is no shipped module to defer to here: the rules are a BEFORE trigger and a unique
+     * index, and a TypeScript module cannot supply either. So these two branches are a hand-written
+     * PREDICTION of `public.org_memberships`'s constraints, and the plan says so openly. The
+     * integration tier is what grades the prediction — both tiers run at the goal step, so a
+     * divergence between this file and the database fails there rather than shipping.
+     *
+     * THE ORDER IS THE DATABASE'S ORDER, and it is load-bearing rather than arbitrary. The BEFORE
+     * trigger's own two branches come FIRST — before the organisation foreign key and before the
+     * one-seat index — because a BEFORE ROW trigger runs before any constraint is consulted. So a
+     * grant into a nonexistent organisation with a non-NGO grantee is refused for the GRANTEE, and a
+     * non-NGO grantee offered into an already-seated organisation is refused for being non-NGO.
+     * Getting the order any other way round would make the two surfaces answer different kinds for
+     * the same input — the divergence gate 2 found (ruling R2a), where the organisation check used
+     * to run first.
+     */
+    grantMembershipAsOperator: async (organizationId, accountId, role): Promise<GrantMembershipOutcome> => {
+      // THE NGO-ONLY TRIGGER, mirrored, and it is FIRST because the trigger is. AT-001.37: per-NGO
+      // roles are NGO accounts only, on every path — a volunteer and a platform administrator are
+      // both refused, and an account that never completed signup has no type to be NGO with.
+      const account = state.accounts.get(accountId);
+      if (!account) {
+        // `refused` rather than `not-an-ngo-account`: no account row is a different fact from an
+        // account of the wrong type, and no criterion reads it. The database's own refusal for this
+        // case is the trigger's other branch, measured in the item's verify-first answers (b).
+        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
+      }
+      if (account.accountType !== 'ngo') {
+        return {
+          ok: false,
+          kind: 'not-an-ngo-account',
+          reason:
+            `a per-organisation role may be granted to NGO accounts only — account ${accountId} is of type ` +
+            `${JSON.stringify(account.accountType)}`,
+        };
+      }
+
+      // THE ORGANISATION FOREIGN KEY, mirrored, and it comes after the trigger for the reason above.
+      if (!state.organizations.has(organizationId)) {
+        return { ok: false, kind: 'refused', reason: `no organisation ${organizationId} exists` };
+      }
+
+      // THE ONE-SEAT INDEX, mirrored: a unique index on `org_id` alone, which is strictly stronger
+      // than the composite primary key. One organisation holds at most one membership row, whoever
+      // it belongs to, so there is no second seat to invite anybody into. Its order against the
+      // organisation check above cannot diverge — a seated organisation exists.
+      const seated = [...state.memberships.values()].find((row) => row.organizationId === organizationId);
+      if (seated) {
+        return {
+          ok: false,
+          kind: 'org-already-seated',
+          reason:
+            `organisation ${organizationId} already holds its single seat (account ${seated.accountId}) — ` +
+            'a v1 NGO is single-seat, so no second member can be added',
+        };
+      }
+
+      const membership: MembershipRow = { organizationId, accountId, role };
+      state.memberships.set(membershipKey(organizationId, accountId), membership);
+      return { ok: true, membership: clone(membership) };
+    },
+
+    /**
+     * THE SAME GRANT REACHED IN TWO STATEMENTS — and this branch MIRRORS THE DATABASE too, for the
+     * same reason `grantMembershipAsOperator` does: the rule is a trigger, not a module.
+     *
+     * THE TRIGGER IS BOUND TO UPDATE AS WELL AS INSERT, which is what refuses here. Re-pointing does
+     * not change the organisation's row COUNT, so the one-seat index never sees this write and the
+     * trigger's UPDATE half is the only guard on it (gate-2 ruling R5).
+     *
+     * THE ORDER IS THE DATABASE'S ORDER. An update aimed at an organisation with no membership row
+     * matches nothing, so it fires no trigger and refuses; the BEFORE trigger then runs before the
+     * account foreign key, so a new account that never completed signup is refused for having no
+     * account type, and a new account of the wrong type is refused for being non-NGO.
+     */
+    repointMembershipAsOperator: async (organizationId, accountId): Promise<RepointMembershipOutcome> => {
+      const seated = [...state.memberships.values()].find((row) => row.organizationId === organizationId);
+      if (!seated) {
+        return { ok: false, kind: 'refused', reason: `no membership row exists in organisation ${organizationId} to re-point` };
+      }
+
+      const account = state.accounts.get(accountId);
+      if (!account) {
+        // `refused`, not `not-an-ngo-account`, for the reason the grant above gives: no account row
+        // is a different fact from an account of the wrong type, and the database says so in its own
+        // sentence.
+        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
+      }
+      if (account.accountType !== 'ngo') {
+        return {
+          ok: false,
+          kind: 'not-an-ngo-account',
+          reason:
+            `a per-organisation role may be granted to NGO accounts only — account ${accountId} is of type ` +
+            `${JSON.stringify(account.accountType)}`,
+        };
+      }
+
+      // THE ROW IS RE-KEYED, NOT DUPLICATED: the role travels with it, and the old key goes.
+      const repointed: MembershipRow = { organizationId, accountId, role: seated.role };
+      state.memberships.delete(membershipKey(organizationId, seated.accountId));
+      state.memberships.set(membershipKey(organizationId, accountId), repointed);
+      return { ok: true, membership: clone(repointed) };
+    },
+
+    /**
+     * A PROJECT, PROVISIONED BY THE OPERATOR — with its seat free, which is the only state a
+     * created project can be in.
+     *
+     * Nothing in this tree creates a project through a product path, at either tier. This is the
+     * Given AT-001.32 needs and nothing more; it does not validate the organisation's own state and
+     * it does not check who is asking, because there is no caller.
+     */
+    createProjectAsOperator: async (organizationId, name) => {
+      if (!state.organizations.has(organizationId)) {
+        throw new Error(`fixture: no organisation ${organizationId} to create a project in`);
+      }
+      const trimmed = name.trim();
+      if (trimmed === '') throw new Error('fixture: a project needs a non-empty name');
+      const project: ProjectRow = { id: nextId('project'), organizationId, name: trimmed, assignedVolunteerId: null };
+      state.projects.set(project.id, project);
+      return clone(project);
+    },
+
+    /**
+     * ATTACH A VOLUNTEER — and the refusal below MIRRORS THE DATABASE's guard trigger, which is the
+     * same exposure `grantMembershipAsOperator` carries and is stated in the plan for the same
+     * reason: there is no shipped module to defer to, because the rule is a trigger and a column.
+     *
+     * WHAT IS REFUSED IS A REPLACEMENT, AND NOTHING ELSE. Attaching the first volunteer is the
+     * assignment; re-writing the SAME account id is a no-op and stays allowed, because refusing an
+     * idempotent write would make it look like a second developer; releasing the seat to null is
+     * offboarding's, which belongs to another leaf. Measured on the slot stack — the release to null
+     * is recorded ALLOWED in the item's verify-first answers, answer (d).
+     *
+     * NO ACCOUNT-TYPE CHECK, deliberately. Whether the attached account is of type `volunteer` and
+     * whether it was matched to this project is the matching requirement's concern; AT-001.32 is
+     * about the SECOND volunteer, and a check here would be an untested requirement.
+     *
+     * THE ORDER IS THE DATABASE'S ORDER (gate-2 ruling R2b). An update aimed at a project that does
+     * not exist matches no row, so it fires nothing and refuses; the guard trigger then runs BEFORE
+     * the account foreign key, so an occupied seat re-pointed at an account that does not exist is
+     * refused for the SEAT. The account check used to run first, which answered `refused` where the
+     * database answers `seat-occupied`.
+     */
+    assignVolunteerAsOperator: async (projectId, accountId): Promise<AssignVolunteerOutcome> => {
+      const project = state.projects.get(projectId);
+      if (!project) return { ok: false, kind: 'refused', reason: `no project ${projectId} exists` };
+      if (project.assignedVolunteerId !== null && project.assignedVolunteerId !== accountId) {
+        return {
+          ok: false,
+          kind: 'seat-occupied',
+          reason:
+            `project ${projectId} refuses a second volunteer: its single developer seat is held by account ` +
+            `${project.assignedVolunteerId}`,
+        };
+      }
+      if (!state.accounts.has(accountId)) {
+        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
+      }
+      const assigned: ProjectRow = { ...project, assignedVolunteerId: accountId };
+      state.projects.set(projectId, assigned);
+      return { ok: true, project: clone(assigned) };
+    },
+
+    projectAssignment: async (projectId) => clone(state.projects.get(projectId) ?? null),
+
     account: async (accountId) => clone(state.accounts.get(accountId) ?? null),
     organization: async (organizationId) => clone(state.organizations.get(organizationId) ?? null),
     membership: async (organizationId, accountId) => clone(state.memberships.get(membershipKey(organizationId, accountId)) ?? null),
@@ -1076,6 +1318,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.accounts.clear();
       state.organizations.clear();
       state.memberships.clear();
+      state.projects.clear();
       state.acknowledgments.length = 0;
       state.volunteerProfiles.clear();
       state.discoveryMessages.clear();

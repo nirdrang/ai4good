@@ -467,14 +467,17 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
-# REQ-001's two edge functions. One block each, and `verify_jwt` is STATED rather than inherited:
-# both operate on behalf of an already-authenticated caller, and a default that changed underneath
-# us would silently open a public write path. Writing it down means a change to the default shows up
-# as a diff rather than as a behaviour nobody chose.
+# REQ-001's three edge functions. One block each, and `verify_jwt` is STATED rather than inherited:
+# all three operate on behalf of an already-authenticated caller, and a default that changed
+# underneath us would silently open a public write path. Writing it down means a change to the
+# default shows up as a diff rather than as a behaviour nobody chose.
 [functions.complete-signup]
 verify_jwt = true
 
 [functions.create-organization]
+verify_jwt = true
+
+[functions.update-organization]
 verify_jwt = true
 
 [analytics]
