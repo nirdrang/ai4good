@@ -11,16 +11,26 @@ redesign. This item resumes after that item lands.
 
 **Phase at park time.** The audit panel ran with two readers, `gpt-5.6-luna` and
 `opencode-go/deepseek-v4-flash`. The panel found 7 findings in total (luna found 3, flash found
-4, one pair converged into a single ruling). The audit sitting ruled 6 findings accepted and 1
-rejected. All 6 accepted fixes were applied. See `audit-rulings.md` for the full record.
+4). Luna [3] and flash [2] converged on one defect and were ruled as a single finding, giving 6
+rulings in total. All 7 panel findings are ruled, all 6 rulings are ACCEPT, and zero are
+rejected. Every accepted fix is applied. See `audit-rulings.md` for the full record.
 
 **Verified head at park time.** Commit `284edb6`, branch
 `nirdrang/ai4dev-82-window-guard-at-the-sitting-boundary-park-before-the-wall`. The tree is
 clean. The remote agrees with local head.
 
 **What was NOT done.**
-- The once-per-item audit panel re-run was never run and never decided. This item's own
-  contract requires that re-run after any audit-driven fix, before anything can move to merge.
+- The once-per-item audit panel re-run itself was NOT executed, and the rebuilt claim checklist
+  for that re-run was NOT written into this file — the founder's stand-down arrived before that
+  could happen. The re-run WAS decided, and the decision IS recorded, in
+  `audit-rulings.md` under "Consequence — the audit re-run": because the fixes were
+  substantive (verification code plus a contract file, `shared-invariants.md`), the WHOLE PANEL
+  (both readers, luna and flash) must re-run ONCE at head `284edb6`, scoped to the fix delta
+  `git diff d881b31...284edb6` within the item's code territory, plus the scope box checked
+  against the full file list. Per this item's contract, that re-run sitting runs on
+  orchestrator-opus. The rebuilt checklist that resumption must write needs claims for the six
+  audit rulings by id, claim 2 now true as stated, claim 15's comparison now complete, claim 32's
+  invariants text narrowed, and claim 33's third clause corrected per Ruling 6.
 - CI was never armed on this final head.
 - No merge sitting ran.
 - The stale PR #56 body issue is still open. An earlier sitting flagged that the PR body still
