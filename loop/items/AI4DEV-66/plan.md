@@ -479,6 +479,10 @@ acceptance file's 37 P0 ids; and the counts in `_pending.ts`'s header still sum 
 
 ### Slice 2 - the grants (AI4DEV-67: AT-001.23, AT-001.40, AT-001.24)
 
+**READ THE SECTION "Slice 2 - the DRAFT SITTING's dictations" BEFORE STEP 11.** It sits immediately
+after step 18. It settles eight questions steps 11 to 18 leave to the writer, and each dictation
+names the step it binds. A step read without its dictation is a step read incomplete.
+
 **11. Ship SLICE 2's migration.** One file,
 `supabase/migrations/<stamp>_tenant_visibility_volunteer_and_admin.sql`: the
 `viewer_is_platform_admin()` helper under decision C's dictated posture, the assigned-volunteer
@@ -553,6 +557,275 @@ search phrase finds it. The corrected comment KEEPS the original measurement as 
 date it stopped being true.
 *Done:* a search for "zero policies", "no read surface", "reaches no Data API role" and "zero
 catalog rows" returns nothing that is still false.
+
+---
+
+## Slice 2 - the DRAFT SITTING's dictations, 2026-08-13
+
+Written by the DRAFT sitting for slice 2, orchestrator on **opus @ max**, 2026-08-13, under the
+founder's model ruling for this run. Steps 11 to 18 were written before slice 1 existed. Slice 1 now
+exists and it answers some of what those steps assumed, and it raises questions they do not cover.
+Each dictation below names the step it binds. **These are decisions, not suggestions.** They are
+recorded here rather than in an executor brief because the amended plan is what gets built - there
+is no second plan and no brief.
+
+### S2-A. The route registry SHIPS in the shared module directory; its arm reads file names only
+
+**Binds step 15.**
+
+The registry is `supabase/functions/_shared/route-visibility.ts`, under the same two constraints
+`visibility.ts` states of itself: zero non-relative imports, no `Deno` global, no I/O, no clock. It
+holds two things and nothing else:
+
+1. `ROUTE_VISIBILITY` - the declaration. Each route names itself `public` or `authenticated`, and an
+   `authenticated` route names its redirect target.
+2. `undeclaredRoutes(routeFileNames: readonly string[])` - PURE, over a list of names, returning the
+   names that carry no declaration. A registry that cannot say what is missing is a list, not a
+   registry, so the rule lives with the declaration.
+
+**Why it ships rather than living in `tests/`.** A route's classification is product behaviour - it
+is the thing a router must obey - and a test file cannot be the authority on product behaviour.
+`supabase/functions/_shared/` is the one place in this repository that holds shipped,
+territory-neutral TypeScript, and a later `src/`-only pull request can import from it without
+crossing the continuous-integration territory guard (fact 6). That is what makes the declaration
+usable by the router on the day the screens land.
+
+**The residual, and the merge ruling states it.** Nothing imports the registry today, and nothing
+enforces that a future router obeys it - there is no router. What it buys is a declaration in
+product code and a test that fails when a route arrives undeclared. It is not a redirect that runs.
+
+**A ROUTE FILE IS ANY `.tsx` FILE UNDER `src/routes/` WHOSE BASE NAME DOES NOT BEGIN WITH `__`.**
+The leading double underscore is this router's convention for a layout rather than a route, and
+`src/routes/__root.tsx` is the one such file today. `README.md` is not a route because it is not
+`.tsx`.
+
+**`src/routeTree.gen.ts` IS DROPPED FROM THIS ARM, and that is a narrowing of step 15 with its
+reason.** That file is GENERATED from the very file names the arm reads, so reading both is reading
+one fact twice. The risk a second witness would cover - a route present in the generated tree and
+absent from `src/routes/` - cannot occur, because the generator derives the tree from the files.
+`_source-scan.ts` reads both because it hunts for a NAME anywhere, including a hand-edited path;
+this arm asks a different question. No coverage is lost.
+
+**The arm and its failure case:**
+
+- `tests/at/suites/req-001/_route-scan.ts` reads the real `src/routes/` and calls
+  `undeclaredRoutes`. It THROWS when it cannot read the directory and when the directory is empty -
+  `_source-scan.ts`'s exact posture, and this repository's re-measure-a-negative invariant. It never
+  reports an absence it could not measure.
+- `tests/at/harness/shipped-route-visibility.selftest.ts` drives the PURE function with synthetic
+  lists: a list holding an undeclared route (which must be reported), the real declared set (which
+  must be clean), a layout file (which must be ignored), and a non-`.tsx` file (which must be
+  ignored). **This is what makes step 15's "the failure case is exercised, not asserted" true**, and
+  it is possible only because the pure half lives in the shipped module rather than in the suite.
+
+### S2-B. The catalog declaration lives TEST-SIDE, beside `_source-scan.ts`
+
+**Binds step 16, and narrows decision E's word "shipped" with a stated reason.**
+
+Decision E says "The declared lists are shipped code". For the ROUTE registry that word is right
+(S2-A). For the CATALOG lists it is not, and pretending otherwise would put non-product code in a
+product directory to satisfy a word. No edge function needs to know which tables are tenant-isolated
+and none ever will.
+
+**And the two homes are equal in force, which is why honesty decides it.** A new table in a
+migration has no compile-time link to any list, in either home. The signal that a table is
+undeclared is the conformance arm failing at integration tier, and that works identically wherever
+the lists sit. So the lists and the conformance rule live in
+`tests/at/suites/req-001/_catalog-conformance.ts`, beside `_source-scan.ts`, which is the file step
+15 already names as the model for an out-of-band oracle.
+
+**The shape, so the failure cases are exercisable:** the module exports the two declared lists and a
+PURE `catalogConformanceProblems(catalog: readonly CatalogTable[])` implementing decision E's three
+checks exactly as gate-1 ruling 8 dictates them. `tests/at/harness/shipped-catalog-conformance.selftest.ts`
+drives that pure function with synthetic catalogs: a table in neither list, a table in both, a table
+in `unreachableByClientRoles` that holds a `select` grant AND a policy reaching a client role, a
+table in `tenantIsolated` whose `select` policy `qual` is `true`, a table in `tenantIsolated` whose
+`qual` names no known predicate and no tenant key column, and the real declared set shaped as the
+migrations leave it. **The two arms of check 2 each get their own case**, because gate-1 addition B
+records that an arm testing grants alone would have classified `public.accounts` as reachable.
+
+**WHAT CANNOT BE PROVED AT THIS HEAD, and the executor must not claim it.** Step 16's third
+done-criterion - "it passes on the real list" - needs the LIVE catalog. `publicSchemaCatalog` throws
+at loop tier by design, and the integration tier is blocked (section 1 of `PHASE-STATE.md`). So the
+first two done-criteria are met by the selftest and the third is BLOCKED. Say that; do not claim it.
+
+**THE CONSUMER IS `at00121`, AT-001.21's INTEGRATION BODY.** The claim the arm defends is
+AT-001.21's own: its per-id row says the green claims isolation "over every kind of tenant data that
+exists", and the arm is what proves the set of kinds that exist is the declared set. AT-001.40's
+claim is about a viewer's reach, not about the completeness of the table set, so it is the weaker
+fit. Slice 2 therefore amends a slice-1 body, deliberately and once; slice 2's integration run
+re-runs AT-001.21 anyway (step 11).
+
+### S2-C. The loop fixture's Data API mirror MUST gain slice 2's policy branches
+
+**Binds step 17, and it is required work that step 17's wording does not obviously reach.**
+
+`_fixture.ts`'s `dataApiRead` filters on membership alone, because that is what slice 1's migration
+grants. Slice 2's migration adds two more branches, and without the mirror gaining them **AT-001.23's
+fourth arm and AT-001.40's second arm cannot pass at loop tier**: a volunteer is seated in no
+organisation and an administrator is seated in no organisation, so both would read an empty list.
+
+**THE MIRROR MIRRORS THE SQL, STATEMENT BY STATEMENT. It does NOT delegate to `tenantReadAllowed`,
+and gate-2 ruling 2 is why.** The two rules genuinely differ - `viewer_is_org_member` admits any
+account holding a membership row, while `tenantReadAllowed`'s organisation branch also requires an
+NGO account type - so a delegate would be a wrong mirror wearing the word "shipped". Each new
+predicate is mirrored on its own:
+
+- the platform-admin branch reads the CALLER'S ACCOUNT TYPE out of the fixture's own account store,
+  the way `public.viewer_is_platform_admin()` reads `public.accounts`, and admits every row of all
+  four tables;
+- the assigned-volunteer branch on `projects` admits a row whose assigned developer is the caller,
+  the way the new policy's `qual` does;
+- the branches are OR'd with slice 1's membership branch, never replacing it, because several
+  permissive `select` policies on one table are OR'd.
+
+The comment above the member is updated to name all three branches and to keep its existing sentence
+that the integration tier is the only thing that grades the prediction and has not run.
+
+### S2-D. `dataApiRead` widens to `Session | null`, and AT-001.24 asserts both logged-out shapes
+
+**Binds steps 14 and 17.**
+
+AT-001.24's subject is a visitor who never signed in. `publicProjectPage` already takes
+`Session | null` and its own comment gives the reason in these words: a member that could only be
+called with a session could not express the clause at all. The same reason applies here, so
+`dataApiRead(session: Session | null, probe: DataApiProbe)`.
+
+- **Fixture:** a `null` session answers `{ status: 401, rows: null }` - the same answer a dead
+  session gets, and for the same reason, which the comment states: the migrations grant `anon`
+  nothing, so the refusal is the PRIVILEGE layer and not a policy.
+- **Live adapter:** a `null` session sends `apikey: slot.anonKey` and NO `Authorization` header, so
+  PostgREST resolves the request to `anon`. Fact 8 records the measurement this mirrors -
+  AT-001.17's second arm already asserts that the publishable key alone answers 401
+  `permission denied` on `org_memberships`.
+- Every existing call site passes a `Session`, which is assignable, so nothing else changes.
+
+**AT-001.24 asserts BOTH logged-out shapes and asserts they agree**: the caller that never signed in
+(`null`) and the caller that signed out (a session `signOut` has ended). A revoked token must not be
+treated as a live one, and the criterion's visitor is the first shape.
+
+**THE TWO AUTHENTICATED FUNCTIONS ARE NOT WIDENED**, and the reason is written in the body: both
+declare `verify_jwt = true`, so the gateway answers 401 for a missing token and for a revoked one
+alike, and the fixture already answers 401 through `tenantUnauthenticated()` on a caller that does
+not resolve. AT-001.24 drives them with a signed-out session. **The residual is named in the body:**
+a request carrying no `Authorization` header at all is not expressible through those two members,
+and at this tier nothing distinguishes the two refusals.
+
+### S2-E. Gate-2 ruling 4 binds every new body slice 2 writes
+
+**Binds steps 12, 13 and 14.**
+
+Slice 1 closed six vacuous-pass seams of the form
+`expect(x).toMatchObject({ ok: true }); if (!x.ok || x.organizationId === null) return;`, where a
+completion answering `ok: true` with no organisation ends the body as a silent PASS with every arm
+skipped. **Slice 2's bodies must not re-introduce it.** At every narrowing `return` a new body adds,
+the shape is gate-2 ruling 4's:
+
+```ts
+expect(a, '<what its failure means for THIS body>').toMatchObject({ ok: true });
+expect(
+  a.ok ? a.organizationId : null,
+  '<what its absence means for THIS body - name the arms that would be skipped>',
+).not.toBeNull();
+if (!a.ok || a.organizationId === null) return;
+```
+
+Each site's message names its own body's stake. Do not copy one message across sites. The rule
+generalises beyond `organizationId`: **any narrowing `return` a new body adds must be preceded by an
+assertion that the run never reaches it.**
+
+### S2-F. AT-001.40's reach is attributable through the NON-ADMIN control, not through a basis field
+
+**Binds step 13.**
+
+`TenantReadBasis` exists so the grant's reason is carried out of the decision, and
+`shipped-visibility.selftest.ts` is the consumer that reads it. **The acceptance surface does not
+carry it**: `TenantReadOutcome` is `{ ok: true; status; value }` or `{ ok: false; status; body }`,
+and its own header gives the reason - the claim under test is that two whole answers are identical,
+and an outcome carrying more fields would invite a weaker assertion.
+
+**So the executor does NOT add a basis field to `TenantReadOutcome` or to any projection.** Widening
+a product surface for a test's convenience is the defect, not the fix. AT-001.40's reach is made
+attributable exactly as step 13 already says: TWO different tenants read by one administrator, and a
+NON-ADMIN repeating one of those reads and being refused. Without the third arm the body would prove
+only that somebody read something.
+
+### S2-G. Step 18's list, re-measured against the tree at head `64e4ef7`
+
+**Binds step 18.** Step 18 was written before slice 1 ran. Three of its targets have moved.
+
+**ALREADY DONE - DO NOT TOUCH.** Gate-1 ruling 11's target, the `public.projects` reachability
+comment in `_live.ts`, was corrected during slice 1. It now sits near line 876 under the heading
+"WHAT THE ORIGINAL MEASUREMENT SAID, AND THE DATE IT STOPPED BEING TRUE", keeps the original
+measurement as history, and names 2026-08-12 and the migration. Nothing is owed there.
+
+**STILL OUTSTANDING - these are step 18's real work:**
+
+1. `tests/at/suites/req-001/_contract.ts` lines 718-719, on `updateOrganization`: "This tree has no
+   read surface to leak through: row-level security is on with zero policies and `org_memberships`
+   reaches no Data API role." Every clause is now false.
+2. `tests/at/suites/req-001/_integration.ts` lines 710-711, the same sentence in AT-001.16's note.
+3. **NEW, and neither the plan nor gate 1 named it:** `tests/at/suites/req-001/_source-scan.ts`
+   line 6 says AT-001.17's other arms test that "the membership table reaches no client role".
+   `authenticated` IS a client role and now holds `select` on `public.org_memberships`. What that
+   arm actually asserts is narrower - the publishable key answers 401 - and the sentence must say
+   the narrower thing.
+4. **NEW, and it is MINE:** `supabase/functions/_shared/visibility.ts` lines 147-149 say "THE
+   PLATFORM-ADMIN BRANCH CARRIES NO TEST IN THIS SLICE ... AT-001.40 exercises it in the slice that
+   ships its policy." Slice 2 IS that slice, so the sentence stops being true the moment AT-001.40
+   lands. It is corrected to say what now drives that branch and at which tier.
+5. **NEW, and it is MINE:** `supabase/functions/_shared/visibility.ts` lines 100-107 say the basis
+   is what makes AT-001.40's reach distinguishable from an ordinary read. That is true of
+   `shipped-visibility.selftest.ts`, which reads the basis, and MISLEADING about AT-001.40, which
+   cannot see it (S2-F). The paragraph names its real consumer and states that the acceptance
+   surface deliberately does not carry the basis.
+
+**DELIBERATELY NOT TOUCHED, so a later reader sees these were ruled rather than missed:**
+
+- `supabase/migrations/20260811130000_single_seat_org_and_single_developer_projects.sql` line 23
+  says of `public.projects` that "the table reaches no Data API role at all". **A migration records
+  what IT did when it ran, and slice 1's migration already names the reversal in its own comment** -
+  which is the posture gate-1 addition A established for exactly this case. Editing an applied
+  migration's prose to describe a later migration's effect would destroy that record.
+- `supabase/migrations/20260812120000_tenant_isolation_policy_set.sql` lines 12-19, 121 and 169-170
+  refer to "the next slice". They were written as forward references, the referent now exists, and a
+  forward reference that came true is not a false statement. Leave them.
+
+**The search that closes step 18 gains two phrases:** "reaches no client role" and "no client role",
+alongside the four it already names.
+
+### S2-H. What this DRAFT sitting's executor runs, and what it must never claim
+
+**Binds every step.**
+
+**RUN, ONCE, AT THE END, and report the result whatever it is:** `bun run typecheck`,
+`bun run at:check req-001`, `bun run at:selftest`, `bun run at:verify req-001 --tier loop --expect`.
+
+`at:check` is not optional - a non-bijective declaration exits 2 with NOTHING graded, so a draft
+that left the manifest broken would hand both code readers a diff no one can reason about. The loop
+run happens because step 17 MOVES the declaration, and a moved declaration whose run nobody made is
+a claim with nothing behind it.
+
+**ONE goal iteration, and no more.** The draft exists to be critiqued, not to be polished. If the
+loop tier is not an exact match after one pass, the executor reports the deviation in full - which
+ids, which direction - and stops. It does not spend the sitting chasing green; the goal belongs to
+the fix-and-goal sitting after the code gate.
+
+**NEVER, at any point:**
+
+- **No integration-tier run.** The block stands (`PHASE-STATE.md` section 1) and one attempt is
+  spent. No container is started, stopped, rebuilt or reconfigured. No port is changed. No
+  `supabase/config.toml` edit for the stack. No `AT_DB_SLOT` override. **`supabase db reset` is
+  never run, directly or through any wrapper** (gate-1 ruling 10).
+- **No `src/` change.** Continuous integration fails any pull request whose file list matches both
+  `^src/` and this change's territory (fact 6). The route arm READS `src/routes/` and writes
+  nothing there.
+- **No change to `callFunction`** (gate-1 ruling 5).
+- **No touching the six pre-existing early-return sites, `_fixture.ts:1162`, `_bind.ts:31`, or
+  `resolveCaller`.** Each is named in `rulings-gate2.md` with the reason it stays.
+- **No claim that an integration-tier done-criterion is met.** Steps 11, 16 and 17 carry
+  integration-tier criteria. Build them; do not claim them. The report says BLOCKED and names the
+  machine fault.
 
 ---
 
