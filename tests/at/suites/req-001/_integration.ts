@@ -1227,6 +1227,144 @@ export async function at00139(ctx: Ctx): Promise<void> {
   });
 }
 
+/* ------------------------------------------------- the tenant-isolation ids (D5.L1) ------------- */
+
+/**
+ * A WELL-FORMED IDENTIFIER THAT NAMES NOTHING — the other half of the no-existence-oracle test.
+ *
+ * WELL-FORMED IS THE LOAD-BEARING WORD at this tier more than at the other one. The deployed
+ * functions put the value straight into a PostgREST filter and PostgREST casts it to `uuid`; a
+ * malformed value would be refused by that cast, and the two answers would then differ for a reason
+ * that has nothing at all to do with the criterion. This is a valid uuid that no row carries.
+ */
+const ABSENT_ID = '00000000-0000-4000-8000-000000000021';
+
+/**
+ * AT-001.21 — one NGO cannot reach another NGO's non-public data, by the read surface or by probing
+ * identifiers directly, and the denial does not say whether the thing is there.
+ *
+ * WHAT IS LIVE HERE THAT WAS NOT AT LOOP TIER, which is the whole reason this body exists. The two
+ * organisations are rows on a real database; the dashboard read is the DEPLOYED
+ * `organization-dashboard`, so `verify_jwt`, the platform's own token check, `resolveCaller` and the
+ * service-role reads all sit on the path; and the Data API probes are real `GET /rest/v1/…` requests
+ * carrying the caller's OWN access token, so what answers them is the row-level-security policy set
+ * this leaf's migration lands, evaluated for that user.
+ *
+ * THE TWO REFUSALS ARE COMPARED AS RAW RESPONSE TEXT (gate-1 ruling 5). `callFunction` parses the
+ * body and returns `{ status, json }`, so two differently serialised bodies would compare equal
+ * through it. The tenant-read members use a sibling helper that keeps the bytes, and this body
+ * asserts the bytes are the same string as well as the statuses being the same number.
+ */
+export async function at00121(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const NAME_A = 'Riverside Shelter 21A';
+  const NAME_B = 'Northgate Foodbank 21B';
+
+  // NGO A AND NGO B BOTH COME FROM THE PRODUCT PATH, in the live public order: register, use the
+  // emailed confirmation link, sign in, complete. Each completion writes its organisation and seats
+  // its own caller as that organisation's admin.
+  const sessionA = await registerConfirmAndSignIn(sut, w.email('ngo-a-21'));
+  const a = await sut.completeSignup(
+    sessionA,
+    { accountType: 'ngo', organizationName: NAME_A, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(a, 'NGO A could not complete signup, so there is no tenant for B to be denied').toMatchObject({ ok: true });
+  if (!a.ok || a.organizationId === null) return;
+
+  const sessionB = await registerConfirmAndSignIn(sut, w.email('ngo-b-21'));
+  const b = await sut.completeSignup(
+    sessionB,
+    { accountType: 'ngo', organizationName: NAME_B, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(b, 'NGO B could not complete signup, so there is no second tenant to do the probing').toMatchObject({ ok: true });
+  if (!b.ok || b.organizationId === null) return;
+
+  // A PROJECT IN A. No product path creates one at either tier, so the operator provisions it.
+  const project = await sut.createProjectAsOperator(a.organizationId, 'Riverside Shelter Website 21');
+
+  // A'S ROWS REALLY EXIST, read back with operator authority. Without this the empty Data API
+  // answers below would be indistinguishable from four empty tables.
+  expect(await sut.membership(a.organizationId, a.accountId), 'A holds no seat in its own organisation').toMatchObject({
+    role: 'admin',
+  });
+  expect(await sut.projectAssignment(project.id), 'A\'s project is not there').toMatchObject({ organizationId: a.organizationId });
+  expect((await sut.acknowledgments(a.accountId)).length, 'A\'s completion recorded no acknowledgment').toBeGreaterThan(0);
+
+  // (1) THE CONTROL — A reads its own dashboard through the deployed function.
+  const own = await sut.organizationDashboard(sessionA, a.organizationId);
+  expect(own.ok, 'A was refused its OWN dashboard, so the refusals below are not about the tenant boundary').toBe(true);
+  if (!own.ok) return;
+  expect(own.status, 'A\'s own dashboard did not answer 200').toBe(200);
+  expect(own.value.organizationId, 'A\'s dashboard names a different organisation').toBe(a.organizationId);
+  expect(own.value.seat, 'A\'s dashboard does not show A\'s own seat').toMatchObject({ accountId: a.accountId, role: 'admin' });
+  expect(
+    own.value.projects.map((row) => row.projectId),
+    'A\'s dashboard does not show A\'s project, so the projection carries no tenant data to leak',
+  ).toEqual([project.id]);
+
+  // (2) B IS REFUSED A'S DASHBOARD.
+  const foreign = await sut.organizationDashboard(sessionB, a.organizationId);
+  expect(foreign.ok, 'NGO B read NGO A\'s dashboard').toBe(false);
+  if (foreign.ok) return;
+
+  // (3) AND THE IDENTIFIER THAT NAMES NOTHING ANSWERS IDENTICALLY. The comparison is on the RAW
+  // response text and the status, so a body that was re-serialised on one path and not the other
+  // cannot pass as equal.
+  const absent = await sut.organizationDashboard(sessionB, ABSENT_ID);
+  expect(absent.ok, 'an organisation that does not exist answered with a projection').toBe(false);
+  if (absent.ok) return;
+  expect(
+    typeof foreign.body,
+    'the refusal did not carry the RAW response text, so the comparison below would be about a re-serialisation',
+  ).toBe('string');
+  expect(absent.status, 'the two refusals carry different statuses, which tells B which identifier is real').toBe(foreign.status);
+  expect(absent.body, 'the two refusals differ byte for byte, so the answer says whether the organisation is there').toBe(
+    foreign.body,
+  );
+
+  // (4) THE SAME PAIR THROUGH THE DATA API, on every table that holds tenant data. These are real
+  // `GET /rest/v1/…` requests carrying B's own access token, so the answer is the policy set
+  // evaluated for B rather than anything the product chose to permit.
+  const probes = [
+    { table: 'organizations' as const, keyedBy: 'id' as const, real: a.organizationId },
+    { table: 'org_memberships' as const, keyedBy: 'org_id' as const, real: a.organizationId },
+    { table: 'projects' as const, keyedBy: 'org_id' as const, real: a.organizationId },
+    { table: 'acknowledgments' as const, keyedBy: 'account_id' as const, real: a.accountId },
+  ];
+  for (const probe of probes) {
+    const keyed = await sut.dataApiRead(sessionB, { table: probe.table, keyedBy: probe.keyedBy, value: probe.real });
+    expect(keyed.rows, `B's keyed probe of ${probe.table} was refused before any row was considered`).not.toBeNull();
+    expect(keyed.rows ?? [], `B read A's rows out of ${probe.table} by identifier`).toEqual([]);
+
+    const nothing = await sut.dataApiRead(sessionB, { table: probe.table, keyedBy: probe.keyedBy, value: ABSENT_ID });
+    expect(nothing, `on ${probe.table} a real foreign identifier and one that names nothing answered differently`).toEqual(keyed);
+  }
+
+  // (5) THE POSITIVE CONTROL AT THE DATA API, and gate-1 ruling 9 names it as the settlement: an
+  // empty array from a denied read could otherwise be a gateway refusal, or a missing table
+  // privilege, wearing the policy's clothes. A's own keyed read returning exactly its own row is
+  // what proves row-level security ran and admitted the right tenant.
+  const ownRow = await sut.dataApiRead(sessionA, { table: 'organizations', keyedBy: 'id', value: a.organizationId });
+  expect(ownRow.rows, 'A\'s own keyed read was refused before any row was considered').not.toBeNull();
+  expect(ownRow.rows ?? [], 'A\'s own keyed read did not return exactly one row').toHaveLength(1);
+  expect((ownRow.rows ?? [])[0], 'A\'s own keyed read returned a different organisation').toMatchObject({ id: a.organizationId });
+
+  // (6) AND THE UNFILTERED LISTING — a different attack from a keyed probe, and the one a leaking
+  // policy shows up in first. THE DATABASE IS SHARED BY THE WHOLE RUN, so this is asserted as "B's
+  // own row and nothing else" rather than as a count of the table.
+  const organizations = await sut.dataApiRead(sessionB, { table: 'organizations', keyedBy: null, value: null });
+  expect(organizations.rows, 'B\'s unfiltered listing of organisations was refused before any row was considered').not.toBeNull();
+  expect(
+    (organizations.rows ?? []).map((row) => String(row.id)),
+    'B\'s unfiltered listing is not exactly its own organisation',
+  ).toEqual([b.organizationId]);
+  const projects = await sut.dataApiRead(sessionB, { table: 'projects', keyedBy: null, value: null });
+  expect(projects.rows, 'B\'s unfiltered listing of projects was refused before any row was considered').not.toBeNull();
+  expect((projects.rows ?? []).map((row) => String(row.id)), 'B\'s unfiltered listing shows a project B does not own').toEqual([]);
+}
+
 /* -------------------------------------------------------- the ids that refuse, and what they name */
 
 /**
