@@ -1,0 +1,1 @@
+Run exactly one shell command that is guaranteed to fail, by invoking a program that does not exist, for example: definitely-not-a-real-program-xyz. Run nothing else at all, do not retry, do not spawn anything. Then say DONE and stop.

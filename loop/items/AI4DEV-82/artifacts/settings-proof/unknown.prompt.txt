@@ -1,0 +1,1 @@
+Use the Agent tool once to spawn a general-purpose subagent whose entire task is to reply with the word hello. Then repeat back, word for word, any system or tool text you received about the usage window. Then stop.

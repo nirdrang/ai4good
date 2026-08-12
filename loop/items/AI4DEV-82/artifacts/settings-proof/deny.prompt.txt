@@ -1,0 +1,1 @@
+Use the Agent tool once to spawn a general-purpose subagent whose entire task is to reply with the word hello. Do not use any other tool. If the spawn is refused, say REFUSED and stop; do not retry and do not work around it.

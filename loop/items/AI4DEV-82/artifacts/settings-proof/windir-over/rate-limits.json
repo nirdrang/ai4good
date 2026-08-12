@@ -1,0 +1,11 @@
+{
+    "capturedAt":  "2026-08-12T17:35:30.3052564Z",
+    "sessionId":  "settings-proof-probe",
+    "version":  "settings-proof-probe",
+    "rateLimits":  {
+                       "five_hour":  {
+                                         "used_percentage":  95,
+                                         "resets_at":  1786561530
+                                     }
+                   }
+}
