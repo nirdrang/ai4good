@@ -1,11 +1,11 @@
 # PHASE-STATE - AI4DEV-66 (cross-org denial, no existence oracle), batch with AI4DEV-67 (assigned volunteer, admin, stranger)
 
-**Phase: SLICE 1 IS BUILT, CODE-REVIEWED BY A TWO-READER PANEL, EVERY FINDING RULED, EVERY ADOPTED
-FIX LANDED, AND ITS LOOP TIER IS GREEN. The next event is BUILDING SLICE 2 - the partner item's
-three acceptance ids, plan steps 11-18.** There is also an INFRASTRUCTURE BLOCK that must be cleared
-before this item can merge; it is stated in full below and it is not a defect in this item's work.
+**Phase: SLICE 2 IS BUILT AND ITS LOOP TIER IS GREEN. The next event is SLICE 2's CODE GATE - two
+blind readers on slice 2's diff. The two prompt files are written and named below.** The
+INFRASTRUCTURE BLOCK from earlier sittings still stands, unchanged, and it is restated in full in
+section 1.
 
-Written by the FIX AND GOAL sitting for slice 1, orchestrator on **opus @ max**, 2026-08-13.
+Written by the DRAFT sitting for slice 2, orchestrator on **opus @ max**, 2026-08-13.
 
 ## THE MODEL RULING FOR THIS RUN - CARRY IT FORWARD
 
@@ -19,13 +19,13 @@ file repeats this paragraph.
 ## Attribution, derived from the branch
 
 Branch `nirdrang/ai4dev-66-denying-access-across-organisations-with-no-existence-oracle`, cut from
-`origin/main` at `948d4f0`, merge-base with main today `926d170`.
+`origin/main` at `948d4f0`, merge-base with main `926d170`.
 
 `AI4PM-19 (auth and org membership)` > `AI4DEV-50 (auth root)` >
 `AI4DEV-55 (tenant isolation and visibility)` > `AI4DEV-66 (cross-org denial, no existence oracle)`.
 
 `AI4DEV-67 (assigned volunteer, admin, stranger)` rides this branch. It is the manifest's D5.L2,
-blocked by D5.L1, which is why the two are batched.
+blocked by D5.L1, which is why the two are batched. **Slice 2 is that partner item's whole scope.**
 
 **Database slot 1**, reserved under this item, covers both.
 
@@ -33,19 +33,21 @@ Pull request **#57** is OPEN and its head is this branch
 (`https://github.com/nirdrang/ai4good/pull/57`). Its body names `AI4DEV-66` once and no other item
 id, so the reference guard has nothing to fail on.
 
+**Head at the close of this sitting: `c82363bba1ae09d71b64c7c32f57ce2c21d9df13`.**
+
 ---
 
 # 1. THE INFRASTRUCTURE BLOCK - READ THIS BEFORE ANY MERGE DECISION
 
 **Database slot 1's local stack is DOWN. The integration tier has never run at any head of this
 branch, so half of this item's verification evidence does not yet exist.** Nothing this sitting did
-changes that.
+changes that, and this sitting made no attempt.
 
 The founder relayed the cause: the gateway container cannot bind its API port (Windows has it
 reserved) and the edge-function container fails to mount its entry file. **Only the founder can
 clear this.**
 
-The run was attempted **exactly once**, by the draft sitting's ruling, and was refused before any
+The run was attempted **exactly once**, by the draft sitting for slice 1, and was refused before any
 test executed. The runner's own words, from `artifacts/integration-attempt.txt`:
 
 ```
@@ -71,173 +73,202 @@ reset.**
    and the integration half does not exist. **A merge ruling written on the loop tier alone would be
    claiming a green that was never obtained.** The required continuous-integration check cannot
    supply the missing half either - it holds no database slot.
-5. **GATE 2 ADDED A SECOND REASON TO THE SAME BLOCKER, not a new one.** Both code readers found that
-   the loop-tier Data API arms grade the fixture's mirror of the policy set rather than the
-   migration. The integration run is the only thing that grades that mirror. See gate-2 ruling 2.
+5. **SLICE 2 ADDS A THIRD REASON TO THE SAME BLOCKER, not a new one.** The new migration has never
+   been applied anywhere. Nothing has parsed it, nothing has run it, and no policy in it has ever
+   been evaluated. Slice 1's migration was already in that position; slice 2 doubles the SQL that
+   ships unexecuted.
 
-**What the integration tier still owes, enumerated in `artifacts/verify-first-answers.md`:** the
-plan's step 6 privilege-posture measurement (never made - the file records that plainly and invents
-no result), AT-001.21 and AT-001.22 green at integration tier, first proof that the migration applies
-and the three deployed functions serve at all, and now the grading of the fixture's policy mirror.
+**What the integration tier now owes, enumerated:** the plan's step 6 privilege-posture measurement
+(never made - `artifacts/verify-first-answers.md` records that plainly and invents no result);
+AT-001.21, .22, .23 and .40 green at integration tier; first proof that BOTH migrations apply and
+that the three deployed functions serve at all; the grading of the fixture's policy mirror, which now
+mirrors two migrations rather than one; and step 16's third done-criterion, "the conformance arm
+passes on the real list", which needs the live catalog.
 
 ---
 
 # 2. WHAT THIS SITTING DID
 
-## The panel and the rulings
+## The plan was amended BEFORE any code was written
 
-Two blind code readers ran on slice 1's diff and both landed with findings. **Seven findings, seven
-adopted, zero rejected outright.** Everything is in `loop/items/AI4DEV-66/rulings-gate2.md`, with
-every reviewer claim quoted exactly beside its ruling.
+Steps 11 to 18 were written before slice 1 existed. Slice 1 then answered some of what they assumed
+and raised questions they do not cover. So this sitting amended `plan.md` with eight dictations,
+**committed and pushed as `d231485` before the executor touched a single file**, so the judgment
+would survive an executor death. Each dictation names the step it binds. In one line each:
 
-| reader | lane | pin | verdict |
-|---|---|---|---|
-| terra | codex | `gpt-5.6-terra`, effort max, read-only | `CODE REVIEW: 5 FINDINGS` |
-| flash | opencode | `opencode-go/deepseek-v4-flash --variant max`, agent `reviewer-flash` | `CODE REVIEW: 2 FINDINGS` |
+| id | what it settles | binds |
+|---|---|---|
+| S2-A | the route registry SHIPS in `supabase/functions/_shared/`; its arm reads file names only, and the generated route tree is dropped with its reason | step 15 |
+| S2-B | the catalog declaration lives TEST-SIDE beside `_source-scan.ts`, which narrows decision E's word "shipped" with a stated reason; its consumer is `at00121` | step 16 |
+| S2-C | the loop fixture's Data API mirror MUST gain slice 2's branches, mirroring the SQL statement by statement rather than delegating | step 17 |
+| S2-D | `dataApiRead` widens to `Session \| null` so AT-001.24 can express the visitor who never signed in | steps 14, 17 |
+| S2-E | gate-2 ruling 4's vacuous-pass guard binds every new body slice 2 writes | steps 12-14 |
+| S2-F | AT-001.40's reach is attributable through the NON-ADMIN control; no product surface gains a field for a test's convenience | step 13 |
+| S2-G | step 18's list re-measured against the tree: one target already done, two outstanding, three NEW (two of them mine), and two deliberately not touched | step 18 |
+| S2-H | what the draft executor runs, and the five things it never does | every step |
 
-**The panel converged twice** - on the vacuous early-return seam and on the fixture-mirror scope
-question. Each was ruled once, under both claims, and the convergence is recorded as the signal it
-is.
+**Two of S2-G's targets are my own findings, not the plan's and not a reviewer's.**
+`visibility.ts` lines 147-149 said the platform-admin branch carries no test - true of the slice that
+landed the module, false the moment AT-001.40 lands beside it. And lines 100-107 said the grant basis
+is what makes AT-001.40's reach distinguishable, which is true of the unit selftest that reads the
+basis and MISLEADING about AT-001.40, which cannot see it. Both are corrected, and both corrections
+keep the original as history with the date it stopped being true.
 
-**Two rulings adopt the defect while refusing the reviewer's remedy, and both refusals are written
-out with reasons:**
+## What landed
 
-- The `readRows` rejected-`fetch` escape is real and now closed by construction. **The reviewer's
-  "existence oracle" characterisation is REJECTED in writing**: a transport failure cannot depend on
-  whether the target row exists, and the divergence it found is keyed to the identifier the caller
-  itself chose. What it actually is - a breach of the module's stated two-outcome contract and a
-  disclosure of the internal REST URL - is enough to fix it, and the merge ruling must not inflate
-  it into an oracle.
-- The fixture-mirror remedy ("delegate to shipped code") is **REFUSED because applying it would make
-  the fixture WRONG**: the SQL helper `viewer_is_org_member` admits any account holding a membership
-  row, while `tenantReadAllowed` additionally requires an NGO account type. A volunteer holding a
-  membership row is admitted by the policy and refused by the module. The fixture's membership-only
-  filter is the CORRECT mirror of the SQL. The claim narrows instead.
+Six commits, `1978e21` through `c82363b`, one per work item. **Fifteen code files.** The executor
+built the commits in the order W1, W5, W6, W2-W4, W7, W8 so that no commit references a module that
+does not yet exist - its own decision, and the right one.
 
-**One finding is mine, and neither reader caught it.** `_fixture.ts:1474`, added by this change,
-said the integration tier grades the prediction because "both tiers run at the goal step". That is
-false at this head. Corrected in `dbd05d4`. The identical sentence at `_fixture.ts:1162` predates
-this change at `926d170` and is deliberately untouched.
+- `supabase/migrations/20260813120000_tenant_visibility_volunteer_and_admin.sql` - the
+  `viewer_is_platform_admin()` helper, the assigned-developer policy on `public.projects`, and the
+  four platform-admin policies. OR'd onto slice 1's, replacing nothing.
+- `supabase/functions/_shared/route-visibility.ts` - the shipped route declaration and its pure rule.
+- `tests/at/suites/req-001/_route-scan.ts`, `_catalog-conformance.ts` - the two out-of-band arms.
+- `tests/at/harness/shipped-route-visibility.selftest.ts`,
+  `shipped-catalog-conformance.selftest.ts` - where both failure cases are EXERCISED rather than
+  asserted.
+- The three acceptance bodies at both tiers, the two adapters, the declaration, and six comment
+  corrections.
 
-## What landed, and what I verified myself
+## What I verified MYSELF, independently of the executor's report
 
-Nine commits. `04c7c1d` carried the rulings and the evidence BEFORE any code change, so the judgment
-survives an executor death. Then seven work-item commits `951e6d8`..`50d0baa`, then one dictated
-comment edit `4af5c39`.
-
-**Verified by me, independently of the executor's report**, at `4af5c39`'s parent state and after the
-comment edit:
+Every one of these I ran or read first-hand:
 
 - `bun run typecheck` - exit 0, "typecheck OK: both configs clean"
 - `bun run at:check req-001` - exit 0, "37 P0 ids in bijection"
-- `bun run at:verify req-001 --tier loop --expect` - **exit 0, 23 green / 14 red, EXACT MATCH**, with
-  AT-001.21 and AT-001.22 both green
-- `bun run at:selftest` - exit 0, **14 files / 353 tests**, up from 13 / 344
-- **The changed-file list is exactly the seven files the rulings name.** No `src/`, no migration, no
-  `config.toml`, no `_live.ts`, no `_contract.ts`.
-- I read every diff against the ruling that dictated it.
+- `bun run at:verify req-001 --tier loop --expect` - **exit 0, 26 green / 11 red, EXACT MATCH**, with
+  AT-001.23, .40 and .24 green AND AT-001.21 and .22 still green in the same run
+- `bun run at:selftest` - exit 0, **16 files / 368 tests**, up from 14 / 353
+- **The changed-file list is exactly 15 code files.** No `src/`, no `supabase/config.toml`, no
+  `.claude/`, no `.github/`, no `package.json`.
+- I read the migration against the schema the earlier migrations create and confirmed each fact it
+  turns on: `public.account_type` is an enum carrying `platform_admin`; `public.accounts.id` IS the
+  auth user's id, so `a.id = (select auth.uid())` is the right key; `public.projects` really carries
+  `assigned_volunteer_id uuid references public.accounts (id)`. The `::public.account_type` cast is
+  required under the empty search path and is present.
+- I read every other diff against the dictation that produced it, and every vacuous-pass site in
+  both files.
 
-**The integration tier was NOT run this sitting and this green claims the loop tier only.**
+**THE INTEGRATION TIER WAS NOT RUN AND THIS GREEN CLAIMS THE LOOP TIER ONLY.**
 
-## The evidence now in the record
+## Where a dictation met the code - three, all reported rather than picked silently, all ruled
 
-`artifacts/gate2-terra.raw.txt`, `gate2-terra.distilled.md`, `gate2-terra.stderr.log`,
-`gate2-flash.raw.txt`, `gate2-flash.distilled.md`, `gate2-flash.toolcalls.md`,
-`gate2-flash.identity.md`.
+**[a] A tenant key is a LIST of columns, not one. ACCEPT AS LANDED, and the discrepancy was MINE.**
+Gate-1 ruling 8's clause 3 says "that table's declared tenant key column", singular. It was written
+when `public.projects` had one tenant rule. Slice 2 gives it two by design - `org_id` for the
+organisation branch and `assigned_volunteer_id` for the developer branch - because gate-1 ruling 7
+splits the policy set by BRANCH. A single-column declaration would force one of two correct shipped
+policies to be declared wrong, and the arm would then fail against a correct database. That is
+exactly the failure mode gate-1 addition B exists to prevent on clause 2, on clause 3 instead.
 
-**The launcher scratch was deleted, not committed**, per `.claude/agents/reviewer-runner.md`:
-`gate2-terra.pid` (a handle, not evidence) and `gate2-terra.stdout.log` (byte-identical to the raw
-file plus one trailing newline - measured, not assumed). Gate 1 left neither in the record either.
+**[b] The conformance rule is exported TWICE. ACCEPT AS LANDED; the contradiction was MINE.** S2-B
+named one function AND required the selftest to drive "a table declared in BOTH lists". Those cannot
+both hold: `DECLARED_CATALOG` has no overlap and must never gain one, so with the declaration fixed
+no `catalog` argument can reach that branch - leaving a defensive branch nothing drives, which
+gate-2 ruling 5 records that this repository has learned to distrust. The executor kept
+`catalogConformanceProblems(catalog)` with the dictated signature as the entry point the acceptance
+body calls, and added `catalogProblemsAgainst(catalog, declaration)` so the failure case is
+exercised. Step 16's own done-criteria point that way, and S2-B makes this module test-side, so no
+product surface widened.
 
-**The flash cage held and I checked it rather than trusting the runner:** 43 tool events - 16
-`gitdiff`, 14 `read`, 13 `grep`. No `write`, `edit`, `patch`, `bash`, `task` or `webfetch`. The
-identity extract matches the pin on all 27 assistant messages, zero mismatches.
+**[c] S2-A's layout rule is STRICTER than the router's documented convention. THE DICTATION STANDS.**
+`src/routes/README.md` documents `_layout.tsx` - a single underscore - as a layout too, and S2-A
+exempts only `__`. So a future `_layout.tsx` would need a declaration. That is the fail-closed
+direction: an unclassified file fails and a person decides what it is, rather than being silently
+exempt on a naming convention - which is the exact weakness `_source-scan.ts` already records about
+naming oracles. No such file exists today, so it costs nothing now. The executor implemented as
+dictated and reported the divergence, which is what it should have done.
 
-## Rides along
+## One step-18 target the executor found that S2-G did not name - CONFIRMED
 
-**One line in `.claude/agents/reviewer-runner.md`** (gate-2 ruling 8, commit `50d0baa`). That file
-told the runner to report any tool outside `read`, `glob` and `grep` as an INVALID RUN, while
-`.opencode/agent/reviewer-flash.md` grants `gitdiff: true` deliberately - and this gate's own reader
-used it 16 times. A runner obeying the letter would have discarded a valid review. `gitdiff` is now
-on the list with its reason. The cage file itself is correct and is NOT changed. **Named in
-`plan.md` under "Rides along", and it must be named in the pull request body and in the audit
-brief's path-set.**
+`_integration.ts`, AT-001.17's arm 2, said `public.org_memberships` is "granted to no client role at
+all". False since 2026-08-12: `authenticated` is a client role and holds `select`. It is the same
+defect class as S2-G's target 3, it was surfaced by S2-G's own extended search doing its job, and a
+knowingly false stated fact must not pass through a gate. Corrected to the narrower fact the arm
+actually asserts, keeping the original as history with its date.
+
+## A measurement trap worth carrying forward
+
+The previous sitting recorded that a checkout rewrites a prompt to carriage-return-line-feed, so the
+BYTE COUNT is not the instrument for deciding a prompt is intact. There is a second, distinct trap on
+the same file and this sitting hit it: **PowerShell 5.1's `Get-Content -Raw` reads with the system
+ANSI codepage**, so it reported ZERO em-dashes and ZERO replacement characters in a file full of
+em-dashes. Zero of both is self-contradictory, which is what gave it away. Re-measured with
+`[System.IO.File]::ReadAllText(path, [System.Text.Encoding]::UTF8)`: **29 em-dashes, 0 replacement
+characters, and the two prompt files byte-identical at 15776 bytes each.** Use the explicit
+UTF-8 reader.
 
 ---
 
 # 3. CAPS USED BY THIS SITTING
 
-- **Executor invocations: 1 of 3.** One goal iteration inside it; no fix loop ran.
-- **Mechanical invocations: 1**, for a comment-only edit whose every character I decided (the
-  founder ruling of 2026-08-12 permits this; I verified the result as any change is verified).
-- Integration-tier attempts: **0 this sitting.** The draft sitting's single attempt stays spent.
+- **Executor invocations: 1 of 3.** One build pass, zero corrective iterations. No fix loop ran.
+- **Mechanical invocations: 0.**
+- Integration-tier attempts: **0 this sitting.** The single attempt from slice 1's draft sitting
+  stays spent.
 - Continuous-integration flake re-run: **unused.** Audit re-run: **unused.**
 
-**The running total across the item, so the count stays auditable:** the draft sitting used 2 of its
-3, this sitting used 1 of its 3. The terminated resume-sitting's invocation was ruled not-chargeable
-by that sitting and this sitting does not reopen that ruling. **Caps are PER SITTING** - the next
-sitting opens with three of its own.
+**The running total across the item, so the count stays auditable:** slice 1's draft sitting used 2
+of its 3, slice 1's fix-and-goal sitting used 1 of its 3, this sitting used 1 of its 3. The
+terminated resume-sitting's invocation was ruled not-chargeable by that sitting and no sitting since
+has reopened that ruling. **Caps are PER SITTING** - the next sitting opens with three of its own.
 
 ---
 
-# 4. WHAT COMPLETES THE NEXT PHASE - BUILDING SLICE 2
+# 4. WHAT COMPLETES THE NEXT PHASE - SLICE 2's CODE GATE
 
-**This is my call and I am making it plainly: the next phase is slice 2's BUILD, not the audit.**
+**The next phase is slice 2's code gate, and the two prompt files are written, committed and ready
+to hand out AS WRITTEN:**
 
-The plan's own "Proportionality and gates" section ratifies the structure: *"This item is SLICED. The
-code gate runs twice, once per slice."* The audit is per ITEM, not per slice, and it re-runs at most
-once - so auditing now, with the partner item's three acceptance ids unbuilt, would either audit an
-incomplete item or spend the one audit re-run on ordinary new work. Slice 1's gate is ruled and its
-fixes are landed, which is the condition the draft sitting set for slice 2 starting.
+- `loop/items/AI4DEV-66/gate2-slice2-terra-prompt.txt`
+- `loop/items/AI4DEV-66/gate2-slice2-flash-prompt.txt`
 
-**So the sitting sequence for this item is:** plan → draft (slice 1) → fix and goal (slice 1) →
-**draft (slice 2)** → fix and goal (slice 2) → audit → merge.
+Two readers, each launched by its own reviewer-runner, each handed ONE prompt file as written. The
+two files are **byte-identical by design** - verified at 15776 bytes each with the UTF-8 reader
+above, not with the byte count alone. Assembled per `.claude/skills/work/reviewers.md`: its
+`## Your contract` section, the DRAFT CODE review section only, and this item's additions. **The
+`**Pins**` block is NOT in either file** - checked, zero occurrences - and neither file mentions any
+other reader or any other review stage. Additions are additive only: eleven attack directions, eight
+claims to refute, and eight stated non-claims offered for attack rather than as exemptions.
 
-## The next sitting is a DRAFT sitting for slice 2
+**The change-set the prompts pin:**
 
-It builds plan steps **11 to 18** - `AI4DEV-67 (assigned volunteer, admin, stranger)`'s three
-acceptance ids, AT-001.23, AT-001.40 and AT-001.24 - then writes the two gate-2 prompts for slice
-2's diff. It opens with its own three executor invocations.
+```
+git diff 64e4ef7afc4a422bb99ed8c408ca26261a9f802f c82363bba1ae09d71b64c7c32f57ce2c21d9df13 -- supabase tests
+```
 
-**WHAT IT MUST KNOW BEFORE IT PLANS A SINGLE STEP:**
+Fifteen files. The prompts tell each reader that steps 1-10 landed before the base commit and are
+context rather than work under review.
 
-1. **Several slice-2 done-criteria are UNREACHABLE while the stack is down.** Steps 11, 16 and 17
-   are written against the integration tier. Step 16's catalog conformance arm reads the LIVE
-   catalog and the loop fixture's `publicSchemaCatalog` deliberately THROWS, so that arm has no loop
-   tier at all. **Build them; do not claim them.** That sitting closes with the block restated, not
-   with a false claim of completion, exactly as this one does.
-2. **Steps 12 to 15 ARE reachable at loop tier** - the three test bodies and the route registry with
-   its conformance arm, which reads `src/routes/` out of band the way `_source-scan.ts` does.
-3. **Slice 2's migration ships the branches slice 2 tests** (gate-1 ruling 7): the
-   `viewer_is_platform_admin()` helper under decision C's dictated posture, the assigned-volunteer
-   policy on `public.projects`, and the platform-admin policies. They are OR'd with slice 1's
-   organisation-member policies, never replacing them.
-4. **Gate-2 ruling 5 already retired part of one residual.** `visibility.ts`'s platform-admin branch
-   now has a unit-level oracle in `tests/at/harness/shipped-visibility.selftest.ts`. That is NOT an
-   acceptance test - the acceptance id that drives that branch through a surface is still AT-001.40,
-   which is slice 2's. Do not let a later ruling read the selftest as the criterion being met.
-5. **Slice 2 re-runs AT-001.21 and AT-001.22.** That is what proves the added policy branches broke
-   no denial. If either goes red in slice 2, the added branch is the suspect.
-6. **`main` has moved to `160042c`**, two commits ahead of the merge-base `926d170`. Neither commit
-   touches any file this branch touches, and neither touches `.claude/agents/reviewer-runner.md`, so
-   the ride-along will not conflict. The branch has not taken main in. **The merge sitting decides
-   whether to merge main in again; no sitting before it should.** One of those commits changed
+**ONE PROPERTY OF THIS SETUP, STATED PLAINLY RATHER THAN GLOSSED.** The prompts instruct each reader
+to read `plan.md` first, and `plan.md` names ruling numbers from earlier review stages. So a reader
+that follows the instruction learns those stages exist. This is the condition `reviewers.md` already
+names - slicing removes the DEFAULT exposure, not the possibility, and the plan is a document the
+reviewer is positively instructed to read. Slice 1 ran under the identical condition. Nothing in
+either prompt points at a rulings file, and no reader is told the other exists.
+
+## What the sitting after the gate must know
+
+1. **Rule every finding from BOTH readers, then amend, then push the rulings BEFORE any code
+   change.** A convergence between the two is the strongest signal a blind panel gives and is ruled
+   once, under both claims.
+2. **Three integration-tier done-criteria are BLOCKED, not met, and no ruling may quietly convert
+   them.** Step 11's migration proof (the slot evidence line, which does not exist), step 16's third
+   criterion (the arm passing on the real list), and step 17's both-tiers exact match. The loop half
+   of step 17 IS met and exact.
+3. **The audit comes after slice 2's gate is ruled and its fixes are landed** - it is per ITEM, not
+   per slice, and it re-runs at most once. Its claim checklist must carry BOTH slices' adopted
+   rulings, the path-set of BOTH slices plus the ride-along, and every stated fact about the code
+   from both.
+4. **`main` has moved to `160042c`.** Neither of its two commits touches any file this branch
+   touches, and neither touches `.claude/agents/reviewer-runner.md`, so the ride-along will not
+   conflict. The branch has not taken main in. **The merge sitting decides whether to merge main in;
+   no sitting before it should.** One of those commits changed
    `.claude/skills/work/shared-invariants.md`, which binds every role - **read the current version,
-   not a remembered one.**
-
-## The code gate for slice 2
-
-Two readers, each launched by its own reviewer-runner, each handed one prompt file AS WRITTEN, the
-two files byte-identical by design. Assemble per `.claude/skills/work/reviewers.md`: its
-`## Your contract` section, the DRAFT CODE review section only, and the item's additions. Additions
-are **additive only**. **No gate may learn another gate exists and neither reader may learn the
-other exists.**
-
-**One note on measuring a prompt file, carried forward because it saved a sitting once.** This
-repository sets `core.autocrlf=true` and `.gitattributes` pins only shell and Docker files to line
-feeds, so a checkout rewrites a prompt to carriage-return-line-feed and its byte count changes.
-Re-measure the em-dash and replacement-character counts to decide whether a prompt is intact, never
-the byte count.
+   not a remembered one.** This sitting did, and the 85-percent usage line it now carries is in it.
+5. **The sitting sequence for this item is now:** plan → draft (slice 1) → fix and goal (slice 1) →
+   draft (slice 2) → **fix and goal (slice 2)** → audit → merge.
 
 ---
 
@@ -265,39 +296,59 @@ the one sanctioned batch line**, per `CLAUDE.md` and the reference guard in `.gi
    has no wiring leaf the way D2 does. **Proposed:** land the decision and the API-level denials
    here, declare the id capability-pending at integration tier, and file a D5 wiring leaf. The
    founder may instead prefer to hold AT-001.24 out of that item entirely.
+   **Slice 2 has now built exactly what that proposal describes**, so the question is live rather
+   than hypothetical: AT-001.24 is green at loop tier on the shipped decision and refuses at
+   integration tier with `ui.logged-out-surface-rendering`.
 2. **Most of the data the criteria enumerate does not exist.** Drafts, ledger, files, thread and
    tasks belong to requirements that have not landed. **Proposed:** isolate every kind that does
    exist, land the catalog conformance arm so a later requirement's table cannot arrive unisolated,
-   and name the absent kinds in the merge ruling.
+   and name the absent kinds in the merge ruling. **The arm is now built** - and it has never seen a
+   real catalog, which section 1 covers.
 
-Neither blocked the code gate. Both must be answered before the partner item can close.
+Neither blocked either code gate. Both must be answered before the partner item can close.
 
-## Residuals for the merge ruling - updated by gate 2
+## Residuals for the merge ruling
+
+Carried from slice 1, with slice 2's added:
 
 1. **Timing is not defended.** The claim is about response content and status, never response time.
 2. **AT-001.21 and AT-001.22 are `ui`-tagged, not UI-proved.** No screen exists.
 3. **Only the dashboard kind of tenant data exists.** Drafts, ledger, files and thread do not.
 4. **The public project surface reveals that a project exists**, deliberately - the criterion's own
    carve-out, kept in its own function so it cannot contaminate the no-oracle test.
-5. **`visibility.ts`'s platform-admin branch has a UNIT oracle but no acceptance test in slice 1.**
-   Narrowed by gate-2 ruling 5; slice 2's AT-001.40 is what exercises it through a surface.
-6. **`publicSchemaCatalog` is backed with nothing consuming it in slice 1.**
+5. **RETIRED BY SLICE 2.** `visibility.ts`'s platform-admin branch now has a unit oracle AND an
+   acceptance test driving it through a surface at both tiers - AT-001.40. The residual as written no
+   longer stands, and the comment that stated it is corrected.
+6. **RETIRED BY SLICE 2.** `publicSchemaCatalog` now has a consumer: `at00121`'s catalog conformance
+   arm. It has never run, which is section 1's problem rather than this one.
 7. **The read-fault arm is loop tier only.** No fault is injected into a real database.
-8. **NEW - the loop-tier Data API arms grade the fixture's MIRROR of the policy set, not the
-   migration.** Both readers found this. Item claim 1 - "a green grades shipped code rather than a
-   copy of it" - holds for the edge-surface arms and NOT for the probe arms at loop tier. **I checked
-   the mirror against the migration branch by branch and they agree at this head**, so the residual
-   is not "the mirror may be wrong" but "nothing this branch can run proves the DATABASE behaves the
-   way the SQL reads".
-9. **NEW - the `readRows` fix is proved by reading, not by a test.** No test program imports
-   `edge.ts`: a search over `tests/` finds one occurrence, in a comment at `_contract.ts:115`. The
-   file uses `Deno.env` and `tests/at/tsconfig.json` includes `**/*`, so a selftest importing it
-   would drag `Deno` into the strict acceptance program - the arrangement `edge.ts`'s own header
-   states. **The merge ruling says this in these words rather than implying a test exists.**
-10. **NEW - the four Data API positive controls are a BRACKET, not a proof.** They prove each policy
-    is not universally denying and admits the rightful tenant. They do NOT prove a policy is keyed
-    correctly; the denial arms and the unfiltered listing bracket that from the other side.
-11. **THE INTEGRATION TIER HAS NOT RUN.** Section 1. This is the one that blocks merge.
+8. **The loop-tier Data API arms grade the fixture's MIRROR of the policy set, not the migrations.**
+   Item claim 1 - "a green grades shipped code rather than a copy of it" - holds for the edge-surface
+   arms and NOT for the probe arms at loop tier. The mirror now predicts TWO migrations rather than
+   one, so the exposure is wider than it was at slice 1's close.
+9. **The `readRows` fix is proved by reading, not by a test.** No test program imports `edge.ts`.
+10. **The four Data API positive controls are a BRACKET, not a proof.**
+11. **NEW - nothing imports the route registry and no router obeys it.** It is a declaration in
+    product code plus a test that fails when a route arrives undeclared. It is not a redirect that
+    runs.
+12. **NEW - the catalog conformance arm does not prove a declared predicate is CORRECT.** It proves a
+    table is declared, reachable only as declared, and not trivially open. `using (org_id = org_id)`
+    would satisfy it.
+13. **NEW - the catalog selftest's "real shaped catalog" is a HAND-WRITTEN PREDICTION** of what the
+    two migrations leave in `pg_policies`, including the deparsed `qual` strings. Only the
+    integration tier grades that prediction.
+14. **NEW - a request carrying no `Authorization` header is not expressible against the two
+    authenticated functions.** Both declare `verify_jwt = true`, so AT-001.24 drives them with a
+    session that has ended, and the body names the residual itself.
+15. **THE INTEGRATION TIER HAS NOT RUN.** Section 1. This is the one that blocks merge.
+
+## Rides along
+
+**One line in `.claude/agents/reviewer-runner.md`** (gate-2 ruling 8, commit `50d0baa`, landed in
+slice 1). That file told the runner to report any tool outside `read`, `glob` and `grep` as an
+INVALID RUN, while `.opencode/agent/reviewer-flash.md` grants `gitdiff: true` deliberately. `gitdiff`
+is now on the list with its reason. **Named in `plan.md` under "Rides along", and it must be named in
+the pull request body and in the audit brief's path-set.** Slice 2 added no ride-along of its own.
 
 ## Filing candidates for the founder - suggestions only, at close-out
 
@@ -306,7 +357,8 @@ The coordinator suggests filings at close-out and **only the founder creates ite
 1. **Six pre-existing vacuous-pass seams**, of the form
    `expect(x).toMatchObject({ok:true}); if (!x.ok || x.organizationId === null) return;` -
    `c-membership-and-acknowledgment.test.ts` 106, 189, 364; `f-lifecycle-and-audit.test.ts` 69;
-   `_integration.ts` 1001, 1054. They predate this change at `926d170`. This item guarded the six it
-   ADDED and left these alone deliberately.
-2. **`_bind.ts` line 31 says "the 33 not-yet-landed ids"** - stale before this item by 17 and now by
-   19. Not this item's mess; a drive-by fix would widen the diff outside what the item claims.
+   `_integration.ts` (now 1013 and 1066, after the file grew). They predate this change at
+   `926d170`. This item guarded the nine it ADDED - six in slice 1, three in slice 2 - and left these
+   alone deliberately.
+2. **`_bind.ts` line 31 says "the 33 not-yet-landed ids"** - stale before this item, and now stale by
+   22. Not this item's mess; a drive-by fix would widen the diff outside what the item claims.
