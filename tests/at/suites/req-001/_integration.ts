@@ -923,16 +923,31 @@ export async function at00117(ctx: Ctx): Promise<void> {
     headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
   });
+  // THE CONTROL ASSERTS THE MEASURED ANSWER, not merely a non-404 (gate-2 ruling R6). Verify-first
+  // answer (e) measured this exact call answering 401 with its own refusal body, so pinning it costs
+  // nothing and makes the control prove two things instead of one: the router resolves names AND the
+  // function it resolved really ran. A 500, a 502 or a misroute passed the old assertion.
   expect(
     present.status,
-    'a function that IS deployed also answered 404, so the router answers 404 to everything and the probe above proves nothing',
-  ).not.toBe(404);
+    'the deployed control did not answer its measured 401, so the router may not be resolving names and the probe above proves nothing',
+  ).toBe(401);
 
   // ARM 2 — the membership table through the Data API, with the publishable key.
   const clientRead = await fetch(`${url}/rest/v1/org_memberships?select=role`, {
     headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, Accept: 'application/json' },
   });
-  expect(clientRead.status, 'a client key reached the membership table').toBeGreaterThanOrEqual(400);
+  const clientReadBody = await clientRead.text();
+  // THE STATUS AND THE BODY ARE BOTH PINNED TO WHAT WAS MEASURED (gate-2 ruling R7). The plan's claim
+  // is that the table is unreachable BECAUSE no privilege reaches a client role, and `status >= 400`
+  // does not prove the because: a missing table route (404) or a down PostgREST (5xx) passed it. The
+  // measurement is in `loop/items/AI4DEV-62/artifacts/gate2-verify-answers.md`, v2 — HTTP 401 with
+  // SQLSTATE 42501 and `permission denied for table org_memberships`. The status is 401 rather than
+  // the 403 the service role receives (verify-first answer (c)) because the anon key carries no
+  // authenticated user; the privilege layer is the same one either way, which is what the body says.
+  expect(clientRead.status, 'the membership table did not answer the measured privilege refusal to a client key').toBe(401);
+  expect(clientReadBody, 'the refusal does not name a permission denial, so it is not the privilege layer answering').toMatch(
+    /permission denied/i,
+  );
 
   // ARM 3 — the operator's own attempt at a second seat, on an organisation the PRODUCT path
   // created and seated. The one-seat index is what refuses; nothing about the product is consulted.

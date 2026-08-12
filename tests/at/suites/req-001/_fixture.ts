@@ -1024,6 +1024,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * THE ORDER MIRRORS THE DEPLOYED FUNCTION: caller, then the role in the target organisation,
      * then the name. Authorisation before validation, exactly as `create-organization` has it, so a
      * caller with no standing learns nothing about whether its name would have been accepted.
+     *
+     * AN UNKNOWN ORGANISATION IS NOT A CASE OF ITS OWN, and that is the deployed function's own
+     * behaviour rather than a simplification. Its membership read finds no row for an organisation
+     * that does not exist, so the decision it consults is `orgAdminActionAllowed(null)` and the
+     * answer is the not-a-member refusal. This file used to answer `refused` here, which no live
+     * surface produces; gate-2 ruling R2c removed the pre-check, and its removal condition (v1) was
+     * measured on slot 2 first — the deployed function answered HTTP 403 kind `not-a-member` for a
+     * well-formed random uuid, recorded in `artifacts/gate2-verify-answers.md`.
      */
     updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
       const caller = resolveCaller(session);
@@ -1031,9 +1039,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       // all, and no body drives this path. Classifying it as one of the two role kinds would put a
       // refusal the session layer produced under a label two acceptance criteria read.
       if (caller === null) return { ok: false, kind: 'refused', reason: DEAD_SESSION_REASON };
-
-      const existing = state.organizations.get(organizationId);
-      if (!existing) return { ok: false, kind: 'refused', reason: `no organisation ${organizationId} exists` };
 
       const membership = state.memberships.get(membershipKey(organizationId, caller.id));
       const allowed = orgAdminActionAllowed(membership?.role ?? null);
@@ -1075,24 +1080,24 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * integration tier is what grades the prediction — both tiers run at the goal step, so a
      * divergence between this file and the database fails there rather than shipping.
      *
-     * THE ORDER IS THE DATABASE'S ORDER, and it is load-bearing rather than arbitrary: a BEFORE
-     * trigger runs before any index is consulted, so a non-NGO grantee offered into an
-     * already-seated organisation is refused for being non-NGO. Getting the order the other way
-     * round would make one of AT-001.37's arms report the wrong kind.
+     * THE ORDER IS THE DATABASE'S ORDER, and it is load-bearing rather than arbitrary. The BEFORE
+     * trigger's own two branches come FIRST — before the organisation foreign key and before the
+     * one-seat index — because a BEFORE ROW trigger runs before any constraint is consulted. So a
+     * grant into a nonexistent organisation with a non-NGO grantee is refused for the GRANTEE, and a
+     * non-NGO grantee offered into an already-seated organisation is refused for being non-NGO.
+     * Getting the order any other way round would make the two surfaces answer different kinds for
+     * the same input — the divergence gate 2 found (ruling R2a), where the organisation check used
+     * to run first.
      */
     grantMembershipAsOperator: async (organizationId, accountId, role): Promise<GrantMembershipOutcome> => {
-      if (!state.organizations.has(organizationId)) {
-        return { ok: false, kind: 'refused', reason: `no organisation ${organizationId} exists` };
-      }
-
-      // THE NGO-ONLY TRIGGER, mirrored. AT-001.37: per-NGO roles are NGO accounts only, on every
-      // path — a volunteer and a platform administrator are both refused, and an account that never
-      // completed signup has no type to be NGO with.
+      // THE NGO-ONLY TRIGGER, mirrored, and it is FIRST because the trigger is. AT-001.37: per-NGO
+      // roles are NGO accounts only, on every path — a volunteer and a platform administrator are
+      // both refused, and an account that never completed signup has no type to be NGO with.
       const account = state.accounts.get(accountId);
       if (!account) {
         // `refused` rather than `not-an-ngo-account`: no account row is a different fact from an
         // account of the wrong type, and no criterion reads it. The database's own refusal for this
-        // case is recorded in the item's verify-first answers.
+        // case is the trigger's other branch, measured in the item's verify-first answers (b).
         return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
       }
       if (account.accountType !== 'ngo') {
@@ -1105,9 +1110,15 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         };
       }
 
+      // THE ORGANISATION FOREIGN KEY, mirrored, and it comes after the trigger for the reason above.
+      if (!state.organizations.has(organizationId)) {
+        return { ok: false, kind: 'refused', reason: `no organisation ${organizationId} exists` };
+      }
+
       // THE ONE-SEAT INDEX, mirrored: a unique index on `org_id` alone, which is strictly stronger
       // than the composite primary key. One organisation holds at most one membership row, whoever
-      // it belongs to, so there is no second seat to invite anybody into.
+      // it belongs to, so there is no second seat to invite anybody into. Its order against the
+      // organisation check above cannot diverge — a seated organisation exists.
       const seated = [...state.memberships.values()].find((row) => row.organizationId === organizationId);
       if (seated) {
         return {
@@ -1157,13 +1168,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * NO ACCOUNT-TYPE CHECK, deliberately. Whether the attached account is of type `volunteer` and
      * whether it was matched to this project is the matching requirement's concern; AT-001.32 is
      * about the SECOND volunteer, and a check here would be an untested requirement.
+     *
+     * THE ORDER IS THE DATABASE'S ORDER (gate-2 ruling R2b). An update aimed at a project that does
+     * not exist matches no row, so it fires nothing and refuses; the guard trigger then runs BEFORE
+     * the account foreign key, so an occupied seat re-pointed at an account that does not exist is
+     * refused for the SEAT. The account check used to run first, which answered `refused` where the
+     * database answers `seat-occupied`.
      */
     assignVolunteerAsOperator: async (projectId, accountId): Promise<AssignVolunteerOutcome> => {
       const project = state.projects.get(projectId);
       if (!project) return { ok: false, kind: 'refused', reason: `no project ${projectId} exists` };
-      if (!state.accounts.has(accountId)) {
-        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
-      }
       if (project.assignedVolunteerId !== null && project.assignedVolunteerId !== accountId) {
         return {
           ok: false,
@@ -1172,6 +1186,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             `project ${projectId} refuses a second volunteer: its single developer seat is held by account ` +
             `${project.assignedVolunteerId}`,
         };
+      }
+      if (!state.accounts.has(accountId)) {
+        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
       }
       const assigned: ProjectRow = { ...project, assignedVolunteerId: accountId };
       state.projects.set(projectId, assigned);

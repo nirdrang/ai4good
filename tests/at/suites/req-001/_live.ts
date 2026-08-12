@@ -618,11 +618,14 @@ export async function createLiveAdapter(opts: {
      * nobody has written yet, and the only object that can hold on all of them is the trigger this
      * leaf's migration lands. This method is how a test reaches that trigger directly.
      *
-     * THE SQLSTATES ARE THIS LEAF'S OWN, chosen in the migration and measured on the slot stack
-     * (verify-first answer (d)): `42501` is the trigger refusing a non-NGO grantee, `23505` is the
-     * one-seat unique index refusing a second membership row. The sentence is checked as well as the
-     * code, so a client that reports no SQLSTATE still classifies correctly; anything matching
-     * neither is `refused`, never a meaningful kind.
+     * THE CLASSIFICATION IS SENTENCE-PRIMARY, WITH THE SQLSTATE AS AGREEMENT (gate-2 ruling R3).
+     * The sentence must match, AND the SQLSTATE must either be absent or be the one this leaf's
+     * migration raises — `42501` for the trigger refusing a non-NGO grantee, `23505` for the
+     * one-seat unique index refusing a second membership row, both measured on the slot stack
+     * (verify-first answer (d)). A SQLSTATE alone no longer mints a meaningful kind: an unrelated
+     * `42501` from some future policy, or an unrelated unique violation, would otherwise arrive
+     * wearing a label two acceptance criteria read as their refusal. A client that reports no
+     * SQLSTATE still classifies on the sentence; anything else is `refused`, never a meaningful kind.
      */
     grantMembershipAsOperator: async (organizationId, accountId, role): Promise<GrantMembershipOutcome> => {
       try {
@@ -642,10 +645,13 @@ export async function createLiveAdapter(opts: {
         };
       } catch (error) {
         const { code, message } = databaseRefusal(error);
-        if (code === '42501' || /NGO accounts only/i.test(message)) {
+        if (/NGO accounts only/i.test(message) && (code === '' || code === '42501')) {
           return { ok: false, kind: 'not-an-ngo-account', reason: message };
         }
-        if (code === '23505' || /duplicate key value|one_seat/i.test(message)) {
+        // THE INDEX'S OWN NAME, not the generic `duplicate key value` half it used to carry: an
+        // unrelated unique violation on this statement must land in `refused` rather than in the kind
+        // AT-001.17 reads as its structural refusal.
+        if (/org_memberships_one_seat_per_org_idx/i.test(message) && (code === '' || code === '23505')) {
           return { ok: false, kind: 'org-already-seated', reason: message };
         }
         return { ok: false, kind: 'refused', reason: message };
@@ -706,7 +712,9 @@ export async function createLiveAdapter(opts: {
         };
       } catch (error) {
         const { code, message } = databaseRefusal(error);
-        if (code === '42501' || /single developer seat/i.test(message)) {
+        // SENTENCE-PRIMARY, SQLSTATE AS AGREEMENT — gate-2 ruling R3, the same rule the membership
+        // grant above follows and for the same reason.
+        if (/single developer seat/i.test(message) && (code === '' || code === '42501')) {
           return { ok: false, kind: 'seat-occupied', reason: message };
         }
         return { ok: false, kind: 'refused', reason: message };

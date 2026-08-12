@@ -127,11 +127,18 @@ declare
   v_role public.org_role;
   v_name text;
 begin
-  if p_name is null or length(btrim(p_name)) = 0 then
+  -- THE TRIM CARRIES AN EXPLICIT WHITESPACE SET, and the explicitness is the whole content of it:
+  -- `btrim(text)` with one argument strips SPACES ONLY, so a name of one TAB passed the emptiness
+  -- check and was stored as a visually blank name. Measured on slot 2 before the fix and after it
+  -- (`loop/items/AI4DEV-62/artifacts/gate2-verify-answers.md`, v3): the tab-only rename succeeded,
+  -- and now it refuses with this SQLSTATE. The shared `validateOrganizationName` rejects it on the
+  -- edge path; this is the backstop for the service-role caller that reaches the function directly,
+  -- so the two surfaces must apply the same rule.
+  if p_name is null or length(btrim(p_name, E' \t\r\n\f')) = 0 then
     raise exception 'update_organization refuses an empty organisation name'
       using errcode = '22023';
   end if;
-  v_name := btrim(p_name);
+  v_name := btrim(p_name, E' \t\r\n\f');
 
   if not exists (select 1 from public.organizations where id = p_organization_id) then
     raise exception 'update_organization refuses %: no such organisation', p_organization_id
