@@ -2,64 +2,73 @@
 
 ## Where the item stands
 
-- Phase completed: AUDIT (first audit). The panel ran at code head
-  `6ee87419b88aa210b1d08003536469666b65fec0`: reader one 2 findings, reader two CLEAN with two
-  COULD-NOT-VERIFY items. All rulings are in `loop/items/AI4DEV-65/audit-rulings.md` (committed
-  at `ad55590`): both findings ACCEPTED as comment-only fixes; the clean seat's verdict
-  recorded; both COULD-NOT-VERIFY items settled PASS first-hand by the sitting.
-- Recovery note: the first audit sitting died at the account session limit after committing its
-  rulings, with the two fix edits staged but uncommitted. A recovery sitting (fable) verified
-  the staged edits first-hand — every fact claim in the new comment text checked against the
-  previous migration — and adopted them unchanged.
-- **Fix delta**: previous audited head `6ee87419b88aa210b1d08003536469666b65fec0` → fix head
-  `9728a82f9361e5138f4f65ac51c637d3bf148551`. Two files, comments only
-  (`supabase/migrations/20260811120000_acknowledgment_signer_identity.sql`,
-  `tests/at/suites/req-001/_contract.ts`). Zero SQL statements and zero TypeScript declarations
-  change; typecheck clean on both configs after the fixes.
-- Branch: `nirdrang/ai4dev-65-who-signed-name-title-and-authority-on-every-acknowledgment`.
-  Database slot 1 remains reserved under this item. Branch base for full-range diffs:
-  `ea4f3453ed59081a3e24c035e6d321d1f2ebaa45`.
+- Phase completed: **AUDIT, entirely.** The audit phase is CLOSED. The once-per-item re-run is
+  spent and no further audit runs on this item.
+- The re-run panel ran at fix head `9728a82f9361e5138f4f65ac51c637d3bf148551`, change-set the fix
+  delta `6ee87419...9728a82f` restricted to the code territory. Reader one (luna, codex) landed
+  **AUDIT: CLEAN**, every box PASS. Reader two (flash, opencode) landed **AUDIT: 1 FINDINGS**,
+  plus two boxes graded COULD-NOT-VERIFY which it explicitly did not count as findings.
+- The AUDIT RE-RUN sitting (orchestrator-opus at max, by design) ruled both seats in
+  `loop/items/AI4DEV-65/audit-rerun-rulings.md`:
+  - **Flash [1] S3 — ACCEPTED**, comment-only fix, applied in this sitting. The comment at
+    `supabase/functions/complete-signup/index.ts:137-139` claimed the four github rpc keys are
+    omitted "because the columns behind them are nullable". All four `volunteer_profiles` columns
+    are `not null`. It is the SAME defect the first audit ruled (luna finding 1), in a SECOND
+    file: R9's fix corrected the migration's copy of the sentence and did not sweep for the other
+    copy. Before the fix both texts were false and agreed; after it they contradicted each other,
+    which is how the re-run's delta reached the claim.
+  - **Luna — CLEAN**, recorded as evidence. It did not clear flash's finding; the disputed
+    sentence sits outside every line of the rebuilt checklist, and the checklist is a floor.
+  - Both COULD-NOT-VERIFY boxes **settled PASS first-hand** by the sitting, with git.
+- The accepted fix is comment-only in one file
+  (`supabase/functions/complete-signup/index.ts`). Zero statements, zero declarations, zero test
+  assertions change. `bun run typecheck` and `bun run at:check` pass after it.
 
-## What completes the next phase — the audit RE-RUN (required; ruled by this sitting)
+## Why no second re-run
 
-- **The re-run IS required.** The fixes are comment-only, but both files sit inside the declared
-  13-path code territory, so the source-only diff instrument moves at the fix head. This item's
-  migration comments are ruled load-bearing boundary text, the first audit's only findings were
-  false comment claims, and the fixes state NEW facts about the code (the rebuilt checklist's
-  F12 and F13). New claims of the class the audit just caught wrong get the same independent
-  read.
-- BOTH readers run again at the fix head — never one seat: reader one codex `gpt-5.6-luna`
-  effort max, prompt `loop/items/AI4DEV-65/audit-rerun-prompt-luna.md`; reader two opencode
-  flash variant max, agent `reviewer-flash`, prompt
-  `loop/items/AI4DEV-65/audit-rerun-prompt-flash.md`. The two prompt files are byte-identical
-  (SHA256 `4BDDB6C377A22DA674AAEFCB3E84045457B8C8ECD49FFED808D22E1A4DA98EEB`); the model pin
-  lives with the conductor, never in the prompt.
-- Subject: the REBUILT claim checklist in the brief — R9, R10 (the two adopted audit rulings),
-  F11–F13 (the new fact claims), the declared-scope box in full against the full range, and
-  carry-forward of R1–R8 / F1–F10 where the delta cannot reach them. Change-set instrument: the
-  fix delta `6ee8741...9728a82` restricted to the code territory. Read-only; no suite execution.
-- This is the ONE re-run this item gets.
-- The phase is complete when BOTH distillates have landed in `loop/items/AI4DEV-65/artifacts/`
-  and both runners have reported. Findings from EITHER seat spawn the AUDIT RE-RUN sitting
-  (orchestrator-opus @ max, by design), which works from the rebuilt checklist and the fix
-  delta. A clean panel means the MERGE sitting (orchestrator-opus, by design) absorbs the wait
-  and records both re-run verdicts among its dispositions.
+The fix corrects one comment paragraph, in a file both readers read at this head, to state what
+two other texts in the same tree already state correctly — the corrected migration paragraph
+(`20260811120000...sql:82-94`) and the pre-existing block directly above it
+(`complete-signup/index.ts:106-117`, not this item's text and already correct). Nothing
+behavioural moves. A fix that would need a second audit re-run is scope growth to escalate; this
+one is nowhere near that line.
 
-## What the merge ruling must carry (accumulating list)
+## What completes the next phase — the MERGE sitting
 
-- AT-001.19's integration green narrowed to the email/Google path (plan decision F).
-- AT-001.20's green claiming copy content and runtime enforcement of the authority statement,
-  never display — with sol's gate 1 claim on the display clause quoted verbatim (dismissed
-  unearned-green tag, terminal; text in `gate1-rulings.md` finding 2).
-- Terra's gate 2 finding 1 claim quoted verbatim beside its accept-fixed-differently ruling
-  (ordered in `gate2-rulings.md`): the database floors presence and nonblank, the content pin
-  lives in the validation layer, service-role residual accepted.
-- Both tiers' exact-match results for BOTH declaration manifests — tier, requirement, exit code
-  each time, and the integration runner's slot evidence line (slot, reset, migration count).
-- The first audit panel's result: both findings quoted verbatim beside their accept rulings and
-  the comment-only fixes (`audit-rulings.md`); the clean seat's verdict; the two
-  COULD-NOT-VERIFY items settled PASS first-hand.
-- The re-run panel's verdicts, both seats, at the fix head.
+- The next sitting is **MERGE**, run by **orchestrator-opus, by design** (founder 2026-08-11).
+  There is no separate audit wait left to absorb: the audit is closed here, so the merge sitting's
+  only wait is CI.
+- **CI is to be armed on the branch head this sitting pushes** — the head that carries the ruling,
+  the fix and this file. The required check must be green on that exact SHA, and the merge ruling
+  pins that same SHA. If the head moves, the evidence describes a different commit.
+- A mechanical publishes the merge ruling as handed and executes the merge. The orchestrator never
+  runs the merge command, and the merge tail has exactly ONE executor — the mechanical the merge
+  sitting spawns. If that mechanical reports a permission refusal, that is a STOP: report it
+  upward with the exact denial text and end the sitting.
+
+## What the merge ruling must carry (FINAL list)
+
+1. AT-001.19's integration green narrowed to the email/Google path (plan decision F).
+2. AT-001.20's green claiming copy content and runtime enforcement of the authority statement,
+   never display — with sol's gate 1 claim on the display clause quoted verbatim (dismissed
+   unearned-green tag, terminal; text in `gate1-rulings.md` finding 2).
+3. Terra's gate 2 finding 1 claim quoted verbatim beside its accept-fixed-differently ruling
+   (`gate2-rulings.md`): the database floors presence and nonblank, the content pin lives in the
+   validation layer, the service-role residual is accepted.
+4. **Both tiers' exact-match results for BOTH declaration manifests** — tier, requirement and exit
+   code each time, and the integration runner's own slot evidence line naming the slot, the reset
+   and the migration count. A ruling that states only the loop result states a green against
+   stand-ins. Database slot 1 is reserved under this item.
+5. The FIRST audit panel: both luna findings quoted verbatim beside their accept rulings and the
+   comment-only fixes (`audit-rulings.md`); flash's clean verdict; its two COULD-NOT-VERIFY items
+   settled PASS first-hand.
+6. **The RE-RUN panel, both seats** (`audit-rerun-rulings.md`): luna CLEAN; flash's one finding
+   quoted verbatim beside its ACCEPT ruling and the comment-only fix; both COULD-NOT-VERIFY boxes
+   settled PASS first-hand with the commands and their output.
+7. **The scope box as measured at the final head**, not merely at the audited head: the full-range
+   source-only diff returns exactly the declared thirteen paths, `src/routeTree.gen.ts` absent,
+   and the file list at the current head is identical to the list at the fix head — so every
+   commit after the fix head is record-only.
 
 ## Open questions
 
@@ -67,8 +76,8 @@
 
 ## Notes for the next sitting
 
-- Any local `bun run build` rewrites `src/routeTree.gen.ts` (pre-existing generator drift) —
-  never commit that file under this item. It is untouched at the fix head.
-- The re-run brief instructs by-name grading of the rebuilt lines and named carry-forward of
-  the rest; a false claim the checklist omits is still a finding (floor, not ceiling).
-- CI is to be armed on the final head after a clean re-run; the required check gates the merge.
+- Any local `bun run build` rewrites `src/routeTree.gen.ts` (pre-existing generator drift) — never
+  commit that file under this item. It is untouched at the head this sitting closes on.
+- Branch base for full-range diffs: `ea4f3453ed59081a3e24c035e6d321d1f2ebaa45`. Code territory:
+  `src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts`.
+- The pull request already exists and must name no item id but this branch's own.

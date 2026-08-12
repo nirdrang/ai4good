@@ -134,10 +134,13 @@ Deno.serve(edgeHandler('complete-signup', async (request: Request): Promise<Resp
     // `validateCompleteSignup` trimmed them and pinned the attestation to the shipped statement, so
     // what reaches the row is what the decision was made on rather than what the client typed.
     //
-    // THEY ARE ALWAYS SENT, unlike the four github keys. Those are omitted when there is no handle
-    // because the columns behind them are nullable and the omission is a real deployment bridge;
-    // these three back `not null` columns, so an omitted argument would abort the whole transaction.
-    // A completion that reaches this line has all three.
+    // THEY ARE ALWAYS SENT, unlike the four github keys — and the difference is NOT nullability.
+    // All four `volunteer_profiles` columns are `not null` too. The difference is which ROWS get
+    // written: an NGO completion writes no `volunteer_profiles` row, so omitting the github keys
+    // reaches no column, which is what makes that omission usable as a deployment bridge. EVERY
+    // completion writes the acknowledgment row, so no caller class avoids these three columns — an
+    // omitted argument would arrive as the default null, fail the constraint and abort the whole
+    // transaction. A completion that reaches this line has all three.
     p_signer_name: signerName,
     p_signer_title: signerTitle,
     p_authority_attestation: authorityAttestation,
