@@ -13,6 +13,7 @@ tools:
   read: true
   grep: true
   glob: true
+  gitdiff: true
   write: false
   edit: false
   patch: false
@@ -22,6 +23,10 @@ tools:
   todowrite: false
 permission:
   "*": deny
+  # AFTER the wildcard deny on purpose - the last matching rule wins, and gitdiff is the one
+  # capability this cage grants beyond reading (see ../tools/gitdiff.ts for what it does and does
+  # not allow). Measured 2026-08-12: the tool loads under `--pure`, so no plugin flag is dropped.
+  gitdiff: allow
   edit: deny
   bash: deny
   webfetch: deny
@@ -43,3 +48,18 @@ fatal runs; the runtime DIES on oversized search results, it does not recover):
 - Read large files with offset and limit, never whole.
 - If a search fails with a record-size or output-size error, do not repeat it — narrow by file
   type or directory and continue.
+
+EMPTY-RESULT DISCIPLINE — an empty search is NEVER proof of absence (measured 2026-08-12). Your
+`read` tool REFUSES loudly for a path outside the directory you were launched in, but `glob` and
+`grep` return "0 matches" with no error at all. The two look identical in your notes, and one of
+them means "you were not allowed to look". A reviewer that reports "not found" from a silent
+empty result has manufactured negative evidence, which is worse than reporting nothing.
+- Before you treat any empty sweep as evidence, run one sweep in the SAME batch for something you
+  KNOW is present inside your launch directory. A non-empty anchor proves your search reached the
+  files at all. Without that anchor, an empty result is inconclusive.
+- Never write "not found" or "does not exist" for a target outside your launch directory. Write
+  "out of scope, not examined".
+- An identifier sweep that returns nothing is INCONCLUSIVE until you re-run it scoped to every
+  directory that could hold the identifier. Say "inconclusive"; never say "absent".
+- Prefer a tool that refuses over a tool that returns emptiness: a refusal is evidence about your
+  reach, an empty result is not.

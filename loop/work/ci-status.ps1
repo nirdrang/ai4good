@@ -30,8 +30,33 @@ $mine = $runs | Where-Object { $_.head_sha -like "$short*" }
 
 if (-not $mine) {
   Write-Host "run            NONE EXISTS for this head" -ForegroundColor Yellow
-  Write-Host "               a dropped webhook never replays - resuming needs a FRESH event"
-  Write-Host "               (git commit --allow-empty, or reopen the pull request)"
+
+  # A MISSING RUN HAS TWO CAUSES THAT LOOK IDENTICAL, and they need opposite remedies.
+  # A CONFLICTING pull request gets NO run at all: the workflow fires on `pull_request`, and
+  # GitHub cannot build a merge commit it cannot compute, so every push to a dirty branch is
+  # silently runless. Measured 2026-08-12: seven consecutive pushes had zero runs, and the moment
+  # the conflict was resolved GitHub created a run for EVERY one of them with no fresh event.
+  # An empty commit - the remedy for the other cause - produces nothing here and wastes a push.
+  # So ask the pull request whether it is mergeable BEFORE naming a dropped webhook.
+  $pr = $null
+  try {
+    $pr = gh pr view --repo $Repo --json number,mergeable,mergeStateStatus 2>$null | ConvertFrom-Json
+  } catch { $pr = $null }
+
+  if ($pr -and $pr.mergeable -eq 'CONFLICTING') {
+    Write-Host ("               pull request #" + $pr.number + " is CONFLICTING (mergeStateStatus=" + $pr.mergeStateStatus + ")") -ForegroundColor Yellow
+    Write-Host "               THAT is why no run exists - not a dropped webhook. Merge main in and"
+    Write-Host "               resolve; the runs appear by themselves, and an empty commit does nothing."
+  } elseif ($pr) {
+    Write-Host ("               pull request #" + $pr.number + " is mergeable=" + $pr.mergeable + " (mergeStateStatus=" + $pr.mergeStateStatus + ")")
+    Write-Host "               so a conflict is NOT the cause - a dropped webhook never replays, and"
+    Write-Host "               resuming needs a FRESH event (git commit --allow-empty, or reopen the PR)"
+  } else {
+    Write-Host "               no pull request could be read for this branch, so the two causes cannot"
+    Write-Host "               be told apart here. Check the pull request's mergeable state first; only"
+    Write-Host "               if it is clean does a dropped webhook explain this, and only then does a"
+    Write-Host "               fresh event (git commit --allow-empty, or reopen the PR) help."
+  }
 } else {
   foreach ($r in $mine) {
     Write-Host ("run            " + $r.id + "  event=" + $r.event + "  status=" + $r.status + "  conclusion=" + $r.conclusion)

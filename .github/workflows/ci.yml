@@ -271,6 +271,17 @@ jobs:
           # Both fields of every line are matched; the empty second field of an ordinary
           # (non-renamed) file drops out here.
           paths=$(printf '%s\n' "$files" | tr '\t' '\n' | grep . || true)
+
+          # THE GENERATED ROUTE MAP BELONGS TO NEITHER TERRITORY (founder ruling 2026-08-12).
+          # `bun run build` rewrites src/routeTree.gen.ts on every build - measured twice that day,
+          # the same ten-line `declare module` block returns each time, while typecheck and the
+          # acceptance runs never touch it. So every Claude-territory item that builds dirties a
+          # Lovable-territory file it never wrote, and this guard fails a pull request for a change
+          # nobody made. The guard protects AUTHORED code; derived output has no author to protect,
+          # and the next build overwrites a hand edit anyway. One exemption here replaces a
+          # restore-after-build ritual that every future item would have to remember.
+          paths=$(printf '%s\n' "$paths" | grep -v '^src/routeTree\.gen\.ts$' || true)
+
           lovable=$(printf '%s\n' "$paths" | grep -E '^src/' || true)
           claude=$(printf '%s\n' "$paths" | grep -E '^(supabase|tests|loop|\.claude|\.github)/' || true)
 
