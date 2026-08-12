@@ -50,6 +50,15 @@ function Gauge() {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -Json -SnapshotPath $snap | ConvertFrom-Json
 }
 function Verdict() { (Gauge).verdict }
+# The same gauge, with extra flags on the command line. Everything above drives one fixed flag
+# set; these two carry the flags the CLI owns, so the flags themselves can be pinned.
+function GaugeWith([string[]]$extra) {
+    (& powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -Json -SnapshotPath $snap @extra) | ConvertFrom-Json
+}
+# NO -Json AT ALL: the human lines, which are a second output format and the one a person reads.
+function GaugeHuman([string[]]$extra = @()) {
+    (& powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -SnapshotPath $snap @extra) -join "`n"
+}
 
 try {
     'SIMULATING THE USAGE-WINDOW GUARD (synthetic readings, no tokens spent)'
@@ -310,6 +319,48 @@ try {
     if ($savedWinDir) { $env:AI4GOOD_WINDOW_DIR = $savedWinDir }
     Check "the alarm's own path literal still equals the library's formula" `
         ([Environment]::ExpandEnvironmentVariables($m.Groups[1].Value).TrimEnd('\')) ($libDir.TrimEnd('\'))
+
+    ''
+    '10. The gauge command line itself - the surface nothing above touches'
+    # EVERY CHECK ABOVE GOES THROUGH ONE FIXED INVOCATION: -Json -SnapshotPath. So the gauge's
+    # other half - the human lines a person reads, the two threshold flags, and the two output
+    # modes combined with -ExitOnReady - could regress in full while this file stayed green. That
+    # is what this section pins, and it is content that is asserted, never only an exit code.
+
+    # THE HUMAN LINES. Three readings, one per verdict word, because the head line composes the
+    # word and the reason together and a broken format would still print something.
+    Set-Reading @{ five_hour = (W 40 120) }
+    Check 'human output prints the OK verdict word, not only JSON' ([bool]((GaugeHuman) -cmatch '^WINDOW\s+OK')) 'True'
+    Check 'and the detail line names the window and its percent' ([bool]((GaugeHuman) -match 'five_hour\s+40%')) 'True'
+    Set-Reading @{ five_hour = (W 95 60) }
+    Check 'human output prints the PAUSE verdict word' ([bool]((GaugeHuman) -cmatch '^WINDOW\s+PAUSE')) 'True'
+    Set-Raw 'this is not json {{{'
+    Check 'human output prints the UNKNOWN verdict word on a reading it cannot trust' ([bool]((GaugeHuman) -cmatch '^WINDOW\s+UNKNOWN')) 'True'
+
+    # THE STALENESS FLAG. Section 5 drives staleness only at the built-in 15 minutes, so the flag
+    # that carries the number was never exercised. One reading, two answers, and the flag is the
+    # only difference between them.
+    Set-Reading @{ five_hour = (W 40 120) } 60
+    Check 'an hour-old under-the-line reading is UNKNOWN at the default 15 minutes' (Verdict) 'UNKNOWN'
+    Check 'and -StaleMinutes 120 accepts that same reading as current' (GaugeWith @('-StaleMinutes', '120')).verdict 'OK'
+
+    # THE GAUGE'S OWN -PauseAt. window-wait.ps1's copy is pinned at section 6; this is the gauge's,
+    # and a line baked into the logic rather than read from the parameter goes red here.
+    Set-Reading @{ five_hour = (W 50 120) }
+    Check 'a 50% reading is fine at the standing line' (Verdict) 'OK'
+    Check "and the gauge's own -PauseAt 40 parks that same reading" (GaugeWith @('-PauseAt', '40')).verdict 'PAUSE'
+
+    # -ExitOnReady TOGETHER WITH -Json. Section 6 runs -ExitOnReady alone, so the exit code and the
+    # machine output were never proven to survive each other: an early exit that skipped the body,
+    # or a body that swallowed the code, passes every check above.
+    Set-Reading @{ five_hour = (W 10 120) }
+    $ready = (& powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -Json -SnapshotPath $snap -ExitOnReady) -join ''
+    Check '-ExitOnReady with -Json still exits 0 when the window is clear' $LASTEXITCODE 0
+    Check 'and still emits the JSON body beside that exit code' ([bool]($ready -match '"verdict":\s*"OK"')) 'True'
+    Set-Reading @{ five_hour = (W 95 60) }
+    $parked = (& powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -Json -SnapshotPath $snap -ExitOnReady) -join ''
+    Check '-ExitOnReady with -Json exits 1 when the window is spent' $LASTEXITCODE 1
+    Check 'and the JSON body is still there on the failing exit' ([bool]($parked -match '"verdict":\s*"PAUSE"')) 'True'
 
     ''
     "RESULT: {0} passed, {1} failed" -f $pass, $fail

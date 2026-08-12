@@ -40,13 +40,15 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
   of 2026-08-06 — only the number moved). There is no lower "start nothing new" band. Such a band
   would have to be justified by what a sitting costs, which nobody has measured, so it could only
   ever be a number that felt safe. Work starts whenever the gauge says `OK`.
-- **Three hooks enforce that standing line mechanically, and they decide nothing.** They are the
+- **Three hooks apply that standing line mechanically, and they decide nothing.** They are the
   prompt stamp's class of machinery: they apply a decision the founder already made, at the
   moment it bites, and they are incapable of anything else. `window-gate.ps1` (PreToolUse on the
-  `Agent` tool) refuses a SPAWN at the line; `window-alarm.cmd` (PostToolUse and
-  PostToolUseFailure) puts the verdict line in front of any model within one tool call;
-  `stamp-hook.ps1` puts it in front of the founder on every prompt. None of them can stop work
-  already running, none can choose who is refused, and none can be
+  `Agent` tool) refuses a SPAWN at the line, and `stamp-hook.ps1` puts the verdict in front of
+  the founder on every prompt — both proven at runtime. `window-alarm.cmd` (PostToolUse and
+  PostToolUseFailure) is wired to put the verdict line in front of any model within one tool
+  call; it is proven in isolation, and its end-to-end delivery through the hook runner is not
+  yet proven — the live check after the window-guard item merges settles it.
+  None of them can stop work already running, none can choose who is refused, and none can be
   turned off by the actor it denies. They speak — that is their whole function — but they only
   ever repeat the founder's standing line and the reading, and a message is not a decision. The
   coordinator remains the only decider — what the gate refuses is new work starting, never work

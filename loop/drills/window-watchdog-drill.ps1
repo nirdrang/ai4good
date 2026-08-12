@@ -482,27 +482,49 @@ try {
     # A CHANGED FILE CANNOT BE RED BY ITSELF. The founder session rewrites both live files on every
     # turn of its own accord, so "it changed" proves nothing while this drill runs. Red is content
     # that can only have come from HERE: the sessionId marker in the snapshot, or an ALARM line
-    # this run produced sitting in the live verdict file. Two things this deliberately does NOT
+    # this run produced sitting in the live verdict file. Four things this deliberately does NOT
     # call red, and says so rather than hiding it: a live 'OK' line (every healthy sensor writes
-    # that exact line) and a live UNKNOWN line (a genuinely broken live sensor writes one, and it
-    # halts nothing). The ALARM lines are the ones that can park real work.
+    # that exact line); a live UNKNOWN line (a genuinely broken live sensor writes one, and it
+    # halts nothing); a file CREATED during the run (the founder session writes both files on
+    # every turn of its own accord, so the first write of a file that was missing at the start
+    # proves nothing about this drill); and a rewrite with IDENTICAL content (the last-write time
+    # moved and the bytes did not, so nothing this drill produced is in there). The ALARM lines
+    # are the ones that can park real work.
+    #
+    # THE COMPARISON USES THE WHOLE RECORDED FINGERPRINT - existence, hash and last-write - and
+    # sorts every difference into one of those classes, so the note channel says which one
+    # happened instead of the drill staying silent about the classes it does not call red.
     $liveAfter = Get-LiveFingerprint
     $stillThere = $true
     $isMine = $false
-    $changed = @()
+    $changed = @()        # the hash moved: different content is in there now
+    $rewritten = @()      # the last-write moved and the hash did not: the same bytes written again
+    $created = @()        # missing when this run started, present now
     foreach ($n in @('rate-limits.json', 'window-verdict.txt')) {
-        if ($liveBefore[$n].Exists -and (-not $liveAfter[$n].Exists)) { $stillThere = $false }
-        if ($liveBefore[$n].Hash -ne $liveAfter[$n].Hash) { $changed += $n }
-        if ($liveAfter[$n].Text -match 'window-watchdog-drill') { $isMine = $true }
+        $b = $liveBefore[$n]
+        $a2 = $liveAfter[$n]
+        if ($b.Exists -and (-not $a2.Exists)) { $stillThere = $false }
+        elseif ((-not $b.Exists) -and $a2.Exists) { $created += $n }
+        elseif ($b.Exists -and $a2.Exists) {
+            if ($b.Hash -ne $a2.Hash) { $changed += $n }
+            elseif ($b.LastWrite -ne $a2.LastWrite) { $rewritten += $n }
+        }
+        if ($a2.Text -match 'window-watchdog-drill') { $isMine = $true }
         foreach ($l in $script:drillLines) {
-            if (($l -like 'ALARM *') -and ($liveAfter[$n].Text.Trim() -eq $l.Trim())) { $isMine = $true }
+            if (($l -like 'ALARM *') -and ($a2.Text.Trim() -eq $l.Trim())) { $isMine = $true }
         }
     }
     Assert 'guard' 'both live files still exist - this drill deleted nothing out there' $stillThere
-    Assert 'guard' 'no live file carries anything this drill wrote' (-not $isMine)
+    Assert 'guard' 'no live file carries the drill marker or an ALARM line this run produced' (-not $isMine)
     Assert 'guard' 'the override was still in force at the end of the run' ($env:AI4GOOD_WINDOW_DIR -eq $winDir)
     if ($changed.Count -gt 0) {
-        Write-Output ('        note: the live ' + ($changed -join ' and ') + ' changed during this run and carries none of this drill content - that is the founder session refreshing it, which it does every turn.')
+        Write-Output ('        note - content changed: the live ' + ($changed -join ' and ') + ' holds different content now, and none of it is this drill''s. Never red: the founder session refreshes these files of its own accord, every turn.')
+    }
+    if ($rewritten.Count -gt 0) {
+        Write-Output ('        note - rewritten with the same content: the live ' + ($rewritten -join ' and ') + ' was written again during this run, the last-write time moved and the bytes did not. Never red: the founder session writes these files of its own accord, and identical bytes carry nothing this drill produced.')
+    }
+    if ($created.Count -gt 0) {
+        Write-Output ('        note - created during the run: the live ' + ($created -join ' and ') + ' was missing when this run started and exists now, carrying none of this drill''s content. Never red: the founder session writes both files of its own accord, so a first write during the run says nothing about this drill.')
     }
 
     Write-Output ''

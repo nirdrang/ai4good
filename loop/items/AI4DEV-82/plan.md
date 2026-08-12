@@ -182,6 +182,10 @@ fires inside subagents; UserPromptSubmit appeared in no subagent log — so the 
 
 ## Steps
 
+The `Done:` line on each step below is the step's CRITERION — what it must satisfy — not a
+status. The status of record is the table in "What actually happened, step by step", further
+down; steps 9 and 10 did not fully meet their criteria, and that table says so.
+
 1. **Extract `window-lib.ps1`; thin `window-gauge.ps1` over it, line still at 90.**
    Done: `window-sim.ps1` green (exit 0), AND a capture-diff (gate 1 finding 2): before the
    refactor, capture the CURRENT gauge CLI's full output over a fixed synthetic set — OK, PAUSE,

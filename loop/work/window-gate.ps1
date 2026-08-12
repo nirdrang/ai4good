@@ -11,8 +11,10 @@
 # THIS DECIDES NOTHING. The founder set the line; the coordinator owns every judgement about work.
 # This is the same class of machinery as the prompt stamp: it applies a standing decision
 # mechanically, at the moment it bites, and it is deliberately incapable of anything else. It
-# cannot stop running work, it cannot message anyone, and it cannot be turned off by the actor it
-# denies.
+# cannot stop running work, it cannot choose who is refused, and it cannot be turned off by
+# the actor it denies. It speaks - the deny reason and the warnings are its whole function - but
+# it only ever repeats the founder's standing line and the reading, and a message is not a
+# decision.
 #
 # THE DENY REASON CARRIES THE CHOREOGRAPHY. The reason string reaches the model that tried to
 # spawn, so it says what to do: write state, commit, push, report PARKED to your spawner, end.

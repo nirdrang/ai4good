@@ -1,0 +1,105 @@
+﻿SIMULATING THE USAGE-WINDOW GUARD (synthetic readings, no tokens spent)
+
+1. A five-hour window filling up across a working session
+  PASS  at 3% -> keep working
+  PASS  at 25% -> keep working
+  PASS  at 60% -> keep working
+  PASS  at 80% -> keep working
+  PASS  at 84% -> keep working
+  PASS  at 85% -> park
+  PASS  at 91% -> park
+  PASS  at 99% -> park
+  PASS  at 100% -> park
+
+2. The line itself
+  PASS  84 is under the line
+  PASS  85 is ON the line and counts as over
+  PASS  84.6 rounds to 85 -> park
+  PASS  84.4 rounds to 84 -> keep working
+  PASS  the WAIT default agrees: 84 is under the line, nothing to wait for
+  PASS  the WAIT default agrees: 85 is ON the line, so it parks
+  PASS  float noise does not become an odd percentage
+  PASS  a fresh window reads 0
+
+3. Several windows, disagreeing
+  PASS  weekly over while five-hour is idle -> park
+  PASS  and it names the weekly one
+  PASS  and reports THAT window reset, not another
+  PASS  both over -> the furthest along wins
+  PASS  a per-model weekly window blocks too
+  PASS  and is named
+  PASS  an unrecognised window still counts
+
+4. Readings that cannot be trusted
+  PASS  no snapshot at all -> UNKNOWN
+  PASS  unparseable snapshot -> UNKNOWN
+  PASS  a build reporting no windows -> UNKNOWN
+  PASS  a window with no percentage -> UNKNOWN
+  PASS  one broken window, one good -> the good one still decides
+  PASS  a window with no reset time still reports its level
+  PASS  an unreadable timestamp does not crash it
+
+5. Staleness
+  PASS  a current reading is used
+  PASS  14 minutes old is still current enough
+  PASS  16 minutes old -> UNKNOWN
+  PASS  stale, over the line, window not yet reset -> park on it
+  PASS  stale, over the line, but the window has since reset -> UNKNOWN
+  PASS  stale and under the line -> UNKNOWN, it may have climbed
+  PASS  stale, over the line, no reset time at all -> UNKNOWN
+
+6. Parking and continuing
+  PASS  nothing to wait for -> exits 0 at once
+  PASS  the wait condition succeeds when clear
+  PASS  the wait condition fails when parked
+  PASS  reset time already passed -> exits 0
+  PASS  and tells the caller to re-read the gauge
+  PASS  a weekly blocker -> gives up with exit 1
+  PASS  and says it is a founder decision
+  PASS  a lowered line parks work that was fine before
+
+7. A live park, with the world changing underneath it
+  PASS  parked, and still waiting after 3s
+  PASS  released once the reading cleared
+  PASS  exit 0 on early release
+  PASS  said it cleared early
+  PASS  survives its snapshot vanishing mid-park
+  PASS  and still releases on the clock
+
+8. Coming out the other side of a park
+  PASS  crossed the reset boundary and released
+  PASS  and actually waited for it, rather than short-circuiting
+  PASS  and said the stated reset had passed
+  PASS  still parked inside the slack, not released on the exact second
+  PASS  a genuinely new window -> release the work
+  PASS  still over the line after the reset -> park again
+  PASS  and the park is re-enterable
+  PASS  nothing refreshed it after the park -> UNKNOWN, not a false PAUSE
+  PASS  the five-hour reset does not release a weekly block
+  PASS  and the weekly one is still named as the blocker
+
+9. The library itself, and the copies pinned to it
+  PASS  an in-memory reading verdicts the same as a parsed one
+  PASS  and both name the window that actually blocked
+  PASS  no usable timestamp, over the line -> PAUSE on the floor it still proves
+  PASS  no usable timestamp, under the line -> UNKNOWN, never scored as current
+  PASS  and the reason names the timestamp it could not use
+  PASS  the PAUSE line begins with exactly 'ALARM WINDOW '
+  PASS  the alarm still carries a fallback path literal to compare
+  PASS  the alarm's own path literal still equals the library's formula
+
+10. The gauge command line itself - the surface nothing above touches
+  PASS  human output prints the OK verdict word, not only JSON
+  PASS  and the detail line names the window and its percent
+  PASS  human output prints the PAUSE verdict word
+  PASS  human output prints the UNKNOWN verdict word on a reading it cannot trust
+  PASS  an hour-old under-the-line reading is UNKNOWN at the default 15 minutes
+  PASS  and -StaleMinutes 120 accepts that same reading as current
+  PASS  a 50% reading is fine at the standing line
+  PASS  and the gauge's own -PauseAt 40 parks that same reading
+  PASS  -ExitOnReady with -Json still exits 0 when the window is clear
+  PASS  and still emits the JSON body beside that exit code
+  PASS  -ExitOnReady with -Json exits 1 when the window is spent
+  PASS  and the JSON body is still there on the failing exit
+
+RESULT: 82 passed, 0 failed

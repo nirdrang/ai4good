@@ -104,6 +104,14 @@ at `artifacts/overhead-measure.ps1`.
 choice the plan's D5 argued from cost is confirmed by measurement: a batch file costs about 35 ms
 where the `powershell -NoProfile` it avoids was estimated at 200–400 ms.
 
+**What the measurement invokes, stated precisely.** `artifacts/overhead-measure.ps1` times
+`cmd /c "<path-to-window-alarm.cmd>"` launched from PowerShell — a batch file always executes
+under `cmd.exe`, so this is the cost of the batch file under a cmd spawn. The deployed entry in
+`.claude/settings.json` is the bare quoted path with no interpreter; the hook runner's own
+spawn form is not measured, and it is the same unproven channel as the alarm's end-to-end
+delivery. The 35.5 ms median is the batch file's cost, not an end-to-end measurement of the
+deployed entry.
+
 **The status line — paid once per refresh.**
 
 | variant | median |
