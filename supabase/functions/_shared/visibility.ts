@@ -135,8 +135,14 @@ function knownAccountType(raw: unknown): AccountType | null {
  *   * EVERYBODY ELSE, including a logged-out viewer, reads neither — AT-001.24's API half.
  *
  * IT FAILS CLOSED ON EVERY VALUE IT DOES NOT RECOGNISE, the posture `parseOrgRole` states and gives
- * its reasons for: an unknown account type, an unknown role, `undefined`, a number and a missing row
- * all reach the same refusal, and no value widens authority.
+ * its reasons for: an unknown account type, an unknown role, AN UNKNOWN SCOPE, `undefined`, a number
+ * and a missing row all reach the same refusal, and no value widens authority.
+ *
+ * THE SCOPE IS NAMED OUT LOUD BECAUSE IT IS THE ONE THIS SENTENCE USED TO BE UNTRUE OF. Gate 2
+ * measured it: every value other than `'organization'` fell through to the project rule, where an
+ * assigned volunteer is allowed, so an unrecognised value WIDENED authority while this paragraph
+ * promised the opposite. `tests/at/harness/shipped-visibility.selftest.ts` is the oracle for the
+ * whole promise, that branch included.
  *
  * THE PLATFORM-ADMIN BRANCH CARRIES NO TEST IN THIS SLICE, and that is said here rather than left to
  * be discovered: slice 1 lands AT-001.21 and AT-001.22, neither of which drives an administrator.
