@@ -60,9 +60,14 @@ fires inside subagents; UserPromptSubmit appeared in no subagent log — so the 
   records it). The item's sentence "runs window-gauge.ps1 -Json" is honored as "runs the gauge's
   verdict logic"; the gate runs that logic in-process through the same lib. This is stated as a
   deliberate mechanism choice, not a founder decision.
-- **D2 — the line moves to 85 in the two param defaults that carry it** (`window-gauge.ps1`,
-  `window-wait.ps1`), with the founder-ruling comments updated (2026-08-12 supersedes the number;
-  the one-line principle stands). `window-sim.ps1`'s boundary cases move with it (89/90 hardcodes
+- **D2 — the line moves to 85 in the param defaults that carry it.** As built, the number lives
+  in THREE places, not two (executor deviation, accepted by the recovery DRAFT sitting
+  2026-08-12): the canonical `$script:WindowPauseLine = 85` in `window-lib.ps1` — the value the
+  gate, sensor and stamp use through the library — plus the CLI param defaults in
+  `window-gauge.ps1` and `window-wait.ps1`, which are separate processes whose `param()` defaults
+  cannot evaluate a dot-sourced value. All three carry the founder-ruling comment (2026-08-12
+  supersedes the number; the one-line principle stands), and `window-sim.ps1`'s 84/85 boundary
+  cases go red if any copy is left behind. `window-sim.ps1`'s boundary cases move with it (89/90 hardcodes
   become 84/85; float-noise cases become 84.6/84.4; the fill-up narrative crosses at 85). The sim
   stays the gauge's regression net and must be green after the move.
 - **D3 — the verdict file (amended per gate 1 finding 4).** `statusline.ps1` computes the
@@ -118,7 +123,11 @@ fires inside subagents; UserPromptSubmit appeared in no subagent log — so the 
   prompt is the same class. The alarm hook remains the one dumb reader.
 - **D7 — one override mechanism for the drill:** env var `AI4GOOD_WINDOW_DIR` redirects the
   directory holding `rate-limits.json` + `window-verdict.txt` for the sensor, the gate, the
-  alarm and the stamp's verdict read. Existing `-SnapshotPath` params stay. The drill sets the
+  alarm and the stamp's verdict read — and, as built, also for the gauge CLI (executor
+  deviation, accepted by the recovery DRAFT sitting 2026-08-12: the gauge resolves its default
+  snapshot path through the library's one path helper, so there is exactly one path formula;
+  behaviour with the variable unset is unchanged, and the step 1 capture-diff is the proof).
+  Existing `-SnapshotPath` params stay. The drill sets the
   env var to a temp dir; the live files are never touched, and the drill asserts its dir is not
   the live dir.
 - **D8 — the drill (amended per gate 1 findings 4 and 5):** new

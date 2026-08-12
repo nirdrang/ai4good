@@ -1,61 +1,78 @@
 # PHASE-STATE — AI4DEV-82 (window guard at the sitting boundary)
 
-**Phase: PLAN COMPLETE — the next event is GATE 1 (the plan review), a wait the conductor
-holds.** Written by the PLAN sitting, orchestrator on **fable @ xhigh**, 2026-08-12. Chain,
-derived from the branch: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the sitting
-boundary)`. Bring-up item; no database slot (coordinator-confirmed: hooks, PowerShell scripts
-and a drill).
+**Phase: DRAFT COMPLETE — the next event is GATE 2 (the draft code review), a wait the conductor
+holds.** Written by the RECOVERY DRAFT sitting, orchestrator on **fable @ xhigh**, 2026-08-12.
+Chain, derived from the branch: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the
+sitting boundary)`. Bring-up item; no database slot. The pull request is #56.
 
-## What happened this sitting
+## What happened — two sittings, one phase
 
-1. **The worktree had been auto-cleaned mid-sitting and was repaired.** The conductor's tree
-   arrived populated, then the platform's unchanged-worktree cleanup emptied and unregistered it
-   while this sitting ran (zero commits existed on the branch, so it counted as unchanged). This
-   sitting re-registered the same path on the item branch and immediately committed and pushed
-   an anchor, which is what makes the tree survive from now on. Full evidence:
-   `artifacts/worktree-incident.md`. Consequences the next sittings must know: **node_modules is
-   NOT installed in this tree** (nothing in this item needs it), and any file state the conductor
-   remembers from before the repair is unreliable — the branch and the pushed record are the
-   truth.
-2. **The item's required first measurement is done and positive** — PreToolUse hooks fire for
-   Agent calls made inside spawned agents; the matcher name is `Agent`; deny reasons reach the
-   denied actor; PostToolUse fires inside subagents; UserPromptSubmit does not. Three
-   instruments agree. Evidence: `artifacts/hook-measurement.md` + `artifacts/hookprobe/`.
-   **The conductor-fallback branch of the item is dead; the hook design is confirmed.**
-3. **`plan.md` is written** — eleven steps, each with a done-criterion; the drill is the
-   executable test body and is written red-first at step 3; one slice; scope declaration for the
-   later audit brief included.
-4. **`gate1-prompt.txt` is written** — contract + PLAN review section + this item's additions
-   (no pins block, no sibling gates).
-5. **The pull request is opened by a mechanical after this state file is pushed**, so the
-   required CI check gates from the first push onward.
+1. The original DRAFT sitting ruled all six gate 1 findings (`gate1-rulings.md`), amended
+   `plan.md`, pushed both FIRST (f7ec462), then ran one opus executor which implemented every
+   plan step and pushed six commits through d120230. The sitting then died on a vendor-side 529
+   error on its first model call AFTER the executor returned — before ruling on the executor's
+   report. Nothing was lost: the tree was clean at d120230.
+2. This RECOVERY sitting verified the tree first-hand against the gate 1 rulings — reading every
+   changed file's diff and re-running the verification: `window-sim.ps1` 60/60, the watchdog
+   drill standalone 54/54, `run-drills.ps1` 74/74, capture-diff identical except its label line.
+   **Nothing the dead sitting's executor claimed was found wrong.** The verification table and
+   the rulings on the executor's five flagged deviations are in `draft-rulings.md`; two
+   deviations were accepted into the plan (D2: the 85 line lives in three defaults; D7: the
+   gauge honors the override too).
+3. `draft-rulings.md` also carries a REAL INCIDENT record: the drill's first run wrote a
+   synthetic 95% reading into the live snapshot before the sensor honored the override; it
+   self-healed and two permanent guards now stand in the drill. Read it before writing the audit
+   brief — the incident and the guards belong in the claim checklist territory facts.
+4. The two gate 2 prompts are written and committed: `gate2-terra-prompt.txt` and
+   `gate2-flash-prompt.txt` — identical assembly (contract + draft-code section + this item's
+   additions), neither aware of the other.
 
 ## What completes the next phase
 
-GATE 1: the conductor launches one reviewer-runner for the plan gate — reader `gpt-5.6-sol`,
-effort `xhigh`, codex, `--sandbox read-only`, prompt file `loop/items/AI4DEV-82/gate1-prompt.txt`,
-pinned at this branch head — waits for the landing, and has the distillate produced. Then the
-conductor spawns the DRAFT sitting (orchestrator, fable), which rules on every gate 1 finding,
-amends `plan.md`, pushes rulings + amendment BEFORE any code changes, and only then spawns the
-executor for the draft (typecheck-level clean for scripts means: every script parses; the drill
-runs; the verify suite — drill green — deliberately NOT yet achieved).
+GATE 2: the conductor launches TWO reviewer-runners in the background, pinned at this sitting's
+close head (the head this state file rides in — verify against the remote):
+
+- reader one · `gpt-5.6-terra` · effort `max` · codex · `--sandbox read-only` · prompt
+  `loop/items/AI4DEV-82/gate2-terra-prompt.txt`
+- reader two · `opencode-go/deepseek-v4-flash` · `--variant max` · opencode · agent
+  `reviewer-flash` · clean session · prompt `loop/items/AI4DEV-82/gate2-flash-prompt.txt`
+
+Neither reader may learn the other exists. When both land and are distilled, the conductor
+spawns the FIX AND GOAL sitting (orchestrator, fable).
+
+## What the FIX AND GOAL sitting must do (beyond its contract)
+
+- Rule on every finding from BOTH readers; push rulings before any code changes.
+- The executor then checks verify-first claims, applies ruled fixes, and pursues the goal. The
+  draft is already green (drill, sim, full suite), so "goal" here means the deliberately
+  deferred evidence steps: run the settings-proof probe (step 10 — MANDATORY, it is the runtime
+  proof gate 1 rulings [1] and [3] depend on, with their contingencies pre-decided); measure the
+  two overhead medians (step 6, alarm target ≤ 100 ms); prove the fold binding once with a
+  forced red (step 8); write `goal-evidence.md` (step 12) including the capture-diff pointers.
+- Commit both readers' full evidence (raw + distillate + the opencode reader's tool-call summary
+  and identity extract) into the record before closing.
+- Write the audit brief per reader (luna via codex, flash via opencode), with the CLAIM
+  CHECKLIST: the gate 1 ruling ids [1]–[6] and the draft ruling ids [E1]–[E5] as adopted claims,
+  the declared path territory from plan.md's scope declaration, the incident record's facts, and
+  each concrete code fact the record states. The auditors' change-set command must be scoped to
+  the declared territory — the default source-only diff yields an EMPTY list for this item.
 
 ## Facts the next sitting needs
 
-- Branch base: 390042c (= main at branch creation). The anchor commit and the plan commits sit
-  on top; the head the conductor pins for gate 1 is the pushed head of this sitting's close.
-- The specification is the Linear item description (AI4DEV-82, updated 2026-08-12). The plan
-  quotes every load-bearing ruling; if a gate 1 finding disputes a quote, the Linear text wins
-  and the ruling should re-read it.
-- The audit brief (fix sitting's job) must scope the auditors' change-set command to this item's
-  declared territory (see plan.md "Scope declaration") — the default source-only diff yields an
-  empty list here.
-- The merge sitting must verify post-merge that the running interactive session actually picked
-  up the new hook entries (the docs claim a file watcher does it; unmeasured), and record the
-  answer.
+- Branch base: 390042c. Gate 1 rulings + plan amendment: f7ec462. Executor's draft: six commits
+  through d120230. This sitting adds: plan D2/D7 amendments, `draft-rulings.md`, the two gate 2
+  prompts, this file.
+- The six draft commits carry a `Co-Authored-By: Claude Fable 5` trailer but were written by an
+  OPUS executor (verified from transcripts; see `draft-rulings.md`). Do not read trailers on
+  this branch as model attribution.
+- Deliberately NOT done in the draft, by plan design: probe execution, overhead medians,
+  fold-binding forced-red proof, `goal-evidence.md`.
+- The committed `.claude/settings.json` hook paths point at the MAIN checkout and are live only
+  post-merge; the probe proves the entry shapes pre-merge, and the merge sitting must verify
+  live firing post-merge and record whether the running session picked up the entries.
+- node_modules is not installed in this tree; nothing in this item needs it.
 
 ## Open questions for the founder
 
-None. The measurement confirmed the hook design, so the item's conditional fallback never
-activates and nothing contradicts ratified text. No scope growth: everything planned is inside
-the item's own specification.
+None. No finding contradicts ratified text and there is no scope growth. The 529 death and the
+recovery are process facts, recorded here and in `draft-rulings.md`.
