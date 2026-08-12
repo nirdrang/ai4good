@@ -23,6 +23,12 @@
 # The dangerous failure is not a wrong stamp; it is no stamp becoming normal, after which nobody
 # reads the line at all.
 
+# The session id normally arrives in the hook payload on stdin. The BANNER cannot forward stdin -
+# it runs the stamp in the same process AFTER draining the payload itself - so it passes the id it
+# parsed as this parameter instead. The parameter wins when present; the stdin read is the
+# fallback. Same format rule as the stdin path, enforced below.
+param([string]$SessionId = '')
+
 $ErrorActionPreference = 'Stop'
 $script:AgentLines = @()
 $script:BatchAttr = ''
@@ -102,9 +108,14 @@ try {
     # genuinely redirected - reading a console would block, and a hook that hangs is the one
     # failure this file must never have. Empty is a legal answer and degrades the ownership
     # labels below, never the stamp.
+    # CAPTURE THE PARAMETER BEFORE ZEROING: at script level $script:SessionId IS $SessionId -
+    # the same variable - so assigning '' first would silently erase the banner's parameter
+    # (caught by test on 2026-08-12, not by inspection).
+    $sidParam = $SessionId
     $script:SessionId = ''
+    if ($sidParam -and $sidParam -match '^[0-9a-fA-F-]{8,64}$') { $script:SessionId = $sidParam }
     try {
-        if ([Console]::IsInputRedirected) {
+        if (-not $script:SessionId -and [Console]::IsInputRedirected) {
             $raw = [Console]::In.ReadToEnd()
             $m = [regex]::Match($raw, '"session_id"\s*:\s*"([0-9a-fA-F-]{8,64})"')
             if ($m.Success) { $script:SessionId = $m.Groups[1].Value }

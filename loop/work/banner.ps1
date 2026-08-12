@@ -29,10 +29,10 @@ try {
     # A COMPACT is the one start where the process SURVIVES with its old registry - there the
     # baseline stays, because its staleness claims remain true. The held label is untouched
     # always: the conversation and its declared thread continue across a resume.
+    $sid = ''
     try {
         $raw = ''
         if ([Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
-        $sid = ''
         $m = [regex]::Match($raw, '"session_id"\s*:\s*"([0-9a-fA-F-]{8,64})"')
         if ($m.Success) { $sid = $m.Groups[1].Value }
         $isCompact = ($raw -match '"source"\s*:\s*"compact"')
@@ -52,7 +52,10 @@ try {
 
     # The stamp is the single source of truth for attribution. Keep only its human-facing lines:
     # the machine-readable tag belongs in the per-message stamp, not in a session banner.
-    $stamp = @(& (Join-Path $PSScriptRoot 'stamp-hook.ps1')) | Where-Object { $_ -notmatch '^<ai4good-attribution' }
+    # The session id is passed as a PARAMETER: this banner already drained the payload from
+    # stdin, so the stamp's own stdin read would find nothing and the banner's stamp lines
+    # would lose their session prefix (observed on every session start until 2026-08-12).
+    $stamp = @(& (Join-Path $PSScriptRoot 'stamp-hook.ps1') -SessionId $sid) | Where-Object { $_ -notmatch '^<ai4good-attribution' }
 
     $lines = New-Object System.Collections.ArrayList
     [void]$lines.Add('=== ai4good work session ===')
