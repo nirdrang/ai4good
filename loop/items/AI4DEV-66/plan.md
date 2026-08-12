@@ -597,7 +597,12 @@ branch carries no test until slice 2.** Slice 1's code-gate additions say exactl
 
 ## Rides along
 
-Nothing yet. Machinery changed while working this item is listed here and in the pull request.
+**One line in `.claude/agents/reviewer-runner.md`** - gate-2 ruling 8. That file tells the runner to
+assert an opencode reviewer's tool-call summary holds only `read`, `glob` and `grep`, and to report
+anything else as an INVALID RUN. `.opencode/agent/reviewer-flash.md` line 16 grants `gitdiff: true`
+deliberately, and this item's own gate-2 flash run used it 16 times. A runner obeying the letter
+would discard a valid review, so the allowed list gains `gitdiff`. The cage file itself is correct
+and is not changed. Named in the pull request and in the audit brief's path-set.
 
 ## Open questions for the founder
 

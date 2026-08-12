@@ -1,0 +1,34 @@
+SOURCE   loop/items/AI4DEV-66/artifacts/gate2-terra.raw.txt
+REVIEWER terra (codex, gate 2 code review, draft)
+COUNT    5 findings in source → 5 extracted
+NOTES    none
+
+[1] severity: high   supabase/functions/_shared/edge.ts:323
+    claim: "`readRows` lets rejected `fetch` calls escape, bypassing each handler's fixed `readFailed()` response and entering `edgeHandler`'s error-detail response."
+    why it matters: "A target-dependent fetch error detail (for example, one containing the REST URL) makes foreign and absent probes return different raw 502 bodies. Settle by injecting rejected reads at every handler read position and comparing status, body, and headers for valid foreign versus absent IDs."
+    unverified-runtime-claim: yes
+    raw: gate2-terra.raw.txt lines 3-6
+
+[2] severity: medium   tests/at/suites/req-001/_fixture.ts:1491
+    claim: "The loop Data API adapter independently computes row visibility from memberships instead of delegating that judgement to shipped code."
+    why it matters: "A missing, wrong-keyed, or universally-denying SQL policy can still produce a loop-tier green for the direct-API arms, so that green is partly a claim about the fixture rather than the migration."
+    unverified-runtime-claim: no
+    raw: gate2-terra.raw.txt lines 8-11
+
+[3] severity: medium   tests/at/suites/req-001/_integration.ts:1349
+    claim: "The only successful Data API control covers `organizations`; `org_memberships`, `projects`, and `acknowledgments` are asserted only as denials."
+    why it matters: "If any of those three policies is `USING (false)` or uses the wrong key, both foreign and nonexistent probes still return `[]`, while the criterion green falsely claims the rightful tenant can read every covered data kind."
+    unverified-runtime-claim: no
+    raw: gate2-terra.raw.txt lines 13-16
+
+[4] severity: medium   tests/at/suites/req-001/d-tenant-isolation.test.ts:94
+    claim: "An NGO completion returning `{ ok: true, organizationId: null }` ends the body successfully instead of failing it."
+    why it matters: "The test can green without creating either tenant or exercising a control/probe; the integration twin has the same early-return pattern at `_integration.ts:1273`."
+    unverified-runtime-claim: no
+    raw: gate2-terra.raw.txt lines 18-21
+
+[5] severity: low   supabase/functions/_shared/visibility.ts:158
+    claim: "Any runtime scope value other than `'organization'` falls through to the project branch, where an assigned volunteer is allowed."
+    why it matters: "An unrecognized scope such as `undefined` or a future typo widens access instead of failing closed, contrary to the shared-rule contract."
+    unverified-runtime-claim: no
+    raw: gate2-terra.raw.txt lines 23-26
