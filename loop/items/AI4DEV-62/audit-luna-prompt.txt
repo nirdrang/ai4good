@@ -1,0 +1,191 @@
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the launch cage — a read-only
+sandbox, or an agent definition whose write tools are removed. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** The launch cage is the enforcement — a read-only sandbox, or
+a removed tool set — and this sentence is the instruction; every launch prompt carries it
+explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+## The AUDIT — critique of the CLAIM
+
+**Subject** · **THE CODE, ONLY THE CODE (founder ruling 2026-08-10: "I want auditor only in
+code not on records at all").** Three product items in a row produced fourteen audit findings,
+every one about the record's own prose — miscounted totals, citation wording, stale status
+paragraphs — and zero about code, at a cost of roughly two extra hours per item. That class of
+finding is now OUT OF YOUR SCOPE. You read the record only as the list of claims to test
+against the tree; you never raise a finding about the record itself — not its counts, not its
+citations, not its headers, not its phrasing.
+
+**Your change-set instrument is a SOURCE-ONLY diff (founder ruling 2026-08-10).** Enumerate the
+changes with the pinned range restricted to the code territory — the same path set CI's fast
+lane derives from:
+
+```
+git diff <base>...<head> -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts
+```
+
+The record directory (`loop/items/`) never enters the diff you read. The full tree stays open
+for TRACING a claim through unchanged code — following an import, reading a caller — but the
+list of what you audit comes from that command and nothing else.
+
+Code quality is not your subject either. You are answering one question: **does the code match
+what is claimed about it?**
+
+- **Every adopted ruling is implemented as ruled.** A ruling recorded but not implemented in the
+  code is a FAIL — this is the box no other check in the system covers.
+- **The diff stays inside its declared scope.** Compare what changed against what the item says
+  it changed.
+- **Every stated fact about the CODE is true.** Trace the logic yourself, character by character
+  where it matters — a shell trap, a regex, a guard's field handling. A false statement about
+  code is a finding; a clumsy sentence about a true fact is not.
+
+**The item's additions give you the CLAIM CHECKLIST — grade every line of it.** This item's
+brief lists its specific testable claims: the rulings it adopted (by id), the code territory it
+says it stayed inside, and each concrete fact it stated about the code. Confirm each against the
+tree and answer it by name. The checklist is your FLOOR, never your ceiling — a false claim it
+omits is still a finding — but nothing on it may go unanswered.
+
+**On a RE-RUN, your change-set is the FIX DELTA, not the whole range.** The previous audit already
+cleared the tree at the earlier head; only the fix moved it. Read `git diff <prev-audited-head>...<head>`
+restricted to the code territory, and re-grade every checklist line the delta can REACH — not only
+the files the delta edited, but any claim whose subject the delta could affect: a caller of a
+changed function, an importer of a changed module, a reader of changed config or shared state.
+**"Untouched" means the delta cannot reach the claim, NOT that the claim's file is byte-identical** —
+a fix to a shared helper can falsify a claim about a file that never changed. Carry a line forward
+only when you can say why the delta cannot reach it; when in doubt, re-grade it. **One box always
+re-checks in full**: "diff stays in declared scope", against the full `<base>...<head>` file list
+(still restricted to the code territory — the record directory never enters it), because a fix can
+add a stray file the narrow delta would hide. Say which boxes you carried forward and on what
+independence, rather than silently re-deriving them. This is what keeps the once-per-item re-run
+cheap without making it blind: a scoped fix earns a scoped re-read, a far-reaching one does not.
+
+**Do not run the test suite.** Execution evidence belongs to the required CI check on this
+commit: cite it, do not re-derive it. This is a deliberate narrowing, measured across four items —
+attempted execution here produced almost nothing but "could not verify", and once produced two
+FAIL verdicts that were sandbox artifacts rather than defects, while every reading-and-tracing box
+was answered every time.
+
+**Verdict per box: PASS · FAIL · COULD-NOT-VERIFY**, each with the evidence you personally
+gathered — the file and line, or the reasoning you traced. Then a final line: `AUDIT: CLEAN` or
+`AUDIT: N FINDINGS`.
+
+**You report; you rule on nothing.** The orchestrator rules, and it may dismiss your finding with
+a written reason — that is its authority, and your claim will be recorded verbatim beside it.
+
+## This item — AI4DEV-62 (per-org roles and membership isolation), carrying its batch partner AI4DEV-63 (single seat, single developer)
+
+**Subject pins.** Base `ea4f345`, head `f5de2172271bdfb09318f719f676c2a9e27a954a`. Your change-set instrument:
+
+```
+git diff ea4f345...f5de217 -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts
+```
+
+The claims you grade live in `loop/items/AI4DEV-62/` — `gate1-rulings.md` and `gate2-rulings.md` (the adopted rulings), `plan.md` (the declared shape), and the measurement records `artifacts/verify-first-answers.md`, `artifacts/gate2-verify-answers.md`, `artifacts/goal-runs.md`. Cite a recorded measurement; never re-run one. You read that directory only as the list of claims to test against the tree; per your contract above, findings about its prose are out of your scope.
+
+**If your cage cannot execute git, say so in your output before any box.** Name the fallback you used to enumerate the change-set, and grade what you can. An openly stated method is evidence; a silently substituted one is not.
+
+### CLAIM CHECKLIST — grade EVERY line by its id, PASS / FAIL / COULD-NOT-VERIFY, with the evidence you gathered yourself
+
+**Box 1 — every adopted ruling is implemented as ruled.**
+
+- **[C1]** (gate1-rulings.md finding 1, accepted fixed-differently) AT-001.16 keeps its two-membership Given and drives THREE rename targets: organisation A (actor is admin) succeeds; organisation B (actor is member) refuses with the not-an-admin kind and writes nothing; organisation C (actor holds no membership) refuses with the not-a-member kind and writes nothing. Both tiers: `tests/at/suites/req-001/c-membership-and-acknowledgment.test.ts` (default body) and `tests/at/suites/req-001/_integration.ts` (`at00116`).
+- **[C2]** (gate1-rulings.md finding 2, accepted) `createOrganizationAsOperator(name)` exists on the SUT surface and creates an organisation with NO membership row: `_contract.ts` (declaration near line 585), `_fixture.ts` (near line 1064 — direct state, no membership insert), `_live.ts` (near line 606 — operator SQL, no membership insert), and the name is listed in `backedSutMethods.accounts` (`_live.ts` near line 122).
+- **[C3]** (gate1-rulings.md finding 3, accepted) AT-001.17 carries a source arm that runs identically at both tiers, via `tests/at/suites/req-001/_source-scan.ts`: it enumerates `src/routes/` file names and the route paths in `src/routeTree.gen.ts` and asserts none matches invite or add-member naming.
+- **[C4]** (gate1-rulings.md finding 4, accepted) Migration `supabase/migrations/20260811130000_single_seat_org_and_single_developer_projects.sql` line 123 runs `revoke all on table public.projects from anon, authenticated, service_role;` — the explicit revocation the ruling required, not an assumed default.
+- **[C5]** (gate2-rulings.md R2a, accepted) `_fixture.ts` `grantMembershipAsOperator` refuses in the database's order: account absent → `refused`; account not NGO → `not-an-ngo-account`; organisation absent → `refused`; organisation already seated → `org-already-seated`.
+- **[C6]** (gate2-rulings.md R2b, accepted) `_fixture.ts` `assignVolunteerAsOperator` refuses in the database's order: project absent → `refused`; seat occupied by a different account → `seat-occupied`; account absent → `refused`.
+- **[C7]** (gate2-rulings.md R2c, accepted — a REMOVAL, condition v1) `_fixture.ts` `updateOrganization` holds NO organisation-existence pre-check: an unknown organisation flows to the membership decision and answers the not-a-member refusal. The removal condition was measured BEFORE the removal — `artifacts/gate2-verify-answers.md` v1: the deployed function answered HTTP 403 kind `not-a-member` for a well-formed random uuid. Cite that record; do not re-run it.
+- **[C8]** (gate2-rulings.md R3, accepted, both call sites) `_live.ts` classifies database refusals sentence-primary with the SQLSTATE as agreement, at the membership-grant catch site AND the seat-assignment catch site: `not-an-ngo-account` requires `/NGO accounts only/i` AND (no SQLSTATE OR `42501`); `org-already-seated` requires the index's own name `/org_memberships_one_seat_per_org_idx/i` — not the generic duplicate-key half — AND (no SQLSTATE OR `23505`); `seat-occupied` requires `/single developer seat/i` AND (no SQLSTATE OR `42501`); anything else lands in `refused`. The helper `databaseRefusal` (near line 208) returns an empty-string code when no SQLSTATE field is present, which is what the empty-string arm of each guard reads.
+- **[C9]** (gate2-rulings.md R4, accepted) Migration `supabase/migrations/20260811120000_org_membership_ngo_only_and_organization_rename.sql`, function `update_organization`: the trim carries an explicit whitespace set, `btrim(p_name, E' \t\r\n\f')`, in BOTH the emptiness check and the `v_name` assignment. Its before/after pair is measured in `artifacts/gate2-verify-answers.md` v3 (before: a tab-only name succeeded; after: SQLSTATE `22023`).
+- **[C10]** (gate2-rulings.md R5, the accepted UPDATE half) A seventh operator method `repointMembershipAsOperator(organizationId, accountId)` exists across the surface: `_contract.ts` near line 616 with outcome union ok / `refused` / `not-an-ngo-account`; `_fixture.ts` near line 1152 in the database's order (no membership row → `refused`; new account absent → `refused`; new account not NGO → `not-an-ngo-account`; else the row is re-keyed and KEEPS its role); `_live.ts` near line 679 as a single `update public.org_memberships set account_id … where org_id … returning` (zero rows → `refused`; the catch classifies per the C8 rule); the name is in `backedSutMethods.accounts`. AT-001.37 gains ONE arm at BOTH tiers, after the existing control seats the NGO account: re-pointing that seated membership at the volunteer refuses with kind `not-an-ngo-account`; read-backs prove the membership row still holds the control account with its role and the volunteer's memberships stay empty.
+- **[C11]** (gate2-rulings.md R6, accepted) `_integration.ts`, AT-001.17's known-function control asserts the measured status exactly — `.toBe(401)` — not merely non-404.
+- **[C12]** (gate2-rulings.md R7, accepted) `_integration.ts`, AT-001.17's Data-API arm asserts status `401` AND a body matching `/permission denied/i` — pinned to the MEASURED shape per the ruling's own disagreement rule (the ruling expected 403; the measurement in `artifacts/gate2-verify-answers.md` v2 answered 401 with SQLSTATE 42501 and the permission-denied body, and the ruling states the measured shape is what gets pinned).
+- **[C13]** (gate2-rulings.md R8, accepted) `tests/at/suites/req-001/_pending.ts` header states "Eighteen are written", its enumeration names eighteen ids, and nineteen remain (18 + 19 = 37).
+
+Rejected rulings, listed so their absence is not read as a gap — there is nothing to grade, and their residuals are recorded in `gate2-rulings.md`: R1 (the definer RPC's existence-before-membership ordering stands as deliberate operator diagnostics on a service-role-only path) and the platform_admin half of R5 (no arm exists; the migration's own comment is the pin).
+
+**Box 2 — the diff stays inside the declared scope.** The item declares its code territory is EXACTLY these fifteen files, and nothing else in the source-only diff:
+
+```
+src/routeTree.gen.ts
+supabase/config.toml
+supabase/functions/_shared/memberships.ts
+supabase/functions/update-organization/index.ts
+supabase/migrations/20260811120000_org_membership_ngo_only_and_organization_rename.sql
+supabase/migrations/20260811130000_single_seat_org_and_single_developer_projects.sql
+tests/at/expected/req-001.json
+tests/at/suites/req-001/_contract.ts
+tests/at/suites/req-001/_fixture.ts
+tests/at/suites/req-001/_integration.ts
+tests/at/suites/req-001/_live.ts
+tests/at/suites/req-001/_pending.ts
+tests/at/suites/req-001/_source-scan.ts
+tests/at/suites/req-001/c-membership-and-acknowledgment.test.ts
+tests/at/suites/req-001/f-lifecycle-and-audit.test.ts
+```
+
+`.github`, `package.json`, `bun.lockb`, `tsconfig.json` and `vitest.config.ts` are unchanged.
+
+**Box 3 — every stated fact about the code is true.**
+
+- **[F1]** `src/routeTree.gen.ts`'s change is build-regenerated and type-only — a `declare module '@tanstack/react-start'` block. It adds no route and no invite or add-member naming.
+- **[F2]** `supabase/config.toml` adds one function block, `[functions.update-organization]` with `verify_jwt = true`, and updates the surrounding comment's function count to three.
+- **[F3]** In migration `20260811120000…`, `update_organization`'s execute is revoked from public and granted to `service_role` alone, and the function checks organisation existence (SQLSTATE `23503`, "no such organisation") BEFORE caller membership — the deliberate operator-diagnostics ordering the rulings record on a service-role-only path.
+- **[F4]** The NGO-only trigger `org_memberships_grantee_must_be_ngo` (migration `20260811120000…`, near lines 86–87) binds `before insert or update` on `public.org_memberships` — the UPDATE half is what refuses a re-pointed row, because re-pointing does not change the row count and the one-seat index therefore never sees that write.
+- **[F5]** The one-seat guarantee is the unique index `org_memberships_one_seat_per_org_idx` on `org_id` alone (migration `20260811130000…`, near line 41), and the project seat guard is the trigger `projects_single_developer_seat` (same migration, near line 101) raising the "single developer seat" sentence.
+- **[F6]** `public.projects` holds its developer as ONE nullable column, and no product path in this tree creates or assigns a project at either tier — the operator surface is the only way AT-001.32's Given is reached.

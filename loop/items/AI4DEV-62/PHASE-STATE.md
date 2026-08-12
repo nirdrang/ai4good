@@ -1,83 +1,92 @@
 # PHASE-STATE — AI4DEV-62 (per-org roles and membership isolation), batch with AI4DEV-63 (single seat, single developer)
 
-**Phase: DRAFT COMPLETE — the next event is gate 2, the draft-code review.** Written by the DRAFT
-sitting, orchestrator on fable @ xhigh, 2026-08-11. Chain, derived from the branch:
-`AI4PM-19 (auth and org membership)` > `AI4DEV-50 (auth root)` >
+**Phase: FIX AND GOAL COMPLETE — the next event is the AUDIT, a panel of two readers.** Written by
+the resumed FIX AND GOAL sitting, orchestrator on fable @ xhigh, 2026-08-12. Chain, derived from
+the branch: `AI4PM-19 (auth and org membership)` > `AI4DEV-50 (auth root)` >
 `AI4DEV-53 (org membership and seats, container)` > `AI4DEV-62 (per-org roles and isolation)`.
 The partner `AI4DEV-63 (single seat, single developer)` rides this branch.
 
 ## What happened this sitting
 
-1. **Gate-1 rulings** — `loop/items/AI4DEV-62/gate1-rulings.md`: four findings, four accepts
-   (rulings 1 and 3 fixed differently in part or whole; ruling 4 carries a verify-first
-   condition), zero rejects, no removals. Pushed with the amended plan BEFORE any code change
-   (judgment head `610ead7`, which also carries the gate-1 raw, distillate and stderr log with
-   the codex session id).
-2. **The amended plan** — `plan.md` now carries: a sixth operator method that creates an UNSEATED
-   organisation; AT-001.16's not-a-member arm against a third organisation C; AT-001.17's source
-   arm over `src/routes/` and the generated route tree; migration B's explicit revoke-all plus
-   verify-first (f).
-3. **The draft** — executor (opus), one invocation, one iteration. Three commits, all pushed:
-   - `c2a7b6b` — slice 1 (AI4DEV-62): decision module, migration A, `update-organization`,
-     role/isolation SUT surface, bodies .16/.36/.37, flips, `D3_L1` deletion.
-   - `d0444da` — slice 2 (the partner): migration B, seats/projects SUT surface,
-     `_source-scan.ts`, bodies .17/.32, flips, `D3_L2` deletion, the pending ledger.
-   - `054f7ec` — the verify-first instrument and its recorded answers.
-   Typecheck green, build green, `at:check req-001` green (37 ids in bijection). **The verify
-   suite was NOT run — deliberate; the draft exists to be critiqued.** Verify-first answers
-   (a)–(f) all recorded with command evidence in `artifacts/verify-first-answers.md`; none
-   contradicts the plan. One measurement changed the live adapter: the driver reports SQLSTATE
-   on `errno`, not `code` (answer (d)).
-   Six small executor deviations, all adopted by the sitting as latitude: `parseOrgRole` helper;
-   `_source-scan.ts` as a shared non-test file; `timeoutMs` on all five ids; a same-volunteer
-   control assertion in .32; `routeTree.gen.ts` restored after builds; the instrument file with
-   its own header.
-4. **The two gate-2 prompts** — `gate2-slice1-prompt.txt` (subject `git diff 610ead7...c2a7b6b`)
-   and `gate2-slice2-prompt.txt` (subject `git diff c2a7b6b...d0444da`), each assembled as the
-   reviewers file directs: contract + draft-code section (Pins block stripped) + additive
-   item sections. Neither names any other reader or gate.
-5. This state file.
+This sitting RESUMED the fix-and-goal phase after its predecessor was killed by a session limit.
+The predecessor had already pushed the rulings (`374bc34`) and the three measured verification
+conditions (`65a9d4f`), and left four files uncommitted. This sitting read every uncommitted hunk
+against the rulings and ADOPTED all four files as they stood, then ran one executor invocation.
+
+1. **The adopted leftovers** — `1bf6ac0`: R2a/R2b/R2c in `_fixture.ts`, R3 at both live catch
+   sites, R4 in migration A, R6 and R7 (pinned to the MEASURED 401 shape) in `_integration.ts`.
+2. **R5's UPDATE half and R8** — `90c3ed9`: the seventh operator method
+   `repointMembershipAsOperator` across `_contract.ts`, `_fixture.ts`, `_live.ts` and
+   `backedSutMethods.accounts`; AT-001.37's fourth arm at both tiers; the pending header's count
+   corrected to eighteen.
+3. **v3's after-half** — `bcb91cf`: the tab-only `p_name` now refuses with SQLSTATE `22023`,
+   measured on slot 2 after a reset replay; recorded in `artifacts/gate2-verify-answers.md` and
+   `artifacts/gate2-verify-transcript-after.txt`. The migration comment's before-and-after claim
+   is now true.
+4. **The goal** — `ca1a8e4` and `f5de217`: plan step 9's FOUR runs, all exit 0, ZERO fix
+   iterations. req-001 loop 18 green / 19 red; req-001 integration 13 green / 24 red; req-016
+   loop 11 green / 1 red; req-016 integration 0 green / 12 red. Both integration runs carry the
+   identical slot evidence line:
+   `at:verify — db slot 2 (ai4good-slot-2, api 56321) — reset OK — migrations: 4 expected, 4 applied`.
+   Record: `artifacts/goal-runs.md`.
+5. **Executor deviations, ruled by this sitting — all four ADOPTED:** (i) the method shape
+   (`repointMembershipAsOperator(organizationId, accountId)`, no role argument, new
+   `RepointMembershipOutcome`) — inside the latitude R5 granted; (ii) the AT-001.37 header's arm
+   count corrected three → four — the defect class R8 fixed; (iii) `src/routeTree.gen.ts`
+   committed as build-regenerated (a type-only `declare module` block, no route, no invite or
+   add-member naming) so the evidence describes the tree that produced it — it ENTERS the
+   declared path-set and carries checklist claim F1; (iv) an environment recovery (Docker down at
+   start; slot 2 restarted twice through the pool's own guarded seam; a stale kong upstream
+   address measured from kong's log) counted as repair, not as a goal iteration — no product,
+   test or declaration file changed for it. Slot 1 and the personal stack were never touched.
+6. **The audit briefs** — `audit-luna-prompt.txt` and `audit-flash-prompt.txt`, identical by
+   design, each assembled as the reviewers file directs: `## Your contract` + the audit section
+   (Pins block stripped) + this item's additions. The additions carry the CLAIM CHECKLIST —
+   thirteen adopted-ruling claims (C1–C13), the fifteen-file declared path-set, six code facts
+   (F1–F6), and the two rejected rulings listed so their absence is not read as a gap. Neither
+   brief names the other reader.
+7. This state file.
 
 ## What completes the next phase
 
-**Gate 2 (conductor):** per the reviewers file's draft-code pins, TWO readers per slice — four
-runs total, each a reviewer-runner in the background, raw output and distillate into
-`loop/items/AI4DEV-62/artifacts/` (for the opencode reader also the tool-call summary and
-identity extract, per reviewer-runner.md). Prompt and subject pairs:
+**The audit (conductor):** per the reviewers file's audit pins, TWO readers — luna via codex and
+flash via opencode — each launched by its own reviewer-runner in the background, each handed its
+own brief file, subject the tree at head `f5de217` (base `ea4f345`). Raw output and distillate
+into `loop/items/AI4DEV-62/artifacts/` (for the opencode reader also the tool-call summary and
+identity extract, per reviewer-runner.md).
 
-- `gate2-slice1-prompt.txt` → subject `git diff 610ead7...c2a7b6b`
-- `gate2-slice2-prompt.txt` → subject `git diff c2a7b6b...d0444da`
+- **Both readers CLEAN:** no audit sitting exists — the MERGE sitting (orchestrator-opus)
+  absorbs the audit wait and records both clean verdicts among its dispositions. CI must be green
+  on the exact head the merge ruling pins.
+- **Findings from either seat:** spawn the AUDIT sitting (fable) to rule on BOTH readers'
+  findings.
 
-Note: `054f7ec` (instrument + record material) is in neither subject range — deliberate; it
-touches no product code. The tree the runners sit in is this sitting's closing head.
-
-**Then the FIX AND GOAL sitting (orchestrator, fable):**
-
-1. Rule EVERY gate-2 finding from all four runs; convergence across readers is signal, ruled
-   once. Push rulings BEFORE code changes.
-2. Executor: check verify-first claims and removal conditions first, apply ruled fixes, then the
-   goal — step 9's four exit-0 runs (`at:verify req-001` and `req-016`, both tiers, slot 2 with
-   the slot evidence line), at most three iterations.
-3. Commit each code reader's FULL evidence into the record before closing.
-4. Write the audit brief per reader (luna via codex, flash via opencode) with the CLAIM
-   CHECKLIST: adopted rulings by id, the declared path-set, each concrete code fact.
-5. Add the sanctioned `Closes AI4DEV-63` line ONLY when the merge ruling declares it — still
-   absent from the pull-request body.
+**The merge ruling decides the `Closes AI4DEV-63` line** — it is still ABSENT from the
+pull-request body, and it is added only when that ruling declares it, as one line of exactly that
+shape, alone on its line.
 
 ## Facts the next sitting needs
 
-- Heads: judgment `610ead7`, draft code `c2a7b6b` (slice 1) and `d0444da` (slice 2), instrument
-  `054f7ec`, this sitting's close is the head carrying this file.
+- Heads: judgment `374bc34` (gate-2 rulings + all four readers' committed evidence), probes
+  `65a9d4f`, fixes `1bf6ac0` and `90c3ed9`, after-half `bcb91cf`, goal `ca1a8e4`, close
+  `f5de217` (this file rides in the close commit ON TOP of `f5de217`; the conductor verifies the
+  reported head against the remote).
 - Base on main: `ea4f345`. Reserved database slot: **2** — do not reserve another.
-- Pull request: #55, open, non-closing references only.
-- Declarations now: loop 18 green / 19 red; integration 13 green / 24 red; `_pending.ts` header
-  24 → 21 → 19 across the two slices.
-- The five ids: AT-001.16/.36/.37/.17 in `c-membership-and-acknowledgment.test.ts`, AT-001.32 in
-  `f-lifecycle-and-audit.test.ts` (kept in place).
-- Executor caps: this sitting used one invocation of its three; the next sitting's budget is its
-  own.
-- The stated open risk stands (fixture hand-models the database semantics); gate-2 direction 2/8
-  attacks it per slice, and the goal loop's two tiers are the mitigation.
+- Pull request: #55, open, non-closing references only, closes-line absent.
+- Gate-2 evidence is committed at `374bc34`: raw, distillate and stderr/stdout for both terra
+  runs; raw, distillate, tool-call summary and identity extract for both flash runs. The flash
+  slice-1 run's no-git-cage anomaly is ruled in `gate2-rulings.md` (A1 — stands as evidence with
+  its caveat; the runner-environment defect was reported to the conductor).
+- Executor budget: this sitting used ONE invocation of its three. A merge-sitting fix round is
+  its own budget per the contract.
+- Known residuals for the merge ruling, all recorded in the rulings files: the fixture's
+  malformed-id transport divergence (R2 residual); the `platform_admin` reading pinned by text,
+  not by an arm (R5 residual); the naming-oracle limit of AT-001.17's source arm (gate-1
+  finding 3); AT-001.16's green claims operation-surface isolation, read-surface breadth stays
+  with the tenant-isolation leaf (gate-1 finding 1).
+- The merge ruling must state BOTH tiers' exact-match results for every declaration manifest —
+  loop AND integration, requirement and exit code, with the integration runs' slot evidence
+  line — from `artifacts/goal-runs.md` and CI's own run.
 
 ## Open questions
 
