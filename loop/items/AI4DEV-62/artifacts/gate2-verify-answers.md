@@ -96,7 +96,27 @@ POST /rest/v1/rpc/update_organization {"p_account_id":…, "p_organization_id":�
 The row now holds a single tab character as its name. `btrim(text)` strips SPACES only by default, so
 the emptiness check passed and the tab survived into the stored name. The claim is proved.
 
-### After the fix — NOT YET MEASURED
+### After the fix — it REFUSES with SQLSTATE `22023`
 
-This half runs after ruling R4's edit lands in migration A and slot 2 is reset. Nothing is written
-here until the run produces it.
+Measured after ruling R4's edit landed in migration A, on slot 2, with the reset replaying all four
+migrations. After-half transcript, whole run. Slot evidence line:
+
+```
+at:verify — db slot 2 (ai4good-slot-2, api 56321) — reset OK — migrations: 4 expected, 4 applied
+```
+
+The same call, through PostgREST with the service-role key, against an existing organisation whose
+admin the caller is:
+
+```
+POST /rest/v1/rpc/update_organization {"p_account_id":…, "p_organization_id":…, "p_name":"\t"}
+-> HTTP 400 {"code":"22023","details":null,"hint":null,
+             "message":"update_organization refuses an empty organisation name"}
+   sqlstate on the answer: "22023"
+   read-back of the row: name "Gate Two Probe Organisation"
+```
+
+**The after-half HOLDS**: SQLSTATE `22023`, the refusal the ruling named, and the row keeps the name
+it already had. `btrim(p_name, E' \t\r\n\f')` now strips the tab, the emptiness check sees a zero
+length, and the RPC refuses where it used to store a visually blank name. Both halves of v3 are
+measured, so the migration's own comment about this pair is true as written.

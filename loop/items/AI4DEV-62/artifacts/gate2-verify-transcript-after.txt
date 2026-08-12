@@ -1,0 +1,14 @@
+﻿db-pool — slot 2 identity proven before the prepare: project ai4good-slot-2, api 56321, db 56322, containers supabase_imgproxy_ai4good-slot-2, supabase_pooler_ai4good-slot-2
+db-pool — slot 2 identity proven before the reset: project ai4good-slot-2, api 56321, db 56322, containers supabase_imgproxy_ai4good-slot-2, supabase_pooler_ai4good-slot-2
+db-pool — docker confirms slot 2's own database container before the reset: supabase_db_ai4good-slot-2
+at:verify — 4 migrations expected, 4 applied — the rebuilt schema matches supabase/migrations exactly
+half: after
+at:verify — db slot 2 (ai4good-slot-2, api 56321) — reset OK — migrations: 4 expected, 4 applied
+
+=== (v3, after the fix) the definer RPC update_organization with p_name = one TAB ===
+  ANSWER: HTTP 400 body "{\"code\":\"22023\",\"details\":null,\"hint\":null,\"message\":\"update_organization refuses an empty organisation name\"}"
+  sqlstate on the answer: "22023"
+  read-back of the row: name "Gate Two Probe Organisation"
+
+END OF THE GATE-2 VERIFICATION PROBES
+=== the slot claim was released ===
