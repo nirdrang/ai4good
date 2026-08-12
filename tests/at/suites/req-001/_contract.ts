@@ -713,10 +713,17 @@ export type AccountsSut = {
    *
    * WHAT A GREEN OVER IT CLAIMS, said narrowly because the criterion's words are wider. It claims
    * OPERATION-SURFACE isolation: authority does not cross organisations on this action. It does NOT
-   * claim read isolation — "acting in NGO A never grants access to NGO B's data" over drafts,
-   * ledgers and files is the tenant-isolation deliverable's (`loop/decomp/req-001.md` D5.L1), which
-   * is blocked by this leaf and lands the policy set. This tree has no read surface to leak through:
-   * row-level security is on with zero policies and `org_memberships` reaches no Data API role.
+   * claim read isolation — "acting in NGO A never grants access to NGO B's data" is the
+   * tenant-isolation deliverable's (`loop/decomp/req-001.md` D5.L1 and D5.L2), which this leaf
+   * unblocked and which has now landed.
+   *
+   * (This paragraph used to end by saying the tree had no read surface to leak through, because
+   * row-level security was on with zero policies and `org_memberships` reached no Data API role.
+   * Every clause of that sentence stopped being true when the two tenant-visibility migrations
+   * landed on 2026-08-12 and 2026-08-13: `authenticated` holds `select` on the four tenant tables
+   * and each carries `select` policies. The read claim is made by AT-001.21, .22, .23, .40 and .24
+   * against those policies and the three read surfaces, so this member's narrow claim stands on its
+   * own rather than on an absence that has gone.)
    */
   updateOrganization(session: Session, organizationId: string, name: string): Promise<UpdateOrganizationOutcome>;
 

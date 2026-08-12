@@ -100,10 +100,19 @@ export type TenantViewer = {
 /**
  * WHY ACCESS WAS GRANTED, carried out of the decision rather than left implicit.
  *
- * It is the same device `OrgAdminRefusalKind` is: a test that could only see `ok: true` could not
- * tell "the platform admin reached across accounts" from "this happened to be the caller's own
- * organisation", so AT-001.40's reach would be indistinguishable from an ordinary read. The basis is
- * what makes it attributable.
+ * It is the same device `OrgAdminRefusalKind` is: a reader that could only see `ok: true` could not
+ * tell "the platform administrator reached across accounts" from "this happened to be the caller's
+ * own organisation". The basis is what makes the grant's reason readable at all.
+ *
+ * ITS CONSUMER IS `tests/at/harness/shipped-visibility.selftest.ts`, WHICH DRIVES THIS MODULE
+ * DIRECTLY — and naming it matters, because this paragraph used to imply the consumer was AT-001.40.
+ * IT IS NOT. THE ACCEPTANCE SURFACE DELIBERATELY DOES NOT CARRY THE BASIS: `TenantReadOutcome` is a
+ * status and a value, or a status and a body, and its own header gives the reason — the claim under
+ * test is that two whole answers are IDENTICAL, and an outcome carrying more fields would invite an
+ * assertion weaker than the criterion. So AT-001.40 makes its reach attributable a different way, and
+ * the right way: two different tenants read by ONE administrator, and a NON-ADMIN repeating one of
+ * those reads and being refused. Widening a product surface for a test's convenience would be the
+ * defect rather than the fix.
  */
 export type TenantReadBasis = 'platform-admin' | 'organisation-member' | 'assigned-volunteer';
 
@@ -144,9 +153,14 @@ function knownAccountType(raw: unknown): AccountType | null {
  * promised the opposite. `tests/at/harness/shipped-visibility.selftest.ts` is the oracle for the
  * whole promise, that branch included.
  *
- * THE PLATFORM-ADMIN BRANCH CARRIES NO TEST IN THIS SLICE, and that is said here rather than left to
- * be discovered: slice 1 lands AT-001.21 and AT-001.22, neither of which drives an administrator.
- * AT-001.40 exercises it in the slice that ships its policy.
+ * THE PLATFORM-ADMIN BRANCH IS NOW DRIVEN AT TWO LEVELS, and this paragraph used to say it was
+ * driven at none. That was true of the slice that landed this module — AT-001.21 and AT-001.22 drive
+ * no administrator — and it stopped being true on 2026-08-13, when the slice that ships the
+ * platform-admin policy landed AT-001.40 beside it. The branch is now driven as a UNIT by
+ * `tests/at/harness/shipped-visibility.selftest.ts`, and THROUGH A SURFACE by AT-001.40 at both
+ * tiers: one administrator reads two organisations' dashboards and two projects' workspaces, where a
+ * non-administrator repeating one of those reads is refused. The unit oracle is not the acceptance
+ * one, and neither stands in for the other.
  */
 export function tenantReadAllowed(viewer: TenantViewer, scope: TenantReadScope): TenantReadDecision {
   const accountType = knownAccountType(viewer?.accountType);

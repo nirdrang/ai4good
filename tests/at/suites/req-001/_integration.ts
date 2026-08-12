@@ -708,10 +708,16 @@ async function twoMembershipGiven(
  *
  * WHAT THIS GREEN CLAIMS, AND WHAT IT DOES NOT (gate-1 ruling 1). It claims OPERATION-SURFACE
  * isolation: the same account's authority does not cross organisations on this action, proved by
- * three different answers to one caller. It does NOT claim read isolation over drafts, ledgers and
- * files — that breadth is the tenant-isolation deliverable's, which is blocked by this leaf, and
- * this tree has no read surface to leak through (row-level security on, zero policies,
- * `org_memberships` reachable by no client role).
+ * three different answers to one caller. It does NOT claim READ isolation — that is a different
+ * claim, made by different ids.
+ *
+ * (This paragraph used to close by saying the tree had no read surface to leak through, because
+ * row-level security was on with zero policies and `org_memberships` reached no client role. All
+ * three clauses stopped being true on 2026-08-12 and 2026-08-13, when the tenant-isolation
+ * deliverable this leaf unblocked landed its two migrations: `authenticated` now holds `select` on
+ * the four tenant tables and each one carries policies. The read claim did not move here — it is
+ * AT-001.21, .22, .23, .40 and .24's, in `d-tenant-isolation.test.ts` — so what changed is only that
+ * this note may no longer rest on an absence.)
  */
 export async function at00116(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
@@ -928,9 +934,12 @@ export async function at00137(ctx: Ctx): Promise<void> {
  *      answers 404 `Function not found` — with a DEPLOYED function on the same stack as the control,
  *      because a router that answered 404 to everything would make the first answer meaningless.
  *      Both shapes were measured before this body was written (verify-first answer (e)).
- *   2. NO CLIENT REACH. `public.org_memberships` is asked for through the Data API with the
- *      publishable key and refuses — the privilege layer, not a policy, since the table is granted
- *      to no client role at all.
+ *   2. NO REACH FOR THE PUBLISHABLE KEY. `public.org_memberships` is asked for through the Data API
+ *      with the publishable key and refuses — the privilege layer, not a policy, because `anon`
+ *      holds no `select` grant on it. (This arm used to be described as the table being granted to
+ *      no client role at all. That stopped being true on 2026-08-12: the tenant-isolation migration
+ *      grants `select` on this table to `authenticated`, which IS a client role, and deliberately
+ *      grants `anon` nothing. What this arm measures is the narrower fact, and it is unchanged.)
  *   3. NO ROOM IN THE DATABASE. The operator, whose authority exceeds anything the product holds,
  *      tries to seat a second member in an organisation that already holds its one seat, and the
  *      unique index refuses.
