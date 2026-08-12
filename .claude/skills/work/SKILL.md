@@ -281,7 +281,14 @@ model).
 
 ## Filing candidates — few, distinct, and worth a stranger's time (founder 2026-08-09)
 
-Item runs hand up observations, and the coordinator files them. Filing is not free: every item
+**AN ITEM'S GOAL IS TO FULFIL THE ITEM — NEVER TO GENERATE MORE ITEMS (founder ruling
+2026-08-12).** Observations that fall out of a run are recommendations, judged carefully against
+the checks below — and even one the coordinator deems a must-file reaches the board only WITH
+FOUNDER APPROVAL, named and granted. The coordinator recommends; the founder approves; nothing is
+filed automatically. The same restraint covers machinery: a run that suggests a new guard, script
+or check hands up the suggestion — it does not build it as a rider.
+
+Item runs hand up observations, and the coordinator judges them. Filing is not free: every item
 is a promise the board makes to the founder, and a board of small promises hides the large ones.
 One day produced six filed candidates, and the founder called it out. Before filing, four checks:
 

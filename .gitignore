@@ -1,6 +1,11 @@
 # Logs
 logs
 *.log
+# EXCEPT reviewer evidence: item artifacts are REQUIRED in the committed record - the codex-lane
+# stderr log carries the run header (model and effort pins, vendor session id), the only key that
+# attributes reviewer spend to an item. The blanket *.log rule was silently fighting that
+# requirement and every evidence commit needed a force-add (founder ruling 2026-08-12: fix it).
+!loop/items/**/artifacts/*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
