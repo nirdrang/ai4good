@@ -193,6 +193,37 @@ atTest(
         (projects.rows ?? []).map((row) => String(row.id)),
         'B\'s unfiltered listing shows a project B does not own',
       ).toEqual([]);
+
+      // (7) AND THE NO-ORACLE PROPERTY SURVIVES A DATABASE FAULT — gate-1 ruling 4's PROOF rather
+      // than its assertion, and the loop tier's own arm. `_live.ts` does not back `failNextReadOf`,
+      // so there is no fault injection at the integration tier and an integration body reaching for
+      // it would refuse by name rather than fault a real database.
+      //
+      // THIS IS THE SURFACE THAT MOST NEEDS THE ARM, and that is why it is here as well as on the
+      // project workspace. `organization-dashboard` makes FOUR reads and THREE of them precede the
+      // target, so it is where a lookup issued AFTER the target read would first appear. Such a
+      // fault is reachable only on the path where the target EXISTS: a real foreign organisation
+      // would answer 502 while an identifier that names nothing had already answered 404, and those
+      // two answers are an existence oracle sitting outside `TENANT_NOT_FOUND`. With every decision
+      // read issued BEFORE the target read and nothing after it, both answer the same 502 — by
+      // construction rather than by care.
+      //
+      // ALL FOUR STORES, THE TARGET'S OWN INCLUDED. A fault on `organizations` faults the target
+      // read itself, and that answer must be identical for both identifiers too; asserting it is
+      // what makes this a complete statement rather than one about the first three reads only. The
+      // fault is ONE-SHOT — it is consumed by the read it fails — so each call arms its own.
+      for (const store of ['accounts', 'memberships', 'projects', 'organizations'] as const) {
+        await sut.failNextReadOf(store);
+        const faultedForeign = await sut.organizationDashboard(sessionB, a.organizationId);
+        await sut.failNextReadOf(store);
+        const faultedAbsent = await sut.organizationDashboard(sessionB, ABSENT_ID);
+        expect(faultedForeign.ok, `a faulted ${store} read answered with a projection`).toBe(false);
+        expect(faultedForeign.status, `a faulted ${store} read did not answer as an outage`).toBe(502);
+        expect(
+          faultedAbsent,
+          `under a fault on ${store} a real foreign organisation and one that names nothing answered differently`,
+        ).toEqual(faultedForeign);
+      }
     },
     integration: at00121,
   },
