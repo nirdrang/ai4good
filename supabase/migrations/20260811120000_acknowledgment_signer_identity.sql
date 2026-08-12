@@ -80,9 +80,14 @@ comment on column public.acknowledgments.authority_attestation is
 -- no `complete_signup` exists.
 --
 -- THE THREE NEW PARAMETERS CARRY `default null`, AND THAT IS NOT A ROLLING-DEPLOY BRIDGE. The
--- previous migration's four github parameters could bridge a mixed-plane window because the columns
--- behind them are NULLABLE; these three columns are `not null`, so a call that omits them fails at
--- the column constraints and the whole transaction aborts. The defaults exist for call-signature
+-- previous migration's four github parameters did bridge a mixed-plane window, but NOT because the
+-- columns behind them are nullable — all four `volunteer_profiles` columns are `not null` too. That
+-- bridge worked for two other reasons. The defaults let an old five-named-argument call still
+-- RESOLVE, and an NGO completion writes NO `volunteer_profiles` row at all, so the whole NGO caller
+-- class never reached those `not null` columns. Volunteer completion was fail-closed in that window,
+-- which the previous migration states as its honest residual. No caller class avoids the three new
+-- columns: EVERY completion writes the acknowledgment row, so a call that omits them fails at the
+-- column constraints and the whole transaction aborts. The defaults exist for call-signature
 -- tolerance only — a caller that omits them RESOLVES and is then refused by the constraints, which
 -- is a stated failure rather than a resolution error. No mixed-plane window exists in any
 -- environment this tree has: slots re-migrate from scratch and the edge functions deploy from the

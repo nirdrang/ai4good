@@ -93,7 +93,12 @@ export type AcknowledgmentRow = {
    *
    * The shipped statement is `ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement` in
    * `supabase/functions/_shared/acknowledgment-copy.ts`, and `validateCompleteSignup` accepts no
-   * other, so today exactly one value can appear here. It is stored anyway, because a later
+   * other — so THROUGH THE DEPLOYED PATH exactly one value can appear here. That scope is the whole
+   * claim: a `service_role` caller that bypasses the edge function can store a different nonblank
+   * statement, because the database floors presence and nonblank only. That is the accepted
+   * residual — see "WHERE THIS FILE'S AUTHORITY ENDS" in
+   * `supabase/migrations/20260811120000_acknowledgment_signer_identity.sql` — and the column then
+   * shows verbatim which statement was affirmed. It is stored anyway, because a later
    * statement version must stay distinguishable on rows already written.
    */
   authorityAttestation: string;
