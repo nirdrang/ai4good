@@ -251,3 +251,58 @@ The code gate runs, per slice (D11). The plan gate reviews this file.
 ## Rides along
 
 Nothing beyond the two board items. Machinery surprises found mid-build are filed, not built.
+
+---
+
+# AMENDMENT — the merge sitting, 2026-08-12. Integrate with main, then re-verify.
+
+The merge sitting adds steps 10 to 14. Steps 1 to 9 are done and their evidence stands. The reason
+for the amendment is in `merge-rulings.md`: main took the acknowledgment-identity leaf, that leaf
+edits the same shared req-001 suite, and the pull request is now unmergeable. **Read
+`merge-rulings.md` before starting.** It carries the per-hunk ruling you implement.
+
+**Merge main INTO this branch. Do NOT rebase.** A rebase rewrites the audited commits, and every
+SHA in this record — the audited head `0b8517d` above all — would stop being an ancestor. The pull
+request squash-merges, so a merge commit costs nothing and keeps the evidence chain intact.
+
+10. **Take main into the branch and resolve the five conflicts** (`git merge origin/main`, main at
+    `390042c`). Resolve every hunk as `merge-rulings.md` section 1 rules it: union the manifest id
+    lists; drop `D3_L1`, `D3_L2` and `D4_L1` from the `LEAF` map; union the added bodies with the
+    one closing brace they need between them; keep ONE declaration each of `TEXT_VERSION`,
+    `CLIENT_IP` and `PASSWORD`; merge the two `'./_integration.ts'` imports into one. **Rewrite the
+    header comment of `c-membership-and-acknowledgment.test.ts` to the merged truth** — never take
+    one side of it, because each side states something the merge makes false. Done: no conflict
+    marker survives anywhere in the tree; `bun run typecheck` exit 0; `bun run build` exit 0.
+11. **Restate every count the merge changes.** `_pending.ts`'s header says 21 written and 16
+    pending, and its map comment says SIX labels are gone. `loop/items/AI4DEV-62/pending-ledger.txt`
+    lists the 16 remaining ids with their leaves. The prose list of per-leaf ledgers in `_pending.ts`
+    gains this item's own ledger, which this branch created but never listed. Done:
+    `bun run at:check req-001` green; the declaration-to-acceptance bijection holds.
+12. **The migration version collision — VERIFY FIRST, then act.** The merged tree holds
+    `20260811120000_acknowledgment_signer_identity.sql` (from main) and
+    `20260811120000_org_membership_ngo_only_and_organization_rename.sql` (this branch) under ONE
+    version stamp. Measure what the merged set does on slot 2 before changing anything, and record
+    the measurement. If the duplicate version breaks the apply, skips a migration, or reorders it,
+    rename THIS branch's file to
+    `20260811125000_org_membership_ngo_only_and_organization_rename.sql`. That stamp keeps main's
+    migration first, which is the true order, and keeps this branch's own two in their order.
+    **Never rename a migration that is already on main.** Done: the measurement is recorded, and
+    the integration run reports 5 migrations expected and 5 applied.
+13. **Re-run the goal at BOTH tiers, all four runs**, serially on reserved slot **2** — do not
+    reserve another. `bun run at:verify req-001 --tier loop --expect`, `… req-001 --tier
+    integration --expect`, `… req-016 --tier loop --expect`, `… req-016 --tier integration
+    --expect`. Done: four exit-0 runs, matching the merged manifest exactly — **req-001 loop 21
+    green / 16 red, req-001 integration 16 green / 21 red**, req-016 unchanged at 11 green / 1 red
+    and 0 green / 12 red. Carry each integration run's slot evidence line VERBATIM into your report.
+14. **Record and push.** Write `artifacts/goal-runs-after-merge.md` with all four runs, both slot
+    evidence lines, the migration measurement from step 12, and your iteration count. Commit and
+    push. Done: `git status --porcelain` empty; the head is on the remote.
+
+**The counts after the merge, superseding the table above:** req-001 loop 21 green / 16 red;
+req-001 integration 16 green / 21 red; 5 migrations. The old 18/19 and 13/24 describe this branch
+before it took main, and they no longer license anything.
+
+**What you must NOT do.** Do not touch the pull request, the board, or anything outside this tree.
+Do not rebase. Do not reserve a second database slot. Do not "improve" main's code that arrives
+with the merge — resolve the conflicts and stop. If first-hand contact contradicts any ruling
+above, stop and report it to the orchestrator sitting by its agent id.

@@ -31,11 +31,46 @@ A dry-run merge (`git merge-tree --write-tree HEAD origin/main`, conflicted tree
 | `tests/at/suites/req-001/_integration.ts` | both items add their own arms |
 | `tests/at/suites/req-001/c-membership-and-acknowledgment.test.ts` | both items add their own arms |
 
-**Ruling: the conflict is ADDITIVE, not contradictory.** Each side lands a different, disjoint set
+**Ruling: the CODE is additive everywhere. Exactly one documentation block is contradictory, and
+the executor must rewrite it rather than pick a side.** Each side lands a different, disjoint set
 of acceptance ids in one shared ledger. This branch lands AT-001.16, .36, .37, .17 and .32. Main
-lands AT-001.19, .39 and .20. A union of the two sides is coherent. This is the collision the
-shared manifest creates by construction when two items land in the same requirement. It is
-**normal integration work, not scope growth**, so it does not go to the founder.
+lands AT-001.19, .39 and .20. This is the collision the shared manifest creates by construction
+when two items land in the same requirement. It is **normal integration work, not scope growth**,
+so it does not go to the founder.
+
+### The conflict hunks, one by one
+
+Measured against the merge base `ea4f345`. Both sides are pure additions: no side deletes or
+rewrites the other's symbols.
+
+| hunk | where | verdict |
+|---|---|---|
+| manifest | `_contract.ts` green lists, both tiers | ADDITIVE — union the id lists |
+| pending A | `_pending.ts` header prose and counts | ADDITIVE — restate to the merged counts |
+| pending B | `_pending.ts` `LEAF` map and its comment | ADDITIVE — drop `D3_L1`, `D3_L2` AND `D4_L1` |
+| contract | `_contract.ts` row comments | ADDITIVE — this branch adds `ProjectRow`, main rewrites the acknowledgment-row comment |
+| integration A | `_integration.ts` imports, line 31 | ADDITIVE — `inviteOrAddMemberSurface` against `ACKNOWLEDGMENT_IDENTITY_COPY`, disjoint |
+| integration B | `_integration.ts` bodies, line 649 | ADDITIVE — six new names against two, zero overlap; needs ONE closing brace between the blocks |
+| test header | `c-membership-and-acknowledgment.test.ts` docblock | **CONTRADICTORY — see below** |
+| test imports | same file, imports and constants | ADDITIVE, with a duplicate-name collision — see below |
+
+**The contradictory hunk, and why picking a side is a defect.** The file-header comment of
+`c-membership-and-acknowledgment.test.ts` carries, on each side, a negative status claim about the
+OTHER side's ids. This branch writes that AT-001.18, .19, .39 and .20 "belong to leaves further out
+and stay declared". Main writes that the membership ids "are still not landed" and that none is
+"enforced by anything shipped yet". After the merge BOTH claims are false. **Ruling: the executor
+rewrites this comment to the merged truth** — AT-001.16, .36, .37, .17, .19, .39 and .20 are all
+landed and written; AT-001.18 alone stays declared, on `LEAF.D3_L3`. Taking either side verbatim
+would leave a false statement about the code in the suite's own header, which is the exact defect
+class the audit grades.
+
+**The duplicate-name collision.** `TEXT_VERSION`, `CLIENT_IP` and `PASSWORD` appear on main's side
+of the marker and again in the cleanly merged text below it. **The values are identical on all
+three** (`'tos-2026-01+promise-2026-01'`, `'203.0.113.7'`, `'correct horse battery staple'`); only
+`CLIENT_IP`'s doc comment differs. **Ruling: keep ONE declaration of each. This is a name
+collision, not a value disagreement, so no behaviour is decided by the choice.** The union also
+produces two separate `import` statements from `'./_integration.ts'`; the executor merges them into
+one.
 
 ### The merged numbers, computed from the conflicted tree
 
