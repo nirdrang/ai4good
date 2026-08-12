@@ -1,0 +1,34 @@
+No findings.
+
+No tests or runtime probes were executed. Recorded runtime evidence was cited where required.
+
+Box 1 — PASS
+
+- C1 PASS — Both tiers implement A/admin success, B/member `not-an-admin`, and C/no membership `not-a-member`, with refusal read-backs: `c-membership-and-acknowledgment.test.ts:62-130`, `_integration.ts:632-743`.
+- C2 PASS — Operator creation is declared, implemented without membership insertion, and backed: `_contract.ts:585`, `_fixture.ts:1064-1071`, `_live.ts:122,606-612`.
+- C3 PASS — Shared source scan covers route filenames and route-tree literals at both tiers: `_source-scan.ts:34-103`, `_integration.ts:921-925`.
+- C4 PASS — Explicit project privilege revocation exists: migration B `:123`.
+- C5 PASS — Fixture grant order matches the stated order: `_fixture.ts:1097-1136`.
+- C6 PASS — Fixture assignment order matches the stated order: `_fixture.ts:1222-1239`.
+- C7 PASS — Fixture has no organization-existence pre-check: `_fixture.ts:1029-1048`. The recorded v1 measurement reports the required deployed `403 not-a-member`: `artifacts/gate2-verify-answers.md:28-47` (not independently re-run).
+- C8 PASS — SQLSTATE extraction and sentence-primary classification are implemented at both relevant catch sites: `_live.ts:210-221,648-659,758-765`.
+- C9 PASS — Explicit whitespace trimming appears in both SQL expressions: migration A `:137,141`; recorded before/after evidence: `artifacts/gate2-verify-answers.md:83-121`.
+- C10 PASS — Repoint method, outcome union, ordering, live SQL, backed registration, and both-tier AT-001.37 arm exist: `_contract.ts:237-254,616`, `_fixture.ts:1152-1179`, `_live.ts:122-124,679-703`, `_integration.ts:879-893`.
+- C11 PASS — Control asserts exactly `401`: `_integration.ts:946-953`.
+- C12 PASS — Data API arm asserts `401` and permission-denied body: `_integration.ts:955-970`.
+- C13 PASS — Pending header enumerates eighteen written IDs and nineteen remaining: `_pending.ts:1-15`.
+
+Box 2 — PASS
+
+The pinned source-only diff contains exactly the fifteen declared files; no additional scoped files changed.
+
+Box 3 — PASS
+
+- F1 PASS — Route-tree addition is type-only and adds no route naming: `src/routeTree.gen.ts:59-69`.
+- F2 PASS — One `update-organization` function block and three-function comment are present: `supabase/config.toml:467-485`.
+- F3 PASS — RPC execution is revoked from `public`, granted to `service_role`, and checks organization existence before membership: migration A `:143-154,197-198`.
+- F4 PASS — NGO-only trigger binds to `before insert or update`: migration A `:84-89`.
+- F5 PASS — Unique organization-seat index and project-seat trigger/message are present: migration B `:41-42,80-104`.
+- F6 PASS — Projects use one nullable assignee column, and product code contains no project creation or assignment path beyond operator setup: migration B `:57-63`; operator paths `_live.ts:714-746`.
+
+AUDIT: CLEAN
