@@ -167,12 +167,19 @@ function Set-Snapshot([hashtable]$windows, [double]$ageMinutes = 0) {
     [IO.File]::WriteAllText($snapFile, ($o | ConvertTo-Json -Depth 8), (New-Object System.Text.UTF8Encoding($false)))
 }
 function Set-VerdictLine([string]$line) {
+    $script:drillLines += $line
     [IO.File]::WriteAllText($verdictFile, ($line + "`n"), (New-Object System.Text.UTF8Encoding($false)))
 }
+# EVERY VERDICT LINE THIS RUN PRODUCES IS REMEMBERED. The closing live-directory check needs to
+# know what this drill's own output looks like, because the live verdict file carries no sessionId
+# to match on the way the snapshot does.
+$script:drillLines = @()
 function Get-VerdictLine() {
     if (-not (Test-Path $verdictFile)) { return '' }
     $t = [IO.File]::ReadAllText($verdictFile)
-    return (($t -split "`n")[0]).TrimEnd("`r")
+    $l = (($t -split "`n")[0]).TrimEnd("`r")
+    if ($l) { $script:drillLines += $l }
+    return $l
 }
 function W($pct, [double]$resetInMinutes) {
     @{ used_percentage = $pct; resets_at = [DateTimeOffset]::UtcNow.AddMinutes($resetInMinutes).ToUnixTimeSeconds() }
@@ -184,6 +191,10 @@ try {
 
     # ---------------------------------------------------------------- group 0: the safety rail
     Write-Output 'guard - the drill cannot reach the live reading'
+    # THE LIVE PATH IS SPELLED OUT HERE ON PURPOSE, and it must stay spelled out: a canary that
+    # asked window-lib.ps1 where the live directory is would fingerprint whatever the library
+    # believes, and a wrong belief in the library is exactly the failure this canary exists to
+    # catch - it is the failure that already happened on this drill's first run.
     $live = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good')).TrimEnd('\')
     $mine = [IO.Path]::GetFullPath($winDir).TrimEnd('\')
     Assert 'guard' 'the drill directory is not the live snapshot directory' `
@@ -210,6 +221,31 @@ try {
         if (-not (Test-Path $f)) { return $false }
         return ([IO.File]::ReadAllText($f) -match 'window-watchdog-drill')
     }
+
+    # AND THE SECOND FILE, WHICH THE MARKER CANNOT COVER. The sensor writes two files, and the
+    # verdict file is the one the per-tool alarm reads - a synthetic ALARM line there would fire
+    # the alarm in every session on this machine until something overwrote it. It carries no
+    # sessionId, so it is covered by a fingerprint taken before anything runs and compared at the
+    # end. Existence, hash and last-write, for both files.
+    function Get-LiveFingerprint() {
+        $o = @{}
+        foreach ($n in @('rate-limits.json', 'window-verdict.txt')) {
+            $f = Join-Path $live $n
+            if (Test-Path $f) {
+                $o[$n] = [pscustomobject]@{
+                    Exists    = $true
+                    Hash      = (Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash
+                    LastWrite = (Get-Item -LiteralPath $f).LastWriteTimeUtc
+                    Text      = [IO.File]::ReadAllText($f)
+                }
+            }
+            else {
+                $o[$n] = [pscustomobject]@{ Exists = $false; Hash = ''; LastWrite = $null; Text = '' }
+            }
+        }
+        return $o
+    }
+    $liveBefore = Get-LiveFingerprint
 
     # ---------------------------------------------------------------- group 1: over the line
     Write-Output ''
@@ -253,6 +289,13 @@ try {
 
     $s = Invoke-Stamp
     Assert 'g1' 'the stamp carries a WINDOW ALARM line for the founder' ($s.Out -match 'WINDOW ALARM')
+    # THE PREFIX REWRITE, PINNED WHERE IT COMES OUT. stamp-hook.ps1 strips the library's leading
+    # 'ALARM WINDOW ' and prints its own 'WINDOW ALARM' prefix instead. Nothing pinned that
+    # coupling, and a one character drift on either side either double-prints the founder's alarm
+    # or leaves it half-printed. window-sim.ps1 pins the library's half; this pins the output.
+    Assert 'g1' 'the founder line says WINDOW ALARM exactly once' `
+        (([regex]::Matches($s.Out, 'WINDOW ALARM')).Count -eq 1)
+    Assert 'g1' 'and no ALARM WINDOW survives the prefix rewrite' (-not ($s.Out -cmatch 'ALARM WINDOW'))
     Assert 'g1' 'the stamp still prints its two standard lines' `
         (($s.Out -match 'WORKING ON') -and ($s.Out -match 'IN  '))
 
@@ -371,12 +414,96 @@ try {
     $s = Invoke-Stamp
     Assert 'g4' 'and the founder is told, on the prompt, without being halted' `
         (($s.Out -match 'sensor cannot be trusted') -and ($s.Out -match '(?i)not halting'))
-    $a = Invoke-Alarm
-    Assert 'g4' 'and the per-tool alarm stays silent, as decided' ($a.Exit -eq 0)
 
-    # AND THE LIVE READING WAS NEVER TOUCHED.
-    Assert 'guard' 'nothing in this run wrote outside the drill directory' `
-        ($env:AI4GOOD_WINDOW_DIR -eq $winDir)
+    # THE ALARM HAS TWO SILENT PATHS AND THEY ARE NOT THE SAME PATH. This one is the MISSING FILE:
+    # window-alarm.cmd exits 0 before it reads anything. It is a real state and it is asserted
+    # here, labelled as itself.
+    $a = Invoke-Alarm
+    Assert 'g4' 'with no verdict file at all the alarm is silent - the missing-file path' ($a.Exit -eq 0)
+
+    # AND NOW THE STATE PRODUCTION ACTUALLY REACHES. A broken sensor does not leave the verdict
+    # file missing: the next refresh writes an UNKNOWN LINE into it, and THAT is the silence the
+    # decision speaks about (shared-invariants - the per-tool alarm stays silent on UNKNOWN,
+    # because a running subagent can neither act on it nor fix it). This drill used to delete the
+    # file and then claim the decision, proving a different branch of the batch file entirely.
+    # The payload here carries no rate_limits at all, which is how a real build that stopped
+    # reporting windows looks.
+    Invoke-Sensor $null | Out-Null
+    $uline = Get-VerdictLine
+    Assert 'g4' 'a broken sensor writes an UNKNOWN verdict LINE rather than leaving the file missing' `
+        ((Test-Path $verdictFile) -and ($uline -like 'UNKNOWN *'))
+    $a = Invoke-Alarm
+    Assert 'g4' 'and the per-tool alarm stays silent on that UNKNOWN LINE, as decided' ($a.Exit -eq 0)
+    $g = Invoke-Gate
+    Assert 'g4' 'while the gate still says it loudly and allows the spawn' `
+        (($g.Decision -ne 'deny') -and (($g.Context -match '(?i)unknown') -or ($g.Context -match '(?i)sensor')))
+
+    # FAULT (c) - CONTENTION ON THE SENSOR PAIR. Two status-line refreshes are two processes, and
+    # the verdict and the snapshot must be ONE act across them, or an interleave leaves a high
+    # snapshot beside an older OK verdict. Deterministic, never a race: this drill takes the very
+    # mutex the sensor takes, runs the sensor, and the sensor must leave the pair exactly as it
+    # found it rather than write half of it.
+    #
+    # The name is Global on purpose - it is account-wide state, written by every session on this
+    # machine. While the drill holds it the founder's own status line skips at most one refresh,
+    # which is the designed degradation and heals on the next turn.
+    Write-Output ''
+    Write-Output '   contention'
+    Remove-Item $verdictFile -Force -ErrorAction SilentlyContinue
+    Remove-Item $snapFile -Force -ErrorAction SilentlyContinue
+    Invoke-Sensor @{ five_hour = (W 30 90) } | Out-Null
+    $snapBefore2 = [IO.File]::ReadAllText($snapFile)
+    $verdictBefore2 = [IO.File]::ReadAllText($verdictFile)
+
+    $mtx = New-Object System.Threading.Mutex($false, 'Global\ai4good-window-sensor')
+    $wasHeld = $false
+    try { $wasHeld = $mtx.WaitOne(2000) } catch [System.Threading.AbandonedMutexException] { $wasHeld = $true }
+    Assert 'g4' 'the drill can take the sensor mutex, so this case really does test contention' $wasHeld
+    $code = Invoke-Sensor @{ five_hour = (W 97 90) }          # would be an ALARM if it got through
+    $snapDuring = [IO.File]::ReadAllText($snapFile)
+    $verdictDuring = [IO.File]::ReadAllText($verdictFile)
+    if ($wasHeld) { try { $mtx.ReleaseMutex() } catch { } }
+    try { $mtx.Dispose() } catch { }
+
+    Assert 'g4' 'a status line that cannot take the lock still exits 0' ($code -eq 0)
+    Assert 'g4' 'and it writes NEITHER file, rather than half the pair' `
+        (($snapDuring -eq $snapBefore2) -and ($verdictDuring -eq $verdictBefore2))
+
+    Invoke-Sensor @{ five_hour = (W 97 90) } | Out-Null
+    Assert 'g4' 'once the lock is free the pair updates together' `
+        (([IO.File]::ReadAllText($snapFile) -ne $snapBefore2) -and ((Get-VerdictLine) -like 'ALARM *'))
+
+    # AND THE LIVE READING WAS NEVER TOUCHED - measured against the fingerprint, not asserted.
+    #
+    # The old closing check only re-read the environment variable, which says nothing whatsoever
+    # about writes. The incident this item actually had was a synthetic 95% reaching the live
+    # snapshot, so the weakest guard in the drill sat on the exact failure that occurred.
+    #
+    # A CHANGED FILE CANNOT BE RED BY ITSELF. The founder session rewrites both live files on every
+    # turn of its own accord, so "it changed" proves nothing while this drill runs. Red is content
+    # that can only have come from HERE: the sessionId marker in the snapshot, or an ALARM line
+    # this run produced sitting in the live verdict file. Two things this deliberately does NOT
+    # call red, and says so rather than hiding it: a live 'OK' line (every healthy sensor writes
+    # that exact line) and a live UNKNOWN line (a genuinely broken live sensor writes one, and it
+    # halts nothing). The ALARM lines are the ones that can park real work.
+    $liveAfter = Get-LiveFingerprint
+    $stillThere = $true
+    $isMine = $false
+    $changed = @()
+    foreach ($n in @('rate-limits.json', 'window-verdict.txt')) {
+        if ($liveBefore[$n].Exists -and (-not $liveAfter[$n].Exists)) { $stillThere = $false }
+        if ($liveBefore[$n].Hash -ne $liveAfter[$n].Hash) { $changed += $n }
+        if ($liveAfter[$n].Text -match 'window-watchdog-drill') { $isMine = $true }
+        foreach ($l in $script:drillLines) {
+            if (($l -like 'ALARM *') -and ($liveAfter[$n].Text.Trim() -eq $l.Trim())) { $isMine = $true }
+        }
+    }
+    Assert 'guard' 'both live files still exist - this drill deleted nothing out there' $stillThere
+    Assert 'guard' 'no live file carries anything this drill wrote' (-not $isMine)
+    Assert 'guard' 'the override was still in force at the end of the run' ($env:AI4GOOD_WINDOW_DIR -eq $winDir)
+    if ($changed.Count -gt 0) {
+        Write-Output ('        note: the live ' + ($changed -join ' and ') + ' changed during this run and carries none of this drill content - that is the founder session refreshing it, which it does every turn.')
+    }
 
     Write-Output ''
     Write-Output ('RESULT: {0} passed, {1} failed' -f $pass, $fail)
