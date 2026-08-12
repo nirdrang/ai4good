@@ -1270,6 +1270,15 @@ export async function at00121(ctx: Ctx): Promise<void> {
     CLIENT_IP,
   );
   expect(a, 'NGO A could not complete signup, so there is no tenant for B to be denied').toMatchObject({ ok: true });
+  // THE `expect` ABOVE THROWS ON `ok: false`, SO THE NARROWING RETURN BELOW IS REACHED ONLY BY A
+  // COMPLETION THAT SUCCEEDED WITH NO ORGANISATION — and on that path the body used to return as a
+  // PASS with zero arms run (gate-2 ruling 4). THIS TIER IS WHERE THE SEAM IS LIVE: the loop fixture
+  // always sets the identifier, so the value a real database and a deployed function hand back is
+  // the one that could be null. The return itself stays exactly as it is.
+  expect(
+    a.ok ? a.organizationId : null,
+    'NGO A completed signup with no organisation, so there is no tenant for B to be denied and this id would go green at the tier where the deployed function is the thing under test',
+  ).not.toBeNull();
   if (!a.ok || a.organizationId === null) return;
 
   const sessionB = await registerConfirmAndSignIn(sut, w.email('ngo-b-21'));
@@ -1279,6 +1288,10 @@ export async function at00121(ctx: Ctx): Promise<void> {
     CLIENT_IP,
   );
   expect(b, 'NGO B could not complete signup, so there is no second tenant to do the probing').toMatchObject({ ok: true });
+  expect(
+    b.ok ? b.organizationId : null,
+    'NGO B completed signup with no organisation, so the policy set has no second tenant to be evaluated against and every probe below would be skipped',
+  ).not.toBeNull();
   if (!b.ok || b.organizationId === null) return;
 
   // A PROJECT IN A. No product path creates one at either tier, so the operator provisions it.
@@ -1427,6 +1440,10 @@ export async function at00122(ctx: Ctx): Promise<void> {
     CLIENT_IP,
   );
   expect(owner, 'the NGO could not complete signup, so there is no organisation to hold a project').toMatchObject({ ok: true });
+  expect(
+    owner.ok ? owner.organizationId : null,
+    'the owning NGO completed signup with no organisation, so no project can be created and the deployed workspace and public surfaces would never be called at all',
+  ).not.toBeNull();
   if (!owner.ok || owner.organizationId === null) return;
 
   // TWO VOLUNTEERS, and the difference between them is the ONE fact the criterion turns on: which of
