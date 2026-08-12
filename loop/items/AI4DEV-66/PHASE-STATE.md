@@ -1,7 +1,31 @@
 # PHASE-STATE - AI4DEV-66 (cross-org denial, no existence oracle), batch with AI4DEV-67 (assigned volunteer, admin, stranger)
 
-**Phase: PLAN COMPLETE. The next event is GATE 1 - one reviewer critiques the plan.** Written by
-the PLAN sitting, orchestrator on **opus @ max**, 2026-08-12.
+**RESUME NOTE, written by the conductor on 2026-08-13, facts only - no ruling.** This file was
+last written by the PLAN sitting and was never updated after gate 1 landed. The true state,
+read from the branch's own commit history:
+
+- Gate 1 ran (sol via codex). Eleven findings, all adopted, four with a changed remedy, in
+  commit `46d4537` - `loop/items/AI4DEV-66/rulings-gate1.md` and the amended `plan.md`.
+- An executor sitting then committed slice 1's first work item at commit `739323f`:
+  `supabase/functions/_shared/visibility.ts`, slice 1's migration
+  (`20260812120000_tenant_isolation_policy_set.sql`), the three edge functions, the
+  `config.toml` blocks, and the loop fixture backing (plan steps 1, 2 partial, 4, 5, 7, 8).
+- That executor was then stopped mid its NEXT work item. Its uncommitted work was not preserved
+  and is not in this tree. Steps 3 (AT-001.22 bodies), 6 (privilege-posture measurement), 9
+  (live adapter backing) and 10 (moving the declarations) are UNSTARTED as far as this tree shows
+  - re-check each against `plan.md` rather than assuming step 2's or step 3's test bodies are
+  complete, since the plan writes bodies before implementation and the commit above is
+  implementation-only.
+- The previous worktree was removed by the coordinator. This is a fresh worktree, checked out at
+  `841d52e`, which is `739323f` with `origin/main` merged in (four machinery fixes, no file
+  overlap with this item).
+- Executor invocations so far: **one was spawned and stopped without completing or reporting.**
+  Whether that spends one of the plan's three-invocation cap is for the next sitting to rule on.
+- No gate 2 (code review) has run yet. Slice 1 is not yet complete by the plan's own done-criteria.
+
+**Phase: PLAN COMPLETE, GATE 1 COMPLETE AND RULED. The next event is completing slice 1's
+implementation (test bodies plus the remaining steps) and then gate 2 on slice 1's diff.**
+Originally written by the PLAN sitting, orchestrator on **opus @ max**, 2026-08-12.
 
 ## THE MODEL RULING FOR THIS RUN - CARRY IT FORWARD
 
@@ -127,5 +151,6 @@ Neither question blocks gate 1. The conductor raises both while the reviewer rea
 
 ## Caps used so far
 
-Executor invocations: **0 of 3**. Goal iterations: **0**. Audit re-run: **unused**. CI flake
-re-run: **unused**.
+Executor invocations: **1 of 3 spawned so far (stopped without completing or reporting - the
+next sitting rules on whether it counts).** Goal iterations: **0 completed**. Audit re-run:
+**unused**. CI flake re-run: **unused**.
