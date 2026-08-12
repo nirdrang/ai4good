@@ -334,3 +334,77 @@ same rule the CI-unavailable class follows: when the signal cannot be obtained, 
 
 13 accepted, 2 rejected with written reasons. No finding contradicts ratified text and none is
 scope growth, so nothing here goes to the founder.
+
+---
+
+# ADDENDUM — step 10, ruled after the executor's first pass
+
+The executor applied all 13 accepted fixes, reached green on every suite, and then STOPPED on
+step 10 and asked me rather than deciding. That was correct, and the case it found is genuinely
+outside what I pre-decided.
+
+## What it found
+
+`settings-proof-probe.ps1:64` builds the probe's twin settings file like this:
+
+```powershell
+$twinText = $raw.Replace(($mainPrefix -replace '\\', '\\\\'), ($repo -replace '\\', '\\\\'))
+```
+
+`-replace` is the REGEX operator. The pattern `'\\'` matches one backslash, but in a .NET
+replacement string a backslash is literal, so `'\\\\'` inserts FOUR. The probe therefore searched
+the settings file for `C:\\\\Users\\\\nirdr\\\\...` while the file holds `C:\\Users\\nirdr\\...`.
+Nothing matched, and the twin came out a byte-for-byte copy of the committed file, still carrying
+MAIN-checkout paths. I confirmed this by reading line 64 myself.
+
+`window-gate.ps1` and `window-alarm.cmd` do not exist in the main checkout yet, so two of the
+entries pointed at absent files. The probe's own precheck caught it —
+`FAIL every command in the twin points at a file that exists` — and the executor recorded nothing
+as an entry failing to fire.
+
+## Ruling — ONE re-run is authorised, and it does not widen the cap
+
+**This is not the contingency I pre-decided, and the cap I wrote does not reach it.** That cap
+was aimed at a degraded vendor: it existed to stop the executor burning attempts against an
+unbounded external failure, and to stop a vendor failure being misrecorded as a hook entry not
+firing. The vendor was healthy here — five runs, every stderr log empty, no 529.
+
+The decisive point is narrower than "the cap was for something else". **The probe never put the
+proposition under test.** It exercised a settings file that was not the branch's settings. That is
+not a failed attempt at the hypothesis; it is a setup that never presented the hypothesis. This is
+exactly the shape of the CI-unavailable class in my own contract: a run with no runner assigned
+and zero steps executed is an ABSENT signal, not a red one, and the answer is to obtain the
+signal — never to record a failure that was never observed. Counting this as the one attempt would
+put "we tried and could not prove it" in the record when the truth is "we have not yet tried."
+
+**The vendor cap stands unchanged at one attempt.** If the re-run fails vendor-side, that IS the
+pre-decided contingency: record it blocked and stop.
+
+## Bounds on the re-run
+
+1. Fix line 64 only — plain string `.Replace('\','\\')` on both operands. Nothing else in the twin
+   logic changes.
+2. **The precheck is the gate.** If "every command in the twin points at a file that exists" still
+   fails, STOP and report. Never run the headless cases against a twin that is still wrong — that
+   guard already earned its keep once.
+3. ONE re-run of the five cases.
+4. **Record what the run actually shows, including a genuine non-firing entry.** That would be a
+   real finding and it comes back to me, not into the record as a conclusion.
+5. D11's contingencies are already ruled and stand: `PostToolUseFailure` not dispatched → drop
+   that ONE entry, keep the rest, record the residual gap. `additionalContext` invisible on an
+   allow → fall back to `systemMessage` only and record the reduced guarantee.
+6. `goal-evidence.md` and `plan.md` then state the truth of the re-run, whatever it is. Step 9's
+   status moves only if its own criterion is genuinely met.
+
+Fixing the probe is not scope growth: step 10 is in the plan, the probe is the plan's own
+artifact, and a one-line repair to make it run is completing planned work.
+
+## Recorded, because the executor was right to raise it
+
+The executor found a new defect while working and reported it instead of fixing it silently, and
+it declined to re-run under a cap it could have read loosely. It also threw away two overhead
+measurements that were wrong for reasons it could name — a reporting function that both printed
+and returned, and twins that had crashed because `$PSScriptRoot` resolved to TEMP — and it refused
+to measure the pre-item status line by running it, because that version ignores the override and
+twenty-one runs would have written synthetic readings into the founder's live snapshot. That is
+this item's own incident, avoided by the executor unprompted.
