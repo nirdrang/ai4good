@@ -313,7 +313,57 @@ instead.
 Lovable-territory file, then every Claude-territory item that builds will dirty `src/routeTree.gen.ts`
 and meet this same guard. That belongs to the coordinator to fold, not to this item.
 
-## 10. What this sitting does, and what it hands on
+## 10. Step 15 done — the guard ruling carried out, and one method disclosure ruled
+
+Head after step 15: `4235a2e`, pushed, tree clean. `git diff origin/main HEAD -- src/` is EMPTY.
+The audited head `0b8517d`, the last-CI head `65a9d4f` and main `390042c` are all still ancestors:
+no rebase happened, and the evidence chain holds.
+
+**The build DOES regenerate the block — measured, and the filed process finding now has evidence.**
+The executor restored the file, confirmed `git diff -- src/` empty, ran `bun run build` to exit 0,
+and `src/routeTree.gen.ts` came back changed by the same ten lines. It also bounded the finding,
+which is what makes it useful: `bun run typecheck` and all four `at:verify` runs leave the file
+alone. **Only the BUILD writes it, so the restore goes last, after the final build.** That is the
+order committed.
+
+**AT-001.17's source arm — my ruling was confirmed first-hand, not taken on trust.** The executor
+measured `inviteOrAddMemberSurface()` on both versions of the file: with the block, 19 quoted
+literals; without it, 16; both return the empty array. The three literals the block adds are
+`'./router.tsx'`, `'./start.ts'` and `'@tanstack/react-start'`, and the arm's pattern matches none.
+Checking a proof against the code rather than accepting it is the correct instinct on an arm whose
+wrong answer would be a false green.
+
+**The four runs on the restored tree, all exit 0, serial on slot 2 — these supersede every earlier
+set:**
+
+| requirement | tier | result |
+|---|---|---|
+| req-001 | loop | 21 green / 16 red / 0 missing — exact match |
+| req-001 | integration | 16 green / 21 red / 0 missing — exact match |
+| req-016 | loop | 11 green / 1 red / 0 missing — exact match |
+| req-016 | integration | 0 green / 12 red / 0 missing — exact match |
+
+Both integration runs carry the identical slot evidence line, verbatim:
+
+```
+at:verify — db slot 2 (ai4good-slot-2, api 56321) — reset OK — migrations: 5 expected, 5 applied
+```
+
+No expected count was edited at any point. Total goal iterations for the sitting: ONE.
+
+### The method disclosure, ruled
+
+The executor disclosed that it ran req-001 integration TWICE in this round. The first run passed
+with the correct counts, but it truncated its own console capture and lost the slot evidence line.
+Rather than quote a line it had not actually seen, it re-ran with the full output captured.
+
+**Ruling: correct conduct, and it is recorded rather than buried.** Both runs were on the same
+restored tree and both exited 0, so nothing was selected for its answer — which is the only thing
+that would make a repeated run dishonest. Quoting an evidence line one did not observe is exactly
+the failure the verbatim rule exists to prevent, and re-measuring to obtain it is the remedy, not a
+concession. The line recorded above is the one that was seen.
+
+## 11. What this sitting does, and what it hands on
 
 This sitting rules the blocker and runs ONE executor invocation to integrate the branch with main
 and re-verify it. It then pushes and ends, because the code changes and the audit must read the
