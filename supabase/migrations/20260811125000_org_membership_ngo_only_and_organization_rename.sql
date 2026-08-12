@@ -1,5 +1,14 @@
 -- REQ-001 D3.L1 — per-organisation roles: the NGO-only membership rule and the admin-only rename.
 --
+-- WHY THE VERSION STAMP IS 20260811125000 AND NOT 20260811120000, which is what this file carried
+-- while it was written. The acknowledgment-identity leaf landed on main under the SAME stamp, and a
+-- migration version is a key: `supabase_migrations.schema_migrations` holds one row per version, so
+-- the two files collided the moment the two branches met. Measured on database slot 2 before the
+-- rename: `supabase db reset` exited 1, three of the five migrations applied, and BOTH this file and
+-- the one after it never ran. The stamp moved 5 minutes forward rather than back, because the
+-- acknowledgment-identity migration really did land first and the order here is the true one; the
+-- migration already on main was never renamed.
+--
 -- The first migration landed the SHAPE of per-organisation roles — the `org_role` enum and
 -- `public.org_memberships` with its composite primary key — and said in its own comment that
 -- AT-001.16 and AT-001.36 are "neither … landed here". This migration lands the SEMANTICS those

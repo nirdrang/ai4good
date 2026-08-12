@@ -661,7 +661,15 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
     const decision = validateCompleteSignup(request, { githubHandle: caller.githubHandle });
     if (!decision.ok) return { ok: false, reason: decision.reason };
-    const { accountType, organizationName, acknowledgmentTextVersion, githubHandle } = decision.value;
+    const {
+      accountType,
+      organizationName,
+      acknowledgmentTextVersion,
+      githubHandle,
+      signerName,
+      signerTitle,
+      authorityAttestation,
+    } = decision.value;
 
     // ONE ROW PER AUTH USER is what makes "one account holds exactly one global type" structural
     // rather than remembered — the schema states it as a primary key, and this states it as a
@@ -713,6 +721,12 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       acknowledgedAt: '2026-01-01T00:00:00.000Z',
       ip,
       textVersion: acknowledgmentTextVersion,
+      // WHO SIGNED — AT-001.19, and taken from `decision.value` rather than from `request`. The
+      // shipped module trimmed them and pinned the attestation to the shipped statement, so this
+      // row holds what the decision was made on, exactly as the deployed function's row does.
+      signerName,
+      signerTitle,
+      authorityAttestation,
     };
 
     // All of them, together. Nothing above this line has mutated `state`.

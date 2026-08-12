@@ -34,6 +34,8 @@
  * from `tests/at/suites/req-001/_fixture.ts`, and that import is the whole of its type coverage.
  */
 
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from './acknowledgment-copy.ts';
+
 /* ------------------------------------------------------------------ the two closed vocabularies */
 
 /**
@@ -119,6 +121,12 @@ export type CompleteSignupRequest = {
   accountType?: unknown;
   organizationName?: unknown;
   acknowledgmentTextVersion?: unknown;
+  /** who is making the acknowledgment — AT-001.19's "name" */
+  signerName?: unknown;
+  /** the title they hold — AT-001.19's "title" */
+  signerTitle?: unknown;
+  /** the authority statement they affirm — AT-001.19's "authority attestation" */
+  authorityAttestation?: unknown;
 };
 
 /**
@@ -151,6 +159,19 @@ export type ValidCompleteSignup = {
    * profile under a handle the gate never saw.
    */
   githubHandle: string | null;
+  /**
+   * WHO SIGNED, AND UNDER WHAT AUTHORITY — AT-001.19's three fields, trimmed, carried out for the
+   * same reason `organizationName` is: the write path stores the values this decision judged.
+   *
+   * `authorityAttestation` is the STATEMENT that was affirmed, not a boolean. A `true` in a column
+   * records that something was clicked; the statement records WHAT was attested, exactly as
+   * `acknowledgmentTextVersion` records which text was accepted. The check below accepts one
+   * statement — `ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement` — so the stored value keeps
+   * today's rows distinguishable from those of any later statement.
+   */
+  signerName: string;
+  signerTitle: string;
+  authorityAttestation: string;
 };
 
 /**
@@ -175,6 +196,20 @@ export type ValidCompleteSignup = {
  * WHY THE JUDGED VALUE TRAVELS BACK OUT in `ValidCompleteSignup.githubHandle`: so the write path uses
  * the handle this decision was made on rather than deriving its own, which is the same reason the
  * organisation name comes back trimmed instead of being re-trimmed downstream.
+ *
+ * THE FOUR IDENTITY CHECKS COME LAST, AND THEIR PLACE IN THE ORDER IS LOAD-BEARING. AT-001.19 puts
+ * the acting person's name, title and authority attestation on every acknowledgment, and AT-001.39
+ * makes an omission a refusal. They are checked AFTER the acknowledgment text version, so every
+ * refusal an earlier criterion pins keeps firing first: `platform_admin` refuses at
+ * `parseAccountType`, an unlinked volunteer refuses at the GitHub gate, and a completion with no
+ * acknowledgment refuses at the text version. A request that omits the identity fields for one of
+ * those reasons never reaches these checks and its stated reason is unchanged.
+ *
+ * ONE REFUSAL PER CONDITION, EACH NAMING ITS OWN FIELD, because a caller told only that "something
+ * is missing" has nothing to correct. The fourth check is the one that makes the attestation mean
+ * anything: a non-blank string is not an attestation of authority — `'I am not authorized'` is a
+ * non-blank string — so the trimmed value must equal the SHIPPED statement in
+ * `./acknowledgment-copy.ts`, and anything else is refused as not matching it.
  */
 export function validateCompleteSignup(
   request: CompleteSignupRequest,
@@ -218,10 +253,49 @@ export function validateCompleteSignup(
     );
   }
 
+  // (1) WHO SIGNED. A name is the field that makes the record about a person at all, and an
+  // acknowledgment that names nobody records nobody.
+  const rawSignerName = request.signerName;
+  if (typeof rawSignerName !== 'string' || rawSignerName.trim() === '') {
+    return refuse(
+      'the signer name is required — an acknowledgment records the person who made it, and one with no name records nobody',
+    );
+  }
+
+  // (2) IN WHAT CAPACITY. The title is what makes the attestation of authority meaningful: a person
+  // binds an organisation in a role, and the record has to say which one.
+  const rawSignerTitle = request.signerTitle;
+  if (typeof rawSignerTitle !== 'string' || rawSignerTitle.trim() === '') {
+    return refuse(
+      'the signer title is required — an acknowledgment records the title the person held when they made it',
+    );
+  }
+
+  // (3) AND THAT SOMETHING WAS ATTESTED AT ALL.
+  const rawAttestation = request.authorityAttestation;
+  if (typeof rawAttestation !== 'string' || rawAttestation.trim() === '') {
+    return refuse(
+      'the authority attestation is required — an acknowledgment with none records that nobody claimed the authority to make it',
+    );
+  }
+
+  // (4) AND THAT WHAT WAS ATTESTED IS THE STATEMENT THIS PLATFORM SHIPS. See the header: a non-blank
+  // string is not an attestation of authority. The comparison is exact and against the trimmed
+  // value, so leading or trailing space is forgiven and content is not.
+  const authorityAttestation = rawAttestation.trim();
+  if (authorityAttestation !== ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement) {
+    return refuse(
+      'the authority attestation does not match the shipped authority statement — an acknowledgment records the statement that was affirmed, and it must be affirmed as shipped, word for word',
+    );
+  }
+
   return accept({
     accountType,
     organizationName,
     acknowledgmentTextVersion: rawVersion.trim(),
+    signerName: rawSignerName.trim(),
+    signerTitle: rawSignerTitle.trim(),
+    authorityAttestation,
     // NULL FOR AN NGO EVEN WHEN ONE IS LINKED. An NGO's account may well carry a GitHub identity —
     // nothing forbids it — but the GitHub link and the onboarding import it fires are volunteer
     // signup's, so an NGO completion carries no handle onward and writes no volunteer profile.

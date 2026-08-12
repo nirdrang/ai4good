@@ -23,6 +23,12 @@
 # The dangerous failure is not a wrong stamp; it is no stamp becoming normal, after which nobody
 # reads the line at all.
 
+# The session id normally arrives in the hook payload on stdin. The BANNER cannot forward stdin -
+# it runs the stamp in the same process AFTER draining the payload itself - so it passes the id it
+# parsed as this parameter instead. The parameter wins when present; the stdin read is the
+# fallback. Same format rule as the stdin path, enforced below.
+param([string]$SessionId = '')
+
 $ErrorActionPreference = 'Stop'
 $script:AgentLines = @()
 $script:BatchAttr = ''
@@ -102,9 +108,14 @@ try {
     # genuinely redirected - reading a console would block, and a hook that hangs is the one
     # failure this file must never have. Empty is a legal answer and degrades the ownership
     # labels below, never the stamp.
+    # CAPTURE THE PARAMETER BEFORE ZEROING: at script level $script:SessionId IS $SessionId -
+    # the same variable - so assigning '' first would silently erase the banner's parameter
+    # (caught by test on 2026-08-12, not by inspection).
+    $sidParam = $SessionId
     $script:SessionId = ''
+    if ($sidParam -and $sidParam -match '^[0-9a-fA-F-]{8,64}$') { $script:SessionId = $sidParam }
     try {
-        if ([Console]::IsInputRedirected) {
+        if (-not $script:SessionId -and [Console]::IsInputRedirected) {
             $raw = [Console]::In.ReadToEnd()
             $m = [regex]::Match($raw, '"session_id"\s*:\s*"([0-9a-fA-F-]{8,64})"')
             if ($m.Success) { $script:SessionId = $m.Groups[1].Value }
@@ -213,6 +224,18 @@ try {
                     # parallel session reads them as its own agents unless each line says whose
                     # agent it is. The owner is recorded by /work at spawn; absent records and an
                     # unknown session id both degrade to words, never to a guess.
+                    # A DIFFERENT SPAWNER ID IS NOT ANOTHER SESSION (founder catch 2026-08-12).
+                    # The founder's one thread of work can span several session ids: /clear
+                    # always mints a new id, resume can fork onto one, and a resume aimed at an
+                    # explicit id can land on an OLDER trunk than the session it meant to
+                    # continue (measured 2026-08-12: a stale dispatch pointer did exactly that,
+                    # and agents spawned in the post-clear session read as id mismatches in the
+                    # resumed trunk). The old wording asserted "ANOTHER session's agent" on any
+                    # mismatch, and the coordinator believed it over the founder's own account.
+                    # No repair is derivable: the hook payload names no predecessor id and
+                    # transcripts carry only their own id. So the label states exactly what the
+                    # comparison knows - the spawner's tag, and the mismatch's readings - and
+                    # the reader resolves it by asking or from conversation memory.
                     $who = 'spawner unrecorded - not necessarily this session''s'
                     try {
                         # GIT'S OWN STRING, never $a. The worktree id is a hash of the toplevel
@@ -224,7 +247,11 @@ try {
                         $own = Get-OwnerForWorktreeRoot ($childTop.Trim())
                         $ownSid = if ($own) { [string]$own.sessionId } else { '' }
                         if ($ownSid -and $script:SessionId) {
-                            $who = if ($ownSid -eq $script:SessionId) { 'this session''s agent' } else { 'ANOTHER session''s agent' }
+                            if ($ownSid -eq $script:SessionId) { $who = 'this session''s agent' }
+                            else {
+                                $ownTag = if ($ownSid.Length -ge 8) { $ownSid.Substring(0, 8) } else { $ownSid }
+                                $who = ('spawner session ' + $ownTag + ' - another session, or this one before a resume')
+                            }
                         }
                         elseif ($ownSid) { $who = 'spawner recorded; this session''s id unknown' }
                     }

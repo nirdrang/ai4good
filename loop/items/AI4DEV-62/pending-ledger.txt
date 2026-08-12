@@ -3,7 +3,7 @@ AI4DEV-62 (per-org roles and isolation) + the single-seat partner item - THE PEN
 
 Why this file exists
 --------------------
-`tests/at/expected/req-001.json` declares 19 of REQ-001's 37 P0 ids red at the loop tier, and
+`tests/at/expected/req-001.json` declares 16 of REQ-001's 37 P0 ids red at the loop tier, and
 `tests/at/harness/expected.ts` matches such a red by SHAPE: it rebuilds the anchored prefix
 
     AtPending: <id> PENDING [sut-missing] -
@@ -21,8 +21,11 @@ are attached to each id at its own `atTest` call site.
 
 What changed since the predecessor's ledger
 -------------------------------------------
-Five lines are GONE, and their absence is the point of writing a new ledger rather than editing
-the old one (each earlier file is a historical record and is never edited):
+EIGHT lines are GONE, and they come from THREE leaves, not two. Their absence is the point of
+writing a new ledger rather than editing the old one (each earlier file is a historical record and
+is never edited).
+
+Five of the eight are this branch's own:
 
     AT-001.16 -> D3.L1      landed by the primary item, declared GREEN at BOTH tiers
     AT-001.36 -> D3.L1      landed by the primary item, declared GREEN at BOTH tiers
@@ -31,36 +34,43 @@ the old one (each earlier file is a historical record and is never edited):
     AT-001.17 -> D3.L2      landed by the partner item, declared GREEN at BOTH tiers
     AT-001.32 -> D3.L2      landed by the partner item, declared GREEN at BOTH tiers
 
-D3.L1 names exactly those three ids and D3.L2 names exactly those two, so neither leaf has any
-remaining pending id. BOTH `LEAF.D3_L1` and `LEAF.D3_L2` were therefore REMOVED from
-`tests/at/suites/req-001/_pending.ts` - one in each slice's own change - because a leaf label
-sitting in that map with nothing pointing at it would be a claim that something is still pending
-when nothing is. That is the same rule earlier leaves applied to `LEAF.D1_L2`, `LEAF.D2_L1` and
-`LEAF.D2_L2`.
+Three arrive with main. The acknowledgment-identity leaf merged to main while this branch was in
+flight, and this branch then took main into itself. It edits the same shared suite, so its three
+ids are landed in this tree too and this ledger has to say so:
 
-24 - 5 = 19, and 19 + 18 green = 37, which is the acceptance file's P0 count.
+    AT-001.19 -> D4.L1      landed by the acknowledgment-identity leaf, GREEN at BOTH tiers
+    AT-001.39 -> D4.L1      landed by the acknowledgment-identity leaf, GREEN at BOTH tiers
+    AT-001.20 -> D4.L1      landed by the acknowledgment-identity leaf, GREEN at BOTH tiers
+
+D3.L1 names exactly three ids, D3.L2 exactly two and D4.L1 exactly three, so none of the three
+leaves has any remaining pending id. `LEAF.D3_L1`, `LEAF.D3_L2` AND `LEAF.D4_L1` are therefore all
+REMOVED from `tests/at/suites/req-001/_pending.ts`, because a leaf label sitting in that map with
+nothing pointing at it would be a claim that something is still pending when nothing is. That is
+the same rule earlier leaves applied to `LEAF.D1_L2`, `LEAF.D2_L1` and `LEAF.D2_L2`. Six labels are
+gone from that map now, and its own comment says six.
+
+24 - 8 = 16, and 16 + 21 green = 37, which is the acceptance file's P0 count.
 
 `tests/at/suites/req-001/f-lifecycle-and-audit.test.ts` still imports `LEAF` and `notLanded`: it
 holds five pending ids beside its one written body. `c-membership-and-acknowledgment.test.ts`
-keeps both imports too, for the five ids it still declares.
+keeps both imports too, for the ONE id it still declares - AT-001.18, on `LEAF.D3_L3`. Seven of
+that file's eight ids are written.
 
-The eighteen ids ABSENT from this ledger, deliberately
-------------------------------------------------------
+The twenty-one ids ABSENT from this ledger, deliberately
+--------------------------------------------------------
 AT-001.01, .03, .06 and .07 are the first accounts leaf's (manifest D1.L1). AT-001.02, .04 and
 .05 are the GitHub leaf's (D1.L2). AT-001.09 and .10 are the verification leaf's (D2.L1).
 AT-001.38, .12, .13 and .14 are the session-and-reset leaf's (D2.L2). AT-001.16, .36 and .37 are
-the primary item's here (D3.L1), and AT-001.17 and .32 the partner item's (D3.L2). All eighteen
-are declared GREEN, not pending. If any of them ever appears below, a landed leaf has regressed.
+the primary item's here (D3.L1), and AT-001.17 and .32 the partner item's (D3.L2). AT-001.19, .39
+and .20 are the acknowledgment-identity leaf's (D4.L1), landed on main and merged into this
+branch. All twenty-one are declared GREEN, not pending. If any of them ever appears below, a
+landed leaf has regressed.
 
-The 19
+The 16
 ------
 format:  AT-001.NN -> <deliverable>.<leaf> - <what that leaf lands>
 
 AT-001.18 -> D3.L3 - the cross-surface single-seat integration
-
-AT-001.19 -> D4.L1 - acknowledgment identity capture (name, title, authority attestation)
-AT-001.20 -> D4.L1 - acknowledgment identity capture (name, title, authority attestation)
-AT-001.39 -> D4.L1 - acknowledgment identity capture (name, title, authority attestation)
 
 AT-001.21 -> D5.L1 - cross-NGO denial and unassigned-volunteer denial
 AT-001.22 -> D5.L1 - cross-NGO denial and unassigned-volunteer denial
@@ -82,7 +92,7 @@ AT-001.31 -> D6.L2 - the lifecycle gate every write route registers through
 AT-001.33 -> D6.L3 - the append-only audit for role changes and transfer, and sign-in rate limiting
 AT-001.34 -> D6.L3 - the append-only audit for role changes and transfer, and sign-in rate limiting
 
-Count: 19. Plus the eighteen landed = 37, which is the acceptance file's P0 count.
+Count: 16. Plus the twenty-one landed = 37, which is the acceptance file's P0 count.
 
 Checked against the manifest, leaf by leaf
 ------------------------------------------
@@ -90,7 +100,6 @@ Checked against the manifest, leaf by leaf
 The two agree exactly, in both directions.
 
   manifest D3.L3  verify: AT-001.18                | ledger: 18
-  manifest D4.L1  verify: AT-001.19,39,20          | ledger: 19, 20, 39
   manifest D5.L1  verify: AT-001.21,22             | ledger: 21, 22
   manifest D5.L2  verify: AT-001.23,40,24          | ledger: 23, 24, 40
   manifest D6.L1  verify: AT-001.25,26,27,28,35    | ledger: 25, 26, 27, 28, 35
@@ -103,6 +112,7 @@ The two agree exactly, in both directions.
   manifest D2.L2  verify: AT-001.12,13,14,38       | the session-and-reset leaf - green, absent above
   manifest D3.L1  verify: AT-001.16,36,37          | THE PRIMARY ITEM - green, absent above
   manifest D3.L2  verify: AT-001.17,32             | THE PARTNER ITEM - green, absent above
+  manifest D4.L1  verify: AT-001.19,39,20          | the leaf merged in from main - green, absent above
 
   manifest D2.LW  verify: a wired re-run of the ui-tagged ids, and it adds NO new id. It is
                   therefore absent from this ledger by construction rather than by omission.

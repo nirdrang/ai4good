@@ -1,0 +1,19 @@
+PASS — declared scope: full pinned diff contains exactly the thirteen declared paths; `src/routeTree.gen.ts` is absent.
+
+PASS — R1 (re-graded): migration lines 63–65 retain `not null`; lines 82–94 correctly distinguish the prior GitHub bridge from the new parameters’ call-signature tolerance.
+
+PASS — R9: migration lines 82–94 accurately describe the prior bridge, NGO path, volunteer fail-closed residual, and absence of a bridge for the three identity fields.
+
+PASS — R10: `_contract.ts:94–102` scopes the exactly-one-value claim to the deployed path, names the `service_role` residual, and references the migration boundary.
+
+PASS — F11: fix delta changes only comment/JSDoc lines in the migration and `_contract.ts`; no SQL statement or TypeScript declaration changes.
+
+PASS — F12: previous migration lines 122–125 mark all four stated `volunteer_profiles` content columns `not null`.
+
+PASS — F13: previous migration lines 152–168 state the cited default-argument bridge, NGO omission, and volunteer fail-closed residual.
+
+Carried forward as PASS because the fix delta cannot reach their subjects: R2, R3, R4, R5, R6, R7, R8, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10. The delta contains no executable SQL/TypeScript or acceptance-test changes affecting these claims.
+
+No test suite was run.
+
+AUDIT: CLEAN

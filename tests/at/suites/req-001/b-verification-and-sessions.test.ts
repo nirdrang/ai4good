@@ -75,6 +75,9 @@ import type { AccountsSut } from './_contract.ts';
 // outside this criterion by construction. Iterating the constant makes "either account type" a
 // fact of the run instead of a claim in a test name.
 import { PUBLIC_SIGNUP_ACCOUNT_TYPES } from '../../../../supabase/functions/_shared/accounts.ts';
+// The SHIPPED authority statement. Every completion in this file must SUCCEED, so every one of
+// them carries AT-001.19's three fields, and the statement is imported rather than copied.
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 
 /** The version string of the ToS + Platform Promise text these tests accept on the user's behalf. */
 const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
@@ -82,6 +85,12 @@ const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
 const CLIENT_IP = '203.0.113.7';
 /** The password every email/password registration in this file uses. */
 const PASSWORD = 'correct horse battery staple';
+/** AT-001.19's three fields — who signed, and the statement they affirmed. */
+const SIGNER = {
+  signerName: 'Dana Okonkwo',
+  signerTitle: 'Executive Director',
+  authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+} as const;
 
 atTest(
   'AT-001.09',
@@ -126,6 +135,7 @@ atTest(
             accountType,
             organizationName: accountType === 'ngo' ? 'Riverside Shelter' : undefined,
             acknowledgmentTextVersion: TEXT_VERSION,
+            ...SIGNER,
           },
           CLIENT_IP,
         );
@@ -207,6 +217,7 @@ atTest(
           accountType: 'ngo',
           organizationName: 'Riverside Shelter',
           acknowledgmentTextVersion: TEXT_VERSION,
+          ...SIGNER,
         },
         CLIENT_IP,
       );
@@ -367,7 +378,7 @@ atTest(
   
       const completion = await sut.completeSignup(
         first.session,
-        { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(completion, 'the NGO completion was refused').toMatchObject({ ok: true });
@@ -492,7 +503,7 @@ atTest(
       // both sessions, which is what the paired writes need.
       const completion = await sut.completeSignup(
         refreshed,
-        { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+        { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
         CLIENT_IP,
       );
       expect(completion, 'the NGO completion was refused').toMatchObject({ ok: true });
