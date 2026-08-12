@@ -847,8 +847,15 @@ export type AccountsSut = {
    * IT CARRIES THE CALLER'S OWN ACCESS TOKEN, so what answers is the row-level-security policy
    * evaluated for THAT user, not a service-role read the product decided to permit. That is the
    * second layer decision C ships, and a green over the edge surface alone would leave it untested.
+   *
+   * `session` MAY BE `null`, AND THAT IS AT-001.24'S SUBJECT — a visitor who never signed in, which
+   * is not the same caller as one whose session has ended. The reason is `publicProjectPage`'s own:
+   * a member that could only be called WITH a session could not express the clause at all. With
+   * `null` the request carries the publishable key and no bearer token, so it resolves to `anon`,
+   * which the migrations grant nothing — the refusal is the PRIVILEGE layer and `rows: null` is what
+   * says so. Every existing call site passes a `Session`, which is assignable, so nothing else moves.
    */
-  dataApiRead(session: Session, probe: DataApiProbe): Promise<DataApiReadOutcome>;
+  dataApiRead(session: Session | null, probe: DataApiProbe): Promise<DataApiReadOutcome>;
 
   /**
    * EVERY TABLE IN THE `public` SCHEMA, with its client-role grants and its select policies — the

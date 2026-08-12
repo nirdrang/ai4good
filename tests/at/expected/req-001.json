@@ -25,13 +25,13 @@
         "AT-001.39",
         "AT-001.20",
         "AT-001.21",
-        "AT-001.22"
+        "AT-001.22",
+        "AT-001.23",
+        "AT-001.40",
+        "AT-001.24"
       ],
       "red": {
         "AT-001.18": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.23": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.40": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.24": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.25": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.26": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.27": { "kind": "pending", "phase": "sut-missing" },
@@ -63,7 +63,9 @@
         "AT-001.39",
         "AT-001.20",
         "AT-001.21",
-        "AT-001.22"
+        "AT-001.22",
+        "AT-001.23",
+        "AT-001.40"
       ],
       "red": {
         "AT-001.02": { "kind": "capability-pending", "capabilities": ["sut.accounts.registerWithGithub"] },
@@ -71,10 +73,8 @@
         "AT-001.04": { "kind": "capability-pending", "capabilities": ["sut.accounts.registerWithProvider"] },
         "AT-001.05": { "kind": "capability-pending", "capabilities": ["vendors.github-public-statistics"] },
         "AT-001.10": { "kind": "capability-pending", "capabilities": ["sut.accounts.sendDiscoveryMessage"] },
+        "AT-001.24": { "kind": "capability-pending", "capabilities": ["ui.logged-out-surface-rendering"] },
         "AT-001.18": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.23": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.40": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.24": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.25": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.26": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.27": { "kind": "pending", "phase": "sut-missing" },

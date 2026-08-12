@@ -1467,12 +1467,21 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * ONE DIRECT DATA API READ — and this member MIRRORS THE POLICY SET, which is this file's whole
      * exposure on this leaf.
      *
-     * There is no shipped module to defer to here: the rules are `select` policies and a `security
-     * definer` helper, and a TypeScript module cannot supply either. So the filtering below is a
-     * hand-written PREDICTION of `20260812120000_tenant_isolation_policy_set.sql`, exactly as
+     * There is no shipped module to defer to here: the rules are `select` policies and two `security
+     * definer` helpers, and a TypeScript module cannot supply either. So the filtering below is a
+     * hand-written PREDICTION of `20260812120000_tenant_isolation_policy_set.sql` and
+     * `20260813120000_tenant_visibility_volunteer_and_admin.sql`, exactly as
      * `grantMembershipAsOperator`'s two refusals are a prediction of a trigger and an index. The
      * integration tier is the ONLY thing that grades the prediction, because nothing in this file
      * can ask a database anything.
+     *
+     * IT MIRRORS THE SQL STATEMENT BY STATEMENT AND DOES NOT DELEGATE TO `tenantReadAllowed`, and
+     * gate-2 ruling 2 is why. The two rules genuinely differ: `viewer_is_org_member` admits ANY
+     * account holding a membership row, while `tenantReadAllowed`'s organisation branch additionally
+     * requires an NGO account type, so a volunteer holding a membership row is admitted by the policy
+     * and refused by the module. A delegate would be a WRONG mirror wearing the word "shipped". Each
+     * branch below is therefore mirrored on its own, and the three are OR'd exactly as several
+     * permissive `select` policies on one table are OR'd.
      *
      * AND AT THIS HEAD THE PREDICTION IS UNGRADED. THE INTEGRATION TIER HAS NOT RUN — not at this
      * head and not at any head of this branch. It was attempted once, and the runner refused before
@@ -1489,38 +1498,55 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * the policy reads.
      *
      * ACKNOWLEDGMENTS ARE KEYED ON THE ACCOUNT, not on an organisation, so their branch does not
-     * consult the caller's memberships at all — the same split the migration's four policies make.
+     * consult the caller's memberships at all — the same split the migrations' policies make.
+     *
+     * THE SESSION MAY BE `null`, AND THAT IS AT-001.24'S CALLER. A visitor who never signed in sends
+     * the publishable key and no bearer token, so PostgREST resolves the request to `anon`, which the
+     * migrations grant nothing at all — the refusal is the PRIVILEGE layer and never a policy. It is
+     * the same answer a caller whose session has ended receives, for the same reason, and AT-001.24
+     * asserts that the two agree.
      */
     dataApiRead: async (session, probe): Promise<DataApiReadOutcome> => {
-      const caller = resolveCaller(session);
-      // A dead session carries no user, so PostgREST would resolve the request to the `anon` role,
-      // which this migration grants nothing. `rows: null` is the privilege layer, not a policy.
+      // NO SESSION AND A DEAD SESSION ANSWER ALIKE, and the reason is one layer below the policy set:
+      // neither carries a user, so PostgREST resolves the request to `anon`, and `anon` holds no
+      // `select` grant on any of these four tables. `rows: null` is the privilege layer refusing
+      // before any row was considered, which `_contract.ts` keeps distinct from an empty array.
+      const caller = session === null ? null : resolveCaller(session);
       if (caller === null) return { status: 401, rows: null };
 
       const seatedIn = new Set(
         [...state.memberships.values()].filter((row) => row.accountId === caller.id).map((row) => row.organizationId),
       );
+      // BRANCH: `public.viewer_is_platform_admin()`. It reads the CALLER'S ACCOUNT TYPE out of
+      // `public.accounts`, exactly as the helper does, and admits every row of all four tables. An
+      // administrator is seated in no organisation, so without this branch its unfiltered listing
+      // would be empty and AT-001.40 could not pass at this tier.
+      const platformAdmin = state.accounts.get(caller.id)?.accountType === 'platform_admin';
 
       let visible: Record<string, unknown>[];
       switch (probe.table) {
         case 'organizations':
           visible = [...state.organizations.values()]
-            .filter((row) => seatedIn.has(row.id))
+            .filter((row) => platformAdmin || seatedIn.has(row.id))
             .map((row) => ({ id: row.id, name: row.name }));
           break;
         case 'org_memberships':
           visible = [...state.memberships.values()]
-            .filter((row) => seatedIn.has(row.organizationId))
+            .filter((row) => platformAdmin || seatedIn.has(row.organizationId))
             .map((row) => ({ org_id: row.organizationId, account_id: row.accountId, role: row.role }));
           break;
         case 'projects':
+          // THREE BRANCHES, OR'D. The organisation-member one is the first migration's; the
+          // assigned-developer one is `assigned_volunteer_id = auth.uid()`, which is what admits the
+          // volunteer AT-001.23 grants and is why a volunteer seated in no organisation still reads
+          // its own project; the administrator one admits every row.
           visible = [...state.projects.values()]
-            .filter((row) => seatedIn.has(row.organizationId))
+            .filter((row) => platformAdmin || seatedIn.has(row.organizationId) || row.assignedVolunteerId === caller.id)
             .map((row) => ({ id: row.id, org_id: row.organizationId, name: row.name, assigned_volunteer_id: row.assignedVolunteerId }));
           break;
         case 'acknowledgments':
           visible = state.acknowledgments
-            .filter((row) => row.accountId === caller.id)
+            .filter((row) => platformAdmin || row.accountId === caller.id)
             .map((row) => ({ account_id: row.accountId, kind: row.kind, text_version: row.textVersion }));
           break;
       }

@@ -429,13 +429,21 @@ export async function createLiveAdapter(opts: {
    * `rows: null` IS A REFUSAL BEFORE ANY ROW WAS CONSIDERED — the privilege layer, not a policy.
    * `_contract.ts` keeps the two apart deliberately: "denied by row-level security" answers `[]`,
    * and "this role holds no privilege on the table" answers a status and no rows at all.
+   *
+   * THE SESSION MAY BE `null`, AND THEN THERE IS NO `Authorization` HEADER AT ALL — which is the
+   * whole point of that shape rather than an omission. AT-001.24's caller never signed in, so it
+   * sends the publishable key and nothing else, and PostgREST resolves the request to `anon`. Fact 8
+   * of the plan records the measurement this mirrors: AT-001.17's second arm already asserts that the
+   * publishable key alone answers 401 `permission denied` on `org_memberships`. Sending the key as a
+   * BEARER token instead would make the request `anon` too and would be a different request from the
+   * one a browser with no session makes.
    */
-  const dataApiGet = async (session: Session, path: string): Promise<DataApiReadOutcome> => {
-    const tokens = tokensOf(sessions, session, `read ${path} through the Data API`);
+  const dataApiGet = async (session: Session | null, path: string): Promise<DataApiReadOutcome> => {
+    const accessToken = session === null ? null : tokensOf(sessions, session, `read ${path} through the Data API`).accessToken;
     const response = await fetch(`${api}/rest/v1/${path}`, {
       headers: {
         apikey: slot.anonKey,
-        Authorization: `Bearer ${tokens.accessToken}`,
+        ...(accessToken === null ? {} : { Authorization: `Bearer ${accessToken}` }),
         Accept: 'application/json',
       },
     });
@@ -969,6 +977,8 @@ export async function createLiveAdapter(opts: {
      * A NARROWED SELECT WOULD WEAKEN THE PROBE. The clause under test is that a foreign row is not
      * reachable AT ALL, so the probe asks for every column: a policy that leaked one column this
      * suite had not thought to name would still show up here as a row that must not be there.
+     *
+     * A `null` SESSION IS AT-001.24'S VISITOR, and `dataApiGet` above states what it does with one.
      */
     dataApiRead: async (session, probe): Promise<DataApiReadOutcome> => {
       const filter = probe.keyedBy === null ? '' : `&${probe.keyedBy}=eq.${encodeURIComponent(String(probe.value))}`;

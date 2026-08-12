@@ -28,6 +28,9 @@ import { expect } from 'vitest';
 import { CapabilityPending } from '../../harness/capabilities.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import type { Session } from './_contract.ts';
+// AT-001.21's catalog arm — the declared classification of every table in `public`, and the rule that
+// says how a live catalog disagrees with it. Integration tier only: the witness is the live catalog.
+import { catalogConformanceProblems } from './_catalog-conformance.ts';
 // AT-001.17's source arm, shared with its loop body: the arm runs identically at both tiers, and the
 // two bodies live in different files, so the check has one home rather than two copies.
 import { inviteOrAddMemberSurface } from './_source-scan.ts';
@@ -1413,6 +1416,24 @@ export async function at00121(ctx: Ctx): Promise<void> {
   const projects = await sut.dataApiRead(sessionB, { table: 'projects', keyedBy: null, value: null });
   expect(projects.rows, 'B\'s unfiltered listing of projects was refused before any row was considered').not.toBeNull();
   expect((projects.rows ?? []).map((row) => String(row.id)), 'B\'s unfiltered listing shows a project B does not own').toEqual([]);
+
+  // (7) AND THE SET OF TENANT DATA KINDS IS THE DECLARED SET — the arm that makes every claim above
+  // self-correcting, and the one that belongs to THIS id rather than to another.
+  //
+  // WHY IT SITS IN AT-001.21. This body's green claims isolation "over every kind of tenant data that
+  // exists", and that sentence is only true while the set of kinds that exist is the set this suite
+  // declares. The criteria enumerate drafts, a ledger, files and a thread, and none of those tables is
+  // in this tree; the decomposition manifest gives each acceptance id to exactly one leaf, so no later
+  // leaf re-checks isolation of a table that lands later. This is what fails the build when one does.
+  //
+  // IT IS AN INTEGRATION-TIER ARM AND HAS NO LOOP HALF. The witness is the LIVE catalog, read out of
+  // band over the operator connection, and `publicSchemaCatalog` deliberately throws at the loop tier
+  // rather than answering with an invented one.
+  const problems = catalogConformanceProblems(await sut.publicSchemaCatalog());
+  expect(
+    problems,
+    'the live catalog disagrees with the declaration in tests/at/suites/req-001/_catalog-conformance.ts, so this id can no longer claim isolation over every kind of tenant data that exists',
+  ).toEqual([]);
 }
 
 /**
