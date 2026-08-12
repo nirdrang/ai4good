@@ -1,0 +1,2720 @@
+2026-08-12T14:57:45.941693Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 94 column 5
+OpenAI Codex v0.146.0
+--------
+workdir: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019ff67a-bbb7-7751-9981-607911663f0a
+--------
+user
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the launch cage — a read-only
+sandbox, or an agent definition whose write tools are removed. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** The launch cage is the enforcement — a read-only sandbox, or
+a removed tool set — and this sentence is the instruction; every launch prompt carries it
+explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+
+## The PLAN review
+
+**Subject** · `plan.md` at the pinned commit, the board item, the specification, and the code the
+plan claims things about.
+
+**Give no credit for intent.** A plan is made of promises, and only some of them count. A promise
+carrying its own step and done-criterion in this plan, or work an item boundary correctly leaves to
+another item, is a commitment — judge it as written, and do not fault an early step for work a
+later one commits to. Everything else is worth nothing here: what the author obviously means, what
+is "handled elsewhere" with nothing behind it, what a later pass will tidy. A step that works only
+on the happy path is a weakness, not a start.
+
+You are refuting a plan before anything is built. Attack both layers — what it decides, and
+whether it can be executed as written:
+
+- **a decision stated as settled that is not decided** — the plan asserting a choice the founder
+  or the specification never made
+- **a fact wrong against the code** — verify every claim the plan makes about the tree; never
+  trust one
+- **a constraint that contradicts the role contracts** — the plan instructing something the
+  process forbids
+- **scope that forces a mid-flight redesign** — work that cannot be finished in the shape planned
+- **anything no tool can actually do.** *A plan that cannot be executed as written is this gate's
+  target failure.*
+- **the plan's teeth** — steps missing a done-criterion; oracles too weak to prove what they
+  claim; a green that would not mean what the item says it means. On one real outing this gate
+  caught a test oracle that would have passed while proving nothing, and a do-nothing
+  implementation that would have satisfied the entire verification gate.
+
+Your count line is `PLAN REVIEW: CLEAN` or `PLAN REVIEW: 3 FINDINGS`.
+
+## This item
+
+The plan under review is `loop/items/AI4DEV-82/plan.md`. The board item it plans is AI4DEV-82
+("Window guard at the sitting boundary — park before the wall instead of dying mid-sitting"),
+a bring-up item: three hooks that enforce the founder's 85% usage-window line at every agent
+spawn boundary, a sensor-written verdict file, parking choreography, and a drill. The item's
+specification lives on the board; the plan quotes its load-bearing rulings (the 85 line, the
+three-hook shape, read-never-compute for the per-tool checkpoint, the propagation and resume
+choreography, the four drill assertion groups). Judge the plan against its own quoted
+requirements, against the measurement record it cites, and against the tree.
+
+Files the plan makes claims about — verify every claim against them:
+
+- `loop/work/window-gauge.ps1` — the verdict logic the plan extracts into a library; the
+  `-PauseAt 90` default and its founder-ruling comments; the stale-high/stale-low rules
+- `loop/work/window-wait.ps1` — its own `-PauseAt 90` default the plan claims must also move
+- `loop/work/window-sim.ps1` — the hardcoded 89/90 boundary and float-noise cases the plan
+  claims must move with the line; whether other cases also encode 90 and are missed
+- `loop/work/statusline.ps1` — the snapshot write the verdict file rides on; the never-throw
+  envelope; the cost doctrine the plan leans on to justify in-process computation
+- `loop/work/stamp-hook.ps1` — where the plan adds the verdict read and alarm lines; the
+  `$extra` mechanism it claims to reuse
+- `loop/work/guard-branch-switch.ps1` — the fail-open doctrine and PreToolUse wiring pattern
+  the plan copies
+- `loop/drills/run-drills.ps1` — the wiring pattern (the twin-check fold) the plan claims to
+  follow
+- `.claude/settings.json` — the existing hook entries and absolute-path precedent
+- `.claude/skills/work/shared-invariants.md` — the usage-window section the plan amends; attack
+  any wording that would make the hook a second authority to halt work
+- `.claude/agents/conductor.md` — where the park-note choreography lands
+- `loop/items/AI4DEV-82/artifacts/hook-measurement.md` and
+  `loop/items/AI4DEV-82/artifacts/hookprobe/*.jsonl` — the measurement the design rests on;
+  check the plan's statements about it against the raw logs
+
+Additional risks to attack, beyond your standing list:
+
+- The library extraction (D1) claims behavior-neutrality for every existing gauge caller, gated
+  only by `window-sim.ps1` staying green. Attack whether the sim actually pins the behaviors
+  that could drift — the JSON field names and shapes, the exit codes under `-ExitOnReady`, the
+  human output lines other tooling may parse.
+- The verdict file (D3) has three literals where the item's text names two (`OK`, `ALARM ...`).
+  The plan justifies `UNKNOWN` from shared-invariants. Attack whether any checkpoint's handling
+  of the third literal contradicts the item's text, and whether a stale verdict FILE (written
+  fresh, read much later) can mislead any checkpoint in the park direction or the silent
+  direction beyond the jitter bound the item already accepts.
+- The gate (D4) computes a fresh verdict instead of reading the verdict file, and the plan
+  reads the item's "checkpoints read, they never compute" as targeting only the per-tool alarm.
+  Attack that reading against the item's own words, and attack the gate's fail-open choice: name
+  a concrete scenario where fail-open at the spawn boundary defeats the item's purpose, if you
+  can.
+- The alarm (D5) is a cmd batch file using `findstr /b` with redirection `1>&2 2>nul` and
+  `exit /b 2`. Attack the mechanics: redirection order, errorlevel semantics with `&&`, quoting
+  of a path containing spaces, behavior when the verdict file is missing, and whether exit 2
+  from a PostToolUse hook has side effects beyond showing stderr that the plan does not name.
+- The stamp addition (D6) runs inside a hook whose one hard rule is that it never hangs and
+  never goes silent. Attack the failure modes of the verdict read (locked file, directory
+  missing, env override set but stale) against that rule.
+- The env override (D7, `AI4GOOD_WINDOW_DIR`) redirects live sensor paths. Attack the leak
+  directions: a drill that dies with the env var set, a live session that inherits it, the
+  override applying to some readers and not others so the drill's group 4 consistency assertion
+  proves less than it claims.
+- The drill (D8) asserts on hook OUTPUT (JSON, stderr, exit codes), not on harness behavior —
+  nothing in it proves Claude Code actually honors a deny or feeds stderr to the model. The plan
+  cites the measurement record for that half. Attack whether the four groups plus the
+  measurement genuinely cover the item's four numbered drill assertions, and name any gap where
+  the drill would stay green while the deployed watchdog does nothing.
+- Step 9 wires hooks the branch cannot observe live before merge, and the plan says so. Attack
+  whether the post-merge verification it defers is actually someone's named responsibility in
+  the plan's own text, or an orphan.
+- The contract amendments (D9) touch the constitution's usage-window section. Attack any
+  sentence of the planned wording that loosens the process (a loosening needs an explicit
+  founder ruling) or that could be read as authorizing an actor other than the coordinator to
+  decide.
+
+2026-08-12T14:57:56.362088Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"mcp\", resource_metadata=\"https://mcp.lovable.dev/.well-known/oauth-protected-resource\"" })
+2026-08-12T14:58:04.580053Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"mcp\", resource_metadata=\"https://mcp.lovable.dev/.well-known/oauth-protected-resource\"" })
+codex
+I’ll perform a strictly read-only review: inspect the plan, cited source files, raw measurement logs, and any repository copy of the AI4DEV-82 board specification. I will not run scripts, tests, hooks, or any command that exercises project behavior; runtime-dependent conclusions will be marked unverified with an exact verification step.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files = @('"'loop/items/AI4DEV-82/plan.md','loop/work/window-gauge.ps1','loop/work/window-wait.ps1','loop/work/window-sim.ps1','loop/work/statusline.ps1','loop/work/stamp-hook.ps1','loop/work/guard-branch-switch.ps1','loop/drills/run-drills.ps1','.claude/settings.json','.claude/skills/work/shared-invariants.md','.claude/agents/conductor.md','loop/items/AI4DEV-82/artifacts/hook-measurement.md'); foreach ("'$f in $files) { $item = Get-Item -LiteralPath $f -ErrorAction SilentlyContinue; if ($null -eq $item) { Write-Output "MISSING`t$f" } else { Write-Output "$($item.Length)`t$f" } }; Get-ChildItem -LiteralPath '"'loop/items/AI4DEV-82/artifacts/hookprobe' -File -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object { Write-Output \""'$($_.Length)`t$($_.FullName.Substring((Get-Location).Path.Length + 1))" }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 548ms:
+14059	loop/items/AI4DEV-82/plan.md
+8484	loop/work/window-gauge.ps1
+5637	loop/work/window-wait.ps1
+14701	loop/work/window-sim.ps1
+7626	loop/work/statusline.ps1
+26651	loop/work/stamp-hook.ps1
+4989	loop/work/guard-branch-switch.ps1
+22569	loop/drills/run-drills.ps1
+1227	.claude/settings.json
+13082	.claude/skills/work/shared-invariants.md
+25594	.claude/agents/conductor.md
+5406	loop/items/AI4DEV-82/artifacts/hook-measurement.md
+20984	loop\items\AI4DEV-82\artifacts\hookprobe\post-run1.jsonl
+3810	loop\items\AI4DEV-82\artifacts\hookprobe\post-run2.jsonl
+13945	loop\items\AI4DEV-82\artifacts\hookprobe\pre-run1.jsonl
+1828	loop\items\AI4DEV-82\artifacts\hookprobe\pre-run2.jsonl
+740	loop\items\AI4DEV-82\artifacts\hookprobe\probe-settings.json
+344	loop\items\AI4DEV-82\artifacts\hookprobe\prompt-run2.txt
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'loop/items/AI4DEV-82/plan.md'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 487ms:
+   1: # Plan â€” AI4DEV-82 (window guard at the sitting boundary)
+   2: 
+   3: Branch: `nirdrang/ai4dev-82-window-guard-at-the-sitting-boundary-park-before-the-wall`, cut from
+   4: main at 390042c. Chain: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the sitting
+   5: boundary)` â€” a bring-up item; no PM requirement above it, no database slot (confirmed by the
+   6: coordinator: hooks, PowerShell scripts and a drill).
+   7: 
+   8: ## What the item asks (specification pointers, not paraphrase)
+   9: 
+  10: The full specification is the Linear item description (filed 2026-08-12, carries every founder
+  11: ruling). The load-bearing points, verified against it:
+  12: 
+  13: - The line is **85%** (founder 2026-08-12), superseding the 90% of 2026-08-06. One line: alarm
+  14:   and park are the same line.
+  15: - Three hooks: a **PreToolUse gate on the Agent tool** (deny spawns at â‰¥85), a **PostToolUse
+  16:   alarm on every tool** (model-visible `WINDOW ALARM` within one tool call), a **stamp alarm**
+  17:   on UserPromptSubmit (founder-visible line while â‰¥85).
+  18: - **Checkpoints read, they never compute**: the sensor (`statusline.ps1`) writes a one-line
+  19:   VERDICT file on every snapshot write; the per-tool hook reads that one line. The full gauge
+  20:   logic runs once per sensor refresh. Per-call overhead is measured in the build.
+  21: - PAUSE â†’ deny with window name, percent, reset time. UNKNOWN â†’ allow and warn loudly. OK â†’
+  22:   allow silently. Gauge default moves 90 â†’ 85 with comment updates.
+  23: - Pause propagation: a denied actor writes state, reports to its spawner, ends; the denial
+  24:   travels up one level at a time until the conductor parks the item (park note, push,
+  25:   `PARKED â€” window low` flow line). Running work is never interrupted. Resume is centralized in
+  26:   the coordinator; the conductor that parked is not the conductor that resumes.
+  27: - A new drill in `loop/drills/`, wired into the harness, four synthetic-snapshot assertion
+  28:   groups, never touching the live snapshot.
+  29: - `shared-invariants.md` records the ruling next to "the coordinator decides".
+  30: 
+  31: ## The measured first step (gates the whole design)
+  32: 
+  33: **Done, and positive.** PreToolUse hooks fire for Agent calls made inside spawned agents â€”
+  34: measured three ways (docs; a live deny of this very sitting's PowerShell call at nested depth 2;
+  35: a headless probe whose logs show `PreToolUse tool=Agent` with a non-empty `agent_id`). Evidence:
+  36: `artifacts/hook-measurement.md` and `artifacts/hookprobe/`. **The fallback (conductor runs the
+  37: gauge before each spawn, per contract) is not needed and is not built.** Also measured: the spawn
+  38: tool's matcher name is `Agent`; the deny reason reaches the denied actor's transcript; PostToolUse
+  39: fires inside subagents; UserPromptSubmit appeared in no subagent log â€” so the PostToolUse alarm
+  40: (agents) and the stamp alarm (founder session) are both required, exactly as the item says.
+  41: 
+  42: ## Decisions
+  43: 
+  44: - **D1 â€” one verdict implementation, extracted into a library.** New `loop/work/window-lib.ps1`
+  45:   exports `Get-WindowVerdict` (snapshot object or path + PauseAt + StaleMinutes â†’ the result
+  46:   object `window-gauge.ps1` builds today, verdicts OK/PAUSE/UNKNOWN with the existing stale
+  47:   rules) and `Format-WindowVerdictLine` (result â†’ the one verdict line). `window-gauge.ps1`
+  48:   becomes a thin CLI over the lib with identical flags, output shapes and exit codes â€” every
+  49:   existing caller (`window-wait.ps1`, `window-sim.ps1`, the coordinator's FLOW/PULSE reads) is
+  50:   untouched. Rationale: the sensor must compute the verdict in-process (statusline's cost
+  51:   doctrine forbids a second powershell spawn per refresh), and a re-implementation inside
+  52:   statusline is the drift class the project already paid for once (statusline's own header
+  53:   records it). The item's sentence "runs window-gauge.ps1 -Json" is honored as "runs the gauge's
+  54:   verdict logic"; the gate runs that logic in-process through the same lib. This is stated as a
+  55:   deliberate mechanism choice, not a founder decision.
+  56: - **D2 â€” the line moves to 85 in the two param defaults that carry it** (`window-gauge.ps1`,
+  57:   `window-wait.ps1`), with the founder-ruling comments updated (2026-08-12 supersedes the number;
+  58:   the one-line principle stands). `window-sim.ps1`'s boundary cases move with it (89/90 hardcodes
+  59:   become 84/85; float-noise cases become 84.6/84.4; the fill-up narrative crosses at 85). The sim
+  60:   stays the gauge's regression net and must be green after the move.
+  61: - **D3 â€” the verdict file.** `statusline.ps1`, immediately after writing `rate-limits.json`,
+  62:   computes the verdict from the in-memory snapshot via the lib and writes
+  63:   `window-verdict.txt` beside it. Exactly one line, three shapes:
+  64:   `OK` Â· `ALARM WINDOW <window> at <pct>% (line 85%), resets <HH:mm> - finish the current work
+  65:   item, commit, park.` Â· `UNKNOWN <reason>`. The first token is the machine anchor (`findstr /b`);
+  66:   the rest of the ALARM line is the full sentence the model hears â€” the sensor composes, the
+  67:   checkpoint regurgitates. UNKNOWN is a third literal because shared-invariants requires UNKNOWN
+  68:   to report loudly without halting; the alarm hook stays silent on it (the gate and the stamp
+  69:   carry it). Failures writing the verdict never break the status line (existing never-throw
+  70:   envelope).
+  71: - **D4 â€” the gate:** new `loop/work/window-gate.ps1`, wired as PreToolUse matched `Agent`. It
+  72:   dot-sources the lib and computes a FRESH verdict from the live snapshot (the one checkpoint
+  73:   that must not act on a stale composition; it fires per spawn, which is rare, so the cost is
+  74:   fine). PAUSE â†’ JSON `permissionDecision: "deny"` whose reason carries the window name, percent,
+  75:   reset time AND the parking choreography ("new work must not start: write your state, commit,
+  76:   push, report PARKED to your spawner, and end"). The machinery speaks at the moment it acts, so
+  77:   no role contract needs to memorize the choreography. UNKNOWN â†’ allow + `systemMessage` warning
+  78:   (loud, non-blocking). OK â†’ exit 0, silent. Internal error â†’ fail OPEN, like
+  79:   `guard-branch-switch.ps1`: a broken guard must not stop every spawn.
+  80: - **D5 â€” the alarm:** new `loop/work/window-alarm.cmd` (a batch file, not PowerShell), wired as
+  81:   PostToolUse with no matcher. It findstr-anchors on the verdict file's first token: ALARM â†’
+  82:   exit 2 with the verdict line on stderr (the documented model-visible channel); anything else â†’
+  83:   exit 0, silent. A `powershell -NoProfile` process costs roughly 200â€“400 ms per spawn on this
+  84:   machine and would be paid on EVERY tool call system-wide; `cmd /c findstr` is an order of
+  85:   magnitude cheaper. The build MEASURES both (median of 20 runs) and records the numbers in
+  86:   `goal-evidence.md`; the target is a median at or under 100 ms for the alarm hook.
+  87: - **D6 â€” the stamp alarm:** `stamp-hook.ps1` reads the verdict file (one guarded
+  88:   `Get-Content -TotalCount 1`) and appends to its extra lines: ALARM â†’ a `WINDOW ALARM` line
+  89:   with the verdict text; UNKNOWN â†’ a one-line "sensor cannot be trusted, not halting" note. Cost
+  90:   is one small file read per prompt, negligible beside its git calls.
+  91: - **D7 â€” one override mechanism for the drill:** env var `AI4GOOD_WINDOW_DIR` redirects the
+  92:   directory holding `rate-limits.json` + `window-verdict.txt` for the sensor, the gate, the
+  93:   alarm and the stamp's verdict read. Existing `-SnapshotPath` params stay. The drill sets the
+  94:   env var to a temp dir; the live files are never touched, and the drill asserts its dir is not
+  95:   the live dir.
+  96: - **D8 â€” the drill:** new `loop/drills/window-watchdog-drill.ps1`, self-contained (own
+  97:   PASS/FAIL lines, exit 1 on red), invoked from `run-drills.ps1` as one folded assertion (the
+  98:   `twin-check.ps1` wiring pattern). Hook stdin is fed via pipes/files, never inline quoted JSON
+  99:   (run 1 of the measurement showed native-argument quoting mangling nested quotes).
+ 100: - **D9 â€” contracts:** `shared-invariants.md` gains a short recorded ruling in the usage-window
+ 101:   section: the 85 line (founder 2026-08-12, superseding 90 of 2026-08-06); the spawn-boundary
+ 102:   hook and the two alarms as mechanical enforcement of a decision already made â€” the stamp's
+ 103:   class of machinery, never a second authority; the coordinator remains the only decider; the
+ 104:   denied-actor and conductor parking shape; resume centralized, one item at a time.
+ 105:   `conductor.md` gains the park-note choreography (park note with item, next phase, verified
+ 106:   head; push; `PARKED â€” window low` flow line; end; a FRESH conductor resumes from the note).
+ 107:   **The orchestrator twins are deliberately untouched** â€” the deny reason instructs the denied
+ 108:   actor, so no twin edit (and no twin-sync hazard) is needed this item.
+ 109: - **D10 â€” not built, recorded as shelved** (per the item): the limit-death ledger and the
+ 110:   outside-the-account actor.
+ 111: 
+ 112: ## Steps
+ 113: 
+ 114: 1. **Extract `window-lib.ps1`; thin `window-gauge.ps1` over it, line still at 90.**
+ 115:    Done: `window-sim.ps1` green (exit 0) â€” proves the refactor is behavior-neutral before
+ 116:    anything else moves.
+ 117: 2. **Move the line to 85**: gauge + wait param defaults, founder-ruling comments, sim boundary
+ 118:    updates (D2). Done: `window-sim.ps1` green at the new line, and the sim contains boundary
+ 119:    cases at exactly 84/85.
+ 120: 3. **Write the drill file with all four assertion groups (D8), red where machinery is missing.**
+ 121:    This is the item's executable test body, written before the machinery it tests:
+ 122:    - Group 1 (â‰¥85 synthetic snapshot): sensor writes an ALARM verdict; the gate denies an Agent
+ 123:      spawn with window name, percent and reset in the reason; the alarm hook exits 2 with the
+ 124:      `WINDOW` line on stderr; the stamp output carries `WINDOW ALARM`.
+ 125:    - Group 2 (<85): verdict `OK`; gate allows; alarm exits 0 and stays silent; stamp carries no
+ 126:      alarm line.
+ 127:    - Group 3 (staleness): stale-high (over the line, window not yet reset) still DENIES;
+ 128:      stale-low warns UNKNOWN (allow + warning, no deny).
+ 129:    - Group 4 (verdict-file consistency): the line the sensor writes equals
+ 130:      `Format-WindowVerdictLine(Get-WindowVerdict(same snapshot))`, and each checkpoint's
+ 131:      behavior agrees with that line for every group's snapshot.
+ 132:    Done: the drill runs, groups 1â€“4 present, red only for not-yet-built machinery.
+ 133: 4. **Sensor writes the verdict file (D3) + `AI4GOOD_WINDOW_DIR` override (D7).**
+ 134:    Done: statusline run with synthetic stdin and the override produces both files; drill group 4
+ 135:    passes for the sensor half.
+ 136: 5. **`window-gate.ps1` (D4).** Done: drill groups 1â€“3 gate assertions pass; error injection
+ 137:    (unreadable snapshot dir) fails open.
+ 138: 6. **`window-alarm.cmd` (D5).** Done: drill groups 1â€“2 alarm assertions pass; overhead measured
+ 139:    (median of 20 invocations) and recorded; target median â‰¤ 100 ms.
+ 140: 7. **`stamp-hook.ps1` alarm + unknown lines (D6).** Done: drill groups 1â€“2 stamp assertions
+ 141:    pass; a normal stamp run without the override still prints the standard two lines.
+ 142: 8. **Wire the drill into `run-drills.ps1`.** Done: `run-drills.ps1` fully green, including the
+ 143:    watchdog drill and the untouched twin-check.
+ 144: 9. **Wire the hooks into `.claude/settings.json`** (PreToolUse matcher `Agent` â†’ gate;
+ 145:    PostToolUse, no matcher â†’ alarm.cmd; absolute paths as the file already does).
+ 146:    Done: JSON parses; both commands point at files that exist on the branch. NOTE, stated
+ 147:    plainly: the running interactive session loads hooks from the MAIN checkout, so the live
+ 148:    firing of these entries cannot be observed from this branch before merge; the docs say the
+ 149:    file watcher picks up settings edits, and the merge sitting verifies live firing post-merge.
+ 150: 10. **Amend `shared-invariants.md` and `conductor.md` (D9).** Done: text present, wording keeps
+ 151:     "the coordinator decides" literally true (the hook applies the founder's standing line; it
+ 152:     decides nothing), twin files untouched.
+ 153: 11. **`goal-evidence.md`**: drill + sim outputs, the two overhead medians (alarm hook; statusline
+ 154:     delta with the verdict write), and the settings wiring shown. Done: file committed.
+ 155: 
+ 156: ## Verification state
+ 157: 
+ 158: No acceptance-test ids attach to this item (bring-up under `AI4DEV-4 (the work skill)`); the
+ 159: drill is the executable verification the item itself mandates.
+ 160: 
+ 161: | check | expected state at goal |
+ 162: |---|---|
+ 163: | `loop/work/window-sim.ps1` | green, exit 0, boundary at 84/85 |
+ 164: | `loop/drills/run-drills.ps1` | green, includes watchdog drill + twin-check |
+ 165: | `loop/drills/window-watchdog-drill.ps1` standalone | green, all four groups |
+ 166: | overhead numbers | measured and recorded; alarm median â‰¤ 100 ms |
+ 167: | CI required check on the PR head | green (this branch touches only Claude territory: `loop/`, `.claude/`) |
+ 168: 
+ 169: ## Scope declaration (for the audit brief later)
+ 170: 
+ 171: Code territory this item stays inside: `loop/work/window-lib.ps1` (new),
+ 172: `loop/work/window-gauge.ps1`, `loop/work/window-wait.ps1`, `loop/work/window-sim.ps1`,
+ 173: `loop/work/statusline.ps1`, `loop/work/window-gate.ps1` (new), `loop/work/window-alarm.cmd`
+ 174: (new), `loop/work/stamp-hook.ps1`, `loop/drills/window-watchdog-drill.ps1` (new),
+ 175: `loop/drills/run-drills.ps1`, `.claude/settings.json`,
+ 176: `.claude/skills/work/shared-invariants.md`, `.claude/agents/conductor.md`, plus the item record
+ 177: under `loop/items/AI4DEV-82/`. Nothing in `src/`, `supabase/`, `tests/` or `.github/`. The
+ 178: auditors' change-set command must therefore be scoped to THIS path set â€” the default source-only
+ 179: diff from the reviewer contract yields an empty list for this item.
+ 180: 
+ 181: ## Slicing
+ 182: 
+ 183: One slice. The diff is roughly six small scripts, one batch file, a drill, and two contract
+ 184: amendments â€” one code-gate read covers it without becoming a wall of findings.
+ 185: 
+ 186: ## Proportionality note for the conductor
+ 187: 
+ 188: This is real machinery (scripts + hooks), but it lives entirely outside CI's heavy lanes: no
+ 189: `src/`, no `tests/`, no workflow edits. The required check should take its fast path; the
+ 190: verify suite for the goal step is the drill + sim, run locally by the executor. `bun install`
+ 191: state in this worktree: none (the tree was re-registered this sitting â€” see
+ 192: `artifacts/worktree-incident.md`); nothing in this plan needs node_modules.
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$targets=@('"'loop/work/window-gauge.ps1','loop/work/window-wait.ps1'); foreach("'$p in $targets){ Write-Output "FILE $p"; $n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 535ms:
+FILE loop/work/window-gauge.ps1
+   1: # window-gauge.ps1 - read the Anthropic usage windows and say what may proceed.
+   2: #
+   3: # WHERE THE NUMBERS COME FROM. Claude Code delivers `rate_limits` to the STATUS LINE and nowhere
+   4: # else - hooks receive a different payload entirely - so statusline.ps1 snapshots it on every
+   5: # refresh and this script reads that snapshot.
+   6: #
+   7: # ONE LINE ONLY (founder 2026-08-06): OK below the pause line, PAUSE at it, UNKNOWN when the
+   8: # reading cannot be trusted. Two consequences worth holding on to:
+   9: #   1. The reading is only as fresh as the last status-line refresh, which happens on every turn
+  10: #      of the interactive session. While the coordinator is dormant, nothing updates it - which
+  11: #      is exactly why the conductor sends a keep-alive pulse: a pulse wakes the coordinator, the
+  12: #      wake refreshes the status line, and the refresh refreshes this gauge. The heartbeat is
+  13: #      what keeps the gauge honest, not a timer inside this script.
+  14: #   2. A stale reading is NOT a low reading. Age is reported and, past the limit, the verdict is
+  15: #      UNKNOWN - never OK. Treating "I cannot see" as "all clear" is how a guard fails silently.
+  16: #
+  17: # WHAT IT DOES NOT DO. It reads and reports. It never pauses anything, never messages an agent,
+  18: # never waits. The coordinator owns every decision; this is its instrument, not a second
+  19: # authority. A gauge that acts is a brake nobody can see.
+  20: #
+  21: # The account reports two windows today (five_hour, seven_day). The binary supports three more
+  22: # (seven_day_overage_included, seven_day_sonnet, seven_day_opus) which appear on other plans, so
+  23: # every window present is evaluated by name rather than assumed - a plan change must not silently
+  24: # narrow the guard to the windows we happened to know about.
+  25: 
+  26: [CmdletBinding()]
+  27: param(
+  28:     # PAUSE line - founder's number (2026-08-06): stop work at 90 percent of a window.
+  29:     [int]$PauseAt = 90,
+  30: 
+  31:     # There is deliberately NO second, lower line (founder 2026-08-06). A "start nothing new"
+  32:     # band would have to be justified by the cost of a sitting, which nobody has measured, so it
+  33:     # could only ever be a number that felt safe. One line, and a sitting that meets it mid-flight
+  34:     # parks at its last committed work item - the per-work-item commits are the recovery.
+  35: 
+  36:     # Older than this and the gauge admits it cannot see, rather than reporting a stale number as
+  37:     # if it were current.
+  38:     [int]$StaleMinutes = 15,
+  39: 
+  40:     # Emit the machine shape instead of the human lines.
+  41:     [switch]$Json,
+  42: 
+  43:     # Read a different snapshot. Exists so the mechanism can be exercised end to end against
+  44:     # synthetic readings without spending a single token, and without disturbing the live file
+  45:     # the status line is writing. Defaults to the real one, so no caller has to know.
+  46:     [string]$SnapshotPath = '',
+  47: 
+  48:     # Exit 0 only when work may proceed (verdict OK). For use as a wait condition: the coordinator
+  49:     # parks and polls this until it succeeds, rather than sleeping on a computed duration - the
+  50:     # window is authoritative about its own reset, our arithmetic is not.
+  51:     [switch]$ExitOnReady
+  52: )
+  53: 
+  54: $ErrorActionPreference = 'SilentlyContinue'
+  55: 
+  56: $snapPath = if ($SnapshotPath) { $SnapshotPath } else { Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good\rate-limits.json' }
+  57: 
+  58: $result = [ordered]@{
+  59:     verdict      = 'UNKNOWN'
+  60:     reason       = ''
+  61:     worstWindow  = ''
+  62:     worstPercent = $null
+  63:     resetsAtUtc  = ''
+  64:     resetsInMin  = $null
+  65:     readingAgeMin = $null
+  66:     windows      = @()
+  67: }
+  68: 
+  69: function Emit($r) {
+  70:     if ($Json) {
+  71:         $r | ConvertTo-Json -Depth 6
+  72:     } else {
+  73:         $head = "WINDOW  {0}" -f $r.verdict
+  74:         if ($r.reason) { $head += "  - " + $r.reason }
+  75:         Write-Output $head
+  76:         foreach ($w in $r.windows) {
+  77:             Write-Output ("        {0,-28} {1,3}%   resets {2}  (in {3} min)" -f $w.name, $w.percent, $w.resetsLocal, $w.resetsInMin)
+  78:         }
+  79:         if ($null -ne $r.readingAgeMin) {
+  80:             Write-Output ("        reading is {0} min old" -f $r.readingAgeMin)
+  81:         }
+  82:     }
+  83:     if ($ExitOnReady) { if ($r.verdict -eq 'OK') { exit 0 } else { exit 1 } }
+  84:     exit 0
+  85: }
+  86: 
+  87: if (-not (Test-Path $snapPath)) {
+  88:     $result.reason = 'no reading yet - the status line has not refreshed since the sensor was installed'
+  89:     Emit $result
+  90: }
+  91: 
+  92: try { $snap = Get-Content $snapPath -Raw | ConvertFrom-Json } catch { $snap = $null }
+  93: if (-not $snap) {
+  94:     $result.reason = 'the snapshot could not be parsed'
+  95:     Emit $result
+  96: }
+  97: 
+  98: # Age first: everything below is only meaningful if the reading is current.
+  99: $ageMin = $null
+ 100: try {
+ 101:     $ageMin = [math]::Round(((Get-Date).ToUniversalTime() - [datetime]::Parse($snap.capturedAt).ToUniversalTime()).TotalMinutes, 1)
+ 102: } catch { }
+ 103: $result.readingAgeMin = $ageMin
+ 104: 
+ 105: if (-not $snap.rateLimits) {
+ 106:     # The field is absent rather than the file missing - a real answer, and a different one.
+ 107:     $result.reason = 'this build reports no usage windows'
+ 108:     Emit $result
+ 109: }
+ 110: 
+ 111: $now = Get-Date
+ 112: foreach ($name in $snap.rateLimits.PSObject.Properties.Name) {
+ 113:     $w = $snap.rateLimits.$name
+ 114:     if ($null -eq $w.used_percentage) { continue }
+ 115:     # The percentages arrive as floats carrying binary noise - 7 comes through as
+ 116:     # 7.000000000000001 - so round before any comparison or a threshold test misbehaves
+ 117:     # exactly at the boundary, which is the one place it must not.
+ 118:     $pct = [int][math]::Round([double]$w.used_percentage)
+ 119:     $resetLocal = $null; $inMin = $null; $resetUtc = ''
+ 120:     if ($null -ne $w.resets_at) {
+ 121:         try {
+ 122:             $dto = [DateTimeOffset]::FromUnixTimeSeconds([int64]$w.resets_at)
+ 123:             $resetLocal = $dto.LocalDateTime
+ 124:             $resetUtc = $dto.UtcDateTime.ToString('o')
+ 125:             $inMin = [int][math]::Round(($resetLocal - $now).TotalMinutes)
+ 126:         } catch { }
+ 127:     }
+ 128:     # A PSCustomObject, NOT a hashtable: `Sort-Object percent` below silently does nothing to
+ 129:     # dictionary entries, because a dictionary has no such property. That bug shipped, and the
+ 130:     # live reading hid it - the worst window was simply whichever enumerated first, which
+ 131:     # happened to be the right answer. A weekly window at 95% beside a fresh five-hour one read
+ 132:     # OK. Found by window-sim.ps1 on its first run.
+ 133:     $result.windows += [pscustomobject][ordered]@{
+ 134:         name        = $name
+ 135:         percent     = $pct
+ 136:         resetsLocal = $(if ($resetLocal) { $resetLocal.ToString('HH:mm') } else { '?' })
+ 137:         resetsInMin = $inMin
+ 138:         resetsAtUtc = $resetUtc
+ 139:     }
+ 140: }
+ 141: 
+ 142: if ($result.windows.Count -eq 0) {
+ 143:     $result.reason = 'no window carried a usable percentage'
+ 144:     Emit $result
+ 145: }
+ 146: 
+ 147: # The binding constraint is whichever window is furthest along, not the five-hour one by habit.
+ 148: $worst = $result.windows | Sort-Object percent -Descending | Select-Object -First 1
+ 149: $result.worstWindow  = $worst.name
+ 150: $result.worstPercent = $worst.percent
+ 151: $result.resetsAtUtc  = $worst.resetsAtUtc
+ 152: $result.resetsInMin  = $worst.resetsInMin
+ 153: 
+ 154: if ($null -ne $ageMin -and $ageMin -gt $StaleMinutes) {
+ 155:     # A stale reading proves a FLOOR, not a level: inside one window the figure only ever climbs.
+ 156:     # So if the reading was already over the line AND its own window has not reset since, the
+ 157:     # level still stands and parking is the evidenced answer, not a cautious guess. Only once the
+ 158:     # reset has passed does the old number stop meaning anything - that is the case where we
+ 159:     # genuinely cannot say, and where a low stale reading always sat, since it may have climbed.
+ 160:     if ($worst.percent -ge $PauseAt -and $null -ne $worst.resetsInMin -and $worst.resetsInMin -gt 0) {
+ 161:         $result.verdict = 'PAUSE'
+ 162:         $result.reason  = ("{0} at {1}% (pause line {2}%) - reading is {3} min old, but that window has not reset, and a window only climbs" -f `
+ 163:             $worst.name, $worst.percent, $PauseAt, $ageMin)
+ 164:         Emit $result
+ 165:     }
+ 166:     $result.verdict = 'UNKNOWN'
+ 167:     $result.reason  = ("last reading is {0} min old (limit {1}) - treat as unknown, never as low" -f $ageMin, $StaleMinutes)
+ 168:     Emit $result
+ 169: }
+ 170: 
+ 171: if ($worst.percent -ge $PauseAt) {
+ 172:     $result.verdict = 'PAUSE'
+ 173:     $result.reason  = ("{0} at {1}% (pause line {2}%) - resets {3}" -f $worst.name, $worst.percent, $PauseAt, $worst.resetsLocal)
+ 174: } else {
+ 175:     $result.verdict = 'OK'
+ 176:     $result.reason  = ("{0} at {1}%" -f $worst.name, $worst.percent)
+ 177: }
+ 178: 
+ 179: Emit $result
+FILE loop/work/window-wait.ps1
+   1: # window-wait.ps1 - block until the usage window has reopened, then exit 0.
+   2: #
+   3: # HOW IT IS MEANT TO BE USED. Run it as a BACKGROUND command. Its exit re-invokes the session,
+   4: # which is the whole trick: the coordinator parks, this waits without spending anything, and the
+   5: # founder's session continues in the same conversation with its context intact. Nothing is
+   6: # resumed, nothing is restarted, no scheduled task is involved.
+   7: #
+   8: # WHY IT WAITS ON THE CLOCK AND NOT ON THE GAUGE. The gauge is refreshed by the status line, and
+   9: # the status line only renders when the session takes a turn. A parked session takes no turns -
+  10: # so during exactly the period this script is waiting, the reading it would like to poll is
+  11: # frozen. Polling it alone would wait forever on a number that cannot change.
+  12: #
+  13: # So the wait is anchored on `resets_at`, which the provider states and which is true whether or
+  14: # not anyone is looking. The gauge is still read every poll, because if some OTHER session in the
+  15: # account renders its status line the snapshot updates and we can leave early - but the clock is
+  16: # what guarantees an exit.
+  17: #
+  18: # THIS SCRIPT CANNOT CLEAR THE WINDOW, ONLY OBSERVE THAT IT SHOULD HAVE. Its exit means "the
+  19: # stated reset time has passed", not "you have budget". The work skill already warns why that
+  20: # distinction bites: a reset time that is already past rolls forward a full day, and a session
+  21: # limit is not the same thing as being out of credit. **The caller MUST re-read the gauge on its
+  22: # first turn after this exits** - that turn renders the status line, so it is the first genuinely
+  23: # fresh reading available - and park again if it still says PAUSE.
+  24: #
+  25: # Exit 0: the window should be open, go and confirm. Exit 1: gave up (see -MaxHours), which is a
+  26: # report to the founder, never a licence to carry on regardless.
+  27: 
+  28: [CmdletBinding()]
+  29: param(
+  30:     # How often to look. A parked session is spending nothing, so there is no reason to poll
+  31:     # hard; a minute is far below the resolution of a five-hour window.
+  32:     [int]$PollSeconds = 60,
+  33: 
+  34:     # Refuse to wait longer than this. A five-hour window cannot need more, so exceeding it means
+  35:     # the blocking window is a WEEKLY one - days away, which is a founder decision about what to
+  36:     # do next, not something a script should sit through silently.
+  37:     [double]$MaxHours = 6,
+  38: 
+  39:     # Passed through, so a caller testing the mechanism can move the line without editing code.
+  40:     [int]$PauseAt = 90,
+  41: 
+  42:     # Passed through: exercise the park against a synthetic snapshot, spending nothing.
+  43:     [string]$SnapshotPath = '',
+  44: 
+  45:     # Grace past the stated reset before releasing. A reset is a boundary the provider crosses,
+  46:     # not an instant we control, so releasing on the exact second risks arriving early. Only the
+  47:     # simulation sets this to zero, to cross a boundary in seconds instead of a minute.
+  48:     [double]$SlackMinutes = 1
+  49: )
+  50: 
+  51: $ErrorActionPreference = 'SilentlyContinue'
+  52: $gauge = Join-Path $PSScriptRoot 'window-gauge.ps1'
+  53: 
+  54: function Read-Gauge {
+  55:     try {
+  56:         $a = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$gauge,'-Json','-PauseAt',$PauseAt)
+  57:         if ($SnapshotPath) { $a += @('-SnapshotPath', $SnapshotPath) }
+  58:         $raw = & powershell @a
+  59:         return ($raw | ConvertFrom-Json)
+  60:     } catch { return $null }
+  61: }
+  62: 
+  63: $started  = Get-Date
+  64: $deadline = $started.AddHours($MaxHours)
+  65: 
+  66: $g = Read-Gauge
+  67: if (-not $g) {
+  68:     Write-Output 'WAIT  abandoned - the gauge could not be read at all'
+  69:     exit 1
+  70: }
+  71: 
+  72: if ($g.verdict -eq 'OK') {
+  73:     Write-Output ("WAIT  nothing to wait for - " + $g.reason)
+  74:     exit 0
+  75: }
+  76: 
+  77: # The target comes from the provider's own statement of when this window resets. A minute of
+  78: # slack because the reset is a boundary, not an instant we control.
+  79: $target = $null
+  80: if ($g.resetsAtUtc) { try { $target = ([datetime]::Parse($g.resetsAtUtc)).ToUniversalTime().AddMinutes($SlackMinutes) } catch { } }
+  81: if (-not $target) {
+  82:     Write-Output 'WAIT  abandoned - no reset time in the reading, so there is nothing to wait for'
+  83:     exit 1
+  84: }
+  85: 
+  86: Write-Output ("WAIT  parked on {0} at {1}% - reset stated for {2} local" -f `
+  87:     $g.worstWindow, $g.worstPercent, ([datetime]$target).ToLocalTime().ToString('HH:mm'))
+  88: 
+  89: $lastSaid = Get-Date
+  90: while ($true) {
+  91:     $now = (Get-Date).ToUniversalTime()
+  92: 
+  93:     if ($now -ge $target) {
+  94:         Write-Output 'WAIT  the stated reset time has passed - re-read the gauge before releasing work'
+  95:         exit 0
+  96:     }
+  97: 
+  98:     if ((Get-Date) -ge $deadline) {
+  99:         Write-Output ("WAIT  gave up after {0}h - the blocking window is {1}, which resets {2} local. This is a founder decision, not something to wait out." -f `
+ 100:             $MaxHours, $g.worstWindow, ([datetime]$target).ToLocalTime().ToString('ddd HH:mm'))
+ 101:         exit 1
+ 102:     }
+ 103: 
+ 104:     # Another session in the account may have rendered its status line, which refreshes the shared
+ 105:     # snapshot. If it now reads clear, there is no reason to keep sitting here.
+ 106:     $fresh = Read-Gauge
+ 107:     if ($fresh -and $fresh.verdict -eq 'OK') {
+ 108:         Write-Output ("WAIT  cleared early - " + $fresh.reason)
+ 109:         exit 0
+ 110:     }
+ 111: 
+ 112:     # Say something every ten minutes. Silence and progress look identical, and a wait that never
+ 113:     # speaks is indistinguishable from a wait that died.
+ 114:     if (((Get-Date) - $lastSaid).TotalMinutes -ge 10) {
+ 115:         $left = [int]([math]::Ceiling(($target - $now).TotalMinutes))
+ 116:         Write-Output ("WAIT  still parked - about {0} min to the stated reset" -f $left)
+ 117:         $lastSaid = Get-Date
+ 118:     }
+ 119: 
+ 120:     Start-Sleep -Seconds $PollSeconds
+ 121: }
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'loop/work/window-sim.ps1'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 492ms:
+   1: # window-sim.ps1 - exercise the usage-window guard end to end, spending nothing.
+   2: #
+   3: # The whole mechanism reads exactly ONE file, so driving that file drives everything: no API
+   4: # calls, no tokens, no waiting for a real window to fill. Every reading here is synthetic and
+   5: # written to a scratch path, so the live snapshot the status line maintains is never touched.
+   6: #
+   7: # WHAT THIS CAN AND CANNOT PROVE. It proves the parts we wrote behave: the gauge's verdicts, the
+   8: # park's exits, the early release. It does NOT prove the sensor is reading Anthropic correctly -
+   9: # the synthetic readings are shaped the way we BELIEVE the real one is shaped, so a change in the
+  10: # provider's payload would sail straight through this green. That gap is covered by the live
+  11: # reading, not here.
+  12: #
+  13: # It found a real bug on its first run: the gauge picked the binding window with Sort-Object over
+  14: # dictionary entries, which silently does nothing, so "worst" was whichever enumerated first. The
+  15: # live reading agreed with the right answer by luck for weeks. Cases that can DISAGREE are the
+  16: # whole point of this file - a test that only reproduces the situation you already have proves
+  17: # nothing.
+  18: #
+  19: # Run: powershell -NoProfile -File loop/work/window-sim.ps1
+  20: 
+  21: $ErrorActionPreference = 'SilentlyContinue'
+  22: $here  = $PSScriptRoot
+  23: $gauge = Join-Path $here 'window-gauge.ps1'
+  24: $wait  = Join-Path $here 'window-wait.ps1'
+  25: $snap  = Join-Path $env:TEMP ('window-sim-' + [guid]::NewGuid().ToString('N').Substring(0,8) + '.json')
+  26: 
+  27: $pass = 0; $fail = 0; $failed = @()
+  28: 
+  29: function Set-Reading([hashtable]$windows, [double]$ageMinutes = 0) {
+  30:     $o = [ordered]@{
+  31:         capturedAt = (Get-Date).ToUniversalTime().AddMinutes(-$ageMinutes).ToString('o')
+  32:         sessionId  = 'sim'; version = 'sim'
+  33:         rateLimits = $windows
+  34:     }
+  35:     [IO.File]::WriteAllText($snap, ($o | ConvertTo-Json -Depth 6))
+  36: }
+  37: function Set-Raw([string]$text) { [IO.File]::WriteAllText($snap, $text) }
+  38: 
+  39: # A window: percent used, and how many minutes until it resets.
+  40: function W($pct, [double]$resetInMinutes) {
+  41:     @{ used_percentage = $pct; resets_at = [DateTimeOffset]::UtcNow.AddMinutes($resetInMinutes).ToUnixTimeSeconds() }
+  42: }
+  43: 
+  44: function Check([string]$label, $got, $want) {
+  45:     if ("$got" -eq "$want") { $script:pass++; "  PASS  {0}" -f $label }
+  46:     else { $script:fail++; $script:failed += $label; "  FAIL  {0}  (got '{1}', wanted '{2}')" -f $label, $got, $want }
+  47: }
+  48: 
+  49: function Gauge() {
+  50:     & powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -Json -SnapshotPath $snap | ConvertFrom-Json
+  51: }
+  52: function Verdict() { (Gauge).verdict }
+  53: 
+  54: try {
+  55:     'SIMULATING THE USAGE-WINDOW GUARD (synthetic readings, no tokens spent)'
+  56:     ''
+  57:     '1. A five-hour window filling up across a working session'
+  58:     # The narrative the guard exists for: work proceeds, spend climbs, and at one specific
+  59:     # reading the answer changes. Nothing else about the situation changes at that moment.
+  60:     foreach ($step in @(3, 25, 60, 85, 89)) {
+  61:         Set-Reading @{ five_hour = (W $step 120); seven_day = (W 30 5000) }
+  62:         Check ("at {0}% -> keep working" -f $step) (Verdict) 'OK'
+  63:     }
+  64:     foreach ($step in @(90, 91, 99, 100)) {
+  65:         Set-Reading @{ five_hour = (W $step 120); seven_day = (W 30 5000) }
+  66:         Check ("at {0}% -> park" -f $step) (Verdict) 'PAUSE'
+  67:     }
+  68: 
+  69:     ''
+  70:     '2. The line itself'
+  71:     Set-Reading @{ five_hour = (W 89 60) }
+  72:     Check '89 is under the line' (Verdict) 'OK'
+  73:     Set-Reading @{ five_hour = (W 90 60) }
+  74:     Check '90 is ON the line and counts as over' (Verdict) 'PAUSE'
+  75:     # The provider sends floats carrying binary noise; the gauge rounds before comparing. Without
+  76:     # that, the boundary behaves differently depending on invisible digits.
+  77:     Set-Reading @{ five_hour = (W 89.6 60) }
+  78:     Check '89.6 rounds to 90 -> park' (Verdict) 'PAUSE'
+  79:     Set-Reading @{ five_hour = (W 89.4 60) }
+  80:     Check '89.4 rounds to 89 -> keep working' (Verdict) 'OK'
+  81:     Set-Reading @{ five_hour = (W 7.000000000000001 60) }
+  82:     Check 'float noise does not become an odd percentage' (Gauge).worstPercent 7
+  83:     Set-Reading @{ five_hour = (W 0 60) }
+  84:     Check 'a fresh window reads 0' (Gauge).worstPercent 0
+  85: 
+  86:     ''
+  87:     '3. Several windows, disagreeing'
+  88:     Set-Reading @{ five_hour = (W 12 200); seven_day = (W 95 5000) }
+  89:     Check 'weekly over while five-hour is idle -> park' (Verdict) 'PAUSE'
+  90:     Check 'and it names the weekly one' (Gauge).worstWindow 'seven_day'
+  91:     # The reset it reports must belong to the window that BLOCKED, or a park would wait on the
+  92:     # wrong clock - the five-hour reset here is 80 hours earlier than the weekly one.
+  93:     Check 'and reports THAT window reset, not another' ([int]((Gauge).resetsInMin / 100)) 50
+  94:     Set-Reading @{ five_hour = (W 96 30); seven_day = (W 91 5000) }
+  95:     Check 'both over -> the furthest along wins' (Gauge).worstWindow 'five_hour'
+  96:     # Other plans report up to five windows. Every one present is evaluated by name, so a plan
+  97:     # change cannot silently narrow the guard to the two windows this account happens to have.
+  98:     Set-Reading @{
+  99:         five_hour = (W 10 100); seven_day = (W 20 5000)
+ 100:         seven_day_overage_included = (W 30 5000)
+ 101:         seven_day_sonnet = (W 40 5000); seven_day_opus = (W 93 5000)
+ 102:     }
+ 103:     Check 'a per-model weekly window blocks too' (Verdict) 'PAUSE'
+ 104:     Check 'and is named' (Gauge).worstWindow 'seven_day_opus'
+ 105:     # A window name nobody has seen before must still count. Ignoring the unknown is how a guard
+ 106:     # quietly stops covering the thing that was added.
+ 107:     Set-Reading @{ five_hour = (W 5 100); some_future_window = (W 97 999) }
+ 108:     Check 'an unrecognised window still counts' (Verdict) 'PAUSE'
+ 109: 
+ 110:     ''
+ 111:     '4. Readings that cannot be trusted'
+ 112:     Remove-Item $snap -Force
+ 113:     Check 'no snapshot at all -> UNKNOWN' (Verdict) 'UNKNOWN'
+ 114:     Set-Raw 'this is not json {{{'
+ 115:     Check 'unparseable snapshot -> UNKNOWN' (Verdict) 'UNKNOWN'
+ 116:     Set-Raw '{"capturedAt":"2026-08-07T00:00:00Z","rateLimits":null}'
+ 117:     Check 'a build reporting no windows -> UNKNOWN' (Verdict) 'UNKNOWN'
+ 118:     Set-Reading @{ five_hour = @{ resets_at = 123 } }
+ 119:     Check 'a window with no percentage -> UNKNOWN' (Verdict) 'UNKNOWN'
+ 120:     # Partial damage must not discard the windows that ARE readable.
+ 121:     Set-Reading @{ five_hour = @{ resets_at = 123 }; seven_day = (W 94 5000) }
+ 122:     Check 'one broken window, one good -> the good one still decides' (Verdict) 'PAUSE'
+ 123:     Set-Reading @{ five_hour = @{ used_percentage = 95 } }
+ 124:     Check 'a window with no reset time still reports its level' (Verdict) 'PAUSE'
+ 125:     Set-Raw ('{"capturedAt":"not-a-date","rateLimits":{"five_hour":{"used_percentage":95,"resets_at":' + [DateTimeOffset]::UtcNow.AddMinutes(60).ToUnixTimeSeconds() + '}}}')
+ 126:     Check 'an unreadable timestamp does not crash it' (Verdict) 'PAUSE'
+ 127: 
+ 128:     ''
+ 129:     '5. Staleness'
+ 130:     Set-Reading @{ five_hour = (W 50 100) } 0
+ 131:     Check 'a current reading is used' (Verdict) 'OK'
+ 132:     Set-Reading @{ five_hour = (W 50 100) } 14
+ 133:     Check '14 minutes old is still current enough' (Verdict) 'OK'
+ 134:     Set-Reading @{ five_hour = (W 50 100) } 16
+ 135:     Check '16 minutes old -> UNKNOWN' (Verdict) 'UNKNOWN'
+ 136:     # A stale reading proves a FLOOR, not a level - inside one window the figure only climbs. So
+ 137:     # staleness alone is not the question; whether that window has RESET since is.
+ 138:     Set-Reading @{ five_hour = (W 97 100) } 60
+ 139:     Check 'stale, over the line, window not yet reset -> park on it' (Verdict) 'PAUSE'
+ 140:     Set-Reading @{ five_hour = (W 97 -30) } 60
+ 141:     Check 'stale, over the line, but the window has since reset -> UNKNOWN' (Verdict) 'UNKNOWN'
+ 142:     Set-Reading @{ five_hour = (W 40 100) } 60
+ 143:     Check 'stale and under the line -> UNKNOWN, it may have climbed' (Verdict) 'UNKNOWN'
+ 144:     Set-Reading @{ five_hour = @{ used_percentage = 97 } } 60
+ 145:     Check 'stale, over the line, no reset time at all -> UNKNOWN' (Verdict) 'UNKNOWN'
+ 146: 
+ 147:     ''
+ 148:     '6. Parking and continuing'
+ 149:     Set-Reading @{ five_hour = (W 10 200) }
+ 150:     & powershell -NoProfile -ExecutionPolicy Bypass -File $wait -SnapshotPath $snap -PollSeconds 1 | Out-Null
+ 151:     Check 'nothing to wait for -> exits 0 at once' $LASTEXITCODE 0
+ 152:     & powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -SnapshotPath $snap -ExitOnReady | Out-Null
+ 153:     Check 'the wait condition succeeds when clear' $LASTEXITCODE 0
+ 154:     Set-Reading @{ five_hour = (W 95 60) }
+ 155:     & powershell -NoProfile -ExecutionPolicy Bypass -File $gauge -SnapshotPath $snap -ExitOnReady | Out-Null
+ 156:     Check 'the wait condition fails when parked' $LASTEXITCODE 1
+ 157: 
+ 158:     Set-Reading @{ five_hour = (W 97 -3) }
+ 159:     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $wait -SnapshotPath $snap -PollSeconds 1
+ 160:     Check 'reset time already passed -> exits 0' $LASTEXITCODE 0
+ 161:     Check 'and tells the caller to re-read the gauge' ([bool]($out -match 're-read the gauge')) 'True'
+ 162: 
+ 163:     Set-Reading @{ seven_day = (W 96 4000) }
+ 164:     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $wait -SnapshotPath $snap -PollSeconds 1 -MaxHours 0
+ 165:     Check 'a weekly blocker -> gives up with exit 1' $LASTEXITCODE 1
+ 166:     Check 'and says it is a founder decision' ([bool]($out -match 'founder decision')) 'True'
+ 167: 
+ 168:     # Moving the line proves the threshold is a parameter and not baked into the logic.
+ 169:     Set-Reading @{ five_hour = (W 50 60) }
+ 170:     & powershell -NoProfile -ExecutionPolicy Bypass -File $wait -SnapshotPath $snap -PollSeconds 1 -PauseAt 40 -MaxHours 0 | Out-Null
+ 171:     Check 'a lowered line parks work that was fine before' $LASTEXITCODE 1
+ 172: 
+ 173:     ''
+ 174:     '7. A live park, with the world changing underneath it'
+ 175:     # This exercises the loop rather than a single decision.
+ 176:     Set-Reading @{ five_hour = (W 93 45) }
+ 177:     $job = Start-Job -ScriptBlock {
+ 178:         param($w, $s)
+ 179:         $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $w -SnapshotPath $s -PollSeconds 2
+ 180:         [pscustomobject]@{ code = $LASTEXITCODE; out = ($o -join "`n") }
+ 181:     } -ArgumentList $wait, $snap
+ 182:     Start-Sleep -Seconds 3
+ 183:     Check 'parked, and still waiting after 3s' ($job.State -eq 'Running') 'True'
+ 184:     Set-Reading @{ five_hour = (W 8 300) }          # another session refreshed it; window reopened
+ 185:     $done = Wait-Job $job -Timeout 25
+ 186:     $r = Receive-Job $job; Remove-Job $job -Force
+ 187:     Check 'released once the reading cleared' ([bool]$done) 'True'
+ 188:     Check 'exit 0 on early release' $r.code 0
+ 189:     Check 'said it cleared early' ([bool]($r.out -match 'cleared early')) 'True'
+ 190: 
+ 191:     # A park must survive its own instrument breaking. The snapshot disappearing mid-wait leaves
+ 192:     # the target it captured at the start, so it still releases on the clock rather than hanging.
+ 193:     Set-Reading @{ five_hour = (W 94 0.6) }
+ 194:     $job2 = Start-Job -ScriptBlock {
+ 195:         param($w, $s)
+ 196:         $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $w -SnapshotPath $s -PollSeconds 2
+ 197:         [pscustomobject]@{ code = $LASTEXITCODE; out = ($o -join "`n") }
+ 198:     } -ArgumentList $wait, $snap
+ 199:     Start-Sleep -Seconds 2
+ 200:     Remove-Item $snap -Force                        # the sensor dies mid-park
+ 201:     $done2 = Wait-Job $job2 -Timeout 180
+ 202:     $r2 = Receive-Job $job2; Remove-Job $job2 -Force
+ 203:     Check 'survives its snapshot vanishing mid-park' ([bool]$done2) 'True'
+ 204:     Check 'and still releases on the clock' $r2.code 0
+ 205: 
+ 206:     ''
+ 207:     '8. Coming out the other side of a park'
+ 208:     # Everything above started with the reset already behind us. This is the real shape: park
+ 209:     # while the reset is still ahead, sit through it, and come out.
+ 210:     Set-Reading @{ five_hour = (W 96 0.15) }        # resets in ~9 seconds
+ 211:     $t0 = Get-Date
+ 212:     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $wait -SnapshotPath $snap -PollSeconds 2 -SlackMinutes 0
+ 213:     $elapsed = ((Get-Date) - $t0).TotalSeconds
+ 214:     Check 'crossed the reset boundary and released' $LASTEXITCODE 0
+ 215:     Check 'and actually waited for it, rather than short-circuiting' ([bool]($elapsed -ge 6)) 'True'
+ 216:     Check 'and said the stated reset had passed' ([bool]($out -match 'stated reset time has passed')) 'True'
+ 217: 
+ 218:     # The slack exists so a release cannot arrive before the provider has actually turned the
+ 219:     # window over. Reset half a minute gone, a minute of slack: still parked.
+ 220:     Set-Reading @{ five_hour = (W 96 -0.5) }
+ 221:     $job3 = Start-Job -ScriptBlock {
+ 222:         param($w, $s) & powershell -NoProfile -ExecutionPolicy Bypass -File $w -SnapshotPath $s -PollSeconds 2 | Out-Null
+ 223:     } -ArgumentList $wait, $snap
+ 224:     Start-Sleep -Seconds 4
+ 225:     Check 'still parked inside the slack, not released on the exact second' ($job3.State -eq 'Running') 'True'
+ 226:     Stop-Job $job3; Remove-Job $job3 -Force
+ 227: 
+ 228:     # WHAT THE COORDINATOR SEES NEXT. Its first turn after the park renders the status line, so
+ 229:     # the reading is fresh. Three outcomes, and all three must be distinguishable.
+ 230:     Set-Reading @{ five_hour = (W 2 300) }
+ 231:     Check 'a genuinely new window -> release the work' (Verdict) 'OK'
+ 232:     # The reset can roll forward: the window turned over but the level did not fall enough, or a
+ 233:     # different window is now the blocker. Re-park, do not proceed because the clock said so.
+ 234:     Set-Reading @{ five_hour = (W 94 300) }
+ 235:     Check 'still over the line after the reset -> park again' (Verdict) 'PAUSE'
+ 236:     & powershell -NoProfile -ExecutionPolicy Bypass -File $wait -SnapshotPath $snap -PollSeconds 1 -MaxHours 0 | Out-Null
+ 237:     Check 'and the park is re-enterable' $LASTEXITCODE 1
+ 238:     # The degradation path: nothing refreshed the reading, so it is old AND its reset has gone by.
+ 239:     # The old number now proves nothing, so this is UNKNOWN - reported, not halted, by the rule.
+ 240:     Set-Reading @{ five_hour = (W 96 -20) } 45
+ 241:     Check 'nothing refreshed it after the park -> UNKNOWN, not a false PAUSE' (Verdict) 'UNKNOWN'
+ 242:     # And the weekly window is unmoved by a five-hour reset - a release must not be granted by the
+ 243:     # wrong window turning over.
+ 244:     Set-Reading @{ five_hour = (W 1 300); seven_day = (W 93 5000) }
+ 245:     Check 'the five-hour reset does not release a weekly block' (Verdict) 'PAUSE'
+ 246:     Check 'and the weekly one is still named as the blocker' (Gauge).worstWindow 'seven_day'
+ 247: 
+ 248:     ''
+ 249:     "RESULT: {0} passed, {1} failed" -f $pass, $fail
+ 250:     if ($fail -gt 0) { ''; 'failed:'; $failed | ForEach-Object { '  - ' + $_ }; exit 1 }
+ 251: } finally {
+ 252:     Remove-Item $snap -Force -ErrorAction SilentlyContinue
+ 253:     Get-Job | Where-Object { $_.Command -match 'window-wait' } | Remove-Job -Force -ErrorAction SilentlyContinue
+ 254: }
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "rg -n --no-heading \"90|89|85|84|PauseAt|WINDOW\\s|verdict|worstWindow|worstPercent|resetsAtUtc|ExitOnReady\" loop/work/window-sim.ps1 loop/work/window-gauge.ps1 loop/work/window-wait.ps1 .claude/agents/conductor.md .claude/skills/work/shared-invariants.md loop/work/statusline.ps1 loop/work/stamp-hook.ps1 loop/drills/run-drills.ps1 .claude/settings.json" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+2026-08-12T14:58:56.770788Z ERROR codex_core::tools::router: error=Exit code: 1
+Wall time: 2.3 seconds
+Output:
+rg : The term 'rg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:2 char:1
++ rg -n --no-heading "90|89|85|84|PauseAt|WINDOW\s|verdict|worstWindow| ...
++ ~~
+    + CategoryInfo          : ObjectNotFound: (rg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+
+ exited 1 in 2348ms:
+rg : The term 'rg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:2 char:1
++ rg -n --no-heading "90|89|85|84|PauseAt|WINDOW\s|verdict|worstWindow| ...
++ ~~
+    + CategoryInfo          : ObjectNotFound: (rg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+
+codex
+The first concrete risk area is the claimed behavior-neutral extraction: the existing simulation checks verdict selection and a few wait/gauge exits, but I’m now tracing every public output field and human-readable line to see whether the plan’s “identical shapes and exit codes” promise has a matching oracle.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'loop/work/statusline.ps1'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 474ms:
+   1: # statusline.ps1 - the Claude Code status bar for ai4good.
+   2: #
+   3: # Claude Code pipes a JSON blob on stdin describing the session. Five things earn their width
+   4: # (founder, 2026-07-31): the model, the PM requirement, the dev leaf, the branch, and how much
+   5: # context is left. The folder name and the dollar figure were dropped - the folder is already
+   6: # obvious from the terminal, and the spend was noise.
+   7: #
+   8: # Attribution is DERIVED from the branch (AI4DEV-36) - the same chain the stamp prints, read
+   9: # through the same work-lib helpers, never re-derived here. A status bar confidently naming the
+  10: # WRONG item is worse than one naming none.
+  11: #
+  12: # This file was missed by the AI4DEV-36 cut-over and kept reading the deleted bindings/ directory
+  13: # by hand-built path, so it reported `unattributed` for everything while spending four
+  14: # subprocesses per refresh to get there. It slipped through because the cut-over searched for
+  15: # CALLS to the binding functions and this file never called them - it rebuilt the path itself.
+  16: # The lesson is general: grepping for an API misses code that reimplemented it.
+  17: #
+  18: # COST MATTERS HERE. Claude Code spawns a fresh PowerShell for every refresh, which on Windows is
+  19: # already a few hundred milliseconds; each extra subprocess is paid on every keystroke-ish redraw
+  20: # and shows up as a client that looks perpetually busy. So: ONE git call (rev-parse takes several
+  21: # arguments at once), and no `git status --porcelain` - the dirty marker was the least valuable
+  22: # of the fields and by far the most expensive.
+  23: #
+  24: # Never throws. A status line that errors is noise in the founder's face on every keystroke.
+  25: # Set AI4GOOD_STATUSLINE_DUMP=1 to capture the raw stdin JSON for field discovery.
+  26: 
+  27: $ErrorActionPreference = 'SilentlyContinue'
+  28: 
+  29: # Write the line as UTF-8 BYTES straight to the standard output handle. PowerShell 5.1 would
+  30: # otherwise re-encode Write-Output through the console code page, which shreds the bar's block
+  31: # glyphs into replacement characters when Claude Code spawns this without a real console.
+  32: function Write-Line([string]$text) {
+  33:     try {
+  34:         $out = [Console]::OpenStandardOutput()
+  35:         $bytes = [System.Text.Encoding]::UTF8.GetBytes($text + "`n")
+  36:         $out.Write($bytes, 0, $bytes.Length)
+  37:         $out.Flush()
+  38:     } catch {
+  39:         Write-Output $text
+  40:     }
+  41: }
+  42: 
+  43: function Get-Field($obj, [string[]]$path) {
+  44:     $cur = $obj
+  45:     foreach ($p in $path) {
+  46:         if ($null -eq $cur) { return $null }
+  47:         $cur = $cur.$p
+  48:     }
+  49:     return $cur
+  50: }
+  51: 
+  52: try {
+  53:     $raw = [Console]::In.ReadToEnd()
+  54:     $j = $null
+  55:     if ($raw) {
+  56:         if ($env:AI4GOOD_STATUSLINE_DUMP -eq '1') {
+  57:             $dump = Join-Path $env:TEMP 'ai4good-statusline-input.json'
+  58:             [System.IO.File]::WriteAllText($dump, $raw)
+  59:         }
+  60:         try { $j = ConvertFrom-Json $raw } catch { }
+  61:     }
+  62: 
+  63:     # SENSOR. The rate-limit windows (five_hour, seven_day, and the per-model weekly ones) are
+  64:     # delivered ONLY to the status line - hooks get a different payload entirely - so this is the
+  65:     # single place in the system that can see them. Snapshot them where a hook can read them.
+  66:     # Written on EVERY refresh including when the field is absent, so a reader can tell "no
+  67:     # reading yet" from "this build does not report windows" - a missing file and a null field
+  68:     # mean different things and must not look alike.
+  69:     try {
+  70:         $snapDir = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good'
+  71:         if (-not (Test-Path $snapDir)) { New-Item -ItemType Directory -Force $snapDir | Out-Null }
+  72:         $snap = [ordered]@{
+  73:             capturedAt = (Get-Date).ToUniversalTime().ToString('o')
+  74:             sessionId  = [string](Get-Field $j @('session_id'))
+  75:             version    = [string](Get-Field $j @('version'))
+  76:             rateLimits = (Get-Field $j @('rate_limits'))
+  77:         }
+  78:         [System.IO.File]::WriteAllText(
+  79:             (Join-Path $snapDir 'rate-limits.json'),
+  80:             ($snap | ConvertTo-Json -Depth 8),
+  81:             (New-Object System.Text.UTF8Encoding($false)))
+  82:     } catch { }
+  83: 
+  84:     $parts = @()
+  85: 
+  86:     # 1. model - which brain is answering. Cheap to lose track of, expensive to be wrong about.
+  87:     $model = Get-Field $j @('model','display_name')
+  88:     if (-not $model) { $model = Get-Field $j @('model','id') }
+  89:     if ($model) { $parts += $model }
+  90: 
+  91:     # 2/3/4. the binding, the leaf, and the branch. All three need the repo root.
+  92:     $dir = Get-Field $j @('workspace','current_dir')
+  93:     if (-not $dir) { $dir = Get-Field $j @('cwd') }
+  94:     if (-not $dir) { $dir = (Get-Location).Path }
+  95: 
+  96:     # ONE git call for both facts.
+  97:     $g = @(& git -C $dir rev-parse --show-toplevel --abbrev-ref HEAD 2>$null)
+  98:     if ($g.Count -ge 2) {
+  99:         $root = $g[0].Trim()
+ 100:         $branch = $g[1].Trim()
+ 101:         if (-not $branch) { $branch = '?' }
+ 102: 
+ 103:         . (Join-Path $PSScriptRoot 'work-lib.ps1')
+ 104: 
+ 105:         # The chain, exactly as the stamp resolves it: branch names the item, the cache names its
+ 106:         # parents. Ids carry a short label (founder rule), truncated hard because a status bar has
+ 107:         # no room for a sentence. Cache miss shows the bare item - never an invented root.
+ 108:         $ids = @()
+ 109:         foreach ($m in [regex]::Matches($branch, '(?i)(?<![\p{L}\p{N}])AI4(DEV|PM)-0*([0-9]{1,7})(?![\p{L}\p{N}])')) {
+ 110:             $id = 'AI4' + $m.Groups[1].Value.ToUpperInvariant() + '-' + [string][int]$m.Groups[2].Value
+ 111:             if ($ids -notcontains $id) { $ids += $id }
+ 112:         }
+ 113:         $item = if ($ids.Count -eq 1) { $ids[0] } else { '' }
+ 114: 
+ 115:         $held = $null
+ 116:         try { $held = Get-HeldItem } catch { }
+ 117:         if (-not $item -and $held -and ([string]$held.branch) -eq $branch -and (Test-ItemId ([string]$held.itemId))) {
+ 118:             $item = [string]$held.itemId
+ 119:         }
+ 120: 
+ 121:         if (-not $item) {
+ 122:             $parts += $(if ($ids.Count -gt 1) { 'AMBIGUOUS' } else { 'no item' })
+ 123:         }
+ 124:         else {
+ 125:             $chain = $null
+ 126:             try { $chain = Get-Chain $branch } catch { }
+ 127:             if (Test-Chain $chain $branch $item) {
+ 128:                 $short = @()
+ 129:                 foreach ($n in @($chain.chain)) {
+ 130:                     $l = ([string]$n.label -replace '[\r\n|]', ' ').Trim()
+ 131:                     if ($l.Length -gt 16) { $l = $l.Substring(0, 15) + [string][char]0x2026 }
+ 132:                     $short += $(if ($l) { '{0} ({1})' -f $n.id, $l } else { [string]$n.id })
+ 133:                 }
+ 134:                 $parts += ($short -join ' > ')
+ 135:             }
+ 136:             else {
+ 137:                 $parts += $item
+ 138:             }
+ 139:         }
+ 140: 
+ 141:         $parts += $branch
+ 142:     }
+ 143: 
+ 144:     # 5. context remaining, as a bar. Emitted by codepoint so the file itself stays ASCII and
+ 145:     #    cannot be mangled by whatever encoding PowerShell 5.1 decides to read it with.
+ 146:     $pct = Get-Field $j @('context_window','used_percentage')
+ 147:     $full  = [string][char]0x2588
+ 148:     $light = [string][char]0x2591
+ 149:     if ($null -ne $pct) {
+ 150:         $used = [int][math]::Round([double]$pct)
+ 151:         if ($used -lt 0) { $used = 0 }
+ 152:         if ($used -gt 100) { $used = 100 }
+ 153:         $filled = [int][math]::Floor($used * 20 / 100)
+ 154:         $bar = ($full * $filled) + ($light * (20 - $filled))
+ 155:         $parts += ('[' + $bar + '] ' + $used + '%')
+ 156:     } else {
+ 157:         # Never invent a number the payload did not supply.
+ 158:         $parts += ('[' + ($light * 20) + '] ?%')
+ 159:     }
+ 160: 
+ 161:     Write-Line ($parts -join ' | ')
+ 162: } catch {
+ 163:     # Last resort: say something true rather than nothing, and never a stack trace.
+ 164:     Write-Line 'ai4good'
+ 165: }
+ 166: exit 0
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'loop/work/stamp-hook.ps1'; "'$patterns=@('"'extra','silent','hang','Write-','try','catch','LOCALAPPDATA','AI4GOOD','exit'); "'$lines=Get-Content -LiteralPath $p; $hits=@(); for($i=0;$i -lt $lines.Count;$i++){ foreach($pat in $patterns){ if($lines[$i] -match [regex]::Escape($pat)){ $hits += $i; break } } }; $ranges=@(); foreach($h in $hits){ $ranges += [pscustomobject]@{s=[math]::Max(0,$h-4);e=[math]::Min($lines.Count-1,$h+6)} }; $merged=@(); foreach($r in ($ranges|Sort-Object s)){ if($merged.Count -eq 0 -or $r.s -gt $merged[-1].e+1){$merged+=,$r}else{$merged[-1].e=[math]::Max($merged[-1].e,$r.e)} }; foreach($r in $merged){ for($i=$r.s;$i -le $r.e;$i++){ '"'{0,4}: {1}' -f ("'$i+1),$lines[$i] }; '"'----' }" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 691ms:
+   7: #
+   8: # Line 1 is the conclusion. Line 2 is WHAT THE CONCLUSION WAS DERIVED FROM. That pairing is the
+   9: # whole point: every past incident was line 1 disagreeing with line 2 while only line 1 was
+  10: # visible. Anything else - a conflict, an unresolved chain, a git state - APPENDS below. The two
+  11: # lines never change shape, so they are always in the same place and always mean the same thing.
+  12: #
+  13: # ATTRIBUTION IS DERIVED, NEVER DECLARED. cwd -> git worktree -> branch -> exactly one item id.
+  14: # The held item (written by /work) is a CROSS-CHECK ONLY: it can raise CONFLICT or fill a gap the
+  15: # branch left empty, but it can NEVER override the branch. A stale held item therefore makes the
+  16: # stamp louder, never wronger - the inverse of the folder-keyed binding this replaces, which
+  17: # silently substituted itself for reality (AI4DEV-24: a whole run stamped against the wrong item).
+  18: #
+  19: # NEVER CALLS LINEAR. Titles and chains come from a cache written by /work. A cache miss degrades
+  20: # to the bare item id with a note - it never guesses, and it never blocks.
+  21: #
+  22: # NEVER SILENT. On any failure this prints "stamp error: <what>" rather than something plausible.
+  23: # The dangerous failure is not a wrong stamp; it is no stamp becoming normal, after which nobody
+  24: # reads the line at all.
+  25: 
+  26: # The session id normally arrives in the hook payload on stdin. The BANNER cannot forward stdin -
+  27: # it runs the stamp in the same process AFTER draining the payload itself - so it passes the id it
+  28: # parsed as this parameter instead. The parameter wins when present; the stdin read is the
+----
+  38: # actor is DERIVED like everything else here - the main checkout is the coordinator, a worktree
+  39: # under .claude/worktrees is an agent - never declared, so it cannot drift.
+  40: $script:Actor = 'SESSION'
+  41: 
+  42: function Emit([string]$l1, [string]$l2, [string[]]$extra, [string]$pm, [string]$dev) {
+  43:     # EVERY HUMAN LINE CARRIES THE SESSION PREFIX (founder 2026-08-11: "I want session id print
+  44:     # on every line of the stamp - prefix"). One formatter, applied at the single output point,
+  45:     # so a forwarded agent line and a warning line cannot drift from the actor lines. The
+  46:     # machine tag stays UNPREFIXED on purpose: parsers anchor on its opening bracket, and it
+  47:     # already carries the session as an attribute â€” humans get the prefix, machines the field.
+  48:     # Runs with no session id (agent child re-runs, manual invocations) print no prefix.
+  49:     $pfx = ''
+  50:     if ($script:SessionId -and $script:SessionId.Length -ge 8) { $pfx = ('[' + $script:SessionId.Substring(0, 8) + '] ') }
+  51:     Write-Output ($pfx + $script:Actor.PadRight(12) + 'WORKING ON  ' + $l1)
+  52:     Write-Output ($pfx + $script:Actor.PadRight(12) + 'IN          ' + $l2)
+  53:     # The batch attribute is ADDITIVE (founder 2026-08-11): a batched partner must reach the
+  54:     # machine tag too, or every report over the attribution log under-counts the partner's work.
+  55:     # Parsers reading pm/dev are unaffected; the attribute appears only when a partner rides.
+  56:     # The short session tag reaches the machine line too (additive, founder 2026-08-11), so the
+  57:     # attribution log can group prompts by session without parsing the human lines.
+  58:     $sess = ''
+  59:     if ($script:SessionId -and $script:SessionId.Length -ge 8) { $sess = (' session="' + $script:SessionId.Substring(0, 8) + '"') }
+  60:     if ($script:BatchAttr) {
+  61:         Write-Output ('<ai4good-attribution pm="{0}" dev="{1}" batch="{2}"{3}/>' -f $pm, $dev, $script:BatchAttr, $sess)
+  62:     }
+  63:     else {
+  64:         Write-Output ('<ai4good-attribution pm="{0}" dev="{1}"{2}/>' -f $pm, $dev, $sess)
+  65:     }
+  66:     foreach ($e in $extra) { if ($e) { Write-Output ($pfx + $e) } }
+  67:     foreach ($a in $script:AgentLines) { if ($a) { Write-Output ($pfx + $a) } }
+  68: }
+  69: 
+  70: function Fmt([string]$id, [string]$label) {
+  71:     if (-not $label) { return $id }
+  72:     $t = ($label -replace '[\r\n\|<>"()]', ' ').Trim()
+  73:     if ($t.Length -gt 40) { $t = $t.Substring(0, 37) + '...' }
+----
+  76: }
+  77: 
+  78: # Strict ASCII token boundaries and zero-padding normalised, so `fix/notai4dev-19x` does not
+  79: # match and `AI4DEV-019` does. ALL matches are collected: exactly one attributes, and two or more
+  80: # is unresolved rather than "take the first" - `ai4dev-19-into-ai4dev-20` silently attributed to
+  81: # 19 under the single anchored pattern this replaces.
+  82: # CultureInvariant because `(?i)` under a Turkish locale does not fold `I` the way ASCII expects -
+  83: # it would fail plain AI4DEV-19 and accept dotted-I lookalikes. `[0-9]` not `\d`, because .NET's
+  84: # `\d` also matches Arabic-Indic and other Unicode digits, which are not Linear ids. A match
+  85: # timeout because `0*[0-9]+` can backtrack badly on a long run of zeros, and a hook that hangs is
+  86: # strictly worse than a hook that degrades.
+  87: function Get-BranchItems([string]$branch) {
+  88:     if ($branch.Length -gt 512) { return @() }
+  89:     $rx = New-Object System.Text.RegularExpressions.Regex(
+  90:         '(?<![\p{L}\p{N}])AI4(DEV|PM)-0*([0-9]{1,7})(?![\p{L}\p{N}])',
+  91:         ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::CultureInvariant),
+----
+  97:     }
+  98:     return $ids.ToArray()
+  99: }
+ 100: 
+ 101: try {
+ 102:     # State paths come from work-lib so the hook and /work can never disagree about where the
+ 103:     # held item and the chain cache live. Two formulas for one path is the same drift class this
+ 104:     # item exists to delete.
+ 105:     . (Join-Path $PSScriptRoot 'work-lib.ps1')
+ 106: 
+ 107:     # The calling SESSION's identity, from the hook payload on stdin. Only read when stdin is
+ 108:     # genuinely redirected - reading a console would block, and a hook that hangs is the one
+ 109:     # failure this file must never have. Empty is a legal answer and degrades the ownership
+ 110:     # labels below, never the stamp.
+ 111:     # CAPTURE THE PARAMETER BEFORE ZEROING: at script level $script:SessionId IS $SessionId -
+ 112:     # the same variable - so assigning '' first would silently erase the banner's parameter
+ 113:     # (caught by test on 2026-08-12, not by inspection).
+ 114:     $sidParam = $SessionId
+ 115:     $script:SessionId = ''
+ 116:     if ($sidParam -and $sidParam -match '^[0-9a-fA-F-]{8,64}$') { $script:SessionId = $sidParam }
+ 117:     try {
+ 118:         if (-not $script:SessionId -and [Console]::IsInputRedirected) {
+ 119:             $raw = [Console]::In.ReadToEnd()
+ 120:             $m = [regex]::Match($raw, '"session_id"\s*:\s*"([0-9a-fA-F-]{8,64})"')
+ 121:             if ($m.Success) { $script:SessionId = $m.Groups[1].Value }
+ 122:         }
+ 123:     }
+ 124:     catch { }
+ 125: 
+ 126:     # -LiteralPath: a legitimate directory containing [ or ] is treated as a wildcard by Test-Path
+ 127:     # and reports false, silently falling back to some other directory's attribution.
+ 128:     $base = if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $env:CLAUDE_PROJECT_DIR)) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
+ 129: 
+ 130:     # Identity is git's, not the path string's. Windows case-folding and junctions make paths lie
+ 131:     # in both directions, so the worktree is identified by what git resolves, never by text.
+ 132:     $top = (& git -C $base rev-parse --show-toplevel 2>$null)
+ 133:     $gitDir = (& git -C $base rev-parse --git-dir 2>$null)
+ 134:     if (-not $top -or -not $gitDir) {
+ 135:         Emit 'unknown (stamp error: not a git worktree)' ('wt ? - ' + $base) @() '-' '-'
+ 136:         exit 0
+ 137:     }
+ 138:     $top = $top.Trim(); $gitDir = $gitDir.Trim()
+ 139:     if (-not [System.IO.Path]::IsPathRooted($gitDir)) { $gitDir = Join-Path $top $gitDir }
+ 140:     $wt = Split-Path -Leaf $top
+ 141:     $extra = @()
+ 142: 
+ 143:     # SESSION FRESHNESS GUARD (founder 2026-08-11). A session loads CLAUDE.md and the agent
+ 144:     # contracts ONCE, at start; disk edits after that are invisible to it, and spawns serve the
+ 145:     # registry's old bodies (adds never reload; edits lag). This session's first prompt records a
+ 146:     # fingerprint of those files; every later prompt compares, and drift prints HERE â€” the
+ 147:     # earliest point in any turn, in the one channel always read. Baseline is per session id, so
+ 148:     # every session in the folder gets its own honest answer. No session id (child re-runs,
+ 149:     # manual runs) â†’ skip silently. Any failure degrades to a named note, never a block.
+ 150:     try {
+ 151:         if ($script:SessionId) {
+ 152:             $watched = @()
+ 153:             $cm = Join-Path $top 'CLAUDE.md'
+ 154:             if (Test-Path -LiteralPath $cm) { $watched += $cm }
+ 155:             $agentsDir = Join-Path $top '.claude\agents'
+ 156:             if (Test-Path -LiteralPath $agentsDir) {
+----
+ 173:             else {
+ 174:                 $drifted = @()
+ 175:                 foreach ($k in $now.Keys) {
+ 176:                     $old = $null
+ 177:                     try { $old = [string]$watchBaseline.files.$k } catch { }
+ 178:                     if ($old -and $old -ne $now[$k]) { $drifted += $k }
+ 179:                     elseif (-not $old) { $drifted += ($k + ' (new)') }
+ 180:                 }
+ 181:                 if ($drifted.Count -gt 0) {
+ 182:                     $extra += ('CONTRACTS DRIFTED since this session started: ' + ($drifted -join ', ') + ' - this session and its running agents keep the OLD text, and new spawns may too (adds never reload; edits lag). Restart before the next spawn, or probe the changed type live.')
+ 183:                 }
+ 184:             }
+ 185:         }
+ 186:     }
+ 187:     catch {
+ 188:         $extra += ('freshness guard degraded: ' + ($_.Exception.Message -replace '[\r\n]', ' '))
+ 189:     }
+ 190:     $script:Actor = if ($top -match '[\\/]\.claude[\\/]worktrees[\\/]') { 'AGENT' } else { 'COORDINATOR' }
+ 191: 
+ 192:     # SUPERVISED AGENTS (founder 2026-08-05). From the MAIN checkout, every platform agent
+ 193:     # worktree gets its own derived stamp appended, so the founder sees the whole supervision
+ 194:     # tree on every prompt without asking. Each agent line is this hook re-run against that
+ 195:     # worktree - ONE derivation logic, never a second formula that could drift. An agent
+ 196:     # worktree itself skips this block (its stamp IS the agent line), which also terminates
+ 197:     # the recursion; the path guard matches both slash directions because git reports forward
+ 198:     # slashes on Windows.
+ 199:     try {
+ 200:         $wtRoot = Join-Path $top '.claude/worktrees'
+ 201:         if ((-not $env:AI4GOOD_STAMP_CHILD) -and ($top -notmatch '[\\/]\.claude[\\/]worktrees[\\/]') -and (Test-Path -LiteralPath $wtRoot)) {
+ 202:             $savedEnv = $env:CLAUDE_PROJECT_DIR
+ 203:             $env:AI4GOOD_STAMP_CHILD = '1'
+ 204:             foreach ($d in (Get-ChildItem -LiteralPath $wtRoot -Directory -ErrorAction SilentlyContinue)) {
+ 205:                 # ONLY a real worktree is recursed into. `.claude/worktrees` also holds ordinary
+ 206:                 # directories - the artifacts directory the conductor keeps per item - and those
+ 207:                 # are INSIDE this repository, so git answers with the MAIN checkout's toplevel.
+ 208:                 # The old guard tested that answer, saw the main checkout, and enumerated this
+ 209:                 # directory again: unbounded self-spawning that hung the hook for minutes and
+ 210:                 # printed nothing. A stamp that does not appear is the one failure this file
+ 211:                 # exists to prevent, so the test is now "is this directory itself a worktree",
+ 212:                 # and AI4GOOD_STAMP_CHILD makes any future path incapable of recursing at all.
+ 213:                 $childTop = (& git -C $d.FullName rev-parse --show-toplevel 2>$null)
+ 214:                 if (-not $childTop) { continue }
+ 215:                 $a = [System.IO.Path]::GetFullPath(($childTop.Trim() -replace '/', '\')).TrimEnd('\')
+ 216:                 $b = [System.IO.Path]::GetFullPath($d.FullName).TrimEnd('\')
+ 217:                 if (-not $a.Equals($b, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+ 218: 
+----
+ 223:                     # EVERY session opened in this folder - the tree is derived from disk - so a
+ 224:                     # parallel session reads them as its own agents unless each line says whose
+ 225:                     # agent it is. The owner is recorded by /work at spawn; absent records and an
+ 226:                     # unknown session id both degrade to words, never to a guess.
+ 227:                     # A DIFFERENT SPAWNER ID IS NOT ANOTHER SESSION (founder catch 2026-08-12).
+ 228:                     # The founder's one thread of work can span several session ids: /clear
+ 229:                     # always mints a new id, resume can fork onto one, and a resume aimed at an
+ 230:                     # explicit id can land on an OLDER trunk than the session it meant to
+ 231:                     # continue (measured 2026-08-12: a stale dispatch pointer did exactly that,
+ 232:                     # and agents spawned in the post-clear session read as id mismatches in the
+ 233:                     # resumed trunk). The old wording asserted "ANOTHER session's agent" on any
+----
+ 236:                     # transcripts carry only their own id. So the label states exactly what the
+ 237:                     # comparison knows - the spawner's tag, and the mismatch's readings - and
+ 238:                     # the reader resolves it by asking or from conversation memory.
+ 239:                     $who = 'spawner unrecorded - not necessarily this session''s'
+ 240:                     try {
+ 241:                         # GIT'S OWN STRING, never $a. The worktree id is a hash of the toplevel
+ 242:                         # TEXT, so `C:/x` and `C:\x` hash differently: $a is the backslash form
+ 243:                         # built for the path-equality test above, and passing it here missed a
+ 244:                         # record that existed and printed "spawner unrecorded" for my own agent
+ 245:                         # (measured 2026-08-09, first live use). Every writer uses git's forward-
+ 246:                         # slash output, so every reader must too.
+----
+ 254:                             }
+ 255:                         }
+ 256:                         elseif ($ownSid) { $who = 'spawner recorded; this session''s id unknown' }
+ 257:                     }
+ 258:                     catch { }
+ 259:                     $script:AgentLines += ([string]$child[0] + '   [' + $who + ']')
+ 260:                     $script:AgentLines += ([string]$child[1])
+ 261:                     # AND ITS WARNINGS. Forwarding only the first two lines silently dropped every
+ 262:                     # qualifier the child raised - STALE, CHAIN UNRESOLVED, BRANCH NAMES 2 ITEMS,
+ 263:                     # an ignored held item. An agent whose branch named two items therefore showed
+ 264:                     # as "WORKING ON nothing" in the supervision tree, indistinguishable from one
+ 265:                     # that simply had not switched branch yet - and that exact display was on
+ 266:                     # screen this morning for an innocent reason, which is what makes the
+ 267:                     # ambiguity dangerous. A warning nobody can see is the failure this file
+ 268:                     # exists to prevent. The machine tag is the child's own and is not repeated.
+ 269:                     for ($i = 2; $i -lt $child.Count; $i++) {
+ 270:                         $w = [string]$child[$i]
+ 271:                         if ($w -and ($w -notmatch '^<ai4good-attribution')) { $script:AgentLines += ('            ' + $w) }
+ 272:                     }
+ 273:                 }
+ 274:             }
+ 275:             $env:CLAUDE_PROJECT_DIR = $savedEnv
+ 276:             $env:AI4GOOD_STAMP_CHILD = $null
+ 277:         }
+ 278:     }
+ 279:     catch {
+ 280:         # Never silent, never fatal: a broken enumeration names itself and the main stamp stands.
+ 281:         $script:AgentLines += ('AGENT       (enumeration failed: ' + ($_.Exception.Message -replace '[\r\n]', ' ') + ')')
+ 282:     }
+ 283: 
+ 284:     # Named git states. The earlier design printed "nothing" during a rebase or a bisect - hours of
+ 285:     # genuinely attributed work reported as unattributed, which teaches you to ignore the line.
+ 286:     if ((Test-Path (Join-Path $gitDir 'rebase-merge')) -or (Test-Path (Join-Path $gitDir 'rebase-apply'))) {
+ 287:         $extra += 'REBASE IN PROGRESS - closure blocked until it finishes'
+ 288:     }
+ 289:     if (Test-Path (Join-Path $gitDir 'BISECT_LOG')) {
+ 290:         $extra += 'BISECT IN PROGRESS - closure blocked until it finishes'
+ 291:     }
+ 292: 
+ 293:     $branch = (& git -C $base symbolic-ref --short -q HEAD 2>$null)
+ 294:     $detached = $false
+ 295:     if ($branch) { $branch = $branch.Trim() } else {
+ 296:         $detached = $true
+----
+ 302:     # which can produce a spurious CONFLICT but can never produce a wrong attribution, because it
+ 303:     # is never the answer.
+ 304:     # Held state is only usable as attribution if it proves it was taken up ON THIS BRANCH. Without
+ 305:     # that, taking up an item and later switching to main would keep claiming the old item forever.
+ 306:     # An id that fails validation is discarded outright: one containing newlines would forge extra
+ 307:     # stamp lines and a fake attribution tag - the very output the founder is told to trust.
+ 308:     $held = $null
+ 309:     try { $held = Get-HeldItem -SessionId $script:SessionId } catch { }
+ 310:     $heldId = ''
+ 311:     $heldStale = ''
+ 312:     if ($held -and ((Test-ItemId ([string]$held.itemId)) -or (Test-FloatingRoot ([string]$held.itemId)))) {
+ 313:         if (([string]$held.branch) -eq $branch) { $heldId = [string]$held.itemId }
+ 314:         else { $heldStale = [string]$held.itemId }
+ 315:     }
+----
+ 317:     $ids = @(Get-BranchItems $branch)
+ 318:     $item = ''
+ 319:     if ($ids.Count -eq 1) { $item = $ids[0] }
+ 320:     elseif ($ids.Count -gt 1) {
+ 321:         $extra += ('BRANCH NAMES ' + $ids.Count + ' ITEMS (' + ($ids -join ', ') + ') - unresolved; rename the branch or say which')
+ 322:     }
+ 323: 
+ 324:     # "folder", not "wt": an abbreviation nobody outside this repository can expand is exactly the
+ 325:     # shorthand the founder's standing instruction forbids, and this line is read by the founder.
+ 326:     # The SHORT SESSION TAG (founder 2026-08-11: "I want a hash or something unique that can
+ 327:     # identify the session... short since session ids are long"): the first 8 characters of the
+ 328:     # session id â€” already random hex, so no hashing is needed, and the founder can match it to
+ 329:     # a window at a glance. A new tag after a compact or resume is a FEATURE: identity rotation
+ 330:     # becomes visible instead of silent. Child re-runs carry no session id and print no tag.
+ 331:     $line2 = ('folder {0} - branch {1}' -f $wt, $branch)
+ 332:     if ($script:SessionId -and $script:SessionId.Length -ge 8) {
+ 333:         $line2 += (' - session ' + $script:SessionId.Substring(0, 8))
+ 334:     }
+ 335: 
+ 336:     # CONFLICT outranks everything. Never pick a side: exactly one of the two describes work that
+ 337:     # is not happening, and that is the condition the old design could never see.
+ 338:     if ($item -and $heldId -and $item -ne $heldId) {
+ 339:         Emit ('CONFLICT - branch says ' + $item + ', session holds ' + $heldId) $line2 `
+ 340:         ($extra + 'Attribution unresolved until you say which is right. Building is not blocked; closing is.') 'conflict' 'conflict'
+ 341:         exit 0
+ 342:     }
+ 343: 
+ 344:     # Branch names nothing, but the session took an item up ON THIS BRANCH: fill the gap, and say
+ 345:     # it is a gap. This is also how COORDINATOR LIGHT WORK attributes (founder 2026-08-09): work
+ 346:     # ruled onto main outside an item records a held item, and this line then carries it.
+ 347:     $heldFill = $false
+ 348:     $heldLabel = ''
+ 349:     if (-not $item -and $heldId -and $ids.Count -eq 0) {
+ 350:         $extra += ('held, not branch - the branch names no item' + $(if ($detached) { ' (detached HEAD)' } else { '' }))
+ 351:         $item = $heldId
+ 352:         $heldFill = $true
+ 353:         if ($held) { $heldLabel = [string]$held.label }
+ 354:     }
+ 355:     if ($heldStale) {
+ 356:         $extra += ('IGNORING held ' + $heldStale + ' - it was taken up on another branch; not attributing to it')
+ 357:     }
+ 358: 
+ 359:     if (-not $item) {
+ 360:         # "nothing" was misleading (founder 2026-08-09): the coordinator is always DOING
+ 361:         # something - board, relays, sweeps, folds - it just claims no ITEM. So the coordinator's
+ 362:         # idle line names its standing work instead of an absence, and the nudge tells it how to
+ 363:         # attribute item-scoped light work: hold the item. An AGENT keeps the bare wording - it
+ 364:         # was spawned for one item, and "coordination" would be false there.
+ 365:         if ($script:Actor -eq 'AGENT') {
+ 366:             Emit 'nothing - this branch names no item yet' $line2 $extra 'none' 'none'
+ 367:         }
+ 368:         elseif ($script:AgentLines.Count -gt 0) {
+ 369:             Emit 'coordination, no item claimed here - the items below run in their own folders' $line2 $extra 'none' 'none'
+ 370:         }
+ 371:         else {
+ 372:             Emit 'coordination, no item claimed - board, relays, sweeps and folds happen here' $line2 ($extra + 'item-scoped light work? hold the item so this line attributes it; exploring? say so') 'none' 'none'
+ 373:         }
+ 374:         exit 0
+ 375:     }
+ 376: 
+ 377:     # The chain, from cache. Keyed by worktree id + branch, so two clones never share an entry
+ 378:     # and a branch renamed into a previously-cached name misses instead of hitting.
+ 379:     $chain = $null
+ 380:     try { $chain = Get-Chain $branch } catch { }
+ 381: 
+ 382:     # An unresolved chain claims NO root. The earlier version fell back to the item itself, which
+ 383:     # printed pm="AI4DEV-36" - asserting an item is its own root when the parent is simply unknown.
+ 384:     # Unknown is a value; inventing one is the failure this whole design exists to prevent.
+ 385:     $root = '-'
+ 386:     if (Test-Chain $chain $branch $item) {
+----
+ 389:         foreach ($n in $nodes) { $parts += (Fmt ([string]$n.id) ([string]$n.label)) }
+ 390:         $line1 = ($parts -join ' > ')
+ 391:         $root = [string]$nodes[0].id
+ 392:         $fresh = $false
+ 393:         try {
+ 394:             $age = (Get-Date) - [datetime]::Parse([string]$chain.resolvedAt, [Globalization.CultureInfo]::InvariantCulture)
+ 395:             $fresh = ($age.TotalHours -le 24 -and $age.TotalMinutes -ge -5)   # a future stamp is not "fresh"
+ 396:         }
+ 397:         catch { }
+ 398:         if (-not $fresh) { $extra += 'STALE - cached chain is old or its timestamp is unreadable; /work refreshes it' }
+ 399:         # A batch partner rides this branch (batching mode, founder 2026-08-11). The stamp says
+ 400:         # so, or two items run while the tree shows one.
+ 401:         try {
+ 402:             if ($chain.batchedWith -and (Test-ItemId ([string]$chain.batchedWith.id))) {
+ 403:                 $extra += ('batched with ' + (Fmt ([string]$chain.batchedWith.id) ([string]$chain.batchedWith.label)) + ' - closes via its sanctioned line in this branch''s pull request')
+ 404:                 $script:BatchAttr = [string]$chain.batchedWith.id
+ 405:             }
+ 406:         }
+ 407:         catch { }
+ 408:     }
+ 409:     elseif ($heldFill) {
+ 410:         # Held attribution has no branch-keyed chain by design - the branch is main. The held
+ 411:         # label makes the line legible, and the "held, not branch" note above already says why
+ 412:         # there are no parents; adding CHAIN UNRESOLVED here would flag normal light work as a
+ 413:         # defect on every prompt.
+ 414:         $line1 = Fmt $item $heldLabel
+ 415:     }
+ 416:     else {
+ 417:         $line1 = $item
+ 418:         $extra += 'CHAIN UNRESOLVED - no valid cached parents for this branch; /work resolves it'
+ 419:     }
+ 420: 
+ 421:     Emit $line1 $line2 $extra $root $item
+ 422: }
+ 423: catch {
+ 424:     Write-Output ('WORKING ON  unknown (stamp error: ' + ($_.Exception.Message -replace '[\r\n]', ' ') + ')')
+ 425:     Write-Output 'IN          wt ? - branch ?'
+ 426:     Write-Output '<ai4good-attribution pm="-" dev="-"/>'
+ 427: }
+----
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -Recurse -File | Select-String -Pattern 'AI4DEV-82|Window guard at the sitting boundary|window guard at the sitting boundary' -SimpleMatch:"'$false | ForEach-Object { $rel=$_.Path.Substring((Get-Location).Path.Length+1); "$rel:$($_.LineNumber): $($_.Line.Trim())" }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+2026-08-12T14:59:32.513856Z ERROR codex_core::tools::router: error=Exit code: 1
+Wall time: 0.3 seconds
+Output:
+At line:2 char:235
++ ...  $rel=$_.Path.Substring((Get-Location).Path.Length+1); "$rel:$($_.Lin ...
++                                                             ~~~~~
+Variable reference is not valid. ':' was not followed by a valid variable name character. Consider using ${} to 
+delimit the name.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : InvalidVariableReferenceWithDrive
+ 
+
+ exited 1 in 323ms:
+At line:2 char:235
++ ...  $rel=$_.Path.Substring((Get-Location).Path.Length+1); "$rel:$($_.Lin ...
++                                                             ~~~~~
+Variable reference is not valid. ':' was not followed by a valid variable name character. Consider using ${} to 
+delimit the name.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : InvalidVariableReferenceWithDrive
+ 
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -Recurse -File | Select-String -Pattern 'AI4DEV-82|Window guard at the sitting boundary|window guard at the sitting boundary' | ForEach-Object { "'$rel=$_.Path.Substring((Get-Location).Path.Length+1); '"'{0}:{1}: {2}' -f "'$rel,$_.LineNumber,$_.Line.Trim() }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 2028ms:
+loop\items\AI4DEV-82\gate1-prompt.txt:98: The plan under review is `loop/items/AI4DEV-82/plan.md`. The board item it plans is AI4DEV-82
+loop\items\AI4DEV-82\gate1-prompt.txt:99: ("Window guard at the sitting boundary — park before the wall instead of dying mid-sitting"),
+loop\items\AI4DEV-82\gate1-prompt.txt:126: - `loop/items/AI4DEV-82/artifacts/hook-measurement.md` and
+loop\items\AI4DEV-82\gate1-prompt.txt:127: `loop/items/AI4DEV-82/artifacts/hookprobe/*.jsonl` — the measurement the design rests on;
+loop\items\AI4DEV-82\PHASE-STATE.md:1: # PHASE-STATE — AI4DEV-82 (window guard at the sitting boundary)
+loop\items\AI4DEV-82\PHASE-STATE.md:5: derived from the branch: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the sitting
+loop\items\AI4DEV-82\PHASE-STATE.md:36: effort `xhigh`, codex, `--sandbox read-only`, prompt file `loop/items/AI4DEV-82/gate1-prompt.txt`,
+loop\items\AI4DEV-82\PHASE-STATE.md:47: - The specification is the Linear item description (AI4DEV-82, updated 2026-08-12). The plan
+loop\items\AI4DEV-82\plan.md:1: # Plan — AI4DEV-82 (window guard at the sitting boundary)
+loop\items\AI4DEV-82\plan.md:3: Branch: `nirdrang/ai4dev-82-window-guard-at-the-sitting-boundary-park-before-the-wall`, cut from
+loop\items\AI4DEV-82\plan.md:4: main at 390042c. Chain: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the sitting
+loop\items\AI4DEV-82\plan.md:177: under `loop/items/AI4DEV-82/`. Nothing in `src/`, `supabase/`, `tests/` or `.github/`. The
+loop\items\AI4DEV-82\pr-body.md:1: Window guard at the sitting boundary (AI4DEV-82): a sitting that cannot finish inside the usage
+loop\items\AI4DEV-82\pr-body.md:8: Current state: PLAN phase. The plan (`loop/items/AI4DEV-82/plan.md`) and the item's required
+loop\items\AI4DEV-82\pr-body.md:12: built (evidence in `loop/items/AI4DEV-82/artifacts/hook-measurement.md`).
+loop\items\AI4DEV-82\pr-body.md:16: `loop/items/AI4DEV-82/artifacts/worktree-incident.md`.
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:111: The plan under review is `loop/items/AI4DEV-82/plan.md`. The board item it plans is AI4DEV-82
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:112: ("Window guard at the sitting boundary — park before the wall instead of dying mid-sitting"),
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:139: - `loop/items/AI4DEV-82/artifacts/hook-measurement.md` and
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:140: `loop/items/AI4DEV-82/artifacts/hookprobe/*.jsonl` — the measurement the design rests on;
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:186: I’ll perform a strictly read-only review: inspect the plan, cited source files, raw measurement logs, and any repository copy of the AI4DEV-82 board specification. I will not run scripts, tests, hooks, or any command that exercises project behavior; runtime-dependent conclusions will be marked unverified with an exact verification step.
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:188: "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$files = @('"'loop/items/AI4DEV-82/plan.md','loop/work/window-gauge.ps1','loop/work/window-wait.ps1','loop/work/window-sim.ps1','loop/work/statusline.ps1','loop/work/stamp-hook.ps1','loop/work/guard-branch-switch.ps1','loop/drills/run-drills.ps1','.claude/settings.json','.claude/skills/work/shared-invariants.md','.claude/agents/conductor.md','loop/items/AI4DEV-82/artifacts/hook-measurement.md'); foreach ("'$f in $files) { $item = Get-Item -LiteralPath $f -ErrorAction SilentlyContinue; if ($null -eq $item) { Write-Output "MISSING`t$f" } else { Write-Output "$($item.Length)`t$f" } }; Get-ChildItem -LiteralPath '"'loop/items/AI4DEV-82/artifacts/hookprobe' -File -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object { Write-Output \""'$($_.Length)`t$($_.FullName.Substring((Get-Location).Path.Length + 1))" }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:190: 14059	loop/items/AI4DEV-82/plan.md
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:201: 5406	loop/items/AI4DEV-82/artifacts/hook-measurement.md
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:202: 20984	loop\items\AI4DEV-82\artifacts\hookprobe\post-run1.jsonl
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:203: 3810	loop\items\AI4DEV-82\artifacts\hookprobe\post-run2.jsonl
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:204: 13945	loop\items\AI4DEV-82\artifacts\hookprobe\pre-run1.jsonl
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:205: 1828	loop\items\AI4DEV-82\artifacts\hookprobe\pre-run2.jsonl
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:206: 740	loop\items\AI4DEV-82\artifacts\hookprobe\probe-settings.json
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:207: 344	loop\items\AI4DEV-82\artifacts\hookprobe\prompt-run2.txt
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:210: "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'loop/items/AI4DEV-82/plan.md'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:212: 1: # Plan â€” AI4DEV-82 (window guard at the sitting boundary)
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:214: 3: Branch: `nirdrang/ai4dev-82-window-guard-at-the-sitting-boundary-park-before-the-wall`, cut from
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:215: 4: main at 390042c. Chain: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the sitting
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:388: 177: under `loop/items/AI4DEV-82/`. Nothing in `src/`, `supabase/`, `tests/` or `.github/`. The
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:1549: "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -Recurse -File | Select-String -Pattern 'AI4DEV-82|Window guard at the sitting boundary|window guard at the sitting boundary' -SimpleMatch:"'$false | ForEach-Object { $rel=$_.Path.Substring((Get-Location).Path.Length+1); "$rel:$($_.LineNumber): $($_.Line.Trim())" }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+loop\items\AI4DEV-82\artifacts\gate1-sol-stderr.log:1573: "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -Recurse -File | Select-String -Pattern 'AI4DEV-82|Window guard at the sitting boundary|window guard at the sitting boundary' | ForEach-Object { "'$rel=$_.Path.Substring((Get-Location).Path.Length+1); '"'{0}:{1}: {2}' -f "'$rel,$_.LineNumber,$_.Line.Trim() }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+loop\items\AI4DEV-82\artifacts\hook-measurement.md:1: # AI4DEV-82 — measurement: do PreToolUse hooks fire for Agent calls made inside spawned agents?
+loop\items\AI4DEV-82\artifacts\worktree-incident.md:1: # AI4DEV-82 — worktree auto-clean incident (2026-08-12, PLAN sitting)
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$targets=@('"'loop/items/AI4DEV-82/PHASE-STATE.md','loop/items/AI4DEV-82/pr-body.md','loop/items/AI4DEV-82/gate1-prompt.txt'); foreach("'$p in $targets){ Write-Output "FILE $p"; $n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 639ms:
+FILE loop/items/AI4DEV-82/PHASE-STATE.md
+   1: # PHASE-STATE â€” AI4DEV-82 (window guard at the sitting boundary)
+   2: 
+   3: **Phase: PLAN COMPLETE â€” the next event is GATE 1 (the plan review), a wait the conductor
+   4: holds.** Written by the PLAN sitting, orchestrator on **fable @ xhigh**, 2026-08-12. Chain,
+   5: derived from the branch: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the sitting
+   6: boundary)`. Bring-up item; no database slot (coordinator-confirmed: hooks, PowerShell scripts
+   7: and a drill).
+   8: 
+   9: ## What happened this sitting
+  10: 
+  11: 1. **The worktree had been auto-cleaned mid-sitting and was repaired.** The conductor's tree
+  12:    arrived populated, then the platform's unchanged-worktree cleanup emptied and unregistered it
+  13:    while this sitting ran (zero commits existed on the branch, so it counted as unchanged). This
+  14:    sitting re-registered the same path on the item branch and immediately committed and pushed
+  15:    an anchor, which is what makes the tree survive from now on. Full evidence:
+  16:    `artifacts/worktree-incident.md`. Consequences the next sittings must know: **node_modules is
+  17:    NOT installed in this tree** (nothing in this item needs it), and any file state the conductor
+  18:    remembers from before the repair is unreliable â€” the branch and the pushed record are the
+  19:    truth.
+  20: 2. **The item's required first measurement is done and positive** â€” PreToolUse hooks fire for
+  21:    Agent calls made inside spawned agents; the matcher name is `Agent`; deny reasons reach the
+  22:    denied actor; PostToolUse fires inside subagents; UserPromptSubmit does not. Three
+  23:    instruments agree. Evidence: `artifacts/hook-measurement.md` + `artifacts/hookprobe/`.
+  24:    **The conductor-fallback branch of the item is dead; the hook design is confirmed.**
+  25: 3. **`plan.md` is written** â€” eleven steps, each with a done-criterion; the drill is the
+  26:    executable test body and is written red-first at step 3; one slice; scope declaration for the
+  27:    later audit brief included.
+  28: 4. **`gate1-prompt.txt` is written** â€” contract + PLAN review section + this item's additions
+  29:    (no pins block, no sibling gates).
+  30: 5. **The pull request is opened by a mechanical after this state file is pushed**, so the
+  31:    required CI check gates from the first push onward.
+  32: 
+  33: ## What completes the next phase
+  34: 
+  35: GATE 1: the conductor launches one reviewer-runner for the plan gate â€” reader `gpt-5.6-sol`,
+  36: effort `xhigh`, codex, `--sandbox read-only`, prompt file `loop/items/AI4DEV-82/gate1-prompt.txt`,
+  37: pinned at this branch head â€” waits for the landing, and has the distillate produced. Then the
+  38: conductor spawns the DRAFT sitting (orchestrator, fable), which rules on every gate 1 finding,
+  39: amends `plan.md`, pushes rulings + amendment BEFORE any code changes, and only then spawns the
+  40: executor for the draft (typecheck-level clean for scripts means: every script parses; the drill
+  41: runs; the verify suite â€” drill green â€” deliberately NOT yet achieved).
+  42: 
+  43: ## Facts the next sitting needs
+  44: 
+  45: - Branch base: 390042c (= main at branch creation). The anchor commit and the plan commits sit
+  46:   on top; the head the conductor pins for gate 1 is the pushed head of this sitting's close.
+  47: - The specification is the Linear item description (AI4DEV-82, updated 2026-08-12). The plan
+  48:   quotes every load-bearing ruling; if a gate 1 finding disputes a quote, the Linear text wins
+  49:   and the ruling should re-read it.
+  50: - The audit brief (fix sitting's job) must scope the auditors' change-set command to this item's
+  51:   declared territory (see plan.md "Scope declaration") â€” the default source-only diff yields an
+  52:   empty list here.
+  53: - The merge sitting must verify post-merge that the running interactive session actually picked
+  54:   up the new hook entries (the docs claim a file watcher does it; unmeasured), and record the
+  55:   answer.
+  56: 
+  57: ## Open questions for the founder
+  58: 
+  59: None. The measurement confirmed the hook design, so the item's conditional fallback never
+  60: activates and nothing contradicts ratified text. No scope growth: everything planned is inside
+  61: the item's own specification.
+FILE loop/items/AI4DEV-82/pr-body.md
+   1: Window guard at the sitting boundary (AI4DEV-82): a sitting that cannot finish inside the usage
+   2: window must not start. This branch will carry three hooks that mechanically apply the founder's
+   3: 85% line â€” a PreToolUse gate that denies Agent spawns while the window is past the line, a
+   4: PostToolUse alarm that tells every running actor to finish its current work item, commit and
+   5: park, and a stamp alarm for the founder's own session â€” plus a sensor-written verdict file, the
+   6: parking and resume choreography, and a synthetic-snapshot drill.
+   7: 
+   8: Current state: PLAN phase. The plan (`loop/items/AI4DEV-82/plan.md`) and the item's required
+   9: first measurement are in. Measured result, three instruments agreeing: PreToolUse hooks fire for
+  10: Agent calls made inside spawned agents â€” the nested-spawn probe logged `PreToolUse tool=Agent`
+  11: with a non-empty `agent_id` â€” so the hook design stands and the conductor-side fallback is not
+  12: built (evidence in `loop/items/AI4DEV-82/artifacts/hook-measurement.md`).
+  13: 
+  14: Also in this branch's record: the item worktree was auto-cleaned mid-sitting because its branch
+  15: carried zero commits; the repair and its lesson are recorded in
+  16: `loop/items/AI4DEV-82/artifacts/worktree-incident.md`.
+  17: 
+  18: ðŸ¤– Generated with [Claude Code](https://claude.com/claude-code)
+FILE loop/items/AI4DEV-82/gate1-prompt.txt
+   1: ## Your contract
+   2: 
+   3: **Stateless â€” never resumed.** Every run is a fresh session, fully specified by four things: the
+   4: tree at a pinned commit, this prompt, the model and effort pins, and the launch cage â€” a read-only
+   5: sandbox, or an agent definition whose write tools are removed. A review
+   6: is a function of a commit. This deletes three hazards that cost real time: a resumed session
+   7: running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+   8: its creating directory, and recovering half-written output from a session store. If an output is
+   9: lost, re-run it â€” the result is a fresh sample of the same commit, not a reproduction, and say so.
+  10: 
+  11: **You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+  12: runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+  13: is not a weakness â€” it becomes a *verify-first* ruling, and the executor checks it with first-hand
+  14: access. Reviewers assert; the executor verifies.
+  15: 
+  16: **NO WRITES â€” stated, not assumed.** The launch cage is the enforcement â€” a read-only sandbox, or
+  17: a removed tool set â€” and this sentence is the instruction; every launch prompt carries it
+  18: explicitly. A read-*intended* reviewer once
+  19: wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+  20: choice (2026-08-05). Do not create, edit or delete anything in the tree â€” not a scratch file, not
+  21: a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+  22: *verify-first* finding for the executor, and saying so is the correct answer.
+  23: 
+  24: **Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+  25: needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+  26: item â€” mention it once, outside your findings, and move on.
+  27: 
+  28: **Write paths relative to the repository root**, never the launcher's directory. A committed
+  29: prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+  30: existed.
+  31: 
+  32: **Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+  33: line is not a critique; if you have no findings, say so in one line â€” an empty gate must be
+  34: visible as empty, never mistaken for a clean one.
+  35: 
+  36: **Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+  37: state as a concrete failure is not a finding â€” do not manufacture one to look thorough. But a
+  38: concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+  39: sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+  40: format below is the bar for how a finding is WRITTEN â€” a concrete location, a plausible failure,
+  41: something an engineer can act on â€” never a filter on whether it is reported at all.
+  42: 
+  43: **Assume you are the only reader this commit will get.** You will see other roles named in this
+  44: contract â€” someone verifies runtime claims, someone rules on what you report, someone reads your
+  45: output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+  46: that it is someone else's department, that a later stage will catch it, or that it is not what you
+  47: were asked to look at.** A concern you decline to raise because you assume it is covered is a
+  48: concern nobody raises. If it falls outside your subject, say so beside the finding â€” but say it.
+  49: 
+  50: Every finding you report:
+  51: 
+  52: ```
+  53: [n] severity: <your own scale, stated>    <path>:<line>
+  54:     claim: <one sentence, the defect itself>
+  55:     why it matters: <the concrete failure â€” inputs or state â†’ wrong result>
+  56:     unverified-runtime-claim: yes | no
+  57: ```
+  58: 
+  59: **Close with a count line, alone on the last line**, using the label your own section gives you â€”
+  60: `CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+  61: tell on itself: output that stops after a complete finding looks whole, and only the missing
+  62: terminal line shows that it is not. The distiller compares it against what it extracted and
+  63: reports any mismatch.
+  64: 
+  65: ## The PLAN review
+  66: 
+  67: **Subject** Â· `plan.md` at the pinned commit, the board item, the specification, and the code the
+  68: plan claims things about.
+  69: 
+  70: **Give no credit for intent.** A plan is made of promises, and only some of them count. A promise
+  71: carrying its own step and done-criterion in this plan, or work an item boundary correctly leaves to
+  72: another item, is a commitment â€” judge it as written, and do not fault an early step for work a
+  73: later one commits to. Everything else is worth nothing here: what the author obviously means, what
+  74: is "handled elsewhere" with nothing behind it, what a later pass will tidy. A step that works only
+  75: on the happy path is a weakness, not a start.
+  76: 
+  77: You are refuting a plan before anything is built. Attack both layers â€” what it decides, and
+  78: whether it can be executed as written:
+  79: 
+  80: - **a decision stated as settled that is not decided** â€” the plan asserting a choice the founder
+  81:   or the specification never made
+  82: - **a fact wrong against the code** â€” verify every claim the plan makes about the tree; never
+  83:   trust one
+  84: - **a constraint that contradicts the role contracts** â€” the plan instructing something the
+  85:   process forbids
+  86: - **scope that forces a mid-flight redesign** â€” work that cannot be finished in the shape planned
+  87: - **anything no tool can actually do.** *A plan that cannot be executed as written is this gate's
+  88:   target failure.*
+  89: - **the plan's teeth** â€” steps missing a done-criterion; oracles too weak to prove what they
+  90:   claim; a green that would not mean what the item says it means. On one real outing this gate
+  91:   caught a test oracle that would have passed while proving nothing, and a do-nothing
+  92:   implementation that would have satisfied the entire verification gate.
+  93: 
+  94: Your count line is `PLAN REVIEW: CLEAN` or `PLAN REVIEW: 3 FINDINGS`.
+  95: 
+  96: ## This item
+  97: 
+  98: The plan under review is `loop/items/AI4DEV-82/plan.md`. The board item it plans is AI4DEV-82
+  99: ("Window guard at the sitting boundary â€” park before the wall instead of dying mid-sitting"),
+ 100: a bring-up item: three hooks that enforce the founder's 85% usage-window line at every agent
+ 101: spawn boundary, a sensor-written verdict file, parking choreography, and a drill. The item's
+ 102: specification lives on the board; the plan quotes its load-bearing rulings (the 85 line, the
+ 103: three-hook shape, read-never-compute for the per-tool checkpoint, the propagation and resume
+ 104: choreography, the four drill assertion groups). Judge the plan against its own quoted
+ 105: requirements, against the measurement record it cites, and against the tree.
+ 106: 
+ 107: Files the plan makes claims about â€” verify every claim against them:
+ 108: 
+ 109: - `loop/work/window-gauge.ps1` â€” the verdict logic the plan extracts into a library; the
+ 110:   `-PauseAt 90` default and its founder-ruling comments; the stale-high/stale-low rules
+ 111: - `loop/work/window-wait.ps1` â€” its own `-PauseAt 90` default the plan claims must also move
+ 112: - `loop/work/window-sim.ps1` â€” the hardcoded 89/90 boundary and float-noise cases the plan
+ 113:   claims must move with the line; whether other cases also encode 90 and are missed
+ 114: - `loop/work/statusline.ps1` â€” the snapshot write the verdict file rides on; the never-throw
+ 115:   envelope; the cost doctrine the plan leans on to justify in-process computation
+ 116: - `loop/work/stamp-hook.ps1` â€” where the plan adds the verdict read and alarm lines; the
+ 117:   `$extra` mechanism it claims to reuse
+ 118: - `loop/work/guard-branch-switch.ps1` â€” the fail-open doctrine and PreToolUse wiring pattern
+ 119:   the plan copies
+ 120: - `loop/drills/run-drills.ps1` â€” the wiring pattern (the twin-check fold) the plan claims to
+ 121:   follow
+ 122: - `.claude/settings.json` â€” the existing hook entries and absolute-path precedent
+ 123: - `.claude/skills/work/shared-invariants.md` â€” the usage-window section the plan amends; attack
+ 124:   any wording that would make the hook a second authority to halt work
+ 125: - `.claude/agents/conductor.md` â€” where the park-note choreography lands
+ 126: - `loop/items/AI4DEV-82/artifacts/hook-measurement.md` and
+ 127:   `loop/items/AI4DEV-82/artifacts/hookprobe/*.jsonl` â€” the measurement the design rests on;
+ 128:   check the plan's statements about it against the raw logs
+ 129: 
+ 130: Additional risks to attack, beyond your standing list:
+ 131: 
+ 132: - The library extraction (D1) claims behavior-neutrality for every existing gauge caller, gated
+ 133:   only by `window-sim.ps1` staying green. Attack whether the sim actually pins the behaviors
+ 134:   that could drift â€” the JSON field names and shapes, the exit codes under `-ExitOnReady`, the
+ 135:   human output lines other tooling may parse.
+ 136: - The verdict file (D3) has three literals where the item's text names two (`OK`, `ALARM ...`).
+ 137:   The plan justifies `UNKNOWN` from shared-invariants. Attack whether any checkpoint's handling
+ 138:   of the third literal contradicts the item's text, and whether a stale verdict FILE (written
+ 139:   fresh, read much later) can mislead any checkpoint in the park direction or the silent
+ 140:   direction beyond the jitter bound the item already accepts.
+ 141: - The gate (D4) computes a fresh verdict instead of reading the verdict file, and the plan
+ 142:   reads the item's "checkpoints read, they never compute" as targeting only the per-tool alarm.
+ 143:   Attack that reading against the item's own words, and attack the gate's fail-open choice: name
+ 144:   a concrete scenario where fail-open at the spawn boundary defeats the item's purpose, if you
+ 145:   can.
+ 146: - The alarm (D5) is a cmd batch file using `findstr /b` with redirection `1>&2 2>nul` and
+ 147:   `exit /b 2`. Attack the mechanics: redirection order, errorlevel semantics with `&&`, quoting
+ 148:   of a path containing spaces, behavior when the verdict file is missing, and whether exit 2
+ 149:   from a PostToolUse hook has side effects beyond showing stderr that the plan does not name.
+ 150: - The stamp addition (D6) runs inside a hook whose one hard rule is that it never hangs and
+ 151:   never goes silent. Attack the failure modes of the verdict read (locked file, directory
+ 152:   missing, env override set but stale) against that rule.
+ 153: - The env override (D7, `AI4GOOD_WINDOW_DIR`) redirects live sensor paths. Attack the leak
+ 154:   directions: a drill that dies with the env var set, a live session that inherits it, the
+ 155:   override applying to some readers and not others so the drill's group 4 consistency assertion
+ 156:   proves less than it claims.
+ 157: - The drill (D8) asserts on hook OUTPUT (JSON, stderr, exit codes), not on harness behavior â€”
+ 158:   nothing in it proves Claude Code actually honors a deny or feeds stderr to the model. The plan
+ 159:   cites the measurement record for that half. Attack whether the four groups plus the
+ 160:   measurement genuinely cover the item's four numbered drill assertions, and name any gap where
+ 161:   the drill would stay green while the deployed watchdog does nothing.
+ 162: - Step 9 wires hooks the branch cannot observe live before merge, and the plan says so. Attack
+ 163:   whether the post-merge verification it defers is actually someone's named responsibility in
+ 164:   the plan's own text, or an orphan.
+ 165: - The contract amendments (D9) touch the constitution's usage-window section. Attack any
+ 166:   sentence of the planned wording that loosens the process (a loosening needs an explicit
+ 167:   founder ruling) or that could be read as authorizing an actor other than the coordinator to
+ 168:   decide.
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'loop/items/AI4DEV-82/artifacts/hook-measurement.md'; "'$n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 517ms:
+   1: # AI4DEV-82 â€” measurement: do PreToolUse hooks fire for Agent calls made inside spawned agents?
+   2: 
+   3: **Answer: YES, measured directly.** The item's required first step is settled: PreToolUse hooks
+   4: fire for Agent tool calls made from WITHIN a spawned subagent, not only at the top level of the
+   5: interactive session. The hook-based design stands as specified; the fallback (the conductor
+   6: running the gauge before each spawn by contract) is NOT needed. Measured 2026-08-12 by the PLAN
+   7: sitting, with three independent instruments.
+   8: 
+   9: ## Instrument 1 â€” live probe in the production session tree (free)
+  10: 
+  11: The repository already carries a PreToolUse hook matched to `Bash|PowerShell`
+  12: (`loop/work/guard-branch-switch.ps1`). This sitting is a nested agent â€” interactive coordinator
+  13: session â†’ conductor (subagent) â†’ this orchestrator (subagent of a subagent). The sitting ran a
+  14: deliberately deniable, otherwise harmless PowerShell tool call:
+  15: 
+  16: ```
+  17: git -C C:\Users\nirdr\Downloads\ai4good checkout main    # main worktree is already on main â€” a no-op if unblocked
+  18: ```
+  19: 
+  20: Result: the hook FIRED and DENIED â€” the full `BLOCKED: this is the MAIN worktree...` message
+  21: arrived in this agent's transcript as the tool error, exit 2. Two facts follow: PreToolUse hooks
+  22: run for tool calls made by nested subagents at depth â‰¥ 2, and the deny text reaches the denied
+  23: actor's transcript. (If hooks had not fired, the command was a no-op: "Already on 'main'".)
+  24: 
+  25: ## Instrument 2 â€” the documentation (claude-code-guide agent)
+  26: 
+  27: - "Hooks from settings files ... also run inside subagents. When a subagent calls a tool, tool
+  28:   events such as `PreToolUse` and `PostToolUse` fire the same configured hooks as in the main
+  29:   conversation, and the input carries the `agent_id` and `agent_type` fields" (hooks-guide, "How
+  30:   hooks work").
+  31: - The spawn tool's name for matchers is **`Agent`** (tools-reference; there is no separate Task
+  32:   tool name in current versions).
+  33: - PreToolUse deny with a model-visible reason: JSON `hookSpecificOutput.permissionDecision:
+  34:   "deny"` + `permissionDecisionReason` â€” "cancel the tool call and send the reason to Claude".
+  35: - PostToolUse: exit code 2 "shows stderr to Claude; the tool already ran" â€” the channel for a
+  36:   model-visible per-tool alarm.
+  37: - UserPromptSubmit: exit 0 stdout is injected into context (the stamp already relies on this).
+  38: - Mid-session settings edits: "the file watcher normally picks up hook changes automatically" â€”
+  39:   the docs claim no session-start freeze. Not independently measured; flagged for a post-merge
+  40:   check rather than relied on.
+  41: 
+  42: ## Instrument 3 â€” headless probe with log-everything hooks (decisive)
+  43: 
+  44: A scratchpad project with `probe-settings.json` (committed beside this file): PreToolUse and
+  45: PostToolUse hooks with NO matcher, each appending its full stdin JSON to `pre.jsonl` /
+  46: `post.jsonl`. Two headless runs (`claude -p --settings probe-settings.json`):
+  47: 
+  48: **Run 1** (prompt mangled by native-argument quoting, still informative): the top-level session
+  49: ran Bash and spawned one general-purpose subagent; that subagent used Skill, Glob, Read, Grep and
+  50: PowerShell. `pre-run1.jsonl` / `post-run1.jsonl` show PreToolUse AND PostToolUse events for every
+  51: one of those subagent tool calls, each carrying `agent_id` + `agent_type=general-purpose`, plus a
+  52: top-level `tool=Agent` PreToolUse event, plus events from a further nested headless session.
+  53: 
+  54: **Run 2** (prompt piped via stdin, clean): top level spawns agent A; agent A spawns agent B. The
+  55: complete `pre-run2.jsonl`, four lines total across both files:
+  56: 
+  57: ```
+  58: PreToolUse   tool=Agent  agent_id=(empty)            session=c15ee2f2   <- top-level spawn
+  59: PreToolUse   tool=Agent  agent_id=a19066bbe5c4b7eb7  agent_type=general-purpose   <- AGENT A'S OWN SPAWN OF AGENT B
+  60: PostToolUse  tool=Agent  agent_id=a19066bbe5c4b7eb7  agent_type=general-purpose   <- B completed, seen from inside A
+  61: PostToolUse  tool=Agent  agent_id=(empty)            session=c15ee2f2   <- A completed, top level
+  62: ```
+  63: 
+  64: The second line is the deployment case verbatim: an Agent call made INSIDE a spawned agent (the
+  65: conductor-spawns-a-sitting shape) passes through PreToolUse, and the payload identifies the
+  66: spawning subagent. Raw evidence: `hookprobe/*.jsonl`, the probe settings, and the run-2 prompt,
+  67: all in this directory.
+  68: 
+  69: ## Consequences for the build
+  70: 
+  71: 1. The PreToolUse gate matched to `Agent` guards EVERY spawn boundary in the relay â€” coordinator
+  72:    â†’ conductor, conductor â†’ sitting, conductor â†’ reviewer-runner, orchestrator â†’ executor and
+  73:    mechanical â€” from one hook entry. No per-contract fallback text is needed.
+  74: 2. Deny shape: JSON `permissionDecision: "deny"` with the reason string; the reason reaches the
+  75:    denied actor, so the parking choreography rides IN the deny reason.
+  76: 3. Alarm shape: PostToolUse, exit 2 + stderr, fires inside subagents too â€” every actor hears it.
+  77: 4. The stamp alarm rides UserPromptSubmit stdout as the stamp already does. UserPromptSubmit does
+  78:    not fire inside subagents (docs are silent on it; no such event appeared in any probe log) â€”
+  79:    which is why the item's design carries the PostToolUse alarm for agents and the stamp alarm
+  80:    for the founder-facing session, and both are needed.
+  81: 5. One caution kept from run 1: PowerShell native-argument quoting mangled a nested prompt. The
+  82:    drill therefore feeds hook stdin via files/pipes, never as inline quoted JSON arguments.
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$targets=@('"'loop/items/AI4DEV-82/artifacts/hookprobe/pre-run2.jsonl','loop/items/AI4DEV-82/artifacts/hookprobe/post-run2.jsonl','loop/items/AI4DEV-82/artifacts/hookprobe/probe-settings.json','loop/items/AI4DEV-82/artifacts/hookprobe/prompt-run2.txt'); foreach("'$p in $targets){ Write-Output "FILE $p"; $n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 537ms:
+FILE loop/items/AI4DEV-82/artifacts/hookprobe/pre-run2.jsonl
+   1: {"session_id":"c15ee2f2-07fc-4315-8873-aa27232976b8","transcript_path":"C:\\Users\\nirdr\\.claude\\projects\\C--Users-nirdr-AppData-Local-Temp-claude-c--Users-nirdr-Downloads-ai4good-64055e14-b1be-4db2-8ff0-2e28cfb15b4a-scratchpad-hookprobe\\c15ee2f2-07fc-4315-8873-aa27232976b8.jsonl","cwd":"C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\hookprobe","prompt_id":"30f80f52-90a8-40a5-9e38-2217d8b64381","permission_mode":"auto","effort":{"level":"high"},"hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"description":"Spawn nested done agent","prompt":"Spawn a subagent of type general-purpose whose entire task is to reply with the single word done. Wait for it, then reply with the single word done.","subagent_type":"general-purpose","run_in_background":false},"tool_use_id":"toolu_017uuUvtAbRV8VejWLsZhWgf"}
+   2: 
+   3: {"session_id":"c15ee2f2-07fc-4315-8873-aa27232976b8","transcript_path":"C:\\Users\\nirdr\\.claude\\projects\\C--Users-nirdr-AppData-Local-Temp-claude-c--Users-nirdr-Downloads-ai4good-64055e14-b1be-4db2-8ff0-2e28cfb15b4a-scratchpad-hookprobe\\c15ee2f2-07fc-4315-8873-aa27232976b8.jsonl","cwd":"C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\hookprobe","prompt_id":"30f80f52-90a8-40a5-9e38-2217d8b64381","permission_mode":"auto","agent_id":"a19066bbe5c4b7eb7","agent_type":"general-purpose","effort":{"level":"high"},"hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"description":"Reply with word done","prompt":"Reply with the single word: done. Do nothing else ΓÇö no tool calls, no extra text.","subagent_type":"general-purpose","run_in_background":false},"tool_use_id":"toolu_0115S9BvoVVFvTX7nMh64Kbg"}
+   4: 
+FILE loop/items/AI4DEV-82/artifacts/hookprobe/post-run2.jsonl
+   1: {"session_id":"c15ee2f2-07fc-4315-8873-aa27232976b8","transcript_path":"C:\\Users\\nirdr\\.claude\\projects\\C--Users-nirdr-AppData-Local-Temp-claude-c--Users-nirdr-Downloads-ai4good-64055e14-b1be-4db2-8ff0-2e28cfb15b4a-scratchpad-hookprobe\\c15ee2f2-07fc-4315-8873-aa27232976b8.jsonl","cwd":"C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\hookprobe","prompt_id":"30f80f52-90a8-40a5-9e38-2217d8b64381","permission_mode":"auto","agent_id":"a19066bbe5c4b7eb7","agent_type":"general-purpose","effort":{"level":"high"},"hook_event_name":"PostToolUse","tool_name":"Agent","tool_input":{"description":"Reply with word done","prompt":"Reply with the single word: done. Do nothing else ΓÇö no tool calls, no extra text.","subagent_type":"general-purpose","run_in_background":false},"tool_response":{"status":"completed","prompt":"Reply with the single word: done. Do nothing else ΓÇö no tool calls, no extra text.","agentId":"aed9d1c40b7dd554a","agentType":"general-purpose","content":[{"type":"text","text":"done"}],"resolvedModel":"claude-fable-5","totalDurationMs":4040,"totalTokens":21658,"totalToolUseCount":0,"usage":{"input_tokens":2,"cache_creation_input_tokens":4960,"cache_read_input_tokens":16693,"output_tokens":3,"output_tokens_details":{"thinking_tokens":0},"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":4960},"inference_geo":"not_available","iterations":[{"input_tokens":2,"output_tokens":3,"cache_read_input_tokens":16693,"cache_creation_input_tokens":4960,"cache_creation":{"ephemeral_5m_input_tokens":4960,"ephemeral_1h_input_tokens":0},"type":"message"}],"speed":"standard"}},"tool_use_id":"toolu_0115S9BvoVVFvTX7nMh64Kbg","duration_ms":6424}
+   2: 
+   3: {"session_id":"c15ee2f2-07fc-4315-8873-aa27232976b8","transcript_path":"C:\\Users\\nirdr\\.claude\\projects\\C--Users-nirdr-AppData-Local-Temp-claude-c--Users-nirdr-Downloads-ai4good-64055e14-b1be-4db2-8ff0-2e28cfb15b4a-scratchpad-hookprobe\\c15ee2f2-07fc-4315-8873-aa27232976b8.jsonl","cwd":"C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\hookprobe","prompt_id":"30f80f52-90a8-40a5-9e38-2217d8b64381","permission_mode":"auto","effort":{"level":"high"},"hook_event_name":"PostToolUse","tool_name":"Agent","tool_input":{"description":"Spawn nested done agent","prompt":"Spawn a subagent of type general-purpose whose entire task is to reply with the single word done. Wait for it, then reply with the single word done.","subagent_type":"general-purpose","run_in_background":false},"tool_response":{"status":"completed","prompt":"Spawn a subagent of type general-purpose whose entire task is to reply with the single word done. Wait for it, then reply with the single word done.","agentId":"a19066bbe5c4b7eb7","agentType":"general-purpose","content":[{"type":"text","text":"done"}],"resolvedModel":"claude-fable-5","totalDurationMs":19074,"totalTokens":23215,"totalToolUseCount":1,"usage":{"input_tokens":2,"cache_creation_input_tokens":1540,"cache_read_input_tokens":21670,"output_tokens":3,"output_tokens_details":{"thinking_tokens":0},"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":1540},"inference_geo":"not_available","iterations":[{"input_tokens":2,"output_tokens":3,"cache_read_input_tokens":21670,"cache_creation_input_tokens":1540,"cache_creation":{"ephemeral_5m_input_tokens":1540,"ephemeral_1h_input_tokens":0},"type":"message"}],"speed":"standard"}},"tool_use_id":"toolu_017uuUvtAbRV8VejWLsZhWgf","duration_ms":21002}
+   4: 
+FILE loop/items/AI4DEV-82/artifacts/hookprobe/probe-settings.json
+   1: {
+   2:   "hooks": {
+   3:     "PreToolUse": [
+   4:       {
+   5:         "hooks": [
+   6:           {
+   7:             "type": "command",
+   8:             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\hookprobe\\pre.ps1\""
+   9:           }
+  10:         ]
+  11:       }
+  12:     ],
+  13:     "PostToolUse": [
+  14:       {
+  15:         "hooks": [
+  16:           {
+  17:             "type": "command",
+  18:             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\hookprobe\\post.ps1\""
+  19:           }
+  20:         ]
+  21:       }
+  22:     ]
+  23:   }
+  24: }
+FILE loop/items/AI4DEV-82/artifacts/hookprobe/prompt-run2.txt
+   1: Spawn a subagent of type general-purpose. Its entire task is the following two sentences. Spawn a subagent of type general-purpose whose entire task is to reply with the single word done. Wait for it, then reply with the single word done. After your subagent completes, reply with the single word done. Use no tools other than the Agent tool.
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$targets=@('"'loop/work/guard-branch-switch.ps1','.claude/settings.json'); foreach("'$p in $targets){ Write-Output "FILE $p"; $n=0; Get-Content -LiteralPath $p | ForEach-Object { $n++; '"'{0,4}: {1}' -f "'$n, $_ } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 522ms:
+FILE loop/work/guard-branch-switch.ps1
+   1: # guard-branch-switch.ps1 - refuse a branch change in the MAIN worktree.
+   2: #
+   3: # WHY THIS EXISTS. A branch belongs to a DIRECTORY, not to a session. Several sessions are
+   4: # routinely open in the main folder at once; when any one of them switches branch, every other
+   5: # session in that folder is silently moved too, mid-turn, with no notification. On 2026-08-06 two
+   6: # sessions shared the main tree - one building a CI runner, one answering questions - and the
+   7: # branch was moved under each of them repeatedly. A `git switch main` was refused by git only
+   8: # because it happened to notice uncommitted files it would overwrite. That near miss is this file.
+   9: #
+  10: # The rule already existed in the work skill ("Never check out an item branch, or follow an agent
+  11: # into its worktree") and in CLAUDE.md ("a session works where it was launched, on one branch, for
+  12: # the whole item"). Both were broken the same day by two different actors, neither careless:
+  13: # switching is simply the obvious move when you are in the wrong branch. A rule you must remember
+  14: # mid-task is broken during exactly the tasks that matter, so this makes the move impossible
+  15: # rather than discouraged.
+  16: #
+  17: # WHAT IT PROTECTS - the MAIN worktree only, derived rather than hardcoded: git resolves
+  18: # --git-dir and --git-common-dir to the same path in the main worktree, and to different paths in
+  19: # every linked one. So item worktrees, agent worktrees and the design tree are all untouched, and
+  20: # a machine with the repo cloned somewhere else is protected too without configuration.
+  21: #
+  22: # THE ESCAPE HATCH IS DELIBERATE AND IS NOT A FLAG. Hooks only see tool calls, so a founder
+  23: # typing the same command in their own terminal is unaffected. A guard that can be turned off by
+  24: # the thing it guards is decoration.
+  25: #
+  26: # Contract: PreToolUse. Exit 0 allows; exit 2 blocks and sends stderr back to the agent.
+  27: # Never throws - a guard that crashes must fail OPEN, because breaking every shell command in
+  28: # every session is far worse than the collision it prevents.
+  29: 
+  30: $ErrorActionPreference = 'SilentlyContinue'
+  31: 
+  32: try {
+  33:     $raw = [Console]::In.ReadToEnd()
+  34:     if (-not $raw) { exit 0 }
+  35:     $j = $null
+  36:     try { $j = ConvertFrom-Json $raw } catch { exit 0 }
+  37: 
+  38:     $cmd = [string]$j.tool_input.command
+  39:     if (-not $cmd) { exit 0 }
+  40: 
+  41:     # Cheap reject first: the overwhelming majority of commands are not git at all.
+  42:     if ($cmd -notmatch '(?i)\bgit\b') { exit 0 }
+  43:     if ($cmd -notmatch '(?i)\bgit\b[^;|&]*\b(switch|checkout)\b') { exit 0 }
+  44: 
+  45:     # `git checkout -- <path>` and `git checkout <commit> -- <path>` restore FILES; they do not
+  46:     # move the branch. Allowing them matters: refusing a file restore would push people toward
+  47:     # deleting and rewriting files by hand, which is worse than what is being prevented.
+  48:     if ($cmd -match '(?i)\bgit\b[^;|&]*\b(switch|checkout)\b[^;|&]*\s--\s') { exit 0 }
+  49: 
+  50:     # `git worktree add` checks a branch out, but into a NEW directory - that is the remedy this
+  51:     # guard recommends, so it must never be blocked by it.
+  52:     if ($cmd -match '(?i)\bgit\b[^;|&]*\bworktree\b') { exit 0 }
+  53: 
+  54:     # Which directory would the command act on? `-C <path>` retargets git; otherwise the session's
+  55:     # own working directory. Reading the flag matters - a command run from elsewhere with
+  56:     # `-C <main tree>` moves the main tree just as effectively.
+  57:     $dir = [string]$j.cwd
+  58:     $m = [regex]::Match($cmd, '(?i)\bgit\s+(?:-c\s+\S+\s+)*-C\s+"?([^"\s]+)"?')
+  59:     if ($m.Success) { $dir = $m.Groups[1].Value }
+  60:     if (-not $dir) { exit 0 }
+  61:     if (-not (Test-Path $dir)) { exit 0 }
+  62: 
+  63:     $gitDir    = (& git -C $dir rev-parse --absolute-git-dir 2>$null)
+  64:     $commonDir = (& git -C $dir rev-parse --path-format=absolute --git-common-dir 2>$null)
+  65:     if (-not $gitDir -or -not $commonDir) { exit 0 }   # not a repo, or git unavailable: allow
+  66: 
+  67:     $gitDir    = $gitDir.Trim().Replace('\','/').TrimEnd('/')
+  68:     $commonDir = $commonDir.Trim().Replace('\','/').TrimEnd('/')
+  69: 
+  70:     # Linked worktree - its own directory, its own branch, nobody else's problem.
+  71:     if ($gitDir -ne $commonDir) { exit 0 }
+  72: 
+  73:     $branch = (& git -C $dir rev-parse --abbrev-ref HEAD 2>$null)
+  74:     if ($branch) { $branch = $branch.Trim() }
+  75: 
+  76:     $msg = @"
+  77: BLOCKED: this is the MAIN worktree, and a branch belongs to the directory, not to your session.
+  78: 
+  79:   directory : $dir
+  80:   branch    : $branch
+  81:   command   : $cmd
+  82: 
+  83: Other sessions are working in this same folder. Switching here moves them too, mid-turn, with no
+  84: warning - and if any of them has uncommitted work, that is where it is lost.
+  85: 
+  86: Do this instead:
+  87:   git worktree add <path> <branch>     # a new directory, its own branch, nobody disturbed
+  88:   git branch <name> origin/main        # create a branch WITHOUT checking it out
+  89: 
+  90: An item is worked in its own worktree by its own session. The coordinator stays on main.
+  91: "@
+  92:     [Console]::Error.Write($msg)
+  93:     exit 2
+  94: } catch {
+  95:     exit 0   # fail OPEN, always
+  96: }
+FILE .claude/settings.json
+   1: {
+   2:   "permissions": {
+   3:     "allow": [
+   4:       "Bash(gh pr merge:*)",
+   5:       "PowerShell(gh pr merge:*)"
+   6:     ]
+   7:   },
+   8:   "statusLine": {
+   9:     "type": "command",
+  10:     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\statusline.ps1\""
+  11:   },
+  12:   "hooks": {
+  13:     "PreToolUse": [
+  14:       {
+  15:         "matcher": "Bash|PowerShell",
+  16:         "hooks": [
+  17:           {
+  18:             "type": "command",
+  19:             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\guard-branch-switch.ps1\""
+  20:           }
+  21:         ]
+  22:       }
+  23:     ],
+  24:     "SessionStart": [
+  25:       {
+  26:         "hooks": [
+  27:           {
+  28:             "type": "command",
+  29:             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\banner.ps1\""
+  30:           }
+  31:         ]
+  32:       }
+  33:     ],
+  34:     "UserPromptSubmit": [
+  35:       {
+  36:         "hooks": [
+  37:           {
+  38:             "type": "command",
+  39:             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\stamp-hook.ps1\""
+  40:           }
+  41:         ]
+  42:       }
+  43:     ]
+  44:   }
+  45: }
+
+2026-08-12T15:00:22.230534Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$p='"'loop/drills/run-drills.ps1'; "'$lines=Get-Content -LiteralPath $p; $patterns=@('"'twin-check','passed','failed','exit','drill','assert'); "'$hits=@(); for($i=0;$i -lt $lines.Count;$i++){ foreach($pat in $patterns){ if($lines[$i] -match [regex]::Escape($pat)){ $hits += $i; break } } }; $ranges=@(); foreach($h in $hits){ $ranges += [pscustomobject]@{s=[math]::Max(0,$h-5);e=[math]::Min($lines.Count-1,$h+8)} }; $merged=@(); foreach($r in ($ranges|Sort-Object s)){ if($merged.Count -eq 0 -or $r.s -gt $merged[-1].e+1){$merged+=,$r}else{$merged[-1].e=[math]::Max($merged[-1].e,$r.e)} }; foreach($r in $merged){ for($i=$r.s;$i -le $r.e;$i++){ '"'{0,4}: {1}' -f ("'$i+1),$lines[$i] }; '"'----' }" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 541ms:
+   1: # Runs every relay control drill against the scripted fake actor. Free, deterministic, on demand.
+   2: # Each drill encodes ONE real incident or one finding of the codex sol review
+   3: # (loop/drills/records/codex-sol-review-2026-08-09.md); a red names the hand-off that broke.
+   4: # Exit 1 on any red. v2 adds: commencement, phase-event fencing, strict landing, refusal paths,
+   5: # CI outcomes, the closing edge, and an event trace.
+   6: $ErrorActionPreference = 'Stop'
+   7: $here  = Split-Path -Parent $MyInvocation.MyCommand.Path
+   8: . (Join-Path $here 'control-lib.ps1')
+   9: $actor   = Join-Path $here 'fake-actor.ps1'
+  10: $prompts = Join-Path $here 'prompts'
+  11: $root    = Join-Path $env:TEMP ('relay-drills-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+  12: New-Item -ItemType Directory -Force -Path $root | Out-Null
+  13: $trace   = Join-Path $root 'trace.log'
+  14: $results = @()
+  15: $cleanupPids = @()
+  16: 
+  17: function New-DrillDir([string]$name) {
+  18:     $d = Join-Path $root $name
+  19:     New-Item -ItemType Directory -Force -Path $d | Out-Null
+  20:     return $d
+  21: }
+  22: function Assert([string]$drill, [string]$claim, [bool]$ok) {
+  23:     $script:results += [pscustomobject]@{ Drill = $drill; Claim = $claim; Pass = $ok }
+  24:     Add-DrillEvent -TraceFile $trace -Actor 'drill' -Event ("{0}:{1}" -f $drill, $(if ($ok) { 'pass' } else { 'FAIL' }))
+  25: }
+  26: 
+  27: # =====================  v1 core - the original eight  =====================
+  28: 
+  29: # ---- happy path ----
+  30: $d1 = New-DrillDir 'happy'
+  31: $pid1 = Start-DetachedActor -ActorScript $actor -Mode 'happy' -Dir $d1
+  32: $live = Get-ActorLiveness -ProcessId $pid1 -LogFile (Join-Path $d1 'actor.log')
+  33: Assert 'happy-path' 'a running actor reads Alive-Working' ($live -eq 'Alive-Working')
+  34: $channel = Wait-TwoChannel -NotifyFile (Join-Path $d1 'notify.txt') -ResultFile (Join-Path $d1 'result.txt') -TimeoutSec 10
+  35: Assert 'happy-path' 'completion arrives on the notify channel' ($channel -eq 'notify')
+  36: $phases = @(Get-Content (Join-Path $d1 'actor.log'))
+  37: Assert 'happy-path' 'phases ran in order 1..5' (($phases -join ',') -eq 'phase 1,phase 2,phase 3,phase 4,phase 5')
+  38: 
+  39: # ---- dies at launch ----
+  40: $d2 = New-DrillDir 'die-at-launch'
+  41: $pid2 = Start-DetachedActor -ActorScript $actor -Mode 'die-at-launch' -Dir $d2
+  42: Start-Sleep -Milliseconds 1500
+  43: $trapFile = Join-Path $d2 'result.txt'
+  44: Assert 'die-at-launch' 'the trap is real: output file exists and is empty' ((Test-Path $trapFile) -and ((Get-Item $trapFile).Length -eq 0))
+  45: $live = Get-ActorLiveness -ProcessId $pid2 -LogFile (Join-Path $d2 'actor.log')
+  46: Assert 'die-at-launch' 'liveness check says Dead despite the file' ($live -eq 'Dead')
+  47: Assert 'die-at-launch' 'an empty result file is not COMPLETE - it reads RESTART' ((Get-ResumeState -Dir $d2) -eq 'RESTART')
+  48: 
+  49: # ---- detachment (simulation note: Windows never reaps children automatically; the
+  50: # died-with-launcher case only occurs via harness teardown, which the explicit kill reproduces) ----
+  51: $d3a = New-DrillDir 'detached-survives'
+  52: $d3b = New-DrillDir 'detached-dies'
+  53: $cmdA = "Set-Content -Path '$d3a\parent.pid' -Value `$PID; `$p = Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$actor','-Mode','hang','-Dir','$d3a' -WindowStyle Hidden -PassThru; Set-Content -Path '$d3a\pid.txt' -Value `$p.Id"
+  54: $cmdB = "`$p = Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$actor','-Mode','hang','-Dir','$d3b' -WindowStyle Hidden -PassThru; Set-Content -Path '$d3b\pid.txt' -Value `$p.Id; Start-Sleep -Milliseconds 500; Stop-Process -Id `$p.Id -Force"
+  55: & powershell.exe -NoProfile -Command $cmdA | Out-Null
+  56: & powershell.exe -NoProfile -Command $cmdB | Out-Null
+  57: Start-Sleep -Milliseconds 500
+  58: $pidA = [int](Get-Content (Join-Path $d3a 'pid.txt'))
+  59: $pidB = [int](Get-Content (Join-Path $d3b 'pid.txt'))
+  60: $parentA = [int](Get-Content (Join-Path $d3a 'parent.pid'))
+  61: $cleanupPids += $pidA
+  62: Assert 'detachment' 'a true detach survives its launcher' ($null -ne (Get-Process -Id $pidA -ErrorAction SilentlyContinue))
+  63: Assert 'detachment' 'a false detach is detected as Dead, not assumed running' ($null -eq (Get-Process -Id $pidB -ErrorAction SilentlyContinue))
+  64: 
+  65: # ---- orphan: the launcher is gone, the child is alive - detect, then abort by identity ----
+  66: Assert 'orphan' 'a live child of a dead launcher classifies as ORPHANED' ((Test-Orphan -ParentProcessId $parentA -ChildProcessId $pidA) -eq 'ORPHANED')
+  67: $idA = Get-ProcessIdentity -ProcessId $pidA
+  68: Assert 'orphan' 'identity is verifiable before any abort' ($null -ne $idA -and (Test-SameProcess -ProcessId $pidA -RecordedStart $idA.Start))
+  69: Stop-Process -Id $pidA -Force
+  70: Start-Sleep -Milliseconds 300
+  71: Assert 'orphan' 'the abort provably killed the reviewer' ($null -eq (Get-Process -Id $pidA -ErrorAction SilentlyContinue))
+  72: $act = Invoke-WaitOutcome -Outcome 'ABORTED'
+  73: Assert 'orphan' 'an aborted gate hands down as an anomaly, never advances' ((-not $act.advance) -and ($act.action -eq 'HAND-DOWN-ANOMALY'))
+  74: 
+  75: # ---- lost notification ----
+  76: $d4 = New-DrillDir 'no-notify'
+  77: Start-DetachedActor -ActorScript $actor -Mode 'finish-no-notify' -Dir $d4 | Out-Null
+  78: $channel = Wait-TwoChannel -NotifyFile (Join-Path $d4 'notify.txt') -ResultFile (Join-Path $d4 'result.txt') -TimeoutSec 10
+  79: Assert 'lost-notification' 'the backstop watch catches what the notify channel missed' ($channel -eq 'backstop')
+  80: Assert 'lost-notification' 'the notify signal genuinely never arrived' (-not (Test-Path (Join-Path $d4 'notify.txt')))
+  81: 
+  82: # ---- watch expiry, plus the empty-file trap on the backstop ----
+  83: $d5 = New-DrillDir 'expiry'
+  84: $channel = Wait-TwoChannel -NotifyFile (Join-Path $d5 'notify.txt') -ResultFile (Join-Path $d5 'result.txt') -TimeoutSec 2
+  85: Assert 'watch-expiry' 'an expired watch returns EXPIRED, distinct from every success value' ($channel -eq 'EXPIRED')
+  86: New-Item -ItemType File -Path (Join-Path $d5 'result.txt') -Force | Out-Null
+  87: $channel = Wait-TwoChannel -NotifyFile (Join-Path $d5 'notify.txt') -ResultFile (Join-Path $d5 'result.txt') -TimeoutSec 2
+  88: Assert 'watch-expiry' 'a zero-byte result file cannot complete the backstop' ($channel -eq 'EXPIRED')
+  89: $act = Invoke-WaitOutcome -Outcome 'EXPIRED'
+  90: Assert 'watch-expiry' 'EXPIRED drives a stall report and never an advance' (($act.action -eq 'STALL-REPORT') -and (-not $act.advance) -and $act.rearm)
+  91: 
+  92: # ---- stall ----
+  93: $d6 = New-DrillDir 'stall'
+  94: $pid6 = Start-DetachedActor -ActorScript $actor -Mode 'hang' -Dir $d6
+  95: $cleanupPids += $pid6
+  96: Start-Sleep -Milliseconds 1000
+  97: $live = Get-ActorLiveness -ProcessId $pid6 -LogFile (Join-Path $d6 'actor.log')
+  98: Assert 'stall' 'a hung actor reads Alive-Stalled, not working and not dead' ($live -eq 'Alive-Stalled')
+  99: 
+ 100: # ---- death mid-phase ----
+ 101: $d7 = New-DrillDir 'death-mid-phase'
+ 102: $pid7 = Start-DetachedActor -ActorScript $actor -Mode 'hang' -Dir $d7
+ 103: Start-Sleep -Milliseconds 800
+ 104: Stop-Process -Id $pid7 -Force
+ 105: Start-Sleep -Milliseconds 300
+ 106: Assert 'death-mid-phase' 'the resume point comes from disk, at the last recorded phase' ((Get-ResumeState -Dir $d7) -eq 'RESUME-FROM:phase 1')
+ 107: Assert 'death-mid-phase' 'a finished actor reads COMPLETE even though it died unnotified' ((Get-ResumeState -Dir $d4) -eq 'COMPLETE')
+ 108: 
+ 109: # ---- spawn-failure taxonomy (scoped in v2) ----
+ 110: Assert 'stale-registry' 'agent-type-not-found maps to STALL:STALE-REGISTRY' ((Get-SpawnFailureClass -ErrorText 'Agent type not found: conductor') -eq 'STALL:STALE-REGISTRY')
+ 111: Assert 'stale-registry' 'an unrelated file-not-found is NOT a stale registry' ((Get-SpawnFailureClass -ErrorText 'file not found: foo.ps1') -eq 'STALL:UNKNOWN')
+ 112: Assert 'stale-registry' 'an unreachable-agent error gets its own class' ((Get-SpawnFailureClass -ErrorText "No agent named 'agent-123' is reachable") -eq 'STALL:UNREACHABLE')
+ 113: 
+ 114: # =====================  v2: commencement - the lost-day class  =====================
+ 115: 
+ 116: $dc = New-DrillDir 'commencement'
+ 117: 
+ 118: $r = Invoke-Commencement -Spawn { @{ ok = $false; error = 'Agent type conductor not found' } } -FlowLineFile (Join-Path $dc 'flow1.txt') -DeadlineSec 2
+ 119: Assert 'commencement' 'a rejected spawn is a STARTUP-STALL now, with the error verbatim' (($r.state -eq 'STARTUP-STALL') -and ($r.why -eq 'SPAWN-REJECTED') -and ($r.error -match 'conductor'))
+ 120: Assert 'commencement' 'the rejected-spawn error classifies through the taxonomy' ((Get-SpawnFailureClass -ErrorText $r.error) -eq 'STALL:STALE-REGISTRY')
+ 121: 
+ 122: $r = Invoke-Commencement -Spawn { @{ ok = $true } } -FlowLineFile (Join-Path $dc 'flow2.txt') -DeadlineSec 2
+ 123: Assert 'commencement' 'a spawn with no receipt is a STARTUP-STALL, not a wait' (($r.state -eq 'STARTUP-STALL') -and ($r.why -eq 'NO-RECEIPT'))
+ 124: 
+ 125: Assert 'commencement' 'the single-conductor fence admits the first commencement' (Register-Commencement -Dir $dc -Item 'X')
+ 126: Assert 'commencement' 'the fence refuses a second commencement for the same item' (-not (Register-Commencement -Dir $dc -Item 'X'))
+ 127: 
+ 128: $dcd = New-DrillDir 'commence-dead'
+ 129: $r = Invoke-Commencement -Spawn {
+ 130:     $p = Start-DetachedActor -ActorScript $actor -Mode 'die-at-launch' -Dir $dcd
+ 131:     @{ ok = $true; taskId = 't-dead'; procId = $p }
+ 132: } -FlowLineFile (Join-Path $dcd 'flow.txt') -DeadlineSec 3 -TranscriptFile (Join-Path $dcd 'actor.log')
+ 133: Assert 'commencement' 'a conductor dead before its first line is a STARTUP-STALL:DEAD-TASK' (($r.state -eq 'STARTUP-STALL') -and ($r.why -eq 'DEAD-TASK'))
+ 134: 
+ 135: $dcs = New-DrillDir 'commence-silent'
+ 136: $script:pidSilent = 0
+ 137: $r = Invoke-Commencement -Spawn {
+ 138:     $script:pidSilent = Start-DetachedActor -ActorScript $actor -Mode 'hang' -Dir $dcs
+ 139:     @{ ok = $true; taskId = 't-silent'; procId = $script:pidSilent }
+ 140: } -FlowLineFile (Join-Path $dcs 'flow.txt') -DeadlineSec 3 -TranscriptFile (Join-Path $dcs 'actor.log')
+ 141: $cleanupPids += $script:pidSilent
+ 142: Assert 'commencement' 'alive but silent setup past the deadline is SETUP-SILENT' (($r.state -eq 'STARTUP-STALL') -and ($r.why -eq 'SETUP-SILENT'))
+ 143: 
+ 144: $dcw = New-DrillDir 'commence-working'
+ 145: $script:pidWork = 0
+ 146: $r = Invoke-Commencement -Spawn {
+ 147:     $script:pidWork = Start-DetachedActor -ActorScript $actor -Mode 'happy' -Dir $dcw
+ 148:     @{ ok = $true; taskId = 't-work'; procId = $script:pidWork }
+ 149: } -FlowLineFile (Join-Path $dcw 'never-flow.txt') -DeadlineSec 1 -TranscriptFile (Join-Path $dcw 'actor.log')
+ 150: Assert 'commencement' 'a growing transcript past the deadline distinguishes COMMENCING-LATE from silence' (($r.state -eq 'STARTUP-STALL') -and ($r.why -eq 'COMMENCING-LATE'))
+ 151: 
+ 152: $dcc = New-DrillDir 'commence-ok'
+ 153: $r = Invoke-Commencement -Spawn {
+ 154:     $p = Start-DetachedActor -ActorScript $actor -Mode 'happy' -Dir $dcc
+ 155:     @{ ok = $true; taskId = 't-ok'; procId = $p }
+ 156: } -FlowLineFile (Join-Path $dcc 'notify.txt') -DeadlineSec 8 -TranscriptFile (Join-Path $dcc 'actor.log')
+ 157: Assert 'commencement' 'a first flow line inside the deadline is COMMENCED - arrival, not sending' ($r.state -eq 'COMMENCED')
+ 158: 
+ 159: # ---- arming is not firing ----
+ 160: Assert 'watch-armed' 'no task id means the watch is NOT armed, whatever was claimed' ((Confirm-WatchArmed -TaskId '' -Probe { 'running' }) -eq 'STALL:WATCH-NOT-ARMED')
+ 161: Assert 'watch-armed' 'a rejected task probes as not armed' ((Confirm-WatchArmed -TaskId 't9' -Probe { 'rejected' }) -eq 'STALL:WATCH-NOT-ARMED')
+ 162: Assert 'watch-armed' 'armed means task exists AND probes running, named for the flow line' ((Confirm-WatchArmed -TaskId 't9' -Probe { 'running' }) -eq 'ARMED:t9')
+ 163: 
+ 164: # =====================  v2: hand-off fencing  =====================
+ 165: 
+ 166: $ledger = New-PhaseLedger
+ 167: $e1 = Register-PhaseEvent -Ledger $ledger -Generation 'gate1@abc123' -Channel 'backstop'
+ 168: $e2 = Register-PhaseEvent -Ledger $ledger -Generation 'gate1@abc123' -Channel 'tether'
+ 169: $e3 = Register-PhaseEvent -Ledger $ledger -Generation 'gate2@def456' -Channel 'tether'
+ 170: $e4 = Register-PhaseEvent -Ledger $ledger -Generation 'gate1@abc123' -Channel 'tether-late'
+ 171: Assert 'phase-fence' 'the first channel to fire advances the phase' ($e1.advance -and ($e1.channel -eq 'backstop'))
+ 172: Assert 'phase-fence' 'the second channel for the same generation is refused' (-not $e2.advance)
+ 173: Assert 'phase-fence' 'a late duplicate after the next phase started is refused' (-not $e4.advance)
+ 174: Assert 'phase-fence' 'the next generation advances normally, exactly once, in order' ($e3.advance -and (($ledger.order -join ',') -eq 'gate1@abc123,gate2@def456'))
+ 175: 
+ 176: Assert 'tip-baseline' 'a tip that moved inside the spawn-to-watch gap is still detected, because the baseline predates the spawn' (Test-TipMoved -BaselineHead 'aaa1111' -CurrentHead 'bbb2222')
+ 177: Assert 'tip-baseline' 'an unmoved tip does not false-fire' (-not (Test-TipMoved -BaselineHead 'aaa1111' -CurrentHead 'aaa1111'))
+ 178: 
+ 179: Assert 'generation' 'a missing state file or report holds the relay' ((Test-SittingGeneration -StateGeneration '' -ReportedHead 'abc' -RemoteHead 'abc') -eq 'HOLD:MISSING')
+ 180: Assert 'generation' 'a reported head that is not the remote tip holds the relay' ((Test-SittingGeneration -StateGeneration 'g1' -ReportedHead 'abc' -RemoteHead 'xyz') -eq 'HOLD:HEAD-MISMATCH')
+ 181: Assert 'generation' 'agreement of state, report and remote proceeds' ((Test-SittingGeneration -StateGeneration 'g1' -ReportedHead 'abc' -RemoteHead 'abc') -eq 'PROCEED')
+ 182: 
+ 183: # ---- pid reuse ----
+ 184: $dp = New-DrillDir 'pid-reuse'
+ 185: $pidX = Start-DetachedActor -ActorScript $actor -Mode 'hang' -Dir $dp
+ 186: $idX = Get-ProcessIdentity -ProcessId $pidX
+ 187: Start-Sleep -Milliseconds 1500
+ 188: $dp2 = New-DrillDir 'pid-reuse-b'
+ 189: $pidY = Start-DetachedActor -ActorScript $actor -Mode 'hang' -Dir $dp2
+ 190: $cleanupPids += $pidX; $cleanupPids += $pidY
+ 191: Assert 'pid-identity' 'a different process never passes as the recorded reviewer, whatever its pid' (-not (Test-SameProcess -ProcessId $pidY -RecordedStart $idX.Start))
+ 192: Assert 'pid-identity' 'the identity mismatch protected the bystander - it was not killed' ($null -ne (Get-Process -Id $pidY -ErrorAction SilentlyContinue))
+ 193: 
+ 194: # =====================  v2: strict review landing  =====================
+ 195: 
+ 196: $deadProbe = Start-Process powershell -ArgumentList '-NoProfile','-Command','exit' -WindowStyle Hidden -PassThru
+ 197: Wait-Process -Id $deadProbe.Id -ErrorAction SilentlyContinue
+ 198: $deadPid = $deadProbe.Id
+ 199: 
+ 200: # stale artifact from a previous run
+ 201: $dl = New-DrillDir 'landing-stale'
+ 202: $staleOut = Join-Path $dl 'out.md'; $staleErr = Join-Path $dl 'err.log'
+ 203: Set-Content -Path $staleOut -Value @('old findings', 'CODE REVIEW: 2 FINDINGS')
+ 204: (Get-Item $staleOut).LastWriteTime = (Get-Date).AddHours(-2)
+ 205: $v = Wait-ReviewLanding -Out $staleOut -Err $staleErr -ProcessId $deadPid -LaunchTime (Get-Date) -TimeoutSec 3
+ 206: Assert 'landing' 'a stale verdict from a previous run can never land a new gate' ($v -eq 'EMPTY-GATE')
+ 207: 
+ 208: # malformed marker
+ 209: $dm = New-DrillDir 'landing-malformed'
+ 210: $mOut = Join-Path $dm 'out.md'; $mErr = Join-Path $dm 'err.log'
+ 211: Set-Content -Path $mOut -Value 'CODE REVIEW: still working'
+ 212: $v = Wait-ReviewLanding -Out $mOut -Err $mErr -ProcessId $deadPid -LaunchTime (Get-Date).AddSeconds(-5) -TimeoutSec 3
+ 213: Assert 'landing' 'a malformed count line is not a landing' ($v -eq 'EMPTY-GATE')
+ 214: 
+ 215: # count line only in stderr
+ 216: $ds = New-DrillDir 'landing-stderr-only'
+ 217: $sOut = Join-Path $ds 'out.md'; $sErr = Join-Path $ds 'err.log'
+ 218: Set-Content -Path $sOut -Value 'narration only, no verdict here'
+ 219: Set-Content -Path $sErr -Value 'CODE REVIEW: CLEAN'
+ 220: $v = Wait-ReviewLanding -Out $sOut -Err $sErr -ProcessId $deadPid -LaunchTime (Get-Date).AddSeconds(-5) -TimeoutSec 3
+ 221: Assert 'landing' 'a count line only in stderr is AMBIGUOUS, never a clean landing' ($v -eq 'AMBIGUOUS:COUNT-IN-STDERR-ONLY')
+ 222: 
+ 223: # partial verdict: count line present, process still alive, more findings coming
+ 224: $de = New-DrillDir 'landing-partial'
+ 225: $eOut = Join-Path $de 'out.md'; $eErr = Join-Path $de 'err.log'
+ 226: $launch = Get-Date
+ 227: $pidE = Start-DetachedActor -ActorScript $actor -Mode 'drill-e' -Dir $de -Out $eOut -Err $eErr
+ 228: $cleanupPids += $pidE
+ 229: Start-Sleep -Seconds 3
+ 230: $v = Wait-ReviewLanding -Out $eOut -Err $eErr -ProcessId $pidE -LaunchTime $launch -TimeoutSec 4
+ 231: Assert 'landing' 'a count line with the process still alive is a partial verdict, not a landing' ($v -eq 'TIMEOUT')
+ 232: $v = Wait-ReviewLanding -Out $eOut -Err $eErr -ProcessId $pidE -LaunchTime $launch -TimeoutSec 20
+ 233: Assert 'landing' 'after exit and settlement the same gate lands' ($v -eq 'LANDED')
+ 234: Assert 'landing' 'the landed verdict is the LATE version, not the early one' ((Get-Content $eOut | Select-Object -Last 1) -eq 'CODE REVIEW: 3 FINDINGS')
+ 235: 
+ 236: # distillate integrity
+ 237: $dist = Join-Path $de 'distillate.md'
+ 238: Set-Content -Path $dist -Value @('FINDING 1 x', 'FINDING 2 y', 'FINDING 3 z')
+ 239: Assert 'distillate' 'a distillate matching the raw count is OK' ((Test-Distillate -RawFile $eOut -DistillateFile $dist) -eq 'OK')
+ 240: Set-Content -Path $dist -Value @('FINDING 1 x')
+ 241: Assert 'distillate' 'a truncated distillate is a count-mismatch anomaly, not a hand-off' ((Test-Distillate -RawFile $eOut -DistillateFile $dist) -match '^ANOMALY:COUNT-MISMATCH')
+ 242: Assert 'distillate' 'a missing distillate after a landed review is an anomaly' ((Test-Distillate -RawFile $eOut -DistillateFile (Join-Path $de 'nope.md')) -eq 'ANOMALY:MISSING')
+ 243: 
+ 244: $act = Invoke-WaitOutcome -Outcome 'EMPTY-GATE'
+ 245: Assert 'landing' 'an empty gate hands down as an anomaly and never advances' (($act.action -eq 'HAND-DOWN-ANOMALY') -and (-not $act.advance))
+ 246: $act = Invoke-WaitOutcome -Outcome 'LANDED'
+ 247: Assert 'landing' 'a landed gate proceeds' ($act.advance -and ($act.action -eq 'PROCEED'))
+ 248: 
+ 249: # =====================  v2: the refusal path, executable  =====================
+ 250: 
+ 251: $dr = New-DrillDir 'refused'
+ 252: $r = Invoke-GuardedLaunch -PromptFile (Join-Path $prompts 'gate-refused-drill.md') -OwnGateHeading '## The DRAFT CODE review' -Launch { throw 'must never launch' } -PidFile (Join-Path $dr 'x.pid')
+ 253: Assert 'refused' 'a leaky prompt is REFUSED before anything launches' (($r.state -eq 'REFUSED') -and ($r.why -match '^LEAKY:'))
+ 254: Assert 'refused' 'REFUSED leaves no pid file and no process' (-not (Test-Path (Join-Path $dr 'x.pid')))
+ 255: $noPolicy = Join-Path $dr 'no-policy.md'
+ 256: Set-Content -Path $noPolicy -Value @('# prompt', '## The DRAFT CODE review', 'review the code')
+ 257: $r = Invoke-GuardedLaunch -PromptFile $noPolicy -OwnGateHeading '## The DRAFT CODE review' -Launch { throw 'must never launch' } -PidFile (Join-Path $dr 'y.pid')
+ 258: Assert 'refused' 'a prompt without the write policy in words is REFUSED' (($r.state -eq 'REFUSED') -and ($r.why -eq 'LEAKY:NO-WRITE-POLICY'))
+ 259: $r = Invoke-GuardedLaunch -PromptFile (Join-Path $prompts 'gate2-code-drill.md') -OwnGateHeading '## The DRAFT CODE review' -Launch {
+ 260:     Start-DetachedActor -ActorScript $actor -Mode 'die-at-launch' -Dir $dr
+ 261: } -PidFile (Join-Path $dr 'z.pid')
+ 262: Assert 'refused' 'a clean prompt launches, and the pid is recorded' (($r.state -eq 'LAUNCHED') -and (Test-Path (Join-Path $dr 'z.pid')))
+ 263: 
+ 264: # =====================  v2: CI outcomes  =====================
+ 265: 
+ 266: Assert 'ci' 'no run for the head after the window is DISPATCH-PRODUCED-NOTHING, not a longer wait' ((Resolve-CiOutcome -RunExists $false -RunSha '' -FinalSha 'fff' -Conclusion '' -WindowExpired $true) -eq 'DISPATCH-PRODUCED-NOTHING')
+ 267: Assert 'ci' 'no run inside the window is still WAITING' ((Resolve-CiOutcome -RunExists $false -RunSha '' -FinalSha 'fff' -Conclusion '' -WindowExpired $false) -eq 'WAITING')
+ 268: Assert 'ci' 'a green on any head but the final one is nothing' ((Resolve-CiOutcome -RunExists $true -RunSha 'aaa' -FinalSha 'fff' -Conclusion 'success' -WindowExpired $false) -eq 'IGNORED:NON-FINAL-HEAD')
+ 269: Assert 'ci' 'cancelled is a terminal wake, never silence' ((Resolve-CiOutcome -RunExists $true -RunSha 'fff' -FinalSha 'fff' -Conclusion 'cancelled' -WindowExpired $false) -eq 'TERMINAL:cancelled')
+ 270: Assert 'ci' 'timed_out is a terminal wake' ((Resolve-CiOutcome -RunExists $true -RunSha 'fff' -FinalSha 'fff' -Conclusion 'timed_out' -WindowExpired $false) -eq 'TERMINAL:timed_out')
+ 271: Assert 'ci' 'success on the final head is the terminal green' ((Resolve-CiOutcome -RunExists $true -RunSha 'fff' -FinalSha 'fff' -Conclusion 'success' -WindowExpired $false) -eq 'TERMINAL:success')
+ 272: 
+ 273: # =====================  v2: the closing edge  =====================
+ 274: 
+ 275: $dgl = New-DrillDir 'close'
+ 276: $ledgerFile = Join-Path $dgl 'ledger.log'
+ 277: Assert 'closing' 'a lost final report with the merge on the remote repairs from primary evidence' ((Resolve-CloseRepair -MergedOnRemote $true -ReportArrived $false -LedgerFile $ledgerFile) -eq 'REPAIR:SET-DONE-FROM-PRIMARY-EVIDENCE')
+ 278: Assert 'closing' 'the repair is exactly-once - a second attempt is a NOOP' ((Resolve-CloseRepair -MergedOnRemote $true -ReportArrived $false -LedgerFile $ledgerFile) -eq 'NOOP:ALREADY-REPAIRED')
+ 279: Assert 'closing' 'no merge and no report is a stall, never an assumed close' ((Resolve-CloseRepair -MergedOnRemote $false -ReportArrived $false -LedgerFile (Join-Path $dgl 'l2.log')) -eq 'STALL:NO-EVIDENCE')
+ 280: Assert 'closing' 'a report that arrived closes normally' ((Resolve-CloseRepair -MergedOnRemote $true -ReportArrived $true -LedgerFile (Join-Path $dgl 'l3.log')) -eq 'NORMAL')
+ 281: 
+ 282: # =====================  v2: the trace is evidence  =====================
+ 283: 
+ 284: $lines = @(Get-Content $trace)
+ 285: $seqs = $lines | ForEach-Object { [int]($_.Split('|')[0]) }
+ 286: $monotonic = $true
+ 287: for ($i = 1; $i -lt $seqs.Count; $i++) { if ($seqs[$i] -ne $seqs[$i - 1] + 1) { $monotonic = $false } }
+ 288: Assert 'trace' 'every drill left a replayable event, in strict sequence' (($lines.Count -gt 40) -and $monotonic)
+ 289: 
+ 290: # ---- Cleanup ----
+ 291: foreach ($p in $cleanupPids) {
+ 292:     try { Stop-Process -Id $p -Force -ErrorAction Stop } catch {}
+ 293: }
+ 294: Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+ 295: 
+ 296: # ---- Report ----
+ 297: $failed = @($results | Where-Object { -not $_.Pass })
+ 298: # ---- twin guard: the orchestrator pair must be identical apart from the declared differences.
+ 299: # The rule drifted within a day of being relied on (2026-08-10); this assertion is that lesson.
+ 300: & powershell -NoProfile -File (Join-Path $here '..\work\twin-check.ps1') | Out-Null
+ 301: Assert 'twin-guard' 'orchestrator twins are in sync (edit both or neither)' ($LASTEXITCODE -eq 0)
+ 302: 
+ 303: foreach ($r in $results) {
+ 304:     $mark = if ($r.Pass) { 'PASS' } else { 'FAIL' }
+ 305:     Write-Output ('{0}  [{1}] {2}' -f $mark, $r.Drill, $r.Claim)
+ 306: }
+ 307: Write-Output ''
+ 308: Write-Output ('{0} of {1} assertions green' -f (@($results | Where-Object { $_.Pass }).Count), $results.Count)
+ 309: if ($failed.Count -gt 0) {
+ 310:     Write-Output 'RED - the hand-offs above broke.'
+ 311:     exit 1
+ 312: }
+ 313: Write-Output 'All control hand-offs held.'
+ 314: exit 0
+----
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$targets=@('"'.claude/skills/work/shared-invariants.md','.claude/agents/conductor.md'); foreach("'$p in $targets){ Write-Output "FILE $p"; $lines=Get-Content -LiteralPath $p; $patterns=@('"'window','PAUSE','UNKNOWN','coordinator decides','park','resume','85','90'); "'$hits=@(); for($i=0;$i -lt $lines.Count;$i++){ foreach($pat in $patterns){ if($lines[$i] -match [regex]::Escape($pat)){ $hits += $i; break } } }; $ranges=@(); foreach($h in $hits){ $ranges += [pscustomobject]@{s=[math]::Max(0,$h-5);e=[math]::Min($lines.Count-1,$h+8)} }; $merged=@(); foreach($r in ($ranges|Sort-Object s)){ if($merged.Count -eq 0 -or $r.s -gt $merged[-1].e+1){$merged+=,$r}else{$merged[-1].e=[math]::Max($merged[-1].e,$r.e)} }; foreach($r in $merged){ for($i=$r.s;$i -le $r.e;$i++){ '"'{0,4}: {1}' -f ("'$i+1),$lines[$i] }; '"'----' } }" in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 525ms:
+FILE .claude/skills/work/shared-invariants.md
+  24: - **Push at every phase boundary.** Death may be involuntary; the remote is the only durable
+  25:   output. This is not insurance â€” it is how the relay transports work.
+  26: - A correction that matters beyond one conversation lives only if written into a file every
+  27:   session loads. A message to a running agent dies with it.
+  28: 
+  29: ## The usage window â€” the coordinator guards it, and only the coordinator
+  30: 
+  31: Anthropic reports how much of each usage window is spent. `statusline.ps1` snapshots those
+  32: numbers on every status-line refresh â€” the status line is the only place Claude Code delivers
+  33: them, hooks get a different payload â€” and `loop/work/window-gauge.ps1` reads the snapshot and
+  34: returns `OK`, `PAUSE` or `UNKNOWN`.
+  35: 
+  36: - **The coordinator decides; nothing else may.** Read the gauge on **every** `FLOW` and `PULSE`
+  37:   line. A second thing with authority to halt work is the same failure as a second way to close
+  38:   work â€” and a brake inside an agent is one the founder cannot see.
+  39: - **One line, and it is `PAUSE`** (founder 2026-08-06). There is no lower "start nothing new"
+  40:   band. Such a band would have to be justified by what a sitting costs, which nobody has
+  41:   measured, so it could only ever be a number that felt safe. Work starts whenever the gauge
+  42:   says `OK`.
+  43: - **`PAUSE` means stop at the next boundary.** Ask each running conductor to park â€” write its
+  44:   state, push, and end â€” and stop it outright only if it does not. Graceful first: an agent
+  45:   killed mid-write leaves a record that lies about where the work got to.
+  46: - **A sitting that meets the line mid-flight parks at its last committed work item.** This is
+  47:   why the executor commits one commit per work item: with no reserve band, running out mid-phase
+  48:   is an expected outcome rather than a failure, and the commits are what make it cost one work
+  49:   item instead of a sitting.
+  50: - **`UNKNOWN` reports loudly and does not halt.** No reading, an unparseable one, or one past the
+  51:   staleness limit means the instrument is broken, not that the window is spent â€” and a broken
+  52:   instrument is not a reason to stop working, exactly as attribution degrades rather than blocks.
+  53:   Say it in the open and fix the sensor; never let it pass silently as `OK`.
+  54: - **Parking and continuing â€” the exact shape.** Ask the running conductors to park, then run
+  55:   `loop/work/window-wait.ps1` **as a background command**. Its exit re-invokes this session, so
+  56:   the founder continues in the same conversation with its context intact: nothing is resumed,
+  57:   nothing restarted, no scheduled task involved. Waiting costs nothing â€” a parked session makes
+  58:   no API calls, which matters because the reason for waiting is that there is no budget.
+  59: - **Its exit means "the window should be open", not "you have budget".** The wait is anchored on
+  60:   the provider's stated `resets_at`, because the gauge is refreshed by the status line and a
+  61:   parked session renders none â€” during the wait, the number it would poll is frozen. So the
+  62:   FIRST TURN AFTER IT EXITS must re-read the gauge (that turn renders the status line, making it
+  63:   the first genuinely fresh reading) and park again if it still says `PAUSE`. A reset time that
+  64:   has already passed rolls forward, and a session limit is not the same thing as being out of
+  65:   credit.
+  66: - **Exit 1 is a report to the founder, never a licence to carry on.** It means the blocking
+  67:   window is a weekly one, days away â€” a decision about what to do next, not something to sit
+  68:   through.
+  69: - **Release one item at a time** when the window reopens, re-reading the gauge between each.
+  70:   Restarting every parked conductor at once can spend a fresh window before anyone looks.
+  71: 
+  72: ## Writing about the founder
+  73: 
+  74: - **Quote exactly or do not use quote marks.** Typos, missing words and all. Polishing someone's
+  75:   words and then presenting them as a quotation is fabrication at small scale.
+  76: - **Cite a date only where a message exists on that day**, in the founder's local time
+  77:   (transcripts are UTC; the founder is UTC+3, so a 21:00 UTC message is the next day).
+  78: - **Never convert "the founder asked" into "the founder ruled."** A question that prompted a good
+----
+ 102:   merely written down here.
+ 103: - **Stale-worktree sweep** (founder 2026-08-05). A platform worktree is residue only when its
+ 104:   lock pid is DEAD, its tree is CLEAN, and its head is FULLY MERGED to main â€” then unlock,
+ 105:   remove, and delete the merged remote branch. **Check those three in that order**: a live agent
+ 106:   or unpushed work must never be swept, and a LIVE lock pid is never touched at all, because
+ 107:   force-removing a locked worktree is the hazard that breaks a resumed agent.
+ 108: 
+ 109: ## Committing
+ 110: 
+ 111: - **`.gitignore` ignores ALL of `.claude/` and `loop/out/`** (lines 45 and 53, no negations).
+ 112:   Already-tracked files there stay tracked â€” which is why those directories look normal â€” but a
+ 113:   NEW file under either path silently does not stage: it needs `git add -f`, then a verified
+ 114:   `A` line in `git status --short`. A commit once came one step from deleting eight skills
+ 115:   while adding zero replacements exactly this way. `loop/items/` is NOT ignored and stages
+----
+FILE .claude/agents/conductor.md
+ 204:   state: success, failure, cancelled, timed out. Never filter for success only â€” a watch that
+ 205:   matches only good news is silent through a crash, and silence looks exactly like progress.
+ 206: - **NO RUN AT ALL is its own state, not a slow one.** A check cannot go terminal if GitHub never
+ 207:   created a run, and then a Monitor on that check waits forever while everything looks merely
+ 208:   pending. So the first thing to confirm after a push is that a run **exists** for that head; if
+ 209:   none does within one keep-alive window, that is the condition `dispatch produced nothing`, and it
+ 210:   is handed down as an anomaly rather than waited on. This is the same rule as CI's own: zero
+ 211:   discovered suites is a failure, never a pass â€” an empty result must be visible as empty.
+ 212: - **Two reviewers at once** â€” two runners, and you proceed only when both have reported. A partial
+ 213:   landing is not progress, and it is now visible as one runner still outstanding rather than as a
+ 214:   watch that may or may not exist.
+ 215: 
+ 216: **Your keep-alive timer stays armed through every reviewer wait even though the runner is the wake
+ 217: signal.** The two do different jobs: the runner tells you the gate landed, the timer is what makes
+----
+ 246: 
+ 247: **No wait may be open-ended. Cap every one at 10 minutes; when the cap expires with the thing
+ 248: still outstanding, send a `PULSE` line to `main` and re-arm the same watch.** Repeat until the
+ 249: thing lands or the phase's own stall threshold is passed.
+ 250: 
+ 251: This is not chatter, and it is not the same as `STALL`. It exists because the usage-window gauge
+ 252: the coordinator reads is refreshed by the status line, and the status line only refreshes when
+ 253: the coordinator takes a turn â€” so **a pulse is what makes the gauge current**. Without it the
+ 254: expensive phases are the unwatched ones: the two gates are long but cost nothing against the
+ 255: Anthropic windows because the reviewers run on other vendors, while an implement sitting spends
+ 256: an Opus executor continuously and, being a single phase, produces no boundary at all until it
+ 257: finishes. A guard that samples only at phase changes is blind exactly where the money goes.
+ 258: 
+ 259: `PULSE` says *still here, nothing wrong*. `STALL` says *this has now taken longer than this
+ 260: phase should*. Sending one when you mean the other destroys both signals: a pulse read as a
+ 261: stall wastes an investigation, and a stall read as a pulse is the four idle hours again.
+ 262: 
+ 263: ## When the COORDINATOR wakes you, your watch failed â€” say so (founder ruling 2026-08-07)
+----
+ 271: - **A wake from the coordinator is a DEFECT REPORT about you, not a convenience.** Treat it as
+ 272:   one: say in your next line that your watch did not fire, and what it was watching. A phase you
+ 273:   did not detect is not a phase you conducted.
+ 274: - **Never let the coordinator's checking become the mechanism.** It is the backstop. If it is
+ 275:   the only thing that fires, the item has no conductor â€” it has an expensive one pretending.
+ 276: - **Verify your watch can fire before you park.** Arming is not firing. If a watch is waiting on
+ 277:   a file that a dead process will never write, or on a completion notification that reaches
+ 278:   `main` rather than you, it will wait forever and report nothing while doing it.
+ 279: - **Carry every such instance into the item's record** so the count is visible. One missed wake
+ 280:   is a bug; six is a design that does not work, and only a written count makes that difference
+ 281:   legible.
+ 282: 
+ 283: ## Proportionality is DERIVED, never declared (founder 2026-08-06)
+ 284: 
+----
+
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-ChildItem -Recurse -File -Exclude '*.log' | Select-String -Pattern 'window-gauge\\.ps1|WINDOW  |worstWindow|worstPercent|resetsAtUtc|readingAgeMin|resetsInMin|\\.windows' | ForEach-Object { "'$rel=$_.Path.Substring((Get-Location).Path.Length+1); '"'{0}:{1}: {2}' -f "'$rel,$_.LineNumber,$_.Line.Trim() }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 1093ms:
+.claude\skills\work\shared-invariants.md:33: them, hooks get a different payload — and `loop/work/window-gauge.ps1` reads the snapshot and
+loop\items\AI4DEV-82\artifacts\worktree-incident.md:11: (shared-invariants.md, window-gauge.ps1, statusline.ps1, settings.json, a glob of loop/drills/),
+loop\items\AI4DEV-82\gate1-prompt.txt:109: - `loop/work/window-gauge.ps1` — the verdict logic the plan extracts into a library; the
+loop\items\AI4DEV-82\plan.md:46: object `window-gauge.ps1` builds today, verdicts OK/PAUSE/UNKNOWN with the existing stale
+loop\items\AI4DEV-82\plan.md:47: rules) and `Format-WindowVerdictLine` (result → the one verdict line). `window-gauge.ps1`
+loop\items\AI4DEV-82\plan.md:53: records it). The item's sentence "runs window-gauge.ps1 -Json" is honored as "runs the gauge's
+loop\items\AI4DEV-82\plan.md:56: - **D2 — the line moves to 85 in the two param defaults that carry it** (`window-gauge.ps1`,
+loop\items\AI4DEV-82\plan.md:114: 1. **Extract `window-lib.ps1`; thin `window-gauge.ps1` over it, line still at 90.**
+loop\items\AI4DEV-82\plan.md:172: `loop/work/window-gauge.ps1`, `loop/work/window-wait.ps1`, `loop/work/window-sim.ps1`,
+loop\work\window-gauge.ps1:1: # window-gauge.ps1 - read the Anthropic usage windows and say what may proceed.
+loop\work\window-gauge.ps1:61: worstWindow  = ''
+loop\work\window-gauge.ps1:62: worstPercent = $null
+loop\work\window-gauge.ps1:63: resetsAtUtc  = ''
+loop\work\window-gauge.ps1:64: resetsInMin  = $null
+loop\work\window-gauge.ps1:65: readingAgeMin = $null
+loop\work\window-gauge.ps1:73: $head = "WINDOW  {0}" -f $r.verdict
+loop\work\window-gauge.ps1:76: foreach ($w in $r.windows) {
+loop\work\window-gauge.ps1:77: Write-Output ("        {0,-28} {1,3}%   resets {2}  (in {3} min)" -f $w.name, $w.percent, $w.resetsLocal, $w.resetsInMin)
+loop\work\window-gauge.ps1:79: if ($null -ne $r.readingAgeMin) {
+loop\work\window-gauge.ps1:80: Write-Output ("        reading is {0} min old" -f $r.readingAgeMin)
+loop\work\window-gauge.ps1:103: $result.readingAgeMin = $ageMin
+loop\work\window-gauge.ps1:133: $result.windows += [pscustomobject][ordered]@{
+loop\work\window-gauge.ps1:137: resetsInMin = $inMin
+loop\work\window-gauge.ps1:138: resetsAtUtc = $resetUtc
+loop\work\window-gauge.ps1:142: if ($result.windows.Count -eq 0) {
+loop\work\window-gauge.ps1:148: $worst = $result.windows | Sort-Object percent -Descending | Select-Object -First 1
+loop\work\window-gauge.ps1:149: $result.worstWindow  = $worst.name
+loop\work\window-gauge.ps1:150: $result.worstPercent = $worst.percent
+loop\work\window-gauge.ps1:151: $result.resetsAtUtc  = $worst.resetsAtUtc
+loop\work\window-gauge.ps1:152: $result.resetsInMin  = $worst.resetsInMin
+loop\work\window-gauge.ps1:160: if ($worst.percent -ge $PauseAt -and $null -ne $worst.resetsInMin -and $worst.resetsInMin -gt 0) {
+loop\work\window-sim.ps1:23: $gauge = Join-Path $here 'window-gauge.ps1'
+loop\work\window-sim.ps1:82: Check 'float noise does not become an odd percentage' (Gauge).worstPercent 7
+loop\work\window-sim.ps1:84: Check 'a fresh window reads 0' (Gauge).worstPercent 0
+loop\work\window-sim.ps1:90: Check 'and it names the weekly one' (Gauge).worstWindow 'seven_day'
+loop\work\window-sim.ps1:93: Check 'and reports THAT window reset, not another' ([int]((Gauge).resetsInMin / 100)) 50
+loop\work\window-sim.ps1:95: Check 'both over -> the furthest along wins' (Gauge).worstWindow 'five_hour'
+loop\work\window-sim.ps1:104: Check 'and is named' (Gauge).worstWindow 'seven_day_opus'
+loop\work\window-sim.ps1:246: Check 'and the weekly one is still named as the blocker' (Gauge).worstWindow 'seven_day'
+loop\work\window-wait.ps1:52: $gauge = Join-Path $PSScriptRoot 'window-gauge.ps1'
+loop\work\window-wait.ps1:80: if ($g.resetsAtUtc) { try { $target = ([datetime]::Parse($g.resetsAtUtc)).ToUniversalTime().AddMinutes($SlackMinutes) } catch { } }
+loop\work\window-wait.ps1:87: $g.worstWindow, $g.worstPercent, ([datetime]$target).ToLocalTime().ToString('HH:mm'))
+loop\work\window-wait.ps1:100: $MaxHours, $g.worstWindow, ([datetime]$target).ToLocalTime().ToString('ddd HH:mm'))
+
+codex
+The hook measurement does contain the decisive nested `PreToolUse tool=Agent` event with a non-empty `agent_id`. I’m separating that deployment evidence from what it does not establish—especially behavior of the newly planned deny/alarm commands and the harness’s ability to turn their failures into a red result.
+exec
+"C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command '$targets=@('"'loop/items/AI4DEV-82/artifacts/hookprobe/pre-run1.jsonl','loop/items/AI4DEV-82/artifacts/hookprobe/post-run1.jsonl'); foreach("'$p in $targets){ Write-Output "FILE $p"; $n=0; Get-Content -LiteralPath $p | Where-Object { $_.Trim() } | ForEach-Object { $n++; $event=[regex]::Match($_,'"'\"hook_event_name\":\"(["'^"]+)"'"').Groups[1].Value; "'$tool=[regex]::Match($_,'"'\"tool_name\":\"(["'^"]+)"'"').Groups[1].Value; "'$agent=[regex]::Match($_,'"'\"agent_id\":\"(["'^"]+)"'"').Groups[1].Value; "'$type=[regex]::Match($_,'"'\"agent_type\":\"(["'^"]+)"'"').Groups[1].Value; '{0,3}: event={1}; tool={2}; agent_id={3}; agent_type={4}' -f "'$n,$event,$tool,$agent,$type } }' in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114
+ succeeded in 568ms:
+FILE loop/items/AI4DEV-82/artifacts/hookprobe/pre-run1.jsonl
+  1: event=PreToolUse; tool=Bash; agent_id=; agent_type=
+  2: event=PreToolUse; tool=Agent; agent_id=; agent_type=
+  3: event=PreToolUse; tool=Skill; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  4: event=PreToolUse; tool=Glob; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  5: event=PreToolUse; tool=Glob; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  6: event=PreToolUse; tool=Read; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  7: event=PreToolUse; tool=Read; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  8: event=PreToolUse; tool=Read; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  9: event=PreToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 10: event=PreToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 11: event=PreToolUse; tool=Glob; agent_id=; agent_type=
+ 12: event=PreToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 13: event=PreToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 14: event=PreToolUse; tool=Grep; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 15: event=PreToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+FILE loop/items/AI4DEV-82/artifacts/hookprobe/post-run1.jsonl
+  1: event=PostToolUse; tool=Bash; agent_id=; agent_type=
+  2: event=PostToolUse; tool=Skill; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  3: event=PostToolUse; tool=Glob; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  4: event=PostToolUse; tool=Glob; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  5: event=PostToolUse; tool=Read; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  6: event=PostToolUse; tool=Read; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  7: event=PostToolUse; tool=Read; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  8: event=PostToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+  9: event=PostToolUse; tool=Glob; agent_id=; agent_type=
+ 10: event=PostToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 11: event=PostToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 12: event=PostToolUse; tool=Grep; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 13: event=PostToolUse; tool=PowerShell; agent_id=a133f8fe0f1a6f6d2; agent_type=general-purpose
+ 14: event=PostToolUse; tool=Agent; agent_id=; agent_type=
+
+2026-08-12T15:03:24.528465Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+web search: 
+web search: site:docs.anthropic.com Claude Code hooks PreToolUse PostToolUse exit code 2 agent_id subagents settings file watcher hooks Agent matcher ...
+2026-08-12T15:03:39.269138Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 94 column 5
+web search: 
+web search: 'systemMessage'
+web search: 
+web search: 'permissionDecisionReason'
+web search: 
+web search: 'file watcher'
+web search: 
+web search: 'Runs when a tool execution fails'
+codex
+Severity scale: HIGH = core safeguard can fail or be falsely certified; MEDIUM = promised compatibility can regress undetected.
+
+[1] severity: HIGH    loop/items/AI4DEV-82/plan.md:80
+    claim: Wiring the alarm only to `PostToolUse` cannot provide an alarm after every tool call because failed calls fire `PostToolUseFailure` instead.
+    why it matters: If usage crosses 85% and the actor’s next MCP or shell tool fails, `window-alarm.cmd` never runs, so the actor receives no alarm within that call while every planned drill remains green. The [Claude Code hook lifecycle](https://code.claude.com/docs/en/hooks#hook-events) distinguishes successful and failed calls explicitly.
+    unverified-runtime-claim: no
+
+[2] severity: MEDIUM    loop/items/AI4DEV-82/plan.md:114
+    claim: A green `window-sim.ps1` does not prove the promised behavior-neutral extraction of all JSON fields, human output, and exit behavior.
+    why it matters: The simulation reads only selected JSON properties and discards the gauge’s human output during `-ExitOnReady`; the refactor could omit `readingAgeMin`, alter `windows[]` fields, or lose the `WINDOW` header and per-window/reset lines while step 1 still passes, breaking the coordinator’s human-facing FLOW/PULSE reads.
+    unverified-runtime-claim: no
+
+[3] severity: HIGH    loop/items/AI4DEV-82/plan.md:67
+    claim: The planned degraded-state channels do not guarantee that a running subagent learns that the sensor is `UNKNOWN`.
+    why it matters: The per-tool alarm is deliberately silent on `UNKNOWN`, subagents receive no `UserPromptSubmit` stamp, and the spawn gate uses only `systemMessage`, which the [hook output contract](https://code.claude.com/docs/en/hooks#json-output) describes as a user-facing warning rather than context for Claude; an executor can therefore continue with a broken sensor without hearing the required loud warning. Internal gate errors compound this by failing open without any promised warning. Verify first by returning the planned `UNKNOWN` output from a real nested Agent hook and inspecting both the spawning actor’s context and the visible UI.
+    unverified-runtime-claim: yes
+
+[4] severity: HIGH    loop/items/AI4DEV-82/plan.md:61
+    claim: The separately written snapshot and verdict files have no recovery or freshness mechanism preventing an old verdict from surviving a partial sensor-write failure.
+    why it matters: If `rate-limits.json` updates to 85% but the subsequent verdict write fails, the fresh gate denies while the alarm and stamp can keep reading an old `OK` indefinitely; the inverse failure can produce an ALARM beside an old snapshot. Step 4 tests only successful writes, so group 4 cannot establish checkpoint consistency under the plan’s own never-throw failure path. Verify first by independently faulting each write and inspecting both files and all three checkpoint results.
+    unverified-runtime-claim: yes
+
+[5] severity: HIGH    loop/items/AI4DEV-82/plan.md:96
+    claim: The selected `twin-check.ps1` folding pattern does not make a folded drill failure affect `run-drills.ps1`’s exit code.
+    why it matters: The current harness computes `$failed` at `loop/drills/run-drills.ps1:297`, then invokes and records the twin assertion at lines 300–301; copying that pattern for the watchdog permits its assertion to print `FAIL` while the stale `$failed` collection remains empty and the harness exits 0.
+    unverified-runtime-claim: no
+
+[6] severity: HIGH    loop/items/AI4DEV-82/plan.md:144
+    claim: No executable plan step proves that Claude Code actually loaded and applied the three deployed settings entries.
+    why it matters: Step 9 ends when JSON parses and command files exist, while the drills invoke scripts directly and the measurement used separate probe settings or a pre-existing hook; a wrong event entry, matcher, command, or failed settings reload can therefore leave the watchdog inert while every listed goal check passes. “The merge sitting verifies” has no numbered step, done-criterion, or required evidence record, so it is not a gate under this plan’s contract.
+    unverified-runtime-claim: no
+
+PLAN REVIEW: 6 FINDINGS
+tokens used
+161,630
