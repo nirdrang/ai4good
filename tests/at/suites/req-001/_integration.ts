@@ -800,13 +800,17 @@ export async function at00136(ctx: Ctx): Promise<void> {
 /**
  * AT-001.37 — granting a per-NGO role to a volunteer account is rejected on EVERY path.
  *
- * "EVERY PATH" IS WHY THIS BODY HAS THREE ARMS AND A CONTROL. Two product paths already refuse, and
+ * "EVERY PATH" IS WHY THIS BODY HAS FOUR ARMS AND A CONTROL. Two product paths already refuse, and
  * they refuse for product reasons a future change could move; the third arm is the one that closes
  * the criterion, because it carries no edge function, no shared module and no TypeScript at all —
- * an operator's direct insert, which is the shape every path nobody has written yet will have.
+ * an operator's direct insert, which is the shape every path nobody has written yet will have. The
+ * fourth arm is the same grant reached in TWO statements: the seat is taken by an NGO account and
+ * then re-pointed at the volunteer, which changes no row count and so meets only the NGO-only rule's
+ * UPDATE half (gate-2 ruling R5).
  *
  * THE CONTROL IS NOT OPTIONAL: an insert that refused everybody would satisfy the negative on its
- * own, so an NGO account is granted the same seat afterwards and must succeed.
+ * own, so an NGO account is granted the same seat afterwards and must succeed. It also SEATS the row
+ * the fourth arm re-points, which is why it runs before that arm rather than last.
  */
 export async function at00137(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
@@ -871,6 +875,22 @@ export async function at00137(ctx: Ctx): Promise<void> {
   if (!controlCompletion.ok) return;
   const seated = await sut.grantMembershipAsOperator(organization.id, controlCompletion.accountId, 'member');
   expect(seated, 'the operator grant refuses an NGO account too, so the refusals above prove nothing').toMatchObject({ ok: true });
+
+  // ARM 4 — THE SAME GRANT IN TWO STATEMENTS. The seat the control just took is re-pointed at the
+  // volunteer. The row count does not change, so the one-seat index never sees this write and the
+  // NGO-only trigger's UPDATE half is the only guard on it — the attack the migration names in its
+  // own prose, driven here for the first time (gate-2 ruling R5).
+  const repointed = await sut.repointMembershipAsOperator(organization.id, completion.accountId);
+  expect(repointed.ok, 'an operator re-pointed a seated membership at a volunteer account').toBe(false);
+  if (repointed.ok) return;
+  expect(repointed.kind, 'the re-point was refused for a reason other than the account type').toBe('not-an-ngo-account');
+
+  // AND THE ROW IS UNMOVED: the control still holds it, with the role it was granted.
+  expect(await sut.membership(organization.id, controlCompletion.accountId), 'the refused re-point moved the seat anyway').toMatchObject({
+    accountId: controlCompletion.accountId,
+    role: 'member',
+  });
+  expect(await sut.membershipsOf(completion.accountId), 'the volunteer holds a per-organisation role after the re-point refused').toEqual([]);
 }
 
 /* ------------------------------------------------- the single-seat and single-dev ids (D3.L2) --- */

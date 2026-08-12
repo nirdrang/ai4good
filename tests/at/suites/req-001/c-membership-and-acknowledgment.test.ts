@@ -272,6 +272,23 @@ atTest(
       if (!controlCompletion.ok) return;
       const controlGrant = await sut.grantMembershipAsOperator(organization.id, controlCompletion.accountId, 'member');
       expect(controlGrant, 'the operator grant refuses an NGO account too, so the refusals above prove nothing').toMatchObject({ ok: true });
+
+      // ARM 4 — THE SAME GRANT IN TWO STATEMENTS. The seat the control just took is re-pointed at the
+      // volunteer, which changes no row count and so never meets the one-seat rule. Only the NGO-only
+      // rule's UPDATE half stands between a volunteer and a per-organisation role on this path.
+      const repointed = await sut.repointMembershipAsOperator(organization.id, completion.accountId);
+      expect(repointed.ok, 'an operator re-pointed a seated membership at a volunteer account').toBe(false);
+      if (repointed.ok) return;
+      expect(repointed.kind, 'the re-point was refused for a reason other than the account type').toBe('not-an-ngo-account');
+
+      // AND THE ROW IS UNMOVED: the control still holds it, with the role it was granted.
+      expect(await sut.membership(organization.id, controlCompletion.accountId), 'the refused re-point moved the seat anyway').toMatchObject({
+        accountId: controlCompletion.accountId,
+        role: 'member',
+      });
+      expect(await sut.membershipsOf(completion.accountId), 'the volunteer holds a per-organisation role after the re-point refused').toEqual(
+        [],
+      );
     },
     integration: at00137,
   },

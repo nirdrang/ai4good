@@ -245,6 +245,7 @@ import type {
   OrganizationRow,
   ProjectRow,
   RefreshSessionOutcome,
+  RepointMembershipOutcome,
   SendDiscoveryMessageOutcome,
   Session,
   SessionProvider,
@@ -1133,6 +1134,49 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const membership: MembershipRow = { organizationId, accountId, role };
       state.memberships.set(membershipKey(organizationId, accountId), membership);
       return { ok: true, membership: clone(membership) };
+    },
+
+    /**
+     * THE SAME GRANT REACHED IN TWO STATEMENTS — and this branch MIRRORS THE DATABASE too, for the
+     * same reason `grantMembershipAsOperator` does: the rule is a trigger, not a module.
+     *
+     * THE TRIGGER IS BOUND TO UPDATE AS WELL AS INSERT, which is what refuses here. Re-pointing does
+     * not change the organisation's row COUNT, so the one-seat index never sees this write and the
+     * trigger's UPDATE half is the only guard on it (gate-2 ruling R5).
+     *
+     * THE ORDER IS THE DATABASE'S ORDER. An update aimed at an organisation with no membership row
+     * matches nothing, so it fires no trigger and refuses; the BEFORE trigger then runs before the
+     * account foreign key, so a new account that never completed signup is refused for having no
+     * account type, and a new account of the wrong type is refused for being non-NGO.
+     */
+    repointMembershipAsOperator: async (organizationId, accountId): Promise<RepointMembershipOutcome> => {
+      const seated = [...state.memberships.values()].find((row) => row.organizationId === organizationId);
+      if (!seated) {
+        return { ok: false, kind: 'refused', reason: `no membership row exists in organisation ${organizationId} to re-point` };
+      }
+
+      const account = state.accounts.get(accountId);
+      if (!account) {
+        // `refused`, not `not-an-ngo-account`, for the reason the grant above gives: no account row
+        // is a different fact from an account of the wrong type, and the database says so in its own
+        // sentence.
+        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
+      }
+      if (account.accountType !== 'ngo') {
+        return {
+          ok: false,
+          kind: 'not-an-ngo-account',
+          reason:
+            `a per-organisation role may be granted to NGO accounts only — account ${accountId} is of type ` +
+            `${JSON.stringify(account.accountType)}`,
+        };
+      }
+
+      // THE ROW IS RE-KEYED, NOT DUPLICATED: the role travels with it, and the old key goes.
+      const repointed: MembershipRow = { organizationId, accountId, role: seated.role };
+      state.memberships.delete(membershipKey(organizationId, seated.accountId));
+      state.memberships.set(membershipKey(organizationId, accountId), repointed);
+      return { ok: true, membership: clone(repointed) };
     },
 
     /**

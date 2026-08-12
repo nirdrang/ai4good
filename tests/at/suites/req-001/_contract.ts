@@ -235,6 +235,25 @@ export type GrantMembershipOutcome =
   | { ok: false; kind: 'not-an-ngo-account' | 'org-already-seated' | 'refused'; reason: string };
 
 /**
+ * The outcome of an OPERATOR re-pointing an existing membership row at a DIFFERENT account — the
+ * grant reached in two statements rather than one.
+ *
+ * IT EXISTS BECAUSE THE NGO-ONLY TRIGGER IS BOUND TO UPDATE AS WELL AS INSERT, and that binding is
+ * the only guard on this path: a row inserted for an NGO account and then re-keyed to a volunteer
+ * changes no row COUNT, so the one-seat index never sees it. AT-001.37 says "on every path", and an
+ * unexercised trigger binding is a path nobody drives. Gate-2 ruling R5 added it.
+ *
+ * TWO KINDS ONLY, and the missing one is deliberate:
+ *   * `not-an-ngo-account` — the trigger refused the new account, which is the arm under test.
+ *   * `refused` — anything else, unclassified: no membership row in that organisation to re-point,
+ *     an account that never completed signup, or a refusal this adapter cannot name.
+ * `org-already-seated` cannot arise here — re-pointing keeps the organisation's row count at one.
+ */
+export type RepointMembershipOutcome =
+  | { ok: true; membership: MembershipRow }
+  | { ok: false; kind: 'not-an-ngo-account' | 'refused'; reason: string };
+
+/**
  * The outcome of an OPERATOR attaching a volunteer to a project — AT-001.32's act.
  *
  * `seat-occupied` is the database guard refusing to re-point a seat that is already held at a
@@ -580,6 +599,21 @@ export type AccountsSut = {
    * Given is reached. The body that uses it says so in its own evidence.
    */
   grantMembershipAsOperator(organizationId: string, accountId: string, role: OrgRole): Promise<GrantMembershipOutcome>;
+
+  /**
+   * Re-point an organisation's EXISTING membership row at a different account, as the operator —
+   * the refusal probe for the trigger's UPDATE half.
+   *
+   * THE ROLE IS NOT AN ARGUMENT, because the role is not what moves: the row keeps whatever role it
+   * holds and only its account changes. That is exactly the attack the migration names in its own
+   * prose — a row inserted for an NGO account and then re-keyed to a volunteer — and the read-back a
+   * body makes afterwards is that the row still holds the ORIGINAL account with its ORIGINAL role.
+   *
+   * IT IS A REFUSAL PROBE AND NOTHING ELSE, so it returns an outcome rather than throwing: no Given
+   * in this suite is reached by re-pointing a seat, and every body that calls it is asserting that
+   * the database said no.
+   */
+  repointMembershipAsOperator(organizationId: string, accountId: string): Promise<RepointMembershipOutcome>;
 
   /**
    * Create a project, as the operator — a GIVEN, never an act under test.

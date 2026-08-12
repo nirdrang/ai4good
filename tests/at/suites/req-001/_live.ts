@@ -87,6 +87,7 @@ import type {
   OrganizationRow,
   ProjectRow,
   RefreshSessionOutcome,
+  RepointMembershipOutcome,
   Session,
   SignInOutcome,
   UpdateOrganizationOutcome,
@@ -120,6 +121,7 @@ export const backedSutMethods = {
     'updateOrganization',
     'createOrganizationAsOperator',
     'grantMembershipAsOperator',
+    'repointMembershipAsOperator',
     'createProjectAsOperator',
     'assignVolunteerAsOperator',
     'projectAssignment',
@@ -653,6 +655,49 @@ export async function createLiveAdapter(opts: {
         // AT-001.17 reads as its structural refusal.
         if (/org_memberships_one_seat_per_org_idx/i.test(message) && (code === '' || code === '23505')) {
           return { ok: false, kind: 'org-already-seated', reason: message };
+        }
+        return { ok: false, kind: 'refused', reason: message };
+      }
+    },
+
+    /**
+     * THE SAME GRANT REACHED IN TWO STATEMENTS — one update, aimed at the organisation's single
+     * membership row, with the trigger's UPDATE half as the only thing that can refuse it.
+     *
+     * WHY IT IS A SEPARATE PATH: re-pointing changes no row COUNT, so the one-seat unique index
+     * never sees this write. The migration's own prose names the attack — a row inserted for an NGO
+     * account and then re-pointed at a volunteer — and gate-2 ruling R5 added this method because no
+     * test drove the binding that stops it.
+     *
+     * THE UPDATE IS AIMED BY ORGANISATION AND RETURNS THE ROW, so an update that matched nothing is
+     * `refused` with its own reason rather than reading as a silent success. The classification is
+     * sentence-primary with the SQLSTATE as agreement, the same rule the grant above follows
+     * (gate-2 ruling R3); a new account that never completed signup meets the trigger's OTHER branch
+     * — SQLSTATE `23503`, its own sentence — and lands in `refused`, which is the fixture's answer
+     * for it too.
+     */
+    repointMembershipAsOperator: async (organizationId, accountId): Promise<RepointMembershipOutcome> => {
+      try {
+        const updated = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
+          sql`update public.org_memberships set account_id = ${accountId}::uuid
+               where org_id = ${organizationId}::uuid
+           returning org_id as organization_id, account_id, role`,
+        );
+        if (updated.length !== 1) {
+          return { ok: false, kind: 'refused', reason: `no membership row exists in organisation ${organizationId} to re-point` };
+        }
+        return {
+          ok: true,
+          membership: {
+            organizationId: String(updated[0].organization_id),
+            accountId: String(updated[0].account_id),
+            role: updated[0].role,
+          },
+        };
+      } catch (error) {
+        const { code, message } = databaseRefusal(error);
+        if (/NGO accounts only/i.test(message) && (code === '' || code === '42501')) {
+          return { ok: false, kind: 'not-an-ngo-account', reason: message };
         }
         return { ok: false, kind: 'refused', reason: message };
       }

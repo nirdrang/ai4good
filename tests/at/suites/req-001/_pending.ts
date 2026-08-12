@@ -7,7 +7,7 @@
  * id has no registered call site, and `runner.ts` turns any such problem into exit 2 with NOTHING
  * graded. The expected set is every `AT-001.NN (P0)` in `.taskmaster/docs/acceptance/at-req-001.md`
  * — all 37 of them. So the moment `tests/at/suites/req-001/` exists, all 37 need executable call
- * sites; there is no partial suite. Thirteen are written — AT-001.01 through .07 across the first
+ * sites; there is no partial suite. Eighteen are written — AT-001.01 through .07 across the first
  * accounts leaf and the GitHub one, AT-001.09 and .10 with the verification leaf, AT-001.38,
  * .12, .13 and .14 with the session-and-reset one, AT-001.16, .36 and .37 with the
  * per-organisation roles one, and AT-001.17 and .32 with the single-seat one. The other 19 are
