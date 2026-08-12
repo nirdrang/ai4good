@@ -61,6 +61,10 @@ $snapPath = if ($SnapshotPath) { $SnapshotPath } else { Join-Path $env:LOCALAPPD
 $result = [ordered]@{
     verdict      = 'UNKNOWN'
     reason       = ''
+    # The line this reading was judged against, reported rather than copied. The stamp hook prints
+    # it, so the number in front of the founder is the number the verdict used - a fourth copy in
+    # the hook would be a fourth thing to drift.
+    pauseAt      = $PauseAt
     worstWindow  = ''
     worstPercent = $null
     resetsAtUtc  = ''

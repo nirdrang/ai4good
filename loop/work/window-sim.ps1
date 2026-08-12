@@ -333,6 +333,69 @@ try {
     }
 
     ''
+    '11. The reading on the prompt stamp'
+    # The stamp hook prints the reading before every prompt, so the guard is visible instead of
+    # remembered. These checks drive the REAL hook against synthetic readings, through the same
+    # snapshot override the gauge already had.
+    $hook = Join-Path $here 'stamp-hook.ps1'
+    function Hook-Lines([string]$projectDir) {
+        $env:AI4GOOD_WINDOW_SNAPSHOT = $snap
+        $env:AI4GOOD_STAMP_CHILD = '1'       # the supervision tree is another file's subject
+        $env:CLAUDE_PROJECT_DIR = $projectDir
+        try { @(& powershell -NoProfile -ExecutionPolicy Bypass -File $hook -SessionId 'abcdef01' 2>$null) }
+        finally {
+            Remove-Item Env:AI4GOOD_WINDOW_SNAPSHOT -ErrorAction SilentlyContinue
+            Remove-Item Env:AI4GOOD_STAMP_CHILD -ErrorAction SilentlyContinue
+            Remove-Item Env:CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue
+        }
+    }
+    function Window-Line() { @(Hook-Lines $root) | Where-Object { $_ -match 'WINDOW' } | Select-Object -First 1 }
+
+    Set-Reading @{ five_hour = (W 50 120); seven_day = (W 78 5000) }
+    $line = Window-Line
+    Check 'a clear reading prints one OK line' ([bool]($line -match 'WINDOW  OK')) 'True'
+    Check 'and it names every window with its percentage' ([bool]($line -match 'five_hour 50%' -and $line -match 'seven_day 78%')) 'True'
+    Check 'and it prints the line the verdict used, not a copy' ([bool]($line -match ('line {0}%' -f $gaugeLine))) 'True'
+    Check 'and it prints the age of the reading' ([bool]($line -match 'reading \d')) 'True'
+    Check 'and it carries the session prefix like every stamp line' ([bool]($line -match '^\[abcdef01\] ')) 'True'
+
+    Set-Reading @{ five_hour = (W 88 90); seven_day = (W 40 5000) }
+    $line = Window-Line
+    Check 'a reading over the line prints PAUSE' ([bool]($line -match 'WINDOW  PAUSE')) 'True'
+    Check 'and it says to stop the workflow' ([bool]($line -match 'STOP THE WORKFLOW')) 'True'
+    Check 'and it names the wait to arm' ([bool]($line -match 'window-wait\.ps1')) 'True'
+    Check 'and it names the window and its reset' ([bool]($line -match 'five_hour at 88%' -and $line -match 'resume after the reset at \d\d:\d\d')) 'True'
+
+    Set-Raw 'this is not json {{{'
+    $lines = @(Hook-Lines $root)
+    $line = $lines | Where-Object { $_ -match 'WINDOW' } | Select-Object -First 1
+    Check 'an unreadable instrument prints UNKNOWN' ([bool]($line -match 'WINDOW  UNKNOWN')) 'True'
+    Check 'and says to report it rather than halt' ([bool]($line -match 'do not halt')) 'True'
+    # The stamp is the one output that must never be damaged by anything added to it.
+    Check 'and the stamp itself still prints its two lines' `
+        ([bool](($lines | Where-Object { $_ -match 'WORKING ON' }).Count -ge 1 -and ($lines | Where-Object { $_ -match ' IN ' }).Count -ge 1)) 'True'
+
+    # COORDINATOR ONLY. An agent never reads the limits, so the line must be absent in an agent
+    # worktree. This runs against a worktree that already exists, read only; with none present the
+    # check is SKIPPED and says so, because a check that quietly vanishes reads as a pass.
+    $anyAgent = $null
+    $wtDir = Join-Path $root '.claude\worktrees'
+    if (Test-Path $wtDir) {
+        foreach ($d in (Get-ChildItem $wtDir -Directory -ErrorAction SilentlyContinue)) {
+            if (& git -C $d.FullName rev-parse --show-toplevel 2>$null) { $anyAgent = $d.FullName; break }
+        }
+    }
+    Set-Reading @{ five_hour = (W 88 90) }
+    if ($anyAgent) {
+        $agentLines = @(Hook-Lines $anyAgent)
+        Check 'an agent worktree prints no window line' (($agentLines | Where-Object { $_ -match 'WINDOW' }).Count) 0
+        Check 'and it still stamps as an agent' ([bool](($agentLines -join ' ') -match 'AGENT')) 'True'
+    }
+    else {
+        '  SKIP  the agent-worktree check - no agent worktree exists right now'
+    }
+
+    ''
     "RESULT: {0} passed, {1} failed" -f $pass, $fail
     if ($fail -gt 0) { ''; 'failed:'; $failed | ForEach-Object { '  - ' + $_ }; exit 1 }
 } finally {

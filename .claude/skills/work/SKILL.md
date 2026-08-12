@@ -32,6 +32,26 @@ reviews.** An orchestrator gets two adversarial gates, an independent audit and 
 check; your output gets none. Every intent-level defect this project has had was found by the
 founder reading something and asking a structural question.
 
+## The usage window — you are the only reader, and the line is 85 percent
+
+`shared-invariants.md` holds the full rule. The part you act on, in the manual you actually open:
+
+- **The stamp prints the reading before every prompt** (founder 2026-08-13), in your session only.
+  `WINDOW  OK` with every window and its percentage, `WINDOW  PAUSE` with what to do, or
+  `WINDOW  UNKNOWN` with why. The hook DISPLAYS; it never halts anything. You are still the only
+  actor that stops work.
+- **At 85 percent of any window, stop the workflow at once** (founder 2026-08-12, superseding the
+  90 percent of 2026-08-06). Alarm and stop are the same number. Ask each running conductor to
+  park — write its state, push, report, end. Start nothing new.
+- **Then arm `loop/work/window-wait.ps1` as a background command.** Its exit re-invokes this
+  session, so the conversation continues with its context intact. A parked session spends nothing.
+- **On the wake, re-read the gauge before releasing anything.** The exit means the window SHOULD
+  be open, never that budget exists. Still over the line → park again. Under it → release one item
+  at a time, re-reading between releases.
+- **`UNKNOWN` reports loudly and does not halt.** A broken instrument is not a spent window.
+- **The guard works while the founder is present.** Only founder-typed turns refresh the sensor,
+  so the reading ages when nobody types. Never claim unattended cover.
+
 ## Phase A — decide what
 
 | you type | what happens |
