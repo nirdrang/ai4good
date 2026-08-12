@@ -1,0 +1,1 @@
+Spawn a subagent of type general-purpose. Its entire task is the following two sentences. Spawn a subagent of type general-purpose whose entire task is to reply with the single word done. Wait for it, then reply with the single word done. After your subagent completes, reply with the single word done. Use no tools other than the Agent tool.
