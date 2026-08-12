@@ -221,7 +221,99 @@ These stay open and belong in the eventual merge ruling. None of them blocks a m
 4. **AT-001.16's green claims operation-surface isolation only** (gate-1 finding 1). Read-surface
    breadth stays with the tenant-isolation leaf.
 
-## 8. What this sitting does, and what it hands on
+## 8. After the integration — the executor's two merge-created findings, ruled
+
+The executor merged main in at `ac1301a` and reported two defects that exist ONLY in the merge.
+Neither audit reader could have seen either one, because each read a single tree. Both are ruled
+here. Head after the integration: `dce5dde`.
+
+### 8a. The duplicate migration version — PROVEN, and worse than suspected
+
+The verify-first condition of section 2 came back proven, measured on slot 2 before any rename,
+with three agreeing instruments: `supabase db reset` exited 1; only 3 of 5 rows reached
+`supabase_migrations.schema_migrations`, because `version` is that table's key; and the catalog,
+asked object by object, reported `update_organization` absent, the `org_memberships` trigger
+absent, and the `projects` table absent.
+
+**Ruling: adopted. This was not a tidiness issue — BOTH of this item's migrations were missing from
+a database the harness would otherwise have graded against.** A merged tree in this state would
+have produced integration results about a schema this item never reached. The executor renamed this
+branch's file forward to `20260811125000_org_membership_ngo_only_and_organization_rename.sql`, left
+main's migration untouched, and the control run reports 5 expected and 5 applied.
+
+The executor also reported, rather than hid, that the CLI's own failing statement never reaches the
+thrown message, because `runner.ts` keeps only the first non-empty stderr line. **Ruling: that is a
+real instrument limit and it is recorded. It changes nothing here, because the database readings —
+not the CLI's message — establish the fact.** It is filed, not built.
+
+### 8b. The mandatory identity fields — a semantic conflict with no textual conflict
+
+The acknowledgment-identity leaf makes signer name, title and authority attestation mandatory in
+the shared `validateCompleteSignup`. This branch's five bodies predate that rule and complete
+signups without them. Neither side's text conflicts; the two sides simply disagree about what a
+valid completion is. It surfaced as seven deviations on the first verify run.
+
+**Ruling: adopted, and it corrects section 1 of this file.** Section 1 says "the CODE is additive
+everywhere". That is true TEXTUALLY and false SEMANTICALLY, and the correction is recorded rather
+than quietly amended. A conflict inventory built from `git merge-tree` can only see text. Two
+merge-created defects here were invisible to it and visible only to something that RUNS the code —
+which is the argument for re-running both tiers after any integration, not just re-reading the diff.
+
+**The executor's one judgment call is CORRECT and adopted.** It added the three fields to every
+completion that must SUCCEED, and deliberately left the two that must be REFUSED alone —
+`c-membership-and-acknowledgment.test.ts:271` and `_integration.ts:862`, the volunteer completion
+carrying an organisation name. This sitting verified the reasoning against the shipped code rather
+than accepting it: the refusal returns at `supabase/functions/_shared/accounts.ts:235`, and
+`accounts.ts:200-206` states the ordering is load-bearing in those words — "A request that omits the
+identity fields for one of those reasons never reaches these checks and its stated reason is
+unchanged." Adding the fields there would not change the outcome; it would only hide which check
+answered.
+
+## 9. CI ran, and it is RED — the ownership guard. Classified: broken by this change
+
+Resolving the conflict released the dispatch, exactly as section 3 ruled, and with no empty commit:
+GitHub created a run for each of the three pushes the moment the pull request became `MERGEABLE`.
+**Section 3's diagnosis is therefore confirmed by the fix.**
+
+Run `31614130816` on head `dce5dde` FAILS at the step "Guard against a pull request that changes
+both territories":
+
+```
+this pull request changes BOTH Lovable territory and Claude territory — split it into two pull requests
+Lovable territory (src/):
+  src/routeTree.gen.ts
+```
+
+**Classification: broken by this change — specifically by the fix-and-goal sitting's adopted
+deviation (iii), which committed `src/routeTree.gen.ts` as build-regenerated.** It is not
+infrastructure, not a flake, and not pre-existing on main: main's own run on `390042c` is green.
+This is the FIRST CI run ever to see that file in this pull request, because the file landed at
+`ca1a8e4` and every push after it lost its dispatch to the conflict. The earlier ruling was made
+where CI could not answer.
+
+**Ruling: REVERSED. `src/routeTree.gen.ts` is restored to main's version and leaves this pull
+request.** The reasons, measured:
+
+- The ownership guard is ratified CI machinery, and it is doing exactly its job. This item's work
+  is migrations, edge functions and tests. It has no legitimate need to touch `src/`.
+- The file is GENERATED, not authored. The whole difference from main is a type-only
+  `declare module '@tanstack/react-start'` block appended at the end. It adds no route.
+- **AT-001.17's source arm is unaffected, and this is proved rather than assumed.** The arm
+  extracts every quoted string literal from the file and matches them against
+  `/invite|add[-_ ]?member|addmember|add[-_ ]?user|adduser/i`. The block's only literals are
+  `'./router.tsx'`, `'./start.ts'` and `'@tanstack/react-start'`. None matches. The arm returns the
+  same empty array with the block or without it.
+- Main is green without the block, so the repository's committed state deliberately does not carry
+  it.
+
+I do not propose waiving the guard, and no ruling here loosens it. The item comes into compliance
+instead.
+
+**A process finding rides along, filed and not built:** if `bun run build` regenerates a
+Lovable-territory file, then every Claude-territory item that builds will dirty `src/routeTree.gen.ts`
+and meet this same guard. That belongs to the coordinator to fold, not to this item.
+
+## 10. What this sitting does, and what it hands on
 
 This sitting rules the blocker and runs ONE executor invocation to integrate the branch with main
 and re-verify it. It then pushes and ends, because the code changes and the audit must read the

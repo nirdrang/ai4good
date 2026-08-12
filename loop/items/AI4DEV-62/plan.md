@@ -306,3 +306,30 @@ before it took main, and they no longer license anything.
 Do not rebase. Do not reserve a second database slot. Do not "improve" main's code that arrives
 with the merge — resolve the conflicts and stop. If first-hand contact contradicts any ruling
 above, stop and report it to the orchestrator sitting by its agent id.
+
+## Step 15 — the ownership guard. Take the generated route tree out of this pull request.
+
+Added by the merge sitting after CI ran for the first time since the integration. CI run
+`31614130816` on head `dce5dde` FAILS the step "Guard against a pull request that changes both
+territories". One file puts this pull request in Lovable territory: `src/routeTree.gen.ts`. The full
+ruling is `merge-rulings.md` section 9, which REVERSES the earlier sitting's deviation (iii).
+
+15. **Restore `src/routeTree.gen.ts` to main's version and keep it out of the pull request.**
+    `git checkout origin/main -- src/routeTree.gen.ts`. The only difference is a type-only
+    `declare module '@tanstack/react-start'` block appended at the end; it adds no route, and none
+    of its string literals matches AT-001.17's invite oracle, so the source arm returns the same
+    empty array either way.
+    - **`bun run build` may regenerate the block.** If it does, restore the file again with the same
+      command BEFORE the final commit, so the committed tree is the tree that ships and the
+      evidence describes it. **Say plainly in your report whether the build regenerates it** — that
+      answer is a standing fact about this repository, not a detail of this item.
+    - **Re-run all four verification runs** after the restore, on slot 2, so the recorded evidence
+      describes the committed tree. AT-001.17's source arm READS this file, so a stale run would be
+      evidence about a tree that no longer exists. Expected, unchanged: req-001 loop 21 green /
+      16 red; req-001 integration 16 green / 21 red; req-016 11 green / 1 red and 0 green / 12 red;
+      5 migrations expected and applied.
+    - Update `artifacts/goal-runs-after-merge.md` with the new runs, and record that deviation
+      (iii) is reversed. Leave the historical record files alone — they correctly describe the trees
+      they graded.
+    - Done: `git diff origin/main HEAD -- src/` is EMPTY; four exit-0 runs recorded; tree clean and
+      pushed.
