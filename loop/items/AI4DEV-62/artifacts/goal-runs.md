@@ -6,6 +6,12 @@ runs took the item's own reserved slot, **slot 2**, and each one carries its own
 
 `bun run typecheck` exit 0 and `bun run build` exit 0 before the first run.
 
+**One generated file rides along, and the runs saw it.** `bun run build` regenerated
+`src/routeTree.gen.ts`, adding a type-only `declare module '@tanstack/react-start'` block at the
+end of the file. It was in the working tree for all four runs and it is committed with this record,
+so the runs graded the tree this commit holds. The block adds no route and no invite or add-member
+naming, so AT-001.17's source arm reads it exactly as before.
+
 The whole set needed **zero fix iterations**: no run reported a deviation, so no code changed
 between the runs. One environment repair was needed first and it is recorded at the end, because a
 green that cannot say what it ran against is worth less than the run that produced it.
