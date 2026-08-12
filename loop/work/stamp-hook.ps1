@@ -224,6 +224,15 @@ try {
                     # parallel session reads them as its own agents unless each line says whose
                     # agent it is. The owner is recorded by /work at spawn; absent records and an
                     # unknown session id both degrade to words, never to a guess.
+                    # A DIFFERENT SPAWNER ID IS NOT ANOTHER SESSION (founder catch 2026-08-12).
+                    # A resume rotates the session id, so a session's own agents carry its OLD id
+                    # in their owner records. The old wording asserted "ANOTHER session's agent"
+                    # on any mismatch, and the coordinator believed it over its own history and
+                    # reported a second session that did not exist. No repair is derivable: the
+                    # hook payload names no predecessor id (docs checked 2026-08-12) and the
+                    # transcript is rewritten and compacted. So the label states exactly what the
+                    # comparison knows - the spawner's tag, and both readings of a mismatch - and
+                    # the reader resolves it from conversation memory.
                     $who = 'spawner unrecorded - not necessarily this session''s'
                     try {
                         # GIT'S OWN STRING, never $a. The worktree id is a hash of the toplevel
@@ -235,7 +244,11 @@ try {
                         $own = Get-OwnerForWorktreeRoot ($childTop.Trim())
                         $ownSid = if ($own) { [string]$own.sessionId } else { '' }
                         if ($ownSid -and $script:SessionId) {
-                            $who = if ($ownSid -eq $script:SessionId) { 'this session''s agent' } else { 'ANOTHER session''s agent' }
+                            if ($ownSid -eq $script:SessionId) { $who = 'this session''s agent' }
+                            else {
+                                $ownTag = if ($ownSid.Length -ge 8) { $ownSid.Substring(0, 8) } else { $ownSid }
+                                $who = ('spawner session ' + $ownTag + ' - another session, or this one before a resume')
+                            }
                         }
                         elseif ($ownSid) { $who = 'spawner recorded; this session''s id unknown' }
                     }
