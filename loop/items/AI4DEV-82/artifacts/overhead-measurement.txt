@@ -1,0 +1,31 @@
+﻿WATCHDOG OVERHEAD (synthetic readings, the live snapshot is never touched)
+  window dir : C:\Users\nirdr\AppData\Local\Temp\window-overhead-89280682\windowdir
+
+1. window-alarm.cmd - paid after EVERY tool call, in every agent
+  verdict OK (the normal case, exit 0, silent)   median    35.5 ms   min    31.4   max    42.1   n=20
+  verdict ALARM (exit 2, line on stderr)         median    35.8 ms   min    32.2   max    47.9   n=20
+  no verdict file at all (exit 0 before reading) median    20.0 ms   min    18.3   max    22.5   n=20
+
+2. statusline.ps1 - paid once per status-line refresh
+  sanity: the stripped twin writes no snapshot .............. confirmed
+  sanity: the stripped twin still renders a real status bar . confirmed
+  sanity: the snapshot-only twin writes the snapshot and NOT the verdict ... confirmed
+  sanity: the real sensor writes both files ................. confirmed
+
+  with the sensor block (verdict + mutex + 2 writes) median   530.4 ms   min   441.1   max   659.9   n=20
+  snapshot write only (the shape before this item) median   448.0 ms   min   388.3   max   495.8   n=20
+  no sensor block at all                         median   405.4 ms   min   368.9   max   475.4   n=20
+
+  DELTA this item added - verdict + mutex + second write ...    82.4 ms
+  DELTA the whole sensor block costs per refresh ...........   125.0 ms
+  (a PowerShell process start dominates every absolute number here, so the deltas are
+   the honest figures; the first is the one this item is answerable for)
+
+TARGET: the alarm hook median at or under 100 ms.
+  worst alarm median measured: 35.8 ms -> MET
+
+live snapshot hash before : 415B2D6D7FD6AD07F928FA6931BAE43A66B8432E8068C3131D4DB949B43A55BD
+live snapshot hash after  : 415B2D6D7FD6AD07F928FA6931BAE43A66B8432E8068C3131D4DB949B43A55BD
+(a difference here is the founder session refreshing it, which it does every turn;
+ what matters is that nothing in this run wrote to that directory - every write above
+ went to C:\Users\nirdr\AppData\Local\Temp\window-overhead-89280682\windowdir)
