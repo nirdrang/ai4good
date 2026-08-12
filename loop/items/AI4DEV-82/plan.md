@@ -70,13 +70,23 @@ fires inside subagents; UserPromptSubmit appeared in no subagent log — so the 
   cases go red if any copy is left behind. `window-sim.ps1`'s boundary cases move with it (89/90 hardcodes
   become 84/85; float-noise cases become 84.6/84.4; the fill-up narrative crosses at 85). The sim
   stays the gauge's regression net and must be green after the move.
-- **D3 — the verdict file (amended per gate 1 finding 4).** `statusline.ps1` computes the
-  verdict from the in-memory snapshot via the lib, writes `window-verdict.txt` FIRST, then
-  writes `rate-limits.json`, both inside ONE try block. A verdict-write failure therefore also
-  skips the snapshot write, so the invariant holds by construction: **the verdict file is never
-  older than the snapshot beside it** — "snapshot at 85% beside a stuck OK verdict" is
-  impossible. The residual case (verdict one refresh newer than the snapshot) is conservative
-  and heals at the next refresh or ages into the existing stale rules. Verdict shape: exactly
+- **D3 — the verdict file (amended per gate 1 finding 4; amended again per gate 2 [T1]).**
+  `statusline.ps1` computes the verdict from the in-memory snapshot via the lib, writes
+  `window-verdict.txt` FIRST, then writes `rate-limits.json`, both inside ONE try block. A
+  verdict-write failure therefore also skips the snapshot write.
+  **That envelope holds for ONE writer and does nothing across two, and this text used to claim
+  otherwise.** Claude Code spawns a fresh PowerShell per status-line refresh and several sessions
+  run here routinely, so two writers can interleave — A verdict, B verdict, B snapshot, A snapshot
+  — leaving a high snapshot beside an older `OK` verdict. The earlier wording said the invariant
+  held "by construction" and called that state impossible; it was not impossible, and gate 2
+  accepted the finding on the ground that a false statement about a guard is never mergeable.
+  **What is guaranteed now**: both writes happen under the named system mutex
+  `Global\ai4good-window-sensor`, so the pair is one act across processes; on a wait timeout BOTH
+  writes are skipped, because a consistent pair one refresh old is strictly better than an
+  inconsistent one. **The residual**: a refresh may be skipped under contention (it heals at the
+  next one), and a verdict may be one refresh newer than its snapshot, which is conservative — the
+  alarm fires on the newest data. A mutex that cannot be taken at all degrades to "no sensor
+  update", which the staleness rules then report as UNKNOWN, loudly. Verdict shape: exactly
   one line, three forms:
   `OK` · `ALARM WINDOW <window> at <pct>% (line 85%), resets <HH:mm> - finish the current work
   item, commit, park.` · `UNKNOWN <reason>`. The first token is the machine anchor (`findstr /b`);
@@ -234,6 +244,35 @@ fires inside subagents; UserPromptSubmit appeared in no subagent log — so the 
 12. **`goal-evidence.md`**: drill + sim outputs, the capture-diff, the fold-binding proof, the
     probe evidence, the two overhead medians (alarm hook; statusline delta with the verdict
     write), and the settings wiring shown. Done: file committed.
+
+## What actually happened, step by step (gate 2 [F6])
+
+**Why this section exists.** Every "Done:" line above is a CRITERION — what the step must satisfy —
+and nothing above records whether the step met it. A reader could not tell built from planned, and
+the phase record separately said four of these steps were deferred. Gate 2 accepted the finding
+that the record asserted work that did not exist, and ruled that no step keeps a Done mark it has
+not earned. This table is the status; it is written by the executor that ran the work, and the
+evidence for every MET row is in `goal-evidence.md` and `artifacts/`.
+
+| step | status | on what evidence |
+|---|---|---|
+| 1. extract `window-lib.ps1` | **MET** | capture-diff identical apart from the capture script's own label line |
+| 2. move the line to 85 | **MET** | sim green with boundary cases at exactly 84/85, and now at 84/85 on `window-wait.ps1`'s own default too |
+| 3. write the drill, four groups | **MET** | 65 assertions, all four groups plus fault injection and contention |
+| 4. sensor writes the verdict file | **MET** | drill group 4 sensor half green, including the coupled-envelope fault case |
+| 5. `window-gate.ps1` | **MET** | drill groups 1–3 gate assertions green; UNKNOWN emits both channels; fail-open proven loud by the gate 2 probes A and B |
+| 6. `window-alarm.cmd` | **MET** | drill groups 1–2 alarm assertions green; median of 20 measured at **35.5 ms**, target ≤ 100 ms met |
+| 7. `stamp-hook.ps1` lines | **MET** | drill groups 1–2 stamp assertions green, and the founder line now pinned at both ends |
+| 8. fold the drill in, make it BIND | **MET** | suite 74 of 74 exit 0; forced red gives 73 of 74 and **exit 1**; restored and re-measured green |
+| 9. wire the hooks into settings | **PARTLY MET — the runtime half is not proven** | the JSON parses, the entry shapes and paths are as specified, and the branch files exist. But this step's own criterion also requires step 10 to be green, and step 10 is blocked. The entry shapes are therefore unverified AT RUNTIME. |
+| 10. the settings-proof probe | **NOT MET — attempted once, blocked** | the probe's twin path substitution is broken (`-replace` is a regex operator; the replacement inserts four backslashes where two are needed), so the twin kept main-checkout paths and two entries pointed at files that do not exist there. The vendor was healthy — five runs, all stderr logs empty, no 529 — so this is NOT the vendor contingency the ruling pre-decided, and NOTHING is recorded as an entry failing to fire. One attempt was the cap; the defect is reported to the orchestrator rather than fixed here. |
+| 11. amend the contracts | **MET** | text present in `shared-invariants.md` and `conductor.md`; twins untouched; the one sentence that was literally false is replaced with the ruled wording |
+| 12. `goal-evidence.md` | **MET** | committed, and it names step 10 as blocked rather than dressing it as measured |
+
+**The two contingencies plan D11 names remain OPEN, not resolved.** Whether
+`PostToolUseFailure` is dispatched, and whether `additionalContext` reaches the model on an allow,
+are exactly what the blocked probe was to answer. The merge sitting's post-merge live check is now
+the only remaining instrument for them.
 
 ## Verification state
 

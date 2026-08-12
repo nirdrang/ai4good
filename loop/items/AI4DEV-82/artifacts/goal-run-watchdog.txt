@@ -1,0 +1,83 @@
+﻿WINDOW WATCHDOG DRILL (synthetic readings, the live snapshot is never touched)
+
+guard - the drill cannot reach the live reading
+  PASS  [guard] the drill directory is not the live snapshot directory
+  PASS  [guard] the override is actually set for every child process
+  PASS  [guard] the sensor takes its path from the library rather than spelling one out
+
+1. a reading at or over the line - every checkpoint must speak
+  PASS  [guard] the sensor wrote into the drill directory and left the live reading alone
+  PASS  [g1] the sensor wrote a snapshot
+  PASS  [g1] the sensor wrote a verdict file
+  PASS  [g1] the verdict line is a single ALARM line
+  PASS  [g1] the verdict line names the window, the level and the reset
+  PASS  [g1] the verdict line carries the parking instruction the model will hear
+  PASS  [g1] the gate DENIES the spawn
+  PASS  [g1] the deny reason names the window
+  PASS  [g1] the deny reason gives the percentage
+  PASS  [g1] the deny reason gives the reset time
+  PASS  [g1] the deny reason carries the parking choreography, so no contract has to remember it
+  PASS  [g1] a denying gate still exits 0 - the decision is the JSON, not the exit code
+  PASS  [g1] the alarm exits 2, which is what puts it in front of the model
+  PASS  [g1] the alarm puts the ALARM WINDOW line on stderr
+  PASS  [g1] the alarm echoes the sensor line verbatim, it does not compose its own
+  PASS  [g1] the stamp carries a WINDOW ALARM line for the founder
+  PASS  [g1] the founder line says WINDOW ALARM exactly once
+  PASS  [g1] and no ALARM WINDOW survives the prefix rewrite
+  PASS  [g1] the stamp still prints its two standard lines
+
+2. a reading under the line - every checkpoint must stay quiet
+  PASS  [g2] the verdict line is exactly OK
+  PASS  [g2] the gate allows the spawn
+  PASS  [g2] the gate says nothing at all when the answer is OK
+  PASS  [g2] the gate exits 0
+  PASS  [g2] the alarm exits 0
+  PASS  [g2] the alarm says nothing - it is paid on every tool call in the system
+  PASS  [g2] the stamp carries no alarm line
+  PASS  [g2] the stamp carries no sensor warning either
+
+3. a reading nothing has refreshed - a stale reading is not a low reading
+  PASS  [g3] stale, over the line, window not yet reset -> the gate still DENIES
+  PASS  [g3] and it says the reading is old rather than hiding it
+  PASS  [g3] and the founder still sees the alarm
+  PASS  [g3] and the alarm still fires
+  PASS  [g3] stale and under the line -> the gate ALLOWS, it never halts on a broken instrument
+  PASS  [g3] but it warns the spawning model, in the model-visible channel
+  PASS  [g3] and it warns the user too
+  PASS  [g3] the founder is told the sensor cannot be trusted, and that nothing is halted
+  PASS  [g3] and the stamp does NOT cry alarm on an unknown reading
+  PASS  [g3] the per-tool alarm stays silent on a stale OK - bounded, and covered by gate and stamp
+
+4. the verdict file agrees with the library, and the write envelope holds
+  PASS  [g4] the line the sensor wrote is the line the library composes - over the line
+  PASS  [g4] gate and alarm both agree with that line - over the line
+  PASS  [g4] the line the sensor wrote is the line the library composes - under the line
+  PASS  [g4] gate and alarm both agree with that line - under the line
+  PASS  [g4] the line the sensor wrote is the line the library composes - exactly on the line
+  PASS  [g4] gate and alarm both agree with that line - exactly on the line
+  PASS  [g4] the line the sensor wrote is the line the library composes - a weekly window blocking
+  PASS  [g4] gate and alarm both agree with that line - a weekly window blocking
+
+   fault injection
+  PASS  [g4] the sensor survives a verdict write it cannot do
+  PASS  [g4] a failed verdict write also skips the snapshot write - the envelope is one, not two
+  PASS  [g4] so no snapshot over the line can ever sit beside an older verdict
+  PASS  [g4] a corrupt snapshot does not halt spawns
+  PASS  [g4] but the spawning model is told the sensor is unreadable
+  PASS  [g4] and the founder is told, on the prompt, without being halted
+  PASS  [g4] with no verdict file at all the alarm is silent - the missing-file path
+  PASS  [g4] a broken sensor writes an UNKNOWN verdict LINE rather than leaving the file missing
+  PASS  [g4] and the per-tool alarm stays silent on that UNKNOWN LINE, as decided
+  PASS  [g4] while the gate still says it loudly and allows the spawn
+
+   contention
+  PASS  [g4] the drill can take the sensor mutex, so this case really does test contention
+  PASS  [g4] a status line that cannot take the lock still exits 0
+  PASS  [g4] and it writes NEITHER file, rather than half the pair
+  PASS  [g4] once the lock is free the pair updates together
+  PASS  [guard] both live files still exist - this drill deleted nothing out there
+  PASS  [guard] no live file carries anything this drill wrote
+  PASS  [guard] the override was still in force at the end of the run
+
+RESULT: 65 passed, 0 failed
+The window watchdog held at every checkpoint.

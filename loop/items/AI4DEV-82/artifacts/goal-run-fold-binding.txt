@@ -1,0 +1,13 @@
+﻿FOLD-BINDING PROOF - a watchdog red must make run-drills.ps1 exit 1
+head under test : 4e2a23d2f8ec3107f5335e93fe96c4561b0851fa
+forced fault    : one extra assertion in window-watchdog-drill.ps1, hard-coded false,
+                  added for this run only and reverted immediately after it.
+
+---- run-drills.ps1 with the forced red ----
+        FAIL  [guard] FORCED RED - fold-binding proof, reverted in the same sitting
+PASS  [twin-guard] orchestrator twins are in sync (edit both or neither)
+FAIL  [window-watchdog] the usage-window watchdog holds at every checkpoint
+73 of 74 assertions green
+RED - the hand-offs above broke.
+
+EXIT CODE: 1
