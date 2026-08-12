@@ -103,9 +103,21 @@ function Get-WindowVerdict {
         return $result
     }
 
+    # rateLimits ARRIVES IN TWO SHAPES, AND ONLY ONE OF THEM HAS PROPERTIES. Production always
+    # comes through ConvertFrom-Json, so it is a PSCustomObject and its window names are property
+    # names. A caller that builds a snapshot in memory hands over a Hashtable, and
+    # PSObject.Properties.Name on a Hashtable enumerates the .NET type's own members - Keys,
+    # Values, Count - not the keys. The settings-proof probe did exactly that, and the
+    # founder-facing line it composed named the window "Values". Ask a dictionary for its keys and
+    # everything else for its properties. This is the same class as the Sort-Object note below:
+    # a dictionary answering a question meant for an object, quietly and wrongly.
+    $rl = $snap.rateLimits
+    $isDict = ($rl -is [System.Collections.IDictionary])
+    $names = @(if ($isDict) { $rl.Keys } else { $rl.PSObject.Properties.Name })
+
     $now = Get-Date
-    foreach ($name in $snap.rateLimits.PSObject.Properties.Name) {
-        $w = $snap.rateLimits.$name
+    foreach ($name in $names) {
+        $w = if ($isDict) { $rl[$name] } else { $rl.$name }
         if ($null -eq $w.used_percentage) { continue }
         # The percentages arrive as floats carrying binary noise - 7 comes through as
         # 7.000000000000001 - so round before any comparison or a threshold test misbehaves
@@ -146,7 +158,28 @@ function Get-WindowVerdict {
     $result.resetsAtUtc  = $worst.resetsAtUtc
     $result.resetsInMin  = $worst.resetsInMin
 
-    if ($null -ne $ageMin -and $ageMin -gt $StaleMinutes) {
+    # AN AGE THAT COULD NOT BE COMPUTED IS AN UNKNOWN AGE, NEVER A FRESH ONE. A capturedAt that is
+    # absent, empty or unparseable leaves $ageMin null, and the staleness branch below is guarded on
+    # a non-null age - so a corrupt-but-low reading used to skip the staleness rules entirely and be
+    # scored as current, for as long as it sat there. That inverts this file's own doctrine: a
+    # broken instrument is not a spent window, and it is not a fresh one either.
+    #
+    # The floor reasoning of the stale branch applies unchanged. A window only climbs, so a reading
+    # already at or over the line still evidences the level whenever it was taken; below the line it
+    # evidences nothing at all, because it may have climbed since.
+    if ($null -eq $ageMin) {
+        if ($worst.percent -ge $PauseAt) {
+            $result.verdict = 'PAUSE'
+            $result.reason  = ("{0} at {1}% (pause line {2}%) - the reading carries no usable timestamp, but a window only climbs" -f `
+                $worst.name, $worst.percent, $PauseAt)
+            return $result
+        }
+        $result.verdict = 'UNKNOWN'
+        $result.reason  = 'the reading carries no usable capturedAt timestamp, so its age cannot be established - treat as unknown, never as current'
+        return $result
+    }
+
+    if ($ageMin -gt $StaleMinutes) {
         # A stale reading proves a FLOOR, not a level: inside one window the figure only ever climbs.
         # So if the reading was already over the line AND its own window has not reset since, the
         # level still stands and parking is the evidenced answer, not a cautious guess. Only once the

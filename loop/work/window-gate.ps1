@@ -76,16 +76,23 @@ Your spawner does the same, one level at a time, until the conductor parks the i
         exit 0
     }
 
-    if ($v.verdict -eq 'UNKNOWN') {
-        # A broken instrument is not a spent window. UNKNOWN reports loudly and halts nothing -
-        # the same rule attribution follows. Never let it pass silently as OK.
-        $warn = ('WINDOW GUARD: the usage-window sensor is UNKNOWN and cannot be trusted - {0}. This spawn is ALLOWED: a broken instrument is not a reason to stop working. Nobody can see how much of the window is left, so keep the work small and say so in your report.' -f $v.reason)
-        Write-Decision 'allow' 'window sensor unreadable - allowed with a warning' $warn $warn
-        exit 0
-    }
-
     # OK - silent. This runs at every spawn in the relay; a line of chatter here is a line in
     # every actor transcript forever.
+    #
+    # SILENCE IS SPELLED OUT, NOT REACHED BY FALLING THROUGH. This branch used to be the fall-
+    # through: anything that was not PAUSE and not UNKNOWN exited 0 without a word. It FIXES NO
+    # PROVEN DEFECT - Get-WindowVerdict returns only OK, PAUSE or UNKNOWN, so no other value can
+    # arrive here today, and the gate 2 ruling records plainly that nothing was shown broken. It is
+    # written this way because silence is the one answer this file must never give by accident: a
+    # verdict word this file has never heard of must be loud, and it now takes the warning path
+    # below rather than looking exactly like a clear window.
+    if ($v.verdict -eq 'OK') { exit 0 }
+
+    # UNKNOWN, and any verdict this file does not recognise. A broken instrument is not a spent
+    # window. UNKNOWN reports loudly and halts nothing - the same rule attribution follows. Never
+    # let it pass silently as OK.
+    $warn = ('WINDOW GUARD: the usage-window sensor is {0} and cannot be trusted - {1}. This spawn is ALLOWED: a broken instrument is not a reason to stop working. Nobody can see how much of the window is left, so keep the work small and say so in your report.' -f $v.verdict, $v.reason)
+    Write-Decision 'allow' 'window sensor unreadable - allowed with a warning' $warn $warn
     exit 0
 }
 catch {
