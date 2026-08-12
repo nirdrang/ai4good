@@ -446,10 +446,24 @@ I read `.claude/settings.json` myself. The correlation is total and it points at
 | PostToolUseFailure → window-alarm | `"C:\…\window-alarm.cmd"` — **no interpreter** | **no** |
 
 Every entry that names an interpreter fired. The only two that do not name one are the only two
-that did not. A hook command runs through a shell, and on Windows that shell is a POSIX `sh`, in
-which backslashes are escape characters and a `.cmd` file is not an executable format at all. The
-executor's own measurement fits exactly: the batch file works under `cmd /c` and the bare quoted
-path was never tried the way the shell would see it.
+that did not. The executor's own measurement fits: the batch file works under `cmd /c`, and the
+bare quoted path was never tried the way the hook runner would actually invoke it.
+
+**The MECHANISM is a hypothesis, and I am marking it as one rather than letting it stand as fact.**
+My proposed explanation is that a hook command runs through a shell which cannot execute a `.cmd`
+file directly, and which may consume the backslashes in the path. **I tried to verify that locally
+and could not**: the `bash` on this machine's PATH is
+`C:\Users\nirdr\AppData\Local\Microsoft\WindowsApps\bash.exe`, a WSL stub that mangles Windows
+paths, so it is not the hook runner's shell and nothing it does is evidence about one. An earlier
+draft of this addendum asserted the shell mechanism outright. That was me stating an unverified
+fact in a ruling — the same defect I accepted [T1] and [F6] for — and this paragraph is the
+correction.
+
+**The RULING does not depend on the mechanism.** It rests on the correlation, which is
+observational and comes from the real runtime: entries with an explicit interpreter deliver, this
+one does not. Wrapping it in an interpreter is justified by that alone, and the re-run is what
+confirms it empirically. If the corrected entry delivers, the fix is proven whatever the
+underlying cause was.
 
 **So this is not an instrument limitation and not an unprovable absence. It is a defect in our own
 wiring, it is reachable, and it would have shipped a checkpoint that silently never runs** — which
