@@ -293,12 +293,28 @@ foreach ($p in $cleanupPids) {
 }
 Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 
-# ---- Report ----
-$failed = @($results | Where-Object { -not $_.Pass })
-# ---- twin guard: the orchestrator pair must be identical apart from the declared differences.
+# ---- guards that bind this harness itself ----
+# BOTH run BEFORE the failure list is computed. The twin guard used to run after it: a red twin
+# printed as FAIL, was counted in the summary, and the script still exited 0. A harness that does
+# not bind its own guard reports green while the thing it guards is broken.
+
+# twin guard: the orchestrator pair must be identical apart from the declared differences.
 # The rule drifted within a day of being relied on (2026-08-10); this assertion is that lesson.
 & powershell -NoProfile -File (Join-Path $here '..\work\twin-check.ps1') | Out-Null
 Assert 'twin-guard' 'orchestrator twins are in sync (edit both or neither)' ($LASTEXITCODE -eq 0)
+
+# window guard: the coordinator's stop line, its park, and its resume, driven end to end on
+# synthetic readings. It spends nothing and touches no live file, so it belongs in the standing
+# suite rather than in a run somebody has to remember.
+$simOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here '..\work\window-sim.ps1')
+$simOk = ($LASTEXITCODE -eq 0)
+Assert 'window-guard' 'the usage-window guard stops at the line, arms the wait, and resumes' $simOk
+if (-not $simOk) {
+    $simOut | Where-Object { $_ -match 'FAIL|RESULT' } | ForEach-Object { Write-Output ('  window-sim: ' + $_) }
+}
+
+# ---- Report ----
+$failed = @($results | Where-Object { -not $_.Pass })
 
 foreach ($r in $results) {
     $mark = if ($r.Pass) { 'PASS' } else { 'FAIL' }

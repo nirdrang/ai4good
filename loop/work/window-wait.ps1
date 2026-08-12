@@ -37,7 +37,10 @@ param(
     [double]$MaxHours = 6,
 
     # Passed through, so a caller testing the mechanism can move the line without editing code.
-    [int]$PauseAt = 90,
+    # This default is a SECOND COPY of the gauge's line (85, founder 2026-08-12). The two must
+    # stay equal, or a park re-reads its own release at a different number than the stop used;
+    # window-sim.ps1 asserts they do.
+    [int]$PauseAt = 85,
 
     # Passed through: exercise the park against a synthetic snapshot, spending nothing.
     [string]$SnapshotPath = '',
