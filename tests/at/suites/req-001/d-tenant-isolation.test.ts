@@ -173,10 +173,49 @@ atTest(
       // (5) THE POSITIVE CONTROL AT THE DATA API, and it is what settles that a policy ran at all
       // (gate-1 ruling 9). Without it an empty array from a denied read could be a gateway refusal
       // or a missing table privilege wearing the policy's clothes.
+      //
+      // IT COVERS ALL FOUR TABLES, not the one it used to (gate-2 ruling 3). Arm (4) above asserts a
+      // DENIAL on each of the four, and a `using (false)` policy — or one keyed on the wrong column —
+      // answers `[]` to A and to B alike, so three of those four denials had nothing standing behind
+      // them: every assertion in this body passed while the rightful tenant could read nothing
+      // either. Each table below is read by its OWN owner, keyed the way arm (4) keys it.
       const ownRow = await sut.dataApiRead(sessionA, { table: 'organizations', keyedBy: 'id', value: a.organizationId });
       expect(ownRow.rows, 'A\'s own keyed read was refused before any row was considered').not.toBeNull();
       expect(ownRow.rows ?? [], 'A\'s own keyed read did not return exactly one row').toHaveLength(1);
       expect((ownRow.rows ?? [])[0], 'A\'s own keyed read returned a different organisation').toMatchObject({ id: a.organizationId });
+
+      // AND "AT LEAST ONE ROW, AND EVERY ROW IS A'S" ON THE OTHER THREE, rather than an exact count.
+      // The reason is measured rather than stylistic: the integration database is shared by the whole
+      // run — the twin of this body says so at its unfiltered listing — and one completion records
+      // more than one kind of acknowledgment. An exact count would be a brittle assertion about the
+      // suite instead of a statement about the policy.
+      const ownSeats = await sut.dataApiRead(sessionA, { table: 'org_memberships', keyedBy: 'org_id', value: a.organizationId });
+      expect(ownSeats.rows, 'A\'s own keyed read of org_memberships was refused before any row was considered').not.toBeNull();
+      expect((ownSeats.rows ?? []).length, 'A cannot read the seats of its OWN organisation, so that denial proves nothing').toBeGreaterThan(0);
+      expect(
+        (ownSeats.rows ?? []).map((row) => String(row.org_id)),
+        'A\'s keyed read of org_memberships returned a seat in another organisation',
+      ).toEqual((ownSeats.rows ?? []).map(() => a.organizationId));
+
+      const ownProjects = await sut.dataApiRead(sessionA, { table: 'projects', keyedBy: 'org_id', value: a.organizationId });
+      expect(ownProjects.rows, 'A\'s own keyed read of projects was refused before any row was considered').not.toBeNull();
+      expect((ownProjects.rows ?? []).length, 'A cannot read the projects of its OWN organisation, so that denial proves nothing').toBeGreaterThan(0);
+      expect(
+        (ownProjects.rows ?? []).map((row) => String(row.org_id)),
+        'A\'s keyed read of projects returned a project of another organisation',
+      ).toEqual((ownProjects.rows ?? []).map(() => a.organizationId));
+      expect(
+        (ownProjects.rows ?? []).map((row) => String(row.id)),
+        'A\'s keyed read of projects does not hold the project the operator created in A',
+      ).toContain(project.id);
+
+      const ownAcknowledgments = await sut.dataApiRead(sessionA, { table: 'acknowledgments', keyedBy: 'account_id', value: a.accountId });
+      expect(ownAcknowledgments.rows, 'A\'s own keyed read of acknowledgments was refused before any row was considered').not.toBeNull();
+      expect((ownAcknowledgments.rows ?? []).length, 'A cannot read its OWN acknowledgments, so that denial proves nothing').toBeGreaterThan(0);
+      expect(
+        (ownAcknowledgments.rows ?? []).map((row) => String(row.account_id)),
+        'A\'s keyed read of acknowledgments returned another account\'s row',
+      ).toEqual((ownAcknowledgments.rows ?? []).map(() => a.accountId));
 
       // (6) AND THE UNFILTERED LISTING, which is a DIFFERENT attack from a keyed probe: a keyed
       // probe asks whether one identifier is yours, a listing asks what is there at all, and a
