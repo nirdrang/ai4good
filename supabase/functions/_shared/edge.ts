@@ -316,20 +316,41 @@ export type RowsOutcome = { ok: true; rows: Record<string, unknown>[] } | { ok: 
  * caller earned, a failed read is an outage that answers 502 and says so. Collapsing them would let
  * an outage be read by an acceptance test as the isolation property holding.
  *
+ * A REJECTED `fetch` IS THE THIRD THING THAT BECOMES `ok: false`, and that is why the request is
+ * wrapped. A Data API that is unreachable REJECTS the request rather than answering it, so before
+ * the wrapper the rejection left this function altogether: it passed each surface's own fixed
+ * refusal, reached `edgeHandler`, and became a 502 carrying the thrown message. A Deno `fetch`
+ * rejection message carries the REQUEST URL, and that URL carries the identifier the surface was
+ * asked about — so on that one path the answer for one target stopped reading like the answer for
+ * another, which is the property every non-public read surface here promises. There is now no
+ * un-caught throw site inside this function, so the escape is closed by construction rather than by
+ * care, in one place, for all three surfaces.
+ *
+ * AND THE DETAIL NAMES THE TABLE AND NOTHING ELSE, on all four paths. It is `path` with the query
+ * string cut off: never the caught error's message, never the query string, and never the URL. A
+ * detail is written for whoever reads the 502, and the identifier the caller asked about must not
+ * travel back to that caller inside it — a helpful-looking reason is exactly how an answer becomes
+ * target-dependent.
+ *
  * `path` IS THE TABLE AND ITS QUERY STRING, already encoded by the caller — `accounts?id=eq.…`. It is
  * not built here because each surface's filter is part of that surface's own read ORDER, which is
  * load-bearing for the no-existence-oracle property and belongs where a reader can see it.
  */
 export async function readRows(supabaseUrl: string, serviceRoleKey: string, path: string): Promise<RowsOutcome> {
-  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      Accept: 'application/json',
-    },
-  });
-  if (!response.ok) return { ok: false, detail: `a read of ${path.split('?')[0]} answered ${response.status}` };
-  const text = await response.text();
+  let text: string;
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Accept: 'application/json',
+      },
+    });
+    if (!response.ok) return { ok: false, detail: `a read of ${path.split('?')[0]} answered ${response.status}` };
+    text = await response.text();
+  } catch {
+    return { ok: false, detail: `a read of ${path.split('?')[0]} could not be made at all` };
+  }
   try {
     const parsed = JSON.parse(text) as unknown;
     if (!Array.isArray(parsed)) return { ok: false, detail: `a read of ${path.split('?')[0]} answered a body that is not an array` };
