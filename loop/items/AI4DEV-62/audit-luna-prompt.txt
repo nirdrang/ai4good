@@ -150,9 +150,8 @@ this item's contribution relative to main now:
 git diff 390042c...4235a2e -- src supabase tests .github package.json bun.lock tsconfig.json
 ```
 
-**The brief must not name `bun.lockb` or a root `vitest.config.ts`.** Neither exists in this tree.
-The flash reader caught both in the first pass, correctly, and observed the claims were vacuously
-true as a result. A claim that cannot fail proves nothing. The lock file is `bun.lock`.
+**Do not grade any claim naming `bun.lockb` or a root `vitest.config.ts`.** Neither exists in this
+tree. A claim that cannot fail proves nothing. The lock file is `bun.lock`.
 
 **Execution evidence is CI's.** The brief must not ask a reader to run the suite. Cite the green
 `verify` check on `4235a2e` and the recorded measurement files.
