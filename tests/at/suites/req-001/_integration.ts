@@ -1538,6 +1538,227 @@ export async function at00122(ctx: Ctx): Promise<void> {
   });
 }
 
+/* ------------------------------------------- the tenant-visibility ids (D5.L2) ------------------ */
+
+/**
+ * AT-001.23 — the assigned volunteer reaches that project's working data, scoped to that project
+ * only.
+ *
+ * IT IS THE OTHER HALF OF AT-001.22'S RULE. That criterion denies the volunteer who holds no seat;
+ * this one grants the volunteer who does, and then says what the grant does NOT reach. The scoping is
+ * the substance: a grant that opened the whole organisation would satisfy "access succeeds" while
+ * breaking the tenant boundary the previous criterion just established.
+ *
+ * THE TWO PROJECTS SIT IN ONE ORGANISATION, DELIBERATELY. A second project in another organisation
+ * would be refused by the organisation branch and would prove nothing about per-project scoping. Both
+ * projects belonging to the same owner is what makes the refusal attributable to the developer seat.
+ *
+ * WHAT IS LIVE HERE THAT WAS NOT AT LOOP TIER: the seat is a row on a real database, the workspace
+ * read is the DEPLOYED `project-workspace`, and the unfiltered listing is a real `GET /rest/v1/…`
+ * carrying the volunteer's own access token — so what answers it is the assigned-volunteer policy
+ * this slice's migration lands, evaluated for that user.
+ */
+export async function at00123(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const ORGANIZATION_NAME = 'Riverside Shelter 23';
+  const ASSIGNED_PROJECT_NAME = 'Riverside Shelter Website 23';
+  const OTHER_PROJECT_NAME = 'Riverside Shelter Newsletter 23';
+
+  const ngo = await registerConfirmAndSignIn(sut, w.email('project-owner-23'));
+  const owner = await sut.completeSignup(
+    ngo,
+    { accountType: 'ngo', organizationName: ORGANIZATION_NAME, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(owner, 'the NGO could not complete signup, so there is no organisation to hold either project').toMatchObject({ ok: true });
+  expect(
+    owner.ok ? owner.organizationId : null,
+    'the owning NGO completed signup with no organisation, so neither project can be created and the deployed workspace would never be called at all',
+  ).not.toBeNull();
+  if (!owner.ok || owner.organizationId === null) return;
+
+  const volunteerSession = await registerConfirmAndSignIn(sut, w.email('assigned-volunteer-23'));
+  await sut.linkGithubIdentity(volunteerSession, `assigned-23-${volunteerSession.accountId.slice(0, 8)}`);
+  const volunteer = await sut.completeSignup(
+    volunteerSession,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(volunteer, 'the volunteer could not complete signup, so there is nobody to hold the seat').toMatchObject({ ok: true });
+  if (!volunteer.ok) return;
+
+  const assignedProject = await sut.createProjectAsOperator(owner.organizationId, ASSIGNED_PROJECT_NAME);
+  const otherProject = await sut.createProjectAsOperator(owner.organizationId, OTHER_PROJECT_NAME);
+  const seated = await sut.assignVolunteerAsOperator(assignedProject.id, volunteer.accountId);
+  expect(seated, 'the volunteer could not be attached, so this criterion has no Given').toMatchObject({ ok: true });
+  expect(await sut.projectAssignment(assignedProject.id), 'the seat does not hold the assigned volunteer').toMatchObject({
+    assignedVolunteerId: volunteer.accountId,
+  });
+
+  // (1) THE GRANT — the assigned volunteer reads its own project's working data.
+  const workspace = await sut.projectWorkspace(volunteerSession, assignedProject.id);
+  expect(workspace.ok, 'the ASSIGNED volunteer was refused its own project workspace').toBe(true);
+  if (!workspace.ok) return;
+  expect(workspace.status, 'the allowed workspace read did not answer 200').toBe(200);
+  expect(workspace.value, 'the workspace does not hold the project working data it is supposed to').toEqual({
+    projectId: assignedProject.id,
+    projectName: ASSIGNED_PROJECT_NAME,
+    organizationId: owner.organizationId,
+    assignedVolunteerId: volunteer.accountId,
+  });
+
+  // (2) AND THE OTHER PROJECT OF THE SAME ORGANISATION IS REFUSED — this is "scoped to that project
+  // only". The answer is the shared not-found constant, and it is compared against the answer for an
+  // identifier that names nothing, as raw response text and status.
+  const other = await sut.projectWorkspace(volunteerSession, otherProject.id);
+  expect(other.ok, 'the volunteer read a project it holds no seat on, so the grant is not scoped to its own project').toBe(false);
+  if (other.ok) return;
+  expect(other.status, 'the refusal for another project did not answer as the shared not-found constant').toBe(404);
+  const absent = await sut.projectWorkspace(volunteerSession, ABSENT_ID);
+  expect(absent.ok, 'a project that does not exist answered with a projection').toBe(false);
+  if (absent.ok) return;
+  expect(
+    typeof other.body,
+    'the refusal did not carry the RAW response text, so the comparison below would be about a re-serialisation',
+  ).toBe('string');
+  expect(absent.status, 'the two refusals carry different statuses, which says which project is real').toBe(other.status);
+  expect(absent.body, 'the two refusals differ byte for byte, so the answer says whether the other project is there').toBe(
+    other.body,
+  );
+
+  // (3) AND THE OWNING ORGANISATION'S DASHBOARD IS REFUSED. This is the arm that proves the scope is
+  // the PROJECT and not the tenant: a volunteer seated on a project is inside that organisation's
+  // work and holds no membership row in it, so the organisation's own data stays closed.
+  const dashboard = await sut.organizationDashboard(volunteerSession, owner.organizationId);
+  expect(dashboard.ok, "the assigned volunteer read the owning organisation's dashboard, so its scope is the tenant rather than the project").toBe(
+    false,
+  );
+  if (dashboard.ok) return;
+  expect(dashboard.status, 'the dashboard refusal did not answer as the shared not-found constant').toBe(404);
+
+  // (4) AND THE UNFILTERED DATA API LISTING HOLDS EXACTLY THE ASSIGNED PROJECT — the criterion's
+  // other path, with the volunteer's own access token on it. Both projects belong to one
+  // organisation, so a policy scoped to the tenant rather than to the seat would return both here.
+  const listing = await sut.dataApiRead(volunteerSession, { table: 'projects', keyedBy: null, value: null });
+  expect(listing.rows, "the volunteer's unfiltered listing was refused before any row was considered").not.toBeNull();
+  expect(
+    (listing.rows ?? []).map((row) => String(row.id)),
+    "the volunteer's unfiltered listing of projects is not exactly the one project it is assigned to",
+  ).toEqual([assignedProject.id]);
+}
+
+/**
+ * AT-001.40 — a platform administrator reaches any NGO's or project's data, because the role spans
+ * all accounts (founder d65).
+ *
+ * TWO TENANTS, NEVER ONE, and that is the criterion rather than thoroughness. One administrator
+ * reading one organisation proves nothing an ordinary member could not prove; the claim is REACH, and
+ * reach is only visible across a boundary that stops somebody else.
+ *
+ * THE REACH IS MADE ATTRIBUTABLE BY THE NON-ADMIN CONTROL, not by anything the answer carries. The
+ * shipped decision carries a `TenantReadBasis` saying WHY it granted, and the acceptance surface
+ * deliberately does not: `TenantReadOutcome` is a status and a value or a status and a body, because
+ * the claim AT-001.21 makes is that two whole answers are identical and an outcome carrying more
+ * fields would invite a weaker assertion. So the last arm is what separates "the administrator
+ * reached across accounts" from "these reads happen to be open to everybody".
+ *
+ * WHAT IS LIVE HERE THAT WAS NOT AT LOOP TIER: the administrator is created through
+ * `POST /auth/v1/admin/users` and really signs in, the two dashboards and two workspaces are the
+ * DEPLOYED functions, and the unfiltered listing is answered by the platform-admin policies this
+ * slice's migration lands.
+ */
+export async function at00140(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const NAME_A = 'Riverside Shelter 40A';
+  const NAME_B = 'Northgate Foodbank 40B';
+
+  const sessionA = await registerConfirmAndSignIn(sut, w.email('ngo-a-40'));
+  const a = await sut.completeSignup(
+    sessionA,
+    { accountType: 'ngo', organizationName: NAME_A, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(a, 'NGO A could not complete signup, so there is no first tenant to reach across').toMatchObject({ ok: true });
+  expect(
+    a.ok ? a.organizationId : null,
+    'NGO A completed signup with no organisation, so the administrator has only one tenant to read and its reach would be indistinguishable from an ordinary one',
+  ).not.toBeNull();
+  if (!a.ok || a.organizationId === null) return;
+
+  const sessionB = await registerConfirmAndSignIn(sut, w.email('ngo-b-40'));
+  const b = await sut.completeSignup(
+    sessionB,
+    { accountType: 'ngo', organizationName: NAME_B, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(b, 'NGO B could not complete signup, so there is no second tenant and no boundary to cross').toMatchObject({ ok: true });
+  expect(
+    b.ok ? b.organizationId : null,
+    'NGO B completed signup with no organisation, so there is no second tenant and every arm below would be skipped',
+  ).not.toBeNull();
+  if (!b.ok || b.organizationId === null) return;
+
+  const projectA = await sut.createProjectAsOperator(a.organizationId, 'Riverside Shelter Website 40');
+  const projectB = await sut.createProjectAsOperator(b.organizationId, 'Northgate Foodbank Website 40');
+
+  // THE ADMINISTRATOR, PROVISIONED AND THEN SIGNED IN. The public path refuses this account type by
+  // name, so provisioning is the only way one exists, and the sign-in is what turns it into a caller.
+  const adminEmail = w.email('platform-admin-40');
+  await sut.provisionPlatformAdmin(adminEmail, PASSWORD);
+  const adminSignIn = await sut.signInWithEmailPassword(adminEmail, PASSWORD);
+  expect(adminSignIn, 'the provisioned platform administrator could not sign in, so there is no administrator to act').toMatchObject({
+    ok: true,
+  });
+  if (!adminSignIn.ok) return;
+  const admin = adminSignIn.session;
+
+  // (1) BOTH ORGANISATIONS' DASHBOARDS, read by one administrator.
+  const dashboardA = await sut.organizationDashboard(admin, a.organizationId);
+  expect(dashboardA.ok, "the platform administrator was refused NGO A's dashboard").toBe(true);
+  if (!dashboardA.ok) return;
+  expect(dashboardA.value.organizationName, "the administrator's read of NGO A named a different organisation").toBe(NAME_A);
+
+  const dashboardB = await sut.organizationDashboard(admin, b.organizationId);
+  expect(dashboardB.ok, "the platform administrator was refused NGO B's dashboard").toBe(true);
+  if (!dashboardB.ok) return;
+  expect(dashboardB.value.organizationName, "the administrator's read of NGO B named a different organisation").toBe(NAME_B);
+
+  // (2) AND BOTH PROJECTS' WORKSPACES, which is the other scope the criterion names. The
+  // administrator holds neither developer seat.
+  const workspaceA = await sut.projectWorkspace(admin, projectA.id);
+  expect(workspaceA.ok, "the platform administrator was refused NGO A's project workspace").toBe(true);
+  if (!workspaceA.ok) return;
+  expect(workspaceA.value.projectId, "the administrator's workspace read named a different project").toBe(projectA.id);
+
+  const workspaceB = await sut.projectWorkspace(admin, projectB.id);
+  expect(workspaceB.ok, "the platform administrator was refused NGO B's project workspace").toBe(true);
+  if (!workspaceB.ok) return;
+  expect(workspaceB.value.projectId, "the administrator's workspace read named a different project").toBe(projectB.id);
+
+  // (3) AND THE UNFILTERED DATA API LISTING HOLDS BOTH ORGANISATIONS — the criterion's other path,
+  // with the administrator's own access token on it. THE DATABASE IS SHARED BY THE WHOLE RUN, so this
+  // asserts that both are present rather than that nothing else is.
+  const listing = await sut.dataApiRead(admin, { table: 'organizations', keyedBy: null, value: null });
+  expect(listing.rows, "the administrator's unfiltered listing was refused before any row was considered").not.toBeNull();
+  const listed = (listing.rows ?? []).map((row) => String(row.id));
+  expect(listed, "the administrator's unfiltered listing does not hold NGO A").toContain(a.organizationId);
+  expect(listed, "the administrator's unfiltered listing does not hold NGO B").toContain(b.organizationId);
+
+  // (4) AND A NON-ADMIN REPEATING ONE OF THOSE READS IS REFUSED. Without this arm the body would show
+  // only that somebody read something: it is the contrast that attributes the reach to the account
+  // type rather than to the surfaces being open.
+  const nonAdminDashboard = await sut.organizationDashboard(sessionB, a.organizationId);
+  expect(nonAdminDashboard.ok, "NGO B read NGO A's dashboard, so the administrator's reach is not attributable to its role").toBe(
+    false,
+  );
+  const nonAdminListing = await sut.dataApiRead(sessionB, { table: 'organizations', keyedBy: null, value: null });
+  expect(nonAdminListing.rows, "NGO B's unfiltered listing was refused before any row was considered").not.toBeNull();
+  expect(
+    (nonAdminListing.rows ?? []).map((row) => String(row.id)),
+    "NGO B's unfiltered listing holds NGO A, so the administrator's listing proves nothing about reach",
+  ).not.toContain(a.organizationId);
+}
+
 /* -------------------------------------------------------- the ids that refuse, and what they name */
 
 /**
@@ -1583,3 +1804,28 @@ export const at00105 = refusesWith('vendors.github-public-statistics');
  * nothing to enforce anything, so there is nothing a live green could be about.
  */
 export const at00110 = refusesWith('sut.accounts.sendDiscoveryMessage');
+
+/**
+ * AT-001.24 — a logged-out visitor renders public surfaces only, and every authenticated surface
+ * redirects to sign-in.
+ *
+ * WHY THIS REFUSES RATHER THAN GOING GREEN, when the loop tier asserts three real things about the
+ * same criterion. THE CRITERION'S OUTCOME IS A RENDERING. "Only public surfaces render" and "every
+ * authenticated surface redirects to sign-in" are statements about what a browser shows a visitor,
+ * and there is no browser here, no screen to render and no router to redirect: `src/routes/` holds
+ * one page and a root layout, and continuous integration fails any pull request whose file list
+ * matches both `^src/` and this change's territory, so this leaf is forbidden to build one.
+ *
+ * THAT IS THE LINE GATE-1 RULING 1 DREW, and it is the reason AT-001.21 and AT-001.22 are green at
+ * this tier while this id is not. If a criterion's outcome can be OBSERVED without a screen, the id
+ * goes green and carries the `ui` tag so a wiring leaf's `--wired` re-run selects it later. If the
+ * outcome IS the screen, the id refuses with a capability. "Access is denied and nothing leaks" is
+ * observable at an API; a rendering is not.
+ *
+ * WHAT THE LOOP TIER DOES ASSERT, so this refusal is not read as the whole criterion being absent:
+ * every non-public API surface refuses a caller who never signed in and a caller who signed out, the
+ * public surface answers both identically, and every route in the tree is declared public or
+ * authenticated in the shipped registry. That is the DECISION this leaf lands. A green here would
+ * claim the rendering nobody observed.
+ */
+export const at00124 = refusesWith('ui.logged-out-surface-rendering');
