@@ -18,7 +18,8 @@
  * WHAT IT DOES: sets the global account type once, and for an NGO creates the organisation, the
  * `admin` membership and the ToS + Platform Promise acknowledgment with the address the gateway
  * chain reported — NOT a verified source address; see `callerIp` in `../_shared/edge.ts` for the
- * trust boundary and the measurement behind it — and the version of the text that was accepted.
+ * trust boundary and the measurement behind it — and the version of the text that was accepted, and
+ * WHO MADE IT: the person's name, their title, and the authority statement they affirmed (AT-001.19).
  * and for a volunteer writes the imported GitHub profile. All of it through ONE call to
  * `public.complete_signup`, which is one round trip and therefore one transaction — every row or
  * none.
@@ -69,12 +70,28 @@ Deno.serve(edgeHandler('complete-signup', async (request: Request): Promise<Resp
       accountType: body.value.accountType,
       organizationName: body.value.organizationName,
       acknowledgmentTextVersion: body.value.acknowledgmentTextVersion,
+      // WHO IS SIGNING — AT-001.19. These three ARE request fields, and that is right: unlike the
+      // GitHub handle above, they are things the person states about themselves at the moment of
+      // acknowledging, and no fact Auth holds could supply them. What keeps them honest is the
+      // shared module: it refuses a missing or blank one, and it refuses an attestation that is not
+      // the shipped authority statement, so a client cannot assert an authority nobody offered.
+      signerName: body.value.signerName,
+      signerTitle: body.value.signerTitle,
+      authorityAttestation: body.value.authorityAttestation,
     },
     { githubHandle: caller.githubHandle },
   );
   if (!decision.ok) return refusal(decision.reason, 400);
 
-  const { accountType, organizationName, acknowledgmentTextVersion, githubHandle } = decision.value;
+  const {
+    accountType,
+    organizationName,
+    acknowledgmentTextVersion,
+    githubHandle,
+    signerName,
+    signerTitle,
+    authorityAttestation,
+  } = decision.value;
 
   // THE ONBOARDING IMPORT, FIRED HERE — AT-001.05. The handle is the JUDGED one, so the stats are
   // computed for the identity the gate actually accepted rather than for one this function re-derived.
@@ -113,6 +130,20 @@ Deno.serve(edgeHandler('complete-signup', async (request: Request): Promise<Resp
     p_organization_name: organizationName,
     p_acknowledgment_text_version: acknowledgmentTextVersion,
     p_ip: callerIp(request),
+    // THE JUDGED VALUES, NEVER THE RAW BODY ONES — the same posture `githubHandle` travels under.
+    // `validateCompleteSignup` trimmed them and pinned the attestation to the shipped statement, so
+    // what reaches the row is what the decision was made on rather than what the client typed.
+    //
+    // THEY ARE ALWAYS SENT, unlike the four github keys — and the difference is NOT nullability.
+    // All four `volunteer_profiles` columns are `not null` too. The difference is which ROWS get
+    // written: an NGO completion writes no `volunteer_profiles` row, so omitting the github keys
+    // reaches no column, which is what makes that omission usable as a deployment bridge. EVERY
+    // completion writes the acknowledgment row, so no caller class avoids these three columns — an
+    // omitted argument would arrive as the default null, fail the constraint and abort the whole
+    // transaction. A completion that reaches this line has all three.
+    p_signer_name: signerName,
+    p_signer_title: signerTitle,
+    p_authority_attestation: authorityAttestation,
     ...githubArguments,
   });
 

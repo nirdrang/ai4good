@@ -28,6 +28,8 @@ import { expect } from 'vitest';
 import { CapabilityPending } from '../../harness/capabilities.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import type { Session } from './_contract.ts';
+// The SHIPPED authority statement — the one attestation the deployed validation accepts.
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 
 /** The integration tier's context: no clock control seam, and a mail catcher instead of a sim. */
 type Ctx = HarnessAtContext<'req-001', 'accounts', 'integration'>;
@@ -35,6 +37,19 @@ type Ctx = HarnessAtContext<'req-001', 'accounts', 'integration'>;
 const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
 const CLIENT_IP = '203.0.113.7';
 const PASSWORD = 'correct horse battery staple';
+/**
+ * AT-001.19's three fields, carried by every completion here that must SUCCEED.
+ *
+ * The two completions that do NOT carry them are the ones whose refusal is pinned to an EARLIER
+ * check — AT-001.01's no-acknowledgment request and AT-001.07's `platform_admin` request. The
+ * shared validation runs the identity checks last, so those two keep the reasons their criteria
+ * name.
+ */
+const SIGNER = {
+  signerName: 'Dana Okonkwo',
+  signerTitle: 'Executive Director',
+  authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+} as const;
 
 /**
  * THE STANDING SESSION LIFETIME the slot's generated config pins, in milliseconds.
@@ -165,7 +180,7 @@ export async function at00101(ctx: Ctx): Promise<void> {
 
   const completion = await sut.completeSignup(
     session,
-    { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+    { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
     CLIENT_IP,
   );
   expect(completion, 'the deployed complete-signup refused the NGO completion').toMatchObject({ ok: true });
@@ -254,7 +269,7 @@ export async function at00106(ctx: Ctx): Promise<void> {
   const ngo = await registerConfirmAndSignIn(sut, w.email('ngo-actor'));
   const ngoCompletion = await sut.completeSignup(
     ngo,
-    { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+    { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
     CLIENT_IP,
   );
   expect(ngoCompletion, 'the NGO control could not complete signup').toMatchObject({ ok: true });
@@ -272,7 +287,7 @@ export async function at00106(ctx: Ctx): Promise<void> {
   await sut.linkGithubIdentity(volunteer, 'volunteer-actor-handle');
   const volunteerCompletion = await sut.completeSignup(
     volunteer,
-    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION },
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
     CLIENT_IP,
   );
   expect(volunteerCompletion, 'the volunteer could not complete signup, so the refusal below is not the one under test').toMatchObject(
@@ -391,8 +406,13 @@ export async function at00109(ctx: Ctx): Promise<void> {
     // without it the deployed path refuses a volunteer completion, correctly.
     const request =
       kind === 'ngo'
-        ? { accountType: 'ngo' as const, organizationName: `Riverside Shelter ${kind}-verify`, acknowledgmentTextVersion: TEXT_VERSION }
-        : { accountType: 'volunteer' as const, acknowledgmentTextVersion: TEXT_VERSION };
+        ? {
+            accountType: 'ngo' as const,
+            organizationName: `Riverside Shelter ${kind}-verify`,
+            acknowledgmentTextVersion: TEXT_VERSION,
+            ...SIGNER,
+          }
+        : { accountType: 'volunteer' as const, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER };
     if (kind === 'volunteer') await sut.linkGithubIdentity(after.session, `verify-${registered.accountId.slice(0, 8)}`);
 
     const completion = await sut.completeSignup(after.session, request, CLIENT_IP);
@@ -426,7 +446,7 @@ export async function at00112(ctx: Ctx): Promise<void> {
 
   const completion = await sut.completeSignup(
     session,
-    { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION },
+    { accountType: 'ngo', organizationName: 'Riverside Shelter', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
     CLIENT_IP,
   );
   expect(completion, 'the session under test could not complete signup, so nothing below is about a working session').toMatchObject({
@@ -504,7 +524,7 @@ export async function at00113(ctx: Ctx): Promise<void> {
   // vacuous version of it came to be written (gate-2 ruling S2-5).
   const completion = await sut.completeSignup(
     session,
-    { accountType: 'ngo', organizationName: 'Riverside Shelter Auto Refresh', acknowledgmentTextVersion: TEXT_VERSION },
+    { accountType: 'ngo', organizationName: 'Riverside Shelter Auto Refresh', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
     CLIENT_IP,
   );
   expect(completion, 'the account under test could not complete signup, so it holds no account row').toMatchObject({ ok: true });
@@ -618,6 +638,130 @@ export async function at00138(ctx: Ctx): Promise<void> {
   const accepted = await sut.signInWithEmailPassword(email, PASSWORD);
   expect(accepted, 'the correct password was refused, so the negative above proves nothing').toMatchObject({ ok: true });
   expect((await sut.sessionsOf(session.accountId)).length, 'the accepted sign-in added no session row').toBe(after.length + 1);
+}
+
+/**
+ * AT-001.19 — the acknowledgment records who made it: name, title and the authority attestation.
+ *
+ * WHAT IS LIVE HERE: the act is the DEPLOYED `complete-signup`, so the three values cross the wire,
+ * pass the shared validation inside the edge runtime, travel as named arguments into
+ * `public.complete_signup`, and are read back out of the real `public.acknowledgments` row by an
+ * operator query. Nothing here is a mirror.
+ *
+ * THE GITHUB-ESTABLISHED PATH IS NOT DRIVEN AT THIS TIER, and that narrowing is stated here rather
+ * than left to be noticed. A github-established session needs a real consent round trip, which is
+ * why AT-001.02, .04 and .05 are all capability-pending at this tier. The loop body drives a
+ * GitHub-linked volunteer completion through the same shared validation and the same adapter write,
+ * so the volunteer half of "every acknowledgment" is loop-proved and said to be loop-proved.
+ */
+export async function at00119(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const session = await registerConfirmAndSignIn(sut, w.email('who-signed'));
+
+  const completion = await sut.completeSignup(
+    session,
+    {
+      accountType: 'ngo',
+      organizationName: 'Riverside Shelter Who Signed',
+      acknowledgmentTextVersion: TEXT_VERSION,
+      ...SIGNER,
+    },
+    CLIENT_IP,
+  );
+  expect(completion, 'the deployed complete-signup refused a completion carrying all three identity fields').toMatchObject({
+    ok: true,
+  });
+  if (!completion.ok) return;
+
+  const acknowledgments = await sut.acknowledgments(completion.accountId);
+  expect(acknowledgments, 'exactly one platform acknowledgment is recorded by one completion').toHaveLength(1);
+  const row = acknowledgments[0];
+
+  // EACH VALUE BY ITSELF, AND VERBATIM. A row carrying three empty strings records nothing while
+  // looking like a record, which is the same discipline AT-001.01 applies to its own three fields.
+  expect(row.signerName, 'the acknowledgment does not record the name that was submitted').toBe(SIGNER.signerName);
+  expect(row.signerTitle, 'the acknowledgment does not record the title that was submitted').toBe(SIGNER.signerTitle);
+  expect(
+    row.authorityAttestation,
+    'the acknowledgment does not record the authority statement that was affirmed',
+  ).toBe(ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement);
+}
+
+/**
+ * AT-001.39 — an acknowledgment missing any one of the three is rejected and records nothing.
+ *
+ * THREE VARIANTS AT THIS TIER, one per omitted field, against the deployed function. The loop body
+ * runs seven — the three omissions, the three whitespace-only forms, and an attestation whose
+ * content contradicts the authority it claims — because those are refusals of the shared validation
+ * and the loop tier drives that module directly.
+ *
+ * "RECORDS NOTHING" MEANS EVERY WRITE THE COMPLETION COULD HAVE MADE. A refusal that left an
+ * organisation or a membership behind would satisfy an account-and-acknowledgment check while
+ * having half-completed the signup, so the organisation is looked for BY THE NAME that was
+ * attempted and the account's memberships are listed — the two reads the contract keeps for exactly
+ * this question, because a refusal hands back no identifier to look anything up by.
+ */
+export async function at00139(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+
+  const omissions = [
+    { slug: 'name', field: 'signerName', names: /signer name/i },
+    { slug: 'title', field: 'signerTitle', names: /signer title/i },
+    { slug: 'attestation', field: 'authorityAttestation', names: /authority attestation/i },
+  ] as const;
+
+  for (const omission of omissions) {
+    const session = await registerConfirmAndSignIn(sut, w.email(`no-${omission.slug}`));
+    const organizationName = `Riverside Shelter No ${omission.slug}`;
+
+    const identity: Record<string, unknown> = { ...SIGNER };
+    delete identity[omission.field];
+    const refused = await sut.completeSignup(
+      session,
+      { accountType: 'ngo', organizationName, acknowledgmentTextVersion: TEXT_VERSION, ...identity },
+      CLIENT_IP,
+    );
+
+    expect(refused.ok, `the deployed path completed a signup with no ${omission.slug}`).toBe(false);
+    if (refused.ok) return;
+    expect(refused.reason, `the refusal does not name the ${omission.slug} as what is missing`).toMatch(omission.names);
+
+    expect(await sut.account(session.accountId), `the refused completion left an account row behind (${omission.slug})`).toBeNull();
+    expect(
+      await sut.acknowledgments(session.accountId),
+      `the refused completion recorded an acknowledgment anyway (${omission.slug})`,
+    ).toEqual([]);
+    expect(
+      await sut.hasPlatformAcknowledgment(session.accountId),
+      `the refused completion left the account holding the platform acknowledgment (${omission.slug})`,
+    ).toBe(false);
+    expect(
+      await sut.organizationsNamed(organizationName),
+      `the refused completion created the organisation anyway (${omission.slug})`,
+    ).toEqual([]);
+    expect(
+      await sut.membershipsOf(session.accountId),
+      `the refused completion left a membership behind (${omission.slug})`,
+    ).toEqual([]);
+  }
+
+  // THE CONTROL, AND IT IS NOT OPTIONAL. A deployed path that refused every completion would satisfy
+  // all three refusals above, so a request differing ONLY in that it carries all three fields must
+  // succeed — which is what makes each refusal attributable to the missing field and nothing else.
+  const control = await registerConfirmAndSignIn(sut, w.email('all-three'));
+  const completed = await sut.completeSignup(
+    control,
+    {
+      accountType: 'ngo',
+      organizationName: 'Riverside Shelter All Three',
+      acknowledgmentTextVersion: TEXT_VERSION,
+      ...SIGNER,
+    },
+    CLIENT_IP,
+  );
+  expect(completed, 'the control completion carrying all three fields was refused, so the refusals prove nothing').toMatchObject({
+    ok: true,
+  });
 }
 
 /* -------------------------------------------------------- the ids that refuse, and what they name */

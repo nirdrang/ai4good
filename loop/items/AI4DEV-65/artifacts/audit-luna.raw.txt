@@ -1,0 +1,53 @@
+Severity scale: S1 = security/data-loss defect; S2 = user-visible incorrect behavior; S3 = materially misleading code claim.
+
+[1] severity: S3    supabase/migrations/20260811120000_acknowledgment_signer_identity.sql:83  
+    claim: The deployment-bridge comment says the previous GitHub parameters were backed by nullable columns, but the previous migration defines all `volunteer_profiles` fields as `NOT NULL`.  
+    why it matters: This misstates mixed-deployment behavior; the NGO bridge works because no volunteer row is written, while volunteer completion still requires both planes.  
+    unverified-runtime-claim: no
+
+[2] severity: S3    tests/at/suites/req-001/_contract.ts:95  
+    claim: The acknowledgment row comment says only the shipped authority statement can appear, but the SQL function intentionally permits any nonblank statement for a `service_role` caller.  
+    why it matters: A direct service-role call can create a row with `"I am not authorized"` despite the comment claiming that state is impossible; a migration replay plus direct RPC would settle runtime persistence.  
+    unverified-runtime-claim: yes
+
+R1 — PASS: `supabase/migrations/20260811120000_acknowledgment_signer_identity.sql:62-65,82-89,120-128` has three `NOT NULL` columns, three `default null` parameters, and the no-rolling-bridge explanation.
+
+R2 — PASS: `accounts.ts:37,282-290` imports and enforces the shipped statement; the copy is in the deployed import graph; `c-membership-and-acknowledgment.test.ts:148-225,267-286` covers the wrong-content and copy-meaning checks.
+
+R3 — PASS: `supabase/migrations/20260811120000_acknowledgment_signer_identity.sql:357-370` ends with the revoke/grant tail and `notify pgrst, 'reload schema';`.
+
+R4 — PASS: The loop assertions are present for all seven variants at `c-membership-and-acknowledgment.test.ts:173-225`; the integration assertions cover all three omissions at `_integration.ts:707-745`.
+
+R5 — PASS: `supabase/migrations/20260811120000_acknowledgment_signer_identity.sql:62-65` uses `col !~ '^\s*$'` for all three columns.
+
+R6 — PASS: `supabase/migrations/20260811120000_acknowledgment_signer_identity.sql:43-52` states the SQL/validation boundary, and no SQL exact-statement check exists.
+
+R7 — PASS: `supabase/migrations/20260811120000_acknowledgment_signer_identity.sql:54-61` states both whitespace floors and points to the committed measurement file; constraints remain unchanged.
+
+R8 — PASS: The function body has no `btrim` of the signer parameters; trimming occurs in `accounts.ts:285-298`.
+
+Declared scope — PASS: The pinned source-only diff contains exactly the thirteen declared paths, excludes `src/routeTree.gen.ts`, and leaves `tests/at/expected/req-016.json` unchanged.
+
+F1 — PASS: The refusal branches in the new migration (`:155-285`) match the previous function (`20260809090000_volunteer_github_link_and_imported_profile.sql:230-357`).
+
+F2 — PASS: The exact nine-argument drop is at `:93`; the recreated signature appends the three requested defaults at `:107-128`.
+
+F3 — PASS: `:363-364` matches the previous migration’s public revoke and `service_role` grant at `:421-422`.
+
+F4 — PASS: `_index.ts:86-94,127-144` destructures and sends only decision values.
+
+F5 — PASS: `accounts.ts:218-290` preserves prior checks before the four identity checks and keeps their required order.
+
+F6 — PASS: The acknowledgment insert includes all three columns and is the final write at `:276-342`.
+
+F7 — PASS: The expected ledger adds only AT-001.19, AT-001.20, and AT-001.39 in both tiers.
+
+F8 — PASS: `_pending.ts:2-14,42-61` reports 21 pending items and removes `D4_L1` from the active leaf map.
+
+F9 — PASS: `_integration.ts:651-670` uses the email registration path and explicitly documents the GitHub narrowing.
+
+F10 — PASS: `a-signup-and-signin.test.ts:299-307` passes the same `request` object to both calls.
+
+No test suite was executed, as required.
+
+AUDIT: 2 FINDINGS

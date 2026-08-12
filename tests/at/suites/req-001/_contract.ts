@@ -63,13 +63,12 @@ export type MembershipRow = {
 };
 
 /**
- * One row of `public.acknowledgments` — EXACTLY the three fields AT-001.01 names recorded, plus the
- * account and kind that identify it.
+ * One row of `public.acknowledgments` — the three fields AT-001.01 names recorded and the three
+ * AT-001.19 names, plus the account and kind that identify it.
  *
- * Name, title and authority attestation are AT-001.19's fields and belong to the acknowledgment-
- * identity deliverable (`loop/decomp/req-001.md` D4.L1), which is declared red by this leaf. They
- * are deliberately absent here: adding columns for a criterion this leaf does not test would be
- * speculation, and a reader would have no way to tell it from work that had been done.
+ * Name, title and authority attestation were deliberately absent here until the acknowledgment-
+ * identity leaf (`loop/decomp/req-001.md` D4.L1) landed them; that leaf is this one, so they are
+ * present now.
  */
 export type AcknowledgmentRow = {
   accountId: string;
@@ -85,6 +84,24 @@ export type AcknowledgmentRow = {
   ip: string;
   /** which version of the ToS + Platform Promise text was accepted — AT-001.01's "text version" */
   textVersion: string;
+  /** who made the acknowledgment — AT-001.19's "name" */
+  signerName: string;
+  /** the title they held when they made it — AT-001.19's "title" */
+  signerTitle: string;
+  /**
+   * AT-001.19's "authority attestation": the STATEMENT that was affirmed, verbatim, not a boolean.
+   *
+   * The shipped statement is `ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement` in
+   * `supabase/functions/_shared/acknowledgment-copy.ts`, and `validateCompleteSignup` accepts no
+   * other — so THROUGH THE DEPLOYED PATH exactly one value can appear here. That scope is the whole
+   * claim: a `service_role` caller that bypasses the edge function can store a different nonblank
+   * statement, because the database floors presence and nonblank only. That is the accepted
+   * residual — see "WHERE THIS FILE'S AUTHORITY ENDS" in
+   * `supabase/migrations/20260811120000_acknowledgment_signer_identity.sql` — and the column then
+   * shows verbatim which statement was affirmed. It is stored anyway, because a later
+   * statement version must stay distinguishable on rows already written.
+   */
+  authorityAttestation: string;
 };
 
 /**

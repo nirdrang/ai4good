@@ -555,9 +555,19 @@ export async function createLiveAdapter(opts: {
     },
 
     acknowledgments: async (accountId): Promise<AcknowledgmentRow[]> => {
-      const found = await rows<{ kind: string; acknowledged_at: string | Date; ip: string | null; text_version: string }>(
-        sql`select kind, acknowledged_at, ip::text as ip, text_version from public.acknowledgments
-            where account_id = ${accountId}::uuid order by acknowledged_at`,
+      const found = await rows<{
+        kind: string;
+        acknowledged_at: string | Date;
+        ip: string | null;
+        text_version: string;
+        signer_name: string;
+        signer_title: string;
+        authority_attestation: string;
+      }>(
+        sql`select kind, acknowledged_at, ip::text as ip, text_version,
+                   signer_name, signer_title, authority_attestation
+              from public.acknowledgments
+             where account_id = ${accountId}::uuid order by acknowledged_at`,
       );
       return found.map((row) => ({
         accountId,
@@ -565,6 +575,11 @@ export async function createLiveAdapter(opts: {
         acknowledgedAt: new Date(row.acknowledged_at).toISOString(),
         ip: String(row.ip ?? ''),
         textVersion: row.text_version,
+        // AT-001.19's three, read back as the operator. They are `not null` in the schema, so a
+        // missing value is not a case this read has to model — it is a case the write refused.
+        signerName: row.signer_name,
+        signerTitle: row.signer_title,
+        authorityAttestation: row.authority_attestation,
       }));
     },
 
