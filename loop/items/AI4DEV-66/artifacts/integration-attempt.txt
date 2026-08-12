@@ -1,0 +1,38 @@
+THE ONE INTEGRATION-TIER ATTEMPT - AI4DEV-66 (cross-organisation denial, no existence oracle)
+
+Command    : bun run at:verify req-001 --tier integration --expect
+Working dir: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-a7fd6945604d19b4b
+Branch     : nirdrang/ai4dev-66-denying-access-across-organisations-with-no-existence-oracle
+Head       : b247772
+Started    : 2026-08-13T01:18:15.2551064+03:00
+Ended      : 2026-08-13T01:18:20.3318326+03:00
+Elapsed    : about 5 seconds
+EXIT CODE  : 3
+
+WHAT EXIT 3 MEANS HERE: the runner's INFRASTRUCTURE code. No database was reset,
+no test was run, and no id was graded. This is a machine fault, not a test
+failure, and only the founder can clear it.
+
+RUN EXACTLY ONCE, under the orchestrator's ruling. Nothing was started, stopped,
+restarted, rebuilt or reconfigured to work around it. No port was changed, no
+config.toml was edited, AT_DB_SLOT was not set, and supabase db reset was not
+run - directly or through any wrapper (gate-1 ruling 10).
+
+WHERE THE OUTPUT WENT, measured rather than assumed: the runner wrote its whole
+report on STDERR and left STDOUT empty. An empty stdout here is the stream
+choice, not an absent answer - the stderr capture below is the second
+instrument that says so.
+
+===================== STDOUT (captured, empty) =====================
+
+===================== STDERR (captured) ============================
+$ bun tests/at/harness/runner.ts "req-001" --tier integration --expect
+at:verify req-001 --tier integration — INFRASTRUCTURE: slot 1 could not be prepared: slot 1 reported no running stack (the stack reports stopped services: supabase_kong_ai4good-slot-1, supabase_edge_runtime_ai4good-slot-1 — start them before running the suite), so nothing was reset and nothing was run
+The integration tier rebuilds its slot's database from supabase/migrations on every run, so that a suite never grades leftover rows or a schema missing a migration; if that rebuild fails, the state under test is unknown and the run stops here.
+Two things cause this:
+  1. Docker Desktop is not installed, or is installed but not running, or its CLI is not on PATH — a slot's stack is a set of Docker containers and cannot run without it.
+  2. Docker is fine but the pool was never set up on this machine — run `bun tests/at/harness/db-pool.ts setup`.
+No tests were run. This is an infrastructure failure, not a test failure.
+error: script "at:verify" exited with code 3
+
+===================== END ==========================================
