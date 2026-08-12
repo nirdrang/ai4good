@@ -3,17 +3,14 @@
   twin      : C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114\loop\items\AI4DEV-82\artifacts\settings-proof\twin-settings.json
 
   PASS  the twin parses as JSON
-        missing: C:\Users\nirdr\Downloads\ai4good\loop\work\window-gate.ps1
-        missing: C:\Users\nirdr\Downloads\ai4good\loop\work\window-alarm.cmd
-        missing: C:\Users\nirdr\Downloads\ai4good\loop\work\window-alarm.cmd
-  FAIL  every command in the twin points at a file that exists
+  PASS  every command in the twin points at a file that exists
 
 1. PreToolUse matched Agent, over the line -> the spawn is DENIED with its reason
-  FAIL  the deny reached the model  (see C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114\loop\items\AI4DEV-82\artifacts\settings-proof\deny.stream.jsonl)
-  FAIL  the deny reason names the window
-  FAIL  the deny reason gives the percentage
-  FAIL  the deny reason gives the reset time
-  FAIL  the deny reason carries the parking choreography
+  PASS  the deny reached the model
+  PASS  the deny reason names the window
+  PASS  the deny reason gives the percentage
+  PASS  the deny reason gives the reset time
+  PASS  the deny reason carries the parking choreography
 
 2. PostToolUse, over the line -> the alarm is model-visible after a SUCCESSFUL tool call
   FAIL  the alarm line reached the model after a successful call  (see C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114\loop\items\AI4DEV-82\artifacts\settings-proof\alarm-success.stream.jsonl)
@@ -27,26 +24,14 @@
 
 4. UNKNOWN -> the spawn is ALLOWED and the warning is visible to the model
   PASS  an unreadable sensor does not halt spawns
-  FAIL  and the warning is visible in the transcript (additionalContext reaches the model)  (see C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114\loop\items\AI4DEV-82\artifacts\settings-proof\unknown.stream.jsonl)
-        CONTINGENCY (ruled in advance): if additionalContext proves invisible on an allow in
-        the installed version, fall back to systemMessage only and record the reduced
-        guarantee in goal-evidence.md - honestly, not silently.
+  PASS  and the warning is visible in the transcript (additionalContext reaches the model)
 
 5. UserPromptSubmit -> the founder-facing WINDOW ALARM line
-        no WINDOW ALARM in the headless transcript - UserPromptSubmit may not fire headless.
-        Asserting the entry by direct invocation instead, and recording that limit.
-  PASS  the stamp emits the WINDOW ALARM line when invoked directly
+  PASS  the stamp alarm appeared in the headless transcript
 
-RESULT: 3 passed, 9 failed
+RESULT: 10 passed, 2 failed
 Raw transcripts kept in C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\agent-aacbb10d5c85b1114\loop\items\AI4DEV-82\artifacts\settings-proof - they are the evidence, this summary is only a reading of them.
 
 failed:
-  - every command in the twin points at a file that exists
-  - the deny reached the model
-  - the deny reason names the window
-  - the deny reason gives the percentage
-  - the deny reason gives the reset time
-  - the deny reason carries the parking choreography
   - the alarm line reached the model after a successful call
   - the alarm line reached the model after a failing call (PostToolUseFailure is dispatched)
-  - and the warning is visible in the transcript (additionalContext reaches the model)

@@ -7,7 +7,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\statusline.ps1\""
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\agent-aacbb10d5c85b1114\\loop\\work\\statusline.ps1\""
   },
   "hooks": {
     "PreToolUse": [
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\guard-branch-switch.ps1\""
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\agent-aacbb10d5c85b1114\\loop\\work\\guard-branch-switch.ps1\""
           }
         ]
       },
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\window-gate.ps1\""
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\agent-aacbb10d5c85b1114\\loop\\work\\window-gate.ps1\""
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\window-alarm.cmd\""
+            "command": "\"C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\agent-aacbb10d5c85b1114\\loop\\work\\window-alarm.cmd\""
           }
         ]
       }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\window-alarm.cmd\""
+            "command": "\"C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\agent-aacbb10d5c85b1114\\loop\\work\\window-alarm.cmd\""
           }
         ]
       }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\banner.ps1\""
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\agent-aacbb10d5c85b1114\\loop\\work\\banner.ps1\""
           }
         ]
       }
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\stamp-hook.ps1\""
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\agent-aacbb10d5c85b1114\\loop\\work\\stamp-hook.ps1\""
           }
         ]
       }

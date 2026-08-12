@@ -1,0 +1,22 @@
+Post-fix re-check of window-gate.ps1, run by the FIX AND GOAL sitting (orchestrator, opus @ max),
+2026-08-12, AFTER the executor applied the [T2] hardening.
+
+WHY THIS EXISTS. My rejection of gate 2 finding [T2] rested on probes A and B run against the
+PRE-fix gate. The executor then edited that same file, so the evidence behind the rejection was
+stale. Re-run here against the current tree.
+
+A / B - the two failure modes [T2] claimed would go silent. Both still fail OPEN and LOUD, so the
+rejection stands on current code.
+C - NEW, and it is what the hardening bought: a library returning an unrecognised verdict value.
+Before the hardening this fell through to a silent exit 0. It now warns. Note C is NOT the catch
+path, so it carries no 'WINDOW GUARD FAILED' text - it takes the loud allow-with-warning path,
+exactly as ruled.
+--- A-lib-file-missing ---
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"window guard error - failing open","additionalContext":"WINDOW GUARD FAILED and is allowing this spawn unguarded: The term \u0027C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\recheck2\\A-no-lib\\window-lib.ps1\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.. The usage window is NOT being checked at spawn boundaries until this is fixed."},"systemMessage":"WINDOW GUARD FAILED and is allowing this spawn unguarded: The term \u0027C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\recheck2\\A-no-lib\\window-lib.ps1\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.. The usage window is NOT being checked at spawn boundaries until this is fixed."}
+
+--- B-lib-empty-stub ---
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"window guard error - failing open","additionalContext":"WINDOW GUARD FAILED and is allowing this spawn unguarded: The term \u0027Get-WindowVerdict\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.. The usage window is NOT being checked at spawn boundaries until this is fixed."},"systemMessage":"WINDOW GUARD FAILED and is allowing this spawn unguarded: The term \u0027Get-WindowVerdict\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.. The usage window is NOT being checked at spawn boundaries until this is fixed."}
+
+--- C-unknown-verdict-value ---
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"window sensor unreadable - allowed with a warning","additionalContext":"WINDOW GUARD: the usage-window sensor is WAT and cannot be trusted - synthetic. This spawn is ALLOWED: a broken instrument is not a reason to stop working. Nobody can see how much of the window is left, so keep the work small and say so in your report."},"systemMessage":"WINDOW GUARD: the usage-window sensor is WAT and cannot be trusted - synthetic. This spawn is ALLOWED: a broken instrument is not a reason to stop working. Nobody can see how much of the window is left, so keep the work small and say so in your report."}
+

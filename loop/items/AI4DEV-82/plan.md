@@ -264,15 +264,21 @@ evidence for every MET row is in `goal-evidence.md` and `artifacts/`.
 | 6. `window-alarm.cmd` | **MET** | drill groups 1–2 alarm assertions green; median of 20 measured at **35.5 ms**, target ≤ 100 ms met |
 | 7. `stamp-hook.ps1` lines | **MET** | drill groups 1–2 stamp assertions green, and the founder line now pinned at both ends |
 | 8. fold the drill in, make it BIND | **MET** | suite 74 of 74 exit 0; forced red gives 73 of 74 and **exit 1**; restored and re-measured green |
-| 9. wire the hooks into settings | **PARTLY MET — the runtime half is not proven** | the JSON parses, the entry shapes and paths are as specified, and the branch files exist. But this step's own criterion also requires step 10 to be green, and step 10 is blocked. The entry shapes are therefore unverified AT RUNTIME. |
-| 10. the settings-proof probe | **NOT MET — attempted once, blocked** | the probe's twin path substitution is broken (`-replace` is a regex operator; the replacement inserts four backslashes where two are needed), so the twin kept main-checkout paths and two entries pointed at files that do not exist there. The vendor was healthy — five runs, all stderr logs empty, no 529 — so this is NOT the vendor contingency the ruling pre-decided, and NOTHING is recorded as an entry failing to fire. One attempt was the cap; the defect is reported to the orchestrator rather than fixed here. |
+| 9. wire the hooks into settings | **PARTLY MET — three entry shapes proven, the alarm's is not** | the JSON parses and the paths are as specified. At runtime the PreToolUse gate, the UNKNOWN warning channel and the UserPromptSubmit stamp are all proven firing. The `PostToolUse` and `PostToolUseFailure` alarm entries delivered nothing, so this step's own criterion is not fully met. Not moved to MET to make the table look finished. |
+| 10. the settings-proof probe | **RUN, 10 of 12 — two alarm entries did not deliver** | the first attempt was VOID, not failed: the probe's twin substitution used `-replace`, a regex operator whose replacement inserts four backslashes where two are needed, so the twin kept main-checkout paths and two entries pointed at absent files. The orchestrator ruled that an absent signal is not a red one and authorised ONE re-run after the one-line repair. The precheck was verified green BEFORE any headless case ran. The re-run PROVES: the deny with window, percent, reset and parking choreography; `additionalContext` visible on an allow (so D11's fallback is NOT needed); and `UserPromptSubmit` firing headless (so the feared "may not fire headless" limit is DISPROVEN). It does NOT prove the two alarm entries, which produced nothing in runs where a tool call demonstrably happened. Referred to the orchestrator. |
 | 11. amend the contracts | **MET** | text present in `shared-invariants.md` and `conductor.md`; twins untouched; the one sentence that was literally false is replaced with the ruled wording |
 | 12. `goal-evidence.md` | **MET** | committed, and it names step 10 as blocked rather than dressing it as measured |
 
-**The two contingencies plan D11 names remain OPEN, not resolved.** Whether
-`PostToolUseFailure` is dispatched, and whether `additionalContext` reaches the model on an allow,
-are exactly what the blocked probe was to answer. The merge sitting's post-merge live check is now
-the only remaining instrument for them.
+**Where D11's two contingencies stand after the re-run.**
+- `additionalContext` invisible on an allow — **does not arise.** The warning was visible in the
+  transcript, so the `systemMessage`-only fallback is not needed and the full guarantee stands.
+- `PostToolUseFailure` not dispatched — **the contingency's premise does not hold.** It says to
+  drop that ONE entry and keep the rest, assuming the success event worked. Neither alarm entry
+  delivered, so dropping one entry would not describe what was observed. This needs the
+  orchestrator's ruling; the executor did not decide it.
+
+The post-merge live check is now the only remaining instrument for the alarm entries. It is no
+longer needed for the gate, the UNKNOWN channel or the stamp, all three of which are proven.
 
 ## Verification state
 

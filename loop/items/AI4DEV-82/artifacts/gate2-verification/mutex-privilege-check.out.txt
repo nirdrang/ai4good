@@ -1,0 +1,34 @@
+Mutex viability check for gate 2 ruling [T1], run by the FIX AND GOAL sitting (orchestrator,
+opus @ max), 2026-08-12, against the executor's implementation.
+
+WHY THIS EXISTS. I ruled that the sensor serialize its two writes under a named mutex. The
+executor used the `Global\` namespace. Creating an object there normally needs
+SeCreateGlobalPrivilege, which a standard user token may not carry — and if the constructor threw,
+the sensor block's outer catch would swallow it and NEITHER file would be written. The sensor
+would stop, quietly. So the ruling needed this check before it could stand.
+
+Two questions, both answered by measurement rather than by reading documentation:
+
+  1. Can a NON-ELEVATED session create and take a Global mutex on this machine?
+  2. Under contention, does the second waiter time out cleanly rather than hang or throw?
+
+RESULT
+
+  Global mutex create+acquire: OK  held=True
+  elevated: False
+  second waiter got the lock: False  (expected False)
+
+Both answered. Creation and acquisition succeed without elevation, so the constructor does not
+throw and the sensor is not silently disabled. The second waiter returns False at the 250 ms
+timeout — it does not block the status line and it does not raise — so the skip-both-writes path
+the ruling depends on is genuinely reachable.
+
+CORROBORATION. The watchdog drill and the full drill suite both exercise the sensor for real and
+both are green (74 of 74 in this sitting's own run), which is only possible if the mutex is being
+taken and the two files are being written.
+
+RESIDUAL, recorded rather than hidden. This proves the behaviour for this user on this machine. A
+different account whose token lacks the privilege would see the constructor throw, the sensor block
+skip both writes, and the reading age out into UNKNOWN after 15 minutes — loud and non-halting,
+which is the correct degradation, but it would be a dead sensor rather than a working one. This is
+a single-developer machine and the sensor is per-machine, so the case is not reachable today.

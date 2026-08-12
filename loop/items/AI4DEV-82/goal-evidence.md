@@ -7,9 +7,12 @@ Every run below was made in this worktree, on the branch
 `nirdrang/ai4dev-82-window-guard-at-the-sitting-boundary-park-before-the-wall`. The raw captures
 sit in `artifacts/` and are the evidence; this file is a reading of them.
 
-**One thing here is NOT green, and it is named as such**: step 10, the settings-proof probe. It is
-recorded below with the exact failure text, and the reason that failure says nothing about the
-hook entries.
+**One thing here is NOT green, and it is named as such**: two of the twelve settings-proof checks.
+The spawn gate, the UNKNOWN warning channel and the founder stamp are all proven firing at
+runtime. **Both alarm entries — `PostToolUse` and `PostToolUseFailure` — delivered nothing to the
+model**, in runs where a tool call really happened and every other entry in the same settings file
+fired. That is reported to the orchestrator as a finding; it is recorded here as what was
+observed, and no conclusion is drawn about the cause beyond what the evidence carries.
 
 ---
 
@@ -21,7 +24,7 @@ hook entries.
 | step 1 capture-diff | identical before/after | **identical apart from the label line** | `artifacts/gauge-capture-before.txt`, `-after.txt` |
 | `loop/drills/run-drills.ps1` | green, watchdog + twin-check, binding proven once | **74 of 74 green, exit 0; forced red gives exit 1** | `artifacts/goal-run-drills-suite.txt`, `artifacts/goal-run-fold-binding.txt` |
 | watchdog drill standalone | green, four groups + fault injection | **65 passed, 0 failed, exit 0** | `artifacts/goal-run-watchdog.txt` |
-| settings-proof probe | each entry shape observed firing | **ATTEMPTED ONCE, BLOCKED — see below** | `artifacts/settings-proof-run.txt`, `artifacts/settings-proof/` |
+| settings-proof probe | each entry shape observed firing | **10 of 12 — gate, UNKNOWN warning and stamp PROVEN; both alarm entries did NOT deliver** | `artifacts/settings-proof-run.txt`, `artifacts/settings-proof/` |
 | overhead numbers | measured; alarm median ≤ 100 ms | **alarm 35.5 ms — target MET; statusline delta 82.4 ms** | `artifacts/overhead-measurement.txt` |
 | CI required check | green on the PR head | not this role's step — the merge sitting pins it | — |
 
@@ -150,59 +153,116 @@ so it covers every tool, and the gate's matcher is `Agent`. The paths are MAIN-c
 therefore live only after the merge — stated plainly in plan step 9, and the reason the probe below
 exists at all.
 
-## 6. Step 10 — the settings-proof probe: ATTEMPTED ONCE, BLOCKED
+## 6. Step 10 — the settings-proof probe: RE-RUN DONE, 10 of 12, two entries did not deliver
 
-**This is not a green and it is not recorded as one.**
-
-The probe ran once, as ruled. The vendor was healthy: `claude` 2.1.228 present, five headless runs,
-10–22 KB of transcript each, **every stderr log empty, no 529 and no vendor error of any kind**. So
-the vendor-blocked contingency the gate 2 ruling pre-decided is NOT what happened.
-
-The probe failed on its own defect, and its own precheck is what caught it:
+The first attempt was void — the probe's own twin was wrong, described at the end of this section.
+The orchestrator ruled that an absent signal is not a red one and authorised ONE re-run after a
+one-line repair. The precheck was verified BEFORE any headless case ran, as the ruling requires:
 
 ```
-        missing: C:\Users\nirdr\Downloads\ai4good\loop\work\window-gate.ps1
-        missing: C:\Users\nirdr\Downloads\ai4good\loop\work\window-alarm.cmd
-  FAIL  every command in the twin points at a file that exists
+  PASS  the twin parses as JSON
+  PASS  every command in the twin points at a file that exists
 ```
 
-`settings-proof-probe.ps1:64` builds the path-substituted twin with `-replace`, which is a REGEX
-operator. The pattern `'\\'` matches one backslash, but the replacement `'\\\\'` inserts FOUR,
-because a .NET replacement string takes a backslash literally. So the probe searches the settings
-file for `C:\\\\Users\\\\nirdr\\\\Downloads\\\\ai4good` while the file holds
-`C:\\Users\\nirdr\\Downloads\\ai4good`. Nothing matches, and the "twin" is a byte-for-byte copy
-carrying main-checkout paths.
+All six commands now resolve into this worktree, including `window-gate.ps1` and
+`window-alarm.cmd`, which do not exist in the main checkout at all. **Result: 10 passed,
+2 failed.** Raw transcripts in `artifacts/settings-proof/`, summary in
+`artifacts/settings-proof-run.txt`.
 
-**Why the run says nothing about the entries.** `window-gate.ps1` and `window-alarm.cmd` do not
-exist in the main checkout yet, so those two entries pointed at absent files. The transcripts show
-exactly that and nothing more: the Agent spawn SUCCEEDED (*"The spawn succeeded... replied with
-exactly the word hello. No refusal occurred"*), and the deliberately failing tool call drew no
-alarm. Recording that as "the entry did not fire" would be a false negative of the same class as
-the one gate 2 caught in this very file. **Nothing of the sort is recorded.**
+### What is now PROVEN at runtime
 
-Per the fix-and-goal brief the probe gets ONE attempt, so it was not fixed and re-run; the defect
-is reported to the orchestrator for a ruling. What remains unproven at runtime, and stays
-unproven for now:
+**The spawn gate — the item's core mechanism — fires and says everything it must.**
 
-- that the deployed PreToolUse entry denies a spawn with its reason;
-- that the alarm is model-visible after a successful call, and after a failing one
-  (`PostToolUseFailure` dispatch);
-- that `additionalContext` reaches the model on an allow.
+```
+  PASS  the deny reached the model
+  PASS  the deny reason names the window
+  PASS  the deny reason gives the percentage
+  PASS  the deny reason gives the reset time
+  PASS  the deny reason carries the parking choreography
+```
 
-The merge sitting's post-merge live check remains the other half of this proof, exactly as plan
-D11 says.
+**`additionalContext` DOES reach the model on an allow.**
 
-**Two things the run DID prove first-hand, both about fixes ruled this gate.** They are worth
-recording because each one is a before/after against a defect the panel found:
+```
+  PASS  an unreadable sensor does not halt spawns
+  PASS  and the warning is visible in the transcript (additionalContext reaches the model)
+```
 
-- `artifacts/settings-proof/windir-over/window-verdict.txt` now reads
-  `ALARM WINDOW five_hour at 95% (line 85%), resets 22:05 - finish the current work item, commit,
-  park.` The gate 2 verification recorded this same line, composed by this same probe, as
+D11's contingency for this — fall back to `systemMessage` only and record a reduced guarantee —
+**is not needed.** The full guarantee stands.
+
+**`UserPromptSubmit` DOES fire headless**, carrying the founder line:
+
+```
+  PASS  the stamp alarm appeared in the headless transcript
+```
+
+The limit this item feared and nearly recorded as measured — "UserPromptSubmit may not fire
+headless" — **is disproven**. It is only knowable because the gate 2 fix gave the stamp case its
+own over-the-line run; against the old UNKNOWN transcript this could never have passed.
+
+### What did NOT deliver, stated as what was observed
+
+```
+  FAIL  the alarm line reached the model after a successful call
+  FAIL  the alarm line reached the model after a failing call (PostToolUseFailure is dispatched)
+```
+
+**Both alarm entries produced nothing — not just the failure one.** This is reported to the
+orchestrator as a finding, not resolved here. What is established, and what is not:
+
+Established:
+- A tool call really happened in both runs. Each transcript carries a `PowerShell` `tool_use`, and
+  the successful one carries `tool_result` `"stdout":"ok"`. This is NOT the earlier case where the
+  model answered without using a tool.
+- The synthetic reading really was over the line and really did reach the child processes: in the
+  SAME runs the gate denied on `five_hour` at 95% and the banner printed the 95% line. So
+  `AI4GOOD_WINDOW_DIR` was inherited and `window-verdict.txt` was in place.
+- `window-alarm.cmd` works when invoked exactly as `.claude/settings.json` spells it. Measured
+  again during this diagnosis: `cmd /c "<path>"` prints
+  `ALARM WINDOW five_hour at 95% ...` on stderr and exits 2.
+- Every OTHER entry in the same twin fired: PreToolUse, UserPromptSubmit and SessionStart.
+- The five `ALARM` strings in the alarm-success transcript are all `WINDOW ALARM` from the banner
+  and the stamp. The per-tool alarm's own `ALARM WINDOW` line appears nowhere.
+
+NOT established, and not guessed at:
+- Whether `PostToolUse` and `PostToolUseFailure` were dispatched at all and the exit-2 stderr was
+  simply not surfaced to the model in a headless `stream-json` run, OR whether the entries never
+  ran. Separating these needs a diagnostic hook entry, which would no longer be the deployed shape
+  — the one thing this probe is built not to do. The `hook_name` events in the transcripts cannot
+  settle it either: only `SessionStart` appears there, including in the `deny` run where the hook
+  demonstrably worked, so that field is not evidence of firing.
+
+**D11's PostToolUseFailure contingency does not cleanly apply.** It says to drop that ONE entry and
+keep the rest, on the assumption that the success event worked. Here neither delivered, so the
+contingency's premise does not hold. That is the orchestrator's call, not this executor's.
+
+### Why the first attempt was void
+
+`settings-proof-probe.ps1:64` built the twin with `-replace`, which is the REGEX operator: the
+pattern `'\\'` matches one backslash, but a .NET replacement string takes a backslash literally, so
+`'\\\\'` inserts FOUR. The probe searched for `C:\\\\Users\\\\nirdr\\\\Downloads\\\\ai4good` while
+the file holds `C:\\Users\\nirdr\\Downloads\\ai4good`. Nothing matched, the twin was a byte-for-byte
+copy carrying main-checkout paths, and two entries pointed at files absent from main — so the
+Agent spawn simply succeeded. The vendor was healthy throughout (five runs, every stderr log
+empty, no 529), so that was never the pre-decided vendor contingency. The repair is one line, plain
+string `.Replace('\','\\')` on both operands.
+
+### Two gate 2 fixes proven first-hand by the probe itself
+
+Both runs, before and after the repair, confirm fixes the panel found:
+
+- `artifacts/settings-proof/windir-over/window-verdict.txt` reads
+  `ALARM WINDOW five_hour at 95% (line 85%), resets <HH:mm> - finish the current work item,
+  commit, park.` The gate 2 verification recorded this same line, composed by this same probe, as
   `ALARM WINDOW Values at 95% ...`. The production-shape fix works.
-- `artifacts/settings-proof/stamp.out.txt` reads
-  `WINDOW ALARM  five_hour at 95% (line 85%), resets 22:05 - ...` — the prefix rewrite is clean,
-  the phrase appears once, and no `ALARM WINDOW` survives it. The stamp case now runs against the
-  over-the-line directory, so for the first time it is a case that COULD have failed.
+- The stamp line reads `WINDOW ALARM  five_hour at 95% ...` — the prefix rewrite is clean, the
+  phrase appears once, and no `ALARM WINDOW` survives it.
+
+### What still needs the merge sitting
+
+The alarm entries are unproven, so the post-merge live check is now the instrument for them, and
+it is the only one left. The other three entry shapes no longer depend on it.
 
 ## 7. The live snapshot was never touched
 

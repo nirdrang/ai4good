@@ -61,7 +61,14 @@ function Check([string]$claim, [bool]$ok, [string]$note = '') {
 
 $raw = [IO.File]::ReadAllText($committed)
 # JSON escapes each backslash, so the prefix appears doubled inside the file.
-$twinText = $raw.Replace(($mainPrefix -replace '\\', '\\\\'), ($repo -replace '\\', '\\\\'))
+#
+# PLAIN STRING Replace, NEVER -replace. This line used `-replace`, which is the REGEX operator:
+# the pattern '\\' matches one backslash, but a .NET replacement string takes a backslash
+# literally, so '\\\\' inserts FOUR. The probe searched for C:\\\\Users\\\\... while the file
+# holds C:\\Users\\... , nothing matched, and the "twin" came out a byte-for-byte copy still
+# carrying MAIN-checkout paths - two of which do not exist in main, so those entries pointed at
+# nothing and the run proved nothing about them. The precheck below is what caught it.
+$twinText = $raw.Replace($mainPrefix.Replace('\', '\\'), $repo.Replace('\', '\\'))
 $twin = Join-Path $OutDir 'twin-settings.json'
 [IO.File]::WriteAllText($twin, $twinText, (New-Object System.Text.UTF8Encoding($false)))
 
