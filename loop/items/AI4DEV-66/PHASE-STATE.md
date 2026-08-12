@@ -1,12 +1,11 @@
 # PHASE-STATE - AI4DEV-66 (cross-org denial, no existence oracle), batch with AI4DEV-67 (assigned volunteer, admin, stranger)
 
-**Phase: SLICE 1 IS BUILT AND ITS LOOP TIER IS GREEN. The next event is the CODE REVIEW GATE on
-slice 1's diff - two readers, each handed its own prompt file as written.** There is also an
-INFRASTRUCTURE BLOCK that must be cleared before this item can merge; it is stated in full below
-and it is not a defect in this item's work.
+**Phase: SLICE 1 IS BUILT, CODE-REVIEWED BY A TWO-READER PANEL, EVERY FINDING RULED, EVERY ADOPTED
+FIX LANDED, AND ITS LOOP TIER IS GREEN. The next event is BUILDING SLICE 2 - the partner item's
+three acceptance ids, plan steps 11-18.** There is also an INFRASTRUCTURE BLOCK that must be cleared
+before this item can merge; it is stated in full below and it is not a defect in this item's work.
 
-Written by the DRAFT sitting, orchestrator on **opus @ max**, 2026-08-13. This sitting was a RESUME
-after an earlier executor was stopped mid-work.
+Written by the FIX AND GOAL sitting for slice 1, orchestrator on **opus @ max**, 2026-08-13.
 
 ## THE MODEL RULING FOR THIS RUN - CARRY IT FORWARD
 
@@ -20,7 +19,7 @@ file repeats this paragraph.
 ## Attribution, derived from the branch
 
 Branch `nirdrang/ai4dev-66-denying-access-across-organisations-with-no-existence-oracle`, cut from
-`origin/main` at `948d4f0`.
+`origin/main` at `948d4f0`, merge-base with main today `926d170`.
 
 `AI4PM-19 (auth and org membership)` > `AI4DEV-50 (auth root)` >
 `AI4DEV-55 (tenant isolation and visibility)` > `AI4DEV-66 (cross-org denial, no existence oracle)`.
@@ -30,22 +29,24 @@ blocked by D5.L1, which is why the two are batched.
 
 **Database slot 1**, reserved under this item, covers both.
 
-Pull request **#57** is OPEN (`https://github.com/nirdrang/ai4good/pull/57`). Measured this sitting:
-its body names `AI4DEV-66` once and no other item id, so the reference guard has nothing to fail on.
+Pull request **#57** is OPEN and its head is this branch
+(`https://github.com/nirdrang/ai4good/pull/57`). Its body names `AI4DEV-66` once and no other item
+id, so the reference guard has nothing to fail on.
 
 ---
 
 # 1. THE INFRASTRUCTURE BLOCK - READ THIS BEFORE ANY MERGE DECISION
 
 **Database slot 1's local stack is DOWN. The integration tier has never run at any head of this
-branch, so half of this item's verification evidence does not yet exist.**
+branch, so half of this item's verification evidence does not yet exist.** Nothing this sitting did
+changes that.
 
 The founder relayed the cause: the gateway container cannot bind its API port (Windows has it
 reserved) and the edge-function container fails to mount its entry file. **Only the founder can
 clear this.**
 
-The run was attempted **exactly once**, by my ruling, and refused before any test executed. The
-runner's own words, from `artifacts/integration-attempt.txt`:
+The run was attempted **exactly once**, by the draft sitting's ruling, and was refused before any
+test executed. The runner's own words, from `artifacts/integration-attempt.txt`:
 
 ```
 at:verify req-001 --tier integration — INFRASTRUCTURE: slot 1 could not be prepared: slot 1
@@ -57,7 +58,7 @@ reset and nothing was run
 Exit code 3. Zero tests. **No slot evidence line exists to carry, because the run never reached the
 reset.**
 
-**MY RULINGS ON IT, WHICH BIND THE SITTINGS AFTER THIS ONE:**
+**THE RULINGS ON IT, WHICH BIND EVERY SITTING AFTER THIS ONE:**
 
 1. **This is a machine fault, not a red on this item's work.** It is the class the orchestrator
    contract calls "the check cannot be obtained right now". Nothing about it is debuggable here.
@@ -67,207 +68,195 @@ reset.**
 3. **ONE ATTEMPT IS SPENT.** Do not re-run the integration tier speculatively. Re-run it when the
    founder says the stack is up, and not before.
 4. **THIS IS A HARD MERGE BLOCKER.** The merge ruling must state both tiers' exact-match results,
-   and the integration half does not exist. **A merge ruling written on the loop tier alone would
-   be claiming a green that was never obtained.** The required continuous-integration check cannot
+   and the integration half does not exist. **A merge ruling written on the loop tier alone would be
+   claiming a green that was never obtained.** The required continuous-integration check cannot
    supply the missing half either - it holds no database slot.
+5. **GATE 2 ADDED A SECOND REASON TO THE SAME BLOCKER, not a new one.** Both code readers found that
+   the loop-tier Data API arms grade the fixture's mirror of the policy set rather than the
+   migration. The integration run is the only thing that grades that mirror. See gate-2 ruling 2.
 
 **What the integration tier still owes, enumerated in `artifacts/verify-first-answers.md`:** the
 plan's step 6 privilege-posture measurement (never made - the file records that plainly and invents
-no result), AT-001.21 and AT-001.22 green at integration tier, and first proof that the migration
-applies and the three deployed functions serve at all.
+no result), AT-001.21 and AT-001.22 green at integration tier, first proof that the migration applies
+and the three deployed functions serve at all, and now the grading of the fixture's policy mirror.
 
 ---
 
-# 2. WHAT THIS SITTING VERIFIED, BEFORE IT SPAWNED ANYTHING
+# 2. WHAT THIS SITTING DID
 
-The conductor's resume note said steps 1, 2 (partial), 4, 5, 7 and 8 were shipped. **I measured the
-tree instead of accepting that, and the note was wrong in one place: step 2 was not partial, it was
-entirely unstarted.** The `_contract.ts` change was step 1 and the `_fixture.ts` change was step 8.
+## The panel and the rulings
 
-State at `d188557`, the head I inherited:
+Two blind code readers ran on slice 1's diff and both landed with findings. **Seven findings, seven
+adopted, zero rejected outright.** Everything is in `loop/items/AI4DEV-66/rulings-gate2.md`, with
+every reviewer claim quoted exactly beside its ruling.
 
-| step | state as measured | evidence |
-|---|---|---|
-| 1 extend the system-under-test surface | shipped | six new members and their types present; typecheck exit 0 |
-| 2 AT-001.21's two bodies | **unstarted** | `d-tenant-isolation.test.ts:14` still the one-argument `notLanded` form |
-| 3 AT-001.22's two bodies | **unstarted** | same file, line 16 |
-| 4 `visibility.ts` | shipped, correct | relative imports only, no `Deno`, all three exports as decision A and B state |
-| 5 slice 1's migration | shipped, unproved | dictated helper posture present, four `select` policies, no `using (true)`, nothing to `anon` |
-| 6 privilege-posture measurement | **unstarted** | the artifacts file did not exist |
-| 7 three edge functions and config | shipped, unproved | target row read LAST in both authenticated surfaces; the refusal is RETURNED, never thrown |
-| 8 loop fixture backing | shipped, unproved | `readFaults` in `interface State`, cleared in `teardown` |
-| 9 live adapter backing | **unstarted** | `_live.ts` untouched |
-| 10 move the declarations | **unstarted** | `_pending.ts` and `tests/at/expected/req-001.json` untouched |
+| reader | lane | pin | verdict |
+|---|---|---|---|
+| terra | codex | `gpt-5.6-terra`, effort max, read-only | `CODE REVIEW: 5 FINDINGS` |
+| flash | opencode | `opencode-go/deepseek-v4-flash --variant max`, agent `reviewer-flash` | `CODE REVIEW: 2 FINDINGS` |
 
-Baseline before any new work: `at:check` exit 0, loop tier exact-match exit 0 at 21 green / 16 red.
+**The panel converged twice** - on the vacuous early-return seam and on the fixture-mirror scope
+question. Each was ruled once, under both claims, and the convergence is recorded as the signal it
+is.
 
----
+**Two rulings adopt the defect while refusing the reviewer's remedy, and both refusals are written
+out with reasons:**
 
-# 3. THE CAP RULING
+- The `readRows` rejected-`fetch` escape is real and now closed by construction. **The reviewer's
+  "existence oracle" characterisation is REJECTED in writing**: a transport failure cannot depend on
+  whether the target row exists, and the divergence it found is keyed to the identifier the caller
+  itself chose. What it actually is - a breach of the module's stated two-outcome contract and a
+  disclosure of the internal REST URL - is enough to fix it, and the merge ruling must not inflate
+  it into an oracle.
+- The fixture-mirror remedy ("delegate to shipped code") is **REFUSED because applying it would make
+  the fixture WRONG**: the SQL helper `viewer_is_org_member` admits any account holding a membership
+  row, while `tenantReadAllowed` additionally requires an NGO account type. A volunteer holding a
+  membership row is admitted by the policy and refused by the module. The fixture's membership-only
+  filter is the CORRECT mirror of the SQL. The claim narrows instead.
 
-**The stopped executor invocation is NOT charged.** The orchestrator contract's cap is written per
-sitting - "three invocations per sitting" - and that invocation belonged to a different sitting
-which was terminated from outside. The shared invariants price an interrupted sitting in **work
-items, not invocations**: that is the stated reason the executor commits one commit per work item.
-Charging an externally-terminated invocation would spend a judgment budget on a machine event.
+**One finding is mine, and neither reader caught it.** `_fixture.ts:1474`, added by this change,
+said the integration tier grades the prediction because "both tiers run at the goal step". That is
+false at this head. Corrected in `dbd05d4`. The identical sentence at `_fixture.ts:1162` predates
+this change at `926d170` and is deliberately untouched.
 
-This sitting therefore opened with three and used **two**.
+## What landed, and what I verified myself
 
----
+Nine commits. `04c7c1d` carried the rulings and the evidence BEFORE any code change, so the judgment
+survives an executor death. Then seven work-item commits `951e6d8`..`50d0baa`, then one dictated
+comment edit `4af5c39`.
 
-# 4. WHAT THIS SITTING PRODUCED
+**Verified by me, independently of the executor's report**, at `4af5c39`'s parent state and after the
+comment edit:
 
-Slice 1 is complete in code. Plan steps 2, 3, 6, 9 and 10 landed across six commits:
+- `bun run typecheck` - exit 0, "typecheck OK: both configs clean"
+- `bun run at:check req-001` - exit 0, "37 P0 ids in bijection"
+- `bun run at:verify req-001 --tier loop --expect` - **exit 0, 23 green / 14 red, EXACT MATCH**, with
+  AT-001.21 and AT-001.22 both green
+- `bun run at:selftest` - exit 0, **14 files / 353 tests**, up from 13 / 344
+- **The changed-file list is exactly the seven files the rulings name.** No `src/`, no migration, no
+  `config.toml`, no `_live.ts`, no `_contract.ts`.
+- I read every diff against the ruling that dictated it.
 
-| commit | what |
-|---|---|
-| `33d1f09` | AT-001.21's two bodies (step 2) |
-| `843b016` | AT-001.22's two bodies (step 3) |
-| `e2426f5` | the live adapter backing (step 9) |
-| `4dfe53c` | the declarations moved (step 10) |
-| `b247772` | two stated facts this slice made false, corrected |
-| `ba21dcf` | the one integration attempt, and the measurement that could not be made (step 6) |
-| `46de446` | the read-fault arm on `organization-dashboard` |
+**The integration tier was NOT run this sitting and this green claims the loop tier only.**
 
-**Verified by me, independently of the executor's report**, at `46de446`:
+## The evidence now in the record
 
-- `bun run typecheck` - exit 0, both configs clean
-- `bun run at:check req-001` - exit 0, 37 P0 ids in bijection
-- `bun run at:verify req-001 --tier loop --expect` - **exit 0, 23 green / 14 red, exact match**,
-  with AT-001.21 and AT-001.22 both green
-- `bun run at:selftest` - exit 0, 13 files, 344 tests (executor-reported; not re-run by me)
-- `bun run at:verify req-001 --tier integration --expect` - **exit 3, INFRASTRUCTURE, zero tests**
+`artifacts/gate2-terra.raw.txt`, `gate2-terra.distilled.md`, `gate2-terra.stderr.log`,
+`gate2-flash.raw.txt`, `gate2-flash.distilled.md`, `gate2-flash.toolcalls.md`,
+`gate2-flash.identity.md`.
 
-Two gate-1 rulings I checked line by line rather than taking on report:
+**The launcher scratch was deleted, not committed**, per `.claude/agents/reviewer-runner.md`:
+`gate2-terra.pid` (a handle, not evidence) and `gate2-terra.stdout.log` (byte-identical to the raw
+file plus one trailing newline - measured, not assumed). Gate 1 left neither in the record either.
 
-- **ruling 5** - `callFunction` is untouched at `_live.ts:341`; `callFunctionRaw` at line 362 is a
-  genuine sibling that keeps the response bytes.
-- **ruling 9** - `dataApiGet` at `_live.ts:433` carries `apikey: slot.anonKey` **and** the caller's
-  own `Authorization: Bearer` token.
+**The flash cage held and I checked it rather than trusting the runner:** 43 tool events - 16
+`gitdiff`, 14 `read`, 13 `grep`. No `write`, `edit`, `patch`, `bash`, `task` or `webfetch`. The
+identity extract matches the pin on all 27 assistant messages, zero mismatches.
 
-**And the fault arm cannot pass vacuously**, which I establish here by reasoning rather than by
-spending an invocation on a mutation run: if `failNextReadOf` were a no-op, the faulted read of a
-real foreign target would be an ordinary tenant refusal at status 404, and the arm's
-`expect(faultedForeign.status).toBe(502)` fails. A silent fault injector is therefore caught by the
-arm itself. The code-review gate is free to attack this reasoning.
+## Rides along
 
-## The one plan amendment I made this sitting
-
-The amended plan puts comment corrections in step 18, which belongs to slice 2. **Two of them are
-falsified by SLICE 1's own change**, so I moved them into slice 1: `_live.ts` lines 709-712 (which
-said `public.projects` reaches no Data API role, untrue once slice 1 grants `select` on it to
-`authenticated`) and the header of `supabase/functions/_shared/edge.ts` (which said "both edge
-functions"). Gate-1 ruling 11 already dictated the remedy for the first; I moved it earlier, into
-the slice whose change causes it. A knowingly-false stated fact must not pass through a review gate.
-
-## The one finding I accepted from the executor and sent it back for
-
-The executor reported that the read-fault arm sat only on `project-workspace`, which makes two
-reads, while `organization-dashboard` makes four with **three** of them preceding the target - so
-moving `organization-dashboard`'s target read earlier would have been caught by no test at all.
-That leaves the plan's own step 8 done-criterion unmet on the surface AT-001.21 is actually about.
-
-**Accepted.** I sent the executor back once for a single work item: the equivalent arm on
-AT-001.21's loop body, faulting all four stores in turn, the target's own store included. It landed
-in `46de446` and the loop tier stayed green.
-
-## Six more executor observations, each ruled
-
-1. **`edge.ts` importer count is six, not five** - my figure in the instruction was wrong; the
-   executor measured and used six. **Accepted; the error was mine.**
-2. **`timeoutMs: { integration: INTEGRATION_TIMEOUT_MS }` added to both registrations** - not the
-   plan's literal text. **Accepted:** the plan's own fact 13 states `opts` carries an optional
-   per-tier `timeoutMs`, every other live body carries the same raise, and it is per tier so the
-   loop tier keeps vitest's value.
-3. **AT-001.22's positive control runs first, not last as step 3's list has it** - **accepted.**
-   Decision G ("the allowed read comes first") is the binding rule; step 3's list is an enumeration
-   and, unlike step 2's, does not say "in this order".
-4. **`tenantRead` in `_live.ts` hands back the parsed wire object with only `ok` removed, rather
-   than a projection rebuilt field by field** - **accepted, and it is the right call.** A rebuild
-   would make AT-001.22's "no `organizationId`, no `assignedVolunteerId`" assertion a statement
-   about the rebuild, and it would pass however much the deployed function leaked. Recorded here so
-   both code readers see it as deliberate.
-5. **`publicSchemaCatalog` ships live-backed with no test consuming it in slice 1** - **accepted as
-   a named residual.** The arm that consumes it is slice 2's step 16. Named in the gate prompt.
-6. **`_bind.ts` line 31 says "the 33 not-yet-landed ids"** - stale before this item by 17 and now
-   by 19. **Correctly left alone.** It is not this item's mess and a drive-by fix would widen the
-   diff outside what the item claims. **Filing candidate for the founder**; the coordinator suggests
-   filings at close-out and only the founder creates items.
+**One line in `.claude/agents/reviewer-runner.md`** (gate-2 ruling 8, commit `50d0baa`). That file
+told the runner to report any tool outside `read`, `glob` and `grep` as an INVALID RUN, while
+`.opencode/agent/reviewer-flash.md` grants `gitdiff: true` deliberately - and this gate's own reader
+used it 16 times. A runner obeying the letter would have discarded a valid review. `gitdiff` is now
+on the list with its reason. The cage file itself is correct and is NOT changed. **Named in
+`plan.md` under "Rides along", and it must be named in the pull request body and in the audit
+brief's path-set.**
 
 ---
 
-# 5. WHAT COMPLETES THE NEXT PHASE - THE CODE REVIEW GATE ON SLICE 1
+# 3. CAPS USED BY THIS SITTING
 
-**Two readers, each launched by its own reviewer-runner, each handed one file AS WRITTEN. Neither
-prompt may be edited, and nothing may be appended to either.**
+- **Executor invocations: 1 of 3.** One goal iteration inside it; no fix loop ran.
+- **Mechanical invocations: 1**, for a comment-only edit whose every character I decided (the
+  founder ruling of 2026-08-12 permits this; I verified the result as any change is verified).
+- Integration-tier attempts: **0 this sitting.** The draft sitting's single attempt stays spent.
+- Continuous-integration flake re-run: **unused.** Audit re-run: **unused.**
 
-| reader | prompt file |
-|---|---|
-| reader one, per the pins in `.claude/skills/work/reviewers.md` | `loop/items/AI4DEV-66/gate2-terra-prompt.txt` |
-| reader two, per the same pins | `loop/items/AI4DEV-66/gate2-flash-prompt.txt` |
-
-The two files are **byte-identical by design** - same hash, verified. The readers differ, the
-prompt does not. Raw output and distillate into `loop/items/AI4DEV-66/artifacts/`.
-
-The phase completes when both runners report their distillates, or report a gate as empty. **An
-empty output is never a clean gate.**
-
-**How the prompts were assembled**, recorded so a later sitting can check it rather than trust it:
-`## Your contract` (lines 64-127 of `reviewers.md`) + the `## The DRAFT CODE review` heading + that
-section from `**Subject**` onward (lines 175-191) + this item's additions. **The Pins block was
-dropped as a block**, per the assembly rule. Measured on the finished files: no byte-order mark, 77
-non-ASCII bytes, 24 em-dashes, **zero replacement characters**, zero occurrences of "Pins", zero
-references to any other gate, and zero references to any peer reader. 208 lines, 13294 bytes **as
-written, with line-feed endings**.
-
-**A note on line endings, so a later byte count is not read as corruption.** This repository sets
-`core.autocrlf=true` and `.gitattributes` pins only shell and Docker files to line feeds, so a
-checkout rewrites these two prompts to carriage-return-line-feed and their size becomes 13502
-bytes. That is the platform doing what it does, not damage: `gate1-prompt.txt` sits in this same
-worktree with 209 such endings and the reviewer that read it returned eleven findings. Nothing
-executes these files, so either ending is safe. Re-measure the em-dash and replacement-character
-counts, never the byte count, to decide whether a prompt is intact.
-
-The additions are additive only - more files, more risks, more context. They add the change's
-identity and diff command, the six claims the item makes, seven extra attack directions, the two
-tier conditions, and the seven things the item already says it does not prove.
-
-**The pinned change-set for both readers:**
-
-```
-git diff 926d170d5af6becb1f371e36c4b8099caa131429 46de446c0e203f36bc098b852c7ed1cd7355fc0b -- supabase tests
-```
-
-Fourteen files. Later commits on this branch touch `loop/items/` only.
-
-## After the gate: the FIX AND GOAL sitting
-
-It rules every finding from **both** readers - a clean seat beside a seat with findings is evidence,
-never a veto - pushes the rulings before any code changes, then sends the executor to apply them. It
-opens with its own three invocations. **It cannot reach the plan's step 9 or step 10 done-criteria
-while the stack is down**, so unless the founder has cleared the infrastructure block by then, that
-sitting closes with the block restated rather than with a false claim of completion.
-
-Slice 2 (plan steps 11-18, `AI4DEV-67`'s three ids) has not started and must not start before slice
-1's gate is ruled.
+**The running total across the item, so the count stays auditable:** the draft sitting used 2 of its
+3, this sitting used 1 of its 3. The terminated resume-sitting's invocation was ruled not-chargeable
+by that sitting and this sitting does not reopen that ruling. **Caps are PER SITTING** - the next
+sitting opens with three of its own.
 
 ---
 
-# 6. STANDING ITEMS THE MERGE RULING MUST CARRY
+# 4. WHAT COMPLETES THE NEXT PHASE - BUILDING SLICE 2
+
+**This is my call and I am making it plainly: the next phase is slice 2's BUILD, not the audit.**
+
+The plan's own "Proportionality and gates" section ratifies the structure: *"This item is SLICED. The
+code gate runs twice, once per slice."* The audit is per ITEM, not per slice, and it re-runs at most
+once - so auditing now, with the partner item's three acceptance ids unbuilt, would either audit an
+incomplete item or spend the one audit re-run on ordinary new work. Slice 1's gate is ruled and its
+fixes are landed, which is the condition the draft sitting set for slice 2 starting.
+
+**So the sitting sequence for this item is:** plan → draft (slice 1) → fix and goal (slice 1) →
+**draft (slice 2)** → fix and goal (slice 2) → audit → merge.
+
+## The next sitting is a DRAFT sitting for slice 2
+
+It builds plan steps **11 to 18** - `AI4DEV-67 (assigned volunteer, admin, stranger)`'s three
+acceptance ids, AT-001.23, AT-001.40 and AT-001.24 - then writes the two gate-2 prompts for slice
+2's diff. It opens with its own three executor invocations.
+
+**WHAT IT MUST KNOW BEFORE IT PLANS A SINGLE STEP:**
+
+1. **Several slice-2 done-criteria are UNREACHABLE while the stack is down.** Steps 11, 16 and 17
+   are written against the integration tier. Step 16's catalog conformance arm reads the LIVE
+   catalog and the loop fixture's `publicSchemaCatalog` deliberately THROWS, so that arm has no loop
+   tier at all. **Build them; do not claim them.** That sitting closes with the block restated, not
+   with a false claim of completion, exactly as this one does.
+2. **Steps 12 to 15 ARE reachable at loop tier** - the three test bodies and the route registry with
+   its conformance arm, which reads `src/routes/` out of band the way `_source-scan.ts` does.
+3. **Slice 2's migration ships the branches slice 2 tests** (gate-1 ruling 7): the
+   `viewer_is_platform_admin()` helper under decision C's dictated posture, the assigned-volunteer
+   policy on `public.projects`, and the platform-admin policies. They are OR'd with slice 1's
+   organisation-member policies, never replacing them.
+4. **Gate-2 ruling 5 already retired part of one residual.** `visibility.ts`'s platform-admin branch
+   now has a unit-level oracle in `tests/at/harness/shipped-visibility.selftest.ts`. That is NOT an
+   acceptance test - the acceptance id that drives that branch through a surface is still AT-001.40,
+   which is slice 2's. Do not let a later ruling read the selftest as the criterion being met.
+5. **Slice 2 re-runs AT-001.21 and AT-001.22.** That is what proves the added policy branches broke
+   no denial. If either goes red in slice 2, the added branch is the suspect.
+6. **`main` has moved to `160042c`**, two commits ahead of the merge-base `926d170`. Neither commit
+   touches any file this branch touches, and neither touches `.claude/agents/reviewer-runner.md`, so
+   the ride-along will not conflict. The branch has not taken main in. **The merge sitting decides
+   whether to merge main in again; no sitting before it should.** One of those commits changed
+   `.claude/skills/work/shared-invariants.md`, which binds every role - **read the current version,
+   not a remembered one.**
+
+## The code gate for slice 2
+
+Two readers, each launched by its own reviewer-runner, each handed one prompt file AS WRITTEN, the
+two files byte-identical by design. Assemble per `.claude/skills/work/reviewers.md`: its
+`## Your contract` section, the DRAFT CODE review section only, and the item's additions. Additions
+are **additive only**. **No gate may learn another gate exists and neither reader may learn the
+other exists.**
+
+**One note on measuring a prompt file, carried forward because it saved a sitting once.** This
+repository sets `core.autocrlf=true` and `.gitattributes` pins only shell and Docker files to line
+feeds, so a checkout rewrites a prompt to carriage-return-line-feed and its byte count changes.
+Re-measure the em-dash and replacement-character counts to decide whether a prompt is intact, never
+the byte count.
+
+---
+
+# 5. STANDING ITEMS THE MERGE RULING MUST CARRY
 
 ## The pull request body, for the mechanical who writes it at merge
 
-The pull request closes **AI4DEV-66** through its own branch link. **AI4DEV-67 closes through the
-one sanctioned batch line**, per `CLAUDE.md` and the reference guard in `.github/workflows/ci.yml`:
+The pull request closes **AI4DEV-66** through its own branch link. **The partner item closes through
+the one sanctioned batch line**, per `CLAUDE.md` and the reference guard in `.github/workflows/ci.yml`:
 
 - one line, of exactly the shape `Closes AI4DEV-67`, alone on its line, nothing else on it;
 - at most one such line in the whole body;
 - **it is added by the MERGE ruling's mechanical, not before**;
 - **and gate-1 ruling 3 makes it CONDITIONAL**: the line is added **only if** the founder has
-  answered open question 1 - by ratifying a D5 wiring leaf for the screens the way D2 has one, or
-  by ruling AT-001.24's browser half out of that item. **With no founder answer the line is
-  OMITTED**, the partner item stays open, and the merge ruling states why.
+  answered open question 1 - by ratifying a D5 wiring leaf for the screens the way D2 has one, or by
+  ruling AT-001.24's browser half out of that item. **With no founder answer the line is OMITTED**,
+  the partner item stays open, and the merge ruling states why.
 - No other item id may appear anywhere in the title or body. Name other items in words.
+- The body lists the ride-along under "rides along".
 
 ## The two open questions for the founder - still unanswered
 
@@ -281,35 +270,43 @@ one sanctioned batch line**, per `CLAUDE.md` and the reference guard in `.github
    exist, land the catalog conformance arm so a later requirement's table cannot arrive unisolated,
    and name the absent kinds in the merge ruling.
 
-Neither blocks the code gate. Both must be answered before the partner item can close.
+Neither blocked the code gate. Both must be answered before the partner item can close.
 
-## Residuals for the merge ruling
+## Residuals for the merge ruling - updated by gate 2
 
 1. **Timing is not defended.** The claim is about response content and status, never response time.
 2. **AT-001.21 and AT-001.22 are `ui`-tagged, not UI-proved.** No screen exists.
 3. **Only the dashboard kind of tenant data exists.** Drafts, ledger, files and thread do not.
 4. **The public project surface reveals that a project exists**, deliberately - the criterion's own
    carve-out, kept in its own function so it cannot contaminate the no-oracle test.
-5. **`visibility.ts`'s platform-admin branch carries no test in slice 1.** Slice 2 exercises it.
+5. **`visibility.ts`'s platform-admin branch has a UNIT oracle but no acceptance test in slice 1.**
+   Narrowed by gate-2 ruling 5; slice 2's AT-001.40 is what exercises it through a surface.
 6. **`publicSchemaCatalog` is backed with nothing consuming it in slice 1.**
 7. **The read-fault arm is loop tier only.** No fault is injected into a real database.
-8. **THE INTEGRATION TIER HAS NOT RUN.** Section 1. This is the one that blocks merge.
+8. **NEW - the loop-tier Data API arms grade the fixture's MIRROR of the policy set, not the
+   migration.** Both readers found this. Item claim 1 - "a green grades shipped code rather than a
+   copy of it" - holds for the edge-surface arms and NOT for the probe arms at loop tier. **I checked
+   the mirror against the migration branch by branch and they agree at this head**, so the residual
+   is not "the mirror may be wrong" but "nothing this branch can run proves the DATABASE behaves the
+   way the SQL reads".
+9. **NEW - the `readRows` fix is proved by reading, not by a test.** No test program imports
+   `edge.ts`: a search over `tests/` finds one occurrence, in a comment at `_contract.ts:115`. The
+   file uses `Deno.env` and `tests/at/tsconfig.json` includes `**/*`, so a selftest importing it
+   would drag `Deno` into the strict acceptance program - the arrangement `edge.ts`'s own header
+   states. **The merge ruling says this in these words rather than implying a test exists.**
+10. **NEW - the four Data API positive controls are a BRACKET, not a proof.** They prove each policy
+    is not universally denying and admits the rightful tenant. They do NOT prove a policy is keyed
+    correctly; the denial arms and the unfiltered listing bracket that from the other side.
+11. **THE INTEGRATION TIER HAS NOT RUN.** Section 1. This is the one that blocks merge.
 
-## One tree fact a later sitting needs
+## Filing candidates for the founder - suggestions only, at close-out
 
-`origin/main` has moved to `227d61f`, ahead of this branch's merge-base `926d170`. The branch has
-not taken it. This does not affect the review diff; the merge sitting decides whether to merge main
-in again.
+The coordinator suggests filings at close-out and **only the founder creates items.**
 
----
-
-# 7. CAPS USED
-
-- Executor invocations: **2 of 3 this sitting.** The earlier stopped invocation is not charged - see
-  section 3.
-- Goal iterations inside those invocations: **1.** No fix loop ran; both new ids were green at the
-  loop tier on the first diagnostic run.
-- Audit re-run: **unused.**
-- Continuous-integration flake re-run: **unused.**
-- Integration-tier attempts: **1, and it is spent.** Do not re-run until the founder says the stack
-  is up.
+1. **Six pre-existing vacuous-pass seams**, of the form
+   `expect(x).toMatchObject({ok:true}); if (!x.ok || x.organizationId === null) return;` -
+   `c-membership-and-acknowledgment.test.ts` 106, 189, 364; `f-lifecycle-and-audit.test.ts` 69;
+   `_integration.ts` 1001, 1054. They predate this change at `926d170`. This item guarded the six it
+   ADDED and left these alone deliberately.
+2. **`_bind.ts` line 31 says "the 33 not-yet-landed ids"** - stale before this item by 17 and now by
+   19. Not this item's mess; a drive-by fix would widen the diff outside what the item claims.

@@ -405,3 +405,92 @@ Loop tier only, and it must be exact-match:
 
 **A green here claims the loop tier and nothing else.** The integration half of this item's evidence
 does not exist and no ruling above changes that.
+
+---
+
+# What the executor reported back, and my ruling on each
+
+One executor invocation, one goal iteration. All seven work items landed across seven commits,
+`951e6d8` through `50d0baa`. **I verified the four checks myself rather than taking the report:**
+`typecheck` exit 0 ("typecheck OK: both configs clean"), `at:check req-001` exit 0 ("37 P0 ids in
+bijection"), `at:verify req-001 --tier loop --expect` exit 0 with **23 green / 14 red, exact match**
+and AT-001.21 and AT-001.22 both green, `at:selftest` exit 0 with 14 files and 353 tests (up from 13
+and 344). I also read every diff against the ruling that dictated it. **The changed-file list is
+exactly the seven files the rulings name** - no `src/`, no migration, no `config.toml`.
+
+**The executor raised no dispute.** It reported three places where dictated text met the code, and
+four observations it deliberately did not fix. Each is ruled here.
+
+## Where the dictated text met the code
+
+**[a] The `projects` positive control - it asserted BOTH forms. ACCEPT AS LANDED, and the
+discrepancy was MINE.** Ruling 3's table says "the rows' ids contain the operator-created project's
+id"; my executor instruction paraphrased it as "every row belongs to A". The executor asserted both
+rather than choosing. That is the union, it is strictly stronger, and it costs one `expect`. It also
+did the right thing procedurally: it reported the divergence instead of silently picking. Recorded
+here so a later reader sees the extra assertion was ruled, not improvised.
+
+**[b] The one cast bridge in the selftest. ACCEPT AS LANDED.** My bound said "no new helpers, no new
+abstractions, no fixtures", and the file declares
+`const call = (viewer, scope) => tenantReadAllowed(viewer as TenantViewer, scope as TenantReadScope)`.
+That bound barred a framework, not the one construct that lets the file reach `unknown` inputs at
+all - and `shipped-verification.selftest.ts` carries the identical construct for the identical
+reason. Without it the file cannot test the thing it exists to test.
+
+**[c] Driving BOTH organisation roles inside the NGO clause. ACCEPT AS LANDED.** The module's own
+comment says either role reads. Testing one leaves half that clause unexercised. One extra line
+inside an existing case.
+
+## The four observations
+
+**[d] Both narrowers TRIM, so `'ngo '` and `' admin '` are RECOGNISED. DISMISSED, with the reason.**
+`knownAccountType` calls `raw.trim()` before the membership test, mirroring `parseOrgRole`
+(`memberships.ts:51`) deliberately. The executor's first draft of the selftest predicted `'ngo '`
+would be refused, the test failed, and **it corrected the test rather than the module** - the right
+call, and the instrument working as intended.
+
+Three reasons this is not a defect. First, trimming does not WIDEN: `'ngo '` and `'ngo'` name the
+same account type, and no value that is not an account type becomes one. Second, the promise is
+about values the module does not RECOGNISE, and it recognises this one. Third, `parseOrgRole` is
+pre-existing shipped code from a merged item, so changing that posture is outside this item's
+declared scope, and changing only the copy would put two different narrowing rules in one tree.
+The selftest now asserts the behaviour positively, so it is documented rather than accidental.
+
+**[e] The header enumeration did not name the scope. ACCEPTED and APPLIED.** After the fix the
+claim was true of the scope, but a reader had to infer it from an enumeration that listed everything
+else. Since the whole of ruling 5 turned on that sentence being untrue, leaving it silent about the
+thing that was wrong is the missed half of the fix.
+
+The remedy is comment-only and I decided every character of it, so **a mechanical carried the typing
+under the founder ruling of 2026-08-12**, and I verified the result as any change is verified: the
+anchor matched, one file changed, comment only, `typecheck` exit 0, `at:check` exit 0, tree clean.
+Commit `4af5c39`. The enumeration now says "AN UNKNOWN SCOPE" and a following paragraph records what
+gate 2 measured and names the selftest as the oracle.
+
+**[f] The "every row is A's" assertion shape. DISMISSED - keep it as landed.** It compares the mapped
+key column against an array of the same length filled with A's identifier. The executor offered
+`.every()` inside one `expect` as plainer. It is plainer and it is worse: `.every()` collapses to
+`true`/`false` and reports nothing about WHICH row was foreign, while the landed shape prints the
+offending value. A guard above it already asserts the row count is greater than zero, so the empty
+case cannot pass vacuously. Diagnostics win over brevity in a test whose failure is a tenant leak.
+
+**[g] Twelve early-return sites now exist; the six new ones carry the guard. CONFIRMED.** I measured
+the same thing independently (evidence check 6). The six pre-existing sites stay untouched and
+remain a filing candidate for the founder; only the founder creates items.
+
+## What ruling 1 is proved by, restated with the executor's measurement
+
+The executor measured what I had reasoned: a search over `tests/` finds exactly one occurrence of
+`_shared/edge`, at `_contract.ts:115`, **inside a comment** - no import anywhere. So no test program
+reaches `edge.ts`, `typecheck` does not cover it, and work item 1 is proved by reading plus Deno's
+own check when the function is served. Structurally there is now no un-caught throw site inside
+`readRows`: the `fetch` and the `response.text()` sit inside one `try` whose `catch` returns
+`{ ok: false, detail: 'a read of <table> could not be made at all' }` - no error message, no query
+string, no URL. **The merge ruling states this in these words rather than implying a test exists.**
+
+## Caps used by this sitting
+
+- **Executor invocations: 1 of 3.** One goal iteration inside it. No fix loop.
+- **Mechanical invocations: 1**, for a comment-only edit whose every character I decided.
+- Integration-tier attempts: **0 this sitting.** The one attempt from the draft sitting stays spent.
+- Continuous-integration flake re-run: unused. Audit re-run: unused.
