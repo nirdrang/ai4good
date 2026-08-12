@@ -78,7 +78,7 @@ try {
     ''
     '2. The line itself'
     # The line is 85 (founder 2026-08-12, superseding 90 of 2026-08-06). These four cases are what
-    # pins it: a line half-moved between the gauge, the wait and the library goes red here.
+    # pins it: a line half-moved between the gauge and the wait goes red here.
     Set-Reading @{ five_hour = (W 84 60) }
     Check '84 is under the line' (Verdict) 'OK'
     Set-Reading @{ five_hour = (W 85 60) }
@@ -268,57 +268,16 @@ try {
     Check 'and the weekly one is still named as the blocker' (Gauge).worstWindow 'seven_day'
 
     ''
-    '9. The library itself, and the copies pinned to it'
-    # Everything above drives the gauge CLI, which always reads JSON off disk. Three things never
-    # travel that path and can only be pinned here: the in-memory snapshot shape the status line
-    # holds, the exact prefix the stamp rewrites, and the alarm batch file's copy of the path
-    # formula.
-    . (Join-Path $here 'window-lib.ps1')
-
-    # THE READING ARRIVES IN TWO SHAPES. The status line holds a Hashtable in memory; every other
-    # reader parses JSON and holds a PSCustomObject. Both must reach the same verdict AND name the
-    # same window. They did not: PSObject.Properties.Name over a Hashtable enumerates the .NET
-    # members - Keys, Values, Count - so the worst window came out named "Values", in the very line
-    # the founder reads. Two windows on purpose, because with one the wrong answer looks right.
-    $hashSnap = [ordered]@{
-        capturedAt = (Get-Date).ToUniversalTime().ToString('o')
-        rateLimits = @{ five_hour = (W 12 200); seven_day = (W 95 5000) }
-    }
-    $jsonSnap = $hashSnap | ConvertTo-Json -Depth 6 | ConvertFrom-Json
-    $vh = Get-WindowVerdict -Snapshot $hashSnap
-    $vj = Get-WindowVerdict -Snapshot $jsonSnap
-    Check 'an in-memory reading verdicts the same as a parsed one' $vh.verdict $vj.verdict
-    Check 'and both name the window that actually blocked' ($vh.worstWindow + '/' + $vj.worstWindow) 'seven_day/seven_day'
-
-    # AN AGE THAT CANNOT BE COMPUTED IS UNKNOWN, NEVER FRESH. An unparseable capturedAt used to
-    # skip the staleness rules altogether, so a corrupt-but-low reading scored OK for as long as it
-    # sat there. Over the line it still proves a floor - a window only climbs - and under it, it
-    # proves nothing.
-    $noTime = [ordered]@{ capturedAt = 'not-a-date'; rateLimits = @{ five_hour = (W 95 60) } } | ConvertTo-Json -Depth 6 | ConvertFrom-Json
-    Check 'no usable timestamp, over the line -> PAUSE on the floor it still proves' (Get-WindowVerdict -Snapshot $noTime).verdict 'PAUSE'
-    $noTimeLow = [ordered]@{ capturedAt = ''; rateLimits = @{ five_hour = (W 40 60) } } | ConvertTo-Json -Depth 6 | ConvertFrom-Json
-    $vlow = Get-WindowVerdict -Snapshot $noTimeLow
-    Check 'no usable timestamp, under the line -> UNKNOWN, never scored as current' $vlow.verdict 'UNKNOWN'
-    Check 'and the reason names the timestamp it could not use' ([bool]($vlow.reason -match 'capturedAt')) 'True'
-
-    # THE PREFIX THE STAMP STRIPS. stamp-hook.ps1 rewrites '^ALARM WINDOW ' off this line before
-    # printing its own 'WINDOW ALARM' prefix, and nothing else pins the two together. A one
-    # character drift either double-prints the founder's alarm or leaves it half-printed.
-    $pauseLine = Format-WindowVerdictLine (Get-WindowVerdict -Snapshot $noTime)
-    Check "the PAUSE line begins with exactly 'ALARM WINDOW '" ([bool]($pauseLine -cmatch '^ALARM WINDOW \S')) 'True'
-
-    # THE ALARM'S SECOND COPY OF THE PATH FORMULA. window-alarm.cmd is a batch file and cannot call
-    # the library, so its fallback directory is spelled out - the one place in production where the
-    # formula exists twice. The copy stays; this is the check that goes red when the two drift.
-    $cmdText = [IO.File]::ReadAllText((Join-Path $here 'window-alarm.cmd'))
-    $m = [regex]::Match($cmdText, 'else \(set "AI4GOOD_WD=([^"]+)"\)')
-    Check 'the alarm still carries a fallback path literal to compare' ([bool]$m.Success) 'True'
-    $savedWinDir = $env:AI4GOOD_WINDOW_DIR
-    Remove-Item Env:\AI4GOOD_WINDOW_DIR -ErrorAction SilentlyContinue
-    $libDir = Get-WindowDir
-    if ($savedWinDir) { $env:AI4GOOD_WINDOW_DIR = $savedWinDir }
-    Check "the alarm's own path literal still equals the library's formula" `
-        ([Environment]::ExpandEnvironmentVariables($m.Groups[1].Value).TrimEnd('\')) ($libDir.TrimEnd('\'))
+    '9. Readings that cannot be dated'
+    # AN AGE THAT CANNOT BE COMPUTED IS UNKNOWN, NEVER FRESH. An unusable capturedAt used to
+    # skip the staleness rules altogether, so a corrupt-but-low reading scored OK for as long
+    # as it sat there. Over the line it still proves a floor - a window only climbs - and under
+    # it, it proves nothing.
+    Set-Raw ((@{ capturedAt = 'not-a-date'; rateLimits = @{ five_hour = (W 95 60) } }) | ConvertTo-Json -Depth 6)
+    Check 'no usable timestamp, over the line -> PAUSE on the floor it still proves' (Verdict) 'PAUSE'
+    Set-Raw ((@{ capturedAt = ''; rateLimits = @{ five_hour = (W 40 60) } }) | ConvertTo-Json -Depth 6)
+    Check 'no usable timestamp, under the line -> UNKNOWN, never scored as current' (Verdict) 'UNKNOWN'
+    Check 'and the reason names the timestamp it could not use' ([bool]((Gauge).reason -match 'capturedAt')) 'True'
 
     ''
     '10. The gauge command line itself - the surface nothing above touches'

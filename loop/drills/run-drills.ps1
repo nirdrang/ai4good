@@ -298,7 +298,7 @@ Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 # EVERY ASSERT MUST RUN BEFORE $failed IS COMPUTED. It did not: $failed was computed here, above
 # the twin guard, so a twin FAIL printed, was counted in the summary line, and this script still
 # exited 0 - a guard that does not bind, which is the exact defect class this drill set removes.
-# Found by the AI4DEV-82 plan review. The fix is the ordering below, and it repairs the twin guard
+# Found by this item's plan review. The fix is the ordering below, and it repairs the twin guard
 # at the same time.
 
 # ---- twin guard: the orchestrator pair must be identical apart from the declared differences.
@@ -306,14 +306,15 @@ Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 & powershell -NoProfile -File (Join-Path $here '..\work\twin-check.ps1') | Out-Null
 Assert 'twin-guard' 'orchestrator twins are in sync (edit both or neither)' ($LASTEXITCODE -eq 0)
 
-# ---- usage-window watchdog: the sensor, the spawn gate, the per-tool alarm and the prompt stamp
-# must agree about one synthetic reading. It owns its own PASS/FAIL lines, so only its verdict is
-# folded here; its failures are echoed so a red names itself without a second run.
-$watchdog = @(& powershell -NoProfile -File (Join-Path $here 'window-watchdog-drill.ps1'))
-$watchdogCode = $LASTEXITCODE
-Assert 'window-watchdog' 'the usage-window watchdog holds at every checkpoint' ($watchdogCode -eq 0)
-if ($watchdogCode -ne 0) {
-    foreach ($w in $watchdog) { if ($w -match '^\s*FAIL' -or $w -match '^ABORTING') { Write-Output ('      ' + $w) } }
+# ---- usage-window guard: the gauge's verdicts, the 85 line, the stale rules and the wait's
+# park path, all against synthetic snapshots - never the live one. The sim owns its own
+# PASS/FAIL lines, so only its verdict is folded here; failures are echoed so a red names
+# itself without a second run.
+$windowSim = @(& powershell -NoProfile -File (Join-Path $here '..\work\window-sim.ps1'))
+$windowSimCode = $LASTEXITCODE
+Assert 'window-guard' 'the usage-window guard holds (gauge verdicts, stale rules, park path)' ($windowSimCode -eq 0)
+if ($windowSimCode -ne 0) {
+    foreach ($w in $windowSim) { if ($w -match '^\s*FAIL') { Write-Output ('      ' + $w) } }
 }
 
 # ---- Report ----

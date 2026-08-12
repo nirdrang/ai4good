@@ -66,39 +66,8 @@ try {
     # Written on EVERY refresh including when the field is absent, so a reader can tell "no
     # reading yet" from "this build does not report windows" - a missing file and a null field
     # mean different things and must not look alike.
-    #
-    # IT ALSO WRITES THE VERDICT, AND IT WRITES IT FIRST. A per-tool checkpoint is paid on every
-    # tool call in the system, so it cannot afford to run the gauge; it reads one line and matches
-    # its first token. That line is composed here, where the numbers already are.
-    #
-    # THE ORDER AND THE SINGLE try ARE THE INVARIANT, not tidiness. Verdict first, snapshot
-    # second, one envelope: a verdict write that fails therefore also skips the snapshot write, so
-    # for THIS writer the verdict file can never be older than the snapshot beside it.
-    #
-    # ONE WRITER IS NOT THE OPERATING CONDITION. Claude Code spawns a fresh PowerShell for every
-    # status-line refresh, and several sessions run at once here as a matter of routine, so two of
-    # these can interleave: A writes verdict, B writes verdict, B writes snapshot, A writes
-    # snapshot - and the pair left on disk is a high snapshot beside an older OK verdict. An
-    # earlier version of this comment said that state was impossible. It was not, and a false
-    # statement about a guard is exactly what this item exists to remove. The named mutex below
-    # makes the two writes one act across processes.
-    #
-    # ON CONTENTION, BOTH WRITES ARE SKIPPED. The numbers are account-wide, so the other refresh is
-    # writing the same reading; a CONSISTENT pair one refresh old is strictly better than an
-    # inconsistent one, because the staleness rules read the first correctly and are defeated by
-    # the second. The residual is a skipped refresh, which heals at the next one. A mutex that
-    # cannot be taken at all degrades to "no sensor update", which the staleness rules then report
-    # as UNKNOWN - loud, not silent.
-    #
-    # The remaining benign case is a verdict one refresh NEWER than its snapshot, which is
-    # conservative (the alarm fires on the newest data) and heals at the next refresh.
-    #
-    # THE PATH FORMULA IS THE LIBRARY'S, never rebuilt here. This file already shipped one bug of
-    # exactly that kind - it hand-built the path to the old bindings directory instead of calling
-    # the helper, and the cut-over that deleted the helper's callers could not see it.
     try {
-        . (Join-Path $PSScriptRoot 'window-lib.ps1')
-        $snapDir = Get-WindowDir
+        $snapDir = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good'
         if (-not (Test-Path $snapDir)) { New-Item -ItemType Directory -Force $snapDir | Out-Null }
         $snap = [ordered]@{
             capturedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -106,29 +75,10 @@ try {
             version    = [string](Get-Field $j @('version'))
             rateLimits = (Get-Field $j @('rate_limits'))
         }
-        $utf8 = New-Object System.Text.UTF8Encoding($false)
-        $mtx = New-Object System.Threading.Mutex($false, 'Global\ai4good-window-sensor')
-        $held = $false
-        try {
-            # AbandonedMutexException means the previous owner died holding it - and it means WE
-            # now hold it, so it is a grant, not a failure.
-            try { $held = $mtx.WaitOne(250) }
-            catch [System.Threading.AbandonedMutexException] { $held = $true }
-            if ($held) {
-                [System.IO.File]::WriteAllText(
-                    (Get-WindowVerdictPath),
-                    ((Format-WindowVerdictLine (Get-WindowVerdict -Snapshot $snap)) + "`n"),
-                    $utf8)
-                [System.IO.File]::WriteAllText(
-                    (Get-WindowSnapshotPath),
-                    ($snap | ConvertTo-Json -Depth 8),
-                    $utf8)
-            }
-        }
-        finally {
-            if ($held) { try { $mtx.ReleaseMutex() } catch { } }
-            try { $mtx.Dispose() } catch { }
-        }
+        [System.IO.File]::WriteAllText(
+            (Join-Path $snapDir 'rate-limits.json'),
+            ($snap | ConvertTo-Json -Depth 8),
+            (New-Object System.Text.UTF8Encoding($false)))
     } catch { }
 
     $parts = @()

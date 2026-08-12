@@ -39,7 +39,7 @@ param(
     # Passed through, so a caller testing the mechanism can move the line without editing code.
     # The default is the founder's number (2026-08-12): 85 percent, superseding the 90 of
     # 2026-08-06. Only the number moved; one line still means alarm and park together. It matches
-    # window-gauge.ps1 and window-lib.ps1, and the three move together.
+    # window-gauge.ps1, and the two move together.
     [int]$PauseAt = 85,
 
     # Passed through: exercise the park against a synthetic snapshot, spending nothing.

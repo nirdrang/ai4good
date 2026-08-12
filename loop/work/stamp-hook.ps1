@@ -187,36 +187,6 @@ try {
     catch {
         $extra += ('freshness guard degraded: ' + ($_.Exception.Message -replace '[\r\n]', ' '))
     }
-    # THE WINDOW ALARM (founder line 2026-08-12: 85 percent). The founder is the actor who can act
-    # on a spent window - park the running work, wait, restart it - so the founder-facing channel
-    # is this stamp, on every prompt, for as long as the condition lasts.
-    #
-    # IT COMPUTES, IT DOES NOT READ THE ONE-LINE VERDICT FILE. The per-tool alarm reads that line
-    # because it is paid on every tool call; this runs once per prompt, beside several git calls,
-    # so the cost of computing is nothing. And it must compute: a raw read would echo an hours-old
-    # OK if the sensor had died, and the founder channel is exactly the one that must always apply
-    # the staleness rules rather than repeat a frozen answer.
-    #
-    # Degraded is a NOTE, never a halt: UNKNOWN reports loudly and does not stop work, the same
-    # rule attribution follows. The dot-source is guarded so a missing or broken library costs a
-    # named line, not the stamp.
-    try {
-        . (Join-Path $PSScriptRoot 'window-lib.ps1')
-        $wv = Get-WindowVerdict
-        if ($wv.verdict -eq 'PAUSE') {
-            # One composition, in the library. The leading ALARM token exists for the per-tool
-            # checkbox to anchor on with findstr; here the founder-facing prefix is the anchor, so
-            # the token is dropped rather than printed twice.
-            $extra += ('WINDOW ALARM  ' + ((Format-WindowVerdictLine $wv) -replace '^ALARM WINDOW ', ''))
-        }
-        elseif ($wv.verdict -eq 'UNKNOWN') {
-            $extra += ('window sensor cannot be trusted, not halting: ' + (([string]$wv.reason) -replace '[\r\n]', ' '))
-        }
-    }
-    catch {
-        $extra += ('window check degraded: ' + ($_.Exception.Message -replace '[\r\n]', ' '))
-    }
-
     $script:Actor = if ($top -match '[\\/]\.claude[\\/]worktrees[\\/]') { 'AGENT' } else { 'COORDINATOR' }
 
     # SUPERVISED AGENTS (founder 2026-08-05). From the MAIN checkout, every platform agent
