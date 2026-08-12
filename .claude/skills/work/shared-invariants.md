@@ -45,8 +45,10 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
   moment it bites, and they are incapable of anything else. `window-gate.ps1` (PreToolUse on the
   `Agent` tool) refuses a SPAWN at the line; `window-alarm.cmd` (PostToolUse and
   PostToolUseFailure) puts the verdict line in front of any model within one tool call;
-  `stamp-hook.ps1` puts it in front of the founder on every prompt. None of them can stop running
-  work, none can message anyone, and none can be turned off by the actor it denies. The
+  `stamp-hook.ps1` puts it in front of the founder on every prompt. None of them can stop work
+  already running, none can choose who is refused, and none can be
+  turned off by the actor it denies. They speak — that is their whole function — but they only
+  ever repeat the founder's standing line and the reading, and a message is not a decision. The
   coordinator remains the only decider — what the gate refuses is new work starting, never work
   in flight, and every judgement about what to do next is still the coordinator's.
 - **A denied actor parks itself, and the denial travels up one level at a time.** The deny reason

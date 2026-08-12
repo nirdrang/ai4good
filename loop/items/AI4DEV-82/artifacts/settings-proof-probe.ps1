@@ -105,9 +105,16 @@ function Write-Synthetic([string]$dir, $pct, [double]$resetMin) {
         version    = 'settings-proof-probe'
         rateLimits = @{ five_hour = @{ used_percentage = $pct; resets_at = [DateTimeOffset]::UtcNow.AddMinutes($resetMin).ToUnixTimeSeconds() } }
     }
+    # THE VERDICT IS COMPOSED FROM THE PRODUCTION SHAPE, NOT FROM THE HASHTABLE ABOVE. Every reader
+    # in production gets its snapshot from ConvertFrom-Json, so it holds a PSCustomObject; this
+    # file built one in memory and handed the library a Hashtable, and the line it composed named
+    # the worst window "Values" instead of five_hour. A probe that mis-composes the very line it
+    # exists to prove is worse than no probe, so the round trip through JSON happens FIRST and the
+    # exact bytes written to disk are the bytes the verdict was computed from.
+    $json = $snap | ConvertTo-Json -Depth 8
     $utf8 = New-Object System.Text.UTF8Encoding($false)
-    [IO.File]::WriteAllText((Join-Path $dir 'window-verdict.txt'), ((Format-WindowVerdictLine (Get-WindowVerdict -Snapshot $snap)) + "`n"), $utf8)
-    [IO.File]::WriteAllText((Join-Path $dir 'rate-limits.json'), ($snap | ConvertTo-Json -Depth 8), $utf8)
+    [IO.File]::WriteAllText((Join-Path $dir 'window-verdict.txt'), ((Format-WindowVerdictLine (Get-WindowVerdict -Snapshot ($json | ConvertFrom-Json))) + "`n"), $utf8)
+    [IO.File]::WriteAllText((Join-Path $dir 'rate-limits.json'), $json, $utf8)
 }
 
 $dirOver    = New-WindowDir 'over'    { param($d) Write-Synthetic $d 95 90 }
@@ -200,9 +207,19 @@ if (-not $warnVisible) {
 # appeared in any subagent log during this item's hook measurement. If the headless run fired it,
 # the transcript shows the line; otherwise the entry is asserted by direct invocation and THAT
 # limit is recorded rather than papered over.
+#
+# IT GETS ITS OWN RUN, OVER THE LINE. This check used to read $c, which at this point still held
+# case 4 - the UNKNOWN case, whose window directory is deliberately unparseable JSON. A correct
+# stamp CANNOT emit WINDOW ALARM for that directory, so the headless branch was false by
+# construction, the fallback always ran, and "UserPromptSubmit may not fire headless" would have
+# been recorded as measured when it was never tested. A limit is only recordable from a run that
+# COULD have produced the line.
 
 Write-Output ''
 Write-Output '5. UserPromptSubmit -> the founder-facing WINDOW ALARM line'
+$c = Invoke-Case 'stamp' $dirOver @'
+Say READY and stop. Do not use any tool at all.
+'@
 $headlessStamp = ($c.Text -match 'WINDOW ALARM')
 if ($headlessStamp) {
     Check 'the stamp alarm appeared in the headless transcript' $true
