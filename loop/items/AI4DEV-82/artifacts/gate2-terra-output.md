@@ -1,0 +1,48 @@
+Severity scale: high = can silently defeat the deployed boundary; medium = breaks a required invariant or proof; low = leaves a stated regression guarantee unpinned.
+
+[1] severity: high    loop/work/statusline.ps1:95
+    claim: The verdict/snapshot pair is not serialized, so concurrent status-line refreshes can leave a high snapshot beside an older `OK` verdict.
+    why it matters: A high refresh can write `ALARM`, pause, a low refresh can write `OK` plus its snapshot, then the high refresh can write its snapshot; `window-alarm.cmd` then stays silent for running work. A barriered two-process sensor test would settle this.
+    unverified-runtime-claim: yes
+
+[2] severity: high    loop/work/window-gate.ps1:32
+    claim: `SilentlyContinue` can suppress a failed library load or missing `Get-WindowVerdict` command before the outer `catch`, causing a silent exit 0 instead of the promised fail-open warning.
+    why it matters: With `window-lib.ps1` unavailable, neither verdict branch need match and line 89 permits the spawn with no JSON; temporarily making the library unavailable in an isolated test would settle it. [PowerShell error handling](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_error_handling?view=powershell-7.6)
+    unverified-runtime-claim: yes
+
+[3] severity: medium    loop/work/window-lib.ps1:107
+    claim: `Get-WindowVerdict -Snapshot` assumes `rateLimits` is a `PSCustomObject`, but the settings-proof probe passes it as a hashtable.
+    why it matters: `settings-proof-probe.ps1:106` therefore enumerates hashtable members rather than window keys, writes an `UNKNOWN` verdict for its synthetic 95% reading, and leaves the alarm proof unable to pass or prove the deployed alarm. A Windows PowerShell 5.1 call using that exact object shape would settle it. [Hashtable enumeration guidance](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_hash_tables?view=powershell-7.6)
+    unverified-runtime-claim: yes
+
+[4] severity: medium    loop/items/AI4DEV-82/artifacts/settings-proof-probe.ps1:206
+    claim: The UserPromptSubmit proof inspects the preceding UNKNOWN case for `WINDOW ALARM`, which a correct stamp cannot emit for that snapshot.
+    why it matters: It always falls back to directly invoking the script, so a missing or non-firing UserPromptSubmit entry can still produce a green probe; direct invocation proves the script, not the deployed hook entry.
+    unverified-runtime-claim: no
+
+[5] severity: medium    loop/work/window-lib.ps1:96
+    claim: An invalid or missing `capturedAt` leaves `readingAgeMin` null and is treated as current rather than `UNKNOWN`.
+    why it matters: A parseable corrupt low snapshot with `used_percentage: 40` bypasses the stale branch and returns `OK`, making the gate silently allow and the stamp omit its sensor warning; the drill covers only wholly unparsable JSON. Feeding that snapshot shape to the gate and stamp would settle it.
+    unverified-runtime-claim: yes
+
+[6] severity: medium    loop/work/window-alarm.cmd:22
+    claim: The alarm has an independent fallback path formula, with no fallback-path regression check.
+    why it matters: If the library’s default directory changes, the sensor, gate, and stamp follow it while the alarm reads the old missing file and silently exits 0; every watchdog invocation sets the override, so it cannot catch this drift.
+    unverified-runtime-claim: no
+
+[7] severity: medium    loop/drills/window-watchdog-drill.ps1:208
+    claim: The live-contamination canary checks only `rate-limits.json`; the final “nothing wrote outside” assertion only rechecks the environment variable.
+    why it matters: A verdict-path override miss can overwrite the live `window-verdict.txt` without the synthetic session marker, potentially poisoning real alarms while this drill reports safety.
+    unverified-runtime-claim: no
+
+[8] severity: low    loop/work/window-sim.ps1:73
+    claim: The claimed three-default boundary net never runs `window-wait.ps1` at 84/85 using its default.
+    why it matters: If only `window-wait` regresses to a 90% default, its existing 95% and explicit-40% cases still pass, but at 85% it would release work that the gate parks.
+    unverified-runtime-claim: no
+
+[9] severity: low    loop/work/stamp-hook.ps1:210
+    claim: The formatter-prefix rewrite is coupled to an exact literal that the drill does not pin.
+    why it matters: A formatter drift such as `ALARM WINDOW` to `ALARM: WINDOW` still satisfies `findstr`, but produces a doubled/garbled founder line; the drill’s substring-only `WINDOW ALARM` assertion still passes.
+    unverified-runtime-claim: no
+
+CODE REVIEW: 9 FINDINGS

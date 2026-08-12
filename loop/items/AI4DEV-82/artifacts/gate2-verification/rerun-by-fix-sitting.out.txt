@@ -1,0 +1,23 @@
+Re-run of verify-gate2-highs.ps1 by the FIX AND GOAL sitting (orchestrator, opus @ max),
+2026-08-12, at head 2064f1e. First-hand evidence for gate 2 rulings [T2] (rejected) and
+[T3] (accepted). Probes A and B exercise window-gate.ps1; probe C and its control C2
+exercise Get-WindowVerdict -Snapshot. Nothing here reads or writes the live window dir.
+--- A-lib-file-missing ---
+exit   : 0
+stdout : {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"window guard error - failing open","additionalContext":"WINDOW GUARD FAILED and is allowing this spawn unguarded: The term \u0027C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\recheck\\gate2-probes\\A-no-lib\\window-lib.ps1\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.. The usage window is NOT being checked at spawn boundaries until this is fixed."},"systemMessage":"WINDOW GUARD FAILED and is allowing this spawn unguarded: The term \u0027C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\c--Users-nirdr-Downloads-ai4good\\64055e14-b1be-4db2-8ff0-2e28cfb15b4a\\scratchpad\\recheck\\gate2-probes\\A-no-lib\\window-lib.ps1\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.. The usage window is NOT being checked at spawn boundaries until this is fixed."}
+stderr : (empty)
+
+--- B-lib-empty-stub ---
+exit   : 0
+stdout : {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"window guard error - failing open","additionalContext":"WINDOW GUARD FAILED and is allowing this spawn unguarded: The term \u0027Get-WindowVerdict\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.. The usage window is NOT being checked at spawn boundaries until this is fixed."},"systemMessage":"WINDOW GUARD FAILED and is allowing this spawn unguarded: The term \u0027Get-WindowVerdict\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.. The usage window is NOT being checked at spawn boundaries until this is fixed."}
+stderr : (empty)
+
+--- C-hashtable-rateLimits ---
+verdict : PAUSE
+reason  : Values at 95% (pause line 85%) - resets 21:39
+line    : ALARM WINDOW Values at 95% (line 85%), resets 21:39 - finish the current work item, commit, park.
+
+--- C2-pscustomobject-control ---
+verdict : PAUSE
+reason  : five_hour at 95% (pause line 85%) - resets 21:39
+line    : ALARM WINDOW five_hour at 95% (line 85%), resets 21:39 - finish the current work item, commit, park.
