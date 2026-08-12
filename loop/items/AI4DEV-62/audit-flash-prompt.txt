@@ -1,4 +1,4 @@
-## Your contract
+﻿## Your contract
 
 **Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
 tree at a pinned commit, this prompt, the model and effort pins, and the launch cage — a read-only
@@ -61,6 +61,9 @@ Every finding you report:
 tell on itself: output that stops after a complete finding looks whole, and only the missing
 terminal line shows that it is not. The distiller compares it against what it extracted and
 reports any mismatch.
+
+---
+
 ## The AUDIT — critique of the CLAIM
 
 **Subject** · **THE CODE, ONLY THE CODE (founder ruling 2026-08-10: "I want auditor only in
@@ -127,46 +130,122 @@ gathered — the file and line, or the reasoning you traced. Then a final line: 
 **You report; you rule on nothing.** The orchestrator rules, and it may dismiss your finding with
 a written reason — that is its authority, and your claim will be recorded verbatim beside it.
 
-## This item — AI4DEV-62 (per-org roles and membership isolation), carrying its batch partner AI4DEV-63 (single seat, single developer)
+---
 
-**Subject pins.** Base `ea4f345`, head `f5de2172271bdfb09318f719f676c2a9e27a954a`. Your change-set instrument:
+### THE FIX DELTA, AND WHY THIS RE-RUN IS NOT SCOPED NARROW
 
-```
-git diff ea4f345...f5de217 -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts
-```
+Audited head **`0b8517d`** → new head **`4235a2e`**.
 
-The claims you grade live in `loop/items/AI4DEV-62/` — `gate1-rulings.md` and `gate2-rulings.md` (the adopted rulings), `plan.md` (the declared shape), and the measurement records `artifacts/verify-first-answers.md`, `artifacts/gate2-verify-answers.md`, `artifacts/goal-runs.md`. Cite a recorded measurement; never re-run one. You read that directory only as the list of claims to test against the tree; per your contract above, findings about its prose are out of your scope.
+**Ruling: this fix is FAR-REACHING, so the re-run grades the FULL checklist. It does not carry
+lines forward.** The re-run rule says a scoped fix earns a scoped re-read and a far-reaching one
+does not. This one is far-reaching: five of the declared files were textually merged with main's
+versions, a migration was renamed, test bodies gained mandatory fields, and one file left the
+path-set entirely. The first pass cleared a tree that no longer exists in those places.
 
-**If your cage cannot execute git, say so in your output before any box.** Name the fallback you used to enumerate the change-set, and grade what you can. An openly stated method is evidence; a silently substituted one is not.
-
-### CLAIM CHECKLIST — grade EVERY line by its id, PASS / FAIL / COULD-NOT-VERIFY, with the evidence you gathered yourself
-
-**Box 1 — every adopted ruling is implemented as ruled.**
-
-- **[C1]** (gate1-rulings.md finding 1, accepted fixed-differently) AT-001.16 keeps its two-membership Given and drives THREE rename targets: organisation A (actor is admin) succeeds; organisation B (actor is member) refuses with the not-an-admin kind and writes nothing; organisation C (actor holds no membership) refuses with the not-a-member kind and writes nothing. Both tiers: `tests/at/suites/req-001/c-membership-and-acknowledgment.test.ts` (default body) and `tests/at/suites/req-001/_integration.ts` (`at00116`).
-- **[C2]** (gate1-rulings.md finding 2, accepted) `createOrganizationAsOperator(name)` exists on the SUT surface and creates an organisation with NO membership row: `_contract.ts` (declaration near line 585), `_fixture.ts` (near line 1064 — direct state, no membership insert), `_live.ts` (near line 606 — operator SQL, no membership insert), and the name is listed in `backedSutMethods.accounts` (`_live.ts` near line 122).
-- **[C3]** (gate1-rulings.md finding 3, accepted) AT-001.17 carries a source arm that runs identically at both tiers, via `tests/at/suites/req-001/_source-scan.ts`: it enumerates `src/routes/` file names and the route paths in `src/routeTree.gen.ts` and asserts none matches invite or add-member naming.
-- **[C4]** (gate1-rulings.md finding 4, accepted) Migration `supabase/migrations/20260811130000_single_seat_org_and_single_developer_projects.sql` line 123 runs `revoke all on table public.projects from anon, authenticated, service_role;` — the explicit revocation the ruling required, not an assumed default.
-- **[C5]** (gate2-rulings.md R2a, accepted) `_fixture.ts` `grantMembershipAsOperator` refuses in the database's order: account absent → `refused`; account not NGO → `not-an-ngo-account`; organisation absent → `refused`; organisation already seated → `org-already-seated`.
-- **[C6]** (gate2-rulings.md R2b, accepted) `_fixture.ts` `assignVolunteerAsOperator` refuses in the database's order: project absent → `refused`; seat occupied by a different account → `seat-occupied`; account absent → `refused`.
-- **[C7]** (gate2-rulings.md R2c, accepted — a REMOVAL, condition v1) `_fixture.ts` `updateOrganization` holds NO organisation-existence pre-check: an unknown organisation flows to the membership decision and answers the not-a-member refusal. The removal condition was measured BEFORE the removal — `artifacts/gate2-verify-answers.md` v1: the deployed function answered HTTP 403 kind `not-a-member` for a well-formed random uuid. Cite that record; do not re-run it.
-- **[C8]** (gate2-rulings.md R3, accepted, both call sites) `_live.ts` classifies database refusals sentence-primary with the SQLSTATE as agreement, at the membership-grant catch site AND the seat-assignment catch site: `not-an-ngo-account` requires `/NGO accounts only/i` AND (no SQLSTATE OR `42501`); `org-already-seated` requires the index's own name `/org_memberships_one_seat_per_org_idx/i` — not the generic duplicate-key half — AND (no SQLSTATE OR `23505`); `seat-occupied` requires `/single developer seat/i` AND (no SQLSTATE OR `42501`); anything else lands in `refused`. The helper `databaseRefusal` (near line 208) returns an empty-string code when no SQLSTATE field is present, which is what the empty-string arm of each guard reads.
-- **[C9]** (gate2-rulings.md R4, accepted) Migration `supabase/migrations/20260811120000_org_membership_ngo_only_and_organization_rename.sql`, function `update_organization`: the trim carries an explicit whitespace set, `btrim(p_name, E' \t\r\n\f')`, in BOTH the emptiness check and the `v_name` assignment. Its before/after pair is measured in `artifacts/gate2-verify-answers.md` v3 (before: a tab-only name succeeded; after: SQLSTATE `22023`).
-- **[C10]** (gate2-rulings.md R5, the accepted UPDATE half) A seventh operator method `repointMembershipAsOperator(organizationId, accountId)` exists across the surface: `_contract.ts` near line 616 with outcome union ok / `refused` / `not-an-ngo-account`; `_fixture.ts` near line 1152 in the database's order (no membership row → `refused`; new account absent → `refused`; new account not NGO → `not-an-ngo-account`; else the row is re-keyed and KEEPS its role); `_live.ts` near line 679 as a single `update public.org_memberships set account_id … where org_id … returning` (zero rows → `refused`; the catch classifies per the C8 rule); the name is in `backedSutMethods.accounts`. AT-001.37 gains ONE arm at BOTH tiers, after the existing control seats the NGO account: re-pointing that seated membership at the volunteer refuses with kind `not-an-ngo-account`; read-backs prove the membership row still holds the control account with its role and the volunteer's memberships stay empty.
-- **[C11]** (gate2-rulings.md R6, accepted) `_integration.ts`, AT-001.17's known-function control asserts the measured status exactly — `.toBe(401)` — not merely non-404.
-- **[C12]** (gate2-rulings.md R7, accepted) `_integration.ts`, AT-001.17's Data-API arm asserts status `401` AND a body matching `/permission denied/i` — pinned to the MEASURED shape per the ruling's own disagreement rule (the ruling expected 403; the measurement in `artifacts/gate2-verify-answers.md` v2 answered 401 with SQLSTATE 42501 and the permission-denied body, and the ruling states the measured shape is what gets pinned).
-- **[C13]** (gate2-rulings.md R8, accepted) `tests/at/suites/req-001/_pending.ts` header states "Eighteen are written", its enumeration names eighteen ids, and nineteen remain (18 + 19 = 37).
-
-Rejected rulings, listed so their absence is not read as a gap — there is nothing to grade, and their residuals are recorded in `gate2-rulings.md`: R1 (the definer RPC's existence-before-membership ordering stands as deliberate operator diagnostics on a service-role-only path) and the platform_admin half of R5 (no arm exists; the migration's own comment is the pin).
-
-**Box 2 — the diff stays inside the declared scope.** The item declares its code territory is EXACTLY these fifteen files, and nothing else in the source-only diff:
+**Do NOT give the auditors `git diff 0b8517d...4235a2e`.** That range contains all of main's own
+merged work, which this item did not write and must not be graded on. The correct instrument is
+this item's contribution relative to main now:
 
 ```
-src/routeTree.gen.ts
+git diff 390042c...4235a2e -- src supabase tests .github package.json bun.lock tsconfig.json
+```
+
+**The brief must not name `bun.lockb` or a root `vitest.config.ts`.** Neither exists in this tree.
+The flash reader caught both in the first pass, correctly, and observed the claims were vacuously
+true as a result. A claim that cannot fail proves nothing. The lock file is `bun.lock`.
+
+**Execution evidence is CI's.** The brief must not ask a reader to run the suite. Cite the green
+`verify` check on `4235a2e` and the recorded measurement files.
+
+---
+
+## THE REBUILT CLAIM CHECKLIST — grade every line by id, PASS / FAIL / COULD-NOT-VERIFY
+
+### Box 1 — every adopted ruling is implemented as ruled
+
+Carried from the first pass, re-anchored to the current tree. **C9, C13 and the migration filename
+have CHANGED; C14 to C17 are new from this sitting.**
+
+- **[C1]** (gate1 finding 1) AT-001.16 keeps its two-membership Given and drives THREE rename
+  targets: organisation A (admin) succeeds; B (member) refuses not-an-admin and writes nothing;
+  C (no membership) refuses not-a-member and writes nothing. Both tiers —
+  `tests/at/suites/req-001/c-membership-and-acknowledgment.test.ts` (default body) and
+  `_integration.ts` (`at00116`).
+- **[C2]** (gate1 finding 2) `createOrganizationAsOperator(name)` exists on the SUT surface and
+  creates an organisation with NO membership row: `_contract.ts`, `_fixture.ts` (direct state, no
+  membership insert), `_live.ts` (operator SQL, no membership insert), and the name is in
+  `backedSutMethods.accounts`.
+- **[C3]** (gate1 finding 3) AT-001.17 carries a source arm running identically at both tiers, via
+  `tests/at/suites/req-001/_source-scan.ts`: it enumerates `src/routes/` file names and the route
+  paths in `src/routeTree.gen.ts` and asserts none matches invite or add-member naming. **The item
+  no longer CHANGES that file; the arm still READS it.**
+- **[C4]** (gate1 finding 4) `supabase/migrations/20260811130000_single_seat_org_and_single_developer_projects.sql`
+  **line 123** runs `revoke all on table public.projects from anon, authenticated, service_role;`.
+- **[C5]** (gate2 R2a) `_fixture.ts` `grantMembershipAsOperator` refuses in the database's order:
+  account absent → `refused`; not NGO → `not-an-ngo-account`; organisation absent → `refused`;
+  already seated → `org-already-seated`.
+- **[C6]** (gate2 R2b) `_fixture.ts` `assignVolunteerAsOperator` refuses in the database's order:
+  project absent → `refused`; seat occupied by a different account → `seat-occupied`; account
+  absent → `refused`.
+- **[C7]** (gate2 R2c, a REMOVAL) `_fixture.ts` `updateOrganization` holds NO organisation-existence
+  pre-check. The condition was measured BEFORE the removal — `artifacts/gate2-verify-answers.md`
+  v1, HTTP 403 kind `not-a-member` for a well-formed random uuid. Cite it; do not re-run it.
+- **[C8]** (gate2 R3, both call sites) `_live.ts` classifies database refusals sentence-primary with
+  SQLSTATE as agreement, at the membership-grant AND seat-assignment catch sites:
+  `not-an-ngo-account` needs `/NGO accounts only/i` AND (no SQLSTATE OR `42501`);
+  `org-already-seated` needs `/org_memberships_one_seat_per_org_idx/i` — the index's own name, not
+  the generic duplicate-key half — AND (no SQLSTATE OR `23505`); `seat-occupied` needs
+  `/single developer seat/i` AND (no SQLSTATE OR `42501`); anything else lands in `refused`.
+- **[C9]** (gate2 R4) **RENAMED FILE.** In
+  `supabase/migrations/20260811125000_org_membership_ngo_only_and_organization_rename.sql`, function
+  `update_organization` trims with an explicit whitespace set, `btrim(p_name, E' \t\r\n\f')`, in
+  BOTH the emptiness check and the `v_name` assignment. Measured before/after in
+  `artifacts/gate2-verify-answers.md` v3 (after: SQLSTATE `22023`).
+- **[C10]** (gate2 R5, UPDATE half) `repointMembershipAsOperator(organizationId, accountId)` exists
+  across `_contract.ts` (outcome union ok / `refused` / `not-an-ngo-account`), `_fixture.ts` (the
+  database's order; the re-keyed row KEEPS its role), `_live.ts` (a single `update … returning`;
+  zero rows → `refused`; the catch classifies per C8), and `backedSutMethods.accounts`. AT-001.37
+  gains ONE arm at BOTH tiers: re-pointing a seated membership at the volunteer refuses with
+  `not-an-ngo-account`, and read-backs prove the row still holds the control account with its role.
+- **[C11]** (gate2 R6) `_integration.ts`, AT-001.17's known-function control asserts `.toBe(401)`,
+  not merely non-404.
+- **[C12]** (gate2 R7) `_integration.ts`, AT-001.17's Data-API arm asserts status `401` AND a body
+  matching `/permission denied/i` — the MEASURED shape per the ruling's own disagreement rule.
+- **[C13]** **CHANGED BY THE MERGE.** `tests/at/suites/req-001/_pending.ts` header states **21**
+  written and **16** pending, its enumeration names 21 ids, and 21 + 16 = 37. Its `LEAF` map holds
+  neither `D3_L1`, `D3_L2` nor `D4_L1`, and its comment says **SIX** labels are gone.
+- **[C14]** **NEW — merge-rulings 8a.** This branch's migration is
+  `20260811125000_org_membership_ngo_only_and_organization_rename.sql`. No migration shares a
+  version stamp with another, and main's `20260811120000_acknowledgment_signer_identity.sql` is
+  UNCHANGED by this branch. Five migrations exist.
+- **[C15]** **NEW — merge-rulings 8b.** Every completion in this branch's bodies that must SUCCEED
+  carries signer name, title and authority via the shipped-constant idiom. The two that must be
+  REFUSED deliberately do NOT — `c-membership-and-acknowledgment.test.ts:271` and
+  `_integration.ts:862`, the volunteer completion carrying an organisation name — because the
+  refusal fires at `supabase/functions/_shared/accounts.ts:235`, before the identity checks, and
+  `accounts.ts:200-206` states that ordering is load-bearing.
+- **[C16]** **NEW — merge-rulings 1.** The header comment of
+  `c-membership-and-acknowledgment.test.ts` states the MERGED truth: AT-001.16, .36, .37, .17, .19,
+  .39 and .20 are landed and written, and AT-001.18 alone stays declared on `LEAF.D3_L3`. It takes
+  neither pre-merge side.
+- **[C17]** **NEW — merge-rulings 9.** The item changes NO file under `src/`.
+  `git diff 390042c...4235a2e -- src` is empty.
+
+**Rejected rulings, listed so their absence is not read as a gap** — nothing to grade, residuals in
+`gate2-rulings.md`: R1 (the definer RPC's existence-before-membership ordering, deliberate operator
+diagnostics on a service-role-only path) and the `platform_admin` half of R5 (no arm; the
+migration's comment is the pin).
+
+### Box 2 — the diff stays inside the declared scope
+
+The item declares its code territory is EXACTLY these **fourteen** files, and nothing else in the
+source-only diff. **This is one fewer than the first pass, and one is renamed.**
+
+```
 supabase/config.toml
 supabase/functions/_shared/memberships.ts
 supabase/functions/update-organization/index.ts
-supabase/migrations/20260811120000_org_membership_ngo_only_and_organization_rename.sql
+supabase/migrations/20260811125000_org_membership_ngo_only_and_organization_rename.sql
 supabase/migrations/20260811130000_single_seat_org_and_single_developer_projects.sql
 tests/at/expected/req-001.json
 tests/at/suites/req-001/_contract.ts
@@ -179,13 +258,24 @@ tests/at/suites/req-001/c-membership-and-acknowledgment.test.ts
 tests/at/suites/req-001/f-lifecycle-and-audit.test.ts
 ```
 
-`.github`, `package.json`, `bun.lockb`, `tsconfig.json` and `vitest.config.ts` are unchanged.
+`src/`, `.github`, `package.json`, `bun.lock` and `tsconfig.json` are unchanged by this item.
 
-**Box 3 — every stated fact about the code is true.**
+### Box 3 — every stated fact about the code is true
 
-- **[F1]** `src/routeTree.gen.ts`'s change is build-regenerated and type-only — a `declare module '@tanstack/react-start'` block. It adds no route and no invite or add-member naming.
-- **[F2]** `supabase/config.toml` adds one function block, `[functions.update-organization]` with `verify_jwt = true`, and updates the surrounding comment's function count to three.
-- **[F3]** In migration `20260811120000…`, `update_organization`'s execute is revoked from public and granted to `service_role` alone, and the function checks organisation existence (SQLSTATE `23503`, "no such organisation") BEFORE caller membership — the deliberate operator-diagnostics ordering the rulings record on a service-role-only path.
-- **[F4]** The NGO-only trigger `org_memberships_grantee_must_be_ngo` (migration `20260811120000…`, near lines 86–87) binds `before insert or update` on `public.org_memberships` — the UPDATE half is what refuses a re-pointed row, because re-pointing does not change the row count and the one-seat index therefore never sees that write.
-- **[F5]** The one-seat guarantee is the unique index `org_memberships_one_seat_per_org_idx` on `org_id` alone (migration `20260811130000…`, near line 41), and the project seat guard is the trigger `projects_single_developer_seat` (same migration, near line 101) raising the "single developer seat" sentence.
-- **[F6]** `public.projects` holds its developer as ONE nullable column, and no product path in this tree creates or assigns a project at either tier — the operator surface is the only way AT-001.32's Given is reached.
+- **[F1]** **REPLACED — the old F1 is reversed.** The item commits no change under `src/`.
+  `bun run build` DOES regenerate `src/routeTree.gen.ts` (measured twice, the same ten-line
+  type-only `declare module` block), and it is deliberately NOT committed. `bun run typecheck` and
+  the four `at:verify` runs do NOT write that file.
+- **[F2]** `supabase/config.toml` adds one function block, `[functions.update-organization]` with
+  `verify_jwt = true`, and updates the surrounding comment's function count.
+- **[F3]** In migration `20260811125000…`, `update_organization`'s execute is revoked from public
+  and granted to `service_role` alone, and the function checks organisation existence (SQLSTATE
+  `23503`, "no such organisation") BEFORE caller membership.
+- **[F4]** The NGO-only trigger `org_memberships_grantee_must_be_ngo` (migration `20260811125000…`,
+  **lines 95-96**) binds `before insert or update` on `public.org_memberships` — the UPDATE half is
+  what refuses a re-pointed row.
+- **[F5]** The one-seat guarantee is the unique index `org_memberships_one_seat_per_org_idx` on
+  `org_id` alone (migration `20260811130000…`, line 41), and the project seat guard is the trigger
+  `projects_single_developer_seat` (same migration, line 101).
+- **[F6]** `public.projects` holds its developer as ONE nullable column, and no product path in this
+  tree creates or assigns a project at either tier.
