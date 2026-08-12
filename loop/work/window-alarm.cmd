@@ -18,6 +18,14 @@ REM CAN act hear it loudly elsewhere - the spawn gate at every spawn, the stamp 
 REM
 REM A missing verdict file is silence too. The gate and the stamp both report that state properly.
 
+REM DO NOT WRAP THIS IN cmd /c IN settings.json. Measured 2026-08-12: under Git Bash sh, MSYS
+REM path-mangling rewrites the /c switch into a Windows path, cmd never receives it, starts
+REM interactively, reads EOF and exits 0 with no output - which is indistinguishable from a clear
+REM window, the exact failure this guard exists to remove. It also passes an overhead check,
+REM because a cmd that does nothing is fast. The bare quoted path in the hook entry works under
+REM every shell that could be tested. Evidence:
+REM loop/items/AI4DEV-82/artifacts/alarm-invocation-diagnosis.md
+
 setlocal
 if defined AI4GOOD_WINDOW_DIR (set "AI4GOOD_WD=%AI4GOOD_WINDOW_DIR%") else (set "AI4GOOD_WD=%LOCALAPPDATA%\ai4good-build\nirdrang-ai4good")
 if not exist "%AI4GOOD_WD%\window-verdict.txt" exit /b 0

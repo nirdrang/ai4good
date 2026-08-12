@@ -496,9 +496,113 @@ settings JSON parsing plus a post-merge check was enough. It caught a checkpoint
 at all, before merge. Without it this item would have shipped three hooks and delivered two, with
 a green suite and a true-looking record.
 
+**Addendum 2's diagnosis was WRONG. See ADDENDUM 3, which supersedes its fix instruction.**
+
 **A disclosure from the executor, recorded because it disclosed it.** Its `git add` of the item
 directory swept in three untracked files that were mine — `audit-additions.md`,
 `artifacts/gate2-verification/mutex-privilege-check.out.txt` and
 `artifacts/gate2-verification/post-fix-gate-recheck.out.txt` — so they sit under a commit message
 that does not describe them. They belong in the record and they are in it. No history is rewritten
 for a cosmetic attribution; saying so here is the correction.
+
+---
+
+# ADDENDUM 3 — my diagnosis was wrong, the fix is FORBIDDEN, and the alarm ships unproven and said so
+
+The executor tested Addendum 2's hypothesis before implementing it and **disproved it**. It changed
+nothing, and it was right not to. Evidence: `loop/items/AI4DEV-82/artifacts/alarm-invocation-diagnosis.md`.
+
+| form | what it is | exit | result |
+|---|---|---|---|
+| A | `"<path>"` — the CURRENT entry, verbatim | **2** | `ALARM WINDOW …` on stderr — it WORKS |
+| B | `cmd /c "<path>"` — **MY PROPOSED FIX** | **0** | no output at all — **SILENT** |
+| B2 | `cmd //c "<path>"` | 2 | works |
+| C | `cmd /c "<path>"` direct from PowerShell (control) | 2 | works |
+
+**I was wrong on both halves.** The bare quoted path works under every shell that could actually be
+tested, so the command string is not a demonstrated cause of anything. And my proposed fix is
+silently broken under Git Bash `sh`: MSYS path-mangling rewrites the `/c` switch into a Windows
+path, `cmd` never receives it, starts interactively, reads EOF and exits 0 clean.
+
+**An alarm hook that exits 0 with no output is indistinguishable from `verdict OK`.** I proposed,
+as a fix to a guard whose entire purpose is that a broken guard must never look like a clear
+window, a change that would have made it look exactly like a clear window — and it would have
+passed the 100 ms overhead check comfortably, because a `cmd` that does nothing is fast.
+
+## THE FIX IS FORBIDDEN. Do not apply it later.
+
+`.claude/settings.json` stays as it is. Neither `cmd /c` nor `cmd //c` may be introduced: both make
+the checkpoint's behaviour conditional on which shell the hook runner uses, and nobody has
+established that. One of the two outcomes is invisible. **Swapping a checkpoint that did not
+deliver in one probe for one that might exit 0 silently is not an improvement anyone can verify by
+looking.** A comment now stands in `window-alarm.cmd` so the next person to reach for the obvious
+fix — as I did — meets the measurement first.
+
+## The three options, ruled
+
+**(a) Apply the wrapper and let the probe adjudicate — REJECTED.** It makes a silent failure a
+possible outcome of the fix itself, so a red probe afterwards could not be attributed. That is
+debugging by making the instrument worse.
+
+**(b) Convert the alarm to a `.ps1` with a named interpreter — REJECTED, and it is not a wiring
+repair.** It would match the shape of the four entries that demonstrably fire, but D5 chose a batch
+file on a measurement: a `powershell -NoProfile` spawn costs roughly 200–400 ms and would be paid on
+EVERY tool call in the system, against a measured 35.5 ms today and a ruled target of 100 ms. That
+is a design reversal contradicting a recorded decision and a 6–11× cost regression on the hottest
+path in the relay. It is not available to a fix sitting.
+
+**(c) Authorise characterizing the runtime — NOT AUTHORISED HERE, because my executor cap has
+fired.** Three invocations, all used. The contract is explicit: when a cap fires, stop working and
+keep judging. Characterizing dispatch would also need diagnostic hook entries, which is the one
+thing the probe is built not to do. It is written down below as open work instead of being started
+badly at the end of a sitting.
+
+**(d) ADOPTED: the entry ships as built, and the CLAIM is narrowed to exactly what is proven.**
+
+## What is proven, and what is not — this wording goes in the merge ruling
+
+PROVEN at runtime, against the deployed entry shapes: the spawn gate DENIES with window, percent,
+reset and the parking choreography; `additionalContext` reaches the model on an allow (D11's
+fallback is not needed); `UserPromptSubmit` fires and carries the founder's line. PROVEN in
+isolation: `window-alarm.cmd`, invoked exactly as `settings.json` spells it, exits 2 and puts the
+alarm line on stderr.
+
+NOT PROVEN: that the per-tool alarm DELIVERS end to end. Both alarm entries returned nothing in the
+headless probe while every other entry fired, and **the cause is not established.** It is not the
+command string. It may be that `PostToolUse`/`PostToolUseFailure` are not dispatched in a headless
+`-p` run, or that an exit-2 stderr is not surfaced to the model there. Nobody has measured which.
+
+**Why this does not block the merge.** The live check is IMPOSSIBLE before merge by construction —
+the committed settings carry main-checkout absolute paths and are live only post-merge, which is
+recorded in draft ruling [E4] and plan step 9. Blocking on it would deadlock the item. And the
+unproven checkpoint is the REDUNDANT one by design: shared-invariants states that the actors who
+can act hear the window at every spawn (the gate — proven) and every prompt (the stamp — proven).
+The two load-bearing checkpoints are proven; the nag is not.
+
+**The green this item carries claims a passing drill suite and three of four checkpoints proven at
+runtime. It does not claim the per-tool alarm delivers.** Any summary that says "three hooks
+working" is false.
+
+## Open work, filed rather than started
+
+1. **REQUIRED of the merge sitting, named and blocking on the CLAIM (not on the merge):** verify
+   post-merge, in the live interactive session, whether the alarm line appears after a tool call
+   while the window is over the line. This needs no probe — it is directly observable. Record the
+   result in the merge ruling.
+2. **If it does not deliver live, file a follow-up item** to characterize hook dispatch for
+   `PostToolUse`/`PostToolUseFailure` and repair delivery. Do NOT reach for the `cmd` wrapper.
+3. The `PostToolUseFailure` dispatch question (D11's second contingency) folds into the same check
+   and stays OPEN until then.
+
+## Recorded, because it is the whole lesson of this sitting
+
+The executor's first measurement AGREED with my hypothesis — `command not found`, every backslash
+stripped, exit 127 — and it was false: PowerShell's native-argument re-quoting had eaten the
+backslashes before `sh` saw them, the same hazard this item had already recorded twice. It
+re-measured with the command on disk and the result reversed completely. **My earlier local attempt
+hit the identical false negative and I nearly read it as confirmation of my own theory.**
+
+Two actors, one hypothesis, the same broken instrument, agreeing. What caught it was re-measuring a
+negative with a DIFFERENT instrument before believing it. Had either of us stopped at the first
+result, the fix would have shipped on a confident and wrong causal story, the alarm would have gone
+silent, and the overhead check would have passed.

@@ -1,0 +1,86 @@
+SHA256 rate-limits.json BEFORE run: 415B2D6D7FD6AD07F928FA6931BAE43A66B8432E8068C3131D4DB949B43A55BD
+SHA256 rate-limits.json AFTER run:  415B2D6D7FD6AD07F928FA6931BAE43A66B8432E8068C3131D4DB949B43A55BD
+Hashes identical: yes
+Contains 'window-watchdog-drill': False
+Contains 'settings-proof-probe': False
+
+=== run-drills.ps1 output ===
+PASS  [happy-path] a running actor reads Alive-Working
+PASS  [happy-path] completion arrives on the notify channel
+PASS  [happy-path] phases ran in order 1..5
+PASS  [die-at-launch] the trap is real: output file exists and is empty
+PASS  [die-at-launch] liveness check says Dead despite the file
+PASS  [die-at-launch] an empty result file is not COMPLETE - it reads RESTART
+PASS  [detachment] a true detach survives its launcher
+PASS  [detachment] a false detach is detected as Dead, not assumed running
+PASS  [orphan] a live child of a dead launcher classifies as ORPHANED
+PASS  [orphan] identity is verifiable before any abort
+PASS  [orphan] the abort provably killed the reviewer
+PASS  [orphan] an aborted gate hands down as an anomaly, never advances
+PASS  [lost-notification] the backstop watch catches what the notify channel missed
+PASS  [lost-notification] the notify signal genuinely never arrived
+PASS  [watch-expiry] an expired watch returns EXPIRED, distinct from every success value
+PASS  [watch-expiry] a zero-byte result file cannot complete the backstop
+PASS  [watch-expiry] EXPIRED drives a stall report and never an advance
+PASS  [stall] a hung actor reads Alive-Stalled, not working and not dead
+PASS  [death-mid-phase] the resume point comes from disk, at the last recorded phase
+PASS  [death-mid-phase] a finished actor reads COMPLETE even though it died unnotified
+PASS  [stale-registry] agent-type-not-found maps to STALL:STALE-REGISTRY
+PASS  [stale-registry] an unrelated file-not-found is NOT a stale registry
+PASS  [stale-registry] an unreachable-agent error gets its own class
+PASS  [commencement] a rejected spawn is a STARTUP-STALL now, with the error verbatim
+PASS  [commencement] the rejected-spawn error classifies through the taxonomy
+PASS  [commencement] a spawn with no receipt is a STARTUP-STALL, not a wait
+PASS  [commencement] the single-conductor fence admits the first commencement
+PASS  [commencement] the fence refuses a second commencement for the same item
+PASS  [commencement] a conductor dead before its first line is a STARTUP-STALL:DEAD-TASK
+PASS  [commencement] alive but silent setup past the deadline is SETUP-SILENT
+PASS  [commencement] a growing transcript past the deadline distinguishes COMMENCING-LATE from silence
+PASS  [commencement] a first flow line inside the deadline is COMMENCED - arrival, not sending
+PASS  [watch-armed] no task id means the watch is NOT armed, whatever was claimed
+PASS  [watch-armed] a rejected task probes as not armed
+PASS  [watch-armed] armed means task exists AND probes running, named for the flow line
+PASS  [phase-fence] the first channel to fire advances the phase
+PASS  [phase-fence] the second channel for the same generation is refused
+PASS  [phase-fence] a late duplicate after the next phase started is refused
+PASS  [phase-fence] the next generation advances normally, exactly once, in order
+PASS  [tip-baseline] a tip that moved inside the spawn-to-watch gap is still detected, because the baseline predates the spawn
+PASS  [tip-baseline] an unmoved tip does not false-fire
+PASS  [generation] a missing state file or report holds the relay
+PASS  [generation] a reported head that is not the remote tip holds the relay
+PASS  [generation] agreement of state, report and remote proceeds
+PASS  [pid-identity] a different process never passes as the recorded reviewer, whatever its pid
+PASS  [pid-identity] the identity mismatch protected the bystander - it was not killed
+PASS  [landing] a stale verdict from a previous run can never land a new gate
+PASS  [landing] a malformed count line is not a landing
+PASS  [landing] a count line only in stderr is AMBIGUOUS, never a clean landing
+PASS  [landing] a count line with the process still alive is a partial verdict, not a landing
+PASS  [landing] after exit and settlement the same gate lands
+PASS  [landing] the landed verdict is the LATE version, not the early one
+PASS  [distillate] a distillate matching the raw count is OK
+PASS  [distillate] a truncated distillate is a count-mismatch anomaly, not a hand-off
+PASS  [distillate] a missing distillate after a landed review is an anomaly
+PASS  [landing] an empty gate hands down as an anomaly and never advances
+PASS  [landing] a landed gate proceeds
+PASS  [refused] a leaky prompt is REFUSED before anything launches
+PASS  [refused] REFUSED leaves no pid file and no process
+PASS  [refused] a prompt without the write policy in words is REFUSED
+PASS  [refused] a clean prompt launches, and the pid is recorded
+PASS  [ci] no run for the head after the window is DISPATCH-PRODUCED-NOTHING, not a longer wait
+PASS  [ci] no run inside the window is still WAITING
+PASS  [ci] a green on any head but the final one is nothing
+PASS  [ci] cancelled is a terminal wake, never silence
+PASS  [ci] timed_out is a terminal wake
+PASS  [ci] success on the final head is the terminal green
+PASS  [closing] a lost final report with the merge on the remote repairs from primary evidence
+PASS  [closing] the repair is exactly-once - a second attempt is a NOOP
+PASS  [closing] no merge and no report is a stall, never an assumed close
+PASS  [closing] a report that arrived closes normally
+PASS  [trace] every drill left a replayable event, in strict sequence
+PASS  [twin-guard] orchestrator twins are in sync (edit both or neither)
+PASS  [window-watchdog] the usage-window watchdog holds at every checkpoint
+
+74 of 74 assertions green
+All control hand-offs held.
+
+Exit code: 0

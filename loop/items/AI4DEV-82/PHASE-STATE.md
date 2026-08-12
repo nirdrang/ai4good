@@ -1,78 +1,124 @@
 # PHASE-STATE — AI4DEV-82 (window guard at the sitting boundary)
 
-**Phase: DRAFT COMPLETE — the next event is GATE 2 (the draft code review), a wait the conductor
-holds.** Written by the RECOVERY DRAFT sitting, orchestrator on **fable @ xhigh**, 2026-08-12.
-Chain, derived from the branch: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the
-sitting boundary)`. Bring-up item; no database slot. The pull request is #56.
+**Phase: FIX AND GOAL COMPLETE — the next event is the AUDIT, a wait the conductor holds.**
+Written by the RECOVERY FIX AND GOAL sitting, orchestrator on **opus @ max**, 2026-08-12. Chain,
+derived from the branch: `AI4DEV-4 (the work skill)` > `AI4DEV-82 (window guard at the sitting
+boundary)`. Bring-up item; no database slot. The pull request is #56.
 
-## What happened — two sittings, one phase
+## Why this sitting ran on opus, and what the conductor must decide next
 
-1. The original DRAFT sitting ruled all six gate 1 findings (`gate1-rulings.md`), amended
-   `plan.md`, pushed both FIRST (f7ec462), then ran one opus executor which implemented every
-   plan step and pushed six commits through d120230. The sitting then died on a vendor-side 529
-   error on its first model call AFTER the executor returned — before ruling on the executor's
-   report. Nothing was lost: the tree was clean at d120230.
-2. This RECOVERY sitting verified the tree first-hand against the gate 1 rulings — reading every
-   changed file's diff and re-running the verification: `window-sim.ps1` 60/60, the watchdog
-   drill standalone 54/54, `run-drills.ps1` 74/74, capture-diff identical except its label line.
-   **Nothing the dead sitting's executor claimed was found wrong.** The verification table and
-   the rulings on the executor's five flagged deviations are in `draft-rulings.md`; two
-   deviations were accepted into the plan (D2: the 85 line lives in three defaults; D7: the
-   gauge honors the override too).
-3. `draft-rulings.md` also carries a REAL INCIDENT record: the drill's first run wrote a
-   synthetic 95% reading into the live snapshot before the sensor honored the override; it
-   self-healed and two permanent guards now stand in the drill. Read it before writing the audit
-   brief — the incident and the guards belong in the claim checklist territory facts.
-4. The two gate 2 prompts are written and committed: `gate2-terra-prompt.txt` and
-   `gate2-flash-prompt.txt` — identical assembly (contract + draft-code section + this item's
-   additions), neither aware of the other.
+This is neither the merge sitting nor the audit re-run, so it should have been fable. It ran on the
+opus twin as the standing fallback because an active vendor incident ("degraded performance for
+multiple models", open since 13:50 UTC) had already killed two fable sittings of this item mid-write
+with 529 Overloaded. A vendor incident — not a session limit, not credit.
+
+**The AUDIT sitting normally runs on fable.** Before spawning it, the conductor must check whether
+that incident is still active and report the state. That call is the conductor's, not this
+sitting's. If fable is healthy, the audit sitting is fable; if the incident is still open, it is the
+opus twin under the same fallback, and the sitting says so in its first line either way.
+
+## What happened this sitting
+
+1. Recovered the dead sitting's untracked evidence and committed it: both readers' raw output and
+   distillates, the opencode reader's tool-call summary and identity extract, and the unfinished
+   `gate2-verification/` probe work. The probes were RE-RUN by this sitting rather than inherited.
+2. Ruled all 15 gate 2 findings — 13 accepted, 2 rejected with written reasons, three convergent
+   pairs across the two blind readers. `gate2-rulings.md`, pushed BEFORE any code changed.
+3. One executor applied all 13 accepted fixes. Every suite green.
+4. Three ADDENDA to the rulings, each pushed before the work it authorized. **Addendum 3 records
+   that Addendum 2's diagnosis was WRONG and its proposed fix FORBIDDEN.** Read it before touching
+   the alarm.
+
+## Verification state at this head
+
+| check | result |
+|---|---|
+| `window-sim.ps1` | 70 passed, 0 failed, exit 0 (was 60) |
+| `window-watchdog-drill.ps1` standalone | 65 passed, 0 failed, exit 0 (was 54) |
+| `run-drills.ps1` | 74 of 74, exit 0, watchdog + twin-check included |
+| fold binding | forced red → exit 1, failing line echoed up; restored → green |
+| alarm hook overhead | median 35.5 ms against a ruled 100 ms target |
+| statusline overhead added by this item | 82.4 ms per refresh |
+| settings-proof probe | 3 entry shapes PROVEN; 2 alarm entries did NOT deliver |
+| live snapshot integrity | SHA256 unchanged all sitting, no drill or probe marker, no canary trip |
+
+`run-drills.ps1` was re-run by the ORCHESTRATOR, not only by the executor, with the live snapshot
+hashed before and after.
+
+## THE ONE THING THAT IS NOT PROVEN — read this before writing anything about this item
+
+**The per-tool alarm is not proven to deliver end to end.** Both alarm entries returned nothing in
+the headless probe while every other entry fired, and the cause was never established. It is NOT
+the command string: `window-alarm.cmd`, invoked exactly as `settings.json` spells it, exits 2 with
+the alarm line on stderr under every shell that could be tested.
+
+**The obvious fix is forbidden and measured.** `cmd /c "<path>"` exits 0 with NO output under Git
+Bash `sh` — MSYS mangles the `/c` switch, `cmd` starts interactively and exits clean. An alarm that
+exits 0 silently is indistinguishable from `verdict OK`, which is the exact failure this item
+exists to remove, and it would pass the overhead check because a `cmd` doing nothing is fast. A
+comment in `window-alarm.cmd` records this so the next reader meets the measurement first.
+
+**What the green claims:** a passing drill suite, and the gate, the warning channel and the founder
+stamp proven at runtime against the deployed entry shapes. **What it does NOT claim:** that the
+per-tool alarm delivers. Any sentence saying "three hooks working" is false.
 
 ## What completes the next phase
 
-GATE 2: the conductor launches TWO reviewer-runners in the background, pinned at this sitting's
-close head (the head this state file rides in — verify against the remote):
+THE AUDIT — a panel of two, blind to each other, at the head this file rides in (verify against the
+remote):
 
-- reader one · `gpt-5.6-terra` · effort `max` · codex · `--sandbox read-only` · prompt
-  `loop/items/AI4DEV-82/gate2-terra-prompt.txt`
+- reader one · `gpt-5.6-luna` · effort `max` · codex · `--sandbox read-only` · prompt
+  `loop/items/AI4DEV-82/audit-luna-prompt.txt`
 - reader two · `opencode-go/deepseek-v4-flash` · `--variant max` · opencode · agent
-  `reviewer-flash` · clean session · prompt `loop/items/AI4DEV-82/gate2-flash-prompt.txt`
+  `reviewer-flash` · clean session · prompt `loop/items/AI4DEV-82/audit-flash-prompt.txt`
 
-Neither reader may learn the other exists. When both land and are distilled, the conductor
-spawns the FIX AND GOAL sitting (orchestrator, fable).
+Both prompts are assembled and committed. The CLAIM CHECKLIST is in `audit-additions.md`, already
+folded into both. **The auditors' change-set command is scoped to this item's declared territory —
+the default source-only diff yields an EMPTY list here, and the prompts carry the correct command.**
 
-## What the FIX AND GOAL sitting must do (beyond its contract)
-
-- Rule on every finding from BOTH readers; push rulings before any code changes.
-- The executor then checks verify-first claims, applies ruled fixes, and pursues the goal. The
-  draft is already green (drill, sim, full suite), so "goal" here means the deliberately
-  deferred evidence steps: run the settings-proof probe (step 10 — MANDATORY, it is the runtime
-  proof gate 1 rulings [1] and [3] depend on, with their contingencies pre-decided); measure the
-  two overhead medians (step 6, alarm target ≤ 100 ms); prove the fold binding once with a
-  forced red (step 8); write `goal-evidence.md` (step 12) including the capture-diff pointers.
-- Commit both readers' full evidence (raw + distillate + the opencode reader's tool-call summary
-  and identity extract) into the record before closing.
-- Write the audit brief per reader (luna via codex, flash via opencode), with the CLAIM
-  CHECKLIST: the gate 1 ruling ids [1]–[6] and the draft ruling ids [E1]–[E5] as adopted claims,
-  the declared path territory from plan.md's scope declaration, the incident record's facts, and
-  each concrete code fact the record states. The auditors' change-set command must be scoped to
-  the declared territory — the default source-only diff yields an EMPTY list for this item.
+Clean means BOTH readers clean. If either finds anything, the conductor spawns an AUDIT sitting; if
+both are clean, the merge sitting absorbs that wait.
 
 ## Facts the next sitting needs
 
-- Branch base: 390042c. Gate 1 rulings + plan amendment: f7ec462. Executor's draft: six commits
-  through d120230. This sitting adds: plan D2/D7 amendments, `draft-rulings.md`, the two gate 2
-  prompts, this file.
+- Branch base for the audit diff: **390042c**.
+- Gate 2 rulings and all three addenda: `gate2-rulings.md`. Gate 1: `gate1-rulings.md`. Draft:
+  `draft-rulings.md` (carries the REAL INCIDENT record).
+- Adopted claim ids for the checklist: gate 1 `[1]`–`[6]`, draft `[E1]`–`[E5]`, gate 2
+  `[T1]`,`[T3]`,`[T4]`,`[T5]`,`[T6](a)`,`[T6](c)`,`[T7]`,`[T8]`,`[T9]`,`[F1]`,`[F2]`,`[F4]`,`[F5]`,`[F6]`
+  plus the `[T2]` hardening. REJECTED and must NOT appear as implemented: `[T2]` as stated,
+  `[T6](b)`.
 - The six draft commits carry a `Co-Authored-By: Claude Fable 5` trailer but were written by an
-  OPUS executor (verified from transcripts; see `draft-rulings.md`). Do not read trailers on
-  this branch as model attribution.
-- Deliberately NOT done in the draft, by plan design: probe execution, overhead medians,
-  fold-binding forced-red proof, `goal-evidence.md`.
-- The committed `.claude/settings.json` hook paths point at the MAIN checkout and are live only
-  post-merge; the probe proves the entry shapes pre-merge, and the merge sitting must verify
-  live firing post-merge and record whether the running session picked up the entries.
+  OPUS executor. Trailers on this branch are not model attribution.
+- D11's contingencies: `additionalContext` visibility is CLOSED (proven visible, full guarantee
+  stands). `PostToolUseFailure` dispatch remains OPEN, folded into the post-merge live check.
+- `UserPromptSubmit` DOES fire headless — a limitation this item nearly recorded as measured, and
+  disproved only because ruling `[T4]`/`[F1]` gave the stamp case its own over-the-line run.
 - node_modules is not installed in this tree; nothing in this item needs it.
+
+## REQUIRED of the merge sitting
+
+1. Verify post-merge, in the live interactive session, whether the alarm line appears after a tool
+   call while the window is over the line. It is directly observable and needs no probe. Record the
+   result in the merge ruling.
+2. **If it does not deliver live, FILE A FOLLOW-UP ITEM** to characterize `PostToolUse` /
+   `PostToolUseFailure` dispatch and repair delivery. Do NOT reach for the `cmd` wrapper.
+3. State in the merge ruling exactly what the green does and does not claim, in the wording above.
+4. Verify the committed settings' absolute paths went live post-merge and whether the running
+   session picked the entries up.
 
 ## Open questions for the founder
 
-None. No finding contradicts ratified text and there is no scope growth. The 529 death and the
-recovery are process facts, recorded here and in `draft-rulings.md`.
+**None that block, but ONE the founder should be told at merge, and it is not an escalation.** The
+founder's design asks for three hooks. Three are built and wired; two are proven at runtime and the
+third — the per-tool alarm — is proven only in isolation. That is an evidence gap, not a
+contradiction of ratified text and not scope growth, so it is not escalated now. It becomes a real
+finding only if the post-merge live check fails, and the merge sitting must put the result in front
+of the founder either way rather than let a narrowed claim pass quietly.
+
+One option was rejected precisely because it WOULD have been scope growth: converting the alarm to
+a PowerShell script with a named interpreter. It would match the shape of the entries that
+demonstrably fire, but D5 chose a batch file on a measurement — a `powershell -NoProfile` spawn
+costs 200–400 ms on every tool call in the system against 35.5 ms today. A 6–11× regression on the
+relay's hottest path is a design reversal, not a wiring repair, and it is not a fix sitting's to
+make. If the live check fails, that trade-off is the founder's to weigh.
