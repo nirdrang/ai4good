@@ -39,6 +39,20 @@ for it is the longest thing in this file, because it is the one that touches the
 
 # A1. THE PUBLIC HANDLER READS ITS TARGET FIRST - ACCEPT, AND THE RECORD CHANGES TO MATCH THE CODE
 
+> **PARTLY CORRECTED BY THE AUDIT RE-RUN - SEE `rulings-audit-rerun.md`, RULING R1.** The section
+> below calls the ordering clause **UNSATISFIABLE** on the public surface, at the heading "And the
+> constraint is not merely unnecessary there" and in ruling clause 2. **That word is an over-claim
+> and the re-run's seat 1 caught it.** The clause CAN be met there, by collapsing the two reads into
+> one - which this section's own next paragraph names. What survives is narrower: the two reads AS
+> WRITTEN cannot be reordered, and the exemption rests on ONE reason, that the surface makes no
+> access decision. **The original wording is left standing below rather than rewritten**, because a
+> record that hides its own corrections cannot be audited. **The RULING itself - no code change to
+> the read order - is unchanged and re-affirmed.**
+>
+> **The three citations of `d-tenant-isolation.test.ts:810` in section A5 below are also stale now.**
+> They were true at head `1e058d0`; ruling A2's fix moved the call to line 834 afterwards. See ruling
+> R2.
+
 **Seat 1, severity S1, `supabase/functions/public-project-page/index.ts:73`.**
 
 > claim: "The public handler reads the project target, then reads its organization, so the target is

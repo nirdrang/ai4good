@@ -208,12 +208,33 @@ to it but a property it has: that surface makes no access decision, so it has no
 ordering to keep indistinguishable from the first. The criterion writes the carve-out itself -
 AT-001.21's clause is "no existence oracle BEYOND PUBLIC SURFACES", and this is the public surface.
 
-**And the clause is UNSATISFIABLE there, which is what settles it.** In the two authenticated
-handlers every decision input is keyed on the caller or on the target's IDENTIFIER, so all of them
-can be issued first. In `public-project-page` the second read is keyed on `project.org_id` - a COLUMN
-OF THE TARGET ROW - so the organisation cannot be read before the project at all. Obeying the letter
-would mean collapsing the two reads into one embedded select, which is a read-shape change to a live
-query that this branch cannot execute.
+**CORRECTED BY THE AUDIT RE-RUN (ruling R1). THE EARLIER SENTENCE HERE CALLED THE CLAUSE
+UNSATISFIABLE ON THAT SURFACE. THAT WAS AN OVER-CLAIM, and the reader that caught it was right.**
+
+**What is true, and it stays.** In the two authenticated handlers every decision input is keyed on the
+caller or on the target's IDENTIFIER, so all of them can be issued first. In `public-project-page` the
+second read is keyed on `project.org_id` - a COLUMN OF THE TARGET ROW - so the two reads AS WRITTEN
+cannot be reordered. The organisation's identifier does not exist until the project row is in hand.
+
+**What is NOT true, and it goes: that the clause therefore cannot be met.** It can be met, by
+collapsing the two reads into ONE. With a single read there is no earlier read to order, and the
+target read is trivially the last read the handler makes. Two shapes would do it - an embedded select
+from `projects`, or a reverse relationship query on `organizations` keyed by the request's project id.
+Both are expressible, because `public.projects.org_id` is `references public.organizations (id)`
+(`20260811130000_single_seat_org_and_single_developer_projects.sql:59`) and because `readRows` takes a
+raw PostgREST path.
+
+**SO THE EXEMPTION RESTS ON ONE REASON ONLY: the surface makes no access decision.** That is the
+paragraph above, it is what the function's own header states, and it needs no second reason.
+
+**The read shape is not changed anyway, and that is a separate judgment.** The change is unnecessary -
+there is no second answer to keep indistinguishable - and this branch cannot grade it, because the
+integration tier has never run. An unexecuted new query shape, on the one surface whose whole claim is
+"it answers 200", is worse than the residual it would remove.
+
+**AND NEITHER COLLAPSED SHAPE IS ASSERTED TO WORK.** The foreign key is read out of the migration file.
+Whether PostgREST serves either shape is UNMEASURED, and this argument does not need it, because the
+exemption no longer rests on impossibility. **The correction REMOVES a claim rather than adding one.**
 
 **The residual it leaves is recorded rather than argued away:** on the public surface an
 organisation-read outage answers 502 where an absent project answers 404, so under that fault the
