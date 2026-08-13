@@ -23,8 +23,9 @@
  * discovered by glob and never joins an acceptance run. It cannot affect any acceptance id's colour.
  *
  * WHAT A GREEN HERE CLAIMS: that the rule reports exactly the route files carrying no declaration.
- * WHAT IT DOES NOT CLAIM: that any router obeys the declaration. No router exists — the registry's own
- * header says so, and the merge ruling carries it as a residual.
+ * WHAT IT DOES NOT CLAIM: that any router obeys the declaration. A TanStack router DOES exist —
+ * `src/router.tsx` builds one over the generated route tree — and nothing in it consults
+ * `ROUTE_VISIBILITY`. The merge ruling carries that as a residual.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -64,17 +65,21 @@ describe('the shipped route registry reports what it does not declare', () => {
     ).toEqual([]);
   });
 
-  it('ignores a layout file, whatever directory it sits in', () => {
-    // A base name beginning with `__` is this router's layout convention rather than a route.
-    // `src/routes/__root.tsx` is the one such file today, and it must not need a classification —
-    // otherwise the arm would fail on a clean checkout.
+  it('ignores a file whose base name begins with `__`, whatever directory it sits in', () => {
+    // THE CONVENTIONS `src/routes/README.md` DOCUMENTS: `__root.tsx` is the APP SHELL, which wraps
+    // every page, and `_layout.tsx` — ONE underscore — is a layout route. The rule excludes any base
+    // name beginning with `__`, and `src/routes/__root.tsx` is the one such file today. It must not
+    // need a classification, or the arm would fail on a clean checkout.
     expect(
       undeclaredRoutes(['__root.tsx', 'index.tsx']),
-      'the root layout is not a route and must not be reported',
+      'the app shell is not a route and must not be reported',
     ).toEqual([]);
+    // AND THE EXCLUSION READS THE BASE NAME RATHER THAN THE WHOLE PATH, which is the property this
+    // second input pins. The name is synthetic — no such file exists in this tree — so it is chosen
+    // to carry no convention a reader could infer from it.
     expect(
-      undeclaredRoutes(['admin/__layout.tsx']),
-      'the layout test reads the BASE name, so a nested layout is a layout too',
+      undeclaredRoutes(['admin/__shell.tsx']),
+      'the rule reads the BASE name, so a `__`-prefixed file nested in a directory is excluded exactly as a top-level one is',
     ).toEqual([]);
   });
 
