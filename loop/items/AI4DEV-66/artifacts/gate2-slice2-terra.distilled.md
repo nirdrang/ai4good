@@ -1,0 +1,46 @@
+SOURCE   loop/items/AI4DEV-66/artifacts/gate2-slice2-terra.raw.txt
+REVIEWER gpt-5.6-terra (codex, effort max, --sandbox read-only)
+COUNT    7 findings in source → 7 extracted
+NOTES    none — declared count line "CODE REVIEW: 7 FINDINGS" matches extracted count
+
+[1] severity: high   supabase/migrations/20260813120000_tenant_visibility_volunteer_and_admin.sql:92
+    claim: "The assigned-volunteer policy admits any assigned account, not only an account of type `volunteer`."
+    why it matters: "`assigned_volunteer_id` only has an FK to `accounts`; an NGO account assigned to a foreign project can read it through the Data API, while `tenantReadAllowed` denies that same account at the edge surface. Verify by assigning an NGO account to a project in another organisation after applying the migration, then issuing its REST read."
+    unverified-runtime-claim: yes
+    raw: loop/items/AI4DEV-66/artifacts/gate2-slice2-terra.raw.txt:3-6
+
+[2] severity: high   tests/at/suites/req-001/_catalog-conformance.ts:188
+    claim: "The catalog rule misses `GRANT SELECT ... TO PUBLIC`, treating it as no client grant."
+    why it matters: "`CLIENT_ROLES` excludes `PUBLIC`, and the live witness uses `information_schema.role_table_grants`, which itself omits PUBLIC grants. A declared-unreachable table with a PUBLIC select grant and a public policy can therefore be exposed while conformance reports clean. [PostgreSQL documents that omission](https://www.postgresql.org/docs/15/infoschema-role-table-grants.html)."
+    unverified-runtime-claim: no
+    raw: loop/items/AI4DEV-66/artifacts/gate2-slice2-terra.raw.txt:8-11
+
+[3] severity: high   tests/at/suites/req-001/_catalog-conformance.ts:202
+    claim: "A `tenantIsolated` table is accepted without requiring enabled RLS or an effective authenticated `SELECT` grant."
+    why it matters: "Keeping the current policies but disabling RLS exposes every row to an authenticated reader, while omitting the grant denies the rightful tenant entirely; both shapes return no catalog problems."
+    unverified-runtime-claim: no
+    raw: loop/items/AI4DEV-66/artifacts/gate2-slice2-terra.raw.txt:13-16
+
+[4] severity: high   tests/at/suites/req-001/_catalog-conformance.ts:217
+    claim: "The "trivially open" check only recognises literal `true`, so semantic tautologies pass when they contain an approved identifier."
+    why it matters: "On `organizations`, `using (id is not null)` admits every row because `id` is a primary key, yet it is not literal `true` and satisfies `namesIdentifier(..., 'id')`; the conformance arm reports it clean."
+    unverified-runtime-claim: no
+    raw: loop/items/AI4DEV-66/artifacts/gate2-slice2-terra.raw.txt:18-21
+
+[5] severity: medium   tests/at/suites/req-001/d-tenant-isolation.test.ts:632
+    claim: "AT-001.40 exercises the platform-admin Data API policy only for `organizations`."
+    why it matters: "The project successes use service-role edge functions, and catalog conformance accepts the pre-existing policies on `projects`, `org_memberships`, and `acknowledgments`; a missing or wrongly scoped platform-admin policy on any of those three tables would not fail this criterion."
+    unverified-runtime-claim: no
+    raw: loop/items/AI4DEV-66/artifacts/gate2-slice2-terra.raw.txt:23-26
+
+[6] severity: medium   supabase/functions/_shared/route-visibility.ts:79
+    claim: "The route classifier uses a double-underscore layout convention that conflicts with this repository's TanStack routing conventions."
+    why it matters: "`src/routes/__root.tsx` is an actual generated root route/app shell but is silently excluded, while the documented `_layout.tsx` convention would be treated as an undeclared route. This can produce both a false green and a false failure; the new comments also incorrectly say no router exists despite `src/router.tsx`."
+    unverified-runtime-claim: no
+    raw: loop/items/AI4DEV-66/artifacts/gate2-slice2-terra.raw.txt:28-31
+
+[7] severity: medium   tests/at/suites/req-001/_live.ts:442
+    claim: "The live adapter sends a retained bearer token after `signOut`, while the fixture treats that caller as anonymous, and AT-001.24 never executes a live body to compare them."
+    why it matters: "If PostgREST accepts the revoked-but-unexpired JWT, the signed-out request returns an authenticated RLS result rather than the fixture's `401`/`rows: null`, leaving the claimed equality unverified. Verify by comparing an apikey-only REST request with the same request after live `signOut`."
+    unverified-runtime-claim: yes
+    raw: loop/items/AI4DEV-66/artifacts/gate2-slice2-terra.raw.txt:33-36
