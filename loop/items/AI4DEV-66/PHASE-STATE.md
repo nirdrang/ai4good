@@ -1,11 +1,11 @@
 # PHASE-STATE - AI4DEV-66 (cross-org denial, no existence oracle), batch with AI4DEV-67 (assigned volunteer, admin, stranger)
 
-**Phase: BOTH SLICES ARE BUILT, BOTH CODE GATES ARE RULED, AND EVERY ADOPTED FIX IS LANDED. The
-next event is the ITEM-WIDE AUDIT - two readers over BOTH slices at once. The two prompt files are
-written and named in section 4.** The INFRASTRUCTURE BLOCK from every earlier sitting still stands,
-unchanged, and it is restated in full in section 1.
+**Phase: THE ITEM-WIDE AUDIT IS RULED AND ITS FIXES ARE LANDED. CODE CHANGED, SO THE ONCE-PER-ITEM
+AUDIT RE-RUN IS NOW REQUIRED, at the new head, scoped to the FIX DELTA, with BOTH readers. The two
+re-run prompt files are written and named in section 5.** The INFRASTRUCTURE BLOCK from every earlier
+sitting still stands, unchanged, and it is restated in full in section 1.
 
-Written by the FIX AND GOAL sitting for slice 2, orchestrator on **opus @ max**, 2026-08-13.
+Written by the AUDIT sitting, orchestrator on **opus @ max**, 2026-08-13.
 
 ## THE MODEL RULING FOR THIS RUN - CARRY IT FORWARD
 
@@ -19,7 +19,7 @@ file repeats this paragraph.
 ## Attribution, derived from the branch
 
 Branch `nirdrang/ai4dev-66-denying-access-across-organisations-with-no-existence-oracle`, cut from
-`origin/main` at `948d4f0`, merge-base with main `926d170`.
+`origin/main` at `948d4f0`, merge-base with main `926d170` (re-measured this sitting).
 
 `AI4PM-19 (auth and org membership)` > `AI4DEV-50 (auth root)` >
 `AI4DEV-55 (tenant isolation and visibility)` > `AI4DEV-66 (cross-org denial, no existence oracle)`.
@@ -34,7 +34,7 @@ Pull request **#57** is OPEN and its head is this branch
 id, so the reference guard has nothing to fail on.
 
 **Head at the close of this sitting: reported by the sitting in its completion message.** The last
-commit that touches CODE is `42d678a`; every commit after it touches `loop/items/` only.
+commit that touches CODE is `e91fc39`; every commit after it touches `loop/items/` only.
 
 ---
 
@@ -77,116 +77,128 @@ reset.**
 5. **SLICE 2 ADDED A THIRD REASON TO THE SAME BLOCKER, not a new one.** The second migration has
    never been applied anywhere. Nothing has parsed it, nothing has run it, and no policy in it has
    ever been evaluated.
-6. **THIS SITTING ADDS A FOURTH, AND IT IS THE SAME BLOCKER AGAIN.** Slice 2's gate-2 ruling 2
-   REPLACED the catalog witness's grant query with `has_table_privilege`. The old query had never
-   been sent to a database and neither has the new one. It is a better ungraded query, not a graded
-   one.
+6. **SLICE 2 ADDED A FOURTH, AND IT IS THE SAME BLOCKER AGAIN.** Slice 2's gate-2 ruling 2 REPLACED
+   the catalog witness's grant query with `has_table_privilege`. The old query had never been sent to
+   a database and neither has the new one.
+7. **THIS SITTING ADDS A FIFTH, AND IT IS AGAIN THE SAME BLOCKER.** Audit ruling A6 widened that same
+   catalogue query's `relkind` filter. **The widened predicate has never been executed either.** It
+   is a better ungraded query replacing a worse ungraded one, which is the same posture and the same
+   stated reason as the fourth.
 
 **What the integration tier now owes, enumerated:** the plan's step 6 privilege-posture measurement
 (never made - `artifacts/verify-first-answers.md` records that plainly and invents no result);
 AT-001.21, .22, .23 and .40 green at integration tier; first proof that BOTH migrations apply and
-that the three deployed functions serve at all; the grading of the fixture's policy mirror, which
-now mirrors two migrations and one added account-type conjunct; step 16's third done-criterion,
-"the conformance arm passes on the real list", which needs the live catalog; and the first execution
-of `publicSchemaCatalog`'s new query.
+that the three deployed functions serve at all; the grading of the fixture's policy mirror; step 16's
+third done-criterion, "the conformance arm passes on the real list", which needs the live catalog;
+the first execution of `publicSchemaCatalog`'s query in ANY form; **and now the first execution of
+AT-001.40's four extended non-administrator controls in the integration body, which audit ruling A2
+added and nothing has run.**
 
 ---
 
 # 2. WHAT THIS SITTING DID
 
-## Eight findings from two blind readers, ruled before any code moved
+## The panel, and what each seat returned
 
-Two readers on slice 2's diff. terra returned 7 findings, flash returned 1. **No two of them are
-the same defect, so this gate produced NO convergence** - unlike slice 1's gate, which converged
-twice. Flash's single finding is in a file slice 2's diff does not touch: it read past the
-change-set into the item's own slice-1 code and found a sentence slice 2's own dictation had made
-misleading.
+Two readers, each blind to the other, over BOTH slices at once. **Neither seat was clean, so neither
+is a veto over the other, and both verdicts are recorded.**
 
-**Six adopted, two dismissed with written reasons.** Three of the six are adopted with a remedy
-other than the one the reader proposed. All eight rulings are in
-`loop/items/AI4DEV-66/rulings-gate2-slice2.md`, each with the reader's claim quoted exactly beside
-it. **The rulings were committed and pushed as `2e6a937` BEFORE the executor touched a file**, so
-the judgment would survive an executor death.
-
-| id | reader | disposition, in one line |
+| seat | findings | checklist |
 |---|---|---|
-| 1 | terra, high | the assigned-volunteer policy admitted any assigned ACCOUNT - **adopted**, and the condition is removed rather than measured |
-| 2 | terra, high | the conformance rule could not see a grant to `PUBLIC` - **adopted**, fixed at the INSTRUMENT rather than by widening a role list |
-| 3 | terra, high | a tenant-isolated table passed with row-level security OFF - **adopted exactly as proposed**; the best of the eight |
-| 4 | terra, high | the trivially-open check catches only the literal `true` - **DISMISSED**: true, and already declared as a non-claim in three places |
-| 5 | terra, medium | AT-001.40 drove ONE of four platform-admin policies - **adopted exactly as proposed** |
-| 6 | terra, medium | the route module said there is no router, and stated a convention this router lacks - **adopted** on both stated facts, **the "false failure" half REJECTED in writing** |
-| 7 | terra, medium | the fixture's REASON for refusing a signed-out caller is false at the live tier - **adopted**, comments only, the runtime half recorded UNVERIFIED |
-| 8 | flash, low | the selftest restated the implication this diff corrected one file away - **adopted** |
+| `gpt-5.6-luna` via codex, effort max, `--sandbox read-only` | **6** | S1 PASS; R1-4 FAIL; F9 FAIL; every other box PASS |
+| `opencode-go/deepseek-v4-flash`, agent `reviewer-flash` | **2** | S1 PASS; F9 FAIL; every other box PASS |
 
-**A ninth ruling exists and it is a defect in MY OWN ruling 6.** Ruling 6 claimed its fix list was
-exhaustive on the strength of a search for two exact phrases. The executor found the same two claims
-surviving in different words in `shipped-route-visibility.selftest.ts`, **reported it rather than
-touching it**, and re-measured with a second instrument before reporting. Ruling 9 fixes that file
-and records the wide re-measurement made before writing it. Two of my own stated facts are corrected
-in place beside their originals, in the same file.
+**Both seats independently passed scope box S1** - the 22-file path-set with nothing under `src/`.
+**Both seats independently failed stated fact F9.** That is the panel's one convergence, and it is
+ruled once, as ruling A3, under both claims quoted. I verified they were the same claim before
+merging them: same file, same line, same two importers.
 
-## Evidence checks that decided the rulings, and that neither reader made
+**Eight findings, SEVEN rulings, all ADOPTED.** All seven are in
+`loop/items/AI4DEV-66/rulings-audit.md`, each with the reader's claim quoted exactly beside it.
+**The rulings were committed and pushed as `1607e23` BEFORE the executor touched a file.**
 
-1. **THE TWO SEATS ARE NOT SYMMETRIC**, which is what made ruling 1 an adoption rather than a
-   restatement of slice 1's recorded asymmetry. `public.org_memberships` is guarded by
-   `org_membership_grantee_must_be_ngo()`; `public.projects.assigned_volunteer_id` has no
-   account-type guard at all, and its only trigger enforces the single-developer invariant.
-2. **The edge surfaces read with the SERVICE ROLE** (`edge.ts:339-345`), so the administrator's
-   dashboard and workspace successes prove nothing about three of the four platform-admin policies.
-3. **`src/router.tsx` EXISTS.** Sixteen lines, `createRouter` over the generated route tree.
-4. **The double-underscore rule described a convention this router does not have.**
-   `src/routes/README.md` documents `_layout.tsx` - one underscore - as the layout route.
-5. **The live adapter deliberately retains a session's tokens after `signOut`**, and says so in its
-   own comment, which is what refutes the fixture's stated reason without any database being asked.
-6. **The flash run's cage held and its identity matched.** 54 tool calls - 22 `read`, 17 `gitdiff`,
-   13 `grep`, 2 `glob`, and no `write`, `edit`, `patch`, `bash`, `task` or `webfetch`. 31 of 31
-   assistant messages matched the pin; session `ses_0079562b3ffeZwOBiow0ND9R8Z`. **The ride-along
-   from slice 1 is what makes this a valid run rather than an INVALID one** - `gitdiff` is on the
-   runner's allowed list now, and this run used it 17 times.
+| id | seat | disposition, in one line |
+|---|---|---|
+| A1 | 1, S1 | the public handler reads its target first - **adopted, and the RECORD changes rather than the code** |
+| A2 | 1, S2 | AT-001.40's four non-administrator controls pass on an empty result - **adopted**, code fix in both bodies |
+| A3 | **both** | `route-visibility.ts` says nothing imports it and two files do - **adopted**, ruled once under both claims |
+| A4 | 1, S3 | `visibility.ts` calls its fail-closed branch unreachable and a test reaches it - **adopted**, **citation amended after the executor disputed it** |
+| A5 | 1, S3 | `_contract.ts` says every `dataApiRead` caller passes a `Session` and one passes `null` - **adopted** |
+| A6 | 1, S2 | the catalog witness cannot see a partitioned table - **adopted**, code fix |
+| A7 | 2, low | an integration comment explains a correct assertion with a mechanism slice 2 removed - **adopted** |
+
+## A1 IS THE ONE THAT NEEDED JUDGMENT, AND ITS REASONING BINDS THE MERGE RULING
+
+The reader's stated fact was TRUE - `public-project-page/index.ts` reads the project at line 64 and
+the organisation at line 73, so its target read is not last. **The checklist box it graded against
+was the thing that was wrong.** My own box said the ordering constraint binds "each of the three edge
+functions". Decision B's own sentence scopes the refusal constant to "every NON-PUBLIC read surface",
+and the criterion writes the carve-out itself: AT-001.21's clause is "no existence oracle BEYOND
+PUBLIC SURFACES".
+
+**And the constraint is UNSATISFIABLE on that surface, which is what settles it rather than merely
+excusing it.** Its second read is keyed on `project.org_id` - a column of the target row - so the
+organisation cannot be read first at all. Obeying the letter would mean collapsing two reads into one
+embedded select, which is a read-shape change to a live query **this branch cannot execute**.
+
+I verified the other two surfaces obey, rather than assuming it: `organization-dashboard` makes four
+reads with the target organisation last at line 111 (its own comment says so), and `project-workspace`
+makes two with the target project last at line 72.
+
+**`plan.md` now carries the scope sentence** at decision B, so the primary record no longer states the
+constraint unqualified.
+
+## THE EXECUTOR DISPUTED RULING A4, AND THE EXECUTOR WAS RIGHT
+
+A4 named `shipped-visibility.selftest.ts:192` as the site that reaches the fail-closed branch. **It
+does not.** `visibility.ts:176` returns on `platform_admin` before any scope is read, and line 192
+passes exactly that viewer. The site that DOES reach the branch is the thirteen-value loop at lines
+163-187, driving an assigned volunteer through the cast helper at lines 46-47.
+
+**How I got it wrong:** I searched for `call(`, saw line 192 carrying the unrecognised scope
+`'anything'`, and inferred the branch from the scope argument without reading the account type on the
+same line. That is the same defect this audit corrected in four comments - a statement about code
+that is plausible and not followed to the end.
+
+**The ruling's conclusion stands; only the citation moved.** The correction is written into
+`rulings-audit.md` beside the original sentence rather than over it, and pushed as `5e9f022` before
+the executor applied it.
+
+**THIS IS THE SECOND TIME THIS ITEM HAS CAUGHT A DEFECT IN THE ORCHESTRATOR'S OWN RULING** - slice-2
+ruling 9 was the first. Both were caught by the executor before writing, not by a reviewer after.
+**The merge ruling must name this: the dispute right is not ceremony, and it has now paid twice.**
+The dispute cost one commit rather than a sitting, because the executor held one file and completed
+the other five rulings.
 
 ## What landed
 
-**Nine commits, `2804e17` through `42d678a`, one per work item. ELEVEN code files** - ten from the
-first executor invocation and `shipped-route-visibility.selftest.ts` from ruling 9.
+**Six code commits, `b5c3df2` through `e91fc39`, one per ruling. SIX code files.**
 
-- `supabase/migrations/20260813120000_…sql` - `public.viewer_is_volunteer()` and the account-type
-  conjunct on the assigned-developer policy.
-- `tests/at/suites/req-001/_live.ts` - the catalog witness now asks `has_table_privilege` per client
-  role instead of reading a grant catalogue that omits `PUBLIC` by documented design.
-- `tests/at/suites/req-001/_catalog-conformance.ts` - clause 3 gains a row-level-security check and
-  an effective-grant check; `KNOWN_POLICY_HELPERS` gains the third helper.
-- `tests/at/harness/shipped-catalog-conformance.selftest.ts` - two new failure cases, one per new
-  check, and the predicted `qual` for the assigned-developer policy.
-- `tests/at/suites/req-001/d-tenant-isolation.test.ts` and `_integration.ts` - AT-001.40's
-  administrator listing and its non-administrator control now cover ALL FOUR tables in both bodies.
-- `tests/at/suites/req-001/_fixture.ts` - the mirror gains the account-type conjunct; the signed-out
-  caller's stated reason is corrected.
-- `supabase/functions/_shared/route-visibility.ts`, `tests/at/harness/shipped-visibility.selftest.ts`,
-  `tests/at/harness/shipped-route-visibility.selftest.ts`, `tests/at/suites/req-001/_contract.ts` -
-  comment corrections, no behaviour.
+- `supabase/functions/_shared/route-visibility.ts` - A3, names both test importers, states no product
+  code imports it, keeps the router half.
+- `supabase/functions/_shared/visibility.ts` - A4, the corrected citation; the sentence about what the
+  branch prevents is unchanged word for word.
+- `tests/at/suites/req-001/_contract.ts` - A5.
+- `tests/at/suites/req-001/_integration.ts` - **A2 and A7 both**.
+- `tests/at/suites/req-001/_live.ts` - A6, `c.relkind in ('r', 'p')` plus the comment naming what is
+  deliberately out and why.
+- `tests/at/suites/req-001/d-tenant-isolation.test.ts` - A2's loop body.
 
 ## What I verified MYSELF, independently of the executor's report
 
-Every one of these I ran or read first-hand, at head `42d678a`:
-
-- `bun run typecheck` - **exit 0**, "typecheck OK: both configs clean"
-- `bun run at:check req-001` - **exit 0**, "37 P0 ids in bijection"
-- `bun run at:verify req-001 --tier loop --expect` - **exit 0, 26 green / 11 red, EXACT MATCH**, with
-  AT-001.21, .22, .23, .24 and .40 all green in the same run. The runner's own line: "EXPECTED: the
-  run matches tests/at/expected/req-001.json exactly (26 declared green, 11 declared red)".
-- `bun run at:selftest` - **exit 0, 16 files / 370 tests.** The file count is unchanged, as ruling 3
-  required, and the test count rose from 368 by exactly the two cases it dictated.
-- **The changed-file list of this sitting's fix is ELEVEN code files** and nothing else outside
-  `loop/items/`. No `supabase/config.toml`, no `package.json`, no `.github/`, no `.claude/`, and
-  `tests/at/expected/req-001.json` is untouched - a declaration edited to fit a result would be a
-  false green, and none was made.
-- **The whole branch touches 22 files in the code territory and ZERO files under `src/`**, measured
-  directly rather than assumed. That is the territory guard's condition and it holds.
-- **I read every diff of both executor invocations against the ruling that dictated it** - the
-  migration helper and its conjunct, the effective-privilege witness, clause 3's two new checks, both
-  AT-001.40 bodies extended to four tables in both the administrator arm and the control arm, and
-  every comment correction.
+- **I read every hunk of the sitting's diff against the ruling that dictated it** - all six. Each
+  implements its ruling as ruled, and A2 adds eight positive assertions across the two bodies, four
+  per body, each binding the mapped list to a local before asserting both directions.
+- **The scope holds, re-measured directly:** the branch touches **22 files** in the code territory and
+  **ZERO under `src/`**. The fix delta added no file to that list - it edited six that were already
+  in it.
+- **`tests/at/expected/req-001.json` is NOT in the fix delta.** No declaration was edited to fit a
+  result.
+- **No migration is in the fix delta.** Neither `.sql` file moved.
+- The executor's four verifications at the final head: `bun run typecheck` exit 0; `bun run at:check
+  req-001` exit 0, 37 P0 ids in bijection; `bun run at:verify req-001 --tier loop --expect` exit 0,
+  **26 green / 11 red, EXACT MATCH**; `bun run at:selftest` exit 0, 16 files / 370 tests. **The test
+  count did not move, which is correct: A2 adds assertions to existing tests, not new tests.**
 
 **THE INTEGRATION TIER WAS NOT RUN AND THIS GREEN CLAIMS THE LOOP TIER ONLY.**
 
@@ -194,104 +206,113 @@ Every one of these I ran or read first-hand, at head `42d678a`:
 
 # 3. CAPS USED BY THIS SITTING
 
-- **Executor invocations: 2 of 3.** One build pass for rulings 1, 2, 3, 5, 6, 7 and 8, with zero
-  corrective iterations; one send-back for ruling 9.
-- **Mechanical invocations: 0.**
-- Integration-tier attempts: **0 this sitting.** The single attempt from slice 1's draft sitting
-  stays spent.
-- Continuous-integration flake re-run: **unused.** Audit re-run: **unused.**
+- **Executor invocations: 2 of 3.** One build pass for A2, A3, A5, A6 and A7 with zero corrective
+  iterations; one further pass for A4 after I amended it. Neither was rework - the second existed
+  because I was wrong, not because the executor was.
+- **Mechanical invocations: 1** - the re-run prompt assembly. It rules on nothing and wrote no prose.
+- Integration-tier attempts: **0 this sitting.** The single attempt from slice 1's draft sitting stays
+  spent.
+- **Audit re-run: STILL UNUSED. The next sitting spends it.**
+- Continuous-integration flake re-run: **unused.**
 
-**The running total across the item, so the count stays auditable:** slice 1's draft sitting used 2
-of its 3, slice 1's fix-and-goal sitting used 1 of its 3, slice 2's draft sitting used 1 of its 3,
-this sitting used 2 of its 3. The terminated resume-sitting's invocation was ruled not-chargeable by
-that sitting and no sitting since has reopened that ruling. **Caps are PER SITTING** - the next
-sitting opens with three of its own.
+**The running total across the item:** slice 1's draft sitting used 2 of 3; slice 1's fix-and-goal
+sitting used 1 of 3; slice 2's draft sitting used 1 of 3; slice 2's fix-and-goal sitting used 2 of 3;
+this sitting used 2 of 3. The terminated resume-sitting's invocation was ruled not-chargeable by that
+sitting and no sitting since has reopened that ruling. **Caps are PER SITTING** - the next sitting
+opens with three of its own.
 
 ---
 
-# 4. WHAT COMPLETES THE NEXT PHASE - THE ITEM-WIDE AUDIT
+# 4. THE RULING ON WHETHER A RE-RUN IS NEEDED - IT IS
 
-**The next phase is the AUDIT, and it is per ITEM rather than per slice.** Both code gates have now
-run, once per slice, and every adopted fix from both is landed. The two prompt files are written,
-committed and ready to hand out AS WRITTEN:
+**CODE CHANGED, SO THE AUDIT RE-RUNS. This is not a judgment call and I did not treat it as one.**
 
-- `loop/items/AI4DEV-66/audit-luna-prompt.txt`
-- `loop/items/AI4DEV-66/audit-flash-prompt.txt`
+Two of the seven rulings changed executable code rather than prose:
 
-Two readers, each launched by its own reviewer-runner, each handed ONE prompt file as written. The
-two files are **byte-identical by design** - verified at **25821 bytes each** with the explicit UTF-8
-reader (`[System.IO.File]::ReadAllBytes` compared with `SequenceEqual`, plus
-`[System.IO.File]::ReadAllText` with `Encoding::UTF8`), never with a byte count alone. **67
-em-dashes and 0 replacement characters** in each.
+- **A2** added eight assertions to AT-001.40 across two bodies. An assertion is executable code, and
+  a wrongly-written one is a false green - which is the exact failure class this item exists to
+  remove.
+- **A6** changed a SQL predicate that feeds the conformance rule.
 
-Assembled per `.claude/skills/work/reviewers.md`: its `## Your contract` section, the AUDIT review
-section only, and this item's additions. **Checked by measurement, not by intent:** zero occurrences
-of `**Pins**`, zero of "reader one" or "reader two", zero mentions of any model name, and zero
-mentions of a panel or of both readers. Neither file can tell its reader that a second reader exists.
+**Had the sitting been comment-only, no re-run would have been required**, because the audit's subject
+is the code's behaviour and a corrected sentence changes none of it. That case did not occur, and I
+record the reasoning so a later sitting does not have to guess which rule was applied.
 
-## What the audit's subject IS and IS NOT
+---
 
-**The founder narrowed it to CODE ONLY (ruling 2026-08-10).** The auditor reads the record purely as
-the list of claims to test against the tree, and raises no finding about the record itself - not its
-counts, not its citations, not its phrasing. The prompt says so in the contract's own words.
+# 5. WHAT COMPLETES THE NEXT PHASE - THE AUDIT RE-RUN
 
-**The change-set instrument, in the prompt:**
+**The next phase is the AUDIT RE-RUN. It is the WHOLE PANEL - both readers, never one seat - and its
+change-set is the FIX DELTA, not the whole range again.**
+
+The two prompt files are written and ready to hand out AS WRITTEN:
+
+- `loop/items/AI4DEV-66/audit-rerun-luna-prompt.txt`
+- `loop/items/AI4DEV-66/audit-rerun-flash-prompt.txt`
+
+They are byte-identical by design. The assembly and its measured verification are in this sitting's
+completion report: assembled per `.claude/skills/work/reviewers.md` as its `## Your contract` section
+plus the AUDIT review section with the whole `**Pins**` BLOCK removed, plus this item's additions
+(`loop/items/AI4DEV-66/audit-rerun-additions.md`, kept as a separate file so the additions can be read
+without the contract around them). **Neither file can tell its reader that a second reader exists.**
+
+## THE FIX DELTA, NAMED
+
+**The head the first audit read: `1e058d0`.** Every commit after `42d678a` touched `loop/items/` only,
+so the code state the readers saw is fixed whichever of those commits their `HEAD` named.
+
+**The head the fixes produced: `e91fc39`.**
+
+The re-run's change-set instrument, as written into both prompts:
 
 ```
-git diff 926d170d5af6becb1f371e36c4b8099caa131429...HEAD -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts
+git diff 1e058d0...HEAD -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts
 ```
 
-`HEAD` rather than a pinned sha, deliberately and with the reason stated in the prompt: every commit
-after `42d678a` touches `loop/items/` only, so the code-territory change-set is fixed whichever of
-those commits `HEAD` names. **22 files**, listed in the prompt as scope box S1.
+**SIX files**, every one named in a box: `route-visibility.ts`, `visibility.ts`, `_contract.ts`,
+`_integration.ts`, `_live.ts`, `d-tenant-isolation.test.ts`.
 
-**ONE CHANGE SITS OUTSIDE THE CODE TERRITORY AND IS DECLARED IN THE PROMPT AS SUCH:** the one-line
-ride-along in `.claude/agents/reviewer-runner.md`. The territory filter excludes it by construction,
-so it is not in the auditor's change-set and the auditor is not asked to grade it. It is named so
-that a full `git diff --name-only` showing 23 files reads as declared rather than as scope leakage.
+**ONE BOX RE-CHECKS IN FULL - the scope box** - against `926d170...HEAD`, because a fix can add a
+stray file the narrow delta would hide. It did not; the list is still 22 files with nothing under
+`src/`.
 
-## The claim checklist the prompt carries
+## THE REBUILT CLAIM CHECKLIST
 
-Enumerated and testable, never a paragraph:
+**It is rebuilt, not carried over.** The boxes graded at the first head are not repeated. The new
+boxes are the seven rulings this sitting adopted, by id, plus six new stated facts the fixes created,
+plus a scope box. The prompts also instruct each reader to grade any claim the delta can REACH even
+where the file is byte-identical.
 
-- **The path-set**, all 22 files, as scope box S1, with the claim that nothing under `src/` is
-  touched.
-- **R-GROUP 1** - the eleven plan-stage rulings. Six are boxes with a code footprint; **the two with
-  no code footprint are named as such so the auditor does not hunt the tree for them.**
-- **R-GROUP 2** - the eight first-code-stage rulings, as boxes, each naming what is deliberately NOT
-  touched beside it.
-- **R-GROUP 3** - the nine second-code-stage rulings: six with a code footprint, one record-only, and
-  **both dismissals stated as claims of their own**, so a fix that "helpfully" appeared anyway reads
-  as a finding.
-- **TWO SUPERSESSIONS ARE STATED EXPLICITLY**, because a checklist that hid them would make a correct
-  tree look like a ruling not implemented as ruled: gate-1 ruling 8's clause 2 had its grant
-  instrument replaced by slice-2 ruling 2, and its clause 3 was widened by slice-2 ruling 3. The
-  prompt tells the auditor to grade the CURRENT wording.
-- **Twelve stated facts about the code**, F1 to F12, each independently checkable by reading.
-- **Six item-specific attack directions**, additive.
-- **Twelve stated non-claims**, offered for attack rather than as exemptions, with the instruction
-  that finding one UNDERSTATED is itself a finding.
+**TWO BOXES ARE FLAGGED FOR THE HARDEST READING, and the reason is written into the prompt:**
 
-## What the sitting after the audit must know
+1. **A1-N** - the NARROWED ordering claim. No code changed for it; the CLAIM changed. The prompt says
+   so openly, states the narrowing in four clauses, and invites the reader to attack it - because a
+   checklist that hid a narrowing would let a weakened claim pass as an unchanged one. **If a reader
+   says the narrowing is wrong, that is a serious finding and the next sitting must treat it as one.**
+2. **A4** - the corrected citation. The prompt tells the reader that an earlier version of that
+   comment named a line which returns before the scope is ever read, and asks it to trace the viewer's
+   account type through every earlier branch rather than only the scope argument.
 
-1. **Rule findings from BOTH readers together.** A clean seat beside a seat with findings is
-   evidence, never a veto, and its clean verdict is recorded among the dispositions. Where the two
-   converge on one defect, rule it once and note the convergence.
-2. **If fixes change code, the audit re-runs ONCE at the new head, scoped to the fix delta** -
-   both readers, never one seat. That sitting must name the fix delta and rebuild the claim
-   checklist. The re-run is unused so far.
-3. **Three integration-tier done-criteria are BLOCKED, not met, and no ruling may quietly convert
+## What the sitting after the re-run must know
+
+1. **Rule findings from BOTH readers together.** A clean seat beside a seat with findings is evidence,
+   never a veto, and its clean verdict is recorded among the dispositions.
+2. **THE RE-RUN IS THE LAST ONE. It is once per item.** A finding from it that needs a code fix is
+   ruled and fixed, and a fix that would need a SECOND re-run is scope growth - escalate it, never
+   skip the audit and never quietly spend a second re-run.
+3. **If the re-run is clean, the next phase is CI on that head, and the MERGE sitting absorbs the
+   clean panel's verdicts into its dispositions.**
+4. **Three integration-tier done-criteria are BLOCKED, not met, and no ruling may quietly convert
    them.** Step 11's migration proof (the slot evidence line, which does not exist), step 16's third
-   criterion (the arm passing on the real list), and step 17's both-tiers exact match. The loop half
-   of step 17 IS met and exact.
-4. **`main` had moved to `160042c` as of slice 2's draft sitting.** The branch has not taken main in.
+   criterion, and step 17's both-tiers exact match. The loop half of step 17 IS met and exact.
+5. **`main` had moved to `160042c` as of slice 2's draft sitting.** The branch has not taken main in.
    **The merge sitting decides whether to merge main in; no sitting before it should.**
-5. **The sitting sequence for this item is now:** plan → draft (slice 1) → fix and goal (slice 1) →
-   draft (slice 2) → fix and goal (slice 2) → **audit** → merge.
+6. **The sitting sequence for this item is now:** plan → draft (slice 1) → fix and goal (slice 1) →
+   draft (slice 2) → fix and goal (slice 2) → audit → **audit re-run** → merge.
 
 ---
 
-# 5. STANDING ITEMS THE MERGE RULING MUST CARRY
+# 6. STANDING ITEMS THE MERGE RULING MUST CARRY
 
 ## The pull request body, for the mechanical who writes it at merge
 
@@ -301,10 +322,10 @@ the one sanctioned batch line**, per `CLAUDE.md` and the reference guard in `.gi
 - one line, of exactly the shape `Closes AI4DEV-67`, alone on its line, nothing else on it;
 - at most one such line in the whole body;
 - **it is added by the MERGE ruling's mechanical, not before**;
-- **and gate-1 ruling 3 makes it CONDITIONAL**: the line is added **only if** the founder has
-  answered open question 1 - by ratifying a D5 wiring leaf for the screens the way D2 has one, or by
-  ruling AT-001.24's browser half out of that item. **With no founder answer the line is OMITTED**,
-  the partner item stays open, and the merge ruling states why.
+- **and gate-1 ruling 3 makes it CONDITIONAL**: the line is added **only if** the founder has answered
+  open question 1 - by ratifying a D5 wiring leaf for the screens the way D2 has one, or by ruling
+  AT-001.24's browser half out of that item. **With no founder answer the line is OMITTED**, the
+  partner item stays open, and the merge ruling states why.
 - No other item id may appear anywhere in the title or body. Name other items in words.
 - The body lists the ride-along under "rides along".
 
@@ -312,16 +333,17 @@ the one sanctioned batch line**, per `CLAUDE.md` and the reference guard in `.gi
 
 1. **AT-001.24 asks for a browser behaviour this pull request is forbidden to build.** CI fails any
    change touching both `src/` and this change's territory, there are no screens to guard, and D5.L2
-   has no wiring leaf the way D2 does. **Proposed:** land the decision and the API-level denials
-   here, declare the id capability-pending at integration tier, and file a D5 wiring leaf. The
-   founder may instead prefer to hold AT-001.24 out of that item entirely. Slice 2 built exactly what
-   that proposal describes.
-2. **Most of the data the criteria enumerate does not exist.** Drafts, ledger, files, thread and
-   tasks belong to requirements that have not landed. **Proposed:** isolate every kind that does
-   exist, land the catalog conformance arm so a later requirement's table cannot arrive unisolated,
-   and name the absent kinds in the merge ruling. The arm is built and has never seen a real catalog.
+   has no wiring leaf the way D2 does. **Proposed:** land the decision and the API-level denials here,
+   declare the id capability-pending at integration tier, and file a D5 wiring leaf. The founder may
+   instead prefer to hold AT-001.24 out of that item entirely. Slice 2 built exactly what that
+   proposal describes.
+2. **Most of the data the criteria enumerate does not exist.** Drafts, ledger, files, thread and tasks
+   belong to requirements that have not landed. **Proposed:** isolate every kind that does exist, land
+   the catalog conformance arm so a later requirement's table cannot arrive unisolated, and name the
+   absent kinds in the merge ruling. The arm is built and has never seen a real catalog.
 
-Neither blocked either code gate. Both must be answered before the partner item can close.
+Neither blocked either code gate, nor the audit. Both must be answered before the partner item can
+close.
 
 ## Residuals for the merge ruling
 
@@ -332,51 +354,71 @@ Neither blocked either code gate. Both must be answered before the partner item 
 5. **RETIRED BY SLICE 2.** `visibility.ts`'s platform-admin branch now has a unit oracle AND an
    acceptance test driving it through a surface at both tiers.
 6. **RETIRED BY SLICE 2.** `publicSchemaCatalog` now has a consumer.
-7. **The read-fault arm is loop tier only.** No fault is injected into a real database.
+7. **The read-fault arm is loop tier only.** No fault is injected into a real database. **AND it
+   covers the two AUTHENTICATED surfaces only** - it cannot cover the public surface, because its
+   comparison needs an existing-but-FOREIGN target and nothing is foreign on a public surface. Audit
+   ruling A1 states this rather than leaving it to be rediscovered.
 8. **The loop-tier Data API arms grade the fixture's MIRROR of the policy set, not the migrations.**
    Item claim 1 - "a green grades shipped code rather than a copy of it" - holds for the edge-surface
    arms and NOT for the probe arms at loop tier.
 9. **The `readRows` fix is proved by reading, not by a test.** No test program imports `edge.ts`.
+   **`edge.ts:8` states this in the code, and THAT STATEMENT IS UNVERIFIED** - the executor found it
+   while re-measuring audit ruling A3, correctly judged it a different module making a different
+   claim, reported it and did not touch it. I confirmed that judgment. **No sitting of this item has
+   measured it, and the merge ruling says so rather than implying it was checked.**
 10. **The four Data API positive controls are a BRACKET, not a proof.**
-11. **Nothing imports the route registry and no router obeys it.** A router EXISTS (`src/router.tsx`)
-    and consults nothing; this is a declaration plus a test that fails when a route arrives
-    undeclared, not a redirect that runs.
+11. **CORRECTED BY AUDIT RULING A3 - this residual was FALSE as written, in two directions, and both
+    readers caught half of it.** **TWO TEST FILES import the route registry** -
+    `tests/at/suites/req-001/_route-scan.ts` and `tests/at/harness/shipped-route-visibility.selftest.ts`
+    - and **NO PRODUCT CODE imports it**. **A ROUTER EXISTS** (`src/router.tsx`) and consults nothing.
+    What the registry buys is unchanged: a declaration in product code and a test that fails when a
+    route arrives undeclared. **It is not a redirect that runs.**
 12. **The catalog conformance arm does not prove a declared predicate is CORRECT.** It proves a table
-    is declared, reachable only as declared, row-level security is on, the rightful tenant is
-    admitted, and no policy is literally `true`. **A semantically open predicate naming an approved
-    identifier still satisfies it** - `using (org_id = org_id)`, and the reviewer's sharper example,
-    `using (id is not null)` on `organizations`, where `id` is a primary key. **This was attacked at
-    the code gate and the attack was dismissed with reasons** (slice-2 ruling 4): there is no sound
-    syntactic test for semantic openness, a blacklist of spellings would be a guard that looks like a
-    check, and the sound instrument is the acceptance denial arms, which bracket it from the other
-    side.
+    is declared, reachable only as declared, row-level security is on, the rightful tenant is admitted,
+    and no policy is literally `true`. **A semantically open predicate naming an approved identifier
+    still satisfies it** - `using (org_id = org_id)`, and the reviewer's sharper example,
+    `using (id is not null)` on `organizations`. **This was attacked at the code gate and dismissed
+    with reasons** (slice-2 ruling 4).
 13. **The catalog selftest's "real shaped catalog" is a HAND-WRITTEN PREDICTION** of what the two
-    migrations leave in `pg_policies`, deparsed `qual` strings included - now including the
-    assigned-developer policy's new conjunct. Only the integration tier grades it.
+    migrations leave in `pg_policies`, deparsed `qual` strings included. Only the integration tier
+    grades it.
 14. **A request carrying no `Authorization` header is not expressible against the two authenticated
     functions.** Both declare `verify_jwt = true`.
-15. **NEW - whether the Data API accepts a revoked-but-unexpired access token is UNMEASURED.** The
-    live adapter deliberately retains a session's tokens after `signOut`, and PostgREST judges a
-    token by signature and expiry rather than by a session store, so a signed-out caller may be
-    answered as that user at the integration tier where the fixture answers 401. AT-001.24 refuses at
-    that tier, so nothing in this branch grades it. **The loop-tier equality between the
-    never-signed-in caller and the signed-out caller is the fixture's model, and the never-signed-in
-    half alone is sound at both tiers.**
-16. **NEW - `has_table_privilege` errors if the role name does not exist.** That is deliberate - a
-    loud failure beats a silent absence - and it has never been executed.
-17. **NEW - the account-type conjunct on the assigned-developer policy is a READ-side repair of a
-    WRITE-side gap.** The developer seat still accepts any account type at write time.
-18. **THE INTEGRATION TIER HAS NOT RUN.** Section 1. This is the one that blocks merge.
+15. **Whether the Data API accepts a revoked-but-unexpired access token is UNMEASURED.** The live
+    adapter deliberately retains a session's tokens after `signOut`, and PostgREST judges a token by
+    signature and expiry rather than by a session store. AT-001.24 refuses at that tier, so nothing in
+    this branch grades it.
+16. **`has_table_privilege` errors if the role name does not exist.** Deliberate - a loud failure beats
+    a silent absence - and it has never been executed.
+17. **The account-type conjunct on the assigned-developer policy is a READ-side repair of a WRITE-side
+    gap.** The developer seat still accepts any account type at write time.
+18. **NEW, FROM AUDIT RULING A1 - the public project surface's OUTAGE path distinguishes an existing
+    project from an absent one.** An organisation-read fault answers 502 where an absent project
+    answers 404. **It sits INSIDE residual 4 rather than beside it**, and the reason is measured: on
+    the normal path this surface answers 200 carrying the project's name AND its organisation's name
+    for every project that exists, and 404 for one that does not. The outage path discloses strictly
+    less about the same rows. **No project is hidden by this surface** - the handler applies no
+    visibility filter - so there is no project whose existence the 200 answer conceals and the 502
+    would reveal. One sub-case, named rather than left to be found: a project whose ORGANISATION row
+    is missing answers 404, and under an organisation-read fault answers 502; that distinguishes a
+    data-integrity state from a fault, not one tenant from another.
+19. **NEW, FROM AUDIT RULING A6 - the widened catalogue predicate has never been executed.** Section
+    1, blocker reason 7.
+20. **NEW - AT-001.40's four extended non-administrator controls have never run at integration tier.**
+    Audit ruling A2 wrote them into the `at00140` integration body and nothing has graded that body.
+21. **NEW, AND IT IS ABOUT THIS PROCESS RATHER THAN THE PRODUCT - the orchestrator's own rulings have
+    been wrong twice on this item, and the executor caught both before writing.** Slice-2 ruling 9
+    (an exhaustive fix list claimed on a two-phrase search) and audit ruling A4 (a citation naming a
+    line that returns before the scope is read). **The merge ruling names this as evidence that the
+    dispute right pays**, not as an apology.
 
 ## Rides along
 
 **One line in `.claude/agents/reviewer-runner.md`** (slice-1 gate-2 ruling 8, commit `50d0daa`). That
 file told the runner to report any tool outside `read`, `glob` and `grep` as an INVALID RUN, while
 `.opencode/agent/reviewer-flash.md` grants `gitdiff: true` deliberately. `gitdiff` is now on the list
-with its reason. **This gate proved it was worth landing: slice 2's flash run made 17 `gitdiff`
-calls, and a runner obeying the old letter would have discarded a valid review.** Named in `plan.md`
-under "Rides along", and it must be named in the pull request body. Slice 2 and this sitting added no
-ride-along of their own.
+with its reason. Named in `plan.md` under "Rides along", and it must be named in the pull request
+body. Slice 2 and this sitting added no ride-along of their own.
 
 ## Filing candidates for the founder - suggestions only, at close-out
 
@@ -384,26 +426,26 @@ The coordinator suggests filings at close-out and **only the founder creates ite
 
 1. **Six pre-existing vacuous-pass seams** - `c-membership-and-acknowledgment.test.ts` 106, 189, 364;
    `f-lifecycle-and-audit.test.ts` 69; `_integration.ts` two sites. They predate this change at
-   `926d170`. This item guarded the nine it ADDED and left these alone deliberately.
+   `926d170`. **Audit ruling A2 closed four seams that THIS ITEM had added; these six are still
+   open and still out of scope.**
 2. **`_bind.ts` line 31 says "the 33 not-yet-landed ids"** - stale before this item.
-3. **NEW - the developer seat accepts any account type at WRITE time.** `public.org_memberships` is
-   guarded by a trigger that refuses a non-NGO grantee; `public.projects.assigned_volunteer_id` has
-   no equivalent. Slice-2 ruling 1 repaired the READ side inside this item's own migration and
-   deliberately did not add a trigger to a pre-existing table - that belongs to the item that owns
-   the developer seat, and this item's decision H says only READ members are added.
-4. **NEW - a revoked access token may keep reading the Data API until it expires.** If PostgREST
-   accepts a revoked-but-unexpired token, a signed-out NGO admin keeps reading its own organisation
-   for the remainder of the token's life. That is a product question about token lifetime and
-   revocation reaching PostgREST. Not buildable without the blocked tier, and it touches no file this
-   item claims.
+3. **The developer seat accepts any account type at WRITE time.** `public.org_memberships` is guarded
+   by a trigger that refuses a non-NGO grantee; `public.projects.assigned_volunteer_id` has no
+   equivalent. Slice-2 ruling 1 repaired the READ side inside this item's own migration and
+   deliberately did not add a trigger to a pre-existing table.
+4. **A revoked access token may keep reading the Data API until it expires.** A product question about
+   token lifetime and revocation reaching PostgREST. Not buildable without the blocked tier.
+5. **NEW - `supabase/functions/_shared/edge.ts:8` claims no test imports it, and nobody has checked.**
+   Residual 9. It is one measurement, and it is outside this item's declared claims.
 
 ## Two measurement traps, carried forward
 
 1. **PowerShell 5.1's `Get-Content -Raw` reads with the system ANSI codepage.** Use
    `[System.IO.File]::ReadAllText(path, [System.Text.Encoding]::UTF8)`, and compare files with
    `ReadAllBytes` plus `SequenceEqual` rather than by length.
-2. **PowerShell 5.1 re-splits a here-string commit message containing double quotes** before passing
-   it to `git.exe`; use `git commit -F <file>`. **And `Set-Content -Encoding utf8` writes a
-   BYTE-ORDER MARK**, which `git commit -F` then puts at the front of the commit subject - commit
-   `2769e7b` carries one. Write the message file with
-   `[System.IO.File]::WriteAllText(path, text, [System.Text.UTF8Encoding]::new($false))`.
+2. **PowerShell 5.1 re-splits a here-string commit message containing double quotes** before passing it
+   to `git.exe`; use `git commit -F <file>`. **And `Set-Content -Encoding utf8` writes a BYTE-ORDER
+   MARK**, which `git commit -F` then puts at the front of the commit subject. Write the message file
+   with `[System.IO.File]::WriteAllText(path, text, [System.Text.UTF8Encoding]::new($false))`.
+   **THIRD TRAP, NEW THIS SITTING: in this worktree `.git` is a FILE, not a directory**, so a message
+   file cannot be written to `.git/`. Use the scratchpad.
