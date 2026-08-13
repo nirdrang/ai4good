@@ -1828,24 +1828,45 @@ export async function at00140(ctx: Ctx): Promise<void> {
   expect(nonAdminDashboard.ok, "NGO B read NGO A's dashboard, so the administrator's reach is not attributable to its role").toBe(
     false,
   );
+  // EACH CONTROL ASSERTS BOTH DIRECTIONS, and the positive half is not thoroughness. A control that
+  // said only "NGO A is absent" passes on an EMPTY result, so a policy set that denied every row would
+  // satisfy it while proving nothing: the contrast this arm rests on needs the ordinary caller to have
+  // READ something of its own and still not reached the other tenant. THE DATABASE IS SHARED BY THE
+  // WHOLE RUN, so each positive half asserts that NGO B's own row is present rather than that the
+  // listing is exactly that row.
   const nonAdminListing = await sut.dataApiRead(sessionB, { table: 'organizations', keyedBy: null, value: null });
   expect(nonAdminListing.rows, "NGO B's unfiltered listing was refused before any row was considered").not.toBeNull();
+  const nonAdminListed = (nonAdminListing.rows ?? []).map((row) => String(row.id));
   expect(
-    (nonAdminListing.rows ?? []).map((row) => String(row.id)),
+    nonAdminListed,
+    "NGO B's unfiltered listing does not hold NGO B, so the control read nothing at all and its denial of NGO A proves nothing",
+  ).toContain(b.organizationId);
+  expect(
+    nonAdminListed,
     "NGO B's unfiltered listing holds NGO A, so the administrator's listing proves nothing about reach",
   ).not.toContain(a.organizationId);
 
   const nonAdminSeats = await sut.dataApiRead(sessionB, { table: 'org_memberships', keyedBy: null, value: null });
   expect(nonAdminSeats.rows, "NGO B's unfiltered listing of org_memberships was refused before any row was considered").not.toBeNull();
+  const nonAdminListedSeats = (nonAdminSeats.rows ?? []).map((row) => String(row.org_id));
   expect(
-    (nonAdminSeats.rows ?? []).map((row) => String(row.org_id)),
+    nonAdminListedSeats,
+    "NGO B cannot read its OWN seats, so the control read nothing at all and its denial of NGO A's seats proves nothing",
+  ).toContain(b.organizationId);
+  expect(
+    nonAdminListedSeats,
     "NGO B reads NGO A's seats, so the administrator's reach over org_memberships is not attributable to its account type",
   ).not.toContain(a.organizationId);
 
   const nonAdminProjects = await sut.dataApiRead(sessionB, { table: 'projects', keyedBy: null, value: null });
   expect(nonAdminProjects.rows, "NGO B's unfiltered listing of projects was refused before any row was considered").not.toBeNull();
+  const nonAdminListedProjects = (nonAdminProjects.rows ?? []).map((row) => String(row.id));
   expect(
-    (nonAdminProjects.rows ?? []).map((row) => String(row.id)),
+    nonAdminListedProjects,
+    "NGO B cannot read its OWN project, so the control read nothing at all and its denial of NGO A's project proves nothing",
+  ).toContain(projectB.id);
+  expect(
+    nonAdminListedProjects,
     "NGO B reads NGO A's project, so the administrator's reach over projects is not attributable to its account type",
   ).not.toContain(projectA.id);
 
@@ -1854,8 +1875,13 @@ export async function at00140(ctx: Ctx): Promise<void> {
     nonAdminAcknowledgments.rows,
     "NGO B's unfiltered listing of acknowledgments was refused before any row was considered",
   ).not.toBeNull();
+  const nonAdminListedAcknowledgments = (nonAdminAcknowledgments.rows ?? []).map((row) => String(row.account_id));
   expect(
-    (nonAdminAcknowledgments.rows ?? []).map((row) => String(row.account_id)),
+    nonAdminListedAcknowledgments,
+    "NGO B cannot read its OWN acknowledgment, so the control read nothing at all and its denial of NGO A's proves nothing",
+  ).toContain(b.accountId);
+  expect(
+    nonAdminListedAcknowledgments,
     "NGO B reads NGO A's acknowledgment, so the administrator's reach over acknowledgments is not attributable to its account type",
   ).not.toContain(a.accountId);
 }
