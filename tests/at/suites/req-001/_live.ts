@@ -991,28 +991,40 @@ export async function createLiveAdapter(opts: {
      *
      * IT IS AN OUT-OF-BAND READ. The witness is the database's own catalog rather than something the
      * system under test reports about itself, which is the same posture `_source-scan.ts` takes
-     * towards `src/routes/`. The three reads are separate rather than one join, because a join would
-     * drop a table that holds no grant and no policy — and a table nobody has classified is exactly
-     * what the arm exists to catch.
+     * towards `src/routes/`. The two reads are separate rather than one join, because a join would
+     * drop a table that holds no policy — and a table nobody has classified is exactly what the arm
+     * exists to catch.
+     *
+     * THE GRANT HALF ASKS THE EFFECTIVE QUESTION, AND IT DOES SO BECAUSE THE GRANT CATALOGUE CANNOT
+     * ANSWER IT. This read used to select from `information_schema.role_table_grants` filtered to
+     * `grantee in ('anon','authenticated')`. That view answers "who was NAMED in a grant statement",
+     * and PostgreSQL documents that it omits grants made to `PUBLIC` altogether. So a table opened
+     * with `grant select … to public` — which every client role holds — would have been reported here
+     * as granted to nobody, and the conformance arm would have accepted it as unreachable while every
+     * signed-in caller could read it. `has_table_privilege(<role>, c.oid, 'SELECT')` answers whether
+     * the role holds `select` BY ANY ROUTE: a direct grant, a grant to `PUBLIC`, or role inheritance.
+     * That is the question the rule was always asking, and this is the measured reason for the change
+     * rather than a preference between two catalogues.
      *
      * `cmd` IS FILTERED TO THE POLICIES THAT REACH A READ. `pg_policies.cmd` is `SELECT`, `INSERT`,
      * `UPDATE`, `DELETE` or `ALL`, and an `ALL` policy governs reads as well — so both are kept and
      * the write-only kinds are left out.
      */
     publicSchemaCatalog: async (): Promise<CatalogTable[]> => {
-      const tables = await rows<{ table_name: string; row_level_security: boolean }>(
-        sql`select c.relname as table_name, c.relrowsecurity as row_level_security
+      const tables = await rows<{
+        table_name: string;
+        row_level_security: boolean;
+        anon_selects: boolean;
+        authenticated_selects: boolean;
+      }>(
+        sql`select c.relname as table_name,
+                   c.relrowsecurity as row_level_security,
+                   has_table_privilege('anon', c.oid, 'SELECT') as anon_selects,
+                   has_table_privilege('authenticated', c.oid, 'SELECT') as authenticated_selects
               from pg_class c
               join pg_namespace n on n.oid = c.relnamespace
              where n.nspname = 'public' and c.relkind = 'r'
              order by c.relname`,
-      );
-      const grants = await rows<{ table_name: string; grantee: string }>(
-        sql`select distinct table_name, grantee
-              from information_schema.role_table_grants
-             where table_schema = 'public'
-               and privilege_type = 'SELECT'
-               and grantee in ('anon', 'authenticated')`,
       );
       const policies = await rows<{ table_name: string; policy_name: string; roles: unknown; qual: string | null; cmd: string }>(
         sql`select tablename as table_name, policyname as policy_name, roles, qual, cmd
@@ -1023,10 +1035,10 @@ export async function createLiveAdapter(opts: {
 
       return tables.map((table) => ({
         table: String(table.table_name),
-        selectGrantedTo: grants
-          .filter((grant) => String(grant.table_name) === String(table.table_name))
-          .map((grant) => String(grant.grantee))
-          .sort(),
+        selectGrantedTo: [
+          ...(table.anon_selects === true ? ['anon'] : []),
+          ...(table.authenticated_selects === true ? ['authenticated'] : []),
+        ].sort(),
         rowLevelSecurity: table.row_level_security === true,
         selectPolicies: policies
           .filter((policy) => String(policy.table_name) === String(table.table_name))

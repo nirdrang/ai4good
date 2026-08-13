@@ -104,7 +104,17 @@ const KNOWN_POLICY_HELPERS: readonly string[] = [
   'viewer_is_volunteer',
 ];
 
-/** The Data API roles a client key can act as. `public` reaches both, so it counts as reaching them. */
+/**
+ * THE TWO CLIENT ROLES THE WITNESS ANSWERS ABOUT — the roles a client key can act as.
+ *
+ * The grant arm of clause 2 compares against this list directly, and that is correct because
+ * `selectGrantedTo` is an EFFECTIVE privilege answer rather than a list of grantees: `_live.ts` asks
+ * `has_table_privilege` per role, which already accounts for a grant made to `PUBLIC` and for role
+ * inheritance. `'public'` is deliberately NOT a member of this list — the witness can never emit it,
+ * and a branch nothing can drive is the thing this repository distrusts. The POLICY arms below are a
+ * different question: `pg_policies.roles` reports the role names a policy was written `to`, where
+ * `public` really can appear and really does reach both client roles.
+ */
 const CLIENT_ROLES: readonly string[] = ['anon', 'authenticated'];
 
 /** Whether a policy's role list reaches any client role — `public` grants to every role, `anon` included. */

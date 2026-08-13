@@ -419,7 +419,12 @@ export type DataApiReadOutcome = {
 export type CatalogTable = {
   /** the table's name in `public` */
   table: string;
-  /** the CLIENT roles holding `select` on it — `anon` and `authenticated` only; the operator is not a client */
+  /**
+   * the CLIENT roles that EFFECTIVELY hold `select` on it, by any grant including one to `PUBLIC` —
+   * `anon` and `authenticated` only, because the operator is not a client. The witness is
+   * `has_table_privilege(<role>, <table>, 'SELECT')` rather than a grant catalogue, because a grant
+   * catalogue answers who was NAMED in a grant statement and omits `PUBLIC` by documented design.
+   */
   selectGrantedTo: string[];
   /** whether row-level security is enabled on it */
   rowLevelSecurity: boolean;
