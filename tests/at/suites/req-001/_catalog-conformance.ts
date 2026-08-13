@@ -155,9 +155,18 @@ function isTriviallyOpen(qual: string): boolean {
  *   2. A table declared unreachable really is unreachable, for one of TWO stated reasons — no `select`
  *      grant to a client role, or row-level security on with no `select` policy reaching one. Both
  *      arms are needed and the declaration's own comment says which table proves which.
- *   3. A table declared isolated carries at least one `select` policy an authenticated caller can be
- *      judged by; no `select` policy on it is trivially open; and every `select` policy on it names a
- *      known helper or one of that table's declared tenant key columns.
+ *   3. A table declared isolated has row-level security ON and an effective `select` grant for
+ *      `authenticated`; it carries at least one `select` policy an authenticated caller can be judged
+ *      by; no `select` policy on it is trivially open; and every `select` policy on it names a known
+ *      helper or one of that table's declared tenant key columns.
+ *
+ *      THE FIRST TWO OF THOSE ARE THE SAME DEFECT FROM OPPOSITE SIDES, and neither is reachable
+ *      through the policy checks. A POLICY ON A TABLE WITH ROW-LEVEL SECURITY OFF IS INERT: the four
+ *      policies this leaf ships, with `relrowsecurity` false, would satisfy every other check while
+ *      every row is readable by any caller holding the grant. That is `using (true)` reached by a
+ *      different door. AND A TABLE WITH NO EFFECTIVE `select` GRANT FOR `authenticated` denies the
+ *      rightful tenant everything, so every denial arm over it passes while proving nothing — the
+ *      failure gate-2 ruling 3 fixed from the acceptance side, seen from the catalog side.
  *
  * EACH PROBLEM IS A SENTENCE NAMING THE TABLE AND WHAT WAS MEASURED, because the reader of a failure
  * is somebody who has just added a table and does not yet know this arm exists.
@@ -214,6 +223,20 @@ export function catalogProblemsAgainst(catalog: readonly CatalogTable[], declara
     /* --- 3. isolated, and not trivially open ------------------------------------------------ */
 
     const declared = isolatedByTable.get(table.table)!;
+    if (!table.rowLevelSecurity) {
+      problems.push(
+        `public.${table.table} is declared tenant-isolated and row-level security is OFF on it, so its ` +
+          `${selectPolicies.length} select policy or policies are inert and every row is readable by any caller ` +
+          `holding the select grant`,
+      );
+    }
+    if (!table.selectGrantedTo.includes('authenticated')) {
+      problems.push(
+        `public.${table.table} is declared tenant-isolated and no effective select grant reaches authenticated ` +
+          `(it grants select to [${table.selectGrantedTo.join(', ')}]), so the rightful tenant reads nothing and ` +
+          `every denial over it proves nothing`,
+      );
+    }
     if (!selectPolicies.some((policy) => reachesAuthenticated(policy.roles))) {
       problems.push(
         `public.${table.table} is declared tenant-isolated and carries no select policy an authenticated caller ` +

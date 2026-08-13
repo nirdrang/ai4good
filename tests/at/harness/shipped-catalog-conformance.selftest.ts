@@ -172,6 +172,28 @@ describe('the catalog conformance rule reports what the declaration does not cov
     expect(problems[0], 'the problem must name the readable table').toContain('public.accounts');
   });
 
+  it('reports a tenant-isolated table whose row-level security is OFF, policies and all', () => {
+    // THE SAME DEFECT AS `using (true)`, REACHED BY A DIFFERENT DOOR. The policies below are the ones
+    // this leaf ships, unaltered — and with row-level security off they are INERT, so every row is
+    // readable by any caller holding the grant while every policy check still passes.
+    const problems = catalogConformanceProblems(
+      REAL_SHAPED_CATALOG.map((entry) => (entry.table === 'organizations' ? { ...entry, rowLevelSecurity: false } : entry)),
+    );
+    expect(problems, 'an isolated table with row-level security off must be reported').toHaveLength(1);
+    expect(problems[0], 'the problem must name the table whose policies are inert').toContain('public.organizations');
+  });
+
+  it('reports a tenant-isolated table with no effective select grant for authenticated', () => {
+    // THE MIRROR IMAGE. The rightful tenant reads nothing, so every denial arm over this table passes
+    // while proving nothing — which is what makes an absent grant a conformance problem rather than a
+    // stricter posture.
+    const problems = catalogConformanceProblems(
+      REAL_SHAPED_CATALOG.map((entry) => (entry.table === 'projects' ? { ...entry, selectGrantedTo: [] } : entry)),
+    );
+    expect(problems, 'an isolated table the rightful tenant cannot read must be reported').toHaveLength(1);
+    expect(problems[0], 'the problem must name the table nobody can read').toContain('public.projects');
+  });
+
   it('reports a tenant-isolated table whose select policy is using (true)', () => {
     // THIS IS GATE-1 RULING 8's WHOLE POINT. `using (true)` satisfies "the table carries a select
     // policy" while exposing every row, so presence of a policy can never be the test.
