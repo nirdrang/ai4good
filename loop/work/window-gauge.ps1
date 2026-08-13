@@ -158,7 +158,16 @@ foreach ($name in $snap.rateLimits.PSObject.Properties.Name) {
         # Its OWN line: the weekly family gets the weekly number, everything else the five-hour
         # one. Matched on the name prefix, so seven_day_opus and seven_day_sonnet are weekly too.
         line        = $(if ($name -like 'seven_day*') { $PauseAtWeekly } else { $PauseAt })
-        resetsLocal = $(if ($resetLocal) { $resetLocal.ToString('HH:mm') } else { '?' })
+        # A LABEL WITH NO DAY IS A LIE FOR THE WEEKLY WINDOW (founder catch 2026-08-13). A weekly
+        # reset is days away, so a bare `11:00` reads as today at 11:00 - which is usually in the
+        # PAST, and a reader acts on it as if the window were about to reopen. The day appears
+        # whenever the reset is not today. Invariant culture so the drills can match the shape.
+        resetsLocal = $(
+            if (-not $resetLocal) { '?' }
+            elseif ($resetLocal.Date -eq $now.Date) { $resetLocal.ToString('HH:mm', [cultureinfo]::InvariantCulture) }
+            elseif (($resetLocal - $now).TotalDays -lt 6) { $resetLocal.ToString('ddd HH:mm', [cultureinfo]::InvariantCulture) }
+            else { $resetLocal.ToString('MMM d HH:mm', [cultureinfo]::InvariantCulture) }
+        )
         resetsInMin = $inMin
         resetsAtUtc = $resetUtc
     }

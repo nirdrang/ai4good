@@ -279,6 +279,21 @@ try {
     Check 'and the weekly one is still named as the blocker' (Gauge).worstWindow 'seven_day'
 
     ''
+    '8b. The reset LABEL says which day, when it is not today'
+    # Founder catch 2026-08-13: the weekly window printed `resets 11:00` while its reset was
+    # nearly five days away. A bare time reads as today, and today at 11:00 is usually in the
+    # past - so the label told the reader the window was about to reopen.
+    Set-Reading @{ seven_day = (W 90 5000) }        # ~3.5 days out
+    Check 'a reset days away carries the day' ([bool]((Gauge).windows[0].resetsLocal -match '^\w{3} \d\d:\d\d$')) 'True'
+    Set-Reading @{ seven_day = (W 90 12000) }       # ~8 days out, past the weekday wrap
+    Check 'a reset over a week away carries the date' ([bool]((Gauge).windows[0].resetsLocal -match '^\w{3} \d+ \d\d:\d\d$')) 'True'
+    Set-Reading @{ five_hour = (W 50 30) }          # half an hour out
+    Check 'a reset within the hour is still a plain time, or a day if it crosses midnight' `
+        ([bool]((Gauge).windows[0].resetsLocal -match '^(\w{3} )?\d\d:\d\d$')) 'True'
+    Set-Reading @{ five_hour = @{ used_percentage = 50 } }
+    Check 'no reset time at all still prints a question mark' (Gauge).windows[0].resetsLocal '?'
+
+    ''
     '9. Two numbers, and only one file may hold them'
     # The gauge owns both lines. The wait holds NONE - it forwards a line only when a caller sets
     # one - and the process document must state the same pair the gauge uses. Every check above
@@ -385,7 +400,10 @@ try {
     Check 'a reading over the line prints PAUSE' ([bool]($line -match 'WINDOW  PAUSE')) 'True'
     Check 'and it says to stop the workflow' ([bool]($line -match 'STOP THE WORKFLOW')) 'True'
     Check 'and it names the wait to arm' ([bool]($line -match 'window-wait\.ps1')) 'True'
-    Check 'and it names the window, ITS line, and its reset' ([bool]($line -match 'five_hour at 88% of its 85%' -and $line -match 'resume after the reset at \d\d:\d\d')) 'True'
+    # The reset label carries a day when the reset is not today, so the shape is either `14:30`
+    # or `Tue 14:30` - a synthetic reset 90 minutes out lands on either side of midnight
+    # depending on when the drill runs, and a time-of-day-dependent drill is a flaky drill.
+    Check 'and it names the window, ITS line, and its reset' ([bool]($line -match 'five_hour at 88% of its 85%' -and $line -match 'resume after the reset at (\w{3} )?\d\d:\d\d')) 'True'
 
     Set-Raw 'this is not json {{{'
     $lines = @(Hook-Lines $root)
