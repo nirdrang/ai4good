@@ -1536,9 +1536,13 @@ export async function at00122(ctx: Ctx): Promise<void> {
   expect(absent.status, 'the two refusals carry different statuses, which says which project is real').toBe(refused.status);
   expect(absent.body, 'the two refusals differ byte for byte, so the answer says whether the project is there').toBe(refused.body);
 
-  // (4) THE SAME DENIAL THROUGH THE DATA API, with the volunteer's own access token on it. Slice 1
-  // ships no policy branch that admits a volunteer, so this answers `[]` for the seat-holder too;
-  // what is asserted here is the UNASSIGNED one, which is this criterion's clause.
+  // (4) THE SAME DENIAL THROUGH THE DATA API, with the volunteer's own access token on it. A policy
+  // branch that admits a volunteer DOES ship — `projects_select_assigned_volunteer`, from
+  // `20260813120000_tenant_visibility_volunteer_and_admin.sql`, which admits the seat-holder — so the
+  // denial below rests on WHO this caller is rather than on the branch being absent. What is asserted
+  // here is the UNASSIGNED volunteer, which is this criterion's clause, and neither branch admits it:
+  // not `projects_select_assigned_volunteer`, because it is not the assigned volunteer, and not
+  // `projects_select_org_member`, because it holds no seat in the owning organisation.
   const keyed = await sut.dataApiRead(unassigned, { table: 'projects', keyedBy: 'id', value: project.id });
   expect(keyed.rows, 'the volunteer\'s keyed probe was refused before any row was considered').not.toBeNull();
   expect(keyed.rows ?? [], 'an unassigned volunteer read the project row by identifier').toEqual([]);
