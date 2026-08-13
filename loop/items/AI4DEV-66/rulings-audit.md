@@ -298,8 +298,42 @@ exactly two strings."
 
 `shipped-visibility.selftest.ts:42-47` says the opposite about itself: "Every call below is a shape
 the type-checker would reject at a checked call site ... the casts are how this file reaches them",
-and its `call` helper casts `scope as TenantReadScope`. Line 192 then calls it with `'anything'`,
-which lands in exactly that branch.
+and its `call` helper casts `scope as TenantReadScope`.
+
+## A CORRECTION TO MY OWN STATED FACT, RECORDED BESIDE THE ORIGINAL
+
+**As first written, this ruling named `shipped-visibility.selftest.ts:192` as the site that reaches
+the branch. THAT WAS WRONG, and the executor disputed it rather than implementing it.** The original
+sentence was:
+
+> Line 192 then calls it with `'anything'`, which lands in exactly that branch.
+
+**It does not.** `visibility.ts:176` returns before any scope is read:
+
+> `if (accountType === 'platform_admin') return { ok: true, basis: 'platform-admin' };`
+
+The scope tests are at lines 178 and 193; the fail-closed branch is at line 210. Selftest line 192
+passes `{ accountType: 'platform_admin', … }`, so it returns at line 176, and line 194 asserts
+`{ ok: true, basis: 'platform-admin' }` - the administrator branch. The selftest says so in its own
+comment at lines 188-190: "an administrator still reads under an unknown scope, because its clause
+never reads the scope at all."
+
+**THE SITE THAT DOES REACH THE BRANCH IS THE LOOP AT `shipped-visibility.selftest.ts:163-187`.** The
+viewer is `wouldHaveBeenGranted` (lines 163-167) - a volunteer, assigned - driven through thirteen
+non-scope values (`undefined`, `null`, `''`, `'   '`, `'Project'`, `'projects'`, `'organisation'`,
+`'org'`, `42`, `true`, `{}`, `[]`, `['project']`) through the same cast helper at lines 46-47. A
+volunteer passes line 176, misses `'organization'` at 178 and `'project'` at 193, and lands at 210.
+Line 184 asserts `.ok` is false for every one of the thirteen. I verified all of this first-hand
+after the dispute.
+
+**How I got it wrong, said plainly.** I searched for `call(` , saw line 192 carrying the
+unrecognised scope `'anything'`, and inferred the branch from the scope argument without reading the
+viewer's account type on the same line. That is the same defect this audit is correcting in four
+comments: a statement about code that is plausible and not followed to the end.
+
+**The ruling's CONCLUSION is unchanged and I re-affirm it.** A call site does reach the branch,
+deliberately, through a cast; the branch is covered by a test rather than dead. Only the citation
+moves - from line 192 to lines 163-187.
 
 **"why it matters" is the sharp half and I adopt it as stated.** A branch marked unreachable is a
 branch somebody deletes. This one is the fail-closed posture for an unrecognised scope, and the
@@ -307,12 +341,13 @@ record states what it prevents: before it existed, an unrecognised scope fell th
 rule, where an assigned volunteer is allowed - so an unknown scope WIDENED access. Deleting it as
 dead code would restore that.
 
-## THE RULING - ACCEPT, comment only
+## THE RULING - ACCEPT, comment only. **AMENDED AFTER THE EXECUTOR'S DISPUTE; THE CITATION IS THE ONLY THING THAT MOVED.**
 
 The sentence is replaced. It states the reachability precisely: no TYPE-CHECKED call site can reach
-the branch, because `TenantReadScope` is a union of exactly two strings; the selftest reaches it
-deliberately through a cast, and names the site; **and therefore the branch is covered by a test
-rather than dead.** It keeps the existing sentence about what the branch prevents, unchanged.
+the branch, because `TenantReadScope` is a union of exactly two strings; **the selftest's
+thirteen-value loop at `shipped-visibility.selftest.ts:163-187` reaches it deliberately, through the
+cast helper at lines 46-47**; **and therefore the branch is covered by a test rather than dead.** It
+keeps the existing sentence about what the branch prevents, unchanged.
 
 ---
 
@@ -434,6 +469,46 @@ touching anything.** Search for the idea in several wordings. If the same claim 
 else - in `supabase/`, in `tests/`, or in a file this ruling does not name - **report it and do not
 touch it.** A ruling that turns out to be non-exhaustive is a finding about my ruling, and I would
 rather receive it than have it quietly fixed.
+
+---
+
+# THE EXECUTOR'S DISPUTE, AND MY RULING ON IT - THE EXECUTOR IS UPHELD
+
+**The executor disputed ruling A4 and refused to implement it. It was right, and I record that as
+plainly as I record its rulings.**
+
+It did exactly what its contract requires: it did not implement the ruling, it did not silently
+adapt it to something true, and it reported with first-hand evidence and three named options. Had it
+adapted quietly, my false citation would have been laundered into a comment that looked verified,
+and the next reader would have had no way to know.
+
+**The disposition is option (a), the smallest correct amendment: A4 keeps its conclusion and its
+remedy, and its citation moves from line 192 to lines 163-187.** The correction is written into A4
+above, beside the original sentence rather than over it.
+
+**This is the SECOND time this item has caught a defect in the orchestrator's own ruling** - slice-2
+ruling 9 was the first, where a fix list was claimed exhaustive on a two-phrase search. Both were
+caught by the executor, not by a reviewer, and both were caught because the executor is required to
+verify before it writes. That is worth naming in the merge ruling: the dispute right is not
+ceremony, it has now paid twice.
+
+**Nothing else in the sitting was blocked by it.** The executor held `visibility.ts` untouched and
+completed the other five rulings, so the dispute cost one commit rather than a sitting.
+
+---
+
+# ONE THING THE EXECUTOR FOUND AND CORRECTLY DID NOT TOUCH
+
+`supabase/functions/_shared/edge.ts:8` says `edge.ts` is "imported by no test". The executor read it
+as a different module making a different claim from A3's, noted that `PHASE-STATE.md` residual 9
+states it deliberately, and reported it instead of fixing it. **That judgment is correct and I
+confirm it.** Residual 9 says "The `readRows` fix is proved by reading, not by a test. No test
+program imports `edge.ts`." The statement is in-record, it is not a surviving copy of A3's claim, and
+it is out of this ruling's scope.
+
+**It is UNVERIFIED, by the executor's own statement and by mine.** It is carried to the merge ruling
+as an unverified in-record statement rather than as a finding, and no sitting of this item has
+measured it.
 
 ---
 
