@@ -626,20 +626,71 @@ atTest(
       if (!workspaceB.ok) return;
       expect(workspaceB.value.projectId, "the administrator's workspace read named a different project").toBe(projectB.id);
 
-      // (3) AND THE UNFILTERED DATA API LISTING HOLDS BOTH ORGANISATIONS — the criterion's other path.
+      // (3) AND THE UNFILTERED DATA API LISTING HOLDS BOTH TENANTS' ROWS — the criterion's other path.
       // It is asserted as "both are present" rather than as an exact set, because the integration twin
       // reads a database the whole run shares and the two bodies state one claim.
+      //
+      // ALL FOUR TABLES, NOT THE ONE THIS ARM USED TO READ (gate-2 slice-2 ruling 5). The migration
+      // ships FOUR platform-admin policies, and the dashboard and workspace successes above prove
+      // nothing about the other three: those surfaces read with the SERVICE ROLE, so row-level security
+      // is never consulted on that path at all. With only the `organizations` listing here, three
+      // shipped policies had no test at the one layer where they act — which is what gate-1 ruling 7
+      // forbids: a slice does not ship a policy branch it does not test.
       const listing = await sut.dataApiRead(admin, { table: 'organizations', keyedBy: null, value: null });
       expect(listing.rows, "the administrator's unfiltered listing was refused before any row was considered").not.toBeNull();
       const listed = (listing.rows ?? []).map((row) => String(row.id));
       expect(listed, "the administrator's unfiltered listing does not hold NGO A").toContain(a.organizationId);
       expect(listed, "the administrator's unfiltered listing does not hold NGO B").toContain(b.organizationId);
 
-      // (4) AND A NON-ADMIN REPEATING ONE OF THOSE READS IS REFUSED. Without this arm the body would
+      const seatListing = await sut.dataApiRead(admin, { table: 'org_memberships', keyedBy: null, value: null });
+      expect(
+        seatListing.rows,
+        "the administrator's unfiltered listing of org_memberships was refused before any row was considered",
+      ).not.toBeNull();
+      const listedSeats = (seatListing.rows ?? []).map((row) => String(row.org_id));
+      expect(listedSeats, "the administrator cannot read NGO A's seats, so org_memberships_select_platform_admin admits nobody").toContain(
+        a.organizationId,
+      );
+      expect(listedSeats, "the administrator cannot read NGO B's seats, so its reach over that table stops at one tenant").toContain(
+        b.organizationId,
+      );
+
+      const projectListing = await sut.dataApiRead(admin, { table: 'projects', keyedBy: null, value: null });
+      expect(
+        projectListing.rows,
+        "the administrator's unfiltered listing of projects was refused before any row was considered",
+      ).not.toBeNull();
+      const listedProjects = (projectListing.rows ?? []).map((row) => String(row.id));
+      expect(listedProjects, "the administrator cannot read NGO A's project, so projects_select_platform_admin admits nobody").toContain(
+        projectA.id,
+      );
+      expect(listedProjects, "the administrator cannot read NGO B's project, so its reach over that table stops at one tenant").toContain(
+        projectB.id,
+      );
+
+      const acknowledgmentListing = await sut.dataApiRead(admin, { table: 'acknowledgments', keyedBy: null, value: null });
+      expect(
+        acknowledgmentListing.rows,
+        "the administrator's unfiltered listing of acknowledgments was refused before any row was considered",
+      ).not.toBeNull();
+      const listedAcknowledgments = (acknowledgmentListing.rows ?? []).map((row) => String(row.account_id));
+      expect(
+        listedAcknowledgments,
+        "the administrator cannot read NGO A's acknowledgment, so acknowledgments_select_platform_admin admits nobody",
+      ).toContain(a.accountId);
+      expect(
+        listedAcknowledgments,
+        "the administrator cannot read NGO B's acknowledgment, so its reach over that table stops at one account",
+      ).toContain(b.accountId);
+
+      // (4) AND A NON-ADMIN REPEATING THOSE READS IS REFUSED. Without this arm the body would
       // show only that somebody read something. The reach is attributable through the CONTRAST and not
       // through anything the answer carries: the shipped decision knows WHY it granted, and
       // `TenantReadOutcome` deliberately does not carry that reason, because AT-001.21's claim is that
       // two whole answers are identical and a richer outcome would invite a weaker assertion.
+      //
+      // THE CONTROL COVERS THE SAME FOUR TABLES, because a control on one of them would leave the
+      // other three admitting an ordinary caller with nothing to notice.
       const nonAdminDashboard = await sut.organizationDashboard(sessionB, a.organizationId);
       expect(
         nonAdminDashboard.ok,
@@ -651,6 +702,30 @@ atTest(
         (nonAdminListing.rows ?? []).map((row) => String(row.id)),
         "NGO B's unfiltered listing holds NGO A, so the administrator's listing proves nothing about reach",
       ).not.toContain(a.organizationId);
+
+      const nonAdminSeats = await sut.dataApiRead(sessionB, { table: 'org_memberships', keyedBy: null, value: null });
+      expect(nonAdminSeats.rows, "NGO B's unfiltered listing of org_memberships was refused before any row was considered").not.toBeNull();
+      expect(
+        (nonAdminSeats.rows ?? []).map((row) => String(row.org_id)),
+        "NGO B reads NGO A's seats, so the administrator's reach over org_memberships is not attributable to its account type",
+      ).not.toContain(a.organizationId);
+
+      const nonAdminProjects = await sut.dataApiRead(sessionB, { table: 'projects', keyedBy: null, value: null });
+      expect(nonAdminProjects.rows, "NGO B's unfiltered listing of projects was refused before any row was considered").not.toBeNull();
+      expect(
+        (nonAdminProjects.rows ?? []).map((row) => String(row.id)),
+        "NGO B reads NGO A's project, so the administrator's reach over projects is not attributable to its account type",
+      ).not.toContain(projectA.id);
+
+      const nonAdminAcknowledgments = await sut.dataApiRead(sessionB, { table: 'acknowledgments', keyedBy: null, value: null });
+      expect(
+        nonAdminAcknowledgments.rows,
+        "NGO B's unfiltered listing of acknowledgments was refused before any row was considered",
+      ).not.toBeNull();
+      expect(
+        (nonAdminAcknowledgments.rows ?? []).map((row) => String(row.account_id)),
+        "NGO B reads NGO A's acknowledgment, so the administrator's reach over acknowledgments is not attributable to its account type",
+      ).not.toContain(a.accountId);
     },
     integration: at00140,
   },
