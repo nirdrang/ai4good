@@ -1537,11 +1537,24 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           break;
         case 'projects':
           // THREE BRANCHES, OR'D. The organisation-member one is the first migration's; the
-          // assigned-developer one is `assigned_volunteer_id = auth.uid()`, which is what admits the
-          // volunteer AT-001.23 grants and is why a volunteer seated in no organisation still reads
-          // its own project; the administrator one admits every row.
+          // assigned-developer one is `assigned_volunteer_id = auth.uid() and viewer_is_volunteer()`,
+          // which is what admits the volunteer AT-001.23 grants and is why a volunteer seated in no
+          // organisation still reads its own project; the administrator one admits every row.
+          //
+          // THE ACCOUNT-TYPE CONJUNCT IS THE MIRROR OF THE POLICY'S SECOND CLAUSE, and the mirror
+          // carries it because this member mirrors the SQL statement by statement rather than
+          // delegating. The seat is a bare reference to `public.accounts` with no type constraint and
+          // no trigger, so the policy states the type itself; a mirror that filtered on the seat alone
+          // would admit a caller the database refuses, and the divergence would be this file's rather
+          // than the product's.
           visible = [...state.projects.values()]
-            .filter((row) => platformAdmin || seatedIn.has(row.organizationId) || row.assignedVolunteerId === caller.id)
+            .filter(
+              (row) =>
+                platformAdmin ||
+                seatedIn.has(row.organizationId) ||
+                (state.accounts.get(caller.id)?.accountType === 'volunteer' &&
+                  row.assignedVolunteerId === caller.id),
+            )
             .map((row) => ({ id: row.id, org_id: row.organizationId, name: row.name, assigned_volunteer_id: row.assignedVolunteerId }));
           break;
         case 'acknowledgments':

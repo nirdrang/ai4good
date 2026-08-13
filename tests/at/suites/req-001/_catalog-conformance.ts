@@ -92,13 +92,17 @@ export type CatalogDeclaration = {
 export const DECLARED_CATALOG: CatalogDeclaration = { unreachableByClientRoles, tenantIsolated };
 
 /**
- * THE POLICY HELPERS A `qual` MAY NAME — the two `security definer` functions the migrations ship.
+ * THE POLICY HELPERS A `qual` MAY NAME — the three `security definer` functions the migrations ship.
  *
  * A policy naming one of these is making a claim this repository can point at. A policy naming
  * neither, and no tenant key column either, is asking to be read as isolation on the strength of
  * existing, which is the thing gate-1 ruling 8 refuses.
  */
-const KNOWN_POLICY_HELPERS: readonly string[] = ['viewer_is_org_member', 'viewer_is_platform_admin'];
+const KNOWN_POLICY_HELPERS: readonly string[] = [
+  'viewer_is_org_member',
+  'viewer_is_platform_admin',
+  'viewer_is_volunteer',
+];
 
 /** The Data API roles a client key can act as. `public` reaches both, so it counts as reaching them. */
 const CLIENT_ROLES: readonly string[] = ['anon', 'authenticated'];

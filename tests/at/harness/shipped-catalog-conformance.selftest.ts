@@ -88,7 +88,11 @@ const REAL_SHAPED_CATALOG: CatalogTable[] = [
     selectGrantedTo: ['authenticated'],
     selectPolicies: [
       { name: 'projects_select_org_member', roles: ['authenticated'], qual: 'viewer_is_org_member(org_id)' },
-      { name: 'projects_select_assigned_volunteer', roles: ['authenticated'], qual: `(assigned_volunteer_id = ${OWN_UID})` },
+      {
+        name: 'projects_select_assigned_volunteer',
+        roles: ['authenticated'],
+        qual: `((assigned_volunteer_id = ${OWN_UID}) AND viewer_is_volunteer())`,
+      },
       { name: 'projects_select_platform_admin', roles: ['authenticated'], qual: 'viewer_is_platform_admin()' },
     ],
   }),
