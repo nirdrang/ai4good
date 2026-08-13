@@ -203,10 +203,16 @@ export function tenantReadAllowed(viewer: TenantViewer, scope: TenantReadScope):
   }
 
   // THE SAME FAIL-CLOSED POSTURE `knownAccountType` AND `parseOrgRole` APPLY, on the third argument
-  // rather than the first two, and no call site can reach it today because `TenantReadScope` is a
-  // union of exactly two strings. Before this branch existed, every OTHER value fell through to the
-  // project rule, where an assigned volunteer is allowed — so an unrecognised scope WIDENED access
-  // while the header above promised the opposite.
+  // rather than the first two. NO TYPE-CHECKED CALL SITE CAN REACH IT, because `TenantReadScope` is a
+  // union of exactly two strings — but THE BRANCH IS COVERED BY A TEST RATHER THAN DEAD, and the
+  // difference matters because a branch marked unreachable is a branch somebody deletes.
+  // `tests/at/harness/shipped-visibility.selftest.ts` reaches it deliberately: its thirteen-value loop
+  // at lines 163-187 drives an assigned volunteer through every shape a scope is not, using the cast
+  // helper at lines 46-47 to get past the type-checker the edge entry points do not run.
+  //
+  // Before this branch existed, every OTHER value fell through to the project rule, where an assigned
+  // volunteer is allowed — so an unrecognised scope WIDENED access while the header above promised the
+  // opposite.
   return {
     ok: false,
     reason: 'the read names no recognised scope, so it reads nothing at all',
