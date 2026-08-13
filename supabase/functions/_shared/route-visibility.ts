@@ -28,8 +28,11 @@
  * THE RESIDUAL, SAID HERE RATHER THAN LEFT TO BE DISCOVERED
  * ============================================================================================
  *
- * NOTHING IMPORTS THIS TODAY AND NO ROUTER OBEYS IT. A TanStack router DOES exist — `src/router.tsx`
- * builds one with `createRouter` over the generated route tree — and NOTHING IN IT CONSULTS
+ * TWO TESTS IMPORT THIS TODAY, NO PRODUCT CODE DOES, AND NO ROUTER OBEYS IT. The two importers are
+ * `tests/at/suites/req-001/_route-scan.ts`, which takes `undeclaredRoutes`, and
+ * `tests/at/harness/shipped-route-visibility.selftest.ts`, which takes `ROUTE_VISIBILITY` and
+ * `undeclaredRoutes`. A TanStack router DOES exist — `src/router.tsx` builds one with `createRouter`
+ * over the generated route tree — and NOTHING IN IT CONSULTS
  * `ROUTE_VISIBILITY`. `src/routes/` holds one page and the app shell, and there is no sign-in screen
  * to redirect a visitor to, because the sign-in screens are a separate manifest leaf that has not
  * landed. What this buys is a declaration in product code and a test that fails the moment a route
