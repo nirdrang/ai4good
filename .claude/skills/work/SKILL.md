@@ -44,6 +44,11 @@ founder reading something and asking a structural question.
   renders, so it prints the reading from the previous render. After a long gap the first prompt
   shows a stale reading, or `UNKNOWN`; the next prompt shows a current one. Never treat the first
   reading after a gap as today's number.
+- **So RE-READ THE GAUGE IN THE TURN whenever the stamp says `UNKNOWN` or names an age past the
+  limit** (founder 2026-08-13). Your own turn renders the status line, so the snapshot is fresh a
+  second later: run `loop/work/window-gauge.ps1` once and act on that value instead. Measured this
+  morning — the stamp said 282 minutes old and the file was 3 seconds old. It costs about 120 ms
+  and no tokens. If the re-read is stale too, report `UNKNOWN` and carry on, as always.
 - **Each window family has its own line** (founder 2026-08-13): the five-hour window stops the
   workflow at **85 percent**, the weekly windows at **95 percent**, and a window nobody
   recognises at 85. A weekly window refills days later, so stopping it early costs days to save
