@@ -26,7 +26,7 @@
 -- NO INSERT, UPDATE OR DELETE ANYWHERE. Every write in this schema goes through a `security definer`
 -- function. These are read policies and nothing else.
 
-/* ============================================================ the policy helper ================ */
+/* ============================================================ the policy helpers =============== */
 
 -- WHY A DEFINER FUNCTION AND NOT AN INLINE SUBQUERY, which is the same reason
 -- `public.viewer_is_org_member` gives and one reason more. `public.accounts` carries row-level
@@ -74,6 +74,35 @@ comment on function public.viewer_is_platform_admin() is
 revoke execute on function public.viewer_is_platform_admin() from public;
 grant execute on function public.viewer_is_platform_admin() to authenticated, service_role;
 
+-- THE SECOND HELPER, AND IT ANSWERS THE ACCOUNT-TYPE HALF OF THE ASSIGNED-DEVELOPER BRANCH BELOW.
+--
+-- WHY A DEFINER FUNCTION AND NOT AN INLINE SUBQUERY, which is the same reason the helper above gives:
+-- `public.accounts` carries row-level security with NO policy, so a policy expression that read that
+-- table as the querying role would see nothing and every volunteer would be refused.
+--
+-- IT TAKES NO ARGUMENT, for the reason the helper above states, and it leaks the same nothing: a
+-- caller learns only whether IT is a volunteer, which it already knows.
+create function public.viewer_is_volunteer()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+      from public.accounts a
+     where a.id = (select auth.uid())
+       and a.account_type = 'volunteer'::public.account_type
+  );
+$$;
+
+comment on function public.viewer_is_volunteer() is
+  'True when the calling user holds a volunteer account row (REQ-001, AT-001.23). Answers only about auth.uid().';
+
+revoke execute on function public.viewer_is_volunteer() from public;
+grant execute on function public.viewer_is_volunteer() to authenticated, service_role;
+
 /* ================================================ the assigned developer's branch ============== */
 
 -- AT-001.23's grant, and it is the exact counterpart of AT-001.22's denial: a project's working data
@@ -85,11 +114,28 @@ grant execute on function public.viewer_is_platform_admin() to authenticated, se
 -- auth.uid()` is null rather than true, so an unassigned project stays unreadable through this
 -- branch. That is the fail-closed direction and it is a property of the comparison rather than a
 -- guard somebody added.
+--
+-- WHY THE POLICY STATES THE ACCOUNT TYPE ITSELF, RATHER THAN INHERITING IT — and this clause is here
+-- because of a measurement, not because of a preference. `assigned_volunteer_id` is declared in
+-- `20260811130000_single_seat_org_and_single_developer_projects.sql` as a bare
+-- `uuid references public.accounts (id)`, and NO constraint and NO trigger restricts the seat
+-- holder's account type; the only trigger on that column, `public.project_seat_holds_one_developer()`,
+-- enforces the SINGLE-seat invariant and says nothing about the type. The membership seat HAS such a
+-- guard — `public.org_membership_grantee_must_be_ngo()`, from
+-- `20260811125000_org_membership_ngo_only_and_organization_rename.sql` — so the two seats are NOT
+-- symmetric. Without the second conjunct, any account type placed in a developer seat would read that
+-- project's row here.
+--
+-- AND THAT WOULD MAKE THE DATA API MORE PERMISSIVE THAN THE EDGE SURFACE, which decision C forbids.
+-- `visibility.ts`'s project branch requires `accountType === 'volunteer'` before it grants the project
+-- scope, so `tenantReadAllowed` refuses the same caller this policy would have admitted. Decision C's
+-- whole posture is that both layers enforce, so both must agree; a policy may not inherit an invariant
+-- the schema does not enforce.
 create policy projects_select_assigned_volunteer
   on public.projects
   for select
   to authenticated
-  using (assigned_volunteer_id = (select auth.uid()));
+  using (assigned_volunteer_id = (select auth.uid()) and public.viewer_is_volunteer());
 
 comment on policy projects_select_assigned_volunteer on public.projects is
   'A project is readable by the volunteer assigned to it (REQ-001, AT-001.23).';
@@ -148,9 +194,9 @@ comment on policy acknowledgments_select_platform_admin on public.acknowledgment
 
 -- POSTGREST CACHES THE SCHEMA, AND BOTH HALVES OF THE REASON MATTER HERE.
 --
--- THE FUNCTION IS THE HALF THAT NEEDS THIS. `public.viewer_is_platform_admin()` joins the schema
--- PostgREST exposes, so its cache must be told the function exists; without the reload the cache
--- describes a schema this migration has already changed.
+-- THE FUNCTIONS ARE THE HALF THAT NEEDS THIS. `public.viewer_is_platform_admin()` and
+-- `public.viewer_is_volunteer()` join the schema PostgREST exposes, so its cache must be told both
+-- functions exist; without the reload the cache describes a schema this migration has already changed.
 --
 -- THE POLICIES ARE THE HALF THAT DOES NOT. A policy is not in that cache at all — PostgreSQL applies
 -- it inside the query planner on every request, as the querying role, so the four policies above take
