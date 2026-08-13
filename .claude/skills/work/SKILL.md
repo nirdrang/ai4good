@@ -40,9 +40,22 @@ founder reading something and asking a structural question.
   `WINDOW  OK` with every window and its percentage, `WINDOW  PAUSE` with what to do, or
   `WINDOW  UNKNOWN` with why. The hook DISPLAYS; it never halts anything. You are still the only
   actor that stops work.
+- **The line is ONE TURN BEHIND** (measured 2026-08-13). The hook runs before the status line
+  renders, so it prints the reading from the previous render. After a long gap the first prompt
+  shows a stale reading, or `UNKNOWN`; the next prompt shows a current one. Never treat the first
+  reading after a gap as today's number.
 - **At 85 percent of any window, stop the workflow at once** (founder 2026-08-12, superseding the
-  90 percent of 2026-08-06). Alarm and stop are the same number. Ask each running conductor to
-  park — write its state, push, report, end. Start nothing new.
+  90 percent of 2026-08-06). Alarm and stop are the same number. Start nothing new.
+- **Send `PARK`, and send it LEAF FIRST** (measured 2026-08-13). `PARK` is one word with one
+  meaning, defined in the conductor, orchestrator and executor contracts: finish the work item,
+  commit, push, report `PARKED at <commit>`, end.
+  - A message is delivered at the receiver's **next tool round**. The executor takes one every few
+    seconds, so it parks in seconds. The conductor and the orchestrator are blocked inside one
+    call and take none, so a park sent to them only WAITS.
+  - Send to every running agent in the item's tree anyway, deepest first. Descendants you did not
+    spawn are still addressable: they register in this session's task list.
+  - The queued park then lands on each blocked role **when its child returns**, attached to that
+    result. So the pipe unwinds upward by itself. You never wait for the middle to listen.
 - **Then arm `loop/work/window-wait.ps1` as a background command.** Its exit re-invokes this
   session, so the conversation continues with its context intact. A parked session spends nothing.
 - **On the wake, re-read the gauge before releasing anything.** The exit means the window SHOULD

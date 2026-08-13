@@ -63,6 +63,23 @@ changed between iterations** · anything you could not do. The count is not book
 the only way anyone can tell forty minutes of work from forty minutes of thrashing, and it is
 what makes the caps enforceable.
 
+## PARK — one word, one meaning (founder 2026-08-13)
+
+The coordinator sends `PARK` when a usage window reaches its stop line. It is the only instruction
+that stops work in flight. It arrives as a message at your NEXT TOOL ROUND, so you are the actor
+that gets it first: you take a tool round every few seconds, and the agents above you are blocked
+waiting for you and can read nothing until you return.
+
+When you read `PARK`:
+
+1. Finish the work item you are inside. Start no other.
+2. Commit it and push it. Uncommitted work does not exist.
+3. Report `PARKED at <commit>` — the work item you finished, and what remains.
+4. End. Do not wait, do not ask, and do not start anything.
+
+You spawn nothing, so there is nothing to relay downward. Your ending is what lets the park reach
+the roles above you: your return unblocks your orchestrator, which then reads its own park.
+
 ## Escalation — stop, do not proceed
 
 If first-hand contact with the code contradicts a ruling, **stop and report it**. Do not

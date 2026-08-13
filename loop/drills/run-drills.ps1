@@ -303,6 +303,19 @@ Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 & powershell -NoProfile -File (Join-Path $here '..\work\twin-check.ps1') | Out-Null
 Assert 'twin-guard' 'orchestrator twins are in sync (edit both or neither)' ($LASTEXITCODE -eq 0)
 
+# park guard: PARK is ONE verb with ONE meaning, defined in every role that can be told to stop.
+# The transport was measured on 2026-08-13 - a message lands at the receiver's next tool round -
+# but transport is not obedience: the probe child stopped because its prompt defined the word. A
+# contract that loses this section turns the park back into a phrasing that happens to work.
+$parkMissing = @()
+foreach ($f in @('conductor.md', 'orchestrator.md', 'orchestrator-opus.md', 'executor.md')) {
+    $t = ''
+    try { $t = Get-Content (Join-Path $here ('..\..\.claude\agents\' + $f)) -Raw } catch { }
+    if (($t -notmatch '(?m)^## PARK') -or ($t -notmatch 'PARKED at')) { $parkMissing += $f }
+}
+Assert 'park-verb' 'every parkable role defines PARK and reports PARKED at a commit' ($parkMissing.Count -eq 0)
+if ($parkMissing.Count -gt 0) { Write-Output ('  park-verb: missing or incomplete in ' + ($parkMissing -join ', ')) }
+
 # window guard: the coordinator's stop line, its park, and its resume, driven end to end on
 # synthetic readings. It spends nothing and touches no live file, so it belongs in the standing
 # suite rather than in a run somebody has to remember.
