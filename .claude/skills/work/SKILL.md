@@ -32,6 +32,47 @@ reviews.** An orchestrator gets two adversarial gates, an independent audit and 
 check; your output gets none. Every intent-level defect this project has had was found by the
 founder reading something and asking a structural question.
 
+## The usage window — you are the only reader, and the line is 85 percent
+
+`shared-invariants.md` holds the full rule. The part you act on, in the manual you actually open:
+
+- **The stamp prints the reading before every prompt** (founder 2026-08-13), in your session only.
+  `WINDOW  OK` with every window and its percentage, `WINDOW  PAUSE` with what to do, or
+  `WINDOW  UNKNOWN` with why. The hook DISPLAYS; it never halts anything. You are still the only
+  actor that stops work.
+- **The line is ONE TURN BEHIND** (measured 2026-08-13). The hook runs before the status line
+  renders, so it prints the reading from the previous render. After a long gap the first prompt
+  shows a stale reading, or `UNKNOWN`; the next prompt shows a current one. Never treat the first
+  reading after a gap as today's number.
+- **So RE-READ THE GAUGE IN THE TURN whenever the stamp says `UNKNOWN` or names an age past the
+  limit** (founder 2026-08-13). Your own turn renders the status line, so the snapshot is fresh a
+  second later: run `loop/work/window-gauge.ps1` once and act on that value instead. Measured this
+  morning — the stamp said 282 minutes old and the file was 3 seconds old. It costs about 120 ms
+  and no tokens. If the re-read is stale too, report `UNKNOWN` and carry on, as always.
+- **Each window family has its own line** (founder 2026-08-13): the five-hour window stops the
+  workflow at **85 percent**, the weekly windows at **95 percent**, and a window nobody
+  recognises at 85. A weekly window refills days later, so stopping it early costs days to save
+  an afternoon; a five-hour one refills within hours. The blocker is the window furthest over
+  **its own** line, never the largest percentage. Start nothing new.
+- **Send `PARK`, and send it LEAF FIRST** (measured 2026-08-13). `PARK` is one word with one
+  meaning, defined in the conductor, orchestrator and executor contracts: finish the work item,
+  commit, push, report `PARKED at <commit>`, end.
+  - A message is delivered at the receiver's **next tool round**. The executor takes one every few
+    seconds, so it parks in seconds. The conductor and the orchestrator are blocked inside one
+    call and take none, so a park sent to them only WAITS.
+  - Send to every running agent in the item's tree anyway, deepest first. Descendants you did not
+    spawn are still addressable: they register in this session's task list.
+  - The queued park then lands on each blocked role **when its child returns**, attached to that
+    result. So the pipe unwinds upward by itself. You never wait for the middle to listen.
+- **Then arm `loop/work/window-wait.ps1` as a background command.** Its exit re-invokes this
+  session, so the conversation continues with its context intact. A parked session spends nothing.
+- **On the wake, re-read the gauge before releasing anything.** The exit means the window SHOULD
+  be open, never that budget exists. Still over the line → park again. Under it → release one item
+  at a time, re-reading between releases.
+- **`UNKNOWN` reports loudly and does not halt.** A broken instrument is not a spent window.
+- **The guard works while the founder is present.** Only founder-typed turns refresh the sensor,
+  so the reading ages when nobody types. Never claim unattended cover.
+
 ## Phase A — decide what
 
 | you type | what happens |

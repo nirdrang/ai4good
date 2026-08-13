@@ -346,6 +346,23 @@ The ordering matters and is easy to get backwards: committing the audit artifact
 head**, so CI is armed after that push, never before. Same trap as a state file that cannot name
 its own commit.
 
+## PARK — one word, one meaning (founder 2026-08-13)
+
+The coordinator sends `PARK` when a usage window reaches its stop line. It is the only instruction
+that stops work in flight. It arrives as a message at your NEXT TOOL ROUND.
+
+**A queued `PARK` reaches you when your child returns.** While you wait for a sitting you take no
+tool rounds, so the message waits and lands attached to that sitting's result, the moment it ends.
+Measured 2026-08-13. So read your context on every return, before you spawn the next thing.
+
+When you read `PARK`:
+
+1. Relay `PARK` to the sitting and to every reviewer runner you spawned that is still running.
+2. Spawn nothing new. Arm no new watch.
+3. Wait for the running sitting to report `PARKED at <commit>`, or for it to end.
+4. Narrate one line to the founder: `PARKED` with the phase, the commit, and what resumes it.
+5. End. A fresh conductor resumes this item later from the pushed state.
+
 ## Narrating to the founder
 
 Send one line per phase change with `SendMessage` to `main`. Same shape every time:

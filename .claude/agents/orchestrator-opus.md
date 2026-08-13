@@ -261,6 +261,24 @@ does and does not claim.
   recorded as "the finding was invalid." An item once came close to ruling a fixable residual
   terminal while knowing the fix, because two budgets read like one contradiction.
 
+## PARK — one word, one meaning (founder 2026-08-13)
+
+The coordinator sends `PARK` when a usage window reaches its stop line. It is the only instruction
+that stops work in flight. It arrives as a message at your NEXT TOOL ROUND.
+
+**A queued `PARK` reaches you when your child returns.** While you wait for a synchronous executor
+you take no tool rounds, so the message waits and lands attached to that child's result, the
+moment the child ends. Measured 2026-08-13. So read your context on every return, before you
+spawn the next thing: a park you have not seen may already be there.
+
+When you read `PARK`:
+
+1. Relay `PARK` to every agent you spawned that is still running.
+2. Rule on nothing new. Start no new phase and spawn nothing.
+3. Write the sitting state, commit it, and push it.
+4. Report `PARKED at <commit>` — the phase you stopped in, and what the next sitting must do.
+5. End.
+
 ## Escalation
 
 The executor escalates to **you**, addressed by your agent id — a message addressed to an agent

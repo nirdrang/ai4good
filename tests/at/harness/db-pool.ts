@@ -6,10 +6,13 @@
  *
  *   - Two standing slots. Concurrency is the pool size; a full pool REJECTS the next
  *     database-needing item at start rather than queueing it.
- *   - The stack on the 54321 block is the founder's personal stack. It is OUTSIDE the pool and
+ *   - The stack on the 44321 block is the founder's personal stack. It is OUTSIDE the pool and
  *     untouchable, and `personalBlockProblems` below makes that a check in code rather than a
- *     convention: no slot may carry the repo's project id, a port in 54320–54329, or inspector
+ *     convention: no slot may carry the repo's project id, a port in 44320–44329, or inspector
  *     port 8083, and the check runs before anything destructive, every time.
+ *   - Every port — personal and slot alike — sits BELOW the OS dynamic range (`EPHEMERAL_FLOOR`):
+ *     Windows reserved a port block under a standing slot on 2026-08-12 and killed it silently,
+ *     so the overlay refuses any mapping at or above the floor.
  *   - One claim file per slot, two states, three owners: the coordinator RESERVES a slot when an
  *     item starts, the harness runner OCCUPIES it for each verify window, the coordinator
  *     RELEASES the reservation at the item sweep.
@@ -70,13 +73,25 @@ import {
 export const POOL_SIZE = 2;
 
 /** The founder's personal stack. Nothing in the pool may carry any of these. */
-const PERSONAL_PORT_LOW = 54320;
-const PERSONAL_PORT_HIGH = 54329;
+const PERSONAL_PORT_LOW = 44320;
+const PERSONAL_PORT_HIGH = 44329;
 const PERSONAL_INSPECTOR_PORT = 8083;
 
 /** The band a port must sit in for the slot overlay to know how to move it. */
-const MAPPABLE_PORT_LOW = 54000;
-const MAPPABLE_PORT_HIGH = 54999;
+const MAPPABLE_PORT_LOW = 44000;
+const MAPPABLE_PORT_HIGH = 44999;
+
+/**
+ * THE FLOOR UNDER EVERY SLOT PORT (2026-08-13). Windows' dynamic TCP range starts at 49152, and
+ * WinNAT reserves 100-port blocks inside it at its own pace, with no process on the port and no
+ * error until a bind is attempted. That is how db slot 1 died on 2026-08-12: the OS reserved
+ * 55241-55340 UNDER a standing slot whose ports were 55321/55322, the slot's gateway could never
+ * come back, and the failure surfaced days later as dead containers rather than as a port problem.
+ * The base moved from the template's 543xx (inside the range) to 443xx (below it); this constant
+ * is the refusal that keeps any future base change from wandering back in. A mapped port at or
+ * above the floor is a problem, not a warning — the slot must not start on a port the OS can take.
+ */
+const EPHEMERAL_FLOOR = 49152;
 
 /* ------------------------------------------------------------------------------ pool locations */
 
@@ -288,7 +303,18 @@ export function portMappings(text: string, slot: number): { mappings: PortMappin
       continue;
     }
     if (from >= MAPPABLE_PORT_LOW && from <= MAPPABLE_PORT_HIGH) {
-      mappings.push({ section: entry.section, key: entry.key, line: entry.line, from, to: from + slot * 1000 });
+      const to = from + slot * 1000;
+      // The floor check lives ON the mapped value, not on the band: the band says the overlay
+      // knows how to move the port, the floor says the OS cannot take the port it moves it to.
+      if (to >= EPHEMERAL_FLOOR) {
+        problems.push(
+          `[${entry.section}] ${entry.key} = ${from} maps to ${to} for slot ${slot}, at or above the OS dynamic ` +
+            `port floor ${EPHEMERAL_FLOOR} — Windows can reserve that port under a standing slot (it did, 2026-08-12); ` +
+            `move the base port down`,
+        );
+        continue;
+      }
+      mappings.push({ section: entry.section, key: entry.key, line: entry.line, from, to });
       continue;
     }
     problems.push(

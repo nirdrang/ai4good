@@ -36,19 +36,29 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
 - **The coordinator decides; nothing else may.** Read the gauge on **every** `FLOW` and `PULSE`
   line. A second thing with authority to halt work is the same failure as a second way to close
   work — and a brake inside an agent is one the founder cannot see.
-- **One line, and it is `PAUSE`** (founder 2026-08-06). There is no lower "start nothing new"
-  band. Such a band would have to be justified by what a sitting costs, which nobody has
-  measured, so it could only ever be a number that felt safe. Work starts whenever the gauge
-  says `OK`.
-- **`PAUSE` means stop at the next boundary.** Ask each running conductor to park — write its
-  state, push, and end — and stop it outright only if it does not. Graceful first: an agent
-  killed mid-write leaves a record that lies about where the work got to.
+- **One line per window family** (founder 2026-08-13): the **five-hour window at 85 percent** and
+  the **weekly windows at 95 percent** — every window whose name begins `seven_day`, and 85 for
+  any window this system does not recognise. Alarm and stop are the same number.
+  - **Why they differ:** a five-hour window refills within hours, so stopping early costs almost
+    nothing. A weekly window refills days later, so the same caution would cost days of work to
+    save an afternoon of budget. The number belongs to the cost of waiting, not to the size of
+    the window.
+  - **The blocking window is the one furthest over ITS OWN line**, never the largest percentage.
+    Five-hour at 86 blocks while weekly at 90 does not.
+  - There is still no lower "start nothing new" band. Work starts whenever the gauge says `OK`.
+  - **Only `loop/work/window-gauge.ps1` holds the numbers.** `window-wait.ps1` holds none and
+    forwards a line only when a caller sets one; this document states the pair, and
+    `loop/work/window-sim.ps1` asserts the document and the gauge agree. Copies drift.
+- **`PAUSE` means stop the workflow at once.** Ask each running conductor to park — write its
+  state, push, report, and end — and stop it outright only if it does not. Start nothing new.
+  Graceful first: an agent killed mid-write leaves a record that lies about where the work got to.
 - **A sitting that meets the line mid-flight parks at its last committed work item.** This is
   why the executor commits one commit per work item: with no reserve band, running out mid-phase
   is an expected outcome rather than a failure, and the commits are what make it cost one work
   item instead of a sitting.
-- **`UNKNOWN` reports loudly and does not halt.** No reading, an unparseable one, or one past the
-  staleness limit means the instrument is broken, not that the window is spent — and a broken
+- **`UNKNOWN` reports loudly and does not halt.** No reading, an unparseable one, one the gauge
+  cannot date, or one past the staleness limit means the instrument is broken, not that the
+  window is spent — and a broken
   instrument is not a reason to stop working, exactly as attribution degrades rather than blocks.
   Say it in the open and fix the sensor; never let it pass silently as `OK`.
 - **Parking and continuing — the exact shape.** Ask the running conductors to park, then run
@@ -68,6 +78,13 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
   through.
 - **Release one item at a time** when the window reopens, re-reading the gauge between each.
   Restarting every parked conductor at once can spend a fresh window before anyone looks.
+- **The guard works while the founder is present, and degrades unattended.** Only founder-typed
+  turns refresh the sensor. Controlled test, 2026-08-12: the snapshot timestamp was byte-identical
+  across a non-founder wake — a background command completing, which woke the coordinator and cost
+  a real API call. Three incidental samples the same evening read 8, 22.6 and 65.4 minutes old,
+  the oldest during an hour of agent-driven activity. So the reading ages while nobody types, the
+  verdict goes `UNKNOWN` past the staleness limit, and `UNKNOWN` reports without halting. No file
+  may claim overnight or unattended coverage.
 
 ## Writing about the founder
 

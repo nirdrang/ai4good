@@ -347,16 +347,16 @@ describe('the personal stack is refused in code', () => {
 
     const problems = personalBlockProblems(REPO_CONFIG, personal);
     expect(problems.join(' '), 'the repo config was not recognised as the personal identity').toContain(`project id "${personal}"`);
-    expect(problems.join(' '), 'a 54321-block port was not refused').toMatch(/is inside the personal stack's port block/);
+    expect(problems.join(' '), 'a 44321-block port was not refused').toMatch(/is inside the personal stack's port block/);
     expect(problems.join(' '), 'the personal inspector port was not refused').toContain('inspector_port');
   });
 
   it('reads a port value WHOLE, so a TOML underscore cannot smuggle one past it (ruling A5)', () => {
-    // TOML writes integers with optional underscores between digits, so `54_321` IS the personal
+    // TOML writes integers with optional underscores between digits, so `44_321` IS the personal
     // stack's api port. A parse of the leading digits reads it as 54, which is in no band anybody
     // checks — the guard would pass a config carrying the founder's own port.
-    const underscored = personalBlockProblems('project_id = "demo"\n[api]\nport = 54_321\n', 'the-personal-identity');
-    expect(underscored.join(' '), 'a port written 54_321 was not seen as 54321').toContain("is inside the personal stack's port block");
+    const underscored = personalBlockProblems('project_id = "demo"\n[api]\nport = 44_321\n', 'the-personal-identity');
+    expect(underscored.join(' '), 'a port written 44_321 was not seen as 44321').toContain("is inside the personal stack's port block");
 
     const inspector = personalBlockProblems('project_id = "demo"\n[edge_runtime]\ninspector_port = 80_83\n', 'the-personal-identity');
     expect(inspector.join(' '), 'an underscored inspector port was not seen as 8083').toContain('inspector port');
@@ -372,7 +372,7 @@ describe('the personal stack is refused in code', () => {
       );
     }
     // And a plain integer with a trailing comment is still an ordinary port, not a refusal.
-    expect(personalBlockProblems('project_id = "demo"\n[api]\nport = 55321 # the slot api port\n', 'the-personal-identity')).toEqual([]);
+    expect(personalBlockProblems('project_id = "demo"\n[api]\nport = 45321 # the slot api port\n', 'the-personal-identity')).toEqual([]);
   });
 
   it('accepts a generated slot config, which is the same file wearing a slot identity', () => {
@@ -428,20 +428,20 @@ describe('the identity overlay moves the identity and nothing else', () => {
     // transform would hand back a config the CLI accepts and the stack starts — running the shipped
     // hour-long expiry while every declaration downstream assumed two minutes. The two session
     // bodies would then WAIT rather than fail, which is the worst shape of failure to diagnose.
-    expect(() => generateSlotConfig('project_id = "demo"\n[api]\nport = 54321\n', 1)).toThrow(/no active \[auth\] jwt_expiry/);
+    expect(() => generateSlotConfig('project_id = "demo"\n[api]\nport = 44321\n', 1)).toThrow(/no active \[auth\] jwt_expiry/);
     // A COMMENTED setting is not an active one, and `scanConfig` already knows the difference.
     expect(() => generateSlotConfig('project_id = "demo"\n[auth]\n# jwt_expiry = 3600\n', 1)).toThrow(/no active \[auth\] jwt_expiry/);
   });
 
   it('maps an enabled smtp_port, passes a client port through, and refuses what it cannot place', () => {
     const withSmtp =
-      'project_id = "demo"\n[local_smtp]\nport = 54324\nsmtp_port = 54325\n[auth.email.smtp]\nport = 587\nhost = "smtp.example.com"\n' +
+      'project_id = "demo"\n[local_smtp]\nport = 44324\nsmtp_port = 44325\n[auth.email.smtp]\nport = 587\nhost = "smtp.example.com"\n' +
       SYNTHETIC_AUTH;
     const mapped = portMappings(withSmtp, 1);
     expect(mapped.problems, 'a legitimate configuration was refused').toEqual([]);
     expect(mapped.mappings.map((m) => `${m.section}.${m.key}:${m.from}->${m.to}`)).toEqual([
-      'local_smtp.port:54324->55324',
-      'local_smtp.smtp_port:54325->55325',
+      'local_smtp.port:44324->45324',
+      'local_smtp.smtp_port:44325->45325',
     ]);
     // Ruling E4: a client-connection port is data. It is neither moved nor refused.
     expect(generateSlotConfig(withSmtp, 1)).toContain('port = 587');
@@ -449,19 +449,19 @@ describe('the identity overlay moves the identity and nothing else', () => {
     const outOfBand = portMappings('project_id = "demo"\n[api]\nport = 9999\n', 1);
     expect(outOfBand.problems.join(' '), 'a listener port outside the band was silently kept').toContain('does not know where to move it');
 
-    const strayLocal = portMappings('project_id = "demo"\n[storage]\nport = 54500\n', 1);
+    const strayLocal = portMappings('project_id = "demo"\n[storage]\nport = 44500\n', 1);
     expect(strayLocal.problems.join(' '), 'an unrecognised port in the local band was treated as data').toContain('decide by hand');
   });
 
   it('maps a port written with a TOML underscore, and replaces the whole value (ruling A5)', () => {
-    const underscored = portMappings('project_id = "demo"\n[api]\nport = 54_321\n', 1);
+    const underscored = portMappings('project_id = "demo"\n[api]\nport = 44_321\n', 1);
     expect(underscored.problems, 'a legal TOML integer was refused').toEqual([]);
-    expect(underscored.mappings.map((m) => `${m.from}->${m.to}`)).toEqual(['54321->55321']);
+    expect(underscored.mappings.map((m) => `${m.from}->${m.to}`)).toEqual(['44321->45321']);
     // The rewrite must take the underscore with it. Replacing the leading digits alone would
-    // leave `55321_321` behind — a config the stack could not read.
-    expect(generateSlotConfig(`project_id = "demo"\n[api]\nport = 54_321\n${SYNTHETIC_AUTH}`, 1)).toContain('port = 55321\n');
+    // leave `45321_321` behind — a config the stack could not read.
+    expect(generateSlotConfig(`project_id = "demo"\n[api]\nport = 44_321\n${SYNTHETIC_AUTH}`, 1)).toContain('port = 45321\n');
     // The same whole-value rule applies to the standing session lifetime, for the same reason.
-    expect(generateSlotConfig(`project_id = "demo"\n[api]\nport = 54321\n[auth]\njwt_expiry = 3_600\n`, 1)).toContain(
+    expect(generateSlotConfig(`project_id = "demo"\n[api]\nport = 44321\n[auth]\njwt_expiry = 3_600\n`, 1)).toContain(
       `jwt_expiry = ${SLOT_JWT_EXPIRY_SECONDS}\n`,
     );
   });
@@ -479,9 +479,31 @@ describe('the identity overlay moves the identity and nothing else', () => {
     expect(other.mappings, 'an unruled inspector port was mapped anyway').toEqual([]);
 
     // In the local stack's own band it is an ordinary listener again, and the generic rule places it.
-    const inBand = portMappings('project_id = "demo"\n[edge_runtime]\ninspector_port = 54444\n', 2);
+    const inBand = portMappings('project_id = "demo"\n[edge_runtime]\ninspector_port = 44444\n', 2);
     expect(inBand.problems).toEqual([]);
-    expect(inBand.mappings.map((m) => `${m.from}->${m.to}`)).toEqual(['54444->56444']);
+    expect(inBand.mappings.map((m) => `${m.from}->${m.to}`)).toEqual(['44444->46444']);
+  });
+
+  it('keeps every slot port below the OS dynamic port floor (2026-08-13)', () => {
+    // Windows reserved a WinNAT block (55241-55340) under a STANDING slot on 2026-08-12: no
+    // process held the port, nothing errored until the bind, and the slot's gateway could never
+    // come back. Ports at or above 49152 are the OS's to hand out, so no slot may live there.
+    // This is the invariant the 543xx->443xx base move bought, asserted against the REAL config
+    // for EVERY slot in the pool: each mapped port lands below the floor, with no refusals. The
+    // overlay's own floor refusal (see EPHEMERAL_FLOOR in db-pool.ts) is the backstop for a
+    // future base or band change; with today's band and pool size it is deliberately unreachable,
+    // which is exactly what this test proves.
+    const OS_DYNAMIC_FLOOR = 49152;
+    for (const slot of [1, 2]) {
+      const mapped = portMappings(REPO_CONFIG, slot);
+      expect(mapped.problems, `slot ${slot} refused the repository's own config`).toEqual([]);
+      expect(mapped.mappings.length, `slot ${slot} mapped no ports at all`).toBeGreaterThan(0);
+      for (const m of mapped.mappings) {
+        expect(m.to, `[${m.section}] ${m.key} = ${m.from} maps to ${m.to} for slot ${slot}, which the OS can reserve`).toBeLessThan(
+          OS_DYNAMIC_FLOOR,
+        );
+      }
+    }
   });
 });
 
@@ -565,7 +587,7 @@ describe('the evidence names the slot it ran against', () => {
     const held = {
       slot: 2,
       dir: slotDir(2),
-      config: { projectId: 'ai4good-slot-2', apiPort: 56321, dbPort: 56322 },
+      config: { projectId: 'ai4good-slot-2', apiPort: 46321, dbPort: 46322 },
       item: 'AI4DEV-79',
       via: 'reservation',
       claim: { file: '', release: () => undefined },
@@ -582,7 +604,7 @@ describe('the evidence names the slot it ran against', () => {
     expect(line).toContain('db slot 2');
     expect(line).toContain('ai4good-slot-2');
     expect(line, 'the evidence named the port the status reported').toContain('api 56421');
-    expect(line, 'the evidence named the pre-prepare port instead of the one that answered').not.toContain('56321');
+    expect(line, 'the evidence named the pre-prepare port instead of the one that answered').not.toContain('46321');
     expect(line).toContain('reset OK');
     expect(line).toContain('2 expected, 2 applied');
   });

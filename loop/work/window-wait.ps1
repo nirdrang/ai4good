@@ -36,8 +36,13 @@ param(
     # do next, not something a script should sit through silently.
     [double]$MaxHours = 6,
 
-    # Passed through, so a caller testing the mechanism can move the line without editing code.
-    [int]$PauseAt = 90,
+    # NO DEFAULTS, DELIBERATELY. This file used to hold its own copy of the pause line, which made
+    # two numbers where the design has one: a park could then release at a different number than
+    # the stop had used. Both lines live in window-gauge.ps1 alone, and are forwarded from here
+    # ONLY when a caller sets them - see $script:LineArgs below. A drill asserts this file holds no
+    # number of its own.
+    [int]$PauseAt,
+    [int]$PauseAtWeekly,
 
     # Passed through: exercise the park against a synthetic snapshot, spending nothing.
     [string]$SnapshotPath = '',
@@ -51,9 +56,16 @@ param(
 $ErrorActionPreference = 'SilentlyContinue'
 $gauge = Join-Path $PSScriptRoot 'window-gauge.ps1'
 
+# Captured at script scope: inside a function, $PSBoundParameters describes that function's own
+# call, not this script's. A line the caller did not set is never forwarded, so the gauge applies
+# its own - which is the whole point of holding no number here.
+$script:LineArgs = @()
+if ($PSBoundParameters.ContainsKey('PauseAt'))       { $script:LineArgs += @('-PauseAt', $PauseAt) }
+if ($PSBoundParameters.ContainsKey('PauseAtWeekly')) { $script:LineArgs += @('-PauseAtWeekly', $PauseAtWeekly) }
+
 function Read-Gauge {
     try {
-        $a = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$gauge,'-Json','-PauseAt',$PauseAt)
+        $a = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$gauge,'-Json') + $script:LineArgs
         if ($SnapshotPath) { $a += @('-SnapshotPath', $SnapshotPath) }
         $raw = & powershell @a
         return ($raw | ConvertFrom-Json)
