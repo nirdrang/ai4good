@@ -70,11 +70,17 @@ These are mine, not the readers', and they are what several rulings below turn o
    settled by reading**, and what it refutes is a stated REASON in `_fixture.ts`'s `dataApiRead`
    comment: "neither carries a user, so PostgREST resolves the request to `anon`". A caller whose
    session ended DOES carry a user's token at the live tier.
-6. **Adopting ruling 3 breaks none of the six existing conformance selftest cases.** I checked each
+6. **Adopting ruling 3 breaks none of the existing conformance selftest cases.** I checked each
    against `table()`'s defaults in `shipped-catalog-conformance.selftest.ts:40-46`
    (`rowLevelSecurity: true`, and each case sets `selectGrantedTo: ['authenticated']` where it
    matters), so every `toHaveLength(1)` assertion still holds after two checks are added. That is why
    ruling 3 can be adopted without re-opening the file's other cases.
+   **MY COUNT WAS WRONG AND THE EXECUTOR CORRECTED IT.** This check first said "the six existing
+   cases". The file holds **ten** `it` blocks, **nine** of them carrying a `toHaveLength(1)`
+   assertion. The CONCLUSION held - the executor checked all of them and then ran the suite: 368
+   tests became 370, zero failures, no existing case moved. Recorded because a conclusion that
+   happened to be right on a count that was wrong is worth exactly one line of correction, and
+   because the executor reported it instead of adjusting anything to fit.
 7. **The witness for the grant arm cannot see a grant to `PUBLIC` at all, twice over.**
    `_live.ts`'s `publicSchemaCatalog` reads `information_schema.role_table_grants` AND filters
    `grantee in ('anon','authenticated')`. `_contract.ts:423`'s own field comment says
@@ -441,8 +447,13 @@ justification for it is wrong, which is the whole of this ruling.
    exists, it obeys no visibility rule, and there is no sign-in screen to redirect to - and leave
    every other clause of that paragraph alone.
 
-**Nothing else in the tree repeats the claim.** I searched for "no router" and "there is no router"
-across the working tree: two occurrences, both named above.
+**CORRECTED BY RULING 9 - THIS SENTENCE WAS FALSE AS FIRST WRITTEN.** It said: *"Nothing else in the
+tree repeats the claim. I searched for 'no router' and 'there is no router' across the working tree:
+two occurrences, both named above."* Both phrases were searched correctly and both counts were
+right. **The claim survives in other words**, in
+`tests/at/harness/shipped-route-visibility.selftest.ts`, which the executor found and reported rather
+than touching. A search for two exact phrases is not a search for a claim, and this ruling made
+exactly the mistake it was written to correct. See ruling 9.
 
 ---
 
@@ -551,6 +562,66 @@ paragraph as the place that says so, so the two files stop disagreeing.
 
 ---
 
+## [9] THE EXECUTOR'S FINDING, AND IT IS A DEFECT IN RULING 6 - the selftest repeats both false claims
+
+Not a reviewer finding. **The executor found it while applying ruling 6, reported it, and did not
+touch it** - which is exactly right: its authority is the ruling file, and ruling 6's fix list said
+it was exhaustive. It was not.
+
+`tests/at/harness/shipped-route-visibility.selftest.ts` carries BOTH claims ruling 6 removed from the
+shipped module, in different words, which is why a search for two exact phrases missed them:
+
+- **line 26-27:** "WHAT IT DOES NOT CLAIM: that any router obeys the declaration. No router exists -
+  the registry's own header says so, and the merge ruling carries it as a residual." Two defects in
+  one sentence: "No router exists" is false (`src/router.tsx`), and after ruling 6 landed the
+  citation DANGLES - the registry's header no longer says it, because ruling 6 corrected it.
+- **line 67**, the case title: "ignores a layout file, whatever directory it sits in".
+- **line 68:** "A base name beginning with `__` is this router's layout convention rather than a
+  route." The invented convention, verbatim.
+- **lines 76-78:** the synthetic input `'admin/__layout.tsx'` and its message "the layout test reads
+  the BASE name, so a nested layout is a layout too" - the exact example ruling 6 ordered dropped from
+  the module, standing here as test data.
+
+**I RE-MEASURED WITH A WIDE INSTRUMENT BEFORE WRITING THIS RULING**, because repeating the mistake
+inside its own correction would be the whole failure again. A regular expression for
+`[Rr]outer|__layout|layout convention|app shell|__root` over every `.ts` and `.sql` file under
+`supabase/` and `tests/`: ruling 6's two corrections landed and read correctly
+(`route-visibility.ts:31-33` and `:70-72`, `_integration.ts:1916-1919`), every other `router`
+occurrence is about the edge-function router or a URL-deriving router in general and is true, and the
+**only** remaining false statements are the four bullets above. That is the measurement this ruling
+stands on, not a phrase search.
+
+**THE BEHAVIOUR IS CORRECT AND DOES NOT MOVE.** `isRouteFile` excludes any base name starting with
+`__`, wherever it sits, and that is what S2-A dictated and what PHASE-STATE item [c] upheld. The case
+at line 75 is worth keeping: it pins the rule to the BASE name rather than the whole path, which is a
+real property. Only its justification is invented.
+
+**THE FIX, DICTATED:**
+
+1. **The header residual, lines 25-27.** Keep the true half - a green here does not claim any router
+   obeys the declaration - and replace the false half with the fact: a TanStack router exists at
+   `src/router.tsx` and nothing in it consults `ROUTE_VISIBILITY`. Drop the "the registry's own header
+   says so" citation, which no longer points at anything.
+2. **The case title, line 67:** it is about a `__`-prefixed file, not about a layout. Say that.
+3. **The case comment, lines 68-70.** State the conventions `src/routes/README.md` documents:
+   `__root.tsx` is the APP SHELL and `_layout.tsx` is a layout route. Then say what the rule does -
+   it excludes any `__`-prefixed base name - and keep the sentence that already earns its place:
+   `src/routes/__root.tsx` is the one such file today and must not need a classification, or the arm
+   would fail on a clean checkout.
+4. **The synthetic input, line 76:** rename `'admin/__layout.tsx'` to `'admin/__shell.tsx'`, so no
+   reader infers a `__layout` convention from test data, and rewrite its message to say what the case
+   proves: the rule reads the BASE name, so a `__`-prefixed file nested in a directory is excluded
+   exactly as a top-level one is. **The assertion and the expected value do not change** - the input
+   is synthetic and its base name still begins with `__`.
+
+**Nothing else in the file changes.** The other four cases, every expected value, and the import list
+stay as they are.
+
+**WHY THIS IS RULED RATHER THAN FILED.** It is the same class as ruling 8 - a sentence this item made
+false, one file away, in a file this branch wrote - and it is the class this item has now ruled
+non-mergeable five times. Leaving it would hand the audit a defect the code gate had already been
+told about.
+
 ## What the executor may NOT do
 
 - **No integration-tier run.** The block stands (`PHASE-STATE.md` section 1) and one attempt is
@@ -588,3 +659,44 @@ the report.
 
 **A green here claims the loop tier and nothing else.** The integration half of this item's evidence
 does not exist and no ruling above changes that.
+
+---
+
+# What the executor reported back, and my ruling on each
+
+**INVOCATION 1 of 3.** Rulings 1, 2, 3, 5, 6, 7 and 8 landed across eight commits, `2804e17` through
+`8732818`, one per work item, in the dictated order. One pass, zero corrective iterations. **Ten code
+files changed** and `tests/at/expected/req-001.json` untouched.
+
+**I VERIFIED THE FOUR CHECKS MYSELF rather than taking the report** - see "What I verified myself" in
+`PHASE-STATE.md`. The executor raised no dispute. It reported four divergences, which is what it
+should have done with every one of them.
+
+**[a] A ruling-6 target survives in a file ruling 6 did not name. ACCEPTED, and it is a defect in MY
+RULING.** Ruled in full as ruling 9 above, including the wide re-measurement I made before writing
+it. The executor reported it and left it alone, which is the correct handling: its authority is the
+ruling file, and a fix list that calls itself exhaustive is not something an executor may quietly
+extend. **It also re-measured with a second instrument before reporting** - the shared invariant on
+negatives, applied by an executor to an orchestrator's claim.
+
+**[b] Three micro-edits inside W1's own file. ACCEPT AS LANDED.** The section banner
+`the policy helper` became `the policy helpers`, and the trailing `notify pgrst` paragraph now names
+both functions instead of only `viewer_is_platform_admin()`. The executor's own change made those
+sentences stale, and this item's standing rule is that a statement it makes false must not survive a
+gate. Cleaning up its own mess is the third house rule, not scope creep. Comment-only.
+
+**[c] One micro-edit inside W5's own file. ACCEPT AS LANDED.** `at00140`'s doc block said "the
+unfiltered listing is answered by the platform-admin policies this slice's migration lands" -
+singular listing, four policies. Ruling 5 makes it four listings. Same class as [b], same reason.
+
+**[d] My evidence check 6 counted six cases where the file holds ten. ACCEPTED, and the ruling text is
+corrected in place.** The executor checked all nine `toHaveLength(1)` assertions and then ran the
+suite: 368 tests became 370, zero failures, no existing case moved. **It reported the discrepancy
+rather than adjusting a count to fit**, which is the instruction and the right instinct. My
+conclusion held; my count did not, and the correction sits beside the original.
+
+## A measurement trap for the next sitting, from the executor
+
+**PowerShell 5.1 re-splits a here-string commit message containing double quotes before passing it to
+`git.exe`.** One commit failed exactly that way and landed only through `git commit -F <file>`. Use a
+message file for any commit body carrying quotation marks.
