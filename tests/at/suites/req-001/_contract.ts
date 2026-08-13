@@ -866,9 +866,15 @@ export type AccountsSut = {
    * `null` the request carries the publishable key and no bearer token, so it resolves to `anon`,
    * which the migrations grant nothing — the refusal is the PRIVILEGE layer and `rows: null` is what
    * says so. Every call site that PREDATES this change passes a `Session`, which is assignable, so
-   * widening the parameter moved none of them; AT-001.24's own probe at
-   * `d-tenant-isolation.test.ts:810` is the one call site that passes `null`, and it is the reason the
+   * widening the parameter moved none of them; AT-001.24's own `neverSignedIn` probe in
+   * `d-tenant-isolation.test.ts` is the one call site that passes `null`, and it is the reason the
    * parameter was widened.
+   *
+   * THE REFERENCE NAMES THE PROBE AND NOT A LINE, ON PURPOSE. An earlier version of this sentence
+   * cited line 810. The audit fix that added assertions ABOVE it in that same file moved the call to
+   * another line, so the citation was false by the time the commit landed — the audit re-run caught
+   * it, both readers independently. Do not restore a line number here; it decays on the next
+   * insertion.
    */
   dataApiRead(session: Session | null, probe: DataApiProbe): Promise<DataApiReadOutcome>;
 

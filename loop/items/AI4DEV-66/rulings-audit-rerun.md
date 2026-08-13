@@ -243,10 +243,13 @@ the defect was rather than in a document nobody opens.
 
 **ONE SITE, AND I MEASURED THE CLAIM RATHER THAN THE PHRASE**, per the standing instruction the first
 audit wrote. The stale citation `d-tenant-isolation.test.ts:810` appears at exactly one place in the
-code territory: `_contract.ts:870`. The other occurrences are all in `loop/items/AI4DEV-66/`:
-`rulings-audit.md` at lines 359, 366 and 377, and the three spent prompt files. **None of those is
+code territory: `_contract.ts:870`. The other occurrences are all in `loop/items/AI4DEV-66/`: **three
+of them inside `rulings-audit.md` section A5**, and the three spent prompt files. **None of those is
 edited**, for the reasons in R1 rulings 3 and 5, and section 4 records the rulings file's three stale
 citations so they are not read as current.
+
+**That reference names a SECTION and not three line numbers, and the first draft of this ruling named
+the line numbers instead. Section 7 records what that cost within the hour.**
 
 ---
 
@@ -324,10 +327,12 @@ that neither one changes behaviour and one of them only removes a claim.
    is absent from it. Both seats had this file in the fix delta, because ruling A4 edited it, and
    neither flagged the sentence. **I leave it, rather than improve adjacent text a ruling does not
    reach.**
-2. **`rulings-audit.md` lines 359, 366 and 377 carry the stale `:810` citation.** They were TRUE when
+2. **`rulings-audit.md` section A5 carries the stale `:810` citation THREE times** - in the quoted
+   reader claim, in the confirmation prose, and in the dictated replacement text. They were TRUE when
    written, at head `1e058d0`, and ruling A2's fix moved the line afterwards. They are the record of
    what was ruled, not a statement about the current tree. **They are not edited**, and they are named
-   here so a later reader does not follow them.
+   here so a later reader does not follow them. **The count is three and I re-measured it after the
+   executor reported a fourth - see section 7.**
 3. **The reverse relationship query is not a new risk anywhere else.** PostgREST evaluates an embedded
    resource under the caller's role and policies, and `public-project-page` reads with the service-role
    key by design, because it builds a hand-written public projection. Nothing in R1 widens what any
@@ -367,3 +372,71 @@ A mechanical would have typed R2 faster. It would not have been permitted to dis
 class of ruling this item keeps getting wrong, the dispute right is worth more than the speed** - and
 the same invocation carries the four verification runs at the final code head, which the merge ruling
 must quote. That is one invocation of three, spent on the thing the record says is risky.
+
+**The executor did not dispute R2.** It confirmed all three pre-write checks first-hand, and it went
+past what I asked on check 3: rather than search only for the literal `null`, it listed the FIRST
+ARGUMENT of every `dataApiRead` call in `tests/` - 41 call sites across two files - to catch a second
+site passing a null-valued variable. The arguments are `sessionA`, `sessionB`, `unassigned`,
+`volunteerSession`, `admin`, `signedOut`, and one `null`. **The sentence's substance is confirmed by
+enumeration, not by a phrase search.** That is the standing instruction from the first audit obeyed
+properly, and it is worth recording that the executor applied it without being told.
+
+---
+
+# 7. THE EXECUTOR REPORTED A FOURTH STALE CITATION. IT IS WRONG - AND WHAT MADE IT WRONG IS MINE.
+
+**The report:**
+
+> `loop/items/AI4DEV-66/rulings-audit.md:380` still carries the stale `d-tenant-isolation.test.ts:810`
+> citation, alongside lines 359, 366 and 377. ... your section 4 item 2 lists three lines and my
+> search found a fourth occurrence in that file, so the record's own list of its stale citations is
+> one short.
+
+## THE SUBSTANCE IS REJECTED, AND I MEASURED IT RATHER THAN ASSERTED IT
+
+**There is no fourth citation. There are exactly three, and all three are inside section A5**, which
+spans lines 368 to 395 of the current file: the quoted reader claim at 373, the confirmation prose at
+380, and the dictated replacement text at 391.
+
+**Line 380 IS the line my ruling called 366.** Earlier in this same sitting I inserted a 14-line
+pointer block at the head of section A1 - `git diff --numstat` reports `14 0` for that file. Every
+line below it moved down by fourteen. 359 became 373, **366 became 380**, and 377 became 391. The
+executor grepped the CURRENT file, compared the result against my list of PRE-EDIT numbers, found 380
+absent from it, and correctly concluded that something did not add up. Its arithmetic was sound. Its
+premise - that my three numbers described the file it was reading - was not.
+
+## THE DEFECT IS REAL, IT IS MINE, AND IT IS R2's OWN DEFECT COMMITTED INSIDE R2
+
+**My line numbers were stale, and I made them stale myself, in this sitting, by inserting text above
+them.**
+
+That is the exact mechanism R2 rules on: a citation that was true when it was written and false by
+the time the edit above it landed. **I wrote a ruling that forbids decaying line-number citations, and
+cited three decaying line numbers in it, and the decay happened inside the same hour.** No reviewer
+found it. The executor found it, by tripping over it.
+
+**This is the FOURTH citation defect on this item and the third that is the orchestrator's own** -
+slice-2 ruling 9's non-exhaustive fix list, audit ruling A4's line 192, and now this. The pattern is
+one pattern, and it is not carelessness about numbers; it is a reference held to a weaker standard
+than the sentence around it.
+
+## THE RULING
+
+1. **The executor's substantive claim is REJECTED**, with the reason above: line 380 is line 366 after
+   a shift I introduced. No fourth citation exists. **I re-measured before rejecting**, because
+   rejecting a report on the strength of my own earlier count is exactly how the first three of these
+   happened.
+2. **The underlying defect is ACCEPTED and fixed, by R2's own remedy.** Section 4 item 2 and R2's
+   exhaustiveness paragraph now name **section A5** instead of three line numbers. A section name does
+   not move when text is inserted above it.
+3. **The pointer block I added to `rulings-audit.md` already names the section rather than lines**, so
+   it needs no change. That is the one place I happened to get it right, and the contrast is the
+   evidence for rule 2.
+4. **The report was CORRECT TO SEND, and the executor is not marked down for it.** It found a real
+   inconsistency between my ruling and the tree, reported it with its evidence, and changed nothing.
+   That is precisely the behaviour the dispute right exists to produce. **An executor that only
+   reported what turned out to be true would be an executor filtering its findings through a guess
+   about my reaction**, and this item's record would be worse in three places if it had.
+5. **Nothing in the code territory changes.** All of this is inside `loop/items/`. The fix delta
+   remains one comment in one file, so section 3's conclusion - no second audit re-run is owed - is
+   untouched.
