@@ -219,13 +219,16 @@ try {
                     $age = if ($null -ne $g.readingAgeMin) { ('reading {0} min old' -f $g.readingAgeMin) } else { 'reading undatable' }
                     $reset = '?'
                     foreach ($w in @($g.windows)) { if ($w.name -eq $g.worstWindow) { $reset = $w.resetsLocal } }
+                    # Every window prints as `percent/its own line`, because the lines differ by
+                    # family (five-hour 85, weekly 95) and a bare percentage no longer says how
+                    # close anything is to stopping.
                     if ($g.verdict -eq 'PAUSE') {
-                        $extra += ('WINDOW  PAUSE   {0} at {1}% (line {2}%) - STOP THE WORKFLOW: park the running items, arm loop/work/window-wait.ps1 as a background command, resume after the reset at {3} - {4}' -f `
+                        $extra += ('WINDOW  PAUSE   {0} at {1}% of its {2}% - STOP THE WORKFLOW: park the running items, send PARK leaf first, arm loop/work/window-wait.ps1 as a background command, resume after the reset at {3} - {4}' -f `
                             $g.worstWindow, $g.worstPercent, $g.pauseAt, $reset, $age)
                     }
                     elseif ($g.verdict -eq 'OK') {
-                        $all = ((@($g.windows) | ForEach-Object { '{0} {1}%' -f $_.name, $_.percent }) -join ' - ')
-                        $extra += ('WINDOW  OK      {0} (line {1}%) - {2} resets {3} - {4}' -f $all, $g.pauseAt, $g.worstWindow, $reset, $age)
+                        $all = ((@($g.windows) | ForEach-Object { '{0} {1}%/{2}' -f $_.name, $_.percent, $_.line }) -join ' - ')
+                        $extra += ('WINDOW  OK      {0} - nearest {1}, resets {2} - {3}' -f $all, $g.worstWindow, $reset, $age)
                     }
                     else {
                         $extra += ('WINDOW  UNKNOWN {0} - report it, do not halt' -f $g.reason)

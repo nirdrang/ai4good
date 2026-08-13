@@ -44,8 +44,11 @@ founder reading something and asking a structural question.
   renders, so it prints the reading from the previous render. After a long gap the first prompt
   shows a stale reading, or `UNKNOWN`; the next prompt shows a current one. Never treat the first
   reading after a gap as today's number.
-- **At 85 percent of any window, stop the workflow at once** (founder 2026-08-12, superseding the
-  90 percent of 2026-08-06). Alarm and stop are the same number. Start nothing new.
+- **Each window family has its own line** (founder 2026-08-13): the five-hour window stops the
+  workflow at **85 percent**, the weekly windows at **95 percent**, and a window nobody
+  recognises at 85. A weekly window refills days later, so stopping it early costs days to save
+  an afternoon; a five-hour one refills within hours. The blocker is the window furthest over
+  **its own** line, never the largest percentage. Start nothing new.
 - **Send `PARK`, and send it LEAF FIRST** (measured 2026-08-13). `PARK` is one word with one
   meaning, defined in the conductor, orchestrator and executor contracts: finish the work item,
   commit, push, report `PARKED at <commit>`, end.

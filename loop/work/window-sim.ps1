@@ -85,12 +85,24 @@ try {
 
     ''
     '3. Several windows, disagreeing'
+    # THE TWO LINES (founder 2026-08-13): five-hour stops at 85, weekly at 95. A weekly window
+    # therefore keeps working at a percentage that would have stopped a five-hour one.
+    Set-Reading @{ five_hour = (W 12 200); seven_day = (W 90 5000) }
+    Check 'weekly at 90 is under ITS line -> keep working' (Verdict) 'OK'
+    Set-Reading @{ five_hour = (W 90 200); seven_day = (W 12 5000) }
+    Check 'five-hour at the same 90 is over ITS line -> park' (Verdict) 'PAUSE'
     Set-Reading @{ five_hour = (W 12 200); seven_day = (W 95 5000) }
     Check 'weekly over while five-hour is idle -> park' (Verdict) 'PAUSE'
     Check 'and it names the weekly one' (Gauge).worstWindow 'seven_day'
     # The reset it reports must belong to the window that BLOCKED, or a park would wait on the
     # wrong clock - the five-hour reset here is 80 hours earlier than the weekly one.
     Check 'and reports THAT window reset, not another' ([int]((Gauge).resetsInMin / 100)) 50
+    # The binding window is the one furthest over ITS OWN line, never the largest percentage.
+    # Ranking by percentage would name the weekly one here and park on a reset days away.
+    Set-Reading @{ five_hour = (W 86 45); seven_day = (W 90 5000) }
+    Check 'five-hour barely over beats weekly well under' (Verdict) 'PAUSE'
+    Check 'and the blocker is the five-hour one, not the bigger number' (Gauge).worstWindow 'five_hour'
+    Check 'so the park waits on the five-hour reset, hours away, not the weekly one' ([bool]((Gauge).resetsInMin -lt 100)) 'True'
     Set-Reading @{ five_hour = (W 96 30); seven_day = (W 91 5000) }
     Check 'both over -> the furthest along wins' (Gauge).worstWindow 'five_hour'
     # Other plans report up to five windows. Every one present is evaluated by name, so a plan
@@ -98,14 +110,19 @@ try {
     Set-Reading @{
         five_hour = (W 10 100); seven_day = (W 20 5000)
         seven_day_overage_included = (W 30 5000)
-        seven_day_sonnet = (W 40 5000); seven_day_opus = (W 93 5000)
+        seven_day_sonnet = (W 40 5000); seven_day_opus = (W 97 5000)
     }
     Check 'a per-model weekly window blocks too' (Verdict) 'PAUSE'
     Check 'and is named' (Gauge).worstWindow 'seven_day_opus'
-    # A window name nobody has seen before must still count. Ignoring the unknown is how a guard
-    # quietly stops covering the thing that was added.
+    # The whole seven_day FAMILY takes the weekly line, matched on the name prefix.
+    Set-Reading @{ five_hour = (W 5 100); seven_day_opus = (W 93 5000) }
+    Check 'a per-model weekly window gets the weekly line, not the five-hour one' (Verdict) 'OK'
+    # A window name nobody has seen before must still count, and takes the STRICTER line - being
+    # lenient with a window nobody has seen is how a guard quietly stops covering what was added.
     Set-Reading @{ five_hour = (W 5 100); some_future_window = (W 97 999) }
     Check 'an unrecognised window still counts' (Verdict) 'PAUSE'
+    Set-Reading @{ five_hour = (W 5 100); some_future_window = (W 88 999) }
+    Check 'and it is judged at the stricter line, not the weekly one' (Verdict) 'PAUSE'
 
     ''
     '4. Readings that cannot be trusted'
@@ -118,7 +135,7 @@ try {
     Set-Reading @{ five_hour = @{ resets_at = 123 } }
     Check 'a window with no percentage -> UNKNOWN' (Verdict) 'UNKNOWN'
     # Partial damage must not discard the windows that ARE readable.
-    Set-Reading @{ five_hour = @{ resets_at = 123 }; seven_day = (W 94 5000) }
+    Set-Reading @{ five_hour = @{ resets_at = 123 }; seven_day = (W 96 5000) }
     Check 'one broken window, one good -> the good one still decides' (Verdict) 'PAUSE'
     Set-Reading @{ five_hour = @{ used_percentage = 95 } }
     Check 'a window with no reset time still reports its level' (Verdict) 'PAUSE'
@@ -257,28 +274,33 @@ try {
     Check 'nothing refreshed it after the park -> UNKNOWN, not a false PAUSE' (Verdict) 'UNKNOWN'
     # And the weekly window is unmoved by a five-hour reset - a release must not be granted by the
     # wrong window turning over.
-    Set-Reading @{ five_hour = (W 1 300); seven_day = (W 93 5000) }
+    Set-Reading @{ five_hour = (W 1 300); seven_day = (W 96 5000) }
     Check 'the five-hour reset does not release a weekly block' (Verdict) 'PAUSE'
     Check 'and the weekly one is still named as the blocker' (Gauge).worstWindow 'seven_day'
 
     ''
-    '9. One number, written in three places, all agreeing'
-    # The stop line is copied into the gauge, into the wait, and into the process document the
-    # coordinator follows. Every check above reads the gauge with NO -PauseAt, so the default is
-    # what they measured. These three assertions are what stop the copies drifting apart.
+    '9. Two numbers, and only one file may hold them'
+    # The gauge owns both lines. The wait holds NONE - it forwards a line only when a caller sets
+    # one - and the process document must state the same pair the gauge uses. Every check above
+    # reads the gauge with no line arguments at all, so the defaults are what they measured.
     $root = Split-Path -Parent (Split-Path -Parent $here)
-    function Get-DefaultPauseAt([string]$file) {
-        $m = [regex]::Match((Get-Content $file -Raw), '(?m)^\s*\[int\]\$PauseAt\s*=\s*(\d+)')
+    function Get-ScriptDefault([string]$file, [string]$name) {
+        $m = [regex]::Match((Get-Content $file -Raw), ('(?m)^\s*\[int\]\$' + $name + '\s*=\s*(\d+)'))
         if ($m.Success) { [int]$m.Groups[1].Value } else { -1 }
     }
-    $gaugeLine = Get-DefaultPauseAt $gauge
-    Check 'the gauge stops at 85' $gaugeLine 85
-    Check 'the wait carries the same number, not one of its own' (Get-DefaultPauseAt $wait) $gaugeLine
+    $gaugeLine = Get-ScriptDefault $gauge 'PauseAt'
+    $weekLine  = Get-ScriptDefault $gauge 'PauseAtWeekly'
+    Check 'the five-hour line is 85' $gaugeLine 85
+    Check 'the weekly line is 95' $weekLine 95
+    # -1 means the pattern found no default at all, which is exactly what this file must have.
+    Check 'the wait holds no five-hour number of its own' (Get-ScriptDefault $wait 'PauseAt') -1
+    Check 'the wait holds no weekly number of its own' (Get-ScriptDefault $wait 'PauseAtWeekly') -1
     $inv = Join-Path $root '.claude\skills\work\shared-invariants.md'
-    $docLine = -1
-    $dm = [regex]::Match((Get-Content $inv -Raw), 'pause line is (\d+) percent')
-    if ($dm.Success) { $docLine = [int]$dm.Groups[1].Value }
-    Check 'the process document states the same number' $docLine $gaugeLine
+    $invText = Get-Content $inv -Raw
+    $d1 = [regex]::Match($invText, 'five-hour window at (\d+) percent')
+    $d2 = [regex]::Match($invText, 'weekly windows at (\d+) percent')
+    Check 'the process document states the five-hour line' $(if ($d1.Success) { [int]$d1.Groups[1].Value } else { -1 }) $gaugeLine
+    Check 'the process document states the weekly line' $(if ($d2.Success) { [int]$d2.Groups[1].Value } else { -1 }) $weekLine
 
     ''
     '10. The coordinator sequence end to end: stop at the line, arm the wait, resume at the reset'
@@ -354,8 +376,7 @@ try {
     Set-Reading @{ five_hour = (W 50 120); seven_day = (W 78 5000) }
     $line = Window-Line
     Check 'a clear reading prints one OK line' ([bool]($line -match 'WINDOW  OK')) 'True'
-    Check 'and it names every window with its percentage' ([bool]($line -match 'five_hour 50%' -and $line -match 'seven_day 78%')) 'True'
-    Check 'and it prints the line the verdict used, not a copy' ([bool]($line -match ('line {0}%' -f $gaugeLine))) 'True'
+    Check 'and it names every window with its percentage AND its own line' ([bool]($line -match 'five_hour 50%/85' -and $line -match 'seven_day 78%/95')) 'True'
     Check 'and it prints the age of the reading' ([bool]($line -match 'reading \d')) 'True'
     Check 'and it carries the session prefix like every stamp line' ([bool]($line -match '^\[abcdef01\] ')) 'True'
 
@@ -364,7 +385,7 @@ try {
     Check 'a reading over the line prints PAUSE' ([bool]($line -match 'WINDOW  PAUSE')) 'True'
     Check 'and it says to stop the workflow' ([bool]($line -match 'STOP THE WORKFLOW')) 'True'
     Check 'and it names the wait to arm' ([bool]($line -match 'window-wait\.ps1')) 'True'
-    Check 'and it names the window and its reset' ([bool]($line -match 'five_hour at 88%' -and $line -match 'resume after the reset at \d\d:\d\d')) 'True'
+    Check 'and it names the window, ITS line, and its reset' ([bool]($line -match 'five_hour at 88% of its 85%' -and $line -match 'resume after the reset at \d\d:\d\d')) 'True'
 
     Set-Raw 'this is not json {{{'
     $lines = @(Hook-Lines $root)

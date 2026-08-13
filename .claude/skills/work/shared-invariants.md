@@ -36,13 +36,19 @@ returns `OK`, `PAUSE` or `UNKNOWN`.
 - **The coordinator decides; nothing else may.** Read the gauge on **every** `FLOW` and `PULSE`
   line. A second thing with authority to halt work is the same failure as a second way to close
   work — and a brake inside an agent is one the founder cannot see.
-- **One line, and it is `PAUSE`: the pause line is 85 percent of any window** (founder
-  2026-08-12, superseding the 90 percent of 2026-08-06). Alarm and stop are the same number.
-  There is no lower "start nothing new" band. Such a band would have to be justified by what a
-  sitting costs, which nobody has measured, so it could only ever be a number that felt safe.
-  Work starts whenever the gauge says `OK`. The number is written in three places — the gauge,
-  `loop/work/window-wait.ps1`, and this line — and `loop/work/window-sim.ps1` asserts all three
-  agree, because copies drift.
+- **One line per window family** (founder 2026-08-13): the **five-hour window at 85 percent** and
+  the **weekly windows at 95 percent** — every window whose name begins `seven_day`, and 85 for
+  any window this system does not recognise. Alarm and stop are the same number.
+  - **Why they differ:** a five-hour window refills within hours, so stopping early costs almost
+    nothing. A weekly window refills days later, so the same caution would cost days of work to
+    save an afternoon of budget. The number belongs to the cost of waiting, not to the size of
+    the window.
+  - **The blocking window is the one furthest over ITS OWN line**, never the largest percentage.
+    Five-hour at 86 blocks while weekly at 90 does not.
+  - There is still no lower "start nothing new" band. Work starts whenever the gauge says `OK`.
+  - **Only `loop/work/window-gauge.ps1` holds the numbers.** `window-wait.ps1` holds none and
+    forwards a line only when a caller sets one; this document states the pair, and
+    `loop/work/window-sim.ps1` asserts the document and the gauge agree. Copies drift.
 - **`PAUSE` means stop the workflow at once.** Ask each running conductor to park — write its
   state, push, report, and end — and stop it outright only if it does not. Start nothing new.
   Graceful first: an agent killed mid-write leaves a record that lies about where the work got to.

@@ -4,8 +4,9 @@
 # else - hooks receive a different payload entirely - so statusline.ps1 snapshots it on every
 # refresh and this script reads that snapshot.
 #
-# ONE LINE ONLY (founder 2026-08-06): OK below the pause line, PAUSE at it, UNKNOWN when the
-# reading cannot be trusted. Two consequences worth holding on to:
+# ONE LINE PER WINDOW FAMILY (founder 2026-08-13): the five-hour window stops at 85 percent, the
+# weekly windows at 95. Below its own line a window reads OK, at it PAUSE, and UNKNOWN when the
+# reading cannot be trusted at all. Two consequences worth holding on to:
 #   1. The reading is only as fresh as the last status-line refresh, which happens on every turn
 #      of the interactive session. While the coordinator is dormant, nothing updates it - which
 #      is exactly why the conductor sends a keep-alive pulse: a pulse wakes the coordinator, the
@@ -25,11 +26,25 @@
 
 [CmdletBinding()]
 param(
-    # PAUSE line - founder's number (2026-08-12): stop work at 85 percent of a window. This
-    # supersedes the 90 percent of 2026-08-06. The same number lives in window-wait.ps1 and in
-    # shared-invariants.md; window-sim.ps1 asserts all three agree, because a guard whose copies
-    # disagree stops at a different place than the process document promises.
+    # PAUSE line for the five-hour window, and for any window this file does not recognise -
+    # founder's number (2026-08-12): stop at 85 percent. This supersedes the 90 percent of
+    # 2026-08-06. An unknown window gets the STRICTER line, because a window nobody has seen is
+    # not a window anybody should be lenient about.
     [int]$PauseAt = 85,
+
+    # PAUSE line for the WEEKLY windows - every window whose name begins `seven_day` (founder
+    # 2026-08-13: "7days bar should be different from the 5 hour. It should be at 95%").
+    #
+    # WHY THE TWO DIFFER. A five-hour window refills five hours later, so stopping early costs
+    # almost nothing. A weekly window refills days later, so the same caution would cost days of
+    # work to save an afternoon of budget. The number belongs to the cost of waiting, not to the
+    # size of the window.
+    #
+    # EACH WINDOW IS JUDGED AGAINST ITS OWN LINE, and the binding one is whichever stands FURTHEST
+    # OVER its own line - not whichever percentage is largest. Five-hour at 86 blocks while weekly
+    # at 90 does not, so ranking by percentage alone would name the wrong blocker and park on the
+    # wrong reset.
+    [int]$PauseAtWeekly = 95,
 
     # There is deliberately NO second, lower line (founder 2026-08-06). A "start nothing new"
     # band would have to be justified by the cost of a sitting, which nobody has measured, so it
@@ -81,7 +96,7 @@ function Emit($r) {
         if ($r.reason) { $head += "  - " + $r.reason }
         Write-Output $head
         foreach ($w in $r.windows) {
-            Write-Output ("        {0,-28} {1,3}%   resets {2}  (in {3} min)" -f $w.name, $w.percent, $w.resetsLocal, $w.resetsInMin)
+            Write-Output ("        {0,-28} {1,3}% of {4}%   resets {2}  (in {3} min)" -f $w.name, $w.percent, $w.resetsLocal, $w.resetsInMin, $w.line)
         }
         if ($null -ne $r.readingAgeMin) {
             Write-Output ("        reading is {0} min old" -f $r.readingAgeMin)
@@ -140,6 +155,9 @@ foreach ($name in $snap.rateLimits.PSObject.Properties.Name) {
     $result.windows += [pscustomobject][ordered]@{
         name        = $name
         percent     = $pct
+        # Its OWN line: the weekly family gets the weekly number, everything else the five-hour
+        # one. Matched on the name prefix, so seven_day_opus and seven_day_sonnet are weekly too.
+        line        = $(if ($name -like 'seven_day*') { $PauseAtWeekly } else { $PauseAt })
         resetsLocal = $(if ($resetLocal) { $resetLocal.ToString('HH:mm') } else { '?' })
         resetsInMin = $inMin
         resetsAtUtc = $resetUtc
@@ -151,10 +169,14 @@ if ($result.windows.Count -eq 0) {
     Emit $result
 }
 
-# The binding constraint is whichever window is furthest along, not the five-hour one by habit.
-$worst = $result.windows | Sort-Object percent -Descending | Select-Object -First 1
+# The binding constraint is whichever window stands FURTHEST OVER ITS OWN LINE - not the largest
+# percentage, and not the five-hour one by habit. With two lines those differ: five-hour at 86 is
+# over its 85 while weekly at 90 is under its 95, so percentage-ranking would name the weekly one
+# and park on a reset days away instead of the five-hour one hours away.
+$worst = $result.windows | Sort-Object { $_.percent - $_.line } -Descending | Select-Object -First 1
 $result.worstWindow  = $worst.name
 $result.worstPercent = $worst.percent
+$result.pauseAt      = $worst.line
 $result.resetsAtUtc  = $worst.resetsAtUtc
 $result.resetsInMin  = $worst.resetsInMin
 
@@ -164,10 +186,10 @@ if ($null -eq $ageMin) {
     # corrupt file holding a low number read OK for ever. A reading nobody can date is a reading
     # nobody can trust: it says UNKNOWN. It says PAUSE instead when the number is over the line,
     # because a window only climbs, so an over-the-line reading of any age proves a floor.
-    if ($worst.percent -ge $PauseAt) {
+    if ($worst.percent -ge $worst.line) {
         $result.verdict = 'PAUSE'
-        $result.reason  = ("{0} at {1}% (pause line {2}%) - the reading carries no usable capture time, and a window only climbs" -f `
-            $worst.name, $worst.percent, $PauseAt)
+        $result.reason  = ("{0} at {1}% (its line {2}%) - the reading carries no usable capture time, and a window only climbs" -f `
+            $worst.name, $worst.percent, $worst.line)
         Emit $result
     }
     $result.verdict = 'UNKNOWN'
@@ -181,10 +203,10 @@ if ($ageMin -gt $StaleMinutes) {
     # level still stands and parking is the evidenced answer, not a cautious guess. Only once the
     # reset has passed does the old number stop meaning anything - that is the case where we
     # genuinely cannot say, and where a low stale reading always sat, since it may have climbed.
-    if ($worst.percent -ge $PauseAt -and $null -ne $worst.resetsInMin -and $worst.resetsInMin -gt 0) {
+    if ($worst.percent -ge $worst.line -and $null -ne $worst.resetsInMin -and $worst.resetsInMin -gt 0) {
         $result.verdict = 'PAUSE'
-        $result.reason  = ("{0} at {1}% (pause line {2}%) - reading is {3} min old, but that window has not reset, and a window only climbs" -f `
-            $worst.name, $worst.percent, $PauseAt, $ageMin)
+        $result.reason  = ("{0} at {1}% (its line {2}%) - reading is {3} min old, but that window has not reset, and a window only climbs" -f `
+            $worst.name, $worst.percent, $worst.line, $ageMin)
         Emit $result
     }
     $result.verdict = 'UNKNOWN'
@@ -192,12 +214,12 @@ if ($ageMin -gt $StaleMinutes) {
     Emit $result
 }
 
-if ($worst.percent -ge $PauseAt) {
+if ($worst.percent -ge $worst.line) {
     $result.verdict = 'PAUSE'
-    $result.reason  = ("{0} at {1}% (pause line {2}%) - resets {3}" -f $worst.name, $worst.percent, $PauseAt, $worst.resetsLocal)
+    $result.reason  = ("{0} at {1}% (its line {2}%) - resets {3}" -f $worst.name, $worst.percent, $worst.line, $worst.resetsLocal)
 } else {
     $result.verdict = 'OK'
-    $result.reason  = ("{0} at {1}%" -f $worst.name, $worst.percent)
+    $result.reason  = ("{0} at {1}% of its {2}%" -f $worst.name, $worst.percent, $worst.line)
 }
 
 Emit $result
