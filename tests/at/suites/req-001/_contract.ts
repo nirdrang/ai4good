@@ -865,7 +865,10 @@ export type AccountsSut = {
    * a member that could only be called WITH a session could not express the clause at all. With
    * `null` the request carries the publishable key and no bearer token, so it resolves to `anon`,
    * which the migrations grant nothing — the refusal is the PRIVILEGE layer and `rows: null` is what
-   * says so. Every existing call site passes a `Session`, which is assignable, so nothing else moves.
+   * says so. Every call site that PREDATES this change passes a `Session`, which is assignable, so
+   * widening the parameter moved none of them; AT-001.24's own probe at
+   * `d-tenant-isolation.test.ts:810` is the one call site that passes `null`, and it is the reason the
+   * parameter was widened.
    */
   dataApiRead(session: Session | null, probe: DataApiProbe): Promise<DataApiReadOutcome>;
 
