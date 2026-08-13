@@ -28,8 +28,10 @@
  * THE RESIDUAL, SAID HERE RATHER THAN LEFT TO BE DISCOVERED
  * ============================================================================================
  *
- * NOTHING IMPORTS THIS TODAY AND NO ROUTER OBEYS IT, because there is no router: `src/routes/` holds
- * one page and a root layout, and the sign-in screens are a separate manifest leaf that has not
+ * NOTHING IMPORTS THIS TODAY AND NO ROUTER OBEYS IT. A TanStack router DOES exist — `src/router.tsx`
+ * builds one with `createRouter` over the generated route tree — and NOTHING IN IT CONSULTS
+ * `ROUTE_VISIBILITY`. `src/routes/` holds one page and the app shell, and there is no sign-in screen
+ * to redirect a visitor to, because the sign-in screens are a separate manifest leaf that has not
  * landed. What this buys is a declaration in product code and a test that fails the moment a route
  * arrives undeclared. It is not a redirect that runs, and the merge ruling says so.
  */
@@ -62,15 +64,24 @@ export const ROUTE_VISIBILITY: Readonly<Record<string, RouteVisibility>> = {
 /**
  * WHETHER ONE FILE NAME IS A ROUTE AT ALL.
  *
- * A ROUTE FILE IS ANY `.tsx` FILE WHOSE BASE NAME DOES NOT BEGIN WITH `__`. The leading double
- * underscore is this router's convention for a layout rather than a route, and `src/routes/__root.tsx`
- * is the one such file today. `README.md` is not a route because it is not `.tsx`, and a directory
- * name is not a route for the same reason.
+ * A ROUTE FILE IS ANY `.tsx` FILE WHOSE BASE NAME DOES NOT BEGIN WITH `__`. `README.md` is not a
+ * route because it is not `.tsx`, and a directory name is not a route for the same reason.
  *
- * THE TEST IS ON THE BASE NAME, not on the whole path, so a nested `admin/__layout.tsx` is a layout
- * exactly as a top-level one is. Anything else that is `.tsx` is treated as a route and therefore
- * needs a declaration — which is the fail-closed direction: an unclassified file fails the build and
- * a person decides what it is, rather than being silently exempt.
+ * THE CONVENTIONS THIS ROUTER ACTUALLY HAS, as `src/routes/README.md` documents them: `__root.tsx` is
+ * the APP SHELL, which wraps every page, and `_layout.tsx` — ONE underscore — is a layout route.
+ * `src/routes/__root.tsx` is the only double-underscore file in the tree.
+ *
+ * SO THIS RULE DECIDES TWO THINGS, AND BOTH ARE DELIBERATE.
+ *
+ * THE APP SHELL IS EXCLUDED BECAUSE IT IS NOT A DESTINATION. It wraps every page rather than being
+ * one, so it has no visibility of its own; classifying it `public` or `authenticated` would declare a
+ * class for something a visitor never navigates to.
+ *
+ * A SINGLE-UNDERSCORE LAYOUT FILE IS TREATED AS A ROUTE AND MUST BE DECLARED. That is stricter than
+ * the router's own convention and it is the fail-closed direction: an unclassified file fails the
+ * build and a person decides what it is, rather than being exempted by a naming convention. No such
+ * file exists in this tree today, so it costs nothing now, and the day one arrives the build asks a
+ * person a question instead of guessing.
  */
 function isRouteFile(name: string): boolean {
   const base = name.slice(name.lastIndexOf('/') + 1);

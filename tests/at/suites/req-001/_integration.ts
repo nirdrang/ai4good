@@ -1913,8 +1913,10 @@ export const at00110 = refusesWith('sut.accounts.sendDiscoveryMessage');
  * WHY THIS REFUSES RATHER THAN GOING GREEN, when the loop tier asserts three real things about the
  * same criterion. THE CRITERION'S OUTCOME IS A RENDERING. "Only public surfaces render" and "every
  * authenticated surface redirects to sign-in" are statements about what a browser shows a visitor,
- * and there is no browser here, no screen to render and no router to redirect: `src/routes/` holds
- * one page and a root layout, and continuous integration fails any pull request whose file list
+ * and there is no browser here and no screen to render. A router DOES exist — `src/router.tsx` builds
+ * one over the generated route tree — and it obeys no visibility rule, because nothing in it consults
+ * `ROUTE_VISIBILITY`; and there is no sign-in screen to redirect a visitor to. `src/routes/` holds
+ * one page and the app shell, and continuous integration fails any pull request whose file list
  * matches both `^src/` and this change's territory, so this leaf is forbidden to build one.
  *
  * THAT IS THE LINE GATE-1 RULING 1 DREW, and it is the reason AT-001.21 and AT-001.22 are green at
