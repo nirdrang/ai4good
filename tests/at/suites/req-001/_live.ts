@@ -1009,6 +1009,15 @@ export async function createLiveAdapter(opts: {
      * `cmd` IS FILTERED TO THE POLICIES THAT REACH A READ. `pg_policies.cmd` is `SELECT`, `INSERT`,
      * `UPDATE`, `DELETE` or `ALL`, and an `ALL` policy governs reads as well — so both are kept and
      * the write-only kinds are left out.
+     *
+     * `relkind` NAMES WHAT IS IN AND WHAT IS DELIBERATELY OUT, so the same finding is not made twice.
+     * ORDINARY TABLES (`'r'`) AND PARTITIONED PARENTS (`'p'`) ARE IN, because both carry the
+     * row-level-security flag and both are where `pg_policies` reports their policies — a public
+     * partitioned tenant table filtered out here would be absent from the witness entirely, never
+     * declared and never checked for isolation, which is the one case the arm exists for. VIEWS and
+     * MATERIALISED VIEWS are out because they are not the arm's subject: the arm grades the tables a
+     * tenant's rows live in. FOREIGN TABLES are out because this repository uses no foreign-data
+     * wrapper, so there is no such relation for the filter to miss.
      */
     publicSchemaCatalog: async (): Promise<CatalogTable[]> => {
       const tables = await rows<{
@@ -1023,7 +1032,7 @@ export async function createLiveAdapter(opts: {
                    has_table_privilege('authenticated', c.oid, 'SELECT') as authenticated_selects
               from pg_class c
               join pg_namespace n on n.oid = c.relnamespace
-             where n.nspname = 'public' and c.relkind = 'r'
+             where n.nspname = 'public' and c.relkind in ('r', 'p')
              order by c.relname`,
       );
       const policies = await rows<{ table_name: string; policy_name: string; roles: unknown; qual: string | null; cmd: string }>(
