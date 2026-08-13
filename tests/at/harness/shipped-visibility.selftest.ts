@@ -49,8 +49,14 @@ const call = (viewer: unknown, scope: unknown) =>
 describe('the shipped tenant-read rule fails closed', () => {
   it('grants the platform admin BOTH scopes, and names the basis', () => {
     // d65: the administrator role spans all accounts, so this branch does not read the scope at all.
-    // The basis is what makes AT-001.40's reach attributable — an `ok: true` alone could not tell the
-    // admin's reach from an ordinary read of the caller's own organisation.
+    // The basis is what makes the grant's REASON readable to a direct caller of the module — an
+    // `ok: true` alone could not tell the admin's reach from an ordinary read of the caller's own
+    // organisation — which is why this unit oracle asserts it.
+    //
+    // AT-001.40 CANNOT SEE THE BASIS, and it is not what makes that criterion's reach attributable.
+    // `TenantReadOutcome` deliberately carries a status and a value only, so that criterion attributes
+    // reach through two tenants read by ONE administrator and a non-administrator refused.
+    // `visibility.ts`'s paragraph above `TenantReadBasis` is where that is written down.
     const viewer = { accountType: 'platform_admin', roleInTargetOrganization: null, assignedVolunteerOfTargetProject: false };
     expect(call(viewer, 'organization'), 'a platform admin must read an organisation').toEqual({
       ok: true,
