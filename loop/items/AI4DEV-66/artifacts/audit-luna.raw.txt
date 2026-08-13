@@ -1,0 +1,86 @@
+Severity scale: S1 = ruling/security failure; S2 = false-green or conformance gap; S3 = false code fact/comment. No tests, typechecks, migrations, or live requests were run.
+
+Findings
+
+[1] severity: S1 (adopted ordering failure)    supabase/functions/public-project-page/index.ts:73
+    claim: The public handler reads the project target, then reads its organization, so the target is not the handler’s last read as R1-4 requires.
+    why it matters: An organization-read fault is reachable only after an existing project, producing 502 while an absent project returns 404; this third handler is also absent from the fault loop.
+    unverified-runtime-claim: yes — inject the organization-read fault for existing and absent projects.
+
+[2] severity: S2 (false-green test gap)    tests/at/suites/req-001/d-tenant-isolation.test.ts:700
+    claim: AT-001.40’s non-administrator controls only require non-null rows and absence of tenant A’s identifiers, so empty successful results pass.
+    why it matters: With privileges present but member policies denying every row, the administrator checks can pass while all four non-admin controls pass empty, proving no administrator-specific attribution.
+    unverified-runtime-claim: no
+
+[3] severity: S3 (false code fact)    supabase/functions/_shared/route-visibility.ts:31
+    claim: The comment says nothing imports this module, but the route selftest and route scan import it at `shipped-route-visibility.selftest.ts:33` and `_route-scan.ts:30`.
+    why it matters: Maintainers may treat the registry as unused and miss its current consumers.
+    unverified-runtime-claim: no
+
+[4] severity: S3 (false code fact)    supabase/functions/_shared/visibility.ts:206
+    claim: The comment says no call site can reach the unknown-scope branch, but the selftest deliberately reaches it through its casted call at `shipped-visibility.selftest.ts:47`.
+    why it matters: The comment misclassifies the fail-closed branch as unreachable and could encourage its removal.
+    unverified-runtime-claim: no
+
+[5] severity: S3 (false code fact)    tests/at/suites/req-001/_contract.ts:868
+    claim: The comment says every `dataApiRead` caller passes a `Session`, but AT-001.24 calls it with `null` at `d-tenant-isolation.test.ts:810`.
+    why it matters: It hides the newly exercised anonymous path and can lead future changes to assume a non-null session.
+    unverified-runtime-claim: no
+
+[6] severity: S2 (conformance blind spot)    tests/at/suites/req-001/_live.ts:1026
+    claim: The catalog witness filters `pg_class` to `relkind = 'r'`, omitting partitioned tables such as relations with `relkind = 'p'`.
+    why it matters: A public partitioned tenant table can be omitted before `catalogProblemsAgainst` checks declaration or isolation, allowing the conformance arm to miss it.
+    unverified-runtime-claim: no
+
+Checklist
+
+- S1 — PASS: the source-only diff contains exactly the declared 22 code-territory paths and no `src/` path.
+
+- R1-1 — PASS: AT-001.21 and AT-001.22 use `{ surface: 'ui' }` at `d-tenant-isolation.test.ts:84-96` and `303-308`.
+- R1-2 — PASS: no code footprint.
+- R1-3 — PASS: no code footprint.
+- R1-4 — FAIL [1]: the two authenticated handlers are target-last, but the public handler reads its organization after the project.
+- R1-5 — PASS: `_live.ts:319-340` leaves `callFunction` unchanged; `callFunctionRaw` is a sibling at `362-382`, used by `tenantRead` at `402-416`.
+- R1-6 — PASS: all three helpers use SQL, stable, security definer, empty search path, schema-qualified names, and revoke/grant posture.
+- R1-7 — PASS: the two migrations separate organization-member, volunteer, and administrator branches.
+- R1-8 — PASS: `catalogProblemsAgainst` implements all three current clauses at `_catalog-conformance.ts:186-270`, with selftests for each failure arm.
+- R1-9 — PASS: `_live.ts:441-448` sends the API key and authenticated caller token.
+- R1-10 — PASS: no reset invocation appears in the changed source diff.
+- R1-11 — PASS: `_live.ts:884-893` retains the old measurement, correction date, and changed grant explanation.
+- R1-A — PASS: the earlier revoke and grant rationale are named at the first migration’s lines 30-44.
+
+- GS1-1 — PASS: `readRows` wraps fetch and `response.text()` in one try with fixed table-only failure details.
+- GS1-2 — PASS: `_fixture.ts:1518-1587` mirrors policy branches directly and does not call `tenantReadAllowed`.
+- GS1-3 — PASS: both AT-001.21 bodies positive-control all four tables.
+- GS1-4 — PASS: added organization-ID expectations precede narrowing returns.
+- GS1-5 — PASS: `tenantReadAllowed` has explicit organization, project, and refusal branches; the selftest covers malformed values.
+- GS1-7 — PASS: `_fixture.ts:1486-1493` says the Data API prediction is ungraded; the separate line 1162 remains untouched.
+- GS1-8 — PASS: the ride-along is outside the source-only territory.
+
+- GS2-1 — PASS: the volunteer helper, policy conjunct, catalog helper list, fixture branch, and predicted qualifier all agree.
+- GS2-2 — PASS: `_live.ts:1020-1026` uses `has_table_privilege`; `CLIENT_ROLES` excludes `public` while policy-role helpers include it.
+- GS2-3 — PASS: RLS-off and missing-authenticated-grant branches exist and are selftested.
+- GS2-4 — PASS: `isTriviallyOpen` recognizes literal `true`; no blacklist was added.
+- GS2-5 — PASS for the stated coverage: both AT-001.40 bodies list all four tables and check both tenants; finding [2] covers the weak non-admin controls.
+- GS2-6 — PASS: route conventions and the integration refusal note are accurate; route behavior is unchanged.
+- GS2-7 — PASS: null caller and signed-out fixture model are distinguished in comments without changing the assertions or live logout adapter.
+- GS2-8 — PASS: the platform-admin selftest says AT-001.40 attributes reach through cross-tenant results, not a decision basis.
+- GS2-9 — PASS: the synthetic nested case is `admin/__shell.tsx`, with expected assertions unchanged.
+
+Facts
+
+- F1 — PASS: SQL membership checks appear at `20260812120000...sql:64-69`; the module additionally requires `ngo` at `visibility.ts:178-190`.
+- F2 — PASS: the membership trigger and project seat trigger/schema are unchanged and match the stated guards.
+- F3 — PASS: all table reads pass `SERVICE_ROLE_KEY` to `readRows`; those reads bypass client RLS.
+- F4 — PASS: `accounts` has an authenticated grant with RLS and no policy; `volunteer_profiles` has `revoke all`.
+- F5 — PASS: `src/router.tsx` builds a router without consulting `ROUTE_VISIBILITY`.
+- F6 — PASS: `_live.ts:623-632` retains cached tokens after sign-out, and `dataApiGet` sends them for non-null sessions.
+- F7 — PASS: no test file imports `supabase/functions/_shared/edge.ts`.
+- F8 — PASS: the two shared modules use only relative imports and no `Deno` global.
+- F9 — FAIL [3]: both changed route test/scan files import `route-visibility.ts`.
+- F10 — PASS: `_route-scan.ts:27-73` only reads the route tree and throws on read failure or an empty directory.
+- F11 — PASS: `config.toml:493-502` sets the two authenticated functions to `true` and the public function to `false`.
+- F12 — PASS: neither migration grants table or helper execution privileges to `anon`.
+
+AUDIT: 6 FINDINGS
+6 FINDINGS

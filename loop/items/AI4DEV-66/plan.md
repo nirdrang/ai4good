@@ -200,6 +200,31 @@ while a nonexistent id already answered 404, and those two answers are an existe
 the constant. With nothing after the target read, a fault answers the same 502 either way, by
 construction rather than by care.
 
+**WHAT THAT CLAUSE BINDS, STATED BECAUSE THE AUDIT FOUND IT UNSTATED (ruling A1).** It binds the two
+AUTHENTICATED read surfaces - `organization-dashboard` and `project-workspace`, the non-public
+surfaces that carry `TENANT_NOT_FOUND` as their one refusal, exactly as this decision's first
+sentence says. **It does NOT bind `public-project-page`**, and the reason is not an exemption granted
+to it but a property it has: that surface makes no access decision, so it has no second answer for an
+ordering to keep indistinguishable from the first. The criterion writes the carve-out itself -
+AT-001.21's clause is "no existence oracle BEYOND PUBLIC SURFACES", and this is the public surface.
+
+**And the clause is UNSATISFIABLE there, which is what settles it.** In the two authenticated
+handlers every decision input is keyed on the caller or on the target's IDENTIFIER, so all of them
+can be issued first. In `public-project-page` the second read is keyed on `project.org_id` - a COLUMN
+OF THE TARGET ROW - so the organisation cannot be read before the project at all. Obeying the letter
+would mean collapsing the two reads into one embedded select, which is a read-shape change to a live
+query that this branch cannot execute.
+
+**The residual it leaves is recorded rather than argued away:** on the public surface an
+organisation-read outage answers 502 where an absent project answers 404, so under that fault the
+response distinguishes an existing project from an absent one. That discloses strictly less than the
+200 answer already discloses about the same rows - it names the project and its organisation - so it
+sits inside the deliberate public-existence residual, not beside it.
+
+**The fault arm cannot cover that handler either, and this is not an omission.** The arm's comparison
+is "an existing-but-FOREIGN target against a well-formed nonexistent one". On the public surface
+nothing is foreign, so the comparison has no second term there.
+
 **How the two answers are compared, per tier (gate-1 ruling 5).** At integration tier the
 comparison is on the RAW response text and the status, through the unparsed helper of step 9 - not
 through `callFunction`, which returns `{ status, json }` after `JSON.parse` (`_live.ts:266-288`)
@@ -590,9 +615,23 @@ territory-neutral TypeScript, and a later `src/`-only pull request can import fr
 crossing the continuous-integration territory guard (fact 6). That is what makes the declaration
 usable by the router on the day the screens land.
 
-**The residual, and the merge ruling states it.** Nothing imports the registry today, and nothing
-enforces that a future router obeys it - there is no router. What it buys is a declaration in
-product code and a test that fails when a route arrives undeclared. It is not a redirect that runs.
+**The residual, and the merge ruling states it. CORRECTED BY THE AUDIT SITTING (ruling A3), and the
+original is kept below because a record that quietly rewrites itself proves nothing.** As written,
+this paragraph said "Nothing imports the registry today" and "there is no router". BOTH were false,
+in opposite directions, and both readers of the audit panel failed stated fact F9 over the first
+one - the panel's only convergence.
+
+- **TWO FILES IMPORT THE REGISTRY**, and both are tests:
+  `tests/at/suites/req-001/_route-scan.ts:30` imports `undeclaredRoutes`, and
+  `tests/at/harness/shipped-route-visibility.selftest.ts:33` imports `ROUTE_VISIBILITY` and
+  `undeclaredRoutes`. **No product code imports it.**
+- **A ROUTER EXISTS.** `src/router.tsx` builds one with `createRouter` over the generated route tree,
+  and **nothing in it consults `ROUTE_VISIBILITY`.** Slice-1 gate-2 ruling 6 established this and
+  corrected the module's own header; this paragraph was not corrected with it.
+
+What the registry buys is unchanged by either correction: a declaration in product code and a test
+that fails when a route arrives undeclared. **It is not a redirect that runs**, and the merge ruling
+says so.
 
 **A ROUTE FILE IS ANY `.tsx` FILE UNDER `src/routes/` WHOSE BASE NAME DOES NOT BEGIN WITH `__`.**
 The leading double underscore is this router's convention for a layout rather than a route, and
