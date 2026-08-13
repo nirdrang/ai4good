@@ -791,6 +791,21 @@ atTest(
       // This is where BOTH shapes are expressible, so both are driven and compared: the migrations
       // grant `anon` nothing at all, so a caller with no token is refused before any policy is
       // consulted, and `rows: null` rather than an empty array is what says so.
+      //
+      // THE TWO HALVES OF THIS ARM STAND ON DIFFERENT GROUND, and the split is stated rather than
+      // left to be discovered. THE NEVER-SIGNED-IN HALF IS SOUND AT BOTH TIERS: that caller sends no
+      // `Authorization` header, so PostgREST can resolve it to nothing but `anon`, and `anon` holds
+      // no grant. THE EQUALITY WITH THE SIGNED-OUT HALF IS THE FIXTURE'S MODEL. `_live.ts`'s
+      // `signOut` deliberately retains the cached tokens, so the live twin of the second call would
+      // carry a user's bearer token, and PostgREST judges a token by signature and expiry rather than
+      // by a session store.
+      //
+      // SO IF THIS ID EVER RAN LIVE, THE EQUALITY IS WHAT WOULD BE EXPECTED TO FAIL FIRST: the
+      // signed-out caller would be answered as that user until the token expired, with rows rather
+      // than `rows: null`, while the never-signed-in caller answered 401 exactly as it does here. It
+      // does not run live — AT-001.24 refuses at the integration tier under
+      // `ui.logged-out-surface-rendering` — so nothing in this branch grades it, and the record says
+      // so rather than guessing which model is right.
       for (const table of ['organizations', 'org_memberships', 'projects', 'acknowledgments'] as const) {
         const neverSignedIn = await sut.dataApiRead(null, { table, keyedBy: null, value: null });
         expect(neverSignedIn.rows, `a caller who never signed in read rows out of ${table}`).toBeNull();

@@ -1501,16 +1501,33 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * consult the caller's memberships at all — the same split the migrations' policies make.
      *
      * THE SESSION MAY BE `null`, AND THAT IS AT-001.24'S CALLER. A visitor who never signed in sends
-     * the publishable key and no bearer token, so PostgREST resolves the request to `anon`, which the
-     * migrations grant nothing at all — the refusal is the PRIVILEGE layer and never a policy. It is
-     * the same answer a caller whose session has ended receives, for the same reason, and AT-001.24
-     * asserts that the two agree.
+     * the publishable key and NO `Authorization` HEADER AT ALL, so PostgREST resolves the request to
+     * `anon`, which the migrations grant nothing — the refusal is the PRIVILEGE layer and never a
+     * policy. That half is true at BOTH tiers by construction, because a request with no bearer token
+     * cannot be resolved to any user.
+     *
+     * THE DEAD SESSION ANSWERS THE SAME HERE, AND THAT IS THIS FILE'S MODEL RATHER THAN A MEASURED
+     * FACT. `_live.ts`'s `signOut` deliberately RETAINS the cached tokens — its own comment gives the
+     * reason, that deleting them made the revocation clause untestable — so a live request from a
+     * caller whose session has ended DOES carry a user's bearer token, and PostgREST judges a token by
+     * its signature and expiry rather than by any session store. The two callers may therefore NOT
+     * agree at the integration tier. Nothing in this branch grades that: AT-001.24 refuses at the
+     * integration tier under `ui.logged-out-surface-rendering`, and the tier has never run at any head
+     * of this branch. AT-001.24 asserts the two agree at THIS tier, against this model.
      */
     dataApiRead: async (session, probe): Promise<DataApiReadOutcome> => {
-      // NO SESSION AND A DEAD SESSION ANSWER ALIKE, and the reason is one layer below the policy set:
-      // neither carries a user, so PostgREST resolves the request to `anon`, and `anon` holds no
-      // `select` grant on any of these four tables. `rows: null` is the privilege layer refusing
-      // before any row was considered, which `_contract.ts` keeps distinct from an empty array.
+      // NO SESSION AND A DEAD SESSION ANSWER ALIKE HERE, and the two halves of that stand on
+      // different ground.
+      //
+      // THE `null` CALLER IS SETTLED. It sends no `Authorization` header at all, so PostgREST
+      // resolves the request to `anon`, and `anon` holds no `select` grant on any of these four
+      // tables. `rows: null` is the privilege layer refusing before any row was considered, which
+      // `_contract.ts` keeps distinct from an empty array. True at both tiers by construction.
+      //
+      // THE DEAD SESSION IS THIS FILE'S MODEL. `_live.ts` keeps the tokens after `signOut` on
+      // purpose, so the live twin of this call carries a user's bearer token, and PostgREST judges a
+      // token by signature and expiry rather than by a session store. Whether it is accepted is a
+      // property of the deployed stack that nothing in this branch measures.
       const caller = session === null ? null : resolveCaller(session);
       if (caller === null) return { status: 401, rows: null };
 
