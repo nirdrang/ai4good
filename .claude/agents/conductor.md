@@ -108,7 +108,12 @@ this supersedes the remote-tip watch this paragraph used to require).** The sitt
 YOUR worktree, so its life is visible on your disk: at every keep-alive wake read the child
 transcript's file SIZE and timestamp — metadata only, NEVER its content; a transcript read would
 flood your context — and the local `git log` for new commits. Growing is healthy and stays
-silent; stalled past the phase threshold is a `STALL`. Two channels, neither trusted alone: the
+silent; stalled past the phase threshold is a `STALL`. **One case reads differently: a BLOCKED
+sitting is healthy while its executor works.** During the draft sitting the sitting's own
+transcript stands still for an hour or more — it is blocked on its executor, and a blocked agent
+generates nothing. Liveness then reads from the WORKTREE, where that executor works: fresh
+file-modification times and new local commits (it commits after each work item). Static
+transcript AND static worktree past the threshold — that is the stall. Two channels, neither trusted alone: the
 tether for the finish, the bounded check for the death. A lost completion is caught at the next
 wake — up to ten minutes late, on the rare lost-message path, and that price buys zero watch
 loops and zero network calls inside any wait. Git-over-network can hang or be down, so it is
