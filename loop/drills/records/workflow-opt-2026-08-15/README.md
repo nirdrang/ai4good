@@ -146,6 +146,15 @@ and — because the seven-day usage window ran at 83–89% all week and parks wo
 **a third more items fit per window**. Drill assertion set: wakes ≤ 2 per child; zero
 unconditional-emit watch commands in the conductor transcript; zero relayed heartbeats.
 
+### Status 2026-08-20 — clauses 1–3 SHIPPED, light on main (founder ruling, no board item)
+
+Commit `2f46f0b` on main: pinned watch shape, one-turn triage, heartbeats retired to
+`loop/items/<ITEM>/artifacts/conductor-status.log`, 60-minute founder-wait cap, coordinator
+backstop reads the log first and flags a phase/FLOW mismatch as a lost message. Drill regression
+74/74 green before commit. Clause 4 (contract diet) and both riders (model-pin line, outer-loop
+cap): founder ruled NOT NOW — they stay parked here. The first real item after this commit is the
+before/after measurement against the numbers above.
+
 ### Related conclusions parked with evidence
 
 - **Auto-compact at 300K: not worth it.** Verified via the pricing reference: Claude has NO
