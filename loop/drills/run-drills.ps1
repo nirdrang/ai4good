@@ -315,17 +315,6 @@ foreach ($f in @('conductor.md', 'orchestrator.md', 'orchestrator-opus.md', 'exe
 }
 Assert 'park-verb' 'every parkable role defines PARK and reports PARKED at a commit' ($parkMissing.Count -eq 0)
 if ($parkMissing.Count -gt 0) { Write-Output ('  park-verb: missing or incomplete in ' + ($parkMissing -join ', ')) }
-
-# window guard: the coordinator's stop line, its park, and its resume, driven end to end on
-# synthetic readings. It spends nothing and touches no live file, so it belongs in the standing
-# suite rather than in a run somebody has to remember.
-$simOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here '..\work\window-sim.ps1')
-$simOk = ($LASTEXITCODE -eq 0)
-Assert 'window-guard' 'the usage-window guard stops at the line, arms the wait, and resumes' $simOk
-if (-not $simOk) {
-    $simOut | Where-Object { $_ -match 'FAIL|RESULT' } | ForEach-Object { Write-Output ('  window-sim: ' + $_) }
-}
-
 # ---- Report ----
 $failed = @($results | Where-Object { -not $_.Pass })
 

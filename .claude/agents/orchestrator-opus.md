@@ -263,8 +263,9 @@ does and does not claim.
 
 ## PARK — one word, one meaning (founder 2026-08-13)
 
-The coordinator sends `PARK` when a usage window reaches its stop line. It is the only instruction
-that stops work in flight. It arrives as a message at your NEXT TOOL ROUND.
+The coordinator sends `PARK` when work must stop before its natural boundary - the founder asks
+for it, or the machine is needed elsewhere. It is the only instruction that stops work in flight.
+It arrives as a message at your NEXT TOOL ROUND.
 
 **A queued `PARK` reaches you when your child returns.** While you wait for a synchronous executor
 you take no tool rounds, so the message waits and lands attached to that child's result, the

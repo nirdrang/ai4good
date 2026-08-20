@@ -65,8 +65,9 @@ what makes the caps enforceable.
 
 ## PARK — one word, one meaning (founder 2026-08-13)
 
-The coordinator sends `PARK` when a usage window reaches its stop line. It is the only instruction
-that stops work in flight. It arrives as a message at your NEXT TOOL ROUND, so you are the actor
+The coordinator sends `PARK` when work must stop before its natural boundary - the founder asks
+for it, or the machine is needed elsewhere. It is the only instruction that stops work in flight.
+It arrives as a message at your NEXT TOOL ROUND, so you are the actor
 that gets it first: you take a tool round every few seconds, and the agents above you are blocked
 waiting for you and can read nothing until you return.
 

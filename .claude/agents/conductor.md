@@ -215,7 +215,7 @@ So, every time you arm a watch:
 
 **Your keep-alive timer stays armed through every reviewer wait even though the runner is the wake
 signal.** The two do different jobs: the runner tells you the gate landed, the timer is what makes
-you take a turn at all, so the coordinator's usage gauge stays current. Neither is load-bearing for
+you take a turn at all, so the coordinator stays awake to the item. Neither is load-bearing for
 the other, which is exactly why both are there.
 
 ## When CI is not green, gather the platform's own status — you still judge nothing
@@ -348,8 +348,9 @@ its own commit.
 
 ## PARK — one word, one meaning (founder 2026-08-13)
 
-The coordinator sends `PARK` when a usage window reaches its stop line. It is the only instruction
-that stops work in flight. It arrives as a message at your NEXT TOOL ROUND.
+The coordinator sends `PARK` when work must stop before its natural boundary - the founder asks
+for it, or the machine is needed elsewhere. It is the only instruction that stops work in flight.
+It arrives as a message at your NEXT TOOL ROUND.
 
 **A queued `PARK` reaches you when your child returns.** While you wait for a sitting you take no
 tool rounds, so the message waits and lands attached to that sitting's result, the moment it ends.
@@ -392,7 +393,7 @@ PULSE AI4DEV-20 (judging AI output meaning)  implement  22m elapsed
 
 A pulse is cheap and its value is entirely in arriving on time, so never suppress one because
 "nothing has changed" — nothing changing over a long stretch is itself the thing the coordinator
-needs to see, and it is the only moment it can read the usage gauge.
+needs to see.
 
 A watch that expires with nothing landed gets a `STALL` line, not silence — that is a signal to
 investigate, and the one time it was shrugged off it cost four idle hours. A question for the

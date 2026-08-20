@@ -50,7 +50,7 @@ ruled content — not a preference — is what landed.
 
 ## Scenario 4b — a PARK reaching a blocked pipe (run 2026-08-13, founder-ordered: HELD)
 
-The transport the window guard depends on. Spawn a background PARENT (haiku) that spawns ONE
+The transport a park depends on. Spawn a background PARENT (haiku) that spawns ONE
 SYNCHRONOUS child (haiku); the child loops on a ten-second tool call and is told to stop at once
 if an instruction containing `PARK` arrives. The coordinator sends `PARK` to the blocked parent
 FIRST, then to the child — addressing the child by the id it registered in the coordinator's own
