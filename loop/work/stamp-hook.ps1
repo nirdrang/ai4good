@@ -189,59 +189,6 @@ try {
     }
     $script:Actor = if ($top -match '[\\/]\.claude[\\/]worktrees[\\/]') { 'AGENT' } else { 'COORDINATOR' }
 
-    # THE USAGE WINDOW, ON EVERY PROMPT (founder 2026-08-13). Until now the guard was a rule the
-    # coordinator had to remember to read; the reading now stands in front of the founder before
-    # every prompt, in the one channel that is always read.
-    #
-    # IT DISPLAYS, IT DOES NOT DECIDE. The gauge reads a file and reports; it has never been able
-    # to halt anything, and this line does not change that. The coordinator stays the only actor
-    # that stops work, because a brake inside a hook is a second brake and an invisible one.
-    #
-    # COORDINATOR ONLY. An agent never reads the limits, by design, so the line is absent in an
-    # agent worktree - including in the child re-runs that build the supervision tree below, which
-    # stamp as AGENT and so skip this block on the same test.
-    #
-    # The gauge is CALLED, never re-implemented. The pause line lives in one place and the hook
-    # prints the number the gauge itself used, so the figure the founder reads cannot drift from
-    # the figure the verdict came from. Cost is about 120 ms, in this process, no second shell.
-    if ($script:Actor -eq 'COORDINATOR') {
-        try {
-            $gaugePath = Join-Path $PSScriptRoot 'window-gauge.ps1'
-            if (Test-Path -LiteralPath $gaugePath) {
-                # Drills point this at a synthetic reading. Nothing else sets it, and nothing here
-                # ever writes the live snapshot - the status line owns that file.
-                $gArgs = @{ Json = $true }
-                if ($env:AI4GOOD_WINDOW_SNAPSHOT) { $gArgs['SnapshotPath'] = $env:AI4GOOD_WINDOW_SNAPSHOT }
-                $g = (& $gaugePath @gArgs) | ConvertFrom-Json
-                if ($g) {
-                    # The age prints every time. A stale number that looks current is the failure
-                    # this guard is most exposed to, because only founder-typed turns refresh it.
-                    $age = if ($null -ne $g.readingAgeMin) { ('reading {0} min old' -f $g.readingAgeMin) } else { 'reading undatable' }
-                    $reset = '?'
-                    foreach ($w in @($g.windows)) { if ($w.name -eq $g.worstWindow) { $reset = $w.resetsLocal } }
-                    # Every window prints as `percent/its own line`, because the lines differ by
-                    # family (five-hour 85, weekly 95) and a bare percentage no longer says how
-                    # close anything is to stopping.
-                    if ($g.verdict -eq 'PAUSE') {
-                        $extra += ('WINDOW  PAUSE   {0} at {1}% of its {2}% - STOP THE WORKFLOW: park the running items, send PARK leaf first, arm loop/work/window-wait.ps1 as a background command, resume after the reset at {3} - {4}' -f `
-                            $g.worstWindow, $g.worstPercent, $g.pauseAt, $reset, $age)
-                    }
-                    elseif ($g.verdict -eq 'OK') {
-                        $all = ((@($g.windows) | ForEach-Object { '{0} {1}%/{2}' -f $_.name, $_.percent, $_.line }) -join ' - ')
-                        $extra += ('WINDOW  OK      {0} - nearest {1}, resets {2} - {3}' -f $all, $g.worstWindow, $reset, $age)
-                    }
-                    else {
-                        $extra += ('WINDOW  UNKNOWN {0} - report it, do not halt' -f $g.reason)
-                    }
-                }
-            }
-        }
-        catch {
-            # Never silent, never fatal: the stamp itself is untouched by a broken instrument.
-            $extra += ('WINDOW  UNKNOWN the gauge could not be read: ' + ($_.Exception.Message -replace '[\r\n]', ' '))
-        }
-    }
-
     # SUPERVISED AGENTS (founder 2026-08-05). From the MAIN checkout, every platform agent
     # worktree gets its own derived stamp appended, so the founder sees the whole supervision
     # tree on every prompt without asking. Each agent line is this hook re-run against that
