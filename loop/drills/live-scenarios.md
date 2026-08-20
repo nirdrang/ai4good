@@ -48,7 +48,7 @@ the ruled content, and the report counts two iterations with nothing else change
 Result: held on every assertion, both halves. The stop is real, the resume is real, and the
 ruled content — not a preference — is what landed.
 
-## Scenario 4b — a PARK reaching a blocked pipe (run 2026-08-13, founder-ordered: HELD)
+## Scenario 4b — a PARK reaching a blocked pipe (run 2026-08-13; SUPERSEDED 2026-08-21: the park verb is removed by founder ruling — kept as the measurement of message delivery to blocked and free agents)
 
 The transport a park depends on. Spawn a background PARENT (haiku) that spawns ONE
 SYNCHRONOUS child (haiku); the child loops on a ten-second tool call and is told to stop at once
@@ -60,9 +60,9 @@ Expected, and measured on 2026-08-13: the child stops at its NEXT TOOL ROUND (it
 of a planned 12, about 34 seconds in); the parent reports that its own park appeared only AFTER
 the child returned, delivered attached to that child's result. Cost 31K tokens, 52 seconds.
 
-A failure here means either the delivery rule changed or a role stopped acting on the word. Both
-matter: the mechanical suite proves the contracts still DEFINE `PARK`, and only this scenario
-proves an agent still OBEYS it.
+Since the park removal this scenario is not re-run as a park test; its measured delivery facts
+(a blocked parent hears nothing until its child returns; a leaf hears at its next tool round)
+remain the reference for ALL message passing in the relay.
 
 ## Scenario 5 — the birth-certificate address chain (run 2026-08-10, founder-ordered: HELD)
 

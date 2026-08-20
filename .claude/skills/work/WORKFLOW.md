@@ -95,7 +95,7 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
 19  CONDUCTOR    spawn ONE reviewer-runner (sol via codex), in the background — the runner
                  launches OS-DETACHED, holds the wait, and distils; its completion wakes you.
                  No file-watch: that mechanism failed twice on one item, armed and silent
-20  CONDUCTOR    flow "plan → gate 1" · keep-alive timer armed · you watch no reviewer files
+20  CONDUCTOR    flow "plan → gate 1" · status log appended · no timers (pure push, 2026-08-21) · you watch no reviewer files
 21  CONDUCTOR    the runner reports — LANDED with its distillate, or an anomaly handed down
 22  CONDUCTOR    flow "gate 1 done · sol N" → spawn DRAFT SITTING
 ```
@@ -132,8 +132,8 @@ No clones. No per-sitting trees. No `--detach` handoff — nothing else competes
                  flash via opencode (the second seat, founder ruling 2026-08-09; Kimi stays
                  out). The runner launches, holds the wait, and distils; its completion wakes
                  you. Neither reviewer learns the other exists
-34  CONDUCTOR    flow "draft → gate 2" · keep-alive timer armed · you watch no reviewer files —
-                 the runner holds that wait
+34  CONDUCTOR    flow "draft → gate 2" · status log appended · no timers (pure push) · you watch
+                 no reviewer files — the runner holds that wait
 35  CONDUCTOR    proceed only when BOTH runners have reported — a partial landing is not
                  progress, and it is visible as one runner still outstanding
 36  CONDUCTOR    flow "gate 2 done · terra N · flash M" → spawn FIX SITTING
@@ -193,7 +193,7 @@ and the fix delta fence its judgment, so it spares fable (founder 2026-08-11).
 49  CONDUCTOR    spawn ONE reviewer-runner PER READER, in the background — luna via codex,
                  flash via opencode: the audit is a PANEL of two (founder ruling 2026-08-09).
                  The runner launches, holds the wait, and distils
-50  CONDUCTOR    flow "fix → audit" · keep-alive timer armed · the runners hold the waits
+50  CONDUCTOR    flow "fix → audit" · status log appended · no timers (pure push) · the runners hold the waits
 51  CONDUCTOR    proceed only when BOTH runners have reported
 52  CONDUCTOR    CLEAN OR NOT, DERIVED FROM BOTH DISTILLATES — never from anyone's word
                  CLEAN = BOTH seats zero findings AND each distillate reads as a real verdict

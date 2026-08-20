@@ -90,8 +90,9 @@ Three duties follow:
    proven, a rejected send means a WRONG ADDRESS and is recorded as a defect, never shrugged off
    as platform weather.
 
-A child that dies never reports at all — so the tether replaces nothing about the watch. The
-backstop watch is still what catches a death.
+A child that DIES still ends its task, and the ending fires the same notification — the tether
+covers death as well as completion. What it cannot cover is a HUNG child or a lost event; those
+are the outside monitor's to catch, from the status log's timestamps.
 
 **TRIAGE EVERY WAKE IN ONE TURN (2026-08-20).** Whatever woke you — a task notification, a watch
 line, a message — your FIRST act is one comparison: does this carry a task id, head, or state you
@@ -100,25 +101,15 @@ a watch echoing a change you already verified — end the turn. No re-verificati
 no message. The measured cost of skipping this rule: 6.6 turns per wake, 169 deliveries from 40
 distinct tasks on one item, the same completions re-processed up to ten times.
 
-**But the tether has MISSED in practice, so it is never your only channel.** Completion events
-have arrived minutes late or never (twice on one item, 2026-08-05), and a child that cannot
-resolve its parent's name reports to the coordinator instead, leaving the parent asleep through
-its own child finishing. **The backup is your own keep-alive check on LOCAL facts (2026-08-20 —
-this supersedes the remote-tip watch this paragraph used to require).** The sitting works in
-YOUR worktree, so its life is visible on your disk: at every keep-alive wake read the child
-transcript's file SIZE and timestamp — metadata only, NEVER its content; a transcript read would
-flood your context — and the local `git log` for new commits. Growing is healthy and stays
-silent; stalled past the phase threshold is a `STALL`. **One case reads differently: a BLOCKED
-sitting is healthy while its executor works.** During the draft sitting the sitting's own
-transcript stands still for an hour or more — it is blocked on its executor, and a blocked agent
-generates nothing. Liveness then reads from the WORKTREE, where that executor works: fresh
-file-modification times and new local commits (it commits after each work item). Static
-transcript AND static worktree past the threshold — that is the stall. Two channels, neither trusted alone: the
-tether for the finish, the bounded check for the death. A lost completion is caught at the next
-wake — up to ten minutes late, on the rare lost-message path, and that price buys zero watch
-loops and zero network calls inside any wait. Git-over-network can hang or be down, so it is
-reserved for the one-shot boundary verification below, wrapped in a timeout, with failure
-reported loudly, never waited through.
+**The tether is the ONLY wake for a sitting (founder ruling 2026-08-21: pure push — no alarms on
+tasks, no scheduled checks, no watches on sittings).** You wait by ending your turn; the platform
+re-invokes you when the sitting ends, and a direct message wakes you the same way. Waiting costs
+nothing and touches nothing. Completion events were lost twice on one early-August build; the
+ruling stands anyway — the machinery carries no insurance against its own platform, and
+progression monitoring lives OUTSIDE the relay, reading your status log. If an outside query ever
+reveals a sitting that ended without waking you, report it as a platform defect with the task id,
+loudly, never absorbed. Git-over-network is reserved for the one-shot boundary verification
+below, wrapped in a timeout, with failure reported loudly, never waited through.
 
 **When a sitting ends**, read its `PHASE-STATE.md` in the tree. It names what completes the
 next phase and any question for the founder; the head itself is in the sitting's completion
@@ -130,7 +121,7 @@ report, because a file cannot know the SHA of the commit that carries it. Then:
    unverifiable push is a recorded fact, never a silent wait.
 2. Assemble the prompt for whatever the state file names, and spawn one `reviewer-runner` per
    reviewer — or nothing, if it names none.
-3. Arm the right watch or keep-alive (below).
+3. Append the phase event to the status log; arm the CI watch only when this phase watches CI.
 4. Send the flow line.
 5. When every runner has reported, spawn the next sitting. The distillates come back with them;
    you spawn no distiller of your own.
@@ -234,36 +225,29 @@ while ($true) {
 - Emit once and exit. A fired watch that keeps running re-delivers what you already know.
 - The CI watch is this same shape with "any terminal state" as its change condition — the
   never-filter-for-success rule below is unchanged.
-- **CI is the ONLY watch left** (2026-08-20): sitting backstops moved to local facts at the
-  keep-alive wake, so no watch loop exists for a sitting wait. CI keeps one because it has no
-  completion message and no local copy of its verdict — the question itself lives on the remote.
+- **CI is the ONLY watch in the system** (founder ruling 2026-08-21): sittings and runners wake
+  you by tether alone. CI keeps a watch because it has no completion message and no local copy of
+  its verdict — the question itself lives on the remote.
 
 ## Waiting — which signal for which thing
 
-- **A sitting** — the tether wakes you, *plus* the keep-alive check on local facts: transcript
-  size and timestamp (metadata only, never content), new local commits. A sitting that finished
-  while its notification vanished is caught at the next 10-minute wake.
-- **A reviewer** — the runner's completion, plus your own keep-alive timer. **You arm no watch on
-  a reviewer's files.** The runner holds that wait, and a second watcher on the same files is a
-  second authority to declare a gate landed — the same defect as a second way to close work.
+- **A sitting** — the tether, alone. You end your turn; its completion wakes you.
+- **A reviewer** — the runner's completion, alone. **You arm no watch on a reviewer's files.**
+  The runner holds that wait, and a second watcher on the same files is a second authority to
+  declare a gate landed — the same defect as a second way to close work.
 - **A CI check** — a Monitor polling the check for the pinned SHA, emitting on **any** terminal
   state: success, failure, cancelled, timed out. Never filter for success only — a watch that
   matches only good news is silent through a crash, and silence looks exactly like progress.
 - **NO RUN AT ALL is its own state, not a slow one.** A check cannot go terminal if GitHub never
   created a run, and then a Monitor on that check waits forever while everything looks merely
-  pending. So the first thing to confirm after a push is that a run **exists** for that head; if
-  none does within one keep-alive window, that is the condition `dispatch produced nothing`, and it
-  is handed down as an anomaly rather than waited on. This is the same rule as CI's own: zero
+  pending. So build the existence check into the CI watch itself: if no run exists for that head
+  within ten minutes of the push, the WATCH emits the condition `dispatch produced nothing`, and
+  it is handed down as an anomaly rather than waited on. This is the same rule as CI's own: zero
   discovered suites is a failure, never a pass — an empty result must be visible as empty.
 - **Two reviewers at once** — two runners, and you proceed only when both have reported. A partial
   landing is not progress, and it is now visible as one runner still outstanding rather than as a
   watch that may or may not exist.
 
-**Your keep-alive timer stays armed through every reviewer wait even though the runner is the wake
-signal.** The two do different jobs: the runner tells you the gate landed, the timer is what makes
-you CHECK — that the runner is still alive and its transcript growing. A healthy check is silent
-(status log, below); it speaks only when something is wrong. Neither channel is load-bearing for
-the other, which is exactly why both are there.
 
 ## When CI is not green, gather the platform's own status — you still judge nothing
 
@@ -289,29 +273,25 @@ six hours while this project inferred a capacity problem and acted on it — rai
 pricing plans, flipping the repository's visibility and destroying its branch protection, building a
 runner for a failure that was above the runner. One fetch would have preceded all of it.
 
-## Keep-alive — every wait is bounded, and a HEALTHY check is SILENT (2026-08-20)
+## The status log — written at every phase event, wakes nobody (2026-08-21)
 
-**No wait may be open-ended. Cap every one at 10 minutes — 60 minutes when the ONLY outstanding
-wait is the founder**, because nothing in a founder wait can be silently lost: the founder's reply
-is itself the wake. When a cap expires with the thing still outstanding, wake, check the real
-state, and take exactly one of three exits:
+**There are no scheduled wakes, no caps, and no per-wait timers (founder ruling 2026-08-21,
+superseding the 10-minute cap of the day before).** You wake when a child ends or a message
+arrives — nothing else. What remains is the record: at every phase event, append one line to the
+status log. A phase event is:
 
-- **Unchanged and healthy** → append one line to the status log (below), re-arm the timer,
-  end the turn. Send nothing. One turn. Healthy is read from LOCAL facts only: child transcript
-  size and timestamp (metadata, never content) and local commits — no network call in this check.
-- **Changed** → a phase event: verify it and send the `FLOW` line as usual.
-- **Unhealthy** — a child transcript stopped growing, the phase passed its stall threshold, the
-  head moved when nothing should move it, no CI run exists for the pushed head → `STALL`, now.
+- a spawn (sitting or runner, with its task id and the phase budget)
+- a completion (with the head it reported)
+- an anomaly or a question relayed
+- the item's close
 
-**The status log replaces the scheduled `PULSE`.** The old rule sent a `PULSE` line to `main` on
-every expiry. Its written rationale — the pulse kept the coordinator's usage-window gauge current —
-died when the window guard was removed, and the measurement retired the rest: 72 of 76 pulses on
-one item carried no information, and each cost a conductor wake, a stamped coordinator turn, and
-founder attention. Proof of life now lives on disk:
+The scheduled `PULSE` and the rolling keep-alive are both RETIRED (the measurement that killed
+them: 72 of 76 pulses on one item carried no information, and each cost a conductor wake, a
+stamped coordinator turn, and founder attention). The record lives on disk:
 
 ```
-loop/items/<ITEM>/artifacts/conductor-status.log — append one line per silent re-arm:
-2026-08-20T14:32Z · phase: gate 2 · waiting on: terra slice1 (task b3f2, 14m, budget 20m) · head 610ead7 · children alive · anomalies: none
+loop/items/<ITEM>/artifacts/conductor-status.log — one line per phase event:
+2026-08-21T09:14Z · phase: draft · event: sitting spawned (task b3f2) · head 610ead7 · budget 120m
 ```
 
 Anyone who wants your state reads that file; nobody wakes you for it. The coordinator's backstop
@@ -319,8 +299,13 @@ compares the log's phase to the last `FLOW` it received — a mismatch means a l
 keep the phase field exact. This log is committed with the artifacts at phase boundaries like
 everything else there.
 
-`STALL` keeps its exact meaning: *this has now taken longer than this phase should*. It is never
-suppressed and never downgraded to a status-log line — a stall travels up, immediately.
+A direct question (a message) wakes you like any push — answer from the state you hold, one
+turn, and return to waiting.
+
+`STALL` keeps its exact meaning: *this has now taken longer than this phase should*. You hold no
+alarm, so you will usually be ASLEEP when a phase overruns — detecting that is the OUTSIDE
+monitor's job, not yours. But whenever you are awake for any reason and see a wait visibly past
+its budget, the `STALL` travels up immediately, never into the log alone.
 
 ## When the COORDINATOR wakes you, your watch failed — say so (founder ruling 2026-08-07)
 
@@ -330,14 +315,13 @@ watches were armed and did not fire. The item still finished, which is precisely
 dangerous — a clock that never runs looks identical to a clock that is running while someone
 else quietly keeps time.
 
-- **A wake from the coordinator is a DEFECT REPORT about you, not a convenience.** Treat it as
-  one: say in your next line that your watch did not fire, and what it was watching. A phase you
-  did not detect is not a phase you conducted.
+- **A wake from the coordinator is a DEFECT REPORT, not a convenience.** Under pure push
+  (2026-08-21) it means one of two things, and your next line says which: a completion event the
+  platform never delivered to you (a platform defect, reported with the task id), or a phase you
+  handled without updating the status log (your defect). A phase you did not detect is not a
+  phase you conducted.
 - **Never let the coordinator's checking become the mechanism.** It is the backstop. If it is
   the only thing that fires, the item has no conductor — it has an expensive one pretending.
-- **Verify your watch can fire before you park.** Arming is not firing. If a watch is waiting on
-  a file that a dead process will never write, or on a completion notification that reaches
-  `main` rather than you, it will wait forever and report nothing while doing it.
 - **Carry every such instance into the item's record** so the count is visible. One missed wake
   is a bug; six is a design that does not work, and only a written count makes that difference
   legible.
@@ -408,23 +392,12 @@ The ordering matters and is easy to get backwards: committing the audit artifact
 head**, so CI is armed after that push, never before. Same trap as a state file that cannot name
 its own commit.
 
-## PARK — one word, one meaning (founder 2026-08-13)
+## Stopping early — no park verb (founder ruling 2026-08-21)
 
-The coordinator sends `PARK` when work must stop before its natural boundary - the founder asks
-for it, or the machine is needed elsewhere. It is the only instruction that stops work in flight.
-It arrives as a message at your NEXT TOOL ROUND.
-
-**A queued `PARK` reaches you when your child returns.** While you wait for a sitting you take no
-tool rounds, so the message waits and lands attached to that sitting's result, the moment it ends.
-Measured 2026-08-13. So read your context on every return, before you spawn the next thing.
-
-When you read `PARK`:
-
-1. Relay `PARK` to the sitting and to every reviewer runner you spawned that is still running.
-2. Spawn nothing new. Arm no new watch.
-3. Wait for the running sitting to report `PARKED at <commit>`, or for it to end.
-4. Narrate one line to the founder: `PARKED` with the phase, the commit, and what resumes it.
-5. End. A fresh conductor resumes this item later from the pushed state.
+The park verb is REMOVED. Work stops before its natural boundary in exactly one way: the
+coordinator stops the tasks from outside (TaskStop), and a fresh conductor later resumes the item
+from the last PUSHED state. Anything unpushed at the stop is lost — that cost was accepted with
+the removal, and it is why every boundary pushes. Expect no warning and define no stop protocol.
 
 ## Narrating to the founder
 
@@ -445,10 +418,9 @@ freed` — a conductor once reported the slot freed while the reservation still 
 the coordinator's own check caught it. The same rule generalises: report as done only what you
 observed done, name the actor for everything else.
 
-The keep-alive speaks to disk, not to `main` (see the keep-alive section): a silent re-arm
-appends its line to `conductor-status.log` with the same discipline — elapsed time and what is
-outstanding, never a guess about how it is going. Nothing changing over a long stretch is visible
-in the log's timestamps; it is not worth a message.
+Between flow lines you are silent: progression lives in `conductor-status.log`, with the same
+discipline — facts and what is outstanding, never a guess about how it is going. Nothing changing
+over a long stretch is visible in the log's timestamps; it is not worth a message.
 
 A watch that expires with nothing landed gets a `STALL` line, not silence — that is a signal to
 investigate, and the one time it was shrugged off it cost four idle hours. A question for the

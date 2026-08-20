@@ -303,18 +303,17 @@ Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 & powershell -NoProfile -File (Join-Path $here '..\work\twin-check.ps1') | Out-Null
 Assert 'twin-guard' 'orchestrator twins are in sync (edit both or neither)' ($LASTEXITCODE -eq 0)
 
-# park guard: PARK is ONE verb with ONE meaning, defined in every role that can be told to stop.
-# The transport was measured on 2026-08-13 - a message lands at the receiver's next tool round -
-# but transport is not obedience: the probe child stopped because its prompt defined the word. A
-# contract that loses this section turns the park back into a phrasing that happens to work.
-$parkMissing = @()
-foreach ($f in @('conductor.md', 'orchestrator.md', 'orchestrator-opus.md', 'executor.md')) {
+# no-park guard: the park verb was REMOVED (founder ruling 2026-08-21). Stopping early is
+# TaskStop from outside; resume is from the last pushed state. A contract that still defines
+# a PARK protocol is stale text waiting to be obeyed.
+$parkStale = @()
+foreach ($f in @('conductor.md', 'orchestrator.md', 'orchestrator-opus.md', 'executor.md', 'reviewer-runner.md')) {
     $t = ''
     try { $t = Get-Content (Join-Path $here ('..\..\.claude\agents\' + $f)) -Raw } catch { }
-    if (($t -notmatch '(?m)^## PARK') -or ($t -notmatch 'PARKED at')) { $parkMissing += $f }
+    if ($t -match '(?m)^## PARK' -or $t -match 'PARKED at') { $parkStale += $f }
 }
-Assert 'park-verb' 'every parkable role defines PARK and reports PARKED at a commit' ($parkMissing.Count -eq 0)
-if ($parkMissing.Count -gt 0) { Write-Output ('  park-verb: missing or incomplete in ' + ($parkMissing -join ', ')) }
+Assert 'no-park' 'no role contract defines the removed park verb' ($parkStale.Count -eq 0)
+if ($parkStale.Count -gt 0) { Write-Output ('  no-park: stale PARK protocol in ' + ($parkStale -join ', ')) }
 # ---- Report ----
 $failed = @($results | Where-Object { -not $_.Pass })
 
