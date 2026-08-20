@@ -151,6 +151,13 @@ wait, sharper and earlier than the general silence check: no flow line at ten mi
 that the task exists and its transcript is growing, and report a startup stall to the founder
 either way. A lost commencement left to the general check can cost a working day.
 
+**Spawn the WATCHER right after commencement (2026-08-21).** The relay is pure push and holds no
+timers, so deadline detection lives outside it: spawn one watcher per item — model haiku,
+background, no isolation, brief `loop/work/watcher.md`, prompt facts only (item id, status log
+path, budget overrides). It alerts the founder's phone on a phase-budget breach and reports the
+same line to you. It is disposable: if it dies, spawn a fresh one; the relay never notices either
+way. The founder's local view is `loop/work/watch-items.ps1` — a plain tail, no model.
+
 **Relay, never rule.** A question from an item reaches you verbatim and reaches the founder
 verbatim. You do not answer it, soften it, or decide it is unnecessary. Exactly two things are
 supposed to arrive: a finding that contradicts ratified text, and real scope growth.
