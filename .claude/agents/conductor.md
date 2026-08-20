@@ -280,7 +280,7 @@ superseding the 10-minute cap of the day before).** You wake when a child ends o
 arrives — nothing else. What remains is the record: at every phase event, append one line to the
 status log. A phase event is:
 
-- a spawn (sitting or runner, with its task id and the phase budget)
+- a spawn (sitting or runner, with its task id)
 - a completion (with the head it reported)
 - an anomaly or a question relayed
 - the item's close
@@ -291,7 +291,7 @@ stamped coordinator turn, and founder attention). The record lives on disk:
 
 ```
 loop/items/<ITEM>/artifacts/conductor-status.log — one line per phase event:
-2026-08-21T09:14Z · phase: draft · event: sitting spawned (task b3f2) · head 610ead7 · budget 120m
+2026-08-21T09:14Z · phase: draft · event: sitting spawned (task b3f2) · head 610ead7
 ```
 
 Anyone who wants your state reads that file; nobody wakes you for it. The coordinator's backstop
@@ -302,10 +302,11 @@ everything else there.
 A direct question (a message) wakes you like any push — answer from the state you hold, one
 turn, and return to waiting.
 
-`STALL` keeps its exact meaning: *this has now taken longer than this phase should*. You hold no
-alarm, so you will usually be ASLEEP when a phase overruns — detecting that is the OUTSIDE
-monitor's job, not yours. But whenever you are awake for any reason and see a wait visibly past
-its budget, the `STALL` travels up immediately, never into the log alone.
+`STALL` is reserved for what you OBSERVE while awake: a child task gone with its work
+unfinished, a push that cannot be verified, an anomaly a runner hands you. There are no phase
+budgets and no alarm (founder ruling 2026-08-21) — how long a phase may take is the founder's
+judgment, made from the status log's timestamps. When you do observe a stall, it travels up
+immediately, never into the log alone.
 
 ## When the COORDINATOR wakes you, your watch failed — say so (founder ruling 2026-08-07)
 

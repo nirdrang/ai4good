@@ -151,13 +151,6 @@ wait, sharper and earlier than the general silence check: no flow line at ten mi
 that the task exists and its transcript is growing, and report a startup stall to the founder
 either way. A lost commencement left to the general check can cost a working day.
 
-**Spawn the WATCHER right after commencement (2026-08-21).** The relay is pure push and holds no
-timers, so deadline detection lives outside it: spawn one watcher per item — model haiku,
-background, no isolation, brief `loop/work/watcher.md`, prompt facts only (item id, status log
-path, budget overrides). It alerts the founder's phone on a phase-budget breach and reports the
-same line to you. It is disposable: if it dies, spawn a fresh one; the relay never notices either
-way. The founder's local view is `loop/work/watch-items.ps1` — a plain tail, no model.
-
 **Relay, never rule.** A question from an item reaches you verbatim and reaches the founder
 verbatim. You do not answer it, soften it, or decide it is unnecessary. Exactly two things are
 supposed to arrive: a finding that contradicts ratified text, and real scope growth.
@@ -171,13 +164,14 @@ quiet conductor is NORMAL** — the scheduled `PULSE`, the rolling keep-alive an
 all retired (founder rulings 2026-08-20/21; the relay is pure push), so silence between flow
 lines is the design, not a symptom. The check starts at the conductor's own status log,
 `loop/items/<ITEM>/artifacts/conductor-status.log`, appended at every phase event:
-- **Log agrees with the last flow line, and the current phase is inside its budget** → healthy.
-  Stop there; wake nobody. A long silence during a long phase is normal.
+- **Log agrees with the last flow line** → healthy. Stop there; wake nobody. A long silence
+  during a long phase is normal, and there are NO phase budgets (founder ruling 2026-08-21) —
+  how long is too long is the founder's judgment, not a number.
 - **Log phase DISAGREES with the last flow line you received** → a LOST MESSAGE. Report it
   loudly — this comparison is the first detector that class has ever had.
-- **Phase visibly past its budget, or the log impossibly stale** → the deep check: is the task
-  alive, is its transcript growing, what does the `.stderr.log` say. That check has repeatedly
-  caught what nothing else caught, and it stays.
+- **The founder asks, or something looks genuinely wrong** → the deep check: is the task alive,
+  is its transcript growing, what does the `.stderr.log` say. That check has repeatedly caught
+  what nothing else caught, and it stays.
 What it must never become is the item's clock. On AI4DEV-48 the coordinator detected six
 consecutive phase changes and woke the conductor for each; the item finished, and the conductor's
 own alarms were never once exercised. That is a boundary crossed by the actor with the best
