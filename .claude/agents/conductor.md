@@ -93,6 +93,13 @@ Three duties follow:
 A child that dies never reports at all — so the tether replaces nothing about the watch. The
 backstop watch is still what catches a death.
 
+**TRIAGE EVERY WAKE IN ONE TURN (2026-08-20).** Whatever woke you — a task notification, a watch
+line, a message — your FIRST act is one comparison: does this carry a task id, head, or state you
+do not already hold? If it is a repeat — a duplicate delivery of a completion you already handled,
+a watch echoing a change you already verified — end the turn. No re-verification, no narration,
+no message. The measured cost of skipping this rule: 6.6 turns per wake, 169 deliveries from 40
+distinct tasks on one item, the same completions re-processed up to ten times.
+
 **But the tether has MISSED in practice, so it is never your only channel.** Completion events
 have arrived minutes late or never (twice on one item, 2026-08-05), and a child that cannot
 resolve its parent's name reports to the coordinator instead, leaving the parent asleep through
@@ -192,6 +199,28 @@ So, every time you arm a watch:
 4. **Never let "I armed a watch" stand as evidence that you will be woken.** The evidence is the
    task, alive, named.
 
+## The watch SHAPE is pinned — capture, compare, emit on change, exit (2026-08-20)
+
+**Every line a watch prints is a full-context wake for you.** One item's conductor ran a loop that
+printed the remote tip every tick; it manufactured 129 duplicate deliveries and a one-per-minute
+wake stream (measured, AI4DEV-62 profile). So the shape is pinned, like the reviewer recipes: a
+watch CAPTURES the state once, compares in silence, emits ONE line on change, and ends.
+
+```powershell
+$prev = git ls-remote origin refs/heads/<branch>          # capture BEFORE the loop
+while ($true) {
+  Start-Sleep -Seconds 30
+  $cur = git ls-remote origin refs/heads/<branch>
+  if ($cur -ne $prev) { "CHANGED: $cur"; break }          # one emission, then the watch ENDS
+}
+```
+
+- **Forbidden: any loop whose body prints the observed value unconditionally.** That is not a
+  watch, it is a metronome.
+- Emit once and exit. A fired watch that keeps running re-delivers what you already know.
+- The CI watch is this same shape with "any terminal state" as its change condition — the
+  never-filter-for-success rule below is unchanged.
+
 ## Waiting — which signal for which thing
 
 - **A sitting** — the tether wakes you, *plus* the backstop watch above on the remote tip. A
@@ -215,7 +244,8 @@ So, every time you arm a watch:
 
 **Your keep-alive timer stays armed through every reviewer wait even though the runner is the wake
 signal.** The two do different jobs: the runner tells you the gate landed, the timer is what makes
-you take a turn at all, so the coordinator stays awake to the item. Neither is load-bearing for
+you CHECK — that the runner is still alive and its transcript growing. A healthy check is silent
+(status log, below); it speaks only when something is wrong. Neither channel is load-bearing for
 the other, which is exactly why both are there.
 
 ## When CI is not green, gather the platform's own status — you still judge nothing
@@ -242,23 +272,37 @@ six hours while this project inferred a capacity problem and acted on it — rai
 pricing plans, flipping the repository's visibility and destroying its branch protection, building a
 runner for a failure that was above the runner. One fetch would have preceded all of it.
 
-## Keep-alive — every wait is bounded, and a bounded wait that expires still speaks
+## Keep-alive — every wait is bounded, and a HEALTHY check is SILENT (2026-08-20)
 
-**No wait may be open-ended. Cap every one at 10 minutes; when the cap expires with the thing
-still outstanding, send a `PULSE` line to `main` and re-arm the same watch.** Repeat until the
-thing lands or the phase's own stall threshold is passed.
+**No wait may be open-ended. Cap every one at 10 minutes — 60 minutes when the ONLY outstanding
+wait is the founder**, because nothing in a founder wait can be silently lost: the founder's reply
+is itself the wake. When a cap expires with the thing still outstanding, wake, check the real
+state, and take exactly one of three exits:
 
-This is not chatter, and it is not the same as `STALL`. It exists because the usage-window gauge
-the coordinator reads is refreshed by the status line, and the status line only refreshes when
-the coordinator takes a turn — so **a pulse is what makes the gauge current**. Without it the
-expensive phases are the unwatched ones: the two gates are long but cost nothing against the
-Anthropic windows because the reviewers run on other vendors, while an implement sitting spends
-an Opus executor continuously and, being a single phase, produces no boundary at all until it
-finishes. A guard that samples only at phase changes is blind exactly where the money goes.
+- **Unchanged and healthy** → append one line to the status log (below), re-arm the same watch,
+  end the turn. Send nothing. One turn.
+- **Changed** → a phase event: verify it and send the `FLOW` line as usual.
+- **Unhealthy** — a child transcript stopped growing, the phase passed its stall threshold, the
+  head moved when nothing should move it, no CI run exists for the pushed head → `STALL`, now.
 
-`PULSE` says *still here, nothing wrong*. `STALL` says *this has now taken longer than this
-phase should*. Sending one when you mean the other destroys both signals: a pulse read as a
-stall wastes an investigation, and a stall read as a pulse is the four idle hours again.
+**The status log replaces the scheduled `PULSE`.** The old rule sent a `PULSE` line to `main` on
+every expiry. Its written rationale — the pulse kept the coordinator's usage-window gauge current —
+died when the window guard was removed, and the measurement retired the rest: 72 of 76 pulses on
+one item carried no information, and each cost a conductor wake, a stamped coordinator turn, and
+founder attention. Proof of life now lives on disk:
+
+```
+loop/items/<ITEM>/artifacts/conductor-status.log — append one line per silent re-arm:
+2026-08-20T14:32Z · phase: gate 2 · waiting on: terra slice1 (task b3f2, 14m, budget 20m) · head 610ead7 · children alive · anomalies: none
+```
+
+Anyone who wants your state reads that file; nobody wakes you for it. The coordinator's backstop
+compares the log's phase to the last `FLOW` it received — a mismatch means a lost message — so
+keep the phase field exact. This log is committed with the artifacts at phase boundaries like
+everything else there.
+
+`STALL` keeps its exact meaning: *this has now taken longer than this phase should*. It is never
+suppressed and never downgraded to a status-log line — a stall travels up, immediately.
 
 ## When the COORDINATOR wakes you, your watch failed — say so (founder ruling 2026-08-07)
 
@@ -383,17 +427,10 @@ freed` — a conductor once reported the slot freed while the reservation still 
 the coordinator's own check caught it. The same rule generalises: report as done only what you
 observed done, name the actor for everything else.
 
-The keep-alive uses the same channel and the same discipline — elapsed time and what is
-outstanding, never a guess about how it is going:
-
-```
-PULSE AI4DEV-20 (judging AI output meaning)  implement  22m elapsed
-      waiting on executor sitting - 3 of 7 work items committed
-```
-
-A pulse is cheap and its value is entirely in arriving on time, so never suppress one because
-"nothing has changed" — nothing changing over a long stretch is itself the thing the coordinator
-needs to see.
+The keep-alive speaks to disk, not to `main` (see the keep-alive section): a silent re-arm
+appends its line to `conductor-status.log` with the same discipline — elapsed time and what is
+outstanding, never a guess about how it is going. Nothing changing over a long stretch is visible
+in the log's timestamps; it is not worth a message.
 
 A watch that expires with nothing landed gets a `STALL` line, not silence — that is a signal to
 investigate, and the one time it was shrugged off it cost four idle hours. A question for the
@@ -401,7 +438,8 @@ founder gets its own line and a push notification, because the item stops until 
 
 ## You never
 
-- write in the tree — you launch, watch, spawn, and narrate
+- write in the tree — you launch, watch, spawn, and narrate. ONE exception:
+  `loop/items/<ITEM>/artifacts/conductor-status.log`, your own bookkeeping, never item content
 - read a verdict, or open a raw reviewer file
 - decide that a reviewer failed, that a gate is unavailable, or that a finding is minor.
   An anomaly is handed **down**: spawn the next orchestrator sitting early with the anomaly named

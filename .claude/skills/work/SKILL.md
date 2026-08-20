@@ -159,9 +159,17 @@ supposed to arrive: a finding that contradicts ratified text, and real scope gro
 progress, and the one time it was shrugged off it cost four idle hours.
 
 **BACKSTOP, NEVER THE MECHANISM — YOUR BOUNDARY IS AS REAL AS THEIRS (founder ruling 2026-08-07).**
-Silence longer than about twenty minutes earns ONE bounded read-only check: is the process alive,
-did the file land, what does the `.stderr.log` say. That check has repeatedly caught what nothing
-else caught, and it stays.
+Silence longer than about twenty minutes earns ONE bounded read-only check. **Since 2026-08-20 a
+quiet conductor is NORMAL** — the scheduled `PULSE` is retired, so silence between flow lines is
+the design, not a symptom. The check therefore starts at the conductor's own status log,
+`loop/items/<ITEM>/artifacts/conductor-status.log`, which it appends on every silent keep-alive
+check:
+- **Fresh line** (younger than the 10-minute cap plus slack; 60 on a founder wait) → alive and
+  waiting. Stop there; wake nobody.
+- **Fresh line whose phase DISAGREES with the last flow line you received** → a LOST MESSAGE.
+  Report it loudly — this comparison is the first detector that class has ever had.
+- **Stale log** → the old deep check: is the task alive, is its transcript growing, what does the
+  `.stderr.log` say. That check has repeatedly caught what nothing else caught, and it stays.
 What it must never become is the item's clock. On AI4DEV-48 the coordinator detected six
 consecutive phase changes and woke the conductor for each; the item finished, and the conductor's
 own alarms were never once exercised. That is a boundary crossed by the actor with the best
