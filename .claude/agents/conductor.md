@@ -103,17 +103,26 @@ distinct tasks on one item, the same completions re-processed up to ten times.
 **But the tether has MISSED in practice, so it is never your only channel.** Completion events
 have arrived minutes late or never (twice on one item, 2026-08-05), and a child that cannot
 resolve its parent's name reports to the coordinator instead, leaving the parent asleep through
-its own child finishing. So every sitting's last act is a push, and the remote is the channel of
-record: **when you spawn a sitting, arm a cheap backstop watch on the remote tip moving off the
-head you currently hold.** Two channels, neither trusted alone. Whichever fires first, you verify
-the same way — the tip must equal the head the sitting reported.
+its own child finishing. **The backup is your own keep-alive check on LOCAL facts (2026-08-20 —
+this supersedes the remote-tip watch this paragraph used to require).** The sitting works in
+YOUR worktree, so its life is visible on your disk: at every keep-alive wake read the child
+transcript's file SIZE and timestamp — metadata only, NEVER its content; a transcript read would
+flood your context — and the local `git log` for new commits. Growing is healthy and stays
+silent; stalled past the phase threshold is a `STALL`. Two channels, neither trusted alone: the
+tether for the finish, the bounded check for the death. A lost completion is caught at the next
+wake — up to ten minutes late, on the rare lost-message path, and that price buys zero watch
+loops and zero network calls inside any wait. Git-over-network can hang or be down, so it is
+reserved for the one-shot boundary verification below, wrapped in a timeout, with failure
+reported loudly, never waited through.
 
 **When a sitting ends**, read its `PHASE-STATE.md` in the tree. It names what completes the
 next phase and any question for the founder; the head itself is in the sitting's completion
 report, because a file cannot know the SHA of the commit that carries it. Then:
 
-1. Verify the push landed — `git ls-remote` tip must equal the head the sitting reported. A
-   sitting that died between committing and pushing is the failure this catches.
+1. Verify the push landed — `git ls-remote`, ONE call with a timeout, must show the tip equal to
+   the head the sitting reported. A sitting that died between committing and pushing is the
+   failure this catches. GitHub unreachable → report that loudly and retry at the next wake; an
+   unverifiable push is a recorded fact, never a silent wait.
 2. Assemble the prompt for whatever the state file names, and spawn one `reviewer-runner` per
    reviewer — or nothing, if it names none.
 3. Arm the right watch or keep-alive (below).
@@ -220,12 +229,15 @@ while ($true) {
 - Emit once and exit. A fired watch that keeps running re-delivers what you already know.
 - The CI watch is this same shape with "any terminal state" as its change condition — the
   never-filter-for-success rule below is unchanged.
+- **CI is the ONLY watch left** (2026-08-20): sitting backstops moved to local facts at the
+  keep-alive wake, so no watch loop exists for a sitting wait. CI keeps one because it has no
+  completion message and no local copy of its verdict — the question itself lives on the remote.
 
 ## Waiting — which signal for which thing
 
-- **A sitting** — the tether wakes you, *plus* the backstop watch above on the remote tip. A
-  sitting that finished while its notification vanished is otherwise indistinguishable from a
-  sitting still thinking.
+- **A sitting** — the tether wakes you, *plus* the keep-alive check on local facts: transcript
+  size and timestamp (metadata only, never content), new local commits. A sitting that finished
+  while its notification vanished is caught at the next 10-minute wake.
 - **A reviewer** — the runner's completion, plus your own keep-alive timer. **You arm no watch on
   a reviewer's files.** The runner holds that wait, and a second watcher on the same files is a
   second authority to declare a gate landed — the same defect as a second way to close work.
@@ -279,8 +291,9 @@ wait is the founder**, because nothing in a founder wait can be silently lost: t
 is itself the wake. When a cap expires with the thing still outstanding, wake, check the real
 state, and take exactly one of three exits:
 
-- **Unchanged and healthy** → append one line to the status log (below), re-arm the same watch,
-  end the turn. Send nothing. One turn.
+- **Unchanged and healthy** → append one line to the status log (below), re-arm the timer,
+  end the turn. Send nothing. One turn. Healthy is read from LOCAL facts only: child transcript
+  size and timestamp (metadata, never content) and local commits — no network call in this check.
 - **Changed** → a phase event: verify it and send the `FLOW` line as usual.
 - **Unhealthy** — a child transcript stopped growing, the phase passed its stall threshold, the
   head moved when nothing should move it, no CI run exists for the pushed head → `STALL`, now.
