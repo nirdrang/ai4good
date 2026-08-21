@@ -1,0 +1,4 @@
+Cloud session harness check.
+
+This file confirms the claude/test2-harness-pnxqb8 session can commit and push
+to its branch. Safe to delete once the harness check is confirmed.
