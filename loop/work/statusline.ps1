@@ -60,25 +60,30 @@ try {
         try { $j = ConvertFrom-Json $raw } catch { }
     }
 
-    # SENSOR. The rate-limit windows (five_hour, seven_day, and the per-model weekly ones) are
-    # delivered ONLY to the status line - hooks get a different payload entirely - so this is the
-    # single place in the system that can see them. Snapshot them where a hook can read them.
-    # Written on EVERY refresh including when the field is absent, so a reader can tell "no
-    # reading yet" from "this build does not report windows" - a missing file and a null field
-    # mean different things and must not look alike.
+    # SENSOR - the session's own context window (founder 2026-08-14). `context_window` reaches
+    # ONLY the status line - hooks get a different payload entirely - so this is the single
+    # place in the system that can see it, and it is snapshotted here for the stamp's context
+    # gauge. ONE FILE PER SESSION: context fill is a per-session fact, and a single shared file
+    # would let whichever session refreshed last impersonate every other session's reading - the
+    # declared-fact drift the stamp exists to prevent. Written on EVERY refresh, field present or
+    # not, so "no reading yet" (no file) and "this build does not deliver it" (file with null)
+    # stay distinguishable. The session id is validated with the stamp hook's own pattern,
+    # because it becomes part of a file name.
     try {
-        $snapDir = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good'
-        if (-not (Test-Path $snapDir)) { New-Item -ItemType Directory -Force $snapDir | Out-Null }
-        $snap = [ordered]@{
-            capturedAt = (Get-Date).ToUniversalTime().ToString('o')
-            sessionId  = [string](Get-Field $j @('session_id'))
-            version    = [string](Get-Field $j @('version'))
-            rateLimits = (Get-Field $j @('rate_limits'))
+        $ctxSid = [string](Get-Field $j @('session_id'))
+        if ($ctxSid -and $ctxSid -match '^[0-9a-fA-F-]{8,64}$') {
+            $ctxDir = Join-Path $env:LOCALAPPDATA 'ai4good-build\nirdrang-ai4good'
+            if (-not (Test-Path $ctxDir)) { New-Item -ItemType Directory -Force $ctxDir | Out-Null }
+            $ctxSnap = [ordered]@{
+                capturedAt    = (Get-Date).ToUniversalTime().ToString('o')
+                sessionId     = $ctxSid
+                contextWindow = (Get-Field $j @('context_window'))
+            }
+            [System.IO.File]::WriteAllText(
+                (Join-Path $ctxDir ('context-' + $ctxSid + '.json')),
+                ($ctxSnap | ConvertTo-Json -Depth 8),
+                (New-Object System.Text.UTF8Encoding($false)))
         }
-        [System.IO.File]::WriteAllText(
-            (Join-Path $snapDir 'rate-limits.json'),
-            ($snap | ConvertTo-Json -Depth 8),
-            (New-Object System.Text.UTF8Encoding($false)))
     } catch { }
 
     $parts = @()
