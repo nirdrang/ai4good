@@ -6,8 +6,9 @@ exists so a push's consequence wakes you without polling.
 ## Shape
 
 Capture state once, compare in silence, emit ONE line on a change condition, exit. Forbidden:
-any loop that prints the observed value unconditionally — an unconditional print is a
-keep-alive wearing a watch's name. Two emission conditions, never success-only:
+any loop that prints the observed value unconditionally — that is a metronome, not a
+watch, and every line it prints is a full-context wake. Two emission conditions, never
+success-only:
 
 - any terminal state for the pinned SHA;
 - `dispatch produced nothing`, when no run exists for that head within ten minutes of the

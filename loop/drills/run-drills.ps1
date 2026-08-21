@@ -325,7 +325,8 @@ if ($untrackedMachinery.Count -gt 0) { Write-Output ('  tracked-machinery: UNTRA
 # phase-file guard: the conductor contract holds only what is true in every phase; each phase's
 # rules live in its own file and are pulled on entering that phase. A phase file that vanishes,
 # or a file the contract never names, is a phase the conductor would act on from memory.
-$phaseFiles = @('sittings.md', 'reviews.md', 'code-gate-scope.md', 'audit-tail.md', 'ci-watch.md')
+$phaseFiles = @('plan.md', 'draft.md', 'sittings.md', 'reviews.md', 'code-gate-scope.md',
+                'fix.md', 'audit-tail.md', 'ci-watch.md', 'merge.md')
 $core = ''
 try { $core = Get-Content (Join-Path $here '..\..\.claude\agents\conductor.md') -Raw } catch { }
 $phaseMissing = @()
@@ -337,6 +338,21 @@ foreach ($p in $phaseFiles) {
 Assert 'phase-files' 'every conductor phase file exists' ($phaseMissing.Count -eq 0)
 Assert 'phase-files' 'the contract names every phase file, so none is entered from memory' ($phaseUntriggered.Count -eq 0)
 Assert 'phase-files' 'the contract says reading the phase file is step 0 of the phase' ($core -match 'STEP 0')
+# drift guard: a phase file may not resurrect machinery the founder removed, and each must say
+# what completes its phase - the twins taught that an unchecked second copy drifts within a day.
+$deadWords = @('keep-alive', 'PULSE', 'PARK', 'run_in_background', 'phase budget')
+$phaseDrift = @()
+$phaseNoExit = @()
+foreach ($p in $phaseFiles) {
+    $t = ''
+    try { $t = Get-Content (Join-Path $repoRoot ('.claude\skills\work\conductor\' + $p)) -Raw } catch { }
+    foreach ($w in $deadWords) { if ($t -match [regex]::Escape($w)) { $phaseDrift += ($p + ':' + $w) } }
+    if ($t -notmatch 'completes') { $phaseNoExit += $p }
+}
+Assert 'phase-files' 'no phase file resurrects removed machinery' ($phaseDrift.Count -eq 0)
+Assert 'phase-files' 'every phase file names what completes its phase' ($phaseNoExit.Count -eq 0)
+if ($phaseDrift.Count -gt 0) { Write-Output ('  phase-files: dead machinery named in ' + ($phaseDrift -join ', ')) }
+if ($phaseNoExit.Count -gt 0) { Write-Output ('  phase-files: no completion condition in ' + ($phaseNoExit -join ', ')) }
 if ($phaseMissing.Count -gt 0) { Write-Output ('  phase-files: missing ' + ($phaseMissing -join ', ')) }
 if ($phaseUntriggered.Count -gt 0) { Write-Output ('  phase-files: never named in the contract ' + ($phaseUntriggered -join ', ')) }
 
