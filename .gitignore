@@ -46,8 +46,15 @@ dist-ssr
 supabase/.temp/
 supabase/.branches/
 
+# The control machinery in .claude IS product: agent contracts, the work skill, the phase
+# files. It is TRACKED. A blanket ignore here once let five new phase files be committed
+# silently as nothing while edits to their already-tracked siblings landed normally, so only
+# these three - personal settings, runtime state, superseded tooling - stay ignored.
+.claude/settings.local.json
+.claude/worktrees/
+.claude/skills/prd-taskmaster/
+
 # ai4good local tooling (not app code)
-.claude/
 .codex_rate.html
 _task_dump.txt
 .taskmaster/state.json

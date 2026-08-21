@@ -303,6 +303,25 @@ Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 & powershell -NoProfile -File (Join-Path $here '..\work\twin-check.ps1') | Out-Null
 Assert 'twin-guard' 'orchestrator twins are in sync (edit both or neither)' ($LASTEXITCODE -eq 0)
 
+# tracked-machinery guard: the contracts, the work skill and the phase files are product, so
+# git must see them. A blanket .claude ignore once accepted edits to tracked files while
+# silently dropping new ones - the phase map shipped pointing at files that were never added.
+$repoRoot = (Resolve-Path (Join-Path $here '..\..')).Path
+$machinery = @(Get-ChildItem -Path (Join-Path $repoRoot '.claude\agents\*.md'), (Join-Path $repoRoot '.claude\skills\work') -Recurse -File -Filter '*.md' -ErrorAction SilentlyContinue)
+$ignoredMachinery = @()
+$untrackedMachinery = @()
+foreach ($m in $machinery) {
+    $rel = $m.FullName.Substring($repoRoot.Length + 1).Replace('\', '/')
+    & git -C $repoRoot check-ignore -q -- $rel 2>$null
+    if ($LASTEXITCODE -eq 0) { $ignoredMachinery += $rel; continue }
+    $tracked = & git -C $repoRoot ls-files --error-unmatch -- $rel 2>$null
+    if (-not $tracked) { $untrackedMachinery += $rel }
+}
+Assert 'tracked-machinery' 'no agent contract, work-skill or phase file is gitignored' ($ignoredMachinery.Count -eq 0)
+Assert 'tracked-machinery' 'every one of them is tracked by git' ($untrackedMachinery.Count -eq 0)
+if ($ignoredMachinery.Count -gt 0) { Write-Output ('  tracked-machinery: IGNORED ' + ($ignoredMachinery -join ', ')) }
+if ($untrackedMachinery.Count -gt 0) { Write-Output ('  tracked-machinery: UNTRACKED ' + ($untrackedMachinery -join ', ')) }
+
 # phase-file guard: the conductor contract holds only what is true in every phase; each phase's
 # rules live in its own file and are pulled on entering that phase. A phase file that vanishes,
 # or a file the contract never names, is a phase the conductor would act on from memory.
