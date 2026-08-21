@@ -31,6 +31,14 @@
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\banner.ps1\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start-banner.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
