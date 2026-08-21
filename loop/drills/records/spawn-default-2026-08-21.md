@@ -29,6 +29,19 @@ folded into the contracts the same day: the orchestrator twins' "executor spawns
 paragraph and the executor.md description. The old "blocked middle is deaf" property is retired
 — a waiting orchestrator now hears messages at wake.
 
+### Probe 1b — the coordinator's own two direct attempts (same day)
+
+Both from the coordinator session, to close the question at the top level:
+
+1. **Intent in the prompt.** Spawn with "I need your answer synchronously, in this tool call's
+   result — I intend to block until you respond." Result: the call returned at once with a task
+   id; the child's text (`BLOCK-TEST-91`, 1.7 s) arrived as a task NOTIFICATION. Prompt intent
+   does not change transport.
+2. **`run_in_background: false` passed explicitly.** Result: **accepted without error and
+   IGNORED** — same async launch, task id, and `BLOCK-TEST-92` by notification. An unknown
+   parameter is silently dropped, not rejected, so a contract instructing an agent to pass it
+   would read as correct and do nothing. No contract says it any more.
+
 ## Probe 2 — background-agent toolset and the reviewer-runner shape
 
 A background probe agent exercised the two capabilities the relay depends on.
