@@ -609,3 +609,60 @@ describe('the evidence names the slot it ran against', () => {
     expect(line).toContain('2 expected, 2 applied');
   });
 });
+
+/**
+ * THE POOL SIZE IS A PROPERTY OF THE MACHINE, so these tests are about a value read at MODULE
+ * LOAD from the environment. That is why every case here is a fresh child process: the constant
+ * is deliberately read once (a value that changed mid-process would let one part of a run
+ * disagree with another about how many slots exist), so it cannot be re-read in this one.
+ *
+ * `--no-env-file` matches every other spawn in this file: a child must never re-read `.env`.
+ */
+describe('the pool size is configured per machine', () => {
+  function poolSizeProbe(value: string | null): { status: number; stdout: string; stderr: string } {
+    const code = `
+      const { POOL_SIZE, assertSlotNumber } = await import('${join(REPO_ROOT, 'tests/at/harness/db-pool.ts').replace(/\\/g, '/')}');
+      const reach = (n) => { try { assertSlotNumber(n); return 'ok'; } catch { return 'refused'; } };
+      console.log(JSON.stringify({ size: POOL_SIZE, slot1: reach(1), slot2: reach(2) }));
+    `;
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+    if (value === null) delete env.AT_DB_POOL_SIZE;
+    else env.AT_DB_POOL_SIZE = value;
+
+    const child = spawnSync(bunExecutable(), ['--no-env-file', '-e', code], { encoding: 'utf8', env });
+    return { status: child.status ?? -1, stdout: child.stdout ?? '', stderr: child.stderr ?? '' };
+  }
+
+  it('defaults to the ruled two when the machine configures nothing', () => {
+    const probe = poolSizeProbe(null);
+    expect(probe.status, probe.stderr).toBe(0);
+    expect(JSON.parse(probe.stdout.trim())).toEqual({ size: 2, slot1: 'ok', slot2: 'ok' });
+  });
+
+  it('CANNOT REACH BEYOND THE CONFIGURED TOTAL: a one-slot machine refuses slot 2', () => {
+    // The cloud shape. One VM hosts one session, so the pool is one slot and the second must be
+    // unreachable - not merely unused. An unreachable slot 2 is what makes the pool size a
+    // guarantee rather than a convention.
+    const probe = poolSizeProbe('1');
+    expect(probe.status, probe.stderr).toBe(0);
+    expect(JSON.parse(probe.stdout.trim())).toEqual({ size: 1, slot1: 'ok', slot2: 'refused' });
+  });
+
+  it('refuses a pool whose ports would reach the OS dynamic range, and says why', () => {
+    // Slot 5 would map 44999 to 49999, at or above EPHEMERAL_FLOOR. Naming it here means the
+    // misconfiguration fails at load rather than inside the port overlay much later.
+    const probe = poolSizeProbe('5');
+    expect(probe.status, 'a pool larger than the ports allow was accepted').not.toBe(0);
+    expect(probe.stderr).toContain('AT_DB_POOL_SIZE');
+    expect(probe.stderr).toContain('1 to 4');
+  });
+
+  it('names a value that is not a whole number in range, rather than clamping it', () => {
+    for (const bad of ['0', '-1', 'abc', '1.5']) {
+      const probe = poolSizeProbe(bad);
+      expect(probe.status, `AT_DB_POOL_SIZE="${bad}" was accepted`).not.toBe(0);
+      expect(probe.stderr).toContain('AT_DB_POOL_SIZE');
+    }
+  });
+});
