@@ -303,6 +303,24 @@ Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 & powershell -NoProfile -File (Join-Path $here '..\work\twin-check.ps1') | Out-Null
 Assert 'twin-guard' 'orchestrator twins are in sync (edit both or neither)' ($LASTEXITCODE -eq 0)
 
+# phase-file guard: the conductor contract holds only what is true in every phase; each phase's
+# rules live in its own file and are pulled on entering that phase. A phase file that vanishes,
+# or a file the contract never names, is a phase the conductor would act on from memory.
+$phaseFiles = @('sittings.md', 'reviews.md', 'code-gate-scope.md', 'audit-tail.md', 'ci-watch.md')
+$core = ''
+try { $core = Get-Content (Join-Path $here '..\..\.claude\agents\conductor.md') -Raw } catch { }
+$phaseMissing = @()
+$phaseUntriggered = @()
+foreach ($p in $phaseFiles) {
+    if (-not (Test-Path (Join-Path $here ('..\..\.claude\skills\work\conductor\' + $p)))) { $phaseMissing += $p }
+    if ($core -notmatch [regex]::Escape($p)) { $phaseUntriggered += $p }
+}
+Assert 'phase-files' 'every conductor phase file exists' ($phaseMissing.Count -eq 0)
+Assert 'phase-files' 'the contract names every phase file, so none is entered from memory' ($phaseUntriggered.Count -eq 0)
+Assert 'phase-files' 'the contract says reading the phase file is step 0 of the phase' ($core -match 'STEP 0')
+if ($phaseMissing.Count -gt 0) { Write-Output ('  phase-files: missing ' + ($phaseMissing -join ', ')) }
+if ($phaseUntriggered.Count -gt 0) { Write-Output ('  phase-files: never named in the contract ' + ($phaseUntriggered -join ', ')) }
+
 # no-park guard: the park verb was REMOVED (founder ruling 2026-08-21). Stopping early is
 # TaskStop from outside; resume is from the last pushed state. A contract that still defines
 # a PARK protocol is stale text waiting to be obeyed.
