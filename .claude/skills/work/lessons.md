@@ -287,3 +287,74 @@ review file was 117KB of transcript around ~8KB of verdict, read whole into prem
 and the skill itself, then ~700 lines, rode into every context of every agent. Those four
 observations are the four biggest rules in the core's token-discipline section, and the
 reason this file exists separately from it.
+
+## The conductor's stories, moved out of its contract (2026-08-21)
+
+`conductor.md` is re-read in full on every turn a conductor takes — on one measured item that
+floor was 27.4M tokens, about 30% of its entire bill. So the narrative below moved here, where it
+is read on demand. Every RULE stayed in the contract with a one-line why; nothing was loosened.
+
+**The artifacts directory lives INSIDE the tree** (founder ruling 2026-08-09). It lived beside
+the tree until the Write tool's isolation guard collided with that placement, and a runner's
+shell fallback was flagged as a policy bypass.
+
+**Commit the `.stderr.log` files** (2026-08-07). The run header carries model, effort, sandbox and
+the vendor's `session id`, and the vendor stores its token counts under that id while the
+artifacts directory is swept. AI4DEV-48 committed every reviewer output and no stderr log, so
+three codex runs at maximum effort are permanently unattributable to it; AI4DEV-20 committed them
+and its five runs are counted.
+
+**The bare-id address** (verified 2026-08-10, live drill, after four misrouted reports in one
+item). A type name resolves to nothing; the worktree folder name carries an `agent-` prefix the
+resolver rejects. An earlier version of the conductor contract taught the prefixed form — the
+file was itself the bug, which is why the rule now warns about its own history.
+
+**Triage every wake** — the measurement: 610 turns across 92 wakes on one item, 6.6 turns per
+wake, 169 task deliveries from only 40 distinct task ids, some completions re-processed ten
+times. See `loop/drills/records/workflow-opt-2026-08-15/`.
+
+**The metronome watch.** The same item's conductor ran both watch shapes. The correct one
+captured the tip and emitted only on change; the wrong one printed the tip every tick and
+manufactured ~129 duplicate wake deliveries, including six "child finished" wakes in four
+minutes. Every line a background watch prints is a full-context wake.
+
+**Arming is not firing** (founder 2026-08-08). On AI4DEV-57 the Gate 1 review finished at 01:33
+and the item sat until 11:01: the first watch calls were refused by the isolation guard for
+naming a path outside the worktree, the conductor switched mechanisms, and never confirmed the
+replacement was live. Nine and a half hours. Reading stderr at launch, judging by the count line,
+and children reporting by id are all adjacent fixes to this one incident.
+
+**Why the reviewer-runner exists** (founder ruling 2026-08-08). A detached reviewer notifies
+nobody, and the background shell watches that used to bridge that gap failed twice on AI4DEV-57.
+A subagent's completion re-invokes its parent, and that channel has not failed.
+
+**The stale registry** (measured 2026-08-08). The `reviewer-runner` type was committed and pushed,
+and neither the coordinator nor a fresh child could resolve it: the registry is a per-session
+snapshot. The rule that a conductor must STALL rather than improvise a launch exists because a
+role reaching around a boundary that looks broken is how the merge boundary was crossed on
+AI4DEV-48.
+
+**The pulse measurement** (2026-08-15 profile). 106 conductor messages on one item = 30 FLOW +
+76 PULSE, of which 72 were pure heartbeats — seven in a single draft window. Each cost a
+conductor wake, a stamped coordinator turn, and founder attention. The written rationale for the
+pulse (keeping the coordinator's usage-window gauge current) had already died with the window
+guard.
+
+**The coordinator as clock** (founder ruling 2026-08-07). On AI4DEV-48 the coordinator, not the
+conductor, detected the plan landing, Gate 1's report, both Gate 2 reports, the audit, and two
+unpushed commits. The watches were armed and did not fire. The item finished anyway — which is
+what makes it dangerous: after six silent saves nobody can tell a working conductor from an
+absent one.
+
+**Two mechanicals raced the merge tail** (founder ruling 2026-08-11: "a big no"). On the
+attribution item the conductor's mechanical ran the publish steps first, the merge sitting's
+found them done, the merge survived by idempotence, and the residue was a duplicated ruling
+comment nothing was permitted to delete.
+
+**"Arm and spawn" read as simultaneous** (founder 2026-08-12). A merge sitting sat alive through
+an entire CI run on the acknowledgment-identity item, because one sentence let the CI wait look
+like the sitting's job. The CI wait is the conductor's.
+
+**The slot that was never freed** (founder 2026-08-12). A conductor reported the database slot
+freed while the reservation still stood; only the coordinator's own check caught it. Only the
+coordinator releases a slot, so the conductor's close line says `slot release due`.
