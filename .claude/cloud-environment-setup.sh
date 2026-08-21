@@ -149,38 +149,68 @@ setsid nohup sudo -n dockerd >/var/log/dockerd-setup.log 2>&1 </dev/null &
 disown
 until docker info >/dev/null 2>&1; do sleep 1; done
 
-# --- 6. the Supabase images ---------------------------------------------------------
-# THE REPOSITORY IS NOT THIS SCRIPT'S BUSINESS. A setup script provisions the VM; it runs
-# before Claude Code launches and its working directory is not the checkout, so anything
-# needing package.json or the tree belongs in the SessionStart hook instead. That is the
-# documented split, and `bun install` here failed on exactly that boundary.
+# --- 6. the dependency cache, and the project's EXACT Supabase CLI -----------------
+# THE LOCKFILE IS THE SINGLE SOURCE OF TRUTH, AND IT IS FETCHED, NOT COPIED.
 #
-# The images are still worth pulling here, because they are the slow part (about 8.4 GB)
-# and they are VM state, not project state. Pulling them BY NAME needs no repository.
+# An earlier draft hardcoded twelve image tags here. That was a second source of truth
+# with nothing to check it, and it was already wrong: `npm install -g supabase` resolves
+# the CARET in package.json ("^2.110.0") to whatever is newest - 2.115.0 today - while the
+# project runs what bun.lock pins, which is 2.110.0. Measured across those five minor
+# versions, NINE of the twelve image tags changed. A version-mismatched cache is not
+# slightly stale, it is about five percent useful by size, and it still occupies the
+# snapshot.
 #
-# The tags match this project's supabase/config.toml as pinned today. A tag that later
-# drifts is harmless: the pull simply caches an image the stack no longer wants, and the
-# CLI pulls the right one on first use.
-for image in \
-  public.ecr.aws/supabase/postgres:17.6.1.143 \
-  public.ecr.aws/supabase/gotrue:v2.193.0 \
-  public.ecr.aws/supabase/postgrest:v14.15 \
-  public.ecr.aws/supabase/realtime:v2.113.4 \
-  public.ecr.aws/supabase/storage-api:v1.66.4 \
-  public.ecr.aws/supabase/postgres-meta:v0.96.6 \
-  public.ecr.aws/supabase/studio:2026.07.13-sha-b5ada96 \
-  public.ecr.aws/supabase/edge-runtime:v1.74.2 \
-  public.ecr.aws/supabase/kong:2.8.1 \
-  public.ecr.aws/supabase/logflare:1.47.1 \
-  public.ecr.aws/supabase/mailpit:v1.30.2 \
-  public.ecr.aws/supabase/vector:0.53.0-alpine
-do
-  # `|| true` on purpose: one unreachable tag must not cost the whole environment build.
-  # A missing image is a slow first stack start, not a broken session.
-  docker pull "$image" || true
-done
+# So take the versions from the lockfile itself. The repository is public and
+# raw.githubusercontent.com is on the default Trusted allowlist, so two files are enough -
+# no clone, no checkout, no repository in this script's working directory. Nothing here
+# names a version, so nothing here can drift: bump the lockfile and the next snapshot
+# rebuild follows it.
+#
+# THIS ALSO WARMS BUN'S GLOBAL CACHE at ~/.bun/install/cache, which is ordinary files and
+# therefore lands in the snapshot. Every session's own `bun install` then resolves from
+# disk instead of the network, for the whole dependency tree and not only Supabase.
+REPO_RAW='https://raw.githubusercontent.com/nirdrang/ai4good/main'
+PIN_DIR=/tmp/ai4good-pin
+rm -rf "$PIN_DIR"
+mkdir -p "$PIN_DIR"
+cd "$PIN_DIR"
 
-echo "setup complete - $(docker images -q | wc -l) images cached"
-echo "the slot pool is NOT provisioned here (it needs the repository) - run this once"
-echo "inside a session when you first need an integration-tier database:"
-echo "  bun tests/at/harness/db-pool.ts setup"
+# -f so a 404 is an ERROR, not an error page written to disk. If this repository ever
+# stops being public these fetches fail, and failing loudly here is right: the alternative
+# is an environment that silently caches nothing and is discovered weeks later.
+curl -fsS -O "$REPO_RAW/package.json"
+curl -fsS -O "$REPO_RAW/bun.lock"
+
+bun install --frozen-lockfile
+
+# --- 7. the Supabase images, chosen by that exact CLI ------------------------------
+# `supabase init` writes a throwaway default project; the CLI then pulls its own images.
+# Which images those are is the CLI's business, not ours - that is the entire point.
+#
+# `start` is expected to FAIL. A default project's analytics and storage containers do not
+# reach a healthy state here, and the CLI rolls its containers back. That is fine: the
+# images are pulled before the health stage, and images are all this step wants.
+bunx supabase init --force
+bunx supabase start || true
+bunx supabase stop --no-backup || true
+
+# --- 8. leave the snapshot with images and no containers ---------------------------
+# Containers do not survive the snapshot, but their DEFINITIONS do, and every Supabase
+# container carries `restart: unless-stopped`. Left in place they turn each session's
+# first `docker info` into a stampede: 34 containers across three stacks were measured
+# restarting on one daemon start, which looked exactly like a hung daemon.
+#
+# Images are NOT touched. They are what this script exists to cache.
+docker rm -f $(docker ps -aq) 2>/dev/null || true
+docker network prune -f >/dev/null 2>&1 || true
+docker volume rm $(docker volume ls -q) 2>/dev/null || true
+cd /
+rm -rf "$PIN_DIR"
+
+echo "setup complete"
+echo "  supabase images cached: $(docker images --format '{{.Repository}}' | grep -c supabase)"
+echo "  bun package cache:      $(du -sh ~/.bun/install/cache 2>/dev/null | cut -f1)"
+echo ""
+echo "the slot pool is NOT provisioned here - it reads the project's own supabase"
+echo "configuration, so it can only run inside a session. When you first need an"
+echo "integration-tier database, run once:  bun tests/at/harness/db-pool.ts setup"
