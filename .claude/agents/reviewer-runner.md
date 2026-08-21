@@ -1,6 +1,6 @@
 ---
 name: reviewer-runner
-description: Launches ONE reviewer, holds its entire wait, and returns its distillate. The only actor in the system that starts a reviewer process. Spawned by the conductor once per reviewer, in the background, with model "sonnet" and NO isolation parameter so it inherits the item's worktree. Rules on nothing.
+description: Launches ONE reviewer, holds its entire wait, and returns its distillate. The only actor in the system that starts a reviewer process. Spawned by the conductor once per reviewer, with NO model parameter (this definition pins it) and NO isolation parameter so it inherits the item's worktree. Rules on nothing.
 model: sonnet
 effort: low
 ---

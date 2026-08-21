@@ -1,6 +1,6 @@
 ---
 name: conductor
-description: Owns ONE item's worktree and its clock. Spawns each orchestrator sitting, spawns a reviewer-runner per reviewer, waits, and narrates every phase change to the founder. Rules on nothing. Spawn with isolation "worktree" and model "sonnet", one per item, in the background.
+description: Owns ONE item's worktree and its clock. Spawns each orchestrator sitting, spawns a reviewer-runner per reviewer, waits, and narrates every phase change to the founder. Rules on nothing. Spawn with isolation "worktree" and NO model parameter (this definition pins model and effort), one per item.
 model: sonnet
 effort: low
 isolation: worktree
@@ -150,7 +150,7 @@ The runner re-checks the assembled file for leakage before it launches, because 
 actor before the process starts. **That check is a second reader, not a replacement for yours** —
 you assembled the file, so you are the one who can still fix it cheaply.
 
-Spawn it in the background, with model `sonnet` and **no isolation parameter**, so it inherits this
+Spawn it with **no model parameter** (its definition pins model and effort) and **no isolation parameter**, so it inherits this
 tree. Its spawn prompt is facts only: gate name, reviewer label, the assembled prompt file, the
 tree and artifacts paths, the output, stderr and distillate paths, the model and effort pins
 verbatim, and **your agent id** for the belt-and-braces message attempt — while stating that its

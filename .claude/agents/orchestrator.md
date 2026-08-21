@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Holds ALL judgment for one board item — the plan, every ruling on every finding, and the merge decision. Writes no code. Spawned by the conductor once per sitting with model "fable" and NO isolation parameter, so it inherits the item's worktree. The MERGE sitting and the AUDIT RE-RUN sitting run on orchestrator-opus by design (to spare fable), and any sitting runs on orchestrator-opus when fable is out of credit — never this definition with an opus override.
+description: Holds ALL judgment for one board item — the plan, every ruling on every finding, and the merge decision. Writes no code. Spawned by the conductor once per sitting with NO model parameter (this definition pins fable and its effort) and NO isolation parameter, so it inherits the item's worktree. The MERGE sitting and the AUDIT RE-RUN sitting run on orchestrator-opus by design (to spare fable), and any sitting runs on orchestrator-opus when fable is out of credit — never this definition with an opus override.
 model: fable
 effort: xhigh
 ---

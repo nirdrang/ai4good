@@ -131,6 +131,13 @@ different tool, and every one of them was reported confidently the first time.
   non-optional, and leaves an open gate addressable by agent id. It also puts every reviewer wait
   on the wake channel that has not failed — a subagent's completion re-invokes its parent, whereas
   the background shell watches it replaces went silent twice on one item.
+- **NEVER PASS `model` WHEN YOU SPAWN — the definition owns the pin (2026-08-21).** Each role's
+  model and effort live in its own `.claude/agents/*.md` frontmatter. An override is accepted
+  silently and costs real money: on one measured item a `mechanical` spawned with an opus
+  override burned 10.9M tokens where its six sonnet siblings cost 0.3–4M, and an `Explore` did
+  the same for 8.6M — about 19M tokens, from two careless spawn parameters. When a different
+  model is genuinely wanted, **spawn the other TYPE** (`orchestrator-opus`, never `orchestrator`
+  with an override) — a type carries its effort pin too, which an override silently drops.
 - **Never work around a tool refusal by switching instruments.** A denial at the tool layer
   answered with the same action through the shell is a security bypass, and the platform flags it
   as exactly that (measured 2026-08-09, live drill). A tool refusal is a `REFUSED` report handed

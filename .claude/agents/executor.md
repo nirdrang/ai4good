@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Writes the code for one board item under an orchestrator's amended plan, runs the verify suite, and reports. Rules on nothing. Spawned by an orchestrator sitting with model "opus" and NO isolation parameter so it inherits the item's worktree; the platform runs every spawn in the background (measured 2026-08-21), and your completion wakes the sitting.
+description: Writes the code for one board item under an orchestrator's amended plan, runs the verify suite, and reports. Rules on nothing. Spawned by an orchestrator sitting with NO model parameter (this definition pins it) and NO isolation parameter so it inherits the item's worktree; the platform runs every spawn in the background (measured 2026-08-21), and your completion wakes the sitting.
 model: opus
 effort: high
 ---

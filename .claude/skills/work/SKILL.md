@@ -107,9 +107,11 @@ falsely In Progress.
    later "why has it no slot?" has an answer in the record. Reserve before claiming: a reservation
    that fails must not leave an item falsely In Progress.
 6. Claim: assign, In Progress.
-7. Spawn the conductor: `Agent(subagent_type: "conductor", model: "sonnet",
-   run_in_background: true, prompt: <item id, branch name, reserved database slot, what has
-   already happened>)`.
+7. Spawn the conductor: `Agent(subagent_type: "conductor", prompt: <item id, branch name,
+   reserved database slot, what has already happened>)`.
+   **Pass NO `model` and no background flag** (2026-08-21): the definition carries the model and
+   effort pins, an override drops the effort pin silently, and every spawn is background on this
+   platform — `run_in_background` is accepted and ignored, so writing it teaches a false belief.
    **A spawn prompt is item facts only.** It states what to RESOLVE, never a resolved value — no
    chain, no parent, no label — and it never carries process instructions, because process lives
    in the contracts and a spawn prompt is reviewed by nobody. One once told an item to queue

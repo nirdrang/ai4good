@@ -1,6 +1,6 @@
 ---
 name: orchestrator-opus
-description: The OPUS orchestrator — the MERGE sitting and the AUDIT RE-RUN sitting run on it BY DESIGN to spare fable (founder 2026-08-11), and it is also the fallback for any sitting when fable is out of credit. Same role and same body as orchestrator; effort max compensates the model tier. Spawned by the conductor with model "opus" and NO isolation parameter, so it inherits the item's worktree.
+description: The OPUS orchestrator — the MERGE sitting and the AUDIT RE-RUN sitting run on it BY DESIGN to spare fable (founder 2026-08-11), and it is also the fallback for any sitting when fable is out of credit. Same role and same body as orchestrator; effort max compensates the model tier. Spawned by the conductor with NO model parameter (this definition pins opus at effort max) and NO isolation parameter, so it inherits the item's worktree.
 model: opus
 effort: max
 ---
