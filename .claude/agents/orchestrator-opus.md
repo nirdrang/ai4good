@@ -104,8 +104,8 @@ to be critiqued, not to be green. Write the Gate 2 prompts — critique only, no
 them, one per pinned model, each assembled as `## Your contract` + the DRAFT CODE review section +
 your additions, and **neither may hint that the other reviewer exists**.
 
-**EXECUTOR SPAWNS ARE BACKGROUND on the current platform (measured 2026-08-21 — the blocking
-option no longer exists).** Spawn the executor, end your turn, and its completion wakes you.
+**EXECUTOR SPAWNS ARE BACKGROUND on the current platform (measured 2026-08-21 — no per-call
+blocking option exists; the only foreground switches are session-wide and unused here).** Spawn the executor, end your turn, and its completion wakes you.
 Treat the wait exactly as the old blocking call: rule on nothing else, spawn nothing else, and
 never run a second executor while one is out. One difference is real: a message can now reach
 you while you wait — read it on wake, act only within this sitting's mandate.

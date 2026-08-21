@@ -15,9 +15,15 @@ CHILD_TEXT_RECEIVED=yes
 ROUNDTRIP_SECONDS=~2.8
 ```
 
-**Verdict: the blocking spawn NO LONGER EXISTS.** There is no run_in_background parameter and no
-foreground option; every Agent call returns in seconds with a task id, and the child's final
-text arrives as a task notification. The orchestrator therefore CANNOT block on its executor:
+**Verdict: the blocking spawn no longer exists PER CALL.** There is no run_in_background
+parameter; every default Agent call returns in seconds with a task id, and the child's final
+text arrives as a task notification. Docs follow-up the same day (changelog v2.1.232: spawns
+"now run in the background by default"): foreground is DE-DEFAULTED, not removed — it survives
+as session-wide switches (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` forces EVERY spawn
+foreground — unusable for the relay, it would make conductors block the coordinator;
+`CLAUDE_CODE_FORK_SUBAGENT=0` lets the platform choose foreground when the caller needs the
+result) and as the frontmatter pin `background: true`. The relay's conclusion is unchanged:
+treat every spawn as background. The orchestrator therefore CANNOT block on its executor:
 it spawns, idles (free, same as blocking), and its child's completion wakes it. Consequence
 folded into the contracts the same day: the orchestrator twins' "executor spawns are background"
 paragraph and the executor.md description. The old "blocked middle is deaf" property is retired
