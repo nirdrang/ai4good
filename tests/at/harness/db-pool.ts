@@ -69,9 +69,6 @@ import {
   type StackStatus,
 } from './runner.ts';
 
-/** Ruled: two standing slots. Concurrency IS the pool size. */
-export const POOL_SIZE = 2;
-
 /** The founder's personal stack. Nothing in the pool may carry any of these. */
 const PERSONAL_PORT_LOW = 44320;
 const PERSONAL_PORT_HIGH = 44329;
@@ -92,6 +89,52 @@ const MAPPABLE_PORT_HIGH = 44999;
  * above the floor is a problem, not a warning — the slot must not start on a port the OS can take.
  */
 const EPHEMERAL_FLOOR = 49152;
+
+/**
+ * How many standing slots THIS MACHINE has. Concurrency IS the pool size: a full pool REJECTS the
+ * next database-needing item at start rather than queueing it.
+ *
+ * IT IS A PROPERTY OF THE MACHINE, NOT OF THE PROJECT, so it is configured per machine rather
+ * than compiled in. The founder's Windows machine hosts several sessions at once and sets two. A
+ * cloud VM hosts exactly ONE session, so it sets one and the pool can never hand out a second —
+ * the machinery is identical, only its total differs.
+ *
+ * TWO IS THE DEFAULT because that is the ruled shape, and an unset variable must not silently
+ * change the founder's machine.
+ *
+ * THE CEILING IS ARITHMETIC, NOT TASTE. A slot's ports are `from + slot * 1000` over a band that
+ * ends at MAPPABLE_PORT_HIGH, and every mapped port must stay below EPHEMERAL_FLOOR. That puts
+ * the last usable slot at 4: slot 5 would map 44999 to 49999, above the floor, and the OS could
+ * take that port out from under a running stack. Refusing here names the problem at configuration
+ * time; without it the same misconfiguration surfaces much later, inside the port overlay, as a
+ * slot that will not start.
+ *
+ * A bad value is NAMED, never clamped — the same rule `assertSlotNumber` follows. A machine
+ * configured for a pool it cannot host should say so and stop, not quietly run a smaller one.
+ */
+const MAX_POOL_SIZE = Math.floor((EPHEMERAL_FLOOR - 1 - MAPPABLE_PORT_HIGH) / 1000);
+
+function readPoolSize(): number {
+  const raw = process.env.AT_DB_POOL_SIZE?.trim();
+  if (!raw) return 2;
+  const size = Number(raw);
+  if (!Number.isInteger(size) || size < 1 || size > MAX_POOL_SIZE) {
+    throw new Error(
+      `AT_DB_POOL_SIZE="${raw}" is not a pool this machine can host — it must be a whole number ` +
+        `from 1 to ${MAX_POOL_SIZE}. The upper end is fixed by the port arithmetic: a slot maps its ` +
+        `ports to \`port + slot * 1000\`, and slot ${MAX_POOL_SIZE + 1} would land at or above the ` +
+        `OS dynamic range (${EPHEMERAL_FLOOR}), which the OS can reserve under a running stack.`,
+    );
+  }
+  return size;
+}
+
+/**
+ * Read ONCE at module load, deliberately. Every slot path, claim file and port block is derived
+ * from this number, so a value that changed mid-process would let one part of a run disagree with
+ * another about how many slots exist.
+ */
+export const POOL_SIZE = readPoolSize();
 
 /* ------------------------------------------------------------------------------ pool locations */
 
