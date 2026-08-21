@@ -283,5 +283,6 @@ with no message behind them. Every one looked like evidence.
 
 - **Use the Lovable MCP for non-trivial UI work.** For UI changes beyond simple tweaks, drive them through the Lovable MCP — Lovable is the bot operating its own MCP and has more intimate, UI/UX-optimized capabilities. Reserve direct edits for simple UI changes.
 - **UI never touches the DB directly.** UI code must always go through an edge function — never call the database directly from UI code.
+- **Echo the SessionStart banner to the founder.** The `SessionStart` hooks (`session-start-banner.sh` on cloud sessions, `banner.ps1` on local sessions) report state — docker daemon, `node_modules`, codex and opencode login — as a `system-reminder`, which the founder's chat UI never renders. At the start of every session, before anything else, paste that hook output back in a reply so the founder can see it.
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
