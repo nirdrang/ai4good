@@ -3,9 +3,16 @@
  *
  * The criterion's parenthetical is "(UI absent; API rejects)", and every other arm of that body
  * tests the second half: the acceptance surface holds no invite method, the deployed function does
- * not exist, the membership table reaches no client role, and the database refuses a second seat.
- * None of them looks at `src/routes/`, so an invite screen could be added while both tiers stayed
- * green. This module is what looks.
+ * not exist, the membership table refuses the PUBLISHABLE KEY with 401 `permission denied`, and the
+ * database refuses a second seat. None of them looks at `src/routes/`, so an invite screen could be
+ * added while both tiers stayed green. This module is what looks.
+ *
+ * (That third arm used to be described here as "the membership table reaches no client role", which
+ * stopped being true on 2026-08-12: the tenant-isolation migration grants `select` on
+ * `public.org_memberships` to `authenticated`, and `authenticated` IS a client role. What the arm
+ * asserts is the narrower thing now written above — `anon` receives no grant, so the publishable key
+ * alone still answers 401 — and the sentence says the narrower thing rather than the wider one it
+ * never proved.)
  *
  * IT LIVES IN ITS OWN FILE, not in a test file and not in `_integration.ts`, for one reason: the arm
  * runs at BOTH tiers and the two bodies live in different files. A helper imported by both is a

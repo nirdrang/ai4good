@@ -1,0 +1,133 @@
+All verifications are complete. Here is the audit.
+
+---
+
+# AUDIT — AI4DEV-66 + AI4DEV-67 (tenant isolation and visibility), range `926d170...HEAD`
+
+**Instrument.** `git diff 926d170d5af6becb1f371e36c4b8099caa131429...HEAD -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts` returns exactly the 22 declared files. I additionally resolved the slice-2 delta (`2804e17...8732818`, 9 files) to grade the "no behaviour moved" claims against an actual intermediate diff, and read the three rulings files as the claims list only. No test suite was run; execution evidence is cited from the record (typecheck exit 0, `at:check` 37-ids bijection, `at:verify --tier loop --expect` 26 green / 11 red exact match, `at:selftest` 16 files / 370 tests), not re-derived.
+
+## Checklist boxes
+
+**S1 — declared path-set, nothing under `src/`.** PASS. Name-status restricted to the code territory is exactly the 22 declared files; `.claude/agents/reviewer-runner.md` appears only in the full-range list, as declared. The CI territory guard is real (`.github/workflows/ci.yml:285-292` fails a PR whose file list matches both `^src/` and `^(supabase|tests|loop|\.claude|\.github)/`), so "a single file under `src/` would be a defect" is a live constraint.
+
+**R1-1 — `{ surface: 'ui' }` on AT-001.21/.22.** PASS. Both `atTest` registrations in `tests/at/suites/req-001/d-tenant-isolation.test.ts` carry `{ surface: 'ui', timeoutMs: { integration: INTEGRATION_TIMEOUT_MS } }`; AT-001.24 also `ui` (as the rulings dictate); AT-001.23/.40 deliberately not.
+
+**R1-4 — decision B ordering + loop fault arm.** PASS. `organization-dashboard/index.ts:83-117`: account → seats → projects → target last, nothing after. `project-workspace/index.ts:67-78`: account → target last. The loop fault arm (`d-tenant-isolation.test.ts`, AT-001.21 arm 7 over all four stores, AT-001.22 arm 7 over two) arms `failNextReadOf`, compares existing-foreign vs `ABSENT_ID` under each fault, asserts 502 and whole-value equality; the flag is cleared in `_fixture.ts` teardown (`state.readFaults.clear()`). Note on the third function: `public-project-page/index.ts:64-79` reads the organisation AFTER the project — its own comment (lines 22-26) declares the ordering non-load-bearing because the surface makes no decision and existence revelation is the deliberate carve-out (residual 7). That is a declared exception, not a breach of the constraint's purpose.
+
+**R1-5 — `callFunction` unchanged; unparsed sibling.** PASS. In `_live.ts` the sibling `callFunctionRaw` returns `{ status, text, contentType }` (body unparsed) and is consumed only by `tenantRead`, which only the three tenant-read members use. `callFunction` itself is untouched in both the whole-range and slice-2 deltas.
+
+**R1-6 — definer-helper posture.** PASS. All three helpers (`viewer_is_org_member`, `viewer_is_platform_admin`, `viewer_is_volunteer`) are `language sql`, `stable`, `security definer`, `set search_path = ''`, with every name schema-qualified (`public.org_memberships`, `public.accounts`, `public.account_type`, `auth.uid()`), each followed by `revoke execute … from public` and `grant execute … to authenticated, service_role`.
+
+**R1-7 — branch split.** PASS. `20260812120000` holds `viewer_is_org_member`, the four org-member policies, `grant select … to authenticated` (and the service-role reads). `20260813120000` holds `viewer_is_platform_admin`, `viewer_is_volunteer`, `projects_select_assigned_volunteer`, the four platform-admin policies. Neither file references the other branch's objects.
+
+**R1-8 — catalog rule, current wording.** PASS. Clause 1 exactly-one-list (`_catalog-conformance.ts:192-204`); clause 2 both arms (privilege arm + RLS-with-zero-policy arm, `:210-221`); clause 3 now carries GS2-2/GS2-3's additions: RLS-on check, effective-`authenticated`-grant check, policy-reaches-authenticated check, and per-policy non-null/non-trivial/named-helper-or-key checks (`:226-271`).
+
+**R1-9 — apikey + bearer.** PASS. `_live.ts` `dataApiGet` sends `apikey: slot.anonKey` and `Authorization: Bearer <the caller's own access token>`.
+
+**R1-10 — no `db reset`.** PASS. A code-territory grep for `db reset|db:reset` matches only pre-existing files (`config.toml` comments, `20260811125000` comment, `runner.ts`/`db-pool.ts` comments); none of the 22 changed files and no changed script contains it.
+
+**R1-11 — `_live.ts` projects comment.** PASS. `createProjectAsOperator`'s comment keeps the original measurement as history, says the statement stopped being true on 2026-08-12, names the granting migration, and states what did not change (no INSERT).
+
+**R1-A — the reversal is named.** PASS. Migration 1 lines 30-44 quote the earlier `revoke all on table public.projects from anon, authenticated, service_role;` (verified at `20260811130000:123`) and give the reason the grant is now correct.
+
+**GS1-1 — `readRows`.** PASS. One `try` wraps `fetch` + `response.text()`; the catch returns `{ ok: false, detail: 'a read of <table> could not be made at all' }`; all four detail paths are table-only via `path.split('?')[0]` — never the caught error's message, query string, or URL; the header names the rejected-`fetch` case as the third route to `ok: false`; `resolveCaller`'s own fetch is untouched.
+
+**GS1-2 — no delegate in the mirror.** PASS. `_fixture.ts` `dataApiRead` filters on membership/platform-admin/volunteer directly, with the comment explaining why a delegate would be a wrong mirror.
+
+**GS1-3 — four-table positive control, both bodies.** PASS. Loop and integration AT-001.21 bodies both read all four tables keyed as claimed, asserting exactly-one for `organizations` and "at least one row, and every row is A's" (plus `toContain(project.id)`) for the other three — never an exact count.
+
+**GS1-4 — six guarded early returns.** PASS. All six named sites (d-tenant-isolation 94, 103, 252; _integration 1273, 1282, 1393 at ruling time) carry the `expect(a.ok ? a.organizationId : null, '<body-specific message>').not.toBeNull()` guard before the narrowing return, messages distinct per body; slice-2's four additional sites carry the same guard. The six pre-existing sites are untouched: their files are outside the change-set, and `_integration.ts`'s old lines 1001/1054 sit in an unmodified region.
+
+**GS1-5 — exhaustive scope dispatch + selftest bounds.** PASS. `visibility.ts:178/193/210` organisation branch, explicit `if (scope === 'project')`, refusal for every other value. `shipped-visibility.selftest.ts` imports only `tenantReadAllowed` + types; covers both scopes' granting clauses, unknown account types (13 shapes), unknown roles (11 shapes), unknown scope (13 shapes), and `undefined`/number/missing-field viewers; `publicProjectView` is not imported anywhere in the selftest.
+
+**GS1-7 — fixture comment + line 1162.** PASS. `dataApiRead`'s comment now states the prediction is UNGRADED at this head and names the merge blocker; `_fixture.ts:1162` still carries the pre-existing "both tiers run at the goal step" sentence, untouched (verified by read).
+
+**GS2-1 — volunteer helper + policy + three consequences.** PASS. Helper in the dictated posture; policy is `using (assigned_volunteer_id = (select auth.uid()) and public.viewer_is_volunteer())` (migration 2 line 138); `KNOWN_POLICY_HELPERS` holds three names; the fixture's `projects` branch carries the account-type conjunct (`state.accounts.get(caller.id)?.accountType === 'volunteer' && row.assignedVolunteerId === caller.id`); the selftest's predicted qual is `` `((assigned_volunteer_id = ${OWN_UID}) AND viewer_is_volunteer())` ``. No trigger or constraint on `public.projects` anywhere in either migration.
+
+**GS2-2 — effective-privilege witness.** PASS. `publicSchemaCatalog` derives `selectGrantedTo` from `has_table_privilege('anon'/'authenticated', c.oid, 'SELECT')`; `information_schema.role_table_grants` survives only in the explanatory comment (`_live.ts:999`); `_contract.ts`'s `selectGrantedTo` comment states the effective-privilege answer incl. `PUBLIC` and names the instrument; `CLIENT_ROLES` = `['anon', 'authenticated']` with the comment corrected, and `reachesClientRole`/`reachesAuthenticated` still treat `public` as reaching (the stated, distinct question).
+
+**GS2-3 — RLS-off and no-grant branches.** PASS. Both branches exist in clause 3 (`_catalog-conformance.ts:226-239`) and each is driven by its own selftest case asserting exactly one problem naming the table (`shipped-catalog-conformance.selftest.ts:175-195`).
+
+**GS2-5 — four-table admin arms, both bodies.** PASS. Loop and integration AT-001.40 bodies: administrator's unfiltered listings on all four tables assert both tenants' rows present; the non-admin control repeats all four and asserts A's rows absent; every `rows` is asserted `not.toBeNull()` first.
+
+**GS2-6 — route-visibility comments.** PASS. Module now states a router exists, nothing in it consults `ROUTE_VISIBILITY`, README's conventions (`__root.tsx` app shell, `_layout.tsx` layout route), why the app shell is excluded, and why a single-underscore file must be declared; the `_integration.ts` AT-001.24 note says the same. The slice-2 delta for the module is comment-only — `isRouteFile` and `undeclaredRoutes` appear only as context lines.
+
+**GS2-7 — signed-out-caller comments.** PASS. `_fixture.ts` and `d-tenant-isolation.test.ts` now state the null caller is sound at both tiers and the dead-session equality is the fixture's model; the slice-2 delta shows the assertions unchanged (context) and `_live.ts`'s `signOut`/`dataApiGet` untouched (the `_live.ts` slice-2 delta touches only `publicSchemaCatalog`).
+
+**GS2-9 — route selftest.** PASS. Header no longer claims no router exists; the `__` case comment states the README conventions; the synthetic input is `admin/__shell.tsx`; assertions/expected values (`toEqual([])`) are consistent with the ruling's "unchanged" instruction. (The ruling-9 changes landed in a later commit than the slice-2 range I could resolve; I graded the current content against ruling 9's dictation, which it matches exactly.)
+
+**GS2-8 — selftest platform-admin comment.** PASS. The case now says the basis makes the grant's reason readable to a direct caller, and that AT-001.40 cannot see it and attributes reach through the non-admin control.
+
+**GS2-4 — literal `true` only.** PASS. `isTriviallyOpen` strips parens/trims/lowercases and compares to `'true'`; no tautology-spelling blacklist exists.
+
+## Stated facts
+
+- **F1** PASS — `viewer_is_org_member` checks only a membership row (`20260812120000:64-69`); `visibility.ts:184` additionally requires `accountType === 'ngo'`.
+- **F2** PASS — `org_membership_grantee_must_be_ngo()` (`20260811125000:52-98`) is a BEFORE trigger refusing non-NGO grantees; `assigned_volunteer_id` is a bare FK (`20260811130000:61`) whose only trigger (`project_seat_holds_one_developer`, `:80-104`) enforces the single-seat invariant and says nothing about type.
+- **F3** PASS — all three handlers call `readRows` with the service-role key.
+- **F4** PASS — `grant select, insert on public.accounts to authenticated` (`20260808120000:338`); `revoke all on table public.volunteer_profiles …` (`20260809090000:443`).
+- **F5** PASS — `src/router.tsx` exists (16 lines, `createRouter` over `routeTree.gen`); grep shows `ROUTE_VISIBILITY` nowhere in `src/`.
+- **F6** PASS — `_live.ts:623-632` `signOut` never removes the session from the cache; `dataApiGet` sends `Authorization: Bearer <accessToken>` for any non-null session.
+- **F7** PASS — grep over the whole tree: `edge.ts` is imported only by `supabase/functions/*`; the sole `tests/` hit (`_contract.ts:115`) is a comment.
+- **F8** PASS — `visibility.ts` imports only `./accounts.ts` and `./memberships.ts`; `route-visibility.ts` has no imports; "Deno" appears in both only inside comments.
+- **F9** **FAIL** — see Finding 1.
+- **F10** PASS — `_route-scan.ts` walks `src/routes/` with `readdirSync`, writes nothing, throws on an unreadable directory (catch) and on an empty one (`entries.length === 0`).
+- **F11** PASS — `config.toml`: `public-project-page` `verify_jwt = false`, `organization-dashboard` and `project-workspace` `true`.
+- **F12** PASS — both migrations grant only to `authenticated` and `service_role`; no `anon` grant anywhere.
+
+## Attack directions
+
+1. **Policy vs module divergences** — the only disagreement is the org-member policies admitting a volunteer with a membership row where the module's organisation branch requires `ngo`; it is declared in F1, in the fixture comment, and in gate-2 ruling 2. Everything else agrees clause-for-clause.
+2. **Refusal leaks** — traced every path out of all three handlers (405/401/400/502/404/200); each is target-independent, and the 502 bodies are fixed sentences. No leak found.
+3. **Conformance checks that cannot fail** — I constructed the tripping catalog for every clause and verified each branch pushes a problem; the clean prediction passes; the two GS2-3 cases each produce exactly one problem.
+4. **Bodies that pass while proving nothing** — all narrowing returns guarded; count/empty assertions are protected by `length > 0` / `not.toBeNull()` / exact-`toEqual` guards; positive controls precede every denial.
+5. **Comments that state what the code does not do** — Finding 2.
+6. **Fixture mirror vs migrations** — compared statement by statement; all four tables agree (org-member, volunteer-with-type conjunct, platform-admin, own-acknowledgment).
+
+## Not-claimed limits
+
+None understated, with one exception folded into Finding 1: residual 4's "Nothing imports the route registry" has the same literal defect as F9.
+
+---
+
+## Findings
+
+```
+[1] severity: low (stated-fact defect, no behavioural consequence)    supabase/functions/_shared/route-visibility.ts:31
+    claim: The claim "Nothing imports route-visibility.ts today" (audit fact F9, repeated in this module's own
+    header at line 31, in plan.md:593 and in PHASE-STATE.md:341) is false as written: two files import the module —
+    tests/at/suites/req-001/_route-scan.ts:30 imports undeclaredRoutes, and
+    tests/at/harness/shipped-route-visibility.selftest.ts:33 imports ROUTE_VISIBILITY and undeclaredRoutes.
+    why it matters: A reader of the shipped module's residual paragraph is told "nothing imports this" when the
+    rule and the declaration are imported and driven by exactly the test consumers the same paragraph names ("a
+    test that fails when a route arrives undeclared"). The true fact — verified as F5 — is that no shipped or
+    runtime code imports it and no router consults ROUTE_VISIBILITY. This is the same class of knowingly-false
+    stated fact the item itself ruled non-mergeable five times (gate-1 ruling 11; gate-2 rulings 7; slice-2
+    rulings 6, 8, 9) and corrected elsewhere with "stopped being true on <date>" framing; this sentence survived
+    both slices inside the very paragraph slice-2 ruling 6 edited. Charitable reading: the sentence means "no
+    product code imports it"; under that reading the underlying fact is true and the fix is one word ("Nothing
+    SHIPPED imports this today"). Ruling is the orchestrator's; I report it because the box as stated is false
+    on its face.
+    unverified-runtime-claim: no
+```
+
+```
+[2] severity: low (stale stated fact in a comment, contradicts the shipped policy set)    tests/at/suites/req-001/_integration.ts:1539-1541
+    claim: at00122 arm (4)'s comment says "Slice 1 ships no policy branch that admits a volunteer, so this
+    answers [] for the seat-holder too". At this head, slice 2's migration 20260813120000 ships
+    projects_select_assigned_volunteer, which admits the seat-holder, and at00123's own arm (4) asserts the
+    assigned volunteer's unfiltered listing holds exactly its project — so "this answers [] for the seat-holder
+    too" is no longer true, and the comment's stated mechanism ("no policy branch that admits a volunteer") is
+    false as an explanation of the current denial.
+    why it matters: The integration body is the tier where the deployed policy set actually answers; a reader of
+    this comment is told the seat-holder gets an empty array when the sibling criterion asserts the opposite,
+    and the sentence lacks the "stopped being true on 2026-08-13" framing the item applied to every other
+    comment of this class (at00137 arm 2, at00116, _live.ts createProjectAsOperator, _source-scan.ts). The
+    assertion itself is correct — the probe is the unassigned volunteer, and that denial holds at this head — so
+    no test behaviour is affected; the defect is the surviving false stated fact only.
+    unverified-runtime-claim: no
+```
+
+Both findings are reading-settled; the only runtime evidence I have not personally gathered is the CI/loop-tier execution record, which I cite as the item states it and did not re-derive. Nothing else in the change-set is out of scope or unexamined.
+
+AUDIT: 2 FINDINGS

@@ -50,6 +50,12 @@
  *   4. `emailedPasswordResetLink` is backed and `completePasswordReset` is backed, but note what the
  *      pair does NOT model — expiry, single use and resend. AT-001.15 is retired and those semantics
  *      are unstated in REQ-001, so nothing here asserts them.
+ *   5. `failNextReadOf` — the loop tier's read-fault seam, and there is deliberately no counterpart
+ *      here. It exists so one loop-tier arm can prove that a database FAULT answers the same way for
+ *      a real foreign identifier and for one that names nothing (gate-1 ruling 4). This tier grades
+ *      against a real database, and faulting a real database to watch an error path is not a thing
+ *      this adapter may do. An integration body reaching for it refuses by name, which is the
+ *      failure direction this arrangement is built for.
  *
  * ============================================================================================
  * THE ONE DIVERGENCE THAT CANNOT BE HIDDEN: REGISTRATION ISSUES NO SESSION
@@ -79,17 +85,26 @@ import type {
   AccountsSut,
   AcknowledgmentRow,
   AssignVolunteerOutcome,
+  CatalogTable,
   CompleteSignupOutcome,
   CompleteSignupRequest,
   CreateOrganizationOutcome,
+  DataApiReadOutcome,
   GrantMembershipOutcome,
   MembershipRow,
+  OrganizationDashboard,
+  OrganizationDashboardOutcome,
   OrganizationRow,
   ProjectRow,
+  ProjectWorkspace,
+  ProjectWorkspaceOutcome,
+  PublicProjectPage,
+  PublicProjectPageOutcome,
   RefreshSessionOutcome,
   RepointMembershipOutcome,
   Session,
   SignInOutcome,
+  TenantReadOutcome,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
@@ -125,6 +140,19 @@ export const backedSutMethods = {
     'createProjectAsOperator',
     'assignVolunteerAsOperator',
     'projectAssignment',
+    // THE THREE TENANT-READ SURFACES, the direct Data API probe and the catalog witness. Each one is
+    // implemented below against the slot's own stack: the first three are the DEPLOYED functions,
+    // the probe is a real `GET /rest/v1/…` carrying the caller's own access token, and the catalog
+    // is read over the operator connection.
+    //
+    // `failNextReadOf` IS NOT HERE, AND ITS ABSENCE IS THE DESIGN. See the fifth family in this
+    // file's header: there is no fault injection at this tier, so a body that reached for it refuses
+    // by name rather than faulting a real database.
+    'organizationDashboard',
+    'projectWorkspace',
+    'publicProjectPage',
+    'dataApiRead',
+    'publicSchemaCatalog',
     'account',
     'organization',
     'membership',
@@ -221,6 +249,31 @@ function databaseRefusal(error: unknown): { code: string; message: string } {
   return { code, message };
 }
 
+/**
+ * `pg_policies.roles` AS A LIST OF NAMES — read defensively, and LOUD when it cannot be read.
+ *
+ * The column is a `name[]`, and how a client renders a Postgres array is the client's business
+ * rather than something this file gets to assume: it may arrive as a JavaScript array or as the
+ * literal text `{authenticated,service_role}`. Both are handled.
+ *
+ * ANYTHING ELSE THROWS RATHER THAN ANSWERING `[]`. The conformance arm reads this list to decide
+ * whether a policy reaches a client role, so an empty list is a MEANINGFUL answer — "this policy
+ * reaches nobody" — and a rendering this function did not recognise must never be able to arrive
+ * wearing it. That is this repository's standing rule about negatives, applied at the one place a
+ * broken instrument would look exactly like a true absence.
+ */
+function pgRoleList(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((entry) => String(entry));
+  if (typeof raw === 'string') {
+    return raw
+      .replace(/^\{|\}$/g, '')
+      .split(',')
+      .map((entry) => entry.trim().replace(/^"|"$/g, ''))
+      .filter((entry) => entry !== '');
+  }
+  throw new Error(`the catalog read could not interpret a pg_policies.roles value of type ${typeof raw}: ${String(raw)}`);
+}
+
 /* -------------------------------------------------------------------------------- the factory */
 
 export async function createLiveAdapter(opts: {
@@ -285,6 +338,124 @@ export async function createLiveAdapter(opts: {
       json = { raw: text };
     }
     return { status: response.status, json };
+  };
+
+  /**
+   * THE SAME CALL WITH THE BODY LEFT ALONE — a SIBLING of `callFunction`, never a change to it.
+   *
+   * WHY THE SIBLING EXISTS (gate-1 ruling 5). `callFunction` reads the body as text, `JSON.parse`s
+   * it, and returns `{ status, json }`. AT-001.21's clause is that a denial and an absence are the
+   * SAME answer, and two differently serialised bodies compare equal after parsing — so the oracle
+   * the criterion asks for cannot be built through that helper. This one keeps the bytes.
+   *
+   * AND `callFunction` IS NOT CHANGED. Landed bodies across this suite use it and changing its
+   * return type would ripple through code this leaf has no business touching. Only the tenant-read
+   * members use this one.
+   *
+   * THE SESSION MAY BE `null`, for the one function that has no caller to resolve:
+   * `public-project-page` declares `verify_jwt = false` and answers a logged-out visitor. With no
+   * session the bearer is the publishable key, which is exactly what a browser client sends.
+   *
+   * NO `x-forwarded-for` HEADER. `callFunction` sends one because a completion RECORDS the address
+   * the gateway chain reported. A read records nothing, so there is no address to carry.
+   */
+  const callFunctionRaw = async (
+    name: string,
+    body: unknown,
+    session: Session | null,
+  ): Promise<{ status: number; text: string; contentType: string }> => {
+    const bearer = session === null ? slot.anonKey : tokensOf(sessions, session, `call the deployed ${name}`).accessToken;
+    const response = await fetch(`${api}/functions/v1/${name}`, {
+      method: 'POST',
+      headers: {
+        apikey: slot.anonKey,
+        Authorization: `Bearer ${bearer}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    return {
+      status: response.status,
+      text: await response.text(),
+      contentType: response.headers.get('content-type') ?? '',
+    };
+  };
+
+  /**
+   * ONE TENANT READ, TURNED INTO AN OUTCOME — and each half of the union is built the way the
+   * criterion needs it read.
+   *
+   * A REFUSAL CARRIES THE RAW RESPONSE TEXT, UNPARSED. `_contract.ts` says of `TenantReadOutcome`
+   * that `body` holds the raw text at this tier and the returned value at the loop tier, and that no
+   * comparison ever crosses the two. This is where that promise is kept.
+   *
+   * A SUCCESS HANDS BACK THE WIRE OBJECT WITH ONLY `ok` REMOVED, and that matters more than it
+   * looks. AT-001.22 asserts that the public projection carries NO `organizationId` and NO
+   * `assignedVolunteerId`; if this adapter rebuilt the projection field by field, that assertion
+   * would be about the rebuild and would pass however much the deployed function had leaked. The
+   * `ok` flag is the envelope rather than part of the projection, so it is the one field dropped.
+   *
+   * ANYTHING THAT IS NOT A 200 IS A REFUSAL. The three read surfaces answer 200 with a projection,
+   * 404 with the shared constant, 401 when the session layer refuses, or 502 on an outage — so the
+   * split is by status and needs no reading of the body to decide it.
+   */
+  const tenantRead = async <T>(name: string, body: unknown, session: Session | null): Promise<TenantReadOutcome<T>> => {
+    const { status, text, contentType } = await callFunctionRaw(name, body, session);
+    if (status !== 200) return { ok: false, status, body: text };
+    // A 200 THAT IS NOT JSON IS A HARNESS FAULT, NOT A PRODUCT ANSWER, so it is loud rather than
+    // parsed into whatever comes out. A gateway error page rendered as HTML would otherwise reach
+    // `JSON.parse` and fail with a message about a character position.
+    if (!contentType.toLowerCase().includes('json')) {
+      throw new Error(
+        `the deployed ${name} answered 200 with content type ${JSON.stringify(contentType)} rather than JSON: ${text.slice(0, 200)}`,
+      );
+    }
+    const wire = JSON.parse(text) as Record<string, unknown>;
+    delete wire.ok;
+    return { ok: true, status, value: wire as T };
+  };
+
+  /**
+   * ONE DIRECT DATA API READ, AS THE CALLER — the criterion's "direct API/ID probing", and it is the
+   * only helper in this file that sends a user's own token to PostgREST.
+   *
+   * BOTH HEADERS ARE MANDATORY (gate-1 ruling 9). `apikey` carries the publishable key, which is
+   * what the gateway admits the request on; `Authorization` carries THE CALLER'S OWN access token,
+   * which is what makes PostgREST evaluate the row-level-security policy for that user. Without the
+   * first the gateway can refuse before PostgREST and row-level security ever run, and the probe
+   * would be a gateway test wearing a policy test's name. Every existing call in this tree sends
+   * `apikey` for the same reason.
+   *
+   * `rows: null` IS A REFUSAL BEFORE ANY ROW WAS CONSIDERED — the privilege layer, not a policy.
+   * `_contract.ts` keeps the two apart deliberately: "denied by row-level security" answers `[]`,
+   * and "this role holds no privilege on the table" answers a status and no rows at all.
+   *
+   * THE SESSION MAY BE `null`, AND THEN THERE IS NO `Authorization` HEADER AT ALL — which is the
+   * whole point of that shape rather than an omission. AT-001.24's caller never signed in, so it
+   * sends the publishable key and nothing else, and PostgREST resolves the request to `anon`. Fact 8
+   * of the plan records the measurement this mirrors: AT-001.17's second arm already asserts that the
+   * publishable key alone answers 401 `permission denied` on `org_memberships`. Sending the key as a
+   * BEARER token instead would make the request `anon` too and would be a different request from the
+   * one a browser with no session makes.
+   */
+  const dataApiGet = async (session: Session | null, path: string): Promise<DataApiReadOutcome> => {
+    const accessToken = session === null ? null : tokensOf(sessions, session, `read ${path} through the Data API`).accessToken;
+    const response = await fetch(`${api}/rest/v1/${path}`, {
+      headers: {
+        apikey: slot.anonKey,
+        ...(accessToken === null ? {} : { Authorization: `Bearer ${accessToken}` }),
+        Accept: 'application/json',
+      },
+    });
+    const text = await response.text();
+    if (response.status >= 400) return { status: response.status, rows: null };
+    const parsed = text.trim() === '' ? [] : (JSON.parse(text) as unknown);
+    // A 2xx THAT IS NOT A ROW ARRAY IS LOUD RATHER THAN EMPTY. An empty answer is the DENIAL this
+    // suite reads as evidence, so a malformed one must never be able to arrive wearing it.
+    if (!Array.isArray(parsed)) {
+      throw new Error(`a Data API read of ${path} answered ${response.status} with a body that is not a row array: ${text.slice(0, 200)}`);
+    }
+    return { status: response.status, rows: parsed as Record<string, unknown>[] };
   };
 
   /**
@@ -707,9 +878,19 @@ export async function createLiveAdapter(opts: {
      * A PROJECT, PROVISIONED BY THE OPERATOR — one insert, with its seat free.
      *
      * There is no product project-creation path in this repository at either tier, so this is the
-     * only way AT-001.32's Given is reached. `public.projects` reaches no Data API role at all
-     * (measured after reset — verify-first answer (f): zero catalog rows for `anon`, `authenticated`
-     * and `service_role`), so this is a direct database write and could not be anything else.
+     * only way AT-001.32's Given is reached. It is a direct database write and could not be anything
+     * else: no client role holds an INSERT on that table, and none is granted one here.
+     *
+     * WHAT THE ORIGINAL MEASUREMENT SAID, AND THE DATE IT STOPPED BEING TRUE (gate-1 ruling 11).
+     * This comment used to state that `public.projects` reaches NO Data API role at all, on the
+     * single-seat leaf's own measurement after a reset — verify-first answer (f): zero catalog rows
+     * for `anon`, `authenticated` and `service_role`. That was true when it was measured, and it
+     * stopped being true on 2026-08-12, when
+     * `supabase/migrations/20260812120000_tenant_isolation_policy_set.sql` granted `select` on the
+     * table to `authenticated` and to `service_role`. The measurement is kept because it is the
+     * history of why the earlier revoke existed, and because a corrected fact with no record of what
+     * it replaced reads as if nothing ever changed. What did NOT change is the part this method
+     * depends on: `select` is all that was granted back, so no role holds an INSERT.
      */
     createProjectAsOperator: async (organizationId, name): Promise<ProjectRow> => {
       const created = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
@@ -764,6 +945,119 @@ export async function createLiveAdapter(opts: {
         }
         return { ok: false, kind: 'refused', reason: message };
       }
+    },
+
+    /* --------------------------------- the three tenant-read surfaces, over the slot's own kong --- */
+
+    /**
+     * THE DEPLOYED `organization-dashboard`, called exactly as a browser client would.
+     *
+     * WHAT IS ON THE PATH HERE THAT WAS NOT AT THE LOOP TIER: `verify_jwt`, the platform's own token
+     * check, `resolveCaller`'s round trip to Auth, four service-role reads through PostgREST, and the
+     * shipped `tenantReadAllowed` running inside the edge runtime rather than inside this process.
+     */
+    organizationDashboard: async (session, organizationId): Promise<OrganizationDashboardOutcome> =>
+      tenantRead<OrganizationDashboard>('organization-dashboard', { organizationId }, session),
+
+    /** The deployed `project-workspace` — the same posture, and the same refusal constant. */
+    projectWorkspace: async (session, projectId): Promise<ProjectWorkspaceOutcome> =>
+      tenantRead<ProjectWorkspace>('project-workspace', { projectId }, session),
+
+    /**
+     * The deployed `public-project-page` — the ONE function in this repository whose block declares
+     * `verify_jwt = false`, so a call carrying no user token really does cross a gateway that was
+     * told to let it through. That is the half of AT-001.22 a loop-tier green cannot claim.
+     */
+    publicProjectPage: async (projectId, session): Promise<PublicProjectPageOutcome> =>
+      tenantRead<PublicProjectPage>('public-project-page', { projectId }, session),
+
+    /**
+     * ONE DIRECT DATA API READ — `select=*`, and the projection is deliberately not narrowed.
+     *
+     * A NARROWED SELECT WOULD WEAKEN THE PROBE. The clause under test is that a foreign row is not
+     * reachable AT ALL, so the probe asks for every column: a policy that leaked one column this
+     * suite had not thought to name would still show up here as a row that must not be there.
+     *
+     * A `null` SESSION IS AT-001.24'S VISITOR, and `dataApiGet` above states what it does with one.
+     */
+    dataApiRead: async (session, probe): Promise<DataApiReadOutcome> => {
+      const filter = probe.keyedBy === null ? '' : `&${probe.keyedBy}=eq.${encodeURIComponent(String(probe.value))}`;
+      return dataApiGet(session, `${probe.table}?select=*${filter}`);
+    },
+
+    /**
+     * EVERY TABLE IN `public`, WITH ITS CLIENT GRANTS AND ITS SELECT POLICIES — the conformance
+     * arm's witness, read out of the live catalog over the operator connection.
+     *
+     * IT IS AN OUT-OF-BAND READ. The witness is the database's own catalog rather than something the
+     * system under test reports about itself, which is the same posture `_source-scan.ts` takes
+     * towards `src/routes/`. The two reads are separate rather than one join, because a join would
+     * drop a table that holds no policy — and a table nobody has classified is exactly what the arm
+     * exists to catch.
+     *
+     * THE GRANT HALF ASKS THE EFFECTIVE QUESTION, AND IT DOES SO BECAUSE THE GRANT CATALOGUE CANNOT
+     * ANSWER IT. This read used to select from `information_schema.role_table_grants` filtered to
+     * `grantee in ('anon','authenticated')`. That view answers "who was NAMED in a grant statement",
+     * and PostgreSQL documents that it omits grants made to `PUBLIC` altogether. So a table opened
+     * with `grant select … to public` — which every client role holds — would have been reported here
+     * as granted to nobody, and the conformance arm would have accepted it as unreachable while every
+     * signed-in caller could read it. `has_table_privilege(<role>, c.oid, 'SELECT')` answers whether
+     * the role holds `select` BY ANY ROUTE: a direct grant, a grant to `PUBLIC`, or role inheritance.
+     * That is the question the rule was always asking, and this is the measured reason for the change
+     * rather than a preference between two catalogues.
+     *
+     * `cmd` IS FILTERED TO THE POLICIES THAT REACH A READ. `pg_policies.cmd` is `SELECT`, `INSERT`,
+     * `UPDATE`, `DELETE` or `ALL`, and an `ALL` policy governs reads as well — so both are kept and
+     * the write-only kinds are left out.
+     *
+     * `relkind` NAMES WHAT IS IN AND WHAT IS DELIBERATELY OUT, so the same finding is not made twice.
+     * ORDINARY TABLES (`'r'`) AND PARTITIONED PARENTS (`'p'`) ARE IN, because both carry the
+     * row-level-security flag and both are where `pg_policies` reports their policies — a public
+     * partitioned tenant table filtered out here would be absent from the witness entirely, never
+     * declared and never checked for isolation, which is the one case the arm exists for. VIEWS and
+     * MATERIALISED VIEWS are out because they are not the arm's subject: the arm grades the tables a
+     * tenant's rows live in. FOREIGN TABLES are out because this repository uses no foreign-data
+     * wrapper, so there is no such relation for the filter to miss.
+     */
+    publicSchemaCatalog: async (): Promise<CatalogTable[]> => {
+      const tables = await rows<{
+        table_name: string;
+        row_level_security: boolean;
+        anon_selects: boolean;
+        authenticated_selects: boolean;
+      }>(
+        sql`select c.relname as table_name,
+                   c.relrowsecurity as row_level_security,
+                   has_table_privilege('anon', c.oid, 'SELECT') as anon_selects,
+                   has_table_privilege('authenticated', c.oid, 'SELECT') as authenticated_selects
+              from pg_class c
+              join pg_namespace n on n.oid = c.relnamespace
+             where n.nspname = 'public' and c.relkind in ('r', 'p')
+             order by c.relname`,
+      );
+      const policies = await rows<{ table_name: string; policy_name: string; roles: unknown; qual: string | null; cmd: string }>(
+        sql`select tablename as table_name, policyname as policy_name, roles, qual, cmd
+              from pg_policies
+             where schemaname = 'public'
+             order by tablename, policyname`,
+      );
+
+      return tables.map((table) => ({
+        table: String(table.table_name),
+        selectGrantedTo: [
+          ...(table.anon_selects === true ? ['anon'] : []),
+          ...(table.authenticated_selects === true ? ['authenticated'] : []),
+        ].sort(),
+        rowLevelSecurity: table.row_level_security === true,
+        selectPolicies: policies
+          .filter((policy) => String(policy.table_name) === String(table.table_name))
+          .filter((policy) => String(policy.cmd) === 'SELECT' || String(policy.cmd) === 'ALL')
+          .map((policy) => ({
+            name: String(policy.policy_name),
+            roles: pgRoleList(policy.roles),
+            qual: policy.qual === null ? null : String(policy.qual),
+          })),
+      }));
     },
 
     /* -------------------------------------------------------- read-back, as the operator, over SQL */

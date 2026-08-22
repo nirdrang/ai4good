@@ -1,5 +1,5 @@
 /**
- * The plumbing both edge functions need: read the environment, answer with JSON, establish WHO is
+ * The plumbing all six edge functions need: read the environment, answer with JSON, establish WHO is
  * calling, and reach the database.
  *
  * It is deliberately separate from `accounts.ts`. That module holds the DECISIONS and is imported by
@@ -302,6 +302,62 @@ export async function callDatabaseFunction(
   }
 
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
+}
+
+/** The result of one Data API read: the rows, or the fact that the read did not happen. */
+export type RowsOutcome = { ok: true; rows: Record<string, unknown>[] } | { ok: false; detail: string };
+
+/**
+ * Read rows from one `public.` table, with the service role — the read half of `callDatabaseFunction`.
+ *
+ * TWO OUTCOMES, AND `ok: false` MEANS THE READ DID NOT HAPPEN — never "there are no rows". An empty
+ * array is a successful read of nothing, which is a completely different fact from a Data API that
+ * answered an error, and the three read surfaces branch on the difference: no rows is a refusal a
+ * caller earned, a failed read is an outage that answers 502 and says so. Collapsing them would let
+ * an outage be read by an acceptance test as the isolation property holding.
+ *
+ * A REJECTED `fetch` IS THE THIRD THING THAT BECOMES `ok: false`, and that is why the request is
+ * wrapped. A Data API that is unreachable REJECTS the request rather than answering it, so before
+ * the wrapper the rejection left this function altogether: it passed each surface's own fixed
+ * refusal, reached `edgeHandler`, and became a 502 carrying the thrown message. A Deno `fetch`
+ * rejection message carries the REQUEST URL, and that URL carries the identifier the surface was
+ * asked about — so on that one path the answer for one target stopped reading like the answer for
+ * another, which is the property every non-public read surface here promises. There is now no
+ * un-caught throw site inside this function, so the escape is closed by construction rather than by
+ * care, in one place, for all three surfaces.
+ *
+ * AND THE DETAIL NAMES THE TABLE AND NOTHING ELSE, on all four paths. It is `path` with the query
+ * string cut off: never the caught error's message, never the query string, and never the URL. A
+ * detail is written for whoever reads the 502, and the identifier the caller asked about must not
+ * travel back to that caller inside it — a helpful-looking reason is exactly how an answer becomes
+ * target-dependent.
+ *
+ * `path` IS THE TABLE AND ITS QUERY STRING, already encoded by the caller — `accounts?id=eq.…`. It is
+ * not built here because each surface's filter is part of that surface's own read ORDER, which is
+ * load-bearing for the no-existence-oracle property and belongs where a reader can see it.
+ */
+export async function readRows(supabaseUrl: string, serviceRoleKey: string, path: string): Promise<RowsOutcome> {
+  let text: string;
+  try {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Accept: 'application/json',
+      },
+    });
+    if (!response.ok) return { ok: false, detail: `a read of ${path.split('?')[0]} answered ${response.status}` };
+    text = await response.text();
+  } catch {
+    return { ok: false, detail: `a read of ${path.split('?')[0]} could not be made at all` };
+  }
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (!Array.isArray(parsed)) return { ok: false, detail: `a read of ${path.split('?')[0]} answered a body that is not an array` };
+    return { ok: true, rows: parsed as Record<string, unknown>[] };
+  } catch {
+    return { ok: false, detail: `a read of ${path.split('?')[0]} answered a body that is not JSON` };
+  }
 }
 
 /** Read a JSON request body, or refuse — a malformed body must not read as an empty one. */

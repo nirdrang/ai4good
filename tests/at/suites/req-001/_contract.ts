@@ -27,6 +27,14 @@ import type {
 // judgement type here: `OrgRole` is the shipped module's, the same one the rename edge function and
 // the database enum state, so the operator grant below cannot name a role the product does not have.
 import type { OrgAdminRefusalKind, OrgRole } from '../../../../supabase/functions/_shared/memberships.ts';
+// THE TENANT-READ JUDGEMENT TYPES, imported for the same reason `OrgRole` is. `PublicProjectView` is
+// the shipped statement of what a project shows the world, and `TenantReadBasis` is why a read was
+// permitted — so a body asserting "the platform admin reached across accounts" is asserting the
+// shipped module's own vocabulary rather than a copy of it that could drift.
+import type {
+  PublicProjectView,
+  TenantReadBasis,
+} from '../../../../supabase/functions/_shared/visibility.ts';
 
 export type {
   Clock,
@@ -43,7 +51,7 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-export type { AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole };
+export type { AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole, PublicProjectView, TenantReadBasis };
 
 /* ------------------------------------------------------------------------- what gets read back */
 
@@ -289,6 +297,143 @@ export type AssignVolunteerOutcome =
  * the remedy, so a bare boolean would make the criterion untestable.
  */
 export type SendDiscoveryMessageOutcome = { ok: true } | { ok: false; reason: string };
+
+/* --------------------------------------------------------------- the three tenant-read surfaces */
+
+/**
+ * WHAT AN ORGANISATION'S DASHBOARD HOLDS — the organisation, its single seat, and its projects.
+ *
+ * ACKNOWLEDGMENTS ARE DELIBERATELY NOT HERE, and the absence is reasoned rather than an omission. An
+ * acknowledgment belongs to an ACCOUNT, not to an organisation (`public.acknowledgments` keys on
+ * `account_id`, and `PLATFORM_ACKNOWLEDGMENT_KIND`'s own note says it is a platform-level record), so
+ * a dashboard listing them would be one account's records shown under another thing's name. The
+ * cross-organisation denial over that table is proved through the Data API probe instead, which is
+ * where its tenant key lives.
+ */
+export type OrganizationDashboard = {
+  organizationId: string;
+  organizationName: string;
+  /** the organisation's single seat, or `null` — a v1 NGO holds at most one membership row */
+  seat: { accountId: string; role: OrgRole } | null;
+  projects: { projectId: string; projectName: string; assignedVolunteerId: string | null }[];
+};
+
+/**
+ * WHAT A PROJECT'S WORKSPACE HOLDS — the project's working data, for its assigned developer.
+ *
+ * `organizationId` AND `assignedVolunteerId` ARE THE TWO FIELDS THE PUBLIC PROJECTION DOES NOT CARRY,
+ * and that pair is what AT-001.22's "the public page remains visible" arm asserts by name. See
+ * `PublicProjectView` in the shipped module for the other half of the same statement.
+ */
+export type ProjectWorkspace = {
+  projectId: string;
+  projectName: string;
+  organizationId: string;
+  assignedVolunteerId: string | null;
+};
+
+/**
+ * WHAT THE PUBLIC PROJECT PAGE ANSWERS — an alias of the SHIPPED projection, never a restatement.
+ *
+ * The alias exists so a body reads one vocabulary; the shape is `visibility.ts`'s, which is the
+ * module the deployed function imports.
+ */
+export type PublicProjectPage = PublicProjectView;
+
+/**
+ * THE OUTCOME OF ONE TENANT READ — and it carries the STATUS and the BODY of a refusal, not a reason.
+ *
+ * WHY THE REFUSAL IS SHAPED LIKE A RESPONSE. AT-001.21's clause is that a denial must not reveal
+ * whether the thing exists, which is a property of two answers being IDENTICAL. An outcome that
+ * carried only `{ ok: false; reason }` could not express that: two refusals differing in status, or
+ * in a field the reason does not mention, would compare equal. So the whole answer travels — the
+ * status, and the body exactly as the surface produced it.
+ *
+ * WHAT `body` HOLDS DIFFERS BY TIER, DELIBERATELY, and no comparison ever crosses the two. At
+ * integration tier it is the RAW response text, unparsed, so two differently serialised bodies do not
+ * compare equal (gate-1 ruling 5). At loop tier there are no bytes at all, so it is the value the
+ * surface returned. Every body compares two answers WITHIN one tier.
+ */
+export type TenantReadOutcome<T> =
+  | { ok: true; status: number; value: T }
+  | { ok: false; status: number; body: unknown };
+
+export type OrganizationDashboardOutcome = TenantReadOutcome<OrganizationDashboard>;
+export type ProjectWorkspaceOutcome = TenantReadOutcome<ProjectWorkspace>;
+export type PublicProjectPageOutcome = TenantReadOutcome<PublicProjectPage>;
+
+/* ------------------------------------------------------- the direct-identifier probing clause */
+
+/** The four tables that hold data belonging to one tenant. `accounts` is not one: it holds no rows a tenant owns. */
+export type TenantTable = 'organizations' | 'org_memberships' | 'acknowledgments' | 'projects';
+
+/** The column a tenant table is keyed by for a probe — `id` for organisations, and the two foreign keys. */
+export type TenantKeyColumn = 'id' | 'org_id' | 'account_id';
+
+/**
+ * ONE DIRECT DATA API READ — AT-001.21's "direct API/ID probing", said as a value.
+ *
+ * `keyedBy: null` is the UNFILTERED LISTING, which is a different attack from a keyed probe and needs
+ * its own arm: a keyed probe asks "is this identifier yours"; a listing asks "what is there at all",
+ * and a policy that leaked would leak there first.
+ */
+export type DataApiProbe = {
+  table: TenantTable;
+  keyedBy: TenantKeyColumn | null;
+  /** the identifier the probe filters by; `null` exactly when `keyedBy` is `null` */
+  value: string | null;
+};
+
+/**
+ * WHAT ONE DIRECT DATA API READ ANSWERED.
+ *
+ * `rows: []` IS THE DENIAL, and that is the whole reason this clause is cheap to satisfy at the
+ * database: a row-level-security policy that admits nothing answers with an empty array, which is
+ * byte for byte what a keyed read of a row that does not exist answers. The no-oracle property is
+ * free there, unlike at the edge surface where `TENANT_NOT_FOUND` has to supply it.
+ *
+ * `rows: null` is a read that was REFUSED before any row was considered — the privilege layer, not a
+ * policy. It is a distinct answer rather than an empty one for the reason every three-outcome lookup
+ * in this tree gives: "denied by row-level security" and "the role holds no privilege" are different
+ * facts, and collapsing them would let one be reported as the other.
+ */
+export type DataApiReadOutcome = {
+  status: number;
+  rows: Record<string, unknown>[] | null;
+};
+
+/* ---------------------------------------------------- the live catalog, for the conformance arm */
+
+/**
+ * ONE TABLE IN THE `public` SCHEMA, as the live catalog reports it.
+ *
+ * IT EXISTS SO THE ABSENCE OF A TABLE IS SELF-CORRECTING. The criteria enumerate drafts, ledger,
+ * files, thread and tasks, and none of those tables exists in this tree. A conformance arm that reads
+ * this and compares it against a SHIPPED list fails the build when a later requirement lands a table
+ * nobody has classified — without which this leaf's green would be a statement about today's tables
+ * and nothing else.
+ *
+ * IT IS AN INTEGRATION-TIER READ AND ONLY THAT. There is no catalog at loop tier, and the loop
+ * adapter refuses this member by name rather than answering with an invented one.
+ */
+export type CatalogTable = {
+  /** the table's name in `public` */
+  table: string;
+  /**
+   * the CLIENT roles that EFFECTIVELY hold `select` on it, by any grant including one to `PUBLIC` —
+   * `anon` and `authenticated` only, because the operator is not a client. The witness is
+   * `has_table_privilege(<role>, <table>, 'SELECT')` rather than a grant catalogue, because a grant
+   * catalogue answers who was NAMED in a grant statement and omits `PUBLIC` by documented design.
+   */
+  selectGrantedTo: string[];
+  /** whether row-level security is enabled on it */
+  rowLevelSecurity: boolean;
+  /** every `select` policy on it, with the roles it reaches and its `qual` expression */
+  selectPolicies: { name: string; roles: string[]; qual: string | null }[];
+};
+
+/** WHICH STORE A LOOP-TIER READ FAULT IS ARMED AGAINST — the four a tenant read touches. */
+export type TenantReadStore = 'accounts' | 'memberships' | 'projects' | 'organizations';
 
 /* ------------------------------------------------------------------------------------ the SUT */
 
@@ -573,10 +718,17 @@ export type AccountsSut = {
    *
    * WHAT A GREEN OVER IT CLAIMS, said narrowly because the criterion's words are wider. It claims
    * OPERATION-SURFACE isolation: authority does not cross organisations on this action. It does NOT
-   * claim read isolation — "acting in NGO A never grants access to NGO B's data" over drafts,
-   * ledgers and files is the tenant-isolation deliverable's (`loop/decomp/req-001.md` D5.L1), which
-   * is blocked by this leaf and lands the policy set. This tree has no read surface to leak through:
-   * row-level security is on with zero policies and `org_memberships` reaches no Data API role.
+   * claim read isolation — "acting in NGO A never grants access to NGO B's data" is the
+   * tenant-isolation deliverable's (`loop/decomp/req-001.md` D5.L1 and D5.L2), which this leaf
+   * unblocked and which has now landed.
+   *
+   * (This paragraph used to end by saying the tree had no read surface to leak through, because
+   * row-level security was on with zero policies and `org_memberships` reached no Data API role.
+   * Every clause of that sentence stopped being true when the two tenant-visibility migrations
+   * landed on 2026-08-12 and 2026-08-13: `authenticated` holds `select` on the four tenant tables
+   * and each carries `select` policies. The read claim is made by AT-001.21, .22, .23, .40 and .24
+   * against those policies and the three read surfaces, so this member's narrow claim stands on its
+   * own rather than on an absence that has gone.)
    */
   updateOrganization(session: Session, organizationId: string, name: string): Promise<UpdateOrganizationOutcome>;
 
@@ -664,6 +816,92 @@ export type AccountsSut = {
    * been deleted.
    */
   projectAssignment(projectId: string): Promise<ProjectRow | null>;
+
+  /* --------------------------------- the three tenant-read surfaces --------------------------- */
+
+  /**
+   * `supabase/functions/organization-dashboard` — AT-001.21's "NGO A's non-public data … dashboard".
+   *
+   * IT TAKES THE ORGANISATION AS AN ARGUMENT, which is what makes it usable as an isolation oracle,
+   * exactly as `updateOrganization` is: one caller, several targets, and the answer for a target the
+   * caller is not seated in must be the SAME answer as for a target that does not exist.
+   *
+   * THE REFUSAL CARRIES A STATUS AND A BODY AND NO REASON FIELD. See `TenantReadOutcome`: the claim
+   * under test is that two whole answers are identical, and an outcome that carried a reason a body
+   * could read would invite an assertion weaker than the criterion.
+   */
+  organizationDashboard(session: Session, organizationId: string): Promise<OrganizationDashboardOutcome>;
+
+  /**
+   * `supabase/functions/project-workspace` — AT-001.22's "that project's non-public data" and
+   * AT-001.23's "that project's working data", which are the denial and the grant of one rule.
+   */
+  projectWorkspace(session: Session, projectId: string): Promise<ProjectWorkspaceOutcome>;
+
+  /**
+   * `supabase/functions/public-project-page` — AT-001.22's "the public project page remains visible".
+   *
+   * `session` MAY BE `null`, AND THAT IS THE POINT OF THE MEMBER. The page answers a logged-out
+   * visitor and an authenticated one identically, because it is public; a member that could only be
+   * called with a session could not express the clause at all. It is the ONLY read surface here whose
+   * deployed block declares `verify_jwt = false`.
+   *
+   * IT REVEALS THAT A PROJECT EXISTS, DELIBERATELY. That is AT-001.21's own "no existence oracle
+   * BEYOND PUBLIC SURFACES" carve-out, and keeping it a separate function is what stops the public
+   * answer contaminating the no-oracle test.
+   */
+  publicProjectPage(projectId: string, session: Session | null): Promise<PublicProjectPageOutcome>;
+
+  /**
+   * ONE DIRECT DATA API READ, AS THE CALLER — AT-001.21's "direct API/ID probing", and it is not the
+   * edge surface wearing a different name.
+   *
+   * IT CARRIES THE CALLER'S OWN ACCESS TOKEN, so what answers is the row-level-security policy
+   * evaluated for THAT user, not a service-role read the product decided to permit. That is the
+   * second layer decision C ships, and a green over the edge surface alone would leave it untested.
+   *
+   * `session` MAY BE `null`, AND THAT IS AT-001.24'S SUBJECT — a visitor who never signed in, which
+   * is not the same caller as one whose session has ended. The reason is `publicProjectPage`'s own:
+   * a member that could only be called WITH a session could not express the clause at all. With
+   * `null` the request carries the publishable key and no bearer token, so it resolves to `anon`,
+   * which the migrations grant nothing — the refusal is the PRIVILEGE layer and `rows: null` is what
+   * says so. Every call site that PREDATES this change passes a `Session`, which is assignable, so
+   * widening the parameter moved none of them; AT-001.24's own `neverSignedIn` probe in
+   * `d-tenant-isolation.test.ts` is the one call site that passes `null`, and it is the reason the
+   * parameter was widened.
+   *
+   * THE REFERENCE NAMES THE PROBE AND NOT A LINE, ON PURPOSE. An earlier version of this sentence
+   * cited line 810. The audit fix that added assertions ABOVE it in that same file moved the call to
+   * another line, so the citation was false by the time the commit landed — the audit re-run caught
+   * it, both readers independently. Do not restore a line number here; it decays on the next
+   * insertion.
+   */
+  dataApiRead(session: Session | null, probe: DataApiProbe): Promise<DataApiReadOutcome>;
+
+  /**
+   * EVERY TABLE IN THE `public` SCHEMA, with its client-role grants and its select policies — the
+   * conformance arm's witness.
+   *
+   * IT IS AN OUT-OF-BAND READ: the witness is the live catalog, not something the system under test
+   * reports about itself, which is the same posture `_source-scan.ts` takes towards `src/routes/`.
+   */
+  publicSchemaCatalog(): Promise<CatalogTable[]>;
+
+  /**
+   * ARM A READ FAULT — fail the NEXT read of the named store, once.
+   *
+   * IT IS LOOP-TIER ONLY AND IS NOT BACKED LIVE, deliberately: `_live.ts` does not name it in
+   * `backedSutMethods`, so an integration body that reached for it would refuse by name rather than
+   * quietly fault a real database. There is no fault injection at the integration tier.
+   *
+   * WHAT IT PROVES, which is the reason it exists at all (gate-1 ruling 4): the no-oracle property
+   * must survive a database fault. A surface that read the target row FIRST would answer 404 for an
+   * identifier that names nothing — short-circuiting before the faulted read — and 502 for a real
+   * foreign identifier, and those two answers are an existence oracle outside `TENANT_NOT_FOUND`.
+   * With every decision read issued BEFORE the target read, both answer the same 502. The arm asserts
+   * exactly that equality, under a fault on each store in turn.
+   */
+  failNextReadOf(store: TenantReadStore): Promise<void>;
 
   /* --------------------------- the Discovery gate's stand-in surface -------------------------- */
 

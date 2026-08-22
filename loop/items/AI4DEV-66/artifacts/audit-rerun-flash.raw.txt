@@ -1,0 +1,75 @@
+﻿All traces are complete. Here is the audit.
+
+---
+
+# AUDIT — RE-RUN OF THE FIX DELTA (1e058d0...HEAD)
+
+## Change-set instrument results
+
+`git diff 1e058d0...HEAD -- src supabase tests .github package.json bun.lockb tsconfig.json vitest.config.ts` returns **exactly the six named files**, all modified, none added:
+`route-visibility.ts`, `visibility.ts`, `_contract.ts`, `_integration.ts`, `_live.ts`, `d-tenant-isolation.test.ts`. No stray file, nothing under `src/`, no `.github/`, no config. The whole-range command (`926d170…HEAD`) returns 22 files (counted: config.toml, edge.ts, 3 edge functions, 2 migrations, req-001.json, 3 harness selftests, _catalog-conformance, _contract, _fixture, _integration, _live, _pending, _route-scan, _source-scan, d-tenant-isolation.test.ts, route-visibility, visibility) and **nothing under `src/`**. The one out-of-territory change (`.claude/agents/reviewer-runner.md`) is declared and is excluded by construction — consistent with what a full `--name-only` would show.
+
+## The claim checklist
+
+**S1-R — PASS.** Whole range: 22 files, none under `src/` (verified by counting the name-status output above). Fix delta: six files, every one an M already present in the whole-range list; the fix added no file. Both halves confirmed.
+
+**A1-N — PASS, all four clauses.**
+1. `organization-dashboard/index.ts` reads account (line 83), seats (90–94), projects (103–107), then the target organisation row **last** (111–115); the decision is computed after, from values in hand (127–134), and nothing is read after line 115. `project-workspace/index.ts` reads the account (67), then the target project **last** (72–76); nothing after. Both match "every read a decision needs is issued BEFORE the target read, and the target read is the LAST read". (For `project-workspace` the target row itself carries the assignment fact, so the "before" clause is satisfied by the account read and the binding clause is the target-read-last one — the file's own header says exactly this, lines 12–24.)
+2. `public-project-page/index.ts` makes **no access decision**: no `resolveCaller` (line 52–54 states its absence), every branch is on method/body/row-presence/read-fault (50–82), and reads go out with the service-role key. Every caller receives the same answer. Clause 2 true.
+3. The organisation read is keyed on `String(project.org_id)` (line 76) — a column of the target row read at 64–68. The only request input is `projectId`; no other table maps project→org. There is no way to read the organisation first. Clause 3 true.
+4. The header states the exemption at lines 22–26 ("THE READ ORDER IS NOT LOAD-BEARING HERE, and saying so is the point rather than an omission"). Clause 4 true.
+I could find no filter or caller-property branch that would falsify clause 2; the narrowing is honest.
+
+**A2 — PASS.** Both bodies carry all four positive assertions (loop: `d-tenant-isolation.test.ts:705–752`; integration: `_integration.ts:1843–1890`), identical in shape. Identifiers are the right ones: `b.organizationId` is the org row id `completeSignup` creates and returns (`_fixture.ts:719, 768`); `projectB.id` is the operator-created project in org B (`_integration.ts:1737`, loop twin at 591); `b.accountId` is the account the completion's acknowledgment is stored under (`_fixture.ts:744–766`). Reachability under the shipped set: `organizations_select_org_member` (migration 1:123–127) admits org B to B (B holds a seat there); `org_memberships_select_org_member` (132–136) admits B's own seat rows; `projects_select_org_member` (141–145) admits projectB; `acknowledgments_select_own_account` (156–160) admits B's own ack. The loop-tier mirror admits the same (`_fixture.ts:1544–1581`). No way to pass while reading nothing: the `.not.toBeNull()` guard fails a refusal, and `.toContain` fails an empty list — an empty result now fails the control. Nothing was removed or loosened versus the pre-fix assertions (the negative halves and guards are byte-preserved in the diff). *Runtime note: the integration-tier reachability is graded by reading the SQL; the tier has never run (non-claim 1), so the DB's actual answer is unexecuted — but nothing in the policy text contradicts the assertions.*
+
+**A3 — PASS.** Grep for `route-visibility` and for `ROUTE_VISIBILITY|undeclaredRoutes` across the tree: exactly two import statements — `_route-scan.ts:30` (`undeclaredRoutes`) and `shipped-route-visibility.selftest.ts:33` (`ROUTE_VISIBILITY` and `undeclaredRoutes`). The other hits are comments/assertion strings (`_catalog-conformance.ts:17`, `d-tenant-isolation.test.ts:871`, `_integration.ts:1948`). No product code imports it (`supabase/functions/**` and `src/` greps empty). `src/router.tsx` (read in full, 16 lines) builds the router with `createRouter` over the generated route tree, context is only the query client — nothing consults `ROUTE_VISIBILITY`. `src/routes/` holds `index.tsx`, `__root.tsx` and `README.md` — one page and the app shell, as stated.
+
+**A4 — PASS.** The citation is character-accurate. Cast helper at `shipped-visibility.selftest.ts:46–47` (`call = (viewer, scope) => tenantReadAllowed(viewer as TenantViewer, scope as TenantReadScope)`). Lines 163–187 hold `wouldHaveBeenGranted` (an assigned volunteer: `accountType: 'volunteer'`, `assignedVolunteerOfTargetProject: true`) and the thirteen-value loop (`undefined, null, '', '   ', 'Project', 'projects', 'organisation', 'org', 42, true, {}, [], ['project']`). I traced each call through every earlier branch of `tenantReadAllowed` (`visibility.ts:165–220`): `knownAccountType('volunteer')` returns `'volunteer'` — `'volunteer'` is in `ACCOUNT_TYPES` (`accounts.ts:58`) — so the first branch does not return; the viewer is not `platform_admin` (line 176 does not fire); `scope === 'organization'` and `scope === 'project'` are false for all thirteen shapes (strict equality, no coercion). Every call lands on the fail-closed return (216–219) with `ok: false`, which is what the loop asserts. The earlier-version defect (naming a line that returns before the scope is read) is not repeated — the branches that return early do not fire for this viewer/scope pair. The "no type-checked call site can reach it" clause also holds: all four non-selftest call sites pass the literal `'organization'` or `'project'` (`organization-dashboard/index.ts:133`, `project-workspace/index.ts:88`, `_fixture.ts:1370`, `_fixture.ts:1420`).
+
+**A5 — FAIL (one finding, the citation).** The substantive claim is true: grep for `dataApiRead(null` across `tests/` finds exactly one call site, `d-tenant-isolation.test.ts:834` (`const neverSignedIn = await sut.dataApiRead(null, { table, keyedBy: null, value: null });`), and no other call site passes a null-typed value (all others pass `sessionA/sessionB/admin/unassigned/volunteerSession/signedOut`). But the comment as written cites **`d-tenant-isolation.test.ts:810`** — and line 810 at HEAD is `expect(workspace.ok, 'a caller whose session had ended read a project workspace').toBe(false);`, a `projectWorkspace` refusal, not the null call. The citation matches the **pre-fix** numbering (the fix delta added 24 lines above 834: +19 in the first hunk, +5 in the second), so it is stale by construction: a reader following the named line lands on the wrong statement. The sentence is false as written against the tree it lives in.
+
+**A6 — PASS.** Predicate is exactly `c.relkind in ('r', 'p')` (`_live.ts:1035`). The comment's reasons check out: partitioned parents carry `relrowsecurity` and are where `pg_policies` reports their policies (the policies query at 1038–1043 joins by table name, so a parent dropped from the tables list would also lose its policies — the "absent from the witness entirely" claim is structurally true). Views/matviews are excluded because the declaration lists and all three checks in `catalogProblemsAgainst` (`_catalog-conformance.ts:182–275`) are table-only — the arm's subject is stated and is the tables; no view exists in any migration (grep empty). Foreign tables: no `FOREIGN`/`fdw` anywhere in `supabase/migrations` (grep empty) — the "no foreign-data wrapper" reason is true of this repository. Double-count concern: no `PARTITION` appears in any migration (grep empty), so `'p'` is currently inert — the catalog returned is identical to before. If a partitioned tenant table ever arrived, the parent **and** its partitions would both appear; partitions carry no policy rows of their own and would fail clause 3 loudly ("no select policy an authenticated caller is judged by") — fail-closed, not a wrong pass. No defect introduced at this head. (Per the non-claims, this query has never been sent to a database; graded by reading.)
+
+**A7 — PASS.** The named policy exists and does what the comment says: `projects_select_assigned_volunteer` (`20260813120000…sql:134–138`) admits the seat-holder (`assigned_volunteer_id = auth.uid() and viewer_is_volunteer()`). The subject is the unassigned volunteer, who is admitted by no branch: not by that policy (the seat holds `assigned.accountId`, `_integration.ts:1502`), not by `projects_select_org_member` (volunteer signup creates no organisation and no membership — `_fixture.ts:718–721`, `_integration.ts:1491–1499`), not by the admin policy. The assertion below (`keyed.rows` non-null, `toEqual([])`, `_integration.ts:1546–1550`) is correct under the set: the volunteer holds the `select` grant (migration 1:99), RLS filters to zero rows, PostgREST answers `[]` with 200, and the absent identifier answers identically. The stale wording ("no policy branch admits a volunteer") survives nowhere — grep across `tests/` and `supabase/` for `no policy branch|admits a volunteer|branch that admits` returns only the new comment itself.
+
+## Stated facts the fix created
+
+- **FN1** — true: `_live.ts:1035`, `c.relkind in ('r', 'p')`.
+- **FN2** — true: `tests/at/expected/req-001.json` is M in the whole range and absent from the fix delta (both name-status outputs above).
+- **FN3** — true: no fixture/seed/mirror in the fix delta; the four positive assertions read only rows `completeSignup`/`createProjectAsOperator` already store.
+- **FN4** — true: `public-project-page/index.ts` absent from the fix delta; the read order I read at HEAD (project, then organisation keyed on `org_id`) is the order the delta could not have moved.
+- **FN5** — true: neither `.sql` file appears in the fix delta.
+- **FN6** — true: the fix delta touches nothing under `src/`, `.github/`, or any config file.
+
+## Non-claims
+
+All ten were attacked. 1–5 and 7–8, 10 are consistent with the tree (the fixture's own comment at `_fixture.ts:1486–1493` states non-claim 1; `visibility.ts:37–38` states 3; the fixture's `dataApiRead` header and body confirm 4; `public-project-page/index.ts:13–16` confirms 5; the fault arm exists only at loop tier and `_live.ts` does not back `failNextReadOf`, confirming 7; 8 is A3's verdict; `_catalog-conformance.ts:35–38` states 10). **Non-claim 6**: I evaluated the 502-vs-404 residual on the public surface and agree with the ruling — the surface's designed 200 already names the project and its organisation (existence is public by the criterion's own carve-out), and a 502 discloses strictly less than that answer; the residual is not a leak beyond the design. **Non-claim 9**: I settled it while tracing — grep for `_shared/edge` under `tests/` yields exactly one hit, a comment (`_contract.ts:115`); no test imports `edge.ts`, so its stated no-test-importer claim is true (within the `.ts` file population; any import specifier would have contained the grepped substring).
+
+---
+
+## Findings
+
+```
+[1] severity: LOW (my scale: HIGH = fix falsifies its core claim / security assertion cannot fail;
+    MED = stated fact about code false in substance; LOW = false citation, substance true)
+    tests/at/suites/req-001/_contract.ts:869-872 (the comment added by this fix)
+    claim: The new sentence cites "d-tenant-isolation.test.ts:810" as the one call site that passes
+    `null` to `dataApiRead`; at HEAD that line is `expect(workspace.ok, 'a caller whose session had
+    ended read a project workspace').toBe(false);` — the actual null call site is line 834
+    (`const neverSignedIn = await sut.dataApiRead(null, ...)`), which the fix delta itself shifted
+    from pre-fix line 810 by its +24 added lines. The citation is stale by construction: a reader
+    following the named line lands on a different statement.
+    why it matters: The item's whole purpose is correcting false statements, and the corrected
+    sentence still contains a false statement about the code — exactly the "correction that is
+    itself false" failure mode the brief names as worst-case. The substantive claim (only one null
+    call site exists; it is AT-001.24's probe) is true — verified by grep — so the defect is the
+    citation, not the content. Fix is a one-line renumber to 834 (or a citation that survives the
+    delta, e.g. by naming the probe variable instead of a line).
+    unverified-runtime-claim: no
+```
+
+## Carried-forward note
+
+This was a re-run; the fix delta reaches every box above (the six files it edits are the subjects of A2/A3/A4/A5/A6/A7, and S1-R re-checks the full range by mandate). No claim outside the listed boxes is reachable by the delta — the delta changes only comments and test assertions whose callers are the test bodies themselves, all graded. The one re-checked-in-full box is S1-R, done against the whole range.
+
+**AUDIT: 1 FINDING**

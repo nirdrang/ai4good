@@ -1,0 +1,58 @@
+Severity scale: high = can green or close an unsatisfied security requirement; medium = material execution or verification gap; low = concrete documentation drift.
+
+[1] severity: high    loop/items/AI4DEV-66/plan.md:430
+    claim: AT-001.21 is declared green at both tiers without exercising its required UI path.
+    why it matters: `organization-dashboard` and the Data API are both HTTP APIs; with no dashboard route, both can pass while the interface path remains absent or later exposes cross-organisation data.
+    unverified-runtime-claim: no
+
+[2] severity: high    loop/items/AI4DEV-66/plan.md:430
+    claim: Four ids are declared green while explicitly excluding drafts, ledger, files, threads and tasks, although the decomposition manifest does not defer those parts to another leaf.
+    why it matters: the named data can later land without its access behavior ever being exercised, while the leaves owning AT-001.21, .22, .23 and .40 have already closed green.
+    unverified-runtime-claim: no
+
+[3] severity: high    loop/items/AI4DEV-66/plan.md:413
+    claim: The plan closes the batched item while its own integration declaration leaves AT-001.24 capability-pending and the proposed new wiring leaf remains an unresolved founder decision.
+    why it matters: the board item explicitly owns AT-001.24, so merging this pull request would close work whose required public rendering and sign-in redirects were never built or observed; the CI territory guard does not authorize changing that item boundary.
+    unverified-runtime-claim: no
+
+[4] severity: high    loop/items/AI4DEV-66/plan.md:197
+    claim: Treating database failures as 502 responses leaves a possible existence oracle outside the exported 404 constant.
+    why it matters: if a target lookup succeeds and a follow-up membership, account or organisation lookup fails only for the existing-row path, the foreign existing id answers 502 while the nonexistent id returns 404. Settle this by faulting each post-target lookup while comparing the complete responses for an existing foreign id and a nonexistent well-formed id.
+    unverified-runtime-claim: yes
+
+[5] severity: medium    loop/items/AI4DEV-66/plan.md:354
+    claim: The promised byte-identical response oracle cannot be implemented through the existing `callFunction` helper the plan requires.
+    why it matters: `tests/at/suites/req-001/_live.ts:266` parses the body and returns only `{status, json}`, discarding the original bytes and headers; differently serialized responses can therefore compare equal after parsing.
+    unverified-runtime-claim: no
+
+[6] severity: medium    loop/items/AI4DEV-66/plan.md:327
+    claim: The migration step does not specify the mandatory `search_path` and revoke-then-grant posture for its two `security definer` policy helpers.
+    why it matters: leaving PostgreSQL's default grants exposes the helpers as public RPC functions, while copying the existing service-role-only grants prevents `authenticated` policy evaluation; an unsafe search path also violates the explicit definer-function posture established by the existing migrations.
+    unverified-runtime-claim: no
+
+[7] severity: high    loop/items/AI4DEV-66/plan.md:452
+    claim: Slice 1 is not independently proved even though the entire policy set lands there.
+    why it matters: AT-001.22's assigned-volunteer control uses the service-role edge function, not the Data API, so row-level security that denies every volunteer can pass slice 1; the platform-admin policy branch is likewise untested until slice 2.
+    unverified-runtime-claim: no
+
+[8] severity: medium    loop/items/AI4DEV-66/plan.md:238
+    claim: The catalog conformance arm treats the presence of any select policy as proof that a table is isolated.
+    why it matters: a later tenant table with `USING (true)`, the wrong role, or an incomplete tenant predicate satisfies this oracle while exposing every row, so the promised self-correcting isolation guard is not real.
+    unverified-runtime-claim: no
+
+[9] severity: medium    loop/items/AI4DEV-66/plan.md:356
+    claim: The new caller-token Data API helper does not require the anon or publishable key in the `apikey` header alongside the user's bearer token.
+    why it matters: the gateway may reject the request before PostgREST and row-level security run, making the probe a gateway test rather than a user-scoped policy test. Settle this with a live request carrying `apikey: slot.anonKey` plus the caller's access token and demonstrate an allowed own-row control and a denied foreign-row `[]`.
+    unverified-runtime-claim: yes
+
+[10] severity: high    loop/items/AI4DEV-66/plan.md:331
+    claim: Step 5 calls for `supabase db reset` even though the plan says resets occur only through the integration runner and the repository provides an identity-proving pool reset path.
+    why it matters: a literal reset from the worktree bypasses the occupancy and target-identity checks in `resetSlotDatabase` and can act on the repository-configured personal stack rather than reserved slot 1.
+    unverified-runtime-claim: no
+
+[11] severity: low    tests/at/suites/req-001/_live.ts:710
+    claim: The plan omits a comment that will become false when `authenticated` receives `select` on `public.projects`.
+    why it matters: the comment will continue to state that the table reaches no Data API role, and step 17's two search phrases will not detect it.
+    unverified-runtime-claim: no
+
+PLAN REVIEW: 11 FINDINGS

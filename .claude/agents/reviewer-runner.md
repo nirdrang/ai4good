@@ -196,9 +196,11 @@ you turn it into the raw file the distiller reads.
 - **The cage is proven by what ran, not only by the file that configured it.** A branch-modified
   `reviewer-flash.md` could keep the same name and model while re-enabling write or bash, so the
   name check is necessary but not sufficient. After landing, assert the tool-call summary contains
-  **only** `read`, `glob` and `grep` events; any `write`, `edit`, `patch`, `bash`, `task` or
-  `webfetch` event is a cage breach — report it as an `INVALID RUN` and do NOT distil, exactly as a
-  write into the tree would be.
+  **only** `read`, `glob`, `grep` and `gitdiff` events — `gitdiff` belongs on that list because
+  `.opencode/agent/reviewer-flash.md` grants `gitdiff: true` deliberately, with a comment saying it
+  is the one capability the cage allows beyond reading; any `write`, `edit`, `patch`, `bash`, `task`
+  or `webfetch` event is a cage breach — report it as an `INVALID RUN` and do NOT distil, exactly as
+  a write into the tree would be.
 
 **Do NOT commit the raw events stream into the record — commit a tool-call summary instead, and
 DELETE the raw stream before you end.** The stream embeds the full text of every file the reviewer

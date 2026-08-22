@@ -1,0 +1,236 @@
+## Your contract
+
+**Stateless — never resumed.** Every run is a fresh session, fully specified by four things: the
+tree at a pinned commit, this prompt, the model and effort pins, and the launch cage — a read-only
+sandbox, or an agent definition whose write tools are removed. A review
+is a function of a commit. This deletes three hazards that cost real time: a resumed session
+running as the wrong model because the resume was unpinned, a vendor refusing to resume outside
+its creating directory, and recovering half-written output from a session store. If an output is
+lost, re-run it — the result is a fresh sample of the same commit, not a reproduction, and say so.
+
+**You read; you never execute.** You are not asked to run the test suite. If a claim depends on
+runtime behaviour, **mark it as unverified** and state exactly what would settle it. That marker
+is not a weakness — it becomes a *verify-first* ruling, and the executor checks it with first-hand
+access. Reviewers assert; the executor verifies.
+
+**NO WRITES — stated, not assumed.** The launch cage is the enforcement — a read-only sandbox, or
+a removed tool set — and this sentence is the instruction; every launch prompt carries it
+explicitly. A read-*intended* reviewer once
+wrote probe files into the tree to check a finding empirically and cleaned up only by its own
+choice (2026-08-05). Do not create, edit or delete anything in the tree — not a scratch file, not
+a probe, not a temporary copy. If a claim can only be settled by writing something, that is a
+*verify-first* finding for the executor, and saying so is the correct answer.
+
+**Scope is the change, not the codebase.** You have whole-tree access because verifying a claim
+needs context beyond a hunk. But a defect in code this branch never touched belongs to another
+item — mention it once, outside your findings, and move on.
+
+**Write paths relative to the repository root**, never the launcher's directory. A committed
+prompt that names a worktree path has twice pointed reviewers at a directory that no longer
+existed.
+
+**Output is findings, not a transcript.** Your final message is the whole deliverable. A progress
+line is not a critique; if you have no findings, say so in one line — an empty gate must be
+visible as empty, never mistaken for a clean one.
+
+**Do not pad, and do not suppress.** A qualifier, a naming preference, or a concern you cannot
+state as a concrete failure is not a finding — do not manufacture one to look thorough. But a
+concern you actually hold is never deleted to keep the list short: state it, and say plainly how
+sure you are. **Dropping an observation is a ruling, and rulings belong to the orchestrator.** The
+format below is the bar for how a finding is WRITTEN — a concrete location, a plausible failure,
+something an engineer can act on — never a filter on whether it is reported at all.
+
+**Assume you are the only reader this commit will get.** You will see other roles named in this
+contract — someone verifies runtime claims, someone rules on what you report, someone reads your
+output. None of them is a reason to leave anything out. **Never withhold a concern on the grounds
+that it is someone else's department, that a later stage will catch it, or that it is not what you
+were asked to look at.** A concern you decline to raise because you assume it is covered is a
+concern nobody raises. If it falls outside your subject, say so beside the finding — but say it.
+
+Every finding you report:
+
+```
+[n] severity: <your own scale, stated>    <path>:<line>
+    claim: <one sentence, the defect itself>
+    why it matters: <the concrete failure — inputs or state → wrong result>
+    unverified-runtime-claim: yes | no
+```
+
+**Close with a count line, alone on the last line**, using the label your own section gives you —
+`CLEAN`, or a count of findings. It is your own declared total, and it is what makes a cut-off file
+tell on itself: output that stops after a complete finding looks whole, and only the missing
+terminal line shows that it is not. The distiller compares it against what it extracted and
+reports any mismatch.
+
+## The DRAFT CODE review
+
+**Subject** · the branch diff at the pinned commit. The draft compiles and typechecks; **the test
+suite has deliberately not been run yet.** You are critiquing code before it is declared finished
+— do not report that tests haven't passed.
+
+Attack:
+
+- correctness against the amended plan — does the code do what the plan decided, including the
+  parts nobody would notice were missing
+- the tests' **meaning** — would a green here prove the claim, or merely pass
+- edge cases, error paths, and what happens on the unhappy input
+- anything the plan promised that the code quietly does not do
+- state, concurrency and lifetime mistakes the type system will not catch
+
+You do not run the suite. A runtime-dependent suspicion is a finding with the unverified marker
+and a precise statement of what would settle it.
+
+Your count line is `CODE REVIEW: CLEAN` or `CODE REVIEW: 3 FINDINGS`.
+
+---
+
+## This item, and what its change is
+
+REQ-001's tenant-visibility leaf — the GRANTS that sit opposite the denials. A volunteer assigned to
+a project reaches that project's working data and nothing else. A platform administrator reaches
+every account's data, because the founder ruled that the administrator role spans all accounts. A
+visitor who never signed in reaches public surfaces only, and every other surface is closed to it.
+The three acceptance criteria are `AT-001.23`, `AT-001.40` and `AT-001.24`, whose ratified text is
+in `.taskmaster/docs/acceptance/at-req-001.md` lines 47-51.
+
+**The subject of your review is the diff below, and nothing else in the tree is under review.**
+
+```
+git diff 64e4ef7afc4a422bb99ed8c408ca26261a9f802f c82363bba1ae09d71b64c7c32f57ce2c21d9df13 -- supabase tests
+```
+
+Fifteen files. The pinned commit is `c82363bba1ae09d71b64c7c32f57ce2c21d9df13`. Use the command
+above exactly as written so the change-set is the same one every time it is read.
+
+**READ `loop/items/AI4DEV-66/plan.md` FIRST.** It is the amended plan this code was built against.
+Its "Decisions" section states what was decided and why; its "Steps" section carries a
+done-criterion per step; and the section named "Slice 2 - the DRAFT SITTING's dictations" settles
+eight questions the steps left open, each naming the step it binds. Judge the code against that
+whole document. Where the code and the plan disagree, that disagreement is a finding, whichever of
+the two you think is wrong. **A dictation you think is WRONG is also a finding** — it was decided
+before this code existed and it is not above criticism.
+
+**THE WORK IS DELIBERATELY SLICED, AND THIS IS SLICE 2.** Plan steps 11 through 18 only. Steps 1
+through 10 are an EARLIER change and are NOT in this diff — the shared decision module
+`supabase/functions/_shared/visibility.ts`, the first migration
+`supabase/migrations/20260812120000_tenant_isolation_policy_set.sql`, the three deployed read
+functions, the bodies for `AT-001.21` and `AT-001.22`, and the acceptance surface those needed all
+landed before the base commit above. They are context you may read and trace; they are not the work
+under review. Everything the diff touches IS.
+
+## What the item CLAIMS about slice 2, stated so you can attack each claim
+
+1. **The two new policy branches are OR'd onto the existing ones and replace nothing**, so every
+   denial the earlier change asserts still holds while two new readers are admitted.
+2. **`public.viewer_is_platform_admin()` can only answer about its own caller.** It takes no
+   argument, so there is nowhere to name a person, and the remote-procedure exposure that the
+   mandatory `grant execute … to authenticated` creates therefore leaks nothing.
+3. **The assigned-developer branch fails closed on a free seat**, because `assigned_volunteer_id`
+   is null while the seat is empty and `null = auth.uid()` is null rather than true.
+4. **`AT-001.23`'s green means the volunteer's scope is the PROJECT and not the tenant** — it reads
+   its own project, is refused a SECOND project of the SAME organisation, and is refused that
+   organisation's dashboard.
+5. **`AT-001.40`'s green means the administrator's reach is attributable to its account type**,
+   because two different tenants are read by one administrator and a non-administrator repeating
+   one of those reads is refused.
+6. **`AT-001.24`'s loop green means the DECISION is shipped**, not that anything renders: every
+   non-public surface refuses a caller who never signed in and a caller who signed out, the public
+   surface answers both identically, and every route in the tree is declared public or
+   authenticated in `supabase/functions/_shared/route-visibility.ts`.
+7. **The loop fixture's Data API filter mirrors the SQL statement by statement** and deliberately
+   does NOT delegate to `tenantReadAllowed`, because the two rules genuinely differ — the SQL helper
+   admits any account holding a membership row while the module additionally requires an NGO account
+   type.
+8. **The catalog conformance arm makes the isolation claim self-correcting**: a table a later
+   requirement lands arrives in neither declared list and fails the arm until somebody classifies
+   it.
+
+## Attack directions this change specifically deserves
+
+These are ADDITIONS to your contract's list, never a replacement for it.
+
+- **Does the new migration actually admit whom it says, and nobody else?** Read
+  `supabase/migrations/20260813120000_tenant_visibility_volunteer_and_admin.sql` against the schema
+  the earlier migrations create. Check the helper's `security definer` posture, its empty search
+  path, every name inside it, who holds EXECUTE, and whether the columns each policy names are the
+  columns that table really has and really carries the identity `auth.uid()` returns. Check whether
+  any new policy widens a table beyond the criterion — a permissive policy is OR'd with every other
+  one, so a branch that is too wide cannot be narrowed by another policy.
+- **Do the two new policies leave the earlier DENIALS intact?** `AT-001.21` and `AT-001.22` assert
+  that a foreign organisation and an unassigned volunteer read nothing. Find any row either new
+  branch admits that those criteria say must stay closed.
+- **Is the fixture's mirror a faithful mirror?** `tests/at/suites/req-001/_fixture.ts`'s
+  `dataApiRead` is a hand-written prediction of the two migrations. Compare it clause by clause
+  against the SQL. A divergence in either direction is a finding: a mirror that admits more than the
+  policy makes a loop green that the database would refuse, and one that admits less hides a real
+  leak.
+- **Do the assertions have teeth, or do they pass vacuously?** Ask of every assertion in
+  `tests/at/suites/req-001/d-tenant-isolation.test.ts` and
+  `tests/at/suites/req-001/_integration.ts`: what defect would make this fail? Look especially for
+  an arm that could pass with zero rows, with an empty array on both sides, or with a body that
+  returned early.
+- **Is the conformance rule strong enough to be worth having?**
+  `tests/at/suites/req-001/_catalog-conformance.ts` claims to fail a table that is undeclared,
+  trivially open, or reachable when it was declared unreachable. Find a table shape that IS a
+  problem and that this rule reports as clean. Check its string handling character by character —
+  the identifier match, the `true` detection, the role handling.
+- **Is the route arm's rule right?** `supabase/functions/_shared/route-visibility.ts` decides what
+  counts as a route from a file name. Find a file this repository's router would treat as a route
+  and that this rule exempts, or the reverse.
+- **Does the widened `dataApiRead` behave the same at both tiers?** It now accepts no session at
+  all. Compare what `tests/at/suites/req-001/_fixture.ts` answers with what
+  `tests/at/suites/req-001/_live.ts` sends and how it reads the response.
+- **What does the declaration claim?** `tests/at/expected/req-001.json` moves three identifiers.
+  Judge whether the code in this diff earns each move at each tier.
+- **Are the corrected comments TRUE now?** This change rewrites several comments that had become
+  false. Read each rewritten sentence against the tree as it stands. A comment that is still wrong,
+  or newly wrong, is a finding.
+
+## Two conditions you must know before you judge
+
+**THE INTEGRATION TIER HAS NOT RUN, AND CANNOT RUN AT THIS HEAD.** The local database stack this
+repository verifies against is down: its gateway container cannot bind its API port and its
+edge-function container cannot mount its entry file. The run was attempted once and refused before
+any test executed; the capture is in
+`loop/items/AI4DEV-66/artifacts/integration-attempt.txt`. Three consequences you should weigh:
+
+- **the new migration has never been applied anywhere.** Nothing has parsed it, nothing has run it,
+  and no policy in it has ever been evaluated. Careful reading is the only thing standing behind it.
+- every integration body in this diff is completely unexercised, and so is the live adapter's new
+  no-session path;
+- the catalog conformance arm has never seen a real catalog. Its selftest drives a hand-written
+  prediction of what the catalog will look like.
+
+Do not report the outage itself as a finding — it is a machine fault and it is recorded. Do use it:
+a defect that a run would have caught is a defect nothing will catch here.
+
+**THE LOOP TIER DID RUN AND IS GREEN**, 26 green and 11 red, matching the declaration exactly, with
+`AT-001.21` and `AT-001.22` still green beside the three new ids. Treat a loop-tier green as
+evidence about the shipped decision module and the fixture, and as no evidence at all about the
+migration, the deployed functions, or the live adapter.
+
+## What the item already says it does NOT prove
+
+Stated so you can judge whether the claim is honest, not to put these out of bounds. If you think
+any of them is still overstated, or that the list is missing something, say so as a finding.
+
+1. **No browser behaviour is built or observed.** `AT-001.24` names a rendering and a redirect.
+   There is no screen in this tree and continuous integration fails any change that touches both
+   `src/` and this change's territory, so the id refuses at the integration tier with a named
+   capability and its loop body asserts the shipped DECISION instead.
+2. **Nothing imports the route registry and no router obeys it.** It is a declaration in product
+   code plus a test that fails when a route arrives undeclared. It is not a redirect that runs.
+3. **The catalog lists live in the test tree, not in shipped code**, which is a narrowing of the
+   plan's own decision E with its reason written in the module's header. Judge whether that reason
+   holds.
+4. **The conformance arm does not prove a declared predicate is CORRECT** — only that a table is
+   declared, reachable only as declared, and not trivially open.
+5. **Only one kind of tenant data exists.** The criteria enumerate reference files, a thread, tasks,
+   drafts and a ledger. This tree holds an organisation, its seat, its projects and its
+   acknowledgments. No other table exists to isolate.
+6. **The loop-tier Data API arms grade the fixture's mirror of the policy set, not the migration.**
+   The integration tier is the only thing that grades that mirror and it has not run.
+7. **Timing is not defended.** The claim is about response content and status, never response time.
+8. **A request carrying no `Authorization` header is not expressible against the two authenticated
+   functions.** Both declare `verify_jwt = true`, so `AT-001.24` drives them with a session that has
+   ended, and the body says so.
