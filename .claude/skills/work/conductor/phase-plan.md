@@ -14,11 +14,11 @@ soon as the tree is ready and the plan sitting is spawned, not after.
 event to it. The coordinator's backstop reads that file; a missing log at commencement is
 indistinguishable from a dead conductor.
 
-Then spawn the PLAN sitting — its type is in `sittings.md`, which you read first.
+Then spawn the PLAN sitting — its type is in `phase-sittings.md`, which you read first.
 
 What the sitting does is its own business, not yours: it writes the plan, and it hands its own
 mechanical the pull request to open, so the required CI check has a pull request to gate from
 the first push onward. You never open the pull request and never touch it.
 
 The phase completes when the plan sitting reports, its head is verified on the remote, and its
-`PHASE-STATE.md` names the plan gate's reviewer. Then read `reviews.md`.
+`PHASE-STATE.md` names the plan gate's reviewer. Then read `phase-reviews.md`.

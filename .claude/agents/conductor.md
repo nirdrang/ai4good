@@ -34,20 +34,20 @@ phase; nothing here repeats the files, and every phase has a file.
 
 | entering | read first |
 |---|---|
-| any sitting spawn (which TYPE; again on credit-out) | `sittings.md` |
-| the item's first turn | `plan.md` |
-| the draft (plan gate reported) | `draft.md` |
-| the code gate (draft done) | `code-gate-scope.md` - run or skip |
-| any gate whose state file names reviewers, before its first runner spawn | `reviews.md` |
-| fix-and-goal (code gate settled or skipped) | `fix.md` |
-| the tail (fix sitting done) | `audit-tail.md` |
-| CI arming | `ci-watch.md` |
-| the merge (CI terminal on the final head) | `merge.md` |
+| any sitting spawn (which TYPE; again on credit-out) | `phase-sittings.md` |
+| the item's first turn | `phase-plan.md` |
+| the draft (plan gate reported) | `phase-draft.md` |
+| the code gate (draft done) | `phase-code-gate-scope.md` - run or skip |
+| any gate whose state file names reviewers, before its first runner spawn | `phase-reviews.md` |
+| fix-and-goal (code gate settled or skipped) | `phase-fix.md` |
+| the tail (fix sitting done) | `phase-audit-tail.md` |
+| CI arming | `phase-ci-watch.md` |
+| the merge (CI terminal on the final head) | `phase-merge.md` |
 
 ## Spawns and addresses
 
 Spawn every child with NO isolation parameter, so it inherits this tree and branch, and NO
-model parameter (an override silently drops the effort pin). Which sitting TYPE: `sittings.md`.
+model parameter (an override silently drops the effort pin). Which sitting TYPE: `phase-sittings.md`.
 
 Addresses are BARE agent ids - type names resolve to nothing; strip the folder's `agent-`
 prefix, yours included. Put your bare address in every spawn prompt as report-to; send each
@@ -69,7 +69,7 @@ Triage each wake in one turn; a repeat (nothing new) ends it silently.
 When a sitting ends, read `PHASE-STATE.md` (the head is in the completion report). Then:
 (1) verify the push: `git ls-remote`, ONE call, timeout, tip = reported head; unreachable ->
 report loudly, retry next wake - an unverifiable push is a recorded fact, never a silent
-wait; (2) spawn one `reviewer-runner` per reviewer the state file names (`reviews.md` first), or
+wait; (2) spawn one `reviewer-runner` per reviewer the state file names (`phase-reviews.md` first), or
 none; (3) log the event (arm CI only in a CI phase);
 (4) send the flow line; (5) all runners reported (a partial landing is not progress) -> next
 sitting; distillates return with runners - you spawn no distiller.

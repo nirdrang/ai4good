@@ -325,8 +325,9 @@ if ($untrackedMachinery.Count -gt 0) { Write-Output ('  tracked-machinery: UNTRA
 # phase-file guard: the conductor contract holds only what is true in every phase; each phase's
 # rules live in its own file and are pulled on entering that phase. A phase file that vanishes,
 # or a file the contract never names, is a phase the conductor would act on from memory.
-$phaseFiles = @('plan.md', 'draft.md', 'sittings.md', 'reviews.md', 'code-gate-scope.md',
-                'fix.md', 'audit-tail.md', 'ci-watch.md', 'merge.md')
+$phaseFiles = @('phase-plan.md', 'phase-draft.md', 'phase-sittings.md', 'phase-reviews.md',
+                'phase-code-gate-scope.md', 'phase-fix.md', 'phase-audit-tail.md',
+                'phase-ci-watch.md', 'phase-merge.md')
 $core = ''
 try { $core = Get-Content (Join-Path $here '..\..\.claude\agents\conductor.md') -Raw } catch { }
 $phaseMissing = @()

@@ -10,7 +10,7 @@ rule — the SAME rule CI applies, so the skip and the pipeline can never disagr
 the item touched.
 
 If the diff reaches code: the gate runs. Nothing else in this file applies; return to the
-contract's boundary sequence and spawn the gate's runners per `reviews.md`.
+contract's boundary sequence and spawn the gate's runners per `phase-reviews.md`.
 
 If the diff is prose-only: skip the code gate, and record the skip TWICE — in the flow line
 and in the state file — so the merge ruling can say, in so many words, that this green

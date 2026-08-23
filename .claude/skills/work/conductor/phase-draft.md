@@ -3,7 +3,7 @@
 Read this when the plan gate's runners have all reported, before spawning the draft sitting.
 
 Spawn the DRAFT sitting with the gate's distillates named in its spawn prompt; its type is in
-`sittings.md`. The sitting rules every plan finding, amends the plan, pushes the rulings and the
+`phase-sittings.md`. The sitting rules every plan finding, amends the plan, pushes the rulings and the
 amendment BEFORE any code changes, and only then spawns the executor that writes the code.
 
 **Expect a long silence, and do nothing about it.** The executor writes every plan step, and this
@@ -15,5 +15,5 @@ Nothing else happens in this phase. You spawn nothing else, arm nothing, and sen
 your flow lines.
 
 The phase completes when the draft sitting reports, its head is verified on the remote, and its
-`PHASE-STATE.md` names the code gate. Then read `code-gate-scope.md`, which decides whether that
+`PHASE-STATE.md` names the code gate. Then read `phase-code-gate-scope.md`, which decides whether that
 gate runs at all.

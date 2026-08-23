@@ -10,7 +10,7 @@ The audit sitting is CONDITIONAL; the usual item is four sittings. Judgment sits
 gaps — plan critique, code critique, CI verdict — and the audit-to-CI gap needs its own
 sitting only if the audit found something. Otherwise the merge sitting absorbs both waits.
 
-The panel is two readers: two runners, two distillates, spawned per `reviews.md`. Derive the
+The panel is two readers: two runners, two distillates, spawned per `phase-reviews.md`. Derive the
 branch you take from BOTH distillates, never from anyone's word.
 
 ## Clean: both seats report zero findings AND each holds a real verdict
@@ -22,7 +22,7 @@ the ruling comment, the merge command — has exactly ONE executor, and the MERG
 spawns it: a boundary two actors can cross is not a boundary. Spell the limit into the
 mechanical's spawn prompt: commit these files, push, nothing else.
 
-The evidence push moves the head, so arm CI on the NEW head (read `ci-watch.md` before the
+The evidence push moves the head, so arm CI on the NEW head (read `phase-ci-watch.md` before the
 item's first arming). Spawn the MERGE sitting only at a terminal run. **The CI wait is YOURS
 — a sitting never holds it**: a sitting alive through a wait is judgment capacity buying
 nothing.
@@ -40,7 +40,7 @@ reading is banned.
 
 The once-per-item audit re-run is of the WHOLE panel at the new head, never one seat alone —
 half a panel re-run is a different gate wearing the same name. The re-run's sitting type is
-in `sittings.md`. Audit artifacts MOVE the head: arm CI after that push, never before.
+in `phase-sittings.md`. Audit artifacts MOVE the head: arm CI after that push, never before.
 
 The tail completes at a terminal CI run on the final head, with the MERGE sitting spawned on
 it. The merge sitting's state file saying done is the item's end, per the contract.

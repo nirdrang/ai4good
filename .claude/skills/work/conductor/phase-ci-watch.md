@@ -37,5 +37,5 @@ is the orchestrator's call, and a conductor who pre-judges "just an outage" has 
 fetch precedes diagnosis.
 
 The watch completes at a terminal run for the pinned SHA, outcome logged and handed to the
-sitting that rules on it — per `audit-tail.md`, the merge sitting spawns only at a terminal
+sitting that rules on it — per `phase-audit-tail.md`, the merge sitting spawns only at a terminal
 run.

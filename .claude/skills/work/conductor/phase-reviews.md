@@ -1,7 +1,7 @@
 # Reviewer runs
 
 Read this the moment a state file names reviewers, before that gate's first runner spawn.
-It also governs the audit panel's two seats — `audit-tail.md` sends you here for them.
+It also governs the audit panel's two seats — `phase-audit-tail.md` sends you here for them.
 
 You never start a reviewer process. The ONLY actor that launches a reviewer is a
 `reviewer-runner`, and you spawn one runner per reviewer the state file names. The recipes,
