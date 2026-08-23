@@ -21,6 +21,14 @@ Pins: copy them verbatim, never choose them. The `**Pins**` block itself never e
 reviewer prompt. The runner re-checks for leakage, but the runner's check is the backstop,
 not the mechanism.
 
+**Gate 1's pin has two sources (founder ruling 2026-08-23).** If your own spawn prompt carries
+a plan-gate pin — an opencode model id, with or without a variant — that pin IS gate 1's pin:
+hand it verbatim, and the gate runs as an opencode seat, with everything that implies (agent
+`reviewer-flash`, the two extra output paths, the identity extract). A model with no variant is
+a complete handed fact, not a gap — the runner launches without the variant flag. If your spawn
+prompt carries none, gate 1 uses the default in the `reviewers.md` pins block. Either way you
+still choose nothing: both sources are copies.
+
 ## Spawning the runner
 
 The runner spawn prompt carries facts only: the gate, the reviewer label, the assembled

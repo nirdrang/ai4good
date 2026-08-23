@@ -129,7 +129,14 @@ reports any mismatch.
 
 ## The PLAN review
 
-**Pins** · `gpt-5.6-sol` · effort `xhigh` · `--sandbox read-only`
+**Pins** · This gate has two pin sources (founder ruling 2026-08-23). The founder may hand it an
+opencode pin on the `/work` line: a model id, and with it an optional variant. When the `/work`
+line carries one, this gate runs on the **opencode lane** — the handed model, the handed variant
+(NO `--variant` flag when none was handed; never invent one, an invalid value falls back
+silently), agent `reviewer-flash`, clean session — the tool-caged agent, not a sandbox flag, is
+its enforcement. When the `/work` line carries none, the default on the next line applies
+unchanged.
+**Pins** · default · `gpt-5.6-sol` · effort `xhigh` · codex · `--sandbox read-only`
 **Subject** · `plan.md` at the pinned commit, the board item, the specification, and the code the
 plan claims things about.
 

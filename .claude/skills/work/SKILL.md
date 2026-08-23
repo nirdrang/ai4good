@@ -46,6 +46,14 @@ founder reading something and asking a structural question.
 **A dev item with children is a container, not work.** Check for children BEFORE treating an id
 as buildable — parents close by folding, never by being built.
 
+**The `/work` line may carry a PLAN-GATE PIN (founder ruling 2026-08-23):** after the id(s),
+`gate1 <opencode model id>` and optionally `variant <value>` — for example
+`/work AI4DEV-70 gate1 opencode-go/deepseek-v4-pro variant max`. It selects the model the plan
+gate's reviewer runs on, for THIS item only, and it moves that gate to the opencode lane. You
+copy it verbatim into the conductor's spawn prompt and choose nothing about it — no model, no
+variant, no correction of a string that looks wrong (say it looks wrong, then pass it as typed).
+No pin on the line → the plan gate runs its default from `reviewers.md`, exactly as before.
+
 **Requirement states.** No decomposition file → propose writing `loop/decomp/req-0NN.md` as the
 work. Merged but unclaimed → claim it and materialise the dev tree, then list the leaves and
 wait. Claimed with open leaves → list, recommend, wait. All leaves closed → run the evidence
@@ -117,7 +125,9 @@ falsely In Progress.
    in the contracts and a spawn prompt is reviewed by nobody. One once told an item to queue
    auto-merge at pull-request time, which would have merged it before a single gate ran; Gate 1
    caught it on the plan. The reserved slot is an item fact and belongs here: only the coordinator
-   reserves, and the item's verify runs have to know which slot they own.
+   reserves, and the item's verify runs have to know which slot they own. **A plan-gate pin from
+   the `/work` line is an item fact too** — pass it verbatim; the conductor hands it to the
+   plan gate's runner (see `reviewers.md`, the PLAN review pins).
 8. **Record the chain FOR the agent's worktree, right after the spawn** (founder 2026-08-07):
    `Set-ChainForWorktree <worktreePath> <branch> <item> <chain>` from `work-lib.ps1`, using the
    chain you already walked in step 1 — **as an array of `@{ id; label }` nodes, never a

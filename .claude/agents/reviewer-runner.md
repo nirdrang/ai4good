@@ -48,7 +48,10 @@ The conductor's spawn prompt gives you facts only — no chain, no process instr
 - **on the opencode lane, two more output paths**: the tool-call summary and the identity extract
   (below). They are committed evidence, so the conductor must know their names to hand them to the
   mechanical — a run whose cage proof has no agreed path is a run whose proof gets lost.
-- the model and effort pins, verbatim — **you copy them, you never choose them**
+- the model and effort pins, verbatim — **you copy them, you never choose them**. One stated
+  absence is legitimate: an opencode seat may arrive with a model pin and NO variant pin (a
+  founder-chosen plan-gate model may omit it). That is a handed fact, not a missing one — launch
+  without the `--variant` flag, and never invent a value; an invalid variant falls back silently.
 - the conductor's agent id, so you can report to it
 
 Anything missing is a refusal, reported immediately, before you spend a reviewer run. A run
@@ -136,8 +139,10 @@ stdin surprise. **Never drop `--agent`** — the default agent writes.
 
 ```powershell
 # $modelPin and $effortPin are the pins the conductor handed you, copied verbatim — NEVER a
-# hard-coded model. The pin is `opencode-go/deepseek-v4-flash` today, but a pin you type instead
-# of copy is a run against a model nobody selected.
+# hard-coded model. The panel seats pin `opencode-go/deepseek-v4-flash` today, and a plan-gate
+# seat carries whatever model the founder chose — either way, a pin you type instead of copy is
+# a run against a model nobody selected. Handed no variant pin? Drop `--variant $effortPin`
+# from the command entirely — the rest of the recipe is unchanged.
 # TWO encodings, not one: -Encoding UTF8 DECODES the prompt file, but piping to a native command in
 # PowerShell 5.1 RE-ENCODES stdin through $OutputEncoding, which defaults to ASCII and turns Hebrew
 # or any non-ASCII item text into question marks before opencode sees it. Set BOTH inside the
