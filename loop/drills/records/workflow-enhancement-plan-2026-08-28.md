@@ -6,6 +6,16 @@ analysis) and michael-denyer/pstack-claude (read in depth: orchestrate.md, the b
 arena/interrogate/recall/deslop, generate.mjs). Every item names its source and its insertion
 point. Filing anything on the board is the founder's act; this file is the suggestion list.
 
+FOUNDER DIRECTION 2026-08-28: WORKFLOW V2 is the chosen path — a local controller session
+(Linear MCP, item pickup, PRD slice, branch from origin/main, brief authoring, and the merge/
+close authority) dispatching a CLOUD mechanic running open-pstack poteto-mode (full-strength:
+the cloud environment runs the Supabase pool in Docker and authenticates codex + opencode,
+both founder-tested; opencode models route through the Codex CLI). Rationale: a field-beaten
+workflow that evolves with outside contributions at large-project scale. Open policy rulings
+before the pilot: who gates the merge (recommended: local gate + verify + merge), the evidence
+bar written into the brief, one PR per item vs stacks. The wave plan below still applies to
+the v1 relay while it remains in service.
+
 STANDING PRECONDITION (unchanged by this plan): run ONE item on the current pure-push stack
 before adopting machinery changes, so the redesign is measured (baseline: conductor 610 turns /
 93M tokens) before the machine changes again. Wave 1 may land before that item only where a
