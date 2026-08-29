@@ -92,7 +92,7 @@ flowchart TB
     PA --> PB
   end
 
-  subgraph MECH["Mechanic: cloud session on the item branch, poteto-mode"]
+  subgraph MECH["Mechanic: the same session in the item's worktree, poteto-mode"]
     direction TB
     subgraph S1["1 Ground: /how"]
       direction TB
@@ -207,9 +207,9 @@ flowchart TB
   K5 -- "next item, same session" --> A1
 ```
 
-The controller owns the board, the branch, the brief, the gate, and the
-merge. The mechanic owns everything between the brief and the pull request. The cloud
-environment runs the Supabase pool in Docker and holds codex and opencode credentials.
+The controller owns the board, the branch, and the brief. The mechanic owns everything from
+the brief to the merge. The cloud environment runs the Supabase pool in Docker and holds codex
+and opencode credentials.
 
 The controller's manual is [`.claude/skills/controller/SKILL.md`](../controller/SKILL.md). The
 mechanic is never a subagent. The founder talks to the lead directly (founder ruling
@@ -403,8 +403,8 @@ told the truth.
 - Gate 2, the diff review, is interrogate over the diff with one added rubric line: "A changed
   head voids the verdict. Re-panel."
 - The brief carries the evidence bar: the named checks and their timestamps in the pull
-  request's Verification section, and CI green on the final head. Before the merge, the
-  controller runs the suite again on the local database.
+  request's Verification section, and CI green on the final head. Nobody runs the suite a
+  second time. The merge gate is CI green on the exact head and the founder's "merge".
 
 ## 10. How to finish the bring-up
 
@@ -427,9 +427,10 @@ Do these steps in order:
    same session. When CI is green on the pull request, say "merge". The lead merges and
    hands the board to `/controller done`.
 
-Three rulings are open and belong to the founder: who gates the merge (the recommendation is the
-controller), the exact text of the evidence bar in the brief, and one pull request per item
-against stacked pull requests.
+Three rulings are open and belong to the founder: whether the lead merges on CI green alone or
+waits for the founder's "merge", whether a plan needs a "go" before the first child or an
+interrogate pass replaces it, and how a parent with children becomes one feature brief
+(parked 2026-08-29). The exact text of the evidence bar in the brief is open too.
 
 ## 11. Changes to this file
 
@@ -466,3 +467,6 @@ against stacked pull requests.
   step invokes `/controller done <id>`, which confirms Done, clears the held item, folds
   upward, and judges the filing candidates (founder: "Lead closes but linear steering is the
   controller work").
+- 2026-08-29. Stale lines fixed after a full read: the mechanic is the same session, not a
+  cloud one; the mechanic owns the merge; no second suite run; the open rulings now list the
+  parked questions (merge on green alone, "go" before the first child, feature briefs).
