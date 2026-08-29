@@ -30,14 +30,15 @@ mechanic, pstack calls the top-level model the **lead**. A **sheet role** is one
 | sheet shape for the first write | open. Shipped defaults are recommended. |
 | the v1 hooks | stamp and local banner parked. Branch guard live and skipped on cloud. Cloud banner live on remote only. |
 | verification skill `verify-ai4good` | not generated |
+| controller skill `/controller` | written (`.claude/skills/controller/SKILL.md`). Not yet run on an item. |
 
 ## 2. The shape: a local controller and a cloud mechanic
 
 ```mermaid
 flowchart LR
   subgraph L["Controller: local session on branch main"]
-    L1[Linear MCP: pick the item, read the PRD slice] --> L2[Branch from origin/main, reserve a database slot]
-    L2 --> L3[Write the brief: item facts, AT_DB_SLOT, the evidence bar]
+    L1[Linear MCP: pick the item, read the PRD slice] --> L2[Branch from origin/main, worktree, reserve a database slot]
+    L2 --> L3[Commit the brief on the branch, push, claude --cloud from the worktree]
     L7[Local gate and verify suite] --> L8[Merge. The pull request closes the item]
   end
   subgraph C["Mechanic: cloud session in poteto-mode"]
@@ -54,6 +55,13 @@ flowchart LR
 The controller owns the board, the branch, the database slot, the brief, the gate, and the
 merge. The mechanic owns everything between the brief and the pull request. The cloud
 environment runs the Supabase pool in Docker and holds codex and opencode credentials.
+
+The controller's manual is `.claude/skills/controller/SKILL.md`. The controller starts the
+mechanic with `claude --cloud "Read loop/items/<item>/brief.md and follow it."` from a linked
+worktree on the pushed item branch, because a cloud session clones the remote at the current
+directory's branch. It sends follow-ups with `claude -p "<message>" --cloud <session-id>`. The
+cloud VM has its own one-slot database pool (`AT_DB_SLOT=1`). The controller's local slot serves
+the local gate only.
 
 Work that the mechanic discovers does not ride along. The mechanic lists it in its report. The
 controller judges each entry as a filing candidate. The founder files items.
@@ -180,8 +188,9 @@ told the truth.
   plan rubric.
 - Gate 2, the diff review, is interrogate over the diff with one added rubric line: "A changed
   head voids the verdict. Re-panel."
-- The brief carries the evidence bar: the named checks, the timestamps, and the database slot.
-  Before the merge, the controller runs the suite again locally.
+- The brief carries the evidence bar: the named checks and their timestamps in the pull
+  request's Verification section, and CI green on the final head. Before the merge, the
+  controller runs the suite again locally on its reserved slot.
 
 ## 10. How to finish the bring-up
 
@@ -198,7 +207,8 @@ Do these steps in order:
 3. Add the verifier line to the user-level `~/.claude/CLAUDE.md`.
 4. Run `/pstack:create-verification-skill` once and commit `.claude/skills/verify-ai4good/` as
    a repo product.
-5. Run one item through the controller and the mechanic.
+5. Run one item with `/controller <id>`. The controller writes the brief, spins the mechanic,
+   and gates the pull request on return.
 
 Three rulings are open and belong to the founder: who gates the merge (the recommendation is the
 controller), the exact text of the evidence bar in the brief, and one pull request per item
@@ -209,3 +219,6 @@ against stacked pull requests.
 - 2026-08-29. Created from the education record. Recorded the grok row change, the parked
   stamp, local banner, and reply header, and the cloud-safe branch guard. Rewritten to the
   technical-writing standard the same day.
+- 2026-08-29. Added the controller skill. Section 2 now names how the controller starts and
+  steers the mechanic (`claude --cloud`, `claude -p --cloud`). The brief no longer carries
+  `AT_DB_SLOT`. The cloud VM sets its own.
