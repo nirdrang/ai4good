@@ -39,22 +39,162 @@ one row of the model matrix.
 
 ## 2. The shape: a local controller and a cloud mechanic
 
+The chart shows every internal step of every phase. Section 3 gives the same stations as a
+table. The controller's steps are the numbered steps of its manual.
+
 ```mermaid
-flowchart LR
-  subgraph L["Controller: local session on branch main"]
-    L1[Linear MCP: pick the item, read the PRD slice] --> L2[Branch from origin/main, worktree, reserve a database slot]
-    L2 --> L3[Commit the brief on the branch, push, claude --cloud from the worktree]
-    L7[Local gate and verify suite] --> L8[Merge. The pull request closes the item]
+flowchart TB
+  subgraph CTRL["Controller: local session, branch main, /controller ID"]
+    direction TB
+    subgraph PA["Phase A: decide what"]
+      direction TB
+      A1["Resolve the item on Linear: id, label, gitBranchName, state, blockers"]
+      A2["Walk parent upward, label every link of the chain"]
+      A3["Startability: missing, Done, Cancelled, or blocked stops here"]
+      A4["Root with nothing above it: ask the founder once"]
+      A1 --> A2 --> A3 --> A4
+    end
+    subgraph PB["Phase B: start the item"]
+      direction TB
+      B1["git fetch origin, then git branch BRANCH origin/main"]
+      B2["git worktree add worktrees/ITEM BRANCH"]
+      B3["Reserve-DbSlot for the local gate. Full pool stops here"]
+      B4["Claim: assign, In Progress, Set-HeldItem"]
+      B5["Write loop/items/ITEM/brief.md: chain, PRD slice, item text, acceptance tests, the ask, the evidence bar"]
+      B6["Commit the brief on the branch, push"]
+      B7["From the worktree: claude --cloud 'Read loop/items/ITEM/brief.md and follow it.'"]
+      B8["Record the session id and link in loop/items/ITEM/mechanic.md, push"]
+      B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
+    end
+    subgraph PW["While the mechanic runs"]
+      direction TB
+      W1["No timers, no wake-ups. gh pr list --head BRANCH finds the pull request"]
+      W2["Founder rulings go to the mechanic with claude -p 'MESSAGE' --cloud SESSION-ID"]
+      W3["A question from the mechanic reaches the founder verbatim"]
+      W1 --> W2 --> W3
+    end
+    subgraph PC["Phase C: close the item"]
+      direction TB
+      C1["Fetch the pull request head into the worktree"]
+      C2["Run the verify suite for the acceptance tests on the reserved slot"]
+      C3["Read the Verification section. Same checks? CI green on the exact head?"]
+      C4{"Gate passes?"}
+      C5["Send the failure to the mechanic verbatim, wait"]
+      C6["gh pr merge N --squash. The merge closes the item"]
+      C7["Sweep: Release-DbSlot, Clear-HeldItem, remove the worktree, delete the remote branch"]
+      C8["Fold upward: all children Done or Cancelled closes the parent"]
+      C9["session is free. Suggest the next /controller"]
+      C1 --> C2 --> C3 --> C4
+      C4 -- no --> C5
+      C4 -- yes --> C6 --> C7 --> C8 --> C9
+    end
+    PA --> PB
   end
-  subgraph C["Mechanic: cloud session in poteto-mode"]
-    C1[1 Ground] --> C2[2 Design arena] --> C3[3 Throughput checkpoint]
-    C3 --> C4[4 Write] --> C5[5 Diff against the sketch] --> C6[6 Verify]
-    C6 --> C7[7 Sequence] --> C8[8 Interrogate] --> C9[9 Ship: open the pull request]
-    C5 -. a pattern of deviations .-> C2
-    C8 -. act-on findings, a changed head .-> C4
+
+  subgraph MECH["Mechanic: cloud session on the item branch, poteto-mode"]
+    direction TB
+    subgraph S1["1 Ground: /how"]
+      direction TB
+      G1["Lead splits the question into 2 to 4 disjoint slices"]
+      G2["One explorer per slice, read-only, sheet role how explorer"]
+      G3["Explainer merges the findings into one explanation, sheet role how explainer"]
+      G4{"Request asks for problems?"}
+      G5["One critic per how critics entry, each with the explanation, the paths, and the 6-lens rubric"]
+      G6["Lead rules each finding: Act on, Consider, Noted, Dismissed"]
+      G1 --> G2 --> G3 --> G4
+      G4 -- yes --> G5 --> G6
+      G4 -- no --> S2
+    end
+    subgraph S2["2 Design arena: /architect and /arena"]
+      direction TB
+      D1["Lead derives a rubric of 3 to 6 criteria. Candidates never see it"]
+      D2["Architect runners fan out, one design each with its rationale, sheet role architect runners"]
+      D3["Design-red-flags screen on every candidate: shallow module, information leakage, temporal decomposition, pass-through"]
+      D4["Cross-judges score against the rubric. Judge provider differs from the parent and the front-runner"]
+      D5["Lead reads every candidate end to end, picks a base, grafts the best parts of the others"]
+      D6{"Candidates converge?"}
+      D7["Reframe the task, run the arena again"]
+      D1 --> D2 --> D3 --> D4 --> D5 --> D6
+      D6 -- no --> D7 --> D2
+    end
+    subgraph S3["3 Throughput checkpoint"]
+      direction TB
+      T1["Blocking first steps: gates before fan-out"]
+      T2["Independent workstreams: disjoint files parallelize, shared writes serialize"]
+      T3["Shared mutable state: split the target before serializing"]
+      T4["Smallest safe decomposition. One writer? say why"]
+      T1 --> T2 --> T3 --> T4
+    end
+    subgraph S4["4 Write: one unit at a time"]
+      direction TB
+      X1["Lead writes the unit brief: paths it may write, the data shape, the acceptance criteria"]
+      X2["Lead creates a dedicated worktree, spawns one writer in isolated-write mode, sheet role by task type"]
+      X3["Writer writes the failing test from the acceptance criteria"]
+      X4["Writer watches the test fail"]
+      X5["Writer implements until the test passes, commits"]
+      X6["Writer reports: done, BLOCKED, deviations, or a partial at the time limit"]
+      X7{"Report clean?"}
+      X8["Escalate: respawn fresh, raise effort, hardest tasks role, re-arena, or scrap. Two retries then replan"]
+      X1 --> X2 --> X3 --> X4 --> X5 --> X6 --> X7
+      X7 -- no --> X8 --> X2
+    end
+    subgraph S5["5 Diff against the sketch"]
+      direction TB
+      R1["Lead reads the writer's diff against the design"]
+      R2["Each deviation is one of: sketch wrong, requirement missed, overreach"]
+      R3{"A pattern of deviations?"}
+      R1 --> R2 --> R3
+    end
+    subgraph S6["6 Verify on the real surface"]
+      direction TB
+      V1["Lead runs verify-ai4good: launch, doctor, drive the feature"]
+      V2["Evidence on cloud: HTTP responses and database side effects. Headless Playwright where the sandbox has it"]
+      V3{"Proof in hand?"}
+      V4["Not done. Back to the unit"]
+      V1 --> V2 --> V3
+      V3 -- no --> V4 --> X1
+    end
+    subgraph S7["7 Sequence"]
+      direction TB
+      Q1["Rebase into small ordered commits"]
+      Q2["Each commit builds and verifies alone"]
+      Q1 --> Q2
+    end
+    subgraph S8["8 Interrogate: /interrogate"]
+      direction TB
+      I1["Lead scopes the diff and writes the intent paragraph"]
+      I2["One reviewer per interrogate reviewers entry, read-only, identical rubric"]
+      I3["Lead synthesizes: consensus, duplicates removed, disagreements listed, agreement map"]
+      I4["Lead rules each finding: Act on, Consider, Noted, Dismissed"]
+      I5{"Any Act on?"}
+      I6["Fix through a writer. The changed head voids the verdict"]
+      I1 --> I2 --> I3 --> I4 --> I5
+      I5 -- yes --> I6 --> I2
+    end
+    subgraph S9["9 Ship: opening-a-pr"]
+      direction TB
+      P1["deslop, no-comments, unslop over the diff and the prose"]
+      P2["Conventional commit messages"]
+      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification with named checks and timestamps, Not done here"]
+      P4["No other item's id in the title or body"]
+      P5["Open the pull request from the item branch. Never a draft. Do not merge"]
+      P1 --> P2 --> P3 --> P4 --> P5
+    end
+    G6 --> S2
+    D6 -- yes --> S3
+    T4 --> X1
+    X7 -- yes --> R1
+    R3 -- yes --> D1
+    R3 -- no --> V1
+    V3 -- yes --> Q1
+    Q2 --> I1
+    I5 -- no --> P1
   end
-  L3 -->|dispatch| C1
-  C9 -->|pull request| L7
+
+  B8 -- "dispatch: the cloud VM clones the item branch" --> G1
+  P5 -- "the pull request is the signal" --> W1
+  W1 --> C1
+  C5 -- "fix and push" --> I1
 ```
 
 The controller owns the board, the branch, the database slot, the brief, the gate, and the
@@ -271,3 +411,5 @@ against stacked pull requests.
   write for ai4good, and the target. The stations table now names roles only.
 - 2026-08-29. Every file reference is a link: relative for repository files, `file:///` for
   this PC's copies, GitHub for the plugin source.
+- 2026-08-29. The flow chart shows every internal step of every phase: the controller's four
+  phases and the mechanic's nine stations with their loops.
