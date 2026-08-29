@@ -43,3 +43,6 @@ $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 120
 [IO.File]::WriteAllText($Out, $r.Content, (New-Object System.Text.UTF8Encoding($false)))
 $nodes = ([regex]::Matches($r.Content, 'class="node')).Count
 Write-Output ("rendered {0} nodes -> {1}" -f $nodes, $Out)
+# The same chart, hosted: paste this into the doc as the browser link. It encodes the chart
+# text itself, so it changes with every chart edit.
+Write-Output ("browser url: " + $url)
