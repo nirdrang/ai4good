@@ -8,14 +8,19 @@ One document, three kinds of content, kept apart by section: sections 2 to 4 are
 only describe. Sections 5 to 9 explain the choices behind the reference. Section 10 is the
 bring-up procedure.
 
-Source of the pstack facts: open-pstack v1.2.0 as installed in
-`~/.claude/plugins/cache/open-pstack/pstack/1.2.0/`, read file by file in session `ebf2407e`
-on 2026-08-27 to 2026-08-29. Founder rulings carry a date and, where a message exists, a quote.
+Source of the pstack facts: [open-pstack](https://github.com/ericlitman/open-pstack) v1.2.0 as
+installed in [`~/.claude/plugins/cache/open-pstack/pstack/1.2.0/`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/),
+read file by file in session `ebf2407e` on 2026-08-27 to 2026-08-29. Founder rulings carry a
+date and, where a message exists, a quote.
+
+Every file reference is a link. Repository files link by relative path. Files outside the
+repository link to this PC's copy with a `file:///` address.
 
 Names used throughout. The **controller** is the local Claude Code session on this PC, on branch
 `main`. The **mechanic** is the cloud Claude Code session that runs poteto-mode. Inside the
 mechanic, pstack calls the top-level model the **lead**. A **sheet role** is one row of
-`~/.claude/pstack-models.md`. A **family** is one row of the model matrix.
+[`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md). A **family** is
+one row of the model matrix.
 
 ---
 
@@ -23,14 +28,14 @@ mechanic, pstack calls the top-level model the **lead**. A **sheet role** is one
 
 | piece | state |
 |---|---|
-| plugin `pstack@open-pstack` v1.2.0 | installed and enabled in `.claude/settings.json` |
-| pstack session-start hook | live. The founder keeps it (2026-08-29). |
-| model sheet `~/.claude/pstack-models.md` | not written. `/pstack:setup-pstack` is pending. |
-| fourth matrix family | grok-4.6 through the codex router (founder choice, 2026-08-29). The row edit in `provider-dispatch.md` is pending. |
+| plugin `pstack@open-pstack` v1.2.0 | installed and enabled in [`.claude/settings.json`](../../settings.json) |
+| pstack session-start hook ([`hooks/hooks.json`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/hooks/hooks.json)) | live. The founder keeps it (2026-08-29). |
+| model sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) | not written. `/pstack:setup-pstack` is pending. |
+| fourth matrix family | grok-4.6 through the codex router (founder choice, 2026-08-29). The row edit in [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md) is pending. |
 | sheet shape for the first write | open. Shipped defaults are recommended. |
-| the v1 hooks | stamp and local banner parked. Branch guard live and skipped on cloud. Cloud banner live on remote only. |
-| verification skill `verify-ai4good` | not generated |
-| controller skill `/controller` | written (`.claude/skills/controller/SKILL.md`). Not yet run on an item. |
+| the v1 hooks | stamp and local banner parked. Branch guard ([`guard-branch-switch.ps1`](../../../loop/work/guard-branch-switch.ps1)) live and skipped on cloud. Cloud banner ([`session-start-banner.sh`](../../hooks/session-start-banner.sh)) live on remote only. |
+| verification skill [`verify-ai4good`](../verify-ai4good/) | not generated |
+| controller skill `/controller` | written ([`.claude/skills/controller/SKILL.md`](../controller/SKILL.md)). Not yet run on an item. |
 
 ## 2. The shape: a local controller and a cloud mechanic
 
@@ -56,8 +61,9 @@ The controller owns the board, the branch, the database slot, the brief, the gat
 merge. The mechanic owns everything between the brief and the pull request. The cloud
 environment runs the Supabase pool in Docker and holds codex and opencode credentials.
 
-The controller's manual is `.claude/skills/controller/SKILL.md`. The controller starts the
-mechanic with `claude --cloud "Read loop/items/<item>/brief.md and follow it."` from a linked
+The controller's manual is [`.claude/skills/controller/SKILL.md`](../controller/SKILL.md). The
+controller starts the mechanic with `claude --cloud "Read loop/items/<item>/brief.md and follow
+it."` from a linked
 worktree on the pushed item branch, because a cloud session clones the remote at the current
 directory's branch. It sends follow-ups with `claude -p "<message>" --cloud <session-id>`. The
 cloud VM has its own one-slot database pool (`AT_DB_SLOT=1`). The controller's local slot serves
@@ -74,25 +80,25 @@ means the lead does the work itself and no sheet role applies.
 
 | # | station | who acts | sheet roles | loop or exit |
 |---|---|---|---|---|
-| 1 | Ground (`/how`) | Two to four explorers with disjoint slices, then one explainer. Critics run only when the request asks for problems. | `how explorer`, `how explainer`, `how critics` | The lead rules each critic finding: Act on, Consider, Noted, or Dismissed. |
-| 2 | Design arena (`/architect`, `/arena`) | Runners fan out, each with a rationale. Cross-judges score against a rubric of three to six criteria that the runners never see. The design-red-flags screen runs on every candidate. The lead reads every candidate end to end, picks a base, and grafts the best parts of the others. | `architect runners`, `arena runners`, `arena cross-judge pool` | If the candidates converge, ship the design. If they diverge, reframe the task and run the arena again. |
+| 1 | Ground ([`/how`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/how/SKILL.md)) | Two to four explorers with disjoint slices, then one explainer. Critics run only when the request asks for problems. | `how explorer`, `how explainer`, `how critics` | The lead rules each critic finding: Act on, Consider, Noted, or Dismissed. |
+| 2 | Design arena ([`/architect`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/architect/SKILL.md), [`/arena`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/arena/SKILL.md)) | Runners fan out, each with a rationale. Cross-judges score against a rubric of three to six criteria that the runners never see. The design-red-flags screen runs on every candidate. The lead reads every candidate end to end, picks a base, and grafts the best parts of the others. | `architect runners`, `arena runners`, `arena cross-judge pool` | If the candidates converge, ship the design. If they diverge, reframe the task and run the arena again. |
 | 3 | Throughput checkpoint | The lead writes four todos. A todo that does not apply stays as `n/a: <reason>`. | Lead | None. |
 | 4 | Write | One delegated writer per unit, in its own worktree, in isolated-write mode. The writer is a leaf and spawns nothing. The writer first writes the failing test from the lead's acceptance criteria, watches it fail, then implements. | `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks` | The writer reports `BLOCKED`, a list of deviations, or a partial result at its time limit. The lead escalates (section 6). |
 | 5 | Diff against the sketch | The lead reads the diff against the design. Each deviation is one of: the sketch was wrong, a requirement was missed, or the writer overreached. | Lead | A pattern of deviations sends the item back to station 2. |
-| 6 | Verify | The lead drives `verify-ai4good` on the real surface. On cloud the evidence is HTTP responses and database side effects. Headless Playwright is used where the sandbox provides it. | Lead | No proof means not done. |
+| 6 | Verify | The lead drives [`verify-ai4good`](../verify-ai4good/) on the real surface. On cloud the evidence is HTTP responses and database side effects. Headless Playwright is used where the sandbox provides it. | Lead | No proof means not done. |
 | 7 | Sequence | The lead orders commits so that each one builds and verifies alone. | Lead | None. |
-| 8 | Interrogate | A read-only panel. Every reviewer gets the same rubric. The lead merges the consensus, removes duplicates, and rules on each finding. | `interrogate reviewers` | pstack has no re-clearance loop. Our rubric adds one line: "A changed head voids the verdict. Re-panel." |
-| 9 | Ship (`opening-a-pr`) | The lead runs deslop, no-comments, and unslop, writes conventional commits, and fills the sections Why, Scope, Tradeoffs, Blast Radius, and Verification. The pull request is never a draft. Opening a pull request and babysitting it are two verbs. | `judgment and prose` | Babysit is not used here. It is a second way to close work, which the way of work forbids. |
+| 8 | Interrogate ([`/interrogate`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/interrogate/SKILL.md)) | A read-only panel. Every reviewer gets the same rubric. The lead merges the consensus, removes duplicates, and rules on each finding. | `interrogate reviewers` | pstack has no re-clearance loop. Our rubric adds one line: "A changed head voids the verdict. Re-panel." |
+| 9 | Ship ([`opening-a-pr`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/playbooks/opening-a-pr.md)) | The lead runs deslop, no-comments, and unslop, writes conventional commits, and fills the sections Why, Scope, Tradeoffs, Blast Radius, and Verification. The pull request is never a draft. Opening a pull request and babysitting it are two verbs. | `judgment and prose` | Babysit is not used here. It is a second way to close work, which the way of work forbids. |
 
 The verbs fix-ci, deslop, and recall run on the lead with no pin. pstack has no verifier role.
-The verifier rule is a line in the user-level `CLAUDE.md` (section 5).
+The verifier rule is a line in the user-level [`CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md) (section 5).
 
-The critic rubric has six lenses: abstraction fit, data model, boundary discipline, evolution
+The critic rubric ([`critique-rubric.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/how/references/critique-rubric.md)) has six lenses: abstraction fit, data model, boundary discipline, evolution
 readiness, complexity against value, and consistency. A critic uses the lenses that apply.
 
 ### The sheet roles
 
-The sheet `~/.claude/pstack-models.md` has one row per role. The table gives every documented
+The sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) has one row per role. The table gives every documented
 role with three values. **pstack default** is the first-run value the plugin ships. **First
 write** is what `/pstack:setup-pstack` will write for ai4good: the shipped defaults with the
 grok family on the codex router (section 4). The sheet is not written yet. **Target** is the
@@ -127,7 +133,8 @@ stay at `xhigh` in the target.
 
 ## 4. The model matrix as it will be configured
 
-The shipped matrix lives in `provider-dispatch.md`. One row changes.
+The shipped matrix lives in [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md)
+(source: [GitHub](https://github.com/ericlitman/open-pstack/blob/main/skills/poteto-mode/references/provider-dispatch.md)). One row changes.
 
 | family | provider | model | default effort | selectable efforts | route |
 |---|---|---|---|---|---|
@@ -136,15 +143,18 @@ The shipped matrix lives in `provider-dispatch.md`. One row changes.
 | grok | codex | opencode-go-responses/grok-4.6 | xhigh | low, medium, high, xhigh | external runner. This is our change (founder 2026-08-29). |
 | opus | claude | claude-opus-5 | xhigh | low, medium, high, xhigh, max | native agents `pstack-opus-<effort>` |
 
-The sheet `~/.claude/pstack-models.md` maps each role to one or more descriptors of the form
-`provider:model@effort`. `/pstack:setup-pstack` writes the sheet and adds one line,
-`@~/.claude/pstack-models.md`, to the user-level `~/.claude/CLAUDE.md`. The project `CLAUDE.md`
-is never touched. A role name that the sheet does not document is "inconsistent state" and
+The sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) maps
+each role to one or more descriptors of the form `provider:model@effort`.
+[`/pstack:setup-pstack`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/setup-pstack/SKILL.md)
+writes the sheet and adds one line, `@~/.claude/pstack-models.md`, to the user-level
+[`~/.claude/CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md). The project
+[`CLAUDE.md`](../../../CLAUDE.md) is never touched. A role name that the sheet does not document is "inconsistent state" and
 stops setup.
 
 Other router models available for later trials: `opencode-go/deepseek-v4-pro` (high, max),
 `opencode-go/kimi-k3` (low, high, max), `opencode-go/glm-5.3` (high, max), `gpt-5.6-luna` and
-`gpt-5.6-terra` (low to max). This list is partial. `~/.codex/codex-router/merged-models.json`
+`gpt-5.6-terra` (low to max). This list is partial.
+[`~/.codex/codex-router/merged-models.json`](file:///C:/Users/nirdr/.codex/codex-router/merged-models.json)
 holds the full catalog.
 
 ## 5. Why the grok row changes, and how roles get their models
@@ -152,12 +162,13 @@ holds the full catalog.
 `/pstack:setup-pstack` probes all four families live before it writes anything. If one probe
 fails, setup writes nothing. This machine has no Grok CLI, so the shipped grok row fails its
 probe. The codex router serves grok-4.6 under the slug `opencode-go-responses/grok-4.6`, and
-`pstack-runner` takes the model as a free string. So the row keeps its model and changes its
+[`pstack-runner`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/scripts/runner/pstack-runner)
+takes the model as a free string. So the row keeps its model and changes its
 provider to codex. Every role that names grok keeps its meaning.
 
 To add a model later, edit its matrix row, rerun setup, and let setup probe it. Custom rules
 that pstack does not model, such as a verifier rule or a tier map, go in the user-level
-`CLAUDE.md` as plain lines. They do not go in the sheet.
+[`CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md) as plain lines. They do not go in the sheet.
 
 ## 6. The target sheet, and why it is shaped for escalation
 
@@ -170,7 +181,7 @@ first write.
 - Every panel has three lanes from three vendors: fable, sol, and grok. Two lanes from one
   family do not add an independent view.
 - Opus appears in `arena cross-judge pool` only. It is never a writer lane.
-- Two lines in the user-level `CLAUDE.md`: "The verifier is a sonnet-class model from a different
+- Two lines in the user-level [`CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md): "The verifier is a sonnet-class model from a different
   family than the writer." A tier map (docs, mechanical, standard, sensitive, each with a panel
   width) waits for a founder ruling, because it loosens the process.
 
@@ -196,7 +207,7 @@ Run the cheapest test first. Stop when the candidate fails.
    family.
 3. As the last confirmation, run one item end to end twice, in two cloud sessions. Do not use
    two worktrees on one machine, because the database slots and the CPU contend. Score each
-   station from its receipts. Blind the run as the eval playbook requires: no words like eval,
+   station from its receipts. Blind the run as the [eval playbook](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/playbooks/eval.md) requires: no words like eval,
    test, judge, or candidate anywhere visible, organic prompts, sanitized directories, one
    blinded judge from another family, one pass, and verification read from the transcripts.
 
@@ -205,7 +216,7 @@ told the truth.
 
 ## 8. Context and cache discipline for the mechanic
 
-- The project `.claude/settings.json` sets `CLAUDE_CODE_PROMPT_CACHE_TTL=1h` and
+- The project [`.claude/settings.json`](../../settings.json) sets `CLAUDE_CODE_PROMPT_CACHE_TTL=1h` and
   `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h` in its `env` block. The settings take effect from
   client 2.1.242.
 - The mechanic ends when the item closes. At every phase boundary the lead writes a canon file.
@@ -227,21 +238,22 @@ told the truth.
 
 ## 10. How to finish the bring-up
 
-Done: the plugin is installed, the session-start hook is kept, the project `CLAUDE.md` is lean,
+Done: the plugin is installed, the session-start hook is kept, the project [`CLAUDE.md`](../../../CLAUDE.md) is lean,
 the stamp and the reply header are parked, the branch guard skips cloud sessions, and the cloud
 banner is kept.
 
 Do these steps in order:
 
-1. In `provider-dispatch.md`, change the grok row to provider `codex` and model
-   `opencode-go-responses/grok-4.6`.
-2. Run `/pstack:setup-pstack`. Answer the four effort questions, let the four probes run,
-   confirm the rendered sheet, and let the smoke panel run.
-3. Add the verifier line to the user-level `~/.claude/CLAUDE.md`.
-4. Run `/pstack:create-verification-skill` once and commit `.claude/skills/verify-ai4good/` as
-   a repo product.
-5. Run one item with `/controller <id>`. The controller writes the brief, spins the mechanic,
-   and gates the pull request on return.
+1. In [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md),
+   change the grok row to provider `codex` and model `opencode-go-responses/grok-4.6`.
+2. Run [`/pstack:setup-pstack`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/setup-pstack/SKILL.md).
+   Answer the four effort questions, let the four probes run, confirm the rendered sheet, and
+   let the smoke panel run.
+3. Add the verifier line to the user-level [`~/.claude/CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md).
+4. Run [`/pstack:create-verification-skill`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/create-verification-skill/SKILL.md)
+   once and commit [`.claude/skills/verify-ai4good/`](../verify-ai4good/) as a repo product.
+5. Run one item with [`/controller <id>`](../controller/SKILL.md). The controller writes the
+   brief, spins the mechanic, and gates the pull request on return.
 
 Three rulings are open and belong to the founder: who gates the merge (the recommendation is the
 controller), the exact text of the evidence bar in the brief, and one pull request per item
@@ -257,3 +269,5 @@ against stacked pull requests.
   `AT_DB_SLOT`. The cloud VM sets its own.
 - 2026-08-29. Added the sheet-roles table: every role with its pstack default, the first
   write for ai4good, and the target. The stations table now names roles only.
+- 2026-08-29. Every file reference is a link: relative for repository files, `file:///` for
+  this PC's copies, GitHub for the plugin source.
