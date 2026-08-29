@@ -44,7 +44,7 @@ table. The controller's steps are the numbered steps of its manual.
 
 The chart as an image, two ways to open it:
 
-- **In the browser:** [open the chart on mermaid.ink](https://mermaid.ink/svg/pako:eJytWdty2zgS_RWUnyV5fE_0krIkx9Fu4iiSylbVZh8gEpQwJgkOQNrRpPLvexogqaYdl-Zhq3KReGk0us853Q39PIpMrI6GR0lqnqOttKVYjr7nQrhqvbGy2Irxcv75P9-PxiYvrUlTZYciNZFMhVPOaZP3xNrKPNqKTGp8OY7aB8V08v3ov2RMiFhbFZV4vDbPFphdw_xsK50S10MRq0jHSjxvZdm-_LvXhbg-wXtz5Uz6pES5VUKXKhN45LPOlYSbOu6JVK5V2hMbXY68l3cyUz3hSlnivzU28qisYwtdn8Log0wfRSGtyktRFc_SNoaEelJ2J1KdPwqT-EURM51zA2cwsCgRSLnWqS53Q5FpBCrf9MTE5Fh1DD8U4gOjxtY-xHDJFE5slVXc2Dlt0ZhSPOtyK3JTbmFIyLV5ou0OhXSP3ovEVHmMiBuY5u-fiH7_e_XHH2eI7Sn7fMY-n4enVR6_TMyoTcxoSDEDOJo4H8jNiHKDoItElYCGsXpD4MDbOeWigcxofn03_lTfPs66kRyd1jaejX0srVJCxnH7xR1Plzdfagv8rbOACmWfVH-yXqQIXoI4k-MBtxvkfiA-VmkqCmPS30d-RJEfp1JnFGSnN_B-mouZNRsL3PfEQpX9TyqNp91gjC4IPxYhwmqmOKZYBVeP11arZJDFw4CZnpjNJ8KlOgImPHRL9aPsCRlFqigJI7jgSuejRokOH9QT6EE319LydS89R7NMhxz5xYgM4QtFuyeKym35O1d456M1mX-oCSzcS2UFCvb7UWqqWBBOTq_mSsZvbknIPEaUU2gItjIIb_CV3vmkRMbGfq1aOsBQ_6bnk85fmc8UIpXrCCu8dp5Be8SgPWLQHp2zzxfs8yX7fMU-v3uTCg-U1q1Og9I0jglb5e4AFR6ICndGlDqD1PRAYvEsH1W_KtxAbLaisNi_K-HFlkJcUyLReez8WgUB1aq_KoCBLfVA7PhY095WCOHGiQ2WMV0PvXA0GS3qZH65WSyub2_ClzbRC1ydfr3rM9nGOsSna-GXp40lDV72MVAy2irX0SHI5Fpix9wQS9gDS9jD2ZtBH7f6MyZUGqf-qf6MKegfvfa8jKHwYdZ5HagG9szgmEI7rwJ3sBOd7OAUUboRkpccbYhmg-5AzSE73GIQJRnQf08mdSS9zy74PhALVCYog4oe3QcxngroDMSyNqx-yCh4_oGbPf_5_egWcoZi5cAp3PvV3iMhWiCoIS9Sp5VVr9DR5KkHTOqOx6QnAZ2A7UaJO2TM_VVJtx2IpTdBV31S3O-yMiZxWTwrVQzFXKUKWazlGBUQX22rnj2ELTN1DW_S0UMjkKpS1WHNTNnIGF_jnedAGtdVGlKNPEegaYza7cstldi24HJ3Q3nnxt7DWCtMDkBXKBOLarMh0NArOfSZ9zf8ZQbuMQP3mKnR-HyfN1wlIdjfu-je28HL_U0mV2MmV-N37PP7FyyaXe9vzjwv_K1Oa_flZvwJm_5So8FzDDrQBKHGnq9NbQlBIkrTz9A0_pPebkE8PBG3lnRhKI635vkAc2_pjc9EFVegfQrJatXH0_aUYHyOt92fBhdCDeUyfEsE_poTbYrUWOhRgb91qYVcxX2Tpzu0gVulSoFkKgHH2qe5JSLuDa6jYKuaCrXSQaC95nqXTL2YzD2rf2vam-C2ib3zWpRQ352Xl8KadYoKyLl8e1HvJ0JjAdbSbshq-OqQ2dJiO6TDQe-DZDB3AuLLLeqPrCXhsp-q3KF0oIhH3K3LJgGoKtist1rvdiiuIUNkEOOAQyNie-IOiEB5nmhHfa6KuSnGilvGilvGitvzfTxeIf-WFe3by-6DnD6L07dqyIKgcComilo4QZyXgKG0EIkS2PPROPaXD-By0uISu9ZP8FLWsaNJ4IwgeekTgrtyQJoT6xjS7CAbT4Q-RUxii0zIs-vWEXQSgAcwIEG8CiJJkIqD2_vEEiGsz6lMVQdl8qUlvhShOISgb1XcT1IJ4LqoqTBhqokal9Hrb6Xv5UDzitbROaCZhYIF7X6UG1yELBTGoqHGyGbw0emANapF_XILym-4WE98R20Nbv5ZxUQjh34Qjm9AjFphQ0AH4l_0AFGBml2LfCSJj03Te9SzWQNlXM_Lftg3X_GiRTL-cS-3KXxxNPQfnNaou0jpGnUK46KVSS09a2In1qMiHyY-DGEvwnsJIrOEo0I8kVBwCk-ufAeQWKryZKX0Hb2tuwyPwBAKbpjxZ8L4M2H8mbAed8LoMrncu_eSLpMrbvdN6hBqzlDsfSaLqgzdSUGae4AsSyLLiCZbGlcTbRFDV6rCDf305RDVhHIPsPcBdmZtSayYoocs4BDlmBoCh45AZni5lfxEkzQhLcCpSvXfngsIIuZDoiCwRTSkG9y2H83DY1mF-Ry08ScBw1Br6rwgc2XjYGMG2-CGCMqLjNamjclEdTkwECTW3hP7Afd34nm74--zvC5ZXpcsr8s3x_IFrX4u_JA59DJR5XBe4o8fMg7kZtUKWR0q2rW34Ke5YagTUBqRkeP0TKgfALekKBf1d9YEN7rHll6dNstAZnzOJYIUU9urYtbmuUI-585vIwSMBkHtTErP9f0lkqGu2K13nj-i3BV8u6uzZvi2fHPU_BIOqVXfa8gB98-ZKVm2A06wAYP82Yv9szorUL0BXIeYljrdvxRa9B7UgYZ0rh-ry_37VkFTS4K6Pysaff46_vfNhLrhJ-311_lTI-klCdCktPslkHjMkVmnxKyufIdBFtHaKZlzRVpR83zjIpl6BmB0oUxQ2-vQ51mpMW2pBCxALQJnYt8F-zaFUkB9VN-rlvcHtUQWGAyeDa6XwJELZz3YDpoQ7hKD_opBf8Wgv2KStmKStmJ98Opqv8mX8rZ6x9d4k0aUtQv0LUnSqUHukcbGAySan3RLix9dfAbDTO18zerYDbWc2Z0TQ26otLfJpbnDDy2gYfADVg0dHdLwCj8IWSL0WYg7qowfvrnRs580roPD8CWnkrVHDs_-nOVhzvIwf3MaXxBKL8PwutsPvHQQXNlERod0534fsgqED3N1X-rzjTEYDVJZ-QEjNlFp0FbG1GQF-kI-qs7h3L2PXHMQhlX83DIUn5bLmQcyNkuCg_pOokU1XVC3SniGX24gPsEPiLcTs1TukLjNFpWGjgADBPDm2vwA7F23Z7un6M6sQVihUhiaYh7T-3N_0lN67g7ESEaPzcBN-srtsOjfs-jfn-1Xeonqe86KkzezRH3GlVjQWJEfzMm3cITuA-TnGEdFDYRG10Xj8iup-tZiNtwT6wrDdgi1zygxX6bYP3-J7fbb23wkPXonpjmAa83Gi9Kx3n87sJXpfm6MTFGrdSBh3il1ZDL3LZ30CzO702ZutOCMeq7nRuZDe6Odudg0SXDEOAZCvJqppmetc7scTjg0JtD4iHCauwqaHlfoQCJfJ8NpCPiNbkfSKVAoJ3RISFfbS6jPBV_j_P82t00vSETyXf0Wx_iUVOCj_iHqBh-VKOheOBWig4QNkOPP2J6MrqUR0EDl5wyYMkxMGQOmrA5MGeKnF3vnXo2J00tu7E2A0QHPe7HY6gJtE_pLBKYv-4U9gKwZIQvqnZqCTm_7hHzKSA-spoteh7tw8zMKRh0O2tlp-BXtiVBC81tDoQw6hIGK02xGeJnxQ8u1iXdD8bAFzhaE755YWhkrkyTwY5RKPDKXsSYodY4Xw-9GGDri-mwx-IduAZ1vVjiPAy9YL38BmQU1C-NOON2rS5um49O66yhTf8RG7vF3_YEFQvz69LXtv9ix0kDc-RkZHSINXgMxMfRbVzhu4WYZaGYMNDMGmhkDzeziBRZuGVCaM4MwHnXwtKhlePkbyQ3tRufxeX1rfvbq1qRzqyPn9Z371y99q29947yorwX0c0Ozk87h3oiaHwHAavRzaCCG4VdKf7B3_4U-5OzAtj1TZecs3t7sIph5lT8dXqZeRqb8vQf_Hj_lH_sr49pSAtEg7IXfcbo7O-odIdeZ1PHR8OinX5XmmCHxLpFVCuX4dfTrf1L-tcA).
+- **In the browser:** [open the chart on mermaid.ink](https://mermaid.ink/svg/pako:eJytWV1z2koS_StTfgb7-jthH1IGHIfdxCFA2VRt9mGQRjDXkkZ3RjJhU_nve3pGEi0cl-_DVuUD9NHT033O6e7h51FkYnU0OEpSs4020pZiMfyeC-Gq1drKYiNGi9nnf38_Gpm8tCZNlR2I1EQyFU45p03eEysr82gjMqnx5SRqHxST8fej_5AxIWJtVVTi8do8W2B6A_PTjXRK3AxErCIdK7HdyLJ9-XevC3Fzivdmypn0WYlyo4QuVSbwyGedKwk3ddwTqVyptCfWuhx6L-9lpnrClbLEfyts5ElZxxa6OYPRR5k-iUJalZeiKrbSNoaEelZ2J1KdPwmT-EURM51zA-cwMC8RSLnSqS53A5FpBCpf98TY5Fh1BD8U4gOjxtY-xHDJFE5slFXc2AVt0ZhSbHW5EbkpNzAk5Mo803YHQron70ViqjxGxA1M8_dPRb__vfrjj3PE9ox9PmefL8LTKo8PEzNsEzMcUMwAjibOb-RmSLlB0EWiSkDDWL0mcODtnHLRQGY4u7kffapvn2TdSA7PahtbY59Kq5SQcdx-cSeTxe2X2gJ_6zygQtln1R-v5imClyDO5HjA7Rq5PxYfqzQVhTHp7yM_pMiPUqkzCrLTa3g_ycXUmrUF7ntirsr-J5XGk24whpeEH4sQYTVTnFCsgqsnK6tVcpzFg4CZnpjOxsKlOgImPHRL9aPsCRlFqigJI7jgSuejRokOH9Qz6EE3V9Lyda88R7NMhxz5xYgM4QtFuyeKym34O9cNVP1TmYJfuY6wlpANuzvoiiS-EzdKU4sA3BW52sJTm-kcwd3qPDZbocOLbeZsleeE3CiVFbGb0Ny6-Q9cNhXoUN_t9_13kViTdcxw39_5NEfGAhKUu-4WUv2sHHlxmITmCeThZTwYW4aMLUPGluEF-3zJPl-xz9fs87tX2fVISNno9MB1hMq9wa5HYte9EaXOoF496ILYyifVrwp3LNYbUVgEwJXwYqNk3LAsQWqcX6sg7Fv1VwV8saUeiXAf61zbCiq3dnhMgqiy5k7rZbmxplpvODwICyFxkLmQ4iahhaBwnF1_uZ3Pb-5uw5c2z3NcnXy977NyAWeIxzfC-0i7b8GwDxR5plwHoZDnlURYuCGW1UeW1cfzVzMzanVvNKAtOfV3dW9EmfnoNe8w0MLnQueleQ3TI4r_rArUwU50soNTJCWNgB1qQ0NwG_QOVQRyxy0GMcS69NQDmdSR9D674PuxmKMiQpFU9OQ-iNFEQN8g0rVh9UNGwfMP3OzFz-9Hd5BRFEkHocC9X-09EsA5ghryInVaETlNN3dNnnoAru54TDoWIAxsr5W4R8bcX5V0m2Ox8Cboqk-K-11WRl7UtkoVAzFTqUIW6zKAyouvtlXtHsKWmbp3aNLRQwOSqlLVYc1M2cgnX-OdJ0oa190BSgTyHIHLMXoGX-aptLeFnrsb2gpu7D2MNWqrHYCuUJ7m1XpNoKFXctQF3lfxlxm4RwzcIyZZo4t93nCV1GJ_77J7bwcv9zeZpo2Ypo3esc_vD1g0vdnfnHpe-FudlvLL7egTNv2lRsOglo0mCDX2fE1sSxcSUZp-hmb17_SUc-LhqbizpAsDcbIx2zeYe0dvfCaquAJtW0hWqz6etmcE4wu87f40uBBqN9fqOyLw15xoU6TGQo8K_K1LPOQq7ps83aH93ChVCiRTCTjWPs0tEXFvcR2NgqqpUCsdVNwLs3fJ1IvJ3LP6t6a9CW6b2DurRQl9hfPyUlizSlEmOZfvLuv9RGhowFraDVkNXx0yW1psx1eItqR33AmILzcoUrKWhKt-qnLUlQq1P-JuXTUJQOnBZr3VercDcQMZIoMYQ5z2xeYeiEANH2tH_bWKuSnGijvGijvGiruLfTxeIP-OVfa7q-6DnD7zs9dqyJygcCbGilpHQZyXgKG0EIkS2PPROPGX38DluMUldu27GlnHjiaQc4LklU8I7spj0pxYx5BmB9l4JvQpYhJbZEye3bSOUGeGJgJKDeJVEEmCVBzc3ieWCGF9TmWqOiiTh5b4UoTiEIK-VXE_SSWA66KmwoRpKmpcxoyxgZACYKB5RevoHNDMQsGCdj_JNS5CFgpj0YxgVDT46HTAGtWift2XcCd8J28Nbv5ZxUQjh64Rjq9BjFphQ0CPxT_pAaICNdkW-UgSH5um96hnwgbKuJ6X_bBvvuJli2T84w63KXxxNPQfnNaou0jpCnUKY6qVSS09K2In1qMiHyZNDH8H4b0CkVnCUSGeSSg4hcfXvgNILFV5slL6ScLWXYZHYAgFN8z4M2b8GTP-jFkjPGZ0GV_t3Tuky_ia232VOoSacxR7n8miKkN3UpDmvkGWBZFlSBM1DRuJtoihK1XhBn7qc4hqQrkH2PsAO7O2IFZM0EMWcIhyTA2BQ0cgM7zcSn6iSZqQFuBUpfq_ngsIIoYQoiCwRTSkG9y2PxIIj2VVKaGz4QRiEGpNnRdkrmwcbMxgG9wQQXme0dq0MZmoLgeOBYm198R-wP0dRqMdf5_ldcHyumB5Xbx6HDCn1S-EH24HXiaqHM5L_PGTyBu5WbZCVoeKdu0t-CFwEOoElEZk5Dg9E-oHwC0pykX9nTXBje6xpZdnzTKQGZ9ziSDF1PaqmLV5rpDb3IVRxVuhaVE7k9JzfX-JZKgrdqud548odwXf7vK8Gfot3xw1v4RDatX3GvKG-xfMlCzbASfYgEH-7OX-WZ0VqN4ArkNMS53uXwotOoZrfzjA9WN5tX_fKmhqSVD3Z1TDz19H_7odUzf8rL3-On9aJb0kAZqUdr8EEo9hM-uUmOW17zDIIlo7JXOuSEtqnm8dpknPAIwulAlqex36PCs1pi2VgAWoReBM7Ltg36ZQCqiP6nvV8v6glsgCg8HW4HoJHLlwxoTtoAnhLjHoLxn0lwz6SyZpSyZpS9YHL6_3mzyUt-U7vsarNKKsXaJvSZJODXJPNDa-QaLZabe0-NHFZzDM1M7XrI7dUMuZ3Rkx5JZKe5tcmjv80AIaBj9g1dCRJQ2v8IOQJUKfhbijyvjhmxs9_0njOjgMX3IqWXvk8OzPWB5mLA-zV6fxOaH0Kgyvu_3ASwfQlU1k9JbuPOxDVoHwYa7uS32xNgajQSorP2DEJioN2sqYmqxAX8hH1TkUfPCRaw7gsIqfWwbi02Ix9UDGZklwUN9JtKimC-pWCc_wyx2LT_AD4u3ENJU7JG69KdnxlcObK_MDsHfdnu2Boju1BmGFSmFoinlMHy78cVDpuXsshjJ6agZu0lduh0X_gUX_4Xy_0iGqHzgrTl_NEvUZ12JOY0X-Zk6-haN7HyA_xzgqaiA0ui4al19I1bcWs-GeWFUYtkOofUaJ-TLF_vlLbLffXucj6dE7MckBXGvWXpRO9P7bG1uZ7OfGyBS1WgcS5p1SRyZz39JJvzCzO2nmRgvOqG09NzIf2hvtzMWmSYIjxjEQ4sVMNTlvndvlcMKhMYHGR4TT3FXQ9LhCBxL5OhlOQ8BvdDuSToFCOaGTRLraXkJ9LvgaF_-3uW1ySSKS7-q3OMYnpAIf9Y_24FHWuhdOheggYQ3k-DO2Z6NraQQ0UPk5AyYMExPGgAmrAxOG-Mnl3rkXY-Lkiht7FWB0wPNezDe6QNuE_hKB6ct-Yd9A1pSQBfVOTUFHvH1CPmWkB1bTRa_DXbj5GQWjDgft9Cz8evdMKKH5raFQBh3CQMVpNiW8TPmh5crEu4F43ABnc8J3TyysjJVJEvgxTCUemclYE5Q6x4vh9yoMHXF9thj8Q7eAzjcrnMeBF6zDX16mQc3CuBNO9-rSpuPmd4VSl6k_YiP3-Lv-wAIhfnn62vZf7FjpWNz7GRkdIg1ex2Js6De2cNzCzTLQTBlopgw0Uwaa6eUBFu4YUJozgzAedfA0r2V48RvJDe1G5_FZfWt2_uLWuHOrI-f1nYeXL32rb33jvKivBfRzQ9PTzuHekJofAcBq9HNoIAbhFzfwsUmfxwGmLmo2DhLx_Yidt3i708tg7kUe65epp5Epf-_Rv8dP-0f-yqi2lEA8CIPhR5_uDo96R8h5JnV8NDj66VeleWZA_EtklUJBfh39-h9FoeXT).
   This address carries the chart text itself, so it draws the chart as of the last render.
 - **On this PC:** [`pstack-workflow-ai4good.svg`](file:///C:/Users/nirdr/Downloads/ai4good/.claude/skills/work/pstack-workflow-ai4good.svg),
   which the default handler for `.svg` opens, normally the browser.
@@ -74,14 +74,14 @@ flowchart TB
       B4["Claim: assign, In Progress, Set-HeldItem"]
       B5["Write loop/items/ITEM/brief.md: chain, PRD slice, item text, acceptance tests, the ask, the evidence bar"]
       B6["Commit the brief on the branch, push"]
-      B7["From the worktree: claude --cloud 'Read loop/items/ITEM/brief.md and follow it.'"]
-      B8["Record the session id and link in loop/items/ITEM/mechanic.md, push"]
+      B7["Start the mechanic as a session the founder can talk to: local, a new terminal window in the worktree running claude with the brief; cloud, claude --cloud from the worktree"]
+      B8["Record where the mechanic lives in loop/items/ITEM/mechanic.md, push"]
       B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
     end
     subgraph PW["While the mechanic runs"]
       direction TB
       W1["No timers, no wake-ups. gh pr list --head BRANCH finds the pull request"]
-      W2["Founder rulings go to the mechanic with claude -p 'MESSAGE' --cloud SESSION-ID"]
+      W2["Founder rulings reach a local mechanic through the founder, a cloud one with claude -p 'MESSAGE' --cloud SESSION-ID"]
       W3["A question from the mechanic reaches the founder verbatim"]
       W1 --> W2 --> W3
     end
@@ -203,7 +203,7 @@ flowchart TB
     I5 -- no --> P1
   end
 
-  B8 -- "dispatch: the cloud VM clones the item branch" --> G1
+  B8 -- "dispatch: the lead's checkout is the item branch" --> G1
   P5 -- "the pull request is the signal" --> W1
   W1 --> C1
   C5 -- "fix and push" --> I1
@@ -214,12 +214,20 @@ merge. The mechanic owns everything between the brief and the pull request. The 
 environment runs the Supabase pool in Docker and holds codex and opencode credentials.
 
 The controller's manual is [`.claude/skills/controller/SKILL.md`](../controller/SKILL.md). The
-controller starts the mechanic with `claude --cloud "Read loop/items/<item>/brief.md and follow
-it."` from a linked
-worktree on the pushed item branch, because a cloud session clones the remote at the current
-directory's branch. It sends follow-ups with `claude -p "<message>" --cloud <session-id>`. The
-cloud VM has its own one-slot database pool (`AT_DB_SLOT=1`). The controller's local slot serves
-the local gate only.
+mechanic is always a session the founder can talk to, never a subagent (founder 2026-08-29:
+"i dont like it that i cant interact with the lead"). The controller starts it from a linked
+worktree on the pushed item branch in one of two places:
+
+- **Local, the default for the first run.** A new terminal window in the worktree, running
+  `claude "Read loop/items/<item>/brief.md and follow it."`. The lead's checkout is the item
+  branch. The founder talks to it in that window or from the phone through Remote Control.
+  Messages from the controller reach it through the founder.
+- **Cloud, on request.** `claude --cloud` from the worktree, because a cloud session clones the
+  remote at the current directory's branch. The founder talks to it on claude.ai. The controller
+  sends follow-ups with `claude -p "<message>" --cloud <session-id>`. The cloud VM has its own
+  one-slot database pool (`AT_DB_SLOT=1`).
+
+The controller's local database slot serves the local gate only.
 
 Work that the mechanic discovers does not ride along. The mechanic lists it in its report. The
 controller judges each entry as a filing candidate. The founder files items.
@@ -405,7 +413,7 @@ Do these steps in order:
 4. Run [`/pstack:create-verification-skill`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/create-verification-skill/SKILL.md)
    once and commit [`.claude/skills/verify-ai4good/`](../verify-ai4good/) as a repo product.
 5. Run one item with [`/controller <id>`](../controller/SKILL.md). The controller writes the
-   brief, spins the mechanic, and gates the pull request on return.
+   brief, opens the mechanic in a new local window, and gates the pull request on return.
 
 Three rulings are open and belong to the founder: who gates the merge (the recommendation is the
 controller), the exact text of the evidence bar in the brief, and one pull request per item
@@ -427,3 +435,5 @@ against stacked pull requests.
   phases and the mechanic's nine stations with their loops.
 - 2026-08-29. The chart is also an SVG beside this file, rendered by
   `loop/work/render-mermaid.ps1`. Regenerate it after every chart edit.
+- 2026-08-29. The mechanic is always a session the founder can talk to: local in its own
+  window by default, cloud on request. Never a subagent.

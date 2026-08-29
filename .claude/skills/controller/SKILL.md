@@ -1,11 +1,11 @@
 ---
 name: controller
-description: Workflow v2 entry verb. Pick up one board item, write its brief, spin the cloud mechanic that runs open-pstack on it, then gate, merge, and close on return. /controller alone recommends and waits. This is the CONTROLLER's manual, a trimmed /work. The mechanic follows the pstack skills.
+description: Workflow v2 entry verb. Pick up one board item, write its brief, open the mechanic that runs open-pstack on it as a session the founder can talk to (local window by default, cloud on request), then gate, merge, and close on return. /controller alone recommends and waits. This is the CONTROLLER's manual, a trimmed /work. The mechanic follows the pstack skills.
 ---
 
 # The controller's manual: `/controller`
 
-`/controller` · `/controller AI4DEV-19` · `/controller AI4PM-12` · `/controller spin AI4DEV-19`
+`/controller` · `/controller AI4DEV-19` · `/controller AI4DEV-19 cloud` · `/controller AI4PM-12` · `/controller spin AI4DEV-19`
 
 You are reading the controller manual for workflow v2. The way of work it serves is
 `pstack-workflow-ai4good.md` in `.claude/skills/work/`. Read `shared-invariants.md` in the same
@@ -25,7 +25,8 @@ linked worktree and `git -C <worktree>`.
 
 | you type | what happens |
 |---|---|
-| `/controller AI4DEV-19` | a LEAF. Start it (phase B). |
+| `/controller AI4DEV-19` | a LEAF. Start it (phase B). The mechanic runs locally in its own window. |
+| `/controller AI4DEV-19 cloud` | the same, with the mechanic as a cloud session. |
 | `/controller AI4DEV-3` | a PARENT. List the open children with short labels and blockers, say "N of M done", recommend one, wait. |
 | `/controller AI4PM-12` | a requirement. Apply the requirement states below. |
 | `/controller` | recommend and wait: In Progress first, then open leaves, then a new requirement. Top three, one-line reasons, wait. |
@@ -62,7 +63,20 @@ an item falsely In Progress.
    '<your session id>'` so your own stamp, when it is live, names the item.
 8. Brief and spin. Write `loop/items/<item>/brief.md` in the worktree from the template
    below, commit it on the branch with a message that cites the item, and push. Then start
-   the mechanic from the worktree:
+   the mechanic as a session the founder can talk to. **Never as a subagent** (founder
+   2026-08-29: "i dont like it that i cant interact with the lead"). Two ways:
+
+   **Local, the default.** Open a new terminal window in the worktree with the lead in it:
+
+   ```powershell
+   Start-Process wt.exe -ArgumentList '-d', '<worktree>', 'claude', '"Read loop/items/<item>/brief.md and follow it."'
+   ```
+
+   The lead's checkout is the item branch. The founder talks to it in that window, or from the
+   phone through Remote Control, which every session here starts with. Record the worktree
+   path and the launch time in `loop/items/<item>/mechanic.md`.
+
+   **Cloud, on `/controller <id> cloud`.** From the worktree:
 
    ```powershell
    Set-Location <worktree>
@@ -70,12 +84,13 @@ an item falsely In Progress.
    ```
 
    The cloud session clones the remote at the worktree's branch, so the push must land before
-   the command runs. Run the command in the background and capture its output. The output
-   names the session: a `session_...` id and a `claude.ai/code/...` link. Record both in
-   `loop/items/<item>/mechanic.md`, commit that file to the branch, and push. If the command
-   cannot start a session (no claude.ai login, policy off, provisioning failure), print the
-   exact command and ask the founder to run it at the terminal. Do not retry silently.
-9. Print the transition line: item, branch, slot, session link. Then wait.
+   the command runs. The command names the session: a `session_...` id and a
+   `claude.ai/code/...` link. Record both in `loop/items/<item>/mechanic.md`. The founder talks
+   to it on claude.ai or in the mobile app.
+
+   In both cases, commit `mechanic.md` to the branch and push. If the launch fails, print the
+   exact command and ask the founder to run it. Do not retry silently.
+9. Print the transition line: item, branch, slot, where the mechanic lives. Then wait.
 
 ## The brief
 
@@ -117,11 +132,12 @@ The mechanic is not a subagent. Nothing wakes you. Check on it only when the fou
 when you need the pull request:
 
 - `gh pr list --head <branch> --json number,url,state` finds the pull request.
-- `/tasks` in the founder's terminal lists cloud sessions. The founder can also open the
-  session link and steer it directly.
-- To send the mechanic a message: `claude -p "<message>" --cloud <session-id>`. Use it to pass a
-  founder ruling or to ask for the pull request. Never use it to answer a content question
-  yourself. A question from the mechanic reaches the founder verbatim.
+- A local mechanic: the founder talks to it in its own window. When you have something for
+  it, a gate failure or a ruling, print the exact text and the founder pastes it there.
+- A cloud mechanic: `/tasks` lists it. To send it a message:
+  `claude -p "<message>" --cloud <session-id>`.
+- Never answer a content question yourself. A question from the mechanic reaches the founder
+  verbatim.
 
 No timers, no wake-ups, no budgets. Silence is normal.
 
@@ -133,8 +149,9 @@ When the pull request exists:
    `git -C <worktree> pull`. Run the verify suite for the item's acceptance tests with the
    reserved slot. Read the Verification section of the pull request body and check that it
    names the same checks. Confirm CI is green on the exact head.
-2. If the gate fails, send the failure to the mechanic verbatim with `claude -p` and wait.
-   Do not fix the code yourself.
+2. If the gate fails, send the failure to the mechanic verbatim: print it for the founder to
+   paste into a local mechanic, or `claude -p` it to a cloud one. Wait. Do not fix the code
+   yourself.
 3. If the gate passes, merge: `gh pr merge <n> --squash`. The merge closes the item on the
    board. Never set the item Done by hand.
 4. Sweep: `Release-DbSlot -Item <id>`, `Clear-HeldItem`, `git worktree remove worktrees/<item>`,
