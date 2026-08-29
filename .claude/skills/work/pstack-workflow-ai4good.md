@@ -68,30 +68,62 @@ controller judges each entry as a filing candidate. The founder files items.
 
 ## 3. The nine stations
 
-Each row gives the station, who acts, the sheet role with its shipped default model, and the
-station's loop or exit. "Lead model" means the lead does the work itself and no sheet role
-applies.
+Each row gives the station, who acts, the sheet roles it uses, and the station's loop or exit.
+The models behind each role are in the sheet-roles table below. "Lead" in the role column
+means the lead does the work itself and no sheet role applies.
 
-| # | station | who acts | sheet role and shipped default | loop or exit |
+| # | station | who acts | sheet roles | loop or exit |
 |---|---|---|---|---|
-| 1 | Ground (`/how`) | Two to four explorers with disjoint slices, then one explainer. Critics run only when the request asks for problems. | `how explorer` grok@xhigh. `how explainer` fable@max. `how critics` fable, sol, grok, opus. | The lead rules each critic finding: Act on, Consider, Noted, or Dismissed. |
-| 2 | Design arena (`/architect`, `/arena`) | Runners fan out, each with a rationale. Cross-judges score against a rubric of three to six criteria that the runners never see. The design-red-flags screen runs on every candidate. The lead reads every candidate end to end, picks a base, and grafts the best parts of the others. | `architect runners` fable, sol, grok, opus. `arena cross-judge pool` fable, sol, grok, opus. The judge's provider differs from the parent's and from the front-runner's. | If the candidates converge, ship the design. If they diverge, reframe the task and run the arena again. |
-| 3 | Throughput checkpoint | The lead writes four todos. A todo that does not apply stays as `n/a: <reason>`. | Lead model. | None. |
-| 4 | Write | One delegated writer per unit, in its own worktree, in isolated-write mode. The writer is a leaf and spawns nothing. The writer first writes the failing test from the lead's acceptance criteria, watches it fail, then implements. | `feature, refactoring` grok@xhigh. `bug-fix`, `perf-issue`, `hillclimb` sol@max. `hardest tasks` fable@max. | The writer reports `BLOCKED`, a list of deviations, or a partial result at its time limit. The lead escalates (section 6). |
-| 5 | Diff against the sketch | The lead reads the diff against the design. Each deviation is one of: the sketch was wrong, a requirement was missed, or the writer overreached. | Lead model. | A pattern of deviations sends the item back to station 2. |
-| 6 | Verify | The lead drives `verify-ai4good` on the real surface. On cloud the evidence is HTTP responses and database side effects. Headless Playwright is used where the sandbox provides it. | Lead model. | No proof means not done. |
-| 7 | Sequence | The lead orders commits so that each one builds and verifies alone. | Lead model. | None. |
-| 8 | Interrogate | A read-only panel. Every reviewer gets the same rubric. The lead merges the consensus, removes duplicates, and rules on each finding. | `interrogate reviewers` fable, sol, grok, opus. The list length is the fan-out count. | pstack has no re-clearance loop. Our rubric adds one line: "A changed head voids the verdict. Re-panel." |
-| 9 | Ship (`opening-a-pr`) | The lead runs deslop, no-comments, and unslop, writes conventional commits, and fills the sections Why, Scope, Tradeoffs, Blast Radius, and Verification. The pull request is never a draft. Opening a pull request and babysitting it are two verbs. | `judgment and prose` fable@max. | Babysit is not used here. It is a second way to close work, which the way of work forbids. |
+| 1 | Ground (`/how`) | Two to four explorers with disjoint slices, then one explainer. Critics run only when the request asks for problems. | `how explorer`, `how explainer`, `how critics` | The lead rules each critic finding: Act on, Consider, Noted, or Dismissed. |
+| 2 | Design arena (`/architect`, `/arena`) | Runners fan out, each with a rationale. Cross-judges score against a rubric of three to six criteria that the runners never see. The design-red-flags screen runs on every candidate. The lead reads every candidate end to end, picks a base, and grafts the best parts of the others. | `architect runners`, `arena runners`, `arena cross-judge pool` | If the candidates converge, ship the design. If they diverge, reframe the task and run the arena again. |
+| 3 | Throughput checkpoint | The lead writes four todos. A todo that does not apply stays as `n/a: <reason>`. | Lead | None. |
+| 4 | Write | One delegated writer per unit, in its own worktree, in isolated-write mode. The writer is a leaf and spawns nothing. The writer first writes the failing test from the lead's acceptance criteria, watches it fail, then implements. | `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks` | The writer reports `BLOCKED`, a list of deviations, or a partial result at its time limit. The lead escalates (section 6). |
+| 5 | Diff against the sketch | The lead reads the diff against the design. Each deviation is one of: the sketch was wrong, a requirement was missed, or the writer overreached. | Lead | A pattern of deviations sends the item back to station 2. |
+| 6 | Verify | The lead drives `verify-ai4good` on the real surface. On cloud the evidence is HTTP responses and database side effects. Headless Playwright is used where the sandbox provides it. | Lead | No proof means not done. |
+| 7 | Sequence | The lead orders commits so that each one builds and verifies alone. | Lead | None. |
+| 8 | Interrogate | A read-only panel. Every reviewer gets the same rubric. The lead merges the consensus, removes duplicates, and rules on each finding. | `interrogate reviewers` | pstack has no re-clearance loop. Our rubric adds one line: "A changed head voids the verdict. Re-panel." |
+| 9 | Ship (`opening-a-pr`) | The lead runs deslop, no-comments, and unslop, writes conventional commits, and fills the sections Why, Scope, Tradeoffs, Blast Radius, and Verification. The pull request is never a draft. Opening a pull request and babysitting it are two verbs. | `judgment and prose` | Babysit is not used here. It is a second way to close work, which the way of work forbids. |
 
-Roles that stay on the parent: `why investigators, synthesizer` and `reflect tooling, judgment,
-divergent, synthesizer` are `inherit-parent`, because those skills need the MCP surface.
-`swarm workers` defaults to grok@xhigh. The verbs fix-ci, deslop, and recall run on the lead
-with no pin. pstack has no verifier role. The verifier rule is a line in the user-level
-`CLAUDE.md` (section 5).
+The verbs fix-ci, deslop, and recall run on the lead with no pin. pstack has no verifier role.
+The verifier rule is a line in the user-level `CLAUDE.md` (section 5).
 
 The critic rubric has six lenses: abstraction fit, data model, boundary discipline, evolution
 readiness, complexity against value, and consistency. A critic uses the lenses that apply.
+
+### The sheet roles
+
+The sheet `~/.claude/pstack-models.md` has one row per role. The table gives every documented
+role with three values. **pstack default** is the first-run value the plugin ships. **First
+write** is what `/pstack:setup-pstack` will write for ai4good: the shipped defaults with the
+grok family on the codex router (section 4). The sheet is not written yet. **Target** is the
+sheet from section 6, applied on a rerun after one item has run on the first write.
+
+Descriptor shorthand: `fable` is `claude:claude-fable-5`, `sol` is `codex:gpt-5.6-sol`, `grok`
+is `codex:opencode-go-responses/grok-4.6`, and `opus` is `claude:claude-opus-5`. A list is a
+panel, and the list length is the fan-out count.
+
+| sheet role | station | pstack default | first write | target |
+|---|---|---|---|---|
+| `feature, refactoring` | 4 | grok@xhigh | grok@xhigh | grok@high |
+| `bug-fix` | 4 | sol@max | sol@max | sol@high |
+| `perf-issue` | 4 | sol@max | sol@max | sol@high |
+| `hillclimb` | 4 | sol@max | sol@max | sol@high |
+| `hardest tasks` | 4 | fable@max | fable@max | fable@max |
+| `judgment and prose` | 9 | fable@max | fable@max | fable@max |
+| `how explorer` | 1 | grok@xhigh | grok@xhigh | grok@high |
+| `how explainer` | 1 | fable@max | fable@max | fable@max |
+| `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
+| `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
+| `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
+| `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
+| `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh, opus@xhigh |
+| `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | grok@high |
+| `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
+| `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
+
+The `why` and `reflect` rows stay `inherit-parent` because those skills need the MCP surface,
+which external lanes never get. grok has no `max` in its selectable efforts, so its panel lanes
+stay at `xhigh` in the target.
 
 ## 4. The model matrix as it will be configured
 
@@ -129,8 +161,9 @@ that pstack does not model, such as a verifier rule or a tier map, go in the use
 
 ## 6. The target sheet, and why it is shaped for escalation
 
-The target sheet was designed on 2026-08-28. Apply it on a rerun of setup after one item has
-run on the shipped defaults.
+The target sheet was designed on 2026-08-28. Its row values are the **target** column of the
+sheet-roles table in section 3. Apply it on a rerun of setup after one item has run on the
+first write.
 
 - Writers run at `@high`, not `@max`. The unused effort is the first escalation step.
 - `hardest tasks` is `claude:claude-fable-5@max`. It is the named escalation target.
@@ -222,3 +255,5 @@ against stacked pull requests.
 - 2026-08-29. Added the controller skill. Section 2 now names how the controller starts and
   steers the mechanic (`claude --cloud`, `claude -p --cloud`). The brief no longer carries
   `AT_DB_SLOT`. The cloud VM sets its own.
+- 2026-08-29. Added the sheet-roles table: every role with its pstack default, the first
+  write for ai4good, and the target. The stations table now names roles only.
