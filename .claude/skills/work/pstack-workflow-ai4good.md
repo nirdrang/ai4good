@@ -42,6 +42,14 @@ one row of the model matrix.
 The chart shows every internal step of every phase. Section 3 gives the same stations as a
 table. The controller's steps are the numbered steps of its manual.
 
+The chart as an image: [`pstack-workflow-ai4good.svg`](pstack-workflow-ai4good.svg). Regenerate
+it after every chart edit with
+[`loop/work/render-mermaid.ps1`](../../../loop/work/render-mermaid.ps1)
+`-Markdown .claude/skills/work/pstack-workflow-ai4good.md`. The script also fails on a syntax
+error in the chart.
+
+[![The pstack workflow for ai4good, every step of every phase](pstack-workflow-ai4good.svg)](pstack-workflow-ai4good.svg)
+
 ```mermaid
 flowchart TB
   subgraph CTRL["Controller: local session, branch main, /controller ID"]
@@ -413,3 +421,5 @@ against stacked pull requests.
   this PC's copies, GitHub for the plugin source.
 - 2026-08-29. The flow chart shows every internal step of every phase: the controller's four
   phases and the mechanic's nine stations with their loops.
+- 2026-08-29. The chart is also an SVG beside this file, rendered by
+  `loop/work/render-mermaid.ps1`. Regenerate it after every chart edit.
