@@ -40,8 +40,10 @@ one row of the model matrix.
 
 ## 2. The shape: one session, controller then mechanic
 
-The chart shows every internal step of every phase. Section 3 gives the same stations as a
-table. The controller's steps are the numbered steps of its manual.
+The chart shows every internal step of every phase. Every step that runs on a sheet role names
+the role and its model as of the first write (the sheet-roles table in section 3 is the
+source). "Lead" means the parent model of the session, fable here. Section 3 gives the same
+stations as a table. The controller's steps are the numbered steps of its manual.
 
 To check that the chart still draws after an edit, run
 [`loop/work/render-mermaid.ps1`](../../../loop/work/render-mermaid.ps1)
@@ -102,59 +104,59 @@ flowchart TB
     direction TB
     subgraph S1["1 Ground: /how"]
       direction TB
-      G1["Lead splits the question into 2 to 4 disjoint slices"]
-      G2["One explorer per slice, read-only, sheet role how explorer"]
-      G3["Explainer merges the findings into one explanation, sheet role how explainer"]
+      G1["Lead (fable) splits the question into 2 to 4 disjoint slices"]
+      G2["One explorer per slice, read-only. Role: how explorer = grok@xhigh"]
+      G3["Explainer merges the findings into one explanation. Role: how explainer = fable@max"]
       G4{"Request asks for problems?"}
-      G5["One critic per how critics entry, each with the explanation, the paths, and the 6-lens rubric"]
-      G6["Lead rules each finding: Act on, Consider, Noted, Dismissed"]
+      G5["One critic per entry, each with the explanation, the paths, and the 6-lens rubric. Role: how critics = fable@max, sol@max, grok@xhigh, opus@xhigh"]
+      G6["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       G1 --> G2 --> G3 --> G4
       G4 -- yes --> G5 --> G6
       G4 -- no --> S2
     end
     subgraph S2["2 Design arena: /architect and /arena"]
       direction TB
-      D1["Lead derives a rubric of 3 to 6 criteria. Candidates never see it"]
-      D2["Architect runners fan out, one design each with its rationale, sheet role architect runners"]
-      D3["Design-red-flags screen on every candidate: shallow module, information leakage, temporal decomposition, pass-through"]
-      D4["Cross-judges score against the rubric. Judge provider differs from the parent and the front-runner"]
-      D5["Lead reads every candidate end to end, picks a base, grafts the best parts of the others"]
+      D1["Lead (fable) derives a rubric of 3 to 6 criteria. Candidates never see it"]
+      D2["Runners fan out, one design each with its rationale. Role: architect runners = fable@max, sol@max, grok@xhigh, opus@xhigh"]
+      D3["Design-red-flags screen on every candidate: shallow module, information leakage, temporal decomposition, pass-through. Lead (fable)"]
+      D4["Cross-judges score against the rubric. Role: arena cross-judge pool = fable@max, sol@max, grok@xhigh, opus@xhigh. The judge's provider differs from the parent's and the front-runner's"]
+      D5["Lead (fable) reads every candidate end to end, picks a base, grafts the best parts of the others"]
       D6{"Candidates converge?"}
-      D7["Reframe the task, run the arena again"]
+      D7["Lead (fable) reframes the task, runs the arena again"]
       D1 --> D2 --> D3 --> D4 --> D5 --> D6
       D6 -- no --> D7 --> D2
     end
     subgraph S3["3 Throughput checkpoint"]
       direction TB
-      T1["Blocking first steps: gates before fan-out"]
-      T2["Independent workstreams: disjoint files parallelize, shared writes serialize"]
-      T3["Shared mutable state: split the target before serializing"]
-      T4["Smallest safe decomposition. One writer? say why"]
+      T1["Lead (fable) writes todo 1, blocking first steps: gates before fan-out"]
+      T2["Todo 2, independent workstreams: disjoint files parallelize, shared writes serialize"]
+      T3["Todo 3, shared mutable state: split the target before serializing"]
+      T4["Todo 4, smallest safe decomposition. One writer? say why"]
       T1 --> T2 --> T3 --> T4
     end
     subgraph S4["4 Write: one unit at a time"]
       direction TB
-      X1["Lead writes the unit brief: paths it may write, the data shape, the acceptance criteria"]
-      X2["Lead creates a dedicated worktree, spawns one writer in isolated-write mode, sheet role by task type"]
-      X3["Writer writes the failing test from the acceptance criteria"]
+      X1["Lead (fable) writes the unit brief: paths it may write, the data shape, the acceptance criteria"]
+      X2["Lead creates a dedicated worktree, spawns one writer in isolated-write mode. Role by task type: feature, refactoring = grok@xhigh. bug-fix, perf-issue, hillclimb = sol@max"]
+      X3["Writer (the role's model) writes the failing test from the acceptance criteria"]
       X4["Writer watches the test fail"]
       X5["Writer implements until the test passes, commits"]
       X6["Writer reports: done, BLOCKED, deviations, or a partial at the time limit"]
       X7{"Report clean?"}
-      X8["Escalate: respawn fresh, raise effort, hardest tasks role, re-arena, or scrap. Two retries then replan"]
+      X8["Lead (fable) escalates: respawn fresh, raise effort, move the unit to role hardest tasks = fable@max, re-arena, or scrap. Two retries then replan"]
       X1 --> X2 --> X3 --> X4 --> X5 --> X6 --> X7
       X7 -- no --> X8 --> X2
     end
     subgraph S5["5 Diff against the sketch"]
       direction TB
-      R1["Lead reads the writer's diff against the design"]
+      R1["Lead (fable) reads the writer's diff against the design"]
       R2["Each deviation is one of: sketch wrong, requirement missed, overreach"]
       R3{"A pattern of deviations?"}
       R1 --> R2 --> R3
     end
     subgraph S6["6 Verify on the real surface"]
       direction TB
-      V1["Lead runs verify-ai4good: launch, doctor, drive the feature"]
+      V1["Lead (fable) runs verify-ai4good: launch, doctor, drive the feature. No sheet role: pstack has no verifier role"]
       V2["Evidence on cloud: HTTP responses and database side effects. Headless Playwright where the sandbox has it"]
       V3{"Proof in hand?"}
       V4["Not done. Back to the unit"]
@@ -163,26 +165,26 @@ flowchart TB
     end
     subgraph S7["7 Sequence"]
       direction TB
-      Q1["Rebase into small ordered commits"]
+      Q1["Lead (fable) rebases into small ordered commits"]
       Q2["Each commit builds and verifies alone"]
       Q1 --> Q2
     end
     subgraph S8["8 Interrogate: /interrogate"]
       direction TB
-      I1["Lead scopes the diff and writes the intent paragraph"]
-      I2["One reviewer per interrogate reviewers entry, read-only, identical rubric"]
-      I3["Lead synthesizes: consensus, duplicates removed, disagreements listed, agreement map"]
-      I4["Lead rules each finding: Act on, Consider, Noted, Dismissed"]
+      I1["Lead (fable) scopes the diff and writes the intent paragraph"]
+      I2["One reviewer per entry, read-only, identical rubric. Role: interrogate reviewers = fable@max, sol@max, grok@xhigh, opus@xhigh"]
+      I3["Lead (fable) synthesizes: consensus, duplicates removed, disagreements listed, agreement map"]
+      I4["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       I5{"Any Act on?"}
-      I6["Fix through a writer. The changed head voids the verdict"]
+      I6["Fix through a writer, role by task type as in station 4. The changed head voids the verdict"]
       I1 --> I2 --> I3 --> I4 --> I5
       I5 -- yes --> I6 --> I2
     end
     subgraph S9["9 Ship: opening-a-pr"]
       direction TB
-      P1["deslop, no-comments, unslop over the diff and the prose"]
-      P2["Conventional commit messages"]
-      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification with named checks and timestamps, Not done here"]
+      P1["Lead (fable) runs deslop, no-comments, unslop over the diff and the prose"]
+      P2["Conventional commit messages. Role: judgment and prose = fable@max"]
+      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification with named checks and timestamps, Not done here. Role: judgment and prose = fable@max"]
       P4["No other item's id in the title or body"]
       P5["Open the pull request from the item branch. Never a draft. Do not merge"]
       P1 --> P2 --> P3 --> P4 --> P5
@@ -443,3 +445,5 @@ against stacked pull requests.
 - 2026-08-29. The SVG and its links are gone. The mermaid text in this file is the chart
   (founder: "i like the text flowchart in the md"). `render-mermaid.ps1` stays as the syntax
   check only.
+- 2026-08-29. Every chart step that runs on a sheet role names the role and its first-write
+  model. Lead steps say "Lead (fable)".
