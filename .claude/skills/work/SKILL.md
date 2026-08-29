@@ -45,6 +45,7 @@ This section is the full text and its provenance. The process files:
 | `.claude/agents/*.md` | one contract per role — conductor, orchestrator (and its opus fallback twin), executor, mechanical, distiller |
 | `.claude/skills/work/reviewers.md` | the base of every gate prompt; the reviewers are external processes, not agents |
 | `.claude/skills/work/lessons.md` | what these rules cost to learn — read when one seems wrong, not routinely |
+| `.claude/skills/work/pstack-workflow-ai4good.md` | the LIVE way of work for workflow v2 (open-pstack): flow chart, stations, sheet roles, matrix; updated in the same commit as any pstack change |
 
 Superseded and deleted: `/pm-next`, `/item-loop`, `/dev-start`, `/dev-end`, `/bind`, `/bound`,
 `/pm-done`, the `bindings/` directory, the PM-acknowledgment file, and the four declared buckets.
