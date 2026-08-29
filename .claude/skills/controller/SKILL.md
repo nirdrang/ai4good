@@ -50,8 +50,8 @@ say so.
 
 ## Phase B: start an item
 
-Validate first. The board claim comes after the branch and the slot, so a failure cannot leave
-an item falsely In Progress.
+Validate first. The board claim comes after the branch, so a failure cannot leave an item
+falsely In Progress.
 
 1. Resolve the item: id, short label, `gitBranchName`, state, blockers. Walk `parent` upward
    (depth cap 8, cycle detection) and derive a short label for every link.
@@ -64,9 +64,10 @@ an item falsely In Progress.
 5. Worktree. `git worktree add .claude/worktrees/<item> <branch>`. The item's files live here
    and nowhere else. The path is under `.claude/worktrees/` because `EnterWorktree` accepts
    only that location for later switches.
-6. Reserve a database slot for the local gate: `Reserve-DbSlot -Item <id> -Branch <branch>`
-   from `loop/work/db-slots.ps1`. A full pool rejects the item at start. Say so and stop. An
-   item that needs no database skips this and you say so.
+6. One item at a time on this machine. The local database is one instance: the project
+   settings set `AT_DB_SLOT=1`, and there is no slot pool in v2 (founder 2026-08-29: "Clear
+   the dB slot mechanism all together"). Parallel items run as cloud sessions, each on its own
+   VM with its own database. If another item is already open on this PC, stop and say which.
 7. Claim: assign the item, set In Progress. Then `Set-HeldItem '<id>' '<label>' 'main'
    '<your session id>'` so your own stamp, when it is live, names the item.
 8. Brief. Write `loop/items/<item>/brief.md` in the worktree from the template below, commit
@@ -75,7 +76,7 @@ an item falsely In Progress.
 
    **Local, the default.** Move this session into the worktree:
    `EnterWorktree(path: ".claude/worktrees/<item>")`. Print the transition line: item, branch,
-   slot, the worktree path. Then print exactly this and stop:
+   the worktree path. Then print exactly this and stop:
 
    > The brief is on the branch. Type
    > `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.`
@@ -123,8 +124,8 @@ The pull request body carries Why, Scope, Tradeoffs, Blast Radius, and Verificat
 - Discovered work goes in a "Not done here" list in the pull request body, never in the diff.
 
 ## Environment facts
-- The cloud environment sets AT_DB_SLOT=1 with a one-slot pool. Run
-  `bun tests/at/harness/db-pool.ts setup` once if an integration test needs the database.
+- One database, AT_DB_SLOT=1, local and cloud alike. On a fresh cloud VM run
+  `bun tests/at/harness/db-pool.ts setup` once before an integration test.
 - codex needs `codex login --device-auth` once per fresh VM. The session banner says when.
 ```
 
@@ -153,15 +154,15 @@ On `/controller close <id>`, when the pull request exists:
    pull request first. The mechanic's run may have compacted this session's context, and the
    record on disk is the memory.
 1. Local gate. `git -C .claude/worktrees/<item> pull`. Run the verify suite for the item's
-   acceptance tests with the reserved slot. Read the Verification section of the pull request
+   acceptance tests on the local database. Read the Verification section of the pull request
    body and check that it names the same checks. Confirm CI is green on the exact head.
 2. If the gate fails, hand the failure back verbatim: for a local mechanic, print it and tell
    the founder to re-enter the worktree with `EnterWorktree` and continue in poteto-mode; for
    a cloud one, `claude -p` it. Wait. Do not fix the code yourself.
 3. If the gate passes, merge: `gh pr merge <n> --squash`. The merge closes the item on the
    board. Never set the item Done by hand.
-4. Sweep: `Release-DbSlot -Item <id>`, `Clear-HeldItem`,
-   `git worktree remove .claude/worktrees/<item>`, delete the remote branch.
+4. Sweep: `Clear-HeldItem`, `git worktree remove .claude/worktrees/<item>`, delete the
+   remote branch.
 5. Fold upward: re-read the parent's children fresh. All Done or Cancelled → fold, cascading,
    stopping below a requirement.
 6. Print `session is free`, report open siblings with labels, and suggest the next

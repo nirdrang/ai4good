@@ -1,7 +1,8 @@
 {
   "env": {
     "CLAUDE_CODE_PROMPT_CACHE_TTL": "1h",
-    "CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL": "1h"
+    "CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL": "1h",
+    "AT_DB_SLOT": "1"
   },
   "permissions": {
     "allow": [

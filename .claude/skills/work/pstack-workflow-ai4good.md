@@ -65,7 +65,7 @@ flowchart TB
       direction TB
       B1["git fetch origin, then git branch BRANCH origin/main"]
       B2["git worktree add .claude/worktrees/ITEM BRANCH"]
-      B3["Reserve-DbSlot for the local gate. Full pool stops here"]
+      B3["One item at a time on this machine. Another item open here stops the run"]
       B4["Claim: assign, In Progress, Set-HeldItem"]
       B5["Write loop/items/ITEM/brief.md: chain, PRD slice, item text, acceptance tests, the ask, the evidence bar"]
       B6["Commit the brief on the branch, push"]
@@ -85,12 +85,12 @@ flowchart TB
       C0["ExitWorktree keep. Re-read the brief and the pull request from disk"]
       C1["git -C .claude/worktrees/ITEM pull"]
       C0 --> C1
-      C2["Run the verify suite for the acceptance tests on the reserved slot"]
+      C2["Run the verify suite for the acceptance tests on the local database"]
       C3["Read the Verification section. Same checks? CI green on the exact head?"]
       C4{"Gate passes?"}
       C5["Hand the failure back verbatim: local, re-enter the worktree and continue in poteto-mode; cloud, claude -p"]
       C6["gh pr merge N --squash. The merge closes the item"]
-      C7["Sweep: Release-DbSlot, Clear-HeldItem, remove the worktree, delete the remote branch"]
+      C7["Sweep: Clear-HeldItem, remove the worktree, delete the remote branch"]
       C8["Fold upward: all children Done or Cancelled closes the parent"]
       C9["session is free. Suggest the next /controller"]
       C1 --> C2 --> C3 --> C4
@@ -206,7 +206,7 @@ flowchart TB
   C5 -- "fix and push" --> I1
 ```
 
-The controller owns the board, the branch, the database slot, the brief, the gate, and the
+The controller owns the board, the branch, the brief, the gate, and the
 merge. The mechanic owns everything between the brief and the pull request. The cloud
 environment runs the Supabase pool in Docker and holds codex and opencode credentials.
 
@@ -225,10 +225,13 @@ finshed with the brief and them i run the pstack poteto mode on that session"). 
 - **Cloud, on `/controller <id> cloud`.** The session stays in the main folder and runs
   `claude --cloud` from the worktree, because a cloud session clones the remote at the current
   directory's branch. The founder talks to it on claude.ai. The controller sends follow-ups
-  with `claude -p "<message>" --cloud <session-id>`. The cloud VM has its own one-slot
-  database pool (`AT_DB_SLOT=1`).
+  with `claude -p "<message>" --cloud <session-id>`.
 
-The controller's local database slot serves the local gate only.
+**One database per machine, no slot pool.** Local and cloud alike set `AT_DB_SLOT=1` (the
+project `.claude/settings.json` env block locally, the environment variables on cloud). One
+item runs at a time on this PC. Parallel items run as cloud sessions, each VM with its own
+database (founder 2026-08-29: "Clear the dB slot mechanism all together"). The v1 slot pool
+scripts stay parked with v1.
 
 Work that the mechanic discovers does not ride along. The mechanic lists it in its report. The
 controller judges each entry as a filing candidate. The founder files items.
@@ -367,7 +370,7 @@ Run the cheapest test first. Stop when the candidate fails.
 2. Run an arena with the candidate and the incumbent as two lanes and one judge from a third
    family.
 3. As the last confirmation, run one item end to end twice, in two cloud sessions. Do not use
-   two worktrees on one machine, because the database slots and the CPU contend. Score each
+   two worktrees on one machine, because the one database and the CPU contend. Score each
    station from its receipts. Blind the run as the [eval playbook](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/playbooks/eval.md) requires: no words like eval,
    test, judge, or candidate anywhere visible, organic prompts, sanitized directories, one
    blinded judge from another family, one pass, and verification read from the transcripts.
@@ -395,7 +398,7 @@ told the truth.
   head voids the verdict. Re-panel."
 - The brief carries the evidence bar: the named checks and their timestamps in the pull
   request's Verification section, and CI green on the final head. Before the merge, the
-  controller runs the suite again locally on its reserved slot.
+  controller runs the suite again on the local database.
 
 ## 10. How to finish the bring-up
 
@@ -447,3 +450,5 @@ against stacked pull requests.
   check only.
 - 2026-08-29. Every chart step that runs on a sheet role names the role and its first-write
   model. Lead steps say "Lead (fable)".
+- 2026-08-29. The database slot pool is out of v2. One database per machine, `AT_DB_SLOT=1`
+  everywhere, one item at a time locally, parallel items as cloud sessions.
