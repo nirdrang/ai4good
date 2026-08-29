@@ -75,27 +75,10 @@ flowchart TB
     end
     subgraph PW["While the mechanic runs"]
       direction TB
-      W1["Local: the founder and the lead talk directly in the session. The controller has no part until /controller close"]
+      W1["Local: the founder and the lead talk directly in the session. The controller has no further part"]
       W2["Cloud: gh pr list --head BRANCH finds the pull request. Rulings go with claude -p 'MESSAGE' --cloud SESSION-ID"]
       W3["No timers, no wake-ups. A question from a cloud mechanic reaches the founder verbatim"]
       W1 --> W2 --> W3
-    end
-    subgraph PC["Phase C: /controller close ID"]
-      direction TB
-      C0["ExitWorktree keep. Re-read the brief and the pull request from disk"]
-      C1["git -C .claude/worktrees/ITEM pull"]
-      C0 --> C1
-      C2["Run the verify suite for the acceptance tests on the local database"]
-      C3["Read the Verification section. Same checks? CI green on the exact head?"]
-      C4{"Gate passes?"}
-      C5["Hand the failure back verbatim: local, re-enter the worktree and continue in poteto-mode; cloud, claude -p"]
-      C6["gh pr merge N --squash. The merge closes the item"]
-      C7["Sweep: Clear-HeldItem, remove the worktree, delete the remote branch"]
-      C8["Fold upward: all children Done or Cancelled closes the parent"]
-      C9["session is free. Suggest the next /controller"]
-      C1 --> C2 --> C3 --> C4
-      C4 -- no --> C5
-      C4 -- yes --> C6 --> C7 --> C8 --> C9
     end
     PA --> PB
   end
@@ -186,9 +169,20 @@ flowchart TB
       P2["Conventional commit messages. Role: judgment and prose = fable@max"]
       P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification with named checks and timestamps, Not done here. Role: judgment and prose = fable@max"]
       P4["No other item's id in the title or body"]
-      P5["Open the pull request from the item branch. Never a draft. Do not merge"]
+      P5["Open the pull request from the item branch. Never a draft"]
       P1 --> P2 --> P3 --> P4 --> P5
     end
+    subgraph S10["10 Close: the lead closes the item"]
+      direction TB
+      C1{"CI green on the exact head AND the founder said merge?"}
+      C2["gh pr merge N --squash. The merge closes the item on the board"]
+      C3["ExitWorktree keep, then git worktree remove .claude/worktrees/ITEM, delete the remote branch, Clear-HeldItem"]
+      C4["Fold upward on Linear: all children Done or Cancelled closes the parent, stopping below a requirement"]
+      C5["session is free. List open siblings, suggest the next /controller"]
+      C1 -- yes --> C2 --> C3 --> C4 --> C5
+      C1 -- not yet --> C1
+    end
+    P5 --> C1
     G6 --> S2
     D6 -- yes --> S3
     T4 --> X1
@@ -201,9 +195,7 @@ flowchart TB
   end
 
   B8 -- "the lead's checkout is the item branch" --> G1
-  P5 -- "the pull request is the signal" --> W1
-  W1 --> C0
-  C5 -- "fix and push" --> I1
+  C5 -- "next item, same session" --> A1
 ```
 
 The controller owns the board, the branch, the brief, the gate, and the
@@ -219,9 +211,12 @@ finshed with the brief and them i run the pstack poteto mode on that session"). 
   and the worktree `.claude/worktrees/<item>`, commits the brief, moves the session into the
   worktree with `EnterWorktree`, and stops. The founder types
   `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the same session.
-  When the pull request is open, `/controller close <id>` leaves the worktree with
-  `ExitWorktree`, gates, merges, and sweeps. The session's move between folders is the one
-  exception to the rule that a session works where it was launched.
+  The lead closes the item itself (founder 2026-08-29: "I want the lead to do it"): when CI is
+  green on the exact head and the founder says "merge", it merges, leaves the worktree with
+  `ExitWorktree`, removes it, deletes the remote branch, folds the parent, and prints
+  `session is free`. There is no `/controller close` and no second local run of the suite.
+  The session's move between folders is the one exception to the rule that a session works
+  where it was launched.
 - **Cloud, on `/controller <id> cloud`.** The session stays in the main folder and runs
   `claude --cloud` from the worktree, because a cloud session clones the remote at the current
   directory's branch. The founder talks to it on claude.ai. The controller sends follow-ups
@@ -418,7 +413,7 @@ Do these steps in order:
    once and commit [`.claude/skills/verify-ai4good/`](../verify-ai4good/) as a repo product.
 5. Run one item with [`/controller <id>`](../controller/SKILL.md). It ends inside the item's
    worktree. Type `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the
-   same session. When the pull request is open, type `/controller close <id>`.
+   same session. When CI is green on the pull request, say "merge". The lead closes.
 
 Three rulings are open and belong to the founder: who gates the merge (the recommendation is the
 controller), the exact text of the evidence bar in the brief, and one pull request per item
@@ -452,3 +447,6 @@ against stacked pull requests.
   model. Lead steps say "Lead (fable)".
 - 2026-08-29. The database slot pool is out of v2. One database per machine, `AT_DB_SLOT=1`
   everywhere, one item at a time locally, parallel items as cloud sessions.
+- 2026-08-29. The lead closes the item (founder: "I want the lead to do it"). Station 10 in
+  the chart. `/controller close` and the second local run of the suite are gone. The gate is
+  pstack's verify and interrogate, CI, and the founder's "merge".

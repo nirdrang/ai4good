@@ -1,11 +1,11 @@
 ---
 name: controller
-description: Workflow v2 entry verb. Pick up one board item, write its brief, move this session into the item's worktree and hand it to the founder, who runs /pstack:poteto-mode in the same session. On /controller close, leave the worktree, gate, merge, and close. /controller alone recommends and waits. This is the CONTROLLER's manual, a trimmed /work. The mechanic follows the pstack skills.
+description: Workflow v2 entry verb. Pick up one board item, write its brief, move this session into the item's worktree and hand it to the founder, who runs /pstack:poteto-mode in the same session. The lead closes the item itself. /controller alone recommends and waits. This is the CONTROLLER's manual, a trimmed /work. The mechanic follows the pstack skills.
 ---
 
 # The controller's manual: `/controller`
 
-`/controller` · `/controller AI4DEV-19` · `/controller AI4DEV-19 cloud` · `/controller AI4PM-12` · `/controller close AI4DEV-19`
+`/controller` · `/controller AI4DEV-19` · `/controller AI4DEV-19 cloud` · `/controller AI4PM-12`
 
 You are reading the controller manual for workflow v2. The way of work it serves is
 `pstack-workflow-ai4good.md` in `.claude/skills/work/`. Read `shared-invariants.md` in the same
@@ -34,7 +34,6 @@ to "a session works where it was launched", and it exists only for this hand-off
 |---|---|
 | `/controller AI4DEV-19` | a LEAF. Start it (phase B), end inside the item's worktree, and hand the session to the founder for `/pstack:poteto-mode`. |
 | `/controller AI4DEV-19 cloud` | the same, but the mechanic is a cloud session started with `claude --cloud`. The session stays in the main folder. |
-| `/controller close AI4DEV-19` | the pull request exists. Leave the worktree, gate, merge, sweep (phase C). |
 | `/controller AI4DEV-3` | a PARENT. List the open children with short labels and blockers, say "N of M done", recommend one, wait. |
 | `/controller AI4PM-12` | a requirement. Apply the requirement states below. |
 | `/controller` | recommend and wait: In Progress first, then open leaves, then a new requirement. Top three, one-line reasons, wait. |
@@ -80,10 +79,10 @@ falsely In Progress.
 
    > The brief is on the branch. Type
    > `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.`
-   > When the pull request is open, type `/controller close <item>`.
+   > The lead closes the item itself when CI is green and you say "merge".
 
-   The founder runs the mechanic here and talks to it directly. You do nothing until
-   `/controller close`.
+   The founder runs the mechanic here and talks to it directly. You have no further part in
+   the item.
 
    **Cloud, on `/controller <id> cloud`.** Stay in the main folder. From the worktree:
 
@@ -114,8 +113,22 @@ Acceptance tests: <paths under tests/at/suites/ that this item must turn green>
 
 ## The ask
 Run this item in poteto-mode, end to end, and open one pull request from this branch.
-Do not merge. Do not name any other item's id in the pull request title or body.
+Do not name any other item's id in the pull request title or body.
 The pull request body carries Why, Scope, Tradeoffs, Blast Radius, and Verification.
+Then close the item as the Closing section says. You close it, nobody else.
+
+## Closing
+1. Wait for CI to be green on the exact head of the pull request, and for the founder to
+   say "merge". Both, never one.
+2. `gh pr merge <n> --squash`. The merge closes the item on the board. Never set it Done
+   by hand.
+3. Leave the worktree with `ExitWorktree(action: "keep")`, then from the main folder:
+   `git worktree remove .claude/worktrees/<item>`, delete the remote branch,
+   `Clear-HeldItem`.
+4. Fold upward: read the parent's children fresh on Linear. If all are Done or Cancelled,
+   fold the parent, cascading, and stop below a requirement.
+5. Print `session is free`, list the open siblings with short labels, and suggest the next
+   `/controller`.
 
 ## The evidence bar
 - The verify suite for the acceptance tests above passes on the final head. Name each check
@@ -135,7 +148,7 @@ not ready. Say which field, and stop.
 ## While the mechanic runs
 
 A local mechanic is this session: the founder and the lead talk directly, and the controller
-has no part until `/controller close`. A cloud mechanic runs on its own. Nothing wakes you.
+has no further part in the item. A cloud mechanic runs on its own. Nothing wakes you.
 
 - `gh pr list --head <branch> --json number,url,state` finds the pull request.
 - A cloud mechanic: `/tasks` lists it. To send it a message:
@@ -145,31 +158,20 @@ has no part until `/controller close`. A cloud mechanic runs on its own. Nothing
 
 No timers, no wake-ups, no budgets. Silence is normal.
 
-## Phase C: close the item
+## Phase C: the lead closes
 
-On `/controller close <id>`, when the pull request exists:
+The controller has no close verb (founder 2026-08-29: "I want the lead to do it"). The brief's
+Closing section tells the lead what closing is: CI green on the exact head AND the founder's
+"merge", then `gh pr merge --squash`, leave and remove the worktree, delete the remote branch,
+`Clear-HeldItem`, fold the parent upward, print `session is free`. The gate is pstack's own
+verify and interrogate, CI, and the founder. There is no second local run of the suite.
 
-0. If this session is inside the worktree, leave it: `ExitWorktree(action: "keep")`. The
-   gate and the merge run from the main folder. Re-read `loop/items/<item>/brief.md` and the
-   pull request first. The mechanic's run may have compacted this session's context, and the
-   record on disk is the memory.
-1. Local gate. `git -C .claude/worktrees/<item> pull`. Run the verify suite for the item's
-   acceptance tests on the local database. Read the Verification section of the pull request
-   body and check that it names the same checks. Confirm CI is green on the exact head.
-2. If the gate fails, hand the failure back verbatim: for a local mechanic, print it and tell
-   the founder to re-enter the worktree with `EnterWorktree` and continue in poteto-mode; for
-   a cloud one, `claude -p` it. Wait. Do not fix the code yourself.
-3. If the gate passes, merge: `gh pr merge <n> --squash`. The merge closes the item on the
-   board. Never set the item Done by hand.
-4. Sweep: `Clear-HeldItem`, `git worktree remove .claude/worktrees/<item>`, delete the
-   remote branch.
-5. Fold upward: re-read the parent's children fresh. All Done or Cancelled → fold, cascading,
-   stopping below a requirement.
-6. Print `session is free`, report open siblings with labels, and suggest the next
-   `/controller`.
+After `session is free`, the session is back in the main folder on `main`. The next item
+starts with `/controller <id>` in the same session, or in a new one.
 
-Who gates the merge is an open founder ruling. Until the founder rules, the controller gates
-and merges as written here, and says so in the merge comment.
+The sweep of a worktree left behind by a dead session happens at the next `/controller`
+start: a worktree under `.claude/worktrees/` whose branch is merged is removed, and one whose
+branch is not merged is reported, never removed.
 
 ## Requirement evidence gate
 
