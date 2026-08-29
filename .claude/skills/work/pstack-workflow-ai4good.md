@@ -16,9 +16,10 @@ date and, where a message exists, a quote.
 Every file reference is a link. Repository files link by relative path. Files outside the
 repository link to this PC's copy with a `file:///` address.
 
-Names used throughout. The **controller** is the local Claude Code session on this PC, on branch
-`main`. The **mechanic** is the cloud Claude Code session that runs poteto-mode. Inside the
-mechanic, pstack calls the top-level model the **lead**. A **sheet role** is one row of
+Names used throughout. The **controller** is the local Claude Code session on this PC, started
+on branch `main`. The **mechanic** is the same session after the hand-off, running poteto-mode
+in the item's worktree, or a cloud session when asked for. Inside the mechanic, pstack calls
+the top-level model the **lead**. A **sheet role** is one row of
 [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md). A **family** is
 one row of the model matrix.
 
@@ -37,22 +38,14 @@ one row of the model matrix.
 | verification skill [`verify-ai4good`](../verify-ai4good/) | not generated |
 | controller skill `/controller` | written ([`.claude/skills/controller/SKILL.md`](../controller/SKILL.md)). Not yet run on an item. |
 
-## 2. The shape: a local controller and a cloud mechanic
+## 2. The shape: one session, controller then mechanic
 
 The chart shows every internal step of every phase. Section 3 gives the same stations as a
 table. The controller's steps are the numbered steps of its manual.
 
-The chart as an image, two ways to open it:
-
-- **In the browser:** [open the chart on mermaid.ink](https://mermaid.ink/svg/pako:eJytWV1z2koS_StTfgb7-jthH1IGHIfdxCFA2VRt9mGQRjDXkkZ3RjJhU_nve3pGEi0cl-_DVuUD9NHT033O6e7h51FkYnU0OEpSs4020pZiMfyeC-Gq1drKYiNGi9nnf38_Gpm8tCZNlR2I1EQyFU45p03eEysr82gjMqnx5SRqHxST8fej_5AxIWJtVVTi8do8W2B6A_PTjXRK3AxErCIdK7HdyLJ9-XevC3Fzivdmypn0WYlyo4QuVSbwyGedKwk3ddwTqVyptCfWuhx6L-9lpnrClbLEfyts5ElZxxa6OYPRR5k-iUJalZeiKrbSNoaEelZ2J1KdPwmT-EURM51zA-cwMC8RSLnSqS53A5FpBCpf98TY5Fh1BD8U4gOjxtY-xHDJFE5slFXc2AVt0ZhSbHW5EbkpNzAk5Mo803YHQron70ViqjxGxA1M8_dPRb__vfrjj3PE9ox9PmefL8LTKo8PEzNsEzMcUMwAjibOb-RmSLlB0EWiSkDDWL0mcODtnHLRQGY4u7kffapvn2TdSA7PahtbY59Kq5SQcdx-cSeTxe2X2gJ_6zygQtln1R-v5imClyDO5HjA7Rq5PxYfqzQVhTHp7yM_pMiPUqkzCrLTa3g_ycXUmrUF7ntirsr-J5XGk24whpeEH4sQYTVTnFCsgqsnK6tVcpzFg4CZnpjOxsKlOgImPHRL9aPsCRlFqigJI7jgSuejRokOH9Qz6EE3V9Lyda88R7NMhxz5xYgM4QtFuyeKym34O9cNVP1TmYJfuY6wlpANuzvoiiS-EzdKU4sA3BW52sJTm-kcwd3qPDZbocOLbeZsleeE3CiVFbGb0Ny6-Q9cNhXoUN_t9_13kViTdcxw39_5NEfGAhKUu-4WUv2sHHlxmITmCeThZTwYW4aMLUPGluEF-3zJPl-xz9fs87tX2fVISNno9MB1hMq9wa5HYte9EaXOoF496ILYyifVrwp3LNYbUVgEwJXwYqNk3LAsQWqcX6sg7Fv1VwV8saUeiXAf61zbCiq3dnhMgqiy5k7rZbmxplpvODwICyFxkLmQ4iahhaBwnF1_uZ3Pb-5uw5c2z3NcnXy977NyAWeIxzfC-0i7b8GwDxR5plwHoZDnlURYuCGW1UeW1cfzVzMzanVvNKAtOfV3dW9EmfnoNe8w0MLnQueleQ3TI4r_rArUwU50soNTJCWNgB1qQ0NwG_QOVQRyxy0GMcS69NQDmdSR9D674PuxmKMiQpFU9OQ-iNFEQN8g0rVh9UNGwfMP3OzFz-9Hd5BRFEkHocC9X-09EsA5ghryInVaETlNN3dNnnoAru54TDoWIAxsr5W4R8bcX5V0m2Ox8Cboqk-K-11WRl7UtkoVAzFTqUIW6zKAyouvtlXtHsKWmbp3aNLRQwOSqlLVYc1M2cgnX-OdJ0oa190BSgTyHIHLMXoGX-aptLeFnrsb2gpu7D2MNWqrHYCuUJ7m1XpNoKFXctQF3lfxlxm4RwzcIyZZo4t93nCV1GJ_77J7bwcv9zeZpo2Ypo3esc_vD1g0vdnfnHpe-FudlvLL7egTNv2lRsOglo0mCDX2fE1sSxcSUZp-hmb17_SUc-LhqbizpAsDcbIx2zeYe0dvfCaquAJtW0hWqz6etmcE4wu87f40uBBqN9fqOyLw15xoU6TGQo8K_K1LPOQq7ps83aH93ChVCiRTCTjWPs0tEXFvcR2NgqqpUCsdVNwLs3fJ1IvJ3LP6t6a9CW6b2DurRQl9hfPyUlizSlEmOZfvLuv9RGhowFraDVkNXx0yW1psx1eItqR33AmILzcoUrKWhKt-qnLUlQq1P-JuXTUJQOnBZr3VercDcQMZIoMYQ5z2xeYeiEANH2tH_bWKuSnGijvGijvGiruLfTxeIP-OVfa7q-6DnD7zs9dqyJygcCbGilpHQZyXgKG0EIkS2PPROPGX38DluMUldu27GlnHjiaQc4LklU8I7spj0pxYx5BmB9l4JvQpYhJbZEye3bSOUGeGJgJKDeJVEEmCVBzc3ieWCGF9TmWqOiiTh5b4UoTiEIK-VXE_SSWA66KmwoRpKmpcxoyxgZACYKB5RevoHNDMQsGCdj_JNS5CFgpj0YxgVDT46HTAGtWift2XcCd8J28Nbv5ZxUQjh64Rjq9BjFphQ0CPxT_pAaICNdkW-UgSH5um96hnwgbKuJ6X_bBvvuJli2T84w63KXxxNPQfnNaou0jpCnUKY6qVSS09K2In1qMiHyZNDH8H4b0CkVnCUSGeSSg4hcfXvgNILFV5slL6ScLWXYZHYAgFN8z4M2b8GTP-jFkjPGZ0GV_t3Tuky_ia232VOoSacxR7n8miKkN3UpDmvkGWBZFlSBM1DRuJtoihK1XhBn7qc4hqQrkH2PsAO7O2IFZM0EMWcIhyTA2BQ0cgM7zcSn6iSZqQFuBUpfq_ngsIIoYQoiCwRTSkG9y2PxIIj2VVKaGz4QRiEGpNnRdkrmwcbMxgG9wQQXme0dq0MZmoLgeOBYm198R-wP0dRqMdf5_ldcHyumB5Xbx6HDCn1S-EH24HXiaqHM5L_PGTyBu5WbZCVoeKdu0t-CFwEOoElEZk5Dg9E-oHwC0pykX9nTXBje6xpZdnzTKQGZ9ziSDF1PaqmLV5rpDb3IVRxVuhaVE7k9JzfX-JZKgrdqud548odwXf7vK8Gfot3xw1v4RDatX3GvKG-xfMlCzbASfYgEH-7OX-WZ0VqN4ArkNMS53uXwotOoZrfzjA9WN5tX_fKmhqSVD3Z1TDz19H_7odUzf8rL3-On9aJb0kAZqUdr8EEo9hM-uUmOW17zDIIlo7JXOuSEtqnm8dpknPAIwulAlqex36PCs1pi2VgAWoReBM7Ltg36ZQCqiP6nvV8v6glsgCg8HW4HoJHLlwxoTtoAnhLjHoLxn0lwz6SyZpSyZpS9YHL6_3mzyUt-U7vsarNKKsXaJvSZJODXJPNDa-QaLZabe0-NHFZzDM1M7XrI7dUMuZ3Rkx5JZKe5tcmjv80AIaBj9g1dCRJQ2v8IOQJUKfhbijyvjhmxs9_0njOjgMX3IqWXvk8OzPWB5mLA-zV6fxOaH0Kgyvu_3ASwfQlU1k9JbuPOxDVoHwYa7uS32xNgajQSorP2DEJioN2sqYmqxAX8hH1TkUfPCRaw7gsIqfWwbi02Ix9UDGZklwUN9JtKimC-pWCc_wyx2LT_AD4u3ENJU7JG69KdnxlcObK_MDsHfdnu2Boju1BmGFSmFoinlMHy78cVDpuXsshjJ6agZu0lduh0X_gUX_4Xy_0iGqHzgrTl_NEvUZ12JOY0X-Zk6-haN7HyA_xzgqaiA0ui4al19I1bcWs-GeWFUYtkOofUaJ-TLF_vlLbLffXucj6dE7MckBXGvWXpRO9P7bG1uZ7OfGyBS1WgcS5p1SRyZz39JJvzCzO2nmRgvOqG09NzIf2hvtzMWmSYIjxjEQ4sVMNTlvndvlcMKhMYHGR4TT3FXQ9LhCBxL5OhlOQ8BvdDuSToFCOaGTRLraXkJ9LvgaF_-3uW1ySSKS7-q3OMYnpAIf9Y_24FHWuhdOheggYQ3k-DO2Z6NraQQ0UPk5AyYMExPGgAmrAxOG-Mnl3rkXY-Lkiht7FWB0wPNezDe6QNuE_hKB6ct-Yd9A1pSQBfVOTUFHvH1CPmWkB1bTRa_DXbj5GQWjDgft9Cz8evdMKKH5raFQBh3CQMVpNiW8TPmh5crEu4F43ABnc8J3TyysjJVJEvgxTCUemclYE5Q6x4vh9yoMHXF9thj8Q7eAzjcrnMeBF6zDX16mQc3CuBNO9-rSpuPmd4VSl6k_YiP3-Lv-wAIhfnn62vZf7FjpWNz7GRkdIg1ex2Js6De2cNzCzTLQTBlopgw0Uwaa6eUBFu4YUJozgzAedfA0r2V48RvJDe1G5_FZfWt2_uLWuHOrI-f1nYeXL32rb33jvKivBfRzQ9PTzuHekJofAcBq9HNoIAbhFzfwsUmfxwGmLmo2DhLx_Yidt3i708tg7kUe65epp5Epf-_Rv8dP-0f-yqi2lEA8CIPhR5_uDo96R8h5JnV8NDj66VeleWZA_EtklUJBfh39-h9FoeXT).
-  This address carries the chart text itself, so it draws the chart as of the last render.
-- **On this PC:** [`pstack-workflow-ai4good.svg`](file:///C:/Users/nirdr/Downloads/ai4good/.claude/skills/work/pstack-workflow-ai4good.svg),
-  which the default handler for `.svg` opens, normally the browser.
-
-Regenerate both after every chart edit with
+To check that the chart still draws after an edit, run
 [`loop/work/render-mermaid.ps1`](../../../loop/work/render-mermaid.ps1)
-`-Markdown .claude/skills/work/pstack-workflow-ai4good.md`. The script writes the SVG, prints
-the browser address to paste here, and fails on a syntax error in the chart.
+`-Markdown .claude/skills/work/pstack-workflow-ai4good.md`. It fails on a syntax error.
 
 ```mermaid
 flowchart TB
@@ -69,29 +62,31 @@ flowchart TB
     subgraph PB["Phase B: start the item"]
       direction TB
       B1["git fetch origin, then git branch BRANCH origin/main"]
-      B2["git worktree add worktrees/ITEM BRANCH"]
+      B2["git worktree add .claude/worktrees/ITEM BRANCH"]
       B3["Reserve-DbSlot for the local gate. Full pool stops here"]
       B4["Claim: assign, In Progress, Set-HeldItem"]
       B5["Write loop/items/ITEM/brief.md: chain, PRD slice, item text, acceptance tests, the ask, the evidence bar"]
       B6["Commit the brief on the branch, push"]
-      B7["Start the mechanic as a session the founder can talk to: local, a new terminal window in the worktree running claude with the brief; cloud, claude --cloud from the worktree"]
-      B8["Record where the mechanic lives in loop/items/ITEM/mechanic.md, push"]
+      B7["Local: EnterWorktree into .claude/worktrees/ITEM, print the hand-off, stop. Cloud: claude --cloud from the worktree, record the session in mechanic.md"]
+      B8["The founder types /pstack:poteto-mode with the brief in this same session"]
       B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
     end
     subgraph PW["While the mechanic runs"]
       direction TB
-      W1["No timers, no wake-ups. gh pr list --head BRANCH finds the pull request"]
-      W2["Founder rulings reach a local mechanic through the founder, a cloud one with claude -p 'MESSAGE' --cloud SESSION-ID"]
-      W3["A question from the mechanic reaches the founder verbatim"]
+      W1["Local: the founder and the lead talk directly in the session. The controller has no part until /controller close"]
+      W2["Cloud: gh pr list --head BRANCH finds the pull request. Rulings go with claude -p 'MESSAGE' --cloud SESSION-ID"]
+      W3["No timers, no wake-ups. A question from a cloud mechanic reaches the founder verbatim"]
       W1 --> W2 --> W3
     end
-    subgraph PC["Phase C: close the item"]
+    subgraph PC["Phase C: /controller close ID"]
       direction TB
-      C1["Fetch the pull request head into the worktree"]
+      C0["ExitWorktree keep. Re-read the brief and the pull request from disk"]
+      C1["git -C .claude/worktrees/ITEM pull"]
+      C0 --> C1
       C2["Run the verify suite for the acceptance tests on the reserved slot"]
       C3["Read the Verification section. Same checks? CI green on the exact head?"]
       C4{"Gate passes?"}
-      C5["Send the failure to the mechanic verbatim, wait"]
+      C5["Hand the failure back verbatim: local, re-enter the worktree and continue in poteto-mode; cloud, claude -p"]
       C6["gh pr merge N --squash. The merge closes the item"]
       C7["Sweep: Release-DbSlot, Clear-HeldItem, remove the worktree, delete the remote branch"]
       C8["Fold upward: all children Done or Cancelled closes the parent"]
@@ -203,9 +198,9 @@ flowchart TB
     I5 -- no --> P1
   end
 
-  B8 -- "dispatch: the lead's checkout is the item branch" --> G1
+  B8 -- "the lead's checkout is the item branch" --> G1
   P5 -- "the pull request is the signal" --> W1
-  W1 --> C1
+  W1 --> C0
   C5 -- "fix and push" --> I1
 ```
 
@@ -214,18 +209,22 @@ merge. The mechanic owns everything between the brief and the pull request. The 
 environment runs the Supabase pool in Docker and holds codex and opencode credentials.
 
 The controller's manual is [`.claude/skills/controller/SKILL.md`](../controller/SKILL.md). The
-mechanic is always a session the founder can talk to, never a subagent (founder 2026-08-29:
-"i dont like it that i cant interact with the lead"). The controller starts it from a linked
-worktree on the pushed item branch in one of two places:
+mechanic is never a subagent. The founder talks to the lead directly (founder ruling
+2026-08-29: "i dont like it that i cant interact with the lead. i want to run the controller it
+finshed with the brief and them i run the pstack poteto mode on that session"). Two shapes:
 
-- **Local, the default for the first run.** A new terminal window in the worktree, running
-  `claude "Read loop/items/<item>/brief.md and follow it."`. The lead's checkout is the item
-  branch. The founder talks to it in that window or from the phone through Remote Control.
-  Messages from the controller reach it through the founder.
-- **Cloud, on request.** `claude --cloud` from the worktree, because a cloud session clones the
-  remote at the current directory's branch. The founder talks to it on claude.ai. The controller
-  sends follow-ups with `claude -p "<message>" --cloud <session-id>`. The cloud VM has its own
-  one-slot database pool (`AT_DB_SLOT=1`).
+- **Local, the default for the first run.** One session. `/controller <id>` creates the branch
+  and the worktree `.claude/worktrees/<item>`, commits the brief, moves the session into the
+  worktree with `EnterWorktree`, and stops. The founder types
+  `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the same session.
+  When the pull request is open, `/controller close <id>` leaves the worktree with
+  `ExitWorktree`, gates, merges, and sweeps. The session's move between folders is the one
+  exception to the rule that a session works where it was launched.
+- **Cloud, on `/controller <id> cloud`.** The session stays in the main folder and runs
+  `claude --cloud` from the worktree, because a cloud session clones the remote at the current
+  directory's branch. The founder talks to it on claude.ai. The controller sends follow-ups
+  with `claude -p "<message>" --cloud <session-id>`. The cloud VM has its own one-slot
+  database pool (`AT_DB_SLOT=1`).
 
 The controller's local database slot serves the local gate only.
 
@@ -412,8 +411,9 @@ Do these steps in order:
 3. Add the verifier line to the user-level [`~/.claude/CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md).
 4. Run [`/pstack:create-verification-skill`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/create-verification-skill/SKILL.md)
    once and commit [`.claude/skills/verify-ai4good/`](../verify-ai4good/) as a repo product.
-5. Run one item with [`/controller <id>`](../controller/SKILL.md). The controller writes the
-   brief, opens the mechanic in a new local window, and gates the pull request on return.
+5. Run one item with [`/controller <id>`](../controller/SKILL.md). It ends inside the item's
+   worktree. Type `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the
+   same session. When the pull request is open, type `/controller close <id>`.
 
 Three rulings are open and belong to the founder: who gates the merge (the recommendation is the
 controller), the exact text of the evidence bar in the brief, and one pull request per item
@@ -437,3 +437,9 @@ against stacked pull requests.
   `loop/work/render-mermaid.ps1`. Regenerate it after every chart edit.
 - 2026-08-29. The mechanic is always a session the founder can talk to: local in its own
   window by default, cloud on request. Never a subagent.
+- 2026-08-29. Local mode is ONE session: the controller ends inside the item's worktree
+  (`EnterWorktree`), the founder runs poteto-mode there, and `/controller close` leaves it
+  (`ExitWorktree`) for the gate. Founder ruling quoted in section 2 and in CLAUDE.md.
+- 2026-08-29. The SVG and its links are gone. The mermaid text in this file is the chart
+  (founder: "i like the text flowchart in the md"). `render-mermaid.ps1` stays as the syntax
+  check only.

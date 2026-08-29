@@ -1,11 +1,12 @@
-# render-mermaid.ps1 - render the first mermaid block of a markdown file to an SVG beside it.
+# render-mermaid.ps1 - check the first mermaid block of a markdown file by rendering it.
 #
 # Uses mermaid.ink, the public renderer behind mermaid.live. The block is wrapped in the
 # mermaid.live state JSON, zlib-compressed, base64url-encoded, and fetched as an SVG. A syntax
-# error in the chart comes back as HTTP 400, so this doubles as the chart's syntax check.
+# error in the chart comes back as HTTP 400, so the script fails exactly when the chart would
+# not draw. The SVG lands in the temp folder unless -Out says otherwise; the chart in the
+# markdown is the product (founder 2026-08-29: "i like the text flowchart in the md").
 #
 # Usage: render-mermaid.ps1 -Markdown <path.md> [-Out <path.svg>]
-# Default output: the markdown path with .svg in place of .md.
 
 [CmdletBinding()]
 param(
@@ -15,7 +16,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-if (-not $Out) { $Out = [IO.Path]::ChangeExtension($Markdown, '.svg') }
+if (-not $Out) { $Out = Join-Path $env:TEMP ([IO.Path]::GetFileNameWithoutExtension($Markdown) + '.svg') }
 
 $text = Get-Content -LiteralPath $Markdown -Raw
 $m = [regex]::Match($text, '(?s)```mermaid\r?\n(.*?)```')
@@ -43,6 +44,3 @@ $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 120
 [IO.File]::WriteAllText($Out, $r.Content, (New-Object System.Text.UTF8Encoding($false)))
 $nodes = ([regex]::Matches($r.Content, 'class="node')).Count
 Write-Output ("rendered {0} nodes -> {1}" -f $nodes, $Out)
-# The same chart, hosted: paste this into the doc as the browser link. It encodes the chart
-# text itself, so it changes with every chart edit.
-Write-Output ("browser url: " + $url)

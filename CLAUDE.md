@@ -78,7 +78,10 @@ its full text stays in that section and returns with the stamp.
   cross-check that can never override the branch. Attribution degrades, never blocks — the one
   thing it blocks is closing a requirement.
 - **A session works where it was launched**, on one branch, for the whole item. It never moves
-  itself between folders.
+  itself between folders. ONE exception (founder ruling 2026-08-29: "i want to run the
+  controller it finshed with the brief and them i run the pstack poteto mode on that
+  session"): `/controller` moves its session into the item's worktree with `EnterWorktree`
+  for the hand-off to poteto-mode, and back out with `ExitWorktree` for the gate.
 - **The merge closes an item; there is no second way to close work.** Machinery changed
   mid-item rides along in that item's branch; independent work is filed, not built; requirements
   close only through the evidence gate. Commits cite the item they belong to.
