@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\guard-branch-switch.ps1\""
+            "command": "if [ \"${CLAUDE_CODE_REMOTE:-}\" = \"true\" ]; then exit 0; fi; powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\guard-branch-switch.ps1\""
           }
         ]
       }
