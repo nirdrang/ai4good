@@ -68,20 +68,15 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 `reviewers.md`, `lessons.md`). **Invoke `/work` FRESH at every item start — never execute it
 from memory of a prior reading (MUST-FOLLOW, founder ruling 2026-08-11).**
 
-Four rules bind every session in this folder, before any skill is invoked. Their full text and
-provenance moved to `SKILL.md`, section "The standing rules" (2026-08-29):
+Three rules bind every session in this folder, before any skill is invoked. Their full text and
+provenance moved to `SKILL.md`, section "The standing rules" (2026-08-29). The reply header
+(TURN line, HOOK block) is PARKED with the stamp hook (founder 2026-08-29: "park the header");
+its full text stays in that section and returns with the stamp.
 
 - **Attribution is derived from the branch, never declared (MUST-FOLLOW).** cwd → git worktree →
   branch → exactly one item id → walk `parent` upward for the chain. The held item is a
   cross-check that can never override the branch. Attribution degrades, never blocks — the one
   thing it blocks is closing a requirement.
-- **Open every reply with the TURN line, then the HOOK block (MUST-FOLLOW).** Both plain text,
-  never fenced; the header leads the FIRST text the turn emits, and every line carries the
-  session prefix. The TURN line is this turn's open synthesis and names the WHOLE chain — every
-  id with a short title, root first — or a NAMED floating root: `~exploration (<topic>)` or
-  `~bringup (<topic>)`; a bare `~floating` is banned. The HOOK block reproduces the hook's own
-  lines; the only permitted edit is dropping the machine-readable tag. Print a transition line
-  the moment the branch changes.
 - **A session works where it was launched**, on one branch, for the whole item. It never moves
   itself between folders.
 - **The merge closes an item; there is no second way to close work.** Machinery changed
