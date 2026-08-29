@@ -84,7 +84,10 @@ its full text stays in that section and returns with the stamp.
   for the hand-off to poteto-mode, and back out with `ExitWorktree` for the gate.
 - **The merge closes an item; there is no second way to close work.** Machinery changed
   mid-item rides along in that item's branch; independent work is filed, not built; requirements
-  close only through the evidence gate. Commits cite the item they belong to.
+  close only through the evidence gate. Commits cite the item they belong to. **The lead
+  (poteto-mode) does git and the pull request only. It never touches the board.** Board
+  steering is `/controller done` (founder 2026-08-29: "Lead closes but linear steering is
+  the controller work").
 
 ---
 ## Communication: simple English, never shorthand (founder instruction, stated repeatedly — 2026-07-16, 2026-07-18 and 2026-07-28)

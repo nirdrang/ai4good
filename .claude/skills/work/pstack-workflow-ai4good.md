@@ -75,10 +75,19 @@ flowchart TB
     end
     subgraph PW["While the mechanic runs"]
       direction TB
-      W1["Local: the founder and the lead talk directly in the session. The controller has no further part"]
+      W1["Local: the founder and the lead talk directly in the session. The controller has no part until /controller done"]
       W2["Cloud: gh pr list --head BRANCH finds the pull request. Rulings go with claude -p 'MESSAGE' --cloud SESSION-ID"]
       W3["No timers, no wake-ups. A question from a cloud mechanic reaches the founder verbatim"]
       W1 --> W2 --> W3
+    end
+    subgraph PC["Phase C: /controller done ID, the board"]
+      direction TB
+      K1["Confirm on Linear that the item is Done. Not Done after a bounded re-read: repair from the merge commit, record it as a repair"]
+      K2["Clear-HeldItem"]
+      K3["Fold upward: all children Done or Cancelled closes the parent, stopping below a requirement"]
+      K4["Read the pull request's Not done here list. Four filing checks. Recommend; the founder files"]
+      K5["session is free. List open siblings, suggest the next /controller"]
+      K1 --> K2 --> K3 --> K4 --> K5
     end
     PA --> PB
   end
@@ -172,14 +181,13 @@ flowchart TB
       P5["Open the pull request from the item branch. Never a draft"]
       P1 --> P2 --> P3 --> P4 --> P5
     end
-    subgraph S10["10 Close: the lead closes the item"]
+    subgraph S10["10 Close: the lead does the git part"]
       direction TB
       C1{"CI green on the exact head AND the founder said merge?"}
-      C2["gh pr merge N --squash. The merge closes the item on the board"]
-      C3["ExitWorktree keep, then git worktree remove .claude/worktrees/ITEM, delete the remote branch, Clear-HeldItem"]
-      C4["Fold upward on Linear: all children Done or Cancelled closes the parent, stopping below a requirement"]
-      C5["session is free. List open siblings, suggest the next /controller"]
-      C1 -- yes --> C2 --> C3 --> C4 --> C5
+      C2["gh pr merge N --squash. The pull request link closes the item on the board"]
+      C3["ExitWorktree keep, then git worktree remove .claude/worktrees/ITEM, delete the remote branch"]
+      C4["Invoke /controller done ITEM"]
+      C1 -- yes --> C2 --> C3 --> C4
       C1 -- not yet --> C1
     end
     P5 --> C1
@@ -195,7 +203,8 @@ flowchart TB
   end
 
   B8 -- "the lead's checkout is the item branch" --> G1
-  C5 -- "next item, same session" --> A1
+  C4 -- "the board goes back to the controller" --> K1
+  K5 -- "next item, same session" --> A1
 ```
 
 The controller owns the board, the branch, the brief, the gate, and the
@@ -211,10 +220,12 @@ finshed with the brief and them i run the pstack poteto mode on that session"). 
   and the worktree `.claude/worktrees/<item>`, commits the brief, moves the session into the
   worktree with `EnterWorktree`, and stops. The founder types
   `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the same session.
-  The lead closes the item itself (founder 2026-08-29: "I want the lead to do it"): when CI is
+  The lead closes the git side (founder 2026-08-29: "I want the lead to do it"): when CI is
   green on the exact head and the founder says "merge", it merges, leaves the worktree with
-  `ExitWorktree`, removes it, deletes the remote branch, folds the parent, and prints
-  `session is free`. There is no `/controller close` and no second local run of the suite.
+  `ExitWorktree`, removes it, and deletes the remote branch. Its last closing step invokes
+  `/controller done <id>`, and that verb steers the board: confirm Done, clear the held item,
+  fold the parent, judge the filing candidates, print `session is free` (founder: "Lead closes
+  but linear steering is the controller work"). There is no second local run of the suite.
   The session's move between folders is the one exception to the rule that a session works
   where it was launched.
 - **Cloud, on `/controller <id> cloud`.** The session stays in the main folder and runs
@@ -413,7 +424,8 @@ Do these steps in order:
    once and commit [`.claude/skills/verify-ai4good/`](../verify-ai4good/) as a repo product.
 5. Run one item with [`/controller <id>`](../controller/SKILL.md). It ends inside the item's
    worktree. Type `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the
-   same session. When CI is green on the pull request, say "merge". The lead closes.
+   same session. When CI is green on the pull request, say "merge". The lead merges and
+   hands the board to `/controller done`.
 
 Three rulings are open and belong to the founder: who gates the merge (the recommendation is the
 controller), the exact text of the evidence bar in the brief, and one pull request per item
@@ -450,3 +462,7 @@ against stacked pull requests.
 - 2026-08-29. The lead closes the item (founder: "I want the lead to do it"). Station 10 in
   the chart. `/controller close` and the second local run of the suite are gone. The gate is
   pstack's verify and interrogate, CI, and the founder's "merge".
+- 2026-08-29. The seam between git and the board is a skill call: the lead's last closing
+  step invokes `/controller done <id>`, which confirms Done, clears the held item, folds
+  upward, and judges the filing candidates (founder: "Lead closes but linear steering is the
+  controller work").
