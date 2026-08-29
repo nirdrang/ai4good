@@ -32,6 +32,123 @@ reviews.** An orchestrator gets two adversarial gates, an independent audit and 
 check; your output gets none. Every intent-level defect this project has had was found by the
 founder reading something and asking a structural question.
 
+## The standing rules (moved from CLAUDE.md 2026-08-29, text preserved)
+
+CLAUDE.md keeps these rules in short form so they bind every session from its first prompt.
+This section is the full text and its provenance. The process files:
+
+| file | what it is |
+|---|---|
+| `.claude/skills/work/SKILL.md` | the **coordinator's** manual — the skill `/work` loads. There is no separate coordinator contract; this is it |
+| `.claude/skills/work/WORKFLOW.md` | one item end to end, step by step, naming the role that acts at each step |
+| `.claude/skills/work/shared-invariants.md` | binds **every** role; where a contract disagrees with it, it wins |
+| `.claude/agents/*.md` | one contract per role — conductor, orchestrator (and its opus fallback twin), executor, mechanical, distiller |
+| `.claude/skills/work/reviewers.md` | the base of every gate prompt; the reviewers are external processes, not agents |
+| `.claude/skills/work/lessons.md` | what these rules cost to learn — read when one seems wrong, not routinely |
+
+Superseded and deleted: `/pm-next`, `/item-loop`, `/dev-start`, `/dev-end`, `/bind`, `/bound`,
+`/pm-done`, the `bindings/` directory, the PM-acknowledgment file, and the four declared buckets.
+If you find a reference to any of them, it is stale — `/work` does that job now.
+
+- **`/work` is the only verb.** Claiming, building, merging and closing are PHASES inside it,
+  never separate verbs — a second way to close work is how unreviewed work lands while the way of
+  work appears followed.
+- **`/work` IS INVOKED FRESH AT EVERY ITEM START — never executed from memory of a prior
+  reading (MUST-FOLLOW, founder ruling 2026-08-11).** A skill's text freezes in context at the
+  moment it is invoked, and merged items change the skill mid-day; a coordinator that recites the
+  procedure runs the version in its head, not the one on main. This is a measured failure, not a
+  hypothesis: AI4DEV-80 (attribution by spawn tree) was started without the database-slot step
+  that AI4DEV-79 (database slot pool) had merged into the skill hours earlier, and the founder
+  caught it from the outside by asking why no slot messages appeared.
+- **ATTRIBUTION IS DERIVED FROM THE BRANCH, NEVER DECLARED (MUST-FOLLOW).** cwd → git worktree →
+  branch → exactly one item id → walk `parent` upward for the chain. The branch is primary
+  because it is coupled to closure: its pull request closes that item, so a wrong branch shows up
+  as a wrong closure on the board instead of hiding. Every attribution failure this project has
+  had was a declared fact drifting from a real one with nothing able to notice.
+- **The held item is a CROSS-CHECK, never an answer.** `/work` records what the session holds and
+  the stamp compares it to the branch every prompt; it can raise CONFLICT or fill a gap the
+  branch left empty, but it can NEVER override the branch. A stale held item makes the stamp
+  louder, never wronger.
+- **Attribution degrades, never blocks.** Linear unreachable, chain ambiguous, root missing: the
+  stamp says so and the work proceeds. The ONE thing it blocks is closing a requirement, because
+  that is where a wrong answer becomes permanent.
+- **PRINT THE TRANSITION LINE THE MOMENT THE BRANCH CHANGES (MUST-FOLLOW).** The stamp describes
+  the turn as it began, so a turn that changes branch must say so in the transcript.
+- **The agent never moves itself between folders.** A session works where it was launched, on one
+  branch, for the whole item. It may create a worktree and ask the founder to open a session
+  there; it never teleports. Serial work needs no worktree at all — switch the branch you are on.
+- **Blocked** is a label + comment, never a status change.
+- **Doc changes** run through `/doc-sync fold` (git → Linear only; meaning never changes in
+  Linear). PRD text is edited ONLY in `loop/out/pure-s*.md`.
+- **Commits** cite the item they belong to.
+
+### The reply header — TURN, then HOOK
+
+**OPEN EVERY REPLY WITH THIS TURN'S PICTURE, THEN THE HOOK'S FACTS (MUST-FOLLOW; founder
+2026-08-09, superseding the verbatim-echo rule of 2026-08-07 — "what I want from your echo is
+todo the mangling to take the hook facts and take into account the user prompt").** Both lines
+are PLAIN TEXT — never wrapped in backticks or a fenced code block (founder 2026-08-11: the
+content was meant, not a code wrap). **The header leads the FIRST text the turn emits**
+(founder correction 2026-08-11: a status line before tool calls arrived bare, and the founder
+read "response first, stamp after") — interim narration before or between tool calls runs
+UNDER the header, never above it; the turn's later messages do not repeat it. Two lines:
+- `[<session tag>] TURN  <attribution> - <what this response is about>` — **every line of the
+  reply header carries the session prefix, the `TURN` line included** (founder 2026-08-11).
+  The tag is the one the hook prints; when the hook emitted none, the prefix is omitted rather
+  than invented. The reason is the reason the prefix exists at all: two sessions' output can
+  sit side by side in one view, and a header line without its speaker is an orphan — the
+  synthesis line most of all, because it is the one the founder reads first.
+  The `TURN` line is the model's OPEN SYNTHESIS of the
+  hook facts and the current prompt, so the founder sees what this actual turn is about,
+  including attribution AFTER any direction change the prompt just made. A `TURN` line names a
+  board item only when the turn genuinely works that item; otherwise a NAMED floating root that
+  states its subject — `~exploration (<topic>)` for untracked investigation, or
+  `~bringup (<topic>)` for foundation work that has no PM requirement above it (founder
+  2026-08-11). **A bare `~floating` is banned** (founder, twice: 2026-08-09 "this should be at
+  least exploration or something more informing", and 2026-08-11 "I don't like floating") — an
+  attribution the reader cannot act on is the same defect as a bare internal code. So a TURN
+  line carries one of exactly these: a chain of item ids with short titles, `~exploration
+  (<what, in words>)`, or `~bringup (<what, in words>)`. The rule is that the label NAMES its
+  subject, not that only one root exists.
+  **ATTRIBUTION MEANS THE WHOLE CHAIN, root first, every id with its short title** (founder
+  correction 2026-08-09: *"Note that the stamp doesn't show the chain"*). Print
+  `AI4PM-19 (auth and org membership) > AI4DEV-50 (auth root) > AI4DEV-59 (GitHub sign-in)`,
+  never the leaf alone. The leaf alone hides which requirement the turn serves, which is the
+  one thing the chain exists to show.
+- **The `HOOK` block REPRODUCES the hook's own lines. The only permitted edit is dropping the
+  machine-readable `<ai4good-attribution .../>` tag** (founder corrections 2026-08-09, twice:
+  the chain went missing, then the branch went missing). Every other line stands as emitted —
+  each actor's `WORKING ON` line with its full chain, each `IN` line with its folder **and its
+  branch**, and every qualifier. Compression is what kept losing evidence, so there is no
+  compression: **line 1 is a conclusion and line 2 is what it was derived from, and a
+  conclusion without its derivation is exactly the failure the stamp exists to prevent.** If
+  the hook emitted nothing, say so; if a value is known wrong, print it as emitted and dispute
+  it on the next line.
+
+The split is the safety: judgment and evidence stay distinguishable, and a DIVERGENCE between
+the two lines is itself the signal that direction changed — the same turn must then update the
+held facts (`Set-HeldItem`, or clear) so the next prompt's hook agrees again. The stamp itself
+stays script-derived and judgment-free; only the reply's opening line synthesizes.
+**Anything relayed from another actor carries the arrival time and that actor's role**
+(`09:41 · conductor — plan → gate 1`), so a claim is never read as the coordinator's own.
+
+### Anti-patterns
+
+- Hand-editing board status in the Linear UI, or setting an item Done by hand — the merge does it.
+- Closing a requirement with open leaves, or on cached/stale attribution.
+- A second way to close work, however convenient it looks.
+- Committing foundation work straight to `main`: branch, pull request, merge, like everything else.
+- Ceremony out of proportion to the work — that is how a process stops being followed at all.
+- Editing `prd-mvp.md`, an isolate, or Linear item text directly to change meaning.
+
+### Foundation work (W0 bring-up)
+
+Foundation work is dev-board work with no requirement above it. It is not a
+product requirement and has no evidence gate, but it runs through `/work` exactly like everything
+else and closes on a merged pull request. Its chain simply ends on a bring-up root
+(`AI4DEV-3 (AT harness)`, `AI4DEV-4 (the work skill)`) instead of on a requirement — which is
+what marks it as infrastructure. Nothing is declared to say so, and nothing can be faked.
+
 ## Phase A — decide what
 
 | you type | what happens |
