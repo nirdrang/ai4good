@@ -450,7 +450,20 @@ the first child or an interrogate pass replaces it, and how a parent with childr
 feature brief. Both parked 2026-08-29. The exact text of the evidence bar in the brief is open
 too.
 
-## 11. Changes to this file
+## 11. After a plugin update
+
+An update installs the new version into a new cache folder and reverts nothing else. The
+sheet and the user-level CLAUDE.md survive. Do these steps after every update:
+
+1. Re-apply the matrix rows to the new version's `provider-dispatch.md`. Section 4 of this
+   file is the source: the grok row on the codex router, the opus default at max, the
+   deepseek and glm rows, and the re-apply note.
+2. Diff the new version's skills against what this file describes. Update this file and its
+   `file:///` links, which name the version folder, in the same commit.
+3. Run `/pstack:setup-pstack` again only if the sheet itself must change. Until the matrix
+   rows are re-applied, a setup run stops on "inconsistent state" by design.
+
+## 12. Changes to this file
 
 - 2026-08-29. Created from the education record. Recorded the grok row change, the parked
   stamp, local banner, and reply header, and the cloud-safe branch guard. Rewritten to the
