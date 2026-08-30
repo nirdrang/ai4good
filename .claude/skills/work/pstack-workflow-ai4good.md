@@ -98,8 +98,8 @@ flowchart TB
       direction TB
       G1["Lead (fable) splits the question into 2 to 4 disjoint slices"]
       G2["One explorer per slice, read-only. Role: how explorer = grok@xhigh"]
-      G3["Explainer merges the findings into one explanation. Role: how explainer = fable@max"]
-      G4{"Request asks for problems?"}
+      G3["Explainer merges the findings into one explanation. Role: how explainer = opus@high"]
+      G4{"Brief says Ground critique = yes?"}
       G5["One critic per entry, each with the explanation, the paths, and the 6-lens rubric. Role: how critics = fable@max, sol@max, grok@xhigh, opus@xhigh"]
       G6["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       G1 --> G2 --> G3 --> G4
@@ -250,7 +250,7 @@ means the lead does the work itself and no sheet role applies.
 
 | # | station | who acts | sheet roles | loop or exit |
 |---|---|---|---|---|
-| 1 | Ground ([`/how`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/how/SKILL.md)) | Two to four explorers with disjoint slices, then one explainer. Critics run only when the request asks for problems. | `how explorer`, `how explainer`, `how critics` | The lead rules each critic finding: Act on, Consider, Noted, or Dismissed. |
+| 1 | Ground ([`/how`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/how/SKILL.md)) | Two to four explorers with disjoint slices, then one explainer. Critics run only when the brief's `Ground critique` field says yes. The controller sets it: yes when the item touches more than one subsystem or adds a data shape, no for a leaf inside one module. | `how explorer`, `how explainer`, `how critics` | The lead rules each critic finding: Act on, Consider, Noted, or Dismissed. |
 | 2 | Design arena ([`/architect`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/architect/SKILL.md), [`/arena`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/arena/SKILL.md)) | Runners fan out, each with a rationale. Cross-judges score against a rubric of three to six criteria that the runners never see. The design-red-flags screen runs on every candidate. The lead reads every candidate end to end, picks a base, and grafts the best parts of the others. | `architect runners`, `arena runners`, `arena cross-judge pool` | If the candidates converge, ship the design. If they diverge, reframe the task and run the arena again. |
 | 3 | Throughput checkpoint | The lead writes four todos. A todo that does not apply stays as `n/a: <reason>`. | Lead | None. |
 | 4 | Write | One delegated writer per unit, in its own worktree, in isolated-write mode. The writer is a leaf and spawns nothing. The writer first writes the failing test from the lead's acceptance criteria, watches it fail, then implements. | `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks` | The writer reports `BLOCKED`, a list of deviations, or a partial result at its time limit. The lead escalates (section 6). |
@@ -287,7 +287,7 @@ panel, and the list length is the fan-out count.
 | `hardest tasks` | 4 | fable@max | fable@max | fable@max |
 | `judgment and prose` | 9 | fable@max | fable@max | fable@max |
 | `how explorer` | 1 | grok@xhigh | grok@xhigh | grok@high |
-| `how explainer` | 1 | fable@max | fable@max | fable@max |
+| `how explainer` | 1 | fable@max | opus@high | opus@high |
 | `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
 | `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
@@ -299,7 +299,10 @@ panel, and the list length is the fan-out count.
 
 The `why` and `reflect` rows stay `inherit-parent` because those skills need the MCP surface,
 which external lanes never get. grok has no `max` in its selectable efforts, so its panel lanes
-stay at `xhigh` in the target.
+stay at `xhigh` in the target. `how explainer` runs on `opus@high` from the first write: the
+explainer writes prose from the explorers' notes, and the most expensive model at its highest
+effort is not needed for that (founder 2026-08-30: "is that really necessary to go full blown
+on our most expensive model here?").
 
 ## 4. The model matrix as it will be configured
 
@@ -470,3 +473,5 @@ interrogate pass replaces it, and how a parent with children becomes one feature
 - 2026-08-29. Stale lines fixed after a full read: the mechanic is the same session, not a
   cloud one; the mechanic owns the merge; no second suite run; the open rulings now list the
   parked questions (merge on green alone, "go" before the first child, feature briefs).
+- 2026-08-30. `how explainer` is `opus@high` from the first write. The ground critique is a
+  brief field the controller sets by rule, not a reading of the request's wording.
