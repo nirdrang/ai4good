@@ -124,12 +124,19 @@ Then close the item as the Closing section says. You close it, nobody else.
 ## Closing (the git part is yours, the board is not)
 1. Wait for CI to be green on the exact head of the pull request, and for the founder to
    say "merge". Both, never one.
-2. `gh pr merge <n> --squash`. The merge closes the item on the board through the pull
+2. Hand the git mechanics to the `mechanical` agent with exact commands. You decide, it
+   types: `gh pr merge <n> --squash`, and after you leave the worktree, the worktree removal
+   and the remote branch deletion. The merge closes the item on the board through the pull
    request link. Never touch the board yourself.
-3. Leave the worktree with `ExitWorktree(action: "keep")`, then from the main folder:
-   `git worktree remove .claude/worktrees/<item>` and delete the remote branch.
+3. Leave the worktree with `ExitWorktree(action: "keep")`.
 4. Invoke `/controller done <item>`. That skill does the board steering. Do not do it
    yourself.
+
+## Mechanics never spend your calls
+Fable calls are scarce. Tool-heavy work without judgment, the station 7 rebase, the merge
+and cleanup commands, goes to the `mechanical` agent (sonnet, inherits the worktree,
+executes exact instructions, rules on nothing). Write the exact plan, let it run, check the
+result with one read. Do not use a fork for this: a fork runs on your own model.
 
 ## The evidence bar
 - The verify suite for the acceptance tests above passes on the final head. Name each check

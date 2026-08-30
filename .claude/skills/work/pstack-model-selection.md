@@ -28,6 +28,7 @@ and `gpt-5.6-terra` (low to max). The full catalog is
 
 | date | decision | reason | source |
 |---|---|---|---|
+| 2026-08-30 | The lead stays fable at the session default effort, high. Tool-heavy work without judgment, the station 7 rebase and the station 10 git commands, goes to the `mechanical` agent on sonnet. Never to a fork: a fork runs on the parent's own model. | Fable calls are scarce next to the other providers, and a mechanical step spends them on tool rounds, not judgment. The lead decides, the mechanical executes, the lead checks once. | founder: "I like lead to be fable default which is @high. But any mechanics like this is a waste ... more fable calls which are scarce" |
 | 2026-08-30 | `arena cross-judge pool` = sol@max, grok@xhigh, opus@max. Fable is out. Fable stays an `architect runners` lane. | The arena picks a judge whose provider differs from the lead's and the front-runner's. The lead is fable, so a fable judge is never picked, and opus (same provider) only when sol and grok both drop out. Fable still designs: designing is judgment under uncertainty, and the cross-judge plus the hidden rubric guard against the lead preferring its own model's design. | founder: "D2 and d4 why fable in the loop ?" |
 | 2026-08-30 | Opus runs at `max` wherever it sits. The matrix default effort for the opus family is `max`, not the shipped `xhigh`. | Opus holds a seat only as the judge that differs from a fable front-runner. A judge at less than full effort defeats the reason it is there. | founder: "When we need max effort for opus it should be opus@max" |
 | 2026-08-30 | `how explainer` = `fable@high` | The explainer writes the one explanation everything downstream reads, so it stays on fable. It writes prose from explorer notes, so high effort is enough. | founder: "is that really necessary to go full blown on our most expensive model here?" and "g3 should be fable@high not opus" |
@@ -68,12 +69,6 @@ These were measured on the v1 relay. The models are the same, so the findings ca
 
 ## 5. Open questions
 
-- The lead's own model. The lead is the session, so it has one model for all its stations:
-  the rulings, the arena pick, the diff read, and also cheap mechanics such as the station 7
-  rebase (founder 2026-08-30: "Can't we have q1 on opus"). A per-station switch does not
-  exist, and a delegated lane cannot rebase the primary checkout. The structural option is a
-  lead on opus with fable only in sheet roles, the v1 pattern that spared fable on merge and
-  audit. Decide after the first item's cost numbers.
 - Panel efforts: `fable@max` and `sol@max` in the panels are the shipped values, untested
   against `@high` for the same recall.
 - terra and luna have v1 evidence as reviewers and no seat in the first write. Candidates for

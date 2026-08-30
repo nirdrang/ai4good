@@ -154,9 +154,10 @@ flowchart TB
     end
     subgraph S7["7 Sequence"]
       direction TB
-      Q1["Lead (fable) rebases into small ordered commits"]
-      Q2["Each commit builds and verifies alone"]
-      Q1 --> Q2
+      Q1["Lead (fable) decides the commit order and writes the exact rebase plan"]
+      Q1b["The mechanical agent (sonnet) executes the rebase in the worktree"]
+      Q2["Each commit builds and verifies alone. Lead checks git log once"]
+      Q1 --> Q1b --> Q2
     end
     subgraph S8["8 Interrogate. /interrogate"]
       direction TB
@@ -181,8 +182,8 @@ flowchart TB
     subgraph S10["10 Close. The lead does the git part"]
       direction TB
       C1{"CI green on the exact head, and the founder said merge?"}
-      C2["gh pr merge --squash. The pull request link closes the item on the board"]
-      C3["Leave the worktree with ExitWorktree. Remove it. Delete the remote branch"]
+      C2["The mechanical agent (sonnet) runs gh pr merge --squash.<br/>The pull request link closes the item on the board"]
+      C3["Leave the worktree with ExitWorktree. The mechanical agent removes it and deletes the remote branch"]
       C4["Invoke /controller done ITEM"]
       C1 -- yes --> C2 --> C3 --> C4
       C1 -- not yet --> C1
@@ -253,7 +254,7 @@ means the lead does the work itself and no sheet role applies.
 | 4 | Write | One delegated writer per unit, in its own worktree, in isolated-write mode. The writer is a leaf and spawns nothing. The writer first writes the failing test from the lead's acceptance criteria, watches it fail, then implements. A unit that still has a real shape choice, such as error handling, an abstraction layer, or test structure, goes to the arena instead of one writer. | `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks` | The writer reports `BLOCKED`, a list of deviations, or a partial result at its time limit. The lead escalates (section 6). |
 | 5 | Diff against the sketch | The lead reads the diff against the design. Each deviation is one of: the sketch was wrong, a requirement was missed, or the writer overreached. | Lead | A pattern of deviations sends the item back to station 2. |
 | 6 | Verify | The lead drives [`verify-ai4good`](../verify-ai4good/) on the real surface. On cloud the evidence is HTTP responses and database side effects. Headless Playwright is used where the sandbox provides it. | Lead | No proof means not done. |
-| 7 | Sequence | The lead orders commits so that each one builds and verifies alone. | Lead | None. |
+| 7 | Sequence | The lead decides the commit order and writes the exact rebase plan. The `mechanical` agent, sonnet, executes it in the worktree. The lead checks `git log` once. Tool-heavy work without judgment never spends the lead's calls (founder 2026-08-30). | Lead decides, `mechanical` executes | None. |
 | 8 | Interrogate ([`/interrogate`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/interrogate/SKILL.md)) | A read-only panel. Every reviewer gets the same rubric. The lead merges the consensus, removes duplicates, and rules on each finding. | `interrogate reviewers` | pstack has no re-clearance loop. Our rubric adds one line: "A changed head voids the verdict. Re-panel." |
 | 9 | Ship ([`opening-a-pr`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/playbooks/opening-a-pr.md)) | The lead runs deslop, no-comments, and unslop, writes conventional commits, and fills the sections Why, Scope, Tradeoffs, Blast Radius, and Verification. The pull request is never a draft. Opening a pull request and babysitting it are two verbs. | `judgment and prose` | Babysit is not used here. It is a second way to close work, which the way of work forbids. |
 
@@ -491,3 +492,7 @@ interrogate pass replaces it, and how a parent with children becomes one feature
   descriptor per family for setup (founder: "D2 and d4 why fable in the loop ?").
 - 2026-08-30. X2 names pstack's own exception: a unit that still has a real shape choice goes
   to the arena instead of one writer (founder: "Why X2 is not an arena ?").
+- 2026-08-30. Mechanics never spend the lead's calls. The station 7 rebase and the station 10
+  git commands run on the `mechanical` agent, sonnet. The lead decides and checks. A fork is
+  not the tool: a fork runs on the parent's model (founder: "any mechanics like this is a
+  waste").
