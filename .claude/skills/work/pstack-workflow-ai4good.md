@@ -2,7 +2,7 @@
 
 This file describes how ai4good runs one board item through open-pstack. This is workflow v2.
 The file is live: it describes the machinery as it stands on main today. If you change any part
-of the pstack flow, update this file in the same commit. Section 11 lists every change.
+of the pstack flow, update this file in the same commit. Section 12 lists every change.
 
 One document, three kinds of content, kept apart by section: sections 2 to 4 are reference and
 only describe. Sections 5 to 9 explain the choices behind the reference. Section 10 is the
