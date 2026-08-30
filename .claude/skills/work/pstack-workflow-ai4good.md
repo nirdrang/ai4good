@@ -108,7 +108,7 @@ flowchart TB
       D1["Lead (fable) writes a rubric of 3 to 6 criteria. Runners never see it"]
       D2["Runners each design the whole thing, with a rationale<br/>architect runners = fable@max, sol@max, grok@xhigh, opus@max"]
       D3["Lead (fable) screens each design for red flags:<br/>shallow module, information leakage, temporal decomposition, pass-through"]
-      D4["One judge from another provider than the lead and the front-runner scores each design against the rubric<br/>arena cross-judge pool = sol@max, grok@xhigh, opus@max (opus only when both others drop out)"]
+      D4["One judge scores each design against the rubric. Its provider differs from the lead's and the front-runner's<br/>arena cross-judge pool = sol@max, grok@xhigh, opus@max. Opus only when both others drop out"]
       D5["Lead (fable) reads every design, picks a base, grafts the best parts of the others"]
       D6{"Do the designs agree?"}
       D7["Lead (fable) reframes the task and runs the arena again"]
@@ -126,7 +126,7 @@ flowchart TB
     subgraph S4["4 Write. One unit at a time"]
       direction TB
       X1["Lead (fable) writes the unit brief: the files it may touch, the data shape, the acceptance criteria"]
-      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = grok@xhigh<br/>bug-fix, perf-issue, hillclimb = sol@max<br/>A unit that still has a real shape choice (error handling, abstraction layer, test structure) goes to the arena instead"]
+      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = grok@xhigh<br/>bug-fix, perf-issue, hillclimb = sol@max<br/>A unit that still has a real shape choice, such as error handling, an abstraction layer, or test structure, goes to the arena instead"]
       X3["Writer writes the failing test first"]
       X4["Writer watches it fail"]
       X5["Writer makes it pass. Commits"]
