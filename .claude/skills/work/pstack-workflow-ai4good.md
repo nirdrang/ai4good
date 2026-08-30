@@ -32,7 +32,7 @@ one row of the model matrix.
 | plugin `pstack@open-pstack` v1.2.0 | installed and enabled in [`.claude/settings.json`](../../settings.json) |
 | pstack session-start hook ([`hooks/hooks.json`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/hooks/hooks.json)) | live. The founder keeps it (2026-08-29). |
 | model sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) | not written. `/pstack:setup-pstack` is pending. |
-| fourth matrix family | grok-4.6 through the codex router (founder choice, 2026-08-29). The row edit in [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md) is pending. |
+| the model matrix | edited in the plugin cache on 2026-08-31: grok through the codex router, opus default max, deepseek and glm added. Six families. Re-apply after a plugin update. |
 | sheet shape for the first write | settled. The first-write column of the sheet-roles table in section 3, decided row by row on 2026-08-30 and 2026-08-31. |
 | the v1 hooks | stamp and local banner parked. Branch guard ([`guard-branch-switch.ps1`](../../../loop/work/guard-branch-switch.ps1)) live and skipped on cloud. Cloud banner ([`session-start-banner.sh`](../../hooks/session-start-banner.sh)) live on remote only. |
 | verification skill [`verify-ai4good`](../verify-ai4good/) | not generated |
@@ -108,7 +108,7 @@ flowchart TB
       D1["Lead (fable) writes a rubric of 3 to 6 criteria. Runners never see it"]
       D2["Runners each design the whole thing, with a rationale<br/>architect runners = fable@max, sol@max, grok@xhigh, opus@max"]
       D3["Lead (fable) screens each design for red flags:<br/>shallow module, information leakage, temporal decomposition, pass-through"]
-      D4["One judge scores each design against the rubric. Its provider differs from the lead's and the front-runner's<br/>arena cross-judge pool = sol@max, grok@xhigh, opus@max. Opus only when both others drop out"]
+      D4["One judge scores each design against the rubric. Its provider differs from the lead's and the front-runner's<br/>arena cross-judge pool = sol@max, grok@xhigh, deepseek@max, glm@max. Opus@max only when the others drop out"]
       D5["Lead (fable) reads every design, picks a base, grafts the best parts of the others"]
       D6{"Do the designs agree?"}
       D7["Lead (fable) reframes the task and runs the arena again"]
@@ -273,8 +273,10 @@ grok family on the codex router (section 4). The sheet is not written yet. **Tar
 sheet from section 6, applied on a rerun after one item has run on the first write.
 
 Descriptor shorthand: `fable` is `claude:claude-fable-5`, `sol` is `codex:gpt-5.6-sol`, `grok`
-is `codex:opencode-go-responses/grok-4.6`, and `opus` is `claude:claude-opus-5`. A list is a
-panel, and the list length is the fan-out count.
+is `codex:opencode-go-responses/grok-4.6`, `opus` is `claude:claude-opus-5`, `deepseek` is
+`codex:opencode-go/deepseek-v4-pro`, and `glm` is `codex:opencode-go/glm-5.3`. A list is a
+panel, and the list length is the fan-out count. The judge pool is the one exception: only one
+entry runs per arena.
 
 | sheet role | station | pstack default | first write | target |
 |---|---|---|---|---|
@@ -290,7 +292,7 @@ panel, and the list length is the fan-out count.
 | `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
-| `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, opus@max | sol@max, grok@xhigh, opus@max |
+| `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max |
 | `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | grok@high |
 | `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
 | `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
@@ -312,8 +314,15 @@ The shipped matrix lives in [`provider-dispatch.md`](file:///C:/Users/nirdr/.cla
 |---|---|---|---|---|---|
 | fable | claude | claude-fable-5 | max | low, medium, high, xhigh, max | native agents `pstack-fable-<effort>` |
 | sol | codex | gpt-5.6-sol | max | low, medium, high, xhigh, max | external runner |
-| grok | codex | opencode-go-responses/grok-4.6 | xhigh | low, medium, high, xhigh | external runner. This is our change (founder 2026-08-29). |
+| grok | codex | opencode-go-responses/grok-4.6 | xhigh | low, medium, high, xhigh | external runner. Our change (founder 2026-08-29). |
 | opus | claude | claude-opus-5 | max | low, medium, high, xhigh, max | native agents `pstack-opus-<effort>`. Our change: the shipped default is xhigh (founder 2026-08-30). |
+| deepseek | codex | opencode-go/deepseek-v4-pro | high | high, max | external runner. Our addition (founder 2026-08-31). |
+| glm | codex | opencode-go/glm-5.3 | high | low, high, max | external runner. Our addition (founder 2026-08-31). |
+
+The matrix edits live in one plugin cache file,
+[`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md).
+A plugin update reverts that file. Re-apply the rows after every update; the file itself
+carries a note saying so. Setup asks one effort question per family, six here.
 
 The sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) maps
 each role to one or more descriptors of the form `provider:model@effort`.
@@ -418,11 +427,13 @@ banner is kept.
 
 Do these steps in order:
 
-1. In [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md),
-   change the grok row to provider `codex` and model `opencode-go-responses/grok-4.6`.
+1. Done 2026-08-31: the matrix in
+   [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md)
+   carries the grok row on the codex router, the opus default at max, and the deepseek and
+   glm rows. Re-apply after a plugin update.
 2. Run [`/pstack:setup-pstack`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/setup-pstack/SKILL.md).
-   Answer the four effort questions, let the four probes run, confirm the rendered sheet, and
-   let the smoke panel run.
+   Answer one effort question per family, six, let the probes run, confirm the rendered
+   sheet, and let the smoke panel run.
 3. Add the verifier line to the user-level [`~/.claude/CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md).
 4. Run [`/pstack:create-verification-skill`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/create-verification-skill/SKILL.md)
    once and commit [`.claude/skills/verify-ai4good/`](../verify-ai4good/) as a repo product.
@@ -505,3 +516,6 @@ too.
 - 2026-08-31. The merge gate is settled and in CLAUDE.md: CI green on the exact head AND the
   founder's "merge", never one alone. The open-rulings list shrinks to the feature-brief
   questions and the evidence bar text. The first-write sheet shape is marked settled.
+- 2026-08-31. Two families added through the codex router: deepseek (deepseek-v4-pro) and
+  glm (glm-5.3). Their seats are the arena judge pool, where a seat costs nothing until a
+  judge is picked. The matrix in the plugin cache is edited: six families, one file.

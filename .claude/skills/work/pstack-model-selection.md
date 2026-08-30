@@ -18,6 +18,8 @@ one entry in a panel role. A **descriptor** is `provider:model@effort`.
 | sol | `codex:gpt-5.6-sol` | low, medium, high, xhigh, max | codex CLI | The proven reviewer of v1: gate 1 at xhigh caught a too-weak test oracle and a passing no-op before code existed (2026-08-03). |
 | grok | `codex:opencode-go-responses/grok-4.6` | low, medium, high, xhigh | codex CLI through the router | The plugin's default writer. Kept as the third vendor. Served by the codex router because no Grok CLI is installed (founder 2026-08-29). |
 | opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same provider as fable and the lead, so the arena never prefers it as a judge. Today its one seat is the judge pool fallback. The founder plans opus seats in later phases, the way v1 spared fable by running the merge and audit sittings on opus. Always at `max` (2026-08-30). |
+| deepseek | `codex:opencode-go/deepseek-v4-pro` | high, max | codex CLI through the router | v1 evidence: 3.5 recall on the graded gate with zero false positives, and a clean executor run on a well-specified plan. Seat: the judge pool. Candidate reviewer and writer, through the trial ladder. |
+| glm | `codex:opencode-go/glm-5.3` | low, high, max | codex CLI through the router | Untested here. Seat: the judge pool, where a seat costs nothing until picked. Trials decide anything more. |
 
 Other models the router serves, for trials: `opencode-go/deepseek-v4-pro` (high, max),
 `opencode-go/kimi-k3` (low, high, max), `opencode-go/glm-5.3` (high, max), `gpt-5.6-luna`
@@ -28,6 +30,7 @@ and `gpt-5.6-terra` (low to max). The full catalog is
 
 | date | decision | reason | source |
 |---|---|---|---|
+| 2026-08-31 | Two families added: deepseek and glm, both through the codex router, both seated in the arena judge pool. The matrix edit is one plugin cache file, `provider-dispatch.md`, re-applied after updates. | A pool seat costs nothing until a judge is picked, satisfies setup's one-descriptor-per-family rule, and gives the arena judges from outside Claude and OpenAI. Promotion to reviewer or writer lanes goes through the trial ladder. | founder: "I want to add deepseek and glm 5.3 through codex provider ... I want minimal plugin changes" |
 | 2026-08-31 | Station 6 driving and station 7 per-commit builds go to `mechanical` too. The lead only judges: the evidence verdict in 6, the report read in 7. | Driving the verify skill is following written instructions, and building every commit is tool churn. Judgment is reading what came back. | founder: "why we need fable to drive the verify running ( not the judgment of its results)" |
 | 2026-08-30 | The lead stays fable at the session default effort, high. Tool-heavy work without judgment, the station 7 rebase and the station 10 git commands, goes to the `mechanical` agent on sonnet. Never to a fork: a fork runs on the parent's own model. | Fable calls are scarce next to the other providers, and a mechanical step spends them on tool rounds, not judgment. The lead decides, the mechanical executes, the lead checks once. | founder: "I like lead to be fable default which is @high. But any mechanics like this is a waste ... more fable calls which are scarce" |
 | 2026-08-30 | `arena cross-judge pool` = sol@max, grok@xhigh, opus@max. Fable is out. Fable stays an `architect runners` lane. | The arena picks a judge whose provider differs from the lead's and the front-runner's. The lead is fable, so a fable judge is never picked, and opus (same provider) only when sol and grok both drop out. Fable still designs: designing is judgment under uncertainty, and the cross-judge plus the hidden rubric guard against the lead preferring its own model's design. | founder: "D2 and d4 why fable in the loop ?" |
@@ -74,7 +77,8 @@ These were measured on the v1 relay. The models are the same, so the findings ca
   against `@high` for the same recall.
 - terra and luna have v1 evidence as reviewers and no seat in the first write. Candidates for
   `interrogate reviewers` on the first rerun.
-- DeepSeek V4 Pro as a writer on hard units.
+- deepseek as a reviewer lane and as a writer on hard units: the family now exists, the
+  trials do not yet.
 - There is no verifier role. Station 6 runs on the lead.
 - Opus keeps its family seat. The founder plans opus seats in later phases (founder
   2026-08-30: "We will have opus in later phases"), the way v1 ran its merge and audit
