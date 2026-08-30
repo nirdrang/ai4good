@@ -17,7 +17,7 @@ one entry in a panel role. A **descriptor** is `provider:model@effort`.
 | fable | `claude:claude-fable-5` | low, medium, high, xhigh, max | native agents | The session's own model. Judgment and prose. The most expensive model here, so it earns its seat only where judgment under uncertainty is the job. |
 | sol | `codex:gpt-5.6-sol` | low, medium, high, xhigh, max | codex CLI | The proven reviewer of v1: gate 1 at xhigh caught a too-weak test oracle and a passing no-op before code existed (2026-08-03). |
 | grok | `codex:opencode-go-responses/grok-4.6` | low, medium, high, xhigh | codex CLI through the router | The plugin's default writer. Kept as the third vendor. Served by the codex router because no Grok CLI is installed (founder 2026-08-29). |
-| opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same vendor as fable. A judge that differs from a fable front-runner, and nothing else. |
+| opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same vendor as fable. A judge that differs from a fable front-runner, and nothing else. Always at `max` (2026-08-30). |
 
 Other models the router serves, for trials: `opencode-go/deepseek-v4-pro` (high, max),
 `opencode-go/kimi-k3` (low, high, max), `opencode-go/glm-5.3` (high, max), `gpt-5.6-luna`
@@ -28,6 +28,7 @@ and `gpt-5.6-terra` (low to max). The full catalog is
 
 | date | decision | reason | source |
 |---|---|---|---|
+| 2026-08-30 | Opus runs at `max` wherever it sits. The matrix default effort for the opus family is `max`, not the shipped `xhigh`. | Opus holds a seat only as the judge that differs from a fable front-runner. A judge at less than full effort defeats the reason it is there. | founder: "When we need max effort for opus it should be opus@max" |
 | 2026-08-30 | `how explainer` = `fable@high` | The explainer writes the one explanation everything downstream reads, so it stays on fable. It writes prose from explorer notes, so high effort is enough. | founder: "is that really necessary to go full blown on our most expensive model here?" and "g3 should be fable@high not opus" |
 | 2026-08-30 | The ground critique runs on every item. | The decision "does the request ask for problems" was undefined for a brief. Always on removes the question. | founder: "how can we make g4 critique happens for all scenarios?" |
 | 2026-08-30 | `how critics` = three lanes: fable@max, sol@max, grok@xhigh | Opus shares a vendor with fable. Two lanes from one family add cost and no independent view. | founder 2026-08-28: "I don't really understand fable as well as opus on the same task" |

@@ -106,9 +106,9 @@ flowchart TB
     subgraph S2["2 Design arena: /architect and /arena"]
       direction TB
       D1["Lead (fable) derives a rubric of 3 to 6 criteria. Candidates never see it"]
-      D2["Runners fan out, one design each with its rationale. Role: architect runners = fable@max, sol@max, grok@xhigh, opus@xhigh"]
+      D2["Runners fan out, one design each with its rationale. Role: architect runners = fable@max, sol@max, grok@xhigh, opus@max"]
       D3["Design-red-flags screen on every candidate: shallow module, information leakage, temporal decomposition, pass-through. Lead (fable)"]
-      D4["Cross-judges score against the rubric. Role: arena cross-judge pool = fable@max, sol@max, grok@xhigh, opus@xhigh. The judge's provider differs from the parent's and the front-runner's"]
+      D4["Cross-judges score against the rubric. Role: arena cross-judge pool = fable@max, sol@max, grok@xhigh, opus@max. The judge's provider differs from the parent's and the front-runner's"]
       D5["Lead (fable) reads every candidate end to end, picks a base, grafts the best parts of the others"]
       D6{"Candidates converge?"}
       D7["Lead (fable) reframes the task, runs the arena again"]
@@ -161,7 +161,7 @@ flowchart TB
     subgraph S8["8 Interrogate: /interrogate"]
       direction TB
       I1["Lead (fable) scopes the diff and writes the intent paragraph"]
-      I2["One reviewer per entry, read-only, identical rubric. Role: interrogate reviewers = fable@max, sol@max, grok@xhigh, opus@xhigh"]
+      I2["One reviewer per entry, read-only, identical rubric. Role: interrogate reviewers = fable@max, sol@max, grok@xhigh, opus@max"]
       I3["Lead (fable) synthesizes: consensus, duplicates removed, disagreements listed, agreement map"]
       I4["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       I5{"Any Act on?"}
@@ -288,11 +288,11 @@ panel, and the list length is the fan-out count.
 | `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh |
 | `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
-| `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
-| `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh, opus@xhigh |
+| `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
+| `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh, opus@max |
 | `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | grok@high |
-| `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
-| `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
+| `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
+| `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
 
 The `why` and `reflect` rows stay `inherit-parent` because those skills need the MCP surface,
 which external lanes never get. grok has no `max` in its selectable efforts, so its panel lanes
@@ -312,7 +312,7 @@ The shipped matrix lives in [`provider-dispatch.md`](file:///C:/Users/nirdr/.cla
 | fable | claude | claude-fable-5 | max | low, medium, high, xhigh, max | native agents `pstack-fable-<effort>` |
 | sol | codex | gpt-5.6-sol | max | low, medium, high, xhigh, max | external runner |
 | grok | codex | opencode-go-responses/grok-4.6 | xhigh | low, medium, high, xhigh | external runner. This is our change (founder 2026-08-29). |
-| opus | claude | claude-opus-5 | xhigh | low, medium, high, xhigh, max | native agents `pstack-opus-<effort>` |
+| opus | claude | claude-opus-5 | max | low, medium, high, xhigh, max | native agents `pstack-opus-<effort>`. Our change: the shipped default is xhigh (founder 2026-08-30). |
 
 The sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) maps
 each role to one or more descriptors of the form `provider:model@effort`.
@@ -478,3 +478,6 @@ interrogate pass replaces it, and how a parent with children becomes one feature
 - 2026-08-30. `how explainer` is `fable@high`, not opus (founder). The ground critique runs
   on every item; the G4 decision is gone from the chart and the brief. Every model decision
   and finding now lives in `pstack-model-selection.md`.
+- 2026-08-30. Opus runs at `max` wherever it sits, not the shipped `xhigh` (founder: "When we
+  need max effort for opus it should be opus@max"). The matrix default for the opus family
+  is `max`.
