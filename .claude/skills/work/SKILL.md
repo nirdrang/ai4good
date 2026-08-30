@@ -46,7 +46,8 @@ This section is the full text and its provenance. The process files:
 | `.claude/skills/work/reviewers.md` | the base of every gate prompt; the reviewers are external processes, not agents |
 | `.claude/skills/work/lessons.md` | what these rules cost to learn — read when one seems wrong, not routinely |
 | `.claude/skills/work/pstack-workflow-ai4good.md` | the LIVE way of work for workflow v2 (open-pstack): flow chart, stations, sheet roles, matrix; updated in the same commit as any pstack change |
-| `.claude/skills/controller/SKILL.md` | the **controller's** manual for workflow v2 — a trimmed `/work` that writes the brief, spins the cloud mechanic, and gates the pull request on return |
+| `.claude/skills/controller/SKILL.md` | the **controller's** manual for workflow v2 — a trimmed `/work` that writes the brief and hands the session to poteto-mode |
+| `.claude/skills/work/pstack-model-selection.md` | every model decision and measured finding behind the sheet roles, with dates and founder quotes |
 
 Superseded and deleted: `/pm-next`, `/item-loop`, `/dev-start`, `/dev-end`, `/bind`, `/bound`,
 `/pm-done`, the `bindings/` directory, the PM-acknowledgment file, and the four declared buckets.

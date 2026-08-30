@@ -112,12 +112,11 @@ Branch: <branch>
 PRD slice: <the section of loop/out/pure-s*.md, pasted verbatim, with its path>
 Item text: <the board item's description, verbatim>
 Acceptance tests: <paths under tests/at/suites/ that this item must turn green>
-Ground critique: <yes | no>, <reason: yes when the item touches more than one subsystem or
-adds a data shape; no for a leaf inside one existing module>
 
 ## The ask
 Run this item in poteto-mode, end to end, and open one pull request from this branch.
-Ground it with /how first. Run the critics only if Ground critique above says yes.
+Ground it with /how in critique mode first: explorers, explainer, then the critics, on
+every item.
 Do not name any other item's id in the pull request title or body.
 The pull request body carries Why, Scope, Tradeoffs, Blast Radius, and Verification.
 Then close the item as the Closing section says. You close it, nobody else.
