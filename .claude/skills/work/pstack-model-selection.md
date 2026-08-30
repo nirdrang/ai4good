@@ -17,7 +17,7 @@ one entry in a panel role. A **descriptor** is `provider:model@effort`.
 | fable | `claude:claude-fable-5` | low, medium, high, xhigh, max | native agents | The session's own model. Judgment and prose. The most expensive model here, so it earns its seat only where judgment under uncertainty is the job. |
 | sol | `codex:gpt-5.6-sol` | low, medium, high, xhigh, max | codex CLI | The proven reviewer of v1: gate 1 at xhigh caught a too-weak test oracle and a passing no-op before code existed (2026-08-03). |
 | grok | `codex:opencode-go-responses/grok-4.6` | low, medium, high, xhigh | codex CLI through the router | The plugin's default writer. Kept as the third vendor. Served by the codex router because no Grok CLI is installed (founder 2026-08-29). |
-| opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same provider as fable and the lead, so the arena never prefers it as a judge. Its one seat, the judge pool fallback, exists because setup requires a descriptor from every family. Always at `max` (2026-08-30). Candidate for replacement by a fourth vendor (section 5). |
+| opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same provider as fable and the lead, so the arena never prefers it as a judge. Today its one seat is the judge pool fallback. The founder plans opus seats in later phases, the way v1 spared fable by running the merge and audit sittings on opus. Always at `max` (2026-08-30). |
 
 Other models the router serves, for trials: `opencode-go/deepseek-v4-pro` (high, max),
 `opencode-go/kimi-k3` (low, high, max), `opencode-go/glm-5.3` (high, max), `gpt-5.6-luna`
@@ -74,7 +74,8 @@ These were measured on the v1 relay. The models are the same, so the findings ca
   `interrogate reviewers` on the first rerun.
 - DeepSeek V4 Pro as a writer on hard units.
 - There is no verifier role. Station 6 runs on the lead.
-- The opus family adds no view: same provider as the lead. Replace it in the matrix with a
-  fourth vendor the router serves, `opencode-go/deepseek-v4-pro` (high, max) or
-  `opencode-go/kimi-k3` (low, high, max), on the first rerun of setup. Then opus leaves the
-  sheet and every panel has a fourth independent lane available.
+- Opus keeps its family seat. The founder plans opus seats in later phases (founder
+  2026-08-30: "We will have opus in later phases"), the way v1 ran its merge and audit
+  sittings on opus to spare fable. Until those seats exist, its one row is the judge pool
+  fallback. A fourth vendor, `opencode-go/deepseek-v4-pro` or `opencode-go/kimi-k3`, would
+  be a fifth family in the matrix, not opus's replacement.
