@@ -68,6 +68,12 @@ These were measured on the v1 relay. The models are the same, so the findings ca
 
 ## 5. Open questions
 
+- The lead's own model. The lead is the session, so it has one model for all its stations:
+  the rulings, the arena pick, the diff read, and also cheap mechanics such as the station 7
+  rebase (founder 2026-08-30: "Can't we have q1 on opus"). A per-station switch does not
+  exist, and a delegated lane cannot rebase the primary checkout. The structural option is a
+  lead on opus with fable only in sheet roles, the v1 pattern that spared fable on merge and
+  audit. Decide after the first item's cost numbers.
 - Panel efforts: `fable@max` and `sol@max` in the panels are the shipped values, untested
   against `@high` for the same recall.
 - terra and luna have v1 evidence as reviewers and no seat in the first write. Candidates for
