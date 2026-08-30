@@ -87,7 +87,8 @@ its full text stays in that section and returns with the stamp.
   close only through the evidence gate. Commits cite the item they belong to. **The lead
   (poteto-mode) does git and the pull request only. It never touches the board.** Board
   steering is `/controller done` (founder 2026-08-29: "Lead closes but linear steering is
-  the controller work").
+  the controller work"). **The lead merges only when BOTH hold: CI is green on the exact
+  head, and the founder said "merge". Never on one alone** (founder 2026-08-31).
 
 ---
 ## Communication: simple English, never shorthand (founder instruction, stated repeatedly — 2026-07-16, 2026-07-18 and 2026-07-28)
