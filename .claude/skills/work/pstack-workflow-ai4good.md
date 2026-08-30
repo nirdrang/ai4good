@@ -126,7 +126,7 @@ flowchart TB
     subgraph S4["4 Write. One unit at a time"]
       direction TB
       X1["Lead (fable) writes the unit brief: the files it may touch, the data shape, the acceptance criteria"]
-      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = grok@xhigh<br/>bug-fix, perf-issue, hillclimb = sol@max"]
+      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = grok@xhigh<br/>bug-fix, perf-issue, hillclimb = sol@max<br/>A unit that still has a real shape choice (error handling, abstraction layer, test structure) goes to the arena instead"]
       X3["Writer writes the failing test first"]
       X4["Writer watches it fail"]
       X5["Writer makes it pass. Commits"]
@@ -250,7 +250,7 @@ means the lead does the work itself and no sheet role applies.
 | 1 | Ground ([`/how`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/how/SKILL.md)) | Two to four explorers with disjoint slices, then one explainer, then the critics. The critics run on every item: the brief asks for the ground in critique mode (founder 2026-08-30). | `how explorer`, `how explainer`, `how critics` | The lead rules each critic finding: Act on, Consider, Noted, or Dismissed. |
 | 2 | Design arena ([`/architect`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/architect/SKILL.md), [`/arena`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/arena/SKILL.md)) | Runners fan out, each with a rationale. Cross-judges score against a rubric of three to six criteria that the runners never see. The design-red-flags screen runs on every candidate. The lead reads every candidate end to end, picks a base, and grafts the best parts of the others. | `architect runners`, `arena runners`, `arena cross-judge pool` | If the candidates converge, ship the design. If they diverge, reframe the task and run the arena again. |
 | 3 | Throughput checkpoint | The lead writes four todos. A todo that does not apply stays as `n/a: <reason>`. | Lead | None. |
-| 4 | Write | One delegated writer per unit, in its own worktree, in isolated-write mode. The writer is a leaf and spawns nothing. The writer first writes the failing test from the lead's acceptance criteria, watches it fail, then implements. | `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks` | The writer reports `BLOCKED`, a list of deviations, or a partial result at its time limit. The lead escalates (section 6). |
+| 4 | Write | One delegated writer per unit, in its own worktree, in isolated-write mode. The writer is a leaf and spawns nothing. The writer first writes the failing test from the lead's acceptance criteria, watches it fail, then implements. A unit that still has a real shape choice, such as error handling, an abstraction layer, or test structure, goes to the arena instead of one writer. | `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks` | The writer reports `BLOCKED`, a list of deviations, or a partial result at its time limit. The lead escalates (section 6). |
 | 5 | Diff against the sketch | The lead reads the diff against the design. Each deviation is one of: the sketch was wrong, a requirement was missed, or the writer overreached. | Lead | A pattern of deviations sends the item back to station 2. |
 | 6 | Verify | The lead drives [`verify-ai4good`](../verify-ai4good/) on the real surface. On cloud the evidence is HTTP responses and database side effects. Headless Playwright is used where the sandbox provides it. | Lead | No proof means not done. |
 | 7 | Sequence | The lead orders commits so that each one builds and verifies alone. | Lead | None. |
@@ -489,3 +489,5 @@ interrogate pass replaces it, and how a parent with children becomes one feature
 - 2026-08-30. Fable leaves the judge pool: the arena picks a judge from a provider other than
   the lead's, and the lead is fable. Opus stays only as the dropout fallback that keeps one
   descriptor per family for setup (founder: "D2 and d4 why fable in the loop ?").
+- 2026-08-30. X2 names pstack's own exception: a unit that still has a real shape choice goes
+  to the arena instead of one writer (founder: "Why X2 is not an arena ?").
