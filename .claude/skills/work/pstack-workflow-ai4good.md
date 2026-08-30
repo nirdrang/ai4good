@@ -25,7 +25,7 @@ one row of the model matrix.
 
 ---
 
-## 1. Installation status on 2026-08-29
+## 1. Installation status on 2026-08-31
 
 | piece | state |
 |---|---|
@@ -33,7 +33,7 @@ one row of the model matrix.
 | pstack session-start hook ([`hooks/hooks.json`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/hooks/hooks.json)) | live. The founder keeps it (2026-08-29). |
 | model sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) | not written. `/pstack:setup-pstack` is pending. |
 | fourth matrix family | grok-4.6 through the codex router (founder choice, 2026-08-29). The row edit in [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md) is pending. |
-| sheet shape for the first write | open. Shipped defaults are recommended. |
+| sheet shape for the first write | settled. The first-write column of the sheet-roles table in section 3, decided row by row on 2026-08-30 and 2026-08-31. |
 | the v1 hooks | stamp and local banner parked. Branch guard ([`guard-branch-switch.ps1`](../../../loop/work/guard-branch-switch.ps1)) live and skipped on cloud. Cloud banner ([`session-start-banner.sh`](../../hooks/session-start-banner.sh)) live on remote only. |
 | verification skill [`verify-ai4good`](../verify-ai4good/) | not generated |
 | controller skill `/controller` | written ([`.claude/skills/controller/SKILL.md`](../controller/SKILL.md)). Not yet run on an item. |
@@ -431,10 +431,13 @@ Do these steps in order:
    same session. When CI is green on the pull request, say "merge". The lead merges and
    hands the board to `/controller done`.
 
-Three rulings are open and belong to the founder: whether the lead merges on CI green alone or
-waits for the founder's "merge", whether a plan needs a "go" before the first child or an
-interrogate pass replaces it, and how a parent with children becomes one feature brief
-(parked 2026-08-29). The exact text of the evidence bar in the brief is open too.
+Settled 2026-08-31: the lead merges only when both hold, CI green on the exact head and the
+founder's "merge". The ruling is in CLAUDE.md, the brief, and station 10.
+
+Two questions stay open and belong to the founder: whether a feature plan needs a "go" before
+the first child or an interrogate pass replaces it, and how a parent with children becomes one
+feature brief. Both parked 2026-08-29. The exact text of the evidence bar in the brief is open
+too.
 
 ## 11. Changes to this file
 
@@ -499,3 +502,6 @@ interrogate pass replaces it, and how a parent with children becomes one feature
 - 2026-08-31. The same split reaches stations 6 and 7 fully: `mechanical` drives the verify
   skill and builds every commit; the lead judges the evidence and reads the report (founder:
   "why we need fable to drive the verify running").
+- 2026-08-31. The merge gate is settled and in CLAUDE.md: CI green on the exact head AND the
+  founder's "merge", never one alone. The open-rulings list shrinks to the feature-brief
+  questions and the evidence bar text. The first-write sheet shape is marked settled.
