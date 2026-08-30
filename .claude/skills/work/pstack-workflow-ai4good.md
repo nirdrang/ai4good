@@ -40,10 +40,10 @@ one row of the model matrix.
 
 ## 2. The shape: one session, controller then mechanic
 
-The chart shows every internal step of every phase. Every step that runs on a sheet role names
-the role and its model as of the first write (the sheet-roles table in section 3 is the
-source). "Lead" means the parent model of the session, fable here. Section 3 gives the same
-stations as a table. The controller's steps are the numbered steps of its manual.
+The chart shows every step of every phase. A step that runs on a sheet role carries the role
+and its model on a second line, as of the first write. The sheet-roles table in section 3 is
+the source. "Lead (fable)" is the session's own model. Section 3 gives the same stations as a
+table.
 
 To check that the chart still draws after an edit, run
 [`loop/work/render-mermaid.ps1`](../../../loop/work/render-mermaid.ps1)
@@ -51,102 +51,102 @@ To check that the chart still draws after an edit, run
 
 ```mermaid
 flowchart TB
-  subgraph CTRL["Controller: local session, branch main, /controller ID"]
+  subgraph CTRL["Controller. This session, on main. /controller ID"]
     direction TB
-    subgraph PA["Phase A: decide what"]
+    subgraph PA["Phase A. Decide what"]
       direction TB
-      A1["Resolve the item on Linear: id, label, gitBranchName, state, blockers"]
-      A2["Walk parent upward, label every link of the chain"]
-      A3["Startability: missing, Done, Cancelled, or blocked stops here"]
-      A4["Root with nothing above it: ask the founder once"]
+      A1["Read the item on Linear: id, label, branch name, state, blockers"]
+      A2["Walk up the parents. Label every link"]
+      A3["Stop if the item is missing, Done, Cancelled, or blocked"]
+      A4["Root with no parent? Ask the founder once"]
       A1 --> A2 --> A3 --> A4
     end
-    subgraph PB["Phase B: start the item"]
+    subgraph PB["Phase B. Start the item"]
       direction TB
-      B1["git fetch origin, then git branch BRANCH origin/main"]
-      B2["git worktree add .claude/worktrees/ITEM BRANCH"]
-      B3["One item at a time on this machine. Another item open here stops the run"]
-      B4["Claim: assign, In Progress, Set-HeldItem"]
-      B5["Write loop/items/ITEM/brief.md: chain, PRD slice, item text, acceptance tests, the ask, the evidence bar"]
-      B6["Commit the brief on the branch, push"]
-      B7["Local: EnterWorktree into .claude/worktrees/ITEM, print the hand-off, stop. Cloud: claude --cloud from the worktree, record the session in mechanic.md"]
-      B8["The founder types /pstack:poteto-mode with the brief in this same session"]
+      B1["Create the branch from origin/main"]
+      B2["Create the worktree .claude/worktrees/ITEM"]
+      B3["Only one item at a time on this PC"]
+      B4["Claim on Linear: assign, In Progress"]
+      B5["Write the brief: chain, PRD slice, item text, acceptance tests, the ask, the evidence bar"]
+      B6["Commit the brief on the branch. Push"]
+      B7["Move this session into the worktree with EnterWorktree.<br/>Cloud: run claude --cloud from the worktree instead"]
+      B8["Hand over. The founder types /pstack:poteto-mode with the brief"]
       B1 --> B2 --> B3 --> B4 --> B5 --> B6 --> B7 --> B8
     end
-    subgraph PW["While the mechanic runs"]
+    subgraph PW["While the lead works"]
       direction TB
-      W1["Local: the founder and the lead talk directly in the session. The controller has no part until /controller done"]
-      W2["Cloud: gh pr list --head BRANCH finds the pull request. Rulings go with claude -p 'MESSAGE' --cloud SESSION-ID"]
-      W3["No timers, no wake-ups. A question from a cloud mechanic reaches the founder verbatim"]
+      W1["Local: the founder talks to the lead here.<br/>The controller waits for /controller done"]
+      W2["Cloud: gh pr list finds the pull request.<br/>claude -p --cloud sends rulings"]
+      W3["No timers. No wake-ups"]
       W1 --> W2 --> W3
     end
-    subgraph PC["Phase C: /controller done ID, the board"]
+    subgraph PC["Phase C. /controller done ID. The board"]
       direction TB
-      K1["Confirm on Linear that the item is Done. Not Done after a bounded re-read: repair from the merge commit, record it as a repair"]
-      K2["Clear-HeldItem"]
-      K3["Fold upward: all children Done or Cancelled closes the parent, stopping below a requirement"]
-      K4["Read the pull request's Not done here list. Four filing checks. Recommend; the founder files"]
-      K5["session is free. List open siblings, suggest the next /controller"]
+      K1["Check on Linear that the item is Done.<br/>If not, repair from the merge and say so"]
+      K2["Clear the held item"]
+      K3["Fold the parent when all its children are Done or Cancelled"]
+      K4["Judge the Not done here list as filing candidates. The founder files"]
+      K5["Print session is free. Suggest the next item"]
       K1 --> K2 --> K3 --> K4 --> K5
     end
     PA --> PB
   end
 
-  subgraph MECH["Mechanic: the same session in the item's worktree, poteto-mode"]
+  subgraph MECH["Mechanic. Same session, in the worktree, poteto-mode"]
     direction TB
-    subgraph S1["1 Ground: /how"]
+    subgraph S1["1 Ground. /how"]
       direction TB
-      G1["Lead (fable) splits the question into 2 to 4 disjoint slices"]
-      G2["One explorer per slice, read-only. Role: how explorer = grok@xhigh"]
-      G3["Explainer merges the findings into one explanation. Role: how explainer = fable@high"]
-      G5["Critics, always. One per entry, each with the explanation, the paths, and the 6-lens rubric. Role: how critics = fable@max, sol@max, grok@xhigh"]
+      G1["Lead (fable) splits the question into 2 to 4 slices"]
+      G2["One explorer per slice, read-only<br/>how explorer = grok@xhigh"]
+      G3["One explainer merges the notes into one explanation<br/>how explainer = fable@high"]
+      G5["Critics, always. Each gets the explanation, the paths, and the 6-lens rubric<br/>how critics = fable@max, sol@max, grok@xhigh"]
       G6["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       G1 --> G2 --> G3 --> G5 --> G6
     end
-    subgraph S2["2 Design arena: /architect and /arena"]
+    subgraph S2["2 Design arena. /architect and /arena"]
       direction TB
-      D1["Lead (fable) derives a rubric of 3 to 6 criteria. Candidates never see it"]
-      D2["Runners fan out, one design each with its rationale. Role: architect runners = fable@max, sol@max, grok@xhigh, opus@max"]
-      D3["Design-red-flags screen on every candidate: shallow module, information leakage, temporal decomposition, pass-through. Lead (fable)"]
-      D4["Cross-judges score against the rubric. Role: arena cross-judge pool = fable@max, sol@max, grok@xhigh, opus@max. The judge's provider differs from the parent's and the front-runner's"]
-      D5["Lead (fable) reads every candidate end to end, picks a base, grafts the best parts of the others"]
-      D6{"Candidates converge?"}
-      D7["Lead (fable) reframes the task, runs the arena again"]
+      D1["Lead (fable) writes a rubric of 3 to 6 criteria. Runners never see it"]
+      D2["Runners each design the whole thing, with a rationale<br/>architect runners = fable@max, sol@max, grok@xhigh, opus@max"]
+      D3["Lead (fable) screens each design for red flags:<br/>shallow module, information leakage, temporal decomposition, pass-through"]
+      D4["One judge from another vendor scores each design against the rubric<br/>arena cross-judge pool = fable@max, sol@max, grok@xhigh, opus@max"]
+      D5["Lead (fable) reads every design, picks a base, grafts the best parts of the others"]
+      D6{"Do the designs agree?"}
+      D7["Lead (fable) reframes the task and runs the arena again"]
       D1 --> D2 --> D3 --> D4 --> D5 --> D6
       D6 -- no --> D7 --> D2
     end
-    subgraph S3["3 Throughput checkpoint"]
+    subgraph S3["3 Throughput checkpoint. Lead (fable) writes four todos"]
       direction TB
-      T1["Lead (fable) writes todo 1, blocking first steps: gates before fan-out"]
-      T2["Todo 2, independent workstreams: disjoint files parallelize, shared writes serialize"]
-      T3["Todo 3, shared mutable state: split the target before serializing"]
-      T4["Todo 4, smallest safe decomposition. One writer? say why"]
+      T1["Todo 1. Which steps must finish before anything runs in parallel?"]
+      T2["Todo 2. Which parts can run in parallel?<br/>Different files: yes. Same files: one after another"]
+      T3["Todo 3. Where would two writers touch the same state? Split it first"]
+      T4["Todo 4. What is the smallest safe split? One writer only? Say why"]
       T1 --> T2 --> T3 --> T4
     end
-    subgraph S4["4 Write: one unit at a time"]
+    subgraph S4["4 Write. One unit at a time"]
       direction TB
-      X1["Lead (fable) writes the unit brief: paths it may write, the data shape, the acceptance criteria"]
-      X2["Lead creates a dedicated worktree, spawns one writer in isolated-write mode. Role by task type: feature, refactoring = grok@xhigh. bug-fix, perf-issue, hillclimb = sol@max"]
-      X3["Writer (the role's model) writes the failing test from the acceptance criteria"]
-      X4["Writer watches the test fail"]
-      X5["Writer implements until the test passes, commits"]
-      X6["Writer reports: done, BLOCKED, deviations, or a partial at the time limit"]
-      X7{"Report clean?"}
-      X8["Lead (fable) escalates: respawn fresh, raise effort, move the unit to role hardest tasks = fable@max, re-arena, or scrap. Two retries then replan"]
+      X1["Lead (fable) writes the unit brief: the files it may touch, the data shape, the acceptance criteria"]
+      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = grok@xhigh<br/>bug-fix, perf-issue, hillclimb = sol@max"]
+      X3["Writer writes the failing test first"]
+      X4["Writer watches it fail"]
+      X5["Writer makes it pass. Commits"]
+      X6["Writer reports: done, BLOCKED, deviations, or partial"]
+      X7{"Clean report?"}
+      X8["Lead (fable) escalates: a fresh writer, more effort, or<br/>hardest tasks = fable@max.<br/>Or re-arena, or scrap. Two retries, then replan"]
       X1 --> X2 --> X3 --> X4 --> X5 --> X6 --> X7
       X7 -- no --> X8 --> X2
     end
-    subgraph S5["5 Diff against the sketch"]
+    subgraph S5["5 Diff against the design"]
       direction TB
-      R1["Lead (fable) reads the writer's diff against the design"]
-      R2["Each deviation is one of: sketch wrong, requirement missed, overreach"]
+      R1["Lead (fable) reads the diff against the design"]
+      R2["Each deviation is one of: design wrong, requirement missed, writer overreached"]
       R3{"A pattern of deviations?"}
       R1 --> R2 --> R3
     end
     subgraph S6["6 Verify on the real surface"]
       direction TB
-      V1["Lead (fable) runs verify-ai4good: launch, doctor, drive the feature. No sheet role: pstack has no verifier role"]
-      V2["Evidence on cloud: HTTP responses and database side effects. Headless Playwright where the sandbox has it"]
+      V1["Lead (fable) runs verify-ai4good: launch, doctor, drive the feature.<br/>No sheet role: pstack has no verifier"]
+      V2["Cloud evidence: HTTP responses and database side effects.<br/>Headless Playwright where the sandbox has it"]
       V3{"Proof in hand?"}
       V4["Not done. Back to the unit"]
       V1 --> V2 --> V3
@@ -158,31 +158,31 @@ flowchart TB
       Q2["Each commit builds and verifies alone"]
       Q1 --> Q2
     end
-    subgraph S8["8 Interrogate: /interrogate"]
+    subgraph S8["8 Interrogate. /interrogate"]
       direction TB
       I1["Lead (fable) scopes the diff and writes the intent paragraph"]
-      I2["One reviewer per entry, read-only, identical rubric. Role: interrogate reviewers = fable@max, sol@max, grok@xhigh, opus@max"]
-      I3["Lead (fable) synthesizes: consensus, duplicates removed, disagreements listed, agreement map"]
+      I2["Reviewers, read-only, the same rubric each<br/>interrogate reviewers = fable@max, sol@max, grok@xhigh, opus@max"]
+      I3["Lead (fable) merges the findings: consensus, duplicates out, disagreements listed"]
       I4["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       I5{"Any Act on?"}
-      I6["Fix through a writer, role by task type as in station 4. The changed head voids the verdict"]
+      I6["A writer fixes it. The new head voids the verdict"]
       I1 --> I2 --> I3 --> I4 --> I5
       I5 -- yes --> I6 --> I2
     end
-    subgraph S9["9 Ship: opening-a-pr"]
+    subgraph S9["9 Ship. opening-a-pr"]
       direction TB
-      P1["Lead (fable) runs deslop, no-comments, unslop over the diff and the prose"]
-      P2["Conventional commit messages. Role: judgment and prose = fable@max"]
-      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification with named checks and timestamps, Not done here. Role: judgment and prose = fable@max"]
+      P1["Lead (fable) runs deslop, no-comments, unslop"]
+      P2["Conventional commit messages<br/>judgment and prose = fable@max"]
+      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification, Not done here<br/>judgment and prose = fable@max"]
       P4["No other item's id in the title or body"]
-      P5["Open the pull request from the item branch. Never a draft"]
+      P5["Open the pull request. Never a draft"]
       P1 --> P2 --> P3 --> P4 --> P5
     end
-    subgraph S10["10 Close: the lead does the git part"]
+    subgraph S10["10 Close. The lead does the git part"]
       direction TB
-      C1{"CI green on the exact head AND the founder said merge?"}
-      C2["gh pr merge N --squash. The pull request link closes the item on the board"]
-      C3["ExitWorktree keep, then git worktree remove .claude/worktrees/ITEM, delete the remote branch"]
+      C1{"CI green on the exact head, and the founder said merge?"}
+      C2["gh pr merge --squash. The pull request link closes the item on the board"]
+      C3["Leave the worktree with ExitWorktree. Remove it. Delete the remote branch"]
       C4["Invoke /controller done ITEM"]
       C1 -- yes --> C2 --> C3 --> C4
       C1 -- not yet --> C1
@@ -481,3 +481,6 @@ interrogate pass replaces it, and how a parent with children becomes one feature
 - 2026-08-30. Opus runs at `max` wherever it sits, not the shipped `xhigh` (founder: "When we
   need max effort for opus it should be opus@max"). The matrix default for the opus family
   is `max`.
+- 2026-08-30. The chart rewritten for reading: one plain sentence per step, the role and
+  model on their own line, the four throughput todos written as the questions they ask
+  (founder: "T is completely not readable").
