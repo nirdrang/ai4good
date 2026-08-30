@@ -100,7 +100,7 @@ flowchart TB
       G2["One explorer per slice, read-only. Role: how explorer = grok@xhigh"]
       G3["Explainer merges the findings into one explanation. Role: how explainer = opus@high"]
       G4{"Brief says Ground critique = yes?"}
-      G5["One critic per entry, each with the explanation, the paths, and the 6-lens rubric. Role: how critics = fable@max, sol@max, grok@xhigh, opus@xhigh"]
+      G5["One critic per entry, each with the explanation, the paths, and the 6-lens rubric. Role: how critics = fable@max, sol@max, grok@xhigh"]
       G6["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       G1 --> G2 --> G3 --> G4
       G4 -- yes --> G5 --> G6
@@ -288,7 +288,7 @@ panel, and the list length is the fan-out count.
 | `judgment and prose` | 9 | fable@max | fable@max | fable@max |
 | `how explorer` | 1 | grok@xhigh | grok@xhigh | grok@high |
 | `how explainer` | 1 | fable@max | opus@high | opus@high |
-| `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
+| `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh |
 | `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | same | fable@max, sol@max, grok@xhigh |
@@ -475,3 +475,5 @@ interrogate pass replaces it, and how a parent with children becomes one feature
   parked questions (merge on green alone, "go" before the first child, feature briefs).
 - 2026-08-30. `how explainer` is `opus@high` from the first write. The ground critique is a
   brief field the controller sets by rule, not a reading of the request's wording.
+- 2026-08-30. `how critics` is three lanes from the first write: fable, sol, grok. Opus
+  leaves the panel because it shares a vendor with fable and adds no independent view.
