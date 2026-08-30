@@ -108,7 +108,7 @@ flowchart TB
       D1["Lead (fable) writes a rubric of 3 to 6 criteria. Runners never see it"]
       D2["Runners each design the whole thing, with a rationale<br/>architect runners = fable@max, sol@max, grok@xhigh, opus@max"]
       D3["Lead (fable) screens each design for red flags:<br/>shallow module, information leakage, temporal decomposition, pass-through"]
-      D4["One judge from another vendor scores each design against the rubric<br/>arena cross-judge pool = fable@max, sol@max, grok@xhigh, opus@max"]
+      D4["One judge from another provider than the lead and the front-runner scores each design against the rubric<br/>arena cross-judge pool = sol@max, grok@xhigh, opus@max (opus only when both others drop out)"]
       D5["Lead (fable) reads every design, picks a base, grafts the best parts of the others"]
       D6{"Do the designs agree?"}
       D7["Lead (fable) reframes the task and runs the arena again"]
@@ -289,7 +289,7 @@ panel, and the list length is the fan-out count.
 | `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
-| `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh, opus@max |
+| `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, opus@max | sol@max, grok@xhigh, opus@max |
 | `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | grok@high |
 | `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
 | `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
@@ -351,7 +351,9 @@ first write.
 - `hardest tasks` is `claude:claude-fable-5@max`. It is the named escalation target.
 - Every panel has three lanes from three vendors: fable, sol, and grok. Two lanes from one
   family do not add an independent view.
-- Opus appears in `arena cross-judge pool` only. It is never a writer lane.
+- Opus appears in `arena cross-judge pool` only, and only as the fallback when sol and grok
+  both drop out. The arena picks a judge whose provider differs from the lead's, and opus is
+  the lead's provider. Its seat exists because setup requires one descriptor per family.
 - Two lines in the user-level [`CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md): "The verifier is a sonnet-class model from a different
   family than the writer." A tier map (docs, mechanical, standard, sensitive, each with a panel
   width) waits for a founder ruling, because it loosens the process.
@@ -484,3 +486,6 @@ interrogate pass replaces it, and how a parent with children becomes one feature
 - 2026-08-30. The chart rewritten for reading: one plain sentence per step, the role and
   model on their own line, the four throughput todos written as the questions they ask
   (founder: "T is completely not readable").
+- 2026-08-30. Fable leaves the judge pool: the arena picks a judge from a provider other than
+  the lead's, and the lead is fable. Opus stays only as the dropout fallback that keeps one
+  descriptor per family for setup (founder: "D2 and d4 why fable in the loop ?").

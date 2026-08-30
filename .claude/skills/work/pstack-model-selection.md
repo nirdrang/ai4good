@@ -17,7 +17,7 @@ one entry in a panel role. A **descriptor** is `provider:model@effort`.
 | fable | `claude:claude-fable-5` | low, medium, high, xhigh, max | native agents | The session's own model. Judgment and prose. The most expensive model here, so it earns its seat only where judgment under uncertainty is the job. |
 | sol | `codex:gpt-5.6-sol` | low, medium, high, xhigh, max | codex CLI | The proven reviewer of v1: gate 1 at xhigh caught a too-weak test oracle and a passing no-op before code existed (2026-08-03). |
 | grok | `codex:opencode-go-responses/grok-4.6` | low, medium, high, xhigh | codex CLI through the router | The plugin's default writer. Kept as the third vendor. Served by the codex router because no Grok CLI is installed (founder 2026-08-29). |
-| opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same vendor as fable. A judge that differs from a fable front-runner, and nothing else. Always at `max` (2026-08-30). |
+| opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same provider as fable and the lead, so the arena never prefers it as a judge. Its one seat, the judge pool fallback, exists because setup requires a descriptor from every family. Always at `max` (2026-08-30). Candidate for replacement by a fourth vendor (section 5). |
 
 Other models the router serves, for trials: `opencode-go/deepseek-v4-pro` (high, max),
 `opencode-go/kimi-k3` (low, high, max), `opencode-go/glm-5.3` (high, max), `gpt-5.6-luna`
@@ -28,6 +28,7 @@ and `gpt-5.6-terra` (low to max). The full catalog is
 
 | date | decision | reason | source |
 |---|---|---|---|
+| 2026-08-30 | `arena cross-judge pool` = sol@max, grok@xhigh, opus@max. Fable is out. Fable stays an `architect runners` lane. | The arena picks a judge whose provider differs from the lead's and the front-runner's. The lead is fable, so a fable judge is never picked, and opus (same provider) only when sol and grok both drop out. Fable still designs: designing is judgment under uncertainty, and the cross-judge plus the hidden rubric guard against the lead preferring its own model's design. | founder: "D2 and d4 why fable in the loop ?" |
 | 2026-08-30 | Opus runs at `max` wherever it sits. The matrix default effort for the opus family is `max`, not the shipped `xhigh`. | Opus holds a seat only as the judge that differs from a fable front-runner. A judge at less than full effort defeats the reason it is there. | founder: "When we need max effort for opus it should be opus@max" |
 | 2026-08-30 | `how explainer` = `fable@high` | The explainer writes the one explanation everything downstream reads, so it stays on fable. It writes prose from explorer notes, so high effort is enough. | founder: "is that really necessary to go full blown on our most expensive model here?" and "g3 should be fable@high not opus" |
 | 2026-08-30 | The ground critique runs on every item. | The decision "does the request ask for problems" was undefined for a brief. Always on removes the question. | founder: "how can we make g4 critique happens for all scenarios?" |
@@ -73,3 +74,7 @@ These were measured on the v1 relay. The models are the same, so the findings ca
   `interrogate reviewers` on the first rerun.
 - DeepSeek V4 Pro as a writer on hard units.
 - There is no verifier role. Station 6 runs on the lead.
+- The opus family adds no view: same provider as the lead. Replace it in the matrix with a
+  fourth vendor the router serves, `opencode-go/deepseek-v4-pro` (high, max) or
+  `opencode-go/kimi-k3` (low, high, max), on the first rerun of setup. Then opus leaves the
+  sheet and every panel has a fourth independent lane available.
