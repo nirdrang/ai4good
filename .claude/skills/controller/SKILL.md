@@ -117,6 +117,9 @@ Acceptance tests: <paths under tests/at/suites/ that this item must turn green>
 Run this item in poteto-mode, end to end, and open one pull request from this branch.
 Ground it with /how in critique mode first: explorers, explainer, then the critics, on
 every item.
+Tool-heavy git work without judgment, such as the rebase into ordered commits and the
+closing commands, goes to the mechanical agent with exact commands. You decide, it types,
+you check the result once.
 Do not name any other item's id in the pull request title or body.
 The pull request body carries Why, Scope, Tradeoffs, Blast Radius, and Verification.
 Then close the item as the Closing section says. You close it, nobody else.
