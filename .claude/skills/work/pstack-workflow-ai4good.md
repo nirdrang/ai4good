@@ -173,8 +173,8 @@ flowchart TB
     subgraph S9["9 Ship. opening-a-pr"]
       direction TB
       P1["Lead (fable) runs deslop, no-comments, unslop"]
-      P2["Conventional commit messages<br/>judgment and prose = fable@max"]
-      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification, Not done here<br/>judgment and prose = fable@max"]
+      P2["Conventional commit messages<br/>judgment and prose = fable@high"]
+      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification, Not done here<br/>judgment and prose = fable@high"]
       P4["No other item's id in the title or body"]
       P5["Open the pull request. Never a draft"]
       P1 --> P2 --> P3 --> P4 --> P5
@@ -285,7 +285,7 @@ entry runs per arena.
 | `perf-issue` | 4 | sol@max | sol@xhigh | sol@xhigh |
 | `hillclimb` | 4 | sol@max | sol@xhigh | sol@xhigh |
 | `hardest tasks` | 4 | fable@max | fable@max | fable@max |
-| `judgment and prose` | 9 | fable@max | fable@max | fable@max |
+| `judgment and prose` | 9 | fable@max | fable@high | fable@high |
 | `how explorer` | 1 | grok@xhigh | sol@high | sol@high |
 | `how explainer` | 1 | fable@max | fable@high | fable@high |
 | `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max | sol@max, grok@xhigh, deepseek@max, glm@max |
@@ -558,3 +558,6 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
   and glm in at max, fable kept because it reviews another family's code. Five lanes, five
   vendors. The writer's-family lane stays seated and its silence reads as weak evidence
   (founder: "I2 revieweres currently both opus and fabel and no glm and no deepseek").
+- 2026-08-31. `judgment and prose` is `fable@high`: station 9 is normally the lead itself,
+  and the sheet row fires only for delegated prose, where high matches the explainer logic
+  (founder: "yes fabel@high is enough").
