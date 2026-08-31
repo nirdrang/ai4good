@@ -31,7 +31,7 @@ one row of the model matrix.
 |---|---|
 | plugin `pstack@open-pstack` v1.2.0 | installed and enabled in [`.claude/settings.json`](../../settings.json) |
 | pstack session-start hook ([`hooks/hooks.json`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/hooks/hooks.json)) | live. The founder keeps it (2026-08-29). |
-| model sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) | not written. `/pstack:setup-pstack` is pending. |
+| model sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) | WRITTEN 2026-08-31, the first-write column, per-role efforts. Five families probed green; the grok probe FAILED at opencode's 4.6 upstream and the founder ruled keep-and-mark. Re-probe grok before its first real use. The record: [`pstack-setup-2026-08-31.md`](../../../loop/drills/records/pstack-setup-2026-08-31.md). |
 | the model matrix | edited in the plugin cache on 2026-08-31: grok through the codex router, opus default max, deepseek and glm added. Six families. Re-apply after a plugin update. |
 | sheet shape for the first write | settled. The first-write column of the sheet-roles table in section 3, decided row by row on 2026-08-30 and 2026-08-31. |
 | the v1 hooks | stamp and local banner parked. Branch guard ([`guard-branch-switch.ps1`](../../../loop/work/guard-branch-switch.ps1)) live and skipped on cloud. Cloud banner ([`session-start-banner.sh`](../../hooks/session-start-banner.sh)) live on remote only. |
