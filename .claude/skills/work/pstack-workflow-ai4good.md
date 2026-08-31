@@ -431,10 +431,13 @@ Do these steps in order:
    [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md)
    carries the grok row on the codex router, the opus default at max, and the deepseek and
    glm rows. Re-apply after a plugin update.
-2. Run [`/pstack:setup-pstack`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/setup-pstack/SKILL.md).
-   Answer one effort question per family, six, let the probes run, confirm the rendered
-   sheet, and let the smoke panel run.
-3. Add the verifier line to the user-level [`~/.claude/CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md).
+2. Done 2026-08-31: setup ran. Five families probed green, grok recorded as a failed probe
+   at opencode's 4.6 upstream, the sheet and the include line written, the smoke panel a
+   four-for-four pass under an opus judge. The record:
+   [`pstack-setup-2026-08-31.md`](../../../loop/drills/records/pstack-setup-2026-08-31.md).
+   Re-probe grok before its first real use.
+3. Done 2026-08-31: the verifier line is in the user-level
+   [`~/.claude/CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md), under the sheet include.
 4. Run [`/pstack:create-verification-skill`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/create-verification-skill/SKILL.md)
    once and commit [`.claude/skills/verify-ai4good/`](../verify-ai4good/) as a repo product.
 5. Run one item with [`/controller <id>`](../controller/SKILL.md). It ends inside the item's
@@ -561,3 +564,7 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. `judgment and prose` is `fable@high`: station 9 is normally the lead itself,
   and the sheet row fires only for delegated prose, where high matches the explainer logic
   (founder: "yes fabel@high is enough").
+- 2026-08-31. Setup ran and completed. The sheet is written with per-role efforts, the
+  include and verifier lines are in the user CLAUDE.md, five families probed green, grok is
+  a recorded failed probe at opencode's 4.6 upstream, and the smoke panel passed four for
+  four under an opus judge.

@@ -47,5 +47,12 @@ a loud dropout, never a silent substitute.
 
 ## Smoke
 
-Behavioral smoke: pending, run after this record. One small read-only panel across the green
-descriptors plus a judge, receipts retained.
+Behavioral smoke: PASS, four for four. One read-only task, name the standing rules of the
+project CLAUDE.md section 5, run on fable@high (native), sol@xhigh, deepseek@max, and
+glm@max (runner lanes, receipts complete), judged by opus@max against the file on disk. All
+four answers accurate, no invented rule, every marker present. Lane times: fable 12s, sol
+34s, deepseek 48s, glm 65s. The judge graded glm content-faithful with weak structure. Grok
+was the recorded dropout throughout, per the founder's ruling above.
+
+Setup is complete. The remaining bring-up steps are the verification skill and the pilot
+item.
