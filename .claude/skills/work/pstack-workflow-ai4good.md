@@ -99,7 +99,7 @@ flowchart TB
       G1["Lead (fable) splits the question into 2 to 4 slices"]
       G2["One explorer per slice, read-only<br/>how explorer = grok@xhigh"]
       G3["One explainer merges the notes into one explanation<br/>how explainer = fable@high"]
-      G5["Critics, always. Each gets the explanation, the paths, and the 6-lens rubric<br/>how critics = fable@max, sol@max, grok@xhigh"]
+      G5["Critics, always. Each gets the explanation, the paths, and the 6-lens rubric<br/>how critics = fable@max, sol@max, grok@xhigh, deepseek@max, glm@max"]
       G6["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       G1 --> G2 --> G3 --> G5 --> G6
     end
@@ -288,7 +288,7 @@ entry runs per arena.
 | `judgment and prose` | 9 | fable@max | fable@max | fable@max |
 | `how explorer` | 1 | grok@xhigh | grok@xhigh | grok@high |
 | `how explainer` | 1 | fable@max | fable@high | fable@high |
-| `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh |
+| `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max |
 | `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
@@ -532,3 +532,6 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. Two families added through the codex router: deepseek (deepseek-v4-pro) and
   glm (glm-5.3). Their seats are the arena judge pool, where a seat costs nothing until a
   judge is picked. The matrix in the plugin cache is edited: six families, one file.
+- 2026-08-31. The ground critics panel grows to five lanes, each at its family's highest
+  effort: fable@max, sol@max, grok@xhigh, deepseek@max, glm@max (founder: "Add G5 more
+  critics @ highest effort. glm and deepseek").
