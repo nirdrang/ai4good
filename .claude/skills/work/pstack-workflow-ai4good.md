@@ -292,19 +292,16 @@ entry runs per arena.
 | `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max, opus@xhigh |
 | `why investigators` | not a station | inherit-parent | inherit-parent | opus@max |
 | `why synthesizer` | not a station | inherit-parent | inherit-parent | fable@max |
-| `reflect tooling` | not a station | inherit-parent | inherit-parent | sol@max |
-| `reflect judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | fable@max |
+| `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | fable@xhigh |
 | `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max |
 | `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max |
 | `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | opus@xhigh |
 | `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max |
 | `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max | fable@max, sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max |
 
-The `why` and `reflect` rows are pinned since the batch ruling of 2026-08-31, and the two
-combined rows split because their roles now carry different values. Those roles run on native
-Claude lanes, which keep the MCP surface the skills need. The one exception is `reflect
-tooling` on sol: an external lane never gets the MCP surface, and the founder ruled it anyway.
-If a reflect run needs MCP-backed tooling, the lead says so in its report. grok has no `max`
+The `why` and `reflect` rows are pinned since the batch ruling of 2026-08-31, and the why row
+splits because its two roles carry different values. All of these roles run on native Claude
+lanes, which keep the MCP surface the skills need. grok has no `max`
 in its selectable efforts, so its panel lanes stay at `xhigh`. Every model decision and every
 measured finding is in [`pstack-model-selection.md`](pstack-model-selection.md).
 
@@ -588,3 +585,6 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
   fable@max, reflect tooling sol@max, reflect judgment, divergent, and synthesizer fable@max.
   The table's target column becomes the current column, and section 6 now describes the
   ceiling-first design.
+- 2026-08-31. Reflect runs on fable@xhigh, one row for all four reflect roles (founder:
+  "Reflect should be fable@xhigh"). The sol tooling lane and its missing-MCP exception are
+  gone; every why and reflect lane is native Claude with the full MCP surface.

@@ -30,6 +30,7 @@ and `gpt-5.6-terra` (low to max). The full catalog is
 
 | date | decision | reason | source |
 |---|---|---|---|
+| 2026-08-31 | `reflect tooling, judgment, divergent, synthesizer` = `fable@xhigh`, one row for all four reflect roles. Supersedes the reflect part of the batch row below. | The reflect roles return to one native Claude lane, so every why and reflect lane keeps the MCP surface. One effort step below the ceiling. | founder: "Reflect should be fable@xhigh" |
 | 2026-08-31 | Batch ruling before the pilot: every seat runs at or near its family ceiling. Supersedes the escalation-headroom target of 2026-08-28 and the superseded same-day rows below. | The founder chose maximum capability up front over effort headroom. The escalation ladder is now: respawn fresh, `hardest tasks`, re-arena, scrap. | founder batch, the six rows below |
 | 2026-08-31 | `feature, refactoring` = `opus@max`. grok becomes panel-only. | The opus later-phases plan lands as the writer seat for the largest units. grok's failed probe leaves the writer path; the re-probe note stays for its panel lanes. | founder: "Feature and refactoring should go opus@max" |
 | 2026-08-31 | `bug-fix`, `perf-issue`, `hillclimb` = `sol@max`. | Ceiling over headroom. Supersedes the same-day xhigh row. | founder: "Bugfix,pers issue, hillclimb sol@max" |
@@ -84,8 +85,8 @@ These were measured on the v1 relay. The models are the same, so the findings ca
 - A model change is a trial first (section 7 of the workflow file): replay one station, then
   an arena head to head, then one item end to end in two cloud sessions. A false green ends
   the trial.
-- The why and reflect rows are pinned to native Claude lanes, which keep the MCP surface.
-  `reflect tooling` on sol is the ruled exception and has no MCP surface (2026-08-31).
+- The why and reflect rows are pinned to native Claude lanes, which keep the MCP surface
+  (2026-08-31).
 
 ## 5. Fallback when fable is out of credit
 
@@ -96,9 +97,9 @@ manual procedure, two moves:
 1. The lead: type `/model opus` in the session. The item continues. Type `/model fable` when
    credit returns.
 2. The sheet: hand-edit [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md)
-   and swap every `claude:claude-fable-5` descriptor to `claude:claude-opus-5@max` (every
-   fable row is at max since 2026-08-31). In a panel where opus already holds a lane, drop
-   the fable lane instead of seating opus twice. Opus is a matrix family, so the rows stay
+   and swap every `claude:claude-fable-5` descriptor to `claude:claude-opus-5` at the same
+   effort. In a panel where opus already holds a lane, drop the fable lane instead of
+   seating opus twice. Opus is a matrix family, so the rows stay
    valid at the next setup run. Revert the same lines afterwards.
 
 A session limit is not out of credit. The five-hour window is account-wide and heals itself.
