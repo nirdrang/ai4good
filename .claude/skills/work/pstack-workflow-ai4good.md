@@ -162,7 +162,7 @@ flowchart TB
     subgraph S8["8 Interrogate. /interrogate"]
       direction TB
       I1["Lead (fable) scopes the diff and writes the intent paragraph"]
-      I2["Reviewers, read-only, the same rubric each<br/>interrogate reviewers = fable@max, sol@max, grok@xhigh, opus@max"]
+      I2["Reviewers, read-only, the same rubric each<br/>interrogate reviewers = fable@max, sol@max, grok@xhigh, deepseek@max, glm@max"]
       I3["Lead (fable) merges the findings: consensus, duplicates out, disagreements listed"]
       I4["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       I5{"Any Act on?"}
@@ -255,7 +255,7 @@ means the lead does the work itself and no sheet role applies.
 | 5 | Diff against the sketch | The lead reads the diff against the design. Each deviation is one of: the sketch was wrong, a requirement was missed, or the writer overreached. | Lead | A pattern of deviations sends the item back to station 2. |
 | 6 | Verify | The `mechanical` agent drives [`verify-ai4good`](../verify-ai4good/) on the real surface: the skill is its exact instructions. On cloud the evidence is HTTP responses and database side effects. Headless Playwright is used where the sandbox provides it. The lead reads the evidence and gives the verdict. | `mechanical` drives, lead judges | No proof means not done. |
 | 7 | Sequence | The lead decides the commit order and writes the exact rebase plan. The `mechanical` agent executes it, then builds and tests every commit alone. The lead reads the per-commit report once. Tool-heavy work without judgment never spends the lead's calls (founder 2026-08-30). | Lead decides, `mechanical` executes | None. |
-| 8 | Interrogate ([`/interrogate`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/interrogate/SKILL.md)) | A read-only panel. Every reviewer gets the same rubric. The lead merges the consensus, removes duplicates, and rules on each finding. | `interrogate reviewers` | pstack has no re-clearance loop. Our rubric adds one line: "A changed head voids the verdict. Re-panel." |
+| 8 | Interrogate ([`/interrogate`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/interrogate/SKILL.md)) | A read-only panel. Every reviewer gets the same rubric. The lead merges the consensus, removes duplicates, and rules on each finding. The writer's own family stays seated for recall, and the lead reads its silence as weak evidence: a cross-family consensus is what clears a diff. | `interrogate reviewers` | pstack has no re-clearance loop. Our rubric adds one line: "A changed head voids the verdict. Re-panel." |
 | 9 | Ship ([`opening-a-pr`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/playbooks/opening-a-pr.md)) | The lead runs deslop, no-comments, and unslop, writes conventional commits, and fills the sections Why, Scope, Tradeoffs, Blast Radius, and Verification. The pull request is never a draft. Opening a pull request and babysitting it are two verbs. | `judgment and prose` | Babysit is not used here. It is a second way to close work, which the way of work forbids. |
 
 The verbs fix-ci, deslop, and recall run on the lead with no pin. pstack has no verifier role.
@@ -295,7 +295,7 @@ entry runs per arena.
 | `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max |
 | `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | grok@high |
 | `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh |
-| `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
+| `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max |
 
 The `why` and `reflect` rows stay `inherit-parent` because those skills need the MCP surface,
 which external lanes never get. grok has no `max` in its selectable efforts, so its panel lanes
@@ -554,3 +554,7 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. The sol writer roles, bug-fix, perf-issue, hillclimb, run at xhigh, one step
   below the ceiling (founder: "sol@xhigh on X2"). Raising sol to max becomes a real rung on
   the escalation ladder.
+- 2026-08-31. The interrogate panel follows the same shape as the others: opus out, deepseek
+  and glm in at max, fable kept because it reviews another family's code. Five lanes, five
+  vendors. The writer's-family lane stays seated and its silence reads as weak evidence
+  (founder: "I2 revieweres currently both opus and fabel and no glm and no deepseek").
