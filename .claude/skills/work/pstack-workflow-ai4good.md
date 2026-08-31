@@ -443,8 +443,12 @@ Do these steps in order:
    Re-probe grok before its first real use.
 3. Done 2026-08-31: the verifier line is in the user-level
    [`~/.claude/CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md), under the sheet include.
-4. Run [`/pstack:create-verification-skill`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/create-verification-skill/SKILL.md)
-   once and commit [`.claude/skills/verify-ai4good/`](../verify-ai4good/) as a repo product.
+4. Done 2026-08-31: [`.claude/skills/verify-ai4good/`](../verify-ai4good/) is generated and
+   committed — launch, doctor, drive recipes, a five-feature map, and the helper
+   `scripts/drive-ngo-signup.ts`. Proven end to end: 11 of 11 checks on the real path
+   (signup, refused unconfirmed sign-in, Mailpit confirmation link, sign-in,
+   `complete-signup` NGO, four database rows read over `DB_URL`). Evidence:
+   `loop/verify-evidence/2026-08-31T20-25-26/transcript.json`.
 5. Run one item with [`/controller <id>`](../controller/SKILL.md). It ends inside the item's
    worktree. Type `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the
    same session. When CI is green on the pull request, say "merge". The lead merges and
@@ -588,3 +592,9 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. Reflect runs on fable@xhigh, one row for all four reflect roles (founder:
   "Reflect should be fable@xhigh"). The sol tooling lane and its missing-MCP exception are
   gone; every why and reflect lane is native Claude with the full MCP surface.
+- 2026-08-31. The verification skill exists: `verify-ai4good` drives the real local surface
+  (auth with mandatory confirmation, Mailpit, the three edge functions, Postgres readback
+  over DB_URL) and is proven 11-for-11. Two facts it recorded: the started stack serves the
+  edge functions itself, and the service role has no SELECT grant on organizations or
+  acknowledgments, so evidence readback goes to Postgres, not REST. Bring-up step 5, the
+  pilot item, is the one step left.
