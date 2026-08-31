@@ -106,7 +106,7 @@ flowchart TB
     subgraph S2["2 Design arena. /architect and /arena"]
       direction TB
       D1["Lead (fable) writes a rubric of 3 to 6 criteria. Runners never see it"]
-      D2["Runners each design the whole thing, with a rationale<br/>architect runners = fable@max, sol@max, grok@xhigh"]
+      D2["Runners each design the whole thing, with a rationale. The lead assigns each runner a distinct structural direction<br/>architect runners = fable@max, sol@max, grok@xhigh<br/>Wide solution space: add deepseek@max and glm@max lanes"]
       D3["Lead (fable) screens each design for red flags:<br/>shallow module, information leakage, temporal decomposition, pass-through"]
       D4["One judge scores each design against the rubric. Its provider differs from the lead's and the front-runner's<br/>arena cross-judge pool = sol@max, grok@xhigh, deepseek@max, glm@max. Opus@max only when the others drop out"]
       D5["Lead (fable) reads every design, picks a base, grafts the best parts of the others"]
@@ -249,7 +249,7 @@ means the lead does the work itself and no sheet role applies.
 | # | station | who acts | sheet roles | loop or exit |
 |---|---|---|---|---|
 | 1 | Ground ([`/how`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/how/SKILL.md)) | Two to four explorers with disjoint slices, then one explainer, then the critics. The critics run on every item: the brief asks for the ground in critique mode (founder 2026-08-30). | `how explorer`, `how explainer`, `how critics` | The lead rules each critic finding: Act on, Consider, Noted, or Dismissed. |
-| 2 | Design arena ([`/architect`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/architect/SKILL.md), [`/arena`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/arena/SKILL.md)) | Runners fan out, each with a rationale. Cross-judges score against a rubric of three to six criteria that the runners never see. The design-red-flags screen runs on every candidate. The lead reads every candidate end to end, picks a base, and grafts the best parts of the others. | `architect runners`, `arena runners`, `arena cross-judge pool` | If the candidates converge, ship the design. If they diverge, reframe the task and run the arena again. |
+| 2 | Design arena ([`/architect`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/architect/SKILL.md), [`/arena`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/arena/SKILL.md)) | Runners fan out, each with a rationale. The lead assigns each runner a distinct structural direction, so smart models do not converge on the same respectable design. When the item has a wide solution space, it touches more than one subsystem or adds a data shape, the lead adds deepseek@max and glm@max lanes. The judge scores against a rubric of three to six criteria that the runners never see. The design-red-flags screen runs on every candidate. The lead reads every candidate end to end, picks a base, and grafts the best parts of the others. | `architect runners`, `arena runners`, `arena cross-judge pool` | If the candidates converge, ship the design. If they diverge, reframe the task and run the arena again. |
 | 3 | Throughput checkpoint | The lead writes four todos. A todo that does not apply stays as `n/a: <reason>`. | Lead | None. |
 | 4 | Write | One delegated writer per unit, in its own worktree, in isolated-write mode. The writer is a leaf and spawns nothing. The writer first writes the failing test from the lead's acceptance criteria, watches it fail, then implements. A unit that still has a real shape choice, such as error handling, an abstraction layer, or test structure, goes to the arena instead of one writer. | `feature, refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `hardest tasks` | The writer reports `BLOCKED`, a list of deviations, or a partial result at its time limit. The lead escalates (section 6). |
 | 5 | Diff against the sketch | The lead reads the diff against the design. Each deviation is one of: the sketch was wrong, a requirement was missed, or the writer overreached. | Lead | A pattern of deviations sends the item back to station 2. |
@@ -545,3 +545,6 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
   a second Claude candidate is a near-duplicate of fable's at full design-package cost. The
   runners are fable@max, sol@max, grok@xhigh (founder: "D2 is not logical to have bothe
   fable@max here and opus@max").
+- 2026-08-31. Variety at D2 is tailored two ways: the lead assigns each runner a distinct
+  structural direction, and a wide-solution-space item adds deepseek@max and glm@max lanes
+  (founder: "what should we tailer variety as well as intelliegence ?").

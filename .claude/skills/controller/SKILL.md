@@ -117,6 +117,9 @@ Acceptance tests: <paths under tests/at/suites/ that this item must turn green>
 Run this item in poteto-mode, end to end, and open one pull request from this branch.
 Ground it with /how in critique mode first: explorers, explainer, then the critics, on
 every item.
+In the design arena, give every runner a distinct structural direction, so the candidates
+do not converge on one design. If this item touches more than one subsystem or adds a data
+shape, add deepseek@max and glm@max runner lanes on top of the sheet's three.
 Tool-heavy work without judgment goes to the mechanical agent with exact instructions: the
 rebase into ordered commits, the per-commit builds and tests, driving the verify skill and
 capturing its evidence, and the closing commands. You decide and you judge the evidence; it
