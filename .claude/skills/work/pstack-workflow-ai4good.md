@@ -568,3 +568,7 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
   include and verifier lines are in the user CLAUDE.md, five families probed green, grok is
   a recorded failed probe at opencode's 4.6 upstream, and the smoke panel passed four for
   four under an opus judge.
+- 2026-08-31. The deployed sheet gets a repo-tracked twin:
+  `loop/work/pstack-models.expected.md`, checked by `loop/work/sheet-check.ps1`. A model
+  decision updates the docs and the expected copy in one commit, then the expected copy is
+  copied over the deployed sheet and the check proves they match.
