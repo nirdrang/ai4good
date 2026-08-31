@@ -126,7 +126,7 @@ flowchart TB
     subgraph S4["4 Write. One unit at a time"]
       direction TB
       X1["Lead (fable) writes the unit brief: the files it may touch, the data shape, the acceptance criteria"]
-      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = grok@xhigh<br/>bug-fix, perf-issue, hillclimb = sol@max<br/>A unit that still has a real shape choice, such as error handling, an abstraction layer, or test structure, goes to the arena instead"]
+      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = grok@xhigh<br/>bug-fix, perf-issue, hillclimb = sol@xhigh<br/>A unit that still has a real shape choice, such as error handling, an abstraction layer, or test structure, goes to the arena instead"]
       X3["Writer writes the failing test first"]
       X4["Writer watches it fail"]
       X5["Writer makes it pass. Commits"]
@@ -281,9 +281,9 @@ entry runs per arena.
 | sheet role | station | pstack default | first write | target |
 |---|---|---|---|---|
 | `feature, refactoring` | 4 | grok@xhigh | grok@xhigh | grok@high |
-| `bug-fix` | 4 | sol@max | sol@max | sol@high |
-| `perf-issue` | 4 | sol@max | sol@max | sol@high |
-| `hillclimb` | 4 | sol@max | sol@max | sol@high |
+| `bug-fix` | 4 | sol@max | sol@xhigh | sol@xhigh |
+| `perf-issue` | 4 | sol@max | sol@xhigh | sol@xhigh |
+| `hillclimb` | 4 | sol@max | sol@xhigh | sol@xhigh |
 | `hardest tasks` | 4 | fable@max | fable@max | fable@max |
 | `judgment and prose` | 9 | fable@max | fable@max | fable@max |
 | `how explorer` | 1 | grok@xhigh | sol@high | sol@high |
@@ -551,3 +551,6 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. The deepseek and glm family models are the flash variants: 
   `opencode-go/deepseek-v4-flash` and `opencode-go/glm-5.3-flash`, ladders low, high, max
   (founder correction). The pro and plain variants move to the later-trials list.
+- 2026-08-31. The sol writer roles, bug-fix, perf-issue, hillclimb, run at xhigh, one step
+  below the ceiling (founder: "sol@xhigh on X2"). Raising sol to max becomes a real rung on
+  the escalation ladder.
