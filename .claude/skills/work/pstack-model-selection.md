@@ -71,7 +71,25 @@ These were measured on the v1 relay. The models are the same, so the findings ca
 - `inherit-parent` roles (`why`, `reflect`) stay on the session model because external lanes
   never get the MCP surface.
 
-## 5. Open questions
+## 5. Fallback when fable is out of credit
+
+Nothing falls back on its own: the platform's fallback model never fires on a billing error
+(measured in v1), and pstack records a dead lane as a dropout rather than substituting. The
+manual procedure, two moves:
+
+1. The lead: type `/model opus` in the session. The item continues. Type `/model fable` when
+   credit returns.
+2. The sheet: hand-edit [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md)
+   and swap every `claude:claude-fable-5` descriptor to `claude:claude-opus-5`: `hardest
+   tasks` to `@max`, `how explainer` to `@high`, and the fable lane in `how critics`,
+   `architect runners`, `arena runners`, and `interrogate reviewers` to `@max`. Opus is a
+   matrix family, so the rows stay valid at the next setup run. Revert the same lines
+   afterwards.
+
+A session limit is not out of credit. The five-hour window is account-wide and heals itself.
+Never set a timer for the reset, and never fall back for it.
+
+## 6. Open questions
 
 - Panel efforts: `fable@max` and `sol@max` in the panels are the shipped values, untested
   against `@high` for the same recall.
