@@ -97,7 +97,7 @@ flowchart TB
     subgraph S1["1 Ground. /how"]
       direction TB
       G1["Lead (fable) splits the question into 2 to 4 slices"]
-      G2["One explorer per slice, read-only<br/>how explorer = grok@xhigh"]
+      G2["One explorer per slice, read-only<br/>how explorer = sol@high"]
       G3["One explainer merges the notes into one explanation<br/>how explainer = fable@high"]
       G5["Critics, always. Each gets the explanation, the paths, and the 6-lens rubric<br/>how critics = sol@max, grok@xhigh, deepseek@max, glm@max"]
       G6["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
@@ -286,7 +286,7 @@ entry runs per arena.
 | `hillclimb` | 4 | sol@max | sol@max | sol@high |
 | `hardest tasks` | 4 | fable@max | fable@max | fable@max |
 | `judgment and prose` | 9 | fable@max | fable@max | fable@max |
-| `how explorer` | 1 | grok@xhigh | grok@xhigh | grok@high |
+| `how explorer` | 1 | grok@xhigh | sol@high | sol@high |
 | `how explainer` | 1 | fable@max | fable@high | fable@high |
 | `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max | sol@max, grok@xhigh, deepseek@max, glm@max |
 | `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
@@ -538,3 +538,6 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. Fable leaves the critics panel: the ruler is fable, so a fable critic shares
   the ruler's blind spots, and four cross-family lanes remain (founder: "why G5 need
   fable ?"). The panel is sol@max, grok@xhigh, deepseek@max, glm@max.
+- 2026-08-31. `how explorer` moves to sol@high. Opus shares the scarce Claude pool with the
+  lead, and the explorers are the heaviest readers in the flow. Retrieval needs high, not
+  max (founder: "i think either opus or sol").
