@@ -41,7 +41,7 @@ one row of the model matrix.
 ## 2. The shape: one session, controller then mechanic
 
 The chart shows every step of every phase. A step that runs on a sheet role carries the role
-and its model on a second line, as of the first write. The sheet-roles table in section 3 is
+and its model on a second line, as of the current sheet. The sheet-roles table in section 3 is
 the source. "Lead (fable)" is the session's own model. Section 3 gives the same stations as a
 table.
 
@@ -98,15 +98,15 @@ flowchart TB
       direction TB
       G1["Lead (fable) splits the question into 2 to 4 slices"]
       G2["One explorer per slice, read-only<br/>how explorer = sol@high"]
-      G3["One explainer merges the notes into one explanation<br/>how explainer = fable@high"]
-      G5["Critics, always. Each gets the explanation, the paths, and the 6-lens rubric<br/>how critics = sol@max, grok@xhigh, deepseek@max, glm@max"]
+      G3["One explainer merges the notes into one explanation<br/>how explainer = fable@max"]
+      G5["Critics, always. Each gets the explanation, the paths, and the 6-lens rubric<br/>how critics = fable@max, sol@max, grok@xhigh, deepseek@max, glm@max, opus@xhigh"]
       G6["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       G1 --> G2 --> G3 --> G5 --> G6
     end
     subgraph S2["2 Design arena. /architect and /arena"]
       direction TB
       D1["Lead (fable) writes a rubric of 3 to 6 criteria. Runners never see it"]
-      D2["Runners each design the whole thing, with a rationale. The lead assigns each runner a distinct structural direction<br/>architect runners = fable@max, sol@max, grok@xhigh<br/>Wide solution space: add deepseek@max and glm@max lanes"]
+      D2["Runners each design the whole thing, with a rationale. The lead assigns each runner a distinct structural direction<br/>architect runners = fable@max, sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max"]
       D3["Lead (fable) screens each design for red flags:<br/>shallow module, information leakage, temporal decomposition, pass-through"]
       D4["One judge scores each design against the rubric. Its provider differs from the lead's and the front-runner's<br/>arena cross-judge pool = sol@max, grok@xhigh, deepseek@max, glm@max. Opus@max only when the others drop out"]
       D5["Lead (fable) reads every design, picks a base, grafts the best parts of the others"]
@@ -126,13 +126,13 @@ flowchart TB
     subgraph S4["4 Write. One unit at a time"]
       direction TB
       X1["Lead (fable) writes the unit brief: the files it may touch, the data shape, the acceptance criteria"]
-      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = grok@xhigh<br/>bug-fix, perf-issue, hillclimb = sol@xhigh<br/>A unit that still has a real shape choice, such as error handling, an abstraction layer, or test structure, goes to the arena instead"]
+      X2["Lead spawns one writer in its own worktree, isolated-write<br/>feature, refactoring = opus@max<br/>bug-fix, perf-issue, hillclimb = sol@max<br/>A unit that still has a real shape choice, such as error handling, an abstraction layer, or test structure, goes to the arena instead"]
       X3["Writer writes the failing test first"]
       X4["Writer watches it fail"]
       X5["Writer makes it pass. Commits"]
       X6["Writer reports: done, BLOCKED, deviations, or partial"]
       X7{"Clean report?"}
-      X8["Lead (fable) escalates: a fresh writer, more effort, or<br/>hardest tasks = fable@max.<br/>Or re-arena, or scrap. Two retries, then replan"]
+      X8["Lead (fable) escalates: a fresh writer, or<br/>hardest tasks = fable@max,<br/>or re-arena, or scrap. Two retries, then replan"]
       X1 --> X2 --> X3 --> X4 --> X5 --> X6 --> X7
       X7 -- no --> X8 --> X2
     end
@@ -162,7 +162,7 @@ flowchart TB
     subgraph S8["8 Interrogate. /interrogate"]
       direction TB
       I1["Lead (fable) scopes the diff and writes the intent paragraph"]
-      I2["Reviewers, read-only, the same rubric each<br/>interrogate reviewers = fable@max, sol@max, grok@xhigh, deepseek@max, glm@max"]
+      I2["Reviewers, read-only, the same rubric each<br/>interrogate reviewers = fable@max, sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max"]
       I3["Lead (fable) merges the findings: consensus, duplicates out, disagreements listed"]
       I4["Lead (fable) rules each finding: Act on, Consider, Noted, Dismissed"]
       I5{"Any Act on?"}
@@ -173,8 +173,8 @@ flowchart TB
     subgraph S9["9 Ship. opening-a-pr"]
       direction TB
       P1["Lead (fable) runs deslop, no-comments, unslop"]
-      P2["Conventional commit messages<br/>judgment and prose = fable@high"]
-      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification, Not done here<br/>judgment and prose = fable@high"]
+      P2["Conventional commit messages<br/>judgment and prose = fable@max"]
+      P3["Pull request body: Why, Scope, Tradeoffs, Blast Radius, Verification, Not done here<br/>judgment and prose = fable@max"]
       P4["No other item's id in the title or body"]
       P5["Open the pull request. Never a draft"]
       P1 --> P2 --> P3 --> P4 --> P5
@@ -268,9 +268,10 @@ readiness, complexity against value, and consistency. A critic uses the lenses t
 
 The sheet [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md) has one row per role. The table gives every documented
 role with three values. **pstack default** is the first-run value the plugin ships. **First
-write** is what `/pstack:setup-pstack` will write for ai4good: the shipped defaults with the
-grok family on the codex router (section 4). The sheet is not written yet. **Target** is the
-sheet from section 6, applied on a rerun after one item has run on the first write.
+write** is what `/pstack:setup-pstack` wrote on 2026-08-31. **Current** is the founder's
+batch ruling later the same day. The current column is the deployed sheet, mirrored in
+[`loop/work/pstack-models.expected.md`](../../../loop/work/pstack-models.expected.md) and
+checked by [`loop/work/sheet-check.ps1`](../../../loop/work/sheet-check.ps1).
 
 Descriptor shorthand: `fable` is `claude:claude-fable-5`, `sol` is `codex:gpt-5.6-sol`, `grok`
 is `codex:opencode-go-responses/grok-4.6`, `opus` is `claude:claude-opus-5`, `deepseek` is
@@ -278,32 +279,34 @@ is `codex:opencode-go-responses/grok-4.6`, `opus` is `claude:claude-opus-5`, `de
 panel, and the list length is the fan-out count. The judge pool is the one exception: only one
 entry runs per arena.
 
-| sheet role | station | pstack default | first write | target |
+| sheet role | station | pstack default | first write | current |
 |---|---|---|---|---|
-| `feature, refactoring` | 4 | grok@xhigh | grok@xhigh | grok@high |
-| `bug-fix` | 4 | sol@max | sol@xhigh | sol@xhigh |
-| `perf-issue` | 4 | sol@max | sol@xhigh | sol@xhigh |
-| `hillclimb` | 4 | sol@max | sol@xhigh | sol@xhigh |
+| `feature, refactoring` | 4 | grok@xhigh | grok@xhigh | opus@max |
+| `bug-fix` | 4 | sol@max | sol@xhigh | sol@max |
+| `perf-issue` | 4 | sol@max | sol@xhigh | sol@max |
+| `hillclimb` | 4 | sol@max | sol@xhigh | sol@max |
 | `hardest tasks` | 4 | fable@max | fable@max | fable@max |
-| `judgment and prose` | 9 | fable@max | fable@high | fable@high |
+| `judgment and prose` | 9 | fable@max | fable@high | fable@max |
 | `how explorer` | 1 | grok@xhigh | sol@high | sol@high |
-| `how explainer` | 1 | fable@max | fable@high | fable@high |
-| `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max | sol@max, grok@xhigh, deepseek@max, glm@max |
-| `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
-| `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
-| `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh |
+| `how explainer` | 1 | fable@max | fable@high | fable@max |
+| `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max, opus@xhigh |
+| `why investigators` | not a station | inherit-parent | inherit-parent | opus@max |
+| `why synthesizer` | not a station | inherit-parent | inherit-parent | fable@max |
+| `reflect tooling` | not a station | inherit-parent | inherit-parent | sol@max |
+| `reflect judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | fable@max |
+| `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max |
 | `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max |
-| `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | grok@high |
-| `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh |
-| `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max |
+| `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | opus@xhigh |
+| `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max |
+| `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, deepseek@max, glm@max | fable@max, sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max |
 
-The `why` and `reflect` rows stay `inherit-parent` because those skills need the MCP surface,
-which external lanes never get. grok has no `max` in its selectable efforts, so its panel lanes
-stay at `xhigh` in the target. `how explainer` runs on `fable@high` from the first write: the
-explainer writes the one explanation everything downstream reads, so it stays on fable, and it
-writes prose from the explorers' notes, so high effort is enough (founder 2026-08-30). Every
-model decision and every measured finding is in
-[`pstack-model-selection.md`](pstack-model-selection.md).
+The `why` and `reflect` rows are pinned since the batch ruling of 2026-08-31, and the two
+combined rows split because their roles now carry different values. Those roles run on native
+Claude lanes, which keep the MCP surface the skills need. The one exception is `reflect
+tooling` on sol: an external lane never gets the MCP surface, and the founder ruled it anyway.
+If a reflect run needs MCP-backed tooling, the lead says so in its report. grok has no `max`
+in its selectable efforts, so its panel lanes stay at `xhigh`. Every model decision and every
+measured finding is in [`pstack-model-selection.md`](pstack-model-selection.md).
 
 ## 4. The model matrix as it will be configured
 
@@ -351,19 +354,24 @@ To add a model later, edit its matrix row, rerun setup, and let setup probe it. 
 that pstack does not model, such as a verifier rule or a tier map, go in the user-level
 [`CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md) as plain lines. They do not go in the sheet.
 
-## 6. The target sheet, and why it is shaped for escalation
+## 6. The current sheet, and how escalation works
 
-The target sheet was designed on 2026-08-28. Its row values are the **target** column of the
-sheet-roles table in section 3. Apply it on a rerun of setup after one item has run on the
-first write.
+The 2026-08-28 target kept effort headroom as the first escalation step: writers at `@high`,
+three-lane panels, opus in the judge pool only. The founder replaced that design on
+2026-08-31, before the pilot item: every seat runs at or near its family ceiling, and the
+extra views are bought up front. Its row values are the **current** column of the sheet-roles
+table in section 3.
 
-- Writers run at `@high`, not `@max`. The unused effort is the first escalation step.
-- `hardest tasks` is `claude:claude-fable-5@max`. It is the named escalation target.
-- Every panel has three lanes from three vendors: fable, sol, and grok. Two lanes from one
-  family do not add an independent view.
-- Opus appears in `arena cross-judge pool` only, and only as the fallback when sol and grok
-  both drop out. The arena picks a judge whose provider differs from the lead's, and opus is
-  the lead's provider. Its seat exists because setup requires one descriptor per family.
+- The feature and refactoring writer is `opus@max`. The bug-fix, perf-issue, and hillclimb
+  writer is `sol@max`. `hardest tasks` stays `claude:claude-fable-5@max` as the named
+  escalation target.
+- The critics, both runner panels, and the interrogate panel run six lanes: fable@max,
+  sol@max, grok@xhigh, opus@xhigh, deepseek@max, glm@max. Two of the six are Claude lanes;
+  the founder accepted the shared-vendor overlap for the extra view.
+- The judge pool is unchanged: sol@max, grok@xhigh, deepseek@max, glm@max, and opus@max when
+  the others drop out. The arena picks a judge whose provider differs from the lead's and
+  the front-runner's.
+- The why and reflect rows are pinned (section 3). Swarm workers run on `opus@xhigh`.
 - Two lines in the user-level [`CLAUDE.md`](file:///C:/Users/nirdr/.claude/CLAUDE.md): "The verifier is a sonnet-class model from a different
   family than the writer." A tier map (docs, mechanical, standard, sensitive, each with a panel
   width) waits for a founder ruling, because it loosens the process.
@@ -374,8 +382,8 @@ The steps, from cheapest:
 1. In the lane: the writer's own red-green loop and its retries.
 2. The report: `BLOCKED`, a list of deviations, or a partial result at the time limit. Never
    silence.
-3. The lead: respawn fresh, raise the effort, move the unit to `hardest tasks`, run the arena
-   again, or scrap the loop.
+3. The lead: respawn fresh, move the unit to `hardest tasks`, run the arena again, or scrap
+   the loop. The writers already run at their ceilings, so raising effort is not a rung.
 4. A human: irreversible actions, calls that the lead cannot settle, batched at the gates.
 
 After two retries of one unit, abandon it and replan.
@@ -572,3 +580,11 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
   `loop/work/pstack-models.expected.md`, checked by `loop/work/sheet-check.ps1`. A model
   decision updates the docs and the expected copy in one commit, then the expected copy is
   copied over the deployed sheet and the check proves they match.
+- 2026-08-31. The founder's batch ruling rewrites the sheet before the pilot: the feature
+  writer is opus@max and grok becomes panel-only, the sol writers run at max, judgment and
+  prose and the how explainer run at fable@max, the critics and both runner panels and the
+  interrogate panel grow to six lanes with opus@xhigh, swarm workers move to opus@xhigh, and
+  the why and reflect rows leave inherit-parent: why investigators opus@max, why synthesizer
+  fable@max, reflect tooling sol@max, reflect judgment, divergent, and synthesizer fable@max.
+  The table's target column becomes the current column, and section 6 now describes the
+  ceiling-first design.

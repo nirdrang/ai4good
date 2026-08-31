@@ -16,10 +16,10 @@ one entry in a panel role. A **descriptor** is `provider:model@effort`.
 |---|---|---|---|---|
 | fable | `claude:claude-fable-5` | low, medium, high, xhigh, max | native agents | The session's own model. Judgment and prose. The most expensive model here, so it earns its seat only where judgment under uncertainty is the job. |
 | sol | `codex:gpt-5.6-sol` | low, medium, high, xhigh, max | codex CLI | The proven reviewer of v1: gate 1 at xhigh caught a too-weak test oracle and a passing no-op before code existed (2026-08-03). |
-| grok | `codex:opencode-go-responses/grok-4.6` | low, medium, high, xhigh | codex CLI through the router | The plugin's default writer. Kept as the third vendor. Served by the codex router because no Grok CLI is installed (founder 2026-08-29). |
-| opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same provider as fable and the lead, so the arena never prefers it as a judge. Today its one seat is the judge pool fallback. The founder plans opus seats in later phases, the way v1 spared fable by running the merge and audit sittings on opus. Always at `max` (2026-08-30). |
-| deepseek | `codex:opencode-go/deepseek-v4-flash` | low, high, max | codex CLI through the router | v1 evidence for Flash: as reviewer it matched a graded Kimi review and added two real findings with zero false positives; as executor it shipped a false green. Review seats only, never a writer. Seats: a ground critic lane at max and the judge pool. |
-| glm | `codex:opencode-go/glm-5.3-flash` | low, high, max | codex CLI through the router | Untested here. Seats: a ground critic lane at max and the judge pool. Trials decide anything more. |
+| grok | `codex:opencode-go-responses/grok-4.6` | low, medium, high, xhigh | codex CLI through the router | The plugin's default writer; panel-only since 2026-08-31, when opus took the feature seat. Kept as the third vendor. Served by the codex router because no Grok CLI is installed (founder 2026-08-29). Re-probe before first use. |
+| opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same provider as fable and the lead, so the arena never prefers it as a judge. Since the batch ruling of 2026-08-31: the feature and refactoring writer at max, the why investigator at max, a panel lane at xhigh in the critics, both runner panels, and interrogate, the swarm worker at xhigh, and the judge pool fallback at max. The later-phases plan landed here. |
+| deepseek | `codex:opencode-go/deepseek-v4-flash` | low, high, max | codex CLI through the router | v1 evidence for Flash: as reviewer it matched a graded Kimi review and added two real findings with zero false positives; as executor it shipped a false green. It never writes code units. Seats since 2026-08-31: critic, design-runner lanes in both runner panels (a design is a document, not code), interrogate, and the judge pool, all at max. |
+| glm | `codex:opencode-go/glm-5.3-flash` | low, high, max | codex CLI through the router | Untested here. Seats since 2026-08-31: critic, design-runner lanes in both runner panels, interrogate, and the judge pool, all at max. Trials still owed. |
 
 Other models the router serves, for trials: `opencode-go/deepseek-v4-pro` (high, max),
 `opencode-go/kimi-k3` (low, high, max), `opencode-go/glm-5.3` (high, max), `gpt-5.6-luna`
@@ -30,6 +30,13 @@ and `gpt-5.6-terra` (low to max). The full catalog is
 
 | date | decision | reason | source |
 |---|---|---|---|
+| 2026-08-31 | Batch ruling before the pilot: every seat runs at or near its family ceiling. Supersedes the escalation-headroom target of 2026-08-28 and the superseded same-day rows below. | The founder chose maximum capability up front over effort headroom. The escalation ladder is now: respawn fresh, `hardest tasks`, re-arena, scrap. | founder batch, the six rows below |
+| 2026-08-31 | `feature, refactoring` = `opus@max`. grok becomes panel-only. | The opus later-phases plan lands as the writer seat for the largest units. grok's failed probe leaves the writer path; the re-probe note stays for its panel lanes. | founder: "Feature and refactoring should go opus@max" |
+| 2026-08-31 | `bug-fix`, `perf-issue`, `hillclimb` = `sol@max`. | Ceiling over headroom. Supersedes the same-day xhigh row. | founder: "Bugfix,pers issue, hillclimb sol@max" |
+| 2026-08-31 | `judgment and prose` = `fable@max` and `how explainer` = `fable@max`. | Supersedes the same-day and 2026-08-30 "high is enough" rows. | founder batch |
+| 2026-08-31 | `how critics` = fable@max, sol@max, grok@xhigh, deepseek@max, glm@max, opus@xhigh. | Fable rejoins the panel and opus joins at xhigh. Supersedes the fable removal, and narrows "opus always at max" to the writer, investigator, and judge seats. | founder: "How critics: add fable@max opus@xhigh" |
+| 2026-08-31 | The why and reflect rows leave `inherit-parent` and split: `why investigators` = opus@max, `why synthesizer` = fable@max, `reflect tooling` = sol@max, `reflect judgment, divergent, synthesizer` = fable@max. | Native Claude lanes keep the MCP surface, so the MCP reason for inherit-parent does not bind them. `reflect tooling` on sol is an external lane with no MCP surface; flagged, ruled anyway. | founder batch |
+| 2026-08-31 | `arena runners` and `architect runners` = six standing lanes: opus@xhigh, deepseek@max, and glm@max join. `interrogate reviewers` adds opus@xhigh. `swarm workers` = opus@xhigh. | The wide-solution-space conditional lanes become standing lanes. Two Claude lanes now sit in each wide panel; the founder accepted the shared-vendor overlap for the extra view. | founder batch |
 | 2026-08-31 | `judgment and prose` = `fable@high`. | Station 9 is normally the lead itself, writing from its own memory of the decisions. The sheet row fires only for delegated prose, and prose from artifacts needs high, not max, the explainer logic. | founder: "yes fabel@high is enough" |
 | 2026-08-31 | `interrogate reviewers` = fable@max, sol@max, grok@xhigh, deepseek@max, glm@max. Opus out. | Opus was a second Claude lane, the D2 and G5 defect. Flash's proven seat is reviewing, so deepseek and glm join at max. Fable stays: it reviews another family's code, which is the case that earns it a panel seat. The writer's-family lane stays for recall and its silence reads as weak evidence. | founder: "I2 revieweres currently both opus and fabel and no glm and no deepseek" |
 | 2026-08-31 | The sol writer roles, `bug-fix`, `perf-issue`, `hillclimb`, run at `xhigh`. | One step of headroom below the ceiling, so raising sol to max is a real escalation rung instead of a wall. The same reasoning pinned sol at xhigh for v1's plan gate, deliberately one tier below max. | founder: "sol@xhigh on X2" |
@@ -68,15 +75,17 @@ These were measured on the v1 relay. The models are the same, so the findings ca
 - The most expensive model earns a seat only where the job is judgment under uncertainty:
   ruling on findings, designing, the hardest units. Prose and synthesis run one effort step
   down on the same model, or on a cheaper family.
-- Two lanes from one vendor are one view. A panel is three vendors or it is not a panel.
+- Two lanes from one vendor are one view. A panel is three vendors or it is not a panel. The
+  2026-08-31 batch seats fable and opus together in the wide panels; the founder accepted
+  the shared-vendor overlap for the extra lane.
 - pstack calls its shipped efforts minimums and lets the lead raise them. We treat the sheet
   as the ceiling too: a lead that wants more effort says so in its report, and the sheet
   changes on a rerun of setup.
 - A model change is a trial first (section 7 of the workflow file): replay one station, then
   an arena head to head, then one item end to end in two cloud sessions. A false green ends
   the trial.
-- `inherit-parent` roles (`why`, `reflect`) stay on the session model because external lanes
-  never get the MCP surface.
+- The why and reflect rows are pinned to native Claude lanes, which keep the MCP surface.
+  `reflect tooling` on sol is the ruled exception and has no MCP surface (2026-08-31).
 
 ## 5. Fallback when fable is out of credit
 
@@ -87,11 +96,10 @@ manual procedure, two moves:
 1. The lead: type `/model opus` in the session. The item continues. Type `/model fable` when
    credit returns.
 2. The sheet: hand-edit [`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md)
-   and swap every `claude:claude-fable-5` descriptor to `claude:claude-opus-5`: `hardest
-   tasks` to `@max`, `how explainer` to `@high`, and the fable lane in `how critics`,
-   `architect runners`, `arena runners`, and `interrogate reviewers` to `@max`. Opus is a
-   matrix family, so the rows stay valid at the next setup run. Revert the same lines
-   afterwards.
+   and swap every `claude:claude-fable-5` descriptor to `claude:claude-opus-5@max` (every
+   fable row is at max since 2026-08-31). In a panel where opus already holds a lane, drop
+   the fable lane instead of seating opus twice. Opus is a matrix family, so the rows stay
+   valid at the next setup run. Revert the same lines afterwards.
 
 A session limit is not out of credit. The five-hour window is account-wide and heals itself.
 Never set a timer for the reset, and never fall back for it.
@@ -102,12 +110,13 @@ Never set a timer for the reset, and never fall back for it.
   against `@high` for the same recall.
 - terra and luna have v1 evidence as reviewers and no seat in the first write. Candidates for
   `interrogate reviewers` on the first rerun.
-- deepseek-v4-flash as an `interrogate reviewers` lane: the family now exists, the trial does
-  not yet. As a writer it is disqualified by the v1 false green. deepseek-v4-pro, the
-  writer-candidate variant, stays on the later-trials list.
-- There is no verifier role. Station 6 runs on the lead.
-- Opus keeps its family seat. The founder plans opus seats in later phases (founder
-  2026-08-30: "We will have opus in later phases"), the way v1 ran its merge and audit
-  sittings on opus to spare fable. Until those seats exist, its one row is the judge pool
-  fallback. A fourth vendor, `opencode-go/deepseek-v4-pro` or `opencode-go/kimi-k3`, would
-  be a fifth family in the matrix, not opus's replacement.
+- deepseek and glm hold critic, design-runner, interrogate, and judge seats by ruling with no
+  ai4good trial yet. The v1 Flash evidence covers review only, and as code writers they stay
+  disqualified by the v1 false green. deepseek-v4-pro, the writer-candidate variant, stays on
+  the later-trials list.
+- There is no verifier role. Station 6 evidence is judged by the lead; the `mechanical` agent
+  drives the skill.
+- The opus later-phases plan landed 2026-08-31: the feature writer at max, the why
+  investigator at max, panel lanes at xhigh, swarm workers at xhigh. Open: what the opus@max
+  feature writer costs on the pilot item, and how much of the shared Claude pool the seats
+  spend next to the lead.
