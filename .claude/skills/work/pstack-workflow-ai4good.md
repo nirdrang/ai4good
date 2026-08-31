@@ -106,7 +106,7 @@ flowchart TB
     subgraph S2["2 Design arena. /architect and /arena"]
       direction TB
       D1["Lead (fable) writes a rubric of 3 to 6 criteria. Runners never see it"]
-      D2["Runners each design the whole thing, with a rationale<br/>architect runners = fable@max, sol@max, grok@xhigh, opus@max"]
+      D2["Runners each design the whole thing, with a rationale<br/>architect runners = fable@max, sol@max, grok@xhigh"]
       D3["Lead (fable) screens each design for red flags:<br/>shallow module, information leakage, temporal decomposition, pass-through"]
       D4["One judge scores each design against the rubric. Its provider differs from the lead's and the front-runner's<br/>arena cross-judge pool = sol@max, grok@xhigh, deepseek@max, glm@max. Opus@max only when the others drop out"]
       D5["Lead (fable) reads every design, picks a base, grafts the best parts of the others"]
@@ -291,10 +291,10 @@ entry runs per arena.
 | `how critics` | 1 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max | sol@max, grok@xhigh, deepseek@max, glm@max |
 | `why investigators, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
 | `reflect tooling, judgment, divergent, synthesizer` | not a station | inherit-parent | inherit-parent | inherit-parent |
-| `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
+| `arena runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh |
 | `arena cross-judge pool` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max | sol@max, grok@xhigh, deepseek@max, glm@max, opus@max |
 | `swarm workers` | any `/swarm` call | grok@xhigh | grok@xhigh | grok@high |
-| `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
+| `architect runners` | 2 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh | fable@max, sol@max, grok@xhigh |
 | `interrogate reviewers` | 8 | fable@max, sol@max, grok@xhigh, opus@xhigh | fable@max, sol@max, grok@xhigh, opus@max | fable@max, sol@max, grok@xhigh |
 
 The `why` and `reflect` rows stay `inherit-parent` because those skills need the MCP surface,
@@ -541,3 +541,7 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. `how explorer` moves to sol@high. Opus shares the scarce Claude pool with the
   lead, and the explorers are the heaviest readers in the flow. Retrieval needs high, not
   max (founder: "i think either opus or sol").
+- 2026-08-31. Opus leaves the design runners, both `architect runners` and `arena runners`:
+  a second Claude candidate is a near-duplicate of fable's at full design-package cost. The
+  runners are fable@max, sol@max, grok@xhigh (founder: "D2 is not logical to have bothe
+  fable@max here and opus@max").
