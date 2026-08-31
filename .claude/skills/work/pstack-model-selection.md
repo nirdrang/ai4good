@@ -18,8 +18,8 @@ one entry in a panel role. A **descriptor** is `provider:model@effort`.
 | sol | `codex:gpt-5.6-sol` | low, medium, high, xhigh, max | codex CLI | The proven reviewer of v1: gate 1 at xhigh caught a too-weak test oracle and a passing no-op before code existed (2026-08-03). |
 | grok | `codex:opencode-go-responses/grok-4.6` | low, medium, high, xhigh | codex CLI through the router | The plugin's default writer. Kept as the third vendor. Served by the codex router because no Grok CLI is installed (founder 2026-08-29). |
 | opus | `claude:claude-opus-5` | low, medium, high, xhigh, max | native agents | Same provider as fable and the lead, so the arena never prefers it as a judge. Today its one seat is the judge pool fallback. The founder plans opus seats in later phases, the way v1 spared fable by running the merge and audit sittings on opus. Always at `max` (2026-08-30). |
-| deepseek | `codex:opencode-go/deepseek-v4-pro` | high, max | codex CLI through the router | v1 evidence: 3.5 recall on the graded gate with zero false positives, and a clean executor run on a well-specified plan. Seats: a ground critic lane at max and the judge pool. Candidate reviewer and writer, through the trial ladder. |
-| glm | `codex:opencode-go/glm-5.3` | low, high, max | codex CLI through the router | Untested here. Seats: a ground critic lane at max and the judge pool. Trials decide anything more. |
+| deepseek | `codex:opencode-go/deepseek-v4-flash` | low, high, max | codex CLI through the router | v1 evidence for Flash: as reviewer it matched a graded Kimi review and added two real findings with zero false positives; as executor it shipped a false green. Review seats only, never a writer. Seats: a ground critic lane at max and the judge pool. |
+| glm | `codex:opencode-go/glm-5.3-flash` | low, high, max | codex CLI through the router | Untested here. Seats: a ground critic lane at max and the judge pool. Trials decide anything more. |
 
 Other models the router serves, for trials: `opencode-go/deepseek-v4-pro` (high, max),
 `opencode-go/kimi-k3` (low, high, max), `opencode-go/glm-5.3` (high, max), `gpt-5.6-luna`
@@ -99,8 +99,9 @@ Never set a timer for the reset, and never fall back for it.
   against `@high` for the same recall.
 - terra and luna have v1 evidence as reviewers and no seat in the first write. Candidates for
   `interrogate reviewers` on the first rerun.
-- deepseek as a reviewer lane and as a writer on hard units: the family now exists, the
-  trials do not yet.
+- deepseek-v4-flash as an `interrogate reviewers` lane: the family now exists, the trial does
+  not yet. As a writer it is disqualified by the v1 false green. deepseek-v4-pro, the
+  writer-candidate variant, stays on the later-trials list.
 - There is no verifier role. Station 6 runs on the lead.
 - Opus keeps its family seat. The founder plans opus seats in later phases (founder
   2026-08-30: "We will have opus in later phases"), the way v1 ran its merge and audit

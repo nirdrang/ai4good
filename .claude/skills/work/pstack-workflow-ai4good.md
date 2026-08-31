@@ -274,7 +274,7 @@ sheet from section 6, applied on a rerun after one item has run on the first wri
 
 Descriptor shorthand: `fable` is `claude:claude-fable-5`, `sol` is `codex:gpt-5.6-sol`, `grok`
 is `codex:opencode-go-responses/grok-4.6`, `opus` is `claude:claude-opus-5`, `deepseek` is
-`codex:opencode-go/deepseek-v4-pro`, and `glm` is `codex:opencode-go/glm-5.3`. A list is a
+`codex:opencode-go/deepseek-v4-flash`, and `glm` is `codex:opencode-go/glm-5.3-flash`. A list is a
 panel, and the list length is the fan-out count. The judge pool is the one exception: only one
 entry runs per arena.
 
@@ -316,8 +316,8 @@ The shipped matrix lives in [`provider-dispatch.md`](file:///C:/Users/nirdr/.cla
 | sol | codex | gpt-5.6-sol | max | low, medium, high, xhigh, max | external runner |
 | grok | codex | opencode-go-responses/grok-4.6 | xhigh | low, medium, high, xhigh | external runner. Our change (founder 2026-08-29). |
 | opus | claude | claude-opus-5 | max | low, medium, high, xhigh, max | native agents `pstack-opus-<effort>`. Our change: the shipped default is xhigh (founder 2026-08-30). |
-| deepseek | codex | opencode-go/deepseek-v4-pro | high | high, max | external runner. Our addition (founder 2026-08-31). |
-| glm | codex | opencode-go/glm-5.3 | high | low, high, max | external runner. Our addition (founder 2026-08-31). |
+| deepseek | codex | opencode-go/deepseek-v4-flash | high | low, high, max | external runner. Our addition (founder 2026-08-31). |
+| glm | codex | opencode-go/glm-5.3-flash | high | low, high, max | external runner. Our addition (founder 2026-08-31). |
 
 The matrix edits live in one plugin cache file,
 [`provider-dispatch.md`](file:///C:/Users/nirdr/.claude/plugins/cache/open-pstack/pstack/1.2.0/skills/poteto-mode/references/provider-dispatch.md).
@@ -333,7 +333,7 @@ writes the sheet and adds one line, `@~/.claude/pstack-models.md`, to the user-l
 stops setup.
 
 Other router models available for later trials: `opencode-go/deepseek-v4-pro` (high, max),
-`opencode-go/kimi-k3` (low, high, max), `opencode-go/glm-5.3` (high, max), `gpt-5.6-luna` and
+`opencode-go/glm-5.3` (high, max), `opencode-go/kimi-k3` (low, high, max), `gpt-5.6-luna` and
 `gpt-5.6-terra` (low to max). This list is partial.
 [`~/.codex/codex-router/merged-models.json`](file:///C:/Users/nirdr/.codex/codex-router/merged-models.json)
 holds the full catalog.
@@ -548,3 +548,6 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. Variety at D2 is tailored two ways: the lead assigns each runner a distinct
   structural direction, and a wide-solution-space item adds deepseek@max and glm@max lanes
   (founder: "what should we tailer variety as well as intelliegence ?").
+- 2026-08-31. The deepseek and glm family models are the flash variants: 
+  `opencode-go/deepseek-v4-flash` and `opencode-go/glm-5.3-flash`, ladders low, high, max
+  (founder correction). The pro and plain variants move to the later-trials list.
