@@ -424,6 +424,41 @@ told the truth.
   request's Verification section, and CI green on the final head. Nobody runs the suite a
   second time. The merge gate is CI green on the exact head and the founder's "merge".
 
+### The loop tree under pstack
+
+pstack prescribes no file tree. `loop/` is ours, and in v2 it holds only what the controller
+and the lead need. The v1 forms freeze as history (founder 2026-09-01: "i want to be aligned
+with pstack way of work").
+
+Live:
+
+- `loop/decomp/` — the per-requirement criteria pins the briefs quote. The PM tree stays the
+  ratified source.
+- `loop/items/<item>/` — one folder per item: `brief.md` (the controller writes it),
+  `artifacts/` (everything the evidence bar cites: arena scorecards, interrogate rulings, the
+  verify transcript), and the lead's canon file at phase boundaries. pstack outputs land here
+  in their own pstack shape — never re-dressed as v1 forms.
+- `loop/work/` — live helper scripts (`sheet-check.ps1`, `render-mermaid.ps1`, the expected
+  sheet). `db-slots.ps1` leaves with the slot item.
+- `loop/drills/records/` — dated measurement and setup records.
+- `loop/verify-evidence/` — itemless verify drives only; an item's drive goes to its own
+  `artifacts/`.
+
+Frozen, read-only v1 history — no new files in these forms: `loop/state/*.jsonl` (the relay's
+decision, lesson, and score ledgers; `/pstack:reflect` is the v2 way when reflection is
+wanted), `loop/prompts/`, `loop/out/`, `loop/bringup/`, and the gate-form files inside old
+item folders (plan.md, gate rulings, distillates, pending ledgers).
+
+What replaces each v1 form:
+
+| v1 form | v2 equivalent |
+|---|---|
+| plan.md and gate 1 rulings | the arena designs, the judge's scorecard, the lead's graft note |
+| gate 2 and audit rulings | interrogate findings and the lead's rulings on them |
+| verify-first record | the verify-ai4good transcript |
+| pending-ledger | the pull request's "Not done here" list |
+| state jsonl ledgers | `/pstack:reflect`, invoked when wanted, never a standing step |
+
 ## 10. How to finish the bring-up
 
 Done: the plugin is installed, the session-start hook is kept, the project [`CLAUDE.md`](../../../CLAUDE.md) is lean,
@@ -592,6 +627,17 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
 - 2026-08-31. Reflect runs on fable@xhigh, one row for all four reflect roles (founder:
   "Reflect should be fable@xhigh"). The sol tooling lane and its missing-MCP exception are
   gone; every why and reflect lane is native Claude with the full MCP surface.
+- 2026-09-01. The loop tree is defined for v2 (section 9): decomp, items (brief + artifacts +
+  canon), work helpers, drill records, and itemless verify evidence stay live; the v1 forms —
+  state ledgers, prompts, out, bringup, and the gate-form files in old item folders — freeze
+  as read-only history. pstack outputs land in the item folder in their own shape (founder:
+  "i want to be aligned with pstack way of work").
+- 2026-09-01. Founder ruling: the slot machinery moves out of the acceptance harness ("no
+  more slots machinery this should be moved out"). Scope: `tests/at/harness/db-pool.ts` and
+  its selftest, the slot-shaped parts of `attestation.ts` and `live-email.ts`, the runner's
+  integration-tier slot occupancy, and `loop/work/db-slots.ps1`. The integration tier targets
+  the one stack on the 44321 block instead. This is an item for the board, not a chat-side
+  edit; it is the natural pilot for `/controller`.
 - 2026-08-31. The verification skill exists: `verify-ai4good` drives the real local surface
   (auth with mandatory confirmation, Mailpit, the three edge functions, Postgres readback
   over DB_URL) and is proven 11-for-11. Two facts it recorded: the started stack serves the
