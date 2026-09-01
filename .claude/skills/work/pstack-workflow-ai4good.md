@@ -638,6 +638,16 @@ sheet and the user-level CLAUDE.md survive. Do these steps after every update:
   integration-tier slot occupancy, and `loop/work/db-slots.ps1`. The integration tier targets
   the one stack on the 44321 block instead. This is an item for the board, not a chat-side
   edit; it is the natural pilot for `/controller`.
+- 2026-09-01. Founder ruling, wider: the v1 ceremony leaves the codebase and CI aligns ("i
+  want to clean the codebase with the v1 ceremony and align with what is does on CI as
+  well"). Beyond the slot scope above: the v1 relay agents (conductor, orchestrator,
+  orchestrator-opus, executor, reviewer-runner, distiller — `mechanical` stays), the v1
+  scripts in `loop/work/` that served them (twin-check, stamp-hook, attribution, watch-items,
+  work-lib, materialize), the old `/work` skill prose, the CI twin-guard step, and the
+  freeze of the bespoke harness machinery (sentinels, faults, vendor sims, oracles, fixture
+  worlds): new tests are plain vitest against shipped modules or the one stack. Keep: the
+  AT ids and `.taskmaster/docs/acceptance/`, `at:check`, the `--expect` manifests, the loop
+  tier in CI, the ownership and reference guards. Park, never delete. One board item.
 - 2026-08-31. The verification skill exists: `verify-ai4good` drives the real local surface
   (auth with mandatory confirmation, Mailpit, the three edge functions, Postgres readback
   over DB_URL) and is proven 11-for-11. Two facts it recorded: the started stack serves the
