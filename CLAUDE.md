@@ -93,7 +93,7 @@ its full text stays in that section and returns with the stamp.
 ---
 ## Communication: simple English, never shorthand (founder instruction, stated repeatedly — 2026-07-16, 2026-07-18 and 2026-07-28)
 
-**ALWAYS USE ASD-STE100 SIMPLIFIED TECHNICAL ENGLISH (MUST-FOLLOW, founder 2026-08-09).** This
+**Use ASD-STE100 Simplified Technical English for everything written for a person (founder 2026-08-09).** This
 is the aerospace controlled-language standard, and it applies to everything written for a
 person: replies, reports, plans, board items, commit and pull-request bodies, and the process
 files. What it means in practice:
@@ -120,11 +120,10 @@ their own. Rules:
   Linear into a PM tree and a dev tree" — not just "d82".
 - Requirement and decision numbers are fine as references, but always next to a plain
   description, never instead of one.
-- **NEVER PRINT A BARE ITEM NUMBER — always `id (very short title)` in PARENTHESES
-  (MUST-FOLLOW, founder instruction 2026-08-01: *"always have in wrapped in () a very short
+- **Print every item id as `id (very short title)`, never bare
+  (founder instruction 2026-08-01: *"always have in wrapped in () a very short
   text title for an item so no more AIPM-12 or AIDEV-14 without a quick text recall for me"*).**
-  Write `AI4DEV-19 (H3 sentinels)` — never `AI4DEV-19` alone, and not the dash-and-full-title
-  shape this rule had earlier the same day.
+  Write `AI4DEV-19 (H3 sentinels)`, never `AI4DEV-19` alone.
   - **Very short means a RECALL HINT, not the real title:** two to five words. Linear titles
     are often a whole sentence; shorten them, never paste them. `AI4DEV-35 (short titles in
     parens)`, not `AI4DEV-35 (Every item id printed to the founder carries a very short title
@@ -156,8 +155,7 @@ their own. Rules:
   thorough the explanation, the more items it cites, and the item most likely to be cited is the
   one someone is actively working.
   - **There is NO safe reference word.** `ref`, `references`, `part of`, `related to`,
-    `contributes to` and `towards` all link the item and all move it. Earlier guidance here
-    recommended them, and that advice caused the very defect it was meant to prevent.
+    `contributes to` and `towards` all link the item and all move it.
   - Name other items **in words**: *"the item that landed the relay"*, *"the requirement above
     this one"*. TWO exceptions only: the branch's own item — that link is what closes it — and,
     since the batching mode (founder 2026-08-11), **a batch partner's closes-line**: one line of
