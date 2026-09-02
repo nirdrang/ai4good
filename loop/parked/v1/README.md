@@ -33,10 +33,10 @@ through it. The selftest — 9 describe blocks, 33 tests — went with it; each 
 no longer runs. Parked on 2026-09-02, when the integration tier moved to the one stack
 described by this tree's own `supabase/config.toml`.
 
-One residual of the identity read that replaced it, recorded here as well as in `runner.ts`
+One residual of the identity read that replaced it, recorded here as well as in `local-stack.ts`
 (`containerNames`): the own-container match is a suffix match, so a container of a project whose
 id ends in `_<this project id>` would count as this project's. No such project exists on this
-machine.
+machine. The lock that serialises a destructive run against that stack lives in the same module.
 
 ## loop/work/db-slots.ps1
 

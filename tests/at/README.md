@@ -81,3 +81,7 @@ already invokes it changed meaning.
   Rejecting it needs a source-inspection pass, filed as its own item (AI4DEV-37). The threat model
   is a suite drifting from its harness with nobody able to notice — an honest mistake that
   type-checks green — not an author set on defeating the type system, who can always write a cast.
+
+The integration tier's one stack — the identity read, the lock, the reset, the migration proof,
+and the evidence line — lives in `harness/local-stack.ts`. The runner in `harness/runner.ts` grades
+per AT id and imports that module; it is not the home of the identity read or the lock.
