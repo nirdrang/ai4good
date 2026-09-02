@@ -17,11 +17,10 @@ import {
 import { REPO_ROOT } from './check.ts';
 import { ControlledClock, createAttestedRealClock } from './clock.ts';
 import { createConfigRegistry, type ConfigRegistry } from './config.ts';
-import type { AtHarness, Faults, SemanticOracle, Sentinels, StaticScan, Vendors } from './contracts.ts';
+import type { AtHarness, Faults, Sentinels, StaticScan, Vendors } from './contracts.ts';
 import { createFaults, type AdapterFaultSeam } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore } from './fixtures.ts';
 import { createLiveEmail, type LiveVendors } from './live-email.ts';
-import { createOracleCapability } from './oracles.ts';
 import { createSentinels, type AdapterSentinelSeam } from './sentinels.ts';
 import { createEmailProviderSim, type EmailProviderPort } from './vendors.ts';
 import type { ConfigOverrides, Tier } from './registry.ts';
@@ -158,7 +157,6 @@ export type CapabilityLedger = {
   readonly sentinels: Capability<Sentinels>;
   readonly faults: Capability<Faults>;
   readonly vendors: Capability<Vendors | LiveVendors>;
-  readonly oracles: Capability<SemanticOracle>;
   /** one entry per key the fixture adapter exports under `sut`, named `sut.<key>` */
   readonly sut: readonly Capability<unknown>[];
   /** every entry above, in construction order — what `stubbedCapabilities()` reads */
@@ -198,11 +196,6 @@ export async function buildCapabilityLedger(opts: {
   const sentinels = witnessedCapability('sentinels.planted', createSentinels(adapter.sentinels));
   const faults = witnessedCapability('faults.injection', createFaults(adapter.faults));
   const vendors: Capability<Vendors> = witnessedCapability('vendors.email', { email: provider.sim });
-  // The vote count comes from the at-config registry through `config.value`, which is why this is
-  // built after it. An override naming an unusable count fails HERE rather than at whichever test
-  // first judged something. `oracles.ts` hands the constructor the tier and the transport's kind
-  // brand — the two facts no witness could read off the oracle object itself.
-  const oracles = createOracleCapability({ tier: opts.tier, config: config.value });
   // NOTHING LOOKS A SUT NAME UP. This is the only thing that ever constructs one, and it registers
   // whatever keys the adapter exports, on the adapter-derived route — so there is no table entry to
   // omit and no name to mistype into existence. The runner's disposable black-box adapters export
@@ -218,9 +211,8 @@ export async function buildCapabilityLedger(opts: {
     sentinels,
     faults,
     vendors,
-    oracles,
     sut,
-    all: [clock, fixtures, config, sentinels, faults, vendors, oracles, ...sut],
+    all: [clock, fixtures, config, sentinels, faults, vendors, ...sut],
     teardown: async () => {
       await adapter.teardown();
       await worlds.teardown();
@@ -373,7 +365,6 @@ async function buildLiveLedger(opts: {
     const fixtures = adapterDerivedCapability('fixtures.worlds', adapter.fixtures, moduleUrl);
     const sentinels = witnessedCapability('sentinels.planted', createSentinels(adapter.sentinels));
     const faults = witnessedCapability('faults.injection', createFaults(adapter.faults));
-    const oracles = createOracleCapability({ tier: opts.tier, config: config.value });
     const sut: Capability<unknown>[] = Object.entries(adapter.sut).map(([key, value]) =>
       adapterDerivedCapability(`${SUT_PREFIX}${key}`, value, moduleUrl),
     );
@@ -384,9 +375,8 @@ async function buildLiveLedger(opts: {
       sentinels,
       faults,
       vendors,
-      oracles,
       sut,
-      all: [clock, fixtures, config, sentinels, faults, vendors, oracles, ...sut],
+      all: [clock, fixtures, config, sentinels, faults, vendors, ...sut],
       teardown: async () => {
         await adapter.teardown();
         await worlds.teardown();
@@ -403,7 +393,6 @@ async function buildLiveLedger(opts: {
   const fixtures = liveFixturesCapability(adapter.fixtures, attestation);
   const sentinels = witnessedCapability('sentinels.planted', createSentinels(adapter.sentinels));
   const faults = witnessedCapability('faults.injection', createFaults(adapter.faults));
-  const oracles = createOracleCapability({ tier: opts.tier, config: config.value });
 
   // METHOD-LEVEL BACKING, one key at a time. Nothing is granted `real` by prefix: each key's verdict
   // is about ITS OWN closed enumeration, and every method outside it refuses at use by name.
@@ -436,9 +425,8 @@ async function buildLiveLedger(opts: {
     sentinels,
     faults,
     vendors,
-    oracles,
     sut,
-    all: [clock, fixtures, config, sentinels, faults, vendors, oracles, ...sut],
+    all: [clock, fixtures, config, sentinels, faults, vendors, ...sut],
     teardown: async () => {
       await adapter.teardown();
       await worlds.teardown();
@@ -499,7 +487,6 @@ export async function createHarness(opts: {
     // changed, and `tests/at/expected/req-016.json` states the same one name for the same reason.
     static: pendingCapability<StaticScan>('H3 static provider scan'),
     vendors: ledger.vendors.value as AtHarness['vendors'],
-    oracles: ledger.oracles.value,
     config: ledger.config.value,
     teardown: async () => {
       if (tornDown) return;

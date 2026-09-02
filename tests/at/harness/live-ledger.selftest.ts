@@ -579,7 +579,6 @@ describe('the loop tier is untouched', () => {
       expect(stubbedCapabilityNames(ledger.all)).toEqual([
         'clock.controlled',
         'fixtures.worlds',
-        'oracles.judge',
         'sut.notifications',
         'vendors.email',
       ]);
@@ -589,7 +588,6 @@ describe('the loop tier is untouched', () => {
       expect(ledger.config.realEvidence).toContain('article');
       expect(ledger.sentinels.realEvidence).toContain('article');
       expect(ledger.faults.realEvidence).toContain('article');
-      expect(ledger.oracles.standInReason).toContain('replay-fs');
     } finally {
       await ledger.teardown();
     }

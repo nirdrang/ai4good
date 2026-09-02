@@ -41,3 +41,10 @@ Founder rulings 2026-09-01: "no more slots machinery this should be moved out" a
 - `loop/work/`: twin-check (the CI twin-guard step is gone with it), stamp-hook and banner (already unwired), attribution-report with its selftest and epoch file, watch-items, db-slots (the coordinator's half of the slot pool). work-lib.ps1 and materialize.ps1 stay live: the status line and `/controller` call them.
 - `loop/drills/`: the drill harness (run-drills, control-lib, fake-actor, live-scenarios, prompts) that bound the agents, the phase files and the twin check. `loop/drills/records/` stays where it is as history.
 - `tests/at/harness/db-pool.ts` and its selftest: the database slot pool. See the section above.
+
+## The semantic judge (parked 2026-09-02)
+
+No suite ever called it. The recording store was empty. The recorder never ran. The parked files
+are dead text: they are not compiled. The three ids it was written for (AT-009.07, AT-004.10,
+AT-033.07) have no suites. When one lands, a judge is a function that test imports with its own
+record-and-replay store, not a member of the harness object.

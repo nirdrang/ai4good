@@ -38,9 +38,8 @@ export type CapabilityVerdict =
 
 /**
  * The one place a caller contributes anything, and it is deliberately narrow: facts a witness
- * cannot derive from the value in front of it. Only `oracles.judge` needs any of it — the running
- * tier and the judge transport's `kind` brand, both of which `oracles.ts` already guards and
- * refuses in both mismatched directions before it ever gets here.
+ * cannot derive from the value in front of it. No live witness needs any of it — the judge that
+ * did is parked.
  */
 export type CapabilityEvidence = {
   readonly tier?: string;
@@ -170,32 +169,7 @@ function theArticleItself(what: string): CapabilityWitness {
 }
 
 /**
- * THE LEGAL BRANDS ON EACH AXIS OF THE ORACLE'S EVIDENCE, ENUMERATED AT RUNTIME.
- *
- * The oracle witness used to accept BY ABSENCE on both axes: anything that was not `loop` counted
- * as above loop, and anything that was not `replay-fs` counted as a transport worth a `real`
- * verdict. That is "I found no forbidden thing, therefore the thing is present" — the sentence this
- * file's own header forbids, on the only witness here whose `real` verdict is DERIVED. The three
- * `theArticleItself` rows return `real` too, and on every run, but unconditionally and from a
- * decision about the name; this is the one witness that reaches `real` by reasoning about evidence,
- * so it is the only place that reasoning can be wrong. A
- * `{ tier: 'integration', transport: 'bogus' }` construction came back `real` with confident-sounding
- * evidence for a brand nobody had ever heard of.
- *
- * SOURCE OF TRUTH FOR EACH LIST, so a future divergence is findable:
- *   tiers      — `Tier` in `registry.ts`
- *   transports — `TransportKind` in `oracles.ts`
- *
- * These are deliberately NOT imported as types. `oracles.ts` imports this file, so importing back
- * would add a cycle — and a compile-time union cannot constrain a runtime string anyway, which is
- * the whole reason this check has to exist at all: `CapabilityEvidence.tier` and `.transport` are
- * plain `string`, because the evidence arrives from a caller.
- */
-const LEGAL_TIERS: readonly string[] = ['loop', 'integration', 'drill'];
-const LEGAL_TRANSPORTS: readonly string[] = ['replay-fs', 'live', 'fake'];
-
-/**
- * THE TABLE IS CLOSED: six exact names, no prefixes and no wildcards.
+ * THE TABLE IS CLOSED: five exact names, no prefixes and no wildcards.
  *
  * A prefix rule (`sut.*` had one) means nobody ever decided about the names it swallows, which is
  * an unlimited namespace inside a table whose whole claim is that it is closed. The two families
@@ -281,64 +255,6 @@ const WITNESSES = new Map<string, CapabilityWitness>([
   ['config.registry', theArticleItself('atconfig.ts IS the registry of pinned values')],
   ['sentinels.planted', theArticleItself('the marker store IS the planting machinery')],
   ['faults.injection', theArticleItself('the fault router IS the injection machinery')],
-  [
-    'oracles.judge',
-    // DERIVED FROM THE TIER AND THE TRANSPORT BRAND, which is where this doctrine was already
-    // working one layer down before it was carried up here. `oracles.ts` refuses both mismatched
-    // combinations at the point it builds the transport; this witness reaches the same judgement
-    // from the evidence handed over, and refuses the same two combinations rather than trusting
-    // that the caller already did.
-    (_value, evidence) => {
-      const { tier, transport } = evidence;
-      if (tier === undefined || transport === undefined) {
-        throw new Error(
-          'refusing to construct capability "oracles.judge": its provenance is derived from the running tier and ' +
-            'the judge transport\'s kind brand, and this construction supplied ' +
-            `${tier === undefined ? 'no tier' : `tier ${JSON.stringify(tier)}`} and ` +
-            `${transport === undefined ? 'no transport kind' : `transport ${JSON.stringify(transport)}`}. ` +
-            `${REFUSAL_DOCTRINE}`,
-        );
-      }
-      // ENUMERATE BEFORE ANY RULE IS APPLIED. Every rule below reads a brand it recognises; a value
-      // neither list contains is unclassifiable, and unclassifiable refuses rather than falling
-      // through to whichever branch happens to catch it.
-      if (!LEGAL_TIERS.includes(tier)) {
-        throw new Error(
-          `refusing to construct capability "oracles.judge": the TIER axis was given ${JSON.stringify(tier)}, which is ` +
-            `not a brand this witness recognises. The legal tiers are ${LEGAL_TIERS.join(', ')}. ${REFUSAL_DOCTRINE}`,
-        );
-      }
-      if (!LEGAL_TRANSPORTS.includes(transport)) {
-        throw new Error(
-          `refusing to construct capability "oracles.judge": the TRANSPORT axis was given ${JSON.stringify(transport)}, ` +
-            `which is not a brand this witness recognises. The legal transports are ${LEGAL_TRANSPORTS.join(', ')}. ` +
-            `${REFUSAL_DOCTRINE}`,
-        );
-      }
-      if (tier === 'loop') {
-        if (transport === 'live') {
-          throw new Error(
-            'refusing to construct capability "oracles.judge": a loop-tier oracle on a live transport would report ' +
-              "today's answer under yesterday's expectations while the ledger still called it a stand-in.",
-          );
-        }
-        return {
-          kind: 'stand-in',
-          reason: `the loop tier judges through a ${transport} transport rather than the live judge`,
-        };
-      }
-      if (transport === 'replay-fs') {
-        throw new Error(
-          `refusing to construct capability "oracles.judge": a ${tier}-tier oracle on a filesystem replay transport ` +
-            'would be a real capability answering from committed bytes while reporting that it stubbed nothing.',
-        );
-      }
-      return {
-        kind: 'real',
-        evidence: `the ${tier} tier judges through a ${transport} transport, and no filesystem replay is permitted here`,
-      };
-    },
-  ],
 ]);
 
 function sealed<T>(name: string, verdict: CapabilityVerdict, value: T): Capability<T> {

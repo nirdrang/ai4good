@@ -32,7 +32,6 @@ export const CONFIG_KEYS: Record<string, AtConfigKey> = {
   'req-015.thread_comment_notifications.max_per_window': 'threadCommentNotificationsMaxPerWindow',
   'req-015.thread_comment_notifications.window_ms': 'threadCommentNotificationsWindowMs',
   'req-015.thread_comment_notifications.coalesce': 'threadCommentNotificationsCoalesce',
-  'harness.oracle.judge_votes': 'oracleJudgeVotes',
 };
 
 export type ConfigRegistry = {

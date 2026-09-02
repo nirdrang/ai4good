@@ -9,7 +9,7 @@
  * thirty subtly different seams, at which point "the harness contract" means nothing.
  *
  * These are types only. The implementations arrive per slice (H2 clock/fixtures, H3
- * sentinels/faults, H4 oracles), and `pendingCapability()` in `index.ts` is what stands where one
+ * sentinels/faults), and `pendingCapability()` in `index.ts` is what stands where one
  * has not landed — a seam that throws the capability's name, never a no-op. Of the vendor sims, the
  * EMAIL provider landed with AI4DEV-21 (`harness/vendors.ts`); the Anthropic usage/cost, Stripe,
  * GitHub, Lovable and Linear stand-ins are each built with the FIRST test suite that consumes them
@@ -157,152 +157,6 @@ export type Vendors<Channel extends string = string> = {
   email: EmailProviderSim<Channel>;
 };
 
-/* -------------------------------------------------------------- H4 semantic oracles */
-
-/**
- * Judging the MEANING of generated text, where string-matching cannot decide.
- *
- * Three ratified acceptance criteria need this: AT-009.07 (rejection copy instructs and never
- * accuses), AT-004.10 (Discovery output satisfies a fixture-specific semantic oracle), AT-033.07
- * (the assistant's four framed answers, each with a pinned oracle). NONE of their suites exists
- * yet, so what the ratified text pins today is not any finished rubric — it is the set of
- * criterion KINDS the contract has to be able to express: semantic-absence, semantic-containment,
- * count-minimum, numeric-tolerance, no-fabrication. That set is what the shapes below are derived
- * from, and `harness/rubrics/` says plainly which of its examples are near-final and which are
- * disposable skeletons.
- *
- * THE CRITERION IS A DISCRIMINATED UNION, and that is the load-bearing decision (Gate 1 finding
- * F4). A rubric that only carried prose statements would push every threshold into the judge:
- * "is the runway within 10% of $4,200" is a question about arithmetic, and asking a language model
- * arithmetic questions makes the answer as unstable as the language. So the union splits the work.
- * A `semantic` criterion is a binary question only a reader can answer. An `extraction` criterion
- * asks the judge for a NUMBER and nothing else, and the comparison against the expected value
- * happens in `harness/oracles.ts`, in code, deterministically. The judge is never told the
- * expected value or the tolerance — it cannot answer the question it is not asked.
- *
- * Expected values, tolerances and minimums for the real acceptance criteria are supplied by the
- * suites that own those ids, when they are translated. What ships here is the SHAPE, with the
- * boundary cases (a difference exactly equal to the tolerance, a count exactly one below the
- * minimum) pinned in `oracles.selftest.ts`.
- */
-
-/** A binary question about the material that only a reader can settle. */
-export type SemanticCriterion = {
-  kind: 'semantic';
-  id: string;
-  /** phrased so that TRUE is the compliant answer — the judge answers whether it holds */
-  statement: string;
-  /** a failing REQUIRED criterion fails the whole verdict; an optional one is reported and no more */
-  required: boolean;
-};
-
-/**
- * What the judge is asked to pull out of the material. `unit` and `normalization` exist because
- * "the runway" and "the runway in months, rounded down" are different questions, and the second
- * one is the answerable one.
- */
-export type ExtractionSpec = {
-  what: string;
-  unit?: string;
-  normalization?: string;
-};
-
-/** |extracted − expected| ≤ tolerance. Inclusive at the boundary, and conformance pins that. */
-export type NumericToleranceComparator = {
-  op: 'numeric_within_tolerance';
-  expected: number;
-  tolerance: number;
-};
-
-/** extracted ≥ minimum, over a count — so a fractional extraction is a typed error, not a round. */
-export type CountAtLeastComparator = {
-  op: 'count_at_least';
-  minimum: number;
-};
-
-export type CriterionComparator = NumericToleranceComparator | CountAtLeastComparator;
-
-/** The judge extracts; `oracles.ts` compares. The comparator never reaches the judge. */
-export type ExtractionCriterion = {
-  kind: 'extraction';
-  id: string;
-  statement: string;
-  required: boolean;
-  extract: ExtractionSpec;
-  compare: CriterionComparator;
-};
-
-export type RubricCriterion = SemanticCriterion | ExtractionCriterion;
-
-/**
- * One oracle, decomposed into named criteria.
- *
- * `materialSlots` names every piece of text the rubric may see, and `judge()` refuses material
- * that does not match the declaration exactly — a missing slot would silently make a criterion
- * unanswerable, and an undeclared one would let a caller feed the judge text no rubric mentions.
- *
- * `version` is a human-facing marker only. Recordings are invalidated by the request hash
- * (`oracles.ts`), never by this string, because a hand-maintained version constant is exactly the
- * mechanism a rubric edit forgets to bump (Gate 1 finding F6).
- */
-export type Rubric = {
-  id: string;
-  version: string;
-  materialSlots: string[];
-  criteria: RubricCriterion[];
-};
-
-/** How the k repeated votes split on one criterion. `pass + fail` always equals the vote count. */
-export type VoteTally = {
-  pass: number;
-  fail: number;
-};
-
-export type CriterionVerdict = {
-  criterionId: string;
-  pass: boolean;
-  /** a short verbatim quote, taken from the first vote that agreed with the majority */
-  evidence: string;
-  votes: VoteTally;
-};
-
-/**
- * What a verdict is worth, attached to the verdict itself.
- *
- * `requestedModel` and `servedModels` are deliberately two fields: a fixed model id is a pinned
- * snapshot, not a pinned behaviour, so the id we asked for and the id the provider says it served
- * are two facts and drift between them has to be visible rather than assumed away.
- */
-export type VerdictProvenance = {
-  /** 'replay' = committed recordings, no network; 'live' = a real judge call this run */
-  source: 'live' | 'replay';
-  requestedModel: string;
-  /** `response.model` per vote, in vote order */
-  servedModels: string[];
-  /** the full-request hash per vote, in vote order — the replay key */
-  requestHashes: string[];
-  rubricId: string;
-  rubricVersion: string;
-  effort: string;
-  votes: number;
-};
-
-export type SemanticVerdict = {
-  /** every REQUIRED criterion passed */
-  pass: boolean;
-  criteria: CriterionVerdict[];
-  provenance: VerdictProvenance;
-};
-
-/**
- * The seam a suite reaches. One method, because everything else about the oracle — which model,
- * how many votes, live or replayed — is the harness's to decide from the tier and the at-config
- * registry, not a suite's to pass in.
- */
-export type SemanticOracle = {
-  judge(rubric: Rubric, material: Record<string, string>): Promise<SemanticVerdict>;
-};
-
 /* ----------------------------------------------------------------------- the harness */
 
 /**
@@ -344,19 +198,17 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
    * 'sut.notifications'). MUST be empty above `loop` — otherwise an integration-tier run,
    * which is the /pm-done gate, can silently stub the thing it is gating.
    *
-   * Each name on this list was put there by `capabilities.ts` from one of THREE sources: a witness
-   * that read the value's own control seam, the module URL the fixture adapter was loaded from, or —
-   * for `oracles.judge` alone — the running tier and the judge transport's kind brand. No caller
-   * names a provenance.
+   * Each name on this list was put there by `capabilities.ts` from one of TWO sources: a witness
+   * that read the value's own control seam, or the module URL the fixture adapter was loaded from.
+   * No caller names a provenance.
    *
-   * WHAT EMPTYING IT COSTS DIFFERS BY NAME, and one sentence for all five would overclaim. For
+   * WHAT EMPTYING IT COSTS DIFFERS BY NAME, and one sentence for all four would overclaim. For
    * `clock.controlled` and `vendors.email` the verdict is read off the very seam the suites drive,
    * so removing either name means removing that seam — and the behaviour tests that command the
-   * clock forward and force a send to fail go red with it. For `fixtures.worlds`, every `sut.<key>`
-   * and `oracles.judge` there is no such seam: the verdict comes from the adapter-derived route or
-   * from the tier and transport brands, so emptying the list there is a source edit in
-   * `capabilities.ts` — visible in a diff and pinned by the conformance wall, but a word-edit all
-   * the same.
+   * clock forward and force a send to fail go red with it. For `fixtures.worlds` and every
+   * `sut.<key>` there is no such seam: the verdict comes from the adapter-derived route, so
+   * emptying the list there is a source edit in `capabilities.ts` — visible in a diff and pinned
+   * by the conformance wall, but a word-edit all the same.
    */
   stubbedCapabilities(): Promise<string[]>;
   clock: Clock;
@@ -366,15 +218,6 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
   static: StaticScan;
   config: ConfigRegistry;
   vendors: Vendors<Channel>;
-  /**
-   * REQUIRED, like every other capability: a suite that reaches for it and finds nothing must fail
-   * to compile, not read `undefined`. At `loop` this is a REPLAY of committed recordings and the
-   * ledger reports it a stand-in; above `loop` it is the live judge and is reported real. That
-   * verdict is DERIVED — `capabilities.ts` computes it from the running tier and the transport's
-   * kind brand, and `oracles.ts` says why the split establishes this capability's provenance and
-   * nothing more.
-   */
-  oracles: SemanticOracle;
   sut: Sut;
   /** REQUIRED, not optional: frozen clocks, vendor counters and fault state leak without it */
   teardown(): Promise<void>;
@@ -393,7 +236,7 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
  * capabilities is an honest mistake that would otherwise surface as a run-time `TypeError` inside a
  * test whose red is then undeclarable. Here it is a compile error at the body.
  *
- * NOTHING ELSE FORKS. `sut`, `fixtures`, `sentinels`, `faults`, `static`, `config` and `oracles` are
+ * NOTHING ELSE FORKS. `sut`, `fixtures`, `sentinels`, `faults`, `static` and `config` are
  * the same type at every tier: what changes at integration is what BACKS them, which is the ledger's
  * business and not the body's.
  */
