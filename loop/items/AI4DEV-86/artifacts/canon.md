@@ -5,17 +5,17 @@ Playbook: figure-it-out (cross-cutting), with the brief's stations: ground (/how
 
 ## Todolist
 1. [done] Read the poteto-mode Principles in full and the leaf skills applied: prove-it-works, sequence-verifiable-units, subtract-before-you-add, laziness-protocol, separate-before-serializing-shared-state, foundational-thinking, migrate-callers-then-delete-legacy-apis, build-the-lever.
-2. [ ] Phase A frame: done predicate, scope count, rigor level.
-3. [ ] Station 1 ground: /how critique. 4 explorers (grok), explainer (fable), 4 critics (fable, sol, grok, opus). Rule each finding.
-4. [ ] Phase B design: arena with distinct structural directions (fable, sol, grok, opus), hidden rubric, cross-judge, red-flags screen, graft.
-5. [ ] Throughput checkpoint: four todos.
-6. [ ] Write units, one at a time, each verified (typecheck, at:verify loop --expect, integration).
-7. [ ] Diff against the design.
-8. [ ] Verify on the real surface via mechanical + verify-ai4good, and the integration tier against 44321.
-9. [ ] Sequence: rebase plan, mechanical executes, per-commit build.
-10. [ ] Interrogate: 4 reviewers, rule findings, re-panel on a changed head.
-11. [ ] Ship: deslop, no-comments, unslop, PR body (Why, Scope, Tradeoffs, Blast Radius, Verification, Harness ruling, Not done here).
-12. [ ] Close: CI green on exact head AND founder "merge"; mechanical merges; ExitWorktree; /controller done.
+2. [done] Phase A frame: done predicate, scope count, rigor level.
+3. [done] Station 1 ground: /how critique. 4 explorers (grok), explainer (fable), 4 critics (fable, sol, grok, opus). Rule each finding.
+4. [done] Phase B design: arena with distinct structural directions (fable, sol, grok, opus), hidden rubric, cross-judge, red-flags screen, graft.
+5. [done] Throughput checkpoint: four todos.
+6. [done] Write units, one at a time, each verified (typecheck, at:verify loop --expect, integration).
+7. [done] Diff against the design.
+8. [done] Verify on the real surface via mechanical + verify-ai4good, and the integration tier against 44321.
+9. [done] Sequence: rebase plan, mechanical executes, per-commit build.
+10. [done] Interrogate: 4 reviewers, rule findings, re-panel on a changed head.
+11. [done] Ship: deslop, no-comments, unslop, PR body (Why, Scope, Tradeoffs, Blast Radius, Verification, Harness ruling, Not done here).
+12. [open: CI green on the head; waiting for the founder to say merge] Close: CI green on exact head AND founder "merge"; mechanical merges; ExitWorktree; /controller done.
 
 ## Decision trail
 `decisions.tsv` beside this file (show-me-your-work).

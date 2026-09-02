@@ -1,0 +1,7 @@
+# Station 6d brief: clean-head integration and drive on the final head (mechanical: exact commands)
+
+Worktree: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-86. PowerShell only. Do NOT restart the stack. Write only under loop/items/AI4DEV-86/artifacts/verify4/ (create it). Paste each command, its last 25 lines, exit code, and a UTC timestamp into loop/items/AI4DEV-86/artifacts/verify4/transcript.md. Never paste keys or connection strings (redact any `postgresql://user:password@` as `user:***@`).
+1. `git rev-parse HEAD`; `git status --short` must be EMPTY. If it is not empty, stop and report.
+2. `bun run at:verify req-001 --tier integration --expect` (about five minutes). Paste the identity lines, the migration line, the evidence line (it must NOT say "dirty"), and the EXPECTED line verbatim.
+3. `bun .claude/skills/verify-ai4good/scripts/drive-ngo-signup.ts loop/items/AI4DEV-86/artifacts/verify4/drive`. Expect exit 0, 11 of 11 PASS. Then `Select-String -Path loop/items/AI4DEV-86/artifacts/verify4/drive/transcript.json -Pattern 'eyJ[A-Za-z0-9_-]{20,}|sb_secret|sb_publishable'` must return nothing; paste the (empty) result.
+Report: the head sha, the evidence line verbatim, the EXPECTED line, the drive result, the three exit codes. Stop at the first failing step and report its output.
