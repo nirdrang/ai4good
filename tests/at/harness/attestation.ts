@@ -67,17 +67,6 @@ export function mintAttestationNonce(): string {
 }
 
 /**
- * WHAT A WRITE OF THE ATTESTATION IS AIMED AT. A project id, exactly as a CLI target names one.
- *
- * It is a structural type rather than an import of `CliTarget`, so this file's only RUNTIME
- * dependency stays `capabilities.ts`; the proof type below reaches it type-only, which is no cycle.
- * A `CliTarget` satisfies it.
- */
-export interface AttestationTarget {
-  projectId: string;
-}
-
-/**
  * Write this run's nonce into the one stack's database with operator authority. Called by
  * `prepareLocalStack()`, AFTER the reset and after the migration-set proof, so nothing it writes can
  * be mistaken for migrated schema and nothing that survived a reset can be mistaken for it.
@@ -85,21 +74,18 @@ export interface AttestationTarget {
  * THE PROOF TRAVELS IN (gate-2 ruling S1-1, and the same idiom as `resetLocalDatabase`). This
  * function DELETES a table and writes a row, on whatever database it is pointed at. It used to take
  * a bare URL, so the guard that makes the aim safe lived at the one call site rather than on the
- * destructive path, and any importer could aim it at an unproven database and still compile. Now
- * the target demands the read that proved that target — a `StackIdentityRead`, which carries a
- * brand only `identityVerdict()` sets, so it cannot be written by hand and cannot name no project —
- * and the DATABASE URL COMES OUT OF THAT PROOF, so an importer cannot hand this function a proof of
- * one database and the coordinates of another. What is left to refuse is a real read of ONE project
- * handed to a write aimed at ANOTHER, and that is refused here by name, before any connection opens.
+ * destructive path, and any importer could aim it at an unproven database and still compile. Now it
+ * takes the read that proved the target — a `StackIdentityRead`, which carries a brand only the
+ * runner's private mint sets, so it cannot be written as a literal and cannot name no project — and
+ * the DATABASE URL COMES OUT OF THAT PROOF. The target travels in the read too, so there is no
+ * second parameter to disagree with the first and nothing left to refuse here by name; and the read
+ * is frozen, so it cannot be re-aimed between the proof and this write. The brand itself is not
+ * read here: it is private to `runner.ts`, and this file reaches the type only (a runtime import
+ * would be the cycle the first panel ruled out). A spread of a read would therefore pass — and
+ * would still write into the database the read's status names, which is the proven one unless the
+ * status itself was replaced, and that is a cast's worth of intent, not a slip.
  */
-export async function writeAttestation(target: AttestationTarget, read: StackIdentityRead, nonce: string): Promise<void> {
-  if (read.provenProjectId !== target.projectId) {
-    throw new Error(
-      `REFUSING TO WRITE THE ATTESTATION INTO ${target.projectId}: the identity read handed to this write proves ` +
-        `${read.provenProjectId}, not ${target.projectId}. This write deletes and rewrites a table, so it is only ` +
-        `permitted on the read that proved that target. Nothing was done.`,
-    );
-  }
+export async function writeAttestation(read: StackIdentityRead, nonce: string): Promise<void> {
   const SQL = sqlConstructor();
   const sql = new SQL(read.status.dbUrl);
   try {

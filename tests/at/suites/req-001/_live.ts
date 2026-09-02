@@ -7,10 +7,10 @@
  * `_fixture.ts` is storage: its judgements are the shipped modules' and its storage is a Map, so a
  * loop-tier green says the DECISIONS are right and says nothing about the migration, the deployed
  * functions, row-level security or Supabase Auth. This file is the other half. Every operation below
- * goes to the slot's own stack:
+ * goes to the stack:
  *
- *   - Supabase Auth over HTTP, at the slot's own gateway — signup, the password grant, logout,
- *     refresh, recovery, and the emailed links as the slot's own mail catcher really holds them;
+ *   - Supabase Auth over HTTP, at the stack's gateway — signup, the password grant, logout,
+ *     refresh, recovery, and the emailed links as the stack's mail catcher really holds them;
  *   - the DEPLOYED edge functions, served by the stack's own edge-runtime container out of this
  *     tree's `supabase/` — so `verify_jwt`, the platform's own token check, `resolveCaller` and the
  *     database function all sit on the path;
@@ -195,6 +195,25 @@ function lifetimeOf(accessToken: string): number {
 }
 
 /**
+ * THE RUNNING STACK MUST ISSUE THE LIFETIME THE TREE PINS, EXACTLY. Auth reads `[auth] jwt_expiry`
+ * at container START, so a stack started before the config last changed issues tokens of the old
+ * lifetime while the bodies wait out the pinned one: AT-001.12 then waits 135 seconds and reports
+ * "an expired access token performed a write", and AT-001.13 reports "the client never rotated its
+ * access token" — both blaming the product for a stale stack. `exp` and `iat` come from the same
+ * token, so no clock enters the subtraction and there is nothing to tolerate: any number but the
+ * pinned one is a stack started under another config. Null when they are the same number.
+ */
+export function lifetimeProblem(accessToken: string, pinned: number): string | null {
+  const issued = lifetimeOf(accessToken);
+  if (issued === pinned) return null;
+  return (
+    `the running stack issues ${issued}-second access tokens, but supabase/config.toml pins jwt_expiry = ${pinned} ` +
+    `(the registry entry accessTokenLifetimeSeconds carries the same number). The stack was started before that ` +
+    `config last changed: run \`bun run db:stop\` then \`bun run db:start\`, and run this tier again.`
+  );
+}
+
+/**
  * WHAT A POSTGRES REFUSAL CARRIES — the SQLSTATE and the sentence, and WHERE THE SQLSTATE REALLY
  * LIVES WAS MEASURED RATHER THAN ASSUMED.
  *
@@ -250,29 +269,15 @@ export async function createLiveAdapter(opts: {
   const sessions = new Map<string, LiveSession>();
 
   /**
-   * THE RUNNING STACK MUST ISSUE THE LIFETIME THE TREE PINS — checked once, on the first access
-   * token this adapter obtains, and refused with the true cause.
-   *
-   * Auth reads `[auth] jwt_expiry` at container START, so a stack started before the config last
-   * changed issues tokens of the old lifetime while the bodies wait out the pinned one. Without
-   * this, AT-001.12 waits 135 seconds and reports "an expired access token performed a write" and
-   * AT-001.13 reports "the client never rotated its access token" — both blaming the product for a
-   * stale stack. `exp - iat` is the issuing service's own statement of its lifetime, and the runner
-   * cannot read one without a sign-in, which is why the check lives here. Five seconds of tolerance
-   * covers clock rounding; a real drift is minutes.
+   * `lifetimeProblem`, asked once, on the first access token this adapter obtains, and refused with
+   * the true cause. The runner cannot read a token without a sign-in, which is why the check lives
+   * here rather than in `prepareLocalStack`.
    */
   let lifetimeChecked = false;
   const checkLifetime = (accessToken: string): void => {
     if (lifetimeChecked) return;
-    const issued = lifetimeOf(accessToken);
-    const pinned = AT_CONFIG.accessTokenLifetimeSeconds.value;
-    if (!Number.isFinite(issued) || Math.abs(issued - pinned) > 5) {
-      throw new Error(
-        `the running stack issues ${issued}-second access tokens, but supabase/config.toml pins jwt_expiry = ${pinned} ` +
-          `(the registry entry accessTokenLifetimeSeconds carries the same number). The stack was started before that ` +
-          `config last changed: run \`bun run db:stop\` then \`bun run db:start\`, and run this tier again.`,
-      );
-    }
+    const problem = lifetimeProblem(accessToken, AT_CONFIG.accessTokenLifetimeSeconds.value);
+    if (problem) throw new Error(problem);
     lifetimeChecked = true;
   };
 

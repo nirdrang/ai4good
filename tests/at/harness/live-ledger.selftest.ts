@@ -277,11 +277,13 @@ describe('a shared evidence capture does not dress a REFUSAL up as an ordinary f
   });
 });
 
-// The attestation WRITE's own refusal — a read that proved ANOTHER project — is tested in
-// `runner.selftest.ts` beside the reset's, because a proof can only be minted by `identityVerdict`
-// and that file holds the machinery to mint one. The two null-shaped refusals this file used to
-// drive ("proved no project", "no stack report") are not writable any more: the proof type carries
-// a brand and non-null fields, so the compiler refuses them before a test could.
+// The attestation WRITE has no refusal of its own to drive any more: it takes the identity read and
+// nothing else, the database URL and the target both come out of that read, and the read is frozen,
+// so there is no second parameter to disagree with the first. The two null-shaped refusals this file
+// used to drive ("proved no project", "no stack report") are not writable either: the proof type
+// carries a brand and non-null fields, so the compiler refuses them before a test could. What the
+// proof guarantees, and how a spread is refused at the reset, is tested in `runner.selftest.ts`,
+// which holds the machinery to mint one.
 
 describe('the live mail catcher is granted on a BRAND and an IDENTIFICATION, never on a 200 (rulings S1-2, S1-6)', () => {
   const answer = (status: number, text: string) => async (): Promise<{ status: number; text: string }> => ({ status, text });

@@ -60,7 +60,8 @@ const SIGNER = {
  *
  * Read from the registry entry that config line cites back, so this file, the loop fixture's clock
  * and the loop bodies that advance it all follow ONE number; each reads the registry for itself,
- * so the loop tier never imports this integration module. What keeps the registry honest against
+ * so no tier imports this module FOR A NUMBER (the loop test imports its bodies from here on every
+ * tier; only the constant stopped travelling). What keeps the registry honest against
  * the running stack is the runner, which refuses an integration run when the config's number and
  * the registry's differ, and the live adapter, which refuses the first token whose lifetime is not
  * the pinned one.

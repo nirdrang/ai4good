@@ -19,7 +19,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { ATTESTATION_ENV, mintAttestationNonce, writeAttestation } from './attestation.ts';
+import { lifetimeProblem } from '../suites/req-001/_live.ts';
+import { ATTESTATION_ENV } from './attestation.ts';
 import { AT_CONFIG } from './atconfig.ts';
 import { REPO_ROOT } from './check.ts';
 import {
@@ -28,6 +29,7 @@ import {
   childCoordinates,
   childEnv,
   cleanupRun,
+  configDriftProblems,
   containerNames,
   evidenceLine,
   expectedMigrations,
@@ -151,7 +153,11 @@ const cli = (stderr: string, status: StackStatus = localStatus()): CliResult => 
   stderr,
 });
 
-/** The one door to a proof: a read `identityVerdict` judged and branded. */
+/**
+ * A proof, minted the only way one is: a result `identityVerdict` judged. On the live path only
+ * `proveTarget` feeds it one; here the result is fabricated, which is the residual `runner.ts`'s
+ * brand docstring records.
+ */
 const demoTarget: CliTarget = { workdir: REPO_ROOT, projectId: 'demo' };
 const provenDemo = () => identityVerdict(cli('Stopped services: [supabase_imgproxy_demo supabase_pooler_demo]'), demoTarget, config);
 
@@ -221,11 +227,15 @@ describe('the container names in CLI output are the identity instrument', () => 
 });
 
 describe("the identity verdict proves the target from the CLI's own container names", () => {
-  it('proves the project on own names plus a local status', () => {
+  it('proves the project on own names plus a local status, and carries the target it judged', () => {
     const read = provenDemo();
     expect(read.provenProjectId).toBe('demo');
     expect(read.status.apiUrl).toBe('http://127.0.0.1:54321');
     expect(read.containers).toEqual(['supabase_imgproxy_demo', 'supabase_pooler_demo']);
+    // THE TARGET TRAVELS IN THE READ: the reset and the attestation write take the read and nothing
+    // else, so there is no second parameter for a caller to aim somewhere the read did not prove.
+    expect(read.target).toEqual(demoTarget);
+    expect(read.target.projectId).toBe(read.provenProjectId);
   });
 
   it('refuses a foreign name BEFORE parsing, so a mismatch is never reported as a stopped service or as no stack', () => {
@@ -242,6 +252,11 @@ describe("the identity verdict proves the target from the CLI's own container na
     const silent: CliResult = { status: 1, stdout: '', stderr: 'supabase start is not running.' };
     expect(() => identityVerdict(silent, demoTarget, config)).toThrow(/no stack is running for demo; run `bun run db:start`/);
     expect(() => identityVerdict(silent, demoTarget, config)).not.toThrow(/REFUSING/);
+    // A CLI that could not be launched is not an identity mismatch either: nothing answered, so
+    // nothing was judged, and the message says so without the refusal phrase.
+    const unlaunched: CliResult = { status: null, stdout: '', stderr: '', error: Object.assign(new Error('spawn ENOENT'), { code: 'ENOENT' }) };
+    expect(() => identityVerdict(unlaunched, demoTarget, config)).toThrow(/could not be launched to read the identity of demo/);
+    expect(() => identityVerdict(unlaunched, demoTarget, config)).not.toThrow(/REFUSING/);
   });
 
   it('refuses an output that names no own container at all, naming the benign cause: ports alone are not identity', () => {
@@ -262,25 +277,46 @@ describe("the identity verdict proves the target from the CLI's own container na
   });
 });
 
-describe('the two destructive acts demand the identity read that proved their target (rulings B2, S1-1)', () => {
-  // NOTHING IS SPAWNED OR CONNECTED TO HERE. The refusal is the first statement in each function,
-  // so a mismatched proof never reaches the CLI and never opens a connection. That is the property
-  // under test: the refusal happens BEFORE the destructive act, not instead of a failure inside it.
-  //
-  // THE ONLY DOOR TO A PROOF IS `identityVerdict`. `StackIdentityRead` carries a brand only that
-  // function sets, so a literal `{ provenProjectId: 'x' }` is a compile error, and a proof that
-  // names NO project cannot be written at all. What is left at run time is a real read that proved
-  // ONE project, handed to an act aimed at ANOTHER — refused by name, in both acts.
-  const other: CliTarget = { workdir: REPO_ROOT, projectId: 'other' };
-
-  it('the reset refuses a proof of another project', async () => {
-    await expect(resetLocalDatabase(other, provenDemo())).rejects.toThrow(/REFUSING TO RESET other: .*proves demo, not other/);
+describe('a proof is sealed: the brand does not travel through a spread, and the read cannot be re-aimed', () => {
+  // THE SPREAD IS THE HONEST MISTAKE. TypeScript keeps a symbol-keyed member in a spread TYPE, so
+  // `{ ...read, target: other }` compiles as a `StackIdentityRead` with no cast anywhere. So the
+  // brand is set NON-ENUMERABLE — a spread or `Object.assign` copies the fields and not the brand —
+  // and the reset reads the brand at use, the way `capabilities.ts` reads its own symbol. Nothing
+  // is spawned here: the refusal is the reset's first statement.
+  it('a spread carries the fields and not the brand, and the reset refuses it before anything is spawned', async () => {
+    const read = provenDemo();
+    expect(Object.getOwnPropertySymbols(read), 'the minted read carries no brand').toHaveLength(1);
+    const copy = { ...read };
+    expect(Object.getOwnPropertySymbols(copy), 'the brand travelled through a spread').toHaveLength(0);
+    expect(copy.provenProjectId, 'the spread lost the fields too, which is not the property under test').toBe('demo');
+    await expect(resetLocalDatabase({ ...read, target: { workdir: REPO_ROOT, projectId: 'other' } })).rejects.toThrow(
+      /REFUSING TO RESET other: .*carries no proof/,
+    );
   });
 
-  it('the attestation write refuses a proof of another project', async () => {
-    await expect(writeAttestation(other, provenDemo(), mintAttestationNonce())).rejects.toThrow(
-      /REFUSING TO WRITE THE ATTESTATION INTO other: .*proves demo, not other/,
-    );
+  it('the read, its target, its status and its container list are frozen', () => {
+    const read = provenDemo();
+    expect(Object.isFrozen(read)).toBe(true);
+    expect(Object.isFrozen(read.target)).toBe(true);
+    expect(Object.isFrozen(read.status)).toBe(true);
+    expect(Object.isFrozen(read.containers)).toBe(true);
+    // ES modules are strict, so a write to a frozen object throws rather than silently doing nothing.
+    expect(() => {
+      (read as { provenProjectId: string }).provenProjectId = 'other';
+    }).toThrow(TypeError);
+  });
+});
+
+describe('the config the lock and the first proof were judged against must still be the file at the second read', () => {
+  it('refuses a changed project id, port or lifetime, naming the field and both values', () => {
+    const locked: LocalConfig = { ...config, mailPort: 54324 };
+    expect(configDriftProblems(locked, { ...locked })).toEqual([]);
+    expect(configDriftProblems(locked, { ...locked, projectId: 'other' }).join(' ')).toMatch(/project_id.*demo.*other/);
+    expect(configDriftProblems(locked, { ...locked, apiPort: 54999 }).join(' ')).toContain('[api] port');
+    expect(configDriftProblems(locked, { ...locked, dbPort: 54999 }).join(' ')).toContain('[db] port');
+    expect(configDriftProblems(locked, { ...locked, jwtExpirySeconds: 3600 }).join(' ')).toContain('[auth] jwt_expiry');
+    // A catcher port that disappears is a change too: the coordinates the child receives depend on it.
+    expect(configDriftProblems(locked, config).join(' ')).toContain('[local_smtp] port');
   });
 });
 
@@ -301,6 +337,23 @@ describe('the access-token lifetime is pinned once: config.toml and the registry
     expect(problem).toContain(`jwt_expiry = ${wrong}`);
     expect(problem).toContain(`accessTokenLifetimeSeconds = ${pinned}`);
     expect(problem).toContain('bun run db:start');
+  });
+});
+
+describe('the live adapter holds the running stack to the pinned lifetime EXACTLY', () => {
+  it('accepts the pinned number and refuses every other, one second either side included, naming both', () => {
+    // `exp` and `iat` come from the same token, so no clock enters the subtraction and there is
+    // nothing to tolerate. A five-second tolerance used to accept 115 through 125 as "the same".
+    const pinned = AT_CONFIG.accessTokenLifetimeSeconds.value;
+    const token = (lifetime: number) => jwt({ iat: 1_700_000_000, exp: 1_700_000_000 + lifetime });
+    expect(lifetimeProblem(token(pinned), pinned)).toBeNull();
+    for (const issued of [pinned - 1, pinned + 1, pinned + 5, 3600]) {
+      const problem = lifetimeProblem(token(issued), pinned);
+      expect(problem, `a ${issued}-second lifetime passed against a pin of ${pinned}`).toContain(`${issued}-second`);
+      expect(problem).toContain(`jwt_expiry = ${pinned}`);
+      expect(problem).toContain('bun run db:start');
+    }
+    expect(lifetimeProblem(jwt({ sub: 'no lifetime claims' }), pinned), 'a token with no exp and iat passed').not.toBeNull();
   });
 });
 
@@ -374,6 +427,42 @@ describe('the integration tier runs only from the real checkout', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  }, 30_000);
+});
+
+describe('the lifetime pin is a preflight: decidable from two files on disk, so it refuses before the lock', () => {
+  it('exits 3 naming both numbers, creates no lock file, and carries no stack advice', () => {
+    // THE REAL TREE'S config.toml IS EDITED AND RESTORED, the way the migrations selftest plants a
+    // file in the real tree: the integration tier refuses every other root before it reads a config,
+    // so the only config this runner can read is this one. The edit is one number on one line; the
+    // restore is byte-exact and asserted.
+    const file = join(REPO_ROOT, 'supabase', 'config.toml');
+    const original = readFileSync(file);
+    const text = original.toString('utf8');
+    const pinned = AT_CONFIG.accessTokenLifetimeSeconds.value;
+    const wrong = pinned * 30;
+    const edited = text.replace(/^(jwt_expiry\s*=\s*)\d+/m, `$1${wrong}`);
+    expect(edited, 'the config has no [auth] jwt_expiry line to edit').not.toBe(text);
+    const root = mkdtempSync(join(tmpdir(), 'at-pin-preflight-'));
+    try {
+      writeFileSync(file, edited);
+      const run = spawnSync(
+        bunExecutable(),
+        ['--no-env-file', fileURLToPath(new URL('./runner.ts', import.meta.url)), 'req-001', '--tier', 'integration'],
+        { cwd: REPO_ROOT, env: childEnv({ AT_LOCK_DIR: join(root, 'locks') }), encoding: 'utf8' },
+      );
+      expect(run.error, 'the runner could not be launched').toBeUndefined();
+      expect(run.status, `the runner did not refuse as infrastructure; stderr was:\n${run.stderr}`).toBe(3);
+      expect(run.stderr).toContain(`jwt_expiry = ${wrong}`);
+      expect(run.stderr).toContain(`accessTokenLifetimeSeconds = ${pinned}`);
+      expect(run.stderr).toContain('No tests were run');
+      expect(run.stderr, 'the refusal wears the stack advice, so it ran inside the stack sequence').not.toContain('Docker');
+      expect(existsSync(join(root, 'locks')), 'the lock directory was created, so the lock was reached').toBe(false);
+    } finally {
+      writeFileSync(file, original);
+      rmSync(root, { recursive: true, force: true });
+    }
+    expect(readFileSync(file).equals(original), 'the config was not restored byte for byte').toBe(true);
   }, 30_000);
 });
 

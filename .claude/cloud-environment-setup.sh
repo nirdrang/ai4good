@@ -42,7 +42,8 @@
 #
 # WHAT IT CANNOT KEEP - a snapshot holds files, never running processes:
 #   - the docker daemon. The SessionStart hook starts it every session.
-#   - any container. The hook, or the harness, starts what it needs.
+#   - any container. The session starts the one stack with `bun run db:start`; the harness
+#     starts nothing and refuses when the stack is absent.
 #   - the codex ChatGPT login. That is OAuth, it can rotate, and the snapshot is readable
 #     by anyone using this environment. Run `codex login --device-auth` per fresh VM; the
 #     SessionStart banner says when it is needed.
@@ -54,8 +55,8 @@
 set -euo pipefail
 
 # Not read from the environment - see the note above; a setup script cannot see the
-# environment's variables. The database values are not needed here at all any more: they
-# are read by the SESSION, which does get them from the variables box.
+# environment's variables. No database value exists on either surface: the variables box
+# carries nothing, and the session starts the one stack itself with `bun run db:start`.
 OPENCODE_GO_API_KEY='PASTE_YOUR_OPENCODE_GO_KEY_HERE'
 
 case "$OPENCODE_GO_API_KEY" in

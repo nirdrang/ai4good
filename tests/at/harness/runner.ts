@@ -11,9 +11,10 @@
  * this tree's own `supabase/config.toml` declares (`project_id`, `[api] port`), running at this
  * tree's root — never a shared hosted project, because every run wipes and rebuilds it. There is
  * no pool and no slot. It runs only from the real checkout: `AT_REPO_ROOT` redirects the data root
- * for the runner's own tests, and a data root must not choose which database is reset. THE DATA
- * COST IS STATED: every integration run resets this database, and the evidence line says so on
- * every run. The sequence is deliberately paranoid:
+ * for the runner's own tests, and a data root must not choose which database is reset. It refuses
+ * before the lock, from two files on disk, when `[auth] jwt_expiry` and the registry's
+ * `accessTokenLifetimeSeconds` differ. THE DATA COST IS STATED: every integration run resets this
+ * database, and the evidence line says so on every run. The sequence is deliberately paranoid:
  *
  *   1. take the machine-wide lock keyed by that project id + api port, so two runs cannot reset
  *      under each other — a lock that only a dead holder's process id can free;
@@ -21,8 +22,9 @@
  *      from ports alone — and that it is local: loopback host, the configured ports, keys issued
  *      by the local development issuer. The proof is a branded value only that verdict can mint,
  *      and the reset and the attestation write both demand it, so neither can run without it;
- *   3. prove it again immediately before the reset, reset it on that second proof, and prove the
- *      migration set replayed;
+ *   3. re-read `supabase/config.toml` and refuse if it changed under the lock, prove the identity
+ *      again immediately before the reset, reset on that second proof, and prove the migration set
+ *      replayed;
  *   4. write this run's attestation nonce into it and print the evidence line — project, api port,
  *      reset, migration counts, lock file, tested commit — so a green can always name the database
  *      it graded;
@@ -962,20 +964,27 @@ export async function proveMigrationsReplayed(status: StackStatus, root: string 
  *
  * A TARGET COSTS A PROOF, AND THE TYPE SYSTEM COLLECTS IT (audit ruling B2, decision D13): the
  * identity read is structurally ON the destructive path, never a separate call a caller can skip.
- * The proof is a `StackIdentityRead`, and that type carries a brand only `identityVerdict` sets —
- * so an importer cannot write one by hand, a proof that names no project cannot exist, and the
- * only thing left to refuse at run time is a real read of ONE project handed to a reset aimed at
- * ANOTHER. That is refused here by name, before anything is spawned. This is the only reset
+ * The proof is a `StackIdentityRead`, and THE TARGET TRAVELS IN IT: the reset is aimed at
+ * `read.target`, the workdir and project id the read judged, so there is no second parameter to
+ * disagree with the first and nothing to refuse by name. The type carries a brand only this module
+ * sets — a proof cannot be written as a literal; it is minted only by `identityVerdict`, which on
+ * the live path only `proveTarget` feeds — and the read is frozen, so it cannot be re-aimed after
+ * it is issued. What a caller CAN still write is a spread, `{ ...read, target: other }`, which
+ * TypeScript accepts as the same type; the brand is non-enumerable, so the spread does not carry
+ * it, and that is checked here at use, before anything is spawned. This is the only reset
  * signature there is.
  */
-export async function resetLocalDatabase(target: CliTarget, proof: StackIdentityRead): Promise<void> {
-  if (proof.provenProjectId !== target.projectId) {
+export async function resetLocalDatabase(read: StackIdentityRead): Promise<void> {
+  // Read through the descriptor rather than `PROVEN in read`: the type promises the brand, so the
+  // compiler narrows the negative branch of an `in` test to `never` and the message could not name
+  // the target. The runtime question is the same either way.
+  if (Object.getOwnPropertyDescriptor(read, PROVEN)?.value !== true) {
     throw new Error(
-      `REFUSING TO RESET ${target.projectId}: the identity read handed to this reset proves ${proof.provenProjectId}, ` +
-        `not ${target.projectId}. A reset aimed at a target is only permitted on the read that proved that target. Nothing was done.`,
+      `REFUSING TO RESET ${read.target.projectId}: the read handed to this reset carries no proof — it is a copy of a ` +
+        `read (a spread or Object.assign drops the brand), not the read identityVerdict minted. Nothing was done.`,
     );
   }
-  const invocation = supabaseInvocation(target, ['db', 'reset', '--local']);
+  const invocation = supabaseInvocation(read.target, ['db', 'reset', '--local']);
   const child = spawn(bunExecutable(), invocation.args, {
     cwd: invocation.cwd,
     env: invocation.env,
@@ -1062,34 +1071,54 @@ export function containerNames(text: string, projectId: string): { own: string[]
 }
 
 /**
- * THE BRAND ONLY `identityVerdict` CAN SET. Module-private and never exported: an importer cannot
- * name this key, so an object literal that claims to be a `StackIdentityRead` does not compile,
- * and the two destructive signatures can only ever be handed a read this verdict minted. (A cast
- * still compiles. The threat model is an honest mistake nothing can notice, not an author set on
- * defeating the design — the same line `capabilities.ts` draws for its own symbol.)
+ * THE BRAND ONLY THIS MODULE CAN SET. Module-private and never exported: an importer cannot name
+ * this key, so an object literal that claims to be a `StackIdentityRead` does not compile, and the
+ * two destructive signatures can only be handed a read `mintProvenRead` minted. Said exactly: a
+ * proof cannot be written as a literal; it is minted only by `identityVerdict`, which on the live
+ * path only `proveTarget` feeds. (`identityVerdict` stays exported because the verdict selftests
+ * drive it, so a fabricated `CliResult` yields a proof, and a cast still compiles. The threat model
+ * is an honest mistake nothing can notice, not an author set on defeating the design — the same
+ * line `capabilities.ts` draws for its own symbol, and the same mechanism: non-enumerable, so a
+ * spread or `Object.assign` copies the fields and not the brand, and read at use.)
  */
 const PROVEN: unique symbol = Symbol('at-proven-identity');
 
 /**
  * WHAT THE IDENTITY READ PROVED, in full — the ONE proof type. `resetLocalDatabase` and
  * `attestation.ts`'s `writeAttestation` both take exactly this object and nothing else; the
- * attestation side imports it type-only, so there is no runtime edge and no cycle.
+ * attestation side imports it type-only, so there is no runtime edge and no cycle. It is FROZEN,
+ * target, status and container list included, so a proof cannot be re-aimed after it is issued.
  */
 export interface StackIdentityRead {
-  /** Set by `identityVerdict` and by nothing else. */
+  /** Set by `mintProvenRead` and by nothing else. */
   readonly [PROVEN]: true;
+  /** The target the read judged — the workdir the CLI ran in and the project id it was told to resolve. */
+  readonly target: CliTarget;
   /** The project id the identity read proved, from the CLI's own container names. */
-  provenProjectId: string;
+  readonly provenProjectId: string;
   /** The stack's own report. Never null: no stack, no read. */
-  status: StackStatus;
+  readonly status: StackStatus;
   /** The container names the CLI printed that belong to the proven project — the positive evidence itself. */
-  containers: string[];
+  readonly containers: readonly string[];
+}
+
+/** The one mint. The brand is defined non-enumerable and non-writable; everything else is frozen. */
+function mintProvenRead(target: CliTarget, status: StackStatus, containers: string[]): StackIdentityRead {
+  const read = {
+    target: Object.freeze({ workdir: target.workdir, projectId: target.projectId }),
+    provenProjectId: target.projectId,
+    status: Object.freeze(status),
+    containers: Object.freeze([...containers]),
+  };
+  Object.defineProperty(read, PROVEN, { value: true, enumerable: false, writable: false, configurable: false });
+  return Object.freeze(read) as StackIdentityRead;
 }
 
 /**
  * PURE. The verdict over one `status -o json` result.
  *
- * THE ORDER IS LOAD-BEARING:
+ * THE ORDER IS LOAD-BEARING. A CLI that could not be launched produced nothing to judge, and is
+ * reported as that — not as a refusal. Then:
  *   1. foreign names first — an identity mismatch must never be reported as "stopped services",
  *      "no JSON" or "not running", which is what the steps below would say about a hybrid;
  *   2. then "is anything running": an output with no JSON at all is NOT a refusal. Forgetting
@@ -1109,7 +1138,12 @@ export function identityVerdict(res: CliResult, target: CliTarget, config: Local
     throw new Error(`REFUSING TO RESET ${id}: ${why} Nothing was done.`);
   };
 
-  if (res.error) return refuse(`the Supabase CLI could not be launched to read the stack's identity (${diagnostic(res.error.message)}).`);
+  if (res.error) {
+    throw new Error(
+      `the Supabase CLI could not be launched to read the identity of ${id} (${diagnostic(res.error.message)}); ` +
+        `nothing answered, so nothing was judged.`,
+    );
+  }
 
   const names = containerNames(`${res.stdout}\n${res.stderr}`, id);
   if (names.foreign.length) return refuse(`the identity read did not resolve to ${id} — the CLI named ${names.foreign.join(', ')}.`);
@@ -1145,7 +1179,7 @@ export function identityVerdict(res: CliResult, target: CliTarget, config: Local
     );
   }
 
-  return { [PROVEN]: true, provenProjectId: id, status, containers: names.own };
+  return mintProvenRead(target, status, names.own);
 }
 
 /**
@@ -1167,7 +1201,9 @@ export function proveTarget(target: CliTarget, config: LocalConfig, when: string
  * written twice — `[auth] jwt_expiry` in `supabase/config.toml`, which the running Auth service
  * reads at start, and `accessTokenLifetimeSeconds` in `atconfig.ts`, which the suites wait out —
  * and prose alone used to join them. A stack serving one number while the bodies wait for the
- * other fails 135 seconds later blaming the product. Null when the two agree.
+ * other fails 135 seconds later blaming the product. Null when the two agree. `main` asks before
+ * the lock is taken: the answer comes from two files on disk, so a mismatch costs nothing and is
+ * reported bare, with no advice about a stack nothing contacted.
  */
 export function lifetimePinProblem(config: LocalConfig): string | null {
   const pinned = AT_CONFIG.accessTokenLifetimeSeconds.value;
@@ -1178,6 +1214,29 @@ export function lifetimePinProblem(config: LocalConfig): string | null {
     `the config's number and the suites wait out the registry's, so the two must agree: edit whichever is wrong, then ` +
     `run \`bun run db:stop\` and \`bun run db:start\` so the stack reads the config again. Nothing was done.`
   );
+}
+
+/**
+ * THE LOCKED SNAPSHOT MUST STILL BE THE FILE. `main` reads `supabase/config.toml` once, takes the
+ * lock on its project id and api port, and hands that object down; the readiness wait that follows
+ * can last two minutes. The second CLI call forces the LOCKED project id through
+ * `SUPABASE_PROJECT_ID`, so a file that now declares another project would still be reset as the
+ * old one, under a lock keyed to an identity the checkout no longer claims — and a changed port or
+ * lifetime would pass a proof judged against numbers that are no longer the file's. So the file is
+ * read again immediately before the second proof, and every field that names the stack is held to
+ * the snapshot. Empty when nothing moved.
+ */
+export function configDriftProblems(locked: LocalConfig, current: LocalConfig): string[] {
+  const problems: string[] = [];
+  const hold = (label: string, was: string | number | undefined, now: string | number | undefined) => {
+    if (was !== now) problems.push(`${label} was ${was ?? 'absent'} when the lock was taken and is ${now ?? 'absent'} now`);
+  };
+  hold('project_id', locked.projectId, current.projectId);
+  hold('[api] port', locked.apiPort, current.apiPort);
+  hold('[db] port', locked.dbPort, current.dbPort);
+  hold('[local_smtp] port', locked.mailPort, current.mailPort);
+  hold('[auth] jwt_expiry', locked.jwtExpirySeconds, current.jwtExpirySeconds);
+  return problems;
 }
 
 /** What one integration run established about the stack before the suite ran. */
@@ -1191,17 +1250,25 @@ export interface PreparedStack {
 /**
  * Make the one stack's database be this tree's database, and prove it.
  *
- * THE ORDER IS THE SAFETY ARGUMENT: refuse a lifetime pin the config and the registry disagree on,
- * prove the identity, wait for readiness, PROVE IT AGAIN, reset on that second proof, wait again,
- * prove the migration set replayed, and only then mint the nonce and write it — after the reset,
- * so it cannot be a leftover, and after the migration proof, so it cannot be mistaken for migrated
- * schema.
+ * THE ORDER IS THE SAFETY ARGUMENT: prove the identity, wait for readiness, re-read the config the
+ * lock and the first proof were judged against and refuse if it changed, PROVE IT AGAIN, reset on
+ * that second proof, wait again, prove the migration set replayed, and only then mint the nonce
+ * and write it — after the reset, so it cannot be a leftover, and after the migration proof, so it
+ * cannot be mistaken for migrated schema. The lifetime pin is not checked here: it is decided from
+ * two files on disk, so `main` refuses it before the lock is taken.
  *
- * WHY TWO READS. The readiness wait has a budget of `READY_TIMEOUT_MS` (two minutes by default),
- * and a proof taken before it describes the stack as it was before that window, not as it is at
- * the instant of the reset. The second read is taken immediately before the destructive act and is
- * the one both destructive acts receive; the first read only says the stack is worth waiting for.
- * That narrows the check-to-use window to the width of one CLI call.
+ * WHY TWO READS, AND WHY THE CONFIG IS READ AGAIN. The readiness wait has a budget of
+ * `READY_TIMEOUT_MS` (two minutes by default), and a proof taken before it describes the stack as
+ * it was before that window, not as it is at the instant of the reset. The second read is taken
+ * immediately before the reset and is the read both destructive acts receive; the first read only
+ * says the stack is worth waiting for. That narrows the RESET's check-to-use window to one CLI
+ * call. The attestation write runs on the same read after the reset and the second readiness wait,
+ * so its window is wider; between the two acts the reset itself is the thing that would have to
+ * have failed, and the write reaches only the database that reset rebuilt. The config is re-read
+ * from the target's workdir before the second proof because that proof forces the LOCKED project
+ * id through `SUPABASE_PROJECT_ID`: a file that now names another project, port or lifetime would
+ * make the lock, the pin check and the first proof all judgements about a file that no longer
+ * exists, and the run refuses rather than reset the old project under a checkout that moved on.
  *
  * WHAT IT DELIBERATELY DOES NOT DO. It does not restart the stack: a restart of the founder's own
  * stack would be a fourth destructive act, so a stack started before `supabase/config.toml` last
@@ -1213,16 +1280,22 @@ export interface PreparedStack {
  * never runs. A later item can revisit that if the CLI's output shape changes.
  */
 export async function prepareLocalStack(target: CliTarget, config: LocalConfig): Promise<PreparedStack> {
-  const pin = lifetimePinProblem(config);
-  if (pin) throw new Error(pin);
   const first = proveTarget(target, config, 'before the readiness wait');
   await waitForReady(first.status, 'before the reset');
+  const drift = configDriftProblems(config, readLocalConfig(target.workdir));
+  if (drift.length) {
+    throw new Error(
+      `REFUSING TO RESET ${config.projectId}: supabase/config.toml changed after this run locked the stack — ${drift.join('; ')}. ` +
+        `The lock, the lifetime pin and the first identity read all judged the earlier file, so nothing below is proven ` +
+        `for this one. Nothing was done.`,
+    );
+  }
   const read = proveTarget(target, config, 'immediately before the reset');
-  await resetLocalDatabase(target, read);
+  await resetLocalDatabase(read);
   await waitForReady(read.status, 'after the reset');
   const migrations = await proveMigrationsReplayed(read.status, target.workdir);
   const nonce = mintAttestationNonce();
-  await writeAttestation(target, read, nonce);
+  await writeAttestation(read, nonce);
   return { read, migrations, nonce };
 }
 
@@ -1584,6 +1657,11 @@ async function main(argv: string[]): Promise<number> {
       let target: CliTarget;
       try {
         config = readLocalConfig(REPO_ROOT);
+        // THE LIFETIME PIN IS A PREFLIGHT, decided from this file and the registry before the lock:
+        // a mispinned tree must not take the machine-wide lock to learn a fact that was true before
+        // it started, and the refusal must not wear advice about a stack nothing contacted.
+        const pin = lifetimePinProblem(config);
+        if (pin) return infra(pin);
         target = { workdir: REPO_ROOT, projectId: config.projectId };
         // The lock goes into the SAME `lock` variable `cleanupRun` releases, before anything else,
         // so the release stays in the one `finally` chain that exists. Its failure is reported on

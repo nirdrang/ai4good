@@ -3,7 +3,7 @@
  *
  * WHAT IT IS AND IS NOT, first, because the name invites the wrong reading. This is NOT a real email
  * PROVIDER, and no green anywhere in this repository claims one. Nothing here sends mail through a
- * vendor at any tier. What the slot's stack really holds is the catcher every message the local
+ * vendor at any tier. What the stack really holds is the catcher every message the local
  * Supabase Auth emits lands in, and READING it is a genuine capability: the confirmation link a body
  * follows was produced by GoTrue on this run, in response to this run's signup, rather than minted
  * by a simulator the test armed. That is the difference between the sim and this, and it is the only
