@@ -7,25 +7,29 @@
  * unconfirmed → confirmation link from Mailpit → sign-in → `complete-signup` (NGO) →
  * database readback with the service role. Writes a REDACTED transcript to
  * `outDir` (default `loop/verify-evidence/<timestamp>/`) and exits 0 only when every
- * check passed. Keys are read from `bun x supabase status -o json` at run time.
+ * check passed. Keys are read through `stackFromLocalStatus` at run time.
  *
  * Run it from the repo root, with the stack up (`bun run db:start`). A clean state
  * (`bun run db:reset`) is recommended for evidence-grade runs. Mind the auth rate limit:
  * two signup emails per hour per stack restart (see features/email-signup-and-confirmation.md).
  */
 
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+import { readLocalConfig, stackFromLocalStatus } from '../../../../tests/at/harness/local-stack.ts';
 import {
   authPost,
   followLink,
   functionPost,
+  mailIdentification,
+  readJson,
   redactString,
   redactUrl,
   redactValue,
   sqlClient,
-  stackFromStatus,
   verifyLinksFor,
   type Stack,
 } from '../../../../tests/at/harness/live-stack.ts';
@@ -60,7 +64,7 @@ function recordHttp(name: string, method: string, url: string, status: number, b
 
 /* ----------------------------------------------------------------------------------- run */
 
-const repoRoot = resolve(import.meta.dir, '../../../..');
+const repoRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../..');
 const outDir = resolve(
   repoRoot,
   process.argv[2] ??
@@ -69,11 +73,10 @@ const outDir = resolve(
 
 let stack: Stack;
 try {
-  stack = stackFromStatus(repoRoot);
+  stack = stackFromLocalStatus(repoRoot);
 } catch (err) {
   fatal((err as Error).message);
 }
-const api = stack.apiUrl.replace(/\/$/, '');
 
 const stamp = Date.now();
 const email = `verify-${stamp}@example.com`;
@@ -82,24 +85,67 @@ const orgName = `Verify Drill Org ${stamp}`;
 
 // (a) Doctor: the stack answers.
 {
-  const url = `${api}/auth/v1/health`;
-  const response = await fetch(url);
-  const text = await response.text();
-  let body: unknown = text;
+  const url = `${stack.apiUrl.replace(/\/$/, '')}/auth/v1/health`;
+  const health = await readJson(url);
+  let body: unknown = health.text;
   try {
-    body = JSON.parse(text);
+    body = JSON.parse(health.text);
   } catch {
     /* not JSON — keep the string */
   }
-  recordHttp('doctor-auth-health', 'GET', url, response.status, body);
-  record('a', 'auth health answers', response.status === 200, `GET /auth/v1/health -> ${response.status}`);
-  if (response.status !== 200) fatal('stack not healthy');
+  recordHttp('doctor-auth-health', 'GET', url, health.status, body);
+  record('a', 'auth health answers', health.status === 200, `GET /auth/v1/health -> ${health.status}`);
+  if (health.status !== 200) fatal('stack not healthy');
+}
+
+// (a2) Doctor: the catcher's own identification.
+{
+  try {
+    const identification = await mailIdentification(stack);
+    record('a2', 'mail identification', true, identification);
+  } catch (err) {
+    record('a2', 'mail identification', false, (err as Error).message);
+    fatal((err as Error).message);
+  }
+}
+
+// (a3) Doctor: the edge runtime mounts this checkout's functions.
+{
+  const projectId = readLocalConfig(repoRoot).projectId;
+  const inspect = spawnSync(
+    'docker',
+    ['inspect', `supabase_edge_runtime_${projectId}`, '--format', '{{json .Mounts}}'],
+    { encoding: 'utf8' },
+  );
+  const remedy = 'bun run db:stop then bun run db:start from this checkout';
+  const normalize = (value: string) => value.replace(/\\/g, '/').toLowerCase();
+  const root = normalize(repoRoot);
+  let source = '';
+  let ok = false;
+  let note = '';
+  if (inspect.error) {
+    note = `docker inspect could not be launched (${inspect.error.message}); ${remedy}`;
+  } else {
+    try {
+      const mounts = JSON.parse(inspect.stdout || '[]') as { Source?: string }[];
+      const functionsMount = mounts.find((mount) => normalize(String(mount.Source ?? '')).endsWith('supabase/functions'));
+      source = String(functionsMount?.Source ?? '');
+      ok = source.length > 0 && normalize(source).startsWith(root);
+      note = ok
+        ? `edge runtime functions mount ${source}`
+        : `edge runtime functions mount is ${source || 'missing'}; expected a Source ending in supabase/functions that starts with ${repoRoot}. ${remedy}`;
+    } catch (err) {
+      note = `docker inspect did not answer JSON mounts (${(err as Error).message}); ${remedy}`;
+    }
+  }
+  record('a3', 'edge runtime mount', ok, note);
+  if (!ok) fatal(note);
 }
 
 // (b) Signup issues NO session while unconfirmed.
 {
   const r = await authPost(stack, '/auth/v1/signup', { email, password });
-  recordHttp('signup', 'POST', `${api}/auth/v1/signup`, r.status, r.json);
+  recordHttp('signup', 'POST', r.url, r.status, r.json);
   const noSession = r.status === 200 && !('access_token' in r.json);
   record('b', 'signup returns a user and no session', noSession, `status ${r.status}, access_token present: ${'access_token' in r.json}`);
 }
@@ -107,7 +153,7 @@ const orgName = `Verify Drill Org ${stamp}`;
 // (c) Sign-in is refused before confirmation.
 {
   const r = await authPost(stack, '/auth/v1/token?grant_type=password', { email, password });
-  recordHttp('signin-before-confirm', 'POST', `${api}/auth/v1/token?grant_type=password`, r.status, r.json);
+  recordHttp('signin-before-confirm', 'POST', r.url, r.status, r.json);
   record('c', 'sign-in refused while unconfirmed', r.status === 400, `status ${r.status}`);
 }
 
@@ -131,7 +177,7 @@ let accessToken = '';
 let userId = '';
 if (confirmed) {
   const r = await authPost(stack, '/auth/v1/token?grant_type=password', { email, password });
-  recordHttp('signin-after-confirm', 'POST', `${api}/auth/v1/token?grant_type=password`, r.status, r.json);
+  recordHttp('signin-after-confirm', 'POST', r.url, r.status, r.json);
   accessToken = String(r.json.access_token ?? '');
   userId = String((r.json.user as { id?: string } | undefined)?.id ?? '');
   record('e', 'sign-in succeeds after confirmation', r.status === 200 && accessToken !== '', `status ${r.status}, token ${accessToken ? 'issued' : 'missing'}, user ${userId || 'missing'}`);
@@ -152,7 +198,7 @@ if (accessToken) {
     },
     accessToken,
   );
-  recordHttp('complete-signup-ngo', 'POST', `${api}/functions/v1/complete-signup`, r.status, r.json);
+  recordHttp('complete-signup-ngo', 'POST', r.url, r.status, r.json);
   record('f', 'complete-signup (ngo) answers 200', r.status === 200, `status ${r.status}: ${JSON.stringify(redactValue(r.json)).slice(0, 200)}`);
 }
 

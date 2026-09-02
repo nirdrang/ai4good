@@ -6,6 +6,7 @@
 |---|---|---|
 | `/tsconfig.json` | `src/**`, `vite.config.ts`, `eslint.config.js` | Lovable's application build: TanStack Start, JSX, DOM libs, bundler resolution |
 | `/tests/at/tsconfig.json` | everything under `tests/at` | this tree: Node-side, no DOM, `types: ["node"]`, `.ts` import specifiers, `strict` |
+| `/.claude/skills/verify-ai4good/scripts/tsconfig.json` | the verify drive scripts | extends the acceptance config so the drive and `live-stack.ts` cannot disagree |
 
 They are **not** one widened `include`, and the separation is not stylistic:
 
@@ -21,12 +22,12 @@ They are **not** one widened `include`, and the separation is not stylistic:
 
 ## `bun run typecheck`
 
-Runs **both** configs and fails if **either** fails.
+Runs **all three** projects and fails if **any** fails.
 
 It is a small wrapper (`tests/at/typecheck.ts`), not `tsc -p a && tsc -p b`, because `&&` stops at
 the first failure: an error in the app config would prevent the acceptance-test check from ever
 starting, and a command that says nothing at all about `tests/at` reads exactly like one that found
-it clean. Both projects are always launched; the exit code is the aggregate.
+it clean. All three projects are always launched; the exit code is the aggregate.
 
 The wrapper lives here rather than in a repo-level `scripts/` because AI4DEV-24's allowed paths
 stopped at `tests/at/**` and `package.json`. If a `scripts/` directory is ever added, this is a
@@ -82,6 +83,7 @@ already invokes it changed meaning.
   is a suite drifting from its harness with nobody able to notice — an honest mistake that
   type-checks green — not an author set on defeating the type system, who can always write a cast.
 
-The integration tier's one stack — the identity read, the lock, the reset, the migration proof,
-and the evidence line — lives in `harness/local-stack.ts`. The runner in `harness/runner.ts` grades
-per AT id and imports that module; it is not the home of the identity read or the lock.
+The integration tier's one stack — the identity read, the reset, the migration proof,
+and the evidence line — lives in `harness/local-stack.ts`. The machine-wide lock lives in
+`harness/stack-lock.ts`. The runner in `harness/runner.ts` grades per AT id and imports those
+modules; it is not the home of the identity read or the lock.

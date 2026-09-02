@@ -10,9 +10,8 @@
  * home.)
  *
  * WHY THIS FILE EXISTS AT ALL, because the alternative is what most acceptance suites do and it is
- * worth naming: `adapterDerivedCapability()` in `tests/at/harness/capabilities.ts` stamps every
- * `sut.<key>` a STAND-IN unconditionally, so a suite whose fixture adapter re-implements the
- * requirement proves that the TEST is well-formed and nothing whatever about the code that ships.
+ * worth naming: a suite whose fixture adapter re-implements the requirement proves that the TEST
+ * is well-formed and nothing whatever about the code that ships. The loop fixture is a stand-in;
  * `tests/at/suites/req-016/_fixture.ts` says so about itself in its own opening paragraph. Putting
  * the judgements here and importing them from both sides is what makes the loop-tier green a claim
  * about product code. The adapter still supplies storage — that half is a stand-in and stays one.

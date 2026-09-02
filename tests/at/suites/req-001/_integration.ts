@@ -1238,7 +1238,7 @@ export async function at00139(ctx: Ctx): Promise<void> {
  * refuses with the capability this environment does not hold.
  *
  * IT IS NOT A SKIP AND IT IS NOT A STUB. `CapabilityPending` carrying an exact name is the same
- * shape `pendingMethodProxy` throws and the same shape a `capability-pending` declaration rebuilds,
+ * shape the six explicit throws in `_live.ts` produce and the same shape a `capability-pending` declaration rebuilds,
  * so the id is red in a form the machinery matches from position 0 — and the declaration has to say
  * WHICH capability is missing. A body that instead asserted the half of the criterion it CAN reach
  * would be reporting a green for a criterion it does not prove, which is the whole failure mode this

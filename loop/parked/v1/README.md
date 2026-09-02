@@ -82,7 +82,8 @@ suite with no live adapter is refused by a boolean, not a computed verdict.
 
 ## The live mail reader (parked 2026-09-02)
 
-`tests/at/harness/live-email.ts` moved here byte for byte. It was the integration tier's
+`tests/at/harness/live-email.ts` was edited in this branch (attestation stripped) before it
+moved here. It was the integration tier's
 Mailpit reader: search, raw-source read, and the `/api/v1/info` identification probe. The
 shared stack module `tests/at/harness/live-stack.ts` now holds that read and that probe, with
 no brand. Dead text under version control: not compiled, not run, not imported.

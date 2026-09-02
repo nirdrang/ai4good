@@ -31,7 +31,7 @@ import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { INSTALL_ROOT } from './check.ts';
-import { bunExecutable, childEnv } from './runner.ts';
+import { bunExecutable, childEnv } from './local-stack.ts';
 
 const RUNNER = join(INSTALL_ROOT, 'tests', 'at', 'harness', 'runner.ts');
 const REGISTRY_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harness', 'registry.ts')).href;

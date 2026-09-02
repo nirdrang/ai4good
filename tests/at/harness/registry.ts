@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import { expect, it } from 'vitest';
 
 import type { AtHarness, TierHarness } from './contracts.ts';
+import { AtPending, CapabilityPending } from './pending.ts';
 import type { SuiteId, SutKeyOf, SutOf, WorldOf } from './suite-adapters.ts';
 
 /* ------------------------------------------------------------------------ the AT id grammar */
@@ -149,25 +150,8 @@ const tierError = (requirement: string) =>
 
 /* ---------------------------------------------------------------------------- pending errors */
 
-export type PendingPhase = 'harness-missing' | 'sut-missing' | 'tier-unset';
-
-export class AtPending extends Error {
-  constructor(
-    readonly atId: string,
-    readonly phase: PendingPhase,
-    detail: string,
-  ) {
-    super(`${atId} PENDING [${phase}] — ${detail}`);
-    this.name = 'AtPending';
-  }
-}
-
-export class CapabilityPending extends Error {
-  constructor(readonly capabilities: readonly string[]) {
-    super(`CAPABILITY PENDING — ${capabilities.join(', ')}`);
-    this.name = 'CapabilityPending';
-  }
-}
+export { AtPending, CapabilityPending } from './pending.ts';
+export type { PendingPhase } from './pending.ts';
 
 /* -------------------------------------------------------------------------- the harness seam */
 
@@ -200,6 +184,7 @@ export type ConfigOverrides = Record<string, number | boolean>;
 
 export interface HarnessModule {
   createHarness(opts: { requirement: string; tier: Tier; configOverrides?: ConfigOverrides }): Promise<AtHarness>;
+  liveAdapterExists(requirement: string): boolean;
 }
 
 let harnessModule: HarnessModule | null = null;
@@ -207,8 +192,8 @@ let harnessResolveError = '';
 
 try {
   const mod = (await import(/* @vite-ignore */ HARNESS_MODULE)) as Partial<HarnessModule>;
-  if (typeof mod.createHarness !== 'function') {
-    harnessResolveError = `resolved ${HARNESS_MODULE} but it exports no createHarness()`;
+  if (typeof mod.createHarness !== 'function' || typeof mod.liveAdapterExists !== 'function') {
+    harnessResolveError = `resolved ${HARNESS_MODULE} but it exports no createHarness() and liveAdapterExists()`;
   } else {
     harnessModule = mod as HarnessModule;
   }
@@ -259,8 +244,7 @@ try {
  * The line is worth stating as a rule rather than as an excuse. What is closed is a suite NAMING the
  * seam types, and with it every route the API used to invite. What is open is a hand-written
  * structural reconstruction, which is a decision somebody takes rather than a mistake they make.
- * `tests/at/typeprobes/sut-seam.probe.ts` carries it verbatim as a documented known-open case (it
- * cannot be an active probe there, because that program must not compile and this attack does), and
+ * The attack is recorded under `loop/parked/v1/tests/at/typeprobes/` and nothing executes it, and
  * `loop/items/AI4DEV-31/gate2-widen-reproduction.txt` is the compile transcript with its controls.
  */
 type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike, T extends Tier = 'loop'> = {
@@ -294,8 +278,8 @@ type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike, T extends Tie
    *
    * It used to be the suite's own type argument, asserted rather than verified, so
    * `bindSuite<NotificationsSut, AnythingAtAll>` type-checked green and a body could read members
-   * no fixture supplies. `tests/at/typeprobes/sut-seam-legacy.probe.ts` is that attack, kept alive:
-   * it compiled clean before this change and must fail now.
+   * no fixture supplies. That attack is recorded under `loop/parked/v1/tests/at/typeprobes/` and
+   * nothing executes it.
    */
   w: W;
   /**
@@ -679,6 +663,13 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
     );
   }
 
+  /*
+   * Liveness is decided before anything is built. The boolean is file presence, not a member of
+   * the harness a body can read. aboveLoopStandInRefusal keeps its (tier, live, sutKey) signature.
+   */
+  const standInRefusal = aboveLoopStandInRefusal(TIER, harnessModule.liveAdapterExists(`req-${o.requirement}`), o.sutKey);
+  if (standInRefusal) throw standInRefusal;
+
   const h = await harnessModule.createHarness({
     requirement: `req-${o.requirement}`,
     tier: TIER,
@@ -687,13 +678,6 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
   // Tracked from here on: every later failure must still tear the harness down.
   try {
     expect(h.tier, `harness built tier "${h.tier}" for a --tier ${TIER} run`).toBe(TIER);
-
-    /*
-     * Above loop, a harness that did not load a live adapter is refused before the body runs,
-     * naming the two members the loop fixture supplies.
-     */
-    const standInRefusal = aboveLoopStandInRefusal(TIER, h.live, o.sutKey);
-    if (standInRefusal) throw standInRefusal;
 
     const sut = h.sut?.[o.sutKey];
     if (!sut) throw new AtPending(o.atId, 'sut-missing', o.sutMissing);

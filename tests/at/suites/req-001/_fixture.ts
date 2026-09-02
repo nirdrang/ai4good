@@ -4,10 +4,9 @@
  * READ THIS BEFORE TRUSTING A GREEN FROM THIS SUITE, because the honest claim is narrower than
  * "REQ-001 works" and wider than what most acceptance adapters can say.
  *
- * `adapterDerivedCapability()` in `tests/at/harness/capabilities.ts` stamps every `sut.<key>` a
- * STAND-IN unconditionally, and the registry refuses a stand-in above the loop tier. So nothing here
- * can reach the integration-tier run that is the evidence gate. What a loop-tier green from this
- * suite means is exactly this:
+ * This file is the loop fixture. Above loop, `openWorld` refuses before construction when the suite
+ * has no `_live.ts`. REQ-001 has `_live.ts`, so the integration tier drives that adapter, not this
+ * one. What a loop-tier green from this suite means is exactly this:
  *
  *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts`,
  *     `supabase/functions/_shared/github.ts`, `supabase/functions/_shared/caller.ts` and

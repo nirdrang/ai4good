@@ -75,7 +75,7 @@ import {
   verifyLinksFor,
   type Stack,
 } from '../../harness/live-stack.ts';
-import { CapabilityPending } from '../../harness/registry.ts';
+import { CapabilityPending } from '../../harness/pending.ts';
 import type {
   AccountRow,
   AccountsSut,
@@ -803,6 +803,8 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return { accountId, email, provider: 'email', sessionId };
     },
 
+    // Written out because the integration manifest names each one, and `AccountsSut` makes an
+    // omitted method a compile error.
     registerWithProvider: () => { throw new CapabilityPending(['sut.accounts.registerWithProvider']); },
     registerWithGithub: () => { throw new CapabilityPending(['sut.accounts.registerWithGithub']); },
     signInWithProvider: () => { throw new CapabilityPending(['sut.accounts.signInWithProvider']); },

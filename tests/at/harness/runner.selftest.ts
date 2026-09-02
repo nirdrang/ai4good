@@ -13,20 +13,16 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { AT_CONFIG } from './atconfig.ts';
 import { REPO_ROOT } from './check.ts';
-import {
-  bunExecutable,
-  childEnv,
-  cleanupRun,
-  runVerdict,
-  type IdRow,
-} from './runner.ts';
+import { bunExecutable, childEnv } from './local-stack.ts';
+import { cleanupRun, runVerdict, type IdRow } from './runner.ts';
 
 /** Names a developer following `.env.example` could plausibly have sitting in `.env.local`. */
 const SENTINELS = {
@@ -134,6 +130,42 @@ describe('the integration tier runs only from the real checkout', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  }, 30_000);
+});
+
+describe('the lifetime pin is a preflight: decidable from two files on disk, so it refuses before the lock', () => {
+  it('exits 3 naming both numbers, creates no lock file, and carries no stack advice', () => {
+    // THE REAL TREE'S config.toml IS EDITED AND RESTORED, the way the migrations selftest plants a
+    // file in the real tree: the integration tier refuses every other root before it reads a config,
+    // so the only config this runner can read is this one. The edit is one number on one line; the
+    // restore is byte-exact and asserted.
+    const file = join(REPO_ROOT, 'supabase', 'config.toml');
+    const original = readFileSync(file);
+    const text = original.toString('utf8');
+    const pinned = AT_CONFIG.accessTokenLifetimeSeconds.value;
+    const wrong = pinned * 30;
+    const edited = text.replace(/^(jwt_expiry\s*=\s*)\d+/m, `$1${wrong}`);
+    expect(edited, 'the config has no [auth] jwt_expiry line to edit').not.toBe(text);
+    const root = mkdtempSync(join(tmpdir(), 'at-pin-preflight-'));
+    try {
+      writeFileSync(file, edited);
+      const run = spawnSync(
+        bunExecutable(),
+        ['--no-env-file', fileURLToPath(new URL('./runner.ts', import.meta.url)), 'req-001', '--tier', 'integration'],
+        { cwd: REPO_ROOT, env: childEnv({ AT_LOCK_DIR: join(root, 'locks') }), encoding: 'utf8' },
+      );
+      expect(run.error, 'the runner could not be launched').toBeUndefined();
+      expect(run.status, `the runner did not refuse as infrastructure; stderr was:\n${run.stderr}`).toBe(3);
+      expect(run.stderr).toContain(`jwt_expiry = ${wrong}`);
+      expect(run.stderr).toContain(`accessTokenLifetimeSeconds = ${pinned}`);
+      expect(run.stderr).toContain('No tests were run');
+      expect(run.stderr, 'the refusal wears the stack advice, so it ran inside the stack sequence').not.toContain('Docker');
+      expect(existsSync(join(root, 'locks')), 'the lock directory was created, so the lock was reached').toBe(false);
+    } finally {
+      writeFileSync(file, original);
+      rmSync(root, { recursive: true, force: true });
+    }
+    expect(readFileSync(file).equals(original), 'the config was not restored byte for byte').toBe(true);
   }, 30_000);
 });
 

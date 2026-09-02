@@ -5,8 +5,6 @@
  * attestation.
  */
 
-import { spawnSync } from 'node:child_process';
-
 export type Stack = {
   apiUrl: string;
   dbUrl: string;
@@ -14,6 +12,15 @@ export type Stack = {
   serviceRoleKey: string;
   mailUrl: string;
 };
+
+/** Field to `AT_SUPABASE_*` name. `childCoordinates` writes through this; `stackFromEnv` reads it. */
+export const STACK_ENV = {
+  apiUrl: 'AT_SUPABASE_URL',
+  dbUrl: 'AT_SUPABASE_DB_URL',
+  anonKey: 'AT_SUPABASE_ANON_KEY',
+  serviceRoleKey: 'AT_SUPABASE_SERVICE_ROLE_KEY',
+  mailUrl: 'AT_SUPABASE_MAIL_URL',
+} as const;
 
 const SENSITIVE_KEY = /token|secret|password|apikey|api_key|jwt|nonce|otp|code$/i;
 const JWT_SHAPE = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g;
@@ -41,7 +48,7 @@ function jsonBody(text: string): Record<string, unknown> {
   }
 }
 
-async function readJson(url: string): Promise<HttpAnswer> {
+export async function readJson(url: string): Promise<HttpAnswer> {
   const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   return { status: response.status, text: await response.text() };
 }
@@ -53,63 +60,21 @@ function addressesOf(value: unknown): string[] {
     .filter((address) => address.length > 0);
 }
 
-function requiredField(object: Record<string, unknown>, name: string): string {
-  const value = object[name];
-  if (typeof value === 'string' && value.length > 0) return value;
-  throw new Error(`status JSON is missing ${name}`);
-}
-
 /** The five `AT_SUPABASE_*` values the runner hands the child. Never recomputed here. */
 export function stackFromEnv(): Stack {
-  const env = process.env;
-  return {
-    apiUrl: env.AT_SUPABASE_URL ?? '',
-    dbUrl: env.AT_SUPABASE_DB_URL ?? '',
-    anonKey: env.AT_SUPABASE_ANON_KEY ?? '',
-    serviceRoleKey: env.AT_SUPABASE_SERVICE_ROLE_KEY ?? '',
-    mailUrl: env.AT_SUPABASE_MAIL_URL ?? '',
+  const required = (field: 'apiUrl' | 'dbUrl' | 'anonKey' | 'serviceRoleKey'): string => {
+    const name = STACK_ENV[field];
+    const value = process.env[name];
+    if (typeof value === 'string' && value.length > 0) return value;
+    throw new Error(`the child environment is missing ${name}`);
   };
-}
-
-/** The CLI's stdout may carry text before and after the JSON object. */
-export function parseStatusJson(stdout: string): Record<string, unknown> {
-  const start = stdout.indexOf('{');
-  const end = stdout.lastIndexOf('}');
-  if (start < 0 || end <= start) {
-    throw new Error('supabase status did not answer JSON — is the stack up? (bun run db:start)');
-  }
-  try {
-    const parsed: unknown = JSON.parse(stdout.slice(start, end + 1));
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('not an object');
-    }
-    return parsed as Record<string, unknown>;
-  } catch {
-    throw new Error('supabase status did not answer JSON — is the stack up? (bun run db:start)');
-  }
-}
-
-export function stackFromStatusJson(object: Record<string, unknown>): Stack {
-  const mail =
-    (typeof object.MAILPIT_URL === 'string' && object.MAILPIT_URL) ||
-    (typeof object.INBUCKET_URL === 'string' && object.INBUCKET_URL) ||
-    '';
-  if (!mail) throw new Error('status JSON is missing MAILPIT_URL or INBUCKET_URL');
   return {
-    apiUrl: requiredField(object, 'API_URL'),
-    dbUrl: requiredField(object, 'DB_URL'),
-    anonKey: requiredField(object, 'ANON_KEY'),
-    serviceRoleKey: requiredField(object, 'SERVICE_ROLE_KEY'),
-    mailUrl: mail,
+    apiUrl: required('apiUrl'),
+    dbUrl: required('dbUrl'),
+    anonKey: required('anonKey'),
+    serviceRoleKey: required('serviceRoleKey'),
+    mailUrl: process.env[STACK_ENV.mailUrl] ?? '',
   };
-}
-
-export function stackFromStatus(repoRoot: string): Stack {
-  const status = spawnSync('bun', ['x', 'supabase', 'status', '-o', 'json'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  });
-  return stackFromStatusJson(parseStatusJson(status.stdout ?? ''));
 }
 
 export async function authPost(
@@ -117,8 +82,9 @@ export async function authPost(
   path: string,
   body: unknown,
   bearer?: string,
-): Promise<{ status: number; json: Record<string, unknown> }> {
-  const response = await fetch(`${stripSlash(stack.apiUrl)}${path}`, {
+): Promise<{ url: string; status: number; json: Record<string, unknown> }> {
+  const url = `${stripSlash(stack.apiUrl)}${path}`;
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       apikey: stack.anonKey,
@@ -127,7 +93,7 @@ export async function authPost(
     },
     body: JSON.stringify(body),
   });
-  return { status: response.status, json: jsonBody(await response.text()) };
+  return { url, status: response.status, json: jsonBody(await response.text()) };
 }
 
 export async function functionPost(
@@ -136,19 +102,20 @@ export async function functionPost(
   body: unknown,
   bearer: string,
   ip?: string,
-): Promise<{ status: number; json: Record<string, unknown> }> {
+): Promise<{ url: string; status: number; json: Record<string, unknown> }> {
   const headers: Record<string, string> = {
     apikey: stack.anonKey,
     Authorization: `Bearer ${bearer}`,
     'Content-Type': 'application/json',
   };
   if (ip) headers['x-forwarded-for'] = ip;
-  const response = await fetch(`${stripSlash(stack.apiUrl)}/functions/v1/${name}`, {
+  const url = `${stripSlash(stack.apiUrl)}/functions/v1/${name}`;
+  const response = await fetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
   });
-  return { status: response.status, json: jsonBody(await response.text()) };
+  return { url, status: response.status, json: jsonBody(await response.text()) };
 }
 
 /**
@@ -159,7 +126,7 @@ export async function mailIdentification(stack: Stack): Promise<string> {
   const base = stripSlash(stack.mailUrl);
   if (!base) {
     throw new Error(
-      "refusing to build the live email capability: the slot's status reported no mail catcher URL, so there is " +
+      'refusing to build the live mail reader: the stack reported no mail catcher URL, so there is ' +
         'nothing to read.',
     );
   }
@@ -169,14 +136,14 @@ export async function mailIdentification(stack: Stack): Promise<string> {
     info = await readJson(`${base}/api/v1/info`);
   } catch (err) {
     throw new Error(
-      `refusing to build the live email capability: the mail catcher at ${base} did not answer its identification ` +
+      `refusing to build the live mail reader: the mail catcher at ${base} did not answer its identification ` +
         `probe (${(err as Error).message}). An endpoint nothing answers is not positive evidence.`,
     );
   }
   if (info.status !== 200) {
     const inbucket = await readJson(`${base}/api/v1/mailbox/probe`).catch(() => ({ status: 0, text: '' }));
     throw new Error(
-      `refusing to build the live email capability: the endpoint at ${base} answered ${info.status} to the Mailpit ` +
+      `refusing to build the live mail reader: the endpoint at ${base} answered ${info.status} to the Mailpit ` +
         `identification probe and ${inbucket.status} to the Inbucket one, so this harness cannot say what is behind ` +
         'it. The catcher shape is measured on every run rather than remembered, because the Supabase CLI has ' +
         'shipped both and their APIs differ.',
@@ -188,14 +155,14 @@ export async function mailIdentification(stack: Stack): Promise<string> {
     identification = JSON.parse(info.text) as { Version?: unknown };
   } catch {
     throw new Error(
-      `refusing to build the live email capability: the endpoint at ${base} answered 200 to the Mailpit ` +
+      `refusing to build the live mail reader: the endpoint at ${base} answered 200 to the Mailpit ` +
         'identification probe with something that is not JSON, so this harness cannot say what is behind it.',
     );
   }
   const version = typeof identification?.Version === 'string' ? identification.Version.trim() : '';
   if (!version) {
     throw new Error(
-      `refusing to build the live email capability: the endpoint at ${base} answered 200 to the Mailpit ` +
+      `refusing to build the live mail reader: the endpoint at ${base} answered 200 to the Mailpit ` +
         'identification probe with JSON that carries no string `Version`, which is the field a Mailpit identifies ' +
         'itself with. A 200 from an unidentified endpoint is not positive evidence.',
     );
@@ -270,7 +237,7 @@ export async function followLink(url: string): Promise<{ status: number; locatio
 
 export function sqlClient(stack: Stack): BunSqlClient {
   const SQL = (globalThis as { Bun?: { SQL?: BunSqlCtor } }).Bun?.SQL;
-  if (!SQL) throw new Error('this runtime has no SQL client (expected bun) — the live adapter reads the slot database directly');
+  if (!SQL) throw new Error('this runtime has no SQL client (expected bun) — the live adapter reads the stack directly');
   return new SQL(stack.dbUrl);
 }
 

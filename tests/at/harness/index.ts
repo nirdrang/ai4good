@@ -9,7 +9,8 @@ import type { AtHarness, StaticScan } from './contracts.ts';
 import { createFaults, type AdapterFaultSeam } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore } from './fixtures.ts';
 import { stackFromEnv, type Stack } from './live-stack.ts';
-import { CapabilityPending, type ConfigOverrides, type Tier } from './registry.ts';
+import { CapabilityPending } from './pending.ts';
+import { type ConfigOverrides, type Tier } from './registry.ts';
 import { createSentinels, type AdapterSentinelSeam } from './sentinels.ts';
 import { createEmailProviderSim, type EmailProviderPort } from './vendors.ts';
 
@@ -123,20 +124,24 @@ function liveAdapterUrl(requirement: string): string {
   return pathToFileURL(join(REPO_ROOT, 'tests', 'at', 'suites', requirement, '_live.ts')).href;
 }
 
+/** File presence of `_live.ts`. `openWorld` asks this before `createHarness` is called. */
+export function liveAdapterExists(requirement: string): boolean {
+  return existsSync(join(REPO_ROOT, 'tests', 'at', 'suites', requirement, '_live.ts'));
+}
+
 /**
  * A suite's live adapter, or `null` when it has none.
  *
- * ABSENCE IS NOT AN ERROR AND IS NOT A LICENCE. A suite with no live adapter falls back to its LOOP
- * fixture and `createHarness` sets `live: false`, so `registry.ts` refuses every `open()` above loop
- * before the body runs. That is the honest outcome: a suite nobody has made live yet is not live,
- * and it says so per id instead of failing the whole run in a way no declaration can describe.
+ * ABSENCE IS NOT AN ERROR AT THIS LOADER. `openWorld` throws the stand-in refusal before
+ * `createHarness` when this returns null above loop. `createHarness` itself then refuses rather
+ * than loading the loop fixture, so a flipped check cannot grade a stand-in.
  *
  * A module that EXISTS and is broken is a different thing entirely and throws, because a suite whose
  * live adapter fails to import has a defect rather than an absence.
  */
 async function loadLiveAdapterModule(requirement: string): Promise<{ module: LiveAdapterModule; moduleUrl: string } | null> {
   const moduleUrl = liveAdapterUrl(requirement);
-  if (!existsSync(join(REPO_ROOT, 'tests', 'at', 'suites', requirement, '_live.ts'))) return null;
+  if (!liveAdapterExists(requirement)) return null;
 
   let loaded: Partial<LiveAdapterModule>;
   try {
@@ -195,12 +200,10 @@ export async function createHarness(opts: {
     clock: AtHarness['clock'];
     adapter: FixtureAdapter;
     vendors: AtHarness['vendors'];
-    live: boolean;
   }): AtHarness => {
     let tornDown = false;
     return {
       tier: opts.tier,
-      live: parts.live,
       clock: parts.clock,
       fixtures: parts.adapter.fixtures,
       // The `sut.` prefix is composed onto a key only in `registry.ts` (`aboveLoopStandInRefusal`).
@@ -230,28 +233,23 @@ export async function createHarness(opts: {
     const clock = new ControlledClock();
     const provider = createEmailProviderSim();
     const { adapter } = await loadAdapter(opts.requirement, clock, worlds, config, { email: provider.port });
-    return finish({ clock, adapter, vendors: { email: provider.sim }, live: false });
+    return finish({ clock, adapter, vendors: { email: provider.sim } });
   }
 
   const live = await loadLiveAdapterModule(opts.requirement);
-  if (live) {
-    const adapter = await live.module.createLiveAdapter({ stack: stackFromEnv() });
-    return finish({
-      clock: new RealClock() as unknown as AtHarness['clock'],
-      adapter,
-      vendors: refusing<AtHarness['vendors']>('vendors.email'),
-      live: true,
-    });
+  if (!live) {
+    throw new Error(
+      `no live adapter for ${opts.requirement}; the registry refuses this tier before construction`,
+    );
   }
 
-  const provider = createEmailProviderSim();
-  const { adapter } = await loadAdapter(opts.requirement, new ControlledClock(), worlds, config, {
-    email: provider.port,
-  });
+  const adapter = await live.module.createLiveAdapter({ stack: stackFromEnv() });
+  // RealClock has now() only; Clock also declares freezeAt/advance. The cast is required because
+  // the two tiers share finish(). NOTHING IS WIDENED BY IT: registry.ts hands a body TierHarness<T>,
+  // which subtracts the clock's control seam and vendors at integration.
   return finish({
     clock: new RealClock() as unknown as AtHarness['clock'],
     adapter,
-    vendors: { email: provider.sim },
-    live: false,
+    vendors: refusing<AtHarness['vendors']>('vendors.email'),
   });
 }

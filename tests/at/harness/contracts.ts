@@ -170,8 +170,9 @@ export type Vendors<Channel extends string = string> = {
  * cannot be merged into, so this door is shut.
  *
  * EVERY CAPABILITY CONTRACT IN THIS FILE IS AN ALIAS FOR THE SAME REASON. Closing only the type
- * below left the identical attack open one level down, and worse there: `sentinels`, `faults`,
- * `static` and `vendors` come from a Proxy cast `as T`, so a merged-in member did not break
+ * below left the identical attack open one level down, and worse there: only `static` comes from a
+ * Proxy cast `as T` at every tier, and `vendors` only above loop; `sentinels` and `faults` come from
+ * `createSentinels` and `createFaults`. A merged-in member on a Proxy seam did not break
  * `index.ts` even when it was REQUIRED — where the same member added to this type fails with
  * TS2741. `ConfigRegistry` in `config.ts` is an alias for the same reason.
  *
@@ -187,12 +188,6 @@ export type Vendors<Channel extends string = string> = {
  */
 export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string> = {
   tier: Tier;
-  /**
-   * True only above loop when the suite's `_live.ts` loaded.
-   * `registry.ts` refuses every `open()` above loop while it is false.
-   * Nothing else reads it.
-   */
-  live: boolean;
   clock: Clock;
   fixtures: Fixtures<W>;
   sentinels: Sentinels;

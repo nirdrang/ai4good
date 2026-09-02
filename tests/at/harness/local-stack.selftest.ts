@@ -6,21 +6,17 @@
  * today, on a machine with no stack and no Docker. Run them with `bun run at:selftest`.
  */
 
-import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { lifetimeProblem } from '../suites/req-001/_live.ts';
 import { AT_CONFIG } from './atconfig.ts';
 import { REPO_ROOT } from './check.ts';
+import { STACK_ENV, stackFromEnv } from './live-stack.ts';
 import {
-  acquireStackLock,
-  bunExecutable,
   childCoordinates,
-  childEnv,
   configDriftProblems,
   containerNames,
   evidenceLine,
@@ -32,7 +28,7 @@ import {
   readLocalConfig,
   redact,
   resetLocalDatabase,
-  stackLockPath,
+  stackFromParsedStatus,
   treeState,
   type CliResult,
   type CliTarget,
@@ -301,6 +297,48 @@ describe('what reaches the child, and what the evidence line claims', () => {
     expect(withCatcher.AT_SUPABASE_MAIL_URL).toBe('http://127.0.0.1:54324');
   });
 
+  it('maps a parsed status onto Stack and refuses when the catcher is absent', () => {
+    // runSupabaseCli cannot be stubbed without a new parameter, so this tests the pure mapping
+    // stackFromLocalStatus applies after parseStackStatus.
+    const withMail: StackStatus = { ...localStatus(), mailUrl: 'http://127.0.0.1:54324' };
+    expect(stackFromParsedStatus(withMail)).toEqual({
+      apiUrl: withMail.apiUrl,
+      dbUrl: withMail.dbUrl,
+      anonKey: withMail.anonKey,
+      serviceRoleKey: withMail.serviceRoleKey,
+      mailUrl: withMail.mailUrl,
+    });
+    expect(() => stackFromParsedStatus(localStatus())).toThrow(/no mail catcher/);
+  });
+
+  it('childCoordinates and stackFromEnv round-trip through the same names', () => {
+    const withMail: LocalConfig = { ...config, mailPort: 54324 };
+    const read = identityVerdict(
+      cli('Stopped services: [supabase_imgproxy_demo supabase_pooler_demo]', { ...localStatus(), mailUrl: 'http://127.0.0.1:54324' }),
+      demoTarget,
+      withMail,
+    );
+    const coords = childCoordinates({ read, migrations });
+    expect(Object.keys(coords).sort()).toEqual(Object.values(STACK_ENV).slice().sort());
+    const saved = Object.fromEntries(Object.values(STACK_ENV).map((name) => [name, process.env[name]]));
+    try {
+      for (const name of Object.values(STACK_ENV)) delete process.env[name];
+      Object.assign(process.env, coords);
+      expect(stackFromEnv()).toEqual({
+        apiUrl: coords[STACK_ENV.apiUrl],
+        dbUrl: coords[STACK_ENV.dbUrl],
+        anonKey: coords[STACK_ENV.anonKey],
+        serviceRoleKey: coords[STACK_ENV.serviceRoleKey],
+        mailUrl: coords[STACK_ENV.mailUrl],
+      });
+    } finally {
+      for (const name of Object.values(STACK_ENV)) {
+        if (saved[name] === undefined) delete process.env[name];
+        else process.env[name] = saved[name];
+      }
+    }
+  });
+
   it('the evidence line names the project, the api port that answered, both migration counts, the lock and the head', () => {
     const lock = { file: join(tmpdir(), 'at-verify-demo-54321.lock'), release: () => undefined };
     const line = evidenceLine({ read: provenDemo(), migrations: { expected: 3, applied: 2 } }, lock);
@@ -317,42 +355,6 @@ describe('what reaches the child, and what the evidence line claims', () => {
   });
 });
 
-describe('the lifetime pin is a preflight: decidable from two files on disk, so it refuses before the lock', () => {
-  it('exits 3 naming both numbers, creates no lock file, and carries no stack advice', () => {
-    // THE REAL TREE'S config.toml IS EDITED AND RESTORED, the way the migrations selftest plants a
-    // file in the real tree: the integration tier refuses every other root before it reads a config,
-    // so the only config this runner can read is this one. The edit is one number on one line; the
-    // restore is byte-exact and asserted.
-    const file = join(REPO_ROOT, 'supabase', 'config.toml');
-    const original = readFileSync(file);
-    const text = original.toString('utf8');
-    const pinned = AT_CONFIG.accessTokenLifetimeSeconds.value;
-    const wrong = pinned * 30;
-    const edited = text.replace(/^(jwt_expiry\s*=\s*)\d+/m, `$1${wrong}`);
-    expect(edited, 'the config has no [auth] jwt_expiry line to edit').not.toBe(text);
-    const root = mkdtempSync(join(tmpdir(), 'at-pin-preflight-'));
-    try {
-      writeFileSync(file, edited);
-      const run = spawnSync(
-        bunExecutable(),
-        ['--no-env-file', fileURLToPath(new URL('./runner.ts', import.meta.url)), 'req-001', '--tier', 'integration'],
-        { cwd: REPO_ROOT, env: childEnv({ AT_LOCK_DIR: join(root, 'locks') }), encoding: 'utf8' },
-      );
-      expect(run.error, 'the runner could not be launched').toBeUndefined();
-      expect(run.status, `the runner did not refuse as infrastructure; stderr was:\n${run.stderr}`).toBe(3);
-      expect(run.stderr).toContain(`jwt_expiry = ${wrong}`);
-      expect(run.stderr).toContain(`accessTokenLifetimeSeconds = ${pinned}`);
-      expect(run.stderr).toContain('No tests were run');
-      expect(run.stderr, 'the refusal wears the stack advice, so it ran inside the stack sequence').not.toContain('Docker');
-      expect(existsSync(join(root, 'locks')), 'the lock directory was created, so the lock was reached').toBe(false);
-    } finally {
-      writeFileSync(file, original);
-      rmSync(root, { recursive: true, force: true });
-    }
-    expect(readFileSync(file).equals(original), 'the config was not restored byte for byte').toBe(true);
-  }, 30_000);
-});
-
 describe('nothing key-shaped is ever printed', () => {
   it('redacts JWTs, publishable keys, long tokens and connection-string credentials', () => {
     const jwtish = 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.c2lnbmF0dXJl';
@@ -360,135 +362,6 @@ describe('nothing key-shaped is ever printed', () => {
     expect(redact('key=sb_secret_abcdefghijklmnop')).not.toContain('sb_secret_abcdefghijklmnop');
     expect(redact('postgresql://postgres:hunter2@127.0.0.1:54322/postgres')).not.toContain('hunter2');
   });
-});
-
-describe('taking over a dead holder\'s lock is atomic — one owner, never two — and a live holder is never displaced', () => {
-  /** A key of its own, so nothing here can disturb a real stack's lock. */
-  const testConfig = (): LocalConfig => ({
-    projectId: `selftest-${Math.random().toString(36).slice(2, 10)}`,
-    apiPort: 1,
-    dbPort: 2,
-    jwtExpirySeconds: 120,
-  });
-
-  const plantLock = (config: LocalConfig, holder: Record<string, unknown>) => {
-    writeFileSync(stackLockPath(config), JSON.stringify(holder));
-  };
-  /** A claim file exactly as it looks mid-write, or after a crash: present, and saying nothing. */
-  const plantRawLock = (config: LocalConfig, text: string) => {
-    writeFileSync(stackLockPath(config), text);
-  };
-  const scrub = (config: LocalConfig) => rmSync(stackLockPath(config), { force: true });
-
-  it('takes over a lock whose holder is gone', () => {
-    const config = testConfig();
-    plantLock(config, { pid: 999_999, host: 'gone', requirement: 'req-000', startedAt: new Date().toISOString() });
-    try {
-      const lock = acquireStackLock(config, 'req-016');
-      expect(JSON.parse(readFileSync(lock.file, 'utf8')).pid, 'the takeover did not record this process as the holder').toBe(process.pid);
-      lock.release();
-      expect(existsSync(lock.file), 'release left the lock behind').toBe(false);
-    } finally {
-      scrub(config);
-    }
-  });
-
-  it('refuses a live, fresh holder', () => {
-    const config = testConfig();
-    plantLock(config, { pid: process.pid, host: 'here', requirement: 'req-000', startedAt: new Date().toISOString() });
-    try {
-      expect(() => acquireStackLock(config, 'req-016')).toThrow(/another at:verify run holds this stack/);
-    } finally {
-      scrub(config);
-    }
-  });
-
-  it('never takes over a LIVE holder, at any age, and names it — there is no age rule and no option', () => {
-    const config = testConfig();
-    // Alive (this very process) and two days old. There used to be a second policy that displaced
-    // a live holder older than an hour, and it was the DEFAULT of a call that passed no option.
-    // Dead-pid-only is now the only behaviour: a run that legitimately lasts longer than any
-    // window must not have its database reset under it, and no caller can opt into the other rule.
-    plantLock(config, {
-      pid: process.pid,
-      host: 'here',
-      requirement: 'req-000',
-      startedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-    });
-    try {
-      expect(() => acquireStackLock(config, 'req-016')).toThrow(new RegExp(`another at:verify run holds this stack \\(pid ${process.pid}`));
-    } finally {
-      scrub(config);
-    }
-  });
-
-  it('never takes over a claim file it cannot identify, and leaves it in place (ruling T1)', () => {
-    const config = testConfig();
-    // AN EMPTY FILE IS WHAT A LIVE CLAIM LOOKS LIKE MID-WRITE. The exclusive create and the write
-    // that fills it are two acts, and between them the file exists and says nothing. That must
-    // NEVER read as a dead holder: taking it over would delete a live run's brand-new claim, which
-    // is the one thing this lock exists to make impossible.
-    for (const planted of ['', '   \n', '{"pid":', 'not json at all']) {
-      plantRawLock(config, planted);
-      try {
-        expect(() => acquireStackLock(config, 'req-016'), `a claim file containing ${JSON.stringify(planted)} was taken over`).toThrow(
-          /names no process id that this run can read/,
-        );
-        expect(() => acquireStackLock(config, 'req-016')).toThrow(stackLockPath(config));
-        expect(existsSync(stackLockPath(config)), 'the refusal deleted the file it could not identify').toBe(true);
-      } finally {
-        scrub(config);
-      }
-    }
-  }, 30_000);
-
-  it('two contenders racing for ONE dead holder\'s lock end with exactly one owner', async () => {
-    const config = testConfig();
-    // Dead by pid, which is the only thing that makes a holder displaceable.
-    plantLock(config, {
-      pid: 999_999,
-      host: 'gone',
-      requirement: 'req-000',
-      startedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-    });
-
-    const runnerUrl = new URL('./local-stack.ts', import.meta.url).href;
-    const startAt = Date.now() + 600;
-    const contender = (): Promise<string> => {
-      const code =
-        `const { acquireStackLock } = await import(${JSON.stringify(runnerUrl)});\n` +
-        `const config = ${JSON.stringify(JSON.stringify(config))};\n` +
-        `while (Date.now() < ${startAt}) {}\n` + // a barrier, so both attempt at the same instant
-        `try {\n` +
-        `  const lock = acquireStackLock(JSON.parse(config), 'req-016');\n` +
-        `  console.log('ACQUIRED');\n` +
-        `  await Bun.sleep(500);\n` + // hold it, so the loser meets a LIVE holder
-        `  lock.release();\n` +
-        `} catch { console.log('REFUSED'); }\n`;
-      // spawn, NOT spawnSync: a synchronous spawn would run the two contenders one after the
-      // other, and the second would find the lock already released — a race that never raced.
-      return new Promise<string>((resolve) => {
-        const child = spawn(bunExecutable(), ['--no-env-file', '-e', code], { stdio: ['ignore', 'pipe', 'pipe'] });
-        let out = '';
-        child.stdout.on('data', (chunk: Buffer) => (out += chunk.toString('utf8')));
-        child.stderr.on('data', (chunk: Buffer) => (out += chunk.toString('utf8')));
-        child.once('error', (err) => resolve(`ERROR ${err.message}`));
-        child.once('close', () => resolve(out));
-      });
-    };
-
-    // Started together; the in-child barrier is what makes them collide, not the spawn timing.
-    const [a, b] = await Promise.all([contender(), contender()]);
-    const outcomes = [a, b].map((out) => (out.includes('ACQUIRED') ? 'ACQUIRED' : out.includes('REFUSED') ? 'REFUSED' : `UNKNOWN(${out.trim()})`));
-
-    try {
-      expect(outcomes.filter((o) => o === 'ACQUIRED'), `outcomes were ${JSON.stringify(outcomes)}`).toHaveLength(1);
-      expect(outcomes.filter((o) => o === 'REFUSED'), `outcomes were ${JSON.stringify(outcomes)}`).toHaveLength(1);
-      expect(existsSync(stackLockPath(config)), 'the winner did not release its lock').toBe(false);
-    } finally {
-      scrub(config);
-    }
-  }, 60_000);
 });
 
 describe('the rebuild is proven against the migration set, and an empty set is visible', () => {

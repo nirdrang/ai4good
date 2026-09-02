@@ -32,7 +32,7 @@ import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { INSTALL_ROOT } from './check.ts';
-import { bunExecutable, childEnv } from './runner.ts';
+import { bunExecutable, childEnv } from './local-stack.ts';
 
 const RUNNER = join(INSTALL_ROOT, 'tests', 'at', 'harness', 'runner.ts');
 
@@ -277,9 +277,9 @@ describe('the assembled runner refuses to run at all when the preflight cannot b
  * not merely that a comparison in a function returns false.
  *
  * They are the run-time half of a pair. The compile-time half is the map entry in
- * `suite-adapters.ts`, whose constraint rejects a module whose literal disagrees with its key; that
- * one is asserted in `type-invention.selftest.ts`. Neither covers the other: the map cannot see a
- * tree reached through `AT_REPO_ROOT`, and the run-time check cannot see a typo in a type map.
+ * `suite-adapters.ts`, whose constraint rejects a module whose literal disagrees with its key.
+ * Neither covers the other: the map cannot see a tree reached through `AT_REPO_ROOT`, and the
+ * run-time check cannot see a typo in a type map.
  */
 describe('the assembled runner holds a fixture adapter to the requirement it declares', () => {
   it('refuses an adapter that declares a different requirement, naming both values', () => {

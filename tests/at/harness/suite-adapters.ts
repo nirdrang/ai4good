@@ -7,7 +7,7 @@
  * away at that boundary, and the consuming suite then RESTATED it — `bindSuite<NotificationsSut,
  * World>` — as a claim nothing checked. Two independent statements about the same thing, with no
  * mechanism able to notice them diverging: the exact failure shape this project's way of work
- * exists to delete. `tests/at/typeprobes/sut-seam-legacy.probe.ts` is that hole, executed.
+ * exists to delete. That attack is recorded under `loop/parked/v1/tests/at/typeprobes/` and nothing executes it.
  *
  * So the suite stops naming its types. It names its requirement and its system-under-test key, and
  * the types are READ OFF the adapter that actually supplies them, through `SutOf` / `WorldOf`

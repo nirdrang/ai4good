@@ -8,14 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  parseStatusJson,
-  redactString,
-  redactUrl,
-  redactValue,
-  stackFromStatusJson,
-  verifyLinksIn,
-} from './live-stack.ts';
+import { redactString, redactUrl, redactValue, STACK_ENV, stackFromEnv, verifyLinksIn } from './live-stack.ts';
 
 describe('verifyLinksIn', () => {
   it('decodes quoted-printable with a soft break inside =3D and &amp; in an HTML part', () => {
@@ -52,49 +45,26 @@ describe('verifyLinksIn', () => {
   });
 });
 
-describe('parseStatusJson', () => {
-  it('returns the object when text sits before and after it', () => {
-    const stdout = 'Stopped services.\n{"API_URL":"http://127.0.0.1:44321","DB_URL":"db"}\nDone.\n';
-    expect(parseStatusJson(stdout)).toEqual({
-      API_URL: 'http://127.0.0.1:44321',
-      DB_URL: 'db',
-    });
-  });
+describe('stackFromEnv', () => {
+  const names = Object.values(STACK_ENV);
 
-  it('throws a message that names bun run db:start when there is no JSON object', () => {
-    expect(() => parseStatusJson('Stopped services. no object here')).toThrow(/bun run db:start/);
-  });
-});
+  function restore(saved: Record<string, string | undefined>): void {
+    for (const name of names) {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    }
+  }
 
-describe('stackFromStatusJson', () => {
-  const full = {
-    API_URL: 'http://127.0.0.1:44321',
-    DB_URL: 'postgresql://127.0.0.1:54322/postgres',
-    ANON_KEY: 'anon',
-    SERVICE_ROLE_KEY: 'service',
-    MAILPIT_URL: 'http://127.0.0.1:44324',
-  };
-
-  it('builds a Stack from the five status fields', () => {
-    expect(stackFromStatusJson(full)).toEqual({
-      apiUrl: full.API_URL,
-      dbUrl: full.DB_URL,
-      anonKey: full.ANON_KEY,
-      serviceRoleKey: full.SERVICE_ROLE_KEY,
-      mailUrl: full.MAILPIT_URL,
-    });
-  });
-
-  it('accepts INBUCKET_URL when MAILPIT_URL is absent', () => {
-    const { MAILPIT_URL: _dropped, ...rest } = full;
-    expect(stackFromStatusJson({ ...rest, INBUCKET_URL: 'http://127.0.0.1:54324' }).mailUrl).toBe(
-      'http://127.0.0.1:54324',
-    );
-  });
-
-  it('throws naming the missing field', () => {
-    const { ANON_KEY: _dropped, ...rest } = full;
-    expect(() => stackFromStatusJson(rest)).toThrow(/ANON_KEY/);
+  it('refuses naming the missing variable for a mandatory coordinate', () => {
+    const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+    try {
+      for (const name of names) delete process.env[name];
+      expect(() => stackFromEnv()).toThrow(new RegExp(STACK_ENV.apiUrl));
+      process.env[STACK_ENV.apiUrl] = 'http://127.0.0.1:9';
+      expect(() => stackFromEnv()).toThrow(new RegExp(STACK_ENV.dbUrl));
+    } finally {
+      restore(saved);
+    }
   });
 });
 

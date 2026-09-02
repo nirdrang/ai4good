@@ -58,6 +58,10 @@ checkout. Measured 2026-09-02 on this item: the container mounted the previous i
 removed worktree and the integration tier reported 34 reds with the stack otherwise
 healthy.
 
+The shipped drive runs these Doctor checks itself: (a) auth health, (a2) the catcher's
+own identification, (a3) the edge runtime mount against this checkout. Keep the commands
+above for a custom drive.
+
 If `status` names other ports, or the containers on 44321 carry a different suffix, stop and
 report — do not drive. Leftover `ai4good-slot-1` / `ai4good-slot-2` containers (45xxx/46xxx)
 are corpses of the deleted slot pool, not this stack; ignore them, never drive them.
@@ -66,7 +70,7 @@ are corpses of the deleted slot pool, not this stack; ignore them, never drive t
 
 The helpers live in [`tests/at/harness/live-stack.ts`](../../../tests/at/harness/live-stack.ts).
 The acceptance suite's integration adapter uses the same module. Keys come from
-`bunx supabase status -o json` at run time — never hardcode or commit them.
+`stackFromLocalStatus` at run time — never hardcode or commit them.
 
 The shipped helper drives the primary path end to end (NGO email signup through database
 readback):
@@ -75,12 +79,14 @@ readback):
 bun .claude/skills/verify-ai4good/scripts/drive-ngo-signup.ts [outDir]
 ```
 
-The recipe it implements, for custom drives:
+The recipe it implements, for custom drives. `live-stack.ts` sends this protocol:
 
-1. `POST {API}/auth/v1/signup` with `{email, password}`, header `apikey: <ANON_KEY>`.
-   Confirmations are ON: expect a user and NO session.
-2. Fetch the confirmation mail from Mailpit: `GET http://127.0.0.1:44324/api/v1/messages`,
-   then `GET /api/v1/message/{ID}`; extract the `/auth/v1/verify?...` link from the body.
+1. `POST {API}/auth/v1/signup` with `{email, password}`. Every Auth post sends
+   `Authorization: Bearer <ANON_KEY>` and `apikey: <ANON_KEY>`. Confirmations are ON:
+   expect a user and NO session.
+2. Fetch the confirmation mail from Mailpit: `GET /api/v1/search?query=to:<address>&limit=50`,
+   then `GET /api/v1/message/{ID}/raw`. Decode quoted-printable, keep `/auth/v1/verify` links
+   whose `type=` matches the kind (`signup` or `recovery`). Poll for 20 seconds at 250 ms.
 3. `GET` that link with redirects disabled; a 3xx redirect to the site URL means confirmed.
 4. `POST {API}/auth/v1/token?grant_type=password` → `access_token`. That token lives
    `[auth] jwt_expiry` seconds (currently 120), so call step 5 promptly or sign in again before

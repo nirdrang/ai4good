@@ -33,7 +33,6 @@ import {
   type TierExpectation,
 } from './expected.ts';
 import {
-  acquireStackLock,
   bunExecutable,
   childCoordinates,
   childEnv,
@@ -45,10 +44,8 @@ import {
   redact,
   type CliTarget,
   type LocalConfig,
-  type StackLock,
 } from './local-stack.ts';
-
-export { bunExecutable, childEnv };
+import { acquireStackLock, type StackLock } from './stack-lock.ts';
 
 const TIERS = ['loop', 'integration', 'drill'] as const;
 type Tier = (typeof TIERS)[number];

@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { createFaults } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore, LIFECYCLE_STATES } from './fixtures.ts';
 import { bijectionProblems, type SuiteRegistration } from './check.ts';
-import { createHarness } from './index.ts';
+import { createHarness, liveAdapterExists } from './index.ts';
 import { createSentinels } from './sentinels.ts';
 import {
   faultAlreadyArmedProblem,
@@ -143,6 +143,41 @@ describe('the five false-green reproductions', () => {
     expect(refusal!.message).toBe('CAPABILITY PENDING — fixtures.worlds, sut.notifications');
     expect(aboveLoopStandInRefusal('integration', true, 'accounts')).toBeNull();
     expect(aboveLoopStandInRefusal('loop', false, 'accounts')).toBeNull();
+  });
+
+  it('decides liveness before anything is built, and createHarness above loop with no live adapter throws', async () => {
+    expect(liveAdapterExists('req-016')).toBe(false);
+    expect(liveAdapterExists('req-001')).toBe(true);
+
+    await expect(createHarness({ requirement: 'req-016', tier: 'integration' })).rejects.toThrow(
+      /no live adapter for req-016; the registry refuses this tier before construction/,
+    );
+
+    // Four dummy coordinates, no mail URL: the live branch is reached and the mail reader
+    // refuses. After the name-map item, stackFromEnv would otherwise throw first.
+    const names = ['AT_SUPABASE_URL', 'AT_SUPABASE_DB_URL', 'AT_SUPABASE_ANON_KEY', 'AT_SUPABASE_SERVICE_ROLE_KEY', 'AT_SUPABASE_MAIL_URL'] as const;
+    const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+    process.env.AT_SUPABASE_URL = 'http://127.0.0.1:9';
+    process.env.AT_SUPABASE_DB_URL = 'postgresql://127.0.0.1:9/postgres';
+    process.env.AT_SUPABASE_ANON_KEY = 'anon';
+    process.env.AT_SUPABASE_SERVICE_ROLE_KEY = 'service';
+    delete process.env.AT_SUPABASE_MAIL_URL;
+    try {
+      await expect(createHarness({ requirement: 'req-001', tier: 'integration' })).rejects.toThrow(/mail catcher/);
+    } finally {
+      for (const name of names) {
+        if (saved[name] === undefined) delete process.env[name];
+        else process.env[name] = saved[name];
+      }
+    }
+
+    const loop = await createHarness({ requirement: 'req-016', tier: 'loop' });
+    try {
+      expect(loop.tier).toBe('loop');
+      expect(loop.sut.notifications).toBeDefined();
+    } finally {
+      await loop.teardown();
+    }
   });
 });
 
