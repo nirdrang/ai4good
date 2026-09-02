@@ -48,8 +48,11 @@ function jsonBody(text: string): Record<string, unknown> {
   }
 }
 
-export async function readJson(url: string): Promise<HttpAnswer> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+export async function readJson(url: string, timeoutMs = 10_000): Promise<HttpAnswer> {
+  if (timeoutMs <= 0) {
+    throw new DOMException('The operation timed out.', 'TimeoutError');
+  }
+  const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
   return { status: response.status, text: await response.text() };
 }
 
@@ -170,30 +173,58 @@ export async function mailIdentification(stack: Stack): Promise<string> {
   return `Mailpit ${version} at ${base}`;
 }
 
+type MailMessage = { id: string; to: string[]; subject: string; body: string };
+
+function remainingMs(deadline: number): number {
+  return deadline - Date.now();
+}
+
+function timedOut(err: unknown): boolean {
+  const name = err instanceof Error ? err.name : '';
+  return name === 'TimeoutError' || name === 'AbortError';
+}
+
 export async function mailMessagesFor(
   stack: Stack,
   address: string,
-): Promise<{ id: string; to: string[]; subject: string; body: string }[]> {
+  options?: { deadline?: number; stopWhen?: (message: MailMessage) => boolean },
+): Promise<MailMessage[]> {
   const base = stripSlash(stack.mailUrl);
-  const search = await readJson(`${base}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}&limit=50`);
-  if (search.status !== 200) {
-    throw new Error(`the mail catcher answered ${search.status} to a search for messages addressed to ${address}`);
+  const deadline = options?.deadline ?? Date.now() + 10_000;
+  const messages: MailMessage[] = [];
+  try {
+    if (remainingMs(deadline) <= 0) return messages;
+    const search = await readJson(
+      `${base}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}&limit=50`,
+      remainingMs(deadline),
+    );
+    if (search.status !== 200) {
+      throw new Error(`the mail catcher answered ${search.status} to a search for messages addressed to ${address}`);
+    }
+    const parsed = JSON.parse(search.text) as { messages?: MailpitMessageSummary[] };
+    const summaries = Array.isArray(parsed.messages) ? parsed.messages : [];
+    for (const summary of summaries) {
+      if (remainingMs(deadline) <= 0) return messages;
+      const id = String(summary.ID ?? '');
+      if (!id) continue;
+      const source = await readJson(
+        `${base}/api/v1/message/${encodeURIComponent(id)}/raw`,
+        remainingMs(deadline),
+      );
+      const message: MailMessage = {
+        id,
+        to: addressesOf(summary.To),
+        subject: String(summary.Subject ?? ''),
+        body: source.status === 200 ? source.text : '',
+      };
+      messages.push(message);
+      if (options?.stopWhen?.(message)) return messages;
+    }
+    return messages;
+  } catch (err) {
+    if (timedOut(err)) return messages;
+    throw err;
   }
-  const parsed = JSON.parse(search.text) as { messages?: MailpitMessageSummary[] };
-  const summaries = Array.isArray(parsed.messages) ? parsed.messages : [];
-  const messages: { id: string; to: string[]; subject: string; body: string }[] = [];
-  for (const summary of summaries) {
-    const id = String(summary.ID ?? '');
-    if (!id) continue;
-    const source = await readJson(`${base}/api/v1/message/${encodeURIComponent(id)}/raw`);
-    messages.push({
-      id,
-      to: addressesOf(summary.To),
-      subject: String(summary.Subject ?? ''),
-      body: source.status === 200 ? source.text : '',
-    });
-  }
-  return messages;
 }
 
 /**
@@ -220,13 +251,20 @@ export async function verifyLinksFor(
   stack: Stack,
   address: string,
   kind: 'signup' | 'recovery',
+  deadlineMs = 20_000,
 ): Promise<string[]> {
-  const deadline = Date.now() + 20_000;
+  const deadline = Date.now() + deadlineMs;
   for (;;) {
-    const messages = await mailMessagesFor(stack, address);
+    if (remainingMs(deadline) <= 0) return [];
+    const messages = await mailMessagesFor(stack, address, {
+      deadline,
+      stopWhen: (message) => verifyLinksIn(message.body, kind).length > 0,
+    });
     const links = messages.flatMap((message) => verifyLinksIn(message.body, kind));
-    if (links.length > 0 || Date.now() >= deadline) return links;
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    if (links.length > 0) return links;
+    const wait = Math.min(250, remainingMs(deadline));
+    if (wait <= 0) return [];
+    await new Promise((resolve) => setTimeout(resolve, wait));
   }
 }
 

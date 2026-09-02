@@ -86,4 +86,6 @@ already invokes it changed meaning.
 The integration tier's one stack — the identity read, the reset, the migration proof,
 and the evidence line — lives in `harness/local-stack.ts`. The machine-wide lock lives in
 `harness/stack-lock.ts`. The runner in `harness/runner.ts` grades per AT id and imports those
-modules; it is not the home of the identity read or the lock.
+modules; it is not the home of the identity read or the lock. `harness/live-refusal.selftest.ts`
+is the guard for the integration tier that CI never runs: it runs the real req-016 suite at
+that tier with no stack.
