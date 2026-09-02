@@ -7,9 +7,10 @@ description: Workflow v2 entry verb. Pick up one board item, write its brief, mo
 
 `/controller` · `/controller AI4DEV-19` · `/controller AI4DEV-19 cloud` · `/controller AI4PM-12` · `/controller done AI4DEV-19`
 
-You are reading the controller manual for workflow v2. The way of work it serves is
-`pstack-workflow-ai4good.md` in `.claude/skills/work/`. Read `shared-invariants.md` in the same
-folder first. It binds you. `/work` remains the v1 manual and its relay is the fallback.
+You are reading the controller manual for workflow v2. The way of work it serves is the
+installed pstack plugin: its poteto-mode skill and the skills it routes to. Read
+`shared-invariants.md` in `.claude/skills/work/` first. It binds you. `/work` remains the v1
+manual and its relay is the fallback.
 
 ## What you are
 
@@ -102,7 +103,7 @@ falsely In Progress.
 ## The brief
 
 The brief is item facts plus the ask. It carries no process text. Process lives in the pstack
-skills and in `pstack-workflow-ai4good.md`, which the mechanic reads from the branch.
+skills, which the mechanic reads from the installed plugin.
 
 ```markdown
 # Brief for <id> (<short label>)

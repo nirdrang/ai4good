@@ -3,8 +3,9 @@
 Chain: AI4DEV-86 (v1 ceremony out, CI aligned) — standalone, founder ruling at pickup 2026-09-01
 Branch: nirdrang/ai4dev-86-the-v1-ceremony-leaves-the-codebase-and-ci-aligns-with-the
 PRD slice: none — a machinery item with no PRD requirement above it. Provenance: the founder
-rulings recorded in `.claude/skills/work/pstack-workflow-ai4good.md`, section 12, the entries
-dated 2026-09-01.
+rulings of 2026-09-01 quoted in the item text below. The draft workflow file the item text
+names was deleted on 2026-09-02 (founder: "it was a draft thing delete it this create
+confusion"); the pstack plugin's own skills are the way of work.
 Item text: (verbatim from the board)
 
 > Two ways of work coexist in the tree. pstack (v2) supplies the discipline through its

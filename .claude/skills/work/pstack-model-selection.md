@@ -1,8 +1,7 @@
 # Model selection for the pstack workflow
 
 This file is the record of every model decision and every model finding for ai4good's
-workflow v2. The sheet-roles table in
-[`pstack-workflow-ai4good.md`](pstack-workflow-ai4good.md) shows the current values. This file
+workflow v2. The deployed sheet `~/.claude/pstack-models.md` holds the current values. This file
 says why each value is what it is, and what was measured. If you change a model, an effort, or
 a panel, add the decision here in the same commit.
 
