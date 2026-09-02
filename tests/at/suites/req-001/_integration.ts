@@ -25,6 +25,7 @@
 
 import { expect } from 'vitest';
 
+import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { CapabilityPending } from '../../harness/capabilities.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import type { Session } from './_contract.ts';
@@ -55,22 +56,22 @@ const SIGNER = {
 } as const;
 
 /**
- * THE STANDING SESSION LIFETIME the slot's generated config pins, in milliseconds.
+ * THE SESSION LIFETIME `supabase/config.toml` pins in `[auth] jwt_expiry`, in milliseconds.
  *
- * It is a NUMBER THIS FILE STATES and the generator's own constant is the source of truth; the two
- * are not imported into each other because a suite reaching into the pool's internals is a coupling
- * nobody wants. What keeps them honest is that a mismatch shows up as a body waiting past its own
- * budget and failing loudly, never as a green.
+ * Read from the registry entry that config line cites back, so this file, the loop fixture's clock
+ * and the loop bodies that advance it all follow ONE number. Exported for those loop bodies. What
+ * keeps the registry honest against the running stack is that a mismatch shows up as a body
+ * waiting past its own budget and failing loudly, never as a green.
  */
-const SLOT_JWT_EXPIRY_MS = 120_000;
+export const ACCESS_TOKEN_LIFETIME_MS = AT_CONFIG.accessTokenLifetimeSeconds.value * 1000;
 
 /**
  * THE BUDGET FOR THE TWO BODIES THAT WAIT OUT REAL TIME (gate-2 ruling S2-1).
  *
  * `vitest.config.ts` pins `testTimeout: 30_000`, which is right for every body whose clock can be
  * commanded — and wrong for these two, whose criteria are ABOUT the passage of time: AT-001.12 waits
- * `SLOT_JWT_EXPIRY_MS + 15_000` = 135 seconds for a real access token to expire, and AT-001.13 polls
- * for up to `SLOT_JWT_EXPIRY_MS + 30_000` = 150 seconds for a rotation it must not ask for. Under 30
+ * `ACCESS_TOKEN_LIFETIME_MS + 15_000` = 135 seconds for a real access token to expire, and AT-001.13 polls
+ * for up to `ACCESS_TOKEN_LIFETIME_MS + 30_000` = 150 seconds for a rotation it must not ask for. Under 30
  * seconds both would time out red however correct they were, so the declared integration green could
  * not occur.
  *
@@ -484,7 +485,7 @@ export async function at00112(ctx: Ctx): Promise<void> {
   // THE EXPIRY ARM. Wait past the slot's standing token lifetime and assert the same write is
   // refused — with the margin on the far side, so a token that is merely close to expiry is not
   // mistaken for one that has passed it.
-  await wait(SLOT_JWT_EXPIRY_MS + 15_000);
+  await wait(ACCESS_TOKEN_LIFETIME_MS + 15_000);
   const expiredWrite = await sut.createOrganization(again.session, 'Riverside Shelter After Expiry');
   expect(expiredWrite.ok, 'an expired access token performed a write').toBe(false);
   expect(await sut.organizationsNamed('Riverside Shelter After Expiry'), 'the expired write happened anyway').toEqual([]);
@@ -556,7 +557,7 @@ export async function at00113(ctx: Ctx): Promise<void> {
     // refresh of any kind. The budget is the token's whole lifetime plus a margin: the client
     // rotates about one tick in, well before expiry, and a body that waited less than the lifetime
     // could pass by luck.
-    const deadline = Date.now() + SLOT_JWT_EXPIRY_MS + 30_000;
+    const deadline = Date.now() + ACCESS_TOKEN_LIFETIME_MS + 30_000;
     let rotated = '';
     while (Date.now() < deadline && !rotated) {
       await wait(5_000);

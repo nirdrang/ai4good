@@ -66,7 +66,7 @@ import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
 // The INTEGRATION-tier procedures for the ids whose criteria are proved differently against a real
 // stack. Same criterion, same id, one registration; only the procedure differs. See _integration.ts.
-import { at00109, at00110, at00112, at00113, at00114, at00138, INTEGRATION_TIMEOUT_MS } from './_integration.ts';
+import { ACCESS_TOKEN_LIFETIME_MS, at00109, at00110, at00112, at00113, at00114, at00138, INTEGRATION_TIMEOUT_MS } from './_integration.ts';
 import type { AccountsSut } from './_contract.ts';
 // THE TWO EMAIL-CAPABLE PUBLIC TYPES, read from the shipped vocabulary rather than spelled as a
 // pair of literals. AT-001.09's own words are "EITHER account type that can register by email (NGO
@@ -395,14 +395,14 @@ atTest(
       // (2) EXPIRY. The clock is the only thing that changes across this line: the same session, the
       // same account, the same shape of write.
       //
-      // THE ADVANCE IS EXACTLY THE TTL, AND EXACTLY IS THE WHOLE POINT. One hour is
-      // `jwt_expiry = 3600` in `supabase/config.toml`, which the fixture mirrors, and this lands the
-      // clock ON the expiry instant rather than past it. The fixture's `sessionIsLive` compares with
-      // a strict `<`, so at this instant the session is already dead and the write below is refused;
-      // an inclusive `<=` would admit it and this body would fail. That boundary was a promise with
-      // no oracle until this line pinned it. AT-001.13 keeps its just-under/just-past pair, which
-      // discriminates the refresh rather than the boundary.
-      await h.clock.advance(3600 * 1000);
+      // THE ADVANCE IS EXACTLY THE TTL, AND EXACTLY IS THE WHOLE POINT. The lifetime is
+      // `[auth] jwt_expiry` in `supabase/config.toml`, read through the one registry entry the
+      // fixture mirrors, and this lands the clock ON the expiry instant rather than past it. The
+      // fixture's `sessionIsLive` compares with a strict `<`, so at this instant the session is
+      // already dead and the write below is refused; an inclusive `<=` would admit it and this body
+      // would fail. That boundary was a promise with no oracle until this line pinned it. AT-001.13
+      // keeps its just-under/just-past pair, which discriminates the refresh rather than the boundary.
+      await h.clock.advance(ACCESS_TOKEN_LIFETIME_MS);
   
       const EXPIRED_NAME = 'Riverside Shelter Expired Programme';
       const afterExpiry = await sut.createOrganization(first.session, EXPIRED_NAME);
@@ -516,7 +516,7 @@ atTest(
   
       // (2) WORK CONTINUES, and the clock moves to just inside the expiry both sessions share. Both
       // still work, so the divergence in (4) cannot be blamed on this advance.
-      await h.clock.advance(3599 * 1000);
+      await h.clock.advance(ACCESS_TOKEN_LIFETIME_MS - 1000);
       expect((await sut.createOrganization(refreshed, 'Riverside Programme Three')).ok, 'the refreshed session died before its expiry').toBe(true);
       expect((await sut.createOrganization(control, 'Riverside Programme Four')).ok, 'the control session died before its expiry').toBe(true);
   

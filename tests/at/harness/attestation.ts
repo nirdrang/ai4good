@@ -2,7 +2,7 @@
  * THE SLOT ATTESTATION — the round trip that turns four strings into positive evidence.
  *
  * WHAT WAS WRONG WITH WHAT CAME BEFORE. The child process receives four plain strings from
- * `db-pool.ts`'s `stackEnv()`: an API URL, a database URL, an anon key and a service-role key. The
+ * `runner.ts`'s `stackEnv()`: an API URL, a database URL, an anon key and a service-role key. The
  * runner checks their SHAPE — loopback host, the slot's own port, a JWT issued by the local
  * development issuer, no hosted project reference. Every one of those checks passes on strings a
  * caller typed, with no database answering anywhere. They are a GUARD, and a good one: their job is

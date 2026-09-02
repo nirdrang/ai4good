@@ -23,12 +23,16 @@ import {
   childEnv,
   cleanupRun,
   expectedMigrations,
+  foreignContainerNames,
+  identityVerdict,
   localStackProblems,
   migrationSetProblems,
+  ownContainerNames,
   redact,
   resetLocalDatabase,
   runVerdict,
   stackLockPath,
+  type CliResult,
   type CliTarget,
   type IdRow,
   type LocalConfig,
@@ -113,19 +117,20 @@ describe('a non-zero test process is a failure even when every row is green', ()
   });
 });
 
+/** A config and a matching status for a stack that is demonstrably local — shared by the checks below and the identity verdict. */
+const config: LocalConfig = { projectId: 'demo', apiPort: 54321, dbPort: 54322 };
+const jwt = (claims: Record<string, unknown>) =>
+  `${Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')}.` +
+  `${Buffer.from(JSON.stringify(claims)).toString('base64url')}.signature`;
+
+const localStatus = (): StackStatus => ({
+  apiUrl: 'http://127.0.0.1:54321',
+  dbUrl: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  anonKey: jwt({ iss: 'supabase-demo', role: 'anon' }),
+  serviceRoleKey: jwt({ iss: 'supabase-demo', role: 'service_role' }),
+});
+
 describe('the stack must prove it is local before anything destructive happens', () => {
-  const config: LocalConfig = { projectId: 'demo', apiPort: 54321, dbPort: 54322 };
-  const jwt = (claims: Record<string, unknown>) =>
-    `${Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')}.` +
-    `${Buffer.from(JSON.stringify(claims)).toString('base64url')}.signature`;
-
-  const localStatus = (): StackStatus => ({
-    apiUrl: 'http://127.0.0.1:54321',
-    dbUrl: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
-    anonKey: jwt({ iss: 'supabase-demo', role: 'anon' }),
-    serviceRoleKey: jwt({ iss: 'supabase-demo', role: 'service_role' }),
-  });
-
   it('accepts the local stack', () => {
     expect(localStackProblems(localStatus(), config)).toEqual([]);
   });
@@ -163,20 +168,72 @@ describe('the stack must prove it is local before anything destructive happens',
   });
 });
 
+describe('the container names in CLI output are the identity instrument', () => {
+  it('own is a suffix match on the project id, foreign is everything else, both deduplicated', () => {
+    const text =
+      'Stopped services: [supabase_imgproxy_demo supabase_pooler_demo]\n' +
+      'No such container: supabase_db_other\nNo such container: supabase_db_other';
+    expect(ownContainerNames(text, 'demo')).toEqual(['supabase_imgproxy_demo', 'supabase_pooler_demo']);
+    expect(foreignContainerNames(text, 'demo')).toEqual(['supabase_db_other']);
+    // The suffix is `_<project id>`, so an id that merely ENDS with this one is not this one.
+    expect(ownContainerNames('No such container: supabase_db_notdemo', 'demo')).toEqual([]);
+    expect(foreignContainerNames('No such container: supabase_db_notdemo', 'demo')).toEqual(['supabase_db_notdemo']);
+    // No name at all is no evidence either way — the verdict below is what turns that into a refusal.
+    expect(ownContainerNames('', 'demo')).toEqual([]);
+    expect(foreignContainerNames('nothing that names a container', 'demo')).toEqual([]);
+  });
+});
+
+describe("the identity verdict proves the target from the CLI's own container names", () => {
+  const target: CliTarget = { workdir: REPO_ROOT, projectId: 'demo' };
+  /** A `status -o json` result: the JSON on stdout, the CLI's notices on stderr, and the non-zero exit a disabled service causes. */
+  const cli = (stderr: string, status: StackStatus = localStatus()): CliResult => ({
+    status: 1,
+    stdout: JSON.stringify({ API_URL: status.apiUrl, DB_URL: status.dbUrl, ANON_KEY: status.anonKey, SERVICE_ROLE_KEY: status.serviceRoleKey }),
+    stderr,
+  });
+
+  it('proves the project on own names plus a local status', () => {
+    const read = identityVerdict(cli('Stopped services: [supabase_imgproxy_demo supabase_pooler_demo]'), target, config);
+    expect(read.provenProjectId).toBe('demo');
+    expect(read.status.apiUrl).toBe('http://127.0.0.1:54321');
+    expect(read.containers).toEqual(['supabase_imgproxy_demo', 'supabase_pooler_demo']);
+  });
+
+  it('refuses a foreign name BEFORE parsing, so a mismatch is never reported as a stopped service', () => {
+    // stdout is deliberately not JSON: a verdict that parsed first would report "no JSON" here
+    // instead of the foreign name, and the order is the property under test.
+    const hybrid: CliResult = { status: 1, stdout: 'not json at all', stderr: 'No such container: supabase_db_other' };
+    expect(() => identityVerdict(hybrid, target, config)).toThrow(/REFUSING TO RESET demo: .*named supabase_db_other/);
+    expect(() => identityVerdict(hybrid, target, config)).toThrow(/Nothing was done/);
+  });
+
+  it('refuses an output that names no own container at all: ports alone are not identity', () => {
+    // Every local check passes on this result — right ports, loopback, locally issued keys — and
+    // that is exactly the shape the 2026-08-09 hybrid wore. Absence of contrary evidence is not identity.
+    expect(() => identityVerdict(cli(''), target, config)).toThrow(/REFUSING TO RESET demo: .*ports alone are not identity/);
+  });
+
+  it('refuses a status that fails the local checks, naming the check and never the value', () => {
+    const wrongPort: StackStatus = { ...localStatus(), apiUrl: 'http://127.0.0.1:54999' };
+    const result = cli('Stopped services: [supabase_imgproxy_demo supabase_pooler_demo]', wrongPort);
+    expect(() => identityVerdict(result, target, config)).toThrow(/REFUSING TO RESET demo: .*API_URL port is not the 54321/);
+    expect(() => identityVerdict(result, target, config)).not.toThrow(/54999/);
+  });
+});
+
 describe('a reset aimed at a target demands the identity read that proved that target (ruling B2)', () => {
   // NOTHING IS SPAWNED HERE. The refusal is the first statement in the function, so a mismatched
   // proof never reaches the CLI. That is the property under test: the refusal happens BEFORE the
   // destructive act, not instead of a failure inside it.
   const target: CliTarget = { workdir: REPO_ROOT, projectId: 'ai4good-slot-2' };
 
+  // A proof that names NO project is not a runtime case any more: `provenProjectId` is a string,
+  // so the compiler refuses it before this file could.
   it('refuses a proof that names another project', async () => {
     await expect(resetLocalDatabase(target, { provenProjectId: 'ai4good-slot-1' })).rejects.toThrow(
       /REFUSING TO RESET ai4good-slot-2: .*proves ai4good-slot-1, not ai4good-slot-2/,
     );
-  });
-
-  it('refuses a read that proved no project at all', async () => {
-    await expect(resetLocalDatabase(target, { provenProjectId: null })).rejects.toThrow(/proves no project at all/);
   });
 });
 
@@ -195,6 +252,10 @@ describe('taking over a stale lock is atomic — one owner, never two', () => {
 
   const plantLock = (config: LocalConfig, holder: Record<string, unknown>) => {
     writeFileSync(stackLockPath(config), JSON.stringify(holder));
+  };
+  /** A claim file exactly as it looks mid-write, or after a crash: present, and saying nothing. */
+  const plantRawLock = (config: LocalConfig, text: string) => {
+    writeFileSync(stackLockPath(config), text);
   };
   const scrub = (config: LocalConfig) => rmSync(stackLockPath(config), { force: true });
 
@@ -220,6 +281,46 @@ describe('taking over a stale lock is atomic — one owner, never two', () => {
       scrub(config);
     }
   });
+
+  it('under dead-pid-only, never takes over a LIVE holder, at any age, and names it', () => {
+    const config = testConfig();
+    // Alive (this very process) and old enough that the stale-or-dead policy would displace it.
+    // The integration tier passes dead-pid-only, so it must not: a run that legitimately lasts
+    // longer than the stale window must not have its database reset under it.
+    plantLock(config, {
+      pid: process.pid,
+      host: 'here',
+      requirement: 'req-000',
+      startedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    });
+    try {
+      expect(() => acquireStackLock(config, 'req-016', { takeover: 'dead-pid-only' })).toThrow(
+        new RegExp(`another at:verify run holds this stack \\(pid ${process.pid}`),
+      );
+    } finally {
+      scrub(config);
+    }
+  });
+
+  it('under dead-pid-only, never takes over a claim file it cannot identify, and leaves it in place (ruling T1)', () => {
+    const config = testConfig();
+    // AN EMPTY FILE IS WHAT A LIVE CLAIM LOOKS LIKE MID-WRITE. The exclusive create and the write
+    // that fills it are two acts, and between them the file exists and says nothing. Under
+    // dead-pid-only that must NEVER read as a dead holder: taking it over would delete a live
+    // run's brand-new claim, which is the one thing this policy exists to make impossible.
+    for (const planted of ['', '   \n', '{"pid":', 'not json at all']) {
+      plantRawLock(config, planted);
+      try {
+        expect(() => acquireStackLock(config, 'req-016', { takeover: 'dead-pid-only' }), `a claim file containing ${JSON.stringify(planted)} was taken over`).toThrow(
+          /names no process id that this run can read/,
+        );
+        expect(() => acquireStackLock(config, 'req-016', { takeover: 'dead-pid-only' })).toThrow(stackLockPath(config));
+        expect(existsSync(stackLockPath(config)), 'the refusal deleted the file it could not identify').toBe(true);
+      } finally {
+        scrub(config);
+      }
+    }
+  }, 30_000);
 
   it('two contenders racing for ONE stale lock end with exactly one owner', async () => {
     const config = testConfig();

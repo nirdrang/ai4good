@@ -191,6 +191,7 @@
  * shipped gate on a tested path. No green over it says anything about enforcement anywhere.
  */
 
+import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
 import {
@@ -457,15 +458,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   /**
    * How long a session's access lasts — VENDOR MIRROR 5, and the number is the configuration's.
    *
-   * `jwt_expiry = 3600` sits at `supabase/config.toml` line 165, in seconds; this is that value in
-   * milliseconds, because the harness clock counts milliseconds. It is written as the arithmetic
-   * rather than as `3_600_000` so that a reader can see the config value inside it, and so that
-   * changing the configuration is a one-line change here with the citation beside it.
+   * `[auth] jwt_expiry` in `supabase/config.toml` is the source, in seconds, and the registry entry
+   * `accessTokenLifetimeSeconds` in `tests/at/harness/atconfig.ts` is the one place the suites read
+   * it from; this is that value in milliseconds, because the harness clock counts milliseconds.
+   * The integration bodies wait out the same number for real, so the loop clock and the live wait
+   * cannot drift apart.
    *
    * NOTHING ELSE ABOUT THE TOKEN'S LIFETIME IS MODELLED. `[auth.sessions]`'s timebox and inactivity
    * timeout are commented out in that file (lines 304-308) and no criterion reads them.
    */
-  const ACCESS_TOKEN_TTL_MS = 3600 * 1000;
+  const ACCESS_TOKEN_TTL_MS = AT_CONFIG.accessTokenLifetimeSeconds.value * 1000;
 
   /**
    * Mint a session — VENDOR MIRROR 5. One `auth.sessions` row, expiring one hour from now.

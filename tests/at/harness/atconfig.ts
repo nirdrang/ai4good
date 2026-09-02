@@ -198,6 +198,21 @@ export const AT_CONFIG = {
       'AI4DEV-20 plan §3c + Gate 1 rulings F1/F10 — PROVISIONAL: no consuming suite exists to measure the ' +
       'stability this count is meant to buy, so the first live smoke over a real suite is what would settle it',
   },
+  /*
+   * The local Auth service's access-token lifetime. A HARNESS pin over a CONFIGURATION value: the
+   * number lives in `supabase/config.toml` and the running stack reads it at start; this entry is
+   * the one place the suites read it from — the loop fixture's clock and the integration bodies'
+   * real waits follow the same number, so a re-tune is one edit here and one on the config line,
+   * and the config comment cites this entry back.
+   */
+  accessTokenLifetimeSeconds: {
+    name: 'lifetime of an access token issued by the local Auth service (jwt_expiry)',
+    value: 120,
+    unit: 'seconds',
+    source:
+      'supabase/config.toml [auth] jwt_expiry, pinned to 120 so AT-001.12 and AT-001.13 wait out a real expiry inside ' +
+      'their 240 s budget (the ruling of AI4DEV-86, the item that parks the slot pool, 2026-09-02); the config comment cites this entry back',
+  },
   prdGateThresholdScore: {
     name: 'completion score at which the project PRD passes its gate',
     value: null,
