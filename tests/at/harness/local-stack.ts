@@ -366,7 +366,7 @@ export function parseStackStatus(res: CliResult): StackStatus {
   if (span === null) {
     throw new Error(
       `\`supabase status\` reported no JSON (exit ${res.status}${res.signal ? `, signal ${res.signal}` : ''}): ` +
-        `${diagnostic(res.stderr) || '(no error output)'}`,
+        `${diagnostic(res.stderr) || '(no error output)'}. If no stack is running: \`bun run db:start\`.`,
     );
   }
   const { open, close } = span;

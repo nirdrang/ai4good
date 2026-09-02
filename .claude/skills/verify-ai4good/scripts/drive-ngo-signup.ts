@@ -7,7 +7,7 @@
  * unconfirmed → confirmation link from Mailpit → sign-in → `complete-signup` (NGO) →
  * database readback with the service role. Writes a REDACTED transcript to
  * `outDir` (default `loop/verify-evidence/<timestamp>/`) and exits 0 only when every
- * check passed. Keys are read through `stackFromLocalStatus` at run time.
+ * check passed.
  *
  * Run it from the repo root, with the stack up (`bun run db:start`). A clean state
  * (`bun run db:reset`) is recommended for evidence-grade runs. Mind the auth rate limit:

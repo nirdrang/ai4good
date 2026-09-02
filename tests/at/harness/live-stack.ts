@@ -1,8 +1,7 @@
 /**
  * THE ONE CLIENT FOR THE RUNNING STACK — shared by the integration adapter and the
  * verify-ai4good drive. Five coordinates (api, db, anon, service role, mail). HTTP to
- * Auth and the edge functions, Mailpit read, SQL, redaction. No provenance. No
- * attestation.
+ * Auth and the edge functions, Mailpit read, SQL, redaction.
  */
 
 export type Stack = {

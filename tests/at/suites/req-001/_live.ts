@@ -225,7 +225,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
 
   const accounts: AccountsSut = {
-    /* ------------------------------------------------- Supabase Auth, over the slot's own gateway */
+    /* ------------------------------------------------- Supabase Auth, over the stack's own gateway */
 
     registerWithEmailPassword: async (email, password) => {
       const { status, json } = await authPost(stack, '/auth/v1/signup', { email, password });
@@ -413,7 +413,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return { ok: status < 400 };
     },
 
-    /* ------------------------------------------------ the DEPLOYED functions, over the slot's kong */
+    /* ------------------------------------------------ the DEPLOYED functions, over the stack's kong */
 
     completeSignup: async (session, request: CompleteSignupRequest, ip): Promise<CompleteSignupOutcome> => {
       const tokens = tokensOf(sessions, session, 'call the deployed complete-signup');

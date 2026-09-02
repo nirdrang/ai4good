@@ -166,7 +166,7 @@ async function loadLiveAdapterModule(requirement: string): Promise<{ module: Liv
   return { module: loaded as LiveAdapterModule, moduleUrl };
 }
 
-/** A typed seam for later slices. Any attempted use fails with the capability names, never a no-op. */
+/** Any read throws `CapabilityPending` naming the members; the seam never answers. */
 export function refusing<T extends object>(...capabilities: string[]): T {
   const names = [...new Set(capabilities)];
   return new Proxy(
@@ -211,12 +211,7 @@ export async function createHarness(opts: {
       sut: parts.adapter.sut,
       sentinels: createSentinels(parts.adapter.sentinels),
       faults: createFaults(parts.adapter.faults),
-      // 'H3 sentinels' went from this list in the change that made planting work, and
-      // 'H5 email provider simulator' goes in the change that builds the simulator above. The seam
-      // names the whole missing set so its first throw reports all of it at once; the moment one of
-      // them lands, keeping its name here is a declared fact that has drifted from a real one.
-      // `AT-016.01` stays red — `providerClientImporters()` is what throws — but the reason it is red
-      // changed, and `tests/at/expected/req-016.json` states the same one name for the same reason.
+      // AT-016.01 stays red on this one name; tests/at/expected/req-016.json declares it.
       static: staticScan,
       vendors: parts.vendors,
       config,

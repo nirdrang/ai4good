@@ -153,8 +153,7 @@ describe('the five false-green reproductions', () => {
       /no live adapter for req-016; the registry refuses this tier before construction/,
     );
 
-    // Four dummy coordinates, no mail URL: the live branch is reached and the mail reader
-    // refuses. After the name-map item, stackFromEnv would otherwise throw first.
+    // Four dummy coordinates, no mail URL: the live branch is reached and the mail reader refuses.
     const names = ['AT_SUPABASE_URL', 'AT_SUPABASE_DB_URL', 'AT_SUPABASE_ANON_KEY', 'AT_SUPABASE_SERVICE_ROLE_KEY', 'AT_SUPABASE_MAIL_URL'] as const;
     const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
     process.env.AT_SUPABASE_URL = 'http://127.0.0.1:9';

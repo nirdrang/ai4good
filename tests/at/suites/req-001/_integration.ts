@@ -1,5 +1,5 @@
 /**
- * REQ-001's INTEGRATION-TIER test bodies — one per id, against the slot's own stack.
+ * REQ-001's INTEGRATION-TIER test bodies — one per id, against the one stack.
  *
  * WHY THESE ARE SEPARATE BODIES AND NOT THE LOOP ONES RUN AGAIN. Some criteria are proved by
  * DIFFERENT PROCEDURES at the two tiers, proving the same criterion. AT-001.12's expiry arm commands
@@ -146,7 +146,7 @@ async function registerConfirmAndSignIn(
   expect(registered.sessionId, 'the live registration issued a session, which under confirmations it must not').toBe('');
 
   const link = await sut.emailedVerificationLink(email);
-  expect(link, `no confirmation email reached the slot's mail catcher for ${email}`).not.toBeNull();
+  expect(link, `no confirmation email reached the stack's mail catcher for ${email}`).not.toBeNull();
   const used = await sut.useVerificationLink(link!);
   expect(used.ok, 'following the emailed confirmation link was refused').toBe(true);
 
@@ -370,7 +370,7 @@ export async function at00107(ctx: Ctx): Promise<void> {
  * a linked GitHub identity, both with the acknowledgment — and asserts the account row carries that
  * global type.
  *
- * WHAT IS LIVE HERE: the message is the one GoTrue really sent, held by the slot's own mail catcher;
+ * WHAT IS LIVE HERE: the message is the one GoTrue really sent, held by the stack's own mail catcher;
  * the link is followed by HTTP; and the verified fact is judged by the SHIPPED extractor over the
  * real row rather than read as a boolean.
  */
@@ -394,7 +394,7 @@ export async function at00109(ctx: Ctx): Promise<void> {
     expect(early.ok, `an unconfirmed ${kind} account signed in`).toBe(false);
 
     const link = await sut.emailedVerificationLink(email);
-    expect(link, `no confirmation email reached the slot's mail catcher for the ${kind} address`).not.toBeNull();
+    expect(link, `no confirmation email reached the stack's mail catcher for the ${kind} address`).not.toBeNull();
 
     const used = await sut.useVerificationLink(link!);
     expect(used.ok, `following the emailed ${kind} confirmation link was refused`).toBe(true);
@@ -485,7 +485,7 @@ export async function at00112(ctx: Ctx): Promise<void> {
   );
   if (!again.ok) return;
 
-  // THE EXPIRY ARM. Wait past the slot's standing token lifetime and assert the same write is
+  // THE EXPIRY ARM. Wait past the stack's standing token lifetime and assert the same write is
   // refused — with the margin on the far side, so a token that is merely close to expiry is not
   // mistaken for one that has passed it.
   await wait(ACCESS_TOKEN_LIFETIME_MS + 15_000);
@@ -538,12 +538,12 @@ export async function at00113(ctx: Ctx): Promise<void> {
 
   const url = process.env.AT_SUPABASE_URL ?? '';
   const anonKey = process.env.AT_SUPABASE_ANON_KEY ?? '';
-  expect(url && anonKey, 'this child holds no slot coordinates, so no real client can be built').toBeTruthy();
+  expect(url && anonKey, 'this child holds no stack coordinates, so no real client can be built').toBeTruthy();
 
   const client = await realClient(url, anonKey);
   try {
     const signedIn = await client.auth.signInWithPassword({ email, password: PASSWORD });
-    expect(signedIn.error, 'the real client could not sign in against the slot').toBeNull();
+    expect(signedIn.error, 'the real client could not sign in against the stack').toBeNull();
     const first = signedIn.data.session?.access_token ?? '';
     expect(first, 'the real client signed in with no access token').not.toBe('');
 
@@ -596,7 +596,7 @@ export async function at00113(ctx: Ctx): Promise<void> {
  * AT-001.14 — the emailed reset flow changes the password: the new one works and the old one does
  * not.
  *
- * The link is the one GoTrue really sent, held by the slot's own catcher, and its flow shape is read
+ * The link is the one GoTrue really sent, held by the stack's own catcher, and its flow shape is read
  * from what the link answers rather than remembered — the shape differs across CLI versions and
  * AI4DEV-60's proof measured it before using it.
  */
@@ -607,7 +607,7 @@ export async function at00114(ctx: Ctx): Promise<void> {
 
   await sut.requestPasswordReset(email);
   const link = await sut.emailedPasswordResetLink(email);
-  expect(link, "no recovery email reached the slot's mail catcher").not.toBeNull();
+  expect(link, "no recovery email reached the stack's mail catcher").not.toBeNull();
 
   const NEW_PASSWORD = 'a completely different passphrase 42';
   const completed = await sut.completePasswordReset(link!, NEW_PASSWORD);
@@ -950,7 +950,7 @@ export async function at00117(ctx: Ctx): Promise<void> {
 
   const url = (process.env.AT_SUPABASE_URL ?? '').replace(/\/$/, '');
   const anonKey = process.env.AT_SUPABASE_ANON_KEY ?? '';
-  expect(url && anonKey, 'this child holds no slot coordinates, so the absence probes below cannot run').toBeTruthy();
+  expect(url && anonKey, 'this child holds no stack coordinates, so the absence probes below cannot run').toBeTruthy();
 
   // ARM 1 — the deployed-function absence probe, with its control.
   const absent = await fetch(`${url}/functions/v1/invite-member`, {

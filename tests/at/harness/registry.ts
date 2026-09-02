@@ -665,7 +665,7 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
 
   /*
    * Liveness is decided before anything is built. The boolean is file presence, not a member of
-   * the harness a body can read. aboveLoopStandInRefusal keeps its (tier, live, sutKey) signature.
+   * the harness a body can read.
    */
   const standInRefusal = aboveLoopStandInRefusal(TIER, harnessModule.liveAdapterExists(`req-${o.requirement}`), o.sutKey);
   if (standInRefusal) throw standInRefusal;

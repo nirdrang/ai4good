@@ -23,11 +23,11 @@
  *      cannot describe exactly is a red we do not understand.
  *
  * KNOWN, ACCEPTED TRADE-OFF (rule 2): the rebuilt lines below duplicate message text owned by
- * `registry.ts`. Deriving them by constructing the error classes would track
+ * `pending.ts`. Deriving them by constructing the error classes would track
  * a wording change silently; duplicating them means a wording change breaks declarations loudly,
  * with a diff naming the id. That is the correct failure direction. Machine-readable capability
  * codes emitted before redaction are the better long-term answer and belong to the slice that owns
- * `registry.ts`.
+ * `pending.ts`.
  *
  * Every function here except `loadTierExpectation` is pure, so the comparison rules are unit
  * testable without spawning anything.
@@ -273,7 +273,7 @@ export function declarationBijectionProblems(expectation: TierExpectation, accep
  * The text a declared red MUST produce, rebuilt from the declaration. PURE.
  *
  * `capability-pending` rebuilds the WHOLE first line, mirroring `CapabilityPending` in
- * registry.ts (`CAPABILITY PENDING — <names joined by ", ">`, `name = 'CapabilityPending'`)
+ * pending.ts (`CAPABILITY PENDING — <names joined by ", ">`, `name = 'CapabilityPending'`)
  * through vitest's `"<name>: <message>"` serialisation.
  *
  * `pending` rebuilds only the anchored PREFIX, mirroring `AtPending` in registry.ts
