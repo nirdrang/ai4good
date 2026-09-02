@@ -1,0 +1,17 @@
+﻿bun : $ bunx vitest run --root tests/at --config vitest.config.ts harness/
+At line:1 char:309
++ ... = 'PlainText' } catch {} } }; $out = bun run at:selftest 2>&1; $exit= ...
++                                          ~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bunx vitest r...fig.ts harness/:String) [], RemoteExce 
+   ption
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+ RUN  v4.1.10 C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-86/tests/at
+
+
+ Test Files  11 passed (11)
+      Tests  244 passed (244)
+   Start at  19:31:32
+   Duration  13.79s (transform 3.02s, setup 0ms, import 11.38s, tests 25.77s, environment 2ms)
+

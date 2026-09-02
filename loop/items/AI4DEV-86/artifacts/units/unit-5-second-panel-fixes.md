@@ -1,0 +1,9 @@
+# Unit 5 brief: the second-panel fixes (writer: fable, hardest tasks)
+
+Worktree: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-86, current branch, head db2153b. Read loop/items/AI4DEV-86/artifacts/interrogate/rulings.md, the section "Second panel rulings": its "Act on" items 1 to 7 are your contract; the reviews review2-fable.md, review2-opus.md, review2-sol.md give the exact locations.
+
+Files you may touch: tests/at/harness/runner.ts, runner.selftest.ts, attestation.ts, live-ledger.selftest.ts (only the writeAttestation call sites and the removed mismatch test), tests/at/suites/req-001/_live.ts, .claude/cloud-environment-setup.sh, .claude/cloud-session-readme.md, loop/parked/v1/README.md. Nothing else.
+
+Rules: tests first for items 1, 2 (a spread of a read must not produce a usable read: assert the brand is absent from `{ ...read }` and that `Object.isFrozen(read)`), 3 (the pin refusal exits 3 before any lock file is created), 4 (a changed project id between the two reads refuses), 5 (exact). Keep `bun run typecheck`, `bun run at:selftest`, both `at:verify ... --tier loop --expect` green. Then once: `bun run at:verify req-001 --tier integration --expect` (do not restart the stack). Commit ONCE: first line `AI4DEV-86: the second-panel fixes: the read carries its target, the brand is sealed, the pin is a preflight`, body listing items 1-7, trailers `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_01SikdZcn3PmB9SrZ4dL1ziT`. Do not push. Do not stage loop/items/AI4DEV-86/artifacts/. Use a message file with `git commit -F`, not `-m` (PowerShell splits a message with inner quotes).
+
+Report: the commit hash; the five command outputs (last 8 lines, timestamps); selftest counts; one line per item; deviations classed as before; BLOCKED with the error if you cannot finish.

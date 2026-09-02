@@ -1,0 +1,13 @@
+﻿bun : $ bun tests/at/typecheck.ts
+At line:1 char:309
++ ... g = 'PlainText' } catch {} } }; $out = bun run typecheck 2>&1; $exit= ...
++                                            ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/typecheck.ts:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+typecheck OK: both configs clean

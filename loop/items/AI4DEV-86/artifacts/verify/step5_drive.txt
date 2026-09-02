@@ -1,0 +1,26 @@
+﻿PASS  (a) auth health answers
+        GET /auth/v1/health -> 200
+PASS  (b) signup returns a user and no session
+        status 200, access_token present: false
+PASS  (c) sign-in refused while unconfirmed
+        status 400
+PASS  (d1) confirmation email holds a verify link
+        http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED
+PASS  (d2) verify link redirects (address confirmed)
+        status 303 -> http://127.0.0.1:3000/
+PASS  (e) sign-in succeeds after confirmation
+        status 200, token issued, user c6e0d86b-9d91-4ef5-86d3-8af831844130
+PASS  (f) complete-signup (ngo) answers 200
+        status 200: {"ok":true,"accountId":"c6e0d86b-9d91-4ef5-86d3-8af831844130","accountType":"ngo","organizationId":"2c23d98e-8aa0-4bce-8a7b-606ddcfbb6fe"}
+PASS  (g1) accounts row: account_type=ngo
+        {"id":"c6e0d86b-9d91-4ef5-86d3-8af831844130","account_type":"ngo"}
+PASS  (g2) organizations row exists with the driven name
+        {"id":"2c23d98e-8aa0-4bce-8a7b-606ddcfbb6fe","name":"Verify Drill Org 1788366660545"}
+PASS  (g3) org_memberships row: role=admin
+        {"role":"admin"}
+PASS  (g4) acknowledgments row carries the driven text_version
+        {"kind":"platform_tos_and_promise","text_version":"tos-platform-promise-v1"}
+
+evidence: C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-86\loop\items\AI4DEV-86\artifacts\verify\drive\transcript.json
+
+11/11 checks passed

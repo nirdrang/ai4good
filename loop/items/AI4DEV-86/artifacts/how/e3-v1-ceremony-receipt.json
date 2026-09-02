@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-86",
+  "promptPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-86\\loop\\items\\AI4DEV-86\\artifacts\\how\\e3-v1-ceremony-prompt.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-86\\loop\\items\\AI4DEV-86\\artifacts\\how\\e3-v1-ceremony-findings.md",
+  "startedAt": "2026-09-02T14:36:24.556Z",
+  "completedAt": "2026-09-02T14:41:43.073Z",
+  "elapsedMs": 318517,
+  "executable": "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "authenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+    "--prompt-file",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-86\\loop\\items\\AI4DEV-86\\artifacts\\how\\e3-v1-ceremony-prompt.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "plan",
+    "--sandbox",
+    "read-only",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-86",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "grok-4.6-build",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "01a0628c-bd8c-7ae1-93ae-d4baf34ddf8f",
+  "usage": {
+    "inputTokens": 189079,
+    "cachedInputTokens": 1285248,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 17781
+  },
+  "costUsd": 0.19166956,
+  "error": null
+}

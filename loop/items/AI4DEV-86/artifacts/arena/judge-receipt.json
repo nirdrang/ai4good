@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-86",
+  "promptPath": "C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\C--Users-nirdr-Downloads-ai4good\\ebf2407e-5bc0-4b13-abb6-8d3621f496cc\\scratchpad\\arena\\judge-prompt.md",
+  "outputPath": "C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\C--Users-nirdr-Downloads-ai4good\\ebf2407e-5bc0-4b13-abb6-8d3621f496cc\\scratchpad\\arena\\judge-verdict.md",
+  "startedAt": "2026-09-02T15:41:24.204Z",
+  "completedAt": "2026-09-02T15:50:50.010Z",
+  "elapsedMs": 565806,
+  "executable": "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "authenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+    "--prompt-file",
+    "C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\C--Users-nirdr-Downloads-ai4good\\ebf2407e-5bc0-4b13-abb6-8d3621f496cc\\scratchpad\\arena\\judge-prompt.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "plan",
+    "--sandbox",
+    "read-only",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-86",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "grok-4.6-build",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "01a062c8-3f6b-7883-984e-1ae5677dac2c",
+  "usage": {
+    "inputTokens": 179970,
+    "cachedInputTokens": 324864,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 32605
+  },
+  "costUsd": 0.12206034,
+  "error": null
+}

@@ -1,0 +1,33 @@
+Reviewed head `ea73436362b6bcbd6ac5a3dea42fb8f9a93e6cd1` (`main...HEAD`). Twin-guard is gone from CI. The integration path no longer imports the slot pool. `AT_DB_SLOT` is gone from settings and from the live harness. The remaining problems are on the destructive path’s lock contract, the lifetime pin, and leftovers that still name parked code.
+
+## Findings
+
+### 1. [warning] The lock is not dead-pid-only; the unsafe policy is still the default
+**Location**: `tests/at/harness/runner.ts:331`, `acquireStackLock` at `:398-400`, integration caller at `:1530`
+**Finding**: The intent is one dead-pid-only lock keyed by project id and api port. The code still has two policies. `acquireStackLock` defaults to `stale-or-dead`. That policy takes over a **live** holder after 60 minutes and then this path resets the founder database. The one production caller passes `{ takeover: 'dead-pid-only' }`. The comments still say the parked slot pool is the caller that needs dead-pid-only (`:327-329`).
+**Evidence**: After the pool is parked, `stale-or-dead` has no production caller. The selftests that omit the option (`:265`, `:278`, `:342`) still exercise the default. A later caller that copies `acquireStackLock(config, requirement)` without the option gets the policy this item was written to stop: a second `at:verify` can reset a live run of the one stack. That is a dual path the park should have deleted, not an option the one remaining destructive path must remember.
+**Suggestion**: Delete `TakeoverPolicy` and `stale-or-dead`. Make dead-pid-only the only behaviour. Point the existing dead-pid-only tests at that single path, including a positive takeover of a dead pid.
+
+### 2. [warning] The 120-second pin is two handwritten copies, and the suite still documents a one-hour token
+**Location**: `supabase/config.toml:176`; `tests/at/harness/atconfig.ts:189-196`; `tests/at/suites/req-001/_fixture.ts:109-118`, `:473`; `tests/at/suites/req-001/b-verification-and-sessions.test.ts:11-19`
+**Finding**: The loop fixture and the two integration waits do read `AT_CONFIG.accessTokenLifetimeSeconds`. The registry does not read `jwt_expiry` from `config.toml`. It hard-codes `120` next to a second hard-coded `120` in the toml. The parked generator had a selftest that the pin was present and that `3600` did not survive. That test left with the pool and nothing replaced it. In the same files this item edited, vendor-mirror prose still states a one-hour token and a transient `jwt_expiry` change.
+**Evidence**: `_fixture.ts:117-118` still says the one hour is `jwt_expiry = 3600` at line 165. `:473` still says the session expires one hour from now, two lines below the constant that is now 120 seconds. `b-verification-and-sessions.test.ts:11-19` still describes a transient pin-and-restore and `jwt_expiry = 3600`. A later edit that “restores” the mirror to 3600, or a toml change that forgets `atconfig.ts`, has no test that fails. The parked `db-pool.selftest.ts` pin assertions are exactly the check this standing pin now needs and does not have.
+**Suggestion**: Add one selftest that reads the active `[auth] jwt_expiry` from `supabase/config.toml` and asserts it equals `AT_CONFIG.accessTokenLifetimeSeconds.value`. Rewrite the vendor-mirror 5 header and the session-file header so they state 120 seconds and a standing pin, not one hour and a transient rewrite.
+
+### 3. [warning] The live tree still names the parked pool as if it were on the path
+**Location**: `tests/at/harness/attestation.ts:5-9`, `:31`; `tests/at/harness/live-email.ts:12-15`; `supabase/config.toml:18`; `loop/items/AI4DEV-62/verify-first.ts:26`; `loop/items/AI4DEV-62/gate2-verify.ts:24`
+**Finding**: Slot code is off the `at:verify` integration path. The live tree still describes and imports that code at `tests/at/harness/db-pool.ts`, which is no longer there.
+**Evidence**: `attestation.ts:31` says `personalBlockProblems()` and `localStackProblems()` still run and still keep the personal stack unreachable. `personalBlockProblems` lived in the parked pool. This path now **targets** project `poancmeitlmxejofwzuu` on 44321 and resets it. The same header still names `runner.ts`'s `stackEnv()` (`:5`), which is no longer an exported function. `live-email.ts:14` still says catcher-port arithmetic “is `db-pool.ts`'s”. `config.toml:18` still sends the operator to `EPHEMERAL_FLOOR in tests/at/harness/db-pool.ts`. Two runnable scripts still `import { occupy, prepare, … } from '../../../tests/at/harness/db-pool.ts'`. Those are live files outside `loop/parked/`. They are not typechecked by CI, so the broken import is invisible until someone runs them.
+**Suggestion**: Rewrite the attestation and live-email headers to the one-stack proof that actually runs. Drop the `db-pool.ts` pointer from `config.toml`. Change the two org-roles probe scripts so they import the one-stack helpers, or park them with the pool.
+
+### 4. [warning] Judge plumbing is still in the capability constructor after the only witness that used it was parked
+**Location**: `tests/at/harness/capabilities.ts:38-47`; `witnessedCapability` at `:275`
+**Finding**: Parking `oracles.ts` removed `oracles.judge` from the witness table, from `AtHarness`, and from both ledgers. `CapabilityEvidence` still carries `tier` and `transport` “for a witness that cannot derive them”. No live witness reads that object. No live `witnessedCapability` call passes a third argument.
+**Evidence**: The comment at `:41-42` says no live witness needs it and that the judge that did is parked. The type and the parameter remain. That is the compatibility layer the park was supposed to delete, not a seam a future judge needs inside the frozen harness.
+**Suggestion**: Delete `CapabilityEvidence` and the `evidence` parameter on `witnessedCapability`. If a later suite needs a judge, it can own its own constructor.
+
+### 5. [nit] Integration expiry prose still talks as if a slot config were doing the pin
+**Location**: `tests/at/suites/req-001/_integration.ts:441-442`
+**Finding**: AT-001.12 still says “the slot's config pins a standing low `jwt_expiry`”. The pin is now `supabase/config.toml` on the one stack. The waits themselves correctly read `ACCESS_TOKEN_LIFETIME_MS`.
+**Evidence**: Same file `:59-66` already describes the registry entry. `:441-442` is the old slot sentence left on the body that waits real time.
+**Suggestion**: Say the one stack’s `config.toml` pins the lifetime.
