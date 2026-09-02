@@ -50,7 +50,7 @@ On the final code head `77f3768` (transcript `artifacts/verify3/transcript.md`, 
 
 On head `ea73436` (transcript `artifacts/verify/transcript.md`, 16:21 to 16:32 UTC): the stack was restarted once so Auth read the pinned lifetime; the same integration match; and the live drive `bun .claude/skills/verify-ai4good/scripts/drive-ngo-signup.ts` passed 11 of 11 checks on the real path (signup, refused unconfirmed sign-in, Mailpit link, sign-in, complete-signup NGO, four rows read over DB_URL) with no token-shaped value in the transcript. The fix commit touches no file on the drive's path (the edge functions, the drive script, and the migrations are unchanged), so the drive was not rerun.
 
-CI on the final head: <run link>.
+CI on the code head `77f3768` plus the item record: run https://github.com/nirdrang/ai4good/actions/runs/33665172661, success on `1e6e2c3`.
 ## Not done here
 - Extend the one-stack lock to `bun run db:start`, `db:stop`, `db:reset` and the verify-ai4good drive: today only at:verify takes it, so a concurrent operator command can reset under a run (three reviewers).
 - The lock's takeover gate can be cleared from under a suspended live holder, and an empty gate file blocks acquisition until deleted by hand; a reset child can outlive the lock on a signal, and SIGKILL does not reach its process tree. Pre-existing, unchanged here; they matter more now that the stack is the founder's own.
