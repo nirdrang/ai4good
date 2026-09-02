@@ -128,6 +128,7 @@ result with one read. Do not use a fork for this: a fork runs on your own model.
 - One database, `AT_DB_SLOT=1`, local and cloud alike. The local stack is up on the 44321
   block (project id `poancmeitlmxejofwzuu`); `bun run db:start` and `bun run db:reset` manage
   it. The drive manual is `.claude/skills/verify-ai4good/SKILL.md`.
+- Correction 2026-09-02 (lead): `AT_DB_SLOT` is gone; the one stack is the one `supabase/config.toml` describes.
 - The v1 setup command `bun tests/at/harness/db-pool.ts setup` is part of what this item
   parks. Never run it.
 - The grok probe failed at opencode's upstream on 2026-08-31. Re-probe grok before its first

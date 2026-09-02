@@ -21,7 +21,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { attestSlot, mintAttestationNonce, writeAttestation } from './attestation.ts';
+import { attestSlot, mintAttestationNonce } from './attestation.ts';
 import {
   adapterDerivedCapability,
   CapabilityPending,
@@ -277,34 +277,11 @@ describe('a shared evidence capture does not dress a REFUSAL up as an ordinary f
   });
 });
 
-describe('the attestation WRITE demands the identity read that proved its target (ruling S1-1)', () => {
-  /*
-   * NOTHING IS CONNECTED TO HERE. Every refusal below is a statement before the SQL client is
-   * constructed, which is the property under test: the write is refused BEFORE it opens a connection,
-   * not caught while failing inside one. This is the same shape `runner.selftest.ts` uses for the
-   * reset's own proof parameter, and the same doctrine — the proof travels in.
-   */
-  const target = { projectId: 'ai4good-slot-2' };
-  const dbUrl = 'postgresql://postgres:postgres@127.0.0.1:56322/postgres';
-
-  it('refuses a read that proves ANOTHER project', async () => {
-    await expect(
-      writeAttestation(target, { provenProjectId: 'ai4good-slot-1', status: { dbUrl } }, mintAttestationNonce()),
-    ).rejects.toThrow(/proves ai4good-slot-1, not ai4good-slot-2/);
-  });
-
-  it('refuses a read that proved no project at all', async () => {
-    await expect(
-      writeAttestation(target, { provenProjectId: null, status: { dbUrl } }, mintAttestationNonce()),
-    ).rejects.toThrow(/proves no project at all/);
-  });
-
-  it('refuses a read where no stack answered, so it names no database', async () => {
-    await expect(
-      writeAttestation(target, { provenProjectId: 'ai4good-slot-2', status: null }, mintAttestationNonce()),
-    ).rejects.toThrow(/carries no stack report/);
-  });
-});
+// The attestation WRITE's own refusal — a read that proved ANOTHER project — is tested in
+// `runner.selftest.ts` beside the reset's, because a proof can only be minted by `identityVerdict`
+// and that file holds the machinery to mint one. The two null-shaped refusals this file used to
+// drive ("proved no project", "no stack report") are not writable any more: the proof type carries
+// a brand and non-null fields, so the compiler refuses them before a test could.
 
 describe('the live mail catcher is granted on a BRAND and an IDENTIFICATION, never on a 200 (rulings S1-2, S1-6)', () => {
   const answer = (status: number, text: string) => async (): Promise<{ status: number; text: string }> => ({ status, text });

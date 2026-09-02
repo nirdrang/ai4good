@@ -54,10 +54,8 @@ environment can read them". So the rules are about damage control, not concealme
   Run `codex login --device-auth` once per fresh VM; the session banner says when this is
   needed. Device code authorization must be enabled once in the ChatGPT account's security
   settings.
-- **`AT_JUDGE_API_KEY`** (the semantic-oracle judge credential) keeps its rule from
-  `.env.example`: parent-side only, never reaching a test child. If a cloud session must
-  record oracles, the variables box is that session's "shell" - with the same visibility
-  caveat as everything else in it.
+- **`AT_JUDGE_API_KEY`** (the semantic judge's credential) has no reader: the judge is parked
+  under `loop/parked/v1/`, and `.env.example` says so. Nothing needs it in the variables box.
 
 ## What a session start looks like
 

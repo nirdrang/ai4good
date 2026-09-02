@@ -59,11 +59,13 @@ const SIGNER = {
  * THE SESSION LIFETIME `supabase/config.toml` pins in `[auth] jwt_expiry`, in milliseconds.
  *
  * Read from the registry entry that config line cites back, so this file, the loop fixture's clock
- * and the loop bodies that advance it all follow ONE number. Exported for those loop bodies. What
- * keeps the registry honest against the running stack is that a mismatch shows up as a body
- * waiting past its own budget and failing loudly, never as a green.
+ * and the loop bodies that advance it all follow ONE number; each reads the registry for itself,
+ * so the loop tier never imports this integration module. What keeps the registry honest against
+ * the running stack is the runner, which refuses an integration run when the config's number and
+ * the registry's differ, and the live adapter, which refuses the first token whose lifetime is not
+ * the pinned one.
  */
-export const ACCESS_TOKEN_LIFETIME_MS = AT_CONFIG.accessTokenLifetimeSeconds.value * 1000;
+const ACCESS_TOKEN_LIFETIME_MS = AT_CONFIG.accessTokenLifetimeSeconds.value * 1000;
 
 /**
  * THE BUDGET FOR THE TWO BODIES THAT WAIT OUT REAL TIME (gate-2 ruling S2-1).
@@ -438,10 +440,10 @@ export async function at00109(ctx: Ctx): Promise<void> {
  *   working. The sibling is the control that separates "this session ended" from "the account's
  *   access ended", and without it the criterion's remedy clause is untested.
  *
- *   EXPIRY — the body WAITS OUT a real access token. There is nothing to command: the slot's config
- *   pins a standing low `jwt_expiry` precisely so this wait is two minutes rather than an hour, and
- *   no test edits configuration or restarts anything. The loop body advances a controlled clock,
- *   which is a different procedure proving the same clause.
+ *   EXPIRY — the body WAITS OUT a real access token. There is nothing to command: the one stack's
+ *   `supabase/config.toml` pins a standing low `jwt_expiry` precisely so this wait is two minutes
+ *   rather than an hour, and no test edits configuration or restarts anything. The loop body
+ *   advances a controlled clock, which is a different procedure proving the same clause.
  */
 export async function at00112(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();

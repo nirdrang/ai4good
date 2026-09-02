@@ -9,10 +9,11 @@
  * by a simulator the test armed. That is the difference between the sim and this, and it is the only
  * difference this file claims.
  *
- * WHERE THE ENDPOINT COMES FROM. The slot's own `supabase status -o json` reports `MAILPIT_URL`, and
- * the runner passes it into the child. It is NOT recomputed from `[local_smtp] port` plus the pool's
- * per-slot port offset: that arithmetic is `db-pool.ts`'s, and a second copy of a rule is how two
- * copies come to disagree while both look right (the warning `vendors.ts` states at its head).
+ * WHERE THE ENDPOINT COMES FROM. The stack's own `supabase status -o json` reports `MAILPIT_URL`; the
+ * runner checks it against `[local_smtp] port` and passes it into the child. It is NOT recomputed
+ * from that port here: the status is the stack's one statement of the address, and a second copy of
+ * a rule is how two copies come to disagree while both look right (the warning `vendors.ts` states
+ * at its head).
  *
  * WHY IT IS PROBED BEFORE IT IS GRANTED. A URL is a string. `capabilities.ts` grants `vendors.email`
  * a `real` verdict on this value, so the grounds have to be positive: the catcher is asked what it

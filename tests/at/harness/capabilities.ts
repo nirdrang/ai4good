@@ -7,9 +7,9 @@
  * above the loop tier — then had nothing to refuse. A one-word edit that reads like a routine
  * promotion turned the closing gate green against a reference adapter.
  *
- * So a capability is now built by ONE constructor that takes a name, a value, and any evidence the
- * caller holds that a witness cannot derive. A witness registered for that name returns a verdict —
- * or throws. There are THREE outcomes, and the third one is the whole point:
+ * So a capability is now built by ONE constructor that takes a name and a value, and nothing from
+ * the caller about provenance. A witness registered for that name returns a verdict — or throws.
+ * There are THREE outcomes, and the third one is the whole point:
  *
  *   stand-in  — the witness found the seam that makes this a substitute, and says which seam.
  *   real      — the witness has positive grounds, and says what they are.
@@ -36,32 +36,24 @@ export type CapabilityVerdict =
   | { readonly kind: 'stand-in'; readonly reason: string }
   | { readonly kind: 'real'; readonly evidence: string };
 
-/**
- * The one place a caller contributes anything, and it is deliberately narrow: facts a witness
- * cannot derive from the value in front of it. No live witness needs any of it — the judge that
- * did is parked.
- */
-export type CapabilityEvidence = {
-  readonly tier?: string;
-  readonly transport?: string;
-};
-
 /* ------------------------------------------------------------------ the live attestation brand */
 
 /**
  * POSITIVE GROUNDS ARE A ROUND TRIP THAT HAPPENED, NEVER A SHAPE THAT LOOKS RIGHT.
  *
  * `localStackProblems()` in `runner.ts` checks that a URL points at the loopback address on the
- * slot's port and that a key decodes as a local development JWT. Every one of those is fabricable by
- * a caller with a text editor and no database answering anywhere — they GUARD the founder's personal
- * stack, which is what they were written for, and they establish nothing positive at all. A witness
- * that read them as grounds would grant `real` to four plausible strings.
+ * configured port and that a key decodes as a local development JWT. Every one of those is
+ * fabricable by a caller with a text editor and no database answering anywhere — they refuse a
+ * stack that is not demonstrably the local one `supabase/config.toml` describes, which is what
+ * they were written for, and they establish nothing positive at all. A witness that read them as
+ * grounds would grant `real` to four plausible strings.
  *
  * So a live capability carries an ATTESTATION: an object the harness's own live constructors stamp
- * onto the value AFTER a round trip that could only have succeeded against the prepared slot. The
- * round trip is `attestation.ts`'s — `prepare()` mints a nonce, writes it into the slot database
- * after the reset, and the child reads it back THROUGH the coordinates it was handed. "These
- * coordinates answered with this run's runner-minted value" is the grounds; nothing weaker is.
+ * onto the value AFTER a round trip that could only have succeeded against the prepared stack. The
+ * round trip is `attestation.ts`'s — `prepareLocalStack()` mints a nonce, writes it into the one
+ * stack's database after the reset, and the child reads it back THROUGH the coordinates it was
+ * handed. "These coordinates answered with this run's runner-minted value" is the grounds; nothing
+ * weaker is.
  *
  * WHAT THIS FILE CAN AND CANNOT CHECK, said exactly, because a closure claim wider than the truth is
  * the defect this file exists to remove. It has no I/O and performs no round trip. It checks that a
@@ -126,7 +118,7 @@ export interface Capability<T> {
   readonly value: T;
 }
 
-type CapabilityWitness = (value: unknown, evidence: CapabilityEvidence) => CapabilityVerdict;
+type CapabilityWitness = (value: unknown) => CapabilityVerdict;
 
 /**
  * CALLABILITY THROUGH THE PROTOTYPE CHAIN, never own-property presence. `ControlledClock` is a
@@ -272,7 +264,7 @@ function sealed<T>(name: string, verdict: CapabilityVerdict, value: T): Capabili
  * The one constructor. The verdict comes from the witness registered for `name`; an unregistered
  * name is refused, and a witness that cannot classify the value throws through this call.
  */
-export function witnessedCapability<T>(name: string, value: T, evidence: CapabilityEvidence = {}): Capability<T> {
+export function witnessedCapability<T>(name: string, value: T): Capability<T> {
   if (!name.trim()) throw new Error('a capability requires a non-empty name');
   const witness = WITNESSES.get(name);
   if (witness === undefined) {
@@ -282,7 +274,7 @@ export function witnessedCapability<T>(name: string, value: T, evidence: Capabil
         `about is an error here rather than a default in either direction.`,
     );
   }
-  return sealed(name, witness(value, evidence), value);
+  return sealed(name, witness(value), value);
 }
 
 /**

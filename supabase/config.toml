@@ -10,12 +10,12 @@ enabled = true
 #
 # WHY THE 443xx BLOCK AND NOT THE TEMPLATE'S 543xx (2026-08-13). Windows' dynamic TCP range on the
 # build machine is 49152-65535, and WinNAT reserves 100-port blocks inside it at its own pace. The
-# template's 54321 block — and every slot the pool derives from it at +slot*1000 — sat inside that
-# range, and on 2026-08-12 a reservation (55241-55340) swallowed db slot 1's ports while the slot
-# stood: no process on the port, nothing to kill, `supabase start` refused with "access
-# permissions". Ports below 49152 are outside what the OS hands out, so the whole 443xx block and
-# its 453xx/463xx slot images need no netsh exclusion and no elevation to stay ours. The slot
-# overlay enforces this floor; see EPHEMERAL_FLOOR in tests/at/harness/db-pool.ts.
+# template's 54321 block sat inside that range, and on 2026-08-12 a reservation (55241-55340)
+# swallowed the ports of a then-standing database slot: no process on the port, nothing to kill,
+# `supabase start` refused with "access permissions". Ports below 49152 are outside what the OS
+# hands out, so the 443xx block needs no netsh exclusion and no elevation to stay ours. The slot
+# pool that once enforced this floor is parked (loop/parked/v1/README.md); the block stays because
+# the reason does.
 port = 44321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
@@ -172,7 +172,11 @@ site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["https://127.0.0.1:3000"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 # PINNED TO 120 so the integration tier can wait out a real expiry (AT-001.12, AT-001.13). The
-# registry entry `accessTokenLifetimeSeconds` in tests/at/harness/atconfig.ts reads this same number.
+# registry entry `accessTokenLifetimeSeconds` in tests/at/harness/atconfig.ts pins the same number,
+# and the runner refuses an integration run when the two differ. LOCAL STACK ONLY, NEVER PUSHED:
+# this file is what `supabase config push` would send to the hosted project, nothing in the tree
+# runs that command, and a two-minute token is a test convenience, not a product setting. The
+# running stack reads this at START — after a change, `bun run db:stop` then `bun run db:start`.
 jwt_expiry = 120
 # JWT issuer URL. If not set, defaults to auth.external_url.
 # jwt_issuer = ""

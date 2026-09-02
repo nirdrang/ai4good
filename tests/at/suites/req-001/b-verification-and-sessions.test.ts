@@ -7,18 +7,19 @@
  * neither `LEAF` nor `notLanded`. The other suite files still declare their own and keep theirs.
  *
  * `supabase/config.toml` carries `[auth.email] enable_confirmations = true`, turned on by the
- * verification leaf. NOTHING IN THIS FILE CHANGES IT, and this leaf ships no configuration change
- * at all: the transient `jwt_expiry` change the live proof needs is made and reverted inside that
- * script, and the final `git diff` proves the file unchanged.
+ * verification leaf, and a standing `[auth] jwt_expiry = 120`, pinned so the integration bodies
+ * can wait out a real expiry. NOTHING IN THIS FILE CHANGES EITHER: the loop bodies read the
+ * lifetime through the registry entry `accessTokenLifetimeSeconds` and edit no configuration.
  *
  * WHAT THE FIXTURE REACHES AND WHAT IT DOES NOT, said before the first assertion because it is the
  * one thing a reader could get wrong here. The confirmations flip is a LIVE-STACK behaviour: the
  * real GoTrue issues no session at signup and refuses sign-in until the address is confirmed. The
  * fixture's storage is a Map and its `Session` is a handle, not an access token — nothing here is
  * signed, decoded or parsed. What the fixture DOES now model is the session's LIFETIME: an
- * `auth.sessions` row per session, an expiry one hour out mirroring `jwt_expiry = 3600`, and
- * revocation. Which sessions are live is that mirror; whether a dead session yields a caller is the
- * SHIPPED `callerFromAuthAnswer`, the same judgement both deployed edge functions run. The live
+ * `auth.sessions` row per session, an expiry `jwt_expiry` seconds out (120, read through the
+ * registry entry), and revocation. Which sessions are live is that mirror; whether a dead session
+ * yields a caller is the SHIPPED `callerFromAuthAnswer`, the same judgement both deployed edge
+ * functions run. The live
  * behaviour is measured by hand, in `loop/items/AI4DEV-59/proof-local.ts` checks (a), (c) and (d)
  * and in `loop/items/AI4DEV-60/proof-local.ts` checks (a) to (e) and (g).
  *
@@ -63,10 +64,11 @@
  */
 
 import { expect } from 'vitest';
+import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { atTest } from './_bind.ts';
 // The INTEGRATION-tier procedures for the ids whose criteria are proved differently against a real
 // stack. Same criterion, same id, one registration; only the procedure differs. See _integration.ts.
-import { ACCESS_TOKEN_LIFETIME_MS, at00109, at00110, at00112, at00113, at00114, at00138, INTEGRATION_TIMEOUT_MS } from './_integration.ts';
+import { at00109, at00110, at00112, at00113, at00114, at00138, INTEGRATION_TIMEOUT_MS } from './_integration.ts';
 import type { AccountsSut } from './_contract.ts';
 // THE TWO EMAIL-CAPABLE PUBLIC TYPES, read from the shipped vocabulary rather than spelled as a
 // pair of literals. AT-001.09's own words are "EITHER account type that can register by email (NGO
@@ -91,6 +93,11 @@ const SIGNER = {
   signerTitle: 'Executive Director',
   authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
 } as const;
+/**
+ * The access-token lifetime the loop bodies advance the clock by, in milliseconds — read from the
+ * registry for itself, so the loop tier never imports the integration module for a number.
+ */
+const ACCESS_TOKEN_LIFETIME_MS = AT_CONFIG.accessTokenLifetimeSeconds.value * 1000;
 
 atTest(
   'AT-001.09',

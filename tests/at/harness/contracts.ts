@@ -67,7 +67,7 @@ export type Clock = {
  * a fiction while believing it had aged a real session.
  *
  * SO THE METHODS ARE ABSENT FROM THE TYPE, not present and throwing. `registry.ts` hands an
- * integration body a context whose `h.clock` is this type, so `await h.clock.advance(3600_000)` in
+ * integration body a context whose `h.clock` is this type, so `await h.clock.advance(ms)` in
  * an integration body is a COMPILE error naming the method — which is the difference between a
  * mistake a reviewer has to notice and one the type-checker refuses.
  */

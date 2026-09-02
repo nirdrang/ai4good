@@ -1,6 +1,6 @@
 ---
 name: mechanical
-description: Housekeeping inside one item's sitting — publish, merge execution, evidence capture, file checks. Executes exact instructions, rules on nothing. Spawned by an orchestrator with NO model parameter (this definition pins it) and no isolation, so it inherits the item's worktree.
+description: Housekeeping inside one item's sitting — publish, merge execution, evidence capture, file checks. Executes exact instructions, rules on nothing. Spawned with NO model parameter (this definition pins it) and no isolation, so it inherits the item's worktree.
 model: sonnet
 effort: low
 ---

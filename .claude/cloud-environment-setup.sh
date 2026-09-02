@@ -46,10 +46,10 @@
 #   - the codex ChatGPT login. That is OAuth, it can rotate, and the snapshot is readable
 #     by anyone using this environment. Run `codex login --device-auth` per fresh VM; the
 #     SessionStart banner says when it is needed.
-#   - anything derived from the REPOSITORY - node_modules, the slot pool. Cloud sessions
-#     start from a fresh clone, so project setup belongs to the SessionStart hook, which
-#     runs inside the session with the tree present. The hook already installs
-#     node_modules when they are missing.
+#   - anything derived from the REPOSITORY - node_modules. Cloud sessions start from a
+#     fresh clone, so project setup belongs to the SessionStart hook, which runs inside
+#     the session with the tree present. The hook already installs node_modules when they
+#     are missing. The one database is started inside a session with `bun run db:start`.
 
 set -euo pipefail
 
@@ -70,9 +70,10 @@ npm install -g @openai/codex opencode-ai
 
 # --- 2. PowerShell -----------------------------------------------------------------
 # The way-of-work scripts under loop/work are PowerShell, and PowerShell 7 runs them on
-# Linux: work-lib.ps1, guard-branch-switch.ps1 and stamp-hook.ps1 were each measured
-# working in a cloud VM. Without this, a cloud session has no branch guard and no
-# attribution stamp. Delete this block if you decide cloud sessions do not need them.
+# Linux: work-lib.ps1 and guard-branch-switch.ps1 were each measured working in a cloud VM
+# (so was the attribution stamp hook, which is parked under loop/parked/v1/ and no longer
+# runs anywhere). Without this, a cloud session has no branch guard. Delete this block if
+# you decide cloud sessions do not need it.
 curl -sS -o /tmp/packages-microsoft-prod.deb \
   https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
 dpkg -i /tmp/packages-microsoft-prod.deb

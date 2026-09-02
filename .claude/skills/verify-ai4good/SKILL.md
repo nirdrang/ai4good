@@ -72,7 +72,9 @@ The recipe it implements, for custom drives:
 2. Fetch the confirmation mail from Mailpit: `GET http://127.0.0.1:44324/api/v1/messages`,
    then `GET /api/v1/message/{ID}`; extract the `/auth/v1/verify?...` link from the body.
 3. `GET` that link with redirects disabled; a 3xx redirect to the site URL means confirmed.
-4. `POST {API}/auth/v1/token?grant_type=password` → `access_token`.
+4. `POST {API}/auth/v1/token?grant_type=password` → `access_token`. That token lives
+   `[auth] jwt_expiry` seconds (currently 120), so call step 5 promptly or sign in again before
+   a long drive.
 5. Call an edge function with `Authorization: Bearer <access_token>` and `apikey: <ANON_KEY>`.
    `complete-signup` needs: `accountType`, `organizationName` (NGO only),
    `acknowledgmentTextVersion`, `signerName`, `signerTitle`, and `authorityAttestation` equal,

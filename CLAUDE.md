@@ -71,7 +71,10 @@ lead runs the pstack stations from the installed plugin, opens the pull request,
 start; never run it from memory of a prior reading** (founder ruling 2026-08-11, kept). The v1
 relay (the `/work` skill and its phase files, the conductor and its agents, the drill harness,
 the database slot pool, and the scripts that served them) is parked under `loop/parked/v1/`.
-Its README says what moved and why. Nothing there is live.
+Its README says what moved and why. Nothing there is live. The reply header (TURN line, HOOK
+block) is parked with the stamp hook (founder 2026-08-29: "park the header"); its full text stays
+in `loop/parked/v1/.claude/skills/work/SKILL.md`, section "The standing rules", and returns with
+the stamp.
 
 Three rules bind every session in this folder, before any skill is invoked:
 
