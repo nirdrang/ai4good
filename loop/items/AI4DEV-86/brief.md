@@ -78,6 +78,26 @@ Do not name any other item's id in the pull request title or body.
 The pull request body carries Why, Scope, Tradeoffs, Blast Radius, and Verification.
 Then close the item as the Closing section says. You close it, nobody else.
 
+## The harness ruling is yours (founder, 2026-09-02: "i want the poteto-mode to decide this
+whole test harness")
+The item text freezes the acceptance-test harness under `tests/at/harness/` and parks the
+slot machinery. The founder is not sure the rest of the harness earns its place. You decide
+its fate, with evidence, at the critique and design stations:
+- The harness is about 15,000 lines and serves two suites, `req-001` and `req-016`. Its parts:
+  the runner and `at:check` bijection; the `--expect` manifests and registry; the semantic
+  judge in `oracles.ts` (an Opus call with a rubric, structured output, record and replay,
+  used by `req-016` only); the vendor stand-ins, sentinels, faults, fixtures, guards, clock;
+  and about 5,600 lines of harness selftests.
+- The alternative on the table is plain vitest against the shipped modules and the one stack,
+  with `verify-ai4good` as the drive skill for evidence on the running app.
+- Rule on each part: keep frozen, park, or remove. Say what each ruling costs: what stops
+  being checked (the id bijection, the `--expect` floor, judging AI-written text) and what
+  gets simpler. The judge is a ruling of its own, not a footnote.
+- Where the ruling stays inside this item's scope, do it here. Where it widens the item, put
+  the ruling and its reasons in the pull request body under a "Harness ruling" heading and the
+  work in "Not done here". The Done contract above does not change either way: both suites
+  green at the loop tier with `--expect`, `req-001` green at the integration tier.
+
 ## Closing (the git part is yours, the board is not)
 1. Wait for CI to be green on the exact head of the pull request, and for the founder to
    say "merge". Both, never one.
