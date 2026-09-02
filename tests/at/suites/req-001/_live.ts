@@ -14,9 +14,8 @@
  *   - the DEPLOYED edge functions, served by the stack's own edge-runtime container out of this
  *     tree's `supabase/` — so `verify_jwt`, the platform's own token check, `resolveCaller` and the
  *     database function all sit on the path;
- *   - the database as the OPERATOR, over the connection string the runner validated and this run
- *     attested, for the read-backs an assertion needs and for the two Givens no public path can
- *     reach.
+ *   - the database as the OPERATOR, over the connection string the runner validated, for the
+ *     read-backs an assertion needs and for the two Givens no public path can reach.
  *
  * ============================================================================================
  * WHAT IS NOT BACKED, AND WHY
@@ -67,8 +66,16 @@
 
 import { emailVerifiedFromUser } from '../../../../supabase/functions/_shared/verification.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
+import {
+  authPost,
+  followLink,
+  functionPost,
+  mailIdentification,
+  sqlClient,
+  verifyLinksFor,
+  type Stack,
+} from '../../harness/live-stack.ts';
 import { CapabilityPending } from '../../harness/registry.ts';
-import type { LiveVendors } from '../../harness/live-email.ts';
 import type {
   AccountRow,
   AccountsSut,
@@ -94,20 +101,6 @@ import type {
 export const requirement = 'req-001' as const;
 
 /* ------------------------------------------------------------------------------ the plumbing */
-
-interface BunSqlClient {
-  (strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown>;
-  close(): Promise<void>;
-}
-type BunSqlCtor = new (url: string) => BunSqlClient;
-
-interface Slot {
-  apiUrl: string;
-  dbUrl: string;
-  anonKey: string;
-  serviceRoleKey: string;
-  mailUrl: string;
-}
 
 /** What this adapter holds for a session it really obtained. A handle with no entry holds nothing. */
 interface LiveSession {
@@ -204,22 +197,15 @@ function databaseRefusal(error: unknown): { code: string; message: string } {
 
 /* -------------------------------------------------------------------------------- the factory */
 
-export async function createLiveAdapter(opts: {
-  slot: Slot;
-  vendors: LiveVendors;
-  config: unknown;
-  worlds: unknown;
-}): Promise<{
+export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   sut: { accounts: AccountsSut };
   fixtures: { world(name: string): Promise<World> };
   teardown(): Promise<void>;
 }> {
-  const { slot, vendors } = opts;
-  const api = slot.apiUrl.replace(/\/$/, '');
-
-  const SQL = (globalThis as { Bun?: { SQL?: BunSqlCtor } }).Bun?.SQL;
-  if (!SQL) throw new Error('this runtime has no SQL client (expected bun) — the live adapter reads the slot database directly');
-  const sql = new SQL(slot.dbUrl);
+  const { stack } = opts;
+  const api = stack.apiUrl.replace(/\/$/, '');
+  await mailIdentification(stack);
+  const sql = sqlClient(stack);
 
   const sessions = new Map<string, LiveSession>();
 
@@ -236,124 +222,13 @@ export async function createLiveAdapter(opts: {
     lifetimeChecked = true;
   };
 
-  const authPost = async (path: string, body: unknown, bearer?: string): Promise<{ status: number; json: Record<string, unknown> }> => {
-    const response = await fetch(`${api}${path}`, {
-      method: 'POST',
-      headers: {
-        apikey: slot.anonKey,
-        Authorization: `Bearer ${bearer ?? slot.anonKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-    const text = await response.text();
-    let json: Record<string, unknown> = {};
-    try {
-      json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
-    } catch {
-      json = { raw: text };
-    }
-    return { status: response.status, json };
-  };
-
-  /** A deployed edge function, called exactly as a browser client would — bearer, JSON, no shortcut. */
-  const callFunction = async (name: string, body: unknown, session: Session, ip: string): Promise<{ status: number; json: Record<string, unknown> }> => {
-    const tokens = tokensOf(sessions, session, `call the deployed ${name}`);
-    const response = await fetch(`${api}/functions/v1/${name}`, {
-      method: 'POST',
-      headers: {
-        apikey: slot.anonKey,
-        Authorization: `Bearer ${tokens.accessToken}`,
-        'Content-Type': 'application/json',
-        // AT-001.01 records the address the gateway chain REPORTED. `_contract.ts` says exactly what
-        // that is and is not: a spoofed header is stored verbatim and no source address is verified.
-        'x-forwarded-for': ip,
-      },
-      body: JSON.stringify(body),
-    });
-    const text = await response.text();
-    let json: Record<string, unknown> = {};
-    try {
-      json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
-    } catch {
-      json = { raw: text };
-    }
-    return { status: response.status, json };
-  };
-
-  /**
-   * The links a message carries, in the order they appear.
-   *
-   * The RAW message is searched rather than a rendered body, so a token survives verbatim. Both the
-   * confirmation and the recovery mail carry `/auth/v1/verify?...`, and they are told apart by the
-   * `type` parameter — which is what AI4DEV-60's proof had to do too, because one address can hold
-   * both kinds at once.
-   */
-  const linksIn = async (address: string, wanted: 'signup' | 'recovery'): Promise<string[]> => {
-    const messages = await vendors.email.messagesFor(address);
-    const links: string[] = [];
-    for (const message of messages) {
-      /*
-       * QUOTED-PRINTABLE IS DECODED IN FULL, not merely unwrapped — measured on the slot's own
-       * catcher, because the first integration run said "no confirmation email reached the mail
-       * catcher" while the message was sitting in it.
-       *
-       * The message this stack sends carries `Content-Transfer-Encoding: quoted-printable`, and that
-       * encoding does TWO things to a long URL: it wraps it with soft line breaks (`=` then a
-       * newline), and it escapes every literal `=` as `=3D`. Unwrapping alone leaves
-       * `?token=3D…&type=3Dsignup`, so the `type=signup` test below was false for every message and
-       * the link that WAS found would have been unfollowable anyway. Both steps are the same
-       * decoding and neither is optional.
-       *
-       * The order is load-bearing: the soft breaks go first, because a break can sit in the middle
-       * of an escape sequence.
-       */
-      const body = message.body
-        .replace(/=\r?\n/g, '')
-        .replace(/=([0-9A-Fa-f]{2})/g, (_match, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
-        .replace(/&amp;/g, '&');
-      for (const match of body.matchAll(/https?:\/\/[^\s"'<>)\]]+/g)) {
-        const url = match[0].replace(/[.,;]+$/, '');
-        if (!url.includes('/auth/v1/verify')) continue;
-        if (!url.includes(`type=${wanted}`)) continue;
-        links.push(url);
-      }
-    }
-    return links;
-  };
-
-  /**
-   * THE SAME READ, WAITED FOR — because sending mail is not synchronous with the request that
-   * causes it. GoTrue answers `POST /auth/v1/signup` and hands the message to the SMTP transport
-   * afterwards, so a body that reads the catcher on the next line can read it before the message
-   * has landed.
-   *
-   * WHAT WAS MEASURED, said exactly, because this wait is NOT what fixed the first integration run
-   * and a comment that implied otherwise would be evidence of the wrong thing. On this stack a
-   * confirmation message reached the catcher 4 ms after the signup answered. The decoding above is
-   * what the run needed. Four milliseconds is a measurement of one delivery, not a guarantee about
-   * every delivery, so the read waits rather than assuming.
-   *
-   * A BOUNDED POLL, AND THE BOUND IS THE POINT. It costs nothing when the message is already there.
-   * When no message ever arrives the read still returns nothing and the assertion still fails —
-   * this waits for a message, it does not invent one, and the failure direction is unchanged.
-   */
-  const linksFor = async (address: string, wanted: 'signup' | 'recovery'): Promise<string[]> => {
-    const deadline = Date.now() + 20_000;
-    for (;;) {
-      const links = await linksIn(address, wanted);
-      if (links.length > 0 || Date.now() >= deadline) return links;
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-  };
-
   const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
 
   const accounts: AccountsSut = {
     /* ------------------------------------------------- Supabase Auth, over the slot's own gateway */
 
     registerWithEmailPassword: async (email, password) => {
-      const { status, json } = await authPost('/auth/v1/signup', { email, password });
+      const { status, json } = await authPost(stack, '/auth/v1/signup', { email, password });
       if (status >= 400) throw new Error(`the live signup for a fresh address answered ${status}`);
       // NO SESSION IS MINTED HERE. See this file's header: with confirmations on the live stack
       // issues none, and a fabricated handle would let a body act as a user that cannot act.
@@ -363,7 +238,7 @@ export async function createLiveAdapter(opts: {
     },
 
     signInWithEmailPassword: async (email, password) => {
-      const { status, json } = await authPost('/auth/v1/token?grant_type=password', { email, password });
+      const { status, json } = await authPost(stack, '/auth/v1/token?grant_type=password', { email, password });
       if (status >= 400) {
         // ONE REASON FOR BOTH BRANCHES, which is the shape `_contract.ts` requires: an answer that
         // differed would tell an anonymous caller which addresses hold accounts.
@@ -450,7 +325,7 @@ export async function createLiveAdapter(opts: {
       // the account holds — measured in AI4DEV-60's proof — and `_contract.ts` models the local one.
       const response = await fetch(`${api}/auth/v1/logout?scope=local`, {
         method: 'POST',
-        headers: { apikey: slot.anonKey, Authorization: `Bearer ${tokens.accessToken}` },
+        headers: { apikey: stack.anonKey, Authorization: `Bearer ${tokens.accessToken}` },
       });
       if (response.status >= 400) throw new Error(`the live logout answered ${response.status}`);
     },
@@ -459,7 +334,7 @@ export async function createLiveAdapter(opts: {
       const tokens = tokensOf(sessions, session, 'refresh a session');
       // NO CREDENTIALS IN THIS CALL, which is the whole content of AT-001.13's mechanism: a refresh
       // token, and no password anywhere.
-      const { status, json } = await authPost('/auth/v1/token?grant_type=refresh_token', { refresh_token: tokens.refreshToken });
+      const { status, json } = await authPost(stack, '/auth/v1/token?grant_type=refresh_token', { refresh_token: tokens.refreshToken });
       if (status >= 400) return { ok: false, reason: String(json.msg ?? 'the refresh was refused') };
       const accessToken = String(json.access_token ?? '');
       if (!accessToken) return { ok: false, reason: 'the refresh answered 200 with no access token' };
@@ -477,24 +352,23 @@ export async function createLiveAdapter(opts: {
     requestPasswordReset: async (email) => {
       // IT ALWAYS SUCCEEDS, including for an address nobody registered — a security shape, measured
       // on the live stack in AI4DEV-60's proof, not a convenience.
-      await authPost('/auth/v1/recover', { email });
+      await authPost(stack, '/auth/v1/recover', { email });
       return { ok: true };
     },
 
-    emailedPasswordResetLink: async (email) => (await linksFor(email, 'recovery'))[0] ?? null,
+    emailedPasswordResetLink: async (email) => (await verifyLinksFor(stack, email, 'recovery'))[0] ?? null,
 
     completePasswordReset: async (link, newPassword) => {
       // THE FLOW SHAPE IS MEASURED RATHER THAN REMEMBERED. AI4DEV-60's proof found the implicit
       // fragment on this CLI version and recorded that a PKCE code appears on others; following the
       // link and reading what comes back is what keeps this working across either.
-      const response = await fetch(link, { redirect: 'manual' });
-      const location = response.headers.get('location') ?? '';
+      const { location } = await followLink(link);
       const fragment = location.includes('#') ? location.slice(location.indexOf('#') + 1) : '';
       const accessToken = new URLSearchParams(fragment).get('access_token') ?? '';
       if (!accessToken) return { ok: false };
       const update = await fetch(`${api}/auth/v1/user`, {
         method: 'PUT',
-        headers: { apikey: slot.anonKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        headers: { apikey: stack.anonKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: newPassword }),
       });
       return { ok: update.status < 400 };
@@ -529,20 +403,21 @@ export async function createLiveAdapter(opts: {
       });
     },
 
-    emailedVerificationLink: async (email) => (await linksFor(email, 'signup'))[0] ?? null,
+    emailedVerificationLink: async (email) => (await verifyLinksFor(stack, email, 'signup'))[0] ?? null,
 
     useVerificationLink: async (link) => {
-      const response = await fetch(link, { redirect: 'manual' });
+      const { status } = await followLink(link);
       // GoTrue answers a 303 to the site URL for a token it issued AND for one it never issued — the
       // tampered probe in AI4DEV-59's proof measured that. So the STATUS is not the oracle; the
       // column is, and the body that cares reads `emailVerified` afterwards.
-      return { ok: response.status < 400 };
+      return { ok: status < 400 };
     },
 
     /* ------------------------------------------------ the DEPLOYED functions, over the slot's kong */
 
     completeSignup: async (session, request: CompleteSignupRequest, ip): Promise<CompleteSignupOutcome> => {
-      const { status, json } = await callFunction('complete-signup', request, session, ip);
+      const tokens = tokensOf(sessions, session, 'call the deployed complete-signup');
+      const { status, json } = await functionPost(stack, 'complete-signup', request, tokens.accessToken, ip);
       if (status >= 400 || json.ok === false) {
         return { ok: false, reason: String(json.reason ?? json.msg ?? `the deployed complete-signup answered ${status}`) };
       }
@@ -559,7 +434,8 @@ export async function createLiveAdapter(opts: {
       // keyed `organizationName` was refused 400 "an organisation needs a non-empty name" — a
       // refusal that reads like a product rule and is really a wire mismatch, which would have made
       // AT-001.06's NGO CONTROL fail and every refusal after it prove nothing.
-      const { status, json } = await callFunction('create-organization', { name: organizationName }, session, '203.0.113.7');
+      const tokens = tokensOf(sessions, session, 'call the deployed create-organization');
+      const { status, json } = await functionPost(stack, 'create-organization', { name: organizationName }, tokens.accessToken, '203.0.113.7');
       if (status >= 400 || json.ok === false) {
         return { ok: false, reason: String(json.reason ?? json.msg ?? `the deployed create-organization answered ${status}`) };
       }
@@ -575,7 +451,8 @@ export async function createLiveAdapter(opts: {
      * gateway error page or a future field rename must not be able to arrive wearing either label.
      */
     updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
-      const { status, json } = await callFunction('update-organization', { organizationId, name }, session, '203.0.113.7');
+      const tokens = tokensOf(sessions, session, 'call the deployed update-organization');
+      const { status, json } = await functionPost(stack, 'update-organization', { organizationId, name }, tokens.accessToken, '203.0.113.7');
       if (status < 400 && json.ok !== false) {
         return {
           ok: true,
@@ -905,8 +782,8 @@ export async function createLiveAdapter(opts: {
       const created = await fetch(`${api}/auth/v1/admin/users`, {
         method: 'POST',
         headers: {
-          apikey: slot.serviceRoleKey,
-          Authorization: `Bearer ${slot.serviceRoleKey}`,
+          apikey: stack.serviceRoleKey,
+          Authorization: `Bearer ${stack.serviceRoleKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password, email_confirm: true }),
@@ -917,7 +794,7 @@ export async function createLiveAdapter(opts: {
       if (!accountId) throw new Error('the admin user API answered 200 but named no user id');
       await sql`insert into public.accounts (id, account_type) values (${accountId}::uuid, 'platform_admin')`;
 
-      const signedIn = await authPost('/auth/v1/token?grant_type=password', { email, password });
+      const signedIn = await authPost(stack, '/auth/v1/token?grant_type=password', { email, password });
       const accessToken = String(signedIn.json.access_token ?? '');
       if (!accessToken) throw new Error('a provisioned platform administrator could not sign in');
       checkLifetime(accessToken);

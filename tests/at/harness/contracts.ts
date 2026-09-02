@@ -23,10 +23,8 @@
 export type { Tier } from './registry.ts';
 export { TIERS } from './registry.ts';
 export type { ConfigRegistry } from './config.ts';
-export type { LiveEmail, LiveEmailMessage, LiveVendors } from './live-email.ts';
 
 import type { ConfigRegistry } from './config.ts';
-import type { LiveVendors } from './live-email.ts';
 import type { Tier } from './registry.ts';
 
 /* ---------------------------------------------------------------- H2 fixtures + clock */
@@ -211,10 +209,10 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
  * THE SAME HARNESS, SEEN AT ONE TIER — two members differ and the rest is identical.
  *
  * `clock` and `vendors` are the two members whose control seams exist only at the loop tier.
- * At the loop tier both have control seams, which is what the loop bodies command. Above it the
- * harness constructs the real article — the passage of time, and the stack's own mail catcher —
- * and NEITHER has a control seam, because a capability that can be commanded is a substitute by
- * definition.
+ * At the loop tier both have control seams, which is what the loop bodies command. Above it
+ * `clock` is the wall clock with no command methods, and `vendors` is ABSENT from the type: a
+ * body that reaches for it fails to compile. Mail is read through the live adapter, not through
+ * a harness vendor seam.
  *
  * WHY IT IS A TYPE AND NOT A RUNTIME CHECK. A per-tier body written against the wrong tier's
  * capabilities is an honest mistake that would otherwise surface as a run-time `TypeError` inside a
@@ -231,4 +229,4 @@ export type TierHarness<
   Channel extends string = string,
 > = T extends 'loop'
   ? AtHarness<Sut, W, Channel>
-  : Omit<AtHarness<Sut, W, Channel>, 'clock' | 'vendors'> & { clock: RealClock; vendors: LiveVendors };
+  : Omit<AtHarness<Sut, W, Channel>, 'clock' | 'vendors'> & { clock: RealClock };

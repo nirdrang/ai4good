@@ -8,7 +8,7 @@ import { createConfigRegistry, type ConfigRegistry } from './config.ts';
 import type { AtHarness, StaticScan } from './contracts.ts';
 import { createFaults, type AdapterFaultSeam } from './faults.ts';
 import { createFixtureSeed, FixtureWorldStore } from './fixtures.ts';
-import { createLiveEmail, type LiveVendors } from './live-email.ts';
+import { stackFromEnv, type Stack } from './live-stack.ts';
 import { CapabilityPending, type ConfigOverrides, type Tier } from './registry.ts';
 import { createSentinels, type AdapterSentinelSeam } from './sentinels.ts';
 import { createEmailProviderSim, type EmailProviderPort } from './vendors.ts';
@@ -115,20 +115,8 @@ interface LiveAdapterModule {
   requirement: string;
   createLiveAdapter(opts: {
     /** the coordinates the runner validated — never re-derived here */
-    slot: LiveSlotCoordinates;
-    vendors: LiveVendors;
-    config: ConfigRegistry;
-    worlds: FixtureWorldStore;
+    stack: Stack;
   }): Promise<FixtureAdapter> | FixtureAdapter;
-}
-
-/** The four strings the runner validated, plus the mail catcher the stack's own status reported. */
-export interface LiveSlotCoordinates {
-  apiUrl: string;
-  dbUrl: string;
-  anonKey: string;
-  serviceRoleKey: string;
-  mailUrl: string;
 }
 
 function liveAdapterUrl(requirement: string): string {
@@ -171,18 +159,6 @@ async function loadLiveAdapterModule(requirement: string): Promise<{ module: Liv
     );
   }
   return { module: loaded as LiveAdapterModule, moduleUrl };
-}
-
-/** The coordinates this child was handed, read off its own environment and never recomputed. */
-function liveCoordinatesFromEnv(): LiveSlotCoordinates {
-  const env = process.env;
-  return {
-    apiUrl: env.AT_SUPABASE_URL ?? '',
-    dbUrl: env.AT_SUPABASE_DB_URL ?? '',
-    anonKey: env.AT_SUPABASE_ANON_KEY ?? '',
-    serviceRoleKey: env.AT_SUPABASE_SERVICE_ROLE_KEY ?? '',
-    mailUrl: env.AT_SUPABASE_MAIL_URL ?? '',
-  };
 }
 
 /** A typed seam for later slices. Any attempted use fails with the capability names, never a no-op. */
@@ -257,20 +233,13 @@ export async function createHarness(opts: {
     return finish({ clock, adapter, vendors: { email: provider.sim }, live: false });
   }
 
-  const coordinates = liveCoordinatesFromEnv();
   const live = await loadLiveAdapterModule(opts.requirement);
   if (live) {
-    const vendors = await createLiveEmail({ catcherUrl: coordinates.mailUrl });
-    const adapter = await live.module.createLiveAdapter({
-      slot: coordinates,
-      vendors,
-      config,
-      worlds,
-    });
+    const adapter = await live.module.createLiveAdapter({ stack: stackFromEnv() });
     return finish({
       clock: new RealClock() as unknown as AtHarness['clock'],
       adapter,
-      vendors: vendors as unknown as AtHarness['vendors'],
+      vendors: refusing<AtHarness['vendors']>('vendors.email'),
       live: true,
     });
   }

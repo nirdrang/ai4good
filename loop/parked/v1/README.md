@@ -79,3 +79,10 @@ the tier is above loop and `live` is false.
 
 What that costs: the loop tier can no longer tell a real member from a stand-in. Above loop, a
 suite with no live adapter is refused by a boolean, not a computed verdict.
+
+## The live mail reader (parked 2026-09-02)
+
+`tests/at/harness/live-email.ts` moved here byte for byte. It was the integration tier's
+Mailpit reader: search, raw-source read, and the `/api/v1/info` identification probe. The
+shared stack module `tests/at/harness/live-stack.ts` now holds that read and that probe, with
+no brand. Dead text under version control: not compiled, not run, not imported.

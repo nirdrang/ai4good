@@ -167,7 +167,7 @@ describe('the stack must prove it is local before anything destructive happens',
 
   it('checks the mail catcher URL against the config\'s own [local_smtp] port (ruling S1-6)', () => {
     /*
-     * The catcher URL travels into the child in `AT_SUPABASE_MAIL_URL` and the live email capability
+     * The catcher URL travels into the child in `AT_SUPABASE_MAIL_URL` and the shared stack module
      * reads mail through it, so it is a coordinate like the others. It used to flow from
      * `supabase status` into the child with nothing looking at it at all.
      */

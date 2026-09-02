@@ -47,7 +47,16 @@ Run this read-only check first whenever anything looks off:
 Invoke-RestMethod http://127.0.0.1:44321/auth/v1/health          # answers => stack up
 bunx supabase status -o json                                     # API_URL must be http://127.0.0.1:44321
 docker ps --format '{{.Names}}' | Select-String poancmeitlmxejofwzuu   # containers owned by THIS config
+docker inspect supabase_edge_runtime_poancmeitlmxejofwzuu --format "{{json .Mounts}}"
 ```
+
+The edge runtime container must mount THIS checkout's `supabase/functions`. The inspect
+command lists the source path. If it names a directory that no longer exists (a removed
+worktree) or another checkout, the deployed functions are stale or gone and every
+completion refuses. The fix is `bun run db:stop` then `bun run db:start` from your
+checkout. Measured 2026-09-02 on this item: the container mounted the previous item's
+removed worktree and the integration tier reported 34 reds with the stack otherwise
+healthy.
 
 If `status` names other ports, or the containers on 44321 carry a different suffix, stop and
 report — do not drive. Leftover `ai4good-slot-1` / `ai4good-slot-2` containers (45xxx/46xxx)
@@ -55,7 +64,8 @@ are corpses of the deleted slot pool, not this stack; ignore them, never drive t
 
 ## Drive
 
-The harness is plain HTTP plus the mail catcher. Keys come from
+The helpers live in [`tests/at/harness/live-stack.ts`](../../../tests/at/harness/live-stack.ts).
+The acceptance suite's integration adapter uses the same module. Keys come from
 `bunx supabase status -o json` at run time — never hardcode or commit them.
 
 The shipped helper drives the primary path end to end (NGO email signup through database
