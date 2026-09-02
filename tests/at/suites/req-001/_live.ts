@@ -19,15 +19,8 @@
  *     reach.
  *
  * ============================================================================================
- * WHAT IS BACKED, WHAT IS NOT, AND WHY THE DIFFERENCE IS A CLOSED LIST RATHER THAN A COMMENT
+ * WHAT IS NOT BACKED, AND WHY
  * ============================================================================================
- *
- * `BACKED` below is the enumeration the harness grants `sut.accounts` its `real` verdict over. Every
- * method NOT in it is a callable proxy that throws `CapabilityPending` naming
- * `sut.accounts.<method>` the moment a body touches it — it fakes nothing, answers nothing, and can
- * never produce a green. So an id that leans on one is declarably RED, by name, and an id that does
- * not is graded against the live stack. The list is checked against this module's own surface at
- * construction: a name in it that is not implemented here refuses the whole run.
  *
  * THE FOUR FAMILIES THAT ARE DELIBERATELY NOT BACKED, each with the fact that keeps it that way:
  *
@@ -74,6 +67,7 @@
 
 import { emailVerifiedFromUser } from '../../../../supabase/functions/_shared/verification.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
+import { CapabilityPending } from '../../harness/registry.ts';
 import type { LiveVendors } from '../../harness/live-email.ts';
 import type {
   AccountRow,
@@ -98,45 +92,6 @@ import type {
 
 /** THE SELF-DECLARATION the loader checks against the requirement it was asked for. */
 export const requirement = 'req-001' as const;
-
-/**
- * THE CLOSED ENUMERATION. Every name here must exist below as a callable member, and every name NOT
- * here refuses at use. This list IS the integration tier's claim about this suite.
- */
-export const backedSutMethods = {
-  accounts: [
-    'registerWithEmailPassword',
-    'signInWithEmailPassword',
-    'linkGithubIdentity',
-    'signOut',
-    'refreshSession',
-    'sessionsOf',
-    'requestPasswordReset',
-    'emailedPasswordResetLink',
-    'completePasswordReset',
-    'emailVerified',
-    'emailedVerificationLink',
-    'useVerificationLink',
-    'completeSignup',
-    'createOrganization',
-    'updateOrganization',
-    'createOrganizationAsOperator',
-    'grantMembershipAsOperator',
-    'repointMembershipAsOperator',
-    'createProjectAsOperator',
-    'assignVolunteerAsOperator',
-    'projectAssignment',
-    'account',
-    'organization',
-    'membership',
-    'acknowledgments',
-    'volunteerProfile',
-    'organizationsNamed',
-    'membershipsOf',
-    'hasPlatformAcknowledgment',
-    'provisionPlatformAdmin',
-  ],
-} as const satisfies Record<string, readonly string[]>;
 
 /* ------------------------------------------------------------------------------ the plumbing */
 
@@ -971,13 +926,13 @@ export async function createLiveAdapter(opts: {
       return { accountId, email, provider: 'email', sessionId };
     },
 
-    /* ------------------------------- the members this adapter does NOT back are absent on purpose */
-    //
-    // They are not written here as throwing stubs, and that is structural rather than stylistic: the
-    // harness's `pendingMethodProxy` supplies them, so the refusal text, the capability name and the
-    // declaration shape all come from ONE place. A hand-written stub here would be a second copy of
-    // a rule, which is how two copies come to disagree.
-  } as AccountsSut;
+    registerWithProvider: () => { throw new CapabilityPending(['sut.accounts.registerWithProvider']); },
+    registerWithGithub: () => { throw new CapabilityPending(['sut.accounts.registerWithGithub']); },
+    signInWithProvider: () => { throw new CapabilityPending(['sut.accounts.signInWithProvider']); },
+    sendDiscoveryMessage: () => { throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']); },
+    discoveryMessagesBy: () => { throw new CapabilityPending(['sut.accounts.discoveryMessagesBy']); },
+    publicSignupAccountTypes: () => { throw new CapabilityPending(['sut.accounts.publicSignupAccountTypes']); },
+  };
 
   /**
    * A FIXTURE WORLD, against a database this run rebuilt from empty.

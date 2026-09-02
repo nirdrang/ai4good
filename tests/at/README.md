@@ -55,8 +55,7 @@ already invokes it changed meaning.
   It used to take three SHAPES: the harness type (removed by AI4DEV-24) and then the
   system-under-test and world types (removed by AI4DEV-31). Each was a claim nothing checked, so
   `bindSuite<AnythingAtAll, AnythingAtAll>` type-checked green and a body could read members no
-  runtime value supplies. `tests/at/typeprobes/sut-seam-legacy.probe.ts` is that hole, kept
-  compilable-looking and executable: it compiled clean before the change and fails now.
+  runtime value supplies.
 
 - **Adding a suite is one line in `harness/suite-adapters.ts`,** plus
   `export const requirement = 'req-0NN' as const;` in that suite's `_fixture.ts`. Until both exist

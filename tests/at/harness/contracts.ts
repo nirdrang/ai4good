@@ -9,7 +9,7 @@
  * thirty subtly different seams, at which point "the harness contract" means nothing.
  *
  * These are types only. The implementations arrive per slice (H2 clock/fixtures, H3
- * sentinels/faults), and `pendingCapability()` in `index.ts` is what stands where one
+ * sentinels/faults), and `refusing()` in `index.ts` is what stands where one
  * has not landed — a seam that throws the capability's name, never a no-op. Of the vendor sims, the
  * EMAIL provider landed with AI4DEV-21 (`harness/vendors.ts`); the Anthropic usage/cost, Stripe,
  * GitHub, Lovable and Linear stand-ins are each built with the FIRST test suite that consumes them
@@ -169,14 +169,13 @@ export type Vendors<Channel extends string = string> = {
  * The member being OPTIONAL is what makes it slip through: `createHarness()` still satisfies its
  * annotation, so nothing anywhere goes red. That is the same lie a free harness type parameter used
  * to permit, arriving by a different door and needing no `any` and no suppression. A type alias
- * cannot be merged into, so this door is shut, and `tests/at/typeprobes/` keeps the attack on file
- * as an executable negative test.
+ * cannot be merged into, so this door is shut.
  *
  * EVERY CAPABILITY CONTRACT IN THIS FILE IS AN ALIAS FOR THE SAME REASON. Closing only the type
  * below left the identical attack open one level down, and worse there: `sentinels`, `faults`,
- * `static` and `vendors` come from `pendingCapability<T>()`, which casts a Proxy `as T`, so a
- * merged-in member did not break `index.ts` even when it was REQUIRED — where the same member added
- * to this type fails with TS2741. `ConfigRegistry` in `config.ts` is an alias for the same reason.
+ * `static` and `vendors` come from a Proxy cast `as T`, so a merged-in member did not break
+ * `index.ts` even when it was REQUIRED — where the same member added to this type fails with
+ * TS2741. `ConfigRegistry` in `config.ts` is an alias for the same reason.
  *
  * So the rule is: contracts are type aliases, never interfaces. It covers everything reachable from
  * the harness object AND the objects `open()` hands a test body — `OpenWorld`, `AtContext` and
@@ -187,30 +186,15 @@ export type Vendors<Channel extends string = string> = {
  * widened context can still be REBUILT by hand out of the derived types, which is measured and
  * documented on `SeamOpenWorld` in `registry.ts`. The interface being augmentable is this defect,
  * not that one — and `w` is handed to the body exactly as `h` is.
- *
- * `tests/at/typeprobes/` carries an attack for every protected type, and
- * `type-invention.selftest.ts` fails by name if any of them becomes an interface again.
  */
 export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string> = {
   tier: Tier;
   /**
-   * Capability names this harness STUBBED for the running tier (e.g. 'vendors.email',
-   * 'sut.notifications'). MUST be empty above `loop` — otherwise an integration-tier run,
-   * which is the /pm-done gate, can silently stub the thing it is gating.
-   *
-   * Each name on this list was put there by `capabilities.ts` from one of TWO sources: a witness
-   * that read the value's own control seam, or the module URL the fixture adapter was loaded from.
-   * No caller names a provenance.
-   *
-   * WHAT EMPTYING IT COSTS DIFFERS BY NAME, and one sentence for all four would overclaim. For
-   * `clock.controlled` and `vendors.email` the verdict is read off the very seam the suites drive,
-   * so removing either name means removing that seam — and the behaviour tests that command the
-   * clock forward and force a send to fail go red with it. For `fixtures.worlds` and every
-   * `sut.<key>` there is no such seam: the verdict comes from the adapter-derived route, so
-   * emptying the list there is a source edit in `capabilities.ts` — visible in a diff and pinned
-   * by the conformance wall, but a word-edit all the same.
+   * True only above loop when the suite's `_live.ts` loaded.
+   * `registry.ts` refuses every `open()` above loop while it is false.
+   * Nothing else reads it.
    */
-  stubbedCapabilities(): Promise<string[]>;
+  live: boolean;
   clock: Clock;
   fixtures: Fixtures<W>;
   sentinels: Sentinels;
@@ -226,19 +210,19 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
 /**
  * THE SAME HARNESS, SEEN AT ONE TIER — two members differ and the rest is identical.
  *
- * `clock` and `vendors` are the two capabilities whose provenance is read off the very seam a suite
- * drives (`AtHarness.stubbedCapabilities` says so above). At the loop tier both are stand-ins with
- * control seams, which is what the loop bodies command. Above it the harness constructs the real
- * article — the passage of time, and the slot's own mail catcher — and NEITHER has a control seam,
- * because a capability that can be commanded is a substitute by definition.
+ * `clock` and `vendors` are the two members whose control seams exist only at the loop tier.
+ * At the loop tier both have control seams, which is what the loop bodies command. Above it the
+ * harness constructs the real article — the passage of time, and the stack's own mail catcher —
+ * and NEITHER has a control seam, because a capability that can be commanded is a substitute by
+ * definition.
  *
  * WHY IT IS A TYPE AND NOT A RUNTIME CHECK. A per-tier body written against the wrong tier's
  * capabilities is an honest mistake that would otherwise surface as a run-time `TypeError` inside a
  * test whose red is then undeclarable. Here it is a compile error at the body.
  *
  * NOTHING ELSE FORKS. `sut`, `fixtures`, `sentinels`, `faults`, `static` and `config` are
- * the same type at every tier: what changes at integration is what BACKS them, which is the ledger's
- * business and not the body's.
+ * the same type at every tier: what changes at integration is what backs them, which is not the
+ * body's concern.
  */
 export type TierHarness<
   T extends Tier,

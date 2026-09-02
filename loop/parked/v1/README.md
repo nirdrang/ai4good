@@ -60,3 +60,22 @@ No suite ever called it. The recording store was empty. The recorder never ran. 
 are dead text: they are not compiled. The three ids it was written for (AT-009.07, AT-004.10,
 AT-033.07) have no suites. When one lands, a judge is a function that test imports with its own
 record-and-replay store, not a member of the harness object.
+
+## The provenance ledger (parked 2026-09-02)
+
+Five paths left the live tree:
+
+- `tests/at/harness/capabilities.ts`
+- `tests/at/harness/attestation.ts`
+- `tests/at/harness/live-ledger.selftest.ts`
+- `tests/at/harness/type-invention.selftest.ts`
+- `tests/at/typeprobes/`
+
+They are dead text under version control: not compiled, not run, not imported. The red kinds
+(`pending` with a phase, `capability-pending` with names) and the manifests under
+`tests/at/expected/` did not move. One boolean `live` on the harness now drives the above-loop
+refusal: `registry.ts` throws `CapabilityPending` naming `fixtures.worlds` and `sut.<key>` when
+the tier is above loop and `live` is false.
+
+What that costs: the loop tier can no longer tell a real member from a stand-in. Above loop, a
+suite with no live adapter is refused by a boolean, not a computed verdict.

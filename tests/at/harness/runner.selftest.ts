@@ -20,7 +20,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { lifetimeProblem } from '../suites/req-001/_live.ts';
-import { ATTESTATION_ENV } from './attestation.ts';
 import { AT_CONFIG } from './atconfig.ts';
 import { REPO_ROOT } from './check.ts';
 import {
@@ -232,8 +231,8 @@ describe("the identity verdict proves the target from the CLI's own container na
     expect(read.provenProjectId).toBe('demo');
     expect(read.status.apiUrl).toBe('http://127.0.0.1:54321');
     expect(read.containers).toEqual(['supabase_imgproxy_demo', 'supabase_pooler_demo']);
-    // THE TARGET TRAVELS IN THE READ: the reset and the attestation write take the read and nothing
-    // else, so there is no second parameter for a caller to aim somewhere the read did not prove.
+    // THE TARGET TRAVELS IN THE READ: the reset takes the read and nothing else, so there is no
+    // second parameter for a caller to aim somewhere the read did not prove.
     expect(read.target).toEqual(demoTarget);
     expect(read.target.projectId).toBe(read.provenProjectId);
   });
@@ -281,8 +280,8 @@ describe('a proof is sealed: the brand does not travel through a spread, and the
   // THE SPREAD IS THE HONEST MISTAKE. TypeScript keeps a symbol-keyed member in a spread TYPE, so
   // `{ ...read, target: other }` compiles as a `StackIdentityRead` with no cast anywhere. So the
   // brand is set NON-ENUMERABLE — a spread or `Object.assign` copies the fields and not the brand —
-  // and the reset reads the brand at use, the way `capabilities.ts` reads its own symbol. Nothing
-  // is spawned here: the refusal is the reset's first statement.
+  // and the reset reads the brand at use. Nothing is spawned here: the refusal is the reset's first
+  // statement.
   it('a spread carries the fields and not the brand, and the reset refuses it before anything is spawned', async () => {
     const read = provenDemo();
     expect(Object.getOwnPropertySymbols(read), 'the minted read carries no brand').toHaveLength(1);
@@ -360,12 +359,11 @@ describe('the live adapter holds the running stack to the pinned lifetime EXACTL
 describe('what reaches the child, and what the evidence line claims', () => {
   const migrations = { expected: 3, applied: 3 };
 
-  it('emits exactly the five coordinates without a catcher, and six with one', () => {
-    const without = childCoordinates({ read: provenDemo(), migrations, nonce: 'at-nonce' });
+  it('emits the four coordinates without a catcher, and the five AT_SUPABASE_* names with one', () => {
+    const without = childCoordinates({ read: provenDemo(), migrations });
     expect(Object.keys(without).sort()).toEqual(
-      ['AT_SUPABASE_ANON_KEY', 'AT_SUPABASE_DB_URL', 'AT_SUPABASE_SERVICE_ROLE_KEY', 'AT_SUPABASE_URL', ATTESTATION_ENV].sort(),
+      ['AT_SUPABASE_ANON_KEY', 'AT_SUPABASE_DB_URL', 'AT_SUPABASE_SERVICE_ROLE_KEY', 'AT_SUPABASE_URL'].sort(),
     );
-    expect(without[ATTESTATION_ENV]).toBe('at-nonce');
     expect(without.AT_SUPABASE_URL).toBe('http://127.0.0.1:54321');
 
     // The catcher URL is the one coordinate that is dropped silently when the status carries none —
@@ -376,21 +374,28 @@ describe('what reaches the child, and what the evidence line claims', () => {
       demoTarget,
       withMail,
     );
-    const withCatcher = childCoordinates({ read, migrations, nonce: 'at-nonce' });
-    expect(Object.keys(withCatcher)).toHaveLength(6);
+    const withCatcher = childCoordinates({ read, migrations });
+    expect(Object.keys(withCatcher).sort()).toEqual(
+      [
+        'AT_SUPABASE_ANON_KEY',
+        'AT_SUPABASE_DB_URL',
+        'AT_SUPABASE_MAIL_URL',
+        'AT_SUPABASE_SERVICE_ROLE_KEY',
+        'AT_SUPABASE_URL',
+      ].sort(),
+    );
     expect(withCatcher.AT_SUPABASE_MAIL_URL).toBe('http://127.0.0.1:54324');
   });
 
   it('the evidence line names the project, the api port that answered, both migration counts, the lock and the head', () => {
     const lock = { file: join(tmpdir(), 'at-verify-demo-54321.lock'), release: () => undefined };
-    const line = evidenceLine({ read: provenDemo(), migrations: { expected: 3, applied: 2 }, nonce: 'at-nonce' }, lock);
+    const line = evidenceLine({ read: provenDemo(), migrations: { expected: 3, applied: 2 } }, lock);
     expect(line).toContain('stack demo (api 54321)');
     expect(line).toContain('reset OK');
     expect(line).toContain('3 expected, 2 applied');
     expect(line).toContain(lock.file);
     // The line reads git, so it is not the pure formatter it looks like; this is the real tree's head.
     expect(line).toMatch(/head [0-9a-f]{4,40}/);
-    expect(line).not.toContain('at-nonce');
   });
 
   it('the tree state says "head unknown" when git reports nothing, rather than inventing a hash', () => {

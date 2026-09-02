@@ -26,7 +26,7 @@
 import { expect } from 'vitest';
 
 import { AT_CONFIG } from '../../harness/atconfig.ts';
-import { CapabilityPending } from '../../harness/capabilities.ts';
+import { CapabilityPending } from '../../harness/registry.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import type { Session } from './_contract.ts';
 // AT-001.17's source arm, shared with its loop body: the arm runs identically at both tiers, and the

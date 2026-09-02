@@ -21,15 +21,15 @@
  *   2. PROVE the stack that answers is that project — from the CLI's own container names, never
  *      from ports alone — and that it is local: loopback host, the configured ports, keys issued
  *      by the local development issuer. The proof is a branded value only that verdict can mint,
- *      and the reset and the attestation write both demand it, so neither can run without it;
+ *      and the reset demands it, so the reset cannot run without it;
  *   3. re-read `supabase/config.toml` and refuse if it changed under the lock, prove the identity
  *      again immediately before the reset, reset on that second proof, and prove the migration set
  *      replayed;
- *   4. write this run's attestation nonce into it and print the evidence line — project, api port,
+ *   4. print the evidence line — project, api port,
  *      reset, migration counts, lock file, tested commit — so a green can always name the database
  *      it graded;
  *   5. run the suite with an ALLOWLISTED environment — the child gets the platform minimum plus
- *      the proven coordinates and the nonce, and nothing else, so a secret sitting in a developer's
+ *      the proven coordinates, and nothing else, so a secret sitting in a developer's
  *      `.env.local` can never reach a test (and a test can never reach the hosted project).
  *
  * The `drill` tier resolves no database at all until an item decides which stack it should use.
@@ -47,7 +47,6 @@ import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { AT_CONFIG } from './atconfig.ts';
-import { ATTESTATION_ENV, mintAttestationNonce, writeAttestation } from './attestation.ts';
 import { INSTALL_ROOT, inspectBijection, normalizeRequirement, REPO_ROOT, suiteDir } from './check.ts';
 import {
   expectationDeviations,
@@ -1084,10 +1083,9 @@ export function containerNames(text: string, projectId: string): { own: string[]
 const PROVEN: unique symbol = Symbol('at-proven-identity');
 
 /**
- * WHAT THE IDENTITY READ PROVED, in full — the ONE proof type. `resetLocalDatabase` and
- * `attestation.ts`'s `writeAttestation` both take exactly this object and nothing else; the
- * attestation side imports it type-only, so there is no runtime edge and no cycle. It is FROZEN,
- * target, status and container list included, so a proof cannot be re-aimed after it is issued.
+ * WHAT THE IDENTITY READ PROVED, in full — the ONE proof type. `resetLocalDatabase` takes exactly
+ * this object and nothing else. It is FROZEN, target, status and container list included, so a
+ * proof cannot be re-aimed after it is issued.
  */
 export interface StackIdentityRead {
   /** Set by `mintProvenRead` and by nothing else. */
@@ -1243,8 +1241,6 @@ export function configDriftProblems(locked: LocalConfig, current: LocalConfig): 
 export interface PreparedStack {
   read: StackIdentityRead;
   migrations: MigrationProof;
-  /** The nonce this run minted and wrote into the database AFTER the reset; the child reads it back. */
-  nonce: string;
 }
 
 /**
@@ -1252,23 +1248,19 @@ export interface PreparedStack {
  *
  * THE ORDER IS THE SAFETY ARGUMENT: prove the identity, wait for readiness, re-read the config the
  * lock and the first proof were judged against and refuse if it changed, PROVE IT AGAIN, reset on
- * that second proof, wait again, prove the migration set replayed, and only then mint the nonce
- * and write it — after the reset, so it cannot be a leftover, and after the migration proof, so it
- * cannot be mistaken for migrated schema. The lifetime pin is not checked here: it is decided from
- * two files on disk, so `main` refuses it before the lock is taken.
+ * that second proof, wait again, and prove the migration set replayed. The lifetime pin is not
+ * checked here: it is decided from two files on disk, so `main` refuses it before the lock is taken.
  *
  * WHY TWO READS, AND WHY THE CONFIG IS READ AGAIN. The readiness wait has a budget of
  * `READY_TIMEOUT_MS` (two minutes by default), and a proof taken before it describes the stack as
  * it was before that window, not as it is at the instant of the reset. The second read is taken
- * immediately before the reset and is the read both destructive acts receive; the first read only
+ * immediately before the reset and is the read the destructive act receives; the first read only
  * says the stack is worth waiting for. That narrows the RESET's check-to-use window to one CLI
- * call. The attestation write runs on the same read after the reset and the second readiness wait,
- * so its window is wider; between the two acts the reset itself is the thing that would have to
- * have failed, and the write reaches only the database that reset rebuilt. The config is re-read
- * from the target's workdir before the second proof because that proof forces the LOCKED project
- * id through `SUPABASE_PROJECT_ID`: a file that now names another project, port or lifetime would
- * make the lock, the pin check and the first proof all judgements about a file that no longer
- * exists, and the run refuses rather than reset the old project under a checkout that moved on.
+ * call. The config is re-read from the target's workdir before the second proof because that proof
+ * forces the LOCKED project id through `SUPABASE_PROJECT_ID`: a file that now names another
+ * project, port or lifetime would make the lock, the pin check and the first proof all judgements
+ * about a file that no longer exists, and the run refuses rather than reset the old project under a
+ * checkout that moved on.
  *
  * WHAT IT DELIBERATELY DOES NOT DO. It does not restart the stack: a restart of the founder's own
  * stack would be a fourth destructive act, so a stack started before `supabase/config.toml` last
@@ -1294,13 +1286,11 @@ export async function prepareLocalStack(target: CliTarget, config: LocalConfig):
   await resetLocalDatabase(read);
   await waitForReady(read.status, 'after the reset');
   const migrations = await proveMigrationsReplayed(read.status, target.workdir);
-  const nonce = mintAttestationNonce();
-  await writeAttestation(read, nonce);
-  return { read, migrations, nonce };
+  return { read, migrations };
 }
 
 /**
- * The six coordinates a suite is allowed to see, and nothing else, from a PREPARED stack. The only
+ * The coordinates a suite is allowed to see, and nothing else, from a PREPARED stack. The only
  * admission is the parameter type: coordinates can only be emitted from a read that proved the
  * target, because emitting the wrong ones is as destructive as resetting the wrong database.
  */
@@ -1311,9 +1301,6 @@ export function childCoordinates(prepared: PreparedStack): Record<string, string
     AT_SUPABASE_DB_URL: status.dbUrl,
     AT_SUPABASE_ANON_KEY: status.anonKey,
     AT_SUPABASE_SERVICE_ROLE_KEY: status.serviceRoleKey,
-    // Not a credential: a value THIS RUN minted, whose only use is to be read back through the four
-    // strings above so that "these coordinates answered" becomes a fact instead of a shape.
-    [ATTESTATION_ENV]: prepared.nonce,
     // The catcher URL comes from the stack's own status, so there is one statement of its address.
     ...(status.mailUrl ? { AT_SUPABASE_MAIL_URL: status.mailUrl } : {}),
   };
@@ -1651,8 +1638,8 @@ async function main(argv: string[]): Promise<number> {
       }
 
       // THE ONE STACK, STATED POSITIVELY: the project id this tree's supabase/config.toml declares,
-      // at this tree's root. Every CLI call below names it. The reset and the attestation write
-      // demand the read that proved it. Every integration run resets this database.
+      // at this tree's root. Every CLI call below names it. The reset demands the read that proved
+      // it. Every integration run resets this database.
       let config: LocalConfig;
       let target: CliTarget;
       try {

@@ -20,7 +20,6 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 
-import { CapabilityPending } from './capabilities.ts';
 import type { AtHarness, TierHarness } from './contracts.ts';
 import type { SuiteId, SutKeyOf, SutOf, WorldOf } from './suite-adapters.ts';
 
@@ -148,6 +147,28 @@ export const TIER: Tier | null = TIERS.includes(RAW_TIER as Tier) ? (RAW_TIER as
 const tierError = (requirement: string) =>
   `AT_TIER is ${RAW_TIER === undefined ? 'unset' : JSON.stringify(RAW_TIER)}; expected one of ${TIERS.join('|')} — run via \`bun run at:verify req-${requirement} --tier <tier>\``;
 
+/* ---------------------------------------------------------------------------- pending errors */
+
+export type PendingPhase = 'harness-missing' | 'sut-missing' | 'tier-unset';
+
+export class AtPending extends Error {
+  constructor(
+    readonly atId: string,
+    readonly phase: PendingPhase,
+    detail: string,
+  ) {
+    super(`${atId} PENDING [${phase}] — ${detail}`);
+    this.name = 'AtPending';
+  }
+}
+
+export class CapabilityPending extends Error {
+  constructor(readonly capabilities: readonly string[]) {
+    super(`CAPABILITY PENDING — ${capabilities.join(', ')}`);
+    this.name = 'CapabilityPending';
+  }
+}
+
 /* -------------------------------------------------------------------------- the harness seam */
 
 /** Canonical harness barrel produced by AI4DEV-3 H2-H6, resolved relative to THIS file. */
@@ -193,21 +214,6 @@ try {
   }
 } catch (err) {
   harnessResolveError = err instanceof Error ? err.message : String(err);
-}
-
-/* ---------------------------------------------------------------------------- pending errors */
-
-export type PendingPhase = 'harness-missing' | 'sut-missing' | 'tier-unset';
-
-export class AtPending extends Error {
-  constructor(
-    readonly atId: string,
-    readonly phase: PendingPhase,
-    detail: string,
-  ) {
-    super(`${atId} PENDING [${phase}] — ${detail}`);
-    this.name = 'AtPending';
-  }
 }
 
 /* --------------------------------------------------------------------------- the test context */
@@ -668,9 +674,8 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
     throw new AtPending(
       o.atId,
       'harness-missing',
-      `AI4DEV-3 capability modules (H2 fixtures/clock, H3 sentinels/faults, ` +
-        `H5 vendor sims) are not in the tree: cannot resolve "${HARNESS_MODULE}" ` +
-        `from tests/at/harness (${harnessResolveError})`,
+      `cannot resolve "${HARNESS_MODULE}" from tests/at/harness (${harnessResolveError}) — ` +
+        `index.ts, clock.ts, fixtures.ts, sentinels.ts, faults.ts, vendors.ts exist`,
     );
   }
 
@@ -684,26 +689,11 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
     expect(h.tier, `harness built tier "${h.tier}" for a --tier ${TIER} run`).toBe(TIER);
 
     /*
-     * TIER SEMANTICS: above `loop`, nothing the suite leans on may be a stand-in. The RULE is
-     * unchanged and is not relaxed by one capability. What changed is the SHAPE OF THE REFUSAL.
-     *
-     * This was a bare `expect(await h.stubbedCapabilities()).toEqual([])`, and the failure it
-     * produced fit NEITHER declarable red kind — so an integration run of any suite was not merely
-     * red, it was UNDECLARABLE, and `--expect` could never be honoured at the tier that is the
-     * closing gate. A red nobody can describe exactly is a red nobody understands, which is the
-     * doctrine `expected.ts` states and this line contradicted.
-     *
-     * `CapabilityPending` names the exact stubbed capabilities, which is precisely the
-     * `capability-pending` shape a declaration rebuilds and compares from position 0. The gate is if
-     * anything STRICTER than before: the names travel into the report, so a declaration has to say
-     * WHICH capabilities are still stubbed rather than only that some are.
-     *
-     * `expect.hasAssertions()` is satisfied by the throw rather than by an assertion, exactly as it
-     * is for every `AtPending` body in every suite: a thrown error is the reported failure and the
-     * assertion count is not consulted.
+     * Above loop, a harness that did not load a live adapter is refused before the body runs,
+     * naming the two members the loop fixture supplies.
      */
-    const stubRefusal = aboveLoopStubbedRefusal(TIER, await h.stubbedCapabilities());
-    if (stubRefusal) throw stubRefusal;
+    const standInRefusal = aboveLoopStandInRefusal(TIER, h.live, o.sutKey);
+    if (standInRefusal) throw standInRefusal;
 
     const sut = h.sut?.[o.sutKey];
     if (!sut) throw new AtPending(o.atId, 'sut-missing', o.sutMissing);
@@ -796,17 +786,9 @@ export function chooseTierBody<B>(bodies: Record<string, B | undefined>, tier: T
   return named ?? bodies.default ?? bodies.loop ?? null;
 }
 
-/**
- * THE ABOVE-LOOP STAND-IN REFUSAL, as a value rather than as a statement inside `openWorld`.
- *
- * It is exported and pure for one reason: `expected.ts` rebuilds the text a declared
- * `capability-pending` red must produce, and the ONLY way to know the two agree is to compare them.
- * `live-ledger.selftest.ts` does exactly that, so a wording change on either side breaks a test
- * instead of silently making every integration declaration unmatchable.
- */
-export function aboveLoopStubbedRefusal(tier: Tier, stubbed: readonly string[]): CapabilityPending | null {
-  if (tier === 'loop' || stubbed.length === 0) return null;
-  return new CapabilityPending([...stubbed]);
+export function aboveLoopStandInRefusal(tier: Tier, live: boolean, sutKey: string): CapabilityPending | null {
+  if (tier === 'loop' || live) return null;
+  return new CapabilityPending(['fixtures.worlds', `sut.${sutKey}`]);
 }
 
 function emitRuntimeRegistration(registration: Registration): void {

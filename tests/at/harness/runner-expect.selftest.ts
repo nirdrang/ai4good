@@ -35,7 +35,6 @@ import { bunExecutable, childEnv } from './runner.ts';
 
 const RUNNER = join(INSTALL_ROOT, 'tests', 'at', 'harness', 'runner.ts');
 const REGISTRY_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harness', 'registry.ts')).href;
-const CAPABILITIES_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harness', 'capabilities.ts')).href;
 
 const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.test.ts'], environment: 'node', testTimeout: 30000 } };\n`;
 
@@ -69,7 +68,7 @@ function suitePreamble(requirement: string): string {
   return (
     `import { describe, expect, it } from 'vitest';\n` +
     `import { bindSuite } from '${REGISTRY_URL}';\n` +
-    `import { CapabilityPending } from '${CAPABILITIES_URL}';\n` +
+    `import { CapabilityPending } from '${REGISTRY_URL}';\n` +
     `const { atTest } = bindSuite({ requirement: 'req-${requirement}', sut: 'probe', sutMissingDetail: 'the probe sut is absent' });\n`
   );
 }

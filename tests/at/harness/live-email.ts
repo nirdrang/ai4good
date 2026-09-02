@@ -15,11 +15,10 @@
  * a rule is how two copies come to disagree while both look right (the warning `vendors.ts` states
  * at its head).
  *
- * WHY IT IS PROBED BEFORE IT IS GRANTED. A URL is a string. `capabilities.ts` grants `vendors.email`
- * a `real` verdict on this value, so the grounds have to be positive: the catcher is asked what it
- * is, and only an answer that identifies a catcher earns the grant. An unreachable endpoint refuses
- * loudly here rather than turning into "no confirmation email arrived" three assertions later —
- * which is the failure AI4DEV-59's own proof script called out and solved the same way.
+ * WHY IT IS PROBED BEFORE IT IS USED. A URL is a string. The catcher is asked what it is, and only
+ * an answer that identifies a catcher is accepted. An unreachable endpoint refuses loudly here
+ * rather than turning into "no confirmation email arrived" three assertions later — which is the
+ * failure AI4DEV-59's own proof script called out and solved the same way.
  *
  * WHICH CATCHER. Measured rather than remembered, exactly as that transcript did it: the Supabase
  * CLI has shipped Inbucket and, more recently, Mailpit, and their APIs differ. This item's
@@ -27,8 +26,6 @@
  * 404. Both probes are still performed, so a CLI version that goes back is a named refusal instead
  * of a mystery.
  */
-
-import { attestationOf, stampAttestation, SLOT_ATTESTATION_BRAND, type LiveAttestation } from './capabilities.ts';
 
 export type LiveEmailMessage = {
   /** the catcher's own id for the message */
@@ -42,9 +39,7 @@ export type LiveEmailMessage = {
 
 /**
  * The seam an integration body reaches. READ-ONLY, and that is the point: there is no `rejectNext`
- * and no `acceptButLoseAck`, because nothing here can be told what to do. A capability that can be
- * commanded to fail is a simulator, and `capabilities.ts` would stamp it a stand-in on exactly that
- * evidence.
+ * and no `acceptButLoseAck`, because nothing here can be told what to do.
  */
 export type LiveEmail = {
   /** every message the catcher holds for this address, newest first */
@@ -76,16 +71,9 @@ async function readJson(url: string): Promise<HttpAnswer> {
 }
 
 /**
- * Build the live mail-catcher capability, or refuse.
+ * Build the live mail-catcher seam, or refuse.
  *
- * The attestation is required and is not decoration: it is the same slot round trip every other live
- * capability is granted on, so the ledger can never carry a `real` mail catcher for a stack this run
- * did not prepare. It is VALIDATED here rather than merely typed (gate-2 ruling S1-2): a
- * `LiveAttestation` is two strings, so an object literal used to mint a live email capability, and
- * the brand — which only `attestSlot()` stamps — is what tells the two apart.
- *
- * `readAnswer` IS A SELFTEST SEAM and the harness passes it nowhere; `attestation.ts` states the
- * doctrine at length on its own seam and the same words apply here. It supplies an ANSWER and never
+ * `readAnswer` IS A SELFTEST SEAM and the harness passes it nowhere. It supplies an ANSWER and never
  * a verdict: whatever it returns goes through the SAME identification below as a real response, so
  * an answer that is not a catcher's still refuses. Without it the refusals below would be rules
  * nothing exercises, because this file's checks are about what an HTTP answer MEANS and the loop
@@ -93,23 +81,14 @@ async function readJson(url: string): Promise<HttpAnswer> {
  */
 export async function createLiveEmail(opts: {
   catcherUrl: string;
-  attestation: LiveAttestation;
   readAnswer?: (url: string) => Promise<HttpAnswer>;
 }): Promise<LiveVendors> {
   const base = opts.catcherUrl.replace(/\/$/, '');
   const read = opts.readAnswer ?? readJson;
-  const attested = attestationOf(opts.attestation, SLOT_ATTESTATION_BRAND);
-  if (!attested) {
-    throw new Error(
-      'refusing to build the live email capability: the attestation handed in carries no slot brand, so it is a ' +
-        'plain object with two strings on it rather than the record of a round trip that happened. A live mail ' +
-        'catcher is granted `real` on this evidence, so the evidence has to be the real article.',
-    );
-  }
   if (!base) {
     throw new Error(
       "refusing to build the live email capability: the slot's status reported no mail catcher URL, so there is " +
-        'nothing to read and nothing to attest.',
+        'nothing to read.',
     );
   }
 
@@ -135,10 +114,10 @@ export async function createLiveEmail(opts: {
   /*
    * A 200 IS NOT AN IDENTIFICATION (gate-2 ruling S1-6). Any HTTP server answers 200 to something,
    * and the version used to fall back to "an unstated version" — so a web page, a proxy, or the
-   * wrong service on a reused port passed identification and the ledger then called it a real mail
-   * catcher. What identifies Mailpit is its own answer shape: parseable JSON carrying a non-empty
-   * string `Version`. Anything else refuses, and the refusal names what was expected rather than
-   * printing the body, which is somebody's mail.
+   * wrong service on a reused port passed identification. What identifies Mailpit is its own
+   * answer shape: parseable JSON carrying a non-empty string `Version`. Anything else refuses,
+   * and the refusal names what was expected rather than printing the body, which is somebody's
+   * mail.
    */
   let identification: { Version?: unknown };
   try {
@@ -186,10 +165,5 @@ export async function createLiveEmail(opts: {
     },
   };
 
-  return {
-    email: stampAttestation(email, {
-      evidence: `${describedAs} answered its identification probe — ${attested.evidence}`,
-      constructedFor: 'vendors.email',
-    }),
-  };
+  return { email };
 }
