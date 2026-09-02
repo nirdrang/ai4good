@@ -1,0 +1,14 @@
+AI4DEV-87: the interrogate fixes: liveness before construction, one CLI seam, one name map, the drive checked and typed
+
+1. openWorld asks liveAdapterExists and refuses above loop before anything is built; createHarness above loop with no live adapter throws; live leaves the harness type.
+2. The drive reads the stack through stackFromLocalStatus in local-stack.ts, the one CLI seam; the second parser in live-stack.ts is gone.
+3. STACK_ENV names the five coordinates once; childCoordinates writes through it; stackFromEnv refuses naming a missing mandatory variable.
+4. authPost and functionPost return the url they called; the drive records it; the drive's Doctor checks the mail catcher's identification and the edge runtime mount (13 checks).
+5. The verify skill's recipe describes the protocol the shared module sends.
+6. The drive is type-checked as a third project.
+7. Nine stale prose sites name the live design; the parked README says live-email.ts was edited before it moved.
+8. AtPending and CapabilityPending live in pending.ts; the preflight describe is back in runner.selftest.ts; the re-export is gone.
+9. The lock lives in stack-lock.ts with its tests.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01SikdZcn3PmB9SrZ4dL1ziT

@@ -55,8 +55,10 @@ Item text: (verbatim from the board)
 Acceptance tests: `tests/at/suites/req-001/` and `tests/at/suites/req-016/`. This item writes
 no new acceptance ids. Both suites stay green at the loop tier with `--expect` and unchanged
 manifests. req-001 passes at the integration tier with `--expect` on the one stack, with the
-same 16 ids. The drive skill `.claude/skills/verify-ai4good/` passes 11 of 11 on the final
-head.
+same 16 ids. The drive skill `.claude/skills/verify-ai4good/` passes all its checks on the final
+head: 11 of 11 when the item was written; 13 of 13 since the review panel added two Doctor checks
+to the drive (the mail catcher's identification and the edge runtime's functions mount), ruled on
+2026-09-03 in `artifacts/interrogate/rulings.md` item 4.
 
 ## The ask
 Run this item in poteto-mode, end to end, and open one pull request from this branch.
@@ -108,7 +110,8 @@ result with one read. Do not use a fork for this: a fork runs on your own model.
   pull request's Verification section: `bun run typecheck`; `bun run at:check`; `bun run
   at:selftest` with the before and after counts; `bun run at:verify req-001 --tier loop
   --expect`; `bun run at:verify req-016 --tier loop --expect`; `bun run at:verify req-001
-  --tier integration --expect` with its evidence line; the drive, 11 of 11.
+  --tier integration --expect` with its evidence line; the drive, every check (13 of 13 after the
+  review panel's two Doctor checks; see the Acceptance tests paragraph above).
 - CI is green on the final head.
 - Discovered work goes in a "Not done here" list in the pull request body, never in the diff.
 
