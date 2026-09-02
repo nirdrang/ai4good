@@ -13,10 +13,11 @@ browser step no agent performs), three edge functions (`complete-signup`,
 drives HTTP and reads the database. The acceptance suite (`bun run at:verify`) is a separate,
 loop-tier thing; it does not replace a live drive and a live drive does not replace it.
 
-**One stack per machine.** `AT_DB_SLOT=1` everywhere; the slot pool is deleted (founder,
-2026-08-29). The stack on the 44321 block is THE stack. Never start a second one, and never
-drive a stack you cannot identify (Doctor below). Two verify runs against one stack contend;
-run one at a time.
+**One stack per machine.** The stack on the 44321 block is THE stack, the one
+`supabase/config.toml` describes; the slot pool is parked (founder, 2026-08-29 and 2026-09-01).
+Never start a second one, and never drive a stack you cannot identify (Doctor below). An
+integration run of the acceptance suite resets this stack; do not drive while one runs, and
+run one drive at a time.
 
 ## Launch
 

@@ -11,7 +11,7 @@ A cloud environment has three places to put things, and they do not overlap:
 | surface | runs | carries |
 |---|---|---|
 | **Setup script** (web form) | once per environment, BEFORE Claude Code launches; the filesystem is then snapshotted | VM provisioning: CLIs, PowerShell, the docker shim, image and package caches, the OpenCode Go credential |
-| **Environment variables** (web form) | copied into every SESSION at start | `AT_DB_SLOT`, `AT_DB_POOL_ROOT`, `AT_DB_POOL_SIZE` - values the harness reads at run time |
+| **Environment variables** (web form) | copied into every SESSION at start | nothing today; the harness reads no environment variable for the database |
 | **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports codex and opencode login state |
 
 Two boundaries explain the split, both learned by watching the wrong version fail:
@@ -26,15 +26,7 @@ Two boundaries explain the split, both learned by watching the wrong version fai
 
 1. On claude.ai/code, create (or edit) a cloud environment. Network access: the default
    Trusted level is enough; Full also works.
-2. In the **Environment variables** box, put exactly these three lines:
-
-   ```
-   AT_DB_SLOT=1
-   AT_DB_POOL_ROOT=/var/lib/ai4good-db-slots
-   AT_DB_POOL_SIZE=1
-   ```
-
-   No spaces around `=`. Do NOT put the OpenCode Go key here - see Secrets below.
+2. Leave the **Environment variables** box empty. Do NOT put the OpenCode Go key there - see Secrets below.
 3. Copy the full contents of `.claude/cloud-environment-setup.sh` into the **Setup script**
    box.
 4. In the pasted text, replace `PASTE_YOUR_OPENCODE_GO_KEY_HERE` with the real OpenCode Go
@@ -103,18 +95,6 @@ opencode: OpenCode Go authenticated
 
 ## The database, in cloud
 
-One VM hosts one session, so the environment sets a one-slot pool (`AT_DB_POOL_SIZE=1`)
-and takes it without a reservation (`AT_DB_SLOT=1` - the ruled override for runs outside
-the coordinator's reservation flow). The pool cannot hand out a second slot: slot 2 is
-refused, not merely unused.
-
-The slot pool is NOT provisioned by the setup script (it needs the repository's own
-supabase configuration). The first time a session needs an integration-tier database, run
-once inside the session:
-
-```
-bun tests/at/harness/db-pool.ts setup
-```
-
-With the images already cached this takes about two and a half minutes, and the slot
-configuration lands on the durable `AT_DB_POOL_ROOT` path.
+One VM hosts one session and one stack, the one `supabase/config.toml` describes. The first
+time a session needs an integration-tier database, run `bun run db:start` inside the session.
+Every `bun run at:verify <req> --tier integration --expect` resets that stack.

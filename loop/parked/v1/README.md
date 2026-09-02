@@ -33,3 +33,11 @@ described by this tree's own `supabase/config.toml`.
 The coordinator's half of the pool: reserve, release, list, over the reservation files and the
 occupancy claims. It reads no config and writes no config. Nothing dot-sources it any more.
 Parked with the pool, for the same reason.
+
+## The v1 ceremony (parked 2026-09-02, AI4DEV-86)
+Founder rulings 2026-09-01: "no more slots machinery this should be moved out" and "i want to clean the codebase with the v1 ceremony and align with what is does on CI as well". Everything under this folder is dead text under version control: not compiled, not run, not loaded by Claude Code, not a spare part that still fits. The live way of work is section 5 of the project CLAUDE.md: `/controller`, then `/pstack:poteto-mode`, then `/controller done`.
+- `.claude/agents/`: the six relay roles (conductor, orchestrator, orchestrator-opus, executor, reviewer-runner, distiller). `mechanical` stays live; v2 uses it.
+- `.claude/skills/work/`: the `/work` coordinator manual, WORKFLOW.md, reviewers.md, lessons.md, shared-invariants.md, and the nine conductor phase files. The three standing rules moved to CLAUDE.md section 5. Note: shared-invariants.md recommended `ref` / `part of` / `towards` for naming other items in a pull request; CI's reference guard fails those words. The rule in CLAUDE.md is the one that binds.
+- `loop/work/`: twin-check (the CI twin-guard step is gone with it), stamp-hook and banner (already unwired), attribution-report with its selftest and epoch file, watch-items, db-slots (the coordinator's half of the slot pool). work-lib.ps1 and materialize.ps1 stay live: the status line and `/controller` call them.
+- `loop/drills/`: the drill harness (run-drills, control-lib, fake-actor, live-scenarios, prompts) that bound the agents, the phase files and the twin check. `loop/drills/records/` stays where it is as history.
+- `tests/at/harness/db-pool.ts` and its selftest: the database slot pool. See the section above.

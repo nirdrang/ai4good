@@ -21,7 +21,7 @@
 # So each surface carries exactly what reads it, and nothing else:
 #
 #   THIS SCRIPT defines, below:  the OpenCode Go key (nothing else needs to be here)
-#   THE VARIABLES BOX carries:   AT_DB_SLOT, AT_DB_POOL_ROOT, AT_DB_POOL_SIZE
+#   THE VARIABLES BOX carries:   nothing today
 #
 # THE KEY BELONGS HERE ONLY. Do not put it in the variables box: opencode does not read
 # any such variable (it recognises only the AWS pair and GITHUB_TOKEN), it reads the
@@ -32,23 +32,6 @@
 # the environment configuration, where anyone who uses the environment can read them".
 # Treat the key as disclosed, and rotate it when it matters.
 #
-# WHY THE LAST THREE. The database slot pool exists to stop concurrent sessions on ONE
-# machine from resetting each other's database. The machinery is the same everywhere;
-# only the TOTAL differs, and it is a property of the machine:
-#
-#   the founder's Windows machine   AT_DB_POOL_SIZE=2  (also the default when unset)
-#   a cloud VM, one session         AT_DB_POOL_SIZE=1
-#
-# At one slot the pool CANNOT hand out a second - slot 2 is refused, not merely unused -
-# and `db-pool.ts setup` below provisions exactly one stack instead of two.
-#
-# AT_DB_SLOT=1 takes that slot without a reservation. The reservation flow is the
-# coordinator's, and it is PowerShell; a cloud session has no coordinator to reserve for
-# it, so without this the harness would demand a reservation and print a command that
-# means nothing here. AT_DB_SLOT is the ruled override for exactly this case.
-#
-# AT_DB_POOL_ROOT keeps the slot configuration on a durable path. The default falls back
-# to the temporary directory, and a slot with no configuration file refuses to start.
 # ---------------------------------------------------------------------------------------
 #
 # WHAT THE SNAPSHOT KEEPS (so later sessions get it free):
@@ -211,6 +194,4 @@ echo "setup complete"
 echo "  supabase images cached: $(docker images --format '{{.Repository}}' | grep -c supabase)"
 echo "  bun package cache:      $(du -sh ~/.bun/install/cache 2>/dev/null | cut -f1)"
 echo ""
-echo "the slot pool is NOT provisioned here - it reads the project's own supabase"
-echo "configuration, so it can only run inside a session. When you first need an"
-echo "integration-tier database, run once:  bun tests/at/harness/db-pool.ts setup"
+echo "the database is not started here - inside a session, run once: bun run db:start"
