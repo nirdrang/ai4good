@@ -21,7 +21,7 @@
 # So each surface carries exactly what reads it, and nothing else:
 #
 #   THIS SCRIPT defines, below:  the OpenCode Go key (nothing else needs to be here)
-#   THE VARIABLES BOX carries:   AT_DB_SLOT, AT_DB_POOL_ROOT, AT_DB_POOL_SIZE
+#   THE VARIABLES BOX carries:   nothing today
 #
 # THE KEY BELONGS HERE ONLY. Do not put it in the variables box: opencode does not read
 # any such variable (it recognises only the AWS pair and GITHUB_TOKEN), it reads the
@@ -32,23 +32,6 @@
 # the environment configuration, where anyone who uses the environment can read them".
 # Treat the key as disclosed, and rotate it when it matters.
 #
-# WHY THE LAST THREE. The database slot pool exists to stop concurrent sessions on ONE
-# machine from resetting each other's database. The machinery is the same everywhere;
-# only the TOTAL differs, and it is a property of the machine:
-#
-#   the founder's Windows machine   AT_DB_POOL_SIZE=2  (also the default when unset)
-#   a cloud VM, one session         AT_DB_POOL_SIZE=1
-#
-# At one slot the pool CANNOT hand out a second - slot 2 is refused, not merely unused -
-# and `db-pool.ts setup` below provisions exactly one stack instead of two.
-#
-# AT_DB_SLOT=1 takes that slot without a reservation. The reservation flow is the
-# coordinator's, and it is PowerShell; a cloud session has no coordinator to reserve for
-# it, so without this the harness would demand a reservation and print a command that
-# means nothing here. AT_DB_SLOT is the ruled override for exactly this case.
-#
-# AT_DB_POOL_ROOT keeps the slot configuration on a durable path. The default falls back
-# to the temporary directory, and a slot with no configuration file refuses to start.
 # ---------------------------------------------------------------------------------------
 #
 # WHAT THE SNAPSHOT KEEPS (so later sessions get it free):
@@ -59,20 +42,21 @@
 #
 # WHAT IT CANNOT KEEP - a snapshot holds files, never running processes:
 #   - the docker daemon. The SessionStart hook starts it every session.
-#   - any container. The hook, or the harness, starts what it needs.
+#   - any container. The session starts the one stack with `bun run db:start`; the harness
+#     starts nothing and refuses when the stack is absent.
 #   - the codex ChatGPT login. That is OAuth, it can rotate, and the snapshot is readable
 #     by anyone using this environment. Run `codex login --device-auth` per fresh VM; the
 #     SessionStart banner says when it is needed.
-#   - anything derived from the REPOSITORY - node_modules, the slot pool. Cloud sessions
-#     start from a fresh clone, so project setup belongs to the SessionStart hook, which
-#     runs inside the session with the tree present. The hook already installs
-#     node_modules when they are missing.
+#   - anything derived from the REPOSITORY - node_modules. Cloud sessions start from a
+#     fresh clone, so project setup belongs to the SessionStart hook, which runs inside
+#     the session with the tree present. The hook already installs node_modules when they
+#     are missing. The one database is started inside a session with `bun run db:start`.
 
 set -euo pipefail
 
 # Not read from the environment - see the note above; a setup script cannot see the
-# environment's variables. The database values are not needed here at all any more: they
-# are read by the SESSION, which does get them from the variables box.
+# environment's variables. No database value exists on either surface: the variables box
+# carries nothing, and the session starts the one stack itself with `bun run db:start`.
 OPENCODE_GO_API_KEY='PASTE_YOUR_OPENCODE_GO_KEY_HERE'
 
 case "$OPENCODE_GO_API_KEY" in
@@ -87,9 +71,10 @@ npm install -g @openai/codex opencode-ai
 
 # --- 2. PowerShell -----------------------------------------------------------------
 # The way-of-work scripts under loop/work are PowerShell, and PowerShell 7 runs them on
-# Linux: work-lib.ps1, guard-branch-switch.ps1 and stamp-hook.ps1 were each measured
-# working in a cloud VM. Without this, a cloud session has no branch guard and no
-# attribution stamp. Delete this block if you decide cloud sessions do not need them.
+# Linux: work-lib.ps1 and guard-branch-switch.ps1 were each measured working in a cloud VM
+# (so was the attribution stamp hook, which is parked under loop/parked/v1/ and no longer
+# runs anywhere). Without this, a cloud session has no branch guard. Delete this block if
+# you decide cloud sessions do not need it.
 curl -sS -o /tmp/packages-microsoft-prod.deb \
   https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
 dpkg -i /tmp/packages-microsoft-prod.deb
@@ -211,6 +196,4 @@ echo "setup complete"
 echo "  supabase images cached: $(docker images --format '{{.Repository}}' | grep -c supabase)"
 echo "  bun package cache:      $(du -sh ~/.bun/install/cache 2>/dev/null | cut -f1)"
 echo ""
-echo "the slot pool is NOT provisioned here - it reads the project's own supabase"
-echo "configuration, so it can only run inside a session. When you first need an"
-echo "integration-tier database, run once:  bun tests/at/harness/db-pool.ts setup"
+echo "the database is not started here - inside a session, run once: bun run db:start"

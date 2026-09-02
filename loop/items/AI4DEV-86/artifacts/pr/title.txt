@@ -1,0 +1,1 @@
+AI4DEV-86: the v1 ceremony leaves the codebase and CI aligns

@@ -107,15 +107,18 @@
  *      real provider-path consumer, and not before.
  *
  *   5. SIGNING IN MINTS A SESSION, WHICH IS A ROW IN `auth.sessions` WITH AN ACCESS TOKEN THAT
- *      EXPIRES ONE HOUR LATER.
+ *      EXPIRES `jwt_expiry` SECONDS LATER (120 today).
  *      BOUND FOR SIGN-IN, AND FOR SIGN-IN ONLY — checks (a) and (b) of
  *      `loop/items/AI4DEV-60/proof-local.ts`: a password grant with the correct password answers
  *      200 with tokens and the `auth.sessions` row exists; a wrong-password attempt adds NO row —
  *      measured as an unchanged session-id set across the refused attempt, one row already
  *      standing from the confirmation-link implicit-flow sign-in (the re-pin in
  *      `loop/items/AI4DEV-60/fix-rulings.md` ruling 1).
- *      The one hour is `jwt_expiry = 3600` at `supabase/config.toml` line 165, and the constant
- *      below cites that line.
+ *      The lifetime is `[auth] jwt_expiry` in `supabase/config.toml`, read through the registry
+ *      entry `accessTokenLifetimeSeconds`, which the constant below reads. That measurement was
+ *      taken while the config said 3600: it establishes that a sign-in mints the row and the
+ *      tokens, and nothing about the number, which is the config's — the integration bodies
+ *      (AT-001.12, AT-001.13) wait out the real one on every integration run.
  *      WHAT THIS ENTRY DOES NOT COVER, said plainly because the earlier draft of it overreached:
  *        - REGISTRATION issuance. This fixture mints a session at registration and the live stack
  *          with confirmations on mints none. That is the DECLARED DIVERGENCE, written out in
@@ -191,6 +194,7 @@
  * shipped gate on a tested path. No green over it says anything about enforcement anywhere.
  */
 
+import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
 import {
@@ -457,18 +461,19 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   /**
    * How long a session's access lasts — VENDOR MIRROR 5, and the number is the configuration's.
    *
-   * `jwt_expiry = 3600` sits at `supabase/config.toml` line 165, in seconds; this is that value in
-   * milliseconds, because the harness clock counts milliseconds. It is written as the arithmetic
-   * rather than as `3_600_000` so that a reader can see the config value inside it, and so that
-   * changing the configuration is a one-line change here with the citation beside it.
+   * `[auth] jwt_expiry` in `supabase/config.toml` is the source, in seconds, and the registry entry
+   * `accessTokenLifetimeSeconds` in `tests/at/harness/atconfig.ts` is the one place the suites read
+   * it from; this is that value in milliseconds, because the harness clock counts milliseconds.
+   * The integration bodies wait out the same number for real, so the loop clock and the live wait
+   * cannot drift apart.
    *
    * NOTHING ELSE ABOUT THE TOKEN'S LIFETIME IS MODELLED. `[auth.sessions]`'s timebox and inactivity
    * timeout are commented out in that file (lines 304-308) and no criterion reads them.
    */
-  const ACCESS_TOKEN_TTL_MS = 3600 * 1000;
+  const ACCESS_TOKEN_TTL_MS = AT_CONFIG.accessTokenLifetimeSeconds.value * 1000;
 
   /**
-   * Mint a session — VENDOR MIRROR 5. One `auth.sessions` row, expiring one hour from now.
+   * Mint a session — VENDOR MIRROR 5. One `auth.sessions` row, expiring `ACCESS_TOKEN_TTL_MS` from now.
    *
    * `now` IS THE HARNESS CLOCK, which is what makes expiry reachable from a test body: a body that
    * advances the clock past this instant makes the session dead, and no other lever does.
@@ -571,7 +576,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
    * below, and the two are deliberately never written in the same place.
    *
    * EXPIRY IS STRICT: at exactly `expiresAtMs` the session is already dead. AT-001.12's body is the
-   * oracle for that boundary — it advances the clock by EXACTLY the one-hour TTL and requires the
+   * oracle for that boundary — it advances the clock by EXACTLY the TTL and requires the
    * write to be refused, so turning this `<` into an inclusive `<=` fails there. Before that
    * advance was pinned to the boundary instant, the inclusive mutation was an off-by-one no test
    * body could see.

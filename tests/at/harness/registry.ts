@@ -668,7 +668,7 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
     throw new AtPending(
       o.atId,
       'harness-missing',
-      `AI4DEV-3 capability modules (H2 fixtures/clock, H3 sentinels/faults, H4 oracles, ` +
+      `AI4DEV-3 capability modules (H2 fixtures/clock, H3 sentinels/faults, ` +
         `H5 vendor sims) are not in the tree: cannot resolve "${HARNESS_MODULE}" ` +
         `from tests/at/harness (${harnessResolveError})`,
     );

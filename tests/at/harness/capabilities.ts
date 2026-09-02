@@ -7,9 +7,9 @@
  * above the loop tier — then had nothing to refuse. A one-word edit that reads like a routine
  * promotion turned the closing gate green against a reference adapter.
  *
- * So a capability is now built by ONE constructor that takes a name, a value, and any evidence the
- * caller holds that a witness cannot derive. A witness registered for that name returns a verdict —
- * or throws. There are THREE outcomes, and the third one is the whole point:
+ * So a capability is now built by ONE constructor that takes a name and a value, and nothing from
+ * the caller about provenance. A witness registered for that name returns a verdict — or throws.
+ * There are THREE outcomes, and the third one is the whole point:
  *
  *   stand-in  — the witness found the seam that makes this a substitute, and says which seam.
  *   real      — the witness has positive grounds, and says what they are.
@@ -36,33 +36,24 @@ export type CapabilityVerdict =
   | { readonly kind: 'stand-in'; readonly reason: string }
   | { readonly kind: 'real'; readonly evidence: string };
 
-/**
- * The one place a caller contributes anything, and it is deliberately narrow: facts a witness
- * cannot derive from the value in front of it. Only `oracles.judge` needs any of it — the running
- * tier and the judge transport's `kind` brand, both of which `oracles.ts` already guards and
- * refuses in both mismatched directions before it ever gets here.
- */
-export type CapabilityEvidence = {
-  readonly tier?: string;
-  readonly transport?: string;
-};
-
 /* ------------------------------------------------------------------ the live attestation brand */
 
 /**
  * POSITIVE GROUNDS ARE A ROUND TRIP THAT HAPPENED, NEVER A SHAPE THAT LOOKS RIGHT.
  *
  * `localStackProblems()` in `runner.ts` checks that a URL points at the loopback address on the
- * slot's port and that a key decodes as a local development JWT. Every one of those is fabricable by
- * a caller with a text editor and no database answering anywhere — they GUARD the founder's personal
- * stack, which is what they were written for, and they establish nothing positive at all. A witness
- * that read them as grounds would grant `real` to four plausible strings.
+ * configured port and that a key decodes as a local development JWT. Every one of those is
+ * fabricable by a caller with a text editor and no database answering anywhere — they refuse a
+ * stack that is not demonstrably the local one `supabase/config.toml` describes, which is what
+ * they were written for, and they establish nothing positive at all. A witness that read them as
+ * grounds would grant `real` to four plausible strings.
  *
  * So a live capability carries an ATTESTATION: an object the harness's own live constructors stamp
- * onto the value AFTER a round trip that could only have succeeded against the prepared slot. The
- * round trip is `attestation.ts`'s — `prepare()` mints a nonce, writes it into the slot database
- * after the reset, and the child reads it back THROUGH the coordinates it was handed. "These
- * coordinates answered with this run's runner-minted value" is the grounds; nothing weaker is.
+ * onto the value AFTER a round trip that could only have succeeded against the prepared stack. The
+ * round trip is `attestation.ts`'s — `prepareLocalStack()` mints a nonce, writes it into the one
+ * stack's database after the reset, and the child reads it back THROUGH the coordinates it was
+ * handed. "These coordinates answered with this run's runner-minted value" is the grounds; nothing
+ * weaker is.
  *
  * WHAT THIS FILE CAN AND CANNOT CHECK, said exactly, because a closure claim wider than the truth is
  * the defect this file exists to remove. It has no I/O and performs no round trip. It checks that a
@@ -127,7 +118,7 @@ export interface Capability<T> {
   readonly value: T;
 }
 
-type CapabilityWitness = (value: unknown, evidence: CapabilityEvidence) => CapabilityVerdict;
+type CapabilityWitness = (value: unknown) => CapabilityVerdict;
 
 /**
  * CALLABILITY THROUGH THE PROTOTYPE CHAIN, never own-property presence. `ControlledClock` is a
@@ -170,32 +161,7 @@ function theArticleItself(what: string): CapabilityWitness {
 }
 
 /**
- * THE LEGAL BRANDS ON EACH AXIS OF THE ORACLE'S EVIDENCE, ENUMERATED AT RUNTIME.
- *
- * The oracle witness used to accept BY ABSENCE on both axes: anything that was not `loop` counted
- * as above loop, and anything that was not `replay-fs` counted as a transport worth a `real`
- * verdict. That is "I found no forbidden thing, therefore the thing is present" — the sentence this
- * file's own header forbids, on the only witness here whose `real` verdict is DERIVED. The three
- * `theArticleItself` rows return `real` too, and on every run, but unconditionally and from a
- * decision about the name; this is the one witness that reaches `real` by reasoning about evidence,
- * so it is the only place that reasoning can be wrong. A
- * `{ tier: 'integration', transport: 'bogus' }` construction came back `real` with confident-sounding
- * evidence for a brand nobody had ever heard of.
- *
- * SOURCE OF TRUTH FOR EACH LIST, so a future divergence is findable:
- *   tiers      — `Tier` in `registry.ts`
- *   transports — `TransportKind` in `oracles.ts`
- *
- * These are deliberately NOT imported as types. `oracles.ts` imports this file, so importing back
- * would add a cycle — and a compile-time union cannot constrain a runtime string anyway, which is
- * the whole reason this check has to exist at all: `CapabilityEvidence.tier` and `.transport` are
- * plain `string`, because the evidence arrives from a caller.
- */
-const LEGAL_TIERS: readonly string[] = ['loop', 'integration', 'drill'];
-const LEGAL_TRANSPORTS: readonly string[] = ['replay-fs', 'live', 'fake'];
-
-/**
- * THE TABLE IS CLOSED: six exact names, no prefixes and no wildcards.
+ * THE TABLE IS CLOSED: five exact names, no prefixes and no wildcards.
  *
  * A prefix rule (`sut.*` had one) means nobody ever decided about the names it swallows, which is
  * an unlimited namespace inside a table whose whole claim is that it is closed. The two families
@@ -281,64 +247,6 @@ const WITNESSES = new Map<string, CapabilityWitness>([
   ['config.registry', theArticleItself('atconfig.ts IS the registry of pinned values')],
   ['sentinels.planted', theArticleItself('the marker store IS the planting machinery')],
   ['faults.injection', theArticleItself('the fault router IS the injection machinery')],
-  [
-    'oracles.judge',
-    // DERIVED FROM THE TIER AND THE TRANSPORT BRAND, which is where this doctrine was already
-    // working one layer down before it was carried up here. `oracles.ts` refuses both mismatched
-    // combinations at the point it builds the transport; this witness reaches the same judgement
-    // from the evidence handed over, and refuses the same two combinations rather than trusting
-    // that the caller already did.
-    (_value, evidence) => {
-      const { tier, transport } = evidence;
-      if (tier === undefined || transport === undefined) {
-        throw new Error(
-          'refusing to construct capability "oracles.judge": its provenance is derived from the running tier and ' +
-            'the judge transport\'s kind brand, and this construction supplied ' +
-            `${tier === undefined ? 'no tier' : `tier ${JSON.stringify(tier)}`} and ` +
-            `${transport === undefined ? 'no transport kind' : `transport ${JSON.stringify(transport)}`}. ` +
-            `${REFUSAL_DOCTRINE}`,
-        );
-      }
-      // ENUMERATE BEFORE ANY RULE IS APPLIED. Every rule below reads a brand it recognises; a value
-      // neither list contains is unclassifiable, and unclassifiable refuses rather than falling
-      // through to whichever branch happens to catch it.
-      if (!LEGAL_TIERS.includes(tier)) {
-        throw new Error(
-          `refusing to construct capability "oracles.judge": the TIER axis was given ${JSON.stringify(tier)}, which is ` +
-            `not a brand this witness recognises. The legal tiers are ${LEGAL_TIERS.join(', ')}. ${REFUSAL_DOCTRINE}`,
-        );
-      }
-      if (!LEGAL_TRANSPORTS.includes(transport)) {
-        throw new Error(
-          `refusing to construct capability "oracles.judge": the TRANSPORT axis was given ${JSON.stringify(transport)}, ` +
-            `which is not a brand this witness recognises. The legal transports are ${LEGAL_TRANSPORTS.join(', ')}. ` +
-            `${REFUSAL_DOCTRINE}`,
-        );
-      }
-      if (tier === 'loop') {
-        if (transport === 'live') {
-          throw new Error(
-            'refusing to construct capability "oracles.judge": a loop-tier oracle on a live transport would report ' +
-              "today's answer under yesterday's expectations while the ledger still called it a stand-in.",
-          );
-        }
-        return {
-          kind: 'stand-in',
-          reason: `the loop tier judges through a ${transport} transport rather than the live judge`,
-        };
-      }
-      if (transport === 'replay-fs') {
-        throw new Error(
-          `refusing to construct capability "oracles.judge": a ${tier}-tier oracle on a filesystem replay transport ` +
-            'would be a real capability answering from committed bytes while reporting that it stubbed nothing.',
-        );
-      }
-      return {
-        kind: 'real',
-        evidence: `the ${tier} tier judges through a ${transport} transport, and no filesystem replay is permitted here`,
-      };
-    },
-  ],
 ]);
 
 function sealed<T>(name: string, verdict: CapabilityVerdict, value: T): Capability<T> {
@@ -356,7 +264,7 @@ function sealed<T>(name: string, verdict: CapabilityVerdict, value: T): Capabili
  * The one constructor. The verdict comes from the witness registered for `name`; an unregistered
  * name is refused, and a witness that cannot classify the value throws through this call.
  */
-export function witnessedCapability<T>(name: string, value: T, evidence: CapabilityEvidence = {}): Capability<T> {
+export function witnessedCapability<T>(name: string, value: T): Capability<T> {
   if (!name.trim()) throw new Error('a capability requires a non-empty name');
   const witness = WITNESSES.get(name);
   if (witness === undefined) {
@@ -366,7 +274,7 @@ export function witnessedCapability<T>(name: string, value: T, evidence: Capabil
         `about is an error here rather than a default in either direction.`,
     );
   }
-  return sealed(name, witness(value, evidence), value);
+  return sealed(name, witness(value), value);
 }
 
 /**

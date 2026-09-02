@@ -192,12 +192,6 @@ describe('provenance is computed from the value or the loader, and refuses what 
       'a vendor sim that cannot be told to reject was classified — half a control seam is not a verdict',
     ).toThrow(/vendors\.email/);
 
-    // THE ORACLE IS DERIVED FROM CALLER EVIDENCE, so its refusal is that the evidence is missing.
-    expect(
-      () => witnessedCapability('oracles.judge', { judge: async () => undefined }),
-      'an oracle built with neither tier nor transport was given a provenance anyway',
-    ).toThrow(/no tier/);
-
     // AND THE REFUSALS DISCRIMINATE. A witness that refused everything would satisfy every
     // assertion above and leave the harness unable to build — and the callability test has to walk
     // the PROTOTYPE CHAIN, because `advance` is a method on `ControlledClock.prototype` and an
@@ -207,80 +201,6 @@ describe('provenance is computed from the value or the loader, and refuses what 
       'stand-in',
     );
     expect(clock.standInReason, 'the stand-in verdict does not name the seam that produced it').toContain('freezeAt');
-  });
-
-  /**
-   * THE WITNESS'S OWN TIER/TRANSPORT REFUSALS, PINNED DIRECTLY — and this test exists because they
-   * were not.
-   *
-   * `createOracleCapability()` in `oracles.ts` throws on both mismatched combinations BEFORE the
-   * witness is ever reached, so through production the witness's copies are unreachable. The
-   * assertions in `oracles.selftest.ts` that look like they cover them match text present in BOTH
-   * copies, so deleting the witness's half left every test in the tree green. That is a guard that
-   * cannot fail, inside the item whose subject is guards that cannot fail.
-   *
-   * D6's design is that neither side trusts the other to have checked — and since the witness table
-   * became the only thing between a direct `witnessedCapability()` call and a verdict, deleting the
-   * witness's half would reopen exactly the door this file's other tests close. So it is PINNED, not
-   * removed, and every regex below matches wording unique to the witness: it says
-   * `refusing to construct capability "oracles.judge"` where `oracles.ts` says
-   * `refusing to build a … oracle`. An assertion satisfiable by the other copy would pin nothing.
-   */
-  it("refuses each mismatched tier/transport pair at the WITNESS, not only at the oracle's own guard", () => {
-    const judge = { judge: async () => undefined };
-
-    expect(
-      () => witnessedCapability('oracles.judge', judge, { tier: 'loop', transport: 'live' }),
-      'the witness accepted a loop-tier oracle on a live transport — the only guard left is the one in oracles.ts',
-    ).toThrow(/refusing to construct capability "oracles\.judge": a loop-tier oracle on a live transport/);
-
-    for (const tier of ['integration', 'drill']) {
-      expect(
-        () => witnessedCapability('oracles.judge', judge, { tier, transport: 'replay-fs' }),
-        `the witness accepted a ${tier}-tier oracle answering from committed bytes while reporting nothing stubbed`,
-      ).toThrow(
-        new RegExp(`refusing to construct capability "oracles\\.judge": a ${tier}-tier oracle on a filesystem replay`),
-      );
-    }
-  });
-
-  it('refuses an unrecognised brand on either evidence axis, instead of accepting it by absence', () => {
-    // ACCEPT BY ENUMERATION, NOT BY ABSENCE. The witness used to read "not loop" as above-loop and
-    // "not replay-fs" as a transport worth a real verdict, so a brand nobody had ever heard of came
-    // back `real` with confident-sounding evidence — on the only witness whose `real` verdict is
-    // derived from evidence rather than declared for a name, which is what makes it the one place
-    // that reasoning can go wrong. `CapabilityEvidence` carries plain strings, deliberately, because
-    // the evidence comes from a caller; a type union could not have caught this and is not what does.
-    const judge = { judge: async () => undefined };
-
-    const badTier = () => witnessedCapability('oracles.judge', judge, { tier: 'staging', transport: 'live' });
-    expect(badTier, 'an unrecognised TIER brand was accepted as above-loop and given a real verdict').toThrow(
-      /TIER axis was given "staging"/,
-    );
-    expect(badTier, 'the refusal does not say which tiers ARE legal, so the caller cannot correct it').toThrow(
-      /loop, integration, drill/,
-    );
-
-    const badTransport = () => witnessedCapability('oracles.judge', judge, { tier: 'integration', transport: 'bogus' });
-    expect(badTransport, 'an unrecognised TRANSPORT brand was accepted and given a real verdict').toThrow(
-      /TRANSPORT axis was given "bogus"/,
-    );
-    expect(badTransport, 'the refusal does not say which transports ARE legal').toThrow(/replay-fs, live, fake/);
-
-    // AND THE ENUMERATION DISCRIMINATES rather than refusing everything. SIX of the nine brand pairs
-    // are accepted; the three refused are loop+live, integration+replay-fs and drill+replay-fs. The
-    // four pinned below cover every rule that produces an acceptance, including a `fake` transport
-    // above loop, which is the instrument the tier rules are themselves tested with. The two
-    // unpinned pairs — integration+fake and drill+live — reach `real` through the same final branch
-    // as drill+fake, so pinning them would add assertions and no coverage.
-    expect(witnessedCapability('oracles.judge', judge, { tier: 'loop', transport: 'replay-fs' }).provenance).toBe(
-      'stand-in',
-    );
-    expect(witnessedCapability('oracles.judge', judge, { tier: 'loop', transport: 'fake' }).provenance).toBe('stand-in');
-    expect(witnessedCapability('oracles.judge', judge, { tier: 'integration', transport: 'live' }).provenance).toBe(
-      'real',
-    );
-    expect(witnessedCapability('oracles.judge', judge, { tier: 'drill', transport: 'fake' }).provenance).toBe('real');
   });
 
   it('refuses a witnessed name on the adapter-derived route, so the two routes cannot overlap', () => {
@@ -389,7 +309,6 @@ describe('the harness reports its own provenance honestly', () => {
       expect(stubbed, 'the loop-tier harness no longer reports the stand-ins it actually built').toEqual([
         'clock.controlled',
         'fixtures.worlds',
-        'oracles.judge',
         'sut.notifications',
         'vendors.email',
       ]);

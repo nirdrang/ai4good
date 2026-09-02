@@ -32,8 +32,9 @@ export const INSTALL_ROOT = new URL('../../../', import.meta.url).pathname.repla
  * vitest's root.
  *
  * The override moves DATA only: `node_modules` is always resolved from INSTALL_ROOT, so a child
- * still runs the pinned vitest and the pinned Supabase CLI. Unset — every ordinary run — it
- * changes nothing at all.
+ * still runs the pinned vitest and the pinned Supabase CLI — and the integration tier refuses to
+ * run under it at all, because a data root must not choose which database is reset. Unset — every
+ * ordinary run — it changes nothing at all.
  */
 export const REPO_ROOT = process.env.AT_REPO_ROOT?.trim() ? process.env.AT_REPO_ROOT.trim() : INSTALL_ROOT;
 

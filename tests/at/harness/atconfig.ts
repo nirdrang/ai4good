@@ -180,23 +180,19 @@ export const AT_CONFIG = {
     source: 'AT-016.08 — TEST-PINNED by the acceptance criterion itself ("an explicit cap/window/coalescing fixture")',
   },
   /*
-   * The semantic oracle's repeated-vote count. A HARNESS knob, not a product one: no requirement
-   * names it, because it is not a promise the product makes — it is how many times the judge is
-   * asked before a criterion is called, which is machinery. It lives here for the same reason the
-   * anti-spam pins do: the alternative is a literal inside `oracles.ts`, and then the registry
-   * entry and the real number can drift apart with both looking correct.
-   *
-   * Must be a positive ODD integer, enforced in `oracles.ts` — an even count can split evenly and
-   * whichever way the tie were broken would be a verdict nobody chose.
+   * The local Auth service's access-token lifetime. A HARNESS pin over a CONFIGURATION value: the
+   * number lives in `supabase/config.toml` and the running stack reads it at start; this entry is
+   * the one place the suites read it from — the loop fixture's clock and the integration bodies'
+   * real waits follow the same number, so a re-tune is one edit here and one on the config line,
+   * and the config comment cites this entry back.
    */
-  oracleJudgeVotes: {
-    name: 'repeated judge votes per semantic-oracle criterion',
-    value: 3,
-    unit: 'votes',
-    provisional: true,
+  accessTokenLifetimeSeconds: {
+    name: 'lifetime of an access token issued by the local Auth service (jwt_expiry)',
+    value: 120,
+    unit: 'seconds',
     source:
-      'AI4DEV-20 plan §3c + Gate 1 rulings F1/F10 — PROVISIONAL: no consuming suite exists to measure the ' +
-      'stability this count is meant to buy, so the first live smoke over a real suite is what would settle it',
+      'supabase/config.toml [auth] jwt_expiry, pinned to 120 so AT-001.12 and AT-001.13 wait out a real expiry inside ' +
+      'their 240 s budget (the ruling of AI4DEV-86, the item that parks the slot pool, 2026-09-02); the config comment cites this entry back',
   },
   prdGateThresholdScore: {
     name: 'completion score at which the project PRD passes its gate',

@@ -7,9 +7,10 @@ description: Workflow v2 entry verb. Pick up one board item, write its brief, mo
 
 `/controller` · `/controller AI4DEV-19` · `/controller AI4DEV-19 cloud` · `/controller AI4PM-12` · `/controller done AI4DEV-19`
 
-You are reading the controller manual for workflow v2. The way of work it serves is
-`pstack-workflow-ai4good.md` in `.claude/skills/work/`. Read `shared-invariants.md` in the same
-folder first. It binds you. `/work` remains the v1 manual and its relay is the fallback.
+You are reading the controller manual for workflow v2. The way of work it serves is the
+installed pstack plugin: its poteto-mode skill and the skills it routes to. Read section 5 of
+the project CLAUDE.md first. It binds you. The v1 relay is parked under loop/parked/v1/ and is
+not a fallback.
 
 ## What you are
 
@@ -43,10 +44,15 @@ A dev item with children is a container, not work. Check for children before you
 buildable. One item per run. Batching is not part of v2 until the founder rules on stacks.
 
 Requirement states: no decomposition file → propose writing `loop/decomp/req-0NN.md` as the
-work. Merged but unclaimed → materialise the dev tree as `/work` describes it (section
-"Materialisation" and "TITLES" in `.claude/skills/work/SKILL.md`), list the leaves, wait. Open
-leaves → list, recommend, wait. All leaves closed → run the evidence gate and propose. Done →
-say so.
+work. Merged but unclaimed → materialise the dev tree: `loop/work/materialize.ps1` reads the
+manifest at a named merged commit and emits the leaves; create the dev root as a sub-issue of
+the requirement and each leaf under it, matching idempotently by exact title, never removing a
+leaf that has work against it. Titles (founder 2026-08-07): the root names its requirement and
+is called a root (`AI4PM-19 — Authentication and org membership: root`); every leaf gets plain
+words with the code as a suffix at most (`Email and Google signup, three account types
+(D1.L1)`); only the root may carry a requirement id, because Linear derives the branch name
+from the title. Then list the leaves, wait. Open leaves → list, recommend, wait. All leaves
+closed → run the evidence gate and propose. Done → say so.
 
 ## Phase B: start an item
 
@@ -64,8 +70,8 @@ falsely In Progress.
 5. Worktree. `git worktree add .claude/worktrees/<item> <branch>`. The item's files live here
    and nowhere else. The path is under `.claude/worktrees/` because `EnterWorktree` accepts
    only that location for later switches.
-6. One item at a time on this machine. The local database is one instance: the project
-   settings set `AT_DB_SLOT=1`, and there is no slot pool in v2 (founder 2026-08-29: "Clear
+6. One item at a time on this machine. The local database is one instance, the stack
+   `supabase/config.toml` describes; there is no slot pool in v2 (founder 2026-08-29: "Clear
    the dB slot mechanism all together"). Parallel items run as cloud sessions, each on its own
    VM with its own database. If another item is already open on this PC, stop and say which.
 7. Claim: assign the item, set In Progress. Then `Set-HeldItem '<id>' '<label>' 'main'
@@ -102,7 +108,7 @@ falsely In Progress.
 ## The brief
 
 The brief is item facts plus the ask. It carries no process text. Process lives in the pstack
-skills and in `pstack-workflow-ai4good.md`, which the mechanic reads from the branch.
+skills, which the mechanic reads from the installed plugin.
 
 ```markdown
 # Brief for <id> (<short label>)
@@ -152,8 +158,8 @@ result with one read. Do not use a fork for this: a fork runs on your own model.
 - Discovered work goes in a "Not done here" list in the pull request body, never in the diff.
 
 ## Environment facts
-- One database, AT_DB_SLOT=1, local and cloud alike. On a fresh cloud VM run
-  `bun tests/at/harness/db-pool.ts setup` once before an integration test.
+- One database, the stack `supabase/config.toml` describes, local and cloud alike. Start it
+  with `bun run db:start`; every integration run resets it.
 - codex needs `codex login --device-auth` once per fresh VM. The session banner says when.
 ```
 

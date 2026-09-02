@@ -7,13 +7,13 @@
  * `_fixture.ts` is storage: its judgements are the shipped modules' and its storage is a Map, so a
  * loop-tier green says the DECISIONS are right and says nothing about the migration, the deployed
  * functions, row-level security or Supabase Auth. This file is the other half. Every operation below
- * goes to the slot's own stack:
+ * goes to the stack:
  *
- *   - Supabase Auth over HTTP, at the slot's own gateway — signup, the password grant, logout,
- *     refresh, recovery, and the emailed links as the slot's own mail catcher really holds them;
- *   - the DEPLOYED edge functions, served by the slot's own edge-runtime container out of the
- *     `supabase/` this run mirrored into the slot — so `verify_jwt`, the platform's own token check,
- *     `resolveCaller` and the database function all sit on the path;
+ *   - Supabase Auth over HTTP, at the stack's gateway — signup, the password grant, logout,
+ *     refresh, recovery, and the emailed links as the stack's mail catcher really holds them;
+ *   - the DEPLOYED edge functions, served by the stack's own edge-runtime container out of this
+ *     tree's `supabase/` — so `verify_jwt`, the platform's own token check, `resolveCaller` and the
+ *     database function all sit on the path;
  *   - the database as the OPERATOR, over the connection string the runner validated and this run
  *     attested, for the read-backs an assertion needs and for the two Givens no public path can
  *     reach.
@@ -73,6 +73,7 @@
  */
 
 import { emailVerifiedFromUser } from '../../../../supabase/functions/_shared/verification.ts';
+import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { LiveVendors } from '../../harness/live-email.ts';
 import type {
   AccountRow,
@@ -187,6 +188,31 @@ function accountIdOf(accessToken: string): string {
   return String(claims.sub ?? '');
 }
 
+/** `exp - iat`, in seconds: the lifetime the issuing Auth service is configured with, in its own words. */
+function lifetimeOf(accessToken: string): number {
+  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as { exp?: unknown; iat?: unknown };
+  return Number(claims.exp) - Number(claims.iat);
+}
+
+/**
+ * THE RUNNING STACK MUST ISSUE THE LIFETIME THE TREE PINS, EXACTLY. Auth reads `[auth] jwt_expiry`
+ * at container START, so a stack started before the config last changed issues tokens of the old
+ * lifetime while the bodies wait out the pinned one: AT-001.12 then waits 135 seconds and reports
+ * "an expired access token performed a write", and AT-001.13 reports "the client never rotated its
+ * access token" — both blaming the product for a stale stack. `exp` and `iat` come from the same
+ * token, so no clock enters the subtraction and there is nothing to tolerate: any number but the
+ * pinned one is a stack started under another config. Null when they are the same number.
+ */
+export function lifetimeProblem(accessToken: string, pinned: number): string | null {
+  const issued = lifetimeOf(accessToken);
+  if (issued === pinned) return null;
+  return (
+    `the running stack issues ${issued}-second access tokens, but supabase/config.toml pins jwt_expiry = ${pinned} ` +
+    `(the registry entry accessTokenLifetimeSeconds carries the same number). The stack was started before that ` +
+    `config last changed: run \`bun run db:stop\` then \`bun run db:start\`, and run this tier again.`
+  );
+}
+
 /**
  * WHAT A POSTGRES REFUSAL CARRIES — the SQLSTATE and the sentence, and WHERE THE SQLSTATE REALLY
  * LIVES WAS MEASURED RATHER THAN ASSUMED.
@@ -241,6 +267,19 @@ export async function createLiveAdapter(opts: {
   const sql = new SQL(slot.dbUrl);
 
   const sessions = new Map<string, LiveSession>();
+
+  /**
+   * `lifetimeProblem`, asked once, on the first access token this adapter obtains, and refused with
+   * the true cause. The runner cannot read a token without a sign-in, which is why the check lives
+   * here rather than in `prepareLocalStack`.
+   */
+  let lifetimeChecked = false;
+  const checkLifetime = (accessToken: string): void => {
+    if (lifetimeChecked) return;
+    const problem = lifetimeProblem(accessToken, AT_CONFIG.accessTokenLifetimeSeconds.value);
+    if (problem) throw new Error(problem);
+    lifetimeChecked = true;
+  };
 
   const authPost = async (path: string, body: unknown, bearer?: string): Promise<{ status: number; json: Record<string, unknown> }> => {
     const response = await fetch(`${api}${path}`, {
@@ -378,6 +417,7 @@ export async function createLiveAdapter(opts: {
       const accessToken = String(json.access_token ?? '');
       const refreshToken = String(json.refresh_token ?? '');
       if (!accessToken) return { ok: false, reason: 'sign-in answered 200 with no access token' };
+      checkLifetime(accessToken);
       const sessionId = sessionIdOf(accessToken);
       sessions.set(sessionId, { accessToken, refreshToken });
       return { ok: true, session: { accountId: accountIdOf(accessToken), email, provider: 'email', sessionId } };
@@ -468,6 +508,7 @@ export async function createLiveAdapter(opts: {
       if (status >= 400) return { ok: false, reason: String(json.msg ?? 'the refresh was refused') };
       const accessToken = String(json.access_token ?? '');
       if (!accessToken) return { ok: false, reason: 'the refresh answered 200 with no access token' };
+      checkLifetime(accessToken);
       const sessionId = sessionIdOf(accessToken);
       sessions.set(sessionId, { accessToken, refreshToken: String(json.refresh_token ?? tokens.refreshToken) });
       return { ok: true, session: { ...session, sessionId } };
@@ -924,6 +965,7 @@ export async function createLiveAdapter(opts: {
       const signedIn = await authPost('/auth/v1/token?grant_type=password', { email, password });
       const accessToken = String(signedIn.json.access_token ?? '');
       if (!accessToken) throw new Error('a provisioned platform administrator could not sign in');
+      checkLifetime(accessToken);
       const sessionId = sessionIdOf(accessToken);
       sessions.set(sessionId, { accessToken, refreshToken: String(signedIn.json.refresh_token ?? '') });
       return { accountId, email, provider: 'email', sessionId };
@@ -940,7 +982,7 @@ export async function createLiveAdapter(opts: {
   /**
    * A FIXTURE WORLD, against a database this run rebuilt from empty.
    *
-   * There is nothing to tear down per world: `prepare()` resets the slot before the run, so a world
+   * There is nothing to tear down per world: `prepareLocalStack()` resets the stack before the run, so a world
    * is a namespace for addresses rather than a container of state. The namespace still matters —
    * two ids that happened to register the same address would interfere in a way that looks exactly
    * like a product defect.

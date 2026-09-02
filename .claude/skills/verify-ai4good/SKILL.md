@@ -13,10 +13,11 @@ browser step no agent performs), three edge functions (`complete-signup`,
 drives HTTP and reads the database. The acceptance suite (`bun run at:verify`) is a separate,
 loop-tier thing; it does not replace a live drive and a live drive does not replace it.
 
-**One stack per machine.** `AT_DB_SLOT=1` everywhere; the slot pool is deleted (founder,
-2026-08-29). The stack on the 44321 block is THE stack. Never start a second one, and never
-drive a stack you cannot identify (Doctor below). Two verify runs against one stack contend;
-run one at a time.
+**One stack per machine.** The stack on the 44321 block is THE stack, the one
+`supabase/config.toml` describes; the slot pool is parked (founder, 2026-08-29 and 2026-09-01).
+Never start a second one, and never drive a stack you cannot identify (Doctor below). An
+integration run of the acceptance suite resets this stack; do not drive while one runs, and
+run one drive at a time.
 
 ## Launch
 
@@ -71,7 +72,9 @@ The recipe it implements, for custom drives:
 2. Fetch the confirmation mail from Mailpit: `GET http://127.0.0.1:44324/api/v1/messages`,
    then `GET /api/v1/message/{ID}`; extract the `/auth/v1/verify?...` link from the body.
 3. `GET` that link with redirects disabled; a 3xx redirect to the site URL means confirmed.
-4. `POST {API}/auth/v1/token?grant_type=password` → `access_token`.
+4. `POST {API}/auth/v1/token?grant_type=password` → `access_token`. That token lives
+   `[auth] jwt_expiry` seconds (currently 120), so call step 5 promptly or sign in again before
+   a long drive.
 5. Call an edge function with `Authorization: Bearer <access_token>` and `apikey: <ANON_KEY>`.
    `complete-signup` needs: `accountType`, `organizationName` (NGO only),
    `acknowledgmentTextVersion`, `signerName`, `signerTitle`, and `authorityAttestation` equal,

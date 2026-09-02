@@ -1,19 +1,19 @@
 /**
- * THE SLOT ATTESTATION — the round trip that turns four strings into positive evidence.
+ * THE STACK ATTESTATION — the round trip that turns four strings into positive evidence.
  *
  * WHAT WAS WRONG WITH WHAT CAME BEFORE. The child process receives four plain strings from
- * `db-pool.ts`'s `stackEnv()`: an API URL, a database URL, an anon key and a service-role key. The
- * runner checks their SHAPE — loopback host, the slot's own port, a JWT issued by the local
+ * `runner.ts`'s `childCoordinates()`: an API URL, a database URL, an anon key and a service-role
+ * key. The runner checks their SHAPE — loopback host, the configured port, a JWT issued by the local
  * development issuer, no hosted project reference. Every one of those checks passes on strings a
  * caller typed, with no database answering anywhere. They are a GUARD, and a good one: their job is
- * to make the founder's personal stack unreachable, and they do it. They are not grounds for calling
- * anything real.
+ * to refuse anything that is not demonstrably the local stack `supabase/config.toml` describes, and
+ * they do it. They are not grounds for calling anything real.
  *
- * WHAT THIS FILE ESTABLISHES INSTEAD. `prepare()` mints a nonce for THIS run and writes it into the
- * slot's database with operator authority, AFTER the reset — so the value cannot be a leftover from
- * a previous run, because the reset destroyed everything that was there. The child receives the same
- * nonce as `AT_SLOT_ATTESTATION`. `attestSlot()` below then reads the nonce back THROUGH THE
- * COORDINATES IT WAS HANDED and compares. The claim it can then make is small and exact:
+ * WHAT THIS FILE ESTABLISHES INSTEAD. `prepareLocalStack()` mints a nonce for THIS run and writes it
+ * into the one stack's database with operator authority, AFTER the reset — so the value cannot be a
+ * leftover from a previous run, because the reset destroyed everything that was there. The child
+ * receives the same nonce as `AT_SLOT_ATTESTATION`. `attestSlot()` below then reads the nonce back
+ * THROUGH THE COORDINATES IT WAS HANDED and compares. The claim it can then make is small and exact:
  *
  *   "the database at the coordinates this child was given answered with the value this run's runner
  *    minted after its reset."
@@ -27,13 +27,20 @@
  * migration for test scaffolding would make the schema under test differ from the product's; and the
  * reset drops the whole database, so the schema is recreated per run rather than accumulating.
  *
- * WHAT IT DOES NOT ESTABLISH, said plainly. It does not prove the slot is not the personal stack —
- * `personalBlockProblems()` and `localStackProblems()` do that, they still run, and this file does
- * not replace them. It does not prove the schema is correct, or that anything in the product works.
- * It proves one thing: these coordinates reach the database this run prepared.
+ * WHAT IT DOES NOT ESTABLISH, said plainly. It does not prove WHICH stack answered —
+ * `identityVerdict()` in `runner.ts` does that before the reset, from the CLI's own container names
+ * and `localStackProblems()`, and this file does not replace it. It does not prove the schema is
+ * correct, or that anything in the product works. It proves one thing: these coordinates reach the
+ * database this run prepared.
+ *
+ * THE NAMES STILL SAY "SLOT" — `AT_SLOT_ATTESTATION`, `slot_attestation`, `attestSlot`, the `slot`
+ * brand — and there is no slot any more, only the one stack. They are wire names a child reads and a
+ * table a database holds, and renaming them is a change of its own; read "slot" here as "the one
+ * prepared stack".
  */
 
 import { stampAttestation, SLOT_ATTESTATION_BRAND, type LiveAttestation } from './capabilities.ts';
+import type { StackIdentityRead } from './runner.ts';
 
 /** The env var the runner uses to carry the nonce into the child. */
 export const ATTESTATION_ENV = 'AT_SLOT_ATTESTATION';
@@ -60,58 +67,25 @@ export function mintAttestationNonce(): string {
 }
 
 /**
- * WHAT A WRITE OF THE ATTESTATION IS AIMED AT. A project id, exactly as a CLI target names one.
- *
- * It is a structural type rather than an import of `CliTarget`, so this file keeps its single
- * dependency on `capabilities.ts` and adds no cycle with the runner. A `CliTarget` satisfies it.
- */
-export interface AttestationTarget {
-  projectId: string;
-}
-
-/**
- * WHAT A PRE-DESTRUCTIVE IDENTITY READ PROVED, as this file needs it — the same object
- * `proveSlotTarget()` returns, described structurally for the reason above.
- *
- * The DATABASE URL COMES OUT OF THE READ, and that is the whole point of taking the read at all: an
- * importer cannot hand this function a proof of one database and the coordinates of another, because
- * there is no second parameter to disagree with the first.
- */
-export interface ProvenSlotRead {
-  /** the project id the identity read POSITIVELY proved, or null when it proved none */
-  provenProjectId: string | null;
-  /** the stack's own report, when a stack answered — the dbUrl is read from here and nowhere else */
-  status: { dbUrl: string } | null;
-}
-
-/**
- * Write this run's nonce into the slot database with operator authority. Called by `prepare()`,
- * AFTER the reset and after the migration-set proof, so nothing it writes can be mistaken for
- * migrated schema and nothing that survived a reset can be mistaken for it.
+ * Write this run's nonce into the one stack's database with operator authority. Called by
+ * `prepareLocalStack()`, AFTER the reset and after the migration-set proof, so nothing it writes can
+ * be mistaken for migrated schema and nothing that survived a reset can be mistaken for it.
  *
  * THE PROOF TRAVELS IN (gate-2 ruling S1-1, and the same idiom as `resetLocalDatabase`). This
  * function DELETES a table and writes a row, on whatever database it is pointed at. It used to take
- * a bare URL, so the guard that makes the aim safe — `prepare()` proving the slot first — lived at
- * the one call site rather than on the destructive path, and any importer could aim it at an
- * unproven database and still compile. Now the target demands the read that proved that target, and
- * the URL is read OUT of that proof: a proof naming another project, a proof naming none, and a read
- * where no stack answered are all named refusals here, before any connection is opened.
+ * a bare URL, so the guard that makes the aim safe lived at the one call site rather than on the
+ * destructive path, and any importer could aim it at an unproven database and still compile. Now it
+ * takes the read that proved the target — a `StackIdentityRead`, which carries a brand only the
+ * runner's private mint sets, so it cannot be written as a literal and cannot name no project — and
+ * the DATABASE URL COMES OUT OF THAT PROOF. The target travels in the read too, so there is no
+ * second parameter to disagree with the first and nothing left to refuse here by name; and the read
+ * is frozen, so it cannot be re-aimed between the proof and this write. The brand itself is not
+ * read here: it is private to `runner.ts`, and this file reaches the type only (a runtime import
+ * would be the cycle the first panel ruled out). A spread of a read would therefore pass — and
+ * would still write into the database the read's status names, which is the proven one unless the
+ * status itself was replaced, and that is a cast's worth of intent, not a slip.
  */
-export async function writeAttestation(target: AttestationTarget, read: ProvenSlotRead, nonce: string): Promise<void> {
-  if (read.provenProjectId !== target.projectId) {
-    throw new Error(
-      `REFUSING TO WRITE THE ATTESTATION INTO ${target.projectId}: the identity read handed to this write ` +
-        `${read.provenProjectId ? `proves ${read.provenProjectId}` : 'proves no project at all'}, not ${target.projectId}. ` +
-        `This write deletes and rewrites a table, so it is only permitted on the read that proved that target. ` +
-        `Nothing was done.`,
-    );
-  }
-  if (!read.status?.dbUrl.trim()) {
-    throw new Error(
-      `REFUSING TO WRITE THE ATTESTATION INTO ${target.projectId}: the identity read carries no stack report, so it ` +
-        `names no database to write into. Nothing was done.`,
-    );
-  }
+export async function writeAttestation(read: StackIdentityRead, nonce: string): Promise<void> {
   const SQL = sqlConstructor();
   const sql = new SQL(read.status.dbUrl);
   try {

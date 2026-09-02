@@ -146,21 +146,6 @@ describe('harness invention is rejected by the compiler', () => {
     'ProviderAttempt',
     'EmailProviderSim',
     'Vendors',
-    // H4's semantic-oracle contracts (contracts.ts) — every shape `judge()` takes or returns, not
-    // only the seam itself, because a rubric or a verdict is handed to a test body just as `h` is
-    'SemanticCriterion',
-    'ExtractionSpec',
-    'NumericToleranceComparator',
-    'CountAtLeastComparator',
-    'CriterionComparator',
-    'ExtractionCriterion',
-    'RubricCriterion',
-    'Rubric',
-    'VoteTally',
-    'CriterionVerdict',
-    'VerdictProvenance',
-    'SemanticVerdict',
-    'SemanticOracle',
     // the config seam (config.ts)
     'ConfigRegistry',
     // the wrapper types every test body holds directly (registry.ts) — including the world itself,
