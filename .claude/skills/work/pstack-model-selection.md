@@ -1,13 +1,16 @@
 # Model selection for the pstack workflow
 
 This file is the record of every model decision and every model finding for ai4good's
-workflow v2. The deployed sheet `~/.claude/pstack-models.md` holds the current values. This file
-says why each value is what it is, and what was measured. If you change a model, an effort, or
-a panel, add the decision here in the same commit.
+workflow v2. The deployed sheet is the tracked `.claude/pstack-models.md`, included from the
+project `CLAUDE.md` (since 2026-09-03; before that, `~/.claude/pstack-models.md` included from
+the home `CLAUDE.md`). Change it with `/setup-pstack-project`, the tracked wrapper that runs
+the plugin's setup skill and redirects its two writes into the tree. This file says why each
+value is what it is, and what was measured. If you change a model, an effort, or a panel, add the decision here in the
+same commit.
 
 Names: a **family** is one row of the model matrix. A **sheet role** is one row of
-[`~/.claude/pstack-models.md`](file:///C:/Users/nirdr/.claude/pstack-models.md). A **lane** is
-one entry in a panel role. A **descriptor** is `provider:model@effort`.
+`.claude/pstack-models.md`. A **lane** is one entry in a panel role. A **descriptor** is
+`provider:model@effort`.
 
 ## 1. The families
 
@@ -15,7 +18,7 @@ one entry in a panel role. A **descriptor** is `provider:model@effort`.
 |---|---|---|---|---|
 | fable | `claude:fable` (rolling alias since the 2026-09-02 reset; was `claude:claude-fable-5`) | low, medium, high, xhigh, max | native agents | The session's own model. Judgment and prose. The most expensive model here, so it earns its seat only where judgment under uncertainty is the job. |
 | sol | `codex:gpt-5.6-sol` | low, medium, high, xhigh, max | codex CLI | The proven reviewer of v1: gate 1 at xhigh caught a too-weak test oracle and a passing no-op before code existed (2026-08-03). |
-| grok | `grok:grok-4.6` (was `codex:opencode-go-responses/grok-4.6`) | low, medium, high, xhigh | Grok CLI, `~/.grok/bin/grok.exe` | The plugin's default writer. Since the 2026-09-02 reset: the feature and refactoring writer, the how explorer, the swarm worker, and a panel lane, all at xhigh. Served by the Grok CLI since 2026-09-02; the codex router route of 2026-08-29 is gone. |
+| grok | `grok:grok-4.6` (was `codex:opencode-go-responses/grok-4.6`) | low, medium, high, xhigh | Grok CLI, `~/.grok/bin/grok.exe` locally; in cloud `/usr/local/bin/grok` with `grok login --device-auth` per VM, on the grok.com subscription, never an API key | The plugin's default writer. Since the 2026-09-02 reset: the feature and refactoring writer, the how explorer, the swarm worker, and a panel lane, all at xhigh. Served by the Grok CLI since 2026-09-02; the codex router route of 2026-08-29 is gone. |
 | opus | `claude:opus` (rolling alias since the 2026-09-02 reset; was `claude:claude-opus-5`) | low, medium, high, xhigh, max | native agents | Same provider as fable and the lead, so the arena never prefers it as a judge. Since the 2026-09-02 reset: a panel lane at xhigh in the critics, both runner panels, the judge pool, and interrogate. |
 | deepseek | none since the 2026-09-02 reset (was `codex:opencode-go/deepseek-v4-flash`) | low, high, max | codex CLI through the router, not on the sheet | Dropped at the reset; no seat. v1 evidence for Flash still binds: as reviewer it matched a graded Kimi review and added two real findings with zero false positives; as executor it shipped a false green. It never writes code units. |
 | glm | none since the 2026-09-02 reset (was `codex:opencode-go/glm-5.3-flash`) | low, high, max | codex CLI through the router, not on the sheet | Dropped at the reset; no seat. Untested here. |
@@ -29,6 +32,7 @@ and `gpt-5.6-terra` (low to max). The full catalog is
 
 | date | decision | reason | source |
 |---|---|---|---|
+| 2026-09-03 | The sheet moves into the tree as `.claude/pstack-models.md`, included from the project `CLAUDE.md`; the home include is removed. `/setup-pstack-project`, a tracked wrapper over the plugin's setup skill, is the only way to change it: it redirects the two writes into the tree and stops if a plugin update changes the integration shape. In cloud, the grok lane runs on the grok.com subscription through `grok login --device-auth` per VM, like codex; no xAI API key. The marketplace source for open-pstack is added to the tracked project settings. No model or effort changes. | A cloud session starts from a fresh clone and never sees the home folder, so the home sheet and the home include did not reach it, and the default role map would have run the three "fable at high" seats at max. The plugin reads the sheet only as text through the include, so the tree copy works everywhere. The Grok CLI has a device-code login for headless VMs, so the subscription route exists. A wrapper rather than a copy of the setup skill, because a copy goes stale at every plugin update. | founder: "we will do this chnages here on main", "you can add the marketplace source to project settings", "i want to benefit from my grok sunscription like codex not pay per PAI", "maybe instead of that we can create out own skill for the setup of pstack instread of poullting our CLAUDE.md with prose" |
 | 2026-09-03 | Ruled: a unit goes to `hardest tasks` only when the writer must still design something; a unit that applies a fixed contract goes to `feature, refactoring`. The comment audit before review runs on the mechanical model. A writer that dies after finishing is recovered by pin then commit. All three in the controller's brief template. | The feature-lane trial on the harness item: five grok@xhigh units, all green on the full pin with no rework (26, 20, 15, 28, 14 minutes; USD 0.84, 0.46, 0.44, unrecorded, 0.37), zero fable writer tokens against about 1.1M on the previous item; one run died on a Grok output error after finishing and the mechanical committed the finished tree after the pin. The comment audit inherited the parent and cost 244k fable tokens read-only. | founder: "Ok" then "I approve u commit this changes to the controller skill" |
 | 2026-09-02 | Proposed (ruled 2026-09-03, row above): a unit goes to `hardest tasks` only when the writer must still design something. A unit that applies a fixed contract goes to `feature, refactoring`. The harness item that follows the v1-ceremony item runs its writers on the feature lane as the trial. | On the v1-ceremony item three of five units went to fable@max by the lead's judgment (438k, 365k, 294k fable tokens), with no written criterion, although the arena and the review rulings had already fixed each unit's design. | controller proposal; founder asked "Who judges that and based on what ?" |
 | 2026-09-02 | Lane reports: every delegated lane writes its full report to a file under the item folder and replies with five lines and the path. The lead reads the file only on a deviation, a blocker, or a red. Written into the controller's brief template. | Measured on the v1-ceremony item: the lead spent about 900k fable tokens, about 200k of it reading lane output inline. The file keeps the evidence; the summary keeps the lead's window. | founder: "Ok go for this as well" |

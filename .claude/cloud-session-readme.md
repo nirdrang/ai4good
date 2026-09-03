@@ -10,9 +10,10 @@ A cloud environment has three places to put things, and they do not overlap:
 
 | surface | runs | carries |
 |---|---|---|
-| **Setup script** (web form) | once per environment, BEFORE Claude Code launches; the filesystem is then snapshotted | VM provisioning: CLIs, PowerShell, the docker shim, image and package caches, the OpenCode Go credential |
+| **Setup script** (web form) | once per environment, BEFORE Claude Code launches; the filesystem is then snapshotted | VM provisioning: the codex, opencode and grok CLIs, PowerShell, the docker shim, image and package caches, the OpenCode Go credential |
 | **Environment variables** (web form) | copied into every SESSION at start | nothing today; the harness reads no environment variable for the database |
-| **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports codex and opencode login state |
+| **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports whether the pstack marketplace is present, and reports codex, grok and opencode login state |
+| **Tracked project files** (`.claude/settings.json`, `.claude/pstack-models.md`, `CLAUDE.md`) | read by Claude Code inside every session | the pstack plugin and where to fetch it, the model sheet, the way of work |
 
 Two boundaries explain the split, both learned by watching the wrong version fail:
 
@@ -38,6 +39,11 @@ Two boundaries explain the split, both learned by watching the wrong version fai
    filesystem, and every later session boots from that snapshot and skips the script.
 6. If the build fails, the error is shown, nothing is snapshotted, and the script runs
    again on the next session. Fix and retry.
+7. Restart the first session once. The pstack plugin is installed by Claude Code inside
+   the session, and in the first session of a fresh environment it is not active yet (see
+   "pstack, in cloud" below). The banner line `pstack: marketplace NOT cloned yet` says so.
+8. Run the two subscription logins that session needs: `codex login --device-auth` and
+   `grok login --device-auth`. The banner says which ones are missing.
 
 ## Secrets
 
@@ -54,6 +60,12 @@ environment can read them". So the rules are about damage control, not concealme
   Run `codex login --device-auth` once per fresh VM; the session banner says when this is
   needed. Device code authorization must be enabled once in the ChatGPT account's security
   settings.
+- **The grok.com login cannot be stored either**, for the same reason. Run
+  `grok login --device-auth` once per fresh VM; the banner says when. Grok tokens expire
+  after 7 days, so a session that lives longer logs in again. Do NOT use an xAI API key
+  (`XAI_API_KEY`) instead: it would work headless, but it bills console.x.ai per token,
+  and the founder wants the subscription used, as with codex (founder 2026-09-03: *"i want
+  to benefit from my grok sunscription like codex not pay per PAI"*).
 - **`AT_JUDGE_API_KEY`** (the semantic judge's credential) has no reader: the judge is parked
   under `loop/parked/v1/`, and `.env.example` says so. Nothing needs it in the variables box.
 
@@ -64,14 +76,18 @@ The SessionStart hook prints a banner on every start and resume:
 ```
 == ai4good cloud session ==
 docker: daemon started
+pstack: marketplace present
 codex: NOT logged in - run: codex login --device-auth
+grok: NOT logged in - run: grok login --device-auth
 opencode: OpenCode Go authenticated
 ```
 
 - `docker: daemon started` is normal - a snapshot keeps files, never running processes, so
   dockerd is started fresh every session.
-- `codex: NOT logged in` is expected on every fresh VM (see Secrets). Log in only if that
-  session needs codex.
+- `pstack: marketplace NOT cloned yet` appears in the first session of a fresh environment.
+  Restart that session once and the line turns to `marketplace present`.
+- `codex: NOT logged in` and `grok: NOT logged in` are expected on every fresh VM (see
+  Secrets). Log in only if that session needs that lane. Every pstack item needs both.
 - `opencode: OpenCode Go authenticated` should appear immediately - the credential file is
   in the snapshot. If it says NOT authenticated, the setup script did not run with a real
   key.
@@ -90,6 +106,29 @@ opencode: OpenCode Go authenticated
 - **Correctness never depends on either cache.** Every session runs
   `bun install --frozen-lockfile` against its own checkout's lockfile; a stale cache costs
   download time, never wrong versions.
+
+## pstack, in cloud
+
+The way of work runs on the pstack plugin. Four facts decide how it reaches a cloud session:
+
+- **The plugin is installed per session, never by the setup script.** The tracked
+  `.claude/settings.json` enables `pstack@open-pstack` and names the marketplace source
+  (`extraKnownMarketplaces`). Claude Code reads that at session start, clones the marketplace
+  into the session's plugin cache, and installs the plugin. The setup script runs before
+  Claude Code exists and has no checkout, so it cannot do this, and the snapshot never holds
+  the plugin. Every session therefore gets the current pstack, with no update step.
+- **The first session of a fresh environment runs without it.** A known Claude Code defect:
+  the marketplace clone lands after the first session has started. Restart once. The
+  banner's `pstack:` line reports which state the session is in.
+- **The model sheet is in the tree.** `.claude/pstack-models.md`, included from the project
+  `CLAUDE.md`, so cloud and local read the same values. The plugin never opens the file
+  itself; the sheet reaches the model only as text through that include. Change it with
+  `/setup-pstack-project`, the tracked wrapper that runs the plugin's setup skill and
+  redirects its two writes into the tree. The home `CLAUDE.md` must not include a sheet as
+  well: two live includes make duplicate role rows, and the setup skill stops on those.
+- **The grok lane needs the Grok CLI and a login.** The setup script installs the CLI; the
+  login is per VM (see Secrets). The pstack runner never falls back, so a missing login is a
+  loud dropout of every grok lane, not a silent model swap.
 
 ## The database, in cloud
 

@@ -38,6 +38,14 @@
     "type": "command",
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\statusline.ps1\""
   },
+  "extraKnownMarketplaces": {
+    "open-pstack": {
+      "source": {
+        "source": "github",
+        "repo": "ericlitman/open-pstack"
+      }
+    }
+  },
   "enabledPlugins": {
     "pstack@open-pstack": true
   }
