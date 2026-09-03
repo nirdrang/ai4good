@@ -91,6 +91,10 @@ try {
     # 1. model - which brain is answering. Cheap to lose track of, expensive to be wrong about.
     $model = Get-Field $j @('model','display_name')
     if (-not $model) { $model = Get-Field $j @('model','id') }
+    # Effort rides beside the model (founder 2026-09-03). `effort.level` is present only when
+    # the model supports it; when absent, nothing is printed rather than a guess.
+    $effort = Get-Field $j @('effort','level')
+    if ($model -and $effort) { $model = '{0} @{1}' -f $model, $effort }
     if ($model) { $parts += $model }
 
     # 2/3/4. the binding, the leaf, and the branch. All three need the repo root.
