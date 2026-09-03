@@ -202,6 +202,13 @@ with no message behind them. Every one looked like evidence.
   then ruled it out explicitly — *"Reflection should be out"*, 2026-08-06.)
 
 ---
+## pstack model sheet
+
+@.claude/pstack-models.md
+
+Change it with `/setup-pstack-project`, never with the plugin's `/setup-pstack` alone.
+
+---
 ## Project-Specific Guidelines
 
 - **Use the Lovable MCP for non-trivial UI work.** For UI changes beyond simple tweaks, drive them through the Lovable MCP — Lovable is the bot operating its own MCP and has more intimate, UI/UX-optimized capabilities. Reserve direct edits for simple UI changes.

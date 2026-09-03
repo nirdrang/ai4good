@@ -46,11 +46,31 @@ if [ ! -d node_modules ]; then
   bun install --frozen-lockfile
 fi
 
+# Claude Code installs the pstack plugin inside the session from the marketplace source in the
+# tracked .claude/settings.json. A known defect leaves it inactive in the FIRST session of a
+# fresh environment: the marketplace clone lands after the session has started. A restart loads
+# it. The clone directory is the signal this hook can see.
+if [ -d "$HOME/.claude/plugins/marketplaces/open-pstack" ]; then
+  lines+=("pstack: marketplace present")
+else
+  lines+=("pstack: marketplace NOT cloned yet - restart this session once")
+fi
+
 if command -v codex >/dev/null 2>&1; then
   if codex login status >/dev/null 2>&1; then
     lines+=("codex: logged in")
   else
     lines+=("codex: NOT logged in - run: codex login --device-auth")
+  fi
+fi
+
+# `grok models` is the same preflight the pstack runner uses; it answers in about a second and
+# fails when the grok.com login is missing or expired (tokens last 7 days).
+if command -v grok >/dev/null 2>&1; then
+  if grok models >/dev/null 2>&1; then
+    lines+=("grok: logged in")
+  else
+    lines+=("grok: NOT logged in - run: grok login --device-auth")
   fi
 fi
 
