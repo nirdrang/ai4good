@@ -36,12 +36,14 @@ to "a session works where it was launched", and it exists only for this hand-off
 | `/controller AI4DEV-19` | a LEAF. Start it (phase B), end inside the item's worktree, and hand the session to the founder for `/pstack:poteto-mode`. |
 | `/controller AI4DEV-19 cloud` | the same, but the mechanic is a cloud session started with `claude --cloud`. The session stays in the main folder. |
 | `/controller done AI4DEV-19` | the lead merged. Steer the board: confirm Done, clear the held item, fold upward, judge the filing candidates (phase C). The lead invokes this itself as its last closing step. |
-| `/controller AI4DEV-3` | a PARENT. List the open children with short labels and blockers, say "N of M done", recommend one, wait. |
+| `/controller AI4DEV-3` | a PARENT. A subtree run (founder ruling 2026-09-03: "parent and children for a beefy run"). List the children with short labels and state. The run takes every open, unblocked child. Blocked, Done, and Cancelled children stay out and are named. If no child is startable, stop and say so. Otherwise start the parent (phase B): one branch, one worktree, one brief with one unit per child, one pull request. |
 | `/controller AI4PM-12` | a requirement. Apply the requirement states below. |
-| `/controller` | recommend and wait: In Progress first, then open leaves, then a new requirement. Top three, one-line reasons, wait. |
+| `/controller` | recommend and wait: In Progress first, then open leaves and parents whose open children are leaves, then a new requirement. Top three, one-line reasons, wait. |
 
-A dev item with children is a container, not work. Check for children before you treat an id as
-buildable. One item per run. Batching is not part of v2 until the founder rules on stacks.
+Check for children before you treat an id as buildable. A leaf is one unit. A parent is one
+run with one unit per open, unblocked child. A parent whose children are parents themselves is
+too deep for one run: list the child parents and wait. One run per branch. Batching across
+unrelated items is not part of v2 until the founder rules on stacks.
 
 Requirement states: no decomposition file → propose writing `loop/decomp/req-0NN.md` as the
 work. Merged but unclaimed → materialise the dev tree: `loop/work/materialize.ps1` reads the
@@ -60,8 +62,10 @@ Validate first. The board claim comes after the branch, so a failure cannot leav
 falsely In Progress.
 
 1. Resolve the item: id, short label, `gitBranchName`, state, blockers. Walk `parent` upward
-   (depth cap 8, cycle detection) and derive a short label for every link.
-2. Startability: missing, Done, Cancelled, or an open blocker → stop and say which.
+   (depth cap 8, cycle detection) and derive a short label for every link. For a parent, also
+   resolve every child: id, short label, state, blockers, description, acceptance tests.
+2. Startability: missing, Done, Cancelled, or an open blocker → stop and say which. For a
+   parent, the units are the open, unblocked children. Zero units → stop.
 3. If the chain's root has nothing above it, ask once, at pickup, about the root. Offer ranked
    suggestions and always offer "standalone". If the board is unreadable, print
    `CHAIN UNRESOLVED` and carry on.
@@ -74,10 +78,13 @@ falsely In Progress.
    `supabase/config.toml` describes; there is no slot pool in v2 (founder 2026-08-29: "Clear
    the dB slot mechanism all together"). Parallel items run as cloud sessions, each on its own
    VM with its own database. If another item is already open on this PC, stop and say which.
-7. Claim: assign the item, set In Progress. Then `Set-HeldItem '<id>' '<label>' 'main'
-   '<your session id>'` so your own stamp, when it is live, names the item.
+7. Claim: assign the item, set In Progress. For a parent, claim every unit the same way.
+   Then `Set-HeldItem '<id>' '<label>' 'main' '<your session id>'` so your own stamp, when it
+   is live, names the item.
 8. Brief. Write `loop/items/<item>/brief.md` in the worktree from the template below, commit
-   it on the branch with a message that cites the item, and push.
+   it on the branch with a message that cites the item, and push. For a parent, the brief
+   carries one "Unit" block per child under "## Units", in board order, and the "PRD slice"
+   covers the whole subtree. The commit message cites the parent only.
 9. Hand over. Two ways:
 
    **Local, the default.** Move this session into the worktree:
@@ -119,8 +126,18 @@ PRD slice: <the section of loop/out/pure-s*.md, pasted verbatim, with its path>
 Item text: <the board item's description, verbatim>
 Acceptance tests: <paths under tests/at/suites/ that this item must turn green>
 
+## Units
+<Parent runs only. One block per open, unblocked child, in board order. A leaf run has no
+Units section.>
+### Unit 1: <child id> (<short label>)
+Item text: <the child's description, verbatim>
+Acceptance tests: <paths under tests/at/suites/ for this child>
+
 ## The ask
 Run this item in poteto-mode, end to end, and open one pull request from this branch.
+If the brief has Units, design once for the whole subtree, then build and verify the units
+in order, one commit group per unit, each unit green before the next starts. The pull
+request body names each unit by its short label in words, never by its id.
 Ground it with /how in critique mode first: explorers, explainer, then the critics, on
 every item.
 In the design arena, give every runner a distinct structural direction, so the candidates
@@ -201,6 +218,10 @@ On `/controller done <id>`, you do the board:
 1. Confirm on Linear that the item is Done. The merge closes it through the pull request
    link. If it is not Done within a bounded re-read, repair from the merge commit and record
    the repair as a repair.
+   For a parent run, the merge closes only the parent, because the pull request never names
+   a child id. Read the brief's Units. For each unit, set the child Done with a comment that
+   names the merge commit. A unit the pull request's "Not done here" list reports as unbuilt
+   stays open and is named to the founder.
 2. `Clear-HeldItem`.
 3. Fold upward: read the parent's children fresh. All Done or Cancelled → fold, cascading,
    stopping below a requirement.
