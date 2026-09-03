@@ -43,7 +43,7 @@ fi
 # in the snapshot; this check only fires in an environment that lacks that setup script.
 if [ ! -d node_modules ]; then
   lines+=("node_modules: missing, installing...")
-  bun install --frozen-lockfile
+  bun install --frozen-lockfile >&2
 fi
 
 if command -v codex >/dev/null 2>&1; then
