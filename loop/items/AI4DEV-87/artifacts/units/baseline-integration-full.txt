@@ -1,0 +1,71 @@
+﻿bun : $ bun tests/at/harness/runner.ts "req-001" --tier integration --expect
+At line:1 char:379
++ ... -full.txt'; bun run at:verify req-001 --tier integration --expect *>  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ bun tests/at/...ration --expect:String) [], RemoteExce 
+   ption
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+at:verify — identity proven before the readiness wait: project poancmeitlmxejofwzuu, api 44321, db 44322, containers supabase_imgproxy_poancmeitlmxejofwzuu, supabase_pooler_poancmeitlmxejofwzuu
+at:verify — identity proven immediately before the reset: project poancmeitlmxejofwzuu, api 44321, db 44322, containers supabase_imgproxy_poancmeitlmxejofwzuu, supabase_pooler_poancmeitlmxejofwzuu
+at:verify — 5 migrations expected, 5 applied — the rebuilt schema matches supabase/migrations exactly
+at:verify — stack poancmeitlmxejofwzuu (api 44321) — reset OK — migrations: 5 expected, 5 applied — lock C:\Users\nirdr\AppData\Local\ai4good-build\at-locks\at-verify-poancmeitlmxejofwzuu-44321.lock — head d73202c, dirty
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-EEEK9j/vitest-report.json
+
+at:verify req-001 --tier integration
+  AT-001.01    red      AssertionError: the deployed complete-signup refused the NGO completion: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.02    red      CapabilityPending: CAPABILITY PENDING — sut.accounts.registerWithGithub
+  AT-001.03    red      CapabilityPending: CAPABILITY PENDING — sut.accounts.registerWithProvider
+  AT-001.04    red      CapabilityPending: CAPABILITY PENDING — sut.accounts.registerWithProvider
+  AT-001.05    red      CapabilityPending: CAPABILITY PENDING — vendors.github-public-statistics
+  AT-001.06    red      AssertionError: the NGO control could not complete signup: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.07    red      AssertionError: expected 'the deployed complete-signup answered…' to match /platform_admin/
+  AT-001.09    red      AssertionError: the verified ngo could not complete signup as a ngo: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.10    red      CapabilityPending: CAPABILITY PENDING — sut.accounts.sendDiscoveryMessage
+  AT-001.38    green    sign-in with the correct email and a wrong password is rejected and creates no session
+  AT-001.12    red      AssertionError: the session under test could not complete signup, so nothing below is about a working session: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.13    red      AssertionError: the account under test could not complete signup, so it holds no account row: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.14    green    after the emailed reset flow the new password works and the old one does not
+  AT-001.16    red      AssertionError: the NGO actor could not complete signup, so nothing below is about a seated admin: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.36    red      AssertionError: the NGO actor could not complete signup, so nothing below is about a seated admin: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.37    red      AssertionError: the volunteer could not complete signup, so nothing below is about a volunteer account: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.17    red      AssertionError: the deployed control did not answer its measured 401, so the router may not be resolving names and the probe above proves nothing: expected 503 to be 401 // Object.is equality
+  AT-001.18    red      AtPending: AT-001.18 PENDING [sut-missing] — REQ-001 D3.L3 (the cross-surface single-seat integration) has not landed
+  AT-001.19    red      AssertionError: the deployed complete-signup refused a completion carrying all three identity fields: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.39    red      AssertionError: the refusal does not name the name as what is missing: expected 'the deployed complete-signup answered…' to match /signer name/i
+  AT-001.20    green    acknowledgment copy prohibits shared credentials and recommends an org email
+  AT-001.21    red      AtPending: AT-001.21 PENDING [sut-missing] — REQ-001 D5.L1 (cross-NGO denial and unassigned-volunteer denial) has not landed
+  AT-001.22    red      AtPending: AT-001.22 PENDING [sut-missing] — REQ-001 D5.L1 (cross-NGO denial and unassigned-volunteer denial) has not landed
+  AT-001.23    red      AtPending: AT-001.23 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.40    red      AtPending: AT-001.40 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.24    red      AtPending: AT-001.24 PENDING [sut-missing] — REQ-001 D5.L2 (assigned-volunteer scope, platform-admin reach, logged-out visibility) has not landed
+  AT-001.25    red      AtPending: AT-001.25 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.26    red      AtPending: AT-001.26 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.27    red      AtPending: AT-001.27 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.28    red      AtPending: AT-001.28 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.35    red      AtPending: AT-001.35 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.29    red      AtPending: AT-001.29 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.30    red      AtPending: AT-001.30 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.31    red      AtPending: AT-001.31 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.32    red      AssertionError: the NGO could not complete signup, so there is no organisation to hold a project: expected { ok: false, …(1) } to match object { ok: true }
+  AT-001.33    red      AtPending: AT-001.33 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+  AT-001.34    red      AtPending: AT-001.34 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+  37 P0: 3 green, 34 red, 0 missing
+  DEVIATION: AT-001.01 — declared green, reported red: AssertionError: the deployed complete-signup refused the NGO completion: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.06 — declared green, reported red: AssertionError: the NGO control could not complete signup: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.07 — declared green, reported red: AssertionError: expected 'the deployed complete-signup answered…' to match /platform_admin/
+  DEVIATION: AT-001.09 — declared green, reported red: AssertionError: the verified ngo could not complete signup as a ngo: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.12 — declared green, reported red: AssertionError: the session under test could not complete signup, so nothing below is about a working session: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.13 — declared green, reported red: AssertionError: the account under test could not complete signup, so it holds no account row: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.16 — declared green, reported red: AssertionError: the NGO actor could not complete signup, so nothing below is about a seated admin: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.36 — declared green, reported red: AssertionError: the NGO actor could not complete signup, so nothing below is about a seated admin: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.37 — declared green, reported red: AssertionError: the volunteer could not complete signup, so nothing below is about a volunteer account: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.17 — declared green, reported red: AssertionError: the deployed control did not answer its measured 401, so the router may not be resolving names and the probe above proves nothing: expected 503 to be 401 // Object.is equality
+  DEVIATION: AT-001.19 — declared green, reported red: AssertionError: the deployed complete-signup refused a completion carrying all three identity fields: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: AT-001.39 — declared green, reported red: AssertionError: the refusal does not name the name as what is missing: expected 'the deployed complete-signup answered…' to match /signer name/i
+  DEVIATION: AT-001.32 — declared green, reported red: AssertionError: the NGO could not complete signup, so there is no organisation to hold a project: expected { ok: false, …(1) } to match object { ok: true }
+  DEVIATION: the report counts 34 failed tests but the declaration declares 21 reds — a failure outside the declared ids (an untagged test, a failing hook) looks exactly like this
+  DEVIATION: the report counts 3 passed tests but the declaration declares 16 greens
+  EXPECT FAILURE: 15 deviation(s) from the declaration. A red that turned green is a failure too — if reality improved, update the declaration in the same change.
+error: script "at:verify" exited with code 1
+exit 1

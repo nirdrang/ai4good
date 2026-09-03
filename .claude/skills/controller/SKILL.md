@@ -124,12 +124,14 @@ Run this item in poteto-mode, end to end, and open one pull request from this br
 Ground it with /how in critique mode first: explorers, explainer, then the critics, on
 every item.
 In the design arena, give every runner a distinct structural direction, so the candidates
-do not converge on one design. If this item touches more than one subsystem or adds a data
-shape, add deepseek@max and glm@max runner lanes on top of the sheet's three.
+do not converge on one design. The runner lanes are the sheet's four; add none.
 Tool-heavy work without judgment goes to the mechanical agent with exact instructions: the
 rebase into ordered commits, the per-commit builds and tests, driving the verify skill and
 capturing its evidence, and the closing commands. You decide and you judge the evidence; it
 types; you check each result once.
+Every delegated lane writes its full report to a file under the item folder and replies
+with five lines and the path. Read the file only when the summary names a deviation, a
+blocker, or a red.
 Do not name any other item's id in the pull request title or body.
 The pull request body carries Why, Scope, Tradeoffs, Blast Radius, and Verification.
 Then close the item as the Closing section says. You close it, nobody else.

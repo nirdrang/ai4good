@@ -6,10 +6,7 @@
      The explicit `exclude` is load-bearing - naming one replaces TypeScript's default, and vitest
      recreates tests/at/node_modules (its own cache) on every at:selftest run. */
   "include": ["**/*"],
-  /* `typeprobes` holds code that MUST NOT compile - the negative tests for the harness-invention
-     attacks. A green run over that directory IS the defect, so it cannot live in this program; it
-     has its own config and `type-invention.selftest.ts` asserts that it still fails. */
-  "exclude": ["node_modules", "typeprobes"],
+  "exclude": ["node_modules"],
   "compilerOptions": {
     /* Node-side, NOT the browser. `target` matches the root config deliberately: vite resolves the
        nearest tsconfig per file, and this field drives useDefineForClassFields, so a divergence

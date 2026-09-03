@@ -21,7 +21,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { CapabilityPending } from './capabilities.ts';
+import { CapabilityPending } from './registry.ts';
 import { createHarness } from './index.ts';
 import { createEmailProviderSim } from './vendors.ts';
 import type { NotificationsSut, World } from '../suites/req-016/_contract.ts';
@@ -264,13 +264,6 @@ describe('the H5 wall, through the harness a suite is really handed', () => {
         h.vendors.email.attempts().filter((attempt) => attempt.eventId === eventId).map((attempt) => attempt.outcome),
         'the simulator the suite holds is not the one the delivery path reaches',
       ).toEqual(['rejected']);
-
-      // A STAND-IN, AND SAID SO. `registry.ts` refuses any stubbed capability above the loop tier, so
-      // this label is what stops an integration-tier run grading against the simulator.
-      expect(
-        await h.stubbedCapabilities(),
-        'the provider simulator dropped off the provenance ledger — an integration-tier run would accept it',
-      ).toContain('vendors.email');
 
       // THE STATIC SCAN IS STILL PENDING, and it names ONLY itself now. It is a real-source
       // capability: at loop tier there is no product source to scan, and scanning the fixture would

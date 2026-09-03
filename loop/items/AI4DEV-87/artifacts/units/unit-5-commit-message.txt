@@ -1,0 +1,8 @@
+AI4DEV-87: the mail poll has one deadline, the above-loop refusal is proven through the real path, the request shape is pinned
+
+10. The mail poll has one deadline: remaining time goes into each fetch, a matching link stops the raw reads, and the call returns at the deadline even mid-iteration.
+11. The above-loop refusal is proven through the real path: the pinned vitest runs suites/req-016/ at integration with no stack coordinates and all twelve ids fail with the named CapabilityPending.
+12. The request shape is pinned: a stubbed fetch asserts the method, URL, and headers authPost and functionPost send, including the x-forwarded-for rule.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01SikdZcn3PmB9SrZ4dL1ziT

@@ -1,10 +1,10 @@
 /**
- * `bun run typecheck` — the standard type-check, over BOTH tsconfigs.
+ * `bun run typecheck` — the standard type-check, over three projects.
  *
  * WHY THIS IS NOT `tsc -p a && tsc -p b`: `&&` stops at the first failure, so an error in the app
  * config would prevent the acceptance-test check from ever starting. A command that says nothing at
  * all about `tests/at` reads exactly like one that found it clean — which is the same false-green
- * shape this item exists to remove. Both projects are always launched; the exit code is the
+ * shape this item exists to remove. All three projects are always launched; the exit code is the
  * aggregate.
  *
  * WHY IT LIVES HERE rather than in a repo-level `scripts/`: that is its natural home, but AI4DEV-24's
@@ -41,6 +41,7 @@ export function pinnedTsc(root: string): string {
 const PROJECTS = [
   { label: 'app', project: 'tsconfig.json' },
   { label: 'acceptance tests', project: 'tests/at/tsconfig.json' },
+  { label: 'verify drive', project: '.claude/skills/verify-ai4good/scripts/tsconfig.json' },
 ] as const;
 
 function main(): number {
@@ -81,7 +82,7 @@ function main(): number {
     return 1;
   }
 
-  console.log('\ntypecheck OK: both configs clean');
+  console.log('\ntypecheck OK: all three projects clean');
   return 0;
 }
 

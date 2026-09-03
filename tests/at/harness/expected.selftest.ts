@@ -9,7 +9,7 @@
  *
  * Every expected detail is built through the `DASH` constant rather than being typed inline. The
  * separator the harness really prints is U+2014 EM DASH — verified by codepoint in
- * `capabilities.ts`, in `registry.ts` and in a real vitest report — and routing it through one
+ * `pending.ts` and in a real vitest report — and routing it through one
  * named constant means a mangled encoding shows up as one obviously-wrong constant instead of as
  * a scattering of assertions that still look right and no longer match.
  */

@@ -20,8 +20,8 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 
-import { CapabilityPending } from './capabilities.ts';
 import type { AtHarness, TierHarness } from './contracts.ts';
+import { AtPending, CapabilityPending } from './pending.ts';
 import type { SuiteId, SutKeyOf, SutOf, WorldOf } from './suite-adapters.ts';
 
 /* ------------------------------------------------------------------------ the AT id grammar */
@@ -148,6 +148,11 @@ export const TIER: Tier | null = TIERS.includes(RAW_TIER as Tier) ? (RAW_TIER as
 const tierError = (requirement: string) =>
   `AT_TIER is ${RAW_TIER === undefined ? 'unset' : JSON.stringify(RAW_TIER)}; expected one of ${TIERS.join('|')} — run via \`bun run at:verify req-${requirement} --tier <tier>\``;
 
+/* ---------------------------------------------------------------------------- pending errors */
+
+export { AtPending, CapabilityPending } from './pending.ts';
+export type { PendingPhase } from './pending.ts';
+
 /* -------------------------------------------------------------------------- the harness seam */
 
 /** Canonical harness barrel produced by AI4DEV-3 H2-H6, resolved relative to THIS file. */
@@ -179,6 +184,7 @@ export type ConfigOverrides = Record<string, number | boolean>;
 
 export interface HarnessModule {
   createHarness(opts: { requirement: string; tier: Tier; configOverrides?: ConfigOverrides }): Promise<AtHarness>;
+  liveAdapterExists(requirement: string): boolean;
 }
 
 let harnessModule: HarnessModule | null = null;
@@ -186,28 +192,13 @@ let harnessResolveError = '';
 
 try {
   const mod = (await import(/* @vite-ignore */ HARNESS_MODULE)) as Partial<HarnessModule>;
-  if (typeof mod.createHarness !== 'function') {
-    harnessResolveError = `resolved ${HARNESS_MODULE} but it exports no createHarness()`;
+  if (typeof mod.createHarness !== 'function' || typeof mod.liveAdapterExists !== 'function') {
+    harnessResolveError = `resolved ${HARNESS_MODULE} but it exports no createHarness() and liveAdapterExists()`;
   } else {
     harnessModule = mod as HarnessModule;
   }
 } catch (err) {
   harnessResolveError = err instanceof Error ? err.message : String(err);
-}
-
-/* ---------------------------------------------------------------------------- pending errors */
-
-export type PendingPhase = 'harness-missing' | 'sut-missing' | 'tier-unset';
-
-export class AtPending extends Error {
-  constructor(
-    readonly atId: string,
-    readonly phase: PendingPhase,
-    detail: string,
-  ) {
-    super(`${atId} PENDING [${phase}] — ${detail}`);
-    this.name = 'AtPending';
-  }
 }
 
 /* --------------------------------------------------------------------------- the test context */
@@ -253,8 +244,7 @@ export class AtPending extends Error {
  * The line is worth stating as a rule rather than as an excuse. What is closed is a suite NAMING the
  * seam types, and with it every route the API used to invite. What is open is a hand-written
  * structural reconstruction, which is a decision somebody takes rather than a mistake they make.
- * `tests/at/typeprobes/sut-seam.probe.ts` carries it verbatim as a documented known-open case (it
- * cannot be an active probe there, because that program must not compile and this attack does), and
+ * The attack is recorded under `loop/parked/v1/tests/at/typeprobes/` and nothing executes it, and
  * `loop/items/AI4DEV-31/gate2-widen-reproduction.txt` is the compile transcript with its controls.
  */
 type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike, T extends Tier = 'loop'> = {
@@ -288,8 +278,8 @@ type SeamOpenWorld<Sut = unknown, W extends WorldLike = WorldLike, T extends Tie
    *
    * It used to be the suite's own type argument, asserted rather than verified, so
    * `bindSuite<NotificationsSut, AnythingAtAll>` type-checked green and a body could read members
-   * no fixture supplies. `tests/at/typeprobes/sut-seam-legacy.probe.ts` is that attack, kept alive:
-   * it compiled clean before this change and must fail now.
+   * no fixture supplies. That attack is recorded under `loop/parked/v1/tests/at/typeprobes/` and
+   * nothing executes it.
    */
   w: W;
   /**
@@ -668,11 +658,17 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
     throw new AtPending(
       o.atId,
       'harness-missing',
-      `AI4DEV-3 capability modules (H2 fixtures/clock, H3 sentinels/faults, ` +
-        `H5 vendor sims) are not in the tree: cannot resolve "${HARNESS_MODULE}" ` +
-        `from tests/at/harness (${harnessResolveError})`,
+      `cannot resolve "${HARNESS_MODULE}" from tests/at/harness (${harnessResolveError}) — ` +
+        `index.ts, clock.ts, fixtures.ts, sentinels.ts, faults.ts, vendors.ts exist`,
     );
   }
+
+  /*
+   * Liveness is decided before anything is built. The boolean is file presence, not a member of
+   * the harness a body can read.
+   */
+  const standInRefusal = aboveLoopStandInRefusal(TIER, harnessModule.liveAdapterExists(`req-${o.requirement}`), o.sutKey);
+  if (standInRefusal) throw standInRefusal;
 
   const h = await harnessModule.createHarness({
     requirement: `req-${o.requirement}`,
@@ -682,28 +678,6 @@ async function openWorld(o: OpenOptions): Promise<{ opened: SeamOpenWorld; harne
   // Tracked from here on: every later failure must still tear the harness down.
   try {
     expect(h.tier, `harness built tier "${h.tier}" for a --tier ${TIER} run`).toBe(TIER);
-
-    /*
-     * TIER SEMANTICS: above `loop`, nothing the suite leans on may be a stand-in. The RULE is
-     * unchanged and is not relaxed by one capability. What changed is the SHAPE OF THE REFUSAL.
-     *
-     * This was a bare `expect(await h.stubbedCapabilities()).toEqual([])`, and the failure it
-     * produced fit NEITHER declarable red kind — so an integration run of any suite was not merely
-     * red, it was UNDECLARABLE, and `--expect` could never be honoured at the tier that is the
-     * closing gate. A red nobody can describe exactly is a red nobody understands, which is the
-     * doctrine `expected.ts` states and this line contradicted.
-     *
-     * `CapabilityPending` names the exact stubbed capabilities, which is precisely the
-     * `capability-pending` shape a declaration rebuilds and compares from position 0. The gate is if
-     * anything STRICTER than before: the names travel into the report, so a declaration has to say
-     * WHICH capabilities are still stubbed rather than only that some are.
-     *
-     * `expect.hasAssertions()` is satisfied by the throw rather than by an assertion, exactly as it
-     * is for every `AtPending` body in every suite: a thrown error is the reported failure and the
-     * assertion count is not consulted.
-     */
-    const stubRefusal = aboveLoopStubbedRefusal(TIER, await h.stubbedCapabilities());
-    if (stubRefusal) throw stubRefusal;
 
     const sut = h.sut?.[o.sutKey];
     if (!sut) throw new AtPending(o.atId, 'sut-missing', o.sutMissing);
@@ -796,17 +770,9 @@ export function chooseTierBody<B>(bodies: Record<string, B | undefined>, tier: T
   return named ?? bodies.default ?? bodies.loop ?? null;
 }
 
-/**
- * THE ABOVE-LOOP STAND-IN REFUSAL, as a value rather than as a statement inside `openWorld`.
- *
- * It is exported and pure for one reason: `expected.ts` rebuilds the text a declared
- * `capability-pending` red must produce, and the ONLY way to know the two agree is to compare them.
- * `live-ledger.selftest.ts` does exactly that, so a wording change on either side breaks a test
- * instead of silently making every integration declaration unmatchable.
- */
-export function aboveLoopStubbedRefusal(tier: Tier, stubbed: readonly string[]): CapabilityPending | null {
-  if (tier === 'loop' || stubbed.length === 0) return null;
-  return new CapabilityPending([...stubbed]);
+export function aboveLoopStandInRefusal(tier: Tier, live: boolean, sutKey: string): CapabilityPending | null {
+  if (tier === 'loop' || live) return null;
+  return new CapabilityPending(['fixtures.worlds', `sut.${sutKey}`]);
 }
 
 function emitRuntimeRegistration(registration: Registration): void {
