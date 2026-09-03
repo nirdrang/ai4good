@@ -132,6 +132,10 @@ types; you check each result once.
 Every delegated lane writes its full report to a file under the item folder and replies
 with five lines and the path. Read the file only when the summary names a deviation, a
 blocker, or a red.
+A unit goes to the hardest-tasks lane only when the writer must still design something. A
+unit that applies a fixed contract goes to the feature lane. Say which in the decision trail.
+The comment audit before review runs on the mechanical model with the comment-sicko prompt,
+never on your own model.
 Do not name any other item's id in the pull request title or body.
 The pull request body carries Why, Scope, Tradeoffs, Blast Radius, and Verification.
 Then close the item as the Closing section says. You close it, nobody else.
@@ -152,6 +156,8 @@ Fable calls are scarce. Tool-heavy work without judgment, the station 7 rebase, 
 and cleanup commands, goes to the `mechanical` agent (sonnet, inherits the worktree,
 executes exact instructions, rules on nothing). Write the exact plan, let it run, check the
 result with one read. Do not use a fork for this: a fork runs on your own model.
+A writer that dies after finishing its work is recovered by running the pin and committing
+the finished tree, not by rerunning the writer.
 
 ## The evidence bar
 - The verify suite for the acceptance tests above passes on the final head. Name each check
