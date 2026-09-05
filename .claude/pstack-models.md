@@ -20,7 +20,7 @@ how critics: codex:gpt-6-astra@medium, codex:opencode-go-responses/muse-spark-1.
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
-arena cross-judge pool: codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
+arena cross-judge pool: codex:gpt-6-astra@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
 swarm workers: grok:grok-4.6@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
 interrogate reviewers: codex:gpt-6-astra@medium, codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
@@ -57,7 +57,14 @@ Astra takes sol's seat on cost at a tie. Fable stays at low by founder ruling, n
 placed sixth. Muse is out of the runner rows. Full record in `loop/evals/design-2026-09-05/`.
 
 `arena cross-judge pool` loses its fable lane. The arena picks a judge from a provider different
-from the lead's, and the lead is fable, so that lane could never be chosen.
+from the lead's, and the lead is fable, so that lane could never be chosen. The same day, by
+founder ruling, its sol entry became astra at medium: astra judged the rejudged arena coherently
+and ranked it the same way as the original judge, at a fraction of sol's cost. The pool is a
+pick-one list, not a panel; three entries cover every provider the pick can land on.
+
+To undo the pool's sol entry: replace the astra descriptor with the line below.
+
+    codex:gpt-5.6-sol@max
 
 To undo the runner rows: replace the astra descriptor with the first line below and the fable
 descriptor with the second, on both rows. Change both rows or neither.
