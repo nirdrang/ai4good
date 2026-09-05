@@ -14,7 +14,7 @@
     "at:verify": "bun tests/at/harness/runner.ts",
     "at:check": "bun tests/at/harness/check.ts",
     "at:selftest": "bunx vitest run --root tests/at --config vitest.config.ts harness/",
-    "db:start": "bunx supabase start",
+    "db:start": "bunx supabase start --ignore-health-check",
     "db:stop": "bunx supabase stop",
     "db:reset": "bunx supabase db reset"
   },
