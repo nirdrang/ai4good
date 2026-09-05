@@ -1,0 +1,5 @@
+2026-09-05T22:37:49Z
+$ bun tests/at/harness/check.ts "req-001"
+at:check req-001 — 37 P0 in the acceptance file, 37 registered in the suite
+RESULT: 37 P0 ids in bijection
+exit 0
