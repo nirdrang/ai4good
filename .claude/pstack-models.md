@@ -15,12 +15,43 @@ hillclimb: codex:gpt-5.6-sol@max
 judgment and prose: claude:fable@max
 hardest tasks: claude:fable@max
 how explorer: grok:grok-4.6@xhigh
-how explainer: claude:fable@high
-how critics: claude:fable@high, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
+how explainer: claude:fable@low
+how critics: codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
 arena cross-judge pool: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
 swarm workers: grok:grok-4.6@xhigh
 architect runners: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
-interrogate reviewers: claude:fable@high, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
+interrogate reviewers: codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
+
+## Changes made by eval, and how to undo each one
+
+Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
+file as text and treats a second row for the same role as inconsistent state, so a commented-out
+row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### The two panel rows, 2026-09-04
+
+`how critics` and `interrogate reviewers` held fable at high as their first lane until 2026-09-04.
+The lane is now muse 1.3 at xhigh. Bundle against bundle on the harness item, replayed from the
+real panel's own ruling: the fable lane raised no acted-on item that another lane did not also
+raise, and two blinded judges from different families both ranked muse above fable for the seat,
+16 to 14 and 16 to 12, naming the same single marginal defect. Full record in
+`loop/evals/panel-2026-09-04/`.
+
+To undo: replace the muse descriptor with the line below on both rows. Change both or neither; the
+two rows are deliberately identical.
+
+    claude:fable@high
+
+### The explainer row, 2026-09-04
+
+`how explainer` held fable at high until 2026-09-04. It is now fable at low. Four candidates,
+two rounds, four blinded judge passes across two families, all four ranking fable at low first,
+ahead of fable at max, opus at max, and muse 1.3. Fable at low costs about half the tokens of high.
+Full record in `loop/evals/explainer-2026-09-03/`.
+
+To undo: replace the descriptor with the line below.
+
+    claude:fable@high

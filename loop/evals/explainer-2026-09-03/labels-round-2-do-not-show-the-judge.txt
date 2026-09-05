@@ -1,0 +1,4 @@
+W = fable-low (23952 bytes)
+X = fable-max (42268 bytes)
+Y = muse-xhigh (12093 bytes)
+Z = opus-max (29251 bytes)
