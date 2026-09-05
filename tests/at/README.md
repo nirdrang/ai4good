@@ -89,3 +89,10 @@ and the evidence line — lives in `harness/local-stack.ts`. The machine-wide lo
 modules; it is not the home of the identity read or the lock. `harness/live-refusal.selftest.ts`
 is the guard for the integration tier that CI never runs: it runs the real req-016 suite at
 that tier with no stack.
+
+`harness/live-stack.ts` also holds `restGet` (a Data API GET as a caller) and `functionPostRaw`
+(an edge-function POST that returns raw text so equality is over bytes). Neither is a sentinel,
+fault, vendor stand-in or fixture world. The static half of the tenant catalog guard lives in
+`tests/at/suites/req-001/_policy-scan.ts` and is graded by `harness/policy-scan.selftest.ts`
+and by the AT-001.21 and AT-001.22 loop bodies. The shipped read cores are graded by
+`harness/shipped-tenant-reads.selftest.ts`.

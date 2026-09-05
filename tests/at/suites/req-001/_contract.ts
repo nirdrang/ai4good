@@ -27,6 +27,11 @@ import type {
 // judgement type here: `OrgRole` is the shipped module's, the same one the rename edge function and
 // the database enum state, so the operator grant below cannot name a role the product does not have.
 import type { OrgAdminRefusalKind, OrgRole } from '../../../../supabase/functions/_shared/memberships.ts';
+import type {
+  OrganizationDashboard,
+  ProjectWorkspace,
+} from '../../../../supabase/functions/_shared/tenant-reads.ts';
+import type { PublicProjectView } from '../../../../supabase/functions/_shared/public-project.ts';
 
 export type {
   Clock,
@@ -44,6 +49,7 @@ export type {
 export { TIERS } from '../../harness/contracts.ts';
 
 export type { AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole };
+export type { OrganizationDashboard, ProjectWorkspace, PublicProjectView };
 
 /* ------------------------------------------------------------------------- what gets read back */
 
@@ -289,6 +295,22 @@ export type AssignVolunteerOutcome =
  * the remedy, so a bare boolean would make the criterion untestable.
  */
 export type SendDiscoveryMessageOutcome = { ok: true } | { ok: false; reason: string };
+
+export type ViewerAnswer = { status: number; body: string };
+/** privilege-denied: the privilege layer; session-refused: the token, a broken test not a verdict; refused: anything else. */
+export type ViewerRefusalKind = 'privilege-denied' | 'session-refused' | 'refused';
+export type ViewerRead<Row> =
+  | { ok: true; rows: readonly Row[]; answer: ViewerAnswer }
+  | { ok: false; kind: ViewerRefusalKind; reason: string; answer: ViewerAnswer };
+export type TenantReadOutcome<T> = { ok: true; value: T; answer: ViewerAnswer } | { ok: false; answer: ViewerAnswer };
+export type PublicProjectOutcome = { ok: true; page: PublicProjectView; answer: ViewerAnswer } | { ok: false; answer: ViewerAnswer };
+export type TenantTableFacts = {
+  table: string;
+  rowLevelSecurity: boolean;
+  anonSelect: boolean;
+  authenticatedSelect: boolean;
+  policies: readonly { name: string; using: string }[];
+};
 
 /* ------------------------------------------------------------------------------------ the SUT */
 
@@ -574,9 +596,8 @@ export type AccountsSut = {
    * WHAT A GREEN OVER IT CLAIMS, said narrowly because the criterion's words are wider. It claims
    * OPERATION-SURFACE isolation: authority does not cross organisations on this action. It does NOT
    * claim read isolation — "acting in NGO A never grants access to NGO B's data" over drafts,
-   * ledgers and files is the tenant-isolation deliverable's (`loop/decomp/req-001.md` D5.L1), which
-   * is blocked by this leaf and lands the policy set. This tree has no read surface to leak through:
-   * row-level security is on with zero policies and `org_memberships` reaches no Data API role.
+   * ledgers and files is proved by the viewer-shaped reads and the organisation dashboard, not by
+   * this rename. `org_memberships` is granted SELECT to `authenticated` and filtered by policy.
    */
   updateOrganization(session: Session, organizationId: string, name: string): Promise<UpdateOrganizationOutcome>;
 
@@ -754,6 +775,19 @@ export type AccountsSut = {
    * wider one, and not one any running service holds.
    */
   provisionPlatformAdmin(email: string, password: string): Promise<Session>;
+
+  /* ---- reads AS THE CALLER. The operator reads beside them are the existence control. ---- */
+
+  organizationAsViewer(session: Session, organizationId: string): Promise<ViewerRead<OrganizationRow>>;
+  membershipsAsViewer(session: Session, organizationId: string): Promise<ViewerRead<MembershipRow>>;
+  projectAsViewer(session: Session, projectId: string): Promise<ViewerRead<ProjectRow>>;
+  acknowledgmentsAsViewer(session: Session, accountId: string): Promise<ViewerRead<AcknowledgmentRow>>;
+  organizationDashboard(session: Session, organizationId: string): Promise<TenantReadOutcome<OrganizationDashboard>>;
+  projectWorkspace(session: Session, projectId: string): Promise<TenantReadOutcome<ProjectWorkspace>>;
+  /** no session: a visitor has none */
+  publicProjectPage(projectId: string): Promise<PublicProjectOutcome>;
+  /** the live half of the guard, read as the operator */
+  tenantTableFacts(): Promise<readonly TenantTableFacts[]>;
 };
 
 /* -------------------------------------------------------------------------------- the world */

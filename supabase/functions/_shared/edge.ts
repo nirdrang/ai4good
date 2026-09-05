@@ -30,6 +30,8 @@
  */
 
 import { callerFromAuthAnswer, type Caller } from './caller.ts';
+import type { ReadResult, TenantReads } from './tenant-reads.ts';
+import type { PublicProjectReads, PublicProjectSource } from './public-project.ts';
 
 /**
  * A required environment variable, or a loud failure at first use.
@@ -302,6 +304,71 @@ export async function callDatabaseFunction(
   }
 
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
+}
+
+async function restJson<Row>(url: string, init: RequestInit): Promise<ReadResult<Row>> {
+  const response = await fetch(url, init);
+  const text = await response.text();
+  if (!response.ok) return { ok: false, detail: text };
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (!Array.isArray(parsed)) return { ok: false, detail: text };
+    return { ok: true, rows: parsed as Row[] };
+  } catch {
+    return { ok: false, detail: text };
+  }
+}
+
+/** Caller-bound Data API GETs. A non-2xx answer is `{ ok: false, detail }`, never a throw. */
+export function callerReads(supabaseUrl: string, anonKey: string, authorization: string): TenantReads {
+  const headers = { apikey: anonKey, Authorization: authorization, Accept: 'application/json' };
+  const base = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`;
+  return {
+    organization: (organizationId) =>
+      restJson(`${base}/organizations?id=eq.${encodeURIComponent(organizationId)}&select=id,name`, { headers }),
+    seatsOf: (organizationId) =>
+      restJson(
+        `${base}/org_memberships?org_id=eq.${encodeURIComponent(organizationId)}&select=account_id,role`,
+        { headers },
+      ),
+    projectsOf: (organizationId) =>
+      restJson(
+        `${base}/projects?org_id=eq.${encodeURIComponent(organizationId)}&select=id,name,assigned_volunteer_id`,
+        { headers },
+      ),
+    project: (projectId) =>
+      restJson(
+        `${base}/projects?id=eq.${encodeURIComponent(projectId)}&select=id,name,org_id,assigned_volunteer_id`,
+        { headers },
+      ),
+  };
+}
+
+/** The public page's source: one RPC as the service role, never a table grant. */
+export function publicProjectReads(supabaseUrl: string, serviceRoleKey: string): PublicProjectReads {
+  const url = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/rpc/read_public_project`;
+  return {
+    source: async (projectId): Promise<ReadResult<PublicProjectSource>> => {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+        body: JSON.stringify({ p_project_id: projectId }),
+      });
+      const text = await response.text();
+      if (!response.ok) return { ok: false, detail: text };
+      try {
+        const parsed: unknown = JSON.parse(text);
+        if (!Array.isArray(parsed)) return { ok: false, detail: text };
+        return { ok: true, rows: parsed as PublicProjectSource[] };
+      } catch {
+        return { ok: false, detail: text };
+      }
+    },
+  };
 }
 
 /** Read a JSON request body, or refuse — a malformed body must not read as an empty one. */

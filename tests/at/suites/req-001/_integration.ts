@@ -26,9 +26,12 @@
 import { expect } from 'vitest';
 
 import { AT_CONFIG } from '../../harness/atconfig.ts';
+import { authPost, functionPostRaw, restGet, stackFromEnv } from '../../harness/live-stack.ts';
 import { CapabilityPending } from '../../harness/registry.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
+import { TENANT_NOT_FOUND } from '../../../../supabase/functions/_shared/tenant-reads.ts';
 import type { Session } from './_contract.ts';
+import { TENANT_CATALOG, tenantCatalogProblems } from './_policy-scan.ts';
 // AT-001.17's source arm, shared with its loop body: the arm runs identically at both tiers, and the
 // two bodies live in different files, so the check has one home rather than two copies.
 import { inviteOrAddMemberSurface } from './_source-scan.ts';
@@ -157,6 +160,36 @@ async function registerConfirmAndSignIn(
     registered.accountId,
   );
   return signedIn.session;
+}
+
+async function assertTenantCatalog(sut: Awaited<ReturnType<Ctx['open']>>['sut']): Promise<void> {
+  expect(tenantCatalogProblems(), 'the static catalog scan found a problem').toEqual([]);
+  const facts = await sut.tenantTableFacts();
+  const byTable = new Map(facts.map((row) => [row.table, row]));
+  for (const [table, posture] of Object.entries(TENANT_CATALOG)) {
+    const fact = byTable.get(table);
+    expect(fact, `the live catalog has no row for ${table}`).toBeDefined();
+    if (!fact) continue;
+    expect(fact.anonSelect, `${table} is selectable by anon`).toBe(false);
+    if (posture === 'tenant-isolated') {
+      expect(fact.rowLevelSecurity, `${table} does not have row-level security`).toBe(true);
+      expect(fact.authenticatedSelect, `${table} is not selectable by authenticated`).toBe(true);
+      expect(fact.policies.length, `${table} has no policy`).toBeGreaterThan(0);
+      expect(
+        fact.policies.some((policy) => policy.using.replace(/\s+/g, ' ').trim().toLowerCase() === 'true'),
+        `${table} has a using (true) policy`,
+      ).toBe(false);
+    } else {
+      expect(fact.authenticatedSelect, `${table} is selectable by authenticated`).toBe(false);
+    }
+  }
+}
+
+function emptyViewerRows<T>(read: { ok: true; rows: readonly T[] } | { ok: false }): readonly T[] {
+  expect(read.ok, 'a caller-bound read was refused at the privilege or session layer, so it is not an empty list').toBe(
+    true,
+  );
+  return read.ok ? read.rows : [];
 }
 
 /* ------------------------------------------------------------------------ the ids that go green */
@@ -1229,6 +1262,183 @@ export async function at00139(ctx: Ctx): Promise<void> {
   expect(completed, 'the control completion carrying all three fields was refused, so the refusals prove nothing').toMatchObject({
     ok: true,
   });
+}
+
+/**
+ * AT-001.21 — one organisation cannot reach another's data, and the denial does not reveal
+ * whether the thing exists.
+ *
+ * The green is over organisations, memberships, acknowledgments and a project's identity, because
+ * those are the tenant rows this tree has. Drafts, ledger, files and thread do not exist yet.
+ */
+export async function at00121(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const stack = stackFromEnv();
+  const emailA = w.email('ngo-a-21');
+  const emailB = w.email('ngo-b-21');
+
+  const sessionA = await registerConfirmAndSignIn(sut, emailA);
+  const completionA = await sut.completeSignup(
+    sessionA,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter 21A', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completionA, 'NGO A could not complete signup').toMatchObject({ ok: true });
+  if (!completionA.ok || completionA.organizationId === null) return;
+  const orgA = completionA.organizationId;
+  const project = await sut.createProjectAsOperator(orgA, 'Riverside Shelter Website 21');
+
+  expect(await sut.organization(orgA), "the operator cannot see A's organisation, so the denials below prove nothing").not.toBeNull();
+  expect(await sut.membership(orgA, completionA.accountId), "the operator cannot see A's seat").not.toBeNull();
+  expect(await sut.projectAssignment(project.id), "the operator cannot see A's project").not.toBeNull();
+  expect(await sut.acknowledgments(completionA.accountId), "the operator cannot see A's acknowledgment").not.toEqual([]);
+
+  const ownOrg = await sut.organizationAsViewer(sessionA, orgA);
+  expect(emptyViewerRows(ownOrg).map((row) => row.id)).toEqual([orgA]);
+  const ownSeats = await sut.membershipsAsViewer(sessionA, orgA);
+  expect(emptyViewerRows(ownSeats)).toEqual([
+    { organizationId: orgA, accountId: completionA.accountId, role: 'admin' },
+  ]);
+  const ownProject = await sut.projectAsViewer(sessionA, project.id);
+  expect(emptyViewerRows(ownProject).map((row) => row.id)).toEqual([project.id]);
+  const ownAcks = await sut.acknowledgmentsAsViewer(sessionA, completionA.accountId);
+  expect(emptyViewerRows(ownAcks).length, "A cannot read its own acknowledgment").toBeGreaterThan(0);
+  const ownDash = await sut.organizationDashboard(sessionA, orgA);
+  expect(ownDash.ok, "A's own dashboard was refused, so B's denials prove nothing").toBe(true);
+  if (!ownDash.ok) return;
+  expect(ownDash.value.organizationName).toBe('Riverside Shelter 21A');
+  expect(ownDash.answer.status).toBe(200);
+
+  const sessionB = await registerConfirmAndSignIn(sut, emailB);
+  const completionB = await sut.completeSignup(
+    sessionB,
+    { accountType: 'ngo', organizationName: 'Northgate Foodbank 21B', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completionB, 'NGO B could not complete signup').toMatchObject({ ok: true });
+  if (!completionB.ok || completionB.organizationId === null) return;
+
+  const absentOrg = crypto.randomUUID();
+  const absentProject = crypto.randomUUID();
+  const absentAccount = crypto.randomUUID();
+
+  expect(emptyViewerRows(await sut.organizationAsViewer(sessionB, orgA))).toEqual([]);
+  expect(emptyViewerRows(await sut.organizationAsViewer(sessionB, absentOrg))).toEqual([]);
+  expect(emptyViewerRows(await sut.membershipsAsViewer(sessionB, orgA))).toEqual([]);
+  expect(emptyViewerRows(await sut.membershipsAsViewer(sessionB, absentOrg))).toEqual([]);
+  expect(emptyViewerRows(await sut.projectAsViewer(sessionB, project.id))).toEqual([]);
+  expect(emptyViewerRows(await sut.projectAsViewer(sessionB, absentProject))).toEqual([]);
+  expect(emptyViewerRows(await sut.acknowledgmentsAsViewer(sessionB, completionA.accountId))).toEqual([]);
+  expect(emptyViewerRows(await sut.acknowledgmentsAsViewer(sessionB, absentAccount))).toEqual([]);
+
+  const foreignDash = await sut.organizationDashboard(sessionB, orgA);
+  const absentDash = await sut.organizationDashboard(sessionB, absentOrg);
+  expect(foreignDash.ok, "B reached A's dashboard").toBe(false);
+  expect(absentDash.ok, 'B reached a dashboard for an id that does not exist').toBe(false);
+  if (foreignDash.ok || absentDash.ok) return;
+  expect(foreignDash.answer.status).toBe(404);
+  expect(absentDash.answer.status).toBe(404);
+  expect(foreignDash.answer.body, 'foreign and absent dashboard refusals differ as bytes').toBe(absentDash.answer.body);
+  expect(foreignDash.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
+
+  const grantB = await authPost(stack, '/auth/v1/token?grant_type=password', { email: emailB, password: PASSWORD });
+  const listing = await restGet(stack, '/organizations?select=id,name', String(grantB.json.access_token ?? ''));
+  expect(listing.status, "B's unfiltered organisations listing was not 200").toBe(200);
+  const listed = JSON.parse(listing.text) as { id?: string }[];
+  expect(
+    listed.some((row) => row.id === orgA),
+    "B's unfiltered organisations listing contains A's organisation",
+  ).toBe(false);
+  expect(
+    listed.some((row) => row.id === completionB.organizationId),
+    "B's unfiltered organisations listing does not contain B's own organisation, so the empty listing of A proves nothing",
+  ).toBe(true);
+
+  const anonMemberships = await restGet(stack, '/org_memberships?select=role', null);
+  expect(anonMemberships.status, 'anon on org_memberships did not answer the measured privilege refusal').toBe(401);
+  expect(anonMemberships.text, 'the anon refusal does not name a permission denial').toMatch(/permission denied/i);
+
+  await assertTenantCatalog(sut);
+}
+
+/**
+ * AT-001.22 — an unassigned volunteer is denied a project's working data; the public page stays
+ * visible. Unit 1 has no assigned-volunteer policy, so the denial is the absence of a branch.
+ * The assigned-volunteer success belongs to unit 2. The positive control here is the owning
+ * NGO's viewer read of the project and the public page's 200.
+ */
+export async function at00122(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const stack = stackFromEnv();
+  const emailNgo = w.email('ngo-22');
+  const emailVolunteer = w.email('volunteer-22');
+
+  const ngo = await registerConfirmAndSignIn(sut, emailNgo);
+  const ngoCompletion = await sut.completeSignup(
+    ngo,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter 22', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(ngoCompletion, 'the owning NGO could not complete signup').toMatchObject({ ok: true });
+  if (!ngoCompletion.ok || ngoCompletion.organizationId === null) return;
+  const project = await sut.createProjectAsOperator(ngoCompletion.organizationId, 'Riverside Shelter Website 22');
+
+  const volunteer = await registerConfirmAndSignIn(sut, emailVolunteer);
+  await sut.linkGithubIdentity(volunteer, `volunteer-22-${volunteer.accountId.slice(0, 8)}`);
+  const volunteerCompletion = await sut.completeSignup(
+    volunteer,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(volunteerCompletion, 'the unassigned volunteer could not complete signup').toMatchObject({ ok: true });
+  if (!volunteerCompletion.ok) return;
+
+  const absent = crypto.randomUUID();
+  const foreignWorkspace = await sut.projectWorkspace(volunteer, project.id);
+  const absentWorkspace = await sut.projectWorkspace(volunteer, absent);
+  expect(foreignWorkspace.ok, 'an unassigned volunteer reached the project workspace').toBe(false);
+  expect(absentWorkspace.ok, 'an unassigned volunteer reached a workspace for an id that does not exist').toBe(false);
+  if (foreignWorkspace.ok || absentWorkspace.ok) return;
+  expect(foreignWorkspace.answer.status).toBe(404);
+  expect(absentWorkspace.answer.status).toBe(404);
+  expect(foreignWorkspace.answer.body, 'foreign and absent workspace refusals differ as bytes').toBe(
+    absentWorkspace.answer.body,
+  );
+  expect(foreignWorkspace.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
+
+  expect(emptyViewerRows(await sut.projectAsViewer(volunteer, project.id))).toEqual([]);
+
+  const asVisitor = await sut.publicProjectPage(project.id);
+  expect(asVisitor.ok, 'the public project page was refused with no token').toBe(true);
+  if (!asVisitor.ok) return;
+  expect(asVisitor.page).toEqual({
+    projectId: project.id,
+    projectName: 'Riverside Shelter Website 22',
+    organizationName: 'Riverside Shelter 22',
+  });
+  expect(JSON.stringify(asVisitor.page)).not.toContain('organizationId');
+  expect(JSON.stringify(asVisitor.page)).not.toContain('assignedVolunteerId');
+
+  const grantVolunteer = await authPost(stack, '/auth/v1/token?grant_type=password', {
+    email: emailVolunteer,
+    password: PASSWORD,
+  });
+  const asVolunteer = await functionPostRaw(
+    stack,
+    'public-project',
+    { projectId: project.id },
+    String(grantVolunteer.json.access_token ?? ''),
+  );
+  expect(asVolunteer.status, 'the public project page was refused as the volunteer').toBe(200);
+  expect(asVolunteer.text).toBe(asVisitor.answer.body);
+
+  const ownerRead = await sut.projectAsViewer(ngo, project.id);
+  expect(emptyViewerRows(ownerRead).map((row) => row.id)).toEqual([project.id]);
+
+  const anonWorkspace = await functionPostRaw(stack, 'project-workspace', { projectId: project.id }, null);
+  expect(anonWorkspace.status, 'anon workspace did not answer 401').toBe(401);
+
+  await assertTenantCatalog(sut);
 }
 
 /* -------------------------------------------------------- the ids that refuse, and what they name */

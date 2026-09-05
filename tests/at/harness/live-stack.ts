@@ -98,6 +98,45 @@ export async function authPost(
   return { url, status: response.status, json: jsonBody(await response.text()) };
 }
 
+/** A Data API GET as a caller. `bearer` null sends the anon key as bearer (the AT-001.17 arm's shape). */
+export async function restGet(
+  stack: Stack,
+  pathAndQuery: string,
+  bearer: string | null,
+): Promise<{ url: string; status: number; text: string }> {
+  const path = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
+  const url = `${stripSlash(stack.apiUrl)}/rest/v1${path}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      apikey: stack.anonKey,
+      Authorization: `Bearer ${bearer ?? stack.anonKey}`,
+      Accept: 'application/json',
+    },
+  });
+  return { url, status: response.status, text: await response.text() };
+}
+
+/** functionPost without the parse. */
+export async function functionPostRaw(
+  stack: Stack,
+  name: string,
+  body: unknown,
+  bearer: string | null,
+): Promise<{ status: number; text: string }> {
+  const url = `${stripSlash(stack.apiUrl)}/functions/v1/${name}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: stack.anonKey,
+      Authorization: `Bearer ${bearer ?? stack.anonKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, text: await response.text() };
+}
+
 export async function functionPost(
   stack: Stack,
   name: string,

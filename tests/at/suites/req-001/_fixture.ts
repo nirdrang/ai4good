@@ -236,6 +236,14 @@ import {
   discoveryMessageAllowed,
   emailVerifiedFromUser,
 } from '../../../../supabase/functions/_shared/verification.ts';
+import {
+  organizationDashboard,
+  projectWorkspace,
+  type TenantReadAnswer,
+  type TenantReads,
+} from '../../../../supabase/functions/_shared/tenant-reads.ts';
+import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
+import { CapabilityPending } from '../../harness/pending.ts';
 import type {
   AccountRow,
   AccountsSut,
@@ -247,12 +255,14 @@ import type {
   MembershipRow,
   OrganizationRow,
   ProjectRow,
+  PublicProjectOutcome,
   RefreshSessionOutcome,
   RepointMembershipOutcome,
   SendDiscoveryMessageOutcome,
   Session,
   SessionProvider,
   SignInOutcome,
+  TenantReadOutcome,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
@@ -742,6 +752,41 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
     return { ok: true, accountId: account.id, organizationId: organization?.id ?? null };
   };
+
+  const fixtureReads = (): TenantReads => ({
+    organization: async (organizationId) => {
+      const row = state.organizations.get(organizationId);
+      return { ok: true, rows: row ? [{ id: row.id, name: row.name }] : [] };
+    },
+    seatsOf: async (organizationId) => ({
+      ok: true,
+      rows: [...state.memberships.values()]
+        .filter((row) => row.organizationId === organizationId)
+        .map((row) => ({ account_id: row.accountId, role: row.role })),
+    }),
+    projectsOf: async (organizationId) => ({
+      ok: true,
+      rows: [...state.projects.values()]
+        .filter((row) => row.organizationId === organizationId)
+        .map((row) => ({ id: row.id, name: row.name, assigned_volunteer_id: row.assignedVolunteerId })),
+    }),
+    project: async (projectId) => {
+      const row = state.projects.get(projectId);
+      return {
+        ok: true,
+        rows: row
+          ? [{ id: row.id, name: row.name, org_id: row.organizationId, assigned_volunteer_id: row.assignedVolunteerId }]
+          : [],
+      };
+    },
+  });
+
+  const asTenantOutcome = <T>(result: TenantReadAnswer<T>): TenantReadOutcome<T> => {
+    const answer = { status: result.status, body: JSON.stringify(result.body) };
+    return result.status === 200 ? { ok: true, value: result.body, answer } : { ok: false, answer };
+  };
+
+  const deadSessionAnswer = { status: 401, body: JSON.stringify({ ok: false, reason: DEAD_SESSION_REASON }) };
 
   const sut: AccountsSut = {
     // Read straight off the shipped constant. A literal here would be a second statement of the same
@@ -1298,6 +1343,58 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const accountType: AccountType = 'platform_admin';
       state.accounts.set(session.accountId, { id: session.accountId, accountType });
       return session;
+    },
+
+    organizationAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    membershipsAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    projectAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    acknowledgmentsAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    tenantTableFacts: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+
+    organizationDashboard: async (session, organizationId) => {
+      const caller = resolveCaller(session);
+      if (caller === null) return { ok: false, answer: deadSessionAnswer };
+      return asTenantOutcome(await organizationDashboard(fixtureReads(), organizationId));
+    },
+    projectWorkspace: async (session, projectId) => {
+      const caller = resolveCaller(session);
+      if (caller === null) return { ok: false, answer: deadSessionAnswer };
+      return asTenantOutcome(await projectWorkspace(fixtureReads(), projectId));
+    },
+    publicProjectPage: async (projectId): Promise<PublicProjectOutcome> => {
+      const result = await publicProjectAnswer(projectId, {
+        source: async (id) => {
+          const project = state.projects.get(id);
+          if (!project) return { ok: true, rows: [] };
+          const organization = state.organizations.get(project.organizationId);
+          if (!organization) return { ok: true, rows: [] };
+          return {
+            ok: true,
+            rows: [{ project_id: project.id, project_name: project.name, organization_name: organization.name }],
+          };
+        },
+      });
+      const answer = { status: result.status, body: JSON.stringify(result.body) };
+      if (result.status !== 200) return { ok: false, answer };
+      return {
+        ok: true,
+        page: {
+          projectId: result.body.projectId,
+          projectName: result.body.projectName,
+          organizationName: result.body.organizationName,
+        },
+        answer,
+      };
     },
   };
 
