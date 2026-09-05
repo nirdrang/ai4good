@@ -16,14 +16,14 @@ judgment and prose: claude:fable@max
 hardest tasks: claude:fable@max
 how explorer: grok:grok-4.6@xhigh
 how explainer: claude:fable@low
-how critics: codex:gpt-6-astra@medium, claude:fable@high, grok:grok-4.6@xhigh, claude:opus@xhigh
+how critics: codex:gpt-6-astra@medium, claude:fable@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
 arena cross-judge pool: codex:gpt-6-astra@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
 swarm workers: grok:grok-4.6@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
-interrogate reviewers: codex:gpt-6-astra@medium, claude:fable@high, grok:grok-4.6@xhigh, claude:opus@xhigh
+interrogate reviewers: codex:gpt-6-astra@medium, claude:fable@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
 
 ## Changes made by eval, and how to undo each one
 
@@ -41,9 +41,15 @@ also raise, and two blinded judges from different families ranked muse above fab
 
 On 2026-09-05 the founder ruled muse out of every seat, on the route and not on the score: muse
 is reachable only through the codex router's OpenCode path, and the founder does not want a
-standing lane on it. The lane returned to fable at high, the descriptor it had before. The
-measurement stands: fable's marginal value in this seat was small, so the seat is a candidate for
-a three-lane panel if cost matters more than a fourth family.
+standing lane on it. The lane returned to fable, and the founder set it to medium the same day,
+one step below the high it held before, untested at that effort in this seat. The measurement
+stands: fable's marginal value in this seat was small, so the seat is a candidate for a
+three-lane panel if cost matters more than a fourth family.
+
+To return the fable lane to its earlier effort: replace the fable descriptor with the line below
+on both rows.
+
+    claude:fable@high
 
 To put muse back if the route ever changes: replace the fable descriptor with the line below on
 both rows. Change both or neither; the two rows are deliberately identical.
