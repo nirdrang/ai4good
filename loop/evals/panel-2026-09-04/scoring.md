@@ -163,3 +163,87 @@ item, the fable lanes cost 637k tokens in the critics and 427k plus 280k in inte
   `x-opencode-session` header. OpenCode has said requests missing it may error from 09/06. Adopting
   muse puts a standing sheet lane on that route. The header gap is a router defect and belongs
   upstream.
+## Astra at medium, a challenger for the sol seat, 2026-09-05
+
+The founder asked for sol at max against the new GPT-6 Astra at medium. Same diff, same commit, same
+prompt, same sandbox. Astra ran 6 minutes and returned three warnings, no critical, no noise. The
+router ledger shows 40 requests on the astra slug inside its window and no substitute.
+
+| astra finding | incumbent item |
+|---|---|
+| 1. moving the pending error creates a runtime dependency cycle | item 8, the cycle that moved to `pending.ts` |
+| 2. parking the ledger selftest also removed coverage of behaviour that stayed live | none, candidate new finding |
+| 3. live prose still promises the removed provenance guarantees | item 7, the prose sweep |
+
+Astra alone recovers items 7 and 8, two of twelve. Sol, in the real run, recovered eight: items 2,
+5, 7, 8, 9, 10, 11 and 12, including the three tests nobody else proposed.
+
+The candidate new finding is substantive. The parked ledger selftest held tests of `captureFailure`,
+tier selection, timeout isolation, and the mail identification probe rejecting HTML and bad
+answers. Those functions all stayed live, and no remaining selftest exercises them directly. That
+is a coverage regression the real panel did not raise. Adjudicated real by the lead, pending the
+blinded judges.
+
+On raw recall against the ruling astra is well behind sol. On marginal value it brought one real
+finding sol did not. The blinded judges decide which of those matters for the seat.
+### Sol against astra: judge one, fable at high, native. 5 minutes, 156k tokens.
+
+Labels for this pairing: P is astra at medium, Q is sol at max. Key in `label-key-sol-astra.txt`.
+
+| criterion | P (astra) | Q (sol) |
+|---|---|---|
+| marginal coverage | 4 | 2 |
+| factual accuracy | 4 | 5 |
+| freedom from noise | 5 | 4 |
+| actionability | 4 | 4 |
+| severity judgment | 4 | 3 |
+| **total** | **21** | **18** |
+
+Verdict: astra holds the seat. The judge credits astra with two things the settled three miss: the
+runtime import cycle this change created by turning a type-only import into a value import, and
+ten regression tests of live behaviour that left the tree inside a file parked for a different
+reason. Sol catches the first too and states it more precisely, but four of its six findings
+restate what the settled reviews already delivered, and it ranks its one new finding fourth. Sol's
+line cites are the more exact; astra's two one-line offsets are its only inaccuracies.
+
+Asked what a panel of three alone would miss, the judge named the import cycle first and the
+orphaned tests second.
+
+Note on the reading: the judge scored sol's own new findings, the three tests, as already covered
+because muse's review in the fixed panel proposed the request-shape pin and the deadline. That is
+correct for this pairing, where muse is settled and sol is the candidate, and it is the reverse of
+the earlier pairing where sol was settled. Marginal value depends on who else is in the room.
+### Sol against astra: judge two, grok at xhigh. 9 minutes, USD 0.14.
+
+| criterion | P (astra) | Q (sol) |
+|---|---|---|
+| marginal coverage | 4 | 2 |
+| factual accuracy | 5 | 4 |
+| freedom from noise | 4 | 2 |
+| actionability | 4 | 4 |
+| severity judgment | 4 | 3 |
+| **total** | **21** | **15** |
+
+Same verdict, same two marginal defects, same answer to the fourth-seat question: the import cycle
+and the orphaned selftests would go uncaught. The judge's one-line summary of sol: a fourth
+reviewer who mostly repeats the first three does not earn the seat.
+
+### Both judges on sol against astra
+
+Two blinded judges from different families, one pass each. Both give astra the seat, 21 to 18 and
+21 to 15. Both name the same two marginal defects. Both answer the removal question identically.
+The lead's own adjudication, before either judge ran, had flagged the orphaned selftests as the one
+new finding.
+
+The finding that decides it is not astra being a better reviewer than sol in the abstract. Sol's
+raw recall of the ruling was eight items to astra's two. It is that with muse now in the fixed
+panel, sol's unique contribution shrank to one finding it ranked fourth, while astra's two unique
+findings were things nobody in the room had raised. Marginal value depends on who else is seated.
+
+### What this does not settle
+
+Astra at medium ran six minutes to sol's real-run pass. It is the cheaper and faster lane by a wide
+margin, which matters. But the comparison is one diff, one replay, and astra reviewed with muse
+already seated while sol reviewed with fable seated. A clean test of the sol seat runs both against
+the same fixed panel on the next item's real interrogate. The result here is enough to seat astra
+as a fifth reviewer on the next item and score both live, not enough to unseat sol on its own.

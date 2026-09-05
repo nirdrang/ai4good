@@ -16,14 +16,14 @@ judgment and prose: claude:fable@max
 hardest tasks: claude:fable@max
 how explorer: grok:grok-4.6@xhigh
 how explainer: claude:fable@low
-how critics: codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
+how critics: codex:gpt-6-astra@medium, codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
 arena cross-judge pool: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
 swarm workers: grok:grok-4.6@xhigh
 architect runners: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
-interrogate reviewers: codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
+interrogate reviewers: codex:gpt-6-astra@medium, codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
 
 ## Changes made by eval, and how to undo each one
 
@@ -44,6 +44,19 @@ To undo: replace the muse descriptor with the line below on both rows. Change bo
 two rows are deliberately identical.
 
     claude:fable@high
+
+### The sol lane on the two panel rows, 2026-09-05
+
+`how critics` and `interrogate reviewers` held sol at max as a lane until 2026-09-05. The lane is
+now GPT-6 Astra at medium. Replay on the harness diff with the two candidates against the same
+fixed panel: two blinded judges from different families (fable and grok) both gave astra the seat,
+21 to 18 and 21 to 15, naming the same two defects nobody else on the panel raised. Astra ran six
+minutes at medium; sol's lanes ran three to five times longer at max. Sol keeps every other seat.
+Full record in `loop/evals/panel-2026-09-04/scoring.md`.
+
+To undo: replace the astra descriptor with the line below on both rows. Change both or neither.
+
+    codex:gpt-5.6-sol@max
 
 ### The explainer row, 2026-09-04
 
