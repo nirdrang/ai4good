@@ -43,7 +43,7 @@ fi
 # in the snapshot; this check only fires in an environment that lacks that setup script.
 if [ ! -d node_modules ]; then
   lines+=("node_modules: missing, installing...")
-  bun install --frozen-lockfile
+  bun install --frozen-lockfile >&2
 fi
 
 # Claude Code installs the pstack plugin inside the session from the marketplace source in the
@@ -56,19 +56,24 @@ else
   lines+=("pstack: marketplace NOT cloned yet - restart this session once")
 fi
 
+# Both login checks read the command's words, not only its exit code, the same way the pstack
+# runner's preflight does (its run.ts, preflightPassed). codex exits 1 when logged out, but grok
+# exits 0 either way: logged out, `grok models` prints "You are not authenticated." and still
+# lists the models, so an exit-code check said "logged in" on every fresh cloud session
+# (observed 2026-09-03). Logged in it prints "You are logged in with grok.com." (grok 1.0.13).
 if command -v codex >/dev/null 2>&1; then
-  if codex login status >/dev/null 2>&1; then
+  if out=$(codex login status 2>&1) && grep -qi "logged in" <<<"$out"; then
     lines+=("codex: logged in")
   else
     lines+=("codex: NOT logged in - run: codex login --device-auth")
   fi
 fi
 
-# `grok models` is the same preflight the pstack runner uses; it answers in about a second and
-# fails when the grok.com login is missing or expired (tokens last 7 days).
+# `grok models` is the same preflight the pstack runner uses. The runner also requires the
+# requested model in the list, so the check does too; the model is the grok family on the sheet.
 if command -v grok >/dev/null 2>&1; then
-  if grok models >/dev/null 2>&1; then
-    lines+=("grok: logged in")
+  if out=$(grok models 2>&1) && grep -qi "logged in" <<<"$out" && grep -q "grok-4.6" <<<"$out"; then
+    lines+=("grok: logged in, grok-4.6 available")
   else
     lines+=("grok: NOT logged in - run: grok login --device-auth")
   fi

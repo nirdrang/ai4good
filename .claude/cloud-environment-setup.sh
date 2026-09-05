@@ -36,6 +36,7 @@
 #
 # WHAT THE SNAPSHOT KEEPS (so later sessions get it free):
 #   - the codex, opencode and grok CLIs, and PowerShell
+#   - the pstack plugin and its marketplace clone, in the home folder
 #   - opencode's OpenCode Go credential
 #   - the docker ulimit shim at /usr/local/bin/docker
 #   - all 12 Supabase images, about 8.4 GB
@@ -51,8 +52,6 @@
 #     the banner says when it is needed. Grok tokens expire after 7 days, so a long-lived
 #     session logs in again. No API key: the founder wants the grok subscription billed,
 #     not per-token API use (2026-09-03).
-#   - the pstack plugin. Claude Code installs it inside each session from the marketplace
-#     source in the tracked .claude/settings.json. Nothing here installs it.
 #   - anything derived from the REPOSITORY - node_modules. Cloud sessions start from a
 #     fresh clone, so project setup belongs to the SessionStart hook, which runs inside
 #     the session with the tree present. The hook already installs node_modules when they
@@ -86,6 +85,17 @@ npm install -g @openai/codex opencode-ai
 curl -fsSL https://x.ai/cli/install.sh | bash
 test -x "$HOME/.grok/bin/grok"
 ln -sf "$HOME/.grok/bin/grok" /usr/local/bin/grok
+
+# The pstack plugin, from the open-pstack marketplace the tracked .claude/settings.json
+# names. Claude Code is meant to install it at session start from that source. On
+# 2026-09-05 a whole day of sessions and VM restarts never produced the clone, so every
+# pstack skill was absent and the banner said so each time. The claude CLI installs it
+# here, into the home folder the snapshot keeps, so every session has it from its first
+# start. Both commands run unattended; measured on 2026-09-05. The test fails loudly here
+# if the install did not register, instead of every pstack skill being missing later.
+claude plugin marketplace add ericlitman/open-pstack
+claude plugin install pstack@open-pstack
+claude plugin list | grep -q pstack@open-pstack
 
 # --- 2. PowerShell -----------------------------------------------------------------
 # The way-of-work scripts under loop/work are PowerShell, and PowerShell 7 runs them on
