@@ -21,7 +21,10 @@
 # So each surface carries exactly what reads it, and nothing else:
 #
 #   THIS SCRIPT defines, below:  the OpenCode Go key (nothing else needs to be here)
-#   THE VARIABLES BOX carries:   nothing today
+#   THE VARIABLES BOX carries:   CLAUDE_CODE_PROMPT_CACHE_TTL=1h (founder 2026-09-05), so the
+#                                lead runs on the one-hour prompt cache. Subagents keep the
+#                                five-minute default: the one-hour write price costs them
+#                                more than the rare long pause saves (measured 2026-09-05).
 #
 # THE KEY BELONGS HERE ONLY. Do not put it in the variables box: opencode does not read
 # any such variable (it recognises only the AWS pair and GITHUB_TOKEN), it reads the
