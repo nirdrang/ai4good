@@ -16,14 +16,14 @@ judgment and prose: claude:fable@max
 hardest tasks: claude:fable@max
 how explorer: grok:grok-4.6@xhigh
 how explainer: claude:fable@low
-how critics: codex:gpt-6-astra@medium, codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
+how critics: codex:gpt-6-astra@medium, claude:fable@high, grok:grok-4.6@xhigh, claude:opus@xhigh
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
 arena cross-judge pool: codex:gpt-6-astra@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
 swarm workers: grok:grok-4.6@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
-interrogate reviewers: codex:gpt-6-astra@medium, codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
+interrogate reviewers: codex:gpt-6-astra@medium, claude:fable@high, grok:grok-4.6@xhigh, claude:opus@xhigh
 
 ## Changes made by eval, and how to undo each one
 
