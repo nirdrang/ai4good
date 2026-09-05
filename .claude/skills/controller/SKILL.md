@@ -99,18 +99,24 @@ falsely In Progress.
    The founder runs the mechanic here and talks to it directly. You have no further part in
    the item.
 
-   **Cloud, on `/controller <id> cloud`.** Stay in the main folder. From the worktree:
+   **Cloud, on `/controller <id> cloud`.** Stay in the main folder. The worktree here had one
+   job, to commit the brief on the item branch without switching this folder. Once the push
+   lands, remove it: `git worktree remove .claude/worktrees/<item>`. The branch stays. The
+   cloud VM is its own clone and needs no worktree (founder 2026-09-05).
+
+   Creating a cloud session needs a real terminal. The tool shell has none, so print this
+   and ask the founder to run it in their own terminal:
 
    ```powershell
-   Set-Location .claude/worktrees/<item>
-   claude --cloud "Read loop/items/<item>/brief.md and follow it."
+   claude --cloud <item-short-name> "Check out the branch <branch> from origin. Then run /pstack:poteto-mode on loop/items/<item>/brief.md and follow it."
    ```
 
-   The cloud session clones the remote at the worktree's branch, so the push must land before
-   the command runs. The command names the session: a `session_...` id and a
-   `claude.ai/code/...` link. Record both in `loop/items/<item>/mechanic.md`, commit it to the
-   branch, and push. The founder talks to it on claude.ai or in the mobile app. If the launch
-   fails, print the exact command and ask the founder to run it. Do not retry silently.
+   The first argument after `--cloud` is the session's name. If the founder already has a
+   cloud session open, give them that same sentence to paste into it. The push must land
+   before either, because the VM clones the remote. When the founder pastes back the
+   `session_...` id and the `claude.ai/code/...` link, record both in
+   `loop/items/<item>/mechanic.md` on the branch through a fresh short-lived worktree, push,
+   and remove the worktree again. Do not retry a failed launch silently.
 
 ## The brief
 
