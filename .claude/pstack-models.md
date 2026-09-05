@@ -9,7 +9,7 @@ matrix default efforts. The earlier customized sheets are kept beside this file 
 `pstack-models.md.bak-*`.
 
 feature, refactoring: grok:grok-4.6@xhigh
-bug-fix: codex:gpt-6-astra@high
+bug-fix: codex:gpt-5.6-sol@max
 perf-issue: codex:gpt-6-astra@high
 hillclimb: codex:gpt-6-astra@high
 judgment and prose: claude:fable@max
@@ -45,14 +45,15 @@ two rows are deliberately identical.
 
     claude:fable@high
 
-### The three sol writer rows, 2026-09-05
+### The sol writer rows, 2026-09-05
 
-`bug-fix`, `perf-issue` and `hillclimb` held sol at max until 2026-09-05. They are now astra at
-high, by founder ruling and not by measurement: sol earned those seats in graded v1 trials, and
-astra has never written code here. The first item that routes a unit to one of these rows is the
-trial. Sol now holds no seat on this sheet.
+`bug-fix`, `perf-issue` and `hillclimb` held sol at max until 2026-09-05. `perf-issue` and
+`hillclimb` are now astra at high, by founder ruling and not by measurement: sol earned those
+seats in graded v1 trials, and astra has never written code here. The first item that routes a
+unit to one of those rows is the trial. `bug-fix` stays on sol at max, by the same ruling
+revised minutes later; it is sol's one remaining seat and keeps the sol family on the sheet.
 
-To undo: replace the astra descriptor with the line below on all three rows.
+To undo the two astra rows: replace the astra descriptor with the line below on both.
 
     codex:gpt-5.6-sol@max
 
