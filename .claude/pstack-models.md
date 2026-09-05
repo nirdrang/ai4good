@@ -19,10 +19,10 @@ how explainer: claude:fable@low
 how critics: codex:gpt-6-astra@medium, codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
-arena runners: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
-arena cross-judge pool: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
+arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
+arena cross-judge pool: codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
 swarm workers: grok:grok-4.6@xhigh
-architect runners: claude:fable@max, codex:gpt-5.6-sol@max, grok:grok-4.6@xhigh, claude:opus@xhigh
+architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
 interrogate reviewers: codex:gpt-6-astra@medium, codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
 
 ## Changes made by eval, and how to undo each one
@@ -44,6 +44,30 @@ To undo: replace the muse descriptor with the line below on both rows. Change bo
 two rows are deliberately identical.
 
     claude:fable@high
+
+### The two runner rows and the judge pool, 2026-09-05
+
+`arena runners` and `architect runners` held fable at max and sol at max as two of their four
+lanes until 2026-09-05. Those two lanes are now astra at medium and fable at low. Eight designs on
+one task at one commit, the four from the real arena plus fable at high, fable at low, astra at
+medium and muse at xhigh, each newcomer on an incumbent's direction, scored blind by DeepSeek
+Flash on the arena's own rubric: astra 18 tied with sol 18, opus 17, fable at high 16, grok 16,
+fable at low 16, fable at max 15, muse 10. The second judge, GLM, waits on the OpenCode window.
+Astra takes sol's seat on cost at a tie. Fable stays at low by founder ruling, not by score: it
+placed sixth. Muse is out of the runner rows. Full record in `loop/evals/design-2026-09-05/`.
+
+`arena cross-judge pool` loses its fable lane. The arena picks a judge from a provider different
+from the lead's, and the lead is fable, so that lane could never be chosen.
+
+To undo the runner rows: replace the astra descriptor with the first line below and the fable
+descriptor with the second, on both rows. Change both rows or neither.
+
+    codex:gpt-5.6-sol@max
+    claude:fable@max
+
+To undo the judge pool: add the line below back as the first lane.
+
+    claude:fable@max
 
 ### The sol lane on the two panel rows, 2026-09-05
 

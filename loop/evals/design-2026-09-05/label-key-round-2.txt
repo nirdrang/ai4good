@@ -1,0 +1,8 @@
+A = opus-xhigh (31022 bytes)
+B = muse-xhigh (16270 bytes)
+C = fable-low (26125 bytes)
+D = fable-high (25425 bytes)
+E = grok-xhigh (26585 bytes)
+F = sol-max (19513 bytes)
+G = fable-max (26702 bytes)
+H = astra-medium (20551 bytes)
