@@ -26,12 +26,11 @@
 import { expect } from 'vitest';
 
 import { AT_CONFIG } from '../../harness/atconfig.ts';
-import { authPost, functionPostRaw, restGet, stackFromEnv } from '../../harness/live-stack.ts';
 import { CapabilityPending } from '../../harness/registry.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import { TENANT_NOT_FOUND } from '../../../../supabase/functions/_shared/tenant-reads.ts';
 import type { Session } from './_contract.ts';
-import { TENANT_CATALOG, tenantCatalogProblems } from './_policy-scan.ts';
+import { isTautologicalUsing, TENANT_CATALOG, tenantCatalogProblems } from './_policy-scan.ts';
 // AT-001.17's source arm, shared with its loop body: the arm runs identically at both tiers, and the
 // two bodies live in different files, so the check has one home rather than two copies.
 import { inviteOrAddMemberSurface } from './_source-scan.ts';
@@ -162,34 +161,56 @@ async function registerConfirmAndSignIn(
   return signedIn.session;
 }
 
+const SERVICE_ROLE_SELECT = new Set(['accounts', 'org_memberships']);
+const VIEWER_FUNCTIONS = new Set(['viewer_is_org_member', 'viewer_is_platform_admin', 'viewer_is_volunteer']);
+const PUBLIC_PAGE_KEYS = ['ok', 'organizationName', 'projectId', 'projectName'];
+
 async function assertTenantCatalog(sut: Awaited<ReturnType<Ctx['open']>>['sut']): Promise<void> {
   expect(tenantCatalogProblems(), 'the static catalog scan found a problem').toEqual([]);
   const facts = await sut.tenantTableFacts();
-  const byTable = new Map(facts.map((row) => [row.table, row]));
+  const byTable = new Map(facts.tables.map((row) => [row.table, row]));
+  for (const table of byTable.keys()) {
+    expect(table in TENANT_CATALOG, `the live catalog has undeclared public table ${table}`).toBe(true);
+  }
   for (const [table, posture] of Object.entries(TENANT_CATALOG)) {
     const fact = byTable.get(table);
     expect(fact, `the live catalog has no row for ${table}`).toBeDefined();
     if (!fact) continue;
-    expect(fact.anonSelect, `${table} is selectable by anon`).toBe(false);
+    expect(fact.forceRowLevelSecurity, `${table} has FORCE ROW LEVEL SECURITY`).toBe(false);
+    expect(fact.anon, `${table} anon privileges`).toEqual([]);
+    const serviceExpected = SERVICE_ROLE_SELECT.has(table) ? ['select'] : [];
+    expect(fact.serviceRole, `${table} service_role privileges`).toEqual(serviceExpected);
     if (posture === 'tenant-isolated') {
       expect(fact.rowLevelSecurity, `${table} does not have row-level security`).toBe(true);
-      expect(fact.authenticatedSelect, `${table} is not selectable by authenticated`).toBe(true);
+      expect(fact.authenticated, `${table} authenticated privileges`).toEqual(['select']);
       expect(fact.policies.length, `${table} has no policy`).toBeGreaterThan(0);
       expect(
-        fact.policies.some((policy) => policy.using.replace(/\s+/g, ' ').trim().toLowerCase() === 'true'),
-        `${table} has a using (true) policy`,
+        fact.policies.some((policy) => isTautologicalUsing(policy.using)),
+        `${table} has a tautological using policy`,
       ).toBe(false);
     } else {
-      expect(fact.authenticatedSelect, `${table} is selectable by authenticated`).toBe(false);
+      expect(fact.authenticated, `${table} authenticated privileges`).toEqual([]);
     }
+  }
+  for (const fn of facts.functions) {
+    expect(fn.anonExecute, `${fn.name} is executable by anon`).toBe(false);
+    expect(fn.authenticatedExecute, `${fn.name} authenticated execute`).toBe(VIEWER_FUNCTIONS.has(fn.name));
   }
 }
 
-function emptyViewerRows<T>(read: { ok: true; rows: readonly T[] } | { ok: false }): readonly T[] {
+function viewerRows<T>(read: { ok: true; rows: readonly T[] } | { ok: false }): readonly T[] {
   expect(read.ok, 'a caller-bound read was refused at the privilege or session layer, so it is not an empty list').toBe(
     true,
   );
   return read.ok ? read.rows : [];
+}
+
+function publicPageKeys(body: string): string[] {
+  const parsed = JSON.parse(body) as unknown;
+  expect(parsed === null || typeof parsed !== 'object' || Array.isArray(parsed), 'public page body is not an object').toBe(
+    false,
+  );
+  return Object.keys(parsed as Record<string, unknown>).sort();
 }
 
 /* ------------------------------------------------------------------------ the ids that go green */
@@ -743,9 +764,8 @@ async function twoMembershipGiven(
  * WHAT THIS GREEN CLAIMS, AND WHAT IT DOES NOT (gate-1 ruling 1). It claims OPERATION-SURFACE
  * isolation: the same account's authority does not cross organisations on this action, proved by
  * three different answers to one caller. It does NOT claim read isolation over drafts, ledgers and
- * files — that breadth is the tenant-isolation deliverable's, which is blocked by this leaf, and
- * this tree has no read surface to leak through (row-level security on, zero policies,
- * `org_memberships` reachable by no client role).
+ * files — that breadth is the tenant-isolation deliverable's. `anon` holds nothing on any table;
+ * `authenticated` holds SELECT on the four tenant tables, filtered by policy.
  */
 export async function at00116(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
@@ -963,8 +983,8 @@ export async function at00137(ctx: Ctx): Promise<void> {
  *      because a router that answered 404 to everything would make the first answer meaningless.
  *      Both shapes were measured before this body was written (verify-first answer (e)).
  *   2. NO CLIENT REACH. `public.org_memberships` is asked for through the Data API with the
- *      publishable key and refuses — the privilege layer, not a policy, since the table is granted
- *      to no client role at all.
+ *      publishable key and refuses — the privilege layer for `anon`, not "no client role".
+ *      `authenticated` holds SELECT on this table, filtered by policy.
  *   3. NO ROOM IN THE DATABASE. The operator, whose authority exceeds anything the product holds,
  *      tries to seat a second member in an organisation that already holds its one seat, and the
  *      unique index refuses.
@@ -1273,7 +1293,6 @@ export async function at00139(ctx: Ctx): Promise<void> {
  */
 export async function at00121(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
-  const stack = stackFromEnv();
   const emailA = w.email('ngo-a-21');
   const emailB = w.email('ngo-b-21');
 
@@ -1294,15 +1313,15 @@ export async function at00121(ctx: Ctx): Promise<void> {
   expect(await sut.acknowledgments(completionA.accountId), "the operator cannot see A's acknowledgment").not.toEqual([]);
 
   const ownOrg = await sut.organizationAsViewer(sessionA, orgA);
-  expect(emptyViewerRows(ownOrg).map((row) => row.id)).toEqual([orgA]);
+  expect(viewerRows(ownOrg).map((row) => row.id)).toEqual([orgA]);
   const ownSeats = await sut.membershipsAsViewer(sessionA, orgA);
-  expect(emptyViewerRows(ownSeats)).toEqual([
+  expect(viewerRows(ownSeats)).toEqual([
     { organizationId: orgA, accountId: completionA.accountId, role: 'admin' },
   ]);
   const ownProject = await sut.projectAsViewer(sessionA, project.id);
-  expect(emptyViewerRows(ownProject).map((row) => row.id)).toEqual([project.id]);
+  expect(viewerRows(ownProject).map((row) => row.id)).toEqual([project.id]);
   const ownAcks = await sut.acknowledgmentsAsViewer(sessionA, completionA.accountId);
-  expect(emptyViewerRows(ownAcks).length, "A cannot read its own acknowledgment").toBeGreaterThan(0);
+  expect(viewerRows(ownAcks).length, "A cannot read its own acknowledgment").toBeGreaterThan(0);
   const ownDash = await sut.organizationDashboard(sessionA, orgA);
   expect(ownDash.ok, "A's own dashboard was refused, so B's denials prove nothing").toBe(true);
   if (!ownDash.ok) return;
@@ -1322,14 +1341,14 @@ export async function at00121(ctx: Ctx): Promise<void> {
   const absentProject = crypto.randomUUID();
   const absentAccount = crypto.randomUUID();
 
-  expect(emptyViewerRows(await sut.organizationAsViewer(sessionB, orgA))).toEqual([]);
-  expect(emptyViewerRows(await sut.organizationAsViewer(sessionB, absentOrg))).toEqual([]);
-  expect(emptyViewerRows(await sut.membershipsAsViewer(sessionB, orgA))).toEqual([]);
-  expect(emptyViewerRows(await sut.membershipsAsViewer(sessionB, absentOrg))).toEqual([]);
-  expect(emptyViewerRows(await sut.projectAsViewer(sessionB, project.id))).toEqual([]);
-  expect(emptyViewerRows(await sut.projectAsViewer(sessionB, absentProject))).toEqual([]);
-  expect(emptyViewerRows(await sut.acknowledgmentsAsViewer(sessionB, completionA.accountId))).toEqual([]);
-  expect(emptyViewerRows(await sut.acknowledgmentsAsViewer(sessionB, absentAccount))).toEqual([]);
+  expect(viewerRows(await sut.organizationAsViewer(sessionB, orgA))).toEqual([]);
+  expect(viewerRows(await sut.organizationAsViewer(sessionB, absentOrg))).toEqual([]);
+  expect(viewerRows(await sut.membershipsAsViewer(sessionB, orgA))).toEqual([]);
+  expect(viewerRows(await sut.membershipsAsViewer(sessionB, absentOrg))).toEqual([]);
+  expect(viewerRows(await sut.projectAsViewer(sessionB, project.id))).toEqual([]);
+  expect(viewerRows(await sut.projectAsViewer(sessionB, absentProject))).toEqual([]);
+  expect(viewerRows(await sut.acknowledgmentsAsViewer(sessionB, completionA.accountId))).toEqual([]);
+  expect(viewerRows(await sut.acknowledgmentsAsViewer(sessionB, absentAccount))).toEqual([]);
 
   const foreignDash = await sut.organizationDashboard(sessionB, orgA);
   const absentDash = await sut.organizationDashboard(sessionB, absentOrg);
@@ -1341,10 +1360,7 @@ export async function at00121(ctx: Ctx): Promise<void> {
   expect(foreignDash.answer.body, 'foreign and absent dashboard refusals differ as bytes').toBe(absentDash.answer.body);
   expect(foreignDash.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
 
-  const grantB = await authPost(stack, '/auth/v1/token?grant_type=password', { email: emailB, password: PASSWORD });
-  const listing = await restGet(stack, '/organizations?select=id,name', String(grantB.json.access_token ?? ''));
-  expect(listing.status, "B's unfiltered organisations listing was not 200").toBe(200);
-  const listed = JSON.parse(listing.text) as { id?: string }[];
+  const listed = viewerRows(await sut.organizationsAsViewer(sessionB));
   expect(
     listed.some((row) => row.id === orgA),
     "B's unfiltered organisations listing contains A's organisation",
@@ -1354,9 +1370,14 @@ export async function at00121(ctx: Ctx): Promise<void> {
     "B's unfiltered organisations listing does not contain B's own organisation, so the empty listing of A proves nothing",
   ).toBe(true);
 
-  const anonMemberships = await restGet(stack, '/org_memberships?select=role', null);
-  expect(anonMemberships.status, 'anon on org_memberships did not answer the measured privilege refusal').toBe(401);
-  expect(anonMemberships.text, 'the anon refusal does not name a permission denial').toMatch(/permission denied/i);
+  const anonMemberships = await sut.membershipsAsViewer(null, orgA);
+  expect(anonMemberships.ok, 'anon on org_memberships was not refused').toBe(false);
+  if (anonMemberships.ok) return;
+  expect(anonMemberships.kind, 'anon on org_memberships was not the privilege layer').toBe('privilege-denied');
+  expect(anonMemberships.answer.status, 'anon on org_memberships did not answer the measured privilege refusal').toBe(
+    401,
+  );
+  expect(anonMemberships.reason, 'the anon refusal does not name a permission denial').toMatch(/permission denied/i);
 
   await assertTenantCatalog(sut);
 }
@@ -1369,7 +1390,6 @@ export async function at00121(ctx: Ctx): Promise<void> {
  */
 export async function at00122(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
-  const stack = stackFromEnv();
   const emailNgo = w.email('ngo-22');
   const emailVolunteer = w.email('volunteer-22');
 
@@ -1406,7 +1426,7 @@ export async function at00122(ctx: Ctx): Promise<void> {
   );
   expect(foreignWorkspace.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
 
-  expect(emptyViewerRows(await sut.projectAsViewer(volunteer, project.id))).toEqual([]);
+  expect(viewerRows(await sut.projectAsViewer(volunteer, project.id))).toEqual([]);
 
   const asVisitor = await sut.publicProjectPage(project.id);
   expect(asVisitor.ok, 'the public project page was refused with no token').toBe(true);
@@ -1416,27 +1436,20 @@ export async function at00122(ctx: Ctx): Promise<void> {
     projectName: 'Riverside Shelter Website 22',
     organizationName: 'Riverside Shelter 22',
   });
-  expect(JSON.stringify(asVisitor.page)).not.toContain('organizationId');
-  expect(JSON.stringify(asVisitor.page)).not.toContain('assignedVolunteerId');
+  expect(publicPageKeys(asVisitor.answer.body)).toEqual(PUBLIC_PAGE_KEYS);
 
-  const grantVolunteer = await authPost(stack, '/auth/v1/token?grant_type=password', {
-    email: emailVolunteer,
-    password: PASSWORD,
-  });
-  const asVolunteer = await functionPostRaw(
-    stack,
-    'public-project',
-    { projectId: project.id },
-    String(grantVolunteer.json.access_token ?? ''),
-  );
-  expect(asVolunteer.status, 'the public project page was refused as the volunteer').toBe(200);
-  expect(asVolunteer.text).toBe(asVisitor.answer.body);
+  const asVolunteerPage = await sut.publicProjectPage(project.id, volunteer);
+  expect(asVolunteerPage.ok, 'the public project page was refused as the volunteer').toBe(true);
+  if (!asVolunteerPage.ok) return;
+  expect(asVolunteerPage.answer.body).toBe(asVisitor.answer.body);
+  expect(publicPageKeys(asVolunteerPage.answer.body)).toEqual(PUBLIC_PAGE_KEYS);
 
   const ownerRead = await sut.projectAsViewer(ngo, project.id);
-  expect(emptyViewerRows(ownerRead).map((row) => row.id)).toEqual([project.id]);
+  expect(viewerRows(ownerRead).map((row) => row.id)).toEqual([project.id]);
 
-  const anonWorkspace = await functionPostRaw(stack, 'project-workspace', { projectId: project.id }, null);
-  expect(anonWorkspace.status, 'anon workspace did not answer 401').toBe(401);
+  const anonWorkspace = await sut.projectWorkspace(null, project.id);
+  expect(anonWorkspace.ok, 'anon workspace was not refused').toBe(false);
+  expect(anonWorkspace.answer.status, 'anon workspace did not answer 401').toBe(401);
 
   await assertTenantCatalog(sut);
 }
@@ -1511,13 +1524,13 @@ export async function at00123(ctx: Ctx): Promise<void> {
     assignedVolunteerId: volunteerCompletion.accountId,
   });
   const ownProject = await sut.projectAsViewer(asVolunteer, project1.id);
-  expect(emptyViewerRows(ownProject).map((row) => row.id)).toEqual([project1.id]);
+  expect(viewerRows(ownProject).map((row) => row.id)).toEqual([project1.id]);
 
-  expect(emptyViewerRows(await sut.projectAsViewer(asVolunteer, project2.id))).toEqual([]);
-  expect(emptyViewerRows(await sut.projectAsViewer(asVolunteer, project3.id))).toEqual([]);
-  expect(emptyViewerRows(await sut.organizationAsViewer(asVolunteer, orgA))).toEqual([]);
-  expect(emptyViewerRows(await sut.membershipsAsViewer(asVolunteer, orgA))).toEqual([]);
-  expect(emptyViewerRows(await sut.acknowledgmentsAsViewer(asVolunteer, completionA.accountId))).toEqual([]);
+  expect(viewerRows(await sut.projectAsViewer(asVolunteer, project2.id))).toEqual([]);
+  expect(viewerRows(await sut.projectAsViewer(asVolunteer, project3.id))).toEqual([]);
+  expect(viewerRows(await sut.organizationAsViewer(asVolunteer, orgA))).toEqual([]);
+  expect(viewerRows(await sut.membershipsAsViewer(asVolunteer, orgA))).toEqual([]);
+  expect(viewerRows(await sut.acknowledgmentsAsViewer(asVolunteer, completionA.accountId))).toEqual([]);
 
   const siblingWorkspace = await sut.projectWorkspace(asVolunteer, project2.id);
   const foreignWorkspace = await sut.projectWorkspace(asVolunteer, project3.id);
@@ -1539,6 +1552,19 @@ export async function at00123(ctx: Ctx): Promise<void> {
   expect(await sut.projectAssignment(project2.id), 'the refused NGO seating wrote the seat anyway').toMatchObject({
     assignedVolunteerId: null,
   });
+
+  await sut.retypeAccountAsOperator(volunteerCompletion.accountId, 'ngo');
+  expect(await sut.projectAssignment(project1.id), 'retyping the volunteer moved the seat').toMatchObject({
+    assignedVolunteerId: volunteerCompletion.accountId,
+  });
+  const retyped = await sut.signInWithEmailPassword(emailVolunteer, PASSWORD);
+  expect(retyped, 'the retyped account could not sign in').toMatchObject({ ok: true });
+  if (!retyped.ok) return;
+  expect(viewerRows(await sut.projectAsViewer(retyped.session, project1.id))).toEqual([]);
+  const retypedWorkspace = await sut.projectWorkspace(retyped.session, project1.id);
+  expect(retypedWorkspace.ok, 'a retyped non-volunteer still reached P1 workspace').toBe(false);
+  if (retypedWorkspace.ok) return;
+  expect(retypedWorkspace.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
 
   await assertTenantCatalog(sut);
 }
@@ -1605,29 +1631,29 @@ export async function at00140(ctx: Ctx): Promise<void> {
   expect(wsA.answer.status).toBe(200);
   expect(wsB.answer.status).toBe(200);
 
-  expect(emptyViewerRows(await sut.organizationAsViewer(admin, orgA)).map((row) => row.id)).toEqual([orgA]);
-  expect(emptyViewerRows(await sut.organizationAsViewer(admin, orgB)).map((row) => row.id)).toEqual([orgB]);
-  expect(emptyViewerRows(await sut.membershipsAsViewer(admin, orgA))).toEqual([
+  expect(viewerRows(await sut.organizationAsViewer(admin, orgA)).map((row) => row.id)).toEqual([orgA]);
+  expect(viewerRows(await sut.organizationAsViewer(admin, orgB)).map((row) => row.id)).toEqual([orgB]);
+  expect(viewerRows(await sut.membershipsAsViewer(admin, orgA))).toEqual([
     { organizationId: orgA, accountId: completionA.accountId, role: 'admin' },
   ]);
-  expect(emptyViewerRows(await sut.membershipsAsViewer(admin, orgB))).toEqual([
+  expect(viewerRows(await sut.membershipsAsViewer(admin, orgB))).toEqual([
     { organizationId: orgB, accountId: completionB.accountId, role: 'admin' },
   ]);
-  expect(emptyViewerRows(await sut.projectAsViewer(admin, projectA.id)).map((row) => row.id)).toEqual([projectA.id]);
-  expect(emptyViewerRows(await sut.projectAsViewer(admin, projectB.id)).map((row) => row.id)).toEqual([projectB.id]);
+  expect(viewerRows(await sut.projectAsViewer(admin, projectA.id)).map((row) => row.id)).toEqual([projectA.id]);
+  expect(viewerRows(await sut.projectAsViewer(admin, projectB.id)).map((row) => row.id)).toEqual([projectB.id]);
   expect(
-    emptyViewerRows(await sut.acknowledgmentsAsViewer(admin, completionA.accountId)).length,
+    viewerRows(await sut.acknowledgmentsAsViewer(admin, completionA.accountId)).length,
     "the platform admin cannot read A's acknowledgment",
   ).toBeGreaterThan(0);
   expect(
-    emptyViewerRows(await sut.acknowledgmentsAsViewer(admin, completionB.accountId)).length,
+    viewerRows(await sut.acknowledgmentsAsViewer(admin, completionB.accountId)).length,
     "the platform admin cannot read B's acknowledgment",
   ).toBeGreaterThan(0);
 
   const ngoAIn = await sut.signInWithEmailPassword(emailA, PASSWORD);
   expect(ngoAIn, 'NGO A could not sign in before the repeated read').toMatchObject({ ok: true });
   if (!ngoAIn.ok) return;
-  expect(emptyViewerRows(await sut.organizationAsViewer(ngoAIn.session, orgB))).toEqual([]);
+  expect(viewerRows(await sut.organizationAsViewer(ngoAIn.session, orgB))).toEqual([]);
   const ngoDashB = await sut.organizationDashboard(ngoAIn.session, orgB);
   expect(ngoDashB.ok, "NGO A reached B's dashboard").toBe(false);
   if (ngoDashB.ok) return;
@@ -1642,7 +1668,6 @@ export async function at00140(ctx: Ctx): Promise<void> {
  */
 export async function at00124(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
-  const stack = stackFromEnv();
 
   const ngo = await registerConfirmAndSignIn(sut, w.email('ngo-24'));
   const completion = await sut.completeSignup(
@@ -1655,16 +1680,23 @@ export async function at00124(ctx: Ctx): Promise<void> {
   });
   if (!completion.ok || completion.organizationId === null) return;
   const project = await sut.createProjectAsOperator(completion.organizationId, 'Riverside Shelter Website 24');
+  const orgId = completion.organizationId;
 
-  for (const path of [
-    '/organizations?select=id',
-    '/org_memberships?select=role',
-    '/projects?select=id',
-    '/acknowledgments?select=account_id',
+  const anonOrg = await sut.organizationAsViewer(null, orgId);
+  const anonSeats = await sut.membershipsAsViewer(null, orgId);
+  const anonProject = await sut.projectAsViewer(null, project.id);
+  const anonAcks = await sut.acknowledgmentsAsViewer(null, completion.accountId);
+  for (const [label, answer] of [
+    ['organizations', anonOrg],
+    ['org_memberships', anonSeats],
+    ['projects', anonProject],
+    ['acknowledgments', anonAcks],
   ] as const) {
-    const answer = await restGet(stack, path, null);
-    expect(answer.status, `anon on ${path} did not answer 401`).toBe(401);
-    expect(answer.text, `the anon refusal on ${path} does not name a permission denial`).toMatch(
+    expect(answer.ok, `anon on ${label} was not refused`).toBe(false);
+    if (answer.ok) return;
+    expect(answer.kind, `anon on ${label} was not the privilege layer`).toBe('privilege-denied');
+    expect(answer.answer.status, `anon on ${label} did not answer 401`).toBe(401);
+    expect(answer.reason, `the anon refusal on ${label} does not name a permission denial`).toMatch(
       /permission denied/i,
     );
   }
@@ -1673,6 +1705,7 @@ export async function at00124(ctx: Ctx): Promise<void> {
   expect(page.ok, 'the public project page was refused with no token').toBe(true);
   if (!page.ok) return;
   expect(page.answer.status).toBe(200);
+  expect(publicPageKeys(page.answer.body)).toEqual(PUBLIC_PAGE_KEYS);
 
   throw new CapabilityPending(['ui.authenticated-surface-rendering']);
 }

@@ -25,7 +25,7 @@ Deno.serve(edgeHandler('project-workspace', async (request: Request): Promise<Re
   const projectId = typeof body.value.projectId === 'string' ? body.value.projectId.trim() : '';
   if (!UUID.test(projectId)) return refusal('a project workspace must name the project as a uuid', 400);
 
-  const authorization = request.headers.get('Authorization') ?? '';
+  const authorization = request.headers.get('Authorization')!;
   const answer = await projectWorkspace(callerReads(SUPABASE_URL, ANON_KEY, authorization), projectId);
   return json(answer.body, answer.status);
 }));

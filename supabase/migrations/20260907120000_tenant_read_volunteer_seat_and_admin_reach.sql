@@ -7,8 +7,6 @@
 -- The assigned-volunteer policy keeps the type conjunct beside the seat trigger: the
 -- trigger guards the write, the conjunct guards a read after the account's type changed.
 
-/* =========================================== 1. the seat holds a volunteer ================= */
-
 -- Symmetric with org_membership_grantee_must_be_ngo: one enforcement point on every SQL path.
 create function public.project_seat_holds_a_volunteer()
 returns trigger
@@ -35,7 +33,7 @@ begin
 
   if v_type <> 'volunteer'::public.account_type then
     raise exception
-      'projects refuses assignment: a single developer seat holds a volunteer account only'
+      'projects refuses assignment: the developer seat admits volunteer accounts only'
       using errcode = '42501';
   end if;
 
@@ -69,8 +67,6 @@ begin
 end
 $$;
 
-/* =========================================== 2. the administrator predicate ================ */
-
 create function public.viewer_is_platform_admin()
 returns boolean
 language sql
@@ -91,8 +87,6 @@ comment on function public.viewer_is_platform_admin() is
 
 revoke execute on function public.viewer_is_platform_admin() from public;
 grant execute on function public.viewer_is_platform_admin() to authenticated, service_role;
-
-/* =========================================== 3. the volunteer predicate and seat branch ==== */
 
 create function public.viewer_is_volunteer()
 returns boolean
@@ -120,18 +114,16 @@ create policy projects_select_assigned_volunteer
   on public.projects
   for select
   to authenticated
-  using (assigned_volunteer_id = (select auth.uid()) and public.viewer_is_volunteer());
+  using (assigned_volunteer_id = (select auth.uid()) and (select public.viewer_is_volunteer()));
 
 comment on policy projects_select_assigned_volunteer on public.projects is
   'A project is visible to the volunteer who holds its developer seat (REQ-001, AT-001.23).';
-
-/* =========================================== 4. the administrator's reach ================== */
 
 create policy organizations_select_platform_admin
   on public.organizations
   for select
   to authenticated
-  using (public.viewer_is_platform_admin());
+  using ((select public.viewer_is_platform_admin()));
 
 comment on policy organizations_select_platform_admin on public.organizations is
   'An organisation is visible to a platform administrator (REQ-001, AT-001.40).';
@@ -140,7 +132,7 @@ create policy org_memberships_select_platform_admin
   on public.org_memberships
   for select
   to authenticated
-  using (public.viewer_is_platform_admin());
+  using ((select public.viewer_is_platform_admin()));
 
 comment on policy org_memberships_select_platform_admin on public.org_memberships is
   'A seat is visible to a platform administrator (REQ-001, AT-001.40).';
@@ -149,7 +141,7 @@ create policy projects_select_platform_admin
   on public.projects
   for select
   to authenticated
-  using (public.viewer_is_platform_admin());
+  using ((select public.viewer_is_platform_admin()));
 
 comment on policy projects_select_platform_admin on public.projects is
   'A project is visible to a platform administrator (REQ-001, AT-001.40).';
@@ -158,7 +150,7 @@ create policy acknowledgments_select_platform_admin
   on public.acknowledgments
   for select
   to authenticated
-  using (public.viewer_is_platform_admin());
+  using ((select public.viewer_is_platform_admin()));
 
 comment on policy acknowledgments_select_platform_admin on public.acknowledgments is
   'An acknowledgment is visible to a platform administrator (REQ-001, AT-001.40).';

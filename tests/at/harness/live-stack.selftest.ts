@@ -220,18 +220,18 @@ describe('verifyLinksFor poll bound', () => {
   });
 });
 
-describe('authPost and functionPost request shape', () => {
-  function captureFetch(): { calls: { url: string; method?: string; headers: Record<string, string> }[] } {
-    const calls: { url: string; method?: string; headers: Record<string, string> }[] = [];
-    const stub: typeof fetch = async (input, init) => {
-      const headers = { ...(init?.headers as Record<string, string> | undefined) };
-      calls.push({ url: String(input), method: init?.method, headers });
-      return new Response('{}', { status: 200 });
-    };
-    globalThis.fetch = stub;
-    return { calls };
-  }
+function captureFetch(body = '{}'): { calls: { url: string; method?: string; headers: Record<string, string> }[] } {
+  const calls: { url: string; method?: string; headers: Record<string, string> }[] = [];
+  const stub: typeof fetch = async (input, init) => {
+    const headers = { ...(init?.headers as Record<string, string> | undefined) };
+    calls.push({ url: String(input), method: init?.method, headers });
+    return new Response(body, { status: 200 });
+  };
+  globalThis.fetch = stub;
+  return { calls };
+}
 
+describe('authPost and functionPost request shape', () => {
   it('sends POST with apikey, Bearer anon, and Content-Type', async () => {
     const original = globalThis.fetch;
     try {
@@ -280,21 +280,10 @@ describe('authPost and functionPost request shape', () => {
 });
 
 describe('restGet and functionPostRaw request shape', () => {
-  function captureFetch(): { calls: { url: string; method?: string; headers: Record<string, string> }[] } {
-    const calls: { url: string; method?: string; headers: Record<string, string> }[] = [];
-    const stub: typeof fetch = async (input, init) => {
-      const headers = { ...(init?.headers as Record<string, string> | undefined) };
-      calls.push({ url: String(input), method: init?.method, headers });
-      return new Response('{"ok":true}', { status: 200 });
-    };
-    globalThis.fetch = stub;
-    return { calls };
-  }
-
   it('restGet sends GET with apikey, Accept, and the caller bearer', async () => {
     const original = globalThis.fetch;
     try {
-      const { calls } = captureFetch();
+      const { calls } = captureFetch('{"ok":true}');
       const answer = await restGet(STACK, '/organizations?id=eq.1&select=id', 'user-token');
       expect(calls).toHaveLength(1);
       expect(calls[0].method).toBe('GET');
@@ -312,7 +301,7 @@ describe('restGet and functionPostRaw request shape', () => {
   it('restGet with a null bearer sends the anon key as bearer', async () => {
     const original = globalThis.fetch;
     try {
-      const { calls } = captureFetch();
+      const { calls } = captureFetch('{"ok":true}');
       await restGet(STACK, 'org_memberships?select=role', null);
       expect(calls[0].headers.Authorization).toBe(`Bearer ${STACK.anonKey}`);
       expect(calls[0].url).toBe('http://127.0.0.1:44321/rest/v1/org_memberships?select=role');
@@ -324,15 +313,17 @@ describe('restGet and functionPostRaw request shape', () => {
   it('functionPostRaw returns the raw text and sends the anon key when bearer is null', async () => {
     const original = globalThis.fetch;
     try {
-      const { calls } = captureFetch();
+      const { calls } = captureFetch('{"ok":true}');
       const withToken = await functionPostRaw(STACK, 'organization-dashboard', { organizationId: 'x' }, 'tok');
       expect(calls[0].method).toBe('POST');
       expect(calls[0].url).toBe('http://127.0.0.1:44321/functions/v1/organization-dashboard');
       expect(calls[0].headers.Authorization).toBe('Bearer tok');
+      expect(withToken.url).toBe('http://127.0.0.1:44321/functions/v1/organization-dashboard');
       expect(withToken.text).toBe('{"ok":true}');
       const asVisitor = await functionPostRaw(STACK, 'public-project', { projectId: 'x' }, null);
       expect(calls[1].headers.Authorization).toBe(`Bearer ${STACK.anonKey}`);
       expect(asVisitor.status).toBe(200);
+      expect(asVisitor.url).toBe('http://127.0.0.1:44321/functions/v1/public-project');
     } finally {
       globalThis.fetch = original;
     }

@@ -60,11 +60,14 @@ export function requireEnv(...names: string[]): string {
  *
  * THE ORIGIN IS `*` DELIBERATELY, and it is not a shortcut. An allow-list would need the deployed
  * app origins, which are not knowable from this tree — inventing one would be a guess wearing the
- * costume of a security control. It is safe here for a reason specific to these two endpoints:
- * BOTH AUTHENTICATE BY `Authorization` HEADER AND NEITHER READS A COOKIE, so a hostile page that
- * reaches them carries no ambient authority; it would have to already hold the user's access token,
- * and if it holds that it does not need a browser. This is the Supabase standard posture for edge
- * functions. A deployment that later authenticates by cookie must revisit this line first.
+ * costume of a security control. Six functions share this header. Five authenticate by
+ * `Authorization` header and none of the six reads a cookie, so a hostile page that reaches an
+ * authenticated function carries no ambient authority; it would have to already hold the user's
+ * access token, and if it holds that it does not need a browser. The sixth, `public-project`,
+ * authenticates nothing: it serves a public projection and the service role stays on the server,
+ * so a hostile page that calls it learns only what the public page is already willing to show.
+ * This is the Supabase standard posture for edge functions. A deployment that later authenticates
+ * by cookie must revisit this line first.
  */
 const CORS_HEADERS: Record<string, string> = {
   'access-control-allow-origin': '*',
@@ -309,7 +312,10 @@ export async function callDatabaseFunction(
 async function restJson<Row>(url: string, init: RequestInit): Promise<ReadResult<Row>> {
   const response = await fetch(url, init);
   const text = await response.text();
-  if (!response.ok) return { ok: false, detail: text };
+  if (!response.ok) {
+    console.error(`restJson ${response.status} ${url}: ${text}`);
+    return { ok: false, detail: text };
+  }
   try {
     const parsed: unknown = JSON.parse(text);
     if (!Array.isArray(parsed)) return { ok: false, detail: text };
@@ -319,7 +325,6 @@ async function restJson<Row>(url: string, init: RequestInit): Promise<ReadResult
   }
 }
 
-/** Caller-bound Data API GETs. A non-2xx answer is `{ ok: false, detail }`, never a throw. */
 export function callerReads(supabaseUrl: string, anonKey: string, authorization: string): TenantReads {
   const headers = { apikey: anonKey, Authorization: authorization, Accept: 'application/json' };
   const base = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`;
@@ -347,27 +352,18 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
 /** The public page's source: one RPC as the service role, never a table grant. */
 export function publicProjectReads(supabaseUrl: string, serviceRoleKey: string): PublicProjectReads {
   const url = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/rpc/read_public_project`;
+  const headers = {
+    'content-type': 'application/json',
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
+  };
   return {
-    source: async (projectId): Promise<ReadResult<PublicProjectSource>> => {
-      const response = await fetch(url, {
+    source: (projectId) =>
+      restJson<PublicProjectSource>(url, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-        },
+        headers,
         body: JSON.stringify({ p_project_id: projectId }),
-      });
-      const text = await response.text();
-      if (!response.ok) return { ok: false, detail: text };
-      try {
-        const parsed: unknown = JSON.parse(text);
-        if (!Array.isArray(parsed)) return { ok: false, detail: text };
-        return { ok: true, rows: parsed as PublicProjectSource[] };
-      } catch {
-        return { ok: false, detail: text };
-      }
-    },
+      }),
   };
 }
 

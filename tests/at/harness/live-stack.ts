@@ -117,36 +117,17 @@ export async function restGet(
   return { url, status: response.status, text: await response.text() };
 }
 
-/** functionPost without the parse. */
+/** An edge-function POST that returns raw text so equality is over bytes. */
 export async function functionPostRaw(
   stack: Stack,
   name: string,
   body: unknown,
   bearer: string | null,
-): Promise<{ status: number; text: string }> {
-  const url = `${stripSlash(stack.apiUrl)}/functions/v1/${name}`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      apikey: stack.anonKey,
-      Authorization: `Bearer ${bearer ?? stack.anonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  return { status: response.status, text: await response.text() };
-}
-
-export async function functionPost(
-  stack: Stack,
-  name: string,
-  body: unknown,
-  bearer: string,
   ip?: string,
-): Promise<{ url: string; status: number; json: Record<string, unknown> }> {
+): Promise<{ url: string; status: number; text: string }> {
   const headers: Record<string, string> = {
     apikey: stack.anonKey,
-    Authorization: `Bearer ${bearer}`,
+    Authorization: `Bearer ${bearer ?? stack.anonKey}`,
     'Content-Type': 'application/json',
   };
   if (ip) headers['x-forwarded-for'] = ip;
@@ -156,7 +137,18 @@ export async function functionPost(
     headers,
     body: JSON.stringify(body),
   });
-  return { url, status: response.status, json: jsonBody(await response.text()) };
+  return { url, status: response.status, text: await response.text() };
+}
+
+export async function functionPost(
+  stack: Stack,
+  name: string,
+  body: unknown,
+  bearer: string,
+  ip?: string,
+): Promise<{ url: string; status: number; json: Record<string, unknown> }> {
+  const { url, status, text } = await functionPostRaw(stack, name, body, bearer, ip);
+  return { url, status, json: jsonBody(text) };
 }
 
 /**

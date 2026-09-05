@@ -27,7 +27,7 @@ Deno.serve(edgeHandler('organization-dashboard', async (request: Request): Promi
     return refusal('an organisation dashboard must name the organisation as a uuid', 400);
   }
 
-  const authorization = request.headers.get('Authorization') ?? '';
+  const authorization = request.headers.get('Authorization')!;
   const answer = await organizationDashboard(callerReads(SUPABASE_URL, ANON_KEY, authorization), organizationId);
   return json(answer.body, answer.status);
 }));

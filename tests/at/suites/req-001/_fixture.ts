@@ -1286,7 +1286,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         return {
           ok: false,
           kind: 'not-a-volunteer-account',
-          reason: 'projects refuses assignment: a single developer seat holds a volunteer account only',
+          reason: 'projects refuses assignment: the developer seat admits volunteer accounts only',
         };
       }
       if (project.assignedVolunteerId !== null && project.assignedVolunteerId !== accountId) {
@@ -1358,16 +1358,27 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     acknowledgmentsAsViewer: () => {
       throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
     },
+    organizationsAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
     tenantTableFacts: () => {
       throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
     },
 
+    retypeAccountAsOperator: async (accountId, accountType) => {
+      const account = state.accounts.get(accountId);
+      if (!account) throw new Error(`no account ${accountId} to retype`);
+      state.accounts.set(accountId, { ...account, accountType });
+    },
+
     organizationDashboard: async (session, organizationId) => {
+      if (session === null) return { ok: false, answer: deadSessionAnswer };
       const caller = resolveCaller(session);
       if (caller === null) return { ok: false, answer: deadSessionAnswer };
       return asTenantOutcome(await organizationDashboard(fixtureReads(), organizationId));
     },
     projectWorkspace: async (session, projectId) => {
+      if (session === null) return { ok: false, answer: deadSessionAnswer };
       const caller = resolveCaller(session);
       if (caller === null) return { ok: false, answer: deadSessionAnswer };
       return asTenantOutcome(await projectWorkspace(fixtureReads(), projectId));

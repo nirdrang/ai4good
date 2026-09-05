@@ -70,9 +70,7 @@ import {
   authPost,
   followLink,
   functionPost,
-  functionPostRaw,
   mailIdentification,
-  restGet,
   sqlClient,
   verifyLinksFor,
   type Stack,
@@ -88,23 +86,17 @@ import type {
   CreateOrganizationOutcome,
   GrantMembershipOutcome,
   MembershipRow,
-  OrganizationDashboard,
   OrganizationRow,
   ProjectRow,
-  ProjectWorkspace,
-  PublicProjectOutcome,
-  PublicProjectView,
   RefreshSessionOutcome,
   RepointMembershipOutcome,
   Session,
   SignInOutcome,
-  TenantReadOutcome,
-  TenantTableFacts,
   UpdateOrganizationOutcome,
-  ViewerRead,
   VolunteerProfileRow,
   World,
 } from './_contract.ts';
+import { liveTenantReads, type JwtClaims } from './_live-tenant-reads.ts';
 
 /** THE SELF-DECLARATION the loader checks against the requirement it was asked for. */
 export const requirement = 'req-001' as const;
@@ -131,23 +123,22 @@ function tokensOf(store: Map<string, LiveSession>, session: Session, act: string
   return held;
 }
 
+function claimsOf(token: string): JwtClaims {
+  return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as JwtClaims;
+}
+
 /** The `session_id` claim, which is the identity of the `auth.sessions` row GoTrue minted. */
 function sessionIdOf(accessToken: string): string {
-  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as {
-    session_id?: unknown;
-    sub?: unknown;
-  };
-  return String(claims.session_id ?? '');
+  return String(claimsOf(accessToken).session_id ?? '');
 }
 
 function accountIdOf(accessToken: string): string {
-  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as { sub?: unknown };
-  return String(claims.sub ?? '');
+  return String(claimsOf(accessToken).sub ?? '');
 }
 
 /** `exp - iat`, in seconds: the lifetime the issuing Auth service is configured with, in its own words. */
 function lifetimeOf(accessToken: string): number {
-  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as { exp?: unknown; iat?: unknown };
+  const claims = claimsOf(accessToken);
   return Number(claims.exp) - Number(claims.iat);
 }
 
@@ -190,46 +181,6 @@ export function lifetimeProblem(accessToken: string, pinned: number): string | n
  * digits and capitals, which is the format's own shape. A client that reports it somewhere else
  * again simply yields no code, and the call sites below fall back on the sentence.
  */
-function expOf(accessToken: string): number {
-  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as { exp?: unknown };
-  return Number(claims.exp);
-}
-
-function viewerRead<Row>(
-  answer: { status: number; text: string },
-  parse: (value: unknown) => readonly Row[],
-): ViewerRead<Row> {
-  const viewerAnswer = { status: answer.status, body: answer.text };
-  if (answer.status === 200) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(answer.text) as unknown;
-    } catch {
-      return { ok: false, kind: 'refused', reason: answer.text, answer: viewerAnswer };
-    }
-    return { ok: true, rows: parse(parsed), answer: viewerAnswer };
-  }
-  const messageFirst = answer.text;
-  if ((answer.status === 401 || answer.status === 403) && /permission denied/i.test(messageFirst)) {
-    return { ok: false, kind: 'privilege-denied', reason: messageFirst, answer: viewerAnswer };
-  }
-  if ((answer.status === 401 || answer.status === 403) && /jwt|token|expired|invalid claim/i.test(messageFirst)) {
-    return { ok: false, kind: 'session-refused', reason: messageFirst, answer: viewerAnswer };
-  }
-  return { ok: false, kind: 'refused', reason: messageFirst, answer: viewerAnswer };
-}
-
-function asStringRows<Row>(value: unknown, map: (row: Record<string, unknown>) => Row | null): readonly Row[] {
-  if (!Array.isArray(value)) return [];
-  const rows: Row[] = [];
-  for (const entry of value) {
-    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
-    const mapped = map(entry as Record<string, unknown>);
-    if (mapped !== null) rows.push(mapped);
-  }
-  return rows;
-}
-
 function databaseRefusal(error: unknown): { code: string; message: string } {
   const carrier = error as Record<string, unknown> | null;
   let code = '';
@@ -272,22 +223,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   };
 
   const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
-
-  const freshAccessToken = async (session: Session, act: string): Promise<LiveSession> => {
-    const held = tokensOf(sessions, session, act);
-    if (expOf(held.accessToken) * 1000 - Date.now() >= 20_000) return held;
-    const { status, json } = await authPost(stack, '/auth/v1/token?grant_type=refresh_token', {
-      refresh_token: held.refreshToken,
-    });
-    if (status >= 400) {
-      throw new Error(`refusing to ${act}: the access token could not be refreshed (${status})`);
-    }
-    const accessToken = String(json.access_token ?? '');
-    if (!accessToken) throw new Error(`refusing to ${act}: the refresh answered with no access token`);
-    const next = { accessToken, refreshToken: String(json.refresh_token ?? held.refreshToken) };
-    sessions.set(session.sessionId, next);
-    return next;
-  };
 
   const accounts: AccountsSut = {
     /* ------------------------------------------------- Supabase Auth, over the stack's own gateway */
@@ -696,9 +631,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       } catch (error) {
         const { code, message } = databaseRefusal(error);
         // SENTENCE-PRIMARY, SQLSTATE AS AGREEMENT — gate-2 ruling R3, the same rule the membership
-        // grant above follows and for the same reason. The volunteer-seat refusal is matched first:
-        // its sentence also names a developer seat, and the occupancy pattern below would steal it.
-        if (/holds a volunteer account only/i.test(message) && (code === '' || code === '42501')) {
+        // grant above follows and for the same reason. The two patterns are disjoint: the type
+        // refusal names admission, the occupancy refusal names a single developer seat.
+        if (/developer seat admits volunteer accounts only/i.test(message) && (code === '' || code === '42501')) {
           return { ok: false, kind: 'not-a-volunteer-account', reason: message };
         }
         if (/single developer seat/i.test(message) && (code === '' || code === '42501')) {
@@ -872,6 +807,14 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return { accountId, email, provider: 'email', sessionId };
     },
 
+    retypeAccountAsOperator: async (accountId, accountType): Promise<void> => {
+      const updated = await rows<{ id: string }>(
+        sql`update public.accounts set account_type = ${accountType}::public.account_type
+             where id = ${accountId}::uuid returning id`,
+      );
+      if (updated.length !== 1) throw new Error(`the operator could not retype account ${accountId}`);
+    },
+
     // Written out because the integration manifest names each one, and `AccountsSut` makes an
     // omitted method a compile error.
     registerWithProvider: () => { throw new CapabilityPending(['sut.accounts.registerWithProvider']); },
@@ -881,175 +824,14 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     discoveryMessagesBy: () => { throw new CapabilityPending(['sut.accounts.discoveryMessagesBy']); },
     publicSignupAccountTypes: () => { throw new CapabilityPending(['sut.accounts.publicSignupAccountTypes']); },
 
-    organizationAsViewer: async (session, organizationId) => {
-      const tokens = await freshAccessToken(session, 'read an organisation as the caller');
-      const answer = await restGet(
-        stack,
-        `/organizations?id=eq.${encodeURIComponent(organizationId)}&select=id,name`,
-        tokens.accessToken,
-      );
-      return viewerRead(answer, (value) =>
-        asStringRows(value, (row) =>
-          typeof row.id === 'string' && typeof row.name === 'string' ? { id: row.id, name: row.name } : null,
-        ),
-      );
-    },
-
-    membershipsAsViewer: async (session, organizationId) => {
-      const tokens = await freshAccessToken(session, 'read memberships as the caller');
-      const answer = await restGet(
-        stack,
-        `/org_memberships?org_id=eq.${encodeURIComponent(organizationId)}&select=org_id,account_id,role`,
-        tokens.accessToken,
-      );
-      return viewerRead(answer, (value) =>
-        asStringRows(value, (row) => {
-          if (typeof row.org_id !== 'string' || typeof row.account_id !== 'string') return null;
-          if (row.role !== 'admin' && row.role !== 'member') return null;
-          return { organizationId: row.org_id, accountId: row.account_id, role: row.role };
-        }),
-      );
-    },
-
-    projectAsViewer: async (session, projectId) => {
-      const tokens = await freshAccessToken(session, 'read a project as the caller');
-      const answer = await restGet(
-        stack,
-        `/projects?id=eq.${encodeURIComponent(projectId)}&select=id,org_id,name,assigned_volunteer_id`,
-        tokens.accessToken,
-      );
-      return viewerRead(answer, (value) =>
-        asStringRows(value, (row) => {
-          if (typeof row.id !== 'string' || typeof row.org_id !== 'string' || typeof row.name !== 'string') return null;
-          return {
-            id: row.id,
-            organizationId: row.org_id,
-            name: row.name,
-            assignedVolunteerId: row.assigned_volunteer_id === null || row.assigned_volunteer_id === undefined
-              ? null
-              : String(row.assigned_volunteer_id),
-          };
-        }),
-      );
-    },
-
-    acknowledgmentsAsViewer: async (session, accountId) => {
-      const tokens = await freshAccessToken(session, 'read acknowledgments as the caller');
-      const answer = await restGet(
-        stack,
-        `/acknowledgments?account_id=eq.${encodeURIComponent(accountId)}&select=account_id,kind,acknowledged_at,ip,text_version,signer_name,signer_title,authority_attestation`,
-        tokens.accessToken,
-      );
-      return viewerRead(answer, (value) =>
-        asStringRows(value, (row) => {
-          if (typeof row.account_id !== 'string' || typeof row.kind !== 'string') return null;
-          return {
-            accountId: row.account_id,
-            kind: row.kind,
-            acknowledgedAt: String(row.acknowledged_at ?? ''),
-            ip: String(row.ip ?? ''),
-            textVersion: String(row.text_version ?? ''),
-            signerName: String(row.signer_name ?? ''),
-            signerTitle: String(row.signer_title ?? ''),
-            authorityAttestation: String(row.authority_attestation ?? ''),
-          };
-        }),
-      );
-    },
-
-    organizationDashboard: async (session, organizationId): Promise<TenantReadOutcome<OrganizationDashboard>> => {
-      const tokens = await freshAccessToken(session, 'call the deployed organization-dashboard');
-      const { status, text } = await functionPostRaw(stack, 'organization-dashboard', { organizationId }, tokens.accessToken);
-      const answer = { status, body: text };
-      if (status !== 200) return { ok: false, answer };
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text) as unknown;
-      } catch {
-        return { ok: false, answer };
-      }
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, answer };
-      const body = parsed as OrganizationDashboard;
-      if (body.ok !== true) return { ok: false, answer };
-      return { ok: true, value: body, answer };
-    },
-
-    projectWorkspace: async (session, projectId): Promise<TenantReadOutcome<ProjectWorkspace>> => {
-      const tokens = await freshAccessToken(session, 'call the deployed project-workspace');
-      const { status, text } = await functionPostRaw(stack, 'project-workspace', { projectId }, tokens.accessToken);
-      const answer = { status, body: text };
-      if (status !== 200) return { ok: false, answer };
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text) as unknown;
-      } catch {
-        return { ok: false, answer };
-      }
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, answer };
-      const body = parsed as ProjectWorkspace;
-      if (body.ok !== true) return { ok: false, answer };
-      return { ok: true, value: body, answer };
-    },
-
-    publicProjectPage: async (projectId): Promise<PublicProjectOutcome> => {
-      const { status, text } = await functionPostRaw(stack, 'public-project', { projectId }, null);
-      const answer = { status, body: text };
-      if (status !== 200) return { ok: false, answer };
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text) as unknown;
-      } catch {
-        return { ok: false, answer };
-      }
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, answer };
-      const body = parsed as { ok?: unknown } & PublicProjectView;
-      if (body.ok !== true) return { ok: false, answer };
-      return {
-        ok: true,
-        page: {
-          projectId: String(body.projectId ?? ''),
-          projectName: String(body.projectName ?? ''),
-          organizationName: String(body.organizationName ?? ''),
-        },
-        answer,
-      };
-    },
-
-    tenantTableFacts: async (): Promise<readonly TenantTableFacts[]> => {
-      const tables = await rows<{
-        table_name: string;
-        rls: boolean;
-        anon_select: boolean;
-        authenticated_select: boolean;
-      }>(sql`
-        select c.relname as table_name,
-               c.relrowsecurity as rls,
-               has_table_privilege('anon', format('public.%I', c.relname), 'select') as anon_select,
-               has_table_privilege('authenticated', format('public.%I', c.relname), 'select') as authenticated_select
-          from pg_class c
-          join pg_namespace n on n.oid = c.relnamespace
-         where n.nspname = 'public' and c.relkind = 'r'
-         order by c.relname
-      `);
-      const policyRows = await rows<{ tablename: string; policyname: string; qual: string | null }>(sql`
-        select tablename, policyname, qual
-          from pg_policies
-         where schemaname = 'public'
-      `);
-      const policiesByTable = new Map<string, { name: string; using: string }[]>();
-      for (const policy of policyRows) {
-        const list = policiesByTable.get(policy.tablename) ?? [];
-        list.push({ name: policy.policyname, using: policy.qual ?? '' });
-        policiesByTable.set(policy.tablename, list);
-      }
-      return tables.map((table) => ({
-        table: table.table_name,
-        rowLevelSecurity: table.rls === true,
-        anonSelect: table.anon_select === true,
-        authenticatedSelect: table.authenticated_select === true,
-        policies: policiesByTable.get(table.table_name) ?? [],
-      }));
-    },
+    ...liveTenantReads({
+      stack,
+      sessions,
+      tokensOf: (session, act) => tokensOf(sessions, session, act),
+      claimsOf,
+      rows,
+      sql,
+    }),
   };
 
   /**

@@ -306,12 +306,34 @@ export type ViewerRead<Row> =
   | { ok: false; kind: ViewerRefusalKind; reason: string; answer: ViewerAnswer };
 export type TenantReadOutcome<T> = { ok: true; value: T; answer: ViewerAnswer } | { ok: false; answer: ViewerAnswer };
 export type PublicProjectOutcome = { ok: true; page: PublicProjectView; answer: ViewerAnswer } | { ok: false; answer: ViewerAnswer };
+export type TablePrivilege =
+  | 'select'
+  | 'insert'
+  | 'update'
+  | 'delete'
+  | 'truncate'
+  | 'references'
+  | 'trigger';
+
 export type TenantTableFacts = {
   table: string;
   rowLevelSecurity: boolean;
-  anonSelect: boolean;
-  authenticatedSelect: boolean;
+  forceRowLevelSecurity: boolean;
+  anon: readonly TablePrivilege[];
+  authenticated: readonly TablePrivilege[];
+  serviceRole: readonly TablePrivilege[];
   policies: readonly { name: string; using: string }[];
+};
+
+export type TenantFunctionFacts = {
+  name: string;
+  anonExecute: boolean;
+  authenticatedExecute: boolean;
+};
+
+export type TenantCatalogFacts = {
+  tables: readonly TenantTableFacts[];
+  functions: readonly TenantFunctionFacts[];
 };
 
 /* ------------------------------------------------------------------------------------ the SUT */
@@ -678,6 +700,12 @@ export type AccountsSut = {
   assignVolunteerAsOperator(projectId: string, accountId: string): Promise<AssignVolunteerOutcome>;
 
   /**
+   * Change an account's type without touching any seat. AT-001.23's integration body uses it
+   * to prove the assigned-volunteer policy conjunct after the write trigger has already fired.
+   */
+  retypeAccountAsOperator(accountId: string, accountType: AccountType): Promise<void>;
+
+  /**
    * The project as it stands, or `null` when there is no such project — the read-back a refused
    * attach needs.
    *
@@ -780,16 +808,18 @@ export type AccountsSut = {
 
   /* ---- reads AS THE CALLER. The operator reads beside them are the existence control. ---- */
 
-  organizationAsViewer(session: Session, organizationId: string): Promise<ViewerRead<OrganizationRow>>;
-  membershipsAsViewer(session: Session, organizationId: string): Promise<ViewerRead<MembershipRow>>;
-  projectAsViewer(session: Session, projectId: string): Promise<ViewerRead<ProjectRow>>;
-  acknowledgmentsAsViewer(session: Session, accountId: string): Promise<ViewerRead<AcknowledgmentRow>>;
-  organizationDashboard(session: Session, organizationId: string): Promise<TenantReadOutcome<OrganizationDashboard>>;
-  projectWorkspace(session: Session, projectId: string): Promise<TenantReadOutcome<ProjectWorkspace>>;
-  /** no session: a visitor has none */
-  publicProjectPage(projectId: string): Promise<PublicProjectOutcome>;
+  organizationAsViewer(session: Session | null, organizationId: string): Promise<ViewerRead<OrganizationRow>>;
+  membershipsAsViewer(session: Session | null, organizationId: string): Promise<ViewerRead<MembershipRow>>;
+  projectAsViewer(session: Session | null, projectId: string): Promise<ViewerRead<ProjectRow>>;
+  acknowledgmentsAsViewer(session: Session | null, accountId: string): Promise<ViewerRead<AcknowledgmentRow>>;
+  /** unfiltered listing, including the anon arm when session is null */
+  organizationsAsViewer(session: Session | null): Promise<ViewerRead<OrganizationRow>>;
+  organizationDashboard(session: Session | null, organizationId: string): Promise<TenantReadOutcome<OrganizationDashboard>>;
+  projectWorkspace(session: Session | null, projectId: string): Promise<TenantReadOutcome<ProjectWorkspace>>;
+  /** session omitted or null is a visitor */
+  publicProjectPage(projectId: string, session?: Session | null): Promise<PublicProjectOutcome>;
   /** the live half of the guard, read as the operator */
-  tenantTableFacts(): Promise<readonly TenantTableFacts[]>;
+  tenantTableFacts(): Promise<TenantCatalogFacts>;
 };
 
 /* -------------------------------------------------------------------------------- the world */

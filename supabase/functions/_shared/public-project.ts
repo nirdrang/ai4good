@@ -24,7 +24,6 @@ export function projectIsPublic(_source: PublicProjectSource): boolean {
   return true;
 }
 
-/** Built field by field, so a wider row cannot leak a field through. */
 export function publicProjectView(source: PublicProjectSource): PublicProjectView {
   return {
     projectId: source.project_id,
@@ -41,13 +40,11 @@ export const PUBLIC_READ_FAILED = {
   body: { ok: false, reason: 'the public project page could not be read, so no answer was given' },
 } as const;
 
-/** A page, or one of the two constants. There is no fourth member, so a handler has nowhere to put a second refusal. */
 export type PublicProjectAnswer =
   | { status: 200; body: { ok: true } & PublicProjectView }
   | typeof PROJECT_NOT_PUBLIC
   | typeof PUBLIC_READ_FAILED;
 
-/** One read, then the predicate, then ONE `return PROJECT_NOT_PUBLIC` for both refusals. */
 export async function publicProjectAnswer(
   projectId: string,
   reads: PublicProjectReads,
