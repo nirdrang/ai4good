@@ -98,16 +98,36 @@ export async function authPost(
   return { url, status: response.status, json: jsonBody(await response.text()) };
 }
 
-export async function functionPost(
+/** A Data API GET as a caller. `bearer` null sends the anon key as bearer (the AT-001.17 arm's shape). */
+export async function restGet(
+  stack: Stack,
+  pathAndQuery: string,
+  bearer: string | null,
+): Promise<{ url: string; status: number; text: string }> {
+  const path = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
+  const url = `${stripSlash(stack.apiUrl)}/rest/v1${path}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      apikey: stack.anonKey,
+      Authorization: `Bearer ${bearer ?? stack.anonKey}`,
+      Accept: 'application/json',
+    },
+  });
+  return { url, status: response.status, text: await response.text() };
+}
+
+/** An edge-function POST that returns raw text so equality is over bytes. */
+export async function functionPostRaw(
   stack: Stack,
   name: string,
   body: unknown,
-  bearer: string,
+  bearer: string | null,
   ip?: string,
-): Promise<{ url: string; status: number; json: Record<string, unknown> }> {
+): Promise<{ url: string; status: number; text: string }> {
   const headers: Record<string, string> = {
     apikey: stack.anonKey,
-    Authorization: `Bearer ${bearer}`,
+    Authorization: `Bearer ${bearer ?? stack.anonKey}`,
     'Content-Type': 'application/json',
   };
   if (ip) headers['x-forwarded-for'] = ip;
@@ -117,7 +137,18 @@ export async function functionPost(
     headers,
     body: JSON.stringify(body),
   });
-  return { url, status: response.status, json: jsonBody(await response.text()) };
+  return { url, status: response.status, text: await response.text() };
+}
+
+export async function functionPost(
+  stack: Stack,
+  name: string,
+  body: unknown,
+  bearer: string,
+  ip?: string,
+): Promise<{ url: string; status: number; json: Record<string, unknown> }> {
+  const { url, status, text } = await functionPostRaw(stack, name, body, bearer, ip);
+  return { url, status, json: jsonBody(text) };
 }
 
 /**

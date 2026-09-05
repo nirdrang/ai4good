@@ -3,7 +3,9 @@
  *
  * The criterion's parenthetical is "(UI absent; API rejects)", and every other arm of that body
  * tests the second half: the acceptance surface holds no invite method, the deployed function does
- * not exist, the membership table reaches no client role, and the database refuses a second seat.
+ * not exist, `anon` holds nothing on the membership table (the 401 is the privilege layer for
+ * `anon`, not "no client role"), and the database refuses a second seat. `authenticated` holds
+ * SELECT on the four tenant tables, filtered by policy.
  * None of them looks at `src/routes/`, so an invite screen could be added while both tiers stayed
  * green. This module is what looks.
  *

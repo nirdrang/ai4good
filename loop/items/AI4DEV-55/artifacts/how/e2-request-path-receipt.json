@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "/home/user/ai4good",
+  "promptPath": "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/how/e2-request-path-prompt.md",
+  "outputPath": "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/how/e2-request-path-findings.md",
+  "startedAt": "2026-09-05T18:21:38.516Z",
+  "completedAt": "2026-09-05T18:21:39.922Z",
+  "elapsedMs": 1406,
+  "executable": "/root/.local/bin/grok",
+  "preflight": {
+    "argv": [
+      "/root/.local/bin/grok",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "authenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "/root/.local/bin/grok",
+    "--prompt-file",
+    "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/how/e2-request-path-prompt.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "plan",
+    "--sandbox",
+    "read-only",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "/home/user/ai4good",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 1,
+  "signal": null,
+  "status": "child-failed",
+  "reportedModel": null,
+  "modelVerified": false,
+  "modelEvidence": null,
+  "sessionId": null,
+  "usage": null,
+  "costUsd": null,
+  "error": {
+    "message": "child exited with status 1",
+    "evidence": "error: could not apply the 'read-only' sandbox profile; see the warning above for the cause. Refusing to start with its protections missing."
+  }
+}
