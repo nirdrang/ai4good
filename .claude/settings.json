@@ -1,4 +1,6 @@
 {
+  "model": "fable",
+  "effortLevel": "medium",
   "env": {
     "CLAUDE_CODE_PROMPT_CACHE_TTL": "1h",
     "CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL": "1h"

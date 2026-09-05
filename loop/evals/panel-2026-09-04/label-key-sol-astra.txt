@@ -1,0 +1,1 @@
+P = astra at medium (challenger). Q = sol at max (incumbent).

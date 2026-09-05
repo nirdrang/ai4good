@@ -62,7 +62,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 5. Way of work: the controller and poteto-mode (workflow v2; founder rulings 2026-08-29 and 2026-09-01)
 
-**One lifecycle, two verbs.** `/controller <id>` picks up one board item: it creates the branch
+**One lifecycle, two verbs.** `/controller <id>` picks up one board item, a leaf or a parent
+with its open children as units (founder ruling 2026-09-03: "parent and children for a beefy
+run"): it creates the branch
 and the worktree under `.claude/worktrees/`, writes the brief, moves this session into the
 worktree, and stops. The founder then types
 `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the same session. The
@@ -87,7 +89,9 @@ Three rules bind every session in this folder, before any skill is invoked:
   controller it finshed with the brief and them i run the pstack poteto mode on that
   session"): `/controller` moves its session into the item's worktree with `EnterWorktree`
   for the hand-off to poteto-mode, and back out with `ExitWorktree` for the gate.
-- **The merge closes an item; there is no second way to close work.** Machinery changed
+- **The merge closes an item; there is no second way to close work.** In a parent run the
+  merge closes the parent, and `/controller done` closes each built child from that merge
+  commit, because a pull request never names a child id. Machinery changed
   mid-item rides along in that item's branch; independent work is filed, not built; requirements
   close only through the evidence gate. Commits cite the item they belong to. **The lead
   (poteto-mode) does git and the pull request only. It never touches the board.** Board

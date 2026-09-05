@@ -1,0 +1,4 @@
+K = opus-xhigh
+L = fable-max
+M = sol-max
+N = grok-xhigh

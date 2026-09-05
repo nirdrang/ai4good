@@ -65,12 +65,15 @@ set -euo pipefail
 # carries nothing, and the session starts the one stack itself with `bun run db:start`.
 OPENCODE_GO_API_KEY='PASTE_YOUR_OPENCODE_GO_KEY_HERE'
 
-case "$OPENCODE_GO_API_KEY" in
-  PASTE_YOUR_*)
-    echo "edit the setup script: OPENCODE_GO_API_KEY is still the placeholder" >&2
-    exit 1
-    ;;
-esac
+# Guard commented out (founder 2026-09-03: "comment out the opencode guard"). With the
+# placeholder left in place the script still runs; step 3 then writes a credential file
+# holding the placeholder, and opencode is not usable until a real key replaces it.
+# case "$OPENCODE_GO_API_KEY" in
+#   PASTE_YOUR_*)
+#     echo "edit the setup script: OPENCODE_GO_API_KEY is still the placeholder" >&2
+#     exit 1
+#     ;;
+# esac
 
 # --- 1. the three agent CLIs -------------------------------------------------------
 npm install -g @openai/codex opencode-ai

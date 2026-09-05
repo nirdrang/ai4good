@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\panel-judge",
+  "promptPath": "C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\C--Users-nirdr-Downloads-ai4good\\ebf2407e-5bc0-4b13-abb6-8d3621f496cc\\scratchpad\\judge-prompt-sol-astra.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\evals\\panel-2026-09-04\\judge-sol-astra-grok.md",
+  "startedAt": "2026-09-05T10:14:06.424Z",
+  "completedAt": "2026-09-05T10:22:42.115Z",
+  "elapsedMs": 515691,
+  "executable": "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "attempt 1 failed:\nYou are not authenticated.\n\nDefault model: grok-4.6\n\nAvailable models:\n  * grok-4.6 (default)\n  - grok-4.5\n\nattempt 2 passed:\nauthenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+    "--prompt-file",
+    "C:\\Users\\nirdr\\AppData\\Local\\Temp\\claude\\C--Users-nirdr-Downloads-ai4good\\ebf2407e-5bc0-4b13-abb6-8d3621f496cc\\scratchpad\\judge-prompt-sol-astra.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "plan",
+    "--sandbox",
+    "read-only",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\panel-judge",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "grok-4.6-build",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "01a0710f-c587-74a1-abad-a6d3159ae182",
+  "usage": {
+    "inputTokens": 188249,
+    "cachedInputTokens": 549504,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 27280
+  },
+  "costUsd": 0.1385381,
+  "error": null
+}
