@@ -696,7 +696,11 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       } catch (error) {
         const { code, message } = databaseRefusal(error);
         // SENTENCE-PRIMARY, SQLSTATE AS AGREEMENT — gate-2 ruling R3, the same rule the membership
-        // grant above follows and for the same reason.
+        // grant above follows and for the same reason. The volunteer-seat refusal is matched first:
+        // its sentence also names a developer seat, and the occupancy pattern below would steal it.
+        if (/holds a volunteer account only/i.test(message) && (code === '' || code === '42501')) {
+          return { ok: false, kind: 'not-a-volunteer-account', reason: message };
+        }
         if (/single developer seat/i.test(message) && (code === '' || code === '42501')) {
           return { ok: false, kind: 'seat-occupied', reason: message };
         }

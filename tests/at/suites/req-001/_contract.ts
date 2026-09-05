@@ -277,17 +277,19 @@ export type RepointMembershipOutcome =
   | { ok: false; kind: 'not-an-ngo-account' | 'refused'; reason: string };
 
 /**
- * The outcome of an OPERATOR attaching a volunteer to a project — AT-001.32's act.
+ * The outcome of an OPERATOR attaching a volunteer to a project — AT-001.32's act, and
+ * AT-001.23's type-conjunct on the same write.
  *
- * `seat-occupied` is the database guard refusing to re-point a seat that is already held at a
- * DIFFERENT account, which is what "attaching a second volunteer" means. Releasing the seat to null
- * is not refused and is not tested here: offboarding belongs to another leaf, and a guard that
- * refused it would be building that leaf's requirement early. `refused` is the unclassified case,
- * for the reason `UpdateOrganizationOutcome` gives.
+ *   * `seat-occupied` — the single-developer guard refused to re-point a seat already held at a
+ *     DIFFERENT account. Releasing the seat to null is not refused and is not tested here:
+ *     offboarding belongs to another leaf.
+ *   * `not-a-volunteer-account` — the seat trigger refused a non-volunteer account, the same
+ *     shape `not-an-ngo-account` is for membership.
+ *   * `refused` — unclassified, for the reason `UpdateOrganizationOutcome` gives.
  */
 export type AssignVolunteerOutcome =
   | { ok: true; project: ProjectRow }
-  | { ok: false; kind: 'seat-occupied' | 'refused'; reason: string };
+  | { ok: false; kind: 'seat-occupied' | 'not-a-volunteer-account' | 'refused'; reason: string };
 
 /**
  * The outcome of an attempted Discovery message — and the refusal carries WHY, for the reason

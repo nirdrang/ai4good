@@ -1441,6 +1441,242 @@ export async function at00122(ctx: Ctx): Promise<void> {
   await assertTenantCatalog(sut);
 }
 
+/**
+ * AT-001.23 — the assigned volunteer reaches that project's working data, scoped to that
+ * project only. The green is over organisations, memberships, acknowledgments and a
+ * project's identity, because those are the tenant rows this tree has.
+ */
+export async function at00123(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const emailNgoA = w.email('ngo-a-23');
+  const emailNgoB = w.email('ngo-b-23');
+  const emailVolunteer = w.email('volunteer-23');
+
+  const ngoA = await registerConfirmAndSignIn(sut, emailNgoA);
+  const completionA = await sut.completeSignup(
+    ngoA,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter 23A', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completionA, 'NGO A could not complete signup').toMatchObject({ ok: true });
+  if (!completionA.ok || completionA.organizationId === null) return;
+  const orgA = completionA.organizationId;
+  const project1 = await sut.createProjectAsOperator(orgA, 'Riverside Shelter Website 23 P1');
+  const project2 = await sut.createProjectAsOperator(orgA, 'Riverside Shelter Website 23 P2');
+
+  const ngoB = await registerConfirmAndSignIn(sut, emailNgoB);
+  const completionB = await sut.completeSignup(
+    ngoB,
+    { accountType: 'ngo', organizationName: 'Northgate Foodbank 23B', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completionB, 'NGO B could not complete signup').toMatchObject({ ok: true });
+  if (!completionB.ok || completionB.organizationId === null) return;
+  const project3 = await sut.createProjectAsOperator(completionB.organizationId, 'Northgate Foodbank Website 23 P3');
+
+  const volunteer = await registerConfirmAndSignIn(sut, emailVolunteer);
+  await sut.linkGithubIdentity(volunteer, `volunteer-23-${volunteer.accountId.slice(0, 8)}`);
+  const volunteerCompletion = await sut.completeSignup(
+    volunteer,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(volunteerCompletion, 'the volunteer could not complete signup').toMatchObject({ ok: true });
+  if (!volunteerCompletion.ok) return;
+
+  const seated = await sut.assignVolunteerAsOperator(project1.id, volunteerCompletion.accountId);
+  expect(seated, 'the operator could not seat the volunteer on P1').toMatchObject({ ok: true });
+
+  expect(await sut.organization(orgA), "the operator cannot see A's organisation").not.toBeNull();
+  expect(await sut.projectAssignment(project1.id), 'the operator cannot see P1').toMatchObject({
+    assignedVolunteerId: volunteerCompletion.accountId,
+  });
+  expect(await sut.projectAssignment(project2.id), 'the operator cannot see P2').not.toBeNull();
+  expect(await sut.projectAssignment(project3.id), 'the operator cannot see P3').not.toBeNull();
+
+  const volunteerIn = await sut.signInWithEmailPassword(emailVolunteer, PASSWORD);
+  expect(volunteerIn, 'the assigned volunteer could not sign in before the reads').toMatchObject({ ok: true });
+  if (!volunteerIn.ok) return;
+  const asVolunteer = volunteerIn.session;
+
+  const ownWorkspace = await sut.projectWorkspace(asVolunteer, project1.id);
+  expect(ownWorkspace.ok, 'the assigned volunteer was refused P1 workspace').toBe(true);
+  if (!ownWorkspace.ok) return;
+  expect(ownWorkspace.answer.status).toBe(200);
+  expect(ownWorkspace.value).toEqual({
+    ok: true,
+    projectId: project1.id,
+    projectName: 'Riverside Shelter Website 23 P1',
+    organizationId: orgA,
+    assignedVolunteerId: volunteerCompletion.accountId,
+  });
+  const ownProject = await sut.projectAsViewer(asVolunteer, project1.id);
+  expect(emptyViewerRows(ownProject).map((row) => row.id)).toEqual([project1.id]);
+
+  expect(emptyViewerRows(await sut.projectAsViewer(asVolunteer, project2.id))).toEqual([]);
+  expect(emptyViewerRows(await sut.projectAsViewer(asVolunteer, project3.id))).toEqual([]);
+  expect(emptyViewerRows(await sut.organizationAsViewer(asVolunteer, orgA))).toEqual([]);
+  expect(emptyViewerRows(await sut.membershipsAsViewer(asVolunteer, orgA))).toEqual([]);
+  expect(emptyViewerRows(await sut.acknowledgmentsAsViewer(asVolunteer, completionA.accountId))).toEqual([]);
+
+  const siblingWorkspace = await sut.projectWorkspace(asVolunteer, project2.id);
+  const foreignWorkspace = await sut.projectWorkspace(asVolunteer, project3.id);
+  const owningDash = await sut.organizationDashboard(asVolunteer, orgA);
+  expect(siblingWorkspace.ok, 'the assigned volunteer reached P2 in the same organisation').toBe(false);
+  expect(foreignWorkspace.ok, 'the assigned volunteer reached P3 in another organisation').toBe(false);
+  expect(owningDash.ok, 'the assigned volunteer reached the owning organisation dashboard').toBe(false);
+  if (siblingWorkspace.ok || foreignWorkspace.ok || owningDash.ok) return;
+  expect(siblingWorkspace.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
+  expect(foreignWorkspace.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
+  expect(owningDash.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
+
+  const ngoSeat = await sut.assignVolunteerAsOperator(project2.id, completionA.accountId);
+  expect(ngoSeat.ok, 'an operator seated an NGO account in a developer seat').toBe(false);
+  if (ngoSeat.ok) return;
+  expect(ngoSeat.kind, 'the NGO seating was refused for a reason other than the account type').toBe(
+    'not-a-volunteer-account',
+  );
+  expect(await sut.projectAssignment(project2.id), 'the refused NGO seating wrote the seat anyway').toMatchObject({
+    assignedVolunteerId: null,
+  });
+
+  await assertTenantCatalog(sut);
+}
+
+/**
+ * AT-001.40 — a platform administrator reaches every tenant table of two NGOs. An NGO
+ * account repeating one of those reads is empty and answers the shared refusal.
+ */
+export async function at00140(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const emailA = w.email('ngo-a-40');
+  const emailB = w.email('ngo-b-40');
+  const adminEmail = w.email('platform-admin-40');
+
+  const ngoA = await registerConfirmAndSignIn(sut, emailA);
+  const completionA = await sut.completeSignup(
+    ngoA,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter 40A', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completionA, 'NGO A could not complete signup').toMatchObject({ ok: true });
+  if (!completionA.ok || completionA.organizationId === null) return;
+  const orgA = completionA.organizationId;
+  const projectA = await sut.createProjectAsOperator(orgA, 'Riverside Shelter Website 40A');
+
+  const ngoB = await registerConfirmAndSignIn(sut, emailB);
+  const completionB = await sut.completeSignup(
+    ngoB,
+    { accountType: 'ngo', organizationName: 'Northgate Foodbank 40B', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completionB, 'NGO B could not complete signup').toMatchObject({ ok: true });
+  if (!completionB.ok || completionB.organizationId === null) return;
+  const orgB = completionB.organizationId;
+  const projectB = await sut.createProjectAsOperator(orgB, 'Northgate Foodbank Website 40B');
+
+  expect(await sut.organization(orgA), "the operator cannot see A's organisation").not.toBeNull();
+  expect(await sut.organization(orgB), "the operator cannot see B's organisation").not.toBeNull();
+  expect(await sut.projectAssignment(projectA.id), 'the operator cannot see project A').not.toBeNull();
+  expect(await sut.projectAssignment(projectB.id), 'the operator cannot see project B').not.toBeNull();
+
+  const provisioned = await sut.provisionPlatformAdmin(adminEmail, PASSWORD);
+  const adminIn = await sut.signInWithEmailPassword(adminEmail, PASSWORD);
+  expect(adminIn, 'the provisioned platform admin could not sign in').toMatchObject({ ok: true });
+  if (!adminIn.ok) return;
+  expect(adminIn.session.accountId).toBe(provisioned.accountId);
+  const admin = adminIn.session;
+
+  const dashA = await sut.organizationDashboard(admin, orgA);
+  const dashB = await sut.organizationDashboard(admin, orgB);
+  expect(dashA.ok, "the platform admin was refused A's dashboard").toBe(true);
+  expect(dashB.ok, "the platform admin was refused B's dashboard").toBe(true);
+  if (!dashA.ok || !dashB.ok) return;
+  expect(dashA.answer.status).toBe(200);
+  expect(dashB.answer.status).toBe(200);
+  expect(dashA.value.organizationName).toBe('Riverside Shelter 40A');
+  expect(dashB.value.organizationName).toBe('Northgate Foodbank 40B');
+
+  const wsA = await sut.projectWorkspace(admin, projectA.id);
+  const wsB = await sut.projectWorkspace(admin, projectB.id);
+  expect(wsA.ok, "the platform admin was refused A's workspace").toBe(true);
+  expect(wsB.ok, "the platform admin was refused B's workspace").toBe(true);
+  if (!wsA.ok || !wsB.ok) return;
+  expect(wsA.answer.status).toBe(200);
+  expect(wsB.answer.status).toBe(200);
+
+  expect(emptyViewerRows(await sut.organizationAsViewer(admin, orgA)).map((row) => row.id)).toEqual([orgA]);
+  expect(emptyViewerRows(await sut.organizationAsViewer(admin, orgB)).map((row) => row.id)).toEqual([orgB]);
+  expect(emptyViewerRows(await sut.membershipsAsViewer(admin, orgA))).toEqual([
+    { organizationId: orgA, accountId: completionA.accountId, role: 'admin' },
+  ]);
+  expect(emptyViewerRows(await sut.membershipsAsViewer(admin, orgB))).toEqual([
+    { organizationId: orgB, accountId: completionB.accountId, role: 'admin' },
+  ]);
+  expect(emptyViewerRows(await sut.projectAsViewer(admin, projectA.id)).map((row) => row.id)).toEqual([projectA.id]);
+  expect(emptyViewerRows(await sut.projectAsViewer(admin, projectB.id)).map((row) => row.id)).toEqual([projectB.id]);
+  expect(
+    emptyViewerRows(await sut.acknowledgmentsAsViewer(admin, completionA.accountId)).length,
+    "the platform admin cannot read A's acknowledgment",
+  ).toBeGreaterThan(0);
+  expect(
+    emptyViewerRows(await sut.acknowledgmentsAsViewer(admin, completionB.accountId)).length,
+    "the platform admin cannot read B's acknowledgment",
+  ).toBeGreaterThan(0);
+
+  const ngoAIn = await sut.signInWithEmailPassword(emailA, PASSWORD);
+  expect(ngoAIn, 'NGO A could not sign in before the repeated read').toMatchObject({ ok: true });
+  if (!ngoAIn.ok) return;
+  expect(emptyViewerRows(await sut.organizationAsViewer(ngoAIn.session, orgB))).toEqual([]);
+  const ngoDashB = await sut.organizationDashboard(ngoAIn.session, orgB);
+  expect(ngoDashB.ok, "NGO A reached B's dashboard").toBe(false);
+  if (ngoDashB.ok) return;
+  expect(ngoDashB.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
+
+  await assertTenantCatalog(sut);
+}
+
+/**
+ * AT-001.24 — logged-out visitor. The API half is asserted first so a grant or public-page
+ * regression fails the run; the UI redirect is the named capability this leaf does not land.
+ */
+export async function at00124(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const stack = stackFromEnv();
+
+  const ngo = await registerConfirmAndSignIn(sut, w.email('ngo-24'));
+  const completion = await sut.completeSignup(
+    ngo,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter 24', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completion, 'the NGO could not complete signup, so the public page has no project').toMatchObject({
+    ok: true,
+  });
+  if (!completion.ok || completion.organizationId === null) return;
+  const project = await sut.createProjectAsOperator(completion.organizationId, 'Riverside Shelter Website 24');
+
+  for (const path of [
+    '/organizations?select=id',
+    '/org_memberships?select=role',
+    '/projects?select=id',
+    '/acknowledgments?select=account_id',
+  ] as const) {
+    const answer = await restGet(stack, path, null);
+    expect(answer.status, `anon on ${path} did not answer 401`).toBe(401);
+    expect(answer.text, `the anon refusal on ${path} does not name a permission denial`).toMatch(
+      /permission denied/i,
+    );
+  }
+
+  const page = await sut.publicProjectPage(project.id);
+  expect(page.ok, 'the public project page was refused with no token').toBe(true);
+  if (!page.ok) return;
+  expect(page.answer.status).toBe(200);
+
+  throw new CapabilityPending(['ui.authenticated-surface-rendering']);
+}
+
 /* -------------------------------------------------------- the ids that refuse, and what they name */
 
 /**
