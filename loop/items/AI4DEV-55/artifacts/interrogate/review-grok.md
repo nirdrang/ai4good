@@ -1,0 +1,40 @@
+## Findings
+
+### 1. [warning] `_live.ts` crossed the 1000-line line
+**Location**: `tests/at/suites/req-001/_live.ts` (839 lines on `origin/main`, 1078 now)
+**Finding**: This pull request is the one that pushed the live adapter over 1000 lines. Almost all of the new bulk is one shape: refresh the token, `GET /rest/v1/...`, parse rows. That does not belong in the same file as Auth signup, operator SQL, and the write-function clients.
+**Evidence**: `freshAccessToken`, `viewerRead`, `asStringRows`, and the eight new `AccountsSut` members are a self-contained read adapter. They do not share control flow with `completeSignup` or `assignVolunteerAsOperator`. The quality bar treats crossing 1000 lines as a presumptive blocker unless the file stays clearly organized. This one does not: it is already a concatenation of Auth, operator writes, operator reads, and now caller-bound reads.
+**Suggestion**: Move the viewer path to something like `_live-reads.ts` that takes `stack` / `sessions` / `sql` and returns the eight members. Spread them into `accounts`. The live adapter goes back under 1000 lines and the read contract has one home.
+
+### 2. [warning] The CI catalog scan does not enforce the posture it claims
+**Location**: `tests/at/suites/req-001/_policy-scan.ts` (`scanTenantMigrations`, especially the `create function` branch around line 221 and the isolated-table grant check around line 307)
+**Finding**: Ruling 9 says the catalog check enforces two things: `viewer_` helpers have a fixed shape, and every other function stays `service_role` only. The header of `20260906120000_tenant_read_posture_and_org_member_policies.sql` also says `authenticated` holds `SELECT` and nothing else. The scanner does neither. CI runs this scanner and not the live `pg_class` check, so a later migration can undo the posture and stay green on merge.
+**Evidence**:
+- Non-viewer `create function` hits `continue` and is forgotten. Nothing requires `revoke execute from public` or a `service_role`-only grant on `read_public_project`. Postgres still grants `EXECUTE` to `PUBLIC` by default. The first accounts migration treated that default as a real hole (`complete_signup` callable with the publishable key). This leaf adds another `SECURITY DEFINER` RPC and does not put that lesson in the guard.
+- Isolated tables are checked with `authenticated.has('select')` only. `GRANT INSERT` / `UPDATE` / `DELETE` / `TRUNCATE` still pass.
+- Overlay does not parse `DROP POLICY`, `DISABLE ROW LEVEL SECURITY`, `GRANT … ON ALL TABLES IN SCHEMA public`, `GRANT … TO PUBLIC`, or `ALTER DEFAULT PRIVILEGES`. Earlier migrations already record that Supabase ships default privileges on `public`. Those statements leave the in-memory grant map unchanged, so `accounts` / `volunteer_profiles` can become client-readable without `unreachable-client-grant`.
+**Suggestion**: Track every `public` function, not only `viewer_` ones. Non-viewer functions must revoke `PUBLIC` and grant `service_role` only (or be a trigger function with no client grant). For tables, assert the remaining `authenticated` privilege set is exactly `{select}` on isolated tables and empty on unreachable ones. Parse `DROP POLICY`, `DISABLE ROW LEVEL SECURITY`, `ON ALL TABLES`, `TO PUBLIC`, and `ALTER DEFAULT PRIVILEGES`, or refuse those statement forms outright so the overlay cannot lie.
+
+### 3. [warning] `publicProjectReads` copies `restJson` instead of calling it
+**Location**: `supabase/functions/_shared/edge.ts` (`restJson` at line 309, `publicProjectReads` at line 348)
+**Finding**: `restJson` is the one helper that turns a Data API response into `ReadResult` without throwing. `publicProjectReads.source` reimplements the same fetch / text / status / `JSON.parse` / `Array.isArray` path, including the same silent `as Row[]` cast.
+**Evidence**: The two blocks differ only in `method: 'POST'` and the JSON body. `callerReads` already uses `restJson`. A parse or status change now has two places to drift, and the public page is the one anonymous read.
+**Suggestion**: `source: (projectId) => restJson(url, { method: 'POST', headers, body: JSON.stringify({ p_project_id: projectId }) })`. Delete the copy.
+
+### 4. [warning] AT-001.23 never exercises the read-side volunteer conjunct
+**Location**: `supabase/migrations/20260907120000_tenant_read_volunteer_seat_and_admin_reach.sql` line 119 (`projects_select_assigned_volunteer`); `tests/at/suites/req-001/_integration.ts` `at00123`; `tests/at/suites/req-001/d-tenant-isolation.test.ts` AT-001.23 loop body
+**Finding**: The design keeps the type conjunct next to the write trigger because they guard different moments: the trigger on write, the conjunct on a later `account_type` change. AT-001.23 is supposed to exercise both. It only exercises the trigger (operator seats an NGO, expects `not-a-volunteer-account`). The policy `assigned_volunteer_id = auth.uid() AND viewer_is_volunteer()` can drop the second conjunct and every AT-001.23 assertion still passes.
+**Evidence**: Integration seats a volunteer, reads P1 as that volunteer (still type `volunteer`), and refuses an NGO on the write. Loop does the same through the fixture mirror, plus injected reads that never consult account type. Nobody updates `accounts.account_type` after a successful seat and then reads `projects` as that caller. That is the only moment the conjunct does work the trigger cannot see.
+**Suggestion**: After seating the volunteer, have the operator set that account to `ngo` (or whatever non-volunteer type) and assert the viewer read of P1 is `[]` and `projectWorkspace` returns the shared 404 bytes. Keep the NGO-on-write assertion for the trigger.
+
+### 5. [warning] This leaf falsifies more comments than it corrected
+**Location**: `tests/at/suites/req-001/_integration.ts` lines 743–748 (`at00116`) and 965–967 (`at00117` arm 2); `tests/at/suites/req-001/_source-scan.ts` lines 4–6
+**Finding**: Ruling 12 named two comments this deliverable makes false (`_contract.ts` on `org_memberships`, `_live.ts` on `projects`) and said to correct them in the same change. Those two were updated. The integration write-up for AT-001.16 and AT-001.17 still states the old privilege story, which is now the opposite of the database.
+**Evidence**: AT-001.16 still says the tree has no read surface, RLS is on with zero policies, and `org_memberships` reaches no client role. This change adds policies, grants `SELECT` on `org_memberships` to `authenticated`, and ships three read functions. AT-001.17 arm 2 still says the table is granted to no client role at all. The anon probe still answers 401, so the test stays green while the because-clause is wrong. `_source-scan.ts` repeats “the membership table reaches no client role”.
+**Suggestion**: Rewrite those paragraphs to the posture this leaf actually landed: `anon` holds nothing; `authenticated` holds `SELECT` on the four tenant tables, filtered by policy. Keep the anon 401 pin, and say it is the privilege layer for `anon`, not “no client role”.
+
+### 6. [warning] The Grok wrapper escalates permissions past the Landlock workaround
+**Location**: `loop/work/grok-shim/grok` lines 35–47
+**Finding**: The stated job is to start the Grok CLI on a kernel without Landlock: rewrite `--sandbox workspace` to `devbox`, and `--sandbox read-only` to `devbox` when the probe file says read-only cannot apply. The script also rewrites `--permission-mode acceptEdits` to `bypassPermissions` and exports `GROK_SANDBOX_AUTO_ALLOW_BASH=1` on every invocation.
+**Evidence**: Landlock absence does not require skipping permission prompts or auto-allowing bash. `acceptEdits` and `bypassPermissions` are different modes. Combined with PATH-front installation, every `grok` call through this wrapper gets unconstrained shell and unconstrained edits, including on hosts where Landlock works and the sandbox stays `read-only`.
+**Suggestion**: Keep the sandbox rewrite. Drop the `permission-mode` rewrite and the bash auto-allow, or gate them on an explicit env flag that is not the default.

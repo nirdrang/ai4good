@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "isolated-write",
+  "cwd": "/home/user/ai4good/.claude/worktrees/unit-1",
+  "promptPath": "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/units/unit-1-prompt.md",
+  "outputPath": "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/units/unit-1-reply.md",
+  "startedAt": "2026-09-05T20:41:27.830Z",
+  "completedAt": "2026-09-05T21:10:17.723Z",
+  "elapsedMs": 1729893,
+  "executable": "/root/.local/grok-shim/grok",
+  "preflight": {
+    "argv": [
+      "/root/.local/grok-shim/grok",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "authenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "/root/.local/grok-shim/grok",
+    "--prompt-file",
+    "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/units/unit-1-prompt.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "acceptEdits",
+    "--sandbox",
+    "workspace",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd,search_replace",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "/home/user/ai4good/.claude/worktrees/unit-1",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "grok-4.6-build",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "01a0734e-0bb1-72c2-aab1-b5ec6d04c9d4",
+  "usage": {
+    "inputTokens": 719536,
+    "cachedInputTokens": 8992384,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 76881
+  },
+  "costUsd": 1.8898798,
+  "error": null
+}
