@@ -31,19 +31,24 @@ Do not write an old row out in full anywhere in this file, even inside a comment
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
 
-### The two panel rows, 2026-09-04
+### The two panel rows: muse in on 2026-09-04, out again on 2026-09-05
 
 `how critics` and `interrogate reviewers` held fable at high as their first lane until 2026-09-04.
-The lane is now muse 1.3 at xhigh. Bundle against bundle on the harness item, replayed from the
-real panel's own ruling: the fable lane raised no acted-on item that another lane did not also
-raise, and two blinded judges from different families both ranked muse above fable for the seat,
-16 to 14 and 16 to 12, naming the same single marginal defect. Full record in
-`loop/evals/panel-2026-09-04/`.
+That day the lane became muse 1.3 at xhigh: bundle against bundle on the harness item, replayed
+from the real panel's own ruling, the fable lane raised no acted-on item that another lane did not
+also raise, and two blinded judges from different families ranked muse above fable for the seat,
+16 to 14 and 16 to 12. Full record in `loop/evals/panel-2026-09-04/`.
 
-To undo: replace the muse descriptor with the line below on both rows. Change both or neither; the
-two rows are deliberately identical.
+On 2026-09-05 the founder ruled muse out of every seat, on the route and not on the score: muse
+is reachable only through the codex router's OpenCode path, and the founder does not want a
+standing lane on it. The lane returned to fable at high, the descriptor it had before. The
+measurement stands: fable's marginal value in this seat was small, so the seat is a candidate for
+a three-lane panel if cost matters more than a fourth family.
 
-    claude:fable@high
+To put muse back if the route ever changes: replace the fable descriptor with the line below on
+both rows. Change both or neither; the two rows are deliberately identical.
+
+    codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh
 
 ### The sol writer rows, 2026-09-05
 
