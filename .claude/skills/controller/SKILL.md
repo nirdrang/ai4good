@@ -45,6 +45,14 @@ run with one unit per open, unblocked child. A parent whose children are parents
 too deep for one run: list the child parents and wait. One run per branch. Batching across
 unrelated items is not part of v2 until the founder rules on stacks.
 
+**Extra units** (founder 2026-09-06, the six-unit admin run): `/controller <parent> +<id>
++<id>` adds open leaves from the same requirement tree as units after the parent's own
+children. The branch, the worktree, and the pull request stay the parent's, so the merge
+closes only the parent. Each extra unit gets a Unit block in the brief, and `/controller
+done` closes it from the merge commit like any unit. An extra unit must be a leaf, open,
+unblocked, and under the same requirement root as the parent. A dev root that holds parents
+is never the parent of a run.
+
 Requirement states: no decomposition file → propose writing `loop/decomp/req-0NN.md` as the
 work. Merged but unclaimed → materialise the dev tree: `loop/work/materialize.ps1` reads the
 manifest at a named merged commit and emits the leaves; create the dev root as a sub-issue of
