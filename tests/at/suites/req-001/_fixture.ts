@@ -199,11 +199,13 @@ import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts'
 import {
   PLATFORM_ACKNOWLEDGMENT_KIND,
   PUBLIC_SIGNUP_ACCOUNT_TYPES,
-  ngoOnlyActionAllowed,
-  validateCompleteSignup,
+  decideOrganizationCreation,
+  decideSignupCompletion,
   validateOrganizationName,
   type AccountType,
   type CompleteSignupRequest,
+  type OrganizationCreationArgs,
+  type SignupCompletionArgs,
 } from '../../../../supabase/functions/_shared/accounts.ts';
 // THE SHIPPED CALLER JUDGEMENT — the ONE thing that decides whether a session's answer yields a
 // caller, on every session-taking operation below. It is the same function `resolveCaller` calls in
@@ -212,10 +214,28 @@ import {
 // live, which is vendor bookkeeping; it never decides what a dead answer means.
 import { callerFromAuthAnswer, type Caller } from '../../../../supabase/functions/_shared/caller.ts';
 // THE SHIPPED PER-ORGANISATION ROLE JUDGEMENT — the ONE thing that decides whether an admin-only
-// NGO-side action is permitted in the target organisation. `update-organization` imports the same
-// function, so a loop-tier green over AT-001.16 and AT-001.36 grades the code that ships. This file
+// NGO-side action is permitted in the target organisation. `update-organization` registers the same
+// decision, so a loop-tier green over AT-001.16 and AT-001.36 grades the code that ships. This file
 // supplies the membership ROW it judges, which is storage; it never decides what a role means.
-import { orgAdminActionAllowed } from '../../../../supabase/functions/_shared/memberships.ts';
+import { decideOrganizationRename, type OrganizationRenameArgs } from '../../../../supabase/functions/_shared/memberships.ts';
+// THE SHIPPED WRITE PIPELINE — the inventory, the lifecycle gate and the gate-then-decide order that
+// every write route below runs through, exactly as `writeRoute` runs it at the deployed edge. The
+// standing it judges is RENDERED here as `public.write_standing` renders it and parsed by the
+// shipped parser, the same pattern the caller fact follows, so the loop tier grades the gate, the
+// decisions and the parser rather than a copy of any of them. What this file supplies is storage.
+import {
+  organizationIdField,
+  parseWriteStanding,
+  writePipeline,
+  type WriteRouteSpec,
+} from '../../../../supabase/functions/_shared/write-routes.ts';
+import {
+  decideContactTransfer,
+  decideEscalationContact,
+  subjectAccountIdField,
+  type ContactTransferArgs,
+  type EscalationContactArgs,
+} from '../../../../supabase/functions/_shared/admin-operations.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
 // separate implementations the test would grade the fixture's copy and say nothing about what the
@@ -245,12 +265,17 @@ import {
 import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
 import { CapabilityPending } from '../../harness/pending.ts';
 import type {
+  AccountLifecycle,
   AccountRow,
   AccountsSut,
   AcknowledgmentRow,
   AssignVolunteerOutcome,
+  AuditEventKind,
+  AuditEventRow,
   CompleteSignupOutcome,
   CreateOrganizationOutcome,
+  EscalationContactRow,
+  EscalationOutcome,
   GrantMembershipOutcome,
   MembershipRow,
   OrganizationRow,
@@ -263,9 +288,11 @@ import type {
   SessionProvider,
   SignInOutcome,
   TenantReadOutcome,
+  TransferOutcome,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
+  WriteRefusal,
 } from './_contract.ts';
 
 /**
@@ -410,6 +437,10 @@ interface State {
    * return value cannot show.
    */
   discoveryMessages: Map<string, string[]>;
+  /** the mirror of `public.audit_events`, in insertion order — append-only, like the table */
+  auditEvents: AuditEventRow[];
+  /** organisation id -> its one escalation contact, mirroring `public.org_escalation_contacts`'s primary key */
+  escalationContacts: Map<string, EscalationContactRow>;
   nextId: number;
 }
 
@@ -450,6 +481,8 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     acknowledgments: [],
     volunteerProfiles: new Map(),
     discoveryMessages: new Map(),
+    auditEvents: [],
+    escalationContacts: new Map(),
     nextId: 1,
   };
   const openedWorlds = new Set<AccountsFixtureWorld>();
@@ -635,6 +668,109 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const DEAD_SESSION_REASON = 'this session is no longer valid — sign in again';
 
   /**
+   * THE WRITE PIPELINE AT THE LOOP TIER — the shipped `writePipeline` over this file's Maps, one
+   * shell beside the deployed `writeRoute`. The standing is rendered as `public.write_standing`
+   * renders it and judged by the shipped `parseWriteStanding`, so the parser sits on the tested
+   * path. The 401 for a dead or absent session is this shell's, as it is the edge shell's, and it
+   * carries no kind on the wire; every other refusal is the pipeline's own kind and status.
+   */
+  const renderWriteStanding = (
+    accountId: string,
+    organizationId: string | null,
+    subjectAccountId: string | null,
+  ): Record<string, unknown> => {
+    const account = state.accounts.get(accountId) ?? null;
+    const seat =
+      organizationId === null ? null : ([...state.memberships.values()].find((row) => row.organizationId === organizationId) ?? null);
+    const subject = subjectAccountId === null ? null : (state.accounts.get(subjectAccountId) ?? null);
+    return {
+      account: account === null ? null : { account_type: account.accountType, lifecycle: account.lifecycle },
+      org_exists: organizationId !== null && state.organizations.has(organizationId),
+      org_role: organizationId === null ? null : (state.memberships.get(membershipKey(organizationId, accountId))?.role ?? null),
+      org_seat_account_id: seat?.accountId ?? null,
+      org_seat_holder_seats:
+        seat === null
+          ? []
+          : [...state.memberships.values()].filter((row) => row.accountId === seat.accountId).map((row) => row.organizationId),
+      subject: subject === null ? null : { account_type: subject.accountType, lifecycle: subject.lifecycle },
+    };
+  };
+
+  type WriteRun<Args> = { ok: true; caller: Caller; args: Args } | (WriteRefusal & { organizations?: readonly string[] });
+
+  const runWrite = <Args>(
+    spec: WriteRouteSpec<Args>,
+    session: Session | null,
+    body: Record<string, unknown>,
+    ip: string | null,
+  ): WriteRun<Args> => {
+    const caller = session === null ? null : resolveCaller(session);
+    if (caller === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+    const target = spec.target ? spec.target(body) : null;
+    const subject = spec.subject ? spec.subject(body) : null;
+    const standing = parseWriteStanding(renderWriteStanding(caller.id, target, subject));
+    const decision = writePipeline(spec, { caller, standing, body, target, subject, ip });
+    if (decision.ok) return { ok: true, caller, args: decision.args };
+    const refusal: WriteRefusal = { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
+    const organizations = decision.fields?.organizations;
+    return Array.isArray(organizations) ? { ...refusal, organizations: organizations.map(String) } : refusal;
+  };
+
+  const SIGNUP_COMPLETION: WriteRouteSpec<SignupCompletionArgs> = { name: 'complete-signup', decide: decideSignupCompletion };
+  const ORGANIZATION_CREATION: WriteRouteSpec<OrganizationCreationArgs> = {
+    name: 'create-organization',
+    decide: decideOrganizationCreation,
+  };
+  const ORGANIZATION_RENAME: WriteRouteSpec<OrganizationRenameArgs> = {
+    name: 'update-organization',
+    target: organizationIdField,
+    decide: decideOrganizationRename,
+  };
+  const CONTACT_TRANSFER: WriteRouteSpec<ContactTransferArgs> = {
+    name: 'transfer-organization-contact',
+    target: organizationIdField,
+    subject: subjectAccountIdField,
+    decide: decideContactTransfer,
+  };
+  const ESCALATION_CONTACT: WriteRouteSpec<EscalationContactArgs> = {
+    name: 'set-escalation-contact',
+    target: organizationIdField,
+    decide: decideEscalationContact,
+  };
+
+  /** The mirror of `public.append_audit_event`: the label is 'platform_admin:<id>' or 'operator' (R9). */
+  const appendAudit = (
+    eventKind: AuditEventKind,
+    actorAccountId: string | null,
+    subjectAccountId: string | null,
+    subjectOrgId: string | null,
+    reason: string,
+    detail: Record<string, unknown>,
+  ): void => {
+    state.auditEvents.push({
+      id: nextId('audit'),
+      occurredAt: new Date(clock.now()).toISOString(),
+      eventKind,
+      actorAccountId,
+      actorLabel: actorAccountId === null ? 'operator' : `platform_admin:${actorAccountId}`,
+      subjectAccountId,
+      subjectOrgId,
+      reason,
+      detail,
+    });
+  };
+
+  /** The mirror of `public.change_account_lifecycle`: idempotent, and an audit row only on a change. */
+  const changeLifecycle = (accountId: string, lifecycle: AccountLifecycle, actorAccountId: string, reason: string): boolean => {
+    const account = state.accounts.get(accountId);
+    if (!account) throw new Error(`fixture: no account ${accountId} to change the lifecycle of`);
+    if (account.lifecycle === lifecycle) return false;
+    state.accounts.set(accountId, { ...account, lifecycle });
+    appendAudit('account_lifecycle_changed', actorAccountId, accountId, null, reason, { from: account.lifecycle, to: lifecycle });
+    return true;
+  };
+
+  /**
    * Which providers can sign this user back in — Auth's `identities[]`, reduced to what AT-001.02
    * asks about.
    *
@@ -670,20 +806,18 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     //
     // What is still NOT proved here is GoTrue's real serialisation — that this shape is the shape
     // Auth sends. Only the live proof touches that.
-    const caller = resolveCaller(session);
-    if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
-
-    const decision = validateCompleteSignup(request, { githubHandle: caller.githubHandle });
-    if (!decision.ok) return { ok: false, reason: decision.reason };
+    const run = runWrite(SIGNUP_COMPLETION, session, request, ip);
+    if (!run.ok) return { ok: false, reason: run.reason };
+    const { caller } = run;
     const {
-      accountType,
-      organizationName,
-      acknowledgmentTextVersion,
-      githubHandle,
-      signerName,
-      signerTitle,
-      authorityAttestation,
-    } = decision.value;
+      p_account_type: accountType,
+      p_organization_name: organizationName,
+      p_acknowledgment_text_version: acknowledgmentTextVersion,
+      p_github_handle: githubHandle = null,
+      p_signer_name: signerName,
+      p_signer_title: signerTitle,
+      p_authority_attestation: authorityAttestation,
+    } = run.args;
 
     // ONE ROW PER AUTH USER is what makes "one account holds exactly one global type" structural
     // rather than remembered — the schema states it as a primary key, and this states it as a
@@ -696,7 +830,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       return { ok: false, reason: 'this account has already completed signup — one account holds exactly one global type' };
     }
 
-    const account: AccountRow = { id: caller.id, accountType };
+    const account: AccountRow = { id: caller.id, accountType, lifecycle: 'active' };
     let organization: OrganizationRow | null = null;
     let membership: MembershipRow | null = null;
 
@@ -1051,27 +1185,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       //
       // NO VERIFICATION GATE SITS ON THIS OPERATION, which is why AT-001.12 uses it: a refusal is
       // unambiguously the session layer's rather than the Discovery floor's.
-      const caller = resolveCaller(session);
-      if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
+      // THE REFUSAL IS THE SHIPPED INVENTORY'S, not this file's: the gate refuses every type but
+      // `ngo` with `ngoOnlyActionAllowed`'s own sentence. That is what makes AT-001.06 a test of an
+      // application boundary rather than of a helper called directly from a test body.
+      const run = runWrite(ORGANIZATION_CREATION, session, { name: organizationName }, null);
+      if (!run.ok) return { ok: false, reason: run.reason };
 
-      const account = state.accounts.get(caller.id);
-      if (!account) return { ok: false, reason: 'complete signup before creating an organisation' };
-
-      // THE REFUSAL IS THE SHIPPED MODULE'S, not this file's. That is what makes AT-001.06 a test of
-      // an application boundary rather than of a helper called directly from a test body.
-      const allowed = ngoOnlyActionAllowed(account.accountType);
-      if (!allowed.ok) return { ok: false, reason: allowed.reason };
-
-      // The name rule is the shipped module's too. It used to be spelled out here, which made this
-      // file hold a second copy of a rule — the one thing its opening paragraph promises it does
-      // not do.
-      const name = validateOrganizationName(organizationName);
-      if (!name.ok) return { ok: false, reason: name.reason };
-
-      const organization: OrganizationRow = { id: nextId('org'), name: name.value };
-      const membership: MembershipRow = { organizationId: organization.id, accountId: account.id, role: 'admin' };
+      const organization: OrganizationRow = { id: nextId('org'), name: run.args.p_name };
+      const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
       state.organizations.set(organization.id, organization);
-      state.memberships.set(membershipKey(organization.id, account.id), membership);
+      state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
       return { ok: true, organizationId: organization.id };
     },
 
@@ -1098,23 +1221,13 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * well-formed random uuid, recorded in `artifacts/gate2-verify-answers.md`.
      */
     updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
-      const caller = resolveCaller(session);
-      // `refused` rather than a meaningful kind: a dead session is not a statement about roles at
-      // all, and no body drives this path. Classifying it as one of the two role kinds would put a
-      // refusal the session layer produced under a label two acceptance criteria read.
-      if (caller === null) return { ok: false, kind: 'refused', reason: DEAD_SESSION_REASON };
+      // NOTHING BEFORE THE WRITE BELOW HAS MUTATED STATE, which is what makes the bodies' read-backs
+      // after a refusal measure a real property rather than this file's good intentions.
+      const run = runWrite(ORGANIZATION_RENAME, session, { organizationId, name }, null);
+      if (!run.ok) return run;
 
-      const membership = state.memberships.get(membershipKey(organizationId, caller.id));
-      const allowed = orgAdminActionAllowed(membership?.role ?? null);
-      // NOTHING ABOVE THIS LINE HAS MUTATED STATE, which is what makes the bodies' read-backs after a
-      // refusal measure a real property rather than this file's good intentions.
-      if (!allowed.ok) return { ok: false, kind: allowed.kind, reason: allowed.reason };
-
-      const validated = validateOrganizationName(name);
-      if (!validated.ok) return { ok: false, kind: 'invalid-name', reason: validated.reason };
-
-      state.organizations.set(organizationId, { id: organizationId, name: validated.value });
-      return { ok: true, organizationId, name: validated.value };
+      state.organizations.set(run.args.p_organization_id, { id: run.args.p_organization_id, name: run.args.p_name });
+      return { ok: true, organizationId: run.args.p_organization_id, name: run.args.p_name };
     },
 
     /**
@@ -1342,7 +1455,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       // an administrator exists is an authority the public never holds. The type is still taken from
       // the shipped vocabulary rather than spelled as a literal.
       const accountType: AccountType = 'platform_admin';
-      state.accounts.set(session.accountId, { id: session.accountId, accountType });
+      state.accounts.set(session.accountId, { id: session.accountId, accountType, lifecycle: 'active' });
       return session;
     },
 
@@ -1370,6 +1483,48 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       if (!account) throw new Error(`no account ${accountId} to retype`);
       state.accounts.set(accountId, { ...account, accountType });
     },
+
+    transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {
+      const run = runWrite(CONTACT_TRANSFER, session, request, null);
+      if (!run.ok) return run;
+      const { p_organization_id: organizationId, p_from_account_id: from, p_to_account_id: to, p_reason: reason } = run.args;
+      // THE MIRROR OF `public.transfer_organization_contact`, row by row: the seat row is re-keyed to
+      // the new contact with its role untouched, the outgoing account is deactivated, and two audit
+      // rows are appended. Nothing is deleted, which is the whole of "history preserved".
+      const seat = state.memberships.get(membershipKey(organizationId, from));
+      if (!seat) throw new Error(`fixture: the decision admitted a transfer from ${from}, which holds no seat in ${organizationId}`);
+      state.memberships.delete(membershipKey(organizationId, from));
+      state.memberships.set(membershipKey(organizationId, to), { ...seat, accountId: to });
+      changeLifecycle(from, 'deactivated', run.caller.id, reason);
+      appendAudit('org_contact_transferred', run.caller.id, from, organizationId, reason, { from_account_id: from, to_account_id: to });
+      return { ok: true, organizationId };
+    },
+
+    setEscalationContact: async (session, request): Promise<EscalationOutcome> => {
+      const run = runWrite(ESCALATION_CONTACT, session, request, null);
+      if (!run.ok) return run;
+      const { p_organization_id: organizationId, p_name, p_email, p_phone } = run.args;
+      state.escalationContacts.set(organizationId, {
+        organizationId,
+        contactName: p_name,
+        contactEmail: p_email,
+        contactPhone: p_phone,
+        recordedByAccountId: run.caller.id,
+        recordedAt: new Date(clock.now()).toISOString(),
+      });
+      return { ok: true, organizationId };
+    },
+
+    auditEvents: async (filter) =>
+      clone(
+        state.auditEvents.filter(
+          (row) =>
+            (filter.subjectOrgId === undefined || row.subjectOrgId === filter.subjectOrgId) &&
+            (filter.subjectAccountId === undefined || row.subjectAccountId === filter.subjectAccountId),
+        ),
+      ),
+
+    escalationContact: async (organizationId) => clone(state.escalationContacts.get(organizationId) ?? null),
 
     organizationDashboard: async (session, organizationId) => {
       if (session === null) return { ok: false, answer: deadSessionAnswer };
@@ -1435,6 +1590,8 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.acknowledgments.length = 0;
       state.volunteerProfiles.clear();
       state.discoveryMessages.clear();
+      state.auditEvents.length = 0;
+      state.escalationContacts.clear();
       state.nextId = 1;
     },
   };

@@ -115,6 +115,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
         expect(await sut.account(completion.accountId)).toEqual({
           id: session.accountId,
           accountType: 'ngo',
+          lifecycle: 'active',
         });
   
         // (2) the organisation, by the name that was asked for — not merely that one exists
@@ -223,6 +224,7 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
       expect(await sut.account(completion.accountId)).toEqual({
         id: session.accountId,
         accountType: 'volunteer',
+        lifecycle: 'active',
       });
       expect(completion.organizationId, 'a volunteer completion must create no organisation').toBeNull();
 

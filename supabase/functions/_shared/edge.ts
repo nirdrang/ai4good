@@ -32,6 +32,14 @@
 import { callerFromAuthAnswer, type Caller } from './caller.ts';
 import type { ReadResult, TenantReads } from './tenant-reads.ts';
 import type { PublicProjectReads, PublicProjectSource } from './public-project.ts';
+import {
+  parseWriteRefusalKind,
+  parseWriteStanding,
+  writePipeline,
+  WRITE_ROUTES,
+  type WriteRouteSpec,
+  type WriteStanding,
+} from './write-routes.ts';
 
 /**
  * A required environment variable, or a loud failure at first use.
@@ -260,8 +268,14 @@ export function callerIp(request: Request): string | null {
   return isIpv4(candidate) || isIpv6(candidate) ? candidate : null;
 }
 
-/** The result of a database function call: its value, or the database's own refusal. */
-export type RpcOutcome = { ok: true; value: unknown } | { ok: false; status: number; message: string };
+/**
+ * The result of a database function call: its value, or the database's own refusal. `details` is
+ * the DETAIL a definer attached with `RAISE ... USING DETAIL`, which is where a backstop refusal
+ * carries its kind (R10); null when the refusal carried none.
+ */
+export type RpcOutcome =
+  | { ok: true; value: unknown }
+  | { ok: false; status: number; message: string; details: string | null };
 
 /**
  * Call one `public.` function, with the service role, in ONE round trip.
@@ -273,8 +287,11 @@ export type RpcOutcome = { ok: true; value: unknown } | { ok: false; status: num
  *
  * The service role bypasses row-level security, which is why the database functions perform their
  * own checks: nothing else is standing on this path.
+ *
+ * NOT EXPORTED, and that one line is the whole structural claim of the write boundary: a route has
+ * no way to reach `/rest/v1/rpc/` except through `writeRoute` below.
  */
-export async function callDatabaseFunction(
+async function callDatabaseFunction(
   supabaseUrl: string,
   serviceRoleKey: string,
   name: string,
@@ -296,17 +313,99 @@ export async function callDatabaseFunction(
     // sentence the database function chose, so it is passed through rather than replaced with a
     // generic one — those functions raise sentences precisely so a caller can act on them.
     let message = text;
+    let details: string | null = null;
     try {
-      const body = JSON.parse(text) as { message?: unknown };
+      const body = JSON.parse(text) as { message?: unknown; details?: unknown };
       if (typeof body.message === 'string') message = body.message;
+      if (typeof body.details === 'string') details = body.details;
     } catch {
       // A non-JSON body from PostgREST means something other than a raised exception went wrong;
       // the raw text is then the most informative thing available.
     }
-    return { ok: false, status: response.status, message };
+    return { ok: false, status: response.status, message, details };
   }
 
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
+}
+
+/** One round trip for type, lifecycle, role-in-target, the organisation's seat and the subject. */
+async function loadWriteStanding(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  accountId: string,
+  organizationId: string | null,
+  subjectAccountId: string | null,
+): Promise<WriteStanding> {
+  const outcome = await callDatabaseFunction(supabaseUrl, serviceRoleKey, 'write_standing', {
+    p_account_id: accountId,
+    p_org_id: organizationId,
+    p_subject_account_id: subjectAccountId,
+  });
+  if (!outcome.ok) return { kind: 'unreadable', detail: `write_standing answered ${outcome.status}: ${outcome.message}` };
+  return parseWriteStanding(outcome.value);
+}
+
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * THE WRITE BOUNDARY, AS THE HANDLER. A write route is a value handed to this constructor, and
+ * there is no other way to reach the database: `callDatabaseFunction` is not exported. Three things
+ * hold that: the type (`name` must be a key of `WRITE_ROUTES`), the run time (an unknown name throws
+ * here, before `Deno.serve` ever runs), and CI (the conformance scan of the lifecycle-gate unit
+ * reads every `index.ts` against the inventory).
+ *
+ * The order is fixed: refuse a method that is not POST, resolve the caller through Supabase Auth,
+ * read the JSON body, load the caller's standing in one call, apply the lifecycle gate, run the
+ * route's own decision, call the route's database function, and shape the answer. `decide` never
+ * sees a Request, a Response or a status: it sees `WriteStanding`, a parsed body and a `Caller`.
+ *
+ * AN ID THAT CANNOT BE A UUID IS REFUSED BEFORE THE STANDING READ, because PostgREST would fail the
+ * cast and the refusal would arrive as a 502 that reads like an outage.
+ */
+export function writeRoute<Args extends Record<string, unknown>>(
+  spec: WriteRouteSpec<Args>,
+): (request: Request) => Promise<Response> {
+  if (!(spec.name in WRITE_ROUTES)) throw new Error(`${spec.name} is not a row of WRITE_ROUTES, so it cannot be served`);
+  const route = WRITE_ROUTES[spec.name];
+  if (route.surface.kind !== 'edge') throw new Error(`${spec.name} is a stand-in row of WRITE_ROUTES and has no deployed function`);
+  const rpc = route.surface.rpc;
+  const SUPABASE_URL = requireEnv('SUPABASE_URL');
+  const ANON_KEY = requireEnv('SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY');
+  const SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
+
+  return edgeHandler(spec.name, async (request: Request): Promise<Response> => {
+    if (request.method !== 'POST') return refusal(`${spec.name} accepts POST only`, 405);
+
+    const caller = await resolveCaller(request, SUPABASE_URL, ANON_KEY);
+    if (!caller) return refusal(`authenticate before calling ${spec.name}`, 401);
+
+    const body = await readJsonBody(request);
+    if (!body.ok) return refusal(body.reason, 400);
+
+    const target = spec.target ? spec.target(body.value) : null;
+    const subject = spec.subject ? spec.subject(body.value) : null;
+    for (const [what, value] of [['organisation', target], ['account', subject]] as const) {
+      if (value !== null && !UUID_SHAPE.test(value)) {
+        return json({ ok: false, kind: 'invalid-request', reason: `the ${what} id ${JSON.stringify(value)} is not a well-formed id` }, 400);
+      }
+    }
+
+    const standing = await loadWriteStanding(SUPABASE_URL, SERVICE_ROLE_KEY, caller.id, target, subject);
+    const decision = writePipeline(spec, { caller, standing, body: body.value, target, subject, ip: callerIp(request) });
+    if (!decision.ok) {
+      return json({ ok: false, kind: decision.kind, reason: decision.reason, ...decision.fields }, decision.status);
+    }
+
+    const outcome = await callDatabaseFunction(SUPABASE_URL, SERVICE_ROLE_KEY, rpc, decision.args);
+    if (!outcome.ok) {
+      // The database's backstop fired. Its sentence travels as the reason and the kind it attached
+      // as DETAIL travels as the kind: 409 for anything the database judged, 502 for transport.
+      const status = outcome.status >= 400 && outcome.status < 500 ? 409 : 502;
+      return json({ ok: false, kind: parseWriteRefusalKind(outcome.details), reason: outcome.message }, status);
+    }
+
+    return json({ ok: true, ...(spec.render ? spec.render(outcome.value) : {}) }, 200);
+  });
 }
 
 async function restJson<Row>(url: string, init: RequestInit): Promise<ReadResult<Row>> {

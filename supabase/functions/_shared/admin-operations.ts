@@ -1,0 +1,164 @@
+/**
+ * THE PLATFORM ADMINISTRATOR'S TWO OPERATIONS ON AN ORGANISATION, as pure decisions: the audited
+ * contact transfer, which lost-access recovery is the same operation as (AT-001.25, .26, .27, .35),
+ * and the non-login escalation contact (AT-001.28). The routes under `supabase/functions/` register
+ * each one through `writeRoute`, and the acceptance fixture runs the same decision over Maps, so
+ * the loop tier grades the judgement that ships.
+ *
+ * WHO MAY CALL IS NOT DECIDED HERE. The lifecycle gate and the platform-administrator check are the
+ * inventory's — `WRITE_ROUTES` admits `platform_admin` only on both routes — and `writePipeline`
+ * applies them before a decision runs. What is decided here is whether THIS request is one the
+ * database should perform, and the database re-checks every answer as a backstop.
+ *
+ * Same two constraints as `accounts.ts`: no non-relative import and no Deno global; no I/O, no
+ * clock, no randomness.
+ */
+
+import type { Decision } from './accounts.ts';
+import { refuseWrite, stringField, type WriteRouteDecision, type WriteRouteInput } from './write-routes.ts';
+
+/**
+ * The transferee is the SUBJECT whose standing the route loads: its type and lifecycle decide three
+ * refusals below. The outgoing account is the organisation's seat holder and is read with the
+ * organisation, so it needs no field of its own in the standing.
+ */
+export function subjectAccountIdField(body: Record<string, unknown>): string | null {
+  return stringField(body.toAccountId);
+}
+
+/* ------------------------------------------------------------------------ the contact transfer */
+
+export type ContactTransferArgs = {
+  readonly p_account_id: string;
+  readonly p_organization_id: string;
+  readonly p_from_account_id: string;
+  readonly p_to_account_id: string;
+  readonly p_reason: string;
+};
+
+/**
+ * THE TRANSFER NAMES THE OUTGOING ACCOUNT and refuses when that account no longer holds the seat, so
+ * a retry after a timeout cannot move a seat from a state the caller never saw. It refuses when the
+ * outgoing account holds another seat (R6), naming the other organisations, because lifecycle is
+ * account-level and deactivating it would gate its writes in organisations this transfer never
+ * looked at. And it refuses a transfer to the same account: the seat would not move and the only
+ * contact would be deactivated.
+ */
+export function decideContactTransfer(input: WriteRouteInput): WriteRouteDecision<ContactTransferArgs> {
+  const { standing } = input;
+  if (standing.kind !== 'account') {
+    return refuseWrite('refused', 502, 'the transfer was asked to decide with no caller standing, so no decision was made');
+  }
+  const organizationId = input.target;
+  const fromAccountId = stringField(input.body.fromAccountId);
+  const toAccountId = input.subject;
+  const reason = stringField(input.body.reason);
+  if (organizationId === null) {
+    return refuseWrite('invalid-request', 400, 'the transfer must name the organisation by id (organizationId)');
+  }
+  if (fromAccountId === null || toAccountId === null) {
+    return refuseWrite(
+      'invalid-request',
+      400,
+      'the transfer must name the outgoing account (fromAccountId) and the new contact (toAccountId)',
+    );
+  }
+  if (reason === null) {
+    return refuseWrite('invalid-request', 400, 'the transfer must carry a reason — the audit record is written with it');
+  }
+  if (fromAccountId === toAccountId) {
+    return refuseWrite('invalid-request', 400, 'the new contact must be a different account from the outgoing one');
+  }
+  if (!standing.orgExists) {
+    return refuseWrite('no-such-organisation', 409, `no organisation ${organizationId} exists`);
+  }
+  if (standing.orgSeatAccountId !== fromAccountId) {
+    return refuseWrite(
+      'not-the-current-contact',
+      409,
+      `account ${fromAccountId} does not hold the contact seat of organisation ${organizationId}, so there is nothing to transfer from it`,
+    );
+  }
+  const otherOrganizations = standing.orgSeatHolderSeats.filter((id) => id !== organizationId);
+  if (otherOrganizations.length > 0) {
+    return refuseWrite(
+      'holds-other-seats',
+      409,
+      `account ${fromAccountId} also holds the contact seat of ${otherOrganizations.length} other organisation(s) — ` +
+        'deactivating it would gate its writes there too, so transfer those seats first',
+      { organizations: otherOrganizations },
+    );
+  }
+  if (standing.subject === null) {
+    return refuseWrite('transferee-no-account', 409, `account ${toAccountId} has not completed signup, so it cannot hold a contact seat`);
+  }
+  if (standing.subject.accountType !== 'ngo') {
+    return refuseWrite(
+      'transferee-not-ngo',
+      409,
+      `account ${toAccountId} is of type ${JSON.stringify(standing.subject.accountType)} — a contact seat is held by an NGO account only`,
+    );
+  }
+  if (standing.subject.lifecycle === 'deactivated') {
+    return refuseWrite('transferee-deactivated', 409, `account ${toAccountId} is deactivated, so it cannot take over a contact seat`);
+  }
+  return {
+    ok: true,
+    args: {
+      p_account_id: input.caller.id,
+      p_organization_id: organizationId,
+      p_from_account_id: fromAccountId,
+      p_to_account_id: toAccountId,
+      p_reason: reason,
+    },
+  };
+}
+
+/* ---------------------------------------------------------------------- the escalation contact */
+
+export type EscalationContact = {
+  readonly name: string;
+  readonly email: string;
+  readonly phone: string | null;
+};
+
+/** A name and an address are what make the row a contact; a blank phone records nothing rather than ''. */
+export function validateEscalationContact(raw: { name?: unknown; email?: unknown; phone?: unknown }): Decision<EscalationContact> {
+  const name = stringField(raw.name);
+  if (name === null) return { ok: false, reason: 'the escalation contact needs a name' };
+  const email = stringField(raw.email);
+  if (email === null || !email.includes('@')) return { ok: false, reason: 'the escalation contact needs an email address' };
+  return { ok: true, value: { name, email, phone: stringField(raw.phone) } };
+}
+
+export type EscalationContactArgs = {
+  readonly p_account_id: string;
+  readonly p_organization_id: string;
+  readonly p_name: string;
+  readonly p_email: string;
+  readonly p_phone: string | null;
+};
+
+export function decideEscalationContact(input: WriteRouteInput): WriteRouteDecision<EscalationContactArgs> {
+  if (input.standing.kind !== 'account') {
+    return refuseWrite('refused', 502, 'the escalation contact was asked to decide with no caller standing, so no decision was made');
+  }
+  if (input.target === null) {
+    return refuseWrite('invalid-request', 400, 'the escalation contact must name the organisation by id (organizationId)');
+  }
+  const contact = validateEscalationContact({ name: input.body.name, email: input.body.email, phone: input.body.phone });
+  if (!contact.ok) return refuseWrite('invalid-contact', 400, contact.reason);
+  if (!input.standing.orgExists) {
+    return refuseWrite('no-such-organisation', 409, `no organisation ${input.target} exists`);
+  }
+  return {
+    ok: true,
+    args: {
+      p_account_id: input.caller.id,
+      p_organization_id: input.target,
+      p_name: contact.value.name,
+      p_email: contact.value.email,
+      p_phone: contact.value.phone,
+    },
+  };
+}

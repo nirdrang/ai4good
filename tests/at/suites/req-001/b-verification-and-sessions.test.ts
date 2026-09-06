@@ -151,6 +151,7 @@ atTest(
         expect(await sut.account(completion.accountId)).toEqual({
           id: session.accountId,
           accountType,
+          lifecycle: 'active',
         });
   
         // (3) COMPLETING SIGNUP DOES NOT VERIFY THE ADDRESS. An implementation that flipped the flag
@@ -188,6 +189,7 @@ atTest(
         expect(await sut.account(completion.accountId)).toEqual({
           id: session.accountId,
           accountType,
+          lifecycle: 'active',
         });
       }
     },

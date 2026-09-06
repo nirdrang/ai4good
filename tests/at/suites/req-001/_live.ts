@@ -65,6 +65,10 @@
  */
 
 import { emailVerifiedFromUser } from '../../../../supabase/functions/_shared/verification.ts';
+// THE SHIPPED FAIL-CLOSED PARSER for the kind a write route puts on the wire: an unrecognised value
+// becomes `refused` rather than being trusted, so a gateway error page or a future field rename
+// cannot arrive wearing a label an acceptance body asserts.
+import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import {
   authPost,
@@ -81,9 +85,12 @@ import type {
   AccountsSut,
   AcknowledgmentRow,
   AssignVolunteerOutcome,
+  AuditEventRow,
   CompleteSignupOutcome,
   CompleteSignupRequest,
   CreateOrganizationOutcome,
+  EscalationContactRow,
+  EscalationOutcome,
   GrantMembershipOutcome,
   MembershipRow,
   OrganizationRow,
@@ -92,9 +99,11 @@ import type {
   RepointMembershipOutcome,
   Session,
   SignInOutcome,
+  TransferOutcome,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
+  WriteRefusal,
 } from './_contract.ts';
 import { liveTenantReads, type JwtClaims } from './_live-tenant-reads.ts';
 
@@ -223,6 +232,26 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   };
 
   const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
+
+  /**
+   * ONE DEPLOYED WRITE ROUTE, called as a browser client would. A null session sends the anon key as
+   * the bearer, which is what a client with no session sends, so the unauthenticated arm is the
+   * route's real 401 rather than a missing header this adapter declined to send. A 401 carries no
+   * kind on the wire and is classified as `unauthenticated` here; every other refusal's kind is read
+   * through the shipped fail-closed parser.
+   */
+  const postWrite = async (
+    name: string,
+    session: Session | null,
+    body: Record<string, unknown>,
+  ): Promise<{ ok: true; json: Record<string, unknown> } | { ok: false; json: Record<string, unknown>; refusal: WriteRefusal }> => {
+    const bearer = session === null ? stack.anonKey : tokensOf(sessions, session, `call the deployed ${name}`).accessToken;
+    const { status, json } = await functionPost(stack, name, body, bearer, '203.0.113.7');
+    if (status < 400 && json.ok !== false) return { ok: true, json };
+    const reason = String(json.reason ?? json.msg ?? json.message ?? `the deployed ${name} answered ${status}`);
+    const kind = status === 401 ? 'unauthenticated' : parseWriteRefusalKind(json.kind);
+    return { ok: false, json, refusal: { ok: false, kind, status, reason } };
+  };
 
   const accounts: AccountsSut = {
     /* ------------------------------------------------- Supabase Auth, over the stack's own gateway */
@@ -443,27 +472,18 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
 
     /**
-     * THE DEPLOYED `update-organization`, called exactly as a browser client would.
-     *
-     * THE `kind` IS READ OFF THE WIRE AND VALIDATED AGAINST THE THREE THE FUNCTION CAN SEND. An
-     * unrecognised value becomes `refused` rather than being trusted, which is the direction that
-     * matters: AT-001.16 asserts the not-a-member kind and AT-001.36 the not-an-admin one, so a
-     * gateway error page or a future field rename must not be able to arrive wearing either label.
+     * THE DEPLOYED `update-organization`, called exactly as a browser client would. The `kind` is
+     * read off the wire through the shipped closed set, which is the direction that matters:
+     * AT-001.16 asserts the not-a-member kind and AT-001.36 the not-an-admin one.
      */
     updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
-      const tokens = tokensOf(sessions, session, 'call the deployed update-organization');
-      const { status, json } = await functionPost(stack, 'update-organization', { organizationId, name }, tokens.accessToken, '203.0.113.7');
-      if (status < 400 && json.ok !== false) {
-        return {
-          ok: true,
-          organizationId: String(json.organizationId ?? organizationId),
-          name: String(json.name ?? ''),
-        };
-      }
-      const reason = String(json.reason ?? json.msg ?? `the deployed update-organization answered ${status}`);
-      const kind = json.kind;
-      const known = kind === 'not-a-member' || kind === 'not-an-admin' || kind === 'invalid-name';
-      return { ok: false, kind: known ? kind : 'refused', reason };
+      const answer = await postWrite('update-organization', session, { organizationId, name });
+      if (!answer.ok) return answer.refusal;
+      return {
+        ok: true,
+        organizationId: String(answer.json.organizationId ?? organizationId),
+        name: String(answer.json.name ?? ''),
+      };
     },
 
     /* ------------------------------- the operator's surface, over SQL, as the operator ---------- */
@@ -646,10 +666,12 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     /* -------------------------------------------------------- read-back, as the operator, over SQL */
 
     account: async (accountId): Promise<AccountRow | null> => {
-      const found = await rows<{ id: string; account_type: AccountRow['accountType'] }>(
-        sql`select id, account_type from public.accounts where id = ${accountId}::uuid`,
+      const found = await rows<{ id: string; account_type: AccountRow['accountType']; lifecycle: AccountRow['lifecycle'] }>(
+        sql`select id, account_type, lifecycle from public.accounts where id = ${accountId}::uuid`,
       );
-      return found.length === 1 ? { id: String(found[0].id), accountType: found[0].account_type } : null;
+      return found.length === 1
+        ? { id: String(found[0].id), accountType: found[0].account_type, lifecycle: found[0].lifecycle }
+        : null;
     },
 
     organization: async (organizationId): Promise<OrganizationRow | null> => {
@@ -813,6 +835,79 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
              where id = ${accountId}::uuid returning id`,
       );
       if (updated.length !== 1) throw new Error(`the operator could not retype account ${accountId}`);
+    },
+
+    /* ----------------------------- the DEPLOYED admin routes, over the stack's kong ------------- */
+
+    transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {
+      const answer = await postWrite('transfer-organization-contact', session, request);
+      if (answer.ok) return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
+      const organizations = answer.json.organizations;
+      return Array.isArray(organizations) ? { ...answer.refusal, organizations: organizations.map(String) } : answer.refusal;
+    },
+
+    setEscalationContact: async (session, request): Promise<EscalationOutcome> => {
+      const answer = await postWrite('set-escalation-contact', session, request);
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
+    },
+
+    /* --------------------- the audit record and the escalation contact, as the operator (R12) --- */
+
+    auditEvents: async (filter): Promise<AuditEventRow[]> => {
+      const orgId = filter.subjectOrgId ?? null;
+      const accountId = filter.subjectAccountId ?? null;
+      const found = await rows<{
+        id: string;
+        occurred_at: string | Date;
+        event_kind: AuditEventRow['eventKind'];
+        actor_account_id: string | null;
+        actor_label: string;
+        subject_account_id: string | null;
+        subject_org_id: string | null;
+        reason: string;
+        detail: unknown;
+      }>(
+        sql`select id, occurred_at, event_kind, actor_account_id, actor_label, subject_account_id, subject_org_id, reason, detail
+              from public.audit_events
+             where (${orgId}::uuid is null or subject_org_id = ${orgId}::uuid)
+               and (${accountId}::uuid is null or subject_account_id = ${accountId}::uuid)
+             order by occurred_at, id`,
+      );
+      return found.map((row) => ({
+        id: String(row.id),
+        occurredAt: new Date(row.occurred_at).toISOString(),
+        eventKind: row.event_kind,
+        actorAccountId: row.actor_account_id === null ? null : String(row.actor_account_id),
+        actorLabel: row.actor_label,
+        subjectAccountId: row.subject_account_id === null ? null : String(row.subject_account_id),
+        subjectOrgId: row.subject_org_id === null ? null : String(row.subject_org_id),
+        reason: row.reason,
+        detail: (typeof row.detail === 'string' ? JSON.parse(row.detail) : row.detail) as Record<string, unknown>,
+      }));
+    },
+
+    escalationContact: async (organizationId): Promise<EscalationContactRow | null> => {
+      const found = await rows<{
+        org_id: string;
+        contact_name: string;
+        contact_email: string;
+        contact_phone: string | null;
+        recorded_by_account_id: string;
+        recorded_at: string | Date;
+      }>(
+        sql`select org_id, contact_name, contact_email, contact_phone, recorded_by_account_id, recorded_at
+              from public.org_escalation_contacts where org_id = ${organizationId}::uuid`,
+      );
+      if (found.length !== 1) return null;
+      return {
+        organizationId: String(found[0].org_id),
+        contactName: found[0].contact_name,
+        contactEmail: found[0].contact_email,
+        contactPhone: found[0].contact_phone === null ? null : String(found[0].contact_phone),
+        recordedByAccountId: String(found[0].recorded_by_account_id),
+        recordedAt: new Date(found[0].recorded_at).toISOString(),
+      };
     },
 
     // Written out because the integration manifest names each one, and `AccountsSut` makes an

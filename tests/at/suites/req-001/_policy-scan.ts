@@ -25,6 +25,8 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   acknowledgments: 'tenant-isolated',
   accounts: 'unreachable-by-client-roles',
   volunteer_profiles: 'unreachable-by-client-roles',
+  audit_events: 'unreachable-by-client-roles',
+  org_escalation_contacts: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };

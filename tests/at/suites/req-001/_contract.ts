@@ -20,9 +20,13 @@
 
 import type { WorldSeam } from '../../harness/contracts.ts';
 import type {
+  AccountLifecycle,
   AccountType,
   CompleteSignupRequest,
 } from '../../../../supabase/functions/_shared/accounts.ts';
+// THE CLOSED SET OF REFUSAL KINDS a write route answers with, imported for the reason every other
+// judgement type here is: a body asserts the kind the shipped pipeline produces, never a restatement.
+import type { WriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 // THE PER-ORGANISATION ROLE VOCABULARY, imported for the reason the header gives about every other
 // judgement type here: `OrgRole` is the shipped module's, the same one the rename edge function and
 // the database enum state, so the operator grant below cannot name a role the product does not have.
@@ -48,7 +52,7 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-export type { AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole };
+export type { AccountLifecycle, AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole, WriteRefusalKind };
 export type { OrganizationDashboard, ProjectWorkspace, PublicProjectView };
 
 /* ------------------------------------------------------------------------- what gets read back */
@@ -57,6 +61,42 @@ export type { OrganizationDashboard, ProjectWorkspace, PublicProjectView };
 export type AccountRow = {
   id: string;
   accountType: AccountType;
+  /** the product's one deactivation authority (R8); when and why live in the audit record */
+  lifecycle: AccountLifecycle;
+};
+
+/**
+ * One row of `public.audit_events`. The kinds mirror the `public.audit_event_kind` enum, and the
+ * database wins: no shipped TypeScript writes an audit row, so there is no shipped vocabulary to
+ * import here.
+ */
+export type AuditEventKind = 'org_contact_transferred' | 'account_lifecycle_changed' | 'org_role_changed';
+
+export type AuditEventRow = {
+  id: string;
+  /** ISO-8601 instant — AT-001.26's "when" */
+  occurredAt: string;
+  eventKind: AuditEventKind;
+  /** null on an operator path; `actorLabel` then reads 'operator' (R9) */
+  actorAccountId: string | null;
+  /** AT-001.26's "who", denormalised so a later account delete cannot take it away (R3) */
+  actorLabel: string;
+  subjectAccountId: string | null;
+  subjectOrgId: string | null;
+  /** AT-001.26's "why" — never blank, by CHECK constraint */
+  reason: string;
+  detail: Record<string, unknown>;
+};
+
+/** One row of `public.org_escalation_contacts` — one per organisation, and no account behind it (R15). */
+export type EscalationContactRow = {
+  organizationId: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string | null;
+  recordedByAccountId: string;
+  /** ISO-8601 instant */
+  recordedAt: string;
 };
 
 /** One row of `public.organizations`. */
@@ -230,16 +270,52 @@ export type CreateOrganizationOutcome = { ok: true; organizationId: string } | {
  * from the shipped decision module rather than restated, so the two kinds a body asserts are the
  * two kinds the product can produce.
  *
- * TWO KINDS THE SHIPPED DECISION DOES NOT PRODUCE ARE STILL HERE, and both are the adapter's
- * honesty rather than product surface:
- *   * `invalid-name` — the shared `validateOrganizationName` refused, before any role was consulted.
- *   * `refused` — the adapter could not classify the refusal it received. It exists so a live
- *     adapter facing an unexpected status reports "something refused and I do not know what" rather
- *     than picking whichever meaningful kind happens to make a test pass.
+ * THE KIND IS THE SHIPPED CLOSED SET, `WriteRefusalKind`, because the route now answers through the
+ * write pipeline: beside the two role kinds it can carry `invalid-name` (the shared
+ * `validateOrganizationName` refused), the gate's own kinds, and `refused` — the adapter could not
+ * classify the refusal it received, so a live adapter facing an unexpected status reports
+ * "something refused and I do not know what" rather than picking whichever meaningful kind happens
+ * to make a test pass.
  */
-export type UpdateOrganizationOutcome =
-  | { ok: true; organizationId: string; name: string }
-  | { ok: false; kind: OrgAdminRefusalKind | 'invalid-name' | 'refused'; reason: string };
+export type UpdateOrganizationOutcome = { ok: true; organizationId: string; name: string } | WriteRefusal;
+
+/**
+ * A refused write, as every route registered through `writeRoute` answers it: the shipped closed
+ * `kind` and the status the pipeline chose, plus `unauthenticated` for the 401 the shell answers
+ * before any decision runs — that refusal carries no kind on the wire. `refused` keeps the meaning
+ * above: the adapter could not classify what it received.
+ */
+export type WriteRefusal = {
+  ok: false;
+  kind: WriteRefusalKind | 'unauthenticated';
+  status: number;
+  reason: string;
+};
+
+/** The contact transfer's request — AT-001.25's act, and AT-001.27's with a recovery reason. */
+export type TransferRequest = {
+  organizationId: string;
+  /** the outgoing contact, named so a retry cannot move a seat from a state the caller never saw */
+  fromAccountId: string;
+  /** the new contact: a completed NGO account (R5) */
+  toAccountId: string;
+  /** AT-001.26's "why", written to the audit row verbatim */
+  reason: string;
+};
+
+/** Refused with `holds-other-seats`, the body names the other organisations (R6). */
+export type TransferOutcome =
+  | { ok: true; organizationId: string }
+  | (WriteRefusal & { organizations?: readonly string[] });
+
+export type EscalationContactRequest = {
+  organizationId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+};
+
+export type EscalationOutcome = { ok: true; organizationId: string } | WriteRefusal;
 
 /**
  * The outcome of an OPERATOR granting a membership directly — used both to provision a Given and as
@@ -805,6 +881,30 @@ export type AccountsSut = {
    * wider one, and not one any running service holds.
    */
   provisionPlatformAdmin(email: string, password: string): Promise<Session>;
+
+  /* ------------------------------ the platform administrator's operations -------------------- */
+
+  /**
+   * `supabase/functions/transfer-organization-contact` — the audited contact transfer, and
+   * lost-access recovery is the SAME operation with a recovery reason (AT-001.27).
+   *
+   * A null session is the unauthenticated arm of AT-001.35: the call is made with no user token, so
+   * the refusal is the deployed route's own 401 and not a handle this adapter declined.
+   */
+  transferOrganizationContact(session: Session | null, request: TransferRequest): Promise<TransferOutcome>;
+  /**
+   * `supabase/functions/set-escalation-contact` — one non-login escalation contact per organisation,
+   * recorded by a platform administrator (AT-001.28, R15).
+   */
+  setEscalationContact(session: Session | null, request: EscalationContactRequest): Promise<EscalationOutcome>;
+
+  /**
+   * The audit record, read as the operator: no client role and no viewer helper reaches the table
+   * (R12). Rows come back ordered by their instant.
+   */
+  auditEvents(filter: { subjectOrgId?: string; subjectAccountId?: string }): Promise<AuditEventRow[]>;
+  /** The organisation's escalation contact, or `null` — read as the operator, for the reason above. */
+  escalationContact(organizationId: string): Promise<EscalationContactRow | null>;
 
   /* ---- reads AS THE CALLER. The operator reads beside them are the existence control. ---- */
 
