@@ -18,6 +18,7 @@ import {
   at00128,
   at00135,
   expectNotTransferred,
+  expectSecondTransfer,
   expectTransferAudited,
   expectTransferred,
   HANDOVER_REASON,
@@ -70,6 +71,7 @@ atTest(
       if (again.ok) return;
       expect(again.kind, 'the retry was refused for a reason other than the seat having moved').toBe('not-the-current-contact');
       await expectTransferred(sut, given, before);
+      await expectSecondTransfer(sut, given);
     },
     integration: at00125,
   },
@@ -186,7 +188,29 @@ atTest(
       expect(refused.ok, 'an NGO account recorded its own escalation contact').toBe(false);
       if (refused.ok) return;
       expect(refused.kind, 'the NGO was refused for a reason other than not being a platform administrator').toBe('not-a-platform-admin');
+      expect(refused.status, 'the NGO refusal is not a 403').toBe(403);
       expect(await sut.escalationContact(organizationId), 'the refused capture changed the contact').toMatchObject({ contactName: 'Jonas Ekholm' });
+
+      const recordedEvents = (await sut.auditEvents({ subjectOrgId: organizationId })).filter(
+        (row) => row.eventKind === 'org_escalation_contact_recorded',
+      );
+      expect(recordedEvents, 'the two captures did not leave two escalation audit rows').toHaveLength(2);
+      expect(recordedEvents[0], 'the first capture did not record Maya as current with no previous contact').toMatchObject({
+        actorAccountId: admin.accountId,
+        reason: 'escalation contact recorded',
+        detail: {
+          previous: null,
+          current: { name: 'Maya Lindqvist', email: contactEmail, phone: '+1 555 0100' },
+        },
+      });
+      expect(recordedEvents[1], 'the second capture did not record Jonas as current and Maya as previous').toMatchObject({
+        actorAccountId: admin.accountId,
+        reason: 'escalation contact recorded',
+        detail: {
+          previous: { name: 'Maya Lindqvist', email: contactEmail, phone: '+1 555 0100' },
+          current: { name: 'Jonas Ekholm', phone: null },
+        },
+      });
     },
     integration: at00128,
   },

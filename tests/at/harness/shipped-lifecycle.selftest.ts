@@ -1,19 +1,15 @@
 /**
- * THE ORACLE FOR THE LIFECYCLE SETTER AND THE VIRTUAL-KEY SEAM. The acceptance ids reach the
- * admitted path of `decideLifecycleChange` and the two key actions; every other branch is
- * reachable here with a hand-built `WriteRouteInput`. WHAT A GREEN HERE CLAIMS: that the
- * decision answers the kind, the status and the arguments its module states, and that
- * `virtualKeyActionFor` answers revoke, reissue or none. WHAT IT DOES NOT CLAIM: that the
- * definer refuses the same way, or that a gateway exists — the integration tier names those.
+ * THE ORACLE FOR THE LIFECYCLE SETTER. The acceptance ids reach the admitted path of
+ * `decideLifecycleChange`; every other branch is reachable here with a hand-built
+ * `AccountWriteRouteInput`. WHAT A GREEN HERE CLAIMS: that the decision answers the kind, the
+ * status and the arguments its module states. WHAT IT DOES NOT CLAIM: that the definer refuses
+ * the same way — the integration tier names that.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { decideLifecycleChange } from '../../../supabase/functions/_shared/admin-operations.ts';
-import { virtualKeyActionFor } from '../../../supabase/functions/_shared/gateway-keys.ts';
-import type { WriteRouteInput, WriteStanding } from '../../../supabase/functions/_shared/write-routes.ts';
-
-type AccountStanding = Extract<WriteStanding, { kind: 'account' }>;
+import type { AccountStanding, AccountWriteRouteInput } from '../../../supabase/functions/_shared/write-routes.ts';
 
 const ADMIN = '7c1e5a3b-2d4f-4e6a-8b9c-0d1e2f3a4b5c';
 const SUBJECT = '0f1d6a2e-6d1c-4a3b-9a7e-2c5b8d4f1a90';
@@ -26,11 +22,10 @@ const ADMIN_STANDING: AccountStanding = {
   orgRole: null,
   orgExists: false,
   orgSeatAccountId: null,
-  orgSeatHolderSeats: [],
   subject: { accountType: 'volunteer', lifecycle: 'active' },
 };
 
-function lifecycleInput(overrides: Partial<WriteRouteInput> = {}): WriteRouteInput {
+function lifecycleInput(overrides: Partial<AccountWriteRouteInput> = {}): AccountWriteRouteInput {
   return {
     caller: { id: ADMIN, githubHandle: null },
     standing: ADMIN_STANDING,
@@ -53,17 +48,6 @@ describe('the shipped lifecycle-change decision', () => {
         p_reason: REASON,
       },
     });
-  });
-
-  it('makes no decision without a caller standing, and says so as `refused` 502', () => {
-    for (const standing of [{ kind: 'no-account' as const }, { kind: 'unreadable' as const, detail: 'the read did not happen' }]) {
-      expect(decideLifecycleChange(lifecycleInput({ standing })), `a ${standing.kind} standing reached a decision`).toEqual({
-        ok: false,
-        kind: 'refused',
-        status: 502,
-        reason: expect.stringContaining('no caller standing'),
-      });
-    }
   });
 
   it('refuses `invalid-request` 400 when the subject account is not named', () => {
@@ -134,11 +118,4 @@ describe('the shipped lifecycle-change decision', () => {
   });
 });
 
-describe('the shipped virtual-key action', () => {
-  it('revokes on deactivation, reissues on re-enable, and otherwise does nothing', () => {
-    expect(virtualKeyActionFor('active', 'deactivated')).toBe('revoke');
-    expect(virtualKeyActionFor('deactivated', 'active')).toBe('reissue');
-    expect(virtualKeyActionFor('active', 'active')).toBe('none');
-    expect(virtualKeyActionFor('deactivated', 'deactivated')).toBe('none');
-  });
-});
+

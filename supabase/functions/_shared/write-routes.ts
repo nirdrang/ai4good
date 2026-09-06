@@ -94,7 +94,6 @@ export const WRITE_REFUSAL_KINDS = [
   'invalid-contact',
   'no-such-organisation',
   'not-the-current-contact',
-  'holds-other-seats',
   'transferee-no-account',
   'transferee-not-ngo',
   'transferee-deactivated',
@@ -134,11 +133,12 @@ export type WriteStanding =
       readonly orgExists: boolean;
       /** the organisation's single seat holder, which the transfer compares against */
       readonly orgSeatAccountId: string | null;
-      /** every organisation that seat holder holds a seat in, so the transfer can name the others (R6) */
-      readonly orgSeatHolderSeats: readonly string[];
       /** the subject account a route names; null when it names none or the account has no row */
       readonly subject: SubjectStanding | null;
     };
+
+/** The `account` member of `WriteStanding`, after the gate has admitted an account-required route. */
+export type AccountStanding = Extract<WriteStanding, { kind: 'account' }>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -177,10 +177,6 @@ export function parseWriteStanding(raw: unknown): WriteStanding {
 
   const seat = raw.org_seat_account_id ?? null;
   if (seat !== null && typeof seat !== 'string') return unreadable('the standing answer carries a seat holder that is not an id');
-  const seats = raw.org_seat_holder_seats;
-  if (!Array.isArray(seats) || !seats.every((id) => typeof id === 'string')) {
-    return unreadable('the standing answer does not list the organisations of the seat holder');
-  }
 
   let subject: SubjectStanding | null = null;
   const rawSubject = raw.subject ?? null;
@@ -201,7 +197,6 @@ export function parseWriteStanding(raw: unknown): WriteStanding {
     orgRole,
     orgExists: raw.org_exists,
     orgSeatAccountId: seat,
-    orgSeatHolderSeats: seats as string[],
     subject,
   };
 }
@@ -217,6 +212,9 @@ export type WriteRouteInput = {
   readonly ip: string | null;
 };
 
+/** An account-required route's input: the gate has already proved the standing is the account variant. */
+export type AccountWriteRouteInput = WriteRouteInput & { readonly standing: AccountStanding };
+
 export type WriteRouteDecision<Args> =
   | { readonly ok: true; readonly args: Args }
   | {
@@ -224,25 +222,28 @@ export type WriteRouteDecision<Args> =
       readonly kind: WriteRefusalKind;
       readonly reason: string;
       readonly status: number;
-      /** extra fields the refusal body carries beside `kind` and `reason`, e.g. the other organisations */
-      readonly fields?: Readonly<Record<string, unknown>>;
     };
 
-export type WriteRouteSpec<Args> = {
+export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput> = {
   readonly name: WriteRouteName;
   readonly target?: (body: Record<string, unknown>) => string | null;
   readonly subject?: (body: Record<string, unknown>) => string | null;
-  readonly decide: (input: WriteRouteInput) => WriteRouteDecision<Args>;
+  /** the outgoing account id, when a route names one; `writeRoute` shape-checks it like target and subject */
+  readonly from?: (body: Record<string, unknown>) => string | null;
+  readonly decide: (input: Input) => WriteRouteDecision<Args>;
   readonly render?: (value: unknown) => Record<string, unknown>;
 };
 
-export function refuseWrite<Args>(
-  kind: WriteRefusalKind,
-  status: number,
-  reason: string,
-  fields?: Readonly<Record<string, unknown>>,
-): WriteRouteDecision<Args> {
-  return fields === undefined ? { ok: false, kind, reason, status } : { ok: false, kind, reason, status, fields };
+export function refuseWrite<Args>(kind: WriteRefusalKind, status: number, reason: string): WriteRouteDecision<Args> {
+  return { ok: false, kind, reason, status };
+}
+
+/**
+ * A PostgREST refusal is a raised exception when `code` is a five-character SQLSTATE; anything else
+ * is transport or a gateway page, not a judgement, and answers 502.
+ */
+export function rpcRefusalStatus(outcome: { code: string | null }): 409 | 502 {
+  return typeof outcome.code === 'string' && /^[0-9A-Z]{5}$/.test(outcome.code) ? 409 : 502;
 }
 
 /** A request field as a trimmed non-empty string, or null — the shape every selector answers with. */
@@ -299,8 +300,14 @@ export function writeGateDecision(name: WriteRouteName, standing: WriteStanding)
 }
 
 /** Gate then decide. ONE spine; the edge and the fixture are two shells around it. */
-export function writePipeline<Args>(spec: WriteRouteSpec<Args>, input: WriteRouteInput): WriteRouteDecision<Args> {
+export function writePipeline<Args, Input extends WriteRouteInput = WriteRouteInput>(
+  spec: WriteRouteSpec<Args, Input>,
+  input: WriteRouteInput,
+): WriteRouteDecision<Args> {
   const gate = writeGateDecision(spec.name, input.standing);
   if (!gate.ok) return gate;
-  return spec.decide(input);
+  if (WRITE_ROUTES[spec.name].standing.kind === 'account-required' && input.standing.kind === 'account') {
+    return spec.decide({ ...input, standing: input.standing } as Input);
+  }
+  return spec.decide(input as Input);
 }

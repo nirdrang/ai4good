@@ -35,7 +35,7 @@
 
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from './acknowledgment-copy.ts';
 import { stubGithubStatsFor, type GithubStats } from './github.ts';
-import type { WriteRouteDecision, WriteRouteInput } from './write-routes.ts';
+import type { AccountWriteRouteInput, WriteRouteDecision, WriteRouteInput } from './write-routes.ts';
 
 /* ------------------------------------------------------------------ the two closed vocabularies */
 
@@ -463,7 +463,7 @@ export type OrganizationCreationArgs = {
  * `WRITE_ROUTES['create-organization']` admits `ngo` — and the gate applies it with
  * `ngoOnlyActionAllowed`'s own sentence before this runs.
  */
-export function decideOrganizationCreation(input: WriteRouteInput): WriteRouteDecision<OrganizationCreationArgs> {
+export function decideOrganizationCreation(input: AccountWriteRouteInput): WriteRouteDecision<OrganizationCreationArgs> {
   const name = validateOrganizationName(input.body.name);
   if (!name.ok) return { ok: false, kind: 'invalid-name', reason: name.reason, status: 400 };
   return { ok: true, args: { p_account_id: input.caller.id, p_name: name.value } };

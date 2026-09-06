@@ -16,7 +16,12 @@
  */
 
 import { parseAccountLifecycle, type AccountLifecycle, type Decision } from './accounts.ts';
-import { refuseWrite, stringField, type WriteRouteDecision, type WriteRouteInput } from './write-routes.ts';
+import {
+  refuseWrite,
+  stringField,
+  type AccountWriteRouteInput,
+  type WriteRouteDecision,
+} from './write-routes.ts';
 
 /**
  * The transferee is the SUBJECT whose standing the route loads: its type and lifecycle decide three
@@ -25,6 +30,11 @@ import { refuseWrite, stringField, type WriteRouteDecision, type WriteRouteInput
  */
 export function subjectAccountIdField(body: Record<string, unknown>): string | null {
   return stringField(body.toAccountId);
+}
+
+/** The outgoing contact the transfer names — `writeRoute` shape-checks it like the other ids. */
+export function fromAccountIdField(body: Record<string, unknown>): string | null {
+  return stringField(body.fromAccountId);
 }
 
 /** The account whose lifecycle the setter changes — the standing's subject. */
@@ -44,17 +54,12 @@ export type ContactTransferArgs = {
 
 /**
  * THE TRANSFER NAMES THE OUTGOING ACCOUNT and refuses when that account no longer holds the seat, so
- * a retry after a timeout cannot move a seat from a state the caller never saw. It refuses when the
- * outgoing account holds another seat (R6), naming the other organisations, because lifecycle is
- * account-level and deactivating it would gate its writes in organisations this transfer never
- * looked at. And it refuses a transfer to the same account: the seat would not move and the only
- * contact would be deactivated.
+ * a retry after a timeout cannot move a seat from a state the caller never saw. Ruling R16: the
+ * named seat moves, and the outgoing account is deactivated only when it then holds no other seat.
+ * A transfer to the same account is refused: the seat would not move.
  */
-export function decideContactTransfer(input: WriteRouteInput): WriteRouteDecision<ContactTransferArgs> {
+export function decideContactTransfer(input: AccountWriteRouteInput): WriteRouteDecision<ContactTransferArgs> {
   const { standing } = input;
-  if (standing.kind !== 'account') {
-    return refuseWrite('refused', 502, 'the transfer was asked to decide with no caller standing, so no decision was made');
-  }
   const organizationId = input.target;
   const fromAccountId = stringField(input.body.fromAccountId);
   const toAccountId = input.subject;
@@ -83,16 +88,6 @@ export function decideContactTransfer(input: WriteRouteInput): WriteRouteDecisio
       'not-the-current-contact',
       409,
       `account ${fromAccountId} does not hold the contact seat of organisation ${organizationId}, so there is nothing to transfer from it`,
-    );
-  }
-  const otherOrganizations = standing.orgSeatHolderSeats.filter((id) => id !== organizationId);
-  if (otherOrganizations.length > 0) {
-    return refuseWrite(
-      'holds-other-seats',
-      409,
-      `account ${fromAccountId} also holds the contact seat of ${otherOrganizations.length} other organisation(s) — ` +
-        'deactivating it would gate its writes there too, so transfer those seats first',
-      { organizations: otherOrganizations },
     );
   }
   if (standing.subject === null) {
@@ -133,7 +128,9 @@ export function validateEscalationContact(raw: { name?: unknown; email?: unknown
   const name = stringField(raw.name);
   if (name === null) return { ok: false, reason: 'the escalation contact needs a name' };
   const email = stringField(raw.email);
-  if (email === null || !email.includes('@')) return { ok: false, reason: 'the escalation contact needs an email address' };
+  if (email === null || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, reason: 'the escalation contact needs an email address' };
+  }
   return { ok: true, value: { name, email, phone: stringField(raw.phone) } };
 }
 
@@ -145,10 +142,7 @@ export type EscalationContactArgs = {
   readonly p_phone: string | null;
 };
 
-export function decideEscalationContact(input: WriteRouteInput): WriteRouteDecision<EscalationContactArgs> {
-  if (input.standing.kind !== 'account') {
-    return refuseWrite('refused', 502, 'the escalation contact was asked to decide with no caller standing, so no decision was made');
-  }
+export function decideEscalationContact(input: AccountWriteRouteInput): WriteRouteDecision<EscalationContactArgs> {
   if (input.target === null) {
     return refuseWrite('invalid-request', 400, 'the escalation contact must name the organisation by id (organizationId)');
   }
@@ -183,10 +177,7 @@ export type LifecycleChangeArgs = {
  * `invalid-request` — a second administrator is required. A deactivated administrator never
  * reaches this decision: the inventory gate refuses it first.
  */
-export function decideLifecycleChange(input: WriteRouteInput): WriteRouteDecision<LifecycleChangeArgs> {
-  if (input.standing.kind !== 'account') {
-    return refuseWrite('refused', 502, 'the lifecycle change was asked to decide with no caller standing, so no decision was made');
-  }
+export function decideLifecycleChange(input: AccountWriteRouteInput): WriteRouteDecision<LifecycleChangeArgs> {
   const subjectAccountId = input.subject;
   const lifecycle = parseAccountLifecycle(input.body.lifecycle);
   const reason = stringField(input.body.reason);

@@ -13,14 +13,10 @@ import {
   decideContactTransfer,
   decideEscalationContact,
 } from '../../../supabase/functions/_shared/admin-operations.ts';
-import type { WriteRouteInput, WriteStanding } from '../../../supabase/functions/_shared/write-routes.ts';
-
-type AccountStanding = Extract<WriteStanding, { kind: 'account' }>;
+import type { AccountStanding, AccountWriteRouteInput } from '../../../supabase/functions/_shared/write-routes.ts';
 
 const ADMIN = '7c1e5a3b-2d4f-4e6a-8b9c-0d1e2f3a4b5c';
 const ORG = '5f0c2f0e-4d4a-4b8e-9a4b-1f2e3d4c5b6a';
-const OTHER_ORG = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
-const THIRD_ORG = '2e4d6c8b-0a1f-4b3d-9c5e-7a9b1d3f5e7c';
 const OUTGOING = '0f1d6a2e-6d1c-4a3b-9a7e-2c5b8d4f1a90';
 const TRANSFEREE = '3b2a1c0d-9e8f-4a7b-8c6d-5e4f3a2b1c0d';
 const STRANGER = '6d5c4b3a-2f1e-4d0c-9b8a-7f6e5d4c3b2a';
@@ -33,13 +29,10 @@ const ADMIN_STANDING: AccountStanding = {
   orgRole: null,
   orgExists: true,
   orgSeatAccountId: OUTGOING,
-  orgSeatHolderSeats: [ORG],
   subject: { accountType: 'ngo', lifecycle: 'active' },
 };
 
-const NO_STANDING: readonly WriteStanding[] = [{ kind: 'no-account' }, { kind: 'unreadable', detail: 'the read did not happen' }];
-
-function standing(overrides: Partial<AccountStanding>): WriteStanding {
+function standing(overrides: Partial<AccountStanding>): AccountStanding {
   return { ...ADMIN_STANDING, ...overrides };
 }
 
@@ -49,7 +42,7 @@ function transferBody(overrides: Record<string, unknown>): Record<string, unknow
   return { ...TRANSFER_BODY, ...overrides };
 }
 
-function transferInput(overrides: Partial<WriteRouteInput> = {}): WriteRouteInput {
+function transferInput(overrides: Partial<AccountWriteRouteInput> = {}): AccountWriteRouteInput {
   return {
     caller: { id: ADMIN, githubHandle: null },
     standing: ADMIN_STANDING,
@@ -82,17 +75,6 @@ describe('the shipped contact-transfer decision', () => {
   it('trims the outgoing account id and the reason it hands to the definer', () => {
     const input = transferInput({ body: transferBody({ fromAccountId: `  ${OUTGOING}  `, reason: `  ${REASON}\n` }) });
     expect(decideContactTransfer(input), 'padded fields reached the definer padded, or were refused').toEqual(ADMITTED_TRANSFER);
-  });
-
-  it('makes no decision without a caller standing, and says so as `refused` 502', () => {
-    for (const noStanding of NO_STANDING) {
-      expect(decideContactTransfer(transferInput({ standing: noStanding })), `a ${noStanding.kind} standing reached a decision`).toEqual({
-        ok: false,
-        kind: 'refused',
-        status: 502,
-        reason: expect.stringContaining('no caller standing'),
-      });
-    }
   });
 
   it('refuses `invalid-request` 400 when the organisation is not named, naming the field', () => {
@@ -150,7 +132,7 @@ describe('the shipped contact-transfer decision', () => {
   });
 
   it('refuses `no-such-organisation` 409 when the standing says the organisation does not exist', () => {
-    const input = transferInput({ standing: standing({ orgExists: false, orgSeatAccountId: null, orgSeatHolderSeats: [] }) });
+    const input = transferInput({ standing: standing({ orgExists: false, orgSeatAccountId: null }) });
     expect(decideContactTransfer(input), 'a transfer in an organisation that does not exist was decided').toEqual({
       ok: false,
       kind: 'no-such-organisation',
@@ -161,7 +143,7 @@ describe('the shipped contact-transfer decision', () => {
 
   it('refuses `not-the-current-contact` 409 when the named outgoing account does not hold the seat', () => {
     for (const orgSeatAccountId of [STRANGER, null]) {
-      const input = transferInput({ standing: standing({ orgSeatAccountId, orgSeatHolderSeats: orgSeatAccountId === null ? [] : [ORG] }) });
+      const input = transferInput({ standing: standing({ orgSeatAccountId }) });
       expect(decideContactTransfer(input), `seat holder ${JSON.stringify(orgSeatAccountId)} let another account transfer the seat`).toEqual({
         ok: false,
         kind: 'not-the-current-contact',
@@ -169,17 +151,6 @@ describe('the shipped contact-transfer decision', () => {
         reason: expect.stringContaining(OUTGOING),
       });
     }
-  });
-
-  it('refuses `holds-other-seats` 409 and names the other organisations, never the one being transferred', () => {
-    const input = transferInput({ standing: standing({ orgSeatHolderSeats: [OTHER_ORG, ORG, THIRD_ORG] }) });
-    expect(decideContactTransfer(input), 'an outgoing account with two other seats was deactivated by the transfer').toEqual({
-      ok: false,
-      kind: 'holds-other-seats',
-      status: 409,
-      reason: expect.stringContaining('2 other organisation'),
-      fields: { organizations: [OTHER_ORG, THIRD_ORG] },
-    });
   });
 
   it('refuses `transferee-no-account` 409 when the new contact has no account row', () => {
@@ -214,7 +185,7 @@ describe('the shipped contact-transfer decision', () => {
     });
   });
 
-  it('judges the request shape before the organisation, the seat before the other seats, and those before the new contact', () => {
+  it('judges the request shape before the organisation, the seat before the new contact', () => {
     const shapeFirst = transferInput({
       subject: OUTGOING,
       body: transferBody({ toAccountId: OUTGOING }),
@@ -226,15 +197,10 @@ describe('the shipped contact-transfer decision', () => {
       ok: false,
       kind: 'no-such-organisation',
     });
-    const seatFirst = transferInput({ standing: standing({ orgSeatAccountId: STRANGER, orgSeatHolderSeats: [ORG, OTHER_ORG], subject: null }) });
-    expect(decideContactTransfer(seatFirst), 'a wrong outgoing account was judged on its other seats').toMatchObject({
+    const seatFirst = transferInput({ standing: standing({ orgSeatAccountId: STRANGER, subject: null }) });
+    expect(decideContactTransfer(seatFirst), 'a wrong outgoing account was judged on the new contact').toMatchObject({
       ok: false,
       kind: 'not-the-current-contact',
-    });
-    const otherSeatsFirst = transferInput({ standing: standing({ orgSeatHolderSeats: [ORG, OTHER_ORG], subject: null }) });
-    expect(decideContactTransfer(otherSeatsFirst), 'other seats were judged after the new contact').toMatchObject({
-      ok: false,
-      kind: 'holds-other-seats',
     });
   });
 });
@@ -245,7 +211,7 @@ function contactBody(overrides: Record<string, unknown>): Record<string, unknown
   return { ...CONTACT_BODY, ...overrides };
 }
 
-function contactInput(overrides: Partial<WriteRouteInput> = {}): WriteRouteInput {
+function contactInput(overrides: Partial<AccountWriteRouteInput> = {}): AccountWriteRouteInput {
   return {
     caller: { id: ADMIN, githubHandle: null },
     standing: ADMIN_STANDING,
@@ -289,17 +255,6 @@ describe('the shipped escalation-contact decision', () => {
     expect(decideEscalationContact(input), 'padded fields reached the definer padded, or were refused').toEqual(ADMITTED_CONTACT);
   });
 
-  it('makes no decision without a caller standing, and says so as `refused` 502', () => {
-    for (const noStanding of NO_STANDING) {
-      expect(decideEscalationContact(contactInput({ standing: noStanding })), `a ${noStanding.kind} standing reached a decision`).toEqual({
-        ok: false,
-        kind: 'refused',
-        status: 502,
-        reason: expect.stringContaining('no caller standing'),
-      });
-    }
-  });
-
   it('refuses `invalid-request` 400 when the organisation is not named, naming the field', () => {
     const input = contactInput({ target: null, body: contactBody({ organizationId: undefined }) });
     expect(decideEscalationContact(input), 'a contact with no organisation was decided').toEqual({
@@ -321,8 +276,8 @@ describe('the shipped escalation-contact decision', () => {
     }
   });
 
-  it('refuses `invalid-contact` 400 for an email with no @, and for a blank, missing or non-string one', () => {
-    for (const email of ['maya.example.org', 'Maya Lindqvist', '', '   ', undefined, null, 7]) {
+  it('refuses `invalid-contact` 400 for an email that is not one character, an @, a domain and a dot', () => {
+    for (const email of ['maya.example.org', 'Maya Lindqvist', '@', 'a@', '@b', 'a@b', '', '   ', undefined, null, 7]) {
       expect(decideEscalationContact(contactInput({ body: contactBody({ email }) })), `email ${JSON.stringify(email)} was accepted`).toEqual({
         ok: false,
         kind: 'invalid-contact',
@@ -333,7 +288,7 @@ describe('the shipped escalation-contact decision', () => {
   });
 
   it('refuses `no-such-organisation` 409 when the standing says the organisation does not exist', () => {
-    const input = contactInput({ standing: standing({ orgExists: false, orgSeatAccountId: null, orgSeatHolderSeats: [] }) });
+    const input = contactInput({ standing: standing({ orgExists: false, orgSeatAccountId: null }) });
     expect(decideEscalationContact(input), 'a contact for an organisation that does not exist was decided').toEqual({
       ok: false,
       kind: 'no-such-organisation',

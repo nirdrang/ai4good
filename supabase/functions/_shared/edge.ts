@@ -1,6 +1,6 @@
 /**
- * The plumbing both edge functions need: read the environment, answer with JSON, establish WHO is
- * calling, and reach the database.
+ * The plumbing every function under `supabase/functions/` needs: read the environment, answer with
+ * JSON, establish WHO is calling, and reach the database.
  *
  * It is deliberately separate from `accounts.ts`. That module holds the DECISIONS and is imported by
  * the acceptance adapter, which puts it inside a strict TypeScript program with `types: ["node"]`
@@ -35,8 +35,10 @@ import type { PublicProjectReads, PublicProjectSource } from './public-project.t
 import {
   parseWriteRefusalKind,
   parseWriteStanding,
+  rpcRefusalStatus,
   writePipeline,
   WRITE_ROUTES,
+  type WriteRouteInput,
   type WriteRouteSpec,
   type WriteStanding,
 } from './write-routes.ts';
@@ -68,14 +70,14 @@ export function requireEnv(...names: string[]): string {
  *
  * THE ORIGIN IS `*` DELIBERATELY, and it is not a shortcut. An allow-list would need the deployed
  * app origins, which are not knowable from this tree — inventing one would be a guess wearing the
- * costume of a security control. Six functions share this header. Five authenticate by
- * `Authorization` header and none of the six reads a cookie, so a hostile page that reaches an
- * authenticated function carries no ambient authority; it would have to already hold the user's
- * access token, and if it holds that it does not need a browser. The sixth, `public-project`,
- * authenticates nothing: it serves a public projection and the service role stays on the server,
- * so a hostile page that calls it learns only what the public page is already willing to show.
- * This is the Supabase standard posture for edge functions. A deployment that later authenticates
- * by cookie must revisit this line first.
+ * costume of a security control. Every function under `supabase/functions/` shares this header;
+ * only `public-project` authenticates nothing. Authenticated functions read the `Authorization`
+ * header and none of them reads a cookie, so a hostile page that reaches one carries no ambient
+ * authority; it would have to already hold the user's access token, and if it holds that it does
+ * not need a browser. `public-project` serves a public projection and the service role stays on
+ * the server, so a hostile page that calls it learns only what the public page is already willing
+ * to show. This is the Supabase standard posture for edge functions. A deployment that later
+ * authenticates by cookie must revisit this line first.
  */
 const CORS_HEADERS: Record<string, string> = {
   'access-control-allow-origin': '*',
@@ -122,22 +124,9 @@ export function edgeHandler(
 }
 
 /**
- * RE-EXPORTED, NOT DECLARED. `Caller` now lives in `./caller.ts` beside the only function that
- * constructs one. WHAT THE TWO DEPLOYED FUNCTIONS ACTUALLY IMPORT TODAY, grep-verified rather than
- * assumed: `complete-signup/index.ts` and `create-organization/index.ts` import VALUE names from
- * this file only — `resolveCaller`, `json`, `refusal` and the rest — and neither one imports the
- * `Caller` type at all. (An earlier version of this paragraph claimed both said
- * `import type { Caller } from '../_shared/edge.ts'`; that was a false stated fact, corrected here.)
- * The re-export therefore changes no import that exists. What it does is keep this module's surface
- * unchanged: either function may take the type from here, exactly as it took it before `caller.ts`
- * existed, without reaching into `caller.ts`.
- *
- * IT IS IMPORTED AT THE TOP AND RE-EXPORTED HERE, rather than written as
- * `export type { Caller } from './caller.ts'`, and the difference is load-bearing. That one-line
- * form creates NO LOCAL BINDING, so `resolveCaller`'s own `Promise<Caller | null>` annotation below
- * would name something this file does not have. NO TYPE-CHECKER COVERS THIS FILE — the header says
- * so — but Deno type-checks it when the function is served, so the mistake would surface as a
- * serving failure of both deployed functions and nowhere earlier.
+ * `Caller` is imported from `./caller.ts` and re-exported here so a function may take the type from
+ * this file without reaching into `caller.ts`; the one-line re-export form would create no local
+ * binding for `resolveCaller`'s own annotation.
  */
 export type { Caller };
 
@@ -271,11 +260,12 @@ export function callerIp(request: Request): string | null {
 /**
  * The result of a database function call: its value, or the database's own refusal. `details` is
  * the DETAIL a definer attached with `RAISE ... USING DETAIL`, which is where a backstop refusal
- * carries its kind (R10); null when the refusal carried none.
+ * carries its kind (R10); `code` is PostgREST's `code` field, a five-character SQLSTATE when the
+ * body is a raised exception.
  */
-export type RpcOutcome =
+type RpcOutcome =
   | { ok: true; value: unknown }
-  | { ok: false; status: number; message: string; details: string | null };
+  | { ok: false; status: number; message: string; details: string | null; code: string | null };
 
 /**
  * Call one `public.` function, with the service role, in ONE round trip.
@@ -291,12 +281,9 @@ export type RpcOutcome =
  * NOT EXPORTED, and that one line is the whole structural claim of the write boundary: a route has
  * no way to reach `/rest/v1/rpc/` except through `writeRoute` below.
  */
-async function callDatabaseFunction(
-  supabaseUrl: string,
-  serviceRoleKey: string,
-  name: string,
-  args: Record<string, unknown>,
-): Promise<RpcOutcome> {
+async function callDatabaseFunction(name: string, args: Record<string, unknown>): Promise<RpcOutcome> {
+  const supabaseUrl = requireEnv('SUPABASE_URL');
+  const serviceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
   const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${name}`, {
     method: 'POST',
     headers: {
@@ -314,15 +301,17 @@ async function callDatabaseFunction(
     // generic one — those functions raise sentences precisely so a caller can act on them.
     let message = text;
     let details: string | null = null;
+    let code: string | null = null;
     try {
-      const body = JSON.parse(text) as { message?: unknown; details?: unknown };
+      const body = JSON.parse(text) as { message?: unknown; details?: unknown; code?: unknown };
       if (typeof body.message === 'string') message = body.message;
       if (typeof body.details === 'string') details = body.details;
+      if (typeof body.code === 'string') code = body.code;
     } catch {
       // A non-JSON body from PostgREST means something other than a raised exception went wrong;
       // the raw text is then the most informative thing available.
     }
-    return { ok: false, status: response.status, message, details };
+    return { ok: false, status: response.status, message, details, code };
   }
 
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
@@ -330,13 +319,11 @@ async function callDatabaseFunction(
 
 /** One round trip for type, lifecycle, role-in-target, the organisation's seat and the subject. */
 async function loadWriteStanding(
-  supabaseUrl: string,
-  serviceRoleKey: string,
   accountId: string,
   organizationId: string | null,
   subjectAccountId: string | null,
 ): Promise<WriteStanding> {
-  const outcome = await callDatabaseFunction(supabaseUrl, serviceRoleKey, 'write_standing', {
+  const outcome = await callDatabaseFunction('write_standing', {
     p_account_id: accountId,
     p_org_id: organizationId,
     p_subject_account_id: subjectAccountId,
@@ -362,8 +349,8 @@ const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  * AN ID THAT CANNOT BE A UUID IS REFUSED BEFORE THE STANDING READ, because PostgREST would fail the
  * cast and the refusal would arrive as a 502 that reads like an outage.
  */
-export function writeRoute<Args extends Record<string, unknown>>(
-  spec: WriteRouteSpec<Args>,
+export function writeRoute<Args extends Record<string, unknown>, Input extends WriteRouteInput = WriteRouteInput>(
+  spec: WriteRouteSpec<Args, Input>,
 ): (request: Request) => Promise<Response> {
   if (!(spec.name in WRITE_ROUTES)) throw new Error(`${spec.name} is not a row of WRITE_ROUTES, so it cannot be served`);
   const route = WRITE_ROUTES[spec.name];
@@ -371,7 +358,6 @@ export function writeRoute<Args extends Record<string, unknown>>(
   const rpc = route.surface.rpc;
   const SUPABASE_URL = requireEnv('SUPABASE_URL');
   const ANON_KEY = requireEnv('SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY');
-  const SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
 
   return edgeHandler(spec.name, async (request: Request): Promise<Response> => {
     if (request.method !== 'POST') return refusal(`${spec.name} accepts POST only`, 405);
@@ -384,24 +370,24 @@ export function writeRoute<Args extends Record<string, unknown>>(
 
     const target = spec.target ? spec.target(body.value) : null;
     const subject = spec.subject ? spec.subject(body.value) : null;
-    for (const [what, value] of [['organisation', target], ['account', subject]] as const) {
+    const from = spec.from ? spec.from(body.value) : null;
+    for (const [what, value] of [['organisation', target], ['account', subject], ['from', from]] as const) {
       if (value !== null && !UUID_SHAPE.test(value)) {
         return json({ ok: false, kind: 'invalid-request', reason: `the ${what} id ${JSON.stringify(value)} is not a well-formed id` }, 400);
       }
     }
 
-    const standing = await loadWriteStanding(SUPABASE_URL, SERVICE_ROLE_KEY, caller.id, target, subject);
+    const standing = await loadWriteStanding(caller.id, target, subject);
     const decision = writePipeline(spec, { caller, standing, body: body.value, target, subject, ip: callerIp(request) });
     if (!decision.ok) {
-      return json({ ok: false, kind: decision.kind, reason: decision.reason, ...decision.fields }, decision.status);
+      return json({ ok: false, kind: decision.kind, reason: decision.reason }, decision.status);
     }
 
-    const outcome = await callDatabaseFunction(SUPABASE_URL, SERVICE_ROLE_KEY, rpc, decision.args);
+    const outcome = await callDatabaseFunction(rpc, decision.args);
     if (!outcome.ok) {
-      // The database's backstop fired. Its sentence travels as the reason and the kind it attached
-      // as DETAIL travels as the kind: 409 for anything the database judged, 502 for transport.
-      const status = outcome.status >= 400 && outcome.status < 500 ? 409 : 502;
-      return json({ ok: false, kind: parseWriteRefusalKind(outcome.details), reason: outcome.message }, status);
+      const status = rpcRefusalStatus(outcome);
+      const kind = status === 409 ? parseWriteRefusalKind(outcome.details) : 'refused';
+      return json({ ok: false, kind, reason: outcome.message }, status);
     }
 
     return json({ ok: true, ...(spec.render ? spec.render(outcome.value) : {}) }, 200);
@@ -449,7 +435,9 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
 }
 
 /** The public page's source: one RPC as the service role, never a table grant. */
-export function publicProjectReads(supabaseUrl: string, serviceRoleKey: string): PublicProjectReads {
+export function publicProjectReads(): PublicProjectReads {
+  const supabaseUrl = requireEnv('SUPABASE_URL');
+  const serviceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
   const url = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/rpc/read_public_project`;
   const headers = {
     'content-type': 'application/json',

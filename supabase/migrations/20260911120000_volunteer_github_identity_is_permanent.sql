@@ -1,7 +1,8 @@
 -- A BEFORE DELETE trigger on auth.identities keeps the identity row and Auth stays
 -- healthy for the user (unlink-trigger-probe.txt). The WHEN clause sees depth 0 for a
 -- direct delete, while a cascade and the function body see depth 1 or more
--- (unlink-depth-probe.txt).
+-- (unlink-depth-probe.txt). The refusal reaches the caller as GoTrue's 500; a product
+-- surface must not offer unlink to a completed volunteer.
 
 create function public.github_identity_is_permanent_for_volunteers()
 returns trigger

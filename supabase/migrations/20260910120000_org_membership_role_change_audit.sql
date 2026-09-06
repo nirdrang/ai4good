@@ -3,11 +3,11 @@
 -- org_role_changed row for every membership insert and for every update that changes the account
 -- or the role.
 --
--- THE ACTOR IS A TRANSACTION-LOCAL SETTING (R9). The transfer definer sets
--- `app.actor_account_id` before it moves the seat. `create_organization` and `complete_signup`
--- do not, and this migration does not add it there: a product membership insert therefore records
--- a null actor and the label `operator`, which AT-001.33's body already accepts on an operator
--- path. An UPDATE that changes neither account nor role writes nothing.
+-- THE ACTOR IS A TRANSACTION-LOCAL SETTING (R9). A product definer sets
+-- `app.actor_account_id` to the caller before it inserts a membership; `append_audit_event`
+-- then labels the row as account_type || ':' || id from public.accounts. The operator path leaves
+-- the setting unset, so the actor is null and the label is `operator`. An UPDATE that changes
+-- neither account nor role writes nothing. A DELETE writes `membership removed` with the old values.
 
 create function public.org_membership_role_change_audit()
 returns trigger
@@ -42,6 +42,23 @@ begin
     return new;
   end if;
 
+  if tg_op = 'DELETE' then
+    perform public.append_audit_event(
+      'org_role_changed',
+      v_actor,
+      old.account_id,
+      old.org_id,
+      'membership removed',
+      jsonb_build_object(
+        'old_role', old.role::text,
+        'new_role', null,
+        'old_account_id', old.account_id,
+        'new_account_id', null
+      )
+    );
+    return old;
+  end if;
+
   if new.account_id is not distinct from old.account_id
      and new.role is not distinct from old.role then
     return new;
@@ -71,12 +88,12 @@ end;
 $$;
 
 comment on function public.org_membership_role_change_audit() is
-  'Writes one org_role_changed audit row for a membership insert or for an update that changes the account or the role. A missing app.actor_account_id records the operator (REQ-001, AT-001.33, R9).';
+  'Writes one org_role_changed audit row for a membership insert, for an update that changes the account or the role, or for a delete. A missing app.actor_account_id records the operator (REQ-001, AT-001.33, R9).';
 
 revoke execute on function public.org_membership_role_change_audit() from public;
 
 create trigger org_memberships_role_change_audit
-after insert or update on public.org_memberships
+after insert or update or delete on public.org_memberships
 for each row
 execute function public.org_membership_role_change_audit();
 

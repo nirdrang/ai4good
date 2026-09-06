@@ -5,11 +5,8 @@ import {
   publicProjectReads,
   readJsonBody,
   refusal,
-  requireEnv,
 } from '../_shared/edge.ts';
 
-const SUPABASE_URL = requireEnv('SUPABASE_URL');
-const SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(edgeHandler('public-project', async (request: Request): Promise<Response> => {
@@ -21,6 +18,6 @@ Deno.serve(edgeHandler('public-project', async (request: Request): Promise<Respo
   const projectId = typeof body.value.projectId === 'string' ? body.value.projectId.trim() : '';
   if (!UUID.test(projectId)) return refusal('a public project page must name the project as a uuid', 400);
 
-  const answer = await publicProjectAnswer(projectId, publicProjectReads(SUPABASE_URL, SERVICE_ROLE_KEY));
+  const answer = await publicProjectAnswer(projectId, publicProjectReads());
   return json(answer.body, answer.status);
 }));

@@ -61,6 +61,9 @@ create table public.org_escalation_contacts (
   recorded_at            timestamptz not null default now(),
   constraint org_escalation_contacts_populated check (
     btrim(contact_name, E' \t\r\n\f') <> '' and btrim(contact_email, E' \t\r\n\f') <> ''
+  ),
+  constraint org_escalation_contacts_email_shape check (
+    contact_email ~ '^[^\s@]+@[^\s@]+\.[^\s@]+$'
   )
 );
 
@@ -135,9 +138,10 @@ revoke execute on function public.assert_account_active(uuid) from public;
 /* ================================================================== the one standing read ======= */
 
 -- ONE READ FOR EVERY WRITE ROUTE: the caller's type and lifecycle, its role in the target
--- organisation, whether that organisation exists, who holds its single seat and which seats that
--- holder has elsewhere, and the subject's type and lifecycle. A route that names no organisation
--- passes null and those fields come back null. `parseWriteStanding` in
+-- organisation, whether that organisation exists, who holds its single seat, and the subject's type
+-- and lifecycle. A route that names no organisation passes null and those fields come back null.
+-- The scalar subqueries for the seat holder depend on org_memberships_one_seat_per_org_idx: one
+-- organisation holds one membership row. `parseWriteStanding` in
 -- `supabase/functions/_shared/write-routes.ts` judges the answer and fails closed on any other
 -- shape.
 create function public.write_standing(p_account_id uuid, p_org_id uuid, p_subject_account_id uuid)
@@ -165,11 +169,6 @@ as $$
         from public.org_memberships m
        where m.org_id = p_org_id
     ),
-    'org_seat_holder_seats', coalesce((
-      select jsonb_agg(s.org_id order by s.org_id)
-        from public.org_memberships s
-       where s.account_id = (select m.account_id from public.org_memberships m where m.org_id = p_org_id)
-    ), '[]'::jsonb),
     'subject', (
       select jsonb_build_object('account_type', a.account_type, 'lifecycle', a.lifecycle)
         from public.accounts a
@@ -261,7 +260,8 @@ revoke execute on function public.change_account_lifecycle(uuid, public.account_
 
 -- THE CONTACT TRANSFER, AND LOST-ACCESS RECOVERY IS THE SAME OPERATION (AT-001.27): the reason the
 -- administrator gives is the difference, and the audit row carries it. One call is one transaction,
--- so a transfer cannot half-happen.
+-- so a transfer cannot half-happen. Ruling R16: the named seat moves, and the outgoing account is
+-- deactivated only when it then holds no other seat.
 --
 -- EVERY CHECK BELOW IS A BACKSTOP for a caller that bypassed `decideContactTransfer` in
 -- `supabase/functions/_shared/admin-operations.ts`: the user-facing refusal, with its kind and its
@@ -282,7 +282,8 @@ as $$
 declare
   v_caller_type public.account_type;
   v_seat_holder uuid;
-  v_other_seats uuid[];
+  v_remaining uuid[];
+  v_deactivated boolean;
   v_to_type public.account_type;
   v_to_lifecycle public.account_lifecycle;
 begin
@@ -307,33 +308,24 @@ begin
       using errcode = '22023', detail = 'invalid-request';
   end if;
 
-  if not exists (select 1 from public.organizations where id = p_organization_id) then
-    raise exception 'transfer_organization_contact refuses %: no such organisation', p_organization_id
-      using errcode = '23503', detail = 'no-such-organisation';
-  end if;
+  -- Lock the outgoing and transferee account rows in id order, then the seat. A concurrent
+  -- create_organization for the outgoing account takes assert_account_active's share lock on that
+  -- same row and therefore waits here (or this waits for it) until the other commits.
+  perform 1 from public.accounts where id in (p_from_account_id, p_to_account_id) order by id for update;
 
-  -- `for update` on the seat row: two transfers of one seat serialise here, and the second one
-  -- reads the seat the first one moved and refuses.
   select account_id into v_seat_holder
     from public.org_memberships
    where org_id = p_organization_id
      for update;
+
+  if not exists (select 1 from public.organizations where id = p_organization_id) then
+    raise exception 'transfer_organization_contact refuses %: no such organisation', p_organization_id
+      using errcode = '23503', detail = 'no-such-organisation';
+  end if;
   if v_seat_holder is null or v_seat_holder <> p_from_account_id then
     raise exception 'transfer_organization_contact refuses %: this account does not hold the contact seat of organisation %',
       p_from_account_id, p_organization_id
       using errcode = '42501', detail = 'not-the-current-contact';
-  end if;
-
-  -- R6: lifecycle is account-level, and deactivating an account that holds another seat would gate
-  -- its writes in an organisation this transfer never looked at.
-  select coalesce(array_agg(org_id order by org_id), '{}'::uuid[]) into v_other_seats
-    from public.org_memberships
-   where account_id = p_from_account_id
-     and org_id <> p_organization_id;
-  if cardinality(v_other_seats) > 0 then
-    raise exception 'transfer_organization_contact refuses %: the outgoing account also holds the contact seat of %',
-      p_from_account_id, array_to_string(v_other_seats, ', ')
-      using errcode = '42501', detail = 'holds-other-seats';
   end if;
 
   select account_type, lifecycle into v_to_type, v_to_lifecycle
@@ -365,10 +357,21 @@ begin
    where org_id = p_organization_id
      and account_id = p_from_account_id;
 
-  perform public.change_account_lifecycle(p_from_account_id, 'deactivated', p_account_id, p_reason);
+  select coalesce(array_agg(org_id order by org_id), '{}'::uuid[]) into v_remaining
+    from public.org_memberships
+   where account_id = p_from_account_id;
+  v_deactivated := cardinality(v_remaining) = 0;
+  if v_deactivated then
+    perform public.change_account_lifecycle(p_from_account_id, 'deactivated', p_account_id, p_reason);
+  end if;
   perform public.append_audit_event(
     'org_contact_transferred', p_account_id, p_from_account_id, p_organization_id, p_reason,
-    jsonb_build_object('from_account_id', p_from_account_id, 'to_account_id', p_to_account_id)
+    jsonb_build_object(
+      'from_account_id', p_from_account_id,
+      'to_account_id', p_to_account_id,
+      'remaining_seats', to_jsonb(v_remaining),
+      'deactivated', v_deactivated
+    )
   );
 
   return jsonb_build_object(

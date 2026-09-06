@@ -109,7 +109,6 @@ import type {
   World,
   WriteAttemptOutcome,
   WriteRefusal,
-  WriteSubject,
 } from './_contract.ts';
 import { liveTenantReads, type JwtClaims } from './_live-tenant-reads.ts';
 
@@ -495,7 +494,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       const tokens = tokensOf(sessions, session, 'call the deployed complete-signup');
       const { status, json } = await functionPost(stack, 'complete-signup', request, tokens.accessToken, ip);
       if (status >= 400 || json.ok === false) {
-        return { ok: false, reason: String(json.reason ?? json.msg ?? `the deployed complete-signup answered ${status}`) };
+        const reason = String(json.reason ?? json.msg ?? `the deployed complete-signup answered ${status}`);
+        const kind = status === 401 ? 'unauthenticated' : parseWriteRefusalKind(json.kind);
+        return { ok: false, kind, status, reason };
       }
       return {
         ok: true,
@@ -505,17 +506,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
 
     createOrganization: async (session, organizationName): Promise<CreateOrganizationOutcome> => {
-      // THE FIELD THE DEPLOYED FUNCTION READS IS `name`, and it is measured rather than assumed:
-      // `create-organization/index.ts` calls `validateOrganizationName(body.value.name)`. A body
-      // keyed `organizationName` was refused 400 "an organisation needs a non-empty name" — a
-      // refusal that reads like a product rule and is really a wire mismatch, which would have made
-      // AT-001.06's NGO CONTROL fail and every refusal after it prove nothing.
-      const tokens = tokensOf(sessions, session, 'call the deployed create-organization');
-      const { status, json } = await functionPost(stack, 'create-organization', { name: organizationName }, tokens.accessToken, '203.0.113.7');
-      if (status >= 400 || json.ok === false) {
-        return { ok: false, reason: String(json.reason ?? json.msg ?? `the deployed create-organization answered ${status}`) };
-      }
-      return { ok: true, organizationId: String(json.organizationId ?? '') };
+      const answer = await postWrite('create-organization', session, { name: organizationName });
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, organizationId: String(answer.json.organizationId ?? '') };
     },
 
     /**
@@ -889,8 +882,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {
       const answer = await postWrite('transfer-organization-contact', session, request);
       if (answer.ok) return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
-      const organizations = answer.json.organizations;
-      return Array.isArray(organizations) ? { ...answer.refusal, organizations: organizations.map(String) } : answer.refusal;
+      return answer.refusal;
     },
 
     setEscalationContact: async (session, request): Promise<EscalationOutcome> => {
@@ -905,52 +897,75 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return { ok: true, changed: Boolean(answer.json.changed) };
     },
 
-    attemptWrite: async (route, session, subject): Promise<WriteAttemptOutcome> => {
-      const asAttempt = async (
-        name: string,
-        body: Record<string, unknown>,
-      ): Promise<WriteAttemptOutcome> => {
-        const answer = await postWrite(name, session, body);
-        return answer.ok ? { ok: true } : answer.refusal;
-      };
-      const attempts: Record<WriteRouteName, (session: Session | null, subject: WriteSubject) => Promise<WriteAttemptOutcome>> = {
-        'complete-signup': (_handle, write) =>
-          asAttempt('complete-signup', {
-            accountType: 'ngo',
-            organizationName: write.name,
-            acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
-            signerName: 'Dana Okonkwo',
-            signerTitle: 'Executive Director',
-            authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
-          }),
-        'create-organization': (_handle, write) => asAttempt('create-organization', { name: write.name }),
-        'update-organization': (_handle, write) =>
-          asAttempt('update-organization', { organizationId: write.organizationId, name: write.name }),
-        'transfer-organization-contact': (_handle, write) =>
-          asAttempt('transfer-organization-contact', {
-            organizationId: write.organizationId,
-            fromAccountId: write.fromAccountId,
-            toAccountId: write.toAccountId,
-            reason: write.reason,
-          }),
-        'set-escalation-contact': (_handle, write) =>
-          asAttempt('set-escalation-contact', {
-            organizationId: write.organizationId,
-            name: write.name,
-            email: write.email,
-            phone: null,
-          }),
-        'set-account-lifecycle': (_handle, write) =>
-          asAttempt('set-account-lifecycle', {
-            accountId: write.accountId,
-            lifecycle: write.lifecycle,
-            reason: write.reason,
-          }),
-        'discovery-message': () => {
+    attemptWrite: async function (this: AccountsSut, subject, session): Promise<WriteAttemptOutcome> {
+      const asAttempt = async (outcome: { ok: true } | WriteRefusal): Promise<WriteAttemptOutcome> =>
+        outcome.ok ? { ok: true } : outcome;
+      const attempts: Record<WriteRouteName, () => Promise<WriteAttemptOutcome>> = {
+        'complete-signup': async () => {
+          if (subject.route !== 'complete-signup') throw new Error('unreachable');
+          if (session === null) {
+            const answer = await postWrite('complete-signup', null, {
+              accountType: 'ngo',
+              organizationName: subject.name,
+              acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
+              signerName: 'Dana Okonkwo',
+              signerTitle: 'Executive Director',
+              authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+            });
+            return answer.ok ? { ok: true } : answer.refusal;
+          }
+          const completed = await this.completeSignup(
+            session,
+            {
+              accountType: 'ngo',
+              organizationName: subject.name,
+              acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
+              signerName: 'Dana Okonkwo',
+              signerTitle: 'Executive Director',
+              authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+            },
+            '203.0.113.7',
+          );
+          if (completed.ok) return { ok: true };
+          if ('kind' in completed) return completed;
+          return { ok: false, kind: 'refused', status: 409, reason: completed.reason };
+        },
+        'create-organization': async () => {
+          if (subject.route !== 'create-organization') throw new Error('unreachable');
+          if (session === null) {
+            const answer = await postWrite('create-organization', null, { name: subject.name });
+            return answer.ok ? { ok: true } : answer.refusal;
+          }
+          return asAttempt(await this.createOrganization(session, subject.name));
+        },
+        'update-organization': async () => {
+          if (subject.route !== 'update-organization') throw new Error('unreachable');
+          if (session === null) {
+            const answer = await postWrite('update-organization', null, {
+              organizationId: subject.organizationId,
+              name: subject.name,
+            });
+            return answer.ok ? { ok: true } : answer.refusal;
+          }
+          return asAttempt(await this.updateOrganization(session, subject.organizationId, subject.name));
+        },
+        'transfer-organization-contact': async () => {
+          if (subject.route !== 'transfer-organization-contact') throw new Error('unreachable');
+          return asAttempt(await this.transferOrganizationContact(session, subject));
+        },
+        'set-escalation-contact': async () => {
+          if (subject.route !== 'set-escalation-contact') throw new Error('unreachable');
+          return asAttempt(await this.setEscalationContact(session, { ...subject, phone: null }));
+        },
+        'set-account-lifecycle': async () => {
+          if (subject.route !== 'set-account-lifecycle') throw new Error('unreachable');
+          return asAttempt(await this.setAccountLifecycle(session, subject));
+        },
+        'discovery-message': async () => {
           throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
         },
       };
-      return attempts[route](session, subject);
+      return attempts[subject.route]();
     },
 
     /* --------------------- the audit record and the escalation contact, as the operator (R12) --- */

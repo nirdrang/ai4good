@@ -8,14 +8,12 @@
  * has no `_live.ts`. REQ-001 has `_live.ts`, so the integration tier drives that adapter, not this
  * one. What a loop-tier green from this suite means is exactly this:
  *
- *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts`,
- *     `supabase/functions/_shared/github.ts`, `supabase/functions/_shared/caller.ts` and
- *     `supabase/functions/_shared/verification.ts`
- *     behave as the thirteen acceptance criteria this suite lands require. THE FOUR MODULES DO NOT
- *     HAVE THE SAME STANDING, and saying they do would be an untrue stated fact: `accounts.ts`,
- *     `github.ts` and `caller.ts` are imported by the deployed edge functions, byte for byte the
- *     code that ships — `caller.ts` through `resolveCaller` in `edge.ts`, which every authenticated
- *     request at both functions passes through.
+ *   - PROVED: the decisions in the shipped modules this file imports —
+ *     `accounts.ts`, `github.ts`, `caller.ts`, `verification.ts`, `write-routes.ts`,
+ *     `admin-operations.ts` and `memberships.ts` — behave as the acceptance criteria this suite
+ *     lands require. `accounts.ts`, `github.ts` and `caller.ts` are imported by the deployed edge
+ *     functions, byte for byte the code that ships — `caller.ts` through `resolveCaller` in
+ *     `edge.ts`, which every authenticated request passes through.
  *     `verification.ts` is imported by NO deployed function — it is the module the FUTURE Discovery
  *     send route must import, and today only this suite and
  *     `tests/at/harness/shipped-verification.selftest.ts` import it. That is decision D-D of the
@@ -226,8 +224,11 @@ import { decideOrganizationRename, type OrganizationRenameArgs } from '../../../
 import {
   organizationIdField,
   parseWriteStanding,
-  writeGateDecision,
+  refuseWrite,
+  stringField,
   writePipeline,
+  type AccountWriteRouteInput,
+  type WriteRouteInput,
   type WriteRouteName,
   type WriteRouteSpec,
 } from '../../../../supabase/functions/_shared/write-routes.ts';
@@ -236,6 +237,7 @@ import {
   decideContactTransfer,
   decideEscalationContact,
   decideLifecycleChange,
+  fromAccountIdField,
   subjectAccountIdField,
   type ContactTransferArgs,
   type EscalationContactArgs,
@@ -302,7 +304,6 @@ import type {
   World,
   WriteAttemptOutcome,
   WriteRefusal,
-  WriteSubject,
 } from './_contract.ts';
 
 /**
@@ -704,18 +705,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       org_exists: organizationId !== null && state.organizations.has(organizationId),
       org_role: organizationId === null ? null : (state.memberships.get(membershipKey(organizationId, accountId))?.role ?? null),
       org_seat_account_id: seat?.accountId ?? null,
-      org_seat_holder_seats:
-        seat === null
-          ? []
-          : [...state.memberships.values()].filter((row) => row.accountId === seat.accountId).map((row) => row.organizationId),
       subject: subject === null ? null : { account_type: subject.accountType, lifecycle: subject.lifecycle },
     };
   };
 
-  type WriteRun<Args> = { ok: true; caller: Caller; args: Args } | (WriteRefusal & { organizations?: readonly string[] });
+  type WriteRun<Args> = { ok: true; caller: Caller; args: Args } | WriteRefusal;
 
-  const runWrite = <Args>(
-    spec: WriteRouteSpec<Args>,
+  const runWrite = <Args, Input extends WriteRouteInput = WriteRouteInput>(
+    spec: WriteRouteSpec<Args, Input>,
     session: Session | null,
     body: Record<string, unknown>,
     ip: string | null,
@@ -727,39 +724,48 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     const standing = parseWriteStanding(renderWriteStanding(caller.id, target, subject));
     const decision = writePipeline(spec, { caller, standing, body, target, subject, ip });
     if (decision.ok) return { ok: true, caller, args: decision.args };
-    const refusal: WriteRefusal = { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
-    const organizations = decision.fields?.organizations;
-    return Array.isArray(organizations) ? { ...refusal, organizations: organizations.map(String) } : refusal;
+    return { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
   };
 
   const SIGNUP_COMPLETION: WriteRouteSpec<SignupCompletionArgs> = { name: 'complete-signup', decide: decideSignupCompletion };
-  const ORGANIZATION_CREATION: WriteRouteSpec<OrganizationCreationArgs> = {
+  const ORGANIZATION_CREATION: WriteRouteSpec<OrganizationCreationArgs, AccountWriteRouteInput> = {
     name: 'create-organization',
     decide: decideOrganizationCreation,
   };
-  const ORGANIZATION_RENAME: WriteRouteSpec<OrganizationRenameArgs> = {
+  const ORGANIZATION_RENAME: WriteRouteSpec<OrganizationRenameArgs, AccountWriteRouteInput> = {
     name: 'update-organization',
     target: organizationIdField,
     decide: decideOrganizationRename,
   };
-  const CONTACT_TRANSFER: WriteRouteSpec<ContactTransferArgs> = {
+  const CONTACT_TRANSFER: WriteRouteSpec<ContactTransferArgs, AccountWriteRouteInput> = {
     name: 'transfer-organization-contact',
     target: organizationIdField,
     subject: subjectAccountIdField,
+    from: fromAccountIdField,
     decide: decideContactTransfer,
   };
-  const ESCALATION_CONTACT: WriteRouteSpec<EscalationContactArgs> = {
+  const ESCALATION_CONTACT: WriteRouteSpec<EscalationContactArgs, AccountWriteRouteInput> = {
     name: 'set-escalation-contact',
     target: organizationIdField,
     decide: decideEscalationContact,
   };
-  const LIFECYCLE_CHANGE: WriteRouteSpec<LifecycleChangeArgs> = {
+  const LIFECYCLE_CHANGE: WriteRouteSpec<LifecycleChangeArgs, AccountWriteRouteInput> = {
     name: 'set-account-lifecycle',
     subject: accountIdField,
     decide: decideLifecycleChange,
   };
+  const DISCOVERY_MESSAGE: WriteRouteSpec<{ message: string }, AccountWriteRouteInput> = {
+    name: 'discovery-message',
+    decide: (input) => {
+      const allowed = discoveryMessageAllowed({ emailVerified: input.body.emailVerified === true });
+      if (!allowed.ok) return refuseWrite('refused', 403, allowed.reason);
+      const message = stringField(input.body.message);
+      if (message === null) return refuseWrite('invalid-request', 400, 'a Discovery message needs a body');
+      return { ok: true, args: { message } };
+    },
+  };
 
-  /** The mirror of `public.append_audit_event`: the label is 'platform_admin:<id>' or 'operator' (R9). */
+  /** The mirror of `public.append_audit_event`: the label is `<account_type>:<id>` or `operator` (R9). */
   const appendAudit = (
     eventKind: AuditEventKind,
     actorAccountId: string | null,
@@ -768,12 +774,13 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     reason: string,
     detail: Record<string, unknown>,
   ): void => {
+    const actor = actorAccountId === null ? null : (state.accounts.get(actorAccountId) ?? null);
     state.auditEvents.push({
       id: nextId('audit'),
       occurredAt: new Date(clock.now()).toISOString(),
       eventKind,
       actorAccountId,
-      actorLabel: actorAccountId === null ? 'operator' : `platform_admin:${actorAccountId}`,
+      actorLabel: actorAccountId === null || actor === null ? 'operator' : `${actor.accountType}:${actorAccountId}`,
       subjectAccountId,
       subjectOrgId,
       reason,
@@ -782,16 +789,26 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   };
 
   /**
-   * THE MIRROR of `public.org_membership_role_change_audit`. Product membership inserts pass a
-   * null actor because `create_organization` and `complete_signup` do not set
-   * `app.actor_account_id`; the transfer path passes the caller, matching the definer. An update
-   * that changes neither account nor role writes nothing. The live adapter is the oracle.
+   * THE MIRROR of `public.org_membership_role_change_audit`. Product membership inserts pass the
+   * caller as actor, matching `set_config('app.actor_account_id', …)` in complete_signup and
+   * create_organization. The operator path passes null. An update that changes neither account
+   * nor role writes nothing. A delete writes membership removed with the old values.
    */
   const recordRoleChange = (
     previous: MembershipRow | null,
-    next: MembershipRow,
+    next: MembershipRow | null,
     actorAccountId: string | null,
   ): void => {
+    if (next === null) {
+      if (previous === null) return;
+      appendAudit('org_role_changed', actorAccountId, previous.accountId, previous.organizationId, 'membership removed', {
+        old_role: previous.role,
+        new_role: null,
+        old_account_id: previous.accountId,
+        new_account_id: null,
+      });
+      return;
+    }
     if (previous !== null && previous.accountId === next.accountId && previous.role === next.role) return;
     const reason =
       previous === null ? 'membership granted' : previous.accountId !== next.accountId ? 'seat repointed' : 'role changed';
@@ -850,7 +867,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     // What is still NOT proved here is GoTrue's real serialisation — that this shape is the shape
     // Auth sends. Only the live proof touches that.
     const run = runWrite(SIGNUP_COMPLETION, session, request, ip);
-    if (!run.ok) return { ok: false, reason: run.reason };
+    if (!run.ok) return run;
     const { caller } = run;
     const {
       p_account_type: accountType,
@@ -925,7 +942,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     if (organization) state.organizations.set(organization.id, organization);
     if (membership) {
       state.memberships.set(membershipKey(membership.organizationId, membership.accountId), membership);
-      recordRoleChange(null, membership, null);
+      recordRoleChange(null, membership, caller.id);
     }
     if (volunteerProfile) state.volunteerProfiles.set(volunteerProfile.accountId, volunteerProfile);
     state.acknowledgments.push(acknowledgment);
@@ -1212,43 +1229,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     // and `AccountsSut`'s fourth kind. Every judgement below is the shipped module's; what is left
     // here is one refusal about bookkeeping and one write.
     sendDiscoveryMessage: async (session, body): Promise<SendDiscoveryMessageOutcome> => {
-      // WHO IS CALLING, FIRST AND THROUGH THE SHIPPED JUDGEMENT — the same uniform validation
-      // `completeSignup` and `createOrganization` use. A dead session is refused here, before the
-      // Discovery floor is consulted, and writes nothing.
-      const caller = resolveCaller(session);
-      if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
+      const caller = session === null ? null : resolveCaller(session);
+      if (caller === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
       const authUser = state.authUsers.get(caller.id);
-      if (!authUser) return { ok: false, reason: DEAD_SESSION_REASON };
-      // The same bookkeeping refusal `createOrganization` gives, and it is THIS FILE'S, not a
-      // product rule: an account that has not completed signup has no sender to record against.
-      // It is checked FIRST so that AT-001.10's refusal is unambiguously the gate's own — the
-      // account there has completed signup, so this branch cannot be what answers.
-      if (!state.accounts.has(caller.id)) {
-        return { ok: false, reason: 'complete signup before sending a Discovery message' };
-      }
-
-      const standing = parseWriteStanding(renderWriteStanding(caller.id, null, null));
-      const gate = writeGateDecision('discovery-message', standing);
-      if (!gate.ok) return { ok: false, reason: gate.reason };
-
-      // THE VERIFIED FACT IS A CALLER FACT, derived exactly as `emailVerified` derives it: from the
-      // rendered response shape, through the shipped extractor. It is never a request field —
-      // a request field is something a client asserts about itself, and a floor built on one is no
-      // floor at all.
+      if (!authUser) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
       const emailVerified = emailVerifiedFromUser(renderAuthUser(authUser));
-
-      // THE ONLY DECISION ON THIS PATH, and it is the shipped one. The refusal text is the GATE's,
-      // carried through unchanged — AT-001.10 matches the reason, so restating it here would make
-      // the test grade this file instead of the module that ships.
-      const allowed = discoveryMessageAllowed({ emailVerified });
-      if (!allowed.ok) return { ok: false, reason: allowed.reason };
-
-      // ONLY REACHED ON ALLOW, so a refusal writes nothing — which is what `discoveryMessagesBy`
-      // is read for. The body is stored opaquely: recipients, threads and message state are
-      // REQ-002/004's semantics and none of them is invented here.
-      const sent = state.discoveryMessages.get(caller.id) ?? [];
-      sent.push(body);
-      state.discoveryMessages.set(caller.id, sent);
+      const run = runWrite(DISCOVERY_MESSAGE, session, { message: body, emailVerified }, null);
+      if (!run.ok) return run;
+      const sent = state.discoveryMessages.get(run.caller.id) ?? [];
+      sent.push(run.args.message);
+      state.discoveryMessages.set(run.caller.id, sent);
       return { ok: true };
     },
 
@@ -1265,13 +1255,13 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       // `ngo` with `ngoOnlyActionAllowed`'s own sentence. That is what makes AT-001.06 a test of an
       // application boundary rather than of a helper called directly from a test body.
       const run = runWrite(ORGANIZATION_CREATION, session, { name: organizationName }, null);
-      if (!run.ok) return { ok: false, reason: run.reason };
+      if (!run.ok) return run;
 
       const organization: OrganizationRow = { id: nextId('org'), name: run.args.p_name };
       const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
       state.organizations.set(organization.id, organization);
       state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
-      recordRoleChange(null, membership, null);
+      recordRoleChange(null, membership, run.caller.id);
       return { ok: true, organizationId: organization.id };
     },
 
@@ -1578,8 +1568,18 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.memberships.delete(membershipKey(organizationId, from));
       state.memberships.set(membershipKey(organizationId, to), moved);
       recordRoleChange(seat, moved, run.caller.id);
-      changeLifecycle(from, 'deactivated', run.caller.id, reason);
-      appendAudit('org_contact_transferred', run.caller.id, from, organizationId, reason, { from_account_id: from, to_account_id: to });
+      const remaining = [...state.memberships.values()]
+        .filter((row) => row.accountId === from)
+        .map((row) => row.organizationId)
+        .sort();
+      const deactivated = remaining.length === 0;
+      if (deactivated) changeLifecycle(from, 'deactivated', run.caller.id, reason);
+      appendAudit('org_contact_transferred', run.caller.id, from, organizationId, reason, {
+        from_account_id: from,
+        to_account_id: to,
+        remaining_seats: remaining,
+        deactivated,
+      });
       return { ok: true, organizationId };
     },
 
@@ -1587,6 +1587,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const run = runWrite(ESCALATION_CONTACT, session, request, null);
       if (!run.ok) return run;
       const { p_organization_id: organizationId, p_name, p_email, p_phone } = run.args;
+      const previous = state.escalationContacts.get(organizationId) ?? null;
       state.escalationContacts.set(organizationId, {
         organizationId,
         contactName: p_name,
@@ -1594,6 +1595,13 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         contactPhone: p_phone,
         recordedByAccountId: run.caller.id,
         recordedAt: new Date(clock.now()).toISOString(),
+      });
+      appendAudit('org_escalation_contact_recorded', run.caller.id, null, organizationId, 'escalation contact recorded', {
+        previous:
+          previous === null
+            ? null
+            : { name: previous.contactName, email: previous.contactEmail, phone: previous.contactPhone },
+        current: { name: p_name, email: p_email, phone: p_phone },
       });
       return { ok: true, organizationId };
     },
@@ -1605,109 +1613,58 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       return { ok: true, changed };
     },
 
-    attemptWrite: async (route, session, subject): Promise<WriteAttemptOutcome> => {
-      const attempts: Record<WriteRouteName, (session: Session | null, subject: WriteSubject) => Promise<WriteAttemptOutcome>> = {
-        'complete-signup': async (handle, write) => {
-          const request = {
-            accountType: 'ngo',
-            organizationName: write.name,
-            acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
-            signerName: 'Dana Okonkwo',
-            signerTitle: 'Executive Director',
-            authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
-          };
-          const run = runWrite(SIGNUP_COMPLETION, handle, request, '203.0.113.7');
-          if (!run.ok) return run;
-          if (handle === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
-          const completed = await completeSignup(handle, request, '203.0.113.7');
-          return completed.ok ? { ok: true } : { ok: false, kind: 'refused', status: 409, reason: completed.reason };
+    attemptWrite: async function (this: AccountsSut, subject, session): Promise<WriteAttemptOutcome> {
+      const asAttempt = async (outcome: { ok: true } | WriteRefusal): Promise<WriteAttemptOutcome> =>
+        outcome.ok ? { ok: true } : outcome;
+      const attempts: Record<WriteRouteName, () => Promise<WriteAttemptOutcome>> = {
+        'complete-signup': async () => {
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          if (subject.route !== 'complete-signup') throw new Error('unreachable');
+          const completed = await completeSignup(
+            session,
+            {
+              accountType: 'ngo',
+              organizationName: subject.name,
+              acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
+              signerName: 'Dana Okonkwo',
+              signerTitle: 'Executive Director',
+              authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+            },
+            '203.0.113.7',
+          );
+          if (completed.ok) return { ok: true };
+          if ('kind' in completed) return completed;
+          return { ok: false, kind: 'refused', status: 409, reason: completed.reason };
         },
-        'create-organization': async (handle, write) => {
-          const run = runWrite(ORGANIZATION_CREATION, handle, { name: write.name }, null);
-          if (!run.ok) return run;
-          const organization: OrganizationRow = { id: nextId('org'), name: run.args.p_name };
-          const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
-          state.organizations.set(organization.id, organization);
-          state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
-          recordRoleChange(null, membership, null);
-          return { ok: true };
+        'create-organization': async () => {
+          if (subject.route !== 'create-organization') throw new Error('unreachable');
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          return asAttempt(await this.createOrganization(session, subject.name));
         },
-        'update-organization': async (handle, write) => {
-          const run = runWrite(ORGANIZATION_RENAME, handle, { organizationId: write.organizationId, name: write.name }, null);
-          if (!run.ok) return run;
-          state.organizations.set(run.args.p_organization_id, { id: run.args.p_organization_id, name: run.args.p_name });
-          return { ok: true };
+        'update-organization': async () => {
+          if (subject.route !== 'update-organization') throw new Error('unreachable');
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          return asAttempt(await this.updateOrganization(session, subject.organizationId, subject.name));
         },
-        'transfer-organization-contact': async (handle, write) => {
-          const run = runWrite(CONTACT_TRANSFER, handle, {
-            organizationId: write.organizationId,
-            fromAccountId: write.fromAccountId,
-            toAccountId: write.toAccountId,
-            reason: write.reason,
-          }, null);
-          if (!run.ok) return run;
-          const { p_organization_id: organizationId, p_from_account_id: from, p_to_account_id: to, p_reason: reason } = run.args;
-          const seat = state.memberships.get(membershipKey(organizationId, from));
-          if (!seat) throw new Error(`fixture: the decision admitted a transfer from ${from}, which holds no seat in ${organizationId}`);
-          const moved: MembershipRow = { ...seat, accountId: to };
-          state.memberships.delete(membershipKey(organizationId, from));
-          state.memberships.set(membershipKey(organizationId, to), moved);
-          recordRoleChange(seat, moved, run.caller.id);
-          changeLifecycle(from, 'deactivated', run.caller.id, reason);
-          appendAudit('org_contact_transferred', run.caller.id, from, organizationId, reason, { from_account_id: from, to_account_id: to });
-          return { ok: true };
+        'transfer-organization-contact': async () => {
+          if (subject.route !== 'transfer-organization-contact') throw new Error('unreachable');
+          return asAttempt(await this.transferOrganizationContact(session, subject));
         },
-        'set-escalation-contact': async (handle, write) => {
-          const run = runWrite(ESCALATION_CONTACT, handle, {
-            organizationId: write.organizationId,
-            name: write.name,
-            email: write.email,
-            phone: null,
-          }, null);
-          if (!run.ok) return run;
-          state.escalationContacts.set(run.args.p_organization_id, {
-            organizationId: run.args.p_organization_id,
-            contactName: run.args.p_name,
-            contactEmail: run.args.p_email,
-            contactPhone: run.args.p_phone,
-            recordedByAccountId: run.caller.id,
-            recordedAt: new Date(clock.now()).toISOString(),
-          });
-          return { ok: true };
+        'set-escalation-contact': async () => {
+          if (subject.route !== 'set-escalation-contact') throw new Error('unreachable');
+          return asAttempt(await this.setEscalationContact(session, { ...subject, phone: null }));
         },
-        'set-account-lifecycle': async (handle, write) => {
-          const run = runWrite(LIFECYCLE_CHANGE, handle, {
-            accountId: write.accountId,
-            lifecycle: write.lifecycle,
-            reason: write.reason,
-          }, null);
-          if (!run.ok) return run;
-          changeLifecycle(run.args.p_subject_account_id, run.args.p_lifecycle, run.caller.id, run.args.p_reason);
-          return { ok: true };
+        'set-account-lifecycle': async () => {
+          if (subject.route !== 'set-account-lifecycle') throw new Error('unreachable');
+          return asAttempt(await this.setAccountLifecycle(session, subject));
         },
-        'discovery-message': async (handle, write) => {
-          if (handle === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
-          const caller = resolveCaller(handle);
-          if (caller === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
-          const standing = parseWriteStanding(renderWriteStanding(caller.id, null, null));
-          const gate = writeGateDecision('discovery-message', standing);
-          if (!gate.ok) return { ok: false, kind: gate.kind, status: gate.status, reason: gate.reason };
-          const sent = await (async () => {
-            const authUser = state.authUsers.get(caller.id);
-            if (!authUser) return { ok: false as const, reason: DEAD_SESSION_REASON };
-            const emailVerified = emailVerifiedFromUser(renderAuthUser(authUser));
-            const allowed = discoveryMessageAllowed({ emailVerified });
-            if (!allowed.ok) return { ok: false as const, reason: allowed.reason };
-            const queued = state.discoveryMessages.get(caller.id) ?? [];
-            queued.push(write.message);
-            state.discoveryMessages.set(caller.id, queued);
-            return { ok: true as const };
-          })();
-          if (sent.ok) return { ok: true };
-          return { ok: false, kind: 'refused', status: 403, reason: sent.reason };
+        'discovery-message': async () => {
+          if (subject.route !== 'discovery-message') throw new Error('unreachable');
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          return asAttempt(await this.sendDiscoveryMessage(session, subject.message));
         },
       };
-      return attempts[route](session, subject);
+      return attempts[subject.route]();
     },
 
     auditEvents: async (filter) =>

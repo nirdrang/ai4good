@@ -23,7 +23,8 @@ import {
   INTEGRATION_TIMEOUT_MS,
   provisionLifecycleActors,
 } from './_integration.ts';
-import { virtualKeyActionFor } from '../../../../supabase/functions/_shared/gateway-keys.ts';
+import { CapabilityPending } from '../../harness/pending.ts';
+import { auditAppendOnlyProblems } from './_policy-scan.ts';
 // THE SHIPPED AUTHORITY STATEMENT, imported rather than restated — the acknowledgment-identity leaf
 // makes name, title and attestation mandatory on EVERY completion, and the deployed validation
 // refuses any attestation that is not this statement word for word.
@@ -92,22 +93,12 @@ atTest(
       expect(deactivated, 'the administrator could not deactivate the volunteer').toMatchObject({ ok: true, changed: true });
 
       const before = await sut.discoveryMessagesBy(volunteer.accountId);
-      const refused = await sut.attemptWrite('discovery-message', volunteer, {
-        name: 'unused',
-        organizationId: '',
-        fromAccountId: volunteer.accountId,
-        toAccountId: volunteer.accountId,
-        accountId: volunteer.accountId,
-        lifecycle: 'deactivated',
-        reason: AUP_REASON,
-        message: 'a message that must not land',
-        email: w.email('unused-30'),
-      });
+      const refused = await sut.attemptWrite({ route: 'discovery-message', message: 'a message that must not land' }, volunteer);
       expect(refused.ok, 'the deactivated volunteer sent a Discovery message').toBe(false);
       if (refused.ok) return;
       expect(refused.kind, 'the volunteer was refused for a reason other than deactivation').toBe('account-deactivated');
       expect(await sut.discoveryMessagesBy(volunteer.accountId), 'the refused Discovery write still landed').toEqual(before);
-      expect(virtualKeyActionFor('active', 'deactivated')).toBe('revoke');
+      throw new CapabilityPending(['gateway.virtual-key-revocation']);
     },
     integration: at00130,
   },
@@ -139,30 +130,16 @@ atTest(
       });
       expect(reVol, 'the administrator could not re-enable the volunteer').toMatchObject({ ok: true, changed: true });
 
-      const renamed = await sut.attemptWrite('update-organization', actors.ngoOff, {
-        name: 'Riverside Re-enabled 31',
-        organizationId: actors.ngoOffOrg,
-        fromAccountId: actors.transferFrom.accountId,
-        toAccountId: actors.transferTo.accountId,
-        accountId: actors.transferTo.accountId,
-        lifecycle: 'active',
-        reason: REENABLE_REASON,
-        message: 'hello',
-        email: w.email('unused-31'),
-      });
+      const renamed = await sut.attemptWrite(
+        { route: 'update-organization', organizationId: actors.ngoOffOrg, name: 'Riverside Re-enabled 31' },
+        actors.ngoOff,
+      );
       expect(renamed, 'the re-enabled NGO was refused an otherwise-authorized rename').toMatchObject({ ok: true });
 
-      const sent = await sut.attemptWrite('discovery-message', actors.volunteerOff, {
-        name: 'unused',
-        organizationId: '',
-        fromAccountId: actors.volunteerOff.accountId,
-        toAccountId: actors.volunteerOff.accountId,
-        accountId: actors.volunteerOff.accountId,
-        lifecycle: 'active',
-        reason: REENABLE_REASON,
-        message: 're-enabled volunteer message',
-        email: w.email('unused-31-vol'),
-      });
+      const sent = await sut.attemptWrite(
+        { route: 'discovery-message', message: 're-enabled volunteer message' },
+        actors.volunteerOff,
+      );
       expect(sent, 'the re-enabled volunteer was refused an otherwise-authorized Discovery send').toMatchObject({ ok: true });
       expect(await sut.discoveryMessagesBy(actors.volunteerOff.accountId)).toContain('re-enabled volunteer message');
 
@@ -171,17 +148,10 @@ atTest(
       if (memberWrite.ok) return;
       expect(memberWrite.kind, 'the member-role refusal is not the independent gate').toBe('not-an-admin');
 
-      const volunteerWrite = await sut.attemptWrite('create-organization', actors.volunteerOff, {
-        name: 'Volunteer Org 31',
-        organizationId: '',
-        fromAccountId: actors.volunteerOff.accountId,
-        toAccountId: actors.volunteerOff.accountId,
-        accountId: actors.volunteerOff.accountId,
-        lifecycle: 'active',
-        reason: REENABLE_REASON,
-        message: 'hello',
-        email: w.email('unused-31-vol-org'),
-      });
+      const volunteerWrite = await sut.attemptWrite(
+        { route: 'create-organization', name: 'Volunteer Org 31' },
+        actors.volunteerOff,
+      );
       expect(volunteerWrite.ok, 'the re-enabled volunteer created an organisation').toBe(false);
       if (volunteerWrite.ok) return;
       expect(volunteerWrite.kind, 'the volunteer NGO-only refusal is not the independent type gate').toBe('not-an-ngo-account');
@@ -203,7 +173,7 @@ atTest(
         reason: REENABLE_REASON,
       });
       expect(byOther, 'the second administrator could not re-enable the first').toMatchObject({ ok: true, changed: true });
-      expect(virtualKeyActionFor('deactivated', 'active')).toBe('reissue');
+      throw new CapabilityPending(['gateway.virtual-key-reissue']);
     },
     integration: at00131,
   },
@@ -292,6 +262,7 @@ atTest(
   { surface: 'backend', timeoutMs: { integration: INTEGRATION_TIMEOUT_MS } },
   {
     default: async ({ open }) => {
+      expect(auditAppendOnlyProblems(), 'the audit append-only scan found a problem').toEqual([]);
       const { w, sut } = await open();
       await assertAppendOnlyAudit(sut, w, '33', (email) => sut.registerWithEmailPassword(email, PASSWORD));
     },

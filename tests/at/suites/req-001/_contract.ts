@@ -70,7 +70,11 @@ export type AccountRow = {
  * database wins: no shipped TypeScript writes an audit row, so there is no shipped vocabulary to
  * import here.
  */
-export type AuditEventKind = 'org_contact_transferred' | 'account_lifecycle_changed' | 'org_role_changed';
+export type AuditEventKind =
+  | 'org_contact_transferred'
+  | 'account_lifecycle_changed'
+  | 'org_role_changed'
+  | 'org_escalation_contact_recorded';
 
 export type AuditEventRow = {
   id: string;
@@ -255,9 +259,10 @@ export type RefreshSessionOutcome = { ok: true; session: Session } | { ok: false
 
 export type CompleteSignupOutcome =
   | { ok: true; accountId: string; organizationId: string | null }
+  | WriteRefusal
   | { ok: false; reason: string };
 
-export type CreateOrganizationOutcome = { ok: true; organizationId: string } | { ok: false; reason: string };
+export type CreateOrganizationOutcome = { ok: true; organizationId: string } | WriteRefusal;
 
 /**
  * The outcome of the admin-only NGO-side action — renaming an organisation — and its refusal
@@ -303,10 +308,7 @@ export type TransferRequest = {
   reason: string;
 };
 
-/** Refused with `holds-other-seats`, the body names the other organisations (R6). */
-export type TransferOutcome =
-  | { ok: true; organizationId: string }
-  | (WriteRefusal & { organizations?: readonly string[] });
+export type TransferOutcome = { ok: true; organizationId: string } | WriteRefusal;
 
 export type EscalationContactRequest = {
   organizationId: string;
@@ -317,18 +319,29 @@ export type EscalationContactRequest = {
 
 export type EscalationOutcome = { ok: true; organizationId: string } | WriteRefusal;
 
-/** AT-001.29/.30/.31: the fields each inventory route's smallest legal write reads. */
-export type WriteSubject = {
-  name: string;
-  organizationId: string;
-  fromAccountId: string;
-  toAccountId: string;
-  accountId: string;
-  lifecycle: AccountLifecycle;
-  reason: string;
-  message: string;
-  email: string;
-};
+/**
+ * AT-001.29/.30/.31: a discriminated union on `route`. Each member carries only the fields that
+ * route reads. `attemptWrite` takes the subject first; the route lives on the subject.
+ */
+export type WriteSubject =
+  | { readonly route: 'complete-signup'; readonly name: string }
+  | { readonly route: 'create-organization'; readonly name: string }
+  | { readonly route: 'update-organization'; readonly organizationId: string; readonly name: string }
+  | {
+      readonly route: 'transfer-organization-contact';
+      readonly organizationId: string;
+      readonly fromAccountId: string;
+      readonly toAccountId: string;
+      readonly reason: string;
+    }
+  | { readonly route: 'set-escalation-contact'; readonly organizationId: string; readonly name: string; readonly email: string }
+  | {
+      readonly route: 'set-account-lifecycle';
+      readonly accountId: string;
+      readonly lifecycle: AccountLifecycle;
+      readonly reason: string;
+    }
+  | { readonly route: 'discovery-message'; readonly message: string };
 
 export type WriteAttemptOutcome = { ok: true } | WriteRefusal;
 
@@ -398,7 +411,7 @@ export type AssignVolunteerOutcome =
  * `Decision` in the shipped module gives: AT-001.10 asserts that the block NAMES verification as
  * the remedy, so a bare boolean would make the criterion untestable.
  */
-export type SendDiscoveryMessageOutcome = { ok: true } | { ok: false; reason: string };
+export type SendDiscoveryMessageOutcome = { ok: true } | WriteRefusal;
 
 export type ViewerAnswer = { status: number; body: string };
 /** privilege-denied: the privilege layer; session-refused: the token, a broken test not a verdict; refused: anything else. */
@@ -938,11 +951,11 @@ export type AccountsSut = {
    */
   setAccountLifecycle(session: Session | null, request: LifecycleRequest): Promise<LifecycleOutcome>;
   /**
-   * AT-001.29/.30/.31: the smallest legal write on one inventory route, as this session. Both
-   * adapters implement the body as a `Record<WriteRouteName, …>`, so an inventory row the adapter
-   * cannot attempt is a type error.
+   * AT-001.29/.30/.31: the smallest legal write on one inventory route, as this session. The
+   * subject is a discriminated union on `route`; both adapters implement the body as a map whose
+   * entries call the named members.
    */
-  attemptWrite(route: WriteRouteName, session: Session | null, subject: WriteSubject): Promise<WriteAttemptOutcome>;
+  attemptWrite(subject: WriteSubject, session: Session | null): Promise<WriteAttemptOutcome>;
 
   /**
    * The audit record, read as the operator: no client role and no viewer helper reaches the table

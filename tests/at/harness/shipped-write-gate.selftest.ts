@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseWriteRefusalKind,
   parseWriteStanding,
+  rpcRefusalStatus,
   typeRefusalKind,
   WRITE_REFUSAL_KINDS,
   WRITE_ROUTES,
@@ -30,7 +31,6 @@ import {
 } from '../../../supabase/functions/_shared/write-routes.ts';
 import { ACCOUNT_TYPES, type AccountType } from '../../../supabase/functions/_shared/accounts.ts';
 
-const ORG = '5f0c2f0e-4d4a-4b8e-9a4b-1f2e3d4c5b6a';
 const SEAT = '0f1d6a2e-6d1c-4a3b-9a7e-2c5b8d4f1a90';
 
 /** The standing `public.write_standing` renders for an active account of one type, with no organisation named. */
@@ -42,7 +42,6 @@ function accountOf(accountType: AccountType, lifecycle: 'active' | 'deactivated'
     orgRole: null,
     orgExists: false,
     orgSeatAccountId: null,
-    orgSeatHolderSeats: [],
     subject: null,
   };
 }
@@ -53,7 +52,6 @@ const RENDERED = {
   org_exists: true,
   org_role: 'admin',
   org_seat_account_id: SEAT,
-  org_seat_holder_seats: [ORG],
   subject: { account_type: 'ngo', lifecycle: 'active' },
 };
 
@@ -172,7 +170,6 @@ describe('the shipped standing parser fails closed', () => {
       orgRole: 'admin',
       orgExists: true,
       orgSeatAccountId: SEAT,
-      orgSeatHolderSeats: [ORG],
       subject: { accountType: 'ngo', lifecycle: 'active' },
     });
   });
@@ -184,7 +181,6 @@ describe('the shipped standing parser fails closed', () => {
       org_exists: false,
       org_role: null,
       org_seat_account_id: null,
-      org_seat_holder_seats: [],
       subject: null,
     });
     expect(standing).toEqual({
@@ -194,7 +190,6 @@ describe('the shipped standing parser fails closed', () => {
       orgRole: null,
       orgExists: false,
       orgSeatAccountId: null,
-      orgSeatHolderSeats: [],
       subject: null,
     });
   });
@@ -216,8 +211,6 @@ describe('the shipped standing parser fails closed', () => {
     unreadable({ ...RENDERED, org_exists: 'true' }, 'an org_exists that is not a boolean');
     unreadable({ ...RENDERED, org_role: 'owner' }, 'an unknown organisation role');
     unreadable({ ...RENDERED, org_seat_account_id: 42 }, 'a seat holder that is not an id');
-    unreadable({ ...RENDERED, org_seat_holder_seats: null }, 'no list of the seat holder’s organisations');
-    unreadable({ ...RENDERED, org_seat_holder_seats: [ORG, 7] }, 'a seat list with a non-string entry');
     unreadable({ ...RENDERED, subject: 'ngo' }, 'a subject that is not an object');
     unreadable({ ...RENDERED, subject: { account_type: 'ngo', lifecycle: 'gone' } }, 'a subject with an unknown lifecycle');
   });
@@ -227,6 +220,16 @@ describe('the shipped standing parser fails closed', () => {
     expect(decision.ok).toBe(false);
     if (decision.ok) return;
     expect(decision.kind).toBe('refused');
+  });
+});
+
+describe('rpcRefusalStatus classifies a raised exception from transport', () => {
+  it('answers 409 for a five-character SQLSTATE and 502 for every other code', () => {
+    expect(rpcRefusalStatus({ code: '42501' })).toBe(409);
+    expect(rpcRefusalStatus({ code: '23503' })).toBe(409);
+    expect(rpcRefusalStatus({ code: 'PGRST202' })).toBe(502);
+    expect(rpcRefusalStatus({ code: null })).toBe(502);
+    expect(rpcRefusalStatus({ code: '404' })).toBe(502);
   });
 });
 

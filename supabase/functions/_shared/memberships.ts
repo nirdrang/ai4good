@@ -23,7 +23,7 @@
  */
 
 import { validateOrganizationName } from './accounts.ts';
-import type { WriteRouteDecision, WriteRouteInput } from './write-routes.ts';
+import type { AccountWriteRouteInput, WriteRouteDecision } from './write-routes.ts';
 
 /* ------------------------------------------------------------------- the closed role vocabulary */
 
@@ -133,11 +133,11 @@ export type OrganizationRenameArgs = {
  * is not a case of its own: no membership row exists in it, so the answer is the not-a-member
  * refusal, which is the deployed behaviour gate-2 ruling R2c measured.
  */
-export function decideOrganizationRename(input: WriteRouteInput): WriteRouteDecision<OrganizationRenameArgs> {
+export function decideOrganizationRename(input: AccountWriteRouteInput): WriteRouteDecision<OrganizationRenameArgs> {
   if (input.target === null) {
     return { ok: false, kind: 'invalid-request', reason: 'an organisation rename must name the organisation to rename', status: 400 };
   }
-  const allowed = orgAdminActionAllowed(input.standing.kind === 'account' ? input.standing.orgRole : null);
+  const allowed = orgAdminActionAllowed(input.standing.orgRole);
   if (!allowed.ok) return { ok: false, kind: allowed.kind, reason: allowed.reason, status: 403 };
   const name = validateOrganizationName(input.body.name);
   if (!name.ok) return { ok: false, kind: 'invalid-name', reason: name.reason, status: 400 };

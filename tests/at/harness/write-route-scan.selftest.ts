@@ -55,6 +55,36 @@ describe('scanWriteRoutes refusals', () => {
     expect(problems.map((p) => p.code)).toContain('write-route-unregistered');
   });
 
+  it('fails a direct table write in an index.ts', () => {
+    const problems = scan({
+      files: [
+        ...tree.files,
+        {
+          name: 'donate-fuel/index.ts',
+          text: 'Deno.serve(async (r) => fetch(URL + "/rest/v1/organizations", { method: "POST" }));',
+        },
+      ],
+    });
+    expect(problems.map((p) => p.code)).toContain('write-route-unregistered');
+  });
+
+  it('fails a db.ts helper beside an index.ts', () => {
+    const problems = scan({
+      files: [
+        ...tree.files,
+        { name: 'update-organization/db.ts', text: 'export const url = "/rest/v1/organizations";\n' },
+      ],
+    });
+    expect(problems.map((p) => p.code)).toContain('write-route-helper-reaches-database');
+  });
+
+  it('fails a _shared bypass module', () => {
+    const problems = scan({
+      files: [...tree.files, { name: '_shared/bypass.ts', text: 'fetch(URL + "/rest/v1/rpc/donate_fuel");\n' }],
+    });
+    expect(problems.map((p) => p.code)).toContain('shared-module-reaches-database');
+  });
+
   it('fails an edge inventory row with no function file', () => {
     const problems = scan({
       files: tree.files.filter((file) => file.name !== 'set-account-lifecycle/index.ts'),
@@ -120,6 +150,13 @@ describe('scanWriteRoutes refusals', () => {
         'async function callDatabaseFunction(',
         'export async function callDatabaseFunction(',
       ),
+    });
+    expect(problems.map((p) => p.code)).toContain('rpc-caller-exported');
+  });
+
+  it('fails an export const form of callDatabaseFunction', () => {
+    const problems = scan({
+      edgeModule: `${tree.edgeModule}\nexport const callDatabaseFunction = async () => ({ ok: true });\n`,
     });
     expect(problems.map((p) => p.code)).toContain('rpc-caller-exported');
   });
