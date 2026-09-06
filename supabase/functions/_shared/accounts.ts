@@ -387,7 +387,25 @@ export type SignupCompletionArgs = {
   readonly p_github_contribution_summary?: string;
 };
 
+type GithubArguments = Pick<
+  SignupCompletionArgs,
+  'p_github_handle' | 'p_github_top_languages' | 'p_github_repository_count' | 'p_github_contribution_summary'
+>;
+
+/** The four import arguments for a judged volunteer handle, or none at all for an NGO. */
+function githubArguments(githubHandle: string | null): GithubArguments {
+  if (githubHandle === null) return {};
+  const stats = stubGithubStatsFor(githubHandle);
+  return {
+    p_github_handle: githubHandle,
+    p_github_top_languages: stats.topLanguages,
+    p_github_repository_count: stats.repositoryCount,
+    p_github_contribution_summary: stats.contributionSummary,
+  };
+}
+
 export function decideSignupCompletion(input: WriteRouteInput): WriteRouteDecision<SignupCompletionArgs> {
+  const verifiedGithubHandle = input.caller.githubHandle;
   const decision = validateCompleteSignup(
     {
       accountType: input.body.accountType,
@@ -397,7 +415,7 @@ export function decideSignupCompletion(input: WriteRouteInput): WriteRouteDecisi
       signerTitle: input.body.signerTitle,
       authorityAttestation: input.body.authorityAttestation,
     },
-    { githubHandle: input.caller.githubHandle },
+    { githubHandle: verifiedGithubHandle },
   );
   if (!decision.ok) return { ok: false, kind: 'invalid-request', reason: decision.reason, status: 400 };
   const {
@@ -409,7 +427,6 @@ export function decideSignupCompletion(input: WriteRouteInput): WriteRouteDecisi
     signerTitle,
     authorityAttestation,
   } = decision.value;
-  const stats = githubHandle === null ? null : stubGithubStatsFor(githubHandle);
   return {
     ok: true,
     args: {
@@ -421,14 +438,7 @@ export function decideSignupCompletion(input: WriteRouteInput): WriteRouteDecisi
       p_signer_name: signerName,
       p_signer_title: signerTitle,
       p_authority_attestation: authorityAttestation,
-      ...(githubHandle === null || stats === null
-        ? {}
-        : {
-            p_github_handle: githubHandle,
-            p_github_top_languages: stats.topLanguages,
-            p_github_repository_count: stats.repositoryCount,
-            p_github_contribution_summary: stats.contributionSummary,
-          }),
+      ...githubArguments(githubHandle),
     },
   };
 }
