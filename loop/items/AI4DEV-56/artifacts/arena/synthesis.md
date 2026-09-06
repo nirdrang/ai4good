@@ -51,4 +51,4 @@ None in the second attempts. Both external runners lost their first package to t
 
 ## Judge comparison
 
-*Pending: filled in when judge-verdict.md lands.*
+The judge (grok 4.6 at xhigh, receipt complete and provider-verified) scored A (opus) 17, D (fable) 16, B (astra) 15, C (grok) 15, and recommended A as the base. Agreement on the base and on the order of the top two. Differences: the judge gave every candidate 2 on criterion 5 (object count) where the lead gave opus and fable 3; the judge gave fable and grok 3 on criterion 3 where the lead docked the missing TRUNCATE trigger. Neither changes the pick. Two more grafts came from the verdict and are in design.md: the definer refusal kind in RAISE ... USING DETAIL with a fail-closed parser, and the reuse of the sut.accounts.sendDiscoveryMessage capability string. The judge's third suggestion, grok's one closed command list, is declined for the reason under Rejected. The judge confirmed the trigger-depth finding on fable and grok independently.
