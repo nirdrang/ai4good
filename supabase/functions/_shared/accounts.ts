@@ -34,6 +34,8 @@
  */
 
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from './acknowledgment-copy.ts';
+import { stubGithubStatsFor, type GithubStats } from './github.ts';
+import type { AccountWriteRouteInput, WriteRouteDecision, WriteRouteInput } from './write-routes.ts';
 
 /* ------------------------------------------------------------------ the two closed vocabularies */
 
@@ -57,6 +59,17 @@ export type PublicSignupAccountType = (typeof PUBLIC_SIGNUP_ACCOUNT_TYPES)[numbe
 export const ACCOUNT_TYPES = ['ngo', 'volunteer', 'platform_admin'] as const;
 
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+export const ACCOUNT_LIFECYCLES = ['active', 'deactivated'] as const;
+
+export type AccountLifecycle = (typeof ACCOUNT_LIFECYCLES)[number];
+
+/** The lifecycle a row carries, or `null` for every value this module does not recognise — it fails closed. */
+export function parseAccountLifecycle(raw: unknown): AccountLifecycle | null {
+  if (typeof raw !== 'string') return null;
+  const candidate = raw.trim();
+  return (ACCOUNT_LIFECYCLES as readonly string[]).includes(candidate) ? (candidate as AccountLifecycle) : null;
+}
 
 /* ---------------------------------------------------------------------------- the answer shape */
 
@@ -355,3 +368,88 @@ export function ngoOnlyActionAllowed(accountType: unknown): Decision<'ngo'> {
  * `public.has_platform_acknowledgment(account_id)` reads it back by account.
  */
 export const PLATFORM_ACKNOWLEDGMENT_KIND = 'platform_tos_and_promise';
+
+/**
+ * The arguments `public.complete_signup` takes, as the JUDGED values — never the raw body ones.
+ */
+export type SignupCompletionArgs = {
+  readonly p_account_id: string;
+  readonly p_account_type: PublicSignupAccountType;
+  readonly p_organization_name: string | null;
+  readonly p_acknowledgment_text_version: string;
+  readonly p_ip: string | null;
+  readonly p_signer_name: string;
+  readonly p_signer_title: string;
+  readonly p_authority_attestation: string;
+  readonly p_github_handle?: string;
+  readonly p_github_top_languages?: GithubStats['topLanguages'];
+  readonly p_github_repository_count?: number;
+  readonly p_github_contribution_summary?: string;
+};
+
+type GithubArguments = Pick<
+  SignupCompletionArgs,
+  'p_github_handle' | 'p_github_top_languages' | 'p_github_repository_count' | 'p_github_contribution_summary'
+>;
+
+/** The four import arguments for a judged volunteer handle, or none at all for an NGO. */
+function githubArguments(githubHandle: string | null): GithubArguments {
+  if (githubHandle === null) return {};
+  const stats = stubGithubStatsFor(githubHandle);
+  return {
+    p_github_handle: githubHandle,
+    p_github_top_languages: stats.topLanguages,
+    p_github_repository_count: stats.repositoryCount,
+    p_github_contribution_summary: stats.contributionSummary,
+  };
+}
+
+export function decideSignupCompletion(input: WriteRouteInput): WriteRouteDecision<SignupCompletionArgs> {
+  const verifiedGithubHandle = input.caller.githubHandle;
+  const decision = validateCompleteSignup(
+    {
+      accountType: input.body.accountType,
+      organizationName: input.body.organizationName,
+      acknowledgmentTextVersion: input.body.acknowledgmentTextVersion,
+      signerName: input.body.signerName,
+      signerTitle: input.body.signerTitle,
+      authorityAttestation: input.body.authorityAttestation,
+    },
+    { githubHandle: verifiedGithubHandle },
+  );
+  if (!decision.ok) return { ok: false, kind: 'invalid-request', reason: decision.reason, status: 400 };
+  const {
+    accountType,
+    organizationName,
+    acknowledgmentTextVersion,
+    githubHandle,
+    signerName,
+    signerTitle,
+    authorityAttestation,
+  } = decision.value;
+  return {
+    ok: true,
+    args: {
+      p_account_id: input.caller.id,
+      p_account_type: accountType,
+      p_organization_name: organizationName,
+      p_acknowledgment_text_version: acknowledgmentTextVersion,
+      p_ip: input.ip,
+      p_signer_name: signerName,
+      p_signer_title: signerTitle,
+      p_authority_attestation: authorityAttestation,
+      ...githubArguments(githubHandle),
+    },
+  };
+}
+
+export type OrganizationCreationArgs = {
+  readonly p_account_id: string;
+  readonly p_name: string;
+};
+
+export function decideOrganizationCreation(input: AccountWriteRouteInput): WriteRouteDecision<OrganizationCreationArgs> {
+  const name = validateOrganizationName(input.body.name);
+  if (!name.ok) return { ok: false, kind: 'invalid-name', reason: name.reason, status: 400 };
+  return { ok: true, args: { p_account_id: input.caller.id, p_name: name.value } };
+}

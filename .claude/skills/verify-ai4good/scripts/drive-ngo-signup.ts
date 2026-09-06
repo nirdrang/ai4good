@@ -118,7 +118,9 @@ const orgName = `Verify Drill Org ${stamp}`;
     { encoding: 'utf8' },
   );
   const remedy = 'bun run db:stop then bun run db:start from this checkout';
-  const normalize = (value: string) => value.replace(/\\/g, '/').toLowerCase();
+  // Docker Desktop on WSL2 reports a bind source as /run/desktop/mnt/host/c/..., not C:\...
+  const normalize = (value: string) =>
+    value.replace(/\\/g, '/').replace(/^\/run\/desktop\/mnt\/host\/([a-z])\//i, '$1:/').toLowerCase();
   const root = normalize(repoRoot);
   let source = '';
   let ok = false;

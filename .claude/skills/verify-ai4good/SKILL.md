@@ -72,6 +72,16 @@ The helpers live in [`tests/at/harness/live-stack.ts`](../../../tests/at/harness
 The acceptance suite's integration adapter uses the same module. Keys come from
 `stackFromLocalStatus` at run time — never hardcode or commit them.
 
+**NEVER PASTE `db:start` OUTPUT INTO A COMMITTED FILE.** `bunx supabase start` prints every key
+of the local stack, including `SECRET_KEY` (`sb_secret_...`) and `JWT_SECRET`. They are the
+CLI's fixed demo values, the same on every machine and useless off `127.0.0.1`, but GitHub push
+protection reads them as secrets and REFUSES THE WHOLE PUSH — measured on 2026-09-06, when five
+lane reports quoted that output as evidence the stack came up and the item's branch could not
+reach the remote at all. Record the stack's readiness instead: the exit code, the timestamps,
+the migration count, and `GET /auth/v1/health` answering 200. A report or transcript that must
+name a key writes `sb_secret_REDACTED`. The same string already sits on `main` in three earlier
+items, so the block fires on new occurrences only.
+
 The shipped helper drives the primary path end to end (NGO email signup through database
 readback):
 

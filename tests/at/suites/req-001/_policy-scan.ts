@@ -25,11 +25,19 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   acknowledgments: 'tenant-isolated',
   accounts: 'unreachable-by-client-roles',
   volunteer_profiles: 'unreachable-by-client-roles',
+  audit_events: 'unreachable-by-client-roles',
+  org_escalation_contacts: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };
 
 export type MigrationFile = { name: string; text: string };
+
+export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
+  complete_signup:
+    'the caller holds no account row when this runs; a second completion is refused by the accounts ' +
+    'primary key, and the TypeScript gate refuses a deactivated account before the call is made',
+};
 
 function matchDollarTag(sql: string, i: number): string | null {
   const slice = sql.slice(i);
@@ -185,7 +193,7 @@ type DefinerFn = {
   executeRoles: Set<string>;
 };
 
-const WRITE_PRIVS = new Set(['insert', 'update', 'delete', 'truncate', 'all']);
+const WRITE_PRIVS = new Set(['insert', 'update', 'delete', 'truncate', 'references', 'trigger', 'all']);
 const CLIENT_EXECUTE_ROLES = new Set(['anon', 'authenticated', 'public']);
 
 function privsOf(byTable: Map<string, TablePrivs>, table: string, role: string): Set<string> {
@@ -246,6 +254,7 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
   const definers = new Map<string, DefinerFn>();
   const baselineAnon = new Set<string>();
   const baselineAuthenticated = new Set<string>();
+  const baselineServiceRole = new Set<string>();
   const problems: PolicyProblem[] = [];
 
   const dropTable = (table: string): void => {
@@ -255,6 +264,7 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
     grants.delete(table);
     baselineAnon.delete(table);
     baselineAuthenticated.delete(table);
+    baselineServiceRole.delete(table);
   };
 
   const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
@@ -427,6 +437,7 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
               grants.get(table)?.delete(role);
               if (role === 'anon') baselineAnon.add(table);
               if (role === 'authenticated') baselineAuthenticated.add(table);
+              if (role === 'service_role') baselineServiceRole.add(table);
             } else {
               const set = grants.get(table)?.get(role);
               if (set) for (const priv of privileges) set.delete(priv);
@@ -454,10 +465,10 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
 
   for (const [table, posture] of Object.entries(TENANT_CATALOG)) {
     if (!tables.has(table)) continue;
-    if (!baselineAnon.has(table) || !baselineAuthenticated.has(table)) {
+    if (!baselineAnon.has(table) || !baselineAuthenticated.has(table) || !baselineServiceRole.has(table)) {
       problems.push({
         code: 'no-baseline-revoke',
-        detail: `${table} has no revoke all from anon, authenticated after create table`,
+        detail: `${table} has no revoke all from anon, authenticated, service_role after create table`,
       });
     }
     const roleGrants = grants.get(table) ?? new Map();
@@ -551,6 +562,96 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
   return problems;
 }
 
+type WriteGateFn = {
+  definer: boolean;
+  stable: boolean;
+  gated: boolean;
+  auditMutation: boolean;
+  executeRoles: Set<string>;
+  revokedPublic: boolean;
+};
+
+function functionHeader(statement: string): string {
+  const asDollar = /\sas\s+\$/.exec(statement);
+  return asDollar ? statement.slice(0, asDollar.index) : statement;
+}
+
+export function scanWriteGateSql(files: readonly MigrationFile[]): PolicyProblem[] {
+  const fns = new Map<string, WriteGateFn>();
+  const problems: PolicyProblem[] = [];
+  const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
+  for (const file of ordered) {
+    for (const raw of splitSqlStatements(file.text)) {
+      const stmt = collapse(raw);
+
+      const createdFn = /^create(?:\s+or\s+replace)?\s+function\s+public\.([A-Za-z_][A-Za-z0-9_]*)\s*\(/i.exec(stmt);
+      if (createdFn) {
+        const short = createdFn[1];
+        const name = `public.${short}`;
+        const header = functionHeader(stmt);
+        const previous = fns.get(name);
+        const isReplace = /^create\s+or\s+replace\s+function\b/i.test(stmt);
+        fns.set(name, {
+          definer: /\bsecurity\s+definer\b/i.test(header),
+          stable: /\b(stable|immutable)\b/i.test(header),
+          gated: /public\.assert_account_active\s*\(/i.test(stmt),
+          auditMutation: /\bupdate\s+public\.audit_events\b/i.test(stmt) || /\bdelete\s+from\s+public\.audit_events\b/i.test(stmt),
+          executeRoles: isReplace ? new Set(previous?.executeRoles ?? []) : new Set(),
+          revokedPublic: isReplace ? (previous?.revokedPublic ?? false) : false,
+        });
+        continue;
+      }
+
+      const droppedFn = publicIdent(stmt, /^drop\s+function(?:\s+if\s+exists)?\s+public\./i);
+      if (droppedFn) {
+        fns.delete(`public.${droppedFn}`);
+        continue;
+      }
+
+      if (/^revoke\s+execute\s+on\s+function\b/i.test(stmt)) {
+        const name = functionNameOf(stmt);
+        const fn = name ? fns.get(name) : undefined;
+        if (fn) {
+          const from = /\bfrom\s+(.+)$/i.exec(stmt)?.[1] ?? '';
+          for (const role of from.split(',').map((part) => part.trim().toLowerCase())) {
+            if (role) fn.executeRoles.delete(role);
+            if (role === 'public') fn.revokedPublic = true;
+          }
+        }
+        continue;
+      }
+
+      if (/^grant\s+execute\s+on\s+function\b/i.test(stmt)) {
+        const name = functionNameOf(stmt);
+        const fn = name ? fns.get(name) : undefined;
+        if (fn) {
+          const to = /\bto\s+(.+)$/i.exec(stmt)?.[1] ?? '';
+          for (const role of to.split(',').map((part) => part.trim().toLowerCase())) {
+            if (role) fn.executeRoles.add(role);
+          }
+        }
+      }
+    }
+  }
+
+  for (const [name, fn] of fns) {
+    const short = name.slice('public.'.length);
+    if (fn.definer && !fn.stable && fn.executeRoles.has('service_role') && !fn.gated && !(short in WRITE_GATE_EXEMPT)) {
+      problems.push({
+        code: 'definer-no-write-gate',
+        detail: `${name} is reachable by service_role and does not call public.assert_account_active`,
+      });
+    }
+    if (fn.auditMutation) {
+      problems.push({
+        code: 'audit-mutation-in-definer',
+        detail: `${name} updates or deletes public.audit_events`,
+      });
+    }
+  }
+  return problems;
+}
+
 export function tenantCatalogProblems(migrationsDir?: string): PolicyProblem[] {
   const dir = migrationsDir ?? join(REPO_ROOT, 'supabase', 'migrations');
   let names: string[];
@@ -565,5 +666,160 @@ export function tenantCatalogProblems(migrationsDir?: string): PolicyProblem[] {
     throw new Error(`tenant catalog scan found no migration under ${dir}`);
   }
   const files = names.map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }));
-  return scanTenantMigrations(files);
+  return [...scanTenantMigrations(files), ...scanWriteGateSql(files)];
+}
+
+export function scanIdentityPermanence(files: readonly MigrationFile[]): PolicyProblem[] {
+  const triggers = new Map<string, string>();
+  const bodies = new Map<string, string>();
+  const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
+  for (const file of ordered) {
+    for (const raw of splitSqlStatements(file.text)) {
+      const stmt = collapse(raw);
+      const createdFn = /^create(?:\s+or\s+replace)?\s+function\s+public\.([A-Za-z_][A-Za-z0-9_]*)\s*\(/i.exec(stmt);
+      if (createdFn) {
+        bodies.set(createdFn[1].toLowerCase(), stmt);
+        continue;
+      }
+      const droppedFn = publicIdent(stmt, /^drop\s+function(?:\s+if\s+exists)?\s+public\./i);
+      if (droppedFn) {
+        bodies.delete(droppedFn.toLowerCase());
+        continue;
+      }
+      const created = /^create\s+trigger\s+([A-Za-z_][A-Za-z0-9_]*)\b/i.exec(stmt);
+      if (created && /\bbefore\s+delete\b/i.test(stmt) && /\bon\s+auth\.identities\b/i.test(stmt)) {
+        triggers.set(created[1].toLowerCase(), stmt);
+        continue;
+      }
+      const dropped = /^drop\s+trigger(?:\s+if\s+exists)?\s+([A-Za-z_][A-Za-z0-9_]*)\s+on\s+auth\.identities\b/i.exec(
+        stmt,
+      );
+      if (dropped) triggers.delete(dropped[1].toLowerCase());
+    }
+  }
+  if (triggers.size === 0) {
+    return [
+      {
+        code: 'identity-permanence-missing',
+        detail: 'no migration creates a before delete trigger on auth.identities',
+      },
+    ];
+  }
+  const problems: PolicyProblem[] = [];
+  for (const [name, stmt] of triggers) {
+    if (!/\bwhen\s*\([^)]*pg_trigger_depth\s*\(\s*\)\s*=\s*0/i.test(stmt)) {
+      problems.push({
+        code: 'identity-permanence-unguarded',
+        detail: `trigger ${name} on auth.identities has no when (pg_trigger_depth() = 0)`,
+      });
+    }
+    const executed = /\bexecute\s+(?:function|procedure)\s+public\.([A-Za-z_][A-Za-z0-9_]*)\s*\(/i.exec(stmt);
+    const fnName = executed?.[1]?.toLowerCase();
+    const body = fnName ? (bodies.get(fnName) ?? '') : '';
+    if (!/'github'/i.test(body) || !/'volunteer'/i.test(body) || !/\braise\s+exception\b/i.test(body)) {
+      problems.push({
+        code: 'identity-permanence-empty-body',
+        detail: `trigger ${name} resolves to a function whose body does not name github, volunteer and raise exception`,
+      });
+    }
+  }
+  return problems;
+}
+
+export function scanAuditAppendOnly(files: readonly MigrationFile[]): PolicyProblem[] {
+  const triggers = new Map<string, 'row' | 'truncate'>();
+  const writeGrants: string[] = [];
+  const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
+  for (const file of ordered) {
+    for (const raw of splitSqlStatements(file.text)) {
+      const stmt = collapse(raw);
+      const created = /^create\s+trigger\s+([A-Za-z_][A-Za-z0-9_]*)\b/i.exec(stmt);
+      if (created && /\bon\s+public\.audit_events\b/i.test(stmt)) {
+        const name = created[1].toLowerCase();
+        if (/\bbefore\s+update\s+or\s+delete\b/i.test(stmt)) triggers.set(name, 'row');
+        if (/\bbefore\s+truncate\b/i.test(stmt)) triggers.set(name, 'truncate');
+        continue;
+      }
+      const dropped = /^drop\s+trigger(?:\s+if\s+exists)?\s+([A-Za-z_][A-Za-z0-9_]*)\s+on\s+public\.audit_events\b/i.exec(
+        stmt,
+      );
+      if (dropped) {
+        triggers.delete(dropped[1].toLowerCase());
+        continue;
+      }
+      const grant = /^grant\s+(.+?)\s+on\s+(?:table\s+)?(.+?)\s+to\s+(.+)$/i.exec(stmt);
+      if (grant && !/\bon\s+function\b/i.test(stmt)) {
+        const tables = namesIn(grant[2], 'public.');
+        if (!tables.includes('audit_events')) continue;
+        const privileges = grant[1].split(',').map((part) => part.trim().toLowerCase());
+        const roles = grant[3].split(',').map((part) => part.trim().toLowerCase());
+        const write = privileges.some((priv) => priv === 'insert' || priv === 'update' || priv === 'delete' || priv === 'truncate' || priv === 'all');
+        if (write) {
+          for (const role of roles) writeGrants.push(`${privileges.join(',')} to ${role}`);
+        }
+      }
+      const revoke = /^revoke\s+(.+?)\s+on\s+(?:table\s+)?(.+?)\s+from\s+(.+)$/i.exec(stmt);
+      if (revoke && !/\bon\s+function\b/i.test(stmt)) {
+        const tables = namesIn(revoke[2], 'public.');
+        if (!tables.includes('audit_events')) continue;
+        const privileges = revoke[1].split(',').map((part) => part.trim().toLowerCase());
+        if (privileges.length === 1 && privileges[0] === 'all') writeGrants.length = 0;
+      }
+    }
+  }
+  const problems: PolicyProblem[] = [];
+  const kinds = new Set(triggers.values());
+  if (!kinds.has('row')) {
+    problems.push({
+      code: 'audit-no-row-trigger',
+      detail: 'no migration creates a before update or delete trigger on public.audit_events',
+    });
+  }
+  if (!kinds.has('truncate')) {
+    problems.push({
+      code: 'audit-no-truncate-trigger',
+      detail: 'no migration creates a before truncate trigger on public.audit_events',
+    });
+  }
+  for (const grant of writeGrants) {
+    problems.push({
+      code: 'audit-write-grant',
+      detail: `public.audit_events is granted ${grant}`,
+    });
+  }
+  return problems;
+}
+
+export function auditAppendOnlyProblems(migrationsDir?: string): PolicyProblem[] {
+  const dir = migrationsDir ?? join(REPO_ROOT, 'supabase', 'migrations');
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((name) => name.endsWith('.sql')).sort();
+  } catch (error) {
+    throw new Error(
+      `audit append-only scan could not read migrations under ${dir}: ${(error as Error).message}`,
+    );
+  }
+  if (names.length === 0) {
+    throw new Error(`audit append-only scan found no migration under ${dir}`);
+  }
+  const files = names.map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }));
+  return scanAuditAppendOnly(files);
+}
+
+export function identityPermanenceProblems(migrationsDir?: string): PolicyProblem[] {
+  const dir = migrationsDir ?? join(REPO_ROOT, 'supabase', 'migrations');
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((name) => name.endsWith('.sql')).sort();
+  } catch (error) {
+    throw new Error(
+      `identity permanence scan could not read migrations under ${dir}: ${(error as Error).message}`,
+    );
+  }
+  if (names.length === 0) {
+    throw new Error(`identity permanence scan found no migration under ${dir}`);
+  }
+  const files = names.map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }));
+  return scanIdentityPermanence(files);
 }

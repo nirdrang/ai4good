@@ -27,21 +27,22 @@
         "AT-001.21",
         "AT-001.22",
         "AT-001.23",
-        "AT-001.40"
+        "AT-001.40",
+        "AT-001.25",
+        "AT-001.26",
+        "AT-001.27",
+        "AT-001.28",
+        "AT-001.35",
+        "AT-001.29",
+        "AT-001.33",
+        "AT-001.41"
       ],
       "red": {
         "AT-001.24": { "kind": "capability-pending", "capabilities": ["ui.authenticated-surface-rendering"] },
         "AT-001.18": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.25": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.26": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.27": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.28": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.35": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.29": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.30": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.31": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.33": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.34": { "kind": "pending", "phase": "sut-missing" }
+        "AT-001.30": { "kind": "capability-pending", "capabilities": ["gateway.virtual-key-revocation"] },
+        "AT-001.31": { "kind": "capability-pending", "capabilities": ["gateway.virtual-key-reissue"] },
+        "AT-001.34": { "kind": "capability-pending", "capabilities": ["vendors.gotrue-sign-in-rate-limit"] }
       }
     },
     "integration": {
@@ -65,7 +66,14 @@
         "AT-001.21",
         "AT-001.22",
         "AT-001.23",
-        "AT-001.40"
+        "AT-001.40",
+        "AT-001.25",
+        "AT-001.26",
+        "AT-001.27",
+        "AT-001.28",
+        "AT-001.35",
+        "AT-001.33",
+        "AT-001.41"
       ],
       "red": {
         "AT-001.02": { "kind": "capability-pending", "capabilities": ["sut.accounts.registerWithGithub"] },
@@ -75,16 +83,10 @@
         "AT-001.10": { "kind": "capability-pending", "capabilities": ["sut.accounts.sendDiscoveryMessage"] },
         "AT-001.24": { "kind": "capability-pending", "capabilities": ["ui.authenticated-surface-rendering"] },
         "AT-001.18": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.25": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.26": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.27": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.28": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.35": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.29": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.30": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.31": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.33": { "kind": "pending", "phase": "sut-missing" },
-        "AT-001.34": { "kind": "pending", "phase": "sut-missing" }
+        "AT-001.29": { "kind": "capability-pending", "capabilities": ["sut.accounts.sendDiscoveryMessage"] },
+        "AT-001.30": { "kind": "capability-pending", "capabilities": ["gateway.virtual-key-revocation", "sut.accounts.sendDiscoveryMessage"] },
+        "AT-001.31": { "kind": "capability-pending", "capabilities": ["gateway.virtual-key-reissue"] },
+        "AT-001.34": { "kind": "capability-pending", "capabilities": ["vendors.gotrue-sign-in-rate-limit"] }
       }
     }
   }

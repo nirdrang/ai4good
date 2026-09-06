@@ -1,0 +1,22 @@
+﻿probe 2026-09-06T05:58:27.282Z user unlink-probe-1788674307282@example.invalid
+1 admin create user: HTTP 200 id 8931ee5d-e45b-4fd2-ae5b-2a42b7c1d270
+2 operator inserted public.accounts row of type volunteer
+3 operator inserted a github identity: INSERT 0 1
+4 GET /user: HTTP 200; identities [{"provider":"email","identity_id":"f717d863-2cc6-4fb1-b78f-67933408a17a"},{"provider":"github","identity_id":"4ae06e26-05b5-4530-b7da-41aab287717c"}]
+5 DELETE github identity with NO trigger, as the user: HTTP 200 {}
+   rows left for user by provider: email
+6 re-insert the github identity: INSERT 0 1
+7 created BEFORE DELETE trigger on auth.identities as postgres: CREATE FUNCTION
+CREATE TRIGGER
+8 DELETE github identity WITH the trigger, as the user: HTTP 500 {"code":500,"error_code":"unexpected_failure","msg":"Database error deleting identity","error_id":"bfaa722a-29a9-4253-97d1-e346e450d8c3"}
+   rows left for user by provider: email,github
+9 GET /user after the refused delete (is Auth still healthy for this user): HTTP 200 
+10 DELETE with no token: HTTP 401 {"code":401,"error_code":"no_authorization","msg":"This endpoint requires a valid Bearer token"}
+11 drop the probe trigger and function: DROP TRIGGER
+DROP FUNCTION
+12 auth log tail for this user id (docker logs, last lines mentioning the request):
+   {"auth_event":{"action":"identity_unlinked","actor_id":"8931ee5d-e45b-4fd2-ae5b-2a42b7c1d270","actor_username":"unlink-probe-1788674307282@example.invalid","actor_via_sso":false,"log_type":"","traits":{"identity_id":"4ae06e26-05b5-4530-b7da-41aab287717c","provider":"github","provider_id":"unlink-probe-1788674307282"}},"component":"api","duration":86770966,"level":"info","method":"DELETE","msg":"re
+   {"auth_event":{"action":"identity_unlinked","actor_id":"8931ee5d-e45b-4fd2-ae5b-2a42b7c1d270","actor_username":"unlink-probe-1788674307282@example.invalid","actor_via_sso":false,"log_type":"","traits":{"identity_id":"9a41d3a1-a78a-465c-9306-4a763ec83a68","provider":"github","provider_id":"unlink-probe-1788674307282"}},"component":"api","error":"ERROR: probe: a volunteer may not unlink the GitHub i
+   {"auth_event":{"action":"identity_unlinked","actor_id":"8931ee5d-e45b-4fd2-ae5b-2a42b7c1d270","actor_username":"unlink-probe-1788674307282@example.invalid","actor_via_sso":false,"log_type":"","traits":{"identity_id":"9a41d3a1-a78a-465c-9306-4a763ec83a68","provider":"github","provider_id":"unlink-probe-1788674307282"}},"component":"api","duration":74394603,"error_code":"unexpected_failure","level":
+   {"component":"api","error":"401: This endpoint requires a valid Bearer token","level":"info","method":"DELETE","msg":"401: This endpoint requires a valid Bearer token","path":"/user/identities/9a41d3a1-a78a-465c-9306-4a763ec83a68","referer":"http://127.0.0.1:3000","remote_addr":"172.18.0.1","request_id":"d3a41bb5-d8fd-4fbb-b7af-d291f693f876","time":"2026-09-06T05:58:29Z"}
+   {"component":"api","duration":376067,"error_code":"no_authorization","level":"info","method":"DELETE","msg":"request completed","path":"/user/identities/9a41d3a1-a78a-465c-9306-4a763ec83a68","referer":"http://127.0.0.1:3000","remote_addr":"172.18.0.1","request_id":"d3a41bb5-d8fd-4fbb-b7af-d291f693f876","status":401,"time":"2026-09-06T05:58:29Z"}

@@ -8,14 +8,12 @@
  * has no `_live.ts`. REQ-001 has `_live.ts`, so the integration tier drives that adapter, not this
  * one. What a loop-tier green from this suite means is exactly this:
  *
- *   - PROVED: the decisions in `supabase/functions/_shared/accounts.ts`,
- *     `supabase/functions/_shared/github.ts`, `supabase/functions/_shared/caller.ts` and
- *     `supabase/functions/_shared/verification.ts`
- *     behave as the thirteen acceptance criteria this suite lands require. THE FOUR MODULES DO NOT
- *     HAVE THE SAME STANDING, and saying they do would be an untrue stated fact: `accounts.ts`,
- *     `github.ts` and `caller.ts` are imported by the deployed edge functions, byte for byte the
- *     code that ships — `caller.ts` through `resolveCaller` in `edge.ts`, which every authenticated
- *     request at both functions passes through.
+ *   - PROVED: the decisions in the shipped modules this file imports —
+ *     `accounts.ts`, `github.ts`, `caller.ts`, `verification.ts`, `write-routes.ts`,
+ *     `admin-operations.ts` and `memberships.ts` — behave as the acceptance criteria this suite
+ *     lands require. `accounts.ts`, `github.ts` and `caller.ts` are imported by the deployed edge
+ *     functions, byte for byte the code that ships — `caller.ts` through `resolveCaller` in
+ *     `edge.ts`, which every authenticated request passes through.
  *     `verification.ts` is imported by NO deployed function — it is the module the FUTURE Discovery
  *     send route must import, and today only this suite and
  *     `tests/at/harness/shipped-verification.selftest.ts` import it. That is decision D-D of the
@@ -199,11 +197,13 @@ import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts'
 import {
   PLATFORM_ACKNOWLEDGMENT_KIND,
   PUBLIC_SIGNUP_ACCOUNT_TYPES,
-  ngoOnlyActionAllowed,
-  validateCompleteSignup,
+  decideOrganizationCreation,
+  decideSignupCompletion,
   validateOrganizationName,
   type AccountType,
   type CompleteSignupRequest,
+  type OrganizationCreationArgs,
+  type SignupCompletionArgs,
 } from '../../../../supabase/functions/_shared/accounts.ts';
 // THE SHIPPED CALLER JUDGEMENT — the ONE thing that decides whether a session's answer yields a
 // caller, on every session-taking operation below. It is the same function `resolveCaller` calls in
@@ -211,11 +211,30 @@ import {
 // both deployed functions run on every authenticated request. This file decides WHICH sessions are
 // live, which is vendor bookkeeping; it never decides what a dead answer means.
 import { callerFromAuthAnswer, type Caller } from '../../../../supabase/functions/_shared/caller.ts';
-// THE SHIPPED PER-ORGANISATION ROLE JUDGEMENT — the ONE thing that decides whether an admin-only
-// NGO-side action is permitted in the target organisation. `update-organization` imports the same
-// function, so a loop-tier green over AT-001.16 and AT-001.36 grades the code that ships. This file
-// supplies the membership ROW it judges, which is storage; it never decides what a role means.
-import { orgAdminActionAllowed } from '../../../../supabase/functions/_shared/memberships.ts';
+import { decideOrganizationRename, type OrganizationRenameArgs } from '../../../../supabase/functions/_shared/memberships.ts';
+import {
+  organizationIdField,
+  parseWriteStanding,
+  refuseWrite,
+  stringField,
+  writePipeline,
+  type AccountWriteRouteInput,
+  type WriteRouteInput,
+  type WriteRouteName,
+  type WriteRouteSpec,
+} from '../../../../supabase/functions/_shared/write-routes.ts';
+import {
+  accountIdField,
+  decideContactTransfer,
+  decideEscalationContact,
+  decideLifecycleChange,
+  fromAccountIdField,
+  subjectAccountIdField,
+  type ContactTransferArgs,
+  type EscalationContactArgs,
+  type LifecycleChangeArgs,
+} from '../../../../supabase/functions/_shared/admin-operations.ts';
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
 // separate implementations the test would grade the fixture's copy and say nothing about what the
@@ -245,13 +264,19 @@ import {
 import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
 import { CapabilityPending } from '../../harness/pending.ts';
 import type {
+  AccountLifecycle,
   AccountRow,
   AccountsSut,
   AcknowledgmentRow,
   AssignVolunteerOutcome,
+  AuditEventKind,
+  AuditEventRow,
   CompleteSignupOutcome,
   CreateOrganizationOutcome,
+  EscalationContactRow,
+  EscalationOutcome,
   GrantMembershipOutcome,
+  LifecycleOutcome,
   MembershipRow,
   OrganizationRow,
   ProjectRow,
@@ -262,10 +287,14 @@ import type {
   Session,
   SessionProvider,
   SignInOutcome,
+  TamperOutcome,
   TenantReadOutcome,
+  TransferOutcome,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
+  WriteAttemptOutcome,
+  WriteRefusal,
 } from './_contract.ts';
 
 /**
@@ -306,6 +335,8 @@ interface AuthUser {
    * established, and is a property of the user Auth answers for.
    */
   githubHandle: string | null;
+  /** Auth's `identities[]`, reduced to the provider — the map AT-001.41 reads. */
+  identities: { provider: string }[];
   /**
    * GoTrue's `email_confirmed_at`, or null while the address is unconfirmed — vendor mirror 1 and
    * 4 in this file's header.
@@ -410,6 +441,10 @@ interface State {
    * return value cannot show.
    */
   discoveryMessages: Map<string, string[]>;
+  /** The mirror of `public.audit_events`; the live adapter is the oracle. */
+  auditEvents: AuditEventRow[];
+  /** The mirror of `public.org_escalation_contacts`; the live adapter is the oracle. */
+  escalationContacts: Map<string, EscalationContactRow>;
   nextId: number;
 }
 
@@ -450,6 +485,8 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     acknowledgments: [],
     volunteerProfiles: new Map(),
     discoveryMessages: new Map(),
+    auditEvents: [],
+    escalationContacts: new Map(),
     nextId: 1,
   };
   const openedWorlds = new Set<AccountsFixtureWorld>();
@@ -540,6 +577,10 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       password,
       provider,
       githubHandle,
+      identities:
+        githubHandle !== null && provider !== 'github'
+          ? [{ provider }, { provider: 'github' }]
+          : [{ provider }],
       emailConfirmedAt,
       verificationLink,
       passwordResetLink: null,
@@ -634,6 +675,140 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
    */
   const DEAD_SESSION_REASON = 'this session is no longer valid — sign in again';
 
+  const renderWriteStanding = (
+    accountId: string,
+    organizationId: string | null,
+    subjectAccountId: string | null,
+  ): Record<string, unknown> => {
+    const account = state.accounts.get(accountId) ?? null;
+    const seat =
+      organizationId === null ? null : ([...state.memberships.values()].find((row) => row.organizationId === organizationId) ?? null);
+    const subject = subjectAccountId === null ? null : (state.accounts.get(subjectAccountId) ?? null);
+    return {
+      account: account === null ? null : { account_type: account.accountType, lifecycle: account.lifecycle },
+      org_exists: organizationId !== null && state.organizations.has(organizationId),
+      org_role: organizationId === null ? null : (state.memberships.get(membershipKey(organizationId, accountId))?.role ?? null),
+      org_seat_account_id: seat?.accountId ?? null,
+      subject: subject === null ? null : { account_type: subject.accountType, lifecycle: subject.lifecycle },
+    };
+  };
+
+  type WriteRun<Args> = { ok: true; caller: Caller; args: Args } | WriteRefusal;
+
+  const runWrite = <Args, Input extends WriteRouteInput = WriteRouteInput>(
+    spec: WriteRouteSpec<Args, Input>,
+    session: Session | null,
+    body: Record<string, unknown>,
+    ip: string | null,
+  ): WriteRun<Args> => {
+    const caller = session === null ? null : resolveCaller(session);
+    if (caller === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+    const target = spec.target ? spec.target(body) : null;
+    const subject = spec.subject ? spec.subject(body) : null;
+    const standing = parseWriteStanding(renderWriteStanding(caller.id, target, subject));
+    const decision = writePipeline(spec, { caller, standing, body, target, subject, ip });
+    if (decision.ok) return { ok: true, caller, args: decision.args };
+    return { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
+  };
+
+  const SIGNUP_COMPLETION: WriteRouteSpec<SignupCompletionArgs> = { name: 'complete-signup', decide: decideSignupCompletion };
+  const ORGANIZATION_CREATION: WriteRouteSpec<OrganizationCreationArgs, AccountWriteRouteInput> = {
+    name: 'create-organization',
+    decide: decideOrganizationCreation,
+  };
+  const ORGANIZATION_RENAME: WriteRouteSpec<OrganizationRenameArgs, AccountWriteRouteInput> = {
+    name: 'update-organization',
+    target: organizationIdField,
+    decide: decideOrganizationRename,
+  };
+  const CONTACT_TRANSFER: WriteRouteSpec<ContactTransferArgs, AccountWriteRouteInput> = {
+    name: 'transfer-organization-contact',
+    target: organizationIdField,
+    subject: subjectAccountIdField,
+    from: fromAccountIdField,
+    decide: decideContactTransfer,
+  };
+  const ESCALATION_CONTACT: WriteRouteSpec<EscalationContactArgs, AccountWriteRouteInput> = {
+    name: 'set-escalation-contact',
+    target: organizationIdField,
+    decide: decideEscalationContact,
+  };
+  const LIFECYCLE_CHANGE: WriteRouteSpec<LifecycleChangeArgs, AccountWriteRouteInput> = {
+    name: 'set-account-lifecycle',
+    subject: accountIdField,
+    decide: decideLifecycleChange,
+  };
+  const DISCOVERY_MESSAGE: WriteRouteSpec<{ message: string }, AccountWriteRouteInput> = {
+    name: 'discovery-message',
+    decide: (input) => {
+      const allowed = discoveryMessageAllowed({ emailVerified: input.body.emailVerified === true });
+      if (!allowed.ok) return refuseWrite('refused', 403, allowed.reason);
+      const message = stringField(input.body.message);
+      if (message === null) return refuseWrite('invalid-request', 400, 'a Discovery message needs a body');
+      return { ok: true, args: { message } };
+    },
+  };
+
+  /** The mirror of `public.append_audit_event`; the live adapter is the oracle. */
+  const appendAudit = (
+    eventKind: AuditEventKind,
+    actorAccountId: string | null,
+    subjectAccountId: string | null,
+    subjectOrgId: string | null,
+    reason: string,
+    detail: Record<string, unknown>,
+  ): void => {
+    const actor = actorAccountId === null ? null : (state.accounts.get(actorAccountId) ?? null);
+    state.auditEvents.push({
+      id: nextId('audit'),
+      occurredAt: new Date(clock.now()).toISOString(),
+      eventKind,
+      actorAccountId,
+      actorLabel: actorAccountId === null || actor === null ? 'operator' : `${actor.accountType}:${actorAccountId}`,
+      subjectAccountId,
+      subjectOrgId,
+      reason,
+      detail,
+    });
+  };
+
+  /** The mirror of `public.org_membership_role_change_audit`; the live adapter is the oracle. */
+  const recordRoleChange = (
+    previous: MembershipRow | null,
+    next: MembershipRow | null,
+    actorAccountId: string | null,
+  ): void => {
+    if (next === null) {
+      if (previous === null) return;
+      appendAudit('org_role_changed', actorAccountId, previous.accountId, previous.organizationId, 'membership removed', {
+        old_role: previous.role,
+        new_role: null,
+        old_account_id: previous.accountId,
+        new_account_id: null,
+      });
+      return;
+    }
+    if (previous !== null && previous.accountId === next.accountId && previous.role === next.role) return;
+    const reason =
+      previous === null ? 'membership granted' : previous.accountId !== next.accountId ? 'seat repointed' : 'role changed';
+    appendAudit('org_role_changed', actorAccountId, next.accountId, next.organizationId, reason, {
+      old_role: previous?.role ?? null,
+      new_role: next.role,
+      old_account_id: previous?.accountId ?? null,
+      new_account_id: next.accountId,
+    });
+  };
+
+  /** The mirror of `public.change_account_lifecycle`; the live adapter is the oracle. */
+  const changeLifecycle = (accountId: string, lifecycle: AccountLifecycle, actorAccountId: string, reason: string): boolean => {
+    const account = state.accounts.get(accountId);
+    if (!account) throw new Error(`fixture: no account ${accountId} to change the lifecycle of`);
+    if (account.lifecycle === lifecycle) return false;
+    state.accounts.set(accountId, { ...account, lifecycle });
+    appendAudit('account_lifecycle_changed', actorAccountId, accountId, null, reason, { from: account.lifecycle, to: lifecycle });
+    return true;
+  };
+
   /**
    * Which providers can sign this user back in — Auth's `identities[]`, reduced to what AT-001.02
    * asks about.
@@ -670,20 +845,18 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     //
     // What is still NOT proved here is GoTrue's real serialisation — that this shape is the shape
     // Auth sends. Only the live proof touches that.
-    const caller = resolveCaller(session);
-    if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
-
-    const decision = validateCompleteSignup(request, { githubHandle: caller.githubHandle });
-    if (!decision.ok) return { ok: false, reason: decision.reason };
+    const run = runWrite(SIGNUP_COMPLETION, session, request, ip);
+    if (!run.ok) return run;
+    const { caller } = run;
     const {
-      accountType,
-      organizationName,
-      acknowledgmentTextVersion,
-      githubHandle,
-      signerName,
-      signerTitle,
-      authorityAttestation,
-    } = decision.value;
+      p_account_type: accountType,
+      p_organization_name: organizationName,
+      p_acknowledgment_text_version: acknowledgmentTextVersion,
+      p_github_handle: githubHandle = null,
+      p_signer_name: signerName,
+      p_signer_title: signerTitle,
+      p_authority_attestation: authorityAttestation,
+    } = run.args;
 
     // ONE ROW PER AUTH USER is what makes "one account holds exactly one global type" structural
     // rather than remembered — the schema states it as a primary key, and this states it as a
@@ -696,7 +869,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       return { ok: false, reason: 'this account has already completed signup — one account holds exactly one global type' };
     }
 
-    const account: AccountRow = { id: caller.id, accountType };
+    const account: AccountRow = { id: caller.id, accountType, lifecycle: 'active' };
     let organization: OrganizationRow | null = null;
     let membership: MembershipRow | null = null;
 
@@ -746,7 +919,10 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     // All of them, together. Nothing above this line has mutated `state`.
     state.accounts.set(account.id, account);
     if (organization) state.organizations.set(organization.id, organization);
-    if (membership) state.memberships.set(membershipKey(membership.organizationId, membership.accountId), membership);
+    if (membership) {
+      state.memberships.set(membershipKey(membership.organizationId, membership.accountId), membership);
+      recordRoleChange(null, membership, caller.id);
+    }
     if (volunteerProfile) state.volunteerProfiles.set(volunteerProfile.accountId, volunteerProfile);
     state.acknowledgments.push(acknowledgment);
 
@@ -814,7 +990,30 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const user = state.authUsers.get(caller.id);
       if (!user) throw new Error(`fixture: no auth user ${caller.id} to link a GitHub identity to`);
       user.githubHandle = githubHandle;
+      if (!user.identities.some((identity) => identity.provider === 'github')) {
+        user.identities.push({ provider: 'github' });
+      }
     },
+
+    /** The mirror of `public.github_identity_is_permanent_for_volunteers`; the live adapter is the oracle. */
+    unlinkGithubIdentity: async (session, provider) => {
+      const caller = resolveCaller(session);
+      if (caller === null) {
+        throw new Error(
+          `fixture: session ${session.sessionId} is not one Auth would answer for — nothing to unlink an identity from`,
+        );
+      }
+      const user = state.authUsers.get(caller.id);
+      if (!user) throw new Error(`fixture: no auth user ${caller.id} to unlink an identity from`);
+      const account = state.accounts.get(caller.id);
+      if (provider === 'github' && account?.accountType === 'volunteer') return;
+      user.identities = user.identities.filter((identity) => identity.provider !== provider);
+      if (provider === 'github') user.githubHandle = null;
+    },
+
+    linkedIdentities: async (accountId) => clone(state.authUsers.get(accountId)?.identities ?? []),
+
+    authUserIsHealthy: async (session) => sessionIsLive(state.sessions.get(session.sessionId)),
 
     signInWithEmailPassword: async (email, password): Promise<SignInOutcome> => {
       const userId = state.byEmail.get(email);
@@ -1006,39 +1205,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     // and `AccountsSut`'s fourth kind. Every judgement below is the shipped module's; what is left
     // here is one refusal about bookkeeping and one write.
     sendDiscoveryMessage: async (session, body): Promise<SendDiscoveryMessageOutcome> => {
-      // WHO IS CALLING, FIRST AND THROUGH THE SHIPPED JUDGEMENT — the same uniform validation
-      // `completeSignup` and `createOrganization` use. A dead session is refused here, before the
-      // Discovery floor is consulted, and writes nothing.
-      const caller = resolveCaller(session);
-      if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
+      const caller = session === null ? null : resolveCaller(session);
+      if (caller === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
       const authUser = state.authUsers.get(caller.id);
-      if (!authUser) return { ok: false, reason: DEAD_SESSION_REASON };
-      // The same bookkeeping refusal `createOrganization` gives, and it is THIS FILE'S, not a
-      // product rule: an account that has not completed signup has no sender to record against.
-      // It is checked FIRST so that AT-001.10's refusal is unambiguously the gate's own — the
-      // account there has completed signup, so this branch cannot be what answers.
-      if (!state.accounts.has(caller.id)) {
-        return { ok: false, reason: 'complete signup before sending a Discovery message' };
-      }
-
-      // THE VERIFIED FACT IS A CALLER FACT, derived exactly as `emailVerified` derives it: from the
-      // rendered response shape, through the shipped extractor. It is never a request field —
-      // a request field is something a client asserts about itself, and a floor built on one is no
-      // floor at all.
+      if (!authUser) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
       const emailVerified = emailVerifiedFromUser(renderAuthUser(authUser));
-
-      // THE ONLY DECISION ON THIS PATH, and it is the shipped one. The refusal text is the GATE's,
-      // carried through unchanged — AT-001.10 matches the reason, so restating it here would make
-      // the test grade this file instead of the module that ships.
-      const allowed = discoveryMessageAllowed({ emailVerified });
-      if (!allowed.ok) return { ok: false, reason: allowed.reason };
-
-      // ONLY REACHED ON ALLOW, so a refusal writes nothing — which is what `discoveryMessagesBy`
-      // is read for. The body is stored opaquely: recipients, threads and message state are
-      // REQ-002/004's semantics and none of them is invented here.
-      const sent = state.discoveryMessages.get(caller.id) ?? [];
-      sent.push(body);
-      state.discoveryMessages.set(caller.id, sent);
+      const run = runWrite(DISCOVERY_MESSAGE, session, { message: body, emailVerified }, null);
+      if (!run.ok) return run;
+      const sent = state.discoveryMessages.get(run.caller.id) ?? [];
+      sent.push(run.args.message);
+      state.discoveryMessages.set(run.caller.id, sent);
       return { ok: true };
     },
 
@@ -1051,27 +1227,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       //
       // NO VERIFICATION GATE SITS ON THIS OPERATION, which is why AT-001.12 uses it: a refusal is
       // unambiguously the session layer's rather than the Discovery floor's.
-      const caller = resolveCaller(session);
-      if (caller === null) return { ok: false, reason: DEAD_SESSION_REASON };
+      const run = runWrite(ORGANIZATION_CREATION, session, { name: organizationName }, null);
+      if (!run.ok) return run;
 
-      const account = state.accounts.get(caller.id);
-      if (!account) return { ok: false, reason: 'complete signup before creating an organisation' };
-
-      // THE REFUSAL IS THE SHIPPED MODULE'S, not this file's. That is what makes AT-001.06 a test of
-      // an application boundary rather than of a helper called directly from a test body.
-      const allowed = ngoOnlyActionAllowed(account.accountType);
-      if (!allowed.ok) return { ok: false, reason: allowed.reason };
-
-      // The name rule is the shipped module's too. It used to be spelled out here, which made this
-      // file hold a second copy of a rule — the one thing its opening paragraph promises it does
-      // not do.
-      const name = validateOrganizationName(organizationName);
-      if (!name.ok) return { ok: false, reason: name.reason };
-
-      const organization: OrganizationRow = { id: nextId('org'), name: name.value };
-      const membership: MembershipRow = { organizationId: organization.id, accountId: account.id, role: 'admin' };
+      const organization: OrganizationRow = { id: nextId('org'), name: run.args.p_name };
+      const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
       state.organizations.set(organization.id, organization);
-      state.memberships.set(membershipKey(organization.id, account.id), membership);
+      state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
+      recordRoleChange(null, membership, run.caller.id);
       return { ok: true, organizationId: organization.id };
     },
 
@@ -1098,23 +1261,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * well-formed random uuid, recorded in `artifacts/gate2-verify-answers.md`.
      */
     updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
-      const caller = resolveCaller(session);
-      // `refused` rather than a meaningful kind: a dead session is not a statement about roles at
-      // all, and no body drives this path. Classifying it as one of the two role kinds would put a
-      // refusal the session layer produced under a label two acceptance criteria read.
-      if (caller === null) return { ok: false, kind: 'refused', reason: DEAD_SESSION_REASON };
+      const run = runWrite(ORGANIZATION_RENAME, session, { organizationId, name }, null);
+      if (!run.ok) return run;
 
-      const membership = state.memberships.get(membershipKey(organizationId, caller.id));
-      const allowed = orgAdminActionAllowed(membership?.role ?? null);
-      // NOTHING ABOVE THIS LINE HAS MUTATED STATE, which is what makes the bodies' read-backs after a
-      // refusal measure a real property rather than this file's good intentions.
-      if (!allowed.ok) return { ok: false, kind: allowed.kind, reason: allowed.reason };
-
-      const validated = validateOrganizationName(name);
-      if (!validated.ok) return { ok: false, kind: 'invalid-name', reason: validated.reason };
-
-      state.organizations.set(organizationId, { id: organizationId, name: validated.value });
-      return { ok: true, organizationId, name: validated.value };
+      state.organizations.set(run.args.p_organization_id, { id: run.args.p_organization_id, name: run.args.p_name });
+      return { ok: true, organizationId: run.args.p_organization_id, name: run.args.p_name };
     },
 
     /**
@@ -1196,6 +1347,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
       const membership: MembershipRow = { organizationId, accountId, role };
       state.memberships.set(membershipKey(organizationId, accountId), membership);
+      recordRoleChange(null, membership, null);
       return { ok: true, membership: clone(membership) };
     },
 
@@ -1239,6 +1391,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const repointed: MembershipRow = { organizationId, accountId, role: seated.role };
       state.memberships.delete(membershipKey(organizationId, seated.accountId));
       state.memberships.set(membershipKey(organizationId, accountId), repointed);
+      recordRoleChange(seated, repointed, null);
       return { ok: true, membership: clone(repointed) };
     },
 
@@ -1342,7 +1495,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       // an administrator exists is an authority the public never holds. The type is still taken from
       // the shipped vocabulary rather than spelled as a literal.
       const accountType: AccountType = 'platform_admin';
-      state.accounts.set(session.accountId, { id: session.accountId, accountType });
+      state.accounts.set(session.accountId, { id: session.accountId, accountType, lifecycle: 'active' });
       return session;
     },
 
@@ -1370,6 +1523,133 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       if (!account) throw new Error(`no account ${accountId} to retype`);
       state.accounts.set(accountId, { ...account, accountType });
     },
+
+    transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {
+      const run = runWrite(CONTACT_TRANSFER, session, request, null);
+      if (!run.ok) return run;
+      const { p_organization_id: organizationId, p_from_account_id: from, p_to_account_id: to, p_reason: reason } = run.args;
+      // The mirror of `public.transfer_organization_contact`; the live adapter is the oracle.
+      const seat = state.memberships.get(membershipKey(organizationId, from));
+      if (!seat) throw new Error(`fixture: the decision admitted a transfer from ${from}, which holds no seat in ${organizationId}`);
+      const moved: MembershipRow = { ...seat, accountId: to };
+      state.memberships.delete(membershipKey(organizationId, from));
+      state.memberships.set(membershipKey(organizationId, to), moved);
+      recordRoleChange(seat, moved, run.caller.id);
+      const remaining = [...state.memberships.values()]
+        .filter((row) => row.accountId === from)
+        .map((row) => row.organizationId)
+        .sort();
+      const deactivated = remaining.length === 0;
+      if (deactivated) changeLifecycle(from, 'deactivated', run.caller.id, reason);
+      appendAudit('org_contact_transferred', run.caller.id, from, organizationId, reason, {
+        from_account_id: from,
+        to_account_id: to,
+        remaining_seats: remaining,
+        deactivated,
+      });
+      return { ok: true, organizationId };
+    },
+
+    setEscalationContact: async (session, request): Promise<EscalationOutcome> => {
+      const run = runWrite(ESCALATION_CONTACT, session, request, null);
+      if (!run.ok) return run;
+      const { p_organization_id: organizationId, p_name, p_email, p_phone } = run.args;
+      const previous = state.escalationContacts.get(organizationId) ?? null;
+      state.escalationContacts.set(organizationId, {
+        organizationId,
+        contactName: p_name,
+        contactEmail: p_email,
+        contactPhone: p_phone,
+        recordedByAccountId: run.caller.id,
+        recordedAt: new Date(clock.now()).toISOString(),
+      });
+      appendAudit('org_escalation_contact_recorded', run.caller.id, null, organizationId, 'escalation contact recorded', {
+        previous:
+          previous === null
+            ? null
+            : { name: previous.contactName, email: previous.contactEmail, phone: previous.contactPhone },
+        current: { name: p_name, email: p_email, phone: p_phone },
+      });
+      return { ok: true, organizationId };
+    },
+
+    setAccountLifecycle: async (session, request): Promise<LifecycleOutcome> => {
+      const run = runWrite(LIFECYCLE_CHANGE, session, request, null);
+      if (!run.ok) return run;
+      const changed = changeLifecycle(run.args.p_subject_account_id, run.args.p_lifecycle, run.caller.id, run.args.p_reason);
+      return { ok: true, changed };
+    },
+
+    attemptWrite: async function (this: AccountsSut, subject, session): Promise<WriteAttemptOutcome> {
+      const asAttempt = async (outcome: { ok: true } | WriteRefusal): Promise<WriteAttemptOutcome> =>
+        outcome.ok ? { ok: true } : outcome;
+      const attempts: Record<WriteRouteName, () => Promise<WriteAttemptOutcome>> = {
+        'complete-signup': async () => {
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          if (subject.route !== 'complete-signup') throw new Error('unreachable');
+          const completed = await completeSignup(
+            session,
+            {
+              accountType: 'ngo',
+              organizationName: subject.name,
+              acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
+              signerName: 'Dana Okonkwo',
+              signerTitle: 'Executive Director',
+              authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+            },
+            '203.0.113.7',
+          );
+          if (completed.ok) return { ok: true };
+          if ('kind' in completed) return completed;
+          return { ok: false, kind: 'refused', status: 409, reason: completed.reason };
+        },
+        'create-organization': async () => {
+          if (subject.route !== 'create-organization') throw new Error('unreachable');
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          return asAttempt(await this.createOrganization(session, subject.name));
+        },
+        'update-organization': async () => {
+          if (subject.route !== 'update-organization') throw new Error('unreachable');
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          return asAttempt(await this.updateOrganization(session, subject.organizationId, subject.name));
+        },
+        'transfer-organization-contact': async () => {
+          if (subject.route !== 'transfer-organization-contact') throw new Error('unreachable');
+          return asAttempt(await this.transferOrganizationContact(session, subject));
+        },
+        'set-escalation-contact': async () => {
+          if (subject.route !== 'set-escalation-contact') throw new Error('unreachable');
+          return asAttempt(await this.setEscalationContact(session, { ...subject, phone: null }));
+        },
+        'set-account-lifecycle': async () => {
+          if (subject.route !== 'set-account-lifecycle') throw new Error('unreachable');
+          return asAttempt(await this.setAccountLifecycle(session, subject));
+        },
+        'discovery-message': async () => {
+          if (subject.route !== 'discovery-message') throw new Error('unreachable');
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          return asAttempt(await this.sendDiscoveryMessage(session, subject.message));
+        },
+      };
+      return attempts[subject.route]();
+    },
+
+    auditEvents: async (filter) =>
+      clone(
+        state.auditEvents.filter(
+          (row) =>
+            (filter.subjectOrgId === undefined || row.subjectOrgId === filter.subjectOrgId) &&
+            (filter.subjectAccountId === undefined || row.subjectAccountId === filter.subjectAccountId),
+        ),
+      ),
+
+    /** The mirror of `public.audit_events_are_append_only`; the live adapter is the oracle. */
+    attemptAuditTamper: async (attempt): Promise<TamperOutcome> => ({
+      ok: false,
+      reason: `public.audit_events is append-only: ${attempt.toUpperCase()} is refused (REQ-001, AT-001.33)`,
+    }),
+
+    escalationContact: async (organizationId) => clone(state.escalationContacts.get(organizationId) ?? null),
 
     organizationDashboard: async (session, organizationId) => {
       if (session === null) return { ok: false, answer: deadSessionAnswer };
@@ -1435,6 +1715,8 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.acknowledgments.length = 0;
       state.volunteerProfiles.clear();
       state.discoveryMessages.clear();
+      state.auditEvents.length = 0;
+      state.escalationContacts.clear();
       state.nextId = 1;
     },
   };

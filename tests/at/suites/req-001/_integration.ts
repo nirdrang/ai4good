@@ -29,8 +29,10 @@ import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { CapabilityPending } from '../../harness/registry.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import { TENANT_NOT_FOUND } from '../../../../supabase/functions/_shared/tenant-reads.ts';
-import type { Session } from './_contract.ts';
+import type { AccountType, AccountsSut, AuditEventRow, ProjectRow, Session, World, WriteSubject } from './_contract.ts';
 import { isTautologicalUsing, TENANT_CATALOG, tenantCatalogProblems } from './_policy-scan.ts';
+import { writeRouteProblems } from './_write-route-scan.ts';
+import { WRITE_ROUTES, type WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
 // AT-001.17's source arm, shared with its loop body: the arm runs identically at both tiers, and the
 // two bodies live in different files, so the check has one home rather than two copies.
 import { inviteOrAddMemberSurface } from './_source-scan.ts';
@@ -248,7 +250,7 @@ export async function at00101(ctx: Ctx): Promise<void> {
   if (!completion.ok) return;
   expect(completion.organizationId, 'an NGO completion produced no organisation').not.toBeNull();
 
-  expect(await sut.account(completion.accountId)).toEqual({ id: session.accountId, accountType: 'ngo' });
+  expect(await sut.account(completion.accountId)).toEqual({ id: session.accountId, accountType: 'ngo', lifecycle: 'active' });
   expect(await sut.organization(completion.organizationId!)).toMatchObject({ name: 'Riverside Shelter' });
   expect(await sut.membership(completion.organizationId!, completion.accountId)).toEqual({
     organizationId: completion.organizationId,
@@ -409,6 +411,48 @@ export async function at00107(ctx: Ctx): Promise<void> {
   expect(await sut.account(visitor.accountId), 'the refused escalation left an account row behind').toBeNull();
 }
 
+export async function at00141(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+
+  const volunteer = await registerConfirmAndSignIn(sut, w.email('permanent-github'));
+  await sut.linkGithubIdentity(volunteer, 'permanent-github-handle');
+  await sut.completeSignup(
+    volunteer,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+
+  const before = await sut.linkedIdentities(volunteer.accountId);
+  expect(before.map((i) => i.provider), 'the Given is a volunteer holding email and github').toContain('github');
+  expect(before.map((i) => i.provider), 'the Given is a volunteer holding email and github').toContain('email');
+
+  await sut.unlinkGithubIdentity(volunteer, 'github');
+
+  expect(
+    (await sut.linkedIdentities(volunteer.accountId)).map((i) => i.provider),
+    'the mandatory GitHub identity was unlinked',
+  ).toContain('github');
+  expect(await sut.authUserIsHealthy(volunteer), 'the refusal broke Auth for this user').toBe(true);
+
+  const ngo = await registerConfirmAndSignIn(sut, w.email('ngo-with-github'));
+  await sut.linkGithubIdentity(ngo, 'ngo-github-handle');
+  await sut.completeSignup(
+    ngo,
+    {
+      accountType: 'ngo',
+      organizationName: 'Riverside Shelter 41',
+      acknowledgmentTextVersion: TEXT_VERSION,
+      ...SIGNER,
+    },
+    CLIENT_IP,
+  );
+  await sut.unlinkGithubIdentity(ngo, 'github');
+  expect(
+    (await sut.linkedIdentities(ngo.accountId)).map((i) => i.provider),
+    'the control was refused too, so the refusal is not about volunteers',
+  ).not.toContain('github');
+}
+
 /**
  * AT-001.09 — email verification, PARAMETERIZED OVER BOTH email-capable account types.
  *
@@ -482,7 +526,7 @@ export async function at00109(ctx: Ctx): Promise<void> {
     expect(
       await sut.account(completion.accountId),
       `the completed ${kind} account does not carry the ${kind} global type`,
-    ).toEqual({ id: registered.accountId, accountType: kind });
+    ).toEqual({ id: registered.accountId, accountType: kind, lifecycle: 'active' });
   }
 }
 
@@ -1708,6 +1752,864 @@ export async function at00124(ctx: Ctx): Promise<void> {
   expect(publicPageKeys(page.answer.body)).toEqual(PUBLIC_PAGE_KEYS);
 
   throw new CapabilityPending(['ui.authenticated-surface-rendering']);
+}
+
+type Opened = Awaited<ReturnType<Ctx['open']>>;
+
+export const HANDOVER_REASON = 'planned handover: the executive director changed';
+export const RECOVERY_REASON = 'lost access — recovery: the original contact cannot sign in';
+
+export async function transferGiven(
+  sut: Opened['sut'],
+  w: Opened['w'],
+  tag: string,
+  signIn: (email: string) => Promise<Session>,
+): Promise<{
+  admin: Session;
+  a: Session;
+  b: Session;
+  c: Session;
+  organizationId: string;
+  bOrganizationId: string;
+  project: ProjectRow;
+}> {
+  const admin = await sut.provisionPlatformAdmin(w.email(`admin-${tag}`), PASSWORD);
+  const a = await signIn(w.email(`ngo-a-${tag}`));
+  const aCompletion = await sut.completeSignup(
+    a,
+    { accountType: 'ngo', organizationName: `Riverside Shelter ${tag}`, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(aCompletion, 'NGO A could not complete signup, so there is no organisation whose contact could change').toMatchObject({
+    ok: true,
+  });
+  if (!aCompletion.ok || aCompletion.organizationId === null) throw new Error('unreachable: the assertion above fails first');
+  const project = await sut.createProjectAsOperator(aCompletion.organizationId, `Riverside Shelter Website ${tag}`);
+  const b = await signIn(w.email(`ngo-b-${tag}`));
+  const bCompletion = await sut.completeSignup(
+    b,
+    { accountType: 'ngo', organizationName: `Northgate Foodbank ${tag}`, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(bCompletion, 'NGO B could not complete signup, so there is no completed NGO account to transfer to').toMatchObject({ ok: true });
+  if (!bCompletion.ok || bCompletion.organizationId === null) throw new Error('unreachable: the assertion above fails first');
+  const c = await signIn(w.email(`ngo-c-${tag}`));
+  const cCompletion = await sut.completeSignup(
+    c,
+    { accountType: 'ngo', organizationName: `Harbour Clinic ${tag}`, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(cCompletion, 'NGO C could not complete signup, so there is no third completed NGO to receive the second transfer').toMatchObject({
+    ok: true,
+  });
+  if (!cCompletion.ok) throw new Error('unreachable: the assertion above fails first');
+  return { admin, a, b, c, organizationId: aCompletion.organizationId, bOrganizationId: bCompletion.organizationId, project };
+}
+
+type TransferGiven = Awaited<ReturnType<typeof transferGiven>>;
+
+export async function transferSnapshot(sut: Opened['sut'], given: TransferGiven) {
+  const acknowledgments = await sut.acknowledgments(given.a.accountId);
+  expect(acknowledgments, 'NGO A holds no acknowledgment, so there is no history to preserve').toHaveLength(1);
+  expect(await sut.membership(given.organizationId, given.a.accountId), 'NGO A does not hold the seat it is to hand over').toMatchObject({
+    role: 'admin',
+  });
+  return {
+    organization: await sut.organization(given.organizationId),
+    acknowledgments,
+    project: await sut.projectAssignment(given.project.id),
+  };
+}
+
+export async function expectTransferred(
+  sut: Opened['sut'],
+  given: TransferGiven,
+  before: Awaited<ReturnType<typeof transferSnapshot>>,
+): Promise<void> {
+  const { a, b, organizationId, project } = given;
+  expect(await sut.membership(organizationId, b.accountId), 'the seat did not move to the new contact').toEqual({
+    organizationId,
+    accountId: b.accountId,
+    role: 'admin',
+  });
+  expect(await sut.membership(organizationId, a.accountId), 'the outgoing contact still holds a seat in the organisation').toBeNull();
+  expect(
+    (await sut.membershipsOf(a.accountId)).map((row) => row.organizationId),
+    'the outgoing contact still names the organisation among its seats',
+  ).not.toContain(organizationId);
+  expect(await sut.organization(organizationId), 'the organisation changed during the transfer').toEqual(before.organization);
+  expect(await sut.acknowledgments(a.accountId), 'the acknowledgment the outgoing contact signed changed during the transfer').toEqual(
+    before.acknowledgments,
+  );
+  expect(await sut.projectAssignment(project.id), 'the project changed during the transfer').toEqual(before.project);
+  expect(await sut.account(a.accountId), 'the outgoing contact was not deactivated').toMatchObject({
+    accountType: 'ngo',
+    lifecycle: 'deactivated',
+  });
+  expect(await sut.account(b.accountId), 'the new contact was deactivated too').toMatchObject({ accountType: 'ngo', lifecycle: 'active' });
+}
+
+/** AT-001.25's second arm: the seat moves on from B to C; B keeps its signup seat and stays active. */
+export async function expectSecondTransfer(sut: Opened['sut'], given: TransferGiven): Promise<void> {
+  const second = await sut.transferOrganizationContact(given.admin, {
+    organizationId: given.organizationId,
+    fromAccountId: given.b.accountId,
+    toAccountId: given.c.accountId,
+    reason: HANDOVER_REASON,
+  });
+  expect(second, 'the platform administrator was refused the second transfer, from B to C').toMatchObject({ ok: true });
+  if (!second.ok) return;
+  expect(await sut.membership(given.organizationId, given.c.accountId), 'the seat did not move to C').toMatchObject({
+    organizationId: given.organizationId,
+    accountId: given.c.accountId,
+    role: 'admin',
+  });
+  expect(await sut.membership(given.bOrganizationId, given.b.accountId), 'B lost its signup seat').toMatchObject({
+    role: 'admin',
+  });
+  expect(await sut.account(given.b.accountId), 'B was deactivated even though it still holds its signup seat').toMatchObject({
+    lifecycle: 'active',
+  });
+  expect(await sut.account(given.a.accountId), 'A was not left deactivated from the first transfer').toMatchObject({
+    lifecycle: 'deactivated',
+  });
+  const transferred = (await sut.auditEvents({ subjectOrgId: given.organizationId })).filter(
+    (row) => row.eventKind === 'org_contact_transferred',
+  );
+  expect(transferred, 'the two transfers did not leave two transfer rows').toHaveLength(2);
+  expect(transferred[1].detail, 'the second transfer did not record that B stayed active with its remaining seat').toMatchObject({
+    remaining_seats: [given.bOrganizationId],
+    deactivated: false,
+  });
+}
+
+export async function expectNotTransferred(sut: Opened['sut'], given: TransferGiven, arm: string): Promise<void> {
+  expect(await sut.membership(given.organizationId, given.a.accountId), `the refused ${arm} attempt moved the seat`).toMatchObject({
+    accountId: given.a.accountId,
+    role: 'admin',
+  });
+  expect(await sut.account(given.a.accountId), `the refused ${arm} attempt changed the outgoing contact's lifecycle`).toMatchObject({
+    lifecycle: 'active',
+  });
+  expect(await sut.account(given.b.accountId), `the refused ${arm} attempt changed the new contact's lifecycle`).toMatchObject({
+    lifecycle: 'active',
+  });
+  expect(
+    (await sut.auditEvents({ subjectOrgId: given.organizationId })).filter((row) => row.eventKind === 'org_contact_transferred'),
+    `the refused ${arm} attempt left a transfer audit row`,
+  ).toEqual([]);
+}
+
+export async function expectTransferAudited(
+  sut: Opened['sut'],
+  given: TransferGiven,
+  reason: string,
+  window: { openedAtMs: number; closedAtMs: number; toleranceMs: number },
+): Promise<AuditEventRow> {
+  const events = await sut.auditEvents({ subjectOrgId: given.organizationId });
+  const transferred = events.filter((row) => row.eventKind === 'org_contact_transferred');
+  expect(transferred, 'the transfer did not leave exactly one transfer row for the organisation').toHaveLength(1);
+  const record = transferred[0];
+  expect(record.actorAccountId, 'the audit row does not name the administrator who performed the transfer').toBe(given.admin.accountId);
+  expect(record.actorLabel, 'the audit label does not name the administrator').toContain(given.admin.accountId);
+  expect(record.reason, 'the audit row does not carry the reason the administrator gave').toBe(reason);
+  expect(record.subjectAccountId, 'the audit row does not name the outgoing contact').toBe(given.a.accountId);
+  expect(record.detail, 'the audit row does not name the new contact').toMatchObject({ to_account_id: given.b.accountId });
+  const occurredAtMs = Date.parse(record.occurredAt);
+  expect(occurredAtMs, 'the audit row carries no readable instant').not.toBeNaN();
+  expect(occurredAtMs, 'the audit row is dated before the transfer began').toBeGreaterThanOrEqual(window.openedAtMs - window.toleranceMs);
+  expect(occurredAtMs, 'the audit row is dated after the transfer completed').toBeLessThanOrEqual(window.closedAtMs + window.toleranceMs);
+
+  const deactivations = (await sut.auditEvents({ subjectAccountId: given.a.accountId })).filter(
+    (row) => row.eventKind === 'account_lifecycle_changed',
+  );
+  expect(deactivations, 'the deactivation of the outgoing contact left no audit row of its own').toHaveLength(1);
+  expect(deactivations[0], 'the deactivation row does not carry the same actor and reason as the transfer').toMatchObject({
+    actorAccountId: given.admin.accountId,
+    reason,
+    detail: { from: 'active', to: 'deactivated' },
+  });
+  return record;
+}
+
+/** The database container keeps its own clock; a minute covers the drift seen on a laptop that slept. */
+const CONTAINER_CLOCK_TOLERANCE_MS = 60_000;
+
+export async function at00125(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const given = await transferGiven(sut, w, '25', (email) => registerConfirmAndSignIn(sut, email));
+  const before = await transferSnapshot(sut, given);
+  const request = {
+    organizationId: given.organizationId,
+    fromAccountId: given.a.accountId,
+    toAccountId: given.b.accountId,
+    reason: HANDOVER_REASON,
+  };
+
+  const transfer = await sut.transferOrganizationContact(given.admin, request);
+  expect(transfer, 'the platform administrator was refused the transfer').toMatchObject({ ok: true });
+  if (!transfer.ok) return;
+  await expectTransferred(sut, given, before);
+
+  const again = await sut.transferOrganizationContact(given.admin, request);
+  expect(again.ok, 'a second transfer of the same seat from the same account succeeded').toBe(false);
+  if (again.ok) return;
+  expect(again.kind, 'the retry was refused for a reason other than the seat having moved').toBe('not-the-current-contact');
+  await expectTransferred(sut, given, before);
+
+  await expectSecondTransfer(sut, given);
+}
+
+export async function at00126(ctx: Ctx): Promise<void> {
+  const { h, w, sut } = await ctx.open();
+  const given = await transferGiven(sut, w, '26', (email) => registerConfirmAndSignIn(sut, email));
+  expect(
+    (await sut.auditEvents({ subjectOrgId: given.organizationId })).filter((row) => row.eventKind === 'org_contact_transferred'),
+    'the organisation carries a transfer audit row before the transfer',
+  ).toEqual([]);
+
+  const openedAtMs = h.clock.now();
+  const transfer = await sut.transferOrganizationContact(given.admin, {
+    organizationId: given.organizationId,
+    fromAccountId: given.a.accountId,
+    toAccountId: given.b.accountId,
+    reason: HANDOVER_REASON,
+  });
+  const closedAtMs = h.clock.now();
+  expect(transfer, 'the platform administrator was refused the transfer, so there is nothing to audit').toMatchObject({ ok: true });
+  if (!transfer.ok) return;
+
+  await expectTransferAudited(sut, given, HANDOVER_REASON, { openedAtMs, closedAtMs, toleranceMs: CONTAINER_CLOCK_TOLERANCE_MS });
+}
+
+export async function at00127(ctx: Ctx): Promise<void> {
+  const { h, w, sut } = await ctx.open();
+  const given = await transferGiven(sut, w, '27', (email) => registerConfirmAndSignIn(sut, email));
+
+  await sut.signOut(given.a);
+  const locked = await sut.signInWithEmailPassword(given.a.email, 'a password the contact no longer has');
+  expect(locked.ok, 'the original contact can still sign in, so there is no lost access to recover from').toBe(false);
+  const before = await transferSnapshot(sut, given);
+
+  const openedAtMs = h.clock.now();
+  const recovery = await sut.transferOrganizationContact(given.admin, {
+    organizationId: given.organizationId,
+    fromAccountId: given.a.accountId,
+    toAccountId: given.b.accountId,
+    reason: RECOVERY_REASON,
+  });
+  const closedAtMs = h.clock.now();
+  expect(recovery, 'the administrator was refused the recovery').toMatchObject({ ok: true });
+  if (!recovery.ok) return;
+
+  await expectTransferred(sut, given, before);
+  await expectTransferAudited(sut, given, RECOVERY_REASON, { openedAtMs, closedAtMs, toleranceMs: CONTAINER_CLOCK_TOLERANCE_MS });
+}
+
+export async function at00128(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const admin = await sut.provisionPlatformAdmin(w.email('admin-28'), PASSWORD);
+  const ngo = await registerConfirmAndSignIn(sut, w.email('ngo-28'));
+  const completion = await sut.completeSignup(
+    ngo,
+    { accountType: 'ngo', organizationName: 'Riverside Shelter 28', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completion, 'the NGO could not complete signup, so there is no organisation to record a contact for').toMatchObject({ ok: true });
+  if (!completion.ok || completion.organizationId === null) return;
+  const organizationId = completion.organizationId;
+  expect(await sut.escalationContact(organizationId), 'a fresh organisation already carries an escalation contact').toBeNull();
+
+  const contactEmail = w.email('escalation-28');
+  const recorded = await sut.setEscalationContact(admin, { organizationId, name: 'Maya Lindqvist', email: contactEmail, phone: '+1 555 0100' });
+  expect(recorded, 'the administrator was refused the escalation contact').toMatchObject({ ok: true });
+  if (!recorded.ok) return;
+  expect(await sut.escalationContact(organizationId), 'the escalation contact was not stored as recorded').toMatchObject({
+    organizationId,
+    contactName: 'Maya Lindqvist',
+    contactEmail,
+    contactPhone: '+1 555 0100',
+    recordedByAccountId: admin.accountId,
+  });
+
+  const signIn = await sut.signInWithEmailPassword(contactEmail, PASSWORD);
+  expect(signIn.ok, 'the escalation contact can sign in, so it is an account rather than a non-login contact').toBe(false);
+
+  const replaced = await sut.setEscalationContact(admin, { organizationId, name: 'Jonas Ekholm', email: w.email('escalation-28-second'), phone: null });
+  expect(replaced, 'the administrator was refused a second capture').toMatchObject({ ok: true });
+  expect(await sut.escalationContact(organizationId), 'the second capture did not replace the first').toMatchObject({
+    contactName: 'Jonas Ekholm',
+    contactPhone: null,
+  });
+
+  const refused = await sut.setEscalationContact(ngo, { organizationId, name: 'Self Appointed', email: w.email('escalation-28-self'), phone: null });
+  expect(refused.ok, 'an NGO account recorded its own escalation contact').toBe(false);
+  if (refused.ok) return;
+  expect(refused.kind, 'the NGO was refused for a reason other than not being a platform administrator').toBe('not-a-platform-admin');
+  expect(refused.status, 'the NGO refusal is not a 403').toBe(403);
+  expect(await sut.escalationContact(organizationId), 'the refused capture changed the contact').toMatchObject({ contactName: 'Jonas Ekholm' });
+
+  const recordedEvents = (await sut.auditEvents({ subjectOrgId: organizationId })).filter(
+    (row) => row.eventKind === 'org_escalation_contact_recorded',
+  );
+  expect(recordedEvents, 'the two captures did not leave two escalation audit rows').toHaveLength(2);
+  expect(recordedEvents[0], 'the first capture did not record Maya as current with no previous contact').toMatchObject({
+    actorAccountId: admin.accountId,
+    reason: 'escalation contact recorded',
+    detail: {
+      previous: null,
+      current: { name: 'Maya Lindqvist', email: contactEmail, phone: '+1 555 0100' },
+    },
+  });
+  expect(recordedEvents[1], 'the second capture did not record Jonas as current and Maya as previous').toMatchObject({
+    actorAccountId: admin.accountId,
+    reason: 'escalation contact recorded',
+    detail: {
+      previous: { name: 'Maya Lindqvist', email: contactEmail, phone: '+1 555 0100' },
+      current: { name: 'Jonas Ekholm', phone: null },
+    },
+  });
+}
+
+export async function at00135(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const given = await transferGiven(sut, w, '35', (email) => registerConfirmAndSignIn(sut, email));
+  const volunteer = await registerConfirmAndSignIn(sut, w.email('volunteer-35'));
+  await sut.linkGithubIdentity(volunteer, `volunteer-35-${volunteer.accountId.slice(0, 8)}`);
+  const volunteerCompletion = await sut.completeSignup(
+    volunteer,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(volunteerCompletion, 'the volunteer could not complete signup, so its refusal below is not the one under test').toMatchObject({ ok: true });
+  if (!volunteerCompletion.ok) return;
+  const before = await transferSnapshot(sut, given);
+  const request = {
+    organizationId: given.organizationId,
+    fromAccountId: given.a.accountId,
+    toAccountId: given.b.accountId,
+    reason: HANDOVER_REASON,
+  };
+
+  const asNgo = await sut.transferOrganizationContact(given.a, request);
+  expect(asNgo.ok, 'an NGO account ran the transfer').toBe(false);
+  if (asNgo.ok) return;
+  expect(asNgo.status, 'the NGO refusal is not a 403').toBe(403);
+  expect(asNgo.kind, 'the NGO refusal is not the not-a-platform-admin one').toBe('not-a-platform-admin');
+  await expectNotTransferred(sut, given, 'NGO');
+
+  const asVolunteer = await sut.transferOrganizationContact(volunteer, request);
+  expect(asVolunteer.ok, 'a volunteer account ran the transfer').toBe(false);
+  if (asVolunteer.ok) return;
+  expect(asVolunteer.status, 'the volunteer refusal is not a 403').toBe(403);
+  expect(asVolunteer.kind, 'the volunteer refusal is not the not-a-platform-admin one').toBe('not-a-platform-admin');
+  await expectNotTransferred(sut, given, 'volunteer');
+
+  const anonymous = await sut.transferOrganizationContact(null, request);
+  expect(anonymous.ok, 'an unauthenticated caller ran the transfer').toBe(false);
+  if (anonymous.ok) return;
+  expect(anonymous.status, 'the unauthenticated refusal is not a 401').toBe(401);
+  expect(anonymous.kind, 'the unauthenticated refusal was classified as a decision').toBe('unauthenticated');
+  await expectNotTransferred(sut, given, 'unauthenticated');
+
+  const asAdmin = await sut.transferOrganizationContact(given.admin, request);
+  expect(asAdmin, 'the platform administrator was refused the transfer, so the refusals above prove nothing').toMatchObject({ ok: true });
+  if (!asAdmin.ok) return;
+  await expectTransferred(sut, given, before);
+}
+
+export const AUP_REASON = 'AUP';
+export const REENABLE_REASON = 're-enable after review';
+
+async function ensureVerified(sut: AccountsSut, session: Session): Promise<void> {
+  const link = await sut.emailedVerificationLink(session.email);
+  if (link !== null) await sut.useVerificationLink(link);
+}
+
+async function completeNgo(sut: AccountsSut, session: Session, organizationName: string): Promise<string> {
+  const completion = await sut.completeSignup(
+    session,
+    { accountType: 'ngo', organizationName, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completion, `NGO ${organizationName} could not complete signup`).toMatchObject({ ok: true });
+  if (!completion.ok || completion.organizationId === null) throw new Error('unreachable: the assertion above fails first');
+  return completion.organizationId;
+}
+
+async function completeVolunteer(sut: AccountsSut, session: Session, handle: string): Promise<void> {
+  await sut.linkGithubIdentity(session, handle);
+  const completion = await sut.completeSignup(
+    session,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completion, `volunteer ${handle} could not complete signup`).toMatchObject({ ok: true });
+  if (!completion.ok) throw new Error('unreachable: the assertion above fails first');
+}
+
+type LifecycleActors = {
+  admin: Session;
+  adminOther: Session;
+  adminOff: Session;
+  ngo: Session;
+  ngoOrg: string;
+  ngoOff: Session;
+  ngoOffOrg: string;
+  volunteer: Session;
+  volunteerOff: Session;
+  transferFrom: Session;
+  transferTo: Session;
+  transferOrg: string;
+};
+
+export async function provisionLifecycleActors(
+  sut: AccountsSut,
+  w: World,
+  tag: string,
+  signIn: (email: string) => Promise<Session>,
+): Promise<LifecycleActors> {
+  const admin = await sut.provisionPlatformAdmin(w.email(`admin-${tag}`), PASSWORD);
+  const adminOther = await sut.provisionPlatformAdmin(w.email(`admin-other-${tag}`), PASSWORD);
+  const adminOff = await sut.provisionPlatformAdmin(w.email(`admin-off-${tag}`), PASSWORD);
+
+  const ngo = await signIn(w.email(`ngo-${tag}`));
+  await ensureVerified(sut, ngo);
+  const ngoOrg = await completeNgo(sut, ngo, `Riverside ${tag}`);
+
+  const ngoOff = await signIn(w.email(`ngo-off-${tag}`));
+  await ensureVerified(sut, ngoOff);
+  const ngoOffOrg = await completeNgo(sut, ngoOff, `Riverside Off ${tag}`);
+
+  const volunteer = await signIn(w.email(`vol-${tag}`));
+  await ensureVerified(sut, volunteer);
+  await completeVolunteer(sut, volunteer, `vol-${tag}-${volunteer.accountId.slice(0, 8)}`);
+
+  const volunteerOff = await signIn(w.email(`vol-off-${tag}`));
+  await ensureVerified(sut, volunteerOff);
+  await completeVolunteer(sut, volunteerOff, `vol-off-${tag}-${volunteerOff.accountId.slice(0, 8)}`);
+
+  const transferFrom = await signIn(w.email(`xfer-from-${tag}`));
+  const transferOrg = await completeNgo(sut, transferFrom, `Transfer ${tag}`);
+  const transferTo = await signIn(w.email(`xfer-to-${tag}`));
+  await completeNgo(sut, transferTo, `Transfer To ${tag}`);
+
+  for (const [label, accountId] of [
+    ['ngoOff', ngoOff.accountId],
+    ['volunteerOff', volunteerOff.accountId],
+    ['adminOff', adminOff.accountId],
+  ] as const) {
+    const deactivated = await sut.setAccountLifecycle(admin, { accountId, lifecycle: 'deactivated', reason: AUP_REASON });
+    expect(deactivated, `${label} could not be deactivated`).toMatchObject({ ok: true, changed: true });
+  }
+
+  return {
+    admin,
+    adminOther,
+    adminOff,
+    ngo,
+    ngoOrg,
+    ngoOff,
+    ngoOffOrg,
+    volunteer,
+    volunteerOff,
+    transferFrom,
+    transferTo,
+    transferOrg,
+  };
+}
+
+function sessionOf(actors: LifecycleActors, accountType: AccountType, role: 'active' | 'deactivated'): Session {
+  if (accountType === 'ngo') return role === 'active' ? actors.ngo : actors.ngoOff;
+  if (accountType === 'volunteer') return role === 'active' ? actors.volunteer : actors.volunteerOff;
+  return role === 'active' ? actors.admin : actors.adminOff;
+}
+
+function organizationOf(actors: LifecycleActors, accountType: AccountType, role: 'active' | 'deactivated'): string {
+  if (accountType === 'ngo') return role === 'active' ? actors.ngoOrg : actors.ngoOffOrg;
+  return actors.transferOrg;
+}
+
+function deactivatedSubject(
+  actors: LifecycleActors,
+  w: World,
+  tag: string,
+  route: WriteRouteName,
+  accountType: AccountType,
+): WriteSubject {
+  const organizationId = organizationOf(actors, accountType, 'deactivated');
+  switch (route) {
+    case 'complete-signup':
+      return { route, name: `Write ${tag} complete-signup ${accountType} deactivated` };
+    case 'create-organization':
+      return { route, name: `Write ${tag} ${route} ${accountType} deactivated` };
+    case 'update-organization':
+      return { route, organizationId, name: `Write ${tag} ${route} ${accountType} deactivated` };
+    case 'transfer-organization-contact':
+      return {
+        route,
+        organizationId: actors.transferOrg,
+        fromAccountId: actors.transferFrom.accountId,
+        toAccountId: actors.transferTo.accountId,
+        reason: AUP_REASON,
+      };
+    case 'set-escalation-contact':
+      return { route, organizationId: actors.transferOrg, name: 'Maya Lindqvist', email: w.email(`esc-${tag}-${route}`) };
+    case 'set-account-lifecycle':
+      return { route, accountId: actors.transferTo.accountId, lifecycle: 'deactivated', reason: AUP_REASON };
+    case 'discovery-message':
+      return { route, message: `hello ${tag} ${route} ${accountType} deactivated` };
+  }
+}
+
+async function snapshotWrite(sut: AccountsSut, session: Session | null, subject: WriteSubject) {
+  switch (subject.route) {
+    case 'create-organization':
+      return { organizations: await sut.organizationsNamed(subject.name) };
+    case 'update-organization':
+      return { organization: await sut.organization(subject.organizationId) };
+    case 'transfer-organization-contact':
+      return { membership: await sut.membership(subject.organizationId, subject.fromAccountId) };
+    case 'set-escalation-contact':
+      return { contact: await sut.escalationContact(subject.organizationId) };
+    case 'set-account-lifecycle':
+      return { account: await sut.account(subject.accountId) };
+    case 'discovery-message':
+      return { messages: session ? await sut.discoveryMessagesBy(session.accountId) : [] };
+    case 'complete-signup':
+      return { account: session ? await sut.account(session.accountId) : null };
+  }
+}
+
+async function provisionActiveControl(
+  sut: AccountsSut,
+  w: World,
+  tag: string,
+  signIn: (email: string) => Promise<Session>,
+  route: WriteRouteName,
+  accountType: AccountType,
+): Promise<{ session: Session; subject: WriteSubject }> {
+  switch (route) {
+    case 'complete-signup': {
+      const fresh = await signIn(w.email(`signup-on-${tag}`));
+      await ensureVerified(sut, fresh);
+      return { session: fresh, subject: { route, name: `Signup Org ${tag}` } };
+    }
+    case 'create-organization': {
+      const ngo = await signIn(w.email(`create-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      await completeNgo(sut, ngo, `Create Host ${tag}`);
+      return { session: ngo, subject: { route, name: `Created ${tag}` } };
+    }
+    case 'update-organization': {
+      const ngo = await signIn(w.email(`rename-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Rename Host ${tag}`);
+      return { session: ngo, subject: { route, organizationId, name: `Renamed ${tag}` } };
+    }
+    case 'transfer-organization-contact': {
+      const admin = await sut.provisionPlatformAdmin(w.email(`xfer-admin-${tag}`), PASSWORD);
+      const from = await signIn(w.email(`xfer-from-on-${tag}`));
+      const organizationId = await completeNgo(sut, from, `Xfer From ${tag}`);
+      const to = await signIn(w.email(`xfer-to-on-${tag}`));
+      await completeNgo(sut, to, `Xfer To ${tag}`);
+      return {
+        session: admin,
+        subject: {
+          route,
+          organizationId,
+          fromAccountId: from.accountId,
+          toAccountId: to.accountId,
+          reason: AUP_REASON,
+        },
+      };
+    }
+    case 'set-escalation-contact': {
+      const admin = await sut.provisionPlatformAdmin(w.email(`esc-admin-${tag}`), PASSWORD);
+      const ngo = await signIn(w.email(`esc-org-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Escalation Host ${tag}`);
+      return {
+        session: admin,
+        subject: { route, organizationId, name: 'Maya Lindqvist', email: w.email(`esc-on-${tag}`) },
+      };
+    }
+    case 'set-account-lifecycle': {
+      const admin = await sut.provisionPlatformAdmin(w.email(`life-admin-${tag}`), PASSWORD);
+      const subjectAccount = await signIn(w.email(`life-subject-${tag}`));
+      await ensureVerified(sut, subjectAccount);
+      await completeNgo(sut, subjectAccount, `Life Subject ${tag}`);
+      return {
+        session: admin,
+        subject: { route, accountId: subjectAccount.accountId, lifecycle: 'deactivated', reason: AUP_REASON },
+      };
+    }
+    case 'discovery-message': {
+      const session =
+        accountType === 'volunteer'
+          ? await (async () => {
+              const volunteer = await signIn(w.email(`disc-vol-${tag}`));
+              await ensureVerified(sut, volunteer);
+              await completeVolunteer(sut, volunteer, `disc-${tag}-${volunteer.accountId.slice(0, 8)}`);
+              return volunteer;
+            })()
+          : accountType === 'ngo'
+            ? await (async () => {
+                const ngo = await signIn(w.email(`disc-ngo-${tag}`));
+                await ensureVerified(sut, ngo);
+                await completeNgo(sut, ngo, `Disc Host ${tag}`);
+                return ngo;
+              })()
+            : await sut.provisionPlatformAdmin(w.email(`disc-admin-${tag}`), PASSWORD);
+      return { session, subject: { route, message: `hello ${tag}` } };
+    }
+  }
+}
+
+export async function assertDeactivationGatesEveryWrite(
+  sut: AccountsSut,
+  w: World,
+  tag: string,
+  signIn: (email: string) => Promise<Session>,
+  options: { skipStandIn: boolean },
+): Promise<void> {
+  const actors = await provisionLifecycleActors(sut, w, tag, signIn);
+  expect(writeRouteProblems(), 'the write-route conformance scan found a problem').toEqual([]);
+
+  for (const name of Object.keys(WRITE_ROUTES) as WriteRouteName[]) {
+    const row = WRITE_ROUTES[name];
+    if (options.skipStandIn && row.surface.kind === 'stand-in') continue;
+
+    if (name === 'complete-signup') {
+      const subjectOff: WriteSubject = { route: 'complete-signup', name: `Write ${tag} complete-signup ngo deactivated` };
+      const before = await snapshotWrite(sut, actors.ngoOff, subjectOff);
+      const refused = await sut.attemptWrite(subjectOff, actors.ngoOff);
+      expect(refused.ok, 'a deactivated NGO succeeded at complete-signup').toBe(false);
+      if (refused.ok) return;
+      expect(refused.kind, 'a deactivated NGO was refused complete-signup for a reason other than deactivation').toBe(
+        'account-deactivated',
+      );
+      expect(refused.status).toBe(403);
+      expect(await snapshotWrite(sut, actors.ngoOff, subjectOff), 'the refused complete-signup write changed state').toEqual(before);
+
+      const fresh = await provisionActiveControl(sut, w, `${tag}-complete-signup`, signIn, 'complete-signup', 'ngo');
+      const allowed = await sut.attemptWrite(fresh.subject, fresh.session);
+      expect(allowed, 'an active uncompleted account was refused complete-signup').toMatchObject({ ok: true });
+      continue;
+    }
+
+    if (row.standing.kind !== 'account-required') continue;
+    for (const accountType of row.standing.admits) {
+      const deactivated = sessionOf(actors, accountType, 'deactivated');
+      const subjectOff = deactivatedSubject(actors, w, tag, name, accountType);
+      const before = await snapshotWrite(sut, deactivated, subjectOff);
+      const refused = await sut.attemptWrite(subjectOff, deactivated);
+      expect(refused.ok, `a deactivated ${accountType} succeeded at ${name}`).toBe(false);
+      if (refused.ok) return;
+      expect(refused.kind, `a deactivated ${accountType} was refused ${name} for a reason other than deactivation`).toBe(
+        'account-deactivated',
+      );
+      expect(refused.status).toBe(403);
+      expect(await snapshotWrite(sut, deactivated, subjectOff), `the refused ${name} write by a deactivated ${accountType} changed state`).toEqual(
+        before,
+      );
+
+      const fresh = await provisionActiveControl(sut, w, `${tag}-${name}-${accountType}`, signIn, name, accountType);
+      const allowed = await sut.attemptWrite(fresh.subject, fresh.session);
+      expect(allowed, `an active ${accountType} was refused ${name}`).toMatchObject({ ok: true });
+    }
+  }
+}
+
+export async function at00129(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  await assertDeactivationGatesEveryWrite(sut, w, '29', (email) => registerConfirmAndSignIn(sut, email), {
+    skipStandIn: true,
+  });
+  throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
+}
+
+export async function at00130(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const admin = await sut.provisionPlatformAdmin(w.email('admin-30'), PASSWORD);
+  const volunteer = await registerConfirmAndSignIn(sut, w.email('vol-30'));
+  await completeVolunteer(sut, volunteer, `vol-30-${volunteer.accountId.slice(0, 8)}`);
+
+  const url = (process.env.AT_SUPABASE_URL ?? '').replace(/\/$/, '');
+  const anonKey = process.env.AT_SUPABASE_ANON_KEY ?? '';
+  expect(url && anonKey, 'this child holds no stack coordinates, so the live token cannot be presented to Auth').toBeTruthy();
+  const grant = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: anonKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: volunteer.email, password: PASSWORD }),
+  });
+  const granted = (await grant.json()) as { access_token?: string };
+  const token = granted.access_token ?? '';
+  expect(token, 'the volunteer could not obtain a live access token before deactivation').not.toBe('');
+
+  const deactivated = await sut.setAccountLifecycle(admin, {
+    accountId: volunteer.accountId,
+    lifecycle: 'deactivated',
+    reason: AUP_REASON,
+  });
+  expect(deactivated, 'the administrator could not deactivate the volunteer').toMatchObject({ ok: true, changed: true });
+  expect(await sut.account(volunteer.accountId)).toMatchObject({ lifecycle: 'deactivated' });
+
+  const before = await sut.organizationsNamed('Volunteer Org 30');
+  const refused = await sut.attemptWrite({ route: 'create-organization', name: 'Volunteer Org 30' }, volunteer);
+  expect(refused.ok, 'the deactivated volunteer created an organisation').toBe(false);
+  if (refused.ok) return;
+  expect(refused.kind, 'the volunteer was refused for a reason other than deactivation').toBe('account-deactivated');
+  expect(await sut.organizationsNamed('Volunteer Org 30'), 'the refused write still created an organisation').toEqual(before);
+
+  const me = await fetch(`${url}/auth/v1/user`, {
+    headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
+  });
+  expect(me.status, 'the volunteer token stopped answering at Auth, so the refusal is not the product lifecycle').toBe(200);
+
+  throw new CapabilityPending(['gateway.virtual-key-revocation', 'sut.accounts.sendDiscoveryMessage']);
+}
+
+export async function at00131(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const actors = await provisionLifecycleActors(sut, w, '31', (email) => registerConfirmAndSignIn(sut, email));
+
+  const memberOrg = await sut.createOrganizationAsOperator(`Member 31`);
+  const granted = await sut.grantMembershipAsOperator(memberOrg.id, actors.ngoOff.accountId, 'member');
+  expect(granted, 'the operator could not seat the NGO as member').toMatchObject({ ok: true });
+
+  const reNgo = await sut.setAccountLifecycle(actors.admin, {
+    accountId: actors.ngoOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+  });
+  expect(reNgo, 'the administrator could not re-enable the NGO').toMatchObject({ ok: true, changed: true });
+  const reVol = await sut.setAccountLifecycle(actors.admin, {
+    accountId: actors.volunteerOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+  });
+  expect(reVol, 'the administrator could not re-enable the volunteer').toMatchObject({ ok: true, changed: true });
+
+  const renamed = await sut.attemptWrite(
+    { route: 'update-organization', organizationId: actors.ngoOffOrg, name: 'Riverside Re-enabled 31' },
+    actors.ngoOff,
+  );
+  expect(renamed, 'the re-enabled NGO was refused an otherwise-authorized rename').toMatchObject({ ok: true });
+
+  const memberWrite = await sut.updateOrganization(actors.ngoOff, memberOrg.id, 'Member Rename 31');
+  expect(memberWrite.ok, 'the re-enabled NGO renamed an organisation where it holds member').toBe(false);
+  if (memberWrite.ok) return;
+  expect(memberWrite.kind, 'the member-role refusal is not the independent gate').toBe('not-an-admin');
+
+  const volunteerWrite = await sut.attemptWrite({ route: 'create-organization', name: 'Volunteer Org 31' }, actors.volunteerOff);
+  expect(volunteerWrite.ok, 'the re-enabled volunteer created an organisation').toBe(false);
+  if (volunteerWrite.ok) return;
+  expect(volunteerWrite.kind, 'the volunteer NGO-only refusal is not the independent type gate').toBe('not-an-ngo-account');
+  expect(await sut.organizationsNamed('Volunteer Org 31'), 'the refused volunteer write created an organisation').toEqual([]);
+
+  const self = await sut.setAccountLifecycle(actors.adminOff, {
+    accountId: actors.adminOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+  });
+  expect(self.ok, 'a deactivated administrator re-enabled itself').toBe(false);
+  if (self.ok) return;
+  expect(self.kind, 'the self re-enable was refused for a reason other than deactivation').toBe('account-deactivated');
+  expect(await sut.account(actors.adminOff.accountId)).toMatchObject({ lifecycle: 'deactivated' });
+
+  const byOther = await sut.setAccountLifecycle(actors.adminOther, {
+    accountId: actors.adminOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+  });
+  expect(byOther, 'the second administrator could not re-enable the first').toMatchObject({ ok: true, changed: true });
+
+  throw new CapabilityPending(['gateway.virtual-key-reissue']);
+}
+
+export async function assertAppendOnlyAudit(
+  sut: Opened['sut'],
+  w: Opened['w'],
+  tag: string,
+  signIn: (email: string) => Promise<Session>,
+  options?: { checkPrivileges?: boolean },
+): Promise<void> {
+  const given = await transferGiven(sut, w, tag, signIn);
+  const roleChanged = (rows: AuditEventRow[]) => rows.filter((row) => row.eventKind === 'org_role_changed');
+  const beforeTransfer = roleChanged(await sut.auditEvents({ subjectOrgId: given.organizationId }));
+  const transfer = await sut.transferOrganizationContact(given.admin, {
+    organizationId: given.organizationId,
+    fromAccountId: given.a.accountId,
+    toAccountId: given.b.accountId,
+    reason: HANDOVER_REASON,
+  });
+  expect(transfer, 'the platform administrator was refused the transfer, so there is no transfer audit to keep').toMatchObject({
+    ok: true,
+  });
+  if (!transfer.ok) return;
+
+  const afterTransfer = roleChanged(await sut.auditEvents({ subjectOrgId: given.organizationId }));
+  const newAfterTransfer = afterTransfer.filter((row) => !beforeTransfer.some((prior) => prior.id === row.id));
+  expect(newAfterTransfer, 'the transfer did not leave exactly one new org_role_changed row').toHaveLength(1);
+  expect(newAfterTransfer[0], 'the transfer role-change row is not the seat-repointed administrator row').toMatchObject({
+    reason: 'seat repointed',
+    actorAccountId: given.admin.accountId,
+    detail: { old_account_id: given.a.accountId, new_account_id: given.b.accountId },
+  });
+
+  const beforeRepoint = roleChanged(await sut.auditEvents({ subjectOrgId: given.organizationId }));
+  const repointed = await sut.repointMembershipAsOperator(given.organizationId, given.a.accountId);
+  expect(repointed, 'the operator could not re-point the transferred seat, so there is no operator role-change row').toMatchObject({
+    ok: true,
+  });
+
+  const afterRepoint = roleChanged(await sut.auditEvents({ subjectOrgId: given.organizationId }));
+  const newAfterRepoint = afterRepoint.filter((row) => !beforeRepoint.some((prior) => prior.id === row.id));
+  expect(newAfterRepoint, 'the operator re-point did not leave exactly one new org_role_changed row').toHaveLength(1);
+  expect(newAfterRepoint[0], 'the operator role-change row is not the seat-repointed operator row').toMatchObject({
+    reason: 'seat repointed',
+    actorAccountId: null,
+    actorLabel: 'operator',
+  });
+
+  const orgEvents = await sut.auditEvents({ subjectOrgId: given.organizationId });
+  expect(
+    orgEvents.filter((row) => row.eventKind === 'org_contact_transferred'),
+    'the transfer left no org_contact_transferred row',
+  ).toHaveLength(1);
+  expect(
+    (await sut.auditEvents({ subjectAccountId: given.a.accountId })).filter((row) => row.eventKind === 'account_lifecycle_changed'),
+    'the deactivation left no account_lifecycle_changed row',
+  ).toHaveLength(1);
+
+  const before = await sut.auditEvents({});
+  expect(before.length, 'the Given left no audit row to protect').toBeGreaterThan(0);
+  for (const attempt of ['update', 'delete', 'truncate'] as const) {
+    const tamper = await sut.attemptAuditTamper(attempt);
+    expect(tamper.ok, `the operator ${attempt} of the audit record succeeded`).toBe(false);
+    expect(await sut.auditEvents({}), `the operator ${attempt} removed or changed an audit row`).toEqual(before);
+  }
+
+  if (options?.checkPrivileges) {
+    const facts = await sut.tenantTableFacts();
+    const audit = facts.tables.find((row) => row.table === 'audit_events');
+    expect(audit, 'the live catalog has no row for audit_events').toBeDefined();
+    if (!audit) return;
+    expect(audit.anon, 'audit_events anon privileges').toEqual([]);
+    expect(audit.authenticated, 'audit_events authenticated privileges').toEqual([]);
+    expect(audit.serviceRole, 'audit_events service_role privileges').toEqual([]);
+  }
+}
+
+export async function at00133(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  await assertAppendOnlyAudit(sut, w, '33', (email) => registerConfirmAndSignIn(sut, email), { checkPrivileges: true });
+}
+
+export async function at00134(ctx: { open: () => Promise<unknown> }): Promise<void> {
+  await ctx.open();
+  throw new CapabilityPending(['vendors.gotrue-sign-in-rate-limit']);
 }
 
 /* -------------------------------------------------------- the ids that refuse, and what they name */

@@ -1,0 +1,44 @@
+PASS  (1a) provision platform admin: admin API creates a confirmed user
+        status 200, id present
+PASS  (1b) provision platform admin: sign-in issues a token
+        status 200, token issued
+PASS  (A1) NGO A: signup answers 200
+        status 200
+PASS  (A2) NGO A: confirmation email holds a verify link
+        link present
+PASS  (A3) NGO A: verify link redirects (address confirmed)
+        status 303
+PASS  (A4) NGO A: sign-in succeeds after confirmation
+        status 200, user e1bffa57-8f52-45de-b611-5a52fd2c8710
+PASS  (A5) NGO A: complete-signup answers 200
+        status 200: {"ok":true,"accountId":"e1bffa57-8f52-45de-b611-5a52fd2c8710","accountType":"ngo","organizationId":"ad868e0e-73dd-4583-969b-b46186ca15cb"}
+PASS  (B1) NGO B: signup answers 200
+        status 200
+PASS  (B2) NGO B: confirmation email holds a verify link
+        link present
+PASS  (B3) NGO B: verify link redirects (address confirmed)
+        status 303
+PASS  (B4) NGO B: sign-in succeeds after confirmation
+        status 200, user e25b5c41-dc66-4482-a7b8-9aedb21e6cf9
+PASS  (B5) NGO B: complete-signup answers 200
+        status 200: {"ok":true,"accountId":"e25b5c41-dc66-4482-a7b8-9aedb21e6cf9","accountType":"ngo","organizationId":"45e321a4-d037-4e80-a8d7-9c7a8bbc3e2d"}
+PASS  (org1) organisation A row exists
+        id ad868e0e-73dd-4583-969b-b46186ca15cb
+PASS  (t1) transfer-organization-contact answers 200
+        status 200: {"ok":true,"organizationId":"ad868e0e-73dd-4583-969b-b46186ca15cb"}
+accounts readback: [{"id":"e1bffa57-8f52-45de-b611-5a52fd2c8710","account_type":"ngo","lifecycle":"deactivated"},{"id":"e25b5c41-dc66-4482-a7b8-9aedb21e6cf9","account_type":"ngo","lifecycle":"active"}]
+PASS  (r1) public.accounts readback shows both NGO accounts
+        [{"id":"e1bffa57-8f52-45de-b611-5a52fd2c8710","account_type":"ngo","lifecycle":"deactivated"},{"id":"e25b5c41-dc66-4482-a7b8-9aedb21e6cf9","account_type":"ngo","lifecycle":"active"}]
+org_memberships readback: [{"account_id":"e25b5c41-dc66-4482-a7b8-9aedb21e6cf9","org_id":"ad868e0e-73dd-4583-969b-b46186ca15cb","role":"admin"}]
+PASS  (r2) public.org_memberships shows the seat transferred to NGO B
+        [{"account_id":"e25b5c41-dc66-4482-a7b8-9aedb21e6cf9","org_id":"ad868e0e-73dd-4583-969b-b46186ca15cb","role":"admin"}]
+audit_events readback: [{"event_kind":"org_role_changed","actor_account_id":"e1bffa57-8f52-45de-b611-5a52fd2c8710","subject_account_id":"e1bffa57-8f52-45de-b611-5a52fd2c8710","subject_org_id":"ad868e0e-73dd-4583-969b-b46186ca15cb","reason":"membership granted"},{"event_kind":"org_role_changed","actor_account_id":"cabc2ecf-9076-4cf5-8901-925fb69dbe20","subject_account_id":"e25b5c41-dc66-4482-a7b8-9aedb21e6cf9","subject_org_id":"ad868e0e-73dd-4583-969b-b46186ca15cb","reason":"seat repointed"},{"event_kind":"org_contact_transferred","actor_account_id":"cabc2ecf-9076-4cf5-8901-925fb69dbe20","subject_account_id":"e1bffa57-8f52-45de-b611-5a52fd2c8710","subject_org_id":"ad868e0e-73dd-4583-969b-b46186ca15cb","reason":"verify-evidence drill: transfer to a fresh contact"}]
+PASS  (r3) public.audit_events carries the transfer event
+        [{"event_kind":"org_role_changed","actor_account_id":"e1bffa57-8f52-45de-b611-5a52fd2c8710","subject_account_id":"e1bffa57-8f52-45de-b611-5a52fd2c8710","subject_org_id":"ad868e0e-73dd-4583-969b-b46186ca15cb","reason":"membership granted"},{"event_kind":"org_role_changed","actor_account_id":"cabc2ecf-9076-4cf5-8901-925fb69dbe20","subject_account_id":"e25b5c41-dc66-4482-a7b8-9aedb21e6cf9","subject_org_id":"ad868e0e-73dd-4583-969b-b46186ca15cb","reason":"seat repointed"},{"event_kind":"org_contact_transferred","actor_account_id":"cabc2ecf-9076-4cf5-8901-925fb69dbe20","subject_account_id":"e1bffa57-8f52-45de-b611-5a52fd2c8710","subject_org_id":"ad868e0e-73dd-4583-969b-b46186ca15cb","reason":"verify-evidence drill: transfer to a fresh contact"}]
+PASS  (d1) set-account-lifecycle deactivates NGO B
+        status 200: {"ok":true,"changed":true}
+create-organization as a deactivated account: status 403, refusal kind account-deactivated
+PASS  (d2) create-organization refuses the now-deactivated NGO B
+        status 403, kind account-deactivated
+
+19/19 checks passed

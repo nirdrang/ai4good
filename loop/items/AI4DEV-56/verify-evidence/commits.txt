@@ -1,0 +1,19 @@
+7e70eb2 AI4DEV-56: the two accepted MUST KILL reshapes in accounts.ts (githubArguments, verifiedGithubHandle)
+e6c14ce AI4DEV-56: the comment audit applied
+a870d4d AI4DEV-56: the review findings — the transfer moves on, the definer locks its accounts, the audit names its actors, and the scans read the whole tree
+ce2c3c2 AI4DEV-56: the PR body draft, the comment-pass and evidence prompts, and the ledger count
+3bc5ddd AI4DEV-56: four reviews, the verdict, ruling R16, the comment audit and its rulings, the fix prompt
+d62a2d1 AI4DEV-56: a volunteer cannot unlink the GitHub identity after signup (d91, AT-001.41 at both tiers)
+82bd3cf AI4DEV-56: unit 3 evidence, the interrogate template, and the trail
+9d79519 AI4DEV-56: the append-only audit for role changes and contact transfer, and the sign-in rate limit declared
+0b0254d AI4DEV-56: lane prompts for units 3 and 5, unit 2 evidence, and the trail
+4ec5168 AI4DEV-56: deactivation gates every write, with a conformance check that fails an unregistered route in CI
+fc33b2a AI4DEV-56: lane prompts for units 1 and 2, the unit 6 record, and the trail
+1fe977f AI4DEV-56: contact transfer, lost-access recovery, the escalation contact, and the write boundary
+229dc8d AI4DEV-56: the static privilege scan refuses references and trigger grants and a baseline revoke that omits service_role
+f94dfdc AI4DEV-56: the design arena, its verdict and the throughput checkpoint
+1a76415 AI4DEV-56: four critiques, the rulings, and the arena frame
+0cab771 AI4DEV-56: the how phase explorers and explanation, and three more measurements
+89be06d AI4DEV-56: the lead's todo list, decision trail, and the unit 4 and unit 6 measurements
+dc86adc AI4DEV-56: the brief is rewritten from the tree, with the facts the board does not say
+1797868 AI4DEV-56: the brief for the admin operations subtree run, six units

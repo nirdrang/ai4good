@@ -1,0 +1,44 @@
+﻿$ bun tests/at/harness/runner.ts "req-001" --tier loop --expect
+JSON report written to C:/Users/nirdr/AppData/Local/Temp/at-verify-0xtTq1/vitest-report.json
+
+at:verify req-001 --tier loop
+  AT-001.01    green    NGO email/password signup creates the account, org, admin membership and acknowledgment; sign-in returns
+  AT-001.02    green    GitHub OAuth volunteer signup links the identity and returns to the same account
+  AT-001.03    green    a session established by Google completes signup through the same path, with the same result as email
+  AT-001.04    green    volunteer signup cannot complete without a linked GitHub account
+  AT-001.05    green    linking GitHub fires volunteer onboarding with the public stats observably imported
+  AT-001.41    green    a volunteer cannot unlink the GitHub identity after signup
+  AT-001.06    green    a volunteer is refused the NGO-only action while an NGO account performs it successfully
+  AT-001.07    green    a provisioned platform admin authenticates and carries the type; public signup offers only the two
+  AT-001.09    green    a fresh email/password signup of either account type is unverified until the link is used
+  AT-001.10    green    an unverified NGO account is blocked from Discovery messages with verification named as the remedy
+  AT-001.38    green    sign-in with the correct email and a wrong password is rejected and creates no session
+  AT-001.12    green    an expired or revoked session ends access — the next request re-authenticates
+  AT-001.13    green    a session in continuous use refreshes without a forced mid-work re-login
+  AT-001.14    green    after the emailed reset flow the new password works and the old one does not
+  AT-001.16    green    membership and role are held per-NGO — acting in one never grants access to the other
+  AT-001.36    green    an admin in one NGO and a member in another succeeds only where it is the admin
+  AT-001.37    green    granting a per-NGO role to a volunteer account is rejected on every path
+  AT-001.17    green    no capability exists to invite or add a second member to an org
+  AT-001.18    red      AtPending: AT-001.18 PENDING [sut-missing] — REQ-001 D3.L3 (the cross-surface single-seat integration) has not landed
+  AT-001.19    green    every acknowledgment records the acting person name, title and authority attestation
+  AT-001.39    green    an acknowledgment missing any of name, title or attestation is rejected and records nothing
+  AT-001.20    green    acknowledgment copy prohibits shared credentials and recommends an org email
+  AT-001.21    green    one NGO cannot reach another NGO non-public data by UI or by direct id probing
+  AT-001.22    green    an unassigned volunteer is denied a project non-public data while the public page stays visible
+  AT-001.23    green    the assigned volunteer reaches that project working data, scoped to that project only
+  AT-001.40    green    a platform admin reaches any NGO or project data — the admin role spans all accounts
+  AT-001.24    red      CapabilityPending: CAPABILITY PENDING — ui.authenticated-surface-rendering
+  AT-001.25    green    contact transfer moves ownership, deactivates the old account and preserves all history
+  AT-001.26    green    the completed transfer leaves an audit record of who, when and why
+  AT-001.27    green    lost-access recovery runs the same audited flow as contact transfer
+  AT-001.28    green    concierge onboarding stores one non-login escalation contact for the NGO
+  AT-001.35    green    an NGO user, a volunteer or an unauthenticated caller is refused the transfer flow
+  AT-001.29    green    every enumerated write is rejected for a deactivated account while an active control succeeds
+  AT-001.30    red      CapabilityPending: CAPABILITY PENDING — gateway.virtual-key-revocation
+  AT-001.31    red      CapabilityPending: CAPABILITY PENDING — gateway.virtual-key-reissue
+  AT-001.32    green    attaching a second volunteer to a project is rejected — single-dev projects
+  AT-001.33    green    role changes and contact transfer leave an append-only audit record that cannot be altered
+  AT-001.34    red      CapabilityPending: CAPABILITY PENDING — vendors.gotrue-sign-in-rate-limit
+  38 P0: 33 green, 5 red, 0 missing
+  EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-56\tests\at\expected\req-001.json exactly (33 declared green, 5 declared red)

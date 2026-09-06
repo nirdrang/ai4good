@@ -9,7 +9,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  auditAppendOnlyProblems,
+  identityPermanenceProblems,
+  scanAuditAppendOnly,
+  scanIdentityPermanence,
   scanTenantMigrations,
+  scanWriteGateSql,
   TENANT_CATALOG,
   tenantCatalogProblems,
 } from '../suites/req-001/_policy-scan.ts';
@@ -26,7 +31,7 @@ function validSql(): string {
   const tables = Object.keys(TENANT_CATALOG);
   const creates = tables.map((table) => `create table public.${table} (id uuid);`).join('\n');
   const baseline = tables
-    .map((table) => `revoke all on table public.${table} from anon, authenticated;`)
+    .map((table) => `revoke all on table public.${table} from anon, authenticated, service_role;`)
     .join('\n');
   const rls = tables
     .filter((table) => TENANT_CATALOG[table] === 'tenant-isolated')
@@ -115,7 +120,7 @@ describe('scanTenantMigrations refusals', () => {
 
   it('refuses an unreachable table with an un-revoked grant to authenticated', () => {
     const sql = validSql().replace(
-      /revoke all on table public.accounts from anon, authenticated;/,
+      /revoke all on table public.accounts from anon, authenticated, service_role;/,
       'grant select on public.accounts to authenticated;',
     );
     const problems = scanTenantMigrations([{ name: 'a.sql', text: sql }]);
@@ -295,7 +300,16 @@ describe('weakening statements overlay and are refused', () => {
   });
 
   it('refuses a catalog table with no baseline revoke', () => {
-    const sql = validSql().replace(/revoke all on table public.organizations from anon, authenticated;/, '');
+    const sql = validSql().replace(/revoke all on table public.organizations from anon, authenticated, service_role;/, '');
+    const problems = scanTenantMigrations([{ name: 'a.sql', text: sql }]);
+    expect(problems.some((p) => p.code === 'no-baseline-revoke' && p.detail.includes('organizations'))).toBe(true);
+  });
+
+  it('refuses a baseline revoke that names only anon and authenticated', () => {
+    const sql = validSql().replace(
+      /revoke all on table public.organizations from anon, authenticated, service_role;/,
+      'revoke all on table public.organizations from anon, authenticated;',
+    );
     const problems = scanTenantMigrations([{ name: 'a.sql', text: sql }]);
     expect(problems.some((p) => p.code === 'no-baseline-revoke' && p.detail.includes('organizations'))).toBe(true);
   });
@@ -324,5 +338,173 @@ describe('weakening statements overlay and are refused', () => {
     expect(
       weakened('grant truncate on public.projects to service_role;').some((p) => p.code === 'service-role-write'),
     ).toBe(true);
+  });
+
+  it('refuses a remaining references privilege for service_role', () => {
+    expect(
+      weakened('grant references on public.projects to service_role;').some((p) => p.code === 'service-role-write'),
+    ).toBe(true);
+  });
+
+  it('refuses a remaining trigger privilege for service_role', () => {
+    expect(
+      weakened('grant trigger on public.projects to service_role;').some((p) => p.code === 'service-role-write'),
+    ).toBe(true);
+  });
+});
+
+describe('scanWriteGateSql refusals', () => {
+  it('refuses a service-role definer that does not call public.assert_account_active', () => {
+    const problems = scanWriteGateSql([
+      {
+        name: 'x.sql',
+        text: `
+create function public.donate_fuel(p_account_id uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $$ begin return '{}'::jsonb; end; $$;
+revoke execute on function public.donate_fuel(uuid) from public;
+grant execute on function public.donate_fuel(uuid) to service_role;
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'definer-no-write-gate')).toBe(true);
+  });
+
+  it('refuses a replace of a gated definer with an ungated body and no grant line', () => {
+    const problems = scanWriteGateSql([
+      {
+        name: 'a.sql',
+        text: `
+create function public.set_escalation_contact(p_account_id uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $$ begin perform public.assert_account_active(p_account_id); return '{}'::jsonb; end; $$;
+revoke execute on function public.set_escalation_contact(uuid) from public;
+grant execute on function public.set_escalation_contact(uuid) to service_role;
+`,
+      },
+      {
+        name: 'b.sql',
+        text: `
+create or replace function public.set_escalation_contact(p_account_id uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $$ begin return '{}'::jsonb; end; $$;
+revoke execute on function public.set_escalation_contact(uuid) from public;
+`,
+      },
+    ]);
+    expect(problems.map((p) => p.code)).toContain('definer-no-write-gate');
+  });
+
+  it('refuses a function that updates public.audit_events', () => {
+    const problems = scanWriteGateSql([
+      {
+        name: 'x.sql',
+        text: `
+create function public.rewrite_audit()
+returns void language plpgsql security definer set search_path = ''
+as $$ begin update public.audit_events set reason = 'tampered'; end; $$;
+revoke execute on function public.rewrite_audit() from public;
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'audit-mutation-in-definer')).toBe(true);
+  });
+});
+
+describe('identityPermanenceProblems over the real migrations', () => {
+  it('reports no problems', () => {
+    expect(identityPermanenceProblems()).toEqual([]);
+  });
+});
+
+describe('scanIdentityPermanence refusals', () => {
+  it('refuses when no migration creates a before delete trigger on auth.identities', () => {
+    const problems = scanIdentityPermanence([{ name: 'a.sql', text: 'select 1;' }]);
+    expect(problems.some((p) => p.code === 'identity-permanence-missing')).toBe(true);
+  });
+
+  it('refuses a before delete trigger whose function body is empty of github, volunteer and raise', () => {
+    const problems = scanIdentityPermanence([
+      {
+        name: 'a.sql',
+        text: `
+create function public.github_identity_is_permanent_for_volunteers()
+returns trigger language plpgsql as $$ begin return old; end; $$;
+create trigger volunteer_github_identity_is_permanent
+before delete on auth.identities for each row
+when (pg_trigger_depth() = 0)
+execute function public.github_identity_is_permanent_for_volunteers();
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'identity-permanence-empty-body')).toBe(true);
+  });
+
+  it('refuses a before delete trigger on auth.identities with no pg_trigger_depth when clause', () => {
+    const problems = scanIdentityPermanence([
+      {
+        name: 'a.sql',
+        text: `
+create trigger volunteer_github_identity_is_permanent
+before delete on auth.identities for each row
+execute function public.github_identity_is_permanent_for_volunteers();
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'identity-permanence-unguarded')).toBe(true);
+  });
+});
+
+describe('auditAppendOnlyProblems over the real migrations', () => {
+  it('reports no problems', () => {
+    expect(auditAppendOnlyProblems()).toEqual([]);
+  });
+});
+
+describe('scanAuditAppendOnly refusals', () => {
+  const appendOnlySql = `
+create table public.audit_events (id uuid);
+create function public.audit_events_are_append_only() returns trigger language plpgsql as $$ begin raise exception 'no'; end; $$;
+create trigger audit_events_no_update_or_delete
+before update or delete on public.audit_events
+for each row execute function public.audit_events_are_append_only();
+create trigger audit_events_no_truncate
+before truncate on public.audit_events
+for each statement execute function public.audit_events_are_append_only();
+`;
+
+  it('refuses when there is no before update or delete trigger', () => {
+    const problems = scanAuditAppendOnly([
+      {
+        name: 'a.sql',
+        text: `
+create trigger audit_events_no_truncate
+before truncate on public.audit_events
+for each statement execute function public.audit_events_are_append_only();
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'audit-no-row-trigger')).toBe(true);
+  });
+
+  it('refuses when there is no before truncate trigger', () => {
+    const problems = scanAuditAppendOnly([
+      {
+        name: 'a.sql',
+        text: `
+create trigger audit_events_no_update_or_delete
+before update or delete on public.audit_events
+for each row execute function public.audit_events_are_append_only();
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'audit-no-truncate-trigger')).toBe(true);
+  });
+
+  it('refuses a write grant on public.audit_events', () => {
+    const problems = scanAuditAppendOnly([
+      { name: 'a.sql', text: `${appendOnlySql}\ngrant insert on public.audit_events to service_role;` },
+    ]);
+    expect(problems.some((p) => p.code === 'audit-write-grant')).toBe(true);
   });
 });

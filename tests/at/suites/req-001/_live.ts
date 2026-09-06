@@ -65,8 +65,11 @@
  */
 
 import { emailVerifiedFromUser } from '../../../../supabase/functions/_shared/verification.ts';
+import { parseWriteRefusalKind, type WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import {
+  authDelete,
   authPost,
   followLink,
   functionPost,
@@ -81,10 +84,14 @@ import type {
   AccountsSut,
   AcknowledgmentRow,
   AssignVolunteerOutcome,
+  AuditEventRow,
   CompleteSignupOutcome,
   CompleteSignupRequest,
   CreateOrganizationOutcome,
+  EscalationContactRow,
+  EscalationOutcome,
   GrantMembershipOutcome,
+  LifecycleOutcome,
   MembershipRow,
   OrganizationRow,
   ProjectRow,
@@ -92,9 +99,13 @@ import type {
   RepointMembershipOutcome,
   Session,
   SignInOutcome,
+  TamperOutcome,
+  TransferOutcome,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
+  WriteAttemptOutcome,
+  WriteRefusal,
 } from './_contract.ts';
 import { liveTenantReads, type JwtClaims } from './_live-tenant-reads.ts';
 
@@ -224,6 +235,19 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
   const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
 
+  const postWrite = async (
+    name: string,
+    session: Session | null,
+    body: Record<string, unknown>,
+  ): Promise<{ ok: true; json: Record<string, unknown> } | { ok: false; json: Record<string, unknown>; refusal: WriteRefusal }> => {
+    const bearer = session === null ? stack.anonKey : tokensOf(sessions, session, `call the deployed ${name}`).accessToken;
+    const { status, json } = await functionPost(stack, name, body, bearer, '203.0.113.7');
+    if (status < 400 && json.ok !== false) return { ok: true, json };
+    const reason = String(json.reason ?? json.msg ?? json.message ?? `the deployed ${name} answered ${status}`);
+    const kind = status === 401 ? 'unauthenticated' : parseWriteRefusalKind(json.kind);
+    return { ok: false, json, refusal: { ok: false, kind, status, reason } };
+  };
+
   const accounts: AccountsSut = {
     /* ------------------------------------------------- Supabase Auth, over the stack's own gateway */
 
@@ -301,6 +325,46 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           now(), now(), now()
         )
       `;
+    },
+
+    unlinkGithubIdentity: async (session, provider) => {
+      const tokens = tokensOf(sessions, session, 'unlink an identity');
+      const me = await fetch(`${api}/auth/v1/user`, {
+        headers: { apikey: stack.anonKey, Authorization: `Bearer ${tokens.accessToken}` },
+      });
+      let json: Record<string, unknown> = {};
+      const text = await me.text();
+      if (text) {
+        try {
+          json = JSON.parse(text) as Record<string, unknown>;
+        } catch {
+          json = { raw: text };
+        }
+      }
+      const identities = Array.isArray(json.identities) ? json.identities : [];
+      const identity = identities.find(
+        (row): row is { identity_id?: unknown; id?: unknown; provider?: unknown } =>
+          typeof row === 'object' && row !== null && (row as { provider?: unknown }).provider === provider,
+      );
+      const identityId = String(identity?.identity_id ?? identity?.id ?? '');
+      if (!identityId) throw new Error(`the live user has no ${provider} identity to unlink`);
+      await authDelete(stack, `/auth/v1/user/identities/${identityId}`, tokens.accessToken);
+    },
+
+    linkedIdentities: async (accountId) => {
+      const found = await rows<{ provider: string }>(
+        sql`select provider from auth.identities where user_id = ${accountId}::uuid order by provider`,
+      );
+      return found.map((row) => ({ provider: String(row.provider) }));
+    },
+
+    authUserIsHealthy: async (session) => {
+      const tokens = tokensOf(sessions, session, 'read the auth user');
+      const me = await fetch(`${api}/auth/v1/user`, {
+        headers: { apikey: stack.anonKey, Authorization: `Bearer ${tokens.accessToken}` },
+      });
+      await me.text();
+      return me.status === 200;
     },
 
     /**
@@ -419,7 +483,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       const tokens = tokensOf(sessions, session, 'call the deployed complete-signup');
       const { status, json } = await functionPost(stack, 'complete-signup', request, tokens.accessToken, ip);
       if (status >= 400 || json.ok === false) {
-        return { ok: false, reason: String(json.reason ?? json.msg ?? `the deployed complete-signup answered ${status}`) };
+        const reason = String(json.reason ?? json.msg ?? `the deployed complete-signup answered ${status}`);
+        const kind = status === 401 ? 'unauthenticated' : parseWriteRefusalKind(json.kind);
+        return { ok: false, kind, status, reason };
       }
       return {
         ok: true,
@@ -429,41 +495,19 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
 
     createOrganization: async (session, organizationName): Promise<CreateOrganizationOutcome> => {
-      // THE FIELD THE DEPLOYED FUNCTION READS IS `name`, and it is measured rather than assumed:
-      // `create-organization/index.ts` calls `validateOrganizationName(body.value.name)`. A body
-      // keyed `organizationName` was refused 400 "an organisation needs a non-empty name" — a
-      // refusal that reads like a product rule and is really a wire mismatch, which would have made
-      // AT-001.06's NGO CONTROL fail and every refusal after it prove nothing.
-      const tokens = tokensOf(sessions, session, 'call the deployed create-organization');
-      const { status, json } = await functionPost(stack, 'create-organization', { name: organizationName }, tokens.accessToken, '203.0.113.7');
-      if (status >= 400 || json.ok === false) {
-        return { ok: false, reason: String(json.reason ?? json.msg ?? `the deployed create-organization answered ${status}`) };
-      }
-      return { ok: true, organizationId: String(json.organizationId ?? '') };
+      const answer = await postWrite('create-organization', session, { name: organizationName });
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, organizationId: String(answer.json.organizationId ?? '') };
     },
 
-    /**
-     * THE DEPLOYED `update-organization`, called exactly as a browser client would.
-     *
-     * THE `kind` IS READ OFF THE WIRE AND VALIDATED AGAINST THE THREE THE FUNCTION CAN SEND. An
-     * unrecognised value becomes `refused` rather than being trusted, which is the direction that
-     * matters: AT-001.16 asserts the not-a-member kind and AT-001.36 the not-an-admin one, so a
-     * gateway error page or a future field rename must not be able to arrive wearing either label.
-     */
     updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
-      const tokens = tokensOf(sessions, session, 'call the deployed update-organization');
-      const { status, json } = await functionPost(stack, 'update-organization', { organizationId, name }, tokens.accessToken, '203.0.113.7');
-      if (status < 400 && json.ok !== false) {
-        return {
-          ok: true,
-          organizationId: String(json.organizationId ?? organizationId),
-          name: String(json.name ?? ''),
-        };
-      }
-      const reason = String(json.reason ?? json.msg ?? `the deployed update-organization answered ${status}`);
-      const kind = json.kind;
-      const known = kind === 'not-a-member' || kind === 'not-an-admin' || kind === 'invalid-name';
-      return { ok: false, kind: known ? kind : 'refused', reason };
+      const answer = await postWrite('update-organization', session, { organizationId, name });
+      if (!answer.ok) return answer.refusal;
+      return {
+        ok: true,
+        organizationId: String(answer.json.organizationId ?? organizationId),
+        name: String(answer.json.name ?? ''),
+      };
     },
 
     /* ------------------------------- the operator's surface, over SQL, as the operator ---------- */
@@ -646,10 +690,12 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     /* -------------------------------------------------------- read-back, as the operator, over SQL */
 
     account: async (accountId): Promise<AccountRow | null> => {
-      const found = await rows<{ id: string; account_type: AccountRow['accountType'] }>(
-        sql`select id, account_type from public.accounts where id = ${accountId}::uuid`,
+      const found = await rows<{ id: string; account_type: AccountRow['accountType']; lifecycle: AccountRow['lifecycle'] }>(
+        sql`select id, account_type, lifecycle from public.accounts where id = ${accountId}::uuid`,
       );
-      return found.length === 1 ? { id: String(found[0].id), accountType: found[0].account_type } : null;
+      return found.length === 1
+        ? { id: String(found[0].id), accountType: found[0].account_type, lifecycle: found[0].lifecycle }
+        : null;
     },
 
     organization: async (organizationId): Promise<OrganizationRow | null> => {
@@ -813,6 +859,167 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
              where id = ${accountId}::uuid returning id`,
       );
       if (updated.length !== 1) throw new Error(`the operator could not retype account ${accountId}`);
+    },
+
+    transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {
+      const answer = await postWrite('transfer-organization-contact', session, request);
+      if (answer.ok) return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
+      return answer.refusal;
+    },
+
+    setEscalationContact: async (session, request): Promise<EscalationOutcome> => {
+      const answer = await postWrite('set-escalation-contact', session, request);
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
+    },
+
+    setAccountLifecycle: async (session, request): Promise<LifecycleOutcome> => {
+      const answer = await postWrite('set-account-lifecycle', session, request);
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, changed: Boolean(answer.json.changed) };
+    },
+
+    attemptWrite: async function (this: AccountsSut, subject, session): Promise<WriteAttemptOutcome> {
+      const asAttempt = async (outcome: { ok: true } | WriteRefusal): Promise<WriteAttemptOutcome> =>
+        outcome.ok ? { ok: true } : outcome;
+      const attempts: Record<WriteRouteName, () => Promise<WriteAttemptOutcome>> = {
+        'complete-signup': async () => {
+          if (subject.route !== 'complete-signup') throw new Error('unreachable');
+          if (session === null) {
+            const answer = await postWrite('complete-signup', null, {
+              accountType: 'ngo',
+              organizationName: subject.name,
+              acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
+              signerName: 'Dana Okonkwo',
+              signerTitle: 'Executive Director',
+              authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+            });
+            return answer.ok ? { ok: true } : answer.refusal;
+          }
+          const completed = await this.completeSignup(
+            session,
+            {
+              accountType: 'ngo',
+              organizationName: subject.name,
+              acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
+              signerName: 'Dana Okonkwo',
+              signerTitle: 'Executive Director',
+              authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+            },
+            '203.0.113.7',
+          );
+          if (completed.ok) return { ok: true };
+          if ('kind' in completed) return completed;
+          return { ok: false, kind: 'refused', status: 409, reason: completed.reason };
+        },
+        'create-organization': async () => {
+          if (subject.route !== 'create-organization') throw new Error('unreachable');
+          if (session === null) {
+            const answer = await postWrite('create-organization', null, { name: subject.name });
+            return answer.ok ? { ok: true } : answer.refusal;
+          }
+          return asAttempt(await this.createOrganization(session, subject.name));
+        },
+        'update-organization': async () => {
+          if (subject.route !== 'update-organization') throw new Error('unreachable');
+          if (session === null) {
+            const answer = await postWrite('update-organization', null, {
+              organizationId: subject.organizationId,
+              name: subject.name,
+            });
+            return answer.ok ? { ok: true } : answer.refusal;
+          }
+          return asAttempt(await this.updateOrganization(session, subject.organizationId, subject.name));
+        },
+        'transfer-organization-contact': async () => {
+          if (subject.route !== 'transfer-organization-contact') throw new Error('unreachable');
+          return asAttempt(await this.transferOrganizationContact(session, subject));
+        },
+        'set-escalation-contact': async () => {
+          if (subject.route !== 'set-escalation-contact') throw new Error('unreachable');
+          return asAttempt(await this.setEscalationContact(session, { ...subject, phone: null }));
+        },
+        'set-account-lifecycle': async () => {
+          if (subject.route !== 'set-account-lifecycle') throw new Error('unreachable');
+          return asAttempt(await this.setAccountLifecycle(session, subject));
+        },
+        'discovery-message': async () => {
+          throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
+        },
+      };
+      return attempts[subject.route]();
+    },
+
+    auditEvents: async (filter): Promise<AuditEventRow[]> => {
+      const orgId = filter.subjectOrgId ?? null;
+      const accountId = filter.subjectAccountId ?? null;
+      const found = await rows<{
+        id: string;
+        occurred_at: string | Date;
+        event_kind: AuditEventRow['eventKind'];
+        actor_account_id: string | null;
+        actor_label: string;
+        subject_account_id: string | null;
+        subject_org_id: string | null;
+        reason: string;
+        detail: unknown;
+      }>(
+        sql`select id, occurred_at, event_kind, actor_account_id, actor_label, subject_account_id, subject_org_id, reason, detail
+              from public.audit_events
+             where (${orgId}::uuid is null or subject_org_id = ${orgId}::uuid)
+               and (${accountId}::uuid is null or subject_account_id = ${accountId}::uuid)
+             order by occurred_at, id`,
+      );
+      return found.map((row) => ({
+        id: String(row.id),
+        occurredAt: new Date(row.occurred_at).toISOString(),
+        eventKind: row.event_kind,
+        actorAccountId: row.actor_account_id === null ? null : String(row.actor_account_id),
+        actorLabel: row.actor_label,
+        subjectAccountId: row.subject_account_id === null ? null : String(row.subject_account_id),
+        subjectOrgId: row.subject_org_id === null ? null : String(row.subject_org_id),
+        reason: row.reason,
+        detail: (typeof row.detail === 'string' ? JSON.parse(row.detail) : row.detail) as Record<string, unknown>,
+      }));
+    },
+
+    attemptAuditTamper: async (attempt): Promise<TamperOutcome> => {
+      try {
+        if (attempt === 'update') {
+          await sql`update public.audit_events set reason = 'tampered'`;
+        } else if (attempt === 'delete') {
+          await sql`delete from public.audit_events`;
+        } else {
+          await sql`truncate public.audit_events`;
+        }
+        return { ok: true };
+      } catch (error) {
+        const { message } = databaseRefusal(error);
+        return { ok: false, reason: message };
+      }
+    },
+
+    escalationContact: async (organizationId): Promise<EscalationContactRow | null> => {
+      const found = await rows<{
+        org_id: string;
+        contact_name: string;
+        contact_email: string;
+        contact_phone: string | null;
+        recorded_by_account_id: string;
+        recorded_at: string | Date;
+      }>(
+        sql`select org_id, contact_name, contact_email, contact_phone, recorded_by_account_id, recorded_at
+              from public.org_escalation_contacts where org_id = ${organizationId}::uuid`,
+      );
+      if (found.length !== 1) return null;
+      return {
+        organizationId: String(found[0].org_id),
+        contactName: found[0].contact_name,
+        contactEmail: found[0].contact_email,
+        contactPhone: found[0].contact_phone === null ? null : String(found[0].contact_phone),
+        recordedByAccountId: String(found[0].recorded_by_account_id),
+        recordedAt: new Date(found[0].recorded_at).toISOString(),
+      };
     },
 
     // Written out because the integration manifest names each one, and `AccountsSut` makes an

@@ -1,0 +1,46 @@
+You are exploring a codebase to understand how something works. Gather facts: trace code paths, read implementations, map components. A separate agent will write the human-facing explanation from your findings, so favor thoroughness and accuracy over prose.
+
+Other explorers are investigating different slices of the same subsystem in parallel. Don't try to cover everything. Focus on your assigned angle and go deep.
+
+## Question
+
+> How does the ai4good tree, at this branch's head, authorise and perform every WRITE today (the three write edge functions, caller resolution, the SECURITY DEFINER database functions and the triggers, the privilege posture and its two catalog checks); how does Supabase Auth on the local stack expose identities and the unlink endpoint, the admin API, the auth hooks, bans, and its rate limits; and how does the acceptance harness for REQ-001 drive the system at the loop tier and the integration tier, add a system-under-test member, provision operator-only Givens, and declare an id red by shape; so that the admin-operations deliverable can land (1) an audited, platform-admin-only contact transfer and lost-access recovery that moves an organisation's ownership to a new account, deactivates the old one and preserves every row's attribution, plus one escalation contact captured at concierge onboarding, (2) a lifecycle state on accounts that gates every write through ONE mandatory boundary every write route registers with, with a conformance check that fails any unregistered write route, plus AUP key revocation and platform-admin re-enable, (3) an append-only audit for role changes and contact transfer that cannot be altered or deleted, and a sign-in rate limit, (4) a proof that no leftover TRUNCATE, TRIGGER or REFERENCES privilege remains on the authentication tables, (5) a server-side refusal of GitHub identity unlink for volunteer accounts with a new acceptance id, and (6) a record of what the local auth rate limit really honours; with acceptance ids AT-001.25, .26, .27, .28, .29, .30, .31, .33, .34 and .35 green or declared red by shape at both tiers?
+
+## Your Exploration Angle
+
+SUPABASE AUTH AS THIS TREE USES IT, AND THE VENDOR SURFACES THE NEW WORK NEEDS. Read `supabase/config.toml` in full, with every comment (the `[auth]` block, `enable_manual_linking` and the comment above it that records the open unlink surface, `[auth.rate_limit]`, the commented `[auth.hook.*]` blocks, `[auth.email]`, `jwt_expiry`, the `[functions.*]` blocks, `[db]`, `[api]`), and say which settings the local command-line tool is known to push into the running containers and which it does not (the tree records one measurement: `loop/items/AI4DEV-59/stack-up.txt` lines 50 to 70 show `GOTRUE_RATE_LIMIT_EMAIL_SENT=360000` in the container against `email_sent = 2` in the file; and `loop/items/AI4DEV-56/artifacts/measure/` holds this item's own measurements of the rate limits, the container env, and the sign-in probe; read them). Read how this tree talks to Auth: `tests/at/harness/live-stack.ts` (`authPost`, `followLink`, `mailIdentification`, `verifyLinksFor`, `sqlClient`), `tests/at/suites/req-001/_live.ts` (registration, the password grant, logout scopes, refresh, recovery, `provisionPlatformAdmin`, `linkGithubIdentity`, and how an identity row is written on the live stack when no OAuth app exists), `supabase/functions/_shared/edge.ts` `resolveCaller` (the `/auth/v1/user` round trip) and `_shared/github.ts` (`identities[]`). Then read the earlier items' live proofs for what was measured about the vendor: `loop/items/AI4DEV-58/proof-local.ts` and `.txt`, `loop/items/AI4DEV-59/proof-local.ts`, `loop/items/AI4DEV-60/proof-local.ts` and `fix-rulings.md`. From the tree and from the vendor knowledge you hold, state precisely: (a) which HTTP endpoint unlinks an identity (`DELETE /auth/v1/user/identities/{identity_id}`), which GoTrue setting opens it, whether GoTrue refuses unlinking the last identity, and where a server-side refusal for volunteer accounts could live: a trigger on `auth.identities` (say who owns that table, `supabase_auth_admin`, and whether a migration run as `postgres` can create a trigger there and what the `auth` schema's default privileges say), a GoTrue auth hook (list every hook GoTrue v2.193 supports and which the local config file can enable: `before_user_created`, `custom_access_token`, `send_email`, `send_sms`, `mfa_verification_attempt`, `password_verification_attempt`; say whether any hook fires on identity unlink), or Kong/gateway configuration; (b) how a platform administrator could DEACTIVATE an auth user through the vendor (the admin API `PUT /auth/v1/admin/users/{id}` with `ban_duration`, `banned_until`, or a soft delete) versus a product-side lifecycle column, and what each does to existing sessions and to `/auth/v1/user`; (c) how the `password_verification_attempt` hook could implement a sign-in attempt limit in SQL, what payload it receives (`user_id`, `valid`), what it may return (`decision: reject`, `message`, `should_logout_user`), whether it fires for a wrong password and for an unknown email, and whether the local tool pushes `[auth.hook.password_verification_attempt]` into the container (`GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_*`); (d) how the platform administrator is provisioned today (`provisionPlatformAdmin` in `_live.ts`) and whether an admin-only edge function can tell an admin from anyone else through `resolveCaller` plus `public.accounts.account_type`. Mark clearly which statements come from the tree and which from vendor knowledge, and mark any vendor claim you could not confirm from the tree as unconfirmed.
+
+## Exploration Instructions
+
+Start by finding the relevant code. Use Glob to find directories and files, Grep to find key symbols, Read to understand the actual implementation. Don't guess from names. Read the code. You are read-only; do not modify anything and do not start any process or container.
+
+Follow this pattern:
+1. **Find the entry point.** What triggers this behavior? A user action, an API call, a scheduled job? Find where it starts.
+2. **Trace the flow.** Follow the call chain from the entry point. Read each function. Understand what data flows through and how it transforms.
+3. **Map the key abstractions.** What types, interfaces, services, or classes are central? Read their definitions. Understand what they represent and why they exist.
+4. **Find the boundaries.** Where does this subsystem interface with others? What goes in, what comes out?
+5. **Look for the non-obvious.** Anything surprising? Anything that looks like a historical artifact? Anything a newcomer would misunderstand?
+
+Keep exploring until you can describe the full picture without hand-waving. If you hit a part you can't trace, say so explicitly. "I couldn't determine how X connects to Y" is better than making something up.
+
+## Output
+
+Return your findings in this structure. Be factual and specific. Reference exact file paths, function names, type names, and line numbers where relevant.
+
+### Components Found
+The key types, services, classes, and abstractions. For each: name, file path, and a one-sentence description of what it does.
+
+### Flow
+The execution flow step by step. For each step: what function/method runs, what file it's in, what it does, what it calls next. Include the data that flows between steps.
+
+### Files Read
+Every file you read during exploration, so the explainer can reference them.
+
+### Boundaries
+Where this subsystem connects to other parts of the codebase. The inputs and outputs.
+
+### Non-Obvious Things
+Anything surprising, historically motivated, or easy to get wrong. Things that look like they should work one way but actually work another.
+
+### Open Questions
+Anything you couldn't fully trace or understand. Be honest about gaps.

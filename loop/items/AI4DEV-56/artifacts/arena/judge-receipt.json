@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56",
+  "promptPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56\\loop\\items\\AI4DEV-56\\artifacts\\arena\\judge-prompt.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56\\loop\\items\\AI4DEV-56\\artifacts\\arena\\judge-verdict.md",
+  "startedAt": "2026-09-06T06:43:26.107Z",
+  "completedAt": "2026-09-06T06:52:29.303Z",
+  "elapsedMs": 543196,
+  "executable": "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "authenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+    "--prompt-file",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56\\loop\\items\\AI4DEV-56\\artifacts\\arena\\judge-prompt.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "plan",
+    "--sandbox",
+    "read-only",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "grok-4.6-build",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "01a07575-284a-7720-9c43-c225ee8b6758",
+  "usage": {
+    "inputTokens": 239878,
+    "cachedInputTokens": 485632,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 28653
+  },
+  "costUsd": 0.1520633,
+  "error": null
+}

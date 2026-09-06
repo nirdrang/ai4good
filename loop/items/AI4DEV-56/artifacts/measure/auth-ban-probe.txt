@@ -1,0 +1,20 @@
+﻿probe 2026-09-06T05:51:45.228Z user ban-probe-1788673905228@example.invalid
+1 admin create user: HTTP 200 {"id":"ea55c684-09b3-4c6e-adf1-b81a4e22227c","aud":"authenticated","role":"authenticated","email":"ban-probe-1788673905228@example.invalid","email_confirmed_at":"2026-09-06T05:51:45.328950158Z","phone":"","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email_verified":true},"identities":[{"identity_id":"7587b258-a614-4436-be42-0543001e3be3","id":"ea55c684-09b3-4c6e-adf1
+2 password grant: HTTP 200 {"access_token":"eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWM
+3 GET /user with live token before ban: HTTP 200 {"id":"ea55c684-09b3-4c6e-adf1-b81a4e22227c","aud":"authenticated","role":"authenticated","email":"ban-probe-1788673905228@example.invalid","email_confirmed_at":"2026-09-06T05:51:45.32895Z","phone":"","confirmed_at":"2026-09-06T05:51:45.32895Z","last_sign_in_at":"2026-09-06T05:51:45.442555Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email_verified":true},"identiti
+4 admin ban (ban_duration 876000h): HTTP 200 {"id":"ea55c684-09b3-4c6e-adf1-b81a4e22227c","aud":"authenticated","role":"authenticated","email":"ban-probe-1788673905228@example.invalid","email_confirmed_at":"2026-09-06T05:51:45.32895Z","phone":"","confirmed_at":"2026-09-06T05:51:45.32895Z","last_sign_in_at":"2026-09-06T05:51:45.442555Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email_verified":true},"identiti
+5 GET /user with the SAME unexpired token after ban: HTTP 200 {"id":"ea55c684-09b3-4c6e-adf1-b81a4e22227c","aud":"authenticated","role":"authenticated","email":"ban-probe-1788673905228@example.invalid","email_confirmed_at":"2026-09-06T05:51:45.32895Z","phone":"","confirmed_at":"2026-09-06T05:51:45.32895Z","last_sign_in_at":"2026-09-06T05:51:45.442555Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email_verified":true},"identiti
+6 refresh grant after ban: HTTP 400 {"code":400,"error_code":"user_banned","msg":"Invalid Refresh Token: User Banned"}
+7 password grant after ban: HTTP 400 {"code":400,"error_code":"user_banned","msg":"User is banned"}
+8 admin unban (ban_duration none): HTTP 200 {"id":"ea55c684-09b3-4c6e-adf1-b81a4e22227c","aud":"authenticated","role":"authenticated","email":"ban-probe-1788673905228@example.invalid","email_confirmed_at":"2026-09-06T05:51:45.32895Z","phone":"","confirmed_at":"2026-09-06T05:51:45.32895Z","last_sign_in_at":"2026-09-06T05:51:45.442555Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email_verified":true},"identiti
+9 GET /user with the original token after unban: HTTP 200 {"id":"ea55c684-09b3-4c6e-adf1-b81a4e22227c","aud":"authenticated","role":"authenticated","email":"ban-probe-1788673905228@example.invalid","email_confirmed_at":"2026-09-06T05:51:45.32895Z","phone":"","confirmed_at":"2026-09-06T05:51:45.32895Z","last_sign_in_at":"2026-09-06T05:51:45.442555Z","app_metadata":{"provider":"email","providers":["email"]},"user_metadata":{"email_verified":true},"identiti
+10 password grant after unban: HTTP 200 (body elided)
+user id ea55c684-09b3-4c6e-adf1-b81a4e22227c
+
+---sessions rows for that user, banned_until, and the linking env---
+2|
+
+GOTRUE_JWT_EXP=120
+GOTRUE_SECURITY_MANUAL_LINKING_ENABLED=true
+
+

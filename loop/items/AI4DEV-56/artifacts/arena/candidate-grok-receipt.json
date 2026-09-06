@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56",
+  "promptPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56\\loop\\items\\AI4DEV-56\\artifacts\\arena\\runner-grok-prompt-v2.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56\\loop\\items\\AI4DEV-56\\artifacts\\arena\\candidate-grok.md",
+  "startedAt": "2026-09-06T06:31:34.386Z",
+  "completedAt": "2026-09-06T06:43:07.648Z",
+  "elapsedMs": 693262,
+  "executable": "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "authenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+    "--prompt-file",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56\\loop\\items\\AI4DEV-56\\artifacts\\arena\\runner-grok-prompt-v2.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "plan",
+    "--sandbox",
+    "read-only",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-56",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "grok-4.6-build",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "01a0756a-4bee-73f0-a5c7-71ec3e19c4e8",
+  "usage": {
+    "inputTokens": 136212,
+    "cachedInputTokens": 768768,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 38944
+  },
+  "costUsd": 0.15138024,
+  "error": null
+}

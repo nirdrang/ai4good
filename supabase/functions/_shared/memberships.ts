@@ -15,11 +15,10 @@
  *      inside the edge runtime. The intersection is plain TypeScript over plain data.
  *   2. NO I/O, NO CLOCK, NO RANDOMNESS. The membership row is READ by the caller and handed here;
  *      this module never asks a database anything.
- *
- * THE ORGANISATION NAME RULE IS NOT HERE. `validateOrganizationName` lives in `./accounts.ts` and
- * the rename path imports it from there. A second copy of a rule is the defect this whole
- * arrangement exists to delete, and it does not get an exception for being three lines long.
  */
+
+import { validateOrganizationName } from './accounts.ts';
+import type { AccountWriteRouteInput, WriteRouteDecision } from './write-routes.ts';
 
 /* ------------------------------------------------------------------- the closed role vocabulary */
 
@@ -112,4 +111,21 @@ export function orgAdminActionAllowed(role: OrgRole | null): OrgAdminDecision {
       'this action is available to members of this organisation only — the caller holds no membership in it, ' +
       'and membership is held per organisation, so acting in one organisation grants nothing in another',
   };
+}
+
+export type OrganizationRenameArgs = {
+  readonly p_account_id: string;
+  readonly p_organization_id: string;
+  readonly p_name: string;
+};
+
+export function decideOrganizationRename(input: AccountWriteRouteInput): WriteRouteDecision<OrganizationRenameArgs> {
+  if (input.target === null) {
+    return { ok: false, kind: 'invalid-request', reason: 'an organisation rename must name the organisation to rename', status: 400 };
+  }
+  const allowed = orgAdminActionAllowed(input.standing.orgRole);
+  if (!allowed.ok) return { ok: false, kind: allowed.kind, reason: allowed.reason, status: 403 };
+  const name = validateOrganizationName(input.body.name);
+  if (!name.ok) return { ok: false, kind: 'invalid-name', reason: name.reason, status: 400 };
+  return { ok: true, args: { p_account_id: input.caller.id, p_organization_id: input.target, p_name: name.value } };
 }

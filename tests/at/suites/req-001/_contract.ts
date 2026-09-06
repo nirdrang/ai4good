@@ -20,9 +20,11 @@
 
 import type { WorldSeam } from '../../harness/contracts.ts';
 import type {
+  AccountLifecycle,
   AccountType,
   CompleteSignupRequest,
 } from '../../../../supabase/functions/_shared/accounts.ts';
+import type { WriteRefusalKind, WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
 // THE PER-ORGANISATION ROLE VOCABULARY, imported for the reason the header gives about every other
 // judgement type here: `OrgRole` is the shipped module's, the same one the rename edge function and
 // the database enum state, so the operator grant below cannot name a role the product does not have.
@@ -48,7 +50,7 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-export type { AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole };
+export type { AccountLifecycle, AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole, WriteRefusalKind, WriteRouteName };
 export type { OrganizationDashboard, ProjectWorkspace, PublicProjectView };
 
 /* ------------------------------------------------------------------------- what gets read back */
@@ -57,6 +59,35 @@ export type { OrganizationDashboard, ProjectWorkspace, PublicProjectView };
 export type AccountRow = {
   id: string;
   accountType: AccountType;
+  lifecycle: AccountLifecycle;
+};
+
+export type AuditEventKind =
+  | 'org_contact_transferred'
+  | 'account_lifecycle_changed'
+  | 'org_role_changed'
+  | 'org_escalation_contact_recorded';
+
+export type AuditEventRow = {
+  id: string;
+  occurredAt: string;
+  eventKind: AuditEventKind;
+  actorAccountId: string | null;
+  actorLabel: string;
+  subjectAccountId: string | null;
+  subjectOrgId: string | null;
+  reason: string;
+  detail: Record<string, unknown>;
+};
+
+export type EscalationContactRow = {
+  organizationId: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string | null;
+  recordedByAccountId: string;
+  /** ISO-8601 instant */
+  recordedAt: string;
 };
 
 /** One row of `public.organizations`. */
@@ -215,9 +246,10 @@ export type RefreshSessionOutcome = { ok: true; session: Session } | { ok: false
 
 export type CompleteSignupOutcome =
   | { ok: true; accountId: string; organizationId: string | null }
+  | WriteRefusal
   | { ok: false; reason: string };
 
-export type CreateOrganizationOutcome = { ok: true; organizationId: string } | { ok: false; reason: string };
+export type CreateOrganizationOutcome = { ok: true; organizationId: string } | WriteRefusal;
 
 /**
  * The outcome of the admin-only NGO-side action — renaming an organisation — and its refusal
@@ -229,17 +261,65 @@ export type CreateOrganizationOutcome = { ok: true; organizationId: string } | {
  * criteria while authorising from the wrong organisation's row. `OrgAdminRefusalKind` is imported
  * from the shipped decision module rather than restated, so the two kinds a body asserts are the
  * two kinds the product can produce.
- *
- * TWO KINDS THE SHIPPED DECISION DOES NOT PRODUCE ARE STILL HERE, and both are the adapter's
- * honesty rather than product surface:
- *   * `invalid-name` — the shared `validateOrganizationName` refused, before any role was consulted.
- *   * `refused` — the adapter could not classify the refusal it received. It exists so a live
- *     adapter facing an unexpected status reports "something refused and I do not know what" rather
- *     than picking whichever meaningful kind happens to make a test pass.
  */
-export type UpdateOrganizationOutcome =
-  | { ok: true; organizationId: string; name: string }
-  | { ok: false; kind: OrgAdminRefusalKind | 'invalid-name' | 'refused'; reason: string };
+export type UpdateOrganizationOutcome = { ok: true; organizationId: string; name: string } | WriteRefusal;
+
+export type WriteRefusal = {
+  ok: false;
+  kind: WriteRefusalKind | 'unauthenticated';
+  status: number;
+  reason: string;
+};
+
+export type TransferRequest = {
+  organizationId: string;
+  fromAccountId: string;
+  toAccountId: string;
+  reason: string;
+};
+
+export type TransferOutcome = { ok: true; organizationId: string } | WriteRefusal;
+
+export type EscalationContactRequest = {
+  organizationId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+};
+
+export type EscalationOutcome = { ok: true; organizationId: string } | WriteRefusal;
+
+export type WriteSubject =
+  | { readonly route: 'complete-signup'; readonly name: string }
+  | { readonly route: 'create-organization'; readonly name: string }
+  | { readonly route: 'update-organization'; readonly organizationId: string; readonly name: string }
+  | {
+      readonly route: 'transfer-organization-contact';
+      readonly organizationId: string;
+      readonly fromAccountId: string;
+      readonly toAccountId: string;
+      readonly reason: string;
+    }
+  | { readonly route: 'set-escalation-contact'; readonly organizationId: string; readonly name: string; readonly email: string }
+  | {
+      readonly route: 'set-account-lifecycle';
+      readonly accountId: string;
+      readonly lifecycle: AccountLifecycle;
+      readonly reason: string;
+    }
+  | { readonly route: 'discovery-message'; readonly message: string };
+
+export type WriteAttemptOutcome = { ok: true } | WriteRefusal;
+
+export type LifecycleRequest = {
+  accountId: string;
+  lifecycle: AccountLifecycle;
+  reason: string;
+};
+
+export type LifecycleOutcome = { ok: true; changed: boolean } | WriteRefusal;
+
+export type TamperOutcome = { ok: true } | { ok: false; reason: string };
 
 /**
  * The outcome of an OPERATOR granting a membership directly — used both to provision a Given and as
@@ -296,7 +376,7 @@ export type AssignVolunteerOutcome =
  * `Decision` in the shipped module gives: AT-001.10 asserts that the block NAMES verification as
  * the remedy, so a bare boolean would make the criterion untestable.
  */
-export type SendDiscoveryMessageOutcome = { ok: true } | { ok: false; reason: string };
+export type SendDiscoveryMessageOutcome = { ok: true } | WriteRefusal;
 
 export type ViewerAnswer = { status: number; body: string };
 /** privilege-denied: the privilege layer; session-refused: the token, a broken test not a verdict; refused: anything else. */
@@ -434,6 +514,11 @@ export type AccountsSut = {
    * Same posture as every other Auth member here — no handshake, no fabricated authorization code.
    */
   linkGithubIdentity(session: Session, githubHandle: string): Promise<void>;
+  unlinkGithubIdentity(session: Session, provider: string): Promise<void>;
+  /** The account's linked identities, read as the operator. */
+  linkedIdentities(accountId: string): Promise<{ provider: string }[]>;
+  /** Whether `/auth/v1/user` still answers 200 for this session. */
+  authUserIsHealthy(session: Session): Promise<boolean>;
   /** Return sign-in with the same credentials — AT-001.01's final clause. */
   signInWithEmailPassword(email: string, password: string): Promise<SignInOutcome>;
   /**
@@ -805,6 +890,16 @@ export type AccountsSut = {
    * wider one, and not one any running service holds.
    */
   provisionPlatformAdmin(email: string, password: string): Promise<Session>;
+
+  transferOrganizationContact(session: Session | null, request: TransferRequest): Promise<TransferOutcome>;
+  setEscalationContact(session: Session | null, request: EscalationContactRequest): Promise<EscalationOutcome>;
+  setAccountLifecycle(session: Session | null, request: LifecycleRequest): Promise<LifecycleOutcome>;
+  attemptWrite(subject: WriteSubject, session: Session | null): Promise<WriteAttemptOutcome>;
+
+  auditEvents(filter: { subjectOrgId?: string; subjectAccountId?: string }): Promise<AuditEventRow[]>;
+  attemptAuditTamper(attempt: 'update' | 'delete' | 'truncate'): Promise<TamperOutcome>;
+  /** The organisation's escalation contact, or `null` — read as the operator, for the reason above. */
+  escalationContact(organizationId: string): Promise<EscalationContactRow | null>;
 
   /* ---- reads AS THE CALLER. The operator reads beside them are the existence control. ---- */
 
