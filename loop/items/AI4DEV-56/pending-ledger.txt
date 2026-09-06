@@ -1,8 +1,8 @@
-REQ-001 ids still red after the append-only-audit leaf
+REQ-001 ids still red after the six admin-operations units
 ======================================================
 
 `tests/at/expected/req-001.json` declares these reds by shape. One line per id and tier.
-Do not invent ids: every row is in that manifest. AT-001.33 is green at both tiers and is
+Do not invent ids: every row is in that manifest. AT-001.33 and AT-001.41 are green at both tiers and are
 absent here. Format: id, tier, declared shape, capability or leaf.
 
 AT-001.18  loop         pending/sut-missing     D3.L3 (the cross-surface single-seat integration)
@@ -20,4 +20,4 @@ AT-001.29  integration  capability-pending      sut.accounts.sendDiscoveryMessag
 AT-001.30  integration  capability-pending      gateway.virtual-key-revocation, sut.accounts.sendDiscoveryMessage
 AT-001.31  integration  capability-pending      gateway.virtual-key-reissue
 
-Count: 14 lines. Loop has 3 reds and 34 greens. Integration has 11 reds and 26 greens. Total 37 P0.
+Count: 14 lines. Loop has 3 reds and 35 greens. Integration has 11 reds and 27 greens. Total 38 P0.
