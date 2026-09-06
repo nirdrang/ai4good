@@ -79,6 +79,25 @@ if command -v grok >/dev/null 2>&1; then
   fi
 fi
 
+# The grok wrapper. This VM's kernel boots without Landlock, and grok 1.0.13 refuses its
+# read-only and workspace sandbox profiles there, so every grok lane the pstack runner dispatches
+# dies at start. The committed wrapper (loop/work/grok-shim, README beside it) maps those profiles
+# to devbox only when the live probe says Landlock is absent; on any other kernel it is a no-op.
+# The runner finds grok through the session's PATH, and a hook's own `export` dies with the hook
+# process, so the prefix goes through CLAUDE_ENV_FILE, the file Claude Code loads into the
+# session's shell after SessionStart hooks run.
+shim="$CLAUDE_PROJECT_DIR/loop/work/grok-shim"
+if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -x "$shim/grok" ]; then
+  printf 'export PATH=%s:$PATH\n' "$shim" >>"$CLAUDE_ENV_FILE"
+  if grep -qs landlock /sys/kernel/security/lsm; then
+    lines+=("grok wrapper: on PATH, idle (kernel has Landlock)")
+  else
+    lines+=("grok wrapper: on PATH, active (kernel lacks Landlock)")
+  fi
+else
+  lines+=("grok wrapper: NOT on PATH - run: export PATH=$shim:\$PATH before a grok lane")
+fi
+
 if command -v opencode >/dev/null 2>&1; then
   if opencode auth list 2>&1 | grep -q "OpenCode Go"; then
     lines+=("opencode: OpenCode Go authenticated")
