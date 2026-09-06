@@ -29,8 +29,11 @@ import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { CapabilityPending } from '../../harness/registry.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import { TENANT_NOT_FOUND } from '../../../../supabase/functions/_shared/tenant-reads.ts';
-import type { AuditEventRow, ProjectRow, Session } from './_contract.ts';
+import type { AccountType, AccountsSut, AuditEventRow, ProjectRow, Session, World, WriteSubject } from './_contract.ts';
 import { isTautologicalUsing, TENANT_CATALOG, tenantCatalogProblems } from './_policy-scan.ts';
+import { writeRouteProblems } from './_write-route-scan.ts';
+import { WRITE_ROUTES, type WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { virtualKeyActionFor } from '../../../../supabase/functions/_shared/gateway-keys.ts';
 // AT-001.17's source arm, shared with its loop body: the arm runs identically at both tiers, and the
 // two bodies live in different files, so the check has one home rather than two copies.
 import { inviteOrAddMemberSurface } from './_source-scan.ts';
@@ -2046,6 +2049,347 @@ export async function at00135(ctx: Ctx): Promise<void> {
   expect(asAdmin, 'the platform administrator was refused the transfer, so the refusals above prove nothing').toMatchObject({ ok: true });
   if (!asAdmin.ok) return;
   await expectTransferred(sut, given, before);
+}
+
+/* -------------------------------------------------------------- the lifecycle gate, AT-001.29–.31 */
+
+export const AUP_REASON = 'AUP';
+export const REENABLE_REASON = 're-enable after review';
+
+async function ensureVerified(sut: AccountsSut, session: Session): Promise<void> {
+  const link = await sut.emailedVerificationLink(session.email);
+  if (link !== null) await sut.useVerificationLink(link);
+}
+
+async function completeNgo(sut: AccountsSut, session: Session, organizationName: string): Promise<string> {
+  const completion = await sut.completeSignup(
+    session,
+    { accountType: 'ngo', organizationName, acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completion, `NGO ${organizationName} could not complete signup`).toMatchObject({ ok: true });
+  if (!completion.ok || completion.organizationId === null) throw new Error('unreachable: the assertion above fails first');
+  return completion.organizationId;
+}
+
+async function completeVolunteer(sut: AccountsSut, session: Session, handle: string): Promise<void> {
+  await sut.linkGithubIdentity(session, handle);
+  const completion = await sut.completeSignup(
+    session,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+  expect(completion, `volunteer ${handle} could not complete signup`).toMatchObject({ ok: true });
+  if (!completion.ok) throw new Error('unreachable: the assertion above fails first');
+}
+
+type LifecycleActors = {
+  admin: Session;
+  adminOther: Session;
+  adminOff: Session;
+  ngo: Session;
+  ngoOrg: string;
+  ngoOff: Session;
+  ngoOffOrg: string;
+  volunteer: Session;
+  volunteerOff: Session;
+  transferFrom: Session;
+  transferTo: Session;
+  transferOrg: string;
+};
+
+export async function provisionLifecycleActors(
+  sut: AccountsSut,
+  w: World,
+  tag: string,
+  signIn: (email: string) => Promise<Session>,
+): Promise<LifecycleActors> {
+  const admin = await sut.provisionPlatformAdmin(w.email(`admin-${tag}`), PASSWORD);
+  const adminOther = await sut.provisionPlatformAdmin(w.email(`admin-other-${tag}`), PASSWORD);
+  const adminOff = await sut.provisionPlatformAdmin(w.email(`admin-off-${tag}`), PASSWORD);
+
+  const ngo = await signIn(w.email(`ngo-${tag}`));
+  await ensureVerified(sut, ngo);
+  const ngoOrg = await completeNgo(sut, ngo, `Riverside ${tag}`);
+
+  const ngoOff = await signIn(w.email(`ngo-off-${tag}`));
+  await ensureVerified(sut, ngoOff);
+  const ngoOffOrg = await completeNgo(sut, ngoOff, `Riverside Off ${tag}`);
+
+  const volunteer = await signIn(w.email(`vol-${tag}`));
+  await ensureVerified(sut, volunteer);
+  await completeVolunteer(sut, volunteer, `vol-${tag}-${volunteer.accountId.slice(0, 8)}`);
+
+  const volunteerOff = await signIn(w.email(`vol-off-${tag}`));
+  await ensureVerified(sut, volunteerOff);
+  await completeVolunteer(sut, volunteerOff, `vol-off-${tag}-${volunteerOff.accountId.slice(0, 8)}`);
+
+  const transferFrom = await signIn(w.email(`xfer-from-${tag}`));
+  const transferOrg = await completeNgo(sut, transferFrom, `Transfer ${tag}`);
+  const transferTo = await signIn(w.email(`xfer-to-${tag}`));
+  await completeNgo(sut, transferTo, `Transfer To ${tag}`);
+
+  for (const [label, accountId] of [
+    ['ngoOff', ngoOff.accountId],
+    ['volunteerOff', volunteerOff.accountId],
+    ['adminOff', adminOff.accountId],
+  ] as const) {
+    const deactivated = await sut.setAccountLifecycle(admin, { accountId, lifecycle: 'deactivated', reason: AUP_REASON });
+    expect(deactivated, `${label} could not be deactivated`).toMatchObject({ ok: true, changed: true });
+  }
+
+  return {
+    admin,
+    adminOther,
+    adminOff,
+    ngo,
+    ngoOrg,
+    ngoOff,
+    ngoOffOrg,
+    volunteer,
+    volunteerOff,
+    transferFrom,
+    transferTo,
+    transferOrg,
+  };
+}
+
+function sessionOf(actors: LifecycleActors, accountType: AccountType, role: 'active' | 'deactivated'): Session {
+  if (accountType === 'ngo') return role === 'active' ? actors.ngo : actors.ngoOff;
+  if (accountType === 'volunteer') return role === 'active' ? actors.volunteer : actors.volunteerOff;
+  return role === 'active' ? actors.admin : actors.adminOff;
+}
+
+function organizationOf(actors: LifecycleActors, accountType: AccountType, role: 'active' | 'deactivated'): string {
+  if (accountType === 'ngo') return role === 'active' ? actors.ngoOrg : actors.ngoOffOrg;
+  return actors.transferOrg;
+}
+
+function writeSubject(
+  actors: LifecycleActors,
+  w: World,
+  tag: string,
+  route: WriteRouteName,
+  accountType: AccountType,
+  role: 'active' | 'deactivated',
+): WriteSubject {
+  return {
+    name: `Write ${tag} ${route} ${accountType} ${role}`,
+    organizationId: organizationOf(actors, accountType, role),
+    fromAccountId: actors.transferFrom.accountId,
+    toAccountId: actors.transferTo.accountId,
+    accountId: actors.transferTo.accountId,
+    lifecycle: 'active',
+    reason: AUP_REASON,
+    message: `hello ${tag} ${route} ${accountType} ${role}`,
+    email: w.email(`esc-${tag}-${route}-${accountType}-${role}`),
+  };
+}
+
+async function snapshotWrite(sut: AccountsSut, route: WriteRouteName, session: Session | null, subject: WriteSubject) {
+  switch (route) {
+    case 'create-organization':
+      return { organizations: await sut.organizationsNamed(subject.name) };
+    case 'update-organization':
+      return { organization: await sut.organization(subject.organizationId) };
+    case 'transfer-organization-contact':
+      return { membership: await sut.membership(subject.organizationId, subject.fromAccountId) };
+    case 'set-escalation-contact':
+      return { contact: await sut.escalationContact(subject.organizationId) };
+    case 'set-account-lifecycle':
+      return { account: await sut.account(subject.accountId) };
+    case 'discovery-message':
+      return { messages: session ? await sut.discoveryMessagesBy(session.accountId) : [] };
+    case 'complete-signup':
+      return { account: session ? await sut.account(session.accountId) : null };
+  }
+}
+
+export async function assertDeactivationGatesEveryWrite(
+  sut: AccountsSut,
+  w: World,
+  tag: string,
+  signIn: (email: string) => Promise<Session>,
+  options: { skipStandIn: boolean },
+): Promise<void> {
+  const actors = await provisionLifecycleActors(sut, w, tag, signIn);
+  expect(writeRouteProblems(), 'the write-route conformance scan found a problem').toEqual([]);
+
+  for (const name of Object.keys(WRITE_ROUTES) as WriteRouteName[]) {
+    const row = WRITE_ROUTES[name];
+    if (row.standing.kind !== 'account-required') continue;
+    if (options.skipStandIn && row.surface.kind === 'stand-in') continue;
+    for (const accountType of row.standing.admits) {
+      const deactivated = sessionOf(actors, accountType, 'deactivated');
+      const active = sessionOf(actors, accountType, 'active');
+      const subjectOff = writeSubject(actors, w, tag, name, accountType, 'deactivated');
+      const subjectOn = writeSubject(actors, w, tag, name, accountType, 'active');
+
+      const before = await snapshotWrite(sut, name, deactivated, subjectOff);
+      const refused = await sut.attemptWrite(name, deactivated, subjectOff);
+      expect(refused.ok, `a deactivated ${accountType} succeeded at ${name}`).toBe(false);
+      if (refused.ok) return;
+      expect(refused.kind, `a deactivated ${accountType} was refused ${name} for a reason other than deactivation`).toBe(
+        'account-deactivated',
+      );
+      expect(refused.status).toBe(403);
+      expect(await snapshotWrite(sut, name, deactivated, subjectOff), `the refused ${name} write by a deactivated ${accountType} changed state`).toEqual(
+        before,
+      );
+
+      const allowed = await sut.attemptWrite(name, active, subjectOn);
+      expect(allowed, `an active ${accountType} was refused ${name}`).toMatchObject({ ok: true });
+    }
+  }
+}
+
+/**
+ * AT-001.29 — every account-required write is refused for a deactivated caller of an admitted type,
+ * while the active control succeeds. The NGO and administrator arms run for real; the volunteer
+ * stand-in is the named capability.
+ */
+export async function at00129(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  await assertDeactivationGatesEveryWrite(sut, w, '29', (email) => registerConfirmAndSignIn(sut, email), {
+    skipStandIn: true,
+  });
+  throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
+}
+
+/**
+ * AT-001.30 — an AUP deactivation refuses the next write at once. The volunteer's live token still
+ * answers 200 at Auth (the measured fact). Virtual-key revocation is the declared seam.
+ */
+export async function at00130(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const admin = await sut.provisionPlatformAdmin(w.email('admin-30'), PASSWORD);
+  const volunteer = await registerConfirmAndSignIn(sut, w.email('vol-30'));
+  await completeVolunteer(sut, volunteer, `vol-30-${volunteer.accountId.slice(0, 8)}`);
+
+  const url = (process.env.AT_SUPABASE_URL ?? '').replace(/\/$/, '');
+  const anonKey = process.env.AT_SUPABASE_ANON_KEY ?? '';
+  expect(url && anonKey, 'this child holds no stack coordinates, so the live token cannot be presented to Auth').toBeTruthy();
+  const grant = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: anonKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: volunteer.email, password: PASSWORD }),
+  });
+  const granted = (await grant.json()) as { access_token?: string };
+  const token = granted.access_token ?? '';
+  expect(token, 'the volunteer could not obtain a live access token before deactivation').not.toBe('');
+
+  const deactivated = await sut.setAccountLifecycle(admin, {
+    accountId: volunteer.accountId,
+    lifecycle: 'deactivated',
+    reason: AUP_REASON,
+  });
+  expect(deactivated, 'the administrator could not deactivate the volunteer').toMatchObject({ ok: true, changed: true });
+  expect(await sut.account(volunteer.accountId)).toMatchObject({ lifecycle: 'deactivated' });
+
+  const before = await sut.organizationsNamed('Volunteer Org 30');
+  const refused = await sut.attemptWrite('create-organization', volunteer, {
+    name: 'Volunteer Org 30',
+    organizationId: '',
+    fromAccountId: volunteer.accountId,
+    toAccountId: volunteer.accountId,
+    accountId: volunteer.accountId,
+    lifecycle: 'deactivated',
+    reason: AUP_REASON,
+    message: 'hello',
+    email: w.email('unused-30'),
+  });
+  expect(refused.ok, 'the deactivated volunteer created an organisation').toBe(false);
+  if (refused.ok) return;
+  expect(refused.kind, 'the volunteer was refused for a reason other than deactivation').toBe('account-deactivated');
+  expect(await sut.organizationsNamed('Volunteer Org 30'), 'the refused write still created an organisation').toEqual(before);
+
+  const me = await fetch(`${url}/auth/v1/user`, {
+    headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
+  });
+  expect(me.status, 'the volunteer token stopped answering at Auth, so the refusal is not the product lifecycle').toBe(200);
+
+  expect(virtualKeyActionFor('active', 'deactivated')).toBe('revoke');
+  throw new CapabilityPending(['gateway.virtual-key-revocation', 'sut.accounts.sendDiscoveryMessage']);
+}
+
+/**
+ * AT-001.31 — re-enable restores otherwise-authorized writes. Independent gates still refuse. A
+ * deactivated administrator cannot re-enable itself. Virtual-key reissue is the declared seam.
+ */
+export async function at00131(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const actors = await provisionLifecycleActors(sut, w, '31', (email) => registerConfirmAndSignIn(sut, email));
+
+  const memberOrg = await sut.createOrganizationAsOperator(`Member 31`);
+  const granted = await sut.grantMembershipAsOperator(memberOrg.id, actors.ngoOff.accountId, 'member');
+  expect(granted, 'the operator could not seat the NGO as member').toMatchObject({ ok: true });
+
+  const reNgo = await sut.setAccountLifecycle(actors.admin, {
+    accountId: actors.ngoOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+  });
+  expect(reNgo, 'the administrator could not re-enable the NGO').toMatchObject({ ok: true, changed: true });
+  const reVol = await sut.setAccountLifecycle(actors.admin, {
+    accountId: actors.volunteerOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+  });
+  expect(reVol, 'the administrator could not re-enable the volunteer').toMatchObject({ ok: true, changed: true });
+
+  const renamed = await sut.attemptWrite('update-organization', actors.ngoOff, {
+    name: 'Riverside Re-enabled 31',
+    organizationId: actors.ngoOffOrg,
+    fromAccountId: actors.transferFrom.accountId,
+    toAccountId: actors.transferTo.accountId,
+    accountId: actors.transferTo.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+    message: 'hello',
+    email: w.email('unused-31'),
+  });
+  expect(renamed, 'the re-enabled NGO was refused an otherwise-authorized rename').toMatchObject({ ok: true });
+
+  const memberWrite = await sut.updateOrganization(actors.ngoOff, memberOrg.id, 'Member Rename 31');
+  expect(memberWrite.ok, 'the re-enabled NGO renamed an organisation where it holds member').toBe(false);
+  if (memberWrite.ok) return;
+  expect(memberWrite.kind, 'the member-role refusal is not the independent gate').toBe('not-an-admin');
+
+  const volunteerWrite = await sut.attemptWrite('create-organization', actors.volunteerOff, {
+    name: 'Volunteer Org 31',
+    organizationId: '',
+    fromAccountId: actors.volunteerOff.accountId,
+    toAccountId: actors.volunteerOff.accountId,
+    accountId: actors.volunteerOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+    message: 'hello',
+    email: w.email('unused-31-vol'),
+  });
+  expect(volunteerWrite.ok, 'the re-enabled volunteer created an organisation').toBe(false);
+  if (volunteerWrite.ok) return;
+  expect(volunteerWrite.kind, 'the volunteer NGO-only refusal is not the independent type gate').toBe('not-an-ngo-account');
+  expect(await sut.organizationsNamed('Volunteer Org 31'), 'the refused volunteer write created an organisation').toEqual([]);
+
+  const self = await sut.setAccountLifecycle(actors.adminOff, {
+    accountId: actors.adminOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+  });
+  expect(self.ok, 'a deactivated administrator re-enabled itself').toBe(false);
+  if (self.ok) return;
+  expect(self.kind, 'the self re-enable was refused for a reason other than deactivation').toBe('account-deactivated');
+  expect(await sut.account(actors.adminOff.accountId)).toMatchObject({ lifecycle: 'deactivated' });
+
+  const byOther = await sut.setAccountLifecycle(actors.adminOther, {
+    accountId: actors.adminOff.accountId,
+    lifecycle: 'active',
+    reason: REENABLE_REASON,
+  });
+  expect(byOther, 'the second administrator could not re-enable the first').toMatchObject({ ok: true, changed: true });
+
+  expect(virtualKeyActionFor('deactivated', 'active')).toBe('reissue');
+  throw new CapabilityPending(['gateway.virtual-key-reissue']);
 }
 
 /* -------------------------------------------------------- the ids that refuse, and what they name */

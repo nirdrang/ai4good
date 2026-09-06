@@ -26,7 +26,7 @@ import type {
 } from '../../../../supabase/functions/_shared/accounts.ts';
 // THE CLOSED SET OF REFUSAL KINDS a write route answers with, imported for the reason every other
 // judgement type here is: a body asserts the kind the shipped pipeline produces, never a restatement.
-import type { WriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
+import type { WriteRefusalKind, WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
 // THE PER-ORGANISATION ROLE VOCABULARY, imported for the reason the header gives about every other
 // judgement type here: `OrgRole` is the shipped module's, the same one the rename edge function and
 // the database enum state, so the operator grant below cannot name a role the product does not have.
@@ -52,7 +52,7 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-export type { AccountLifecycle, AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole, WriteRefusalKind };
+export type { AccountLifecycle, AccountType, CompleteSignupRequest, OrgAdminRefusalKind, OrgRole, WriteRefusalKind, WriteRouteName };
 export type { OrganizationDashboard, ProjectWorkspace, PublicProjectView };
 
 /* ------------------------------------------------------------------------- what gets read back */
@@ -316,6 +316,29 @@ export type EscalationContactRequest = {
 };
 
 export type EscalationOutcome = { ok: true; organizationId: string } | WriteRefusal;
+
+/** AT-001.29/.30/.31: the fields each inventory route's smallest legal write reads. */
+export type WriteSubject = {
+  name: string;
+  organizationId: string;
+  fromAccountId: string;
+  toAccountId: string;
+  accountId: string;
+  lifecycle: AccountLifecycle;
+  reason: string;
+  message: string;
+  email: string;
+};
+
+export type WriteAttemptOutcome = { ok: true } | WriteRefusal;
+
+export type LifecycleRequest = {
+  accountId: string;
+  lifecycle: AccountLifecycle;
+  reason: string;
+};
+
+export type LifecycleOutcome = { ok: true; changed: boolean } | WriteRefusal;
 
 /**
  * The outcome of an OPERATOR granting a membership directly — used both to provision a Given and as
@@ -897,6 +920,17 @@ export type AccountsSut = {
    * recorded by a platform administrator (AT-001.28, R15).
    */
   setEscalationContact(session: Session | null, request: EscalationContactRequest): Promise<EscalationOutcome>;
+  /**
+   * `supabase/functions/set-account-lifecycle` — deactivate or re-enable an account (AT-001.30, .31).
+   * A null session is the unauthenticated arm, the same posture the transfer carries.
+   */
+  setAccountLifecycle(session: Session | null, request: LifecycleRequest): Promise<LifecycleOutcome>;
+  /**
+   * AT-001.29/.30/.31: the smallest legal write on one inventory route, as this session. Both
+   * adapters implement the body as a `Record<WriteRouteName, …>`, so an inventory row the adapter
+   * cannot attempt is a type error.
+   */
+  attemptWrite(route: WriteRouteName, session: Session | null, subject: WriteSubject): Promise<WriteAttemptOutcome>;
 
   /**
    * The audit record, read as the operator: no client role and no viewer helper reaches the table

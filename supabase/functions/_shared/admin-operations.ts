@@ -1,20 +1,21 @@
 /**
- * THE PLATFORM ADMINISTRATOR'S TWO OPERATIONS ON AN ORGANISATION, as pure decisions: the audited
- * contact transfer, which lost-access recovery is the same operation as (AT-001.25, .26, .27, .35),
- * and the non-login escalation contact (AT-001.28). The routes under `supabase/functions/` register
- * each one through `writeRoute`, and the acceptance fixture runs the same decision over Maps, so
- * the loop tier grades the judgement that ships.
+ * THE PLATFORM ADMINISTRATOR'S THREE OPERATIONS, as pure decisions: the audited contact transfer,
+ * which lost-access recovery is the same operation as (AT-001.25, .26, .27, .35), the non-login
+ * escalation contact (AT-001.28), and the account lifecycle setter (AT-001.29, .30, .31). The
+ * routes under `supabase/functions/` register each one through `writeRoute`, and the acceptance
+ * fixture runs the same decision over Maps, so the loop tier grades the judgement that ships.
  *
  * WHO MAY CALL IS NOT DECIDED HERE. The lifecycle gate and the platform-administrator check are the
- * inventory's — `WRITE_ROUTES` admits `platform_admin` only on both routes — and `writePipeline`
- * applies them before a decision runs. What is decided here is whether THIS request is one the
- * database should perform, and the database re-checks every answer as a backstop.
+ * inventory's — `WRITE_ROUTES` admits `platform_admin` only on these routes — and `writePipeline`
+ * applies them before a decision runs. A deactivated administrator is refused by the gate before
+ * `decideLifecycleChange` runs. What is decided here is whether THIS request is one the database
+ * should perform, and the database re-checks every answer as a backstop.
  *
  * Same two constraints as `accounts.ts`: no non-relative import and no Deno global; no I/O, no
  * clock, no randomness.
  */
 
-import type { Decision } from './accounts.ts';
+import { parseAccountLifecycle, type AccountLifecycle, type Decision } from './accounts.ts';
 import { refuseWrite, stringField, type WriteRouteDecision, type WriteRouteInput } from './write-routes.ts';
 
 /**
@@ -24,6 +25,11 @@ import { refuseWrite, stringField, type WriteRouteDecision, type WriteRouteInput
  */
 export function subjectAccountIdField(body: Record<string, unknown>): string | null {
   return stringField(body.toAccountId);
+}
+
+/** The account whose lifecycle the setter changes — the standing's subject. */
+export function accountIdField(body: Record<string, unknown>): string | null {
+  return stringField(body.accountId);
 }
 
 /* ------------------------------------------------------------------------ the contact transfer */
@@ -159,6 +165,53 @@ export function decideEscalationContact(input: WriteRouteInput): WriteRouteDecis
       p_name: contact.value.name,
       p_email: contact.value.email,
       p_phone: contact.value.phone,
+    },
+  };
+}
+
+/* ---------------------------------------------------------------------- the lifecycle setter */
+
+export type LifecycleChangeArgs = {
+  readonly p_account_id: string;
+  readonly p_subject_account_id: string;
+  readonly p_lifecycle: AccountLifecycle;
+  readonly p_reason: string;
+};
+
+/**
+ * THE SUBJECT IS THE STANDING'S SUBJECT. An administrator changing its own lifecycle is
+ * `invalid-request` — a second administrator is required. A deactivated administrator never
+ * reaches this decision: the inventory gate refuses it first.
+ */
+export function decideLifecycleChange(input: WriteRouteInput): WriteRouteDecision<LifecycleChangeArgs> {
+  if (input.standing.kind !== 'account') {
+    return refuseWrite('refused', 502, 'the lifecycle change was asked to decide with no caller standing, so no decision was made');
+  }
+  const subjectAccountId = input.subject;
+  const lifecycle = parseAccountLifecycle(input.body.lifecycle);
+  const reason = stringField(input.body.reason);
+  if (subjectAccountId === null) {
+    return refuseWrite('invalid-request', 400, 'the lifecycle change must name the account by id (accountId)');
+  }
+  if (lifecycle === null) {
+    return refuseWrite('invalid-request', 400, 'the lifecycle change must name a lifecycle of active or deactivated');
+  }
+  if (reason === null) {
+    return refuseWrite('invalid-request', 400, 'the lifecycle change must carry a reason — the audit record is written with it');
+  }
+  if (subjectAccountId === input.caller.id) {
+    return refuseWrite('invalid-request', 400, 'an administrator cannot change its own lifecycle');
+  }
+  if (input.standing.subject === null) {
+    return refuseWrite('subject-no-account', 409, `account ${subjectAccountId} has not completed signup, so it has no lifecycle to change`);
+  }
+  return {
+    ok: true,
+    args: {
+      p_account_id: input.caller.id,
+      p_subject_account_id: subjectAccountId,
+      p_lifecycle: lifecycle,
+      p_reason: reason,
     },
   };
 }

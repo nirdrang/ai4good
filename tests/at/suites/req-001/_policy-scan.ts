@@ -33,6 +33,16 @@ export type PolicyProblem = { code: string; detail: string };
 
 export type MigrationFile = { name: string; text: string };
 
+/**
+ * A SECURITY DEFINER granted EXECUTE to `service_role` that is not `stable` or `immutable` must
+ * call `public.assert_account_active(`. One exemption, with its reason in the row (R1).
+ */
+export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
+  complete_signup:
+    'the caller holds no account row when this runs; a second completion is refused by the accounts ' +
+    'primary key, and the TypeScript gate refuses a deactivated account before the call is made',
+};
+
 function matchDollarTag(sql: string, i: number): string | null {
   const slice = sql.slice(i);
   const m = /^\$[A-Za-z0-9_]*\$/.exec(slice);
@@ -556,6 +566,95 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
   return problems;
 }
 
+type WriteGateFn = {
+  definer: boolean;
+  stable: boolean;
+  gated: boolean;
+  auditMutation: boolean;
+  executeRoles: Set<string>;
+};
+
+function functionHeader(statement: string): string {
+  const asDollar = /\sas\s+\$/.exec(statement);
+  return asDollar ? statement.slice(0, asDollar.index) : statement;
+}
+
+/**
+ * The SQL half of the write-route conformance check. Reuses `splitSqlStatements`. A later
+ * `create or replace` overlays an earlier body, the way the catalog scan overlays grants.
+ */
+export function scanWriteGateSql(files: readonly MigrationFile[]): PolicyProblem[] {
+  const fns = new Map<string, WriteGateFn>();
+  const problems: PolicyProblem[] = [];
+  const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
+  for (const file of ordered) {
+    for (const raw of splitSqlStatements(file.text)) {
+      const stmt = collapse(raw);
+
+      const createdFn = /^create(?:\s+or\s+replace)?\s+function\s+public\.([A-Za-z_][A-Za-z0-9_]*)\s*\(/i.exec(stmt);
+      if (createdFn) {
+        const short = createdFn[1];
+        const name = `public.${short}`;
+        const header = functionHeader(stmt);
+        fns.set(name, {
+          definer: /\bsecurity\s+definer\b/i.test(header),
+          stable: /\b(stable|immutable)\b/i.test(header),
+          gated: /public\.assert_account_active\s*\(/i.test(stmt),
+          auditMutation: /\bupdate\s+public\.audit_events\b/i.test(stmt) || /\bdelete\s+from\s+public\.audit_events\b/i.test(stmt),
+          executeRoles: new Set(),
+        });
+        continue;
+      }
+
+      const droppedFn = publicIdent(stmt, /^drop\s+function(?:\s+if\s+exists)?\s+public\./i);
+      if (droppedFn) {
+        fns.delete(`public.${droppedFn}`);
+        continue;
+      }
+
+      if (/^revoke\s+execute\s+on\s+function\b/i.test(stmt)) {
+        const name = functionNameOf(stmt);
+        const fn = name ? fns.get(name) : undefined;
+        if (fn) {
+          const from = /\bfrom\s+(.+)$/i.exec(stmt)?.[1] ?? '';
+          for (const role of from.split(',').map((part) => part.trim().toLowerCase())) {
+            if (role) fn.executeRoles.delete(role);
+          }
+        }
+        continue;
+      }
+
+      if (/^grant\s+execute\s+on\s+function\b/i.test(stmt)) {
+        const name = functionNameOf(stmt);
+        const fn = name ? fns.get(name) : undefined;
+        if (fn) {
+          const to = /\bto\s+(.+)$/i.exec(stmt)?.[1] ?? '';
+          for (const role of to.split(',').map((part) => part.trim().toLowerCase())) {
+            if (role) fn.executeRoles.add(role);
+          }
+        }
+      }
+    }
+  }
+
+  for (const [name, fn] of fns) {
+    const short = name.slice('public.'.length);
+    if (fn.definer && !fn.stable && fn.executeRoles.has('service_role') && !fn.gated && !(short in WRITE_GATE_EXEMPT)) {
+      problems.push({
+        code: 'definer-no-write-gate',
+        detail: `${name} is reachable by service_role and does not call public.assert_account_active`,
+      });
+    }
+    if (fn.auditMutation) {
+      problems.push({
+        code: 'audit-mutation-in-definer',
+        detail: `${name} updates or deletes public.audit_events`,
+      });
+    }
+  }
+  return problems;
+}
+
 export function tenantCatalogProblems(migrationsDir?: string): PolicyProblem[] {
   const dir = migrationsDir ?? join(REPO_ROOT, 'supabase', 'migrations');
   let names: string[];
@@ -570,5 +669,5 @@ export function tenantCatalogProblems(migrationsDir?: string): PolicyProblem[] {
     throw new Error(`tenant catalog scan found no migration under ${dir}`);
   }
   const files = names.map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }));
-  return scanTenantMigrations(files);
+  return [...scanTenantMigrations(files), ...scanWriteGateSql(files)];
 }

@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   scanTenantMigrations,
+  scanWriteGateSql,
   TENANT_CATALOG,
   tenantCatalogProblems,
 } from '../suites/req-001/_policy-scan.ts';
@@ -345,5 +346,38 @@ describe('weakening statements overlay and are refused', () => {
     expect(
       weakened('grant trigger on public.projects to service_role;').some((p) => p.code === 'service-role-write'),
     ).toBe(true);
+  });
+});
+
+describe('scanWriteGateSql refusals', () => {
+  it('refuses a service-role definer that does not call public.assert_account_active', () => {
+    const problems = scanWriteGateSql([
+      {
+        name: 'x.sql',
+        text: `
+create function public.donate_fuel(p_account_id uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $$ begin return '{}'::jsonb; end; $$;
+revoke execute on function public.donate_fuel(uuid) from public;
+grant execute on function public.donate_fuel(uuid) to service_role;
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'definer-no-write-gate')).toBe(true);
+  });
+
+  it('refuses a function that updates public.audit_events', () => {
+    const problems = scanWriteGateSql([
+      {
+        name: 'x.sql',
+        text: `
+create function public.rewrite_audit()
+returns void language plpgsql security definer set search_path = ''
+as $$ begin update public.audit_events set reason = 'tampered'; end; $$;
+revoke execute on function public.rewrite_audit() from public;
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'audit-mutation-in-definer')).toBe(true);
   });
 });

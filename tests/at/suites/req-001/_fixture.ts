@@ -226,16 +226,22 @@ import { decideOrganizationRename, type OrganizationRenameArgs } from '../../../
 import {
   organizationIdField,
   parseWriteStanding,
+  writeGateDecision,
   writePipeline,
+  type WriteRouteName,
   type WriteRouteSpec,
 } from '../../../../supabase/functions/_shared/write-routes.ts';
 import {
+  accountIdField,
   decideContactTransfer,
   decideEscalationContact,
+  decideLifecycleChange,
   subjectAccountIdField,
   type ContactTransferArgs,
   type EscalationContactArgs,
+  type LifecycleChangeArgs,
 } from '../../../../supabase/functions/_shared/admin-operations.ts';
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
 // separate implementations the test would grade the fixture's copy and say nothing about what the
@@ -277,6 +283,7 @@ import type {
   EscalationContactRow,
   EscalationOutcome,
   GrantMembershipOutcome,
+  LifecycleOutcome,
   MembershipRow,
   OrganizationRow,
   ProjectRow,
@@ -292,7 +299,9 @@ import type {
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
+  WriteAttemptOutcome,
   WriteRefusal,
+  WriteSubject,
 } from './_contract.ts';
 
 /**
@@ -737,6 +746,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     target: organizationIdField,
     decide: decideEscalationContact,
   };
+  const LIFECYCLE_CHANGE: WriteRouteSpec<LifecycleChangeArgs> = {
+    name: 'set-account-lifecycle',
+    subject: accountIdField,
+    decide: decideLifecycleChange,
+  };
 
   /** The mirror of `public.append_audit_event`: the label is 'platform_admin:<id>' or 'operator' (R9). */
   const appendAudit = (
@@ -1155,6 +1169,10 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         return { ok: false, reason: 'complete signup before sending a Discovery message' };
       }
 
+      const standing = parseWriteStanding(renderWriteStanding(caller.id, null, null));
+      const gate = writeGateDecision('discovery-message', standing);
+      if (!gate.ok) return { ok: false, reason: gate.reason };
+
       // THE VERIFIED FACT IS A CALLER FACT, derived exactly as `emailVerified` derives it: from the
       // rendered response shape, through the shipped extractor. It is never a request field —
       // a request field is something a client asserts about itself, and a floor built on one is no
@@ -1513,6 +1531,115 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         recordedAt: new Date(clock.now()).toISOString(),
       });
       return { ok: true, organizationId };
+    },
+
+    setAccountLifecycle: async (session, request): Promise<LifecycleOutcome> => {
+      const run = runWrite(LIFECYCLE_CHANGE, session, request, null);
+      if (!run.ok) return run;
+      const changed = changeLifecycle(run.args.p_subject_account_id, run.args.p_lifecycle, run.caller.id, run.args.p_reason);
+      return { ok: true, changed };
+    },
+
+    attemptWrite: async (route, session, subject): Promise<WriteAttemptOutcome> => {
+      const attempts: Record<WriteRouteName, (session: Session | null, subject: WriteSubject) => Promise<WriteAttemptOutcome>> = {
+        'complete-signup': async (handle, write) => {
+          const request = {
+            accountType: 'ngo',
+            organizationName: write.name,
+            acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
+            signerName: 'Dana Okonkwo',
+            signerTitle: 'Executive Director',
+            authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+          };
+          const run = runWrite(SIGNUP_COMPLETION, handle, request, '203.0.113.7');
+          if (!run.ok) return run;
+          if (handle === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          const completed = await completeSignup(handle, request, '203.0.113.7');
+          return completed.ok ? { ok: true } : { ok: false, kind: 'refused', status: 409, reason: completed.reason };
+        },
+        'create-organization': async (handle, write) => {
+          const run = runWrite(ORGANIZATION_CREATION, handle, { name: write.name }, null);
+          if (!run.ok) return run;
+          const organization: OrganizationRow = { id: nextId('org'), name: run.args.p_name };
+          const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
+          state.organizations.set(organization.id, organization);
+          state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
+          return { ok: true };
+        },
+        'update-organization': async (handle, write) => {
+          const run = runWrite(ORGANIZATION_RENAME, handle, { organizationId: write.organizationId, name: write.name }, null);
+          if (!run.ok) return run;
+          state.organizations.set(run.args.p_organization_id, { id: run.args.p_organization_id, name: run.args.p_name });
+          return { ok: true };
+        },
+        'transfer-organization-contact': async (handle, write) => {
+          const run = runWrite(CONTACT_TRANSFER, handle, {
+            organizationId: write.organizationId,
+            fromAccountId: write.fromAccountId,
+            toAccountId: write.toAccountId,
+            reason: write.reason,
+          }, null);
+          if (!run.ok) return run;
+          const { p_organization_id: organizationId, p_from_account_id: from, p_to_account_id: to, p_reason: reason } = run.args;
+          const seat = state.memberships.get(membershipKey(organizationId, from));
+          if (!seat) throw new Error(`fixture: the decision admitted a transfer from ${from}, which holds no seat in ${organizationId}`);
+          state.memberships.delete(membershipKey(organizationId, from));
+          state.memberships.set(membershipKey(organizationId, to), { ...seat, accountId: to });
+          changeLifecycle(from, 'deactivated', run.caller.id, reason);
+          appendAudit('org_contact_transferred', run.caller.id, from, organizationId, reason, { from_account_id: from, to_account_id: to });
+          return { ok: true };
+        },
+        'set-escalation-contact': async (handle, write) => {
+          const run = runWrite(ESCALATION_CONTACT, handle, {
+            organizationId: write.organizationId,
+            name: write.name,
+            email: write.email,
+            phone: null,
+          }, null);
+          if (!run.ok) return run;
+          state.escalationContacts.set(run.args.p_organization_id, {
+            organizationId: run.args.p_organization_id,
+            contactName: run.args.p_name,
+            contactEmail: run.args.p_email,
+            contactPhone: run.args.p_phone,
+            recordedByAccountId: run.caller.id,
+            recordedAt: new Date(clock.now()).toISOString(),
+          });
+          return { ok: true };
+        },
+        'set-account-lifecycle': async (handle, write) => {
+          const run = runWrite(LIFECYCLE_CHANGE, handle, {
+            accountId: write.accountId,
+            lifecycle: write.lifecycle,
+            reason: write.reason,
+          }, null);
+          if (!run.ok) return run;
+          changeLifecycle(run.args.p_subject_account_id, run.args.p_lifecycle, run.caller.id, run.args.p_reason);
+          return { ok: true };
+        },
+        'discovery-message': async (handle, write) => {
+          if (handle === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          const caller = resolveCaller(handle);
+          if (caller === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          const standing = parseWriteStanding(renderWriteStanding(caller.id, null, null));
+          const gate = writeGateDecision('discovery-message', standing);
+          if (!gate.ok) return { ok: false, kind: gate.kind, status: gate.status, reason: gate.reason };
+          const sent = await (async () => {
+            const authUser = state.authUsers.get(caller.id);
+            if (!authUser) return { ok: false as const, reason: DEAD_SESSION_REASON };
+            const emailVerified = emailVerifiedFromUser(renderAuthUser(authUser));
+            const allowed = discoveryMessageAllowed({ emailVerified });
+            if (!allowed.ok) return { ok: false as const, reason: allowed.reason };
+            const queued = state.discoveryMessages.get(caller.id) ?? [];
+            queued.push(write.message);
+            state.discoveryMessages.set(caller.id, queued);
+            return { ok: true as const };
+          })();
+          if (sent.ok) return { ok: true };
+          return { ok: false, kind: 'refused', status: 403, reason: sent.reason };
+        },
+      };
+      return attempts[route](session, subject);
     },
 
     auditEvents: async (filter) =>

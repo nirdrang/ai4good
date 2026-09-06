@@ -68,7 +68,8 @@ import { emailVerifiedFromUser } from '../../../../supabase/functions/_shared/ve
 // THE SHIPPED FAIL-CLOSED PARSER for the kind a write route puts on the wire: an unrecognised value
 // becomes `refused` rather than being trusted, so a gateway error page or a future field rename
 // cannot arrive wearing a label an acceptance body asserts.
-import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { parseWriteRefusalKind, type WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import {
   authPost,
@@ -92,6 +93,7 @@ import type {
   EscalationContactRow,
   EscalationOutcome,
   GrantMembershipOutcome,
+  LifecycleOutcome,
   MembershipRow,
   OrganizationRow,
   ProjectRow,
@@ -103,7 +105,9 @@ import type {
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
+  WriteAttemptOutcome,
   WriteRefusal,
+  WriteSubject,
 } from './_contract.ts';
 import { liveTenantReads, type JwtClaims } from './_live-tenant-reads.ts';
 
@@ -850,6 +854,60 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       const answer = await postWrite('set-escalation-contact', session, request);
       if (!answer.ok) return answer.refusal;
       return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
+    },
+
+    setAccountLifecycle: async (session, request): Promise<LifecycleOutcome> => {
+      const answer = await postWrite('set-account-lifecycle', session, request);
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, changed: Boolean(answer.json.changed) };
+    },
+
+    attemptWrite: async (route, session, subject): Promise<WriteAttemptOutcome> => {
+      const asAttempt = async (
+        name: string,
+        body: Record<string, unknown>,
+      ): Promise<WriteAttemptOutcome> => {
+        const answer = await postWrite(name, session, body);
+        return answer.ok ? { ok: true } : answer.refusal;
+      };
+      const attempts: Record<WriteRouteName, (session: Session | null, subject: WriteSubject) => Promise<WriteAttemptOutcome>> = {
+        'complete-signup': (_handle, write) =>
+          asAttempt('complete-signup', {
+            accountType: 'ngo',
+            organizationName: write.name,
+            acknowledgmentTextVersion: 'tos-2026-01+promise-2026-01',
+            signerName: 'Dana Okonkwo',
+            signerTitle: 'Executive Director',
+            authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+          }),
+        'create-organization': (_handle, write) => asAttempt('create-organization', { name: write.name }),
+        'update-organization': (_handle, write) =>
+          asAttempt('update-organization', { organizationId: write.organizationId, name: write.name }),
+        'transfer-organization-contact': (_handle, write) =>
+          asAttempt('transfer-organization-contact', {
+            organizationId: write.organizationId,
+            fromAccountId: write.fromAccountId,
+            toAccountId: write.toAccountId,
+            reason: write.reason,
+          }),
+        'set-escalation-contact': (_handle, write) =>
+          asAttempt('set-escalation-contact', {
+            organizationId: write.organizationId,
+            name: write.name,
+            email: write.email,
+            phone: null,
+          }),
+        'set-account-lifecycle': (_handle, write) =>
+          asAttempt('set-account-lifecycle', {
+            accountId: write.accountId,
+            lifecycle: write.lifecycle,
+            reason: write.reason,
+          }),
+        'discovery-message': () => {
+          throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
+        },
+      };
+      return attempts[route](session, subject);
     },
 
     /* --------------------- the audit record and the escalation contact, as the operator (R12) --- */
