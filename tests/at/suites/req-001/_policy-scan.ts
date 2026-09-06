@@ -185,7 +185,7 @@ type DefinerFn = {
   executeRoles: Set<string>;
 };
 
-const WRITE_PRIVS = new Set(['insert', 'update', 'delete', 'truncate', 'all']);
+const WRITE_PRIVS = new Set(['insert', 'update', 'delete', 'truncate', 'references', 'trigger', 'all']);
 const CLIENT_EXECUTE_ROLES = new Set(['anon', 'authenticated', 'public']);
 
 function privsOf(byTable: Map<string, TablePrivs>, table: string, role: string): Set<string> {
@@ -246,6 +246,7 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
   const definers = new Map<string, DefinerFn>();
   const baselineAnon = new Set<string>();
   const baselineAuthenticated = new Set<string>();
+  const baselineServiceRole = new Set<string>();
   const problems: PolicyProblem[] = [];
 
   const dropTable = (table: string): void => {
@@ -255,6 +256,7 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
     grants.delete(table);
     baselineAnon.delete(table);
     baselineAuthenticated.delete(table);
+    baselineServiceRole.delete(table);
   };
 
   const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
@@ -427,6 +429,7 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
               grants.get(table)?.delete(role);
               if (role === 'anon') baselineAnon.add(table);
               if (role === 'authenticated') baselineAuthenticated.add(table);
+              if (role === 'service_role') baselineServiceRole.add(table);
             } else {
               const set = grants.get(table)?.get(role);
               if (set) for (const priv of privileges) set.delete(priv);
@@ -454,10 +457,10 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
 
   for (const [table, posture] of Object.entries(TENANT_CATALOG)) {
     if (!tables.has(table)) continue;
-    if (!baselineAnon.has(table) || !baselineAuthenticated.has(table)) {
+    if (!baselineAnon.has(table) || !baselineAuthenticated.has(table) || !baselineServiceRole.has(table)) {
       problems.push({
         code: 'no-baseline-revoke',
-        detail: `${table} has no revoke all from anon, authenticated after create table`,
+        detail: `${table} has no revoke all from anon, authenticated, service_role after create table`,
       });
     }
     const roleGrants = grants.get(table) ?? new Map();

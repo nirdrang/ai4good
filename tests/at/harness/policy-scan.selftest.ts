@@ -26,7 +26,7 @@ function validSql(): string {
   const tables = Object.keys(TENANT_CATALOG);
   const creates = tables.map((table) => `create table public.${table} (id uuid);`).join('\n');
   const baseline = tables
-    .map((table) => `revoke all on table public.${table} from anon, authenticated;`)
+    .map((table) => `revoke all on table public.${table} from anon, authenticated, service_role;`)
     .join('\n');
   const rls = tables
     .filter((table) => TENANT_CATALOG[table] === 'tenant-isolated')
@@ -115,7 +115,7 @@ describe('scanTenantMigrations refusals', () => {
 
   it('refuses an unreachable table with an un-revoked grant to authenticated', () => {
     const sql = validSql().replace(
-      /revoke all on table public.accounts from anon, authenticated;/,
+      /revoke all on table public.accounts from anon, authenticated, service_role;/,
       'grant select on public.accounts to authenticated;',
     );
     const problems = scanTenantMigrations([{ name: 'a.sql', text: sql }]);
@@ -295,7 +295,16 @@ describe('weakening statements overlay and are refused', () => {
   });
 
   it('refuses a catalog table with no baseline revoke', () => {
-    const sql = validSql().replace(/revoke all on table public.organizations from anon, authenticated;/, '');
+    const sql = validSql().replace(/revoke all on table public.organizations from anon, authenticated, service_role;/, '');
+    const problems = scanTenantMigrations([{ name: 'a.sql', text: sql }]);
+    expect(problems.some((p) => p.code === 'no-baseline-revoke' && p.detail.includes('organizations'))).toBe(true);
+  });
+
+  it('refuses a baseline revoke that names only anon and authenticated', () => {
+    const sql = validSql().replace(
+      /revoke all on table public.organizations from anon, authenticated, service_role;/,
+      'revoke all on table public.organizations from anon, authenticated;',
+    );
     const problems = scanTenantMigrations([{ name: 'a.sql', text: sql }]);
     expect(problems.some((p) => p.code === 'no-baseline-revoke' && p.detail.includes('organizations'))).toBe(true);
   });
@@ -323,6 +332,18 @@ describe('weakening statements overlay and are refused', () => {
   it('refuses a remaining write privilege for service_role', () => {
     expect(
       weakened('grant truncate on public.projects to service_role;').some((p) => p.code === 'service-role-write'),
+    ).toBe(true);
+  });
+
+  it('refuses a remaining references privilege for service_role', () => {
+    expect(
+      weakened('grant references on public.projects to service_role;').some((p) => p.code === 'service-role-write'),
+    ).toBe(true);
+  });
+
+  it('refuses a remaining trigger privilege for service_role', () => {
+    expect(
+      weakened('grant trigger on public.projects to service_role;').some((p) => p.code === 'service-role-write'),
     ).toBe(true);
   });
 });
