@@ -100,9 +100,9 @@ falsely In Progress.
    the item.
 
    **Cloud, on `/controller <id> cloud`.** Stay in the main folder. The worktree here had one
-   job, to commit the brief on the item branch without switching this folder. Once the push
-   lands, remove it: `git worktree remove .claude/worktrees/<item>`. The branch stays. The
-   cloud VM is its own clone and needs no worktree (founder 2026-09-05).
+   job, to commit the brief on the item branch without switching this folder. The cloud VM
+   is its own clone and needs no worktree (founder 2026-09-05). Once the push lands, the
+   worktree is idle. Report it, and remove it only when the founder says so by name.
 
    Creating a cloud session needs a real terminal. The tool shell has none, so print this
    and ask the founder to run it in their own terminal:
@@ -115,8 +115,8 @@ falsely In Progress.
    cloud session open, give them that same sentence to paste into it. The push must land
    before either, because the VM clones the remote. When the founder pastes back the
    `session_...` id and the `claude.ai/code/...` link, record both in
-   `loop/items/<item>/mechanic.md` on the branch through a fresh short-lived worktree, push,
-   and remove the worktree again. Do not retry a failed launch silently.
+   `loop/items/<item>/mechanic.md` on the branch through the same worktree, and push. Do not
+   retry a failed launch silently.
 
 ## The brief
 
@@ -167,9 +167,10 @@ Then close the item as the Closing section says. You close it, nobody else.
 1. Wait for CI to be green on the exact head of the pull request, and for the founder to
    say "merge". Both, never one.
 2. Hand the git mechanics to the `mechanical` agent with exact commands. You decide, it
-   types: `gh pr merge <n> --squash`, and after you leave the worktree, the worktree removal
-   and the remote branch deletion. The merge closes the item on the board through the pull
-   request link. Never touch the board yourself.
+   types: `gh pr merge <n> --squash`. The merge closes the item on the board through the
+   pull request link. Never touch the board yourself. Delete no branch and no worktree: the
+   founder keeps merged branches for reflection, and deletes by name when they choose
+   (founder 2026-09-06).
 3. Leave the worktree with `ExitWorktree(action: "keep")`.
 4. Invoke `/controller done <item>`. That skill does the board steering. Do not do it
    yourself.
@@ -239,9 +240,9 @@ On `/controller done <id>`, you do the board:
 After `session is free`, the session is in the main folder on `main`. The next item starts
 with `/controller <id>` in the same session, or in a new one.
 
-The sweep of a worktree left behind by a dead session happens at the next `/controller`
-start: a worktree under `.claude/worktrees/` whose branch is merged is removed, and one whose
-branch is not merged is reported, never removed.
+At the next `/controller` start, every worktree under `.claude/worktrees/` is reported with
+its branch and whether that branch is merged. None is removed. The founder deletes a branch
+or a worktree by name (founder 2026-09-06).
 
 ## Requirement evidence gate
 

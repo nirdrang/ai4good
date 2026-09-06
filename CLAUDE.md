@@ -89,6 +89,12 @@ Three rules bind every session in this folder, before any skill is invoked:
   controller it finshed with the brief and them i run the pstack poteto mode on that
   session"): `/controller` moves its session into the item's worktree with `EnterWorktree`
   for the hand-off to poteto-mode, and back out with `ExitWorktree` for the gate.
+- **No branch or worktree is deleted without a founder decision (MUST-FOLLOW; founder
+  2026-09-06: "Make it stick in Claude.md that a founder decision is required for branch and
+  worktree deletions").** This covers local branches, remote branches, and worktrees, after a
+  merge as much as before one. The founder keeps merged branches to reflect on later. A
+  merged branch or a stale worktree is reported, never removed, until the founder says
+  "delete" for that branch or worktree by name.
 - **The merge closes an item; there is no second way to close work.** In a parent run the
   merge closes the parent, and `/controller done` closes each built child from that merge
   commit, because a pull request never names a child id. Machinery changed
