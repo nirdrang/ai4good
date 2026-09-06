@@ -1,0 +1,32 @@
+2026-09-05T22:41:46Z
+PASS  (a) auth health answers
+        GET /auth/v1/health -> 200
+PASS  (a2) mail identification
+        Mailpit v1.30.2 at http://127.0.0.1:44324
+PASS  (a3) edge runtime mount
+        edge runtime functions mount /home/user/ai4good/supabase/functions
+PASS  (b) signup returns a user and no session
+        status 200, access_token present: false
+PASS  (c) sign-in refused while unconfirmed
+        status 400
+PASS  (d1) confirmation email holds a verify link
+        http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED
+PASS  (d2) verify link redirects (address confirmed)
+        status 303 -> http://127.0.0.1:3000/
+PASS  (e) sign-in succeeds after confirmation
+        status 200, token issued, user 9dc02095-bb74-4600-aea0-40d2bcb38ccd
+PASS  (f) complete-signup (ngo) answers 200
+        status 200: {"ok":true,"accountId":"9dc02095-bb74-4600-aea0-40d2bcb38ccd","accountType":"ngo","organizationId":"ec94675e-0bbf-49ac-a068-4697305bae08"}
+PASS  (g1) accounts row: account_type=ngo
+        {"id":"9dc02095-bb74-4600-aea0-40d2bcb38ccd","account_type":"ngo"}
+PASS  (g2) organizations row exists with the driven name
+        {"id":"ec94675e-0bbf-49ac-a068-4697305bae08","name":"Verify Drill Org 1788648107746"}
+PASS  (g3) org_memberships row: role=admin
+        {"role":"admin"}
+PASS  (g4) acknowledgments row carries the driven text_version
+        {"kind":"platform_tos_and_promise","text_version":"tos-platform-promise-v1"}
+
+evidence: /home/user/ai4good/loop/items/AI4DEV-55/artifacts/verify/drive/transcript.json
+
+13/13 checks passed
+exit 0

@@ -1,0 +1,20 @@
+2026-09-05T22:38:08Z
+$ bun tests/at/harness/runner.ts "req-016" --tier loop --expect
+JSON report written to /tmp/at-verify-m2i58N/vitest-report.json
+
+at:verify req-016 --tier loop
+  AT-016.01    red      CapabilityPending: CAPABILITY PENDING — H3 static provider scan
+  AT-016.02    green    registered events equal the taxonomy exactly, are immutable, and carry no CR/scope-change event
+  AT-016.03    green    every taxonomy row delivers to exactly its recipients on exactly its channels, with the named payloads
+  AT-016.04    green    sensitive negatives: no candidacy to the NGO, no vetting outcome to the volunteer, no donation event
+  AT-016.05    green    every critical class goes out by email; the low-tone event is in-app only
+  AT-016.06    green    a documented delivery default exists for every taxonomy row
+  AT-016.07    green    one logical event per committed event, one delivery per recipient-channel pair, across a restart
+  AT-016.08    green    a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations
+  AT-016.09    green    every guarded transition writes its notification event atomically under an induced fault
+  AT-016.10    green    recipients resolve at event creation: the old holder receives, the new holder is excluded
+  AT-016.11    green    sent only on provider acceptance; unconfirmed sends retry; a lost ack mints no duplicate
+  AT-016.12    green    an escalation-tier event notifies both the NGO and the platform admin
+  12 P0: 11 green, 1 red, 0 missing
+  EXPECTED: the run matches /home/user/ai4good/tests/at/expected/req-016.json exactly (11 declared green, 1 declared red)
+exit 0

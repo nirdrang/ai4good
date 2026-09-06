@@ -96,6 +96,7 @@ import type {
   VolunteerProfileRow,
   World,
 } from './_contract.ts';
+import { liveTenantReads, type JwtClaims } from './_live-tenant-reads.ts';
 
 /** THE SELF-DECLARATION the loader checks against the requirement it was asked for. */
 export const requirement = 'req-001' as const;
@@ -122,23 +123,22 @@ function tokensOf(store: Map<string, LiveSession>, session: Session, act: string
   return held;
 }
 
+function claimsOf(token: string): JwtClaims {
+  return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as JwtClaims;
+}
+
 /** The `session_id` claim, which is the identity of the `auth.sessions` row GoTrue minted. */
 function sessionIdOf(accessToken: string): string {
-  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as {
-    session_id?: unknown;
-    sub?: unknown;
-  };
-  return String(claims.session_id ?? '');
+  return String(claimsOf(accessToken).session_id ?? '');
 }
 
 function accountIdOf(accessToken: string): string {
-  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as { sub?: unknown };
-  return String(claims.sub ?? '');
+  return String(claimsOf(accessToken).sub ?? '');
 }
 
 /** `exp - iat`, in seconds: the lifetime the issuing Auth service is configured with, in its own words. */
 function lifetimeOf(accessToken: string): number {
-  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8')) as { exp?: unknown; iat?: unknown };
+  const claims = claimsOf(accessToken);
   return Number(claims.exp) - Number(claims.iat);
 }
 
@@ -580,9 +580,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
      * A PROJECT, PROVISIONED BY THE OPERATOR — one insert, with its seat free.
      *
      * There is no product project-creation path in this repository at either tier, so this is the
-     * only way AT-001.32's Given is reached. `public.projects` reaches no Data API role at all
-     * (measured after reset — verify-first answer (f): zero catalog rows for `anon`, `authenticated`
-     * and `service_role`), so this is a direct database write and could not be anything else.
+     * only way AT-001.32's Given is reached. `authenticated` may SELECT `public.projects` through
+     * the tenant policy set; this method is still a direct operator insert because no product path
+     * creates a project, and the service role still holds no INSERT.
      */
     createProjectAsOperator: async (organizationId, name): Promise<ProjectRow> => {
       const created = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
@@ -631,7 +631,11 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       } catch (error) {
         const { code, message } = databaseRefusal(error);
         // SENTENCE-PRIMARY, SQLSTATE AS AGREEMENT — gate-2 ruling R3, the same rule the membership
-        // grant above follows and for the same reason.
+        // grant above follows and for the same reason. The two patterns are disjoint: the type
+        // refusal names admission, the occupancy refusal names a single developer seat.
+        if (/developer seat admits volunteer accounts only/i.test(message) && (code === '' || code === '42501')) {
+          return { ok: false, kind: 'not-a-volunteer-account', reason: message };
+        }
         if (/single developer seat/i.test(message) && (code === '' || code === '42501')) {
           return { ok: false, kind: 'seat-occupied', reason: message };
         }
@@ -803,6 +807,14 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return { accountId, email, provider: 'email', sessionId };
     },
 
+    retypeAccountAsOperator: async (accountId, accountType): Promise<void> => {
+      const updated = await rows<{ id: string }>(
+        sql`update public.accounts set account_type = ${accountType}::public.account_type
+             where id = ${accountId}::uuid returning id`,
+      );
+      if (updated.length !== 1) throw new Error(`the operator could not retype account ${accountId}`);
+    },
+
     // Written out because the integration manifest names each one, and `AccountsSut` makes an
     // omitted method a compile error.
     registerWithProvider: () => { throw new CapabilityPending(['sut.accounts.registerWithProvider']); },
@@ -811,6 +823,15 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     sendDiscoveryMessage: () => { throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']); },
     discoveryMessagesBy: () => { throw new CapabilityPending(['sut.accounts.discoveryMessagesBy']); },
     publicSignupAccountTypes: () => { throw new CapabilityPending(['sut.accounts.publicSignupAccountTypes']); },
+
+    ...liveTenantReads({
+      stack,
+      sessions,
+      tokensOf: (session, act) => tokensOf(sessions, session, act),
+      claimsOf,
+      rows,
+      sql,
+    }),
   };
 
   /**

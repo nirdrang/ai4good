@@ -236,6 +236,14 @@ import {
   discoveryMessageAllowed,
   emailVerifiedFromUser,
 } from '../../../../supabase/functions/_shared/verification.ts';
+import {
+  organizationDashboard,
+  projectWorkspace,
+  type TenantReadAnswer,
+  type TenantReads,
+} from '../../../../supabase/functions/_shared/tenant-reads.ts';
+import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
+import { CapabilityPending } from '../../harness/pending.ts';
 import type {
   AccountRow,
   AccountsSut,
@@ -247,12 +255,14 @@ import type {
   MembershipRow,
   OrganizationRow,
   ProjectRow,
+  PublicProjectOutcome,
   RefreshSessionOutcome,
   RepointMembershipOutcome,
   SendDiscoveryMessageOutcome,
   Session,
   SessionProvider,
   SignInOutcome,
+  TenantReadOutcome,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
   World,
@@ -743,6 +753,41 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     return { ok: true, accountId: account.id, organizationId: organization?.id ?? null };
   };
 
+  const fixtureReads = (): TenantReads => ({
+    organization: async (organizationId) => {
+      const row = state.organizations.get(organizationId);
+      return { ok: true, rows: row ? [{ id: row.id, name: row.name }] : [] };
+    },
+    seatsOf: async (organizationId) => ({
+      ok: true,
+      rows: [...state.memberships.values()]
+        .filter((row) => row.organizationId === organizationId)
+        .map((row) => ({ account_id: row.accountId, role: row.role })),
+    }),
+    projectsOf: async (organizationId) => ({
+      ok: true,
+      rows: [...state.projects.values()]
+        .filter((row) => row.organizationId === organizationId)
+        .map((row) => ({ id: row.id, name: row.name, assigned_volunteer_id: row.assignedVolunteerId })),
+    }),
+    project: async (projectId) => {
+      const row = state.projects.get(projectId);
+      return {
+        ok: true,
+        rows: row
+          ? [{ id: row.id, name: row.name, org_id: row.organizationId, assigned_volunteer_id: row.assignedVolunteerId }]
+          : [],
+      };
+    },
+  });
+
+  const asTenantOutcome = <T>(result: TenantReadAnswer<T>): TenantReadOutcome<T> => {
+    const answer = { status: result.status, body: JSON.stringify(result.body) };
+    return result.status === 200 ? { ok: true, value: result.body, answer } : { ok: false, answer };
+  };
+
+  const deadSessionAnswer = { status: 401, body: JSON.stringify({ ok: false, reason: DEAD_SESSION_REASON }) };
+
   const sut: AccountsSut = {
     // Read straight off the shipped constant. A literal here would be a second statement of the same
     // fact, and AT-001.07 would then be asserting what this file says rather than what ships.
@@ -1217,29 +1262,33 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     },
 
     /**
-     * ATTACH A VOLUNTEER — and the refusal below MIRRORS THE DATABASE's guard trigger, which is the
-     * same exposure `grantMembershipAsOperator` carries and is stated in the plan for the same
-     * reason: there is no shipped module to defer to, because the rule is a trigger and a column.
+     * ATTACH A VOLUNTEER — and the refusals below MIRROR THE DATABASE's two BEFORE UPDATE triggers
+     * on `assigned_volunteer_id`, in name order: `projects_seat_holds_a_volunteer` then
+     * `projects_single_developer_seat`. There is no shipped module to defer to.
      *
-     * WHAT IS REFUSED IS A REPLACEMENT, AND NOTHING ELSE. Attaching the first volunteer is the
-     * assignment; re-writing the SAME account id is a no-op and stays allowed, because refusing an
-     * idempotent write would make it look like a second developer; releasing the seat to null is
-     * offboarding's, which belongs to another leaf. Measured on the slot stack — the release to null
-     * is recorded ALLOWED in the item's verify-first answers, answer (d).
+     * WHAT IS REFUSED. A non-volunteer account is `not-a-volunteer-account`. Replacing a held seat
+     * with a different volunteer is `seat-occupied`. Re-writing the SAME account id is a no-op and
+     * stays allowed. Releasing the seat to null is offboarding's, which belongs to another leaf.
      *
-     * NO ACCOUNT-TYPE CHECK, deliberately. Whether the attached account is of type `volunteer` and
-     * whether it was matched to this project is the matching requirement's concern; AT-001.32 is
-     * about the SECOND volunteer, and a check here would be an untested requirement.
-     *
-     * THE ORDER IS THE DATABASE'S ORDER (gate-2 ruling R2b). An update aimed at a project that does
-     * not exist matches no row, so it fires nothing and refuses; the guard trigger then runs BEFORE
-     * the account foreign key, so an occupied seat re-pointed at an account that does not exist is
-     * refused for the SEAT. The account check used to run first, which answered `refused` where the
-     * database answers `seat-occupied`.
+     * THE ORDER IS THE DATABASE'S ORDER. An update aimed at a project that does not exist matches
+     * no row, so it fires nothing and refuses. The volunteer-type trigger then runs first (it is
+     * named earlier), so a missing account or a non-volunteer is refused for the TYPE, even when
+     * the seat is already held. The single-developer trigger then refuses a replacement.
      */
     assignVolunteerAsOperator: async (projectId, accountId): Promise<AssignVolunteerOutcome> => {
       const project = state.projects.get(projectId);
       if (!project) return { ok: false, kind: 'refused', reason: `no project ${projectId} exists` };
+      const account = state.accounts.get(accountId);
+      if (!account) {
+        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
+      }
+      if (account.accountType !== 'volunteer') {
+        return {
+          ok: false,
+          kind: 'not-a-volunteer-account',
+          reason: 'projects refuses assignment: the developer seat admits volunteer accounts only',
+        };
+      }
       if (project.assignedVolunteerId !== null && project.assignedVolunteerId !== accountId) {
         return {
           ok: false,
@@ -1248,9 +1297,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             `project ${projectId} refuses a second volunteer: its single developer seat is held by account ` +
             `${project.assignedVolunteerId}`,
         };
-      }
-      if (!state.accounts.has(accountId)) {
-        return { ok: false, kind: 'refused', reason: `no account ${accountId} has completed signup` };
       }
       const assigned: ProjectRow = { ...project, assignedVolunteerId: accountId };
       state.projects.set(projectId, assigned);
@@ -1298,6 +1344,69 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const accountType: AccountType = 'platform_admin';
       state.accounts.set(session.accountId, { id: session.accountId, accountType });
       return session;
+    },
+
+    organizationAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    membershipsAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    projectAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    acknowledgmentsAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    organizationsAsViewer: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+    tenantTableFacts: () => {
+      throw new CapabilityPending(['sut.accounts.tenantReadAsViewer']);
+    },
+
+    retypeAccountAsOperator: async (accountId, accountType) => {
+      const account = state.accounts.get(accountId);
+      if (!account) throw new Error(`no account ${accountId} to retype`);
+      state.accounts.set(accountId, { ...account, accountType });
+    },
+
+    organizationDashboard: async (session, organizationId) => {
+      if (session === null) return { ok: false, answer: deadSessionAnswer };
+      const caller = resolveCaller(session);
+      if (caller === null) return { ok: false, answer: deadSessionAnswer };
+      return asTenantOutcome(await organizationDashboard(fixtureReads(), organizationId));
+    },
+    projectWorkspace: async (session, projectId) => {
+      if (session === null) return { ok: false, answer: deadSessionAnswer };
+      const caller = resolveCaller(session);
+      if (caller === null) return { ok: false, answer: deadSessionAnswer };
+      return asTenantOutcome(await projectWorkspace(fixtureReads(), projectId));
+    },
+    publicProjectPage: async (projectId): Promise<PublicProjectOutcome> => {
+      const result = await publicProjectAnswer(projectId, {
+        source: async (id) => {
+          const project = state.projects.get(id);
+          if (!project) return { ok: true, rows: [] };
+          const organization = state.organizations.get(project.organizationId);
+          if (!organization) return { ok: true, rows: [] };
+          return {
+            ok: true,
+            rows: [{ project_id: project.id, project_name: project.name, organization_name: organization.name }],
+          };
+        },
+      });
+      const answer = { status: result.status, body: JSON.stringify(result.body) };
+      if (result.status !== 200) return { ok: false, answer };
+      return {
+        ok: true,
+        page: {
+          projectId: result.body.projectId,
+          projectName: result.body.projectName,
+          organizationName: result.body.organizationName,
+        },
+        answer,
+      };
     },
   };
 

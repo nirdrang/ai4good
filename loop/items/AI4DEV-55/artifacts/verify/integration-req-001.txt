@@ -1,0 +1,50 @@
+2026-09-05T22:38:13Z
+$ bun tests/at/harness/runner.ts "req-001" --tier integration --expect
+at:verify — identity proven before the readiness wait: project poancmeitlmxejofwzuu, api 44321, db 44322, containers supabase_imgproxy_poancmeitlmxejofwzuu, supabase_pooler_poancmeitlmxejofwzuu
+at:verify — identity proven immediately before the reset: project poancmeitlmxejofwzuu, api 44321, db 44322, containers supabase_imgproxy_poancmeitlmxejofwzuu, supabase_pooler_poancmeitlmxejofwzuu
+at:verify — 7 migrations expected, 7 applied — the rebuilt schema matches supabase/migrations exactly
+at:verify — stack poancmeitlmxejofwzuu (api 44321) — reset OK — migrations: 7 expected, 7 applied — lock /tmp/ai4good-build/at-locks/at-verify-poancmeitlmxejofwzuu-44321.lock — head 95235af, dirty
+JSON report written to /tmp/at-verify-twYrKs/vitest-report.json
+
+at:verify req-001 --tier integration
+  AT-001.01    green    NGO email/password signup creates the account, org, admin membership and acknowledgment; sign-in returns
+  AT-001.02    red      CapabilityPending: CAPABILITY PENDING — sut.accounts.registerWithGithub
+  AT-001.03    red      CapabilityPending: CAPABILITY PENDING — sut.accounts.registerWithProvider
+  AT-001.04    red      CapabilityPending: CAPABILITY PENDING — sut.accounts.registerWithProvider
+  AT-001.05    red      CapabilityPending: CAPABILITY PENDING — vendors.github-public-statistics
+  AT-001.06    green    a volunteer is refused the NGO-only action while an NGO account performs it successfully
+  AT-001.07    green    a provisioned platform admin authenticates and carries the type; public signup offers only the two
+  AT-001.09    green    a fresh email/password signup of either account type is unverified until the link is used
+  AT-001.10    red      CapabilityPending: CAPABILITY PENDING — sut.accounts.sendDiscoveryMessage
+  AT-001.38    green    sign-in with the correct email and a wrong password is rejected and creates no session
+  AT-001.12    green    an expired or revoked session ends access — the next request re-authenticates
+  AT-001.13    green    a session in continuous use refreshes without a forced mid-work re-login
+  AT-001.14    green    after the emailed reset flow the new password works and the old one does not
+  AT-001.16    green    membership and role are held per-NGO — acting in one never grants access to the other
+  AT-001.36    green    an admin in one NGO and a member in another succeeds only where it is the admin
+  AT-001.37    green    granting a per-NGO role to a volunteer account is rejected on every path
+  AT-001.17    green    no capability exists to invite or add a second member to an org
+  AT-001.18    red      AtPending: AT-001.18 PENDING [sut-missing] — REQ-001 D3.L3 (the cross-surface single-seat integration) has not landed
+  AT-001.19    green    every acknowledgment records the acting person name, title and authority attestation
+  AT-001.39    green    an acknowledgment missing any of name, title or attestation is rejected and records nothing
+  AT-001.20    green    acknowledgment copy prohibits shared credentials and recommends an org email
+  AT-001.21    green    one NGO cannot reach another NGO non-public data by UI or by direct id probing
+  AT-001.22    green    an unassigned volunteer is denied a project non-public data while the public page stays visible
+  AT-001.23    green    the assigned volunteer reaches that project working data, scoped to that project only
+  AT-001.40    green    a platform admin reaches any NGO or project data — the admin role spans all accounts
+  AT-001.24    red      CapabilityPending: CAPABILITY PENDING — ui.authenticated-surface-rendering
+  AT-001.25    red      AtPending: AT-001.25 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.26    red      AtPending: AT-001.26 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.27    red      AtPending: AT-001.27 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.28    red      AtPending: AT-001.28 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.35    red      AtPending: AT-001.35 PENDING [sut-missing] — REQ-001 D6.L1 (contact transfer, lost-access recovery and the escalation contact) has not landed
+  AT-001.29    red      AtPending: AT-001.29 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.30    red      AtPending: AT-001.30 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.31    red      AtPending: AT-001.31 PENDING [sut-missing] — REQ-001 D6.L2 (the lifecycle gate every write route registers through) has not landed
+  AT-001.32    green    attaching a second volunteer to a project is rejected — single-dev projects
+  AT-001.33    red      AtPending: AT-001.33 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+  AT-001.34    red      AtPending: AT-001.34 PENDING [sut-missing] — REQ-001 D6.L3 (the append-only audit for role changes and transfer, and sign-in rate limiting) has not landed
+  37 P0: 20 green, 17 red, 0 missing
+  EXPECTED: the run matches /home/user/ai4good/tests/at/expected/req-001.json exactly (20 declared green, 17 declared red)
+exit 0
+2026-09-05T22:41:42Z

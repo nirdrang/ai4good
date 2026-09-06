@@ -1,0 +1,12 @@
+2026-09-05T22:37:52Z
+$ bunx vitest run --root tests/at --config vitest.config.ts harness/
+
+ RUN  v4.1.10 /home/user/ai4good/tests/at
+
+
+ Test Files  15 passed (15)
+      Tests  219 passed (219)
+   Start at  22:37:52
+   Duration  8.44s (transform 1.10s, setup 0ms, import 1.42s, tests 19.72s, environment 2ms)
+
+exit 0

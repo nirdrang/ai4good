@@ -1,0 +1,11 @@
+2026-09-05T22:37:29Z
+$ bun tests/at/typecheck.ts
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+=== typecheck: verify drive (.claude/skills/verify-ai4good/scripts/tsconfig.json) ===
+
+typecheck OK: all three projects clean
+exit 0

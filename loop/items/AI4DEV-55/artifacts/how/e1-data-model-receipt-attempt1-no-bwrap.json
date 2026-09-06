@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "/home/user/ai4good",
+  "promptPath": "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/how/e1-data-model-prompt.md",
+  "outputPath": "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/how/e1-data-model-findings.md",
+  "startedAt": "2026-09-05T18:21:01.533Z",
+  "completedAt": "2026-09-05T18:21:03.151Z",
+  "elapsedMs": 1618,
+  "executable": "/root/.local/bin/grok",
+  "preflight": {
+    "argv": [
+      "/root/.local/bin/grok",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "authenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "/root/.local/bin/grok",
+    "--prompt-file",
+    "/home/user/ai4good/loop/items/AI4DEV-55/artifacts/how/e1-data-model-prompt.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "plan",
+    "--sandbox",
+    "read-only",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "/home/user/ai4good",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 1,
+  "signal": null,
+  "status": "child-failed",
+  "reportedModel": null,
+  "modelVerified": false,
+  "modelEvidence": null,
+  "sessionId": null,
+  "usage": null,
+  "costUsd": null,
+  "error": {
+    "message": "child exited with status 1",
+    "evidence": "error: this sandbox could not enforce its deny list on Linux: bwrap exec failed: No such file or directory (os error 2). Install bubblewrap with `apt install -y bubblewrap`. Refusing to start with denied paths unprotected."
+  }
+}
