@@ -2,8 +2,6 @@
 -- from the actor's account type, the restated writers carry a kind in DETAIL, and
 -- set_escalation_contact writes an audit row for the last-resort contact.
 
-/* ================================================================== audit label from the actor */
-
 create or replace function public.append_audit_event(
   p_kind public.audit_event_kind,
   p_actor uuid,
@@ -46,8 +44,6 @@ begin
 end;
 $$;
 revoke execute on function public.append_audit_event(public.audit_event_kind, uuid, uuid, uuid, text, jsonb) from public;
-
-/* ================================================================== complete_signup, with actor */
 
 create or replace function public.complete_signup(
   p_account_id uuid,
@@ -209,8 +205,6 @@ $$;
 revoke execute on function public.complete_signup(uuid, text, text, text, inet, text, text[], integer, text, text, text, text) from public;
 grant execute on function public.complete_signup(uuid, text, text, text, inet, text, text[], integer, text, text, text, text) to service_role;
 
-/* ================================================================== create_organization */
-
 create or replace function public.create_organization(
   p_account_id uuid,
   p_name text
@@ -259,8 +253,6 @@ end;
 $$;
 revoke execute on function public.create_organization(uuid, text) from public;
 grant execute on function public.create_organization(uuid, text) to service_role;
-
-/* ================================================================== update_organization */
 
 create or replace function public.update_organization(
   p_account_id uuid,
@@ -317,8 +309,6 @@ end;
 $$;
 revoke execute on function public.update_organization(uuid, uuid, text) from public;
 grant execute on function public.update_organization(uuid, uuid, text) to service_role;
-
-/* ================================================================== set_escalation_contact */
 
 create or replace function public.set_escalation_contact(
   p_account_id uuid,

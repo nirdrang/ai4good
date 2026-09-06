@@ -1,10 +1,6 @@
 /**
  * AT-REQ-001 sections G and H — the lifecycle gate on every write, the single-dev invariant, the
  * append-only audit, and sign-in rate limiting.
- *
- * AT-001.29, .30, .31 and .33 ARE WRITTEN. AT-001.34 is declared red at both tiers with the
- * named vendor capability: the body opens a world and then refuses. AT-001.32 stays at this call
- * site because an id is registered once.
  */
 
 import { expect } from 'vitest';

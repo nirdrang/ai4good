@@ -12,10 +12,6 @@
  * WHAT IT DELIBERATELY IS NOT. It is not a general organisation-profile editor: one field, one
  * write. Columns nothing enforces and fields no criterion reads would look like a requirement being
  * met and would not be one.
- *
- * THE DECISION IS `decideOrganizationRename`'s, in `../_shared/memberships.ts` — the same two
- * shared rules the acceptance suite drives, and the refusal's `kind` on the wire is that decision's
- * own field, passed through unchanged.
  */
 
 import { writeRoute } from '../_shared/edge.ts';

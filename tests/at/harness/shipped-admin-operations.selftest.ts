@@ -1,11 +1,4 @@
-/**
- * THE ORACLE FOR THE PLATFORM ADMINISTRATOR'S TWO DECISIONS. The acceptance ids reach the admitted
- * path of `decideContactTransfer` and `decideEscalationContact` and one refusal each; every other
- * refusal branch is reachable here alone, with a hand-built `WriteRouteInput`. WHAT A GREEN HERE
- * CLAIMS: that each decision answers the kind, the status and the arguments its module states, for
- * every branch. WHAT IT DOES NOT CLAIM: that the definers behind them refuse the same way — the
- * integration tier is the oracle for that.
- */
+/** The selftest of `decideContactTransfer` and `decideEscalationContact`, every branch. */
 
 import { describe, expect, it } from 'vitest';
 

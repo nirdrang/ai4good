@@ -60,11 +60,6 @@ export const ACCOUNT_TYPES = ['ngo', 'volunteer', 'platform_admin'] as const;
 
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
-/**
- * The lifecycle states an account can hold — v1 has two and no third (R8). This mirrors the
- * `public.account_lifecycle` enum under the same rule `ACCOUNT_TYPES` is under: the database wins,
- * and `public.assert_account_active` re-reads the column itself rather than trusting this module.
- */
 export const ACCOUNT_LIFECYCLES = ['active', 'deactivated'] as const;
 
 export type AccountLifecycle = (typeof ACCOUNT_LIFECYCLES)[number];
@@ -374,16 +369,8 @@ export function ngoOnlyActionAllowed(accountType: unknown): Decision<'ngo'> {
  */
 export const PLATFORM_ACKNOWLEDGMENT_KIND = 'platform_tos_and_promise';
 
-/* ------------------------------------------------ 5. the two write routes this module decides for */
-
 /**
  * The arguments `public.complete_signup` takes, as the JUDGED values — never the raw body ones.
- *
- * THE FOUR GITHUB KEYS ARE OMITTED ENTIRELY WHEN THERE IS NO HANDLE, rather than sent as nulls, and
- * the difference is a DEPLOYMENT property: the database function gives them `default null`, so a
- * call carrying only the original arguments resolves against either version of it while a
- * migration is rolling. An NGO completion writes no `volunteer_profiles` row, so the omission
- * reaches no column.
  */
 export type SignupCompletionArgs = {
   readonly p_account_id: string;
@@ -400,12 +387,6 @@ export type SignupCompletionArgs = {
   readonly p_github_contribution_summary?: string;
 };
 
-/**
- * `complete-signup`'s decision: `validateCompleteSignup` over the body and the caller fact, then
- * the onboarding import for a volunteer — AT-001.05. The stats are computed for the JUDGED handle
- * and travel in the same database call as the account, so there is no queue and no second request:
- * a queued-but-empty import is unrepresentable rather than merely untested.
- */
 export function decideSignupCompletion(input: WriteRouteInput): WriteRouteDecision<SignupCompletionArgs> {
   const decision = validateCompleteSignup(
     {
@@ -416,7 +397,6 @@ export function decideSignupCompletion(input: WriteRouteInput): WriteRouteDecisi
       signerTitle: input.body.signerTitle,
       authorityAttestation: input.body.authorityAttestation,
     },
-    // THE CALLER FACT COMES FROM AUTH, never from the body: a handle a client asserts gates nothing.
     { githubHandle: input.caller.githubHandle },
   );
   if (!decision.ok) return { ok: false, kind: 'invalid-request', reason: decision.reason, status: 400 };
@@ -458,11 +438,6 @@ export type OrganizationCreationArgs = {
   readonly p_name: string;
 };
 
-/**
- * `create-organization`'s decision. The NGO-only refusal is NOT here: it is the inventory's —
- * `WRITE_ROUTES['create-organization']` admits `ngo` — and the gate applies it with
- * `ngoOnlyActionAllowed`'s own sentence before this runs.
- */
 export function decideOrganizationCreation(input: AccountWriteRouteInput): WriteRouteDecision<OrganizationCreationArgs> {
   const name = validateOrganizationName(input.body.name);
   if (!name.ok) return { ok: false, kind: 'invalid-name', reason: name.reason, status: 400 };

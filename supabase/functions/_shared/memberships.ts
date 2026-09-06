@@ -15,11 +15,6 @@
  *      inside the edge runtime. The intersection is plain TypeScript over plain data.
  *   2. NO I/O, NO CLOCK, NO RANDOMNESS. The membership row is READ by the caller and handed here;
  *      this module never asks a database anything.
- *
- * THE ORGANISATION NAME RULE IS NOT HERE. `validateOrganizationName` lives in `./accounts.ts`, and
- * `decideOrganizationRename` below imports it from there. A second copy of a rule is the defect
- * this whole arrangement exists to delete, and it does not get an exception for being three lines
- * long.
  */
 
 import { validateOrganizationName } from './accounts.ts';
@@ -118,21 +113,12 @@ export function orgAdminActionAllowed(role: OrgRole | null): OrgAdminDecision {
   };
 }
 
-/* ----------------------------------------------------------------- the rename route's decision */
-
 export type OrganizationRenameArgs = {
   readonly p_account_id: string;
   readonly p_organization_id: string;
   readonly p_name: string;
 };
 
-/**
- * `update-organization`'s decision, in the order the deployed function has always applied: the role
- * in the TARGET organisation, then the name — authorisation before validation, so a caller with no
- * standing learns nothing about whether its name would have been accepted. An unknown organisation
- * is not a case of its own: no membership row exists in it, so the answer is the not-a-member
- * refusal, which is the deployed behaviour gate-2 ruling R2c measured.
- */
 export function decideOrganizationRename(input: AccountWriteRouteInput): WriteRouteDecision<OrganizationRenameArgs> {
   if (input.target === null) {
     return { ok: false, kind: 'invalid-request', reason: 'an organisation rename must name the organisation to rename', status: 400 };

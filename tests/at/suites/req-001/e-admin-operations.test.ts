@@ -1,12 +1,6 @@
 /**
- * AT-REQ-001 section F — the audited contact transfer, lost-access recovery, the escalation
- * contact, and who may run the transfer.
- *
- * ALL FIVE IDS ARE WRITTEN, at both tiers. The loop bodies below drive the shipped write pipeline —
- * the inventory, the lifecycle gate, `decideContactTransfer` and `decideEscalationContact` — over
- * the fixture's storage; the integration bodies in `_integration.ts` drive the deployed routes and
- * read the real audit and escalation tables as the operator. The Given, the read-backs and the
- * audit assertions have one home there and two callers, so the two tiers cannot drift apart.
+ * The audited contact transfer, lost-access recovery, the escalation contact, and who may run the
+ * transfer.
  */
 
 import { expect } from 'vitest';
@@ -37,12 +31,6 @@ const SIGNER = {
   signerTitle: 'Executive Director',
   authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
 } as const;
-/**
- * The instant the loop clock is frozen at BEFORE the Given is built, so the sessions it mints are
- * live and the audit row the fixture writes from the harness clock can be pinned to one instant.
- * The loop `Clock` reports no time of its own, on purpose; commanding it is the honest way to know
- * what "inside the test window" means at this tier.
- */
 const AUDIT_INSTANT = '2026-03-01T09:00:00.000Z';
 
 atTest(
@@ -146,10 +134,6 @@ atTest(
   {
     default: async ({ open }) => {
       const { w, sut } = await open();
-      // R15 NARROWS THE GIVEN: concierge onboarding is the administrator acting on an organisation,
-      // and the vetting act itself stays the NGO profile requirement's. What this body proves is the
-      // capture, by a platform-admin operation on the same surface as the transfer, of a contact no
-      // login can attach to.
       const admin = await sut.provisionPlatformAdmin(w.email('admin-28'), PASSWORD);
       const ngo = await sut.registerWithEmailPassword(w.email('ngo-28'), PASSWORD);
       const completion = await sut.completeSignup(

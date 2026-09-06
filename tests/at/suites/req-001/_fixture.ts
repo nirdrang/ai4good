@@ -211,16 +211,7 @@ import {
 // both deployed functions run on every authenticated request. This file decides WHICH sessions are
 // live, which is vendor bookkeeping; it never decides what a dead answer means.
 import { callerFromAuthAnswer, type Caller } from '../../../../supabase/functions/_shared/caller.ts';
-// THE SHIPPED PER-ORGANISATION ROLE JUDGEMENT — the ONE thing that decides whether an admin-only
-// NGO-side action is permitted in the target organisation. `update-organization` registers the same
-// decision, so a loop-tier green over AT-001.16 and AT-001.36 grades the code that ships. This file
-// supplies the membership ROW it judges, which is storage; it never decides what a role means.
 import { decideOrganizationRename, type OrganizationRenameArgs } from '../../../../supabase/functions/_shared/memberships.ts';
-// THE SHIPPED WRITE PIPELINE — the inventory, the lifecycle gate and the gate-then-decide order that
-// every write route below runs through, exactly as `writeRoute` runs it at the deployed edge. The
-// standing it judges is RENDERED here as `public.write_standing` renders it and parsed by the
-// shipped parser, the same pattern the caller fact follows, so the loop tier grades the gate, the
-// decisions and the parser rather than a copy of any of them. What this file supplies is storage.
 import {
   organizationIdField,
   parseWriteStanding,
@@ -450,9 +441,9 @@ interface State {
    * return value cannot show.
    */
   discoveryMessages: Map<string, string[]>;
-  /** the mirror of `public.audit_events`, in insertion order — append-only, like the table */
+  /** The mirror of `public.audit_events`; the live adapter is the oracle. */
   auditEvents: AuditEventRow[];
-  /** organisation id -> its one escalation contact, mirroring `public.org_escalation_contacts`'s primary key */
+  /** The mirror of `public.org_escalation_contacts`; the live adapter is the oracle. */
   escalationContacts: Map<string, EscalationContactRow>;
   nextId: number;
 }
@@ -684,13 +675,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
    */
   const DEAD_SESSION_REASON = 'this session is no longer valid — sign in again';
 
-  /**
-   * THE WRITE PIPELINE AT THE LOOP TIER — the shipped `writePipeline` over this file's Maps, one
-   * shell beside the deployed `writeRoute`. The standing is rendered as `public.write_standing`
-   * renders it and judged by the shipped `parseWriteStanding`, so the parser sits on the tested
-   * path. The 401 for a dead or absent session is this shell's, as it is the edge shell's, and it
-   * carries no kind on the wire; every other refusal is the pipeline's own kind and status.
-   */
   const renderWriteStanding = (
     accountId: string,
     organizationId: string | null,
@@ -765,7 +749,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     },
   };
 
-  /** The mirror of `public.append_audit_event`: the label is `<account_type>:<id>` or `operator` (R9). */
+  /** The mirror of `public.append_audit_event`; the live adapter is the oracle. */
   const appendAudit = (
     eventKind: AuditEventKind,
     actorAccountId: string | null,
@@ -788,12 +772,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     });
   };
 
-  /**
-   * THE MIRROR of `public.org_membership_role_change_audit`. Product membership inserts pass the
-   * caller as actor, matching `set_config('app.actor_account_id', …)` in complete_signup and
-   * create_organization. The operator path passes null. An update that changes neither account
-   * nor role writes nothing. A delete writes membership removed with the old values.
-   */
+  /** The mirror of `public.org_membership_role_change_audit`; the live adapter is the oracle. */
   const recordRoleChange = (
     previous: MembershipRow | null,
     next: MembershipRow | null,
@@ -820,7 +799,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     });
   };
 
-  /** The mirror of `public.change_account_lifecycle`: idempotent, and an audit row only on a change. */
+  /** The mirror of `public.change_account_lifecycle`; the live adapter is the oracle. */
   const changeLifecycle = (accountId: string, lifecycle: AccountLifecycle, actorAccountId: string, reason: string): boolean => {
     const account = state.accounts.get(accountId);
     if (!account) throw new Error(`fixture: no account ${accountId} to change the lifecycle of`);
@@ -1016,10 +995,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       }
     },
 
-    /**
-     * THE MIRROR of `public.github_identity_is_permanent_for_volunteers`. A volunteer GitHub
-     * identity stays on the map; any other unlink removes it. The live adapter is the oracle.
-     */
+    /** The mirror of `public.github_identity_is_permanent_for_volunteers`; the live adapter is the oracle. */
     unlinkGithubIdentity: async (session, provider) => {
       const caller = resolveCaller(session);
       if (caller === null) {
@@ -1251,9 +1227,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       //
       // NO VERIFICATION GATE SITS ON THIS OPERATION, which is why AT-001.12 uses it: a refusal is
       // unambiguously the session layer's rather than the Discovery floor's.
-      // THE REFUSAL IS THE SHIPPED INVENTORY'S, not this file's: the gate refuses every type but
-      // `ngo` with `ngoOnlyActionAllowed`'s own sentence. That is what makes AT-001.06 a test of an
-      // application boundary rather than of a helper called directly from a test body.
       const run = runWrite(ORGANIZATION_CREATION, session, { name: organizationName }, null);
       if (!run.ok) return run;
 
@@ -1288,8 +1261,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
      * well-formed random uuid, recorded in `artifacts/gate2-verify-answers.md`.
      */
     updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
-      // NOTHING BEFORE THE WRITE BELOW HAS MUTATED STATE, which is what makes the bodies' read-backs
-      // after a refusal measure a real property rather than this file's good intentions.
       const run = runWrite(ORGANIZATION_RENAME, session, { organizationId, name }, null);
       if (!run.ok) return run;
 
@@ -1557,11 +1528,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const run = runWrite(CONTACT_TRANSFER, session, request, null);
       if (!run.ok) return run;
       const { p_organization_id: organizationId, p_from_account_id: from, p_to_account_id: to, p_reason: reason } = run.args;
-      // THE MIRROR OF `public.transfer_organization_contact`, row by row: the seat row is re-keyed to
-      // the new contact with its role untouched, the outgoing account is deactivated, and the
-      // definer's two audit rows are appended. The trigger mirror also writes org_role_changed for
-      // the seat move, with the caller as actor, matching `set_config('app.actor_account_id', …)`.
-      // Nothing is deleted, which is the whole of "history preserved".
+      // The mirror of `public.transfer_organization_contact`; the live adapter is the oracle.
       const seat = state.memberships.get(membershipKey(organizationId, from));
       if (!seat) throw new Error(`fixture: the decision admitted a transfer from ${from}, which holds no seat in ${organizationId}`);
       const moved: MembershipRow = { ...seat, accountId: to };
@@ -1676,11 +1643,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         ),
       ),
 
-    /**
-     * THE MIRROR of `public.audit_events_are_append_only` and the statement-level TRUNCATE
-     * trigger. The operator's UPDATE, DELETE and TRUNCATE raise, and the rows stay. The live
-     * adapter is the oracle.
-     */
+    /** The mirror of `public.audit_events_are_append_only`; the live adapter is the oracle. */
     attemptAuditTamper: async (attempt): Promise<TamperOutcome> => ({
       ok: false,
       reason: `public.audit_events is append-only: ${attempt.toUpperCase()} is refused (REQ-001, AT-001.33)`,

@@ -1,13 +1,6 @@
--- REQ-001, D6 leaf 3: role changes reach the audit table from a trigger on org_memberships
--- (AT-001.33). The transfer definer already writes its own transfer row; this object writes the
--- org_role_changed row for every membership insert and for every update that changes the account
--- or the role.
---
--- THE ACTOR IS A TRANSACTION-LOCAL SETTING (R9). A product definer sets
--- `app.actor_account_id` to the caller before it inserts a membership; `append_audit_event`
--- then labels the row as account_type || ':' || id from public.accounts. The operator path leaves
--- the setting unset, so the actor is null and the label is `operator`. An UPDATE that changes
--- neither account nor role writes nothing. A DELETE writes `membership removed` with the old values.
+-- The trigger that writes an org_role_changed audit row for membership changes.
+-- `complete_signup` and `create_organization` set `app.actor_account_id` before their membership
+-- insert; a path that sets none records the operator.
 
 create function public.org_membership_role_change_audit()
 returns trigger

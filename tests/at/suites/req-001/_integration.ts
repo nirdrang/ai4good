@@ -411,10 +411,6 @@ export async function at00107(ctx: Ctx): Promise<void> {
   expect(await sut.account(visitor.accountId), 'the refused escalation left an account row behind').toBeNull();
 }
 
-/**
- * AT-001.41 — a volunteer may not unlink the GitHub identity after signup. The oracle is the
- * identity row and `/auth/v1/user` still answering 200, never GoTrue's 500 (R10).
- */
 export async function at00141(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
 
@@ -1758,22 +1754,11 @@ export async function at00124(ctx: Ctx): Promise<void> {
   throw new CapabilityPending(['ui.authenticated-surface-rendering']);
 }
 
-/* ---------------------------------------------- the contact transfer and the escalation contact */
-
 type Opened = Awaited<ReturnType<Ctx['open']>>;
 
-/** The reason AT-001.25's transfer is written with; AT-001.26 reads it back verbatim. */
 export const HANDOVER_REASON = 'planned handover: the executive director changed';
-/** AT-001.27's reason — the ONLY thing that differs between a handover and a recovery. */
 export const RECOVERY_REASON = 'lost access — recovery: the original contact cannot sign in';
 
-/**
- * THE TRANSFER'S GIVEN, as the design's per-id table states it, at either tier: a provisioned
- * administrator; NGO A, completed through the product so it holds its organisation's seat and the
- * acknowledgment it signed, with a project the operator created under it; and NGO B, completed the
- * same way (R5). `signIn` is the tier's way to a usable session — the live public order at
- * integration, a registration at loop — so the Given has one home and two callers.
- */
 export async function transferGiven(
   sut: Opened['sut'],
   w: Opened['w'],
@@ -1823,7 +1808,6 @@ export async function transferGiven(
 
 type TransferGiven = Awaited<ReturnType<typeof transferGiven>>;
 
-/** The history a transfer must leave byte-identical, read BEFORE the act so the comparison is honest. */
 export async function transferSnapshot(sut: Opened['sut'], given: TransferGiven) {
   const acknowledgments = await sut.acknowledgments(given.a.accountId);
   expect(acknowledgments, 'NGO A holds no acknowledgment, so there is no history to preserve').toHaveLength(1);
@@ -1837,7 +1821,6 @@ export async function transferSnapshot(sut: Opened['sut'], given: TransferGiven)
   };
 }
 
-/** What AT-001.25 and AT-001.27 both read after a transfer: the seat, the history, the two lifecycles. */
 export async function expectTransferred(
   sut: Opened['sut'],
   given: TransferGiven,
@@ -1900,7 +1883,6 @@ export async function expectSecondTransfer(sut: Opened['sut'], given: TransferGi
   });
 }
 
-/** What AT-001.35 reads after each refused attempt: the seat, both lifecycles and the audit record, unchanged. */
 export async function expectNotTransferred(sut: Opened['sut'], given: TransferGiven, arm: string): Promise<void> {
   expect(await sut.membership(given.organizationId, given.a.accountId), `the refused ${arm} attempt moved the seat`).toMatchObject({
     accountId: given.a.accountId,
@@ -1918,11 +1900,6 @@ export async function expectNotTransferred(sut: Opened['sut'], given: TransferGi
   ).toEqual([]);
 }
 
-/**
- * AT-001.26's who, when and why, on the one transfer row the organisation carries — and the
- * deactivation row the same transfer leaves on the outgoing account. `toleranceMs` is for the
- * integration tier, where the instant is the database container's clock and not this process's.
- */
 export async function expectTransferAudited(
   sut: Opened['sut'],
   given: TransferGiven,
@@ -1958,14 +1935,6 @@ export async function expectTransferAudited(
 /** The database container keeps its own clock; a minute covers the drift seen on a laptop that slept. */
 const CONTAINER_CLOCK_TOLERANCE_MS = 60_000;
 
-/**
- * AT-001.25 — the contact transfer, against the DEPLOYED route and the real rows.
- *
- * WHAT IS LIVE HERE: the platform administrator's token crosses the wire, `writeRoute` loads the
- * standing through `public.write_standing`, the shared decision admits the request, and
- * `public.transfer_organization_contact` moves the seat, deactivates the outgoing account and writes
- * the audit rows inside one transaction. The read-backs are operator queries over the real tables.
- */
 export async function at00125(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const given = await transferGiven(sut, w, '25', (email) => registerConfirmAndSignIn(sut, email));
@@ -1982,8 +1951,6 @@ export async function at00125(ctx: Ctx): Promise<void> {
   if (!transfer.ok) return;
   await expectTransferred(sut, given, before);
 
-  // A RETRY IS REFUSED AND WRITES NOTHING: the outgoing account no longer holds the seat, so the
-  // request describes a state the seat is not in.
   const again = await sut.transferOrganizationContact(given.admin, request);
   expect(again.ok, 'a second transfer of the same seat from the same account succeeded').toBe(false);
   if (again.ok) return;
@@ -1993,7 +1960,6 @@ export async function at00125(ctx: Ctx): Promise<void> {
   await expectSecondTransfer(sut, given);
 }
 
-/** AT-001.26 — who, when and why, read back from the real `public.audit_events`. */
 export async function at00126(ctx: Ctx): Promise<void> {
   const { h, w, sut } = await ctx.open();
   const given = await transferGiven(sut, w, '26', (email) => registerConfirmAndSignIn(sut, email));
@@ -2016,11 +1982,6 @@ export async function at00126(ctx: Ctx): Promise<void> {
   await expectTransferAudited(sut, given, HANDOVER_REASON, { openedAtMs, closedAtMs, toleranceMs: CONTAINER_CLOCK_TOLERANCE_MS });
 }
 
-/**
- * AT-001.27 — lost-access recovery IS the transfer of AT-001.25 with a recovery reason. The contact
- * who cannot sign in is real here: the session is ended at Auth and a password grant with a
- * password the person no longer has is refused by the live GoTrue.
- */
 export async function at00127(ctx: Ctx): Promise<void> {
   const { h, w, sut } = await ctx.open();
   const given = await transferGiven(sut, w, '27', (email) => registerConfirmAndSignIn(sut, email));
@@ -2045,13 +2006,6 @@ export async function at00127(ctx: Ctx): Promise<void> {
   await expectTransferAudited(sut, given, RECOVERY_REASON, { openedAtMs, closedAtMs, toleranceMs: CONTAINER_CLOCK_TOLERANCE_MS });
 }
 
-/**
- * AT-001.28 — one non-login escalation contact, recorded by the DEPLOYED admin route into the real
- * `public.org_escalation_contacts`. R15 narrows the Given: concierge onboarding is the
- * administrator acting on an organisation, and the vetting act itself stays the NGO profile
- * requirement's. What this body proves is the capture, by a platform-admin operation on the same
- * surface as the transfer, of a contact no login can attach to.
- */
 export async function at00128(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const admin = await sut.provisionPlatformAdmin(w.email('admin-28'), PASSWORD);
@@ -2078,12 +2032,9 @@ export async function at00128(ctx: Ctx): Promise<void> {
     recordedByAccountId: admin.accountId,
   });
 
-  // NON-LOGIN: the contact is a person to call, not an account. No auth user carries the address,
-  // so a sign-in with it is refused by Auth itself.
   const signIn = await sut.signInWithEmailPassword(contactEmail, PASSWORD);
   expect(signIn.ok, 'the escalation contact can sign in, so it is an account rather than a non-login contact').toBe(false);
 
-  // ONE CONTACT PER ORGANISATION: a second capture replaces the first rather than adding a second.
   const replaced = await sut.setEscalationContact(admin, { organizationId, name: 'Jonas Ekholm', email: w.email('escalation-28-second'), phone: null });
   expect(replaced, 'the administrator was refused a second capture').toMatchObject({ ok: true });
   expect(await sut.escalationContact(organizationId), 'the second capture did not replace the first').toMatchObject({
@@ -2091,7 +2042,6 @@ export async function at00128(ctx: Ctx): Promise<void> {
     contactPhone: null,
   });
 
-  // AND THE ORGANISATION CANNOT RECORD ITS OWN: the capture is the administrator's operation (R15).
   const refused = await sut.setEscalationContact(ngo, { organizationId, name: 'Self Appointed', email: w.email('escalation-28-self'), phone: null });
   expect(refused.ok, 'an NGO account recorded its own escalation contact').toBe(false);
   if (refused.ok) return;
@@ -2121,11 +2071,6 @@ export async function at00128(ctx: Ctx): Promise<void> {
   });
 }
 
-/**
- * AT-001.35 — only a platform administrator runs the transfer. The NGO arm is the organisation's
- * OWN contact, so even the seat holder cannot hand its seat over; the unauthenticated arm sends the
- * anon key and no user token, so the 401 is the deployed route's own.
- */
 export async function at00135(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const given = await transferGiven(sut, w, '35', (email) => registerConfirmAndSignIn(sut, email));
@@ -2167,15 +2112,11 @@ export async function at00135(ctx: Ctx): Promise<void> {
   expect(anonymous.kind, 'the unauthenticated refusal was classified as a decision').toBe('unauthenticated');
   await expectNotTransferred(sut, given, 'unauthenticated');
 
-  // THE CONTROL: the same request from the administrator succeeds, so the three refusals above are
-  // about who called and not about the request.
   const asAdmin = await sut.transferOrganizationContact(given.admin, request);
   expect(asAdmin, 'the platform administrator was refused the transfer, so the refusals above prove nothing').toMatchObject({ ok: true });
   if (!asAdmin.ok) return;
   await expectTransferred(sut, given, before);
 }
-
-/* -------------------------------------------------------------- the lifecycle gate, AT-001.29–.31 */
 
 export const AUP_REASON = 'AUP';
 export const REENABLE_REASON = 're-enable after review';
@@ -2480,11 +2421,6 @@ export async function assertDeactivationGatesEveryWrite(
   }
 }
 
-/**
- * AT-001.29 — every account-required write is refused for a deactivated caller of an admitted type,
- * while the active control succeeds. The NGO and administrator arms run for real; the volunteer
- * stand-in is the named capability.
- */
 export async function at00129(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   await assertDeactivationGatesEveryWrite(sut, w, '29', (email) => registerConfirmAndSignIn(sut, email), {
@@ -2493,10 +2429,6 @@ export async function at00129(ctx: Ctx): Promise<void> {
   throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
 }
 
-/**
- * AT-001.30 — an AUP deactivation refuses the next write at once. The volunteer's live token still
- * answers 200 at Auth (the measured fact). Virtual-key revocation is the declared seam.
- */
 export async function at00130(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const admin = await sut.provisionPlatformAdmin(w.email('admin-30'), PASSWORD);
@@ -2538,10 +2470,6 @@ export async function at00130(ctx: Ctx): Promise<void> {
   throw new CapabilityPending(['gateway.virtual-key-revocation', 'sut.accounts.sendDiscoveryMessage']);
 }
 
-/**
- * AT-001.31 — re-enable restores otherwise-authorized writes. Independent gates still refuse. A
- * deactivated administrator cannot re-enable itself. Virtual-key reissue is the declared seam.
- */
 export async function at00131(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const actors = await provisionLifecycleActors(sut, w, '31', (email) => registerConfirmAndSignIn(sut, email));
@@ -2600,14 +2528,6 @@ export async function at00131(ctx: Ctx): Promise<void> {
   throw new CapabilityPending(['gateway.virtual-key-reissue']);
 }
 
-/**
- * AT-001.33 — the transfer of AT-001.25 plus an operator seat re-point, then three tampers.
- *
- * The transfer definer writes `org_contact_transferred` and `account_lifecycle_changed`. The
- * membership trigger writes `org_role_changed`. The operator re-point is the path with no actor
- * in session, so that row carries `actorAccountId === null` and `actorLabel === 'operator'` (R9).
- * `checkPrivileges` is the integration arm: the fixture has no catalog to read.
- */
 export async function assertAppendOnlyAudit(
   sut: Opened['sut'],
   w: Opened['w'],
@@ -2682,17 +2602,11 @@ export async function assertAppendOnlyAudit(
   }
 }
 
-/** AT-001.33 — the same assertions against the deployed trigger and the real append-only guards. */
 export async function at00133(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   await assertAppendOnlyAudit(sut, w, '33', (email) => registerConfirmAndSignIn(sut, email), { checkPrivileges: true });
 }
 
-/**
- * AT-001.34 — declared red at both tiers (R11). The body opens a world so the id is exercised,
- * then names the capability. The limit is verified on the hosted Auth service, not on this stack;
- * see loop/items/AI4DEV-56/unit6-record.md.
- */
 export async function at00134(ctx: { open: () => Promise<unknown> }): Promise<void> {
   await ctx.open();
   throw new CapabilityPending(['vendors.gotrue-sign-in-rate-limit']);

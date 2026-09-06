@@ -15,10 +15,6 @@
  *     creation, not before organisation creation. `public.has_platform_acknowledgment` is the hook
  *     for the leaf that lands project creation; putting it in front of this operation would be a
  *     gate the acceptance text does not ask for.
- *
- * THE REFUSAL IS THE INVENTORY'S, not this file's: `WRITE_ROUTES['create-organization']` admits
- * `ngo`, and the gate refuses every other type with `ngoOnlyActionAllowed`'s own sentence — the
- * same function the acceptance suite drives.
  */
 
 import { decideOrganizationCreation } from '../_shared/accounts.ts';

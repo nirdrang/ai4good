@@ -278,8 +278,7 @@ type RpcOutcome =
  * The service role bypasses row-level security, which is why the database functions perform their
  * own checks: nothing else is standing on this path.
  *
- * NOT EXPORTED, and that one line is the whole structural claim of the write boundary: a route has
- * no way to reach `/rest/v1/rpc/` except through `writeRoute` below.
+ * Not exported: a route reaches the database only through `writeRoute`.
  */
 async function callDatabaseFunction(name: string, args: Record<string, unknown>): Promise<RpcOutcome> {
   const supabaseUrl = requireEnv('SUPABASE_URL');
@@ -334,21 +333,6 @@ async function loadWriteStanding(
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * THE WRITE BOUNDARY, AS THE HANDLER. A write route is a value handed to this constructor, and
- * there is no other way to reach the database: `callDatabaseFunction` is not exported. Three things
- * hold that: the type (`name` must be a key of `WRITE_ROUTES`), the run time (an unknown name throws
- * here, before `Deno.serve` ever runs), and CI (the conformance scan of the lifecycle-gate unit
- * reads every `index.ts` against the inventory).
- *
- * The order is fixed: refuse a method that is not POST, resolve the caller through Supabase Auth,
- * read the JSON body, load the caller's standing in one call, apply the lifecycle gate, run the
- * route's own decision, call the route's database function, and shape the answer. `decide` never
- * sees a Request, a Response or a status: it sees `WriteStanding`, a parsed body and a `Caller`.
- *
- * AN ID THAT CANNOT BE A UUID IS REFUSED BEFORE THE STANDING READ, because PostgREST would fail the
- * cast and the refusal would arrive as a 502 that reads like an outage.
- */
 export function writeRoute<Args extends Record<string, unknown>, Input extends WriteRouteInput = WriteRouteInput>(
   spec: WriteRouteSpec<Args, Input>,
 ): (request: Request) => Promise<Response> {
@@ -371,6 +355,7 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     const target = spec.target ? spec.target(body.value) : null;
     const subject = spec.subject ? spec.subject(body.value) : null;
     const from = spec.from ? spec.from(body.value) : null;
+    // A malformed id is refused here, because PostgREST would fail the cast and answer like an outage.
     for (const [what, value] of [['organisation', target], ['account', subject], ['from', from]] as const) {
       if (value !== null && !UUID_SHAPE.test(value)) {
         return json({ ok: false, kind: 'invalid-request', reason: `the ${what} id ${JSON.stringify(value)} is not a well-formed id` }, 400);

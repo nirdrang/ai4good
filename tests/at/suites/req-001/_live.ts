@@ -65,9 +65,6 @@
  */
 
 import { emailVerifiedFromUser } from '../../../../supabase/functions/_shared/verification.ts';
-// THE SHIPPED FAIL-CLOSED PARSER for the kind a write route puts on the wire: an unrecognised value
-// becomes `refused` rather than being trusted, so a gateway error page or a future field rename
-// cannot arrive wearing a label an acceptance body asserts.
 import { parseWriteRefusalKind, type WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
@@ -238,13 +235,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
   const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
 
-  /**
-   * ONE DEPLOYED WRITE ROUTE, called as a browser client would. A null session sends the anon key as
-   * the bearer, which is what a client with no session sends, so the unauthenticated arm is the
-   * route's real 401 rather than a missing header this adapter declined to send. A 401 carries no
-   * kind on the wire and is classified as `unauthenticated` here; every other refusal's kind is read
-   * through the shipped fail-closed parser.
-   */
   const postWrite = async (
     name: string,
     session: Session | null,
@@ -358,7 +348,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       );
       const identityId = String(identity?.identity_id ?? identity?.id ?? '');
       if (!identityId) throw new Error(`the live user has no ${provider} identity to unlink`);
-      // THE STATUS IS NOT THE ORACLE (R10): a refused volunteer unlink answers 500.
       await authDelete(stack, `/auth/v1/user/identities/${identityId}`, tokens.accessToken);
     },
 
@@ -511,11 +500,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return { ok: true, organizationId: String(answer.json.organizationId ?? '') };
     },
 
-    /**
-     * THE DEPLOYED `update-organization`, called exactly as a browser client would. The `kind` is
-     * read off the wire through the shipped closed set, which is the direction that matters:
-     * AT-001.16 asserts the not-a-member kind and AT-001.36 the not-an-admin one.
-     */
     updateOrganization: async (session, organizationId, name): Promise<UpdateOrganizationOutcome> => {
       const answer = await postWrite('update-organization', session, { organizationId, name });
       if (!answer.ok) return answer.refusal;
@@ -877,8 +861,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       if (updated.length !== 1) throw new Error(`the operator could not retype account ${accountId}`);
     },
 
-    /* ----------------------------- the DEPLOYED admin routes, over the stack's kong ------------- */
-
     transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {
       const answer = await postWrite('transfer-organization-contact', session, request);
       if (answer.ok) return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
@@ -967,8 +949,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       };
       return attempts[subject.route]();
     },
-
-    /* --------------------- the audit record and the escalation contact, as the operator (R12) --- */
 
     auditEvents: async (filter): Promise<AuditEventRow[]> => {
       const orgId = filter.subjectOrgId ?? null;

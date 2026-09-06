@@ -1,5 +1,4 @@
--- REQ-001, D6 leaf 2: the platform-administrator lifecycle setter (AT-001.29, .30, .31).
--- The CALLER is gated first, so a deactivated administrator cannot re-enable itself.
+-- The platform administrator's lifecycle setter.
 
 create function public.set_account_lifecycle(
   p_account_id uuid,

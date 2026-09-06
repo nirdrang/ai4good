@@ -98,7 +98,6 @@ export async function authPost(
   return { url, status: response.status, json: jsonBody(await response.text()) };
 }
 
-/** Auth DELETE as a caller. AT-001.41 unlinks through `/auth/v1/user/identities/{id}`. */
 export async function authDelete(
   stack: Stack,
   path: string,

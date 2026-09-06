@@ -1,8 +1,4 @@
-/**
- * Oracle for the write-route conformance scan: each refusal the scan names, and that the real
- * tree yields none. The load-bearing case is a fourth write route that reaches `/rest/v1/rpc/`
- * without registering.
- */
+/** The selftest of the write-route conformance scan. */
 
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

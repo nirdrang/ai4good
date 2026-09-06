@@ -1,10 +1,4 @@
-/**
- * THE ORACLE FOR THE LIFECYCLE SETTER. The acceptance ids reach the admitted path of
- * `decideLifecycleChange`; every other branch is reachable here with a hand-built
- * `AccountWriteRouteInput`. WHAT A GREEN HERE CLAIMS: that the decision answers the kind, the
- * status and the arguments its module states. WHAT IT DOES NOT CLAIM: that the definer refuses
- * the same way — the integration tier names that.
- */
+/** The selftest of `decideLifecycleChange`, every branch. */
 
 import { describe, expect, it } from 'vitest';
 

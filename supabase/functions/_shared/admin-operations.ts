@@ -1,19 +1,4 @@
-/**
- * THE PLATFORM ADMINISTRATOR'S THREE OPERATIONS, as pure decisions: the audited contact transfer,
- * which lost-access recovery is the same operation as (AT-001.25, .26, .27, .35), the non-login
- * escalation contact (AT-001.28), and the account lifecycle setter (AT-001.29, .30, .31). The
- * routes under `supabase/functions/` register each one through `writeRoute`, and the acceptance
- * fixture runs the same decision over Maps, so the loop tier grades the judgement that ships.
- *
- * WHO MAY CALL IS NOT DECIDED HERE. The lifecycle gate and the platform-administrator check are the
- * inventory's — `WRITE_ROUTES` admits `platform_admin` only on these routes — and `writePipeline`
- * applies them before a decision runs. A deactivated administrator is refused by the gate before
- * `decideLifecycleChange` runs. What is decided here is whether THIS request is one the database
- * should perform, and the database re-checks every answer as a backstop.
- *
- * Same two constraints as `accounts.ts`: no non-relative import and no Deno global; no I/O, no
- * clock, no randomness.
- */
+/** The platform administrator's decisions: the contact transfer, the escalation contact and the lifecycle setter. */
 
 import { parseAccountLifecycle, type AccountLifecycle, type Decision } from './accounts.ts';
 import {
@@ -23,11 +8,6 @@ import {
   type WriteRouteDecision,
 } from './write-routes.ts';
 
-/**
- * The transferee is the SUBJECT whose standing the route loads: its type and lifecycle decide three
- * refusals below. The outgoing account is the organisation's seat holder and is read with the
- * organisation, so it needs no field of its own in the standing.
- */
 export function subjectAccountIdField(body: Record<string, unknown>): string | null {
   return stringField(body.toAccountId);
 }
@@ -42,8 +22,6 @@ export function accountIdField(body: Record<string, unknown>): string | null {
   return stringField(body.accountId);
 }
 
-/* ------------------------------------------------------------------------ the contact transfer */
-
 export type ContactTransferArgs = {
   readonly p_account_id: string;
   readonly p_organization_id: string;
@@ -52,12 +30,6 @@ export type ContactTransferArgs = {
   readonly p_reason: string;
 };
 
-/**
- * THE TRANSFER NAMES THE OUTGOING ACCOUNT and refuses when that account no longer holds the seat, so
- * a retry after a timeout cannot move a seat from a state the caller never saw. Ruling R16: the
- * named seat moves, and the outgoing account is deactivated only when it then holds no other seat.
- * A transfer to the same account is refused: the seat would not move.
- */
 export function decideContactTransfer(input: AccountWriteRouteInput): WriteRouteDecision<ContactTransferArgs> {
   const { standing } = input;
   const organizationId = input.target;
@@ -115,8 +87,6 @@ export function decideContactTransfer(input: AccountWriteRouteInput): WriteRoute
   };
 }
 
-/* ---------------------------------------------------------------------- the escalation contact */
-
 export type EscalationContact = {
   readonly name: string;
   readonly email: string;
@@ -163,8 +133,6 @@ export function decideEscalationContact(input: AccountWriteRouteInput): WriteRou
   };
 }
 
-/* ---------------------------------------------------------------------- the lifecycle setter */
-
 export type LifecycleChangeArgs = {
   readonly p_account_id: string;
   readonly p_subject_account_id: string;
@@ -172,11 +140,6 @@ export type LifecycleChangeArgs = {
   readonly p_reason: string;
 };
 
-/**
- * THE SUBJECT IS THE STANDING'S SUBJECT. An administrator changing its own lifecycle is
- * `invalid-request` — a second administrator is required. A deactivated administrator never
- * reaches this decision: the inventory gate refuses it first.
- */
 export function decideLifecycleChange(input: AccountWriteRouteInput): WriteRouteDecision<LifecycleChangeArgs> {
   const subjectAccountId = input.subject;
   const lifecycle = parseAccountLifecycle(input.body.lifecycle);

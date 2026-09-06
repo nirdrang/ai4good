@@ -33,10 +33,6 @@ export type PolicyProblem = { code: string; detail: string };
 
 export type MigrationFile = { name: string; text: string };
 
-/**
- * A SECURITY DEFINER granted EXECUTE to `service_role` that is not `stable` or `immutable` must
- * call `public.assert_account_active(`. One exemption, with its reason in the row (R1).
- */
 export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
   complete_signup:
     'the caller holds no account row when this runs; a second completion is refused by the accounts ' +
@@ -580,10 +576,6 @@ function functionHeader(statement: string): string {
   return asDollar ? statement.slice(0, asDollar.index) : statement;
 }
 
-/**
- * The SQL half of the write-route conformance check. Reuses `splitSqlStatements`. A later
- * `create or replace` overlays an earlier body, the way the catalog scan overlays grants.
- */
 export function scanWriteGateSql(files: readonly MigrationFile[]): PolicyProblem[] {
   const fns = new Map<string, WriteGateFn>();
   const problems: PolicyProblem[] = [];
@@ -677,11 +669,6 @@ export function tenantCatalogProblems(migrationsDir?: string): PolicyProblem[] {
   return [...scanTenantMigrations(files), ...scanWriteGateSql(files)];
 }
 
-/**
- * AT-001.41's static arm. There is no TypeScript on Auth's delete path, so the loop tier
- * grades the migration text: a BEFORE DELETE trigger on `auth.identities`, guarded by
- * `WHEN (pg_trigger_depth() = 0)`, whose function body names github, volunteer and a raise.
- */
 export function scanIdentityPermanence(files: readonly MigrationFile[]): PolicyProblem[] {
   const triggers = new Map<string, string>();
   const bodies = new Map<string, string>();
@@ -739,10 +726,6 @@ export function scanIdentityPermanence(files: readonly MigrationFile[]): PolicyP
   return problems;
 }
 
-/**
- * AT-001.33's static arm. `public.audit_events` must keep a before-update-or-delete row trigger,
- * a before-truncate statement trigger, and no write grant to any role.
- */
 export function scanAuditAppendOnly(files: readonly MigrationFile[]): PolicyProblem[] {
   const triggers = new Map<string, 'row' | 'truncate'>();
   const writeGrants: string[] = [];

@@ -14,10 +14,6 @@
  * the completion request is the only server-observable moment at which the mandatory link is
  * satisfied; that is why the onboarding import fires here and not at some link event nothing can
  * observe.
- *
- * EVERY JUDGEMENT IS `decideSignupCompletion`'s, in `../_shared/accounts.ts` — the module the
- * acceptance suite drives. The row is `WRITE_ROUTES['complete-signup']`, which admits an absent
- * account by design: the account row is what this route creates.
  */
 
 import { decideSignupCompletion } from '../_shared/accounts.ts';

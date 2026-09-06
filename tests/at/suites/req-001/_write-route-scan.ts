@@ -1,17 +1,4 @@
-/**
- * THE CONFORMANCE CHECK FOR THE WRITE BOUNDARY (AT-001.29).
- *
- * It proves registration and construction — that every TypeScript file under `supabase/functions/`
- * able to reach the database does so through the one constructor, and that the constructor's list
- * and the tree agree in both directions. It does not prove that the gate refuses; only the
- * integration tier does that, by deactivating an account and driving the deployed function.
- *
- * WHAT THIS SCAN DOES NOT SEE: a bypass that builds the Data API URL from fragments, so the source
- * never contains `/rest/v1/` or `createClient` as a single token.
- *
- * Precedent: `_source-scan.ts`. No sentinel, fault, vendor stand-in or fixture world. The SQL half
- * reuses `splitSqlStatements` and the definer tracking in `_policy-scan.ts`.
- */
+/** The static conformance scan of the write boundary: every route reaches the database through `writeRoute`. */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -313,11 +300,6 @@ function collectTs(dir: string, prefix: string): RouteFile[] {
   return files;
 }
 
-/**
- * Reads every `.ts` under every function directory and under `_shared`, supabase/config.toml,
- * the migrations and the fixture. Throws on an empty functions directory — an absence reported
- * by a broken instrument is the false green this whole arrangement exists to remove.
- */
 export function loadWriteRouteTree(repoRoot: string = REPO_ROOT): WriteRouteTree {
   const functionsDir = join(repoRoot, 'supabase', 'functions');
   let names: string[];

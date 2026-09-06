@@ -1,17 +1,4 @@
-/**
- * THE WRITE BOUNDARY, AS A VALUE. Every write route is one row of `WRITE_ROUTES`, and `writeRoute()`
- * in `./edge.ts` is the only way a route reaches the database. This module is the PURE spine of
- * that pipeline: the inventory, the caller's standing, the lifecycle gate, and the gate-then-decide
- * order. Two shells consume it — the edge function supplies real I/O, the acceptance fixture
- * supplies Maps — so the loop tier grades the shipped gate rather than a copy of it.
- *
- * IT IS UNDER THE SAME TWO CONSTRAINTS `accounts.ts` STATES: no non-relative import and no Deno
- * global, because `tests/at/tsconfig.json` compiles it; and no I/O, no clock, no randomness.
- *
- * THE LIFECYCLE RULE IS STATED TWICE, HERE AND IN SQL. `public.assert_account_active` is the
- * backstop for a caller that holds the service-role key and posts to `/rest/v1/rpc/` directly. CI
- * runs the loop tier, which grades this module; only the integration tier reaches the SQL.
- */
+/** The write-route inventory, the caller's standing, the lifecycle gate and the gate-then-decide pipeline. */
 
 import {
   ACCOUNT_TYPES,
@@ -22,8 +9,6 @@ import {
 } from './accounts.ts';
 import { parseOrgRole, type OrgRole } from './memberships.ts';
 import type { Caller } from './caller.ts';
-
-/* ------------------------------------------------------------------------------- the inventory */
 
 /** Where a route lives. A stand-in has no deployed function; the fixture drives the gate over it. */
 export type RouteSurface =
@@ -74,13 +59,6 @@ export const WRITE_ROUTES = {
 
 export type WriteRouteName = keyof typeof WRITE_ROUTES;
 
-/* -------------------------------------------------------------------------- the refusal kinds */
-
-/**
- * THE CLOSED SET OF KINDS A WRITE REFUSAL CARRIES ON THE WIRE. A value outside this list never
- * reaches a caller as a kind: `parseWriteRefusalKind` maps it to `refused`, which is the direction
- * that matters when the value came from a database DETAIL or from a gateway error page.
- */
 export const WRITE_REFUSAL_KINDS = [
   'refused',
   'account-deactivated',
@@ -108,19 +86,13 @@ export function parseWriteRefusalKind(raw: unknown): WriteRefusalKind {
   return (WRITE_REFUSAL_KINDS as readonly string[]).includes(candidate) ? (candidate as WriteRefusalKind) : 'refused';
 }
 
-/* ------------------------------------------------------------------------- the caller's standing */
-
 /** The account a route names beside the caller — the transferee, for the contact transfer. */
 export type SubjectStanding = {
   readonly accountType: AccountType;
   readonly lifecycle: AccountLifecycle;
 };
 
-/**
- * `unreadable` is a third state on purpose: a read that did not happen is not a judgement about the
- * caller, and collapsing it into `no-account` would tell a caller with a database outage to complete
- * signup.
- */
+/** `unreadable` is a third state: a read that did not happen is not a judgement about the caller. */
 export type WriteStanding =
   | { readonly kind: 'no-account' }
   | { readonly kind: 'unreadable'; readonly detail: string }
@@ -201,8 +173,6 @@ export function parseWriteStanding(raw: unknown): WriteStanding {
   };
 }
 
-/* ------------------------------------------------------------------------------- the pipeline */
-
 export type WriteRouteInput = {
   readonly caller: Caller;
   readonly standing: WriteStanding;
@@ -267,7 +237,6 @@ export function typeRefusalKind(admits: readonly AccountType[]): WriteRefusalKin
 
 function typeRefusalReason(admits: readonly AccountType[], accountType: AccountType): string {
   if (admits.length === 1 && admits[0] === 'ngo') {
-    // The NGO-only sentence has one home, `ngoOnlyActionAllowed`, and AT-001.06 reads it.
     const decision = ngoOnlyActionAllowed(accountType);
     if (!decision.ok) return decision.reason;
   }
@@ -275,11 +244,7 @@ function typeRefusalReason(admits: readonly AccountType[], accountType: AccountT
   return `this action is available to ${who} only — the caller's account is of type ${JSON.stringify(accountType)}`;
 }
 
-/**
- * The gate, alone, so a body can grade it without building a request. THE ORDER IS LOAD-BEARING:
- * deactivation is judged before type and before presence, because AT-001.29 asks that the refusal
- * be deactivation's rather than an ordinary role or lifecycle precondition.
- */
+/** Deactivation is judged before type and before presence, so a deactivated caller is told it is deactivated and nothing else. */
 export function writeGateDecision(name: WriteRouteName, standing: WriteStanding): WriteRouteDecision<'admitted'> {
   const route = WRITE_ROUTES[name];
   if (standing.kind === 'unreadable') {
@@ -299,7 +264,6 @@ export function writeGateDecision(name: WriteRouteName, standing: WriteStanding)
   return { ok: true, args: 'admitted' };
 }
 
-/** Gate then decide. ONE spine; the edge and the fixture are two shells around it. */
 export function writePipeline<Args, Input extends WriteRouteInput = WriteRouteInput>(
   spec: WriteRouteSpec<Args, Input>,
   input: WriteRouteInput,

@@ -1,19 +1,4 @@
-/**
- * THE ORACLE FOR THE WRITE GATE'S ORDER AND FOR THE STANDING PARSER'S FAIL-CLOSED PROMISE.
- *
- * `supabase/functions/_shared/write-routes.ts` promises two things no acceptance body can reach in
- * full. `writeGateDecision` checks in a fixed order — unreadable, deactivated, absent-by-design,
- * no account, type — and the order is what makes AT-001.29's refusal deactivation's rather than a
- * role's; a body sees one path at a time. `parseWriteStanding` answers `unreadable` for every shape
- * it does not recognise, and the acceptance fixture renders well-formed shapes only, so the
- * malformed ones are reachable here alone, exactly as `shipped-caller.selftest.ts` says of the
- * caller judgement.
- *
- * WHAT A GREEN HERE CLAIMS: that the gate every write route runs answers as its header says, for
- * every ordered check and every admitted shape, and that no standing shape widens authority. WHAT IT
- * DOES NOT CLAIM: that `public.write_standing` renders the shapes given here, or that a deployed
- * route reaches the gate at all. The integration tier is the oracle for both.
- */
+/** The selftest of the write gate's check order and of the standing parser's fail-closed shapes. */
 
 import { describe, expect, it } from 'vitest';
 
@@ -33,7 +18,6 @@ import { ACCOUNT_TYPES, type AccountType } from '../../../supabase/functions/_sh
 
 const SEAT = '0f1d6a2e-6d1c-4a3b-9a7e-2c5b8d4f1a90';
 
-/** The standing `public.write_standing` renders for an active account of one type, with no organisation named. */
 function accountOf(accountType: AccountType, lifecycle: 'active' | 'deactivated' = 'active'): WriteStanding {
   return {
     kind: 'account',
@@ -46,7 +30,6 @@ function accountOf(accountType: AccountType, lifecycle: 'active' | 'deactivated'
   };
 }
 
-/** The canonical `write_standing` answer for an active NGO admin of one organisation. */
 const RENDERED = {
   account: { account_type: 'ngo', lifecycle: 'active' },
   org_exists: true,
@@ -75,9 +58,6 @@ describe('the shipped write gate checks in its stated order', () => {
         const decision = writeGateDecision(name, accountOf(accountType, 'deactivated'));
         expect(decision.ok, `${name} admitted a deactivated ${accountType}`).toBe(false);
         if (decision.ok) continue;
-        // THE ORDER IS THE CLAIM: a deactivated volunteer on an admin route is told it is
-        // deactivated, not that it is not an administrator, and a deactivated account on the
-        // signup route is refused by the gate rather than by a primary-key collision.
         expect(decision.kind, `${name} refused a deactivated ${accountType} for a reason other than deactivation`).toBe('account-deactivated');
         expect(decision.status).toBe(403);
       }
@@ -87,8 +67,6 @@ describe('the shipped write gate checks in its stated order', () => {
   it('admits an absent account on the one route whose row says the account is what it creates', () => {
     expect(WRITE_ROUTES['complete-signup'].standing.kind).toBe('account-absent-by-design');
     expect(writeGateDecision('complete-signup', { kind: 'no-account' })).toEqual({ ok: true, args: 'admitted' });
-    // And an existing ACTIVE account of any type is admitted too: the second completion is the
-    // database's refusal, never the gate's.
     for (const accountType of ACCOUNT_TYPES) {
       expect(writeGateDecision('complete-signup', accountOf(accountType)), `complete-signup refused an active ${accountType}`).toEqual({
         ok: true,

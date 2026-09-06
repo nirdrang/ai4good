@@ -2,11 +2,6 @@
  * AT-REQ-001 section A — signup and sign-in.
  * Source: .taskmaster/docs/acceptance/at-req-001.md
  *
- * ALL EIGHT of this file's ids are now written. Four came with the first accounts leaf — AT-001.01,
- * .03, .06 and .07 — three GitHub ones, AT-001.02, .04 and .05, with the GitHub leaf, and AT-001.41
- * with the permanence of the volunteer GitHub link after signup. Nothing in this file is a
- * declared stub any more.
- *
  * EVERY ASSERTION BELOW READS AN OBSERVABLE CONSEQUENCE, never that a function was called. That is
  * the whole discipline of this file: a test that checks "the validator ran" passes against a
  * validator that returns the wrong answer.

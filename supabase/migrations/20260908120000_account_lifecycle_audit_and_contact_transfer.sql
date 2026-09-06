@@ -1,36 +1,16 @@
--- REQ-001, D6 leaf 1: the audited contact transfer and lost-access recovery (AT-001.25, .26, .27,
--- .35), the non-login escalation contact (AT-001.28), and the lifecycle boundary they need — the
--- column, the SQL gate, and the one standing read every write route loads first.
---
--- THE LIFECYCLE RULE IS STATED TWICE, ONCE HERE AND ONCE IN TYPESCRIPT (R1). `writeGateDecision` in
--- `supabase/functions/_shared/write-routes.ts` refuses a deactivated caller with a kind on the
--- wire; `assert_account_active` below refuses the same caller for anyone who reaches a definer with
--- the service-role key and no TypeScript in the path. CI grades the TypeScript; only the
--- integration tier reaches this file.
+-- The audited contact transfer and lost-access recovery, the non-login escalation contact, and
+-- the account lifecycle boundary they need.
 
-/* ================================================================== the lifecycle state ========= */
-
--- Two values and no third (R8). An enum rather than a boolean, so `suspended` cannot be written by
--- accident, and rather than a nullable timestamp, so a null cannot mean "probably active". When and
--- why live in `audit_events`, which is the only place they are written.
 create type public.account_lifecycle as enum ('active', 'deactivated');
 
 alter table public.accounts
   add column lifecycle public.account_lifecycle not null default 'active';
 
--- The other-seats check (R6) and the standing read look seats up BY ACCOUNT; the unique index that
--- keeps one seat per organisation is by organisation.
 create index org_memberships_by_account_idx on public.org_memberships (account_id, org_id);
-
-/* ================================================================== the audit record ============ */
 
 create type public.audit_event_kind as enum
   ('org_contact_transferred', 'account_lifecycle_changed', 'org_role_changed');
 
--- NO FOREIGN KEY AND NO CASCADE (R3). Actor and subject are plain uuids beside a denormalised
--- label, in the spirit of `acknowledgments.signer_name`, so a later account delete cannot take the
--- history with it. `actor_account_id` is null on an operator path and `actor_label` then reads
--- 'operator' (R9).
 create table public.audit_events (
   id                 uuid primary key default gen_random_uuid(),
   occurred_at        timestamptz not null default now(),
@@ -41,17 +21,10 @@ create table public.audit_events (
   subject_org_id     uuid,
   reason             text not null,
   detail             jsonb not null default '{}'::jsonb,
-  -- AT-001.26's "why", encoded rather than described: no audit row without a reason.
   constraint audit_events_reason_populated check (btrim(reason, E' \t\r\n\f') <> ''),
   constraint audit_events_actor_label_populated check (btrim(actor_label, E' \t\r\n\f') <> '')
 );
 
-/* ================================================================== the escalation contact ====== */
-
--- ONE ROW PER ORGANISATION, and "non-login" is structural: the table holds no account id for the
--- contact and no link to `auth.users`, so there is nothing for a login to attach to (R15). The
--- primary key on `org_id` is AT-001.28's "one escalation contact" as a fact about the shape; a
--- second capture updates the row.
 create table public.org_escalation_contacts (
   org_id                 uuid primary key references public.organizations(id) on delete cascade,
   contact_name           text not null,
@@ -67,23 +40,12 @@ create table public.org_escalation_contacts (
   )
 );
 
-/* ================================================================== privilege posture ========== */
-
--- BOTH TABLES ARE UNREACHABLE BY CLIENT ROLES (R12). `revoke all` is what makes "no privilege"
--- true, and it names service_role as well (R4): the default ACL still hands truncate, references
--- and trigger to every new public table (artifacts/measure/unit4-privileges-after-reset.txt).
--- No policy and no viewer_ helper, by decision; the tests read these tables as the operator.
 revoke all on table public.audit_events, public.org_escalation_contacts from anon, authenticated;
 revoke all on table public.audit_events, public.org_escalation_contacts from service_role;
 alter table public.audit_events enable row level security;
 alter table public.org_escalation_contacts enable row level security;
 
-/* ================================================================== append-only, in the schema == */
-
--- R3's three halves: no role holds UPDATE, DELETE or TRUNCATE (above); no definer below updates or
--- deletes a row; and this trigger raises for the owner's own statements. The owner can drop the
--- trigger — no object protects against its owner — and that residual is stated here rather than
--- papered over with a second trigger the same authority could also drop.
+-- The owner can drop these triggers; no object protects against its owner.
 create function public.audit_events_are_append_only()
 returns trigger
 language plpgsql
@@ -104,9 +66,6 @@ create trigger audit_events_no_truncate
 before truncate on public.audit_events
 for each statement execute function public.audit_events_are_append_only();
 
-/* ================================================================== the write gate, in SQL ====== */
-
--- Called FIRST by every write definer the service role can reach.
 create function public.assert_account_active(p_account_id uuid)
 returns void
 language plpgsql
@@ -116,16 +75,14 @@ as $$
 declare
   v_lifecycle public.account_lifecycle;
 begin
-  -- `for share` (R7): a gated write in flight blocks a concurrent deactivation, and a write that
-  -- arrives during one blocks until it commits and then reads the committed state. That is the
-  -- whole concurrency contract; nothing else here is serialised.
+  -- `for share`: a write in flight blocks a concurrent deactivation, and a write that arrives
+  -- during one reads the committed state.
   select lifecycle into v_lifecycle
     from public.accounts
    where id = p_account_id
      for share;
 
-  -- ABSENCE IS NOT A LIFECYCLE REFUSAL. The calling function answers for a missing account with its
-  -- own sentence; this one answers for exactly one thing.
+  -- A missing account is not a lifecycle refusal; the calling function answers for it.
   if v_lifecycle = 'deactivated' then
     raise exception 'this account is deactivated, so it may perform no write (REQ-001, AT-001.29)'
       using errcode = '42501', detail = 'account-deactivated';
@@ -133,17 +90,7 @@ begin
 end;
 $$;
 revoke execute on function public.assert_account_active(uuid) from public;
--- NO GRANT. It is reached only from inside other definers, which run as the owner.
 
-/* ================================================================== the one standing read ======= */
-
--- ONE READ FOR EVERY WRITE ROUTE: the caller's type and lifecycle, its role in the target
--- organisation, whether that organisation exists, who holds its single seat, and the subject's type
--- and lifecycle. A route that names no organisation passes null and those fields come back null.
--- The scalar subqueries for the seat holder depend on org_memberships_one_seat_per_org_idx: one
--- organisation holds one membership row. `parseWriteStanding` in
--- `supabase/functions/_shared/write-routes.ts` judges the answer and fails closed on any other
--- shape.
 create function public.write_standing(p_account_id uuid, p_org_id uuid, p_subject_account_id uuid)
 returns jsonb
 language sql
@@ -179,10 +126,6 @@ $$;
 revoke execute on function public.write_standing(uuid, uuid, uuid) from public;
 grant execute on function public.write_standing(uuid, uuid, uuid) to service_role;
 
-/* ================================================================== audit writing, internal ===== */
-
--- Reached only from inside other definers: no grant. `actor_label` is 'platform_admin:<id>' for a
--- product path and 'operator' when no actor is known (R9).
 create function public.append_audit_event(
   p_kind public.audit_event_kind,
   p_actor uuid,
@@ -212,9 +155,6 @@ end;
 $$;
 revoke execute on function public.append_audit_event(public.audit_event_kind, uuid, uuid, uuid, text, jsonb) from public;
 
--- IDEMPOTENT: it updates only when the state differs, returns whether it changed, and writes an
--- audit row only on a change. Running it twice leaves one row, not two. `for update` takes the lock
--- that `assert_account_active`'s share lock waits behind (R7).
 create function public.change_account_lifecycle(
   p_account_id uuid,
   p_lifecycle public.account_lifecycle,
@@ -256,17 +196,6 @@ end;
 $$;
 revoke execute on function public.change_account_lifecycle(uuid, public.account_lifecycle, uuid, text) from public;
 
-/* ================================================================== the two admin writes ======== */
-
--- THE CONTACT TRANSFER, AND LOST-ACCESS RECOVERY IS THE SAME OPERATION (AT-001.27): the reason the
--- administrator gives is the difference, and the audit row carries it. One call is one transaction,
--- so a transfer cannot half-happen. Ruling R16: the named seat moves, and the outgoing account is
--- deactivated only when it then holds no other seat.
---
--- EVERY CHECK BELOW IS A BACKSTOP for a caller that bypassed `decideContactTransfer` in
--- `supabase/functions/_shared/admin-operations.ts`: the user-facing refusal, with its kind and its
--- sentence, is the shared module's. Each raise here still carries its kind as DETAIL, so the edge
--- can put it on the wire (R10).
 create function public.transfer_organization_contact(
   p_account_id uuid,
   p_organization_id uuid,
@@ -308,9 +237,6 @@ begin
       using errcode = '22023', detail = 'invalid-request';
   end if;
 
-  -- Lock the outgoing and transferee account rows in id order, then the seat. A concurrent
-  -- create_organization for the outgoing account takes assert_account_active's share lock on that
-  -- same row and therefore waits here (or this waits for it) until the other commits.
   perform 1 from public.accounts where id in (p_from_account_id, p_to_account_id) order by id for update;
 
   select account_id into v_seat_holder
@@ -345,13 +271,8 @@ begin
       using errcode = '42501', detail = 'transferee-deactivated';
   end if;
 
-  -- The actor, for any trigger that writes an audit row inside this transaction (R9).
   perform set_config('app.actor_account_id', p_account_id::text, true);
 
-  -- THE SEAT MOVES AND NOTHING ELSE ON THE ROW CHANGES: the role stays, and every row keyed to the
-  -- outgoing account — its acknowledgment, the organisation's projects, the organisation itself —
-  -- stays where it is. That is AT-001.25's "history preserved and still attributed to the original
-  -- acting humans". Nothing is deleted.
   update public.org_memberships
      set account_id = p_to_account_id
    where org_id = p_organization_id
@@ -384,8 +305,6 @@ $$;
 revoke execute on function public.transfer_organization_contact(uuid, uuid, uuid, uuid, text) from public;
 grant execute on function public.transfer_organization_contact(uuid, uuid, uuid, uuid, text) to service_role;
 
--- THE ESCALATION CONTACT (AT-001.28). The same backstop posture as the transfer: the decision is
--- `decideEscalationContact`'s, and every raise here carries its kind as DETAIL.
 create function public.set_escalation_contact(
   p_account_id uuid,
   p_organization_id uuid,
@@ -429,8 +348,6 @@ begin
       using errcode = '23503', detail = 'no-such-organisation';
   end if;
 
-  -- ONE ROW PER ORGANISATION: a second capture replaces the first, and the primary key is what
-  -- makes that true rather than a rule somebody applies.
   insert into public.org_escalation_contacts
     (org_id, contact_name, contact_email, contact_phone, recorded_by_account_id)
   values (p_organization_id, v_name, v_email, v_phone, p_account_id)
@@ -452,11 +369,7 @@ $$;
 revoke execute on function public.set_escalation_contact(uuid, uuid, text, text, text) from public;
 grant execute on function public.set_escalation_contact(uuid, uuid, text, text, text) to service_role;
 
-/* ================================================================== the two existing writers ==== */
-
--- Both gain the gate as their FIRST statement and are otherwise the bodies their own migrations
--- state. `create or replace` keeps privileges, and the revoke and the grant are restated anyway:
--- this tree has paid for a recreate that dropped a grant once.
+-- The revoke and the grant are restated because a recreate once dropped a grant in this tree.
 create or replace function public.create_organization(
   p_account_id uuid,
   p_name text
@@ -477,8 +390,6 @@ begin
       using errcode = '22023';
   end if;
 
-  -- THE BACKSTOP. It fires only on a call that did not come through the edge function, because the
-  -- edge function refuses a non-NGO caller before ever reaching here.
   select account_type into v_account_type
     from public.accounts
    where id = p_account_id;
@@ -535,9 +446,6 @@ begin
       using errcode = '23503';
   end if;
 
-  -- THE ROLE IS READ IN THE TARGET ORGANISATION AND NOWHERE ELSE. There is no query here that could
-  -- find the caller's role in a different organisation, which is what makes "acting in NGO A never
-  -- grants anything in NGO B" structural on this path rather than a rule somebody applied.
   select role into v_role
     from public.org_memberships
    where org_id = p_organization_id
