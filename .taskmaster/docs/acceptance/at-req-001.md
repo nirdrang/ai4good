@@ -11,6 +11,7 @@ Source: prd-mvp.md REQ-001 (+ Promise §9 acknowledgment cadence; NFR Security/a
 - **AT-001.03 (P0)** — Given a visitor, When they sign up via Google as either account type, Then the account is created and sign-in via Google succeeds on return visits.
 - **AT-001.04 (P0)** — Given a visitor completing volunteer signup by email or Google (no GitHub identity yet), When they attempt to finish signup without linking a GitHub account, Then completion is blocked with the GitHub-link requirement stated; linking completes signup.
 - **AT-001.05 (P0)** — Given a volunteer signup where GitHub is linked, When the link completes, Then volunteer GitHub onboarding fires [cross: REQ-007]: the linked handle AND the imported public stats (top languages, repository count, contribution summary) are observably populated on the profile — a queued-but-empty import fails this test. [cx]
+- **AT-001.41 (P0)** — Given a completed volunteer account whose GitHub identity is linked, When the volunteer attempts to unlink that GitHub identity, Then the attempt is refused and the GitHub identity stays linked. [d91]
 - **AT-001.06 (P0)** — Given an existing account of type `volunteer`, When it attempts an NGO-only action (create an org profile / project need), Then the action is rejected — one account holds exactly one global type; the NGO path requires a separate account.
 - **AT-001.07 (P0)** — Given a provisioned `platform admin` account, When it signs in, Then it authenticates and carries the `platform admin` global type; the public signup surfaces offer only NGO/volunteer. [cx r2: verify the type exists + authenticates, rather than only asserting an unstated no-signup rule]
 - **AT-001.08 [retired — cx: the PRD defines no identity-collision/linking policy; re-add if the PRD ever specifies one]**
@@ -77,7 +78,7 @@ Source: prd-mvp.md REQ-001 (+ Promise §9 acknowledgment cadence; NFR Security/a
 | Two-layer authz (global type + per-NGO admin/member; "NGO admin" = admin in that NGO) | 01, 06, 07, 16, 36, 37 |
 | Multi-NGO membership; volunteers individual (no per-NGO role) | 16, 36, 37 |
 | Sign-in: email/password, GitHub, Google (signup + return sign-in) | 01–03 |
-| GitHub link mandatory at volunteer signup → REQ-007 onboarding | 04, 05 |
+| GitHub link mandatory at volunteer signup → REQ-007 onboarding; the link is permanent after signup | 04, 05, 41 |
 | Single-seat NGO + guards (attestation, shared-credential ban, transfer/recovery, escalation contact) | 17–20, 25–28, 35 |
 | Single-dev projects | 32 |
 | NGO data visible to own account + assigned volunteer + platform admin (spans all) | 21–24, 40 |

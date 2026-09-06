@@ -671,3 +671,62 @@ export function tenantCatalogProblems(migrationsDir?: string): PolicyProblem[] {
   const files = names.map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }));
   return [...scanTenantMigrations(files), ...scanWriteGateSql(files)];
 }
+
+/**
+ * AT-001.41's static arm. There is no TypeScript on Auth's delete path, so the loop tier
+ * grades the migration text: a BEFORE DELETE trigger on `auth.identities`, guarded by
+ * `WHEN (pg_trigger_depth() = 0)`.
+ */
+export function scanIdentityPermanence(files: readonly MigrationFile[]): PolicyProblem[] {
+  const triggers = new Map<string, string>();
+  const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
+  for (const file of ordered) {
+    for (const raw of splitSqlStatements(file.text)) {
+      const stmt = collapse(raw);
+      const created = /^create\s+trigger\s+([A-Za-z_][A-Za-z0-9_]*)\b/i.exec(stmt);
+      if (created && /\bbefore\s+delete\b/i.test(stmt) && /\bon\s+auth\.identities\b/i.test(stmt)) {
+        triggers.set(created[1].toLowerCase(), stmt);
+        continue;
+      }
+      const dropped = /^drop\s+trigger(?:\s+if\s+exists)?\s+([A-Za-z_][A-Za-z0-9_]*)\s+on\s+auth\.identities\b/i.exec(
+        stmt,
+      );
+      if (dropped) triggers.delete(dropped[1].toLowerCase());
+    }
+  }
+  if (triggers.size === 0) {
+    return [
+      {
+        code: 'identity-permanence-missing',
+        detail: 'no migration creates a before delete trigger on auth.identities',
+      },
+    ];
+  }
+  const problems: PolicyProblem[] = [];
+  for (const [name, stmt] of triggers) {
+    if (!/\bwhen\s*\([^)]*pg_trigger_depth\s*\(\s*\)\s*=\s*0/i.test(stmt)) {
+      problems.push({
+        code: 'identity-permanence-unguarded',
+        detail: `trigger ${name} on auth.identities has no when (pg_trigger_depth() = 0)`,
+      });
+    }
+  }
+  return problems;
+}
+
+export function identityPermanenceProblems(migrationsDir?: string): PolicyProblem[] {
+  const dir = migrationsDir ?? join(REPO_ROOT, 'supabase', 'migrations');
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((name) => name.endsWith('.sql')).sort();
+  } catch (error) {
+    throw new Error(
+      `identity permanence scan could not read migrations under ${dir}: ${(error as Error).message}`,
+    );
+  }
+  if (names.length === 0) {
+    throw new Error(`identity permanence scan found no migration under ${dir}`);
+  }
+  const files = names.map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }));
+  return scanIdentityPermanence(files);
+}

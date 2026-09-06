@@ -536,6 +536,15 @@ export type AccountsSut = {
    * Same posture as every other Auth member here — no handshake, no fabricated authorization code.
    */
   linkGithubIdentity(session: Session, githubHandle: string): Promise<void>;
+  /**
+   * Attempt to unlink one identity — AT-001.41. The oracle is the row and the user's health,
+   * never GoTrue's status: a refused delete answers 500 (R10).
+   */
+  unlinkGithubIdentity(session: Session, provider: string): Promise<void>;
+  /** The account's linked identities, read as the operator. */
+  linkedIdentities(accountId: string): Promise<{ provider: string }[]>;
+  /** Whether `/auth/v1/user` still answers 200 for this session. */
+  authUserIsHealthy(session: Session): Promise<boolean>;
   /** Return sign-in with the same credentials — AT-001.01's final clause. */
   signInWithEmailPassword(email: string, password: string): Promise<SignInOutcome>;
   /**

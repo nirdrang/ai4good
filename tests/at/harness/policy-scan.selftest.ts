@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  identityPermanenceProblems,
+  scanIdentityPermanence,
   scanTenantMigrations,
   scanWriteGateSql,
   TENANT_CATALOG,
@@ -379,5 +381,32 @@ revoke execute on function public.rewrite_audit() from public;
       },
     ]);
     expect(problems.some((p) => p.code === 'audit-mutation-in-definer')).toBe(true);
+  });
+});
+
+describe('identityPermanenceProblems over the real migrations', () => {
+  it('reports no problems', () => {
+    expect(identityPermanenceProblems()).toEqual([]);
+  });
+});
+
+describe('scanIdentityPermanence refusals', () => {
+  it('refuses when no migration creates a before delete trigger on auth.identities', () => {
+    const problems = scanIdentityPermanence([{ name: 'a.sql', text: 'select 1;' }]);
+    expect(problems.some((p) => p.code === 'identity-permanence-missing')).toBe(true);
+  });
+
+  it('refuses a before delete trigger on auth.identities with no pg_trigger_depth when clause', () => {
+    const problems = scanIdentityPermanence([
+      {
+        name: 'a.sql',
+        text: `
+create trigger volunteer_github_identity_is_permanent
+before delete on auth.identities for each row
+execute function public.github_identity_is_permanent_for_volunteers();
+`,
+      },
+    ]);
+    expect(problems.some((p) => p.code === 'identity-permanence-unguarded')).toBe(true);
   });
 });

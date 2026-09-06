@@ -98,6 +98,23 @@ export async function authPost(
   return { url, status: response.status, json: jsonBody(await response.text()) };
 }
 
+/** Auth DELETE as a caller. AT-001.41 unlinks through `/auth/v1/user/identities/{id}`. */
+export async function authDelete(
+  stack: Stack,
+  path: string,
+  bearer?: string,
+): Promise<{ url: string; status: number; json: Record<string, unknown> }> {
+  const url = `${stripSlash(stack.apiUrl)}${path}`;
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      apikey: stack.anonKey,
+      Authorization: `Bearer ${bearer ?? stack.anonKey}`,
+    },
+  });
+  return { url, status: response.status, json: jsonBody(await response.text()) };
+}
+
 /** A Data API GET as a caller. `bearer` null sends the anon key as bearer (the AT-001.17 arm's shape). */
 export async function restGet(
   stack: Stack,

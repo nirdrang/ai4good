@@ -2,9 +2,9 @@
  * AT-REQ-001 section A — signup and sign-in.
  * Source: .taskmaster/docs/acceptance/at-req-001.md
  *
- * ALL SEVEN of this file's ids are now written. Four came with the first accounts leaf — AT-001.01,
- * .03, .06 and .07 — and the three GitHub ones, AT-001.02, .04 and .05, come with the leaf that
- * lands GitHub signup and the mandatory GitHub link at volunteer signup. Nothing in this file is a
+ * ALL EIGHT of this file's ids are now written. Four came with the first accounts leaf — AT-001.01,
+ * .03, .06 and .07 — three GitHub ones, AT-001.02, .04 and .05, with the GitHub leaf, and AT-001.41
+ * with the permanence of the volunteer GitHub link after signup. Nothing in this file is a
  * declared stub any more.
  *
  * EVERY ASSERTION BELOW READS AN OBSERVABLE CONSEQUENCE, never that a function was called. That is
@@ -34,7 +34,8 @@ import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
 // The INTEGRATION-tier procedures for the ids whose criteria are proved differently against a real
 // stack. Same criterion, same id, one registration; only the procedure differs. See _integration.ts.
-import { at00101, at00105, at00106, at00107 } from './_integration.ts';
+import { at00101, at00105, at00106, at00107, at00141 } from './_integration.ts';
+import { identityPermanenceProblems } from './_policy-scan.ts';
 // `LEAF`/`notLanded` are no longer imported here: this file's last declared stub was replaced with a
 // real body by the GitHub leaf, and an import kept for a stub that no longer exists is an orphan.
 // The other five suite files still declare their leaves' ids and import both.
@@ -682,6 +683,61 @@ describe('AT-REQ-001 A — signup and sign-in', () => {
         ).toBeNull();
       },
       integration: at00107,
+    },
+  );
+
+  atTest(
+    'AT-001.41',
+    'a volunteer cannot unlink the GitHub identity after signup',
+    {
+      default: async ({ open }) => {
+        expect(identityPermanenceProblems(), 'the identity-permanence scan found a problem').toEqual([]);
+
+        const { w, sut } = await open();
+
+        const volunteer = await sut.registerWithEmailPassword(w.email('permanent-github'), PASSWORD);
+        await sut.linkGithubIdentity(volunteer, 'permanent-github-handle');
+        const volunteerCompletion = await sut.completeSignup(
+          volunteer,
+          { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+          CLIENT_IP,
+        );
+        expect(volunteerCompletion, 'the volunteer could not complete signup').toMatchObject({ ok: true });
+        if (!volunteerCompletion.ok) return;
+
+        const before = await sut.linkedIdentities(volunteer.accountId);
+        expect(before.map((i) => i.provider), 'the Given is a volunteer holding email and github').toContain('github');
+        expect(before.map((i) => i.provider), 'the Given is a volunteer holding email and github').toContain('email');
+
+        await sut.unlinkGithubIdentity(volunteer, 'github');
+
+        expect(
+          (await sut.linkedIdentities(volunteer.accountId)).map((i) => i.provider),
+          'the mandatory GitHub identity was unlinked',
+        ).toContain('github');
+        expect(await sut.authUserIsHealthy(volunteer), 'the refusal broke Auth for this user').toBe(true);
+
+        const ngo = await sut.registerWithEmailPassword(w.email('ngo-with-github'), PASSWORD);
+        await sut.linkGithubIdentity(ngo, 'ngo-github-handle');
+        const ngoCompletion = await sut.completeSignup(
+          ngo,
+          {
+            accountType: 'ngo',
+            organizationName: 'Riverside Shelter 41',
+            acknowledgmentTextVersion: TEXT_VERSION,
+            ...SIGNER,
+          },
+          CLIENT_IP,
+        );
+        expect(ngoCompletion, 'the NGO control could not complete signup').toMatchObject({ ok: true });
+        if (!ngoCompletion.ok) return;
+        await sut.unlinkGithubIdentity(ngo, 'github');
+        expect(
+          (await sut.linkedIdentities(ngo.accountId)).map((i) => i.provider),
+          'the control was refused too, so the refusal is not about volunteers',
+        ).not.toContain('github');
+      },
+      integration: at00141,
     },
   );
 });

@@ -343,6 +343,8 @@ interface AuthUser {
    * established, and is a property of the user Auth answers for.
    */
   githubHandle: string | null;
+  /** Auth's `identities[]`, reduced to the provider — the map AT-001.41 reads. */
+  identities: { provider: string }[];
   /**
    * GoTrue's `email_confirmed_at`, or null while the address is unconfirmed — vendor mirror 1 and
    * 4 in this file's header.
@@ -583,6 +585,10 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       password,
       provider,
       githubHandle,
+      identities:
+        githubHandle !== null && provider !== 'github'
+          ? [{ provider }, { provider: 'github' }]
+          : [{ provider }],
       emailConfirmedAt,
       verificationLink,
       passwordResetLink: null,
@@ -988,7 +994,33 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const user = state.authUsers.get(caller.id);
       if (!user) throw new Error(`fixture: no auth user ${caller.id} to link a GitHub identity to`);
       user.githubHandle = githubHandle;
+      if (!user.identities.some((identity) => identity.provider === 'github')) {
+        user.identities.push({ provider: 'github' });
+      }
     },
+
+    /**
+     * THE MIRROR of `public.github_identity_is_permanent_for_volunteers`. A volunteer GitHub
+     * identity stays on the map; any other unlink removes it. The live adapter is the oracle.
+     */
+    unlinkGithubIdentity: async (session, provider) => {
+      const caller = resolveCaller(session);
+      if (caller === null) {
+        throw new Error(
+          `fixture: session ${session.sessionId} is not one Auth would answer for — nothing to unlink an identity from`,
+        );
+      }
+      const user = state.authUsers.get(caller.id);
+      if (!user) throw new Error(`fixture: no auth user ${caller.id} to unlink an identity from`);
+      const account = state.accounts.get(caller.id);
+      if (provider === 'github' && account?.accountType === 'volunteer') return;
+      user.identities = user.identities.filter((identity) => identity.provider !== provider);
+      if (provider === 'github') user.githubHandle = null;
+    },
+
+    linkedIdentities: async (accountId) => clone(state.authUsers.get(accountId)?.identities ?? []),
+
+    authUserIsHealthy: async (session) => sessionIsLive(state.sessions.get(session.sessionId)),
 
     signInWithEmailPassword: async (email, password): Promise<SignInOutcome> => {
       const userId = state.byEmail.get(email);

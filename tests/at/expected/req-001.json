@@ -36,7 +36,8 @@
         "AT-001.29",
         "AT-001.30",
         "AT-001.31",
-        "AT-001.33"
+        "AT-001.33",
+        "AT-001.41"
       ],
       "red": {
         "AT-001.24": { "kind": "capability-pending", "capabilities": ["ui.authenticated-surface-rendering"] },
@@ -71,7 +72,8 @@
         "AT-001.27",
         "AT-001.28",
         "AT-001.35",
-        "AT-001.33"
+        "AT-001.33",
+        "AT-001.41"
       ],
       "red": {
         "AT-001.02": { "kind": "capability-pending", "capabilities": ["sut.accounts.registerWithGithub"] },

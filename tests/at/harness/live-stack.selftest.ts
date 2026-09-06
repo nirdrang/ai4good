@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  authDelete,
   authPost,
   functionPost,
   functionPostRaw,
@@ -273,6 +274,21 @@ describe('authPost and functionPost request shape', () => {
       expect(calls[0].headers['x-forwarded-for']).toBeUndefined();
       await functionPost(STACK, 'complete-signup', {}, 'tok', '203.0.113.7');
       expect(calls[1].headers['x-forwarded-for']).toBe('203.0.113.7');
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('authDelete sends DELETE with apikey and the given bearer', async () => {
+    const original = globalThis.fetch;
+    try {
+      const { calls } = captureFetch();
+      await authDelete(STACK, '/auth/v1/user/identities/id-1', 'user-token');
+      expect(calls).toHaveLength(1);
+      expect(calls[0].method).toBe('DELETE');
+      expect(calls[0].url).toBe('http://127.0.0.1:44321/auth/v1/user/identities/id-1');
+      expect(calls[0].headers.apikey).toBe(STACK.anonKey);
+      expect(calls[0].headers.Authorization).toBe('Bearer user-token');
     } finally {
       globalThis.fetch = original;
     }

@@ -72,6 +72,7 @@ import { parseWriteRefusalKind, type WriteRouteName } from '../../../../supabase
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import {
+  authDelete,
   authPost,
   followLink,
   functionPost,
@@ -335,6 +336,47 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           now(), now(), now()
         )
       `;
+    },
+
+    unlinkGithubIdentity: async (session, provider) => {
+      const tokens = tokensOf(sessions, session, 'unlink an identity');
+      const me = await fetch(`${api}/auth/v1/user`, {
+        headers: { apikey: stack.anonKey, Authorization: `Bearer ${tokens.accessToken}` },
+      });
+      let json: Record<string, unknown> = {};
+      const text = await me.text();
+      if (text) {
+        try {
+          json = JSON.parse(text) as Record<string, unknown>;
+        } catch {
+          json = { raw: text };
+        }
+      }
+      const identities = Array.isArray(json.identities) ? json.identities : [];
+      const identity = identities.find(
+        (row): row is { identity_id?: unknown; id?: unknown; provider?: unknown } =>
+          typeof row === 'object' && row !== null && (row as { provider?: unknown }).provider === provider,
+      );
+      const identityId = String(identity?.identity_id ?? identity?.id ?? '');
+      if (!identityId) throw new Error(`the live user has no ${provider} identity to unlink`);
+      // THE STATUS IS NOT THE ORACLE (R10): a refused volunteer unlink answers 500.
+      await authDelete(stack, `/auth/v1/user/identities/${identityId}`, tokens.accessToken);
+    },
+
+    linkedIdentities: async (accountId) => {
+      const found = await rows<{ provider: string }>(
+        sql`select provider from auth.identities where user_id = ${accountId}::uuid order by provider`,
+      );
+      return found.map((row) => ({ provider: String(row.provider) }));
+    },
+
+    authUserIsHealthy: async (session) => {
+      const tokens = tokensOf(sessions, session, 'read the auth user');
+      const me = await fetch(`${api}/auth/v1/user`, {
+        headers: { apikey: stack.anonKey, Authorization: `Bearer ${tokens.accessToken}` },
+      });
+      await me.text();
+      return me.status === 200;
     },
 
     /**

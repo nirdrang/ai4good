@@ -413,6 +413,52 @@ export async function at00107(ctx: Ctx): Promise<void> {
 }
 
 /**
+ * AT-001.41 — a volunteer may not unlink the GitHub identity after signup. The oracle is the
+ * identity row and `/auth/v1/user` still answering 200, never GoTrue's 500 (R10).
+ */
+export async function at00141(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+
+  const volunteer = await registerConfirmAndSignIn(sut, w.email('permanent-github'));
+  await sut.linkGithubIdentity(volunteer, 'permanent-github-handle');
+  await sut.completeSignup(
+    volunteer,
+    { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+    CLIENT_IP,
+  );
+
+  const before = await sut.linkedIdentities(volunteer.accountId);
+  expect(before.map((i) => i.provider), 'the Given is a volunteer holding email and github').toContain('github');
+  expect(before.map((i) => i.provider), 'the Given is a volunteer holding email and github').toContain('email');
+
+  await sut.unlinkGithubIdentity(volunteer, 'github');
+
+  expect(
+    (await sut.linkedIdentities(volunteer.accountId)).map((i) => i.provider),
+    'the mandatory GitHub identity was unlinked',
+  ).toContain('github');
+  expect(await sut.authUserIsHealthy(volunteer), 'the refusal broke Auth for this user').toBe(true);
+
+  const ngo = await registerConfirmAndSignIn(sut, w.email('ngo-with-github'));
+  await sut.linkGithubIdentity(ngo, 'ngo-github-handle');
+  await sut.completeSignup(
+    ngo,
+    {
+      accountType: 'ngo',
+      organizationName: 'Riverside Shelter 41',
+      acknowledgmentTextVersion: TEXT_VERSION,
+      ...SIGNER,
+    },
+    CLIENT_IP,
+  );
+  await sut.unlinkGithubIdentity(ngo, 'github');
+  expect(
+    (await sut.linkedIdentities(ngo.accountId)).map((i) => i.provider),
+    'the control was refused too, so the refusal is not about volunteers',
+  ).not.toContain('github');
+}
+
+/**
  * AT-001.09 — email verification, PARAMETERIZED OVER BOTH email-capable account types.
  *
  * Gate 1's finding 8 is what makes this body cover two types rather than one: the criterion says
