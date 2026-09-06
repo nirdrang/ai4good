@@ -66,7 +66,7 @@ import { volunteerGithubUnlinkAllowed } from '../_shared/github.ts';
 import { loadCallerStanding, callDatabaseFunction } from '../_shared/edge.ts';
 ```
 
-### Call site 1 — the transfer route (`admin-operations/index.ts`)
+### Call site 1 â€” the transfer route (`admin-operations/index.ts`)
 
 ```ts
 Deno.serve(edgeHandler('admin-operations', async (request: Request): Promise<Response> => {
@@ -117,7 +117,7 @@ Deno.serve(edgeHandler('admin-operations', async (request: Request): Promise<Res
 
 The edge never writes a seat, a lifecycle, or an audit row. One RPC is one transaction.
 
-### Call site 2 — one gated write (`create-organization/index.ts`)
+### Call site 2 â€” one gated write (`create-organization/index.ts`)
 
 Replace the hand-rolled `accountTypeOf` with the shared loader. Call the gate before `ngoOnlyActionAllowed` and before the RPC. A deactivated NGO is refused for deactivation, not for type.
 
@@ -136,12 +136,12 @@ Replace the hand-rolled `accountTypeOf` with the shared loader. Call the gate be
 
   const allowed = ngoOnlyActionAllowed(standing.value.accountType);
   if (!allowed.ok) return refusal(allowed.reason, 403);
-  // existing name check and callDatabaseFunction('create_organization', …) stay
+  // existing name check and callDatabaseFunction('create_organization', â€¦) stay
 ```
 
 `update-organization` is the same with `organizationId` passed into `loadCallerStanding` so the role read is not a second helper. `sendDiscoveryMessage` in the loop fixture calls `writeGateDecision` before `discoveryMessageAllowed`. That is the volunteer arm of AT-001.29 (every enumerated write rejected when deactivated) at the loop tier.
 
-### Call site 3 — the unlink integration body (AT-001.41)
+### Call site 3 â€” the unlink integration body (AT-001.41)
 
 ```ts
 atTest('AT-001.41', 'a volunteer may not unlink the GitHub identity after signup', { surface: 'backend' }, {
@@ -425,16 +425,16 @@ export async function loadCallerStanding(
 
 **New edge function**
 
-- `supabase/functions/admin-operations/index.ts` — call site 1.
+- `supabase/functions/admin-operations/index.ts` â€” call site 1.
 - `supabase/config.toml`: `[functions.admin-operations] verify_jwt = true`.
 
 **SQL functions and triggers** (see migration sketch)
 
-- `assert_account_active(p_account_id uuid) returns void` — `SELECT lifecycle FROM accounts WHERE id = p FOR SHARE`; raise if missing or not `active`. Not granted to `service_role`.
-- `admin_operations(p_actor_id uuid, p_act text, p_payload jsonb) returns jsonb` — granted to `service_role` only.
-- `apply_admin_act(p_event public.audit_events) returns void` — not granted to `service_role`.
-- `audit_events_append_only()` BEFORE UPDATE OR DELETE on `audit_events` — raises.
-- `org_memberships_audit_role_change()` AFTER INSERT OR UPDATE OF `role` on `org_memberships` — inserts `role-change` (unit 3).
+- `assert_account_active(p_account_id uuid) returns void` â€” `SELECT lifecycle FROM accounts WHERE id = p FOR SHARE`; raise if missing or not `active`. Not granted to `service_role`.
+- `admin_operations(p_actor_id uuid, p_act text, p_payload jsonb) returns jsonb` â€” granted to `service_role` only.
+- `apply_admin_act(p_event public.audit_events) returns void` â€” not granted to `service_role`.
+- `audit_events_append_only()` BEFORE UPDATE OR DELETE on `audit_events` â€” raises.
+- `org_memberships_audit_role_change()` AFTER INSERT OR UPDATE OF `role` on `org_memberships` â€” inserts `role-change` (unit 3).
 - `volunteer_github_identity_permanent()` BEFORE DELETE on `auth.identities` when `pg_trigger_depth() = 0` (unit 5).
 
 **Altered definers (unit 1, same migration that adds the helper)**
@@ -489,25 +489,25 @@ _shared/accounts.ts                AccountType unchanged; no lifecycle here
 _shared/memberships.ts             unchanged
 _shared/verification.ts            unchanged; Discovery stand-in calls the gate first
 
-migrations/20260908120000_…        unit 1: enum, column, tables, helper, admin_operations, apply, append-only, alter two definers
-migrations/20260908130000_…        unit 3: role-change trigger
-migrations/20260908140000_…        unit 5: identities BEFORE DELETE
+migrations/20260908120000_â€¦        unit 1: enum, column, tables, helper, admin_operations, apply, append-only, alter two definers
+migrations/20260908130000_â€¦        unit 3: role-change trigger
+migrations/20260908140000_â€¦        unit 5: identities BEFORE DELETE
 
 _write-route-scan.ts               unit 2 conformance
 write-route-scan.selftest.ts       negative directions
 _policy-scan.ts                    unit 4 growth + new catalog keys with unit 1 tables
 _contract.ts / _fixture.ts / _live.ts
-e-admin-operations.test.ts         AT-001.25–28, .35
-f-lifecycle-and-audit.test.ts      AT-001.29–31, .33, .34
+e-admin-operations.test.ts         AT-001.25â€“28, .35
+f-lifecycle-and-audit.test.ts      AT-001.29â€“31, .33, .34
 g-github-unlink.test.ts            AT-001.41 (or a-signup, same bijection)
 live-stack.ts                      + authDelete
 ```
 
-Call chain for a transfer, three hops: `admin-operations/index.ts` → `_shared/admin-commands.ts` + `lifecycle.ts` → `public.admin_operations`. Call chain for a gated create: `create-organization/index.ts` → `lifecycle.ts` → `public.create_organization` (which calls `assert_account_active`). Call chain for unlink: Auth DELETE → trigger → `public.accounts`. Nothing needs a fourth file to trace.
+Call chain for a transfer, three hops: `admin-operations/index.ts` â†’ `_shared/admin-commands.ts` + `lifecycle.ts` â†’ `public.admin_operations`. Call chain for a gated create: `create-organization/index.ts` â†’ `lifecycle.ts` â†’ `public.create_organization` (which calls `assert_account_active`). Call chain for unlink: Auth DELETE â†’ trigger â†’ `public.accounts`. Nothing needs a fourth file to trace.
 
 ### Migration sketch
 
-Unit 1 file `supabase/migrations/20260908120000_admin_operations_audit_and_lifecycle.sql`. Static scan requires `revoke all … from anon, authenticated, service_role` after every `create table`, `revoke execute from public` on every definer, and no client write privilege.
+Unit 1 file `supabase/migrations/20260908120000_admin_operations_audit_and_lifecycle.sql`. Static scan requires `revoke all â€¦ from anon, authenticated, service_role` after every `create table`, `revoke execute from public` on every definer, and no client write privilege.
 
 ```sql
 -- lifecycle on accounts (v1: two values)
@@ -621,7 +621,7 @@ begin
   -- re-enable-account:
   --   update accounts set lifecycle = 'active' where id = p_event.subject_account_id;
   -- set-escalation-contact:
-  --   insert into org_escalation_contacts … on conflict (org_id) do update …;
+  --   insert into org_escalation_contacts â€¦ on conflict (org_id) do update â€¦;
   -- role-change: no-op (state already written)
   raise exception 'not implemented';
 end;
@@ -652,8 +652,8 @@ begin
   -- Idempotent replay: if the projected state already matches, return ok with the
   -- existing audit id and insert nothing.
   -- Then, FIRST:
-  --   insert into public.audit_events (act, actor_account_id, actor_label, …)
-  --   values (…) returning * into v_event;
+  --   insert into public.audit_events (act, actor_account_id, actor_label, â€¦)
+  --   values (â€¦) returning * into v_event;
   -- THEN:
   --   perform public.apply_admin_act(v_event);
   --   return jsonb_build_object('ok', true, 'act', v_event.act, 'audit_id', v_event.id);
@@ -806,7 +806,7 @@ Given organisation O, old NGO account A (the unique seat), transferee B (complet
 | table | what changes | what does not |
 |---|---|---|
 | `audit_events` | one new row, `act = transfer-contact`, actor = platform admin, `from_account_id = A`, `to_account_id = B`, `reason` set, `at` set | never updated or deleted |
-| `org_memberships` | the one row `(O, A, admin)` becomes `(O, B, admin)` — same row, `account_id` updated, `role` unchanged | no second row (unique on `org_id`); no history table |
+| `org_memberships` | the one row `(O, A, admin)` becomes `(O, B, admin)` â€” same row, `account_id` updated, `role` unchanged | no second row (unique on `org_id`); no history table |
 | `accounts` for A | `lifecycle` becomes `deactivated` | `id`, `account_type`, `created_at` |
 | `accounts` for B | nothing | B stays `active`; B's own signup organisation stays B's (accepted residual) |
 | `acknowledgments` | nothing | still `account_id = A` (original acting humans) |
@@ -845,9 +845,9 @@ Existing AT-001.06 (volunteer refused NGO-only action) type refusals on `create-
 
 Capability strings, locked:
 
-- `product.volunteer-write-route` — no deployed volunteer write
-- `gateway.virtual-keys` — LLM gateway not in this tree
-- `vendor.signin-rate-limit` — local GoTrue did not throttle 45 password grants
+- `product.volunteer-write-route` â€” no deployed volunteer write
+- `gateway.virtual-keys` â€” LLM gateway not in this tree
+- `vendor.signin-rate-limit` â€” local GoTrue did not throttle 45 password grants
 
 If the founder says **stub** instead of **declare** for the two missing surfaces: keep `virtualKeysLive` as the shipped decision; add a small `public.virtual_key_revocations` table (or fixture Map) that `apply_admin_act` writes on `deactivate-account` with `cause = aup` and deletes on `re-enable-account`; AT-001.30 and AT-001.31 go green at **both** tiers against that table; drop `gateway.virtual-keys` from the expected JSON; the future gateway leaf reads the same table. Concierge stays an admin command (ruling: AT-001.28 is green at both tiers with that narrowing). No other id changes. Sign-in (AT-001.34) stays declared: a stub counter would be SQL the loop tier cannot grade and a control the criterion did not ask for.
 
@@ -858,18 +858,18 @@ If the founder says **stub** instead of **declare** for the two missing surfaces
 | **AT-001.27** (lost-access recovery) | same as .25, A unreachable (do not sign A in) | `recover-contact` with the same payload shape | same row outcomes as .25; audit `act` is `recover-contact` | G | G |
 | **AT-001.28** (escalation contact) | platform admin, existing organisation | `set-escalation-contact` | one row stored; NGO/volunteer/anon refused | G at both tiers. Narrowing stated in the body: concierge onboarding here is the administrator acting on the organisation, not REQ-002 vetting. No capability-pending. | G |
 | **AT-001.35** (admin-only executor) | NGO session, volunteer session, no token | each posts `transfer-contact` | NGO/volunteer 403 `not-a-platform-admin`; no token 401; no seat move | G | G |
-| **AT-001.29** (every enumerated write) | for each `WRITE_ROUTES` row and each `admitted` type: an active otherwise-authorized control that succeeds, and a deactivated account of that type | the route's write | deactivated → 403 `account-deactivated` and no write; active control succeeds; `writeRouteProblems()` is empty | G including volunteer via `sendDiscoveryMessage`. Scan selftest is a separate harness file. | G for NGO (`create-organization`, `update-organization`) and admin (`admin-operations`). Then `CapabilityPending(['product.volunteer-write-route'])` after those arms have run, AT-001.24 shape. |
+| **AT-001.29** (every enumerated write) | for each `WRITE_ROUTES` row and each `admitted` type: an active otherwise-authorized control that succeeds, and a deactivated account of that type | the route's write | deactivated â†’ 403 `account-deactivated` and no write; active control succeeds; `writeRouteProblems()` is empty | G including volunteer via `sendDiscoveryMessage`. Scan selftest is a separate harness file. | G for NGO (`create-organization`, `update-organization`) and admin (`admin-operations`). Then `CapabilityPending(['product.volunteer-write-route'])` after those arms have run, AT-001.24 shape. |
 | **AT-001.30** (AUP volunteer) | completed verified volunteer, optionally assigned to a project | admin `deactivate-account` with `cause: 'aup'` | writes refused immediately (`account-deactivated`); `virtualKeysLive('deactivated') === false` | G over the shipped decision + Discovery stand-in | write refusal G, then `CapabilityPending(['gateway.virtual-keys'])` |
 | **AT-001.31** (re-enable) | deactivated NGO (and admin arm); independent gate: member in org B | `re-enable-account` then the otherwise-authorized write; member rename in B | writes work again; `not-an-admin` still holds in B | G | G for writes; keys clause `CapabilityPending(['gateway.virtual-keys'])` |
 | **AT-001.33** (append-only) | a transfer (.25) and a role change (operator grant or complete-signup membership insert after unit 3 trigger) | `mutateAuditEventAsOperator` / `deleteAuditEventAsOperator`; live also tries UPDATE/DELETE as `service_role` (privilege denied) | both events have a row; mutation refused; trigger raise `audit_events is append-only`; trigger-written role-change row may have `actor_account_id` null and `actor_label = operator` | G on fixture refusal | G on live trigger + privileges |
-| **AT-001.34** (sign-in rate limit) | auth flow | excess password grants | — | `CapabilityPending(['vendor.signin-rate-limit'])` at both tiers after `open()`. Unit 6 record names hosted platform as where the vendor limiter is verified. | same |
+| **AT-001.34** (sign-in rate limit) | auth flow | excess password grants | â€” | `CapabilityPending(['vendor.signin-rate-limit'])` at both tiers after `open()`. Unit 6 record names hosted platform as where the vendor limiter is verified. | same |
 | **AT-001.41** (GitHub unlink, new) | volunteer with linked GitHub after signup | `unlinkIdentity` on the GitHub identity id from `/user` | identity row remains; `/user` still 200; shipped `volunteerGithubUnlinkAllowed` is false | G | G (row oracle, do not pin 500). Unauthenticated DELETE is 401 (measured). |
 
 AT-001.41 lands through `/doc-sync fold` in unit 5: a `dNN` row in `loop/state/decisions.jsonl`; edit `loop/out/pure-s3-req-001-006.md` so the GitHub link is permanent after volunteer signup; assemble; extract isolates; `at-req-001.md` adds `AT-001.41 (P0)`; `loop/decomp/req-001.md` adds D1.L3 (GitHub identity stays linked after volunteer signup) and moves the header from 37 P0 to 38; `atTest` call site; expected JSON green at both tiers; no `LEAF` key. Three bijections in one change.
 
 ### Unit 4 proof record
 
-No migration. Measurement `loop/items/AI4DEV-56/artifacts/measure/unit4-privileges-after-reset.txt` lines 10–27: after reset, `anon`, `authenticated` and `service_role` hold no TRUNCATE, TRIGGER or REFERENCES on any public table. `revoke all` in `20260906120000` already cleared the four tables the item named plus `volunteer_profiles` and `projects`. The durable artefact is the scan change (baseline revoke includes `service_role`; `WRITE_PRIVS` includes `references` and `trigger`) plus a selftest case for each. The live catalog already pins all seven privileges; it does not change its list, only gains the two new unreachable tables in unit 1. Checks still cover `public` only, never `auth.*`.
+No migration. Measurement `loop/items/AI4DEV-56/artifacts/measure/unit4-privileges-after-reset.txt` lines 10â€“27: after reset, `anon`, `authenticated` and `service_role` hold no TRUNCATE, TRIGGER or REFERENCES on any public table. `revoke all` in `20260906120000` already cleared the four tables the item named plus `volunteer_profiles` and `projects`. The durable artefact is the scan change (baseline revoke includes `service_role`; `WRITE_PRIVS` includes `references` and `trigger`) plus a selftest case for each. The live catalog already pins all seven privileges; it does not change its list, only gains the two new unreachable tables in unit 1. Checks still cover `public` only, never `auth.*`.
 
 ### Unit 6 record
 
@@ -877,8 +877,8 @@ Local CLI v2.110 does not honour `[auth.rate_limit] email_sent = 2`: the running
 
 ### Commit groups
 
-- **Unit 1:** lifecycle column, helper, pure gate, inventory, `admin-operations` with all five acts implemented, audit table, append-only trigger, escalation table, standing loader, gate on `create-organization` and `update-organization`, AT-001.25–28 and .35 green, catalog keys. Deactivate and re-enable exist so the spine is complete; their AT ids wait for unit 2. No earlier user route is reopened after this.
-- **Unit 2:** write-route scan + selftest; AT-001.29–31 bodies; Discovery stand-in calls the gate; virtual-keys decision; expected JSON.
+- **Unit 1:** lifecycle column, helper, pure gate, inventory, `admin-operations` with all five acts implemented, audit table, append-only trigger, escalation table, standing loader, gate on `create-organization` and `update-organization`, AT-001.25â€“28 and .35 green, catalog keys. Deactivate and re-enable exist so the spine is complete; their AT ids wait for unit 2. No earlier user route is reopened after this.
+- **Unit 2:** write-route scan + selftest; AT-001.29â€“31 bodies; Discovery stand-in calls the gate; virtual-keys decision; expected JSON.
 - **Unit 3:** role-change trigger; AT-001.33; AT-001.34 declared red both tiers.
 - **Unit 4:** scan growth + selftest + the measurement record. Lands **before** unit 1's tables if the scan change is split first; otherwise in the same change as unit 1's migration because the scan must accept the new tables. Preferred: scan growth first (can merge with unit 1's migration commit if the arena wants fewer PRs; this item is one PR with ordered commits).
 - **Unit 5:** doc-sync fold, identities trigger, AT-001.41, `authDelete`.
@@ -914,7 +914,7 @@ Filled in by the arena after the picker chooses a base.
 
 ## Alternatives considered
 
-- **One edge function per admin act** (`transfer-organization-contact`, `deactivate-account`, …). Hides nothing extra from callers and exposes four more URLs and four inventory rows. The audit writer would be copied or extracted anyway. Lost on interface depth: the closed vocabulary is the smaller surface for the same capability.
+- **One edge function per admin act** (`transfer-organization-contact`, `deactivate-account`, â€¦). Hides nothing extra from callers and exposes four more URLs and four inventory rows. The audit writer would be copied or extracted anyway. Lost on interface depth: the closed vocabulary is the smaller surface for the same capability.
 - **Apply via AFTER INSERT on `audit_events`.** Makes "insert is the only write" literal and lets a reviewer replay the log by inserting. It also makes any owner insert a command, including a mistaken operator row. Lost: the blast radius on the operator path is silent. The chosen apply function keeps the insert-first order without that gun.
 - **A `writeRoute()` factory that owns every `index.ts`.** Pulls standing, gate, and RPC into one wrapper. Callers of existing routes would change shape; the conformance scan would grade the factory rather than the files. Lost: it enlarges the public surface of every current write for a capability (registration) that a scan over the inventory already gives. This design adds two calls to two files instead.
 - **Gate by querying the latest audit row.** Single source of truth with no projection column. Lost: it cannot take `FOR SHARE` on the account row the deactivation updates, so a write in flight would not block behind a concurrent deactivate (the share-lock ruling).
@@ -936,7 +936,7 @@ Grow `_policy-scan.ts` (`WRITE_PRIVS` + baseline `service_role`) and its selftes
 
 ## Five lines
 
-`loop/items/AI4DEV-56/artifacts/arena/candidate-grok.md`
+`loop/items/AI4DEV-56/artifacts/arena/candidate-C.md`
 
 about 6200 words
 

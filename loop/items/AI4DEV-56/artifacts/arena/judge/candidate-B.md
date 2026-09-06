@@ -6,15 +6,15 @@ Attribution: unattributed; candidate design for the admin-operations subtree. Th
 
 The database already provides the universal product-write boundary: `service_role` cannot write public tables directly, and every deployed product write calls a `SECURITY DEFINER`. Account deactivation, contact transfer, and audit must therefore be enforced there. Auth bans cannot provide immediate write rejection because the measured unexpired token remains usable. TypeScript supplies readable refusals and the loop-tier model; it never grants authority that SQL has not independently established.
 
-This candidate follows the supplied Phase A artifacts and architect workflow. Grounding and sketching are complete; synthesis belongs to the orchestrator, and implementation is outside this runner’s scope.
+This candidate follows the supplied Phase A artifacts and architect workflow. Grounding and sketching are complete; synthesis belongs to the orchestrator, and implementation is outside this runnerâ€™s scope.
 
 Two instruction reconciliations are explicit:
 
 - The required exported inventory constant is **generated from migrations**, then checked against both migrations and edge entries. It is not a separately maintained list.
-- The design task’s explicit DECLARE assumption takes precedence over ruling R15’s earlier proposal to mark concierge onboarding green. The administrative contact-storage operation ships, but the absent onboarding clause remains integration-red. R15’s storage and authority decisions remain intact.
+- The design taskâ€™s explicit DECLARE assumption takes precedence over ruling R15â€™s earlier proposal to mark concierge onboarding green. The administrative contact-storage operation ships, but the absent onboarding clause remains integration-red. R15â€™s storage and authority decisions remain intact.
 - R11 remains binding: no password-verification hook or product sign-in counter ships. AT-001.34 remains capability-pending at both tiers.
 
-## Usage (caller’s view)
+## Usage (callerâ€™s view)
 
 An administrator supplies an existing, completed NGO account as the replacement contact. One request moves the seat, deactivates the former owner, and records the transfer. Lost-access recovery uses exactly that request; the reason explains the recovery.
 
@@ -155,11 +155,11 @@ The organizing structures are a two-state account lifecycle, one current organiz
 | Generated `WRITE_ROUTES` | Route name, RPC signature, admitted account types | SQL definitions determine the deployed inventory |
 | Fixture storage | Per-world maps, append-only event collection | Parallel worlds share no mutable fixture state |
 
-No ledger table exists in this tree. Transfer touches no ledger and contains no generic “rewrite ownership everywhere” operation. Tests compare every existing history-bearing relation; they do not invent ledger coverage.
+No ledger table exists in this tree. Transfer touches no ledger and contains no generic â€œrewrite ownership everywhereâ€ operation. Tests compare every existing history-bearing relation; they do not invent ledger coverage.
 
 ### Domain types and pure signatures
 
-Existing `AccountType`, `OrgRole`, `Caller`, and SUT `Session` are reused. All new public types are aliases, matching the harness’s prohibition on reopenable interfaces. Boundary parsers construct validated commands; raw Auth, PostgREST, and SQL row shapes stay private.
+Existing `AccountType`, `OrgRole`, `Caller`, and SUT `Session` are reused. All new public types are aliases, matching the harnessâ€™s prohibition on reopenable interfaces. Boundary parsers construct validated commands; raw Auth, PostgREST, and SQL row shapes stay private.
 
 ```ts
 // supabase/functions/_shared/lifecycle.ts
@@ -199,7 +199,7 @@ export function parseCallerAccount(value: unknown): CallerAccount {
   throw new Error("not implemented");
 }
 
-/** Readable twin of the SQL boundary; success only means “continue to SQL.” */
+/** Readable twin of the SQL boundary; success only means â€œcontinue to SQL.â€ */
 export function writeAllowed(
   rule: WriteRule,
   caller: CallerAccount,
@@ -334,7 +334,7 @@ databaseWriteResponse(
 ): Response;
 ```
 
-The implementation gives `gateWrite` separate bootstrap/completed overloads so completed routes receive non-null `account` without casts. A single account query selects `account_type`, `lifecycle`, and the caller’s embedded membership for the target organization. Its absence/failure distinction replaces both hand-written lookup functions. No token claim is added.
+The implementation gives `gateWrite` separate bootstrap/completed overloads so completed routes receive non-null `account` without casts. A single account query selects `account_type`, `lifecycle`, and the callerâ€™s embedded membership for the target organization. Its absence/failure distinction replaces both hand-written lookup functions. No token claim is added.
 
 `callDatabaseFunction` keeps its existing signature. Its failure branch additionally preserves recognized database error codes and structured details for `databaseWriteResponse`. Older unrecognized errors retain the existing generic conflict/outage behavior.
 
@@ -342,7 +342,7 @@ The implementation gives `gateWrite` separate bootstrap/completed overloads so c
 
 The SQL gate:
 
-1. Reads the caller’s account under `FOR SHARE`.
+1. Reads the callerâ€™s account under `FOR SHARE`.
 2. Refuses a deactivated account before operation-specific authorization.
 3. Refuses missing accounts except the explicitly identified signup bootstrap.
 4. Checks admitted global types.
@@ -363,31 +363,31 @@ The small interface hides database locking, actor authorization, multi-row atomi
 
 ### Transfer, row by row
 
-The replacement must be a distinct, active NGO account with a completed platform acknowledgment. The organization’s current seat must still belong to the supplied former account and carry the owner’s admin role.
+The replacement must be a distinct, active NGO account with a completed platform acknowledgment. The organizationâ€™s current seat must still belong to the supplied former account and carry the ownerâ€™s admin role.
 
 | Row or relation | Successful transfer |
 |---|---|
 | Named `org_memberships` seat | Update `account_id` from A to B; retain organization and role |
 | Other memberships | Unchanged; refuse if A holds any other seat |
-| A’s `accounts` row | Set lifecycle to `deactivated`; keep ID, type, and creation timestamp |
-| B’s `accounts` row | Unchanged |
-| `acknowledgments` | No updates or deletes; A’s signatures remain A’s |
+| Aâ€™s `accounts` row | Set lifecycle to `deactivated`; keep ID, type, and creation timestamp |
+| Bâ€™s `accounts` row | Unchanged |
+| `acknowledgments` | No updates or deletes; Aâ€™s signatures remain Aâ€™s |
 | `projects` | No changes to organization, volunteer assignment, or other fields |
 | `volunteer_profiles` | No changes |
 | Earlier audit events | Unchanged |
 | New audit event | Record actor, time, reason, organization, A, B, and request ID |
-| B’s signup organization | Remains B’s; explicitly accepted residual |
+| Bâ€™s signup organization | Remains Bâ€™s; explicitly accepted residual |
 | Escalation contact | Remains attached to the organization |
 
 The current membership table is not historical storage. The immutable transfer event preserves the previous seat attribution. The membership audit trigger also records a repoint, even when the role value itself stays `admin`.
 
-The definer gates the administrator first, locks A and B in UUID order, then locks and rechecks the seat. Lock A before checking its other memberships. Existing product writers creating a membership for A hold the gate’s share lock on A, so they cannot introduce another seat past that check while transfer owns A’s update lock. Operator provisioning is outside this product-write guarantee.
+The definer gates the administrator first, locks A and B in UUID order, then locks and rechecks the seat. Lock A before checking its other memberships. Existing product writers creating a membership for A hold the gateâ€™s share lock on A, so they cannot introduce another seat past that check while transfer owns Aâ€™s update lock. Operator provisioning is outside this product-write guarantee.
 
 ### Concurrency and retries
 
 Account state and organization ownership genuinely need one canonical row, so they retain database locking. Audit events and fixture worlds do not need a shared mutable accumulator; each event/world owns its state, per `separate-before-serializing-shared-state`.
 
-A writer that already holds the share lock finishes before deactivation can commit. A writer arriving after the lifecycle update has locked the row waits and then observes the committed state. “Immediately” means no admitted product write after deactivation commits; it does not cancel an earlier transaction. PostgreSQL’s row-lock conflict rules support this ordering. [PostgreSQL locking documentation](https://www.postgresql.org/docs/17/explicit-locking.html)
+A writer that already holds the share lock finishes before deactivation can commit. A writer arriving after the lifecycle update has locked the row waits and then observes the committed state. â€œImmediatelyâ€ means no admitted product write after deactivation commits; it does not cancel an earlier transaction. PostgreSQLâ€™s row-lock conflict rules support this ordering. [PostgreSQL locking documentation](https://www.postgresql.org/docs/17/explicit-locking.html)
 
 Transfer checks for an existing request receipt both before and after acquiring its subject locks. A matching receipt returns unchanged; a mismatching request ID refuses. Seat update, lifecycle update, trigger events, and transfer receipt commit together. A crash before commit leaves none; a lost HTTP response permits replay.
 
@@ -474,7 +474,7 @@ revoke all on table public.organization_escalation_contacts
 -- Neither table has a policy, viewer helper, or client SELECT grant.
 ```
 
-The contact email is a reachability address, not a login identity. Boundary validation applies the project’s chosen email syntax; the SQL boundary independently rejects missing/blank values. The organization FK uses default restriction, not a cascade; organization deletion is not a product operation here.
+The contact email is a reachability address, not a login identity. Boundary validation applies the projectâ€™s chosen email syntax; the SQL boundary independently rejects missing/blank values. The organization FK uses default restriction, not a cascade; organization deletion is not a product operation here.
 
 ```sql
 create function public.assert_active_writer(
@@ -589,9 +589,9 @@ The existing three write functions are replaced without changing their signature
 | `create_organization` | `assert_active_writer(p_account_id, ARRAY['ngo']::public.account_type[], false)` |
 | `update_organization` | Same NGO gate |
 
-Each replacement restates its exact existing `revoke execute … from public` and `grant execute … to service_role`. Each gets `at-write` metadata naming its route. Signup’s metadata additionally records: `"exemption":"account row does not exist before first completion"`.
+Each replacement restates its exact existing `revoke execute â€¦ from public` and `grant execute â€¦ to service_role`. Each gets `at-write` metadata naming its route. Signupâ€™s metadata additionally records: `"exemption":"account row does not exist before first completion"`.
 
-Declaration initializers must remain side-effect-free; moving a write into `DECLARE` must not evade “first executable statement.”
+Declaration initializers must remain side-effect-free; moving a write into `DECLARE` must not evade â€œfirst executable statement.â€
 
 ```sql
 create function public.audit_membership_change()
@@ -708,7 +708,7 @@ Metadata owns only the transport association and exemption explanation. The actu
 A deterministic emitter produces:
 
 ```ts
-// _shared/write-inventory.generated.ts — generated, never hand-maintained
+// _shared/write-inventory.generated.ts â€” generated, never hand-maintained
 export const WRITE_ROUTES = [
   // Six entries derived from the three existing and three new write definers.
 ] as const satisfies readonly WriteRule[];
@@ -718,7 +718,7 @@ export type WriteRouteName = typeof WRITE_ROUTES[number]["route"];
 
 CI recomputes this text in memory and compares it with the committed artifact. Unknown route or function names fail; they do not become implicit exemptions.
 
-The independent edge pass enumerates every `supabase/functions/*/index.ts`, excluding `_shared`. Every import of `callDatabaseFunction`, including an alias, creates a candidate. The scanner uses the TypeScript syntax tree to require the guard’s refusal-return branch before its matching RPC, rather than finding a string in a comment. Unsupported dynamic RPC names or indirect forwarding fail explicitly. Entries using a new direct REST mutation transport also fail the established transport restriction; this is not a general proof about arbitrary network effects.
+The independent edge pass enumerates every `supabase/functions/*/index.ts`, excluding `_shared`. Every import of `callDatabaseFunction`, including an alias, creates a candidate. The scanner uses the TypeScript syntax tree to require the guardâ€™s refusal-return branch before its matching RPC, rather than finding a string in a comment. Unsupported dynamic RPC names or indirect forwarding fail explicitly. Entries using a new direct REST mutation transport also fail the established transport restriction; this is not a general proof about arbitrary network effects.
 
 The SQL pass tokenizes function bodies separately from their dollar-quoted outer statements. Comments, string literals, nested conditional calls, executable declaration initializers, and dynamic calls cannot satisfy the gate check. Unsupported syntax fails closed. Function-header volatility must not be inferred from the word `stable` inside prose or a body.
 
@@ -915,41 +915,41 @@ Auth unlink is different: the measured response is **500**, `error_code: "unexpe
 
 All live Givens register, follow verification, and sign in before completing signup. Operator-only Givens are explicitly labeled. Every refusal also checks that the intended mutation did not occur.
 
-| ID | Loop: Given → act → assertion | Integration: Given → act → assertion and shape |
+| ID | Loop: Given â†’ act â†’ assertion | Integration: Given â†’ act â†’ assertion and shape |
 |---|---|---|
-| **AT-001.25** | Completed NGO A with its sole seat, completed NGO B, administrator, attributed project/profile/acknowledgment and prior audit snapshots → transfer → seat becomes B, A deactivated, B active, all prior history unchanged | Same through real route; compare operator snapshots and audit prefix. Replay same request and assert same audit ID. **Green** |
-| **AT-001.26** | Transfer Given with fixed clock and nonblank reason → transfer → one receipt records actor, reason, and instant | Real transfer; database event time lies between pre/post bounds, actor equals authenticated administrator, reason exact. **Green** |
-| **AT-001.27** | A’s original session unavailable; B completed → same transfer method with recovery reason → identical ownership/history/audit properties | Do not authenticate as A; admin invokes same deployed endpoint. No second recovery mutation path. **Green** |
-| **AT-001.28** | Administrator, NGO, absent contact → store contact and consult `conciergeContactAllowed` → one non-login contact; missing contact refuses completion | Real admin storage, overwrite cardinality, non-admin refusal, and no Auth-user creation are verified; then throw `CapabilityPending(["ngo.concierge-onboarding"])`. **Declared red** |
-| **AT-001.29** | Run conformance; construct active otherwise-authorized control and deactivated counterpart for each non-bootstrap route/type, plus volunteer Discovery stand-in → attempt each → control succeeds, deactivated kind exact, no write | Exercise every deployed NGO/admin row through HTTP and raw RPC; active control succeeds for each. Check signup exemption separately. Then `CapabilityPending(["sut.accounts.sendDiscoveryMessage"])`. **Declared red** |
-| **AT-001.30** | Verified volunteer with modeled project key eligibility → admin deactivates for AUP → Discovery refused immediately; shared key decision refuses previously eligible key use | Real admin deactivation; retain the original live token and prove product lifecycle state. No deployed volunteer write or key gateway exists. Throw `CapabilityPending(["sut.accounts.sendDiscoveryMessage", "gateway.virtual-key-revocation"])`. **Declared red** |
-| **AT-001.31** | Deactivated NGO/admin controls → admin re-enables → same valid writes succeed; NGO role denial and Discovery verification denial persist. Key seam still rejects independent blockers and missing recovery authorization | Real lifecycle route followed by successful NGO/admin writes; member-role and non-admin refusals persist. Then `CapabilityPending(["gateway.virtual-key-recovery"])`. Terminal/vetting key checks remain stand-ins, not invented live project surfaces. **Declared red** |
-| **AT-001.33** | Membership insertion, actual role change, repoint, transfer → inspect events and attempt mutations → events exist, operator sentinel permitted, update/delete/truncate leave them unchanged | Same trigger-producing acts; operator mutation attempts fail; exact client privilege catalog and no audit-mutating definer scan pass. **Green** |
-| **AT-001.34** | Auth flow → state required above-limit rejection and valid below-limit control → throw vendor capability; no fake limiter success | Hosted verification target is named; local measurement is retained. Throw `CapabilityPending(["auth.sign-in-rate-limit"])`. **Declared red at both tiers** |
-| **AT-001.35** | Valid transfer Given with NGO, volunteer, null caller → each attempts transfer → exact authorization refusal; active administrator succeeds on independent Given | Same real edge calls; no-caller may be rejected by the platform before edge, so assert authentication rejection without inventing its `kind`; NGO/volunteer edge kinds are exact. **Green** |
-| **AT-001.41** | Completed volunteer with email and GitHub identities → unlink GitHub → shared permanence refusal, identity survives, Auth model healthy | Real Auth DELETE, live `identity_id`, surviving row and healthy `/user`; no-token negative and non-volunteer control prevent a universal-delete-block oracle. **Green**, conditional on discriminator proof |
+| **AT-001.25** | Completed NGO A with its sole seat, completed NGO B, administrator, attributed project/profile/acknowledgment and prior audit snapshots â†’ transfer â†’ seat becomes B, A deactivated, B active, all prior history unchanged | Same through real route; compare operator snapshots and audit prefix. Replay same request and assert same audit ID. **Green** |
+| **AT-001.26** | Transfer Given with fixed clock and nonblank reason â†’ transfer â†’ one receipt records actor, reason, and instant | Real transfer; database event time lies between pre/post bounds, actor equals authenticated administrator, reason exact. **Green** |
+| **AT-001.27** | Aâ€™s original session unavailable; B completed â†’ same transfer method with recovery reason â†’ identical ownership/history/audit properties | Do not authenticate as A; admin invokes same deployed endpoint. No second recovery mutation path. **Green** |
+| **AT-001.28** | Administrator, NGO, absent contact â†’ store contact and consult `conciergeContactAllowed` â†’ one non-login contact; missing contact refuses completion | Real admin storage, overwrite cardinality, non-admin refusal, and no Auth-user creation are verified; then throw `CapabilityPending(["ngo.concierge-onboarding"])`. **Declared red** |
+| **AT-001.29** | Run conformance; construct active otherwise-authorized control and deactivated counterpart for each non-bootstrap route/type, plus volunteer Discovery stand-in â†’ attempt each â†’ control succeeds, deactivated kind exact, no write | Exercise every deployed NGO/admin row through HTTP and raw RPC; active control succeeds for each. Check signup exemption separately. Then `CapabilityPending(["sut.accounts.sendDiscoveryMessage"])`. **Declared red** |
+| **AT-001.30** | Verified volunteer with modeled project key eligibility â†’ admin deactivates for AUP â†’ Discovery refused immediately; shared key decision refuses previously eligible key use | Real admin deactivation; retain the original live token and prove product lifecycle state. No deployed volunteer write or key gateway exists. Throw `CapabilityPending(["sut.accounts.sendDiscoveryMessage", "gateway.virtual-key-revocation"])`. **Declared red** |
+| **AT-001.31** | Deactivated NGO/admin controls â†’ admin re-enables â†’ same valid writes succeed; NGO role denial and Discovery verification denial persist. Key seam still rejects independent blockers and missing recovery authorization | Real lifecycle route followed by successful NGO/admin writes; member-role and non-admin refusals persist. Then `CapabilityPending(["gateway.virtual-key-recovery"])`. Terminal/vetting key checks remain stand-ins, not invented live project surfaces. **Declared red** |
+| **AT-001.33** | Membership insertion, actual role change, repoint, transfer â†’ inspect events and attempt mutations â†’ events exist, operator sentinel permitted, update/delete/truncate leave them unchanged | Same trigger-producing acts; operator mutation attempts fail; exact client privilege catalog and no audit-mutating definer scan pass. **Green** |
+| **AT-001.34** | Auth flow â†’ state required above-limit rejection and valid below-limit control â†’ throw vendor capability; no fake limiter success | Hosted verification target is named; local measurement is retained. Throw `CapabilityPending(["auth.sign-in-rate-limit"])`. **Declared red at both tiers** |
+| **AT-001.35** | Valid transfer Given with NGO, volunteer, null caller â†’ each attempts transfer â†’ exact authorization refusal; active administrator succeeds on independent Given | Same real edge calls; no-caller may be rejected by the platform before edge, so assert authentication rejection without inventing its `kind`; NGO/volunteer edge kinds are exact. **Green** |
+| **AT-001.41** | Completed volunteer with email and GitHub identities â†’ unlink GitHub â†’ shared permanence refusal, identity survives, Auth model healthy | Real Auth DELETE, live `identity_id`, surviving row and healthy `/user`; no-token negative and non-volunteer control prevent a universal-delete-block oracle. **Green**, conditional on discriminator proof |
 
-For AT-001.29, every fixture setup must assert its successful control before testing deactivation. An endpoint that refuses both accounts is a failure, not gate evidence. Transfer controls use independent organizations so successful transfer does not destroy the deactivated arm’s Given.
+For AT-001.29, every fixture setup must assert its successful control before testing deactivation. An endpoint that refuses both accounts is a failure, not gate evidence. Transfer controls use independent organizations so successful transfer does not destroy the deactivated armâ€™s Given.
 
 Supplementary integration proofs attached to these bodies cover transaction rollback after a deliberately failing audit insertion, both lock acquisition orders, concurrent competing transfers, and unchanged history after refusal. They are planned evidence, not tests run by this candidate.
 
 The declared-red entries use these exact ordered capability arrays. Bodies perform available assertions before throwing; `CapabilityPending` is never wrapped in a plain `Error`.
 
-### Missing surfaces and a possible “stub” ruling
+### Missing surfaces and a possible â€œstubâ€ ruling
 
-Under DECLARE, no gateway, key table, concierge workflow, or onboarding-completion endpoint is fabricated. The two shipped pure seams make loop assertions meaningful and define what future leaves must consult. If the founder chooses “stub,” add an explicitly named onboarding-completion adapter and a per-project virtual-key stub with issued/revoked state; deactivation must revoke that stub’s actual key records and documented recovery must issue distinct replacement credentials. Integration could then grade those stub surfaces, with their limited claim stated in the bodies and declarations changed atomically. Such a ruling does not automatically overturn R11 or make the vendor sign-in limiter green.
+Under DECLARE, no gateway, key table, concierge workflow, or onboarding-completion endpoint is fabricated. The two shipped pure seams make loop assertions meaningful and define what future leaves must consult. If the founder chooses â€œstub,â€ add an explicitly named onboarding-completion adapter and a per-project virtual-key stub with issued/revoked state; deactivation must revoke that stubâ€™s actual key records and documented recovery must issue distinct replacement credentials. Integration could then grade those stub surfaces, with their limited claim stated in the bodies and declarations changed atomically. Such a ruling does not automatically overturn R11 or make the vendor sign-in limiter green.
 
 ### Remaining two units and acceptance bookkeeping
 
-**Leftover table privileges:** retain `unit4-privileges-after-reset.txt` as the proof that existing public tables already have no TRUNCATE, TRIGGER, or REFERENCES for client roles. No redundant privilege migration. Extend `WRITE_PRIVS` with `references` and `trigger`, require the baseline revoke to include `service_role`, and add separate negative selftests. Those guard changes precede the first new table, even though the unit’s proof record is finalized in unit order.
+**Leftover table privileges:** retain `unit4-privileges-after-reset.txt` as the proof that existing public tables already have no TRUNCATE, TRIGGER, or REFERENCES for client roles. No redundant privilege migration. Extend `WRITE_PRIVS` with `references` and `trigger`, require the baseline revoke to include `service_role`, and add separate negative selftests. Those guard changes precede the first new table, even though the unitâ€™s proof record is finalized in unit order.
 
 Every new public table is added to `TENANT_CATALOG` and both `_integration.ts` lists in the same change, with `unreachable-by-client-roles` posture. The live exact-seven-privilege assertion remains.
 
 **Local email rate limit:** record the measured CLI and GoTrue versions, file value `email_sent = 2`, effective environment `EMAIL_SENT=360000`, and the distinction between configuration presence and enforced behavior. The password-grant probe establishes 45 unthrottled invalid grants; the hook probe establishes configuration propagation only. Neither proves the configured email threshold. Verification moves to a designated hosted staging project with its effective Auth configuration and real SMTP: exercise within-limit delivery and above-limit rejection, recording reset window and legitimate recovery. This package does not claim that hosted check has happened.
 
-**New unlink criterion:** propose AT-001.41 (P0): “Given a completed volunteer account with a linked GitHub identity, when the volunteer attempts to unlink that identity after signup, the attempt is refused and the GitHub link remains.” Land it through `/doc-sync fold`: decision record, pure REQ-001 source amendment, regenerated products, acceptance text, owning decomposition leaf, coverage map, P0 count 38, call site, and both expected entries together. Retired IDs remain retired.
+**New unlink criterion:** propose AT-001.41 (P0): â€œGiven a completed volunteer account with a linked GitHub identity, when the volunteer attempts to unlink that identity after signup, the attempt is refused and the GitHub link remains.â€ Land it through `/doc-sync fold`: decision record, pure REQ-001 source amendment, regenerated products, acceptance text, owning decomposition leaf, coverage map, P0 count 38, call site, and both expected entries together. Retired IDs remain retired.
 
-Replace the ten existing pending bodies, remove each unused `LEAF` key, and write the current pending ledger. It must list both untouched pending work and this package’s capability declarations; it must not imply only AT-001.18 and AT-001.24 remain red.
+Replace the ten existing pending bodies, remove each unused `LEAF` key, and write the current pending ledger. It must list both untouched pending work and this packageâ€™s capability declarations; it must not imply only AT-001.18 and AT-001.24 remain red.
 
 ### Module map and implementation order
 
@@ -968,7 +968,7 @@ Replace the ten existing pending bodies, remove each unused `LEAF` key, and writ
 | Existing admin/lifecycle suites | Eleven IDs, including the new unlink criterion |
 | Harness selftests | Negative scanner and pure-boundary cases |
 
-The SQL additions are eight new functions in public schema: one gate, three write definers, three trigger functions, and the two stand-in SQL functions—**nine functions total**, of which only three gain service-role EXECUTE. Four triggers attach to membership, audit twice, and Auth identities. Three existing write definers are replaced. No standalone audit-insert RPC or admin read endpoint is added.
+The SQL additions are eight new functions in public schema: one gate, three write definers, three trigger functions, and the two stand-in SQL functionsâ€”**nine functions total**, of which only three gain service-role EXECUTE. Four triggers attach to membership, audit twice, and Auth identities. Three existing write definers are replaced. No standalone audit-insert RPC or admin read endpoint is added.
 
 Unit 1 carries the prerequisite scanner privilege strengthening, lifecycle boundary, generated inventory, transfer, audit storage/protection, and escalation storage. Unit 2 adds complete conformance, lifecycle setting, and key seams. Unit 3 adds membership-event audit and the honest sign-in declaration. Units 4 and 6 finalize their records; unit 5 lands the unlink trigger and folded criterion.
 
@@ -990,19 +990,19 @@ Reserved for the arena orchestrator. This is the SQL-first candidate; no base se
 ## Alternatives considered
 
 - **TypeScript administration service with a hand-maintained operation registry:** hides some orchestration but exposes atomicity and race coordination to callers or adapters. A service-role RPC still needs SQL enforcement, leaving two substantive administration engines.
-- **Lifecycle triggers on all product tables:** hides checks from routes but exposes the wrong concept—whose row changed instead of who acted. It cannot distinguish authorized recovery from a deactivated subject’s own write without adding pervasive actor plumbing.
+- **Lifecycle triggers on all product tables:** hides checks from routes but exposes the wrong conceptâ€”whose row changed instead of who acted. It cannot distinguish authorized recovery from a deactivated subjectâ€™s own write without adding pervasive actor plumbing.
 - **Auth ban plus token claims:** offers a small apparent interface but hides no immediate-write guarantee; the supplied measurement disproves bans as sufficient, and claims cache lifecycle.
 - **Edge-only unlink wrapper:** offers a friendly refusal but leaves the real Auth DELETE reachable. It cannot own the invariant.
 
 ## Open questions and risks
 
-- Will the founder retain DECLARE for concierge and virtual keys, superseding R15’s earlier narrowed green?
-- Does the required live discriminator prototype confirm that the trigger `WHEN` blocks direct identity deletion while permitting Auth’s cascading administrator user deletion?
+- Will the founder retain DECLARE for concierge and virtual keys, superseding R15â€™s earlier narrowed green?
+- Does the required live discriminator prototype confirm that the trigger `WHEN` blocks direct identity deletion while permitting Authâ€™s cascading administrator user deletion?
 - Is restricting all nested identity deletes through the depth discriminator acceptable, given that trigger depth distinguishes nesting rather than authenticating the cause of deletion?
 - Which hosted staging project and SMTP setup will own the vendor rate-limit evidence?
 - Does the founder want volunteer lost-GitHub-access recovery to mean identity replacement on the same account? The supplied transfer requirement specifies NGO ownership recovery; that additional workflow needs its own contract.
 - Should a future scope extend lifecycle gating to Auth credential mutations? This candidate follows the grounded product-write inventory and separately protects mandatory identity permanence.
-- Can the existing scanner extension represent the repository’s function signatures and TypeScript call sites conservatively without accepting unsupported syntax? Its negative selftests are the decision gate.
+- Can the existing scanner extension represent the repositoryâ€™s function signatures and TypeScript call sites conservatively without accepting unsupported syntax? Its negative selftests are the decision gate.
 
 ## Next implementation step
 
@@ -1010,7 +1010,7 @@ Strengthen the existing privilege scanner and its negative selftests, then imple
 
 ## Five lines
 
-Output: `loop/items/AI4DEV-56/artifacts/arena/candidate-astra.md` — launcher saves this final message.
+Output: `loop/items/AI4DEV-56/artifacts/arena/candidate-B.md` â€” launcher saves this final message.
 Word count: approximately 6,600.
 Direction: SQL owns lifecycle, transfer, audit, contact storage, and write registration; TypeScript supplies readable refusals.
 Least certain decision: using trigger nesting to distinguish forbidden identity unlink from permitted Auth-user deletion cascades.

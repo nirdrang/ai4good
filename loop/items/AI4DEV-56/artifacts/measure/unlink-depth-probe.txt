@@ -1,0 +1,17 @@
+﻿probe 2026-09-06T06:54:59.012Z
+1 created trigger guarded by WHEN (pg_trigger_depth() = 0): CREATE FUNCTION
+CREATE TRIGGER
+2 direct DELETE of the github identity as the user: HTTP 500 {"code":500,"error_code":"unexpected_failure","msg":"Database error deleting identity","error_id":"b30ef596-a063-4b27-acaf-ea95bfc140e2"}
+   rows left for user by provider: email,github
+3 GET /user after the refused delete: HTTP 200 
+4 second volunteer ab7e8e0d-c9ec-45f3-bd66-e45e0de9cb17 identities before admin delete: email,github
+5 admin DELETE /auth/v1/admin/users/{id} (cascade through auth.identities): HTTP 200 {}
+   auth.users rows for that id: 0; auth.identities rows: 0; public.accounts rows: 0
+6 operator direct delete of the first volunteer's github row (depth 0 as postgres): NOTICE:  probe trigger body sees pg_trigger_depth() = 1
+ERROR:  probe: a volunteer may not unlink the GitHub identity
+DETAIL:  github-unlink-refused
+CONTEXT:  PL/pgSQL function public.probe_depth_refuse() line 1 at RAISE
+7 operator delete of the first volunteer's auth.users row (cascade): DELETE 1
+   identities left: 0
+8 drop the probe trigger and function: DROP TRIGGER
+DROP FUNCTION
