@@ -84,9 +84,10 @@ atTest(
       const { h, w, sut } = await open();
       await h.clock.freezeAt(AUDIT_INSTANT);
       const given = await transferGiven(sut, w, '26', (email) => sut.registerWithEmailPassword(email, PASSWORD));
-      expect(await sut.auditEvents({ subjectOrgId: given.organizationId }), 'the organisation carries an audit row before anything happened to it').toEqual(
-        [],
-      );
+      expect(
+        (await sut.auditEvents({ subjectOrgId: given.organizationId })).filter((row) => row.eventKind === 'org_contact_transferred'),
+        'the organisation carries a transfer audit row before the transfer',
+      ).toEqual([]);
 
       const transfer = await sut.transferOrganizationContact(given.admin, {
         organizationId: given.organizationId,

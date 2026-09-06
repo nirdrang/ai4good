@@ -1815,7 +1815,10 @@ export async function expectNotTransferred(sut: Opened['sut'], given: TransferGi
   expect(await sut.account(given.b.accountId), `the refused ${arm} attempt changed the new contact's lifecycle`).toMatchObject({
     lifecycle: 'active',
   });
-  expect(await sut.auditEvents({ subjectOrgId: given.organizationId }), `the refused ${arm} attempt left an audit row`).toEqual([]);
+  expect(
+    (await sut.auditEvents({ subjectOrgId: given.organizationId })).filter((row) => row.eventKind === 'org_contact_transferred'),
+    `the refused ${arm} attempt left a transfer audit row`,
+  ).toEqual([]);
 }
 
 /**
@@ -1830,10 +1833,9 @@ export async function expectTransferAudited(
   window: { openedAtMs: number; closedAtMs: number; toleranceMs: number },
 ): Promise<AuditEventRow> {
   const events = await sut.auditEvents({ subjectOrgId: given.organizationId });
-  expect(events.map((row) => row.eventKind), 'the transfer did not leave exactly one transfer row for the organisation').toEqual([
-    'org_contact_transferred',
-  ]);
-  const record = events[0];
+  const transferred = events.filter((row) => row.eventKind === 'org_contact_transferred');
+  expect(transferred, 'the transfer did not leave exactly one transfer row for the organisation').toHaveLength(1);
+  const record = transferred[0];
   expect(record.actorAccountId, 'the audit row does not name the administrator who performed the transfer').toBe(given.admin.accountId);
   expect(record.actorLabel, 'the audit label does not name the administrator').toContain(given.admin.accountId);
   expect(record.reason, 'the audit row does not carry the reason the administrator gave').toBe(reason);
@@ -1896,9 +1898,10 @@ export async function at00125(ctx: Ctx): Promise<void> {
 export async function at00126(ctx: Ctx): Promise<void> {
   const { h, w, sut } = await ctx.open();
   const given = await transferGiven(sut, w, '26', (email) => registerConfirmAndSignIn(sut, email));
-  expect(await sut.auditEvents({ subjectOrgId: given.organizationId }), 'the organisation carries an audit row before anything happened to it').toEqual(
-    [],
-  );
+  expect(
+    (await sut.auditEvents({ subjectOrgId: given.organizationId })).filter((row) => row.eventKind === 'org_contact_transferred'),
+    'the organisation carries a transfer audit row before the transfer',
+  ).toEqual([]);
 
   const openedAtMs = h.clock.now();
   const transfer = await sut.transferOrganizationContact(given.admin, {
@@ -2390,6 +2393,91 @@ export async function at00131(ctx: Ctx): Promise<void> {
 
   expect(virtualKeyActionFor('deactivated', 'active')).toBe('reissue');
   throw new CapabilityPending(['gateway.virtual-key-reissue']);
+}
+
+/**
+ * AT-001.33 — the transfer of AT-001.25 plus an operator seat re-point, then three tampers.
+ *
+ * The transfer definer writes `org_contact_transferred` and `account_lifecycle_changed`. The
+ * membership trigger writes `org_role_changed`. The operator re-point is the path with no actor
+ * in session, so that row carries `actorAccountId === null` and `actorLabel === 'operator'` (R9).
+ * `checkPrivileges` is the integration arm: the fixture has no catalog to read.
+ */
+export async function assertAppendOnlyAudit(
+  sut: Opened['sut'],
+  w: Opened['w'],
+  tag: string,
+  signIn: (email: string) => Promise<Session>,
+  options?: { checkPrivileges?: boolean },
+): Promise<void> {
+  const given = await transferGiven(sut, w, tag, signIn);
+  const transfer = await sut.transferOrganizationContact(given.admin, {
+    organizationId: given.organizationId,
+    fromAccountId: given.a.accountId,
+    toAccountId: given.b.accountId,
+    reason: HANDOVER_REASON,
+  });
+  expect(transfer, 'the platform administrator was refused the transfer, so there is no transfer audit to keep').toMatchObject({
+    ok: true,
+  });
+  if (!transfer.ok) return;
+
+  const repointed = await sut.repointMembershipAsOperator(given.organizationId, given.a.accountId);
+  expect(repointed, 'the operator could not re-point the transferred seat, so there is no operator role-change row').toMatchObject({
+    ok: true,
+  });
+
+  const orgEvents = await sut.auditEvents({ subjectOrgId: given.organizationId });
+  expect(
+    orgEvents.some((row) => row.eventKind === 'org_contact_transferred'),
+    'the transfer left no org_contact_transferred row',
+  ).toBe(true);
+  expect(
+    orgEvents.some((row) => row.eventKind === 'org_role_changed'),
+    'the membership writes left no org_role_changed row',
+  ).toBe(true);
+  expect(
+    (await sut.auditEvents({ subjectAccountId: given.a.accountId })).some((row) => row.eventKind === 'account_lifecycle_changed'),
+    'the deactivation left no account_lifecycle_changed row',
+  ).toBe(true);
+  expect(
+    orgEvents.find((row) => row.eventKind === 'org_role_changed' && row.actorAccountId === null && row.actorLabel === 'operator'),
+    'the operator role change left no org_role_changed row with a null actor labelled operator',
+  ).toBeDefined();
+
+  const before = await sut.auditEvents({});
+  expect(before.length, 'the Given left no audit row to protect').toBeGreaterThan(0);
+  for (const attempt of ['update', 'delete', 'truncate'] as const) {
+    const tamper = await sut.attemptAuditTamper(attempt);
+    expect(tamper.ok, `the operator ${attempt} of the audit record succeeded`).toBe(false);
+    expect(await sut.auditEvents({}), `the operator ${attempt} removed or changed an audit row`).toEqual(before);
+  }
+
+  if (options?.checkPrivileges) {
+    const facts = await sut.tenantTableFacts();
+    const audit = facts.tables.find((row) => row.table === 'audit_events');
+    expect(audit, 'the live catalog has no row for audit_events').toBeDefined();
+    if (!audit) return;
+    expect(audit.anon, 'audit_events anon privileges').toEqual([]);
+    expect(audit.authenticated, 'audit_events authenticated privileges').toEqual([]);
+    expect(audit.serviceRole, 'audit_events service_role privileges').toEqual([]);
+  }
+}
+
+/** AT-001.33 — the same assertions against the deployed trigger and the real append-only guards. */
+export async function at00133(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  await assertAppendOnlyAudit(sut, w, '33', (email) => registerConfirmAndSignIn(sut, email), { checkPrivileges: true });
+}
+
+/**
+ * AT-001.34 — declared red at both tiers (R11). The body opens a world so the id is exercised,
+ * then names the capability. The limit is verified on the hosted Auth service, not on this stack;
+ * see loop/items/AI4DEV-56/unit6-record.md.
+ */
+export async function at00134(ctx: { open: () => Promise<unknown> }): Promise<void> {
+  await ctx.open();
+  throw new CapabilityPending(['vendors.gotrue-sign-in-rate-limit']);
 }
 
 /* -------------------------------------------------------- the ids that refuse, and what they name */

@@ -1,0 +1,23 @@
+REQ-001 ids still red after the append-only-audit leaf
+======================================================
+
+`tests/at/expected/req-001.json` declares these reds by shape. One line per id and tier.
+Do not invent ids: every row is in that manifest. AT-001.33 is green at both tiers and is
+absent here. Format: id, tier, declared shape, capability or leaf.
+
+AT-001.18  loop         pending/sut-missing     D3.L3 (the cross-surface single-seat integration)
+AT-001.18  integration  pending/sut-missing     D3.L3 (the cross-surface single-seat integration)
+AT-001.24  loop         capability-pending      ui.authenticated-surface-rendering
+AT-001.24  integration  capability-pending      ui.authenticated-surface-rendering
+AT-001.34  loop         capability-pending      vendors.gotrue-sign-in-rate-limit
+AT-001.34  integration  capability-pending      vendors.gotrue-sign-in-rate-limit
+AT-001.02  integration  capability-pending      sut.accounts.registerWithGithub
+AT-001.03  integration  capability-pending      sut.accounts.registerWithProvider
+AT-001.04  integration  capability-pending      sut.accounts.registerWithProvider
+AT-001.05  integration  capability-pending      vendors.github-public-statistics
+AT-001.10  integration  capability-pending      sut.accounts.sendDiscoveryMessage
+AT-001.29  integration  capability-pending      sut.accounts.sendDiscoveryMessage
+AT-001.30  integration  capability-pending      gateway.virtual-key-revocation, sut.accounts.sendDiscoveryMessage
+AT-001.31  integration  capability-pending      gateway.virtual-key-reissue
+
+Count: 14 lines. Loop has 3 reds and 34 greens. Integration has 11 reds and 26 greens. Total 37 P0.

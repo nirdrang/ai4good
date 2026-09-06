@@ -101,6 +101,7 @@ import type {
   RepointMembershipOutcome,
   Session,
   SignInOutcome,
+  TamperOutcome,
   TransferOutcome,
   UpdateOrganizationOutcome,
   VolunteerProfileRow,
@@ -943,6 +944,22 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         reason: row.reason,
         detail: (typeof row.detail === 'string' ? JSON.parse(row.detail) : row.detail) as Record<string, unknown>,
       }));
+    },
+
+    attemptAuditTamper: async (attempt): Promise<TamperOutcome> => {
+      try {
+        if (attempt === 'update') {
+          await sql`update public.audit_events set reason = 'tampered'`;
+        } else if (attempt === 'delete') {
+          await sql`delete from public.audit_events`;
+        } else {
+          await sql`truncate public.audit_events`;
+        }
+        return { ok: true };
+      } catch (error) {
+        const { message } = databaseRefusal(error);
+        return { ok: false, reason: message };
+      }
     },
 
     escalationContact: async (organizationId): Promise<EscalationContactRow | null> => {

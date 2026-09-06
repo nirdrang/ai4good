@@ -340,6 +340,9 @@ export type LifecycleRequest = {
 
 export type LifecycleOutcome = { ok: true; changed: boolean } | WriteRefusal;
 
+/** AT-001.33: the operator tries to alter `public.audit_events`. The refusal is the criterion. */
+export type TamperOutcome = { ok: true } | { ok: false; reason: string };
+
 /**
  * The outcome of an OPERATOR granting a membership directly — used both to provision a Given and as
  * the refusal probe two criteria read.
@@ -937,6 +940,10 @@ export type AccountsSut = {
    * (R12). Rows come back ordered by their instant.
    */
   auditEvents(filter: { subjectOrgId?: string; subjectAccountId?: string }): Promise<AuditEventRow[]>;
+  /**
+   * AT-001.33: the operator attempts to alter the record. The refusal is the criterion.
+   */
+  attemptAuditTamper(attempt: 'update' | 'delete' | 'truncate'): Promise<TamperOutcome>;
   /** The organisation's escalation contact, or `null` — read as the operator, for the reason above. */
   escalationContact(organizationId: string): Promise<EscalationContactRow | null>;
 

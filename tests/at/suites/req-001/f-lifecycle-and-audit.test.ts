@@ -2,10 +2,9 @@
  * AT-REQ-001 sections G and H — the lifecycle gate on every write, the single-dev invariant, the
  * append-only audit, and sign-in rate limiting.
  *
- * AT-001.29, .30 and .31 ARE WRITTEN. The loop bodies drive the shipped gate over every
- * account-required inventory row, including the discovery-message stand-in; the integration bodies
- * drive the deployed routes for the NGO and administrator arms and name the capabilities that
- * remain. AT-001.32 stays at this call site because an id is registered once.
+ * AT-001.29, .30, .31 and .33 ARE WRITTEN. AT-001.34 is declared red at both tiers with the
+ * named vendor capability: the body opens a world and then refuses. AT-001.32 stays at this call
+ * site because an id is registered once.
  */
 
 import { expect } from 'vitest';
@@ -13,15 +12,17 @@ import { atTest } from './_bind.ts';
 import {
   AUP_REASON,
   REENABLE_REASON,
+  assertAppendOnlyAudit,
   assertDeactivationGatesEveryWrite,
   at00129,
   at00130,
   at00131,
   at00132,
+  at00133,
+  at00134,
   INTEGRATION_TIMEOUT_MS,
   provisionLifecycleActors,
 } from './_integration.ts';
-import { LEAF, notLanded } from './_pending.ts';
 import { virtualKeyActionFor } from '../../../../supabase/functions/_shared/gateway-keys.ts';
 // THE SHIPPED AUTHORITY STATEMENT, imported rather than restated — the acknowledgment-identity leaf
 // makes name, title and attestation mandatory on EVERY completion, and the deployed validation
@@ -285,6 +286,22 @@ atTest(
   },
 );
 
-atTest('AT-001.33', 'role changes and contact transfer leave an append-only audit record that cannot be altered', notLanded(LEAF.D6_L3));
+atTest(
+  'AT-001.33',
+  'role changes and contact transfer leave an append-only audit record that cannot be altered',
+  { surface: 'backend', timeoutMs: { integration: INTEGRATION_TIMEOUT_MS } },
+  {
+    default: async ({ open }) => {
+      const { w, sut } = await open();
+      await assertAppendOnlyAudit(sut, w, '33', (email) => sut.registerWithEmailPassword(email, PASSWORD));
+    },
+    integration: at00133,
+  },
+);
 
-atTest('AT-001.34', 'sign-in attempts past the configured rate limit are throttled while legitimate use continues', notLanded(LEAF.D6_L3));
+atTest(
+  'AT-001.34',
+  'sign-in attempts past the configured rate limit are throttled while legitimate use continues',
+  { surface: 'backend' },
+  at00134,
+);

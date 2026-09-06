@@ -294,6 +294,7 @@ import type {
   Session,
   SessionProvider,
   SignInOutcome,
+  TamperOutcome,
   TenantReadOutcome,
   TransferOutcome,
   UpdateOrganizationOutcome,
@@ -774,6 +775,28 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     });
   };
 
+  /**
+   * THE MIRROR of `public.org_membership_role_change_audit`. Product membership inserts pass a
+   * null actor because `create_organization` and `complete_signup` do not set
+   * `app.actor_account_id`; the transfer path passes the caller, matching the definer. An update
+   * that changes neither account nor role writes nothing. The live adapter is the oracle.
+   */
+  const recordRoleChange = (
+    previous: MembershipRow | null,
+    next: MembershipRow,
+    actorAccountId: string | null,
+  ): void => {
+    if (previous !== null && previous.accountId === next.accountId && previous.role === next.role) return;
+    const reason =
+      previous === null ? 'membership granted' : previous.accountId !== next.accountId ? 'seat repointed' : 'role changed';
+    appendAudit('org_role_changed', actorAccountId, next.accountId, next.organizationId, reason, {
+      old_role: previous?.role ?? null,
+      new_role: next.role,
+      old_account_id: previous?.accountId ?? null,
+      new_account_id: next.accountId,
+    });
+  };
+
   /** The mirror of `public.change_account_lifecycle`: idempotent, and an audit row only on a change. */
   const changeLifecycle = (accountId: string, lifecycle: AccountLifecycle, actorAccountId: string, reason: string): boolean => {
     const account = state.accounts.get(accountId);
@@ -894,7 +917,10 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     // All of them, together. Nothing above this line has mutated `state`.
     state.accounts.set(account.id, account);
     if (organization) state.organizations.set(organization.id, organization);
-    if (membership) state.memberships.set(membershipKey(membership.organizationId, membership.accountId), membership);
+    if (membership) {
+      state.memberships.set(membershipKey(membership.organizationId, membership.accountId), membership);
+      recordRoleChange(null, membership, null);
+    }
     if (volunteerProfile) state.volunteerProfiles.set(volunteerProfile.accountId, volunteerProfile);
     state.acknowledgments.push(acknowledgment);
 
@@ -1213,6 +1239,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
       state.organizations.set(organization.id, organization);
       state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
+      recordRoleChange(null, membership, null);
       return { ok: true, organizationId: organization.id };
     },
 
@@ -1327,6 +1354,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
       const membership: MembershipRow = { organizationId, accountId, role };
       state.memberships.set(membershipKey(organizationId, accountId), membership);
+      recordRoleChange(null, membership, null);
       return { ok: true, membership: clone(membership) };
     },
 
@@ -1370,6 +1398,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const repointed: MembershipRow = { organizationId, accountId, role: seated.role };
       state.memberships.delete(membershipKey(organizationId, seated.accountId));
       state.memberships.set(membershipKey(organizationId, accountId), repointed);
+      recordRoleChange(seated, repointed, null);
       return { ok: true, membership: clone(repointed) };
     },
 
@@ -1507,12 +1536,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       if (!run.ok) return run;
       const { p_organization_id: organizationId, p_from_account_id: from, p_to_account_id: to, p_reason: reason } = run.args;
       // THE MIRROR OF `public.transfer_organization_contact`, row by row: the seat row is re-keyed to
-      // the new contact with its role untouched, the outgoing account is deactivated, and two audit
-      // rows are appended. Nothing is deleted, which is the whole of "history preserved".
+      // the new contact with its role untouched, the outgoing account is deactivated, and the
+      // definer's two audit rows are appended. The trigger mirror also writes org_role_changed for
+      // the seat move, with the caller as actor, matching `set_config('app.actor_account_id', …)`.
+      // Nothing is deleted, which is the whole of "history preserved".
       const seat = state.memberships.get(membershipKey(organizationId, from));
       if (!seat) throw new Error(`fixture: the decision admitted a transfer from ${from}, which holds no seat in ${organizationId}`);
+      const moved: MembershipRow = { ...seat, accountId: to };
       state.memberships.delete(membershipKey(organizationId, from));
-      state.memberships.set(membershipKey(organizationId, to), { ...seat, accountId: to });
+      state.memberships.set(membershipKey(organizationId, to), moved);
+      recordRoleChange(seat, moved, run.caller.id);
       changeLifecycle(from, 'deactivated', run.caller.id, reason);
       appendAudit('org_contact_transferred', run.caller.id, from, organizationId, reason, { from_account_id: from, to_account_id: to });
       return { ok: true, organizationId };
@@ -1564,6 +1597,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
           state.organizations.set(organization.id, organization);
           state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
+          recordRoleChange(null, membership, null);
           return { ok: true };
         },
         'update-organization': async (handle, write) => {
@@ -1583,8 +1617,10 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           const { p_organization_id: organizationId, p_from_account_id: from, p_to_account_id: to, p_reason: reason } = run.args;
           const seat = state.memberships.get(membershipKey(organizationId, from));
           if (!seat) throw new Error(`fixture: the decision admitted a transfer from ${from}, which holds no seat in ${organizationId}`);
+          const moved: MembershipRow = { ...seat, accountId: to };
           state.memberships.delete(membershipKey(organizationId, from));
-          state.memberships.set(membershipKey(organizationId, to), { ...seat, accountId: to });
+          state.memberships.set(membershipKey(organizationId, to), moved);
+          recordRoleChange(seat, moved, run.caller.id);
           changeLifecycle(from, 'deactivated', run.caller.id, reason);
           appendAudit('org_contact_transferred', run.caller.id, from, organizationId, reason, { from_account_id: from, to_account_id: to });
           return { ok: true };
@@ -1650,6 +1686,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             (filter.subjectAccountId === undefined || row.subjectAccountId === filter.subjectAccountId),
         ),
       ),
+
+    /**
+     * THE MIRROR of `public.audit_events_are_append_only` and the statement-level TRUNCATE
+     * trigger. The operator's UPDATE, DELETE and TRUNCATE raise, and the rows stay. The live
+     * adapter is the oracle.
+     */
+    attemptAuditTamper: async (attempt): Promise<TamperOutcome> => ({
+      ok: false,
+      reason: `public.audit_events is append-only: ${attempt.toUpperCase()} is refused (REQ-001, AT-001.33)`,
+    }),
 
     escalationContact: async (organizationId) => clone(state.escalationContacts.get(organizationId) ?? null),
 
