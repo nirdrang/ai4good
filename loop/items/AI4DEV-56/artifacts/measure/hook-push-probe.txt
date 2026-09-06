@@ -1,0 +1,19 @@
+﻿===== 2026-09-06T08:54:47.5925542+03:00 probe: does supabase CLI v2.110 push [auth.hook.password_verification_attempt] into the auth container? config.toml gets a temporary block, the stack restarts, the env is read, the file is reverted, the stack restarts again =====
+ supabase/config.toml | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+    + FullyQualifiedErrorId : NativeCommandError
+
+
+
+--- GOTRUE_HOOK env after restart with the block ---
+
+GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED=true
+GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI=pg-functions://postgres/public/probe_password_verification_
+attempt
+GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_SECRETS=
+
+
+--- file reverted:  (empty means clean) ---
+--- GOTRUE_HOOK env after the revert restart ---
+===== done 2026-09-06T08:56:41.2967243+03:00 =====
