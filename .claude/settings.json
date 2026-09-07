@@ -22,6 +22,15 @@
             "command": "if [ \"${CLAUDE_CODE_REMOTE:-}\" = \"true\" ]; then exit 0; fi; powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\guard-branch-switch.ps1\""
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ \"${CLAUDE_CODE_REMOTE:-}\" = \"true\" ]; then exit 0; fi; powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\read-shunt.ps1\""
+          }
+        ]
       }
     ],
     "SessionStart": [
