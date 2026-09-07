@@ -54,9 +54,15 @@
         "source": "github",
         "repo": "ericlitman/open-pstack"
       }
+    },
+    "open-pstack-nirdrang": {
+      "source": {
+        "source": "github",
+        "repo": "nirdrang/open-pstack"
+      }
     }
   },
   "enabledPlugins": {
-    "pstack@open-pstack": true
+    "pstack@open-pstack-nirdrang": true
   }
 }
