@@ -16,14 +16,14 @@ judgment and prose: claude:fable@max
 hardest tasks: claude:fable@max
 how explorer: grok:grok-4.6@xhigh
 how explainer: claude:fable@low
-how critics: codex:gpt-6-astra@medium, claude:fable@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
+how critics: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
 arena cross-judge pool: codex:gpt-6-astra@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
 swarm workers: grok:grok-4.6@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
-interrogate reviewers: codex:gpt-6-astra@medium, claude:fable@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
+interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
 
 ## Changes made by eval, and how to undo each one
 
@@ -31,7 +31,7 @@ Do not write an old row out in full anywhere in this file, even inside a comment
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
 
-### The two panel rows: muse in on 2026-09-04, out again on 2026-09-05
+### The two panel rows: muse in on 2026-09-04, out on 2026-09-05, back on 2026-09-08
 
 `how critics` and `interrogate reviewers` held fable at high as their first lane until 2026-09-04.
 That day the lane became muse 1.3 at xhigh: bundle against bundle on the harness item, replayed
@@ -40,21 +40,51 @@ also raise, and two blinded judges from different families ranked muse above fab
 16 to 14 and 16 to 12. Full record in `loop/evals/panel-2026-09-04/`.
 
 On 2026-09-05 the founder ruled muse out of every seat, on the route and not on the score: muse
-is reachable only through the codex router's OpenCode path, and the founder does not want a
-standing lane on it. The lane returned to fable, and the founder set it to medium the same day,
-one step below the high it held before, untested at that effort in this seat. The measurement
-stands: fable's marginal value in this seat was small, so the seat is a candidate for a
-three-lane panel if cost matters more than a fourth family.
+was reachable only through the codex router's OpenCode path, and the founder did not want a
+standing lane on that route. The lane returned to fable at medium.
 
-To return the fable lane to its earlier effort: replace the fable descriptor with the line below
-on both rows.
+On 2026-09-08 the lane is muse again, on a different route. The external-lane runner gained an
+`opencode` provider, in the fork `nirdrang/open-pstack`, which drives the opencode CLI directly
+and verifies the served model and variant from the CLI's own export. The router is not in the
+path, so the objection does not apply. Replayed on the admin-operations item: muse ran the
+identical reviewer prompt on the identical diff at the identical commit as the four real lanes.
+Coverage of the lead's fourteen act-on items: fable 9, opus 9, grok 7, astra 5, muse 4. Muse
+found the flagship critical and missed the one item fable alone found. It added four defects no
+lane raised, each verified against the tree, one of them in the same function opus alone had
+flagged. Dropping fable costs one act-on item and gains four, and fable's marginal value in this
+seat was already measured small. The opus lane stays: opus alone found two act-on items on that
+diff, one of them not a code defect. Eight minutes and four cents per run, against 431k fable
+tokens for the lane it replaces. Evidence in the session scratchpad of 2026-09-07, not yet filed
+under `loop/evals/`.
+
+To put fable back at the effort it last held: replace the muse descriptor with the line below on
+both rows. Change both or neither; the two rows are deliberately identical.
+
+    claude:fable@medium
+
+To put fable back at its earlier effort, the same way:
 
     claude:fable@high
 
-To put muse back if the route ever changes: replace the fable descriptor with the line below on
-both rows. Change both or neither; the two rows are deliberately identical.
+### Seats measured on 2026-09-07 and deliberately left alone
 
-    codex:opencode-go-responses/muse-spark-1.3-contributor@xhigh
+`reflect tooling, judgment, divergent, synthesizer` stays `inherit-parent` by founder ruling on
+2026-09-08. For the record: muse on the tooling lens matched five of six findings of the opus
+lane in 1.6 minutes for under a cent, and missed the one finding that needed generalising past
+the three examples in the lens prompt. The routing keeps the MCP surface. The lanes bill the
+parent, so the practice is to run reflect from an Opus session.
+
+`how explorer` stays one descriptor. Muse ran all four explorer angles at about one eleventh of
+grok's cost and four times the speed, at 60 to 70 percent of the volume with higher citation
+density, but grok was better on the load-bearing structural section and muse misstated trigger
+coverage once. The measured recommendation is one muse lane of four, not the row. The `how`
+skill reads this row as a single descriptor, so a list here means nothing until the skill change
+in the fork lands. Held.
+
+`arena cross-judge pool` is unchanged. Muse judged the same four blinded designs to the same base
+as the real judge, with the same top two, and named a graft the lead took. But the pool picks a
+provider other than the lead's, so with a Claude lead its opus entry never fires, and adding muse
+saves nothing until the lead moves.
 
 ### The sol writer rows, 2026-09-05
 
