@@ -116,7 +116,8 @@ enabled = true
 # Port to use for the email testing server web interface.
 port = 44324
 # Uncomment to expose additional ports for testing user applications that send emails.
-# smtp_port = 44325
+# REQ-016's SMTP provider client sends to this port; the acceptance suite reads it from here.
+smtp_port = 44325
 # pop3_port = 44326
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
