@@ -132,12 +132,21 @@ on each one. Do one of these instead.
      Agent(subagent_type: "mechanical", model: "sonnet", prompt: @"
        You are a read lane. You extract lines. You judge nothing and you summarise nothing.
        FILE: $path
-       AIM: <state the one question the lines must answer>
+       AIM: <the one question the lines must answer - see below>
        Return the exact line ranges that bear on the aim, quoted VERBATIM, each block preceded
        by `--- lines N-M ---`. At most 80 lines. Then one line beginning `SKIPPED:` naming what
        you did not return and why. No preamble, no summary, no opinion. If nothing in the file
        bears on the aim, reply NOTHING.
      ")
+
+   The block above is a scaffold. Everything in it stays fixed except AIM, which you write
+   fresh from what you need right now. The aim is the whole difference: it is what turns a
+   2,660-line file into 7 lines, and "read this file" is just the unbounded read in disguise.
+
+   Write the aim as a fact to locate, never as a purpose to serve. NAME THE THING, NOT THE
+   PURPOSE. "Where does this candidate specify the own-name check in the scan" has one answer
+   the lane can point at. "What matters for reviewing the transfer path" asks the lane to
+   judge relevance, which is your job, and you will not be able to tell what it dropped.
 
    Ask for verbatim lines when you will act on the exact text. Ask for bullets only when you
    need a fact you will not quote.
