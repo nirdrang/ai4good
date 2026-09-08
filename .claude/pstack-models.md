@@ -13,7 +13,7 @@ bug-fix: codex:gpt-5.6-sol@max
 perf-issue: codex:gpt-6-astra@high
 hillclimb: codex:gpt-6-astra@high
 judgment and prose: claude:fable@max
-hardest tasks: claude:fable@high
+hardest tasks: claude:fable@medium
 how explorer: grok:grok-4.6@xhigh
 how explainer: claude:fable@low
 how critics: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
@@ -86,15 +86,27 @@ as the real judge, with the same top two, and named a graft the lead took. But t
 provider other than the lead's, so with a Claude lead its opus entry never fires, and adding muse
 saves nothing until the lead moves.
 
-### The hardest-tasks row, 2026-09-08
+### The hardest-tasks row, 2026-09-08, twice
 
-`hardest tasks` held fable at max since the 2026-08-31 ceiling ruling. It is now fable at high,
-by founder ruling and not by measurement: the seat stays on fable, one effort step down, untested
-at high for a unit that must still design something. On the admin-operations item the one unit
-routed here cost 296k fable tokens at max. The lead had proposed opus at xhigh for this seat, on
-the evidence that opus wrote the arena's winning design; the founder kept fable instead.
+`hardest tasks` held fable at max since the 2026-08-31 ceiling ruling. It became fable at high
+earlier the same day, by founder ruling and not by measurement: the seat stays on fable, one effort
+step down, untested at high for a unit that must still design something. On the admin-operations item
+the one unit routed here cost 296k fable tokens at max. The lead had proposed opus at xhigh for this
+seat, on the evidence that opus wrote the arena's winning design; the founder kept fable instead.
 
-To undo: replace the descriptor with the line below.
+Later the same day it became fable at medium, a second step down, again by founder ruling and not by
+measurement. The occasion was the notifications backend run. The lead routed that item's first unit
+here and the founder asked why. The lead's case was that the unit fixes the seam decomposition every
+later unit inherits, which is a one-way door. The founder's answer was to keep the unit on this seat
+and lower the seat instead. The run is the trial: the unit had already produced one commit and four
+product modules at high when the founder ruled, and the same unit continues at medium, so the two
+efforts are observable on one unit.
+
+To undo one step, back to the effort this row held for a few hours:
+
+    claude:fable@high
+
+To undo both steps, back to the effort it held since the ceiling ruling:
 
     claude:fable@max
 

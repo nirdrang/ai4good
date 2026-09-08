@@ -39,8 +39,19 @@ const READY_TIMEOUT_MS = Number(process.env.AT_READY_TIMEOUT_MS ?? 120_000);
 /** How long `supabase db reset` gets before it is assumed wedged and its process tree killed. */
 const RESET_TIMEOUT_MS = Number(process.env.AT_RESET_TIMEOUT_MS ?? 600_000);
 
-/** `supabase status` reports these two as stopped because config.toml disables them. Benign. */
-const DISABLED_SERVICES = /^supabase_(imgproxy|pooler)_/;
+/**
+ * `supabase status` reports these as stopped because config.toml disables them. Benign.
+ *
+ * `analytics` and its `vector` sidecar joined the list when `[analytics] enabled` was turned off.
+ * The reason is written where the switch is, in `supabase/config.toml`. In short, the CLI runs
+ * `vector` against a docker TCP daemon this machine does not expose, so it crash-loops, and a
+ * container restarting every few seconds churns addresses on the docker network until Kong is
+ * holding a stale one for auth and answers 502 to every signup.
+ *
+ * The list is an allowlist of services the config turns off, not a list of failures to tolerate.
+ * A service this repository actually uses must never be added here to make a run go green.
+ */
+const DISABLED_SERVICES = /^supabase_(imgproxy|pooler|analytics|vector)_/;
 
 /**
  * The pinned CLI, invoked directly — no shell, no PATH lookup, no globally installed version.
