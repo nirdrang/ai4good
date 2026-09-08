@@ -13,7 +13,7 @@ bug-fix: codex:gpt-5.6-sol@max
 perf-issue: codex:gpt-6-astra@high
 hillclimb: codex:gpt-6-astra@high
 judgment and prose: claude:fable@max
-hardest tasks: claude:fable@max
+hardest tasks: claude:fable@high
 how explorer: grok:grok-4.6@xhigh
 how explainer: claude:fable@low
 how critics: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
@@ -85,6 +85,18 @@ in the fork lands. Held.
 as the real judge, with the same top two, and named a graft the lead took. But the pool picks a
 provider other than the lead's, so with a Claude lead its opus entry never fires, and adding muse
 saves nothing until the lead moves.
+
+### The hardest-tasks row, 2026-09-08
+
+`hardest tasks` held fable at max since the 2026-08-31 ceiling ruling. It is now fable at high,
+by founder ruling and not by measurement: the seat stays on fable, one effort step down, untested
+at high for a unit that must still design something. On the admin-operations item the one unit
+routed here cost 296k fable tokens at max. The lead had proposed opus at xhigh for this seat, on
+the evidence that opus wrote the arena's winning design; the founder kept fable instead.
+
+To undo: replace the descriptor with the line below.
+
+    claude:fable@max
 
 ### The sol writer rows, 2026-09-05
 
