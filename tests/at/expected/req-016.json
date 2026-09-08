@@ -3,6 +3,7 @@
   "tiers": {
     "loop": {
       "green": [
+        "AT-016.01",
         "AT-016.02",
         "AT-016.03",
         "AT-016.04",
@@ -15,12 +16,7 @@
         "AT-016.11",
         "AT-016.12"
       ],
-      "red": {
-        "AT-016.01": {
-          "kind": "capability-pending",
-          "capabilities": ["H3 static provider scan"]
-        }
-      }
+      "red": {}
     },
     "integration": {
       "green": [],

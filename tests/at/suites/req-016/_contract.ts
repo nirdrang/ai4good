@@ -182,6 +182,12 @@ export type World = WorldSeam & {
   /** role -> actor id in this world */
   actors: Record<Role, string>;
   /**
+   * role -> the email address the directory resolves that actor to, namespaced per world. An
+   * integration body reads the mail catcher by these, so the out-of-band witness is scoped to
+   * this world's recipients and never to another world's, or a previous run's, mail.
+   */
+  addresses: Record<Role, string>;
+  /**
    * Raise a taxonomy event from its OWNING domain fixture (per the REQ-016 boundary note:
    * the events fire from their own requirements; this suite asserts who/how).
    */
