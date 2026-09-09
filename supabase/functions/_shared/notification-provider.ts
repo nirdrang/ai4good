@@ -50,7 +50,6 @@ class SmtpRefusal extends Error {
   }
 }
 
-/** One connection, one message. Replies are read one at a time, in the order commands were sent. */
 class SmtpSession {
   private buffer = '';
   private readonly waiting: { resolve(reply: Reply): void; reject(err: Error): void }[] = [];
@@ -183,7 +182,6 @@ async function deliverOverSmtp(options: SmtpProviderOptions, message: OutgoingMe
     timer = setTimeout(() => reject(new Error(`no reply from the SMTP provider within ${options.timeoutMs}ms`)), options.timeoutMs);
   });
   const connecting = connect(options);
-  // A connection that opens after the deadline already answered is closed rather than leaked.
   connecting.then(
     (opened) => {
       if (settled) opened.close();

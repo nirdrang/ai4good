@@ -2,8 +2,6 @@
  * REQ-016's LOOP BINDING of the notification core, in memory, against the harness's provider
  * simulator.
  *
- * THIS FILE IS NO LONGER A SECOND IMPLEMENTATION. It used to be a conforming stand-in derived from
- * the suite's own oracle, so a loop green said the machinery ran and nothing about a product. Now
  * the emitter, the taxonomy, the documented defaults, the copy and the delivery worker are the
  * product's, in `supabase/functions/_shared/notifications.ts` and the modules beside it, and this
  * file binds their six ports to memory: an outbox that is three arrays, a provider that is the

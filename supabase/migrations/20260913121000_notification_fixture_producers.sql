@@ -41,12 +41,10 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- (1) THE TRANSITION COMMITS FIRST.
   insert into public.notification_fixture_transitions (scope_id, event, committed)
   values (p_scope, p_write->'event'->>'event', true)
   on conflict (scope_id, event) do update set committed = true;
 
-  -- (2) THE FAULT POINT, notifications.between_transition_and_event_write.
   if p_induce_fault then
     perform nextval('public.notification_fault_triggers');
     raise exception 'induced fault: crash at notifications.between_transition_and_event_write'
@@ -54,7 +52,8 @@ begin
             detail = 'induced-fault:notifications.between_transition_and_event_write';
   end if;
 
-  -- (3) THE EVENT WRITE, and everything that belongs to it.
+  -- emit_notification writes the event, its deliveries and any ops item, so a rollback here
+  -- must take all of them.
   return public.emit_notification(p_write);
 end;
 $$;

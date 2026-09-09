@@ -57,12 +57,6 @@ export const SENDER_DECLARATIONS: readonly SenderDeclaration[] = [
   { component: 'lifecycle.service', canSendDirectly: false },
 ];
 
-/**
- * Which files each declared component owns, as path prefixes under the repository root. The
- * source scan maps a file holding a send path to the component here; a file matching none is
- * reported under its path, so a new sender is an unexpected entry rather than an invisible one.
- * The three service components own no file yet; their prefixes are where those files will land.
- */
 export const NOTIFICATION_COMPONENTS: Readonly<Record<string, readonly string[]>> = {
   [EMITTER_COMPONENT]: [
     'supabase/functions/_shared/notification-provider.ts',
@@ -341,8 +335,8 @@ export function createNotifications(deps: NotificationDeps): Notifications {
   const runPassOver = async (pending: PendingDelivery[]): Promise<{ attempted: number }> => {
     const results: PassResult[] = [];
     for (const delivery of pending) {
-      // In-app never reaches the provider. There is no provider in the path of an in-app
-      // notification, and AT-016.05 reads the provider's own record to check exactly that.
+      // In-app never reaches the provider: there is no provider in the path of an in-app
+      // notification, so the pass records the acceptance itself.
       if (delivery.channel !== 'email') {
         results.push({ id: delivery.id, outcome: 'accepted', receipt: null });
         continue;

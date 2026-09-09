@@ -122,8 +122,6 @@ export const TAXONOMY: readonly TaxonomyRow[] = [
   { event: 'lovable.setup_complete', recipients: ['ngo', 'volunteer'], channels: null, tone: 'normal', class: 'other' },
 ];
 
-/* ------------------------------------------------------------------ the class channel rule */
-
 export type ClassChannelRule = {
   /** the row's channels must contain all of these */
   readonly mustInclude?: readonly Channel[];
@@ -160,8 +158,6 @@ export function channelRuleProblems(row: TaxonomyRow, channels: readonly Channel
   }
   return problems;
 }
-
-/* ------------------------------------------------------------------ the documented defaults */
 
 export type ClassDefault = {
   readonly channels: readonly Channel[];
@@ -233,8 +229,6 @@ export function documentedDefaults(): DocumentedDefault[] {
 export function taxonomyRow(event: string): TaxonomyRow | undefined {
   return TAXONOMY.find((row) => row.event === event);
 }
-
-/* ---------------------------------------------------------------- refused at construction */
 
 function assertTaxonomyIsLegal(): void {
   const seen = new Set<string>();

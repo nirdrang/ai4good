@@ -42,7 +42,6 @@ create type public.notification_role as enum ('ngo', 'volunteer', 'ex_volunteer'
 
 /* ================================================================== the event type set ==== */
 
--- One row per wire name. The shape check pins the `<domain>.<name>` grammar the suite fixes.
 create table public.notification_event_types (
   event text primary key,
   constraint notification_event_types_shape check (event ~ '^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$')
@@ -103,8 +102,6 @@ insert into public.notification_event_types (event) values
 
 /* ========================================================================== the outbox ==== */
 
--- `recipients` is the resolution frozen at creation (AT-016.10). It is written once by the emitter
--- and never recomputed; a role that changes hands afterwards changes nothing here.
 create table public.notification_events (
   id               uuid primary key default gen_random_uuid(),
   event            text not null references public.notification_event_types (event),
@@ -121,9 +118,6 @@ create table public.notification_events (
 comment on table public.notification_events is
   'One logical notification per committed producer event, recipients resolved at creation (REQ-016, AT-016.07, AT-016.10).';
 
--- Two unique constraints, on purpose. The pair is what the acceptance tests count, the key is what
--- the provider sees. If the two ever disagree the database refuses the row rather than sending
--- twice. `emitted_by` can hold one value only, so a row claiming another writer cannot exist.
 create table public.notification_deliveries (
   id                   uuid primary key default gen_random_uuid(),
   event_id             uuid not null references public.notification_events (id) on delete cascade,
@@ -194,10 +188,6 @@ create policy notification_deliveries_own_inapp on public.notification_deliverie
 
 /* ========================================================================== the emitter ==== */
 
--- The write set arrives whole. `event.recipients` is the frozen resolution, `deliveries` is one
--- entry per recipient-channel pair with its rendered copy, and `opsItem` is present only for the
--- rows that raise one. The idempotency key is derived here, from the row's own identity, so the
--- worker never computes it and cannot compute it differently on a retry.
 create function public.emit_notification(p_write jsonb)
 returns uuid
 language plpgsql
@@ -251,11 +241,6 @@ comment on function public.emit_notification(jsonb) is
 
 /* =========================================================================== the worker ==== */
 
--- One worker pass, applied as one unit. `accepted` marks the row sent, and the first send owns the
--- process stamp, so a delivery completed before a restart keeps the identity of the process that
--- performed it. Anything else leaves the row retrying, because the sender cannot tell a lost
--- acknowledgment from silence and must not pretend it can. Every event the pass touched counts one
--- attempt and derives its state from its own deliveries.
 create function public.apply_delivery_results(p_results jsonb, p_epoch text)
 returns void
 language plpgsql
