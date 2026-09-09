@@ -30,8 +30,18 @@
  * This file's existence turns every id of the suite from the declared stand-in refusal into a
  * real run. The methods a later unit lands throw `CapabilityPending` naming themselves, one name
  * each, exactly as the auth suite's live adapter does, and `tests/at/expected/req-016.json`
- * declares each id red on exactly that name until its unit lands: the fault arming and the
- * two-witness trigger count.
+ * declares each id red on exactly that name until its unit lands: arming the provider point.
+ *
+ * THE CRASH FAULT IS AN ARGUMENT OF THE PRODUCER'S OWN CALL. `append` reads the crash switch
+ * immediately before the call and forwards it as `p_induce_fault`; nothing in the product reads a
+ * control table or a session setting. The reach is counted by TWO WITNESSES that record on
+ * different sides of the wire: the product takes `nextval` on a sequence immediately before it
+ * raises, which the rollback cannot undo, and the adapter counts the refusals it received carrying
+ * the raise's own `detail`. `triggerCount()` refuses when they differ. They can differ: a product
+ * that took the sequence and then stopped raising, or an error swallowed between the database and
+ * this file, advances the sequence with no refusal; a refusal that arrived without the sequence
+ * moving was raised by something other than the product's fault point. Both are reads inside
+ * `append`, because the harness calls `arm` and `triggerCount` synchronously and neither can await.
  *
  * The sentinel scope is registered and its read refuses by name. `AdapterSentinelSeam.read` is
  * synchronous and a SQL read is not, so a live scope cannot answer through that seam without a
@@ -62,6 +72,7 @@ import { mailIdentification, sqlClient, type Stack } from '../../harness/live-st
 import { CapabilityPending } from '../../harness/pending.ts';
 import type { AdapterSentinelSeam } from '../../harness/sentinels.ts';
 import type { EmitResult, NotificationsSut, World } from './_contract.ts';
+import { createCrashSwitch } from './_fault-switch.ts';
 import { producerPayload } from './_fixture-producers.ts';
 import type { Channel, Role } from './taxonomy.ts';
 
@@ -106,6 +117,31 @@ function uuidArray(ids: readonly string[]): string {
 
 function parseJson<T>(value: unknown): T {
   return (typeof value === 'string' ? JSON.parse(value) : value) as T;
+}
+
+/**
+ * ONE SQL CLIENT PER PROCESS, shared by every adapter this file builds. The client opens a pool of
+ * about ten connections as soon as it is used (measured on the stack: 27 sessions at idle with one
+ * client, 73 with six), the atomicity id opens twenty-two adapters, and the registry tears them
+ * down together after the body. Twenty-two pools against a hundred-slot database left the auth
+ * service no slot to check an email with, and provisioning answered 500. The last adapter to tear
+ * down closes the client.
+ */
+let sharedSql: { client: ReturnType<typeof sqlClient>; holders: number } | null = null;
+
+function acquireSql(stack: Stack): ReturnType<typeof sqlClient> {
+  if (!sharedSql) sharedSql = { client: sqlClient(stack), holders: 0 };
+  sharedSql.holders += 1;
+  return sharedSql.client;
+}
+
+async function releaseSql(): Promise<void> {
+  if (!sharedSql) return;
+  sharedSql.holders -= 1;
+  if (sharedSql.holders > 0) return;
+  const { client } = sharedSql;
+  sharedSql = null;
+  await client.close().catch(() => undefined);
 }
 
 /** What one open world holds: its scope for the transition ledger, its actors, and its sources. */
@@ -208,7 +244,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   const { stack } = opts;
   const api = stack.apiUrl.replace(/\/$/, '');
   await mailIdentification(stack);
-  const sql = sqlClient(stack);
+  const sql = acquireSql(stack);
 
   const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
 
@@ -222,20 +258,60 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
   let processEpoch = `delivery-process-${crypto.randomUUID()}`;
 
+  /* ------------------------------------------------------------------------ the crash switch */
+
+  const crash = createCrashSwitch(
+    FAULT_POINT,
+    () => ({ sequenceAdvances: 0, refusals: 0 }),
+    (ledger) => {
+      if (ledger.sequenceAdvances !== ledger.refusals) {
+        throw new Error(
+          `the two witnesses of the fault at ${JSON.stringify(FAULT_POINT)} disagree: the product's sequence advanced ` +
+            `${ledger.sequenceAdvances} time(s) while the adapter received ${ledger.refusals} induced refusal(s), so one ` +
+            `of them counted a reach the other never saw`,
+        );
+      }
+      return ledger.sequenceAdvances;
+    },
+  );
+
+  // `pg_sequence_last_value` answers null for a sequence never called, hence the coalesce; it is
+  // read from the relation, not the session, so a value taken on another connection is visible.
+  const faultTriggers = async (): Promise<number> => {
+    const found = await rows<{ triggers: unknown }>(
+      sql`select coalesce(pg_sequence_last_value('public.notification_fault_triggers'::regclass), 0)::bigint as triggers`,
+    );
+    return Number(found[0]?.triggers ?? 0);
+  };
+
+  const inducedRefusal = (error: unknown): boolean =>
+    (error as { detail?: unknown } | null)?.detail === `induced-fault:${FAULT_POINT}`;
+
   /* ------------------------------------------------------------------------- the outbox port */
 
   const outbox: OutboxPort = {
     /**
      * ONE CALL, ONE TRANSACTION. The fixture producer performs this world's transition, reaches the
      * fault point, and calls `public.emit_notification` with the whole write set. The third
-     * argument is the fault arming, which the unit that lands the fault seam forwards; here nothing
-     * is ever armed, so it is false.
+     * argument is the crash switch, read here and nowhere else. While it is armed the sequence is
+     * read on both sides of the call, so a reach the product recorded is counted whether or not the
+     * call refused; the refusal is counted only when it carries the raise's own detail.
      */
     append: async (write) => {
       const world = requireWorld('commit a transition against');
-      const minted = await rows<{ event_id: string }>(
-        sql`select public.fixture_commit_transition_and_emit(${world.record.scopeId}, ${JSON.stringify(write)}::text::jsonb, ${false}::boolean) as event_id`,
-      );
+      const armed = crash.armed();
+      const triggersBefore = armed ? await faultTriggers() : 0;
+      let minted: { event_id: string }[];
+      try {
+        minted = await rows<{ event_id: string }>(
+          sql`select public.fixture_commit_transition_and_emit(${world.record.scopeId}, ${JSON.stringify(write)}::text::jsonb, ${armed !== null}::boolean) as event_id`,
+        );
+      } catch (error) {
+        if (armed && inducedRefusal(error)) armed.refusals += 1;
+        throw error;
+      } finally {
+        if (armed) armed.sequenceAdvances += (await faultTriggers()) - triggersBefore;
+      }
       const eventId = String(minted[0]?.event_id ?? '');
       if (!eventId) throw new Error('the fixture producer returned no event id');
       return { eventId };
@@ -417,8 +493,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
   const faults: AdapterFaultSeam = {
     points: () => [FAULT_POINT, PROVIDER_FAULT_POINT],
-    arm: () => {
-      throw new CapabilityPending(['faults.at']);
+    arm: (point, kind) => {
+      if (point !== FAULT_POINT) throw new CapabilityPending(['faults.at']);
+      return crash.arm(kind);
     },
     processEpoch: () => processEpoch,
     processRestart: () => {
@@ -544,7 +621,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     faults,
     sentinels,
     teardown: async () => {
-      await sql.close().catch(() => undefined);
+      await releaseSql();
     },
   };
 }

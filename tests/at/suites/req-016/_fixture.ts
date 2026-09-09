@@ -21,7 +21,7 @@
  */
 
 import type { ControlledClock } from '../../harness/clock.ts';
-import type { AdapterFaultSeam, ArmedFault, FaultKind } from '../../harness/faults.ts';
+import type { AdapterFaultSeam } from '../../harness/faults.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
 import type { AdapterSentinelSeam } from '../../harness/sentinels.ts';
 import type { EmailProviderPort } from '../../harness/vendors.ts';
@@ -38,6 +38,7 @@ import {
   type RoleHolder,
 } from '../../../../supabase/functions/_shared/notifications.ts';
 import type { ConfigRegistry, EmitResult, NotificationsSut, World } from './_contract.ts';
+import { createCrashSwitch } from './_fault-switch.ts';
 import { producerPayload } from './_fixture-producers.ts';
 import type { Role } from './taxonomy.ts';
 
@@ -176,39 +177,22 @@ export function createFixtureAdapter({ clock, worlds, config, vendors }: Adapter
    */
   let epochSeq = 1;
   let processEpoch = `delivery-process-${epochSeq}`;
-  const armedFaults = new Map<string, { count: number }>();
 
   /**
-   * Execution has REACHED a fault point. THE COUNT IS INCREMENTED HERE AND NOWHERE ELSE. Arming
-   * happens in `arm()` below and adds nothing to it, which is the difference between an atomicity
-   * test that proves something and one that passes on a fault that never happened.
+   * In memory the binding is the code path, so the reach it records in `append` is the one witness
+   * there can be. THE COUNT IS INCREMENTED AT THE REACH AND NOWHERE ELSE; arming adds nothing to
+   * it, which is the difference between an atomicity test that proves something and one that
+   * passes on a fault that never happened.
    */
-  const reachFaultPoint = (point: string): void => {
-    const armed = armedFaults.get(point);
-    if (!armed) return;
-    armed.count += 1;
-    throw new Error(`induced fault: crash at ${point}`);
-  };
+  const crash = createCrashSwitch(
+    FAULT_POINT,
+    () => ({ reaches: 0 }),
+    (ledger) => ledger.reaches,
+  );
 
   const faults: AdapterFaultSeam = {
     points: () => [FAULT_POINT],
-    arm: (point: string, kind: FaultKind): ArmedFault => {
-      // A point that silently accepted a kind it does not implement would arm nothing while
-      // reporting a trigger, and the atomicity oracle would read the result as proof.
-      if (kind !== 'crash') {
-        throw new Error(
-          `fault point ${JSON.stringify(point)} implements no ${JSON.stringify(kind)} fault. It implements: crash`,
-        );
-      }
-      const armed = { count: 0 };
-      armedFaults.set(point, armed);
-      return {
-        triggerCount: () => armed.count,
-        disarm: () => {
-          if (armedFaults.get(point) === armed) armedFaults.delete(point);
-        },
-      };
-    },
+    arm: (_point, kind) => crash.arm(kind),
     processEpoch: () => processEpoch,
     processRestart: () => {
       processEpoch = `delivery-process-${++epochSeq}`;
@@ -249,12 +233,12 @@ export function createFixtureAdapter({ clock, worlds, config, vendors }: Adapter
       const event = write.event.event;
       const transitionBefore = state.transitions.get(event);
       state.transitions.set(event, true);
-      try {
-        reachFaultPoint(FAULT_POINT);
-      } catch (fault) {
+      const armed = crash.armed();
+      if (armed) {
         if (transitionBefore === undefined) state.transitions.delete(event);
         else state.transitions.set(event, transitionBefore);
-        throw fault;
+        armed.reaches += 1;
+        throw new Error(`induced fault: crash at ${FAULT_POINT}`);
       }
 
       const eventId = `event-${state.nextId++}`;

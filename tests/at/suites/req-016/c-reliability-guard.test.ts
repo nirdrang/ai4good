@@ -29,6 +29,9 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
   atTest(
     'AT-016.09',
     'every guarded transition writes its notification event atomically under an induced fault',
+    // Twenty-two worlds against one database, each provisioning four accounts, an organisation and
+    // a project. The same budget the auth suite gives its two real-time bodies.
+    { timeoutMs: { integration: 240_000 } },
     async ({ open }) => {
       const guarded = GUARDED_ROWS.map((r) => r.event);
       for (const event of MUST_BE_GUARDED) {
