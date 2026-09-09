@@ -37,6 +37,7 @@ to "a session works where it was launched", and it exists only for this hand-off
 | `/controller AI4DEV-19 cloud` | the same, but the mechanic is a cloud session started with `claude --cloud`. The session stays in the main folder. |
 | `/controller done AI4DEV-19` | the lead merged. Steer the board: confirm Done, clear the held item, fold upward, judge the filing candidates (phase C). The lead invokes this itself as its last closing step. |
 | `/controller AI4DEV-3` | a PARENT. A subtree run (founder ruling 2026-09-03: "parent and children for a beefy run"). List the children with short labels and state. The run takes every open, unblocked child. Blocked, Done, and Cancelled children stay out and are named. If no child is startable, stop and say so. Otherwise start the parent (phase B): one branch, one worktree, one brief with one unit per child, one pull request. |
+| `/controller AI4DEV-19` on an item already started | a RESUME (founder 2026-09-09: "i want to have /controller such that on new session ready to process the brief it will do all the required steps"). The item is In Progress, its branch exists on origin, and `loop/items/<item>/brief.md` is on that branch. Do no validation, no claim, no brief. If the worktree under `.claude/worktrees/<item>` is missing, `git fetch origin` and `git worktree add .claude/worktrees/<item> <branch>`; if present, `git -C <worktree> pull --ff-only`. Then the local hand-over of phase B step 9: `EnterWorktree`, the transition line, the exact instruction, stop. A new session launched in the main folder reaches the brief this way. |
 | `/controller AI4PM-12` | a requirement. Apply the requirement states below. |
 | `/controller` | recommend and wait: In Progress first, then open leaves and parents whose open children are leaves, then a new requirement. Top three, one-line reasons, wait. |
 
@@ -73,7 +74,9 @@ falsely In Progress.
    (depth cap 8, cycle detection) and derive a short label for every link. For a parent, also
    resolve every child: id, short label, state, blockers, description, acceptance tests.
 2. Startability: missing, Done, Cancelled, or an open blocker → stop and say which. For a
-   parent, the units are the open, unblocked children. Zero units → stop.
+   parent, the units are the open, unblocked children. Zero units → stop. In Progress with a
+   brief on its branch → this is a resume, not a start: go to the RESUME row of phase A.
+   In Progress with no brief on any branch → a stale claim; say so and wait.
 3. If the chain's root has nothing above it, ask once, at pickup, about the root. Offer ranked
    suggestions and always offer "standalone". If the board is unreadable, print
    `CHAIN UNRESOLVED` and carry on.
@@ -105,7 +108,10 @@ falsely In Progress.
    > `/controller done`.
 
    The founder runs the mechanic here and talks to it directly. You have no further part in
-   the item.
+   the item. To run the mechanic in a different session, the founder opens that session in
+   the main folder and types `/controller <item>` there: the RESUME row moves it into the
+   worktree. If this session keeps the worktree, leave it with `ExitWorktree(action:
+   "keep")` first, so one session works there at a time.
 
    **Cloud, on `/controller <id> cloud`.** Stay in the main folder. The worktree here had one
    job, to commit the brief on the item branch without switching this folder. The cloud VM
