@@ -98,9 +98,10 @@ describe('AT-REQ-016 B — delivery defaults', () => {
   );
 
   atTest('AT-016.08', 'a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations', {
+    timeoutMs: { integration: 60_000 },
+  }, {
     // The loop procedure commands the harness clock, which above loop is the passage of time
-    // and has no command seam. The integration procedure refuses by name until the unit that
-    // lands the anti-spam guard writes the real one (`_integration.ts`).
+    // and has no command seam. The integration procedure waits real time against two short pins.
     integration: at01608,
     default: async ({ open }) => {
       // TWO materially different configurations, driven through the SAME body. One configuration

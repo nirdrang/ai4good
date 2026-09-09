@@ -285,6 +285,19 @@ export type ProcessPort = {
   epoch(): string;
 };
 
+/* ----------------------------------------------------------- the thread-comment producer guard */
+
+export type GuardConfig = {
+  cap: number;
+  windowMs: number;
+  coalesce: boolean;
+};
+
+export type ThreadCommentGuard = {
+  /** true when this comment should emit a notification */
+  allow(): boolean;
+};
+
 /** The taxonomy port over this tree's own taxonomy, which is the only one either binding uses. */
 export const TAXONOMY_PORT: TaxonomyPort = {
   rows: () => TAXONOMY,
@@ -315,10 +328,15 @@ export type Notifications = {
   events(filter?: { type?: string }): Promise<NotificationEventRow[]>;
   deliveries(filter?: { type?: string }): Promise<DeliveryRow[]>;
   opsItems(filter?: { linkedEventId?: string }): Promise<OpsItemRow[]>;
+  /**
+   * A property of the thread-comment producer, not of emit: `fire('thread.comment')` must still
+   * deliver, while a burst of `cap + 5` must deliver `cap` (or 1 when coalescing).
+   */
+  threadCommentGuard(config: GuardConfig): ThreadCommentGuard;
 };
 
 export function createNotifications(deps: NotificationDeps): Notifications {
-  const { taxonomy, outbox, provider, directory, process: proc } = deps;
+  const { taxonomy, outbox, provider, directory, clock, process: proc } = deps;
 
   const runPassOver = async (pending: PendingDelivery[]): Promise<{ attempted: number }> => {
     const results: PassResult[] = [];
@@ -391,5 +409,32 @@ export function createNotifications(deps: NotificationDeps): Notifications {
     events: (filter) => outbox.events(filter),
     deliveries: (filter) => outbox.deliveries(filter),
     opsItems: (filter) => outbox.opsItems(filter),
+
+    threadCommentGuard: (config) => {
+      let windowStart: number | null = null;
+      let commentsInWindow = 0;
+      let coalescedInWindow = false;
+      return {
+        allow: () => {
+          const now = clock.now();
+          if (windowStart === null || now - windowStart >= config.windowMs) {
+            windowStart = now;
+            commentsInWindow = 0;
+            coalescedInWindow = false;
+          }
+          let emit = false;
+          if (config.coalesce) {
+            if (!coalescedInWindow) {
+              emit = true;
+              coalescedInWindow = true;
+            }
+          } else if (commentsInWindow < config.cap) {
+            emit = true;
+          }
+          commentsInWindow += 1;
+          return emit;
+        },
+      };
+    },
   };
 }

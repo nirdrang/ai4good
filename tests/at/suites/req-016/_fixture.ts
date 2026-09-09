@@ -165,9 +165,6 @@ export function createFixtureAdapter({ clock, worlds, config, vendors }: Adapter
   };
   const openedWorlds = new Set<NotificationFixtureWorld>();
   let currentWorld: NotificationFixtureWorld | null = null;
-  let commentWindowStart: number | null = null;
-  let commentsInWindow = 0;
-  let coalescedInWindow = false;
 
   /*
    * THE DELIVERY PROCESS'S IDENTITY, and the armed faults it can be interrupted by.
@@ -393,30 +390,14 @@ export function createFixtureAdapter({ clock, worlds, config, vendors }: Adapter
     fixtures: {
       world: async (name: string) => {
         const base = await worlds.world(name);
+        const guard = core.threadCommentGuard({
+          cap: config.get<number>(GUARD_CAP_KEY),
+          windowMs: config.get<number>(GUARD_WINDOW_KEY),
+          coalesce: config.get<boolean>(GUARD_COALESCE_KEY),
+        });
         const burstComments = async (world: NotificationFixtureWorld, count: number) => {
-          // Read at guard-evaluation time, not at construction: the configuration is what this
-          // world was opened with, and a value captured once could not be re-tuned per world.
-          const cap = config.get<number>(GUARD_CAP_KEY);
-          const windowMs = config.get<number>(GUARD_WINDOW_KEY);
-          const coalesce = config.get<boolean>(GUARD_COALESCE_KEY);
-
-          const now = clock.now();
-          if (commentWindowStart === null || now - commentWindowStart >= windowMs) {
-            commentWindowStart = now;
-            commentsInWindow = 0;
-            coalescedInWindow = false;
-          }
           for (let index = 0; index < count; index++) {
-            if (coalesce) {
-              // Coalescing: the whole burst becomes ONE notification for the window.
-              if (!coalescedInWindow) {
-                await world.fire('thread.comment');
-                coalescedInWindow = true;
-              }
-            } else if (commentsInWindow < cap) {
-              await world.fire('thread.comment');
-            }
-            commentsInWindow += 1;
+            if (guard.allow()) await world.fire('thread.comment');
           }
         };
         const world = new NotificationFixtureWorld(base, core, burstComments, state);

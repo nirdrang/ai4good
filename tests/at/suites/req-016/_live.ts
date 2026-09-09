@@ -14,7 +14,7 @@
  *   - the DIRECTORY is SQL: the NGO is the seat holder of this world's organisation, the volunteer
  *     is the developer seat of this world's project, the administrator and the ex-volunteer are the
  *     world's own record because nothing in this schema stores either per scope;
- *   - the CLOCK is the wall clock and the PROCESS is one identity string per adapter.
+ *   - the CLOCK is the wall clock and the PROCESS is an identity string a restart replaces.
  *
  * EVERY READ IS SCOPED TO THE OPEN WORLD'S ACTOR IDS, and that is not bookkeeping. One integration
  * run shares one database and the reliability id opens twenty-two worlds against it. Deliveries are
@@ -31,7 +31,7 @@
  * real run. The methods a later unit lands throw `CapabilityPending` naming themselves, one name
  * each, exactly as the auth suite's live adapter does, and `tests/at/expected/req-016.json`
  * declares each id red on exactly that name until its unit lands: the fault arming and the
- * two-witness trigger count, the process restart, and the comment burst.
+ * two-witness trigger count.
  *
  * The sentinel scope is registered and its read refuses by name. `AdapterSentinelSeam.read` is
  * synchronous and a SQL read is not, so a live scope cannot answer through that seam without a
@@ -48,12 +48,14 @@ import {
   TAXONOMY_PORT,
   type DeliveryRow,
   type DirectoryPort,
+  type GuardConfig,
   type NotificationEventRow,
   type NotificationState,
   type Notifications,
   type OpsItemRow,
   type OutboxPort,
   type RoleHolder,
+  type ThreadCommentGuard,
 } from '../../../../supabase/functions/_shared/notifications.ts';
 import type { AdapterFaultSeam } from '../../harness/faults.ts';
 import { mailIdentification, sqlClient, type Stack } from '../../harness/live-stack.ts';
@@ -124,6 +126,33 @@ function accountTypeFor(role: Role): 'ngo' | 'volunteer' | 'platform_admin' {
   return 'volunteer';
 }
 
+/**
+ * The live factory receives only `{ stack }`, so the pinned guard numbers reach it through the
+ * world name `req-016/guard?cap=<n>&window=<ms>&coalesce=<bool>`. A name with no query carries no pin.
+ */
+function guardConfigFromWorldName(name: string): GuardConfig | null {
+  const queryIndex = name.indexOf('?');
+  if (queryIndex < 0) return null;
+  const params = new URLSearchParams(name.slice(queryIndex + 1));
+  const capText = params.get('cap');
+  const windowText = params.get('window');
+  const coalesceText = params.get('coalesce');
+  if (capText === null || windowText === null || coalesceText === null) {
+    throw new Error(
+      `fixture world ${JSON.stringify(name)} names a guard pin but is missing cap, window or coalesce`,
+    );
+  }
+  const cap = Number(capText);
+  const windowMs = Number(windowText);
+  if (!Number.isInteger(cap) || cap < 1 || !Number.isInteger(windowMs) || windowMs < 1) {
+    throw new Error(`fixture world ${JSON.stringify(name)} carries a guard pin that is not a positive integer cap and window`);
+  }
+  if (coalesceText !== 'true' && coalesceText !== 'false') {
+    throw new Error(`fixture world ${JSON.stringify(name)} carries a coalesce pin that is not true or false`);
+  }
+  return { cap, windowMs, coalesce: coalesceText === 'true' };
+}
+
 class NotificationLiveWorld implements World {
   readonly actors: Record<Role, string>;
   readonly addresses: Record<Role, string>;
@@ -133,6 +162,7 @@ class NotificationLiveWorld implements World {
     private readonly core: Notifications,
     private readonly transitionOf: (scopeId: string, event: string) => Promise<boolean>,
     private readonly moveRole: (world: NotificationLiveWorld, role: Role, label: string) => Promise<string>,
+    private readonly commentGuard: ThreadCommentGuard | null,
   ) {
     this.actors = record.actors;
     this.addresses = record.addresses;
@@ -152,8 +182,15 @@ class NotificationLiveWorld implements World {
     return this.moveRole(this, role, toActorId);
   }
 
-  async burstThreadComments(): Promise<void> {
-    throw new CapabilityPending(['fixtures.world.burstThreadComments']);
+  async burstThreadComments(count: number): Promise<void> {
+    if (!this.commentGuard) {
+      throw new Error(
+        `fixture world ${JSON.stringify(this.record.name)} has no thread-comment guard pin in its name, so a burst cannot run`,
+      );
+    }
+    for (let index = 0; index < count; index++) {
+      if (this.commentGuard.allow()) await this.fire('thread.comment');
+    }
   }
 
   async teardown(): Promise<void> {
@@ -183,7 +220,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     return currentWorld;
   };
 
-  const processEpoch = `delivery-process-${crypto.randomUUID()}`;
+  let processEpoch = `delivery-process-${crypto.randomUUID()}`;
 
   /* ------------------------------------------------------------------------- the outbox port */
 
@@ -385,7 +422,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
     processEpoch: () => processEpoch,
     processRestart: () => {
-      throw new CapabilityPending(['faults.processRestart']);
+      processEpoch = `delivery-process-${crypto.randomUUID()}`;
     },
   };
 
@@ -457,6 +494,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
    * transitions and nobody else's.
    */
   const world = async (name: string): Promise<NotificationLiveWorld> => {
+    const guardPin = guardConfigFromWorldName(name);
     const namespace = `${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const addresses = {} as Record<Role, string>;
     for (const role of ROLES) addresses[role] = `${role.replace('_', '-')}+${namespace}@example.test`;
@@ -493,6 +531,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       core,
       transitionOf,
       moveRole,
+      guardPin === null ? null : core.threadCommentGuard(guardPin),
     );
     openedWorlds.push(opened);
     currentWorld = opened;

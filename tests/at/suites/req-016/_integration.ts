@@ -9,22 +9,25 @@
  * cite the same acceptance text, and the id is registered once, with the tier choosing which
  * procedure runs.
  *
- * ONE BODY HERE REFUSES RATHER THAN ASSERTS, and it names the capability that is missing. That is
- * not a stub and it is not a skip: the refusal is a `CapabilityPending` carrying an exact name, so
- * the id is RED in a shape the declaration machinery matches from position 0. AT-016.08's loop
- * body commands the harness clock, which above loop is the passage of time and has no command
- * seam, so its first failing call would be a TypeError no declaration can describe. Until the unit
- * that lands the anti-spam guard writes the real procedure, this one says by name what is missing.
+ * AT-016.08's loop body commands the harness clock. Above loop the clock has `now()` and nothing
+ * else, so this file's procedure waits real time against two short pinned windows, and the live
+ * world reads those pins from its name because the live factory never receives `h.config`.
  */
 
 import { expect } from 'vitest';
 
 import type { Sentinels } from '../../harness/contracts.ts';
-import { CapabilityPending } from '../../harness/registry.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import type { NotificationsSut, World } from './_contract.ts';
 import { messagesAddressedTo } from './_mail-witness.ts';
+import { countPairs } from './_oracles.ts';
 import { providerClientImporters, strayNotificationWriters } from './_source-scan.ts';
+
+const GUARD_CAP_KEY = 'req-015.thread_comment_notifications.max_per_window';
+const GUARD_WINDOW_KEY = 'req-015.thread_comment_notifications.window_ms';
+const GUARD_COALESCE_KEY = 'req-015.thread_comment_notifications.coalesce';
+
+const waitMs = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** The integration tier's context: no clock control seam, and a mail catcher instead of a sim. */
 type Ctx = HarnessAtContext<'req-016', 'notifications', 'integration'>;
@@ -130,19 +133,78 @@ export async function at01601(ctx: Ctx): Promise<void> {
   ).toEqual([w.actors.ngo]);
 }
 
-/**
- * A body that refuses by name, opening a world first so the seam it stands in for is really the
- * one that is absent. The same shape as the auth suite's refusing bodies.
- */
-function refusesWith(capability: string): (ctx: Ctx) => Promise<void> {
-  return async (ctx: Ctx): Promise<void> => {
-    await ctx.open();
-    throw new CapabilityPending([capability]);
-  };
+function guardWorldName(cap: number, windowMs: number, coalesce: boolean): string {
+  return `req-016/guard?cap=${cap}&window=${windowMs}&coalesce=${coalesce}`;
 }
 
-/** AT-016.08 above loop: the anti-spam guard's live procedure is a later unit's. */
-export const at01608 = refusesWith('fixtures.world.burstThreadComments');
+/**
+ * AT-016.08 above loop. Two explicit pins with short windows, three seconds and five seconds, and
+ * real elapsed time. The procedure reads the pins back from `h.config` and opens a world named
+ * `req-016/guard?cap=<cap>&window=<ms>&coalesce=<bool>`, so the numbers the body asserts against
+ * and the numbers the guard runs on are one value, read once.
+ */
+export async function at01608(ctx: Ctx): Promise<void> {
+  const variants = [
+    {
+      name: 'cap without coalescing, three second window',
+      overrides: { [GUARD_CAP_KEY]: 2, [GUARD_WINDOW_KEY]: 3_000, [GUARD_COALESCE_KEY]: false },
+    },
+    {
+      name: 'coalescing, five second window, higher cap',
+      overrides: { [GUARD_CAP_KEY]: 4, [GUARD_WINDOW_KEY]: 5_000, [GUARD_COALESCE_KEY]: true },
+    },
+  ] as const;
+
+  const observed: { name: string; delivered: number }[] = [];
+
+  for (const variant of variants) {
+    const { h, w, sut } = await ctx.open(
+      guardWorldName(variant.overrides[GUARD_CAP_KEY], variant.overrides[GUARD_WINDOW_KEY], variant.overrides[GUARD_COALESCE_KEY]),
+      { config: variant.overrides },
+    );
+    const cap = h.config.get<number>(GUARD_CAP_KEY);
+    const windowMs = h.config.get<number>(GUARD_WINDOW_KEY);
+    const coalesce = h.config.get<boolean>(GUARD_COALESCE_KEY);
+    expect(
+      guardWorldName(cap, windowMs, coalesce),
+      'the world the guard ran on and the registry pin the body asserts against are not the same numbers',
+    ).toBe(guardWorldName(variant.overrides[GUARD_CAP_KEY], variant.overrides[GUARD_WINDOW_KEY], variant.overrides[GUARD_COALESCE_KEY]));
+
+    const burst = cap + 5;
+    const expectedDelivered = coalesce ? 1 : cap;
+    const where = `${variant.name} (cap=${cap}, window=${windowMs}ms, coalesce=${coalesce})`;
+    expect(expectedDelivered, `${where} describes a no-op guard for a burst of ${burst}`).toBeLessThan(burst);
+
+    const pair = `${w.actors.volunteer}:inapp`;
+    await w.burstThreadComments(burst);
+    await waitMs(Math.floor(windowMs / 2));
+    await sut.drainDeliveries();
+
+    const insideWindow = countPairs(await sut.deliveries({ type: 'thread.comment' })).get(pair) ?? 0;
+    expect(
+      insideWindow,
+      `${where}: burst of ${burst} inside the window delivered ${insideWindow}; the configuration prescribes ${expectedDelivered}`,
+    ).toBe(expectedDelivered);
+
+    await waitMs(windowMs);
+    await w.burstThreadComments(1);
+    await sut.drainDeliveries();
+
+    const afterWindow = countPairs(await sut.deliveries({ type: 'thread.comment' })).get(pair) ?? 0;
+    expect(
+      afterWindow,
+      `${where}: a comment ${windowMs}ms after the window was still suppressed — total ${afterWindow}, expected ${expectedDelivered + 1}`,
+    ).toBe(expectedDelivered + 1);
+
+    observed.push({ name: variant.name, delivered: insideWindow });
+  }
+
+  expect(
+    new Set(observed.map((entry) => entry.delivered)).size,
+    `the two configurations produced the same delivered count (${JSON.stringify(observed)}) — ` +
+      `an implementation ignoring its configuration would pass this test`,
+  ).toBe(variants.length);
+}
 
 /**
  * One physical catcher message as the provider-side trace the taxonomy capture stores.
