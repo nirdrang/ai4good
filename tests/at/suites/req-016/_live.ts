@@ -24,13 +24,12 @@
  * atomicity id reads.
  *
  * ============================================================================================
- * WHAT IS NOT BACKED YET, AND HOW IT SAYS SO
+ * HOW THE TWO FAULTS ARE ARMED, AND WHAT STILL REFUSES
  * ============================================================================================
  *
  * This file's existence turns every id of the suite from the declared stand-in refusal into a
- * real run. The methods a later unit lands throw `CapabilityPending` naming themselves, one name
- * each, exactly as the auth suite's live adapter does, and `tests/at/expected/req-016.json`
- * declares each id red on exactly that name until its unit lands: arming the provider point.
+ * real run. The crash fault is an argument of the producer's own call. The provider point is a
+ * decorator around the SMTP port: `reject` and `lose_ack` never reach product send code.
  *
  * THE CRASH FAULT IS AN ARGUMENT OF THE PRODUCER'S OWN CALL. `append` reads the crash switch
  * immediately before the call and forwards it as `p_induce_fault`; nothing in the product reads a
@@ -42,6 +41,11 @@
  * this file, advances the sequence with no refusal; a refusal that arrived without the sequence
  * moving was raised by something other than the product's fault point. Both are reads inside
  * `append`, because the harness calls `arm` and `triggerCount` synchronously and neither can await.
+ *
+ * THE PROVIDER FAULT IS A DECORATOR, not a second crash switch. It reuses the same arming object
+ * with kinds `reject` and `lose_ack`. The reach is the decorator consuming one forced outcome.
+ * There is no sequence witness: the database does not record this fault. The adapter's attempt
+ * log is the outcome witness; the catcher is the physical-message witness.
  *
  * The sentinel scope is registered and its read refuses by name. `AdapterSentinelSeam.read` is
  * synchronous and a SQL read is not, so a live scope cannot answer through that seam without a
@@ -74,13 +78,13 @@ import type { AdapterSentinelSeam } from '../../harness/sentinels.ts';
 import type { EmitResult, NotificationsSut, World } from './_contract.ts';
 import { createCrashSwitch } from './_fault-switch.ts';
 import { producerPayload } from './_fixture-producers.ts';
+import { bindProviderFaults, PROVIDER_FAULT_POINT, withIdempotentReplay } from './_provider-faults.ts';
 import type { Channel, Role } from './taxonomy.ts';
 
 /** THE SELF-DECLARATION the loader checks against the requirement it was asked for. */
 export const requirement = 'req-016' as const;
 
 const FAULT_POINT = 'notifications.between_transition_and_event_write';
-const PROVIDER_FAULT_POINT = 'notifications.provider_send';
 const SENTINEL_SCOPE = 'notifications.delivery_bodies';
 const SENDER_ADDRESS = 'notifications@ai4good.local';
 const SMTP_TIMEOUT_MS = 10_000;
@@ -462,15 +466,18 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
   /* ------------------------------------------------------------------------------ the core */
 
+  const smtp = createSmtpProvider({
+    host: new URL(stack.mailUrl).hostname,
+    port: smtpPortFromConfig(),
+    sender: SENDER_ADDRESS,
+    timeoutMs: SMTP_TIMEOUT_MS,
+  });
+  const providerFaults = bindProviderFaults(withIdempotentReplay(smtp, stack));
+
   const core = createNotifications({
     taxonomy: TAXONOMY_PORT,
     outbox,
-    provider: createSmtpProvider({
-      host: new URL(stack.mailUrl).hostname,
-      port: smtpPortFromConfig(),
-      sender: SENDER_ADDRESS,
-      timeoutMs: SMTP_TIMEOUT_MS,
-    }),
+    provider: providerFaults.provider,
     directory,
     clock: { now: () => Date.now() },
     process: { epoch: () => processEpoch },
@@ -494,8 +501,11 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   const faults: AdapterFaultSeam = {
     points: () => [FAULT_POINT, PROVIDER_FAULT_POINT],
     arm: (point, kind) => {
-      if (point !== FAULT_POINT) throw new CapabilityPending(['faults.at']);
-      return crash.arm(kind);
+      if (point === FAULT_POINT) return crash.arm(kind);
+      if (point === PROVIDER_FAULT_POINT) return providerFaults.faults.arm(kind);
+      throw new Error(
+        `fault point ${JSON.stringify(point)} is listed on the live seam but has no arming`,
+      );
     },
     processEpoch: () => processEpoch,
     processRestart: () => {

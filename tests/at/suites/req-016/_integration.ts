@@ -20,7 +20,12 @@ import type { Sentinels } from '../../harness/contracts.ts';
 import type { AtContext as HarnessAtContext } from '../../harness/registry.ts';
 import type { NotificationsSut, World } from './_contract.ts';
 import { messagesAddressedTo } from './_mail-witness.ts';
-import { countPairs } from './_oracles.ts';
+import { countPairs, expectedPairs, pairProblems } from './_oracles.ts';
+import {
+  PROVIDER_FAULT_POINT,
+  recordedProviderAccepted,
+  recordedProviderAttempts,
+} from './_provider-faults.ts';
 import { providerClientImporters, strayNotificationWriters } from './_source-scan.ts';
 
 const GUARD_CAP_KEY = 'req-015.thread_comment_notifications.max_per_window';
@@ -221,4 +226,157 @@ export function traceFromCatcherMessage(message: {
     channel: message.channel ?? 'email',
     outcome: 'accepted',
   };
+}
+
+function physicalCountsByKey(
+  messages: { id: string; key: string | null; eventId: string | null }[],
+  eventId: string,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const message of messages) {
+    if (message.eventId !== eventId) continue;
+    const key = message.key ?? `unstamped:${message.id}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/**
+ * AT-016.11 above loop. The three clauses of the loop body, against the real stack.
+ *
+ * WHAT IS LIVE HERE THAT WAS NOT AT LOOP TIER: `h.vendors.email` does not exist, so the
+ * rejection and the lost acknowledgment are armed at `notifications.provider_send`. The
+ * provider-side outcomes come from the adapter's own record, because a refused or
+ * unacknowledged send never arrives at the catcher. The catcher is the witness for one
+ * thing only: how many physical messages exist per idempotency key after the retry.
+ *
+ * The retry physically reaches the provider. The lost-ack decorator sends, then lies, and
+ * stores no receipt. The next pass calls the provider again; Mailpit's own store is what
+ * answers the replay as already accepted and sends nothing.
+ */
+export async function at01611(ctx: Ctx): Promise<void> {
+  const { h, w, sut } = await ctx.open();
+
+  const attemptsFor = (eventId: string) => recordedProviderAttempts().filter((attempt) => attempt.eventId === eventId);
+  const misdirected = (eventId: string) =>
+    attemptsFor(eventId).filter((attempt) => attempt.recipientId !== w.actors.volunteer || attempt.channel !== 'email');
+
+  const rejection = await h.faults.at(PROVIDER_FAULT_POINT, 'reject');
+  const rejected = await w.fire('access.key_issued');
+  try {
+    await sut.drainDeliveries({ passes: 1 });
+  } finally {
+    await rejection.clear();
+  }
+
+  expect(
+    attemptsFor(rejected.eventId).map((attempt) => attempt.outcome),
+    'the provider was never asked to send — the rejection path was not exercised',
+  ).toEqual(['rejected']);
+  expect(
+    misdirected(rejected.eventId),
+    'the provider was handed a recipient or a channel this event never resolved to',
+  ).toEqual([]);
+
+  let event = (await sut.events({ type: 'access.key_issued' })).find((row) => row.id === rejected.eventId);
+  expect(event, 'the notification event vanished after a provider rejection').toBeDefined();
+  expect(['pending', 'retrying'], 'an unaccepted send was marked sent').toContain(event!.state);
+
+  const unconfirmed = (await sut.deliveries({ type: 'access.key_issued' })).filter(
+    (delivery) => delivery.eventId === rejected.eventId && delivery.channel === 'email',
+  );
+  expect(unconfirmed.length, 'the unconfirmed send was silently dropped — nothing observable remains').toBeGreaterThan(0);
+  expect(unconfirmed.every((delivery) => delivery.state !== 'sent'), 'an unaccepted delivery is marked sent').toBe(true);
+
+  const mailAfterReject = await messagesAddressedTo(Object.values(w.addresses));
+  expect(
+    [...physicalCountsByKey(mailAfterReject, rejected.eventId).values()],
+    'a rejected send still produced a physical message',
+  ).toEqual([]);
+
+  await sut.drainDeliveries();
+  const outcomes = attemptsFor(rejected.eventId).map((attempt) => attempt.outcome);
+  expect(
+    outcomes.length,
+    `only ${outcomes.length} provider attempt(s) for a rejected send — no retry actually reached the provider`,
+  ).toBeGreaterThanOrEqual(2);
+  expect(outcomes[outcomes.length - 1], 'the retry did not end in provider acceptance').toBe('accepted');
+  expect(
+    misdirected(rejected.eventId),
+    'the retry reached the provider carrying a recipient or a channel this event never resolved to',
+  ).toEqual([]);
+
+  event = (await sut.events({ type: 'access.key_issued' })).find((row) => row.id === rejected.eventId);
+  expect(event!.state, 'the accepted send was never marked sent').toBe('sent');
+  expect(event!.attempts, "the event's own attempt counter did not record the retry").toBeGreaterThanOrEqual(2);
+
+  const lost = await h.faults.at(PROVIDER_FAULT_POINT, 'lose_ack');
+  const ambiguous = await w.fire('access.key_revoked');
+  try {
+    await sut.drainDeliveries({ passes: 1 });
+  } finally {
+    await lost.clear();
+  }
+
+  expect(
+    attemptsFor(ambiguous.eventId).map((attempt) => attempt.outcome),
+    'the provider was not asked to send exactly once — the lost-ack path was not exercised as one attempt',
+  ).toEqual(['ack_lost']);
+
+  const unacked = (await sut.deliveries({ type: 'access.key_revoked' })).filter(
+    (delivery) => delivery.eventId === ambiguous.eventId && delivery.channel === 'email',
+  );
+  expect(unacked.length, 'the lost-ack send left nothing observable at all').toBeGreaterThan(0);
+  expect(
+    unacked.every((delivery) => delivery.state !== 'sent'),
+    'a send whose acknowledgment was lost was marked sent — the sender cannot tell that outcome from silence, so it must not',
+  ).toBe(true);
+
+  let ambiguousEvent = (await sut.events({ type: 'access.key_revoked' })).find((row) => row.id === ambiguous.eventId);
+  expect(ambiguousEvent, 'the notification event vanished after a lost acknowledgment').toBeDefined();
+  expect(['pending', 'retrying'], 'an unacknowledged send was marked sent').toContain(ambiguousEvent!.state);
+
+  const mailAfterLost = await messagesAddressedTo(Object.values(w.addresses));
+  expect(
+    [...physicalCountsByKey(mailAfterLost, ambiguous.eventId).values()],
+    'the lost-ack send did not leave exactly one physical message',
+  ).toEqual([1]);
+
+  await sut.drainDeliveries();
+  expect(
+    attemptsFor(ambiguous.eventId).map((attempt) => attempt.outcome),
+    'the retry never reached the provider a second time',
+  ).toEqual(['ack_lost', 'accepted']);
+  ambiguousEvent = (await sut.events({ type: 'access.key_revoked' })).find((row) => row.id === ambiguous.eventId);
+  expect(ambiguousEvent!.attempts, "the event's own attempt counter did not record the retry").toBeGreaterThanOrEqual(2);
+
+  const logical = (await sut.events({ type: 'access.key_revoked' })).filter((row) => row.id === ambiguous.eventId);
+  expect(logical.length, 'the retry minted a second logical notification').toBe(1);
+
+  const want = expectedPairs(w.actors, ['volunteer'], ['email', 'inapp']);
+  const deliveries = (await sut.deliveries({ type: 'access.key_revoked' })).filter((delivery) => delivery.eventId === ambiguous.eventId);
+  expect(
+    pairProblems(want, countPairs(deliveries)),
+    'the lost-ack retry did not leave exactly one delivery per expected recipient-channel pair',
+  ).toEqual([]);
+  expect(
+    deliveries.filter((delivery) => delivery.state !== 'sent'),
+    'a delivery the provider accepted never reached the sent state',
+  ).toEqual([]);
+
+  const acceptedForEvent = recordedProviderAccepted().filter((attempt) => attempt.eventId === ambiguous.eventId);
+  expect(
+    pairProblems(expectedPairs(w.actors, ['volunteer'], ['email']), countPairs(acceptedForEvent)),
+    'the pairs the provider physically accepted are not exactly the pairs this event resolved to',
+  ).toEqual([]);
+
+  const mail = await messagesAddressedTo(Object.values(w.addresses));
+  expect(
+    [...physicalCountsByKey(mail, rejected.eventId).values()],
+    'the rejected send did not leave exactly one physical message per idempotency key after the retry',
+  ).toEqual([1]);
+  expect(
+    [...physicalCountsByKey(mail, ambiguous.eventId).values()],
+    'the lost-ack send did not leave exactly one physical message per idempotency key after the retry',
+  ).toEqual([1]);
 }

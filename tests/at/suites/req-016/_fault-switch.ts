@@ -12,6 +12,9 @@
  * at the moment of the reach, and the binding supplies the judgement that turns a ledger into a
  * trigger count. Arming itself writes nothing into the ledger: `tests/at/harness/guards.ts` says
  * why a handle that counted "armed" as "fired" would green every atomicity test in the tree.
+ *
+ * The kinds a point implements are an argument of the switch, defaulting to `crash`. The provider
+ * point reuses this object with `reject` and `lose_ack` rather than growing a second arming type.
  */
 
 import type { ArmedFault, FaultKind } from '../../harness/faults.ts';
@@ -24,8 +27,9 @@ export type CrashSwitch<Ledger> = {
 
 export function createCrashSwitch<Ledger>(
   point: string,
-  openLedger: () => Ledger,
+  openLedger: (kind: FaultKind) => Ledger,
   triggerCount: (ledger: Ledger) => number,
+  implemented: readonly FaultKind[] = ['crash'],
 ): CrashSwitch<Ledger> {
   let live: Ledger | null = null;
   return {
@@ -33,10 +37,12 @@ export function createCrashSwitch<Ledger>(
     arm: (kind) => {
       // A point that silently accepted a kind it does not implement would arm nothing while
       // reporting a trigger, and the atomicity oracle would read the result as proof.
-      if (kind !== 'crash') {
-        throw new Error(`fault point ${JSON.stringify(point)} implements no ${JSON.stringify(kind)} fault. It implements: crash`);
+      if (!implemented.includes(kind)) {
+        throw new Error(
+          `fault point ${JSON.stringify(point)} implements no ${JSON.stringify(kind)} fault. It implements: ${implemented.join(', ')}`,
+        );
       }
-      const ledger = openLedger();
+      const ledger = openLedger(kind);
       live = ledger;
       return {
         triggerCount: () => triggerCount(ledger),
