@@ -31,7 +31,7 @@
  * real run. The methods a later unit lands throw `CapabilityPending` naming themselves, one name
  * each, exactly as the auth suite's live adapter does, and `tests/at/expected/req-016.json`
  * declares each id red on exactly that name until its unit lands: the fault arming and the
- * two-witness trigger count, the process restart, the role reassignment and the comment burst.
+ * two-witness trigger count, the process restart, and the comment burst.
  *
  * The sentinel scope is registered and its read refuses by name. `AdapterSentinelSeam.read` is
  * synchronous and a SQL read is not, so a live scope cannot answer through that seam without a
@@ -112,8 +112,16 @@ interface LiveWorldRecord {
   scopeId: string;
   actors: Record<Role, string>;
   addresses: Record<Role, string>;
+  /** every account this world has ever seated, so a reassigned holder still appears in scoped reads */
+  knownActorIds: string[];
   organizationId: string;
   projectId: string;
+}
+
+function accountTypeFor(role: Role): 'ngo' | 'volunteer' | 'platform_admin' {
+  if (role === 'platform_admin') return 'platform_admin';
+  if (role === 'ngo') return 'ngo';
+  return 'volunteer';
 }
 
 class NotificationLiveWorld implements World {
@@ -124,6 +132,7 @@ class NotificationLiveWorld implements World {
     readonly record: LiveWorldRecord,
     private readonly core: Notifications,
     private readonly transitionOf: (scopeId: string, event: string) => Promise<boolean>,
+    private readonly moveRole: (world: NotificationLiveWorld, role: Role, label: string) => Promise<string>,
   ) {
     this.actors = record.actors;
     this.addresses = record.addresses;
@@ -139,8 +148,8 @@ class NotificationLiveWorld implements World {
     return this.transitionOf(this.record.scopeId, event);
   }
 
-  async reassignRole(): Promise<string> {
-    throw new CapabilityPending(['fixtures.world.reassignRole']);
+  async reassignRole(role: Role, toActorId: string): Promise<string> {
+    return this.moveRole(this, role, toActorId);
   }
 
   async burstThreadComments(): Promise<void> {
@@ -168,7 +177,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
   const openedWorlds: NotificationLiveWorld[] = [];
   let currentWorld: NotificationLiveWorld | null = null;
-  const scopedActors = (): string => uuidArray(openedWorlds.flatMap((world) => Object.values(world.actors)));
+  const scopedActors = (): string => uuidArray([...new Set(openedWorlds.flatMap((world) => world.record.knownActorIds))]);
   const requireWorld = (act: string): NotificationLiveWorld => {
     if (!currentWorld) throw new Error(`no fixture world is open, so there is no scope to ${act}`);
     return currentWorld;
@@ -422,6 +431,26 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   };
 
   /**
+   * Mint a successor account, move the seat the directory actually reads, and keep the old holder
+   * in knownActorIds so deliveries already addressed to them remain visible after the move.
+   */
+  const moveRole = async (world: NotificationLiveWorld, role: Role, label: string): Promise<string> => {
+    const local = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const namespace = world.record.scopeId.replace(/[^a-z0-9]+/gi, '-');
+    const email = `${local}+${namespace}@example.test`;
+    const successor = await provisionAccount(email, accountTypeFor(role));
+    world.record.knownActorIds.push(successor);
+    if (role === 'ngo') {
+      await sql`update public.org_memberships set account_id = ${successor}::uuid where org_id = ${world.record.organizationId}::uuid`;
+    } else if (role === 'volunteer') {
+      await sql`update public.projects set assigned_volunteer_id = ${successor}::uuid where id = ${world.record.projectId}::uuid`;
+    }
+    world.record.actors[role] = successor;
+    world.record.addresses[role] = email;
+    return successor;
+  };
+
+  /**
    * A FIXTURE WORLD: four real accounts, one organisation with the NGO in its seat, one project
    * with the volunteer in its seat. Addresses are namespaced per world so the catcher can be read
    * per world; the transition ledger is keyed by the same namespace so a fresh world reads its own
@@ -452,9 +481,18 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     await sql`update public.projects set assigned_volunteer_id = ${actors.volunteer}::uuid where id = ${projectId}::uuid`;
 
     const opened = new NotificationLiveWorld(
-      { name, scopeId: `req-016/${namespace}`, actors, addresses, organizationId, projectId },
+      {
+        name,
+        scopeId: `req-016/${namespace}`,
+        actors,
+        addresses,
+        knownActorIds: Object.values(actors),
+        organizationId,
+        projectId,
+      },
       core,
       transitionOf,
+      moveRole,
     );
     openedWorlds.push(opened);
     currentWorld = opened;

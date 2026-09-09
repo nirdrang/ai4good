@@ -19,7 +19,7 @@
       "red": {}
     },
     "integration": {
-      "green": ["AT-016.01", "AT-016.02"],
+      "green": ["AT-016.01", "AT-016.02", "AT-016.10"],
       "red": {
         "AT-016.03": { "kind": "capability-pending", "capabilities": ["vendors.email"] },
         "AT-016.04": { "kind": "capability-pending", "capabilities": ["vendors.email"] },
@@ -28,7 +28,6 @@
         "AT-016.07": { "kind": "capability-pending", "capabilities": ["faults.processRestart"] },
         "AT-016.08": { "kind": "capability-pending", "capabilities": ["fixtures.world.burstThreadComments"] },
         "AT-016.09": { "kind": "capability-pending", "capabilities": ["faults.at"] },
-        "AT-016.10": { "kind": "capability-pending", "capabilities": ["fixtures.world.reassignRole"] },
         "AT-016.11": { "kind": "capability-pending", "capabilities": ["vendors.email"] },
         "AT-016.12": { "kind": "capability-pending", "capabilities": ["vendors.email"] }
       }
