@@ -13,10 +13,9 @@ bug-fix: codex:gpt-5.6-sol@max
 perf-issue: codex:gpt-6-astra@high
 hillclimb: codex:gpt-6-astra@high
 judgment and prose: claude:fable@max
-hardest tasks: claude:fable@high
+hardest tasks: claude:fable@medium
 how explorer: grok:grok-4.6@xhigh
 how explainer: claude:fable@low
-how critics: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
@@ -30,6 +29,13 @@ interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### The how critics row is gone, 2026-09-09
+
+Upstream pstack 1.4.0 removed the critique mode of the `how` skill and its `how critics` role.
+The fork merged that release on 2026-09-09, so the row left this sheet the same day, by founder
+ruling. Setup would otherwise halt on an unknown role. There is no undo: the role no longer
+exists. Where the notes below say "both panel rows", only `interrogate reviewers` remains.
 
 ### The two panel rows: muse in on 2026-09-04, out on 2026-09-05, back on 2026-09-08
 
