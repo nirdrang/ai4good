@@ -143,3 +143,20 @@ function refusesWith(capability: string): (ctx: Ctx) => Promise<void> {
 
 /** AT-016.08 above loop: the anti-spam guard's live procedure is a later unit's. */
 export const at01608 = refusesWith('fixtures.world.burstThreadComments');
+
+/**
+ * One physical catcher message as the provider-side trace the taxonomy capture stores.
+ * `accepted` is the only outcome on this path. A message that arrived was accepted.
+ */
+export function traceFromCatcherMessage(message: {
+  recipientId: string | null;
+  eventId: string | null;
+  channel: string | null;
+}): { recipientId: string; eventId: string; channel: string; outcome: 'accepted' } {
+  return {
+    recipientId: message.recipientId ?? '',
+    eventId: message.eventId ?? '',
+    channel: message.channel ?? 'email',
+    outcome: 'accepted',
+  };
+}

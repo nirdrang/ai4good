@@ -1,5 +1,7 @@
 import { describe, expect } from 'vitest';
-import { atTest, defineEvidenceCapture } from './_bind.ts';
+import { atTest, defineEvidenceCapture, TIER } from './_bind.ts';
+import { traceFromCatcherMessage } from './_integration.ts';
+import { messagesAddressedTo } from './_mail-witness.ts';
 import type {
   Delivery,
   DocumentedDefault,
@@ -84,6 +86,8 @@ const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence>(
     const { h, w, sut } = await open();
     const rows: Record<string, RowEvidence> = {};
 
+    const live = TIER !== 'loop';
+
     for (const row of TAXONOMY) {
       const before = await sut.deliveries({ type: row.event });
       const { eventId } = await w.fire(row.event);
@@ -94,13 +98,22 @@ const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence>(
         events: (await sut.events({ type: row.event })).filter((event) => event.id === eventId),
         deliveries: (await sut.deliveries({ type: row.event })).filter((delivery) => delivery.eventId === eventId),
         opsItems: await sut.opsItems({ linkedEventId: eventId }),
-        // THE OUT-OF-BAND HALF, snapshotted per row rather than read once at the end: the simulator
-        // accumulates every row's sends, and only the id this row just fired can tell them apart.
-        // The sim hands out copies, and they are plain objects, so `freezeEvidence` accepts them as
-        // the inert data captured evidence has to be.
-        providerAttempts: h.vendors.email.attempts().filter((attempt) => attempt.eventId === eventId),
-        providerAccepted: h.vendors.email.accepted().filter((attempt) => attempt.eventId === eventId),
+        // THE OUT-OF-BAND HALF. At the loop tier the simulator accumulates every row's sends, and
+        // only the id this row just fired can tell them apart. Above loop there is no simulator;
+        // the catcher is read once after the loop and grouped by that same id.
+        providerAttempts: live ? [] : h.vendors.email.attempts().filter((attempt) => attempt.eventId === eventId),
+        providerAccepted: live ? [] : h.vendors.email.accepted().filter((attempt) => attempt.eventId === eventId),
       };
+    }
+
+    if (live) {
+      const mail = await messagesAddressedTo(Object.values(w.addresses));
+      for (const row of TAXONOMY) {
+        const captured = rows[row.event];
+        const forEvent = mail.filter((message) => message.eventId === captured.eventId).map(traceFromCatcherMessage);
+        captured.providerAttempts = forEvent;
+        captured.providerAccepted = forEvent;
+      }
     }
 
     return {
