@@ -8,6 +8,7 @@
 
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
+import { at01608 } from './_integration.ts';
 import { countPairs } from './_oracles.ts';
 
 /** The at-config keys the thread-comment anti-spam guard is configured by (AT-016.08). */
@@ -96,10 +97,13 @@ describe('AT-REQ-016 B — delivery defaults', () => {
     },
   );
 
-  atTest(
-    'AT-016.08',
-    'a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations',
-    async ({ open }) => {
+  atTest('AT-016.08', 'a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations', {
+    timeoutMs: { integration: 60_000 },
+  }, {
+    // The loop procedure commands the harness clock, which above loop is the passage of time
+    // and has no command seam. The integration procedure waits real time against two short pins.
+    integration: at01608,
+    default: async ({ open }) => {
       // TWO materially different configurations, driven through the SAME body. One configuration
       // is not a test of "conforms to configuration": an implementation that hard-codes the
       // registry's own defaults satisfies a single-variant run exactly as well as one that reads
@@ -169,5 +173,5 @@ describe('AT-REQ-016 B — delivery defaults', () => {
           `an implementation ignoring its configuration would pass this test`,
       ).toBe(variants.length);
     },
-  );
+  });
 });

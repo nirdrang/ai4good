@@ -5,6 +5,7 @@
 
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
+import { at01611 } from './_integration.ts';
 import { countPairs, expectedPairs, pairProblems } from './_oracles.ts';
 import { GUARDED_ROWS } from './taxonomy.ts';
 
@@ -29,6 +30,9 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
   atTest(
     'AT-016.09',
     'every guarded transition writes its notification event atomically under an induced fault',
+    // Twenty-two worlds against one database, each provisioning four accounts, an organisation and
+    // a project. The same budget the auth suite gives its two real-time bodies.
+    { timeoutMs: { integration: 240_000 } },
     async ({ open }) => {
       const guarded = GUARDED_ROWS.map((r) => r.event);
       for (const event of MUST_BE_GUARDED) {
@@ -154,7 +158,9 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
   atTest(
     'AT-016.11',
     'sent only on provider acceptance; unconfirmed sends retry; a lost ack mints no duplicate',
-    async ({ open }) => {
+    {
+      integration: at01611,
+      default: async ({ open }) => {
       const { h, w, sut } = await open();
 
       // (a) the provider refuses to accept a critical send.
@@ -284,6 +290,7 @@ describe('AT-REQ-016 C — critical-event reliability guard', () => {
         pairProblems(expectedPairs(w.actors, ['volunteer'], ['email']), countPairs(acceptedForEvent)),
         'the pairs the provider physically accepted are not exactly the pairs this event resolved to',
       ).toEqual([]);
+      },
     },
   );
 });

@@ -146,11 +146,14 @@ describe('the five false-green reproductions', () => {
   });
 
   it('decides liveness before anything is built, and createHarness above loop with no live adapter throws', async () => {
-    expect(liveAdapterExists('req-016')).toBe(false);
+    // A requirement nothing registers is the example of a suite with no live adapter: both
+    // registered suites now have one, and the rule under test is about absence.
+    expect(liveAdapterExists('req-999')).toBe(false);
     expect(liveAdapterExists('req-001')).toBe(true);
+    expect(liveAdapterExists('req-016')).toBe(true);
 
-    await expect(createHarness({ requirement: 'req-016', tier: 'integration' })).rejects.toThrow(
-      /no live adapter for req-016; the registry refuses this tier before construction/,
+    await expect(createHarness({ requirement: 'req-999', tier: 'integration' })).rejects.toThrow(
+      /no live adapter for req-999; the registry refuses this tier before construction/,
     );
 
     // Four dummy coordinates, no mail URL: the live branch is reached and the mail reader refuses.

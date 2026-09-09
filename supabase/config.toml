@@ -116,7 +116,8 @@ enabled = true
 # Port to use for the email testing server web interface.
 port = 44324
 # Uncomment to expose additional ports for testing user applications that send emails.
-# smtp_port = 44325
+# REQ-016's SMTP provider client sends to this port; the acceptance suite reads it from here.
+smtp_port = 44325
 # pop3_port = 44326
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
@@ -515,7 +516,30 @@ verify_jwt = true
 verify_jwt = false
 
 [analytics]
-enabled = true
+# OFF ON PURPOSE, AND THE REASON IS A GATEWAY FAULT, NOT A DISLIKE OF LOG VIEWERS.
+#
+# The CLI runs this service's `vector` container with DOCKER_HOST pointed at
+# http://host.docker.internal:2375. Docker Desktop only listens there when "expose daemon on
+# tcp://localhost:2375 without TLS" is on, which it is not on this machine and should not have to
+# be, because that is an unauthenticated root-equivalent socket on localhost.
+#
+# So `vector` crash-loops. That would be harmless if it stayed still, but a container that restarts
+# every few seconds keeps taking and releasing addresses on the docker network. Every integration
+# run resets the database, which restarts the auth container, and auth then comes back on a
+# different address while Kong is still holding the one it resolved at start. Kong answers 502 to
+# every signup and every admin-user call, and a whole acceptance suite reads as red for a reason
+# that has nothing to do with the tree. Measured on 2026-09-08: Kong logged
+# `connect() failed (111: Connection refused) ... upstream: http://172.18.0.6:9999/signup` while
+# docker inspect reported auth at 172.18.0.8 and a request from inside Kong to that address
+# answered GoTrue's health JSON.
+#
+# Nothing in this repository reads the analytics service. No test, no workflow, no script names it
+# or its port. It backs the log viewer in Studio and nothing else. Turning it off removes the
+# crash loop, and with it the address churn and the stale gateway.
+#
+# To put it back, set this to true and turn on Docker Desktop's TCP daemon. Do not turn it back on
+# without that, or the 502s return.
+enabled = false
 port = 44327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
