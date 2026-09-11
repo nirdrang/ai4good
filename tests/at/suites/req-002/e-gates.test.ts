@@ -12,12 +12,12 @@ import { describe, expect } from 'vitest';
 import { createConfigRegistry } from '../../harness/config.ts';
 import { atTest } from './_bind.ts';
 import { AWAITED, awaiting } from './_pending.ts';
+import { emailUnverifiedSentenceProblems } from './_source-pins.ts';
 import {
-  emailUnverifiedSentenceProblems,
   orgVettingWriterProblems,
   scheduledVettingProblems,
   vettingRouteProblems,
-} from './_source-scan.ts';
+} from './_source-vetting.ts';
 import type { AllowanceOutcome, OrganizationsSut, Session, WriteRefusal } from './_contract.ts';
 
 const EVIDENCE = {

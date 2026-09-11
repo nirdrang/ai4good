@@ -13,7 +13,7 @@
 
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
-import { documentContentSinks } from './_source-scan.ts';
+import { documentContentSinks } from './_source-documents.ts';
 import type { OrganizationsSut, VettingRecord, VettingRequest } from './_contract.ts';
 
 const VETTING_OUTCOME = 'vetting.outcome';

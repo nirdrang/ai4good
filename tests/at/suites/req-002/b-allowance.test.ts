@@ -15,7 +15,7 @@ import { debitExceedsRemainingReason, utcDayOf } from '../../../../supabase/func
 import { createConfigRegistry } from '../../harness/config.ts';
 import { atTest } from './_bind.ts';
 import { AWAITED, awaiting } from './_pending.ts';
-import { exhaustedSentenceProblems, grantPinProblems, scanGrantPins } from './_source-scan.ts';
+import { exhaustedSentenceProblems, grantPinProblems, scanGrantPins } from './_source-pins.ts';
 import type { AllowanceOutcome, OrganizationsSut, Session, World } from './_contract.ts';
 
 const EVIDENCE = {
@@ -439,7 +439,7 @@ describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
       const vettedGrant = pins.get<number>(VETTED_PIN);
       // The sentence a caller reads comes from the database at one tier and from the shipped
       // renderer at the other, so the two must agree word for word. That the arm itself can fail
-      // is proved in `tests/at/harness/req002-oracles.selftest.ts`, not here.
+      // is proved in `tests/at/harness/req002-pins-oracles.selftest.ts`, not here.
       expect(exhaustedSentenceProblems(), 'the TypeScript exhausted renderer and the SQL debit raise disagree').toEqual(
         [],
       );

@@ -21,7 +21,7 @@ import {
   scheduledVettingProblems,
   vettedStateProblems,
   vettingRouteProblems,
-} from './_source-scan.ts';
+} from './_source-vetting.ts';
 import { countPairs, expectedPairs, pairProblems } from '../req-016/_oracles.ts';
 import { providerClientImporters, strayNotificationWriters } from '../req-016/_source-scan.ts';
 import type { OrganizationsSut, Session, VettingRecord, VettingRequest } from './_contract.ts';
