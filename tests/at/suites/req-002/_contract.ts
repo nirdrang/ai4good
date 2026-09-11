@@ -100,6 +100,20 @@ export type ProfileRequest = OrganizationProfileFields & {
 
 export type ProfileOutcome = { ok: true; organizationId: string } | WriteRefusal;
 
+/**
+ * The outcome of an OPERATOR calling `public.set_organization_profile` with no TypeScript on the
+ * path. AT-002.02's database arm reads its refusals: the definer refuses independently of the
+ * decision module.
+ */
+export type ProfileDefinerAttempt = {
+  accountId: string;
+  request: ProfileRequest;
+};
+
+export type ProfileDefinerOutcome =
+  | { ok: true; organizationId: string }
+  | { ok: false; kind: WriteRefusalKind; reason: string };
+
 /* --------------------------------------------------------------------- the vetting record */
 
 /**
@@ -288,6 +302,17 @@ export type OrganizationsSut = {
   profile(organizationId: string): Promise<OrganizationProfileRow | null>;
   /** The caller-bound dashboard, which is where "render" is observable in this tree. */
   organizationDashboard(session: Session | null, organizationId: string): Promise<TenantReadOutcome<OrganizationDashboard>>;
+  /**
+   * Call `public.set_organization_profile` as the operator, bypassing every TypeScript decision, so
+   * the definer's own refusal of a non-admin caller is observable.
+   */
+  attemptProfileDefinerAsOperator(input: ProfileDefinerAttempt): Promise<ProfileDefinerOutcome>;
+  /**
+   * Change the role on an organisation's existing membership row. The unique seat forbids a second
+   * member, so a member of this organisation is this write, not a second grant. No product path
+   * writes `member`.
+   */
+  setMembershipRoleAsOperator(organizationId: string, accountId: string, role: 'admin' | 'member'): Promise<void>;
 
   /* --------------------------------------------------------------------- the vetting route */
 

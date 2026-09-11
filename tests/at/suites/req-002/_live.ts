@@ -32,6 +32,8 @@ import type {
   OperatorWriteOutcome,
   OrganizationDashboard,
   OrganizationsSut,
+  ProfileDefinerAttempt,
+  ProfileDefinerOutcome,
   PublicProjectOutcome,
   PublicProjectView,
   Session,
@@ -80,18 +82,30 @@ interface LiveSession {
   refreshToken: string;
 }
 
-function databaseRefusal(error: unknown): { code: string; message: string } {
+function databaseRefusal(error: unknown): { code: string; message: string; detail: string } {
   const carrier = error as Record<string, unknown> | null;
   let code = '';
-  for (const field of ['errno', 'errcode', 'code'] as const) {
-    const value = carrier?.[field];
-    if (typeof value === 'string' && /^[0-9A-Z]{5}$/.test(value)) {
-      code = value;
-      break;
+  let detail = '';
+  const walk = (value: unknown, depth: number): void => {
+    if (value === null || typeof value !== 'object' || depth > 4) return;
+    const record = value as Record<string, unknown>;
+    if (code === '') {
+      for (const field of ['errno', 'errcode', 'code'] as const) {
+        const raw = record[field];
+        if (typeof raw === 'string' && /^[0-9A-Z]{5}$/.test(raw)) {
+          code = raw;
+          break;
+        }
+      }
     }
-  }
+    if (detail === '' && typeof record.detail === 'string' && record.detail.length > 0) {
+      detail = record.detail;
+    }
+    walk(record.cause, depth + 1);
+  };
+  walk(error, 0);
   const message = typeof carrier?.message === 'string' ? carrier.message : String(error);
-  return { code, message };
+  return { code, message, detail };
 }
 
 function parseJson<T>(value: unknown): T {
@@ -279,6 +293,38 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       const bearer = session === null ? null : tokensOf(session, 'call the deployed organization-dashboard').accessToken;
       const raw = await functionPostRaw(stack, 'organization-dashboard', { organizationId }, bearer);
       return functionOutcome<OrganizationDashboard>(raw);
+    },
+    attemptProfileDefinerAsOperator: async (input: ProfileDefinerAttempt): Promise<ProfileDefinerOutcome> => {
+      const request = input.request;
+      try {
+        await sql`
+          select public.set_organization_profile(
+            ${input.accountId}::uuid,
+            ${request.organizationId}::uuid,
+            ${request.name},
+            ${request.mission},
+            ${request.country},
+            ${request.website},
+            ${request.logo}
+          )
+        `;
+        return { ok: true, organizationId: request.organizationId };
+      } catch (error) {
+        const { message, detail } = databaseRefusal(error);
+        return { ok: false, kind: parseWriteRefusalKind(detail), reason: message };
+      }
+    },
+    setMembershipRoleAsOperator: async (organizationId, accountId, role) => {
+      const updated = await rows<{ account_id: string }>(
+        sql`update public.org_memberships
+               set role = ${role}::public.org_role
+             where org_id = ${organizationId}::uuid
+               and account_id = ${accountId}::uuid
+         returning account_id`,
+      );
+      if (updated.length !== 1) {
+        throw new Error(`REQ-002 live adapter: no membership for ${accountId} in ${organizationId} to change`);
+      }
     },
 
     setVetting: async (session, request: VettingRequest & Record<string, unknown>): Promise<VettingOutcome> => {

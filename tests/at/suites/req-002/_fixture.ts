@@ -13,6 +13,10 @@ import type { Caller } from '../../../../supabase/functions/_shared/caller.ts';
 import { EMITTER_COMPONENT } from '../../../../supabase/functions/_shared/notifications.ts';
 import type { Channel } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import {
+  decideOrganizationProfile,
+  type OrganizationProfileArgs,
+} from '../../../../supabase/functions/_shared/memberships.ts';
+import {
   decideOrganizationVetting,
   isVettingEvidenceType,
   type OrganizationVettingArgs,
@@ -36,6 +40,8 @@ import type {
   NgoActor,
   OperatorWriteOutcome,
   OrganizationsSut,
+  ProfileDefinerAttempt,
+  ProfileDefinerOutcome,
   RegistrationDocumentMetadata,
   Session,
   VettingAuditRow,
@@ -71,6 +77,12 @@ const ORGANIZATION_VETTING: WriteRouteSpec<OrganizationVettingArgs, AccountWrite
   name: 'set-organization-vetting',
   target: organizationIdField,
   decide: decideOrganizationVetting,
+};
+
+const ORGANIZATION_PROFILE: WriteRouteSpec<OrganizationProfileArgs, AccountWriteRouteInput> = {
+  name: 'set-organization-profile',
+  target: organizationIdField,
+  decide: decideOrganizationProfile,
 };
 
 const NOT_NULL_COLUMNS: ReadonlyArray<{
@@ -149,6 +161,81 @@ type CommitResult =
   | { ok: false; reason: string };
 
 const KNOWN_CHANNELS: ReadonlySet<string> = new Set<Channel>(['email', 'inapp']);
+
+function emptyProfileField(value: string, field: string): ProfileDefinerOutcome | null {
+  if (value.trim() !== '') return null;
+  if (field === 'name') {
+    return { ok: false, kind: 'invalid-name', reason: 'set_organization_profile refuses an empty organisation name' };
+  }
+  return { ok: false, kind: 'invalid-request', reason: `set_organization_profile refuses an empty organisation ${field}` };
+}
+
+async function profileDefinerAsOperator(
+  accounts: ReturnType<typeof createAccountsFixtureAdapter>['sut']['accounts'],
+  heldSessions: Map<string, AccountsSession>,
+  roleOverrides: Map<string, 'admin' | 'member'>,
+  input: ProfileDefinerAttempt,
+): Promise<ProfileDefinerOutcome> {
+  const request = input.request;
+  const empty =
+    emptyProfileField(request.name, 'name') ??
+    emptyProfileField(request.mission, 'mission') ??
+    emptyProfileField(request.country, 'country') ??
+    emptyProfileField(request.website, 'website') ??
+    emptyProfileField(request.logo, 'logo');
+  if (empty) return empty;
+
+  const organization = await accounts.organization(request.organizationId);
+  if (organization === null) {
+    return {
+      ok: false,
+      kind: 'no-such-organisation',
+      reason: `set_organization_profile refuses ${request.organizationId}: no such organisation`,
+    };
+  }
+
+  const override = roleOverrides.get(`${request.organizationId}:${input.accountId}`);
+  const membership = override === undefined ? await accounts.membership(request.organizationId, input.accountId) : { role: override };
+  if (membership === null) {
+    return {
+      ok: false,
+      kind: 'not-a-member',
+      reason:
+        `set_organization_profile refuses ${input.accountId}: the caller holds no membership in organisation ` +
+        `${request.organizationId} — membership is held per organisation`,
+    };
+  }
+  if (membership.role !== 'admin') {
+    return {
+      ok: false,
+      kind: 'not-an-admin',
+      reason:
+        `set_organization_profile refuses ${input.accountId}: the caller holds the ${membership.role} role in organisation ` +
+        `${request.organizationId} — the admin role is held per organisation`,
+    };
+  }
+
+  const innerSession = [...heldSessions.values()].find((row) => row.accountId === input.accountId) ?? null;
+  if (innerSession === null) {
+    throw new Error(`REQ-002 loop adapter: no session for ${input.accountId} to persist a profile definer write`);
+  }
+  const result = await accounts.attemptWrite(
+    {
+      route: 'set-organization-profile',
+      organizationId: request.organizationId,
+      name: request.name,
+      mission: request.mission,
+      country: request.country,
+      website: request.website,
+      logo: request.logo,
+    },
+    innerSession,
+  );
+  if (!result.ok) {
+    return { ok: false, kind: result.kind === 'unauthenticated' ? 'refused' : result.kind, reason: result.reason };
+  }
+  return { ok: true, organizationId: request.organizationId };
+}
 
 function argsFromDefinerAttempt(input: VettingDefinerAttempt): OrganizationVettingArgs {
   const notice = input.notice as VettingOutcomeNotice;
@@ -236,7 +323,10 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const deliveries: DeliveryRow[] = [];
   const seats = new Map<string, Seat>();
   const deactivated = new Set<string>();
+  const roleOverrides = new Map<string, 'admin' | 'member'>();
   let auditSerial = 1;
+
+  const membershipKey = (organizationId: string, accountId: string): string => `${organizationId}:${accountId}`;
 
   const remember = (session: AccountsSession): Session => {
     heldSessions.set(session.sessionId, session);
@@ -457,6 +547,34 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       if ('ok' in callerOrRefusal) return callerOrRefusal;
       const innerSession = session === null ? null : (heldSessions.get(session.sessionId) ?? null);
       if (innerSession === null) return unauthenticated();
+      const override = roleOverrides.get(membershipKey(request.organizationId, innerSession.accountId));
+      if (override !== undefined) {
+        const caller = callerOrRefusal;
+        const account = await accounts.account(caller.id);
+        const organization = await accounts.organization(request.organizationId);
+        const standing = parseWriteStanding({
+          account:
+            account === null
+              ? null
+              : {
+                  account_type: account.accountType,
+                  lifecycle: deactivated.has(caller.id) ? 'deactivated' : account.lifecycle,
+                },
+          org_exists: organization !== null,
+          org_role: override,
+          org_seat_account_id: null,
+          subject: null,
+        });
+        const decision = writePipeline(ORGANIZATION_PROFILE, {
+          caller,
+          standing,
+          body: request,
+          target: request.organizationId,
+          subject: null,
+          ip: null,
+        });
+        if (!decision.ok) return { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
+      }
       const result = await inner.sut.accounts.attemptWrite(
         {
           route: 'set-organization-profile',
@@ -487,6 +605,15 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     organizationDashboard: (session, organizationId) => {
       const innerSession = session === null ? null : (heldSessions.get(session.sessionId) ?? null);
       return inner.sut.accounts.organizationDashboard(innerSession, organizationId);
+    },
+    attemptProfileDefinerAsOperator: async (input: ProfileDefinerAttempt): Promise<ProfileDefinerOutcome> =>
+      profileDefinerAsOperator(accounts, heldSessions, roleOverrides, input),
+    setMembershipRoleAsOperator: async (organizationId, accountId, role) => {
+      const membership = await accounts.membership(organizationId, accountId);
+      if (membership === null) {
+        throw new Error(`REQ-002 loop adapter: no membership for ${accountId} in ${organizationId} to change`);
+      }
+      roleOverrides.set(membershipKey(organizationId, accountId), role);
     },
 
     setVetting,
@@ -584,6 +711,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       deliveries.length = 0;
       seats.clear();
       deactivated.clear();
+      roleOverrides.clear();
     },
   };
 }

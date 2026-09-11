@@ -5,7 +5,7 @@
 
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
-import { LEAF, notLanded } from './_pending.ts';
+import type { OrganizationProfileRow, OrganizationsSut, ProfileRequest, Session, WriteRefusal } from './_contract.ts';
 
 const PROFILE = {
   name: 'Riverside Shelter',
@@ -14,6 +14,49 @@ const PROFILE = {
   website: 'riverside.example.org',
   logo: 'riverside-mark',
 } as const;
+
+const EDITED = {
+  name: 'Riverside Shelter and Kitchen',
+  mission: 'Warm beds and a kitchen for people sleeping rough',
+  country: 'Uganda',
+  website: 'riverside-kitchen.example.org',
+  logo: 'riverside-kitchen-mark',
+} as const;
+
+const ATTACKED = {
+  name: 'Hijacked Shelter',
+  mission: 'A mission that must not persist',
+  country: 'Nowhere',
+  website: 'hijacked.example.org',
+  logo: 'hijacked-mark',
+} as const;
+
+type ProfileFields = {
+  name: string;
+  mission: string;
+  country: string;
+  website: string;
+  logo: string;
+};
+
+function fieldsOf(row: OrganizationProfileRow): ProfileFields {
+  return {
+    name: row.name,
+    mission: row.mission ?? '',
+    country: row.country ?? '',
+    website: row.website ?? '',
+    logo: row.logo ?? '',
+  };
+}
+
+function profileRequest(organizationId: string, fields: ProfileFields): ProfileRequest {
+  return { organizationId, ...fields };
+}
+
+async function storedFields(sut: OrganizationsSut, organizationId: string): Promise<ProfileFields | null> {
+  const row = await sut.profile(organizationId);
+  return row === null ? null : fieldsOf(row);
+}
 
 describe('AT-REQ-002 A — org profile', () => {
   atTest(
@@ -53,5 +96,76 @@ describe('AT-REQ-002 A — org profile', () => {
     },
   );
 
-  atTest('AT-002.02', "the NGO's admin edits all five profile fields and every value persists; another NGO, a volunteer and a visitor are refused", notLanded(LEAF.D1_L2));
+  atTest(
+    'AT-002.02',
+    "the NGO's admin edits all five profile fields and every value persists; another NGO, a volunteer and a visitor are refused",
+    async ({ open }) => {
+      const { w, sut } = await open();
+      const ngo = await sut.provisionNgo(w.email('ngo-02'), { emailVerified: true });
+      const otherNgo = await sut.provisionNgo(w.email('ngo-02-other'), { emailVerified: true });
+      const volunteer = await sut.provisionVolunteer(w.email('vol-02'));
+
+      const created = await sut.setProfile(ngo.session, profileRequest(ngo.organizationId, PROFILE));
+      expect(created, 'the Given profile write was refused').toMatchObject({
+        ok: true,
+        organizationId: ngo.organizationId,
+      });
+      if (!created.ok) return;
+
+      const edited = await sut.setProfile(ngo.session, profileRequest(ngo.organizationId, EDITED));
+      expect(edited, 'the NGO admin profile edit was refused').toMatchObject({
+        ok: true,
+        organizationId: ngo.organizationId,
+      });
+      if (!edited.ok) return;
+
+      expect(await storedFields(sut, ngo.organizationId), 'the edited profile did not persist').toEqual(EDITED);
+
+      const dash = await sut.organizationDashboard(ngo.session, ngo.organizationId);
+      expect(dash.ok, 'the organisation dashboard did not render the edited profile').toBe(true);
+      if (!dash.ok) return;
+      expect(dash.value.organizationName).toBe(EDITED.name);
+      expect(dash.value.mission).toBe(EDITED.mission);
+      expect(dash.value.country).toBe(EDITED.country);
+      expect(dash.value.website).toBe(EDITED.website);
+      expect(dash.value.logo).toBe(EDITED.logo);
+
+      const attack = profileRequest(ngo.organizationId, ATTACKED);
+
+      const assertRouteRefused = async (
+        label: string,
+        session: Session | null,
+        kind: WriteRefusal['kind'],
+        status: number,
+      ) => {
+        const before = await storedFields(sut, ngo.organizationId);
+        const outcome = await sut.setProfile(session, attack);
+        expect(outcome.ok, `${label} was admitted`).toBe(false);
+        if (outcome.ok) return;
+        expect(outcome.kind, `${label} was refused as ${outcome.kind}: ${outcome.reason}`).toBe(kind);
+        expect(outcome.status, `${label} was refused with status ${outcome.status}`).toBe(status);
+        expect(await storedFields(sut, ngo.organizationId), `${label} changed the stored profile`).toEqual(before);
+      };
+
+      const assertDefinerRefused = async (label: string, accountId: string, kind: WriteRefusal['kind']) => {
+        const before = await storedFields(sut, ngo.organizationId);
+        const outcome = await sut.attemptProfileDefinerAsOperator({ accountId, request: attack });
+        expect(outcome.ok, `${label} was admitted by the definer`).toBe(false);
+        if (outcome.ok) return;
+        expect(outcome.kind, `${label} was refused as ${outcome.kind}: ${outcome.reason}`).toBe(kind);
+        expect(await storedFields(sut, ngo.organizationId), `${label} changed the stored profile`).toEqual(before);
+      };
+
+      await assertRouteRefused("the admin of a different NGO", otherNgo.session, 'not-a-member', 403);
+      await assertRouteRefused('a volunteer', volunteer, 'not-an-ngo-account', 403);
+      await assertRouteRefused('an unauthenticated visitor', null, 'unauthenticated', 401);
+      await assertDefinerRefused("the admin of a different NGO, through the definer", otherNgo.accountId, 'not-a-member');
+
+      // The unique seat forbids a second membership row, so a member of this organisation is the
+      // existing seat with its role changed. No product path writes `member`.
+      await sut.setMembershipRoleAsOperator(ngo.organizationId, ngo.accountId, 'member');
+      await assertRouteRefused('a member of this organisation', ngo.session, 'not-an-admin', 403);
+      await assertDefinerRefused('a member of this organisation, through the definer', ngo.accountId, 'not-an-admin');
+    },
+  );
 });

@@ -8,7 +8,7 @@ The Feature playbook, one run for the whole item. Grounding, the design arena, t
 the synthesis are all finished and committed. The design of record is
 `loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-**Units done: the suite scaffold, and units 1 to 5 of 13.**
+**Units done: the suite scaffold, and units 1 to 6 of 13.**
 
 | what | commit | acceptance ids now green |
 |---|---|---|
@@ -18,9 +18,10 @@ the synthesis are all finished and committed. The design of record is
 | unit 3, unvet and the notification | `7c88d19` | AT-002.13, AT-002.14, at both tiers |
 | unit 4, the evidence rule | `26002f6` | AT-002.16, AT-002.17, AT-002.18, at both tiers |
 | unit 5, the organisation profile | `4892ac5` | AT-002.01, at both tiers |
+| unit 6, the profile edit | `56f61f8` | AT-002.02, at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `4892ac5`, tree
-clean, nothing pushed since the brief commit. The local Supabase stack is up. Ten of twenty-seven
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `56f61f8`, tree
+clean, nothing pushed since the brief commit. The local Supabase stack is up. Eleven of twenty-seven
 acceptance ids are green.
 
 Two commits below the head are not units. `fe4987b` carries the model sheet change of 2026-09-10:
@@ -30,15 +31,20 @@ this branch merges.
 
 ## The first action on resume
 
-Unit 6, AI4DEV-106 (profile edit), for AT-002.02. The NGO admin edits all five fields and every
-value persists. Another NGO, a volunteer and a visitor are refused. The route and the decision
-already exist from unit 5, so expect proofs and the refusal matrix, not much product code.
+Unit 7, AI4DEV-107 (tier grants and vet math), for AT-002.04, AT-002.07 and AT-002.08. The spend
+ledger lands here, and every later allowance unit inherits it. Standing constraints 1, 2 and 9 all
+bind this unit: the clock after the lock, the credits kept until the next UTC day, and the pinned
+grants 10 and 30.
 
 Open carry from unit 4: an extra key on a vetting request is refused as an invalid request rather
 than as invalid evidence. The refusal is correct and its kind is less precise than it could be.
 
 Open carry from unit 5: the profile route demands all five fields on every call, so a caller cannot
 clear one field back to null. No criterion asks for that.
+
+Open carry from unit 6: the member-of-this-organisation caller is the single seat with its role
+changed by an operator write, because the unique seat forbids a second membership row. No product
+path writes the member role, so that refusal arm guards a state the product cannot reach today.
 
 ## The per-unit loop
 
