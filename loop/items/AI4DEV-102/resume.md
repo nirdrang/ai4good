@@ -43,9 +43,8 @@ the tier and not yet true of the product.
    through the external runner, with `--cwd` set to the lane worktree.
 4. Review the diff yourself. Re-run every check yourself; do not trust the writer's report.
 5. Commit in the lane worktree, then `git merge --ff-only lane/ai4dev-102` in the item worktree.
-6. Rewrite this file. Send one push notification naming the unit and the context used.
-7. Start the next unit. **Do not stop between units.** The founder ruled on 2026-09-10 that a unit
-   boundary notifies and never blocks.
+6. Rewrite this file. Send one push notification. Then open the compaction gate: name what the unit landed, the remaining context budget, and your recommendation on compacting. Wait for the answer.
+7. Start the next unit once the founder answers the gate. The founder replaced the notify-only boundary with this gate on 2026-09-10, because a notification cannot carry the content. The lead cannot compact; the gate stops cleanly and the founder runs the command.
 
 ## The eight checks every unit must pass
 
@@ -122,5 +121,6 @@ integration and twenty at loop when every unit has landed.
 - The read gate refuses an unbounded read over 350 lines. Page it, or send a read lane with an aim.
 - Never paste the output of `bun run db:start`. It contains a secret key, and GitHub push protection
   then refuses every later push on the branch.
+
 
 
