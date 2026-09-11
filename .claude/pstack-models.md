@@ -22,13 +22,40 @@ arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, 
 arena cross-judge pool: codex:gpt-6-astra@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
 swarm workers: grok:grok-4.6@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
-interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh
+interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh, opencode:opencode-go/deepseek-v4.1-flash@max
 
 ## Changes made by eval, and how to undo each one
 
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### A fifth interrogate lane, DeepSeek V4.1 Flash, 2026-09-11
+
+`interrogate reviewers` gains a fifth lane, `opencode:opencode-go/deepseek-v4.1-flash@max`, by
+founder ruling on a replay. The four existing lanes are unchanged. The eval asked whether
+DeepSeek could take grok's lane; the founder chose to add it instead.
+
+Replayed on the admin-operations item at `d62a2d1`, the identical reviewer prompt and diff the
+four real lanes received. Coverage of the lead's fourteen act-on items: DeepSeek at max 5,
+against grok 7, astra 5, muse 4. It found one of the two races in the transfer definer, which
+only astra and grok had found, and missed the one-shot-transfer critical. It added five defects
+no lane raised, each verified against the tree: the `create_organization` backstop trims spaces
+only while its sibling and the TypeScript rule trim all whitespace; the transfer never checks the
+outgoing account's lifecycle; two acceptance bodies are duplicated across tiers; a UUID equality
+is case-sensitive; a progress ledger header states a false count. Eight minutes and $0.107 per
+run. Zero false claims at max. The high variant, at $0.074, made one confident false claim on the
+very function holding the panel's two criticals, so max is the only effort for this seat.
+
+Had grok been swapped instead, the panel would have lost exactly one act-on item, grok's lone
+finding about DETAIL kinds on the restated writers. Full record in
+`loop/evals/interrogate-2026-09-11/`.
+
+The opencode catalog renamed the model on or before 2026-09-11. The old id `deepseek-flash` no
+longer lists and the runner refuses it at preflight. The id above is the listed one.
+
+To undo: delete the fifth descriptor from the row. There is no old row to restore, because the
+row gained a lane and lost none.
 
 ### The hardest-tasks row leaves fable for astra, 2026-09-10
 
