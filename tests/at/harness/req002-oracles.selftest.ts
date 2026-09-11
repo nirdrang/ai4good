@@ -18,6 +18,8 @@ import {
   documentContentSinks,
   exhaustedSentenceProblems,
   kycSurfaceProblems,
+  noticeChannelPinProblems,
+  scanNoticeChannelPin,
   orgVettingWriterProblems,
   parseDebitRefusalRaises,
   parseTypescriptExhaustedRenderer,
@@ -73,6 +75,7 @@ describe('REQ-002 source oracles over the real tree', () => {
     expect(documentContentSinks()).toEqual([]);
     expect(trustWordingProblems()).toEqual([]);
     expect(exhaustedSentenceProblems()).toEqual([]);
+    expect(noticeChannelPinProblems()).toEqual([]);
     expect(discoveryWalletProblems()).toEqual([]);
     expect(absentPublishFlowProblems()).toEqual([]);
   });
@@ -147,27 +150,45 @@ describe('scanScheduledVetting refusals', () => {
     expect(problems.some((problem) => problem.includes('schedules a job'))).toBe(true);
   });
 
-  it('fails pg_cron in the migration that defines the table', () => {
+  it('fails pg_cron that writes the vetted column', () => {
     const problems = scanScheduledVetting([
-      { path: 'supabase/migrations/vetting.sql', text: `${TABLE};\nselect pg_cron.schedule('n', '* * * * *', $$ select 1 $$);` },
+      {
+        path: 'supabase/migrations/vetting.sql',
+        text: `${TABLE};\nselect pg_cron.schedule('n', '* * * * *', $$ update public.org_vetting set vetted = true $$);`,
+      },
     ]);
-    expect(problems.some((problem) => problem.includes('schedules a job'))).toBe(true);
+    expect(problems.some((problem) => problem.includes('schedules a job') || problem.includes('vetted outside'))).toBe(true);
   });
 
-  it('fails a trigger on org_vetting', () => {
+  it('fails a trigger function that writes the vetted column', () => {
     const problems = scanScheduledVetting([
       {
         path: 'supabase/migrations/trig.sql',
-        text: 'create trigger org_vetting_auto before update on public.org_vetting for each row execute function public.touch();',
+        text:
+          'create function public.auto_vet() returns trigger as $$ begin new.vetted := true; return new; end; $$;\n' +
+          'create trigger org_vetting_auto before insert on public.org_vetting for each row execute function public.auto_vet();',
       },
     ]);
-    expect(problems.some((problem) => problem.includes('creates a trigger'))).toBe(true);
+    expect(problems.some((problem) => problem.includes('vetted outside'))).toBe(true);
   });
 
   it('does not flag cron that never names vetting', () => {
     expect(
       scanScheduledVetting([
         { path: 'supabase/migrations/other.sql', text: "select cron.schedule('vacuum', '0 3 * * *', $$ select 1 $$);" },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('does not flag a trigger that maintains a derived row without writing vetted', () => {
+    expect(
+      scanScheduledVetting([
+        {
+          path: 'supabase/migrations/grant.sql',
+          text:
+            'create function public.touch_grant() returns trigger as $$ begin perform public.apply_discovery_grant_mark(new.org_id, current_date, new.vetted); return new; end; $$;\n' +
+            'create trigger org_vetting_grant after insert or update on public.org_vetting for each row execute function public.touch_grant();',
+        },
       ]),
     ).toEqual([]);
   });
@@ -1020,5 +1041,27 @@ alter table public.accounts
         files: [{ path: 'supabase/migrations/a.sql', text: 'create table public.organizations (id uuid);\n' }],
       }),
     ).toThrow(/creates public.projects/);
+  });
+});
+
+describe('scanNoticeChannelPin refusals', () => {
+  const SQL = "v_authorized := '[\"email\", \"inapp\"]'::jsonb;";
+
+  it('accepts a definer set that is the taxonomy set', () => {
+    expect(scanNoticeChannelPin({ definerSql: SQL, taxonomyChannels: ['inapp', 'email'] })).toEqual([]);
+  });
+
+  it('fails when the definer drops a channel the taxonomy names', () => {
+    expect(scanNoticeChannelPin({ definerSql: SQL, taxonomyChannels: ['email', 'inapp', 'sms'] })).toHaveLength(1);
+  });
+
+  it('fails when the definer authorises a channel the taxonomy does not name', () => {
+    expect(scanNoticeChannelPin({ definerSql: SQL, taxonomyChannels: ['inapp'] })).toHaveLength(1);
+  });
+
+  it('throws when the definer names no authorised set', () => {
+    expect(() => scanNoticeChannelPin({ definerSql: 'begin end;', taxonomyChannels: ['email'] })).toThrow(
+      /could not read the authorised channel set/,
+    );
   });
 });

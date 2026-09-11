@@ -35,6 +35,7 @@ import {
   DISCOVERY_DAILY_GRANT,
   remainingCredits,
 } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import { channelsFor, taxonomyRow } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
@@ -60,9 +61,7 @@ const CLIENT_VETTING_WRITE =
 
 const DEFINER_HEAD = /create\s+(?:or\s+replace\s+)?function\s+public\.set_organization_vetting\s*\(/i;
 const TABLE_HEAD = /create\s+table\s+public\.org_vetting\b/i;
-const TRIGGER_ON_VETTING = /create\s+trigger\b[\s\S]*\bon\s+(?:only\s+)?(?:public\.)?org_vetting\b/i;
 const CRON = /\bcron\.schedule\b|\bpg_cron\b/i;
-const VETTING_IN_STATEMENT = /\borg_vetting\b|\bset_organization_vetting\b|\bkyc\b|automated[-_ ]?verif(?:ication|y)|document[-_ ]?review/i;
 
 export type SourceFile = { path: string; text: string };
 export type RouteInventory = Record<
@@ -229,21 +228,28 @@ export function orgVettingWriterProblems(): string[] {
   return scanOrgVettingWriters(productFiles('orgVettingWriterProblems'));
 }
 
+const VETTED_COLUMN_ASSIGN = /\bnew\.vetted\s*:=/i;
+const VETTED_COLUMN_SET = /\bset\s+vetted\s*=/i;
+const CRON_VETS = /\b(?:org_vetting|set_organization_vetting)\b/i;
+
+function writesVettedColumn(statement: string): boolean {
+  return VETTED_COLUMN_ASSIGN.test(statement) || VETTED_COLUMN_SET.test(statement);
+}
+
 /**
- * No scheduled job touches vetting: no `cron.schedule` / `pg_cron` on a vetting statement or in a
- * migration that defines the table or the definer, and no trigger on `org_vetting`.
+ * No cron job that vets, and no writer of the `vetted` column outside the definer. A trigger that
+ * maintains a derived row on `org_vetting` is not automated vetting.
  */
 export function scanScheduledVetting(migrations: readonly SourceFile[]): string[] {
   const problems: string[] = [];
   for (const file of migrations) {
-    const statements = splitSqlStatements(file.text);
-    const fileDefinesVetting = statements.some((statement) => DEFINER_HEAD.test(statement) || TABLE_HEAD.test(statement));
-    for (const statement of statements) {
-      if (TRIGGER_ON_VETTING.test(statement)) {
-        problems.push(`${file.path} creates a trigger on public.${TABLE}`);
+    for (const statement of splitSqlStatements(file.text)) {
+      if (DEFINER_HEAD.test(statement)) continue;
+      if (writesVettedColumn(statement)) {
+        problems.push(`${file.path} writes public.${TABLE}.vetted outside public.${DEFINER}`);
       }
-      if (CRON.test(statement) && (fileDefinesVetting || VETTING_IN_STATEMENT.test(statement))) {
-        problems.push(`${file.path} schedules a job that touches vetting`);
+      if (CRON.test(statement) && CRON_VETS.test(statement)) {
+        problems.push(`${file.path} schedules a job that vets`);
       }
     }
   }
@@ -1530,5 +1536,76 @@ export function absentPublishFlowProblems(): string[] {
     inventory: surfaces.inventory,
     sharedModules: surfaces.sharedModules,
     uiRoutes: surfaces.uiRoutes,
+  });
+}
+
+/* ------------------------------------------------------------------- the notice channel pin */
+
+/**
+ * The vetting definer refuses a notice whose channels are not the decision class default, and it
+ * names that set in SQL. The shipped taxonomy names the same set in TypeScript. Two places, one
+ * rule, so this arm pins them the way the grant arm pins the grants.
+ *
+ * WHY THE SET IS IN SQL AT ALL. The definer must refuse a caller list the taxonomy did not
+ * authorise, before any write, and a definer cannot read a TypeScript module. The alternative was
+ * to trust the caller, which is the hole the design named and this run closed.
+ */
+const DEFINER_AUTHORIZED_CHANNELS = /v_authorized\s*:=\s*'(\[[^']*\])'::jsonb/i;
+
+export function scanNoticeChannelPin(input: { definerSql: string; taxonomyChannels: readonly string[] }): string[] {
+  const match = DEFINER_AUTHORIZED_CHANNELS.exec(input.definerSql);
+  if (match === null || match[1] === undefined) {
+    throw new Error(
+      'scanNoticeChannelPin could not read the authorised channel set out of public.set_organization_vetting. ' +
+        'Refusing to report agreement.',
+    );
+  }
+  let fromSql: unknown;
+  try {
+    fromSql = JSON.parse(match[1]);
+  } catch {
+    throw new Error(
+      `scanNoticeChannelPin could not parse ${match[1]} as JSON. Refusing to report agreement.`,
+    );
+  }
+  if (!Array.isArray(fromSql) || fromSql.some((channel) => typeof channel !== 'string')) {
+    throw new Error(
+      `scanNoticeChannelPin read ${match[1]}, which is not an array of strings. Refusing to report agreement.`,
+    );
+  }
+  const sqlSet = [...(fromSql as string[])].sort();
+  const taxonomySet = [...input.taxonomyChannels].sort();
+  if (JSON.stringify(sqlSet) !== JSON.stringify(taxonomySet)) {
+    return [
+      `the definer authorises ${JSON.stringify(sqlSet)} but the taxonomy's vetting.outcome resolves to ${JSON.stringify(taxonomySet)}`,
+    ];
+  }
+  return [];
+}
+
+function lastVettingDefinerSql(oracle: string): string {
+  let last: string | null = null;
+  for (const file of migrationFiles(oracle)) {
+    for (const statement of splitSqlStatements(file.text)) {
+      if (DEFINER_HEAD.test(statement)) last = statement;
+    }
+  }
+  if (last === null) {
+    throw new Error(
+      `${oracle} found no migration defining public.${DEFINER}, so there is no authorised channel set to compare. ` +
+        'Refusing to report agreement.',
+    );
+  }
+  return last;
+}
+
+export function noticeChannelPinProblems(): string[] {
+  const row = taxonomyRow('vetting.outcome');
+  if (row === undefined) {
+    throw new Error('noticeChannelPinProblems found no vetting.outcome row in the taxonomy. Refusing to report agreement.');
+  }
+  return scanNoticeChannelPin({
+    definerSql: lastVettingDefinerSql('noticeChannelPinProblems'),
+    taxonomyChannels: channelsFor(row),
   });
 }

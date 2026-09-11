@@ -75,8 +75,8 @@ const NAMED: Readonly<Record<string, (payload: Record<string, unknown>) => Copy>
         : 'Your organisation is no longer founder-vetted',
     body:
       text(payload, 'outcome') === 'vetted'
-        ? 'A platform administrator vetted your organisation. Your daily Discovery allowance is now the vetted grant, and you may publish.'
-        : "A platform administrator revoked your organisation's vetting. Publishing is closed. Funding is unchanged.",
+        ? 'A platform administrator vetted your organisation. Your daily Discovery allowance is now the vetted grant.'
+        : "A platform administrator revoked your organisation's vetting.",
   }),
 };
 

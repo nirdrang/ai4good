@@ -427,6 +427,12 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
     removeOrganizationSeatAsOperator: async (organizationId) => {
       await sql`delete from public.org_memberships where org_id = ${organizationId}::uuid`;
+      await sql`create unique index if not exists org_memberships_one_seat_per_org_idx on public.org_memberships (org_id)`;
+    },
+    addOrganizationSeatAsOperator: async (organizationId, accountId) => {
+      await sql`drop index if exists public.org_memberships_one_seat_per_org_idx`;
+      await sql`insert into public.org_memberships (org_id, account_id, role)
+                values (${organizationId}::uuid, ${accountId}::uuid, 'admin'::public.org_role)`;
     },
     clearAccountEmailAsOperator: async (accountId) => {
       await sql`update auth.users set email = null where id = ${accountId}::uuid`;

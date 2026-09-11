@@ -274,10 +274,11 @@ export function decideOrganizationVetting(input: AccountWriteRouteInput): WriteR
     return refuseWrite('invalid-request', 400, 'the vetting action must carry a note — the audit record is written with it');
   }
 
+  if (!input.standing.orgExists) {
+    return refuseWrite('no-such-organisation', 409, `no organisation ${organizationId} exists`);
+  }
+
   if (action === 'unvet') {
-    if (!input.standing.orgExists) {
-      return refuseWrite('no-such-organisation', 409, `no organisation ${organizationId} exists`);
-    }
     return {
       ok: true,
       args: {
@@ -365,10 +366,6 @@ export function decideOrganizationVetting(input: AccountWriteRouteInput): WriteR
       400,
       'registration document metadata is recorded only for emailed registration documents',
     );
-  }
-
-  if (!input.standing.orgExists) {
-    return refuseWrite('no-such-organisation', 409, `no organisation ${organizationId} exists`);
   }
 
   return {

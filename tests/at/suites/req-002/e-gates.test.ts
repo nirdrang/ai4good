@@ -77,8 +77,10 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
         orgVettingWriterProblems(),
         'a statement outside public.set_organization_vetting writes public.org_vetting',
       ).toEqual([]);
-      // scanScheduledVetting: no cron job or trigger vets — the default is not a scheduled job.
-      expect(scheduledVettingProblems(), 'a scheduled job or a trigger on org_vetting touches vetting').toEqual([]);
+      // scanScheduledVetting: no cron job that vets, and no writer of the vetted column outside the definer.
+      expect(scheduledVettingProblems(), 'a scheduled job or a writer of the vetted column outside the definer touches vetting').toEqual(
+        [],
+      );
 
       const pins = createConfigRegistry();
       const vettedGrant = pins.get<number>(VETTED_PIN);

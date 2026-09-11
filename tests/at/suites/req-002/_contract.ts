@@ -317,12 +317,16 @@ export type OrganizationsSut = {
   vettingAuditEvents(organizationId: string): Promise<VettingAuditRow[]>;
   /** Delete the organisation's one seat so a vet cannot resolve an NGO recipient. */
   removeOrganizationSeatAsOperator(organizationId: string): Promise<void>;
+  /**
+   * Write a second membership row so a vet cannot pick one seat holder by luck. The unique
+   * seat index is dropped for this write.
+   */
+  addOrganizationSeatAsOperator(organizationId: string, accountId: string): Promise<void>;
   /** Clear the Auth email on a seat holder so an email delivery cannot be addressed. */
   clearAccountEmailAsOperator(accountId: string): Promise<void>;
   /**
    * Call the vetting definer as the operator, with a notice the TypeScript route would never
-   * compute. The late-failure body uses this to fail inside emit_notification after the aggregate
-   * and the audit row have been written.
+   * compute. An unauthorised channel list must be refused before any write.
    */
   attemptVettingDefinerAsOperator(input: VettingDefinerAttempt): Promise<OperatorWriteOutcome>;
 

@@ -324,6 +324,7 @@ describe('AT-REQ-002 C — the vetting action and its audit record', () => {
         expect(event.payload.outcome, `${action} payload does not tell the outcome apart`).toBe(
           action === 'vet' ? 'vetted' : 'unvetted',
         );
+        expect(event.payload.organizationId, `${action} payload does not name the organisation`).toBe(ngo.organizationId);
         const deliveries = await sut.notificationDeliveries({ eventId, recipientId: ngo.accountId });
         expect(
           pairProblems(expectedPairs({ ngo: ngo.accountId }, ['ngo'], VETTING_CHANNELS), countPairs(deliveries)),
@@ -400,6 +401,29 @@ describe('AT-REQ-002 C — the vetting action and its audit record', () => {
         'no-email vet wrote a verification-outcome event',
       ).toEqual([]);
 
+      const twoSeat = await sut.provisionNgo(w.email('ngo-13-twoseat'), { emailVerified: true });
+      const extraSeat = await sut.provisionNgo(w.email('ngo-13-extra'), { emailVerified: true });
+      await sut.addOrganizationSeatAsOperator(twoSeat.organizationId, extraSeat.accountId);
+      const twoSeatNotice = vettingOutcomeNotice('vetted');
+      const twoSeatVet = await sut.attemptVettingDefinerAsOperator({
+        accountId: admin.accountId,
+        request: { organizationId: twoSeat.organizationId, action: 'vet', ...EVIDENCE },
+        notice: { channels: [...twoSeatNotice.channels], copy: twoSeatNotice.copy },
+      });
+      expect(twoSeatVet.ok, 'a vet of an organisation with two seat holders still committed').toBe(false);
+      if (!twoSeatVet.ok) {
+        expect(twoSeatVet.reason, `two-seat vet reason was ${twoSeatVet.reason}`).toMatch(/more than one seat holder/);
+      }
+      expect(await sut.vettingRecord(twoSeat.organizationId), 'two-seat vet left an aggregate row').toBeNull();
+      expect(await sut.vettingAuditEvents(twoSeat.organizationId), 'two-seat vet wrote an audit row').toEqual([]);
+      expect(
+        await sut.notificationEvents({ event: VETTING_OUTCOME, recipientId: twoSeat.accountId }),
+        'two-seat vet wrote a verification-outcome event',
+      ).toEqual([]);
+      expect(await sut.spendRows(twoSeat.organizationId), 'two-seat vet wrote a spend row').toEqual([]);
+      await sut.removeOrganizationSeatAsOperator(twoSeat.organizationId);
+      if (twoSeatVet.ok) return;
+
       const late = await sut.provisionNgo(w.email('ngo-13-late'), { emailVerified: true });
       const copy = vettingOutcomeNotice('vetted').copy;
       const lateOutcome = await sut.attemptVettingDefinerAsOperator({
@@ -407,7 +431,13 @@ describe('AT-REQ-002 C — the vetting action and its audit record', () => {
         request: { organizationId: late.organizationId, action: 'vet', ...EVIDENCE },
         notice: { channels: ['not-a-channel'], copy },
       });
-      expect(lateOutcome.ok, 'an emit-time failure still committed').toBe(false);
+      expect(lateOutcome.ok, 'an unauthorised channel list still committed').toBe(false);
+      if (!lateOutcome.ok) {
+        expect(lateOutcome.reason, `unauthorised channels were refused as ${lateOutcome.reason}`).toMatch(
+          /channels are not the class default/,
+        );
+        expect(lateOutcome.reason, 'unauthorised channels reached the emitter enum cast').not.toMatch(/notification_channel/);
+      }
       await assertAbsentAfterLateFailure(sut, late.organizationId, late.accountId);
     },
   );
@@ -479,4 +509,5 @@ async function assertAbsentAfterLateFailure(
     'the late failure left a verification-outcome event',
   ).toEqual([]);
   expect(await sut.notificationDeliveries({ recipientId }), 'the late failure left a delivery').toEqual([]);
+  expect(await sut.spendRows(organizationId), 'the late failure left a spend row').toEqual([]);
 }

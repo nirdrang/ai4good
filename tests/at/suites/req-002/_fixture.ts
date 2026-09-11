@@ -11,7 +11,7 @@
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import type { Caller } from '../../../../supabase/functions/_shared/caller.ts';
 import { EMITTER_COMPONENT } from '../../../../supabase/functions/_shared/notifications.ts';
-import type { Channel } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
+import { channelsFor, taxonomyRow, type Channel } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import {
   allowanceOf,
   dailyAllowanceExhaustedReason,
@@ -182,7 +182,17 @@ type CommitResult =
   | { ok: true; organizationId: string; vetted: boolean; changed: boolean; notificationEventId: string | null }
   | { ok: false; reason: string };
 
-const KNOWN_CHANNELS: ReadonlySet<string> = new Set<Channel>(['email', 'inapp']);
+const VETTING_TAXONOMY = taxonomyRow('vetting.outcome');
+if (VETTING_TAXONOMY === undefined) {
+  throw new Error('vetting.outcome is missing from the notification taxonomy');
+}
+const VETTING_CLASS_DEFAULT = channelsFor(VETTING_TAXONOMY);
+
+function sameChannelSet(got: readonly string[], want: readonly string[]): boolean {
+  const left = [...new Set(got)].sort();
+  const right = [...new Set(want)].sort();
+  return left.length === right.length && left.every((channel, index) => channel === right[index]);
+}
 
 function emptyProfileField(value: string, field: string): ProfileDefinerOutcome | null {
   if (value.trim() !== '') return null;
@@ -343,7 +353,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const audits: VettingAuditRow[] = [];
   const events: VettingNotificationEvent[] = [];
   const deliveries: DeliveryRow[] = [];
-  const seats = new Map<string, Seat>();
+  const seats = new Map<string, Seat[]>();
+  const seatHolders = (organizationId: string): Seat[] => seats.get(organizationId) ?? [];
+  const firstSeat = (organizationId: string): Seat | undefined => seatHolders(organizationId)[0];
   const deactivated = new Set<string>();
   const roleOverrides = new Map<string, 'admin' | 'member'>();
   const spend = new Map<string, SpendRow>();
@@ -393,7 +405,20 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       };
     }
 
-    const seat = seats.get(args.p_organization_id);
+    const holders = seatHolders(args.p_organization_id);
+    if (holders.length === 0) {
+      return {
+        ok: false,
+        reason: `set_organization_vetting refuses ${args.p_organization_id}: the organisation has no seat holder`,
+      };
+    }
+    if (holders.length > 1) {
+      return {
+        ok: false,
+        reason: `set_organization_vetting refuses ${args.p_organization_id}: the organisation has more than one seat holder`,
+      };
+    }
+    const seat = holders[0];
     if (seat === undefined) {
       return {
         ok: false,
@@ -418,8 +443,22 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       };
     }
 
+    const notice = args.p_notice;
+    const suppliedChannels = Array.isArray(notice?.channels) ? [...notice.channels] : [];
+    const subject = notice?.copy?.subject;
+    const body = notice?.copy?.body;
+    if (suppliedChannels.length === 0) {
+      return { ok: false, reason: 'set_organization_vetting refuses a notice with no delivery channels' };
+    }
+    if (typeof subject !== 'string' || typeof body !== 'string') {
+      return { ok: false, reason: 'set_organization_vetting refuses a notice with no copy' };
+    }
+    if (!sameChannelSet(suppliedChannels, VETTING_CLASS_DEFAULT)) {
+      return { ok: false, reason: 'set_organization_vetting refuses a notice whose channels are not the class default' };
+    }
+    const channels = [...VETTING_CLASS_DEFAULT];
+
     const utcDay = utcDayOf(clock.now());
-    const spendBefore = spend.get(spendKey(args.p_organization_id, utcDay));
     const vettedAt =
       args.p_action === 'vet' ? new Date(clock.now()).toISOString() : (existing?.vettedAt ?? new Date(clock.now()).toISOString());
     const record = recordFromArgs(args, args.p_account_id, vettedAt, existing);
@@ -443,42 +482,18 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     };
     audits.push(audit);
 
-    const undo = () => {
-      if (existing === null) vetting.delete(record.organizationId);
-      else vetting.set(record.organizationId, existing);
-      const index = audits.lastIndexOf(audit);
-      if (index >= 0) audits.splice(index, 1);
-      const key = spendKey(record.organizationId, utcDay);
-      if (spendBefore === undefined) spend.delete(key);
-      else spend.set(key, clone(spendBefore));
-    };
-
-    const notice = args.p_notice;
-    const channels = Array.isArray(notice?.channels) ? [...notice.channels] : [];
-    const subject = notice?.copy?.subject;
-    const body = notice?.copy?.body;
-    if (channels.length === 0) {
-      undo();
-      return { ok: false, reason: 'set_organization_vetting refuses a notice with no delivery channels' };
-    }
-    if (typeof subject !== 'string' || typeof body !== 'string') {
-      undo();
-      return { ok: false, reason: 'set_organization_vetting refuses a notice with no copy' };
-    }
-    for (const channel of channels) {
-      if (!KNOWN_CHANNELS.has(channel)) {
-        undo();
-        return { ok: false, reason: `invalid input value for enum notification_channel: "${channel}"` };
-      }
-    }
-
     const outcome = record.vetted ? 'vetted' : 'unvetted';
+    const payload = {
+      outcome,
+      organizationId: args.p_organization_id,
+      organizationName: organization.name,
+    };
     const eventId = crypto.randomUUID();
     events.push({
       id: eventId,
       type: 'vetting.outcome',
       actorAccountId: args.p_account_id,
-      payload: { outcome },
+      payload,
       recipients: [{ role: 'ngo', recipientId: seat.accountId, channels: channels as Channel[] }],
       state: 'pending',
       attempts: 0,
@@ -493,7 +508,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         state: 'pending',
         emittedBy: EMITTER_COMPONENT,
         deliveredByProcess: null,
-        payload: { outcome },
+        payload,
         body,
       });
     }
@@ -527,7 +542,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             },
       org_exists: organization !== null,
       org_role: null,
-      org_seat_account_id: seats.get(target ?? '')?.accountId ?? null,
+      org_seat_account_id: firstSeat(target ?? '')?.accountId ?? null,
       subject: null,
     });
     const decision = writePipeline(ORGANIZATION_VETTING, {
@@ -563,7 +578,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       if (!completion.ok || completion.organizationId === null) {
         throw new Error(`REQ-002 loop adapter: NGO completion for ${email} was refused`);
       }
-      seats.set(completion.organizationId, { accountId: registered.accountId, email });
+      seats.set(completion.organizationId, [{ accountId: registered.accountId, email }]);
       emailVerified.set(registered.accountId, opts.emailVerified);
       return {
         session: remember(registered),
@@ -703,9 +718,23 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     removeOrganizationSeatAsOperator: async (organizationId) => {
       seats.delete(organizationId);
     },
+    addOrganizationSeatAsOperator: async (organizationId, accountId) => {
+      let email: string | null = null;
+      for (const holders of seats.values()) {
+        const found = holders.find((holder) => holder.accountId === accountId);
+        if (found !== undefined) {
+          email = found.email;
+          break;
+        }
+      }
+      seats.set(organizationId, [...seatHolders(organizationId), { accountId, email }]);
+    },
     clearAccountEmailAsOperator: async (accountId) => {
-      for (const [organizationId, seat] of seats) {
-        if (seat.accountId === accountId) seats.set(organizationId, { accountId, email: null });
+      for (const [organizationId, holders] of seats) {
+        seats.set(
+          organizationId,
+          holders.map((holder) => (holder.accountId === accountId ? { accountId, email: null } : holder)),
+        );
       }
     },
     attemptVettingDefinerAsOperator: async (input) => {
@@ -755,7 +784,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
               },
         org_exists: organization !== null,
         org_role: override ?? membership?.role ?? null,
-        org_seat_account_id: seats.get(organizationId)?.accountId ?? null,
+        org_seat_account_id: firstSeat(organizationId)?.accountId ?? null,
         subject: null,
       });
       const decision = writePipeline(DISCOVERY_ALLOWANCE, {
@@ -796,7 +825,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
               },
         org_exists: organization !== null,
         org_role: override ?? membership?.role ?? null,
-        org_seat_account_id: seats.get(organizationId)?.accountId ?? null,
+        org_seat_account_id: firstSeat(organizationId)?.accountId ?? null,
         subject: null,
       });
       const decision = writePipeline(DISCOVERY_ALLOWANCE, {
