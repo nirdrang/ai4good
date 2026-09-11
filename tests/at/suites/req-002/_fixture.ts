@@ -454,7 +454,10 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
     setProfile: notLanded('setProfile'),
     profile: notLanded('profile'),
-    organizationDashboard: notLanded('organizationDashboard'),
+    organizationDashboard: (session, organizationId) => {
+      const innerSession = session === null ? null : (heldSessions.get(session.sessionId) ?? null);
+      return inner.sut.accounts.organizationDashboard(innerSession, organizationId);
+    },
 
     setVetting,
     vettingRecord: async (organizationId) => clone(vetting.get(organizationId) ?? null),
@@ -532,8 +535,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     publishingAllowed: notLanded('publishingAllowed'),
     fundingAllowed: notLanded('fundingAllowed'),
 
-    createProjectAsOperator: notLanded('createProjectAsOperator'),
-    publicProjectPage: notLanded('publicProjectPage'),
+    createProjectAsOperator: async (organizationId, name) => {
+      const project = await inner.sut.accounts.createProjectAsOperator(organizationId, name);
+      return { id: project.id };
+    },
+    publicProjectPage: (projectId) => inner.sut.accounts.publicProjectPage(projectId),
   };
 
   return {

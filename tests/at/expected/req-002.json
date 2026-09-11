@@ -8,7 +8,10 @@
         "AT-002.29",
         "AT-002.30",
         "AT-002.13",
-        "AT-002.14"
+        "AT-002.14",
+        "AT-002.16",
+        "AT-002.17",
+        "AT-002.18"
       ],
       "red": {
         "AT-002.01": { "kind": "pending", "phase": "sut-missing" },
@@ -23,9 +26,6 @@
         "AT-002.10": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.31": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
-        "AT-002.16": { "kind": "pending", "phase": "sut-missing" },
-        "AT-002.17": { "kind": "pending", "phase": "sut-missing" },
-        "AT-002.18": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.19": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
         "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow", "triage.queue"] },
         "AT-002.28": { "kind": "pending", "phase": "sut-missing" },
@@ -41,7 +41,10 @@
         "AT-002.29",
         "AT-002.30",
         "AT-002.13",
-        "AT-002.14"
+        "AT-002.14",
+        "AT-002.16",
+        "AT-002.17",
+        "AT-002.18"
       ],
       "red": {
         "AT-002.01": { "kind": "pending", "phase": "sut-missing" },
@@ -56,9 +59,6 @@
         "AT-002.10": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.31": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
-        "AT-002.16": { "kind": "pending", "phase": "sut-missing" },
-        "AT-002.17": { "kind": "pending", "phase": "sut-missing" },
-        "AT-002.18": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.19": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
         "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow", "triage.queue"] },
         "AT-002.28": { "kind": "pending", "phase": "sut-missing" },

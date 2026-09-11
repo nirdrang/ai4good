@@ -18,6 +18,7 @@ import {
   authPost,
   followLink,
   functionPost,
+  functionPostRaw,
   mailIdentification,
   sqlClient,
   verifyLinksFor,
@@ -29,8 +30,12 @@ import type {
   DeliveryRow,
   NgoActor,
   OperatorWriteOutcome,
+  OrganizationDashboard,
   OrganizationsSut,
+  PublicProjectOutcome,
+  PublicProjectView,
   Session,
+  TenantReadOutcome,
   VettingAuditRow,
   VettingDefinerAttempt,
   VettingNotificationEvent,
@@ -91,6 +96,20 @@ function databaseRefusal(error: unknown): { code: string; message: string } {
 
 function parseJson<T>(value: unknown): T {
   return (typeof value === 'string' ? JSON.parse(value) : value) as T;
+}
+
+function functionOutcome<T extends { ok: true }>(raw: { status: number; text: string }): TenantReadOutcome<T> {
+  const answer = { status: raw.status, body: raw.text };
+  if (raw.status !== 200) return { ok: false, answer };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw.text) as unknown;
+  } catch {
+    return { ok: false, answer };
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, answer };
+  if ((parsed as { ok?: unknown }).ok !== true) return { ok: false, answer };
+  return { ok: true, value: parsed as T, answer };
 }
 
 function claimsOf(token: string): { sub?: unknown; session_id?: unknown } {
@@ -232,7 +251,11 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
     setProfile: notLanded('setProfile'),
     profile: notLanded('profile'),
-    organizationDashboard: notLanded('organizationDashboard'),
+    organizationDashboard: async (session, organizationId): Promise<TenantReadOutcome<OrganizationDashboard>> => {
+      const bearer = session === null ? null : tokensOf(session, 'call the deployed organization-dashboard').accessToken;
+      const raw = await functionPostRaw(stack, 'organization-dashboard', { organizationId }, bearer);
+      return functionOutcome<OrganizationDashboard>(raw);
+    },
 
     setVetting: async (session, request: VettingRequest & Record<string, unknown>): Promise<VettingOutcome> => {
       const answer = await postWrite('set-organization-vetting', session, request);
@@ -453,8 +476,28 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     publishingAllowed: notLanded('publishingAllowed'),
     fundingAllowed: notLanded('fundingAllowed'),
 
-    createProjectAsOperator: notLanded('createProjectAsOperator'),
-    publicProjectPage: notLanded('publicProjectPage'),
+    createProjectAsOperator: async (organizationId, name): Promise<{ id: string }> => {
+      const created = await rows<{ id: string }>(
+        sql`insert into public.projects (org_id, name) values (${organizationId}::uuid, ${name}) returning id`,
+      );
+      if (created.length !== 1) throw new Error(`the operator insert of project ${JSON.stringify(name)} returned no row`);
+      return { id: String(created[0].id) };
+    },
+    publicProjectPage: async (projectId, session): Promise<PublicProjectOutcome> => {
+      const bearer = session ? tokensOf(session, 'call the deployed public-project').accessToken : null;
+      const raw = await functionPostRaw(stack, 'public-project', { projectId }, bearer);
+      const outcome = functionOutcome<{ ok: true } & PublicProjectView>(raw);
+      if (!outcome.ok) return { ok: false, answer: outcome.answer };
+      return {
+        ok: true,
+        page: {
+          projectId: outcome.value.projectId,
+          projectName: outcome.value.projectName,
+          organizationName: outcome.value.organizationName,
+        },
+        answer: outcome.answer,
+      };
+    },
   };
 
   return {
