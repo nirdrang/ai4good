@@ -30,9 +30,11 @@ import {
   decideOrganizationVetting,
   isVettingEvidenceType,
   type OrganizationVettingArgs,
+  publishingAllowed as decidePublishing,
   type VettingOutcomeNotice,
   type VettingRecordProjection,
 } from '../../../../supabase/functions/_shared/org-vetting.ts';
+import { discoveryMessageAllowed as decideDiscoveryMessage } from '../../../../supabase/functions/_shared/verification.ts';
 import {
   organizationIdField,
   parseWriteStanding,
@@ -845,8 +847,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       spend.set(spendKey(row.organizationId, row.utcDay), clone(row));
     },
 
-    publishingAllowed: notLanded('publishingAllowed'),
+    publishingAllowed: async (organizationId) => decidePublishing(vetting.get(organizationId)?.vetted === true),
     fundingAllowed: notLanded('fundingAllowed'),
+    discoveryMessageAllowed: async (session) => {
+      const innerSession = heldSessions.get(session.sessionId);
+      if (innerSession === undefined) {
+        throw new Error(`REQ-002 loop adapter: no session ${session.sessionId} whose Discovery floor could be consulted`);
+      }
+      const emailVerified = await accounts.emailVerified(innerSession.accountId);
+      return decideDiscoveryMessage({ emailVerified });
+    },
 
     createProjectAsOperator: async (organizationId, name) => {
       const project = await inner.sut.accounts.createProjectAsOperator(organizationId, name);

@@ -22,7 +22,8 @@
  *   - the ALLOWANCE, what an organisation may spend on Discovery today, computed from the vetting
  *     record and the SPEND ROW for the current UTC day;
  *   - the NOTIFICATION rows the emitter writes for a vetting outcome;
- *   - the two PURE POLICIES, publishing and funding, consulted with no route behind them.
+ *   - the three PURE POLICIES, publishing, funding, and Discovery messaging, consulted with no
+ *     route behind them.
  */
 
 import type { WorldSeam } from '../../harness/contracts.ts';
@@ -233,12 +234,14 @@ export type VettingNotificationEvent = NotificationEventRow & {
 
 export type AllowanceOutcome = { ok: true; allowance: Allowance } | WriteRefusal;
 
-/* ------------------------------------------------------------------- the two pure policies */
+/* ----------------------------------------------------------------- the three pure policies */
 
 /** Publishing requires the vetted condition; the value names the condition that was met. */
 export type PublishingDecision = Decision<'vetted'>;
 /** Funding is never vetting-gated; the value says so, whichever tier the organisation holds. */
 export type FundingDecision = Decision<'not-vetting-gated'>;
+/** Discovery messaging requires a verified email; the value names the condition that was met. */
+export type DiscoveryMessageDecision = Decision<'verified'>;
 
 /* ------------------------------------------------------------------------------- read-back */
 
@@ -350,12 +353,18 @@ export type OrganizationsSut = {
    */
   writeSpendRowAsOperator(row: SpendRow): Promise<void>;
 
-  /* ------------------------------------------------------------------ the two pure policies */
+  /* ---------------------------------------------------------------- the three pure policies */
 
   /** The publishing trust condition, consulted. No publish route exists behind it. */
   publishingAllowed(organizationId: string): Promise<PublishingDecision>;
   /** The funding permissibility, consulted. No checkout exists behind it. */
   fundingAllowed(organizationId: string): Promise<FundingDecision>;
+  /**
+   * The Discovery-message floor, consulted. No Discovery send route exists behind it.
+   * The adapter reads the caller's verified state the way the product does; it never takes a
+   * claim from a request body.
+   */
+  discoveryMessageAllowed(session: Session): Promise<DiscoveryMessageDecision>;
 
   /* ------------------------------------------------------------------- the public surface */
 

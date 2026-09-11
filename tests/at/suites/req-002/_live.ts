@@ -11,6 +11,11 @@ import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_sh
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import type { Allowance, SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import {
+  discoveryMessageAllowed as decideDiscoveryMessage,
+  emailVerifiedFromUser,
+} from '../../../../supabase/functions/_shared/verification.ts';
+import {
+  publishingAllowed as decidePublishing,
   vettingAuditCurrentFromDetail,
   vettingRecordFromSql,
   type VettingSqlRow,
@@ -203,7 +208,29 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       const accountId = String((json.id as string | undefined) ?? (json.user as { id?: string } | undefined)?.id ?? '');
       if (!accountId) throw new Error('the live signup answered 200 but named no user id');
       if (!opts.emailVerified) {
-        throw new Error('REQ-002 live adapter: an unconfirmed NGO is provisioned as the operator in a later unit');
+        const completed = await rows<{ organization_id: string | null }>(
+          sql`
+            select (public.complete_signup(
+              ${accountId}::uuid,
+              ${'ngo'},
+              ${`Riverside ${email}`},
+              ${TEXT_VERSION},
+              ${CLIENT_IP}::inet,
+              ${null},
+              ${null},
+              ${null},
+              ${null},
+              ${SIGNER.signerName},
+              ${SIGNER.signerTitle},
+              ${SIGNER.authorityAttestation}
+            ))->>'organization_id' as organization_id
+          `,
+        );
+        const organizationId = String(completed[0]?.organization_id ?? '');
+        if (!organizationId) {
+          throw new Error(`REQ-002 live adapter: operator NGO completion for ${email} named no organisation`);
+        }
+        return { session: { accountId, email, sessionId: '' }, accountId, organizationId, email };
       }
       const link = (await verifyLinksFor(stack, email, 'signup'))[0] ?? null;
       if (link === null) throw new Error(`no confirmation email reached the stack's mail catcher for ${email}`);
@@ -601,8 +628,26 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       `;
     },
 
-    publishingAllowed: notLanded('publishingAllowed'),
+    publishingAllowed: async (organizationId) => {
+      const found = await rows<{ vetted: boolean }>(
+        sql`select vetted from public.org_vetting where org_id = ${organizationId}::uuid`,
+      );
+      return decidePublishing(found[0]?.vetted === true);
+    },
     fundingAllowed: notLanded('fundingAllowed'),
+    discoveryMessageAllowed: async (session) => {
+      const found = await rows<{ email_confirmed_at: string | Date | null; email: string }>(
+        sql`select email, email_confirmed_at from auth.users where id = ${session.accountId}::uuid`,
+      );
+      if (found.length !== 1) return decideDiscoveryMessage({ emailVerified: false });
+      const confirmedAt = found[0].email_confirmed_at;
+      const emailVerified = emailVerifiedFromUser({
+        id: session.accountId,
+        email: found[0].email,
+        email_confirmed_at: confirmedAt === null ? null : new Date(confirmedAt).toISOString(),
+      });
+      return decideDiscoveryMessage({ emailVerified });
+    },
 
     createProjectAsOperator: async (organizationId, name): Promise<{ id: string }> => {
       const created = await rows<{ id: string }>(

@@ -8,7 +8,7 @@ The Feature playbook, one run for the whole item. Grounding, the design arena, t
 the synthesis are all finished and committed. The design of record is
 `loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-**Units done: the suite scaffold, and units 1 to 6 of 13.**
+**Units done: the suite scaffold, and units 1 to 9 of 13.**
 
 | what | commit | acceptance ids now green |
 |---|---|---|
@@ -21,10 +21,11 @@ the synthesis are all finished and committed. The design of record is
 | unit 6, the profile edit | `56f61f8` | AT-002.02, at both tiers |
 | unit 7, the spend ledger and the vet math | `0af622a` | AT-002.04, AT-002.07, AT-002.08, at both tiers |
 | unit 8, the UTC reset | `e28ab34` | AT-002.06, at both tiers |
+| unit 9, what vetting never gates | `f4965fb` | AT-002.21, AT-002.22, at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `e28ab34`, tree
-clean, nothing pushed since the brief commit. The local Supabase stack is up. Fifteen of twenty-seven
-acceptance ids are green.
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `f4965fb`, tree
+clean, nothing pushed since the brief commit. The local Supabase stack is up. Seventeen of
+twenty-seven acceptance ids are green.
 
 Two commits below the head are not units. `fe4987b` carries the model sheet change of 2026-09-10:
 the hardest-tasks seat moves to astra at medium, and the perf-issue seat drops to astra at medium.
@@ -33,8 +34,12 @@ this branch merges.
 
 ## The first action on resume
 
-Unit 9, AI4DEV-116 (what vetting never gates), for AT-002.21 and AT-002.22. It needs the ledger from
-unit 7 and nothing else new.
+Unit 10, AI4DEV-117 (pilot default and wording), for AT-002.28 and the red AT-002.23. It needs units
+1 and 7.
+
+Open carry from unit 9: the publish-gates unit inherits `publishingAllowed` in
+`supabase/functions/_shared/org-vetting.ts`. It is one pure decision over the vetted flag, consulted
+by both test adapters and by no route. That unit extends it; it never writes a second copy.
 
 Open carry from unit 4: an extra key on a vetting request is refused as an invalid request rather
 than as invalid evidence. The refusal is correct and its kind is less precise than it could be.
