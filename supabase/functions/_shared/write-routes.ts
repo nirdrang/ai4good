@@ -48,6 +48,10 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'set_account_lifecycle' },
     standing: { kind: 'account-required', admits: ['platform_admin'] },
   },
+  'set-organization-vetting': {
+    surface: { kind: 'edge', rpc: 'set_organization_vetting' },
+    standing: { kind: 'account-required', admits: ['platform_admin'] },
+  },
   'discovery-message': {
     surface: {
       kind: 'stand-in',
@@ -70,6 +74,7 @@ export const WRITE_REFUSAL_KINDS = [
   'invalid-request',
   'invalid-name',
   'invalid-contact',
+  'invalid-evidence',
   'no-such-organisation',
   'not-the-current-contact',
   'transferee-no-account',

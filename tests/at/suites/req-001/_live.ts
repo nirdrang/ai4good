@@ -943,6 +943,21 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           if (subject.route !== 'set-account-lifecycle') throw new Error('unreachable');
           return asAttempt(await this.setAccountLifecycle(session, subject));
         },
+        'set-organization-vetting': async () => {
+          if (subject.route !== 'set-organization-vetting') throw new Error('unreachable');
+          const answer = await postWrite('set-organization-vetting', session, {
+            organizationId: subject.organizationId,
+            action: subject.action,
+            organizationName: subject.organizationName,
+            publicReferenceUrl: subject.publicReferenceUrl,
+            contactName: subject.contactName,
+            contactTitle: subject.contactTitle,
+            authorityAttestation: subject.authorityAttestation,
+            evidenceType: subject.evidenceType,
+            note: subject.note,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
         'discovery-message': async () => {
           throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
         },

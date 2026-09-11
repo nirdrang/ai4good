@@ -234,6 +234,10 @@ import {
   type EscalationContactArgs,
   type LifecycleChangeArgs,
 } from '../../../../supabase/functions/_shared/admin-operations.ts';
+import {
+  decideOrganizationVetting,
+  type OrganizationVettingArgs,
+} from '../../../../supabase/functions/_shared/org-vetting.ts';
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
@@ -737,6 +741,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     name: 'set-account-lifecycle',
     subject: accountIdField,
     decide: decideLifecycleChange,
+  };
+  const ORGANIZATION_VETTING: WriteRouteSpec<OrganizationVettingArgs, AccountWriteRouteInput> = {
+    name: 'set-organization-vetting',
+    target: organizationIdField,
+    decide: decideOrganizationVetting,
   };
   const DISCOVERY_MESSAGE: WriteRouteSpec<{ message: string }, AccountWriteRouteInput> = {
     name: 'discovery-message',
@@ -1624,6 +1633,27 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         'set-account-lifecycle': async () => {
           if (subject.route !== 'set-account-lifecycle') throw new Error('unreachable');
           return asAttempt(await this.setAccountLifecycle(session, subject));
+        },
+        'set-organization-vetting': async () => {
+          if (subject.route !== 'set-organization-vetting') throw new Error('unreachable');
+          const run = runWrite(
+            ORGANIZATION_VETTING,
+            session,
+            {
+              organizationId: subject.organizationId,
+              action: subject.action,
+              organizationName: subject.organizationName,
+              publicReferenceUrl: subject.publicReferenceUrl,
+              contactName: subject.contactName,
+              contactTitle: subject.contactTitle,
+              authorityAttestation: subject.authorityAttestation,
+              evidenceType: subject.evidenceType,
+              note: subject.note,
+            },
+            null,
+          );
+          if (!run.ok) return run;
+          return { ok: true };
         },
         'discovery-message': async () => {
           if (subject.route !== 'discovery-message') throw new Error('unreachable');

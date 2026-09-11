@@ -1,122 +1,118 @@
 # Resume note for AI4DEV-102 (the vetting action and its audit record)
 
-Paused at the founder's word on 2026-09-09, at the end of the design arena, before the pick.
+Rewritten after every unit. Read this first, then `decisions.tsv`.
 
 ## Where the run is
 
-The Feature playbook, run once for the whole subtree. Steps 1 and 2 are done. Step 3 onward is not
-started.
+The Feature playbook, one run for the whole item. Grounding, the design arena, the blinded judge and
+the synthesis are all finished and committed. The design of record is
+`loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-- Step 1, ground the subsystem with the `how` skill. Done. Three explorer reports under
-  `loop/items/AI4DEV-102/how/`. The critique stage the brief asks for does not exist: pstack 1.4.0
-  removed it and its role left the model sheet the same day.
-- Step 2, parallel design exploration. Done. Four candidates under
-  `loop/items/AI4DEV-102/design/`. Not yet judged, not yet picked, not yet grafted.
-- Steps 3 to 8, the throughput checkpoint, the thirteen build units, verification, the rebase and
-  the pull request. Not started.
+**Units done: the suite scaffold, and unit 1 of 13.**
 
-Everything is committed at `012035f` on
-`nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`. The tree is clean. Nothing is
-pushed beyond the brief commit that was already on origin. No product code and no test code exists
-yet, so nothing is broken.
+| what | commit | acceptance ids now green |
+|---|---|---|
+| the suite scaffold, all red | `cd0cf72` | none, by design |
+| unit 1, the vetting record | `2c6d415` | AT-002.11, AT-002.11b, at both tiers |
+
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `2c6d415`, tree
+clean, nothing pushed since the brief commit. The local Supabase stack is up.
 
 ## The first action on resume
 
-Dispatch the arena cross-judge. Its prompt is already written at
-`C:\Users\nirdr\AppData\Local\Temp\claude\ai4dev102\arena-rubric.md`. That path is a session
-scratchpad and may be gone; the file is short and the rubric is reproducible from this note.
+Unit 2, AI4DEV-112 (only the platform admin vets), for AT-002.29 and AT-002.30. Write its brief the
+way `C:\Users\nirdr\AppData\Local\Temp\claude\ai4dev102\unit1.md` is written, or copy that file's
+shape from the committed report if the scratchpad is gone.
 
-The judge descriptor comes from the `arena cross-judge pool` row of `.claude/pstack-models.md`.
-The lead is a Claude model, so the pool's opus entry cannot fire; pick astra at medium or grok.
+Unit 2 is mostly proofs over behaviour unit 1's definer already enforces, plus the source oracles
+that show no automated verification path exists.
 
-Send it the four candidates by path and the six rubric criteria: does the design satisfy the ids it
-claims, does the daily reset survive the integration tier, is a partial vet impossible, does it obey
-the tenant scan and the write-route gate, is it as small as it can be, and could a writer build it
-without guessing.
+## The per-unit loop
 
-## The four candidates, and what each is for
+1. Reset the lane worktree to the item head:
+   `git -C .claude/worktrees/AI4DEV-102-unit0 reset --hard <item head>`. That one worktree serves
+   every unit, because a worktree cannot be removed without a founder decision.
+2. Write the unit brief to the scratchpad. Name the files, the scope boundaries, the checks, and what
+   the unit must not do.
+3. Dispatch one writer lane. The feature lane is `grok:grok-4.6@xhigh` in `isolated-write` mode
+   through the external runner, with `--cwd` set to the lane worktree.
+4. Review the diff yourself. Re-run every check yourself; do not trust the writer's report.
+5. Commit in the lane worktree, then `git merge --ff-only lane/ai4dev-102` in the item worktree.
+6. Rewrite this file. Send one push notification naming the unit and the context used.
+7. Start the next unit. **Do not stop between units.** The founder ruled on 2026-09-10 that a unit
+   boundary notifies and never blocks.
 
-| file | direction | new tables | its one strong idea |
+## The eight checks every unit must pass
+
+```
+bun run typecheck
+bun run at:check req-002
+bun run at:selftest
+bun run at:verify req-002 --tier loop --expect
+bun run at:verify req-001 --tier loop --expect
+bun run at:verify req-016 --tier loop --expect
+bun run at:verify req-002 --tier integration --expect
+bun run at:verify req-001 --tier integration --expect
+```
+
+The last two matter most. Every new table and every new write route changes what the authentication
+suite's static scans and live catalog checks see, and that suite must stay green.
+
+## The remaining units, in the founder's fixed order
+
+| unit | item | ids | notes |
 |---|---|---|---|
-| `candidate-1b-vetting-aggregate.md` | one vetting aggregate | 2 | the vet record is a table of not-null columns with a check that couples the evidence type to its document metadata, so a partial vet is refused by the schema |
-| `candidate-2-allowance-ledger.md` | the allowance is the centre | 1 | the spend row is keyed `(org_id, utc_day)` and stores only what was spent, so the once-per-day reset is the primary key and no reset code exists |
-| `candidate-3b-thin-sql.md` | three narrow records, rules in TypeScript | not yet read | not yet read |
-| `candidate-4-extend-existing.md` | extend what exists, add nothing | 0 | six columns on `organizations` and no new table at all, the smallest possible diff |
+| 2 | AI4DEV-112 (only the admin vets) | .29, .30 | mostly proofs over unit 1's definer |
+| 3 | AI4DEV-113 (unvet and the notification) | .12 red, .13, .14 | inserts the emit into unit 1's definer |
+| 4 | AI4DEV-114 (the evidence rule) | .16, .17, .18 | proofs over unit 1's constraints |
+| 5 | AI4DEV-105 (profile create) | .01 | independent of the vetting chain |
+| 6 | AI4DEV-106 (profile edit) | .02 | needs unit 5 |
+| 7 | AI4DEV-107 (tier grants and vet math) | .04, .07, .08 | the spend ledger lands here |
+| 8 | AI4DEV-109 (the UTC reset) | .06 | needs unit 7 |
+| 9 | AI4DEV-116 (what vetting never gates) | .21, .22 | needs unit 7 |
+| 10 | AI4DEV-117 (pilot default and wording) | .28, .23 red | needs units 1 and 7 |
+| 11 | AI4DEV-108 (the zero-credit block) | .05, .26 red, .27 | needs units 7 and 8 |
+| 12 | AI4DEV-110 (no Discovery wallet) | .10 red, .31 red | ships a pure decision, no route, no green id |
+| 13 | AI4DEV-115 (the publish gates) | .19 red, .20 red | ships a pure decision, no route, no green id |
 
-The two three-line and seven-line files are dead stubs. Both external lanes were told to write their
-document to a file, but an external lane runs read-only and the runner writes the model's closing
-message to that same path at completion, destroying whatever the model put there. Grok lost 768
-lines that way and they are not recoverable. Both lanes were re-run as `1b` and `3b`. **For any
-future external lane: the final response is the artifact. Never ask it to write a file.**
+## After the last unit
 
-## The synthesis already forming, to test against the judge rather than assume
+The item-wide stations, each run once over the whole diff. The comment audit on the mechanical model
+with the comment-sicko prompt, never on the lead's own model. The multi-model review. The evidence
+capture through `.claude/skills/verify-ai4good/`. The rebase into ordered commits. The pull request
+with Why, Scope, Tradeoffs, Blast Radius and Verification, naming every unit in words and no other
+item's id. Then the closing section of the brief.
 
-Take candidate 2's spend ledger and candidate 1b's vetting table.
+## The red set, settled
 
-- The spend ledger keyed by `(org_id, utc_day)` puts the once-per-day invariant in the primary key.
-  Candidates 1b and 4 keep one row per organisation with the day as a mutable column, which turns
-  the same guarantee into a rule that the read path and the debit path must each remember.
-- The vetting table with not-null columns enforces "every mandated field or no commit" in the
-  schema. Candidate 2 enforces it with a raise inside the definer, which holds only while every
-  caller goes through that one door.
-- Use `now()`, not `clock_timestamp()`. Inside one transaction `now()` is fixed, so a lock-then-
-  compute sequence cannot see the day change under it. Candidate 1b reaches for `clock_timestamp()`.
-- One open question the graft must settle: if the vetting table carries the authoritative `vetted`
-  flag, then `organizations.trust_tier` from candidate 2 is a second source of truth for the same
-  fact. Pick one. Do not ship both.
+Eight ids, `capability-pending`, each naming what it waits on. AT-002.05 is red at the integration
+tier only. The others are red at both. The full table is in `SYNTHESIS.md`. Nineteen green at
+integration and twenty at loop when every unit has landed.
 
-## Decisions already made, and by whom
+## Standing constraints
 
-- **The founder ruled** how the three missing surfaces are handled: split per id. Build and prove
-  every id the tree supports. Declare red, by id and with a stated shape, only the ids that need a
-  surface that does not exist. No fixture producers and no new harness machinery.
-- **The lead set the red set at five ids**: AT-002.10 and AT-002.31 wait on the project-fuel
-  checkout, AT-002.19 and AT-002.20 wait on the publish flow, AT-002.26 waits on both the checkout
-  and funded-turn billing. Candidate 2 reached the same five independently. Candidate 4 argues for a
-  sixth, AT-002.05 red at the integration tier only, because no deployed surface shows the three
-  remedies. That one is unsettled and goes to the judge.
-- **The brief's own count is wrong.** It says twenty-five ids are in the run, but its thirteen units
-  name all twenty-seven. The red set decides the split, not the brief's number.
-- Units 12 and 13 ship the publish and funding decisions as pure modules, and their ids stay red.
-  They must **not** gain `WRITE_ROUTES` rows: a row is a claim that a route exists, and the static
-  scan then demands the auth suite drive it.
+1. Take the clock **after** the row lock, with `clock_timestamp()`, never at transaction start. A
+   transaction that begins before midnight can take its lock after midnight.
+2. An unvetted organisation keeps the credits it already holds until the next UTC day. Founder ruling
+   of 2026-09-09. Store credits spent and the highest grant applied today; remaining is the
+   difference. No stored raise flag.
+3. `public.emit_notification` is callable only by an owner-definer, never by an edge function.
+4. The notification taxonomy is closed. `vetting.outcome` covers both outcomes, told apart by the
+   payload. Named copy is separate from taxonomy registration and changes no oracle.
+5. A new audit enum value needs its own migration file.
+6. Every new public table needs a baseline revoke from all three roles, row level security, a
+   `TENANT_CATALOG` row, and a posture.
+7. No fourth `viewer_` helper. The live catalog check pins that set at three.
+8. No `WRITE_ROUTES` row for publishing or funding. A row is a claim that a route exists.
+9. The grants 10 and 30 are pinned in `tests/at/harness/atconfig.ts`. Never write them in a test body.
+10. No new harness machinery of any kind.
 
-## The hard constraints any design must satisfy
+## Gotchas
 
-Measured from the tree, not assumed. Full detail in the three explorer reports.
-
-1. There is no time travel at the integration tier. `h.clock.advance` compiles at the loop tier only
-   and no live adapter takes the harness clock. A day boundary is observed by ageing a stored day
-   value with operator SQL.
-2. `public.emit_notification` is a definer with execute revoked from public and granted to nobody, so
-   no edge function can call it. A product definer must call it, in the same transaction as the write.
-3. The notification taxonomy is closed and its oracle is checked both ways by the notifications
-   suite. `vetting.outcome` already exists and covers both outcomes. Tell a vet from an unvet in the
-   params, never with a new event type.
-4. `audit_events.event_kind` is a Postgres enum. A new value needs its own migration, because
-   Postgres refuses to use a new enum value in the transaction that adds it.
-5. Every new public table needs a baseline revoke from all three roles, RLS enabled, a row in
-   `TENANT_CATALOG` in `tests/at/suites/req-001/_policy-scan.ts`, and a posture. The scan has about
-   twenty-five ways to fail.
-6. `VIEWER_FUNCTIONS` is a closed set of three in the auth suite's live check. Do not add a fourth
-   `viewer_` helper.
-7. Adding a write route forces small edits in three auth-suite files, because their
-   `Record<WriteRouteName, ...>` types are exhaustive.
-8. The grants 10 and 30 are already pinned in `tests/at/harness/atconfig.ts`. Never write them in a
-   test body.
-9. CI runs the loop tier only. Integration-tier evidence is produced locally with
-   `bun run db:start` and `bun run at:verify req-002 --tier integration --expect`.
-
-## Gotchas that cost time already
-
-- This project forbids the Bash tool. Use PowerShell for every shell command.
-- `grok.exe` is not on the tool shell's PATH. Prepend `$env:USERPROFILE\.grok\bin` per call.
-- The read shunt refuses an unbounded read of a file over 350 lines. Page it with `offset` and
-  `limit`, or send a read lane with a named aim.
+- PowerShell only. This project forbids the Bash tool.
+- `grok.exe` is not on the tool shell PATH. Prepend `$env:USERPROFILE\.grok\bin` per call.
+- An external runner lane is read-only or isolated-write, and the runner writes the model's final
+  response to `--output` at completion. Never ask an external lane to write its artifact to a file.
+- The read gate refuses an unbounded read over 350 lines. Page it, or send a read lane with an aim.
 - Never paste the output of `bun run db:start`. It contains a secret key, and GitHub push protection
   then refuses every later push on the branch.
-
-## The trail
-
-`loop/items/AI4DEV-102/decisions.tsv`. One row per decision, append-only. It carries the founder's
-ruling, the red-set derivation, the two lost lanes, and the design fork.

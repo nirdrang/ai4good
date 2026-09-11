@@ -2257,6 +2257,19 @@ function deactivatedSubject(
       return { route, organizationId: actors.transferOrg, name: 'Maya Lindqvist', email: w.email(`esc-${tag}-${route}`) };
     case 'set-account-lifecycle':
       return { route, accountId: actors.transferTo.accountId, lifecycle: 'deactivated', reason: AUP_REASON };
+    case 'set-organization-vetting':
+      return {
+        route,
+        organizationId: actors.transferOrg,
+        action: 'vet',
+        organizationName: `Deactivated Vet ${tag}`,
+        publicReferenceUrl: 'https://example.org/deactivated-vet',
+        contactName: 'Dana Okonkwo',
+        contactTitle: 'Executive Director',
+        authorityAttestation: 'The named contact attests authority to bind the organisation.',
+        evidenceType: 'organization_website',
+        note: `deactivated vet ${tag}`,
+      };
     case 'discovery-message':
       return { route, message: `hello ${tag} ${route} ${accountType} deactivated` };
   }
@@ -2274,6 +2287,8 @@ async function snapshotWrite(sut: AccountsSut, session: Session | null, subject:
       return { contact: await sut.escalationContact(subject.organizationId) };
     case 'set-account-lifecycle':
       return { account: await sut.account(subject.accountId) };
+    case 'set-organization-vetting':
+      return { audit: await sut.auditEvents({ subjectOrgId: subject.organizationId }) };
     case 'discovery-message':
       return { messages: session ? await sut.discoveryMessagesBy(session.accountId) : [] };
     case 'complete-signup':
@@ -2342,6 +2357,27 @@ async function provisionActiveControl(
       return {
         session: admin,
         subject: { route, accountId: subjectAccount.accountId, lifecycle: 'deactivated', reason: AUP_REASON },
+      };
+    }
+    case 'set-organization-vetting': {
+      const admin = await sut.provisionPlatformAdmin(w.email(`vet-admin-${tag}`), PASSWORD);
+      const ngo = await signIn(w.email(`vet-org-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Vet Host ${tag}`);
+      return {
+        session: admin,
+        subject: {
+          route,
+          organizationId,
+          action: 'vet',
+          organizationName: `Vet Host ${tag}`,
+          publicReferenceUrl: 'https://example.org/vet-reference',
+          contactName: 'Dana Okonkwo',
+          contactTitle: 'Executive Director',
+          authorityAttestation: 'The named contact attests authority to bind the organisation.',
+          evidenceType: 'organization_website',
+          note: `founder vet ${tag}`,
+        },
       };
     }
     case 'discovery-message': {

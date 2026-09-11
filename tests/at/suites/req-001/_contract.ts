@@ -66,7 +66,8 @@ export type AuditEventKind =
   | 'org_contact_transferred'
   | 'account_lifecycle_changed'
   | 'org_role_changed'
-  | 'org_escalation_contact_recorded';
+  | 'org_escalation_contact_recorded'
+  | 'org_vetting_changed';
 
 export type AuditEventRow = {
   id: string;
@@ -306,6 +307,18 @@ export type WriteSubject =
       readonly accountId: string;
       readonly lifecycle: AccountLifecycle;
       readonly reason: string;
+    }
+  | {
+      readonly route: 'set-organization-vetting';
+      readonly organizationId: string;
+      readonly action: 'vet';
+      readonly organizationName: string;
+      readonly publicReferenceUrl: string;
+      readonly contactName: string;
+      readonly contactTitle: string;
+      readonly authorityAttestation: string;
+      readonly evidenceType: string;
+      readonly note: string;
     }
   | { readonly route: 'discovery-message'; readonly message: string };
 

@@ -2,20 +2,50 @@
  * REQ-002's LIVE adapter — the integration tier's binding of the organisation system under test to
  * the one local stack.
  *
- * NO MEMBER OF THE SYSTEM UNDER TEST IS IMPLEMENTED YET. Each one throws, naming itself, until the
- * unit that lands it replaces its entry below with the deployed route, the operator read or the
- * policy consult. The world is real from the start: it namespaces addresses so the mail catcher
- * and the database can be read per world.
- *
- * What an integration green will mean once members land: the criterion holds against a database
- * this run rebuilt, the deployed edge functions and the real Auth service.
+ * Members this unit lands drive the deployed vetting route, operator SQL for the aggregate and its
+ * audit rows, and the public signup path for an NGO. What an integration green means: the criterion
+ * holds against a database this run rebuilt, the deployed edge function and the real Auth service.
  */
 
-import type { Stack } from '../../harness/live-stack.ts';
-import type { OrganizationsSut, World } from './_contract.ts';
+import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
+import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
+import {
+  vettingAuditCurrentFromDetail,
+  vettingRecordFromSql,
+  type VettingSqlRow,
+} from '../../../../supabase/functions/_shared/org-vetting.ts';
+import {
+  authPost,
+  followLink,
+  functionPost,
+  mailIdentification,
+  sqlClient,
+  verifyLinksFor,
+  type Stack,
+} from '../../harness/live-stack.ts';
+import type {
+  NgoActor,
+  OperatorWriteOutcome,
+  OrganizationsSut,
+  Session,
+  VettingAuditRow,
+  VettingOutcome,
+  VettingRecord,
+  VettingRequest,
+  World,
+  WriteRefusal,
+} from './_contract.ts';
 
-/** THE SELF-DECLARATION the loader checks against the requirement it was asked for. */
 export const requirement = 'req-002' as const;
+
+const PASSWORD = 'correct horse battery staple';
+const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
+const CLIENT_IP = '203.0.113.7';
+const SIGNER = {
+  signerName: 'Dana Okonkwo',
+  signerTitle: 'Executive Director',
+  authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
+} as const;
 
 class OrganizationsLiveWorld implements World {
   constructor(private readonly namespace: string) {}
@@ -35,25 +65,216 @@ function notLanded(member: keyof OrganizationsSut): () => Promise<never> {
   };
 }
 
-export async function createLiveAdapter(_opts: { stack: Stack }): Promise<{
+interface LiveSession {
+  accessToken: string;
+  refreshToken: string;
+}
+
+function databaseRefusal(error: unknown): { code: string; message: string } {
+  const carrier = error as Record<string, unknown> | null;
+  let code = '';
+  for (const field of ['errno', 'errcode', 'code'] as const) {
+    const value = carrier?.[field];
+    if (typeof value === 'string' && /^[0-9A-Z]{5}$/.test(value)) {
+      code = value;
+      break;
+    }
+  }
+  const message = typeof carrier?.message === 'string' ? carrier.message : String(error);
+  return { code, message };
+}
+
+function claimsOf(token: string): { sub?: unknown; session_id?: unknown } {
+  return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as {
+    sub?: unknown;
+    session_id?: unknown;
+  };
+}
+
+export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   sut: { organizations: OrganizationsSut };
   fixtures: { world(name: string): Promise<OrganizationsLiveWorld> };
   teardown(): Promise<void>;
 }> {
+  const { stack } = opts;
+  const api = stack.apiUrl.replace(/\/$/, '');
+  await mailIdentification(stack);
+  const sql = sqlClient(stack);
+  const sessions = new Map<string, LiveSession>();
+
+  const rows = async <T>(query: Promise<unknown>): Promise<T[]> => (await query) as T[];
+
+  const tokensOf = (session: Session, act: string): LiveSession => {
+    const held = session.sessionId ? sessions.get(session.sessionId) : undefined;
+    if (!held) {
+      throw new Error(`refusing to ${act}: this handle names account ${session.accountId} and holds NO session`);
+    }
+    return held;
+  };
+
+  const postWrite = async (
+    name: string,
+    session: Session | null,
+    body: Record<string, unknown>,
+  ): Promise<{ ok: true; json: Record<string, unknown> } | { ok: false; json: Record<string, unknown>; refusal: WriteRefusal }> => {
+    const bearer = session === null ? stack.anonKey : tokensOf(session, `call the deployed ${name}`).accessToken;
+    const { status, json } = await functionPost(stack, name, body, bearer, CLIENT_IP);
+    if (status < 400 && json.ok !== false) return { ok: true, json };
+    const reason = String(json.reason ?? json.msg ?? json.message ?? `the deployed ${name} answered ${status}`);
+    const kind = status === 401 ? 'unauthenticated' : parseWriteRefusalKind(json.kind);
+    return { ok: false, json, refusal: { ok: false, kind, status, reason } };
+  };
+
+  const storePasswordGrant = async (email: string): Promise<Session> => {
+    const signedIn = await authPost(stack, '/auth/v1/token?grant_type=password', { email, password: PASSWORD });
+    const accessToken = String(signedIn.json.access_token ?? '');
+    if (!accessToken) throw new Error(`password grant for ${email} answered with no access token`);
+    const claims = claimsOf(accessToken);
+    const sessionId = String(claims.session_id ?? '');
+    const accountId = String(claims.sub ?? '');
+    sessions.set(sessionId, { accessToken, refreshToken: String(signedIn.json.refresh_token ?? '') });
+    return { accountId, email, sessionId };
+  };
+
   const sut: OrganizationsSut = {
-    provisionNgo: notLanded('provisionNgo'),
+    provisionNgo: async (email, opts): Promise<NgoActor> => {
+      const { status, json } = await authPost(stack, '/auth/v1/signup', { email, password: PASSWORD });
+      if (status >= 400) throw new Error(`the live signup for ${email} answered ${status}`);
+      const accountId = String((json.id as string | undefined) ?? (json.user as { id?: string } | undefined)?.id ?? '');
+      if (!accountId) throw new Error('the live signup answered 200 but named no user id');
+      if (!opts.emailVerified) {
+        throw new Error('REQ-002 live adapter: an unconfirmed NGO is provisioned as the operator in a later unit');
+      }
+      const link = (await verifyLinksFor(stack, email, 'signup'))[0] ?? null;
+      if (link === null) throw new Error(`no confirmation email reached the stack's mail catcher for ${email}`);
+      const used = await followLink(link);
+      if (used.status >= 400) throw new Error(`following the confirmation link for ${email} answered ${used.status}`);
+      const session = await storePasswordGrant(email);
+      const answer = await postWrite('complete-signup', session, {
+        accountType: 'ngo',
+        organizationName: `Riverside ${email}`,
+        acknowledgmentTextVersion: TEXT_VERSION,
+        ...SIGNER,
+      });
+      if (!answer.ok) throw new Error(`NGO completion for ${email} was refused: ${answer.refusal.reason}`);
+      const organizationId = String(answer.json.organizationId ?? '');
+      if (!organizationId) throw new Error(`NGO completion for ${email} named no organisation`);
+      return { session, accountId: session.accountId, organizationId, email };
+    },
     provisionVolunteer: notLanded('provisionVolunteer'),
-    provisionPlatformAdmin: notLanded('provisionPlatformAdmin'),
+    provisionPlatformAdmin: async (email): Promise<Session> => {
+      const created = await fetch(`${api}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          apikey: stack.serviceRoleKey,
+          Authorization: `Bearer ${stack.serviceRoleKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password: PASSWORD, email_confirm: true }),
+      });
+      if (created.status >= 400) throw new Error(`provisioning a platform administrator answered ${created.status}`);
+      const user = (await created.json()) as { id?: string };
+      const accountId = String(user.id ?? '');
+      if (!accountId) throw new Error('the admin user API answered 200 but named no user id');
+      await sql`insert into public.accounts (id, account_type) values (${accountId}::uuid, 'platform_admin')`;
+      return storePasswordGrant(email);
+    },
     deactivateAccountAsOperator: notLanded('deactivateAccountAsOperator'),
 
     setProfile: notLanded('setProfile'),
     profile: notLanded('profile'),
     organizationDashboard: notLanded('organizationDashboard'),
 
-    setVetting: notLanded('setVetting'),
-    vettingRecord: notLanded('vettingRecord'),
-    attemptVettingRowAsOperator: notLanded('attemptVettingRowAsOperator'),
-    vettingAuditEvents: notLanded('vettingAuditEvents'),
+    setVetting: async (session, request: VettingRequest & Record<string, unknown>): Promise<VettingOutcome> => {
+      const answer = await postWrite('set-organization-vetting', session, request);
+      if (!answer.ok) return answer.refusal;
+      const notificationEventId = answer.json.notificationEventId;
+      return {
+        ok: true,
+        organizationId: String(answer.json.organizationId ?? request.organizationId),
+        vetted: answer.json.vetted === true,
+        changed: answer.json.changed === true,
+        notificationEventId: typeof notificationEventId === 'string' ? notificationEventId : null,
+      };
+    },
+    vettingRecord: async (organizationId): Promise<VettingRecord | null> => {
+      const found = await rows<VettingSqlRow>(
+        sql`select org_id, vetted, vetted_by_account_id, vetted_at, organization_name, public_reference_url,
+                   contact_name, contact_title, authority_attestation, evidence_type, note,
+                   registration_received_at, registration_document_count, registration_copies_deleted
+              from public.org_vetting where org_id = ${organizationId}::uuid`,
+      );
+      if (found.length !== 1) return null;
+      return vettingRecordFromSql(found[0]);
+    },
+    attemptVettingRowAsOperator: async (row): Promise<OperatorWriteOutcome> => {
+      try {
+        await sql`
+          insert into public.org_vetting (
+            org_id, vetted, vetted_by_account_id, vetted_at,
+            organization_name, public_reference_url, contact_name, contact_title,
+            authority_attestation, evidence_type, note,
+            registration_received_at, registration_document_count, registration_copies_deleted
+          ) values (
+            ${row.organizationId}::uuid,
+            ${row.vetted}::boolean,
+            ${row.vettedByAccountId}::uuid,
+            ${row.vettedAt}::timestamptz,
+            ${row.organizationName},
+            ${row.publicReferenceUrl},
+            ${row.contactName},
+            ${row.contactTitle},
+            ${row.authorityAttestation},
+            ${row.evidenceType},
+            ${row.note},
+            ${row.registrationReceivedAt ?? null}::timestamptz,
+            ${row.registrationDocumentCount ?? null}::integer,
+            ${row.registrationCopiesDeleted ?? null}::boolean
+          )
+        `;
+        return { ok: true };
+      } catch (error) {
+        const { message } = databaseRefusal(error);
+        return { ok: false, reason: message };
+      }
+    },
+    vettingAuditEvents: async (organizationId): Promise<VettingAuditRow[]> => {
+      const found = await rows<{
+        id: string;
+        occurred_at: string | Date;
+        actor_account_id: string | null;
+        actor_label: string;
+        subject_org_id: string | null;
+        reason: string;
+        detail: unknown;
+      }>(
+        sql`select id, occurred_at, actor_account_id, actor_label, subject_org_id, reason, detail
+              from public.audit_events
+             where event_kind = 'org_vetting_changed'
+               and subject_org_id = ${organizationId}::uuid
+             order by occurred_at, id`,
+      );
+      return found.map((event) => {
+        const detail = (typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail) as Record<string, unknown>;
+        const current = vettingAuditCurrentFromDetail(detail);
+        if (current === null) {
+          throw new Error(`audit row ${event.id} has no current vetting snapshot`);
+        }
+        return {
+          id: String(event.id),
+          occurredAt: new Date(event.occurred_at).toISOString(),
+          actorAccountId: event.actor_account_id === null ? null : String(event.actor_account_id),
+          actorLabel: event.actor_label,
+          subjectOrgId: String(event.subject_org_id ?? organizationId),
+          reason: event.reason,
+          detail: {
+            action: detail.action === 'unvet' ? 'unvet' : 'vet',
+            previousVetted: detail.previous_vetted === true,
+            current,
+          },
+        };
+      });
+    },
 
     notificationEvents: notLanded('notificationEvents'),
     notificationDeliveries: notLanded('notificationDeliveries'),
@@ -78,6 +299,8 @@ export async function createLiveAdapter(_opts: { stack: Stack }): Promise<{
         return new OrganizationsLiveWorld(namespace);
       },
     },
-    teardown: async () => {},
+    teardown: async () => {
+      await sql.close().catch(() => undefined);
+    },
   };
 }
