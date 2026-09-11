@@ -22,36 +22,25 @@ import {
 } from './_source-scan.ts';
 
 /**
- * WHAT THIS IS. A naming-and-copy oracle over quoted strings (and JSX text under src/). It
- * refuses a "verified" trust claim about an organisation, and it refuses a person-facing trust
- * flag whose label is not exactly "founder-vetted".
+ * A naming-and-copy oracle over quoted strings (and JSX text under src/). It refuses a
+ * "verified" trust claim about an organisation, and a person-facing trust flag whose label
+ * is not exactly "founder-vetted".
  *
- * HOW IT TELLS EMAIL VERIFICATION APART FROM AN ORG TRUST CLAIM.
- * "verified" in this tree almost always means the email-confirmation floor (GoTrue
- * `email_confirmed_at`, the `email-unverified` refusal, `Decision<'verified'>` in
- * `verification.ts`). That is a different subject from founder-vetting. An arm that treated
- * every "verified" as a trust claim would be red on honest code and would then be weakened
- * until it proved nothing.
+ * "verified" in this tree almost always means the email-confirmation floor. The split is
+ * the SUBJECT of each string. A string is email or auth verification when it names email,
+ * a jwt, a token, or a source address. A string is an organisation trust claim when it
+ * names an organisation or NGO and uses "verified" as that organisation's trust word.
+ * A standalone "verified" / "Verified" label is a claim on a person-facing surface
+ * (src/, notification-copy, public-project, tenant-reads). The one exemption is the
+ * lower-case token `'verified'` away from a person-facing surface: that is the
+ * email-decision value. `'Verified'` is not that value.
  *
- * The split is the SUBJECT of each string, not a proximity heuristic on the word "email" alone.
- * A string is email or auth verification when it names email, a jwt, a token, or a source
- * address. A string is an organisation trust claim when it names an organisation or NGO and
- * uses "verified" as that organisation's trust word. A standalone "verified" / "Verified" label
- * is a claim only on a person-facing surface (src/, notification-copy, public-project,
- * tenant-reads); the same token in `verification.ts` is the email-decision value and is left
- * alone. Internal identifiers (`DiscoveryTier = 'unverified' | 'vetted'`, `vetted: boolean`)
- * are not a person-facing flag.
+ * A `verified` field is an organisation trust claim when it sits on a person-facing
+ * surface or the enclosing declaration names an organisation or NGO, and the enclosing
+ * declaration is not email, domain, or webhook-signature verification.
  *
- * A `verified` field is an organisation trust claim when it sits on a person-facing surface or
- * the enclosing declaration names an organisation or NGO, and the enclosing declaration is not
- * email, domain, or webhook-signature verification. A `verified` field about an email address,
- * a domain, or a webhook signature is left alone. A lone `verified` field on an internal module
- * with no organisation subject is left alone.
- *
- * WHAT THIS IS NOT. A naming oracle. A badge whose text is assembled at runtime, or a listing
- * screen that does not exist yet, escapes it. That is why AT-002.23 stays red on the public
- * listing screens: this arm covers the copy and the projections this tree has, not a render of
- * screens that are not here.
+ * A badge whose text is assembled at runtime, or a listing screen that does not exist
+ * yet, escapes it. That is why AT-002.23 stays red on the public listing screens.
  */
 
 const EMAIL_OR_AUTH_VERIFICATION = /\bemail\b|\bjwt\b|\btoken\b|\bsource address\b/i;
@@ -151,29 +140,18 @@ export function trustWordingProblems(): string[] {
 }
 
 /**
- * WHAT THIS IS. A naming oracle over surface names, declaration names, quoted strings, and JSX
- * text. It refuses a Discovery wallet, a Discovery-credit product for sale, and a Discovery-only
+ * A naming oracle over surface names, declaration names, quoted strings, and JSX text. It
+ * refuses a Discovery wallet, a Discovery-credit product for sale, and a Discovery-only
  * balance a caller can hold or buy.
  *
- * HOW IT TELLS A DAILY GRANT APART FROM A WALLET.
- * A wallet is a stored, purchasable, carried-over balance. The tree is full of legitimate
- * Discovery credits that are none of those: a daily grant, a spend row, a debit, a remaining
- * count. Remaining is `granted - spent` and is never stored. An arm that treated every
- * "Discovery credit" as a wallet would be red on honest code and would then be weakened until
- * it proved nothing.
+ * A wallet is a stored, purchasable, carried-over balance. Remaining is `granted - spent`
+ * and is never stored. A name or string is a Discovery wallet when it names Discovery
+ * together with wallet, sku, buy/purchase/top-up, or a holdable balance. A name or string
+ * is daily-grant accounting when it names grant, granted, spent, remaining, debit,
+ * allowance, or "left today" and does not also name a wallet form.
  *
- * The split is the SUBJECT of each name or string, not a proximity count of the word "credit".
- * A name or string is a Discovery wallet when it names Discovery together with wallet, sku,
- * buy/purchase/top-up, or a holdable balance. A name or string is daily-grant accounting when
- * it names grant, granted, spent, remaining, debit, allowance, or "left today" and does not
- * also name a wallet form. Ordinary project fuel, the general balance, and Lovable credits are
- * a different subject and are left alone. Declaration names use the same daily-grant split as
- * copy: a Discovery balance that is the day's remaining is not a wallet.
- *
- * WHAT THIS IS NOT. A disguised `credit-desk.tsx` escapes it, as does a `balance` column
- * added to `discovery_spend` under that word, and copy assembled at runtime. That is why
- * AT-002.10 stays red on the missing checkout: this arm covers the names and the copy this
- * tree has, not a paid-continuation path that is not here.
+ * A disguised `credit-desk.tsx` escapes it. That is why AT-002.10 stays red on the missing
+ * checkout.
  */
 
 const TS_DECLARATION =
@@ -214,7 +192,6 @@ function isDailyGrantAccounting(tokens: readonly string[]): boolean {
   );
 }
 
-/** A type, table, route, or file whose name is a Discovery wallet. */
 function isDiscoveryWalletName(raw: string): boolean {
   const tokens = words(raw);
   if (!hasDiscovery(tokens)) return false;
@@ -328,28 +305,11 @@ export function discoveryWalletProblems(): string[] {
 }
 
 /**
- * WHAT THIS IS. A naming-and-statement oracle over surface names, SQL object names, columns,
- * cron jobs, and triggers. It refuses a write that publishes a project, a store of publish
- * state / visibility / triage, and a scheduled change to a project. Empty is the assertion
- * an absence claims. AT-002.19 and AT-002.20 stay red on the missing publish flow; a green
- * here says the flow is absent, not that those ids are green.
- *
- * HOW IT TELLS PUBLISHING A PROJECT APART FROM SENDING A NOTIFICATION OR RENDERING A PAGE.
- * Publishing a project is a write that takes a project from scoped (or draft) into
- * publication or triage. The notification emitter sends and delivers events. A public
- * project page renders a row. Neither writes a project's publish state. The shipped
- * function `publishingAllowed` is the permit, not the write. Account lifecycle is
- * active/deactivated on an account, not a project state. The taxonomy's `triage.*` wire
- * names are event names for a flow that does not exist yet; they are not a triage queue.
- *
- * The split is the SUBJECT of each name and each scheduled statement, not a count of the
- * word "publish". A name is a project-publish write when it names publishing, a project
- * visibility, a project lifecycle/state, or a triage queue, and is not the public-page
- * read, the permit, a notification send/deliver, or an account lifecycle. A quoted
- * "you may publish" and a comment about the missing flow are copy, and this arm does
- * not read them. Visibility without a project or publish subject is a UI control, not
- * a publish store. A visibility column is publish state on a project table, or on a
- * table whose name is already a publish or triage store.
+ * A naming-and-statement oracle over surface names, SQL object names, columns, cron jobs,
+ * and triggers. It refuses a write that publishes a project, a store of publish state /
+ * visibility / triage, and a scheduled change to a project. AT-002.19 and AT-002.20 stay
+ * red on the missing publish flow; a green here says the flow is absent, not that those
+ * ids are green.
  *
  * The third check is the one an absent route cannot cover: a cron job that writes
  * `public.projects`, or a trigger on `public.projects` that names a publish, scope,
@@ -357,10 +317,7 @@ export function discoveryWalletProblems(): string[] {
  * indefinitely without any publish route existing at all. The two seat-constraint
  * triggers on projects do not name those actions and stay silent.
  *
- * WHAT THIS IS NOT. A naming oracle. A write named `go-live.tsx` escapes it, as does a
- * jsonb field holding a publish flag under another word. That is why AT-002.19 and
- * AT-002.20 stay red: this arm covers the absence this tree can show, not a publish
- * route or a triage queue that is not here.
+ * Visibility without a project or publish subject is a UI control, not a publish store.
  */
 
 const PROJECTS_TABLE_HEAD = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?projects\b/i;

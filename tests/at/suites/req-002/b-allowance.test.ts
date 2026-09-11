@@ -301,8 +301,6 @@ async function proveRolloverRemedy(
     expect(today, 'the product UTC day is not the test process UTC day').toBe(processUtcDay);
   }
 
-  // The day travel is persistSpendOnPreviousUtcDay: a previous-day row is the bytes after
-  // midnight, and this body does not prove the crossing itself. Correction C3.
   await persistSpendOnPreviousUtcDay(sut, ngo.organizationId, today, unverifiedGrant, unverifiedGrant);
 
   const restored = await sut.debitAllowance(ngo.session, ngo.organizationId, 1);
@@ -412,10 +410,6 @@ async function proveUnverifiedCeiling(
   expect(project.id, 'the unverified NGO could not hold a draft project').toBeTruthy();
   const page = await sut.publicProjectPage(project.id, ngo.session);
   expect(page.ok, 'the draft project did not render on the public project page').toBe(true);
-
-  // The criterion also says this NGO cannot publish. No publish route exists in this tree, and
-  // the design of record keeps those ids red for that reason. This body does not treat that
-  // absence as proof.
 }
 
 describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
@@ -446,9 +440,6 @@ describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
 
       const { w, sut } = await open();
       const ngo = await sut.provisionNgo(w.email('ngo-05'), { emailVerified: true });
-
-      // On an unfunded project is the criterion's own scope, and every project in this tree is
-      // unfunded because no checkout exists.
 
       const blocked = await reachZeroCreditBlock(sut, ngo.session, ngo.organizationId, unverifiedGrant);
       if (blocked === null) return;

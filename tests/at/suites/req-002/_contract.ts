@@ -9,21 +9,11 @@
  *
  * THE JUDGEMENT TYPES ARE IMPORTED FROM THE SHIPPED MODULES, not restated. `WriteRefusalKind`,
  * `Decision`, `OrganizationDashboard`, `PublicProjectView`, `NotificationEventRow`,
- * `DeliveryRow`, `Allowance` and `SpendRow` come from `supabase/functions/_shared/`, the same
- * modules the edge functions and the emitter import. The shapes below that no shipped module
- * states yet — the vetting record — are this suite's own, and the unit that ships each one moves
- * its vocabulary into the product module and imports it back here.
- *
- * THE DOMAIN OBJECTS, named before the operations on them:
- *   - the ORGANISATION PROFILE, five fields on `public.organizations`;
- *   - the VETTING RECORD, the one aggregate that says whether an organisation is founder-vetted and
- *     holds the complete evidence of the latest vet;
- *   - the VETTING AUDIT ROW, the append-only history of vet and unvet actions;
- *   - the ALLOWANCE, what an organisation may spend on Discovery today, computed from the vetting
- *     record and the SPEND ROW for the current UTC day;
- *   - the NOTIFICATION rows the emitter writes for a vetting outcome;
- *   - the three PURE POLICIES, publishing, funding, and Discovery messaging, consulted with no
- *     route behind them.
+ * `DeliveryRow`, `Allowance`, `SpendRow` and `VettingOutcomeNotice` come from
+ * `supabase/functions/_shared/`, the same modules the edge functions and the emitter import.
+ * The shapes below that no shipped module states yet — the vetting record — are this suite's
+ * own, and the unit that ships each one moves its vocabulary into the product module and
+ * imports it back here.
  */
 
 import type { WorldSeam } from '../../harness/contracts.ts';
@@ -46,8 +36,6 @@ export { TIERS } from '../../harness/contracts.ts';
 
 export type { Allowance, Decision, DeliveryRow, NotificationEventRow, OrganizationDashboard, PublicProjectView, SpendRow, VettingOutcomeNotice, WriteRefusalKind };
 
-/* ----------------------------------------------------------------------------- the actors */
-
 /**
  * An authenticated session. `sessionId` names the `auth.sessions` row; the live adapter holds the
  * tokens against it, and a handle with no entry cannot act.
@@ -66,8 +54,6 @@ export type NgoActor = {
   email: string;
 };
 
-/* ----------------------------------------------------------------------- the refusal shape */
-
 export type WriteRefusal = {
   ok: false;
   kind: WriteRefusalKind | 'unauthenticated';
@@ -75,9 +61,7 @@ export type WriteRefusal = {
   reason: string;
 };
 
-/* ------------------------------------------------------------------ the organisation profile */
-
-/** The four fields the profile route adds to the name. All four or none: the schema says so. */
+/** The four fields the profile route adds to the name. The definer `set_organization_profile` and this request type take all four; the columns are independently nullable. */
 export type OrganizationProfileFields = {
   mission: string;
   country: string;
@@ -115,8 +99,6 @@ export type ProfileDefinerAttempt = {
 export type ProfileDefinerOutcome =
   | { ok: true; organizationId: string }
   | { ok: false; kind: WriteRefusalKind; reason: string };
-
-/* --------------------------------------------------------------------- the vetting record */
 
 /**
  * The metadata of emailed registration documents. Metadata only: no content, no storage key, no
@@ -230,11 +212,7 @@ export type VettingNotificationEvent = NotificationEventRow & {
   payload: Record<string, unknown>;
 };
 
-/* -------------------------------------------------------------------------- the allowance */
-
 export type AllowanceOutcome = { ok: true; allowance: Allowance } | WriteRefusal;
-
-/* ----------------------------------------------------------------- the three pure policies */
 
 /** Publishing requires the vetted condition; the value names the condition that was met. */
 export type PublishingDecision = Decision<'vetted'>;
@@ -243,13 +221,9 @@ export type FundingDecision = Decision<'not-vetting-gated'>;
 /** Discovery messaging requires a verified email; the value names the condition that was met. */
 export type DiscoveryMessageDecision = Decision<'verified'>;
 
-/* ------------------------------------------------------------------------------- read-back */
-
 export type ViewerAnswer = { status: number; body: string };
 export type TenantReadOutcome<T> = { ok: true; value: T; answer: ViewerAnswer } | { ok: false; answer: ViewerAnswer };
 export type PublicProjectOutcome = { ok: true; page: PublicProjectView; answer: ViewerAnswer } | { ok: false; answer: ViewerAnswer };
-
-/* ------------------------------------------------------------------------------------ the SUT */
 
 /**
  * REQ-002's organisation system under test.
@@ -263,8 +237,6 @@ export type PublicProjectOutcome = { ok: true; page: PublicProjectView; answer: 
  * it, and a green over one says the decision is right and nothing about enforcement.
  */
 export type OrganizationsSut = {
-  /* --------------------------------------------------------------- provisioning the actors */
-
   /**
    * An NGO account seated as admin of its own organisation. `emailVerified: false` leaves the
    * address unconfirmed in Auth, which is AT-002.22's Given. The live public path cannot issue a
@@ -276,8 +248,6 @@ export type OrganizationsSut = {
   provisionPlatformAdmin(email: string): Promise<Session>;
   /** Deactivate an account without touching any seat — the deactivated-admin arm of AT-002.29. */
   deactivateAccountAsOperator(accountId: string): Promise<void>;
-
-  /* --------------------------------------------------------------------- the profile route */
 
   /** The profile route: first completion and every later edit, all five fields at once. */
   setProfile(session: Session | null, request: ProfileRequest): Promise<ProfileOutcome>;
@@ -296,8 +266,6 @@ export type OrganizationsSut = {
    * writes `member`.
    */
   setMembershipRoleAsOperator(organizationId: string, accountId: string, role: 'admin' | 'member'): Promise<void>;
-
-  /* --------------------------------------------------------------------- the vetting route */
 
   /**
    * `POST /functions/v1/set-organization-vetting`. The request may carry keys the type does not
@@ -331,12 +299,8 @@ export type OrganizationsSut = {
    */
   attemptVettingDefinerAsOperator(input: VettingDefinerAttempt): Promise<OperatorWriteOutcome>;
 
-  /* --------------------------------------------------------- the notification rows it wrote */
-
   notificationEvents(filter: { event?: string; recipientId?: string }): Promise<VettingNotificationEvent[]>;
   notificationDeliveries(filter: { eventId?: string; recipientId?: string }): Promise<DeliveryRow[]>;
-
-  /* ------------------------------------------------------------------- the allowance route */
 
   /** `POST /functions/v1/discovery-allowance` with `action: 'read'`. Writes nothing. */
   readAllowance(session: Session | null, organizationId: string): Promise<AllowanceOutcome>;
@@ -358,8 +322,6 @@ export type OrganizationsSut = {
    */
   writeSpendRowAsOperator(row: SpendRow): Promise<void>;
 
-  /* ---------------------------------------------------------------- the three pure policies */
-
   /** The publishing trust condition, consulted. No publish route exists behind it. */
   publishingAllowed(organizationId: string): Promise<PublishingDecision>;
   /** The funding permissibility, consulted. No checkout exists behind it. */
@@ -371,14 +333,10 @@ export type OrganizationsSut = {
    */
   discoveryMessageAllowed(session: Session): Promise<DiscoveryMessageDecision>;
 
-  /* ------------------------------------------------------------------- the public surface */
-
   createProjectAsOperator(organizationId: string, name: string): Promise<{ id: string }>;
   /** The one public surface that exists today; a null or omitted session is a visitor. */
   publicProjectPage(projectId: string, session?: Session | null): Promise<PublicProjectOutcome>;
 };
-
-/* -------------------------------------------------------------------------------- the world */
 
 /**
  * What REQ-002's fixture world adds to the shared seam: an address unique to this world, so two

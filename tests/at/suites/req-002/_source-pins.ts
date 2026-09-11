@@ -40,7 +40,7 @@ export type GrantPinInput = {
   grantFunctionSql: string;
 };
 
-/** SQL arms of `public.discovery_daily_grant`. Throws when the function text cannot be read. */
+/** SQL arms of `public.discovery_daily_grant`. */
 export function parseGrantFunctionArms(sql: string): { unverified: number; vetted: number } {
   if (!GRANT_FUNCTION_HEAD.test(sql)) {
     throw new Error(
@@ -268,12 +268,12 @@ function extractExportedFunction(source: string, name: string): string {
   throw new Error(`parseTypescriptSentenceRenderer could not read the body of ${name}. Refusing to report agreement.`);
 }
 
-/** The exported TypeScript exhausted renderer. Throws when the function text cannot be read. */
+/** The exported TypeScript exhausted renderer. */
 export function parseTypescriptExhaustedRenderer(source: string): string {
   return extractExportedFunction(source, 'dailyAllowanceExhaustedReason');
 }
 
-/** The exported TypeScript oversize-debit renderer. Throws when the function text cannot be read. */
+/** The exported TypeScript oversize-debit renderer. */
 export function parseTypescriptExceedsRemainingRenderer(source: string): string {
   return extractExportedFunction(source, 'debitExceedsRemainingReason');
 }
@@ -498,7 +498,7 @@ export function parseEmailUnverifiedRaise(sql: string): DebitRefusalRaise {
   return found[0];
 }
 
-/** The exported TypeScript email-unverified renderer. Throws when the function text cannot be read. */
+/** The exported TypeScript email-unverified renderer. */
 export function parseTypescriptEmailUnverifiedRenderer(source: string): string {
   return extractExportedFunction(source, 'emailUnverifiedReason');
 }

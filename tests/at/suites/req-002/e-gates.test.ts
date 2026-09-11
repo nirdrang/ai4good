@@ -62,23 +62,15 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
     'when concierge onboarding of an admitted pilot NGO completes, the audited vet action has run and the NGO is founder-vetted on the vetted-tier grant',
     async ({ open }) => {
       // Concierge onboarding is not a route. It is the pilot operator running the ordinary
-      // audited vet action by hand. That is the whole content of "vetted is the pilot default":
-      // the default is a value the operator sets through the audited path, never a bypass that
-      // sets it for them.
-
-      // scanVettingRoutes: exactly one write route reaches the definer, and it admits only the
-      // platform administrator — there is no concierge-onboarding route beside it.
+      // audited vet action by hand.
       expect(
         vettingRouteProblems(),
         'the write-route inventory does not admit exactly one platform-admin path to the vetting definer',
       ).toEqual([]);
-      // scanOrgVettingWriters: no statement outside the definer writes org_vetting — there is no
-      // second writer and no auto-vet path.
       expect(
         orgVettingWriterProblems(),
         'a statement outside public.set_organization_vetting writes public.org_vetting',
       ).toEqual([]);
-      // scanScheduledVetting: no cron job that vets, and no writer of the vetted column outside the definer.
       expect(scheduledVettingProblems(), 'a scheduled job or a writer of the vetted column outside the definer touches vetting').toEqual(
         [],
       );

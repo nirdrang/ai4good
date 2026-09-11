@@ -29,8 +29,6 @@ $$;
 revoke execute on function public.discovery_daily_grant(boolean)
   from public, anon, authenticated, service_role;
 
--- High-water mark for the day's row: granted := greatest(granted, dailyGrantFor(currentTier)).
--- The first row of a new UTC day is inserted with granted = dailyGrantFor(tier) and spent = 0.
 create function public.apply_discovery_grant_mark(
   p_organization_id uuid,
   p_utc_day date,

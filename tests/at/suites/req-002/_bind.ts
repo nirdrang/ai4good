@@ -5,9 +5,6 @@
  * and the `harness-missing` / `sut-missing` split all live in the harness registry. This file
  * supplies only what is REQ-002-specific: which member of `harness.sut` the suite drives, and how
  * it says "not landed yet".
- *
- * ID BINDING: every test is registered through `atTest(id, name, fn)`, the id is supplied ONCE at
- * that call site, and `at:check` reads those call sites.
  */
 
 import { bindSuite } from '../../harness/registry.ts';
@@ -18,8 +15,7 @@ export type { PendingPhase } from '../../harness/registry.ts';
 
 // Re-exported ALREADY BOUND, so a body annotating one of them writes `AtContext` rather than naming
 // a system-under-test shape. Both types derive from the adapter registered under 'req-002' in
-// `harness/suite-adapters.ts`; there is no type argument here through which this suite could
-// declare a seam nothing supplies.
+// `harness/suite-adapters.ts`.
 export type AtContext = HarnessAtContext<'req-002', 'organizations'>;
 export type OpenWorld = HarnessOpenWorld<'req-002', 'organizations'>;
 

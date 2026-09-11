@@ -29,10 +29,7 @@ export function utcDayOf(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/**
- * High-water mark for the day's row. `storedGranted` is null when the day has no row yet.
- * Remaining is `granted - spent` and is never stored.
- */
+/** High-water mark for the day's row. */
 export function highWaterGrant(storedGranted: number | null, tier: DiscoveryTier): number {
   const current = dailyGrantFor(tier);
   return storedGranted === null ? current : Math.max(storedGranted, current);

@@ -1,36 +1,18 @@
 /**
- * The ids REQ-002 has not landed yet, and the leaf that will land each one.
+ * The ids REQ-002 has not landed yet.
  *
- * `harness/check.ts` refuses a run when any P0 id has no registered call site, so all twenty-seven
- * ids of `.taskmaster/docs/acceptance/at-req-002.md` need executable call sites from the day the
- * suite exists. An id not yet written is declared, not faked: it throws, stamped with its own id
- * and with the manifest leaf that will make it real, and `tests/at/expected/req-002.json` declares
+ * `harness/check.ts` refuses a run when any P0 id has no registered call site, so every P0 id
+ * in `.taskmaster/docs/acceptance/at-req-002.md` needs an executable call site from the day the
+ * suite exists. An id that waits on a missing surface is declared, not faked: `awaiting()` throws
+ * `CapabilityPending` with the capability names only. `tests/at/expected/req-002.json` declares
  * that red by shape. A red that turns green fails the declaration, so the unit that lands an id
  * moves it to green in the same change.
  *
- * The tail after the em dash is free: `expected.ts` anchors on the prefix only. Nothing mechanical
- * holds the leaf label to the truth; the manifest and the reviewer do.
+ * Every red in this suite is `capability-pending`. `expected.ts` rebuilds the whole first line
+ * and compares it for equality, so the names after the em dash are matched exactly.
  */
 
 import { CapabilityPending } from './_bind.ts';
-
-/**
- * The manifest's leaves, in the manifest's own words shortened to a recall hint. The keys are the
- * deliverable-and-leaf labels from `loop/decomp/req-002.md`.
- */
-export const LEAF = {
-  D1_L1: 'D1.L1 (profile create: five fields persist and render)',
-  D1_L2: 'D1.L2 (profile edit by the NGO admin only)',
-  D2_L1: 'D2.L1 (tier grants and the vet math)',
-  D2_L3: 'D2.L3 (UTC hard reset once per UTC day)',
-  D2_L4: 'D2.L4 (no Discovery wallet: paid continuation is project fuel)',
-  D3_L1: 'D3.L1 (the vet action audit record, every field or no commit)',
-  D3_L2: 'D3.L2 (only the platform admin vets, only by hand)',
-  D3_L3: 'D3.L3 (unvet closes publishing, funding untouched, outcome via the emitter)',
-  D4_L1: 'D4.L1 (emailed registration documents metadata only, identity documents refused)',
-  D5_L1: 'D5.L1 (publish gates: unvetted blocked, vetted publish goes to triage)',
-  D5_L2: 'D5.L2 (what vetting never gates: Discovery after email verification)',
-} as const;
 
 /**
  * The surfaces the red set waits on, named once so the call sites and the manifest agree by

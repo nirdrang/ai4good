@@ -1,6 +1,5 @@
 /**
  * Oracle for REQ-002's vetting-surface source arms: each refusal the scan names, over injected text.
- * An oracle that cannot fail is not an oracle.
  */
 
 import { describe, expect, it } from 'vitest';
