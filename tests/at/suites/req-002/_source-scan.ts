@@ -1,7 +1,8 @@
 /**
  * REQ-002's SOURCE ARMS for AT-002.30 (manual founder vet only), AT-002.16 (no document
- * content is stored or returned), and the grant-drift scan (the pinned registry, the TypeScript
- * constants, and the SQL grant function).
+ * content is stored or returned), the grant-drift scan (the pinned registry, the TypeScript
+ * constants, and the SQL grant function), and the founder-vetted wording arm (no acceptance
+ * id; AT-002.23 stays red on the listing screens).
  *
  * Precedent: `tests/at/suites/req-001/_source-scan.ts` and `tests/at/suites/req-016/_source-scan.ts`.
  * The arms run at both tiers. The file name starts with an underscore and does not end in
@@ -464,6 +465,131 @@ function loadDocumentContentSinkInput(oracle: string): DocumentContentSinkInput 
 
 export function documentContentSinks(): string[] {
   return scanDocumentContentSinks(loadDocumentContentSinkInput('documentContentSinks'));
+}
+
+/* ---------------------------------------------------------------------- founder-vetted wording */
+
+/**
+ * WHAT THIS IS. A naming-and-copy oracle over quoted strings (and JSX text under src/). It
+ * refuses a "verified" trust claim about an organisation, and it refuses a person-facing trust
+ * flag whose label is not exactly "founder-vetted".
+ *
+ * HOW IT TELLS EMAIL VERIFICATION APART FROM AN ORG TRUST CLAIM.
+ * "verified" in this tree almost always means the email-confirmation floor (GoTrue
+ * `email_confirmed_at`, the `email-unverified` refusal, `Decision<'verified'>` in
+ * `verification.ts`). That is a different subject from founder-vetting. An arm that treated
+ * every "verified" as a trust claim would be red on honest code and would then be weakened
+ * until it proved nothing.
+ *
+ * The split is the SUBJECT of each string, not a proximity heuristic on the word "email" alone.
+ * A string is email or auth verification when it names email, a jwt, a token, or a source
+ * address. A string is an organisation trust claim when it names an organisation or NGO and
+ * uses "verified" as that organisation's trust word. A standalone "verified" / "Verified" label
+ * is a claim only on a person-facing surface (src/, notification-copy, public-project,
+ * tenant-reads); the same token in `verification.ts` is the email-decision value and is left
+ * alone. Internal identifiers (`DiscoveryTier = 'unverified' | 'vetted'`, `vetted: boolean`)
+ * are not a person-facing flag.
+ *
+ * WHAT THIS IS NOT. A naming oracle. A badge whose text is assembled at runtime, or a listing
+ * screen that does not exist yet, escapes it. That is why AT-002.23 stays red on the public
+ * listing screens: this arm covers the copy and the projections this tree has, not a render of
+ * screens that are not here.
+ */
+
+const EMAIL_OR_AUTH_VERIFICATION = /\bemail\b|\bjwt\b|\btoken\b|\bsource address\b/i;
+const ORG_SUBJECT = /\b(?:organisation|organization|ngo)\b/i;
+const VERIFIED_WORD = /\bverified\b/i;
+const WRONG_ORG_TRUST_PREDICATE =
+  /\b(?:organisation|organization)\s+is\s+(?:not\s+|no longer\s+)?(?!founder-vetted)(?:verified|vetted)\b/i;
+const FOUNDER_VERIFIED_BLEND = /\bfounder-verified\b/i;
+const BARE_VERIFIED_LABEL = /^(?:verified|Verified|VERIFIED)$/;
+const WRONG_TRUST_SPELLING = /^(?:founder vetted|founder_vetted|founder-verified)$/i;
+const BARE_VETTED_UI_LABEL = /^(?:vetted|Vetted|VETTED)$/;
+const VERIFIED_FIELD = /\bverified\s*\??\s*:/g;
+
+function isPersonFacingSurface(path: string): boolean {
+  return (
+    path.startsWith('src/') ||
+    path.endsWith('notification-copy.ts') ||
+    path.endsWith('public-project.ts') ||
+    path.endsWith('tenant-reads.ts')
+  );
+}
+
+function quotedStrings(text: string): ReadonlyArray<{ value: string; index: number }> {
+  const found: Array<{ value: string; index: number }> = [];
+  const pattern = /'([^'\n]*)'|"([^"\n]*)"|`([^`\n]*)`/g;
+  for (const match of text.matchAll(pattern)) {
+    found.push({ value: match[1] ?? match[2] ?? match[3] ?? '', index: match.index ?? 0 });
+  }
+  return found;
+}
+
+function jsxTexts(text: string): ReadonlyArray<{ value: string; index: number }> {
+  const found: Array<{ value: string; index: number }> = [];
+  const pattern = />([^<>{\n]+)</g;
+  for (const match of text.matchAll(pattern)) {
+    const value = (match[1] ?? '').trim();
+    if (value.length === 0) continue;
+    found.push({ value, index: match.index ?? 0 });
+  }
+  return found;
+}
+
+export function scanTrustWording(files: readonly SourceFile[]): string[] {
+  if (files.length === 0) {
+    throw new Error('scanTrustWording found no product source. Refusing to report an absence.');
+  }
+
+  const problems: string[] = [];
+
+  for (const file of files) {
+    const pieces = [...quotedStrings(file.text), ...(file.path.startsWith('src/') ? jsxTexts(file.text) : [])];
+    for (const piece of pieces) {
+      if (piece.value.length === 0) continue;
+      const loc = `${file.path}:${lineOf(file.text, piece.index)}`;
+      const shown = JSON.stringify(piece.value);
+
+      if (WRONG_ORG_TRUST_PREDICATE.test(piece.value) || FOUNDER_VERIFIED_BLEND.test(piece.value)) {
+        problems.push(`${loc} names organisation trust as something other than founder-vetted: ${shown}`);
+        continue;
+      }
+      if (VERIFIED_WORD.test(piece.value) && !EMAIL_OR_AUTH_VERIFICATION.test(piece.value) && ORG_SUBJECT.test(piece.value)) {
+        problems.push(`${loc} makes a verified trust claim about an organisation: ${shown}`);
+        continue;
+      }
+      if (WRONG_TRUST_SPELLING.test(piece.value)) {
+        problems.push(`${loc} uses ${shown} as a trust label; the label is founder-vetted`);
+        continue;
+      }
+      // The one exemption, stated once: `'verified'` in lower case away from a person-facing
+      // surface is the email decision's value, as in `Decision<'verified'>`. `'Verified'` is not
+      // that value, and neither is the same token in copy a person reads.
+      const isEmailDecisionValue = piece.value === 'verified' && !isPersonFacingSurface(file.path);
+      if (BARE_VERIFIED_LABEL.test(piece.value) && !isEmailDecisionValue) {
+        problems.push(`${loc} uses ${shown} as a trust label; the label is founder-vetted`);
+        continue;
+      }
+      if (file.path.startsWith('src/') && BARE_VETTED_UI_LABEL.test(piece.value)) {
+        problems.push(`${loc} uses ${shown} as a trust label; the label is founder-vetted`);
+      }
+    }
+
+    if (file.path.endsWith('.ts') || file.path.endsWith('.tsx')) {
+      VERIFIED_FIELD.lastIndex = 0;
+      for (const match of file.text.matchAll(VERIFIED_FIELD)) {
+        problems.push(
+          `${file.path}:${lineOf(file.text, match.index ?? 0)} names a verified field on a product surface`,
+        );
+      }
+    }
+  }
+
+  return [...new Set(problems)].sort();
+}
+
+export function trustWordingProblems(): string[] {
+  return scanTrustWording(productFiles('trustWordingProblems'));
 }
 
 /* ---------------------------------------------------------------------- grant-drift (G5) */

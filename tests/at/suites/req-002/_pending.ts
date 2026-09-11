@@ -31,7 +31,6 @@ export const LEAF = {
   D4_L1: 'D4.L1 (emailed registration documents metadata only, identity documents refused)',
   D5_L1: 'D5.L1 (publish gates: unvetted blocked, vetted publish goes to triage)',
   D5_L2: 'D5.L2 (what vetting never gates: Discovery after email verification)',
-  D5_L3: 'D5.L3 (pilot default vetted at 30, founder-vetted wording)',
 } as const;
 
 export type LeafLabel = (typeof LEAF)[keyof typeof LEAF];

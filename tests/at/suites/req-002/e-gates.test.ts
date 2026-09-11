@@ -11,7 +11,12 @@
 import { describe, expect } from 'vitest';
 import { createConfigRegistry } from '../../harness/config.ts';
 import { atTest } from './_bind.ts';
-import { AWAITED, awaiting, LEAF, notLanded } from './_pending.ts';
+import { AWAITED, awaiting } from './_pending.ts';
+import {
+  orgVettingWriterProblems,
+  scheduledVettingProblems,
+  vettingRouteProblems,
+} from './_source-scan.ts';
 import type { AllowanceOutcome, OrganizationsSut, Session, WriteRefusal } from './_contract.ts';
 
 const EVIDENCE = {
@@ -25,6 +30,7 @@ const EVIDENCE = {
 } as const;
 
 const UNVERIFIED_PIN = 'req-002.discovery.daily_credits.unverified';
+const VETTED_PIN = 'req-002.discovery.daily_credits.vetted';
 const NAMES_VETTING = /vet/i;
 
 function discoveryRefusalReasons(outcomes: Array<{ ok: true } | WriteRefusal>): string[] {
@@ -51,7 +57,83 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
 
   atTest('AT-002.20', 'a vetted NGO with a completed scope publishes and the project enters triage', awaiting(AWAITED.publishFlow, AWAITED.triageQueue));
 
-  atTest('AT-002.28', 'when concierge onboarding of an admitted pilot NGO completes, the audited vet action has run and the NGO is founder-vetted on the vetted-tier grant', notLanded(LEAF.D5_L3));
+  atTest(
+    'AT-002.28',
+    'when concierge onboarding of an admitted pilot NGO completes, the audited vet action has run and the NGO is founder-vetted on the vetted-tier grant',
+    async ({ open }) => {
+      // Concierge onboarding is not a route. It is the pilot operator running the ordinary
+      // audited vet action by hand. That is the whole content of "vetted is the pilot default":
+      // the default is a value the operator sets through the audited path, never a bypass that
+      // sets it for them.
+
+      // scanVettingRoutes: exactly one write route reaches the definer, and it admits only the
+      // platform administrator — there is no concierge-onboarding route beside it.
+      expect(
+        vettingRouteProblems(),
+        'the write-route inventory does not admit exactly one platform-admin path to the vetting definer',
+      ).toEqual([]);
+      // scanOrgVettingWriters: no statement outside the definer writes org_vetting — there is no
+      // second writer and no auto-vet path.
+      expect(
+        orgVettingWriterProblems(),
+        'a statement outside public.set_organization_vetting writes public.org_vetting',
+      ).toEqual([]);
+      // scanScheduledVetting: no cron job or trigger vets — the default is not a scheduled job.
+      expect(scheduledVettingProblems(), 'a scheduled job or a trigger on org_vetting touches vetting').toEqual([]);
+
+      const pins = createConfigRegistry();
+      const vettedGrant = pins.get<number>(VETTED_PIN);
+
+      const { w, sut } = await open();
+      const ngo = await sut.provisionNgo(w.email('ngo-28'), { emailVerified: true });
+      const admin = await sut.provisionPlatformAdmin(w.email('admin-28'));
+
+      expect(
+        await sut.vettingRecord(ngo.organizationId),
+        'signup left the organisation founder-vetted without an operator vet',
+      ).toBeNull();
+
+      const outcome = await sut.setVetting(admin, {
+        organizationId: ngo.organizationId,
+        action: 'vet',
+        ...EVIDENCE,
+      });
+      expect(outcome, 'the platform admin vet was refused').toMatchObject({
+        ok: true,
+        organizationId: ngo.organizationId,
+        vetted: true,
+        changed: true,
+      });
+      if (!outcome.ok) return;
+
+      const record = await sut.vettingRecord(ngo.organizationId);
+      expect(record, 'the vet wrote no aggregate row').not.toBeNull();
+      if (record === null) return;
+      expect(record.vetted, 'concierge onboarding did not leave the organisation founder-vetted').toBe(true);
+      expect(record, 'the vetting record does not carry the evidence the operator gave').toMatchObject(EVIDENCE);
+
+      const audits = await sut.vettingAuditEvents(ngo.organizationId);
+      expect(audits, 'the vet wrote no audit row').toHaveLength(1);
+      expect(
+        audits[0].actorAccountId,
+        'the vet action is not attributed to the platform administrator who ran it',
+      ).toBe(admin.accountId);
+      expect(audits[0].detail.action).toBe('vet');
+
+      const allowance = await sut.readAllowance(ngo.session, ngo.organizationId);
+      expect(
+        allowance.ok,
+        allowance.ok
+          ? 'the allowance read was refused'
+          : `the allowance read was refused as ${allowance.kind}: ${allowance.reason}`,
+      ).toBe(true);
+      if (!allowance.ok) return;
+      expect(allowance.allowance.vetted).toBe(true);
+      expect(allowance.allowance.dailyGrant, 'the daily grant is not the vetted pin').toBe(vettedGrant);
+      expect(allowance.allowance.remaining, 'the remaining credits are not the vetted pin').toBe(vettedGrant);
+      expect(allowance.allowance.spentToday).toBe(0);
+    },
+  );
 
   atTest(
     'AT-002.21',

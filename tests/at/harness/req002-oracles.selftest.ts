@@ -1,5 +1,5 @@
 /**
- * Oracle for REQ-002's AT-002.30 source arms: each refusal the scan names, over injected text.
+ * Oracle for REQ-002's source arms: each refusal the scan names, over injected text.
  * An oracle that cannot fail is not an oracle.
  */
 
@@ -14,9 +14,11 @@ import {
   scanKycSurfaces,
   scanOrgVettingWriters,
   scanScheduledVetting,
+  scanTrustWording,
   scanVettedState,
   scanVettingRoutes,
   scheduledVettingProblems,
+  trustWordingProblems,
   vettedStateProblems,
   vettingRouteProblems,
   type RouteInventory,
@@ -54,6 +56,7 @@ describe('REQ-002 source oracles over the real tree', () => {
     expect(kycSurfaceProblems()).toEqual([]);
     expect(vettedStateProblems()).toEqual([]);
     expect(documentContentSinks()).toEqual([]);
+    expect(trustWordingProblems()).toEqual([]);
   });
 });
 
@@ -303,5 +306,96 @@ describe('scanDocumentContentSinks refusals', () => {
         uiRoutes: ['index.tsx'],
       }),
     ).toThrow(/no SQL migrations/);
+  });
+});
+
+describe('scanTrustWording refusals', () => {
+  const clean = [
+    {
+      path: 'supabase/functions/_shared/verification.ts',
+      text:
+        "export function discoveryMessageAllowed(): { ok: true; value: 'verified' } {\n" +
+        "  return { ok: true, value: 'verified' };\n" +
+        '}\n',
+    },
+    {
+      path: 'supabase/functions/_shared/notification-copy.ts',
+      text:
+        "subject: 'Your organisation is founder-vetted';\n" +
+        "body: 'A platform administrator vetted your organisation. Your daily Discovery allowance is now the vetted grant.';\n" +
+        "if (text(payload, 'outcome') === 'vetted') return subject;\n",
+    },
+    {
+      path: 'supabase/functions/_shared/public-project.ts',
+      text: 'export type PublicProjectView = { projectId: string; projectName: string; organizationName: string };\n',
+    },
+    {
+      path: 'supabase/functions/_shared/discovery-allowance.ts',
+      text: "export type DiscoveryTier = 'unverified' | 'vetted';\nexport const DISCOVERY_DAILY_GRANT = { unverified: 10, vetted: 30 };\n",
+    },
+    {
+      path: 'supabase/functions/_shared/org-vetting.ts',
+      text: "reason: 'publishing needs a founder-vetted organisation — this organisation is not founder-vetted';\n",
+    },
+    {
+      path: 'supabase/migrations/allowance.sql',
+      text: "raise exception 'discovery_allowance refuses %: the caller''s email address is not verified';\n",
+    },
+    { path: 'src/routes/index.tsx', text: '<h1 className="text-4xl font-bold">ai4good</h1>\n' },
+  ];
+
+  it('accepts email-verification copy, the email-decision token, internal tier names, and founder-vetted wording', () => {
+    expect(scanTrustWording(clean)).toEqual([]);
+  });
+
+  it('fails a verified trust claim about an organisation', () => {
+    const problems = scanTrustWording([
+      ...clean,
+      {
+        path: 'supabase/functions/_shared/notification-copy.ts',
+        text: "subject: 'Your organisation is verified';\n",
+      },
+    ]);
+    expect(problems.some((problem) => /verified trust claim|other than founder-vetted/.test(problem))).toBe(true);
+  });
+
+  it('fails a person-facing Verified badge', () => {
+    const problems = scanTrustWording([...clean, { path: 'src/routes/index.tsx', text: '<span>Verified</span>\n' }]);
+    expect(problems.some((problem) => problem.includes('Verified') && /trust label/.test(problem))).toBe(true);
+  });
+
+  it('fails a verified field on the public projection', () => {
+    const problems = scanTrustWording([
+      {
+        path: 'supabase/functions/_shared/public-project.ts',
+        text: 'export type PublicProjectView = { projectId: string; verified: boolean };\n',
+      },
+    ]);
+    expect(problems.some((problem) => /verified field/.test(problem))).toBe(true);
+  });
+
+  it('fails organisation-is-vetted copy that drops founder-', () => {
+    const problems = scanTrustWording([
+      {
+        path: 'supabase/functions/_shared/notification-copy.ts',
+        text: "subject: 'Your organisation is vetted';\n",
+      },
+    ]);
+    expect(problems.some((problem) => /other than founder-vetted/.test(problem))).toBe(true);
+  });
+
+  it('does not flag a verified email refusal that names an organisation', () => {
+    expect(
+      scanTrustWording([
+        {
+          path: 'supabase/functions/_shared/verification.ts',
+          text: "reason: 'the organisation admin email address is not verified';\n",
+        },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('throws when there is no product source', () => {
+    expect(() => scanTrustWording([])).toThrow(/no product source/);
   });
 });

@@ -3,8 +3,10 @@
  * Source: .taskmaster/docs/acceptance/at-req-002.md
  *
  * The sweep covers listing screens this tree does not have. The id is declared red by shape in
- * `tests/at/expected/req-002.json`; the one public surface that exists today, the public project
- * page, is inspected by the unit that lands the pilot default.
+ * `tests/at/expected/req-002.json`. The part of the sweep that is reachable today — no shipped
+ * product surface makes a "verified" trust claim about an organisation, and a person-facing
+ * trust flag is labelled exactly "founder-vetted" — is `trustWordingProblems` in `_source-scan.ts`.
+ * That arm has no acceptance id. This body stays the capability-pending throw.
  */
 
 import { describe } from 'vitest';
