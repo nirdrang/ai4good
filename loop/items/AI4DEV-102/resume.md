@@ -19,9 +19,10 @@ the synthesis are all finished and committed. The design of record is
 | unit 4, the evidence rule | `26002f6` | AT-002.16, AT-002.17, AT-002.18, at both tiers |
 | unit 5, the organisation profile | `4892ac5` | AT-002.01, at both tiers |
 | unit 6, the profile edit | `56f61f8` | AT-002.02, at both tiers |
+| unit 7, the spend ledger and the vet math | `0af622a` | AT-002.04, AT-002.07, AT-002.08, at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `56f61f8`, tree
-clean, nothing pushed since the brief commit. The local Supabase stack is up. Eleven of twenty-seven
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `0af622a`, tree
+clean, nothing pushed since the brief commit. The local Supabase stack is up. Fourteen of twenty-seven
 acceptance ids are green.
 
 Two commits below the head are not units. `fe4987b` carries the model sheet change of 2026-09-10:
@@ -31,16 +32,22 @@ this branch merges.
 
 ## The first action on resume
 
-Unit 7, AI4DEV-107 (tier grants and vet math), for AT-002.04, AT-002.07 and AT-002.08. The spend
-ledger lands here, and every later allowance unit inherits it. Standing constraints 1, 2 and 9 all
-bind this unit: the clock after the lock, the credits kept until the next UTC day, and the pinned
-grants 10 and 30.
+Unit 8, AI4DEV-109 (the UTC reset), for AT-002.06. Correction C3 in the design of record says exactly
+what this body may claim and what it may not. **This unit must also prove the carry below**, because
+it is the first unit that can travel between UTC days.
 
 Open carry from unit 4: an extra key on a vetting request is refused as an invalid request rather
 than as invalid evidence. The refusal is correct and its kind is less precise than it could be.
 
 Open carry from unit 5: the profile route demands all five fields on every call, so a caller cannot
 clear one field back to null. No criterion asks for that.
+
+Open carry from unit 7, and the one the next unit must close: the ledger mark takes the higher of the
+tier before a vetting action and the tier after it. The lead fixed that during review, in the
+migration and in the loop fixture. It has no test, because a vet always writes that day mark, so the
+case appears only when an unvet lands on a day whose ledger row does not exist yet. Prove it in the
+UTC reset unit: an organisation vetted on an earlier day, unvetted today before any Discovery turn,
+keeps the vetted grant for the rest of today.
 
 Open carry from unit 6: the member-of-this-organisation caller is the single seat with its role
 changed by an operator write, because the unique seat forbids a second membership row. No product
@@ -145,6 +152,11 @@ integration and twenty at loop when every unit has landed.
 - The read gate refuses an unbounded read over 350 lines. Page it, or send a read lane with an aim.
 - Never paste the output of `bun run db:start`. It contains a secret key, and GitHub push protection
   then refuses every later push on the branch.
+- An integration run resets the stack, so its database and its authentication service restart. A
+  check that starts in that window reports every id red with a 502 from the provisioning call. That
+  is the environment, not the code. Run the check again before you look for a cause in the diff.
+- Two stacks from the parked slot pool, `ai4good-slot-1` and `ai4good-slot-2`, are still running.
+  They are not part of this run. Report them; never remove them without a founder decision.
 
 
 

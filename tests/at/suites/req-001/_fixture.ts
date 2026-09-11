@@ -240,6 +240,10 @@ import {
   type LifecycleChangeArgs,
 } from '../../../../supabase/functions/_shared/admin-operations.ts';
 import {
+  decideDiscoveryAllowance,
+  type DiscoveryAllowanceArgs,
+} from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import {
   decideOrganizationVetting,
   type OrganizationVettingArgs,
 } from '../../../../supabase/functions/_shared/org-vetting.ts';
@@ -756,6 +760,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     name: 'set-organization-vetting',
     target: organizationIdField,
     decide: decideOrganizationVetting,
+  };
+  const DISCOVERY_ALLOWANCE: WriteRouteSpec<DiscoveryAllowanceArgs, AccountWriteRouteInput> = {
+    name: 'discovery-allowance',
+    target: organizationIdField,
+    decide: decideDiscoveryAllowance,
   };
   const DISCOVERY_MESSAGE: WriteRouteSpec<{ message: string }, AccountWriteRouteInput> = {
     name: 'discovery-message',
@@ -1732,6 +1741,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             },
             null,
           );
+          if (!run.ok) return run;
+          return { ok: true };
+        },
+        'discovery-allowance': async () => {
+          if (subject.route !== 'discovery-allowance') throw new Error('unreachable');
+          const body: Record<string, unknown> = { organizationId: subject.organizationId, action: subject.action };
+          if (subject.action === 'debit') body.credits = subject.credits;
+          const run = runWrite(DISCOVERY_ALLOWANCE, session, body, null);
           if (!run.ok) return run;
           return { ok: true };
         },

@@ -28,6 +28,7 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   audit_events: 'unreachable-by-client-roles',
   org_escalation_contacts: 'unreachable-by-client-roles',
   org_vetting: 'unreachable-by-client-roles',
+  discovery_spend: 'unreachable-by-client-roles',
   notification_event_types: 'unreachable-by-client-roles',
   notification_events: 'unreachable-by-client-roles',
   notification_deliveries: 'tenant-isolated',

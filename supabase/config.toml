@@ -512,6 +512,9 @@ verify_jwt = true
 [functions.set-organization-vetting]
 verify_jwt = true
 
+[functions.discovery-allowance]
+verify_jwt = true
+
 [functions.organization-dashboard]
 verify_jwt = true
 

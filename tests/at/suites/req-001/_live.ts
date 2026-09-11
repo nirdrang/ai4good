@@ -1009,6 +1009,13 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           });
           return answer.ok ? { ok: true } : answer.refusal;
         },
+        'discovery-allowance': async () => {
+          if (subject.route !== 'discovery-allowance') throw new Error('unreachable');
+          const body: Record<string, unknown> = { organizationId: subject.organizationId, action: subject.action };
+          if (subject.action === 'debit') body.credits = subject.credits;
+          const answer = await postWrite('discovery-allowance', session, body);
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
         'discovery-message': async () => {
           throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
         },

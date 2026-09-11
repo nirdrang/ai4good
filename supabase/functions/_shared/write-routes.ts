@@ -56,6 +56,10 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'set_organization_vetting' },
     standing: { kind: 'account-required', admits: ['platform_admin'] },
   },
+  'discovery-allowance': {
+    surface: { kind: 'edge', rpc: 'discovery_allowance' },
+    standing: { kind: 'account-required', admits: ['ngo'] },
+  },
   'discovery-message': {
     surface: {
       kind: 'stand-in',
@@ -79,6 +83,9 @@ export const WRITE_REFUSAL_KINDS = [
   'invalid-name',
   'invalid-contact',
   'invalid-evidence',
+  'invalid-credit-amount',
+  'daily-allowance-exhausted',
+  'email-unverified',
   'no-such-organisation',
   'not-the-current-contact',
   'transferee-no-account',

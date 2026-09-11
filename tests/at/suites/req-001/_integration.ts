@@ -2280,6 +2280,8 @@ function deactivatedSubject(
         evidenceType: 'organization_website',
         note: `deactivated vet ${tag}`,
       };
+    case 'discovery-allowance':
+      return { route, organizationId, action: 'read' };
     case 'discovery-message':
       return { route, message: `hello ${tag} ${route} ${accountType} deactivated` };
   }
@@ -2301,6 +2303,8 @@ async function snapshotWrite(sut: AccountsSut, session: Session | null, subject:
       return { account: await sut.account(subject.accountId) };
     case 'set-organization-vetting':
       return { audit: await sut.auditEvents({ subjectOrgId: subject.organizationId }) };
+    case 'discovery-allowance':
+      return { organization: await sut.organization(subject.organizationId) };
     case 'discovery-message':
       return { messages: session ? await sut.discoveryMessagesBy(session.accountId) : [] };
     case 'complete-signup':
@@ -2408,6 +2412,12 @@ async function provisionActiveControl(
           note: `founder vet ${tag}`,
         },
       };
+    }
+    case 'discovery-allowance': {
+      const ngo = await signIn(w.email(`allowance-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Allowance Host ${tag}`);
+      return { session: ngo, subject: { route, organizationId, action: 'read' } };
     }
     case 'discovery-message': {
       const session =

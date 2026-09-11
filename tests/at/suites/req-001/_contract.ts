@@ -333,6 +333,12 @@ export type WriteSubject =
       readonly evidenceType: string;
       readonly note: string;
     }
+  | {
+      readonly route: 'discovery-allowance';
+      readonly organizationId: string;
+      readonly action: 'read' | 'debit';
+      readonly credits?: number;
+    }
   | { readonly route: 'discovery-message'; readonly message: string };
 
 export type WriteAttemptOutcome = { ok: true } | WriteRefusal;

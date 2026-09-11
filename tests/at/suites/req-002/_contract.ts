@@ -8,11 +8,11 @@
  * type-check stays green.
  *
  * THE JUDGEMENT TYPES ARE IMPORTED FROM THE SHIPPED MODULES, not restated. `WriteRefusalKind`,
- * `Decision`, `OrganizationDashboard`, `PublicProjectView`, `NotificationEventRow` and
- * `DeliveryRow` come from `supabase/functions/_shared/`, the same modules the edge functions and
- * the emitter import. The shapes below that no shipped module states yet — the vetting record, the
- * allowance, the spend row — are this suite's own, and the unit that ships each one moves its
- * vocabulary into the product module and imports it back here.
+ * `Decision`, `OrganizationDashboard`, `PublicProjectView`, `NotificationEventRow`,
+ * `DeliveryRow`, `Allowance` and `SpendRow` come from `supabase/functions/_shared/`, the same
+ * modules the edge functions and the emitter import. The shapes below that no shipped module
+ * states yet — the vetting record — are this suite's own, and the unit that ships each one moves
+ * its vocabulary into the product module and imports it back here.
  *
  * THE DOMAIN OBJECTS, named before the operations on them:
  *   - the ORGANISATION PROFILE, five fields on `public.organizations`;
@@ -27,6 +27,7 @@
 
 import type { WorldSeam } from '../../harness/contracts.ts';
 import type { Decision } from '../../../../supabase/functions/_shared/accounts.ts';
+import type { Allowance, SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import type { DeliveryRow, NotificationEventRow } from '../../../../supabase/functions/_shared/notifications.ts';
 import type { VettingOutcomeNotice } from '../../../../supabase/functions/_shared/org-vetting.ts';
 import type { PublicProjectView } from '../../../../supabase/functions/_shared/public-project.ts';
@@ -42,7 +43,7 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-export type { Decision, DeliveryRow, NotificationEventRow, OrganizationDashboard, PublicProjectView, VettingOutcomeNotice, WriteRefusalKind };
+export type { Allowance, Decision, DeliveryRow, NotificationEventRow, OrganizationDashboard, PublicProjectView, SpendRow, VettingOutcomeNotice, WriteRefusalKind };
 
 /* ----------------------------------------------------------------------------- the actors */
 
@@ -230,29 +231,7 @@ export type VettingNotificationEvent = NotificationEventRow & {
 
 /* -------------------------------------------------------------------------- the allowance */
 
-/** The allowance route's answer, camel-cased. `remaining` is `granted − spent`, never stored. */
-export type Allowance = {
-  organizationId: string;
-  /** YYYY-MM-DD, the database's UTC day taken after the organisation lock */
-  utcDay: string;
-  vetted: boolean;
-  dailyGrant: number;
-  spentToday: number;
-  remaining: number;
-};
-
 export type AllowanceOutcome = { ok: true; allowance: Allowance } | WriteRefusal;
-
-/**
- * One row of `public.discovery_spend`, keyed by organisation and UTC day. `granted` is the
- * high-water mark: the largest daily grant the organisation has held on that day.
- */
-export type SpendRow = {
-  organizationId: string;
-  utcDay: string;
-  spent: number;
-  granted: number;
-};
 
 /* ------------------------------------------------------------------- the two pure policies */
 

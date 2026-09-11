@@ -1,6 +1,7 @@
 /**
- * REQ-002's SOURCE ARMS for AT-002.30 (manual founder vet only) and AT-002.16 (no document
- * content is stored or returned).
+ * REQ-002's SOURCE ARMS for AT-002.30 (manual founder vet only), AT-002.16 (no document
+ * content is stored or returned), and the grant-drift scan (the pinned registry, the TypeScript
+ * constants, and the SQL grant function).
  *
  * Precedent: `tests/at/suites/req-001/_source-scan.ts` and `tests/at/suites/req-016/_source-scan.ts`.
  * The arms run at both tiers. The file name starts with an underscore and does not end in
@@ -22,7 +23,9 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { dailyGrantFor, DISCOVERY_DAILY_GRANT } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
 
 const REPO_ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
@@ -461,4 +464,101 @@ function loadDocumentContentSinkInput(oracle: string): DocumentContentSinkInput 
 
 export function documentContentSinks(): string[] {
   return scanDocumentContentSinks(loadDocumentContentSinkInput('documentContentSinks'));
+}
+
+/* ---------------------------------------------------------------------- grant-drift (G5) */
+
+const GRANT_FUNCTION_HEAD = /create\s+(?:or\s+replace\s+)?function\s+public\.discovery_daily_grant\s*\(/i;
+const GRANT_VETTED_ARM = /when\s+p_vetted\s+then\s+(\d+)/i;
+const GRANT_UNVERIFIED_ARM = /else\s+(\d+)/i;
+
+export type GrantPinInput = {
+  unverifiedPin: number;
+  vettedPin: number;
+  typescriptUnverified: number;
+  typescriptVetted: number;
+  grantFunctionSql: string;
+};
+
+/** SQL arms of `public.discovery_daily_grant`. Throws when the function text cannot be read. */
+export function parseGrantFunctionArms(sql: string): { unverified: number; vetted: number } {
+  if (!GRANT_FUNCTION_HEAD.test(sql)) {
+    throw new Error(
+      'parseGrantFunctionArms found no public.discovery_daily_grant definition in the SQL it was given. ' +
+        'Refusing to report agreement.',
+    );
+  }
+  const vetted = GRANT_VETTED_ARM.exec(sql);
+  const unverified = GRANT_UNVERIFIED_ARM.exec(sql);
+  if (vetted === null || unverified === null) {
+    throw new Error(
+      "parseGrantFunctionArms could not read `when p_vetted then N else M` from public.discovery_daily_grant. " +
+        'Refusing to report agreement.',
+    );
+  }
+  return { vetted: Number(vetted[1]), unverified: Number(unverified[1]) };
+}
+
+/** Every disagreement between the pinned registry, the TypeScript constants, and the SQL grant. */
+export function scanGrantPins(input: GrantPinInput): string[] {
+  const arms = parseGrantFunctionArms(input.grantFunctionSql);
+  const problems: string[] = [];
+  const rows: ReadonlyArray<{ label: string; value: number; pin: number; pinName: string }> = [
+    { label: 'DISCOVERY_DAILY_GRANT.unverified', value: input.typescriptUnverified, pin: input.unverifiedPin, pinName: 'unverified pin' },
+    { label: 'DISCOVERY_DAILY_GRANT.vetted', value: input.typescriptVetted, pin: input.vettedPin, pinName: 'vetted pin' },
+    { label: 'discovery_daily_grant unverified arm', value: arms.unverified, pin: input.unverifiedPin, pinName: 'unverified pin' },
+    { label: 'discovery_daily_grant vetted arm', value: arms.vetted, pin: input.vettedPin, pinName: 'vetted pin' },
+  ];
+  for (const row of rows) {
+    if (row.value !== row.pin) {
+      problems.push(`${row.label} is ${row.value}, ${row.pinName} is ${row.pin}`);
+    }
+  }
+  return problems.sort();
+}
+
+function lastGrantFunctionSql(oracle: string): string {
+  const files = migrationFiles(oracle);
+  let last: { path: string; text: string } | null = null;
+  for (const file of files) {
+    for (const statement of splitSqlStatements(file.text)) {
+      if (GRANT_FUNCTION_HEAD.test(statement)) last = { path: file.path, text: statement };
+    }
+  }
+  if (last === null) {
+    throw new Error(
+      `${oracle} found no migration defining public.discovery_daily_grant, so there is no SQL grant to compare. ` +
+        'Refusing to report agreement.',
+    );
+  }
+  return last.text;
+}
+
+function pinnedGrant(key: 'discoveryDailyCreditsUnverified' | 'discoveryDailyCreditsVetted'): number {
+  const value = AT_CONFIG[key].value;
+  if (typeof value !== 'number') {
+    throw new Error(
+      `grantPinProblems: ${key} is not a pinned number (${JSON.stringify(value)}). Refusing to report agreement.`,
+    );
+  }
+  return value;
+}
+
+export function grantPinProblems(): string[] {
+  const unverifiedPin = pinnedGrant('discoveryDailyCreditsUnverified');
+  const vettedPin = pinnedGrant('discoveryDailyCreditsVetted');
+  const problems = scanGrantPins({
+    unverifiedPin,
+    vettedPin,
+    typescriptUnverified: DISCOVERY_DAILY_GRANT.unverified,
+    typescriptVetted: DISCOVERY_DAILY_GRANT.vetted,
+    grantFunctionSql: lastGrantFunctionSql('grantPinProblems'),
+  });
+  if (dailyGrantFor('unverified') !== unverifiedPin) {
+    problems.push(`dailyGrantFor('unverified') is ${dailyGrantFor('unverified')}, unverified pin is ${unverifiedPin}`);
+  }
+  if (dailyGrantFor('vetted') !== vettedPin) {
+    problems.push(`dailyGrantFor('vetted') is ${dailyGrantFor('vetted')}, vetted pin is ${vettedPin}`);
+  }
+  return [...new Set(problems)].sort();
 }

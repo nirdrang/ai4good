@@ -9,6 +9,7 @@
 
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
+import type { Allowance, SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import {
   vettingAuditCurrentFromDetail,
   vettingRecordFromSql,
@@ -27,6 +28,7 @@ import {
 import type { NotificationState } from '../../../../supabase/functions/_shared/notifications.ts';
 import type { Channel, Role } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import type {
+  AllowanceOutcome,
   DeliveryRow,
   NgoActor,
   OperatorWriteOutcome,
@@ -124,6 +126,22 @@ function functionOutcome<T extends { ok: true }>(raw: { status: number; text: st
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false, answer };
   if ((parsed as { ok?: unknown }).ok !== true) return { ok: false, answer };
   return { ok: true, value: parsed as T, answer };
+}
+
+function isoDay(value: string | Date): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
+function allowanceFromJson(json: Record<string, unknown>, organizationId: string): Allowance {
+  return {
+    organizationId: typeof json.organizationId === 'string' ? json.organizationId : organizationId,
+    utcDay: typeof json.utcDay === 'string' ? json.utcDay.slice(0, 10) : '',
+    vetted: json.vetted === true,
+    dailyGrant: Number(json.dailyGrant),
+    spentToday: Number(json.spentToday),
+    remaining: Number(json.remaining),
+  };
 }
 
 function claimsOf(token: string): { sub?: unknown; session_id?: unknown } {
@@ -538,10 +556,50 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       );
     },
 
-    readAllowance: notLanded('readAllowance'),
-    debitAllowance: notLanded('debitAllowance'),
-    spendRows: notLanded('spendRows'),
-    writeSpendRowAsOperator: notLanded('writeSpendRowAsOperator'),
+    readAllowance: async (session, organizationId): Promise<AllowanceOutcome> => {
+      const answer = await postWrite('discovery-allowance', session, { organizationId, action: 'read' });
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, allowance: allowanceFromJson(answer.json, organizationId) };
+    },
+    debitAllowance: async (session, organizationId, credits): Promise<AllowanceOutcome> => {
+      const answer = await postWrite('discovery-allowance', session, { organizationId, action: 'debit', credits });
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, allowance: allowanceFromJson(answer.json, organizationId) };
+    },
+    spendRows: async (organizationId): Promise<SpendRow[]> => {
+      const found = await rows<{ org_id: string; utc_day: string; spent: number; granted: number }>(
+        sql`select org_id, utc_day::text as utc_day, spent, granted
+              from public.discovery_spend
+             where org_id = ${organizationId}::uuid
+             order by utc_day, org_id`,
+      );
+      return found.map((row) => ({
+        organizationId: String(row.org_id),
+        utcDay: isoDay(row.utc_day),
+        spent: Number(row.spent),
+        granted: Number(row.granted),
+      }));
+    },
+    writeSpendRowAsOperator: async (row) => {
+      await sql`
+        delete from public.discovery_spend
+         where org_id = ${row.organizationId}::uuid
+           and utc_day = (clock_timestamp() at time zone 'utc')::date
+           and utc_day is distinct from ${row.utcDay}::date
+      `;
+      await sql`
+        insert into public.discovery_spend (org_id, utc_day, spent, granted)
+        values (
+          ${row.organizationId}::uuid,
+          ${row.utcDay}::date,
+          ${row.spent}::integer,
+          ${row.granted}::integer
+        )
+        on conflict (org_id, utc_day) do update
+          set spent = excluded.spent,
+              granted = excluded.granted
+      `;
+    },
 
     publishingAllowed: notLanded('publishingAllowed'),
     fundingAllowed: notLanded('fundingAllowed'),

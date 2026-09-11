@@ -13,6 +13,16 @@ import type { Caller } from '../../../../supabase/functions/_shared/caller.ts';
 import { EMITTER_COMPONENT } from '../../../../supabase/functions/_shared/notifications.ts';
 import type { Channel } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import {
+  allowanceOf,
+  dailyGrantFor,
+  decideDiscoveryAllowance,
+  discoveryTier,
+  highWaterGrant,
+  utcDayOf,
+  type DiscoveryAllowanceArgs,
+  type SpendRow,
+} from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import {
   decideOrganizationProfile,
   type OrganizationProfileArgs,
 } from '../../../../supabase/functions/_shared/memberships.ts';
@@ -35,6 +45,7 @@ import type { FixtureWorldStore } from '../../harness/fixtures.ts';
 import { createFixtureAdapter as createAccountsFixtureAdapter } from '../req-001/_fixture.ts';
 import type { Session as AccountsSession } from '../req-001/_contract.ts';
 import type {
+  AllowanceOutcome,
   ConfigRegistry,
   DeliveryRow,
   NgoActor,
@@ -83,6 +94,12 @@ const ORGANIZATION_PROFILE: WriteRouteSpec<OrganizationProfileArgs, AccountWrite
   name: 'set-organization-profile',
   target: organizationIdField,
   decide: decideOrganizationProfile,
+};
+
+const DISCOVERY_ALLOWANCE: WriteRouteSpec<DiscoveryAllowanceArgs, AccountWriteRouteInput> = {
+  name: 'discovery-allowance',
+  target: organizationIdField,
+  decide: decideDiscoveryAllowance,
 };
 
 const NOT_NULL_COLUMNS: ReadonlyArray<{
@@ -324,7 +341,28 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const seats = new Map<string, Seat>();
   const deactivated = new Set<string>();
   const roleOverrides = new Map<string, 'admin' | 'member'>();
+  const spend = new Map<string, SpendRow>();
+  const emailVerified = new Map<string, boolean>();
   let auditSerial = 1;
+
+  const spendKey = (organizationId: string, utcDay: string): string => `${organizationId}:${utcDay}`;
+
+  const applyGrantMark = (organizationId: string, vetted: boolean, utcDay: string): SpendRow => {
+    const key = spendKey(organizationId, utcDay);
+    const grant = dailyGrantFor(discoveryTier(vetted));
+    const existing = spend.get(key);
+    if (existing === undefined) {
+      const row: SpendRow = { organizationId, utcDay, spent: 0, granted: grant };
+      spend.set(key, row);
+      return row;
+    }
+    if (grant > existing.granted) {
+      const raised: SpendRow = { ...existing, granted: grant };
+      spend.set(key, raised);
+      return raised;
+    }
+    return existing;
+  };
 
   const membershipKey = (organizationId: string, accountId: string): string => `${organizationId}:${accountId}`;
 
@@ -375,10 +413,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       };
     }
 
+    const utcDay = utcDayOf(clock.now());
+    const spendBefore = spend.get(spendKey(args.p_organization_id, utcDay));
     const vettedAt =
       args.p_action === 'vet' ? new Date(clock.now()).toISOString() : (existing?.vettedAt ?? new Date(clock.now()).toISOString());
     const record = recordFromArgs(args, args.p_account_id, vettedAt, existing);
     vetting.set(record.organizationId, record);
+    // The mark takes the HIGHER of the tier before this action and the tier after it. An unvet on a
+    // day with no row yet would otherwise write the unverified grant and take away credits the
+    // organisation already held today, which the founder's ruling of 2026-09-09 forbids.
+    applyGrantMark(record.organizationId, (existing?.vetted ?? false) || record.vetted, utcDay);
     const audit: VettingAuditRow = {
       id: `vet-audit-${auditSerial++}`,
       occurredAt: new Date(clock.now()).toISOString(),
@@ -399,6 +443,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       else vetting.set(record.organizationId, existing);
       const index = audits.lastIndexOf(audit);
       if (index >= 0) audits.splice(index, 1);
+      const key = spendKey(record.organizationId, utcDay);
+      if (spendBefore === undefined) spend.delete(key);
+      else spend.set(key, clone(spendBefore));
     };
 
     const notice = args.p_notice;
@@ -512,6 +559,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         throw new Error(`REQ-002 loop adapter: NGO completion for ${email} was refused`);
       }
       seats.set(completion.organizationId, { accountId: registered.accountId, email });
+      emailVerified.set(registered.accountId, opts.emailVerified);
       return {
         session: remember(registered),
         accountId: registered.accountId,
@@ -684,10 +732,118 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         }),
       ),
 
-    readAllowance: notLanded('readAllowance'),
-    debitAllowance: notLanded('debitAllowance'),
-    spendRows: notLanded('spendRows'),
-    writeSpendRowAsOperator: notLanded('writeSpendRowAsOperator'),
+    readAllowance: async (session, organizationId): Promise<AllowanceOutcome> => {
+      const callerOrRefusal = await deadSession(session);
+      if ('ok' in callerOrRefusal) return callerOrRefusal;
+      const caller = callerOrRefusal;
+      const account = await accounts.account(caller.id);
+      const organization = await accounts.organization(organizationId);
+      const membership = await accounts.membership(organizationId, caller.id);
+      const override = roleOverrides.get(membershipKey(organizationId, caller.id));
+      const standing = parseWriteStanding({
+        account:
+          account === null
+            ? null
+            : {
+                account_type: account.accountType,
+                lifecycle: deactivated.has(caller.id) ? 'deactivated' : account.lifecycle,
+              },
+        org_exists: organization !== null,
+        org_role: override ?? membership?.role ?? null,
+        org_seat_account_id: seats.get(organizationId)?.accountId ?? null,
+        subject: null,
+      });
+      const decision = writePipeline(DISCOVERY_ALLOWANCE, {
+        caller,
+        standing,
+        body: { organizationId, action: 'read' },
+        target: organizationId,
+        subject: null,
+        ip: null,
+      });
+      if (!decision.ok) return { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
+
+      const utcDay = utcDayOf(clock.now());
+      const vetted = vetting.get(organizationId)?.vetted === true;
+      const existing = spend.get(spendKey(organizationId, utcDay));
+      const granted = highWaterGrant(existing?.granted ?? null, discoveryTier(vetted));
+      const spentToday = existing?.spent ?? 0;
+      return {
+        ok: true,
+        allowance: allowanceOf({ organizationId, utcDay, vetted, granted, spent: spentToday }),
+      };
+    },
+    debitAllowance: async (session, organizationId, credits): Promise<AllowanceOutcome> => {
+      const callerOrRefusal = await deadSession(session);
+      if ('ok' in callerOrRefusal) return callerOrRefusal;
+      const caller = callerOrRefusal;
+      const account = await accounts.account(caller.id);
+      const organization = await accounts.organization(organizationId);
+      const membership = await accounts.membership(organizationId, caller.id);
+      const override = roleOverrides.get(membershipKey(organizationId, caller.id));
+      const standing = parseWriteStanding({
+        account:
+          account === null
+            ? null
+            : {
+                account_type: account.accountType,
+                lifecycle: deactivated.has(caller.id) ? 'deactivated' : account.lifecycle,
+              },
+        org_exists: organization !== null,
+        org_role: override ?? membership?.role ?? null,
+        org_seat_account_id: seats.get(organizationId)?.accountId ?? null,
+        subject: null,
+      });
+      const decision = writePipeline(DISCOVERY_ALLOWANCE, {
+        caller,
+        standing,
+        body: { organizationId, action: 'debit', credits },
+        target: organizationId,
+        subject: null,
+        ip: null,
+      });
+      if (!decision.ok) return { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
+
+      if (emailVerified.get(caller.id) !== true) {
+        return {
+          ok: false,
+          kind: 'email-unverified',
+          status: 409,
+          reason: `discovery_allowance refuses ${caller.id}: the caller's email address is not verified`,
+        };
+      }
+
+      const utcDay = utcDayOf(clock.now());
+      const vetted = vetting.get(organizationId)?.vetted === true;
+      const existing = spend.get(spendKey(organizationId, utcDay));
+      const granted = highWaterGrant(existing?.granted ?? null, discoveryTier(vetted));
+      const spentToday = existing?.spent ?? 0;
+      if (spentToday + credits > granted) {
+        return {
+          ok: false,
+          kind: 'daily-allowance-exhausted',
+          status: 409,
+          reason: `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today`,
+        };
+      }
+      const row: SpendRow = { organizationId, utcDay, spent: spentToday + credits, granted };
+      spend.set(spendKey(organizationId, utcDay), row);
+      return {
+        ok: true,
+        allowance: allowanceOf({ organizationId, utcDay, vetted, granted, spent: row.spent }),
+      };
+    },
+    spendRows: async (organizationId) =>
+      clone(
+        [...spend.values()]
+          .filter((row) => row.organizationId === organizationId)
+          .sort((left, right) => (left.utcDay < right.utcDay ? -1 : left.utcDay > right.utcDay ? 1 : 0)),
+      ),
+    writeSpendRowAsOperator: async (row) => {
+      const today = utcDayOf(clock.now());
+      if (row.utcDay !== today) spend.delete(spendKey(row.organizationId, today));
+      spend.set(spendKey(row.organizationId, row.utcDay), clone(row));
+    },
 
     publishingAllowed: notLanded('publishingAllowed'),
     fundingAllowed: notLanded('fundingAllowed'),
@@ -712,6 +868,8 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       seats.clear();
       deactivated.clear();
       roleOverrides.clear();
+      spend.clear();
+      emailVerified.clear();
     },
   };
 }
