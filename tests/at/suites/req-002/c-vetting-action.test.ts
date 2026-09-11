@@ -10,8 +10,11 @@
  */
 
 import { describe, expect } from 'vitest';
+import { EMITTER_COMPONENT } from '../../../../supabase/functions/_shared/notifications.ts';
+import { channelsFor, taxonomyRow } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
+import { vettingOutcomeNotice } from '../../../../supabase/functions/_shared/org-vetting.ts';
 import { atTest } from './_bind.ts';
-import { AWAITED, awaiting, LEAF, notLanded } from './_pending.ts';
+import { AWAITED, awaiting } from './_pending.ts';
 import {
   kycSurfaceProblems,
   orgVettingWriterProblems,
@@ -19,7 +22,16 @@ import {
   vettedStateProblems,
   vettingRouteProblems,
 } from './_source-scan.ts';
-import type { Session, VettingRecord, VettingRequest } from './_contract.ts';
+import { countPairs, expectedPairs, pairProblems } from '../req-016/_oracles.ts';
+import { providerClientImporters, strayNotificationWriters } from '../req-016/_source-scan.ts';
+import type { OrganizationsSut, Session, VettingRecord, VettingRequest } from './_contract.ts';
+
+const VETTING_OUTCOME = 'vetting.outcome';
+const VETTING_TAXONOMY = taxonomyRow(VETTING_OUTCOME);
+if (VETTING_TAXONOMY === undefined) {
+  throw new Error('vetting.outcome is missing from the notification taxonomy');
+}
+const VETTING_CHANNELS = channelsFor(VETTING_TAXONOMY);
 
 const EVIDENCE = {
   organizationName: 'Riverside Shelter',
@@ -286,7 +298,185 @@ describe('AT-REQ-002 C — the vetting action and its audit record', () => {
 
   atTest('AT-002.12', 'unvetting a vetted NGO closes publishing, is audit-recorded, and leaves project-fuel funding unblocked', awaiting(AWAITED.publishFlow, AWAITED.projectFuelCheckout));
 
-  atTest('AT-002.13', 'a vet or unvet emits the verification-outcome notification to the NGO through the normal event path, never a side-channel email', notLanded(LEAF.D3_L3));
+  atTest(
+    'AT-002.13',
+    'a vet or unvet emits the verification-outcome notification to the NGO through the normal event path, never a side-channel email',
+    async ({ open }) => {
+      expect(
+        providerClientImporters().sort(),
+        'a component other than the emitter imports a comms-provider client or holds its credential',
+      ).toEqual(['notifications.emitter']);
+      expect(strayNotificationWriters(), 'something other than the emitter inserts into the notification outbox').toEqual([]);
 
-  atTest('AT-002.14', 'the vetting flow is a single audited admin action with no multi-step approval chain', notLanded(LEAF.D3_L3));
+      const { w, sut } = await open();
+      const ngo = await sut.provisionNgo(w.email('ngo-13'), { emailVerified: true });
+      const admin = await sut.provisionPlatformAdmin(w.email('admin-13'));
+      const outcomeEvents = () => sut.notificationEvents({ event: VETTING_OUTCOME, recipientId: ngo.accountId });
+
+      const assertOutcome = async (action: 'vet' | 'unvet', eventId: string | null) => {
+        expect(eventId, `${action} returned no notification event id`).toEqual(expect.any(String));
+        if (eventId === null) return;
+        const events = await outcomeEvents();
+        const matching = events.filter((event) => event.id === eventId);
+        expect(matching, `${action} did not write exactly one ${VETTING_OUTCOME} event`).toHaveLength(1);
+        const event = matching[0];
+        expect(event.actorAccountId, `${action} did not name the administrator as actor`).toBe(admin.accountId);
+        expect(event.payload.outcome, `${action} payload does not tell the outcome apart`).toBe(
+          action === 'vet' ? 'vetted' : 'unvetted',
+        );
+        const deliveries = await sut.notificationDeliveries({ eventId, recipientId: ngo.accountId });
+        expect(
+          pairProblems(expectedPairs({ ngo: ngo.accountId }, ['ngo'], VETTING_CHANNELS), countPairs(deliveries)),
+          `${action} deliveries were not the class default channels to the seat holder`,
+        ).toEqual([]);
+        for (const delivery of deliveries) {
+          expect(delivery.emittedBy, `${action} ${delivery.channel} delivery was not stamped by the emitter`).toBe(
+            EMITTER_COMPONENT,
+          );
+          expect(delivery.payload.outcome, `${action} ${delivery.channel} payload disagrees with the event`).toBe(
+            event.payload.outcome,
+          );
+          expect(delivery.state, `${action} ${delivery.channel} delivery was not left pending`).toBe('pending');
+        }
+      };
+
+      const vet = await sut.setVetting(admin, { organizationId: ngo.organizationId, action: 'vet', ...EVIDENCE });
+      expect(vet, 'the platform admin vet was refused').toMatchObject({
+        ok: true,
+        organizationId: ngo.organizationId,
+        vetted: true,
+        changed: true,
+      });
+      if (!vet.ok) return;
+      await assertOutcome('vet', vet.notificationEventId);
+      expect(await outcomeEvents(), 'a vet wrote more than one verification-outcome event').toHaveLength(1);
+
+      const unvet = await sut.setVetting(admin, {
+        organizationId: ngo.organizationId,
+        action: 'unvet',
+        note: EVIDENCE.note,
+      });
+      expect(unvet, 'the platform admin unvet was refused').toMatchObject({
+        ok: true,
+        organizationId: ngo.organizationId,
+        vetted: false,
+        changed: true,
+      });
+      if (!unvet.ok) return;
+      await assertOutcome('unvet', unvet.notificationEventId);
+      expect(await outcomeEvents(), 'vet then unvet did not write exactly one event each').toHaveLength(2);
+
+      const noSeat = await sut.provisionNgo(w.email('ngo-13-noseat'), { emailVerified: true });
+      await sut.removeOrganizationSeatAsOperator(noSeat.organizationId);
+      const noSeatVet = await sut.setVetting(admin, {
+        organizationId: noSeat.organizationId,
+        action: 'vet',
+        ...EVIDENCE,
+      });
+      expect(noSeatVet.ok, 'a vet of an organisation with no seat holder still committed').toBe(false);
+      if (noSeatVet.ok) return;
+      expect(noSeatVet.kind, `no-seat vet was refused as ${noSeatVet.kind}: ${noSeatVet.reason}`).toBe('refused');
+      expect(await sut.vettingRecord(noSeat.organizationId), 'no-seat vet left an aggregate row').toBeNull();
+      expect(await sut.vettingAuditEvents(noSeat.organizationId), 'no-seat vet wrote an audit row').toEqual([]);
+      expect(
+        await sut.notificationEvents({ event: VETTING_OUTCOME, recipientId: noSeat.accountId }),
+        'no-seat vet wrote a verification-outcome event',
+      ).toEqual([]);
+
+      const noEmail = await sut.provisionNgo(w.email('ngo-13-noemail'), { emailVerified: true });
+      await sut.clearAccountEmailAsOperator(noEmail.accountId);
+      const noEmailVet = await sut.setVetting(admin, {
+        organizationId: noEmail.organizationId,
+        action: 'vet',
+        ...EVIDENCE,
+      });
+      expect(noEmailVet.ok, 'a vet of a seat holder with no email address still committed').toBe(false);
+      if (noEmailVet.ok) return;
+      expect(noEmailVet.kind, `no-email vet was refused as ${noEmailVet.kind}: ${noEmailVet.reason}`).toBe('refused');
+      expect(await sut.vettingRecord(noEmail.organizationId), 'no-email vet left an aggregate row').toBeNull();
+      expect(await sut.vettingAuditEvents(noEmail.organizationId), 'no-email vet wrote an audit row').toEqual([]);
+      expect(
+        await sut.notificationEvents({ event: VETTING_OUTCOME, recipientId: noEmail.accountId }),
+        'no-email vet wrote a verification-outcome event',
+      ).toEqual([]);
+
+      const late = await sut.provisionNgo(w.email('ngo-13-late'), { emailVerified: true });
+      const copy = vettingOutcomeNotice('vetted').copy;
+      const lateOutcome = await sut.attemptVettingDefinerAsOperator({
+        accountId: admin.accountId,
+        request: { organizationId: late.organizationId, action: 'vet', ...EVIDENCE },
+        notice: { channels: ['not-a-channel'], copy },
+      });
+      expect(lateOutcome.ok, 'an emit-time failure still committed').toBe(false);
+      await assertAbsentAfterLateFailure(sut, late.organizationId, late.accountId);
+    },
+  );
+
+  atTest(
+    'AT-002.14',
+    'the vetting flow is a single audited admin action with no multi-step approval chain',
+    async ({ open }) => {
+      expect(vettingRouteProblems(), 'more than one write route reaches the vetting definer').toEqual([]);
+      expect(orgVettingWriterProblems(), 'a statement outside public.set_organization_vetting writes public.org_vetting').toEqual(
+        [],
+      );
+      expect(scheduledVettingProblems(), 'a scheduled job or a trigger on org_vetting touches vetting').toEqual([]);
+      expect(kycSurfaceProblems(), 'a route folder, write-route row or shared module names a KYC or automated-verification surface').toEqual(
+        [],
+      );
+      expect(vettedStateProblems(), 'the vetted state is not a two-value boolean, or names a third pending or under-review state').toEqual(
+        [],
+      );
+
+      const { w, sut } = await open();
+      const ngo = await sut.provisionNgo(w.email('ngo-14'), { emailVerified: true });
+      const admin = await sut.provisionPlatformAdmin(w.email('admin-14'));
+
+      expect(await sut.vettingRecord(ngo.organizationId), 'the organisation was vetted before the one admin call').toBeNull();
+      expect(await sut.vettingAuditEvents(ngo.organizationId), 'an audit row existed before the one admin call').toEqual([]);
+      expect(
+        await sut.notificationEvents({ event: VETTING_OUTCOME, recipientId: ngo.accountId }),
+        'a verification-outcome event existed before the one admin call',
+      ).toEqual([]);
+
+      const outcome = await sut.setVetting(admin, {
+        organizationId: ngo.organizationId,
+        action: 'vet',
+        ...EVIDENCE,
+      });
+      expect(outcome, 'the one platform admin vet was refused').toMatchObject({
+        ok: true,
+        organizationId: ngo.organizationId,
+        vetted: true,
+        changed: true,
+      });
+      if (!outcome.ok) return;
+
+      const record = await sut.vettingRecord(ngo.organizationId);
+      expect(record?.vetted, 'the one call did not leave a vetted record').toBe(true);
+      expect(
+        Object.keys(record ?? {}).some((key) => /status|review|pending|kyc|workflow|approval/i.test(key)),
+        'the record carries an intermediate approval or review state',
+      ).toBe(false);
+      expect(await sut.vettingAuditEvents(ngo.organizationId), 'the one vet did not write exactly one audit row').toHaveLength(1);
+      expect(
+        await sut.notificationEvents({ event: VETTING_OUTCOME, recipientId: ngo.accountId }),
+        'the one vet did not write exactly one verification-outcome event',
+      ).toHaveLength(1);
+    },
+  );
 });
+
+async function assertAbsentAfterLateFailure(
+  sut: OrganizationsSut,
+  organizationId: string,
+  recipientId: string,
+): Promise<void> {
+  expect(await sut.vettingRecord(organizationId), 'the late failure left an aggregate row').toBeNull();
+  expect(await sut.vettingAuditEvents(organizationId), 'the late failure left an audit row').toEqual([]);
+  expect(
+    await sut.notificationEvents({ event: VETTING_OUTCOME, recipientId }),
+    'the late failure left a verification-outcome event',
+  ).toEqual([]);
+  expect(await sut.notificationDeliveries({ recipientId }), 'the late failure left a delivery').toEqual([]);
+}

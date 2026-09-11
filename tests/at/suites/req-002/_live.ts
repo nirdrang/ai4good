@@ -26,12 +26,14 @@ import {
 import type { NotificationState } from '../../../../supabase/functions/_shared/notifications.ts';
 import type { Channel, Role } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import type {
+  DeliveryRow,
   NgoActor,
-  NotificationEventRow,
   OperatorWriteOutcome,
   OrganizationsSut,
   Session,
   VettingAuditRow,
+  VettingDefinerAttempt,
+  VettingNotificationEvent,
   VettingOutcome,
   VettingRecord,
   VettingRequest,
@@ -285,6 +287,50 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         return { ok: false, reason: message };
       }
     },
+    removeOrganizationSeatAsOperator: async (organizationId) => {
+      await sql`delete from public.org_memberships where org_id = ${organizationId}::uuid`;
+    },
+    clearAccountEmailAsOperator: async (accountId) => {
+      await sql`update auth.users set email = null where id = ${accountId}::uuid`;
+    },
+    attemptVettingDefinerAsOperator: async (input: VettingDefinerAttempt): Promise<OperatorWriteOutcome> => {
+      const request = input.request;
+      const notice = JSON.stringify(input.notice);
+      const name = request.action === 'vet' ? request.organizationName : null;
+      const url = request.action === 'vet' ? request.publicReferenceUrl : null;
+      const contactName = request.action === 'vet' ? request.contactName : null;
+      const contactTitle = request.action === 'vet' ? request.contactTitle : null;
+      const attestation = request.action === 'vet' ? request.authorityAttestation : null;
+      const evidenceType = request.action === 'vet' ? request.evidenceType : null;
+      const receivedAt = request.action === 'vet' ? (request.registrationReceivedAt ?? null) : null;
+      const documentCount = request.action === 'vet' ? (request.registrationDocumentCount ?? null) : null;
+      const copiesDeleted = request.action === 'vet' ? (request.registrationCopiesDeleted ?? null) : null;
+      try {
+        await sql`
+          select public.set_organization_vetting(
+            ${input.accountId}::uuid,
+            ${request.organizationId}::uuid,
+            ${request.action},
+            ${notice}::text::jsonb,
+            ${name},
+            ${url},
+            ${contactName},
+            ${contactTitle},
+            ${attestation},
+            ${evidenceType},
+            ${request.note},
+            ${receivedAt}::timestamptz,
+            ${documentCount}::integer,
+            ${copiesDeleted}::boolean
+          )
+        `;
+        return { ok: true };
+      } catch (error) {
+        const { message } = databaseRefusal(error);
+        return { ok: false, reason: message };
+      }
+    },
+
     vettingAuditEvents: async (organizationId): Promise<VettingAuditRow[]> => {
       const found = await rows<{
         id: string;
@@ -323,23 +369,25 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       });
     },
 
-    notificationEvents: async (filter): Promise<NotificationEventRow[]> => {
+    notificationEvents: async (filter): Promise<VettingNotificationEvent[]> => {
       const event = filter.event ?? null;
       const recipientId = filter.recipientId ?? null;
       const found = await rows<{
         id: string;
         event: string;
+        actor_account_id: string | null;
+        payload: unknown;
         recipients: unknown;
         state: NotificationState;
         attempts: number;
       }>(
-        sql`select id, event, recipients, state, attempts
+        sql`select id, event, actor_account_id, payload, recipients, state, attempts
               from public.notification_events
              where (${event}::text is null or event = ${event}::text)
              order by created_at, id`,
       );
       return found
-        .map((row): NotificationEventRow => {
+        .map((row): VettingNotificationEvent => {
           const recipients = parseJson<{ role: Role; recipientId: string; channels: Channel[] }[]>(row.recipients);
           if (!Array.isArray(recipients)) {
             throw new Error(`notification event ${row.id} recipients are not an array`);
@@ -347,6 +395,8 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           return {
             id: String(row.id),
             type: row.event,
+            actorAccountId: row.actor_account_id === null ? null : String(row.actor_account_id),
+            payload: parseJson<Record<string, unknown>>(row.payload ?? {}),
             recipients: recipients.map((recipient) => ({
               role: recipient.role,
               recipientId: String(recipient.recipientId),
@@ -358,7 +408,42 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         })
         .filter((row) => recipientId === null || row.recipients.some((recipient) => recipient.recipientId === recipientId));
     },
-    notificationDeliveries: notLanded('notificationDeliveries'),
+    notificationDeliveries: async (filter): Promise<DeliveryRow[]> => {
+      const eventId = filter.eventId ?? null;
+      const recipientId = filter.recipientId ?? null;
+      const found = await rows<{
+        event_id: string;
+        event: string;
+        role: Role;
+        recipient_id: string;
+        channel: Channel;
+        state: NotificationState;
+        emitted_by: string;
+        delivered_by_process: string | null;
+        payload: unknown;
+        body: string;
+      }>(
+        sql`select event_id, event, role, recipient_id, channel, state, emitted_by, delivered_by_process, payload, body
+              from public.notification_deliveries
+             where (${eventId}::uuid is null or event_id = ${eventId}::uuid)
+               and (${recipientId}::uuid is null or recipient_id = ${recipientId}::uuid)
+             order by created_at, id`,
+      );
+      return found.map(
+        (row): DeliveryRow => ({
+          eventId: String(row.event_id),
+          type: row.event,
+          role: row.role,
+          recipientId: String(row.recipient_id),
+          channel: row.channel,
+          state: row.state,
+          emittedBy: row.emitted_by,
+          deliveredByProcess: row.delivered_by_process === null ? null : String(row.delivered_by_process),
+          payload: parseJson<Record<string, unknown>>(row.payload ?? {}),
+          body: row.body,
+        }),
+      );
+    },
 
     readAllowance: notLanded('readAllowance'),
     debitAllowance: notLanded('debitAllowance'),

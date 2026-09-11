@@ -83,6 +83,7 @@ create function public.set_organization_vetting(
   p_account_id uuid,
   p_organization_id uuid,
   p_action text,
+  p_notice jsonb,
   p_organization_name text default null,
   p_public_reference_url text default null,
   p_contact_name text default null,
@@ -115,6 +116,12 @@ declare
   v_email text;
   v_current public.org_vetting;
   v_notification_event_id uuid := null;
+  v_channels jsonb;
+  v_channel text;
+  v_deliveries jsonb;
+  v_subject text;
+  v_body text;
+  v_outcome text;
 begin
   perform public.assert_account_active(p_account_id);
 
@@ -306,6 +313,60 @@ begin
     )
   );
 
+  if p_notice is null or jsonb_typeof(p_notice) is distinct from 'object' then
+    raise exception 'set_organization_vetting refuses a vetting action with no notification notice'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
+
+  v_channels := p_notice->'channels';
+  if jsonb_typeof(v_channels) is distinct from 'array' or jsonb_array_length(v_channels) = 0 then
+    raise exception 'set_organization_vetting refuses a notice with no delivery channels'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
+
+  v_subject := p_notice->'copy'->>'subject';
+  v_body := p_notice->'copy'->>'body';
+  if v_subject is null or v_body is null then
+    raise exception 'set_organization_vetting refuses a notice with no copy'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
+
+  v_outcome := case when v_current.vetted then 'vetted' else 'unvetted' end;
+  v_deliveries := '[]'::jsonb;
+  for v_channel in select jsonb_array_elements_text(v_channels) loop
+    v_deliveries := v_deliveries || jsonb_build_object(
+      'role', 'ngo',
+      'recipientId', v_holder,
+      'address', v_email,
+      'channel', v_channel,
+      'emittedBy', 'notifications.emitter',
+      'payload', jsonb_build_object('outcome', v_outcome),
+      'subject', v_subject,
+      'body', v_body
+    );
+  end loop;
+
+  if jsonb_array_length(v_deliveries) = 0 then
+    raise exception 'set_organization_vetting refuses an empty delivery set'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
+
+  v_notification_event_id := public.emit_notification(jsonb_build_object(
+    'event', jsonb_build_object(
+      'event', 'vetting.outcome',
+      'actor', p_account_id,
+      'payload', jsonb_build_object('outcome', v_outcome),
+      'recipients', jsonb_build_array(jsonb_build_object(
+        'role', 'ngo',
+        'recipientId', v_holder,
+        'address', v_email,
+        'channels', v_channels
+      ))
+    ),
+    'deliveries', v_deliveries,
+    'opsItem', null
+  ));
+
   return jsonb_build_object(
     'organization_id', p_organization_id,
     'vetted', v_current.vetted,
@@ -316,12 +377,12 @@ end;
 $$;
 
 revoke execute on function public.set_organization_vetting(
-  uuid, uuid, text, text, text, text, text,
+  uuid, uuid, text, jsonb, text, text, text, text,
   text, text, text, timestamptz, integer, boolean
 ) from public, anon, authenticated, service_role;
 
 grant execute on function public.set_organization_vetting(
-  uuid, uuid, text, text, text, text, text,
+  uuid, uuid, text, jsonb, text, text, text, text,
   text, text, text, timestamptz, integer, boolean
 ) to service_role;
 

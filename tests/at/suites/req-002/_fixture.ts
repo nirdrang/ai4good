@@ -10,10 +10,13 @@
 
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import type { Caller } from '../../../../supabase/functions/_shared/caller.ts';
+import { EMITTER_COMPONENT } from '../../../../supabase/functions/_shared/notifications.ts';
+import type { Channel } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import {
   decideOrganizationVetting,
   isVettingEvidenceType,
   type OrganizationVettingArgs,
+  type VettingOutcomeNotice,
   type VettingRecordProjection,
 } from '../../../../supabase/functions/_shared/org-vetting.ts';
 import {
@@ -29,13 +32,15 @@ import { createFixtureAdapter as createAccountsFixtureAdapter } from '../req-001
 import type { Session as AccountsSession } from '../req-001/_contract.ts';
 import type {
   ConfigRegistry,
+  DeliveryRow,
   NgoActor,
-  NotificationEventRow,
   OperatorWriteOutcome,
   OrganizationsSut,
   RegistrationDocumentMetadata,
   Session,
   VettingAuditRow,
+  VettingDefinerAttempt,
+  VettingNotificationEvent,
   VettingOutcome,
   VettingRecord,
   VettingRequest,
@@ -137,6 +142,52 @@ function operatorRowRefused(
   return null;
 }
 
+type Seat = { accountId: string; email: string | null };
+
+type CommitResult =
+  | { ok: true; organizationId: string; vetted: boolean; changed: boolean; notificationEventId: string | null }
+  | { ok: false; reason: string };
+
+const KNOWN_CHANNELS: ReadonlySet<string> = new Set<Channel>(['email', 'inapp']);
+
+function argsFromDefinerAttempt(input: VettingDefinerAttempt): OrganizationVettingArgs {
+  const notice = input.notice as VettingOutcomeNotice;
+  if (input.request.action === 'unvet') {
+    return {
+      p_account_id: input.accountId,
+      p_organization_id: input.request.organizationId,
+      p_action: 'unvet',
+      p_notice: notice,
+      p_organization_name: null,
+      p_public_reference_url: null,
+      p_contact_name: null,
+      p_contact_title: null,
+      p_authority_attestation: null,
+      p_evidence_type: null,
+      p_note: input.request.note,
+      p_registration_received_at: null,
+      p_registration_document_count: null,
+      p_registration_copies_deleted: null,
+    };
+  }
+  return {
+    p_account_id: input.accountId,
+    p_organization_id: input.request.organizationId,
+    p_action: 'vet',
+    p_notice: notice,
+    p_organization_name: input.request.organizationName,
+    p_public_reference_url: input.request.publicReferenceUrl,
+    p_contact_name: input.request.contactName,
+    p_contact_title: input.request.contactTitle,
+    p_authority_attestation: input.request.authorityAttestation,
+    p_evidence_type: input.request.evidenceType,
+    p_note: input.request.note,
+    p_registration_received_at: input.request.registrationReceivedAt ?? null,
+    p_registration_document_count: input.request.registrationDocumentCount ?? null,
+    p_registration_copies_deleted: input.request.registrationCopiesDeleted ?? null,
+  };
+}
+
 function recordFromArgs(
   args: OrganizationVettingArgs,
   callerId: string,
@@ -181,7 +232,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const heldSessions = new Map<string, AccountsSession>();
   const vetting = new Map<string, VettingRecord>();
   const audits: VettingAuditRow[] = [];
-  const events: NotificationEventRow[] = [];
+  const events: VettingNotificationEvent[] = [];
+  const deliveries: DeliveryRow[] = [];
+  const seats = new Map<string, Seat>();
   const deactivated = new Set<string>();
   let auditSerial = 1;
 
@@ -196,6 +249,120 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     if (!innerSession) return unauthenticated();
     if (!(await accounts.authUserIsHealthy(innerSession))) return unauthenticated();
     return { id: innerSession.accountId, githubHandle: null };
+  };
+
+  const commitVetting = async (args: OrganizationVettingArgs, actorLabel: string): Promise<CommitResult> => {
+    const organization = await accounts.organization(args.p_organization_id);
+    if (organization === null) {
+      return {
+        ok: false,
+        reason: `set_organization_vetting refuses ${args.p_organization_id}: no such organisation`,
+      };
+    }
+
+    const seat = seats.get(args.p_organization_id);
+    if (seat === undefined) {
+      return {
+        ok: false,
+        reason: `set_organization_vetting refuses ${args.p_organization_id}: the organisation has no seat holder`,
+      };
+    }
+    if (seat.email === null || seat.email.trim() === '') {
+      return {
+        ok: false,
+        reason: `set_organization_vetting refuses ${seat.accountId}: the seat holder has no email address`,
+      };
+    }
+
+    const existing = vetting.get(args.p_organization_id) ?? null;
+    if (args.p_action === 'unvet' && (existing === null || !existing.vetted)) {
+      return {
+        ok: true,
+        organizationId: args.p_organization_id,
+        vetted: false,
+        changed: false,
+        notificationEventId: null,
+      };
+    }
+
+    const vettedAt =
+      args.p_action === 'vet' ? new Date(clock.now()).toISOString() : (existing?.vettedAt ?? new Date(clock.now()).toISOString());
+    const record = recordFromArgs(args, args.p_account_id, vettedAt, existing);
+    vetting.set(record.organizationId, record);
+    const audit: VettingAuditRow = {
+      id: `vet-audit-${auditSerial++}`,
+      occurredAt: new Date(clock.now()).toISOString(),
+      actorAccountId: args.p_account_id,
+      actorLabel,
+      subjectOrgId: record.organizationId,
+      reason: args.p_note,
+      detail: {
+        action: args.p_action,
+        previousVetted: existing?.vetted === true,
+        current: clone(record),
+      },
+    };
+    audits.push(audit);
+
+    const undo = () => {
+      if (existing === null) vetting.delete(record.organizationId);
+      else vetting.set(record.organizationId, existing);
+      const index = audits.lastIndexOf(audit);
+      if (index >= 0) audits.splice(index, 1);
+    };
+
+    const notice = args.p_notice;
+    const channels = Array.isArray(notice?.channels) ? [...notice.channels] : [];
+    const subject = notice?.copy?.subject;
+    const body = notice?.copy?.body;
+    if (channels.length === 0) {
+      undo();
+      return { ok: false, reason: 'set_organization_vetting refuses a notice with no delivery channels' };
+    }
+    if (typeof subject !== 'string' || typeof body !== 'string') {
+      undo();
+      return { ok: false, reason: 'set_organization_vetting refuses a notice with no copy' };
+    }
+    for (const channel of channels) {
+      if (!KNOWN_CHANNELS.has(channel)) {
+        undo();
+        return { ok: false, reason: `invalid input value for enum notification_channel: "${channel}"` };
+      }
+    }
+
+    const outcome = record.vetted ? 'vetted' : 'unvetted';
+    const eventId = crypto.randomUUID();
+    events.push({
+      id: eventId,
+      type: 'vetting.outcome',
+      actorAccountId: args.p_account_id,
+      payload: { outcome },
+      recipients: [{ role: 'ngo', recipientId: seat.accountId, channels: channels as Channel[] }],
+      state: 'pending',
+      attempts: 0,
+    });
+    for (const channel of channels) {
+      deliveries.push({
+        eventId,
+        type: 'vetting.outcome',
+        role: 'ngo',
+        recipientId: seat.accountId,
+        channel: channel as Channel,
+        state: 'pending',
+        emittedBy: EMITTER_COMPONENT,
+        deliveredByProcess: null,
+        payload: { outcome },
+        body,
+      });
+    }
+
+    return {
+      ok: true,
+      organizationId: record.organizationId,
+      vetted: record.vetted,
+      changed: true,
+      notificationEventId: eventId,
+    };
   };
 
   const setVetting = async (
@@ -218,7 +385,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             },
       org_exists: organization !== null,
       org_role: null,
-      org_seat_account_id: null,
+      org_seat_account_id: seats.get(target ?? '')?.accountId ?? null,
       subject: null,
     });
     const decision = writePipeline(ORGANIZATION_VETTING, {
@@ -231,41 +398,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     });
     if (!decision.ok) return { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
 
-    const args = decision.args;
-    const existing = vetting.get(args.p_organization_id) ?? null;
-    if (args.p_action === 'unvet' && (existing === null || !existing.vetted)) {
-      return {
-        ok: true,
-        organizationId: args.p_organization_id,
-        vetted: false,
-        changed: false,
-        notificationEventId: null,
-      };
+    const committed = await commitVetting(decision.args, `${account?.accountType ?? 'operator'}:${caller.id}`);
+    if (!committed.ok) {
+      return { ok: false, kind: 'refused', status: 409, reason: committed.reason };
     }
-
-    const vettedAt = args.p_action === 'vet' ? new Date(clock.now()).toISOString() : (existing?.vettedAt ?? new Date(clock.now()).toISOString());
-    const record = recordFromArgs(args, caller.id, vettedAt, existing);
-    vetting.set(record.organizationId, record);
-    audits.push({
-      id: `vet-audit-${auditSerial++}`,
-      occurredAt: new Date(clock.now()).toISOString(),
-      actorAccountId: caller.id,
-      actorLabel: `${account?.accountType ?? 'operator'}:${caller.id}`,
-      subjectOrgId: record.organizationId,
-      reason: args.p_note,
-      detail: {
-        action: args.p_action,
-        previousVetted: existing?.vetted === true,
-        current: clone(record),
-      },
-    });
-    return {
-      ok: true,
-      organizationId: record.organizationId,
-      vetted: record.vetted,
-      changed: true,
-      notificationEventId: null,
-    };
+    return committed;
   };
 
   const sut: OrganizationsSut = {
@@ -284,6 +421,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       if (!completion.ok || completion.organizationId === null) {
         throw new Error(`REQ-002 loop adapter: NGO completion for ${email} was refused`);
       }
+      seats.set(completion.organizationId, { accountId: registered.accountId, email });
       return {
         session: remember(registered),
         accountId: registered.accountId,
@@ -349,6 +487,23 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       return { ok: true };
     },
     vettingAuditEvents: async (organizationId) => clone(audits.filter((row) => row.subjectOrgId === organizationId)),
+    removeOrganizationSeatAsOperator: async (organizationId) => {
+      seats.delete(organizationId);
+    },
+    clearAccountEmailAsOperator: async (accountId) => {
+      for (const [organizationId, seat] of seats) {
+        if (seat.accountId === accountId) seats.set(organizationId, { accountId, email: null });
+      }
+    },
+    attemptVettingDefinerAsOperator: async (input) => {
+      const account = await accounts.account(input.accountId);
+      const committed = await commitVetting(
+        argsFromDefinerAttempt(input),
+        account === null ? `operator:${input.accountId}` : `${account.accountType}:${input.accountId}`,
+      );
+      if (!committed.ok) return { ok: false, reason: committed.reason };
+      return { ok: true };
+    },
 
     notificationEvents: async (filter) =>
       clone(
@@ -360,7 +515,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           return true;
         }),
       ),
-    notificationDeliveries: notLanded('notificationDeliveries'),
+    notificationDeliveries: async (filter) =>
+      clone(
+        deliveries.filter((row) => {
+          if (filter.eventId !== undefined && row.eventId !== filter.eventId) return false;
+          if (filter.recipientId !== undefined && row.recipientId !== filter.recipientId) return false;
+          return true;
+        }),
+      ),
 
     readAllowance: notLanded('readAllowance'),
     debitAllowance: notLanded('debitAllowance'),
@@ -383,6 +545,8 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       vetting.clear();
       audits.length = 0;
       events.length = 0;
+      deliveries.length = 0;
+      seats.clear();
       deactivated.clear();
     },
   };

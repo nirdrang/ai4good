@@ -68,6 +68,16 @@ const NAMED: Readonly<Record<string, (payload: Record<string, unknown>) => Copy>
     subject: 'Leftover funds released',
     body: 'Leftover funds were released to your general balance.',
   }),
+  'vetting.outcome': (payload) => ({
+    subject:
+      text(payload, 'outcome') === 'vetted'
+        ? 'Your organisation is founder-vetted'
+        : 'Your organisation is no longer founder-vetted',
+    body:
+      text(payload, 'outcome') === 'vetted'
+        ? 'A platform administrator vetted your organisation. Your daily Discovery allowance is now the vetted grant, and you may publish.'
+        : "A platform administrator revoked your organisation's vetting. Publishing is closed. Funding is unchanged.",
+  }),
 };
 
 export function renderCopy(row: TaxonomyRow, payload: Record<string, unknown>): Copy {

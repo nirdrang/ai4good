@@ -28,6 +28,7 @@
 import type { WorldSeam } from '../../harness/contracts.ts';
 import type { Decision } from '../../../../supabase/functions/_shared/accounts.ts';
 import type { DeliveryRow, NotificationEventRow } from '../../../../supabase/functions/_shared/notifications.ts';
+import type { VettingOutcomeNotice } from '../../../../supabase/functions/_shared/org-vetting.ts';
 import type { PublicProjectView } from '../../../../supabase/functions/_shared/public-project.ts';
 import type { OrganizationDashboard } from '../../../../supabase/functions/_shared/tenant-reads.ts';
 import type { WriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
@@ -41,7 +42,7 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-export type { Decision, DeliveryRow, NotificationEventRow, OrganizationDashboard, PublicProjectView, WriteRefusalKind };
+export type { Decision, DeliveryRow, NotificationEventRow, OrganizationDashboard, PublicProjectView, VettingOutcomeNotice, WriteRefusalKind };
 
 /* ----------------------------------------------------------------------------- the actors */
 
@@ -191,6 +192,28 @@ export type VettingAuditRow = {
  */
 export type OperatorWriteOutcome = { ok: true } | { ok: false; reason: string };
 
+/**
+ * A notice the operator can hand the definer. Channels are plain strings so a body can send a
+ * value the channel enum will refuse — that is the late-failure arm, and a Channel-typed field
+ * could not express it.
+ */
+export type VettingDefinerNotice = {
+  channels: string[];
+  copy: { subject: string; body: string };
+};
+
+export type VettingDefinerAttempt = {
+  accountId: string;
+  request: VettingRequest;
+  notice: VettingDefinerNotice;
+};
+
+/** The event row plus the actor and payload AT-002.13 reads. */
+export type VettingNotificationEvent = NotificationEventRow & {
+  actorAccountId: string | null;
+  payload: Record<string, unknown>;
+};
+
 /* -------------------------------------------------------------------------- the allowance */
 
 /** The allowance route's answer, camel-cased. `remaining` is `granted − spent`, never stored. */
@@ -285,10 +308,20 @@ export type OrganizationsSut = {
     row: { [K in keyof Omit<VettingRecord, 'registration'>]: VettingRecord[K] | null } & Partial<RegistrationDocumentMetadata>,
   ): Promise<OperatorWriteOutcome>;
   vettingAuditEvents(organizationId: string): Promise<VettingAuditRow[]>;
+  /** Delete the organisation's one seat so a vet cannot resolve an NGO recipient. */
+  removeOrganizationSeatAsOperator(organizationId: string): Promise<void>;
+  /** Clear the Auth email on a seat holder so an email delivery cannot be addressed. */
+  clearAccountEmailAsOperator(accountId: string): Promise<void>;
+  /**
+   * Call the vetting definer as the operator, with a notice the TypeScript route would never
+   * compute. The late-failure body uses this to fail inside emit_notification after the aggregate
+   * and the audit row have been written.
+   */
+  attemptVettingDefinerAsOperator(input: VettingDefinerAttempt): Promise<OperatorWriteOutcome>;
 
   /* --------------------------------------------------------- the notification rows it wrote */
 
-  notificationEvents(filter: { event?: string; recipientId?: string }): Promise<NotificationEventRow[]>;
+  notificationEvents(filter: { event?: string; recipientId?: string }): Promise<VettingNotificationEvent[]>;
   notificationDeliveries(filter: { eventId?: string; recipientId?: string }): Promise<DeliveryRow[]>;
 
   /* ------------------------------------------------------------------- the allowance route */

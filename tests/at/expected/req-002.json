@@ -6,7 +6,9 @@
         "AT-002.11",
         "AT-002.11b",
         "AT-002.29",
-        "AT-002.30"
+        "AT-002.30",
+        "AT-002.13",
+        "AT-002.14"
       ],
       "red": {
         "AT-002.01": { "kind": "pending", "phase": "sut-missing" },
@@ -21,8 +23,6 @@
         "AT-002.10": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.31": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
-        "AT-002.13": { "kind": "pending", "phase": "sut-missing" },
-        "AT-002.14": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.16": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.17": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.18": { "kind": "pending", "phase": "sut-missing" },
@@ -39,7 +39,9 @@
         "AT-002.11",
         "AT-002.11b",
         "AT-002.29",
-        "AT-002.30"
+        "AT-002.30",
+        "AT-002.13",
+        "AT-002.14"
       ],
       "red": {
         "AT-002.01": { "kind": "pending", "phase": "sut-missing" },
@@ -54,8 +56,6 @@
         "AT-002.10": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.31": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
-        "AT-002.13": { "kind": "pending", "phase": "sut-missing" },
-        "AT-002.14": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.16": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.17": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.18": { "kind": "pending", "phase": "sut-missing" },

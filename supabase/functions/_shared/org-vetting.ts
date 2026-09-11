@@ -1,5 +1,7 @@
 /** The founder's manual vet and unvet: evidence tokens, request validation, RPC arguments and result projection. */
 
+import { renderCopy } from './notification-copy.ts';
+import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
 import {
   refuseWrite,
   stringField,
@@ -39,10 +41,30 @@ const VET_BODY_KEYS = new Set([
 
 const UNVET_BODY_KEYS = new Set(['organizationId', 'action', 'note']);
 
+const VETTING_OUTCOME_EVENT = 'vetting.outcome';
+
+/** Channels and copy the definer must not restate. Recipient and payload are resolved in SQL. */
+export type VettingOutcomeNotice = {
+  readonly channels: readonly Channel[];
+  readonly copy: { readonly subject: string; readonly body: string };
+};
+
+export function vettingOutcomeNotice(outcome: 'vetted' | 'unvetted'): VettingOutcomeNotice {
+  const row = taxonomyRow(VETTING_OUTCOME_EVENT);
+  if (row === undefined) {
+    throw new Error('vetting.outcome is missing from the notification taxonomy');
+  }
+  return {
+    channels: channelsFor(row),
+    copy: renderCopy(row, { outcome }),
+  };
+}
+
 export type OrganizationVettingArgs = {
   readonly p_account_id: string;
   readonly p_organization_id: string;
   readonly p_action: 'vet' | 'unvet';
+  readonly p_notice: VettingOutcomeNotice;
   readonly p_organization_name: string | null;
   readonly p_public_reference_url: string | null;
   readonly p_contact_name: string | null;
@@ -229,6 +251,7 @@ export function decideOrganizationVetting(input: AccountWriteRouteInput): WriteR
         p_account_id: input.caller.id,
         p_organization_id: organizationId,
         p_action: 'unvet',
+        p_notice: vettingOutcomeNotice('unvetted'),
         p_organization_name: null,
         p_public_reference_url: null,
         p_contact_name: null,
@@ -321,6 +344,7 @@ export function decideOrganizationVetting(input: AccountWriteRouteInput): WriteR
       p_account_id: input.caller.id,
       p_organization_id: organizationId,
       p_action: 'vet',
+      p_notice: vettingOutcomeNotice('vetted'),
       p_organization_name: organizationName,
       p_public_reference_url: publicReferenceUrl,
       p_contact_name: contactName,

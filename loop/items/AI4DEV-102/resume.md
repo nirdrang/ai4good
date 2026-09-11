@@ -8,25 +8,29 @@ The Feature playbook, one run for the whole item. Grounding, the design arena, t
 the synthesis are all finished and committed. The design of record is
 `loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-**Units done: the suite scaffold, and units 1 and 2 of 13.**
+**Units done: the suite scaffold, and units 1, 2 and 3 of 13.**
 
 | what | commit | acceptance ids now green |
 |---|---|---|
 | the suite scaffold, all red | `cd0cf72` | none, by design |
 | unit 1, the vetting record | `2c6d415` | AT-002.11, AT-002.11b, at both tiers |
 | unit 2, only the admin vets | `4d18e84` | AT-002.29, AT-002.30, at both tiers |
+| unit 3, unvet and the notification | `7c88d19` | AT-002.13, AT-002.14, at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `4d18e84`, tree
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `7c88d19`, tree
 clean, nothing pushed since the brief commit. The local Supabase stack is up.
 
 ## The first action on resume
 
-Unit 3, AI4DEV-113 (unvet and the notification), for AT-002.13 and AT-002.14. AT-002.12 stays red.
+Unit 4, AI4DEV-114 (the evidence rule), for AT-002.16, AT-002.17 and AT-002.18.
 
-This unit inserts the emit into the definer unit 1 built. It also owes tests for the two refusals
-unit 1 left uncovered: an organisation with no seat holder, and a seat holder with no email address.
-Correction C4 of the design of record belongs here too: a failure induced at the emit must roll back
-the vetting row and the audit row with it.
+Most of what this unit proves is already enforced by the vetting table's constraints: the closed
+evidence vocabulary refuses an identity document, and one check couples the evidence type to its
+document metadata. Expect proofs, and little or no product code. The third id also needs a sweep
+showing no surface implies a document review that did not happen.
+
+Note for the publish unit later: the vetted notification says the NGO may publish, which is true of
+the tier and not yet true of the product.
 
 ## The per-unit loop
 
@@ -54,6 +58,7 @@ bun run at:verify req-001 --tier loop --expect
 bun run at:verify req-016 --tier loop --expect
 bun run at:verify req-002 --tier integration --expect
 bun run at:verify req-001 --tier integration --expect
+bun run at:verify req-016 --tier integration --expect
 ```
 
 The last two matter most. Every new table and every new write route changes what the authentication
@@ -117,4 +122,5 @@ integration and twenty at loop when every unit has landed.
 - The read gate refuses an unbounded read over 350 lines. Page it, or send a read lane with an aim.
 - Never paste the output of `bun run db:start`. It contains a secret key, and GitHub push protection
   then refuses every later push on the branch.
+
 
