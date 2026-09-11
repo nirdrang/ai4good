@@ -16,9 +16,11 @@ import {
   allowanceOf,
   dailyAllowanceExhaustedReason,
   dailyGrantFor,
+  debitExceedsRemainingReason,
   decideDiscoveryAllowance,
   discoveryTier,
   highWaterGrant,
+  remainingCredits,
   utcDayOf,
   type DiscoveryAllowanceArgs,
   type SpendRow,
@@ -821,12 +823,21 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const existing = spend.get(spendKey(organizationId, utcDay));
       const granted = highWaterGrant(existing?.granted ?? null, discoveryTier(vetted));
       const spentToday = existing?.spent ?? 0;
-      if (spentToday + credits > granted) {
+      const remaining = remainingCredits(granted, spentToday);
+      if (remaining <= 0) {
         return {
           ok: false,
           kind: 'daily-allowance-exhausted',
           status: 409,
-          reason: dailyAllowanceExhaustedReason(organizationId),
+          reason: dailyAllowanceExhaustedReason(organizationId, discoveryTier(vetted)),
+        };
+      }
+      if (credits > remaining) {
+        return {
+          ok: false,
+          kind: 'debit-exceeds-remaining',
+          status: 409,
+          reason: debitExceedsRemainingReason(organizationId, remaining),
         };
       }
       const row: SpendRow = { organizationId, utcDay, spent: spentToday + credits, granted };

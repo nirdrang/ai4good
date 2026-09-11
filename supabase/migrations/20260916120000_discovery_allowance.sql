@@ -74,6 +74,7 @@ declare
   v_vetted boolean;
   v_spent integer;
   v_granted integer;
+  v_remaining integer;
   v_confirmed timestamptz;
 begin
   perform public.assert_account_active(p_account_id);
@@ -164,12 +165,32 @@ begin
      and utc_day = v_utc_day
      for update;
 
-  if v_spent + p_credits > v_granted then
+  -- Compare the debit against what remains. Adding spent + credits overflows a 32-bit integer
+  -- (a debit of 2147483647 after one credit is spent raises "integer out of range").
+  v_remaining := v_granted - v_spent;
+
+  if v_remaining <= 0 then
+    if v_vetted then
+      -- The get-vetted remedy is dropped for a vetted caller: that caller has already taken it.
+      raise exception
+        'discovery_allowance refuses: organisation % has no Discovery credits left today — fund project fuel to continue now, or wait for the next UTC day',
+        p_organization_id
+        using errcode = 'P0001', detail = 'daily-allowance-exhausted';
+    else
+      raise exception
+        'discovery_allowance refuses: organisation % has no Discovery credits left today — get vetted (daily grant becomes %), fund project fuel to continue now, or wait for the next UTC day',
+        p_organization_id,
+        public.discovery_daily_grant(true)
+        using errcode = 'P0001', detail = 'daily-allowance-exhausted';
+    end if;
+  end if;
+
+  if p_credits > v_remaining then
     raise exception
-      'discovery_allowance refuses: organisation % has no Discovery credits left today — get vetted (daily grant becomes %), fund project fuel to continue now, or wait for the next UTC day',
+      'discovery_allowance refuses: organisation % still has % Discovery credits remaining today — this debit is larger than what remains',
       p_organization_id,
-      public.discovery_daily_grant(true)
-      using errcode = 'P0001', detail = 'daily-allowance-exhausted';
+      v_remaining
+      using errcode = 'P0001', detail = 'debit-exceeds-remaining';
   end if;
 
   update public.discovery_spend

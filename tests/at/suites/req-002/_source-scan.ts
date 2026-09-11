@@ -1,8 +1,8 @@
 /**
  * REQ-002's SOURCE ARMS for AT-002.30 (manual founder vet only), AT-002.16 (no document
  * content is stored or returned), the grant-drift scan (the pinned registry, the TypeScript
- * constants, and the SQL grant function), the exhausted-sentence pin (the TypeScript renderer
- * and the SQL debit raise), the founder-vetted wording arm (no acceptance id; AT-002.23
+ * constants, and the SQL grant function), the exhausted-sentence pin (every TypeScript
+ * renderer arm and every SQL debit raise), the founder-vetted wording arm (no acceptance id; AT-002.23
  * stays red on the listing screens), the no-wallet arm (no acceptance id; AT-002.10 stays
  * red on the missing checkout), and the absent-publish-flow arm (no acceptance id; AT-002.19
  * and AT-002.20 stay red on the missing publish flow).
@@ -31,7 +31,9 @@ import { fileURLToPath } from 'node:url';
 import {
   dailyAllowanceExhaustedReason,
   dailyGrantFor,
+  debitExceedsRemainingReason,
   DISCOVERY_DAILY_GRANT,
+  remainingCredits,
 } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
@@ -700,81 +702,158 @@ export function grantPinProblems(): string[] {
 /* ---------------------------------------------------------------------- exhausted-sentence pin */
 
 const ALLOWANCE_FUNCTION_HEAD = /create\s+(?:or\s+replace\s+)?function\s+public\.discovery_allowance\s*\(/i;
-const EXHAUSTED_RAISE =
-  /raise\s+exception\s+'((?:[^']|'')*)'([^;]*);/gi;
-const EXHAUSTED_DETAIL = /detail\s*=\s*'daily-allowance-exhausted'/i;
-const EXHAUSTED_ERRCODE = /errcode\s*=\s*'P0001'/i;
-const EXHAUSTED_ARGS = /^\s*,\s*([^,]+)\s*,\s*([\s\S]+?)\s+using\s+/i;
+const RAISE_EXCEPTION = /raise\s+exception\s+'((?:[^']|'')*)'([^;]*);/gi;
+const ERRCODE_P0001 = /errcode\s*=\s*'P0001'/i;
+const RAISE_DETAIL = /detail\s*=\s*'([^']+)'/i;
 const GRANT_FROM_FUNCTION = /^public\.discovery_daily_grant\(\s*true\s*\)$/i;
-const RENDERER_HEAD = /export function dailyAllowanceExhaustedReason\(/;
+const REMAINING_ARG = /^(?:v_remaining|v_granted\s*-\s*v_spent)$/i;
 const VETTED_GRANT_READ = /dailyGrantFor\(\s*['"]vetted['"]\s*\)/;
+const EXHAUSTED_DETAIL = 'daily-allowance-exhausted';
+const EXCEEDS_DETAIL = 'debit-exceeds-remaining';
 
-export type ExhaustedRaise = {
+export type DebitRefusalRaise = {
   format: string;
-  organizationArg: string;
-  grantArg: string;
+  args: string[];
+  detail: string;
 };
 
 export type ExhaustedSentenceInput = {
-  renderedReason: string;
   organizationId: string;
   vettedGrant: number;
+  remaining: number;
+  exhaustedUnverified: string;
+  exhaustedVetted: string;
+  exceedsRemaining: string;
   allowanceFunctionSql: string;
-  typescriptRendererSource: string;
+  typescriptExhaustedRendererSource: string;
+  typescriptExceedsRemainingRendererSource: string;
 };
 
-/** The `daily-allowance-exhausted` raise inside `public.discovery_allowance`. Throws when it cannot be read. */
-export function parseExhaustedRaise(sql: string): ExhaustedRaise {
+function parseRaiseArgs(tail: string): { args: string[]; using: string } | null {
+  const usingMatch = /\s+using\s+/i.exec(tail);
+  if (usingMatch === null || usingMatch.index === undefined) return null;
+  const before = tail.slice(0, usingMatch.index).trim();
+  const using = tail.slice(usingMatch.index + usingMatch[0].length);
+  const list = before.startsWith(',') ? before.slice(1).trim() : before;
+  if (list === '') return { args: [], using };
+  const args: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const ch of list) {
+    if (ch === '(') {
+      depth += 1;
+      current += ch;
+      continue;
+    }
+    if (ch === ')') {
+      depth -= 1;
+      current += ch;
+      continue;
+    }
+    if (ch === ',' && depth === 0) {
+      args.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim() !== '') args.push(current.trim());
+  return { args, using };
+}
+
+/** Every P0001 debit raise inside `public.discovery_allowance`. Throws when the function cannot be read. */
+export function parseDebitRefusalRaises(sql: string): DebitRefusalRaise[] {
   if (!ALLOWANCE_FUNCTION_HEAD.test(sql)) {
     throw new Error(
-      'parseExhaustedRaise found no public.discovery_allowance definition in the SQL it was given. ' +
+      'parseDebitRefusalRaises found no public.discovery_allowance definition in the SQL it was given. ' +
         'Refusing to report agreement.',
     );
   }
-  EXHAUSTED_RAISE.lastIndex = 0;
-  let found: ExhaustedRaise | null = null;
-  for (const match of sql.matchAll(EXHAUSTED_RAISE)) {
+  RAISE_EXCEPTION.lastIndex = 0;
+  const found: DebitRefusalRaise[] = [];
+  for (const match of sql.matchAll(RAISE_EXCEPTION)) {
     const tail = match[2] ?? '';
-    if (!EXHAUSTED_DETAIL.test(tail) || !EXHAUSTED_ERRCODE.test(tail)) continue;
-    const args = EXHAUSTED_ARGS.exec(tail);
-    if (args === null || args[1] === undefined || args[2] === undefined) {
+    if (!ERRCODE_P0001.test(tail)) continue;
+    const parsed = parseRaiseArgs(tail);
+    const detailMatch = RAISE_DETAIL.exec(tail);
+    if (parsed === null || detailMatch === null || detailMatch[1] === undefined) {
       throw new Error(
-        'parseExhaustedRaise could not read the daily-allowance-exhausted raise as a format string, ' +
-          'p_organization_id, and a grant argument. Refusing to report agreement.',
+        'parseDebitRefusalRaises could not read a P0001 raise as a format string, arguments, and a detail. ' +
+          'Refusing to report agreement.',
       );
     }
-    found = {
+    found.push({
       format: (match[1] ?? '').replace(/''/g, "'"),
-      organizationArg: args[1].trim(),
-      grantArg: args[2].trim(),
-    };
-  }
-  if (found === null) {
-    throw new Error(
-      'parseExhaustedRaise could not read the daily-allowance-exhausted raise as a format string, ' +
-        'p_organization_id, and a grant argument. Refusing to report agreement.',
-    );
+      args: parsed.args,
+      detail: detailMatch[1],
+    });
   }
   return found;
 }
 
-/** The exported TypeScript renderer. Throws when the function text cannot be read. */
-export function parseTypescriptExhaustedRenderer(source: string): string {
-  const start = source.search(RENDERER_HEAD);
+function extractExportedFunction(source: string, name: string): string {
+  const head = new RegExp(`export function ${name}\\(`);
+  const start = source.search(head);
   if (start < 0) {
-    throw new Error(
-      'parseTypescriptExhaustedRenderer found no export function dailyAllowanceExhaustedReason. ' +
-        'Refusing to report agreement.',
-    );
+    throw new Error(`parseTypescriptSentenceRenderer found no export function ${name}. Refusing to report agreement.`);
   }
-  const match = /export function dailyAllowanceExhaustedReason\([\s\S]*?\r?\n\}\r?\n/.exec(source.slice(start));
-  if (match === null) {
-    throw new Error(
-      'parseTypescriptExhaustedRenderer could not read the body of dailyAllowanceExhaustedReason. ' +
-        'Refusing to report agreement.',
-    );
+  const brace = source.indexOf('{', start);
+  if (brace < 0) {
+    throw new Error(`parseTypescriptSentenceRenderer could not read the body of ${name}. Refusing to report agreement.`);
   }
-  return match[0];
+  let depth = 0;
+  let inSingle = false;
+  let inDouble = false;
+  let inTick = false;
+  for (let i = brace; i < source.length; i += 1) {
+    const ch = source[i];
+    const prev = i > 0 ? source[i - 1] : '';
+    if (inSingle) {
+      if (ch === "'" && prev !== '\\') inSingle = false;
+      continue;
+    }
+    if (inDouble) {
+      if (ch === '"' && prev !== '\\') inDouble = false;
+      continue;
+    }
+    if (inTick) {
+      if (ch === '`' && prev !== '\\') inTick = false;
+      continue;
+    }
+    if (ch === "'") {
+      inSingle = true;
+      continue;
+    }
+    if (ch === '"') {
+      inDouble = true;
+      continue;
+    }
+    if (ch === '`') {
+      inTick = true;
+      continue;
+    }
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        let end = i + 1;
+        if (source[end] === '\r') end += 1;
+        if (source[end] === '\n') end += 1;
+        return source.slice(start, end);
+      }
+    }
+  }
+  throw new Error(`parseTypescriptSentenceRenderer could not read the body of ${name}. Refusing to report agreement.`);
+}
+
+/** The exported TypeScript exhausted renderer. Throws when the function text cannot be read. */
+export function parseTypescriptExhaustedRenderer(source: string): string {
+  return extractExportedFunction(source, 'dailyAllowanceExhaustedReason');
+}
+
+/** The exported TypeScript oversize-debit renderer. Throws when the function text cannot be read. */
+export function parseTypescriptExceedsRemainingRenderer(source: string): string {
+  return extractExportedFunction(source, 'debitExceedsRemainingReason');
 }
 
 function applyRaiseFormat(format: string, values: readonly string[]): string {
@@ -791,34 +870,118 @@ function applyRaiseFormat(format: string, values: readonly string[]): string {
   });
 }
 
-/** Every disagreement between the TypeScript exhausted renderer and the SQL debit raise. */
+function slotCount(format: string): number {
+  return (format.match(/%/g) ?? []).length;
+}
+
+function findRaise(
+  raises: readonly DebitRefusalRaise[],
+  detail: string,
+  label: string,
+  match: (raise: DebitRefusalRaise) => boolean,
+): DebitRefusalRaise {
+  const hits = raises.filter((raise) => raise.detail === detail && match(raise));
+  if (hits.length !== 1 || hits[0] === undefined) {
+    throw new Error(
+      `scanExhaustedSentence could not read exactly one ${label} raise. Refusing to report agreement.`,
+    );
+  }
+  return hits[0];
+}
+
+function checkOrganizationArg(raise: DebitRefusalRaise, label: string, problems: string[]): void {
+  if (raise.args[0] !== 'p_organization_id') {
+    problems.push(`${label} organisation argument is ${raise.args[0] ?? '(missing)'}, expected p_organization_id`);
+  }
+}
+
+function checkNoNumeral(format: string, label: string, problems: string[]): void {
+  if (/\d/.test(format)) problems.push(`the SQL ${label} sentence contains a numeric literal`);
+}
+
+/** Every disagreement between a TypeScript debit renderer and its SQL raise. Compares every arm. */
 export function scanExhaustedSentence(input: ExhaustedSentenceInput): string[] {
-  const raise = parseExhaustedRaise(input.allowanceFunctionSql);
+  const raises = parseDebitRefusalRaises(input.allowanceFunctionSql);
+  const unverified = findRaise(
+    raises,
+    EXHAUSTED_DETAIL,
+    'unverified exhausted',
+    (raise) => raise.args.length === 2,
+  );
+  const vetted = findRaise(
+    raises,
+    EXHAUSTED_DETAIL,
+    'vetted exhausted',
+    (raise) => raise.args.length === 1,
+  );
+  const exceeds = findRaise(raises, EXCEEDS_DETAIL, 'exceeds-remaining', () => true);
+
+  if (slotCount(unverified.format) !== 2 || unverified.args.length !== 2) {
+    throw new Error(
+      'scanExhaustedSentence could not read the unverified exhausted raise as a format string, ' +
+        'p_organization_id, and a grant argument. Refusing to report agreement.',
+    );
+  }
+  if (slotCount(vetted.format) !== 1 || vetted.args.length !== 1) {
+    throw new Error(
+      'scanExhaustedSentence could not read the vetted exhausted raise as a format string and p_organization_id. ' +
+        'Refusing to report agreement.',
+    );
+  }
+  if (slotCount(exceeds.format) !== 2 || exceeds.args.length !== 2) {
+    throw new Error(
+      'scanExhaustedSentence could not read the exceeds-remaining raise as a format string, ' +
+        'p_organization_id, and a remaining argument. Refusing to report agreement.',
+    );
+  }
+
   const problems: string[] = [];
-  if (raise.organizationArg !== 'p_organization_id') {
-    problems.push(
-      `exhausted raise organisation argument is ${raise.organizationArg}, expected p_organization_id`,
-    );
+  checkOrganizationArg(unverified, 'unverified exhausted raise', problems);
+  checkOrganizationArg(vetted, 'vetted exhausted raise', problems);
+  checkOrganizationArg(exceeds, 'exceeds-remaining raise', problems);
+
+  const grantArg = unverified.args[1] ?? '';
+  if (!GRANT_FROM_FUNCTION.test(grantArg)) {
+    problems.push(`exhausted raise grant argument is ${grantArg}, expected public.discovery_daily_grant(true)`);
   }
-  if (!GRANT_FROM_FUNCTION.test(raise.grantArg)) {
-    problems.push(
-      `exhausted raise grant argument is ${raise.grantArg}, expected public.discovery_daily_grant(true)`,
-    );
+  const remainingArg = exceeds.args[1] ?? '';
+  if (!REMAINING_ARG.test(remainingArg)) {
+    problems.push(`exceeds-remaining remaining argument is ${remainingArg}, expected v_remaining or v_granted - v_spent`);
   }
-  if (/\d/.test(raise.format)) {
-    problems.push('the SQL exhausted sentence contains a numeric literal');
-  }
-  if (!VETTED_GRANT_READ.test(input.typescriptRendererSource)) {
+
+  checkNoNumeral(unverified.format, 'unverified exhausted', problems);
+  checkNoNumeral(vetted.format, 'vetted exhausted', problems);
+  checkNoNumeral(exceeds.format, 'exceeds-remaining', problems);
+
+  if (!VETTED_GRANT_READ.test(input.typescriptExhaustedRendererSource)) {
     problems.push("dailyAllowanceExhaustedReason does not read the vetted grant from dailyGrantFor('vetted')");
   }
-  if (/\b\d+\b/.test(input.typescriptRendererSource)) {
+  if (/\b\d+\b/.test(input.typescriptExhaustedRendererSource)) {
     problems.push('dailyAllowanceExhaustedReason contains a numeric literal');
   }
-  const fromSql = applyRaiseFormat(raise.format, [input.organizationId, String(input.vettedGrant)]);
-  if (fromSql !== input.renderedReason) {
+  if (/\b\d+\b/.test(input.typescriptExceedsRemainingRendererSource)) {
+    problems.push('debitExceedsRemainingReason contains a numeric literal');
+  }
+
+  const unverifiedFromSql = applyRaiseFormat(unverified.format, [input.organizationId, String(input.vettedGrant)]);
+  if (unverifiedFromSql !== input.exhaustedUnverified) {
     problems.push(
-      `TypeScript exhausted sentence is ${JSON.stringify(input.renderedReason)}, ` +
-        `SQL raise filled with the vetted grant is ${JSON.stringify(fromSql)}`,
+      `TypeScript unverified exhausted sentence is ${JSON.stringify(input.exhaustedUnverified)}, ` +
+        `SQL raise filled with the vetted grant is ${JSON.stringify(unverifiedFromSql)}`,
+    );
+  }
+  const vettedFromSql = applyRaiseFormat(vetted.format, [input.organizationId]);
+  if (vettedFromSql !== input.exhaustedVetted) {
+    problems.push(
+      `TypeScript vetted exhausted sentence is ${JSON.stringify(input.exhaustedVetted)}, ` +
+        `SQL raise filled is ${JSON.stringify(vettedFromSql)}`,
+    );
+  }
+  const exceedsFromSql = applyRaiseFormat(exceeds.format, [input.organizationId, String(input.remaining)]);
+  if (exceedsFromSql !== input.exceedsRemaining) {
+    problems.push(
+      `TypeScript exceeds-remaining sentence is ${JSON.stringify(input.exceedsRemaining)}, ` +
+        `SQL raise filled with remaining is ${JSON.stringify(exceedsFromSql)}`,
     );
   }
   return problems.sort();
@@ -854,12 +1017,18 @@ function typescriptRendererFile(oracle: string): string {
 
 export function exhaustedSentenceProblems(): string[] {
   const organizationId = '00000000-0000-4000-8000-000000000002';
+  const remaining = remainingCredits(dailyGrantFor('unverified'), 0);
+  const rendererFile = typescriptRendererFile('exhaustedSentenceProblems');
   return scanExhaustedSentence({
-    renderedReason: dailyAllowanceExhaustedReason(organizationId),
     organizationId,
     vettedGrant: dailyGrantFor('vetted'),
+    remaining,
+    exhaustedUnverified: dailyAllowanceExhaustedReason(organizationId, 'unverified'),
+    exhaustedVetted: dailyAllowanceExhaustedReason(organizationId, 'vetted'),
+    exceedsRemaining: debitExceedsRemainingReason(organizationId, remaining),
     allowanceFunctionSql: lastAllowanceFunctionSql('exhaustedSentenceProblems'),
-    typescriptRendererSource: parseTypescriptExhaustedRenderer(typescriptRendererFile('exhaustedSentenceProblems')),
+    typescriptExhaustedRendererSource: parseTypescriptExhaustedRenderer(rendererFile),
+    typescriptExceedsRemainingRendererSource: parseTypescriptExceedsRemainingRenderer(rendererFile),
   });
 }
 

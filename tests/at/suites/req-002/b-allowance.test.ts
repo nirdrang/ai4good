@@ -11,7 +11,7 @@
  */
 
 import { describe, expect } from 'vitest';
-import { utcDayOf } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import { debitExceedsRemainingReason, utcDayOf } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { createConfigRegistry } from '../../harness/config.ts';
 import { atTest } from './_bind.ts';
 import { AWAITED, awaiting } from './_pending.ts';
@@ -323,85 +323,112 @@ async function proveRolloverRemedy(
   );
 }
 
+async function proveUnverifiedCeiling(
+  open: () => Promise<{ w: World; sut: OrganizationsSut }>,
+  proveIntegerOverflow: boolean,
+): Promise<void> {
+  const pins = createConfigRegistry();
+  const unverifiedGrant = pins.get<number>(UNVERIFIED_PIN);
+  const vettedGrant = pins.get<number>(VETTED_PIN);
+  expect(
+    scanGrantPins({
+      unverifiedPin: unverifiedGrant,
+      vettedPin: vettedGrant,
+      typescriptUnverified: unverifiedGrant,
+      typescriptVetted: vettedGrant,
+      grantFunctionSql:
+        'create function public.discovery_daily_grant(p_vetted boolean)\n' +
+        `as $$ select case when p_vetted then ${vettedGrant + 1} else ${unverifiedGrant + 1} end; $$;`,
+    }).length,
+    'the grant-drift scan reported no disagreement when both SQL arms differed from the pins',
+  ).toBeGreaterThan(0);
+  expect(grantPinProblems(), 'the pinned registry, TypeScript constants and SQL grant disagree').toEqual([]);
+
+  const { w, sut } = await open();
+  const ngo = await sut.provisionNgo(w.email('ngo-04'), { emailVerified: true });
+
+  const first = await sut.readAllowance(ngo.session, ngo.organizationId);
+  expect(
+    first.ok,
+    first.ok ? 'the first allowance read was refused' : `the first allowance read was refused as ${first.kind}: ${first.reason}`,
+  ).toBe(true);
+  if (!first.ok) return;
+  expect(first.allowance.organizationId).toBe(ngo.organizationId);
+  expect(first.allowance.vetted).toBe(false);
+  expect(first.allowance.dailyGrant, 'the unverified daily grant is not the unverified pin').toBe(unverifiedGrant);
+  expect(first.allowance.spentToday).toBe(0);
+  expect(first.allowance.remaining).toBe(unverifiedGrant);
+  expect(first.allowance.utcDay, 'the allowance day is not a UTC calendar day').toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+  const oversize = await sut.debitAllowance(ngo.session, ngo.organizationId, unverifiedGrant + 1);
+  expect(oversize.ok, 'a debit larger than the unverified grant was admitted').toBe(false);
+  if (!oversize.ok) {
+    expect(oversize.kind, `the oversize debit was refused as ${oversize.kind}: ${oversize.reason}`).toBe(
+      'debit-exceeds-remaining',
+    );
+    expect(oversize.reason).toBe(debitExceedsRemainingReason(ngo.organizationId, unverifiedGrant));
+  }
+  expect(await sut.spendRows(ngo.organizationId), 'the refused oversize debit wrote a spend row').toEqual([]);
+
+  if (proveIntegerOverflow) {
+    // 2147483647 is integer max. Adding it to spent overflows Postgres. JavaScript numbers do not
+    // overflow there, so the loop tier cannot prove this.
+    const overflow = await sut.debitAllowance(ngo.session, ngo.organizationId, 2147483647);
+    expect(overflow.ok, 'an integer-max debit was admitted or raised as a database error').toBe(false);
+    if (!overflow.ok) {
+      expect(overflow.kind, `the integer-max debit was refused as ${overflow.kind}: ${overflow.reason}`).toBe(
+        'debit-exceeds-remaining',
+      );
+      expect(overflow.reason).toBe(debitExceedsRemainingReason(ngo.organizationId, unverifiedGrant));
+    }
+    expect(await sut.spendRows(ngo.organizationId), 'the integer-max debit wrote a spend row').toEqual([]);
+  }
+
+  for (let n = 1; n <= unverifiedGrant; n += 1) {
+    const debit = await debitOne(sut, ngo.session, ngo.organizationId, `debit ${n} of ${unverifiedGrant}`);
+    if (!debit.ok) return;
+    expect(debit.allowance.dailyGrant).toBe(unverifiedGrant);
+    expect(debit.allowance.spentToday).toBe(n);
+    expect(debit.allowance.remaining).toBe(unverifiedGrant - n);
+    expect(debit.allowance.vetted).toBe(false);
+  }
+
+  const blocked = await sut.debitAllowance(ngo.session, ngo.organizationId, 1);
+  expect(blocked.ok, 'a debit past the unverified grant was admitted').toBe(false);
+  if (!blocked.ok) {
+    expect(blocked.kind, `the extra debit was refused as ${blocked.kind}: ${blocked.reason}`).toBe(
+      'daily-allowance-exhausted',
+    );
+  }
+
+  const after = await sut.readAllowance(ngo.session, ngo.organizationId);
+  expect(after.ok, 'the allowance read after exhaustion was refused').toBe(true);
+  if (!after.ok) return;
+  expect(after.allowance.spentToday).toBe(unverifiedGrant);
+  expect(after.allowance.remaining).toBe(0);
+  expect(after.allowance.dailyGrant).toBe(unverifiedGrant);
+
+  const project = await sut.createProjectAsOperator(ngo.organizationId, 'Shelter intake draft');
+  expect(project.id, 'the unverified NGO could not hold a draft project').toBeTruthy();
+  const page = await sut.publicProjectPage(project.id, ngo.session);
+  expect(page.ok, 'the draft project did not render on the public project page').toBe(true);
+
+  // The criterion also says this NGO cannot publish. No publish route exists in this tree, and
+  // the design of record keeps those ids red for that reason. This body does not treat that
+  // absence as proof.
+}
+
 describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
   atTest(
     'AT-002.04',
     'an unverified-tier NGO reads a daily grant of exactly the unverified pin, can consume up to it and never past it, may draft and cannot publish',
-    async ({ open }) => {
-      const pins = createConfigRegistry();
-      const unverifiedGrant = pins.get<number>(UNVERIFIED_PIN);
-      const vettedGrant = pins.get<number>(VETTED_PIN);
-      expect(
-        scanGrantPins({
-          unverifiedPin: unverifiedGrant,
-          vettedPin: vettedGrant,
-          typescriptUnverified: unverifiedGrant,
-          typescriptVetted: vettedGrant,
-          grantFunctionSql:
-            'create function public.discovery_daily_grant(p_vetted boolean)\n' +
-            `as $$ select case when p_vetted then ${vettedGrant + 1} else ${unverifiedGrant + 1} end; $$;`,
-        }).length,
-        'the grant-drift scan reported no disagreement when both SQL arms differed from the pins',
-      ).toBeGreaterThan(0);
-      expect(grantPinProblems(), 'the pinned registry, TypeScript constants and SQL grant disagree').toEqual([]);
-
-      const { w, sut } = await open();
-      const ngo = await sut.provisionNgo(w.email('ngo-04'), { emailVerified: true });
-
-      const first = await sut.readAllowance(ngo.session, ngo.organizationId);
-      expect(
-        first.ok,
-        first.ok ? 'the first allowance read was refused' : `the first allowance read was refused as ${first.kind}: ${first.reason}`,
-      ).toBe(true);
-      if (!first.ok) return;
-      expect(first.allowance.organizationId).toBe(ngo.organizationId);
-      expect(first.allowance.vetted).toBe(false);
-      expect(first.allowance.dailyGrant, 'the unverified daily grant is not the unverified pin').toBe(unverifiedGrant);
-      expect(first.allowance.spentToday).toBe(0);
-      expect(first.allowance.remaining).toBe(unverifiedGrant);
-      expect(first.allowance.utcDay, 'the allowance day is not a UTC calendar day').toMatch(/^\d{4}-\d{2}-\d{2}$/);
-
-      const oversize = await sut.debitAllowance(ngo.session, ngo.organizationId, unverifiedGrant + 1);
-      expect(oversize.ok, 'a debit larger than the unverified grant was admitted').toBe(false);
-      if (!oversize.ok) {
-        expect(oversize.kind, `the oversize debit was refused as ${oversize.kind}: ${oversize.reason}`).toBe(
-          'daily-allowance-exhausted',
-        );
-      }
-      expect(await sut.spendRows(ngo.organizationId), 'the refused oversize debit wrote a spend row').toEqual([]);
-
-      for (let n = 1; n <= unverifiedGrant; n += 1) {
-        const debit = await debitOne(sut, ngo.session, ngo.organizationId, `debit ${n} of ${unverifiedGrant}`);
-        if (!debit.ok) return;
-        expect(debit.allowance.dailyGrant).toBe(unverifiedGrant);
-        expect(debit.allowance.spentToday).toBe(n);
-        expect(debit.allowance.remaining).toBe(unverifiedGrant - n);
-        expect(debit.allowance.vetted).toBe(false);
-      }
-
-      const blocked = await sut.debitAllowance(ngo.session, ngo.organizationId, 1);
-      expect(blocked.ok, 'a debit past the unverified grant was admitted').toBe(false);
-      if (!blocked.ok) {
-        expect(blocked.kind, `the extra debit was refused as ${blocked.kind}: ${blocked.reason}`).toBe(
-          'daily-allowance-exhausted',
-        );
-      }
-
-      const after = await sut.readAllowance(ngo.session, ngo.organizationId);
-      expect(after.ok, 'the allowance read after exhaustion was refused').toBe(true);
-      if (!after.ok) return;
-      expect(after.allowance.spentToday).toBe(unverifiedGrant);
-      expect(after.allowance.remaining).toBe(0);
-      expect(after.allowance.dailyGrant).toBe(unverifiedGrant);
-
-      const project = await sut.createProjectAsOperator(ngo.organizationId, 'Shelter intake draft');
-      expect(project.id, 'the unverified NGO could not hold a draft project').toBeTruthy();
-      const page = await sut.publicProjectPage(project.id, ngo.session);
-      expect(page.ok, 'the draft project did not render on the public project page').toBe(true);
-
-      // The criterion also says this NGO cannot publish. No publish route exists in this tree, and
-      // the design of record keeps those ids red for that reason. This body does not treat that
-      // absence as proof.
+    {
+      default: async ({ open }) => {
+        await proveUnverifiedCeiling(open, false);
+      },
+      integration: async ({ open }) => {
+        await proveUnverifiedCeiling(open, true);
+      },
     },
   );
 

@@ -85,6 +85,7 @@ export const WRITE_REFUSAL_KINDS = [
   'invalid-evidence',
   'invalid-credit-amount',
   'daily-allowance-exhausted',
+  'debit-exceeds-remaining',
   'email-unverified',
   'no-such-organisation',
   'not-the-current-contact',

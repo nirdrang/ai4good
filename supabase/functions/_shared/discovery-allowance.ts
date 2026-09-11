@@ -44,12 +44,28 @@ export function remainingCredits(granted: number, spent: number): number {
 
 /**
  * One place in TypeScript. The debit arm of `public.discovery_allowance` raises the same words.
- * The vetted grant in the first remedy is `dailyGrantFor('vetted')`, never a numeral in the sentence.
+ * The vetted grant in the get-vetted remedy is `dailyGrantFor('vetted')`, never a numeral in the sentence.
+ * The get-vetted remedy is dropped for a vetted caller: that caller has already taken it.
  */
-export function dailyAllowanceExhaustedReason(organizationId: string): string {
+export function dailyAllowanceExhaustedReason(organizationId: string, tier: DiscoveryTier): string {
+  const remedies =
+    tier === 'vetted'
+      ? 'fund project fuel to continue now, or wait for the next UTC day'
+      : `get vetted (daily grant becomes ${dailyGrantFor('vetted')}), fund project fuel to continue now, or wait for the next UTC day`;
   return (
     `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today` +
-    ` — get vetted (daily grant becomes ${dailyGrantFor('vetted')}), fund project fuel to continue now, or wait for the next UTC day`
+    ` — ${remedies}`
+  );
+}
+
+/**
+ * One place in TypeScript. The oversize-debit arm of `public.discovery_allowance` raises the same words.
+ * Remaining is a slot, never a numeral in the sentence.
+ */
+export function debitExceedsRemainingReason(organizationId: string, remaining: number): string {
+  return (
+    `discovery_allowance refuses: organisation ${organizationId} still has ${remaining} Discovery credits remaining today` +
+    ` — this debit is larger than what remains`
   );
 }
 
