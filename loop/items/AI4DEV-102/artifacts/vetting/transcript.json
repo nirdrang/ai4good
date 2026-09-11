@@ -1,0 +1,754 @@
+{
+  "ranAt": "2026-09-11T20:04:08.196Z",
+  "ngoEmail": "verify-vet-1789157046661@example.com",
+  "adminEmail": "verify-admin-1789157046661@example.com",
+  "orgName": "Verify Vetting Org 1789157046661",
+  "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+  "checks": [
+    {
+      "id": "a",
+      "title": "auth health answers",
+      "outcome": "pass",
+      "note": "GET /auth/v1/health -> 200"
+    },
+    {
+      "id": "a2",
+      "title": "mail identification",
+      "outcome": "pass",
+      "note": "Mailpit v1.30.2 at http://127.0.0.1:44324"
+    },
+    {
+      "id": "a3",
+      "title": "edge runtime mount",
+      "outcome": "pass",
+      "note": "edge runtime functions mount /run/desktop/mnt/host/c/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-102/supabase/functions"
+    },
+    {
+      "id": "b",
+      "title": "NGO signup returns a user and no session",
+      "outcome": "pass",
+      "note": "status 200, access_token present: false"
+    },
+    {
+      "id": "c1",
+      "title": "confirmation email holds a verify link",
+      "outcome": "pass",
+      "note": "http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED"
+    },
+    {
+      "id": "c2",
+      "title": "verify link redirects (address confirmed)",
+      "outcome": "pass",
+      "note": "status 303 -> http://127.0.0.1:3000/"
+    },
+    {
+      "id": "d",
+      "title": "NGO sign-in succeeds after confirmation",
+      "outcome": "pass",
+      "note": "status 200, token issued"
+    },
+    {
+      "id": "e",
+      "title": "complete-signup (ngo) answers 200 with an organisation id",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"accountId\":\"2d9a9056-d7be-4d47-96a0-37ab93567421\",\"accountType\":\"ngo\",\"organizationId\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\"}"
+    },
+    {
+      "id": "f",
+      "title": "set-organization-profile answers 200",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"organizationId\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"name\":\"Verify Vetting Org 1789157046661\",\"mission\":\"Deliver clean water access to river communities.\",\"country\":\"Kenya\",\"website\":\"h"
+    },
+    {
+      "id": "f2",
+      "title": "organizations row carries all five driven fields",
+      "outcome": "pass",
+      "note": "{\"id\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"name\":\"Verify Vetting Org 1789157046661\",\"mission\":\"Deliver clean water access to river communities.\",\"country\":\"Kenya\",\"website\":\"https://example.test/verify-drill\",\"logo\":\"https://example.test/verify-drill/logo.png\"}"
+    },
+    {
+      "id": "g1",
+      "title": "discovery-allowance read answers 200 with the unverified grant (10)",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"organizationId\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"utcDay\":\"2026-09-11\",\"vetted\":false,\"dailyGrant\":10,\"spentToday\":0,\"remaining\":10}"
+    },
+    {
+      "id": "g2",
+      "title": "discovery-allowance debit of 1 answers 200 with remaining 9",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"organizationId\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"utcDay\":\"2026-09-11\",\"vetted\":false,\"dailyGrant\":10,\"spentToday\":1,\"remaining\":9}"
+    },
+    {
+      "id": "g3",
+      "title": "discovery_spend row shows spent=1, granted=10",
+      "outcome": "pass",
+      "note": "{\"org_id\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"utc_day\":\"2026-09-11\",\"spent\":1,\"granted\":10}"
+    },
+    {
+      "id": "h1",
+      "title": "admin user API mints a platform administrator account",
+      "outcome": "pass",
+      "note": "status 200, id issued"
+    },
+    {
+      "id": "h2",
+      "title": "accounts row: account_type=platform_admin",
+      "outcome": "pass",
+      "note": "{\"id\":\"6c5d09f1-51bf-4ea0-aac9-9a81135bda49\",\"account_type\":\"platform_admin\"}"
+    },
+    {
+      "id": "h3",
+      "title": "platform administrator signs in",
+      "outcome": "pass",
+      "note": "status 200, token issued"
+    },
+    {
+      "id": "i1",
+      "title": "set-organization-vetting (vet) answers 200 vetted=true",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"organizationId\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"vetted\":true,\"changed\":true,\"notificationEventId\":\"e4582ebf-9280-49ff-bf78-b4833db77835\"}"
+    },
+    {
+      "id": "i2",
+      "title": "org_vetting row: vetted=true, vetted_by=admin, evidence recorded",
+      "outcome": "pass",
+      "note": "{\"org_id\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"vetted\":true,\"vetted_by_account_id\":\"6c5d09f1-51bf-4ea0-aac9-9a81135bda49\",\"organization_name\":\"Verify Vetting Org 1789157046661\",\"public_reference_url\":\"https://example.test/registry/verify-vetting-org\",\"contact_name\":\"Dana Okonkwo\",\"contact_title\":\"Executive Director\",\"evidence_type\":\"public_registry\",\"note\":\"Verified against the public registry entry during the AI4DEV-102 live drive.\"}"
+    },
+    {
+      "id": "i3",
+      "title": "audit_events carries a vet row for this organisation",
+      "outcome": "pass",
+      "note": "{\"id\":\"3b6a4f75-6d07-4bb4-a670-2d922fd52f6b\",\"event_kind\":\"org_vetting_changed\",\"actor_account_id\":\"6c5d09f1-51bf-4ea0-aac9-9a81135bda49\",\"subject_org_id\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"reason\":\"Verified against the public registry entry during the AI4DEV-102 live drive.\"}"
+    },
+    {
+      "id": "i4",
+      "title": "notification_events row exists for the vet outcome",
+      "outcome": "pass",
+      "note": "{\"id\":\"e4582ebf-9280-49ff-bf78-b4833db77835\",\"event\":\"vetting.outcome\",\"actor_account_id\":\"6c5d09f1-51bf-4ea0-aac9-9a81135bda49\",\"state\":\"pending\"}"
+    },
+    {
+      "id": "i5",
+      "title": "notification_deliveries has at least one row for the vet event",
+      "outcome": "pass",
+      "note": "[{\"event_id\":\"e4582ebf-9280-49ff-bf78-b4833db77835\",\"recipient_id\":\"2d9a9056-d7be-4d47-96a0-37ab93567421\",\"channel\":\"email\",\"state\":\"pending\"},{\"event_id\":\"e4582ebf-9280-49ff-bf78-b4833db77835\",\"recipient_id\":\"2d9a9056-d7be-4d47-96a0-37ab93567421\",\"channel\":\"inapp\",\"state\":\"pending\"}]"
+    },
+    {
+      "id": "j",
+      "title": "discovery-allowance now reports the vetted grant (30)",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"organizationId\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"utcDay\":\"2026-09-11\",\"vetted\":true,\"dailyGrant\":30,\"spentToday\":1,\"remaining\":29}"
+    },
+    {
+      "id": "k1",
+      "title": "set-organization-vetting (unvet) answers 200 vetted=false",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"organizationId\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"vetted\":false,\"changed\":true,\"notificationEventId\":\"d9908754-eea7-4444-b3dc-6b07bfe16469\"}"
+    },
+    {
+      "id": "k2",
+      "title": "org_vetting aggregate now reads vetted=false",
+      "outcome": "pass",
+      "note": "{\"org_id\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"vetted\":false,\"vetted_by_account_id\":\"6c5d09f1-51bf-4ea0-aac9-9a81135bda49\",\"note\":\"Verified against the public registry entry during the AI4DEV-102 live drive.\"}"
+    },
+    {
+      "id": "k3",
+      "title": "audit_events carries a second (unvet) row",
+      "outcome": "pass",
+      "note": "[\"3b6a4f75-6d07-4bb4-a670-2d922fd52f6b\",\"340696ed-ba34-4940-8ba5-ce61bffd842a\"]"
+    },
+    {
+      "id": "k4",
+      "title": "a second notification_events row exists for the unvet outcome",
+      "outcome": "pass",
+      "note": "{\"id\":\"d9908754-eea7-4444-b3dc-6b07bfe16469\",\"event\":\"vetting.outcome\",\"actor_account_id\":\"6c5d09f1-51bf-4ea0-aac9-9a81135bda49\",\"state\":\"pending\"}"
+    },
+    {
+      "id": "l",
+      "title": "NGO attempting vetting is refused, naming the platform administrator",
+      "outcome": "pass",
+      "note": "status 403: {\"ok\":false,\"kind\":\"not-a-platform-admin\",\"reason\":\"this action is available to platform administrators only — the caller's account is of type \\\"ngo\\\"\"}"
+    },
+    {
+      "id": "m",
+      "title": "a debit larger than what remains is refused as debit-exceeds-remaining",
+      "outcome": "pass",
+      "note": "remaining was 29; status 409: {\"ok\":false,\"kind\":\"debit-exceeds-remaining\",\"reason\":\"discovery_allowance refuses: organisation 7e485b5f-24be-4504-aa04-fbf0785e5034 still has 29 Discovery credits remaining today — this debit is larger than what remains\"}"
+    },
+    {
+      "id": "n1",
+      "title": "draining the remaining allowance answers 200 with remaining 0",
+      "outcome": "pass",
+      "note": "drained 29; status 200: {\"ok\":true,\"organizationId\":\"7e485b5f-24be-4504-aa04-fbf0785e5034\",\"utcDay\":\"2026-09-11\",\"vetted\":false,\"dailyGrant\":30,\"spentToday\":30,\"remaining\":0}"
+    },
+    {
+      "id": "n2",
+      "title": "one more credit is refused as daily-allowance-exhausted, naming three remedies",
+      "outcome": "pass",
+      "note": "status 409: {\"ok\":false,\"kind\":\"daily-allowance-exhausted\",\"reason\":\"discovery_allowance refuses: organisation 7e485b5f-24be-4504-aa04-fbf0785e5034 has no Discovery credits left today — get vetted (daily grant becomes 30), fund project fuel to continue now, or wait for the next UTC day\"}"
+    }
+  ],
+  "transcript": [
+    {
+      "step": "doctor-auth-health",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44321/auth/v1/health"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "version": "v2.193.0",
+          "name": "GoTrue",
+          "description": "GoTrue is a user registration and authentication API"
+        }
+      }
+    },
+    {
+      "step": "ngo-signup",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "email": "verify-vet-1789157046661@example.com",
+          "phone": "",
+          "confirmation_sent_at": "2026-09-11T20:04:06.817156986Z",
+          "app_metadata": {
+            "provider": "email",
+            "providers": [
+              "email"
+            ]
+          },
+          "user_metadata": {
+            "email": "verify-vet-1789157046661@example.com",
+            "email_verified": false,
+            "phone_verified": false,
+            "sub": "2d9a9056-d7be-4d47-96a0-37ab93567421"
+          },
+          "identities": [
+            {
+              "identity_id": "5da3fb9d-b575-4e3d-8cf7-4a71f1380752",
+              "id": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+              "user_id": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+              "identity_data": {
+                "email": "verify-vet-1789157046661@example.com",
+                "email_verified": false,
+                "phone_verified": false,
+                "sub": "2d9a9056-d7be-4d47-96a0-37ab93567421"
+              },
+              "provider": "email",
+              "last_sign_in_at": "2026-09-11T20:04:06.814081354Z",
+              "created_at": "2026-09-11T20:04:06.814099Z",
+              "updated_at": "2026-09-11T20:04:06.814099Z",
+              "email": "verify-vet-1789157046661@example.com"
+            }
+          ],
+          "created_at": "2026-09-11T20:04:06.809293Z",
+          "updated_at": "2026-09-11T20:04:06.820201Z",
+          "is_anonymous": false
+        }
+      }
+    },
+    {
+      "step": "ngo-confirmation-link",
+      "link": "http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED"
+    },
+    {
+      "step": "ngo-verify-redirect",
+      "status": 303,
+      "location": "http://127.0.0.1:3000/"
+    },
+    {
+      "step": "ngo-signin",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "[REDACTED]",
+          "token_type": "[REDACTED]",
+          "expires_in": 120,
+          "expires_at": 1789157166,
+          "refresh_token": "[REDACTED]",
+          "user": {
+            "id": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "verify-vet-1789157046661@example.com",
+            "email_confirmed_at": "2026-09-11T20:04:06.846313Z",
+            "phone": "",
+            "confirmation_sent_at": "2026-09-11T20:04:06.817156Z",
+            "confirmed_at": "2026-09-11T20:04:06.846313Z",
+            "last_sign_in_at": "2026-09-11T20:04:06.940603946Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email": "verify-vet-1789157046661@example.com",
+              "email_verified": true,
+              "phone_verified": false,
+              "sub": "2d9a9056-d7be-4d47-96a0-37ab93567421"
+            },
+            "identities": [
+              {
+                "identity_id": "5da3fb9d-b575-4e3d-8cf7-4a71f1380752",
+                "id": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+                "user_id": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+                "identity_data": {
+                  "email": "verify-vet-1789157046661@example.com",
+                  "email_verified": true,
+                  "phone_verified": false,
+                  "sub": "2d9a9056-d7be-4d47-96a0-37ab93567421"
+                },
+                "provider": "email",
+                "last_sign_in_at": "2026-09-11T20:04:06.814081Z",
+                "created_at": "2026-09-11T20:04:06.814099Z",
+                "updated_at": "2026-09-11T20:04:06.814099Z",
+                "email": "verify-vet-1789157046661@example.com"
+              }
+            ],
+            "created_at": "2026-09-11T20:04:06.809293Z",
+            "updated_at": "2026-09-11T20:04:06.944475Z",
+            "is_anonymous": false
+          },
+          "weak_password": "[REDACTED]"
+        }
+      }
+    },
+    {
+      "step": "complete-signup-ngo",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/complete-signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "accountId": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+          "accountType": "ngo",
+          "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034"
+        }
+      }
+    },
+    {
+      "step": "set-organization-profile",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/set-organization-profile"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "name": "Verify Vetting Org 1789157046661",
+          "mission": "Deliver clean water access to river communities.",
+          "country": "Kenya",
+          "website": "https://example.test/verify-drill",
+          "logo": "https://example.test/verify-drill/logo.png"
+        }
+      }
+    },
+    {
+      "step": "readback organizations",
+      "rows": [
+        {
+          "id": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "name": "Verify Vetting Org 1789157046661",
+          "mission": "Deliver clean water access to river communities.",
+          "country": "Kenya",
+          "website": "https://example.test/verify-drill",
+          "logo": "https://example.test/verify-drill/logo.png"
+        }
+      ]
+    },
+    {
+      "step": "discovery-allowance-read-1",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-allowance"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "utcDay": "2026-09-11",
+          "vetted": false,
+          "dailyGrant": 10,
+          "spentToday": 0,
+          "remaining": 10
+        }
+      }
+    },
+    {
+      "step": "discovery-allowance-debit-1",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-allowance"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "utcDay": "2026-09-11",
+          "vetted": false,
+          "dailyGrant": 10,
+          "spentToday": 1,
+          "remaining": 9
+        }
+      }
+    },
+    {
+      "step": "readback discovery_spend",
+      "rows": [
+        {
+          "org_id": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "utc_day": "2026-09-11",
+          "spent": 1,
+          "granted": 10
+        }
+      ]
+    },
+    {
+      "step": "provision-platform-admin",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/admin/users"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "email": "verify-admin-1789157046661@example.com",
+          "email_confirmed_at": "2026-09-11T20:04:07.43148054Z",
+          "phone": "",
+          "app_metadata": {
+            "provider": "email",
+            "providers": [
+              "email"
+            ]
+          },
+          "user_metadata": {
+            "email_verified": true
+          },
+          "identities": [
+            {
+              "identity_id": "fe27efb4-845b-4d67-8c8a-6cb0396d7c92",
+              "id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+              "user_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+              "identity_data": {
+                "email": "verify-admin-1789157046661@example.com",
+                "email_verified": false,
+                "phone_verified": false,
+                "sub": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49"
+              },
+              "provider": "email",
+              "last_sign_in_at": "2026-09-11T20:04:07.427878972Z",
+              "created_at": "2026-09-11T20:04:07.42791Z",
+              "updated_at": "2026-09-11T20:04:07.42791Z",
+              "email": "verify-admin-1789157046661@example.com"
+            }
+          ],
+          "created_at": "2026-09-11T20:04:07.425715Z",
+          "updated_at": "2026-09-11T20:04:07.432127Z",
+          "is_anonymous": false
+        }
+      }
+    },
+    {
+      "step": "readback accounts (admin)",
+      "rows": [
+        {
+          "id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "account_type": "platform_admin"
+        }
+      ]
+    },
+    {
+      "step": "admin-signin",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "[REDACTED]",
+          "token_type": "[REDACTED]",
+          "expires_in": 120,
+          "expires_at": 1789157167,
+          "refresh_token": "[REDACTED]",
+          "user": {
+            "id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "verify-admin-1789157046661@example.com",
+            "email_confirmed_at": "2026-09-11T20:04:07.43148Z",
+            "phone": "",
+            "confirmed_at": "2026-09-11T20:04:07.43148Z",
+            "last_sign_in_at": "2026-09-11T20:04:07.531201276Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": [
+              {
+                "identity_id": "fe27efb4-845b-4d67-8c8a-6cb0396d7c92",
+                "id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+                "user_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+                "identity_data": {
+                  "email": "verify-admin-1789157046661@example.com",
+                  "email_verified": false,
+                  "phone_verified": false,
+                  "sub": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49"
+                },
+                "provider": "email",
+                "last_sign_in_at": "2026-09-11T20:04:07.427878Z",
+                "created_at": "2026-09-11T20:04:07.42791Z",
+                "updated_at": "2026-09-11T20:04:07.42791Z",
+                "email": "verify-admin-1789157046661@example.com"
+              }
+            ],
+            "created_at": "2026-09-11T20:04:07.425715Z",
+            "updated_at": "2026-09-11T20:04:07.534101Z",
+            "is_anonymous": false
+          },
+          "weak_password": "[REDACTED]"
+        }
+      }
+    },
+    {
+      "step": "set-organization-vetting-vet",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/set-organization-vetting"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "vetted": true,
+          "changed": true,
+          "notificationEventId": "e4582ebf-9280-49ff-bf78-b4833db77835"
+        }
+      }
+    },
+    {
+      "step": "readback org_vetting (after vet)",
+      "rows": [
+        {
+          "org_id": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "vetted": true,
+          "vetted_by_account_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "organization_name": "Verify Vetting Org 1789157046661",
+          "public_reference_url": "https://example.test/registry/verify-vetting-org",
+          "contact_name": "Dana Okonkwo",
+          "contact_title": "Executive Director",
+          "evidence_type": "public_registry",
+          "note": "Verified against the public registry entry during the AI4DEV-102 live drive."
+        }
+      ]
+    },
+    {
+      "step": "readback audit_events (vet)",
+      "rows": [
+        {
+          "id": "3b6a4f75-6d07-4bb4-a670-2d922fd52f6b",
+          "event_kind": "org_vetting_changed",
+          "actor_account_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "subject_org_id": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "reason": "Verified against the public registry entry during the AI4DEV-102 live drive."
+        }
+      ]
+    },
+    {
+      "step": "readback notification_events (vet)",
+      "rows": [
+        {
+          "id": "e4582ebf-9280-49ff-bf78-b4833db77835",
+          "event": "vetting.outcome",
+          "actor_account_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "step": "readback notification_deliveries (vet)",
+      "rows": [
+        {
+          "event_id": "e4582ebf-9280-49ff-bf78-b4833db77835",
+          "recipient_id": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+          "channel": "email",
+          "state": "pending"
+        },
+        {
+          "event_id": "e4582ebf-9280-49ff-bf78-b4833db77835",
+          "recipient_id": "2d9a9056-d7be-4d47-96a0-37ab93567421",
+          "channel": "inapp",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "step": "discovery-allowance-read-2",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-allowance"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "utcDay": "2026-09-11",
+          "vetted": true,
+          "dailyGrant": 30,
+          "spentToday": 1,
+          "remaining": 29
+        }
+      }
+    },
+    {
+      "step": "set-organization-vetting-unvet",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/set-organization-vetting"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "vetted": false,
+          "changed": true,
+          "notificationEventId": "d9908754-eea7-4444-b3dc-6b07bfe16469"
+        }
+      }
+    },
+    {
+      "step": "readback org_vetting (after unvet)",
+      "rows": [
+        {
+          "org_id": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "vetted": false,
+          "vetted_by_account_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "note": "Verified against the public registry entry during the AI4DEV-102 live drive."
+        }
+      ]
+    },
+    {
+      "step": "readback audit_events (unvet)",
+      "rows": [
+        {
+          "id": "3b6a4f75-6d07-4bb4-a670-2d922fd52f6b",
+          "event_kind": "org_vetting_changed",
+          "actor_account_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "subject_org_id": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "reason": "Verified against the public registry entry during the AI4DEV-102 live drive."
+        },
+        {
+          "id": "340696ed-ba34-4940-8ba5-ce61bffd842a",
+          "event_kind": "org_vetting_changed",
+          "actor_account_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "subject_org_id": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "reason": "Registry entry expired; unvetting during the AI4DEV-102 live drive."
+        }
+      ]
+    },
+    {
+      "step": "readback notification_events (unvet)",
+      "rows": [
+        {
+          "id": "d9908754-eea7-4444-b3dc-6b07bfe16469",
+          "event": "vetting.outcome",
+          "actor_account_id": "6c5d09f1-51bf-4ea0-aac9-9a81135bda49",
+          "state": "pending"
+        }
+      ]
+    },
+    {
+      "step": "vetting-refusal-not-admin",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/set-organization-vetting"
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "ok": false,
+          "kind": "not-a-platform-admin",
+          "reason": "this action is available to platform administrators only — the caller's account is of type \"ngo\""
+        }
+      }
+    },
+    {
+      "step": "allowance-refusal-exceeds-remaining",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-allowance"
+      },
+      "response": {
+        "status": 409,
+        "body": {
+          "ok": false,
+          "kind": "debit-exceeds-remaining",
+          "reason": "discovery_allowance refuses: organisation 7e485b5f-24be-4504-aa04-fbf0785e5034 still has 29 Discovery credits remaining today — this debit is larger than what remains"
+        }
+      }
+    },
+    {
+      "step": "allowance-drain-remaining",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-allowance"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "7e485b5f-24be-4504-aa04-fbf0785e5034",
+          "utcDay": "2026-09-11",
+          "vetted": false,
+          "dailyGrant": 30,
+          "spentToday": 30,
+          "remaining": 0
+        }
+      }
+    },
+    {
+      "step": "allowance-refusal-exhausted",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-allowance"
+      },
+      "response": {
+        "status": 409,
+        "body": {
+          "ok": false,
+          "kind": "daily-allowance-exhausted",
+          "reason": "discovery_allowance refuses: organisation 7e485b5f-24be-4504-aa04-fbf0785e5034 has no Discovery credits left today — get vetted (daily grant becomes 30), fund project fuel to continue now, or wait for the next UTC day"
+        }
+      }
+    }
+  ]
+}
