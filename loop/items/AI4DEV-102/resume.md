@@ -18,8 +18,12 @@ the synthesis are all finished and committed. The design of record is
 | unit 3, unvet and the notification | `7c88d19` | AT-002.13, AT-002.14, at both tiers |
 | unit 4, the evidence rule | `26002f6` | AT-002.16, AT-002.17, AT-002.18, at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `6dabfa5`, tree
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `fe4987b`, tree
 clean, nothing pushed since the brief commit. The local Supabase stack is up.
+
+Head `fe4987b` is not a unit. It carries the model sheet change of 2026-09-10: the hardest-tasks
+seat moves to astra at medium, and the perf-issue seat drops to astra at medium. The copy in the
+main folder stays behind until this branch merges.
 
 ## The first action on resume
 

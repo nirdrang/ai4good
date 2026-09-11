@@ -10,10 +10,10 @@ matrix default efforts. The earlier customized sheets are kept beside this file 
 
 feature, refactoring: grok:grok-4.6@xhigh
 bug-fix: codex:gpt-5.6-sol@max
-perf-issue: codex:gpt-6-astra@high
+perf-issue: codex:gpt-6-astra@medium
 hillclimb: codex:gpt-6-astra@high
 judgment and prose: claude:fable@max
-hardest tasks: claude:fable@medium
+hardest tasks: codex:gpt-6-astra@medium
 how explorer: grok:grok-4.6@xhigh
 how explainer: claude:fable@low
 why investigators, synthesizer: inherit-parent
@@ -29,6 +29,32 @@ interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### The hardest-tasks row leaves fable for astra, 2026-09-10
+
+`hardest tasks` held fable at medium from 2026-09-08 until 2026-09-10. It is now GPT-6 Astra at
+medium, by founder ruling and not by measurement. The seat changes family, not only effort. Astra
+has never held this seat, so the first unit routed here is the trial. After this change fable holds
+one row alone, `judgment and prose`, plus its lane in the two four-lane runner rows.
+
+To undo, back to the effort and family the row held on 2026-09-08:
+
+    claude:fable@medium
+
+To undo further, back to the effort it held from the ceiling ruling of 2026-08-31:
+
+    claude:fable@max
+
+### The perf-issue row drops one effort step, 2026-09-10
+
+`perf-issue` held astra at high from 2026-09-05 until 2026-09-10. It is now astra at medium, by
+founder ruling and not by measurement. `hillclimb` is not changed and stays at high, so the two rows
+that moved together on 2026-09-05 are no longer identical. Neither row has run a unit yet, so no
+measurement exists at either effort.
+
+To undo:
+
+    codex:gpt-6-astra@high
 
 ### The how critics row is gone, 2026-09-09
 
