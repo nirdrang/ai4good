@@ -162,10 +162,15 @@ Ground it with /how in critique mode first: explorers, explainer, then the criti
 every item.
 In the design arena, give every runner a distinct structural direction, so the candidates
 do not converge on one design. The runner lanes are the sheet's four; add none.
-Tool-heavy work without judgment goes to the mechanical agent with exact instructions: the
-rebase into ordered commits, the per-commit builds and tests, driving the verify skill and
-capturing its evidence, and the closing commands. You decide and you judge the evidence; it
-types; you check each result once.
+Tool-heavy work that needs an executor goes to the mechanical agent with exact instructions:
+the rebase into ordered commits, driving the verify skill on the real surface, and the closing
+commands. You decide and you judge the evidence; it types; you check each result once.
+The acceptance suite is not lane work. Run its commands yourself as background shell commands
+that write their output to a file, and read back only the exit code and the green and red
+counts. A lane costs about eighty thousand tokens whatever it runs; a background command costs
+a few hundred. Verify once per unit boundary and once on the merge head, and not in between
+unless code changed. Run the integration tier twice only where a procedure waits on real
+elapsed time.
 Every delegated lane writes its full report to a file under the item folder and replies
 with five lines and the path. Read the file only when the summary names a deviation, a
 blocker, or a red.
@@ -194,12 +199,16 @@ Fable calls are scarce. Tool-heavy work without judgment, the station 7 rebase, 
 and cleanup commands, goes to the `mechanical` agent (sonnet, inherits the worktree,
 executes exact instructions, rules on nothing). Write the exact plan, let it run, check the
 result with one read. Do not use a fork for this: a fork runs on your own model.
+The acceptance suite's commands are not mechanical work. A background shell command runs them
+for a few hundred tokens where a lane spends about eighty thousand; on the notifications item
+ten verification lanes cost 746k tokens to execute about thirty minutes of commands.
 A writer that dies after finishing its work is recovered by running the pin and committing
 the finished tree, not by rerunning the writer.
 
 ## The evidence bar
-- The verify suite for the acceptance tests above passes on the final head. Name each check
-  and its timestamp in the Verification section.
+- The verify suite for the acceptance tests above passes on the final head, run as background
+  shell commands. Name each check, its exit code, its counts and its timestamp in the
+  Verification section.
 - CI is green on the final head.
 - Discovered work goes in a "Not done here" list in the pull request body, never in the diff.
 
