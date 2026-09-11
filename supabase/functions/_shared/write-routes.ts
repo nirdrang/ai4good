@@ -36,6 +36,10 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'update_organization' },
     standing: { kind: 'account-required', admits: ['ngo'] },
   },
+  'set-organization-profile': {
+    surface: { kind: 'edge', rpc: 'set_organization_profile' },
+    standing: { kind: 'account-required', admits: ['ngo'] },
+  },
   'transfer-organization-contact': {
     surface: { kind: 'edge', rpc: 'transfer_organization_contact' },
     standing: { kind: 'account-required', admits: ['platform_admin'] },

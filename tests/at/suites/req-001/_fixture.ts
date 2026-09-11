@@ -211,7 +211,12 @@ import {
 // both deployed functions run on every authenticated request. This file decides WHICH sessions are
 // live, which is vendor bookkeeping; it never decides what a dead answer means.
 import { callerFromAuthAnswer, type Caller } from '../../../../supabase/functions/_shared/caller.ts';
-import { decideOrganizationRename, type OrganizationRenameArgs } from '../../../../supabase/functions/_shared/memberships.ts';
+import {
+  decideOrganizationProfile,
+  decideOrganizationRename,
+  type OrganizationProfileArgs,
+  type OrganizationRenameArgs,
+} from '../../../../supabase/functions/_shared/memberships.ts';
 import {
   organizationIdField,
   parseWriteStanding,
@@ -725,6 +730,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     target: organizationIdField,
     decide: decideOrganizationRename,
   };
+  const ORGANIZATION_PROFILE: WriteRouteSpec<OrganizationProfileArgs, AccountWriteRouteInput> = {
+    name: 'set-organization-profile',
+    target: organizationIdField,
+    decide: decideOrganizationProfile,
+  };
   const CONTACT_TRANSFER: WriteRouteSpec<ContactTransferArgs, AccountWriteRouteInput> = {
     name: 'transfer-organization-contact',
     target: organizationIdField,
@@ -883,7 +893,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     let membership: MembershipRow | null = null;
 
     if (organizationName !== null) {
-      organization = { id: nextId('org'), name: organizationName };
+      organization = {
+        id: nextId('org'),
+        name: organizationName,
+        mission: null,
+        country: null,
+        website: null,
+        logo: null,
+      };
       membership = { organizationId: organization.id, accountId: account.id, role: 'admin' };
     }
 
@@ -941,7 +958,21 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const fixtureReads = (): TenantReads => ({
     organization: async (organizationId) => {
       const row = state.organizations.get(organizationId);
-      return { ok: true, rows: row ? [{ id: row.id, name: row.name }] : [] };
+      return {
+        ok: true,
+        rows: row
+          ? [
+              {
+                id: row.id,
+                name: row.name,
+                mission: row.mission,
+                country: row.country,
+                website: row.website,
+                logo: row.logo,
+              },
+            ]
+          : [],
+      };
     },
     seatsOf: async (organizationId) => ({
       ok: true,
@@ -1239,7 +1270,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const run = runWrite(ORGANIZATION_CREATION, session, { name: organizationName }, null);
       if (!run.ok) return run;
 
-      const organization: OrganizationRow = { id: nextId('org'), name: run.args.p_name };
+      const organization: OrganizationRow = {
+        id: nextId('org'),
+        name: run.args.p_name,
+        mission: null,
+        country: null,
+        website: null,
+        logo: null,
+      };
       const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
       state.organizations.set(organization.id, organization);
       state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
@@ -1273,7 +1311,15 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const run = runWrite(ORGANIZATION_RENAME, session, { organizationId, name }, null);
       if (!run.ok) return run;
 
-      state.organizations.set(run.args.p_organization_id, { id: run.args.p_organization_id, name: run.args.p_name });
+      const previous = state.organizations.get(run.args.p_organization_id);
+      state.organizations.set(run.args.p_organization_id, {
+        id: run.args.p_organization_id,
+        name: run.args.p_name,
+        mission: previous?.mission ?? null,
+        country: previous?.country ?? null,
+        website: previous?.website ?? null,
+        logo: previous?.logo ?? null,
+      });
       return { ok: true, organizationId: run.args.p_organization_id, name: run.args.p_name };
     },
 
@@ -1289,7 +1335,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       // A THROW, not an outcome: a Given that could not be provisioned is a bug in the TEST, and a
       // polite refusal would read as a product answer several assertions later.
       if (!validated.ok) throw new Error(`fixture: an operator cannot create an organisation named ${JSON.stringify(name)} — ${validated.reason}`);
-      const organization: OrganizationRow = { id: nextId('org'), name: validated.value };
+      const organization: OrganizationRow = {
+        id: nextId('org'),
+        name: validated.value,
+        mission: null,
+        country: null,
+        website: null,
+        logo: null,
+      };
       state.organizations.set(organization.id, organization);
       return clone(organization);
     },
@@ -1621,6 +1674,33 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           if (subject.route !== 'update-organization') throw new Error('unreachable');
           if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
           return asAttempt(await this.updateOrganization(session, subject.organizationId, subject.name));
+        },
+        'set-organization-profile': async () => {
+          if (subject.route !== 'set-organization-profile') throw new Error('unreachable');
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          const run = runWrite(
+            ORGANIZATION_PROFILE,
+            session,
+            {
+              organizationId: subject.organizationId,
+              name: subject.name,
+              mission: subject.mission,
+              country: subject.country,
+              website: subject.website,
+              logo: subject.logo,
+            },
+            null,
+          );
+          if (!run.ok) return run;
+          state.organizations.set(run.args.p_organization_id, {
+            id: run.args.p_organization_id,
+            name: run.args.p_name,
+            mission: run.args.p_mission,
+            country: run.args.p_country,
+            website: run.args.p_website,
+            logo: run.args.p_logo,
+          });
+          return { ok: true };
         },
         'transfer-organization-contact': async () => {
           if (subject.route !== 'transfer-organization-contact') throw new Error('unreachable');

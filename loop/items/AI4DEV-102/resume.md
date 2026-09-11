@@ -8,7 +8,7 @@ The Feature playbook, one run for the whole item. Grounding, the design arena, t
 the synthesis are all finished and committed. The design of record is
 `loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-**Units done: the suite scaffold, and units 1 to 4 of 13.**
+**Units done: the suite scaffold, and units 1 to 5 of 13.**
 
 | what | commit | acceptance ids now green |
 |---|---|---|
@@ -17,27 +17,35 @@ the synthesis are all finished and committed. The design of record is
 | unit 2, only the admin vets | `4d18e84` | AT-002.29, AT-002.30, at both tiers |
 | unit 3, unvet and the notification | `7c88d19` | AT-002.13, AT-002.14, at both tiers |
 | unit 4, the evidence rule | `26002f6` | AT-002.16, AT-002.17, AT-002.18, at both tiers |
+| unit 5, the organisation profile | `4892ac5` | AT-002.01, at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `fe4987b`, tree
-clean, nothing pushed since the brief commit. The local Supabase stack is up.
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `4892ac5`, tree
+clean, nothing pushed since the brief commit. The local Supabase stack is up. Ten of twenty-seven
+acceptance ids are green.
 
-Head `fe4987b` is not a unit. It carries the model sheet change of 2026-09-10: the hardest-tasks
-seat moves to astra at medium, and the perf-issue seat drops to astra at medium. The copy in the
-main folder stays behind until this branch merges.
+Two commits below the head are not units. `fe4987b` carries the model sheet change of 2026-09-10:
+the hardest-tasks seat moves to astra at medium, and the perf-issue seat drops to astra at medium.
+`4d7a81c` records that change in this file. The sheet copy in the main folder stays behind until
+this branch merges.
 
 ## The first action on resume
 
-Unit 5, AI4DEV-105 (profile create), for AT-002.01. The five profile fields on the organisation,
-created and read back. This unit is independent of the whole vetting chain.
+Unit 6, AI4DEV-106 (profile edit), for AT-002.02. The NGO admin edits all five fields and every
+value persists. Another NGO, a volunteer and a visitor are refused. The route and the decision
+already exist from unit 5, so expect proofs and the refusal matrix, not much product code.
 
 Open carry from unit 4: an extra key on a vetting request is refused as an invalid request rather
 than as invalid evidence. The refusal is correct and its kind is less precise than it could be.
 
+Open carry from unit 5: the profile route demands all five fields on every call, so a caller cannot
+clear one field back to null. No criterion asks for that.
+
 ## The per-unit loop
 
-1. Reset the lane worktree to the item head:
-   `git -C .claude/worktrees/AI4DEV-102-unit0 reset --hard <item head>`. That one worktree serves
-   every unit, because a worktree cannot be removed without a founder decision.
+1. Bring the lane worktree to the item head. The permission classifier refuses
+   `git reset --hard`, so use `git -C .claude/worktrees/AI4DEV-102-unit0 merge --ff-only <item
+   head>` after checking the worktree is clean. That one worktree serves every unit, because a
+   worktree cannot be removed without a founder decision.
 2. Write the unit brief to the scratchpad. Name the files, the scope boundaries, the checks, and what
    the unit must not do.
 3. Dispatch one writer lane. The feature lane is `grok:grok-4.6@xhigh` in `isolated-write` mode
@@ -117,6 +125,15 @@ integration and twenty at loop when every unit has landed.
 
 - PowerShell only. This project forbids the Bash tool.
 - `grok.exe` is not on the tool shell PATH. Prepend `$env:USERPROFILE\.grok\bin` per call.
+- Launch the external runner as `bun <path to pstack-runner> ...`, never as the bare path. The file
+  is a bun script with a shebang, and PowerShell runs it as an unknown file: it exits 0, writes no
+  receipt, and touches nothing. An exit code of 0 with no receipt file means the lane never started.
+- A writer lane can stop the local stack. Unit 5's lane ran `bun run db:stop` to make the stack pick
+  up a new edge function, and it was cancelled before it started the stack again. Check the stack is
+  up before running the checks, and never paste the output of `bun run db:start`.
+- A cancelled lane can still have finished the work. Read the diff before you decide to run the unit
+  again. Unit 5's lane died at turn 43 with the whole unit written and no report; the lead wrote the
+  report from the diff.
 - An external runner lane is read-only or isolated-write, and the runner writes the model's final
   response to `--output` at completion. Never ask an external lane to write its artifact to a file.
 - The read gate refuses an unbounded read over 350 lines. Page it, or send a read lane with an aim.

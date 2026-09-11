@@ -400,7 +400,10 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
   const base = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`;
   return {
     organization: (organizationId) =>
-      restJson(`${base}/organizations?id=eq.${encodeURIComponent(organizationId)}&select=id,name`, { headers }),
+      restJson(
+        `${base}/organizations?id=eq.${encodeURIComponent(organizationId)}&select=id,name,mission,country,website,logo`,
+        { headers },
+      ),
     seatsOf: (organizationId) =>
       restJson(
         `${base}/org_memberships?org_id=eq.${encodeURIComponent(organizationId)}&select=account_id,role`,

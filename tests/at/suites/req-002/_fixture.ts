@@ -452,8 +452,38 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       deactivated.add(accountId);
     },
 
-    setProfile: notLanded('setProfile'),
-    profile: notLanded('profile'),
+    setProfile: async (session, request) => {
+      const callerOrRefusal = await deadSession(session);
+      if ('ok' in callerOrRefusal) return callerOrRefusal;
+      const innerSession = session === null ? null : (heldSessions.get(session.sessionId) ?? null);
+      if (innerSession === null) return unauthenticated();
+      const result = await inner.sut.accounts.attemptWrite(
+        {
+          route: 'set-organization-profile',
+          organizationId: request.organizationId,
+          name: request.name,
+          mission: request.mission,
+          country: request.country,
+          website: request.website,
+          logo: request.logo,
+        },
+        innerSession,
+      );
+      if (!result.ok) return result;
+      return { ok: true, organizationId: request.organizationId };
+    },
+    profile: async (organizationId) => {
+      const row = await inner.sut.accounts.organization(organizationId);
+      if (row === null) return null;
+      return {
+        id: row.id,
+        name: row.name,
+        mission: row.mission,
+        country: row.country,
+        website: row.website,
+        logo: row.logo,
+      };
+    },
     organizationDashboard: (session, organizationId) => {
       const innerSession = session === null ? null : (heldSessions.get(session.sessionId) ?? null);
       return inner.sut.accounts.organizationDashboard(innerSession, organizationId);

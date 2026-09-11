@@ -497,6 +497,9 @@ verify_jwt = true
 [functions.update-organization]
 verify_jwt = true
 
+[functions.set-organization-profile]
+verify_jwt = true
+
 [functions.transfer-organization-contact]
 verify_jwt = true
 

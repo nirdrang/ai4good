@@ -43,9 +43,13 @@ const ORG_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const PROJECT_A = '11111111-1111-4111-8111-111111111111';
 const ABSENT = '00000000-0000-4000-8000-000000000000';
 
+const UNSET_PROFILE = { mission: null, country: null, website: null, logo: null } as const;
+
 const PRESENT: TenantReads = {
   organization: async (id) =>
-    id === ORG_A ? { ok: true, rows: [{ id: ORG_A, name: 'Riverside Shelter' }] } : { ok: true, rows: [] },
+    id === ORG_A
+      ? { ok: true, rows: [{ id: ORG_A, name: 'Riverside Shelter', ...UNSET_PROFILE }] }
+      : { ok: true, rows: [] },
   seatsOf: async (id) =>
     id === ORG_A
       ? { ok: true, rows: [{ account_id: 'acct-a', role: 'admin' }] }
@@ -98,6 +102,10 @@ describe('organizationDashboard and projectWorkspace', () => {
         ok: true,
         organizationId: ORG_A,
         organizationName: 'Riverside Shelter',
+        mission: null,
+        country: null,
+        website: null,
+        logo: null,
         seats: [{ accountId: 'acct-a', role: 'admin' }],
         projects: [{ projectId: PROJECT_A, projectName: 'Website', assignedVolunteerId: null }],
       },

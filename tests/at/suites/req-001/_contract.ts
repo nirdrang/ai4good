@@ -91,10 +91,14 @@ export type EscalationContactRow = {
   recordedAt: string;
 };
 
-/** One row of `public.organizations`. */
+/** One row of `public.organizations`. Null profile fields mean the profile is not yet completed. */
 export type OrganizationRow = {
   id: string;
   name: string;
+  mission: string | null;
+  country: string | null;
+  website: string | null;
+  logo: string | null;
 };
 
 /** One row of `public.org_memberships` — the per-NGO role, which is NOT the global account type. */
@@ -294,6 +298,15 @@ export type WriteSubject =
   | { readonly route: 'complete-signup'; readonly name: string }
   | { readonly route: 'create-organization'; readonly name: string }
   | { readonly route: 'update-organization'; readonly organizationId: string; readonly name: string }
+  | {
+      readonly route: 'set-organization-profile';
+      readonly organizationId: string;
+      readonly name: string;
+      readonly mission: string;
+      readonly country: string;
+      readonly website: string;
+      readonly logo: string;
+    }
   | {
       readonly route: 'transfer-organization-contact';
       readonly organizationId: string;

@@ -3,6 +3,7 @@
   "tiers": {
     "loop": {
       "green": [
+        "AT-002.01",
         "AT-002.11",
         "AT-002.11b",
         "AT-002.29",
@@ -14,7 +15,6 @@
         "AT-002.18"
       ],
       "red": {
-        "AT-002.01": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.02": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.04": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.05": { "kind": "pending", "phase": "sut-missing" },
@@ -36,6 +36,7 @@
     },
     "integration": {
       "green": [
+        "AT-002.01",
         "AT-002.11",
         "AT-002.11b",
         "AT-002.29",
@@ -47,7 +48,6 @@
         "AT-002.18"
       ],
       "red": {
-        "AT-002.01": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.02": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.04": { "kind": "pending", "phase": "sut-missing" },
         "AT-002.05": { "kind": "capability-pending", "capabilities": ["ui.discovery-surface"] },

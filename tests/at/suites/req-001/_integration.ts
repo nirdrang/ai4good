@@ -2245,6 +2245,16 @@ function deactivatedSubject(
       return { route, name: `Write ${tag} ${route} ${accountType} deactivated` };
     case 'update-organization':
       return { route, organizationId, name: `Write ${tag} ${route} ${accountType} deactivated` };
+    case 'set-organization-profile':
+      return {
+        route,
+        organizationId,
+        name: `Write ${tag} ${route} ${accountType} deactivated`,
+        mission: `mission ${tag}`,
+        country: `country ${tag}`,
+        website: `website ${tag}`,
+        logo: `logo ${tag}`,
+      };
     case 'transfer-organization-contact':
       return {
         route,
@@ -2280,6 +2290,8 @@ async function snapshotWrite(sut: AccountsSut, session: Session | null, subject:
     case 'create-organization':
       return { organizations: await sut.organizationsNamed(subject.name) };
     case 'update-organization':
+      return { organization: await sut.organization(subject.organizationId) };
+    case 'set-organization-profile':
       return { organization: await sut.organization(subject.organizationId) };
     case 'transfer-organization-contact':
       return { membership: await sut.membership(subject.organizationId, subject.fromAccountId) };
@@ -2321,6 +2333,23 @@ async function provisionActiveControl(
       await ensureVerified(sut, ngo);
       const organizationId = await completeNgo(sut, ngo, `Rename Host ${tag}`);
       return { session: ngo, subject: { route, organizationId, name: `Renamed ${tag}` } };
+    }
+    case 'set-organization-profile': {
+      const ngo = await signIn(w.email(`profile-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Profile Host ${tag}`);
+      return {
+        session: ngo,
+        subject: {
+          route,
+          organizationId,
+          name: `Profiled ${tag}`,
+          mission: `mission ${tag}`,
+          country: `country ${tag}`,
+          website: `website ${tag}`,
+          logo: `logo ${tag}`,
+        },
+      };
     }
     case 'transfer-organization-contact': {
       const admin = await sut.provisionPlatformAdmin(w.email(`xfer-admin-${tag}`), PASSWORD);

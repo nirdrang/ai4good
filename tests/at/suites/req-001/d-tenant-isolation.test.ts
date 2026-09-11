@@ -35,6 +35,8 @@ const SIGNER = {
   authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
 } as const;
 
+const UNSET_PROFILE = { mission: null, country: null, website: null, logo: null } as const;
+
 const EMPTY_READS: TenantReads = {
   organization: async () => ({ ok: true, rows: [] }),
   seatsOf: async () => ({ ok: true, rows: [] }),
@@ -289,8 +291,8 @@ atTest(
       const P_B = '22222222-2222-4222-8222-222222222222';
       const twoTenants: TenantReads = {
         organization: async (id) => {
-          if (id === ORG_A) return { ok: true, rows: [{ id: ORG_A, name: 'Riverside Shelter 40A' }] };
-          if (id === ORG_B) return { ok: true, rows: [{ id: ORG_B, name: 'Northgate Foodbank 40B' }] };
+          if (id === ORG_A) return { ok: true, rows: [{ id: ORG_A, name: 'Riverside Shelter 40A', ...UNSET_PROFILE }] };
+          if (id === ORG_B) return { ok: true, rows: [{ id: ORG_B, name: 'Northgate Foodbank 40B', ...UNSET_PROFILE }] };
           return { ok: true, rows: [] };
         },
         seatsOf: async (id) => {

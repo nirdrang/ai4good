@@ -249,8 +249,32 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       }
     },
 
-    setProfile: notLanded('setProfile'),
-    profile: notLanded('profile'),
+    setProfile: async (session, request) => {
+      const answer = await postWrite('set-organization-profile', session, request);
+      if (!answer.ok) return answer.refusal;
+      return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
+    },
+    profile: async (organizationId) => {
+      const found = await rows<{
+        id: string;
+        name: string;
+        mission: string | null;
+        country: string | null;
+        website: string | null;
+        logo: string | null;
+      }>(
+        sql`select id, name, mission, country, website, logo from public.organizations where id = ${organizationId}::uuid`,
+      );
+      if (found.length !== 1) return null;
+      return {
+        id: String(found[0].id),
+        name: found[0].name,
+        mission: found[0].mission ?? null,
+        country: found[0].country ?? null,
+        website: found[0].website ?? null,
+        logo: found[0].logo ?? null,
+      };
+    },
     organizationDashboard: async (session, organizationId): Promise<TenantReadOutcome<OrganizationDashboard>> => {
       const bearer = session === null ? null : tokensOf(session, 'call the deployed organization-dashboard').accessToken;
       const raw = await functionPostRaw(stack, 'organization-dashboard', { organizationId }, bearer);
