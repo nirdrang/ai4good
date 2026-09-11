@@ -29,6 +29,8 @@ import type { ConfigOverrides } from './registry.ts';
  * implementation, and then two sources of truth drift apart with both looking correct.
  */
 export const CONFIG_KEYS: Record<string, AtConfigKey> = {
+  'req-002.discovery.daily_credits.unverified': 'discoveryDailyCreditsUnverified',
+  'req-002.discovery.daily_credits.vetted': 'discoveryDailyCreditsVetted',
   'req-015.thread_comment_notifications.max_per_window': 'threadCommentNotificationsMaxPerWindow',
   'req-015.thread_comment_notifications.window_ms': 'threadCommentNotificationsWindowMs',
   'req-015.thread_comment_notifications.coalesce': 'threadCommentNotificationsCoalesce',
