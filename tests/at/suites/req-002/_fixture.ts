@@ -19,6 +19,7 @@ import {
   debitExceedsRemainingReason,
   decideDiscoveryAllowance,
   discoveryTier,
+  emailUnverifiedReason,
   highWaterGrant,
   remainingCredits,
   utcDayOf,
@@ -359,7 +360,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const deactivated = new Set<string>();
   const roleOverrides = new Map<string, 'admin' | 'member'>();
   const spend = new Map<string, SpendRow>();
-  const emailVerified = new Map<string, boolean>();
   let auditSerial = 1;
 
   const spendKey = (organizationId: string, utcDay: string): string => `${organizationId}:${utcDay}`;
@@ -579,7 +579,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         throw new Error(`REQ-002 loop adapter: NGO completion for ${email} was refused`);
       }
       seats.set(completion.organizationId, [{ accountId: registered.accountId, email }]);
-      emailVerified.set(registered.accountId, opts.emailVerified);
       return {
         session: remember(registered),
         accountId: registered.accountId,
@@ -838,12 +837,13 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       });
       if (!decision.ok) return { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
 
-      if (emailVerified.get(caller.id) !== true) {
+      const verified = await accounts.emailVerified(caller.id);
+      if (verified !== true) {
         return {
           ok: false,
           kind: 'email-unverified',
           status: 409,
-          reason: `discovery_allowance refuses ${caller.id}: the caller's email address is not verified`,
+          reason: emailUnverifiedReason(caller.id),
         };
       }
 
@@ -920,7 +920,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       deactivated.clear();
       roleOverrides.clear();
       spend.clear();
-      emailVerified.clear();
     },
   };
 }

@@ -10,23 +10,28 @@ import {
   dailyAllowanceExhaustedReason,
   dailyGrantFor,
   debitExceedsRemainingReason,
+  emailUnverifiedReason,
   remainingCredits,
 } from '../../../supabase/functions/_shared/discovery-allowance.ts';
 import {
   absentPublishFlowProblems,
   discoveryWalletProblems,
   documentContentSinks,
+  emailUnverifiedSentenceProblems,
   exhaustedSentenceProblems,
   kycSurfaceProblems,
   noticeChannelPinProblems,
   scanNoticeChannelPin,
   orgVettingWriterProblems,
   parseDebitRefusalRaises,
+  parseEmailUnverifiedRaise,
+  parseTypescriptEmailUnverifiedRenderer,
   parseTypescriptExhaustedRenderer,
   parseTypescriptExceedsRemainingRenderer,
   scanAbsentPublishFlow,
   scanDiscoveryWallet,
   scanDocumentContentSinks,
+  scanEmailUnverifiedSentence,
   scanExhaustedSentence,
   scanKycSurfaces,
   scanOrgVettingWriters,
@@ -75,6 +80,7 @@ describe('REQ-002 source oracles over the real tree', () => {
     expect(documentContentSinks()).toEqual([]);
     expect(trustWordingProblems()).toEqual([]);
     expect(exhaustedSentenceProblems()).toEqual([]);
+    expect(emailUnverifiedSentenceProblems()).toEqual([]);
     expect(noticeChannelPinProblems()).toEqual([]);
     expect(discoveryWalletProblems()).toEqual([]);
     expect(absentPublishFlowProblems()).toEqual([]);
@@ -617,6 +623,91 @@ describe('scanExhaustedSentence refusals', () => {
     expect(() => parseTypescriptExceedsRemainingRenderer('export function other() { return 1; }\n')).toThrow(
       /no export function debitExceedsRemainingReason/,
     );
+  });
+});
+
+describe('scanEmailUnverifiedSentence refusals', () => {
+  const SAMPLE_ACCOUNT = '00000000-0000-4000-8000-000000000022';
+  const MATCHING_FORMAT = "discovery_allowance refuses %: the caller's email address is not verified";
+  const MATCHING_RENDERER =
+    'export function emailUnverifiedReason(accountId: string): string {\n' +
+    "  return `discovery_allowance refuses ${accountId}: the caller's email address is not verified`;\n" +
+    '}\n';
+
+  function allowanceSql(over: { format?: string; arg?: string; omit?: boolean } = {}): string {
+    const raise = over.omit
+      ? ''
+      : `raise exception '${(over.format ?? MATCHING_FORMAT).replace(/'/g, "''")}', ${over.arg ?? 'p_account_id'} using errcode = '42501', detail = 'email-unverified';\n`;
+    return 'create function public.discovery_allowance()\nas $$\n' + raise + '$$;\n';
+  }
+
+  function input(
+    over: Partial<{
+      accountId: string;
+      typescriptReason: string;
+      allowanceFunctionSql: string;
+      typescriptRendererSource: string;
+    }> = {},
+  ) {
+    return {
+      accountId: SAMPLE_ACCOUNT,
+      typescriptReason: emailUnverifiedReason(SAMPLE_ACCOUNT),
+      allowanceFunctionSql: allowanceSql(),
+      typescriptRendererSource: MATCHING_RENDERER,
+      ...over,
+    };
+  }
+
+  it('accepts a matching SQL raise and TypeScript renderer', () => {
+    expect(scanEmailUnverifiedSentence(input())).toEqual([]);
+  });
+
+  it('fails when the SQL sentence disagrees', () => {
+    const problems = scanEmailUnverifiedSentence(
+      input({
+        allowanceFunctionSql: allowanceSql({ format: 'discovery_allowance refuses %: not allowed' }),
+      }),
+    );
+    expect(problems.some((problem) => /TypeScript email-unverified sentence/.test(problem))).toBe(true);
+  });
+
+  it('fails when the SQL argument is not p_account_id', () => {
+    const problems = scanEmailUnverifiedSentence(input({ allowanceFunctionSql: allowanceSql({ arg: 'p_organization_id' }) }));
+    expect(problems.some((problem) => /p_account_id/.test(problem))).toBe(true);
+  });
+
+  it('fails when the TypeScript renderer contains a numeric literal', () => {
+    const problems = scanEmailUnverifiedSentence(
+      input({
+        typescriptRendererSource:
+          'export function emailUnverifiedReason(accountId: string): string {\n' +
+          "  return `discovery_allowance refuses ${accountId}: 1 email`;\n" +
+          '}\n',
+      }),
+    );
+    expect(problems.some((problem) => /numeric literal/.test(problem))).toBe(true);
+  });
+
+  it('throws when the allowance function is absent', () => {
+    expect(() => parseEmailUnverifiedRaise('create function public.other() as $$ begin null; end; $$;')).toThrow(
+      /no public.discovery_allowance/,
+    );
+  });
+
+  it('throws when the email-unverified raise is absent', () => {
+    expect(() => scanEmailUnverifiedSentence(input({ allowanceFunctionSql: allowanceSql({ omit: true }) }))).toThrow(
+      /email-unverified/,
+    );
+  });
+
+  it('throws when the TypeScript renderer is absent', () => {
+    expect(() => parseTypescriptEmailUnverifiedRenderer('export function other() { return 1; }\n')).toThrow(
+      /no export function emailUnverifiedReason/,
+    );
+  });
+
+  it('throws when the TypeScript renderer source is empty', () => {
+    expect(() => scanEmailUnverifiedSentence(input({ typescriptRendererSource: '' }))).toThrow(/empty TypeScript renderer/);
   });
 });
 

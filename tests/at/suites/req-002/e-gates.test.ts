@@ -13,6 +13,7 @@ import { createConfigRegistry } from '../../harness/config.ts';
 import { atTest } from './_bind.ts';
 import { AWAITED, awaiting } from './_pending.ts';
 import {
+  emailUnverifiedSentenceProblems,
   orgVettingWriterProblems,
   scheduledVettingProblems,
   vettingRouteProblems,
@@ -197,6 +198,11 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
     'AT-002.22',
     'an email-unverified NGO is blocked from any Discovery message at every tier',
     async ({ open }) => {
+      expect(
+        emailUnverifiedSentenceProblems(),
+        'the TypeScript email-unverified renderer and the SQL debit raise disagree',
+      ).toEqual([]);
+
       const { w, sut } = await open();
       const unverified = await sut.provisionNgo(w.email('ngo-22-unverified'), { emailVerified: false });
       const verified = await sut.provisionNgo(w.email('ngo-22-verified'), { emailVerified: true });
@@ -204,7 +210,33 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
 
       // No Discovery send route exists in this repository. A green here says the shipped
       // discoveryMessageAllowed decision answers correctly. It does not say any deployed
-      // Discovery surface consults it.
+      // Discovery surface consults it. The debit arm proves the allowance debit is refused
+      // for an unverified caller. It does not prove a Discovery message was blocked.
+      const unverifiedDebit = await sut.debitAllowance(unverified.session, unverified.organizationId, 1);
+      expect(
+        unverifiedDebit.ok,
+        'an email-unverified NGO was allowed to debit Discovery credits at the unvetted tier',
+      ).toBe(false);
+      if (unverifiedDebit.ok) return;
+      expect(
+        unverifiedDebit.kind,
+        `the unverified debit was refused as ${unverifiedDebit.kind}: ${unverifiedDebit.reason}`,
+      ).toBe('email-unverified');
+      expect(unverifiedDebit.reason, 'the debit refusal does not name verification').toMatch(/verif/i);
+      expect(unverifiedDebit.reason, 'the debit refusal does not name the email address').toMatch(/email/i);
+      expect(
+        await sut.spendRows(unverified.organizationId),
+        'the refused debit wrote a ledger row',
+      ).toEqual([]);
+
+      const verifiedDebit = await sut.debitAllowance(verified.session, verified.organizationId, 1);
+      expect(
+        verifiedDebit.ok,
+        verifiedDebit.ok
+          ? 'the verified control debit was refused'
+          : `the verified control debit was refused as ${verifiedDebit.kind}: ${verifiedDebit.reason}`,
+      ).toBe(true);
+
       const blockedUnvetted = await sut.discoveryMessageAllowed(unverified.session);
       expect(blockedUnvetted.ok, 'an email-unverified NGO was allowed a Discovery message at the unvetted tier').toBe(false);
       if (blockedUnvetted.ok) return;
@@ -227,6 +259,22 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
       expect(blockedVetted.ok, 'vetting the same email-unverified NGO opened Discovery').toBe(false);
       if (blockedVetted.ok) return;
       expect(blockedVetted.reason, 'the post-vet refusal is not the same email-verification refusal').toBe(blockedUnvetted.reason);
+
+      const unverifiedDebitVetted = await sut.debitAllowance(unverified.session, unverified.organizationId, 1);
+      expect(
+        unverifiedDebitVetted.ok,
+        'vetting the same email-unverified NGO opened the allowance debit',
+      ).toBe(false);
+      if (unverifiedDebitVetted.ok) return;
+      expect(
+        unverifiedDebitVetted.kind,
+        `the post-vet debit was refused as ${unverifiedDebitVetted.kind}: ${unverifiedDebitVetted.reason}`,
+      ).toBe('email-unverified');
+      const afterVetRows = await sut.spendRows(unverified.organizationId);
+      expect(
+        afterVetRows.reduce((sum, row) => sum + row.spent, 0),
+        'the refused debit after vetting spent credits',
+      ).toBe(0);
 
       const controlVetted = await vetOrganisation(sut, admin, verified.organizationId);
       if (!controlVetted.ok) return;

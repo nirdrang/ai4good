@@ -207,31 +207,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       if (status >= 400) throw new Error(`the live signup for ${email} answered ${status}`);
       const accountId = String((json.id as string | undefined) ?? (json.user as { id?: string } | undefined)?.id ?? '');
       if (!accountId) throw new Error('the live signup answered 200 but named no user id');
-      if (!opts.emailVerified) {
-        const completed = await rows<{ organization_id: string | null }>(
-          sql`
-            select (public.complete_signup(
-              ${accountId}::uuid,
-              ${'ngo'},
-              ${`Riverside ${email}`},
-              ${TEXT_VERSION},
-              ${CLIENT_IP}::inet,
-              ${null},
-              ${null},
-              ${null},
-              ${null},
-              ${SIGNER.signerName},
-              ${SIGNER.signerTitle},
-              ${SIGNER.authorityAttestation}
-            ))->>'organization_id' as organization_id
-          `,
-        );
-        const organizationId = String(completed[0]?.organization_id ?? '');
-        if (!organizationId) {
-          throw new Error(`REQ-002 live adapter: operator NGO completion for ${email} named no organisation`);
-        }
-        return { session: { accountId, email, sessionId: '' }, accountId, organizationId, email };
-      }
+      // Confirmations-on GoTrue issues no session to an unconfirmed address. AT-002.22 needs a
+      // real caller holding a real token whose address Auth reports as unconfirmed. Confirm,
+      // complete signup, then clear email_confirmed_at as the operator. The session stays.
       const link = (await verifyLinksFor(stack, email, 'signup'))[0] ?? null;
       if (link === null) throw new Error(`no confirmation email reached the stack's mail catcher for ${email}`);
       const used = await followLink(link);
@@ -246,6 +224,17 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       if (!answer.ok) throw new Error(`NGO completion for ${email} was refused: ${answer.refusal.reason}`);
       const organizationId = String(answer.json.organizationId ?? '');
       if (!organizationId) throw new Error(`NGO completion for ${email} named no organisation`);
+      if (!opts.emailVerified) {
+        const cleared = await rows<{ email_confirmed_at: string | Date | null }>(
+          sql`update auth.users set email_confirmed_at = null where id = ${session.accountId}::uuid returning email_confirmed_at`,
+        );
+        if (cleared.length !== 1) {
+          throw new Error(`REQ-002 live adapter: no auth user ${session.accountId} whose confirmation could be cleared`);
+        }
+        if ((cleared[0]?.email_confirmed_at ?? null) !== null) {
+          throw new Error(`REQ-002 live adapter: Auth still reports ${email} confirmed after the operator clear`);
+        }
+      }
       return { session, accountId: session.accountId, organizationId, email };
     },
     provisionVolunteer: async (email): Promise<Session> => {

@@ -267,8 +267,9 @@ export type OrganizationsSut = {
 
   /**
    * An NGO account seated as admin of its own organisation. `emailVerified: false` leaves the
-   * address unconfirmed in Auth, which is AT-002.22's Given and a state the live public path cannot
-   * reach, so the live adapter provisions it as the operator.
+   * address unconfirmed in Auth, which is AT-002.22's Given. The live public path cannot issue a
+   * session to an unconfirmed address, so the live adapter confirms, completes signup, then clears
+   * the confirmation as the operator. The handle still holds the session.
    */
   provisionNgo(email: string, opts: { emailVerified: boolean }): Promise<NgoActor>;
   provisionVolunteer(email: string): Promise<Session>;

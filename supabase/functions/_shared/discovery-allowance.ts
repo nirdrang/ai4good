@@ -69,6 +69,14 @@ export function debitExceedsRemainingReason(organizationId: string, remaining: n
   );
 }
 
+/**
+ * One place in TypeScript. The email-confirmation arm of `public.discovery_allowance` raises the same words.
+ * The account id is a slot, never a numeral in the sentence.
+ */
+export function emailUnverifiedReason(accountId: string): string {
+  return `discovery_allowance refuses ${accountId}: the caller's email address is not verified`;
+}
+
 export type SpendRow = {
   organizationId: string;
   utcDay: string;

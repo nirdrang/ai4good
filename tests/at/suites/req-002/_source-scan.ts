@@ -2,7 +2,8 @@
  * REQ-002's SOURCE ARMS for AT-002.30 (manual founder vet only), AT-002.16 (no document
  * content is stored or returned), the grant-drift scan (the pinned registry, the TypeScript
  * constants, and the SQL grant function), the exhausted-sentence pin (every TypeScript
- * renderer arm and every SQL debit raise), the founder-vetted wording arm (no acceptance id; AT-002.23
+ * renderer arm and every SQL debit raise), the email-unverified sentence pin (the TypeScript
+ * renderer and the SQL debit raise), the founder-vetted wording arm (no acceptance id; AT-002.23
  * stays red on the listing screens), the no-wallet arm (no acceptance id; AT-002.10 stays
  * red on the missing checkout), and the absent-publish-flow arm (no acceptance id; AT-002.19
  * and AT-002.20 stay red on the missing publish flow).
@@ -33,6 +34,7 @@ import {
   dailyGrantFor,
   debitExceedsRemainingReason,
   DISCOVERY_DAILY_GRANT,
+  emailUnverifiedReason,
   remainingCredits,
 } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { channelsFor, taxonomyRow } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
@@ -1035,6 +1037,102 @@ export function exhaustedSentenceProblems(): string[] {
     allowanceFunctionSql: lastAllowanceFunctionSql('exhaustedSentenceProblems'),
     typescriptExhaustedRendererSource: parseTypescriptExhaustedRenderer(rendererFile),
     typescriptExceedsRemainingRendererSource: parseTypescriptExceedsRemainingRenderer(rendererFile),
+  });
+}
+
+/* ---------------------------------------------------------------------- email-unverified sentence pin */
+
+const EMAIL_UNVERIFIED_DETAIL = 'email-unverified';
+
+export type EmailUnverifiedSentenceInput = {
+  accountId: string;
+  typescriptReason: string;
+  allowanceFunctionSql: string;
+  typescriptRendererSource: string;
+};
+
+/** The email-unverified raise inside `public.discovery_allowance`. Throws when it cannot be read. */
+export function parseEmailUnverifiedRaise(sql: string): DebitRefusalRaise {
+  if (!ALLOWANCE_FUNCTION_HEAD.test(sql)) {
+    throw new Error(
+      'parseEmailUnverifiedRaise found no public.discovery_allowance definition in the SQL it was given. ' +
+        'Refusing to report agreement.',
+    );
+  }
+  RAISE_EXCEPTION.lastIndex = 0;
+  const found: DebitRefusalRaise[] = [];
+  for (const match of sql.matchAll(RAISE_EXCEPTION)) {
+    const tail = match[2] ?? '';
+    const detailMatch = RAISE_DETAIL.exec(tail);
+    if (detailMatch === null || detailMatch[1] !== EMAIL_UNVERIFIED_DETAIL) continue;
+    const parsed = parseRaiseArgs(tail);
+    if (parsed === null) {
+      throw new Error(
+        'parseEmailUnverifiedRaise could not read the email-unverified raise as a format string, arguments, and a detail. ' +
+          'Refusing to report agreement.',
+      );
+    }
+    found.push({
+      format: (match[1] ?? '').replace(/''/g, "'"),
+      args: parsed.args,
+      detail: EMAIL_UNVERIFIED_DETAIL,
+    });
+  }
+  if (found.length !== 1 || found[0] === undefined) {
+    throw new Error(
+      'parseEmailUnverifiedRaise could not read exactly one email-unverified raise. Refusing to report agreement.',
+    );
+  }
+  return found[0];
+}
+
+/** The exported TypeScript email-unverified renderer. Throws when the function text cannot be read. */
+export function parseTypescriptEmailUnverifiedRenderer(source: string): string {
+  return extractExportedFunction(source, 'emailUnverifiedReason');
+}
+
+/** Every disagreement between the TypeScript email-unverified renderer and its SQL raise. */
+export function scanEmailUnverifiedSentence(input: EmailUnverifiedSentenceInput): string[] {
+  if (input.typescriptRendererSource.trim() === '') {
+    throw new Error(
+      'scanEmailUnverifiedSentence was given an empty TypeScript renderer. Refusing to report agreement.',
+    );
+  }
+  const raise = parseEmailUnverifiedRaise(input.allowanceFunctionSql);
+  if (slotCount(raise.format) !== 1 || raise.args.length !== 1) {
+    throw new Error(
+      'scanEmailUnverifiedSentence could not read the email-unverified raise as a format string and p_account_id. ' +
+        'Refusing to report agreement.',
+    );
+  }
+
+  const problems: string[] = [];
+  if (raise.args[0] !== 'p_account_id') {
+    problems.push(`email-unverified account argument is ${raise.args[0] ?? '(missing)'}, expected p_account_id`);
+  }
+  checkNoNumeral(raise.format, 'email-unverified', problems);
+  if (/\b\d+\b/.test(input.typescriptRendererSource)) {
+    problems.push('emailUnverifiedReason contains a numeric literal');
+  }
+
+  const fromSql = applyRaiseFormat(raise.format, [input.accountId]);
+  if (fromSql !== input.typescriptReason) {
+    problems.push(
+      `TypeScript email-unverified sentence is ${JSON.stringify(input.typescriptReason)}, ` +
+        `SQL raise filled with the account id is ${JSON.stringify(fromSql)}`,
+    );
+  }
+  return problems.sort();
+}
+
+export function emailUnverifiedSentenceProblems(): string[] {
+  const accountId = '00000000-0000-4000-8000-000000000022';
+  const rendererFile = typescriptRendererFile('emailUnverifiedSentenceProblems');
+  return scanEmailUnverifiedSentence({
+    accountId,
+    typescriptReason: emailUnverifiedReason(accountId),
+    allowanceFunctionSql: lastAllowanceFunctionSql('emailUnverifiedSentenceProblems'),
+    typescriptRendererSource: parseTypescriptEmailUnverifiedRenderer(rendererFile),
   });
 }
 
