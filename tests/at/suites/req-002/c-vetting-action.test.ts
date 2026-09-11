@@ -12,7 +12,14 @@
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { AWAITED, awaiting, LEAF, notLanded } from './_pending.ts';
-import type { VettingRecord, VettingRequest } from './_contract.ts';
+import {
+  kycSurfaceProblems,
+  orgVettingWriterProblems,
+  scheduledVettingProblems,
+  vettedStateProblems,
+  vettingRouteProblems,
+} from './_source-scan.ts';
+import type { Session, VettingRecord, VettingRequest } from './_contract.ts';
 
 const EVIDENCE = {
   organizationName: 'Riverside Shelter',
@@ -160,9 +167,122 @@ describe('AT-REQ-002 C — the vetting action and its audit record', () => {
     },
   );
 
-  atTest('AT-002.29', 'a vet or unvet from an NGO account, a volunteer or an unauthenticated caller is rejected with no tier change and no verification-outcome event', notLanded(LEAF.D3_L2));
+  atTest(
+    'AT-002.29',
+    'a vet or unvet from an NGO account, a volunteer or an unauthenticated caller is rejected with no tier change and no verification-outcome event',
+    async ({ open }) => {
+      const { w, sut } = await open();
+      const ngo = await sut.provisionNgo(w.email('ngo-29'), { emailVerified: true });
+      const volunteer = await sut.provisionVolunteer(w.email('vol-29'));
+      const admin = await sut.provisionPlatformAdmin(w.email('admin-29'));
+      const deactivatedAdmin = await sut.provisionPlatformAdmin(w.email('admin-29-off'));
+      await sut.deactivateAccountAsOperator(deactivatedAdmin.accountId);
 
-  atTest('AT-002.30', 'only the manual founder vet and unvet path exists — no automated verification, KYC workflow or document-review status transition', notLanded(LEAF.D3_L2));
+      const vetRequest: VettingRequest = { organizationId: ngo.organizationId, action: 'vet', ...EVIDENCE };
+      const unvetRequest: VettingRequest = { organizationId: ngo.organizationId, action: 'unvet', note: EVIDENCE.note };
+      const outcomeEvents = () => sut.notificationEvents({ event: 'vetting.outcome', recipientId: ngo.accountId });
+
+      const callers: ReadonlyArray<{
+        label: string;
+        session: Session | null;
+        kind: 'not-a-platform-admin' | 'unauthenticated' | 'account-deactivated';
+        status: number;
+      }> = [
+        { label: "the NGO's own admin", session: ngo.session, kind: 'not-a-platform-admin', status: 403 },
+        { label: 'a volunteer', session: volunteer, kind: 'not-a-platform-admin', status: 403 },
+        { label: 'an unauthenticated caller', session: null, kind: 'unauthenticated', status: 401 },
+        { label: 'a deactivated platform admin', session: deactivatedAdmin, kind: 'account-deactivated', status: 403 },
+      ];
+
+      expect(await outcomeEvents(), 'a verification-outcome event already existed for this NGO').toEqual([]);
+
+      const assertRefused = async (label: string, session: Session | null, request: VettingRequest, kind: string, status: number) => {
+        const beforeRecord = await sut.vettingRecord(ngo.organizationId);
+        const beforeAudits = await sut.vettingAuditEvents(ngo.organizationId);
+        const beforeEvents = await outcomeEvents();
+
+        const outcome = await sut.setVetting(session, request);
+        expect(outcome.ok, `${label} was admitted`).toBe(false);
+        if (outcome.ok) return;
+        expect(outcome.kind, `${label} was refused as ${outcome.kind}: ${outcome.reason}`).toBe(kind);
+        expect(outcome.status, `${label} was refused with status ${outcome.status}`).toBe(status);
+
+        expect(await sut.vettingRecord(ngo.organizationId), `${label} changed the vetting record`).toEqual(beforeRecord);
+        expect(await sut.vettingAuditEvents(ngo.organizationId), `${label} wrote an audit row`).toEqual(beforeAudits);
+        expect(await outcomeEvents(), `${label} wrote a verification-outcome event`).toEqual(beforeEvents);
+      };
+
+      for (const caller of callers) {
+        await assertRefused(`${caller.label} vetting an unvetted NGO`, caller.session, vetRequest, caller.kind, caller.status);
+        await assertRefused(`${caller.label} unvetting an unvetted NGO`, caller.session, unvetRequest, caller.kind, caller.status);
+      }
+
+      const given = await sut.setVetting(admin, vetRequest);
+      expect(given, 'the Given platform admin vet was refused').toMatchObject({
+        ok: true,
+        organizationId: ngo.organizationId,
+        vetted: true,
+        changed: true,
+      });
+      if (!given.ok) return;
+
+      for (const caller of callers) {
+        await assertRefused(`${caller.label} vetting a vetted NGO`, caller.session, vetRequest, caller.kind, caller.status);
+        await assertRefused(`${caller.label} unvetting a vetted NGO`, caller.session, unvetRequest, caller.kind, caller.status);
+      }
+    },
+  );
+
+  atTest(
+    'AT-002.30',
+    'only the manual founder vet and unvet path exists — no automated verification, KYC workflow or document-review status transition',
+    async ({ open }) => {
+      expect(vettingRouteProblems(), 'the write-route inventory does not admit exactly one platform-admin path to the vetting definer').toEqual(
+        [],
+      );
+      expect(orgVettingWriterProblems(), 'a statement outside public.set_organization_vetting writes public.org_vetting').toEqual([]);
+      expect(scheduledVettingProblems(), 'a scheduled job or a trigger on org_vetting touches vetting').toEqual([]);
+      expect(kycSurfaceProblems(), 'a route folder, write-route row or shared module names a KYC or automated-verification surface').toEqual(
+        [],
+      );
+      expect(vettedStateProblems(), 'the vetted state is not a two-value boolean, or names a third pending or under-review state').toEqual(
+        [],
+      );
+
+      const { w, sut } = await open();
+      const ngo = await sut.provisionNgo(w.email('ngo-30'), { emailVerified: true });
+      const admin = await sut.provisionPlatformAdmin(w.email('admin-30'));
+
+      expect(await sut.vettingRecord(ngo.organizationId), 'no organisation is vetted without an admin action').toBeNull();
+
+      const vetOutcome = await sut.setVetting(admin, {
+        organizationId: ngo.organizationId,
+        action: 'vet',
+        ...EVIDENCE,
+      });
+      expect(vetOutcome.ok, 'the platform admin vet was refused').toBe(true);
+      if (!vetOutcome.ok) return;
+
+      const vettedRecord = await sut.vettingRecord(ngo.organizationId);
+      expect(vettedRecord?.vetted, 'a vet is what makes an organisation vetted').toBe(true);
+
+      const unvetOutcome = await sut.setVetting(admin, {
+        organizationId: ngo.organizationId,
+        action: 'unvet',
+        note: EVIDENCE.note,
+      });
+      expect(unvetOutcome.ok, 'the platform admin unvet was refused').toBe(true);
+      if (!unvetOutcome.ok) return;
+
+      const unvettedRecord = await sut.vettingRecord(ngo.organizationId);
+      expect(unvettedRecord?.vetted, 'an unvet is what makes an organisation unvetted').toBe(false);
+
+      expect(
+        Object.keys(unvettedRecord ?? {}).some((key) => /status|review|pending|kyc|workflow/i.test(key)),
+        'the vetting record carries no document-review or approval-workflow state',
+      ).toBe(false);
+    },
+  );
 
   atTest('AT-002.12', 'unvetting a vetted NGO closes publishing, is audit-recorded, and leaves project-fuel funding unblocked', awaiting(AWAITED.publishFlow, AWAITED.projectFuelCheckout));
 

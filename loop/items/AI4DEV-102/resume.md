@@ -1,4 +1,4 @@
-# Resume note for AI4DEV-102 (the vetting action and its audit record)
+﻿# Resume note for AI4DEV-102 (the vetting action and its audit record)
 
 Rewritten after every unit. Read this first, then `decisions.tsv`.
 
@@ -8,24 +8,25 @@ The Feature playbook, one run for the whole item. Grounding, the design arena, t
 the synthesis are all finished and committed. The design of record is
 `loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-**Units done: the suite scaffold, and unit 1 of 13.**
+**Units done: the suite scaffold, and units 1 and 2 of 13.**
 
 | what | commit | acceptance ids now green |
 |---|---|---|
 | the suite scaffold, all red | `cd0cf72` | none, by design |
 | unit 1, the vetting record | `2c6d415` | AT-002.11, AT-002.11b, at both tiers |
+| unit 2, only the admin vets | `4d18e84` | AT-002.29, AT-002.30, at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `2c6d415`, tree
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `4d18e84`, tree
 clean, nothing pushed since the brief commit. The local Supabase stack is up.
 
 ## The first action on resume
 
-Unit 2, AI4DEV-112 (only the platform admin vets), for AT-002.29 and AT-002.30. Write its brief the
-way `C:\Users\nirdr\AppData\Local\Temp\claude\ai4dev102\unit1.md` is written, or copy that file's
-shape from the committed report if the scratchpad is gone.
+Unit 3, AI4DEV-113 (unvet and the notification), for AT-002.13 and AT-002.14. AT-002.12 stays red.
 
-Unit 2 is mostly proofs over behaviour unit 1's definer already enforces, plus the source oracles
-that show no automated verification path exists.
+This unit inserts the emit into the definer unit 1 built. It also owes tests for the two refusals
+unit 1 left uncovered: an organisation with no seat holder, and a seat holder with no email address.
+Correction C4 of the design of record belongs here too: a failure induced at the emit must roll back
+the vetting row and the audit row with it.
 
 ## The per-unit loop
 
@@ -116,3 +117,4 @@ integration and twenty at loop when every unit has landed.
 - The read gate refuses an unbounded read over 350 lines. Page it, or send a read lane with an aim.
 - Never paste the output of `bun run db:start`. It contains a secret key, and GitHub push protection
   then refuses every later push on the branch.
+

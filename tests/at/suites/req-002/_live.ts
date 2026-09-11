@@ -23,8 +23,11 @@ import {
   verifyLinksFor,
   type Stack,
 } from '../../harness/live-stack.ts';
+import type { NotificationState } from '../../../../supabase/functions/_shared/notifications.ts';
+import type { Channel, Role } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import type {
   NgoActor,
+  NotificationEventRow,
   OperatorWriteOutcome,
   OrganizationsSut,
   Session,
@@ -82,6 +85,10 @@ function databaseRefusal(error: unknown): { code: string; message: string } {
   }
   const message = typeof carrier?.message === 'string' ? carrier.message : String(error);
   return { code, message };
+}
+
+function parseJson<T>(value: unknown): T {
+  return (typeof value === 'string' ? JSON.parse(value) : value) as T;
 }
 
 function claimsOf(token: string): { sub?: unknown; session_id?: unknown } {
@@ -161,7 +168,40 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       if (!organizationId) throw new Error(`NGO completion for ${email} named no organisation`);
       return { session, accountId: session.accountId, organizationId, email };
     },
-    provisionVolunteer: notLanded('provisionVolunteer'),
+    provisionVolunteer: async (email): Promise<Session> => {
+      const { status, json } = await authPost(stack, '/auth/v1/signup', { email, password: PASSWORD });
+      if (status >= 400) throw new Error(`the live volunteer signup for ${email} answered ${status}`);
+      const accountId = String((json.id as string | undefined) ?? (json.user as { id?: string } | undefined)?.id ?? '');
+      if (!accountId) throw new Error('the live volunteer signup answered 200 but named no user id');
+      const link = (await verifyLinksFor(stack, email, 'signup'))[0] ?? null;
+      if (link === null) throw new Error(`no confirmation email reached the stack's mail catcher for ${email}`);
+      const used = await followLink(link);
+      if (used.status >= 400) throw new Error(`following the confirmation link for ${email} answered ${used.status}`);
+      const session = await storePasswordGrant(email);
+      const githubHandle = `vol-${accountId.replace(/-/g, '').slice(0, 20)}`;
+      const identityId = crypto.randomUUID();
+      await sql`
+        insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+        values (
+          ${identityId}::uuid,
+          ${githubHandle},
+          ${accountId}::uuid,
+          ${JSON.stringify({ sub: githubHandle, user_name: githubHandle, provider_id: githubHandle })}::text::jsonb,
+          'github',
+          now(), now(), now()
+        )
+      `;
+      const answer = await postWrite('complete-signup', session, {
+        accountType: 'volunteer',
+        acknowledgmentTextVersion: TEXT_VERSION,
+        ...SIGNER,
+      });
+      if (!answer.ok) throw new Error(`volunteer completion for ${email} was refused: ${answer.refusal.reason}`);
+      if (answer.json.organizationId) {
+        throw new Error(`volunteer completion for ${email} created an organisation`);
+      }
+      return session;
+    },
     provisionPlatformAdmin: async (email): Promise<Session> => {
       const created = await fetch(`${api}/auth/v1/admin/users`, {
         method: 'POST',
@@ -179,7 +219,14 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       await sql`insert into public.accounts (id, account_type) values (${accountId}::uuid, 'platform_admin')`;
       return storePasswordGrant(email);
     },
-    deactivateAccountAsOperator: notLanded('deactivateAccountAsOperator'),
+    deactivateAccountAsOperator: async (accountId) => {
+      const updated = await rows<{ id: string }>(
+        sql`update public.accounts set lifecycle = 'deactivated' where id = ${accountId}::uuid returning id`,
+      );
+      if (updated.length !== 1) {
+        throw new Error(`REQ-002 live adapter: no account ${accountId} to deactivate`);
+      }
+    },
 
     setProfile: notLanded('setProfile'),
     profile: notLanded('profile'),
@@ -276,7 +323,41 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       });
     },
 
-    notificationEvents: notLanded('notificationEvents'),
+    notificationEvents: async (filter): Promise<NotificationEventRow[]> => {
+      const event = filter.event ?? null;
+      const recipientId = filter.recipientId ?? null;
+      const found = await rows<{
+        id: string;
+        event: string;
+        recipients: unknown;
+        state: NotificationState;
+        attempts: number;
+      }>(
+        sql`select id, event, recipients, state, attempts
+              from public.notification_events
+             where (${event}::text is null or event = ${event}::text)
+             order by created_at, id`,
+      );
+      return found
+        .map((row): NotificationEventRow => {
+          const recipients = parseJson<{ role: Role; recipientId: string; channels: Channel[] }[]>(row.recipients);
+          if (!Array.isArray(recipients)) {
+            throw new Error(`notification event ${row.id} recipients are not an array`);
+          }
+          return {
+            id: String(row.id),
+            type: row.event,
+            recipients: recipients.map((recipient) => ({
+              role: recipient.role,
+              recipientId: String(recipient.recipientId),
+              channels: [...recipient.channels],
+            })),
+            state: row.state,
+            attempts: Number(row.attempts),
+          };
+        })
+        .filter((row) => recipientId === null || row.recipients.some((recipient) => recipient.recipientId === recipientId));
+    },
     notificationDeliveries: notLanded('notificationDeliveries'),
 
     readAllowance: notLanded('readAllowance'),

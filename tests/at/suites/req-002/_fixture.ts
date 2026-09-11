@@ -30,6 +30,7 @@ import type { Session as AccountsSession } from '../req-001/_contract.ts';
 import type {
   ConfigRegistry,
   NgoActor,
+  NotificationEventRow,
   OperatorWriteOutcome,
   OrganizationsSut,
   RegistrationDocumentMetadata,
@@ -180,6 +181,8 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const heldSessions = new Map<string, AccountsSession>();
   const vetting = new Map<string, VettingRecord>();
   const audits: VettingAuditRow[] = [];
+  const events: NotificationEventRow[] = [];
+  const deactivated = new Set<string>();
   let auditSerial = 1;
 
   const remember = (session: AccountsSession): Session => {
@@ -206,7 +209,13 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     const target = organizationIdField(request);
     const organization = target === null ? null : await accounts.organization(target);
     const standing = parseWriteStanding({
-      account: account === null ? null : { account_type: account.accountType, lifecycle: account.lifecycle },
+      account:
+        account === null
+          ? null
+          : {
+              account_type: account.accountType,
+              lifecycle: deactivated.has(caller.id) ? 'deactivated' : account.lifecycle,
+            },
       org_exists: organization !== null,
       org_role: null,
       org_seat_account_id: null,
@@ -282,9 +291,28 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         email,
       };
     },
-    provisionVolunteer: notLanded('provisionVolunteer'),
+    provisionVolunteer: async (email): Promise<Session> => {
+      const registered = await accounts.registerWithEmailPassword(email, PASSWORD);
+      const link = await accounts.emailedVerificationLink(email);
+      if (link === null) throw new Error(`REQ-002 loop adapter: no verification link for ${email}`);
+      await accounts.useVerificationLink(link);
+      await accounts.linkGithubIdentity(registered, email.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 30));
+      const completion = await accounts.completeSignup(
+        registered,
+        { accountType: 'volunteer', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
+        CLIENT_IP,
+      );
+      if (!completion.ok) {
+        throw new Error(`REQ-002 loop adapter: volunteer completion for ${email} was refused`);
+      }
+      return remember(registered);
+    },
     provisionPlatformAdmin: async (email): Promise<Session> => remember(await accounts.provisionPlatformAdmin(email, PASSWORD)),
-    deactivateAccountAsOperator: notLanded('deactivateAccountAsOperator'),
+    deactivateAccountAsOperator: async (accountId) => {
+      const account = await accounts.account(accountId);
+      if (account === null) throw new Error(`REQ-002 loop adapter: no account ${accountId} to deactivate`);
+      deactivated.add(accountId);
+    },
 
     setProfile: notLanded('setProfile'),
     profile: notLanded('profile'),
@@ -322,7 +350,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     },
     vettingAuditEvents: async (organizationId) => clone(audits.filter((row) => row.subjectOrgId === organizationId)),
 
-    notificationEvents: notLanded('notificationEvents'),
+    notificationEvents: async (filter) =>
+      clone(
+        events.filter((row) => {
+          if (filter.event !== undefined && row.type !== filter.event) return false;
+          if (filter.recipientId !== undefined && !row.recipients.some((recipient) => recipient.recipientId === filter.recipientId)) {
+            return false;
+          }
+          return true;
+        }),
+      ),
     notificationDeliveries: notLanded('notificationDeliveries'),
 
     readAllowance: notLanded('readAllowance'),
@@ -345,6 +382,8 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       heldSessions.clear();
       vetting.clear();
       audits.length = 0;
+      events.length = 0;
+      deactivated.clear();
     },
   };
 }
