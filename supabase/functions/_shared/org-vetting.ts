@@ -60,6 +60,22 @@ export function publishingAllowed(vetted: boolean): Decision<'vetted'> {
   };
 }
 
+/**
+ * Funding ordinary project fuel is permitted whatever the organisation's vetting tier. Publishing
+ * is the one thing the vetted condition gates; this function is the other half of that pair. It
+ * lives here, next to publishingAllowed, so the asymmetry is one screen: vetting gates publishing,
+ * and vetting never gates funding.
+ *
+ * The argument is the same vetted flag publishingAllowed takes. The function takes it and ignores
+ * it: both values produce the same permit. A signature that omitted the flag would hide that the
+ * rule is "regardless of tier".
+ *
+ * NO CHECKOUT CONSULTS IT YET. AT-002.31 stays red for exactly that reason.
+ */
+export function fundingAllowed(_vetted: boolean): Decision<'not-vetting-gated'> {
+  return { ok: true, value: 'not-vetting-gated' };
+}
+
 /** Channels and copy the definer must not restate. Recipient and payload are resolved in SQL. */
 export type VettingOutcomeNotice = {
   readonly channels: readonly Channel[];

@@ -8,7 +8,7 @@ The Feature playbook, one run for the whole item. Grounding, the design arena, t
 the synthesis are all finished and committed. The design of record is
 `loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-**Units done: the suite scaffold, and units 1 to 11 of 13.**
+**Units done: the suite scaffold, and units 1 to 12 of 13.**
 
 | what | commit | acceptance ids now green |
 |---|---|---|
@@ -24,8 +24,9 @@ the synthesis are all finished and committed. The design of record is
 | unit 9, what vetting never gates | `f4965fb` | AT-002.21, AT-002.22, at both tiers |
 | unit 10, the pilot default and the wording | `b462722` | AT-002.28, at both tiers |
 | unit 11, the zero-credit block | `7202715` | AT-002.05 at loop, AT-002.27 at both tiers |
+| unit 12, no Discovery wallet | `83cc0a9` | none, by design |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `7202715`, tree
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `83cc0a9`, tree
 clean, nothing pushed since the brief commit. The local Supabase stack is up. Twenty of
 twenty-seven acceptance ids are green.
 
@@ -36,8 +37,15 @@ this branch merges.
 
 ## The first action on resume
 
-Unit 12, AI4DEV-110 (no Discovery wallet), for the red AT-002.10 and AT-002.31. It ships a pure
-decision with no route, and it turns no id green.
+Unit 13, AI4DEV-115 (the publish gates), for the red AT-002.19 and AT-002.20. It is the last unit.
+It ships no new decision: `publishingAllowed` landed in unit 9. It turns no id green. After it come
+the item-wide closing stations.
+
+Open carry from unit 12: `fundingAllowed` sits beside `publishingAllowed` in
+`supabase/functions/_shared/org-vetting.ts`, asserted in
+`tests/at/harness/shipped-org-vetting.selftest.ts`. The contract member `sut.fundingAllowed` stays
+unlanded on both adapters, because no assertion consults it. The no-wallet arm is
+`discoveryWalletProblems` in `_source-scan.ts`.
 
 Open carry from unit 11: the exhausted sentence lives in two languages, because the block is a state
 only the database sees under its row lock. `dailyAllowanceExhaustedReason` in
@@ -175,6 +183,7 @@ integration and twenty at loop when every unit has landed.
   is the environment, not the code. Run the check again before you look for a cause in the diff.
 - Two stacks from the parked slot pool, `ai4good-slot-1` and `ai4good-slot-2`, are still running.
   They are not part of this run. Report them; never remove them without a founder decision.
+
 
 
 

@@ -11,12 +11,14 @@ import {
   dailyGrantFor,
 } from '../../../supabase/functions/_shared/discovery-allowance.ts';
 import {
+  discoveryWalletProblems,
   documentContentSinks,
   exhaustedSentenceProblems,
   kycSurfaceProblems,
   orgVettingWriterProblems,
   parseExhaustedRaise,
   parseTypescriptExhaustedRenderer,
+  scanDiscoveryWallet,
   scanDocumentContentSinks,
   scanExhaustedSentence,
   scanKycSurfaces,
@@ -66,6 +68,7 @@ describe('REQ-002 source oracles over the real tree', () => {
     expect(documentContentSinks()).toEqual([]);
     expect(trustWordingProblems()).toEqual([]);
     expect(exhaustedSentenceProblems()).toEqual([]);
+    expect(discoveryWalletProblems()).toEqual([]);
   });
 });
 
@@ -508,5 +511,158 @@ describe('scanExhaustedSentence refusals', () => {
     expect(() => parseTypescriptExhaustedRenderer('export function other() { return 1; }\n')).toThrow(
       /no export function dailyAllowanceExhaustedReason/,
     );
+  });
+});
+
+describe('scanDiscoveryWallet refusals', () => {
+  const clean = {
+    files: [
+      {
+        path: 'supabase/functions/_shared/discovery-allowance.ts',
+        text:
+          "export type DiscoveryTier = 'unverified' | 'vetted';\n" +
+          'export const DISCOVERY_DAILY_GRANT = { unverified: 10, vetted: 30 };\n' +
+          'export function remainingCredits(granted: number, spent: number) {\n' +
+          '  return granted - spent;\n' +
+          '}\n' +
+          'export function dailyAllowanceExhaustedReason(organizationId: string) {\n' +
+          "  return `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today` +\n" +
+          "    ` — get vetted (daily grant becomes ${dailyGrantFor('vetted')}), fund project fuel to continue now, or wait for the next UTC day`;\n" +
+          '}\n',
+      },
+      {
+        path: 'supabase/functions/_shared/org-vetting.ts',
+        text:
+          "export function fundingAllowed(vetted: boolean): { ok: true; value: 'not-vetting-gated' } {\n" +
+          "  return { ok: true, value: 'not-vetting-gated' };\n" +
+          '}\n',
+      },
+      {
+        path: 'supabase/functions/_shared/acknowledgment-copy.ts',
+        text: "authorityStatement: 'to fund non-refundable model-fuel purchases';\n",
+      },
+      {
+        path: 'supabase/functions/_shared/notification-copy.ts',
+        text:
+          "body: 'Leftover funds were released to your general balance.';\n" +
+          "body: 'Your daily Discovery allowance is now the vetted grant, and you may publish.';\n",
+      },
+      {
+        path: 'supabase/functions/_shared/notification-taxonomy.ts',
+        text: "event: 'lovable.credits_low';\nevent: 'discovery.fit_declined';\n",
+      },
+      {
+        path: 'supabase/migrations/allowance.sql',
+        text:
+          'create table public.discovery_spend (org_id uuid, utc_day date, spent integer, granted integer);\n' +
+          'create function public.discovery_allowance() returns jsonb as $$ begin return 1; end; $$;\n' +
+          'create function public.discovery_daily_grant(p_vetted boolean) returns integer as $$ begin return 10; end; $$;\n',
+      },
+      { path: 'src/routes/index.tsx', text: '<h1 className="text-4xl font-bold">ai4good</h1>\n' },
+    ],
+    routeFolders: ['set-organization-vetting', 'discovery-allowance', 'complete-signup'],
+    inventory: WRITE_ROUTES,
+    sharedModules: ['org-vetting.ts', 'discovery-allowance.ts', 'write-routes.ts'],
+    uiRoutes: ['index.tsx', '__root.tsx'],
+  };
+
+  it('accepts the daily grant, the spend row, remaining, fuel copy, and Lovable credits', () => {
+    expect(scanDiscoveryWallet(clean)).toEqual([]);
+  });
+
+  it('fails a Discovery-wallet route folder', () => {
+    expect(
+      scanDiscoveryWallet({ ...clean, routeFolders: [...clean.routeFolders, 'discovery-wallet'] }).some((problem) =>
+        problem.includes('discovery-wallet'),
+      ),
+    ).toBe(true);
+  });
+
+  it('fails a buy-Discovery-credits write route', () => {
+    const problems = scanDiscoveryWallet({
+      ...clean,
+      inventory: inventory({
+        'buy-discovery-credits': {
+          surface: { kind: 'edge', rpc: 'purchase_discovery_credits' },
+          standing: { kind: 'account-required', admits: ['ngo'] },
+        },
+      }),
+    });
+    expect(problems.some((problem) => /buy-discovery-credits/.test(problem))).toBe(true);
+    expect(problems.some((problem) => /purchase_discovery_credits/.test(problem))).toBe(true);
+  });
+
+  it('fails a Discovery-sku shared module', () => {
+    expect(
+      scanDiscoveryWallet({ ...clean, sharedModules: [...clean.sharedModules, 'discovery-sku.ts'] }).some((problem) =>
+        problem.includes('discovery-sku.ts'),
+      ),
+    ).toBe(true);
+  });
+
+  it('fails a quoted Discovery wallet', () => {
+    const problems = scanDiscoveryWallet({
+      ...clean,
+      files: [...clean.files, { path: 'src/routes/index.tsx', text: "label: 'Discovery wallet';\n" }],
+    });
+    expect(problems.some((problem) => /Discovery wallet/.test(problem))).toBe(true);
+  });
+
+  it('fails a Buy Discovery credits label', () => {
+    const problems = scanDiscoveryWallet({
+      ...clean,
+      files: [...clean.files, { path: 'src/routes/index.tsx', text: '<button>Buy Discovery credits</button>\n' }],
+    });
+    expect(problems.some((problem) => /Buy Discovery credits/.test(problem))).toBe(true);
+  });
+
+  it('fails a Discovery-credit SKU string', () => {
+    const problems = scanDiscoveryWallet({
+      ...clean,
+      files: [...clean.files, { path: 'supabase/functions/_shared/catalog.ts', text: "name: 'Discovery-credit SKU';\n" }],
+    });
+    expect(problems.some((problem) => /Discovery-credit SKU/.test(problem))).toBe(true);
+  });
+
+  it('fails a Discovery-only balance string', () => {
+    const problems = scanDiscoveryWallet({
+      ...clean,
+      files: [
+        ...clean.files,
+        { path: 'supabase/functions/_shared/catalog.ts', text: "reason: 'this organisation holds a Discovery-only balance';\n" },
+      ],
+    });
+    expect(problems.some((problem) => /Discovery-only balance/.test(problem))).toBe(true);
+  });
+
+  it('fails a DiscoveryWallet type declaration', () => {
+    const problems = scanDiscoveryWallet({
+      ...clean,
+      files: [
+        ...clean.files,
+        { path: 'supabase/functions/_shared/wallet.ts', text: 'export type DiscoveryWallet = { credits: number };\n' },
+      ],
+    });
+    expect(problems.some((problem) => /DiscoveryWallet/.test(problem))).toBe(true);
+  });
+
+  it('fails a discovery_wallets table', () => {
+    const problems = scanDiscoveryWallet({
+      ...clean,
+      files: [
+        ...clean.files,
+        {
+          path: 'supabase/migrations/wallet.sql',
+          text: 'create table public.discovery_wallets (org_id uuid, balance integer);\n',
+        },
+      ],
+    });
+    expect(problems.some((problem) => /discovery_wallets/.test(problem))).toBe(true);
+  });
+
+  it('throws when there is no product source', () => {
+    expect(() =>
+      scanDiscoveryWallet({ files: [], routeFolders: ['discovery-allowance'], inventory: WRITE_ROUTES, sharedModules: [], uiRoutes: [] }),
+    ).toThrow(/no product source/);
   });
 });

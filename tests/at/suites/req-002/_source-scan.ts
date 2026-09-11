@@ -2,8 +2,9 @@
  * REQ-002's SOURCE ARMS for AT-002.30 (manual founder vet only), AT-002.16 (no document
  * content is stored or returned), the grant-drift scan (the pinned registry, the TypeScript
  * constants, and the SQL grant function), the exhausted-sentence pin (the TypeScript renderer
- * and the SQL debit raise), and the founder-vetted wording arm (no acceptance id; AT-002.23
- * stays red on the listing screens).
+ * and the SQL debit raise), the founder-vetted wording arm (no acceptance id; AT-002.23
+ * stays red on the listing screens), and the no-wallet arm (no acceptance id; AT-002.10
+ * stays red on the missing checkout).
  *
  * Precedent: `tests/at/suites/req-001/_source-scan.ts` and `tests/at/suites/req-016/_source-scan.ts`.
  * The arms run at both tiers. The file name starts with an underscore and does not end in
@@ -857,5 +858,195 @@ export function exhaustedSentenceProblems(): string[] {
     vettedGrant: dailyGrantFor('vetted'),
     allowanceFunctionSql: lastAllowanceFunctionSql('exhaustedSentenceProblems'),
     typescriptRendererSource: parseTypescriptExhaustedRenderer(typescriptRendererFile('exhaustedSentenceProblems')),
+  });
+}
+
+/* ---------------------------------------------------------------------- no Discovery wallet */
+
+/**
+ * WHAT THIS IS. A naming oracle over surface names, declaration names, quoted strings, and JSX
+ * text. It refuses a Discovery wallet, a Discovery-credit product for sale, and a Discovery-only
+ * balance a caller can hold or buy.
+ *
+ * HOW IT TELLS A DAILY GRANT APART FROM A WALLET.
+ * A wallet is a stored, purchasable, carried-over balance. The tree is full of legitimate
+ * Discovery credits that are none of those: a daily grant, a spend row, a debit, a remaining
+ * count. Remaining is `granted - spent` and is never stored. An arm that treated every
+ * "Discovery credit" as a wallet would be red on honest code and would then be weakened until
+ * it proved nothing.
+ *
+ * The split is the SUBJECT of each name or string, not a proximity count of the word "credit".
+ * A name or string is a Discovery wallet when it names Discovery together with wallet, sku,
+ * buy/purchase/top-up, or a holdable balance. A name or string is daily-grant accounting when
+ * it names grant, granted, spent, remaining, debit, allowance, or "left today" and does not
+ * also name a wallet form. Ordinary project fuel, the general balance, and Lovable credits are
+ * a different subject and are left alone.
+ *
+ * WHAT THIS IS NOT. A disguised `credit-desk.tsx` escapes it, as does a `balance` column
+ * added to `discovery_spend` under that word, and copy assembled at runtime. That is why
+ * AT-002.10 stays red on the missing checkout: this arm covers the names and the copy this
+ * tree has, not a paid-continuation path that is not here.
+ */
+
+const TS_DECLARATION =
+  /\b(?:export\s+)?(?:type|interface|class|function|const|let|enum)\s+([A-Za-z_][\w]*)/g;
+const SQL_TABLE = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?([A-Za-z_][\w]*)/gi;
+const SQL_FUNCTION = /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?([A-Za-z_][\w]*)/gi;
+const SQL_TYPE = /create\s+type\s+(?:public\.)?([A-Za-z_][\w]*)/gi;
+
+export type DiscoveryWalletInput = {
+  files: readonly SourceFile[];
+  routeFolders: readonly string[];
+  inventory: RouteInventory;
+  sharedModules: readonly string[];
+  uiRoutes: readonly string[];
+};
+
+function words(raw: string): string[] {
+  return raw
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 0);
+}
+
+function hasDiscovery(tokens: readonly string[]): boolean {
+  return tokens.includes('discovery');
+}
+
+function hasToken(tokens: readonly string[], ...names: readonly string[]): boolean {
+  return names.some((name) => tokens.includes(name));
+}
+
+function hasWalletForm(tokens: readonly string[]): boolean {
+  if (hasToken(tokens, 'wallet', 'wallets', 'sku', 'skus')) return true;
+  if (hasToken(tokens, 'buy', 'purchase', 'purchases', 'purchasable')) return true;
+  if (hasToken(tokens, 'topup') || (tokens.includes('top') && tokens.includes('up'))) return true;
+  return false;
+}
+
+function isDailyGrantAccounting(tokens: readonly string[]): boolean {
+  return (
+    tokens.includes('grant') ||
+    tokens.includes('granted') ||
+    tokens.includes('spent') ||
+    tokens.includes('remaining') ||
+    tokens.includes('debit') ||
+    tokens.includes('allowance') ||
+    tokens.includes('daily') ||
+    (tokens.includes('left') && tokens.includes('today'))
+  );
+}
+
+/** A type, table, route, or file whose name is a Discovery wallet. */
+function isDiscoveryWalletName(raw: string): boolean {
+  const tokens = words(raw);
+  if (!hasDiscovery(tokens)) return false;
+  if (hasWalletForm(tokens)) return true;
+  return hasToken(tokens, 'balance', 'balances');
+}
+
+/**
+ * Quoted copy is a Discovery wallet when it names Discovery together with a wallet form, a
+ * credit sale that is not fuel, or a holdable balance that is not the day's remaining.
+ */
+function isDiscoveryWalletCopy(value: string): boolean {
+  const tokens = words(value);
+  if (!hasDiscovery(tokens)) return false;
+  if (hasToken(tokens, 'wallet', 'wallets', 'sku', 'skus')) return true;
+  const sale = hasWalletForm(tokens);
+  const credits = hasToken(tokens, 'credit', 'credits');
+  if (sale && credits && !tokens.includes('fuel')) return true;
+  if (hasToken(tokens, 'balance', 'balances') && !isDailyGrantAccounting(tokens)) return true;
+  return false;
+}
+
+function namedWallet(name: string, where: string): string | null {
+  return isDiscoveryWalletName(name)
+    ? `${where} ${name} names a Discovery wallet, a Discovery-credit product for sale, or a Discovery-only balance`
+    : null;
+}
+
+function declarationNames(text: string): string[] {
+  const names: string[] = [];
+  TS_DECLARATION.lastIndex = 0;
+  for (const match of text.matchAll(TS_DECLARATION)) {
+    if (match[1] !== undefined) names.push(match[1]);
+  }
+  SQL_TABLE.lastIndex = 0;
+  for (const match of text.matchAll(SQL_TABLE)) {
+    if (match[1] !== undefined) names.push(match[1]);
+  }
+  SQL_FUNCTION.lastIndex = 0;
+  for (const match of text.matchAll(SQL_FUNCTION)) {
+    if (match[1] !== undefined) names.push(match[1]);
+  }
+  SQL_TYPE.lastIndex = 0;
+  for (const match of text.matchAll(SQL_TYPE)) {
+    if (match[1] !== undefined) names.push(match[1]);
+  }
+  return names;
+}
+
+export function scanDiscoveryWallet(input: DiscoveryWalletInput): string[] {
+  if (input.files.length === 0) {
+    throw new Error('scanDiscoveryWallet found no product source. Refusing to report an absence.');
+  }
+
+  const problems: string[] = [];
+
+  for (const name of input.routeFolders) {
+    const named = namedWallet(name, 'route folder');
+    if (named) problems.push(named);
+  }
+  for (const name of Object.keys(input.inventory)) {
+    const named = namedWallet(name, 'write route');
+    if (named) problems.push(named);
+    const rpc = rpcOf(input.inventory[name]);
+    if (rpc !== null) {
+      const rpcNamed = namedWallet(rpc, `write route ${name} rpc`);
+      if (rpcNamed) problems.push(rpcNamed);
+    }
+  }
+  for (const name of input.sharedModules) {
+    const named = namedWallet(name, 'shared module');
+    if (named) problems.push(named);
+  }
+  for (const name of input.uiRoutes) {
+    const named = namedWallet(name, 'ui route');
+    if (named) problems.push(named);
+  }
+
+  for (const file of input.files) {
+    const pathNamed = namedWallet(file.path, file.path);
+    if (pathNamed) problems.push(pathNamed);
+    for (const name of declarationNames(file.text)) {
+      if (!isDiscoveryWalletName(name)) continue;
+      problems.push(
+        `${file.path} declares ${name} as a Discovery wallet, a Discovery-credit product for sale, or a Discovery-only balance`,
+      );
+    }
+    const pieces = [...quotedStrings(file.text), ...(file.path.startsWith('src/') ? jsxTexts(file.text) : [])];
+    for (const piece of pieces) {
+      if (piece.value.length === 0) continue;
+      if (!isDiscoveryWalletCopy(piece.value)) continue;
+      const loc = `${file.path}:${lineOf(file.text, piece.index)}`;
+      problems.push(
+        `${loc} names a Discovery wallet, a Discovery-credit product for sale, or a Discovery-only balance: ${JSON.stringify(piece.value)}`,
+      );
+    }
+  }
+
+  return [...new Set(problems)].sort();
+}
+
+export function discoveryWalletProblems(): string[] {
+  const surfaces = loadKycSurfaceInput('discoveryWalletProblems');
+  return scanDiscoveryWallet({
+    files: productFiles('discoveryWalletProblems'),
+    routeFolders: surfaces.routeFolders,
+    inventory: surfaces.inventory,
+    sharedModules: surfaces.sharedModules,
+    uiRoutes: surfaces.uiRoutes,
   });
 }
