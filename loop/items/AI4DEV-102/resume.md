@@ -20,9 +20,10 @@ the synthesis are all finished and committed. The design of record is
 | unit 5, the organisation profile | `4892ac5` | AT-002.01, at both tiers |
 | unit 6, the profile edit | `56f61f8` | AT-002.02, at both tiers |
 | unit 7, the spend ledger and the vet math | `0af622a` | AT-002.04, AT-002.07, AT-002.08, at both tiers |
+| unit 8, the UTC reset | `e28ab34` | AT-002.06, at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `0af622a`, tree
-clean, nothing pushed since the brief commit. The local Supabase stack is up. Fourteen of twenty-seven
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `e28ab34`, tree
+clean, nothing pushed since the brief commit. The local Supabase stack is up. Fifteen of twenty-seven
 acceptance ids are green.
 
 Two commits below the head are not units. `fe4987b` carries the model sheet change of 2026-09-10:
@@ -32,9 +33,8 @@ this branch merges.
 
 ## The first action on resume
 
-Unit 8, AI4DEV-109 (the UTC reset), for AT-002.06. Correction C3 in the design of record says exactly
-what this body may claim and what it may not. **This unit must also prove the carry below**, because
-it is the first unit that can travel between UTC days.
+Unit 9, AI4DEV-116 (what vetting never gates), for AT-002.21 and AT-002.22. It needs the ledger from
+unit 7 and nothing else new.
 
 Open carry from unit 4: an extra key on a vetting request is refused as an invalid request rather
 than as invalid evidence. The refusal is correct and its kind is less precise than it could be.
@@ -42,12 +42,12 @@ than as invalid evidence. The refusal is correct and its kind is less precise th
 Open carry from unit 5: the profile route demands all five fields on every call, so a caller cannot
 clear one field back to null. No criterion asks for that.
 
-Open carry from unit 7, and the one the next unit must close: the ledger mark takes the higher of the
-tier before a vetting action and the tier after it. The lead fixed that during review, in the
-migration and in the loop fixture. It has no test, because a vet always writes that day mark, so the
-case appears only when an unvet lands on a day whose ledger row does not exist yet. Prove it in the
-UTC reset unit: an organisation vetted on an earlier day, unvetted today before any Discovery turn,
-keeps the vetted grant for the rest of today.
+Closed carry from unit 7: the ledger mark takes the higher of the tier before a vetting action and
+the tier after it. Unit 8 proves it, and showed the assertion fails without the fix.
+
+Open carry from unit 8, accepted and not a defect: an integration run that crosses real midnight in
+the middle of the reset body can fail its process-clock comparison. Correction C3 says no test in
+this tree proves the crossing.
 
 Open carry from unit 6: the member-of-this-organisation caller is the single seat with its role
 changed by an operator write, because the unique seat forbids a second membership row. No product

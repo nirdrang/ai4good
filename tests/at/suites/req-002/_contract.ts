@@ -343,6 +343,10 @@ export type OrganizationsSut = {
    * Write a spend row as the operator — the Given for the UTC reset at the integration tier, where
    * no clock can be commanded. A row on a previous day is exactly the bytes the database holds one
    * second after midnight; the product has no midnight event to observe.
+   *
+   * A row on a day that is not today MOVES the ledger: it deletes today's row as well as writing
+   * the given one. Without that the organisation would hold two days at once, which no clock can
+   * produce and which would make the reset assertion meaningless.
    */
   writeSpendRowAsOperator(row: SpendRow): Promise<void>;
 

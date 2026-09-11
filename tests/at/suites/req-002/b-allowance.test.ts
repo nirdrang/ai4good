@@ -16,7 +16,7 @@ import { createConfigRegistry } from '../../harness/config.ts';
 import { atTest } from './_bind.ts';
 import { AWAITED, awaiting, LEAF, notLanded } from './_pending.ts';
 import { grantPinProblems, scanGrantPins } from './_source-scan.ts';
-import type { OrganizationsSut, Session } from './_contract.ts';
+import type { OrganizationsSut, Session, World } from './_contract.ts';
 
 const EVIDENCE = {
   organizationName: 'Riverside Shelter',
@@ -54,6 +54,209 @@ async function vetOrganisation(sut: OrganizationsSut, admin: Session, organizati
     changed: true,
   });
   return outcome;
+}
+
+async function persistSpendOnPreviousUtcDay(
+  sut: OrganizationsSut,
+  organizationId: string,
+  today: string,
+  spent: number,
+  granted: number,
+): Promise<void> {
+  // Backdating the day row produces exactly the bytes the database holds one second after
+  // midnight: a new day is a new key with no row, and the product has no midnight event to
+  // observe. This body does not prove the crossing itself. No test in this tree can.
+  await sut.writeSpendRowAsOperator({
+    organizationId,
+    utcDay: previousUtcDay(today),
+    spent,
+    granted,
+  });
+}
+
+async function assertResetFromStartingRemaining(input: {
+  sut: OrganizationsSut;
+  session: Session;
+  organizationId: string;
+  grant: number;
+  startingRemaining: number;
+  today: string;
+  processUtcDay: string | null;
+  label: string;
+}): Promise<void> {
+  const { sut, session, organizationId, grant, startingRemaining, today, processUtcDay, label } = input;
+  const spent = grant - startingRemaining;
+  const yesterday = previousUtcDay(today);
+
+  await persistSpendOnPreviousUtcDay(sut, organizationId, today, 0, grant);
+  if (spent > 0) {
+    const consumed = await sut.debitAllowance(session, organizationId, spent);
+    expect(consumed.ok, `${label}: setting the starting spent was refused`).toBe(true);
+    if (!consumed.ok) return;
+  }
+
+  const before = await sut.readAllowance(session, organizationId);
+  expect(before.ok, `${label}: the pre-rollover allowance read was refused`).toBe(true);
+  if (!before.ok) return;
+  expect(before.allowance.remaining, `${label}: the starting remaining is not the parameterized remaining`).toBe(
+    startingRemaining,
+  );
+  expect(before.allowance.spentToday).toBe(spent);
+  expect(before.allowance.dailyGrant).toBe(grant);
+  expect(before.allowance.utcDay).toBe(today);
+
+  await persistSpendOnPreviousUtcDay(sut, organizationId, today, spent, grant);
+
+  const rolled = await sut.readAllowance(session, organizationId);
+  expect(rolled.ok, `${label}: the post-rollover allowance read was refused`).toBe(true);
+  if (!rolled.ok) return;
+  expect(rolled.allowance.utcDay).toBe(today);
+  if (processUtcDay !== null) {
+    expect(rolled.allowance.utcDay, `${label}: the product UTC day is not the test process's UTC day`).toBe(
+      processUtcDay,
+    );
+  }
+  expect(rolled.allowance.spentToday, `${label}: spend rolled over onto the new UTC day`).toBe(0);
+  expect(rolled.allowance.remaining, `${label}: the new UTC day is not exactly the tier grant`).toBe(grant);
+  expect(rolled.allowance.dailyGrant).toBe(grant);
+
+  const rowsAfterRoll = await sut.spendRows(organizationId);
+  expect(
+    rowsAfterRoll.some((row) => row.utcDay === today),
+    `${label}: the new UTC day already has a spend row after a read`,
+  ).toBe(false);
+  const yesterdayRow = rowsAfterRoll.find((row) => row.utcDay === yesterday);
+  expect(yesterdayRow?.spent, `${label}: the previous day's spent did not stay on its own key`).toBe(spent);
+  expect(yesterdayRow?.granted).toBe(grant);
+
+  const firstOfDay = await debitOne(sut, session, organizationId, `${label}: the first debit of the new UTC day`);
+  if (!firstOfDay.ok) return;
+  expect(firstOfDay.allowance.spentToday).toBe(1);
+  expect(firstOfDay.allowance.remaining).toBe(grant - 1);
+
+  const secondRead = await sut.readAllowance(session, organizationId);
+  expect(secondRead.ok, `${label}: the second same-day allowance read was refused`).toBe(true);
+  if (!secondRead.ok) return;
+  expect(secondRead.allowance.remaining, `${label}: a second reset occurred in the same UTC day`).toBe(grant - 1);
+  expect(secondRead.allowance.spentToday).toBe(1);
+  expect(secondRead.allowance.dailyGrant).toBe(grant);
+}
+
+async function proveUtcReset(
+  open: () => Promise<{ w: World; sut: OrganizationsSut }>,
+  processUtcDay: string | null,
+): Promise<void> {
+  const pins = createConfigRegistry();
+  const unverifiedGrant = pins.get<number>(UNVERIFIED_PIN);
+  const vettedGrant = pins.get<number>(VETTED_PIN);
+  const partialUnverified = Math.floor(unverifiedGrant / 2);
+  const partialVetted = Math.floor(vettedGrant / 2);
+  expect(partialUnverified, 'the unverified partial remaining is not below the unverified pin').toBeLessThan(
+    unverifiedGrant,
+  );
+  expect(partialUnverified, 'the unverified partial remaining is not above zero').toBeGreaterThan(0);
+  expect(partialVetted, 'the vetted partial remaining is not below the vetted pin').toBeLessThan(vettedGrant);
+  expect(partialVetted, 'the vetted partial remaining is not above zero').toBeGreaterThan(0);
+  expect(vettedGrant, 'the vetted pin is not above the unverified pin').toBeGreaterThan(unverifiedGrant);
+
+  const { w, sut } = await open();
+  const admin = await sut.provisionPlatformAdmin(w.email('admin-06'));
+  const unverified = await sut.provisionNgo(w.email('ngo-06-u'), { emailVerified: true });
+  const vettedNgo = await sut.provisionNgo(w.email('ngo-06-v'), { emailVerified: true });
+
+  const first = await sut.readAllowance(unverified.session, unverified.organizationId);
+  expect(first.ok, 'the first unverified allowance read was refused').toBe(true);
+  if (!first.ok) return;
+  const today = first.allowance.utcDay;
+  expect(today, 'the allowance day is not a UTC calendar day').toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  if (processUtcDay !== null) {
+    expect(today, 'the product UTC day is not the test process UTC day').toBe(processUtcDay);
+  }
+
+  for (const remaining of [0, partialUnverified, unverifiedGrant]) {
+    await assertResetFromStartingRemaining({
+      sut,
+      session: unverified.session,
+      organizationId: unverified.organizationId,
+      grant: unverifiedGrant,
+      startingRemaining: remaining,
+      today,
+      processUtcDay,
+      label: `unverified remaining ${remaining}`,
+    });
+  }
+
+  const vetted = await vetOrganisation(sut, admin, vettedNgo.organizationId);
+  if (!vetted.ok) return;
+
+  const vettedRead = await sut.readAllowance(vettedNgo.session, vettedNgo.organizationId);
+  expect(vettedRead.ok, 'the first vetted allowance read was refused').toBe(true);
+  if (!vettedRead.ok) return;
+  expect(vettedRead.allowance.utcDay).toBe(today);
+  expect(vettedRead.allowance.dailyGrant).toBe(vettedGrant);
+
+  for (const remaining of [0, partialVetted, vettedGrant]) {
+    await assertResetFromStartingRemaining({
+      sut,
+      session: vettedNgo.session,
+      organizationId: vettedNgo.organizationId,
+      grant: vettedGrant,
+      startingRemaining: remaining,
+      today,
+      processUtcDay,
+      label: `vetted remaining ${remaining}`,
+    });
+  }
+
+  // An organisation vetted on an earlier day, with no ledger row today. The unvet case is only
+  // reachable across a UTC day boundary: a vet always writes that day's mark.
+  await persistSpendOnPreviousUtcDay(sut, vettedNgo.organizationId, today, 0, vettedGrant);
+  const rowsBeforeUnvet = await sut.spendRows(vettedNgo.organizationId);
+  expect(
+    rowsBeforeUnvet.some((row) => row.utcDay === today),
+    'today already has a spend row before the unvet',
+  ).toBe(false);
+
+  const beforeUnvet = await sut.readAllowance(vettedNgo.session, vettedNgo.organizationId);
+  expect(beforeUnvet.ok, 'the pre-unvet new-day allowance read was refused').toBe(true);
+  if (!beforeUnvet.ok) return;
+  expect(beforeUnvet.allowance.vetted).toBe(true);
+  expect(beforeUnvet.allowance.remaining).toBe(vettedGrant);
+  expect(beforeUnvet.allowance.spentToday).toBe(0);
+
+  const unvet = await sut.setVetting(admin, {
+    organizationId: vettedNgo.organizationId,
+    action: 'unvet',
+    note: 'Unvet on a UTC day with no ledger row.',
+  });
+  expect(unvet, 'the new-day unvet was refused').toMatchObject({
+    ok: true,
+    organizationId: vettedNgo.organizationId,
+    vetted: false,
+    changed: true,
+  });
+  if (!unvet.ok) return;
+
+  const afterUnvet = await sut.readAllowance(vettedNgo.session, vettedNgo.organizationId);
+  expect(afterUnvet.ok, 'the post-unvet allowance read was refused').toBe(true);
+  if (!afterUnvet.ok) return;
+  expect(afterUnvet.allowance.vetted).toBe(false);
+  expect(
+    afterUnvet.allowance.dailyGrant,
+    'unvet on a day with no ledger row wrote the unverified grant and took the credits already held today',
+  ).toBe(vettedGrant);
+  expect(afterUnvet.allowance.remaining).toBe(vettedGrant);
+  expect(afterUnvet.allowance.spentToday).toBe(0);
+
+  const rowsAfterUnvet = await sut.spendRows(vettedNgo.organizationId);
+  const todayAfterUnvet = rowsAfterUnvet.find((row) => row.utcDay === today);
+  expect(todayAfterUnvet?.granted, 'the unvet mark did not keep the vetted grant for today').toBe(vettedGrant);
+  expect(todayAfterUnvet?.spent).toBe(0);
+
+  const keepCredits = await sut.debitAllowance(vettedNgo.session, vettedNgo.organizationId, unverifiedGrant + 1);
+  expect(keepCredits.ok, 'spending past the unverified pin on the unvet day was refused').toBe(true);
+  if (!keepCredits.ok) return;
+  expect(keepCredits.allowance.remaining).toBe(vettedGrant - (unverifiedGrant + 1));
 }
 
 describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
@@ -147,7 +350,18 @@ describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
 
   atTest('AT-002.27', 'after the zero-credit block, the day rollover makes the next free Discovery turn succeed on the reset allowance', notLanded(LEAF.D2_L2));
 
-  atTest('AT-002.06', 'from any starting balance the UTC day rollover hard-resets the allowance to exactly the tier grant with no rollover, and a second reset does not occur in the same UTC day', notLanded(LEAF.D2_L3));
+  atTest(
+    'AT-002.06',
+    'from any starting balance the UTC day rollover hard-resets the allowance to exactly the tier grant with no rollover, and a second reset does not occur in the same UTC day',
+    {
+      default: async ({ open }) => {
+        await proveUtcReset(open, null);
+      },
+      integration: async ({ open }) => {
+        await proveUtcReset(open, utcDayOf(Date.now()));
+      },
+    },
+  );
 
   atTest(
     'AT-002.07',
