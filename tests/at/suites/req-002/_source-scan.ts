@@ -3,8 +3,9 @@
  * content is stored or returned), the grant-drift scan (the pinned registry, the TypeScript
  * constants, and the SQL grant function), the exhausted-sentence pin (the TypeScript renderer
  * and the SQL debit raise), the founder-vetted wording arm (no acceptance id; AT-002.23
- * stays red on the listing screens), and the no-wallet arm (no acceptance id; AT-002.10
- * stays red on the missing checkout).
+ * stays red on the listing screens), the no-wallet arm (no acceptance id; AT-002.10 stays
+ * red on the missing checkout), and the absent-publish-flow arm (no acceptance id; AT-002.19
+ * and AT-002.20 stay red on the missing publish flow).
  *
  * Precedent: `tests/at/suites/req-001/_source-scan.ts` and `tests/at/suites/req-016/_source-scan.ts`.
  * The arms run at both tiers. The file name starts with an underscore and does not end in
@@ -19,7 +20,8 @@
  * job that vets, or a third `pending` state, and that is what these turn into a red in the same run.
  * A jsonb column holding a PDF, or a download screen named `file-desk.tsx`, escapes the document
  * oracle the same way. Rejecting attachments and storing only metadata cannot prove a document
- * was deleted from the founder's mailbox.
+ * was deleted from the founder's mailbox. A write named `go-live.tsx` escapes the publish-flow
+ * oracle the same way.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -1044,6 +1046,317 @@ export function discoveryWalletProblems(): string[] {
   const surfaces = loadKycSurfaceInput('discoveryWalletProblems');
   return scanDiscoveryWallet({
     files: productFiles('discoveryWalletProblems'),
+    routeFolders: surfaces.routeFolders,
+    inventory: surfaces.inventory,
+    sharedModules: surfaces.sharedModules,
+    uiRoutes: surfaces.uiRoutes,
+  });
+}
+
+/* ---------------------------------------------------------------------- absent publish flow */
+
+/**
+ * WHAT THIS IS. A naming-and-statement oracle over surface names, SQL object names, columns,
+ * cron jobs, and triggers. It refuses a write that publishes a project, a store of publish
+ * state / visibility / triage, and a scheduled change to a project. Empty is the assertion
+ * an absence claims. AT-002.19 and AT-002.20 stay red on the missing publish flow; a green
+ * here says the flow is absent, not that those ids are green.
+ *
+ * HOW IT TELLS PUBLISHING A PROJECT APART FROM SENDING A NOTIFICATION OR RENDERING A PAGE.
+ * Publishing a project is a write that takes a project from scoped (or draft) into
+ * publication or triage. The notification emitter sends and delivers events. A public
+ * project page renders a row. Neither writes a project's publish state. The shipped
+ * function `publishingAllowed` is the permit, not the write. Account lifecycle is
+ * active/deactivated on an account, not a project state. The taxonomy's `triage.*` wire
+ * names are event names for a flow that does not exist yet; they are not a triage queue.
+ *
+ * The split is the SUBJECT of each name and each scheduled statement, not a count of the
+ * word "publish". A name is a project-publish write when it names publishing, a project
+ * visibility, a project lifecycle/state, or a triage queue, and is not the public-page
+ * read, the permit, a notification send/deliver, or an account lifecycle. A quoted
+ * "you may publish" and a comment about the missing flow are copy, and this arm does
+ * not read them.
+ *
+ * The third check is the one an absent route cannot cover: a cron job that writes
+ * `public.projects`, or a trigger on `public.projects` that names a publish, scope,
+ * visibility, triage, or aging action, would stop a project sitting at scoped
+ * indefinitely without any publish route existing at all. The two seat-constraint
+ * triggers on projects do not name those actions and stay silent.
+ *
+ * WHAT THIS IS NOT. A naming oracle. A write named `go-live.tsx` escapes it, as does a
+ * jsonb field holding a publish flag under another word. That is why AT-002.19 and
+ * AT-002.20 stay red: this arm covers the absence this tree can show, not a publish
+ * route or a triage queue that is not here.
+ */
+
+const PROJECTS_TABLE_HEAD = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?projects\b/i;
+const TRIGGER_ON_PROJECTS = /create\s+trigger\b[\s\S]*\bon\s+(?:only\s+)?(?:public\.)?projects\b/i;
+const PROJECTS_DML =
+  /\b(?:insert\s+into|update|delete\s+from|truncate(?:\s+table)?)\s+(?:only\s+)?(?:public\.)?projects\b/i;
+const ALTER_TABLE_HEAD = /alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:public\.)?([A-Za-z_][\w]*)/i;
+const ADD_COLUMN = /\badd(?:\s+column)?\s+(?:if\s+not\s+exists\s+)?([A-Za-z_][\w]*)/gi;
+const ADD_COLUMN_KEYWORDS = new Set([
+  'constraint',
+  'check',
+  'primary',
+  'unique',
+  'foreign',
+  'column',
+  'if',
+  'not',
+  'exists',
+  'only',
+  'validate',
+]);
+
+export type AbsentPublishFlowInput = {
+  files: readonly SourceFile[];
+  routeFolders: readonly string[];
+  inventory: RouteInventory;
+  sharedModules: readonly string[];
+  uiRoutes: readonly string[];
+};
+
+function isNotificationOrAccountName(tokens: readonly string[]): boolean {
+  return hasToken(tokens, 'notification', 'notifications', 'account', 'accounts');
+}
+
+/**
+ * A name whose subject is publishing a project, a project visibility, a project lifecycle,
+ * or a triage queue — not a public-page read, the permit, a notification send, or an
+ * account lifecycle.
+ */
+function isProjectPublishName(raw: string): boolean {
+  const tokens = words(raw);
+  if (tokens.length === 0) return false;
+  if (hasToken(tokens, 'public') && !hasToken(tokens, 'publish', 'publishing', 'published', 'publication', 'publications')) {
+    return false;
+  }
+  if (hasToken(tokens, 'notification', 'notifications', 'emit', 'emitter', 'delivery', 'deliveries')) return false;
+  if (
+    hasToken(tokens, 'publish', 'publishing', 'published', 'publication', 'publications') &&
+    hasToken(tokens, 'allowed', 'allow', 'permit', 'permitted')
+  ) {
+    return false;
+  }
+  if (hasToken(tokens, 'publish', 'publishing', 'published', 'publication', 'publications')) return true;
+  if (hasToken(tokens, 'triage')) return true;
+  if (hasToken(tokens, 'visibility')) return true;
+  if (hasToken(tokens, 'scoped') && hasToken(tokens, 'project', 'projects')) return true;
+  if (
+    hasToken(tokens, 'project', 'projects') &&
+    hasToken(tokens, 'lifecycle', 'state', 'status') &&
+    !hasToken(tokens, 'account', 'accounts')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function isProjectPublishColumn(table: string, column: string): boolean {
+  const tableTokens = words(table);
+  const colTokens = words(column);
+  if (isNotificationOrAccountName(tableTokens)) return false;
+  if (hasToken(colTokens, 'visibility', 'published', 'publish', 'publishing', 'publication', 'triage', 'scoped')) {
+    return true;
+  }
+  const projectTable = table === 'projects' || hasToken(tableTokens, 'project', 'projects');
+  return projectTable && hasToken(colTokens, 'lifecycle', 'state', 'status');
+}
+
+function namedPublishSurface(name: string, where: string): string | null {
+  return isProjectPublishName(name) ? `${where} ${name} names a publish surface` : null;
+}
+
+function createTableColumns(statement: string): { table: string; columns: string[] } | null {
+  const match = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?([A-Za-z_][\w]*)\s*\(/i.exec(statement);
+  if (match === null || match.index === undefined || match[1] === undefined) return null;
+  const open = statement.indexOf('(', match.index);
+  if (open < 0) return null;
+  let depth = 0;
+  let close = -1;
+  for (let i = open; i < statement.length; i += 1) {
+    if (statement[i] === '(') depth += 1;
+    else if (statement[i] === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        close = i;
+        break;
+      }
+    }
+  }
+  if (close < 0) return null;
+  return { table: match[1], columns: columnNamesFromTableBody(statement.slice(open + 1, close)) };
+}
+
+function columnNamesFromTableBody(body: string): string[] {
+  const names: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const ch of body) {
+    if (ch === '(') {
+      depth += 1;
+      current += ch;
+      continue;
+    }
+    if (ch === ')') {
+      depth -= 1;
+      current += ch;
+      continue;
+    }
+    if (ch === ',' && depth === 0) {
+      pushTableMemberName(names, current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  pushTableMemberName(names, current);
+  return names;
+}
+
+function pushTableMemberName(names: string[], piece: string): void {
+  const trimmed = piece.trim();
+  if (trimmed.length === 0) return;
+  if (/^(constraint|check|primary|unique|foreign|exclude|like)\b/i.test(trimmed)) return;
+  const name = /^"?([A-Za-z_][\w]*)"?/.exec(trimmed);
+  if (name?.[1] !== undefined) names.push(name[1]);
+}
+
+function addedColumns(statement: string): { table: string; columns: string[] } | null {
+  const head = ALTER_TABLE_HEAD.exec(statement);
+  if (head === null || head[1] === undefined) return null;
+  const columns: string[] = [];
+  ADD_COLUMN.lastIndex = 0;
+  for (const match of statement.matchAll(ADD_COLUMN)) {
+    const name = match[1];
+    if (name === undefined || ADD_COLUMN_KEYWORDS.has(name.toLowerCase())) continue;
+    columns.push(name);
+  }
+  return { table: head[1], columns };
+}
+
+function cronChangesAProject(statement: string): boolean {
+  if (!CRON.test(statement)) return false;
+  if (PROJECTS_DML.test(statement)) return true;
+  const tokens = words(statement);
+  if (hasToken(tokens, 'publish', 'publishing', 'published', 'publication', 'publications')) return true;
+  if (hasToken(tokens, 'triage') && !hasToken(tokens, 'notification', 'notifications')) return true;
+  if (hasToken(tokens, 'visibility') && hasToken(tokens, 'project', 'projects')) return true;
+  if (hasToken(tokens, 'scoped') && hasToken(tokens, 'project', 'projects')) return true;
+  if (hasToken(tokens, 'age', 'aged', 'aging') && hasToken(tokens, 'project', 'projects')) return true;
+  return false;
+}
+
+function triggerWouldChangeProjectPublishState(statement: string): boolean {
+  if (!TRIGGER_ON_PROJECTS.test(statement)) return false;
+  const tokens = words(statement);
+  if (hasToken(tokens, 'publish', 'publishing', 'published', 'publication', 'visibility', 'scoped', 'triage', 'aging', 'aged', 'lifecycle')) {
+    return true;
+  }
+  return hasToken(tokens, 'age');
+}
+
+export function scanAbsentPublishFlow(input: AbsentPublishFlowInput): string[] {
+  if (input.files.length === 0) {
+    throw new Error('scanAbsentPublishFlow found no product source. Refusing to report an absence.');
+  }
+  const migrations = input.files.filter((file) => file.path.startsWith('supabase/migrations/') && file.path.endsWith('.sql'));
+  if (migrations.length === 0) {
+    throw new Error('scanAbsentPublishFlow found no SQL migrations under supabase/migrations/. Refusing to report an absence.');
+  }
+  let sawProjectsTable = false;
+  for (const file of migrations) {
+    for (const statement of splitSqlStatements(file.text)) {
+      if (PROJECTS_TABLE_HEAD.test(statement)) sawProjectsTable = true;
+    }
+  }
+  if (!sawProjectsTable) {
+    throw new Error(
+      'scanAbsentPublishFlow found no migration that creates public.projects, so "no publish state on projects" names nothing. ' +
+        'Refusing to report an absence.',
+    );
+  }
+
+  const problems: string[] = [];
+
+  for (const name of input.routeFolders) {
+    const named = namedPublishSurface(name, 'route folder');
+    if (named) problems.push(named);
+  }
+  for (const name of Object.keys(input.inventory)) {
+    const named = namedPublishSurface(name, 'write route');
+    if (named) problems.push(named);
+    const rpc = rpcOf(input.inventory[name]);
+    if (rpc !== null) {
+      const rpcNamed = namedPublishSurface(rpc, `write route ${name} rpc`);
+      if (rpcNamed) problems.push(rpcNamed);
+    }
+  }
+  for (const name of input.sharedModules) {
+    const named = namedPublishSurface(name, 'shared module');
+    if (named) problems.push(named);
+  }
+  for (const name of input.uiRoutes) {
+    const named = namedPublishSurface(name, 'ui route');
+    if (named) problems.push(named);
+  }
+
+  for (const file of migrations) {
+    for (const statement of splitSqlStatements(file.text)) {
+      const table = createTableColumns(statement);
+      if (table !== null) {
+        if (isProjectPublishName(table.table)) {
+          problems.push(`${file.path} table ${table.table} holds a publish state, a visibility, or a triage queue`);
+        }
+        for (const column of table.columns) {
+          if (isProjectPublishColumn(table.table, column)) {
+            problems.push(
+              `${file.path} column ${table.table}.${column} holds a publish state, a visibility, or a triage queue`,
+            );
+          }
+        }
+      }
+      const altered = addedColumns(statement);
+      if (altered !== null) {
+        for (const column of altered.columns) {
+          if (isProjectPublishColumn(altered.table, column)) {
+            problems.push(
+              `${file.path} column ${altered.table}.${column} holds a publish state, a visibility, or a triage queue`,
+            );
+          }
+        }
+      }
+      SQL_FUNCTION.lastIndex = 0;
+      for (const match of statement.matchAll(SQL_FUNCTION)) {
+        const name = match[1];
+        if (name !== undefined && isProjectPublishName(name)) {
+          problems.push(`${file.path} function ${name} publishes a project`);
+        }
+      }
+      SQL_TYPE.lastIndex = 0;
+      for (const match of statement.matchAll(SQL_TYPE)) {
+        const name = match[1];
+        if (name !== undefined && isProjectPublishName(name)) {
+          problems.push(`${file.path} type ${name} holds a publish state, a visibility, or a triage queue`);
+        }
+      }
+      if (cronChangesAProject(statement)) {
+        problems.push(`${file.path} schedules a change to a project`);
+      }
+      if (triggerWouldChangeProjectPublishState(statement)) {
+        problems.push(`${file.path} creates a trigger that would change a project's publish or scope state`);
+      }
+    }
+  }
+
+  return [...new Set(problems)].sort();
+}
+
+export function absentPublishFlowProblems(): string[] {
+  const surfaces = loadKycSurfaceInput('absentPublishFlowProblems');
+  return scanAbsentPublishFlow({
+    files: productFiles('absentPublishFlowProblems'),
     routeFolders: surfaces.routeFolders,
     inventory: surfaces.inventory,
     sharedModules: surfaces.sharedModules,

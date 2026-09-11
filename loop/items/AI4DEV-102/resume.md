@@ -8,7 +8,7 @@ The Feature playbook, one run for the whole item. Grounding, the design arena, t
 the synthesis are all finished and committed. The design of record is
 `loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-**Units done: the suite scaffold, and units 1 to 12 of 13.**
+**Units done: the suite scaffold, and all thirteen units.**
 
 | what | commit | acceptance ids now green |
 |---|---|---|
@@ -25,8 +25,9 @@ the synthesis are all finished and committed. The design of record is
 | unit 10, the pilot default and the wording | `b462722` | AT-002.28, at both tiers |
 | unit 11, the zero-credit block | `7202715` | AT-002.05 at loop, AT-002.27 at both tiers |
 | unit 12, no Discovery wallet | `83cc0a9` | none, by design |
+| unit 13, the publish gates | `5e1238f` | none, by design |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `83cc0a9`, tree
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `5e1238f`, tree
 clean, nothing pushed since the brief commit. The local Supabase stack is up. Twenty of
 twenty-seven acceptance ids are green.
 
@@ -37,9 +38,17 @@ this branch merges.
 
 ## The first action on resume
 
-Unit 13, AI4DEV-115 (the publish gates), for the red AT-002.19 and AT-002.20. It is the last unit.
-It ships no new decision: `publishingAllowed` landed in unit 9. It turns no id green. After it come
-the item-wide closing stations.
+**Every unit is built.** The next thing is the item-wide closing stations, in the order the section
+"After the last unit" gives: the comment audit on the mechanical model with the comment-sicko
+prompt, the multi-model review, the evidence capture through `.claude/skills/verify-ai4good/`, the
+rebase into ordered commits, the pull request, then the brief's Closing section.
+
+Nothing is pushed. The merge needs CI green on the exact head and the founder's word, both.
+
+Open carry from unit 13: the absent-publish-flow arm is `absentPublishFlowProblems` in
+`_source-scan.ts`. It asserts an absence, which is what the two red manifest lines claim. Its third
+check is the load-bearing one: nothing scheduled changes a project, so the promise that a scoped
+project may sit untouched cannot be broken without a publish route.
 
 Open carry from unit 12: `fundingAllowed` sits beside `publishingAllowed` in
 `supabase/functions/_shared/org-vetting.ts`, asserted in
@@ -111,7 +120,7 @@ bun run at:verify req-016 --tier integration --expect
 The last two matter most. Every new table and every new write route changes what the authentication
 suite's static scans and live catalog checks see, and that suite must stay green.
 
-## The remaining units, in the founder's fixed order
+## The units, in the founder's fixed order — all built
 
 | unit | item | ids | notes |
 |---|---|---|---|
@@ -183,6 +192,8 @@ integration and twenty at loop when every unit has landed.
   is the environment, not the code. Run the check again before you look for a cause in the diff.
 - Two stacks from the parked slot pool, `ai4good-slot-1` and `ai4good-slot-2`, are still running.
   They are not part of this run. Report them; never remove them without a founder decision.
+
+
 
 
 

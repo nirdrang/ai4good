@@ -11,6 +11,7 @@ import {
   dailyGrantFor,
 } from '../../../supabase/functions/_shared/discovery-allowance.ts';
 import {
+  absentPublishFlowProblems,
   discoveryWalletProblems,
   documentContentSinks,
   exhaustedSentenceProblems,
@@ -18,6 +19,7 @@ import {
   orgVettingWriterProblems,
   parseExhaustedRaise,
   parseTypescriptExhaustedRenderer,
+  scanAbsentPublishFlow,
   scanDiscoveryWallet,
   scanDocumentContentSinks,
   scanExhaustedSentence,
@@ -69,6 +71,7 @@ describe('REQ-002 source oracles over the real tree', () => {
     expect(trustWordingProblems()).toEqual([]);
     expect(exhaustedSentenceProblems()).toEqual([]);
     expect(discoveryWalletProblems()).toEqual([]);
+    expect(absentPublishFlowProblems()).toEqual([]);
   });
 });
 
@@ -664,5 +667,276 @@ describe('scanDiscoveryWallet refusals', () => {
     expect(() =>
       scanDiscoveryWallet({ files: [], routeFolders: ['discovery-allowance'], inventory: WRITE_ROUTES, sharedModules: [], uiRoutes: [] }),
     ).toThrow(/no product source/);
+  });
+});
+
+describe('scanAbsentPublishFlow refusals', () => {
+  const PROJECTS = `
+create table public.projects (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations (id) on delete cascade,
+  name text not null check (length(btrim(name)) > 0),
+  assigned_volunteer_id uuid references public.accounts (id) on delete set null,
+  created_at timestamptz not null default now()
+)
+`;
+  const SEAT_TRIGGER = `
+create function public.project_seat_holds_one_developer()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.assigned_volunteer_id is not null
+     and new.assigned_volunteer_id is not null
+     and new.assigned_volunteer_id <> old.assigned_volunteer_id then
+    raise exception 'projects refuses a second volunteer on project %', old.id using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+create trigger projects_single_developer_seat
+before update on public.projects
+for each row
+execute function public.project_seat_holds_one_developer()
+`;
+  const PUBLIC_READ = `
+create function public.read_public_project(p_project_id uuid)
+returns table (project_id uuid, project_name text, organization_name text)
+language sql
+stable
+as $$
+  select p.id, p.name, o.name
+    from public.projects p
+    join public.organizations o on o.id = p.org_id
+   where p.id = p_project_id;
+$$
+`;
+  const NOTIFICATIONS = `
+create table public.notification_event_types (
+  event text primary key
+);
+insert into public.notification_event_types (event) values
+  ('triage.approved'),
+  ('triage.returned_to_scoped'),
+  ('triage.declined_terminal');
+create table public.notification_events (
+  id uuid primary key,
+  event text not null,
+  state public.notification_state not null default 'pending'
+);
+create function public.emit_notification(p_write jsonb)
+returns uuid
+language plpgsql
+as $$
+begin
+  return gen_random_uuid();
+end;
+$$
+`;
+  const ACCOUNTS = `
+create type public.account_lifecycle as enum ('active', 'deactivated');
+alter table public.accounts
+  add column lifecycle public.account_lifecycle not null default 'active'
+`;
+
+  const clean = {
+    files: [
+      { path: 'supabase/migrations/projects.sql', text: `${PROJECTS};\n${SEAT_TRIGGER};\n${PUBLIC_READ};` },
+      { path: 'supabase/migrations/notifications.sql', text: `${NOTIFICATIONS};\n${ACCOUNTS};` },
+      {
+        path: 'supabase/migrations/other.sql',
+        text: "select cron.schedule('vacuum', '0 3 * * *', $$ select 1 $$);",
+      },
+      {
+        path: 'supabase/functions/_shared/org-vetting.ts',
+        text:
+          "export function publishingAllowed(vetted: boolean): { ok: true; value: 'vetted' } | { ok: false; reason: string } {\n" +
+          "  if (vetted === true) return { ok: true, value: 'vetted' };\n" +
+          "  return { ok: false, reason: 'publishing needs a founder-vetted organisation — this organisation is not founder-vetted' };\n" +
+          '}\n',
+      },
+      {
+        path: 'supabase/functions/_shared/notification-copy.ts',
+        text: "body: 'Your daily Discovery allowance is now the vetted grant, and you may publish.';\n",
+      },
+      {
+        path: 'supabase/functions/_shared/public-project.ts',
+        text: 'export function projectIsPublic(_source: { project_id: string }): boolean {\n  return true;\n}\n',
+      },
+    ],
+    routeFolders: ['set-organization-vetting', 'public-project', 'project-workspace', 'complete-signup'],
+    inventory: WRITE_ROUTES,
+    sharedModules: ['org-vetting.ts', 'public-project.ts', 'notifications.ts', 'write-routes.ts'],
+    uiRoutes: ['index.tsx', '__root.tsx'],
+  };
+
+  it('accepts the public page, the permit, notifications, account lifecycle, and seat triggers', () => {
+    expect(scanAbsentPublishFlow(clean)).toEqual([]);
+  });
+
+  it('fails a publish-project route folder', () => {
+    expect(
+      scanAbsentPublishFlow({ ...clean, routeFolders: [...clean.routeFolders, 'publish-project'] }).some((problem) =>
+        problem.includes('publish-project'),
+      ),
+    ).toBe(true);
+  });
+
+  it('fails a publish write route and its rpc', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      inventory: inventory({
+        'publish-project': {
+          surface: { kind: 'edge', rpc: 'publish_project' },
+          standing: { kind: 'account-required', admits: ['ngo'] },
+        },
+      }),
+    });
+    expect(problems.some((problem) => /publish-project/.test(problem))).toBe(true);
+    expect(problems.some((problem) => /publish_project/.test(problem))).toBe(true);
+  });
+
+  it('fails a triage-queue shared module and ui route', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      sharedModules: [...clean.sharedModules, 'triage-queue.ts'],
+      uiRoutes: [...clean.uiRoutes, 'triage.tsx'],
+    });
+    expect(problems.some((problem) => problem.includes('triage-queue.ts'))).toBe(true);
+    expect(problems.some((problem) => problem.includes('triage.tsx'))).toBe(true);
+  });
+
+  it('fails a SQL function that publishes a project', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      files: [
+        ...clean.files,
+        {
+          path: 'supabase/migrations/publish.sql',
+          text: 'create function public.publish_project(p_id uuid) returns void as $$ begin null; end; $$;\n',
+        },
+      ],
+    });
+    expect(problems.some((problem) => problem.includes('publish_project') && /publishes a project/.test(problem))).toBe(
+      true,
+    );
+  });
+
+  it('fails a visibility column on projects', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      files: [
+        ...clean.files,
+        {
+          path: 'supabase/migrations/visibility.sql',
+          text: 'alter table public.projects add column visibility text;\n',
+        },
+      ],
+    });
+    expect(problems.some((problem) => problem.includes('projects.visibility'))).toBe(true);
+  });
+
+  it('fails a state column on projects', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      files: [
+        ...clean.files,
+        {
+          path: 'supabase/migrations/state.sql',
+          text: 'alter table public.projects add column state text;\n',
+        },
+      ],
+    });
+    expect(problems.some((problem) => problem.includes('projects.state'))).toBe(true);
+  });
+
+  it('fails a triage_queue table', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      files: [
+        ...clean.files,
+        {
+          path: 'supabase/migrations/triage.sql',
+          text: 'create table public.triage_queue (project_id uuid);\n',
+        },
+      ],
+    });
+    expect(problems.some((problem) => problem.includes('triage_queue'))).toBe(true);
+  });
+
+  it('fails cron that updates public.projects', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      files: [
+        ...clean.files,
+        {
+          path: 'supabase/migrations/cron.sql',
+          text: "select cron.schedule('age-scoped', '* * * * *', $$ update public.projects set name = name $$);",
+        },
+      ],
+    });
+    expect(problems.some((problem) => problem.includes('schedules a change to a project'))).toBe(true);
+  });
+
+  it('fails cron that calls age_projects', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      files: [
+        ...clean.files,
+        {
+          path: 'supabase/migrations/cron-age.sql',
+          text: "select cron.schedule('age', '* * * * *', $$ select public.age_projects() $$);",
+        },
+      ],
+    });
+    expect(problems.some((problem) => problem.includes('schedules a change to a project'))).toBe(true);
+  });
+
+  it('fails a trigger that ages a scoped project', () => {
+    const problems = scanAbsentPublishFlow({
+      ...clean,
+      files: [
+        ...clean.files,
+        {
+          path: 'supabase/migrations/trig.sql',
+          text:
+            'create trigger age_scoped_projects after insert on public.projects for each row execute function public.age_scoped_projects();',
+        },
+      ],
+    });
+    expect(problems.some((problem) => /trigger that would change a project's publish or scope state/.test(problem))).toBe(
+      true,
+    );
+  });
+
+  it('does not flag cron that never writes a project', () => {
+    expect(
+      scanAbsentPublishFlow({
+        ...clean,
+        files: [
+          ...clean.files,
+          {
+            path: 'supabase/migrations/retry.sql',
+            text: "select cron.schedule('retry-deliveries', '* * * * *', $$ select public.apply_delivery_results('[]'::jsonb, 'epoch') $$);",
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it('throws when there is no product source', () => {
+    expect(() =>
+      scanAbsentPublishFlow({ files: [], routeFolders: ['public-project'], inventory: WRITE_ROUTES, sharedModules: [], uiRoutes: [] }),
+    ).toThrow(/no product source/);
+  });
+
+  it('throws when the projects table is absent', () => {
+    expect(() =>
+      scanAbsentPublishFlow({
+        ...clean,
+        files: [{ path: 'supabase/migrations/a.sql', text: 'create table public.organizations (id uuid);\n' }],
+      }),
+    ).toThrow(/creates public.projects/);
   });
 });
