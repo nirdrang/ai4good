@@ -3,9 +3,9 @@
  * AT-002.26, AT-002.27, AT-002.31
  * Source: .taskmaster/docs/acceptance/at-req-002.md
  *
- * Four ids here wait on surfaces this tree does not have and are declared red by shape in
+ * Three ids here wait on surfaces this tree does not have and are declared red by shape in
  * `tests/at/expected/req-002.json`: the paid-continuation path (AT-002.10), the funded remedy
- * (AT-002.26) and fuel funding itself (AT-002.31) need the project-fuel checkout; AT-002.05 is
+ * (AT-002.26) and fuel funding itself (AT-002.31) need the project-fuel checkout. AT-002.05 is
  * proved at loop through the allowance contract and waits, at integration only, on a Discovery
  * surface that shows the three remedies to somebody.
  */
@@ -14,9 +14,9 @@ import { describe, expect } from 'vitest';
 import { utcDayOf } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { createConfigRegistry } from '../../harness/config.ts';
 import { atTest } from './_bind.ts';
-import { AWAITED, awaiting, LEAF, notLanded } from './_pending.ts';
-import { grantPinProblems, scanGrantPins } from './_source-scan.ts';
-import type { OrganizationsSut, Session, World } from './_contract.ts';
+import { AWAITED, awaiting } from './_pending.ts';
+import { exhaustedSentenceProblems, grantPinProblems, scanGrantPins } from './_source-scan.ts';
+import type { AllowanceOutcome, OrganizationsSut, Session, World } from './_contract.ts';
 
 const EVIDENCE = {
   organizationName: 'Riverside Shelter',
@@ -39,6 +39,25 @@ async function debitOne(sut: OrganizationsSut, session: Session, organizationId:
   const outcome = await sut.debitAllowance(session, organizationId, 1);
   expect(outcome.ok, `${label} was refused`).toBe(true);
   return outcome;
+}
+
+async function reachZeroCreditBlock(
+  sut: OrganizationsSut,
+  session: Session,
+  organizationId: string,
+  grant: number,
+): Promise<Extract<AllowanceOutcome, { ok: false }> | null> {
+  for (let n = 1; n <= grant; n += 1) {
+    const debit = await debitOne(sut, session, organizationId, `debit ${n} of ${grant}`);
+    if (!debit.ok) return null;
+  }
+  const blocked = await sut.debitAllowance(session, organizationId, 1);
+  expect(blocked.ok, 'a debit past the grant was admitted').toBe(false);
+  if (blocked.ok) return null;
+  expect(blocked.kind, `the extra debit was refused as ${blocked.kind}: ${blocked.reason}`).toBe(
+    'daily-allowance-exhausted',
+  );
+  return blocked;
 }
 
 async function vetOrganisation(sut: OrganizationsSut, admin: Session, organizationId: string) {
@@ -259,6 +278,51 @@ async function proveUtcReset(
   expect(keepCredits.allowance.remaining).toBe(vettedGrant - (unverifiedGrant + 1));
 }
 
+async function proveRolloverRemedy(
+  open: () => Promise<{ w: World; sut: OrganizationsSut }>,
+  processUtcDay: string | null,
+): Promise<void> {
+  const pins = createConfigRegistry();
+  const unverifiedGrant = pins.get<number>(UNVERIFIED_PIN);
+
+  const { w, sut } = await open();
+  const ngo = await sut.provisionNgo(w.email('ngo-27'), { emailVerified: true });
+
+  const blocked = await reachZeroCreditBlock(sut, ngo.session, ngo.organizationId, unverifiedGrant);
+  if (blocked === null) return;
+
+  const atBlock = await sut.readAllowance(ngo.session, ngo.organizationId);
+  expect(atBlock.ok, 'the allowance read at the block was refused').toBe(true);
+  if (!atBlock.ok) return;
+  expect(atBlock.allowance.remaining).toBe(0);
+  expect(atBlock.allowance.dailyGrant).toBe(unverifiedGrant);
+  const today = atBlock.allowance.utcDay;
+  if (processUtcDay !== null) {
+    expect(today, 'the product UTC day is not the test process UTC day').toBe(processUtcDay);
+  }
+
+  // The day travel is persistSpendOnPreviousUtcDay: a previous-day row is the bytes after
+  // midnight, and this body does not prove the crossing itself. Correction C3.
+  await persistSpendOnPreviousUtcDay(sut, ngo.organizationId, today, unverifiedGrant, unverifiedGrant);
+
+  const restored = await sut.debitAllowance(ngo.session, ngo.organizationId, 1);
+  expect(restored.ok, 'the first free debit of the new UTC day was refused').toBe(true);
+  if (!restored.ok) return;
+  expect(restored.allowance.utcDay).toBe(today);
+  if (processUtcDay !== null) {
+    expect(restored.allowance.utcDay, 'the restored debit UTC day is not the test process UTC day').toBe(
+      processUtcDay,
+    );
+  }
+  expect(restored.allowance.dailyGrant, 'the rollover granted a number other than the unverified pin').toBe(
+    unverifiedGrant,
+  );
+  expect(restored.allowance.spentToday).toBe(1);
+  expect(restored.allowance.remaining, 'the restored remaining is not the unverified pin minus this debit').toBe(
+    unverifiedGrant - 1,
+  );
+}
+
 describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
   atTest(
     'AT-002.04',
@@ -342,13 +406,50 @@ describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
   );
 
   atTest('AT-002.05', 'at zero remaining credits on an unfunded project the next Discovery message is blocked and the remedies shown are get vetted, fund fuel, or wait for the next day', {
-    default: notLanded(LEAF.D2_L2),
+    default: async ({ open }) => {
+      const pins = createConfigRegistry();
+      const unverifiedGrant = pins.get<number>(UNVERIFIED_PIN);
+      const vettedGrant = pins.get<number>(VETTED_PIN);
+      // The sentence a caller reads comes from the database at one tier and from the shipped
+      // renderer at the other, so the two must agree word for word. That the arm itself can fail
+      // is proved in `tests/at/harness/req002-oracles.selftest.ts`, not here.
+      expect(exhaustedSentenceProblems(), 'the TypeScript exhausted renderer and the SQL debit raise disagree').toEqual(
+        [],
+      );
+
+      const { w, sut } = await open();
+      const ngo = await sut.provisionNgo(w.email('ngo-05'), { emailVerified: true });
+
+      // On an unfunded project is the criterion's own scope, and every project in this tree is
+      // unfunded because no checkout exists.
+
+      const blocked = await reachZeroCreditBlock(sut, ngo.session, ngo.organizationId, unverifiedGrant);
+      if (blocked === null) return;
+      expect(blocked.reason, 'the get-vetted remedy is missing').toMatch(/get vetted/i);
+      expect(
+        blocked.reason,
+        'the vetted grant the first remedy names is not the pinned vetted grant',
+      ).toMatch(new RegExp(`daily grant becomes ${vettedGrant}(?!\\d)`));
+      expect(blocked.reason, 'the fund-fuel remedy is missing').toMatch(/fund project fuel/i);
+      expect(blocked.reason, 'the wait-for-the-next-day remedy is missing').toMatch(/wait for the next UTC day/i);
+    },
     integration: awaiting(AWAITED.discoverySurface),
   });
 
   atTest('AT-002.26', 'after the zero-credit block, funding project fuel makes the very next Discovery turn succeed, billed to fuel', awaiting(AWAITED.projectFuelCheckout, AWAITED.fundedTurnBilling));
 
-  atTest('AT-002.27', 'after the zero-credit block, the day rollover makes the next free Discovery turn succeed on the reset allowance', notLanded(LEAF.D2_L2));
+  atTest(
+    'AT-002.27',
+    'after the zero-credit block, the day rollover makes the next free Discovery turn succeed on the reset allowance',
+    {
+      default: async ({ open }) => {
+        await proveRolloverRemedy(open, null);
+      },
+      integration: async ({ open }) => {
+        await proveRolloverRemedy(open, utcDayOf(Date.now()));
+      },
+    },
+  );
 
   atTest(
     'AT-002.06',

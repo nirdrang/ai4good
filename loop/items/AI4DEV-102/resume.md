@@ -8,7 +8,7 @@ The Feature playbook, one run for the whole item. Grounding, the design arena, t
 the synthesis are all finished and committed. The design of record is
 `loop/items/AI4DEV-102/design/SYNTHESIS.md`, and it wins over anything that disagrees with it.
 
-**Units done: the suite scaffold, and units 1 to 10 of 13.**
+**Units done: the suite scaffold, and units 1 to 11 of 13.**
 
 | what | commit | acceptance ids now green |
 |---|---|---|
@@ -23,9 +23,10 @@ the synthesis are all finished and committed. The design of record is
 | unit 8, the UTC reset | `e28ab34` | AT-002.06, at both tiers |
 | unit 9, what vetting never gates | `f4965fb` | AT-002.21, AT-002.22, at both tiers |
 | unit 10, the pilot default and the wording | `b462722` | AT-002.28, at both tiers |
+| unit 11, the zero-credit block | `7202715` | AT-002.05 at loop, AT-002.27 at both tiers |
 
-Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `b462722`, tree
-clean, nothing pushed since the brief commit. The local Supabase stack is up. Eighteen of
+Item branch `nirdrang/ai4dev-102-the-vetting-action-and-its-audit-record-d3`, head `7202715`, tree
+clean, nothing pushed since the brief commit. The local Supabase stack is up. Twenty of
 twenty-seven acceptance ids are green.
 
 Two commits below the head are not units. `fe4987b` carries the model sheet change of 2026-09-10:
@@ -35,8 +36,14 @@ this branch merges.
 
 ## The first action on resume
 
-Unit 11, AI4DEV-108 (the zero-credit block), for AT-002.05, the red AT-002.26 and AT-002.27. It
-needs units 7 and 8. AT-002.05 is red at the integration tier only.
+Unit 12, AI4DEV-110 (no Discovery wallet), for the red AT-002.10 and AT-002.31. It ships a pure
+decision with no route, and it turns no id green.
+
+Open carry from unit 11: the exhausted sentence lives in two languages, because the block is a state
+only the database sees under its row lock. `dailyAllowanceExhaustedReason` in
+`supabase/functions/_shared/discovery-allowance.ts` is the TypeScript place, the debit arm of
+`public.discovery_allowance` is the SQL place, and `exhaustedSentenceProblems` in `_source-scan.ts`
+fills the SQL format string and compares the two word for word. Change either and you change both.
 
 Open carry from unit 10: the founder-vetted wording sweep is `trustWordingProblems` in
 `tests/at/suites/req-002/_source-scan.ts`, a naming oracle over quoted strings with no acceptance
@@ -168,6 +175,7 @@ integration and twenty at loop when every unit has landed.
   is the environment, not the code. Run the check again before you look for a cause in the diff.
 - Two stacks from the parked slot pool, `ai4good-slot-1` and `ai4good-slot-2`, are still running.
   They are not part of this run. Report them; never remove them without a founder decision.
+
 
 
 

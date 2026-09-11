@@ -7,10 +7,18 @@ import { describe, expect, it } from 'vitest';
 
 import { WRITE_ROUTES } from '../../../supabase/functions/_shared/write-routes.ts';
 import {
+  dailyAllowanceExhaustedReason,
+  dailyGrantFor,
+} from '../../../supabase/functions/_shared/discovery-allowance.ts';
+import {
   documentContentSinks,
+  exhaustedSentenceProblems,
   kycSurfaceProblems,
   orgVettingWriterProblems,
+  parseExhaustedRaise,
+  parseTypescriptExhaustedRenderer,
   scanDocumentContentSinks,
+  scanExhaustedSentence,
   scanKycSurfaces,
   scanOrgVettingWriters,
   scanScheduledVetting,
@@ -57,6 +65,7 @@ describe('REQ-002 source oracles over the real tree', () => {
     expect(vettedStateProblems()).toEqual([]);
     expect(documentContentSinks()).toEqual([]);
     expect(trustWordingProblems()).toEqual([]);
+    expect(exhaustedSentenceProblems()).toEqual([]);
   });
 });
 
@@ -397,5 +406,107 @@ describe('scanTrustWording refusals', () => {
 
   it('throws when there is no product source', () => {
     expect(() => scanTrustWording([])).toThrow(/no product source/);
+  });
+});
+
+describe('scanExhaustedSentence refusals', () => {
+  const SAMPLE_ORG = '00000000-0000-4000-8000-000000000002';
+  const MATCHING_FORMAT =
+    'discovery_allowance refuses: organisation % has no Discovery credits left today — get vetted (daily grant becomes %), fund project fuel to continue now, or wait for the next UTC day';
+  const MATCHING_RENDERER =
+    'export function dailyAllowanceExhaustedReason(organizationId: string) {\n' +
+    "  return `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today — get vetted (daily grant becomes ${dailyGrantFor('vetted')}), fund project fuel to continue now, or wait for the next UTC day`;\n" +
+    '}\n';
+
+  function allowanceSql(format: string, grantArg = 'public.discovery_daily_grant(true)'): string {
+    return (
+      'create function public.discovery_allowance()\n' +
+      'as $$\n' +
+      `raise exception '${format}', p_organization_id, ${grantArg} using errcode = 'P0001', detail = 'daily-allowance-exhausted';\n` +
+      '$$;\n'
+    );
+  }
+
+  function input(over: Partial<{
+    renderedReason: string;
+    organizationId: string;
+    vettedGrant: number;
+    allowanceFunctionSql: string;
+    typescriptRendererSource: string;
+  }> = {}) {
+    return {
+      renderedReason: dailyAllowanceExhaustedReason(SAMPLE_ORG),
+      organizationId: SAMPLE_ORG,
+      vettedGrant: dailyGrantFor('vetted'),
+      allowanceFunctionSql: allowanceSql(MATCHING_FORMAT),
+      typescriptRendererSource: MATCHING_RENDERER,
+      ...over,
+    };
+  }
+
+  it('accepts a matching SQL raise and TypeScript renderer', () => {
+    expect(scanExhaustedSentence(input())).toEqual([]);
+  });
+
+  it('fails when the SQL sentence drops the remedies', () => {
+    const problems = scanExhaustedSentence(
+      input({
+        allowanceFunctionSql: allowanceSql(
+          'discovery_allowance refuses: organisation % has no Discovery credits left today — wait only %',
+        ),
+      }),
+    );
+    expect(problems.some((problem) => /TypeScript exhausted sentence/.test(problem))).toBe(true);
+  });
+
+  it('fails when the SQL grant argument is a numeric literal', () => {
+    const problems = scanExhaustedSentence(input({ allowanceFunctionSql: allowanceSql(MATCHING_FORMAT, '30') }));
+    expect(problems.some((problem) => /grant argument/.test(problem))).toBe(true);
+  });
+
+  it('fails when the TypeScript renderer contains a numeric literal', () => {
+    const problems = scanExhaustedSentence(
+      input({
+        typescriptRendererSource:
+          'export function dailyAllowanceExhaustedReason(organizationId: string) {\n' +
+          "  return `get vetted (daily grant becomes 30) ${organizationId} ${dailyGrantFor('vetted')}`;\n" +
+          '}\n',
+      }),
+    );
+    expect(problems.some((problem) => /numeric literal/.test(problem))).toBe(true);
+  });
+
+  it('fails when the TypeScript renderer does not read dailyGrantFor vetted', () => {
+    const problems = scanExhaustedSentence(
+      input({
+        typescriptRendererSource:
+          'export function dailyAllowanceExhaustedReason(organizationId: string) {\n' +
+          '  return `get vetted ${organizationId}`;\n' +
+          '}\n',
+      }),
+    );
+    expect(problems.some((problem) => /dailyGrantFor/.test(problem))).toBe(true);
+  });
+
+  it('throws when the allowance function is absent', () => {
+    expect(() => parseExhaustedRaise('create function public.other() as $$ begin null; end; $$;')).toThrow(
+      /no public.discovery_allowance/,
+    );
+  });
+
+  it('throws when the exhausted raise is the one-argument form', () => {
+    expect(() =>
+      parseExhaustedRaise(
+        'create function public.discovery_allowance()\nas $$\n' +
+          "raise exception 'discovery_allowance refuses: organisation % has no Discovery credits left today', p_organization_id using errcode = 'P0001', detail = 'daily-allowance-exhausted';\n" +
+          '$$;\n',
+      ),
+    ).toThrow(/could not read the daily-allowance-exhausted raise/);
+  });
+
+  it('throws when the TypeScript renderer is absent', () => {
+    expect(() => parseTypescriptExhaustedRenderer('export function other() { return 1; }\n')).toThrow(
+      /no export function dailyAllowanceExhaustedReason/,
+    );
   });
 });

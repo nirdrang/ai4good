@@ -1,8 +1,9 @@
 /**
  * REQ-002's SOURCE ARMS for AT-002.30 (manual founder vet only), AT-002.16 (no document
  * content is stored or returned), the grant-drift scan (the pinned registry, the TypeScript
- * constants, and the SQL grant function), and the founder-vetted wording arm (no acceptance
- * id; AT-002.23 stays red on the listing screens).
+ * constants, and the SQL grant function), the exhausted-sentence pin (the TypeScript renderer
+ * and the SQL debit raise), and the founder-vetted wording arm (no acceptance id; AT-002.23
+ * stays red on the listing screens).
  *
  * Precedent: `tests/at/suites/req-001/_source-scan.ts` and `tests/at/suites/req-016/_source-scan.ts`.
  * The arms run at both tiers. The file name starts with an underscore and does not end in
@@ -24,7 +25,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { dailyGrantFor, DISCOVERY_DAILY_GRANT } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import {
+  dailyAllowanceExhaustedReason,
+  dailyGrantFor,
+  DISCOVERY_DAILY_GRANT,
+} from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
@@ -687,4 +692,170 @@ export function grantPinProblems(): string[] {
     problems.push(`dailyGrantFor('vetted') is ${dailyGrantFor('vetted')}, vetted pin is ${vettedPin}`);
   }
   return [...new Set(problems)].sort();
+}
+
+/* ---------------------------------------------------------------------- exhausted-sentence pin */
+
+const ALLOWANCE_FUNCTION_HEAD = /create\s+(?:or\s+replace\s+)?function\s+public\.discovery_allowance\s*\(/i;
+const EXHAUSTED_RAISE =
+  /raise\s+exception\s+'((?:[^']|'')*)'([^;]*);/gi;
+const EXHAUSTED_DETAIL = /detail\s*=\s*'daily-allowance-exhausted'/i;
+const EXHAUSTED_ERRCODE = /errcode\s*=\s*'P0001'/i;
+const EXHAUSTED_ARGS = /^\s*,\s*([^,]+)\s*,\s*([\s\S]+?)\s+using\s+/i;
+const GRANT_FROM_FUNCTION = /^public\.discovery_daily_grant\(\s*true\s*\)$/i;
+const RENDERER_HEAD = /export function dailyAllowanceExhaustedReason\(/;
+const VETTED_GRANT_READ = /dailyGrantFor\(\s*['"]vetted['"]\s*\)/;
+
+export type ExhaustedRaise = {
+  format: string;
+  organizationArg: string;
+  grantArg: string;
+};
+
+export type ExhaustedSentenceInput = {
+  renderedReason: string;
+  organizationId: string;
+  vettedGrant: number;
+  allowanceFunctionSql: string;
+  typescriptRendererSource: string;
+};
+
+/** The `daily-allowance-exhausted` raise inside `public.discovery_allowance`. Throws when it cannot be read. */
+export function parseExhaustedRaise(sql: string): ExhaustedRaise {
+  if (!ALLOWANCE_FUNCTION_HEAD.test(sql)) {
+    throw new Error(
+      'parseExhaustedRaise found no public.discovery_allowance definition in the SQL it was given. ' +
+        'Refusing to report agreement.',
+    );
+  }
+  EXHAUSTED_RAISE.lastIndex = 0;
+  let found: ExhaustedRaise | null = null;
+  for (const match of sql.matchAll(EXHAUSTED_RAISE)) {
+    const tail = match[2] ?? '';
+    if (!EXHAUSTED_DETAIL.test(tail) || !EXHAUSTED_ERRCODE.test(tail)) continue;
+    const args = EXHAUSTED_ARGS.exec(tail);
+    if (args === null || args[1] === undefined || args[2] === undefined) {
+      throw new Error(
+        'parseExhaustedRaise could not read the daily-allowance-exhausted raise as a format string, ' +
+          'p_organization_id, and a grant argument. Refusing to report agreement.',
+      );
+    }
+    found = {
+      format: (match[1] ?? '').replace(/''/g, "'"),
+      organizationArg: args[1].trim(),
+      grantArg: args[2].trim(),
+    };
+  }
+  if (found === null) {
+    throw new Error(
+      'parseExhaustedRaise could not read the daily-allowance-exhausted raise as a format string, ' +
+        'p_organization_id, and a grant argument. Refusing to report agreement.',
+    );
+  }
+  return found;
+}
+
+/** The exported TypeScript renderer. Throws when the function text cannot be read. */
+export function parseTypescriptExhaustedRenderer(source: string): string {
+  const start = source.search(RENDERER_HEAD);
+  if (start < 0) {
+    throw new Error(
+      'parseTypescriptExhaustedRenderer found no export function dailyAllowanceExhaustedReason. ' +
+        'Refusing to report agreement.',
+    );
+  }
+  const match = /export function dailyAllowanceExhaustedReason\([\s\S]*?\r?\n\}\r?\n/.exec(source.slice(start));
+  if (match === null) {
+    throw new Error(
+      'parseTypescriptExhaustedRenderer could not read the body of dailyAllowanceExhaustedReason. ' +
+        'Refusing to report agreement.',
+    );
+  }
+  return match[0];
+}
+
+function applyRaiseFormat(format: string, values: readonly string[]): string {
+  let index = 0;
+  return format.replace(/%/g, () => {
+    const value = values[index];
+    index += 1;
+    if (value === undefined) {
+      throw new Error(
+        'applyRaiseFormat ran out of values before the format string ran out of % slots. Refusing to report agreement.',
+      );
+    }
+    return value;
+  });
+}
+
+/** Every disagreement between the TypeScript exhausted renderer and the SQL debit raise. */
+export function scanExhaustedSentence(input: ExhaustedSentenceInput): string[] {
+  const raise = parseExhaustedRaise(input.allowanceFunctionSql);
+  const problems: string[] = [];
+  if (raise.organizationArg !== 'p_organization_id') {
+    problems.push(
+      `exhausted raise organisation argument is ${raise.organizationArg}, expected p_organization_id`,
+    );
+  }
+  if (!GRANT_FROM_FUNCTION.test(raise.grantArg)) {
+    problems.push(
+      `exhausted raise grant argument is ${raise.grantArg}, expected public.discovery_daily_grant(true)`,
+    );
+  }
+  if (/\d/.test(raise.format)) {
+    problems.push('the SQL exhausted sentence contains a numeric literal');
+  }
+  if (!VETTED_GRANT_READ.test(input.typescriptRendererSource)) {
+    problems.push("dailyAllowanceExhaustedReason does not read the vetted grant from dailyGrantFor('vetted')");
+  }
+  if (/\b\d+\b/.test(input.typescriptRendererSource)) {
+    problems.push('dailyAllowanceExhaustedReason contains a numeric literal');
+  }
+  const fromSql = applyRaiseFormat(raise.format, [input.organizationId, String(input.vettedGrant)]);
+  if (fromSql !== input.renderedReason) {
+    problems.push(
+      `TypeScript exhausted sentence is ${JSON.stringify(input.renderedReason)}, ` +
+        `SQL raise filled with the vetted grant is ${JSON.stringify(fromSql)}`,
+    );
+  }
+  return problems.sort();
+}
+
+function lastAllowanceFunctionSql(oracle: string): string {
+  const files = migrationFiles(oracle);
+  let last: { path: string; text: string } | null = null;
+  for (const file of files) {
+    for (const statement of splitSqlStatements(file.text)) {
+      if (ALLOWANCE_FUNCTION_HEAD.test(statement)) last = { path: file.path, text: statement };
+    }
+  }
+  if (last === null) {
+    throw new Error(
+      `${oracle} found no migration defining public.discovery_allowance, so there is no SQL raise to compare. ` +
+        'Refusing to report agreement.',
+    );
+  }
+  return last.text;
+}
+
+function typescriptRendererFile(oracle: string): string {
+  const path = join(REPO_ROOT, 'supabase', 'functions', '_shared', 'discovery-allowance.ts');
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    throw new Error(
+      `${oracle} could not read ${posix(path)}: ${(error as Error).message}. Refusing to report agreement.`,
+    );
+  }
+}
+
+export function exhaustedSentenceProblems(): string[] {
+  const organizationId = '00000000-0000-4000-8000-000000000002';
+  return scanExhaustedSentence({
+    renderedReason: dailyAllowanceExhaustedReason(organizationId),
+    organizationId,
+    vettedGrant: dailyGrantFor('vetted'),
+    allowanceFunctionSql: lastAllowanceFunctionSql('exhaustedSentenceProblems'),
+    typescriptRendererSource: parseTypescriptExhaustedRenderer(typescriptRendererFile('exhaustedSentenceProblems')),
+  });
 }

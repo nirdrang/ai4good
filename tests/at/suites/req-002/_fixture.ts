@@ -14,6 +14,7 @@ import { EMITTER_COMPONENT } from '../../../../supabase/functions/_shared/notifi
 import type { Channel } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import {
   allowanceOf,
+  dailyAllowanceExhaustedReason,
   dailyGrantFor,
   decideDiscoveryAllowance,
   discoveryTier,
@@ -825,7 +826,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           ok: false,
           kind: 'daily-allowance-exhausted',
           status: 409,
-          reason: `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today`,
+          reason: dailyAllowanceExhaustedReason(organizationId),
         };
       }
       const row: SpendRow = { organizationId, utcDay, spent: spentToday + credits, granted };

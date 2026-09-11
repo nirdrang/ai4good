@@ -165,7 +165,10 @@ begin
      for update;
 
   if v_spent + p_credits > v_granted then
-    raise exception 'discovery_allowance refuses: organisation % has no Discovery credits left today', p_organization_id
+    raise exception
+      'discovery_allowance refuses: organisation % has no Discovery credits left today — get vetted (daily grant becomes %), fund project fuel to continue now, or wait for the next UTC day',
+      p_organization_id,
+      public.discovery_daily_grant(true)
       using errcode = 'P0001', detail = 'daily-allowance-exhausted';
   end if;
 

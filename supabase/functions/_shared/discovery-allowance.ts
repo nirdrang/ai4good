@@ -42,6 +42,17 @@ export function remainingCredits(granted: number, spent: number): number {
   return granted - spent;
 }
 
+/**
+ * One place in TypeScript. The debit arm of `public.discovery_allowance` raises the same words.
+ * The vetted grant in the first remedy is `dailyGrantFor('vetted')`, never a numeral in the sentence.
+ */
+export function dailyAllowanceExhaustedReason(organizationId: string): string {
+  return (
+    `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today` +
+    ` — get vetted (daily grant becomes ${dailyGrantFor('vetted')}), fund project fuel to continue now, or wait for the next UTC day`
+  );
+}
+
 export type SpendRow = {
   organizationId: string;
   utcDay: string;

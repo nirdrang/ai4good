@@ -12,7 +12,7 @@
  * holds the leaf label to the truth; the manifest and the reviewer do.
  */
 
-import { AtPending, CapabilityPending, type AtContext } from './_bind.ts';
+import { CapabilityPending } from './_bind.ts';
 
 /**
  * The manifest's leaves, in the manifest's own words shortened to a recall hint. The keys are the
@@ -22,7 +22,6 @@ export const LEAF = {
   D1_L1: 'D1.L1 (profile create: five fields persist and render)',
   D1_L2: 'D1.L2 (profile edit by the NGO admin only)',
   D2_L1: 'D2.L1 (tier grants and the vet math)',
-  D2_L2: 'D2.L2 (zero-credit block and the remedies that restore)',
   D2_L3: 'D2.L3 (UTC hard reset once per UTC day)',
   D2_L4: 'D2.L4 (no Discovery wallet: paid continuation is project fuel)',
   D3_L1: 'D3.L1 (the vet action audit record, every field or no commit)',
@@ -32,15 +31,6 @@ export const LEAF = {
   D5_L1: 'D5.L1 (publish gates: unvetted blocked, vetted publish goes to triage)',
   D5_L2: 'D5.L2 (what vetting never gates: Discovery after email verification)',
 } as const;
-
-export type LeafLabel = (typeof LEAF)[keyof typeof LEAF];
-
-/** One not-yet-landed id's whole body: the harness is up and the system under test is absent. */
-export function notLanded(leaf: LeafLabel): (ctx: AtContext) => Promise<void> {
-  return async (ctx: AtContext): Promise<void> => {
-    throw new AtPending(ctx.atId, 'sut-missing', `REQ-002 ${leaf} has not landed`);
-  };
-}
 
 /**
  * The surfaces the red set waits on, named once so the call sites and the manifest agree by
