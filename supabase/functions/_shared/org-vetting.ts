@@ -2,10 +2,14 @@
 
 import type { Decision } from './accounts.ts';
 import { renderCopy } from './notification-copy.ts';
-import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
+import { channelsFor, taxonomyRow, type Channel, type TaxonomyRow } from './notification-taxonomy.ts';
 import {
+  booleanField,
+  integerField,
+  isRecord,
   refuseWrite,
   stringField,
+  timestampField,
   type AccountWriteRouteInput,
   type WriteRouteDecision,
 } from './write-routes.ts';
@@ -76,14 +80,19 @@ export type VettingOutcomeNotice = {
   readonly copy: { readonly subject: string; readonly body: string };
 };
 
-export function vettingOutcomeNotice(outcome: 'vetted' | 'unvetted'): VettingOutcomeNotice {
-  const row = taxonomyRow(VETTING_OUTCOME_EVENT);
-  if (row === undefined) {
-    throw new Error('vetting.outcome is missing from the notification taxonomy');
+export function vettingOutcomeNotice(
+  outcome: 'vetted' | 'unvetted',
+  row: TaxonomyRow | null = taxonomyRow(VETTING_OUTCOME_EVENT) ?? null,
+): Decision<VettingOutcomeNotice> {
+  if (row === null) {
+    return { ok: false, reason: 'vetting.outcome is missing from the notification taxonomy' };
   }
   return {
-    channels: channelsFor(row),
-    copy: renderCopy(row, { outcome }),
+    ok: true,
+    value: {
+      channels: channelsFor(row),
+      copy: renderCopy(row, { outcome }),
+    },
   };
 }
 
@@ -147,31 +156,49 @@ export type VettingSqlRow = {
   registration_copies_deleted: boolean | null;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 function unknownKeys(body: Record<string, unknown>, allowed: ReadonlySet<string>): string[] {
   return Object.keys(body).filter((key) => !allowed.has(key));
 }
 
-function integerField(value: unknown): number | null {
-  if (typeof value !== 'number' || !Number.isInteger(value)) return null;
+function isoInstant(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('org_vetting timestamp is not a valid instant');
+  }
+  return date.toISOString();
+}
+
+function requiredString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value === '') {
+    throw new Error(`org_vetting ${field} is missing`);
+  }
   return value;
 }
 
-function booleanField(value: unknown): boolean | null {
-  return typeof value === 'boolean' ? value : null;
-}
-
-function timestampField(value: unknown): string | null {
-  const raw = stringField(value);
-  if (raw === null) return null;
-  return Number.isNaN(Date.parse(raw)) ? null : raw;
-}
-
-function isoInstant(value: string | Date): string {
-  return (value instanceof Date ? value : new Date(value)).toISOString();
+function registrationFromSql(row: VettingSqlRow): VettingRecordProjection['registration'] {
+  if (row.evidence_type === EMAILED_REGISTRATION_EVIDENCE) {
+    if (
+      row.registration_received_at === null ||
+      row.registration_document_count === null ||
+      row.registration_document_count <= 0 ||
+      row.registration_copies_deleted !== true
+    ) {
+      throw new Error('org_vetting emailed registration row is missing registration metadata');
+    }
+    return {
+      registrationReceivedAt: isoInstant(row.registration_received_at),
+      registrationDocumentCount: row.registration_document_count,
+      registrationCopiesDeleted: true,
+    };
+  }
+  if (
+    row.registration_received_at !== null ||
+    row.registration_document_count !== null ||
+    row.registration_copies_deleted !== null
+  ) {
+    throw new Error('org_vetting row carries registration metadata on a non-emailed evidence type');
+  }
+  return null;
 }
 
 export function isVettingEvidenceType(raw: string): raw is VettingEvidenceType {
@@ -179,17 +206,6 @@ export function isVettingEvidenceType(raw: string): raw is VettingEvidenceType {
 }
 
 export function vettingRecordFromSql(row: VettingSqlRow): VettingRecordProjection {
-  const registration =
-    row.evidence_type === EMAILED_REGISTRATION_EVIDENCE &&
-    row.registration_received_at !== null &&
-    row.registration_document_count !== null &&
-    row.registration_copies_deleted !== null
-      ? {
-          registrationReceivedAt: isoInstant(row.registration_received_at),
-          registrationDocumentCount: row.registration_document_count,
-          registrationCopiesDeleted: row.registration_copies_deleted,
-        }
-      : null;
   return {
     organizationId: String(row.org_id),
     vetted: row.vetted,
@@ -202,31 +218,64 @@ export function vettingRecordFromSql(row: VettingSqlRow): VettingRecordProjectio
     authorityAttestation: row.authority_attestation,
     evidenceType: row.evidence_type,
     note: row.note,
-    registration,
+    registration: registrationFromSql(row),
   };
 }
 
 export function vettingAuditCurrentFromDetail(detail: unknown): VettingRecordProjection | null {
   if (!isRecord(detail) || !isRecord(detail.current)) return null;
   const current = detail.current;
-  if (typeof current.org_id !== 'string' || typeof current.organization_name !== 'string') return null;
+  if (typeof current.vetted !== 'boolean') {
+    throw new Error('org_vetting audit current is missing vetted');
+  }
+  const vettedAt = current.vetted_at;
+  if (typeof vettedAt !== 'string' && !(vettedAt instanceof Date)) {
+    throw new Error('org_vetting audit current is missing vetted_at');
+  }
+  let registrationReceivedAt: string | Date | null = null;
+  if (current.registration_received_at !== null && current.registration_received_at !== undefined) {
+    if (typeof current.registration_received_at !== 'string' && !(current.registration_received_at instanceof Date)) {
+      throw new Error('org_vetting audit current carries a registration received-at that is not an instant');
+    }
+    registrationReceivedAt = current.registration_received_at;
+  }
+  const registrationDocumentCount =
+    current.registration_document_count === null || current.registration_document_count === undefined
+      ? null
+      : integerField(current.registration_document_count);
+  if (
+    current.registration_document_count !== null &&
+    current.registration_document_count !== undefined &&
+    registrationDocumentCount === null
+  ) {
+    throw new Error('org_vetting audit current carries a registration document count that is not a whole number');
+  }
+  const registrationCopiesDeleted =
+    current.registration_copies_deleted === null || current.registration_copies_deleted === undefined
+      ? null
+      : booleanField(current.registration_copies_deleted);
+  if (
+    current.registration_copies_deleted !== null &&
+    current.registration_copies_deleted !== undefined &&
+    registrationCopiesDeleted === null
+  ) {
+    throw new Error('org_vetting audit current carries a copies-deleted flag that is not a boolean');
+  }
   return vettingRecordFromSql({
-    org_id: current.org_id,
-    vetted: current.vetted === true,
-    vetted_by_account_id: String(current.vetted_by_account_id ?? ''),
-    vetted_at: (current.vetted_at as string | Date) ?? '',
-    organization_name: current.organization_name,
-    public_reference_url: String(current.public_reference_url ?? ''),
-    contact_name: String(current.contact_name ?? ''),
-    contact_title: String(current.contact_title ?? ''),
-    authority_attestation: String(current.authority_attestation ?? ''),
-    evidence_type: String(current.evidence_type ?? ''),
-    note: String(current.note ?? ''),
-    registration_received_at: (current.registration_received_at as string | Date | null) ?? null,
-    registration_document_count:
-      typeof current.registration_document_count === 'number' ? current.registration_document_count : null,
-    registration_copies_deleted:
-      typeof current.registration_copies_deleted === 'boolean' ? current.registration_copies_deleted : null,
+    org_id: requiredString(current.org_id, 'org_id'),
+    vetted: current.vetted,
+    vetted_by_account_id: requiredString(current.vetted_by_account_id, 'vetted_by_account_id'),
+    vetted_at: vettedAt,
+    organization_name: requiredString(current.organization_name, 'organization_name'),
+    public_reference_url: requiredString(current.public_reference_url, 'public_reference_url'),
+    contact_name: requiredString(current.contact_name, 'contact_name'),
+    contact_title: requiredString(current.contact_title, 'contact_title'),
+    authority_attestation: requiredString(current.authority_attestation, 'authority_attestation'),
+    evidence_type: requiredString(current.evidence_type, 'evidence_type'),
+    note: requiredString(current.note, 'note'),
+    registration_received_at: registrationReceivedAt,
+    registration_document_count: registrationDocumentCount,
+    registration_copies_deleted: registrationCopiesDeleted,
   });
 }
 
@@ -273,13 +322,15 @@ export function decideOrganizationVetting(input: AccountWriteRouteInput): WriteR
   }
 
   if (action === 'unvet') {
+    const notice = vettingOutcomeNotice('unvetted');
+    if (!notice.ok) return refuseWrite('refused', 502, notice.reason);
     return {
       ok: true,
       args: {
         p_account_id: input.caller.id,
         p_organization_id: organizationId,
         p_action: 'unvet',
-        p_notice: vettingOutcomeNotice('unvetted'),
+        p_notice: notice.value,
         p_organization_name: null,
         p_public_reference_url: null,
         p_contact_name: null,
@@ -362,13 +413,15 @@ export function decideOrganizationVetting(input: AccountWriteRouteInput): WriteR
     );
   }
 
+  const notice = vettingOutcomeNotice('vetted');
+  if (!notice.ok) return refuseWrite('refused', 502, notice.reason);
   return {
     ok: true,
     args: {
       p_account_id: input.caller.id,
       p_organization_id: organizationId,
       p_action: 'vet',
-      p_notice: vettingOutcomeNotice('vetted'),
+      p_notice: notice.value,
       p_organization_name: organizationName,
       p_public_reference_url: publicReferenceUrl,
       p_contact_name: contactName,

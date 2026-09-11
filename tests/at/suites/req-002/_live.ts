@@ -8,8 +8,8 @@
  */
 
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
-import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
-import type { Allowance, SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import { integerField, isoDay as isoDayField, parseWriteRefusalKind, stringField } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { allowanceOf, type Allowance, type SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import {
   discoveryMessageAllowed as decideDiscoveryMessage,
   emailVerifiedFromUser,
@@ -139,14 +139,25 @@ function isoDay(value: string | Date): string {
 }
 
 function allowanceFromJson(json: Record<string, unknown>, organizationId: string): Allowance {
-  return {
-    organizationId: typeof json.organizationId === 'string' ? json.organizationId : organizationId,
-    utcDay: typeof json.utcDay === 'string' ? json.utcDay.slice(0, 10) : '',
-    vetted: json.vetted === true,
-    dailyGrant: Number(json.dailyGrant),
-    spentToday: Number(json.spentToday),
-    remaining: Number(json.remaining),
-  };
+  const id = stringField(json.organizationId) ?? organizationId;
+  const utcDay = isoDayField(json.utcDay);
+  const dailyGrant = integerField(json.dailyGrant);
+  const spentToday = integerField(json.spentToday);
+  const remaining = integerField(json.remaining);
+  if (utcDay === null || dailyGrant === null || spentToday === null || remaining === null || typeof json.vetted !== 'boolean') {
+    throw new Error('discovery-allowance answered an allowance that is not numeric');
+  }
+  const allowance = allowanceOf({
+    organizationId: id,
+    utcDay,
+    vetted: json.vetted,
+    granted: dailyGrant,
+    spent: spentToday,
+  });
+  if (allowance.remaining !== remaining) {
+    throw new Error('discovery-allowance remaining does not match granted minus spent');
+  }
+  return allowance;
 }
 
 function claimsOf(token: string): { sub?: unknown; session_id?: unknown } {

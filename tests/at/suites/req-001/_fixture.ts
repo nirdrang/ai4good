@@ -1013,7 +1013,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
   const deadSessionAnswer = { status: 401, body: JSON.stringify({ ok: false, reason: DEAD_SESSION_REASON }) };
 
-  const sut: AccountsSut = {
+  type AccountsFixtureSut = AccountsSut & {
+    deactivateAccountAsOperator(accountId: string): Promise<void>;
+    setMembershipRoleAsOperator(
+      organizationId: string,
+      accountId: string,
+      role: 'admin' | 'member',
+    ): Promise<void>;
+  };
+
+  const sut: AccountsFixtureSut = {
     // Read straight off the shipped constant. A literal here would be a second statement of the same
     // fact, and AT-001.07 would then be asserting what this file says rather than what ships.
     publicSignupAccountTypes: async () => [...PUBLIC_SIGNUP_ACCOUNT_TYPES],
@@ -1593,6 +1602,25 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const account = state.accounts.get(accountId);
       if (!account) throw new Error(`no account ${accountId} to retype`);
       state.accounts.set(accountId, { ...account, accountType });
+    },
+
+    deactivateAccountAsOperator: async (accountId) => {
+      const account = state.accounts.get(accountId);
+      if (!account) throw new Error(`fixture: no account ${accountId} to deactivate`);
+      if (account.lifecycle === 'deactivated') return;
+      state.accounts.set(accountId, { ...account, lifecycle: 'deactivated' });
+    },
+
+    setMembershipRoleAsOperator: async (organizationId, accountId, role) => {
+      const key = membershipKey(organizationId, accountId);
+      const membership = state.memberships.get(key);
+      if (!membership) {
+        throw new Error(`fixture: no membership for ${accountId} in ${organizationId} to change`);
+      }
+      if (membership.role === role) return;
+      const next = { ...membership, role };
+      state.memberships.set(key, next);
+      recordRoleChange(membership, next, null);
     },
 
     transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {

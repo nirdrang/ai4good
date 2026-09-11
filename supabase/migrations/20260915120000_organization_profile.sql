@@ -1,9 +1,9 @@
 -- Organisation profile fields on public.organizations, and the one write that sets all five.
 --
 -- Signup and create_organization already insert a name and nothing else. The four new columns
--- are nullable so those rows stay valid. A present value is not empty: each column carries the
--- same check name already has, length(btrim(...)) > 0, which a SQL CHECK treats as pass when the
--- column is null.
+-- are nullable so those rows stay valid. A present value is not empty: each column carries
+-- length(btrim(..., ASCII white space plus NBSP)) > 0, which a SQL CHECK treats as pass when the
+-- column is null. The trim set matches the JavaScript gate, including U+00A0.
 --
 -- logo, country and website are unconstrained text. AT-002.03 was retired because the product
 -- defines no logo rules, and no criterion in this requirement reads a format on the other two.
@@ -12,10 +12,10 @@
 -- route, and it writes name as well so a later edit of all five fields has one door.
 
 alter table public.organizations
-  add column mission text check (length(btrim(mission)) > 0),
-  add column country text check (length(btrim(country)) > 0),
-  add column website text check (length(btrim(website)) > 0),
-  add column logo text check (length(btrim(logo)) > 0);
+  add column mission text check (length(btrim(mission, E' \t\r\n\f' || chr(160))) > 0),
+  add column country text check (length(btrim(country, E' \t\r\n\f' || chr(160))) > 0),
+  add column website text check (length(btrim(website, E' \t\r\n\f' || chr(160))) > 0),
+  add column logo text check (length(btrim(logo, E' \t\r\n\f' || chr(160))) > 0);
 
 create function public.set_organization_profile(
   p_account_id uuid,
@@ -41,11 +41,12 @@ declare
 begin
   perform public.assert_account_active(p_account_id);
 
-  v_name := btrim(p_name, E' \t\r\n\f');
-  v_mission := btrim(p_mission, E' \t\r\n\f');
-  v_country := btrim(p_country, E' \t\r\n\f');
-  v_website := btrim(p_website, E' \t\r\n\f');
-  v_logo := btrim(p_logo, E' \t\r\n\f');
+  -- ASCII white space plus NBSP (U+00A0). JavaScript trim strips both; the previous set omitted NBSP.
+  v_name := btrim(p_name, E' \t\r\n\f' || chr(160));
+  v_mission := btrim(p_mission, E' \t\r\n\f' || chr(160));
+  v_country := btrim(p_country, E' \t\r\n\f' || chr(160));
+  v_website := btrim(p_website, E' \t\r\n\f' || chr(160));
+  v_logo := btrim(p_logo, E' \t\r\n\f' || chr(160));
 
   if v_name is null or v_name = '' then
     raise exception 'set_organization_profile refuses an empty organisation name'
@@ -68,7 +69,8 @@ begin
       using errcode = '22023', detail = 'invalid-request';
   end if;
 
-  if not exists (select 1 from public.organizations where id = p_organization_id) then
+  perform 1 from public.organizations where id = p_organization_id for update;
+  if not found then
     raise exception 'set_organization_profile refuses %: no such organisation', p_organization_id
       using errcode = '23503', detail = 'no-such-organisation';
   end if;
@@ -112,7 +114,7 @@ end;
 $$;
 
 comment on function public.set_organization_profile(uuid, uuid, text, text, text, text, text) is
-  'Writes the organisation profile (name, mission, country, website, logo), permitted to that organisation''s admin only. The user-facing decision is made before this, in the shared module; the checks here are a backstop for callers that bypassed it.';
+  'Writes the organisation profile (name, mission, country, website, logo), permitted to that organisation''s admin only. Locks the organisation row before the membership read and the update. The user-facing decision is made before this, in the shared module; the checks here are a backstop for callers that bypassed it, including the same white-space set the JavaScript gate trims.';
 
 revoke execute on function public.set_organization_profile(uuid, uuid, text, text, text, text, text)
   from public, anon, authenticated, service_role;

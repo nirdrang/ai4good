@@ -26,10 +26,7 @@ import {
   type DiscoveryAllowanceArgs,
   type SpendRow,
 } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
-import {
-  decideOrganizationProfile,
-  type OrganizationProfileArgs,
-} from '../../../../supabase/functions/_shared/memberships.ts';
+
 import {
   decideOrganizationVetting,
   isVettingEvidenceType,
@@ -94,12 +91,6 @@ const ORGANIZATION_VETTING: WriteRouteSpec<OrganizationVettingArgs, AccountWrite
   name: 'set-organization-vetting',
   target: organizationIdField,
   decide: decideOrganizationVetting,
-};
-
-const ORGANIZATION_PROFILE: WriteRouteSpec<OrganizationProfileArgs, AccountWriteRouteInput> = {
-  name: 'set-organization-profile',
-  target: organizationIdField,
-  decide: decideOrganizationProfile,
 };
 
 const DISCOVERY_ALLOWANCE: WriteRouteSpec<DiscoveryAllowanceArgs, AccountWriteRouteInput> = {
@@ -206,7 +197,6 @@ function emptyProfileField(value: string, field: string): ProfileDefinerOutcome 
 async function profileDefinerAsOperator(
   accounts: ReturnType<typeof createAccountsFixtureAdapter>['sut']['accounts'],
   heldSessions: Map<string, AccountsSession>,
-  roleOverrides: Map<string, 'admin' | 'member'>,
   input: ProfileDefinerAttempt,
 ): Promise<ProfileDefinerOutcome> {
   const request = input.request;
@@ -227,8 +217,7 @@ async function profileDefinerAsOperator(
     };
   }
 
-  const override = roleOverrides.get(`${request.organizationId}:${input.accountId}`);
-  const membership = override === undefined ? await accounts.membership(request.organizationId, input.accountId) : { role: override };
+  const membership = await accounts.membership(request.organizationId, input.accountId);
   if (membership === null) {
     return {
       ok: false,
@@ -357,8 +346,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const seats = new Map<string, Seat[]>();
   const seatHolders = (organizationId: string): Seat[] => seats.get(organizationId) ?? [];
   const firstSeat = (organizationId: string): Seat | undefined => seatHolders(organizationId)[0];
-  const deactivated = new Set<string>();
-  const roleOverrides = new Map<string, 'admin' | 'member'>();
   const spend = new Map<string, SpendRow>();
   let auditSerial = 1;
 
@@ -380,8 +367,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     }
     return existing;
   };
-
-  const membershipKey = (organizationId: string, accountId: string): string => `${organizationId}:${accountId}`;
 
   const remember = (session: AccountsSession): Session => {
     heldSessions.set(session.sessionId, session);
@@ -538,7 +523,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           ? null
           : {
               account_type: account.accountType,
-              lifecycle: deactivated.has(caller.id) ? 'deactivated' : account.lifecycle,
+              lifecycle: account.lifecycle,
             },
       org_exists: organization !== null,
       org_role: null,
@@ -604,9 +589,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     },
     provisionPlatformAdmin: async (email): Promise<Session> => remember(await accounts.provisionPlatformAdmin(email, PASSWORD)),
     deactivateAccountAsOperator: async (accountId) => {
-      const account = await accounts.account(accountId);
-      if (account === null) throw new Error(`REQ-002 loop adapter: no account ${accountId} to deactivate`);
-      deactivated.add(accountId);
+      await accounts.deactivateAccountAsOperator(accountId);
     },
 
     setProfile: async (session, request) => {
@@ -614,34 +597,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       if ('ok' in callerOrRefusal) return callerOrRefusal;
       const innerSession = session === null ? null : (heldSessions.get(session.sessionId) ?? null);
       if (innerSession === null) return unauthenticated();
-      const override = roleOverrides.get(membershipKey(request.organizationId, innerSession.accountId));
-      if (override !== undefined) {
-        const caller = callerOrRefusal;
-        const account = await accounts.account(caller.id);
-        const organization = await accounts.organization(request.organizationId);
-        const standing = parseWriteStanding({
-          account:
-            account === null
-              ? null
-              : {
-                  account_type: account.accountType,
-                  lifecycle: deactivated.has(caller.id) ? 'deactivated' : account.lifecycle,
-                },
-          org_exists: organization !== null,
-          org_role: override,
-          org_seat_account_id: null,
-          subject: null,
-        });
-        const decision = writePipeline(ORGANIZATION_PROFILE, {
-          caller,
-          standing,
-          body: request,
-          target: request.organizationId,
-          subject: null,
-          ip: null,
-        });
-        if (!decision.ok) return { ok: false, kind: decision.kind, status: decision.status, reason: decision.reason };
-      }
       const result = await inner.sut.accounts.attemptWrite(
         {
           route: 'set-organization-profile',
@@ -674,13 +629,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       return inner.sut.accounts.organizationDashboard(innerSession, organizationId);
     },
     attemptProfileDefinerAsOperator: async (input: ProfileDefinerAttempt): Promise<ProfileDefinerOutcome> =>
-      profileDefinerAsOperator(accounts, heldSessions, roleOverrides, input),
+      profileDefinerAsOperator(accounts, heldSessions, input),
     setMembershipRoleAsOperator: async (organizationId, accountId, role) => {
-      const membership = await accounts.membership(organizationId, accountId);
-      if (membership === null) {
-        throw new Error(`REQ-002 loop adapter: no membership for ${accountId} in ${organizationId} to change`);
-      }
-      roleOverrides.set(membershipKey(organizationId, accountId), role);
+      await accounts.setMembershipRoleAsOperator(organizationId, accountId, role);
     },
 
     setVetting,
@@ -772,17 +723,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const account = await accounts.account(caller.id);
       const organization = await accounts.organization(organizationId);
       const membership = await accounts.membership(organizationId, caller.id);
-      const override = roleOverrides.get(membershipKey(organizationId, caller.id));
       const standing = parseWriteStanding({
         account:
           account === null
             ? null
             : {
                 account_type: account.accountType,
-                lifecycle: deactivated.has(caller.id) ? 'deactivated' : account.lifecycle,
+                lifecycle: account.lifecycle,
               },
         org_exists: organization !== null,
-        org_role: override ?? membership?.role ?? null,
+        org_role: membership?.role ?? null,
         org_seat_account_id: firstSeat(organizationId)?.accountId ?? null,
         subject: null,
       });
@@ -813,17 +763,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const account = await accounts.account(caller.id);
       const organization = await accounts.organization(organizationId);
       const membership = await accounts.membership(organizationId, caller.id);
-      const override = roleOverrides.get(membershipKey(organizationId, caller.id));
       const standing = parseWriteStanding({
         account:
           account === null
             ? null
             : {
                 account_type: account.accountType,
-                lifecycle: deactivated.has(caller.id) ? 'deactivated' : account.lifecycle,
+                lifecycle: account.lifecycle,
               },
         org_exists: organization !== null,
-        org_role: override ?? membership?.role ?? null,
+        org_role: membership?.role ?? null,
         org_seat_account_id: firstSeat(organizationId)?.accountId ?? null,
         subject: null,
       });
@@ -917,8 +866,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       events.length = 0;
       deliveries.length = 0;
       seats.clear();
-      deactivated.clear();
-      roleOverrides.clear();
       spend.clear();
     },
   };

@@ -129,7 +129,7 @@ export type WriteStanding =
 /** The `account` member of `WriteStanding`, after the gate has admitted an account-required route. */
 export type AccountStanding = Extract<WriteStanding, { kind: 'account' }>;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -238,6 +238,31 @@ export function stringField(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
+}
+
+/** A whole number, or null. */
+export function integerField(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value)) return null;
+  return value;
+}
+
+/** A boolean, or null. */
+export function booleanField(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
+/** An ISO-8601 timestamp string, or null. */
+export function timestampField(value: unknown): string | null {
+  const raw = stringField(value);
+  if (raw === null) return null;
+  return Number.isNaN(Date.parse(raw)) ? null : raw;
+}
+
+/** A UTC calendar day `YYYY-MM-DD`, or null. A longer ISO instant is accepted by its date prefix. */
+export function isoDay(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+  return match ? match[1] : null;
 }
 
 /** The organisation a request targets, read from the one field every organisation-scoped route uses. */

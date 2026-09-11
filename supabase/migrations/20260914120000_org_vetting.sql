@@ -201,7 +201,8 @@ begin
       using errcode = '22023', detail = 'invalid-request';
   end if;
 
-  v_note := btrim(p_note, E' \t\r\n\f');
+  -- ASCII white space plus NBSP (U+00A0). JavaScript trim strips both; the previous set omitted NBSP.
+  v_note := btrim(p_note, E' \t\r\n\f' || chr(160));
   if v_note is null or v_note = '' then
     raise exception 'set_organization_vetting refuses a vetting action with no note'
       using errcode = '22023', detail = 'invalid-request';
@@ -247,7 +248,7 @@ begin
    where org_id = p_organization_id;
 
   select email into v_email from auth.users where id = v_holder;
-  if v_email is null or btrim(v_email, E' \t\r\n\f') = '' then
+  if v_email is null or btrim(v_email, E' \t\r\n\f' || chr(160)) = '' then
     raise exception 'set_organization_vetting refuses %: the seat holder has no email address', v_holder
       using errcode = '42501', detail = 'refused';
   end if;
@@ -306,12 +307,12 @@ begin
      where org_id = p_organization_id
      returning * into v_current;
   else
-    v_name := btrim(p_organization_name, E' \t\r\n\f');
-    v_url := btrim(p_public_reference_url, E' \t\r\n\f');
-    v_contact_name := btrim(p_contact_name, E' \t\r\n\f');
-    v_contact_title := btrim(p_contact_title, E' \t\r\n\f');
-    v_attestation := btrim(p_authority_attestation, E' \t\r\n\f');
-    v_evidence_type := btrim(p_evidence_type, E' \t\r\n\f');
+    v_name := btrim(p_organization_name, E' \t\r\n\f' || chr(160));
+    v_url := btrim(p_public_reference_url, E' \t\r\n\f' || chr(160));
+    v_contact_name := btrim(p_contact_name, E' \t\r\n\f' || chr(160));
+    v_contact_title := btrim(p_contact_title, E' \t\r\n\f' || chr(160));
+    v_attestation := btrim(p_authority_attestation, E' \t\r\n\f' || chr(160));
+    v_evidence_type := btrim(p_evidence_type, E' \t\r\n\f' || chr(160));
 
     if v_name is null or v_name = ''
        or v_url is null or v_url = ''

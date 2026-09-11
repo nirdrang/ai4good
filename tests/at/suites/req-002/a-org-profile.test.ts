@@ -161,6 +161,18 @@ describe('AT-REQ-002 A — org profile', () => {
       await assertRouteRefused('an unauthenticated visitor', null, 'unauthenticated', 401);
       await assertDefinerRefused("the admin of a different NGO, through the definer", otherNgo.accountId, 'not-a-member');
 
+      const nbsp = await sut.attemptProfileDefinerAsOperator({
+        accountId: ngo.accountId,
+        request: profileRequest(ngo.organizationId, { ...EDITED, name: '\u00A0' }),
+      });
+      expect(nbsp.ok, 'a name of only a non-breaking space was admitted by the definer').toBe(false);
+      if (!nbsp.ok) {
+        expect(nbsp.kind, `a name of only a non-breaking space was refused as ${nbsp.kind}`).toBe('invalid-name');
+      }
+      expect(await storedFields(sut, ngo.organizationId), 'a name of only a non-breaking space changed the stored profile').toEqual(
+        EDITED,
+      );
+
       // The unique seat forbids a second membership row, so a member of this organisation is the
       // existing seat with its role changed. No product path writes `member`.
       await sut.setMembershipRoleAsOperator(ngo.organizationId, ngo.accountId, 'member');

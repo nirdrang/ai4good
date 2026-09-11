@@ -18,7 +18,7 @@
  */
 
 import { validateOrganizationName } from './accounts.ts';
-import type { AccountWriteRouteInput, WriteRouteDecision } from './write-routes.ts';
+import { isRecord, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
 
 /* ------------------------------------------------------------------- the closed role vocabulary */
 
@@ -180,5 +180,26 @@ export function decideOrganizationProfile(input: AccountWriteRouteInput): WriteR
       p_website: website.value,
       p_logo: logo.value,
     },
+  };
+}
+
+export type OrganizationProfileRender = {
+  organizationId: string | null;
+  name: string | null;
+  mission: string | null;
+  country: string | null;
+  website: string | null;
+  logo: string | null;
+};
+
+export function renderOrganizationProfile(value: unknown): OrganizationProfileRender {
+  const row = isRecord(value) ? value : null;
+  return {
+    organizationId: typeof row?.organization_id === 'string' ? row.organization_id : null,
+    name: typeof row?.name === 'string' ? row.name : null,
+    mission: typeof row?.mission === 'string' ? row.mission : null,
+    country: typeof row?.country === 'string' ? row.country : null,
+    website: typeof row?.website === 'string' ? row.website : null,
+    logo: typeof row?.logo === 'string' ? row.logo : null,
   };
 }

@@ -2,6 +2,9 @@
 
 import { orgAdminActionAllowed } from './memberships.ts';
 import {
+  integerField,
+  isRecord,
+  isoDay,
   refuseWrite,
   stringField,
   type AccountWriteRouteInput,
@@ -115,35 +118,36 @@ export type DiscoveryAllowanceArgs = {
   readonly p_credits: number | null;
 };
 
-function isRecord(value: unknown): boolean {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function integerField(value: unknown): number | null {
-  if (typeof value !== 'number' || !Number.isInteger(value)) return null;
-  return value;
-}
-
-function isoDay(value: unknown): string | null {
-  if (typeof value === 'string') {
-    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
-    return match ? match[1] : null;
+export function renderDiscoveryAllowance(value: unknown): Allowance {
+  if (!isRecord(value)) {
+    throw new Error('discovery_allowance answered a result that is not an allowance');
   }
-  return null;
-}
-
-export function renderDiscoveryAllowance(value: unknown): Record<string, unknown> {
-  const row = isRecord(value) ? (value as Record<string, unknown>) : null;
-  const organizationId = typeof row?.organization_id === 'string' ? row.organization_id : null;
-  const utcDay = isoDay(row?.utc_day);
-  return {
+  const organizationId = typeof value.organization_id === 'string' ? value.organization_id : null;
+  const utcDay = isoDay(value.utc_day);
+  const dailyGrant = integerField(value.daily_grant);
+  const spentToday = integerField(value.spent_today);
+  const remaining = integerField(value.remaining);
+  if (
+    organizationId === null ||
+    utcDay === null ||
+    dailyGrant === null ||
+    spentToday === null ||
+    remaining === null ||
+    typeof value.vetted !== 'boolean'
+  ) {
+    throw new Error('discovery_allowance answered a result that is not an allowance');
+  }
+  const allowance = allowanceOf({
     organizationId,
     utcDay,
-    vetted: row?.vetted === true,
-    dailyGrant: typeof row?.daily_grant === 'number' ? row.daily_grant : null,
-    spentToday: typeof row?.spent_today === 'number' ? row.spent_today : null,
-    remaining: typeof row?.remaining === 'number' ? row.remaining : null,
-  };
+    vetted: value.vetted,
+    granted: dailyGrant,
+    spent: spentToday,
+  });
+  if (allowance.remaining !== remaining) {
+    throw new Error('discovery_allowance answered a remaining count that does not match granted minus spent');
+  }
+  return allowance;
 }
 
 export function decideDiscoveryAllowance(input: AccountWriteRouteInput): WriteRouteDecision<DiscoveryAllowanceArgs> {

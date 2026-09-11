@@ -405,10 +405,12 @@ describe('AT-REQ-002 C — the vetting action and its audit record', () => {
       const extraSeat = await sut.provisionNgo(w.email('ngo-13-extra'), { emailVerified: true });
       await sut.addOrganizationSeatAsOperator(twoSeat.organizationId, extraSeat.accountId);
       const twoSeatNotice = vettingOutcomeNotice('vetted');
+      expect(twoSeatNotice.ok, 'the shipped notice builder refused a present taxonomy row').toBe(true);
+      if (!twoSeatNotice.ok) return;
       const twoSeatVet = await sut.attemptVettingDefinerAsOperator({
         accountId: admin.accountId,
         request: { organizationId: twoSeat.organizationId, action: 'vet', ...EVIDENCE },
-        notice: { channels: [...twoSeatNotice.channels], copy: twoSeatNotice.copy },
+        notice: { channels: [...twoSeatNotice.value.channels], copy: twoSeatNotice.value.copy },
       });
       expect(twoSeatVet.ok, 'a vet of an organisation with two seat holders still committed').toBe(false);
       if (!twoSeatVet.ok) {
@@ -425,7 +427,10 @@ describe('AT-REQ-002 C — the vetting action and its audit record', () => {
       if (twoSeatVet.ok) return;
 
       const late = await sut.provisionNgo(w.email('ngo-13-late'), { emailVerified: true });
-      const copy = vettingOutcomeNotice('vetted').copy;
+      const vettedNotice = vettingOutcomeNotice('vetted');
+      expect(vettedNotice.ok, 'the shipped notice builder refused a present taxonomy row').toBe(true);
+      if (!vettedNotice.ok) return;
+      const copy = vettedNotice.value.copy;
       const lateOutcome = await sut.attemptVettingDefinerAsOperator({
         accountId: admin.accountId,
         request: { organizationId: late.organizationId, action: 'vet', ...EVIDENCE },
