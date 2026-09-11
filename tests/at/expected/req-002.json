@@ -1,0 +1,71 @@
+{
+  "requirement": "002",
+  "tiers": {
+    "loop": {
+      "green": [
+        "AT-002.01",
+        "AT-002.02",
+        "AT-002.04",
+        "AT-002.05",
+        "AT-002.07",
+        "AT-002.08",
+        "AT-002.06",
+        "AT-002.27",
+        "AT-002.11",
+        "AT-002.11b",
+        "AT-002.29",
+        "AT-002.30",
+        "AT-002.13",
+        "AT-002.14",
+        "AT-002.16",
+        "AT-002.17",
+        "AT-002.18",
+        "AT-002.21",
+        "AT-002.22",
+        "AT-002.28"
+      ],
+      "red": {
+        "AT-002.26": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel", "billing.funded-turn"] },
+        "AT-002.10": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
+        "AT-002.31": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
+        "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
+        "AT-002.19": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
+        "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow", "triage.queue"] },
+        "AT-002.23": { "kind": "capability-pending", "capabilities": ["ui.public-listing-screens"] }
+      }
+    },
+    "integration": {
+      "green": [
+        "AT-002.01",
+        "AT-002.02",
+        "AT-002.04",
+        "AT-002.07",
+        "AT-002.08",
+        "AT-002.06",
+        "AT-002.27",
+        "AT-002.11",
+        "AT-002.11b",
+        "AT-002.29",
+        "AT-002.30",
+        "AT-002.13",
+        "AT-002.14",
+        "AT-002.16",
+        "AT-002.17",
+        "AT-002.18",
+        "AT-002.21",
+        "AT-002.22",
+        "AT-002.28"
+      ],
+      "red": {
+        "AT-002.05": { "kind": "capability-pending", "capabilities": ["ui.discovery-surface"] },
+        "AT-002.26": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel", "billing.funded-turn"] },
+        "AT-002.10": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
+        "AT-002.31": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
+        "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
+        "AT-002.19": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
+        "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow", "triage.queue"] },
+        "AT-002.23": { "kind": "capability-pending", "capabilities": ["ui.public-listing-screens"] }
+      }
+    }
+  }
+}

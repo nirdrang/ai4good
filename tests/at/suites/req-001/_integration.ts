@@ -2245,6 +2245,16 @@ function deactivatedSubject(
       return { route, name: `Write ${tag} ${route} ${accountType} deactivated` };
     case 'update-organization':
       return { route, organizationId, name: `Write ${tag} ${route} ${accountType} deactivated` };
+    case 'set-organization-profile':
+      return {
+        route,
+        organizationId,
+        name: `Write ${tag} ${route} ${accountType} deactivated`,
+        mission: `mission ${tag}`,
+        country: `country ${tag}`,
+        website: `website ${tag}`,
+        logo: `logo ${tag}`,
+      };
     case 'transfer-organization-contact':
       return {
         route,
@@ -2257,6 +2267,21 @@ function deactivatedSubject(
       return { route, organizationId: actors.transferOrg, name: 'Maya Lindqvist', email: w.email(`esc-${tag}-${route}`) };
     case 'set-account-lifecycle':
       return { route, accountId: actors.transferTo.accountId, lifecycle: 'deactivated', reason: AUP_REASON };
+    case 'set-organization-vetting':
+      return {
+        route,
+        organizationId: actors.transferOrg,
+        action: 'vet',
+        organizationName: `Deactivated Vet ${tag}`,
+        publicReferenceUrl: 'https://example.org/deactivated-vet',
+        contactName: 'Dana Okonkwo',
+        contactTitle: 'Executive Director',
+        authorityAttestation: 'The named contact attests authority to bind the organisation.',
+        evidenceType: 'organization_website',
+        note: `deactivated vet ${tag}`,
+      };
+    case 'discovery-allowance':
+      return { route, organizationId, action: 'read' };
     case 'discovery-message':
       return { route, message: `hello ${tag} ${route} ${accountType} deactivated` };
   }
@@ -2268,12 +2293,18 @@ async function snapshotWrite(sut: AccountsSut, session: Session | null, subject:
       return { organizations: await sut.organizationsNamed(subject.name) };
     case 'update-organization':
       return { organization: await sut.organization(subject.organizationId) };
+    case 'set-organization-profile':
+      return { organization: await sut.organization(subject.organizationId) };
     case 'transfer-organization-contact':
       return { membership: await sut.membership(subject.organizationId, subject.fromAccountId) };
     case 'set-escalation-contact':
       return { contact: await sut.escalationContact(subject.organizationId) };
     case 'set-account-lifecycle':
       return { account: await sut.account(subject.accountId) };
+    case 'set-organization-vetting':
+      return { audit: await sut.auditEvents({ subjectOrgId: subject.organizationId }) };
+    case 'discovery-allowance':
+      return { organization: await sut.organization(subject.organizationId) };
     case 'discovery-message':
       return { messages: session ? await sut.discoveryMessagesBy(session.accountId) : [] };
     case 'complete-signup':
@@ -2306,6 +2337,23 @@ async function provisionActiveControl(
       await ensureVerified(sut, ngo);
       const organizationId = await completeNgo(sut, ngo, `Rename Host ${tag}`);
       return { session: ngo, subject: { route, organizationId, name: `Renamed ${tag}` } };
+    }
+    case 'set-organization-profile': {
+      const ngo = await signIn(w.email(`profile-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Profile Host ${tag}`);
+      return {
+        session: ngo,
+        subject: {
+          route,
+          organizationId,
+          name: `Profiled ${tag}`,
+          mission: `mission ${tag}`,
+          country: `country ${tag}`,
+          website: `website ${tag}`,
+          logo: `logo ${tag}`,
+        },
+      };
     }
     case 'transfer-organization-contact': {
       const admin = await sut.provisionPlatformAdmin(w.email(`xfer-admin-${tag}`), PASSWORD);
@@ -2343,6 +2391,33 @@ async function provisionActiveControl(
         session: admin,
         subject: { route, accountId: subjectAccount.accountId, lifecycle: 'deactivated', reason: AUP_REASON },
       };
+    }
+    case 'set-organization-vetting': {
+      const admin = await sut.provisionPlatformAdmin(w.email(`vet-admin-${tag}`), PASSWORD);
+      const ngo = await signIn(w.email(`vet-org-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Vet Host ${tag}`);
+      return {
+        session: admin,
+        subject: {
+          route,
+          organizationId,
+          action: 'vet',
+          organizationName: `Vet Host ${tag}`,
+          publicReferenceUrl: 'https://example.org/vet-reference',
+          contactName: 'Dana Okonkwo',
+          contactTitle: 'Executive Director',
+          authorityAttestation: 'The named contact attests authority to bind the organisation.',
+          evidenceType: 'organization_website',
+          note: `founder vet ${tag}`,
+        },
+      };
+    }
+    case 'discovery-allowance': {
+      const ngo = await signIn(w.email(`allowance-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Allowance Host ${tag}`);
+      return { session: ngo, subject: { route, organizationId, action: 'read' } };
     }
     case 'discovery-message': {
       const session =

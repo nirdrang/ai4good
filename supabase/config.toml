@@ -497,6 +497,9 @@ verify_jwt = true
 [functions.update-organization]
 verify_jwt = true
 
+[functions.set-organization-profile]
+verify_jwt = true
+
 [functions.transfer-organization-contact]
 verify_jwt = true
 
@@ -504,6 +507,12 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.set-account-lifecycle]
+verify_jwt = true
+
+[functions.set-organization-vetting]
+verify_jwt = true
+
+[functions.discovery-allowance]
 verify_jwt = true
 
 [functions.organization-dashboard]

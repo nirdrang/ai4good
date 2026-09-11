@@ -21,8 +21,17 @@ export const TENANT_READ_FAILED = {
 
 export type TenantReadAnswer<T> = { status: 200; body: T } | typeof TENANT_NOT_FOUND | typeof TENANT_READ_FAILED;
 
+export type OrganizationProjection = {
+  id: string;
+  name: string;
+  mission: string | null;
+  country: string | null;
+  website: string | null;
+  logo: string | null;
+};
+
 export type TenantReads = {
-  organization(organizationId: string): Promise<ReadResult<{ id: string; name: string }>>;
+  organization(organizationId: string): Promise<ReadResult<OrganizationProjection>>;
   seatsOf(organizationId: string): Promise<ReadResult<{ account_id: string; role: string }>>;
   projectsOf(organizationId: string): Promise<ReadResult<{ id: string; name: string; assigned_volunteer_id: string | null }>>;
   project(projectId: string): Promise<ReadResult<{ id: string; name: string; org_id: string; assigned_volunteer_id: string | null }>>;
@@ -32,6 +41,10 @@ export type OrganizationDashboard = {
   ok: true;
   organizationId: string;
   organizationName: string;
+  mission: string | null;
+  country: string | null;
+  website: string | null;
+  logo: string | null;
   seats: { accountId: string; role: string }[];
   projects: { projectId: string; projectName: string; assignedVolunteerId: string | null }[];
 };
@@ -66,6 +79,10 @@ export async function organizationDashboard(
       ok: true,
       organizationId: row.id,
       organizationName: row.name,
+      mission: row.mission,
+      country: row.country,
+      website: row.website,
+      logo: row.logo,
       seats: seats.rows.map((seat) => ({ accountId: seat.account_id, role: seat.role })),
       projects: projects.rows.map((project) => ({
         projectId: project.id,

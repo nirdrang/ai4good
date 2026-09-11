@@ -109,6 +109,24 @@ import type {
 } from './_contract.ts';
 import { liveTenantReads, type JwtClaims } from './_live-tenant-reads.ts';
 
+function asOrganizationRow(row: {
+  id: string;
+  name: string;
+  mission: string | null;
+  country: string | null;
+  website: string | null;
+  logo: string | null;
+}): OrganizationRow {
+  return {
+    id: String(row.id),
+    name: row.name,
+    mission: row.mission ?? null,
+    country: row.country ?? null,
+    website: row.website ?? null,
+    logo: row.logo ?? null,
+  };
+}
+
 /** THE SELF-DECLARATION the loader checks against the requirement it was asked for. */
 export const requirement = 'req-001' as const;
 
@@ -521,11 +539,18 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
      * and AT-001.36 need is unreachable without it.
      */
     createOrganizationAsOperator: async (name): Promise<OrganizationRow> => {
-      const created = await rows<{ id: string; name: string }>(
-        sql`insert into public.organizations (name) values (${name}) returning id, name`,
+      const created = await rows<{
+        id: string;
+        name: string;
+        mission: string | null;
+        country: string | null;
+        website: string | null;
+        logo: string | null;
+      }>(
+        sql`insert into public.organizations (name) values (${name}) returning id, name, mission, country, website, logo`,
       );
       if (created.length !== 1) throw new Error(`the operator insert of organisation ${JSON.stringify(name)} returned no row`);
-      return { id: String(created[0].id), name: created[0].name };
+      return asOrganizationRow(created[0]);
     },
 
     /**
@@ -699,10 +724,17 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
 
     organization: async (organizationId): Promise<OrganizationRow | null> => {
-      const found = await rows<{ id: string; name: string }>(
-        sql`select id, name from public.organizations where id = ${organizationId}::uuid`,
+      const found = await rows<{
+        id: string;
+        name: string;
+        mission: string | null;
+        country: string | null;
+        website: string | null;
+        logo: string | null;
+      }>(
+        sql`select id, name, mission, country, website, logo from public.organizations where id = ${organizationId}::uuid`,
       );
-      return found.length === 1 ? { id: String(found[0].id), name: found[0].name } : null;
+      return found.length === 1 ? asOrganizationRow(found[0]) : null;
     },
 
     // THE COLUMN IS `org_id`, not `organization_id` — the migration's own name, and the reason this
@@ -784,8 +816,15 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
 
     organizationsNamed: async (name): Promise<OrganizationRow[]> => {
-      const found = await rows<{ id: string; name: string }>(sql`select id, name from public.organizations where name = ${name}`);
-      return found.map((row) => ({ id: String(row.id), name: row.name }));
+      const found = await rows<{
+        id: string;
+        name: string;
+        mission: string | null;
+        country: string | null;
+        website: string | null;
+        logo: string | null;
+      }>(sql`select id, name, mission, country, website, logo from public.organizations where name = ${name}`);
+      return found.map(asOrganizationRow);
     },
 
     membershipsOf: async (accountId): Promise<MembershipRow[]> => {
@@ -931,6 +970,18 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           }
           return asAttempt(await this.updateOrganization(session, subject.organizationId, subject.name));
         },
+        'set-organization-profile': async () => {
+          if (subject.route !== 'set-organization-profile') throw new Error('unreachable');
+          const answer = await postWrite('set-organization-profile', session, {
+            organizationId: subject.organizationId,
+            name: subject.name,
+            mission: subject.mission,
+            country: subject.country,
+            website: subject.website,
+            logo: subject.logo,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
         'transfer-organization-contact': async () => {
           if (subject.route !== 'transfer-organization-contact') throw new Error('unreachable');
           return asAttempt(await this.transferOrganizationContact(session, subject));
@@ -942,6 +993,28 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         'set-account-lifecycle': async () => {
           if (subject.route !== 'set-account-lifecycle') throw new Error('unreachable');
           return asAttempt(await this.setAccountLifecycle(session, subject));
+        },
+        'set-organization-vetting': async () => {
+          if (subject.route !== 'set-organization-vetting') throw new Error('unreachable');
+          const answer = await postWrite('set-organization-vetting', session, {
+            organizationId: subject.organizationId,
+            action: subject.action,
+            organizationName: subject.organizationName,
+            publicReferenceUrl: subject.publicReferenceUrl,
+            contactName: subject.contactName,
+            contactTitle: subject.contactTitle,
+            authorityAttestation: subject.authorityAttestation,
+            evidenceType: subject.evidenceType,
+            note: subject.note,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
+        'discovery-allowance': async () => {
+          if (subject.route !== 'discovery-allowance') throw new Error('unreachable');
+          const body: Record<string, unknown> = { organizationId: subject.organizationId, action: subject.action };
+          if (subject.action === 'debit') body.credits = subject.credits;
+          const answer = await postWrite('discovery-allowance', session, body);
+          return answer.ok ? { ok: true } : answer.refusal;
         },
         'discovery-message': async () => {
           throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);

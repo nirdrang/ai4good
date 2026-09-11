@@ -211,7 +211,12 @@ import {
 // both deployed functions run on every authenticated request. This file decides WHICH sessions are
 // live, which is vendor bookkeeping; it never decides what a dead answer means.
 import { callerFromAuthAnswer, type Caller } from '../../../../supabase/functions/_shared/caller.ts';
-import { decideOrganizationRename, type OrganizationRenameArgs } from '../../../../supabase/functions/_shared/memberships.ts';
+import {
+  decideOrganizationProfile,
+  decideOrganizationRename,
+  type OrganizationProfileArgs,
+  type OrganizationRenameArgs,
+} from '../../../../supabase/functions/_shared/memberships.ts';
 import {
   organizationIdField,
   parseWriteStanding,
@@ -234,6 +239,14 @@ import {
   type EscalationContactArgs,
   type LifecycleChangeArgs,
 } from '../../../../supabase/functions/_shared/admin-operations.ts';
+import {
+  decideDiscoveryAllowance,
+  type DiscoveryAllowanceArgs,
+} from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import {
+  decideOrganizationVetting,
+  type OrganizationVettingArgs,
+} from '../../../../supabase/functions/_shared/org-vetting.ts';
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
@@ -721,6 +734,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     target: organizationIdField,
     decide: decideOrganizationRename,
   };
+  const ORGANIZATION_PROFILE: WriteRouteSpec<OrganizationProfileArgs, AccountWriteRouteInput> = {
+    name: 'set-organization-profile',
+    target: organizationIdField,
+    decide: decideOrganizationProfile,
+  };
   const CONTACT_TRANSFER: WriteRouteSpec<ContactTransferArgs, AccountWriteRouteInput> = {
     name: 'transfer-organization-contact',
     target: organizationIdField,
@@ -737,6 +755,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     name: 'set-account-lifecycle',
     subject: accountIdField,
     decide: decideLifecycleChange,
+  };
+  const ORGANIZATION_VETTING: WriteRouteSpec<OrganizationVettingArgs, AccountWriteRouteInput> = {
+    name: 'set-organization-vetting',
+    target: organizationIdField,
+    decide: decideOrganizationVetting,
+  };
+  const DISCOVERY_ALLOWANCE: WriteRouteSpec<DiscoveryAllowanceArgs, AccountWriteRouteInput> = {
+    name: 'discovery-allowance',
+    target: organizationIdField,
+    decide: decideDiscoveryAllowance,
   };
   const DISCOVERY_MESSAGE: WriteRouteSpec<{ message: string }, AccountWriteRouteInput> = {
     name: 'discovery-message',
@@ -874,7 +902,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     let membership: MembershipRow | null = null;
 
     if (organizationName !== null) {
-      organization = { id: nextId('org'), name: organizationName };
+      organization = {
+        id: nextId('org'),
+        name: organizationName,
+        mission: null,
+        country: null,
+        website: null,
+        logo: null,
+      };
       membership = { organizationId: organization.id, accountId: account.id, role: 'admin' };
     }
 
@@ -932,7 +967,21 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const fixtureReads = (): TenantReads => ({
     organization: async (organizationId) => {
       const row = state.organizations.get(organizationId);
-      return { ok: true, rows: row ? [{ id: row.id, name: row.name }] : [] };
+      return {
+        ok: true,
+        rows: row
+          ? [
+              {
+                id: row.id,
+                name: row.name,
+                mission: row.mission,
+                country: row.country,
+                website: row.website,
+                logo: row.logo,
+              },
+            ]
+          : [],
+      };
     },
     seatsOf: async (organizationId) => ({
       ok: true,
@@ -964,7 +1013,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
   const deadSessionAnswer = { status: 401, body: JSON.stringify({ ok: false, reason: DEAD_SESSION_REASON }) };
 
-  const sut: AccountsSut = {
+  type AccountsFixtureSut = AccountsSut & {
+    deactivateAccountAsOperator(accountId: string): Promise<void>;
+    setMembershipRoleAsOperator(
+      organizationId: string,
+      accountId: string,
+      role: 'admin' | 'member',
+    ): Promise<void>;
+  };
+
+  const sut: AccountsFixtureSut = {
     // Read straight off the shipped constant. A literal here would be a second statement of the same
     // fact, and AT-001.07 would then be asserting what this file says rather than what ships.
     publicSignupAccountTypes: async () => [...PUBLIC_SIGNUP_ACCOUNT_TYPES],
@@ -1230,7 +1288,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const run = runWrite(ORGANIZATION_CREATION, session, { name: organizationName }, null);
       if (!run.ok) return run;
 
-      const organization: OrganizationRow = { id: nextId('org'), name: run.args.p_name };
+      const organization: OrganizationRow = {
+        id: nextId('org'),
+        name: run.args.p_name,
+        mission: null,
+        country: null,
+        website: null,
+        logo: null,
+      };
       const membership: MembershipRow = { organizationId: organization.id, accountId: run.caller.id, role: 'admin' };
       state.organizations.set(organization.id, organization);
       state.memberships.set(membershipKey(organization.id, membership.accountId), membership);
@@ -1264,7 +1329,15 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const run = runWrite(ORGANIZATION_RENAME, session, { organizationId, name }, null);
       if (!run.ok) return run;
 
-      state.organizations.set(run.args.p_organization_id, { id: run.args.p_organization_id, name: run.args.p_name });
+      const previous = state.organizations.get(run.args.p_organization_id);
+      state.organizations.set(run.args.p_organization_id, {
+        id: run.args.p_organization_id,
+        name: run.args.p_name,
+        mission: previous?.mission ?? null,
+        country: previous?.country ?? null,
+        website: previous?.website ?? null,
+        logo: previous?.logo ?? null,
+      });
       return { ok: true, organizationId: run.args.p_organization_id, name: run.args.p_name };
     },
 
@@ -1280,7 +1353,14 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       // A THROW, not an outcome: a Given that could not be provisioned is a bug in the TEST, and a
       // polite refusal would read as a product answer several assertions later.
       if (!validated.ok) throw new Error(`fixture: an operator cannot create an organisation named ${JSON.stringify(name)} — ${validated.reason}`);
-      const organization: OrganizationRow = { id: nextId('org'), name: validated.value };
+      const organization: OrganizationRow = {
+        id: nextId('org'),
+        name: validated.value,
+        mission: null,
+        country: null,
+        website: null,
+        logo: null,
+      };
       state.organizations.set(organization.id, organization);
       return clone(organization);
     },
@@ -1524,6 +1604,25 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.accounts.set(accountId, { ...account, accountType });
     },
 
+    deactivateAccountAsOperator: async (accountId) => {
+      const account = state.accounts.get(accountId);
+      if (!account) throw new Error(`fixture: no account ${accountId} to deactivate`);
+      if (account.lifecycle === 'deactivated') return;
+      state.accounts.set(accountId, { ...account, lifecycle: 'deactivated' });
+    },
+
+    setMembershipRoleAsOperator: async (organizationId, accountId, role) => {
+      const key = membershipKey(organizationId, accountId);
+      const membership = state.memberships.get(key);
+      if (!membership) {
+        throw new Error(`fixture: no membership for ${accountId} in ${organizationId} to change`);
+      }
+      if (membership.role === role) return;
+      const next = { ...membership, role };
+      state.memberships.set(key, next);
+      recordRoleChange(membership, next, null);
+    },
+
     transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {
       const run = runWrite(CONTACT_TRANSFER, session, request, null);
       if (!run.ok) return run;
@@ -1613,6 +1712,33 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
           return asAttempt(await this.updateOrganization(session, subject.organizationId, subject.name));
         },
+        'set-organization-profile': async () => {
+          if (subject.route !== 'set-organization-profile') throw new Error('unreachable');
+          if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
+          const run = runWrite(
+            ORGANIZATION_PROFILE,
+            session,
+            {
+              organizationId: subject.organizationId,
+              name: subject.name,
+              mission: subject.mission,
+              country: subject.country,
+              website: subject.website,
+              logo: subject.logo,
+            },
+            null,
+          );
+          if (!run.ok) return run;
+          state.organizations.set(run.args.p_organization_id, {
+            id: run.args.p_organization_id,
+            name: run.args.p_name,
+            mission: run.args.p_mission,
+            country: run.args.p_country,
+            website: run.args.p_website,
+            logo: run.args.p_logo,
+          });
+          return { ok: true };
+        },
         'transfer-organization-contact': async () => {
           if (subject.route !== 'transfer-organization-contact') throw new Error('unreachable');
           return asAttempt(await this.transferOrganizationContact(session, subject));
@@ -1624,6 +1750,35 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
         'set-account-lifecycle': async () => {
           if (subject.route !== 'set-account-lifecycle') throw new Error('unreachable');
           return asAttempt(await this.setAccountLifecycle(session, subject));
+        },
+        'set-organization-vetting': async () => {
+          if (subject.route !== 'set-organization-vetting') throw new Error('unreachable');
+          const run = runWrite(
+            ORGANIZATION_VETTING,
+            session,
+            {
+              organizationId: subject.organizationId,
+              action: subject.action,
+              organizationName: subject.organizationName,
+              publicReferenceUrl: subject.publicReferenceUrl,
+              contactName: subject.contactName,
+              contactTitle: subject.contactTitle,
+              authorityAttestation: subject.authorityAttestation,
+              evidenceType: subject.evidenceType,
+              note: subject.note,
+            },
+            null,
+          );
+          if (!run.ok) return run;
+          return { ok: true };
+        },
+        'discovery-allowance': async () => {
+          if (subject.route !== 'discovery-allowance') throw new Error('unreachable');
+          const body: Record<string, unknown> = { organizationId: subject.organizationId, action: subject.action };
+          if (subject.action === 'debit') body.credits = subject.credits;
+          const run = runWrite(DISCOVERY_ALLOWANCE, session, body, null);
+          if (!run.ok) return run;
+          return { ok: true };
         },
         'discovery-message': async () => {
           if (subject.route !== 'discovery-message') throw new Error('unreachable');

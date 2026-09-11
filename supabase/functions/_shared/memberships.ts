@@ -18,7 +18,7 @@
  */
 
 import { validateOrganizationName } from './accounts.ts';
-import type { AccountWriteRouteInput, WriteRouteDecision } from './write-routes.ts';
+import { isRecord, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
 
 /* ------------------------------------------------------------------- the closed role vocabulary */
 
@@ -128,4 +128,78 @@ export function decideOrganizationRename(input: AccountWriteRouteInput): WriteRo
   const name = validateOrganizationName(input.body.name);
   if (!name.ok) return { ok: false, kind: 'invalid-name', reason: name.reason, status: 400 };
   return { ok: true, args: { p_account_id: input.caller.id, p_organization_id: input.target, p_name: name.value } };
+}
+
+export type OrganizationProfileArgs = {
+  readonly p_account_id: string;
+  readonly p_organization_id: string;
+  readonly p_name: string;
+  readonly p_mission: string;
+  readonly p_country: string;
+  readonly p_website: string;
+  readonly p_logo: string;
+};
+
+function nonEmptyProfileText(raw: unknown, field: string): { ok: true; value: string } | { ok: false; reason: string } {
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return { ok: false, reason: `an organisation needs a non-empty ${field}` };
+  }
+  return { ok: true, value: raw.trim() };
+}
+
+/** The same admin-of-this-organisation rule as the rename, for all five profile fields at once. */
+export function decideOrganizationProfile(input: AccountWriteRouteInput): WriteRouteDecision<OrganizationProfileArgs> {
+  if (input.target === null) {
+    return {
+      ok: false,
+      kind: 'invalid-request',
+      reason: 'an organisation profile write must name the organisation to write',
+      status: 400,
+    };
+  }
+  const allowed = orgAdminActionAllowed(input.standing.orgRole);
+  if (!allowed.ok) return { ok: false, kind: allowed.kind, reason: allowed.reason, status: 403 };
+  const name = validateOrganizationName(input.body.name);
+  if (!name.ok) return { ok: false, kind: 'invalid-name', reason: name.reason, status: 400 };
+  const mission = nonEmptyProfileText(input.body.mission, 'mission');
+  if (!mission.ok) return { ok: false, kind: 'invalid-request', reason: mission.reason, status: 400 };
+  const country = nonEmptyProfileText(input.body.country, 'country');
+  if (!country.ok) return { ok: false, kind: 'invalid-request', reason: country.reason, status: 400 };
+  const website = nonEmptyProfileText(input.body.website, 'website');
+  if (!website.ok) return { ok: false, kind: 'invalid-request', reason: website.reason, status: 400 };
+  const logo = nonEmptyProfileText(input.body.logo, 'logo');
+  if (!logo.ok) return { ok: false, kind: 'invalid-request', reason: logo.reason, status: 400 };
+  return {
+    ok: true,
+    args: {
+      p_account_id: input.caller.id,
+      p_organization_id: input.target,
+      p_name: name.value,
+      p_mission: mission.value,
+      p_country: country.value,
+      p_website: website.value,
+      p_logo: logo.value,
+    },
+  };
+}
+
+export type OrganizationProfileRender = {
+  organizationId: string | null;
+  name: string | null;
+  mission: string | null;
+  country: string | null;
+  website: string | null;
+  logo: string | null;
+};
+
+export function renderOrganizationProfile(value: unknown): OrganizationProfileRender {
+  const row = isRecord(value) ? value : null;
+  return {
+    organizationId: typeof row?.organization_id === 'string' ? row.organization_id : null,
+    name: typeof row?.name === 'string' ? row.name : null,
+    mission: typeof row?.mission === 'string' ? row.mission : null,
+    country: typeof row?.country === 'string' ? row.country : null,
+    website: typeof row?.website === 'string' ? row.website : null,
+    logo: typeof row?.logo === 'string' ? row.logo : null,
+  };
 }

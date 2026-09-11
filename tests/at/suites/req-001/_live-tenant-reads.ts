@@ -156,14 +156,23 @@ export function liveTenantReads(deps: LiveTenantDeps): Pick<
   };
 
   const organizationRow = (row: Record<string, unknown>): OrganizationRow | null =>
-    typeof row.id === 'string' && typeof row.name === 'string' ? { id: row.id, name: row.name } : null;
+    typeof row.id === 'string' && typeof row.name === 'string'
+      ? {
+          id: row.id,
+          name: row.name,
+          mission: typeof row.mission === 'string' ? row.mission : null,
+          country: typeof row.country === 'string' ? row.country : null,
+          website: typeof row.website === 'string' ? row.website : null,
+          logo: typeof row.logo === 'string' ? row.logo : null,
+        }
+      : null;
 
   return {
     organizationAsViewer: async (session, organizationId) => {
       const bearer = await bearerOf(session, 'read an organisation as the caller');
       const answer = await restGet(
         stack,
-        `/organizations?id=eq.${encodeURIComponent(organizationId)}&select=id,name`,
+        `/organizations?id=eq.${encodeURIComponent(organizationId)}&select=id,name,mission,country,website,logo`,
         bearer,
       );
       return viewerRead(answer, organizationRow);
@@ -171,7 +180,7 @@ export function liveTenantReads(deps: LiveTenantDeps): Pick<
 
     organizationsAsViewer: async (session) => {
       const bearer = await bearerOf(session, 'list organisations as the caller');
-      const answer = await restGet(stack, '/organizations?select=id,name', bearer);
+      const answer = await restGet(stack, '/organizations?select=id,name,mission,country,website,logo', bearer);
       return viewerRead(answer, organizationRow);
     },
 

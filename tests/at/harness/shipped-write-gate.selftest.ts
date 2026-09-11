@@ -3,9 +3,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  booleanField,
+  integerField,
+  isRecord,
+  isoDay,
   parseWriteRefusalKind,
   parseWriteStanding,
   rpcRefusalStatus,
+  stringField,
+  timestampField,
   typeRefusalKind,
   WRITE_REFUSAL_KINDS,
   WRITE_ROUTES,
@@ -223,5 +229,36 @@ describe('the shipped refusal-kind parser fails closed', () => {
     expect(parseWriteRefusalKind(undefined)).toBe('refused');
     expect(parseWriteRefusalKind(42)).toBe('refused');
     expect(parseWriteRefusalKind({ kind: 'no-account' })).toBe('refused');
+  });
+});
+
+describe('the shipped field parsers', () => {
+  it('narrows an object as a record and refuses arrays and null', () => {
+    expect(isRecord({ a: 1 })).toBe(true);
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord([])).toBe(false);
+  });
+
+  it('accepts a whole number and refuses a missing or fractional value', () => {
+    expect(integerField(0)).toBe(0);
+    expect(integerField(7)).toBe(7);
+    expect(integerField(null)).toBeNull();
+    expect(integerField(1.5)).toBeNull();
+  });
+
+  it('accepts a boolean and refuses a string', () => {
+    expect(booleanField(true)).toBe(true);
+    expect(booleanField(false)).toBe(false);
+    expect(booleanField('true')).toBeNull();
+  });
+
+  it('accepts an ISO timestamp and a UTC day, and trims a string', () => {
+    expect(timestampField('2026-09-11T12:00:00.000Z')).toBe('2026-09-11T12:00:00.000Z');
+    expect(timestampField('not-a-time')).toBeNull();
+    expect(isoDay('2026-09-11')).toBe('2026-09-11');
+    expect(isoDay('2026-09-11T12:00:00.000Z')).toBe('2026-09-11');
+    expect(isoDay(null)).toBeNull();
+    expect(stringField('  Riverside  ')).toBe('Riverside');
+    expect(stringField('\u00A0')).toBeNull();
   });
 });
