@@ -13,6 +13,7 @@ entry point is incomplete when the map lists others. Keep it honest with
 | Volunteer signup and the GitHub gate | [volunteer-signup-github-gate.md](volunteer-signup-github-gate.md) |
 | Create organization (NGO-only action) | [create-organization.md](create-organization.md) |
 | Update organization (admin-only rename) | [update-organization.md](update-organization.md) |
+| Project need intake (start, autosave, attach, submit, snapshot) | [need-intake.md](need-intake.md) |
 
 Not mapped yet, deliberately: the web UI (a placeholder page today) and the Google/GitHub
 OAuth round trips (consent is a human browser step; configuration well-formedness is checkable,

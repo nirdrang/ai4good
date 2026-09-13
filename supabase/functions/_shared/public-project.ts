@@ -7,7 +7,7 @@
 import type { ReadResult } from './tenant-reads.ts';
 
 export type PublicProjectView = { projectId: string; projectName: string; organizationName: string };
-export type PublicProjectSource = { project_id: string; project_name: string; organization_name: string };
+export type PublicProjectSource = { project_id: string; project_name: string; organization_name: string; need_stage: string | null };
 
 /** ONE answer for "no such project" and "not public", with no way to tell which. Returned, never thrown. */
 export const PROJECT_NOT_PUBLIC = {
@@ -15,13 +15,9 @@ export const PROJECT_NOT_PUBLIC = {
   body: { ok: false, reason: 'no such project page is public' },
 } as const;
 
-/**
- * Whether a project row may be shown to the world. TRUE FOR EVERY ROW TODAY: projects carries no
- * visibility or lifecycle column, and the requirement that owns publication (REQ-010/011) has not landed.
- * This is the one place that requirement puts its rule.
- */
-export function projectIsPublic(_source: PublicProjectSource): boolean {
-  return true;
+/** Needs stay private until the publication rule owned by REQ-010/011 lands. */
+export function projectIsPublic(source: PublicProjectSource): boolean {
+  return source.need_stage === null;
 }
 
 export function publicProjectView(source: PublicProjectSource): PublicProjectView {

@@ -295,6 +295,7 @@ export type EscalationContactRequest = {
 export type EscalationOutcome = { ok: true; organizationId: string } | WriteRefusal;
 
 export type WriteSubject =
+  | { readonly route: 'project-need'; readonly organizationId: string; readonly action: 'start'; readonly title: string }
   | { readonly route: 'complete-signup'; readonly name: string }
   | { readonly route: 'create-organization'; readonly name: string }
   | { readonly route: 'update-organization'; readonly organizationId: string; readonly name: string }

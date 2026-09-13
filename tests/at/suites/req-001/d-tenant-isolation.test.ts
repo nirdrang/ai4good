@@ -140,6 +140,7 @@ atTest(
       expect(viaVolunteer.answer.body).toBe(JSON.stringify(TENANT_NOT_FOUND.body));
 
       const source = {
+        need_stage: null,
         project_id: FOREIGN_ID,
         project_name: 'Website',
         organization_name: 'Riverside Shelter',

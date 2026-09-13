@@ -31,6 +31,7 @@
 
 import { callerFromAuthAnswer, type Caller } from './caller.ts';
 import type { ReadResult, TenantReads } from './tenant-reads.ts';
+import type { NeedReads } from './need-intake.ts';
 import type { PublicProjectReads, PublicProjectSource } from './public-project.ts';
 import {
   parseWriteRefusalKind,
@@ -395,10 +396,15 @@ async function restJson<Row>(url: string, init: RequestInit): Promise<ReadResult
   }
 }
 
-export function callerReads(supabaseUrl: string, anonKey: string, authorization: string): TenantReads {
+export function callerReads(supabaseUrl: string, anonKey: string, authorization: string): TenantReads & NeedReads {
   const headers = { apikey: anonKey, Authorization: authorization, Accept: 'application/json' };
   const base = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`;
   return {
+    need: (projectId) =>
+      restJson(
+        `${base}/need_intakes?project_id=eq.${encodeURIComponent(projectId)}&select=project_id,description,urgency,stage,cause_labels,reference_files,tier2_classified_at,submitted_at,updated_at`,
+        { headers },
+      ),
     organization: (organizationId) =>
       restJson(
         `${base}/organizations?id=eq.${encodeURIComponent(organizationId)}&select=id,name,mission,country,website,logo`,

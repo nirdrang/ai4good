@@ -2239,6 +2239,8 @@ function deactivatedSubject(
 ): WriteSubject {
   const organizationId = organizationOf(actors, accountType, 'deactivated');
   switch (route) {
+    case 'project-need':
+      return { route, organizationId, action: 'start', title: `Need ${tag} deactivated` };
     case 'complete-signup':
       return { route, name: `Write ${tag} complete-signup ${accountType} deactivated` };
     case 'create-organization':
@@ -2289,6 +2291,8 @@ function deactivatedSubject(
 
 async function snapshotWrite(sut: AccountsSut, session: Session | null, subject: WriteSubject) {
   switch (subject.route) {
+    case 'project-need':
+      return { dashboard: await sut.organizationDashboard(session, subject.organizationId) };
     case 'create-organization':
       return { organizations: await sut.organizationsNamed(subject.name) };
     case 'update-organization':
@@ -2321,6 +2325,12 @@ async function provisionActiveControl(
   accountType: AccountType,
 ): Promise<{ session: Session; subject: WriteSubject }> {
   switch (route) {
+    case 'project-need': {
+      const ngo = await signIn(w.email(`need-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Need Host ${tag}`);
+      return { session: ngo, subject: { route, organizationId, action: 'start', title: `Need ${tag}` } };
+    }
     case 'complete-signup': {
       const fresh = await signIn(w.email(`signup-on-${tag}`));
       await ensureVerified(sut, fresh);

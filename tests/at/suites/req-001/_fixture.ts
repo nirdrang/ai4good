@@ -275,6 +275,7 @@ import {
   type TenantReads,
 } from '../../../../supabase/functions/_shared/tenant-reads.ts';
 import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
+import { decideProjectNeed } from '../../../../supabase/functions/_shared/need-intake.ts';
 import { CapabilityPending } from '../../harness/pending.ts';
 import type {
   AccountLifecycle,
@@ -1683,6 +1684,16 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const asAttempt = async (outcome: { ok: true } | WriteRefusal): Promise<WriteAttemptOutcome> =>
         outcome.ok ? { ok: true } : outcome;
       const attempts: Record<WriteRouteName, () => Promise<WriteAttemptOutcome>> = {
+        'project-need': async () => {
+          if (subject.route !== 'project-need') throw new Error('unreachable');
+          const run = runWrite(
+            { name: 'project-need', target: organizationIdField, decide: decideProjectNeed },
+            session,
+            { organizationId: subject.organizationId, action: subject.action, title: subject.title },
+            null,
+          );
+          return run.ok ? { ok: true } : run;
+        },
         'complete-signup': async () => {
           if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
           if (subject.route !== 'complete-signup') throw new Error('unreachable');
@@ -1827,7 +1838,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           if (!organization) return { ok: true, rows: [] };
           return {
             ok: true,
-            rows: [{ project_id: project.id, project_name: project.name, organization_name: organization.name }],
+            rows: [{ project_id: project.id, project_name: project.name, organization_name: organization.name, need_stage: null }],
           };
         },
       });
