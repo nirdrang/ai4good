@@ -24,7 +24,7 @@ begin
   v_title := v_old_title;
   if p_patch ? 'title' then
     v_title := btrim(p_patch->>'title', E' \t\r\n\f' || chr(160));
-    if v_title = '' then
+    if v_title is null or v_title = '' then
       raise exception 'a need requires a non-empty title'
         using errcode = '22023', detail = 'invalid-name';
     end if;

@@ -1,7 +1,7 @@
 import { orgAdminActionAllowed } from './memberships.ts';
 import { REFERENCE_FILE_DISCLOSURE } from './need-intake-copy.ts';
 import { TENANT_NOT_FOUND, TENANT_READ_FAILED, type ReadResult, type TenantReads } from './tenant-reads.ts';
-import { isRecord, refuseWrite, stringField, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
+import { isRecord, refuseWrite, stringField, uuidField, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
 
 export const NEED_STAGES = ['draft', 'discovery_in_progress'] as const;
 export type NeedStage = (typeof NEED_STAGES)[number];
@@ -77,9 +77,10 @@ export function decideProjectNeed(input: AccountWriteRouteInput): WriteRouteDeci
   if (!allowed.ok) return refuseWrite(allowed.kind, 403, allowed.reason);
   const body = input.body;
   if (body.action === 'attach') {
-    const projectId = stringField(body.projectId);
+    const projectId = uuidField(body.projectId);
+    if (projectId === null) return refuseWrite('invalid-request', 400, 'a need write must name the project as a uuid');
     const file = body.file;
-    if (projectId === null || Object.keys(body).some((key) => !['organizationId', 'action', 'projectId', 'file'].includes(key)) ||
+    if (Object.keys(body).some((key) => !['organizationId', 'action', 'projectId', 'file'].includes(key)) ||
         !isRecord(file) || Object.keys(file).some((key) => !['fileName', 'mediaType', 'byteSize', 'description'].includes(key)) ||
         stringField(file.fileName) === null || stringField(file.mediaType) === null ||
         typeof file.byteSize !== 'number' || !Number.isInteger(file.byteSize) || file.byteSize <= 0 ||
@@ -97,8 +98,9 @@ export function decideProjectNeed(input: AccountWriteRouteInput): WriteRouteDeci
   }
   if (body.action === 'save' || body.action === 'submit') {
     const keys = body.action === 'save' ? ['organizationId', 'action', 'projectId', 'patch'] : ['organizationId', 'action', 'projectId'];
-    const projectId = stringField(body.projectId);
-    if (projectId === null || Object.keys(body).some((key) => !keys.includes(key))) {
+    const projectId = uuidField(body.projectId);
+    if (projectId === null) return refuseWrite('invalid-request', 400, 'a need write must name the project as a uuid');
+    if (Object.keys(body).some((key) => !keys.includes(key))) {
       return refuseWrite('invalid-request', 400, 'a need write requires a project id and known fields');
     }
     const patch = body.action === 'save' ? parseNeedPatch(body.patch) : { ok: true as const, args: {} };
@@ -163,12 +165,12 @@ export function submitGate(need: Pick<NeedIntakeView, 'description'>): { ok: tru
 export function submitTransition(stage: NeedStage): { next: 'discovery_in_progress'; changed: boolean } {
   return { next: 'discovery_in_progress', changed: stage === 'draft' };
 }
-export function applyNeedPatch(need: NeedIntakeView, patch: NeedPatch): { need: NeedIntakeView; changed: boolean } {
+export function applyNeedPatch(need: NeedIntakeView, patch: NeedPatch, now: string): { need: NeedIntakeView; changed: boolean } {
   const parsed = parseNeedPatch(patch);
   if (!parsed.ok) throw new Error(parsed.kind);
   const next = { ...need, ...parsed.args };
   const changed = next.title !== need.title || next.description !== need.description || next.urgency !== need.urgency;
-  return { need: changed ? { ...next, updatedAt: new Date().toISOString() } : need, changed };
+  return { need: changed ? { ...next, updatedAt: now } : need, changed };
 }
 export type IntakeSnapshot = {
   project_id: string; org_id: string; title: string; description: string | null; urgency: NeedUrgency | null;

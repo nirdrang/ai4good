@@ -59,5 +59,12 @@ describe('need submission gate and autosave', () => {
     const unknownPatch = { description, unexpected: true };
     expect(await sut.saveNeed(ngo.session, { ...request, patch: unknownPatch }))
       .toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
+    expect(await sut.saveNeed(ngo.session, { ...request, projectId: 'not-a-uuid', patch: { description } }))
+      .toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
+    expect(await sut.submitNeed(ngo.session, { ...request, projectId: 'not-a-uuid' }))
+      .toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
+    expect(await sut.attachReferenceFile(ngo.session, {
+      ...request, projectId: 'not-a-uuid', file: { fileName: 'sample-rota.csv', mediaType: 'text/csv', byteSize: 4096 },
+    })).toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
   });
 });

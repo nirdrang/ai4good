@@ -41,7 +41,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       return { ok: false, kind: 'no-such-need', status: 409, reason: 'no such need in this organisation' };
     }
     if (args.p_action === 'save') {
-      const result = applyNeedPatch(need, args.p_payload as NeedPatch);
+      const result = applyNeedPatch(need, args.p_payload as NeedPatch, new Date(opts.clock.now()).toISOString());
       needs.set(need.projectId, structuredClone(result.need));
       return { ok: true, ...structuredClone(result) };
     }
@@ -61,7 +61,8 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       const gate = submitGate(need);
       if (!gate.ok) return { ...gate, status: 409 };
       const transition = submitTransition(need.stage);
-      const submitted = { ...need, stage: transition.next, submittedAt: new Date(opts.clock.now()).toISOString() };
+      const submittedAt = new Date(opts.clock.now()).toISOString();
+      const submitted = { ...need, stage: transition.next, submittedAt, updatedAt: submittedAt };
       needs.set(need.projectId, submitted);
       if (transition.changed) snapshots.push({
         id: crypto.randomUUID(), occurredAt: submitted.submittedAt, actorAccountId: args.p_account_id,
@@ -148,7 +149,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       const actor = [...actors.values()].find((candidate) => candidate.accountId === accountId);
       const role = actor?.roles.get(request.organizationId);
       if (role === undefined) return { ok: false, kind: 'not-a-member', reason: 'the caller holds no membership in this organisation' };
-      if (role !== 'admin') return { ok: false, kind: 'not-an-admin', reason: 'only the admin of this organisation may start a need' };
+      if (role !== 'admin') return { ok: false, kind: 'not-an-admin', reason: 'only the admin of this organisation may write a need' };
       if (request.action !== 'start') {
         const need = needs.get(request.projectId);
         if (need === undefined || need.organizationId !== request.organizationId) {

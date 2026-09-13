@@ -26,11 +26,6 @@ grant select on public.need_intakes to authenticated;
 
 create policy need_intakes_select_org_member on public.need_intakes for select to authenticated
   using (public.viewer_is_org_member(org_id));
-create policy need_intakes_select_assigned_volunteer on public.need_intakes for select to authenticated
-  using (public.viewer_is_volunteer() and exists (
-    select 1 from public.projects p
-     where p.id = need_intakes.project_id and p.assigned_volunteer_id = auth.uid()
-  ));
 create policy need_intakes_select_platform_admin on public.need_intakes for select to authenticated
   using (public.viewer_is_platform_admin());
 
@@ -43,7 +38,7 @@ begin
   if old.tier2_classified_at is not null
      and new.tier2_classified_at is distinct from old.tier2_classified_at then
     raise exception 'the Tier-2 classification cannot be cleared or rewritten'
-      using errcode = '42501';
+      using errcode = '42501', detail = 'tier2-classification-immutable';
   end if;
   return new;
 end;
@@ -66,6 +61,7 @@ as $$
     left join public.need_intakes n on n.project_id = p.id
    where p.id = p_project_id;
 $$;
+comment on function public.read_public_project(uuid) is 'The public project page source: project id, project name, organisation name, need stage (REQ-001, AT-001.22; REQ-003).';
 revoke execute on function public.read_public_project(uuid) from public, anon, authenticated, service_role;
 grant execute on function public.read_public_project(uuid) to service_role;
 

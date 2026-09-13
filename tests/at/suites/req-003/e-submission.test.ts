@@ -51,12 +51,14 @@ describe('need submission starts Discovery', () => {
     if (!submitted.ok) return;
     expect(submitted.need.referenceFiles).toEqual(attached.need.referenceFiles);
     expect(submitted.need.submittedAt).not.toBeNull();
+    expect(Date.parse(submitted.need.updatedAt)).toBeGreaterThanOrEqual(Date.parse(attached.need.updatedAt));
+    expect(submitted.need.updatedAt).toBe(submitted.need.submittedAt);
     expect(await sut.needRow(request.projectId)).toMatchObject({
       stage: 'discovery_in_progress', submittedAt: submitted.need.submittedAt,
     });
     expect(await sut.submitNeed(ngo.session, request)).toMatchObject({
       ok: true, changed: false,
-      need: { stage: 'discovery_in_progress', submittedAt: submitted.need.submittedAt },
+      need: { stage: 'discovery_in_progress', submittedAt: submitted.need.submittedAt, updatedAt: submitted.need.updatedAt },
     });
     expect(await sut.saveNeed(ngo.session, {
       ...request, patch: { description: 'The shared rota also needs team contact details.' },

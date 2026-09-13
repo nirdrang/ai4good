@@ -110,7 +110,7 @@ export function parseWriteRefusalKind(raw: unknown): WriteRefusalKind {
   return (WRITE_REFUSAL_KINDS as readonly string[]).includes(candidate) ? (candidate as WriteRefusalKind) : 'refused';
 }
 
-/** The account a route names beside the caller — the transferee, for the contact transfer. */
+/** The account a route names beside the caller â€” the transferee, for the contact transfer. */
 export type SubjectStanding = {
   readonly accountType: AccountType;
   readonly lifecycle: AccountLifecycle;
@@ -124,7 +124,7 @@ export type WriteStanding =
       readonly kind: 'account';
       readonly accountType: AccountType;
       readonly lifecycle: AccountLifecycle;
-      /** the caller's role in the TARGET organisation, or null — never a role held elsewhere */
+      /** the caller's role in the TARGET organisation, or null â€” never a role held elsewhere */
       readonly orgRole: OrgRole | null;
       readonly orgExists: boolean;
       /** the organisation's single seat holder, which the transfer compares against */
@@ -152,7 +152,7 @@ function unreadable(detail: string): WriteStanding {
 
 /**
  * The answer of `public.write_standing`, judged. FAIL-CLOSED: every shape this function does not
- * recognise is `unreadable` — never `no-account`, and never an account with a guessed field.
+ * recognise is `unreadable` â€” never `no-account`, and never an account with a guessed field.
  */
 export function parseWriteStanding(raw: unknown): WriteStanding {
   if (!isRecord(raw)) return unreadable('the standing answer is not an object');
@@ -240,11 +240,17 @@ export function rpcRefusalStatus(outcome: { code: string | null }): 409 | 502 {
   return typeof outcome.code === 'string' && /^[0-9A-Z]{5}$/.test(outcome.code) ? 409 : 502;
 }
 
-/** A request field as a trimmed non-empty string, or null — the shape every selector answers with. */
+/** A request field as a trimmed non-empty string, or null â€” the shape every selector answers with. */
 export function stringField(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
+}
+
+/** A request field as a trimmed UUID string, or null. */
+export function uuidField(value: unknown): string | null {
+  const trimmed = stringField(value);
+  return trimmed !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed) ? trimmed : null;
 }
 
 /** A whole number, or null. */
@@ -290,7 +296,7 @@ function typeRefusalReason(admits: readonly AccountType[], accountType: AccountT
     if (!decision.ok) return decision.reason;
   }
   const who = admits.length === 1 && admits[0] === 'platform_admin' ? 'platform administrators' : `${admits.join(', ')} accounts`;
-  return `this action is available to ${who} only — the caller's account is of type ${JSON.stringify(accountType)}`;
+  return `this action is available to ${who} only â€” the caller's account is of type ${JSON.stringify(accountType)}`;
 }
 
 /** Deactivation is judged before type and before presence, so a deactivated caller is told it is deactivated and nothing else. */
@@ -304,7 +310,7 @@ export function writeGateDecision(name: WriteRouteName, standing: WriteStanding)
   }
   if (route.standing.kind === 'account-absent-by-design') return { ok: true, args: 'admitted' };
   if (standing.kind === 'no-account') {
-    return refuseWrite('no-account', 409, 'complete signup before this action — the caller holds no account yet');
+    return refuseWrite('no-account', 409, 'complete signup before this action â€” the caller holds no account yet');
   }
   const admits: readonly AccountType[] = route.standing.admits;
   if (!admits.includes(standing.accountType)) {

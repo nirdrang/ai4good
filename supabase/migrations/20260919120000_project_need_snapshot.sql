@@ -12,7 +12,7 @@ begin
       using errcode = 'P0001', detail = 'missing-description';
   end if;
   v_submitted_at := clock_timestamp();
-  update public.need_intakes set stage = 'discovery_in_progress', submitted_at = v_submitted_at
+  update public.need_intakes set stage = 'discovery_in_progress', submitted_at = v_submitted_at, updated_at = v_submitted_at
    where project_id = v_need.project_id;
   perform public.append_audit_event(
     'need_intake_submitted', p_account_id, null, v_need.org_id, 'need intake submitted',

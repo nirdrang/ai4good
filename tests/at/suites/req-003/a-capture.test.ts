@@ -26,6 +26,23 @@ describe('need intake capture', () => {
       expect(page.answer.status).toBe(404);
       expect(page.answer.body).not.toContain(request.title);
       expect(page.answer.body).not.toContain(request.description);
+      const anonymous = await sut.readNeed(null, started.need.projectId);
+      expect(anonymous.ok).toBe(false);
+      expect(anonymous.answer.status).toBe(401);
+      const other = await sut.provisionNgo(w.email(`ngo-other-capture-${emailVerified}`), { emailVerified: true });
+      const foreign = await sut.readNeed(other.session, started.need.projectId);
+      expect(foreign.ok).toBe(false);
+      expect(foreign.answer.status).toBe(404);
+      const volunteer = await sut.provisionVolunteer(w.email(`vol-capture-${emailVerified}`));
+      const volunteerRead = await sut.readNeed(volunteer, started.need.projectId);
+      expect(volunteerRead.ok).toBe(false);
+      expect(volunteerRead.answer.status).toBe(404);
+      await sut.setMembershipRoleAsOperator(ngo.organizationId, ngo.accountId, 'member');
+      const member = await sut.readNeed(ngo.session, started.need.projectId);
+      expect(member.answer.status).toBe(200);
+      expect(member.ok).toBe(true);
+      if (member.ok) expect(member.value.need).toEqual(started.need);
+      await sut.setMembershipRoleAsOperator(ngo.organizationId, ngo.accountId, 'admin');
     }
   });
 

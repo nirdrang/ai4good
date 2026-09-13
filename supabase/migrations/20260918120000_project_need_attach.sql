@@ -73,7 +73,7 @@ begin
       using errcode = '42501', detail = 'not-a-member';
   end if;
   if v_role <> 'admin' then
-    raise exception 'project_need refuses %: only the admin of organisation % may start a need', p_account_id, p_organization_id
+    raise exception 'project_need refuses %: only the admin of organisation % may write a need', p_account_id, p_organization_id
       using errcode = '42501', detail = 'not-an-admin';
   end if;
 
