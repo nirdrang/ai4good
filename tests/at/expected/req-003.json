@@ -2,9 +2,8 @@
   "requirement": "003",
   "tiers": {
     "loop": {
-      "green": ["AT-003.01", "AT-003.02", "AT-003.03", "AT-003.04", "AT-003.05"],
+      "green": ["AT-003.01", "AT-003.02", "AT-003.03", "AT-003.04", "AT-003.05", "AT-003.17"],
       "red": {
-        "AT-003.17": { "kind": "capability-pending", "capabilities": ["intake.labels"] },
         "AT-003.07": { "kind": "capability-pending", "capabilities": ["intake.reference-files"] },
         "AT-003.09": { "kind": "capability-pending", "capabilities": ["intake.reference-files"] },
         "AT-003.10": { "kind": "capability-pending", "capabilities": ["intake.tier2-disclosure"] },
@@ -15,9 +14,8 @@
       }
     },
     "integration": {
-      "green": ["AT-003.01", "AT-003.02", "AT-003.03", "AT-003.04", "AT-003.05"],
+      "green": ["AT-003.01", "AT-003.02", "AT-003.03", "AT-003.04", "AT-003.05", "AT-003.17"],
       "red": {
-        "AT-003.17": { "kind": "capability-pending", "capabilities": ["intake.labels"] },
         "AT-003.07": { "kind": "capability-pending", "capabilities": ["intake.reference-files"] },
         "AT-003.09": { "kind": "capability-pending", "capabilities": ["intake.reference-files"] },
         "AT-003.10": { "kind": "capability-pending", "capabilities": ["intake.tier2-disclosure"] },
