@@ -42,8 +42,11 @@ to `start` in unit 2's migration.
    Gotchas), so it never ran the suite.
 5. Commit in the lane worktree citing the item, then `git merge --ff-only lane/ai4dev-120` in the
    item worktree.
-6. Rewrite this file. Open the compaction gate: name what the unit landed, the remaining context
-   budget, and the recommendation on compacting. Wait for the founder's answer.
+6. Rewrite this file. Open the compaction gate with the `AskUserQuestion` tool (founder
+   2026-09-13: "I want you to update this gate to use the askuserquestion tool"): one question
+   whose options are continue or compact, with what the unit landed and the remaining context
+   budget in the question text, plus any open decision the next unit needs as a second question.
+   Never open the gate as prose alone.
 
 ## The eleven checks every unit must pass
 
@@ -77,9 +80,8 @@ bun run at:verify req-016 --tier integration --expect
 
 Three ids, `capability-pending`, integration tier only: AT-003.07 on `storage.reference-upload`,
 AT-003.09 and AT-003.10 on `ui.reference-upload-surface`. Thirteen green at loop and ten at
-integration when every unit has landed. Open question for the founder before unit 4: whether .09
-and .10 should be green on the served disclosure copy instead (the thin-SQL candidate's position);
-the judge and the AT-002.05 precedent say red.
+integration when every unit has landed. The founder ruled at the unit 1 gate (2026-09-13, AskUserQuestion): .09 and .10 are red at
+integration on the ui surface. Settled.
 
 ## After the last unit
 
