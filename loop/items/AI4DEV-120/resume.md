@@ -29,7 +29,7 @@ Item branch `nirdrang/ai4dev-120-intake-form-and-draft-autosave-d1`. The brief c
 
 ## The first action on resume
 
-Every unit has landed. The item-wide stations are next, in the order of the section `After the last unit`: the comment audit (mechanical agent with the comment-sicko prompt over the whole diff against `main`), the interrogate review (five lanes from the sheet, read-only, over the same diff), the evidence capture (mechanical agent driving `.claude/skills/verify-ai4good/`), the rebase into ordered commits (mechanical agent), the pull request, then the Closing section of the brief. Findings from the audit and the review that the lead accepts are fixed in the lane worktree and verified with the eleven checks before the rebase. One note carried: `applyNeedPatch` stamps `updatedAt` with `new Date()` inside the shipped helper rather than a clock argument; put it to the review.
+Every station is done. Pull request 74 is open on head `e7ac1bb` (https://github.com/nirdrang/ai4good/pull/74), the eleven checks green on that exact head, the live drive 27 of 27. What remains is the brief's Closing section: wait for CI green on the exact head AND the founder's word `merge`; then the mechanical agent runs `gh pr merge 74 --squash`; `ExitWorktree(action: 'keep')`; `/controller done AI4DEV-120`. Delete no branch and no worktree. If CI is red, read the failing job, fix on the lane worktree, rerun the eleven checks, ff-merge, push, and say so in the pull request.
 
 ## The per-unit loop
 
