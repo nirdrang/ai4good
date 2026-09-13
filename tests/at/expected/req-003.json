@@ -2,22 +2,18 @@
   "requirement": "003",
   "tiers": {
     "loop": {
-      "green": ["AT-003.01", "AT-003.02", "AT-003.03", "AT-003.04", "AT-003.05", "AT-003.07", "AT-003.09", "AT-003.10", "AT-003.17"],
+      "green": ["AT-003.01", "AT-003.02", "AT-003.03", "AT-003.04", "AT-003.05", "AT-003.07", "AT-003.09", "AT-003.10", "AT-003.11", "AT-003.12", "AT-003.17"],
       "red": {
-        "AT-003.11": { "kind": "capability-pending", "capabilities": ["intake.submission"] },
-        "AT-003.12": { "kind": "capability-pending", "capabilities": ["intake.submission"] },
         "AT-003.14": { "kind": "capability-pending", "capabilities": ["intake.snapshot"] },
         "AT-003.16": { "kind": "capability-pending", "capabilities": ["intake.snapshot"] }
       }
     },
     "integration": {
-      "green": ["AT-003.01", "AT-003.02", "AT-003.03", "AT-003.04", "AT-003.05", "AT-003.17"],
+      "green": ["AT-003.01", "AT-003.02", "AT-003.03", "AT-003.04", "AT-003.05", "AT-003.11", "AT-003.12", "AT-003.17"],
       "red": {
         "AT-003.07": { "kind": "capability-pending", "capabilities": ["storage.reference-upload"] },
         "AT-003.09": { "kind": "capability-pending", "capabilities": ["ui.reference-upload-surface"] },
         "AT-003.10": { "kind": "capability-pending", "capabilities": ["ui.reference-upload-surface"] },
-        "AT-003.11": { "kind": "capability-pending", "capabilities": ["intake.submission"] },
-        "AT-003.12": { "kind": "capability-pending", "capabilities": ["intake.submission"] },
         "AT-003.14": { "kind": "capability-pending", "capabilities": ["intake.snapshot"] },
         "AT-003.16": { "kind": "capability-pending", "capabilities": ["intake.snapshot"] }
       }

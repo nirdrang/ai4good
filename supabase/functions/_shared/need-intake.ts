@@ -160,8 +160,8 @@ export function submitGate(need: Pick<NeedIntakeView, 'description'>): { ok: tru
     ? { ok: false, kind: 'missing-description', reason: 'the problem description is missing' }
     : { ok: true };
 }
-export function submitTransition(_stage: NeedStage): { next: 'discovery_in_progress'; changed: boolean } {
-  throw new Error('not landed: unit 6');
+export function submitTransition(stage: NeedStage): { next: 'discovery_in_progress'; changed: boolean } {
+  return { next: 'discovery_in_progress', changed: stage === 'draft' };
 }
 export function applyNeedPatch(need: NeedIntakeView, patch: NeedPatch): { need: NeedIntakeView; changed: boolean } {
   const parsed = parseNeedPatch(patch);
