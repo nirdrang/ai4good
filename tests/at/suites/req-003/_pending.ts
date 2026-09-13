@@ -1,7 +1,6 @@
 import { CapabilityPending } from './_bind.ts';
 
 export const AWAITED = {
-  snapshot: 'intake.snapshot',
   referenceUpload: 'storage.reference-upload',
   uploadSurface: 'ui.reference-upload-surface',
 } as const;

@@ -1,12 +1,12 @@
 import {
-  applyNeedPatch, submitGate, submitTransition, decideProjectNeed, disclosureFor, needIntakeAnswer, type NeedIntakeSqlRow, type ProjectNeedArgs, type StartPayload, type ReferenceFileInput, type ReferenceFileMetadata,
+  applyNeedPatch, submitGate, submitTransition, intakeSnapshotOf, decideProjectNeed, disclosureFor, needIntakeAnswer, type NeedIntakeSqlRow, type ProjectNeedArgs, type StartPayload, type ReferenceFileInput, type ReferenceFileMetadata,
 } from '../../../../supabase/functions/_shared/need-intake.ts';
 import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
 import {
   organizationIdField, parseWriteStanding, writePipeline, type AccountWriteRouteInput, type WriteRouteSpec, type WriteRefusalKind,
 } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { createFixtureAdapter as createOrganizationsFixtureAdapter } from '../req-002/_fixture.ts';
-import type { NeedIntakeView, NeedPatch, NeedsSut, NeedWriteOutcome, ProjectNeedRequest, Session } from './_contract.ts';
+import type { IntakeSnapshotRow, NeedIntakeView, NeedPatch, NeedsSut, NeedWriteOutcome, ProjectNeedRequest, Session } from './_contract.ts';
 
 export const requirement = 'req-003' as const;
 const SPEC: WriteRouteSpec<ProjectNeedArgs, AccountWriteRouteInput> = {
@@ -20,7 +20,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
   const actors = new Map<string, Actor>();
   const emailActors = new Map<string, Actor>();
   const needs = new Map<string, NeedIntakeView>();
-  const notLanded = (unit: number) => async (): Promise<never> => { throw new Error(`not landed: unit ${unit}`); };
+  const snapshots: IntakeSnapshotRow[] = [];
 
   const start = (args: ProjectNeedArgs): Extract<NeedWriteOutcome, { ok: true }> => {
     const payload = args.p_payload as StartPayload;
@@ -63,6 +63,11 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       const transition = submitTransition(need.stage);
       const submitted = { ...need, stage: transition.next, submittedAt: new Date(opts.clock.now()).toISOString() };
       needs.set(need.projectId, submitted);
+      if (transition.changed) snapshots.push({
+        id: crypto.randomUUID(), occurredAt: submitted.submittedAt, actorAccountId: args.p_account_id,
+        actorLabel: 'ngo:' + args.p_account_id, subjectOrgId: need.organizationId,
+        reason: 'need intake submitted', detail: intakeSnapshotOf(submitted),
+      });
       return { ok: true, changed: transition.changed, need: structuredClone(submitted) };
     }
     return { ok: false, kind: 'invalid-request', status: 409, reason: 'unsupported action' };
@@ -167,11 +172,11 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       need.tier2ClassifiedAt ??= new Date(opts.clock.now()).toISOString();
       need.upload.disclosure = disclosureFor(need.tier2ClassifiedAt);
     },
-    intakeSnapshots: notLanded(7),
+    intakeSnapshots: async (projectId) => structuredClone(snapshots.filter((row) => row.detail.project_id === projectId)),
   };
   return {
     sut: { needs: sut }, fixtures: inner.fixtures,
-    teardown: async () => { await inner.teardown(); actors.clear(); emailActors.clear(); needs.clear(); },
+    teardown: async () => { await inner.teardown(); actors.clear(); emailActors.clear(); needs.clear(); snapshots.length = 0; },
   };
 }
 

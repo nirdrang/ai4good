@@ -1,5 +1,5 @@
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
-import { needViewFromSql, type NeedIntakeSqlRow } from '../../../../supabase/functions/_shared/need-intake.ts';
+import { intakeSnapshotFromDetail, needViewFromSql, type NeedIntakeSqlRow } from '../../../../supabase/functions/_shared/need-intake.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { authPost, followLink, functionPost, functionPostRaw, sqlClient, verifyLinksFor, type Stack } from '../../harness/live-stack.ts';
 import { createLiveAdapter as createOrganizationsLiveAdapter } from '../req-002/_live.ts';
@@ -20,7 +20,6 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
   const sql = sqlClient(stack);
   const sessions = new Map<string, { accountId: string; accessToken: string }>();
   const allowanceSessions = new Map<string, Session>();
-  const notLanded = (unit: number) => async (): Promise<never> => { throw new Error(`not landed: unit ${unit}`); };
 
   const bearerOf = (session: Session | null): string => {
     if (session === null) return stack.anonKey;
@@ -129,7 +128,23 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         where project_id = ${projectId}::uuid returning project_id` as { project_id: string }[];
       if (rows.length === 0) throw new Error('no such need to classify');
     },
-    intakeSnapshots: notLanded(7),
+    intakeSnapshots: async (projectId) => {
+      const rows = await sql`select id, occurred_at, actor_account_id, actor_label, subject_org_id, reason, detail
+        from public.audit_events where event_kind = 'need_intake_submitted'
+          and detail->>'project_id' = ${projectId} order by occurred_at, id` as {
+        id: string; occurred_at: string | Date; actor_account_id: string | null; actor_label: string;
+        subject_org_id: string; reason: string; detail: unknown;
+      }[];
+      return rows.map((event) => {
+        const detail = intakeSnapshotFromDetail(typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail);
+        if (detail === null) throw new Error(`audit row ${event.id} has no intake snapshot`);
+        return {
+          id: event.id, occurredAt: new Date(event.occurred_at).toISOString(),
+          actorAccountId: event.actor_account_id, actorLabel: event.actor_label,
+          subjectOrgId: event.subject_org_id, reason: event.reason, detail,
+        };
+      });
+    },
   };
   return {
     sut: { needs: sut }, fixtures: inner.fixtures,

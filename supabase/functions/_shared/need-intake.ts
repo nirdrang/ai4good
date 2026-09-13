@@ -178,11 +178,39 @@ export type IntakeSnapshot = {
   }[];
   submitted_at: string;
 };
-export function intakeSnapshotOf(_need: NeedIntakeView & { submittedAt: string }): IntakeSnapshot {
-  throw new Error('not landed: unit 7');
+export function intakeSnapshotOf(need: NeedIntakeView & { submittedAt: string }): IntakeSnapshot {
+  return {
+    project_id: need.projectId, org_id: need.organizationId, title: need.title,
+    description: need.description, urgency: need.urgency,
+    reference_files: need.referenceFiles.map((file) => ({
+      id: file.id, file_name: file.fileName, media_type: file.mediaType, byte_size: file.byteSize,
+      description: file.description, added_by_account_id: file.addedByAccountId, added_at: file.addedAt,
+    })),
+    submitted_at: need.submittedAt,
+  };
 }
-export function intakeSnapshotFromDetail(_detail: unknown): IntakeSnapshot | null {
-  throw new Error('not landed: unit 7');
+export function intakeSnapshotFromDetail(detail: unknown): IntakeSnapshot | null {
+  if (!isRecord(detail) || typeof detail.project_id !== 'string' || typeof detail.org_id !== 'string' ||
+      typeof detail.title !== 'string' || (detail.description !== null && typeof detail.description !== 'string') ||
+      (detail.urgency !== null && (typeof detail.urgency !== 'string' ||
+        !(NEED_URGENCIES as readonly string[]).includes(detail.urgency))) ||
+      typeof detail.submitted_at !== 'string' || !Array.isArray(detail.reference_files)) return null;
+  const referenceFiles: IntakeSnapshot['reference_files'][number][] = [];
+  for (const file of detail.reference_files) {
+    if (!isRecord(file) || typeof file.id !== 'string' || typeof file.file_name !== 'string' ||
+        typeof file.media_type !== 'string' || typeof file.byte_size !== 'number' ||
+        (file.description !== null && typeof file.description !== 'string') ||
+        typeof file.added_by_account_id !== 'string' || typeof file.added_at !== 'string') return null;
+    referenceFiles.push({
+      id: file.id, file_name: file.file_name, media_type: file.media_type, byte_size: file.byte_size,
+      description: file.description, added_by_account_id: file.added_by_account_id, added_at: file.added_at,
+    });
+  }
+  return {
+    project_id: detail.project_id, org_id: detail.org_id, title: detail.title,
+    description: detail.description, urgency: detail.urgency as NeedUrgency | null,
+    reference_files: referenceFiles, submitted_at: detail.submitted_at,
+  };
 }
 
 export type NeedReads = { need(projectId: string): Promise<ReadResult<Omit<NeedIntakeSqlRow, 'org_id' | 'title'>>> };

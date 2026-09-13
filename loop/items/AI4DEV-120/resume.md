@@ -9,7 +9,7 @@ the four-lane design arena, the blinded judge and the synthesis are finished and
 `33f286d`. The design of record is `design/SYNTHESIS.md`; it wins over anything that disagrees
 with it, and it names `design/candidate-2-project-row.md` as its base.
 
-**Units done: units 1 to 6.**
+**Units done: all seven.**
 
 | what | commit | acceptance ids green |
 |---|---|---|
@@ -20,6 +20,7 @@ with it, and it names `design/candidate-2-project-row.md` as its base.
 | unit 4, the attach helper and the base disclosure | `bdd7091` | AT-003.07, .09 added at loop; eight at loop, six at integration |
 | unit 5, the Tier-2 hardened disclosure | `8b95bdd` | AT-003.10 added at loop; nine at loop, six at integration |
 | unit 6, submission starts Discovery | `6a552e2` | AT-003.11, .12 added; eleven at loop, eight at integration |
+| unit 7, the raw-intake snapshot | `09f9bc3` | AT-003.14, .16 added; thirteen at loop, ten at integration |
 
 Item branch `nirdrang/ai4dev-120-intake-form-and-draft-autosave-d1`. The brief commit is
 `eb246d1` and carries the sheet change (the writer row runs astra at low). The lane worktree is
@@ -28,7 +29,7 @@ Item branch `nirdrang/ai4dev-120-intake-form-and-draft-autosave-d1`. The brief c
 
 ## The first action on resume
 
-Unit 7 is next, the last. Its brief is written at `units/unit7.md` (the raw-intake snapshot on `audit_events`; ids 14 and 16 at both tiers; two migrations, the enum value alone in the first). Copy it into the lane, dispatch the feature lane at `codex:gpt-6-astra@low`, then the per-unit loop below. After unit 7 lands, the item-wide stations in the section `After the last unit`. One note carried, not a task: `applyNeedPatch` stamps `updatedAt` with `new Date()` inside the shipped helper rather than a clock argument. Harmless for the ids.
+Every unit has landed. The item-wide stations are next, in the order of the section `After the last unit`: the comment audit (mechanical agent with the comment-sicko prompt over the whole diff against `main`), the interrogate review (five lanes from the sheet, read-only, over the same diff), the evidence capture (mechanical agent driving `.claude/skills/verify-ai4good/`), the rebase into ordered commits (mechanical agent), the pull request, then the Closing section of the brief. Findings from the audit and the review that the lead accepts are fixed in the lane worktree and verified with the eleven checks before the rebase. One note carried: `applyNeedPatch` stamps `updatedAt` with `new Date()` inside the shipped helper rather than a clock argument; put it to the review.
 
 ## The per-unit loop
 
