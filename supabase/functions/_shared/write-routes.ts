@@ -40,6 +40,10 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'set_organization_profile' },
     standing: { kind: 'account-required', admits: ['ngo'] },
   },
+  'project-need': {
+    surface: { kind: 'edge', rpc: 'project_need' },
+    standing: { kind: 'account-required', admits: ['ngo'] },
+  },
   'transfer-organization-contact': {
     surface: { kind: 'edge', rpc: 'transfer_organization_contact' },
     standing: { kind: 'account-required', admits: ['platform_admin'] },
@@ -88,6 +92,9 @@ export const WRITE_REFUSAL_KINDS = [
   'debit-exceeds-remaining',
   'email-unverified',
   'no-such-organisation',
+  'no-such-need',
+  'missing-description',
+  'platform-acknowledgment-missing',
   'not-the-current-contact',
   'transferee-no-account',
   'transferee-not-ngo',

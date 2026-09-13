@@ -1,0 +1,35 @@
+{
+  "requirement": "003",
+  "tiers": {
+    "loop": {
+      "green": ["AT-003.01", "AT-003.02", "AT-003.04"],
+      "red": {
+        "AT-003.03": { "kind": "capability-pending", "capabilities": ["intake.gate-and-autosave"] },
+        "AT-003.05": { "kind": "capability-pending", "capabilities": ["intake.gate-and-autosave"] },
+        "AT-003.17": { "kind": "capability-pending", "capabilities": ["intake.labels"] },
+        "AT-003.07": { "kind": "capability-pending", "capabilities": ["intake.reference-files"] },
+        "AT-003.09": { "kind": "capability-pending", "capabilities": ["intake.reference-files"] },
+        "AT-003.10": { "kind": "capability-pending", "capabilities": ["intake.tier2-disclosure"] },
+        "AT-003.11": { "kind": "capability-pending", "capabilities": ["intake.submission"] },
+        "AT-003.12": { "kind": "capability-pending", "capabilities": ["intake.submission"] },
+        "AT-003.14": { "kind": "capability-pending", "capabilities": ["intake.snapshot"] },
+        "AT-003.16": { "kind": "capability-pending", "capabilities": ["intake.snapshot"] }
+      }
+    },
+    "integration": {
+      "green": ["AT-003.01", "AT-003.02", "AT-003.04"],
+      "red": {
+        "AT-003.03": { "kind": "capability-pending", "capabilities": ["intake.gate-and-autosave"] },
+        "AT-003.05": { "kind": "capability-pending", "capabilities": ["intake.gate-and-autosave"] },
+        "AT-003.17": { "kind": "capability-pending", "capabilities": ["intake.labels"] },
+        "AT-003.07": { "kind": "capability-pending", "capabilities": ["intake.reference-files"] },
+        "AT-003.09": { "kind": "capability-pending", "capabilities": ["intake.reference-files"] },
+        "AT-003.10": { "kind": "capability-pending", "capabilities": ["intake.tier2-disclosure"] },
+        "AT-003.11": { "kind": "capability-pending", "capabilities": ["intake.submission"] },
+        "AT-003.12": { "kind": "capability-pending", "capabilities": ["intake.submission"] },
+        "AT-003.14": { "kind": "capability-pending", "capabilities": ["intake.snapshot"] },
+        "AT-003.16": { "kind": "capability-pending", "capabilities": ["intake.snapshot"] }
+      }
+    }
+  }
+}

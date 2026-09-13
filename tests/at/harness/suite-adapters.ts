@@ -108,6 +108,7 @@ type CheckedAdapterModules<M extends { [R in keyof M & string]: AdapterModuleFor
 export type AdapterModules = CheckedAdapterModules<{
   'req-001': typeof import('../suites/req-001/_fixture.ts');
   'req-002': typeof import('../suites/req-002/_fixture.ts');
+  'req-003': typeof import('../suites/req-003/_fixture.ts');
   'req-016': typeof import('../suites/req-016/_fixture.ts');
 }>;
 

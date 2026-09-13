@@ -922,6 +922,13 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       const asAttempt = async (outcome: { ok: true } | WriteRefusal): Promise<WriteAttemptOutcome> =>
         outcome.ok ? { ok: true } : outcome;
       const attempts: Record<WriteRouteName, () => Promise<WriteAttemptOutcome>> = {
+        'project-need': async () => {
+          if (subject.route !== 'project-need') throw new Error('unreachable');
+          const answer = await postWrite('project-need', session, {
+            organizationId: subject.organizationId, action: subject.action, title: subject.title,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
         'complete-signup': async () => {
           if (subject.route !== 'complete-signup') throw new Error('unreachable');
           if (session === null) {

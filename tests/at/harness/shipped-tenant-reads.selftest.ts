@@ -65,6 +65,7 @@ const PRESENT: TenantReads = {
 };
 
 const SOURCE: PublicProjectSource = {
+  need_stage: null,
   project_id: PROJECT_A,
   project_name: 'Website',
   organization_name: 'Riverside Shelter',
@@ -130,9 +131,10 @@ describe('publicProjectAnswer', () => {
     const missing = await publicProjectAnswer(ABSENT, { source: async () => ({ ok: true, rows: [] }) });
     expect(missing).toBe(PROJECT_NOT_PUBLIC);
     expect(projectIsPublic(SOURCE)).toBe(true);
-    // The predicate is true for every row today, so a present source cannot take the false arm.
-    // The shipped function still has one `return PROJECT_NOT_PUBLIC` for both conditions; the
-    // constant compared here is that return value.
+    const draft = await publicProjectAnswer(PROJECT_A, {
+      source: async () => ({ ok: true, rows: [{ ...SOURCE, need_stage: 'draft' }] }),
+    });
+    expect(draft).toBe(PROJECT_NOT_PUBLIC);
     expect(JSON.stringify(missing)).toBe(JSON.stringify(PROJECT_NOT_PUBLIC));
   });
 
