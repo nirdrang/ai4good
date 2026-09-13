@@ -57,7 +57,6 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
 
   const sut: NeedsSut = {
     provisionNgo: async (email, options) => {
-      // Provision through the existing adapter; take a second session before clearing email confirmation.
       const ngo = await inner.sut.organizations.provisionNgo(email, { emailVerified: true });
       const session = await signIn(email);
       allowanceSessions.set(session.sessionId, ngo.session);
