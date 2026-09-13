@@ -1,7 +1,6 @@
 import { CapabilityPending } from './_bind.ts';
 
 export const AWAITED = {
-  tier2Disclosure: 'intake.tier2-disclosure',
   submission: 'intake.submission',
   snapshot: 'intake.snapshot',
   referenceUpload: 'storage.reference-upload',

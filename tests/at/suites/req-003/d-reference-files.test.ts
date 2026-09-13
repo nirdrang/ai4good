@@ -67,5 +67,44 @@ describe('need reference files', () => {
     integration: awaiting(AWAITED.uploadSurface),
   });
 
-  atTest('AT-003.10', 'classification hardens the disclosure before another upload', { surface: 'ui' }, awaiting(AWAITED.tier2Disclosure));
+  atTest('AT-003.10', 'classification hardens the disclosure before another upload', { surface: 'ui' }, {
+    default: async ({ open }) => {
+      const { w, sut } = await open();
+      const ngo = await sut.provisionNgo(w.email('ngo-tier2-disclosure'), { emailVerified: true });
+      const started = await sut.startNeed(ngo.session, { organizationId: ngo.organizationId, title: 'Grant deadline tracker' });
+      expect(started.ok).toBe(true);
+      if (!started.ok) return;
+      const request = { organizationId: ngo.organizationId, projectId: started.need.projectId };
+      const attached = await sut.attachReferenceFile(ngo.session, {
+        ...request, file: { fileName: 'grants-tracker.csv', mediaType: 'text/csv', byteSize: 4096 },
+      });
+      expect(attached).toMatchObject({ ok: true, changed: true });
+      if (!attached.ok) return;
+      expect(attached.need.referenceFiles).toHaveLength(1);
+      expect(attached.need.upload.disclosure.level).toBe('base');
+      await sut.classifyTier2AsOperator(request.projectId);
+      const read = await sut.readNeed(ngo.session, request.projectId);
+      expect(read.ok).toBe(true);
+      if (!read.ok) return;
+      const disclosure = {
+        level: 'tier2-hardened', acknowledgmentRequired: true,
+        heading: REFERENCE_FILE_DISCLOSURE.tier2Hardened.heading,
+        body: REFERENCE_FILE_DISCLOSURE.tier2Hardened.body,
+        acknowledgment: REFERENCE_FILE_DISCLOSURE.tier2Hardened.acknowledgment,
+      };
+      expect(read.value.need.upload.disclosure).toEqual(disclosure);
+      expect(read.value.need.tier2ClassifiedAt).not.toBeNull();
+      const second = await sut.attachReferenceFile(ngo.session, {
+        ...request, file: { fileName: 'blank-form.txt', mediaType: 'text/plain', byteSize: 256 },
+      });
+      expect(second).toMatchObject({ ok: true, changed: true });
+      if (!second.ok) return;
+      expect(second.need.upload.disclosure).toEqual(disclosure);
+      expect(second.need.referenceFiles).toHaveLength(2);
+      expect(second.need.referenceFiles[0]).toEqual(attached.need.referenceFiles[0]);
+      expect(second.need.tier2ClassifiedAt).toEqual(read.value.need.tier2ClassifiedAt);
+      expect(await sut.needRow(request.projectId)).toEqual(second.need);
+    },
+    integration: awaiting(AWAITED.uploadSurface),
+  });
 });

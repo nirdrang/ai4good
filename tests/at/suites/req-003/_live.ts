@@ -124,7 +124,11 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         return { ok: false, kind: parseWriteRefusalKind(carrier.detail ?? carrier.cause?.detail), reason: carrier.message ?? String(error) };
       }
     },
-    classifyTier2AsOperator: notLanded(5),
+    classifyTier2AsOperator: async (projectId) => {
+      const rows = await sql`update public.need_intakes set tier2_classified_at = coalesce(tier2_classified_at, now())
+        where project_id = ${projectId}::uuid returning project_id` as { project_id: string }[];
+      if (rows.length === 0) throw new Error('no such need to classify');
+    },
     intakeSnapshots: notLanded(7),
   };
   return {

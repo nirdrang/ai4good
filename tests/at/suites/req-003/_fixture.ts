@@ -161,7 +161,12 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       if (!result.ok) return result;
       return { ok: true };
     },
-    classifyTier2AsOperator: notLanded(5),
+    classifyTier2AsOperator: async (projectId) => {
+      const need = needs.get(projectId);
+      if (need === undefined) throw new Error('no such need to classify');
+      need.tier2ClassifiedAt ??= new Date(opts.clock.now()).toISOString();
+      need.upload.disclosure = disclosureFor(need.tier2ClassifiedAt);
+    },
     intakeSnapshots: notLanded(7),
   };
   return {
