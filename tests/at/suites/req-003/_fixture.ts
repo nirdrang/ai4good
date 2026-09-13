@@ -1,12 +1,12 @@
 import {
-  decideProjectNeed, disclosureFor, needIntakeAnswer, type NeedIntakeSqlRow, type ProjectNeedArgs, type StartPayload,
+  applyNeedPatch, submitGate, submitTransition, decideProjectNeed, disclosureFor, needIntakeAnswer, type NeedIntakeSqlRow, type ProjectNeedArgs, type StartPayload,
 } from '../../../../supabase/functions/_shared/need-intake.ts';
 import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
 import {
-  organizationIdField, parseWriteStanding, writePipeline, type AccountWriteRouteInput, type WriteRouteSpec,
+  organizationIdField, parseWriteStanding, writePipeline, type AccountWriteRouteInput, type WriteRouteSpec, type WriteRefusalKind,
 } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { createFixtureAdapter as createOrganizationsFixtureAdapter } from '../req-002/_fixture.ts';
-import type { NeedIntakeView, NeedsSut, NeedWriteOutcome, Session } from './_contract.ts';
+import type { NeedIntakeView, NeedPatch, NeedsSut, NeedWriteOutcome, ProjectNeedRequest, Session } from './_contract.ts';
 
 export const requirement = 'req-003' as const;
 const SPEC: WriteRouteSpec<ProjectNeedArgs, AccountWriteRouteInput> = {
@@ -18,10 +18,11 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
   const inner = createOrganizationsFixtureAdapter(opts);
   const organizations = inner.sut.organizations;
   const actors = new Map<string, Actor>();
+  const emailActors = new Map<string, Actor>();
   const needs = new Map<string, NeedIntakeView>();
   const notLanded = (unit: number) => async (): Promise<never> => { throw new Error(`not landed: unit ${unit}`); };
 
-  const start = (args: ProjectNeedArgs): NeedWriteOutcome => {
+  const start = (args: ProjectNeedArgs): Extract<NeedWriteOutcome, { ok: true }> => {
     const payload = args.p_payload as StartPayload;
     const need: NeedIntakeView = {
       projectId: crypto.randomUUID(), organizationId: args.p_organization_id,
@@ -33,10 +34,50 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
     return { ok: true, changed: true, need: structuredClone(need) };
   };
 
+  const commit = (args: ProjectNeedArgs): NeedWriteOutcome & ({ ok: true } | { ok: false; kind: WriteRefusalKind }) => {
+    if (args.p_action === 'start') return start(args);
+    const need = needs.get(args.p_project_id!);
+    if (need === undefined || need.organizationId !== args.p_organization_id) {
+      return { ok: false, kind: 'no-such-need', status: 409, reason: 'no such need in this organisation' };
+    }
+    if (args.p_action === 'save') {
+      const result = applyNeedPatch(need, args.p_payload as NeedPatch);
+      needs.set(need.projectId, structuredClone(result.need));
+      return { ok: true, ...structuredClone(result) };
+    }
+    if (args.p_action === 'submit') {
+      if (need.stage === 'discovery_in_progress') return { ok: true, changed: false, need: structuredClone(need) };
+      const gate = submitGate(need);
+      if (!gate.ok) return { ...gate, status: 409 };
+      const transition = submitTransition(need.stage);
+      const submitted = { ...need, stage: transition.next, submittedAt: new Date(opts.clock.now()).toISOString() };
+      needs.set(need.projectId, submitted);
+      return { ok: true, changed: transition.changed, need: structuredClone(submitted) };
+    }
+    return { ok: false, kind: 'invalid-request', status: 409, reason: 'unsupported action' };
+  };
+  const write = async (session: Session | null, request: ProjectNeedRequest): Promise<NeedWriteOutcome> => {
+    const actor = session === null ? undefined : actors.get(session.sessionId);
+    if (actor === undefined || actor.accountId !== session?.accountId) {
+      return { ok: false, kind: 'unauthenticated', status: 401, reason: 'authenticate before starting a need' };
+    }
+    const standing = parseWriteStanding({
+      account: { account_type: actor.accountType, lifecycle: 'active' },
+      org_exists: (await organizations.profile(request.organizationId)) !== null,
+      org_role: actor.roles.get(request.organizationId) ?? null, org_seat_account_id: null, subject: null,
+    });
+    const decision = writePipeline(SPEC, {
+      caller: { id: actor.accountId, githubHandle: null }, standing, body: request,
+      target: request.organizationId, subject: null, ip: null,
+    });
+    return decision.ok ? commit(decision.args) : decision;
+  };
+
   const sut: NeedsSut = {
     provisionNgo: async (email, options) => {
       const ngo = await organizations.provisionNgo(email, options);
       actors.set(ngo.session.sessionId, { accountId: ngo.accountId, accountType: 'ngo', roles: new Map([[ngo.organizationId, 'admin']]) });
+      emailActors.set(email, actors.get(ngo.session.sessionId)!);
       return ngo;
     },
     provisionVolunteer: async (email) => {
@@ -44,7 +85,13 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       actors.set(session.sessionId, { accountId: session.accountId, accountType: 'volunteer', roles: new Map() });
       return session;
     },
-    signInAgain: notLanded(2),
+    signInAgain: async (email) => {
+      const actor = emailActors.get(email);
+      if (actor === undefined) throw new Error('no account for this email');
+      const session = { accountId: actor.accountId, email, sessionId: crypto.randomUUID() };
+      actors.set(session.sessionId, actor);
+      return session;
+    },
     setMembershipRoleAsOperator: async (organizationId, accountId, role) => {
       await organizations.setMembershipRoleAsOperator(organizationId, accountId, role);
       for (const actor of actors.values()) {
@@ -52,25 +99,10 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       }
     },
     readAllowance: (session, organizationId) => organizations.readAllowance(session, organizationId),
-    startNeed: async (session, request) => {
-      const actor = session === null ? undefined : actors.get(session.sessionId);
-      if (actor === undefined || actor.accountId !== session?.accountId) {
-        return { ok: false, kind: 'unauthenticated', status: 401, reason: 'authenticate before starting a need' };
-      }
-      const standing = parseWriteStanding({
-        account: { account_type: actor.accountType, lifecycle: 'active' },
-        org_exists: (await organizations.profile(request.organizationId)) !== null,
-        org_role: actor.roles.get(request.organizationId) ?? null, org_seat_account_id: null, subject: null,
-      });
-      const decision = writePipeline(SPEC, {
-        caller: { id: actor.accountId, githubHandle: null }, standing, body: { ...request, action: 'start' },
-        target: request.organizationId, subject: null, ip: null,
-      });
-      return decision.ok ? start(decision.args) : decision;
-    },
-    saveNeed: notLanded(2),
+    startNeed: (session, request) => write(session, { ...request, action: 'start' }),
+    saveNeed: (session, request) => write(session, { ...request, action: 'save' }),
     attachReferenceFile: notLanded(4),
-    submitNeed: notLanded(2),
+    submitNeed: (session, request) => write(session, { ...request, action: 'submit' }),
     readNeed: async (session: Session | null, projectId) => {
       const actor = session === null ? undefined : actors.get(session.sessionId);
       if (actor === undefined || actor.accountId !== session?.accountId) {
@@ -101,10 +133,21 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       const role = actor?.roles.get(request.organizationId);
       if (role === undefined) return { ok: false, kind: 'not-a-member', reason: 'the caller holds no membership in this organisation' };
       if (role !== 'admin') return { ok: false, kind: 'not-an-admin', reason: 'only the admin of this organisation may start a need' };
-      if (request.action !== 'start') return { ok: false, kind: 'invalid-request', reason: 'a need write requires the start action' };
-      if (typeof request.title !== 'string' || request.title.trim() === '') return { ok: false, kind: 'invalid-name', reason: 'a need requires a non-empty title' };
-      start({ p_account_id: accountId, p_organization_id: request.organizationId, p_action: 'start', p_project_id: null,
-        p_payload: { title: request.title.trim(), description: request.description?.trim() || null, urgency: request.urgency ?? null } });
+      if (request.action !== 'start') {
+        const need = needs.get(request.projectId);
+        if (need === undefined || need.organizationId !== request.organizationId) {
+          return { ok: false, kind: 'no-such-need', reason: 'no such need in this organisation' };
+        }
+      }
+      const decision = decideProjectNeed({
+        caller: { id: accountId, githubHandle: null },
+        standing: { kind: 'account', accountType: actor!.accountType, lifecycle: 'active', orgRole: role,
+          orgExists: true, orgSeatAccountId: null, subject: null },
+        body: request, target: request.organizationId, subject: null, ip: null,
+      });
+      if (!decision.ok) return decision;
+      const result = commit(decision.args);
+      if (!result.ok) return result;
       return { ok: true };
     },
     classifyTier2AsOperator: notLanded(5),
@@ -112,7 +155,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
   };
   return {
     sut: { needs: sut }, fixtures: inner.fixtures,
-    teardown: async () => { await inner.teardown(); actors.clear(); needs.clear(); },
+    teardown: async () => { await inner.teardown(); actors.clear(); emailActors.clear(); needs.clear(); },
   };
 }
 

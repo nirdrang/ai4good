@@ -81,7 +81,7 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
       if (answer.status >= 400 || answer.json.ok !== true) throw new Error(`volunteer completion answered ${answer.status}`);
       return session;
     },
-    signInAgain: notLanded(2),
+    signInAgain: signIn,
     setMembershipRoleAsOperator: (organizationId, accountId, role) =>
       inner.sut.organizations.setMembershipRoleAsOperator(organizationId, accountId, role),
     readAllowance: (session, organizationId) => {
@@ -91,9 +91,9 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
       return inner.sut.organizations.readAllowance(held, organizationId);
     },
     startNeed: (session, request) => postNeed(session, { ...request, action: 'start' }),
-    saveNeed: notLanded(2),
+    saveNeed: (session, request) => postNeed(session, { ...request, action: 'save' }),
     attachReferenceFile: notLanded(4),
-    submitNeed: notLanded(2),
+    submitNeed: (session, request) => postNeed(session, { ...request, action: 'submit' }),
     readNeed: async (session, projectId): Promise<TenantReadOutcome<{ ok: true; need: NeedIntakeView }>> => {
       const raw = await functionPostRaw(stack, 'need-intake', { projectId }, bearerOf(session));
       const answer = { status: raw.status, body: raw.text };

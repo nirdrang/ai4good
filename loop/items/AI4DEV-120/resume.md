@@ -9,12 +9,13 @@ the four-lane design arena, the blinded judge and the synthesis are finished and
 `33f286d`. The design of record is `design/SYNTHESIS.md`; it wins over anything that disagrees
 with it, and it names `design/candidate-2-project-row.md` as its base.
 
-**Units done: unit 1.**
+**Units done: units 1 and 2.**
 
 | what | commit | acceptance ids green |
 |---|---|---|
 | grounding, arena, synthesis | `33f286d` | none, by design |
 | unit 1, the need row and the capture ids | `4db553b` | AT-003.01, .02, .04 at both tiers |
+| unit 2, save and submit helpers, the description gate, autosave | `e87ad7c` | AT-003.03, .05 added; five at both tiers |
 
 Item branch `nirdrang/ai4dev-120-intake-form-and-draft-autosave-d1`. The brief commit is
 `eb246d1` and carries the sheet change (the writer row runs astra at low). The lane worktree is
@@ -23,11 +24,15 @@ Item branch `nirdrang/ai4dev-120-intake-form-and-draft-autosave-d1`. The brief c
 
 ## The first action on resume
 
-Unit 2 is next: write `units/unit2.md` (the save and submit helpers, the description gate, autosave;
-ids 03 and 05), dispatch the feature lane at `codex:gpt-6-astra@low`, then the per-unit loop below.
-Open carry from unit 1: `project_need` stores the description trimmed (`nullif(btrim(...), '')`);
-unit 2's save helper stores the text as typed and uses btrim only to decide blankness. Apply the same
-to `start` in unit 2's migration.
+Unit 3 is next: write `units/unit3.md` (zero cause labels on a fresh draft; id 17; test only, no
+migration, the column and its check landed in unit 1), dispatch the feature lane at
+`codex:gpt-6-astra@low`, then the per-unit loop below. Unit 3 is small: `c-labels.test.ts` gets a
+real body (read through `readNeed` and `needRow`, both `causeLabels` equal `[]`; the operator
+attempt to set labels on a draft fails on the check constraint at integration), `_pending.ts`
+drops `labels`, the manifest flips 17 green at both tiers. The description-as-typed carry from
+unit 1 is closed: unit 2 applied it to `start` and `save`. One note carried, not a task:
+`applyNeedPatch` stamps `updatedAt` with `new Date()` inside the shipped helper rather than a
+clock argument; the fixture's own `start` uses the harness clock. Harmless for the ids.
 
 ## The per-unit loop
 
@@ -39,7 +44,14 @@ to `start` in unit 2's migration.
    7 are the feature lane, `codex:gpt-6-astra@low`. The output path is `reports/unitN.md`.
 4. Review the diff yourself. Run every check yourself as a background command writing to a file;
    read back the exit code and the counts. The writer's sandbox cannot run vitest (measured; see
-   Gotchas), so it never ran the suite.
+   Gotchas), so it never ran the suite. The runner is the scratchpad's `run-checks.ps1` (`-Lane
+   -Out -Checks`); it writes `<check>.log` and `summary.txt` under `reports/checks-unitN` and
+   `reports/checks-unitN-integration`. If the scratchpad is gone, it is twenty lines: for each
+   check, `cmd /c "bun run <check> > <log> 2>&1"` from the lane, then the exit code and the last
+   four result lines into the summary.
+   The unit brief is written in the item worktree and copied into the lane before dispatch; the
+   lane's commit carries it, so delete the item copy before the ff-merge (git refuses to
+   overwrite an untracked file).
 5. Commit in the lane worktree citing the item, then `git merge --ff-only lane/ai4dev-120` in the
    item worktree.
 6. Rewrite this file. Open the compaction gate with the `AskUserQuestion` tool (founder

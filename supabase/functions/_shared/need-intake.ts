@@ -76,6 +76,19 @@ export function decideProjectNeed(input: AccountWriteRouteInput): WriteRouteDeci
   const allowed = orgAdminActionAllowed(input.standing.orgRole);
   if (!allowed.ok) return refuseWrite(allowed.kind, 403, allowed.reason);
   const body = input.body;
+  if (body.action === 'save' || body.action === 'submit') {
+    const keys = body.action === 'save' ? ['organizationId', 'action', 'projectId', 'patch'] : ['organizationId', 'action', 'projectId'];
+    const projectId = stringField(body.projectId);
+    if (projectId === null || Object.keys(body).some((key) => !keys.includes(key))) {
+      return refuseWrite('invalid-request', 400, 'a need write requires a project id and known fields');
+    }
+    const patch = body.action === 'save' ? parseNeedPatch(body.patch) : { ok: true as const, args: {} };
+    if (!patch.ok) return patch;
+    return { ok: true, args: {
+      p_account_id: input.caller.id, p_organization_id: input.target, p_action: body.action,
+      p_project_id: projectId, p_payload: patch.args,
+    } };
+  }
   if (body.action !== 'start') return refuseWrite('invalid-request', 400, 'a need write requires the start action');
   if (Object.keys(body).some((key) => !['organizationId', 'action', 'title', 'description', 'urgency'].includes(key))) {
     return refuseWrite('invalid-request', 400, 'a need write contains an unknown intake field');
@@ -91,7 +104,7 @@ export function decideProjectNeed(input: AccountWriteRouteInput): WriteRouteDeci
   }
   return { ok: true, args: {
     p_account_id: input.caller.id, p_organization_id: input.target, p_action: 'start', p_project_id: null,
-    p_payload: { title, description: stringField(body.description), urgency: urgency as NeedUrgency | null },
+    p_payload: { title, description: descriptionField(body.description), urgency: urgency as NeedUrgency | null },
   } };
 }
 
@@ -100,14 +113,43 @@ export function renderProjectNeed(value: unknown): { changed: boolean; need: Nee
   return { changed: value.changed === true, need: isRecord(value.need) ? needViewFromSql(value.need as NeedIntakeSqlRow) : null };
 }
 
-export function submitGate(_need: Pick<NeedIntakeView, 'description'>): { ok: true } | { ok: false; kind: 'missing-description'; reason: string } {
-  throw new Error('not landed: unit 2');
+function descriptionField(value: unknown): string | null {
+  return typeof value === 'string' && /[^ \t\r\n\f\u00a0]/.test(value) ? value : null;
+}
+
+function parseNeedPatch(value: unknown): WriteRouteDecision<NeedPatch> {
+  if (!isRecord(value) || Object.keys(value).some((key) => !['title', 'description', 'urgency'].includes(key)) ||
+      ('title' in value && typeof value.title !== 'string') ||
+      ('description' in value && value.description !== null && typeof value.description !== 'string') ||
+      ('urgency' in value && value.urgency !== null &&
+        (typeof value.urgency !== 'string' || !(NEED_URGENCIES as readonly string[]).includes(value.urgency)))) {
+    return refuseWrite('invalid-request', 400, 'a need patch requires known fields with valid types');
+  }
+  const patch: NeedPatch = {};
+  if ('title' in value) {
+    const title = stringField(value.title);
+    if (title === null) return refuseWrite('invalid-name', 400, 'a need requires a non-empty title');
+    patch.title = title;
+  }
+  if ('description' in value) patch.description = descriptionField(value.description);
+  if ('urgency' in value) patch.urgency = value.urgency as NeedUrgency | null;
+  return { ok: true, args: patch };
+}
+
+export function submitGate(need: Pick<NeedIntakeView, 'description'>): { ok: true } | { ok: false; kind: 'missing-description'; reason: string } {
+  return descriptionField(need.description) === null
+    ? { ok: false, kind: 'missing-description', reason: 'the problem description is missing' }
+    : { ok: true };
 }
 export function submitTransition(_stage: NeedStage): { next: 'discovery_in_progress'; changed: boolean } {
   throw new Error('not landed: unit 6');
 }
-export function applyNeedPatch(_need: NeedIntakeView, _patch: NeedPatch): { need: NeedIntakeView; changed: boolean } {
-  throw new Error('not landed: unit 2');
+export function applyNeedPatch(need: NeedIntakeView, patch: NeedPatch): { need: NeedIntakeView; changed: boolean } {
+  const parsed = parseNeedPatch(patch);
+  if (!parsed.ok) throw new Error(parsed.kind);
+  const next = { ...need, ...parsed.args };
+  const changed = next.title !== need.title || next.description !== need.description || next.urgency !== need.urgency;
+  return { need: changed ? { ...next, updatedAt: new Date().toISOString() } : need, changed };
 }
 export type IntakeSnapshot = {
   project_id: string; org_id: string; title: string; description: string | null; urgency: NeedUrgency | null;
