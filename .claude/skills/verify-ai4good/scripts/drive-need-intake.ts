@@ -1,5 +1,5 @@
 /**
- * verify-ai4good — the project need intake drive for AI4DEV-120.
+ * verify-ai4good — the need intake drive.
  *
  *   bun .claude/skills/verify-ai4good/scripts/drive-need-intake.ts [outDir]
  *

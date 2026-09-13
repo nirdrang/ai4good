@@ -1,5 +1,5 @@
 /**
- * verify-ai4good — the vetting drive for AI4DEV-102.
+ * verify-ai4good — the vetting drive.
  *
  *   bun .claude/skills/verify-ai4good/scripts/drive-vetting.ts [outDir]
  *
@@ -318,7 +318,7 @@ let vetNotificationEventId = '';
       contactTitle: 'Executive Director',
       authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
       evidenceType: 'public_registry',
-      note: 'Verified against the public registry entry during the AI4DEV-102 live drive.',
+      note: 'Verified against the public registry entry; recorded during the live drive.',
     },
     adminAccessToken,
   );
@@ -373,7 +373,7 @@ let unvetNotificationEventId = '';
   const r = await functionPost(
     stack,
     'set-organization-vetting',
-    { organizationId, action: 'unvet', note: 'Registry entry expired; unvetting during the AI4DEV-102 live drive.' },
+    { organizationId, action: 'unvet', note: 'Registry entry expired; unvetting recorded during the live drive.' },
     adminAccessToken,
   );
   recordHttp('set-organization-vetting-unvet', 'POST', r.url, r.status, r.json);
