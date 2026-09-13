@@ -8,10 +8,17 @@ description: Drive the real ai4good surface on the local Supabase stack (auth, e
 The user-facing surface today is the API, not a screen. `src/routes/index.tsx` renders a
 placeholder heading only. A user touches: Supabase Auth (email and password signup with
 mandatory email confirmation; Google and GitHub OAuth are configured, but consent is a human
-browser step no agent performs), three edge functions (`complete-signup`,
-`create-organization`, `update-organization`), and the Postgres rows they write. Verification
-drives HTTP and reads the database. The acceptance suite (`bun run at:verify`) is a separate,
-loop-tier thing; it does not replace a live drive and a live drive does not replace it.
+browser step no agent performs), fourteen edge functions under `supabase/functions/`, and the
+Postgres rows they write. The functions fall into five groups: signup and organisations
+(`complete-signup`, `create-organization`, `update-organization`, `set-organization-profile`),
+tenant reads (`organization-dashboard`, `project-workspace`, `public-project`), platform-admin
+operations (`transfer-organization-contact`, `set-escalation-contact`, `set-account-lifecycle`,
+`set-organization-vetting`), the Discovery allowance (`discovery-allowance`), and the project
+need intake (`need-intake`, `project-need`). The registry in
+`supabase/functions/_shared/write-routes.ts` is the authority for which account types each
+write route admits. Verification drives HTTP and reads the database. The acceptance suite
+(`bun run at:verify`) is a separate, loop-tier thing; it does not replace a live drive and a
+live drive does not replace it.
 
 **One stack per machine.** The stack on the 44321 block is THE stack, the one
 `supabase/config.toml` describes; the slot pool is parked (founder, 2026-08-29 and 2026-09-01).
@@ -68,9 +75,12 @@ are corpses of the deleted slot pool, not this stack; ignore them, never drive t
 
 ## Drive
 
-The helpers live in [`tests/at/harness/live-stack.ts`](../../../tests/at/harness/live-stack.ts).
-The acceptance suite's integration adapter uses the same module. Keys come from
-`stackFromLocalStatus` at run time — never hardcode or commit them.
+The HTTP and mail helpers live in
+[`tests/at/harness/live-stack.ts`](../../../tests/at/harness/live-stack.ts); the stack
+coordinates come from `stackFromLocalStatus` in
+[`tests/at/harness/local-stack.ts`](../../../tests/at/harness/local-stack.ts), read from
+`bunx supabase status -o json` at run time — never hardcode or commit them. The acceptance
+suite's integration adapter uses the same modules.
 
 **NEVER PASTE `db:start` OUTPUT INTO A COMMITTED FILE.** `bunx supabase start` prints every key
 of the local stack, including `SECRET_KEY` (`sb_secret_...`) and `JWT_SECRET`. They are the
@@ -82,14 +92,17 @@ the migration count, and `GET /auth/v1/health` answering 200. A report or transc
 name a key writes `sb_secret_REDACTED`. The same string already sits on `main` in three earlier
 items, so the block fires on new occurrences only.
 
-The shipped helper drives the primary path end to end (NGO email signup through database
-readback):
+Four shipped drives cover the map between them; run them from the repo root, one at a time,
+each with an optional evidence directory as its only argument:
 
 ```
-bun .claude/skills/verify-ai4good/scripts/drive-ngo-signup.ts [outDir]
+bun .claude/skills/verify-ai4good/scripts/drive-ngo-signup.ts [outDir]       # signup, confirmation, NGO completion
+bun .claude/skills/verify-ai4good/scripts/drive-vetting.ts [outDir]          # profile, allowance, admin vetting, unvet
+bun .claude/skills/verify-ai4good/scripts/drive-need-intake.ts [outDir]      # need start, save, attach, submit, snapshot
+bun .claude/skills/verify-ai4good/scripts/drive-access-and-admin.ts [outDir] # volunteer gate, organisations, tenant reads, admin operations
 ```
 
-The recipe it implements, for custom drives. `live-stack.ts` sends this protocol:
+The recipe the first one implements, for custom drives. `live-stack.ts` sends this protocol:
 
 1. `POST {API}/auth/v1/signup` with `{email, password}`. Every Auth post sends
    `Authorization: Bearer <ANON_KEY>` and `apikey: <ANON_KEY>`. Confirmations are ON:
@@ -110,8 +123,12 @@ The recipe it implements, for custom drives. `live-stack.ts` sends this protocol
 6. Read the rows back directly from Postgres over `DB_URL` (from the status JSON), with
    Bun's `SQL` or `psql`. Do NOT read them over REST with the service-role key: the
    migrations grant `service_role` SELECT on some tables only, and `organizations` and
-   `acknowledgments` answer 403 (measured 2026-08-31). Tables: `accounts`, `organizations`,
-   `org_memberships`, `acknowledgments`, `volunteer_profiles`, `projects`.
+   `acknowledgments` answer 403 (measured 2026-08-31), and `audit_events` has every grant
+   revoked from every key. Tables: `accounts`, `organizations`, `org_memberships`,
+   `acknowledgments`, `volunteer_profiles`, `projects`, `audit_events`,
+   `org_escalation_contacts`, `org_vetting`, `discovery_spend`, `need_intakes`,
+   `notification_events`, `notification_deliveries`. The audit table is append-only by
+   trigger: an update, delete or truncate raises SQLSTATE 42501.
 
 Per-feature recipes and refusal cases are in [`features/`](features/README.md).
 
@@ -121,7 +138,15 @@ Default location: `loop/verify-evidence/<yyyyMMdd-HHmmss>/transcript.json` (the 
 it; pass `outDir` to redirect, e.g. into `loop/items/<item>/artifacts/`). Standards:
 
 - Exercise the real user path. No admin-API user minting, no `--no-verify-jwt`, no direct DB
-  writes to set up what the surface can produce itself.
+  writes to set up what the surface can produce itself. Two states have no product path and
+  are set up by the operator, and the transcript says so where it happens: a platform
+  administrator (`complete-signup` refuses the type by design and no seed exists, so the
+  account row is `insert into public.accounts (id, account_type) values (<auth user id>,
+  'platform_admin')` over `DB_URL`; the auth user itself may come from product signup or the
+  admin users API), and a project with no need row (needed to reach the public project page,
+  since every product-created project starts with a draft need). Volunteer seating on a
+  project is operator SQL too, and a linked GitHub identity cannot be produced at all, so the
+  volunteer happy path stays unproved live.
 - Capture the action AND the resulting state: the HTTP request/response pair and the rows
   read back, not just a final 200.
 - REDACT before writing. Any value under a credential-shaped key (`token|secret|password|
@@ -137,6 +162,22 @@ this stack. Evidence is never cleanup's to delete — `loop/verify-evidence/` su
 
 ## Helpers
 
-- [`scripts/drive-ngo-signup.ts`](scripts/drive-ngo-signup.ts) — the end-to-end NGO drive
-  above; run with `bun`, optional first argument is the evidence directory. Exit 0 with every
-  check PASS, exit 1 otherwise; the transcript is written either way.
+All four run with `bun` from the repo root. The optional first argument is the evidence
+directory, resolved against the repo root. Exit 0 with every check PASS, exit 1 otherwise; the
+redacted `transcript.json` is written either way. Each one runs the Doctor checks first and
+stops with exit 1 when the stack is down, the mail catcher is unreachable, or the edge runtime
+mounts another checkout. Check (a3) shells out to `docker inspect`, so the Docker CLI must be
+on PATH.
+
+- [`scripts/drive-ngo-signup.ts`](scripts/drive-ngo-signup.ts) — email signup, the
+  confirmation link, sign-in, `complete-signup` as an NGO, and the four product rows read back.
+- [`scripts/drive-vetting.ts`](scripts/drive-vetting.ts) — past NGO signup: the five-field
+  profile, an allowance read and debit, a platform administrator (admin users API plus the
+  operator insert), vet, the vetted grant, unvet, and three refusals.
+- [`scripts/drive-need-intake.ts`](scripts/drive-need-intake.ts) — the need's start, save,
+  attach, Tier-2 classification, submit, the audit snapshot, and the public page's 404 for a
+  need in progress.
+- [`scripts/drive-access-and-admin.ts`](scripts/drive-access-and-admin.ts) — the volunteer
+  GitHub gate refusals, create and update organisation with their refusals, the three tenant
+  reads including the byte-identical 404s and the token-free public page, the catalog posture,
+  and the three admin operations with their audit rows and the append-only proof.
