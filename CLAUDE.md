@@ -104,6 +104,10 @@ Three rules bind every session in this folder, before any skill is invoked:
   steering is `/controller done` (founder 2026-08-29: "Lead closes but linear steering is
   the controller work"). **The lead merges only when BOTH hold: CI is green on the exact
   head, and the founder said "merge". Never on one alone** (founder 2026-08-31).
+- **Every unit boundary in a parent run is a gate the founder answers through the
+  `AskUserQuestion` tool, never through prose** (founder 2026-09-13: "I want you to update
+  this gate to use the askuserquestion tool"). The brief template in the controller skill
+  carries the question's shape.
 
 **Acceptance tests.** The AT ids in `.taskmaster/docs/acceptance/`, the `at:check` bijection,
 and the `--expect` manifests under `tests/at/expected/` stay. A new acceptance id registers

@@ -176,6 +176,12 @@ with five lines and the path. Read the file only when the summary names a deviat
 blocker, or a red.
 A unit goes to the hardest-tasks lane only when the writer must still design something. A
 unit that applies a fixed contract goes to the feature lane. Say which in the decision trail.
+At every unit boundary, after the unit's commit is on the branch and the resume note is
+rewritten, stop at a gate opened with the `AskUserQuestion` tool, never as prose (founder
+2026-09-13: "I want you to update this gate to use the askuserquestion tool"). One question
+whose options are continue or compact, with what the unit landed, its commit, and the
+remaining context budget in the question text; a second question for any decision the next
+unit needs from the founder. The founder's answer starts the next unit.
 The comment audit before review runs on the mechanical model with the comment-sicko prompt,
 never on your own model.
 Do not name any other item's id in the pull request title or body.
