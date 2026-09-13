@@ -1,0 +1,1011 @@
+{
+  "ranAt": "2026-09-13T13:32:22.205Z",
+  "ngoEmail": "verify-need-1789306340629@example.com",
+  "secondNgoEmail": "verify-need-second-1789306340629@example.com",
+  "orgName": "Verify Need Intake Org 1789306340629",
+  "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+  "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+  "checks": [
+    {
+      "id": "a",
+      "title": "auth health answers",
+      "outcome": "pass",
+      "note": "GET /auth/v1/health -> 200"
+    },
+    {
+      "id": "a2",
+      "title": "mail identification",
+      "outcome": "pass",
+      "note": "Mailpit v1.30.2 at http://127.0.0.1:44324"
+    },
+    {
+      "id": "a3",
+      "title": "edge runtime mount",
+      "outcome": "pass",
+      "note": "edge runtime functions mount /run/desktop/mnt/host/c/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-120-unit0/supabase/functions"
+    },
+    {
+      "id": "setup",
+      "title": "NGO admin signed up, confirmed and completed",
+      "outcome": "pass",
+      "note": "organizationId 4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a"
+    },
+    {
+      "id": "n1",
+      "title": "project-need start answers a fresh draft with a base disclosure",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"changed\":true,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":null,\"urgency\":\"soon\",\"stage\":\"draft\",\"causeLabels\":[],\"referenceFiles\":[],\"tier2ClassifiedAt\":null,\"upload\":{\"d"
+    },
+    {
+      "id": "n1-readback",
+      "title": "need_intakes row exists for the new project",
+      "outcome": "pass",
+      "note": "{\"project_id\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"org_id\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"description\":null,\"urgency\":\"soon\",\"stage\":\"draft\",\"cause_labels\":[],\"reference_files\":[],\"tier2_classified_at\":null,\"submitted_at\":null,\"updated_at\":{},\"project_name\":\"Grant deadline tracker\"}"
+    },
+    {
+      "id": "n2",
+      "title": "need-intake read answers the same draft need",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":null,\"urgency\":\"soon\",\"stage\":\"draft\",\"causeLabels\":[],\"referenceFiles\":[],\"tier2ClassifiedAt\":null,\"upload\":{\"disclosure\":{\"le"
+    },
+    {
+      "id": "n3",
+      "title": "public-project answers 404 for a draft need",
+      "outcome": "pass",
+      "note": "status 404: {\"ok\":false,\"reason\":\"no such project page is public\"}"
+    },
+    {
+      "id": "n4",
+      "title": "project-need submit is refused as missing-description",
+      "outcome": "pass",
+      "note": "status 409: {\"ok\":false,\"kind\":\"missing-description\",\"reason\":\"project_need refuses submission of 50b71764-7a1f-460b-aa57-2b01687faf34: the problem description is missing\"}"
+    },
+    {
+      "id": "n4-readback",
+      "title": "need_intakes stage is still draft",
+      "outcome": "pass",
+      "note": "{\"project_id\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"stage\":\"draft\"}"
+    },
+    {
+      "id": "n5",
+      "title": "project-need save keeps the description exactly as typed",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"changed\":true,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":\"  We miss reporting deadlines.\\n  Staff need a shared view.  \",\"urgency\":\"soon\",\"stage\":\"draft\",\"causeLabels\":["
+    },
+    {
+      "id": "n6",
+      "title": "the same save answers changed:false with the same updatedAt",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"changed\":false,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":\"  We miss reporting deadlines.\\n  Staff need a shared view.  \",\"urgency\":\"soon\",\"stage\":\"draft\",\"causeLabels\":[],\"referenceFiles\":[],\"tier2ClassifiedAt\":null,\"upload\":{\"disclosure\":{\"level\":\"base\",\"acknowledgmentRequired\":false,\"heading\":\"Redacted or sample data only.\",\"body\":\"Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.\",\"acknowledgment\":null}},\"submittedAt\":null,\"updatedAt\":\"2026-09-13T13:32:21.315377+00:00\"}}"
+    },
+    {
+      "id": "n7",
+      "title": "project-need attach adds one reference file at base disclosure",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"changed\":true,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":\"  We miss reporting deadlines.\\n  Staff need a shared view.  \",\"urgency\":\"soon\",\"stage\":\"draft\",\"causeLabels\":["
+    },
+    {
+      "id": "n8-classify",
+      "title": "the operator classifies the project Tier 2",
+      "outcome": "pass",
+      "note": "{\"project_id\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"tier2_classified_at\":{}}"
+    },
+    {
+      "id": "n8",
+      "title": "need-intake reports the Tier-2 hardened disclosure and acknowledgment",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":\"  We miss reporting deadlines.\\n  Staff need a shared view.  \",\"urgency\":\"soon\",\"stage\":\"draft\",\"causeLabels\":[],\"referenceFiles\":[{\"id\":\"8d487280-edf7-43fb-a09e-9b396f28c547\",\"fileName\":\"grants-tracker.csv\",\"mediaType\":\"text/"
+    },
+    {
+      "id": "n9",
+      "title": "clearing tier2_classified_at is refused by the monotonic trigger (42501)",
+      "outcome": "pass",
+      "note": "sqlstate 42501"
+    },
+    {
+      "id": "n10",
+      "title": "project-need submit moves the need to discovery_in_progress",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"changed\":true,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":\"  We miss reporting deadlines.\\n  Staff need a shared view.  \",\"urgency\":\"soon\",\"stage\":\"discovery_in_progress\""
+    },
+    {
+      "id": "n10-readback",
+      "title": "need_intakes row now carries the submitted stage",
+      "outcome": "pass",
+      "note": "{\"project_id\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"stage\":\"discovery_in_progress\",\"submitted_at\":{},\"updated_at\":{}}"
+    },
+    {
+      "id": "n10-audit",
+      "title": "exactly one audit_events row carries the description and one reference file",
+      "outcome": "pass",
+      "note": "{\"count\":1,\"description\":\"  We miss reporting deadlines.\\n  Staff need a shared view.  \",\"referenceFileCount\":1}"
+    },
+    {
+      "id": "n11",
+      "title": "submitting again answers changed:false",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"changed\":false,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":\"  We miss reporting deadlines.\\n  Staff need a shared view.  \",\"urgency\":\"soon\",\"stage\":\"discovery_in_progress\",\"causeLabels\":[],\"referenceFiles\":[{\"id\":\"8d487280-edf7-43fb-a09e-9b396f28c547\",\"fileName\":\"grants-tracker.csv\",\"mediaType\":\"text/csv\",\"byteSize\":4096,\"description\":\"Sample rows\",\"addedByAccountId\":\"a40c109b-34b8-4f9d-8a85-14121de2a70b\",\"addedAt\":\"2026-09-13T13:32:21.448636+00:00\"}],\"tier2ClassifiedAt\":\"2026-09-13T13:32:21.457538+00:00\",\"upload\":{\"disclosure\":{\"level\":\"tier2-hardened\",\"acknowledgmentRequired\":true,\"heading\":\"This project handles sensitive data — fixtures only\",\"body\":\"Discovery classified this project Tier 2: the finished tool will touch personal or sensitive records. That changes what may be uploaded here, permanently. What Tier 2 means for files: Nothing real, ever: no genuine names, addresses, health notes, case records or identifying details — not even “just one row to show the format”. Upload fixtures: made-up records in the real structure. The build and all testing run on fixtures; real data only ever enters the finished tool, inside your own accounts, after completion. ai4good and your volunteer see everything you upload here, and every project’s repository is public.\",\"acknowledgment\":\"I understand: only made-up sample records (fixtures) will be uploaded to this project — never real personal or sensitive data, in any form.\"}},\"submittedAt\":\"2026-09-13T13:32:21.604908+00:00\",\"updatedAt\":\"2026-09-13T13:32:21.604908+00:00\"}}"
+    },
+    {
+      "id": "n11-audit",
+      "title": "the audit readback still holds exactly one row",
+      "outcome": "pass",
+      "note": "[\"96dd6048-da43-44db-ad35-449ce805d59f\"]"
+    },
+    {
+      "id": "n12",
+      "title": "a post-submit save still answers changed:true",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"changed\":true,\"need\":{\"projectId\":\"50b71764-7a1f-460b-aa57-2b01687faf34\",\"organizationId\":\"4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a\",\"title\":\"Grant deadline tracker\",\"description\":\"Edited after Discovery began\",\"urgency\":\"soon\",\"stage\":\"discovery_in_progress\",\"causeLabels\":[],\"referenceFiles\":[{\"id\":\"8d487280-edf7-43fb-a09e-9b396f28c547\",\"fileName\":\"grants-tracker.csv\",\"mediaType\":\"text/csv\",\"byteSize\":4096,\"description\":\"Sample rows\",\"addedByAccountId\":\"a40c109b-34b8-4f9d-8a85-14121de2a70b\",\"addedAt\":\"2026-09-13T13:32:21.448636+00:00\"}],\"tier2ClassifiedAt\":\"2026-09-13T13:32:21.457538+00:00\",\"upload\":{\"disclosure\":{\"level\":\"tier2-hardened\",\"acknowledgmentRequired\":true,\"heading\":\"This project handles sensitive data — fixtures only\",\"body\":\"Discovery classified this project Tier 2: the finished tool will touch personal or sensitive records. That changes what may be uploaded here, permanently. What Tier 2 means for files: Nothing real, ever: no genuine names, addresses, health notes, case records or identifying details — not even “just one row to show the format”. Upload fixtures: made-up records in the real structure. The build and all testing run on fixtures; real data only ever enters the finished tool, inside your own accounts, after completion. ai4good and your volunteer see everything you upload here, and every project’s repository is public.\",\"acknowledgment\":\"I understand: only made-up sample records (fixtures) will be uploaded to this project — never real personal or sensitive data, in any form.\"}},\"submittedAt\":\"2026-09-13T13:32:21.604908+00:00\",\"updatedAt\":\"2026-09-13T13:32:21.757265+00:00\"}}"
+    },
+    {
+      "id": "n12-audit",
+      "title": "the audit snapshot is unchanged by the later edit",
+      "outcome": "pass",
+      "note": "{\"id\":\"96dd6048-da43-44db-ad35-449ce805d59f\",\"description\":\"  We miss reporting deadlines.\\n  Staff need a shared view.  \"}"
+    },
+    {
+      "id": "n12-public",
+      "title": "public-project still answers 404 after submission",
+      "outcome": "pass",
+      "note": "status 404"
+    },
+    {
+      "id": "n13",
+      "title": "a second NGO admin saving on the first project is refused as no-such-need",
+      "outcome": "pass",
+      "note": "status 409: {\"ok\":false,\"kind\":\"no-such-need\",\"reason\":\"project_need refuses 50b71764-7a1f-460b-aa57-2b01687faf34: no such need in organisation 161b632c-5ae6-4625-8667-989b802456a5\"}"
+    },
+    {
+      "id": "n14",
+      "title": "a non-uuid project id is refused as invalid-request",
+      "outcome": "pass",
+      "note": "status 400: {\"ok\":false,\"kind\":\"invalid-request\",\"reason\":\"a need write must name the project as a uuid\"}"
+    },
+    {
+      "id": "n15",
+      "title": "an unauthenticated need-intake read is refused with 401",
+      "outcome": "pass",
+      "note": "status 401: {\"ok\":false,\"reason\":\"authenticate before reading a need intake\"}"
+    }
+  ],
+  "transcript": [
+    {
+      "step": "doctor-auth-health",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44321/auth/v1/health"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "version": "v2.193.0",
+          "name": "GoTrue",
+          "description": "GoTrue is a user registration and authentication API"
+        }
+      }
+    },
+    {
+      "step": "ngo-signup-verify-need-1789306340629@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "email": "verify-need-1789306340629@example.com",
+          "phone": "",
+          "confirmation_sent_at": "2026-09-13T13:32:20.791289707Z",
+          "app_metadata": {
+            "provider": "email",
+            "providers": [
+              "email"
+            ]
+          },
+          "user_metadata": {
+            "email": "verify-need-1789306340629@example.com",
+            "email_verified": false,
+            "phone_verified": false,
+            "sub": "a40c109b-34b8-4f9d-8a85-14121de2a70b"
+          },
+          "identities": [
+            {
+              "identity_id": "d4adfee2-65a0-409d-9bf5-26b05cf77810",
+              "id": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+              "user_id": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+              "identity_data": {
+                "email": "verify-need-1789306340629@example.com",
+                "email_verified": false,
+                "phone_verified": false,
+                "sub": "a40c109b-34b8-4f9d-8a85-14121de2a70b"
+              },
+              "provider": "email",
+              "last_sign_in_at": "2026-09-13T13:32:20.787788028Z",
+              "created_at": "2026-09-13T13:32:20.787808Z",
+              "updated_at": "2026-09-13T13:32:20.787808Z",
+              "email": "verify-need-1789306340629@example.com"
+            }
+          ],
+          "created_at": "2026-09-13T13:32:20.783055Z",
+          "updated_at": "2026-09-13T13:32:20.794138Z",
+          "is_anonymous": false
+        }
+      }
+    },
+    {
+      "step": "ngo-confirmation-link-verify-need-1789306340629@example.com",
+      "link": "http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED"
+    },
+    {
+      "step": "ngo-verify-redirect-verify-need-1789306340629@example.com",
+      "status": 303,
+      "location": "http://127.0.0.1:3000/"
+    },
+    {
+      "step": "ngo-signin-verify-need-1789306340629@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "[REDACTED]",
+          "token_type": "[REDACTED]",
+          "expires_in": 120,
+          "expires_at": 1789306460,
+          "refresh_token": "[REDACTED]",
+          "user": {
+            "id": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "verify-need-1789306340629@example.com",
+            "email_confirmed_at": "2026-09-13T13:32:20.82596Z",
+            "phone": "",
+            "confirmation_sent_at": "2026-09-13T13:32:20.791289Z",
+            "confirmed_at": "2026-09-13T13:32:20.82596Z",
+            "last_sign_in_at": "2026-09-13T13:32:20.924712994Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email": "verify-need-1789306340629@example.com",
+              "email_verified": true,
+              "phone_verified": false,
+              "sub": "a40c109b-34b8-4f9d-8a85-14121de2a70b"
+            },
+            "identities": [
+              {
+                "identity_id": "d4adfee2-65a0-409d-9bf5-26b05cf77810",
+                "id": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+                "user_id": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+                "identity_data": {
+                  "email": "verify-need-1789306340629@example.com",
+                  "email_verified": true,
+                  "phone_verified": false,
+                  "sub": "a40c109b-34b8-4f9d-8a85-14121de2a70b"
+                },
+                "provider": "email",
+                "last_sign_in_at": "2026-09-13T13:32:20.787788Z",
+                "created_at": "2026-09-13T13:32:20.787808Z",
+                "updated_at": "2026-09-13T13:32:20.787808Z",
+                "email": "verify-need-1789306340629@example.com"
+              }
+            ],
+            "created_at": "2026-09-13T13:32:20.783055Z",
+            "updated_at": "2026-09-13T13:32:20.928011Z",
+            "is_anonymous": false
+          },
+          "weak_password": "[REDACTED]"
+        }
+      }
+    },
+    {
+      "step": "complete-signup-ngo-verify-need-1789306340629@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/complete-signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "accountId": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+          "accountType": "ngo",
+          "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a"
+        }
+      }
+    },
+    {
+      "step": "project-need-start",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": null,
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-13T13:32:21.08003+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "readback need_intakes (after start)",
+      "rows": [
+        {
+          "project_id": "50b71764-7a1f-460b-aa57-2b01687faf34",
+          "org_id": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+          "description": null,
+          "urgency": "soon",
+          "stage": "draft",
+          "cause_labels": [],
+          "reference_files": [],
+          "tier2_classified_at": null,
+          "submitted_at": null,
+          "updated_at": {},
+          "project_name": "Grant deadline tracker"
+        }
+      ]
+    },
+    {
+      "step": "need-intake-read-1",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/need-intake"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": null,
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-13T13:32:21.08003+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "public-project-draft",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/public-project"
+      },
+      "response": {
+        "status": 404,
+        "body": "{\"ok\":false,\"reason\":\"no such project page is public\"}"
+      }
+    },
+    {
+      "step": "project-need-submit-refused",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 409,
+        "body": {
+          "ok": false,
+          "kind": "missing-description",
+          "reason": "project_need refuses submission of 50b71764-7a1f-460b-aa57-2b01687faf34: the problem description is missing"
+        }
+      }
+    },
+    {
+      "step": "readback need_intakes (still draft)",
+      "rows": [
+        {
+          "project_id": "50b71764-7a1f-460b-aa57-2b01687faf34",
+          "stage": "draft"
+        }
+      ]
+    },
+    {
+      "step": "project-need-save-1",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": "  We miss reporting deadlines.\n  Staff need a shared view.  ",
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-13T13:32:21.315377+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "project-need-save-2-noop",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": false,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": "  We miss reporting deadlines.\n  Staff need a shared view.  ",
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-13T13:32:21.315377+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "project-need-attach",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": "  We miss reporting deadlines.\n  Staff need a shared view.  ",
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [
+              {
+                "id": "8d487280-edf7-43fb-a09e-9b396f28c547",
+                "fileName": "grants-tracker.csv",
+                "mediaType": "text/csv",
+                "byteSize": 4096,
+                "description": "Sample rows",
+                "addedByAccountId": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+                "addedAt": "2026-09-13T13:32:21.448636+00:00"
+              }
+            ],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-13T13:32:21.448646+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "readback need_intakes (tier2 classified)",
+      "rows": [
+        {
+          "project_id": "50b71764-7a1f-460b-aa57-2b01687faf34",
+          "tier2_classified_at": {}
+        }
+      ]
+    },
+    {
+      "step": "need-intake-read-2-tier2",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/need-intake"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": "  We miss reporting deadlines.\n  Staff need a shared view.  ",
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [
+              {
+                "id": "8d487280-edf7-43fb-a09e-9b396f28c547",
+                "fileName": "grants-tracker.csv",
+                "mediaType": "text/csv",
+                "byteSize": 4096,
+                "description": "Sample rows",
+                "addedByAccountId": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+                "addedAt": "2026-09-13T13:32:21.448636+00:00"
+              }
+            ],
+            "tier2ClassifiedAt": "2026-09-13T13:32:21.457538+00:00",
+            "upload": {
+              "disclosure": {
+                "level": "tier2-hardened",
+                "acknowledgmentRequired": true,
+                "heading": "This project handles sensitive data — fixtures only",
+                "body": "Discovery classified this project Tier 2: the finished tool will touch personal or sensitive records. That changes what may be uploaded here, permanently. What Tier 2 means for files: Nothing real, ever: no genuine names, addresses, health notes, case records or identifying details — not even “just one row to show the format”. Upload fixtures: made-up records in the real structure. The build and all testing run on fixtures; real data only ever enters the finished tool, inside your own accounts, after completion. ai4good and your volunteer see everything you upload here, and every project’s repository is public.",
+                "acknowledgment": "I understand: only made-up sample records (fixtures) will be uploaded to this project — never real personal or sensitive data, in any form."
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-13T13:32:21.448646+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "tier2-unclassify-attempt",
+      "outcome": "error",
+      "code": "42501"
+    },
+    {
+      "step": "project-need-submit",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": "  We miss reporting deadlines.\n  Staff need a shared view.  ",
+            "urgency": "soon",
+            "stage": "discovery_in_progress",
+            "causeLabels": [],
+            "referenceFiles": [
+              {
+                "id": "8d487280-edf7-43fb-a09e-9b396f28c547",
+                "fileName": "grants-tracker.csv",
+                "mediaType": "text/csv",
+                "byteSize": 4096,
+                "description": "Sample rows",
+                "addedByAccountId": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+                "addedAt": "2026-09-13T13:32:21.448636+00:00"
+              }
+            ],
+            "tier2ClassifiedAt": "2026-09-13T13:32:21.457538+00:00",
+            "upload": {
+              "disclosure": {
+                "level": "tier2-hardened",
+                "acknowledgmentRequired": true,
+                "heading": "This project handles sensitive data — fixtures only",
+                "body": "Discovery classified this project Tier 2: the finished tool will touch personal or sensitive records. That changes what may be uploaded here, permanently. What Tier 2 means for files: Nothing real, ever: no genuine names, addresses, health notes, case records or identifying details — not even “just one row to show the format”. Upload fixtures: made-up records in the real structure. The build and all testing run on fixtures; real data only ever enters the finished tool, inside your own accounts, after completion. ai4good and your volunteer see everything you upload here, and every project’s repository is public.",
+                "acknowledgment": "I understand: only made-up sample records (fixtures) will be uploaded to this project — never real personal or sensitive data, in any form."
+              }
+            },
+            "submittedAt": "2026-09-13T13:32:21.604908+00:00",
+            "updatedAt": "2026-09-13T13:32:21.604908+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "readback need_intakes (after submit)",
+      "rows": [
+        {
+          "project_id": "50b71764-7a1f-460b-aa57-2b01687faf34",
+          "stage": "discovery_in_progress",
+          "submitted_at": {},
+          "updated_at": {}
+        }
+      ]
+    },
+    {
+      "step": "readback audit_events (submit)",
+      "rows": [
+        {
+          "id": "96dd6048-da43-44db-ad35-449ce805d59f",
+          "detail": {
+            "title": "Grant deadline tracker",
+            "org_id": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "urgency": "soon",
+            "project_id": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "description": "  We miss reporting deadlines.\n  Staff need a shared view.  ",
+            "submitted_at": "2026-09-13T13:32:21.604908+00:00",
+            "reference_files": [
+              {
+                "id": "8d487280-edf7-43fb-a09e-9b396f28c547",
+                "added_at": "2026-09-13T13:32:21.448636+00:00",
+                "byte_size": 4096,
+                "file_name": "grants-tracker.csv",
+                "media_type": "text/csv",
+                "description": "Sample rows",
+                "added_by_account_id": "a40c109b-34b8-4f9d-8a85-14121de2a70b"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step": "project-need-submit-again",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": false,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": "  We miss reporting deadlines.\n  Staff need a shared view.  ",
+            "urgency": "soon",
+            "stage": "discovery_in_progress",
+            "causeLabels": [],
+            "referenceFiles": [
+              {
+                "id": "8d487280-edf7-43fb-a09e-9b396f28c547",
+                "fileName": "grants-tracker.csv",
+                "mediaType": "text/csv",
+                "byteSize": 4096,
+                "description": "Sample rows",
+                "addedByAccountId": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+                "addedAt": "2026-09-13T13:32:21.448636+00:00"
+              }
+            ],
+            "tier2ClassifiedAt": "2026-09-13T13:32:21.457538+00:00",
+            "upload": {
+              "disclosure": {
+                "level": "tier2-hardened",
+                "acknowledgmentRequired": true,
+                "heading": "This project handles sensitive data — fixtures only",
+                "body": "Discovery classified this project Tier 2: the finished tool will touch personal or sensitive records. That changes what may be uploaded here, permanently. What Tier 2 means for files: Nothing real, ever: no genuine names, addresses, health notes, case records or identifying details — not even “just one row to show the format”. Upload fixtures: made-up records in the real structure. The build and all testing run on fixtures; real data only ever enters the finished tool, inside your own accounts, after completion. ai4good and your volunteer see everything you upload here, and every project’s repository is public.",
+                "acknowledgment": "I understand: only made-up sample records (fixtures) will be uploaded to this project — never real personal or sensitive data, in any form."
+              }
+            },
+            "submittedAt": "2026-09-13T13:32:21.604908+00:00",
+            "updatedAt": "2026-09-13T13:32:21.604908+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "readback audit_events (after re-submit)",
+      "rows": [
+        {
+          "id": "96dd6048-da43-44db-ad35-449ce805d59f"
+        }
+      ]
+    },
+    {
+      "step": "project-need-save-post-submit",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "50b71764-7a1f-460b-aa57-2b01687faf34",
+            "organizationId": "4f61a3d9-a4cd-4a0e-9b98-927ddfb0820a",
+            "title": "Grant deadline tracker",
+            "description": "Edited after Discovery began",
+            "urgency": "soon",
+            "stage": "discovery_in_progress",
+            "causeLabels": [],
+            "referenceFiles": [
+              {
+                "id": "8d487280-edf7-43fb-a09e-9b396f28c547",
+                "fileName": "grants-tracker.csv",
+                "mediaType": "text/csv",
+                "byteSize": 4096,
+                "description": "Sample rows",
+                "addedByAccountId": "a40c109b-34b8-4f9d-8a85-14121de2a70b",
+                "addedAt": "2026-09-13T13:32:21.448636+00:00"
+              }
+            ],
+            "tier2ClassifiedAt": "2026-09-13T13:32:21.457538+00:00",
+            "upload": {
+              "disclosure": {
+                "level": "tier2-hardened",
+                "acknowledgmentRequired": true,
+                "heading": "This project handles sensitive data — fixtures only",
+                "body": "Discovery classified this project Tier 2: the finished tool will touch personal or sensitive records. That changes what may be uploaded here, permanently. What Tier 2 means for files: Nothing real, ever: no genuine names, addresses, health notes, case records or identifying details — not even “just one row to show the format”. Upload fixtures: made-up records in the real structure. The build and all testing run on fixtures; real data only ever enters the finished tool, inside your own accounts, after completion. ai4good and your volunteer see everything you upload here, and every project’s repository is public.",
+                "acknowledgment": "I understand: only made-up sample records (fixtures) will be uploaded to this project — never real personal or sensitive data, in any form."
+              }
+            },
+            "submittedAt": "2026-09-13T13:32:21.604908+00:00",
+            "updatedAt": "2026-09-13T13:32:21.757265+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "readback audit_events (after post-submit edit)",
+      "rows": [
+        {
+          "id": "96dd6048-da43-44db-ad35-449ce805d59f",
+          "description": "  We miss reporting deadlines.\n  Staff need a shared view.  "
+        }
+      ]
+    },
+    {
+      "step": "public-project-after-submit",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/public-project"
+      },
+      "response": {
+        "status": 404,
+        "body": "{\"ok\":false,\"reason\":\"no such project page is public\"}"
+      }
+    },
+    {
+      "step": "ngo-signup-verify-need-second-1789306340629@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "19645cbe-a1ba-40c0-8075-47e37cfb58ee",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "email": "verify-need-second-1789306340629@example.com",
+          "phone": "",
+          "confirmation_sent_at": "2026-09-13T13:32:21.852510668Z",
+          "app_metadata": {
+            "provider": "email",
+            "providers": [
+              "email"
+            ]
+          },
+          "user_metadata": {
+            "email": "verify-need-second-1789306340629@example.com",
+            "email_verified": false,
+            "phone_verified": false,
+            "sub": "19645cbe-a1ba-40c0-8075-47e37cfb58ee"
+          },
+          "identities": [
+            {
+              "identity_id": "07bfb8e8-716c-4809-b171-6be6ed958d48",
+              "id": "19645cbe-a1ba-40c0-8075-47e37cfb58ee",
+              "user_id": "19645cbe-a1ba-40c0-8075-47e37cfb58ee",
+              "identity_data": {
+                "email": "verify-need-second-1789306340629@example.com",
+                "email_verified": false,
+                "phone_verified": false,
+                "sub": "19645cbe-a1ba-40c0-8075-47e37cfb58ee"
+              },
+              "provider": "email",
+              "last_sign_in_at": "2026-09-13T13:32:21.849334Z",
+              "created_at": "2026-09-13T13:32:21.849362Z",
+              "updated_at": "2026-09-13T13:32:21.849362Z",
+              "email": "verify-need-second-1789306340629@example.com"
+            }
+          ],
+          "created_at": "2026-09-13T13:32:21.844413Z",
+          "updated_at": "2026-09-13T13:32:21.855047Z",
+          "is_anonymous": false
+        }
+      }
+    },
+    {
+      "step": "ngo-confirmation-link-verify-need-second-1789306340629@example.com",
+      "link": "http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED"
+    },
+    {
+      "step": "ngo-verify-redirect-verify-need-second-1789306340629@example.com",
+      "status": 303,
+      "location": "http://127.0.0.1:3000/"
+    },
+    {
+      "step": "ngo-signin-verify-need-second-1789306340629@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "[REDACTED]",
+          "token_type": "[REDACTED]",
+          "expires_in": 120,
+          "expires_at": 1789306461,
+          "refresh_token": "[REDACTED]",
+          "user": {
+            "id": "19645cbe-a1ba-40c0-8075-47e37cfb58ee",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "verify-need-second-1789306340629@example.com",
+            "email_confirmed_at": "2026-09-13T13:32:21.883379Z",
+            "phone": "",
+            "confirmation_sent_at": "2026-09-13T13:32:21.85251Z",
+            "confirmed_at": "2026-09-13T13:32:21.883379Z",
+            "last_sign_in_at": "2026-09-13T13:32:21.984281493Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email": "verify-need-second-1789306340629@example.com",
+              "email_verified": true,
+              "phone_verified": false,
+              "sub": "19645cbe-a1ba-40c0-8075-47e37cfb58ee"
+            },
+            "identities": [
+              {
+                "identity_id": "07bfb8e8-716c-4809-b171-6be6ed958d48",
+                "id": "19645cbe-a1ba-40c0-8075-47e37cfb58ee",
+                "user_id": "19645cbe-a1ba-40c0-8075-47e37cfb58ee",
+                "identity_data": {
+                  "email": "verify-need-second-1789306340629@example.com",
+                  "email_verified": true,
+                  "phone_verified": false,
+                  "sub": "19645cbe-a1ba-40c0-8075-47e37cfb58ee"
+                },
+                "provider": "email",
+                "last_sign_in_at": "2026-09-13T13:32:21.849334Z",
+                "created_at": "2026-09-13T13:32:21.849362Z",
+                "updated_at": "2026-09-13T13:32:21.849362Z",
+                "email": "verify-need-second-1789306340629@example.com"
+              }
+            ],
+            "created_at": "2026-09-13T13:32:21.844413Z",
+            "updated_at": "2026-09-13T13:32:21.987617Z",
+            "is_anonymous": false
+          },
+          "weak_password": "[REDACTED]"
+        }
+      }
+    },
+    {
+      "step": "complete-signup-ngo-verify-need-second-1789306340629@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/complete-signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "accountId": "19645cbe-a1ba-40c0-8075-47e37cfb58ee",
+          "accountType": "ngo",
+          "organizationId": "161b632c-5ae6-4625-8667-989b802456a5"
+        }
+      }
+    },
+    {
+      "step": "project-need-refusal-no-such-need",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 409,
+        "body": {
+          "ok": false,
+          "kind": "no-such-need",
+          "reason": "project_need refuses 50b71764-7a1f-460b-aa57-2b01687faf34: no such need in organisation 161b632c-5ae6-4625-8667-989b802456a5"
+        }
+      }
+    },
+    {
+      "step": "project-need-refusal-invalid-request",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "ok": false,
+          "kind": "invalid-request",
+          "reason": "a need write must name the project as a uuid"
+        }
+      }
+    },
+    {
+      "step": "need-intake-refusal-unauthenticated",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/need-intake"
+      },
+      "response": {
+        "status": 401,
+        "body": "{\"ok\":false,\"reason\":\"authenticate before reading a need intake\"}"
+      }
+    }
+  ]
+}
