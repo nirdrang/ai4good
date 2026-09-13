@@ -76,6 +76,25 @@ export function decideProjectNeed(input: AccountWriteRouteInput): WriteRouteDeci
   const allowed = orgAdminActionAllowed(input.standing.orgRole);
   if (!allowed.ok) return refuseWrite(allowed.kind, 403, allowed.reason);
   const body = input.body;
+  if (body.action === 'attach') {
+    const projectId = stringField(body.projectId);
+    const file = body.file;
+    if (projectId === null || Object.keys(body).some((key) => !['organizationId', 'action', 'projectId', 'file'].includes(key)) ||
+        !isRecord(file) || Object.keys(file).some((key) => !['fileName', 'mediaType', 'byteSize', 'description'].includes(key)) ||
+        stringField(file.fileName) === null || stringField(file.mediaType) === null ||
+        typeof file.byteSize !== 'number' || !Number.isInteger(file.byteSize) || file.byteSize <= 0 ||
+        ('description' in file && file.description !== null && typeof file.description !== 'string')) {
+      return refuseWrite('invalid-request', 400, 'a reference file requires known fields with valid types');
+    }
+    const payload: ReferenceFileInput = {
+      fileName: stringField(file.fileName)!, mediaType: stringField(file.mediaType)!,
+      byteSize: file.byteSize, description: descriptionField(file.description),
+    };
+    return { ok: true, args: {
+      p_account_id: input.caller.id, p_organization_id: input.target, p_action: 'attach',
+      p_project_id: projectId, p_payload: payload,
+    } };
+  }
   if (body.action === 'save' || body.action === 'submit') {
     const keys = body.action === 'save' ? ['organizationId', 'action', 'projectId', 'patch'] : ['organizationId', 'action', 'projectId'];
     const projectId = stringField(body.projectId);

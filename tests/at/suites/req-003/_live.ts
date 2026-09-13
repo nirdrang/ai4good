@@ -92,7 +92,7 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
     },
     startNeed: (session, request) => postNeed(session, { ...request, action: 'start' }),
     saveNeed: (session, request) => postNeed(session, { ...request, action: 'save' }),
-    attachReferenceFile: notLanded(4),
+    attachReferenceFile: (session, request) => postNeed(session, { ...request, action: 'attach' }),
     submitNeed: (session, request) => postNeed(session, { ...request, action: 'submit' }),
     readNeed: async (session, projectId): Promise<TenantReadOutcome<{ ok: true; need: NeedIntakeView }>> => {
       const raw = await functionPostRaw(stack, 'need-intake', { projectId }, bearerOf(session));

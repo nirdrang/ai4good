@@ -1,5 +1,5 @@
 import {
-  applyNeedPatch, submitGate, submitTransition, decideProjectNeed, disclosureFor, needIntakeAnswer, type NeedIntakeSqlRow, type ProjectNeedArgs, type StartPayload,
+  applyNeedPatch, submitGate, submitTransition, decideProjectNeed, disclosureFor, needIntakeAnswer, type NeedIntakeSqlRow, type ProjectNeedArgs, type StartPayload, type ReferenceFileInput, type ReferenceFileMetadata,
 } from '../../../../supabase/functions/_shared/need-intake.ts';
 import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
 import {
@@ -44,6 +44,17 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       const result = applyNeedPatch(need, args.p_payload as NeedPatch);
       needs.set(need.projectId, structuredClone(result.need));
       return { ok: true, ...structuredClone(result) };
+    }
+    if (args.p_action === 'attach') {
+      const payload = args.p_payload as ReferenceFileInput;
+      const addedAt = new Date(opts.clock.now()).toISOString();
+      const file: ReferenceFileMetadata = {
+        ...payload, description: payload.description ?? null, id: crypto.randomUUID(),
+        addedByAccountId: args.p_account_id, addedAt,
+      };
+      const attached = { ...need, referenceFiles: [...need.referenceFiles, file], updatedAt: addedAt };
+      needs.set(need.projectId, structuredClone(attached));
+      return { ok: true, changed: true, need: structuredClone(attached) };
     }
     if (args.p_action === 'submit') {
       if (need.stage === 'discovery_in_progress') return { ok: true, changed: false, need: structuredClone(need) };
@@ -101,7 +112,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
     readAllowance: (session, organizationId) => organizations.readAllowance(session, organizationId),
     startNeed: (session, request) => write(session, { ...request, action: 'start' }),
     saveNeed: (session, request) => write(session, { ...request, action: 'save' }),
-    attachReferenceFile: notLanded(4),
+    attachReferenceFile: (session, request) => write(session, { ...request, action: 'attach' }),
     submitNeed: (session, request) => write(session, { ...request, action: 'submit' }),
     readNeed: async (session: Session | null, projectId) => {
       const actor = session === null ? undefined : actors.get(session.sessionId);

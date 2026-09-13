@@ -9,7 +9,7 @@ the four-lane design arena, the blinded judge and the synthesis are finished and
 `33f286d`. The design of record is `design/SYNTHESIS.md`; it wins over anything that disagrees
 with it, and it names `design/candidate-2-project-row.md` as its base.
 
-**Units done: units 1, 2 and 3.**
+**Units done: units 1 to 4.**
 
 | what | commit | acceptance ids green |
 |---|---|---|
@@ -17,6 +17,7 @@ with it, and it names `design/candidate-2-project-row.md` as its base.
 | unit 1, the need row and the capture ids | `4db553b` | AT-003.01, .02, .04 at both tiers |
 | unit 2, save and submit helpers, the description gate, autosave | `e87ad7c` | AT-003.03, .05 added; five at both tiers |
 | unit 3, zero cause labels on a draft | `8d9028c` | AT-003.17 added; six at both tiers |
+| unit 4, the attach helper and the base disclosure | `bdd7091` | AT-003.07, .09 added at loop; eight at loop, six at integration |
 
 Item branch `nirdrang/ai4dev-120-intake-form-and-draft-autosave-d1`. The brief commit is
 `eb246d1` and carries the sheet change (the writer row runs astra at low). The lane worktree is
@@ -25,7 +26,7 @@ Item branch `nirdrang/ai4dev-120-intake-form-and-draft-autosave-d1`. The brief c
 
 ## The first action on resume
 
-Unit 4 is next. Its brief is written at `units/unit4.md` (the attach helper, the base disclosure on every write answer and read; ids 07 and 09, both green at loop and red at integration on their capability names, per-tier bodies in the AT-002.05 shape). Copy it into the lane, dispatch the feature lane at `codex:gpt-6-astra@low`, then the per-unit loop below. One note carried, not a task: `applyNeedPatch` stamps `updatedAt` with `new Date()` inside the shipped helper rather than a clock argument. Harmless for the ids.
+Unit 5 is next: write `units/unit5.md` (the Tier-2 hardened disclosure; id 10; no migration, the column, the monotonic trigger and `disclosureFor` landed in unit 1; `classifyTier2AsOperator` in both adapters, one UPDATE of `tier2_classified_at` at integration and a map write at loop; the .10 body per-tier, green at loop, `awaiting(AWAITED.uploadSurface)` at integration; drop `tier2Disclosure` from `_pending.ts`), dispatch the feature lane at `codex:gpt-6-astra@low`, then the per-unit loop below. The gate rule now lives in the controller's brief template and CLAUDE.md (commit `f2fecb7`), so a later run inherits it without this note. One note carried, not a task: `applyNeedPatch` stamps `updatedAt` with `new Date()` inside the shipped helper rather than a clock argument. Harmless for the ids.
 
 ## The per-unit loop
 
@@ -46,7 +47,8 @@ Unit 4 is next. Its brief is written at `units/unit4.md` (the attach helper, the
    lane's commit carries it, so delete the item copy before the ff-merge (git refuses to
    overwrite an untracked file).
 5. Commit in the lane worktree citing the item, then `git merge --ff-only lane/ai4dev-120` in the
-   item worktree.
+   item worktree. If the item branch moved while the lane ran (a records commit), rebase the lane
+   onto the item head first; the lane commit never touches the records.
 6. Rewrite this file. Open the compaction gate with the `AskUserQuestion` tool (founder
    2026-09-13: "I want you to update this gate to use the askuserquestion tool"): one question
    whose options are continue or compact, with what the unit landed and the remaining context
