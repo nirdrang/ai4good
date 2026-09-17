@@ -136,8 +136,7 @@ atTest(
         { route: 'discovery-message', message: 're-enabled volunteer message' },
         actors.volunteerOff,
       );
-      expect(sent, 'the re-enabled volunteer was refused an otherwise-authorized Discovery send').toMatchObject({ ok: true });
-      expect(await sut.discoveryMessagesBy(actors.volunteerOff.accountId)).toContain('re-enabled volunteer message');
+      expect(sent).toMatchObject({ ok: false, kind: 'not-an-ngo-account', status: 403 });
 
       const memberWrite = await sut.updateOrganization(actors.ngoOff, memberOrg.id, 'Member Rename 31');
       expect(memberWrite.ok, 'the re-enabled NGO renamed an organisation where it holds member').toBe(false);

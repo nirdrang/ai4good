@@ -378,7 +378,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     const innerSession = heldSessions.get(session.sessionId);
     if (!innerSession) return unauthenticated();
     if (!(await accounts.authUserIsHealthy(innerSession))) return unauthenticated();
-    return { id: innerSession.accountId, githubHandle: null };
+    return { id: innerSession.accountId, githubHandle: null, emailVerified: await accounts.emailVerified(innerSession.accountId) };
   };
 
   const commitVetting = async (args: OrganizationVettingArgs, actorLabel: string): Promise<CommitResult> => {

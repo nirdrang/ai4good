@@ -23,8 +23,40 @@ import { describe, expect, it } from 'vitest';
 
 import { CapabilityPending } from './registry.ts';
 import { createHarness } from './index.ts';
-import { createEmailProviderSim } from './vendors.ts';
+import { createEmailProviderSim, createAnthropicMessagesSim } from './vendors.ts';
 import type { NotificationsSut, World } from '../suites/req-016/_contract.ts';
+
+describe('Anthropic Messages simulator', () => {
+  const request = { model: 'test-model', maxTokens: 128, effort: 'low' as const, system: 'Ask a question.',
+    messages: [{ role: 'user' as const, content: 'Hello' }] };
+  it('counts without consuming and caps output on text and tool replies', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    sim.script([
+      { kind: 'text', text: 'Question?', inputTokens: 256, usage: { inputTokens: 512, outputTokens: 200 } },
+      { kind: 'tool', name: 'record_elicitation', input: { complete: true }, usage: { inputTokens: 600, outputTokens: 64 } },
+    ]);
+    expect(await port.countTokens(request)).toBe(256);
+    expect(await port.countTokens(request)).toBe(256);
+    expect(sim.requests()).toEqual([]);
+    expect(await port.create(request)).toMatchObject({ ok: true, text: 'Question?', stopReason: 'max_tokens',
+      usage: { inputTokens: 512, outputTokens: request.maxTokens } });
+    expect(await port.countTokens(request)).toBe(600);
+    expect(await port.create(request)).toMatchObject({ ok: true, stopReason: 'tool_use', toolUse: { name: 'record_elicitation', input: { complete: true } } });
+    expect(sim.requests()).toEqual([request, request]);
+    const copied = sim.requests();
+    copied[0].messages[0].content = 'changed';
+    expect(sim.requests()[0]).toEqual(request);
+    await expect(port.create(request)).rejects.toThrow('exceeded its scripted replies');
+  });
+  it('returns definite and uncertain errors and a deterministic fallback count', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    sim.script([{ kind: 'error', status: 429, reason: 'busy' }, { kind: 'error', status: null, reason: 'timeout' }]);
+    expect(await port.countTokens(request)).toBe(Math.ceil(JSON.stringify(request.messages).length / 4));
+    expect(await port.create(request)).toEqual({ ok: false, status: 429, reason: 'busy' });
+    expect(await port.create(request)).toEqual({ ok: false, status: null, reason: 'timeout' });
+    await expect(port.create(request)).rejects.toThrow('exceeded its scripted replies');
+  });
+});
 
 /** Four DISTINCT send identities. Same event, different recipients — the shape a real event produces. */
 const SEND_A = { recipientId: 'volunteer-1', eventId: 'event-1', channel: 'email' };

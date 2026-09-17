@@ -30,8 +30,7 @@
  */
 
 import { callerFromAuthAnswer, type Caller } from './caller.ts';
-import type { ReadResult, TenantReads } from './tenant-reads.ts';
-import type { NeedReads } from './need-intake.ts';
+import type { CallerReads, ReadResult } from './tenant-reads.ts';
 import type { PublicProjectReads, PublicProjectSource } from './public-project.ts';
 import {
   parseWriteRefusalKind,
@@ -364,18 +363,32 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     }
 
     const standing = await loadWriteStanding(caller.id, target, subject);
-    const decision = writePipeline(spec, { caller, standing, body: body.value, target, subject, ip: callerIp(request) });
+    let decision = writePipeline(spec, { caller, standing, body: body.value, target, subject, ip: callerIp(request) });
+    if (decision.ok && spec.prepare) {
+      decision = await spec.prepare(caller, decision.args, callerReads(SUPABASE_URL, ANON_KEY, request.headers.get('Authorization')!));
+    }
     if (!decision.ok) {
       return json({ ok: false, kind: decision.kind, reason: decision.reason }, decision.status);
     }
 
-    const outcome = await callDatabaseFunction(rpc, decision.args);
+    let outcome = await callDatabaseFunction(rpc, decision.args);
     if (!outcome.ok) {
       const status = rpcRefusalStatus(outcome);
       const kind = status === 409 ? parseWriteRefusalKind(outcome.details) : 'refused';
       return json({ ok: false, kind, reason: outcome.message }, status);
     }
 
+    if (spec.settle) {
+      const acted = await spec.settle.act(outcome.value, decision.args);
+      if (acted.args === null) return refusal(acted.failure ?? 'the provider outcome is uncertain', 502);
+      outcome = await callDatabaseFunction(spec.settle.rpc, acted.args);
+      if (!outcome.ok) {
+        const status = rpcRefusalStatus(outcome);
+        const kind = status === 409 ? parseWriteRefusalKind(outcome.details) : 'refused';
+        return json({ ok: false, kind, reason: outcome.message }, status);
+      }
+      if (acted.failure !== null) return refusal(acted.failure, 502);
+    }
     return json({ ok: true, ...(spec.render ? spec.render(outcome.value) : {}) }, 200);
   });
 }
@@ -396,10 +409,12 @@ async function restJson<Row>(url: string, init: RequestInit): Promise<ReadResult
   }
 }
 
-export function callerReads(supabaseUrl: string, anonKey: string, authorization: string): TenantReads & NeedReads {
+export function callerReads(supabaseUrl: string, anonKey: string, authorization: string): CallerReads {
   const headers = { apikey: anonKey, Authorization: authorization, Accept: 'application/json' };
   const base = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`;
   return {
+    discoveryTurnsOf: (projectId) =>
+      restJson(`${base}/discovery_turns?project_id=eq.${encodeURIComponent(projectId)}&status=eq.settled&order=seq`, { headers }),
     need: (projectId) =>
       restJson(
         `${base}/need_intakes?project_id=eq.${encodeURIComponent(projectId)}&select=project_id,description,urgency,stage,cause_labels,reference_files,tier2_classified_at,submitted_at,updated_at`,

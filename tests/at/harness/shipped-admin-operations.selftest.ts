@@ -37,7 +37,7 @@ function transferBody(overrides: Record<string, unknown>): Record<string, unknow
 
 function transferInput(overrides: Partial<AccountWriteRouteInput> = {}): AccountWriteRouteInput {
   return {
-    caller: { id: ADMIN, githubHandle: null },
+    caller: { id: ADMIN, githubHandle: null, emailVerified: true },
     standing: ADMIN_STANDING,
     body: TRANSFER_BODY,
     target: ORG,
@@ -206,7 +206,7 @@ function contactBody(overrides: Record<string, unknown>): Record<string, unknown
 
 function contactInput(overrides: Partial<AccountWriteRouteInput> = {}): AccountWriteRouteInput {
   return {
-    caller: { id: ADMIN, githubHandle: null },
+    caller: { id: ADMIN, githubHandle: null, emailVerified: true },
     standing: ADMIN_STANDING,
     body: CONTACT_BODY,
     target: ORG,

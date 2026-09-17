@@ -1,0 +1,36 @@
+import type { NeedsSut, Session, WriteRefusal, NeedUrgency, TenantReadOutcome } from '../req-003/_contract.ts';
+import type { Allowance, SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import type { ModelUsage } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import type { DiscoveryTurnView, Elicitation, Reservation } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+export type { Session, WriteRefusal, SpendRow, ModelUsage, DiscoveryTurnView, Elicitation, Reservation };
+export type IntakeFixture = { title: string; description: string; urgency?: NeedUrgency };
+export type DiscoveryMessageRequest = { organizationId: string; projectId: string; message: string };
+export type DiscoveryMessageOutcome = {
+  ok: true; turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null;
+} | WriteRefusal;
+export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; countedInputTokens?: number; countedThroughSeq?: number };
+export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
+export type OperatorSettleInput = { accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage };
+export type DiscoveryConversationView = { projectId: string; turns: DiscoveryTurnView[]; elicitation: Elicitation | null };
+export type DiscoverySwitchOutcome = { ok: true; organizationId: string; discoveryEnabled: boolean; changed: boolean; disabledAt: string | null } | WriteRefusal;
+export type DiscoverySwitchAuditRow = { id: string; actorAccountId: string | null; subjectOrgId: string; reason: string; detail: { enabled: boolean; previously_disabled_at: string | null } };
+export type DiscoverySut = NeedsSut & {
+  provisionPlatformAdmin(email: string): Promise<Session>;
+  vetOrganizationAsAdmin(admin: Session, organizationId: string): Promise<void>;
+  startDiscoveryNeed(session: Session, organizationId: string, intake: IntakeFixture): Promise<{ projectId: string }>;
+  drainAllowance(session: Session, organizationId: string, leave?: number): Promise<void>;
+  writeSpendRowAsOperator(row: SpendRow): Promise<void>;
+  spendRows(organizationId: string): Promise<SpendRow[]>;
+  sendMessage(session: Session | null, request: DiscoveryMessageRequest): Promise<DiscoveryMessageOutcome>;
+  turnRows(projectId: string): Promise<DiscoveryTurnView[]>;
+  reserveTurnAsOperator(input: OperatorReserveInput): Promise<OperatorReserveOutcome>;
+  settleTurnAsOperator(input: OperatorSettleInput): Promise<DiscoveryMessageOutcome>;
+  backdateOpenTurnAsOperator(turnId: string, openedAt: string): Promise<void>;
+  readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView }>>;
+  setProjectFundingAsOperator(projectId: string, funding: { fundedAt: string | null; fuelMicros: number }): Promise<void>;
+  setDiscoverySwitch(session: Session | null, request: { organizationId: string; enabled: boolean; reason: string }): Promise<DiscoverySwitchOutcome>;
+  discoverySwitchAuditEvents(organizationId: string): Promise<DiscoverySwitchAuditRow[]>;
+  setEmailVerifiedAsOperator(accountId: string, verified: boolean): Promise<void>;
+  seedTurnsAsOperator(projectId: string, turns: { message: string; reply: string; usage: ModelUsage }[]): Promise<void>;
+  spendLedgerInvariantProblems(organizationId: string): Promise<string[]>;
+};

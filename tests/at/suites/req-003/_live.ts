@@ -146,7 +146,7 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
     },
   };
   return {
-    sut: { needs: sut }, fixtures: inner.fixtures,
+    sut: { needs: sut }, organizations: inner.sut.organizations, bearerOf, fixtures: inner.fixtures,
     teardown: async () => {
       try { await inner.teardown(); } finally { await sql.close(); sessions.clear(); allowanceSessions.clear(); }
     },

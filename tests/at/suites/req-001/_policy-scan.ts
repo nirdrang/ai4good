@@ -23,6 +23,7 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   org_memberships: 'tenant-isolated',
   projects: 'tenant-isolated',
   need_intakes: 'tenant-isolated',
+  discovery_turns: 'tenant-isolated',
   acknowledgments: 'tenant-isolated',
   accounts: 'unreachable-by-client-roles',
   volunteer_profiles: 'unreachable-by-client-roles',

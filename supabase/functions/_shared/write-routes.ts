@@ -9,6 +9,7 @@ import {
 } from './accounts.ts';
 import { parseOrgRole, type OrgRole } from './memberships.ts';
 import type { Caller } from './caller.ts';
+import type { CallerReads } from './tenant-reads.ts';
 
 /** Where a route lives. A stand-in has no deployed function; the fixture drives the gate over it. */
 export type RouteSurface =
@@ -65,11 +66,8 @@ export const WRITE_ROUTES = {
     standing: { kind: 'account-required', admits: ['ngo'] },
   },
   'discovery-message': {
-    surface: {
-      kind: 'stand-in',
-      reason: 'REQ-002/004 owns the Discovery route; this tree ships the decision it must consult',
-    },
-    standing: { kind: 'account-required', admits: ['ngo', 'volunteer', 'platform_admin'] },
+    surface: { kind: 'edge', rpc: 'discovery_turn_reserve' },
+    standing: { kind: 'account-required', admits: ['ngo'] },
   },
 } as const satisfies Record<string, { surface: RouteSurface; standing: RouteStanding }>;
 
@@ -100,6 +98,11 @@ export const WRITE_REFUSAL_KINDS = [
   'transferee-not-ngo',
   'transferee-deactivated',
   'subject-no-account',
+  'no-such-project',
+  'need-not-in-discovery',
+  'turn-in-flight',
+  'turn-not-open',
+  'stale-context',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];
@@ -225,6 +228,11 @@ export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput
   /** the outgoing account id, when a route names one; `writeRoute` shape-checks it like target and subject */
   readonly from?: (body: Record<string, unknown>) => string | null;
   readonly decide: (input: Input) => WriteRouteDecision<Args>;
+  readonly prepare?: (caller: Caller, args: Args, reads: CallerReads) => Promise<WriteRouteDecision<Args>>;
+  readonly settle?: {
+    readonly rpc: string;
+    readonly act: (reserved: unknown, args: Args) => Promise<{ readonly args: Record<string, unknown> | null; readonly failure: string | null }>;
+  };
   readonly render?: (value: unknown) => Record<string, unknown>;
 };
 

@@ -30,6 +30,7 @@ type MailpitMessageSummary = { ID?: unknown; Subject?: unknown; To?: unknown };
 
 interface BunSqlClient {
   (strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown>;
+  begin<T>(callback: (transaction: BunSqlClient) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
 type BunSqlCtor = new (url: string) => BunSqlClient;

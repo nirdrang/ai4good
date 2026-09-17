@@ -112,3 +112,6 @@ export async function projectWorkspace(
     },
   };
 }
+
+export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
+

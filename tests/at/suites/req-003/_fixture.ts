@@ -12,7 +12,7 @@ export const requirement = 'req-003' as const;
 const SPEC: WriteRouteSpec<ProjectNeedArgs, AccountWriteRouteInput> = {
   name: 'project-need', target: organizationIdField, decide: decideProjectNeed,
 };
-type Actor = { accountId: string; accountType: 'ngo' | 'volunteer'; roles: Map<string, 'admin' | 'member'> };
+type Actor = { accountId: string; accountType: 'ngo' | 'volunteer'; roles: Map<string, 'admin' | 'member'>; emailVerified: boolean };
 
 export function createFixtureAdapter(opts: Parameters<typeof createOrganizationsFixtureAdapter>[0]) {
   const inner = createOrganizationsFixtureAdapter(opts);
@@ -84,7 +84,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       org_role: actor.roles.get(request.organizationId) ?? null, org_seat_account_id: null, subject: null,
     });
     const decision = writePipeline(SPEC, {
-      caller: { id: actor.accountId, githubHandle: null }, standing, body: request,
+      caller: { id: actor.accountId, githubHandle: null, emailVerified: actor.emailVerified }, standing, body: request,
       target: request.organizationId, subject: null, ip: null,
     });
     return decision.ok ? commit(decision.args) : decision;
@@ -93,13 +93,13 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
   const sut: NeedsSut = {
     provisionNgo: async (email, options) => {
       const ngo = await organizations.provisionNgo(email, options);
-      actors.set(ngo.session.sessionId, { accountId: ngo.accountId, accountType: 'ngo', roles: new Map([[ngo.organizationId, 'admin']]) });
+      actors.set(ngo.session.sessionId, { accountId: ngo.accountId, accountType: 'ngo', roles: new Map([[ngo.organizationId, 'admin']]), emailVerified: options.emailVerified });
       emailActors.set(email, actors.get(ngo.session.sessionId)!);
       return ngo;
     },
     provisionVolunteer: async (email) => {
       const session = await organizations.provisionVolunteer(email);
-      actors.set(session.sessionId, { accountId: session.accountId, accountType: 'volunteer', roles: new Map() });
+      actors.set(session.sessionId, { accountId: session.accountId, accountType: 'volunteer', roles: new Map(), emailVerified: true });
       return session;
     },
     signInAgain: async (email) => {
@@ -157,7 +157,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
         }
       }
       const decision = decideProjectNeed({
-        caller: { id: accountId, githubHandle: null },
+        caller: { id: accountId, githubHandle: null, emailVerified: actor?.emailVerified === true },
         standing: { kind: 'account', accountType: actor!.accountType, lifecycle: 'active', orgRole: role,
           orgExists: true, orgSeatAccountId: null, subject: null },
         body: request, target: request.organizationId, subject: null, ip: null,
@@ -176,7 +176,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
     intakeSnapshots: async (projectId) => structuredClone(snapshots.filter((row) => row.detail.project_id === projectId)),
   };
   return {
-    sut: { needs: sut }, fixtures: inner.fixtures,
+    sut: { needs: sut }, organizations, fixtures: inner.fixtures,
     teardown: async () => { await inner.teardown(); actors.clear(); emailActors.clear(); needs.clear(); snapshots.length = 0; },
   };
 }

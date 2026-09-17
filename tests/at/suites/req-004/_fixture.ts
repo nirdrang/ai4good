@@ -1,0 +1,190 @@
+import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
+import { affordableOutputTokens, countedInputTokens, reservationFor, reserveSettings, settlementFor,
+  DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, turnViewFromSql, renderDiscoveryMessage,
+  type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
+import type { AnthropicMessagesPort } from '../../harness/contracts.ts';
+import { AtPending } from '../../harness/pending.ts';
+import type { DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome } from './_contract.ts';
+
+export const requirement = 'req-004' as const;
+export const VETTING_EVIDENCE = {
+  action: 'vet', organizationName: 'Riverside Shelter', publicReferenceUrl: 'https://example.org/riverside',
+  contactName: 'Dana Okonkwo', contactTitle: 'Executive Director',
+  authorityAttestation: 'The named contact attests they have authority to bind the organisation.',
+  evidenceType: 'organization_website', note: 'The website and named contact match the organisation.',
+} as const;
+const SEND_SPEC = { name: 'discovery-message', target: organizationIdField, decide: decideDiscoveryMessage } as const;
+export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>[0] & { vendors: { anthropic: AnthropicMessagesPort } }) {
+  const inner = createNeedsAdapter(opts);
+  const needs = inner.sut.needs;
+  const organizations = inner.organizations;
+  const actors = new Map<string, { session: Session; organizationId: string | null; role: 'admin' | 'member'; type: 'ngo' | 'volunteer'; emailVerified: boolean }>();
+  const turns = new Map<string, DiscoveryTurnSqlRow[]>();
+  const now = () => new Date(opts.clock.now()).toISOString();
+  const sqlAllowance = (allowance: { organizationId: string; utcDay: string; vetted: boolean; dailyGrant: number; spentToday: number; remaining: number }) => ({
+    organization_id: allowance.organizationId, utc_day: allowance.utcDay, vetted: allowance.vetted,
+    daily_grant: allowance.dailyGrant, spent_today: allowance.spentToday, remaining: allowance.remaining,
+  });
+  const refuse = (kind: Parameters<typeof import('../../../../supabase/functions/_shared/write-routes.ts').refuseWrite>[0], reason: string) =>
+    ({ ok: false as const, kind, status: 409, reason });
+  const reserve = async (args: DiscoveryReserveArgs): Promise<OperatorReserveOutcome> => {
+    const actor = [...actors.values()].find((a) => a.session.accountId === args.p_account_id);
+    if (!actor || actor.organizationId !== args.p_organization_id) return refuse('not-a-member', 'the caller holds no membership');
+    if (actor.role !== 'admin') return refuse('not-an-admin', 'only the organisation admin may send');
+    const email = await organizations.discoveryMessageAllowed(actor.session);
+    if (!email.ok) return refuse('email-unverified', email.reason);
+    const need = await needs.needRow(args.p_project_id);
+    if (!need || need.organizationId !== args.p_organization_id) return refuse('no-such-project', 'no such project');
+    if (need.stage !== 'discovery_in_progress') return refuse('need-not-in-discovery', 'the need is not in Discovery');
+    const rows = turns.get(need.projectId) ?? [];
+    const open = rows.find((row) => row.status === 'open');
+    if (open && opts.clock.now() - Date.parse(open.opened_at) < DISCOVERY_TURN_DEADLINE_SECONDS * 1000) {
+      return refuse('turn-in-flight', 'a Discovery turn is in flight');
+    }
+    const settled = rows.filter((row) => row.status === 'settled');
+    if ((settled.at(-1)?.seq ?? 0) !== args.p_counted_through_seq) return refuse('stale-context', 'the conversation changed after token counting');
+    const before = await organizations.readAllowance(actor.session, need.organizationId);
+    if (!before.ok) return before;
+    const estimatedInputTokens = countedInputTokens(args.p_settings.counted_input_tokens!);
+    const maxOutputTokens = Math.max(DISCOVERY_REQUEST_SETTINGS.minOutputTokens,
+      affordableOutputTokens({ availableMicros: before.allowance.remaining * DISCOVERY_MICROS_PER_CREDIT, estimatedInputTokens }));
+    const bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
+    const debit = await organizations.debitAllowance(actor.session, need.organizationId, bound.reservedCredits);
+    if (!debit.ok) return debit;
+    if (open) Object.assign(open, { status: 'abandoned', charged_credits: open.reserved_credits, settled_at: now() });
+    const row: DiscoveryTurnSqlRow = {
+      id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId, seq: (rows.at(-1)?.seq ?? 0) + 1,
+      status: 'open', billing: 'free', utc_day: debit.allowance.utcDay, user_message: args.p_message,
+      assistant_message: null, elicitation: null, request_settings: {
+        model: args.p_settings.model, max_tokens: maxOutputTokens, effort: args.p_settings.effort,
+      }, max_output_tokens: maxOutputTokens, estimated_input_tokens: estimatedInputTokens,
+      micros_per_credit: args.p_settings.micros_per_credit, input_micros_per_token: args.p_settings.input_micros_per_token,
+      output_micros_per_token: args.p_settings.output_micros_per_token, reserved_micros: bound.reservedMicros,
+      reserved_credits: bound.reservedCredits, input_tokens: null, output_tokens: null, stop_reason: null, served_model: null,
+      actual_micros: null, charged_credits: null, overrun_micros: null, opened_at: now(), settled_at: null,
+    };
+    turns.set(need.projectId, [...rows, row]);
+    return { ok: true, reservation: { turn: structuredClone(row),
+      need: { title: need.title, description: need.description, urgency: need.urgency, reference_files: need.referenceFiles.map((f) => f.fileName) },
+      context: [...settled.flatMap((r): { role: 'user' | 'assistant'; content: string }[] => [
+        { role: 'user', content: r.user_message }, { role: 'assistant', content: r.assistant_message! },
+      ]), { role: 'user', content: args.p_message }], allowance: sqlAllowance(debit.allowance) } };
+  };
+  const settle = async (args: DiscoverySettleArgs): Promise<DiscoveryMessageOutcome> => {
+    const row = [...turns.values()].flat().find((r) => r.id === args.p_turn_id);
+    if (!row || row.status !== 'open') return refuse('turn-not-open', 'the Discovery turn is not open');
+    const actor = [...actors.values()].find((a) => a.session.accountId === args.p_account_id);
+    if (!actor || actor.organizationId !== row.org_id) return refuse('not-a-member', 'the caller holds no membership');
+    if (actor.role !== 'admin') return refuse('not-an-admin', 'only the organisation admin may settle');
+    if (args.p_outcome === 'completed') {
+      if (args.p_input_tokens === null || args.p_input_tokens < 0 || args.p_output_tokens === null ||
+        args.p_output_tokens < 0 || args.p_output_tokens > row.max_output_tokens || args.p_assistant_message === null) {
+        return refuse('invalid-request', 'invalid Discovery usage');
+      }
+      const result = settlementFor({ reservedMicros: row.reserved_micros, reservedCredits: row.reserved_credits,
+        billing: row.billing, usage: { inputTokens: args.p_input_tokens, outputTokens: args.p_output_tokens } });
+      Object.assign(row, { status: 'settled', assistant_message: args.p_assistant_message, input_tokens: args.p_input_tokens,
+        output_tokens: args.p_output_tokens, stop_reason: args.p_stop_reason, served_model: args.p_served_model,
+        actual_micros: result.actualMicros, charged_credits: result.chargedCredits, overrun_micros: result.overrunMicros });
+    } else Object.assign(row, { status: 'failed', charged_credits: 0 });
+    row.settled_at = now();
+    const released = row.reserved_credits - row.charged_credits!;
+    if (released > 0) {
+      const spend = (await organizations.spendRows(row.org_id)).find((s) => s.utcDay === row.utc_day);
+      if (!spend || spend.spent < released) throw new Error('release exceeds recorded spend');
+      await organizations.writeSpendRowAsOperator({ ...spend, spent: spend.spent - released });
+    }
+    const after = await organizations.readAllowance(actor.session, row.org_id);
+    if (!after.ok) return after;
+    return { ok: true, ...renderDiscoveryMessage({ turn: row, allowance: sqlAllowance(after.allowance) }) };
+  };
+  const later = async (): Promise<never> => { throw new AtPending('AT-004', 'sut-missing', 'lands in a later unit of this run'); };
+  const sut: DiscoverySut = {
+    ...needs,
+    provisionNgo: async (email, options) => {
+      const ngo = await needs.provisionNgo(email, options);
+      actors.set(ngo.session.sessionId, { session: ngo.session, organizationId: ngo.organizationId, role: 'admin', type: 'ngo', emailVerified: options.emailVerified });
+      return ngo;
+    },
+    provisionVolunteer: async (email) => {
+      const session = await needs.provisionVolunteer(email);
+      actors.set(session.sessionId, { session, organizationId: null, role: 'member', type: 'volunteer', emailVerified: true });
+      return session;
+    },
+    setMembershipRoleAsOperator: async (org, account, role) => {
+      await needs.setMembershipRoleAsOperator(org, account, role);
+      for (const actor of actors.values()) if (actor.session.accountId === account && actor.organizationId === org) actor.role = role;
+    },
+    provisionPlatformAdmin: organizations.provisionPlatformAdmin,
+    vetOrganizationAsAdmin: async (admin, organizationId) => {
+      const result = await organizations.setVetting(admin, { ...VETTING_EVIDENCE, organizationId });
+      if (!result.ok) throw new Error(result.reason);
+    },
+    startDiscoveryNeed: async (session, organizationId, intake) => {
+      const started = await needs.startNeed(session, { organizationId, ...intake });
+      if (!started.ok) throw new Error(started.reason);
+      const submitted = await needs.submitNeed(session, { organizationId, projectId: started.need.projectId });
+      if (!submitted.ok) throw new Error(submitted.reason);
+      return { projectId: submitted.need.projectId };
+    },
+    drainAllowance: async (session, organizationId, leave = 0) => {
+      const read = await organizations.readAllowance(session, organizationId);
+      if (!read.ok) throw new Error(read.reason);
+      if (read.allowance.remaining > leave) {
+        const debit = await organizations.debitAllowance(session, organizationId, read.allowance.remaining - leave);
+        if (!debit.ok) throw new Error(debit.reason);
+      }
+    },
+    writeSpendRowAsOperator: organizations.writeSpendRowAsOperator, spendRows: organizations.spendRows,
+    turnRows: async (projectId) => structuredClone((turns.get(projectId) ?? []).map(turnViewFromSql)),
+    reserveTurnAsOperator: async (input) => reserve({
+      p_account_id: input.accountId, p_organization_id: input.organizationId, p_project_id: input.projectId,
+      p_message: input.message, p_settings: { ...reserveSettings(), counted_input_tokens: input.countedInputTokens ?? 0 },
+      p_counted_through_seq: input.countedThroughSeq ?? (turns.get(input.projectId) ?? []).filter((r) => r.status === 'settled').at(-1)?.seq ?? 0,
+    }),
+    settleTurnAsOperator: async (input) => settle({
+      p_account_id: input.accountId, p_turn_id: input.turnId, p_outcome: input.outcome, p_assistant_message: input.reply ?? '',
+      p_input_tokens: input.usage?.inputTokens ?? null, p_output_tokens: input.usage?.outputTokens ?? null,
+      p_stop_reason: 'end_turn', p_served_model: DISCOVERY_REQUEST_SETTINGS.model, p_elicitation: null,
+    }),
+    backdateOpenTurnAsOperator: async (id, openedAt) => {
+      const row = [...turns.values()].flat().find((r) => r.id === id && r.status === 'open');
+      if (!row) throw new Error('no open turn to backdate');
+      row.opened_at = openedAt;
+    },
+    sendMessage: async (session, request) => {
+      const actor = session === null ? undefined : actors.get(session.sessionId);
+      if (!actor || actor.session.accountId !== session?.accountId) return { ok: false, kind: 'unauthenticated', status: 401, reason: 'authenticate before Discovery' };
+      const caller = { id: session.accountId, githubHandle: null, emailVerified: actor.emailVerified };
+      const decision = writePipeline(SEND_SPEC, { caller, target: request.organizationId, subject: null, ip: null, body: request,
+        standing: { kind: 'account', accountType: actor.type, lifecycle: 'active', orgExists: await organizations.profile(request.organizationId) !== null,
+          orgRole: actor.organizationId === request.organizationId ? actor.role : null, orgSeatAccountId: null, subject: null } });
+      if (!decision.ok) return decision;
+      const need = await needs.needRow(request.projectId);
+      const visible = need && actor.organizationId === need.organizationId ? need : null;
+      const reads: CallerReads = {
+        organization: async () => ({ ok: true, rows: [] }), seatsOf: async () => ({ ok: true, rows: [] }), projectsOf: async () => ({ ok: true, rows: [] }),
+        project: async () => ({ ok: true, rows: visible ? [{ id: visible.projectId, name: visible.title, org_id: visible.organizationId, assigned_volunteer_id: null }] : [] }),
+        need: async () => ({ ok: true, rows: visible ? [{ project_id: visible.projectId, description: visible.description, urgency: visible.urgency,
+          stage: visible.stage, cause_labels: visible.causeLabels, reference_files: visible.referenceFiles.map((f) => ({ id: f.id, file_name: f.fileName,
+            media_type: f.mediaType, byte_size: f.byteSize, description: f.description, added_by_account_id: f.addedByAccountId, added_at: f.addedAt })),
+          tier2_classified_at: visible.tier2ClassifiedAt, submitted_at: visible.submittedAt, updated_at: visible.updatedAt }] : [] }),
+        discoveryTurnsOf: async () => ({ ok: true, rows: visible ? structuredClone(turns.get(request.projectId) ?? []) : [] }),
+      };
+      const prepared = await discoveryPrepare(opts.vendors.anthropic)(caller, decision.args, reads);
+      if (!prepared.ok) return prepared;
+      const reserved = await reserve(prepared.args);
+      if (!reserved.ok) return reserved;
+      const acted = await discoveryAct(opts.vendors.anthropic)(reserved.reservation, prepared.args);
+      if (acted.args === null) return { ok: false, kind: 'refused', status: 502, reason: acted.failure! };
+      const result = await settle(acted.args);
+      return acted.failure === null ? result : { ok: false, kind: 'refused', status: 502, reason: acted.failure };
+    },
+    readConversation: later, setProjectFundingAsOperator: later, setEmailVerifiedAsOperator: later,
+    setDiscoverySwitch: later, discoverySwitchAuditEvents: later,
+    seedTurnsAsOperator: later, spendLedgerInvariantProblems: later,
+  };
+  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); } };
+}

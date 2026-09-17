@@ -153,6 +153,28 @@ export type EmailProviderSim<Channel extends string = string> = {
 
 export type Vendors<Channel extends string = string> = {
   email: EmailProviderSim<Channel>;
+  anthropic: AnthropicMessagesSim;
+};
+
+export type ModelUsage = { inputTokens: number; outputTokens: number };
+export type ModelRequestRecord = {
+  model: string; maxTokens: number; effort: 'low'; system: string;
+  messages: { role: 'user' | 'assistant'; content: string }[];
+};
+export type ScriptedReply =
+  | { kind: 'text'; text: string; usage: ModelUsage; inputTokens?: number; stopReason?: 'end_turn' | 'max_tokens' | 'refusal' }
+  | { kind: 'tool'; name: string; input: unknown; usage: ModelUsage; inputTokens?: number }
+  | { kind: 'error'; status: number | null; reason: string; inputTokens?: number };
+export type ModelAnswerRecord =
+  | { ok: true; text: string; stopReason: string; usage: ModelUsage; model: string; toolUse?: { name: string; input: unknown } | null }
+  | { ok: false; status: number | null; reason: string };
+export type AnthropicMessagesPort = {
+  create(request: ModelRequestRecord): Promise<ModelAnswerRecord>;
+  countTokens(request: ModelRequestRecord): Promise<number>;
+};
+export type AnthropicMessagesSim = {
+  script(replies: readonly ScriptedReply[]): void;
+  requests(): ModelRequestRecord[];
 };
 
 /* ----------------------------------------------------------------------- the harness */

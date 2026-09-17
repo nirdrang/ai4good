@@ -25,6 +25,37 @@
 
 import type { EmailProviderSim, ProviderAttempt, ProviderOutcome } from './contracts.ts';
 import { providerForceCountProblem } from './guards.ts';
+import type { AnthropicMessagesPort, AnthropicMessagesSim, ModelRequestRecord, ScriptedReply } from './contracts.ts';
+export type { AnthropicMessagesPort } from './contracts.ts';
+
+export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port: AnthropicMessagesPort } {
+  let replies: ScriptedReply[] = [];
+  const requests: ModelRequestRecord[] = [];
+  return {
+    sim: {
+      script: (next) => { replies = structuredClone([...next]); },
+      requests: () => structuredClone(requests),
+    },
+    port: {
+      countTokens: async (request) => replies[0]?.inputTokens ??
+        (replies[0]?.kind !== 'error' ? replies[0]?.usage.inputTokens : undefined) ??
+        Math.ceil(JSON.stringify(request.messages).length / 4),
+      create: async (request) => {
+        const reply = replies.shift();
+        if (reply === undefined) throw new Error('Anthropic Messages request exceeded its scripted replies');
+        requests.push(structuredClone(request));
+        if (reply.kind === 'error') return { ok: false, status: reply.status, reason: reply.reason };
+        const capped = reply.usage.outputTokens > request.maxTokens;
+        return {
+          ok: true, text: reply.kind === 'text' ? reply.text : '', model: request.model,
+          stopReason: capped ? 'max_tokens' : reply.kind === 'tool' ? 'tool_use' : reply.stopReason ?? 'end_turn',
+          usage: { inputTokens: reply.usage.inputTokens, outputTokens: Math.min(reply.usage.outputTokens, request.maxTokens) },
+          toolUse: reply.kind === 'tool' ? { name: reply.name, input: reply.input } : null,
+        };
+      },
+    },
+  };
+}
 
 /** What a send looks like at the seam. The channel is the suite's own name for it, never validated here. */
 export type ProviderSend = {

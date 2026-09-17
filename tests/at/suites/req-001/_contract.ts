@@ -824,6 +824,12 @@ export type AccountsSut = {
   retypeAccountAsOperator(accountId: string, accountType: AccountType): Promise<void>;
 
   /**
+   * Clear Auth's confirmation timestamp so a live session belongs to an email-unverified account.
+   * The public path cannot construct that state with confirmations on.
+   */
+  clearEmailConfirmationAsOperator(accountId: string): Promise<void>;
+
+  /**
    * The project as it stands, or `null` when there is no such project — the read-back a refused
    * attach needs.
    *

@@ -23,6 +23,7 @@
  * real GitHub statistics import, or a Discovery send route that exists in no requirement yet.
  */
 
+import type { RouteSurface } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { expect } from 'vitest';
 
 import { AT_CONFIG } from '../../harness/atconfig.ts';
@@ -2456,14 +2457,14 @@ export async function assertDeactivationGatesEveryWrite(
   w: World,
   tag: string,
   signIn: (email: string) => Promise<Session>,
-  options: { skipStandIn: boolean },
+  options: { skipStandIn: boolean; discoveryNeedsProvider?: boolean },
 ): Promise<void> {
   const actors = await provisionLifecycleActors(sut, w, tag, signIn);
   expect(writeRouteProblems(), 'the write-route conformance scan found a problem').toEqual([]);
 
   for (const name of Object.keys(WRITE_ROUTES) as WriteRouteName[]) {
     const row = WRITE_ROUTES[name];
-    if (options.skipStandIn && row.surface.kind === 'stand-in') continue;
+    if (options.skipStandIn && (row.surface as RouteSurface).kind === 'stand-in') continue;
 
     if (name === 'complete-signup') {
       const subjectOff: WriteSubject = { route: 'complete-signup', name: `Write ${tag} complete-signup ngo deactivated` };
@@ -2501,7 +2502,12 @@ export async function assertDeactivationGatesEveryWrite(
 
       const fresh = await provisionActiveControl(sut, w, `${tag}-${name}-${accountType}`, signIn, name, accountType);
       const allowed = await sut.attemptWrite(fresh.subject, fresh.session);
-      expect(allowed, `an active ${accountType} was refused ${name}`).toMatchObject({ ok: true });
+      if (name === 'discovery-message' && options.discoveryNeedsProvider) {
+        expect(allowed).toMatchObject({ ok: false, status: 502 });
+        expect(await sut.discoveryMessagesBy(fresh.session.accountId)).toEqual([]);
+      } else {
+        expect(allowed, `an active ${accountType} was refused ${name}`).toMatchObject({ ok: true });
+      }
     }
   }
 }
@@ -2509,9 +2515,8 @@ export async function assertDeactivationGatesEveryWrite(
 export async function at00129(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   await assertDeactivationGatesEveryWrite(sut, w, '29', (email) => registerConfirmAndSignIn(sut, email), {
-    skipStandIn: true,
+    skipStandIn: false, discoveryNeedsProvider: true,
   });
-  throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
 }
 
 export async function at00130(ctx: Ctx): Promise<void> {
@@ -2546,13 +2551,15 @@ export async function at00130(ctx: Ctx): Promise<void> {
   if (refused.ok) return;
   expect(refused.kind, 'the volunteer was refused for a reason other than deactivation').toBe('account-deactivated');
   expect(await sut.organizationsNamed('Volunteer Org 30'), 'the refused write still created an organisation').toEqual(before);
+  expect(await sut.sendDiscoveryMessage(volunteer, 'Hello')).toMatchObject({ ok: false, kind: 'account-deactivated', status: 403 });
+  expect(await sut.discoveryMessagesBy(volunteer.accountId)).toEqual([]);
 
   const me = await fetch(`${url}/auth/v1/user`, {
     headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
   });
   expect(me.status, 'the volunteer token stopped answering at Auth, so the refusal is not the product lifecycle').toBe(200);
 
-  throw new CapabilityPending(['gateway.virtual-key-revocation', 'sut.accounts.sendDiscoveryMessage']);
+  throw new CapabilityPending(['gateway.virtual-key-revocation']);
 }
 
 export async function at00131(ctx: Ctx): Promise<void> {
@@ -2581,6 +2588,12 @@ export async function at00131(ctx: Ctx): Promise<void> {
     actors.ngoOff,
   );
   expect(renamed, 'the re-enabled NGO was refused an otherwise-authorized rename').toMatchObject({ ok: true });
+
+  const sent = await sut.attemptWrite(
+    { route: 'discovery-message', message: 're-enabled volunteer message' },
+    actors.volunteerOff,
+  );
+  expect(sent).toMatchObject({ ok: false, kind: 'not-an-ngo-account', status: 403 });
 
   const memberWrite = await sut.updateOrganization(actors.ngoOff, memberOrg.id, 'Member Rename 31');
   expect(memberWrite.ok, 'the re-enabled NGO renamed an organisation where it holds member').toBe(false);
@@ -2733,12 +2746,20 @@ function refusesWith(capability: string): (ctx: Ctx) => Promise<void> {
  */
 export const at00105 = refusesWith('vendors.github-public-statistics');
 
-/**
- * AT-001.10 — the Discovery send is blocked with verification named as the remedy.
- *
- * NO DISCOVERY SEND ROUTE EXISTS IN THIS REPOSITORY, at any tier. The route is REQ-002/004's; what
- * this requirement ships is the DECISION that route must consult, and the loop tier puts that
- * decision on a tested path through a stand-in surface. At this tier there is no route to call and
- * nothing to enforce anything, so there is nothing a live green could be about.
- */
-export const at00110 = refusesWith('sut.accounts.sendDiscoveryMessage');
+export async function at00110(ctx: Ctx): Promise<void> {
+  const { w, sut } = await ctx.open();
+  const session = await registerConfirmAndSignIn(sut, w.email('ngo-discovery-unverified'));
+  await completeNgo(sut, session, 'Discovery verification NGO');
+  await sut.clearEmailConfirmationAsOperator(session.accountId);
+  expect(
+    await sut.emailVerified(session.accountId),
+    'this test is about an UNVERIFIED account; if it is verified, nothing below is about the email floor',
+  ).toBe(false);
+  const blocked = await sut.sendDiscoveryMessage(session, 'Help us scope our reporting tracker.');
+  expect(blocked.ok, 'an unverified account was allowed to send a Discovery message').toBe(false);
+  if (blocked.ok) return;
+  expect(blocked).toMatchObject({ kind: 'email-unverified', status: 409 });
+  expect(blocked.reason, 'the refusal does not name verification').toMatch(/verif/i);
+  expect(blocked.reason, 'the refusal does not name the email address as what needs verifying').toMatch(/email/i);
+  expect(await sut.discoveryMessagesBy(session.accountId), 'the blocked Discovery message was recorded anyway').toEqual([]);
+}

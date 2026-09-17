@@ -1,4 +1,4 @@
-# Resume note for AI4DEV-132 (credits engine and funded routing)
+﻿# Resume note for AI4DEV-132 (credits engine and funded routing)
 
 Rewritten after every unit. Read this first, then `decisions.tsv`.
 
@@ -11,10 +11,12 @@ over anything that disagrees with it, and it names `design/candidate-4-reserve-s
 its base. The founder ruled at the design gate (commit `71f5cb8`): the official SDK for the
 model client, refusal fallbacks on, skills as prompt files.
 
-**Units done: none. Unit 1 is dispatched** to astra at medium on the lane worktree; its
-receipt lands at `reports/receipt-unit1.json` and the runner's captured reply at
-`reports/unit1.md` in this worktree. The writer also writes `reports/unit1.md` in the lane,
-which its commit carries: move the item copy to `reports/unit1-reply.md` before the ff-merge.
+**Units done: one.**
+
+| what | commit | acceptance ids green |
+|---|---|---|
+| grounding, arena, synthesis, three founder rulings | `71f5cb8` | none, by design |
+| unit 1, per-turn metering with a reserved turn record, plus its fix commit | `d925dad`, `000a22d` | AT-004.01, .02, .08, .47, .49 at loop; .01, .08, .47, .49 at integration, .02 pending on `ui.discovery-surface`; AT-001.10 turned green at integration |
 
 Item branch `nirdrang/ai4dev-132-credits-engine-and-funded-routing-d1`. The brief commit is
 `4ddf524`; `6ead3d0` carries the sheet change (the writer row is grok at xhigh again). The lane
@@ -23,9 +25,9 @@ worktrees have `node_modules`. The local stack is up, started from the lane work
 
 ## The first action on resume
 
-Read `decisions.tsv` from the bottom. If the unit 1 receipt is missing, the writer may still be
-running: check the background task or the receipt file. If it is complete, review the lane diff,
-run the thirteen checks, then the per-unit loop step 5 onward.
+Read `decisions.tsv` from the bottom. The next unit is the first one not in the table above.
+Every unit brief follows `units/unit1.md` in shape; the design of record is `design/SYNTHESIS.md`
+with its corrections 1 to 13 and the founder rulings.
 
 ## The per-unit loop
 
@@ -34,8 +36,7 @@ run the thirteen checks, then the per-unit loop step 5 onward.
    `node_modules` (`bun install --frozen-lockfile`, output to a file).
 2. Write the unit brief to `units/unitN.md`. Name the files, the scope, the checks, the must-nots.
 3. Dispatch one writer lane through the external runner in `isolated-write` mode with `--cwd`
-   set to the lane worktree. The feature lane is `grok:grok-4.6@xhigh`; the hardest-tasks lane
-   is `codex:gpt-6-astra@medium`. The output path is `reports/unitN.md`.
+   set to the lane worktree. The feature lane is `grok:grok-4.6@xhigh`; the hardest-tasks lane is `codex:gpt-6-astra@medium`. Pass `--output reports/unitN-reply.md` (the runner's captured reply); the writer writes `reports/unitN.md` in the lane, which you copy into the item worktree and delete from the lane before the ff-merge.
 4. Review the diff yourself. Run every check yourself as a background command writing to a
    file; read back the exit code and the counts. The runner is the scratchpad's
    `run-checks.ps1` (`-Lane -Out -Checks`); it writes `<check>.log` and `summary.txt`. If the
@@ -82,9 +83,7 @@ bun run at:verify req-016 --tier integration --expect
 - PowerShell only. This project forbids the Bash tool.
 - `grok.exe` is not on the tool shell PATH. Prepend `$env:USERPROFILE\.grok\bin` per call.
 - Launch the external runner as `bun <path to pstack-runner> ...`, never as the bare path.
-- A codex lane in a lane worktree cannot run vitest (sandbox denies ancestor reads). Whether a
-  grok lane can is unmeasured; measure on unit 1. Every `at:selftest` and `at:verify` is the
-  lead's, as a background command.
+- A codex lane in a lane worktree cannot run vitest (sandbox denies ancestor reads). A grok lane can: measured 2026-09-16 on the unit 1 fix, it ran at:selftest and two loop suites green. The lead still runs every check as a background command; the writer's run is not the evidence.
 - The read gate refuses an unbounded read over 350 lines. Page it with offset and limit.
 - The edge runtime serves functions from the folder the stack was STARTED in. Start the stack
   from the lane worktree, and restart it whenever a unit adds a route folder.
@@ -92,3 +91,4 @@ bun run at:verify req-016 --tier integration --expect
 - An integration run resets the stack; a check that starts in that window reports every id
   red with a 502. Run it again before looking for a cause.
 - The PR body must not name any id but the parent's. Units are named in words.
+

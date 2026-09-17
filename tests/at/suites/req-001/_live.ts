@@ -30,11 +30,6 @@
  *      pressing a button, which no agent performs. A green over a fabricated provider session at the
  *      tier whose meaning is "proved for real" would be the false green this repository exists to
  *      kill.
- *   2. `sendDiscoveryMessage`, `discoveryMessagesBy` — no Discovery send route exists in this
- *      repository at any tier. It is REQ-002/004's, and what this requirement ships is the DECISION
- *      that route must consult. At loop tier a stand-in surface puts that decision on a tested path,
- *      which is honest there; at the live tier there is no route to call, and inventing one would be
- *      building another requirement's surface early.
  *   3. `publicSignupAccountTypes` — a constant exported by a shipped module, with no deployed
  *      surface that reports it. Reading it back here would be this file asking the shipped module
  *      what the shipped module says. AT-001.07's integration body proves the same clause the way a
@@ -264,6 +259,28 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     const reason = String(json.reason ?? json.msg ?? json.message ?? `the deployed ${name} answered ${status}`);
     const kind = status === 401 ? 'unauthenticated' : parseWriteRefusalKind(json.kind);
     return { ok: false, json, refusal: { ok: false, kind, status, reason } };
+  };
+
+  const sendDiscoveryMessage = async (session: Session | null, message: string): Promise<Awaited<ReturnType<AccountsSut['sendDiscoveryMessage']>>> => {
+    const held = session === null ? [] : await rows<{ org_id: string; lifecycle: string; account_type: string }>(sql`select m.org_id, a.lifecycle, a.account_type
+      from public.org_memberships m join public.accounts a on a.id = m.account_id
+      where m.account_id = ${session.accountId}::uuid`);
+    const actor = held[0];
+    let projectId: string = crypto.randomUUID();
+    if (actor?.lifecycle === 'active' && actor.account_type === 'ngo') {
+      const projects = await rows<{ project_id: string }>(sql`select project_id from public.need_intakes where org_id = ${actor.org_id}::uuid limit 1`);
+      if (projects.length > 0) projectId = projects[0].project_id;
+      else {
+        const started = await postWrite('project-need', session, { organizationId: actor.org_id, action: 'start',
+          title: 'Discovery verification', description: 'Coordinate our NGO reporting deadlines.' });
+        if (!started.ok) return started.refusal;
+        projectId = (started.json.need as { projectId: string }).projectId;
+        const submitted = await postWrite('project-need', session, { organizationId: actor.org_id, action: 'submit', projectId });
+        if (!submitted.ok) return submitted.refusal;
+      }
+    }
+    const answer = await postWrite('discovery-message', session, { organizationId: actor?.org_id ?? null, projectId, message });
+    return answer.ok ? { ok: true } : answer.refusal;
   };
 
   const accounts: AccountsSut = {
@@ -900,6 +917,18 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       if (updated.length !== 1) throw new Error(`the operator could not retype account ${accountId}`);
     },
 
+    clearEmailConfirmationAsOperator: async (accountId): Promise<void> => {
+      const cleared = await rows<{ email_confirmed_at: string | Date | null }>(
+        sql`update auth.users set email_confirmed_at = null where id = ${accountId}::uuid returning email_confirmed_at`,
+      );
+      if (cleared.length !== 1) {
+        throw new Error(`no auth user ${accountId} whose confirmation could be cleared`);
+      }
+      if ((cleared[0]?.email_confirmed_at ?? null) !== null) {
+        throw new Error(`Auth still reports account ${accountId} confirmed after the operator clear`);
+      }
+    },
+
     transferOrganizationContact: async (session, request): Promise<TransferOutcome> => {
       const answer = await postWrite('transfer-organization-contact', session, request);
       if (answer.ok) return { ok: true, organizationId: String(answer.json.organizationId ?? request.organizationId) };
@@ -1024,7 +1053,8 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           return answer.ok ? { ok: true } : answer.refusal;
         },
         'discovery-message': async () => {
-          throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']);
+          if (subject.route !== 'discovery-message') throw new Error('unreachable');
+          return sendDiscoveryMessage(session, subject.message);
         },
       };
       return attempts[subject.route]();
@@ -1107,8 +1137,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     registerWithProvider: () => { throw new CapabilityPending(['sut.accounts.registerWithProvider']); },
     registerWithGithub: () => { throw new CapabilityPending(['sut.accounts.registerWithGithub']); },
     signInWithProvider: () => { throw new CapabilityPending(['sut.accounts.signInWithProvider']); },
-    sendDiscoveryMessage: () => { throw new CapabilityPending(['sut.accounts.sendDiscoveryMessage']); },
-    discoveryMessagesBy: () => { throw new CapabilityPending(['sut.accounts.discoveryMessagesBy']); },
+    sendDiscoveryMessage,
+    discoveryMessagesBy: async (accountId) => (await rows<{ user_message: string }>(sql`select t.user_message from public.discovery_turns t
+      join public.org_memberships m on m.org_id = t.org_id where m.account_id = ${accountId}::uuid and t.status = 'settled' order by t.opened_at, t.seq`)).map((row) => row.user_message),
     publicSignupAccountTypes: () => { throw new CapabilityPending(['sut.accounts.publicSignupAccountTypes']); },
 
     ...liveTenantReads({

@@ -12,7 +12,7 @@ import { stackFromEnv, type Stack } from './live-stack.ts';
 import { CapabilityPending } from './pending.ts';
 import { type ConfigOverrides, type Tier } from './registry.ts';
 import { createSentinels, type AdapterSentinelSeam } from './sentinels.ts';
-import { createEmailProviderSim, type EmailProviderPort } from './vendors.ts';
+import { createEmailProviderSim, createAnthropicMessagesSim, type AnthropicMessagesPort, type EmailProviderPort } from './vendors.ts';
 
 interface FixtureAdapter {
   fixtures: { world(name: string): Promise<{ teardown(): Promise<void> }> };
@@ -41,7 +41,7 @@ interface FixtureAdapterModule {
      * required export, so the runner's disposable black-box adapters — which take an options object
      * they largely ignore — keep working untouched.
      */
-    vendors: { email: EmailProviderPort };
+    vendors: { email: EmailProviderPort; anthropic: AnthropicMessagesPort };
   }): Promise<FixtureAdapter> | FixtureAdapter;
 }
 
@@ -60,7 +60,7 @@ async function loadAdapter(
   clock: ControlledClock,
   worlds: FixtureWorldStore,
   config: ConfigRegistry,
-  vendors: { email: EmailProviderPort },
+  vendors: { email: EmailProviderPort; anthropic: AnthropicMessagesPort },
 ): Promise<{ adapter: FixtureAdapter; moduleUrl: string }> {
   const moduleUrl = adapterUrl(requirement);
   let module: Partial<FixtureAdapterModule>;
@@ -227,8 +227,9 @@ export async function createHarness(opts: {
   if (opts.tier === 'loop') {
     const clock = new ControlledClock();
     const provider = createEmailProviderSim();
-    const { adapter } = await loadAdapter(opts.requirement, clock, worlds, config, { email: provider.port });
-    return finish({ clock, adapter, vendors: { email: provider.sim } });
+    const anthropic = createAnthropicMessagesSim();
+    const { adapter } = await loadAdapter(opts.requirement, clock, worlds, config, { email: provider.port, anthropic: anthropic.port });
+    return finish({ clock, adapter, vendors: { email: provider.sim, anthropic: anthropic.sim } });
   }
 
   const live = await loadLiveAdapterModule(opts.requirement);
@@ -245,6 +246,6 @@ export async function createHarness(opts: {
   return finish({
     clock: new RealClock() as unknown as AtHarness['clock'],
     adapter,
-    vendors: refusing<AtHarness['vendors']>('vendors.email'),
+    vendors: { email: refusing('vendors.email'), anthropic: refusing('vendors.anthropic') },
   });
 }
