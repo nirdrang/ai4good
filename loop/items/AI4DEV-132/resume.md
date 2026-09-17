@@ -11,17 +11,28 @@ over anything that disagrees with it, and it names `design/candidate-4-reserve-s
 its base. The founder ruled at the design gate (commit `71f5cb8`): the official SDK for the
 model client, refusal fallbacks on, skills as prompt files.
 
-**Units done: one.**
+**Units done: two.**
 
 | what | commit | acceptance ids green |
 |---|---|---|
 | grounding, arena, synthesis, three founder rulings | `71f5cb8` | none, by design |
 | unit 1, per-turn metering with a reserved turn record, plus its fix commit | `d925dad`, `000a22d` | AT-004.01, .02, .08, .47, .49 at loop; .01, .08, .47, .49 at integration, .02 pending on `ui.discovery-surface`; AT-001.10 turned green at integration |
+| unit 2, funded projects route to fuel and never the free pool | `e601230` | AT-004.04, .05, .06, .48, .09 at loop; .48 at integration, the other four pending on `checkout.project-fuel` (and `billing.funded-turn` for .04, .05, .06) |
 
 Item branch `nirdrang/ai4dev-132-credits-engine-and-funded-routing-d1`. The brief commit is
 `4ddf524`; `6ead3d0` carries the sheet change (the writer row is grok at xhigh again). The lane
-worktree is `.claude/worktrees/AI4DEV-132-unit0` on `lane/ai4dev-132`, at the item head. Both
-worktrees have `node_modules`. The local stack is up, started from the lane worktree.
+worktree is `.claude/worktrees/AI4DEV-132-unit0` on `lane/ai4dev-132`, at the item head. Both worktrees have `node_modules`. The local stack is up, started from the lane worktree.
+
+Three founder rulings landed on 2026-09-17 between units, all in `decisions.tsv` and the
+decision paper `research/chat-ui.md`: the send route streams in unit 4 (the Vercel UI message
+stream over SSE behind `Accept: text/event-stream`, JSON by default, stop settles with the
+measured usage, per-turn regenerate is a paid new turn this run); the front end may be built
+in this tree as well as through Lovable as long as it deploys on Lovable or Vercel; the chat UI
+itself stays the later `ui.discovery-surface` item. The unit 4 brief must carry the streaming
+port, the stream variant of `settle.act`, settle on cancel in `EdgeRuntime.waitUntil`, and the
+stand-in's `stream` method; two facts the paper could not verify (the beta namespace's
+`.stream()` helper with `betas` and `fallbacks`; billing of a client-aborted stream) are the
+writer's to prove with the key in `.env.local`.
 
 ## The first action on resume
 
@@ -91,4 +102,5 @@ bun run at:verify req-016 --tier integration --expect
 - An integration run resets the stack; a check that starts in that window reports every id
   red with a 502. Run it again before looking for a cause.
 - The PR body must not name any id but the parent's. Units are named in words.
+
 

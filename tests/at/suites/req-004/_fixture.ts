@@ -1,5 +1,5 @@
 import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
-import { affordableOutputTokens, countedInputTokens, reservationFor, reserveSettings, settlementFor,
+import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRouteAllowed, reservationFor, reserveSettings, settlementFor,
   DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, turnViewFromSql, renderDiscoveryMessage,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
@@ -22,6 +22,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
   const organizations = inner.organizations;
   const actors = new Map<string, { session: Session; organizationId: string | null; role: 'admin' | 'member'; type: 'ngo' | 'volunteer'; emailVerified: boolean }>();
   const turns = new Map<string, DiscoveryTurnSqlRow[]>();
+  const funding = new Map<string, { fundedAt: string | null; fuelMicros: number }>();
   const now = () => new Date(opts.clock.now()).toISOString();
   const sqlAllowance = (allowance: { organizationId: string; utcDay: string; vetted: boolean; dailyGrant: number; spentToday: number; remaining: number }) => ({
     organization_id: allowance.organizationId, utc_day: allowance.utcDay, vetted: allowance.vetted,
@@ -45,18 +46,37 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     }
     const settled = rows.filter((row) => row.status === 'settled');
     if ((settled.at(-1)?.seq ?? 0) !== args.p_counted_through_seq) return refuse('stale-context', 'the conversation changed after token counting');
-    const before = await organizations.readAllowance(actor.session, need.organizationId);
-    if (!before.ok) return before;
     const estimatedInputTokens = countedInputTokens(args.p_settings.counted_input_tokens!);
-    const maxOutputTokens = Math.max(DISCOVERY_REQUEST_SETTINGS.minOutputTokens,
-      affordableOutputTokens({ availableMicros: before.allowance.remaining * DISCOVERY_MICROS_PER_CREDIT, estimatedInputTokens }));
-    const bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
-    const debit = await organizations.debitAllowance(actor.session, need.organizationId, bound.reservedCredits);
-    if (!debit.ok) return debit;
+    const funded = funding.get(need.projectId);
+    const target = billingTargetFor({ id: need.projectId, fundedAt: funded?.fundedAt ?? null });
+    let maxOutputTokens: number;
+    let bound: ReturnType<typeof reservationFor>;
+    let utcDay: string;
+    let debitAllowance: ReturnType<typeof sqlAllowance> | null = null;
+    if (target.kind === 'fuel') {
+      const fuel = { availableMicros: funded?.fuelMicros ?? 0 };
+      maxOutputTokens = Math.max(DISCOVERY_REQUEST_SETTINGS.minOutputTokens,
+        affordableOutputTokens({ availableMicros: fuel.availableMicros, estimatedInputTokens }));
+      bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
+      const allowed = fuelRouteAllowed(target, fuel, bound.reservedMicros);
+      if (!allowed.ok) return refuse(allowed.kind, allowed.reason);
+      bound = { reservedMicros: bound.reservedMicros, reservedCredits: 0 };
+      utcDay = new Date(opts.clock.now()).toISOString().slice(0, 10);
+    } else {
+      const before = await organizations.readAllowance(actor.session, need.organizationId);
+      if (!before.ok) return before;
+      maxOutputTokens = Math.max(DISCOVERY_REQUEST_SETTINGS.minOutputTokens,
+        affordableOutputTokens({ availableMicros: before.allowance.remaining * DISCOVERY_MICROS_PER_CREDIT, estimatedInputTokens }));
+      bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
+      const debit = await organizations.debitAllowance(actor.session, need.organizationId, bound.reservedCredits);
+      if (!debit.ok) return debit;
+      utcDay = debit.allowance.utcDay;
+      debitAllowance = sqlAllowance(debit.allowance);
+    }
     if (open) Object.assign(open, { status: 'abandoned', charged_credits: open.reserved_credits, settled_at: now() });
     const row: DiscoveryTurnSqlRow = {
       id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId, seq: (rows.at(-1)?.seq ?? 0) + 1,
-      status: 'open', billing: 'free', utc_day: debit.allowance.utcDay, user_message: args.p_message,
+      status: 'open', billing: target.kind, utc_day: utcDay, user_message: args.p_message,
       assistant_message: null, elicitation: null, request_settings: {
         model: args.p_settings.model, max_tokens: maxOutputTokens, effort: args.p_settings.effort,
       }, max_output_tokens: maxOutputTokens, estimated_input_tokens: estimatedInputTokens,
@@ -70,7 +90,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       need: { title: need.title, description: need.description, urgency: need.urgency, reference_files: need.referenceFiles.map((f) => f.fileName) },
       context: [...settled.flatMap((r): { role: 'user' | 'assistant'; content: string }[] => [
         { role: 'user', content: r.user_message }, { role: 'assistant', content: r.assistant_message! },
-      ]), { role: 'user', content: args.p_message }], allowance: sqlAllowance(debit.allowance) } };
+      ]), { role: 'user', content: args.p_message }], allowance: debitAllowance } };
   };
   const settle = async (args: DiscoverySettleArgs): Promise<DiscoveryMessageOutcome> => {
     const row = [...turns.values()].flat().find((r) => r.id === args.p_turn_id);
@@ -88,6 +108,10 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       Object.assign(row, { status: 'settled', assistant_message: args.p_assistant_message, input_tokens: args.p_input_tokens,
         output_tokens: args.p_output_tokens, stop_reason: args.p_stop_reason, served_model: args.p_served_model,
         actual_micros: result.actualMicros, charged_credits: result.chargedCredits, overrun_micros: result.overrunMicros });
+      if (row.billing === 'fuel') {
+        const entry = funding.get(row.project_id);
+        if (entry) entry.fuelMicros -= result.actualMicros;
+      }
     } else Object.assign(row, { status: 'failed', charged_credits: 0 });
     row.settled_at = now();
     const released = row.reserved_credits - row.charged_credits!;
@@ -182,9 +206,17 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const result = await settle(acted.args);
       return acted.failure === null ? result : { ok: false, kind: 'refused', status: 502, reason: acted.failure };
     },
-    readConversation: later, setProjectFundingAsOperator: later, setEmailVerifiedAsOperator: later,
+    readConversation: later, setEmailVerifiedAsOperator: later,
+    setProjectFundingAsOperator: async (projectId, value) => {
+      if (value.fundedAt === null) funding.delete(projectId);
+      else funding.set(projectId, { fundedAt: value.fundedAt, fuelMicros: value.fuelMicros });
+    },
+    projectFundingAsOperator: async (projectId) => {
+      const entry = funding.get(projectId);
+      return entry === undefined ? { fundedAt: null, fuelMicros: 0 } : { ...entry };
+    },
     setDiscoverySwitch: later, discoverySwitchAuditEvents: later,
     seedTurnsAsOperator: later, spendLedgerInvariantProblems: later,
   };
-  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); } };
+  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); funding.clear(); } };
 }

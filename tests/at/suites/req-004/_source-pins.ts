@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_PRICE_MICROS_PER_TOKEN, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_PRICE_MICROS_PER_TOKEN, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS, fuelExhaustedReason } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
@@ -32,6 +32,11 @@ export function sendSentencePinProblems(): string[] {
   if (!sql) throw new Error('could not read the Discovery reserve definer');
   const sentence = [...sql.matchAll(/raise\s+exception\s+'((?:[^']|'')*)'\s+using\s+errcode\s*=\s*'42501',\s*detail\s*=\s*'email-unverified'/gi)][0]?.[1].replace(/''/g, "'");
   if (!sentence) throw new Error('could not read the email-unverified sentence');
+  const fuel = [...sql.matchAll(/raise\s+exception\s+'((?:[^']|'')*)'\s+using\s+errcode\s*=\s*'P0001',\s*detail\s*=\s*'fuel-exhausted'/gi)][0]?.[1].replace(/''/g, "'");
+  if (!fuel) throw new Error('could not read the fuel-exhausted sentence');
   const decision = discoveryMessageAllowed({ emailVerified: false });
-  return !decision.ok && decision.reason === sentence ? [] : ['the SQL and TypeScript email refusal sentences differ'];
+  const problems: string[] = [];
+  if (decision.ok || decision.reason !== sentence) problems.push('the SQL and TypeScript email refusal sentences differ');
+  if (fuel !== fuelExhaustedReason()) problems.push('the SQL and TypeScript fuel-exhausted sentences differ');
+  return problems;
 }

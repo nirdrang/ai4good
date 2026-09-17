@@ -1,6 +1,7 @@
 import { createLiveAdapter as createNeedsAdapter } from '../req-003/_live.ts';
 import { functionPost, sqlClient, type Stack } from '../../harness/live-stack.ts';
-import { AtPending } from '../../harness/pending.ts';
+import { AtPending, CapabilityPending } from '../../harness/pending.ts';
+import { AWAITED } from './_pending.ts';
 import { reserveSettings, DISCOVERY_REQUEST_SETTINGS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { turnViewFromSql, renderReservation, renderDiscoveryMessage, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
@@ -89,7 +90,23 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         await tx`alter table public.discovery_turns enable trigger discovery_turns_immutable`;
       });
     },
-    readConversation: later, setProjectFundingAsOperator: later, setEmailVerifiedAsOperator: later,
+    readConversation: later, setEmailVerifiedAsOperator: later,
+    setProjectFundingAsOperator: async (projectId, value) => {
+      if (value.fuelMicros > 0) throw new CapabilityPending([AWAITED.projectFuelCheckout]);
+      const rows = value.fundedAt === null
+        ? await sql`update public.projects set funded_at = null where id = ${projectId}::uuid returning id` as { id: string }[]
+        : await sql`update public.projects set funded_at = ${value.fundedAt}::timestamptz where id = ${projectId}::uuid returning id` as { id: string }[];
+      if (rows.length !== 1) throw new Error('no such project');
+    },
+    projectFundingAsOperator: async (projectId) => {
+      const rows = await sql`select funded_at, public.project_fuel_available_micros(${projectId}::uuid) as fuel_micros
+        from public.projects where id = ${projectId}::uuid` as { funded_at: Date | string | null; fuel_micros: string | number }[];
+      if (rows.length !== 1) throw new Error('no such project');
+      return {
+        fundedAt: rows[0].funded_at === null ? null : new Date(rows[0].funded_at).toISOString(),
+        fuelMicros: Number(rows[0].fuel_micros),
+      };
+    },
     setDiscoverySwitch: later, discoverySwitchAuditEvents: later,
     seedTurnsAsOperator: later, spendLedgerInvariantProblems: later,
   };

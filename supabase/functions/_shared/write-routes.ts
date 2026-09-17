@@ -103,6 +103,7 @@ export const WRITE_REFUSAL_KINDS = [
   'turn-in-flight',
   'turn-not-open',
   'stale-context',
+  'fuel-exhausted',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];

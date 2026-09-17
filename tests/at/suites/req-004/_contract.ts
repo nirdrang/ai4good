@@ -28,6 +28,7 @@ export type DiscoverySut = NeedsSut & {
   backdateOpenTurnAsOperator(turnId: string, openedAt: string): Promise<void>;
   readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView }>>;
   setProjectFundingAsOperator(projectId: string, funding: { fundedAt: string | null; fuelMicros: number }): Promise<void>;
+  projectFundingAsOperator(projectId: string): Promise<{ fundedAt: string | null; fuelMicros: number }>;
   setDiscoverySwitch(session: Session | null, request: { organizationId: string; enabled: boolean; reason: string }): Promise<DiscoverySwitchOutcome>;
   discoverySwitchAuditEvents(organizationId: string): Promise<DiscoverySwitchAuditRow[]>;
   setEmailVerifiedAsOperator(accountId: string, verified: boolean): Promise<void>;

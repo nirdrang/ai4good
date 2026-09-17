@@ -7,6 +7,23 @@ export const DISCOVERY_INPUT_MARGIN_TOKENS = 64;
 export const DISCOVERY_TURN_DEADLINE_SECONDS = 150;
 export const DISCOVERY_MESSAGE_MAX_CHARS = 4000;
 export type ModelUsage = { inputTokens: number; outputTokens: number };
+export type BillingTarget = { kind: 'free' } | { kind: 'fuel'; projectId: string };
+export type FuelState = { availableMicros: number } | null;
+export function billingTargetFor(project: { id: string; fundedAt: string | null }): BillingTarget {
+  return project.fundedAt === null ? { kind: 'free' } : { kind: 'fuel', projectId: project.id };
+}
+export function fuelExhaustedReason(): string {
+  return 'this funded project has no fuel left for this Discovery turn; top up project fuel to continue; free credits are never spent on a funded project';
+}
+export function fuelRouteAllowed(
+  target: BillingTarget, fuel: FuelState, reservedMicros: number,
+): { ok: true } | { ok: false; kind: 'fuel-exhausted'; reason: string } {
+  if (target.kind === 'free') return { ok: true };
+  if (fuel === null || fuel.availableMicros < reservedMicros) {
+    return { ok: false, kind: 'fuel-exhausted', reason: fuelExhaustedReason() };
+  }
+  return { ok: true };
+}
 
 export function creditsForMicros(micros: number, microsPerCredit = DISCOVERY_MICROS_PER_CREDIT): number {
   return Math.max(0, Math.ceil(micros / microsPerCredit));
