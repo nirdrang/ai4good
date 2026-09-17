@@ -1,6 +1,6 @@
 import { createLiveAdapter as createNeedsAdapter } from '../req-003/_live.ts';
 import { authPost, functionPost, functionPostRaw, sqlClient, type Stack } from '../../harness/live-stack.ts';
-import { AtPending, CapabilityPending } from '../../harness/pending.ts';
+import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
 import { countedInputTokens, reservationFor, settlementFor, reserveSettings, DISCOVERY_REQUEST_SETTINGS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { turnViewFromSql, renderReservation, renderDiscoveryMessage, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
@@ -20,7 +20,6 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
     return { ok: false, status: 409, kind: parseWriteRefusalKind(e.detail ?? e.cause?.detail), reason: e.message ?? String(error) };
   };
   const decoded = (value: unknown): unknown => typeof value === 'string' ? JSON.parse(value) : value;
-  const later = async (): Promise<never> => { throw new AtPending('AT-004', 'sut-missing', 'lands in a later unit of this run'); };
   const PASSWORD = 'correct horse battery staple';
   const adminTokens = new Map<string, string>();
   const bearerFor = (session: Parameters<DiscoverySut['sendMessage']>[0]): string => {
@@ -198,7 +197,26 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         }
       });
     },
-    spendLedgerInvariantProblems: later,
+    spendLedgerInvariantProblems: async (organizationId) => {
+      const mismatches = await sql`select s.utc_day::text as utc_day, s.spent,
+             coalesce(sum(case t.status when 'open' then t.reserved_credits else t.charged_credits end), 0) as accounted
+        from public.discovery_spend s
+        left join public.discovery_turns t on t.org_id = s.org_id and t.utc_day = s.utc_day and t.billing = 'free'
+       where s.org_id = ${organizationId}::uuid
+       group by s.org_id, s.utc_day, s.spent
+      having s.spent <> coalesce(sum(case t.status when 'open' then t.reserved_credits else t.charged_credits end), 0)` as {
+        utc_day: string; spent: number | string; accounted: number | string;
+      }[];
+      const overruns = await sql`select utc_day::text as utc_day, overrun_micros
+        from public.discovery_turns
+       where org_id = ${organizationId}::uuid and status = 'settled' and overrun_micros > 0` as {
+        utc_day: string; overrun_micros: number | string;
+      }[];
+      return [
+        ...mismatches.map((row) => `utc_day=${row.utc_day} spent=${Number(row.spent)} accounted=${Number(row.accounted)}`),
+        ...overruns.map((row) => `overrun utc_day=${row.utc_day} overrun_micros=${Number(row.overrun_micros)}`),
+      ];
+    },
   };
   return { sut: { discovery: sut }, fixtures: inner.fixtures,
     teardown: async () => { try { await inner.teardown(); } finally { await sql.close(); adminTokens.clear(); } } };

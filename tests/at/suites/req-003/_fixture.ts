@@ -176,7 +176,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
     intakeSnapshots: async (projectId) => structuredClone(snapshots.filter((row) => row.detail.project_id === projectId)),
   };
   return {
-    sut: { needs: sut }, organizations, fixtures: inner.fixtures,
+    sut: { needs: sut }, organizations, accounts: inner.accounts, fixtures: inner.fixtures,
     teardown: async () => { await inner.teardown(); actors.clear(); emailActors.clear(); needs.clear(); snapshots.length = 0; },
   };
 }

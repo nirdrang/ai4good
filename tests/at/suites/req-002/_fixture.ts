@@ -857,6 +857,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
   return {
     sut: { organizations: sut },
+    accounts,
     fixtures: inner.fixtures,
     teardown: async () => {
       await inner.teardown();

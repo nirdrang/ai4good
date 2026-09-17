@@ -8,7 +8,6 @@ import { decideOrganizationDiscovery, renderDiscoverySwitch } from '../../../../
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
 import type { AnthropicMessagesPort } from '../../harness/contracts.ts';
 import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
-import { AtPending } from '../../harness/pending.ts';
 import type { DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome, DiscoverySwitchAuditRow } from './_contract.ts';
 
 export const requirement = 'req-004' as const;
@@ -24,6 +23,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
   const inner = createNeedsAdapter(opts);
   const needs = inner.sut.needs;
   const organizations = inner.organizations;
+  const accounts = inner.accounts;
   const actors = new Map<string, { session: Session; organizationId: string | null; role: 'admin' | 'member'; type: 'ngo' | 'volunteer' | 'platform_admin'; emailVerified: boolean }>();
   const turns = new Map<string, DiscoveryTurnSqlRow[]>();
   const funding = new Map<string, { fundedAt: string | null; fuelMicros: number }>();
@@ -80,22 +80,9 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         affordableOutputTokens({ availableMicros: before.allowance.remaining * DISCOVERY_MICROS_PER_CREDIT, estimatedInputTokens }));
       bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
       const debit = await organizations.debitAllowance(actor.session, need.organizationId, bound.reservedCredits);
-      if (!debit.ok && debit.kind === 'email-unverified' && actor.emailVerified) {
-        const spent = before.allowance.spentToday + bound.reservedCredits;
-        await organizations.writeSpendRowAsOperator({
-          organizationId: need.organizationId, utcDay: before.allowance.utcDay,
-          spent, granted: before.allowance.dailyGrant,
-        });
-        utcDay = before.allowance.utcDay;
-        debitAllowance = sqlAllowance({
-          organizationId: need.organizationId, utcDay, vetted: before.allowance.vetted,
-          dailyGrant: before.allowance.dailyGrant, spentToday: spent, remaining: before.allowance.remaining - bound.reservedCredits,
-        });
-      } else if (!debit.ok) return debit;
-      else {
-        utcDay = debit.allowance.utcDay;
-        debitAllowance = sqlAllowance(debit.allowance);
-      }
+      if (!debit.ok) return debit;
+      utcDay = debit.allowance.utcDay;
+      debitAllowance = sqlAllowance(debit.allowance);
     }
     if (open) Object.assign(open, { status: 'abandoned', charged_credits: open.reserved_credits, settled_at: now() });
     const row: DiscoveryTurnSqlRow = {
@@ -148,7 +135,6 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     if (!after.ok) return after;
     return { ok: true, ...renderDiscoveryMessage({ turn: row, allowance: sqlAllowance(after.allowance) }) };
   };
-  const later = async (): Promise<never> => { throw new AtPending('AT-004', 'sut-missing', 'lands in a later unit of this run'); };
   const sut: DiscoverySut = {
     ...needs,
     provisionNgo: async (email, options) => {
@@ -265,7 +251,17 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return answer.status === 200 ? { ok: true, value: answer.body, answer: raw } : { ok: false, answer: raw };
     },
     setEmailVerifiedAsOperator: async (accountId, verified) => {
-      for (const actor of actors.values()) if (actor.session.accountId === accountId) actor.emailVerified = verified;
+      const actor = [...actors.values()].find((entry) => entry.session.accountId === accountId);
+      if (!actor) throw new Error('no Discovery actor whose email confirmation could be set');
+      if (verified) {
+        const link = await accounts.emailedVerificationLink(actor.session.email);
+        if (link === null) throw new Error('no verification link for the Discovery actor');
+        const used = await accounts.useVerificationLink(link);
+        if (!used.ok) throw new Error('the verification link did not confirm the address');
+      } else {
+        await accounts.clearEmailConfirmationAsOperator(accountId);
+      }
+      for (const entry of actors.values()) if (entry.session.accountId === accountId) entry.emailVerified = verified;
     },
     setProjectFundingAsOperator: async (projectId, value) => {
       if (value.fundedAt === null) funding.delete(projectId);
@@ -348,7 +344,22 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       }
       turns.set(projectId, rows);
     },
-    spendLedgerInvariantProblems: later,
+    spendLedgerInvariantProblems: async (organizationId) => {
+      const spend = await organizations.spendRows(organizationId);
+      const free = [...turns.values()].flat().filter((row) => row.org_id === organizationId && row.billing === 'free');
+      const problems: string[] = [];
+      for (const row of spend) {
+        const accounted = free.filter((turn) => turn.utc_day === row.utcDay)
+          .reduce((sum, turn) => sum + (turn.status === 'open' ? turn.reserved_credits : turn.charged_credits ?? 0), 0);
+        if (row.spent !== accounted) problems.push(`utc_day=${row.utcDay} spent=${row.spent} accounted=${accounted}`);
+      }
+      for (const turn of [...turns.values()].flat().filter((row) => row.org_id === organizationId)) {
+        if (turn.status === 'settled' && (turn.overrun_micros ?? 0) > 0) {
+          problems.push(`overrun utc_day=${turn.utc_day} overrun_micros=${turn.overrun_micros}`);
+        }
+      }
+      return problems;
+    },
   };
   return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); funding.clear(); switches.clear(); switchAudits.length = 0; } };
 }
